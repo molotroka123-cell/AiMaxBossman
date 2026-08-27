@@ -3,6 +3,26 @@
 Домашний ИИ-сервер Bossman: приватные локальные агенты, ваш интерфейс,
 облако — только осознанно и на виду.
 
+## 🎯 Цель сессии до приезда компьютера
+
+**Собрать BOSSMAN AI Command Center** — локальный dashboard и control plane для
+управления моделями, агентами, задачами и автоматизациями. Обязательные документы:
+
+- [`docs/BOSSMAN_CLAUDE_CODE_SETUP.md`](docs/BOSSMAN_CLAUDE_CODE_SETUP.md) —
+  master setup brief: правила безопасности (обязательны всегда), порядок настройки
+  железа в день приезда, фазы 1–3, lead-pipeline, цены, fail-safe.
+- [`docs/COMMAND_CENTER_SESSION_GOAL.md`](docs/COMMAND_CENTER_SESSION_GOAL.md) —
+  полное ТЗ Command Center: 70 разделов, MVP (раздел 62), Definition of Done (64–65).
+- [`docs/COMMAND_CENTER_ARCHITECTURE.md`](docs/COMMAND_CENTER_ARCHITECTURE.md) —
+  архитектура, выбранная для MVP.
+- [`docs/COMMAND_CENTER_PLAN.md`](docs/COMMAND_CENTER_PLAN.md) — план реализации.
+
+Критерий готовности сессии: открыть dashboard → подключить локальную и облачную
+модель → создать агента → дать задачу (сейчас или по расписанию) → закрыть браузер →
+вернуться и увидеть результат, логи и состояние машины. Всё, что требует реального
+железа (hardware audit, benchmark, Phase 1 setup-брифа), выполняется на самой машине
+в день приезда по `BOSSMAN_CLAUDE_CODE_SETUP.md`.
+
 | Часть | Что это | Документы |
 |---|---|---|
 | [`bossman-infra/`](bossman-infra/) | инфраструктура: LiteLLM, llama-swap, Postgres+pgvector, Redis, Open WebUI, Uptime Kuma | [чек-лист этапа 0 и ТЗ инфраструктуры](bossman-infra/docs/STAGE0_AND_SPEC.md) |
