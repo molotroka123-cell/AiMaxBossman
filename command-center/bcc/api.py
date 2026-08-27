@@ -1,0 +1,618 @@
+"""Control API (раздел 6): единственная точка входа для UI — HTTP + WS.
+
+Все /api/* требуют заголовок X-BCC-Token (кроме POST /api/login); WS берёт токен
+из query. Ошибки отдаются как {error: {message, hint?}} — голых 500 наружу нет.
+"""
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import time
+from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Any
+
+import sqlalchemy as sa
+from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from . import db as dbm
+from .approvals import Approvals
+from .auth import HEADER, TokenAuth
+from .config import Settings, settings as default_settings
+from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
+                 rows_dicts, task_runs as runs_t, tasks as tasks_t, utcnow)
+from .engine import TaskEngine
+from .events import EventBus
+from .metrics import MetricsSampler
+from .providers import ADAPTERS, ProviderError
+from .registry import Registry
+from .scheduler import Scheduler
+from .secrets import Vault
+
+
+class ApiError(Exception):
+    """Ошибка с человекочитаемым текстом и подсказкой — ровно то, что увидит оператор."""
+
+    def __init__(self, message: str, *, status: int = 400, hint: str | None = None):
+        super().__init__(message)
+        self.message = message
+        self.status = status
+        self.hint = hint
+
+
+# ---------- сборка сервисов ----------
+
+class Services:
+    """Все компоненты процесса: БД, реестр, движок, планировщик, метрики, шина."""
+
+    def __init__(self, settings: Settings, *, start_workers: bool = True,
+                 adapter_factory: Any = None, engine_options: dict | None = None,
+                 announce_token: bool = True):
+        settings.ensure_dirs()
+        self.settings = settings
+        self.vault = Vault(settings.data_dir)
+        self.auth = TokenAuth(settings.data_dir, announce=announce_token)
+        self.db = Database(settings.database_url)
+        self.bus = EventBus(self.db)
+        self.registry = Registry(self.db, self.vault, self.bus, adapter_factory=adapter_factory)
+        self.engine = TaskEngine(self.db, self.bus, self.registry, **(engine_options or {}))
+        self.scheduler = Scheduler(self.db, self.bus, self.engine)
+        self.metrics = MetricsSampler(self.db, self.bus)
+        self.approvals = Approvals(self.db, self.bus)
+        self.start_workers = start_workers
+        self._tasks: list[asyncio.Task] = []
+        self.started_at = utcnow()
+
+    async def start(self) -> None:
+        await self.db.create_all()
+        await self.engine.recover()          # crash recovery при старте процесса
+        if self.start_workers:
+            self._tasks = [
+                asyncio.create_task(self.engine.worker_loop(), name="bcc-worker"),
+                asyncio.create_task(self.scheduler.loop(), name="bcc-scheduler"),
+                asyncio.create_task(self.metrics.loop(), name="bcc-metrics"),
+            ]
+
+    async def stop(self) -> None:
+        for task in self._tasks:
+            task.cancel()
+        for task in self._tasks:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
+        self._tasks = []
+        await self.db.close()
+
+
+def services(request: Request) -> Services:
+    return request.app.state.svc
+
+
+def require_token(request: Request, x_bcc_token: str | None = Header(default=None)) -> None:
+    if not request.app.state.svc.auth.check(x_bcc_token):
+        raise ApiError("нужен токен доступа", status=401,
+                       hint=f"передайте заголовок {HEADER} (токен печатается при старте сервера)")
+
+
+# ---------- модели запросов ----------
+
+class LoginIn(BaseModel):
+    token: str
+
+
+class ProviderIn(BaseModel):
+    name: str
+    kind: str
+    base_url: str = ""
+    api_key: str | None = None
+
+
+class ModelIn(BaseModel):
+    provider_id: int
+    name: str
+    alias: str | None = None
+    kind: str = "local"
+    context_window: int = 8192
+    caps: dict = Field(default_factory=dict)
+    price_in: float = 0.0
+    price_out: float = 0.0
+
+
+class ModelPatch(BaseModel):
+    name: str | None = None
+    alias: str | None = None
+    kind: str | None = None
+    context_window: int | None = None
+    caps: dict | None = None
+    price_in: float | None = None
+    price_out: float | None = None
+
+
+class AgentIn(BaseModel):
+    name: str
+    role: str = ""
+    system_prompt: str = ""
+    model_id: int | None = None
+    fallback_model_id: int | None = None
+    tools: list = Field(default_factory=list)
+    max_steps: int = 4
+    max_tokens: int = 2048
+    budget_usd: float = 0.0
+    permissions: dict = Field(default_factory=dict)
+    enabled: bool = True
+
+
+class AgentPatch(BaseModel):
+    name: str | None = None
+    role: str | None = None
+    system_prompt: str | None = None
+    model_id: int | None = None
+    fallback_model_id: int | None = None
+    tools: list | None = None
+    max_steps: int | None = None
+    max_tokens: int | None = None
+    budget_usd: float | None = None
+    permissions: dict | None = None
+    enabled: bool | None = None
+
+
+class ScheduleIn(BaseModel):
+    name: str
+    kind: str                                  # once | interval | daily
+    at_time: datetime | None = None
+    interval_minutes: int | None = None
+    daily_time: str | None = None
+    next_run_at: datetime | None = None
+    enabled: bool = True
+    task_template: dict = Field(default_factory=dict)
+
+
+class SchedulePatch(BaseModel):
+    name: str | None = None
+    kind: str | None = None
+    at_time: datetime | None = None
+    interval_minutes: int | None = None
+    daily_time: str | None = None
+    next_run_at: datetime | None = None
+    enabled: bool | None = None
+    task_template: dict | None = None
+
+
+class TaskIn(BaseModel):
+    prompt: str
+    title: str = ""
+    agent_id: int | None = None
+    run_now: bool = True
+    priority: int = 5
+    max_retries: int = 2
+    schedule: ScheduleIn | None = None
+
+
+class ApprovalIn(BaseModel):
+    approve: bool
+    by: str = "owner"
+
+
+class ApprovalCreate(BaseModel):
+    kind: str
+    preview: str = ""
+    task_id: int | None = None
+    run_id: int | None = None
+
+
+# ---------- приложение ----------
+
+def create_app(settings: Settings | None = None, *, start_workers: bool = True,
+               adapter_factory: Any = None, engine_options: dict | None = None,
+               announce_token: bool = True) -> FastAPI:
+    svc = Services(settings or default_settings, start_workers=start_workers,
+                   adapter_factory=adapter_factory, engine_options=engine_options,
+                   announce_token=announce_token)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        await svc.start()
+        try:
+            yield
+        finally:
+            await svc.stop()
+
+    app = FastAPI(title="BOSSMAN Command Center", version="0.1", lifespan=lifespan)
+    app.state.svc = svc
+    _install_error_handlers(app)
+    app.include_router(_public_router())
+    app.include_router(_api_router())
+    _mount_ui(app, svc.settings)
+    return app
+
+
+def _install_error_handlers(app: FastAPI) -> None:
+    """Единый формат ошибок для UI: {error: {message, hint?}}."""
+
+    @app.exception_handler(ApiError)
+    async def _api_error(_r: Request, exc: ApiError):
+        body: dict[str, Any] = {"message": exc.message}
+        if exc.hint:
+            body["hint"] = exc.hint
+        return JSONResponse({"error": body}, status_code=exc.status)
+
+    @app.exception_handler(ProviderError)
+    async def _provider_error(_r: Request, exc: ProviderError):
+        body = {"message": str(exc)}
+        if exc.hint:
+            body["hint"] = exc.hint
+        return JSONResponse({"error": body}, status_code=502)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http_error(_r: Request, exc: StarletteHTTPException):
+        detail = exc.detail
+        body = detail if isinstance(detail, dict) else {"message": str(detail)}
+        return JSONResponse({"error": body}, status_code=exc.status_code)
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error(_r: Request, exc: RequestValidationError):
+        first = (exc.errors() or [{}])[0]
+        where = ".".join(str(p) for p in first.get("loc", [])[1:]) or "тело запроса"
+        return JSONResponse({"error": {"message": f"неверный запрос: {where} — "
+                                                  f"{first.get('msg', 'некорректное значение')}",
+                                       "hint": "проверьте поля запроса"}}, status_code=422)
+
+    @app.exception_handler(Exception)
+    async def _unhandled(_r: Request, exc: Exception):
+        return JSONResponse({"error": {"message": f"внутренняя ошибка: {type(exc).__name__}",
+                                       "hint": "подробности — в логе сервера"}}, status_code=500)
+
+
+def _mount_ui(app: FastAPI, settings: Settings) -> None:
+    """Статика UI (её делает отдельный агент) — монтируется последней, /api остаётся выше."""
+    if settings.ui_dir.is_dir():
+        app.mount("/", StaticFiles(directory=str(settings.ui_dir), html=True), name="ui")
+
+
+def _public_router() -> APIRouter:
+    """Без токена: только логин и WS (у WS токен в query)."""
+    router = APIRouter(prefix="/api")
+
+    @router.post("/login")
+    async def login(body: LoginIn, svc: Services = Depends(services)):
+        if not svc.auth.check(body.token):
+            raise ApiError("неверный токен", status=401,
+                           hint="токен печатается в консоль при старте сервера")
+        return {"ok": True}
+
+    @router.websocket("/events")
+    async def events_ws(ws: WebSocket, token: str | None = Query(default=None)):
+        svc: Services = ws.app.state.svc
+        if not svc.auth.check(token):
+            await ws.close(code=4401)
+            return
+        await ws.accept()
+        queue = svc.bus.subscribe()
+        try:
+            await ws.send_json({"kind": "hello", "ts": utcnow().isoformat()})
+            while True:
+                msg = await queue.get()
+                await ws.send_json(msg)
+        except (WebSocketDisconnect, RuntimeError, asyncio.CancelledError):
+            pass
+        finally:
+            svc.bus.unsubscribe(queue)
+
+    return router
+
+
+def _api_router() -> APIRouter:
+    router = APIRouter(prefix="/api", dependencies=[Depends(require_token)])
+
+    # ---------- система ----------
+
+    @router.get("/system")
+    async def system(svc: Services = Depends(services)):
+        now = svc.metrics.read()
+        history = await svc.metrics.history(15)
+        async with svc.db.session() as s:
+            res = await s.execute(sa.select(runs_t.c.status, sa.func.count())
+                                  .group_by(runs_t.c.status))
+            queue = {str(r[0]): int(r[1]) for r in res.fetchall()}
+        return {"metrics": now, "history": history, "queue": queue,
+                "health": await _health(svc), "started_at": svc.started_at}
+
+    @router.get("/activity")
+    async def activity(limit: int = 50, svc: Services = Depends(services)):
+        return await svc.bus.recent(min(limit, 200))
+
+    # ---------- провайдеры и модели ----------
+
+    @router.get("/providers/kinds")
+    async def provider_kinds():
+        return list(ADAPTERS)
+
+    @router.get("/providers")
+    async def list_providers(svc: Services = Depends(services)):
+        return await svc.registry.list_providers()
+
+    @router.post("/providers")
+    async def create_provider(body: ProviderIn, svc: Services = Depends(services)):
+        if body.kind not in ADAPTERS:
+            raise ApiError(f"неизвестный вид провайдера: {body.kind}",
+                           hint=f"доступны: {', '.join(ADAPTERS)}")
+        return await svc.registry.create_provider(body.name, body.kind, body.base_url, body.api_key)
+
+    @router.delete("/providers/{provider_id}")
+    async def delete_provider(provider_id: int, svc: Services = Depends(services)):
+        if not await svc.registry.delete_provider(provider_id):
+            raise ApiError("провайдер не найден", status=404)
+        return {"ok": True}
+
+    @router.get("/models")
+    async def list_models(svc: Services = Depends(services)):
+        return await svc.registry.list_models()
+
+    @router.post("/models")
+    async def create_model(body: ModelIn, svc: Services = Depends(services)):
+        try:
+            return await svc.registry.create_model(**body.model_dump())
+        except LookupError as exc:
+            raise ApiError(str(exc), status=404) from None
+        except sa.exc.IntegrityError:
+            raise ApiError(f"алиас «{body.alias or body.name}» уже занят",
+                           hint="алиас модели должен быть уникальным") from None
+
+    @router.patch("/models/{model_id}")
+    async def patch_model(model_id: int, body: ModelPatch, svc: Services = Depends(services)):
+        row = await svc.registry.update_model(model_id, **body.model_dump(exclude_none=True))
+        if row is None:
+            raise ApiError("модель не найдена", status=404)
+        return row
+
+    @router.delete("/models/{model_id}")
+    async def delete_model(model_id: int, svc: Services = Depends(services)):
+        if not await svc.registry.delete_model(model_id):
+            raise ApiError("модель не найдена", status=404)
+        return {"ok": True}
+
+    @router.post("/models/{model_id}/check")
+    async def check_model(model_id: int, svc: Services = Depends(services)):
+        try:
+            return await svc.registry.check_model(model_id)
+        except LookupError as exc:
+            raise ApiError(str(exc), status=404) from None
+
+    @router.post("/models/{model_id}/test")
+    async def test_model(model_id: int, svc: Services = Depends(services)):
+        try:
+            return await svc.registry.test_model(model_id)
+        except LookupError as exc:
+            raise ApiError(str(exc), status=404) from None
+
+    # ---------- агенты ----------
+
+    @router.get("/agents")
+    async def list_agents(svc: Services = Depends(services)):
+        async with svc.db.session() as s:
+            res = await s.execute(sa.select(agents_t).order_by(agents_t.c.id))
+            return rows_dicts(res.fetchall())
+
+    @router.post("/agents")
+    async def create_agent(body: AgentIn, svc: Services = Depends(services)):
+        values = body.model_dump()
+        async with svc.db.session() as s:
+            res = await s.execute(sa.insert(agents_t).values(created_at=utcnow(), **values))
+            aid = int(res.inserted_primary_key[0])
+            await s.commit()
+            row = await fetch_one(s, agents_t, aid)
+        await svc.bus.emit("agent.created", id=aid, name=body.name)
+        return row
+
+    @router.patch("/agents/{agent_id}")
+    async def patch_agent(agent_id: int, body: AgentPatch, svc: Services = Depends(services)):
+        values = body.model_dump(exclude_none=True)
+        async with svc.db.session() as s:
+            if values:
+                await s.execute(sa.update(agents_t).where(agents_t.c.id == agent_id).values(**values))
+                await s.commit()
+            row = await fetch_one(s, agents_t, agent_id)
+        if row is None:
+            raise ApiError("агент не найден", status=404)
+        return row
+
+    @router.delete("/agents/{agent_id}")
+    async def delete_agent(agent_id: int, svc: Services = Depends(services)):
+        async with svc.db.session() as s:
+            res = await s.execute(sa.delete(agents_t).where(agents_t.c.id == agent_id))
+            await s.commit()
+        if not res.rowcount:
+            raise ApiError("агент не найден", status=404)
+        return {"ok": True}
+
+    # ---------- задачи ----------
+
+    @router.get("/tasks")
+    async def list_tasks(status: str | None = None, limit: int = 100,
+                         svc: Services = Depends(services)):
+        async with svc.db.session() as s:
+            stmt = sa.select(tasks_t).order_by(tasks_t.c.id.desc()).limit(min(limit, 500))
+            if status:
+                stmt = stmt.where(tasks_t.c.status.in_(status.split(",")))
+            res = await s.execute(stmt)
+            rows = rows_dicts(res.fetchall())
+            for task in rows:
+                run = await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task["id"])
+                                      .order_by(runs_t.c.id.desc()).limit(1))
+                task["last_run"] = _run_public(dbm.row_dict(run.first()))
+        return rows
+
+    @router.post("/tasks")
+    async def create_task(body: TaskIn, svc: Services = Depends(services)):
+        template = {"title": body.title, "prompt": body.prompt, "agent_id": body.agent_id,
+                    "priority": body.priority, "max_retries": body.max_retries}
+        async with svc.db.session() as s:
+            res = await s.execute(sa.insert(tasks_t).values(
+                title=body.title or body.prompt[:80], prompt=body.prompt, agent_id=body.agent_id,
+                priority=body.priority, max_retries=body.max_retries, status="draft",
+                created_at=utcnow(), updated_at=utcnow()))
+            task_id = int(res.inserted_primary_key[0])
+            await s.commit()
+        await svc.bus.emit("task.created", task_id=task_id, title=body.title, agent_id=body.agent_id)
+
+        schedule = None
+        if body.schedule is not None:
+            values = body.schedule.model_dump()
+            values["task_template"] = values.get("task_template") or template
+            schedule = await svc.scheduler.create(**values)
+            async with svc.db.session() as s:
+                await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
+                    schedule_id=schedule["id"]))
+                await s.commit()
+        elif body.run_now:
+            await svc.engine.enqueue(task_id)
+
+        async with svc.db.session() as s:
+            task = await fetch_one(s, tasks_t, task_id)
+        return {"task": task, "schedule": schedule}
+
+    @router.get("/tasks/{task_id}")
+    async def get_task(task_id: int, svc: Services = Depends(services)):
+        async with svc.db.session() as s:
+            task = await fetch_one(s, tasks_t, task_id)
+            if task is None:
+                raise ApiError("задача не найдена", status=404)
+            res = await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task_id)
+                                  .order_by(runs_t.c.id))
+            runs = [_run_public(r) for r in rows_dicts(res.fetchall())]
+        done = [r for r in runs if r["result"]]
+        return {"task": task, "runs": runs, "result": done[-1]["result"] if done else None,
+                "error": runs[-1]["error"] if runs else None}
+
+    @router.post("/tasks/{task_id}/{action}")
+    async def task_action(task_id: int, action: str, svc: Services = Depends(services)):
+        async with svc.db.session() as s:
+            task = await fetch_one(s, tasks_t, task_id)
+        if task is None:
+            raise ApiError("задача не найдена", status=404)
+        if action == "run":
+            if await svc.engine.active_run(task_id):
+                raise ApiError("задача уже в очереди или выполняется",
+                               hint="сначала остановите её")
+            run_id = await svc.engine.enqueue(task_id)
+            return {"ok": True, "status": "queued", "run_id": run_id}
+        if action == "stop":
+            return await svc.engine.stop(task_id)
+        if action == "pause":
+            return await svc.engine.pause(task_id)
+        if action == "resume":
+            return await svc.engine.resume(task_id)
+        if action == "retry":
+            return await svc.engine.retry(task_id)
+        raise ApiError(f"неизвестное действие: {action}", status=404,
+                       hint="доступны: run, stop, pause, resume, retry")
+
+    # ---------- run'ы ----------
+
+    @router.get("/runs/{run_id}")
+    async def get_run(run_id: int, svc: Services = Depends(services)):
+        async with svc.db.session() as s:
+            run = await fetch_one(s, runs_t, run_id)
+        if run is None:
+            raise ApiError("run не найден", status=404)
+        return _run_public(run)
+
+    @router.get("/runs/{run_id}/events")
+    async def run_events(run_id: int, after: int = 0, limit: int = 200,
+                         svc: Services = Depends(services)):
+        async with svc.db.session() as s:
+            res = await s.execute(sa.select(run_events_t).where(
+                run_events_t.c.run_id == run_id,
+                run_events_t.c.id > after).order_by(run_events_t.c.id).limit(min(limit, 1000)))
+            return rows_dicts(res.fetchall())
+
+    # ---------- расписания ----------
+
+    @router.get("/schedules")
+    async def list_schedules(svc: Services = Depends(services)):
+        return await svc.scheduler.list_schedules()
+
+    @router.post("/schedules")
+    async def create_schedule(body: ScheduleIn, svc: Services = Depends(services)):
+        if body.kind not in ("once", "interval", "daily"):
+            raise ApiError(f"неизвестный вид расписания: {body.kind}",
+                           hint="доступны: once, interval, daily")
+        return await svc.scheduler.create(**body.model_dump())
+
+    @router.patch("/schedules/{schedule_id}")
+    async def patch_schedule(schedule_id: int, body: SchedulePatch,
+                             svc: Services = Depends(services)):
+        row = await svc.scheduler.update(schedule_id, **body.model_dump(exclude_none=True))
+        if row is None:
+            raise ApiError("расписание не найдено", status=404)
+        return row
+
+    @router.delete("/schedules/{schedule_id}")
+    async def delete_schedule(schedule_id: int, svc: Services = Depends(services)):
+        if not await svc.scheduler.delete(schedule_id):
+            raise ApiError("расписание не найдено", status=404)
+        return {"ok": True}
+
+    # ---------- подтверждения ----------
+
+    @router.get("/approvals")
+    async def list_approvals(status: str | None = "pending", svc: Services = Depends(services)):
+        return await svc.approvals.list(status)
+
+    @router.post("/approvals")
+    async def create_approval(body: ApprovalCreate, svc: Services = Depends(services)):
+        return await svc.approvals.create(body.kind, body.preview, task_id=body.task_id,
+                                          run_id=body.run_id)
+
+    @router.post("/approvals/{approval_id}")
+    async def decide_approval(approval_id: int, body: ApprovalIn,
+                              svc: Services = Depends(services)):
+        row = await svc.approvals.decide(approval_id, body.approve, body.by)
+        if row is None:
+            raise ApiError("подтверждение не найдено", status=404)
+        return row
+
+    return router
+
+
+def _run_public(run: dict | None) -> dict | None:
+    """Run наружу: без сырого checkpoint (в нём переписка) — только его мета."""
+    if run is None:
+        return None
+    out = dict(run)
+    checkpoint = out.pop("checkpoint", None) or {}
+    out["checkpoint"] = {"step": checkpoint.get("step", 0), "note": checkpoint.get("note", ""),
+                         "messages": len(checkpoint.get("messages") or [])}
+    return out
+
+
+async def _health(svc: Services) -> dict:
+    """Здоровье компонентов для экрана System."""
+    health: dict[str, dict] = {}
+    try:
+        await svc.db.ping()
+        health["db"] = {"status": "ok", "detail": svc.db.url.split("://")[0]}
+    except Exception as exc:
+        health["db"] = {"status": "error", "detail": f"{type(exc).__name__}: {exc}"}
+    health["queue_worker"] = _loop_health(svc.engine.last_tick, 10.0, svc.start_workers)
+    health["queue_worker"]["current_run_id"] = svc.engine.current_run_id
+    health["scheduler"] = _loop_health(svc.scheduler.last_tick, svc.scheduler.tick_seconds * 2,
+                                       svc.start_workers)
+    health["metrics"] = _loop_health(svc.metrics.last_tick, svc.metrics.interval * 3,
+                                     svc.start_workers)
+    return health
+
+
+def _loop_health(last_tick: float, max_age: float, enabled: bool) -> dict:
+    if not enabled:
+        return {"status": "stopped", "detail": "фоновые циклы отключены"}
+    if not last_tick:
+        return {"status": "starting", "detail": "ещё не было тика"}
+    age = time.monotonic() - last_tick
+    if age > max_age:
+        return {"status": "stale", "detail": f"нет тика {int(age)} с"}
+    return {"status": "ok", "detail": f"тик {int(age)} с назад"}
