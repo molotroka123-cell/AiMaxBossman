@@ -23,6 +23,11 @@
 железа (hardware audit, benchmark, Phase 1 setup-брифа), выполняется на самой машине
 в день приезда по `BOSSMAN_CLAUDE_CODE_SETUP.md`.
 
+**Статус: MVP готов** — [`command-center/`](command-center/), Definition of Done
+пройден 17/17, отчёт: [`docs/COMMAND_CENTER_REPORT.md`](docs/COMMAND_CENTER_REPORT.md).
+Запуск: `cd command-center && pip install -e . && bcc` → http://127.0.0.1:8800
+(токен печатается в консоли).
+
 | Часть | Что это | Документы |
 |---|---|---|
 | [`bossman-infra/`](bossman-infra/) | инфраструктура: LiteLLM, llama-swap, Postgres+pgvector, Redis, Open WebUI, Uptime Kuma | [чек-лист этапа 0 и ТЗ инфраструктуры](bossman-infra/docs/STAGE0_AND_SPEC.md) |
