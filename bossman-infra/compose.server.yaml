@@ -1,0 +1,16 @@
+# Надстройка для сервера (ACEMAGIC / Strix Halo): GPU-образ и доступ к устройствам.
+# Включается через .env: COMPOSE_FILE=compose.yaml:compose.server.yaml
+services:
+  llama-swap:
+    image: ${LLAMA_SWAP_IMAGE:-ghcr.io/mostlygeek/llama-swap:vulkan}
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/kfd:/dev/kfd
+    group_add:
+      - "${RENDER_GID:-105}"   # getent group render | cut -d: -f3
+      - "${VIDEO_GID:-39}"     # getent group video  | cut -d: -f3
+    security_opt:
+      - seccomp=unconfined
+    ipc: host
+    # Если Vulkan-образ не увидит Radeon 8060S — альтернатива, собранная под gfx1151:
+    #   LLAMA_SWAP_IMAGE=docker.io/kyuz0/amd-strix-halo-toolboxes:vulkan-radv   (там llama-server внутри, см. README образа)

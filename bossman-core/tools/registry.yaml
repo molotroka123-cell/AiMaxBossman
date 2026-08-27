@@ -1,0 +1,132 @@
+# Реестр инструментов (9.3) — декларативно: что умеет, ограничения, цена, скорость, где.
+# Именно по нему Маршрутизатор сам подбирает инструмент под задачу. Новый инструмент = новая запись.
+#
+# kind:  builtin — обработчик из bossman/toolkit; cmd — команда на боксе; api — HTTP-вызов.
+# where: home | cloud.  cloud_policy: ask — каждый вызов через предпросмотр и подтверждение.
+
+tools:
+  seedance:
+    kind: api
+    where: cloud
+    cloud_policy: ask
+    can: [t2v, i2v, character_ref]
+    limits: { max_clip_s: 15 }        # фактические лимиты подтягивать из API при планировании
+    cost: { unit: credit_per_second, value: 1.0 }
+    speed: минуты на клип
+    quality: 9
+    endpoint_env: HIGGSFIELD_API_URL  # + ключ в HIGGSFIELD_API_KEY
+    model: seedance
+
+  kling3:
+    kind: api
+    where: cloud
+    cloud_policy: ask
+    can: [i2v, extend, multishot]
+    limits: { max_clip_s: 10, extend: true }
+    cost: { unit: credit_per_second, value: 1.0 }
+    speed: минуты
+    quality: 9
+    endpoint_env: HIGGSFIELD_API_URL
+    model: kling3
+
+  wan22_local:
+    kind: cmd
+    where: home
+    can: [t2v, i2v]
+    limits: { max_clip_s: 5, resolution: 640x640, frames: 81 }
+    cost: { unit: free, value: 0 }
+    speed: ~27 мин на клип (замер AMD)
+    quality: 5
+    cmd: "python /opt/bossman/studio/wan22.py --prompt {prompt} --out {out}"
+
+  flux_local:
+    kind: cmd
+    where: home
+    can: [frame, reference, background]
+    cost: { unit: free, value: 0 }
+    speed: 78 с
+    quality: 8
+    cmd: "python /opt/bossman/studio/flux.py --prompt {prompt} --out {out}"
+
+  sdxl_local:
+    kind: cmd
+    where: home
+    can: [frame, reference, background]
+    cost: { unit: free, value: 0 }
+    speed: 18 с
+    quality: 6
+    cmd: "python /opt/bossman/studio/sdxl.py --prompt {prompt} --out {out}"
+
+  ltx_local:
+    kind: cmd
+    where: home
+    can: [t2v, i2v]
+    limits: { max_clip_s: 5, note: "экспериментально: bf16, без fp8 и natten" }
+    cost: { unit: free, value: 0 }
+    speed: замерить
+    quality: 4
+    cmd: "python /opt/bossman/studio/ltx.py --prompt {prompt} --out {out}"
+
+  whisper_local:
+    kind: cmd
+    where: home
+    can: [subtitles, transcribe]
+    cost: { unit: free, value: 0 }
+    speed: быстро
+    quality: 8
+    cmd: "whisper-cli -m /opt/bossman/models/whisper/large-v3.gguf -f {input} -osrt -of {out}"
+
+  piper_local:
+    kind: cmd
+    where: home
+    can: [tts, voiceover]
+    cost: { unit: free, value: 0 }
+    speed: быстро
+    quality: 7
+    cmd: "sh -c 'echo {text} | piper -m /opt/bossman/models/piper/ru_RU-irina-medium.onnx -f {out}'"
+
+  ffmpeg:
+    kind: builtin
+    where: home
+    can: [assemble, transitions, audio, format, crossfade]
+    cost: { unit: free, value: 0 }
+    speed: быстро
+    quality: 10
+    builtin: ffmpeg
+
+  vision_qa_local:
+    kind: builtin
+    where: home
+    can: [qa_frame, qa_clip, qa_seam]
+    cost: { unit: free, value: 0 }
+    quality: 7
+    builtin: vision.describe
+
+  gemini_qa:
+    kind: api
+    where: cloud
+    cloud_policy: ask
+    can: [qa_frame, qa_clip, qa_seam]
+    cost: { unit: tokens, value: 0.002 }
+    quality: 9
+    endpoint_env: GEMINI_QA_URL
+    model: gemini-qa
+
+# Правила маршрутизации по умолчанию (9.3): всё, что можно, — дома.
+# Видео длиннее пары клипов — облако; кадры, референсы, озвучка, субтитры,
+# проверка и сборка — дома всегда.
+routing:
+  home_always: [frame, reference, background, tts, voiceover, subtitles, transcribe,
+                assemble, transitions, audio, format, crossfade, qa_frame, qa_clip, qa_seam]
+  cloud_when: { capability: [t2v, i2v], min_clips: 3 }
+
+# Реальный потолок окна каждой модели (10.7) — из ежемесячного теста, не из паспорта.
+# Бюджет блоков в bossman/context.py считается от этих чисел.
+model_windows:
+  bossman-fast: 65536      # TODO: заменить замером
+  bossman-smart: 65536
+  bossman-coder: 65536
+  bossman-writer: 32768
+  claude-heavy: 200000
+  claude-max: 200000
+  cloud-fallback: 65536

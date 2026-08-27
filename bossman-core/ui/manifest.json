@@ -1,0 +1,11 @@
+{
+  "name": "Bossman Control",
+  "short_name": "Bossman",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#0b0e14",
+  "theme_color": "#0b0e14",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

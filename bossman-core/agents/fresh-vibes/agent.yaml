@@ -1,0 +1,18 @@
+name: fresh-vibes
+title: Fresh Vibes Agent
+model: bossman-fast
+cloud_policy: never            # данные пациентов: у ключа нет облачных алиасов, сеть без интернета
+tools:
+  - gmail.read
+  - gmail.draft               # черновик — без подтверждения
+  - gmail.send: confirm       # отправка — с подтверждением
+  - crm.read
+  - crm.write: confirm
+  - docs.read
+  - search_journal
+  - log
+limits:
+  max_steps: 30
+  max_tokens: 200000
+  timeout_min: 20
+schedule: "*/15 8-20 * * 1-6"  # проверять почту по расписанию

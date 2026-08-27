@@ -1,0 +1,14 @@
+name: analyst
+title: Bossman Analyst
+model: bossman-smart
+cloud_policy: never            # сделки SwapMe и внутренние данные — облако запрещено физически
+tools:
+  - fs.read
+  - fs.search
+  - fs.list
+  - search_journal
+  - log
+limits:
+  max_steps: 30
+  max_tokens: 200000
+  timeout_min: 20

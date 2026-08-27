@@ -1,0 +1,118 @@
+# bossman-infra v0.1 — базовый compose (одинаков для сервера и ноутбука)
+# Сервер:   COMPOSE_FILE=compose.yaml:compose.server.yaml  COMPOSE_PROFILES=local
+# Ноутбук:  COMPOSE_FILE=compose.yaml                      COMPOSE_PROFILES=      (только облако)
+#           COMPOSE_FILE=compose.yaml  COMPOSE_PROFILES=local  LLAMA_SWAP_CONFIG=./llama-swap/config-cpu.yaml  (CPU-тест)
+name: bossman
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+
+  # ---------- инференс: llama-swap грузит/выгружает llama-server по требованию ----------
+  llama-swap:
+    <<: *common
+    image: ${LLAMA_SWAP_IMAGE:-ghcr.io/mostlygeek/llama-swap:cpu}
+    profiles: ["local"]
+    command: ["-config", "/app/config.yaml", "-listen", "0.0.0.0:8080"]
+    volumes:
+      - ${LLAMA_SWAP_CONFIG:-./llama-swap/config.yaml}:/app/config.yaml:ro
+      - ${MODELS_DIR:-/opt/bossman/models}:/models:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://127.0.0.1:8080/health || wget -qO- http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # ---------- шлюз: один API, алиасы моделей, ключи per-агент, fallback в облако ----------
+  litellm:
+    <<: *common
+    image: ghcr.io/berriai/litellm:main-latest
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      DATABASE_URL: postgresql://bossman:${POSTGRES_PASSWORD}@postgres:5432/litellm
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      STORE_MODEL_IN_DB: "True"
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+    ports:
+      - "127.0.0.1:4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------- чат для телефона и ПК ----------
+  open-webui:
+    <<: *common
+    image: ghcr.io/open-webui/open-webui:main
+    environment:
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      OPENAI_API_KEY: ${LITELLM_MASTER_KEY}
+      ENABLE_OLLAMA_API: "false"
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      WEBUI_URL: ${WEBUI_URL:-http://localhost:3000}
+      DEFAULT_MODELS: ${DEFAULT_MODEL:-bossman-fast}
+    volumes:
+      - open-webui:/app/backend/data
+    ports:
+      - "127.0.0.1:3000:8080"
+    depends_on:
+      - litellm
+
+  # ---------- данные ----------
+  postgres:
+    <<: *common
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: bossman
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: litellm
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bossman -d litellm"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    <<: *common
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ---------- мониторинг: алерты в Telegram настраиваются в UI ----------
+  uptime-kuma:
+    <<: *common
+    image: louislam/uptime-kuma:1
+    volumes:
+      - uptime-kuma:/app/data
+    ports:
+      - "127.0.0.1:3001:3001"
+
+volumes:
+  open-webui:
+  postgres:
+  redis:
+  uptime-kuma:

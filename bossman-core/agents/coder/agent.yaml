@@ -1,0 +1,19 @@
+name: coder
+title: Bossman Coder
+model: bossman-coder
+cloud_policy: ask              # ревью в облаке — только с предпросмотром diff
+tools:
+  - fs.read
+  - fs.write
+  - fs.edit
+  - fs.search
+  - fs.list
+  - run
+  - tests
+  - git
+  - search_journal
+  - log
+limits:
+  max_steps: 60
+  max_tokens: 400000
+  timeout_min: 45

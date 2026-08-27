@@ -1,0 +1,69 @@
+# llama-swap: https://github.com/mostlygeek/llama-swap
+# Грузит нужный llama-server по имени модели из запроса, выгружает простаивающие.
+# ВНИМАНИЕ: имена файлов .gguf поправить после scripts/download-models.sh (см. ls /opt/bossman/models).
+# Синтаксис groups/macros сверить с актуальным README llama-swap перед первым запуском.
+
+healthCheckTimeout: 900     # секунд на загрузку модели (120B грузится долго)
+logLevel: info
+
+macros:
+  "server": "/app/llama-server --host 127.0.0.1 --port ${PORT} -ngl 999 --jinja -fa on --cache-reuse 256 -ctk q8_0 -ctv q8_0"
+
+models:
+  # быстрая рабочая лошадка: MoE 35B, 3B активных → 50+ ток/с
+  "bossman-fast":
+    cmd: |
+      ${server} -m /models/Qwen3.6-35B-A3B-GGUF/Qwen3.6-35B-A3B-Q8_0.gguf
+      -c 65536 --temp 0.7 --top-p 0.8 --top-k 20
+    ttl: 0                    # не выгружать
+
+  # тяжёлая: gpt-oss-120b ≈ 61 ГБ, ~30 ток/с
+  "bossman-smart":
+    cmd: |
+      ${server} -m /models/gpt-oss-120b-GGUF/gpt-oss-120b-mxfp4-00001-of-00003.gguf
+      -c 65536 --temp 1.0 --top-p 1.0
+    ttl: 1800                 # выгрузить через 30 мин простоя
+
+  "bossman-coder":
+    cmd: |
+      ${server} -m /models/Qwen3-Coder-30B-A3B-GGUF/Qwen3-Coder-30B-A3B-Q8_0.gguf
+      -c 131072 --temp 0.7 --top-p 0.8
+    ttl: 1800
+
+  # плотная 27B: качество текста, зрение; ~10–15 ток/с
+  "bossman-writer":
+    cmd: |
+      ${server} -m /models/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q6_K.gguf
+      -c 32768 --temp 0.7
+    ttl: 900
+
+  # личный чат без инструментов; ключам агентов недоступна (см. litellm)
+  "bossman-uncensored":
+    cmd: |
+      ${server} -m /models/Qwen3.6-35B-A3B-Uncensored-GGUF/Qwen3.6-35B-A3B-Uncensored-Q8_0.gguf
+      -c 32768 --temp 0.8
+    ttl: 900
+
+  # эмбеддинги для RAG — маленькая, живёт постоянно
+  "bossman-embed":
+    cmd: |
+      ${server} -m /models/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
+      --embedding --pooling last -c 8192 -ub 8192
+    ttl: 0
+
+# Бюджет памяти (потолок GPU ~117 ГБ): fast 37 + coder 32 + embed 1 ≈ 70 ГБ живут вместе;
+# smart (61) вытесняет остальных, кроме embed.
+groups:
+  "always":
+    swap: false
+    exclusive: false
+    persistent: true
+    members: ["bossman-embed"]
+  "light":
+    swap: false               # члены группы могут быть загружены одновременно
+    exclusive: false
+    members: ["bossman-fast", "bossman-coder"]
+  "heavy":
+    swap: true
+    exclusive: true           # загрузка выгружает все другие группы (кроме persistent)
+    members: ["bossman-smart", "bossman-writer", "bossman-uncensored"]

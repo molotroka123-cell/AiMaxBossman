@@ -1,0 +1,61 @@
+# Надстройка над bossman-infra: Bossman Core + изоляция сети (уровень 1 защиты).
+#
+# Подключение (в /opt/bossman/infra/.env):
+#   COMPOSE_FILE=compose.yaml:compose.server.yaml:../core/compose.core.yaml
+#
+# Сеть bossman-internal (internal: true) — без выхода в интернет: Core, агенты,
+# sandbox, Postgres, Redis, llama-swap. В интернет смотрит ТОЛЬКО LiteLLM.
+# Даже сломанный или обманутый агент не отправит ничего напрямую.
+
+networks:
+  bossman-internal:
+    internal: true
+  default: {}
+
+services:
+  bossman-core:
+    build: ${CORE_DIR:-../core}
+    restart: unless-stopped
+    networks: [bossman-internal]
+    environment:
+      LITELLM_URL: http://litellm:4000/v1
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      LLAMA_SWAP_URL: http://llama-swap:8080
+      BOSSMAN_DATABASE_URL: postgresql://bossman:${POSTGRES_PASSWORD}@postgres:5432/bossman
+      REDIS_URL: redis://redis:6379/0
+      SANDBOX_MODE: docker
+      SANDBOX_IMAGE: bossman-sandbox:latest
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      # ключи LiteLLM per-агент (scripts/create-agent-key.sh):
+      LITELLM_KEY_ANALYST: ${LITELLM_KEY_ANALYST:-}
+      LITELLM_KEY_CODER: ${LITELLM_KEY_CODER:-}
+      LITELLM_KEY_FRESH_VIBES: ${LITELLM_KEY_FRESH_VIBES:-}
+      HIGGSFIELD_API_URL: ${HIGGSFIELD_API_URL:-}
+      HIGGSFIELD_API_KEY: ${HIGGSFIELD_API_KEY:-}
+    volumes:
+      - ${CORE_DIR:-../core}/agents:/app/agents          # папки агентов — в git, правки видны
+      - bossman-projects:/app/projects
+      - bossman-workspace:/app/workspace
+      - /var/run/docker.sock:/var/run/docker.sock        # только для запуска sandbox без сети
+      - ${MODELS_DIR:-/opt/bossman/models}:/models:ro    # панель «Модели»: что установлено
+    ports:
+      - "127.0.0.1:8700:8700"   # наружу — только tailscale serve
+    depends_on:
+      postgres:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+
+  # сервисы инфраструктуры переводятся во внутреннюю сеть;
+  # litellm остаётся и в default — единственный путь в интернет
+  litellm:
+    networks: [bossman-internal, default]
+  postgres:
+    networks: [bossman-internal]
+  redis:
+    networks: [bossman-internal]
+  llama-swap:
+    networks: [bossman-internal]
+  open-webui:
+    networks: [bossman-internal, default]   # тянет litellm; наружу не публикуется

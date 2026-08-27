@@ -1,0 +1,62 @@
+# Пример плана (9.7, сокращённо) — формат, который порождает планировщик.
+# Скопировать в projects/mini-series-01/ или прогнать: bossman project plan mini-series-01 brief.md
+title: Мини-серия 01
+budget_limit: 60
+preview_gate_after: 3
+stages:
+  - name: scenario
+    tasks:
+      - id: t01
+        name: Сценарий на 10 минут по brief (8 сцен, ~96 клипов по ~6 с)
+        tool: qa_frame          # текстовый этап; модель bossman-smart вызывает раннер
+        params: {prompt: "сценарий по brief"}
+        outputs: [assets/script.md]
+        check: ""
+        est_cost: 0
+        est_minutes: 10
+  - name: references
+    tasks:
+      - id: t02
+        name: Стиль-гайд персонажа и 6 референс-кадров
+        tool: frame
+        params: {prompt: "референс персонажа, стиль-гайд"}
+        outputs: [assets/ref-01.png]
+        check: тот же персонаж на всех кадрах, без артефактов
+        est_cost: 0
+        est_minutes: 10
+  - name: voice
+    tasks:
+      - id: t03
+        name: Озвучка реплик и тайминг
+        tool: tts
+        params: {text: "реплики из assets/script.md"}
+        outputs: [assets/voice-01.wav]
+        est_cost: 0
+        est_minutes: 5
+  - name: clips
+    tasks:
+      - id: t04
+        name: "Клип 1 (i2v по цепочке: старт с референса)"
+        tool: i2v
+        params: {prompt: "сцена 1, кадр 1", seconds: 6}
+        outputs: [assets/clip-001.mp4]
+        check: соответствие промпту, тот же персонаж, стык с предыдущим клипом
+        est_cost: 6
+        est_minutes: 4
+        is_clip: true
+      # … клипы 2–96 порождает планировщик; после третьего сработает превью-гейт
+  - name: assembly
+    tasks:
+      - id: t90
+        name: Сборка — стыки, звук, LUFS, вертикаль 9:16
+        tool: assemble
+        params:
+          args: ["-f", "concat", "-safe", "0", "-i", "assets/clips.txt",
+                 "-af", "loudnorm", "-aspect", "9:16", "deliverable/final.mp4"]
+        outputs: [deliverable/final.mp4]
+        check: длительность 10 мин ± 5 %, звук без провалов
+        est_cost: 0
+        est_minutes: 15
+estimate:
+  cost: 60
+  hours: 8

@@ -1,0 +1,16 @@
+# Конфиг для проверки цепочки на ноутбуке БЕЗ GPU (образ llama-swap:cpu, модель 0.6B).
+# Цель — убедиться, что Open WebUI → LiteLLM → llama-swap → llama-server работает end-to-end.
+healthCheckTimeout: 120
+logLevel: info
+
+models:
+  "bossman-fast":
+    cmd: |
+      /app/llama-server --host 127.0.0.1 --port ${PORT} -ngl 0 --jinja
+      -m /models/Qwen3-0.6B-GGUF/Qwen3-0.6B-Q8_0.gguf -c 8192
+    ttl: 0
+  "bossman-embed":
+    cmd: |
+      /app/llama-server --host 127.0.0.1 --port ${PORT} -ngl 0
+      -m /models/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf --embedding --pooling last -c 8192 -ub 8192
+    ttl: 0

@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bossman Control</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0e14">
+<style>
+/* Функциональный каркас панелей (раздел 7). Визуал — ваш: стили JARVIS ложатся поверх. */
+:root { --bg:#0b0e14; --panel:#121724; --line:#1f2637; --fg:#dce3f0; --dim:#8b96ab;
+        --ok:#3ecf8e; --warn:#f5a623; --err:#e5484d; --home:#3ecf8e; --cloud:#f5a623; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg);
+       font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display:flex; gap:4px; padding:8px; overflow-x:auto; background:var(--panel);
+         position:sticky; top:0; z-index:5; border-bottom:1px solid var(--line); }
+header button { background:none; border:1px solid var(--line); color:var(--dim); padding:8px 14px;
+                border-radius:8px; cursor:pointer; white-space:nowrap; font:inherit; }
+header button.active { color:var(--fg); border-color:var(--fg); }
+header button .badge { background:var(--err); color:#fff; border-radius:10px; padding:0 6px;
+                       font-size:12px; margin-left:6px; }
+main { padding:12px; max-width:900px; margin:0 auto; }
+section { display:none; }
+section.active { display:block; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+        padding:12px; margin-bottom:10px; }
+.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.dim { color:var(--dim); font-size:13px; }
+.tag { font-size:12px; padding:2px 8px; border-radius:10px; border:1px solid var(--line); }
+.tag.home { color:var(--home); border-color:var(--home); }
+.tag.cloud { color:var(--cloud); border-color:var(--cloud); }
+.tag.status-done { color:var(--ok); } .tag.status-failed, .tag.status-interrupted { color:var(--err); }
+.tag.status-running { color:var(--warn); } .tag.status-waiting_approval { color:var(--cloud); }
+textarea, input, select { background:var(--bg); color:var(--fg); border:1px solid var(--line);
+        border-radius:8px; padding:10px; font:inherit; width:100%; }
+button.act { background:var(--fg); color:var(--bg); border:0; border-radius:8px;
+             padding:10px 16px; font:inherit; cursor:pointer; }
+button.ghost { background:none; border:1px solid var(--line); color:var(--fg);
+               border-radius:8px; padding:8px 12px; cursor:pointer; font:inherit; }
+button.yes { background:var(--ok); } button.no { background:var(--err); color:#fff; }
+pre { white-space:pre-wrap; word-break:break-word; background:var(--bg); padding:8px;
+      border-radius:8px; font-size:13px; max-height:300px; overflow:auto; }
+progress { width:100%; height:8px; }
+h3 { margin:4px 0 8px; }
+</style>
+</head>
+<body>
+<header id="tabs"></header>
+<main id="panels"></main>
+<script>
+const PANELS = [
+  ["pult", "Пульт"], ["agents", "Агенты"], ["models", "Модели"], ["changes", "Изменения"],
+  ["approvals", "Подтверждения"], ["spend", "Расходы"], ["projects", "Проекты"],
+];
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const api = async (path, opts) => {
+  const r = await fetch(path, opts ? {headers:{"Content-Type":"application/json"}, ...opts} : undefined);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+};
+const cloudTag = (isCloud) => `<span class="tag ${isCloud ? "cloud" : "home"}">${isCloud ? "облако" : "дом"}</span>`;
+
+// ---- каркас вкладок ----
+const tabs = $("#tabs"), main = $("#panels");
+for (const [id, title] of PANELS) {
+  tabs.insertAdjacentHTML("beforeend",
+    `<button data-tab="${id}" onclick="show('${id}')">${title}<span class="badge" id="badge-${id}" hidden></span></button>`);
+  main.insertAdjacentHTML("beforeend", `<section id="panel-${id}"></section>`);
+}
+function show(id) {
+  document.querySelectorAll("header button").forEach(b => b.classList.toggle("active", b.dataset.tab === id));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("active", s.id === `panel-${id}`));
+  render[id]?.();
+}
+
+const render = {};
+
+// ---- Пульт: поле задачи, выбор агента, активные задачи, индикатор дом/облако ----
+render.pult = async () => {
+  const agents = await api("/agents");
+  const tasks = await api("/tasks?limit=25");
+  $("#panel-pult").innerHTML = `
+    <div class="card">
+      <textarea id="task-text" rows="3" placeholder="Что сделать?"></textarea>
+      <div class="row" style="margin-top:8px">
+        <select id="task-agent" style="max-width:260px">
+          <option value="">сам разберётся</option>
+          ${agents.map(a => `<option value="${esc(a.name)}">${esc(a.title)}</option>`).join("")}
+        </select>
+        <button class="act" onclick="submitTask()">Выполнить</button>
+        <button class="ghost" title="голос — микрофон из JARVIS" onclick="alert('Голос подключается из JARVIS (Whisper локально, этап v0.4)')">🎤</button>
+      </div>
+    </div>
+    ${tasks.map(t => `
+      <div class="card">
+        <div class="row">
+          <b>#${t.id}</b> <span class="tag status-${esc(t.status)}">${esc(t.status)}</span>
+          <span class="dim">${esc(t.agent ?? "—")}</span>
+          ${cloudTag(false)}
+        </div>
+        <div>${esc(t.text).slice(0, 300)}</div>
+        ${t.result ? `<pre>${esc(t.result).slice(0, 1500)}</pre>` : ""}
+      </div>`).join("") || `<div class="dim">задач пока нет</div>`}`;
+};
+async function submitTask() {
+  const text = $("#task-text").value.trim();
+  if (!text) return;
+  await api("/tasks", {method:"POST", body: JSON.stringify({text, agent: $("#task-agent").value || null})});
+  $("#task-text").value = "";
+  render.pult();
+}
+
+// ---- Агенты: карточки, переключатель политики облака, расход ----
+render.agents = async () => {
+  const agents = await api("/agents");
+  $("#panel-agents").innerHTML = agents.map(a => `
+    <div class="card">
+      <h3>${esc(a.title)} <span class="dim">(${esc(a.model)})</span></h3>
+      <div class="row">
+        <span class="dim">облако:</span>
+        ${["never","ask","allowed"].map(p => `
+          <button class="ghost" style="${a.cloud_policy===p ? "border-color:var(--fg)" : "color:var(--dim)"}"
+            onclick="setPolicy('${esc(a.name)}','${p}')">${p}</button>`).join("")}
+      </div>
+      <div class="dim">инструменты: ${a.tools.map(esc).join(", ") || "—"}</div>
+      <div class="dim">за 30 дней: ${a.spend_30d?.tokens ?? 0} токенов
+        (облако: ${a.spend_30d?.cloud_tokens ?? 0})</div>
+      ${a.last_action ? `<div class="dim">последнее: ${esc(a.last_action.tool)} · ${esc(a.last_action.created_at)}</div>` : ""}
+      ${a.schedule ? `<div class="dim">расписание: ${esc(a.schedule)}</div>` : ""}
+    </div>`).join("");
+};
+async function setPolicy(name, policy) {
+  await api(`/agents/${name}`, {method:"PATCH", body: JSON.stringify({cloud_policy: policy})});
+  render.agents();
+}
+
+// ---- Модели: установленные, загруженные (llama-swap /running), метрики контекста ----
+render.models = async () => {
+  const m = await api("/models");
+  const running = Array.isArray(m.running) ? m.running : [];
+  $("#panel-models").innerHTML = `
+    <div class="card"><h3>Загружены сейчас</h3>
+      ${m.llama_swap_error ? `<div class="dim">llama-swap недоступен: ${esc(m.llama_swap_error)}</div>` : ""}
+      ${running.map(r => `<div class="row"><b>${esc(r.model ?? r)}</b>
+        <span class="dim">${esc(r.state ?? "")}</span>
+        <button class="ghost" onclick="api('/models/${esc(r.model ?? r)}/unload',{method:'POST'}).then(render.models)">выгрузить</button>
+      </div>`).join("") || `<div class="dim">ничего не загружено</div>`}
+    </div>
+    <div class="card"><h3>Установлены (/opt/bossman/models)</h3>
+      ${m.installed.map(name => `<div class="row"><span>${esc(name)}</span></div>`).join("") || `<div class="dim">папка моделей не смонтирована</div>`}
+    </div>
+    <div class="card"><h3>Контекст за 7 дней (10.7)</h3>
+      ${m.context_stats.map(s => `<div class="row"><b>${esc(s.agent)}</b>
+        <span class="dim">заполнение ${Math.round((s.avg_fill ?? 0)*100)}% · кэш ${Math.round((s.cache_rate ?? 0)*100)}% · ${s.calls} вызовов</span>
+      </div>`).join("") || `<div class="dim">вызовов ещё не было</div>`}
+    </div>`;
+};
+
+// ---- Изменения: лента действий агентов (коммиты/PR из ATLAS — поверх этого) ----
+render.changes = async () => {
+  const rows = await api("/changes?limit=60");
+  $("#panel-changes").innerHTML = rows.map(c => `
+    <div class="card row">
+      <b>${esc(c.agent)}</b> <span>${esc(c.tool)}</span>
+      <span class="tag status-${c.status === "ok" ? "done" : "failed"}">${esc(c.status)}</span>
+      <span class="dim">${esc(c.created_at)}</span>
+      ${c.approved_by ? `<span class="dim">подтвердил: ${esc(c.approved_by)}</span>` : ""}
+    </div>`).join("") || `<div class="dim">действий пока нет</div>`;
+};
+
+// ---- Подтверждения: предпросмотр + одна кнопка да/нет ----
+render.approvals = async () => {
+  const rows = await api("/approvals");
+  $("#badge-approvals").hidden = rows.length === 0;
+  $("#badge-approvals").textContent = rows.length;
+  $("#panel-approvals").innerHTML = rows.map(a => `
+    <div class="card">
+      <div class="row"><b>#${a.id}</b> <span class="tag cloud">${esc(a.kind)}</span>
+        ${a.tool ? `<span class="dim">${esc(a.tool)}</span>` : ""}</div>
+      <pre>${esc(a.preview)}</pre>
+      <div class="row">
+        <button class="act yes" onclick="decide(${a.id}, true)">✅ Да</button>
+        <button class="act no" onclick="decide(${a.id}, false)">❌ Нет</button>
+      </div>
+    </div>`).join("") || `<div class="dim">очередь пуста — ничего не ждёт подтверждения</div>`;
+};
+async function decide(id, approve) {
+  await api(`/approvals/${id}`, {method:"POST", body: JSON.stringify({approve, by:"ui"})});
+  render.approvals();
+}
+
+// ---- Расходы ----
+render.spend = async () => {
+  const s = await api("/spend");
+  const fmt = rows => rows.map(r => `<div class="row"><b>${esc(r.agent)}</b>
+      ${cloudTag(r.is_cloud)} <span>${r.tokens} токенов</span></div>`).join("") || `<div class="dim">нет</div>`;
+  $("#panel-spend").innerHTML = `
+    <div class="card"><h3>За день</h3>${fmt(s.by_agent_day)}</div>
+    <div class="card"><h3>За месяц</h3>${fmt(s.by_agent_month)}
+      <div class="dim">облачных вызовов за месяц: ${s.cloud_calls_month}</div></div>
+    <div class="card"><h3>Проекты</h3>
+      ${s.projects.map(p => `<div class="row"><b>${esc(p.slug)}</b>
+        <span>${p.spent} / ${p.budget_limit ?? "∞"}</span></div>`).join("") || `<div class="dim">нет</div>`}
+    </div>`;
+};
+
+// ---- Проекты: brief, план-чеклист, расход против лимита, журнал, кнопки ----
+render.projects = async () => {
+  const projects = await api("/projects");
+  $("#panel-projects").innerHTML = `
+    <div class="card">
+      <input id="proj-slug" placeholder="slug (mini-series-01)" style="margin-bottom:6px">
+      <input id="proj-title" placeholder="название" style="margin-bottom:6px">
+      <textarea id="proj-brief" rows="4" placeholder="Опишите результат, а не задачу…"></textarea>
+      <input id="proj-budget" placeholder="лимит бюджета (число)" style="margin:6px 0">
+      <button class="act" onclick="createProject()">Составить план</button>
+    </div>
+    ${projects.map(p => `
+      <div class="card">
+        <h3>${esc(p.title)} <span class="tag status-${esc(p.status)}">${esc(p.status)}</span></h3>
+        <div class="dim">расход: ${p.spent} / ${p.budget_limit ?? "∞"}
+          ${p.estimate ? `· оценка: ${esc(JSON.stringify(p.estimate))}` : ""}</div>
+        <div class="row" style="margin-top:6px">
+          ${p.status === "awaiting_approval" ? `<button class="act yes" onclick="proj('${esc(p.slug)}','approve')">Утвердить план</button>` : ""}
+          <button class="ghost" onclick="proj('${esc(p.slug)}','run')">▶ Продолжить</button>
+          <button class="ghost" onclick="proj('${esc(p.slug)}','pause')">⏸ Пауза</button>
+          <button class="ghost" onclick="projState('${esc(p.slug)}')">план и прогресс</button>
+        </div>
+        <div id="proj-detail-${esc(p.slug)}"></div>
+      </div>`).join("") || `<div class="dim">проектов пока нет</div>`}`;
+};
+async function createProject() {
+  await api("/projects", {method:"POST", body: JSON.stringify({
+    slug: $("#proj-slug").value.trim(), title: $("#proj-title").value.trim() || $("#proj-slug").value.trim(),
+    brief: $("#proj-brief").value, budget_limit: parseFloat($("#proj-budget").value) || null})});
+  render.projects();
+}
+async function proj(slug, action) { await api(`/projects/${slug}/${action}`, {method:"POST"}); render.projects(); }
+async function projState(slug) {
+  const st = await api(`/projects/${slug}/state`);
+  const j = await api(`/projects/${slug}/journal?lines=30`);
+  const done = st.tasks.filter(t => t.status === "done").length;
+  $(`#proj-detail-${slug}`).innerHTML = `
+    <progress max="${st.tasks.length || 1}" value="${done}"></progress>
+    <div class="dim">${done} / ${st.tasks.length} задач</div>
+    ${st.tasks.map(t => `<div class="row dim">
+      <span class="tag status-${esc(t.status)}">${esc(t.status)}</span>
+      [${esc(t.stage)}] ${esc(t.name)} · ${esc(t.tool ?? "")} · попыток ${t.attempts}
+      ${t.status !== "done" ? `<button class="ghost" onclick="api('/projects/${slug}/tasks/${esc(t.name)}/retry',{method:'POST'})">пересобрать</button>` : ""}
+    </div>`).join("")}
+    <pre>${esc(j.journal)}</pre>`;
+}
+
+// ---- живые обновления по WS: UI обновляется сам ----
+function connectWS() {
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/events");
+  ws.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    const active = document.querySelector("section.active")?.id?.replace("panel-", "");
+    if (ev.kind.startsWith("task") && active === "pult") render.pult();
+    if (ev.kind.startsWith("approval")) render.approvals();
+    if (ev.kind.startsWith("project") && active === "projects") render.projects();
+    if (ev.kind.startsWith("agent") && active === "agents") render.agents();
+  };
+  ws.onclose = () => setTimeout(connectWS, 3000);
+}
+connectWS();
+render.approvals();   // бейдж очереди виден с любой вкладки
+show("pult");
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>

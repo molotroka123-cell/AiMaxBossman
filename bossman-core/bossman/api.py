@@ -1,0 +1,369 @@
+"""Bossman Core — FastAPI: API из раздела 11, WS-события, статика UI.
+
+Слушает только внутри docker-сети / на 127.0.0.1; наружу — через Tailscale serve.
+"""
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import json
+from pathlib import Path
+
+import httpx
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+
+from . import approvals as approvals_mod
+from . import db, events, runner
+from .agents import load_all, set_cloud_policy
+from .config import ROOT, settings
+from .projects.plan import State, journal_tail, project_dir
+from .projects.planner import plan_project
+from .projects.runner import run_project
+
+app = FastAPI(title="Bossman Core", version="0.3")
+_background: set[asyncio.Task] = set()
+
+
+def _spawn(coro) -> None:
+    t = asyncio.get_event_loop().create_task(coro)
+    _background.add(t)
+    t.add_done_callback(_background.discard)
+
+
+@app.on_event("startup")
+async def startup() -> None:
+    settings.projects_dir.mkdir(parents=True, exist_ok=True)
+    settings.workspace_dir.mkdir(parents=True, exist_ok=True)
+    await db.pool()
+    await runner.mark_interrupted()   # после перезагрузки: незавершённое помечено и видно
+    _spawn(runner.worker())
+
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    for t in _background:
+        t.cancel()
+    await db.close()
+
+
+# ---------- задачи ----------
+
+class TaskIn(BaseModel):
+    text: str
+    agent: str | None = None     # None = «сам разберётся»
+    source: str = "ui"
+
+
+@app.post("/tasks")
+async def create_task(body: TaskIn):
+    row = await db.fetchrow(
+        "INSERT INTO tasks (agent, source, text) VALUES ($1,$2,$3) RETURNING *",
+        body.agent, body.source, body.text)
+    await runner.enqueue(row["id"])
+    events.emit("task.created", id=row["id"], agent=body.agent, text=body.text[:200])
+    return row
+
+
+@app.get("/tasks/{task_id}")
+async def get_task(task_id: int):
+    row = await db.fetchrow("SELECT * FROM tasks WHERE id=$1", task_id)
+    if not row:
+        raise HTTPException(404)
+    return row
+
+
+@app.get("/tasks")
+async def list_tasks(status: str | None = None, limit: int = 50):
+    if status:
+        return await db.fetch("SELECT * FROM tasks WHERE status=$1 ORDER BY id DESC LIMIT $2",
+                              status, limit)
+    return await db.fetch("SELECT * FROM tasks ORDER BY id DESC LIMIT $1", limit)
+
+
+# ---------- события ----------
+
+@app.websocket("/events")
+async def ws_events(ws: WebSocket):
+    await ws.accept()
+    q = events.subscribe()
+    try:
+        while True:
+            msg = await q.get()
+            await ws.send_text(msg)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        events.unsubscribe(q)
+
+
+# ---------- подтверждения ----------
+
+class Decision(BaseModel):
+    approve: bool
+    by: str = "ui"
+
+
+@app.get("/approvals")
+async def list_approvals(status: str = "pending"):
+    return await db.fetch("SELECT * FROM approvals WHERE status=$1 ORDER BY id", status)
+
+
+@app.post("/approvals/{approval_id}")
+async def decide_approval(approval_id: int, body: Decision):
+    row = await approvals_mod.decide(approval_id, body.approve, body.by)
+    if not row:
+        raise HTTPException(409, "уже решено или не существует")
+    return row
+
+
+@app.post("/telegram/webhook")
+async def telegram_webhook(update: dict):
+    """Кнопки да/нет из Telegram (callback_data: approve:<id> / reject:<id>)."""
+    cb = update.get("callback_query") or {}
+    data = cb.get("data") or ""
+    if ":" in data:
+        action, sid = data.split(":", 1)
+        who = (cb.get("from") or {}).get("username", "telegram")
+        await approvals_mod.decide(int(sid), action == "approve", f"tg:{who}")
+    return {"ok": True}
+
+
+# ---------- агенты ----------
+
+@app.get("/agents")
+async def list_agents():
+    out = []
+    for spec in load_all().values():
+        last = await db.fetchrow(
+            "SELECT tool, created_at FROM tool_calls WHERE agent=$1 ORDER BY id DESC LIMIT 1",
+            spec.name)
+        spend = await db.fetchrow(
+            """SELECT coalesce(sum(prompt_tokens+completion_tokens),0) AS tokens,
+                      coalesce(sum((prompt_tokens+completion_tokens)) FILTER (WHERE is_cloud),0) AS cloud_tokens
+               FROM model_calls WHERE agent=$1 AND created_at > now() - interval '30 days'""",
+            spec.name)
+        out.append({"name": spec.name, "title": spec.title, "model": spec.model,
+                    "cloud_policy": spec.cloud_policy,
+                    "tools": [g.name for g in spec.tools], "schedule": spec.schedule,
+                    "last_action": last, "spend_30d": spend})
+    return out
+
+
+class AgentPatch(BaseModel):
+    cloud_policy: str
+
+
+@app.patch("/agents/{name}")
+async def patch_agent(name: str, body: AgentPatch):
+    try:
+        spec = set_cloud_policy(name, body.cloud_policy)
+    except FileNotFoundError:
+        raise HTTPException(404, f"нет агента {name}")
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    events.emit("agent.updated", name=name, cloud_policy=spec.cloud_policy)
+    return {"name": spec.name, "cloud_policy": spec.cloud_policy}
+
+
+# ---------- модели ----------
+
+@app.get("/models")
+async def list_models():
+    """Установленные (из /opt/bossman/models), загруженные сейчас (llama-swap /running),
+    среднее заполнение окна и доля кэша по агентам (10.7)."""
+    installed = []
+    models_dir = Path("/models") if Path("/models").exists() else Path("/opt/bossman/models")
+    if models_dir.exists():
+        installed = sorted(p.name for p in models_dir.iterdir() if p.is_dir())
+    running, swap_err = [], None
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"{settings.llama_swap_url}/running")
+            running = resp.json().get("running", resp.json()) if resp.status_code == 200 else []
+    except Exception as exc:
+        swap_err = str(exc)
+    ctx_stats = await db.fetch(
+        """SELECT agent, round(avg(window_fill)::numeric, 3) AS avg_fill,
+                  round(avg(CASE WHEN prefix_cache_hit THEN 1 ELSE 0 END)::numeric, 3) AS cache_rate,
+                  count(*) AS calls
+           FROM model_calls WHERE created_at > now() - interval '7 days' GROUP BY agent""")
+    return {"installed": installed, "running": running, "llama_swap_error": swap_err,
+            "context_stats": ctx_stats}
+
+
+@app.post("/models/{alias}/load")
+async def load_model(alias: str):
+    # llama-swap грузит модель при первом запросе к ней; health апстрима — самый дешёвый триггер
+    async with httpx.AsyncClient(timeout=900) as client:
+        resp = await client.get(f"{settings.llama_swap_url}/upstream/{alias}/health")
+    return {"alias": alias, "status": resp.status_code}
+
+
+@app.post("/models/{alias}/unload")
+async def unload_model(alias: str):
+    # эндпоинт сверить с актуальным README llama-swap (в старых версиях /unload общий)
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.get(f"{settings.llama_swap_url}/unload", params={"model": alias})
+    return {"alias": alias, "status": resp.status_code}
+
+
+# ---------- расходы ----------
+
+@app.get("/spend")
+async def spend():
+    """Локальные токены (бесплатно, для статистики) и облачные по агентам за день/месяц."""
+    return {
+        "by_agent_day": await db.fetch(
+            """SELECT agent, is_cloud, sum(prompt_tokens+completion_tokens) AS tokens
+               FROM model_calls WHERE created_at > now() - interval '1 day'
+               GROUP BY agent, is_cloud ORDER BY agent"""),
+        "by_agent_month": await db.fetch(
+            """SELECT agent, is_cloud, sum(prompt_tokens+completion_tokens) AS tokens
+               FROM model_calls WHERE created_at > now() - interval '30 days'
+               GROUP BY agent, is_cloud ORDER BY agent"""),
+        "cloud_calls_month": await db.fetchval(
+            "SELECT count(*) FROM cloud_calls WHERE created_at > now() - interval '30 days'"),
+        "projects": await db.fetch(
+            "SELECT slug, spent, budget_limit FROM projects ORDER BY updated_at DESC LIMIT 20"),
+    }
+
+
+# ---------- изменения (лента действий агентов; коммиты/PR — из ATLAS поверх) ----------
+
+@app.get("/changes")
+async def changes(limit: int = 100):
+    return await db.fetch(
+        """SELECT agent, tool, args, status, approved_by, created_at
+           FROM tool_calls ORDER BY id DESC LIMIT $1""", limit)
+
+
+# ---------- проекты ----------
+
+class ProjectIn(BaseModel):
+    slug: str
+    title: str
+    brief: str
+    budget_limit: float | None = None
+
+
+async def _project(slug_or_id: str) -> dict:
+    row = await db.fetchrow("SELECT * FROM projects WHERE slug=$1 OR id::text=$1", slug_or_id)
+    if not row:
+        raise HTTPException(404, f"нет проекта {slug_or_id}")
+    return row
+
+
+@app.post("/projects")
+async def create_project(body: ProjectIn):
+    """brief → план и оценка. План уходит на утверждение до любых трат."""
+    await db.execute(
+        """INSERT INTO projects (slug, title, brief, budget_limit) VALUES ($1,$2,$3,$4)
+           ON CONFLICT (slug) DO UPDATE SET brief=excluded.brief, updated_at=now()""",
+        body.slug, body.title, body.brief, body.budget_limit)
+    _spawn(_plan_and_register(body.slug, body.brief))
+    events.emit("project.updated", slug=body.slug, status="draft")
+    return {"slug": body.slug, "status": "planning"}
+
+
+async def _plan_and_register(slug: str, brief: str) -> None:
+    try:
+        await plan_project(slug, brief)
+        from .projects.plan import load_plan
+        plan = load_plan(slug)
+        row = await db.fetchrow("SELECT id FROM projects WHERE slug=$1", slug)
+        for t in plan.tasks:
+            await db.execute(
+                """INSERT INTO project_tasks (project_id, stage, name, tool, params)
+                   VALUES ($1,$2,$3,$4,$5)""", row["id"], t.stage, t.name, t.tool, t.params)
+        events.emit("project.updated", slug=slug, status="awaiting_approval")
+    except Exception as exc:
+        await db.execute("UPDATE projects SET status='failed' WHERE slug=$1", slug)
+        events.emit("project.updated", slug=slug, status="failed", reason=str(exc))
+
+
+@app.get("/projects")
+async def list_projects():
+    return await db.fetch("SELECT * FROM projects ORDER BY updated_at DESC")
+
+
+@app.post("/projects/{slug}/approve")
+async def approve_project(slug: str):
+    row = await _project(slug)
+    await db.execute("UPDATE projects SET status='approved', updated_at=now() WHERE id=$1", row["id"])
+    events.emit("project.updated", slug=row["slug"], status="approved")
+    return {"slug": row["slug"], "status": "approved"}
+
+
+@app.post("/projects/{slug}/run")
+async def run_project_ep(slug: str):
+    row = await _project(slug)
+    if row["status"] not in ("approved", "paused", "preview_gate", "running", "failed"):
+        raise HTTPException(409, f"проект в статусе {row['status']} — сначала approve")
+    st = State(row["slug"])
+    st.data["status"] = "running"
+    st.save()
+    _spawn(run_project(row["slug"]))
+    return {"slug": row["slug"], "status": "running"}
+
+
+@app.post("/projects/{slug}/pause")
+async def pause_project(slug: str):
+    row = await _project(slug)
+    st = State(row["slug"])
+    st.data["status"] = "paused"
+    st.save()
+    await db.execute("UPDATE projects SET status='paused', updated_at=now() WHERE id=$1", row["id"])
+    events.emit("project.updated", slug=row["slug"], status="paused")
+    return {"slug": row["slug"], "status": "paused"}
+
+
+@app.get("/projects/{slug}/state")
+async def project_state(slug: str):
+    row = await _project(slug)
+    st = State(row["slug"])
+    tasks = await db.fetch(
+        "SELECT stage, name, tool, status, attempts, cost FROM project_tasks WHERE project_id=$1 ORDER BY id",
+        row["id"])
+    return {"project": row, "state": st.data, "tasks": tasks}
+
+
+@app.get("/projects/{slug}/journal")
+async def project_journal(slug: str, lines: int = 100):
+    row = await _project(slug)
+    return {"journal": journal_tail(row["slug"], lines)}
+
+
+@app.post("/projects/{slug}/tasks/{tid}/retry")
+async def retry_project_task(slug: str, tid: str):
+    """«Пересобрать этап/задачу»: сбросить в state.json и запустить заново."""
+    row = await _project(slug)
+    st = State(row["slug"])
+    if tid not in st.data["tasks"]:
+        raise HTTPException(404, f"нет задачи {tid} в state.json")
+    st.data["tasks"][tid]["status"] = "pending"
+    st.save()
+    _spawn(run_project(row["slug"]))
+    return {"slug": row["slug"], "task": tid, "status": "pending"}
+
+
+# ---------- UI ----------
+
+UI_DIR = Path(ROOT) / "ui"
+if UI_DIR.exists():
+    app.mount("/ui", StaticFiles(directory=UI_DIR, html=True), name="ui")
+
+    @app.get("/")
+    async def index():
+        return FileResponse(UI_DIR / "index.html")
+
+
+def main() -> None:
+    import uvicorn
+    uvicorn.run(app, host=settings.host, port=settings.port)
+
+
+if __name__ == "__main__":
+    main()
