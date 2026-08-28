@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
-from .chunking import tokenize
+# Токенизатор берём у владельца лексики — `local_index`. Раньше он приезжал из
+# `chunking.py`, где лежала его побайтная копия: запрос переранжировался одним
+# токенизатором, а индекс строился другим.
+from .local_index import tokenize
 from .memsearch_bridge import MemoryHit
 
 

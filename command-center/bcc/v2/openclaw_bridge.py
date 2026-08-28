@@ -12,16 +12,22 @@ BOSSMAN остаётся control plane, OpenClaw — движок каналов
    конкретный контакт. OpenClaw впервые даёт BOSSMAN возможность писать живым
    людям, а `node.invoke` добавляет к этому `sms.send`. Ночная миссия,
    написавшая клиенту, не чинится откатом.
-2. **`idempotencyKey` с первого вызова.** Выводится из `mission_id + run_id +
-   call_id` — наших идентификаторов, а не случайных. Иначе наш собственный
-   ретрай после сбоя станет вторым сообщением человеку. У OpenClaw поле
-   обязательное для методов с побочным эффектом (док протокола: «Side-effecting
-   methods require idempotency keys»).
+2. **`idempotencyKey` с первого вызова.** Для всего, что видит человек, ключ
+   выводится из `mission_id + run_id + payload` — содержимого отправки, а не
+   из `call_id`: `call_id` выдаёт провайдер модели, и наш собственный повтор
+   после сбоя получает НОВЫЙ id (подробности — в `idempotency_key`). У OpenClaw
+   поле обязательное для методов с побочным эффектом (док протокола:
+   «Side-effecting methods require idempotency keys»).
 3. **Память.** У OpenClaw своя долговременная память: `memory-core` включён по
    умолчанию, LanceDB-плагин с auto-capture, `memory-wiki` с режимом `obsidian`
-   и скиллом, который правит vault. Мост **проверяет конфигурацию при
-   подключении** и отказывается работать, если их вики смотрит в наше
+   и скиллом, который правит vault. Мост проверяет конфигурацию **на боевом
+   пути `_open`** и отказывается работать, если их память смотрит в наше
    хранилище: два писателя в одни заметки — потеря данных, а не «расхождение».
+   Не удалось прочитать их конфигурацию — тоже отказ (`OpenClawMemoryUnverified`):
+   непроверенное условие не считается выполненным.
+
+   Решение о том, кто вообще пишет в память, зафиксировано отдельно:
+   `docs/architecture/MEMORY_SINGLE_WRITER.md`. Коротко: пишет только BOSSMAN.
 
 Чего в V1 НЕТ намеренно: `node.invoke` (камера, экран, геолокация, SMS),
 `exec.*`, `config.*`, `skills.proposals.*`, доступ к vault. Расширять
@@ -32,6 +38,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -76,6 +83,9 @@ CONNECT_TIMEOUT = 10.0
 HEALTH_TIMEOUT = 5.0
 SEND_TIMEOUT = 30.0
 DEFAULT_TIMEOUT = 15.0
+# Как часто перепроверять их конфигурацию памяти на живом соединении.
+# Проверки только при подключении мало: конфигурацию могут поменять после него.
+MEMORY_RECHECK_SECONDS = 300.0
 
 
 class OpenClawUnavailable(RuntimeError):
@@ -90,18 +100,49 @@ class OpenClawMemoryConflict(RuntimeError):
     """Их память настроена на наше хранилище. Это условие 3 из §13."""
 
 
+class OpenClawMemoryUnverified(OpenClawMemoryConflict):
+    """Конфигурацию прочитать не удалось — значит гарантии нет.
+
+    Раньше этот случай глотался и мост шёл дальше вслепую. Цена ошибки
+    несимметрична: отказ подключиться владелец чинит за минуту, а перезатёртые
+    заметки не чинятся ничем. Подвид `OpenClawMemoryConflict`, чтобы прежние
+    обработчики продолжали ловить оба случая одним `except`.
+    """
+
+
 class OpenClawForbidden(RuntimeError):
     """Метод вне контракта V1."""
 
 
-def idempotency_key(*, mission_id: Any, run_id: Any, call_id: Any) -> str:
+def idempotency_key(*, mission_id: Any, run_id: Any, call_id: Any = None,
+                    payload: Any = None) -> str:
     """Ключ из НАШИХ идентификаторов, а не случайный.
 
     Случайный ключ не защищает ни от чего: при повторе он будет другим, и
     сообщение уйдёт дважды. Смысл ключа именно в том, что повтор одного и того
     же нашего действия даёт то же значение.
+
+    ВАЖНО про `call_id`. Он приходит из ответа провайдера модели
+    (`bcc/engine.py`: `call_id=str(call.id)`) и НЕ переживает наш собственный
+    повтор. Сценарий: процесс умер после отправки, но до `_save_checkpoint`;
+    `recover()` вернул run в очередь с прошлым checkpoint'ом; модель повторила
+    вызов — и провайдер выдал новый `tool_calls[].id`. Ключ другой, OpenClaw
+    видит новую операцию, человек получает второе сообщение.
+
+    Поэтому для всего, что видит человек, ключ выводится из `payload` —
+    содержимого отправки (канал, получатель, текст). `call_id` при этом
+    игнорируется: он не различает повтор и новое действие, а `payload`
+    различает. Осознанная плата: два намеренно одинаковых сообщения одному
+    адресату в рамках одного run'а схлопнутся в одно. Для человека это лучше,
+    чем дубль, и всегда исправимо новым run'ом.
     """
-    raw = f"{mission_id or 'none'}:{run_id or 'none'}:{call_id or 'none'}"
+    if payload is not None:
+        digest = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, ensure_ascii=False,
+                       default=str).encode()).hexdigest()
+        raw = f"{mission_id or 'none'}:{run_id or 'none'}:payload:{digest}"
+    else:
+        raw = f"{mission_id or 'none'}:{run_id or 'none'}:{call_id or 'none'}"
     return "bossman-" + hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
@@ -112,15 +153,66 @@ def traceparent(*, run_id: Any) -> str:
     return f"00-{trace}-{span}-01"
 
 
+def _looks_like_path(value: str) -> bool:
+    """Отсеять строки, которые путями не являются вовсе.
+
+    Без этого `abspath("telegram")` превратил бы название канала в путь
+    относительно текущего каталога — и мы ловили бы призраков.
+    """
+    value = value.strip()
+    if not value:
+        return False
+    seps = [os.sep] + ([os.altsep] if os.altsep else [])
+    return value.startswith("~") or any(sep in value for sep in seps)
+
+
+def _path_forms(value: str) -> set[str]:
+    """Все формы одного каталога, по которым имеет смысл сравнивать.
+
+    Сравнение строк не видит, что это один и тот же каталог:
+      * `~/Obsidian/BOSSMAN` и `/home/user/Obsidian/BOSSMAN`;
+      * относительный путь и абсолютный;
+      * `//двойные//слэши`, хвостовой слэш, `..` в середине;
+      * символическая ссылка и её цель — разные строки, один inode.
+
+    Регистр приводим к нижнему намеренно: на регистронезависимой ФС (macOS,
+    Windows) `/Vault` и `/vault` — один каталог, а лишнее срабатывание здесь
+    безопасно (мы откажемся подключаться), пропуск — нет.
+    """
+    raw = os.path.expandvars(os.path.expanduser(str(value).strip()))
+    if not raw:
+        return set()
+    literal = os.path.normpath(os.path.abspath(raw))
+    try:
+        resolved = os.path.realpath(literal)      # снимает симлинки и монтирования
+    except OSError:
+        resolved = literal
+    return {p.rstrip(os.sep).lower() or os.sep for p in (literal, resolved)}
+
+
+def _same_or_nested(theirs: set[str], ours: set[str]) -> bool:
+    """Один каталог, их внутри нашего или наш внутри их — всё это конфликт."""
+    for t in theirs:
+        for o in ours:
+            if t == o or t.startswith(o + os.sep) or o.startswith(t + os.sep):
+                return True
+    return False
+
+
 def memory_conflict(config: dict[str, Any], our_vault: str) -> str:
-    """Смотрит ли их вики в наше хранилище. Пустая строка — конфликта нет.
+    """Смотрит ли их память в наше хранилище. Пустая строка — конфликта нет.
 
     Проверяем ПУТЬ, а не название режима: `memory-wiki` в режиме `obsidian`
     сам по себе не опасен, опасно совпадение каталога.
+
+    Обходим конфигурацию ЦЕЛИКОМ, а не три знакомых ключа: путь до vault'а
+    может лежать под `agents.*.workspace`, в списке плагинов или в ключе,
+    которого в их схеме ещё не было, когда писался этот код. Списки тоже
+    обходим — раньше `plugins: [{vault: ...}]` проходил мимо проверки.
     """
     if not our_vault:
         return ""
-    ours = str(our_vault).rstrip("/").lower()
+    ours = _path_forms(our_vault)
     if not ours:
         return ""
     suspects: list[tuple[str, str]] = []
@@ -129,14 +221,14 @@ def memory_conflict(config: dict[str, Any], our_vault: str) -> str:
         if isinstance(node, dict):
             for key, value in node.items():
                 walk(value, f"{path}.{key}" if path else str(key))
-        elif isinstance(node, str) and node:
-            low = node.rstrip("/").lower()
-            if low == ours or low.startswith(ours + "/") or ours.startswith(low + "/"):
-                suspects.append((path, node))
+        elif isinstance(node, (list, tuple)):
+            for i, value in enumerate(node):
+                walk(value, f"{path}[{i}]")
+        elif isinstance(node, str) and _looks_like_path(node):
+            if _same_or_nested(_path_forms(node), ours):
+                suspects.append((path or "config", node))
 
-    walk(config.get("memory") or {}, "memory")
-    walk(config.get("plugins") or {}, "plugins")
-    walk(config.get("wiki") or {}, "wiki")
+    walk(config, "")
     if suspects:
         where = ", ".join(f"{p}={v}" for p, v in suspects[:3])
         return (f"память OpenClaw настроена на наше хранилище ({where}). "
@@ -195,6 +287,9 @@ class OpenClawBridge:
     server_version: str = ""
     protocol: int = 0
     methods: tuple[str, ...] = ()
+    # Когда в последний раз проверяли их конфигурацию памяти (монотонные часы
+    # цикла событий). 0 — не проверяли: следующий вызов проверит обязательно.
+    _memory_checked_at: float = 0.0
 
     # ---------------------------------------------------------------- соединение
 
@@ -230,6 +325,13 @@ class OpenClawBridge:
 
         try:
             await self._handshake(ws)
+            # Условие 3 §13 живёт ЗДЕСЬ, на боевом пути. Раньше `_check_memory`
+            # существовал, был покрыт тестами — и не вызывался ниоткуда:
+            # `_open` звал только `_handshake`. Тесты дёргали проверку руками и
+            # поэтому были зелёными, а в бою мост подключался к чужой памяти
+            # молча. Новое соединение — новая проверка, без исключений.
+            self._memory_checked_at = 0.0
+            await self._check_memory(ws)
         except Exception:
             await ws.close()
             self._ws = None
@@ -275,19 +377,36 @@ class OpenClawBridge:
                 f"не выданы права {', '.join(missing)}; получено: {', '.join(granted)}")
 
     async def _check_memory(self, ws: Any) -> None:
-        """Условие 3: их память не должна смотреть в наше хранилище."""
+        """Условие 3: их память не должна смотреть в наше хранилище.
+
+        Перепроверяем не только при подключении: конфигурацию OpenClaw могут
+        поменять и ПОСЛЕ него, а соединение у нас долгоживущее. Полностью окно
+        так не закрыть — но оно становится ограниченным
+        `MEMORY_RECHECK_SECONDS`, а не «до следующего перезапуска».
+        """
         if not self.config.vault_root:
+            return                      # защищать нечего — и спрашивать нечего
+        now = asyncio.get_running_loop().time()
+        if self._memory_checked_at and now - self._memory_checked_at < MEMORY_RECHECK_SECONDS:
             return
         try:
             cfg = await self._exchange(ws, "config.get", {}, timeout=DEFAULT_TIMEOUT)
-        except Exception:
-            # Нет прав на чтение конфига — не повод пускать вслепую, но и не
-            # повод падать: сообщаем честно и продолжаем без гарантии.
-            return
+        except Exception as exc:
+            # Молчаливое «продолжаем вслепую» здесь было бы худшим из решений:
+            # владелец считал бы условие 3 выполненным, а оно не проверено.
+            # Отказ несравнимо дешевле: подключение чинится за минуту, а
+            # перезатёртые заметки не восстанавливаются ничем.
+            raise OpenClawMemoryUnverified(
+                f"не удалось прочитать конфигурацию OpenClaw "
+                f"({type(exc).__name__}: {exc}) — ГАРАНТИИ НЕТ, что их память "
+                f"не пишет в {self.config.vault_root}. Мост не подключается. "
+                f"Выдайте токен с правом `config.get` либо уберите `vault_root` "
+                f"из настроек моста, если защищать нечего.") from exc
         reason = memory_conflict(cfg if isinstance(cfg, dict) else {},
                                 self.config.vault_root)
         if reason:
             raise OpenClawMemoryConflict(reason)
+        self._memory_checked_at = now
 
     # ---------------------------------------------------------------- кадры
 
@@ -338,6 +457,9 @@ class OpenClawBridge:
 
         async with self._lock:
             ws = await self._open()
+            # Соединение живёт долго, их конфигурацию могли поменять после
+            # подключения. Проверка сама себя троттлит (MEMORY_RECHECK_SECONDS).
+            await self._check_memory(ws)
             extra: dict[str, Any] = {"traceparent": traceparent(run_id=run_id)}
             body = dict(params or {})
             if idem:
@@ -367,6 +489,6 @@ class OpenClawBridge:
 __all__ = [
     "CLIENT_ID", "REQUIRED_SCOPES", "V1_METHODS", "NEVER_PROXY",
     "OpenClawBridge", "OpenClawConfig", "OpenClawUnavailable", "OpenClawScopeError",
-    "OpenClawMemoryConflict", "OpenClawForbidden",
-    "idempotency_key", "traceparent", "memory_conflict",
+    "OpenClawMemoryConflict", "OpenClawMemoryUnverified", "OpenClawForbidden",
+    "idempotency_key", "traceparent", "memory_conflict", "MEMORY_RECHECK_SECONDS",
 ]

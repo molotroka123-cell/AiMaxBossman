@@ -1,10 +1,12 @@
 from .obsidian import ObsidianVault
 from .memsearch_bridge import MemSearchBridge, MemoryHit, MemSearchUnavailable
-from .reranker import LocalCrossEncoderReranker, RerankerUnavailable
+# Переранжирование — одна ответственность и один владелец: `reranker.py`.
+# `LexicalReranker` раньше был и тут, и в `local_index.py`; экспортировалась
+# копия из `local_index`, а вторая реализация была недостижима.
+from .reranker import LexicalReranker, LocalCrossEncoderReranker, RerankerUnavailable
 from .context_pack import ContextPack, ContextItem, build_context_pack, estimate_tokens
 from .local_index import (
     DenseUnavailable,
-    LexicalReranker,
     LocalMemoryBackend,
     chunk_markdown,
     load_dense_encoder,

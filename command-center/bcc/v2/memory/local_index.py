@@ -421,26 +421,12 @@ class LocalMemoryBackend:
         return await asyncio.to_thread(self.stats_sync)
 
 
-class LexicalReranker:
-    """Дешёвый переранжировщик без моделей: пересечение термов запроса +
-    покрытие + бонус за совпадение в заголовке. Нужен, потому что
-    cross-encoder (`LocalCrossEncoderReranker`) требует sentence-transformers,
-    которых здесь нет. Работает всегда, деградации не требует."""
-
-    def rerank(self, query: str, hits, *, top_k: int = 8):
-        q = set(tokenize(query))
-        if not q:
-            return list(hits)[:top_k]
-        scored = []
-        for h in hits:
-            body = set(tokenize(h.content))
-            head = set(tokenize(h.heading)) | set(tokenize(Path(h.source).stem))
-            coverage = len(q & body) / len(q)
-            head_hit = len(q & head) / len(q)
-            scored.append((coverage * 2.0 + head_hit * 1.5 + h.score * 0.05, h))
-        scored.sort(key=lambda x: x[0], reverse=True)
-        out = []
-        for score, hit in scored[:top_k]:
-            hit.score = round(float(score), 4)
-            out.append(hit)
-        return out
+# `LexicalReranker` жил ЗДЕСЬ и ОДНОВРЕМЕННО в `reranker.py` — два класса с
+# одним именем и разными формулами. Экспортировался (через `memory/__init__`, а
+# значит и в `tools_memory.py`) старый, с зашитыми константами; более новый, с
+# весами-полями и заготовкой под dense-смешивание, не доставался никому. Правка
+# весов «в переранжировщике» не дошла бы до боя вообще.
+#
+# Владелец переранжирования — `reranker.py`, модуль, названный по этой
+# ответственности. Поведение по умолчанию то же: веса 2.0 / 1.5 / 0.05 и
+# dense_weight=0 дают ровно прежнюю формулу.
