@@ -25,7 +25,7 @@ from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
 from ..v2.browser_control import (AmbiguousSelector, BrowserApprovalRequired, BrowserPolicy,
                                   BrowserPolicyDenied, BrowserTakeoverActive, BrowserUnavailable,
-                                  StaleElementReference, redact_secrets)
+                                  CaptchaBlocked, StaleElementReference, redact_secrets)
 from ..v2.tables import browser_sessions as bs_t
 from . import Feature
 
@@ -93,14 +93,25 @@ def _render(snapshot: dict) -> ToolResult:
                      + (f" type={el.get('type')}" if el.get("type") else "")
                      + (f" name={el.get('name')}" if el.get("name") else "")
                      + f"> {label}".rstrip())
-    if snapshot.get("takeover"):
+    captcha = snapshot.get("captcha") or {}
+    if captcha.get("present"):
+        lines.append(f"\nНА СТРАНИЦЕ КАПЧА ({captcha.get('provider')}). "
+                     f"Решать её нельзя — это контроль доступа владельца сайта, "
+                     f"и обходить его запрещено. Сессия передана человеку "
+                     f"(Take Over): попросите владельца пройти проверку и нажать "
+                     f"Resume, после чего перечитайте DOM. Другого пути нет — "
+                     f"перезагрузка страницы и повторные попытки не помогут.")
+    elif snapshot.get("takeover"):
         lines.append("\nВНИМАНИЕ: за браузером сейчас человек (Take Over) — "
                      "действия агента отклоняются.")
     return ToolResult(content="\n".join(lines),
                       one_line=f"browser: {snapshot.get('url')}",
                       truncated=truncated,
                       more="browser.read_dom с уточняющим запросом" if truncated else "",
-                      data={"session_id": snapshot.get("session_id"), "url": snapshot.get("url")},
+                      data={"session_id": snapshot.get("session_id"),
+                            "url": snapshot.get("url"),
+                            "captcha": captcha,
+                            "needs_human": bool(captcha.get("present"))},
                       external=True)
 
 
@@ -133,6 +144,15 @@ async def _act(ctx, args: dict, action: str, run) -> ToolResult:
     except BrowserApprovalRequired:
         return ToolResult(content="политика сессии требует подтверждения человека",
                           one_line=f"browser.{action}: ask", error=True)
+    except CaptchaBlocked as exc:
+        return ToolResult(
+            content=f"{exc}. Действие не выполнено. Капчу решать нельзя — это "
+                    f"контроль доступа владельца сайта. Сообщите владельцу, что "
+                    f"нужна ручная проверка: он пройдёт её сам, после чего "
+                    f"перечитайте страницу через browser.read_dom. Повторные "
+                    f"попытки, перезагрузка и обход не помогут и не разрешены.",
+            one_line=f"browser.{action}: капча, нужен человек", error=True,
+            data={"captcha_provider": exc.provider, "needs_human": True})
     except StaleElementReference as exc:
         # Ключевое: НИЧЕГО не нажато. Соседний элемент не трогаем.
         return ToolResult(content=f"{exc}. Действие не выполнено — ни один элемент не нажат. "

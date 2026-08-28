@@ -137,6 +137,18 @@ class BrowserPolicy:
         return self.rules.get(action, "ask")
 
 
+class CaptchaBlocked(RuntimeError):
+    """На странице капча — действия агента остановлены до человека.
+
+    Отдельное исключение, а не takeover: ЧТЕНИЕ страницы остаётся доступным,
+    иначе модель не смогла бы узнать саму причину остановки и билась бы вслепую.
+    """
+
+    def __init__(self, provider: str):
+        super().__init__(f"на странице капча ({provider}) — нужен человек")
+        self.provider = provider
+
+
 class StaleElementReference(RuntimeError):
     """Ссылка указывает не на тот элемент, что видела модель.
 
@@ -177,6 +189,8 @@ class BrowserRuntimeSession:
     # Секреты, которые рантайм подставлял в эту сессию. Никогда не уходят
     # модели: используются только для вычищения их из видимого ей текста.
     secrets: set[str] = field(default_factory=set)
+    # Обнаруженная капча. Агент её не решает — она передаётся человеку.
+    captcha: dict[str, Any] = field(default_factory=dict)
 
 
 def redact_secrets(value: Any, secrets: set[str]) -> Any:
@@ -198,6 +212,48 @@ def redact_secrets(value: Any, secrets: set[str]) -> Any:
     if isinstance(value, list):
         return [redact_secrets(v, secrets) for v in value]
     return value
+
+
+# Признаки капчи на странице. Мы её НЕ решаем: капча — это осознанно
+# поставленный владельцем сайта контроль доступа, и обходить его агент не
+# должен. Но и молча биться о неё до таймаута он тоже не должен: правильное
+# поведение — распознать, остановиться и позвать человека (Take Over).
+CAPTCHA_MARKERS = [
+    ("recaptcha", "Google reCAPTCHA"),
+    ("g-recaptcha", "Google reCAPTCHA"),
+    ("hcaptcha", "hCaptcha"),
+    ("h-captcha", "hCaptcha"),
+    ("cf-turnstile", "Cloudflare Turnstile"),
+    ("challenges.cloudflare.com", "Cloudflare Challenge"),
+    ("funcaptcha", "Arkose FunCaptcha"),
+    ("arkoselabs", "Arkose FunCaptcha"),
+    ("geetest", "GeeTest"),
+]
+# Текстовые маркеры — последняя линия: самописная капча без известного провайдера.
+CAPTCHA_TEXT = [
+    ("i'm not a robot", "проверка «я не робот»"),
+    ("я не робот", "проверка «я не робот»"),
+    ("nejsem robot", "проверка «я не робот» (cs)"),
+    ("verify you are human", "проверка «вы человек»"),
+    ("enter the characters", "ввод символов с картинки"),
+    ("введите символы", "ввод символов с картинки"),
+    ("opište kód", "ввод символов с картинки (cs)"),
+]
+
+
+def detect_captcha(html: str, text: str) -> dict[str, Any]:
+    """Есть ли на странице капча и какая. Ничего не решает и не обходит."""
+    low_html = (html or "").lower()
+    for marker, name in CAPTCHA_MARKERS:
+        if marker in low_html:
+            return {"present": True, "provider": name, "matched": marker,
+                    "evidence": "разметка страницы"}
+    low_text = (text or "").lower()
+    for marker, name in CAPTCHA_TEXT:
+        if marker in low_text:
+            return {"present": True, "provider": name, "matched": marker,
+                    "evidence": "текст страницы"}
+    return {"present": False}
 
 
 def _fingerprint(item: dict[str, Any]) -> str:
@@ -327,6 +383,10 @@ class BrowserManager:
             raise BrowserPolicyDenied(action, "Browser session paused")
         if sess.takeover and actor != "human":
             raise BrowserTakeoverActive("Human takeover active")
+        if (sess.captcha.get("present") and actor != "human"
+                and action not in READ_ACTIONS | NAV_ACTIONS):
+            # Читать и уходить со страницы можно, взаимодействовать — нет.
+            raise CaptchaBlocked(str(sess.captcha.get("provider") or "неизвестная"))
         decision = sess.policy.decision(action, url=url or sess.page.url)
         if decision == "deny":
             raise BrowserPolicyDenied(action)
@@ -355,6 +415,7 @@ class BrowserManager:
         sess = self._session(session_id)
         sess.paused = False
         sess.takeover = False
+        sess.captcha = {}
         return await self.status(session_id)
 
     async def takeover(self, session_id: int) -> dict[str, Any]:
@@ -525,6 +586,13 @@ class BrowserManager:
              "generation": generation},
         )
         interactive = data.get("interactive") or []
+        # Капча: распознаём и зовём человека. Автоматически не решаем — см.
+        # CAPTCHA_MARKERS. Дальнейшие действия агента блокируются takeover'ом,
+        # чтобы он не «дожимал» страницу вслепую и не тратил бюджет шагов.
+        captcha = detect_captcha(await page.content(), data.get("text") or "")
+        # Метка живёт ровно пока капча на странице: человек её прошёл — следующий
+        # снимок снимет блокировку сам, без ручного Resume.
+        sess.captcha = captcha if captcha["present"] else {}
         # Отпечаток элемента: по нему при действии проверяется, что под ссылкой
         # тот же элемент, а не сосед, занявший его место после перерисовки.
         sess.refs = {
@@ -545,4 +613,5 @@ class BrowserManager:
             "takeover": sess.takeover,
             "paused": sess.paused,
             "mode": sess.policy.mode,
+            "captcha": captcha,
         }, sess.secrets)

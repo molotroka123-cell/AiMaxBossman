@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import threading
+from pathlib import Path
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import pytest
@@ -64,6 +65,8 @@ def site(tmp_path):
     (root / "login.html").write_text(LOGIN_PAGE, encoding="utf-8")
     (root / "twin.html").write_text(TWIN_PAGE, encoding="utf-8")
     (root / "mutating.html").write_text(MUTATING_PAGE, encoding="utf-8")
+    (root / "captcha.html").write_text(CAPTCHA_PAGE, encoding="utf-8")
+    (root / "homemade.html").write_text(HOMEMADE_CAPTCHA_PAGE, encoding="utf-8")
     server = ThreadingHTTPServer(("127.0.0.1", 0),
                                  partial(SimpleHTTPRequestHandler, directory=str(root)))
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -204,3 +207,75 @@ async def test_ref_from_previous_snapshot_is_stale_even_if_element_survived(mgr,
         await mgr.click(sid, ref=old_ref, actor="agent", approved=True)
     snap = await mgr.snapshot(sid, actor="agent", approved=True)
     assert "ничего не нажато" in snap["text"]
+
+
+# ------------------------------------------------------------------ капча
+
+CAPTCHA_PAGE = """<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<title>Проверка</title></head><body>
+<h1>Подтвердите, что вы не робот</h1>
+<div class="g-recaptcha" data-sitekey="test"></div>
+<button id="go">Продолжить</button>
+</body></html>"""
+
+HOMEMADE_CAPTCHA_PAGE = """<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<title>Код</title></head><body>
+<p>Введите символы с картинки</p><input id="code"><button id="ok">Ок</button>
+</body></html>"""
+
+
+def test_captcha_detection_recognises_providers_and_ignores_normal_pages():
+    from bcc.v2.browser_control import detect_captcha
+    assert detect_captcha('<div class="g-recaptcha">', "")["provider"] == "Google reCAPTCHA"
+    assert detect_captcha('<div class="cf-turnstile">', "")["provider"] == "Cloudflare Turnstile"
+    assert detect_captcha("<div id=hcaptcha>", "")["provider"] == "hCaptcha"
+    # самописная капча без известного провайдера ловится по тексту
+    assert detect_captcha("<p>x</p>", "Введите символы с картинки")["present"] is True
+    # обычная страница — не капча; слово «robot» в тексте статьи не считается
+    assert detect_captcha("<p>О роботах в промышленности</p>",
+                          "Роботы на производстве")["present"] is False
+
+
+@pytestmark_browser
+async def test_captcha_stops_the_agent_and_hands_over_to_human(mgr, site, tmp_path):
+    """Капчу агент НЕ решает: он её распознаёт, останавливается и зовёт человека.
+
+    Проверяется, что после обнаружения действия агента реально отклоняются, а
+    не что он «постарался и не смог» — иначе он бился бы о страницу до таймаута.
+    """
+    from bcc.v2.browser_control import CaptchaBlocked
+
+    sid = await _session(mgr)
+    await mgr.navigate(sid, f"{site}/captcha.html", actor="agent", approved=True)
+    snap = await mgr.snapshot(sid, actor="agent", approved=True)
+
+    assert snap["captcha"]["present"] is True
+    assert snap["captcha"]["provider"] == "Google reCAPTCHA"
+
+    # ГЛАВНОЕ: агент не взаимодействует со страницей
+    with pytest.raises(CaptchaBlocked):
+        await mgr.click(sid, "#go", actor="agent", approved=True)
+    with pytest.raises(CaptchaBlocked):
+        await mgr.type_text(sid, "#go", "x", actor="agent", approved=True)
+
+    # но ЧИТАТЬ может — иначе он не узнал бы причину остановки
+    again = await mgr.snapshot(sid, actor="agent", approved=True)
+    assert again["captcha"]["present"] is True
+
+    # человек прошёл проверку → страница сменилась → блокировка снимается сама
+    await mgr.navigate(sid, f"{site}/twin.html", actor="agent", approved=True)
+    after = await mgr.snapshot(sid, actor="agent", approved=True)
+    assert after["captcha"]["present"] is False
+    ref = [el for el in after["interactive"] if el.get("tag") == "button"][0]["ref"]
+    await mgr.click(sid, ref=ref, actor="agent", approved=True)
+
+
+@pytestmark_browser
+async def test_page_without_captcha_is_not_taken_over(mgr, site):
+    """Ложное срабатывание дороже пропуска: обычная страница не блокируется."""
+    sid = await _session(mgr)
+    await mgr.navigate(sid, f"{site}/twin.html", actor="agent", approved=True)
+    snap = await mgr.snapshot(sid, actor="agent", approved=True)
+    assert snap["captcha"]["present"] is False
+    ref = [el for el in snap["interactive"] if el.get("tag") == "button"][0]["ref"]
+    await mgr.click(sid, ref=ref, actor="agent", approved=True)   # работает как обычно
