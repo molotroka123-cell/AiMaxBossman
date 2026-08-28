@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import httpx
+from urllib.parse import urlparse
 
 CHAT_TIMEOUT = 600.0     # локальная модель на CPU думает долго
 HEALTH_TIMEOUT = 6.0     # проверка доступности должна быть быстрой
@@ -87,6 +88,30 @@ class ProviderAdapter(Protocol):
     async def list_models(self) -> list[str]: ...
 
 
+def is_local_url(url: str) -> bool:
+    """Адрес на этой же машине или в локальной сети.
+
+    Список намеренно широкий: `localhost`, петля, `.local`, приватные диапазоны
+    RFC1918 и `host.docker.internal`. Ошибиться в сторону «не проксировать»
+    безопасно — прокси для локального адреса не нужен никогда.
+    """
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except Exception:
+        return False
+    if not host:
+        return False
+    if host in ("localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal"):
+        return True
+    if host.endswith(".local") or host.endswith(".localhost"):
+        return True
+    try:
+        import ipaddress
+        return ipaddress.ip_address(host).is_private
+    except ValueError:
+        return False
+
+
 @dataclass
 class _BaseAdapter:
     base_url: str = ""
@@ -100,7 +125,13 @@ class _BaseAdapter:
         self.base_url = (self.base_url or self.default_base).rstrip("/")
 
     def _client(self, timeout: float) -> httpx.AsyncClient:
-        return httpx.AsyncClient(timeout=timeout, transport=self.transport)
+        # Локальный адрес НИКОГДА не ходит через прокси. httpx по умолчанию
+        # читает HTTP_PROXY/HTTPS_PROXY/ALL_PROXY из окружения, и запрос к
+        # 127.0.0.1:11434 уходил бы на прокси, который про этот адрес ничего не
+        # знает: соединение висит до таймаута, а пользователь видит «локальная
+        # модель не отвечает» при работающей модели. Диагноз получается ложный.
+        return httpx.AsyncClient(timeout=timeout, transport=self.transport,
+                                 trust_env=not is_local_url(self.base_url))
 
     async def _request(self, method: str, url: str, *, timeout: float,
                        headers: dict | None = None, json: dict | None = None) -> httpx.Response:

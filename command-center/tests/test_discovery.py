@@ -55,3 +55,43 @@ def test_scan_finds_gguf(tmp_path):
 
 def test_scan_missing_dir_is_empty():
     assert _scan_files(["/nonexistent/dir"]) == []
+
+
+# ---------------------------------------------------------------- прокси и localhost
+
+def test_local_urls_never_go_through_a_proxy():
+    """Дефект с боевой машины владельца: все локальные endpoint'ы показывали
+    «не ответил за 2.5 с» при работающей Ollama.
+
+    Причина: httpx по умолчанию читает HTTP_PROXY/HTTPS_PROXY из окружения, и
+    запрос к 127.0.0.1:11434 уходил на прокси, который про этот адрес ничего не
+    знает — соединение висит до таймаута. Диагноз выходил ложный: «модель не
+    отвечает» при полностью исправной модели.
+    """
+    from bcc.providers import OpenAICompatAdapter, is_local_url
+
+    for url in ("http://127.0.0.1:11434/v1", "http://localhost:1234/v1",
+                "http://192.168.1.50:8080/v1", "http://host.docker.internal:8080/v1",
+                "http://[::1]:8080/v1"):
+        assert is_local_url(url) is True, url
+        assert OpenAICompatAdapter(base_url=url)._client(2.0).trust_env is False, url
+
+    # внешние провайдеры прокси по-прежнему используют: в корпоративной сети
+    # без него до OpenRouter не достучаться
+    for url in ("https://openrouter.ai/api/v1", "https://api.anthropic.com"):
+        assert is_local_url(url) is False, url
+        assert OpenAICompatAdapter(base_url=url)._client(2.0).trust_env is True, url
+
+
+def test_local_probe_ignores_proxy_env(monkeypatch):
+    """Прокси в окружении не должен ломать обнаружение локальных моделей."""
+    from bcc.providers import OpenAICompatAdapter
+
+    monkeypatch.setenv("HTTP_PROXY", "http://proxy.invalid:3128")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.invalid:3128")
+    monkeypatch.setenv("ALL_PROXY", "http://proxy.invalid:3128")
+
+    local = OpenAICompatAdapter(base_url="http://127.0.0.1:11434/v1")._client(2.0)
+    assert local.trust_env is False       # к Ollama — напрямую
+    remote = OpenAICompatAdapter(base_url="https://openrouter.ai/api/v1")._client(2.0)
+    assert remote.trust_env is True       # наружу — через прокси, как настроено
