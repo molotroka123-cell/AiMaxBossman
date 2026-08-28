@@ -7,17 +7,21 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from datetime import timedelta
 from typing import Any
 
 import sqlalchemy as sa
 
-from .db import (Database, agents as agents_t, checkpoints as checkpoints_t, fetch_one,
-                 run_events as run_events_t, task_runs as runs_t, tasks as tasks_t, utcnow)
+from .db import (Database, agents as agents_t, approvals as approvals_t,
+                 checkpoints as checkpoints_t, fetch_one, run_events as run_events_t,
+                 task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
 from .events import EventBus
 from .providers import ChatResult, ProviderError
 from .registry import Registry
+from .tools import (REGISTRY as TOOLS, ToolContext, agent_policy_rules, allowed_tools_for,
+                    args_hash, decide_effect, execute_tool)
 
 ACTIVE_RUN_STATUSES = ("queued", "leased", "running")
 
@@ -49,6 +53,9 @@ class TaskEngine:
         self.hooks: dict[str, list] = {k: [] for k in (
             "pick_model", "before_run", "on_step", "gate_completion",
             "on_failure", "after_run")}
+        # Services проставляет себя после создания: инструментам нужен доступ к
+        # approvals/vault/менеджерам браузера и терминала (V2.1).
+        self.services: Any = None
 
     def add_hook(self, name: str, fn: Any) -> None:
         if name not in self.hooks:
@@ -242,7 +249,9 @@ class TaskEngine:
         return run_id
 
     async def recover(self) -> int:
-        """Crash recovery: протухшие leased/running → queued (attempt+1) либо failed."""
+        """Crash recovery: протухшие leased/running → queued (attempt+1) либо failed.
+        Заодно подбираем approvals, решённые пока процесс был мёртв."""
+        await self._resume_decided_approvals()
         now = utcnow()
         async with self.db.session() as s:
             res = await s.execute(
@@ -343,14 +352,33 @@ class TaskEngine:
         answer = ""
         alias = run.get("model_alias") or ""
 
+        # V2.1: инструменты, выданные этому run'у. Пусто — поведение как в V2
+        # (один вызов модели, без tools в payload).
+        tool_specs = TOOLS.resolve(allowed_tools_for(task, agent))
+        tool_schemas = [t.schema() for t in tool_specs] or None
+        policy_rules = agent_policy_rules(agent)
+
+        # Возобновление после подтверждения человеком: в checkpoint лежит
+        # незавершённый вызов инструмента.
+        pending = checkpoint.get("pending_tool_call")
+        if pending:
+            resumed = await self._resume_pending_tool(run_id, task, agent, messages,
+                                                      pending, policy_rules)
+            if resumed is False:
+                return                      # решение ещё не принято — run ждёт
+            checkpoint = dict(checkpoint)
+            checkpoint.pop("pending_tool_call", None)
+
         while step < max_steps:
             if await self._check_interrupt(run_id, task["id"], messages, step):
                 return
-            if messages and messages[-1]["role"] == "assistant":
+            if messages and messages[-1]["role"] == "assistant" \
+                    and not messages[-1].get("tool_calls"):
                 # финальный ответ уже есть (например, сохранён до паузы) — модель не дёргаем
                 break
             try:
-                result, model = await self._call_model(task, agent, messages, run_id)
+                result, model = await self._call_model(task, agent, messages, run_id,
+                                                       tools=tool_schemas)
             except ProviderError as exc:
                 await self._handle_failure(run_id, task, str(exc), messages, step)
                 return
@@ -363,6 +391,31 @@ class TaskEngine:
             tokens_in += result.tokens_in
             tokens_out += result.tokens_out
             cost += _cost(model, result)
+
+            if result.has_tool_calls:
+                messages.append(_assistant_tool_message(result))
+                await self._log(run_id, "info", "run.step",
+                                f"шаг {step}/{max_steps}: {alias} запросил инструменты: "
+                                + ", ".join(c.name for c in result.tool_calls))
+                await self.bus.emit("task.progress", task_id=task["id"], run_id=run_id,
+                                    step=step, max_steps=max_steps, model=alias,
+                                    tool_calls=[c.name for c in result.tool_calls])
+                waiting = await self._execute_tool_calls(
+                    run_id, task, agent, messages, result.tool_calls, step,
+                    policy_rules, tool_specs,
+                    usage={"tokens_in": tokens_in, "tokens_out": tokens_out,
+                           "cost_usd": round(cost, 6), "model_alias": alias})
+                if waiting:
+                    return                  # ждём человека: состояние в БД
+                await self._save_checkpoint(run_id, messages, step, note="tools",
+                                            tokens_in=tokens_in, tokens_out=tokens_out,
+                                            cost_usd=round(cost, 6), model_alias=alias)
+                cp_id = await self._insert_checkpoint(run_id, messages, step, note="tools")
+                await self._call_hooks("on_step", task, run_id,
+                                       {"messages": messages, "step": step,
+                                        "checkpoint_id": cp_id, "tools": True})
+                continue                    # результаты инструментов → следующий шаг модели
+
             answer = result.text
             messages.append({"role": "assistant", "content": answer})
             await self._save_checkpoint(run_id, messages, step, note="answer",
@@ -378,8 +431,6 @@ class TaskEngine:
             await self._call_hooks("on_step", task, run_id,
                                    {"messages": messages, "step": step,
                                     "checkpoint_id": cp_id})
-            # у MVP-агента нет инструментов: следующий виток увидит финальный ответ и выйдет;
-            # когда появятся tool-calls, здесь же добавится их выполнение и новый шаг
 
         if await self._check_interrupt(run_id, task["id"], messages, step):
             return
@@ -432,9 +483,14 @@ class TaskEngine:
                            model_alias=alias)
 
     async def _call_model(self, task: dict, agent: dict, messages: list[dict],
-                          run_id: int) -> tuple[ChatResult, dict]:
+                          run_id: int, *, tools: list[dict] | None = None
+                          ) -> tuple[ChatResult, dict]:
         """Вызов модели: сначала pick_model-хук (Smart Router) может перекрыть выбор;
-        при ошибке маршрута — модель агента; при её ошибке — fallback_model."""
+        при ошибке маршрута — модель агента; при её ошибке — fallback_model.
+        `tools` — схемы ТОЛЬКО выданных этому run'у инструментов."""
+        kw: dict[str, Any] = {"max_tokens": agent.get("max_tokens")}
+        if tools:
+            kw["tools"] = tools
         picked = next((r for r in await self._call_hooks("pick_model", task, agent) if r), None)
         if picked is not None:
             model_id = int(picked["model_id"] if isinstance(picked, dict) else picked)
@@ -445,8 +501,7 @@ class TaskEngine:
                     await s.commit()
             try:
                 adapter, model = await self.registry.adapter_for(model_id)
-                result = await adapter.chat(model["name"], messages,
-                                            max_tokens=agent.get("max_tokens"))
+                result = await adapter.chat(model["name"], messages, **kw)
                 return result, model
             except (ProviderError, LookupError) as exc:
                 await self._log(run_id, "warn", "router.fallback",
@@ -458,19 +513,303 @@ class TaskEngine:
         except (LookupError, TypeError):
             raise LookupError("у агента не задана рабочая модель")
         try:
-            return await adapter.chat(model["name"], messages,
-                                      max_tokens=agent.get("max_tokens")), model
+            return await adapter.chat(model["name"], messages, **kw), model
         except ProviderError as exc:
             if not agent.get("fallback_model_id"):
                 raise
             await self._log(run_id, "warn", "model.fallback",
                             f"модель {model['alias']} недоступна ({exc}) — пробуем fallback")
             fb_adapter, fb_model = await self.registry.adapter_for(int(agent["fallback_model_id"]))
-            result = await fb_adapter.chat(fb_model["name"], messages,
-                                           max_tokens=agent.get("max_tokens"))
+            result = await fb_adapter.chat(fb_model["name"], messages, **kw)
             await self.bus.emit("model.status", id=model["id"], alias=model["alias"],
                                 status="error", detail=str(exc))
             return result, fb_model
+
+    # ---------- инструменты (V2.1, фаза A) ----------
+
+    async def _execute_tool_calls(self, run_id: int, task: dict, agent: dict,
+                                  messages: list[dict], calls: list[Any], step: int,
+                                  policy_rules: list[dict], tool_specs: list[Any],
+                                  usage: dict) -> bool:
+        """Выполнить вызовы одного шага модели.
+
+        Возвращает True, если нужно ждать человека (ASK): состояние сохранено в
+        checkpoint, задача переведена в waiting_approval, воркер освобождён.
+        """
+        by_api = {t.api_name: t for t in tool_specs}
+        allowed_names = {t.name for t in tool_specs}
+        for index, call in enumerate(calls):
+            spec = by_api.get(call.name)
+            # выданные инструменты — единственный источник правды: выдуманное
+            # моделью имя или невыданный инструмент отклоняются всегда
+            if spec is None or spec.name not in allowed_names:
+                # инструмент не выдан этому агенту — отказ данными, run продолжается
+                await self._record_tool_call(run_id, task["id"], step, call, None,
+                                             effect="deny", status="denied",
+                                             preview="инструмент не выдан")
+                messages.append(_tool_message(call, f"инструмент {call.name} не выдан "
+                                                    f"этому агенту — отказ"))
+                await self._log(run_id, "warn", "tool.denied",
+                                f"{call.name}: инструмент не выдан агенту")
+                continue
+
+            effect, reason = decide_effect(spec, call.arguments, agent, policy_rules)
+            if effect == "deny":
+                await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                             effect="deny", status="denied", preview=reason)
+                messages.append(_tool_message(
+                    call, f"действие {spec.name} запрещено политикой ({reason}) — "
+                          f"не выполнять и не повторять"))
+                await self._log(run_id, "warn", "tool.denied", f"{spec.name}: {reason}")
+                await self.bus.emit("tool.denied", task_id=task["id"], run_id=run_id,
+                                    tool=spec.name, reason=reason)
+                continue
+
+            if effect == "ask":
+                appr = await self._approvals_create(
+                    kind="tool",
+                    preview=(f"Агент «{agent.get('name')}» хочет выполнить {spec.name}\n"
+                             f"причина политики: {reason}\nаргументы: "
+                             + json.dumps(call.arguments, ensure_ascii=False, indent=1)[:2000]),
+                    task_id=task["id"], run_id=run_id)
+                approval_id = (appr or {}).get("id")
+                await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                             effect="ask", status="pending_approval",
+                                             approval_id=approval_id, preview=reason)
+                await self._park_for_approval(
+                    run_id, task["id"], messages, step,
+                    pending={"call": _call_dict(call), "tool": spec.name,
+                             "approval_id": approval_id,
+                             "args_hash": args_hash(spec.name, call.arguments),
+                             "remaining": [_call_dict(c) for c in calls[index + 1:]],
+                             "step": step},
+                    usage=usage)
+                await self._log(run_id, "warn", "tool.ask",
+                                f"{spec.name}: нужно подтверждение ({reason})")
+                return True
+
+            await self._run_tool_now(run_id, task, agent, messages, call, spec, step)
+        return False
+
+    async def _run_tool_now(self, run_id: int, task: dict, agent: dict,
+                            messages: list[dict], call: Any, spec: Any, step: int,
+                            *, approval_id: int | None = None,
+                            approved_by: str | None = None) -> None:
+        """Выполнить инструмент и положить результат в историю как tool-сообщение."""
+        ctx = ToolContext(svc=self.services, task=task, run_id=run_id, agent=agent,
+                          step=step, workspace=str(task.get("workspace_path") or ""),
+                          call_id=str(call.id))
+        started = time.monotonic()
+        result = await execute_tool(spec, call.arguments, ctx)
+        duration = int((time.monotonic() - started) * 1000)
+        await self._record_tool_call(
+            run_id, task["id"], step, call, spec,
+            effect="auto" if approval_id is None else "ask",
+            status="error" if result.error else "executed",
+            approval_id=approval_id, approved_by=approved_by,
+            preview=result.content[:500], truncated=result.truncated,
+            duration_ms=duration, error=result.content[:500] if result.error else None)
+        messages.append(_tool_message(call, result.render()))
+        await self._log(run_id, "warn" if result.error else "info",
+                        "tool.error" if result.error else "tool.result",
+                        f"{spec.name}: {result.one_line} ({duration} мс)")
+        await self.bus.emit("tool.called", task_id=task["id"], run_id=run_id,
+                            tool=spec.name, source=spec.source, ok=not result.error,
+                            duration_ms=duration)
+        if result.error:
+            # ошибка инструмента — сигнал Governor'у/Self-Healing, но не провал run'а
+            await self._call_hooks("on_failure", task, run_id,
+                                   f"tool:{spec.name}: {result.content[:200]}")
+
+    async def _resume_pending_tool(self, run_id: int, task: dict, agent: dict,
+                                   messages: list[dict], pending: dict,
+                                   policy_rules: list[dict]) -> bool:
+        """После решения человека: выполнить одобренное РОВНО один раз либо
+        вернуть модели отказ. False — решения ещё нет, run ждёт дальше."""
+        approval_id = pending.get("approval_id")
+        row = None
+        if approval_id:
+            async with self.db.session() as s:
+                row = await fetch_one(s, approvals_t, int(approval_id))
+        status = str((row or {}).get("status") or "pending")
+        if status == "pending":
+            return False
+
+        call = _call_from_dict(pending.get("call") or {})
+        spec = TOOLS.get(str(pending.get("tool") or "")) or TOOLS.by_api_name(call.name)
+        remaining = [_call_from_dict(c) for c in (pending.get("remaining") or [])]
+        step = int(pending.get("step") or 0)
+
+        already = await self._tool_call_status(run_id, call.id)
+        if already in ("executed", "error", "denied"):
+            # повтор после рестарта: результат уже есть — не исполняем второй раз
+            await self._log(run_id, "warn", "tool.replay_guard",
+                            f"{pending.get('tool')}: вызов уже исполнен, повтор не делаем")
+            messages.append(_tool_message(call, "результат этого вызова уже получен ранее"))
+        elif status == "approved" and spec is not None:
+            await self._mark_tool_call(run_id, call.id, status="approved",
+                                       approved_by=str((row or {}).get("decided_by") or ""))
+            await self._run_tool_now(run_id, task, agent, messages, call, spec, step,
+                                     approval_id=int(approval_id) if approval_id else None,
+                                     approved_by=str((row or {}).get("decided_by") or ""))
+        else:
+            await self._mark_tool_call(run_id, call.id, status="rejected",
+                                       approved_by=str((row or {}).get("decided_by") or ""))
+            messages.append(_tool_message(
+                call, f"действие {pending.get('tool')} отклонено пользователем — "
+                      f"не выполнять и не повторять"))
+            await self._log(run_id, "warn", "tool.rejected",
+                            f"{pending.get('tool')}: отклонено пользователем")
+
+        # остальные вызовы того же шага модели
+        specs = TOOLS.resolve(allowed_tools_for(task, agent))
+        if remaining:
+            waiting = await self._execute_tool_calls(
+                run_id, task, agent, messages, remaining, step, policy_rules, specs,
+                usage={})
+            if waiting:
+                return False
+        return True
+
+    async def _park_for_approval(self, run_id: int, task_id: int, messages: list[dict],
+                                 step: int, pending: dict, usage: dict) -> None:
+        """Освободить воркер и ждать человека: всё состояние — в БД."""
+        checkpoint = {"messages": messages, "step": step, "note": "tool_approval",
+                      "pending_tool_call": pending}
+        values: dict[str, Any] = {"status": "queued", "worker_lease_until": None,
+                                  "checkpoint": checkpoint}
+        for key in ("tokens_in", "tokens_out", "cost_usd", "model_alias"):
+            if usage.get(key) is not None:
+                values[key] = usage[key]
+        async with self.db.session() as s:
+            await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(**values))
+            await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
+                status="waiting_approval", updated_at=utcnow()))
+            await s.commit()
+        await self.bus.emit("task.progress", task_id=task_id, run_id=run_id,
+                            waiting_approval=True, tool=pending.get("tool"))
+
+    async def on_approval_decided(self, approval_id: int) -> None:
+        """Решение принято → вернуть ожидающий run в очередь.
+
+        Подписка на шину (см. approval_watcher) — работает для любого пути
+        принятия решения: API, фича, мобильный пульт.
+        """
+        async with self.db.session() as s:
+            row = (await s.execute(sa.select(tool_calls_t).where(
+                sa.and_(tool_calls_t.c.approval_id == approval_id,
+                        tool_calls_t.c.status == "pending_approval")))).first()
+            if row is None:
+                return
+            rec = dict(row._mapping)
+            await s.execute(sa.update(tasks_t).where(tasks_t.c.id == rec["task_id"]).values(
+                status="queued", updated_at=utcnow()))
+            await s.execute(sa.update(runs_t).where(
+                sa.and_(runs_t.c.id == rec["run_id"], runs_t.c.status == "queued")).values(
+                worker_lease_until=None))
+            await s.commit()
+        await self.bus.emit("task.queued", task_id=rec["task_id"], run_id=rec["run_id"],
+                            approval_resumed=True)
+
+    async def _resume_decided_approvals(self) -> int:
+        """Свип: вызовы, ждущие подтверждения, решение по которым уже принято.
+
+        Нужен, потому что событие могло прийти, когда процесс был выключен —
+        на одну живую подписку полагаться нельзя.
+        """
+        async with self.db.session() as s:
+            rows = (await s.execute(
+                sa.select(tool_calls_t.c.approval_id)
+                .join(approvals_t, approvals_t.c.id == tool_calls_t.c.approval_id)
+                .where(sa.and_(tool_calls_t.c.status == "pending_approval",
+                               approvals_t.c.status != "pending")))).fetchall()
+        for row in rows:
+            await self.on_approval_decided(int(row[0]))
+        return len(rows)
+
+    async def approval_watcher(self) -> None:
+        """Фоновая подписка: approval.decided → продолжить ожидающий run."""
+        q = self.bus.subscribe()
+        try:
+            while True:
+                msg = await q.get()
+                if msg.get("kind") != "approval.decided":
+                    continue
+                try:
+                    await self.on_approval_decided(int(msg.get("id")))
+                except Exception as exc:
+                    await self.bus.emit("worker.error",
+                                        message=f"approval_watcher: {type(exc).__name__}: {exc}")
+        except asyncio.CancelledError:
+            return
+        finally:
+            self.bus.unsubscribe(q)
+
+    async def _approvals_create(self, **kw: Any) -> dict:
+        svc = self.services
+        if svc is not None and getattr(svc, "approvals", None) is not None:
+            return await svc.approvals.create(**kw) or {}
+        # движок может работать без Services (тесты): пишем строку сами
+        async with self.db.session() as s:
+            res = await s.execute(sa.insert(approvals_t).values(
+                kind=kw.get("kind", "tool"), preview=kw.get("preview", ""),
+                task_id=kw.get("task_id"), run_id=kw.get("run_id"),
+                status="pending", created_at=utcnow()))
+            aid = int(res.inserted_primary_key[0])
+            await s.commit()
+        await self.bus.emit("approval.created", id=aid, approval_kind=kw.get("kind", "tool"),
+                            preview=str(kw.get("preview", ""))[:500],
+                            task_id=kw.get("task_id"), run_id=kw.get("run_id"))
+        return {"id": aid}
+
+    async def _record_tool_call(self, run_id: int, task_id: int, step: int, call: Any,
+                                spec: Any, *, effect: str, status: str,
+                                approval_id: int | None = None,
+                                approved_by: str | None = None, preview: str = "",
+                                truncated: bool = False, duration_ms: int | None = None,
+                                error: str | None = None) -> None:
+        name = spec.name if spec is not None else str(call.name)
+        values = {
+            "run_id": run_id, "task_id": task_id, "step": step,
+            "call_id": str(call.id), "tool": name,
+            "source": spec.source if spec is not None else "unknown",
+            "args": call.arguments, "args_hash": args_hash(name, call.arguments),
+            "effect": effect, "status": status, "approval_id": approval_id,
+            "approved_by": approved_by, "result_preview": preview,
+            "truncated": truncated, "duration_ms": duration_ms, "error": error,
+            "created_at": utcnow(),
+            "finished_at": utcnow() if status not in ("pending_approval",) else None,
+        }
+        async with self.db.session() as s:
+            try:
+                await s.execute(sa.insert(tool_calls_t).values(**values))
+                await s.commit()
+            except sa.exc.IntegrityError:
+                # anti-replay: строка на (run_id, call_id) уже есть — обновляем исход
+                await s.rollback()
+                await s.execute(sa.update(tool_calls_t).where(sa.and_(
+                    tool_calls_t.c.run_id == run_id,
+                    tool_calls_t.c.call_id == str(call.id))).values(
+                    status=status, result_preview=preview, truncated=truncated,
+                    duration_ms=duration_ms, error=error, approved_by=approved_by,
+                    finished_at=utcnow()))
+                await s.commit()
+
+    async def _mark_tool_call(self, run_id: int, call_id: str, *, status: str,
+                              approved_by: str = "") -> None:
+        async with self.db.session() as s:
+            await s.execute(sa.update(tool_calls_t).where(sa.and_(
+                tool_calls_t.c.run_id == run_id,
+                tool_calls_t.c.call_id == str(call_id))).values(
+                status=status, approved_by=approved_by or None))
+            await s.commit()
+
+    async def _tool_call_status(self, run_id: int, call_id: str) -> str:
+        async with self.db.session() as s:
+            row = (await s.execute(sa.select(tool_calls_t.c.status).where(sa.and_(
+                tool_calls_t.c.run_id == run_id,
+                tool_calls_t.c.call_id == str(call_id))))).first()
+        return str(row[0]) if row else ""
 
     async def _handle_failure(self, run_id: int, task: dict, error: str,
                               messages: list[dict], step: int) -> None:
@@ -606,6 +945,37 @@ class TaskEngine:
                 run_id=run_id, ts=utcnow(), level=level, kind=kind, message=message, data=data))
             await s.commit()
         await self.bus.emit("run.log", run_id=run_id, level=level, log_kind=kind, message=message)
+
+
+def _assistant_tool_message(result: ChatResult) -> dict:
+    """Ответ модели с инструментами — в истории как есть (OpenAI-формат).
+    Anthropic-адаптер конвертирует это обратно в свои блоки."""
+    return {
+        "role": "assistant",
+        "content": result.text or "",
+        "tool_calls": [{"id": c.id, "type": "function",
+                        "function": {"name": c.name,
+                                     "arguments": c.raw_arguments
+                                     or json.dumps(c.arguments, ensure_ascii=False)}}
+                       for c in result.tool_calls],
+    }
+
+
+def _tool_message(call: Any, content: str) -> dict:
+    return {"role": "tool", "tool_call_id": str(call.id), "name": str(call.name),
+            "content": content}
+
+
+def _call_dict(call: Any) -> dict:
+    return {"id": str(call.id), "name": str(call.name),
+            "arguments": call.arguments, "raw_arguments": call.raw_arguments}
+
+
+def _call_from_dict(data: dict) -> Any:
+    from .providers import ToolCall
+    return ToolCall(id=str(data.get("id") or ""), name=str(data.get("name") or ""),
+                    arguments=dict(data.get("arguments") or {}),
+                    raw_arguments=str(data.get("raw_arguments") or ""))
 
 
 def _cost(model: dict, result: ChatResult) -> float:

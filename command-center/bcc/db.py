@@ -317,6 +317,59 @@ recovery_attempts = sa.Table(
     sa.Column("created_at", sa.DateTime, default=utcnow),
 )
 
+# V2.1: каждый вызов инструмента моделью — строка. Это и аудит, и anti-replay:
+# одобренный вызов исполняется ровно один раз (уникальность run_id+call_id).
+tool_calls = sa.Table(
+    "tool_calls", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("run_id", sa.Integer, sa.ForeignKey("task_runs.id", ondelete="CASCADE"),
+              nullable=False, index=True),
+    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE")),
+    sa.Column("step", sa.Integer, default=0),
+    sa.Column("call_id", sa.String(80), default=""),            # id вызова от провайдера
+    sa.Column("tool", sa.String(160), nullable=False),          # каноническое имя
+    sa.Column("source", sa.String(24), default="builtin"),
+    sa.Column("args", sa.JSON, default=dict),
+    sa.Column("args_hash", sa.String(64), default=""),
+    sa.Column("effect", sa.String(8), default="auto"),          # auto|ask|deny
+    # pending_approval|approved|rejected|executed|denied|error|timeout
+    sa.Column("status", sa.String(20), default="executed"),
+    sa.Column("approval_id", sa.Integer, sa.ForeignKey("approvals.id", ondelete="SET NULL")),
+    sa.Column("approved_by", sa.String(120)),
+    sa.Column("result_preview", sa.Text, default=""),
+    sa.Column("truncated", sa.Boolean, default=False),
+    sa.Column("duration_ms", sa.Integer),
+    sa.Column("error", sa.Text),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+    sa.Column("finished_at", sa.DateTime),
+    sa.UniqueConstraint("run_id", "call_id", name="uq_tool_calls_run_call"),
+)
+
+# Сессии UI: HttpOnly-cookie вместо вечного токена в localStorage (V2.1, фаза N).
+sessions = sa.Table(
+    "sessions", metadata,
+    sa.Column("id", sa.String(64), primary_key=True),           # случайный sid
+    sa.Column("csrf", sa.String(64), nullable=False),
+    sa.Column("label", sa.String(120), default=""),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+    sa.Column("last_seen", sa.DateTime, default=utcnow),
+    sa.Column("expires_at", sa.DateTime, nullable=False, index=True),
+    sa.Column("revoked", sa.Boolean, default=False),
+)
+
+# Снапшоты состояния BOSSMAN (V2.1, фаза O): ссылки и контрольные суммы,
+# без весов моделей и без секретов в открытом виде.
+snapshots = sa.Table(
+    "snapshots", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("name", sa.String(200), nullable=False),
+    sa.Column("kind", sa.String(16), default="manual"),         # manual | pre_mission
+    sa.Column("path", sa.String(500), default=""),
+    sa.Column("manifest", sa.JSON, default=dict),               # checksums, git heads…
+    sa.Column("size_bytes", sa.Integer, default=0),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
 # Новые колонки существующих таблиц добавляются идемпотентным ALTER в Database.migrate():
 # SQLAlchemy create_all не добавляет колонки в существующие таблицы.
 V2_NEW_COLUMNS: list[tuple[str, str, str]] = [

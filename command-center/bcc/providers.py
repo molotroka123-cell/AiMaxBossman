@@ -5,8 +5,9 @@
 """
 from __future__ import annotations
 
+import json
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import httpx
@@ -28,16 +29,49 @@ class ProviderError(RuntimeError):
 
 
 @dataclass
+class ToolCall:
+    """Вызов инструмента, как его вернула модель. Сохраняется целиком:
+    id нужен, чтобы вернуть результат тем же tool-сообщением."""
+    id: str
+    name: str                       # имя в схеме модели (api_name)
+    arguments: dict[str, Any] = field(default_factory=dict)
+    raw_arguments: str = ""         # сырой JSON провайдера — как пришёл
+
+
+@dataclass
 class ChatResult:
     text: str
     tokens_in: int = 0
     tokens_out: int = 0
     finish: str = "stop"
     model: str = ""
+    # V2.1: ответ модели с инструментами не схлопывается в текст
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    raw_message: dict[str, Any] = field(default_factory=dict)
+    provider_meta: dict[str, Any] = field(default_factory=dict)
 
     @property
     def usage(self) -> dict[str, int]:
         return {"tokens_in": self.tokens_in, "tokens_out": self.tokens_out}
+
+    @property
+    def has_tool_calls(self) -> bool:
+        return bool(self.tool_calls)
+
+
+def _parse_tool_arguments(raw: Any) -> tuple[dict[str, Any], str]:
+    """Аргументы приходят строкой JSON (OpenAI) или объектом (Anthropic).
+    Кривой JSON не роняет run: отдаём {"_raw": …} — модель увидит ошибку."""
+    if isinstance(raw, dict):
+        return dict(raw), json.dumps(raw, ensure_ascii=False)
+    text = str(raw or "{}")
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return {"_raw": text}, text
+    if not isinstance(parsed, dict):
+        return {"value": parsed}, text
+    return parsed, text
 
 
 @dataclass
@@ -108,6 +142,11 @@ class OpenAICompatAdapter(_BaseAdapter):
         for key in ("max_tokens", "temperature", "top_p", "stop"):
             if kw.get(key) is not None:
                 payload[key] = kw[key]
+        if kw.get("tools"):
+            payload["tools"] = kw["tools"]
+            payload["tool_choice"] = kw.get("tool_choice") or "auto"
+        if kw.get("response_format") is not None:
+            payload["response_format"] = kw["response_format"]
         resp = await self._request("POST", f"{self.base_url}/chat/completions",
                                    timeout=kw.get("timeout", CHAT_TIMEOUT),
                                    headers=self._headers(), json=payload)
@@ -117,12 +156,22 @@ class OpenAICompatAdapter(_BaseAdapter):
             raise ProviderError("модель вернула пустой ответ (нет choices)")
         message = choices[0].get("message") or {}
         usage = data.get("usage") or {}
+        calls: list[ToolCall] = []
+        for item in message.get("tool_calls") or []:
+            fn = item.get("function") or {}
+            args, raw = _parse_tool_arguments(fn.get("arguments"))
+            calls.append(ToolCall(id=str(item.get("id") or f"call_{len(calls)}"),
+                                  name=str(fn.get("name") or ""),
+                                  arguments=args, raw_arguments=raw))
         return ChatResult(
             text=(message.get("content") or "").strip(),
             tokens_in=int(usage.get("prompt_tokens") or 0),
             tokens_out=int(usage.get("completion_tokens") or 0),
             finish=choices[0].get("finish_reason") or "stop",
             model=data.get("model") or model,
+            tool_calls=calls,
+            raw_message=dict(message),
+            provider_meta={k: data[k] for k in ("id", "provider", "usage") if k in data},
         )
 
     async def health(self) -> Health:
@@ -153,24 +202,36 @@ class AnthropicAdapter(_BaseAdapter):
         if not self.api_key:
             raise ProviderError("для Anthropic нужен api_key", hint="добавьте ключ в провайдере")
         # system у Anthropic — отдельное поле, а не роль в messages
-        system = "\n\n".join(m["content"] for m in messages if m.get("role") == "system")
-        chat_messages = [{"role": m["role"], "content": m["content"]}
-                         for m in messages if m.get("role") in ("user", "assistant")]
+        system = "\n\n".join(str(m.get("content") or "")
+                             for m in messages if m.get("role") == "system")
         payload: dict[str, Any] = {
             "model": model,
             "max_tokens": int(kw.get("max_tokens") or 2048),
-            "messages": chat_messages,
+            "messages": _to_anthropic_messages(messages),
         }
         if system:
             payload["system"] = system
         if kw.get("temperature") is not None:
             payload["temperature"] = kw["temperature"]
+        if kw.get("tools"):
+            # OpenAI-схемы инструментов → формат Anthropic (плоский, input_schema)
+            payload["tools"] = [{
+                "name": t["function"]["name"],
+                "description": t["function"].get("description", ""),
+                "input_schema": t["function"].get("parameters")
+                or {"type": "object", "properties": {}},
+            } for t in kw["tools"] if t.get("function")]
         resp = await self._request("POST", f"{self.base_url}/v1/messages",
                                    timeout=kw.get("timeout", CHAT_TIMEOUT),
                                    headers=self._headers(), json=payload)
         data = resp.json()
-        text = "".join(block.get("text", "") for block in (data.get("content") or [])
-                       if block.get("type") == "text").strip()
+        blocks = data.get("content") or []
+        text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
+        calls = [ToolCall(id=str(b.get("id") or f"call_{i}"),
+                          name=str(b.get("name") or ""),
+                          arguments=dict(b.get("input") or {}),
+                          raw_arguments=json.dumps(b.get("input") or {}, ensure_ascii=False))
+                 for i, b in enumerate(blocks) if b.get("type") == "tool_use"]
         usage = data.get("usage") or {}
         return ChatResult(
             text=text,
@@ -178,6 +239,9 @@ class AnthropicAdapter(_BaseAdapter):
             tokens_out=int(usage.get("output_tokens") or 0),
             finish=data.get("stop_reason") or "stop",
             model=data.get("model") or model,
+            tool_calls=calls,
+            raw_message={"content": blocks},
+            provider_meta={k: data[k] for k in ("id", "usage") if k in data},
         )
 
     async def health(self) -> Health:
@@ -190,6 +254,50 @@ class AnthropicAdapter(_BaseAdapter):
                                    headers=self._headers())
         data = resp.json().get("data") or []
         return [str(m.get("id")) for m in data if m.get("id")]
+
+
+def _to_anthropic_messages(messages: list[dict]) -> list[dict]:
+    """История движка (OpenAI-стиль) → блоки Anthropic.
+
+    assistant с tool_calls → content-блоки tool_use; сообщения role=tool →
+    user-сообщение с блоками tool_result (Anthropic не знает такой роли).
+    Подряд идущие tool-результаты склеиваются в одно user-сообщение — так
+    требует API.
+    """
+    out: list[dict] = []
+    pending_results: list[dict] = []
+
+    def flush() -> None:
+        if pending_results:
+            out.append({"role": "user", "content": list(pending_results)})
+            pending_results.clear()
+
+    for m in messages:
+        role = m.get("role")
+        if role == "system":
+            continue
+        if role == "tool":
+            pending_results.append({
+                "type": "tool_result",
+                "tool_use_id": str(m.get("tool_call_id") or ""),
+                "content": str(m.get("content") or ""),
+            })
+            continue
+        flush()
+        if role == "assistant" and m.get("tool_calls"):
+            blocks: list[dict] = []
+            if m.get("content"):
+                blocks.append({"type": "text", "text": str(m["content"])})
+            for call in m["tool_calls"]:
+                fn = call.get("function") or {}
+                args, _ = _parse_tool_arguments(fn.get("arguments"))
+                blocks.append({"type": "tool_use", "id": str(call.get("id") or ""),
+                               "name": str(fn.get("name") or ""), "input": args})
+            out.append({"role": "assistant", "content": blocks})
+        elif role in ("user", "assistant"):
+            out.append({"role": role, "content": str(m.get("content") or "")})
+    flush()
+    return out
 
 
 ADAPTERS: dict[str, type[_BaseAdapter]] = {

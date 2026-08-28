@@ -62,6 +62,7 @@ class Services:
         self.bus = EventBus(self.db)
         self.registry = Registry(self.db, self.vault, self.bus, adapter_factory=adapter_factory)
         self.engine = TaskEngine(self.db, self.bus, self.registry, **(engine_options or {}))
+        self.engine.services = self         # V2.1: инструментам нужен доступ к сервисам
         self.scheduler = Scheduler(self.db, self.bus, self.engine)
         self.metrics = MetricsSampler(self.db, self.bus)
         self.approvals = Approvals(self.db, self.bus)
@@ -108,6 +109,8 @@ class Services:
                 asyncio.create_task(self.engine.worker_loop(), name="bcc-worker"),
                 asyncio.create_task(self.scheduler.loop(), name="bcc-scheduler"),
                 asyncio.create_task(self.metrics.loop(), name="bcc-metrics"),
+                # V2.1: решение по approval возвращает ожидающий run в очередь
+                asyncio.create_task(self.engine.approval_watcher(), name="bcc-approvals"),
             ]
             for feature in self.features:
                 if feature.tick and feature.tick_seconds > 0:
