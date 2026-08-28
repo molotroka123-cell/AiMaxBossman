@@ -202,6 +202,9 @@ async def test_persistent_contexts_of_two_accounts_do_not_see_each_other(tmp_pat
         for account in ("acc-A", "acc-B"):
             directory = runtime.context_root.path_for(account)
             assert directory.exists()
+            # Загрузки уходят в песочницу внутри каталога аккаунта, а не в
+            # общий каталог загрузок машины (`32_BROWSER_SECURITY`).
+            assert (directory / "downloads").is_dir()
             if os.name == "posix":
                 assert stat.S_IMODE(directory.stat().st_mode) == 0o700
             runtime.context_root.assert_owned(account, directory)

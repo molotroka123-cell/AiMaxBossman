@@ -82,6 +82,19 @@ class BrowserConfig:
     # Срок жизни снимка возможностей браузерного пути (`DIGEST_CORE` G9).
     capability_snapshot_ttl_hours: int = 24
 
+    def __post_init__(self) -> None:
+        # Права каталога проверяются на КАЖДОМ построении настроек, а не только
+        # при чтении окружения. Настройки аккаунта приходят данными, и
+        # `merged({"context_dir_mode": 0o777})` иначе не просто открывал бы
+        # сессию другим пользователям машины — он отключал бы и саму проверку
+        # прав, потому что `assert_private` сверяется с этим же числом.
+        mode = int(self.context_dir_mode)
+        if mode & ~0o700:
+            raise ValueError(
+                f"права каталога контекста {oct(mode)} шире 0700: сессия аккаунта "
+                f"не должна быть доступна другим пользователям машины. Это не "
+                f"настройка, а граница")
+
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> "BrowserConfig":
         source = dict(os.environ if env is None else env)

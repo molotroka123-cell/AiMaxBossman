@@ -129,7 +129,7 @@ class AccountBrowserSession:
     # видны только для чтения.
     __slots__ = ("_account_id", "_expected_identity", "provider", "dom", "registry",
                  "config", "resolver", "ledger", "audit", "redactor", "_state",
-                 "_generation", "_challenge", "_last_identity", "_pack_version",
+                 "_challenge", "_last_identity", "_pack_version",
                  "_takeover_since", "_verified_at", "identity_action", "landing_url")
 
     def __init__(self, *, account_id: str, expected_identity: str, dom: DomPort,
@@ -160,7 +160,6 @@ class AccountBrowserSession:
         self.audit: BrowserAuditSink = audit or InMemoryAuditSink()
         self.redactor = Redactor()
         self._state = BrowserState.DISABLED
-        self._generation = 0
         self._challenge: Challenge = Challenge()
         self._last_identity = ""
         self._pack_version = selector_pack_version
@@ -395,7 +394,10 @@ class AccountBrowserSession:
         поверх — вторая линия: пароль мог быть введён и в обычное поле.
         """
         raw = await self.dom.elements(self.config.snapshot_max_interactive)
-        self._generation += 1
+        # Поколение снимка — то самое, которым порт пометил ссылки элементов.
+        # Свой счётчик сессии здесь врал бы: вызывающий сверяет с поколением
+        # именно ссылку, а она приходит из порта.
+        generation = int(getattr(self.dom, "generation", 0))
         text = await self.dom.visible_text(self.config.snapshot_max_text)
         challenge = await self._refresh_challenge()
         elements = tuple(self._out(dict(item)) for item in raw)
@@ -405,7 +407,7 @@ class AccountBrowserSession:
             # страницах повторяет содержимое поля.
             url=self.redactor.text(await self.dom.current_url()),
             title=self.redactor.text(await self.dom.title()),
-            generation=self._generation, text=self.redactor.text(text),
+            generation=generation, text=self.redactor.text(text),
             elements=elements, challenge=challenge, state=self._state)
 
     # ------------------------------------------------------------------ поиск цели
