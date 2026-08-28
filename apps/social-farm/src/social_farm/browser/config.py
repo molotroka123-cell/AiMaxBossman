@@ -50,6 +50,11 @@ class BrowserConfig:
     enabled: bool = False
     headless: bool = True
     context_root: Path = Path("./browser-contexts")
+    # Путь к Chromium. Пустая строка означает «взять тот, что Playwright
+    # поставил себе сам». Настройка нужна там, где браузер уже установлен
+    # системой и ставить второй незачем — а также чтобы не запускать установку
+    # браузера из тестов.
+    chromium_executable: str = ""
     # Права каталога контекста. Ниже 0700 приложение не опускается: сессия
     # аккаунта в каталоге, доступном другим пользователям машины, — это чужой
     # вход в аккаунт, а не удобство.
@@ -92,6 +97,8 @@ class BrowserConfig:
             headless=_flag(get("HEADLESS"), base.headless),
             context_root=Path(root) if root else base.context_root,
             context_dir_mode=base.context_dir_mode,
+            chromium_executable=str(get("CHROMIUM_PATH")
+                                    or base.chromium_executable),
             deterministic_failure_threshold=_int(
                 get("FAILURE_THRESHOLD"), base.deterministic_failure_threshold,
                 low=1, high=100),
@@ -140,6 +147,7 @@ class BrowserConfig:
         return {"enabled": self.enabled, "headless": self.headless,
                 "context_root": str(self.context_root),
                 "context_dir_mode": oct(self.context_dir_mode),
+                "chromium_executable": self.chromium_executable,
                 "deterministic_failure_threshold": self.deterministic_failure_threshold,
                 "cooldown_minutes": self.cooldown_minutes,
                 "refresh_attempts": self.refresh_attempts,

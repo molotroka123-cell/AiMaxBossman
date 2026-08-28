@@ -61,8 +61,12 @@ def login_elements() -> list[FixtureElement]:
     """Те же элементы, что видит настоящий браузер на `LOGIN_HTML`."""
     return [
         FixtureElement(tag="h1", text="Вход в аккаунт"),
+        # Элементы `label` браузер тоже отдаёт кандидатами — они здесь не для
+        # красоты: без них сверка с настоящим Chromium была бы неполной.
+        FixtureElement(tag="label", text="Имя пользователя"),
         FixtureElement(tag="input", type="text", label="Имя пользователя", value="",
                        attributes={"id": "username", "name": "username"}),
+        FixtureElement(tag="label", text="Пароль"),
         FixtureElement(tag="input", type="password", label="Пароль", value=PASSWORD,
                        attributes={"id": "password", "name": "password"}),
         FixtureElement(tag="input", type="hidden", value=CSRF_TOKEN,
@@ -111,6 +115,7 @@ def feed_elements(*, identity: str = IDENTITY) -> list[FixtureElement]:
         FixtureElement(tag="h1", text="Публикации"),
         FixtureElement(tag="div", text=identity,
                        attributes={"data-testid": "viewer"}),
+        FixtureElement(tag="label", text="Подпись"),
         FixtureElement(tag="textarea", label="Подпись", value="",
                        attributes={"id": "caption", "name": "caption"}),
         FixtureElement(tag="button", text="Поделиться", attributes={"id": "share"}),
