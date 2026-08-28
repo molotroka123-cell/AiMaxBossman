@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Experiment",
+  "type": "object",
+  "required": [
+    "id",
+    "opportunity_id",
+    "hypothesis",
+    "max_budget_czk",
+    "success",
+    "failure",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "opportunity_id": {
+      "type": "string"
+    },
+    "hypothesis": {
+      "type": "string"
+    },
+    "max_budget_czk": {
+      "type": "number",
+      "minimum": 0
+    },
+    "max_duration_days": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "primary_metric": {
+      "type": "string"
+    },
+    "sample_target": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "success": {
+      "type": "string"
+    },
+    "failure": {
+      "type": "string"
+    },
+    "stop_loss": {
+      "type": "string"
+    },
+    "actual_spend_czk": {
+      "type": "number",
+      "minimum": 0,
+      "default": 0
+    },
+    "status": {
+      "enum": [
+        "PLANNED",
+        "APPROVED",
+        "RUNNING",
+        "STOPPED",
+        "PASS",
+        "FAIL",
+        "INCONCLUSIVE"
+      ]
+    },
+    "decision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

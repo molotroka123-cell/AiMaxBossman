@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ApprovalRequest",
+  "type": "object",
+  "required": [
+    "id",
+    "action",
+    "risk_class",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "venture_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "action": {
+      "type": "string"
+    },
+    "amount_czk": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "beneficiary": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "risk_class": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "PROHIBITED"
+      ]
+    },
+    "legal_effect": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "data_leaving": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reversible": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "expected_outcome": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stop_condition": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
+        "EXPIRED",
+        "EXECUTED"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

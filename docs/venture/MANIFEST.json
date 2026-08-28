@@ -1,0 +1,447 @@
+{
+  "package": "BOSSMAN_VENTURE_ENGINE_FOUNDATION_V1_0",
+  "version": "1.0",
+  "implementation_code_included": false,
+  "files": [
+    {
+      "path": "00_READ_FIRST.md",
+      "bytes": 2547,
+      "sha256": "cc6a66b5643af23fcf033c6b2033ac274deaf2037e9c3617c2848aac0c4d13ec"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 764,
+      "sha256": "f2ddc36b4c6ed5750a90d8bec8204b88723ea75b7f783ddeba34d738bc262483"
+    },
+    {
+      "path": "FINAL_PROMPT_TO_PASTE.txt",
+      "bytes": 930,
+      "sha256": "ebacc2fcf951c707f3ff3e1e099e52f5fdeee1da886b86453ada835e0a1c1fe1"
+    },
+    {
+      "path": "MASTER_PROMPT_FOR_OPUS.md",
+      "bytes": 11142,
+      "sha256": "14938feb68713bec76de56339d098e9d1edeff0a9d4b8f53a2036142cf82e502"
+    },
+    {
+      "path": "PACKAGE_INDEX.md",
+      "bytes": 2535,
+      "sha256": "578ad03a8f42c78595aaa3ac7f56131115ce56d7e117d15aa0b281f20a5302f2"
+    },
+    {
+      "path": "docs/00_VENTURE_ENGINE_CHARTER.md",
+      "bytes": 1308,
+      "sha256": "9e40293a0d6d591a9f501702c4b735b68190d6075ee017034702f1caffbc30fc"
+    },
+    {
+      "path": "docs/01_PRODUCT_SCOPE_AND_NON_GOALS.md",
+      "bytes": 857,
+      "sha256": "735bf198fe25f65fd18caafb6413a264479b9e05078deafd4430bd92227e0be7"
+    },
+    {
+      "path": "docs/02_CZECH_MARKET_BASELINE.md",
+      "bytes": 2881,
+      "sha256": "ac11b55d619f7a657a1fb0053fb562d1bd604b157954cbbbc95e8ae89ca6fcfc"
+    },
+    {
+      "path": "docs/03_OPPORTUNITY_DISCOVERY.md",
+      "bytes": 1353,
+      "sha256": "34e5cbe5663a47fcddad5393ab207bdf8cd2be43c074e2d7901999032d32f6d7"
+    },
+    {
+      "path": "docs/04_OPPORTUNITY_SCORING.md",
+      "bytes": 1605,
+      "sha256": "4e81efe13926ccc8cd50b5a295e7006d139552f9910913b9252c980ecdb80c39"
+    },
+    {
+      "path": "docs/05_EVIDENCE_AND_PROVENANCE.md",
+      "bytes": 1360,
+      "sha256": "b5f314cb5ccde5e9b85c954e31296e0045d7ce1f768bf5a6455537472eaa196f"
+    },
+    {
+      "path": "docs/06_STAGE_GATES.md",
+      "bytes": 1294,
+      "sha256": "f2ac9f31bd6d242fedf2d5e6c24f3d7c7aecb2bc1a439a6982e5020314a3ea0d"
+    },
+    {
+      "path": "docs/07_BUSINESS_MODEL_ARCHETYPES.md",
+      "bytes": 755,
+      "sha256": "db460e82851e8f3f15487a1f0f991ceabebe833d7e456d897b2a1e472c4ead5c"
+    },
+    {
+      "path": "docs/08_UNIT_ECONOMICS.md",
+      "bytes": 1254,
+      "sha256": "e1b00c89cb625a79d89d77fbf7314221aa8047cfcff51adbac8e16299a75f974"
+    },
+    {
+      "path": "docs/09_PRICING_ENGINE.md",
+      "bytes": 639,
+      "sha256": "211e31f6fe240cc9b699e6a6f54be81583e2f829f37eac709ca0335ced0aa6c1"
+    },
+    {
+      "path": "docs/10_DISTRIBUTION_ENGINE.md",
+      "bytes": 630,
+      "sha256": "4b46d5952523059750bb711e37718d10f3a8f77aacdbd0c468b377a67212860e"
+    },
+    {
+      "path": "docs/11_CZECH_OUTREACH_COMPLIANCE.md",
+      "bytes": 1277,
+      "sha256": "7ebbaf16312cb8aad7c739146bb9feba5d9ee9653cd96235d644479055f67733"
+    },
+    {
+      "path": "docs/12_SALES_FUNNEL_AND_ACTIVATION.md",
+      "bytes": 838,
+      "sha256": "5381b1986b371213fab20d8891b23cc87d80483cbdb42e938c9dea8ff44fdc37"
+    },
+    {
+      "path": "docs/13_RETENTION_CHURN_EXPANSION.md",
+      "bytes": 694,
+      "sha256": "2c2292c4c788c74b807eae803c043be76da39e1de8bee05ae4e03b4cd7d59879"
+    },
+    {
+      "path": "docs/14_CAPITAL_ALLOCATION.md",
+      "bytes": 856,
+      "sha256": "ce05f84455172a7a7d6161b66f4dae97127032edd66b983c613b7d8a3b695bfe"
+    },
+    {
+      "path": "docs/15_CASH_TREASURY_APPROVALS.md",
+      "bytes": 938,
+      "sha256": "b8a9010638d6dd727abf43445c081e9d57041032d8fde9df9a51b284a9df35f5"
+    },
+    {
+      "path": "docs/16_OSVC_TO_SRO.md",
+      "bytes": 1325,
+      "sha256": "261152343d1e772ef89f2a5b7abf517fa5d56e33913a14612e9844830487d1c1"
+    },
+    {
+      "path": "docs/17_TAX_VAT_FRESHNESS.md",
+      "bytes": 867,
+      "sha256": "bf690cf789e66c7974ba99ed981392f947af90aec7adb4efab3bd700af203509"
+    },
+    {
+      "path": "docs/18_PORTFOLIO_MANAGEMENT.md",
+      "bytes": 770,
+      "sha256": "3981f18f9842a6c661d55b9f3fd48102764dad4de61e4e0ddaa6d27e0728b1eb"
+    },
+    {
+      "path": "docs/19_REGULATORY_TRIGGER_ENGINE.md",
+      "bytes": 795,
+      "sha256": "b86e4a24439c41b5662a9519e2eb73b3a3224931fda262cecc9a247ba63d7443"
+    },
+    {
+      "path": "docs/20_AGENT_ROLES_COMMITTEE.md",
+      "bytes": 964,
+      "sha256": "bdee2f05d950925930ceecf785a8fd961403e26aef83737ab22d80de28dce36e"
+    },
+    {
+      "path": "docs/21_AUTONOMY_LEVELS.md",
+      "bytes": 947,
+      "sha256": "b9c462ad07d1ca5bec8bef4aac5f7ebcb0084266a626aa9e9cba643ed0ee6358"
+    },
+    {
+      "path": "docs/22_BUSINESS_MEMORY_SKILLS.md",
+      "bytes": 782,
+      "sha256": "7b50db7ae8dd1de4fd596699c9f781923c774269e4e62ba5cb33178fc4fdba71"
+    },
+    {
+      "path": "docs/23_SECURITY_PRIVACY_VENDOR_RISK.md",
+      "bytes": 786,
+      "sha256": "163b2546109cf5895b3bc709e6b3073f7d640507e4b22df205ff8ae8a7deacd7"
+    },
+    {
+      "path": "docs/24_METRICS_KPI_DICTIONARY.md",
+      "bytes": 1139,
+      "sha256": "e3e0bc7ea86c11d885ca6f36d150aa544ed432c2847d66d4021c9b5650677748"
+    },
+    {
+      "path": "docs/25_EXPERIMENT_SYSTEM.md",
+      "bytes": 807,
+      "sha256": "d52d80c57a4adec17fdae238963501c84f507a8e205e6183c9cd597ab2fec2f6"
+    },
+    {
+      "path": "docs/26_GO_HOLD_KILL.md",
+      "bytes": 775,
+      "sha256": "34902bed4dc677fa6c56081dc2d9fa65c3ca26b3213b8e3c56388b89abd2cd29"
+    },
+    {
+      "path": "docs/27_ROADMAP_FOUNDATION_ONLY.md",
+      "bytes": 747,
+      "sha256": "8f8f8964661e9a3aa75bbca5c3220b54c975ce45260be23fda14e27da3c1f005"
+    },
+    {
+      "path": "docs/28_OPUS_EVALUATION_RUBRIC.md",
+      "bytes": 1021,
+      "sha256": "ce649ec9f1812022974c01e747abba5188e4adccaf2dc5d42e3a7f05301ba667"
+    },
+    {
+      "path": "docs/29_ZIVNOPILOT_CALIBRATION_CASE.md",
+      "bytes": 1375,
+      "sha256": "825dc0b40954a0e250a40695f8ddbcdffa500199aa37cc984343af7f5340c07a"
+    },
+    {
+      "path": "docs/30_APP3_SELECTION_PROTOCOL.md",
+      "bytes": 1083,
+      "sha256": "96dee4e48f3414660473543f0d2e30c28cbaa99212074af25b225c96c2615c32"
+    },
+    {
+      "path": "docs/31_COMPETITOR_ANALYSIS_PROTOCOL.md",
+      "bytes": 587,
+      "sha256": "f4401d7eb03b8c1d4674e89be152ce3370ed4709c7305a9ea4856505950cf5e9"
+    },
+    {
+      "path": "docs/32_MARKET_SIZE_PROTOCOL.md",
+      "bytes": 694,
+      "sha256": "a1ff968744090868e707a62f60a3ff9918f521915550e407d04d9535e92af035"
+    },
+    {
+      "path": "docs/33_CUSTOMER_RESEARCH_PROTOCOL.md",
+      "bytes": 741,
+      "sha256": "017b36abbac9ef9d367eefbfe49f3983d66b6b6059c8126822ea22596ee15df8"
+    },
+    {
+      "path": "docs/34_BUDGET_AND_FORECAST_SCENARIOS.md",
+      "bytes": 694,
+      "sha256": "2e766e4de3797e47532804b5e48d27ff9ed200d934930ec35b7da881bb222a82"
+    },
+    {
+      "path": "docs/35_COMPANY_FORMATION_READINESS.md",
+      "bytes": 609,
+      "sha256": "84de457145dc5ee8c8d29272e0321d1a60f733993dbe18f285d4f56cf22ef592"
+    },
+    {
+      "path": "docs/36_ACCOUNTING_HANDOFF.md",
+      "bytes": 526,
+      "sha256": "9e0cfb0ec8391c064a2f4586be5f5dc565418e138651f1c9cbe8e24d148da9fc"
+    },
+    {
+      "path": "docs/37_ETHICS_AND_FORBIDDEN_GROWTH.md",
+      "bytes": 604,
+      "sha256": "4e3f9d03e81681c37ad9a4705176506f41f332f8f423124bc2fbac93253feedb"
+    },
+    {
+      "path": "docs/38_REVENUE_MILESTONES.md",
+      "bytes": 528,
+      "sha256": "9e52241e945aabfadf78cbab4587f14816df68465b30524b7a62fce4adbb13de"
+    },
+    {
+      "path": "docs/39_CZECH_SOURCE_REGISTRY.md",
+      "bytes": 1816,
+      "sha256": "6f6dd902f5a78f1bcc62198ab400796234b79bbccc030714652b4893f7809c8e"
+    },
+    {
+      "path": "docs/40_ACCEPTANCE_GATES.md",
+      "bytes": 1306,
+      "sha256": "b94ea03070a23c5e4cb5d94211cc453c8eaa07edc76e8df33394bdc5d22e7224"
+    },
+    {
+      "path": "docs/41_FULL_BUSINESS_PLAN.md",
+      "bytes": 6379,
+      "sha256": "ae433f876477bc55f2fcea50c160611b06b34e5c6fa3ad577a68e4c82119250e"
+    },
+    {
+      "path": "docs/42_RISK_REGISTER.md",
+      "bytes": 1387,
+      "sha256": "fc1048a46cbf88ff22d4ded6820f59e35e2345ff84d7d375b5c12778c7930694"
+    },
+    {
+      "path": "docs/43_MOAT_AND_EXIT.md",
+      "bytes": 763,
+      "sha256": "fc2762b359e3b541276f29a9e127c06db6c9c6db71553ced09885ad3ae382a67"
+    },
+    {
+      "path": "docs/44_HIRING_AND_SCALE.md",
+      "bytes": 725,
+      "sha256": "66680734321f676092f82a49c3cb84bb307af2f551036dbf5bae1c8677c2b3b5"
+    },
+    {
+      "path": "docs/45_FINANCIAL_CONTROL_MODEL.md",
+      "bytes": 782,
+      "sha256": "2ac55d6e687f6b34c3f1817d4698fa3a45b2d95a64bef62daf219a25c3865eda"
+    },
+    {
+      "path": "docs/46_AI_COST_GOVERNANCE.md",
+      "bytes": 702,
+      "sha256": "5dcef84aa68adc4fadb8d7e2f93345776467d2f113be954b67373356b3088c5e"
+    },
+    {
+      "path": "docs/47_RESEARCH_BUDGET.md",
+      "bytes": 487,
+      "sha256": "3ded2ba9efcae7ae163014b2741065114d4b927ed131ac974224c18c34dcfb5c"
+    },
+    {
+      "path": "docs/48_OWNER_DECISIONS.md",
+      "bytes": 918,
+      "sha256": "ce243ece6b76c0df2c18fc0887a9eae52b31abfddb9e070d7aa1aea3b2491fba"
+    },
+    {
+      "path": "docs/49_OPUS_SECOND_PASS_CHECKLIST.md",
+      "bytes": 691,
+      "sha256": "5783d9cd36e92ee8d1100c7f876f40086b097441ef6d616b144602e7b9cc0678"
+    },
+    {
+      "path": "examples/eet_regulatory_signal.md",
+      "bytes": 552,
+      "sha256": "4d8109e737d03d73fd622d882bd641c79637039ade82908b6495147a7acab1b8"
+    },
+    {
+      "path": "examples/sample_investment_review.md",
+      "bytes": 609,
+      "sha256": "c41f921cef65984d2f361f9dd8017b928c6116e213f8c2e51bba5ce222731b0d"
+    },
+    {
+      "path": "examples/zivnopilot_first_experiment.md",
+      "bytes": 809,
+      "sha256": "0d3c35c5ba6dd9dd9dd09cf3816ae4fab15f179d216243062d6788ef41c2fff8"
+    },
+    {
+      "path": "examples/zivnopilot_opportunity.json",
+      "bytes": 1086,
+      "sha256": "ccfea16934504b938db0defa2e1cb7cd2bad8d3b8d585acd62a0ec80522cb8b5"
+    },
+    {
+      "path": "numbers/README.md",
+      "bytes": 711,
+      "sha256": "016fddc0cc3b6de084b41c9f27a750d34153498891eae261f47559b337a65dc4"
+    },
+    {
+      "path": "numbers/cac_payback_matrix.csv",
+      "bytes": 2009,
+      "sha256": "809bd7c43940c28bf28e8800b1711e17dd5aa38645cf1a66cebeb32ebb6d6ded"
+    },
+    {
+      "path": "numbers/customers_needed_by_arpa.csv",
+      "bytes": 304,
+      "sha256": "d7a9e42641d462089f24925d1dc9a93d586465439b843a4eba87b81749fce142"
+    },
+    {
+      "path": "numbers/experiment_budget_ladder.csv",
+      "bytes": 268,
+      "sha256": "6d7a7eb4b929605cd80d975fbd9e250a0844f2956498527597c0a776d0371059"
+    },
+    {
+      "path": "numbers/ltv_sensitivity.csv",
+      "bytes": 1113,
+      "sha256": "bef81190e72702176d5b7c8ad9788bd69d6541d9a42891437e2640fd11da7875"
+    },
+    {
+      "path": "numbers/osvc_penetration_scenarios.csv",
+      "bytes": 277,
+      "sha256": "aed0a004a787ab59e4cb7b13e12ccdcc1ed9a1827a73447f64d8de24fc5ffcdd"
+    },
+    {
+      "path": "schemas/approval_request.schema.json",
+      "bytes": 1321,
+      "sha256": "d1be56b93c0337e5d9550edb906d110adbd5ac8226748681a3b56df7ce235690"
+    },
+    {
+      "path": "schemas/business_memory.schema.json",
+      "bytes": 846,
+      "sha256": "155ed43ed4ecab1ce86dd21710ed90d3bbf7fa81cad42ce215847ccd5784d0fc"
+    },
+    {
+      "path": "schemas/evidence_item.schema.json",
+      "bytes": 1351,
+      "sha256": "e339be4d52d75d3505713cb8f43a0ec3de9282443a84914a6c6a3604a95c9ea3"
+    },
+    {
+      "path": "schemas/experiment.schema.json",
+      "bytes": 1259,
+      "sha256": "873091999a3df6c77f8694c459dccb288fcd5a1fdd75e9b80d881fcc92824c4c"
+    },
+    {
+      "path": "schemas/legal_entity.schema.json",
+      "bytes": 1100,
+      "sha256": "3d521255ba4b31bed88d463f457ae525f193cf43389d2d00ea44553f80512dcc"
+    },
+    {
+      "path": "schemas/opportunity.schema.json",
+      "bytes": 2518,
+      "sha256": "862f1a321ffa6815f5f51580918c59c868402b102bb2d07b1e28407fe2515be5"
+    },
+    {
+      "path": "schemas/regulatory_signal.schema.json",
+      "bytes": 1173,
+      "sha256": "e4ff9baf1dddb98abd642e066e6b033766813433bc4770ef7d20cc31f0ee32fe"
+    },
+    {
+      "path": "schemas/venture_kpi.schema.json",
+      "bytes": 1435,
+      "sha256": "e300fc460d5b28db4b9611ca56a10ca8e8bd9445e5c0ce4a3a45873d5c22955a"
+    },
+    {
+      "path": "schemas/venture_state_machine.yaml",
+      "bytes": 730,
+      "sha256": "a31e999b7c55a411a81ae36d0cf2056d61cf298027ef30bfc0f13381c5a9cb59"
+    },
+    {
+      "path": "source/BOSSMAN_VENTURE_ENGINE_BUSINESS_SPEC_V0_9.md",
+      "bytes": 62081,
+      "sha256": "2cc294100a78a73a66166e39431d3179bbf4205926df846b8d2c557fc8edf87f"
+    },
+    {
+      "path": "templates/BUSINESS_DECISION_PACKET.md",
+      "bytes": 765,
+      "sha256": "046262f191bb7aa048929453635f66c394dabccdba5b4ba6fe32babbb81bbfca"
+    },
+    {
+      "path": "templates/CAMPAIGN_APPROVAL.md",
+      "bytes": 292,
+      "sha256": "aa51bde2dc3dc6ee720ba508044cf5b4eb155cefb75bf18e2836f9b218562a86"
+    },
+    {
+      "path": "templates/COMPETITOR_AUDIT.md",
+      "bytes": 310,
+      "sha256": "9a3e6ce275a914a4e0ca6e68410f0106e325b697d1fbbc42c71aa9e159ea39ff"
+    },
+    {
+      "path": "templates/CUSTOMER_INTERVIEW.md",
+      "bytes": 471,
+      "sha256": "20b1afacdb0f1ab471d01fc114c53f1056efc21cdeff6972f228bfa023cdbdd9"
+    },
+    {
+      "path": "templates/EXPERIMENT_LEDGER.md",
+      "bytes": 290,
+      "sha256": "389272c4685dca577391dd67ca61ec57b11567e1d2176b4e4031e0d39e422104"
+    },
+    {
+      "path": "templates/GO_HOLD_KILL.md",
+      "bytes": 325,
+      "sha256": "4f5806bc0a6d50db10f6c711864df8f5cd4a2dd275c5792df9aadffb4a7d4bb8"
+    },
+    {
+      "path": "templates/MONTHLY_VENTURE_REVIEW.md",
+      "bytes": 323,
+      "sha256": "bb65ff423a6c96adbdd474bad3f4032d2f68be2b49a949ff23bc8ca96a9206e4"
+    },
+    {
+      "path": "templates/OPPORTUNITY_CARD.md",
+      "bytes": 645,
+      "sha256": "c63d789f94990a109c228b535e0d2fa929c15b63efc3e02b4a0bb4b6b6944870"
+    },
+    {
+      "path": "templates/POSTMORTEM.md",
+      "bytes": 347,
+      "sha256": "d5198f841cd5a259d847d788765e842ce4b3e2fabcfa7b19658d1716a5031194"
+    },
+    {
+      "path": "templates/PRICING_TEST.md",
+      "bytes": 218,
+      "sha256": "06d654a02f9eb785fef503cd603468618ac64482936ab42d8f0acd62ec13d326"
+    },
+    {
+      "path": "templates/QUARTERLY_BOARD_MEMO.md",
+      "bytes": 362,
+      "sha256": "d76343672725c972594f17e47c8bd42e436e8539e946d14c118af83e6487fd28"
+    },
+    {
+      "path": "templates/REGULATORY_SIGNAL.md",
+      "bytes": 373,
+      "sha256": "61cc3e6ae498689fe35a61b8c7c051d725b7e43bea43dcf37a6d9945bdc6fa8c"
+    },
+    {
+      "path": "templates/SRO_TRANSITION_MEMO.md",
+      "bytes": 443,
+      "sha256": "e29d6223b12ebfa5dc6b1401c2209aa46657a2e68fddb5b74892bb3923b09c14"
+    }
+  ]
+}

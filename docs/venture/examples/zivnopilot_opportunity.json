@@ -1,0 +1,38 @@
+{
+  "id": "OPP-ZP-001",
+  "name": "ŽivnoPilot",
+  "country": "CZ",
+  "vertical": "microbusiness operations",
+  "stage": "RESEARCHING",
+  "customer": {
+    "payer": "owner-operator / OSVČ",
+    "user": "owner-operator",
+    "beneficiary": "microbusiness",
+    "segment": "field/service microbusiness"
+  },
+  "problem": {
+    "statement": "Fragmented job-to-cash administration across messages, quotes, calendars, invoices, payments and accountant handoff.",
+    "frequency": "weekly/daily",
+    "economic_cost_czk": null,
+    "workaround": "multiple disconnected tools and manual follow-up"
+  },
+  "why_now": [
+    "SME digitalisation gaps",
+    "EET 2.0 attention trigger, legislation still requires revalidation"
+  ],
+  "evidence_ids": [],
+  "score": {
+    "base": 0,
+    "confidence_multiplier": 0.6,
+    "final": 0,
+    "blockers": [
+      "Requires direct customer/payment validation"
+    ]
+  },
+  "next_experiment_id": "EXP-ZP-001",
+  "kill_criteria": [
+    "No clear payer after qualified interviews",
+    "No paid pilot after sufficient selling",
+    "Invoice-only wedge"
+  ]
+}

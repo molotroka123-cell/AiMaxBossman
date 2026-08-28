@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Opportunity",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "country",
+    "stage",
+    "customer",
+    "problem",
+    "score"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string",
+      "default": "CZ"
+    },
+    "vertical": {
+      "type": "string"
+    },
+    "stage": {
+      "enum": [
+        "NEW",
+        "TRIAGE",
+        "RESEARCHING",
+        "VALIDATION_CANDIDATE",
+        "VALIDATING",
+        "BUILD_CANDIDATE",
+        "BUILDING",
+        "PILOT",
+        "SCALE",
+        "HOLD",
+        "KILLED"
+      ]
+    },
+    "customer": {
+      "type": "object",
+      "required": [
+        "payer",
+        "user"
+      ],
+      "properties": {
+        "payer": {
+          "type": "string"
+        },
+        "user": {
+          "type": "string"
+        },
+        "beneficiary": {
+          "type": "string"
+        },
+        "segment": {
+          "type": "string"
+        }
+      }
+    },
+    "problem": {
+      "type": "object",
+      "properties": {
+        "statement": {
+          "type": "string"
+        },
+        "frequency": {
+          "type": "string"
+        },
+        "economic_cost_czk": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "workaround": {
+          "type": "string"
+        }
+      }
+    },
+    "why_now": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "score": {
+      "type": "object",
+      "required": [
+        "base",
+        "confidence_multiplier",
+        "final"
+      ],
+      "properties": {
+        "base": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "confidence_multiplier": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "final": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_experiment_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "kill_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

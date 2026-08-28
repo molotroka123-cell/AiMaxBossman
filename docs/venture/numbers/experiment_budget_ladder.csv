@@ -1,0 +1,5 @@
+stage,default_cap_czk,evidence_needed
+discovery,1000,payer + no hard blocker
+validation,5000,clear falsifiable experiment
+pre_payment_build,20000,problem proof + owner exception/paid path
+investment_review,50000,actual revenue/margin/retention/acquisition review

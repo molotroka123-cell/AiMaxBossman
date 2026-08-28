@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LegalEntity",
+  "type": "object",
+  "required": [
+    "id",
+    "type",
+    "effective_from"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "INDIVIDUAL_RESEARCH",
+        "OSVC",
+        "SRO"
+      ]
+    },
+    "name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ico": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "dic": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "vat_status": {
+      "enum": [
+        "UNKNOWN",
+        "NON_PAYER",
+        "IDENTIFIED_PERSON",
+        "VAT_PAYER"
+      ]
+    },
+    "invoice_identity_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "payment_identity_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "effective_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "effective_to": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

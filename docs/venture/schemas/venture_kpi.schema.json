@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VentureKPI",
+  "type": "object",
+  "required": [
+    "venture_id",
+    "period",
+    "currency"
+  ],
+  "properties": {
+    "venture_id": {
+      "type": "string"
+    },
+    "period": {
+      "type": "string"
+    },
+    "currency": {
+      "const": "CZK"
+    },
+    "mrr": {
+      "type": "number"
+    },
+    "collected_cash": {
+      "type": "number"
+    },
+    "net_revenue": {
+      "type": "number"
+    },
+    "variable_cost": {
+      "type": "number"
+    },
+    "contribution": {
+      "type": "number"
+    },
+    "gross_margin_pct": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "arpa": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "cash_cac": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "fully_loaded_cac": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "payback_months": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "logo_churn_pct": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "mrr_churn_pct": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "support_minutes_per_account_week": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "ai_cost_per_active_account": {
+      "type": [
+        "number",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

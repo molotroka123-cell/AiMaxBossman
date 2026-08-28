@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BusinessMemory",
+  "type": "object",
+  "required": [
+    "id",
+    "segment",
+    "experiment_id",
+    "result",
+    "confidence",
+    "scope"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "segment": {
+      "type": "string"
+    },
+    "experiment_id": {
+      "type": "string"
+    },
+    "sample": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "result": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "scope": {
+      "type": "string"
+    },
+    "invalidation_condition": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}
