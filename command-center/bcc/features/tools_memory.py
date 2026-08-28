@@ -38,6 +38,7 @@ from ..v2.memory import (
     ObsidianMemoryService,
     ObsidianVault,
 )
+from ..v2.memory.sqlite_index import SQLiteMemoryBackend
 from . import Feature
 
 CONFIG_KEY = "memory.vault"
@@ -102,21 +103,35 @@ def build_service(svc, cfg: dict) -> ObsidianMemoryService:
 
     want = str(cfg.get("backend") or "auto")
     backend = None
-    if want in ("auto", "memsearch"):
-        bridge = MemSearchBridge(**(cfg.get("memsearch") or {}))
+    if want == "memsearch":
+        bridge = MemSearchBridge(vault_root=str(vault.root),
+                                 excludes=sorted(vault.excluded_dirs),
+                                 **(cfg.get("memsearch") or {}))
         if bridge.available():
             backend = bridge
-        elif want == "memsearch":
+        else:
             raise MemoryNotConfigured(
                 "backend=memsearch выбран, но бинарь `memsearch` не найден в PATH; "
-                "используйте backend=local")
+                "используйте backend=sqlite (по умолчанию) или local-json")
     if backend is None:
         index_dir = Path(svc.settings.data_dir) / "memory"
-        backend = LocalMemoryBackend(
-            index_path=index_dir / f"index-{_fingerprint({'root': str(vault.root)})}.json",
-            vault_root=vault.root,
-            excluded_dirs=set(vault.excluded_dirs),
-        )
+        fp = _fingerprint({"root": str(vault.root)})
+        if want == "local-json":
+            # Legacy-путь оставлен как откат, пока не подтверждён паритет.
+            backend = LocalMemoryBackend(
+                index_path=index_dir / f"index-{fp}.json",
+                vault_root=vault.root,
+                excluded_dirs=set(vault.excluded_dirs),
+            )
+        else:
+            # auto | sqlite | local — производный SQLite-индекс: ни сервиса,
+            # ни сети, ни обязательной модели эмбеддингов. Источник истины —
+            # markdown в хранилище, индекс всегда пересобираем.
+            backend = SQLiteMemoryBackend(
+                index_path=index_dir / f"index-{fp}.sqlite3",
+                vault_root=vault.root,
+                excluded_dirs=set(vault.excluded_dirs),
+            )
     return ObsidianMemoryService(vault=vault, backend=backend,
                                  reranker=LexicalReranker())
 

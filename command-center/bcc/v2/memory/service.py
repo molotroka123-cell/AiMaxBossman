@@ -106,7 +106,12 @@ class ObsidianMemoryService:
             source_run_id=source_run_id,
             filename=filename,
         )
-        # Инкрементальная переиндексация: хэш содержимого не даст перечитать
-        # уже проиндексированные заметки, новая станет искомой сразу.
-        await self.backend.index([self.vault.write_root], force=False)
+        # Критическая правка пути записи (замерено исследованием Qdrant:
+        # пересканирование корня стоило 2.4 с на 6k чанков и ~38 с на 100k).
+        # Если бэкенд умеет обновить ОДНУ заметку — обновляем только её.
+        index_one = getattr(self.backend, "index_one", None)
+        if callable(index_one):
+            await index_one(path, force=False)
+        else:
+            await self.backend.index([self.vault.write_root], force=False)
         return path

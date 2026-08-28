@@ -165,13 +165,15 @@ async def test_config_is_explicit_and_index_reports_files(env, vault_dir):
 
     cfg = await _configure(env, vault_dir)
     assert cfg["configured"] and cfg["root"] == str(vault_dir)
-    assert cfg["backend_class"] == "LocalMemoryBackend"   # memsearch не установлен
+    # V2.2: backend=local — алиас на производный SQLite-индекс. Источник истины
+    # по-прежнему markdown; JSON-бэкенд остался откатом под backend=local-json.
+    assert cfg["backend_class"] == "SQLiteMemoryBackend"
 
     res = (await env.client.post("/api/memory/index", json={})).json()["result"]
     assert res["files"] == 3 and res["added"] == 3 and res["chunks"] >= 4
 
     stats = (await env.client.get("/api/memory/stats")).json()["stats"]
-    assert stats["backend"] == "local" and stats["files"] == 3
+    assert stats["backend"] == "sqlite" and stats["files"] == 3
 
     # приватный .obsidian не проиндексирован
     hits = (await env.client.post("/api/memory/search",

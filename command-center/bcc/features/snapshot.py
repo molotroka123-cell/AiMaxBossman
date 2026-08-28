@@ -10,7 +10,12 @@
     снапшот НЕ откатывает);
   * активные миссии/задачи/раны, версии скиллов;
   * провайдеры и модели — БЕЗ ключей: только `key_fingerprint`
-    (sha256 расшифрованного ключа, необратимо) и `has_key`.
+    (sha256 расшифрованного ключа, необратимо) и `has_key`;
+  * производные хранилища (индекс памяти, индекс кода) — по строгому
+    allowlist из `bcc.v2.derived_stores`, с sha256 и в рамках общего предела.
+    Они ПЕРЕСТРАИВАЕМЫ: если файл не влез в предел, снапшот честно пишет
+    `copied=false, rebuildable=true`, а откат — `restored=false,
+    reason="not copied; rebuild required"`, и БД всё равно откатывается.
 
 Чего в снапшоте нет и не будет:
 
@@ -43,6 +48,7 @@ from ..db import (approvals as approvals_t, events as events_t, fetch_one, missi
                   models as models_t, providers as providers_t, rows_dicts, settings_kv,
                   skill_versions as skill_versions_t, skills as skills_t,
                   snapshots as snapshots_t, task_runs as runs_t, tasks as tasks_t, utcnow)
+from ..v2.derived_stores import copy_into_snapshot, restore_from_snapshot, safety_copy_current
 from . import Feature
 
 router = APIRouter()
@@ -319,10 +325,23 @@ async def create_snapshot(request: Request):
             },
             "excluded": EXCLUDED,
             "files": [],
+            "derived_stores": [],
         }
         manifest["config"]["settings_keys_count"] = len(manifest["state"]["settings_keys"])
         manifest["files"] = [{"name": DB_FILE, "sha256": manifest["database"]["sha256"],
                               "size_bytes": db_size}]
+
+        # Производные хранилища копируем ПОСЛЕ БД и строго в остаток общего
+        # предела: БД — состояние, индексы — производное от него, и при нехватке
+        # места жертвуем именно ими (их можно перестроить, базу — нет).
+        derived = await copy_into_snapshot(
+            data_dir=Path(settings.data_dir), snapshot_base=base,
+            per_file_limit=MAX_ARTIFACT_BYTES,
+            total_limit=max(0, MAX_ARTIFACT_BYTES - db_size))
+        manifest["derived_stores"] = derived
+        manifest["files"].extend(
+            {"name": d["snapshot_file"], "sha256": d["sha256"], "size_bytes": d["size_bytes"]}
+            for d in derived if d.get("copied"))
 
         manifest_path = base / MANIFEST_FILE
         manifest_path.write_text(json.dumps(_jsonable(manifest), ensure_ascii=False, indent=2),
@@ -434,6 +453,29 @@ async def restore_preview(snapshot_id: int, request: Request):
                     "key_same": snap_fp.get(pid) == now_fp.get(pid)}
                    for pid in sorted(set(snap_fp) | set(now_fp))]
 
+    derived_entries = manifest.get("derived_stores") or []
+    derived_preview = {"copied": [], "omitted": []}
+    for entry in derived_entries:
+        rel = str(entry.get("relative_path") or "")
+        item = {"relative_path": rel, "size_bytes": entry.get("size_bytes"),
+                "expected_sha256": entry.get("sha256")}
+        if entry.get("copied"):
+            snap_file = base / str(entry.get("snapshot_file") or "")
+            item["present"] = snap_file.is_file()
+            item["will_replace"] = str(Path(svc.settings.data_dir) / rel)
+            if not item["present"]:
+                warnings.append(f"производный индекс отсутствует в снапшоте: {rel} — "
+                                f"после отката его придётся перестроить")
+            derived_preview["copied"].append(item)
+        else:
+            item["reason"] = entry.get("reason") or "not copied; rebuild required"
+            item["rebuildable"] = True
+            derived_preview["omitted"].append(item)
+    if derived_preview["omitted"]:
+        warnings.append(f"производные индексы не попали в снапшот "
+                        f"({len(derived_preview['omitted'])}) — откат БД пройдёт, "
+                        f"но их нужно перестроить (переиндексация)")
+
     return _jsonable({
         "snapshot": {"id": row["id"], "name": row["name"], "kind": row["kind"],
                      "created_at": row["created_at"]},
@@ -448,7 +490,9 @@ async def restore_preview(snapshot_id: int, request: Request):
                        "runs": now_state["runs"]},
         "git": git_block,
         "providers": key_changes,
-        "will_replace": [str(_db_path(svc.settings.database_url) or "")],
+        "derived_stores": derived_preview,
+        "will_replace": [str(_db_path(svc.settings.database_url) or "")]
+        + [x["will_replace"] for x in derived_preview["copied"]],
         "will_not_touch": ["secret.key", "token", "рабочее дерево git", "веса моделей"],
         "warnings": warnings,
     })
@@ -529,6 +573,9 @@ async def restore(snapshot_id: int, request: Request):
     safety_dir.mkdir(parents=True, exist_ok=True)
     safety_db = safety_dir / DB_FILE
     await _copy_db(svc, safety_db)
+    derived_entries = manifest.get("derived_stores") or []
+    safety_derived = await safety_copy_current(
+        data_dir=Path(svc.settings.data_dir), safety_dir=safety_dir, entries=derived_entries)
 
     # реестр снапшотов переживает откат: точки отката — не то состояние, которое
     # откатывают, иначе после первого же отката вернуться было бы некуда
@@ -553,21 +600,32 @@ async def restore(snapshot_id: int, request: Request):
             await s.execute(sa.insert(snapshots_t), missing)
             await s.commit()
 
-    # 4. след в НОВОЙ базе: сама строка approval после отката исчезла — повторно
+    # 4. производные хранилища — только после того, как БД жива: индекс без
+    #    своей базы бесполезен, а вот база без индекса работает (переиндексация)
+    derived_restore = await restore_from_snapshot(
+        data_dir=Path(svc.settings.data_dir), snapshot_base=base, entries=derived_entries)
+    rebuild_required = [x["relative_path"] for x in derived_restore if not x.get("restored")]
+
+    # 5. след в НОВОЙ базе: сама строка approval после отката исчезла — повторно
     #    использовать её нельзя (404), а событие остаётся аудитом
     async with svc.db.session() as s:
         await s.execute(sa.insert(events_t).values(
             ts=utcnow(), kind="snapshot.restored",
             data={"snapshot_id": snapshot_id, "approval_id": approval_id,
                   "by": str(body.get("by") or "owner")[:120],
-                  "safety_copy": str(safety_db)}))
+                  "safety_copy": str(safety_db),
+                  "derived_stores": derived_restore,
+                  "derived_safety_copy": safety_derived}))
         await s.commit()
     await svc.bus.emit("snapshot.restored", id=snapshot_id, approval_id=approval_id,
-                       safety_copy=str(safety_db))
+                       safety_copy=str(safety_db),
+                       derived_rebuild_required=rebuild_required)
 
     return {"ok": True, "snapshot_id": snapshot_id, "approval_id": approval_id,
             "restored_to": str(target), "safety_copy": str(safety_db),
             "table_counts": await _table_counts(svc),
+            "derived_stores": derived_restore,
+            "derived_rebuild_required": rebuild_required,
             "note": "код (git) не откатывался — сверьте HEAD из restore-preview"}
 
 
