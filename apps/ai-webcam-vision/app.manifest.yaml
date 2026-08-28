@@ -1,0 +1,51 @@
+id: ai-webcam-vision
+name: AI WebCam Vision
+version: "0.2.0"
+kind: workload
+contract: "1.0"
+
+# The app is driven over HTTP by a control plane. It imports nothing from
+# BOSSMAN, and BOSSMAN imports nothing from it.
+control:
+  transport: http
+  base_path: /api/v1
+  auth: bearer_optional   # required whenever AWV_API_TOKEN is set
+  calls:
+    health: GET /api/v1/health
+    capabilities: GET /api/v1/capabilities
+    jobs.create: POST /api/v1/jobs
+    jobs.status: GET /api/v1/jobs/{job_id}
+    jobs.cancel: POST /api/v1/jobs/{job_id}/cancel
+    jobs.list: GET /api/v1/jobs
+    artifacts.list: GET /api/v1/artifacts
+    metrics: GET /api/v1/metrics
+  ingress:
+    motion: POST /hooks/motion
+
+job_types: [probe, baseline, sample, observe, snapshot]
+
+entrypoints:
+  standalone: true
+  bossman_app: not_implemented
+  chat_command: not_implemented
+  autonomous: not_implemented
+
+# Declarative permissions. Each one is backed by code that enforces it; see
+# docs/PRIVACY.md and tests/test_privacy_defaults.py.
+permissions:
+  camera.read: auto
+  camera.baseline.capture: ask
+  snapshot.capture: deny_by_default    # AWV_SNAPSHOTS_ENABLED
+  raw_video.store: deny                # no recorder exists
+  audio.capture: deny                  # startup fails if requested
+  face.identify: deny                  # startup fails if requested
+  patient.identify: deny               # startup fails if requested
+  crm.read: deny_by_default            # AWV_CRM_EGRESS_ENABLED
+  telemetry.send: deny_by_default      # AWV_TELEMETRY_ENABLED
+
+requirements:
+  python: ">=3.11"
+  binaries:
+    ffmpeg: required_for_modes[file, rtsp]
+  compute: cpu
+  gpu: not_used

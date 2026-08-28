@@ -83,8 +83,9 @@ def cylinder(
         j = (i + 1) % n
         b0, b1 = i, j
         t0, t1 = n + i, n + j
-        faces.append((b0, t0, t1))
-        faces.append((b0, t1, b1))
+        # Side quad, wound so the normal points away from the axis.
+        faces.append((b0, t1, t0))
+        faces.append((b0, b1, t1))
         faces.append((bottom_center, b1, b0))  # bottom cap, normal -Z
         faces.append((top_center, t0, t1))     # top cap, normal +Z
     return Mesh(verts, faces)

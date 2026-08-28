@@ -12,7 +12,6 @@ optional independent second opinion and is never the primary answer.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
-from typing import Iterable
 
 from .mesh import Mesh, triangle_area
 
@@ -180,7 +179,9 @@ def inspect_mesh(
     if any(e <= 0 for e in extents):
         errors.append(f"degenerate bounding box {extents}: model is flat in at least one axis")
 
-    volume = mesh.volume() if is_watertight else mesh.volume()
+    # Signed volume is only meaningful for a closed surface; it is still
+    # reported for an open one so the caller can see how far off it is.
+    volume = mesh.volume()
     if is_watertight and volume <= 0:
         errors.append("closed mesh has non-positive volume: faces are probably inverted")
 
@@ -218,7 +219,10 @@ def cross_check_with_trimesh(path) -> dict:
     except Exception as exc:  # pragma: no cover - depends on environment
         return {"status": "NOT_AVAILABLE", "reason": f"trimesh not importable: {exc}"}
     try:
-        loaded = trimesh.load_mesh(str(path), process=False)
+        # process=True merges coincident vertices, the same welding this
+        # package does before topology checks. It does not fill holes or
+        # otherwise repair, so an open mesh still reads as open.
+        loaded = trimesh.load_mesh(str(path), process=True)
     except Exception as exc:
         return {"status": "LOAD_FAILED", "reason": f"{type(exc).__name__}: {exc}"}
     if hasattr(loaded, "geometry"):
@@ -226,21 +230,29 @@ def cross_check_with_trimesh(path) -> dict:
         if not geoms:
             return {"status": "LOAD_FAILED", "reason": "empty scene"}
         loaded = trimesh.util.concatenate(geoms)
-    return {
-        "status": "OK",
-        "triangles": int(len(loaded.faces)),
-        "watertight": bool(loaded.is_watertight),
-        "winding_consistent": bool(loaded.is_winding_consistent),
-        "components": int(len(loaded.split(only_watertight=False))),
-        "extents_mm": [float(v) for v in loaded.extents],
-        "volume_mm3": float(loaded.volume) if loaded.is_volume else None,
-    }
-
-
-def summarize(reports: Iterable[MeshReport]) -> dict:
-    reports = list(reports)
-    return {
-        "count": len(reports),
-        "worst_status": "FAIL" if any(r.status == "FAIL" for r in reports)
-        else ("WARN" if any(r.status == "WARN" for r in reports) else "PASS"),
-    }
+    if not hasattr(loaded, "faces") or len(loaded.faces) == 0:
+        return {"status": "LOAD_FAILED", "reason": "trimesh produced no triangles"}
+    try:
+        # trimesh delegates component splitting to scipy or networkx; neither is
+        # a dependency of this app, so a missing graph engine is reported, not raised.
+        components = int(len(loaded.split(only_watertight=False)))
+    except Exception as exc:
+        components = None
+        component_note = f"component count unavailable: {type(exc).__name__}"
+    else:
+        component_note = None
+    try:
+        result = {
+            "status": "OK",
+            "triangles": int(len(loaded.faces)),
+            "watertight": bool(loaded.is_watertight),
+            "winding_consistent": bool(loaded.is_winding_consistent),
+            "components": components,
+            "extents_mm": [float(v) for v in loaded.extents],
+            "volume_mm3": float(loaded.volume) if loaded.is_volume else None,
+        }
+    except Exception as exc:  # pragma: no cover - defensive
+        return {"status": "CHECK_FAILED", "reason": f"{type(exc).__name__}: {exc}"}
+    if component_note:
+        result["note"] = component_note
+    return result

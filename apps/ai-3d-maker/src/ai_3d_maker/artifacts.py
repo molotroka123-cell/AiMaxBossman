@@ -14,8 +14,10 @@ from .mesh import sha256_file
 
 MANIFEST_NAME = "manifest.json"
 
-# Files that describe the job itself rather than being produced output.
-_MANIFEST_EXCLUDES = {MANIFEST_NAME}
+# Files that describe the job itself rather than being produced output. The
+# job record keeps changing after the manifest is written, so hashing it would
+# guarantee a stale checksum.
+_MANIFEST_EXCLUDES = {MANIFEST_NAME, "job.json", "job.json.tmp"}
 
 
 @dataclass(frozen=True, slots=True)

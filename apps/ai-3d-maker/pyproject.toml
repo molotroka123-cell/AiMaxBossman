@@ -1,0 +1,40 @@
+[project]
+name = "ai-3d-maker"
+version = "0.2.0"
+description = "Validated CAD/mesh-to-print pipeline for the ELEGOO Neptune 3 Plus"
+requires-python = ">=3.11"
+# Deliberately dependency-light: mesh parsing, validation, repair, printability
+# and the G-code scanner all run on the standard library alone.
+dependencies = []
+
+[project.optional-dependencies]
+# Real boolean CSG. Required for multi-feature DesignSpecs.
+csg = ["manifold3d>=3.0", "numpy>=1.26"]
+# HTTP control surface.
+api = ["fastapi>=0.111", "uvicorn[standard]>=0.30", "pydantic>=2.7"]
+# Independent mesh cross-check used by tests and reports.
+verify = ["trimesh>=4.4", "numpy>=1.26"]
+# Optional STEP export.
+cad = ["cadquery>=2.4"]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "httpx>=0.27"]
+all = [
+  "manifold3d>=3.0", "numpy>=1.26",
+  "fastapi>=0.111", "uvicorn[standard]>=0.30", "pydantic>=2.7",
+  "trimesh>=4.4",
+]
+
+[project.scripts]
+ai-3d-maker = "ai_3d_maker.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]

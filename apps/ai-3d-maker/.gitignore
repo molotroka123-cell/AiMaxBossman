@@ -1,0 +1,7 @@
+# Job output: generated artifacts, never source.
+data/
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.venv/
+.env

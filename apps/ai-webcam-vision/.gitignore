@@ -1,0 +1,10 @@
+# Build and test artefacts of this application only.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+.env
+
+# Runtime state: baseline, SQLite timeline, snapshots, logs.
+data/

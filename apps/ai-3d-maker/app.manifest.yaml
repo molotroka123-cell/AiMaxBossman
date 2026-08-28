@@ -1,0 +1,65 @@
+id: ai-3d-maker
+name: AI 3D Maker
+version: "0.2.0"
+app_number: 2
+description: Validated CAD/mesh-to-print pipeline for the ELEGOO Neptune 3 Plus.
+
+runtime:
+  language: python
+  python: ">=3.11"
+  standalone: true
+  # This application imports nothing from BOSSMAN. BOSSMAN is a control plane;
+  # this is a workload driven through the control contract below.
+  imports_bossman: false
+
+entrypoints:
+  cli: ai-3d-maker
+  http: ai_3d_maker.api:build_app
+  control_plane: ai_3d_maker.control:ControlPlane
+
+control_contract:
+  version: ai-3d-maker/control/1
+  operations:
+    - health
+    - capabilities
+    - jobs.create
+    - jobs.status
+    - jobs.cancel
+    - jobs.list
+    - artifacts.list
+    - metrics
+    - gcode.scan
+    - printer.confirm
+  http:
+    health: GET /health
+    capabilities: GET /capabilities
+    metrics: GET /metrics
+    jobs.create: POST /api/jobs
+    jobs.list: GET /api/jobs
+    jobs.status: GET /api/jobs/{job_id}
+    jobs.cancel: POST /api/jobs/{job_id}/cancel
+    artifacts.list: GET /api/jobs/{job_id}/artifacts
+    gcode.scan: POST /api/gcode/scan
+    printer.confirm: POST /api/printer/confirm
+
+commands:
+  - /3d make
+  - /3d validate
+  - /3d slice
+  - /3d calibrate
+
+permissions:
+  filesystem.project_write: ask
+  cad.execute_constrained: auto
+  cad.execute_arbitrary_code: deny
+  slicer.execute: ask
+  removable_media.write: ask
+  printer.start_physical_print: deny
+
+safety:
+  physical_actions_separated: true
+  physical_action_requires_human_confirmation: true
+  confirmation_binds_to_artifact_digest: true
+  gcode_scanned_before_any_transfer: true
+  default_transport: simulator
+  physical_smoke_test: BLOCKED_BY_HARDWARE

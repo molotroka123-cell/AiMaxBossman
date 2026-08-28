@@ -178,10 +178,11 @@ def _load_binary_stl(raw: bytes, name: str, *, max_triangles: int) -> Mesh:
     off = 84
     for i in range(count):
         try:
-            values = struct.unpack_from("<12f", raw, off + 12)
+            # 12 floats per facet: normal (ignored, recomputed on export) + 3 vertices.
+            values = struct.unpack_from("<12f", raw, off)
         except struct.error as exc:  # pragma: no cover - guarded by length check
             raise MeshLoadError(f"{name}: cannot unpack triangle {i}: {exc}") from exc
-        pts = (values[0:3], values[3:6], values[6:9])
+        pts = (values[3:6], values[6:9], values[9:12])
         if not _finite([c for pt in pts for c in pt]):
             raise MeshLoadError(f"{name}: triangle {i} contains NaN/Inf coordinates")
         tri = []

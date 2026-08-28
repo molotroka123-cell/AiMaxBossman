@@ -47,8 +47,29 @@ def sanitize_name(raw: str, *, kind: str = "name") -> str:
     return text
 
 
+def strict_segment(raw: str, *, kind: str = "path segment") -> str:
+    """Validate caller-supplied identifiers instead of quietly rewriting them.
+
+    `sanitize_name` is for filenames that arrive with a file (an uploaded mesh),
+    where silently cleaning is the useful behaviour. For anything the caller
+    chose — job ids, artifact lookups — a traversal attempt is refused outright,
+    so `../../etc/passwd` can never collapse into an innocent-looking `etcpasswd`
+    that silently addresses a different job.
+    """
+    if not isinstance(raw, str):
+        raise UnsafePathError(f"{kind} must be a string")
+    normalised = unicodedata.normalize("NFKD", raw)
+    if "/" in normalised or "\\" in normalised or "\0" in normalised:
+        raise UnsafePathError(f"{kind} {raw!r} contains a path separator")
+    if ".." in normalised:
+        raise UnsafePathError(f"{kind} {raw!r} contains a parent-directory reference")
+    if normalised.strip().startswith("."):
+        raise UnsafePathError(f"{kind} {raw!r} starts with a dot")
+    return sanitize_name(raw, kind=kind)
+
+
 def safe_job_id(raw: str) -> str:
-    return sanitize_name(raw, kind="job id")
+    return strict_segment(raw, kind="job id")
 
 
 def safe_artifact_name(raw: str) -> str:
@@ -67,7 +88,7 @@ def resolve_within(root: Path, *parts: str) -> Path:
     (symlinked job dirs, for example).
     """
     root = Path(root).resolve()
-    safe_parts = [sanitize_name(p, kind="path segment") for p in parts]
+    safe_parts = [strict_segment(p) for p in parts]
     candidate = root.joinpath(*safe_parts)
     try:
         resolved = candidate.resolve()

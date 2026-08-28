@@ -228,7 +228,9 @@
 
 ## 21. Что изменено при переносе (краткая сверка)
 
-Полное описание построенного — в `apps/ai-webcam-vision/README.md` и `apps/ai-webcam-vision/docs/`. Кратко, по дефектам выше:
+Полное описание построенного — в `apps/ai-webcam-vision/README.md` и `apps/ai-webcam-vision/docs/APP1_REPORT.md`.
+Собственный набор тестов приложения: **102 passed, 0 failed, 0 skipped** (`cd apps/ai-webcam-vision && python -m pytest -q`). — REAL TESTED.
+Кратко, по дефектам выше:
 
 - S1/S2/S4, §12 → введены `Secret`/`SecretUrl` без раскрывающего `__repr__`/`__str__`, единая точка сборки URL и глобальный скруббер, работающий по зарегистрированным значениям секретов, а не только по форме URL. — REAL IMPLEMENTED, покрыто тестом-канарейкой. — REAL TESTED.
 - S3 → тексты исключений транспорта санируются в момент создания исключения, API отдаёт только санированное. — REAL TESTED.
