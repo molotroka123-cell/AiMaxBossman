@@ -17,7 +17,14 @@ from .. import __version__
 from ..config import CameraMode, Settings
 from ..crm import CrmContext, build_crm
 from ..crm.base import CrmClient
-from ..errors import BaselineMissing, CaptureError, DependencyMissing, PrivacyDenied, VisionError
+from ..errors import (
+    BaselineMissing,
+    CaptureError,
+    DependencyMissing,
+    PrivacyDenied,
+    StaleFrame,
+    VisionError,
+)
 from ..logging_setup import get_logger
 from ..pipeline import (
     ANALYZER_ID,
@@ -51,6 +58,7 @@ class Counters:
     frames_captured: int = 0
     frames_analyzed: int = 0
     frames_dropped: int = 0
+    frames_stale: int = 0
     capture_failures: int = 0
     retry_sleeps: int = 0
     reconnects: int = 0
@@ -282,7 +290,28 @@ class VisionService:
         }
 
     # -------------------------------------------------------------- sample
+    @property
+    def max_frame_age(self) -> float:
+        return self.settings.max_frame_age
+
+    def _reject_if_stale(self, frame: Frame) -> None:
+        """A late frame is evidence about the past, never about now.
+
+        Without this a capture that took a minute (slow reconnect, congested
+        VPN, an ffmpeg that only just gave up) is timestamped and stored as
+        the room's current state, inventing occupancy that already ended.
+        """
+        age = (datetime.now(timezone.utc) - frame.ts).total_seconds()
+        if age > self.max_frame_age:
+            self.counters.frames_stale += 1
+            self.source_health.state = "degraded"
+            self.source_health.detail = f"frame arrived {age:.1f}s late"
+            raise StaleFrame(
+                f"frame is {age:.1f}s old, budget is {self.max_frame_age:.1f}s"
+            )
+
     async def _analyze_and_store(self, frame: Frame) -> dict:
+        self._reject_if_stale(frame)
         evidence = self.analyzer.analyze(frame, self.motion.active())
         self.counters.frames_analyzed += 1
         crm_context = await self._crm_context(evidence.ts)

@@ -132,6 +132,8 @@ class Settings:
     ffmpeg_path: str = "ffmpeg"
     connect_timeout: float = 8.0
     capture_timeout: float = 15.0
+    #: A frame older than this describes the past, not the present.
+    max_frame_age: float = 30.0
 
     frame_width: int = 160
     frame_height: int = 90
@@ -210,6 +212,7 @@ class Settings:
                 "connect_seconds": self.connect_timeout,
                 "capture_seconds": self.capture_timeout,
                 "crm_seconds": self.crm_timeout,
+                "max_frame_age_seconds": self.max_frame_age,
             },
             "sampling": {
                 "active_interval_seconds": self.active_interval,
@@ -325,6 +328,7 @@ class Settings:
             ffmpeg_path=_get(env, "AWV_FFMPEG_PATH", "ffmpeg"),
             connect_timeout=_get_float(env, "AWV_CONNECT_TIMEOUT_SECONDS", 8.0, minimum=0.1),
             capture_timeout=_get_float(env, "AWV_CAPTURE_TIMEOUT_SECONDS", 15.0, minimum=0.1),
+            max_frame_age=_get_float(env, "AWV_MAX_FRAME_AGE_SECONDS", 30.0, minimum=0.1),
             frame_width=_get_int(env, "AWV_FRAME_WIDTH", 160, minimum=16),
             frame_height=_get_int(env, "AWV_FRAME_HEIGHT", 90, minimum=16),
             runtime_enabled=_get_bool(env, "AWV_RUNTIME_ENABLED", False),
