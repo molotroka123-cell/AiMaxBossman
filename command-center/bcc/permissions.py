@@ -15,12 +15,16 @@ ALL_PERMISSIONS = (
     "deploy.preview", "deploy.production",
     "invoice.create", "payment.read",
     "settings.write",
+    # Каналы связи (мост OpenClaw): чтение состояния и отправка живым людям.
+    # Отправка вынесена в отдельное право, а не подведена под email.send:
+    # это другой набор получателей и другой способ ошибиться.
+    "channel.read", "channel.send",
 )
 
 DANGEROUS = frozenset({
     "filesystem.write", "terminal.run", "git.write", "browser.control",
     "model.unload", "email.send", "deploy.preview", "deploy.production",
-    "invoice.create", "settings.write",
+    "invoice.create", "settings.write", "channel.send",
 })
 
 
