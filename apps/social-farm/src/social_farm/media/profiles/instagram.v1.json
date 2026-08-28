@@ -1,0 +1,147 @@
+{
+  "provider": "instagram",
+  "profile_version": 1,
+  "api_version": "v21.0",
+  "adapter_version": "0.1.0",
+  "verified_at": "2026-08-28T00:00:00+00:00",
+  "verification": "DOCUMENTED_NOT_LIVE_VERIFIED",
+  "source_ref": "Meta Instagram Platform — Content Publishing (публичная документация)",
+  "_comment": [
+    "Числа сверены с публичной документацией провайдера, а НЕ с живым API:",
+    "приложения Meta в этой среде нет (блокер B1 аудита). Поэтому",
+    "verification=DOCUMENTED_NOT_LIVE_VERIFIED, а не VERIFIED.",
+    "",
+    "Правило записи: ключ ОТСУТСТВУЕТ = правило не проверено (UNKNOWN) и",
+    "блокирует автопубликацию; ключ = null = ограничения нет, и это проверено.",
+    "Молчание здесь дороже догадки — см. docstring profiles.py.",
+    "",
+    "STORY намеренно оставлен с непроверенными правилами длительности и",
+    "соотношения. Документ 08 сам говорит про истории 'only where supported by",
+    "account/API setup', и публично опубликованных чисел для публикации историй",
+    "через Content Publishing API мы не подтвердили. Выдумывать их нельзя",
+    "(58_MEDIA_RULE_ENGINE), поэтому истории уходят на одобрение человека",
+    "(решение G16). Это не заглушка — это работающее правило."
+  ],
+
+  "media_profiles": {
+    "IMAGE": {
+      "account_types": ["BUSINESS", "CREATOR"],
+      "mime_allowlist": ["image/jpeg"],
+      "container_allowlist": ["jpeg", "jpg", "image2", "jpeg_pipe", "mjpeg"],
+      "codec_allowlist": ["mjpeg", "jpeg"],
+      "audio_codec_allowlist": null,
+      "max_bytes": 8388608,
+      "min_width": 320,
+      "max_width": 1440,
+      "min_height": 320,
+      "max_height": 1800,
+      "duration_min_s": null,
+      "duration_max_s": null,
+      "aspect_rules": ["4:5..1.91:1"],
+      "allow_transcode": true,
+      "allow_downscale": true,
+      "allow_aspect_pad": false,
+      "notes": "Лента принимает только JPEG. PNG/WebP перекодируются, а не отклоняются. Кадрировать под соотношение автоматически не будем: обрезка меняет смысл кадра, это решение автора."
+    },
+
+    "CAROUSEL": {
+      "account_types": ["BUSINESS", "CREATOR"],
+      "mime_allowlist": ["image/jpeg"],
+      "container_allowlist": ["jpeg", "jpg", "image2", "jpeg_pipe", "mjpeg"],
+      "codec_allowlist": ["mjpeg", "jpeg"],
+      "audio_codec_allowlist": null,
+      "max_bytes": 8388608,
+      "min_width": 320,
+      "max_width": 1440,
+      "min_height": 320,
+      "max_height": 1800,
+      "duration_min_s": null,
+      "duration_max_s": null,
+      "aspect_rules": ["4:5..1.91:1"],
+      "allow_transcode": true,
+      "allow_downscale": true,
+      "allow_aspect_pad": false,
+      "notes": "Ограничения на элемент карусели те же, что на одиночное изображение. Число элементов (2..10) проверяется конвейером, а не движком правил: это свойство состава, а не файла."
+    },
+
+    "REEL": {
+      "account_types": ["BUSINESS", "CREATOR"],
+      "mime_allowlist": ["video/mp4", "video/quicktime"],
+      "container_allowlist": ["mp4", "mov", "quicktime", "isom", "mp42", "m4a"],
+      "codec_allowlist": ["h264", "hevc"],
+      "audio_codec_allowlist": ["aac"],
+      "max_bytes": 1073741824,
+      "min_width": 540,
+      "max_width": 1920,
+      "min_height": 960,
+      "max_height": 1920,
+      "duration_min_s": 3,
+      "duration_max_s": 90,
+      "aspect_rules": ["9:16"],
+      "allow_transcode": true,
+      "allow_downscale": true,
+      "allow_aspect_pad": true,
+      "notes": "Вертикальное видео 9:16. Несовпадение соотношения чинится ПОЛЯМИ, а не растягиванием (14_MEDIA_TRANSFORM_PIPELINE: never silently stretch)."
+    },
+
+    "STORY": {
+      "account_types": ["BUSINESS", "CREATOR"],
+      "mime_allowlist": ["video/mp4", "video/quicktime", "image/jpeg"],
+      "container_allowlist": ["mp4", "mov", "quicktime", "isom", "mp42", "jpeg", "jpg", "image2", "jpeg_pipe", "mjpeg"],
+      "codec_allowlist": ["h264", "hevc", "mjpeg", "jpeg"],
+      "max_bytes": 104857600,
+      "allow_transcode": true,
+      "allow_downscale": true,
+      "allow_aspect_pad": true,
+      "notes": "duration_min_s, duration_max_s, aspect_rules, min/max_width, min/max_height и audio_codec_allowlist НЕ проверены и намеренно отсутствуют. Истории поэтому не публикуются автоматически: FAIL_PROVIDER_RULE_UNKNOWN -> WAITING_APPROVAL (G16)."
+    }
+  },
+
+  "render_profiles": {
+    "IMAGE": {
+      "account_type": "BUSINESS",
+      "media_profile_ref": "instagram:IMAGE:v1",
+      "target_width": 1080,
+      "target_height": 1350,
+      "target_video_codec": "mjpeg",
+      "target_container": "jpeg",
+      "max_caption_length": 2200,
+      "cover_rule": "NOT_APPLICABLE",
+      "subtitle_rule": "NOT_APPLICABLE"
+    },
+    "CAROUSEL": {
+      "account_type": "BUSINESS",
+      "media_profile_ref": "instagram:CAROUSEL:v1",
+      "target_width": 1080,
+      "target_height": 1350,
+      "target_video_codec": "mjpeg",
+      "target_container": "jpeg",
+      "max_caption_length": 2200,
+      "cover_rule": "FIRST_ITEM",
+      "subtitle_rule": "NOT_APPLICABLE"
+    },
+    "REEL": {
+      "account_type": "BUSINESS",
+      "media_profile_ref": "instagram:REEL:v1",
+      "target_width": 1080,
+      "target_height": 1920,
+      "target_video_codec": "h264",
+      "target_audio_codec": "aac",
+      "target_container": "mp4",
+      "max_caption_length": 2200,
+      "cover_rule": "FRAME_AT_1S",
+      "subtitle_rule": "BURN_IF_REQUESTED"
+    },
+    "STORY": {
+      "account_type": "BUSINESS",
+      "media_profile_ref": "instagram:STORY:v1",
+      "target_width": 1080,
+      "target_height": 1920,
+      "target_video_codec": "h264",
+      "target_audio_codec": "aac",
+      "target_container": "mp4",
+      "cover_rule": "NOT_APPLICABLE",
+      "subtitle_rule": "BURN_IF_REQUESTED"
+    }
+  }
+}
