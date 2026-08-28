@@ -245,10 +245,17 @@ export function fmtCost(v) {
 
 const STATUS_TONE = {
   online: 'ok', ok: 'ok', healthy: 'ok', up: 'ok', ready: 'ok', completed: 'ok', approved: 'ok', done: 'ok', enabled: 'ok',
-  running: 'info', leased: 'info', starting: 'info', busy: 'info', checking: 'info',
+  running: 'info', leased: 'info', starting: 'info', busy: 'info', checking: 'info', working: 'info',
   queued: 'warn', pending: 'warn', paused: 'warn', waiting_approval: 'warn', warning: 'warn', degraded: 'warn', warn: 'warn',
   offline: 'err', error: 'err', failed: 'err', rejected: 'err', down: 'err', critical: 'err',
   unknown: 'idle', draft: 'idle', stopped: 'idle', disabled: 'idle', idle: 'idle',
+  // V2: миссии/терминал/ресурсы/governor/healing/openrouter — общий словарь тонов
+  planning: 'info', cancelled: 'idle', created: 'idle',
+  auto: 'ok', ask: 'warn', deny: 'err',
+  held: 'info', released: 'idle', expired: 'idle',
+  escalated: 'err', started: 'info', switched: 'warn', throttled: 'warn',
+  finished: 'ok', killed: 'err',
+  verified: 'ok', unverified: 'idle', advertised: 'idle', stale: 'idle',
 };
 
 export const STATUS_LABEL = {
@@ -258,6 +265,13 @@ export const STATUS_LABEL = {
   online: 'online', offline: 'offline', error: 'ошибка', unknown: 'неизвестно',
   pending: 'ожидает', approved: 'подтверждено', rejected: 'отклонено',
   ok: 'в норме', healthy: 'в норме', degraded: 'предупреждение', down: 'недоступен',
+  // V2
+  planning: 'планирование', cancelled: 'отменена', created: 'создана',
+  auto: 'авто', ask: 'спросить', deny: 'запрет',
+  held: 'занято', released: 'освобождено', expired: 'истекло',
+  escalated: 'эскалировано', started: 'начато', switched: 'модель заменена', throttled: 'ограничено',
+  finished: 'завершён', killed: 'убит', working: 'работает',
+  verified: 'подтверждено', unverified: 'не проверено', advertised: 'заявлено', stale: 'устарело',
 };
 
 export function statusTone(status) {

@@ -43,6 +43,9 @@ const el = {
 const IS_MAC = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
 const THEME_KEY = 'bcc.theme';
 const PAGE_BY_ID = new Map(PAGES.map((p) => [p.id, p]));
+// V2: overview заменяет home как посадочная страница — home остаётся в PAGE_BY_ID
+// для обратной совместимости прямых ссылок #/home, но не показывается в навигации.
+const DEFAULT_PAGE = PAGE_BY_ID.has('overview') ? 'overview' : 'home';
 
 /* ---------------- Состояние ---------------- */
 
@@ -54,7 +57,7 @@ const state = {
   countsKnown: false,
 };
 
-let currentPage = 'home';
+let currentPage = DEFAULT_PAGE;
 let currentParams = {};
 let renderToken = 0;
 let pendingRefresh = false;
@@ -108,7 +111,7 @@ const ctx = {
 function parseHash() {
   const raw = String(location.hash || '').replace(/^#\/?/, '');
   const [path, query] = raw.split('?');
-  const id = PAGE_BY_ID.has(path) ? path : 'home';
+  const id = PAGE_BY_ID.has(path) ? path : DEFAULT_PAGE;
   const params = {};
   if (query) {
     for (const part of query.split('&')) {
@@ -203,26 +206,45 @@ setInterval(() => {
 
 /* ---------------- Меню и навигация ---------------- */
 
+function navButton(page) {
+  return h('button', {
+    type: 'button', class: 'nav-item', dataset: { page: page.id },
+    onClick: () => navigate(page.id),
+  },
+  icon(page.icon, 16),
+  h('span.nav-label', page.title),
+  h('span', { class: 'nav-badge', dataset: { badge: page.id }, hidden: true }));
+}
+
+function mnavButton(page) {
+  return h('button', {
+    type: 'button', class: 'mnav-item', dataset: { page: page.id },
+    onClick: () => navigate(page.id),
+  },
+  icon(page.icon, 18),
+  h('span', page.title),
+  h('span', { class: 'mnav-dot', dataset: { badge: page.id }, hidden: true }));
+}
+
 function buildNav() {
   clear(el.nav);
   clear(el.mobilenav);
-  for (const page of PAGES) {
-    el.nav.appendChild(h('button', {
-      type: 'button', class: 'nav-item', dataset: { page: page.id },
-      onClick: () => navigate(page.id),
-    },
-    icon(page.icon, 16),
-    h('span.nav-label', page.title),
-    h('span', { class: 'nav-badge', dataset: { badge: page.id }, hidden: true })));
+  // 'home' (MVP) уступает место 'overview' (V2) на посадке — прямые #/home ссылки
+  // продолжают работать (PAGE_BY_ID), но в меню дублировать не нужно.
+  const filtered = PAGES.filter((p) => p.id !== 'home' || !PAGE_BY_ID.has('overview'));
+  // overview идёт первым пунктом — это новая посадочная страница (Home V2).
+  const visible = [...filtered.filter((p) => p.id === 'overview'), ...filtered.filter((p) => p.id !== 'overview')];
+  const primary = visible.filter((p) => p.nav !== 'more');
+  const more = visible.filter((p) => p.nav === 'more');
 
-    el.mobilenav.appendChild(h('button', {
-      type: 'button', class: 'mnav-item', dataset: { page: page.id },
-      onClick: () => navigate(page.id),
-    },
-    icon(page.icon, 18),
-    h('span', page.title),
-    h('span', { class: 'mnav-dot', dataset: { badge: page.id }, hidden: true })));
+  for (const page of primary) el.nav.appendChild(navButton(page));
+  if (more.length) {
+    el.nav.appendChild(h('div.nav-more-label', 'Ещё'));
+    for (const page of more) el.nav.appendChild(navButton(page));
   }
+  // нижняя мобильная панель — только primary, чтобы не переполнять узкий экран;
+  // 'more'-страницы остаются доступны через боковое меню (гамбургер) и палитру.
+  for (const page of primary) el.mobilenav.appendChild(mnavButton(page));
 }
 
 function syncNav() {

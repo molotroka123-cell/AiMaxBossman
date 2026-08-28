@@ -224,6 +224,16 @@ a:hover { text-decoration: underline; }
   font: 600 11px/1 var(--mono);
 }
 
+.nav-more-label {
+  margin-top: 10px;
+  padding: 10px 10px 2px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--dim-2);
+}
+
 .sidebar-foot { padding: 10px; border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 8px; }
 
 .kbd-hint {

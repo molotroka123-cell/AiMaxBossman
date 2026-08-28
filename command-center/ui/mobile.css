@@ -1,0 +1,151 @@
+/* ============================================================
+   mobile.css — Mobile Command Mode («Пульт», страница #command).
+   Классы с префиксом .cmd-*. Тач-таргеты ≥44px, без hover-only.
+   Работает от 320px без горизонтального скролла. Цветовые токены —
+   те же CSS-переменные из style.css (страница уже в общем документе).
+   ============================================================ */
+
+.cmd-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 560px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cmd-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.cmd-title {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--dim);
+  margin-bottom: 10px;
+}
+
+.cmd-mission-title {
+  font-size: 15px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.cmd-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cmd-empty {
+  padding: 16px 4px;
+  text-align: center;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+/* --- Кнопки: минимум 44px по высоте, широкий тап-таргет --- */
+
+.cmd-btn {
+  min-height: 48px;
+  flex: 1 1 auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 650;
+  font-size: 14.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 100ms ease, background 100ms ease;
+}
+.cmd-btn:active { transform: scale(.97); }
+
+.cmd-btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.cmd-btn-ok {
+  background: color-mix(in srgb, var(--ok) 16%, var(--panel-2));
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+  color: var(--ok);
+}
+.cmd-btn-danger {
+  background: color-mix(in srgb, var(--err) 16%, var(--panel-2));
+  border-color: color-mix(in srgb, var(--err) 45%, transparent);
+  color: var(--err);
+}
+
+/* --- Approvals --- */
+
+.cmd-approval {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+}
+.cmd-approval + .cmd-approval { margin-top: 10px; }
+
+.cmd-approval-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* --- Agents --- */
+
+.cmd-agent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 4px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--line-soft);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.cmd-agent:last-child { border-bottom: none; }
+.cmd-agent:active { background: var(--line-soft); }
+.cmd-agent-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Health --- */
+
+.cmd-health-row { display: flex; flex-direction: column; gap: 10px; }
+
+/* --- Quick Task --- */
+
+.cmd-quick textarea,
+.cmd-quick select {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+}
+.cmd-quick select { margin-top: 8px; }
+
+/* --- Узкие экраны (320–430px): чуть плотнее, без горизонтального скролла --- */
+
+@media (max-width: 380px) {
+  .cmd-card { padding: 12px; }
+  .cmd-btn { font-size: 13.5px; }
+}
