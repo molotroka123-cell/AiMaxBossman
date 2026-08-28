@@ -264,6 +264,7 @@ into a single "it worked".
 EVIDENCE_KEYS = {
     "spec_compiled",
     "cad_engine",
+    "generative_engine",
     "step_export",
     "openscad_render",
     "mesh_validation",
@@ -387,3 +388,36 @@ def test_a_job_without_a_calibration_profile_applies_no_compensation(control):
     gate = result["detail"]["requirement_gate"]
     assert gate["calibration"]["source"] == "none"
     assert gate["calibration"]["compensation_applied"] is False
+
+
+# ------------------------------------------------------- generative (Mode B)
+"""No text/image-to-3D engine is reachable from this host and no adapter is
+written. That is stated as NOT_RUN in every result rather than left as an
+absence someone could read as "fine". The validation half of Mode B — the half
+that catches what generated meshes actually get wrong — is the same code every
+other mesh goes through, and it is exercised here."""
+
+
+def test_the_generative_route_is_reported_as_not_run(control):
+    result = run(control, {"kind": "design", "spec": json.loads(simple_spec().canonical_json()), "job_id": "gen1"})
+    entry = result["evidence"]["generative_engine"]
+    assert entry["status"] == "NOT_RUN"
+    assert "adapter" in entry["reason"]
+
+
+def test_a_generated_style_open_mesh_gets_no_exemption(control, tmp_path):
+    """Open surfaces are the characteristic failure of generated meshes."""
+    path = write_stl(make_open_box_mesh(), tmp_path / "generated.stl")
+    result = run(control, {"kind": "import", "source_stl": str(path), "job_id": "gen2"})
+    assert result["printable"] is False
+    assert result["evidence"]["mesh_validation"]["status"] == "FAIL"
+    assert not (Path(control.store.get("gen2").directory) / "model.stl").exists()
+
+
+def test_a_generated_style_inverted_mesh_gets_no_exemption(control, tmp_path):
+    from conftest import make_inverted_mesh
+
+    path = write_stl(make_inverted_mesh(), tmp_path / "inverted.stl")
+    result = run(control, {"kind": "import", "source_stl": str(path), "job_id": "gen3"})
+    assert result["evidence"]["mesh_validation"]["status"] in {"PASS", "FAIL"}
+    assert result["evidence"]["generative_engine"]["status"] == "NOT_RUN"

@@ -48,6 +48,11 @@ class EvidenceEntry:
 DEFAULT_REASONS: dict[str, str] = {
     "spec_compiled": "no DesignSpec was submitted for this job",
     "cad_engine": "no CAD engine was invoked",
+    "generative_engine": (
+        "Mode B is not built: no text/image-to-3D adapter exists in this build and no "
+        "generation vendor is reachable from this host. The validation half of Mode B "
+        "is the ordinary mesh path, which every mesh goes through with no exemption"
+    ),
     "step_export": "no STEP export was attempted",
     "openscad_render": "OpenSCAD was not invoked",
     "mesh_validation": "no mesh reached the validator",
