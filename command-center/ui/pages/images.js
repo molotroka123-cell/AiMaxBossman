@@ -553,6 +553,14 @@ function ensureStyles() {
     @media(max-width:1100px){.images-workspace{grid-template-columns:180px minmax(0,1fr)}.images-inspector,.images-recent{grid-column:2}.images-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.images-composer-grid{grid-template-columns:1fr 1fr 1fr}.images-runbox{grid-column:auto}}
     @media(max-width:720px){.images-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.images-composer-grid{grid-template-columns:1fr 1fr}.images-workspace{grid-template-columns:1fr}.images-side,.images-inspector,.images-recent{grid-column:1}.images-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.images-search{max-width:140px}}
     @media(max-width:430px){.images-grid{grid-template-columns:1fr 1fr}.images-composer-grid{grid-template-columns:1fr}.images-tabs{gap:16px}.images-stats{grid-template-columns:1fr 1fr}}
+    /* Тач-таргеты ≥44px на узких экранах — общее правило проекта (см. ui/mobile.css). */
+    @media(max-width:900px){
+      .images-tab{min-height:44px;padding:0 2px 10px}
+      .images-collection-row{min-height:44px;align-items:center}
+      .images-composer .btn,.images-inspector .btn,.images-recent .btn,
+      .images-job-row .btn,.images-side .btn,.images-library .btn{min-height:44px}
+      .images-composer .input,.images-inspector .input{min-height:44px}
+    }
   `;
   document.head.appendChild(style);
 }
