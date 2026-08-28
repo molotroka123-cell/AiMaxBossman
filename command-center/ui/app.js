@@ -43,9 +43,22 @@ const el = {
 const IS_MAC = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
 const THEME_KEY = 'bcc.theme';
 const PAGE_BY_ID = new Map(PAGES.map((p) => [p.id, p]));
-// V2: overview заменяет home как посадочная страница — home остаётся в PAGE_BY_ID
-// для обратной совместимости прямых ссылок #/home, но не показывается в навигации.
-const DEFAULT_PAGE = PAGE_BY_ID.has('overview') ? 'overview' : 'home';
+// Посадочная страница по старшинству: home-v3 (лаунчер) → overview (V2) → home (MVP).
+// Прежние страницы остаются в PAGE_BY_ID, поэтому прямые ссылки #/home и
+// #/overview продолжают работать; из навигации они уходят, чтобы не было двух
+// «главных» одновременно.
+const LANDING = ['home-v3', 'overview', 'home'];
+const DEFAULT_PAGE = LANDING.find((id) => PAGE_BY_ID.has(id)) || 'home';
+const SUPERSEDED = new Set(LANDING.slice(LANDING.indexOf(DEFAULT_PAGE) + 1));
+
+// Сайдбар устроен от человека, а не от устройства системы: сверху то, чем
+// пользуются, ниже — техническая часть. Страница объявляет свой раздел полем
+// `section`; всё, что его не объявило, считается системным.
+const SECTIONS = [
+  { id: 'main', label: 'Основное' },
+  { id: 'system', label: 'Система' },
+];
+const MAIN_ORDER = ['home-v3', 'apps', 'missions', 'agents', 'approvals'];
 
 /* ---------------- Состояние ---------------- */
 
@@ -226,25 +239,45 @@ function mnavButton(page) {
   h('span', { class: 'mnav-dot', dataset: { badge: page.id }, hidden: true }));
 }
 
+function sectionOf(page) {
+  if (page.section) return page.section;
+  return MAIN_ORDER.includes(page.id) ? 'main' : 'system';
+}
+
 function buildNav() {
   clear(el.nav);
   clear(el.mobilenav);
-  // 'home' (MVP) уступает место 'overview' (V2) на посадке — прямые #/home ссылки
-  // продолжают работать (PAGE_BY_ID), но в меню дублировать не нужно.
-  const filtered = PAGES.filter((p) => p.id !== 'home' || !PAGE_BY_ID.has('overview'));
-  // overview идёт первым пунктом — это новая посадочная страница (Home V2).
-  const visible = [...filtered.filter((p) => p.id === 'overview'), ...filtered.filter((p) => p.id !== 'overview')];
-  const primary = visible.filter((p) => p.nav !== 'more');
-  const more = visible.filter((p) => p.nav === 'more');
 
-  for (const page of primary) el.nav.appendChild(navButton(page));
-  if (more.length) {
-    el.nav.appendChild(h('div.nav-more-label', 'Ещё'));
-    for (const page of more) el.nav.appendChild(navButton(page));
+  // Вытесненные посадочные страницы остаются доступны по прямой ссылке, но в
+  // меню их нет: две «главных» рядом — это вопрос «а какая настоящая».
+  const visible = PAGES.filter((p) => !SUPERSEDED.has(p.id));
+
+  const buckets = new Map(SECTIONS.map((s) => [s.id, []]));
+  for (const page of visible) {
+    const bucket = buckets.get(sectionOf(page)) || buckets.get('system');
+    bucket.push(page);
   }
-  // нижняя мобильная панель — только primary, чтобы не переполнять узкий экран;
-  // 'more'-страницы остаются доступны через боковое меню (гамбургер) и палитру.
-  for (const page of primary) el.mobilenav.appendChild(mnavButton(page));
+
+  // Порядок основного раздела задан явно: он отражает частоту использования,
+  // а не порядок, в котором страницы когда-то написали.
+  const main = buckets.get('main');
+  main.sort((a, b) => {
+    const ia = MAIN_ORDER.indexOf(a.id);
+    const ib = MAIN_ORDER.indexOf(b.id);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+
+  for (const section of SECTIONS) {
+    const pages = buckets.get(section.id) || [];
+    if (!pages.length) continue;
+    el.nav.appendChild(h('div.nav-section', section.label));
+    for (const page of pages) el.nav.appendChild(navButton(page));
+  }
+
+  // Нижняя панель телефона — только основной раздел: системные страницы там
+  // не помещаются и на телефоне почти не нужны. Они остаются в боковом меню
+  // и в командной палитре.
+  for (const page of main.slice(0, 5)) el.mobilenav.appendChild(mnavButton(page));
 }
 
 function syncNav() {

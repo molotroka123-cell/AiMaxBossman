@@ -36,8 +36,15 @@ export function h(tag, attrs, ...children) {
 
       if (key === 'class' || key === 'className') { addClass(el, value); continue; }
       if (key === 'style') {
-        if (typeof value === 'string') el.setAttribute('style', value);
-        else Object.assign(el.style, value);
+        if (typeof value === 'string') { el.setAttribute('style', value); continue; }
+        for (const [prop, val] of Object.entries(value)) {
+          // Пользовательские свойства (--что-то) через Object.assign НЕ
+          // назначаются: CSSStyleDeclaration молча проглатывает неизвестный
+          // ключ. Присваивание выглядит выполненным, а стиль не меняется —
+          // ошибка без единого признака, поэтому для них setProperty.
+          if (prop.startsWith('--')) el.style.setProperty(prop, val);
+          else el.style[prop] = val;
+        }
         continue;
       }
       if (key === 'dataset') { Object.assign(el.dataset, value); continue; }

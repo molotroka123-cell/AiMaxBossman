@@ -63,3 +63,22 @@ safety:
   gcode_scanned_before_any_transfer: true
   default_transport: simulator
   physical_smoke_test: BLOCKED_BY_HARDWARE
+
+# Как приложение выглядит в лаунчере BOSSMAN. Карточка на главной строится
+# ОТСЮДА, а не из вёрстки.
+default_port: 8890
+ui:
+  subtitle: Precision CAD & Generative 3D
+  icon: cube
+  accent: "#a06bff"
+  theme: violet
+  order: 2
+  health_path: /health
+  metrics_path: /api/metrics
+  facts:
+    - { label: Принтер, value: "ELEGOO Neptune 3 Plus" }
+    - { label: "Область печати", value: "320 × 320 × 400 мм" }
+    - { label: Очередь, from: "metrics.queue_depth", fallback: "пусто" }
+  actions:
+    - { id: open, label: "Открыть", primary: true }
+    - { id: new-model, label: "Новая модель" }

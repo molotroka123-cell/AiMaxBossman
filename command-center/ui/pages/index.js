@@ -5,6 +5,8 @@
 // Страница экспортирует { id, title, icon, nav: 'primary'|'more', render(ctx), onEvent(ev) }
 // — тот же интерфейс, что страницы MVP в ../pages.js.
 
+import HomePage from './home.js';
+import AppsPage from './apps.js';
 import OverviewPage from './overview.js';
 import MissionsPage from './missions.js';
 import RouterPage from './router.js';
@@ -24,6 +26,8 @@ import BuilderPage from './builder.js';
 import ImagesPage from './images.js';
 
 export const FEATURE_PAGES = [
+  HomePage,
+  AppsPage,
   OverviewPage,
   MissionsPage,
   RouterPage,

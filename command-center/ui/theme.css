@@ -1,0 +1,668 @@
+/* ============================================================
+   BOSSMAN — слой дизайн-системы.
+   Подключается ПОСЛЕ style.css и ничего в нём не переписывает:
+   старые страницы продолжают выглядеть как раньше, новая главная
+   и лаунчер берут отсюда. Так редизайн не превращается в ремонт
+   семнадцати страниц разом.
+
+   Всё, что здесь есть, — токены и классы с префиксом bx-.
+   ============================================================ */
+
+:root {
+  /* ---------- поверхности ---------- */
+  --bx-bg:          #06070a;
+  --bx-bg-2:        #080a0f;
+  --bx-surface:     rgba(255, 255, 255, .026);
+  --bx-surface-2:   rgba(255, 255, 255, .045);
+  --bx-surface-3:   rgba(255, 255, 255, .07);
+  --bx-hairline:    rgba(255, 255, 255, .075);
+  --bx-hairline-2:  rgba(255, 255, 255, .13);
+  --bx-ink:         #f2f5fa;
+  --bx-ink-2:       #aeb8c8;
+  --bx-ink-3:       #6f7a8d;
+
+  /* ---------- акценты ---------- */
+  --bx-azure:   #3d8bff;
+  --bx-violet:  #a06bff;
+  --bx-ember:   #ff7a59;
+  --bx-mint:    #35d29a;
+  --bx-amber:   #f5b93b;
+  --bx-rose:    #ff5c72;
+  /* акцент карточки задаётся из манифеста приложения через --bx-accent */
+  --bx-accent:  var(--bx-azure);
+
+  /* ---------- типографика ---------- */
+  --bx-font: "Inter var", Inter, "SF Pro Display", -apple-system, BlinkMacSystemFont,
+             "Segoe UI Variable Display", "Segoe UI", system-ui, Roboto, sans-serif;
+  --bx-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  /* Роли, а не размеры: «заголовок карточки» переживает смену масштаба,
+     «18 пикселей» — нет. */
+  --bx-hero:      clamp(34px, 4.4vw, 54px);
+  --bx-hero-lsp:  -.035em;
+  --bx-h1:        clamp(20px, 2.1vw, 25px);
+  --bx-h2:        16px;
+  --bx-card-title: clamp(19px, 1.7vw, 23px);
+  --bx-body:      13.5px;
+  --bx-caption:   12px;
+  --bx-metric:    clamp(22px, 2.4vw, 30px);
+  --bx-pill:      11px;
+  --bx-pill-lsp:  .07em;
+
+  /* ---------- шаг сетки ---------- */
+  --bx-1: 4px;  --bx-2: 8px;  --bx-3: 12px; --bx-4: 16px;
+  --bx-5: 20px; --bx-6: 24px; --bx-7: 32px; --bx-8: 40px; --bx-9: 56px;
+
+  /* ---------- радиусы ---------- */
+  --bx-r-sm: 10px; --bx-r: 14px; --bx-r-lg: 20px; --bx-r-xl: 26px; --bx-r-full: 999px;
+
+  /* ---------- тени и свечения ---------- */
+  --bx-shadow:    0 24px 64px -32px rgba(0, 0, 0, .9), 0 2px 10px -6px rgba(0, 0, 0, .7);
+  --bx-shadow-lg: 0 40px 90px -40px rgba(0, 0, 0, .95);
+  --bx-glow:      0 0 0 1px color-mix(in srgb, var(--bx-accent) 26%, transparent),
+                  0 12px 40px -14px color-mix(in srgb, var(--bx-accent) 45%, transparent);
+  --bx-inner:     inset 0 1px 0 rgba(255, 255, 255, .05);
+
+  --bx-ease: cubic-bezier(.22, .61, .36, 1);
+  --bx-t: 180ms var(--bx-ease);
+}
+
+/* Светлая тема: главная сделана тёмной, но не ломается на светлой —
+   меняются только поверхности и чернила, структура остаётся. */
+[data-theme="light"] {
+  --bx-bg:         #f2f4f8;
+  --bx-bg-2:       #ffffff;
+  --bx-surface:    rgba(10, 20, 40, .028);
+  --bx-surface-2:  rgba(10, 20, 40, .05);
+  --bx-surface-3:  rgba(10, 20, 40, .08);
+  --bx-hairline:   rgba(10, 20, 40, .1);
+  --bx-hairline-2: rgba(10, 20, 40, .18);
+  --bx-ink:        #0d1220;
+  --bx-ink-2:      #3d4756;
+  --bx-ink-3:      #6b7688;
+  --bx-shadow:     0 20px 50px -30px rgba(16, 24, 40, .4);
+  --bx-shadow-lg:  0 30px 70px -40px rgba(16, 24, 40, .45);
+  --bx-inner:      inset 0 1px 0 rgba(255, 255, 255, .7);
+}
+
+/* ============================================================ каркас главной */
+
+.bx-home {
+  --bx-gap: var(--bx-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bx-gap);
+  font-family: var(--bx-font);
+  font-feature-settings: "cv11", "ss01", "tnum" 0;
+  padding-bottom: var(--bx-8);
+}
+
+/* ---------------------------------------------------------------- hero */
+
+.bx-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--bx-5);
+  flex-wrap: wrap;
+  padding: var(--bx-2) 0 var(--bx-1);
+}
+
+.bx-hero-title {
+  margin: 0;
+  font-size: var(--bx-hero);
+  font-weight: 800;
+  letter-spacing: var(--bx-hero-lsp);
+  line-height: 1;
+  color: var(--bx-ink);
+  /* Мягкий блик по верхнему краю букв — то, что отличает «крупный текст»
+     от «дорогого крупного текста». */
+  background: linear-gradient(180deg, #ffffff 0%, #c9d4e6 92%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-theme="light"] .bx-hero-title {
+  background: linear-gradient(180deg, #0d1220 0%, #35405a 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.bx-hero-sub {
+  margin: var(--bx-2) 0 0;
+  font-size: 14.5px;
+  color: var(--bx-ink-2);
+  letter-spacing: -.005em;
+}
+
+.bx-hero-pills {
+  display: flex;
+  gap: var(--bx-2);
+  flex-wrap: wrap;
+  margin-left: auto;
+  align-items: center;
+}
+
+/* ---------------------------------------------------------------- пилюли */
+
+.bx-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: var(--bx-r-full);
+  border: 1px solid var(--bx-hairline);
+  background: var(--bx-surface);
+  color: var(--bx-ink-2);
+  font-size: var(--bx-pill);
+  font-weight: 600;
+  letter-spacing: var(--bx-pill-lsp);
+  text-transform: uppercase;
+  white-space: nowrap;
+  backdrop-filter: blur(14px);
+  transition: border-color var(--bx-t), background var(--bx-t), color var(--bx-t);
+}
+
+.bx-pill b { color: var(--bx-ink); font-weight: 700; letter-spacing: 0; }
+.bx-pill-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+
+.bx-pill.is-ok    { color: var(--bx-mint);  border-color: color-mix(in srgb, var(--bx-mint) 30%, transparent); }
+.bx-pill.is-info  { color: var(--bx-azure); border-color: color-mix(in srgb, var(--bx-azure) 30%, transparent); }
+.bx-pill.is-accent{ color: var(--bx-violet); border-color: color-mix(in srgb, var(--bx-violet) 30%, transparent); }
+.bx-pill.is-warn  { color: var(--bx-amber); border-color: color-mix(in srgb, var(--bx-amber) 32%, transparent); }
+.bx-pill.is-err   { color: var(--bx-rose);  border-color: color-mix(in srgb, var(--bx-rose) 34%, transparent); }
+.bx-pill.is-idle  { color: var(--bx-ink-3); }
+
+.bx-pill .bx-pill-val {
+  color: var(--bx-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+
+/* Живая пилюля дышит — но медленно, чтобы не отвлекать. */
+.bx-pill.is-live .bx-pill-dot { animation: bx-breathe 2.4s var(--bx-ease) infinite; }
+@keyframes bx-breathe {
+  0%, 100% { opacity: 1;   box-shadow: 0 0 0 0 currentColor; }
+  50%      { opacity: .55; box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 18%, transparent); }
+}
+
+/* ---------------------------------------------------------------- панели */
+
+.bx-panel {
+  position: relative;
+  border-radius: var(--bx-r-lg);
+  border: 1px solid var(--bx-hairline);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, .012)),
+    var(--bx-bg-2);
+  box-shadow: var(--bx-shadow), var(--bx-inner);
+  overflow: hidden;
+}
+
+[data-theme="light"] .bx-panel {
+  background: linear-gradient(180deg, #ffffff, #fbfcfe);
+}
+
+.bx-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--bx-2);
+  padding: var(--bx-4) var(--bx-5) 0;
+}
+
+.bx-panel-head h2 {
+  margin: 0;
+  font-size: var(--bx-caption);
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--bx-ink-3);
+}
+
+.bx-panel-body { padding: var(--bx-4) var(--bx-5) var(--bx-5); }
+.bx-spacer { flex: 1 1 auto; }
+
+/* ---------------------------------------------------------------- командная строка */
+
+.bx-command {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--bx-4);
+  padding: var(--bx-4) var(--bx-4) var(--bx-4) var(--bx-5);
+  border-radius: var(--bx-r-xl);
+  border: 1px solid var(--bx-hairline-2);
+  background:
+    radial-gradient(120% 180% at 50% 130%,
+                    color-mix(in srgb, var(--bx-azure) 13%, transparent) 0%, transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .015)),
+    var(--bx-bg-2);
+  box-shadow: var(--bx-shadow-lg), var(--bx-inner);
+}
+
+.bx-command:focus-within {
+  border-color: color-mix(in srgb, var(--bx-azure) 40%, transparent);
+  box-shadow: var(--bx-shadow-lg), var(--bx-inner),
+              0 0 0 4px color-mix(in srgb, var(--bx-azure) 12%, transparent);
+}
+
+.bx-command-mark {
+  width: 52px; height: 52px;
+  flex: none;
+  display: grid; place-items: center;
+  border-radius: var(--bx-r);
+  border: 1px solid var(--bx-hairline-2);
+  background: linear-gradient(145deg,
+              color-mix(in srgb, var(--bx-azure) 26%, transparent),
+              color-mix(in srgb, var(--bx-violet) 20%, transparent));
+  color: #fff;
+  box-shadow: 0 10px 30px -14px color-mix(in srgb, var(--bx-azure) 70%, transparent);
+}
+
+.bx-command-mid { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.bx-command-input {
+  width: 100%;
+  border: 0;
+  background: none;
+  color: var(--bx-ink);
+  font: 500 clamp(16px, 1.6vw, 19px)/1.4 var(--bx-font);
+  letter-spacing: -.012em;
+  resize: none;
+  outline: none;
+  padding: 0;
+  max-height: 132px;
+}
+
+.bx-command-input::placeholder { color: var(--bx-ink-3); font-weight: 450; }
+.bx-modes { display: flex; gap: var(--bx-2); flex-wrap: wrap; }
+
+/* ---------------------------------------------------------------- кнопки */
+
+.bx-btn {
+  --bx-btn-h: 40px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  height: var(--bx-btn-h);
+  padding: 0 18px;
+  border-radius: var(--bx-r-sm);
+  border: 1px solid var(--bx-hairline-2);
+  background: var(--bx-surface-2);
+  color: var(--bx-ink);
+  font: 600 13.5px/1 var(--bx-font);
+  letter-spacing: -.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform var(--bx-t), background var(--bx-t),
+              border-color var(--bx-t), box-shadow var(--bx-t), color var(--bx-t);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bx-btn:hover:not(:disabled):not(.is-loading) { background: var(--bx-surface-3); transform: translateY(-1px); }
+.bx-btn:active:not(:disabled) { transform: translateY(0) scale(.99); }
+.bx-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bx-bg), 0 0 0 4px color-mix(in srgb, var(--bx-accent) 55%, transparent);
+}
+.bx-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+/* primary — единственная кнопка, которая светится. Если светятся все,
+   не выделена ни одна. */
+.bx-btn-primary {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg,
+              color-mix(in srgb, var(--bx-accent) 92%, #fff 8%),
+              color-mix(in srgb, var(--bx-accent) 68%, #000 12%));
+  box-shadow: 0 10px 30px -12px color-mix(in srgb, var(--bx-accent) 75%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, .22);
+}
+.bx-btn-primary:hover:not(:disabled):not(.is-loading) {
+  box-shadow: 0 16px 40px -14px color-mix(in srgb, var(--bx-accent) 85%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, .28);
+}
+
+.bx-btn-secondary { background: var(--bx-surface-2); }
+.bx-btn-subtle    { background: var(--bx-surface); border-color: var(--bx-hairline); color: var(--bx-ink-2); }
+.bx-btn-ghost     { background: none; border-color: transparent; color: var(--bx-ink-3); }
+.bx-btn-ghost:hover:not(:disabled) { background: var(--bx-surface); color: var(--bx-ink); }
+
+.bx-btn-lg   { --bx-btn-h: 52px; padding: 0 26px; font-size: 15px; border-radius: var(--bx-r); }
+.bx-btn-xl   { --bx-btn-h: 58px; padding: 0 32px; font-size: 16px; border-radius: var(--bx-r); letter-spacing: .01em; }
+.bx-btn-sm   { --bx-btn-h: 32px; padding: 0 12px; font-size: 12.5px; }
+.bx-btn-block{ width: 100%; }
+.bx-btn-pill { border-radius: var(--bx-r-full); }
+
+.bx-btn-icon { width: var(--bx-btn-h); padding: 0; border-radius: var(--bx-r-sm); }
+
+/* Загрузка: кнопка остаётся на месте и той же ширины — прыгающая раскладка
+   выглядит как ошибка, даже когда всё в порядке. */
+.bx-btn.is-loading { pointer-events: none; color: transparent; }
+.bx-btn.is-loading::after {
+  content: "";
+  position: absolute;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .3);
+  border-top-color: #fff;
+  animation: bx-spin .62s linear infinite;
+}
+@keyframes bx-spin { to { transform: rotate(360deg); } }
+
+.bx-btn kbd {
+  font: 600 11px/1 var(--bx-mono);
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, .28);
+  border: 1px solid rgba(255, 255, 255, .16);
+  color: rgba(255, 255, 255, .8);
+}
+
+/* Режимы командной строки — переключаемые пилюли */
+.bx-mode {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 32px; padding: 0 14px;
+  border-radius: var(--bx-r-full);
+  border: 1px solid var(--bx-hairline);
+  background: var(--bx-surface);
+  color: var(--bx-ink-3);
+  font: 600 12.5px/1 var(--bx-font);
+  cursor: pointer;
+  transition: all var(--bx-t);
+}
+.bx-mode:hover { color: var(--bx-ink-2); border-color: var(--bx-hairline-2); }
+.bx-mode[aria-pressed="true"] {
+  color: var(--bx-ink);
+  border-color: color-mix(in srgb, var(--bx-azure) 45%, transparent);
+  background: color-mix(in srgb, var(--bx-azure) 14%, transparent);
+  box-shadow: 0 6px 20px -10px color-mix(in srgb, var(--bx-azure) 60%, transparent);
+}
+
+/* ============================================================ карточки приложений */
+
+.bx-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: var(--bx-4);
+}
+
+.bx-app {
+  --bx-accent: var(--bx-azure);
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, .82fr);
+  min-height: 300px;
+  border-radius: var(--bx-r-lg);
+  border: 1px solid var(--bx-hairline);
+  background:
+    radial-gradient(90% 120% at 100% 0%,
+                    color-mix(in srgb, var(--bx-accent) 12%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, .01)),
+    var(--bx-bg-2);
+  box-shadow: var(--bx-shadow), var(--bx-inner);
+  overflow: hidden;
+  transition: transform var(--bx-t), border-color var(--bx-t), box-shadow var(--bx-t);
+}
+
+.bx-app:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--bx-accent) 34%, transparent);
+  box-shadow: var(--bx-shadow-lg),
+              0 0 0 1px color-mix(in srgb, var(--bx-accent) 18%, transparent);
+}
+
+.bx-app-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bx-3);
+  padding: var(--bx-5);
+  min-width: 0;
+  z-index: 1;
+}
+
+.bx-app-top { display: flex; align-items: flex-start; gap: var(--bx-3); }
+
+.bx-app-icon {
+  width: 54px; height: 54px;
+  flex: none;
+  display: grid; place-items: center;
+  border-radius: var(--bx-r);
+  border: 1px solid color-mix(in srgb, var(--bx-accent) 30%, transparent);
+  background: linear-gradient(150deg,
+              color-mix(in srgb, var(--bx-accent) 24%, transparent),
+              color-mix(in srgb, var(--bx-accent) 7%, transparent));
+  color: color-mix(in srgb, var(--bx-accent) 75%, #fff);
+  box-shadow: 0 12px 32px -16px color-mix(in srgb, var(--bx-accent) 80%, transparent);
+}
+
+.bx-app-name {
+  margin: 0;
+  font-size: var(--bx-card-title);
+  font-weight: 750;
+  letter-spacing: -.02em;
+  color: var(--bx-ink);
+  line-height: 1.1;
+}
+
+.bx-app-sub {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: var(--bx-ink-2);
+  letter-spacing: -.004em;
+}
+
+.bx-app-facts { display: flex; flex-direction: column; gap: 9px; margin-top: auto; }
+
+.bx-app-fact {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px;
+  color: var(--bx-ink-2);
+  min-width: 0;
+}
+.bx-app-fact .bx-fact-label { color: var(--bx-ink-3); }
+.bx-app-fact .bx-fact-value {
+  margin-left: auto;
+  color: var(--bx-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bx-app-fact.is-live .bx-fact-value { color: var(--bx-mint); }
+
+.bx-app-actions { display: flex; gap: var(--bx-2); margin-top: var(--bx-3); flex-wrap: wrap; }
+.bx-app-actions .bx-btn { min-width: 0; flex: 0 0 auto; }
+/* Базис в 120px, а не auto: с auto основная кнопка раздувалась по содержимому
+   и выталкивала вторую на следующую строку даже там, где обе помещались. */
+.bx-app-actions .bx-btn-primary { flex: 1 1 120px; }
+
+/* Визуальная область карточки: тематический фон приложения.
+   Он декоративный, поэтому не должен перетягивать внимание с кнопки. */
+.bx-app-visual {
+  position: relative;
+  border-left: 1px solid var(--bx-hairline);
+  background:
+    radial-gradient(70% 90% at 60% 40%,
+                    color-mix(in srgb, var(--bx-accent) 20%, transparent), transparent 70%),
+    linear-gradient(160deg, rgba(255, 255, 255, .04), transparent 60%);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  /* Картинка тонируется акцентом приложения: она узнаётся боковым зрением
+     раньше, чем прочитано название. */
+  color: color-mix(in srgb, var(--bx-accent) 78%, #ffffff);
+}
+
+.bx-app-visual::after {
+  /* тонкая сетка — «инженерный» подтекст без кислотности */
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, .05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .05) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(75% 75% at 55% 45%, #000 20%, transparent 78%);
+  pointer-events: none;
+}
+
+.bx-app-visual svg { width: 68%; max-width: 240px; height: auto; opacity: .92; }
+
+.bx-app-badge {
+  position: absolute;
+  top: var(--bx-4); right: var(--bx-4);
+  z-index: 2;
+}
+
+/* ============================================================ нижние панели */
+
+.bx-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--bx-4);
+  /* Панели по высоте не тянутся друг за другом: пустая панель, растянутая до
+     высоты полной, читается как «здесь что-то потерялось». */
+  align-items: start;
+}
+
+.bx-line {
+  display: flex; align-items: center; gap: var(--bx-3);
+  padding: 9px 0;
+  font-size: 13px;
+  border-top: 1px solid var(--bx-hairline);
+}
+.bx-line:first-of-type { border-top: 0; }
+.bx-line .bx-line-name { color: var(--bx-ink); font-weight: 600; }
+.bx-line .bx-line-note { color: var(--bx-ink-3); font-size: 12px; }
+.bx-line .bx-line-val {
+  margin-left: auto; color: var(--bx-ink-2);
+  font-variant-numeric: tabular-nums; font-size: 12.5px;
+}
+
+.bx-bar {
+  position: relative;
+  height: 6px;
+  border-radius: var(--bx-r-full);
+  background: var(--bx-surface-2);
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 60px;
+}
+.bx-bar > i {
+  display: block; height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg,
+              color-mix(in srgb, var(--bx-accent) 55%, transparent), var(--bx-accent));
+  transition: width 420ms var(--bx-ease);
+}
+
+.bx-metric { font-size: var(--bx-metric); font-weight: 750; letter-spacing: -.03em; color: var(--bx-ink); }
+.bx-metric.is-warn { color: var(--bx-amber); }
+
+/* лента событий */
+.bx-feed { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--bx-3); }
+.bx-feed-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: var(--bx-3);
+  border-radius: var(--bx-r-sm);
+  border: 1px solid var(--bx-hairline);
+  background: var(--bx-surface);
+  min-width: 0;
+}
+.bx-feed-icon {
+  width: 32px; height: 32px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 9px;
+  border: 1px solid var(--bx-hairline);
+  background: var(--bx-surface-2);
+  color: var(--bx-ink-2);
+}
+.bx-feed-text { min-width: 0; }
+.bx-feed-title {
+  font-size: 12.5px; font-weight: 650; color: var(--bx-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bx-feed-note {
+  font-size: 12px; color: var(--bx-ink-3); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bx-feed-time { font-size: 11px; color: var(--bx-ink-3); margin-top: 3px; }
+
+/* пустое состояние */
+.bx-empty {
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--bx-2);
+  color: var(--bx-ink-3); font-size: 13px;
+}
+
+/* ============================================================ оболочка приложения */
+
+.bx-appview { display: flex; flex-direction: column; gap: var(--bx-4); height: 100%; }
+
+.bx-appview-head {
+  display: flex; align-items: center; gap: var(--bx-3); flex-wrap: wrap;
+}
+
+.bx-appview-frame {
+  flex: 1 1 auto;
+  min-height: 62vh;
+  border-radius: var(--bx-r-lg);
+  border: 1px solid var(--bx-hairline);
+  background: var(--bx-bg-2);
+  box-shadow: var(--bx-shadow);
+  overflow: hidden;
+}
+.bx-appview-frame iframe { width: 100%; height: 100%; border: 0; display: block; min-height: 62vh; }
+
+/* ============================================================ сайдбар: разделы */
+
+.nav-section {
+  margin: var(--bx-5) 0 var(--bx-2);
+  padding: 0 12px;
+  font: 700 10.5px/1 var(--bx-font);
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--bx-ink-3);
+}
+.nav-section:first-child { margin-top: var(--bx-2); }
+
+/* ============================================================ адаптив */
+
+@media (max-width: 1180px) {
+  .bx-app { grid-template-columns: 1fr; }
+  .bx-app-visual { min-height: 150px; border-left: 0; border-top: 1px solid var(--bx-hairline); }
+}
+
+@media (max-width: 860px) {
+  .bx-apps-grid { grid-template-columns: 1fr; }
+  .bx-hero { flex-direction: column; gap: var(--bx-3); }
+  .bx-hero-pills { margin-left: 0; }
+
+  /* Значок состояния уходит влево над иконкой: справа от заголовка на узком
+     экране места нет, и он наезжал на название приложения. */
+  .bx-app-badge { top: var(--bx-4); left: var(--bx-5); right: auto; }
+  .bx-app-body { padding-top: 58px; }
+  /* На телефоне кнопки идут в столбик во всю ширину: две в ряд не помещаются,
+     а обрезанная кнопка выглядит как поломка. */
+  .bx-app-actions .bx-btn { flex: 1 1 100%; }
+
+  /* Командная строка на телефоне складывается вертикально, но кнопка
+     остаётся крупной: это единственное действие, ради которого экран открыли. */
+  .bx-command { flex-direction: column; align-items: stretch; padding: var(--bx-4); }
+  .bx-command-mark { display: none; }
+  .bx-command .bx-btn-xl { width: 100%; }
+
+  /* Тап-зоны не меньше 44px — палец не мышь. */
+  .bx-btn { --bx-btn-h: 46px; }
+  .bx-btn-sm { --bx-btn-h: 40px; }
+  .bx-mode { height: 40px; padding: 0 16px; }
+  .bx-pill { height: 38px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bx-app, .bx-btn, .bx-bar > i { transition: none; }
+  .bx-pill.is-live .bx-pill-dot, .bx-btn.is-loading::after { animation: none; }
+}

@@ -10,6 +10,10 @@
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="style.css">
+<!-- Слой дизайн-системы: подключается после style.css и ничего в нём не
+     переписывает. Старые страницы остаются как были, новая главная и лаунчер
+     берут токены отсюда. -->
+<link rel="stylesheet" href="theme.css">
 </head>
 <body>
 
@@ -41,7 +45,6 @@
       </span>
       <span class="brand-text">
         <b>BOSSMAN</b>
-        <i>Command Center</i>
       </span>
     </div>
     <nav id="nav" class="nav" aria-label="Основная навигация"></nav>

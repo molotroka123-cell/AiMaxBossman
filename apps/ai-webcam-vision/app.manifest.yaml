@@ -49,3 +49,23 @@ requirements:
     ffmpeg: required_for_modes[file, rtsp]
   compute: cpu
   gpu: not_used
+
+# Как приложение выглядит в лаунчере BOSSMAN. Карточка на главной строится
+# ОТСЮДА, а не из вёрстки: новое приложение появляется на главной, добавив
+# этот блок, и ничего больше.
+default_port: 8870
+ui:
+  subtitle: Dental Operations Intelligence
+  icon: camera
+  accent: "#3d8bff"
+  theme: azure
+  order: 1
+  health_path: /api/v1/health
+  metrics_path: /api/v1/metrics
+  facts:
+    - { label: Камера, from: "health.camera.state", fallback: "нет данных" }
+    - { label: CRM, from: "health.crm.state", fallback: "не подключён" }
+    - { label: "Под наблюдением сегодня", from: "metrics.monitored_today", fallback: "—" }
+  actions:
+    - { id: open, label: "Открыть", primary: true }
+    - { id: live, label: "Живой вид" }

@@ -134,3 +134,18 @@ storage:
 
 env_prefix: SF_
 default_port: 8895
+
+ui:
+  subtitle: Instagram-first account control
+  icon: share
+  accent: "#ff7a59"
+  theme: ember
+  order: 3
+  health_path: /health
+  metrics_path: /api/metrics
+  facts:
+    - { label: Площадка, value: "Instagram" }
+    - { label: Аккаунтов, from: "metrics.accounts", fallback: "0" }
+    - { label: "Ждут решения", from: "metrics.pending_approvals", fallback: "0" }
+  actions:
+    - { id: open, label: "Открыть", primary: true }
