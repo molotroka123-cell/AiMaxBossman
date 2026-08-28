@@ -2,10 +2,14 @@
 import asyncio
 import json
 import os
+from pathlib import Path
+from unittest import mock
 
 import httpx
 
-from bcc.discovery import KNOWN_ENDPOINTS, _scan_files, discover, model_dirs_from_env
+from bcc import discovery
+from bcc.discovery import (KNOWN_ENDPOINTS, _scan_files, default_model_dirs, discover,
+                           expand_dir, model_dirs_from_env)
 
 
 def _transport() -> httpx.MockTransport:
@@ -50,7 +54,7 @@ async def test_extra_url_probed(tmp_path):
 def test_scan_finds_gguf(tmp_path):
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "Qwen3-35B-Q8_0.gguf").write_bytes(b"x" * 1024)
-    (tmp_path / "readme.txt").write_text("не модель")
+    (tmp_path / "readme.txt").write_text("не модель", encoding="utf-8")
     files = _scan_files([str(tmp_path)])
     assert len(files) == 1
     assert files[0]["path"].endswith("Qwen3-35B-Q8_0.gguf")
@@ -184,10 +188,74 @@ def test_ollama_store_is_read_from_manifests_not_from_gguf(tmp_path):
     assert found[0]["size_gb"] == 4.7
 
 
+def test_default_dirs_follow_the_operating_system(monkeypatch):
+    """На Windows Linux-каталоги не существуют — скан находил ровно ноль.
+
+    `/opt/bossman/models`, `/models`, `~/.cache/lm-studio/models` — путей с
+    такими именами на машине разработчика нет и быть не может, и обнаружение
+    честно показывало «моделей нет» при установленных Ollama и LM Studio.
+
+    `os.name` подменяется ТОЛЬКО на время самого вызова: пока он равен "nt",
+    `pathlib.Path()` на Linux падает с NotImplementedError, и упавшая проверка
+    уронила бы не тест, а сам pytest при печати отчёта.
+    """
+    monkeypatch.delenv("BCC_MODELS_DIRS", raising=False)
+
+    with mock.patch.object(os, "name", "nt"):
+        win = default_model_dirs()
+        win_env = model_dirs_from_env()
+    with mock.patch.object(os, "name", "posix"):
+        posix = default_model_dirs()
+
+    assert win == win_env                        # пустой env — те же значения
+    assert r"%USERPROFILE%\.ollama\models" in win
+    assert r"%APPDATA%\LM Studio\models" in win
+    assert "~/models" in win
+    assert not [p for p in win if p.startswith("/")]   # ни одного Linux-пути
+
+    assert posix == ["/opt/bossman/models", "/models", "~/models",
+                     "~/.cache/lm-studio/models", "~/.ollama/models"]
+
+
+def test_scanned_dirs_expand_variables_and_tilde(tmp_path, monkeypatch):
+    """`%APPDATA%` без раскрытия — это каталог с процентами в имени, а не путь.
+
+    Форма `$VAR` раскрывается и ntpath, и posixpath, поэтому проверяется здесь;
+    `%VAR%` — забота ntpath.expandvars, и на Linux её не выполнить.
+    """
+    (tmp_path / "weights.gguf").write_bytes(b"x" * 1024)
+    monkeypatch.setenv("BCC_TEST_MODELS_ROOT", str(tmp_path))
+
+    assert expand_dir("~") == Path.home()
+    assert expand_dir("$BCC_TEST_MODELS_ROOT") == tmp_path
+    found = _scan_files(["$BCC_TEST_MODELS_ROOT"])
+    assert [f["path"] for f in found] == [str(tmp_path / "weights.gguf")]
+
+
+def test_one_file_is_listed_once(tmp_path, monkeypatch):
+    """Регистронезависимая ФС: `*.gguf` и `*.GGUF` находят ОДИН и тот же файл.
+
+    На NTFS и APFS модель попадала в список дважды — с тем же путём и тем же
+    размером, как будто весов на диске вдвое больше, чем есть.
+    """
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "Qwen3-35B-Q8_0.gguf").write_bytes(b"x" * 1024)
+    only = str(tmp_path / "sub" / "Qwen3-35B-Q8_0.gguf")
+
+    # регистронезависимую ФС на Linux не изобразить, но её эффект —
+    # «две маски возвращают один и тот же путь» — воспроизводится точно
+    monkeypatch.setattr(discovery, "MODEL_FILE_GLOBS", ["*.gguf", "*.GGUF", "*.gguf"])
+    assert [f["path"] for f in _scan_files([str(tmp_path)])] == [only]
+
+    # один и тот же каталог, названный в списке дважды, тоже не удваивает вывод
+    assert [f["path"] for f in _scan_files([str(tmp_path), str(tmp_path) + os.sep])] == [only]
+
+
 def test_ollama_scan_skips_manifests_without_a_model_layer(tmp_path):
     manifest = tmp_path / "manifests" / "library" / "broken" / "latest"
     manifest.parent.mkdir(parents=True)
-    manifest.write_text('{"layers": [{"mediaType": "application/vnd.ollama.image.license"}]}')
-    (tmp_path / "manifests" / "library" / "junk.txt").write_text("не json")
+    manifest.write_text('{"layers": [{"mediaType": "application/vnd.ollama.image.license"}]}',
+                        encoding="utf-8")
+    (tmp_path / "manifests" / "library" / "junk.txt").write_text("не json", encoding="utf-8")
     (tmp_path / "blobs").mkdir()
     assert _scan_files([str(tmp_path)]) == []

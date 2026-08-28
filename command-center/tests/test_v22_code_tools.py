@@ -65,6 +65,13 @@ async def test_code_root_symlink_does_not_escape(env, tmp_path: Path):
     await tools_code._write_setting_json(env.svc, tools_code.CODE_ROOTS_KEY, [str(allowed)])
 
     link = allowed / "мостик"
-    link.symlink_to(outside, target_is_directory=True)
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        # Windows без Developer Mode: создание симлинка требует привилегии
+        # SeCreateSymbolicLink и падает с WinError 1314. Само правило при этом
+        # никуда не девается — проверить его этим способом нельзя, и честный
+        # ответ здесь «пропущено», а не «сломано».
+        pytest.skip(f"ФС не даёт создать символическую ссылку: {exc}")
     with pytest.raises(PermissionError, match="вне разрешённых корней"):
         await tools_code.resolve_root(env.svc, str(link))

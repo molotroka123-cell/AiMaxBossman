@@ -188,7 +188,7 @@ async def test_e2e_failing_test_fixed_through_bossman_tool_loop(env, repo, fake,
     # 5. тесты в worktree теперь зелёные, исходный репозиторий не тронут
     after = run_tests(worktree)
     assert after.returncode == 0, after.stdout + after.stderr
-    assert (repo / "calc.py").read_text() == BROKEN
+    assert (repo / "calc.py").read_text(encoding="utf-8") == BROKEN
     assert run_tests(repo).returncode != 0
 
     # дифф сохранён в журнале run'а

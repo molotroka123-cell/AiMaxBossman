@@ -4,6 +4,7 @@ import asyncio
 import os
 import re
 import shlex
+import shutil
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -29,6 +30,48 @@ AUTO_PATTERNS = [
     re.compile(r"(?i)^(?:pytest|python\s+-m\s+pytest)\b"),
     re.compile(r"(?i)^(?:npm|pnpm|yarn)\s+(?:test|run\s+(?:test|lint|build))\b"),
 ]
+# Только для Windows. Когда доступной оболочки `sh` нет и команда уходит в
+# cmd.exe, `cat`/`ls` там просто не существуют — читающий эквивалент называется
+# `type`/`dir`. Список отдельный, а не дописан в AUTO_PATTERNS, чтобы решение
+# политики на Linux осталось ровно прежним: там `dir` и `type` как были ask,
+# так и остаются.
+AUTO_PATTERNS_NT = [
+    re.compile(r"(?i)^(?:type|dir)\b"),
+    re.compile(r"(?i)^where\b"),
+]
+
+
+def auto_patterns() -> list[re.Pattern[str]]:
+    """Читающие команды, идущие AUTO, для текущей ОС.
+
+    Считается при вызове, а не при импорте: тест подменяет `os.name` и
+    проверяет вторую платформу, не запуская её.
+    """
+    if os.name == "nt":
+        return [*AUTO_PATTERNS, *AUTO_PATTERNS_NT]
+    return AUTO_PATTERNS
+
+
+def host_shell() -> list[str] | None:
+    """Как запускать команду НА ХОСТЕ (режимы project_host / system_admin).
+
+    None — через штатный `create_subprocess_shell`, то есть `/bin/sh -c` на
+    POSIX. Поведение Linux этим не меняется ни на шаг.
+
+    На Windows `create_subprocess_shell` даёт cmd.exe, где нет ни `cat`, ни
+    `ls`, ни `&&`-цепочек в привычном виде: любая команда, написанная моделью
+    по-юниксовому, там падает с «не является внутренней или внешней командой».
+    Если в PATH есть `sh` (он приходит с Git for Windows и стоит почти у всех,
+    кто работает с git), берём его — команды агентов начинают работать так же,
+    как на боевой Linux-машине. Если `sh` нет — честно cmd /c, а не отказ.
+    """
+    if os.name != "nt":
+        return None
+    sh = shutil.which("sh")
+    if sh:
+        return [sh, "-lc"]
+    return [os.environ.get("COMSPEC") or "cmd.exe", "/c"]
+
 
 def within(path: Path, roots: list[Path]) -> bool:
     p = path.resolve()
@@ -56,7 +99,7 @@ class TerminalPolicy:
             return "ask"
         if any(p.search(cmd) for p in ASK_PATTERNS):
             return "ask"
-        if self.mode == "project_host" and any(p.search(cmd) for p in AUTO_PATTERNS):
+        if self.mode == "project_host" and any(p.search(cmd) for p in auto_patterns()):
             return "auto"
         if self.mode == "sandbox":
             return "auto"
@@ -89,6 +132,9 @@ class TerminalManager:
             raise PermissionError("terminal command requires approval")
 
         if policy.mode == "sandbox":
+            # Внутри контейнера оболочка всегда `sh` — образ линуксовый
+            # независимо от того, какая ОС на хосте. Хостовой выбор оболочки
+            # сюда не относится и относиться не должен.
             docker_args = [
                 "docker", "run", "--rm",
                 "--network", "bridge" if network else "none",
@@ -104,12 +150,21 @@ class TerminalManager:
                 stderr=asyncio.subprocess.STDOUT,
             )
         else:
-            proc = await asyncio.create_subprocess_shell(
-                cmd, cwd=str(cwd),
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
-            )
+            shell = host_shell()
+            if shell is None:                    # POSIX: как было, /bin/sh -c
+                proc = await asyncio.create_subprocess_shell(
+                    cmd, cwd=str(cwd),
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.STDOUT,
+                )
+            else:
+                proc = await asyncio.create_subprocess_exec(
+                    *shell, cmd, cwd=str(cwd),
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.STDOUT,
+                )
 
         sid = uuid.uuid4().hex[:12]
         session = TerminalSession(sid, cwd, cmd, policy.mode, proc)

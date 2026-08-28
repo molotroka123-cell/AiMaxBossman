@@ -10,14 +10,14 @@ def test_obsidian_write_restricted(tmp_path: Path):
     ob = ObsidianVault(vault)
     p = ob.write_memory(title="Decision", content="Use Redis", kind="decision")
     assert p.parent == (vault/"BOSSMAN Memory")
-    assert "Use Redis" in p.read_text()
+    assert "Use Redis" in p.read_text(encoding="utf-8")
 
 def test_iter_markdown_excludes_obsidian(tmp_path: Path):
     vault = tmp_path/"vault"
     (vault/".obsidian").mkdir(parents=True)
-    (vault/".obsidian"/"x.md").write_text("secret config")
+    (vault/".obsidian"/"x.md").write_text("secret config", encoding="utf-8")
     (vault/"notes").mkdir()
-    (vault/"notes"/"a.md").write_text("# A")
+    (vault/"notes"/"a.md").write_text("# A", encoding="utf-8")
     ob = ObsidianVault(vault)
     found = list(ob.iter_markdown())
     assert len(found) == 1

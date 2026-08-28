@@ -166,8 +166,15 @@ class MemSearchBridge:
         return out
 
     def _relative(self, path: str) -> str:
-        """Путь относительно корня хранилища: домашний каталог наружу не отдаём."""
+        """Путь относительно корня хранилища: домашний каталог наружу не отдаём.
+
+        Разделитель — всегда POSIX-овый, даже когда BCC работает на Windows.
+        Этот путь уходит в контекст модели и в текст заметок: `notes\\decisions.md`
+        и `notes/decisions.md` — это две разные строки, по которым не сойдутся
+        ни ссылки в заметках, ни сравнение источников между машиной разработчика
+        и боевой Linux-машиной.
+        """
         try:
-            return str(Path(path).resolve().relative_to(Path(self.vault_root).resolve()))
+            return Path(path).resolve().relative_to(Path(self.vault_root).resolve()).as_posix()
         except (ValueError, OSError):
             return Path(path).name

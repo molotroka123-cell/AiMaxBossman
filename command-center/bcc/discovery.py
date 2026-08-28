@@ -44,7 +44,15 @@ PORT_TIMEOUT = 1.0      # TCP-рукопожатие на localhost уклады
 # иначе путь `C:\Users\...\models` распадётся на `C` и `\Users\...\models`.
 DEFAULT_MODEL_DIRS = ["/opt/bossman/models", "/models", "~/models",
                       "~/.cache/lm-studio/models", "~/.ollama/models"]
+# Windows-раскладка. Ни `/opt/bossman/models`, ни `/models` там не существуют,
+# а `~/.cache/lm-studio` — это Linux-путь LM Studio; на машине разработчика
+# скан по DEFAULT_MODEL_DIRS находил ровно ноль моделей и выглядел как «моделей
+# нет», хотя Ollama и LM Studio стояли и работали.
+WINDOWS_MODEL_DIRS = [r"%USERPROFILE%\.ollama\models",
+                      r"%APPDATA%\LM Studio\models",
+                      "~/models"]
 MODEL_FILE_GLOBS = ["*.gguf", "*.GGUF"]
+MODEL_SCAN_DEPTHS = ("", "*/", "*/*/")
 MAX_FILES = 200
 
 # Ollama держит веса не файлами `*.gguf`, а блобами по хешу; имена моделей
@@ -52,11 +60,31 @@ MAX_FILES = 200
 OLLAMA_MODEL_MEDIA = "application/vnd.ollama.image.model"
 
 
+def default_model_dirs() -> list[str]:
+    """Каталоги весов по умолчанию для ТЕКУЩЕЙ ОС.
+
+    Считается при вызове, а не один раз при импорте: так тест может подменить
+    `os.name` и проверить вторую платформу, не запуская её.
+    """
+    if os.name == "nt":
+        return list(WINDOWS_MODEL_DIRS)
+    return list(DEFAULT_MODEL_DIRS)
+
+
+def expand_dir(raw: str) -> Path:
+    """Раскрыть `%VAR%`/`$VAR` и `~` в пути каталога.
+
+    `%APPDATA%` без expandvars — это несуществующий каталог с процентами в
+    имени, а не путь: скан по нему молча ничего не находит.
+    """
+    return Path(os.path.expandvars(str(raw))).expanduser()
+
+
 def model_dirs_from_env() -> list[str]:
     """Каталоги весов из окружения либо значения по умолчанию."""
     raw = os.environ.get("BCC_MODELS_DIRS", "")
     if not raw.strip():
-        return list(DEFAULT_MODEL_DIRS)
+        return default_model_dirs()
     return [p.strip() for p in raw.split(os.pathsep) if p.strip()]
 
 
@@ -155,27 +183,50 @@ def _scan_ollama(base: Path) -> list[dict]:
     return found
 
 
+def _dedup_key(path: str) -> str:
+    """Ключ «это тот же самый файл».
+
+    normcase важен не для красоты: на регистронезависимой ФС (NTFS, APFS)
+    маски `*.gguf` и `*.GGUF` возвращают ОДИН и тот же файл, и модель попадала
+    в список дважды — с одинаковым размером, как будто весов на диске вдвое
+    больше. Один и тот же каталог, указанный в BCC_MODELS_DIRS дважды (или
+    через `~` и абсолютным путём), давал тот же эффект.
+    """
+    return os.path.normcase(os.path.abspath(path))
+
+
 def _scan_files(dirs: list[str] | None = None) -> list[dict]:
     """Файлы весов на диске: путь и размер. Не рекурсивно глубже 3 уровней."""
     roots = dirs if dirs is not None else model_dirs_from_env()
     found: list[dict] = []
+    seen: set[str] = set()
+
+    def add(entry: dict) -> None:
+        key = _dedup_key(entry["path"])
+        if key in seen:
+            return
+        seen.add(key)
+        found.append(entry)
+
     for root in roots:
-        base = Path(root).expanduser()
+        base = expand_dir(root)
         if not base.is_dir():
             continue
         if (base / "manifests").is_dir() and (base / "blobs").is_dir():
-            found.extend(_scan_ollama(base))
+            for entry in _scan_ollama(base):
+                add(entry)
             if len(found) >= MAX_FILES:
                 return sorted(found, key=lambda x: x["path"])[:MAX_FILES]
         for pattern in MODEL_FILE_GLOBS:
-            for depth in ("", "*/", "*/*/"):
+            for depth in MODEL_SCAN_DEPTHS:
                 try:
                     for f in base.glob(depth + pattern):
-                        if f.is_file():
-                            found.append({"path": str(f),
-                                          "size_gb": round(f.stat().st_size / 1e9, 2)})
-                            if len(found) >= MAX_FILES:
-                                return sorted(found, key=lambda x: x["path"])
+                        if not f.is_file():
+                            continue
+                        add({"path": str(f),
+                             "size_gb": round(f.stat().st_size / 1e9, 2)})
+                        if len(found) >= MAX_FILES:
+                            return sorted(found, key=lambda x: x["path"])
                 except OSError:
                     continue
     return sorted(found, key=lambda x: x["path"])
