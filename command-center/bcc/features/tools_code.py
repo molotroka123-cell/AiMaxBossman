@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, Request
 from ..config import ROOT
 from ..db import settings_kv
 from ..tools import REGISTRY, ToolContext, ToolResult, ToolSpec
+from ..v2 import scratch
 from ..v2.code_index import CodeIndex, index_async, search_async
 from . import Feature
 
@@ -24,6 +25,7 @@ router = APIRouter()
 CODE_ROOTS_KEY = "code.roots"
 TERMINAL_ROOTS_KEY = "terminal.roots"
 CODE_IGNORES_KEY = "code.extra_ignores"
+SCRATCH_ALIAS = "scratch"          # личная рабочая область агента (V2.2 §9)
 MAX_RESULTS = 20
 DEFAULT_RESULTS = 8
 OUTPUT_LIMIT = 12000
@@ -101,13 +103,24 @@ async def extra_ignores(svc) -> list[str]:
     return [str(x) for x in raw] if isinstance(raw, list) else []
 
 
-async def resolve_root(svc, raw: str | None, workspace: str = "") -> Path:
+async def resolve_root(svc, raw: str | None, workspace: str = "", ctx=None) -> Path:
     roots = await allowed_roots(svc)
+    if ctx is not None and str(raw or "").strip() == SCRATCH_ALIAS:
+        return scratch.ensure(scratch.for_context(ctx))
     candidate = Path(raw or workspace or str(roots[0])).expanduser()
     try:
         candidate = candidate.resolve()
     except OSError as exc:
         raise PermissionError(f"code root недоступен: {candidate}: {exc}") from exc
+    # V2.2 §9: рабочая область соседнего агента лежит внутри разрешённого корня,
+    # поэтому общая проверка корней её пропустила бы — закрываем до неё.
+    if ctx is not None:
+        blocked = scratch.check(ctx, candidate)
+        if blocked:
+            raise PermissionError(blocked)
+        own = scratch.for_context(ctx)
+        if _within(candidate, [own]):
+            return candidate
     if not _within(candidate, roots):
         raise PermissionError(
             f"code root {candidate} вне разрешённых корней: "
@@ -312,7 +325,7 @@ async def tool_code_search(args: dict, ctx: ToolContext) -> ToolResult:
     if not query:
         return _err("code.search: нужен query")
     try:
-        root = await resolve_root(ctx.svc, args.get("root"), ctx.workspace)
+        root = await resolve_root(ctx.svc, args.get("root"), ctx.workspace, ctx)
         handle = await get_handle(ctx.svc, root)
         await ensure_index(handle)
         hits = await search_async(
@@ -346,7 +359,7 @@ async def tool_code_expand(args: dict, ctx: ToolContext) -> ToolResult:
     if not chunk_hash:
         return _err("code.expand: нужен chunk_hash")
     try:
-        root = await resolve_root(ctx.svc, args.get("root"), ctx.workspace)
+        root = await resolve_root(ctx.svc, args.get("root"), ctx.workspace, ctx)
         handle = await get_handle(ctx.svc, root)
         handle.index.load()
         chunk = handle.index.chunks.get(chunk_hash)
@@ -375,7 +388,7 @@ async def tool_code_expand(args: dict, ctx: ToolContext) -> ToolResult:
 
 async def tool_code_index(args: dict, ctx: ToolContext) -> ToolResult:
     try:
-        root = await resolve_root(ctx.svc, args.get("root"), ctx.workspace)
+        root = await resolve_root(ctx.svc, args.get("root"), ctx.workspace, ctx)
         handle = await get_handle(ctx.svc, root)
         started = await start_background_index(handle, force=bool(args.get("force")))
     except (PermissionError, FileNotFoundError) as exc:
@@ -389,7 +402,7 @@ async def tool_code_index(args: dict, ctx: ToolContext) -> ToolResult:
 
 async def tool_code_status(args: dict, ctx: ToolContext) -> ToolResult:
     try:
-        root = await resolve_root(ctx.svc, args.get("root"), ctx.workspace)
+        root = await resolve_root(ctx.svc, args.get("root"), ctx.workspace, ctx)
         handle = await get_handle(ctx.svc, root)
         stats = handle.index.stats()
         stats["running"] = bool(handle.task and not handle.task.done())

@@ -25,12 +25,16 @@ import sqlalchemy as sa
 
 from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
+from ..v2 import scratch
 from ..v2.tables import terminal_sessions as term_t
 from ..v2.terminal_control import TerminalManager, TerminalPolicy, within
 from . import Feature
 
 ROOTS_KEY = "terminal.roots"
 MODE_KEY = "terminal.default_mode"
+# Псевдоним личной рабочей области агента (V2.2 §9): модель называет
+# её словом, а не путём — путей соседей она знать не должна.
+SCRATCH_ALIAS = "scratch"
 OUTPUT_LIMIT = 8000          # символов вывода в модель за один вызов
 
 # Отдельный от TerminalPolicy слой: то, что нельзя НИКОГДА, даже с подтверждением.
@@ -100,9 +104,15 @@ def extra_ask_reason(command: str) -> str:
 
 async def _resolve_cwd(ctx, args: dict) -> tuple[Path, list[Path]]:
     """Рабочий каталог вызова: workspace задачи → аргумент → корень по умолчанию.
-    Выход за разрешённые корни — забота политики, здесь только вычисление."""
+    Выход за разрешённые корни — забота политики, здесь только вычисление.
+
+    `cwd="scratch"` — единственный способ для модели назвать свою личную
+    рабочую область, не зная и не угадывая её путь (V2.2 §9).
+    """
     roots = await _roots(ctx.svc)
     raw = args.get("cwd") or ctx.workspace or (str(roots[0]) if roots else ".")
+    if str(raw).strip() == SCRATCH_ALIAS:
+        return scratch.ensure(scratch.for_context(ctx)), roots
     return Path(raw).expanduser(), roots
 
 
@@ -120,11 +130,20 @@ async def _tool_run(args: dict, ctx) -> ToolResult:
                           one_line=f"terminal.run: запрещено ({deny})", error=True)
 
     cwd, roots = await _resolve_cwd(ctx, args)
+    # V2.2 §9: чужая рабочая область агента закрыта раньше проверки корней —
+    # она внутри разрешённого корня, и общая проверка её бы пропустила.
+    blocked = scratch.check(ctx, cwd)
+    if blocked:
+        return ToolResult(content=blocked, one_line="terminal.run: чужая рабочая область",
+                          error=True)
     mode = str(args.get("mode") or await _mode(ctx.svc))
     if mode not in ("sandbox", "project_host", "system_admin"):
         mode = "sandbox"
+    own_scratch = scratch.for_context(ctx)
     effective_roots = roots if mode != "sandbox" else [cwd]
-    if mode != "sandbox" and not within(cwd, roots):
+    if mode != "sandbox" and own_scratch not in effective_roots:
+        effective_roots = [*effective_roots, own_scratch]     # своя область доступна всегда
+    if mode != "sandbox" and not within(cwd, roots) and not within(cwd, [own_scratch]):
         return ToolResult(content=f"каталог {cwd} вне разрешённых корней "
                                   f"({', '.join(str(r) for r in roots)})",
                           one_line="terminal.run: cwd вне корней", error=True)
@@ -254,7 +273,7 @@ SPECS = [
         handler=_tool_run,
         input_schema={
             "command": {"type": "string", "description": "команда целиком"},
-            "cwd": {"type": "string", "description": "рабочий каталог (по умолчанию — workspace задачи)"},
+            "cwd": {"type": "string", "description": "рабочий каталог (по умолчанию — workspace задачи); \"scratch\" — личная рабочая область этого агента, изолированная от других агентов миссии"},
             "mode": {"type": "string", "enum": ["sandbox", "project_host"],
                      "description": "sandbox — docker без сети (по умолчанию)"},
             "timeout": {"type": "number", "description": "сколько секунд ждать завершения"},
