@@ -39,6 +39,18 @@ class CrmContext:
     planned_service: str = ""
     confirmed_service: str = ""
 
+    #: When the CRM says this answer was true. Empty means the CRM did not say.
+    as_of: str = ""
+    #: The answer is older than the freshness budget. Still usable, never
+    #: silently treated as current.
+    stale: bool = False
+    #: Age of the answer in seconds, when the CRM dated it.
+    age_seconds: float | None = None
+    #: More than one appointment covered the requested instant.
+    overlapping: bool = False
+    #: How many candidate appointments were considered.
+    candidates: int = 0
+
     def procedure(self) -> tuple[str, float, ProcedureProvenance]:
         if not self.available:
             return "unknown", 0.0, ProcedureProvenance.UNKNOWN

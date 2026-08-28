@@ -136,6 +136,9 @@ class Settings:
     frame_width: int = 160
     frame_height: int = 90
 
+    #: Run the persistent sampling loop, not only on-demand jobs.
+    runtime_enabled: bool = False
+
     active_interval: float = 1.0
     idle_interval: float = 10.0
     max_sample_rate_hz: float = 5.0
@@ -153,6 +156,8 @@ class Settings:
     debounce_samples: int = 2
 
     state_dir: Path = Path("./data")
+    #: The clinic's timezone. Daily metrics are cut on its midnight.
+    timezone_name: str = "UTC"
 
     crm_kind: CrmKind = CrmKind.DISABLED
     crm_base_url: str = ""
@@ -213,6 +218,7 @@ class Settings:
                 "frame_queue_max": self.frame_queue_max,
                 "frame_size": [self.frame_width, self.frame_height],
                 "motion_hold_seconds": self.motion_hold_seconds,
+                "runtime_enabled": self.runtime_enabled,
             },
             "retry": {
                 "max_attempts": self.retry.max_attempts,
@@ -237,7 +243,7 @@ class Settings:
                 "base_url_configured": bool(self.crm_base_url),
                 "token_configured": bool(self.crm_token),
             },
-            "storage": {"state_dir": str(self.state_dir)},
+            "storage": {"state_dir": str(self.state_dir), "timezone": self.timezone_name},
             "api": {"host": self.host, "port": self.port, "auth_required": bool(self.api_token)},
         }
 
@@ -276,6 +282,9 @@ class Settings:
             raise PrivacyDenied("face identification is denied by design in this build")
         if self.privacy.patient_identification:
             raise PrivacyDenied("patient identification from pixels is denied by design")
+        from .storage.store import resolve_timezone
+
+        resolve_timezone(self.timezone_name)  # raises ConfigError on a bad name
         parse_zone(",".join(str(v) for v in self.chair_zone), "AWV_CHAIR_ZONE")
         parse_zone(",".join(str(v) for v in self.work_zone), "AWV_WORK_ZONE")
         return self
@@ -318,6 +327,7 @@ class Settings:
             capture_timeout=_get_float(env, "AWV_CAPTURE_TIMEOUT_SECONDS", 15.0, minimum=0.1),
             frame_width=_get_int(env, "AWV_FRAME_WIDTH", 160, minimum=16),
             frame_height=_get_int(env, "AWV_FRAME_HEIGHT", 90, minimum=16),
+            runtime_enabled=_get_bool(env, "AWV_RUNTIME_ENABLED", False),
             active_interval=_get_float(env, "AWV_ACTIVE_INTERVAL_SECONDS", 1.0, minimum=0.0),
             idle_interval=_get_float(env, "AWV_IDLE_INTERVAL_SECONDS", 10.0, minimum=0.0),
             max_sample_rate_hz=_get_float(env, "AWV_MAX_SAMPLE_RATE_HZ", 5.0, minimum=0.001),
@@ -348,6 +358,7 @@ class Settings:
             work_threshold=_get_float(env, "AWV_WORK_THRESHOLD", 0.012, minimum=0.0),
             debounce_samples=_get_int(env, "AWV_DEBOUNCE_SAMPLES", 2, minimum=1),
             state_dir=Path(_get(env, "AWV_STATE_DIR", "./data")),
+            timezone_name=_get(env, "AWV_TIMEZONE", "UTC"),
             crm_kind=crm_kind,
             crm_base_url=_get(env, "AWV_CRM_BASE_URL", "").rstrip("/"),
             crm_token=Secret(env.get("AWV_CRM_TOKEN", ""), "crm_token"),
