@@ -36,3 +36,17 @@ nothing behind it would produce exactly the kind of unbacked capability this
 codebase is meant to avoid. The mesh side of Mode B — validation, repair,
 orientation, printability — is fully built and tested; only the generator
 adapter is missing.
+
+## How it is reported
+
+Not by silence. Every job result carries `evidence.generative_engine` with
+status `NOT_RUN` and the reason, so a reader sees an answered question rather
+than a missing row. The interface that is ready is the ordinary mesh path: a
+mesh from any source enters through `kind: "import"` and is validated with no
+exemption. `test_pipeline.py` exercises that with the two failures generated
+meshes actually produce — an open surface and inverted normals — and both are
+refused, exactly as a CAD mesh would be.
+
+There is no stub adapter, deliberately. A function that returns
+`NOT_AVAILABLE` for every vendor would add a module without adding a
+capability, and the ledger already says the same thing without the pretence.
