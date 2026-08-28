@@ -89,6 +89,24 @@ async def test_captcha_leads_to_a_human_not_to_an_attempt():
     assert "не проходится" in (exc.value.user_action or "")
 
 
+async def test_a_challenge_on_startup_calls_a_human_and_says_why():
+    """Проверка прямо на входе — значит, входа не было и нужен человек.
+
+    Состояния мало: владельцу нужна причина, по которой его позвали, и она
+    обязана оказаться в аудите. Иначе он видит остановленную работу и не
+    видит, что именно на экране.
+    """
+    dom, sess = login_session()
+    dom.page.markup = CAPTCHA_PAGE_MARKUP
+    assert await sess.start() is BrowserState.TAKEOVER_REQUIRED
+    assert sess.challenge.kind is ChallengeKind.CAPTCHA
+    asked = [r for r in sess.audit.records if r.action == "takeover.request"]
+    assert asked, "передача человеку обязана остаться в аудите"
+    assert "reCAPTCHA" in asked[0].detail
+    assert asked[0].error_class == ErrorClass.BROWSER_REQUIRES_TAKEOVER.value
+    assert dom.clicks == [] and dom.fills == []
+
+
 async def test_captcha_failure_does_not_demote_the_capability():
     """Капча — не поломка интерфейса: счётчик детерминированных отказов не растёт."""
     dom, sess = ready_session()
