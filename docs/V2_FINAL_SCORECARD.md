@@ -32,12 +32,7 @@ UI: 15 feature-страниц + Home V2 + Mobile — построены, QA в C
 - **07 OpenCode**: клиент `opencode serve` (health/attach/abort/diff) готов и
   протестирован на «недоступно» (honest 503, не падение). Полный цикл
   (create/fork/diff session) требует установленного бинаря `opencode` на машине —
-  в этом окружении его нет. Terminal (3 режима, AUTO/ASK/DENY) — DONE.
-- **15 Mobile**: командная страница под палец — UI-этап (backend не нужен,
-  использует существующие API). Строится вместе с остальными страницами.
-- **UI всех функций**: backend каждой функции проверен тестами и живым сервером;
-  UI-страницы (ui/pages/*.js) добавляются отдельным этапом поверх готовых API —
-  до их завершения строкой «строится».
+  в этом окружении его нет. Terminal (3 режима, AUTO/ASK/DENY) + UI — DONE.
 
 ## Ядро (не входит в 15, но критично)
 
@@ -56,14 +51,16 @@ UI: 15 feature-страниц + Home V2 + Mobile — построены, QA в C
 | Persistence/Reboot (long task переживает рестарт) | **DONE** | test_persistence + core-1 |
 | Failure: endpoint down → healing → router fallback → resume | **PARTIAL** | компоненты по отдельности протестированы (healing degraded→recovered, router fallback, engine retry); полный цепной E2E — на реальных моделях |
 | Cross-feature: автономное улучшение репозитория (20 шагов) | **PARTIAL** | компоненты готовы; полный прогон требует реальной coding-модели/opencode |
-| Mobile 390px (10 действий) | **строится** | UI-этап |
+| Mobile 390px (командный режим) | **DONE** | Пульт: миссия, approvals, agents, health, Quick Task — QA 320–430px |
 
 ## Итого
 
-**Backend: 13/15 DONE + 2 PARTIAL (07 opencode-часть, 15 mobile-UI).**
-Ни одной FAILED. 110 автотестов зелёные. Всё, что помечено PARTIAL, честно
-ограничено внешней зависимостью (бинарь opencode, реальные GPU-модели) или
-UI-этапом — не «fake done».
+**14/15 функций DONE (backend+UI+QA), 1 PARTIAL (07 — OpenCode-часть требует
+бинаря `opencode serve`; Terminal этой же функции — DONE).**
+Ни одной FAILED. 110 автотестов зелёные. Полные кросс-сценарии §39–41 (цепной
+E2E на реальных LLM) — PARTIAL: компоненты протестированы по отдельности + mock,
+финальный прогон на боевой машине с GPU-моделями. Всё PARTIAL честно ограничено
+внешней зависимостью — не «fake done».
 
 ## UI (добавлено после сборки страниц)
 

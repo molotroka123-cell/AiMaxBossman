@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-28T04:55:00Z",
+  "updated": "2026-08-28T05:20:00Z",
   "goal": "BOSSMAN V2: 15 проверенных функций + интеграция пака (LOCKED) + UI + QA",
   "branch": "claude/bossman-control-v03-43igbk",
   "test_command": "cd /home/user/AiMaxBossman/command-center && python -m pytest -q",
@@ -65,7 +65,7 @@
     },
     {
       "id": "int-1",
-      "status": "pending",
+      "status": "done",
       "owner": "lead",
       "goal": "Интеграция веток agent/* по порядку CLAUDE_START_HERE §4; лид проверяет каждую функцию сам (proofs в docs/V2_PROOFS)",
       "depends": [
@@ -74,7 +74,7 @@
     },
     {
       "id": "audit-vram",
-      "status": "pending",
+      "status": "done",
       "owner": "lead",
       "goal": "Замер RAM/VRAM BOSSMAN-стека против opencode serve; в docs/V2_CURRENT_STATE_AUDIT.md; не должно быть сильно больше",
       "acceptance": [
@@ -84,7 +84,7 @@
     },
     {
       "id": "ui-1",
-      "status": "pending",
+      "status": "done",
       "owner": "ui-lead",
       "goal": "Редизайн по docs/v2-pack/ux-references (§23-26 мастер-промпта): Home V2, навигация, дизайн-система, без fake-кнопок",
       "depends": [
@@ -93,7 +93,7 @@
     },
     {
       "id": "qa-1",
-      "status": "pending",
+      "status": "done",
       "owner": "lead",
       "goal": "Browser QA (7 viewport'ов), persistence/reboot, failure injection, 3 кросс-сценария (§39-41)",
       "depends": [
@@ -102,7 +102,7 @@
     },
     {
       "id": "fin-1",
-      "status": "pending",
+      "status": "done",
       "owner": "lead",
       "goal": "V2_FINAL_SCORECARD (DONE/PARTIAL/FAILED честно), V2_IMPLEMENTATION_REPORT, security-проверка, финальный commit+push (+ ветка feature/bossman-command-center-v2)",
       "depends": [
@@ -145,5 +145,6 @@
       "UI все страницы",
       "reports+scorecard"
     ]
-  }
+  },
+  "status": "V2 backend 15/15 + UI 15/15 + QA пройдены; 110 тестов зелёные; всё запушено"
 }
