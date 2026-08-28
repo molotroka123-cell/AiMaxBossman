@@ -39,6 +39,33 @@ def test_bridge_hides_absolute_paths():
     assert "/" not in bridge._relative("/var/secrets/key.pem")
 
 
+def test_bridge_source_separator_is_posix_on_windows_too(monkeypatch):
+    """Источник заметки — одна и та же строка на обеих машинах владельца.
+
+    На Windows разделитель уходил обратной чертой: `notes\\decisions.md` вместо
+    `notes/decisions.md`. Это не косметика — строка идёт в контекст модели и в
+    текст заметок Obsidian: ссылка, записанная на машине разработчика, на
+    боевой Linux-машине не находит файл, а один и тот же документ выглядит как
+    два разных источника.
+    """
+    from pathlib import PureWindowsPath
+
+    from bcc.v2.memory import memsearch_bridge
+
+    class WinPath(PureWindowsPath):
+        """Windows-семантика путей без самой Windows: resolve() без ФС."""
+        def resolve(self):
+            return self
+
+    monkeypatch.setattr(memsearch_bridge, "Path", WinPath)
+    bridge = MemSearchBridge(vault_root=r"C:\Users\timur\vault")
+
+    assert bridge._relative(r"C:\Users\timur\vault\notes\decisions.md") == "notes/decisions.md"
+    assert "\\" not in bridge._relative(r"C:\Users\timur\vault\a\b\c.md")
+    # путь вне хранилища по-прежнему сводится к имени файла
+    assert bridge._relative(r"D:\secrets\key.pem") == "key.pem"
+
+
 async def test_bridge_expand_raises_keyerror_not_runtimeerror(monkeypatch):
     """Ненайденный хэш memsearch отдаёт rc=1 → RuntimeError. Вызывающий код по
     контракту бэкенда ловит KeyError, и раньше handler падал целиком."""

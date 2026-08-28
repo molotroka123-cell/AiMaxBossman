@@ -41,7 +41,7 @@ async def test_real_browser_flow_and_takeover(env, tmp_path):
     import socketserver
     import threading
     (tmp_path / "p1.html").write_text(
-        "<html><body><h1>Первая</h1><input id='q'></body></html>")
+        "<html><body><h1>Первая</h1><input id='q'></body></html>", encoding="utf-8")
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path))
     httpd = socketserver.TCPServer(("127.0.0.1", 0), handler)
     port = httpd.server_address[1]

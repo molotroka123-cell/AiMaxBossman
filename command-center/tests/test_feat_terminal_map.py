@@ -1,10 +1,13 @@
 """Feature 07 Terminal (политика/режимы) + 06 Agent Map (граф из данных)."""
+import os
 from pathlib import Path
+from unittest import mock
 
 import sqlalchemy as sa
 
 from bcc.db import agents as agents_t, orchestras as orch_t, orchestra_members as members_t
-from bcc.v2.terminal_control import TerminalPolicy
+from bcc.v2 import terminal_control
+from bcc.v2.terminal_control import TerminalPolicy, host_shell
 
 from .conftest import FakeAdapter
 from .helpers import make_stack
@@ -32,6 +35,63 @@ def test_policy_auto_and_ask(tmp_path):
 def test_system_admin_never_auto(tmp_path):
     pol = TerminalPolicy(allowed_roots=[tmp_path], mode="system_admin")
     assert pol.decision("git status", tmp_path) == "ask"   # даже безобидное — ask
+
+
+# ---------- выбор оболочки на хосте (Windows у разработчика, Linux в бою) ----------
+#
+# `os.name` подменяется ТОЛЬКО на время самого вызова и через контекстный
+# менеджер: пока он равен "nt", `pathlib.Path()` на Linux падает с
+# NotImplementedError, и упавшая проверка уронила бы не тест, а сам pytest
+# при печати отчёта. Поэтому все assert — уже снаружи подмены.
+
+def test_posix_host_keeps_the_native_shell():
+    """На Linux ничего не выбирается: как был `create_subprocess_shell`, так и есть."""
+    with mock.patch.object(os, "name", "posix"):
+        shell = host_shell()
+    assert shell is None
+    assert host_shell() is None            # и без подмены — на этой машине тоже
+
+
+def test_windows_prefers_sh_when_git_for_windows_is_installed():
+    """Команды агентов написаны по-юниксовому; `sh` из Git for Windows их понимает."""
+    git_sh = r"C:\Program Files\Git\usr\bin\sh.exe"
+    with mock.patch.object(os, "name", "nt"), \
+            mock.patch.object(terminal_control.shutil, "which",
+                              lambda name: git_sh if name == "sh" else None):
+        shell = host_shell()
+    assert shell == [git_sh, "-lc"]
+
+
+def test_windows_falls_back_to_cmd_without_sh(monkeypatch):
+    """Без `sh` — честно cmd /c, а не отказ запускать вообще."""
+    monkeypatch.setenv("COMSPEC", r"C:\Windows\System32\cmd.exe")
+    with mock.patch.object(os, "name", "nt"), \
+            mock.patch.object(terminal_control.shutil, "which", lambda name: None):
+        shell = host_shell()
+    assert shell == [r"C:\Windows\System32\cmd.exe", "/c"]
+
+
+def test_windows_read_commands_are_auto_without_touching_linux(tmp_path):
+    """`type`/`dir` — это windows-овые `cat`/`ls`: читают и ничего не меняют.
+
+    На Linux решение обязано остаться прежним, поэтому оба слова там как были
+    ask, так и остаются: список для nt отдельный, а не дописан в общий.
+    """
+    pol = TerminalPolicy(allowed_roots=[tmp_path], mode="project_host")
+    commands = ["dir", "type calc.py", "git status", "pip install requests",
+                "git push --force"]
+
+    posix = {c: pol.decision(c, tmp_path) for c in commands}
+    with mock.patch.object(os, "name", "nt"):
+        windows = {c: pol.decision(c, tmp_path) for c in commands}
+
+    assert posix["dir"] == "ask" and posix["type calc.py"] == "ask"
+    assert windows["dir"] == "auto" and windows["type calc.py"] == "auto"
+    assert windows["git status"] == "auto"              # общее не потерялось
+    assert windows["pip install requests"] == "ask"     # ask по-прежнему сильнее
+    assert windows["git push --force"] == "deny"        # и deny тоже
+    # всё остальное на обеих платформах решается одинаково
+    assert {c: posix[c] for c in commands[2:]} == {c: windows[c] for c in commands[2:]}
 
 
 # ---------- Terminal API ----------

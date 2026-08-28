@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -73,7 +74,13 @@ async def test_terminal_alias_resolves_to_own_area(env):
     cwd, _ = await _resolve_cwd(ctx, {"cwd": "scratch"})
     assert cwd == scratch.owner_dir(env.settings, mission_id=3, agent_id=11)
     assert cwd.is_dir()                                  # каталог создан по требованию
-    assert oct(cwd.stat().st_mode)[-3:] == "700"
+    # 0700 — требование к боевой машине (Linux), и здесь оно не ослаблено:
+    # ровно "700", никаких «не хуже чем». На NTFS битов режима нет вообще —
+    # st_mode там всегда 777, и проверять было бы нечего; изоляция на Windows
+    # держится не правами ФС, а проверкой scratch.violation, которую проверяют
+    # соседние тесты этого же файла.
+    if os.name != "nt":
+        assert oct(cwd.stat().st_mode)[-3:] == "700"
 
 
 async def test_agent_a_cannot_run_inside_agent_b_area(env):

@@ -286,7 +286,7 @@ async def test_autonomous_mission_with_ten_plus_tool_calls(
     assert approvals_seen == 1, "ожидалось ровно одно подтверждение (memory.write)"
 
     # --- проверяем РЕЗУЛЬТАТ, а не рапорт
-    assert (project / "calc.py").read_text().strip().endswith("return a + b")
+    assert (project / "calc.py").read_text(encoding="utf-8").strip().endswith("return a + b")
 
     async with env.svc.db.session() as s:
         rows = [dict(r._mapping) for r in
@@ -302,7 +302,7 @@ async def test_autonomous_mission_with_ten_plus_tool_calls(
     assert {"memory", "terminal", "browser", "mcp"} <= {r["source"] for r in rows}
 
     # MCP-вызов дошёл до серверного процесса (счётчик пишет сам сервер)
-    assert counter.exists() and "echo" in counter.read_text()
+    assert counter.exists() and "echo" in counter.read_text(encoding="utf-8")
 
     # модели каждый раз предлагались только выданные инструменты
     offered = [json.loads(line)["tools_offered"] for line in

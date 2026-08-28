@@ -139,7 +139,7 @@ async def test_model_edits_code_runs_tests_and_reads_diff(env, tmp_path):
                            json={"permissions": {"terminal.run": True}})
 
     assert await _run_task(env, stack["task"]["id"], timeout=90) == "completed"
-    assert (work / "calc.py").read_text().strip().endswith("return a + b")
+    assert (work / "calc.py").read_text(encoding="utf-8").strip().endswith("return a + b")
     assert "exit_code=0" in adapter.seen_messages[2][-1]["content"]
     first = adapter.seen_messages[1][-1]["content"]
     last_tool = adapter.seen_messages[3][-1]["content"]
