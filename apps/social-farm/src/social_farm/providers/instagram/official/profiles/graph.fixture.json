@@ -1,0 +1,126 @@
+{
+  "profile_id": "instagram-graph-fixture",
+  "provider": "instagram",
+  "adapter_version": "0.1.0",
+  "provider_api_version": "fixture-v0",
+  "base_url": "https://graph.fixture.invalid",
+
+  "verification": {
+    "status": "FIXTURE",
+    "checked_against_provider_docs_at": null,
+    "checked_by": null,
+    "warning": "СИНТЕТИЧЕСКИЙ ПРОФИЛЬ ДЛЯ ТЕСТОВ. Ни один путь, ни одно имя разрешения и ни одно число здесь не наблюдались у Meta и не имеют к ней отношения. Он существует, чтобы прогнать логику адаптера — вывод возможностей, двухшаговую публикацию, перевод ошибок, губернатор — не выдавая догадки за факты. Домен .invalid зарезервирован RFC 2606 и не резолвится: даже случайный живой вызов по этому профилю никуда не уйдёт. Имена разрешений начинаются с fixture_ по той же причине: их нельзя спутать с настоящими."
+  },
+
+  "operations": {
+    "account_profile_read": {"method": "GET", "path": "/{version}/{ig_user_id}", "required_permissions": ["fixture_basic"], "mutating": false},
+    "account_permissions_read": {"method": "GET", "path": "/{version}/me/fixture-permissions", "required_permissions": [], "mutating": false},
+    "account_profile_update": {"method": "POST", "path": "/{version}/{ig_user_id}/fixture-profile", "required_permissions": ["fixture_profile_write"], "mutating": true},
+    "media_list": {"method": "GET", "path": "/{version}/{ig_user_id}/fixture-media", "required_permissions": ["fixture_basic"], "mutating": false},
+    "media_read": {"method": "GET", "path": "/{version}/{media_id}", "required_permissions": ["fixture_basic"], "mutating": false},
+    "media_container_create": {"method": "POST", "path": "/{version}/{ig_user_id}/fixture-containers", "required_permissions": ["fixture_publish"], "mutating": true},
+    "media_container_status": {"method": "GET", "path": "/{version}/{container_id}", "required_permissions": ["fixture_publish"], "mutating": false},
+    "media_publish": {"method": "POST", "path": "/{version}/{ig_user_id}/fixture-publish", "required_permissions": ["fixture_publish"], "mutating": true},
+    "media_caption_edit": {"method": "POST", "path": "/{version}/{media_id}", "required_permissions": ["fixture_publish"], "mutating": true},
+    "media_delete": {"method": "DELETE", "path": "/{version}/{media_id}", "required_permissions": ["fixture_publish"], "mutating": true},
+    "comments_list": {"method": "GET", "path": "/{version}/{media_id}/fixture-comments", "required_permissions": ["fixture_comments"], "mutating": false},
+    "comment_reply": {"method": "POST", "path": "/{version}/{comment_id}/fixture-replies", "required_permissions": ["fixture_comments"], "mutating": true},
+    "comment_moderate": {"method": "POST", "path": "/{version}/{comment_id}", "required_permissions": ["fixture_comments"], "mutating": true},
+    "mentions_list": {"method": "GET", "path": "/{version}/{ig_user_id}/fixture-mentions", "required_permissions": ["fixture_comments"], "mutating": false},
+    "conversations_list": {"method": "GET", "path": "/{version}/{ig_user_id}/fixture-conversations", "required_permissions": ["fixture_messaging"], "mutating": false},
+    "messages_list": {"method": "GET", "path": "/{version}/{thread_id}/fixture-messages", "required_permissions": ["fixture_messaging"], "mutating": false},
+    "message_send": {"method": "POST", "path": "/{version}/{ig_user_id}/fixture-messages", "required_permissions": ["fixture_messaging"], "mutating": true},
+    "insights_account": {"method": "GET", "path": "/{version}/{ig_user_id}/fixture-insights", "required_permissions": ["fixture_insights"], "mutating": false},
+    "insights_media": {"method": "GET", "path": "/{version}/{media_id}/fixture-insights", "required_permissions": ["fixture_insights"], "mutating": false},
+    "webhook_subscribe": {"method": "POST", "path": "/{version}/{ig_user_id}/fixture-subscriptions", "required_permissions": ["fixture_basic"], "mutating": true},
+    "reconcile_media": {"method": "GET", "path": "/{version}/{ig_user_id}/fixture-media", "required_permissions": ["fixture_basic"], "mutating": false}
+  },
+
+  "capabilities": {
+    "account.read": {"operations": ["account_profile_read"], "required_permissions": ["fixture_basic"], "app_review": false, "officially_exposed": true},
+    "account.profile.read": {"operations": ["account_profile_read"], "required_permissions": ["fixture_basic"], "app_review": false, "officially_exposed": true},
+    "account.profile.update": {"operations": ["account_profile_update"], "required_permissions": ["fixture_profile_write"], "app_review": true, "officially_exposed": true},
+    "account.avatar.update": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": false},
+    "account.bio.update": {"operations": ["account_profile_update"], "required_permissions": ["fixture_profile_write"], "app_review": true, "officially_exposed": true},
+
+    "media.list": {"operations": ["media_list"], "required_permissions": ["fixture_basic"], "app_review": false, "officially_exposed": true},
+    "media.read": {"operations": ["media_read"], "required_permissions": ["fixture_basic"], "app_review": false, "officially_exposed": true},
+    "media.publish.image": {"operations": ["media_container_create", "media_publish"], "required_permissions": ["fixture_publish"], "app_review": true, "officially_exposed": true},
+    "media.publish.carousel": {"operations": ["media_container_create", "media_publish"], "required_permissions": ["fixture_publish"], "app_review": true, "officially_exposed": true},
+    "media.publish.reel": {"operations": ["media_container_create", "media_container_status", "media_publish"], "required_permissions": ["fixture_publish"], "app_review": true, "officially_exposed": true},
+    "media.publish.story": {"operations": ["media_container_create", "media_publish"], "required_permissions": ["fixture_publish"], "app_review": true, "officially_exposed": true},
+    "media.edit.caption": {"operations": ["media_caption_edit"], "required_permissions": ["fixture_publish"], "app_review": true, "officially_exposed": true},
+    "media.archive": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": false},
+    "media.delete": {"operations": ["media_delete"], "required_permissions": ["fixture_publish"], "app_review": true, "officially_exposed": true},
+
+    "comments.read": {"operations": ["comments_list"], "required_permissions": ["fixture_comments"], "app_review": true, "officially_exposed": true},
+    "comments.reply": {"operations": ["comment_reply"], "required_permissions": ["fixture_comments"], "app_review": true, "officially_exposed": true},
+    "comments.hide": {"operations": ["comment_moderate"], "required_permissions": ["fixture_comments"], "app_review": true, "officially_exposed": true},
+    "comments.unhide": {"operations": ["comment_moderate"], "required_permissions": ["fixture_comments"], "app_review": true, "officially_exposed": true},
+    "comments.delete": {"operations": ["comment_moderate"], "required_permissions": ["fixture_comments"], "app_review": true, "officially_exposed": true},
+    "comments.like": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": false},
+
+    "mentions.read": {"operations": ["mentions_list"], "required_permissions": ["fixture_comments"], "app_review": true, "officially_exposed": true},
+
+    "messages.threads.read": {"operations": ["conversations_list"], "required_permissions": ["fixture_messaging"], "app_review": true, "officially_exposed": true},
+    "messages.read": {"operations": ["messages_list"], "required_permissions": ["fixture_messaging"], "app_review": true, "officially_exposed": true},
+    "messages.reply": {"operations": ["message_send"], "required_permissions": ["fixture_messaging"], "app_review": true, "officially_exposed": true},
+    "messages.attachment.send": {"operations": ["message_send"], "required_permissions": ["fixture_messaging"], "app_review": true, "officially_exposed": true},
+    "messages.reaction.send": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": false},
+
+    "insights.account.read": {"operations": ["insights_account"], "required_permissions": ["fixture_insights"], "app_review": true, "officially_exposed": true},
+    "insights.media.read": {"operations": ["insights_media"], "required_permissions": ["fixture_insights"], "app_review": true, "officially_exposed": true},
+    "insights.story.read": {"operations": ["insights_media"], "required_permissions": ["fixture_insights"], "app_review": true, "officially_exposed": true},
+
+    "relationships.read": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": false},
+    "relationships.follow": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": false},
+    "relationships.unfollow": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": false},
+    "engagement.like": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": false},
+    "engagement.unlike": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": false}
+  },
+
+  "account_requirements": {
+    "professional_required": true,
+    "professional_types": ["BUSINESS", "CREATOR"],
+    "source": "spec/docs/41_EXTERNAL_API_FACTS_2026_08.md",
+    "confidence": "SPEC_STATED"
+  },
+
+  "media_rules": {
+    "known": true,
+    "source": "FIXTURE_SYNTHETIC",
+    "limits": {
+      "image": {"max_bytes": 1000000, "formats": ["image/jpeg"], "aspect_min": 0.5, "aspect_max": 2.0},
+      "video": {"max_bytes": 5000000, "formats": ["video/mp4"], "duration_min_s": 3, "duration_max_s": 60},
+      "carousel": {"min_items": 2, "max_items": 5}
+    },
+    "notes": "Числа выдуманы для теста и помечены FIXTURE_SYNTHETIC. Ни одно из них не является значением Meta."
+  },
+
+  "rate_limit": {
+    "retry_after_header": "Retry-After",
+    "usage_headers": ["X-Fixture-Usage"],
+    "documented_limits": {"calls_per_hour": 200},
+    "bucket_strategy": "provider:account:capability"
+  },
+
+  "error_codes": {
+    "9001": "AUTH_EXPIRED",
+    "9002": "PERMISSION_MISSING",
+    "9003": "PROVIDER_POLICY_BLOCKED",
+    "9004": "MEDIA_INVALID",
+    "9005": "CONTENT_REJECTED",
+    "9006": "RATE_LIMITED",
+    "9007": "CAPABILITY_UNAVAILABLE"
+  },
+
+  "idempotency": {
+    "header": "X-Fixture-Idempotency-Key",
+    "notes": "Синтетический заголовок. У Meta такого заголовка может не быть — в поставляемом шаблоне он null."
+  },
+
+  "webhooks": {
+    "fields": ["fixture_comments", "fixture_messages"],
+    "callback_requirements": "публичный HTTPS-адрес с проверяемой подписью"
+  }
+}
