@@ -136,10 +136,13 @@ class Pipeline:
         record = self.store.get(job_id)
         job_dir = Path(record.directory)
         self.store.update(job_id, status=RUNNING)
+        # Owned here, not inside _run_stages, so that a job which dies partway
+        # through still reports what had and had not run when it died.
+        evidence = EvidenceLedger()
         try:
             deadline = time.monotonic() + self.settings.job_timeout_s
             result = await asyncio.wait_for(
-                self._run_stages(job_id, job_dir, request, deadline),
+                self._run_stages(job_id, job_dir, request, deadline, evidence),
                 timeout=self.settings.job_timeout_s,
             )
         except (asyncio.TimeoutError, JobTimeoutError):
@@ -150,31 +153,36 @@ class Pipeline:
                 "detail": detail,
             }
             self.store.update(job_id, status=TIMED_OUT, error=payload)
-            return {"job_id": job_id, "status": TIMED_OUT, **payload}
+            return {"job_id": job_id, "status": TIMED_OUT, "evidence": evidence.as_dict(), **payload}
         except JobCancelledError as exc:
             self.store.update(job_id, status=CANCELLED, error=exc.as_dict())
-            return {"job_id": job_id, "status": CANCELLED, **exc.as_dict()}
+            return {"job_id": job_id, "status": CANCELLED, "evidence": evidence.as_dict(), **exc.as_dict()}
         except Ai3dError as exc:
             self.store.update(job_id, status=FAILED, error=exc.as_dict())
             self._finalise_artifacts(job_id, job_dir)
-            return {"job_id": job_id, "status": FAILED, **exc.as_dict()}
+            return {"job_id": job_id, "status": FAILED, "evidence": evidence.as_dict(), **exc.as_dict()}
         except Exception as exc:  # unexpected: still recorded, never swallowed
             payload = {"error": "INTERNAL_ERROR", "message": f"{type(exc).__name__}: {exc}", "detail": {}}
             self.store.update(job_id, status=FAILED, error=payload)
             self._finalise_artifacts(job_id, job_dir)
-            return {"job_id": job_id, "status": FAILED, **payload}
+            return {"job_id": job_id, "status": FAILED, "evidence": evidence.as_dict(), **payload}
 
         status = SUCCEEDED if result.get("printable") else FAILED
         self.store.update(job_id, status=status, result=result)
         return result
 
     async def _run_stages(
-        self, job_id: str, job_dir: Path, request: JobRequest, deadline: float | None = None
+        self,
+        job_id: str,
+        job_dir: Path,
+        request: JobRequest,
+        deadline: float | None = None,
+        evidence: EvidenceLedger | None = None,
     ) -> dict:
         job_dir.mkdir(parents=True, exist_ok=True)
         warnings: list[str] = []
         stages: dict[str, str] = {}
-        evidence = EvidenceLedger()
+        evidence = evidence if evidence is not None else EvidenceLedger()
         scad_info = openscad_info(self.settings.openscad_bin)
         evidence.not_run(
             "openscad_render",
@@ -237,7 +245,17 @@ class Pipeline:
         if request.kind == "design":
             assert request.spec is not None
             (job_dir / SCAD_NAME).write_text(compile_scad(request.spec), encoding="utf-8")
-            compiled = compile_mesh(request.spec)
+            try:
+                compiled = compile_mesh(request.spec)
+            except Ai3dError as exc:
+                # The kernel ran and rejected the spec. That is a FAIL with a
+                # reason, not a stage that never happened.
+                evidence.record(
+                    "cad_engine", FAIL, engine="native",
+                    reason=exc.message,
+                    detail=exc.as_dict().get("detail", {}),
+                )
+                raise
             mesh = compiled.mesh
             generate_detail = compiled.as_dict()
             step_result = cadquery_export(request.spec, job_dir / STEP_NAME, job_dir / "model_cadquery.stl")
