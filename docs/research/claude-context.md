@@ -93,29 +93,27 @@ Docker и выгрузку всего исходного кода в эмбед�
 поле `startLine`, которое сервер отдаёт модели как `Location: file:39-56`, для
 этих чанков **врёт**. Модель получит ссылку не на тот участок файла.
 
-### 2.3 Эмбеддинги — `packages/core/src/embedding/`
+### 2.3 Эмбеддинги и хранилище
 
-Пять провайдеров: OpenAI (дефолт, `text-embedding-3-small`), VoyageAI
-(`voyage-code-3`), Gemini, **Ollama** (`nomic-embed-text`), OpenRouter.
-`OllamaEmbedding` ходит на `http://127.0.0.1:11434`, размерность определяется
-первым запросом. Батч 100 чанков (`EMBEDDING_BATCH_SIZE`). Обрезка длинного
-текста наивная: `maxChars = maxTokens * 4` (оценка для английского, для
-кириллицы завышена) — наши чанки ≤2800 символов, до порога не доходят.
-Ошибка эмбеддинга (`EmbeddingError`) **останавливает всю индексацию** целиком,
-чтобы в Milvus не попал частичный индекс при «успешном» снапшоте.
+**Эмбеддинги** (`core/src/embedding/`) — пять провайдеров: OpenAI (дефолт,
+`text-embedding-3-small`), VoyageAI (`voyage-code-3`), Gemini, **Ollama**
+(`nomic-embed-text`), OpenRouter. `OllamaEmbedding` ходит на
+`http://127.0.0.1:11434`, размерность определяется первым запросом. Батч 100
+чанков. Обрезка наивная: `maxChars = maxTokens * 4` (оценка для английского) —
+наши чанки ≤2800 символов, до порога не доходят. `EmbeddingError`
+**останавливает всю индексацию**, чтобы в Milvus не попал частичный индекс
+при «успешном» снапшоте.
 
-### 2.4 Хранилище — `packages/core/src/vectordb/`
-
-Реализации ровно две: `MilvusVectorDatabase` (gRPC) и
-`MilvusRestfulVectorDatabase` (REST). Плюс `zilliz-utils.ts::ClusterManager` —
-по `MILVUS_TOKEN` ходит на `https://api.cloud.zilliz.com` и **выводит адрес
-кластера из токена**. Локального файлового бэкенда нет.
-Коллекция: `hybrid_code_chunks_<md5(абс. путь)[:8]>` (или `code_chunks_…` при
-`HYBRID_MODE=false`). Поля: `id`, `content` (VarChar 65535,
+**Хранилище** (`core/src/vectordb/`) — реализации ровно две:
+`MilvusVectorDatabase` (gRPC) и `MilvusRestfulVectorDatabase` (REST). Плюс
+`zilliz-utils.ts::ClusterManager` — по `MILVUS_TOKEN` ходит на
+`https://api.cloud.zilliz.com` и **выводит адрес кластера из токена**.
+Локального файлового бэкенда нет. Коллекция:
+`hybrid_code_chunks_<md5(абс. путь)[:8]>`. Поля: `id`, `content` (VarChar 65535,
 `enable_analyzer: true`), `vector`, `sparse_vector`, `relativePath`,
 `startLine`, `endLine`, `fileExtension`, `metadata`.
 
-### 2.5 «Hybrid semantic search» — что это на самом деле
+### 2.4 «Hybrid semantic search» — что это на самом деле
 
 Это **не** наш гибрид «BM25 + dense у себя». Разреженный вектор считает **сам
 Milvus**: в коллекцию регистрируется функция `FunctionType.BM25`
@@ -129,7 +127,7 @@ dense-вектор по полю `vector` (`nprobe: 10`) и **сырой тек�
 Отсюда важное: **BM25 здесь неотделим от Milvus**. Взять «только лексическую
 половину» без Milvus нельзя — токенизатор, IDF и индекс живут на сервере.
 
-### 2.6 Инкрементальность — `packages/core/src/sync/`
+### 2.5 Инкрементальность — `packages/core/src/sync/`
 
 Заявлен «Merkle DAG». По коду это **не дерево Меркла**: `buildMerkleDAG` строит
 один корневой узел (хеш конкатенации всех файловых хешей) и вешает все файлы
@@ -144,7 +142,7 @@ dense-вектор по полю `vector` (`nprobe: 10`) и **сырой тек�
 `~/.context/mcp-codebase-snapshot.json` (реестр баз), `~/.context/.env`
 (`EnvManager` читает его как фолбэк, если переменной нет в `process.env`).
 
-### 2.7 MCP-сервер — `packages/mcp/src/`
+### 2.6 MCP-сервер — `packages/mcp/src/`
 
 `@modelcontextprotocol/sdk` 1.12, транспорт **stdio**. `console.log`/`warn`
 перенаправлены в stderr, чтобы не портить JSON-RPC. Ровно **4 инструмента**:
