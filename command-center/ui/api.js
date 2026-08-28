@@ -143,6 +143,10 @@ export function pick(obj, keys, fallback = undefined) {
 /* ---------------- Методы Control API ---------------- */
 
 export const api = {
+  // V2: универсальный вызов для feature-страниц (контракты §8) — свои endpoint'ы
+  // фича зовёт через raw, не расширяя этот файл
+  raw: (path, { method = 'GET', body } = {}) => request(method, path, body),
+
   // auth
   login: (token) => POST('/api/login', { token }),
 

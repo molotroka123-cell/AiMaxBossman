@@ -13,8 +13,8 @@ from typing import Any
 
 import sqlalchemy as sa
 
-from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
-                 task_runs as runs_t, tasks as tasks_t, utcnow)
+from .db import (Database, agents as agents_t, checkpoints as checkpoints_t, fetch_one,
+                 run_events as run_events_t, task_runs as runs_t, tasks as tasks_t, utcnow)
 from .events import EventBus
 from .providers import ChatResult, ProviderError
 from .registry import Registry
@@ -38,6 +38,27 @@ class TaskEngine:
         self.retry_max_delay = retry_max_delay
         self.last_tick: float = 0.0          # для health в /api/system
         self.current_run_id: int | None = None
+        # Хуки V2 (контракты §8): фичи регистрируют корутины в setup(); порядок вызова —
+        # pick_model → before_run → on_step → gate_completion → on_failure → after_run.
+        self.hooks: dict[str, list] = {k: [] for k in (
+            "pick_model", "before_run", "on_step", "gate_completion",
+            "on_failure", "after_run")}
+
+    def add_hook(self, name: str, fn: Any) -> None:
+        if name not in self.hooks:
+            raise KeyError(f"нет такого хука: {name}")
+        self.hooks[name].append(fn)
+
+    async def _call_hooks(self, name: str, *args: Any) -> list[Any]:
+        """Исключение хука логируется и не роняет run (контракты §8)."""
+        results: list[Any] = []
+        for fn in self.hooks.get(name, ()):
+            try:
+                results.append(await fn(*args))
+            except Exception as exc:
+                await self.bus.emit("worker.error",
+                                    message=f"хук {name}: {type(exc).__name__}: {exc}")
+        return results
 
     # ---------- постановка в очередь ----------
 
@@ -230,6 +251,23 @@ class TaskEngine:
             await self._fail_now(run_id, task["id"], f"агент «{agent['name']}» выключен")
             return
 
+        # before_run: Resource Brain может отложить ({"defer": сек, "reason"}) или
+        # запретить ({"fail": причина}) запуск до старта выполнения
+        for res in await self._call_hooks("before_run", task, run):
+            if isinstance(res, dict) and res.get("defer"):
+                delay = float(res["defer"])
+                async with self.db.session() as s:
+                    await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                        status="queued",
+                        worker_lease_until=utcnow() + timedelta(seconds=delay)))
+                    await s.commit()
+                await self._log(run_id, "warn", "run.deferred",
+                                f"отложено на {delay:.0f} с: {res.get('reason', '')}")
+                return
+            if isinstance(res, dict) and res.get("fail"):
+                await self._fail_now(run_id, task["id"], str(res["fail"]))
+                return
+
         await self._start(run_id, task["id"])
         checkpoint = run.get("checkpoint") or {}
         messages: list[dict] = list(checkpoint.get("messages") or [])
@@ -252,7 +290,7 @@ class TaskEngine:
                 # финальный ответ уже есть (например, сохранён до паузы) — модель не дёргаем
                 break
             try:
-                result, model = await self._call_model(agent, messages, run_id)
+                result, model = await self._call_model(task, agent, messages, run_id)
             except ProviderError as exc:
                 await self._handle_failure(run_id, task, str(exc), messages, step)
                 return
@@ -275,6 +313,11 @@ class TaskEngine:
                             f"({result.tokens_out} токенов)")
             await self.bus.emit("task.progress", task_id=task["id"], run_id=run_id,
                                 step=step, max_steps=max_steps, model=alias)
+            # каждый шаг — строка в checkpoints (история для Replay/Fork) + хук on_step
+            cp_id = await self._insert_checkpoint(run_id, messages, step, note="answer")
+            await self._call_hooks("on_step", task, run_id,
+                                   {"messages": messages, "step": step,
+                                    "checkpoint_id": cp_id})
             # у MVP-агента нет инструментов: следующий виток увидит финальный ответ и выйдет;
             # когда появятся tool-calls, здесь же добавится их выполнение и новый шаг
 
@@ -283,15 +326,73 @@ class TaskEngine:
         if not answer:
             answer = next((m["content"] for m in reversed(messages)
                            if m["role"] == "assistant"), "")
+        # gate_completion (Reviewer Gate): задача не станет completed без PASS
+        for res in await self._call_hooks("gate_completion", task, run_id, answer):
+            if not isinstance(res, dict) or "verdict" not in res:
+                continue
+            await self.bus.emit("evaluation.completed", task_id=task["id"], run_id=run_id,
+                                verdict=res["verdict"],
+                                reasons=str(res.get("reasons") or "")[:500])
+            if res["verdict"] != "fail":
+                continue
+            feedback = str(res.get("feedback") or res.get("reasons") or "ревью не пройдено")
+            await self._log(run_id, "warn", "run.review_fail", feedback[:500])
+            if res.get("requeue", True):
+                # фидбек ревьюера — новым сообщением; run возвращается в очередь,
+                # следующий шаг исправляет (лимит попыток ведёт сама фича-ревьюер)
+                messages.append({"role": "user",
+                                 "content": f"Ревью не пройдено. Исправь: {feedback}"})
+                async with self.db.session() as s:
+                    await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                        status="queued", worker_lease_until=None,
+                        checkpoint={"messages": messages, "step": step, "note": "review_fail"}))
+                    await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
+                        status="queued", updated_at=utcnow()))
+                    await s.commit()
+                await self.bus.emit("task.queued", task_id=task["id"], run_id=run_id,
+                                    review_retry=True)
+            else:
+                # попытки ревью исчерпаны → человеку (waiting_approval), run ждёт с checkpoint
+                async with self.db.session() as s:
+                    await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                        status="queued", worker_lease_until=None,
+                        checkpoint={"messages": messages, "step": step,
+                                    "note": "review_escalated"}))
+                    await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
+                        status=str(res.get("status") or "waiting_approval"),
+                        updated_at=utcnow()))
+                    await s.commit()
+                await self.bus.emit("task.progress", task_id=task["id"], run_id=run_id,
+                                    waiting_approval=True)
+            return
         # лог пишем ДО смены статуса: увидев «completed», UI уже видит полную историю run'а
         await self._log(run_id, "info", "run.completed", "задача выполнена")
         await self._finish(run_id, task["id"], "completed", result=answer,
                            tokens_in=tokens_in, tokens_out=tokens_out, cost_usd=round(cost, 6),
                            model_alias=alias)
 
-    async def _call_model(self, agent: dict, messages: list[dict],
+    async def _call_model(self, task: dict, agent: dict, messages: list[dict],
                           run_id: int) -> tuple[ChatResult, dict]:
-        """Вызов модели агента; при ошибке primary — попытка через fallback_model."""
+        """Вызов модели: сначала pick_model-хук (Smart Router) может перекрыть выбор;
+        при ошибке маршрута — модель агента; при её ошибке — fallback_model."""
+        picked = next((r for r in await self._call_hooks("pick_model", task, agent) if r), None)
+        if picked is not None:
+            model_id = int(picked["model_id"] if isinstance(picked, dict) else picked)
+            if isinstance(picked, dict) and picked.get("route") is not None:
+                async with self.db.session() as s:
+                    await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                        route=picked["route"]))
+                    await s.commit()
+            try:
+                adapter, model = await self.registry.adapter_for(model_id)
+                result = await adapter.chat(model["name"], messages,
+                                            max_tokens=agent.get("max_tokens"))
+                return result, model
+            except (ProviderError, LookupError) as exc:
+                await self._log(run_id, "warn", "router.fallback",
+                                f"маршрут (модель {model_id}) недоступен ({exc}) — модель агента")
+                await self.bus.emit("router.fallback", task_id=task["id"],
+                                    model_id=model_id, reason=str(exc))
         try:
             adapter, model = await self.registry.adapter_for(int(agent["model_id"]))
         except (LookupError, TypeError):
@@ -319,6 +420,7 @@ class TaskEngine:
         attempt = int((run or {}).get("attempt") or 0)
         max_retries = int(task.get("max_retries") or 0)
         await self._log(run_id, "error", "run.error", error)
+        await self._call_hooks("on_failure", task, run_id, error)
         if attempt < max_retries:
             delay = min(self.retry_base_delay * (2 ** attempt), self.retry_max_delay)
             # пауза хранится в БД (queued + «не раньше»), а не в sleep — переживает рестарт
@@ -406,6 +508,18 @@ class TaskEngine:
         if result is not None:
             payload["result"] = result[:500]
         await self.bus.emit(kind, **payload)
+        if status in ("completed", "failed", "stopped"):
+            await self._call_hooks("after_run", task_id, run_id, status)
+
+    async def _insert_checkpoint(self, run_id: int, messages: list[dict], step: int,
+                                 note: str = "") -> int:
+        async with self.db.session() as s:
+            res = await s.execute(sa.insert(checkpoints_t).values(
+                run_id=run_id, step=step, messages=messages, note=note, created_at=utcnow()))
+            cp_id = int(res.inserted_primary_key[0])
+            await s.commit()
+        await self.bus.emit("checkpoint.created", checkpoint_id=cp_id, run_id=run_id, step=step)
+        return cp_id
 
     async def _fail_now(self, run_id: int, task_id: int, error: str) -> None:
         """Провал без ретраев (нет агента/модели, попытки исчерпаны) — с записью в лог run'а."""

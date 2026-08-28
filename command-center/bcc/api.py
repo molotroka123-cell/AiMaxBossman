@@ -22,6 +22,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import db as dbm, discovery
 from .approvals import Approvals
+from .features import load_features
 from .auth import HEADER, TokenAuth
 from .config import Settings, settings as default_settings
 from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
@@ -64,12 +65,16 @@ class Services:
         self.scheduler = Scheduler(self.db, self.bus, self.engine)
         self.metrics = MetricsSampler(self.db, self.bus)
         self.approvals = Approvals(self.db, self.bus)
+        self.features = load_features()      # V2: модули bcc/features/* (контракты §8)
         self.start_workers = start_workers
         self._tasks: list[asyncio.Task] = []
         self.started_at = utcnow()
 
     async def start(self) -> None:
         await self.db.create_all()
+        for feature in self.features:        # хуки engine и подписки — до старта worker'а
+            if feature.setup:
+                await feature.setup(self)
         await self.engine.recover()          # crash recovery при старте процесса
         if self.start_workers:
             self._tasks = [
@@ -77,6 +82,23 @@ class Services:
                 asyncio.create_task(self.scheduler.loop(), name="bcc-scheduler"),
                 asyncio.create_task(self.metrics.loop(), name="bcc-metrics"),
             ]
+            for feature in self.features:
+                if feature.tick and feature.tick_seconds > 0:
+                    self._tasks.append(asyncio.create_task(
+                        self._feature_tick(feature), name=f"bcc-{feature.name}"))
+
+    async def _feature_tick(self, feature: Any) -> None:
+        """Фоновая петля фичи (Governor, Healing, истечение резервов…):
+        ошибка одного тика логируется и не убивает петлю."""
+        while True:
+            try:
+                await feature.tick(self)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                await self.bus.emit("worker.error",
+                                    message=f"tick {feature.name}: {type(exc).__name__}: {exc}")
+            await asyncio.sleep(feature.tick_seconds)
 
     async def stop(self) -> None:
         for task in self._tasks:
@@ -230,6 +252,10 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
     _install_error_handlers(app)
     app.include_router(_public_router())
     app.include_router(_api_router())
+    for feature in svc.features:             # V2-фичи: под /api и токен-auth
+        if feature.router is not None:
+            app.include_router(feature.router, prefix="/api",
+                               dependencies=[Depends(require_token)])
     _mount_ui(app, svc.settings)
     return app
 

@@ -165,6 +165,188 @@ settings_kv = sa.Table(
     sa.Column("value_enc", sa.Text),                            # значение шифруется тем же Fernet
 )
 
+# ---------- V2 (docs/V2_SHARED_CONTRACTS.md §1). Схему меняет только лид. ----------
+
+missions = sa.Table(
+    "missions", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("title", sa.String(300), nullable=False),
+    sa.Column("goal", sa.Text, default=""),
+    # единый словарь статусов V2 (§2 контрактов)
+    sa.Column("status", sa.String(24), default="draft"),
+    sa.Column("duration_minutes", sa.Integer),
+    sa.Column("max_workers", sa.Integer, default=2),
+    sa.Column("cloud_budget_usd", sa.Float, default=0.0),
+    sa.Column("spent_usd", sa.Float, default=0.0),
+    sa.Column("plan", sa.JSON),                                 # milestones/tasks плана
+    sa.Column("progress", sa.Float, default=0.0),               # 0..1
+    sa.Column("kpi_targets", sa.JSON, default=dict),            # {"analyzed": 10, …}
+    sa.Column("meta", sa.JSON, default=dict),
+    sa.Column("started_at", sa.DateTime),
+    sa.Column("finished_at", sa.DateTime),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+    sa.Column("updated_at", sa.DateTime, default=utcnow, onupdate=utcnow),
+)
+
+kpi_history = sa.Table(
+    "kpi_history", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("mission_id", sa.Integer, sa.ForeignKey("missions.id", ondelete="CASCADE"),
+              nullable=False, index=True),
+    sa.Column("key", sa.String(120), nullable=False),
+    sa.Column("value", sa.Float, nullable=False),               # значение ПОСЛЕ применения delta
+    sa.Column("delta", sa.Float, default=0.0),
+    sa.Column("source_task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="SET NULL")),
+    sa.Column("ts", sa.DateTime, default=utcnow, index=True),
+)
+
+orchestras = sa.Table(
+    "orchestras", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("name", sa.String(200), nullable=False),
+    sa.Column("mode", sa.String(24), default="manager"),        # sequential|parallel|manager|debate|review_loop
+    sa.Column("config", sa.JSON, default=dict),                 # max_workers, duration, budget, approval policy
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
+orchestra_members = sa.Table(
+    "orchestra_members", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("orchestra_id", sa.Integer, sa.ForeignKey("orchestras.id", ondelete="CASCADE"),
+              nullable=False, index=True),
+    sa.Column("agent_id", sa.Integer, sa.ForeignKey("agents.id", ondelete="CASCADE"), nullable=False),
+    sa.Column("role", sa.String(16), default="worker"),         # manager|worker|reviewer
+    sa.Column("position", sa.Integer, default=0),
+)
+
+skills = sa.Table(
+    "skills", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("name", sa.String(200), nullable=False),
+    sa.Column("slug", sa.String(120), nullable=False, unique=True),
+    sa.Column("description", sa.Text, default=""),
+    sa.Column("current_version_id", sa.Integer),                # FK на skill_versions (без cycle-constraint)
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
+skill_versions = sa.Table(
+    "skill_versions", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("skill_id", sa.Integer, sa.ForeignKey("skills.id", ondelete="CASCADE"),
+              nullable=False, index=True),
+    sa.Column("version", sa.Integer, nullable=False),
+    sa.Column("input_schema", sa.JSON, default=dict),
+    sa.Column("output_schema", sa.JSON, default=dict),
+    sa.Column("required_tools", sa.JSON, default=list),
+    sa.Column("process", sa.Text, default=""),                  # рабочий процесс/чек-лист (в prompt)
+    sa.Column("permissions", sa.JSON, default=list),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
+benchmarks = sa.Table(
+    "benchmarks", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("model_id", sa.Integer, sa.ForeignKey("models.id", ondelete="CASCADE"),
+              nullable=False, index=True),
+    sa.Column("kind", sa.String(16), default="full"),           # quick | full
+    sa.Column("status", sa.String(24), default="queued"),
+    sa.Column("results", sa.JSON),                              # ttft, tps, ram, samples, stability
+    sa.Column("error", sa.Text),
+    sa.Column("started_at", sa.DateTime),
+    sa.Column("finished_at", sa.DateTime),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
+checkpoints = sa.Table(
+    "checkpoints", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("run_id", sa.Integer, sa.ForeignKey("task_runs.id", ondelete="CASCADE"),
+              nullable=False, index=True),
+    sa.Column("step", sa.Integer, nullable=False),
+    sa.Column("messages", sa.JSON, nullable=False),
+    sa.Column("note", sa.String(200), default=""),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
+session_forks = sa.Table(
+    "session_forks", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("source_run_id", sa.Integer, sa.ForeignKey("task_runs.id", ondelete="CASCADE"),
+              nullable=False, index=True),
+    sa.Column("checkpoint_id", sa.Integer, sa.ForeignKey("checkpoints.id", ondelete="SET NULL")),
+    sa.Column("new_task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False),
+    sa.Column("changes", sa.JSON, default=dict),                # instruction/model/agent overrides
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
+resource_reservations = sa.Table(
+    "resource_reservations", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("kind", sa.String(8), default="ram"),             # ram | gpu
+    sa.Column("amount_mb", sa.Float, nullable=False),
+    sa.Column("holder_kind", sa.String(16), nullable=False),    # model | task | benchmark
+    sa.Column("holder_id", sa.Integer, nullable=False),
+    sa.Column("status", sa.String(16), default="held"),         # held | released | expired
+    sa.Column("detail", sa.Text, default=""),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+    sa.Column("released_at", sa.DateTime),
+    sa.Column("expires_at", sa.DateTime),                       # crash-страховка: истёк — освободить
+)
+
+interventions = sa.Table(
+    "interventions", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("target_kind", sa.String(16), nullable=False),    # task|run|mission|model
+    sa.Column("target_id", sa.Integer, nullable=False),
+    sa.Column("reason", sa.Text, nullable=False),
+    sa.Column("action", sa.String(16), nullable=False),         # paused|stopped|switched|throttled|escalated
+    sa.Column("detail", sa.JSON, default=dict),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
+recovery_attempts = sa.Table(
+    "recovery_attempts", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("target_kind", sa.String(16), nullable=False),    # model|worker|browser|task
+    sa.Column("target_id", sa.Integer),
+    sa.Column("failure", sa.Text, default=""),
+    sa.Column("action", sa.String(32), default=""),             # retry|fallback|restart|requeue
+    sa.Column("attempt", sa.Integer, default=1),
+    sa.Column("status", sa.String(16), default="started"),      # started|completed|escalated
+    sa.Column("detail", sa.JSON, default=dict),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
+# Новые колонки существующих таблиц добавляются идемпотентным ALTER в Database.migrate():
+# SQLAlchemy create_all не добавляет колонки в существующие таблицы.
+V2_NEW_COLUMNS: list[tuple[str, str, str]] = [
+    # (таблица, колонка, SQL-тип с default'ом)
+    ("tasks", "mission_id", "INTEGER"),
+    ("tasks", "orchestra_id", "INTEGER"),
+    ("tasks", "skill_version_id", "INTEGER"),
+    ("tasks", "kind", "VARCHAR(24) DEFAULT 'generic'"),
+    ("tasks", "parent_task_id", "INTEGER"),
+    ("tasks", "workspace_path", "VARCHAR(500)"),
+    ("tasks", "meta", "JSON"),
+    ("task_runs", "route", "JSON"),
+    ("task_runs", "reservation_id", "INTEGER"),
+    ("agents", "workspace", "VARCHAR(500)"),
+]
+
+# Table-объекты выше объявлены ДО этого блока, поэтому колонки добавляем и в metadata —
+# select(tasks) должен видеть новые поля.
+for _table, _col, _sqltype in V2_NEW_COLUMNS:
+    _t = metadata.tables[_table]
+    if _col not in _t.c:
+        if _sqltype.startswith("JSON"):
+            _coltype: sa.types.TypeEngine = sa.JSON()
+        elif _sqltype.startswith("INTEGER"):
+            _coltype = sa.Integer()
+        else:
+            _coltype = sa.String(500)
+        _default = "generic" if _col == "kind" else None
+        _t.append_column(sa.Column(_col, _coltype, default=_default))
+
 
 class Database:
     """Тонкая обёртка над async-движком: сессии, create_all, аккуратное закрытие."""
@@ -182,6 +364,21 @@ class Database:
     async def create_all(self) -> None:
         async with self.engine.begin() as conn:
             await conn.run_sync(metadata.create_all)
+        await self._migrate()
+
+    async def _migrate(self) -> None:
+        """Идемпотентные ALTER для новых V2-колонок: create_all не расширяет
+        существующие таблицы. Каждый ALTER — в своей транзакции: уже добавленная
+        колонка не должна валить остальные."""
+        sqlite = self.url.startswith("sqlite")
+        for table, col, sqltype in V2_NEW_COLUMNS:
+            if_not = "" if sqlite else "IF NOT EXISTS "
+            try:
+                async with self.engine.begin() as conn:
+                    await conn.execute(sa.text(
+                        f"ALTER TABLE {table} ADD COLUMN {if_not}{col} {sqltype}"))
+            except sa.exc.OperationalError:
+                pass  # SQLite: duplicate column — колонка уже есть
 
     async def ping(self) -> bool:
         async with self.session() as s:
@@ -225,4 +422,8 @@ __all__ = [
     "Database", "Engine", "metadata", "utcnow", "row_dict", "rows_dicts", "fetch_one",
     "providers", "models", "agents", "tasks", "task_runs", "schedules", "run_events",
     "approvals", "system_metrics", "events", "settings_kv",
+    # V2
+    "missions", "kpi_history", "orchestras", "orchestra_members", "skills",
+    "skill_versions", "benchmarks", "checkpoints", "session_forks",
+    "resource_reservations", "interventions", "recovery_attempts",
 ]

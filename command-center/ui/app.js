@@ -9,6 +9,9 @@ import {
   closeTopModal, hasOpenModal, debounce, fmtGb,
 } from './components.js';
 import { PAGES, openTaskModal, openAgentModal, openScheduleModal, openModelWizard, stopAllRunning } from './pages.js';
+import { FEATURE_PAGES } from './pages/index.js';
+
+PAGES.push(...FEATURE_PAGES); // V2-страницы встают в общую навигацию
 
 /* ---------------- Ссылки на DOM ---------------- */
 
