@@ -30,8 +30,28 @@ GET /api/v1/health    -> full readiness report
 ```
 
 `status` is one of `ok`, `degraded`, `unavailable`. `blockers` lists the exact
-reasons (missing ffmpeg, missing baseline, source unavailable). The camera,
-CRM and analyzer blocks each declare whether they are real or mock.
+reasons (missing ffmpeg, missing baseline, source unavailable, CRM
+unavailable). The camera, CRM and analyzer blocks each declare whether they
+are real or mock.
+
+`health_state` is the actionable form and comes from a closed vocabulary:
+
+| `health_state` | means | what an owner does |
+|---|---|---|
+| `healthy` | every component is answering | nothing |
+| `degraded` | something is stale or not yet known | watch |
+| `camera_offline` | captures are failing | check the camera and the link |
+| `crm_unavailable` | the CRM is configured but not answering | call the CRM vendor |
+| `detector_unavailable` | no ffmpeg, or no empty-room baseline | install ffmpeg / capture a baseline |
+
+Precedence is worst-first: without a detector nothing else matters, and a
+dead camera outranks a dead CRM because there is no evidence at all.
+`components.camera`, `components.crm` and `components.detector` each carry
+`state`, `detail`, `checked_at` and `consecutive_failures`. A CRM that is
+switched off reports `disabled` — a configured decision, not an outage.
+
+`runtime` reports the persistent loop (`AWV_RUNTIME_ENABLED`): state, cycles,
+consecutive failures, recoveries and the capped backoff ceiling.
 
 ### capabilities
 
@@ -97,8 +117,26 @@ health, compute mode and process resources (RSS, threads, fds, children).
 GET /api/v1/rooms/{room_id}/metrics/today
 ```
 
-Seconds by state, clinical seconds, occupied seconds, utilisation, plus
+Seconds by state, clinical seconds, occupied seconds, `monitored_seconds`
+(time actually covered by observations), `unavailable_seconds` and
 `skipped_gaps` so a sparse day cannot be mistaken for a busy one.
+
+Utilisation is reported against two explicitly named denominators, never one
+unlabelled number: `utilisation_of_monitored` (clinical time over observed
+time) and `utilisation_of_window` (clinical time over the calendar day).
+Dividing by a whole day and calling that "utilisation" understates the room
+every morning and is not comparable between days.
+
+The day is cut on `AWV_TIMEZONE`'s midnight, and the timezone is echoed in the
+payload. One instant produces at most one observation, so a replay after a
+worker restart cannot double-count.
+
+### motion capabilities
+
+`capabilities.motion` declares what actually drives the sampling rate:
+`webhook` (implemented, vendor-neutral), `onvif_subscription`
+(`implemented: false`, `verified_on_tapo_c200: false`, `evidence: NOT RUN`)
+and `frame_difference_fallback` (`implemented: false`).
 
 ### motion ingress
 
@@ -117,4 +155,9 @@ further motion extends it. Do not scrape mobile push notifications.
 
 HTTP status: 400 config/bad request, 401 unauthorised, 403 privacy/egress
 denied, 404 unknown job, 409 baseline missing, 413 body too large,
-502 capture failed, 503 dependency missing, 504 capture timeout.
+502 capture failed or stale frame, 503 dependency missing, 504 capture timeout,
+502 CRM schema error.
+
+Codes: `config_error`, `privacy_denied`, `egress_blocked`, `baseline_missing`,
+`capture_failed`, `capture_timeout`, `stale_frame`, `dependency_missing`,
+`crm_schema_error`, `internal_error`.

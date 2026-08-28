@@ -25,6 +25,23 @@ motion event (ONVIF bridge / NVR / edge script)
 States: `EMPTY`, `TRANSIT`, `STAFF_NONCLINICAL`, `PREP`, `CLINICAL_WORK`,
 `TURNOVER`, `IDLE_OCCUPIED`, `UNKNOWN`.
 
+State changes go through a temporal machine, not a sample counter: minimum
+dwell is measured on the clock (longer for `CLINICAL_WORK`, longer still in
+evidence terms for `TURNOVER`, which additionally requires recent real
+occupancy), a short detector dropout holds the current state instead of
+cutting one procedure in two, and the transition table refuses impossible
+jumps — `EMPTY` never becomes `CLINICAL_WORK` in one step.
+
+## Two ways to run it
+
+* **jobs only** (default): the control plane asks for `probe`, `baseline`,
+  `sample`, `observe`, `snapshot` and gets answers;
+* **persistent runtime** (`AWV_RUNTIME_ENABLED=true`): one long-lived loop
+  samples the room for as long as the process lives. It survives a camera
+  that disappears and a network that drops, backs off with a **capped** delay
+  rather than a finite attempt budget, wakes immediately on shutdown, and
+  never spins — every cycle waits. `health.runtime` reports its state.
+
 ## Install and run
 
 ```bash
@@ -36,9 +53,14 @@ ai-webcam-vision check        # prints capabilities, exits
 ai-webcam-vision serve        # starts the HTTP service
 ```
 
-`ffmpeg` is required for `file` and `rtsp` camera modes. If it is missing the
-service says so (`/api/v1/health` → `status: unavailable`, `ffmpeg.available:
-false`) instead of pretending to work.
+`ffmpeg` is required for `file` and `rtsp` camera modes. It is looked for in
+four places, in order: an explicit `AWV_FFMPEG_PATH`, `PATH`, `AWV_FFMPEG`,
+and the static binary shipped by the `imageio-ffmpeg` package. `health.ffmpeg`
+reports which one was used (`source`) and, when none was, every place that was
+searched. An explicit `AWV_FFMPEG_PATH` that does not resolve is a failure, not
+a reason to fall back — a typo must surface. If nothing is found the service
+says so (`/api/v1/health` → `status: unavailable`) instead of pretending to
+work.
 
 ## Camera modes — never ambiguous
 
@@ -85,7 +107,22 @@ Set `AWV_API_TOKEN` to require `Authorization: Bearer …` on everything except
 * **Controlled sample rate** with a hard ceiling (`AWV_MAX_SAMPLE_RATE_HZ`).
 * **Bounded frame queue** — drop-oldest with byte and count budgets; memory
   does not grow with a fast producer.
-* **Clean shutdown** — jobs cancelled, tasks awaited, sources closed.
+* **Clean shutdown** — runtime loop stopped, jobs cancelled, tasks awaited,
+  sources closed.
+* **Health names the fault.** `health_state` is one of `healthy`, `degraded`,
+  `camera_offline`, `crm_unavailable`, `detector_unavailable`, with a
+  per-component breakdown. A CRM that is switched off is `disabled`, not an
+  outage.
+* **Stale frames are dropped.** A frame older than `AWV_MAX_FRAME_AGE_SECONDS`
+  describes the past and is never stored as the room's current state.
+* **CRM answers are validated.** JSON booleans must be booleans (`bool("false")`
+  is `True` in Python, and that is how an empty room becomes an active
+  appointment), overlapping appointments are resolved by priority rather than
+  by list order, dated answers are marked stale, and requests are retried with
+  a bounded, capped backoff.
+* **Days are cut on the clinic's midnight** (`AWV_TIMEZONE`), and utilisation is
+  reported against two explicitly named denominators — observed time and the
+  calendar window.
 * **CPU/GPU is reported honestly**: the pipeline is CPU integer arithmetic and
   says so even on a GPU host.
 * **Privacy closed by default**: no recording, no snapshots, no telemetry, no
@@ -106,12 +143,16 @@ src/ai_webcam_vision/
   storage/           SQLite timeline, jobs, artifacts
   runtime/           job manager, resource reporting, VisionService composition root
   api/               FastAPI control contract
-tests/               102 tests; see docs/APP1_REPORT.md for what is proven
+tests/               207 tests; see docs/APP1_AUDIT_STAGE2.md for the audit
 ```
 
 ## Honest status
 
-There is no physical Tapo C200 in this environment. The whole transport
-boundary is tested against real ffmpeg using generated video fixtures and a
-refused RTSP endpoint; the physical camera smoke test is **BLOCKED BY
-HARDWARE**. Details and evidence levels: `docs/APP1_REPORT.md`.
+There is no physical Tapo C200 in this environment and no clinic CRM. The
+whole transport boundary is tested against real ffmpeg using generated video
+fixtures and a refused RTSP endpoint; the physical camera smoke test is **NOT
+RUN — blocked by hardware**, and so is ONVIF event subscription, which is
+**not implemented** in this build. `capabilities.motion` says so in the
+payload. The real CRM is **NOT RUN** — only the mock, the schema, the retry
+and the egress guard are exercised. Details and evidence levels:
+`docs/APP1_AUDIT_STAGE2.md` and `docs/APP1_REPORT.md`.

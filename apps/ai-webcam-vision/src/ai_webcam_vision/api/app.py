@@ -30,6 +30,8 @@ log = get_logger("api")
 
 STATUS_BY_CODE = {
     "dependency_missing": 503,
+    "stale_frame": 502,
+    "crm_schema_error": 502,
     "capture_failed": 502,
     "capture_timeout": 504,
     "baseline_missing": 409,
