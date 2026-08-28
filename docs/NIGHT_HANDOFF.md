@@ -3,8 +3,8 @@
 Всё критичное закоммичено и запушено.
 
 - **Ветка:** `claude/bossman-control-v03-43igbk`
-- **Тесты:** на коммите `78b843b` — **321 passed, 1 skipped** за 92 с;
-  на текущем HEAD ветки — **323 passed, 1 skipped** за 90 с
+- **Тесты:** на коммите `b0bac7c` — **323 passed, 1 skipped**: локально 90 с,
+  на GitHub Actions 86.8 с
   (`cd command-center && timeout 900 python -u -m pytest -q`)
 - **Пропуск** — реальный host-smoke по `opencode serve`: бинаря нет, честно не засчитан
 - **Итог фазы:** [`V2_2_CURRENT_PHASE_FINAL_REPORT.md`](V2_2_CURRENT_PHASE_FINAL_REPORT.md)

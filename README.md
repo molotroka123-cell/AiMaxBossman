@@ -39,8 +39,8 @@ Control plane — настоящий агентный рантайм: модел
 - Что и как сделано: [`docs/V2_1_IMPLEMENTATION_REPORT.md`](docs/V2_1_IMPLEMENTATION_REPORT.md).
 - Рабочий контекст волны: [`docs/V2_1_RUNTIME_CONTEXT.md`](docs/V2_1_RUNTIME_CONTEXT.md).
 
-Тесты: **на коммите `78b843b`: 321 passed, 1 skipped** за 92 с; на текущем
-HEAD ветки — **323 passed, 1 skipped** (плюс два теста гейта «Code root safety»)
+Тесты: **на коммите `b0bac7c`: 323 passed, 1 skipped** — локально за 90 с,
+на GitHub Actions за 86.8 с (py3.11 и py3.12). Числа совпадают: набор один
 (`cd command-center && timeout 900 python -u -m pytest -q`).
 Пропуск — намеренный: реальный smoke по `opencode serve`, бинаря в этом
 окружении нет, и он честно не засчитан.

@@ -6,8 +6,7 @@
 - Ветка: `claude/bossman-control-v03-43igbk`
 - ТЗ: `docs/research/*.md`
 - База тестов на старте волны внедрения: 273 passed, 1 skipped
-- На закрытие фазы V2.2, коммит `78b843b`: **321 passed, 1 skipped**;
-  на текущем HEAD ветки — **323 passed, 1 skipped**
+- На закрытие фазы V2.2, коммит `b0bac7c`: **323 passed, 1 skipped**
 
 ## Счёт целей — точно
 
