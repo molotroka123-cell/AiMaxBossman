@@ -65,10 +65,37 @@ class Services:
         self.scheduler = Scheduler(self.db, self.bus, self.engine)
         self.metrics = MetricsSampler(self.db, self.bus)
         self.approvals = Approvals(self.db, self.bus)
+        self._wire_v2_managers()             # skills / terminal / browser (пак)
         self.features = load_features()      # V2: модули bcc/features/* (контракты §8)
         self.start_workers = start_workers
         self._tasks: list[asyncio.Task] = []
         self.started_at = utcnow()
+
+    def _wire_v2_managers(self) -> None:
+        """Опциональные рантаймы пака. Отсутствие Playwright/MCP НЕ ломает старт
+        (CLAUDE_START_HERE §browser optional): менеджеры создаются лениво, а импорт
+        тяжёлых зависимостей происходит только при первом реальном использовании."""
+        from pathlib import Path
+        repo_root = self.settings.ui_dir.parent.parent   # <repo>
+        self.skills = None
+        self.terminal = None
+        self.browser = None
+        try:
+            from .v2.skill_library import SkillLibrary, default_skill_roots
+            self.skills = SkillLibrary(default_skill_roots(repo_root),
+                                       repo_root / ".agents" / "skills")
+        except Exception as exc:  # библиотека скиллов не критична для старта
+            self._v2_warn = f"skills: {exc}"
+        try:
+            from .v2.terminal_control import TerminalManager
+            self.terminal = TerminalManager()
+        except Exception:
+            pass
+        try:
+            from .v2.browser_control import BrowserManager
+            self.browser = BrowserManager(self.settings.data_dir / "browser")
+        except Exception:
+            self.browser = None  # Playwright может быть не установлен — это норм
 
     async def start(self) -> None:
         await self.db.create_all()
@@ -107,6 +134,9 @@ class Services:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
         self._tasks = []
+        if getattr(self, "browser", None) is not None:
+            with contextlib.suppress(Exception):
+                await self.browser.close()
         await self.db.close()
 
 

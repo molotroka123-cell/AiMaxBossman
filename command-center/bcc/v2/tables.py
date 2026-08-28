@@ -12,6 +12,12 @@ import sqlalchemy as sa
 
 from ..db import metadata, utcnow
 
+# 5 дублей (missions/resource_reservations/session_forks/skills/skill_versions)
+# удалены — их owner — контрактные таблицы в bcc/db.py. Остальные runtime-таблицы
+# (браузер/терминал/MCP/OpenCode/каталог/capability/evaluations) объявлены на ТОЙ ЖЕ
+# core-metadata, поэтому их FK на providers/models/tasks/agents резолвятся, а
+# create_all строит их одним проходом. Один owner на таблицу сохранён.
+
 provider_catalog_models = sa.Table(
     "provider_catalog_models", metadata,
     sa.Column("id", sa.Integer, primary_key=True),
@@ -43,78 +49,11 @@ model_capability_checks = sa.Table(
     sa.Column("checked_at", sa.DateTime, default=utcnow),
 )
 
-missions = sa.Table(
-    "missions", metadata,
-    sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("name", sa.String(240), nullable=False),
-    sa.Column("goal", sa.Text, nullable=False),
-    sa.Column("status", sa.String(24), default="draft"),
-    sa.Column("success_criteria", sa.JSON, default=dict),
-    sa.Column("stop_conditions", sa.JSON, default=dict),
-    sa.Column("max_workers", sa.Integer, default=1),
-    sa.Column("cloud_budget_usd", sa.Float, default=0.0),
-    sa.Column("cloud_spent_usd", sa.Float, default=0.0),
-    sa.Column("starts_at", sa.DateTime),
-    sa.Column("ends_at", sa.DateTime),
-    sa.Column("checkpoint", sa.JSON),
-    sa.Column("created_at", sa.DateTime, default=utcnow),
-    sa.Column("updated_at", sa.DateTime, default=utcnow),
-)
 
-mission_tasks = sa.Table(
-    "mission_tasks", metadata,
-    sa.Column("mission_id", sa.Integer, sa.ForeignKey("missions.id", ondelete="CASCADE"), primary_key=True),
-    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True),
-    sa.Column("milestone", sa.String(200), default=""),
-    sa.Column("weight", sa.Float, default=1.0),
-)
 
-mission_kpis = sa.Table(
-    "mission_kpis", metadata,
-    sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("mission_id", sa.Integer, sa.ForeignKey("missions.id", ondelete="CASCADE"), nullable=False),
-    sa.Column("key", sa.String(100), nullable=False),
-    sa.Column("label", sa.String(200), nullable=False),
-    sa.Column("unit", sa.String(40), default=""),
-    sa.Column("aggregation", sa.String(16), default="sum"),
-    sa.Column("target", sa.Float),
-    sa.Column("current", sa.Float, default=0.0),
-    sa.UniqueConstraint("mission_id", "key", name="uq_mission_kpi_key"),
-)
 
-mission_kpi_events = sa.Table(
-    "mission_kpi_events", metadata,
-    sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("mission_id", sa.Integer, sa.ForeignKey("missions.id", ondelete="CASCADE"), nullable=False),
-    sa.Column("kpi_id", sa.Integer, sa.ForeignKey("mission_kpis.id", ondelete="CASCADE"), nullable=False),
-    sa.Column("value", sa.Float, nullable=False),
-    sa.Column("source_event_id", sa.Integer, sa.ForeignKey("events.id", ondelete="SET NULL")),
-    sa.Column("ts", sa.DateTime, default=utcnow),
-)
 
-resource_reservations = sa.Table(
-    "resource_reservations", metadata,
-    sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("owner_kind", sa.String(40), nullable=False),
-    sa.Column("owner_id", sa.String(120), nullable=False),
-    sa.Column("memory_mb", sa.Integer, default=0),
-    sa.Column("gpu_memory_mb", sa.Integer, default=0),
-    sa.Column("status", sa.String(20), default="active"),
-    sa.Column("created_at", sa.DateTime, default=utcnow),
-    sa.Column("released_at", sa.DateTime),
-)
 
-governor_interventions = sa.Table(
-    "governor_interventions", metadata,
-    sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("mission_id", sa.Integer, sa.ForeignKey("missions.id", ondelete="SET NULL")),
-    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="SET NULL")),
-    sa.Column("run_id", sa.Integer, sa.ForeignKey("task_runs.id", ondelete="SET NULL")),
-    sa.Column("reason", sa.String(120), nullable=False),
-    sa.Column("action", sa.String(48), nullable=False),
-    sa.Column("detail", sa.JSON, default=dict),
-    sa.Column("created_at", sa.DateTime, default=utcnow),
-)
 
 evaluations = sa.Table(
     "evaluations", metadata,
@@ -130,16 +69,6 @@ evaluations = sa.Table(
     sa.Column("created_at", sa.DateTime, default=utcnow),
 )
 
-session_forks = sa.Table(
-    "session_forks", metadata,
-    sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("parent_run_id", sa.Integer, sa.ForeignKey("task_runs.id", ondelete="CASCADE"), nullable=False),
-    sa.Column("child_run_id", sa.Integer, sa.ForeignKey("task_runs.id", ondelete="CASCADE"), nullable=False),
-    sa.Column("checkpoint_step", sa.Integer, default=0),
-    sa.Column("agent_override_id", sa.Integer, sa.ForeignKey("agents.id", ondelete="SET NULL")),
-    sa.Column("model_override_id", sa.Integer, sa.ForeignKey("models.id", ondelete="SET NULL")),
-    sa.Column("created_at", sa.DateTime, default=utcnow),
-)
 
 browser_profiles = sa.Table(
     "browser_profiles", metadata,
@@ -182,32 +111,7 @@ terminal_sessions = sa.Table(
     sa.Column("finished_at", sa.DateTime),
 )
 
-skills = sa.Table(
-    "skills", metadata,
-    sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("skill_key", sa.String(100), nullable=False, unique=True),
-    sa.Column("name", sa.String(200), nullable=False),
-    sa.Column("description", sa.Text, default=""),
-    sa.Column("source", sa.String(40), default="agents"),
-    sa.Column("source_path", sa.Text, default=""),
-    sa.Column("enabled", sa.Boolean, default=True),
-    sa.Column("current_version_id", sa.Integer),
-    sa.Column("created_at", sa.DateTime, default=utcnow),
-    sa.Column("updated_at", sa.DateTime, default=utcnow),
-)
 
-skill_versions = sa.Table(
-    "skill_versions", metadata,
-    sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("skill_id", sa.Integer, sa.ForeignKey("skills.id", ondelete="CASCADE"), nullable=False),
-    sa.Column("version", sa.String(40), nullable=False),
-    sa.Column("fingerprint", sa.String(64), nullable=False),
-    sa.Column("content", sa.Text, nullable=False),
-    sa.Column("permissions", sa.JSON, default=dict),
-    sa.Column("provenance", sa.JSON, default=dict),
-    sa.Column("created_at", sa.DateTime, default=utcnow),
-    sa.UniqueConstraint("skill_id", "fingerprint", name="uq_skill_fingerprint"),
-)
 
 mcp_servers = sa.Table(
     "mcp_servers", metadata,

@@ -362,6 +362,8 @@ class Database:
         return self._sessionmaker()
 
     async def create_all(self) -> None:
+        from . import v2  # регистрирует пак-таблицы на core-metadata до create_all
+        from .v2 import tables as _v2_tables  # noqa: F401
         async with self.engine.begin() as conn:
             await conn.run_sync(metadata.create_all)
         await self._migrate()

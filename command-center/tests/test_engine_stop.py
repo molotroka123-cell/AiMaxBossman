@@ -1,4 +1,4 @@
-"""Stop/Pause между шагами: run завершается как stopped, checkpoint остаётся в БД."""
+"""Stop (теперь HARD: рвёт активный вызов модели) и Pause (мягкий, с checkpoint)."""
 from __future__ import annotations
 
 import sqlalchemy as sa
@@ -39,13 +39,10 @@ async def test_running_task_stops_and_keeps_checkpoint(tmp_path):
         run = data["runs"][-1]
         assert run["status"] == "stopped"
         assert run["finished_at"] is not None
-        assert run["checkpoint"]["step"] == 1 and run["checkpoint"]["note"] == "stopped"
-
-        # переписка шага сохранена в БД целиком — есть с чего продолжить
-        async with svc.db.session() as s:
-            raw = (await s.execute(sa.select(runs_t.c.checkpoint)
-                                   .where(runs_t.c.id == run["id"]))).scalar_one()
-        assert raw["messages"][-1] == {"role": "assistant", "content": "первый шаг"}
+        # hard cancel: Stop пришёл ВО ВРЕМЯ вызова модели — вызов оборван,
+        # шаг в полёте честно теряется (checkpoint'а этого шага не существует);
+        # сохранность checkpoint между шагами проверяет pause-тест ниже
+        assert run["checkpoint"] is None or run["checkpoint"].get("step") in (0, 1)
 
         events = (await client.get(f"/api/runs/{run['id']}/events")).json()
         assert "run.stopped" in [e["kind"] for e in events]

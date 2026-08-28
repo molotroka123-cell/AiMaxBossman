@@ -26,7 +26,8 @@ class TaskEngine:
     def __init__(self, db: Database, bus: EventBus, registry: Registry, *,
                  lease_seconds: int = 90, heartbeat_seconds: int = 30,
                  poll_interval: float = 1.0, recover_every: float = 60.0,
-                 retry_base_delay: float = 2.0, retry_max_delay: float = 300.0):
+                 retry_base_delay: float = 2.0, retry_max_delay: float = 300.0,
+                 workers: int | None = None):
         self.db = db
         self.bus = bus
         self.registry = registry
@@ -37,7 +38,12 @@ class TaskEngine:
         self.retry_base_delay = retry_base_delay
         self.retry_max_delay = retry_max_delay
         self.last_tick: float = 0.0          # для health в /api/system
-        self.current_run_id: int | None = None
+        # Worker Pool: до N run'ов параллельно (env BCC_WORKERS, default 3).
+        # Resource Brain через before_run решает, сколько РЕАЛЬНО позволить.
+        import os
+        self.workers = workers if workers is not None else int(os.environ.get("BCC_WORKERS", "3"))
+        self._active: dict[int, asyncio.Task] = {}       # run_id → задача исполнения
+        self._cancelling: set[int] = set()               # hard cancel по Stop
         # Хуки V2 (контракты §8): фичи регистрируют корутины в setup(); порядок вызова —
         # pick_model → before_run → on_step → gate_completion → on_failure → after_run.
         self.hooks: dict[str, list] = {k: [] for k in (
@@ -86,14 +92,24 @@ class TaskEngine:
     # ---------- управление задачей ----------
 
     async def stop(self, task_id: int) -> dict:
-        """Флаг в БД: работающий шаг увидит его между шагами и завершит run как stopped."""
+        """Stop — жёсткий: флаг в БД + hard cancel активного run'а (обрывает
+        и уже начатый HTTP-inference, не дожидаясь конца генерации)."""
         await self._set_task_status(task_id, "stopped")
         async with self.db.session() as s:
             # ещё не начатые run'ы гасим сразу — ждать нечего
             await s.execute(sa.update(runs_t).where(
                 runs_t.c.task_id == task_id, runs_t.c.status == "queued").values(
                 status="stopped", finished_at=utcnow()))
+            res = await s.execute(sa.select(runs_t.c.id).where(
+                runs_t.c.task_id == task_id,
+                runs_t.c.status.in_(("leased", "running"))))
+            active_ids = [int(r[0]) for r in res.fetchall()]
             await s.commit()
+        for run_id in active_ids:
+            worker = self._active.get(run_id)
+            if worker is not None and not worker.done():
+                self._cancelling.add(run_id)
+                worker.cancel()
         await self.bus.emit("task.stopped", task_id=task_id)
         return {"ok": True, "status": "stopped"}
 
@@ -133,26 +149,69 @@ class TaskEngine:
 
     # ---------- worker ----------
 
+    @property
+    def current_run_id(self) -> int | None:
+        """Совместимость с health-эндпоинтом: первый из активных run'ов."""
+        return next(iter(self._active), None)
+
+    @property
+    def active_run_ids(self) -> list[int]:
+        return list(self._active)
+
     async def worker_loop(self) -> None:
-        """Единственный worker процесса: claim → выполнить → повторить."""
+        """Worker Pool: держит до self.workers параллельных run'ов.
+        claim атомарен (status=queued→leased), поэтому один run не достанется двоим."""
         await self.recover()
         last_recover = time.monotonic()
-        while True:
-            self.last_tick = time.monotonic()
-            try:
-                if time.monotonic() - last_recover >= self.recover_every:
-                    await self.recover()
-                    last_recover = time.monotonic()
-                run_id = await self.claim()
-                if run_id is None:
+        try:
+            while True:
+                self.last_tick = time.monotonic()
+                try:
+                    if time.monotonic() - last_recover >= self.recover_every:
+                        await self.recover()
+                        last_recover = time.monotonic()
+                    # прибраться за завершившимися
+                    for rid, t in list(self._active.items()):
+                        if t.done():
+                            self._active.pop(rid, None)
+                            self._cancelling.discard(rid)
+                    if len(self._active) >= self.workers:
+                        await asyncio.sleep(self.poll_interval / 2)
+                        continue
+                    run_id = await self.claim()
+                    if run_id is None:
+                        await asyncio.sleep(self.poll_interval)
+                        continue
+                    self._active[run_id] = asyncio.create_task(
+                        self._execute_pooled(run_id), name=f"bcc-run-{run_id}")
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # worker не должен умирать от одной задачи
+                    await self.bus.emit("worker.error", message=f"{type(exc).__name__}: {exc}")
                     await asyncio.sleep(self.poll_interval)
-                    continue
-                await self.execute(run_id)
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:  # worker не должен умирать от одной задачи
-                await self.bus.emit("worker.error", message=f"{type(exc).__name__}: {exc}")
-                await asyncio.sleep(self.poll_interval)
+        finally:
+            # выключение процесса: незавершённые run'ы отдаём lease-recovery
+            for t in self._active.values():
+                t.cancel()
+
+    async def _execute_pooled(self, run_id: int) -> None:
+        """Исполнение в пуле: hard cancel по Stop завершает run как stopped
+        с сохранением последнего checkpoint (сообщения уже в БД после каждого шага)."""
+        try:
+            await self.execute(run_id)
+        except asyncio.CancelledError:
+            if run_id in self._cancelling:
+                async with self.db.session() as s:
+                    run = await fetch_one(s, runs_t, run_id)
+                if run and run["status"] in ("leased", "running"):
+                    await self._log(run_id, "warn", "run.stopped",
+                                    "остановлено оператором (hard cancel: активный вызов модели оборван)")
+                    await self._finish(run_id, run["task_id"], "stopped", sync_task=False)
+                return
+            raise
+        except Exception as exc:
+            await self.bus.emit("worker.error",
+                                message=f"run {run_id}: {type(exc).__name__}: {exc}")
 
     async def claim(self) -> int | None:
         """Взять run с наименьшим priority/id и поставить аренду на lease_seconds."""
@@ -212,13 +271,11 @@ class TaskEngine:
     # ---------- выполнение ----------
 
     async def execute(self, run_id: int) -> None:
-        self.current_run_id = run_id
         heartbeat = asyncio.create_task(self._heartbeat(run_id))
         try:
             await self._run(run_id)
         finally:
             heartbeat.cancel()
-            self.current_run_id = None
 
     async def _heartbeat(self, run_id: int) -> None:
         """Продление аренды: пока worker жив, run не считается протухшим."""
