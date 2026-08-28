@@ -32,6 +32,10 @@ from ..v2.tables import mcp_servers as mcp_servers_t, mcp_tools as mcp_tools_t
 from . import Feature
 
 MCP_POLICY_KEY = "mcp.policy"          # общий с features/skills.py
+# Предел ответа MCP-сервера в символах. Тот же порядок, что OUTPUT_LIMIT
+# у terminal.run: контекст модели — ресурс, и тратить его на неограниченную
+# выдачу чужого сервера нельзя.
+MCP_OUTPUT_LIMIT = 8000
 router = APIRouter()
 
 
@@ -109,7 +113,18 @@ def _handler_for(svc, spec: MCPServerSpec, tool_name: str):
                               one_line=f"mcp:{spec.id}:{tool_name}: ошибка",
                               error=True, external=True)
         line = f"mcp:{spec.id}:{tool_name}: " + ("ошибка сервера" if res.is_error else "ок")
-        return ToolResult(content=res.text or "(пустой ответ MCP)", one_line=line,
+        # Ответ MCP-сервера ничем не ограничен: один вызов вроде search_code с
+        # limit=50 залил бы десятки килобайт прямо в контекст модели. У
+        # terminal.run такой лимит есть, здесь его не было — обрезаем так же,
+        # в коде инструмента, а не по просьбе модели.
+        text = res.text or "(пустой ответ MCP)"
+        truncated = len(text) > MCP_OUTPUT_LIMIT
+        if truncated:
+            text = text[:MCP_OUTPUT_LIMIT]
+        return ToolResult(content=text, one_line=line,
+                          truncated=truncated,
+                          more=(f"повторите вызов {spec.id}:{tool_name} с более узкими "
+                                f"аргументами (например, меньший limit)") if truncated else "",
                           error=bool(res.is_error), external=True,
                           data={"server": spec.id, "tool": tool_name,
                                 "structured": res.structured})

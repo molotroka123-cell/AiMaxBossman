@@ -38,6 +38,8 @@ class MemSearchBridge:
         collection: str = "bossman_memory",
         base_url: str = "",
         api_key: str = "",
+        vault_root: str = "",
+        excludes: list[str] | None = None,
     ):
         self.executable = executable
         self.provider = provider
@@ -46,6 +48,11 @@ class MemSearchBridge:
         self.collection = collection
         self.base_url = base_url
         self.api_key = api_key
+        # Корень нужен, чтобы не отдавать наружу абсолютные пути с $HOME
+        self.vault_root = vault_root
+        # Без передачи --exclude исключения ObsidianVault молча не действуют:
+        # проверено — node_modules/README.md попадал в индекс
+        self.excludes = list(excludes or [])
 
     def available(self) -> bool:
         return shutil.which(self.executable) is not None
@@ -60,6 +67,8 @@ class MemSearchBridge:
             args += ["--base-url", self.base_url]
         if self.api_key:
             args += ["--api-key", self.api_key]
+        for pattern in self.excludes:
+            args += ["--exclude", pattern]
         return args
 
     async def _run(self, *args: str, timeout: int = 300) -> str:
@@ -104,9 +113,10 @@ class MemSearchBridge:
             rows = data
         hits: list[MemoryHit] = []
         for r in rows or []:
+            raw_source = str(r.get("source") or r.get("path") or "")
             hits.append(MemoryHit(
                 content=str(r.get("content") or r.get("text") or ""),
-                source=str(r.get("source") or r.get("path") or ""),
+                source=self._relative(raw_source) if self.vault_root else raw_source,
                 heading=str(r.get("heading") or ""),
                 score=float(r.get("score") or 0.0),
                 chunk_hash=str(r.get("chunk_hash") or r.get("hash") or ""),
@@ -115,11 +125,49 @@ class MemSearchBridge:
         return hits
 
     async def expand(self, chunk_hash: str) -> dict[str, Any]:
-        raw = await self._run(
-            "expand", chunk_hash, "--json-output", *self._common(), timeout=120
-        )
-        data = json.loads(raw)
-        return data if isinstance(data, dict) else {"data": data}
+        """Секция целиком по хэшу чанка.
 
-    async def stats(self) -> str:
-        return await self._run("stats", "--collection", self.collection, timeout=60)
+        Ненайденный хэш memsearch отдаёт кодом возврата 1, то есть `_run`
+        бросил бы RuntimeError — а вызывающий код по контракту бэкенда ловит
+        KeyError и падал бы целиком. Приводим к контракту здесь: это забота
+        моста, а не того, кто им пользуется.
+        """
+        try:
+            raw = await self._run(
+                "expand", chunk_hash, "--json-output", *self._common(), timeout=120
+            )
+        except RuntimeError as exc:
+            raise KeyError(chunk_hash) from exc
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise KeyError(chunk_hash) from exc
+        if not isinstance(data, dict):
+            return {"data": data}
+        # Абсолютный путь утёк бы в контекст модели вместе с $HOME
+        if self.vault_root and data.get("source"):
+            data["source"] = self._relative(str(data["source"]))
+        return data
+
+    async def stats(self) -> dict[str, Any]:
+        """У `stats` нет `--json-output` — CLI отдаёт текст. Контракт бэкенда
+        требует dict, поэтому разбираем «ключ: значение» построчно, а исходный
+        текст оставляем в `raw`."""
+        text = await self._run("stats", "--collection", self.collection, timeout=60)
+        out: dict[str, Any] = {"raw": text.strip(), "backend": "memsearch",
+                               "collection": self.collection}
+        for line in text.splitlines():
+            key, sep, value = line.partition(":")
+            key = key.strip().lower().replace(" ", "_")
+            if not sep or not key:
+                continue
+            value = value.strip()
+            out[key] = int(value) if value.isdigit() else value
+        return out
+
+    def _relative(self, path: str) -> str:
+        """Путь относительно корня хранилища: домашний каталог наружу не отдаём."""
+        try:
+            return str(Path(path).resolve().relative_to(Path(self.vault_root).resolve()))
+        except (ValueError, OSError):
+            return Path(path).name

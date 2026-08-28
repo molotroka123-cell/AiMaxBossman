@@ -345,6 +345,38 @@ tool_calls = sa.Table(
     sa.UniqueConstraint("run_id", "call_id", name="uq_tool_calls_run_call"),
 )
 
+# V2.2: факты с двумя осями времени (идея из getzep/graphiti, без графовой СУБД
+# и без вызовов LLM). Ось мира — когда утверждение было правдой; ось знания —
+# когда мы об этом узнали и когда пометили устаревшим.
+#
+# ПРАВИЛО: UPDATE запрещён. Замена факта = у старого проставляются
+# invalid_at = valid_at нового, expired_at = now(), superseded_by = id нового.
+# История решений не переписывается задним числом.
+facts = sa.Table(
+    "facts", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("subject", sa.String(300), nullable=False),
+    sa.Column("predicate", sa.String(160), nullable=False),
+    sa.Column("object", sa.Text, default=""),
+    sa.Column("statement", sa.Text, nullable=False),     # самодостаточная формулировка
+    # ось мира
+    sa.Column("valid_at", sa.DateTime, nullable=False),
+    sa.Column("invalid_at", sa.DateTime),                # null = считаем правдой сейчас
+    # ось знания
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+    sa.Column("expired_at", sa.DateTime),                # когда пометили устаревшим
+    sa.Column("superseded_by", sa.Integer, sa.ForeignKey("facts.id", ondelete="SET NULL")),
+    # происхождение
+    sa.Column("source_kind", sa.String(16), default="human"),   # run|intervention|human|note
+    sa.Column("source_run_id", sa.Integer, sa.ForeignKey("task_runs.id", ondelete="SET NULL")),
+    sa.Column("source_note", sa.String(500), default=""),       # путь в Obsidian
+    sa.Column("confidence", sa.Float, default=1.0),
+    sa.Column("meta", sa.JSON, default=dict),
+    sa.Index("ix_facts_subject_predicate", "subject", "predicate"),
+    sa.Index("ix_facts_valid_at", "valid_at"),
+    sa.Index("ix_facts_invalid_at", "invalid_at"),
+)
+
 # Сессии UI: HttpOnly-cookie вместо вечного токена в localStorage (V2.1, фаза N).
 sessions = sa.Table(
     "sessions", metadata,
