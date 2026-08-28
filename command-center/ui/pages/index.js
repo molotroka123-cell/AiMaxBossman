@@ -21,6 +21,7 @@ import HealingPage from './healing.js';
 import OpenRouterPage from './openrouter.js';
 import MobilePage from './mobile.js';
 import BuilderPage from './builder.js';
+import ImagesPage from './images.js';
 
 export const FEATURE_PAGES = [
   OverviewPage,
@@ -39,4 +40,5 @@ export const FEATURE_PAGES = [
   OpenRouterPage,
   MobilePage,
   BuilderPage,
+  ImagesPage,
 ];
