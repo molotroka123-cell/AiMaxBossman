@@ -159,11 +159,14 @@ class TaskEngine:
     @property
     def current_run_id(self) -> int | None:
         """Совместимость с health-эндпоинтом: первый из активных run'ов."""
-        return next(iter(self._active), None)
+        return next(iter(self.active_run_ids), None)
 
     @property
     def active_run_ids(self) -> list[int]:
-        return list(self._active)
+        """Только реально выполняющиеся run'ы. Завершившиеся задачи убирает
+        следующий виток worker_loop, поэтому фильтруем здесь: иначе занятость
+        пула читалась бы завышенной сразу после окончания run'а."""
+        return [rid for rid, task in self._active.items() if not task.done()]
 
     async def worker_loop(self) -> None:
         """Worker Pool: держит до self.workers параллельных run'ов.

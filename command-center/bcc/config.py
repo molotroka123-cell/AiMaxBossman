@@ -27,6 +27,16 @@ class Settings:
     port: int = field(default_factory=lambda: int(_env("BCC_PORT", "8800")))
     # статика UI (её делает отдельный агент); монтируется, если каталог существует
     ui_dir: Path = field(default_factory=lambda: ROOT / "ui")
+    # V2.1 фаза N: браузер ходит по HttpOnly-cookie-сессии. Заголовок X-BCC-Token
+    # остаётся для CLI/скриптов и переходного периода — выключается
+    # BCC_LEGACY_TOKEN=0, когда всё перееxало на сессии.
+    legacy_token_auth: bool = field(
+        default_factory=lambda: _env("BCC_LEGACY_TOKEN", "1") not in ("0", "false", "no"))
+    session_ttl_hours: int = field(
+        default_factory=lambda: max(1, int(_env("BCC_SESSION_TTL_HOURS", "720"))))
+    # Secure-флаг у cookie: по HTTP на localhost/Tailscale его ставить нельзя,
+    # иначе браузер её просто не сохранит. Ставим автоматически для https.
+    cookie_secure: str = field(default_factory=lambda: _env("BCC_COOKIE_SECURE", "auto"))
 
     def __post_init__(self) -> None:
         self.data_dir = Path(self.data_dir)

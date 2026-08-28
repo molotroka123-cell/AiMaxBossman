@@ -21,7 +21,9 @@ async def test_auth_required(env):
         assert bad.status_code == 401
 
         ok = await anon.post("/api/login", json={"token": env.svc.auth.token})
-        assert ok.status_code == 200 and ok.json() == {"ok": True}
+        # V2.1: логин обменивает токен на серверную сессию (HttpOnly-cookie + CSRF)
+        assert ok.status_code == 200 and ok.json()["ok"] is True
+        assert ok.json()["csrf"] and ok.cookies.get("bcc_session")
 
         with_header = await anon.get("/api/models", headers={HEADER: env.svc.auth.token})
         assert with_header.status_code == 200

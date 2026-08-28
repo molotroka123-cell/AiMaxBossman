@@ -1,12 +1,15 @@
 """Control API (раздел 6): единственная точка входа для UI — HTTP + WS.
 
-Все /api/* требуют заголовок X-BCC-Token (кроме POST /api/login); WS берёт токен
-из query. Ошибки отдаются как {error: {message, hint?}} — голых 500 наружу нет.
+Все /api/* требуют аутентификации (кроме POST /api/login и /api/logout):
+HttpOnly-cookie серверной сессии + CSRF-заголовок на изменяющих методах, либо
+заголовок X-BCC-Token для CLI, пока включён legacy-режим. WS берёт cookie той же
+сессии. Ошибки отдаются как {error: {message, hint?}} — голых 500 наружу нет.
 """
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import hmac
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -15,7 +18,7 @@ from typing import Any
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -24,6 +27,7 @@ from . import db as dbm, discovery
 from .approvals import Approvals
 from .features import load_features
 from .auth import HEADER, TokenAuth
+from .sessions import COOKIE_NAME, CSRF_HEADER, SAFE_METHODS, SessionStore, cookie_kwargs
 from .config import Settings, settings as default_settings
 from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
                  rows_dicts, task_runs as runs_t, tasks as tasks_t, utcnow)
@@ -66,6 +70,7 @@ class Services:
         self.scheduler = Scheduler(self.db, self.bus, self.engine)
         self.metrics = MetricsSampler(self.db, self.bus)
         self.approvals = Approvals(self.db, self.bus)
+        self.sessions = SessionStore(self.db, ttl_hours=settings.session_ttl_hours)
         self._wire_v2_managers()             # skills / terminal / browser (пак)
         self.features = load_features()      # V2: модули bcc/features/* (контракты §8)
         self.start_workers = start_workers
@@ -147,16 +152,40 @@ def services(request: Request) -> Services:
     return request.app.state.svc
 
 
-def require_token(request: Request, x_bcc_token: str | None = Header(default=None)) -> None:
-    if not request.app.state.svc.auth.check(x_bcc_token):
-        raise ApiError("нужен токен доступа", status=401,
-                       hint=f"передайте заголовок {HEADER} (токен печатается при старте сервера)")
+async def require_token(request: Request, x_bcc_token: str | None = Header(default=None)) -> None:
+    """Аутентификация запроса (V2.1 фаза N).
+
+    1) HttpOnly-cookie сессии — основной путь для браузера; изменяющие методы
+       дополнительно требуют CSRF-заголовок из той же сессии;
+    2) заголовок X-BCC-Token — для CLI/скриптов, пока включён legacy-режим.
+       Он не подвержен CSRF (браузер не поставит произвольный заголовок
+       кросс-доменно, CORS мы не включаем).
+    """
+    svc: Services = request.app.state.svc
+    sess = await svc.sessions.get(request.cookies.get(COOKIE_NAME))
+    if sess is not None:
+        if request.method not in SAFE_METHODS:
+            sent = request.headers.get(CSRF_HEADER)
+            if not sent or not hmac.compare_digest(str(sent), str(sess["csrf"])):
+                raise ApiError("не пройдена CSRF-проверка", status=403,
+                               hint=f"передайте заголовок {CSRF_HEADER} из ответа /api/login")
+        request.state.session_id = sess["id"]
+        await svc.sessions.touch(sess["id"])
+        return
+    if svc.settings.legacy_token_auth and svc.auth.check(x_bcc_token):
+        request.state.session_id = None
+        return
+    hint = ("войдите через /api/login — сессия придёт HttpOnly-cookie"
+            if not svc.settings.legacy_token_auth
+            else f"войдите через /api/login или передайте заголовок {HEADER}")
+    raise ApiError("нужна аутентификация", status=401, hint=hint)
 
 
 # ---------- модели запросов ----------
 
 class LoginIn(BaseModel):
     token: str
+    label: str = "ui"           # чем подписать сессию в списке (браузер/телефон)
 
 
 class ProviderIn(BaseModel):
@@ -337,20 +366,39 @@ def _mount_ui(app: FastAPI, settings: Settings) -> None:
 
 
 def _public_router() -> APIRouter:
-    """Без токена: только логин и WS (у WS токен в query)."""
+    """Без аутентификации: только вход, выход и WS (WS проверяет cookie сам)."""
     router = APIRouter(prefix="/api")
 
     @router.post("/login")
-    async def login(body: LoginIn, svc: Services = Depends(services)):
+    async def login(body: LoginIn, request: Request, response: Response,
+                    svc: Services = Depends(services)):
+        """Токен обменивается на серверную сессию: браузеру уходит HttpOnly-cookie,
+        а CSRF-токен — в теле ответа (его хранит JS и шлёт заголовком)."""
         if not svc.auth.check(body.token):
             raise ApiError("неверный токен", status=401,
                            hint="токен печатается в консоль при старте сервера")
-        return {"ok": True}
+        sess = await svc.sessions.create(label=body.label or "ui")
+        response.set_cookie(COOKIE_NAME, sess["id"],
+                            **cookie_kwargs(request.url.scheme,
+                                            svc.settings.cookie_secure,
+                                            svc.settings.session_ttl_hours))
+        return {"ok": True, "csrf": sess["csrf"], "expires_at": sess["expires_at"],
+                "csrf_header": CSRF_HEADER}
+
+    @router.post("/logout")
+    async def logout(request: Request, response: Response, svc: Services = Depends(services)):
+        """Выход инвалидирует сессию на сервере, а не только в браузере."""
+        sid = request.cookies.get(COOKIE_NAME)
+        revoked = await svc.sessions.revoke(sid) if sid else False
+        response.delete_cookie(COOKIE_NAME, path="/")
+        return {"ok": True, "revoked": revoked}
 
     @router.websocket("/events")
     async def events_ws(ws: WebSocket, token: str | None = Query(default=None)):
         svc: Services = ws.app.state.svc
-        if not svc.auth.check(token):
+        # cookie — основной путь: секрет не попадает ни в URL, ни в логи прокси
+        sess = await svc.sessions.get(ws.cookies.get(COOKIE_NAME))
+        if sess is None and not (svc.settings.legacy_token_auth and svc.auth.check(token)):
             await ws.close(code=4401)
             return
         await ws.accept()

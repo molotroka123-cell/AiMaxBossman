@@ -3,7 +3,7 @@
    вход по токену, роутер, WS, тема, командная палитра.
    ============================================================ */
 
-import { api, ApiError, EventStream, getToken, setToken, clearToken, listOf, UNAUTHORIZED_EVENT } from './api.js';
+import { api, ApiError, EventStream, hasSession, clearCsrf, listOf, UNAUTHORIZED_EVENT } from './api.js';
 import {
   h, append, clear, replace, icon, dot, empty, loading, toast, toastError,
   closeTopModal, hasOpenModal, debounce, fmtGb,
@@ -103,7 +103,7 @@ const ctx = {
   getTheme,
   setTheme,
   logout,
-  tokenPreview: () => getToken(),
+  hasSession,
 };
 
 /* ---------------- Навигация ---------------- */
@@ -371,7 +371,7 @@ function paletteActions() {
   }
   items.push({ group: 'Прочее', title: getTheme() === 'dark' ? 'Светлая тема' : 'Тёмная тема', iconName: getTheme() === 'dark' ? 'sun' : 'moon', keys: 'theme tema', run: () => setTheme(getTheme() === 'dark' ? 'light' : 'dark') });
   items.push({ group: 'Прочее', title: 'Обновить данные', iconName: 'retry', keys: 'refresh obnovit', run: () => refresh() });
-  items.push({ group: 'Прочее', title: 'Выйти (очистить токен)', iconName: 'logout', keys: 'logout exit vyhod', run: () => logout() });
+  items.push({ group: 'Прочее', title: 'Выйти (завершить сессию)', iconName: 'logout', keys: 'logout exit vyhod', run: () => logout() });
   return items;
 }
 
@@ -475,10 +475,11 @@ function showShell() {
   el.shell.hidden = false;
 }
 
-function logout() {
-  clearToken();
+async function logout() {
+  // выход инвалидирует сессию на сервере, а не только в браузере
+  try { await api.logout(); } catch { clearCsrf(); }
   el.loginToken.value = '';
-  showLogin('Токен очищен. Введите токен, чтобы вернуться.');
+  showLogin('Сессия завершена. Введите токен, чтобы войти снова.');
 }
 
 el.loginForm.addEventListener('submit', async (e) => {
@@ -489,15 +490,14 @@ el.loginForm.addEventListener('submit', async (e) => {
     el.loginError.textContent = 'Введите токен.';
     return;
   }
-  const previous = getToken();
   el.loginSubmit.classList.add('busy');
   el.loginError.hidden = true;
-  setToken(value);
   try {
-    await api.login(value);
+    await api.login(value);          // токен → серверная сессия (HttpOnly-cookie)
+    el.loginToken.value = '';        // сам токен в браузере не оставляем
     await boot();
   } catch (err) {
-    setToken(previous);
+    clearCsrf();
     el.loginError.hidden = false;
     el.loginError.textContent = err && err.status === 401
       ? 'Токен не подошёл. Скопируйте его из консоли сервера.'
@@ -510,12 +510,12 @@ el.loginForm.addEventListener('submit', async (e) => {
 /* ---------------- Загрузка ---------------- */
 
 async function boot() {
-  if (!getToken()) { showLogin(); return; }
+  if (!hasSession()) { showLogin(); return; }
 
   try {
     await api.system();
   } catch (err) {
-    if (err instanceof ApiError && err.isAuth) { showLogin('Нужен токен доступа. Он напечатан в консоли сервера при старте.'); return; }
+    if (err instanceof ApiError && err.isAuth) { clearCsrf(); showLogin('Сессия недействительна. Токен печатается в консоли сервера при старте.'); return; }
     if (err instanceof ApiError && err.isOffline) {
       /* сервер не отвечает — покажем оболочку, страница сама предложит повторить */
       toast('Сервер не отвечает', { type: 'err', hint: 'Проверьте, что процесс Command Center запущен.', timeout: 9000 });

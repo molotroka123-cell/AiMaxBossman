@@ -1699,12 +1699,14 @@ const SettingsPage = {
       h('div.stack.sm',
         h('div.row',
           h('div',
-            h('div.small', 'Токен этого браузера'),
-            h('div.xsmall.dim.mono', maskSecret(ctx.tokenPreview()))),
+            h('div.small', 'Сессия этого браузера'),
+            h('div.xsmall.dim', ctx.hasSession()
+              ? 'активна · ключ сессии хранится в HttpOnly-cookie и недоступен скриптам'
+              : 'нет активной сессии')),
           h('div.spacer'),
           h('button.btn.btn-danger', { type: 'button', onClick: () => ctx.logout() },
             icon('logout', 14), h('span', 'Выйти'))),
-        h('div.xsmall.dim', 'Выход очищает токен в этом браузере. Сам сервер продолжит работать, задачи не прерываются.')));
+        h('div.xsmall.dim', 'Выход завершает сессию на сервере, а не только в этом браузере. Сам сервер продолжит работать, задачи не прерываются.')));
 
     const about = panel('О системе',
       h('div.stack.sm',

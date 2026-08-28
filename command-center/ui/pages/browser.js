@@ -5,7 +5,7 @@
    GET /api/browser/sessions/{id}/screenshot, POST .../takeover|resume|stop.
    ============================================================ */
 
-import { api, listOf, getToken } from '../api.js';
+import { api, listOf } from '../api.js';
 import {
   h, icon, statusBadge,
   toast, toastOk, toastError, openModal, actionButton,
@@ -67,8 +67,9 @@ async function createSession(ctx) {
 }
 
 async function screenshotBlobUrl(id) {
+  // сессия едет cookie — заголовок с токеном больше не нужен
   const res = await fetch(`/api/browser/sessions/${encodeURIComponent(id)}/screenshot`, {
-    headers: { 'X-BCC-Token': getToken() }, cache: 'no-store',
+    cache: 'no-store', credentials: 'same-origin',
   });
   if (!res.ok) throw new Error('нет скриншота');
   const blob = await res.blob();

@@ -1,23 +1,39 @@
 /* ============================================================
    api.js — клиент Control API (раздел 6 архитектуры).
-   Единственный источник данных UI. Все /api/* требуют X-BCC-Token.
+   Единственный источник данных UI.
+
+   V2.1 (фаза N): вечный токен в браузере больше не хранится. Логин обменивает
+   его на серверную сессию — она приходит HttpOnly-cookie, которую JS прочитать
+   не может (и не может украсть XSS). В localStorage лежит только CSRF-токен:
+   сам по себе он доступа не даёт, но требуется на изменяющих запросах.
+   WebSocket аутентифицируется той же cookie — секрета в URL больше нет.
    ============================================================ */
 
-const TOKEN_KEY = 'bcc.token';
+const CSRF_KEY = 'bcc.csrf';
+const CSRF_HEADER = 'X-BCC-CSRF';
+const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-/* ---------------- Токен ---------------- */
+/* ---------------- Сессия ---------------- */
 
-export function getToken() {
-  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
+export function getCsrf() {
+  try { return localStorage.getItem(CSRF_KEY) || ''; } catch { return ''; }
 }
 
-export function setToken(value) {
-  try { localStorage.setItem(TOKEN_KEY, value || ''); } catch { /* приватный режим */ }
+export function setCsrf(value) {
+  try { localStorage.setItem(CSRF_KEY, value || ''); } catch { /* приватный режим */ }
 }
 
-export function clearToken() {
-  try { localStorage.removeItem(TOKEN_KEY); } catch { /* приватный режим */ }
+export function clearCsrf() {
+  try { localStorage.removeItem(CSRF_KEY); } catch { /* приватный режим */ }
 }
+
+/** Есть ли похожая на живую сессия (окончательно решает сервер — 401). */
+export function hasSession() { return Boolean(getCsrf()); }
+
+/* Совместимость: старые вызовы getToken/clearToken из страниц MVP. Токен
+   больше не хранится, поэтому getToken отдаёт пустую строку. */
+export function getToken() { return ''; }
+export function clearToken() { clearCsrf(); }
 
 /* ---------------- Ошибки ---------------- */
 
@@ -36,7 +52,7 @@ export class ApiError extends Error {
 
 function humanStatus(status, path) {
   if (status === 0) return 'Сервер не отвечает';
-  if (status === 401) return 'Нужен токен доступа';
+  if (status === 401) return 'Нужен вход';
   if (status === 403) return 'Доступ запрещён';
   if (status === 404) return `Не найдено: ${path}`;
   if (status === 409) return 'Конфликт состояния — обновите страницу';
@@ -47,7 +63,7 @@ function humanStatus(status, path) {
 
 function hintFor(status) {
   if (status === 0) return 'Проверьте, что процесс Command Center запущен, и повторите.';
-  if (status === 401) return 'Токен напечатан в консоли сервера при старте.';
+  if (status === 401) return 'Войдите заново: токен печатается в консоли сервера при старте.';
   if (status === 404) return 'Возможно, объект уже удалён — обновите список.';
   if (status === 422) return 'Проверьте обязательные поля.';
   if (status >= 500) return 'Подробности — в логах сервера.';
@@ -70,8 +86,8 @@ function notifyUnauthorized() {
 
 async function request(method, path, body, { signal } = {}) {
   const headers = {};
-  const token = getToken();
-  if (token) headers['X-BCC-Token'] = token;
+  const csrf = getCsrf();
+  if (csrf && UNSAFE.has(method)) headers[CSRF_HEADER] = csrf;
   let payload;
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';
@@ -80,7 +96,8 @@ async function request(method, path, body, { signal } = {}) {
 
   let res;
   try {
-    res = await fetch(path, { method, headers, body: payload, signal, cache: 'no-store' });
+    res = await fetch(path, { method, headers, body: payload, signal, cache: 'no-store',
+      credentials: 'same-origin' });
   } catch (err) {
     if (err && err.name === 'AbortError') throw err;
     throw new ApiError(humanStatus(0, path), { status: 0, hint: hintFor(0), path });
@@ -147,8 +164,16 @@ export const api = {
   // фича зовёт через raw, не расширяя этот файл
   raw: (path, { method = 'GET', body } = {}) => request(method, path, body),
 
-  // auth
-  login: (token) => POST('/api/login', { token }),
+  // auth: токен → серверная сессия (cookie); в браузере остаётся только CSRF
+  login: async (token) => {
+    const res = await POST('/api/login', { token, label: 'ui' });
+    if (res && res.csrf) setCsrf(res.csrf);
+    return res;
+  },
+  logout: async () => {
+    try { await POST('/api/logout'); } finally { clearCsrf(); }
+    return { ok: true };
+  },
 
   // system
   system: (opts) => GET('/api/system', opts),
@@ -259,9 +284,10 @@ export class EventStream {
     clearTimeout(this.timer);
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
 
-    const token = getToken();
+    // Cookie сессии уходит с рукопожатием сама — секрет в URL не попадает
+    // (иначе он оседал бы в логах прокси и в истории).
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
-    const url = `${proto}${location.host}/api/events?token=${encodeURIComponent(token)}`;
+    const url = `${proto}${location.host}/api/events`;
 
     this.setState('connecting');
     let ws;
