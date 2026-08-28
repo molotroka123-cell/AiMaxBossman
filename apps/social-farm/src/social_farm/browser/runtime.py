@@ -78,9 +78,15 @@ class PlaywrightRuntime:
         downloads = directory / DOWNLOADS_SUBDIR
         downloads.mkdir(parents=True, exist_ok=True)
         playwright = await self._start_playwright()
+        # Путь к браузеру задаётся настройкой: там, где Chromium уже стоит в
+        # системе, второй экземпляр качать незачем, а тесты не вправе тянуть
+        # его из сети.
+        extra = ({"executable_path": self.config.chromium_executable}
+                 if self.config.chromium_executable else {})
         context = await playwright.chromium.launch_persistent_context(
             str(directory),
             headless=self.config.headless,
+            **extra,
             viewport={"width": 1440, "height": 900},
             accept_downloads=True,
             downloads_path=str(downloads),

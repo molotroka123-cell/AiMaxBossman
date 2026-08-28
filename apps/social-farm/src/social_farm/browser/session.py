@@ -123,9 +123,13 @@ class AccountBrowserSession:
     `isolation.py` (каталог, маркер, права) и `worker.py` (процесс).
     """
 
-    __slots__ = ("account_id", "expected_identity", "provider", "dom", "registry",
+    # `_account_id` и `_expected_identity` закрыты не для красоты: объект, у
+    # которого аккаунт можно переставить присваиванием, рано или поздно
+    # переставят — и следующее действие уйдёт от чужого имени. Наружу они
+    # видны только для чтения.
+    __slots__ = ("_account_id", "_expected_identity", "provider", "dom", "registry",
                  "config", "resolver", "ledger", "audit", "redactor", "_state",
-                 "_generation", "_challenge", "_last_identity", "_pack_version",
+                 "_challenge", "_last_identity", "_pack_version",
                  "_takeover_since", "_verified_at", "identity_action", "landing_url")
 
     def __init__(self, *, account_id: str, expected_identity: str, dom: DomPort,
@@ -143,8 +147,8 @@ class AccountBrowserSession:
             raise ValueError(
                 "браузерная сессия не создаётся без ожидаемой личности аккаунта: "
                 "проверять было бы не с чем")
-        self.account_id = str(account_id)
-        self.expected_identity = str(expected_identity)
+        self._account_id = str(account_id)
+        self._expected_identity = str(expected_identity)
         self.provider = provider
         self.dom = dom
         self.registry = registry
@@ -156,7 +160,6 @@ class AccountBrowserSession:
         self.audit: BrowserAuditSink = audit or InMemoryAuditSink()
         self.redactor = Redactor()
         self._state = BrowserState.DISABLED
-        self._generation = 0
         self._challenge: Challenge = Challenge()
         self._last_identity = ""
         self._pack_version = selector_pack_version
@@ -164,6 +167,19 @@ class AccountBrowserSession:
         self._verified_at = ""
         self.identity_action = identity_action
         self.landing_url = landing_url
+
+    # ------------------------------------------------------------------ привязка
+
+    @property
+    def account_id(self) -> str:
+        """Аккаунт сессии. Только для чтения — переставить его нельзя."""
+        return self._account_id
+
+    @property
+    def expected_identity(self) -> str:
+        """Чью личность обязана увидеть сессия. Тоже только для чтения:
+        подменяемое ожидание не проверяет ничего."""
+        return self._expected_identity
 
     # ------------------------------------------------------------------ состояние
 
@@ -190,13 +206,41 @@ class AccountBrowserSession:
         check_transition(self._state, target)
         self._state = target
 
+    # ------------------------------------------------------------------ выход наружу
+
+    def _out(self, value: Any) -> Any:
+        """Единственная дверь наружу. Через неё проходит ВСЁ, что уходит из сессии.
+
+        Раньше редакция стояла только на тексте снимка — а адрес страницы,
+        результат действия и запись аудита уходили как есть. Форма входа с
+        `method=GET` уносит пароль прямо в адрес, и он оказывался и в снимке, и
+        в результате действия, и в журнале, где остался бы навсегда. Дверь
+        одна именно поэтому: забыть про неё можно только один раз.
+        """
+        return self.redactor.scrub(value)
+
+    def _write_audit(self, **fields: Any) -> BrowserAuditRecord:
+        """Собрать запись аудита УЖЕ вычищенной.
+
+        Редакция при сериализации (`BrowserAuditRecord.to_dict`) остаётся, но
+        она вторая: она полагается на то, что вызывающий передаст тот же
+        редактор, а он у сессии свой и знает подставленные ею значения.
+        Поэтому чистим здесь, до того как запись покинет сессию.
+        """
+        clean = {key: (self.redactor.text(value) if isinstance(value, str) else value)
+                 for key, value in fields.items()}
+        record = BrowserAuditRecord(**clean)
+        self.audit.write(record)
+        return record
+
     def describe(self) -> dict[str, Any]:
         """Строка `browser_session.schema.json` для этой сессии."""
-        return {"id": f"bs_{self.account_id}", "account_id": self.account_id,
-                "session_ref": None, "state": self._state.value,
-                "selector_pack_version": self.pack_version,
-                "last_verified_at": self._verified_at or None,
-                "last_takeover_at": self._takeover_since or None}
+        return self._out({
+            "id": f"bs_{self.account_id}", "account_id": self.account_id,
+            "session_ref": None, "state": self._state.value,
+            "selector_pack_version": self.pack_version,
+            "last_verified_at": self._verified_at or None,
+            "last_takeover_at": self._takeover_since or None})
 
     # ------------------------------------------------------------------ запуск
 
@@ -212,7 +256,13 @@ class AccountBrowserSession:
         await self._refresh_challenge()
         if self._challenge.present:
             # Проверка прямо на входе — значит, входа не было. Человек.
+            #
+            # Одного состояния мало. `LOGIN_REQUIRED` говорит «нужен вход», но
+            # не говорит, ЧТО на экране; владелец видел бы остановленную работу
+            # без причины. Поэтому сессия сразу зовёт человека и пишет в аудит
+            # найденную проверку — так же, как это делается посреди действия.
             self._transition(BrowserState.LOGIN_REQUIRED)
+            self.require_takeover(self._challenge.describe(), self._challenge.kind)
             return self._state
         observed = await self.read_identity()
         if not observed:
@@ -249,12 +299,12 @@ class AccountBrowserSession:
     def _audit_identity(self, result: str, observed: str) -> None:
         if result == "ok":
             self._verified_at = _utc_now()
-        self.audit.write(BrowserAuditRecord(
+        self._write_audit(
             account_id=self.account_id, action="identity.verify", result=result,
             at=_utc_now(), target_identity=f"account[{observed or 'не определён'}]",
             selector_pack_version=self.pack_version, state_after=self._state.value,
             detail=("личность подтверждена" if result == "ok"
-                    else f"ожидался {self.expected_identity!r}, найден {observed!r}")))
+                    else f"ожидался {self.expected_identity!r}, найден {observed!r}"))
 
     # ------------------------------------------------------------------ передача человеку
 
@@ -275,15 +325,15 @@ class AccountBrowserSession:
         if self._state is not BrowserState.TAKEOVER_REQUIRED:
             self._transition(BrowserState.TAKEOVER_REQUIRED)
         self._takeover_since = _utc_now()
-        self.audit.write(BrowserAuditRecord(
+        self._write_audit(
             account_id=self.account_id, action="takeover.request",
             result="requires_takeover", at=self._takeover_since,
             selector_pack_version=self.pack_version,
             state_after=self._state.value,
             error_class=ErrorClass.BROWSER_REQUIRES_TAKEOVER.value,
-            detail=f"{kind.value}: {reason}"))
+            detail=f"{kind.value}: {reason}")
         return ProviderError.of(
-            ErrorClass.BROWSER_REQUIRES_TAKEOVER, safe_detail=reason,
+            ErrorClass.BROWSER_REQUIRES_TAKEOVER, safe_detail=self.redactor.text(reason),
             user_action=("Откройте браузерную сессию этого аккаунта и завершите "
                          "проверку сами. Автоматически она не проходится."))
 
@@ -316,10 +366,10 @@ class AccountBrowserSession:
     def cooldown(self, reason: str) -> None:
         """Повторные предупреждения площадки. Ждём, а не подстраиваемся под них."""
         self._transition(BrowserState.COOLDOWN)
-        self.audit.write(BrowserAuditRecord(
+        self._write_audit(
             account_id=self.account_id, action="session.cooldown", result="cooldown",
             at=_utc_now(), selector_pack_version=self.pack_version,
-            state_after=self._state.value, detail=reason))
+            state_after=self._state.value, detail=reason)
 
     def resume_from_cooldown(self) -> None:
         self._transition(BrowserState.READY)
@@ -335,28 +385,36 @@ class AccountBrowserSession:
 
     def stop(self, reason: str = "") -> None:
         self._transition(BrowserState.STOPPED)
-        self.audit.write(BrowserAuditRecord(
+        self._write_audit(
             account_id=self.account_id, action="session.stop", result="stopped",
             at=_utc_now(), selector_pack_version=self.pack_version,
-            state_after=self._state.value, detail=reason))
+            state_after=self._state.value, detail=reason)
 
     # ------------------------------------------------------------------ снимок
 
     async def snapshot(self) -> PageSnapshot:
-        """Страница глазами вызывающего. Значений паролей здесь нет.
+        """Страница глазами вызывающего. Значений секретов здесь нет.
 
-        Поле `type=password` отдаётся без значения не потому, что значение
-        замазано, а потому, что оно не покидает страницу (`dom.py`). Редактор
-        поверх — вторая линия: пароль мог быть введён и в обычное поле.
+        Секретное поле отдаётся без значения не потому, что значение замазано,
+        а потому, что оно не покидает страницу (`dom.py`). Редактор поверх —
+        вторая линия, и она нужна: секрет мог оказаться и в адресе страницы
+        после отправки формы, и в заголовке вкладки, и в обычном поле.
         """
         raw = await self.dom.elements(self.config.snapshot_max_interactive)
-        self._generation += 1
+        # Поколение снимка — то самое, которым порт пометил ссылки элементов.
+        # Свой счётчик сессии здесь врал бы: вызывающий сверяет с поколением
+        # именно ссылку, а она приходит из порта.
+        generation = int(getattr(self.dom, "generation", 0))
         text = await self.dom.visible_text(self.config.snapshot_max_text)
         challenge = await self._refresh_challenge()
-        elements = tuple(self.redactor.scrub(dict(item)) for item in raw)
+        elements = tuple(self._out(dict(item)) for item in raw)
         return PageSnapshot(
-            url=await self.dom.current_url(), title=await self.dom.title(),
-            generation=self._generation, text=self.redactor.text(text),
+            # Адрес и заголовок чистятся наравне с текстом: форма с `method=GET`
+            # уносит пароль именно в адрес, а заголовок вкладки на многих
+            # страницах повторяет содержимое поля.
+            url=self.redactor.text(await self.dom.current_url()),
+            title=self.redactor.text(await self.dom.title()),
+            generation=generation, text=self.redactor.text(text),
             elements=elements, challenge=challenge, state=self._state)
 
     # ------------------------------------------------------------------ поиск цели
@@ -438,15 +496,15 @@ class AccountBrowserSession:
     def _stale(self, target: ResolvedTarget, detail: str) -> ProviderError:
         self.ledger.record_failure(target.action, selector_pack_version=self.pack_version,
                                    kind=FailureKind.STALE_TARGET)
-        self.audit.write(BrowserAuditRecord(
+        self._write_audit(
             account_id=self.account_id, action=target.action, result="stale_target",
             at=_utc_now(), target_identity=target.descriptor.semantic_identity(),
             target_fingerprint=target.fingerprint,
             selector_pack_version=self.pack_version,
             strategy_kind=target.strategy_kind, state_before=self._state.value,
-            error_class=ErrorClass.BROWSER_STALE_TARGET.value, detail=detail))
+            error_class=ErrorClass.BROWSER_STALE_TARGET.value, detail=detail)
         return ProviderError.of(
-            ErrorClass.BROWSER_STALE_TARGET, safe_detail=detail,
+            ErrorClass.BROWSER_STALE_TARGET, safe_detail=self.redactor.text(detail),
             user_action=("Перечитайте страницу и спланируйте действие заново. "
                          "Действие НЕ выполнено."))
 
@@ -546,7 +604,7 @@ class AccountBrowserSession:
             self.ledger.record_success(target.action,
                                        selector_pack_version=self.pack_version)
             url_after = await self.dom.current_url()
-            self.audit.write(BrowserAuditRecord(
+            self._write_audit(
                 account_id=self.account_id, action=target.action, result="ok",
                 at=_utc_now(), target_identity=fresh.semantic_identity(),
                 target_fingerprint=target.fingerprint, url_before=url_before,
@@ -554,12 +612,13 @@ class AccountBrowserSession:
                 strategy_kind=target.strategy_kind, state_before="BUSY",
                 idempotency_key=idempotency_key, approval_ref=approval_ref,
                 secret_ref=secret_ref.ref if secret_ref else "",
-                state_after=BrowserState.READY.value))
+                state_after=BrowserState.READY.value)
             self._transition(BrowserState.READY)
-            return {"ok": True, "action": target.action, "url_before": url_before,
-                    "url_after": url_after,
-                    "target_identity": fresh.semantic_identity(),
-                    "target_fingerprint": target.fingerprint}
+            return self._out({
+                "ok": True, "action": target.action, "url_before": url_before,
+                "url_after": url_after,
+                "target_identity": fresh.semantic_identity(),
+                "target_fingerprint": target.fingerprint})
 
     async def _fill_secret(self, descriptor: TargetDescriptor,
                            secret_ref: SecretRef | None) -> None:
@@ -582,11 +641,11 @@ class AccountBrowserSession:
     def _broken(self, action: SelectorAction, detail: str, kind: FailureKind) -> BrokenUi:
         self.ledger.record_failure(action.action,
                                    selector_pack_version=self.pack_version, kind=kind)
-        self.audit.write(BrowserAuditRecord(
+        self._write_audit(
             account_id=self.account_id, action=action.action, result="broken_ui",
             at=_utc_now(), selector_pack_version=self.pack_version,
-            state_before=self._state.value, error_class=kind.value, detail=detail))
-        return BrokenUi(action.action, detail, kind)
+            state_before=self._state.value, error_class=kind.value, detail=detail)
+        return BrokenUi(action.action, self.redactor.text(detail), kind)
 
     def _settle(self) -> None:
         """Вернуть сессию в состояние, из которого видно, что делать дальше."""
@@ -672,7 +731,8 @@ class AccountBrowserSession:
                 f"для секрета есть assist_fill_secret")
         await self.dom.fill(fresh.ref, text)
         self._audit_assist(action, target, fresh, secret_ref="")
-        return {"ok": True, "action": action_name, "state": self._state.value}
+        return self._out({"ok": True, "action": action_name,
+                          "state": self._state.value})
 
     async def assist_fill_secret(self, action_name: str, secret_ref: SecretRef, *,
                                  ordinal: int | None = None) -> dict[str, Any]:
@@ -696,18 +756,19 @@ class AccountBrowserSession:
                 f"type=password; секрет туда не вводится")
         await self._fill_secret(fresh, secret_ref)
         self._audit_assist(action, target, fresh, secret_ref=secret_ref.ref)
-        return {"ok": True, "action": action_name, "state": self._state.value}
+        return self._out({"ok": True, "action": action_name,
+                          "state": self._state.value})
 
     def _audit_assist(self, action: SelectorAction, target: ResolvedTarget,
                       fresh: TargetDescriptor, *, secret_ref: str) -> None:
-        self.audit.write(BrowserAuditRecord(
+        self._write_audit(
             account_id=self.account_id, action=action.action, result="assisted",
             at=_utc_now(), target_identity=fresh.semantic_identity(),
             target_fingerprint=target.fingerprint,
             selector_pack_version=self.pack_version,
             strategy_kind=target.strategy_kind, state_before=self._state.value,
             state_after=self._state.value, secret_ref=secret_ref,
-            detail="значение подставлено; отправку формы и проверки выполняет человек"))
+            detail="значение подставлено; отправку формы и проверки выполняет человек")
 
 
 __all__ = ["AccountBrowserSession", "BrokenUi", "IdentityMismatch", "PageSnapshot",
