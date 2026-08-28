@@ -237,6 +237,16 @@ def scan_gcode(text: str, profile: PrinterProfile, *, strict_unknown: bool = Fal
                 pos["E"] = value if abs_e else pos["E"] + value
             extruding = pos["E"] > previous_e + 1e-9
             if extruding:
+                if cmd in {"G2", "G3"}:
+                    # Endpoints are checked below, but the arc between them is
+                    # not interpolated. Saying so is the honest option; silently
+                    # passing an arc whose bulge leaves the bed is not.
+                    issues.append(GCodeIssue(
+                        "WARNING", lineno,
+                        "extruding arc: only the endpoints are envelope-checked, "
+                        "the arc between them is not interpolated by this scanner",
+                        cmd,
+                    ))
                 if not homed:
                     issues.append(GCodeIssue(
                         "WARNING", lineno, "extrusion move before any G28 homing", cmd

@@ -203,3 +203,25 @@ def test_park_command_is_modelled_and_not_treated_as_unknown(profile):
 
 def test_safety_relevant_commands_are_never_hidden_by_a_comment(profile):
     assert scan_gcode("G28\n; M302 S0 in a comment", profile).status == "PASS"
+
+
+# ------------------------------------------------------------------- arcs
+def test_an_extruding_arc_says_that_its_midpoint_was_not_checked(profile):
+    """G2/G3 endpoints are inside the bed; the arc between them may not be.
+
+    The scanner walks endpoints, not arc interpolation, so an extruding arc is
+    a limit of the model and has to be stated rather than passed over.
+    """
+    scan = scan_gcode("G21\nG90\nM82\nG28\nG1 X10 Y10 Z0.2\nG2 X20 Y10 I5 J0 E1", profile)
+    assert scan.status == "WARN"
+    assert any("arc" in i["message"].lower() for i in scan.issues)
+
+
+def test_a_travel_arc_is_not_warned_about(profile):
+    scan = scan_gcode("G21\nG90\nM82\nG28\nG2 X20 Y10 I5 J0", profile)
+    assert scan.status == "PASS"
+
+
+def test_an_arc_with_endpoints_outside_the_bed_is_still_an_error(profile):
+    scan = scan_gcode("G21\nG90\nM82\nG28\nG2 X400 Y10 I5 J0 E1", profile)
+    assert scan.status == "FAILED"
