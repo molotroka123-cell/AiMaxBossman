@@ -270,34 +270,28 @@ claude-context MCP:
 
 ### Путь A — подключить их MCP-сервер (кода почти не писать)
 
-Что нужно:
-
 1. Строка в `mcp_servers`: `transport="stdio"`,
    `command=["npx","-y","@zilliz/claude-context-mcp@latest"]`,
    `env_keys=["EMBEDDING_PROVIDER","OLLAMA_HOST","OLLAMA_MODEL","MILVUS_ADDRESS","MILVUS_TOKEN"]`.
-   Важно: `bcc/v2/mcp_runtime.py::_Connection._params` пробрасывает дочернему
-   процессу **только** `PATH`, `HOME`, `LANG`, `SYSTEMROOT`, `PYTHONPATH` плюс
-   явно перечисленные `env_keys`. Без записи всех пяти ключей в `env_keys`
-   сервер стартует с дефолтом `EMBEDDING_PROVIDER=OpenAI` и без ключа.
-2. `POST /api/mcp/runtime/servers/<id>/refresh` → `refresh_server()` заведёт
-   в `REGISTRY` четыре инструмента `mcp:claude_context:index_codebase`,
-   `…:search_code`, `…:clear_index`, `…:get_indexing_status`.
-3. Права — через существующий ключ настроек `mcp.policy`
-   (`bcc/features/skills.py`, `POST /api/mcp/policy`): `search_code` и
-   `get_indexing_status` → `auto`, `index_codebase` → `ask`,
-   `clear_index` → `ask` или `deny`.
+   Важно: `mcp_runtime.py::_Connection._params` пробрасывает дочернему процессу
+   **только** `PATH`, `HOME`, `LANG`, `SYSTEMROOT`, `PYTHONPATH` плюс явно
+   перечисленные `env_keys`. Без всех пяти ключей сервер стартует с дефолтом
+   `EMBEDDING_PROVIDER=OpenAI` и без ключа.
+2. `POST /api/mcp/runtime/servers/<id>/refresh` → `refresh_server()` заведёт в
+   `REGISTRY` четыре инструмента `mcp:claude_context:*`.
+3. Права — через существующий `mcp.policy` (`features/skills.py`,
+   `POST /api/mcp/policy`): `search_code`, `get_indexing_status` → `auto`;
+   `index_codebase` → `ask`; `clear_index` → `ask`/`deny`.
 4. **Обязательная доработка, иначе путь A ломает контекст-гигиену.**
-   `bcc/features/tools_mcp.py::_handler_for` кладёт ответ сервера в
-   `ToolResult(content=res.text)` **без обрезки**. У `terminal.run` есть
-   `OUTPUT_LIMIT = 8000`, у MCP — ничего. `search_code` с `limit: 50` вернёт
-   до 50 КБ. Нужен лимит и заполнение `truncated`/`more` в `_handler_for`.
-   Это правка на ~10 строк и она полезна сама по себе, независимо от вердикта
-   по claude-context.
-5. Внешний Milvus. Наш `terminal.run` в режиме `sandbox` уже требует docker,
-   но это разовый контейнер на вызов; Milvus — постоянно живущие три контейнера.
+   `tools_mcp.py::_handler_for` кладёт ответ в `ToolResult(content=res.text)`
+   **без обрезки**. У `terminal.run` есть `OUTPUT_LIMIT = 8000`, у MCP —
+   ничего; `search_code` с `limit: 50` вернёт до 50 КБ. ~10 строк, полезно
+   само по себе.
+5. Внешний Milvus. `terminal.run` в `sandbox` требует разового контейнера;
+   Milvus — постоянно живущие три.
 
-Объём работы: **~0 строк нашего кода** (пункт 4 — общая правка), но
-**плюс постоянно работающий Milvus и Ollama**.
+Объём: **~0 строк нашего кода** (п. 4 — общая правка), но **плюс постоянно
+работающий Milvus и Ollama**.
 
 ### Путь B — родной инструмент `code.search` (рекомендуемый)
 
