@@ -161,6 +161,7 @@ export const api = {
   updateModel: (id, data) => PATCH(`/api/models/${encodeURIComponent(id)}`, data),
   deleteModel: (id) => DEL(`/api/models/${encodeURIComponent(id)}`),
   checkModel: (id) => POST(`/api/models/${encodeURIComponent(id)}/check`),
+  discoverModels: (extraUrls) => POST('/api/models/discover', { extra_urls: extraUrls || [] }),
   testModel: (id) => POST(`/api/models/${encodeURIComponent(id)}/test`),
 
   // agents

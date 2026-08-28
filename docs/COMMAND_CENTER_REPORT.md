@@ -23,6 +23,15 @@ anthropic). Хранение — SQLAlchemy 2 async: SQLite по умолчан�
   `anthropic`; add/edit/delete, health-check (online/offline/error с
   человекочитаемой причиной), mini-benchmark (tok/s prompt+generation, latency)
   с записью в реестр.
+- **Обнаружение локальных моделей** (раздел 6 ТЗ «discover running endpoints») —
+  кнопка «Найти локальные» на странице Модели: параллельный опрос известных
+  портов (llama.cpp/llama-swap :8080, Ollama :11434, LM Studio :1234, vLLM
+  :8000, LiteLLM :4000, SGLang :30000, text-generation-webui :5000) со списком
+  моделей каждого живого endpoint'а и добавлением в реестр одним кликом
+  (провайдер создаётся автоматически, сразу health-check), плюс скан диска на
+  файлы `*.gguf` (каталоги из `BCC_MODELS_DIRS`, по умолчанию
+  /opt/bossman/models и типичные пути). Только чтение: ничего не запускает и
+  не скачивает.
 - **D. Agents** — create/edit/delete: имя, роль, system prompt, primary модель,
   fallback-модель, max_steps/max_retries.
 - **E–F. Task runner + persistent queue** — задачи из композера или Quick Task;

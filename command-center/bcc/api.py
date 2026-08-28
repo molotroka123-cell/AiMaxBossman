@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import db as dbm
+from . import db as dbm, discovery
 from .approvals import Approvals
 from .auth import HEADER, TokenAuth
 from .config import Settings, settings as default_settings
@@ -120,6 +120,10 @@ class ModelIn(BaseModel):
     caps: dict = Field(default_factory=dict)
     price_in: float = 0.0
     price_out: float = 0.0
+
+
+class DiscoverIn(BaseModel):
+    extra_urls: list[str] = Field(default_factory=list)
 
 
 class ModelPatch(BaseModel):
@@ -388,6 +392,15 @@ def _api_router() -> APIRouter:
             return await svc.registry.test_model(model_id)
         except LookupError as exc:
             raise ApiError(str(exc), status=404) from None
+
+    @router.post("/models/discover")
+    async def discover_models(body: DiscoverIn | None = None,
+                              svc: Services = Depends(services)):
+        """Обнаружение локальных моделей: опрос известных портов + скан диска на *.gguf.
+        Только чтение — ничего не запускает и не скачивает."""
+        return await discovery.discover(
+            extra_urls=(body.extra_urls if body else None),
+            known_providers=await svc.registry.list_providers())
 
     # ---------- агенты ----------
 

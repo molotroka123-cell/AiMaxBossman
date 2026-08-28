@@ -353,6 +353,7 @@ const ModelsPage = {
         toastOk('Проверка запущена');
         ctx.refresh();
       }, { cls: 'btn', iconName: 'retry' }),
+      actionButton('Найти локальные', () => openDiscoveryModal(ctx), { cls: 'btn', iconName: 'search' }),
       h('button.btn.btn-primary', { type: 'button', onClick: () => openModelWizard(ctx) },
         icon('plus', 14), h('span', 'Добавить модель')));
 
@@ -457,6 +458,74 @@ function modelCard(m, provider, ctx) {
 }
 
 /* --- мастер добавления модели: провайдер → модель --- */
+
+/* Обнаружение локальных моделей: опрос известных портов + gguf-файлы на диске. */
+async function openDiscoveryModal(ctx) {
+  const modal = openModal({ title: 'Локальные модели', wide: true, body: h('div'), footer: h('div') });
+  append(modal.footer, [h('div.spacer'),
+    h('button.btn', { type: 'button', onClick: () => modal.close() }, 'Закрыть')]);
+  append(modal.body, h('div.small.dim', 'Опрашиваю известные порты (llama.cpp, Ollama, LM Studio, vLLM…) и сканирую диск…'));
+
+  let result;
+  try { result = await api.discoverModels(); }
+  catch (err) {
+    clear(modal.body);
+    append(modal.body, h('div.small', (err && err.message) || 'Не удалось выполнить поиск'));
+    return;
+  }
+  const endpoints = listOf(result.endpoints, 'endpoints');
+  const files = listOf(result.files, 'files');
+  clear(modal.body);
+
+  const addModel = async (ep, name) => {
+    try {
+      let providerId = null;
+      const providers = listOf(await api.providers(), 'providers');
+      const existing = providers.find((p) => (p.base_url || '').replace(/\/+$/, '') === ep.base_url.replace(/\/+$/, ''));
+      if (existing) providerId = pick(existing, ['id']);
+      else {
+        const created = await api.createProvider({ name: ep.label, kind: 'openai_compat', base_url: ep.base_url });
+        providerId = pick(created, ['id']) ?? pick(created.provider || {}, ['id']);
+      }
+      const model = await api.createModel({
+        provider_id: providerId, name, alias: name, kind: 'local',
+        context_window: 8192, caps: { tools: true, coding: true },
+      });
+      const mid = pick(model, ['id']) ?? pick(model.model || {}, ['id']);
+      if (mid != null) await api.checkModel(mid).catch(() => {});
+      toastOk(`Модель «${name}» добавлена`);
+      ctx.refresh();
+    } catch (err) {
+      toast((err && err.message) || 'Не удалось добавить', { type: 'warn', hint: err && err.hint });
+    }
+  };
+
+  const epRows = endpoints.map((ep) => h('div.card', { style: { padding: '10px 12px' } },
+    h('div.row',
+      dot(ep.ok ? 'online' : 'offline'),
+      h('div', { style: { flex: '1', minWidth: 0 } },
+        h('div', ep.label, ' ', h('span.small.dim.mono', ep.base_url)),
+        ep.ok
+          ? h('div.small.dim', `отвечает за ${ep.latency_ms} мс · моделей: ${ep.models.length}`)
+          : h('div.small.dim', ep.detail || 'не отвечает')),
+      ep.registered ? h('span.badge', 'уже подключён') : null),
+    ep.ok && ep.models.length ? h('div.stack', { style: { marginTop: '8px' } },
+      ep.models.map((name) => h('div.row',
+        h('span.mono.small', name), h('div.spacer'),
+        h('button.btn.btn-sm', { type: 'button', onClick: () => addModel(ep, name) },
+          icon('plus', 12), h('span', 'Добавить'))))) : null));
+
+  const fileRows = files.length
+    ? h('div.stack', files.slice(0, 30).map((f) => h('div.row.small',
+        h('span.mono', f.path), h('div.spacer'), h('span.dim', `${f.size_gb} ГБ`))))
+    : h('div.small.dim', `gguf-файлов не найдено (искал в: ${(result.scanned_dirs || []).join(', ')})`);
+
+  append(modal.body, h('div.stack',
+    h('div.section-title', { style: { margin: 0 } }, `Запущенные endpoint'ы · онлайн: ${result.online}`),
+    h('div.stack', epRows),
+    h('div.section-title', { style: { margin: '8px 0 0' } }, 'Файлы моделей на диске'),
+    fileRows));
+}
 
 async function openModelWizard(ctx) {
   let kinds = ['openai_compat', 'anthropic'];

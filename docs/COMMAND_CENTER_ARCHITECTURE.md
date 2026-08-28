@@ -120,6 +120,10 @@ GET/POST /api/providers, DELETE /api/providers/{id}      (api_key принима
 GET/POST /api/models, PATCH/DELETE /api/models/{id}
 POST /api/models/{id}/check                → health-проверка endpoint
 POST /api/models/{id}/test                 → мини-benchmark (короткий prompt; tps, latency) + запись в bench
+POST /api/models/discover {extra_urls?}    → обнаружение локальных моделей: опрос известных портов
+                                             (llama.cpp:8080, Ollama:11434, LM Studio:1234, vLLM:8000,
+                                             LiteLLM:4000, SGLang:30000, tg-webui:5000) + скан диска на
+                                             *.gguf (BCC_MODELS_DIRS; по умолчанию /opt/bossman/models и др.)
 GET/POST /api/agents, PATCH/DELETE /api/agents/{id}
 GET  /api/tasks?status=…                   → списки для очереди-экрана
 POST /api/tasks {title,prompt,agent_id,run_now?,schedule?,priority?,max_retries?}
