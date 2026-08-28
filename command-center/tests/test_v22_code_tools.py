@@ -31,3 +31,40 @@ def test_code_index_respects_gitignore(tmp_path: Path):
     sources = {hit["source"] for hit in index.search_sync("secret symbol")}
     assert "ignored/hidden.py" not in sources
     assert not any(s.startswith("ignored/") for s in sources)
+
+
+async def test_code_root_outside_allowed_is_denied(env, tmp_path: Path):
+    """Гейт «Code root safety»: корень вне разрешённых — отказ, а не тихий поиск.
+
+    Проверяется через ту же функцию, которой пользуются инструменты `code.*`,
+    а не через отдельную копию логики.
+    """
+    import pytest
+    from bcc.features import tools_code
+
+    outside = tmp_path / "чужой-проект"
+    outside.mkdir()
+    (outside / "secret.py").write_text("API_TOKEN = 'нельзя-читать'\n", encoding="utf-8")
+
+    with pytest.raises(PermissionError, match="вне разрешённых корней"):
+        await tools_code.resolve_root(env.svc, str(outside))
+
+    # корень по умолчанию при этом рабочий — правило не сузило обычную работу
+    default_root = await tools_code.resolve_root(env.svc, None)
+    assert default_root.is_dir()
+
+
+async def test_code_root_symlink_does_not_escape(env, tmp_path: Path):
+    """Ссылка внутри разрешённого корня не открывает то, что снаружи."""
+    import pytest
+    from bcc.features import tools_code
+
+    allowed = tmp_path / "проект"; allowed.mkdir()
+    outside = tmp_path / "снаружи"; outside.mkdir()
+    (outside / "secret.py").write_text("X = 1\n", encoding="utf-8")
+    await tools_code._write_setting_json(env.svc, tools_code.CODE_ROOTS_KEY, [str(allowed)])
+
+    link = allowed / "мостик"
+    link.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(PermissionError, match="вне разрешённых корней"):
+        await tools_code.resolve_root(env.svc, str(link))

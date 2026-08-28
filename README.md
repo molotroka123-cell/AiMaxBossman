@@ -23,9 +23,14 @@
 железа (hardware audit, benchmark, Phase 1 setup-брифа), выполняется на самой машине
 в день приезда по `BOSSMAN_CLAUDE_CODE_SETUP.md`.
 
-**Статус: V2.1 — control plane стал настоящим агентным рантаймом.**
-Модель реально вызывает инструменты (терминал, браузер, MCP, память, OpenCode)
-через один канонический цикл с правами AUTO/ASK/DENY.
+**Статус: V2.2 — текущий этап закрыт.**
+Control plane — настоящий агентный рантайм: модель реально вызывает инструменты
+(терминал, браузер, MCP, память, код, OpenCode) через один канонический цикл с
+правами AUTO/ASK/DENY. V2.2 добавила масштабирование памяти, производные
+хранилища в снапшотах, петлю самообучения с ограниченными переходами и изоляцию
+рабочей области агента.
+
+- Итог этапа: [`docs/V2_2_CURRENT_PHASE_FINAL_REPORT.md`](docs/V2_2_CURRENT_PHASE_FINAL_REPORT.md).
 
 - Оценки по направлениям: [`docs/V2_1_FINAL_SCORECARD.md`](docs/V2_1_FINAL_SCORECARD.md)
   — **10 DONE, 7 PARTIAL, 0 FAILED**; что не проверено — названо прямо.
@@ -34,9 +39,13 @@
 - Что и как сделано: [`docs/V2_1_IMPLEMENTATION_REPORT.md`](docs/V2_1_IMPLEMENTATION_REPORT.md).
 - Рабочий контекст волны: [`docs/V2_1_RUNTIME_CONTEXT.md`](docs/V2_1_RUNTIME_CONTEXT.md).
 
-Тесты: **267 passed, 1 skipped** (`cd command-center && timeout 900 python -u -m pytest -q`).
+Тесты: **на коммите `78b843b`: 321 passed, 1 skipped** за 92 с; на текущем
+HEAD ветки — **323 passed, 1 skipped** (плюс два теста гейта «Code root safety»)
+(`cd command-center && timeout 900 python -u -m pytest -q`).
 Пропуск — намеренный: реальный smoke по `opencode serve`, бинаря в этом
 окружении нет, и он честно не засчитан.
+Число всегда называется вместе с коммитом: иначе через неделю непонятно, к
+какому состоянию оно относится.
 
 Запуск: `cd command-center && pip install -e . && bcc` → http://127.0.0.1:8800
 (токен печатается в консоли; в браузере он меняется на HttpOnly-сессию).
