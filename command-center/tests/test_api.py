@@ -7,7 +7,7 @@ from bcc.auth import HEADER
 
 from .conftest import FakeAdapter, client_for, make_settings, start_app
 
-SECRET = "sk-super-secret-key-9999"
+SECRET = "sk-super-secret-key-9999"  # ci-secret-scan: allow (тестовая канарейка)
 
 
 async def test_auth_required(env):

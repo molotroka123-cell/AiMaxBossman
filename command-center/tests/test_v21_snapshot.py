@@ -15,7 +15,7 @@ from bcc.db import approvals as approvals_t, providers as providers_t, settings_
 from bcc.features.snapshot import MAX_ARTIFACT_BYTES, RESTORE_KIND
 
 # Заведомо уникальное «секретное» значение: ищем его во всех байтах артефакта.
-SECRET = "sk-live-BOSSMAN-PLAINTEXT-CANARY-0a1b2c3d4e5f"
+SECRET = "sk-live-BOSSMAN-PLAINTEXT-CANARY-0a1b2c3d4e5f"  # ci-secret-scan: allow
 WALLET = "wallet-seed-canary-correct-horse-battery-staple"
 
 

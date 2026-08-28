@@ -1,0 +1,57 @@
+name: Command Center CI
+
+on:
+  push:
+    branches:
+      - "claude/bossman-control-v03-43igbk"
+      - "main"
+      - "master"
+      - "feature/**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: command-center-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: command-center/pyproject.toml
+
+      - name: Install Command Center
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "./command-center[dev,mcp]"
+
+      - name: Python compile
+        run: python -m compileall -q command-center/bcc command-center/tests
+
+      - name: Secret-pattern scan
+        run: python tools/ci_secret_scan.py
+
+      - name: Pytest
+        working-directory: command-center
+        env:
+          BCC_DATA_DIR: ${{ runner.temp }}/bcc-data
+        run: python -m pytest -q
+
+      - name: JavaScript syntax
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find command-center/ui -name '*.js' -print0)

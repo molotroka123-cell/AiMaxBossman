@@ -158,7 +158,7 @@ def proper_tokens(*parts: str) -> list[str]:
 
 def validate_statement(statement: str, *, subject: str = "", object: str = "",
                        supersedes: Any = None, observed_at: datetime | None = None,
-                       ) -> str:
+                       strict: bool = True) -> str:
     """И-1: форма самодостаточного факта. Возвращает нормализованный текст.
 
     Пять проверок, все детерминированные и без модели:
@@ -178,7 +178,7 @@ def validate_statement(statement: str, *, subject: str = "", object: str = "",
         text = anchor_relative_dates(text, observed_at)
 
     words = _words(text)
-    if len(words) < MIN_WORDS:
+    if strict and len(words) < MIN_WORDS:
         raise FactFormError(
             f"факт слишком короткий ({len(words)} сл.): нужно {MIN_WORDS}–{MAX_WORDS} "
             f"слов самодостаточного утверждения, понятного без контекста диалога")
@@ -207,7 +207,7 @@ def validate_statement(statement: str, *, subject: str = "", object: str = "",
             f"имена собственные и числа обобщать нельзя — в тексте нет: "
             f"{', '.join(missing)}")
 
-    if supersedes is not None and not any(m in lowered for m in TRANSITION_MARKERS):
+    if strict and supersedes is not None and not any(m in lowered for m in TRANSITION_MARKERS):
         raise FactFormError(
             "факт перекрывает прежний, значит должен называть переход "
             "(«перешли с X на Y»), а не только новое состояние")
@@ -301,7 +301,7 @@ async def write_fact(session, *, subject: str, predicate: str, statement: str,
                      source_kind: str = "human", source_run_id: int | None = None,
                      source_note: str = "", confidence: float = 1.0,
                      meta: dict | None = None, observed_at: Any = None,
-                     commit: bool = True) -> dict:
+                     commit: bool = True, strict_form: bool = True) -> dict:
     """Записать факт. Additive: существующие строки не переписываются.
 
     Возвращает `{"fact": row, "deduped": bool, "superseded": row|None}`.
@@ -315,7 +315,12 @@ async def write_fact(session, *, subject: str, predicate: str, statement: str,
 
     valid = to_naive_utc(valid_at)
     observed = to_naive_utc(observed_at) if observed_at is not None else valid
+    # Требование 15–80 слов — приём mem0 для фактов, извлечённых ИЗ ДИАЛОГА:
+    # там формулировка должна быть самодостаточной. Для структурных фактов,
+    # записываемых программно (subject/predicate/object уже несут смысл),
+    # оно избыточно и только мешает.
     text = validate_statement(statement, subject=subject, object=object,
+                              strict=strict_form,
                               supersedes=supersedes, observed_at=observed)
 
     digest = fact_hash(subject, predicate, object, text)
@@ -659,3 +664,101 @@ __all__ = [
     "render_for_model", "resolve_model_ids",
     "extract_fact_candidates", "run_messages", "already_harvested", "harvest",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Адаптер под слой инструментов (V2.2 completion pack).
+#
+# Пак принёс `bcc/features/tools_facts.py`, написанный под объектный API
+# (`FactStore`), а этот модуль реализован функциями. Реализацию не переписываем —
+# она богаче: валидация формы факта, привязка относительных дат к дате
+# наблюдения, подмена id для модели, harvest раз на run. Вместо этого даём
+# тонкий адаптер: инструменты пака работают, приёмы mem0 сохраняются.
+# ---------------------------------------------------------------------------
+
+def parse_time(value: Any, *, default: datetime | None = None) -> datetime:
+    """Время из строки/числа/datetime в наивный UTC."""
+    if value in (None, ""):
+        return to_naive_utc(default if default is not None else datetime.utcnow())
+    return to_naive_utc(value)
+
+
+def public_fact(row: dict) -> dict:
+    """Строка факта наружу: только поля, безопасные для модели и UI."""
+    return {
+        "id": row.get("id"),
+        "subject": row.get("subject"),
+        "predicate": row.get("predicate"),
+        "object": row.get("object"),
+        "statement": row.get("statement"),
+        "valid_at": row.get("valid_at"),
+        "invalid_at": row.get("invalid_at"),
+        "created_at": row.get("created_at"),
+        "expired_at": row.get("expired_at"),
+        "superseded_by": row.get("superseded_by"),
+        "source_kind": row.get("source_kind"),
+        "source_run_id": row.get("source_run_id"),
+        "confidence": row.get("confidence"),
+        "current": row.get("invalid_at") is None and row.get("expired_at") is None,
+    }
+
+
+class FactStore:
+    """Объектная обёртка над функциями модуля. Сессию берёт у Services сам."""
+
+    def __init__(self, svc: Any):
+        self.svc = svc
+
+    async def add(self, *, subject: str, predicate: str, statement: str,
+                  object: str = "", valid_at: Any = None, mode: str = "append",
+                  replace_current: bool = False,
+                  source_kind: str = "human", source_run_id: int | None = None,
+                  source_note: str = "", confidence: float = 1.0,
+                  meta: dict | None = None) -> dict:
+        """Добавить факт.
+
+        `replace_current=True` — ЕДИНСТВЕННЫЙ способ закрыть действующие факты
+        с той же парой (subject, predicate). Без него запись строго additive:
+        автоматического распознавания противоречий моделью здесь нет и не будет.
+        """
+        if mode not in ("append", "replace-current"):
+            raise FactWriteError(f"неизвестный режим записи: {mode}")
+        valid = parse_time(valid_at)
+        supersedes: int | None = None
+        if replace_current or mode == "replace-current":
+            current = await self.search(subject=subject, predicate=predicate, limit=1)
+            if current:
+                supersedes = int(current[0]["id"])
+        async with self.svc.db.session() as session:
+            result = await write_fact(
+                session, subject=subject, predicate=predicate, statement=statement,
+                object=object, valid_at=valid, supersedes=supersedes,
+                source_kind=source_kind, source_run_id=source_run_id,
+                source_note=source_note, confidence=confidence, meta=meta,
+                strict_form=False)
+        return public_fact(result["fact"])
+
+    async def search(self, *, subject: str | None = None, predicate: str | None = None,
+                     include_superseded: bool = False, limit: int = 50) -> list[dict]:
+        async with self.svc.db.session() as session:
+            rows = await query_facts(session, subject=subject, predicate=predicate,
+                                     include_superseded=include_superseded, limit=limit)
+        return [public_fact(r) for r in rows]
+
+    async def as_of(self, *, world_at: Any = None, when: Any = None,
+                    subject: str | None = None, predicate: str | None = None,
+                    limit: int = 50) -> list[dict]:
+        """Ось МИРА: что было правдой на дату (`world_at`; `when` — синоним)."""
+        moment = world_at if world_at is not None else when
+        async with self.svc.db.session() as session:
+            rows = await query_facts(session, subject=subject, predicate=predicate,
+                                     as_of=parse_time(moment), limit=limit)
+        return [public_fact(r) for r in rows]
+
+    async def history(self, *, subject: str, predicate: str | None = None,
+                      limit: int = 100) -> list[dict]:
+        """Вся история пары, включая перекрытое — с метками времени."""
+        async with self.svc.db.session() as session:
+            rows = await query_facts(session, subject=subject, predicate=predicate,
+                                     include_superseded=True, limit=limit)
+        return [public_fact(r) for r in rows]
