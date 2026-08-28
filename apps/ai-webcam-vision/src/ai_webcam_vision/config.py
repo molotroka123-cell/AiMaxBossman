@@ -295,6 +295,14 @@ class Settings:
                     "generic_http CRM requires AWV_CRM_EGRESS_ENABLED=true (outbound "
                     "traffic is off unless explicitly configured)"
                 )
+        if self.privacy.recording_enabled:
+            # There is no recorder in this build. Accepting the flag and
+            # reporting it as enabled would tell an owner the clinic is
+            # recording when nothing is, which is the worst of both answers.
+            raise PrivacyDenied(
+                "continuous video recording is not implemented in this build; "
+                "AWV_RECORDING_ENABLED=true would be a flag that does nothing"
+            )
         if self.privacy.audio_capture:
             raise PrivacyDenied("audio capture is denied by design in this build")
         if self.privacy.face_identification:

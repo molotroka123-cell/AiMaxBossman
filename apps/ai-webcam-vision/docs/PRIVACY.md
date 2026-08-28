@@ -7,15 +7,28 @@
 * audio capture;
 * continuous raw video retention.
 
-Setting `AWV_FACE_IDENTIFICATION`, `AWV_PATIENT_IDENTIFICATION` or
-`AWV_CAPTURE_AUDIO` to `true` makes startup fail with `privacy_denied`. These
-are not decorative flags: `tests/test_config.py` asserts the failure.
+Setting `AWV_FACE_IDENTIFICATION`, `AWV_PATIENT_IDENTIFICATION`,
+`AWV_CAPTURE_AUDIO` or `AWV_RECORDING_ENABLED` to `true` makes startup fail
+with `privacy_denied`. These are not decorative flags: `tests/test_config.py`
+and `tests/test_privacy_stage2.py` assert the failure, including that the
+process itself exits non-zero rather than continuing.
+
+`AWV_RECORDING_ENABLED` is in that list deliberately. There is no recorder in
+this build, so accepting the flag and reporting `recording_enabled: true` over
+the API would tell an owner the clinic is recording when nothing is. A flag
+that does nothing is worse than no flag.
+
+Audio is denied in the argument vector, not only in configuration: every
+ffmpeg invocation carries `-an`, so a source that has an audio track is
+decoded without one. `tests/test_privacy_stage2.py` proves it against a real
+fixture that does have audio, and greps the source tree for face- and
+audio-capture machinery — denied by design means there is nothing to switch
+on.
 
 ## Off by default (switchable, and the switch works)
 
 | Flag | Default | Effect when off |
 |---|---|---|
-| `AWV_RECORDING_ENABLED` | `false` | nothing records video; the app has no recorder |
 | `AWV_SNAPSHOTS_ENABLED` | `false` | `snapshot` jobs fail with `privacy_denied`; no image file is ever written |
 | `AWV_TELEMETRY_ENABLED` | `false` | nothing is sent anywhere |
 | `AWV_CRM_EGRESS_ENABLED` | `false` | the HTTP CRM refuses to transmit; `generic_http` will not even start |

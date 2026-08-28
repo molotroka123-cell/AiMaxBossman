@@ -297,7 +297,11 @@ class FfmpegFrameSource(FrameSource):
 
     # ------------------------------------------------------------- internal
     def _input_args(self, url: SecretUrl) -> list[str]:
-        args = ["-hide_banner", "-loglevel", "error", "-nostdin"]
+        # "-an" is not an optimisation. Audio capture is denied by design, so
+        # no ffmpeg invocation may open an audio stream even when the source
+        # has one — the guarantee has to hold in the argument vector, not
+        # only in a configuration flag somebody could flip.
+        args = ["-hide_banner", "-loglevel", "error", "-nostdin", "-an"]
         if self.descriptor.kind is SourceKind.RTSP_CAMERA and self._rtsp_transport:
             args += ["-rtsp_transport", self._rtsp_transport]
             args += ["-timeout", str(int(self._connect_timeout * 1_000_000))]

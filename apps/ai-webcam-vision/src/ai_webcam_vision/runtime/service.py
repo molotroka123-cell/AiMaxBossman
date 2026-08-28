@@ -678,6 +678,37 @@ class VisionService:
                     "note": "no outbound traffic occurs unless explicitly enabled",
                 },
             },
+            # What drives the sampling rate, and what is merely a plan.
+            # ONVIF event subscription is not implemented here and has never
+            # been run against Tapo C200 firmware. Saying so in the payload
+            # means the claim cannot quietly drift into "supported".
+            "motion": {
+                "primary_source": "webhook",
+                "webhook": {
+                    "endpoint": "POST /hooks/motion",
+                    "implemented": True,
+                    "vendor_neutral": True,
+                    "detail": (
+                        "any bridge that can make one HTTP POST — ONVIF bridge, "
+                        "NVR, edge script — opens the sampling window"
+                    ),
+                },
+                "onvif_subscription": {
+                    "implemented": False,
+                    "verified_on_tapo_c200": False,
+                    "evidence": "NOT RUN",
+                    "blocked_by": "hardware",
+                    "detail": (
+                        "no ONVIF client exists in this build and no Tapo C200 "
+                        "firmware has been tested; use the webhook"
+                    ),
+                },
+                "frame_difference_fallback": {
+                    "implemented": False,
+                    "detail": "without a webhook the service samples at the idle interval",
+                },
+                "state": self.motion.state().to_dict(),
+            },
             "states": [state.value for state in State],
             "temporal_policy": self.temporal.policy.to_dict(),
             "allowed_transitions": {
