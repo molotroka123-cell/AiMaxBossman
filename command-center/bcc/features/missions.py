@@ -177,7 +177,11 @@ async def _on_events(svc):
 
 async def _setup(svc):
     import asyncio
-    asyncio.create_task(_on_events(svc), name="bcc-mission-kpi")
+    # регистрируем в svc._tasks, чтобы svc.stop() отменил подписку (иначе течёт
+    # и после закрытия БД крутится в цикле)
+    task = asyncio.create_task(_on_events(svc), name="bcc-mission-kpi")
+    if hasattr(svc, "_tasks"):
+        svc._tasks.append(task)
 
 
 # ---------- API ----------

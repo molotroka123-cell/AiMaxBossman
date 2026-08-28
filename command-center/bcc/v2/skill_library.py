@@ -29,10 +29,15 @@ def parse_skill(path: Path, source_root: Path) -> Skill:
     if text.startswith("---\n"):
         end = text.find("\n---", 4)
         if end >= 0:
-            fm = yaml.safe_load(text[4:end]) or {}
+            # устойчивость: битый YAML (напр. двоеточие в description) не должен
+            # ронять discovery — извлекаем хотя бы name/description построчно
+            try:
+                fm = yaml.safe_load(text[4:end]) or {}
+            except yaml.YAMLError:
+                fm = _lenient_frontmatter(text[4:end])
             body = text[end + 4:].lstrip("\r\n")
     sid = path.parent.name
-    name = str(fm.get("name") or sid)
+    name = str(fm.get("name") or sid)  # noqa: E501 (см. _lenient_frontmatter ниже)
     desc = str(fm.get("description") or "")
     fp = hashlib.sha256(text.encode()).hexdigest()
     return Skill(sid, name, desc, path, source_root, fm, body, fp)
@@ -95,3 +100,17 @@ def default_skill_roots(repo_root: Path, home: Path | None = None) -> list[Path]
         home / ".config" / "opencode" / "skills",
         home / ".claude" / "skills",
     ]
+
+
+def _lenient_frontmatter(raw: str) -> dict[str, Any]:
+    """Запасной разбор YAML-фронтматтера: берём простые `key: value` верхнего
+    уровня как строки. Спасает discovery от одного скилла с двоеточием в значении."""
+    out: dict[str, Any] = {}
+    for line in raw.splitlines():
+        if line[:1] in (" ", "\t", "#") or ":" not in line:
+            continue
+        key, _, value = line.partition(":")
+        key = key.strip()
+        if key and key.isidentifier():
+            out[key] = value.strip()
+    return out
