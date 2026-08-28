@@ -19,22 +19,32 @@ Skill Forge: предлагает новый скилл из ПОВТОРЯЮЩ�
 существующий, но любое расширение прав/инструментов — только через каноническую
 очередь approvals (см. FORGE_* ниже).
 
+V2.2 §7 — петля самообучения перестала быть инструкцией и стала механизмом,
+но ОГРАНИЧЕННЫМ. Тот же хук `after_run` теперь:
+  * пересчитывает сравнения версий скилла (`skill_evaluations`), и рантайм сам
+    выносит PROMOTE/REJECT только по жёстким порогам — всё спорное и всё, что
+    расширяет права, уходит человеку как HUMAN_REVIEW с approval;
+  * при статусе `failed` ПРЕДЛАГАЕТ разбор провала (`failure-retrospective`) —
+    предлагает, а не запускает: иначе падающий скилл порождал бы лавину задач.
+
 MCP Hub — канонический реестр MCP-серверов/инструментов с AUTO/ASK/DENY;
 только назначенные инструменты попадают в контекст модели.
 """
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 
 from ..db import (agents as agents_t, approvals as approvals_t, settings_kv,
-                  skills as skills_t, skill_versions as skill_versions_t,
+                  skill_evaluations as skill_evals_t, skills as skills_t,
+                  skill_versions as skill_versions_t,
                   task_runs as runs_t, tasks as tasks_t, utcnow)
 from ..permissions import agent_allowed
 from ..tools import REGISTRY as TOOLS
+from ..v2 import skill_evaluation as evaluation
 from ..v2.mcp_hub import MCPServerSpec, namespaced_tool
 from ..v2.skill_library import (SkillLibrary, build_skill_prompt, default_skill_roots,
                                 skill_contract)
@@ -53,6 +63,15 @@ FORGE_KEY = "skills.forge"             # {"signatures": {...}, "pending": {...}}
 #     FORGE_COOLDOWN_HOURS часов.
 FORGE_MIN_RUNS = 3
 FORGE_COOLDOWN_HOURS = 24
+
+# V2.2 §7 — переход «провал → разбор провала». Автоматически он только
+# ПРЕДЛАГАЕТСЯ: движок не запускает разборы сам, иначе один падающий скилл
+# порождал бы лавину задач. Кулдаун — чтобы очередь предложений не забивалась
+# одним и тем же скиллом.
+RETRO_KEY = "skills.retrospectives"
+RETRO_SKILL = "failure-retrospective"
+RETRO_COOLDOWN_HOURS = 6
+RETRO_MAX_PENDING = 20
 
 router = APIRouter()
 
@@ -350,6 +369,159 @@ async def _record_skill_result(svc, task_id: int, run_id: int, status: str) -> N
                        version=meta.get("skill_version"), status=status)
 
 
+# ---------- V2.2 §7: переходы самообучения ----------
+
+async def _after_skill_run(svc, task_id: int, run_id: int, status: str) -> None:
+    """Два перехода, которые раньше существовали только как инструкция в тексте.
+
+    Оба ОГРАНИЧЕНЫ: сравнение версий решает сам рантайм (и то лишь по жёстким
+    порогам, см. `bcc.v2.skill_evaluation`), а разбор провала он только
+    предлагает — запускает человек.
+    """
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(tasks_t.c.meta, tasks_t.c.skill_version_id,
+                                         tasks_t.c.title)
+                               .where(tasks_t.c.id == task_id))).first()
+    if row is None:
+        return
+    m = row._mapping
+    meta = dict(m["meta"] or {})
+    slug = meta.get("skill")
+    if not slug:
+        return                                   # чужая задача — фича её не трогает
+
+    if m["skill_version_id"]:
+        try:
+            await evaluation.refresh_for_version(svc, int(m["skill_version_id"]))
+        except Exception as exc:                 # сравнение версий не имеет права
+            await svc.bus.emit("skill.evaluation.error",  # уронить сам прогон
+                               task_id=task_id, error=str(exc)[:300])
+
+    if status == "failed":
+        await _propose_retrospective(svc, task_id=task_id, run_id=run_id, slug=str(slug),
+                                     title=str(m["title"] or ""))
+
+
+async def _propose_retrospective(svc, *, task_id: int, run_id: int, slug: str,
+                                 title: str) -> dict | None:
+    """Предложить разбор провала. Ничего не запускает и не решает за человека."""
+    if slug == RETRO_SKILL:
+        return None                              # разбор разбора — петля, не польза
+    state = await _kv_get(svc, RETRO_KEY) or {}
+    pending = state.setdefault("pending", {})
+    if str(task_id) in pending:
+        return None
+    now = utcnow()
+    last_raw = (state.setdefault("last_proposed", {})).get(slug)
+    if last_raw:
+        try:
+            if now - datetime.fromisoformat(last_raw) < timedelta(hours=RETRO_COOLDOWN_HOURS):
+                return None
+        except ValueError:
+            pass
+
+    async with svc.db.session() as s:
+        run = (await s.execute(sa.select(runs_t.c.error)
+                               .where(runs_t.c.id == run_id))).first()
+    entry = {"task_id": task_id, "run_id": run_id, "skill": slug, "title": title[:200],
+             "error": ((run._mapping["error"] if run else "") or "")[:1000],
+             "proposed_at": now.isoformat(), "status": "pending"}
+    pending[str(task_id)] = entry
+    state["last_proposed"][slug] = now.isoformat()
+    # очередь предложений не растёт бесконечно: старые вытесняются новыми
+    if len(pending) > RETRO_MAX_PENDING:
+        for key in sorted(pending, key=lambda k: pending[k]["proposed_at"])[
+                :len(pending) - RETRO_MAX_PENDING]:
+            pending.pop(key, None)
+    await _kv_set(svc, RETRO_KEY, state)
+    await svc.bus.emit("skill.retrospective.proposed", task_id=task_id, run_id=run_id,
+                       skill=slug, retro_skill=RETRO_SKILL)
+    return entry
+
+
+@router.get("/skill-retrospectives")
+async def list_retrospectives(request: Request):
+    """Предложенные разборы провалов. Ни один из них сам не запустится."""
+    state = await _kv_get(request.app.state.svc, RETRO_KEY) or {}
+    items = sorted((state.get("pending") or {}).values(),
+                   key=lambda e: e.get("proposed_at") or "", reverse=True)
+    return {"retro_skill": RETRO_SKILL, "cooldown_hours": RETRO_COOLDOWN_HOURS,
+            "pending": items}
+
+
+@router.post("/skill-retrospectives/{task_id}/dismiss")
+async def dismiss_retrospective(task_id: int, request: Request):
+    svc = request.app.state.svc
+    state = await _kv_get(svc, RETRO_KEY) or {}
+    if str(task_id) not in (state.get("pending") or {}):
+        raise HTTPException(404, {"message": "предложение не найдено"})
+    state["pending"].pop(str(task_id))
+    await _kv_set(svc, RETRO_KEY, state)
+    return {"ok": True, "task_id": task_id}
+
+
+# ---------- V2.2 §7: сравнение версий скилла ----------
+
+@router.get("/skill-evaluations")
+async def list_evaluations(request: Request):
+    svc = request.app.state.svc
+    async with svc.db.session() as s:
+        rows = (await s.execute(sa.select(skill_evals_t)
+                                .order_by(skill_evals_t.c.id.desc()).limit(100))).fetchall()
+    return {"evaluations": [dict(r._mapping) for r in rows],
+            "rules": {"min_runs": evaluation.MIN_RUNS,
+                      "improve_delta": evaluation.IMPROVE_DELTA,
+                      "regress_delta": evaluation.REGRESS_DELTA,
+                      "note": "PROMOTE меняет только текущую версию скилла; кандидат "
+                              "с расширенными правами автоматически не применяется"}}
+
+
+@router.post("/skill-evaluations")
+async def create_evaluation(request: Request):
+    """Завести сравнение baseline↔кандидат и сразу пересчитать его."""
+    svc = request.app.state.svc
+    body = await request.json()
+    try:
+        skill_id = int(body["skill_id"])
+        baseline = int(body["baseline_version_id"])
+        candidate = int(body["candidate_version_id"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(422, {"message": "нужны skill_id, baseline_version_id, "
+                                             "candidate_version_id"})
+    try:
+        row = await evaluation.open_evaluation(svc, skill_id=skill_id,
+                                               baseline_version_id=baseline,
+                                               candidate_version_id=candidate)
+        return {"evaluation": await evaluation.refresh(svc, int(row["id"]))}
+    except ValueError as exc:
+        raise HTTPException(400, {"message": str(exc)})
+    except KeyError as exc:
+        raise HTTPException(404, {"message": f"версия не найдена: {exc}"})
+
+
+@router.post("/skill-evaluations/{evaluation_id}/refresh")
+async def refresh_evaluation(evaluation_id: int, request: Request):
+    try:
+        return {"evaluation": await evaluation.refresh(request.app.state.svc, evaluation_id)}
+    except KeyError:
+        raise HTTPException(404, {"message": "сравнение не найдено"})
+
+
+@router.post("/skill-evaluations/{evaluation_id}/decide")
+async def decide_evaluation(evaluation_id: int, request: Request):
+    """Решение человека по HUMAN_REVIEW — единственный путь для спорного кандидата."""
+    svc = request.app.state.svc
+    body = await request.json()
+    try:
+        return {"evaluation": await evaluation.apply_human_decision(
+            svc, evaluation_id, approve=bool(body.get("approve")),
+            by=str(body.get("by") or "owner"))}
+    except KeyError:
+        raise HTTPException(404, {"message": "сравнение не найдено"})
+    except ValueError as exc:
+        raise HTTPException(409, {"message": str(exc)})
+
+
 # ---------- Skill Forge ----------
 
 def _signature(text: str) -> str:
@@ -637,6 +809,7 @@ async def _setup(svc) -> None:
     """Результат скилла попадает на задачу через канонический хук движка."""
     async def after_run(task_id: int, run_id: int, status: str) -> None:
         await _record_skill_result(svc, int(task_id), int(run_id), str(status))
+        await _after_skill_run(svc, int(task_id), int(run_id), str(status))
 
     svc.engine.add_hook("after_run", after_run)
 

@@ -243,6 +243,34 @@ skill_versions = sa.Table(
     sa.Column("created_at", sa.DateTime, default=utcnow),
 )
 
+# Сравнение ДВУХ ВЕРСИЙ одного скилла. Старая таблица `evaluations` привязана к
+# task/run и отвечает на вопрос «как прошла эта задача»; здесь вопрос другой —
+# «стала ли новая версия скилла лучше предыдущей», и ключ поэтому версия, а не
+# запуск. Без этой таблицы Skill Evaluator'у некуда писать сравнение, и
+# PROMOTE/REJECT опирается только на человека.
+skill_evaluations = sa.Table(
+    "skill_evaluations", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("skill_id", sa.Integer, sa.ForeignKey("skills.id", ondelete="CASCADE"),
+              nullable=False, index=True),
+    sa.Column("baseline_version_id", sa.Integer,
+              sa.ForeignKey("skill_versions.id", ondelete="CASCADE"), nullable=False),
+    sa.Column("candidate_version_id", sa.Integer,
+              sa.ForeignKey("skill_versions.id", ondelete="CASCADE"), nullable=False),
+    sa.Column("status", sa.String(16), default="collecting"),   # collecting|decided
+    sa.Column("verdict", sa.String(16)),                        # promote|reject|human_review
+    sa.Column("reason", sa.Text, default=""),                   # почему именно такой вердикт
+    sa.Column("metrics", sa.JSON, default=dict),                # обе стороны + дельты
+    sa.Column("applied", sa.Boolean, default=False),            # PROMOTE реально применён
+    sa.Column("approval_id", sa.Integer,
+              sa.ForeignKey("approvals.id", ondelete="SET NULL")),
+    sa.Column("decided_by", sa.String(120), default=""),        # "runtime" либо имя человека
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+    sa.Column("updated_at", sa.DateTime, default=utcnow),
+    sa.UniqueConstraint("baseline_version_id", "candidate_version_id",
+                        name="uq_skill_eval_pair"),
+)
+
 benchmarks = sa.Table(
     "benchmarks", metadata,
     sa.Column("id", sa.Integer, primary_key=True),
@@ -511,6 +539,6 @@ __all__ = [
     "approvals", "system_metrics", "events", "settings_kv",
     # V2
     "missions", "kpi_history", "orchestras", "orchestra_members", "skills",
-    "skill_versions", "benchmarks", "checkpoints", "session_forks",
+    "skill_versions", "skill_evaluations", "benchmarks", "checkpoints", "session_forks",
     "resource_reservations", "interventions", "recovery_attempts",
 ]
