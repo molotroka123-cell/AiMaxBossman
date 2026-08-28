@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>BOSSMAN Browser Fixture</title></head>
+<body>
+  <h1>BOSSMAN Browser Test</h1>
+  <input id="name" aria-label="Name">
+  <select id="choice" aria-label="Choice">
+    <option value="a">A</option><option value="b">B</option>
+  </select>
+  <button id="go" onclick="document.getElementById('result').textContent='clicked:'+document.getElementById('name').value">Go</button>
+  <form id="sensitive" onsubmit="event.preventDefault(); document.getElementById('result').textContent='submitted'">
+    <button type="submit">Submit</button>
+  </form>
+  <div id="result">idle</div>
+</body>
+</html>
