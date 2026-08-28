@@ -39,6 +39,7 @@ from .printer import (
     looks_like_gcode,
 )
 from .profile import PrinterProfile, load_material_defaults
+from .slicer import validate_slicer_settings
 from .spec import DesignSpec
 from .storage import JobStore
 
@@ -120,7 +121,9 @@ class ControlPlane:
             place_on_bed=bool(payload.get("place_on_bed", True)),
             drop_small_components=bool(payload.get("drop_small_components", False)),
             slice_after_build=bool(payload.get("slice", False)),
-            slicer_settings=dict(payload.get("slicer_settings") or {}),
+            # Bounded here, at the edge, rather than deep inside an adapter
+            # that may never run on a host with no slicer installed.
+            slicer_settings=validate_slicer_settings(payload.get("slicer_settings")),
             calibrated_tolerance_mm=payload.get("calibrated_tolerance_mm"),
             scale_to_fit=bool(payload.get("scale_to_fit", False)),
         )

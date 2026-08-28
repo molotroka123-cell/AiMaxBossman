@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from ai_3d_maker.control import CONTRACT_VERSION, OPERATIONS, ControlPlane
-from ai_3d_maker.errors import JobNotFoundError, UnsafePathError
+from ai_3d_maker.errors import InvalidSpecError, JobNotFoundError, UnsafePathError
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 SRC = APP_ROOT / "src"
@@ -307,3 +307,20 @@ def test_the_control_plane_reports_whether_the_artifact_was_scanned(control):
     })
     assert result["gcode_scan"] is None
     assert result["artifact_is_machine_instructions"] is False
+
+
+def test_slicer_settings_are_bounded_at_intake_not_at_the_subprocess(control):
+    """No slicer is installed here, so a bad setting must be caught before that."""
+    payload = simple_payload("badsettings")
+    payload["slice"] = True
+    payload["slicer_settings"] = {"--infill-overlap": 30}
+    with pytest.raises(InvalidSpecError):
+        asyncio.run(control.jobs_create(payload))
+
+
+def test_ordinary_slicer_settings_pass_intake(control):
+    payload = simple_payload("goodsettings")
+    payload["slice"] = True
+    payload["slicer_settings"] = {"layer_height": 0.2, "wall_line_count": 3}
+    result = asyncio.run(control.jobs_create(payload))["result"]
+    assert result["evidence"]["slicer"]["status"] == "NOT_RUN"
