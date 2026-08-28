@@ -123,7 +123,11 @@ class AccountBrowserSession:
     `isolation.py` (каталог, маркер, права) и `worker.py` (процесс).
     """
 
-    __slots__ = ("account_id", "expected_identity", "provider", "dom", "registry",
+    # `_account_id` и `_expected_identity` закрыты не для красоты: объект, у
+    # которого аккаунт можно переставить присваиванием, рано или поздно
+    # переставят — и следующее действие уйдёт от чужого имени. Наружу они
+    # видны только для чтения.
+    __slots__ = ("_account_id", "_expected_identity", "provider", "dom", "registry",
                  "config", "resolver", "ledger", "audit", "redactor", "_state",
                  "_generation", "_challenge", "_last_identity", "_pack_version",
                  "_takeover_since", "_verified_at", "identity_action", "landing_url")
@@ -143,8 +147,8 @@ class AccountBrowserSession:
             raise ValueError(
                 "браузерная сессия не создаётся без ожидаемой личности аккаунта: "
                 "проверять было бы не с чем")
-        self.account_id = str(account_id)
-        self.expected_identity = str(expected_identity)
+        self._account_id = str(account_id)
+        self._expected_identity = str(expected_identity)
         self.provider = provider
         self.dom = dom
         self.registry = registry
@@ -164,6 +168,19 @@ class AccountBrowserSession:
         self._verified_at = ""
         self.identity_action = identity_action
         self.landing_url = landing_url
+
+    # ------------------------------------------------------------------ привязка
+
+    @property
+    def account_id(self) -> str:
+        """Аккаунт сессии. Только для чтения — переставить его нельзя."""
+        return self._account_id
+
+    @property
+    def expected_identity(self) -> str:
+        """Чью личность обязана увидеть сессия. Тоже только для чтения:
+        подменяемое ожидание не проверяет ничего."""
+        return self._expected_identity
 
     # ------------------------------------------------------------------ состояние
 

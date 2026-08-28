@@ -95,7 +95,13 @@ def guard_account(bound_account_id: str, request: WorkerRequest) -> None:
 
 
 def guard_payload(payload: dict[str, Any]) -> None:
-    """В нагрузке не должно быть полей, похожих на значение секрета."""
+    """В нагрузке не должно быть полей, похожих на значение секрета.
+
+    Обход рекурсивный и по словарям, и по спискам. Плоской нагрузка не бывает:
+    шаги входа приходят списком шагов, а проверка, заглядывающая только на
+    верхний уровень, пропустила бы секрет, лежащий на один уровень глубже, —
+    то есть ровно там, где он и лежит на самом деле.
+    """
     for key, value in (payload or {}).items():
         if isinstance(key, str) and looks_like_secret_name(key):
             # Исключение ровно одно и по имени: ссылка — не значение.
@@ -106,8 +112,15 @@ def guard_payload(payload: dict[str, Any]) -> None:
             raise SecretInTransit(
                 f"поле {key!r} не может пересекать границу процесса воркера: "
                 f"через неё ходит ссылка на секрет, а не значение")
-        if isinstance(value, dict):
-            guard_payload(value)
+        _guard_nested(value)
+
+
+def _guard_nested(value: Any) -> None:
+    if isinstance(value, dict):
+        guard_payload(value)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            _guard_nested(item)
 
 
 def _worker_main(account_id: str, request_queue: Any, response_queue: Any,
