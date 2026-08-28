@@ -1,0 +1,21 @@
+{
+  "fixture": {
+    "name": "publish_status_finished",
+    "provider": "instagram",
+    "provider_api_version": "fixture-v0",
+    "profile_id": "instagram-graph-fixture",
+    "origin": "SYNTHETIC",
+    "observed_at": null,
+    "redaction": "NO_REAL_DATA",
+    "source_test": "tests/unit/test_instagram_official_adapter.py",
+    "warning": "СИНТЕТИЧЕСКАЯ ФОРМА ОТВЕТА. Не наблюдалась у Meta: приложения Meta, скоупов и Instagram Professional аккаунта не существовало на момент написания адаптера. Описывает форму, а не содержимое ответов провайдера. Перед боевым использованием сверьте с документацией Meta и замените origin на OBSERVED с датой."
+  },
+  "status": 200,
+  "headers": {
+    "x-fixture-request-id": "fixreq_0001"
+  },
+  "body": {
+    "id": "fixture_container_777",
+    "status_code": "FINISHED"
+  }
+}

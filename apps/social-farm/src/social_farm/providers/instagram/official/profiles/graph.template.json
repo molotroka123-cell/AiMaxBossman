@@ -1,0 +1,130 @@
+{
+  "profile_id": "instagram-graph-template",
+  "provider": "instagram",
+  "adapter_version": "0.1.0",
+  "provider_api_version": null,
+  "base_url": null,
+
+  "verification": {
+    "status": "UNVERIFIED",
+    "checked_against_provider_docs_at": null,
+    "checked_by": null,
+    "warning": "ЗНАЧЕНИЯ НЕ ЗАПОЛНЕНЫ И НЕ СВЕРЕНЫ С ДОКУМЕНТАЦИЕЙ META. Приложения Meta, скоупов и Instagram Professional аккаунта на момент написания адаптера не существовало, поэтому проверить ни один путь, ни одно разрешение и ни один лимит было невозможно. Правдоподобное выдуманное значение здесь хуже отсутствующего: отсутствующее заметят. Заполните поля из актуальной документации Meta, проставьте provider_api_version, base_url и статус VERIFIED — до этого адаптер не делает живых вызовов и объявляет все возможности TEMPORARILY_DISABLED."
+  },
+
+  "_how_to_fill": {
+    "1": "provider_api_version — версия Graph API, против которой сверялись (например из SF_META_GRAPH_VERSION).",
+    "2": "base_url — корень Graph API из документации Meta.",
+    "3": "operations[*].path — шаблон пути; поддерживаются подстановки {version}, {ig_user_id}, {media_id}, {comment_id}, {thread_id}, {container_id}.",
+    "4": "operations[*].required_permissions и capabilities[*].required_permissions — точные имена разрешений Meta.",
+    "5": "capabilities[*].app_review — требует ли разрешение проверки приложения у Meta. null означает «неизвестно», и адаптер трактует его как REQUIRES_APP_REVIEW: владельцу нужно знать, что делать, а не что нельзя.",
+    "6": "capabilities[*].officially_exposed — есть ли возможность в официальном API вообще. false даёт NOT_SUPPORTED, а null — «не сверено».",
+    "7": "media_rules — ограничения по формату, размеру и длительности. Пока known=false, автоматическая публикация блокируется и работа уходит на одобрение человека (решение G16).",
+    "8": "rate_limit.usage_headers — имена заголовков провайдера с расходом лимита.",
+    "9": "error_codes — числовой или строковый код провайдера → класс из domain/errors.py.",
+    "10": "idempotency.header — имя заголовка идемпотентности, если провайдер его поддерживает. null означает, что защита от повтора держится только на локальном журнале ключей."
+  },
+
+  "operations": {
+    "account_profile_read": {"method": "GET", "path": null, "required_permissions": null, "mutating": false, "notes": "профиль подключённого аккаунта: идентификатор, имя, тип"},
+    "account_permissions_read": {"method": "GET", "path": null, "required_permissions": null, "mutating": false, "notes": "фактически выданные разрешения; без них возможности не выводятся"},
+    "account_profile_update": {"method": "POST", "path": null, "required_permissions": null, "mutating": true},
+    "media_list": {"method": "GET", "path": null, "required_permissions": null, "mutating": false},
+    "media_read": {"method": "GET", "path": null, "required_permissions": null, "mutating": false},
+    "media_container_create": {"method": "POST", "path": null, "required_permissions": null, "mutating": true, "notes": "шаг 1 публикации: создание контейнера"},
+    "media_container_status": {"method": "GET", "path": null, "required_permissions": null, "mutating": false, "notes": "опрос готовности контейнера"},
+    "media_publish": {"method": "POST", "path": null, "required_permissions": null, "mutating": true, "notes": "шаг 2 публикации: публикация контейнера"},
+    "media_caption_edit": {"method": "POST", "path": null, "required_permissions": null, "mutating": true},
+    "media_delete": {"method": "DELETE", "path": null, "required_permissions": null, "mutating": true},
+    "media_archive": {"method": "POST", "path": null, "required_permissions": null, "mutating": true},
+    "comments_list": {"method": "GET", "path": null, "required_permissions": null, "mutating": false},
+    "comment_reply": {"method": "POST", "path": null, "required_permissions": null, "mutating": true},
+    "comment_moderate": {"method": "POST", "path": null, "required_permissions": null, "mutating": true, "notes": "скрыть/показать/удалить — действие в теле запроса"},
+    "mentions_list": {"method": "GET", "path": null, "required_permissions": null, "mutating": false},
+    "conversations_list": {"method": "GET", "path": null, "required_permissions": null, "mutating": false},
+    "messages_list": {"method": "GET", "path": null, "required_permissions": null, "mutating": false},
+    "message_send": {"method": "POST", "path": null, "required_permissions": null, "mutating": true, "notes": "переписка ограничена правилами провайдера; проверка права на ответ обязательна"},
+    "insights_account": {"method": "GET", "path": null, "required_permissions": null, "mutating": false},
+    "insights_media": {"method": "GET", "path": null, "required_permissions": null, "mutating": false},
+    "webhook_subscribe": {"method": "POST", "path": null, "required_permissions": null, "mutating": true},
+    "reconcile_media": {"method": "GET", "path": null, "required_permissions": null, "mutating": false, "notes": "сверка: искали ли мы уже опубликованный объект"}
+  },
+
+  "capabilities": {
+    "account.read": {"operations": ["account_profile_read"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "account.profile.read": {"operations": ["account_profile_read"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "account.profile.update": {"operations": ["account_profile_update"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "account.avatar.update": {"operations": ["account_profile_update"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "account.bio.update": {"operations": ["account_profile_update"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+
+    "media.list": {"operations": ["media_list"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "media.read": {"operations": ["media_read"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "media.publish.image": {"operations": ["media_container_create", "media_publish"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "media.publish.carousel": {"operations": ["media_container_create", "media_publish"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "media.publish.reel": {"operations": ["media_container_create", "media_container_status", "media_publish"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "media.publish.story": {"operations": ["media_container_create", "media_publish"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true, "notes": "спека (08) допускает публикацию историй только там, где её поддерживает связка аккаунт+API"},
+    "media.edit.caption": {"operations": ["media_caption_edit"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "media.archive": {"operations": ["media_archive"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "media.delete": {"operations": ["media_delete"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+
+    "comments.read": {"operations": ["comments_list"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "comments.reply": {"operations": ["comment_reply"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "comments.hide": {"operations": ["comment_moderate"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "comments.unhide": {"operations": ["comment_moderate"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "comments.delete": {"operations": ["comment_moderate"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "comments.like": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true, "notes": "операция в профиле не объявлена: без документации Meta неизвестно, есть ли она в официальном API"},
+
+    "mentions.read": {"operations": ["mentions_list"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+
+    "messages.threads.read": {"operations": ["conversations_list"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "messages.read": {"operations": ["messages_list"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "messages.reply": {"operations": ["message_send"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true, "notes": "официальная переписка не является каналом произвольной исходящей рассылки (08, 41): право на ответ проверяется у провайдера перед каждой отправкой"},
+    "messages.attachment.send": {"operations": ["message_send"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "messages.reaction.send": {"operations": ["message_send"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+
+    "insights.account.read": {"operations": ["insights_account"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "insights.media.read": {"operations": ["insights_media"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "insights.story.read": {"operations": ["insights_media"], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+
+    "relationships.read": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "relationships.follow": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true, "notes": "операция в профиле не объявлена намеренно: массовые подписки — граница, которую приложение не переходит; появление здесь пути потребует отдельного решения владельца"},
+    "relationships.unfollow": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "engagement.like": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true},
+    "engagement.unlike": {"operations": [], "required_permissions": null, "app_review": null, "officially_exposed": null, "professional_account_required": true}
+  },
+
+  "account_requirements": {
+    "professional_required": true,
+    "professional_types": ["BUSINESS", "CREATOR"],
+    "source": "spec/docs/41_EXTERNAL_API_FACTS_2026_08.md — «consumer/personal accounts do not have the same Graph API access»",
+    "confidence": "SPEC_STATED"
+  },
+
+  "media_rules": {
+    "known": false,
+    "source": "REQUIRES_META_DOCS",
+    "limits": {},
+    "notes": "Формат, размер, длительность, соотношение сторон и число элементов карусели — факты версии провайдера. Пока known=false, адаптер не утверждает, что медиа проходит, и публикация уходит на одобрение человека (G16)."
+  },
+
+  "rate_limit": {
+    "retry_after_header": "Retry-After",
+    "usage_headers": [],
+    "documented_limits": {},
+    "bucket_strategy": "provider:account:capability",
+    "notes": "Retry-After — заголовок HTTP (RFC 9110), а не факт Meta, поэтому он заполнен. Имена заголовков расхода лимита у Meta свои и требуют сверки. Обход лимитов не реализуется: при исчерпании работа ждёт."
+  },
+
+  "error_codes": {},
+
+  "idempotency": {
+    "header": null,
+    "notes": "Если провайдер поддерживает заголовок идемпотентности, впишите его имя. Пока он null, защита от повторного внешнего эффекта держится на локальном журнале ключей: тот же ключ возвращает записанный исход вместо второго вызова."
+  },
+
+  "webhooks": {
+    "fields": null,
+    "callback_requirements": "публичный HTTPS-адрес с проверяемой подписью",
+    "notes": "Публичного HTTPS для обратного вызова в среде разработки нет. Подписка не выполняется, и адаптер говорит об этом прямо, а не притворяется подписавшимся."
+  }
+}
