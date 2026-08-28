@@ -65,11 +65,15 @@ async def test_probe_chat_and_tools(env, monkeypatch):
     probed = (await env.client.post(f"/api/openrouter/models/{pinned['model_id']}/probe")).json()
     caps = {p["capability"]: p["verified"] for p in probed["probes"]}
     assert caps.get("chat") is True
-    assert "tools" in caps        # заявлен tools → проба выполнена
+    assert caps.get("tools") is True          # заявлен tools → проба реально прошла
+    assert caps.get("structured_output") is True
+    assert caps.get("vision") is None         # не заявлен → пробу не гоняли
     # advertised vs verified сохранены
     stored = (await env.client.get(
         f"/api/openrouter/models/{pinned['model_id']}/capabilities")).json()
     assert any(c["capability"] == "chat" and c["verified"] for c in stored)
+    tools_row = next(c for c in stored if c["capability"] == "tools")
+    assert tools_row["advertised"] is True and tools_row["verified"] is True
 
 
 async def test_sync_without_key_422(env):

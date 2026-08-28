@@ -126,6 +126,42 @@ class OpenRouterClient:
         r.raise_for_status()
         return r.json()
 
+    async def stream_raw(self, model: str, messages: list[dict[str, Any]], *,
+                         max_tokens: int = 32, temperature: float | None = 0,
+                         max_chunks: int = 32) -> list[str]:
+        """SSE-стрим → список текстовых дельт. Пустой список = стрим не работает."""
+        payload: dict[str, Any] = {
+            "model": model, "messages": messages,
+            "max_tokens": max_tokens, "stream": True,
+        }
+        if temperature is not None:
+            payload["temperature"] = temperature
+        deltas: list[str] = []
+        async with self._client(120) as client:
+            async with client.stream("POST", f"{self.base_url}/chat/completions",
+                                     headers=self._headers(), json=payload) as r:
+                r.raise_for_status()
+                async for line in r.aiter_lines():
+                    line = line.strip()
+                    if not line.startswith("data:"):
+                        continue
+                    body = line[5:].strip()
+                    if body in ("", "[DONE]"):
+                        if body == "[DONE]":
+                            break
+                        continue
+                    try:
+                        chunk = json.loads(body)
+                    except json.JSONDecodeError:
+                        continue
+                    choice = (chunk.get("choices") or [{}])[0]
+                    piece = (choice.get("delta") or {}).get("content")
+                    if piece:
+                        deltas.append(str(piece))
+                    if len(deltas) >= max_chunks:
+                        break
+        return deltas
+
     async def probe_chat(self, model: str) -> tuple[bool, str]:
         try:
             data = await self.chat_raw(

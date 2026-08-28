@@ -71,8 +71,18 @@ class OpenRouterCatalogService:
                         .where(provider_catalog_models.c.id == row_id)
                         .values(**values)
                     )
+            stale_left = await s.execute(
+                sa.select(sa.func.count()).select_from(provider_catalog_models).where(
+                    provider_catalog_models.c.provider_id == provider_id,
+                    provider_catalog_models.c.stale.is_(True),
+                )
+            )
+            stale_count = int(stale_left.scalar_one() or 0)
             await s.commit()
-        return {"provider_id": provider_id, "synced": len(cards), "stale": 0 if remote_ids else None}
+        # Модели, исчезнувшие из remote, остаются строками со stale=True: закреплённые
+        # алиасы и история проб не удаляются, но каталог честно помечает их устаревшими.
+        return {"provider_id": provider_id, "synced": len(cards),
+                "remote_ids": len(remote_ids), "stale": stale_count}
 
     async def list_catalog(self, provider_id: int, *, search: str = "", stale: bool | None = False,
                            limit: int = 500) -> list[dict]:

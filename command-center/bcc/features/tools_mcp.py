@@ -117,10 +117,24 @@ def _handler_for(svc, spec: MCPServerSpec, tool_name: str):
 
 
 async def _emit_failure(svc, server_id: str, tool: str, detail: str) -> None:
-    """Self-Healing/Governor видят провал инструмента как обычное событие."""
+    """Self-Healing/Governor видят провал инструмента как обычное событие.
+
+    Заодно синхронизируем состояние в БД: если рантайм уже считает сервер
+    упавшим, строка не должна оставаться healthy — её читают UI и роутер,
+    и «здоровый» мёртвый сервер вводил бы в заблуждение.
+    """
     try:
         await svc.bus.emit("mcp.call_failed", server=server_id, tool=tool,
                            message=detail[:400])
+    except Exception:
+        pass
+    try:
+        rt = runtime_of(svc)
+        health = rt.health(server_id)
+        if health is not None and health.status == "unhealthy":
+            row = await _server_row(svc, server_id)
+            if row and str(row.get("status")) != "unhealthy":
+                await _mark(svc, int(row["id"]), "unhealthy", detail)
     except Exception:
         pass
 

@@ -61,11 +61,14 @@ class ToolAdapter(FakeAdapter):
         self.seen_tools.append(kw.get("tools"))
         step = self.script[min(self.calls - 1, len(self.script) - 1)]
         if step[0] == "tool":
+            # raw_arguments — то, что реально прислал бы провайдер: настоящий JSON.
+            # Заглушка "{}" делала все шаги неотличимыми в истории.
+            import json as _json
             return ChatResult(text="", tokens_in=5, tokens_out=2, finish="tool_calls",
                               model=model,
-                              tool_calls=[ToolCall(id=f"call_{self.calls}", name=step[1],
-                                                   arguments=step[2],
-                                                   raw_arguments="{}")])
+                              tool_calls=[ToolCall(
+                                  id=f"call_{self.calls}", name=step[1], arguments=step[2],
+                                  raw_arguments=_json.dumps(step[2], ensure_ascii=False))])
         return ChatResult(text=step[1], tokens_in=5, tokens_out=3, model=model)
 
 

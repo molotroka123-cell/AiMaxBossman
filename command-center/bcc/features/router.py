@@ -12,7 +12,9 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 
 from ..db import models as models_t, settings_kv, task_runs as runs_t, tasks as tasks_t
-from ..v2.model_router import ModelCandidate, RouteRequest, route
+from ..v2.model_router import (MAX_CANDIDATES, ModelCandidate, RouteRequest,
+                               candidate_digest, route, shortlist)
+from ..v2.tables import model_capability_checks as caps_t
 from . import Feature
 
 RULES_KEY = "router.rules"
@@ -50,8 +52,33 @@ async def _save_rules(svc, rules: dict) -> None:
         await s.commit()
 
 
+async def _verified_caps(svc) -> dict[int, tuple[set[str], set[str]]]:
+    """model_id → (verified=True, verified=False) по ПОСЛЕДНЕЙ пробе каждой способности.
+
+    Источник — model_capability_checks (пишет feature openrouter). Строки только
+    добавляются, поэтому «последняя» = максимальный id.
+    """
+    async with svc.db.session() as s:
+        rows = (await s.execute(sa.select(
+            caps_t.c.id, caps_t.c.model_id, caps_t.c.capability, caps_t.c.verified)
+            .order_by(caps_t.c.id.desc()))).fetchall()
+    out: dict[int, tuple[set[str], set[str]]] = {}
+    seen: set[tuple[int, str]] = set()
+    for r in rows:
+        c = r._mapping
+        key = (c["model_id"], c["capability"])
+        if key in seen:
+            continue                      # более старая проба той же способности
+        seen.add(key)
+        if c["verified"] is None:
+            continue                      # проба не дала ответа → «неизвестно»
+        ok, fail = out.setdefault(c["model_id"], (set(), set()))
+        (ok if c["verified"] else fail).add(c["capability"])
+    return out
+
+
 async def _candidates(svc, rules: dict) -> list[ModelCandidate]:
-    """Кандидаты из реестра + живой сигнал (health, bench, доля успехов)."""
+    """Кандидаты из реестра + живой сигнал (health, bench, доля успехов, пробы)."""
     async with svc.db.session() as s:
         models = (await s.execute(sa.select(models_t))).fetchall()
         # доля успешных run'ов по alias (historical performance)
@@ -62,19 +89,24 @@ async def _candidates(svc, rules: dict) -> list[ModelCandidate]:
             .where(runs_t.c.model_alias.isnot(None)).group_by(runs_t.c.model_alias))).fetchall()
     success = {r._mapping["model_alias"]: (r._mapping["ok"] or 0) / r._mapping["n"]
                for r in stats if r._mapping["n"]}
+    probes = await _verified_caps(svc)
     role_scores = rules.get("role_scores") or {}
     out: list[ModelCandidate] = []
     for r in models:
         m = r._mapping
-        caps = set((m["caps"] or {}).keys()) if isinstance(m["caps"], dict) else set()
-        verified = {k for k, v in (m["caps"] or {}).items() if v} if isinstance(m["caps"], dict) else set()
+        raw_caps = m["caps"] if isinstance(m["caps"], dict) else {}
+        # реестр хранит ЗАЯВЛЕННЫЕ способности; verified/falsified — только из проб
+        advertised = {k for k, v in raw_caps.items() if v}
+        verified, unsupported = probes.get(m["id"], (set(), set()))
         bench = m["bench"] if isinstance(m["bench"], dict) else {}
         out.append(ModelCandidate(
             id=m["id"], alias=m["alias"],
             online=m["status"] == "online",
             local=m["kind"] == "local",
             context_window=m["context_window"] or 8192,
-            capabilities=caps, verified_capabilities=verified,
+            capabilities=advertised,
+            verified_capabilities=set(verified),
+            unsupported_capabilities=set(unsupported),
             price_in=m["price_in"] or 0.0, price_out=m["price_out"] or 0.0,
             latency_ms=bench.get("latency_ms"), gen_tps=bench.get("gen_tps"),
             success_rate=success.get(m["alias"]),
@@ -99,13 +131,16 @@ async def _make_pick_hook(svc):
             cloud_allowed=cloud_allowed,
             max_price_out=meta.get("max_price_out"),
             available_memory_mb=meta.get("available_memory_mb"),
-            prefer_local=bool(rules.get("prefer_local", True)))
+            prefer_local=bool(rules.get("prefer_local", True)),
+            max_candidates=int(rules.get("max_candidates") or MAX_CANDIDATES),
+            require_verified=bool(rules.get("require_verified", False)))
         decision = route(req, await _candidates(svc, rules))
         if decision.model is None:
             return None            # никого не выбрали → модель агента
         route_info = {"alias": decision.model.alias, "score": decision.score,
                       "reasons": decision.reasons, "rejected": decision.rejected,
-                      "task_type": kind}
+                      "task_type": kind, "considered": decision.considered,
+                      "total_candidates": decision.total}
         await svc.bus.emit("router.route_selected", task_id=task["id"],
                            model_id=decision.model.id, alias=decision.model.alias,
                            reason="; ".join(decision.reasons)[:300])
@@ -151,16 +186,47 @@ async def preview(request: Request):
     svc = request.app.state.svc
     body = await request.json()
     rules = await _rules(svc)
-    kind = body.get("task_type") or "generic"
-    req = RouteRequest(task_type=kind, requires=_requires(kind, rules),
-                       min_context=int(body.get("min_context") or 0),
-                       cloud_allowed=bool(body.get("cloud_allowed", True)),
-                       max_price_out=body.get("max_price_out"),
-                       available_memory_mb=body.get("available_memory_mb"),
-                       prefer_local=bool(rules.get("prefer_local", True)))
+    req = await _request_from(svc, body, rules)
     d = route(req, await _candidates(svc, rules))
-    return {"selected": d.model.alias if d.model else None, "score": d.score,
-            "reasons": d.reasons, "rejected": d.rejected}
+    # score=-inf (никого не выбрали) не сериализуется в JSON → отдаём null
+    return {"selected": d.model.alias if d.model else None,
+            "score": d.score if d.model else None,
+            "reasons": d.reasons, "rejected": d.rejected,
+            "considered": d.considered, "total_candidates": d.total}
+
+
+async def _request_from(svc, body: dict, rules: dict) -> RouteRequest:
+    kind = body.get("task_type") or "generic"
+    requires = set(body.get("requires") or []) | _requires(kind, rules)
+    return RouteRequest(
+        task_type=kind, requires=requires,
+        min_context=int(body.get("min_context") or 0),
+        cloud_allowed=bool(body.get("cloud_allowed", True)),
+        max_price_out=body.get("max_price_out"),
+        available_memory_mb=body.get("available_memory_mb"),
+        prefer_local=bool(rules.get("prefer_local", True)),
+        max_candidates=int(body.get("max_candidates")
+                           or rules.get("max_candidates") or MAX_CANDIDATES),
+        require_verified=bool(body.get("require_verified",
+                                       rules.get("require_verified", False))))
+
+
+@router.post("/router/candidates")
+async def candidates(request: Request):
+    """Ограниченный shortlist кандидатов (compact digest).
+
+    Наружу и в промпт уезжает ТОЛЬКО этот список, а не весь реестр/каталог:
+    длина гарантированно ≤ max_candidates.
+    """
+    svc = request.app.state.svc
+    body = await request.json() if await request.body() else {}
+    rules = await _rules(svc)
+    req = await _request_from(svc, body, rules)
+    all_models = await _candidates(svc, rules)
+    picked, rejected = shortlist(req, all_models)
+    return {"limit": req.max_candidates, "total": len(all_models),
+            "candidates": [candidate_digest(m) for m in picked],
+            "rejected": rejected}
 
 
 FEATURE = Feature(name="router", router=router, setup=_setup)

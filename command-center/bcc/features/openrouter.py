@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 
 from ..db import models as models_t, providers as providers_t, utcnow
-from ..v2.capability_probe import probe_chat, probe_structured_output, probe_tools
+from ..v2.capability_probe import probe_model
 from ..v2.openrouter_catalog_service import OpenRouterCatalogService
 from ..v2.openrouter_ext import OpenRouterClient
 from ..v2.tables import model_capability_checks as caps_t, provider_catalog_models as catalog_t
@@ -105,9 +105,31 @@ async def pin_model(provider_id: int, request: Request):
     return {"model_id": mid, "alias": alias}
 
 
+async def _advertised_for(svc, model: dict) -> dict[str, bool]:
+    """Заявленные способности: каталог провайдера (источник правды) + caps реестра."""
+    adv: dict[str, bool] = {}
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(catalog_t).where(
+            catalog_t.c.provider_id == model["provider_id"],
+            catalog_t.c.remote_id == model["name"]))).first()
+    if row is not None:
+        c = row._mapping
+        cat = c["advertised_caps"] if isinstance(c["advertised_caps"], dict) else {}
+        adv.update({k: bool(v) for k, v in cat.items()})
+        if "image" in (c["input_modalities"] or []):
+            adv["vision"] = True
+    caps = model["caps"] if isinstance(model["caps"], dict) else {}
+    for k, v in caps.items():            # ручные правки реестра не теряем
+        adv[k] = bool(v) or adv.get(k, False)
+    adv["chat"] = True
+    return adv
+
+
 @router.post("/openrouter/models/{model_id}/probe")
 async def probe(model_id: int, request: Request):
-    """Живые пробы модели: chat + (tools/structured/vision где заявлены).
+    """Живые пробы модели: chat всегда + tools/structured_output/vision/streaming,
+    но ТОЛЬКО там, где способность заявлена. Незаявленное пишется как
+    verified=NULL («не знаем»), а не False («проверили, не умеет»).
     Пишет advertised vs verified в model_capability_checks."""
     svc = _svc_or_404(request)
     async with svc.db.session() as s:
@@ -117,27 +139,30 @@ async def probe(model_id: int, request: Request):
         m = dict(model._mapping)
         provider = (await s.execute(sa.select(providers_t).where(
             providers_t.c.id == m["provider_id"]))).first()
+    if provider is None:
+        raise HTTPException(404, {"message": "провайдер модели не найден"})
     p = dict(provider._mapping)
     key = svc.vault.decrypt(p.get("api_key_enc")) or "test"
     client = OpenRouterClient(key, base_url=p.get("base_url") or "https://openrouter.ai/api/v1")
 
-    caps = m["caps"] if isinstance(m["caps"], dict) else {}
-    results = [await probe_chat(client, m["name"])]
-    if caps.get("tools"):
-        results.append(await probe_tools(client, m["name"]))
-        results.append(await probe_structured_output(client, m["name"]))
-    # vision-проба в паке не реализована — заявленная vision-способность остаётся
-    # advertised без verified (честно, без выдуманного результата)
+    advertised = await _advertised_for(svc, m)
+    results = await probe_model(client, m["name"], advertised)
 
     async with svc.db.session() as s:
         for r in results:
             await s.execute(sa.insert(caps_t).values(
                 model_id=model_id, capability=r.capability,
-                advertised=caps.get(r.capability, r.capability == "chat"),
-                verified=r.ok, detail=r.detail[:500], checked_at=utcnow()))
+                advertised=bool(advertised.get(r.capability, False)),
+                verified=r.verified,          # None, если пробу не гоняли
+                detail=r.detail[:500], checked_at=utcnow()))
         await s.commit()
+    await svc.bus.emit("model.capabilities_probed", model_id=model_id,
+                       verified=[r.capability for r in results if r.verified])
     return {"model_id": model_id,
-            "probes": [{"capability": r.capability, "verified": r.ok, "detail": r.detail}
+            "probes": [{"capability": r.capability,
+                        "advertised": bool(advertised.get(r.capability, False)),
+                        "verified": r.verified, "skipped": r.skipped,
+                        "detail": r.detail}
                        for r in results]}
 
 

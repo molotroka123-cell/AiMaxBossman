@@ -76,6 +76,8 @@
   transition: transform 100ms ease, background 100ms ease;
 }
 .cmd-btn:active { transform: scale(.97); }
+/* Одиночная кнопка карточки занимает всю ширину — палец попадает не целясь. */
+.cmd-card > .cmd-btn { width: 100%; }
 
 .cmd-btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 .cmd-btn-ok {
@@ -87,6 +89,106 @@
   background: color-mix(in srgb, var(--err) 16%, var(--panel-2));
   border-color: color-mix(in srgb, var(--err) 45%, transparent);
   color: var(--err);
+}
+
+/* --- Ряд действий: кнопки переносятся, но остаются ≥44px --- */
+
+.cmd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.cmd-actions .cmd-btn { flex: 1 1 96px; min-width: 96px; }
+
+/* --- Элемент списка внутри карточки (миссия, сессия рантайма) --- */
+
+.cmd-item {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  min-width: 0;
+}
+.cmd-item + .cmd-item { margin-top: 10px; }
+
+/* --- Предупреждение по ресурсам/здоровью --- */
+
+.cmd-warn { border-color: color-mix(in srgb, var(--err) 45%, transparent); }
+.cmd-warn-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--fg);
+}
+.cmd-warn-list li { overflow-wrap: anywhere; }
+
+/* --- Секции рантайма (Terminal / Browser / OpenCode) --- */
+
+.cmd-section + .cmd-section { margin-top: 14px; }
+.cmd-section-title {
+  font-size: 12px;
+  font-weight: 650;
+  margin-bottom: 8px;
+  color: var(--fg);
+}
+
+/* Моноширинный фрагмент не должен растягивать страницу по горизонтали. */
+.cmd-mono {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.cmd-pre {
+  margin: 8px 0 0;
+  padding: 8px;
+  background: var(--panel-2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  max-height: 220px;
+  overflow: auto;             /* длинный preview скроллится внутри себя */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cmd-link {
+  min-height: 44px;
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+  margin-top: 6px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* --- Чипы здоровья компонентов --- */
+
+.cmd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.cmd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--dim);
 }
 
 /* --- Approvals --- */
@@ -148,4 +250,5 @@
 @media (max-width: 380px) {
   .cmd-card { padding: 12px; }
   .cmd-btn { font-size: 13.5px; }
+  .cmd-actions .cmd-btn { flex: 1 1 84px; min-width: 84px; }
 }

@@ -101,19 +101,45 @@ async def _on_failure(svc):
     return on_failure
 
 
+def _step_fingerprint(message: dict) -> str:
+    """Отпечаток шага модели.
+
+    V2.1: у ответа с tool_calls content пуст, поэтому по одному тексту все такие
+    шаги выглядели одинаково — и Governor останавливал миссию, которая как раз
+    активно работала инструментами. Считаем прогрессом РАЗНЫЕ вызовы: имя
+    инструмента + аргументы. Повтор одного и того же вызова прогрессом не
+    считается — это и есть настоящее зацикливание.
+    """
+    calls = message.get("tool_calls") or []
+    if calls:
+        parts = []
+        for c in calls:
+            fn = c.get("function") or {}
+            parts.append(f"{fn.get('name')}({str(fn.get('arguments'))[:160]})")
+        return "|".join(parts)
+    return str(message.get("content") or "")[:160]
+
+
 async def _on_step(svc):
     async def on_step(task, run_id, checkpoint):
-        """No-progress: последние K ответов ассистента почти идентичны."""
+        """No-progress: последние K шагов модели неотличимы друг от друга.
+
+        Источник истины — сама история прогона (она в БД и переживает рестарт),
+        а не счётчик в памяти: GovernorState создаётся заново на каждый вызов,
+        поэтому копить прогресс в нём бессмысленно.
+        """
         st = await _state(svc)
-        msgs = checkpoint.get("messages") or []
-        answers = [m["content"] for m in msgs if m.get("role") == "assistant"]
-        verdict = "none"
-        for a in answers:
-            verdict = st.record_progress(float(hash(a[:80]) % 1000))
-        if verdict != "none" and len(answers) >= st.thresholds.no_progress_steps:
-            await _record(svc, "task", task["id"], "нет прогресса (одинаковые ответы)",
-                          "paused")
-            await svc.engine.pause(task["id"])
+        window = max(2, int(st.thresholds.no_progress_steps))
+        steps = [m for m in (checkpoint.get("messages") or []) if m.get("role") == "assistant"]
+        if len(steps) < window:
+            return
+        tail = [_step_fingerprint(m) for m in steps[-window:]]
+        if len(set(tail)) > 1:
+            return                      # шаги различаются — работа идёт
+        await _record(svc, "task", task["id"],
+                      f"нет прогресса: {window} одинаковых шагов подряд", "paused",
+                      {"fingerprint": tail[0][:200]})
+        await svc.engine.pause(task["id"])
     return on_step
 
 

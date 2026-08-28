@@ -246,12 +246,17 @@ def allowed_tools_for(task: dict, agent: dict) -> list[str]:
     """Какие инструменты видит модель в этом run'е.
 
     Приоритет: `tasks.meta.allowed_tools` (скилл/миссия) → `agents.tools`.
-    Пусто — значит инструментов нет вовсе (обратная совместимость с V2:
-    старые задачи работают ровно как раньше, одним вызовом модели)."""
+    Ничего не задано — инструментов нет вовсе (обратная совместимость с V2:
+    старые задачи работают ровно как раньше, одним вызовом модели).
+
+    ПУСТОЙ список в meta — это осознанное «никаких инструментов», а не
+    «ключа нет»: скилл без объявленных инструментов не должен наследовать
+    инструменты агента."""
     meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
-    explicit = meta.get("allowed_tools")
-    if isinstance(explicit, list) and explicit:
-        return [str(x) for x in explicit]
+    if "allowed_tools" in meta:
+        explicit = meta.get("allowed_tools")
+        if isinstance(explicit, list):
+            return [str(x) for x in explicit]
     tools = agent.get("tools")
     if isinstance(tools, list) and tools:
         return [str(x) if not isinstance(x, dict) else str(x.get("name") or "")
