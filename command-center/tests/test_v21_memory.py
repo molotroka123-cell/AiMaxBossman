@@ -435,3 +435,53 @@ def test_chunking_splits_by_heading():
     assert "Архитектура сервиса > Очереди задач" in heads
     assert all(c.source == "notes/architecture.md" for c in chunks)
     assert len(sections) == len(set(c.section_id for c in chunks))
+
+
+# ---------- 12. единственный писатель памяти (V2.3) ----------
+# Решение и основания: docs/architecture/MEMORY_SINGLE_WRITER.md
+
+def test_lexical_primitives_have_exactly_one_owner():
+    """Дубли токенизатора и переранжировщика не должны вернуться.
+
+    До правки `tokenize`/`stem` лежали ПОБАЙТНОЙ копией в `chunking.py` и в
+    `local_index.py`, а `LexicalReranker` был двумя разными классами с одним
+    именем. Наружу экспортировался старый, с зашитыми константами, — правка
+    «в переранжировщике» до боя не доходила вообще.
+    """
+    import bcc.v2.memory as memory
+    from bcc.v2.memory import chunking, local_index, reranker, sqlite_index
+
+    assert chunking.tokenize is local_index.tokenize
+    assert chunking.stem is local_index.stem
+    assert reranker.tokenize is local_index.tokenize
+    assert sqlite_index.tokenize is local_index.tokenize
+
+    assert memory.LexicalReranker is reranker.LexicalReranker
+    assert not hasattr(local_index, "LexicalReranker"), (
+        "копия переранжировщика вернулась в local_index")
+
+
+def test_reranker_default_weights_keep_the_previous_formula():
+    """Смена владельца не должна была изменить ранжирование."""
+    assert LexicalReranker().weights() == {"coverage": 2.0, "head_hit": 1.5,
+                                           "score": 0.05, "dense": 0.0}
+
+
+def test_snapshot_takes_only_rebuildable_stores(tmp_path):
+    """Заметки — источник истины, а не производное хранилище.
+
+    Снапшот копирует и ВОССТАНАВЛИВАЕТ производные хранилища поверх текущих.
+    Попади каталог заметок в allowlist — откат снапшота затирал бы заметки
+    владельца, то есть ровно ту потерю данных, ради которой всё это делается.
+    """
+    from bcc.v2.derived_stores import discover
+
+    (tmp_path / "memory").mkdir()
+    (tmp_path / "memory" / "index-abc.sqlite3").write_text("x", encoding="utf-8")
+    (tmp_path / "memory" / "index-abc.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "memory" / "BOSSMAN Memory").mkdir()
+    (tmp_path / "memory" / "BOSSMAN Memory" / "note.md").write_text(
+        "заметка владельца", encoding="utf-8")
+    (tmp_path / "secret.key").write_text("ключ", encoding="utf-8")
+
+    assert {p.name for p in discover(tmp_path)} == {"index-abc.sqlite3", "index-abc.json"}

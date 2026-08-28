@@ -1,10 +1,25 @@
-"""Чанкинг и лексика — ОБЩИЕ для всех backend'ов памяти.
+"""Чанкинг chunk-v4 — задел, В БОЮ ПОКА НЕ ИСПОЛЬЗУЕТСЯ.
 
-Почему отдельный модуль (qdrant.md §11, этап 0.1): пока `chunk_markdown` /
-`split_sections` / `tokenize` жили внутри `local_index.py`, любой второй backend
-обязан был бы их продублировать. Малейшее расхождение — и `chunk_hash`
-перестаёт совпадать, а на нём держатся `expand()` и цитирование в
-`context_pack`. Теперь `chunk_hash` — свойство корпуса, а не движка.
+ЧИТАЙ ПЕРЕД ПРАВКОЙ. Модуль писался как общий для всех backend'ов памяти
+(qdrant.md §11, этап 0.1), но переезд не был доведён до конца: ни один живой
+backend сюда не ходит. Владелец лексики и чанков — `local_index.py`:
+
+  * `LocalMemoryBackend` (JSON BM25) определяет `stem`/`tokenize`/`Chunk`/
+    `split_sections`/`chunk_markdown` у себя;
+  * `SQLiteMemoryBackend` импортирует их же из `local_index`;
+  * `reranker.LexicalReranker` тоже берёт `tokenize` из `local_index`.
+
+До правки V2.3 здесь лежала ПОБАЙТНАЯ копия `stem`/`tokenize` и таблиц
+суффиксов, и `reranker.py` тянул токенизатор именно отсюда. То есть запрос
+переранжировался одним токенизатором, а индекс строился другим — совпадали они
+только потому, что были копией. Одна правка в любом из двух файлов разошлась бы
+молча и испортила бы ранжирование. Теперь лексика здесь — ре-экспорт, и
+реализация ровно одна.
+
+Переход живых backend'ов на chunk-v4 — отдельное решение, а не побочный эффект
+уборки: формула `chunk_hash` тут другая, а на `chunk_hash` держатся `expand()`
+и цитирование в `context_pack`, поэтому смена схемы обязана идти вместе с
+перестроением индексов.
 
 Что здесь реализовано сверх переезда:
 
@@ -30,6 +45,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable, Iterator, NamedTuple
 
+# Владелец лексики — `local_index.py`, там же, куда за ней ходят оба живых
+# backend'а. Здесь только имена, чтобы прежние импорты не сломались.
+from .local_index import _WORD, _EN_SUFFIXES, _RU_SUFFIXES, stem, tokenize  # noqa: F401
+
 # Версия схемы чанкинга. Меняется, когда меняется РАЗБИЕНИЕ или формула
 # chunk_hash — тогда индекс обязан быть перестроен.
 CHUNK_SCHEMA_VERSION = "chunk-v4"
@@ -48,32 +67,10 @@ DEFAULT_EXCLUDED_DIRS = {".obsidian", ".trash", ".git", "node_modules", ".venv",
 
 
 # ------------------------------------------------------------------ лексика
-
-_WORD = re.compile(r"\w+", re.UNICODE)
-
-# грубый морфологический срез: он не «умный», но одинаково применяется и к
-# документу, и к запросу, поэтому «база / базу / базы» попадают в один терм.
-_RU_SUFFIXES = ("иями", "ями", "ами", "ого", "его", "ому", "ему", "ыми", "ими",
-                "ая", "яя", "ое", "ее", "ые", "ие", "ый", "ий", "ой", "ей",
-                "ов", "ев", "ам", "ям", "ах", "ях", "ию", "ия", "ье", "ью",
-                "а", "я", "ы", "и", "о", "е", "у", "ю", "ь", "й")
-_EN_SUFFIXES = ("ing", "ies", "ed", "es", "s")
-
-
-def stem(word: str) -> str:
-    if len(word) <= 3:
-        return word
-    for suf in _EN_SUFFIXES:
-        if word.endswith(suf) and len(word) - len(suf) >= 3 and word.isascii():
-            return word[: -len(suf)]
-    for suf in _RU_SUFFIXES:
-        if word.endswith(suf) and len(word) - len(suf) >= 3:
-            return word[: -len(suf)]
-    return word
-
-
-def tokenize(text: str) -> list[str]:
-    return [stem(w) for w in _WORD.findall(text.lower()) if len(w) > 1]
+#
+# Реализации здесь НЕТ и быть не должно: `stem`/`tokenize` живут у владельца
+# лексики (`local_index.py`, импорт в шапке модуля). Копии тут больше нет —
+# разошедшиеся токенизаторы ломают ранжирование молча.
 
 
 # ------------------------------------------------------------------ очистка
