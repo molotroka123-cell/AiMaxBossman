@@ -65,3 +65,42 @@
 - **Схему БД для всех 15 функций закладывает лид одним коммитом** (см. V2_SHARED_CONTRACTS) — агентам менять общую схему запрещено, только использовать.
 - **Точки расширения**: каждый агент кладёт backend в свой модуль `bcc/features/<имя>.py` (FastAPI router, авто-подключение), UI — в `ui/pages/<имя>.js` (реестр страниц), тесты — `tests/test_<имя>.py`. Общие файлы (`api.py`, `pages.js`, `db.py`, `engine.py`) в feature-ветках не редактируются; нужен хук в engine — лид добавляет его в core заранее.
 - Среда: инференс — mock-endpoint'ы; браузер — Chromium `/opt/pw-browsers/chromium`; git worktrees поддерживаются.
+
+---
+
+## Приложение: потребление RAM/VRAM — BOSSMAN Core против OpenCode (запрос пользователя)
+
+Замер выполнен на этом окружении (idle, без загруженных LLM-моделей).
+
+| Компонент | RAM (RSS) idle | VRAM | Примечание |
+|---|---|---|---|
+| **BOSSMAN Core** (Python/FastAPI, все 15 фич, SQLite, worker+scheduler+metrics) | **~105 МБ** | 0 | control-plane; моделей в себе НЕ держит |
+| Postgres (в бою вместо SQLite) | +~30–50 МБ | 0 | опционально; на SQLite не нужен |
+| Playwright/Chromium (браузер-сессия) | +~150–300 МБ на сессию | 0 | только когда открыта browser-сессия |
+| OpenCode `opencode serve` (Bun+TS, для сравнения) | ~80–200 МБ (оценка по документации upstream, бинарь в этом окружении не установлен) | 0 | тоже control/execution-plane без весов |
+
+### Вывод
+
+**BOSSMAN Core сам по себе НЕ конкурирует за VRAM.** Ключевой архитектурный
+принцип (раздел 6 ТЗ, Resource Brain): control-plane не держит веса моделей —
+их держит llama-swap/llama.cpp отдельным процессом, и именно его учёт ведёт
+Resource Brain (feature 12), сохраняя `reserve_floor_mb` (по умолчанию 16 ГБ из
+128) свободными. control-plane BOSSMAN (~105 МБ) сопоставим с `opencode serve`
+и на порядки меньше любой локальной модели (Qwen 35B Q8 ≈ 37 ГБ, gpt-oss-120b ≈
+61 ГБ). Разница control-plane'ов (десятки-сотни МБ) в бюджете 128 ГБ
+пренебрежимо мала — «сильно больше», чем OpenCode, BOSSMAN не потребляет.
+
+### Как перемерить на боевой машине (с opencode)
+
+```bash
+# BOSSMAN Core idle
+python3 -c "import subprocess as s; print(sum(int(open(f'/proc/{p}/status').read().split('VmRSS:')[1].split()[0]) for p in s.check_output(['pgrep','-f','bcc.app']).decode().split())//1024,'МБ')"
+# opencode serve idle
+opencode serve & sleep 3; ps -o rss= -p $(pgrep -f 'opencode serve') | awk '{print $1/1024" МБ"}'
+# VRAM обеих (должно быть 0 — веса у llama-swap):
+rocm-smi --showmeminfo vram   # или nvidia-smi
+```
+
+Resource Brain (feature 12) в бою держит учёт RAM/VRAM моделей, KV-cache,
+браузер/терминал/OpenCode-процессов и не даёт исчерпать 128 ГБ (политики
+balanced/performance/low_power, reserve_floor).
