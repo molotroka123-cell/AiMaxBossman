@@ -109,7 +109,7 @@ def test_tf_card_refuses_to_preheat(tmp_path):
     assert result.status == "REFUSED"
 
 
-def test_tf_card_transfer_copies_the_file_when_everything_is_satisfied(tmp_path):
+def test_tf_card_transfer_copies_the_file_when_everything_is_satisfied(tmp_path, profile):
     source = tmp_path / "model.gcode"
     source.write_text(SAFE_GCODE, encoding="utf-8")
     media = tmp_path / "media"
@@ -120,7 +120,7 @@ def test_tf_card_transfer_copies_the_file_when_everything_is_satisfied(tmp_path)
             confirmation=token, transport=Transport.TF_CARD,
             action=PhysicalAction.TRANSFER_TO_MEDIA, artifact_path=source,
         ),
-        allow_physical=True, scan=None, media_dir=str(media),
+        allow_physical=True, scan=scan_gcode(SAFE_GCODE, profile), media_dir=str(media),
     )
     assert result.status == "DONE"
     assert result.performed_physical_action is True
@@ -186,3 +186,65 @@ def test_dry_run_never_reports_a_physical_action(profile):
 def test_physical_print_smoke_on_real_neptune_3_plus():
     """Never run in CI. Requires the physical machine, filament and a human present."""
     raise AssertionError("this test must only ever run with the real printer and a human watching")
+
+
+# ------------------------------------------------------------- units in dry run
+def test_dry_run_reports_filament_in_millimetres_in_inch_mode(profile):
+    """G20 makes every E value an inch; 1 inch of filament is 25.4 mm."""
+    text = "G20\nG90\nM82\nG28\nG92 E0\nG1 X1 Y1 Z0.008 E1\n"
+    scan = scan_gcode(text, profile)
+    report = dry_run(text, profile, scan)
+    assert report.filament_mm == pytest.approx(25.4)
+
+
+# ------------------------------------------- gcode may never be sent unscanned
+def test_gcode_artifact_cannot_be_transferred_without_a_scan(tmp_path):
+    """`gcode_scanned_before_any_transfer` in app.manifest.yaml must be true in code."""
+    source = tmp_path / "model.gcode"
+    source.write_text(SAFE_GCODE, encoding="utf-8")
+    media = tmp_path / "media"
+    media.mkdir()
+    token = confirmation_token("job1", "a" * 64)
+    with pytest.raises(UnsafeGcodeError, match="not been scanned"):
+        execute_physical(
+            make_request(
+                confirmation=token, transport=Transport.TF_CARD,
+                action=PhysicalAction.TRANSFER_TO_MEDIA, artifact_path=source,
+            ),
+            allow_physical=True, scan=None, media_dir=str(media),
+        )
+    assert not (media / "model.gcode").exists()
+
+
+def test_an_unscanned_gcode_file_under_a_disguised_extension_is_still_refused(tmp_path):
+    """Renaming model.gcode to model.gco must not skip the scan."""
+    source = tmp_path / "model.gco"
+    source.write_text(SAFE_GCODE, encoding="utf-8")
+    media = tmp_path / "media"
+    media.mkdir()
+    token = confirmation_token("job1", "a" * 64)
+    with pytest.raises(UnsafeGcodeError):
+        execute_physical(
+            make_request(
+                confirmation=token, transport=Transport.TF_CARD,
+                action=PhysicalAction.TRANSFER_TO_MEDIA, artifact_path=source,
+            ),
+            allow_physical=True, scan=None, media_dir=str(media),
+        )
+
+
+def test_an_stl_artifact_still_transfers_without_a_gcode_scan(tmp_path):
+    """The scan requirement applies to machine instructions, not to geometry."""
+    source = tmp_path / "model.stl"
+    source.write_bytes(b"solid x\nendsolid x\n")
+    media = tmp_path / "media"
+    media.mkdir()
+    token = confirmation_token("job1", "a" * 64)
+    result = execute_physical(
+        make_request(
+            confirmation=token, transport=Transport.TF_CARD,
+            action=PhysicalAction.TRANSFER_TO_MEDIA, artifact_path=source,
+        ),
+        allow_physical=True, scan=None, media_dir=str(media),
+    )
+    assert result.status == "DONE"

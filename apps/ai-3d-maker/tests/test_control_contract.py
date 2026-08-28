@@ -282,3 +282,28 @@ def test_control_plane_construction_is_cheap_and_repeatable(settings):
     a = ControlPlane(settings)
     b = ControlPlane(settings)
     assert a.profile.id == b.profile.id
+
+
+def test_the_control_plane_scans_machine_instructions_by_content_not_extension(control):
+    """A print program dropped into a job under a harmless name is still scanned."""
+    asyncio.run(control.jobs_create(simple_payload("sniff")))
+    job_dir = Path(control.store.get("sniff").directory)
+    (job_dir / "notes.txt").write_text(
+        "G90\nM82\nG28\nM104 S400\nG1 X10 Y10 Z0.2 E1\n", encoding="utf-8"
+    )
+    token = control.confirmation_for("sniff", "notes.txt")["confirmation"]
+    result = control.printer_confirm({
+        "job_id": "sniff", "artifact": "notes.txt",
+        "action": "transfer_to_media", "confirmation": token,
+    })
+    assert result["error"] == "UNSAFE_GCODE"
+
+
+def test_the_control_plane_reports_whether_the_artifact_was_scanned(control):
+    asyncio.run(control.jobs_create(simple_payload("scanned")))
+    token = control.confirmation_for("scanned")["confirmation"]
+    result = control.printer_confirm({
+        "job_id": "scanned", "action": "transfer_to_media", "confirmation": token,
+    })
+    assert result["gcode_scan"] is None
+    assert result["artifact_is_machine_instructions"] is False

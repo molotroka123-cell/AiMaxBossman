@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from ai_3d_maker.gcode import scan_gcode
 from conftest import SAFE_GCODE
 
@@ -139,3 +141,65 @@ def test_empty_gcode_passes_trivially(profile):
     scan = scan_gcode("", profile)
     assert scan.status == "PASS"
     assert scan.commands_scanned == 0
+
+
+# --------------------------------------------------------------- units mode
+def test_inch_mode_extrusion_outside_the_envelope_is_rejected(profile):
+    """G20 switches Marlin to inches. X13 in = 330.2 mm, outside a 320 mm bed.
+
+    Without unit tracking the scanner reads '13' as 13 mm and passes an
+    instruction that would drive the head into the frame while extruding.
+    """
+    scan = scan_gcode("G20\nG90\nM82\nG28\nG1 X13 Y13 Z0.008 E1", profile)
+    assert scan.status == "FAILED"
+    assert any("outside" in i["message"] for i in scan.issues)
+
+
+def test_inch_mode_is_recorded_in_the_scan(profile):
+    scan = scan_gcode("G20\nG90\nM82\nG28\nG1 X1 Y1 Z0.008 E1", profile)
+    assert scan.units_mode == "inch"
+    # 1 inch has to be reported back in millimetres, not as "1".
+    assert scan.extrusion_bounds_max_mm["X"] == pytest.approx(25.4)
+
+
+def test_g21_switches_back_to_millimetres(profile):
+    scan = scan_gcode("G20\nG21\nG90\nM82\nG28\nG1 X13 Y13 Z0.2 E1", profile)
+    assert scan.status != "FAILED"
+    assert scan.units_mode == "mm"
+
+
+def test_inch_mode_scales_g92_resets(profile):
+    """G92 X12 in inch mode means 304.8 mm; +1 in relative is off the bed."""
+    scan = scan_gcode("G20\nG90\nM82\nG28\nG92 X12\nG91\nG1 X1 E1", profile)
+    assert scan.status == "FAILED"
+    mm = scan_gcode("G21\nG90\nM82\nG28\nG92 X12\nG91\nG1 X1 E1", profile)
+    assert mm.status != "FAILED"
+
+
+# ------------------------------------------------- safety-relevant commands
+def test_cold_extrusion_override_is_rejected_even_in_non_strict_mode(profile):
+    """M302 disables the firmware's cold-extrusion guard."""
+    scan = scan_gcode("G28\nM302 S0", profile, strict_unknown=False)
+    assert scan.status == "FAILED"
+    assert any(i["command"] == "M302" for i in scan.issues)
+
+
+def test_pid_autotune_is_rejected_even_in_non_strict_mode(profile):
+    """M303 heats the hotend unattended for minutes and may persist values."""
+    scan = scan_gcode("G28\nM303 E0 S250 C8", profile, strict_unknown=False)
+    assert scan.status == "FAILED"
+
+
+def test_stepper_current_change_is_flagged_even_in_non_strict_mode(profile):
+    scan = scan_gcode("G28\nM906 X2000", profile, strict_unknown=False)
+    assert scan.status != "PASS"
+    assert any(i["command"] == "M906" for i in scan.issues)
+
+
+def test_park_command_is_modelled_and_not_treated_as_unknown(profile):
+    scan = scan_gcode("G28\nG27", profile, strict_unknown=True)
+    assert scan.status == "PASS"
+
+
+def test_safety_relevant_commands_are_never_hidden_by_a_comment(profile):
+    assert scan_gcode("G28\n; M302 S0 in a comment", profile).status == "PASS"

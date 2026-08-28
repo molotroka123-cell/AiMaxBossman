@@ -30,7 +30,14 @@ from .gcode import GCodeScan, scan_gcode
 from .mesh import sha256_file
 from .paths import resolve_within, safe_job_id
 from .pipeline import GCODE_NAME, JobRequest, Pipeline
-from .printer import PhysicalAction, PhysicalRequest, Transport, confirmation_token, execute_physical
+from .printer import (
+    PhysicalAction,
+    PhysicalRequest,
+    Transport,
+    confirmation_token,
+    execute_physical,
+    looks_like_gcode,
+)
 from .profile import PrinterProfile, load_material_defaults
 from .spec import DesignSpec
 from .storage import JobStore
@@ -235,8 +242,11 @@ class ControlPlane:
             raise Ai3dError(f"job {job_id!r} has no artifact to send")
 
         digest = sha256_file(artifact)
+        # Whether a file is a print program is decided by its content, not by
+        # its name: `model.gcode` renamed to `notes.txt` is still scanned.
+        is_machine_instructions = looks_like_gcode(artifact)
         scan: GCodeScan | None = None
-        if artifact.suffix.lower() == ".gcode":
+        if is_machine_instructions:
             scan = scan_gcode(
                 artifact.read_text(encoding="utf-8", errors="replace"),
                 self.profile,
@@ -263,11 +273,15 @@ class ControlPlane:
             payload_out["job_id"] = job_id
             payload_out["artifact"] = str(artifact)
             payload_out["artifact_sha256"] = digest
+            payload_out["artifact_is_machine_instructions"] = is_machine_instructions
+            payload_out["gcode_scan"] = scan.as_dict() if scan else None
             return payload_out
         out = result.as_dict()
         out["job_id"] = job_id
         out["artifact"] = str(artifact)
         out["artifact_sha256"] = digest
+        out["artifact_is_machine_instructions"] = is_machine_instructions
+        out["gcode_scan"] = scan.as_dict() if scan else None
         return out
 
     def confirmation_for(self, job_id: str, artifact_name: str | None = None) -> dict:
