@@ -88,7 +88,9 @@ def _render(snapshot: dict) -> ToolResult:
         label = el.get("text") or el.get("aria") or el.get("placeholder") or el.get("name") or ""
         mark = " [ЗАПОЛНЕНО]" if el.get("filled") else ""
         if el.get("secret"):
-            label = "(поле пароля — значение недоступно)" + mark
+            # Не только пароль: скрытые поля, коды из SMS, токены. Значение
+            # модели не нужно ни для одного сценария — достаточно факта.
+            label = "(секретное поле — значение недоступно)" + mark
         lines.append(f"[ref={el.get('ref') or el.get('i')}] <{el.get('tag')}"
                      + (f" type={el.get('type')}" if el.get("type") else "")
                      + (f" name={el.get('name')}" if el.get("name") else "")
@@ -331,10 +333,13 @@ async def _login(args, ctx):
         return await m.snapshot(sid, actor="agent", approved=True)
 
     result = await _act(ctx, args, "login", run)
-    # Последняя страховка: что бы ни попало в текст результата, секрета там не будет.
+    # Последняя страховка: что бы ни попало в результат, секрета там не будет.
+    # `data` чистим наравне с текстом: туда кладётся `url`, а форма входа с
+    # `method=GET` уносит пароль именно в адрес.
     if secret:
         result.content = redact_secrets(result.content, {secret})
         result.one_line = redact_secrets(result.one_line, {secret})
+        result.data = redact_secrets(result.data, {secret})
     return result
 
 

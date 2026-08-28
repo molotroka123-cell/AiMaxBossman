@@ -29,12 +29,15 @@ class FakeGateway:
     """Минимальный Gateway на реальном протоколе OpenClaw."""
 
     def __init__(self, *, scopes=REQUIRED_SCOPES, token="", config=None,
-                 send_challenge=True, fail_connect=""):
+                 send_challenge=True, fail_connect="", config_error=""):
         self.scopes = list(scopes)
         self.token = token
         self.config = config or {}
         self.send_challenge = send_challenge
         self.fail_connect = fail_connect
+        # Gateway, который не отдаёт конфигурацию: нет права, старая версия,
+        # метод выключен. Ровно тот случай, в котором мост шёл вслепую.
+        self.config_error = config_error
         self.seen: list[dict] = []
         self.server = None
         self.url = ""
@@ -78,6 +81,9 @@ class FakeGateway:
             elif method == "health":
                 await self._ok(ws, mid, {"ok": True, "plugins": {"loaded": ["memory-core"]}})
             elif method == "config.get":
+                if self.config_error:
+                    await self._err(ws, mid, self.config_error, "нет доступа к конфигурации")
+                    continue
                 await self._ok(ws, mid, self.config)
             elif method == "agents.list":
                 await self._ok(ws, mid, {"defaultId": "main", "agents": [{"id": "main"}]})
@@ -234,22 +240,25 @@ async def test_methods_outside_v1_are_refused_before_the_wire(gateway):
 
 
 async def test_memory_conflict_blocks_the_bridge(gateway):
+    """Соединение не должно устанавливаться вообще, а не «проверяться потом».
+
+    Раньше тест звал `br._check_memory(ws)` руками — и был зелёным при том,
+    что боевой путь проверку не вызывал. Теперь проверка сидит в `_open`, и
+    сюда мы приходим тем же путём, что и бой.
+    """
     ours = "/home/user/Obsidian/BOSSMAN"
     gw = await gateway(config={"memory": {"wiki": {"path": ours, "render": "obsidian"}}})
     br = _bridge(gw.url, vault_root=ours)
-    async with br._lock:
-        ws = await br._open()
-        with pytest.raises(OpenClawMemoryConflict, match="потеря данных"):
-            await br._check_memory(ws)
+    with pytest.raises(OpenClawMemoryConflict, match="потеря данных"):
+        await br._open()
+    assert br._ws is None, "соединение с конфликтующей памятью осталось открытым"
     await br.close()
 
 
 async def test_memory_check_passes_when_vaults_are_separate(gateway):
     gw = await gateway(config={"memory": {"wiki": {"path": "/root/.openclaw/wiki"}}})
     br = _bridge(gw.url, vault_root="/home/user/Obsidian/BOSSMAN")
-    async with br._lock:
-        ws = await br._open()
-        await br._check_memory(ws)              # не бросает
+    assert await br._open() is not None         # не бросает
     await br.close()
 
 
@@ -293,3 +302,151 @@ async def test_unconfigured_bridge_says_so_instead_of_crashing():
     assert br.available is False
     with pytest.raises(OpenClawUnavailable, match="не настроен"):
         await br.health()
+
+
+# ------------------------------------- враждебная перепроверка (V2.3, §1.2 и §2)
+# Условие 3 §13 считалось закрытым. Проверка была написана, тестами покрыта — и
+# НИКОГДА не вызывалась из боевого пути: `_open` звал только `_handshake`.
+# Тесты выше дёргали `br._check_memory(ws)` руками, поэтому были зелёными.
+
+async def test_memory_check_actually_runs_on_connect(gateway):
+    """Проверка памяти обязана срабатывать сама, без ручного вызова.
+
+    Именно этот тест ловит «проверка есть, но её никто не зовёт»: он ходит
+    ровно тем путём, которым пойдёт бой, — обычным вызовом моста.
+    """
+    ours = "/home/user/Obsidian/BOSSMAN"
+    gw = await gateway(config={"memory": {"wiki": {"path": ours, "render": "obsidian"}}})
+    br = _bridge(gw.url, vault_root=ours)
+    with pytest.raises(OpenClawMemoryConflict, match="потеря данных"):
+        await br.health()
+    await br.close()
+
+
+async def test_connect_succeeds_when_vaults_are_separate(gateway):
+    """Обратная сторона: честно разведённые каталоги не должны мешать работе."""
+    gw = await gateway(config={"memory": {"wiki": {"path": "/root/.openclaw/wiki"}}})
+    br = _bridge(gw.url, vault_root="/home/user/Obsidian/BOSSMAN")
+    assert (await br.health())["ok"] is True
+    await br.close()
+
+
+async def test_unreadable_config_is_refused_not_ignored(gateway):
+    """Нет ответа на `config.get` — значит гарантии нет, а не «всё хорошо».
+
+    Раньше исключение глоталось и мост шёл дальше вслепую. Цена ошибки
+    несимметрична: отказ подключиться чинится за минуту, перезатёртые заметки
+    владельца не чинятся ничем.
+    """
+    from bcc.v2.openclaw_bridge import OpenClawMemoryUnverified
+
+    gw = await gateway(config_error="FORBIDDEN")
+    br = _bridge(gw.url, vault_root="/home/user/Obsidian/BOSSMAN")
+    with pytest.raises(OpenClawMemoryUnverified, match="ГАРАНТИИ НЕТ"):
+        await br.health()
+    # это подвид конфликта памяти — прежние обработчики продолжают работать
+    assert issubclass(OpenClawMemoryUnverified, OpenClawMemoryConflict)
+    await br.close()
+
+
+async def test_no_vault_configured_means_nothing_to_protect(gateway):
+    """Без `vault_root` защищать нечего — конфигурацию даже не спрашиваем."""
+    gw = await gateway(config_error="FORBIDDEN")
+    br = _bridge(gw.url)
+    assert (await br.health())["ok"] is True
+    assert not [m for m in gw.seen if m.get("method") == "config.get"]
+    await br.close()
+
+
+# ------------------------------------------------- нормализация путей хранилища
+
+def test_memory_conflict_sees_through_symlink(tmp_path):
+    """Символическая ссылка на наш каталог — тот же каталог.
+
+    Сравнение строк этого не видит: `/tmp/их-vault` и `/home/.../BOSSMAN` —
+    разные строки и один и тот же inode.
+    """
+    ours = tmp_path / "Obsidian" / "BOSSMAN"
+    ours.mkdir(parents=True)
+    link = tmp_path / "openclaw-vault"
+    link.symlink_to(ours, target_is_directory=True)
+    assert memory_conflict({"memory": {"wiki": {"path": str(link)}}}, str(ours))
+
+
+def test_memory_conflict_normalises_tilde_relative_and_noise(tmp_path, monkeypatch):
+    """`~`, относительный путь, лишние слэши и `..` — это тот же каталог."""
+    home = tmp_path / "home"
+    (home / "Obsidian" / "BOSSMAN").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir(home)
+    ours = str(home / "Obsidian" / "BOSSMAN")
+
+    for written in ("~/Obsidian/BOSSMAN",
+                    "Obsidian/BOSSMAN",
+                    "./Obsidian//BOSSMAN/",
+                    "Obsidian/BOSSMAN/../BOSSMAN"):
+        assert memory_conflict({"memory": {"path": written}}, ours), written
+
+
+def test_memory_conflict_ignores_letter_case(tmp_path):
+    """На регистронезависимой ФС `/BOSSMAN` и `/bossman` — один каталог."""
+    ours = tmp_path / "Obsidian" / "BOSSMAN"
+    ours.mkdir(parents=True)
+    theirs = str(tmp_path / "Obsidian" / "bossman")
+    assert memory_conflict({"memory": {"path": theirs}}, str(ours))
+
+
+def test_memory_conflict_catches_nesting_in_both_directions(tmp_path):
+    """Вложенность в любую сторону — тоже два писателя в одни заметки."""
+    ours = tmp_path / "vault"
+    ours.mkdir()
+    inner = str(ours / "OpenClaw" / "wiki")           # их каталог внутри нашего
+    outer = str(tmp_path)                             # наш каталог внутри их
+    assert memory_conflict({"memory": {"path": inner}}, str(ours))
+    assert memory_conflict({"memory": {"path": outer}}, str(ours))
+    # сосед по родителю конфликтом не является
+    assert memory_conflict({"memory": {"path": str(tmp_path / "vault-other")}},
+                           str(ours)) == ""
+
+
+def test_memory_conflict_looks_at_the_whole_config(tmp_path):
+    """Путь может лежать где угодно в их конфигурации, не только под `memory`."""
+    ours = tmp_path / "vault"
+    ours.mkdir()
+    assert memory_conflict({"agents": {"main": {"workspace": str(ours)}}}, str(ours))
+
+
+# ----------------------------------------------- ключ идемпотентности отправки
+
+def test_idempotency_key_from_call_id_alone_is_not_retry_safe():
+    """`call_id` выдаёт ПРОВАЙДЕР модели, и при повторе он другой.
+
+    Сценарий, из-за которого человек получает сообщение дважды: процесс умер
+    после `sessions.send`, но до `_save_checkpoint` (bcc/engine.py:413).
+    `recover()` вернул run в очередь с прошлым checkpoint'ом, модель повторила
+    вызов — и провайдер выдал НОВЫЙ `tool_calls[].id`. Ключ другой, OpenClaw
+    видит новую операцию, клиенту уходит второе сообщение.
+    """
+    first = idempotency_key(mission_id=7, run_id=42, call_id="call_abc")
+    after_crash = idempotency_key(mission_id=7, run_id=42, call_id="call_zzz")
+    assert first != after_crash          # это и есть дыра, зафиксируем её честно
+
+
+def test_send_key_survives_a_new_provider_call_id():
+    """Ключ отправки выводится из СОДЕРЖИМОГО, поэтому переживает повтор."""
+    payload = {"channel": "telegram", "contact": "@owner", "text": "смета готова"}
+    first = idempotency_key(mission_id=7, run_id=42, call_id="call_abc", payload=payload)
+    after_crash = idempotency_key(mission_id=7, run_id=42, call_id="call_zzz",
+                                  payload=payload)
+    assert first == after_crash, "ретрай движка стал бы вторым сообщением человеку"
+    # порядок ключей в словаре роли не играет — сериализация каноническая
+    assert first == idempotency_key(
+        mission_id=7, run_id=42,
+        payload={"text": "смета готова", "contact": "@owner", "channel": "telegram"})
+    # другое сообщение, другой получатель, другой run — другой ключ
+    assert first != idempotency_key(mission_id=7, run_id=42,
+                                    payload={**payload, "text": "смета не готова"})
+    assert first != idempotency_key(mission_id=7, run_id=42,
+                                    payload={**payload, "contact": "@client"})
+    assert first != idempotency_key(mission_id=7, run_id=43, payload=payload)
+    assert first.startswith("bossman-")

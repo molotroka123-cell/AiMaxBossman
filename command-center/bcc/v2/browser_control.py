@@ -193,25 +193,87 @@ class BrowserRuntimeSession:
     captcha: dict[str, Any] = field(default_factory=dict)
 
 
+MASK = "***"
+# Короче этого куска совпадение уликой не считаем: секрет «password2026» иначе
+# вычистил бы со страницы каждое слово на «pass», и модель осталась бы слепой.
+MIN_PARTIAL_LEN = 12
+
+
+def _secret_variants(secret: str) -> list[str]:
+    """Формы, в которых секрет РЕАЛЬНО встречается в тексте для модели.
+
+    Точное совпадение — наивное допущение: по дороге к модели строка успевает
+    измениться. Снимок схлопывает пробелы (`clean()`), адрес приезжает
+    percent-кодированным, разметка — с HTML-экранированием. Каждая такая форма
+    остаётся тем же секретом.
+    """
+    import html as _html
+    from urllib.parse import quote, quote_plus
+
+    out: list[str] = [secret]
+    for value in (re.sub(r"\s+", " ", secret).strip(),     # ровно то, что делает clean()
+                  secret.strip(),
+                  quote(secret, safe=""), quote_plus(secret),
+                  _html.escape(secret)):
+        if value and value not in out:
+            out.append(value)
+    # Длинные варианты маскируем первыми: короткий иначе съел бы хвост длинного.
+    return sorted(out, key=len, reverse=True)
+
+
+def _mask_variant(text: str, variant: str) -> str:
+    """Замаскировать вариант секрета, включая его обрезанный вид.
+
+    Обрезка встречается на каждом шагу: `slice(0, 220)` в снимке, `[:500]` в
+    превью инструмента, `[:200]` в событии шины. Обрезанный ключ API — это
+    по-прежнему ключ API, поэтому ищем самый длинный префикс, который в тексте
+    действительно есть.
+    """
+    if not variant:
+        return text
+    if variant in text:
+        text = text.replace(variant, MASK)
+    if len(variant) < MIN_PARTIAL_LEN:
+        return text
+    while True:
+        lo, hi, best = MIN_PARTIAL_LEN, len(variant) - 1, 0
+        while lo <= hi:                      # «префикс есть» монотонно по длине
+            mid = (lo + hi) // 2
+            if variant[:mid] in text:
+                best, lo = mid, mid + 1
+            else:
+                hi = mid - 1
+        if not best:
+            return text
+        # MASK короче MIN_PARTIAL_LEN, поэтому замена не порождает новых совпадений
+        text = text.replace(variant[:best], MASK)
+
+
 def redact_secrets(value: Any, secrets: set[str]) -> Any:
     """Убрать известные секреты из всего, что уйдёт модели или в лог.
 
-    Вторая линия обороны. Первая — не класть значение пароля в снимок вовсе
-    (см. `snapshot`), но пароль мог быть введён и в поле `type=text`, и тогда
-    его вернул бы `el.value` обычного поля.
+    Вторая линия обороны. Первая — не класть значение секретного поля в снимок
+    вовсе (см. `snapshot`), но секрет мог быть введён и в обычное поле, и тогда
+    его вернул бы `el.value`.
     """
     if not secrets:
         return value
-    if isinstance(value, str):
-        for secret in secrets:
-            if secret and secret in value:
-                value = value.replace(secret, "***")
-        return value
-    if isinstance(value, dict):
-        return {k: redact_secrets(v, secrets) for k, v in value.items()}
-    if isinstance(value, list):
-        return [redact_secrets(v, secrets) for v in value]
-    return value
+    # Варианты считаем ОДИН раз на вызов, а не на каждую строку: снимок — это
+    # сотни полей, и пересчёт кодировок на каждом был бы заметен.
+    variants = [v for secret in secrets for v in _secret_variants(secret)]
+
+    def walk(node: Any) -> Any:
+        if isinstance(node, str):
+            for variant in variants:
+                node = _mask_variant(node, variant)
+            return node
+        if isinstance(node, dict):
+            return {k: walk(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [walk(v) for v in node]
+        return node
+
+    return walk(value)
 
 
 # Признаки капчи на странице. Мы её НЕ решаем: капча — это осознанно
@@ -254,6 +316,34 @@ def detect_captcha(html: str, text: str) -> dict[str, Any]:
             return {"present": True, "provider": name, "matched": marker,
                     "evidence": "текст страницы"}
     return {"present": False}
+
+
+# Признак «секретное поле» — ОДИН на снимок и на проверку ссылки.
+#
+# Раньше он был ровно `type === 'password'`, и мимо проходили: CSRF/сессионный
+# токен в `type=hidden`, код из SMS (`autocomplete=one-time-code`), пароль в
+# `type=text` с `autocomplete=current-password`. Ни одно из этих значений модели
+# не нужно ни для одного сценария — ей достаточно знать, что поле есть и
+# заполнено.
+#
+# Держать признак в одном месте обязательно: если снимок прячет значение, а
+# проверка `ref` его читает, отпечатки расходятся и каждый клик по такому полю
+# падает ложным StaleElementReference.
+_JS_IS_SECRET = """((el) => {
+  if ((el.tagName || '').toLowerCase() !== 'input') return false;
+  const type = (el.getAttribute('type') || '').toLowerCase();
+  const ac = (el.getAttribute('autocomplete') || '').toLowerCase();
+  const ident = ((el.getAttribute('name') || '') + ' '
+                 + (el.getAttribute('id') || '')).toLowerCase();
+  return type === 'password' || type === 'hidden'
+      || ac.indexOf('password') >= 0 || ac.indexOf('one-time-code') >= 0
+      || /pass|pwd|secret|token|otp|2fa|mfa|cvv|csrf|api[-_]?key/.test(ident);
+})"""
+
+
+def _js(source: str) -> str:
+    """Подставить общий признак секретности в JS-выражение."""
+    return source.replace("__IS_SECRET__", _JS_IS_SECRET)
 
 
 def _fingerprint(item: dict[str, Any]) -> str:
@@ -395,7 +485,12 @@ class BrowserManager:
 
     async def status(self, session_id: int) -> dict[str, Any]:
         sess = self._session(session_id)
-        return {
+        # Редакция обязательна и здесь, а не только в `snapshot`: `status()` —
+        # это то, что возвращают click / type / select / back / reload, а форма
+        # входа с `method=GET` уносит пароль прямо в адресную строку. Без этой
+        # чистки он уходил модели строкой «URL:», в шину событий и в колонку
+        # `browser_sessions.current_url` — то есть оседал в журнале навсегда.
+        return redact_secrets({
             "id": session_id,
             "url": sess.page.url,
             "title": await sess.page.title(),
@@ -404,7 +499,7 @@ class BrowserManager:
             "profile_name": sess.profile_name,
             "mode": sess.policy.mode,
             "pages": len(sess.context.pages),
-        }
+        }, sess.secrets)
 
     async def pause(self, session_id: int) -> dict[str, Any]:
         sess = self._session(session_id)
@@ -445,18 +540,17 @@ class BrowserManager:
             loc = sess.page.locator(f'[data-bcc-ref="{ref}"]')
             if await loc.count() != 1:
                 raise StaleElementReference(ref, "элемент исчез со страницы")
-            item = await loc.evaluate(
+            item = await loc.evaluate(_js(
                 """(el) => ({
                   tag: el.tagName.toLowerCase(),
                   role: el.getAttribute('role') || '',
                   name: el.getAttribute('name') || '',
                   type: el.getAttribute('type') || '',
                   href: el.href || '',
-                  text: (el.tagName.toLowerCase() === 'input'
-                         && (el.getAttribute('type') || '').toLowerCase() === 'password')
+                  text: __IS_SECRET__(el)
                         ? '' : (el.innerText || el.value || '')
                              .replace(/\\s+/g, ' ').trim().slice(0, 220),
-                })""")
+                })"""))
             if _fingerprint(item) != known["fingerprint"]:
                 raise StaleElementReference(
                     ref, "на месте элемента теперь другой — страница изменилась")
@@ -543,8 +637,9 @@ class BrowserManager:
         # DOM-first snapshot: cheap and deterministic. Vision only receives screenshot when needed.
         sess.generation += 1
         generation = sess.generation
-        data = await page.evaluate(
+        data = await page.evaluate(_js(
             """(limits) => {
+              const isSecret = __IS_SECRET__;
               const clean = (s) => (s || '').replace(/\\s+/g, ' ').trim();
               const text = clean(document.body ? document.body.innerText : '').slice(0, limits.maxText);
               const selectors = 'a,button,input,textarea,select,[role="button"],[role="link"],[tabindex]';
@@ -556,11 +651,12 @@ class BrowserManager:
               });
               const interactive = nodes.map((el, i) => {
                 const tag = el.tagName.toLowerCase();
-                const type = (el.getAttribute('type') || '').toLowerCase();
-                // ЗНАЧЕНИЕ ПОЛЯ ПАРОЛЯ НЕ ПОКИДАЕТ СТРАНИЦУ. Модели достаточно
-                // знать, что поле заполнено, — само значение ей не нужно ни для
-                // одного сценария.
-                const secret = tag === 'input' && type === 'password';
+                // ЗНАЧЕНИЕ СЕКРЕТНОГО ПОЛЯ НЕ ПОКИДАЕТ СТРАНИЦУ. Модели
+                // достаточно знать, что поле заполнено, — само значение ей не
+                // нужно ни для одного сценария. Признак — общий с проверкой
+                // ссылки (см. _JS_IS_SECRET): не только `type=password`, но и
+                // `type=hidden`, коды из SMS и пароли в текстовых полях.
+                const secret = isSecret(el);
                 const raw = secret ? '' : clean(el.innerText || el.value || '');
                 const ref = 'e' + limits.generation + '-' + i;
                 el.setAttribute('data-bcc-ref', ref);
@@ -581,7 +677,7 @@ class BrowserManager:
                 };
               });
               return { text, interactive };
-            }""",
+            }"""),
             {"maxText": max_text, "maxInteractive": max_interactive,
              "generation": generation},
         )
