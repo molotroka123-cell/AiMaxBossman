@@ -14,9 +14,22 @@
 
 Совпадение семантик проверяется тестом на одной и той же HTML-странице.
 
-Одно правило порта, которое не обходится ничем: **значение поля `type=password`
-не покидает страницу.** Оно не возвращается ни в снимке, ни в описании цели, ни
-в отпечатке. Наружу уходит только факт «поле заполнено».
+Одно правило порта, которое не обходится ничем: **значение секретного поля не
+покидает страницу.** Оно не возвращается ни в снимке, ни в описании цели, ни в
+отпечатке. Наружу уходит только факт «поле заполнено».
+
+Что считается секретным полем — решается ОДНОЙ функцией на обе реализации
+(`SECRET_FIELD_JS` и `is_secret_field`). Раньше признаком было ровно
+`type=password`, и мимо него проходили: токен формы и сессии в `type=hidden`,
+код из SMS (`autocomplete=one-time-code`), пароль в `type=text` с
+`autocomplete=current-password` — старые формы входа и формы с кнопкой
+«показать пароль». Ни одно из этих значений не нужно ни для одного сценария:
+чтобы отправить форму, достаточно нажать кнопку, а скрытые поля отправит сам
+браузер.
+
+Держать признак в одном месте обязательно и по второй причине: если снимок
+прячет значение, а повторная проверка цели его читает, отпечатки расходятся, и
+каждое действие над таким полем падает ложной «устаревшей целью».
 """
 from __future__ import annotations
 
@@ -28,6 +41,38 @@ from .selectors import ALL_KINDS
 
 REF_ATTRIBUTE = "data-sf-ref"
 _WS = re.compile(r"\s+")
+
+# Имя или идентификатор поля, выдающие секрет даже при безобидном типе.
+_SECRET_IDENT = re.compile(
+    r"pass|pwd|secret|token|otp|2fa|mfa|cvv|csrf|api[-_]?key|recovery|backup[-_]?code")
+
+
+def is_secret_field(*, tag: str, type_: str, autocomplete: str = "",
+                    name: str = "", element_id: str = "") -> bool:
+    """Питоновская половина признака секретности. Зеркало `SECRET_FIELD_JS`."""
+    if (tag or "").lower() != "input":
+        return False
+    type_ = (type_ or "").lower()
+    autocomplete = (autocomplete or "").lower()
+    ident = f"{name or ''} {element_id or ''}".lower()
+    return (type_ in {"password", "hidden"}
+            or "password" in autocomplete or "one-time-code" in autocomplete
+            or bool(_SECRET_IDENT.search(ident)))
+
+
+# Тот же признак на JavaScript. Правится ТОЛЬКО вместе с `is_secret_field` —
+# расхождение половин проверяется тестом на одной и той же странице.
+SECRET_FIELD_JS = r"""((el) => {
+  if ((el.tagName || '').toLowerCase() !== 'input') return false;
+  const type = (el.getAttribute('type') || '').toLowerCase();
+  const ac = (el.getAttribute('autocomplete') || '').toLowerCase();
+  const ident = ((el.getAttribute('name') || '') + ' '
+                 + (el.getAttribute('id') || '')).toLowerCase();
+  return type === 'password' || type === 'hidden'
+      || ac.indexOf('password') >= 0 || ac.indexOf('one-time-code') >= 0
+      || /pass|pwd|secret|token|otp|2fa|mfa|cvv|csrf|api[-_]?key|recovery|backup[-_]?code/
+         .test(ident);
+})"""
 
 
 class DomError(RuntimeError):
@@ -43,8 +88,13 @@ class BrowserUnavailable(RuntimeError):
     """
 
 
+def _clean(value: Any) -> str:
+    """Ровно то, что делает `clean()` в разметочном скрипте."""
+    return _WS.sub(" ", str(value or "")).strip()
+
+
 def _norm(value: Any) -> str:
-    return _WS.sub(" ", str(value or "")).strip()[:220].lower()
+    return _clean(value)[:220].lower()
 
 
 @runtime_checkable
@@ -68,8 +118,9 @@ class DomPort(Protocol):
 
 # Тот же разбор, что и в `FixtureDom`, только на JavaScript. Правится вместе с
 # питоновской половиной — тест сверяет обе на одной странице.
-PAGE_SCRIPT = r"""
+_PAGE_SCRIPT_TEMPLATE = r"""
 (request) => {
+  const isSecret = __IS_SECRET__;
   const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
   const norm = (s) => clean(s).slice(0, 220).toLowerCase();
   const CANDIDATES = 'a,button,input,textarea,select,summary,label,dialog,'
@@ -134,18 +185,16 @@ PAGE_SCRIPT = r"""
 
   function textOf(el) {
     const tag = el.tagName.toLowerCase();
-    const type = (el.getAttribute('type') || '').toLowerCase();
-    // ЗНАЧЕНИЕ ПОЛЯ ПАРОЛЯ НЕ ПОКИДАЕТ СТРАНИЦУ. Ни в снимок, ни в отпечаток,
-    // ни в трассу — ни для одного сценария оно не нужно.
-    if (tag === 'input' && type === 'password') return '';
-    if (tag === 'input' || tag === 'textarea') return clean(el.value || '');
+    // ЗНАЧЕНИЕ СЕКРЕТНОГО ПОЛЯ НЕ ПОКИДАЕТ СТРАНИЦУ. Ни в снимок, ни в
+    // отпечаток, ни в трассу — ни для одного сценария оно не нужно.
+    if (isSecret(el)) return '';
+    if (tag === 'input' || tag === 'textarea') return clean(el.value || '').slice(0, 220);
     return clean(el.textContent).slice(0, 220);
   }
 
   function describe(el, ordinal, index) {
     const tag = el.tagName.toLowerCase();
-    const type = (el.getAttribute('type') || '').toLowerCase();
-    const secret = tag === 'input' && type === 'password';
+    const secret = isSecret(el);
     const ref = 'sf-' + request.generation + '-' + index;
     el.setAttribute('data-sf-ref', ref);
     return {
@@ -217,6 +266,10 @@ PAGE_SCRIPT = r"""
   return null;
 }
 """
+
+# Признак секретности подставляется в скрипт из одного места: два его описания
+# разошлись бы молча, и первым это заметил бы владелец пароля.
+PAGE_SCRIPT = _PAGE_SCRIPT_TEMPLATE.replace("__IS_SECRET__", SECRET_FIELD_JS)
 
 
 # --------------------------------------------------------------- Playwright
@@ -314,7 +367,10 @@ class FixtureElement:
 
     @property
     def secret(self) -> bool:
-        return self.tag == "input" and self.type.lower() == "password"
+        return is_secret_field(tag=self.tag, type_=self.type,
+                               autocomplete=self.attributes.get("autocomplete", ""),
+                               name=self.attributes.get("name", ""),
+                               element_id=self.attributes.get("id", ""))
 
     def effective_role(self) -> str:
         if self.role:
@@ -343,33 +399,38 @@ class FixtureElement:
         return ""
 
     def effective_label(self) -> str:
-        return self.label or self.attributes.get("placeholder", "")
+        return _clean(self.label or self.attributes.get("placeholder", ""))
 
     def effective_name(self) -> str:
         if self.accessible_name:
-            return self.accessible_name
+            return _clean(self.accessible_name)
         label = self.effective_label()
         if label:
             return label
+        if self.tag == "input" and self.type.lower() in {"submit", "button", "reset"}:
+            return _clean(self.value)
         if self.tag in {"button", "a", "summary", "h1", "h2", "h3", "h4", "h5", "h6"}:
-            return self.text
+            return _clean(self.text)[:220]
         return ""
 
     def visible_text(self) -> str:
-        # То же правило, что и в JavaScript: значение поля пароля не отдаётся.
+        # То же правило, что и в JavaScript: значение секретного поля не
+        # отдаётся, а всё остальное схлопывается и обрезается так же, как это
+        # делает `clean()` в браузере.
         if self.secret:
             return ""
         if self.tag in {"input", "textarea"}:
-            return self.value
-        return self.text
+            return _WS.sub(" ", str(self.value or "")).strip()[:220]
+        return _WS.sub(" ", str(self.text or "")).strip()[:220]
 
     def describe(self, ref: str, ordinal: int) -> dict[str, Any]:
         return {"ref": ref, "tag": self.tag, "role": self.effective_role(),
                 "accessible_name": self.effective_name(),
                 "label": self.effective_label(), "text": self.visible_text(),
                 "type": self.type, "ordinal": ordinal, "secret": self.secret,
-                "filled": bool(self.value), "disabled": self.disabled,
-                "href": self.href}
+                "filled": bool(self.value) if (
+                    self.secret or self.tag in {"input", "textarea"}) else False,
+                "disabled": self.disabled, "href": self.href}
 
 
 @dataclass(slots=True)
@@ -539,6 +600,6 @@ def _fixture_xpath(element: FixtureElement, expression: str) -> bool:
     return element.attributes.get(attribute) == want
 
 
-__all__ = ["PAGE_SCRIPT", "REF_ATTRIBUTE", "BrowserUnavailable", "DomError", "DomPort",
-           "FixtureDom", "FixtureElement", "FixturePage", "PlaywrightDom",
-           "playwright_available"]
+__all__ = ["PAGE_SCRIPT", "REF_ATTRIBUTE", "SECRET_FIELD_JS", "BrowserUnavailable",
+           "DomError", "DomPort", "FixtureDom", "FixtureElement", "FixturePage",
+           "PlaywrightDom", "is_secret_field", "playwright_available"]
