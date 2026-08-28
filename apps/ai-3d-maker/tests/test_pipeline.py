@@ -356,3 +356,34 @@ def test_a_gated_job_reports_cad_as_not_run_rather_than_silently_absent(control)
     assert result["evidence"]["cad_engine"]["status"] == "NOT_RUN"
     assert result["evidence"]["mesh_validation"]["status"] == "NOT_RUN"
     assert result["evidence"]["printability"]["status"] == "NOT_RUN"
+
+
+# ------------------------------------------------------------- calibration
+def test_a_calibration_profile_can_be_selected_for_a_job(control):
+    spec = json.loads(simple_spec().canonical_json())
+    spec["manufacturing"]["required_tolerance_mm"] = 0.05
+    result = run(control, {
+        "kind": "design", "spec": spec, "job_id": "cal",
+        "calibration_profile": {
+            "id": "pla-0.4-0.2",
+            "printer_profile_id": "elegoo-neptune-3-plus-stock-0.4",
+            "material": "PLA", "nozzle_mm": 0.4, "layer_height_mm": 0.2,
+            "line_width_mm": 0.42, "measured_process_tolerance_mm": 0.15,
+            "measured_at": "2026-08-01", "version": 2,
+            "coupon_measurements": {"outer_xy": [20.0, 19.88]},
+        },
+    })
+    assert result["printable"] is False
+    assert result["status"] == "NEEDS_CALIBRATION_OR_DIFFERENT_PROCESS"
+    gate = result["detail"]["requirement_gate"]
+    assert gate["calibration"]["source"] == "measured_profile"
+    assert gate["calibration"]["version"] == 2
+
+
+def test_a_job_without_a_calibration_profile_applies_no_compensation(control):
+    spec = json.loads(simple_spec().canonical_json())
+    spec["manufacturing"]["required_tolerance_mm"] = 0.3
+    result = run(control, {"kind": "design", "spec": spec, "job_id": "nocal"})
+    gate = result["detail"]["requirement_gate"]
+    assert gate["calibration"]["source"] == "none"
+    assert gate["calibration"]["compensation_applied"] is False

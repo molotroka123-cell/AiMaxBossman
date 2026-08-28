@@ -8,23 +8,40 @@ has no measured capability to compensate for.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 
 @dataclass(slots=True)
 class CalibrationProfile:
+    """A measured capability, tied to the exact process that produced it.
+
+    "+/- 0.15 mm" is not a property of a printer. It is a property of one
+    printer with one nozzle running one material at one layer height and one
+    line width, measured on a specific coupon on a specific date. Every one of
+    those is required here, because a number without them cannot be checked,
+    superseded or argued with.
+
+    `version` exists so a re-measurement replaces an old profile instead of
+    quietly averaging with it.
+    """
+
     id: str
     printer_profile_id: str
     material: str
     nozzle_mm: float
     layer_height_mm: float
     measured_process_tolerance_mm: float
+    line_width_mm: float = 0.0
+    measured_at: str = ""
+    version: int = 1
+    # {feature name: [nominal_mm, measured_mm]} — the raw calipers reading the
+    # tolerance above was derived from.
+    coupon_measurements: dict = field(default_factory=dict)
     xy_scale: float = 1.0
     z_scale: float = 1.0
     hole_compensation_mm: float = 0.0
     filament_brand: str = ""
-    measured_at: str = ""
     note: str = ""
 
     def __post_init__(self) -> None:
@@ -33,6 +50,33 @@ class CalibrationProfile:
         for name in ("xy_scale", "z_scale"):
             if getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be positive")
+        for name in ("nozzle_mm", "layer_height_mm", "line_width_mm"):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive: a calibration is per process, not generic")
+        if not str(self.measured_at).strip():
+            raise ValueError("measured_at is required: an undated measurement cannot be superseded")
+        if int(self.version) < 1:
+            raise ValueError("version must be a positive integer")
+        self.version = int(self.version)
+        if not self.coupon_measurements:
+            raise ValueError(
+                "coupon_measurements is required: a tolerance with no measured coupon behind it "
+                "is a guess wearing a number"
+            )
+        for name, pair in self.coupon_measurements.items():
+            values = list(pair) if isinstance(pair, (list, tuple)) else []
+            if len(values) != 2:
+                raise ValueError(
+                    f"coupon_measurements[{name!r}] must be [nominal_mm, measured_mm]"
+                )
+            if any(float(v) <= 0 for v in values):
+                raise ValueError(
+                    f"coupon_measurements[{name!r}] must hold two positive millimetre readings"
+                )
+            self.coupon_measurements[name] = [float(values[0]), float(values[1])]
+
+    def describes(self, printer_profile_id: str) -> bool:
+        return self.printer_profile_id == printer_profile_id
 
     def save(self, path: str | Path) -> Path:
         p = Path(path)

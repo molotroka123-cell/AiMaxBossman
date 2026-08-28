@@ -14,6 +14,7 @@ plugin. `api.py` is a thin HTTP skin over this same object.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import platform
 import resource
@@ -41,6 +42,7 @@ from .printer import (
 from .profile import PrinterProfile, load_material_defaults
 from .slicer import validate_slicer_settings
 from .spec import DesignSpec
+from .tolerance import CalibrationProfile
 from .storage import JobStore
 
 CONTRACT_VERSION = "ai-3d-maker/control/1"
@@ -111,6 +113,7 @@ class ControlPlane:
             if raw is None:
                 raise Ai3dError("a design job requires a 'spec' object")
             spec = DesignSpec.model_validate(raw)
+        calibration = self._parse_calibration(payload.get("calibration_profile"))
         return JobRequest(
             kind=kind,
             spec=spec,
@@ -125,8 +128,29 @@ class ControlPlane:
             # that may never run on a host with no slicer installed.
             slicer_settings=validate_slicer_settings(payload.get("slicer_settings")),
             calibrated_tolerance_mm=payload.get("calibrated_tolerance_mm"),
+            calibration=calibration,
             scale_to_fit=bool(payload.get("scale_to_fit", False)),
         )
+
+    @staticmethod
+    def _parse_calibration(raw) -> CalibrationProfile | None:
+        """A calibration profile is selected explicitly, by value or by path.
+
+        There is no implicit default: an uncalibrated printer has no measured
+        capability, and inventing one would be the whole failure this app is
+        built to avoid.
+        """
+        if raw is None:
+            return None
+        try:
+            if isinstance(raw, dict):
+                return CalibrationProfile(**raw)
+            return CalibrationProfile.load(str(raw))
+        except (TypeError, ValueError, OSError, json.JSONDecodeError) as exc:
+            raise Ai3dError(
+                f"calibration profile is not usable: {exc}",
+                detail={"calibration_profile": raw if isinstance(raw, str) else "<inline>"},
+            ) from exc
 
     async def jobs_create(self, payload: dict) -> dict:
         """Create and run a job. `wait=False` returns as soon as it is scheduled."""

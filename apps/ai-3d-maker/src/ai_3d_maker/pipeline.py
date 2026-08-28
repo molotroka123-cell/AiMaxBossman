@@ -50,6 +50,7 @@ from .repair import repair_mesh
 from .requirements import evaluate_requirements
 from .slicer import slice_auto
 from .spec import DesignSpec
+from .tolerance import CalibrationProfile
 from .storage import (
     CANCELLED,
     FAILED,
@@ -83,6 +84,7 @@ class JobRequest:
     slice_after_build: bool = False
     slicer_settings: dict = field(default_factory=dict)
     calibrated_tolerance_mm: float | None = None
+    calibration: "CalibrationProfile | None" = None
     scale_to_fit: bool = False
 
     def as_dict(self) -> dict:
@@ -98,6 +100,7 @@ class JobRequest:
             "slice_after_build": self.slice_after_build,
             "slicer_settings": self.slicer_settings,
             "calibrated_tolerance_mm": self.calibrated_tolerance_mm,
+            "calibration_profile": self.calibration.as_dict() if self.calibration else None,
             "scale_to_fit": self.scale_to_fit,
         }
 
@@ -187,7 +190,8 @@ class Pipeline:
             if request.spec is None:
                 raise CapabilityUnavailableError("design job without a DesignSpec")
             gate = evaluate_requirements(
-                request.spec, request.calibrated_tolerance_mm, profile=self.profile
+                request.spec, request.calibrated_tolerance_mm,
+                profile=self.profile, calibration=request.calibration,
             )
             (job_dir / SPEC_NAME).write_text(
                 json.dumps(json.loads(request.spec.canonical_json()), indent=2, sort_keys=True),
@@ -211,6 +215,9 @@ class Pipeline:
                     reasons=gate.questions, warnings=warnings, stages=stages,
                     mesh_report=None, fit_report=None, verdict=None,
                     evidence=evidence,
+                    # A job blocked at the gate still has to say what the gate
+                    # was reading, including which calibration backed it.
+                    extra={"requirement_gate": gate.as_dict()},
                 )
             stages["intake"] = "ok"
             self._stage(job_id, "intake", "ok", started, gate.as_dict())
