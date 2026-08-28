@@ -190,7 +190,15 @@ async def test_ask_creates_approval_and_frees_worker(env):
     status = await _run_task(env, stack["task"]["id"])
     assert status == "waiting_approval"
     assert seen == []                            # без решения человека не выполняем
-    assert not env.svc.engine.active_run_ids      # воркер свободен
+
+    # Воркер освобождается. Ждём ограниченно, а не мгновенно: задача уходит в
+    # `waiting_approval` в БД на долю секунды раньше, чем разматывается корутина
+    # рана, и опрос успевал увидеть эту щель (падало на CI, проходило локально).
+    # Гарантию это не ослабляет: если бы воркер РЕАЛЬНО ждал человека, слот не
+    # освободился бы никогда — решения в этом тесте нет.
+    async def worker_free():
+        return True if not env.svc.engine.active_run_ids else None
+    await wait_for(worker_free, timeout=2.0)
 
     appr = (await env.client.get("/api/approvals")).json()
     assert len(appr) == 1 and appr[0]["kind"] == "tool"

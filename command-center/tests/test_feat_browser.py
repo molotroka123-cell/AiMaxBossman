@@ -29,8 +29,8 @@ def test_policy_blocked_domain_denies_nav():
 # ---------- реальный браузер (Playwright + предустановленный Chromium) ----------
 
 def _has_chromium():
-    from pathlib import Path
-    return Path("/opt/pw-browsers/chromium").exists()
+    from .browser_support import chromium_available
+    return chromium_available()
 
 
 @pytest.mark.skipif(not _has_chromium(), reason="Chromium не предустановлен")

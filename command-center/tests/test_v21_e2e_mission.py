@@ -31,6 +31,7 @@ import sqlalchemy as sa
 from bcc.db import (approvals as approvals_t, missions as missions_t, settings_kv,
                     tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
 from bcc.v2.tables import mcp_servers as mcp_servers_t
+from .browser_support import chromium_available, reason as browser_reason
 
 FIXTURES = Path(__file__).parent / "fixtures"
 CHROMIUM = Path("/opt/pw-browsers/chromium")
@@ -198,7 +199,7 @@ async def _drain(env, task_id: int, *, timeout: float, stop_on_approval: bool = 
 
 # ---------------------------------------------------------------- сам тест
 
-@pytest.mark.skipif(not CHROMIUM.exists(), reason="нет предустановленного Chromium")
+@pytest.mark.skipif(not chromium_available(), reason=browser_reason())
 async def test_autonomous_mission_with_ten_plus_tool_calls(
         env, project, vault, site, scripted_llm, tmp_path, monkeypatch):
     """§20: одна миссия — память, терминал, MCP, браузер, ревью, отчёт."""

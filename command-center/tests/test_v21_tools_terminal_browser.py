@@ -18,6 +18,7 @@ from bcc.features.tools_terminal import extra_ask_reason, hard_deny_reason
 from bcc.tools import REGISTRY, decide_effect
 
 from .test_v21_tool_loop import FINISHED, ToolAdapter, _run_task, _stack_with_tools
+from .browser_support import chromium_available, reason as browser_reason
 
 FIXTURE_HTML = """<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <title>BOSSMAN тестовая форма</title></head><body>
@@ -209,8 +210,7 @@ async def test_git_push_asks_even_with_permission(env, tmp_path):
 
 # ---------------------------------------------------------------- браузер
 
-pytestmark_browser = pytest.mark.skipif(
-    not Path("/opt/pw-browsers/chromium").exists(), reason="нет предустановленного Chromium")
+pytestmark_browser = pytest.mark.skipif(not chromium_available(), reason=browser_reason())
 
 
 @pytestmark_browser
