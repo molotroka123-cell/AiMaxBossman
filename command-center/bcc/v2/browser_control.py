@@ -137,6 +137,28 @@ class BrowserPolicy:
         return self.rules.get(action, "ask")
 
 
+class StaleElementReference(RuntimeError):
+    """Ссылка указывает не на тот элемент, что видела модель.
+
+    Никогда не превращается в клик по соседу: лучше честный отказ и просьба
+    перечитать страницу, чем «успешно нажато» не по тому месту.
+    """
+
+    def __init__(self, ref: str, reason: str):
+        super().__init__(f"ссылка {ref} устарела: {reason}")
+        self.ref = ref
+        self.reason = reason
+
+
+class AmbiguousSelector(RuntimeError):
+    """Селектор попал в несколько элементов. `.first` — это выбор наугад."""
+
+    def __init__(self, selector: str, count: int):
+        super().__init__(f"селектор {selector!r} совпал с {count} элементами")
+        self.selector = selector
+        self.count = count
+
+
 @dataclass
 class BrowserRuntimeSession:
     id: int
@@ -147,6 +169,46 @@ class BrowserRuntimeSession:
     takeover: bool = False
     paused: bool = False
     profile_name: str = "default"
+    # V2.2+: поколение снимка. Каждый новый снимок увеличивает его, и ссылки
+    # из прошлых поколений становятся недействительными — DOM мог перерисоваться
+    # между тем, что видела модель, и моментом действия.
+    generation: int = 0
+    refs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Секреты, которые рантайм подставлял в эту сессию. Никогда не уходят
+    # модели: используются только для вычищения их из видимого ей текста.
+    secrets: set[str] = field(default_factory=set)
+
+
+def redact_secrets(value: Any, secrets: set[str]) -> Any:
+    """Убрать известные секреты из всего, что уйдёт модели или в лог.
+
+    Вторая линия обороны. Первая — не класть значение пароля в снимок вовсе
+    (см. `snapshot`), но пароль мог быть введён и в поле `type=text`, и тогда
+    его вернул бы `el.value` обычного поля.
+    """
+    if not secrets:
+        return value
+    if isinstance(value, str):
+        for secret in secrets:
+            if secret and secret in value:
+                value = value.replace(secret, "***")
+        return value
+    if isinstance(value, dict):
+        return {k: redact_secrets(v, secrets) for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact_secrets(v, secrets) for v in value]
+    return value
+
+
+def _fingerprint(item: dict[str, Any]) -> str:
+    """Отпечаток элемента: тег, роль, имя, тип, ссылка и видимый текст.
+
+    Значение поля пароля в отпечаток не входит — оно и не доходит сюда.
+    """
+    import hashlib
+    parts = "|".join(str(item.get(k) or "") for k in
+                     ("tag", "role", "name", "type", "href", "text"))
+    return hashlib.sha256(parts.encode("utf-8", "replace")).hexdigest()[:16]
 
 
 def _patterns(value: Any) -> list[str]:
@@ -307,26 +369,90 @@ class BrowserManager:
         await sess.page.goto(url, wait_until="domcontentloaded", timeout=60000)
         return await self.snapshot(session_id, actor=actor, approved=True)
 
-    async def click(self, session_id: int, selector: str, *,
-                    actor: str = "agent", approved: bool = False) -> dict[str, Any]:
+    async def _target(self, sess: BrowserRuntimeSession, selector: str = "",
+                      ref: str = ""):
+        """Локатор действия. Ссылка надёжнее селектора и проверяется на устаревание.
+
+        Порядок намеренный: если дана `ref`, селектор игнорируется. Модель
+        видела конкретный элемент — по нему и работаем.
+        """
+        if ref:
+            known = sess.refs.get(ref)
+            if known is None or known["generation"] != sess.generation:
+                raise StaleElementReference(
+                    ref, "ссылка из прошлого снимка страницы; перечитайте DOM")
+            loc = sess.page.locator(f'[data-bcc-ref="{ref}"]')
+            if await loc.count() != 1:
+                raise StaleElementReference(ref, "элемент исчез со страницы")
+            item = await loc.evaluate(
+                """(el) => ({
+                  tag: el.tagName.toLowerCase(),
+                  role: el.getAttribute('role') || '',
+                  name: el.getAttribute('name') || '',
+                  type: el.getAttribute('type') || '',
+                  href: el.href || '',
+                  text: (el.tagName.toLowerCase() === 'input'
+                         && (el.getAttribute('type') || '').toLowerCase() === 'password')
+                        ? '' : (el.innerText || el.value || '')
+                             .replace(/\\s+/g, ' ').trim().slice(0, 220),
+                })""")
+            if _fingerprint(item) != known["fingerprint"]:
+                raise StaleElementReference(
+                    ref, "на месте элемента теперь другой — страница изменилась")
+            return loc
+
+        if not selector:
+            raise ValueError("нужен selector или ref")
+        loc = sess.page.locator(selector)
+        count = await loc.count()
+        if count > 1:
+            # `.first` здесь был бы выбором наугад: на странице с двумя
+            # одинаковыми кнопками агент считал бы, что нажал нужную.
+            raise AmbiguousSelector(selector, count)
+        return loc.first
+
+    async def click(self, session_id: int, selector: str = "", *,
+                    ref: str = "", actor: str = "agent",
+                    approved: bool = False) -> dict[str, Any]:
         sess = self._session(session_id)
         self._guard(sess, "click", actor=actor, approved=approved)
-        await sess.page.locator(selector).first.click(timeout=30000)
+        loc = await self._target(sess, selector, ref)
+        await loc.click(timeout=30000)
         return await self.status(session_id)
 
-    async def type_text(self, session_id: int, selector: str, text: str, *,
-                        actor: str = "agent", approved: bool = False) -> dict[str, Any]:
+    async def type_text(self, session_id: int, selector: str = "", text: str = "", *,
+                        ref: str = "", actor: str = "agent",
+                        approved: bool = False) -> dict[str, Any]:
         sess = self._session(session_id)
         self._guard(sess, "type", actor=actor, approved=approved)
-        loc = sess.page.locator(selector).first
+        loc = await self._target(sess, selector, ref)
         await loc.fill(text, timeout=30000)
         return await self.status(session_id)
 
-    async def select(self, session_id: int, selector: str, value: str, *,
-                     actor: str = "agent", approved: bool = False) -> dict[str, Any]:
+    async def select(self, session_id: int, selector: str = "", value: str = "", *,
+                     ref: str = "", actor: str = "agent",
+                     approved: bool = False) -> dict[str, Any]:
         sess = self._session(session_id)
         self._guard(sess, "select", actor=actor, approved=approved)
-        await sess.page.locator(selector).first.select_option(value, timeout=30000)
+        loc = await self._target(sess, selector, ref)
+        await loc.select_option(value, timeout=30000)
+        return await self.status(session_id)
+
+    async def fill_secret(self, session_id: int, selector: str = "", *,
+                          secret: str, ref: str = "", actor: str = "agent",
+                          approved: bool = False) -> dict[str, Any]:
+        """Ввести секрет, которого модель не видела и не увидит.
+
+        Значение приходит из хранилища учётных данных рантайма, а не из
+        аргументов инструмента: в `tool_calls.args` его нет, в контексте модели
+        его нет, и в снимок оно не попадёт (см. `snapshot` и `redact_secrets`).
+        """
+        sess = self._session(session_id)
+        self._guard(sess, "type", actor=actor, approved=approved)
+        loc = await self._target(sess, selector, ref)
+        if secret:
+            sess.secrets.add(secret)
+        await loc.fill(secret, timeout=30000)
         return await self.status(session_id)
 
     async def back(self, session_id: int, *, actor: str = "agent") -> dict[str, Any]:
@@ -354,35 +480,69 @@ class BrowserManager:
         self._guard(sess, "snapshot", actor=actor, approved=approved)
         page = sess.page
         # DOM-first snapshot: cheap and deterministic. Vision only receives screenshot when needed.
+        sess.generation += 1
+        generation = sess.generation
         data = await page.evaluate(
             """(limits) => {
               const clean = (s) => (s || '').replace(/\\s+/g, ' ').trim();
               const text = clean(document.body ? document.body.innerText : '').slice(0, limits.maxText);
               const selectors = 'a,button,input,textarea,select,[role="button"],[role="link"],[tabindex]';
               const nodes = Array.from(document.querySelectorAll(selectors)).slice(0, limits.maxInteractive);
-              const interactive = nodes.map((el, i) => ({
-                i,
-                tag: el.tagName.toLowerCase(),
-                role: el.getAttribute('role') || '',
-                text: clean(el.innerText || el.value || '').slice(0, 220),
-                aria: clean(el.getAttribute('aria-label') || '').slice(0, 220),
-                name: el.getAttribute('name') || '',
-                type: el.getAttribute('type') || '',
-                placeholder: clean(el.getAttribute('placeholder') || '').slice(0, 220),
-                href: el.href || '',
-                disabled: !!el.disabled,
-              }));
+              // Ссылки прошлого поколения снимаем: иначе устаревший атрибут
+              // остался бы на элементе и выглядел действительным.
+              document.querySelectorAll('[data-bcc-ref]').forEach((el) => {
+                el.removeAttribute('data-bcc-ref');
+              });
+              const interactive = nodes.map((el, i) => {
+                const tag = el.tagName.toLowerCase();
+                const type = (el.getAttribute('type') || '').toLowerCase();
+                // ЗНАЧЕНИЕ ПОЛЯ ПАРОЛЯ НЕ ПОКИДАЕТ СТРАНИЦУ. Модели достаточно
+                // знать, что поле заполнено, — само значение ей не нужно ни для
+                // одного сценария.
+                const secret = tag === 'input' && type === 'password';
+                const raw = secret ? '' : clean(el.innerText || el.value || '');
+                const ref = 'e' + limits.generation + '-' + i;
+                el.setAttribute('data-bcc-ref', ref);
+                return {
+                  i,
+                  ref,
+                  tag,
+                  role: el.getAttribute('role') || '',
+                  text: raw.slice(0, 220),
+                  aria: clean(el.getAttribute('aria-label') || '').slice(0, 220),
+                  name: el.getAttribute('name') || '',
+                  type: el.getAttribute('type') || '',
+                  placeholder: clean(el.getAttribute('placeholder') || '').slice(0, 220),
+                  href: el.href || '',
+                  disabled: !!el.disabled,
+                  secret,
+                  filled: secret ? !!el.value : undefined,
+                };
+              });
               return { text, interactive };
             }""",
-            {"maxText": max_text, "maxInteractive": max_interactive},
+            {"maxText": max_text, "maxInteractive": max_interactive,
+             "generation": generation},
         )
-        return {
+        interactive = data.get("interactive") or []
+        # Отпечаток элемента: по нему при действии проверяется, что под ссылкой
+        # тот же элемент, а не сосед, занявший его место после перерисовки.
+        sess.refs = {
+            str(item.get("ref")): {
+                "generation": generation,
+                "fingerprint": _fingerprint(item),
+                "tag": item.get("tag"), "name": item.get("name"),
+            }
+            for item in interactive if item.get("ref")
+        }
+        return redact_secrets({
             "session_id": session_id,
             "url": page.url,
             "title": await page.title(),
+            "generation": generation,
             "text": data.get("text") or "",
-            "interactive": data.get("interactive") or [],
+            "interactive": interactive,
             "takeover": sess.takeover,
             "paused": sess.paused,
             "mode": sess.policy.mode,
-        }
+        }, sess.secrets)

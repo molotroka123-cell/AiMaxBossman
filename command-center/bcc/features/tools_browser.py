@@ -19,13 +19,20 @@ import uuid
 from pathlib import Path
 
 import sqlalchemy as sa
+from fastapi import APIRouter, HTTPException, Request
 
-from ..db import utcnow
+from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
-from ..v2.browser_control import (BrowserApprovalRequired, BrowserPolicy, BrowserPolicyDenied,
-                                  BrowserTakeoverActive, BrowserUnavailable)
+from ..v2.browser_control import (AmbiguousSelector, BrowserApprovalRequired, BrowserPolicy,
+                                  BrowserPolicyDenied, BrowserTakeoverActive, BrowserUnavailable,
+                                  StaleElementReference, redact_secrets)
 from ..v2.tables import browser_sessions as bs_t
 from . import Feature
+
+# V2.2+ (browser-use, этап 1): хранилище учётных данных браузера.
+# Модель называет ИМЯ учётки, пароль подставляет рантайм. В аргументах
+# инструмента, в `tool_calls.args` и в контексте модели пароля нет никогда.
+CREDENTIALS_KEY = "browser.credentials"
 
 # Действия, которые нельзя одобрить в принципе (совпадает с HARD_DENY_ACTIONS
 # рантайма — дублируем осознанно: инструмент не должен зависеть от того,
@@ -75,10 +82,14 @@ def _render(snapshot: dict) -> ToolResult:
     truncated = len(text) > TEXT_LIMIT
     items = (snapshot.get("interactive") or [])[:INTERACTIVE_LIMIT]
     lines = [f"URL: {snapshot.get('url')}", f"Заголовок: {snapshot.get('title')}", "",
-             "Текст страницы:", text[:TEXT_LIMIT], "", "Интерактивные элементы:"]
+             "Текст страницы:", text[:TEXT_LIMIT], "",
+             "Интерактивные элементы (ref действителен только до следующего снимка):"]
     for el in items:
         label = el.get("text") or el.get("aria") or el.get("placeholder") or el.get("name") or ""
-        lines.append(f"[{el.get('i')}] <{el.get('tag')}"
+        mark = " [ЗАПОЛНЕНО]" if el.get("filled") else ""
+        if el.get("secret"):
+            label = "(поле пароля — значение недоступно)" + mark
+        lines.append(f"[ref={el.get('ref') or el.get('i')}] <{el.get('tag')}"
                      + (f" type={el.get('type')}" if el.get("type") else "")
                      + (f" name={el.get('name')}" if el.get("name") else "")
                      + f"> {label}".rstrip())
@@ -122,6 +133,19 @@ async def _act(ctx, args: dict, action: str, run) -> ToolResult:
     except BrowserApprovalRequired:
         return ToolResult(content="политика сессии требует подтверждения человека",
                           one_line=f"browser.{action}: ask", error=True)
+    except StaleElementReference as exc:
+        # Ключевое: НИЧЕГО не нажато. Соседний элемент не трогаем.
+        return ToolResult(content=f"{exc}. Действие не выполнено — ни один элемент не нажат. "
+                                  f"Перечитайте страницу через browser.read_dom и возьмите "
+                                  f"новую ссылку ref из свежего снимка.",
+                          one_line=f"browser.{action}: устаревшая ссылка", error=True,
+                          data={"stale_ref": exc.ref, "needs_fresh_snapshot": True})
+    except AmbiguousSelector as exc:
+        return ToolResult(content=f"{exc}. Действие не выполнено: выбирать наугад нельзя. "
+                                  f"Возьмите ref нужного элемента из browser.read_dom "
+                                  f"или уточните селектор.",
+                          one_line=f"browser.{action}: неоднозначный селектор", error=True,
+                          data={"ambiguous_selector": exc.selector, "matches": exc.count})
     except BrowserUnavailable as exc:
         return ToolResult(content=f"браузер недоступен: {exc}",
                           one_line="browser: рантайм недоступен", error=True)
@@ -159,27 +183,30 @@ async def _read_dom(args, ctx):
 
 async def _click(args, ctx):
     sel = str(args.get("selector") or "")
-    if not sel:
-        return ToolResult(content="нужен аргумент selector", one_line="browser.click: нет selector",
-                          error=True)
+    ref = str(args.get("ref") or "")
+    if not sel and not ref:
+        return ToolResult(content="нужен ref из свежего DOM-снимка (надёжнее) или selector",
+                          one_line="browser.click: нет цели", error=True)
     return await _act(ctx, args, "click",
-                      lambda m, sid: m.click(sid, sel, actor="agent", approved=True))
+                      lambda m, sid: m.click(sid, sel, ref=ref, actor="agent", approved=True))
 
 
 async def _type(args, ctx):
     sel = str(args.get("selector") or "")
-    if not sel:
-        return ToolResult(content="нужен аргумент selector", one_line="browser.type: нет selector",
-                          error=True)
+    ref = str(args.get("ref") or "")
+    if not sel and not ref:
+        return ToolResult(content="нужен ref из свежего DOM-снимка (надёжнее) или selector",
+                          one_line="browser.type: нет цели", error=True)
     return await _act(ctx, args, "type",
                       lambda m, sid: m.type_text(sid, sel, str(args.get("text") or ""),
-                                                 actor="agent", approved=True))
+                                                 ref=ref, actor="agent", approved=True))
 
 
 async def _select(args, ctx):
     return await _act(ctx, args, "select",
                       lambda m, sid: m.select(sid, str(args.get("selector") or ""),
                                               str(args.get("value") or ""),
+                                              ref=str(args.get("ref") or ""),
                                               actor="agent", approved=True))
 
 
@@ -198,20 +225,97 @@ async def _submit(args, ctx):
         return ToolResult(content="нужен аргумент selector кнопки отправки",
                           one_line="browser.submit: нет selector", error=True)
     return await _act(ctx, args, "submit",
-                      lambda m, sid: m.click(sid, sel, actor="agent", approved=True))
+                      lambda m, sid: m.click(sid, sel, ref=str(args.get("ref") or ""),
+                                             actor="agent", approved=True))
+
+
+async def credentials_map(svc) -> dict:
+    """Все учётки. Расшифровываются только внутри рантайма."""
+    import json
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(settings_kv.c.value_enc)
+                               .where(settings_kv.c.key == CREDENTIALS_KEY))).first()
+    if row and row[0]:
+        try:
+            data = json.loads(svc.vault.decrypt(row[0]))
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+async def save_credentials(svc, data: dict) -> None:
+    import json
+    enc = svc.vault.encrypt(json.dumps(data, ensure_ascii=False))
+    async with svc.db.session() as s:
+        await s.execute(sa.delete(settings_kv).where(settings_kv.c.key == CREDENTIALS_KEY))
+        await s.execute(sa.insert(settings_kv).values(key=CREDENTIALS_KEY, value_enc=enc))
+        await s.commit()
+
+
+def public_credential(cid: str, cred: dict) -> dict:
+    """То, что можно показывать модели и в UI: без пароля, всегда."""
+    return {"id": cid, "login": str(cred.get("login") or ""),
+            "domain": str(cred.get("domain") or ""),
+            "note": str(cred.get("note") or "")[:200],
+            "has_password": bool(cred.get("password"))}
 
 
 async def _login(args, ctx):
-    """Ввод логина/пароля — всегда через подтверждение человека."""
+    """Вход по ССЫЛКЕ на учётку. Пароль модель не видит и не передаёт.
+
+    Раньше `password` был обычным строковым аргументом инструмента: модель
+    обязана была его сгенерировать, значит он лежал в её контексте и в
+    `tool_calls.args` в БД. Теперь модель выбирает, КАКОЙ учёткой войти, а
+    значение достаёт рантайм — вне видимости модели.
+    """
+    cid = str(args.get("credential_id") or "").strip()
+    if not cid:
+        known = await credentials_map(ctx.svc)
+        names = ", ".join(sorted(known)) or "ни одной не заведено"
+        return ToolResult(
+            content=f"нужен credential_id — имя сохранённой учётной записи. "
+                    f"Доступны: {names}. Пароль в аргументах не передаётся: "
+                    f"его подставит рантайм.",
+            one_line="browser.login: нет credential_id", error=True)
+
+    creds = await credentials_map(ctx.svc)
+    cred = creds.get(cid)
+    if not isinstance(cred, dict):
+        return ToolResult(content=f"учётная запись «{cid}» не найдена. "
+                                  f"Доступны: {', '.join(sorted(creds)) or 'нет'}",
+                          one_line="browser.login: учётка не найдена", error=True)
+
+    secret = str(cred.get("password") or "")
+    login_value = str(cred.get("login") or "")
+
     async def run(m, sid):
-        await m.type_text(sid, str(args.get("login_selector") or ""),
-                          str(args.get("login") or ""), actor="agent", approved=True)
-        await m.type_text(sid, str(args.get("password_selector") or ""),
-                          str(args.get("password") or ""), actor="agent", approved=True)
-        if args.get("submit_selector"):
-            return await m.click(sid, str(args["submit_selector"]), actor="agent", approved=True)
+        # Проверка домена: учётка, привязанная к домену, не подставляется на
+        # чужой странице — иначе редирект уводил бы пароль не туда.
+        domain = str(cred.get("domain") or "").strip().lower()
+        if domain:
+            from urllib.parse import urlparse
+            host = (urlparse((await m.status(sid)).get("url") or "").hostname or "").lower()
+            if host and not (host == domain or host.endswith("." + domain)):
+                raise PermissionError(
+                    f"учётка «{cid}» привязана к домену {domain}, а страница на {host}")
+        await m.type_text(sid, str(args.get("login_selector") or ""), login_value,
+                          ref=str(args.get("login_ref") or ""), actor="agent", approved=True)
+        await m.fill_secret(sid, str(args.get("password_selector") or ""), secret=secret,
+                            ref=str(args.get("password_ref") or ""),
+                            actor="agent", approved=True)
+        if args.get("submit_selector") or args.get("submit_ref"):
+            return await m.click(sid, str(args.get("submit_selector") or ""),
+                                 ref=str(args.get("submit_ref") or ""),
+                                 actor="agent", approved=True)
         return await m.snapshot(sid, actor="agent", approved=True)
-    return await _act(ctx, args, "login", run)
+
+    result = await _act(ctx, args, "login", run)
+    # Последняя страховка: что бы ни попало в текст результата, секрета там не будет.
+    if secret:
+        result.content = redact_secrets(result.content, {secret})
+        result.one_line = redact_secrets(result.one_line, {secret})
+    return result
 
 
 async def _screenshot(args, ctx):
@@ -251,15 +355,23 @@ SPECS = [
              handler=_screenshot, input_schema={}, category="read", permission="browser.read",
              source="browser", default_effect="auto", timeout_seconds=60.0),
     ToolSpec(name="browser.click",
-             description="Кликнуть по элементу (CSS-селектор из DOM-снимка).",
-             handler=_click, input_schema={"selector": {"type": "string"}}, required=["selector"],
+             description="Кликнуть по элементу: ref из последнего DOM-снимка (надёжно) "
+                         "или CSS-селектор. Устаревший ref и неоднозначный селектор "
+                         "отклоняются, а не нажимаются наугад.",
+             handler=_click,
+             input_schema={"ref": {"type": "string",
+                                   "description": "ссылка из последнего DOM-снимка (надёжнее селектора)"},
+                           "selector": {"type": "string"}}, required=[],
              category="write", permission="browser.control", source="browser",
              default_effect="auto", timeout_seconds=60.0, idempotent=False,
              external_output=True),
-    ToolSpec(name="browser.type", description="Ввести текст в поле по CSS-селектору.",
+    ToolSpec(name="browser.type",
+             description="Ввести текст в поле по ref из DOM-снимка или CSS-селектору. "
+                         "Для паролей используйте browser.login с credential_id.",
              handler=_type,
-             input_schema={"selector": {"type": "string"}, "text": {"type": "string"}},
-             required=["selector", "text"], category="write", permission="browser.control",
+             input_schema={"ref": {"type": "string"}, "selector": {"type": "string"},
+                           "text": {"type": "string"}},
+             required=["text"], category="write", permission="browser.control",
              source="browser", default_effect="auto", timeout_seconds=60.0, idempotent=False,
              external_output=True),
     ToolSpec(name="browser.select", description="Выбрать значение в выпадающем списке.",
@@ -280,18 +392,68 @@ SPECS = [
              category="send", permission="browser.control", source="browser",
              default_effect="ask", idempotent=False, external_output=True,
              effect_hook=lambda a: ("ask", "отправка формы во внешний мир")),
-    ToolSpec(name="browser.login", description="Ввести учётные данные и войти "
-                                               "(всегда через подтверждение человека).",
+    ToolSpec(name="browser.login",
+             description="Войти по СОХРАНЁННОЙ учётной записи (credential_id). "
+                         "Пароль в аргументах не передаётся и модели не показывается. "
+                         "Всегда через подтверждение человека.",
              handler=_login,
-             input_schema={"login_selector": {"type": "string"}, "login": {"type": "string"},
+             input_schema={"credential_id": {"type": "string",
+                                            "description": "имя сохранённой учётной записи; "
+                                                           "пароль подставит рантайм"},
+                           "login_selector": {"type": "string"},
+                           "login_ref": {"type": "string"},
                            "password_selector": {"type": "string"},
-                           "password": {"type": "string"},
-                           "submit_selector": {"type": "string"}},
-             required=["login_selector", "password_selector"], category="send",
+                           "password_ref": {"type": "string"},
+                           "submit_selector": {"type": "string"},
+                           "submit_ref": {"type": "string"}},
+             required=["credential_id"], category="send",
              permission="browser.control", source="browser", default_effect="ask",
              idempotent=False, external_output=True,
              effect_hook=lambda a: ("ask", "вход в аккаунт")),
 ]
+
+
+# ------------------------------------------------- API учётных данных браузера
+
+router = APIRouter()
+
+
+@router.get("/browser/credentials")
+async def http_list_credentials(request: Request):
+    """Список учёток. Пароля здесь нет и быть не может."""
+    creds = await credentials_map(request.app.state.svc)
+    return {"credentials": [public_credential(cid, c) for cid, c in sorted(creds.items())
+                            if isinstance(c, dict)]}
+
+
+@router.post("/browser/credentials")
+async def http_save_credential(request: Request):
+    svc = request.app.state.svc
+    body = await request.json()
+    cid = str(body.get("id") or "").strip()
+    if not cid:
+        raise HTTPException(422, {"message": "нужен id учётной записи"})
+    if not str(body.get("password") or ""):
+        raise HTTPException(422, {"message": "нужен password"})
+    creds = await credentials_map(svc)
+    creds[cid] = {"login": str(body.get("login") or ""),
+                  "password": str(body.get("password")),
+                  "domain": str(body.get("domain") or "").strip().lower(),
+                  "note": str(body.get("note") or "")[:200]}
+    await save_credentials(svc, creds)
+    await svc.bus.emit("browser.credential.saved", credential_id=cid)
+    return {"credential": public_credential(cid, creds[cid])}
+
+
+@router.delete("/browser/credentials/{credential_id}")
+async def http_delete_credential(credential_id: str, request: Request):
+    svc = request.app.state.svc
+    creds = await credentials_map(svc)
+    if credential_id not in creds:
+        raise HTTPException(404, {"message": "учётная запись не найдена"})
+    creds.pop(credential_id)
+    await save_credentials(svc, creds)
+    return {"ok": True, "id": credential_id}
 
 
 async def _setup(svc) -> None:
@@ -299,4 +461,4 @@ async def _setup(svc) -> None:
         REGISTRY.register(spec)
 
 
-FEATURE = Feature(name="tools_browser", setup=_setup)
+FEATURE = Feature(name="tools_browser", router=router, setup=_setup)
