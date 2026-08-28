@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-28T04:05:00Z",
+  "updated": "2026-08-28T04:35:00Z",
   "goal": "BOSSMAN V2: 15 проверенных функций + интеграция пака (LOCKED) + UI + QA",
   "branch": "claude/bossman-control-v03-43igbk",
   "test_command": "cd /home/user/AiMaxBossman/command-center && python -m pytest -q",
@@ -35,22 +35,24 @@
     },
     {
       "id": "wave-1",
-      "status": "pending",
+      "status": "partial-lead-integrated",
       "owner": "orchestrator",
       "goal": "Перезапустить Fable-агентов 02,05,10,12,13 (worktrees /home/user/bossman-wt/*, промпты в V2_ORCHESTRATION_STATE + доп-зоны пака)",
       "depends": [
         "core-1",
         "core-2"
-      ]
+      ],
+      "note": "Логика этих функций внедрена лидом напрямую из пака (router/missions/kpi/governor/reviewer/resources/fork/healing), с тестами. Осталось: UI-страницы + runtime-функции (skills/mcp/terminal/opencode/browser/agentmap/benchmark/openrouter/nl-orchestra/mobile)."
     },
     {
       "id": "wave-2",
-      "status": "pending",
+      "status": "partial-lead-integrated",
       "owner": "orchestrator",
       "goal": "Агенты 01,03,04,08,14",
       "depends": [
         "wave-1"
-      ]
+      ],
+      "note": "Логика этих функций внедрена лидом напрямую из пака (router/missions/kpi/governor/reviewer/resources/fork/healing), с тестами. Осталось: UI-страницы + runtime-функции (skills/mcp/terminal/opencode/browser/agentmap/benchmark/openrouter/nl-orchestra/mobile)."
     },
     {
       "id": "wave-3",
@@ -107,5 +109,15 @@
         "qa-1"
       ]
     }
+  ],
+  "integrated_by_lead": [
+    "router",
+    "missions",
+    "kpi",
+    "governor",
+    "reviewer",
+    "resources",
+    "fork",
+    "healing"
   ]
 }

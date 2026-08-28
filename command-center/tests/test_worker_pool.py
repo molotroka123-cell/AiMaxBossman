@@ -75,7 +75,8 @@ async def test_hard_cancel_interrupts_inflight_inference(env):
         await wait_for(lambda: _running(env, stack["task"]["id"]), timeout=5)
         t0 = asyncio.get_running_loop().time()
         await env.client.post(f"/api/tasks/{stack['task']['id']}/stop")
-        await wait_for(lambda: _stopped(env, stack["task"]["id"]), timeout=3)
+        # ждём финализации именно RUN'а (статус задачи стал stopped мгновенно)
+        await wait_for(lambda: _run_stopped(env, stack["task"]["id"]), timeout=3)
         elapsed = asyncio.get_running_loop().time() - t0
     finally:
         loop.cancel()
@@ -83,6 +84,16 @@ async def test_hard_cancel_interrupts_inflight_inference(env):
     async with env.svc.db.session() as s:
         run = (await s.execute(sa.select(task_runs))).fetchall()[-1]._mapping
     assert run["status"] == "stopped"
+
+
+def _run_stopped(env, task_id):
+    async def check():
+        async with env.svc.db.session() as s:
+            res = await s.execute(sa.select(task_runs.c.status).where(
+                task_runs.c.task_id == task_id))
+            row = res.first()
+        return bool(row and row[0] == "stopped")
+    return check()
 
 
 def _running(env, task_id):

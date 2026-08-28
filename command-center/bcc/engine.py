@@ -200,14 +200,17 @@ class TaskEngine:
         try:
             await self.execute(run_id)
         except asyncio.CancelledError:
-            if run_id in self._cancelling:
-                async with self.db.session() as s:
-                    run = await fetch_one(s, runs_t, run_id)
-                if run and run["status"] in ("leased", "running"):
+            # отмена по Stop: опираемся на статус ЗАДАЧИ в БД (его ставит stop()),
+            # а не на разделяемое множество — оно может быть очищено гонкой worker_loop
+            async with self.db.session() as s:
+                run = await fetch_one(s, runs_t, run_id)
+            if run and run["status"] in ("leased", "running"):
+                task_status = await self._task_status(run["task_id"])
+                if task_status == "stopped" or run_id in self._cancelling:
                     await self._log(run_id, "warn", "run.stopped",
                                     "остановлено оператором (hard cancel: активный вызов модели оборван)")
                     await self._finish(run_id, run["task_id"], "stopped", sync_task=False)
-                return
+                    return
             raise
         except Exception as exc:
             await self.bus.emit("worker.error",
