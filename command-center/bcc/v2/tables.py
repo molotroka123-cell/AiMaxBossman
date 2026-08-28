@@ -152,3 +152,29 @@ opencode_sessions = sa.Table(
     sa.Column("created_at", sa.DateTime, default=utcnow),
     sa.Column("updated_at", sa.DateTime, default=utcnow),
 )
+
+
+# Долговечная защита от второй отправки живому человеку.
+#
+# Дедупликация в памяти процесса не защищает ни от чего: процесс умирает между
+# «отправили» и «записали, что отправили», и это ровно тот момент, когда защита
+# нужна. После рестарта память пуста, а сообщение уже ушло.
+#
+# Тела сообщения здесь НЕТ — только его хеш. Журнал живёт долго, а переписка с
+# людьми не то, что стоит хранить вечно; для сверки достаточно отпечатка.
+channel_outbox = sa.Table(
+    "channel_outbox", metadata,
+    sa.Column("key", sa.String(80), primary_key=True),   # ключ идемпотентности
+    sa.Column("channel", sa.String(60), nullable=False),
+    sa.Column("contact", sa.String(200), nullable=False),
+    sa.Column("body_hash", sa.String(64), nullable=False),
+    # PENDING → SENDING → SENT | UNKNOWN | FAILED
+    sa.Column("state", sa.String(16), nullable=False, default="PENDING"),
+    sa.Column("result_json", sa.JSON, default=dict),
+    sa.Column("detail", sa.Text, default=""),
+    sa.Column("mission_id", sa.Integer, nullable=True),
+    sa.Column("run_id", sa.Integer, nullable=True),
+    sa.Column("attempts", sa.Integer, default=0),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+    sa.Column("updated_at", sa.DateTime, default=utcnow, onupdate=utcnow),
+)

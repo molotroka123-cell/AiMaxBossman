@@ -29,15 +29,19 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
+from dataclasses import dataclass, field
 from typing import Any
 
 import sqlalchemy as sa
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 
-from ..db import settings_kv
+from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
+from ..v2.tables import channel_outbox
 from ..v2.openclaw_bridge import (OpenClawBridge, OpenClawConfig, OpenClawForbidden,
                                   OpenClawMemoryConflict, OpenClawScopeError,
                                   OpenClawUnavailable, idempotency_key)
@@ -54,6 +58,122 @@ MESSAGE_LIMIT = 4000
 # любой ошибке загрузки — то есть сбой конфигурации делает систему строже, а не
 # свободнее.
 _ALLOW: list[dict[str, str]] = []
+
+
+# ------------------------------------------------------------------ долговечный outbox
+
+class OutboxCollision(RuntimeError):
+    """Тот же ключ на другое содержимое или другого получателя.
+
+    Одобрение выдаётся на конкретное сообщение конкретному человеку. Пропустить
+    под тем же ключом другой текст значит воспользоваться чужим разрешением.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class OutboxSlot:
+    """Что нам известно об этой отправке ДО того, как что-то делать."""
+
+    key: str
+    state: str
+    fresh: bool                    # True — мы застолбили её первыми
+    result: dict[str, Any] = field(default_factory=dict)
+    detail: str = ""
+
+    @property
+    def needs_human(self) -> bool:
+        """UNKNOWN не разрешается ни повтором, ни ожиданием — только человеком."""
+        return self.state == "UNKNOWN"
+
+
+def _body_hash(channel: str, contact: str, body: str) -> str:
+    """Отпечаток отправки. Само тело не хранится: журнал живёт долго, а
+    переписка с людьми не то, что стоит держать вечно."""
+    raw = f"{channel}\x00{contact}\x00{body}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+async def outbox_reserve(svc, *, key: str, channel: str, contact: str, body: str,
+                         run_id: Any = None, mission_id: Any = None) -> OutboxSlot:
+    """Застолбить отправку. Ровно один вызов получает `fresh=True`.
+
+    Гонку решает не код, а уникальность первичного ключа в базе: два воркера,
+    вставляющие одну строку, дают ровно одну удачную вставку. Проверка «а нет
+    ли уже такой» перед вставкой не годится — между проверкой и вставкой
+    помещается второй воркер.
+    """
+    digest = _body_hash(channel, contact, body)
+    async with svc.db.session() as s:
+        try:
+            await s.execute(sa.insert(channel_outbox).values(
+                key=key, channel=channel, contact=contact, body_hash=digest,
+                state="PENDING", result_json={}, detail="",
+                mission_id=_int_or_none(mission_id), run_id=_int_or_none(run_id),
+                attempts=0, created_at=utcnow(), updated_at=utcnow()))
+            await s.commit()
+            return OutboxSlot(key=key, state="PENDING", fresh=True)
+        except IntegrityError:
+            await s.rollback()
+
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(channel_outbox)
+                               .where(channel_outbox.c.key == key))).mappings().first()
+    if row is None:                      # строку удалили между вставкой и чтением
+        raise OutboxCollision(f"запись {key} исчезла во время резервирования")
+    if row["body_hash"] != digest:
+        raise OutboxCollision(
+            f"ключ {key} уже занят другой отправкой ({row['channel']} → "
+            f"{row['contact']}). Одобрение выдано не на это сообщение.")
+
+    state = str(row["state"])
+    if state == "FAILED":
+        # Провайдер ответил отказом — внешнего эффекта не было, попытка возможна.
+        async with svc.db.session() as s:
+            await s.execute(sa.update(channel_outbox)
+                            .where(channel_outbox.c.key == key)
+                            .values(state="PENDING", detail="", updated_at=utcnow()))
+            await s.commit()
+        return OutboxSlot(key=key, state="PENDING", fresh=True)
+    return OutboxSlot(key=key, state=state, fresh=False,
+                      result=dict(row["result_json"] or {}), detail=str(row["detail"] or ""))
+
+
+async def _outbox_set(svc, key: str, **values: Any) -> None:
+    async with svc.db.session() as s:
+        await s.execute(sa.update(channel_outbox)
+                        .where(channel_outbox.c.key == key)
+                        .values(updated_at=utcnow(), **values))
+        await s.commit()
+
+
+async def outbox_mark_sending(svc, key: str) -> None:
+    async with svc.db.session() as s:
+        await s.execute(sa.update(channel_outbox)
+                        .where(channel_outbox.c.key == key)
+                        .values(state="SENDING", updated_at=utcnow(),
+                                attempts=channel_outbox.c.attempts + 1))
+        await s.commit()
+
+
+async def outbox_mark_sent(svc, key: str, result: dict | None = None) -> None:
+    await _outbox_set(svc, key, state="SENT", result_json=dict(result or {}))
+
+
+async def outbox_mark_unknown(svc, key: str, detail: str = "") -> None:
+    """Запрос мог дойти. Это не отказ, и повторять его нельзя."""
+    await _outbox_set(svc, key, state="UNKNOWN", detail=detail[:500])
+
+
+async def outbox_mark_failed(svc, key: str, detail: str = "") -> None:
+    """Провайдер ответил отказом — внешнего эффекта не было."""
+    await _outbox_set(svc, key, state="FAILED", detail=detail[:500])
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 # ------------------------------------------------------------------ конфигурация
@@ -249,14 +369,65 @@ async def _tool_send(args: dict, ctx) -> ToolResult:
                     f"Разрешение выдано не на этого адресата.",
             one_line="openclaw.send: получатель не совпал", error=True)
 
-    idem = idempotency_key(mission_id=(ctx.task or {}).get("mission_id"),
-                           run_id=ctx.run_id, call_id=ctx.call_id)
+    mission_id = (ctx.task or {}).get("mission_id")
+    # Ключ выводится из СОДЕРЖИМОГО отправки, а не из call_id: последний выдаёт
+    # провайдер модели, и после нашего собственного повтора он другой.
+    idem = idempotency_key(mission_id=mission_id, run_id=ctx.run_id,
+                           payload={"channel": real_channel, "contact": real_contact,
+                                    "message": message})
+
+    # Столбим отправку в БАЗЕ, а не в памяти. Память очищается перезапуском —
+    # ровно тем событием, от которого защита и нужна.
+    try:
+        slot = await outbox_reserve(ctx.svc, key=idem, channel=real_channel,
+                                    contact=real_contact, body=message,
+                                    run_id=ctx.run_id, mission_id=mission_id)
+    except OutboxCollision as exc:
+        return ToolResult(content=f"Отправка отменена: {exc}",
+                          one_line="openclaw.send: конфликт ключа", error=True)
+
+    if not slot.fresh:
+        if slot.state == "SENT":
+            # Это уже отправлено. Возвращаем прежний результат, не отправляя снова.
+            return ToolResult(
+                content=f"сообщение уже было отправлено ранее: {real_channel} → "
+                        f"{real_contact}\n{_short(slot.result)}",
+                one_line=f"openclaw.send: повтор, уже отправлено",
+                data={"idempotency_key": idem, "duplicate": True}, external=True)
+        if slot.needs_human:
+            return ToolResult(
+                content=f"Предыдущая попытка оборвалась ПОСЛЕ отправки запроса, и "
+                        f"неизвестно, дошло ли сообщение до {real_contact}. "
+                        f"{slot.detail}\nПовторять нельзя: это может стать вторым "
+                        f"сообщением человеку. Нужна сверка человеком.",
+                one_line="openclaw.send: состояние неизвестно, нужна сверка",
+                error=True)
+        return ToolResult(
+            content=f"эта отправка уже выполняется другим воркером "
+                    f"(состояние {slot.state}). Второй раз запускать не нужно.",
+            one_line="openclaw.send: уже выполняется", error=True)
+
+    await outbox_mark_sending(ctx.svc, idem)
     try:
         payload = await br.call("send", {"key": key, "message": message},
                                 idem=idem, run_id=ctx.run_id, timeout=30.0)
     except Exception as exc:
+        # Неоднозначность и отказ — разные исходы. На отказе внешнего эффекта не
+        # было, на неоднозначности он мог быть, и повторять её нельзя.
+        if isinstance(exc, OpenClawUnavailable) and getattr(exc, "ambiguous", False):
+            await outbox_mark_unknown(ctx.svc, idem, str(exc))
+            await ctx.svc.bus.emit("agent.warning", tool="openclaw.send",
+                                   reason="неизвестное внешнее состояние",
+                                   idempotency_key=idem, channel=real_channel)
+            return ToolResult(
+                content=f"Связь оборвалась после отправки запроса: {exc}\n"
+                        f"Дошло ли сообщение — неизвестно. Слепой повтор запрещён: "
+                        f"сначала сверка.",
+                one_line="openclaw.send: состояние неизвестно", error=True)
+        await outbox_mark_failed(ctx.svc, idem, str(exc))
         return _fail(exc, "openclaw.send")
 
+    await outbox_mark_sent(ctx.svc, idem, payload if isinstance(payload, dict) else {})
     await ctx.svc.bus.emit("agent.action", tool="openclaw.send", channel=real_channel,
                            contact=real_contact, idempotency_key=idem)
     return ToolResult(content=f"сообщение отправлено: {real_channel} → {real_contact}\n"

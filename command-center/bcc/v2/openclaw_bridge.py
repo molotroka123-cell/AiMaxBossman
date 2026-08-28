@@ -89,7 +89,16 @@ MEMORY_RECHECK_SECONDS = 300.0
 
 
 class OpenClawUnavailable(RuntimeError):
-    """Gateway недоступен, не отвечает или отверг подключение."""
+    """Gateway недоступен, не отвечает или отверг подключение.
+
+    `ambiguous=True` означает: запрос МОГ дойти, но ответа мы не получили.
+    Это не отказ. Разница решающая — на отказе действие можно повторить, на
+    неоднозначности повтор означает второе сообщение живому человеку.
+    """
+
+    def __init__(self, *args: object, ambiguous: bool = False) -> None:
+        super().__init__(*args)
+        self.ambiguous = ambiguous
 
 
 class OpenClawScopeError(RuntimeError):
@@ -441,7 +450,10 @@ class OpenClawBridge:
                 raise OpenClawUnavailable(
                     "Gateway ещё запускается (startup-sidecars) — повторите позже")
             raise OpenClawUnavailable(f"{code}: {detail}")
-        raise OpenClawUnavailable(f"{method}: нет ответа за {timeout:g} с")
+        # Тело запроса уже ушло. Отсутствие ответа НЕ означает, что его не
+        # приняли на той стороне — только то, что мы не знаем.
+        raise OpenClawUnavailable(f"{method}: нет ответа за {timeout:g} с",
+                                  ambiguous=True)
 
     async def call(self, name: str, params: dict[str, Any] | None = None, *,
                    timeout: float = DEFAULT_TIMEOUT,
@@ -467,12 +479,21 @@ class OpenClawBridge:
             try:
                 return await self._exchange(ws, method, body, timeout=timeout,
                                             extra=extra)
-            except OpenClawUnavailable:
+            except Exception as exc:
                 # Соединение могло умереть — закрываем, следующий вызов поднимет
                 # заново. Автоматического повтора НЕТ: повторять отправку
                 # сообщения человеку без ключа идемпотентности нельзя.
                 await self.close()
-                raise
+                # Обрыв сокета ПОСЛЕ отправки кадра приходил сюда сырым
+                # исключением websockets и уходил наружу как обычная ошибка —
+                # неотличимо от «не дошло». Приводим к неоднозначности явно:
+                # молчание сокета не означает, что запрос не приняли.
+                if isinstance(exc, (OpenClawUnavailable, OpenClawForbidden,
+                                    OpenClawScopeError, OpenClawMemoryConflict)):
+                    raise
+                raise OpenClawUnavailable(
+                    f"{method}: соединение оборвалось после отправки запроса "
+                    f"({type(exc).__name__}: {exc})", ambiguous=True) from exc
 
     async def health(self, *, run_id: Any = None) -> Any:
         return await self.call("health", {}, timeout=HEALTH_TIMEOUT, run_id=run_id)

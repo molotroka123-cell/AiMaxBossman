@@ -114,9 +114,19 @@ class FakeBus:
         self.events.append((name, payload))
 
 
-def _ctx(monkeypatch, bridge: FakeBridge, *, mission_id=7, run_id=42, call_id="c1"):
+def _ctx(monkeypatch, bridge: FakeBridge, *, svc=None, mission_id=7, run_id=42,
+         call_id="c1"):
+    """Контекст вызова.
+
+    `svc` теперь обязателен для отправки: путь идёт через долговечный outbox в
+    базе, и подделка без БД его не пройдёт. Это и есть смысл правки — защита от
+    дубля больше не живёт в памяти процесса.
+    """
     bus = FakeBus()
-    svc = type("Svc", (), {"bus": bus})()
+    if svc is None:
+        svc = type("Svc", (), {"bus": bus})()
+    else:
+        svc.bus = bus                     # шину подменяем, базу оставляем настоящую
     monkeypatch.setattr(oc, "bridge", lambda _svc: _ready(bridge))
     return ToolContext(svc=svc, task={"mission_id": mission_id}, run_id=run_id,
                        agent=_agent("channel.send"), call_id=call_id), bus
@@ -152,33 +162,71 @@ async def test_send_refuses_when_the_gateway_will_not_say_who_it_is(monkeypatch)
     assert br.sent == []
 
 
-async def test_send_carries_a_key_derived_from_our_own_identifiers(monkeypatch):
+async def test_send_is_not_delivered_twice_even_when_the_step_is_replayed(monkeypatch, env):
+    """Повтор шага НЕ доходит до Gateway второй раз.
+
+    Раньше здесь проверялось только совпадение ключей — то есть надежда, что
+    дедупликацию сделает чужая сторона. Теперь повтор останавливается у нас,
+    записью в базе, и до сети не доходит вовсе.
+    """
     br = FakeBridge(describe={"channel": "telegram", "contact": "@owner"})
-    ctx, bus = _ctx(monkeypatch, br)
+    ctx, _ = _ctx(monkeypatch, br, svc=env.svc)
     first = await oc._tool_send(dict(ARGS), ctx)
     assert first.error is False
+    assert len(br.sent) == 1
 
-    # повтор того же шага — тот же ключ, значит для Gateway это одно сообщение
-    ctx2, _ = _ctx(monkeypatch, br)
-    await oc._tool_send(dict(ARGS), ctx2)
-    assert br.sent[0]["idem"] == br.sent[1]["idem"]
+    # тот же шаг после «перезапуска»: провайдер выдал НОВЫЙ call_id
+    ctx2, _ = _ctx(monkeypatch, br, svc=env.svc, call_id="провайдер-выдал-другой")
+    second = await oc._tool_send(dict(ARGS), ctx2)
+    assert second.error is False
+    assert second.data.get("duplicate") is True
+    assert len(br.sent) == 1, "повтор дошёл до Gateway — человек получил второе сообщение"
+
+    # другой текст тому же человеку — это другое действие, оно уходит
+    other = {**ARGS, "message": "другое сообщение"}
+    ctx3, _ = _ctx(monkeypatch, br, svc=env.svc)
+    await oc._tool_send(other, ctx3)
+    assert len(br.sent) == 2
+    assert br.sent[0]["idem"] != br.sent[1]["idem"]
     assert br.sent[0]["idem"].startswith("bossman-")
 
-    # другой шаг миссии — другой ключ
-    ctx3, _ = _ctx(monkeypatch, br, call_id="c2")
-    await oc._tool_send(dict(ARGS), ctx3)
-    assert br.sent[2]["idem"] != br.sent[0]["idem"]
 
+async def test_definite_refusal_is_retryable_but_ambiguity_is_not(monkeypatch, env):
+    """Отказ и неоднозначность — разные исходы, и путать их нельзя.
 
-async def test_send_reports_a_dead_gateway_without_retrying(monkeypatch):
+    На отказе внешнего эффекта не было: попытка возможна. На обрыве после
+    отправки запроса эффект мог случиться, и повтор стал бы вторым сообщением.
+    """
     from bcc.v2.openclaw_bridge import OpenClawUnavailable
 
-    br = FakeBridge(describe={"channel": "telegram", "contact": "@owner"},
-                    fail=OpenClawUnavailable("соединение закрыто"))
-    ctx, _ = _ctx(monkeypatch, br)
-    result = await oc._tool_send(dict(ARGS), ctx)
-    assert result.error is True
-    assert "Повторять вслепую не нужно" in result.content
+    # отказ: Gateway ответил — значит принял решение, эффекта не было
+    refuse = FakeBridge(describe={"channel": "telegram", "contact": "@owner"},
+                        fail=OpenClawUnavailable("INVALID_REQUEST: отказано"))
+    ctx, _ = _ctx(monkeypatch, refuse, svc=env.svc)
+    denied = await oc._tool_send(dict(ARGS), ctx)
+    assert denied.error is True
+
+    # тот же шаг после отказа снова доходит до Gateway — это не дубль
+    ok = FakeBridge(describe={"channel": "telegram", "contact": "@owner"})
+    ctx2, _ = _ctx(monkeypatch, ok, svc=env.svc)
+    assert (await oc._tool_send(dict(ARGS), ctx2)).error is False
+    assert len(ok.sent) == 1
+
+    # неоднозначность: связь оборвалась после отправки
+    args = {**ARGS, "message": "сообщение с неизвестной судьбой"}
+    lost = FakeBridge(describe={"channel": "telegram", "contact": "@owner"},
+                      fail=OpenClawUnavailable("нет ответа за 30 с", ambiguous=True))
+    ctx3, bus = _ctx(monkeypatch, lost, svc=env.svc)
+    unknown = await oc._tool_send(args, ctx3)
+    assert unknown.error is True and "неизвестно" in unknown.content
+    assert any(name == "agent.warning" for name, _ in bus.events)
+
+    # повтор после неоднозначности НЕ уходит в сеть — требует человека
+    again = FakeBridge(describe={"channel": "telegram", "contact": "@owner"})
+    ctx4, _ = _ctx(monkeypatch, again, svc=env.svc)
+    blocked = await oc._tool_send(args, ctx4)
+    assert blocked.error is True and "сверка" in blocked.content
+    assert again.sent == [], "слепой повтор после неоднозначности дошёл до Gateway"
 
 
 async def test_send_needs_an_explicit_recipient(monkeypatch):
