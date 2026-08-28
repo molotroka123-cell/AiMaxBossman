@@ -1,4 +1,11 @@
-# V2 — Final Scorecard
+# V2 — Final Scorecard (исторический срез)
+
+> **Это оценка волны V2 на коммите `24d24eb` (110 тестов).** Актуальное
+> состояние системы — в [`V2_1_FINAL_SCORECARD.md`](V2_1_FINAL_SCORECARD.md):
+> там 267 passed / 1 skipped и другие оценки, потому что в V2.1 появился
+> канонический tool-loop, а часть функций из «DONE» здесь была DONE только
+> как UI поверх API, без вызова моделью.
+
 
 Оценки честные: **DONE** = backend + persistence + тесты (unit/integration/failure)
 проверены лидом; **PARTIAL** = работает, но часть требует внешней зависимости
@@ -55,7 +62,7 @@ UI: 15 feature-страниц + Home V2 + Mobile — построены, QA в C
 
 ## Итого
 
-**14/15 функций DONE (backend+UI+QA), 1 PARTIAL (07 — OpenCode-часть требует
+На момент V2: **14/15 функций DONE (backend+UI+QA), 1 PARTIAL (07 — OpenCode-часть требует
 бинаря `opencode serve`; Terminal этой же функции — DONE).**
 Ни одной FAILED. 110 автотестов зелёные. Полные кросс-сценарии §39–41 (цепной
 E2E на реальных LLM) — PARTIAL: компоненты протестированы по отдельности + mock,
@@ -71,6 +78,6 @@ E2E на реальных LLM) — PARTIAL: компоненты протест�
 AUTO/DENY, NL-парсинг оркестра, approvals). Fake-кнопок нет — нереализованное
 показано честным empty-state. Скриншоты: `docs/V2_PROOFS/shots/ui-*.png`.
 
-Итог по UI: **13/15 DONE (backend+UI+QA)**; 07 OpenCode-часть и полные
+Итог по UI на момент V2: **13/15 DONE (backend+UI+QA)**; 07 OpenCode-часть и полные
 кросс-сценарии §39-41 — PARTIAL (внешние зависимости: бинарь opencode,
 реальные GPU-модели).

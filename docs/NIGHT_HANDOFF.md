@@ -1,55 +1,76 @@
-# NIGHT HANDOFF — BOSSMAN V2 (обновляется на каждом этапе)
+# NIGHT HANDOFF — BOSSMAN V2.1
 
-> Оборвалась сессия? Новая читает ЭТОТ файл + `data/night_tasks.json` +
-> `docs/V2_ORCHESTRATION_STATE.md` и продолжает. LOCKED-решения —
-> `docs/v2-pack/CLAUDE_START_HERE.md`. Отчёты — `docs/V2_IMPLEMENTATION_REPORT.md`,
-> `docs/V2_FINAL_SCORECARD.md`.
+Состояние на конец прогона. Всё критичное закоммичено и запушено; в рабочем
+дереве незакоммиченных изменений нет.
 
-## Главная цель
-BOSSMAN V2 — проверяемый multi-agent AI control plane. Реальные функции, не мокапы.
+- **Ветка:** `claude/bossman-control-v03-43igbk` (запушена)
+- **Коммиты волны:** `5bc4286` → `4147572` → `fa4dd2d` → `9140e2d` → `280d0be` → `cab5b51`
+- **Тесты:** `cd command-center && timeout 900 python -u -m pytest -q` → **267 passed, 1 skipped**
+- **Пропуск:** реальный host-smoke по `opencode serve` — бинаря нет, честно не засчитан
 
-## Ветка и состояние
-- Ветка (push): `claude/bossman-control-v03-43igbk`. Всё запушено.
-- Тесты: **110 pytest passed** (`cd command-center && python -m pytest -q`;
-  если pytest-timeout плагин мешает — `timeout 200 python -u -m pytest -q`).
-- Пак пользователя внедрён (`bcc/v2/*`, `.agents/skills/*`, `docs/v2-pack/*`).
+## Цель прогона и что достигнуто
 
-## Сделано (backend всех 15 функций + ядро)
-- Ядро: Worker Pool (BCC_WORKERS=3) + Hard Cancel; 6 хуков engine; загрузчик
-  фич `bcc/features/`; 12 V2-таблиц + миграции; permissions.
-- 15 функций как feature-модули с тестами (см. V2_FINAL_SCORECARD):
-  01 missions, 02 router, 03 governor, 04 benchlab, 05 forks, 06 agentmap,
-  07 terminal(+opencode PARTIAL), 08 review_gate, 09 browser, 10 skills(+mcp),
-  11 nl_orchestra, 12 resources, 13 kpi(в missions), 14 healing, openrouter.
-- VRAM-аудит vs OpenCode (~105 МБ idle, 0 VRAM) — в V2_CURRENT_STATE_AUDIT.
-- Отчёты: scorecard + implementation report.
+Закрыть главный пробел V2: движок исполнял `prompt → модель → текст → готово`,
+а терминал/браузер/MCP существовали только для человека в UI. Теперь работает
+канонический цикл инструментов с правами AUTO/ASK/DENY, и это доказано сквозным
+прогоном с 10+ реальными вызовами.
 
-## В работе / осталось
-1. **UI-страницы функций** — строит субагент (ui/pages/*.js) поверх готовых API.
-   Реестр: ui/pages/index.js (FEATURE_PAGES). После завершения — интегрировать,
-   `node --check`, зарегистрировать в app.js (PAGES.push уже есть).
-2. **Browser QA** — поднять сервер, Chromium /opt/pw-browsers/chromium, пройти
-   viewport'ы 320/375/390/430/1440, скриншоты в docs/V2_PROOFS/shots.
-3. **OpenCode полный цикл** — на машине с `opencode serve` (сейчас PARTIAL).
-4. **Кросс-сценарии §39-41 на реальных моделях** — компоненты готовы+mock.
-5. Финал: обновить scorecard по UI, финальный commit+push, ветка
-   feature/bossman-command-center-v2 на итог.
+Подробности: `V2_1_FINAL_SCORECARD.md` (оценки), `V2_1_E2E_PROOF.md`
+(доказательства), `V2_1_SECURITY_REPORT.md`, `V2_1_IMPLEMENTATION_REPORT.md`,
+`V2_1_RUNTIME_CONTEXT.md` (рабочий контекст), `v2_1_agent_notes/*.md` (заметки лейнов).
 
-## Точные команды
+## Сделано
+
+| Направление | Итог |
+|---|:---:|
+| Канонический tool-loop, терминал, браузер, роутер по verified, Governor, скиллы, NL-права, пульт, безопасность входа, снапшот | **DONE** |
+| MCP (stdio есть, HTTP нет), память (BM25 есть, dense нет), OpenCode (fake есть, бинаря нет), OpenRouter (без живого ключа), Resource Brain, Reviewer, n8n-мост | **PARTIAL** — ограничения названы в scorecard |
+| FAILED | нет |
+
+## Осталось (в порядке приоритета)
+
+1. **Alembic** вместо `create_all` + идемпотентных ALTER. Один владелец миграций.
+2. **Прогон на боевой машине**: реальная GPU-модель вместо сценарного HTTP-сервиса,
+   `opencode serve`, живой OpenRouter с ключом. Код менять не нужно — меняется
+   `base_url` провайдера.
+3. **Resource Brain**: настраиваемый резерв-пол памяти, выгрузка простаивающей модели.
+4. **Reviewer**: вход по diff'у и результату браузера, а не только по тексту ответа.
+5. **MCP по HTTP-транспорту** (сейчас честный `unavailable`).
+6. **Память**: dense-эмбеддинги + гибрид с BM25 и cross-encoder (нужны `numpy`,
+   `sentence-transformers`).
+7. **Безопасность**: выключить `BCC_LEGACY_TOKEN`, rate-limit на `/api/login`,
+   ротация токена установки.
+8. **n8n**: экспорт workflow и вебхуки (визуализация уже есть).
+
+## Команды для продолжения
+
 ```bash
 cd /home/user/AiMaxBossman/command-center
-timeout 200 python -u -m pytest -q          # 110 passed
-BCC_DATA_DIR=/tmp/bcc BCC_PORT=8800 python -m bcc.app   # токен в консоли/файле
+
+# тесты (ВСЕГДА через timeout — иначе харнесс может подвесить прогон)
+timeout 900 python -u -m pytest -q
+
+# только новое в V2.1
+timeout 400 python -u -m pytest tests/test_v21_ -q
+
+# сервер
+BCC_DATA_DIR=/tmp/bcc-data BCC_PORT=8821 python -m bcc.app
+# токен печатается при старте; в браузере он меняется на HttpOnly-сессию
 ```
 
-## Как устроено расширение (для продолжения)
-- Новая фича backend: `bcc/features/<имя>.py` c `FEATURE = Feature(...)` —
-  авто-подключается. Хуки: `svc.engine.add_hook(...)` в `setup(svc)`.
-- Новая UI-страница: `ui/pages/<имя>.js` (объект {id,title,icon,nav,render,onEvent})
-  + строка в `ui/pages/index.js` FEATURE_PAGES.
-- Тесты: `tests/test_feat_<имя>.py`, фикстура `env` (conftest), `FakeAdapter`.
-- Таблицы V2 — только в `bcc/db.py` (лид), НЕ в feature-модулях.
+## Что НЕ делалось (по запрету)
 
-## Не делать без владельца
-production deploy, финансы, удаление данных, отправка клиентам, force push,
-публикация в интернет, выдача wallet/banking доступа агентам.
+Продакшн-деплой, финансовые действия, удаление данных, отправка сообщений
+наружу, force-push, слияние в защищённую ветку. Секретов не закоммичено
+(скан диффа перед каждым коммитом).
+
+## Известные ловушки окружения
+
+- `pytest` без `timeout` иногда даёт exit 144 — артефакт харнесса, не тестов.
+- `docker` в контейнере разработки есть, но запуск контейнеров может не
+  работать: `terminal.run` в режиме `sandbox` честно падает, `project_host`
+  работает. На боевой машине это не проблема.
+- Chromium предустановлен: `/opt/pw-browsers/chromium`, `playwright install`
+  запускать не нужно.
+- Пакет `mcp` установлен вручную; в `pyproject.toml` он в
+  `optional-dependencies.mcp` — импорт ленивый, без него сервер стартует.

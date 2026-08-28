@@ -5,8 +5,15 @@
 по указанным символам/строкам.
 
 - Ветка: `claude/bossman-control-v03-43igbk`
-- База: коммит `d2bc5f7` (Workflow Builder), тесты **115 passed**
+- База на старте волны: коммит `d2bc5f7`, **115 passed**
+- Итог волны: коммит `cab5b51`, **267 passed, 1 skipped**
 - Дата среза: 28.08.2026
+
+> **Как читать этот файл.** Разделы 1–14 — снимок состояния и контрактов
+> **на начало волны**: они были рабочей памятью для лейнов и намеренно
+> оставлены как есть (там, где написано «пробел» — это то, что мы шли
+> закрывать). Фактический итог — в разделе 15 и в
+> [`V2_1_FINAL_SCORECARD.md`](V2_1_FINAL_SCORECARD.md).
 
 ## 1. Канонические сущности (что уже есть в БД)
 
@@ -201,23 +208,25 @@ ToolRegistry.register(spec) / get(name) / schemas_for(names) / decide(...)
 
 | Фаза | Статус |
 |---|---|
-| 0 Контекст | DONE (этот файл) |
-| A Канонический tool-loop | TODO |
-| B Terminal-инструменты | TODO |
-| C Browser-инструменты | TODO |
-| D MCP runtime | TODO |
-| E Memory/Obsidian | TODO |
-| F OpenCode E2E | TODO |
-| G OpenRouter certification | TODO |
-| H Router + Resource Brain | TODO |
-| I Governor/Healing на реальных инструментах | TODO |
-| J Reviewer Gate на реальной кодовой задаче | TODO |
-| K Skills → реальные инструменты | TODO |
-| L NL-компилятор прав | TODO |
-| M Mobile/операторский UX | TODO |
-| N Auth hardening | TODO |
-| O Snapshot/Rollback | TODO |
-| P n8n-мост | PARTIAL (Workflow Builder + `/api/workflow/*` уже есть, коммит d2bc5f7) |
+| 0 Контекст | DONE |
+| A Канонический tool-loop | DONE (14 тестов) |
+| B Terminal-инструменты | DONE |
+| C Browser-инструменты | DONE (11 тестов вместе с B) |
+| D MCP runtime | PARTIAL — stdio DONE (15 тестов), HTTP-транспорт не реализован |
+| E Memory/Obsidian | PARTIAL — BM25 DONE (16 тестов), dense/BGE-M3 нет |
+| F OpenCode E2E | PARTIAL — fake-сервер DONE (10+1 skip), бинаря нет |
+| G OpenRouter certification | PARTIAL — 13 тестов на MockTransport, живого ключа нет |
+| H Router + Resource Brain | Router DONE (verified побеждает advertised); Resource Brain PARTIAL |
+| I Governor/Healing на реальных инструментах | DONE (+ исправлен ложный сработ) |
+| J Reviewer Gate | PARTIAL — ограничение итераций DONE, инспекции diff'а нет |
+| K Skills → реальные инструменты | DONE (14 тестов) |
+| L NL-компилятор прав | DONE (13 тестов) |
+| M Mobile/операторский UX | DONE (замеры 320–430px) |
+| N Auth hardening | DONE (14 тестов + Chromium) |
+| O Snapshot/Rollback | DONE (16 тестов) |
+| P n8n-мост | PARTIAL — визуализация есть, экспорта и вебхуков нет |
+| §20 автономный E2E | DONE — 10+ вызовов, один approval |
+| §21 инъекция сбоев | DONE — 11 сценариев |
 
 Итоги пишутся в: `docs/V2_1_FINAL_SCORECARD.md`, `docs/V2_1_E2E_PROOF.md`,
 `docs/V2_1_SECURITY_REPORT.md`, `docs/V2_1_IMPLEMENTATION_REPORT.md`.

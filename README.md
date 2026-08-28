@@ -23,10 +23,28 @@
 железа (hardware audit, benchmark, Phase 1 setup-брифа), выполняется на самой машине
 в день приезда по `BOSSMAN_CLAUDE_CODE_SETUP.md`.
 
-**Статус: MVP готов** — [`command-center/`](command-center/), Definition of Done
-пройден 17/17, отчёт: [`docs/COMMAND_CENTER_REPORT.md`](docs/COMMAND_CENTER_REPORT.md).
+**Статус: V2.1 — control plane стал настоящим агентным рантаймом.**
+Модель реально вызывает инструменты (терминал, браузер, MCP, память, OpenCode)
+через один канонический цикл с правами AUTO/ASK/DENY.
+
+- Оценки по направлениям: [`docs/V2_1_FINAL_SCORECARD.md`](docs/V2_1_FINAL_SCORECARD.md)
+  — **10 DONE, 7 PARTIAL, 0 FAILED**; что не проверено — названо прямо.
+- Доказательства сквозных прогонов: [`docs/V2_1_E2E_PROOF.md`](docs/V2_1_E2E_PROOF.md).
+- Безопасность доступа: [`docs/V2_1_SECURITY_REPORT.md`](docs/V2_1_SECURITY_REPORT.md).
+- Что и как сделано: [`docs/V2_1_IMPLEMENTATION_REPORT.md`](docs/V2_1_IMPLEMENTATION_REPORT.md).
+- Рабочий контекст волны: [`docs/V2_1_RUNTIME_CONTEXT.md`](docs/V2_1_RUNTIME_CONTEXT.md).
+
+Тесты: **267 passed, 1 skipped** (`cd command-center && timeout 900 python -u -m pytest -q`).
+Пропуск — намеренный: реальный smoke по `opencode serve`, бинаря в этом
+окружении нет, и он честно не засчитан.
+
 Запуск: `cd command-center && pip install -e . && bcc` → http://127.0.0.1:8800
-(токен печатается в консоли).
+(токен печатается в консоли; в браузере он меняется на HttpOnly-сессию).
+Ветка разработки: `claude/bossman-control-v03-43igbk`.
+
+Более ранние срезы — [`docs/V2_FINAL_SCORECARD.md`](docs/V2_FINAL_SCORECARD.md)
+и [`docs/COMMAND_CENTER_REPORT.md`](docs/COMMAND_CENTER_REPORT.md) — помечены
+как исторические: числа в них относятся к своим коммитам.
 
 | Часть | Что это | Документы |
 |---|---|---|

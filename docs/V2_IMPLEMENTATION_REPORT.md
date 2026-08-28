@@ -1,5 +1,8 @@
 # BOSSMAN V2 — Implementation Report
 
+> **Исторический отчёт волны V2** (коммит `24d24eb`, 110 тестов).
+> Актуальное состояние — [`V2_1_IMPLEMENTATION_REPORT.md`](V2_1_IMPLEMENTATION_REPORT.md).
+
 Дата: 28.08.2026. Ветка: `claude/bossman-control-v03-43igbk` (интеграционная метка
 `feature/bossman-command-center-v2`). Тесты: **110 pytest passed**.
 
