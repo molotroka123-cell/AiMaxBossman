@@ -34,7 +34,11 @@ def parse_skill(path: Path, source_root: Path) -> Skill:
             try:
                 fm = yaml.safe_load(text[4:end]) or {}
             except yaml.YAMLError:
-                fm = _lenient_frontmatter(text[4:end])
+                # Двоеточие внутри значения ломает YAML. Сначала пробуем
+                # починить кавычками и разобрать НОРМАЛЬНО — иначе теряются
+                # вложенные поля (metadata.version), и версия скилла
+                # становится невидимой.
+                fm = _quoted_retry(text[4:end]) or _lenient_frontmatter(text[4:end])
             body = text[end + 4:].lstrip("\r\n")
     sid = path.parent.name
     name = str(fm.get("name") or sid)  # noqa: E501 (см. _lenient_frontmatter ниже)
@@ -181,6 +185,35 @@ def default_skill_roots(repo_root: Path, home: Path | None = None) -> list[Path]
         home / ".config" / "opencode" / "skills",
         home / ".claude" / "skills",
     ]
+
+
+def _quoted_retry(raw: str) -> dict[str, Any] | None:
+    """Заключить незакавыченные скалярные значения в кавычки и разобрать снова.
+
+    Так `description: Audit a repository: map architecture` перестаёт быть
+    битым YAML, и при этом сохраняется вложенная структура (`metadata.version`),
+    которую построчный разбор теряет. Отступ сохраняем — иначе развалится
+    вложенность.
+    """
+    fixed: list[str] = []
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("- "):
+            fixed.append(line)
+            continue
+        key, sep, value = line.partition(":")
+        value = value.strip()
+        # чиним только простые скаляры: не списки, не блоки, не уже закавыченное
+        if (sep and value and ":" in value
+                and not value.startswith(("'", '"', "[", "{", "|", ">", "&", "*"))):
+            fixed.append(f"{key}: \"{value.replace(chr(92), chr(92) * 2).replace(chr(34), chr(39))}\"")
+        else:
+            fixed.append(line)
+    try:
+        data = yaml.safe_load("\n".join(fixed))
+    except yaml.YAMLError:
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def _lenient_frontmatter(raw: str) -> dict[str, Any]:
