@@ -1,0 +1,53 @@
+{
+  "name": "money_clip_seed",
+  "features": [
+    {
+      "primitive": {
+        "id": "base",
+        "kind": "box",
+        "size_mm": [
+          38,
+          70,
+          2.4
+        ]
+      },
+      "operation": "add"
+    },
+    {
+      "primitive": {
+        "id": "spacer",
+        "kind": "box",
+        "size_mm": [
+          38,
+          10,
+          4
+        ]
+      },
+      "transform": {
+        "translate_mm": [
+          0,
+          0,
+          2.4
+        ],
+        "rotate_deg": [
+          0,
+          0,
+          0
+        ]
+      },
+      "operation": "add"
+    }
+  ],
+  "manufacturing": {
+    "material": "PETG",
+    "required_tolerance_mm": 0.3,
+    "fit_intent": "clearance",
+    "supports_allowed": false
+  },
+  "assumptions": [
+    "Seed only; spring geometry must be designed before printing."
+  ],
+  "unresolved_questions": [
+    "Bill stack thickness and target clamping force are not specified."
+  ]
+}

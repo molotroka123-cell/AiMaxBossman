@@ -1,0 +1,23 @@
+{
+  "warning": "Starting presets only. Confirm filament vendor range and calibrate.",
+  "PLA": {
+    "nozzle_c": 205,
+    "bed_c": 60
+  },
+  "PETG": {
+    "nozzle_c": 235,
+    "bed_c": 75
+  },
+  "TPU": {
+    "nozzle_c": 220,
+    "bed_c": 50
+  },
+  "ABS": {
+    "nozzle_c": 245,
+    "bed_c": 90
+  },
+  "ASA": {
+    "nozzle_c": 245,
+    "bed_c": 90
+  }
+}

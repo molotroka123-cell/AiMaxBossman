@@ -1,0 +1,73 @@
+{
+  "name": "simple_mounting_block",
+  "features": [
+    {
+      "primitive": {
+        "id": "block",
+        "kind": "box",
+        "size_mm": [
+          60,
+          30,
+          8
+        ]
+      },
+      "operation": "add"
+    },
+    {
+      "primitive": {
+        "id": "hole1",
+        "kind": "cylinder",
+        "size_mm": [
+          4,
+          8
+        ]
+      },
+      "transform": {
+        "translate_mm": [
+          15,
+          15,
+          0
+        ],
+        "rotate_deg": [
+          0,
+          0,
+          0
+        ]
+      },
+      "operation": "cut"
+    },
+    {
+      "primitive": {
+        "id": "hole2",
+        "kind": "cylinder",
+        "size_mm": [
+          4,
+          8
+        ]
+      },
+      "transform": {
+        "translate_mm": [
+          45,
+          15,
+          0
+        ],
+        "rotate_deg": [
+          0,
+          0,
+          0
+        ]
+      },
+      "operation": "cut"
+    }
+  ],
+  "manufacturing": {
+    "material": "PETG",
+    "required_tolerance_mm": 0.3,
+    "fit_intent": "clearance",
+    "supports_allowed": false
+  },
+  "critical_dimensions": {
+    "hole_nominal": 4.0,
+    "hole_spacing": 30.0
+  }
+}

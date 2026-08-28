@@ -1,0 +1,44 @@
+{
+  "id": "elegoo-neptune-3-plus-stock-0.4",
+  "manufacturer": "ELEGOO",
+  "model": "Neptune 3 Plus",
+  "technology": "FDM",
+  "verified_machine_limits": {
+    "build_x_mm": 320.0,
+    "build_y_mm": 320.0,
+    "build_z_mm": 400.0,
+    "platform_x_mm": 330.0,
+    "platform_y_mm": 330.0,
+    "stock_nozzle_mm": 0.4,
+    "max_nozzle_temp_c": 260,
+    "max_bed_temp_c": 100
+  },
+  "transfer": [
+    "TF card",
+    "USB cable"
+  ],
+  "manufacturer_model_formats": [
+    "STL",
+    "OBJ"
+  ],
+  "manufacturer_filaments": [
+    "PLA",
+    "TPU",
+    "PETG",
+    "ABS",
+    "ASA"
+  ],
+  "coordinate_policy": {
+    "origin": "front-left",
+    "x_min": 0.0,
+    "y_min": 0.0,
+    "z_min": 0.0,
+    "fit_margin_mm": 2.0
+  },
+  "process_defaults_unverified": {
+    "nominal_layer_height_mm": 0.2,
+    "nominal_line_width_mm": 0.4,
+    "minimum_wall_lines": 3,
+    "note": "Conservative app defaults; not manufacturer precision guarantees."
+  }
+}
