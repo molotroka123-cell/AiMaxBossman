@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-28T04:35:00Z",
+  "updated": "2026-08-28T04:55:00Z",
   "goal": "BOSSMAN V2: 15 проверенных функций + интеграция пака (LOCKED) + UI + QA",
   "branch": "claude/bossman-control-v03-43igbk",
   "test_command": "cd /home/user/AiMaxBossman/command-center && python -m pytest -q",
@@ -35,7 +35,7 @@
     },
     {
       "id": "wave-1",
-      "status": "partial-lead-integrated",
+      "status": "lead-integrated (12/15 backend, tests green 99)",
       "owner": "orchestrator",
       "goal": "Перезапустить Fable-агентов 02,05,10,12,13 (worktrees /home/user/bossman-wt/*, промпты в V2_ORCHESTRATION_STATE + доп-зоны пака)",
       "depends": [
@@ -46,7 +46,7 @@
     },
     {
       "id": "wave-2",
-      "status": "partial-lead-integrated",
+      "status": "lead-integrated (12/15 backend, tests green 99)",
       "owner": "orchestrator",
       "goal": "Агенты 01,03,04,08,14",
       "depends": [
@@ -56,7 +56,7 @@
     },
     {
       "id": "wave-3",
-      "status": "pending",
+      "status": "lead-integrated (12/15 backend, tests green 99)",
       "owner": "orchestrator",
       "goal": "Агенты 06,07,09,11,15",
       "depends": [
@@ -119,5 +119,31 @@
     "resources",
     "fork",
     "healing"
-  ]
+  ],
+  "integrated_features": {
+    "done_backend_with_tests": [
+      "01 missions",
+      "02 router",
+      "03 governor",
+      "04 (partial via probe)",
+      "05 fork",
+      "06 agentmap",
+      "07 terminal",
+      "08 reviewer",
+      "10 skills+mcp",
+      "11 nl_orchestra",
+      "12 resources",
+      "13 kpi",
+      "14 healing",
+      "openrouter"
+    ],
+    "remaining": [
+      "04 benchmark lab (фон)",
+      "07 opencode-bridge (нужен бинарь opencode → partial)",
+      "09 browser live (playwright)",
+      "15 mobile UI",
+      "UI все страницы",
+      "reports+scorecard"
+    ]
+  }
 }
