@@ -113,6 +113,12 @@ def write_report(path: str | Path, data: dict) -> Path:
         f"- components: {data.get('components', 'n/a')}",
         f"- volume: {data.get('volume_mm3', 'n/a')} mm^3",
     ])
+    lines += block("Evidence — what actually ran on this host", (data.get("evidence") or []) + [
+        "",
+        "`NOT_RUN` means the engine is not present or was not reached. It is not a pass.",
+        "No physical print and no physical measurement happened; nothing here is",
+        "evidence about the behaviour of a real printer.",
+    ])
     lines += block("Stages", [f"- {name}: {status}" for name, status in (data.get("stages") or {}).items()])
     lines += block("Blocking reasons", [f"- {r}" for r in (data.get("reasons") or [])])
     lines += block("Warnings", [f"- {w}" for w in (data.get("warnings") or [])])

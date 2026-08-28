@@ -250,3 +250,109 @@ def test_oversized_source_file_is_refused(control, tmp_path):
     path = write_stl(primitives.box((10.0, 10.0, 10.0)), tmp_path / "big.stl")
     result = run(control, {"kind": "import", "source_stl": str(path), "job_id": "toobig"})
     assert result["error"] == "DISK_QUOTA_EXCEEDED"
+
+
+# ---------------------------------------------------------------- evidence
+"""A separate verdict per engine.
+
+An STL on disk is not evidence that CAD ran, that the mesh was validated, that
+a slicer ran or that anything was printed. The result has to say which of those
+actually happened on this host, one label each, and must never collapse them
+into a single "it worked".
+"""
+
+EVIDENCE_KEYS = {
+    "spec_compiled",
+    "cad_engine",
+    "step_export",
+    "openscad_render",
+    "mesh_validation",
+    "mesh_cross_check",
+    "printability",
+    "slicer",
+    "gcode_safety",
+    "physical_printer",
+}
+ALLOWED_STATUSES = {"PASS", "FAIL", "NOT_RUN"}
+
+
+def test_the_result_carries_one_label_per_engine(control):
+    result = run(control, {"kind": "design", "spec": json.loads(simple_spec().canonical_json()), "job_id": "ev"})
+    evidence = result["evidence"]
+    assert set(evidence) == EVIDENCE_KEYS
+    for name, entry in evidence.items():
+        assert entry["status"] in ALLOWED_STATUSES, name
+        if entry["status"] == "NOT_RUN":
+            assert entry["reason"], f"{name} claims NOT_RUN without saying why"
+
+
+def test_a_printable_verdict_does_not_imply_a_slicer_or_a_printer_ran(control):
+    result = run(control, {"kind": "design", "spec": json.loads(simple_spec().canonical_json()), "job_id": "ev2"})
+    assert result["printable"] is True
+    assert result["evidence"]["slicer"]["status"] == "NOT_RUN"
+    assert result["evidence"]["gcode_safety"]["status"] == "NOT_RUN"
+    assert result["evidence"]["physical_printer"]["status"] == "NOT_RUN"
+
+
+def test_mesh_validation_is_evidence_of_a_check_that_really_ran(control):
+    result = run(control, {"kind": "design", "spec": json.loads(simple_spec().canonical_json()), "job_id": "ev3"})
+    entry = result["evidence"]["mesh_validation"]
+    assert entry["status"] == "PASS"
+    assert entry["engine"] == "meshcheck"
+    # A check that "ran" without looking at any triangle is not a check.
+    assert entry["detail"]["triangles"] > 0
+
+
+def test_a_rejected_model_reports_a_failed_printability_not_a_missing_one(control):
+    spec = json.loads(simple_spec((400.0, 400.0, 500.0)).canonical_json())
+    result = run(control, {"kind": "design", "spec": spec, "job_id": "ev4"})
+    assert result["evidence"]["printability"]["status"] == "FAIL"
+    assert result["evidence"]["mesh_validation"]["status"] in {"PASS", "FAIL"}
+
+
+def test_step_export_is_not_run_when_cadquery_is_absent(control):
+    from ai_3d_maker.cad.external import cadquery_info
+
+    result = run(control, {"kind": "design", "spec": json.loads(simple_spec().canonical_json()), "job_id": "ev5"})
+    entry = result["evidence"]["step_export"]
+    if cadquery_info()["available"]:
+        assert entry["status"] == "PASS"
+        assert (Path(control.store.get("ev5").directory) / "model.step").is_file()
+    else:
+        assert entry["status"] == "NOT_RUN"
+        assert "cadquery" in entry["reason"].lower()
+        assert not (Path(control.store.get("ev5").directory) / "model.step").exists()
+
+
+def test_the_cross_check_reports_the_engine_that_actually_ran(control):
+    result = run(control, {"kind": "design", "spec": json.loads(simple_spec().canonical_json()), "job_id": "ev6"})
+    entry = result["evidence"]["mesh_cross_check"]
+    try:
+        import trimesh  # noqa: F401
+    except Exception:
+        assert entry["status"] == "NOT_RUN"
+    else:
+        assert entry["status"] == "PASS"
+        assert entry["engine"].startswith("trimesh")
+        assert entry["detail"]["watertight"] is True
+
+
+def test_evidence_survives_into_the_report_and_validation_file(control):
+    run(control, {"kind": "design", "spec": json.loads(simple_spec().canonical_json()), "job_id": "ev7"})
+    job_dir = Path(control.store.get("ev7").directory)
+    saved = json.loads((job_dir / "validation.json").read_text(encoding="utf-8"))
+    assert set(saved["evidence"]) == EVIDENCE_KEYS
+    text = (job_dir / "print_report.md").read_text(encoding="utf-8")
+    assert "REAL PRINTER PASS" not in text
+    for name in EVIDENCE_KEYS:
+        assert name in text
+
+
+def test_a_gated_job_reports_cad_as_not_run_rather_than_silently_absent(control):
+    spec = json.loads(simple_spec().canonical_json())
+    spec["unresolved_questions"] = ["Clearance or tapped hole?"]
+    result = run(control, {"kind": "design", "spec": spec, "job_id": "ev8"})
+    assert result["printable"] is False
+    assert result["evidence"]["cad_engine"]["status"] == "NOT_RUN"
+    assert result["evidence"]["mesh_validation"]["status"] == "NOT_RUN"
+    assert result["evidence"]["printability"]["status"] == "NOT_RUN"
