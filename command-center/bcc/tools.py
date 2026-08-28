@@ -85,6 +85,10 @@ class ToolSpec:
     timeout_seconds: float = 120.0
     idempotent: bool = True       # неидемпотентное НЕ переигрывается автоматически
     external_output: bool = False # результат помечать как внешние данные
+    # Инструмент лучше всех знает свою опасную поверхность: хук может УЖЕСТОЧИТЬ
+    # решение по конкретным аргументам (например, `git push` внутри terminal.run).
+    # Ослабить он не может — только явное правило пользователя.
+    effect_hook: Callable[[dict], tuple[Effect, str] | None] | None = None
 
     @property
     def api_name(self) -> str:
@@ -171,11 +175,12 @@ def decide_effect(spec: ToolSpec, args: dict, agent: dict,
                   policy_rules: list[dict] | None = None) -> tuple[Effect, str]:
     """AUTO/ASK/DENY для конкретного вызова. Возвращает (эффект, причина).
 
-    Порядок (побеждает первый запрет, затем самое явное разрешение):
-      1. явный DENY в политике агента;
-      2. `dangerous`-право без выдачи агенту → ASK;
-      3. правило политики агента (последнее совпавшее);
-      4. `default_effect` инструмента.
+    Порядок:
+      1. `default_effect` инструмента;
+      2. право агента (выдано → AUTO; опасное и не выдано → ASK);
+      3. хук самого инструмента по аргументам — может только УЖЕСТОЧИТЬ
+         (`git push` внутри `terminal.run` остаётся ASK даже с правом);
+      4. явное правило пользователя (`tool_rules`) — последнее слово.
     """
     import fnmatch
     from .permissions import agent_allowed, is_dangerous
@@ -191,6 +196,16 @@ def decide_effect(spec: ToolSpec, args: dict, agent: dict,
         elif is_dangerous(spec.permission):
             effect, reason = "ask", f"право {spec.permission} не выдано агенту"
 
+    if spec.effect_hook is not None:
+        try:
+            hinted = spec.effect_hook(args)
+        except Exception:
+            hinted = ("ask", f"хук политики {spec.name} упал — на всякий случай ASK")
+        if hinted:
+            hint_effect, hint_reason = hinted
+            if _strictness(hint_effect) > _strictness(effect):
+                effect, reason = hint_effect, hint_reason
+
     for rule in (policy_rules or []):
         pat_tool = str(rule.get("tool") or rule.get("action") or "*")
         pat_res = str(rule.get("resource") or "*")
@@ -201,6 +216,10 @@ def decide_effect(spec: ToolSpec, args: dict, agent: dict,
     if effect not in ("auto", "ask", "deny"):
         effect, reason = "ask", f"неизвестный эффект в политике: {effect}"
     return effect, reason
+
+
+def _strictness(effect: Effect) -> int:
+    return {"auto": 0, "ask": 1, "deny": 2}.get(effect, 1)
 
 
 def _resource_of(args: dict) -> str:
