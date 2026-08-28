@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 @dataclass(frozen=True, slots=True)
 class AgentNode:
@@ -19,7 +19,8 @@ class AgentEdge:
 def graph_payload(nodes: list[AgentNode], edges: list[AgentEdge]) -> dict:
     ids = {n.id for n in nodes}
     safe_edges = [e for e in edges if e.source in ids and e.target in ids]
+    # slots=True dataclass не имеет __dict__ — используем asdict
     return {
-        "nodes": [n.__dict__ for n in nodes],
-        "edges": [e.__dict__ for e in safe_edges],
+        "nodes": [asdict(n) for n in nodes],
+        "edges": [asdict(e) for e in safe_edges],
     }
