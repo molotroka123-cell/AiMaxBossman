@@ -1,0 +1,43 @@
+[project]
+name = "social-farm"
+version = "0.1.0"
+description = "Instagram-first social account control plane with capability-bounded actions"
+requires-python = ">=3.11"
+# Ядро домена, политик, возможностей и очереди работ живёт на стандартной
+# библиотеке: домен, который нельзя проверить без установленного HTTP-стека, —
+# это домен, который никто не будет проверять.
+dependencies = []
+
+[project.optional-dependencies]
+# HTTP-поверхность управления.
+api = ["fastapi>=0.111", "uvicorn[standard]>=0.30", "pydantic>=2.7"]
+# Официальный адаптер Instagram (Meta Graph API).
+official = ["httpx>=0.27"]
+# Изолированный браузерный резерв. Ставится отдельно и намеренно:
+# приложение обязано работать без него.
+browser = ["playwright>=1.45"]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "httpx>=0.27"]
+all = [
+  "fastapi>=0.111", "uvicorn[standard]>=0.30", "pydantic>=2.7",
+  "httpx>=0.27", "playwright>=1.45",
+]
+
+[project.scripts]
+social-farm = "social_farm.main:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+  "real_api: обращается к настоящему Instagram Graph API; нужен рабочий аккаунт",
+  "real_browser: поднимает настоящий браузер",
+]

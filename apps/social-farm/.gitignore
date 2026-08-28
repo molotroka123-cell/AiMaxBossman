@@ -1,0 +1,10 @@
+data/
+media/
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.venv/
+.env
+# Браузерные контексты аккаунтов: cookies и сессии живых людей.
+# В git они не попадают ни при каких обстоятельствах.
+browser-contexts/

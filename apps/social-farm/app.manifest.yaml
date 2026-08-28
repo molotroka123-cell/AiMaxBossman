@@ -1,0 +1,136 @@
+id: social-farm
+name: BOSSMAN Social Farm
+version: "0.1.0"
+app_number: 4
+description: >-
+  Управление подключёнными аккаунтами социальных сетей в границах их настоящих
+  возможностей. Instagram — первая площадка; официальный API — основной путь,
+  браузерный резерв — изолированный адаптер, включаемый явно.
+
+runtime:
+  language: python
+  python: ">=3.11"
+  standalone: true
+  imports_bossman: false      # приложение НЕ импортирует ядро; связь только по HTTP
+
+entrypoints:
+  cli: social-farm
+  http: social_farm.api:build_app
+  control_plane: social_farm.control:ControlPlane
+
+control_contract:
+  version: social-farm/control/1
+  operations:
+    - health
+    - capabilities
+    - accounts.list
+    - accounts.capabilities
+    - policy.evaluate
+    - content.create
+    - content.revisions
+    - approvals.list
+    - approvals.decide
+    - jobs.create
+    - jobs.status
+    - jobs.cancel
+    - jobs.list
+    - inbox.list
+    - insights.read
+    - metrics
+  http:
+    health: GET /health
+    capabilities: GET /api/capabilities
+    accounts.list: GET /api/accounts
+    accounts.capabilities: GET /api/accounts/{account_id}/capabilities
+    policy.evaluate: POST /api/policy/evaluate
+    content.create: POST /api/content
+    content.revisions: GET /api/content/{content_id}/revisions
+    approvals.list: GET /api/approvals
+    approvals.decide: POST /api/approvals/{approval_id}/decide
+    jobs.create: POST /api/jobs
+    jobs.status: GET /api/jobs/{job_id}
+    jobs.cancel: POST /api/jobs/{job_id}/cancel
+    jobs.list: GET /api/jobs
+    inbox.list: GET /api/inbox
+    insights.read: GET /api/accounts/{account_id}/insights
+    metrics: GET /api/metrics
+
+# Команды, которые BOSSMAN может отдать приложению. Секретов в них нет и быть
+# не может: мост передаёт ССЫЛКУ на секрет, а не значение.
+commands:
+  - "/social accounts"
+  - "/social capabilities <account>"
+  - "/social draft <account> <brief>"
+  - "/social schedule <content> <when>"
+  - "/social approvals"
+  - "/social inbox <account>"
+  - "/social insights <account>"
+
+# Ни одного действия, меняющего внешний мир, без явного решения политики.
+# Значения: auto | ask | deny. Это ДЕФОЛТ приложения; фактическое решение
+# принимается per-account/per-action и может быть только строже.
+permissions:
+  content.draft: auto
+  content.render: auto
+  media.upload: auto
+  publish.create: ask
+  publish.delete: ask
+  comment.reply: ask
+  comment.hide: ask
+  comment.delete: ask
+  message.send: ask
+  profile.update: ask
+  account.connect: ask
+  account.disconnect: ask
+  browser.fallback.enable: ask
+  browser.takeover: ask
+  # Никогда, ни с каким подтверждением. Это не настройка.
+  captcha.bypass: deny
+  antibot.evasion: deny
+  fingerprint.spoof: deny
+  ratelimit.circumvent: deny
+  account.create: deny
+  credential.stuffing: deny
+  outreach.bulk_unsolicited: deny
+
+capability_states:
+  - SUPPORTED_OFFICIAL
+  - SUPPORTED_BROWSER
+  - SUPPORTED_BOTH
+  - READ_ONLY
+  - NOT_SUPPORTED
+  - REQUIRES_APP_REVIEW
+  - REQUIRES_ACCOUNT_TYPE
+  - REQUIRES_USER_INTERACTION
+  - TEMPORARILY_DISABLED
+
+providers:
+  instagram: implemented          # официальный адаптер + браузерный резерв
+  tiktok: coming_soon
+  youtube: coming_soon
+  facebook: coming_soon
+  threads: coming_soon
+  x: coming_soon
+  linkedin: coming_soon
+
+safety:
+  # Единого флага «полный контроль» не существует. Действие показывается
+  # рабочим только тогда, когда возможность аккаунта это подтверждает.
+  no_single_full_control_flag: true
+  capability_gated_ui: true
+  secrets_never_in_arguments: true
+  secrets_never_in_logs: true
+  browser_context_per_account: true
+  browser_sessions_never_shared: true
+  unknown_external_state_requires_reconciliation: true
+  publish_never_retried_blindly: true
+  audit_append_only: true
+  generated_media_never_published_directly_from_model_provider: true
+
+storage:
+  database: sqlite            # 1–10 аккаунтов; слой репозиториев переносим на Postgres
+  schema_versioned: true
+  media_root_env: SF_MEDIA_ROOT
+
+env_prefix: SF_
+default_port: 8895
