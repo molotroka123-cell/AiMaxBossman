@@ -34,7 +34,6 @@ from bcc.v2.tables import mcp_servers as mcp_servers_t
 from .browser_support import chromium_available, reason as browser_reason
 
 FIXTURES = Path(__file__).parent / "fixtures"
-CHROMIUM = Path("/opt/pw-browsers/chromium")
 
 PAGE = """<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <title>Калькулятор</title></head><body>
