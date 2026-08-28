@@ -16,7 +16,21 @@ from typing import Protocol, runtime_checkable
 class ProcedureProvenance(StrEnum):
     CONFIRMED = "crm_confirmed"
     PLANNED = "crm_planned"
+    #: Reserved for a future local model. Declared so the ranking is explicit
+    #: and testable today rather than being invented when a model appears.
+    MODEL_INFERRED = "model_inferred"
     UNKNOWN = "unknown"
+
+
+#: The only ordering that may decide a procedure label. What the clinic
+#: confirmed happened outranks what it planned, which outranks anything a
+#: model thinks it saw, which outranks a guess. A model never wins.
+PROVENANCE_PRIORITY: tuple[ProcedureProvenance, ...] = (
+    ProcedureProvenance.CONFIRMED,
+    ProcedureProvenance.PLANNED,
+    ProcedureProvenance.MODEL_INFERRED,
+    ProcedureProvenance.UNKNOWN,
+)
 
 
 @dataclass(frozen=True)
@@ -51,13 +65,28 @@ class CrmContext:
     #: How many candidate appointments were considered.
     candidates: int = 0
 
+    #: A future local model's guess. Never a source of identity, and never
+    #: allowed to outrank the CRM — it exists so the ranking has a slot for
+    #: it instead of one being improvised later.
+    inferred_service: str = ""
+    inferred_confidence: float = 0.0
+
     def procedure(self) -> tuple[str, float, ProcedureProvenance]:
+        """The label, its confidence and where it came from.
+
+        Strictly :data:`PROVENANCE_PRIORITY`. Without an available CRM answer
+        there is no label at all — including no model guess, because a model
+        guess about a room with no known appointment is not evidence of a
+        procedure, it is speculation about a patient.
+        """
         if not self.available:
             return "unknown", 0.0, ProcedureProvenance.UNKNOWN
         if self.confirmed_service:
             return self.confirmed_service, 1.0, ProcedureProvenance.CONFIRMED
         if self.appointment_active and self.planned_service:
             return self.planned_service, 0.85, ProcedureProvenance.PLANNED
+        if self.inferred_service:
+            return self.inferred_service, self.inferred_confidence, ProcedureProvenance.MODEL_INFERRED
         return "unknown", 0.0, ProcedureProvenance.UNKNOWN
 
     def to_dict(self) -> dict:

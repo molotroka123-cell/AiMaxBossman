@@ -172,6 +172,12 @@ class Settings:
     crm_base_url: str = ""
     crm_token: Secret = field(default_factory=lambda: Secret("", "crm_token"))
     crm_timeout: float = 5.0
+    crm_retries: int = 3
+    crm_retry_base_delay: float = 0.25
+    #: Older than this and a CRM answer is marked stale.
+    crm_max_age: float = 300.0
+    #: Older than this and it stops counting as an answer at all.
+    crm_hard_max_age: float = 3600.0
 
     api_token: Secret = field(default_factory=lambda: Secret("", "api_token"))
     host: str = "127.0.0.1"
@@ -252,6 +258,9 @@ class Settings:
                 "kind": self.crm_kind.value,
                 "base_url_configured": bool(self.crm_base_url),
                 "token_configured": bool(self.crm_token),
+                "retries": self.crm_retries,
+                "max_age_seconds": self.crm_max_age,
+                "hard_max_age_seconds": self.crm_hard_max_age,
             },
             "storage": {"state_dir": str(self.state_dir), "timezone": self.timezone_name},
             "api": {"host": self.host, "port": self.port, "auth_required": bool(self.api_token)},
@@ -379,6 +388,10 @@ class Settings:
             crm_base_url=_get(env, "AWV_CRM_BASE_URL", "").rstrip("/"),
             crm_token=Secret(env.get("AWV_CRM_TOKEN", ""), "crm_token"),
             crm_timeout=_get_float(env, "AWV_CRM_TIMEOUT_SECONDS", 5.0, minimum=0.1),
+            crm_retries=_get_int(env, "AWV_CRM_RETRIES", 3, minimum=1),
+            crm_retry_base_delay=_get_float(env, "AWV_CRM_RETRY_BASE_DELAY_SECONDS", 0.25, minimum=0.0),
+            crm_max_age=_get_float(env, "AWV_CRM_MAX_AGE_SECONDS", 300.0, minimum=0.0),
+            crm_hard_max_age=_get_float(env, "AWV_CRM_HARD_MAX_AGE_SECONDS", 3600.0, minimum=0.0),
             api_token=Secret(env.get("AWV_API_TOKEN", ""), "api_token"),
             host=_get(env, "AWV_HOST", "127.0.0.1"),
             port=_get_int(env, "AWV_PORT", 8870, minimum=1),

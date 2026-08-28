@@ -75,6 +75,10 @@ def classify(evidence: Evidence, crm: CrmContext, thresholds: Thresholds | None 
     reasons: list[str] = []
     if not crm.available:
         reasons.append("crm_unavailable")
+    if crm.stale:
+        reasons.append("crm_stale")
+    if crm.overlapping:
+        reasons.append("crm_overlapping_appointments")
 
     if not room and not chair and not evidence.motion_gate:
         state, confidence = State.EMPTY, 0.90
@@ -104,6 +108,12 @@ def classify(evidence: Evidence, crm: CrmContext, thresholds: Thresholds | None 
     else:
         state, confidence = State.UNKNOWN, 0.30
         reasons += ["evidence_below_all_thresholds"]
+
+    if crm.stale:
+        # Old intent is weaker evidence than current intent. The state still
+        # stands — the camera saw what it saw — but the confidence must not
+        # pretend the CRM half of the fusion is as good as it was.
+        confidence *= 0.75
 
     return Classification(
         state=state,
