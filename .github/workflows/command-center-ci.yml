@@ -1,12 +1,17 @@
 name: Command Center CI
 
+# V2.2 §13/§14. Раньше было два workflow (`tests.yml` и этот), и оба гоняли
+# один и тот же pytest: двойной расход минут и два независимых зелёных/красных
+# сигнала на один коммит. Сведено в один. Ничего из покрытия не потеряно:
+#   * матрица 3.11 + 3.12 — обе версии, которые прогонялись раздельно;
+#   * Chromium ставится (это было только в tests.yml) — иначе браузерные тесты
+#     тихо пропускаются и CI зелёный по неполному набору;
+#   * compileall, сканер секретов и `node --check` (это было только здесь)
+#     идут один раз, на 3.12: они не зависят от версии Python.
+
 on:
   push:
-    branches:
-      - "claude/bossman-control-v03-43igbk"
-      - "main"
-      - "master"
-      - "feature/**"
+    branches: ["**"]
   pull_request:
   workflow_dispatch:
 
@@ -19,8 +24,53 @@ concurrency:
 
 jobs:
   test:
+    name: pytest (py${{ matrix.python }})
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false          # красная 3.11 не должна скрывать результат 3.12
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: command-center/pyproject.toml
+
+      - name: Install Command Center
+        run: |
+          python -m pip install --upgrade pip
+          # mcp — опциональная группа: без неё рантайм честно отвечает
+          # «недоступно», но в CI мы хотим прогонять и его тесты
+          python -m pip install -e "./command-center[dev,mcp]"
+
+      - name: Python compile
+        run: python -m compileall -q command-center/bcc command-center/tests
+
+      - name: Chromium для Playwright
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Pytest
+        working-directory: command-center
+        env:
+          # Тот же режим, что в разработке: воркеры не стартуют сами,
+          # тесты сами крутят движок и не зависят от таймингов раннера.
+          BCC_DATA_DIR: ${{ runner.temp }}/bcc-data
+        # Без --timeout: плагина pytest-timeout в зависимостях нет, флаг
+        # уронил бы прогон. Ограничение по времени даёт timeout-minutes job'а.
+        run: python -m pytest -q --durations=10
+
+  checks:
+    name: секреты, JS, запрещённые файлы
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,25 +79,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: command-center/pyproject.toml
-
-      - name: Install Command Center
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e "./command-center[dev,mcp]"
-
-      - name: Python compile
-        run: python -m compileall -q command-center/bcc command-center/tests
 
       - name: Secret-pattern scan
         run: python tools/ci_secret_scan.py
 
-      - name: Pytest
-        working-directory: command-center
-        env:
-          BCC_DATA_DIR: ${{ runner.temp }}/bcc-data
-        run: python -m pytest -q
+      - name: Файлы, которых не должно быть в git
+        run: |
+          if git ls-files | grep -E "(^|/)\.env$|\.pem$|(^|/)token$|(^|/)secret\.key$"; then
+            echo "::error::Файл, которого не должно быть в git"
+            exit 1
+          fi
+          echo "чисто"
 
       - name: JavaScript syntax
         shell: bash

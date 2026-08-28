@@ -124,8 +124,13 @@ async def test_log_endpoint_is_incremental(env):
 
     tail = (await env.client.get(
         f"/api/workflow/missions/{m['id']}/log?after={rows[0]['id']}")).json()
+    # Проверяем СВОЙСТВО `after`, а не совпадение длин двух разных снимков:
+    # между двумя запросами журнал может дописаться (движок доводит запущенный
+    # ран после отмены воркера), и сравнение `len(tail) == len(rows) - 1`
+    # падало под полной нагрузкой набора, хотя эндпоинт работал верно.
     assert all(r["id"] > rows[0]["id"] for r in tail)
-    assert len(tail) == len(rows) - 1
+    seen_after_first = [r["id"] for r in rows[1:]]
+    assert [r["id"] for r in tail][:len(seen_after_first)] == seen_after_first
 
 
 async def test_unknown_mission_is_404(env):
