@@ -1,7 +1,11 @@
 """Обнаружение локальных моделей: опрос endpoint'ов и скан диска."""
+import asyncio
+import json
+import os
+
 import httpx
 
-from bcc.discovery import _scan_files, discover
+from bcc.discovery import KNOWN_ENDPOINTS, _scan_files, discover, model_dirs_from_env
 
 
 def _transport() -> httpx.MockTransport:
@@ -95,3 +99,95 @@ def test_local_probe_ignores_proxy_env(monkeypatch):
     assert local.trust_env is False       # к Ollama — напрямую
     remote = OpenAICompatAdapter(base_url="https://openrouter.ai/api/v1")._client(2.0)
     assert remote.trust_env is True       # наружу — через прокси, как настроено
+
+
+# ---------------------------------------------------------------- занятый порт
+
+async def test_open_port_that_stays_silent_is_not_called_absent():
+    """Дефект с боевой машины: 11434 держал форвардер WSL2.
+
+    Он ПРИНИМАЕТ соединение и молчит, а живая Ollama слушала 11435. BCC писал
+    и про занятый, и про свободный порт один текст «не ответил за 2.5 с» —
+    диагноз указывал на отсутствующий сервер вместо занятого порта, и найти
+    настоящую причину по нему было нельзя.
+    """
+    async def silent(reader, writer):
+        await asyncio.sleep(30)           # молчит ровно как форвардер
+
+    server = await asyncio.start_server(silent, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+    try:
+        result = await discover(endpoints=[("занятый", f"http://127.0.0.1:{port}/v1")],
+                                model_dirs=[])
+        detail = result["endpoints"][0]["detail"]
+        assert result["online"] == 0
+        assert "занят другим процессом" in detail, detail
+        assert str(port) in detail
+    finally:
+        server.close()
+        await server.wait_closed()
+
+
+async def test_closed_port_says_the_server_is_not_running():
+    """Свободный порт — это «не запущено», и текст обязан отличаться."""
+    sock = await asyncio.start_server(lambda r, w: None, "127.0.0.1", 0)
+    port = sock.sockets[0].getsockname()[1]
+    sock.close()
+    await sock.wait_closed()              # порт освободили — теперь он закрыт
+
+    result = await discover(endpoints=[("свободный", f"http://127.0.0.1:{port}/v1")],
+                            model_dirs=[])
+    detail = result["endpoints"][0]["detail"]
+    assert "не запущен" in detail and "закрыт" in detail, detail
+
+
+def test_ollama_spare_port_is_probed_by_default():
+    """Если 11434 занят, Ollama уходит на 11435 — иначе её не найти никогда."""
+    urls = [u for _, u in KNOWN_ENDPOINTS]
+    assert "http://127.0.0.1:11434/v1" in urls
+    assert "http://127.0.0.1:11435/v1" in urls
+
+
+# ---------------------------------------------------------------- каталоги весов
+
+def test_windows_paths_survive_the_env_split(monkeypatch):
+    """`C:\\Users\\...` нельзя резать по ':' — путь распадался на 'C' и остаток."""
+    monkeypatch.setattr(os, "pathsep", ";")
+    monkeypatch.setenv("BCC_MODELS_DIRS", r"C:\Users\timur\.ollama\models;D:\models")
+    assert model_dirs_from_env() == [r"C:\Users\timur\.ollama\models", r"D:\models"]
+
+
+def test_empty_env_falls_back_to_defaults(monkeypatch):
+    monkeypatch.setenv("BCC_MODELS_DIRS", "   ")
+    assert "~/.ollama/models" in model_dirs_from_env()
+
+
+def test_ollama_store_is_read_from_manifests_not_from_gguf(tmp_path):
+    """Ollama хранит веса блобами по хешу — маска `*.gguf` не видит ничего.
+
+    Совет «укажи BCC_MODELS_DIRS на каталог Ollama» до этого давал пустой
+    список: файлов с таким расширением там просто нет.
+    """
+    manifest = tmp_path / "manifests" / "registry.ollama.ai" / "library" / "qwen2.5" / "7b"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(json.dumps({"layers": [
+        {"mediaType": "application/vnd.ollama.image.model", "digest": "sha256:a", "size": 4_700_000_000},
+        {"mediaType": "application/vnd.ollama.image.params", "digest": "sha256:b", "size": 100},
+    ]}), encoding="utf-8")
+    (tmp_path / "blobs").mkdir()
+    (tmp_path / "blobs" / "sha256-a").write_bytes(b"x")
+
+    found = _scan_files([str(tmp_path)])
+    assert len(found) == 1
+    assert found[0]["name"] == "qwen2.5:7b"
+    assert found[0]["runner"] == "ollama"
+    assert found[0]["size_gb"] == 4.7
+
+
+def test_ollama_scan_skips_manifests_without_a_model_layer(tmp_path):
+    manifest = tmp_path / "manifests" / "library" / "broken" / "latest"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text('{"layers": [{"mediaType": "application/vnd.ollama.image.license"}]}')
+    (tmp_path / "manifests" / "library" / "junk.txt").write_text("не json")
+    (tmp_path / "blobs").mkdir()
+    assert _scan_files([str(tmp_path)]) == []

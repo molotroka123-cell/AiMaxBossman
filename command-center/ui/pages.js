@@ -1524,6 +1524,10 @@ function normalizeSystem(data) {
     util: num(pick(g, ['util_pct', 'utilization', 'load', 'gpu_pct'])),
     memUsed: num(pick(g, ['mem_used_mb', 'memory_used_mb', 'vram_used_mb'])),
     memTotal: num(pick(g, ['mem_total_mb', 'memory_total_mb', 'vram_total_mb'])),
+    /* сколько из занятой VRAM приходится на вычислительные процессы: без этой
+       цифры «занято 9 ГБ» нельзя списать на модель — там ещё браузер и рабочий стол */
+    memProcs: num(pick(g, ['vram_procs_mb'])),
+    procs: Array.isArray(g.procs) ? g.procs : [],
     temp: num(pick(g, ['temp_c', 'temperature', 'temp'])),
   }));
 
@@ -1595,7 +1599,15 @@ const SystemPage = {
         h('div.row', h('b.small', g.name), h('div.spacer'),
           g.temp !== null ? h('span.xsmall.dim.num', `${Math.round(g.temp)} °C`) : null),
         g.util !== null ? meter('Загрузка', g.util, 100, `${Math.round(g.util)}%`) : null,
-        g.memTotal ? meter('VRAM', g.memUsed || 0, g.memTotal, `${fmtGb(g.memUsed)} / ${fmtGb(g.memTotal)} ГБ`) : null)))
+        g.memTotal ? meter('VRAM занято всего', g.memUsed || 0, g.memTotal,
+          `${fmtGb(g.memUsed)} / ${fmtGb(g.memTotal)} ГиБ`) : null,
+        g.memProcs !== null && g.memTotal
+          ? meter('из них процессами', g.memProcs, g.memTotal, `${fmtGb(g.memProcs)} ГиБ`) : null,
+        g.procs.length
+          ? h('div.stack.xs', g.procs.slice(0, 4).map((p) => h('div.row.xsmall.dim',
+            h('span', `${p.name || 'процесс'} · ${p.pid ?? '—'}`), h('div.spacer'),
+            h('span.num', `${fmtGb(p.vram_used_mb)} ГиБ`))))
+          : null)))
       : h('div.small.dim', 'GPU недоступно — сервер не сообщает данные ускорителя.'));
 
     const healthPanel = h('section.panel',

@@ -85,7 +85,12 @@ class MetricsSampler:
 
 
 _gpu_cache: tuple[float, list[dict] | None] = (0.0, None)
-GPU_CACHE_TTL = 30.0
+# Кэш обязан быть КОРОЧЕ шага сэмплирования (SAMPLE_SECONDS), иначе часть
+# сэмплов запишет в БД одно и то же старое значение VRAM: график превращается в
+# лестницу, а разница «до/после прогона» — в ноль или в мусор. 30 с при шаге 10 с
+# давали два несвежих сэмпла из трёх.
+GPU_CACHE_TTL = 5.0
+NVIDIA_TIMEOUT = 5.0
 
 
 def gpu_info() -> list[dict] | None:
@@ -99,25 +104,65 @@ def gpu_info() -> list[dict] | None:
     return info
 
 
-def _nvidia() -> list[dict] | None:
-    exe = shutil.which("nvidia-smi")
-    if not exe:
-        return None
-    query = "name,utilization.gpu,memory.used,memory.total,temperature.gpu"
+def _smi(exe: str, query: str, kind: str) -> list[list[str]] | None:
     try:
-        out = subprocess.run([exe, f"--query-gpu={query}", "--format=csv,noheader,nounits"],
-                             capture_output=True, text=True, timeout=5)
+        out = subprocess.run([exe, f"--query-{kind}={query}", "--format=csv,noheader,nounits"],
+                             capture_output=True, text=True, timeout=NVIDIA_TIMEOUT)
     except (OSError, subprocess.SubprocessError):
         return None
     if out.returncode != 0:
         return None
-    gpus = []
-    for line in out.stdout.strip().splitlines():
-        parts = [p.strip() for p in line.split(",")]
-        if len(parts) < 5:
+    return [[p.strip() for p in line.split(",")]
+            for line in out.stdout.strip().splitlines() if line.strip()]
+
+
+def _nvidia_procs(exe: str) -> dict[str, list[dict]]:
+    """VRAM по процессам, сгруппированная по UUID карты.
+
+    Без этого «использовано VRAM» — это вся карта разом: браузер, игра и наша
+    модель в одной цифре. Списать её на модель нельзя, а именно так её и читали.
+    """
+    rows = _smi(exe, "gpu_uuid,pid,process_name,used_gpu_memory", "compute-apps")
+    procs: dict[str, list[dict]] = {}
+    for parts in rows or []:
+        if len(parts) < 4:
             continue
-        gpus.append({"name": parts[0], "util_pct": _num(parts[1]), "vram_used_mb": _num(parts[2]),
-                     "vram_total_mb": _num(parts[3]), "temp_c": _num(parts[4])})
+        used = _num(parts[3])
+        if used is None:
+            continue          # «[N/A]» бывает в WSL и в контейнере без --gpus
+        procs.setdefault(parts[0], []).append(
+            {"pid": _num(parts[1]), "name": parts[2], "vram_used_mb": used})
+    return procs
+
+
+def _nvidia() -> list[dict] | None:
+    exe = shutil.which("nvidia-smi")
+    if not exe:
+        return None
+    rows = _smi(exe, "uuid,name,utilization.gpu,memory.used,memory.total,temperature.gpu", "gpu")
+    if rows is None:
+        return None
+    procs = _nvidia_procs(exe)
+    gpus = []
+    for parts in rows:
+        if len(parts) < 6:
+            continue
+        uuid, mine = parts[0], procs.get(parts[0], [])
+        used, total = _num(parts[3]), _num(parts[4])
+        gpus.append({
+            "name": parts[1],
+            "util_pct": _num(parts[2]),
+            # vram_used_mb — вся карта; vram_procs_mb — сумма по вычислительным
+            # процессам. Именно вторая цифра отвечает на вопрос «сколько жрёт
+            # модель», и путать их нельзя.
+            "vram_used_mb": used,
+            "vram_total_mb": total,
+            "vram_free_mb": round(total - used, 1) if (used is not None and total is not None) else None,
+            "vram_procs_mb": round(sum(p["vram_used_mb"] for p in mine), 1) if mine else 0.0,
+            "procs": sorted(mine, key=lambda p: -p["vram_used_mb"])[:8],
+            "uuid": uuid,
+            "temp_c": _num(parts[5]),
+        })
     return gpus or None
 
 
@@ -131,13 +176,21 @@ def _sysfs_drm() -> list[dict] | None:
         device = card / "device"
         name = _read(device / "product_name") or _read(device / "uevent_name") or card.name
         busy = _read(device / "gpu_busy_percent")
-        vram_used = _read(device / "mem_info_vram_used")
-        vram_total = _read(device / "mem_info_vram_total")
+        # sysfs отдаёт байты; делим на 1024**2 — получаются МиБ, как у nvidia-smi
+        used = _read(device / "mem_info_vram_used")
+        total = _read(device / "mem_info_vram_total")
+        used_mb = round(int(used) / 1024 ** 2, 1) if (used or "").isdigit() else None
+        total_mb = round(int(total) / 1024 ** 2, 1) if (total or "").isdigit() else None
         gpus.append({
             "name": name,
             "util_pct": _num(busy),
-            "vram_used_mb": round(int(vram_used) / 1024 ** 2, 1) if (vram_used or "").isdigit() else None,
-            "vram_total_mb": round(int(vram_total) / 1024 ** 2, 1) if (vram_total or "").isdigit() else None,
+            "vram_used_mb": used_mb,
+            "vram_total_mb": total_mb,
+            "vram_free_mb": round(total_mb - used_mb, 1)
+            if (used_mb is not None and total_mb is not None) else None,
+            # sysfs не разбивает VRAM по процессам — честнее отдать None, чем 0
+            "vram_procs_mb": None,
+            "procs": [],
             "temp_c": None,
         })
     return gpus or None
