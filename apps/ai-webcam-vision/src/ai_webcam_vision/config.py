@@ -156,6 +156,13 @@ class Settings:
     chair_threshold: float = 0.055
     work_threshold: float = 0.012
     debounce_samples: int = 2
+    #: Temporal policy for the state machine. Counting samples alone is not
+    #: hysteresis: at 5 Hz two samples is 0.4 s.
+    min_dwell_seconds: float = 6.0
+    clinical_dwell_seconds: float = 30.0
+    turnover_dwell_seconds: float = 15.0
+    turnover_lookback_seconds: float = 600.0
+    dropout_grace_seconds: float = 45.0
 
     state_dir: Path = Path("./data")
     #: The clinic's timezone. Daily metrics are cut on its midnight.
@@ -361,6 +368,11 @@ class Settings:
             chair_threshold=_get_float(env, "AWV_CHAIR_THRESHOLD", 0.055, minimum=0.0),
             work_threshold=_get_float(env, "AWV_WORK_THRESHOLD", 0.012, minimum=0.0),
             debounce_samples=_get_int(env, "AWV_DEBOUNCE_SAMPLES", 2, minimum=1),
+            min_dwell_seconds=_get_float(env, "AWV_MIN_DWELL_SECONDS", 6.0, minimum=0.0),
+            clinical_dwell_seconds=_get_float(env, "AWV_CLINICAL_DWELL_SECONDS", 30.0, minimum=0.0),
+            turnover_dwell_seconds=_get_float(env, "AWV_TURNOVER_DWELL_SECONDS", 15.0, minimum=0.0),
+            turnover_lookback_seconds=_get_float(env, "AWV_TURNOVER_LOOKBACK_SECONDS", 600.0, minimum=0.0),
+            dropout_grace_seconds=_get_float(env, "AWV_DROPOUT_GRACE_SECONDS", 45.0, minimum=0.0),
             state_dir=Path(_get(env, "AWV_STATE_DIR", "./data")),
             timezone_name=_get(env, "AWV_TIMEZONE", "UTC"),
             crm_kind=crm_kind,

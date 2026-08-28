@@ -169,6 +169,13 @@ class RuntimeSupervisor:
         return min(delay, retry.max_delay)
 
     def _record_failure(self, exc: BaseException, code: str) -> None:
+        # A cycle that produced no evidence is a detector dropout. Told to the
+        # state machine, a short one holds the current state instead of
+        # chopping one procedure into several; a long one becomes UNKNOWN.
+        try:
+            self.service.note_detector_dropout()
+        except Exception:  # pragma: no cover - never let bookkeeping break the loop
+            log.warning("could not record the detector dropout")
         self.consecutive_failures += 1
         self.last_error = getattr(exc, "safe_message", None) or code
         self.last_error_code = code

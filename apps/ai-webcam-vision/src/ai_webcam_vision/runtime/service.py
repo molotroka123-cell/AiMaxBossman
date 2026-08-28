@@ -27,6 +27,7 @@ from ..errors import (
 )
 from ..logging_setup import get_logger
 from ..pipeline import (
+    ALLOWED_TRANSITIONS,
     ANALYZER_ID,
     ANALYZER_VERSION,
     Analyzer,
@@ -35,7 +36,8 @@ from ..pipeline import (
     MotionGate,
     SnapshotStore,
     State,
-    StateDebouncer,
+    TemporalPolicy,
+    TemporalStateMachine,
     Thresholds,
     classify,
 )
@@ -157,7 +159,16 @@ class VisionService:
         self.analyzer = Analyzer(self.baseline, settings.chair_zone, settings.work_zone)
         self.motion = MotionGate(settings.motion_hold_seconds)
         self.queue = BoundedFrameQueue(settings.frame_queue_max)
-        self.debouncer = StateDebouncer(settings.debounce_samples)
+        self.temporal = TemporalStateMachine(
+            TemporalPolicy(
+                min_samples=settings.debounce_samples,
+                min_dwell_seconds=settings.min_dwell_seconds,
+                clinical_dwell_seconds=settings.clinical_dwell_seconds,
+                turnover_dwell_seconds=settings.turnover_dwell_seconds,
+                turnover_lookback_seconds=settings.turnover_lookback_seconds,
+                dropout_grace_seconds=settings.dropout_grace_seconds,
+            )
+        )
         self.snapshots = SnapshotStore(settings.snapshot_dir, settings.privacy)
         self.thresholds = Thresholds(
             room=settings.room_threshold,
@@ -316,7 +327,7 @@ class VisionService:
         self.counters.frames_analyzed += 1
         crm_context = await self._crm_context(evidence.ts)
         classification = classify(evidence, crm_context, self.thresholds)
-        debounced = self.debouncer.feed(classification.state)
+        debounced = self.temporal.feed(classification.state, evidence.ts)
         self.store.add_observation(
             room_id=self.settings.room_id,
             evidence=evidence,
@@ -333,6 +344,7 @@ class VisionService:
             "classification": classification.to_dict(),
             "debounced_state": debounced.value,
             "crm": crm_context.to_dict(),
+            "temporal": self.temporal.to_dict(),
             "source": self.source.descriptor.to_dict(),
             "motion": self.motion.state().to_dict(),
         }
@@ -362,6 +374,15 @@ class VisionService:
             self.crm_health.state = "ok"
             self.crm_health.detail = "last lookup succeeded"
         return context
+
+    def note_detector_dropout(self) -> State:
+        """No usable evidence this cycle.
+
+        Told to the state machine explicitly: a silent gap must hold the
+        current state for a while (one procedure, not three) and then admit
+        UNKNOWN rather than keep asserting a state nobody can see.
+        """
+        return self.temporal.feed_dropout(datetime.now(timezone.utc))
 
     async def sample_once(self) -> dict:
         frame = await self._grab_with_retry()
@@ -658,6 +679,11 @@ class VisionService:
                 },
             },
             "states": [state.value for state in State],
+            "temporal_policy": self.temporal.policy.to_dict(),
+            "allowed_transitions": {
+                state.value: sorted(t.value for t in targets)
+                for state, targets in ALLOWED_TRANSITIONS.items()
+            },
             "config": self.settings.public_dict(),
         }
 
@@ -673,6 +699,7 @@ class VisionService:
             "counters": self.counters.to_dict(),
             "queue": self.queue.stats().to_dict(),
             "motion": self.motion.state().to_dict(),
+            "temporal": self.temporal.to_dict(),
             "source_health": self.source_health.to_dict(),
             "observations": self.store.count_observations(self.settings.room_id),
             "compute": detect_accelerator(probe_nvidia=False).to_dict(),
