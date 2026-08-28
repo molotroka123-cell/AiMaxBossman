@@ -20,6 +20,7 @@ import ForksPage from './forks.js';
 import HealingPage from './healing.js';
 import OpenRouterPage from './openrouter.js';
 import MobilePage from './mobile.js';
+import BuilderPage from './builder.js';
 
 export const FEATURE_PAGES = [
   OverviewPage,
@@ -37,4 +38,5 @@ export const FEATURE_PAGES = [
   HealingPage,
   OpenRouterPage,
   MobilePage,
+  BuilderPage,
 ];
