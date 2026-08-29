@@ -27,6 +27,10 @@ from .service import DeviceService, get_service, reset_service, set_service
 from .store import InMemoryDeviceStore, PostgresDeviceStore
 from .subsystem import build_subsystem
 
+# Stage 12: scoped mobile surface расширяет Stage 6 /remote без второй auth-системы.
+from .mobile_api import router as _mobile_router  # noqa: E402
+router.include_router(_mobile_router)
+
 __all__ = [
     "DeviceRegistry",
     "DeviceService",
