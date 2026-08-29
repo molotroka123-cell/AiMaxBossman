@@ -1,4 +1,4 @@
-"""Stage 8 — инструменты ВНУТРИ песочницы: границы держит код.
+﻿"""Stage 8 — инструменты ВНУТРИ песочницы: границы держит код.
 
 Это не инструменты агента снаружи, а операции внутри уже созданной песочницы.
 Публикация (git push/remote/config) отсутствует НАМЕРЕННО: это действие владельца.
@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+
+import os as _os
 
 import pytest
 
@@ -113,6 +115,7 @@ def test_contained_refuses_escape(tmp_path, bad):
         contained(_session(), _RT(work), bad)
 
 
+@pytest.mark.skipif(_os.name == 'nt', reason='symlink требует Developer Mode/привилегию (WinError 1314) — capability отсутствует физически')
 def test_contained_refuses_symlink_escape(tmp_path):
     work = tmp_path / "work"
     work.mkdir()
