@@ -6,6 +6,7 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from decimal import Decimal
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -13,15 +14,141 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from .auth import AuthManager, AuthenticatedClient, ensure_alias_allowed
 from .backends import BackendError, CircuitOpenError
-from .config import GatewayConfig, load_gateway_config
+from .config import GatewayConfig, ModelTarget, load_gateway_config
 from .router import CloudPolicyDenied, ModelRouter, RouteNotFound
 from .telemetry import GatewayMetrics
+from ..cost_control.enforcer import BudgetApprovalRejected as _BudgetApprovalRejected
+from ..cost_control.enforcer import BudgetHardStop as _BudgetHardStop
 
 
 # Gateway перестаёт быть чёрным ящиком: одна строка лога на запрос с
 # request_id/run_id, выбранным бэкендом, исходом и латентностью. Без тел
 # запросов, промптов и ключей.
 logger = logging.getLogger("bossman.gateway")
+
+
+class BudgetPricingUnknown(RuntimeError):
+    """Нельзя безопасно оценить верхнюю границу расхода — cloud-попытка отклонена
+    (fail closed), а не «наверное дёшево»."""
+
+
+def _prompt_tokens_upper(payload: dict[str, Any]) -> int:
+    """Консервативная оценка prompt-токенов ТЕМ ЖЕ методом, что и остальное
+    ядро (bossman.context.estimate_tokens) — не второй алгоритм подсчёта."""
+    from ..context import estimate_tokens
+    text = json.dumps(payload.get("messages") or payload.get("input") or "", ensure_ascii=False)
+    return estimate_tokens(text)
+
+
+def _completion_tokens_upper(payload: dict[str, Any], target: ModelTarget) -> int | None:
+    mt = payload.get("max_tokens")
+    if isinstance(mt, int) and mt > 0:
+        return mt
+    if target.max_output_tokens:
+        return int(target.max_output_tokens)
+    return None  # верхней границы нет — оценивать небезопасно
+
+
+def _route_price(target: ModelTarget) -> tuple[Decimal, Decimal, Decimal] | None:
+    """USD/token из конфигурации, объявленной как USD/МИЛЛИОН токенов (см.
+    комментарий у полей ModelTarget) — единицы не перепутать. Нет цены на
+    ОБА направления → цена неизвестна целиком, половинчатых оценок не бывает."""
+    if not (target.price_usd_per_million_input_tokens and target.price_usd_per_million_output_tokens):
+        return None
+    try:
+        million = Decimal("1000000")
+        p_in = Decimal(str(target.price_usd_per_million_input_tokens)) / million
+        p_out = Decimal(str(target.price_usd_per_million_output_tokens)) / million
+        fixed = Decimal(str(target.fixed_request_usd)) if target.fixed_request_usd else Decimal("0")
+        return p_in, p_out, fixed
+    except Exception:
+        return None
+
+
+async def _cost_reserve(route, payload: dict[str, Any], *, cloud_allowed: bool,
+                        request_id: str, attempt_index: int, run_id: str | None, client_name: str):
+    """Immediately-before-cloud-upstream гейт (см. integration/GATEWAY_COST_HOOK.md
+    пакета). Только для облачных целей; для локальных — no-op (None, None).
+
+    Неизвестная цена/потолок токенов при ВКЛЮЧЁННЫХ бюджетах → BudgetPricingUnknown
+    (fail closed), а не тихая отправка. Если ни одна политика бюджета не настроена
+    вовсе — не изобретаем лимит и пропускаем губернатора целиком (пустые env-
+    переменные бюджета НЕ создают лимит, см. integration/CONFIG.md)."""
+    if not route.is_cloud:
+        return None, None
+    from ..cost_control.enforcer import BudgetEnforcer
+    from ..cost_control.models import BudgetContext
+    from ..cost_control.pricing import estimate_usd
+    from ..cost_control.runtime import GOVERNOR, STORE as cost_store
+
+    price = _route_price(route.target)
+    completion_cap = _completion_tokens_upper(payload, route.target)
+    if price is None or completion_cap is None:
+        if cost_store.has_enabled_policies():
+            raise BudgetPricingUnknown(
+                f"{route.backend_name}/{route.model}: неизвестна точная цена или "
+                f"потолок completion-токенов, а бюджетная политика включена")
+        return None, None
+    p_in, p_out, fixed = price
+    estimated = estimate_usd(prompt_tokens_upper=_prompt_tokens_upper(payload),
+                             completion_tokens_upper=completion_cap,
+                             prompt_price_per_token=p_in, completion_price_per_token=p_out,
+                             fixed_request_usd=fixed)
+    context = BudgetContext(run_id=run_id, owner_device_id=client_name)
+    idempotency_key = f"{request_id}:{attempt_index}:{route.backend_name}:{route.model}"
+
+    async def _approval_create(kind: str, preview: str, **kw):
+        from .. import approvals
+        return await approvals.create(kind, preview, **kw)
+
+    async def _approval_wait(approval_id):
+        from .. import approvals
+        return await approvals.wait(approval_id)
+
+    enforcer = BudgetEnforcer(GOVERNOR, _approval_create, _approval_wait)
+    reservation = await enforcer.reserve(context, estimated, idempotency_key=idempotency_key,
+                                         cloud_allowed=cloud_allowed)
+    return reservation, (enforcer, p_in, p_out, fixed)
+
+
+async def _cost_settle(enforcer, reservation, usage_body: Any, p_in: Decimal, p_out: Decimal,
+                       fixed: Decimal) -> None:
+    """reserve → commit по факту usage. Стрим/бэкенд без usage → коммитим саму
+    бронь (верхнюю границу): расход никогда не занижается, лишь изредка
+    (честно) переоценивается.
+
+    Учёт расхода никогда не превращает уже успешный (и уже оплаченный у
+    провайдера) ответ в ошибку для клиента — все сбои здесь только логируются."""
+    from .. import events
+    from ..cost_control.pricing import actual_usd
+    from ..cost_control.store import BudgetExtensionRequired
+    try:
+        if isinstance(usage_body, dict) and usage_body.get("usage"):
+            u = usage_body["usage"]
+            actual = actual_usd(prompt_tokens=int(u.get("prompt_tokens") or 0),
+                                completion_tokens=int(u.get("completion_tokens") or 0),
+                                prompt_price_per_token=p_in, completion_price_per_token=p_out,
+                                fixed_request_usd=fixed)
+        else:
+            actual = reservation.estimated_usd
+        try:
+            enforcer.commit(reservation.id, actual)
+        except BudgetExtensionRequired as exc:
+            ext = enforcer.governor.extend(reservation.id, exc.delta_usd)
+            if not ext.allowed:
+                # Провайдер уже выполнил и, вероятно, выставит счёт — отменить
+                # это нельзя. Громко сигналим (телефон получит CRITICAL) и
+                # оставляем бронь как есть для ручной сверки: TTL-уборщик
+                # (cost_control.subsystem) со временем её освободит сам. Тихого
+                # перерасхода СВЕРХ лимита при этом не происходит.
+                events.emit("budget.exceeded",
+                            reason="actual cost exceeds reservation and extension denied — "
+                                   "needs manual reconciliation",
+                            reservation_id=reservation.id, delta_usd=str(exc.delta_usd))
+    except Exception as exc:  # noqa: BLE001 — учёт расхода не должен ронять успешный ответ
+        events.emit("budget.exceeded",
+                    reason=f"cost settlement failed: {type(exc).__name__}: {exc}",
+                    reservation_id=getattr(reservation, "id", None))
 
 
 def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter | None = None) -> FastAPI:
@@ -131,7 +258,16 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         for route in routes:
             forward = dict(payload)
             forward["model"] = route.model
+            reservation = None
+            cost_state = None
+            settled = False
             try:
+                # Cost Governor: непосредственно перед РЕАЛЬНОЙ облачной попыткой,
+                # для каждой цели своей — см. integration/GATEWAY_COST_HOOK.md.
+                # Локальные цели проходят мимо (reservation остаётся None).
+                reservation, cost_state = await _cost_reserve(
+                    route, forward, cloud_allowed=cloud_allowed, request_id=request_id,
+                    attempt_index=len(errors), run_id=run_id, client_name=c.name)
                 metrics.queued += 1
                 try:
                     await asyncio.wait_for(route.backend.semaphore.acquire(), timeout=cfg.queue_timeout_seconds)
@@ -141,6 +277,10 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                     body, _ = await route.backend.json_request(path, forward)
                 finally:
                     route.backend.semaphore.release()
+                if reservation is not None:
+                    enforcer, p_in, p_out, fixed = cost_state
+                    await _cost_settle(enforcer, reservation, body, p_in, p_out, fixed)
+                    settled = True
                 # expose alias externally so clients stay decoupled from backend model names
                 if isinstance(body, dict) and "model" in body:
                     body["model"] = alias
@@ -148,6 +288,21 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                 _log_outcome(request_id, run_id, c.name, alias, route.backend_name, route.model,
                              "ok", started, len(errors))
                 return JSONResponse(body, headers={"x-bossman-backend": route.backend_name, "x-bossman-route-model": route.model})
+            except BudgetPricingUnknown as exc:
+                # Неизвестная цена при включённом бюджете: fail closed, к сети
+                # даже не подступались — не сигнал здоровья бэкенда.
+                _log_outcome(request_id, run_id, c.name, alias, route.backend_name,
+                             route.model, "error", started, len(errors))
+                errors.append(f"{route.backend_name}/{route.model}: BudgetPricingUnknown: {exc}")
+                continue
+            except (_BudgetHardStop, _BudgetApprovalRejected) as exc:
+                # Бюджет отказал (STOP) или человек отклонил (ASK): облачный
+                # запрос физически не ушёл — цель просто пропускается дальше,
+                # как и остальные исчерпанные/недоступные цели.
+                _log_outcome(request_id, run_id, c.name, alias, route.backend_name,
+                             route.model, "error", started, len(errors))
+                errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")
+                continue
             except BackendError as exc:
                 if not exc.failover:
                                         # Ошибка самого запроса/политики (4xx): не переключаемся на
@@ -169,6 +324,14 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                 route.backend.health.checked_at = time.time()
                 errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")
                 continue
+            finally:
+                # Бронь, которую не довели до commit() (любой выход, кроме
+                # успешного _cost_settle выше) — вернуть деньги в пул. release()
+                # идемпотентен и на уже закоммиченной/освобождённой брони — no-op,
+                # так что settled нужен только для отличия «коммит не удался,
+                # оставили для ручной сверки» (см. _cost_settle) от прочих путей.
+                if reservation is not None and not settled:
+                    cost_state[0].release(reservation.id)
         metrics.end(started, None, error=True)
         _log_outcome(request_id, run_id, c.name, alias, None, None, "error", started, len(errors))
         raise HTTPException(502, {"message": "All model routes failed", "attempts": errors})
@@ -204,7 +367,16 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                 forward = dict(payload); forward["model"] = route.model
                 acquired = False
                 emitted = False
+                reservation = None
+                cost_state = None
+                settled = False
                 try:
+                    # Cost Governor: как и в run_json, до сети для КАЖДОЙ облачной
+                    # цели своя проверка. Стрим не даёт точный usage до конца
+                    # потока — коммитим по факту саму бронь, см. _cost_settle.
+                    reservation, cost_state = await _cost_reserve(
+                        route, forward, cloud_allowed=cloud_allowed, request_id=request_id,
+                        attempt_index=len(errors), run_id=run_id, client_name=c.name)
                     metrics.queued += 1
                     try:
                         await asyncio.wait_for(route.backend.semaphore.acquire(), timeout=cfg.queue_timeout_seconds)
@@ -214,10 +386,21 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                     async for chunk in route.backend.stream_request(path, forward):
                         emitted = True
                         yield chunk
+                    if reservation is not None:
+                        enforcer, p_in, p_out, fixed = cost_state
+                        await _cost_settle(enforcer, reservation, None, p_in, p_out, fixed)
+                        settled = True
                     metrics.end(started, route.backend_name)
                     _log_outcome(request_id, run_id, c.name, alias, route.backend_name,
                                  route.model, "ok", started, len(errors))
                     return
+                except (BudgetPricingUnknown, _BudgetHardStop, _BudgetApprovalRejected) as exc:
+                    # Пре-сетевой отказ бюджета: как и обычный локальный сбой —
+                    # байты ещё не пошли, пробуем следующую цель.
+                    errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")
+                    _log_outcome(request_id, run_id, c.name, alias, route.backend_name,
+                                 route.model, "error", started, len(errors))
+                    continue
                 except BackendError as exc:
                     if not exc.failover:
                                                 # 4xx запроса/политики: не переключаемся на следующий
@@ -255,6 +438,19 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                 finally:
                     if acquired:
                         route.backend.semaphore.release()
+                    if reservation is not None and not settled:
+                        enforcer, p_in, p_out, fixed = cost_state
+                        if emitted:
+                            # Часть потока уже ушла клиенту — провайдер, вероятно,
+                            # принял к оплате сгенерированное. Коммитим бронь
+                            # целиком (верхнюю границу), как и в успешном случае
+                            # выше: расход никогда не занижается.
+                            try:
+                                await _cost_settle(enforcer, reservation, None, p_in, p_out, fixed)
+                            except Exception:  # noqa: BLE001 — сбой учёта не должен рвать генератор
+                                pass
+                        else:
+                            enforcer.release(reservation.id)
             metrics.end(started, None, error=True)
             _log_outcome(request_id, run_id, c.name, alias, None, None, "error", started, len(errors))
             yield ("data: " + json.dumps({"error":{"message":"All model routes failed","attempts":errors}}) + "\n\n").encode()

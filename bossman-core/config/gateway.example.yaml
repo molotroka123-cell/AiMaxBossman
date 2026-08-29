@@ -44,6 +44,14 @@ aliases:
         model: REPLACE_WITH_CLOUD_FALLBACK
         priority: 100
         capabilities: [text, tools]
+        # Cost Governor (опционально): точная цена ИМЕННО этой модели, USD за
+        # МИЛЛИОН токенов (не за токен — единицы легко перепутать). Без обеих
+        # цен при включённом бюджете облачная попытка отклоняется fail-closed,
+        # а не отправляется «наверное дёшево». Значения не придумывать —
+        # только из актуального прайса провайдера.
+        # price_usd_per_million_input_tokens: "REPLACE_WITH_REAL_PRICE"
+        # price_usd_per_million_output_tokens: "REPLACE_WITH_REAL_PRICE"
+        # fixed_request_usd: "0"
   bossman-coder:
     targets:
       - backend: ollama

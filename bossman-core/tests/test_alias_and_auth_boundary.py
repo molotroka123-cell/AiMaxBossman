@@ -207,23 +207,40 @@ async def test_webhook_rejects_missing_and_wrong_secret(webhook_env):
 
 
 async def test_webhook_secret_is_not_timing_leaky_placeholder(webhook_env):
-    """Сверка секрета идёт в постоянном времени (hmac.compare_digest)."""
+    """Сверка секрета идёт в постоянном времени (hmac.compare_digest).
+
+    После подключения cost-governor+notifications pack сам разбор вебхука
+    (секрет, чат, TTL, single-use) живёт в notifications.telegram_transport —
+    api.telegram_webhook лишь передаёт заголовок туда (integration/API_TELEGRAM_HOOK.md).
+    Проверяем компонент, где сравнение реально происходит."""
     import hmac as _hmac
-    import bossman.api as api_mod
     import inspect
-    src = inspect.getsource(api_mod.telegram_webhook)
+    from bossman.notifications.telegram_transport import TelegramTransport
+    src = inspect.getsource(TelegramTransport.handle_webhook)
     assert "compare_digest" in src
     assert _hmac.compare_digest("a", "a") is True   # sanity: модуль hmac жив
 
 
-async def test_webhook_accepts_correct_secret(webhook_env):
+async def test_webhook_accepts_correct_secret(webhook_env, monkeypatch):
+    """Опаковый b:<token>-callback (см. TELEGRAM_SECURITY.md пакета): старый
+    формат reject:<id> хардкодом отклоняется — это осознанное ужесточение,
+    покрытое test_telegram_webhook_security.py (legacy callback rejected)."""
+    from bossman.notifications.models import ActionKind, NotificationAction
+    from bossman.notifications.runtime import STORE as notif_store
+
     seen = webhook_env
+    monkeypatch.setattr(settings, "telegram_chat_id", "555")
+    action = NotificationAction(ActionKind.DENY, "approval", "9", "❌", "approval:9")
+    token = notif_store.create_callback(action, "555")
+
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=_api_app()),
                                  base_url="http://t") as c:
-        r = await c.post("/telegram/webhook", json=_update("reject", 9),
+        r = await c.post("/telegram/webhook",
+                         json={"callback_query": {"id": "cb1", "data": f"b:{token}",
+                                                   "message": {"chat": {"id": 555}}}},
                          headers={"X-Telegram-Bot-Api-Secret-Token": "s3cret-token"})
     assert r.status_code == 200
-    assert seen["decision"] == (9, False, "tg:tester")
+    assert seen["decision"] == (9, False, "tg:chat:555")
 
 
 async def test_webhook_fails_closed_without_configured_secret(monkeypatch):

@@ -47,6 +47,14 @@ class ModelTarget:
     capabilities: set[str] = field(default_factory=set)
     context_window: int | None = None
     max_output_tokens: int | None = None
+    # Cost Governor: цена ИМЕННО этой модели, а не бэкенда — единицы намеренно
+    # в имени поля (USD за МИЛЛИОН токенов), чтобы не перепутать с USD/token
+    # (типичная ошибка каталогов провайдеров). Пусто = цена неизвестна: для
+    # облачной цели с включённым бюджетом это fail-closed (см. gateway/app.py),
+    # а не «наверное дёшево».
+    price_usd_per_million_input_tokens: str | None = None
+    price_usd_per_million_output_tokens: str | None = None
+    fixed_request_usd: str | None = None
 
 
 @dataclass(slots=True)
@@ -113,6 +121,9 @@ def load_gateway_config(path: str | Path | None = None) -> GatewayConfig:
                 capabilities=_set(t.get("capabilities")),
                 context_window=t.get("context_window"),
                 max_output_tokens=t.get("max_output_tokens"),
+                price_usd_per_million_input_tokens=t.get("price_usd_per_million_input_tokens"),
+                price_usd_per_million_output_tokens=t.get("price_usd_per_million_output_tokens"),
+                fixed_request_usd=t.get("fixed_request_usd"),
             ))
         aliases[name] = AliasConfig(
             name=name,

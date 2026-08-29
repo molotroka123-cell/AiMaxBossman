@@ -1,35 +1,28 @@
-"""Telegram — запасной канал: уведомления и кнопки да/нет для подтверждений.
-Не настроен (нет токена) — просто молчит, всё остаётся в панели «Подтверждения»."""
+"""Compatibility facade: existing approvals.py can keep importing bossman.telegram.
+
+Раньше здесь был прямой httpx-транспорт с сырыми callback_data вида
+approve:<id>/reject:<id> — уязвимость (см. docs/context/... аудит пакета
+cost-governor+notifications). Реальная отправка теперь идёт через
+notifications.dispatcher (durable queue, retry/backoff) и
+notifications.telegram_transport (opaque single-use callback-токены).
+Сигнатуры enabled/notify/ask_approval сохранены, чтобы approvals.py и прочий
+код ядра не переписывались."""
 from __future__ import annotations
 
-import httpx
-
-from .config import settings
-
-API = "https://api.telegram.org"
+from .notifications.runtime import TELEGRAM, enqueue_approval, enqueue_text, handle_telegram_webhook
 
 
 def enabled() -> bool:
-    return bool(settings.telegram_bot_token and settings.telegram_chat_id)
+    return TELEGRAM.enabled()
 
 
 async def notify(text: str) -> None:
-    if not enabled():
-        return
-    async with httpx.AsyncClient(timeout=30) as client:
-        await client.post(f"{API}/bot{settings.telegram_bot_token}/sendMessage",
-                          json={"chat_id": settings.telegram_chat_id, "text": text[:4000]})
+    await enqueue_text(text)
 
 
 async def ask_approval(approval_id: int, preview: str) -> None:
-    """Кнопки «Да/Нет»; ответ приходит вебхуком или поллингом в api.py → POST /approvals/{id}."""
-    if not enabled():
-        return
-    async with httpx.AsyncClient(timeout=30) as client:
-        await client.post(
-            f"{API}/bot{settings.telegram_bot_token}/sendMessage",
-            json={"chat_id": settings.telegram_chat_id,
-                  "text": f"Подтверждение #{approval_id}\n\n{preview[:3500]}",
-                  "reply_markup": {"inline_keyboard": [[
-                      {"text": "✅ Да", "callback_data": f"approve:{approval_id}"},
-                      {"text": "❌ Нет", "callback_data": f"reject:{approval_id}"}]]}})
+    await enqueue_approval(approval_id, preview)
+
+
+async def handle_webhook(update: dict, secret_header: str):
+    return await handle_telegram_webhook(update, secret_header)

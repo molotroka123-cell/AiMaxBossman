@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import hmac
 import json
 from pathlib import Path
 
@@ -17,8 +16,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import approvals as approvals_mod
-from . import db, errors, events, obs, runner
+from . import db, errors, events, obs, runner, telegram
 from .agents import load_all, set_cloud_policy
+from .notifications.store import CallbackRejected
 from .perimeter import (
     SCOPE_ADMIN,
     SCOPE_APPROVE,
@@ -52,6 +52,8 @@ def _register_subsystems() -> None:
         ("bossman.video_factory", "build_subsystem"),
         ("bossman.sandbox", "build_subsystem"),
         ("bossman.dev_factory", "build_subsystem"),
+        ("bossman.cost_control", "build_subsystem"),
+        ("bossman.notifications", "build_subsystem"),
     ):
         try:
             import importlib
@@ -75,6 +77,8 @@ def _include_stage_routers() -> None:
         "bossman.sandbox",
         "bossman.dev_factory",
         "bossman.ai_lab",
+        "bossman.cost_control",
+        "bossman.notifications",
     ):
         try:
             import importlib
@@ -228,26 +232,17 @@ async def decide_approval(approval_id: int, body: Decision):
 
 @app.post("/telegram/webhook")
 async def telegram_webhook(update: dict, request: Request):
-    """Кнопки да/нет из Telegram (callback_data: approve:<id> / reject:<id>).
-
-    Граница безопасности: подтверждения (платежи confirmed_click, cloud_policy=ask,
-    чувствительные submit'ы браузера) нельзя решать без проверки. Telegram
-    присылает секрет вебхука в X-Telegram-Bot-Api-Secret-Token — сверяем его в
-    постоянном времени. Нет настроенного секрета или несовпадение → 403, никакого
-    approvals.decide().
+    """Кнопки из Telegram — теперь opaque `b:<token>` callback'и, а не сырые
+    approve:<id>/reject:<id>. Разбор и вся проверка (секрет заголовка, чат,
+    TTL, single-use) — в notifications.telegram_transport; здесь только граница
+    HTTP: секрет заголовка передаётся как есть, отказ = CallbackRejected → 401.
+    approvals.decide() вызывается telegram_transport, не этим хендлером.
     """
-    secret = settings.telegram_webhook_secret
     got = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-    if not secret or not hmac.compare_digest(secret, got):
-        raise errors.AuthDenied("telegram webhook secret mismatch")
-    cb = update.get("callback_query") or {}
-    data = cb.get("data") or ""
-    if ":" in data:
-        action, sid = data.split(":", 1)
-        if action in ("approve", "reject") and sid.isdigit():
-            who = (cb.get("from") or {}).get("username", "telegram")
-            await approvals_mod.decide(int(sid), action == "approve", f"tg:{who}")
-    return {"ok": True}
+    try:
+        return await telegram.handle_webhook(update, got)
+    except CallbackRejected as exc:
+        raise errors.AuthDenied(f"telegram callback denied: {exc}") from exc
 
 
 # ---------- агенты ----------
