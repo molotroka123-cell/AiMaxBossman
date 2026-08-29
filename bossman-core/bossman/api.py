@@ -60,6 +60,12 @@ async def shutdown() -> None:
         await aclose_gateway()
     except Exception:
         pass
+    # ЭТАП 2.222: чисто закрыть SQLite-соединения context_engine (WAL flush).
+    try:
+        from .context_engine import close_all as _close_context
+        _close_context()
+    except Exception:
+        pass
     await db.close()
 
 

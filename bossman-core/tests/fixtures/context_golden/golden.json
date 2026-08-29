@@ -1,0 +1,735 @@
+[
+  {
+    "id": "T01",
+    "category": "exact-numeric",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/hardware.md",
+        "type": "markdown",
+        "text": "# Hardware\nСервер имеет 128 GB RAM и одну RTX 4090. Модель llama.cpp держит окно 65536 токенов."
+      }
+    ],
+    "query": "сколько RAM на сервере и какое окно модели",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "128 GB",
+      "65536"
+    ],
+    "expected_sources": [
+      "docs/hardware.md"
+    ]
+  },
+  {
+    "id": "T02",
+    "category": "exact-numeric",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/budget.md",
+        "type": "markdown",
+        "text": "# Budget\nПри заполнении окна выше 70% сначала уплотнение, потом вызов. Резерв 30%."
+      }
+    ],
+    "query": "при каком заполнении окна уплотнени и какой резерв",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "70%",
+      "30%"
+    ],
+    "expected_sources": [
+      "docs/budget.md"
+    ]
+  },
+  {
+    "id": "T03",
+    "category": "exact-numeric",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/limits.md",
+        "type": "markdown",
+        "text": "# Limits\nmax_steps=30, max_tokens=200000, timeout_min=20 по умолчанию для агента."
+      }
+    ],
+    "query": "дефолтные лимиты агента",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "200000",
+      "timeout_min=20"
+    ],
+    "expected_sources": [
+      "docs/limits.md"
+    ]
+  },
+  {
+    "id": "T04",
+    "category": "latest-vs-old",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/spec_old.md",
+        "type": "markdown",
+        "text": "# Spec v0.2 (устарело)\nRetrieval только лексический, без вектора."
+      },
+      {
+        "uri": "docs/spec_new.md",
+        "type": "markdown",
+        "text": "# Spec v0.3 (актуально)\nRetrieval гибридный: lexical + vector + reranking."
+      }
+    ],
+    "query": "как устроен retrieval в актуальной версии",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "гибридный",
+      "reranking"
+    ],
+    "expected_sources": [
+      "docs/spec_new.md"
+    ]
+  },
+  {
+    "id": "T05",
+    "category": "latest-vs-old",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/api_v1.md",
+        "type": "markdown",
+        "text": "# API v1\nЭндпоинт /run возвращает id."
+      },
+      {
+        "uri": "docs/api_v2.md",
+        "type": "markdown",
+        "text": "# API v2\nЭндпоинт /tasks возвращает task_id и статус."
+      }
+    ],
+    "query": "актуальный эндпоинт постановки задачи",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "/tasks",
+      "task_id"
+    ],
+    "expected_sources": [
+      "docs/api_v2.md"
+    ]
+  },
+  {
+    "id": "T06",
+    "category": "latest-vs-old",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/model_old.md",
+        "type": "markdown",
+        "text": "Старая модель окно 8192."
+      },
+      {
+        "uri": "docs/model_new.md",
+        "type": "markdown",
+        "text": "Текущая модель окно 65536 токенов."
+      }
+    ],
+    "query": "текущее окно модели",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "65536"
+    ],
+    "expected_sources": [
+      "docs/model_new.md"
+    ]
+  },
+  {
+    "id": "T07",
+    "category": "bilingual",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/browser.md",
+        "type": "markdown",
+        "text": "# Browser\nДействие browser.confirmed_click требует approval через runner (waiting_approval)."
+      }
+    ],
+    "query": "how does confirmed click approval work подтверждение",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "browser.confirmed_click",
+      "waiting_approval"
+    ],
+    "expected_sources": [
+      "docs/browser.md"
+    ]
+  },
+  {
+    "id": "T08",
+    "category": "bilingual",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/provenance.md",
+        "type": "markdown",
+        "text": "Every durable memory record must keep provenance: source, timestamp, content hash."
+      }
+    ],
+    "query": "провенанс памяти provenance",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "provenance",
+      "content hash"
+    ],
+    "expected_sources": [
+      "docs/provenance.md"
+    ]
+  },
+  {
+    "id": "T09",
+    "category": "code-bug-failed-fix",
+    "type": "retrieval",
+    "project": "coder",
+    "docs": [
+      {
+        "uri": "src/compact.py",
+        "type": "python",
+        "text": "def compact(x):\n    # анкоры теряются при агрессивном сжатии\n    return x[:10]"
+      }
+    ],
+    "memories": [
+      {
+        "kind": "failure",
+        "text": "SYMPTOM: compact терял числа\nCAUSE: naive summarize\nFIX: extractive-first + anchor survival\nVERIFICATION: test_small_budget",
+        "status": "active",
+        "source_refs": [
+          "chat:9"
+        ]
+      }
+    ],
+    "query": "почему compact терял числа и как чинили",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "extractive-first",
+      "anchor survival"
+    ],
+    "expected_sources": []
+  },
+  {
+    "id": "T10",
+    "category": "code-bug-failed-fix",
+    "type": "retrieval",
+    "project": "coder",
+    "docs": [
+      {
+        "uri": "src/retry.py",
+        "type": "python",
+        "text": "def retry():\n    pass  # первый naive-подход упал по таймауту 600"
+      }
+    ],
+    "memories": [
+      {
+        "kind": "failure",
+        "text": "SYMPTOM: retry падал по таймауту\nCAUSE: sync httpx\nFIX: async client timeout=600\nVERIFICATION: green",
+        "status": "active",
+        "source_refs": [
+          "chat:10"
+        ]
+      }
+    ],
+    "query": "как исправляли таймаут retry",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "async client",
+      "timeout=600"
+    ],
+    "expected_sources": []
+  },
+  {
+    "id": "T11",
+    "category": "decision-supersession",
+    "type": "retrieval",
+    "project": "bossman",
+    "memories": [
+      {
+        "id": "DEC-0001",
+        "kind": "decision",
+        "text": "Использовать только лексический retrieval.",
+        "status": "active",
+        "source_refs": [
+          "s:1"
+        ]
+      },
+      {
+        "id": "DEC-0002",
+        "kind": "decision",
+        "text": "Перейти на hybrid retrieval с reranking.",
+        "status": "active",
+        "source_refs": [
+          "s:2"
+        ],
+        "supersedes": "DEC-0001"
+      }
+    ],
+    "query": "какое решение по retrieval действует",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "hybrid retrieval",
+      "DEC-0002"
+    ],
+    "forbidden_text": [
+      "DEC-0001"
+    ],
+    "expected_sources": []
+  },
+  {
+    "id": "T12",
+    "category": "decision-supersession",
+    "type": "retrieval",
+    "project": "bossman",
+    "memories": [
+      {
+        "id": "DEC-0001",
+        "kind": "decision",
+        "text": "Кэшировать префикс на 3000 токенов.",
+        "status": "active",
+        "source_refs": [
+          "s:1"
+        ]
+      },
+      {
+        "id": "DEC-0002",
+        "kind": "decision",
+        "text": "Кэшировать префикс на 6000 токенов.",
+        "status": "active",
+        "source_refs": [
+          "s:2"
+        ],
+        "supersedes": "DEC-0001"
+      }
+    ],
+    "query": "сколько токенов префикса кэшируем сейчас",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "6000"
+    ],
+    "forbidden_text": [
+      "DEC-0001"
+    ],
+    "expected_sources": []
+  },
+  {
+    "id": "T13",
+    "category": "conflicting",
+    "type": "retrieval",
+    "project": "bossman",
+    "memories": [
+      {
+        "kind": "constraint",
+        "text": "Облачные вызовы разрешены для агента analyst.",
+        "status": "active",
+        "source_refs": [
+          "s:1"
+        ]
+      },
+      {
+        "kind": "constraint",
+        "text": "Облачные вызовы не разрешены для агента analyst.",
+        "status": "candidate",
+        "source_refs": [
+          "s:2"
+        ]
+      }
+    ],
+    "query": "разрешены ли облачные вызовы для analyst",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "Облачные вызовы"
+    ],
+    "expected_sources": []
+  },
+  {
+    "id": "T14",
+    "category": "conflicting",
+    "type": "retrieval",
+    "project": "bossman",
+    "memories": [
+      {
+        "kind": "fact",
+        "text": "Порт core 8700.",
+        "status": "active",
+        "source_refs": [
+          "s:1"
+        ]
+      },
+      {
+        "kind": "fact",
+        "text": "Порт core не 8700, а 8800.",
+        "status": "candidate",
+        "source_refs": [
+          "s:2"
+        ]
+      }
+    ],
+    "query": "на каком порту core",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "8700"
+    ],
+    "expected_sources": []
+  },
+  {
+    "id": "T15",
+    "category": "browser-checkpoint",
+    "type": "retrieval",
+    "project": "coder",
+    "docs": [
+      {
+        "uri": "docs/checkpoint.md",
+        "type": "markdown",
+        "text": "# Recovery\nПосле сбоя восстанавливаемся из browser.checkpoint; опасные действия только через browser.confirmed_click."
+      }
+    ],
+    "query": "как восстановить браузерную сессию после сбоя",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "browser.checkpoint",
+      "browser.confirmed_click"
+    ],
+    "expected_sources": [
+      "docs/checkpoint.md"
+    ]
+  },
+  {
+    "id": "T16",
+    "category": "browser-checkpoint",
+    "type": "retrieval",
+    "project": "coder",
+    "docs": [
+      {
+        "uri": "docs/blockers.md",
+        "type": "markdown",
+        "text": "BLOCKERS: капча, rate limit, бот-детект → остановка, не обход."
+      }
+    ],
+    "query": "что делать при капче и rate limit",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "остановка, не обход"
+    ],
+    "expected_sources": [
+      "docs/blockers.md"
+    ]
+  },
+  {
+    "id": "T17",
+    "category": "multi-doc",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/a.md",
+        "type": "markdown",
+        "text": "Компонент A использует Redis очередь bossman:tasks."
+      },
+      {
+        "uri": "docs/b.md",
+        "type": "markdown",
+        "text": "Компонент B пишет в Postgres таблицу model_calls."
+      },
+      {
+        "uri": "docs/c.md",
+        "type": "markdown",
+        "text": "Компонент C шлёт события в WebSocket и Telegram."
+      }
+    ],
+    "query": "Redis очередь и таблица model_calls",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "bossman:tasks",
+      "model_calls"
+    ],
+    "expected_sources": [
+      "docs/a.md",
+      "docs/b.md"
+    ]
+  },
+  {
+    "id": "T18",
+    "category": "multi-doc",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/sec1.md",
+        "type": "markdown",
+        "text": "Права инструментов: read/write/exec/send."
+      },
+      {
+        "uri": "docs/sec2.md",
+        "type": "markdown",
+        "text": "confirm_default=True делает действие подтверждаемым."
+      }
+    ],
+    "query": "права инструментов и подтверждение",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "read/write/exec/send",
+      "confirm_default=True"
+    ],
+    "expected_sources": [
+      "docs/sec1.md",
+      "docs/sec2.md"
+    ]
+  },
+  {
+    "id": "T19",
+    "category": "multi-doc",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/x.md",
+        "type": "markdown",
+        "text": "Chunk max_tokens=900, overlap=80."
+      },
+      {
+        "uri": "docs/y.md",
+        "type": "markdown",
+        "text": "Reranker деградирует к hybrid search при ошибке."
+      }
+    ],
+    "query": "параметры chunk max_tokens overlap и поведение reranker при ошибке",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "max_tokens=900",
+      "hybrid search"
+    ],
+    "expected_sources": [
+      "docs/x.md",
+      "docs/y.md"
+    ]
+  },
+  {
+    "id": "T20",
+    "category": "compact",
+    "type": "compact",
+    "project": "bossman",
+    "conversation": [
+      {
+        "role": "user",
+        "content": "Цель: интегрировать context engine, ветка claude/bossman-control-v03."
+      },
+      {
+        "role": "assistant",
+        "content": "Decision: hybrid retrieval после reranking."
+      },
+      {
+        "role": "user",
+        "content": "Обязательно: нельзя удалять raw source. Держи 128 GB как якорь."
+      },
+      {
+        "role": "assistant",
+        "content": "Bug: старый компрессор терял числа, naive summarizer failed."
+      },
+      {
+        "role": "assistant",
+        "content": "Правлю bossman/runner.py, версия v0.3."
+      },
+      {
+        "role": "assistant",
+        "content": "Прогон: 37 passed."
+      },
+      {
+        "role": "user",
+        "content": "TODO: подключить ContextCompiler."
+      },
+      {
+        "role": "assistant",
+        "content": "Понял, продолжаю verbatim."
+      }
+    ],
+    "query": "интеграция context engine",
+    "target_tokens": 4000,
+    "keep_recent": 2,
+    "mandatory_anchors": [
+      "128 GB",
+      "v0.3",
+      "bossman/runner.py",
+      "claude/bossman-control-v03",
+      "37 passed"
+    ],
+    "expected_sources": []
+  },
+  {
+    "id": "T21",
+    "category": "compact",
+    "type": "compact",
+    "project": "bossman",
+    "conversation": [
+      {
+        "role": "user",
+        "content": "Работаем над gateway, ветка feature/gw."
+      },
+      {
+        "role": "assistant",
+        "content": "Decision: role-based routing."
+      },
+      {
+        "role": "user",
+        "content": "Security constraint: нельзя логировать API ключи."
+      },
+      {
+        "role": "assistant",
+        "content": "Bug: роутер падал на пустом alias, fix добавлен."
+      },
+      {
+        "role": "assistant",
+        "content": "Тесты: 12 passed, 0 failed."
+      },
+      {
+        "role": "user",
+        "content": "Держи лимит 4096 max_tokens."
+      },
+      {
+        "role": "assistant",
+        "content": "Ок, verbatim ответ."
+      }
+    ],
+    "query": "статус gateway",
+    "target_tokens": 4000,
+    "keep_recent": 2,
+    "mandatory_anchors": [
+      "feature/gw",
+      "4096",
+      "12 passed"
+    ],
+    "expected_sources": []
+  },
+  {
+    "id": "T22",
+    "category": "compact",
+    "type": "compact",
+    "project": "bossman",
+    "conversation": [
+      {
+        "role": "user",
+        "content": "Пользователь исправил: не 3 ретрая, а 5."
+      },
+      {
+        "role": "assistant",
+        "content": "Принял, ставлю 5 ретраев."
+      },
+      {
+        "role": "user",
+        "content": "И таймаут 600 секунд обязательно."
+      },
+      {
+        "role": "assistant",
+        "content": "TODO: обновить конфиг retries=5 timeout=600."
+      },
+      {
+        "role": "assistant",
+        "content": "Готово, verbatim."
+      }
+    ],
+    "query": "параметры ретраев после правки пользователя",
+    "target_tokens": 3000,
+    "keep_recent": 2,
+    "mandatory_anchors": [
+      "600"
+    ],
+    "expected_sources": []
+  },
+  {
+    "id": "T23",
+    "category": "sensitive",
+    "type": "sensitive",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "pub.md",
+        "type": "markdown",
+        "text": "Публичная заметка про токены и бюджет окна."
+      },
+      {
+        "uri": "secret.md",
+        "type": "markdown",
+        "text": "Секрет: пароль и токены доступа в бюджете.",
+        "sensitivity": "secret"
+      }
+    ],
+    "query": "токены и бюджет",
+    "sensitivity_allow": [
+      "normal"
+    ],
+    "mandatory_anchors": [
+      "Публичная заметка"
+    ],
+    "expected_sources": [
+      "pub.md"
+    ],
+    "forbidden_sources": [
+      "secret.md"
+    ]
+  },
+  {
+    "id": "T24",
+    "category": "sensitive",
+    "type": "sensitive",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "open.md",
+        "type": "markdown",
+        "text": "Открытая инфа про клиентов и заказы."
+      },
+      {
+        "uri": "pii.md",
+        "type": "markdown",
+        "text": "PII: телефон клиента и заказы.",
+        "sensitivity": "secret"
+      }
+    ],
+    "query": "клиенты и заказы",
+    "sensitivity_allow": [
+      "normal"
+    ],
+    "mandatory_anchors": [
+      "Открытая инфа"
+    ],
+    "expected_sources": [
+      "open.md"
+    ],
+    "forbidden_sources": [
+      "pii.md"
+    ]
+  },
+  {
+    "id": "T25",
+    "category": "exact-path",
+    "type": "retrieval",
+    "project": "bossman",
+    "docs": [
+      {
+        "uri": "docs/paths.md",
+        "type": "markdown",
+        "text": "Интеграция в bossman/runner.py и bossman/context_engine/compact.py, версия v0.3.0."
+      }
+    ],
+    "query": "какие файлы правим для интеграции и версия",
+    "model_window": 32768,
+    "mandatory_anchors": [
+      "bossman/runner.py",
+      "bossman/context_engine/compact.py",
+      "v0.3.0"
+    ],
+    "expected_sources": [
+      "docs/paths.md"
+    ]
+  }
+]

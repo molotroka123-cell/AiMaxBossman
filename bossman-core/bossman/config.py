@@ -44,6 +44,14 @@ class Settings:
     # уведомление в Telegram, если задача заняла дольше минуты (раздел 5, шаг 6)
     notify_after_seconds: int = int(_env("NOTIFY_AFTER_SECONDS", "60"))
 
+    # Context & Memory Engine (ЭТАП 2.222): слой поверх ContextBuilder наполняет
+    # блок retrieved долговременной памятью и evidence-чанками. Отключаемо, чтобы
+    # деградировать к чистому поведению ядра. Индекс — под workspace (не в git).
+    context_engine_enabled: bool = field(
+        default_factory=lambda: _env("CONTEXT_ENGINE_ENABLED", "1").lower() not in ("0", "false", "no", ""))
+    context_db: Path = field(default_factory=lambda: Path(
+        _env("CONTEXT_DB", str(Path(_env("WORKSPACE_DIR", str(ROOT / "workspace"))) / "_context" / "context.db"))))
+
     host: str = field(default_factory=lambda: _env("CORE_HOST", "0.0.0.0"))
     port: int = int(_env("CORE_PORT", "8700"))
 

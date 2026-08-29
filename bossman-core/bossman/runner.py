@@ -15,7 +15,7 @@ import redis.asyncio as aioredis
 from . import approvals, db, events, telegram
 from .agents import AgentSpec, load_all
 from .config import settings
-from .context import ContextBudget, ContextBuilder
+from .context import SUMMARY_MAX_TOKENS, ContextBudget, ContextBuilder
 from .llm import CloudDenied, NeedsCloudApproval, chat, real_window
 from .toolkit import REGISTRY, ToolContext, by_api_name, tool_line
 
@@ -66,6 +66,61 @@ def _system_prompt(agent: AgentSpec) -> str:
 
 def _tool_schemas(agent: AgentSpec) -> list[dict]:
     return [REGISTRY[g.name].schema() for g in agent.tools if g.name in REGISTRY]
+
+
+# Инструменты, которые нельзя вырезать при tool pruning: подтверждаемые действия
+# (платёж/отправка) — их наличие критично для безопасного пути ЭТАПА 1.
+_ALWAYS_TOOLS = ("browser_confirmed_click", "browser_confirmed_press")
+
+
+def apply_context_engine(builder: ContextBuilder, tools: list[dict], *, project: str,
+                         task_text: str, memory_md: str = "") -> list[dict]:
+    """ЭТАП 2.222 — точка интеграции context_engine в реальный путь LLM-запроса.
+
+    Слой поверх ContextBuilder: наполняет ранее пустой блок `retrieved`
+    долговременной памятью (с provenance) и evidence-чанками (с source-refs), и
+    обрезает tool-схемы под задачу (tool schema pruning). Движок долгоживущий на
+    процесс. Любая ошибка движка/ранкера деградирует к прежнему поведению ядра —
+    петля не падает. Отключаемо флагом settings.context_engine_enabled.
+    """
+    if not settings.context_engine_enabled:
+        return tools
+    try:
+        from .context_engine import get_engine, prune_tool_schemas
+        engine = get_engine(settings.context_db)
+        if memory_md.strip():
+            engine.index_text(memory_md, source_uri=f"agents/{project}/memory.md",
+                              source_type="markdown", project=project)
+        engine.inject_into_builder(builder, task_text, project=project)
+        if tools:
+            return prune_tool_schemas(tools, task_text, keep_min=10, always=_ALWAYS_TOOLS)
+        return tools
+    except Exception:
+        return tools
+
+
+def compact_session(builder: ContextBuilder, *, query: str, budget_tokens: int = SUMMARY_MAX_TOKENS):
+    """ЭТАП 2.222: structured continuation state вместо lossy LLM-summarize.
+
+    Строит из рабочей истории builder провенанс-сохраняющий handoff через
+    CompactSkill (extractive-first): критические якоря — числа, версии, пути,
+    ветка, статус тестов — выносятся в неурезаемые секции и переживают
+    compaction. Возвращает CompactResult или None (движок выключен/недоступен/
+    пустая история) — тогда петля падает на прежний LLM-summarize.
+    """
+    if not settings.context_engine_enabled:
+        return None
+    try:
+        from .context_engine import Message as _CEMessage
+        from .context_engine import get_engine
+        engine = get_engine(settings.context_db)
+        msgs = [_CEMessage(role=(it.role if it.role in ("assistant", "user") else "tool"),
+                           content=it.content) for it in builder.history]
+        if not msgs:
+            return None
+        return engine.compact(msgs, target_tokens=budget_tokens, keep_recent=6, query=query)
+    except Exception:
+        return None
 
 
 async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
@@ -145,6 +200,10 @@ async def run_task(task: dict) -> None:
     budget = ContextBudget(window=real_window(agent.model))
     builder = ContextBuilder(budget, _system_prompt(agent))
     tools = _tool_schemas(agent)
+    # ЭТАП 2.222: наполнить блок retrieved долговременной памятью + evidence и
+    # обрезать tool-схемы под задачу. Слой поверх ContextBuilder, не замена.
+    tools = apply_context_engine(builder, tools, project=agent.name,
+                                 task_text=task["text"], memory_md=agent.memory)
     started = time.monotonic()
     total_tokens = 0
     steps = 0
@@ -163,9 +222,18 @@ async def run_task(task: dict) -> None:
                 break
             # заполнение > 70 % или каждые 25 вызовов инструментов → сначала уплотнение (10.5)
             if builder.needs_compaction(task["text"]) or tool_calls_since_compact >= 25:
-                summary_msg = await chat(agent, builder.compaction_messages(), run_id=run_id,
-                                         cloud_approved_by=cloud_ok_by, max_tokens=800)
-                builder.apply_compaction(summary_msg.get("content") or "")
+                # ЭТАП 2.222: сначала structured continuation state (extractive,
+                # provenance-preserving, критические якоря переживают). Если движок
+                # выключен/недоступен или качество не прошло — прежний LLM-summarize.
+                handoff = compact_session(builder, query=task["text"])
+                if handoff is not None and handoff.text and \
+                        handoff.quality_checks.get("anchors_preserved") and \
+                        handoff.quality_checks.get("nonempty"):
+                    builder.apply_compaction(handoff.text)
+                else:
+                    summary_msg = await chat(agent, builder.compaction_messages(), run_id=run_id,
+                                             cloud_approved_by=cloud_ok_by, max_tokens=800)
+                    builder.apply_compaction(summary_msg.get("content") or "")
                 tool_calls_since_compact = 0
 
             steps += 1
