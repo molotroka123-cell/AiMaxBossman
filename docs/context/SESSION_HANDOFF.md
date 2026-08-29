@@ -12,7 +12,7 @@ dataset-gate из траекторий.
 
 ## CURRENT HEAD
 - ветка: `claude/bossman-control-v03-43igbk`
-- HEAD: `dc5b4f9` (feat(sandbox): Этап 8 — ядро). Всё запушено в origin.
+- HEAD: `dd44df0` (feat(sandbox): SAFE rootless runtime). Всё запушено в origin.
 - baseline этой большой сессии: `ddf2259`.
 
 ## WHAT EXISTS (написано в этой сессии)
@@ -32,14 +32,16 @@ dataset-gate из траекторий.
   `resource_brain, remote_client, search_everything, video_factory, sandbox`.
 
 ## WHAT DOES NOT WORK / НЕ СДЕЛАНО (следующие шаги)
-- **Реального рантайма нет** — только `FakeRuntime` (детерминированный, для тестов).
-  Нужны адаптеры: SAFE (rootless/bubblewrap), gVisor-класс, MicroVM (CubeSandbox —
-  кандидат; см. `_staging/s8/stage8/RUNTIME_SELECTION.md`). Fail-closed уже готов:
-  адаптер объявляет `RuntimeCapabilities.tiers`, политика сама отвергнет
-  недостижимый tier.
-- **Egress-энфорсмент** — `NetworkGuard.decide()` даёт РЕШЕНИЕ, но никто ещё не
-  ставит реальный firewall/proxy внутри рантайма. Нужен egress-плейн (nftables/
-  proxy) в адаптере рантайма.
+- **SAFE rootless рантайм ГОТОВ** (`sandbox/runtimes/safe.py`) — реальные процессы,
+  копия рабочей области, rlimits, OFFLINE через `unshare -rn`, wall-time.
+  **Нет** адаптеров gVisor-класса и MicroVM (CubeSandbox — кандидат, см.
+  `_staging/s8/stage8/RUNTIME_SELECTION.md`). Fail-closed уже работает: адаптер
+  объявляет `RuntimeCapabilities.tiers`, политика отвергает недостижимый tier
+  (проверено `test_hostile_policy_rejected_by_safe_runtime`).
+- **Egress-энфорсмент частично**: SAFE в режиме OFFLINE реально уходит в сетевой
+  namespace без интерфейсов (`unshare -rn`). Для ALLOWLIST фильтра по хостам
+  ещё нет — нужен proxy/nftables-плейн (SafeRuntime честно ставит
+  `supports_allowlist=False`, поэтому ALLOWLIST через него отвергается).
 - **Secret Broker** — только `InMemorySecretBroker`. Нужен persistent backend
   (тот же контракт: `grant/revoke/revoke_sandbox/redeem`).
 - **Toolbox песочницы** (shell/git/files/browser внутри sandbox) — не начат.
@@ -50,6 +52,7 @@ dataset-gate из траекторий.
 
 ## FILES CHANGED (Stage 8)
 `bossman/sandbox/{__init__,models,policy,runtime,resources,network,secrets,artifacts,trajectory,manager,subsystem,routes}.py`,
+`bossman/sandbox/runtimes/{__init__,safe}.py`, `tests/test_sandbox_safe_runtime.py`,
 `bossman/errors.py` (+6 кодов), `bossman/api.py` (регистрация подсистемы),
 `tests/test_sandbox_core.py`, `tests/test_sandbox_security.py`.
 
@@ -99,7 +102,8 @@ BOSSMAN_TEST_CHROMIUM="$CHROME" python -m pytest -q                             
 ```
 
 ## LATEST TEST RESULTS
-`265 passed` (полный набор, с BOSSMAN_TEST_CHROMIUM). Sandbox: `37 passed`.
+`275 passed` (полный набор, с BOSSMAN_TEST_CHROMIUM). Sandbox: `47 passed`
+(core 13 + security 24 + safe runtime 10).
 
 ## KNOWN FAILURES
 Нет падающих тестов. Открытые долги — в разделе «WHAT DOES NOT WORK» и в

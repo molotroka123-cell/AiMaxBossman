@@ -41,3 +41,10 @@ FILES: bossman/sandbox/{models,policy,runtime,resources,network,secrets,artifact
 RESULT: 12-состоянийный автомат с запретом невалидных переходов, fail-closed политика/риск, FakeRuntime, аренды поверх Resource Brain, default-deny сеть, брокер секретов, artifact gate, редактируемая траектория; OFF=OFF
 TEST: pytest tests/test_sandbox_*.py -> 37 passed; всего 265 passed
 NEXT: SAFE rootless runtime adapter (NEXT.md шаг 1)
+
+2026-08-29T08:05Z
+ACTION: SAFE rootless runtime (NEXT шаг 1) + два дефекта, найденных его тестами
+FILES: bossman/sandbox/runtimes/{__init__,safe}.py, sandbox/trajectory.py, sandbox/{models,policy}.py, tests/test_sandbox_safe_runtime.py
+RESULT: Реальное исполнение процессов с копией рабочей области, rlimits, OFFLINE через unshare -rn, wall-time; траектория больше не роняет очистку и не воскрешает снесённый каталог; источник рабочей области недоверенный по умолчанию
+TEST: pytest tests/test_sandbox_safe_runtime.py -> 10 passed; всего 275 passed
+NEXT: NEXT.md шаг 2 — egress ALLOWLIST-энфорсмент (proxy/nftables)

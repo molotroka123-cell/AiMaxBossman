@@ -2,7 +2,9 @@
 
 Порядок по приоритету. Каждый шаг — конкретный, с файлом и командой проверки.
 
-## 1. SAFE rootless runtime adapter
+## 1. SAFE rootless runtime adapter — ✅ СДЕЛАНО (dd44df0)
+<!-- Реализован bossman/sandbox/runtimes/safe.py; 10 тестов в tests/test_sandbox_safe_runtime.py.
+     Следующий незакрытый шаг — №2. Исходное задание шага 1 ниже для истории. -->
 - Реализуй `bossman/sandbox/runtimes/safe.py` → класс `SafeRuntime` (тот же
   Protocol `SandboxRuntime`, что и `FakeRuntime`).
 - `capabilities()` → `RuntimeCapabilities(name="safe", tiers={ROOTLESS},

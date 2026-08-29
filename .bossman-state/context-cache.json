@@ -2,7 +2,7 @@
   "stage": 8,
   "objective": "Stage 8 AI Lab Sandbox: ядро готово; дальше реальные рантаймы, egress-энфорсмент, persistent secret backend, sandbox-инструменты, dataset gate",
   "branch": "claude/bossman-control-v03-43igbk",
-  "head": "dc5b4f9",
+  "head": "dd44df0",
   "completed": [
     "shared seams (errors/lifecycle/correlation/obs)",
     "stage4 resource_brain",
@@ -10,7 +10,8 @@
     "stage6 remote_client",
     "stage7 video_factory",
     "stage8 sandbox core (models/policy/runtime/resources/network/secrets/artifacts/trajectory/manager/subsystem/routes)",
-    "audit P0/P1: compact amnesia, project runner race, browser approvals (3 bypasses), gateway 4xx failover, telegram webhook auth, gitignore projects pkg"
+    "audit P0/P1: compact amnesia, project runner race, browser approvals (3 bypasses), gateway 4xx failover, telegram webhook auth, gitignore projects pkg",
+    "stage8 SAFE rootless runtime (runtimes/safe.py)"
   ],
   "active_files": [
     "bossman-core/bossman/sandbox/*.py",
@@ -26,12 +27,11 @@
     "FAIL-003 workflow reconcile/limit -> читать journal.jsonl"
   ],
   "tests": {
-    "full_suite": "265 passed",
-    "sandbox": "37 passed",
+    "full_suite": "275 passed",
+    "sandbox": "47 passed",
     "cmd": "BOSSMAN_TEST_CHROMIUM=<chromium> python -m pytest -q"
   },
   "next_actions": [
-    "1 SafeRuntime (rootless) adapter в bossman/sandbox/runtimes/safe.py",
     "2 egress enforcement в рантайме поверх NetworkGuard",
     "3 sandbox.* tools в toolkit через публичный register()",
     "4 PostgresSecretBroker (тот же контракт)",
@@ -46,5 +46,5 @@
     "artifact gate: traversal/symlink/archive/size/exec/secret-scan",
     "трактория без секретов (obs.redact)"
   ],
-  "last_updated": "2026-08-29T07:54:14Z"
+  "last_updated": "2026-08-29T07:57:59Z"
 }
