@@ -126,3 +126,11 @@ RESULT: 18/18 tests passed, training OFF by default
 TEST: pytest ../bossman-core/tests/test_stage11_ai_lab.py -q
 SECURITY: raw->training bypass closed; secrets+PII redacted; provenance enforced; approval revocation blocks export
 NEXT: Stage 12 integration
+
+[2026-08-29T09:20:27Z]
+STAGE12_ACTION: интеграция пакета + adversarial hardening + encoding fix
+FILES: bossman/remote_client/{mobile_api.py,__init__.py}, remote-app/, scripts/bootstrap_remote_device.py, ios/, tests/test_stage12_{mobile_api,security}.py, tests/test_remote_client.py, gateway/app.py (utf-8)
+RESULT: mobile API расширяет Stage 6; PWA на /remote/app; iOS отдельным пакетом; BOM+mojibake устранены (0 mojibake lines, 42 gateway tests green)
+TEST: stage12 31 passed; stage11 18 passed; full bossman-core 345 passed/27 skipped/0 failed
+SECURITY: IDOR 404, scope-гвардейцы, logout/revoke, redaction email/IP (дописан слой Stage 11 sanitizer), SW не кэширует /remote/*, нет CDN/токенов в URL
+NEXT: живой прогон на железе + пуш результатов
