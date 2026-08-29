@@ -15,8 +15,30 @@ import yaml
 from . import db
 from .agents import AgentSpec
 from .config import settings
+from .gateway.client import GatewayClient
 
 CLOUD_PREFIXES = ("claude-", "cloud-", "gemini", "gpt-")
+
+# ЭТАП 3: один переиспользуемый клиент Gateway на процесс (пул соединений).
+# Создаётся лениво при первом обращении, закрывается в aclose_gateway()
+# из lifecycle FastAPI — чтобы не оставлять осиротевших HTTP-клиентов.
+_gateway: GatewayClient | None = None
+
+
+def _gateway_client() -> GatewayClient:
+    global _gateway
+    if _gateway is None:
+        _gateway = GatewayClient(base_url=settings.gateway_url,
+                                 api_key=settings.gateway_core_key)
+    return _gateway
+
+
+async def aclose_gateway() -> None:
+    """Закрыть клиент Gateway при остановке процесса (вызывается из shutdown API)."""
+    global _gateway
+    if _gateway is not None:
+        await _gateway.close()
+        _gateway = None
 
 
 class CloudDenied(Exception):
@@ -71,17 +93,24 @@ async def chat(agent: AgentSpec, messages: list[dict], *,
         preview = "\n\n".join(f"[{m['role']}]\n{m['content']}" for m in messages)
         raise NeedsCloudApproval(alias, preview)
 
-    key = agent.api_key or settings.litellm_master_key
-    payload: dict[str, Any] = {"model": alias, "messages": messages}
-    if tools:
-        payload["tools"] = tools
-    if max_tokens:
-        payload["max_tokens"] = max_tokens
-    async with httpx.AsyncClient(timeout=600) as client:
-        resp = await client.post(f"{settings.litellm_url}/chat/completions",
-                                 headers={"Authorization": f"Bearer {key}"}, json=payload)
-    resp.raise_for_status()
-    data = resp.json()
+    # Облачная политика (never/ask) уже проверена выше — до сети. Ниже только
+    # транспорт: при заданном BOSSMAN_GATEWAY_URL идём через приватный Gateway,
+    # иначе — прежним путём напрямую к LiteLLM ключом агента (совместимость).
+    if settings.gateway_url:
+        data = await _gateway_client().chat(
+            model=alias, messages=messages, tools=tools, max_tokens=max_tokens)
+    else:
+        key = agent.api_key or settings.litellm_master_key
+        payload: dict[str, Any] = {"model": alias, "messages": messages}
+        if tools:
+            payload["tools"] = tools
+        if max_tokens:
+            payload["max_tokens"] = max_tokens
+        async with httpx.AsyncClient(timeout=600) as client:
+            resp = await client.post(f"{settings.litellm_url}/chat/completions",
+                                     headers={"Authorization": f"Bearer {key}"}, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
     usage = data.get("usage") or {}
     prompt_toks = int(usage.get("prompt_tokens") or 0)
     completion_toks = int(usage.get("completion_tokens") or 0)
@@ -116,14 +145,17 @@ async def vision_caption(agent_name: str, path: str, question: str) -> str:
     import base64
     from pathlib import Path
     data = base64.b64encode(Path(path).read_bytes()).decode()
-    payload = {
-        "model": "bossman-writer",
-        "messages": [{"role": "user", "content": [
-            {"type": "text", "text": question + " Ответь не длиннее 300 токенов."},
-            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{data}"}},
-        ]}],
-        "max_tokens": 400,
-    }
+    messages = [{"role": "user", "content": [
+        {"type": "text", "text": question + " Ответь не длиннее 300 токенов."},
+        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{data}"}},
+    ]}]
+    # ЭТАП 3: через Gateway зрение запрашивается capability-алиасом bossman-vision
+    # (роутер сам выберет vision-совместимую цель). Без Gateway — прежний путь.
+    if settings.gateway_url:
+        resp = await _gateway_client().chat(
+            model="bossman-vision", messages=messages, max_tokens=400)
+        return resp["choices"][0]["message"]["content"]
+    payload = {"model": "bossman-writer", "messages": messages, "max_tokens": 400}
     async with httpx.AsyncClient(timeout=300) as client:
         resp = await client.post(f"{settings.litellm_url}/chat/completions",
                                  headers={"Authorization": f"Bearer {settings.litellm_master_key}"},

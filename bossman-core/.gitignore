@@ -5,6 +5,11 @@ __pycache__/
 projects/
 workspace/
 
+# ЭТАП 3 — AI Gateway: боевой конфиг может нести ключи клиентов/провайдеров.
+# В git живёт только config/gateway.example.yaml с плейсхолдерами.
+config/gateway.yaml
+gateway.yaml
+
 # Bossman ComputerUse runtime — профили, cookies и загрузки живых сессий
 .browser-profiles/
 browser-profiles/

@@ -18,6 +18,13 @@ class Settings:
     litellm_url: str = field(default_factory=lambda: _env("LITELLM_URL", "http://litellm:4000/v1"))
     litellm_master_key: str = field(default_factory=lambda: _env("LITELLM_MASTER_KEY", ""))
     llama_swap_url: str = field(default_factory=lambda: _env("LLAMA_SWAP_URL", "http://llama-swap:8080"))
+
+    # ЭТАП 3 — AI Gateway: пока BOSSMAN_GATEWAY_URL пуст, ядро ходит к моделям
+    # напрямую через LiteLLM (текущее поведение). Заданный URL включает единую
+    # точку выхода через приватный Gateway; ядро аутентифицируется в нём
+    # ключом BOSSMAN_GATEWAY_CORE_KEY (не ключом провайдера и не ключом агента).
+    gateway_url: str = field(default_factory=lambda: _env("BOSSMAN_GATEWAY_URL", ""))
+    gateway_core_key: str = field(default_factory=lambda: _env("BOSSMAN_GATEWAY_CORE_KEY", ""))
     database_url: str = field(default_factory=lambda: _env(
         "BOSSMAN_DATABASE_URL", "postgresql://bossman:bossman@postgres:5432/bossman"))
     redis_url: str = field(default_factory=lambda: _env("REDIS_URL", "redis://redis:6379/0"))

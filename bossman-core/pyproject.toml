@@ -16,9 +16,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+# ЭТАП 3: psutil опционален — без него Gateway работает, но отдаёт меньше
+# метрик процесса/системной памяти в /metrics.
+resource = ["psutil>=5.9"]
 
 [project.scripts]
 bossman = "bossman.cli:main"
+bossman-gateway = "bossman.gateway.main:main"
 
 [build-system]
 requires = ["setuptools>=68"]

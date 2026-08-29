@@ -54,6 +54,12 @@ async def shutdown() -> None:
         await _BROWSER.shutdown()
     except Exception:
         pass
+    # ЭТАП 3: закрыть HTTP-клиент Gateway, чтобы не осталось осиротевших соединений
+    from .llm import aclose_gateway
+    try:
+        await aclose_gateway()
+    except Exception:
+        pass
     await db.close()
 
 
