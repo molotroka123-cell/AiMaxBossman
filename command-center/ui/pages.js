@@ -12,6 +12,7 @@ import {
   fmtClock, fmtDateShort, fmtRelative, fmtElapsed, fmtNum, fmtGb,
   fmtTokens, fmtContext, fmtCost,
 } from './components.js';
+import * as ui from './pages/_ui.js';
 
 /* ============================================================
    Общие помощники
@@ -344,8 +345,8 @@ const ModelsPage = {
 
     const head = h('div.row',
       h('div',
-        h('div.section-title', { style: { margin: 0 } }, 'Реестр моделей'),
-        h('div.small.dim', `${models.length} моделей · ${providers.length} провайдеров`)),
+        h('div.section-title', { style: { margin: 0 } }, 'Список моделей'),
+        h('div.small.dim', `${models.length} моделей · ${providers.length} поставщиков`)),
       h('div.spacer'),
       actionButton('Проверить все', async () => {
         if (!models.length) return;
@@ -364,7 +365,7 @@ const ModelsPage = {
         : h('section.panel', empty({
           iconName: 'models',
           title: 'Моделей пока нет',
-          hint: 'Подключите локальный OpenAI-совместимый endpoint (llama.cpp, Ollama, LM Studio) или облачный API — и модель появится здесь со статусом.',
+          hint: 'Подключите модель на своём компьютере (llama.cpp, Ollama, LM Studio) или облачную — и она появится здесь со своим состоянием.',
           action: h('button.btn.btn-primary', { type: 'button', onClick: () => openModelWizard(ctx) },
             icon('plus', 14), h('span', 'Добавить модель')),
         }));
@@ -388,7 +389,7 @@ function modelCard(m, provider, ctx) {
       h('div', { style: { flex: '1', minWidth: 0 } },
         h('div.card-title', modelLabel(m)),
         h('div.card-sub',
-          `${pick(m, ['name'], '—')} · ${provider ? pick(provider, ['name'], kindLabel(provider.kind)) : 'провайдер не найден'}`)),
+          `${pick(m, ['name'], '—')} · ${provider ? pick(provider, ['name'], kindLabel(provider.kind)) : 'поставщик не найден'}`)),
       statusBadge(m.status || 'unknown')),
 
     h('div.row.tight',
@@ -399,16 +400,16 @@ function modelCard(m, provider, ctx) {
     statusDetail ? h('div.xsmall.dim.wrap-any', statusDetail) : null,
 
     (bench || m.last_check) ? h('div.stat-strip',
-      bench && bench.gen_tps ? h('div', h('span.s-label', 'генерация'), h('span.s-value', `${fmtNum(bench.gen_tps, 1)} tok/s`)) : null,
-      bench && bench.prompt_tps ? h('div', h('span.s-label', 'prompt'), h('span.s-value', `${fmtNum(bench.prompt_tps, 1)} tok/s`)) : null,
-      bench && bench.latency_ms ? h('div', h('span.s-label', 'задержка'), h('span.s-value', `${fmtNum(bench.latency_ms)} мс`)) : null,
-      m.last_check ? h('div', h('span.s-label', 'проверка'), h('span.s-value', fmtRelative(m.last_check))) : null,
+      bench && bench.gen_tps ? h('div', { title: 'скорость ответа, слов в секунду' }, h('span.s-label', 'Ответ'), h('span.s-value', `${fmtNum(bench.gen_tps, 1)} сл/с`)) : null,
+      bench && bench.prompt_tps ? h('div', { title: 'скорость чтения запроса' }, h('span.s-label', 'Чтение'), h('span.s-value', `${fmtNum(bench.prompt_tps, 1)} сл/с`)) : null,
+      bench && bench.latency_ms ? h('div', h('span.s-label', 'Задержка'), h('span.s-value', `${fmtNum(bench.latency_ms)} мс`)) : null,
+      m.last_check ? h('div', h('span.s-label', 'Проверка'), h('span.s-value', fmtRelative(m.last_check))) : null,
     ) : null,
 
     testOut,
 
     h('div.card-actions',
-      actionButton('Check', async () => {
+      actionButton('Проверить', async () => {
         try {
           const r = await api.checkModel(id);
           const st = pick(r || {}, ['status'], 'unknown');
@@ -418,18 +419,18 @@ function modelCard(m, provider, ctx) {
           });
           ctx.refresh();
         } catch (e) { toastError(e, 'Проверка не удалась'); }
-      }, { cls: 'btn btn-sm', title: 'Проверить доступность endpoint' }),
+      }, { cls: 'btn btn-sm', iconName: 'retry', title: 'Проверить, на связи ли модель' }),
 
-      actionButton('Test', async () => {
-        replace(testOut, h('div.small.dim', 'Прогон короткого prompt…'));
+      actionButton('Проба', async () => {
+        replace(testOut, h('div.small.dim', 'Пробуем короткий запрос…'));
         try {
           const r = await api.testModel(id) || {};
           const b = (r.bench && typeof r.bench === 'object') ? r.bench : r;
           replace(testOut, h('div.stack.sm',
             h('div.stat-strip',
-              h('div', h('span.s-label', 'генерация'), h('span.s-value', b.gen_tps ? `${fmtNum(b.gen_tps, 1)} tok/s` : '—')),
-              h('div', h('span.s-label', 'prompt'), h('span.s-value', b.prompt_tps ? `${fmtNum(b.prompt_tps, 1)} tok/s` : '—')),
-              h('div', h('span.s-label', 'задержка'), h('span.s-value', b.latency_ms ? `${fmtNum(b.latency_ms)} мс` : '—'))),
+              h('div', { title: 'скорость ответа, слов в секунду' }, h('span.s-label', 'Ответ'), h('span.s-value', b.gen_tps ? `${fmtNum(b.gen_tps, 1)} сл/с` : '—')),
+              h('div', { title: 'скорость чтения запроса' }, h('span.s-label', 'Чтение'), h('span.s-value', b.prompt_tps ? `${fmtNum(b.prompt_tps, 1)} сл/с` : '—')),
+              h('div', h('span.s-label', 'Задержка'), h('span.s-value', b.latency_ms ? `${fmtNum(b.latency_ms)} мс` : '—'))),
             pick(r, ['output', 'text', 'sample', 'result'])
               ? h('pre.block', String(pick(r, ['output', 'text', 'sample', 'result'])).slice(0, 600))
               : null));
@@ -438,9 +439,9 @@ function modelCard(m, provider, ctx) {
           replace(testOut, h('div.small', { style: { color: 'var(--err)' } }, e.message || 'тест не прошёл'));
           toastError(e, 'Тест модели не прошёл');
         }
-      }, { cls: 'btn btn-sm', title: 'Мини-benchmark: короткий prompt, tok/s и задержка' }),
+      }, { cls: 'btn btn-sm', iconName: 'bolt', title: 'Быстрая проба: короткий запрос, скорость и задержка' }),
 
-      h('button.btn.btn-sm', { type: 'button', onClick: () => openModelEdit(ctx, m) }, icon('edit', 13), h('span', 'Edit')),
+      h('button.btn.btn-sm', { type: 'button', onClick: () => openModelEdit(ctx, m) }, icon('edit', 13), h('span', 'Изменить')),
 
       h('button.btn.btn-sm.btn-danger', {
         type: 'button',
@@ -454,7 +455,7 @@ function modelCard(m, provider, ctx) {
           try { await api.deleteModel(id); toastOk('Модель удалена'); ctx.refresh(); }
           catch (e) { toastError(e, 'Не удалось удалить модель'); }
         },
-      }, icon('trash', 13), h('span', 'Delete'))));
+      }, icon('trash', 13), h('span', 'Удалить'))));
 }
 
 /* --- мастер добавления модели: провайдер → модель --- */
@@ -740,28 +741,26 @@ const AgentsPage = {
     ctx.state.models = models;
 
     const modelById = new Map(models.map((m) => [String(pick(m, ['id'])), m]));
+    const on = agents.filter((a) => a.enabled !== false).length;
 
-    const head = h('div.row',
-      h('div',
-        h('div.section-title', { style: { margin: 0 } }, 'Агенты'),
-        h('div.small.dim', `${agents.length} агентов`)),
-      h('div.spacer'),
-      h('button.btn.btn-primary', { type: 'button', onClick: () => openAgentModal(ctx, null, models) },
-        icon('plus', 14), h('span', 'Новый агент')));
+    const head = ui.pageHead('Агенты',
+      agents.length
+        ? `${ui.plural(agents.length, 'агент', 'агента', 'агентов')} · ${ui.plural(on, 'готов', 'готовы', 'готовы')} к работе`
+        : 'Агент — это помощник с ролью и характером: чем он занимается, каким тоном отвечает и на какой модели работает.',
+      { actions: [ui.btn('Новый агент', () => openAgentModal(ctx, null, models), { variant: 'primary', iconName: 'plus' })] });
 
     const body = agentsR.status === 'rejected'
-      ? errorBanner(agentsR.reason, ctx)
+      ? ui.errorNote(agentsR.reason, () => ctx.refresh())
       : agents.length
-        ? h('div.grid.auto-lg', agents.map((a) => agentCard(a, modelById, models, ctx)))
-        : h('section.panel', empty({
+        ? h('div.bx-cards', agents.map((a) => agentCard(a, modelById, models, ctx)))
+        : ui.blank({
           iconName: 'agents',
           title: 'Агентов пока нет',
-          hint: 'Агент — это роль + system prompt + модель. Создайте первого, чтобы запускать задачи.',
-          action: h('button.btn.btn-primary', { type: 'button', onClick: () => openAgentModal(ctx, null, models) },
-            icon('plus', 14), h('span', 'Новый агент')),
-        }));
+          hint: 'Агент — это помощник с ролью, характером и моделью, на которой он думает. Создайте первого, чтобы поручать ему задачи.',
+          action: ui.btn('Создать агента', () => openAgentModal(ctx, null, models), { variant: 'primary', iconName: 'plus' }),
+        });
 
-    return h('div.stack.lg', head, body);
+    return h('div.bx-page', head, body);
   },
 
   onEvent(ev) { return ev.kind.startsWith('agent.'); },
@@ -772,52 +771,50 @@ function agentCard(a, modelById, models, ctx) {
   const primary = modelById.get(String(pick(a, ['model_id'])));
   const fallback = modelById.get(String(pick(a, ['fallback_model_id'])));
   const enabled = a.enabled !== false;
-  const spendKeys = [
-    ['budget_usd', 'бюджет'],
-    ['spend_usd', 'потрачено'],
-    ['cost_usd', 'потрачено'],
-    ['tokens_in', 'токенов in'],
-    ['tokens_out', 'токенов out'],
-  ].filter(([k]) => a[k] !== undefined && a[k] !== null);
 
-  return h('div.card',
-    h('div.card-head',
-      h('div', { style: { flex: '1', minWidth: 0 } },
-        h('div.card-title', pick(a, ['name'], 'без имени')),
-        h('div.card-sub', pick(a, ['role'], 'роль не указана'))),
-      statusBadge(enabled ? 'enabled' : 'disabled', { label: enabled ? 'включён' : 'выключен' })),
+  const tags = [
+    primary ? ui.tag(modelLabel(primary), { accent: true }) : ui.tag('модель не выбрана'),
+    fallback ? ui.tag(`запасная: ${modelLabel(fallback)}`) : null,
+  ].filter(Boolean);
 
-    h('div.row.tight',
-      primary ? badge(modelLabel(primary), 'accent') : badge('модель не выбрана', 'warn'),
-      fallback ? badge(`fallback: ${modelLabel(fallback)}`) : null,
-      a.max_steps ? badge(`${a.max_steps} шагов`) : null,
-      (a.max_retries !== undefined && a.max_retries !== null) ? badge(`${a.max_retries} повторов`) : null),
+  const promptText = a.system_prompt
+    ? String(a.system_prompt).slice(0, 180) + (String(a.system_prompt).length > 180 ? '…' : '')
+    : null;
 
-    a.system_prompt ? h('div.xsmall.dim.wrap-any',
-      String(a.system_prompt).slice(0, 180) + (String(a.system_prompt).length > 180 ? '…' : '')) : null,
+  const facts = [];
+  if (a.budget_usd) facts.push(ui.stat('Лимит трат', fmtCost(a.budget_usd)));
+  const spent = a.spend_usd ?? a.cost_usd;
+  if (spent !== undefined && spent !== null) facts.push(ui.stat('Потрачено', fmtCost(spent)));
+  if (a.max_steps) facts.push(ui.stat('Шагов на задачу', a.max_steps));
 
-    spendKeys.length ? h('div.stat-strip', spendKeys.map(([k, label]) => h('div',
-      h('span.s-label', label),
-      h('span.s-value', k.includes('usd') ? fmtCost(a[k]) : fmtTokens(a[k]))))) : null,
-
-    h('div.card-actions',
-      h('button.btn.btn-sm.btn-primary', {
-        type: 'button', onClick: () => openTaskModal(ctx, { agentId: id }),
-      }, icon('play', 13), h('span', 'Задача')),
-      h('button.btn.btn-sm', { type: 'button', onClick: () => openAgentModal(ctx, a, models) }, icon('edit', 13), h('span', 'Edit')),
-      h('button.btn.btn-sm.btn-danger', {
-        type: 'button',
-        onClick: async () => {
-          const ok = await confirmDialog({
-            title: 'Удалить агента?',
-            text: `«${pick(a, ['name'], 'агент')}» будет удалён. История его задач останется.`,
-            okText: 'Удалить', danger: true,
-          });
-          if (!ok) return;
-          try { await api.deleteAgent(id); toastOk('Агент удалён'); ctx.refresh(); }
-          catch (e) { toastError(e, 'Не удалось удалить агента'); }
-        },
-      }, icon('trash', 13), h('span', 'Delete'))));
+  return ui.tile({
+    accent: 'var(--bx-azure)',
+    iconName: 'agents',
+    muted: !enabled,
+    title: pick(a, ['name'], 'без имени'),
+    sub: pick(a, ['role'], 'чем занимается — не указано'),
+    statusNode: ui.pill(enabled ? 'готов к работе' : 'выключен',
+      { tone: enabled ? 'ok' : 'idle', live: false }),
+    tags,
+    body: [
+      promptText ? h('p.bx-tile-text', promptText) : null,
+      facts.length ? h('div.bx-stats', facts) : null,
+    ],
+    actions: [
+      ui.btn('Поручить задачу', () => openTaskModal(ctx, { agentId: id }), { variant: 'primary', size: 'sm', iconName: 'play' }),
+      ui.btn('Изменить', () => openAgentModal(ctx, a, models), { variant: 'secondary', size: 'sm', iconName: 'edit' }),
+      ui.btn('Удалить', async () => {
+        const ok = await confirmDialog({
+          title: 'Удалить агента?',
+          text: `«${pick(a, ['name'], 'агент')}» будет удалён. История его задач останется.`,
+          okText: 'Удалить', danger: true,
+        });
+        if (!ok) return;
+        try { await api.deleteAgent(id); toastOk('Агент удалён'); ctx.refresh(); }
+        catch (e) { toastError(e, 'Не удалось удалить агента'); }
+      }, { variant: 'subtle', size: 'sm', iconName: 'trash' }),
+    ],
+  });
 }
 
 export async function openAgentModal(ctx, agent = null, models = null) {
@@ -827,11 +824,11 @@ export async function openAgentModal(ctx, agent = null, models = null) {
   }
   const editing = !!agent;
 
-  const nameEl = input({ placeholder: 'Researcher', value: pick(agent || {}, ['name'], '') });
+  const nameEl = input({ placeholder: 'Например: Исследователь', value: pick(agent || {}, ['name'], '') });
   const roleEl = input({ placeholder: 'Ищет и сверяет факты', value: pick(agent || {}, ['role'], '') });
   const promptEl = textarea({ rows: 7, placeholder: 'Ты — аккуратный исследователь. Отвечай кратко, ссылайся на источники…', value: pick(agent || {}, ['system_prompt'], '') });
   const modelEl = modelSelect(list, pick(agent || {}, ['model_id'], null));
-  const fbEl = modelSelect(list, pick(agent || {}, ['fallback_model_id'], null), { allowEmpty: true, emptyLabel: '— без fallback —' });
+  const fbEl = modelSelect(list, pick(agent || {}, ['fallback_model_id'], null), { allowEmpty: true, emptyLabel: '— без запасной —' });
   const stepsEl = input({ type: 'number', min: '1', max: '100', value: String(pick(agent || {}, ['max_steps'], 8)), class: 'input mono' });
   const retriesEl = input({ type: 'number', min: '0', max: '10', value: String(pick(agent || {}, ['max_retries'], 2)), class: 'input mono' });
   const enabledEl = h('input', { type: 'checkbox', checked: agent ? agent.enabled !== false : true });
@@ -842,14 +839,14 @@ export async function openAgentModal(ctx, agent = null, models = null) {
     body: h('div.stack',
       h('div.grid.cols-2',
         field('Имя', nameEl),
-        field('Роль', roleEl, 'Короткое описание зоны ответственности.')),
-      field('System prompt', promptEl, 'Постоянная инструкция агента — задаёт стиль и границы.'),
+        field('Чем занимается', roleEl, 'Короткое описание зоны ответственности.')),
+      field('Характер и правила', promptEl, 'Постоянная инструкция агенту: как себя вести, что можно, чего нельзя.'),
       h('div.grid.cols-2',
         field('Основная модель', modelEl),
-        field('Fallback-модель', fbEl, 'Используется, если основная недоступна.')),
+        field('Запасная модель', fbEl, 'Подключится, если основная недоступна.')),
       h('div.grid.cols-3',
-        field('Max steps', stepsEl),
-        field('Max retries', retriesEl),
+        field('Шагов на задачу', stepsEl, 'Сколько действий подряд может сделать.'),
+        field('Повторов при ошибке', retriesEl),
         field('Состояние', h('label.check', enabledEl, h('span', 'включён')))),
     ),
     footer: (handle) => [
@@ -1115,19 +1112,19 @@ async function loadTaskDetail(id, bodyEl, ctx) {
     catch (e) { toastError(e, `Не удалось выполнить «${label}»`); }
   };
   if (status === 'running') {
-    actions.appendChild(actionButton('Pause', () => act('pause', 'Задача поставлена на паузу'), { cls: 'btn btn-sm', iconName: 'pause' }));
-    actions.appendChild(actionButton('Stop', () => act('stop', 'Задача остановлена'), { cls: 'btn btn-sm btn-danger', iconName: 'stop' }));
+    actions.appendChild(actionButton('Пауза', () => act('pause', 'Задача поставлена на паузу'), { cls: 'btn btn-sm', iconName: 'pause' }));
+    actions.appendChild(actionButton('Остановить', () => act('stop', 'Задача остановлена'), { cls: 'btn btn-sm btn-danger', iconName: 'stop' }));
   } else if (status === 'queued' || status === 'waiting_approval') {
-    actions.appendChild(actionButton('Stop', () => act('stop', 'Задача остановлена'), { cls: 'btn btn-sm btn-danger', iconName: 'stop' }));
+    actions.appendChild(actionButton('Остановить', () => act('stop', 'Задача остановлена'), { cls: 'btn btn-sm btn-danger', iconName: 'stop' }));
   } else if (status === 'paused') {
-    actions.appendChild(actionButton('Resume', () => act('resume', 'Задача продолжена'), { cls: 'btn btn-sm btn-ok', iconName: 'play' }));
-    actions.appendChild(actionButton('Stop', () => act('stop', 'Задача остановлена'), { cls: 'btn btn-sm btn-danger', iconName: 'stop' }));
+    actions.appendChild(actionButton('Продолжить', () => act('resume', 'Задача продолжена'), { cls: 'btn btn-sm btn-ok', iconName: 'play' }));
+    actions.appendChild(actionButton('Остановить', () => act('stop', 'Задача остановлена'), { cls: 'btn btn-sm btn-danger', iconName: 'stop' }));
   } else if (status === 'failed' || status === 'stopped') {
-    actions.appendChild(actionButton('Retry', () => act('retry', 'Перезапуск задачи'), { cls: 'btn btn-sm btn-primary', iconName: 'retry' }));
+    actions.appendChild(actionButton('Повторить', () => act('retry', 'Перезапуск задачи'), { cls: 'btn btn-sm btn-primary', iconName: 'retry' }));
   } else if (status === 'completed') {
-    actions.appendChild(actionButton('Retry', () => act('retry', 'Перезапуск задачи'), { cls: 'btn btn-sm', iconName: 'retry' }));
+    actions.appendChild(actionButton('Повторить', () => act('retry', 'Перезапуск задачи'), { cls: 'btn btn-sm', iconName: 'retry' }));
   } else if (status === 'draft') {
-    actions.appendChild(actionButton('Run', () => act('run', 'Задача поставлена в очередь'), { cls: 'btn btn-sm btn-primary', iconName: 'play' }));
+    actions.appendChild(actionButton('Запустить', () => act('run', 'Задача поставлена в очередь'), { cls: 'btn btn-sm btn-primary', iconName: 'play' }));
   }
   if (status === 'waiting_approval') {
     actions.appendChild(h('button.btn.btn-sm', { type: 'button', onClick: () => ctx.navigate('approvals') },
@@ -1420,7 +1417,7 @@ export async function openScheduleModal(ctx, agents = null, preset = {}) {
 
 const ApprovalsPage = {
   id: 'approvals',
-  title: 'Подтверждения',
+  title: 'Ждут решения',
   icon: 'approvals',
 
   async render(ctx) {
@@ -1431,23 +1428,22 @@ const ApprovalsPage = {
 
     ctx.setBadge('approvals', items.length);
 
-    const head = h('div.row',
-      h('div',
-        h('div.section-title', { style: { margin: 0 } }, 'Очередь подтверждений'),
-        h('div.small.dim', items.length ? `${items.length} ждут решения` : 'ничего не ждёт решения')),
-      h('div.spacer'));
+    const head = ui.pageHead('Ждут вашего решения',
+      items.length
+        ? `${ui.plural(items.length, 'действие', 'действия', 'действий')} нельзя выполнить без вашего «да»`
+        : 'Здесь появляются шаги, которые агент не делает без вашего разрешения.');
 
     const body = err
-      ? errorBanner(err, ctx)
+      ? ui.errorNote(err, () => ctx.refresh())
       : items.length
-        ? h('div.grid.auto-lg', items.map((a) => approvalCard(a, ctx)))
-        : h('section.panel', empty({
+        ? h('div.bx-cards.is-wide', items.map((a) => approvalCard(a, ctx)))
+        : ui.blank({
           iconName: 'approvals',
-          title: 'Очередь пуста',
-          hint: 'Здесь появятся действия агентов, которые требуют вашего решения: отправка письма, деплой, дорогой облачный вызов.',
-        }));
+          title: 'Пока ничего не ждёт решения',
+          hint: 'Сюда попадут действия агентов, на которые нужно ваше согласие: отправить письмо, опубликовать пост, сделать дорогой платный вызов.',
+        });
 
-    return h('div.stack.lg', head, body);
+    return h('div.bx-page', head, body);
   },
 
   onEvent(ev) { return ev.kind.startsWith('approval.'); },
@@ -1458,26 +1454,31 @@ function approvalCard(a, ctx) {
   const decide = async (approve) => {
     try {
       await api.decideApproval(id, approve, 'ui');
-      toastOk(approve ? 'Подтверждено' : 'Отклонено');
+      toastOk(approve ? 'Разрешено' : 'Отклонено');
       ctx.refresh();
     } catch (e) { toastError(e, 'Не удалось отправить решение'); }
   };
 
-  return h('div.card',
-    h('div.card-head',
-      h('div', { style: { flex: '1', minWidth: 0 } },
-        h('div.card-title', pick(a, ['kind'], 'действие')),
-        h('div.card-sub', `создано ${fmtDateShort(pick(a, ['created_at']))}${a.task_id ? ` · задача #${a.task_id}` : ''}${a.run_id ? ` · run #${a.run_id}` : ''}`)),
-      statusBadge(pick(a, ['status'], 'pending'))),
+  const source = [
+    a.task_id ? `задача #${a.task_id}` : null,
+    a.run_id ? `запуск #${a.run_id}` : null,
+  ].filter(Boolean).join(' · ');
 
-    h('pre.block', String(pick(a, ['preview'], 'Предпросмотр не предоставлен'))),
-
-    h('div.card-actions',
-      actionButton('Approve', () => decide(true), { cls: 'btn btn-sm btn-ok', iconName: 'check' }),
-      actionButton('Reject', () => decide(false), { cls: 'btn btn-sm btn-danger', iconName: 'close' }),
-      a.task_id ? h('button.btn.btn-sm.btn-ghost', {
-        type: 'button', onClick: () => ctx.navigate('tasks', { task: a.task_id }),
-      }, 'Открыть задачу') : null));
+  return ui.tile({
+    accent: 'var(--bx-amber)',
+    iconName: 'approvals',
+    title: pick(a, ['kind'], 'действие'),
+    sub: `появилось ${fmtRelative(pick(a, ['created_at']))}${source ? ` · ${source}` : ''}`,
+    statusNode: ui.statusPill(pick(a, ['status'], 'pending')),
+    body: [
+      ui.codeBlock(String(pick(a, ['preview'], 'Предпросмотр не предоставлен'))),
+    ],
+    actions: [
+      ui.btn('Разрешить', () => decide(true), { variant: 'primary', size: 'sm', iconName: 'check', accent: 'var(--bx-mint)' }),
+      ui.btn('Отклонить', () => decide(false), { variant: 'subtle', size: 'sm', iconName: 'close' }),
+      a.task_id ? ui.btn('Открыть задачу', () => ctx.navigate('tasks', { task: a.task_id }), { variant: 'ghost', size: 'sm' }) : null,
+    ].filter(Boolean),
+  });
 }
 
 /* ============================================================
@@ -1575,57 +1576,61 @@ const SystemPage = {
     const cpuSpark = h('div', sparkline(sysState.cpu, { min: 0, max: 100 }));
     const ramSpark = h('div', sparkline(sysState.ram, { min: 0, max: 100 }));
 
-    const cpuPanel = panel('Процессор', h('div.stack.sm',
-      h('div.row', h('span.big-num.accent', sys.cpu === null ? '—' : `${Math.round(sys.cpu)}%`),
-        h('div.spacer'), h('span.xsmall.dim', 'последние 15 минут')),
-      cpuSpark));
+    const cpuPanel = ui.panel('Загрузка процессора', h('div.stack.sm',
+      h('div.row', h('span.bx-bignum.is-accent', sys.cpu === null ? '—' : `${Math.round(sys.cpu)}%`),
+        h('div.spacer'), h('span.bx-pagehead-sub', { style: { margin: 0 } }, 'за последние 15 минут')),
+      cpuSpark), { icon: 'system' });
 
     const ramPct = sys.ramTotal ? (sys.ramUsed / sys.ramTotal) * 100 : 0;
-    const ramPanel = panel('Оперативная память', h('div.stack.sm',
+    const ramPanel = ui.panel('Оперативная память', h('div.stack.sm',
       h('div.row',
-        h('span.big-num', sys.ramTotal ? `${fmtGb(sys.ramUsed)}` : '—'),
-        h('span.dim.small', sys.ramTotal ? `/ ${fmtGb(sys.ramTotal)} ГБ` : ''),
+        h('span.bx-bignum', sys.ramTotal ? `${fmtGb(sys.ramUsed)}` : '—'),
+        h('span.bx-pagehead-sub', { style: { margin: '0 0 0 6px' } }, sys.ramTotal ? `из ${fmtGb(sys.ramTotal)} ГБ занято` : ''),
         h('div.spacer'),
-        h('span.xsmall.dim.num', sys.ramTotal ? `${Math.round(ramPct)}%` : '')),
+        h('span.bx-pagehead-sub', { style: { margin: 0 } }, sys.ramTotal ? `${Math.round(ramPct)}%` : '')),
       ramSpark));
 
-    const diskPanel = panel('Диск', h('div.stack.sm',
-      sys.diskTotal
-        ? meter('Использовано', sys.diskUsed || 0, sys.diskTotal, `${fmtNum(sys.diskUsed, 1)} / ${fmtNum(sys.diskTotal, 1)} ГБ`)
-        : h('div.small.dim', 'Данных по диску нет.')));
+    const diskPanel = ui.panel('Диск', sys.diskTotal
+      ? ui.meter('Занято', sys.diskUsed || 0, sys.diskTotal, `${fmtNum(sys.diskUsed, 1)} / ${fmtNum(sys.diskTotal, 1)} ГБ`)
+      : h('div.small.dim', 'Данных по диску нет.'));
 
-    const gpuPanel = panel('GPU', sys.gpus.length
+    const gpuPanel = ui.panel('Видеокарта (GPU)', sys.gpus.length
       ? h('div.stack.sm', sys.gpus.map((g) => h('div.stack.sm',
         h('div.row', h('b.small', g.name), h('div.spacer'),
-          g.temp !== null ? h('span.xsmall.dim.num', `${Math.round(g.temp)} °C`) : null),
-        g.util !== null ? meter('Загрузка', g.util, 100, `${Math.round(g.util)}%`) : null,
-        g.memTotal ? meter('VRAM занято всего', g.memUsed || 0, g.memTotal,
+          g.temp !== null ? h('span.bx-pagehead-sub', { style: { margin: 0 } }, `${Math.round(g.temp)} °C`) : null),
+        g.util !== null ? ui.meter('Загрузка', g.util, 100, `${Math.round(g.util)}%`) : null,
+        g.memTotal ? ui.meter('Память видеокарты занята', g.memUsed || 0, g.memTotal,
           `${fmtGb(g.memUsed)} / ${fmtGb(g.memTotal)} ГиБ`) : null,
         g.memProcs !== null && g.memTotal
-          ? meter('из них процессами', g.memProcs, g.memTotal, `${fmtGb(g.memProcs)} ГиБ`) : null,
+          ? ui.meter('из них под модели', g.memProcs, g.memTotal, `${fmtGb(g.memProcs)} ГиБ`) : null,
         g.procs.length
           ? h('div.stack.xs', g.procs.slice(0, 4).map((p) => h('div.row.xsmall.dim',
             h('span', `${p.name || 'процесс'} · ${p.pid ?? '—'}`), h('div.spacer'),
             h('span.num', `${fmtGb(p.vram_used_mb)} ГиБ`))))
           : null)))
-      : h('div.small.dim', 'GPU недоступно — сервер не сообщает данные ускорителя.'));
+      : h('div.small.dim', 'Видеокарта не найдена — сервер не сообщает её данные.'));
 
-    const healthPanel = h('section.panel',
-      h('div.panel-head', h('h2', 'Компоненты'), h('div.spacer'),
-        statusBadge(sys.overall === 'ok' ? 'ok' : sys.overall === 'warn' ? 'degraded' : 'down')),
+    const overallWord = sys.overall === 'ok' ? 'всё в норме'
+      : sys.overall === 'warn' ? 'есть предупреждения' : 'есть сбой';
+    const healthPanel = ui.panel('Из чего состоит система',
       sys.health.length
-        ? h('div.health-list', sys.health.map((c) => h('div.health-row',
-          dot(c.status),
-          h('span.h-name', HEALTH_LABEL[c.name] || c.name),
-          c.detail ? h('span.h-detail', String(c.detail).slice(0, 80)) : null,
-          h('span.badge', statusLabel(c.status)))))
-        : h('div.panel-body', h('div.small.dim', 'Сервер не прислал health-компонентов.')));
+        ? h('div.bx-list', sys.health.map((c) => {
+          const st = ui.statusText(c.status);
+          return h('div.bx-list-row',
+            h('div', { style: { minWidth: 0 } },
+              h('div.bx-list-name', HEALTH_LABEL[c.name] || c.name),
+              c.detail ? h('div.bx-list-note', String(c.detail).slice(0, 90)) : null),
+            h('span.bx-list-end', ui.pill(st.word, { tone: st.tone, live: !!st.live })));
+        }))
+        : h('div.small.dim', 'Сервер не прислал состав системы.'),
+      { icon: 'system', aside: ui.pill(overallWord, { tone: sys.overall === 'ok' ? 'ok' : sys.overall === 'warn' ? 'warn' : 'err' }) });
 
-    const node = h('div.stack.lg',
-      h('div.grid.cols-2', cpuPanel, ramPanel),
-      h('div.grid.cols-2', diskPanel, gpuPanel),
+    const node = h('div.bx-page',
+      ui.pageHead('Состояние системы', 'Что происходит с сервером прямо сейчас: нагрузка, память, диск и все части системы.'),
+      h('div.bx-row', cpuPanel, ramPanel),
+      h('div.bx-row', diskPanel, gpuPanel),
       healthPanel,
-      h('div.xsmall.dim', sys.ts ? `Снимок: ${fmtDateShort(sys.ts)}` : ''));
+      sys.ts ? h('div.bx-pagehead-sub', { style: { margin: 0 } }, `Данные на ${fmtDateShort(sys.ts)}`) : null);
 
     sysState.node = { cpuSpark, ramSpark };
     return node;
@@ -1646,10 +1651,14 @@ const SystemPage = {
 
 const HEALTH_LABEL = {
   db: 'База данных',
-  worker: 'Воркер задач',
-  scheduler: 'Планировщик',
-  queue: 'Очередь',
-  event_bus: 'Шина событий',
+  database: 'База данных',
+  worker: 'Обработчик задач',
+  queue_worker: 'Обработчик задач',
+  scheduler: 'Планировщик по расписанию',
+  queue: 'Очередь задач',
+  event_bus: 'Обмен событиями',
+  events: 'Обмен событиями',
+  metrics: 'Сбор показателей',
   models: 'Модели',
   disk: 'Диск',
   memory: 'Память',

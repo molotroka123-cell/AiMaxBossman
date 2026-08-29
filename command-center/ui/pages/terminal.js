@@ -12,12 +12,12 @@ import {
   toast, toastOk, toastError, openModal, confirmDialog, actionButton,
   field, input, textarea, fmtDateShort,
 } from '../components.js';
-import { panel, pageHead, errorBanner, emptyPanel } from './_shared.js';
+import { panel, pageHead, errorNote, blank } from './_ui.js';
 
 const MODES = [
-  { value: 'sandbox', label: 'Sandbox', hint: 'docker, cwd монтируется, изолирован (auto для безопасных команд).' },
-  { value: 'project_host', label: 'Project host', hint: 'напрямую на хосте, только внутри разрешённых корней.' },
-  { value: 'system_admin', label: 'System admin', hint: 'всегда требует подтверждения.' },
+  { value: 'sandbox', label: 'Песочница', hint: 'Изолированно и безопасно: команда не видит остальную систему. Безопасные команды выполняются сразу.' },
+  { value: 'project_host', label: 'В проекте', hint: 'Прямо на сервере, но только внутри разрешённых папок.' },
+  { value: 'system_admin', label: 'С правами системы', hint: 'Полный доступ — всегда спрашивает подтверждение.' },
 ];
 
 const termState = { mode: 'sandbox', cwd: '', command: '', preview: null };
@@ -39,14 +39,14 @@ const TerminalPage = {
     const rootsPanel = buildRootsPanel(roots, ctx);
 
     const sessionsPanel = sessionsR.status === 'rejected'
-      ? errorBanner(sessionsR.reason, ctx)
+      ? errorNote(sessionsR.reason, () => ctx.refresh())
       : sessions.length
-        ? panel(`Сессии (${sessions.length})`, h('div.mini-list', sessions.map((s) => sessionRow(s, ctx))))
-        : emptyPanel({ iconName: 'chevron', title: 'Сессий ещё нет', hint: 'Запустите команду выше — появится здесь с живым выводом.' });
+        ? panel(`Запущенные команды · ${sessions.length}`, h('div.mini-list', sessions.map((s) => sessionRow(s, ctx))))
+        : blank({ iconName: 'chevron', title: 'Пока ничего не запускалось', hint: 'Запустите команду выше — она появится здесь с живым выводом.' });
 
-    return h('div.stack.lg',
-      pageHead('Терминал', 'sandbox / project_host / system_admin — с политикой AUTO/ASK/DENY'),
-      h('div.grid.cols-2', runPanel, rootsPanel),
+    return h('div.bx-page',
+      pageHead('Терминал', 'Запуск команд на сервере. Опасные команды выполняются только с вашего подтверждения.'),
+      h('div.bx-row', runPanel, rootsPanel),
       sessionsPanel);
   },
 
@@ -64,12 +64,12 @@ function buildRunPanel(ctx, roots) {
   const cmdEl = textarea({ rows: 3, class: 'textarea mono', placeholder: 'git status', value: termState.command });
   cmdEl.addEventListener('input', () => { termState.command = cmdEl.value; });
   const networkEl = h('input', { type: 'checkbox', checked: false });
-  const networkField = h('label.check', networkEl, h('span', 'Разрешить сеть (sandbox)'));
+  const networkField = h('label.check', networkEl, h('span', 'Разрешить доступ в интернет'));
 
   const decisionOut = h('div.small.dim',
     termState.preview
       ? decisionLine(termState.preview.decision)
-      : 'Нажмите «Preview», чтобы увидеть решение политики до запуска.');
+      : 'Нажмите «Проверить», чтобы заранее узнать, что будет с командой.');
 
   const doPreview = async () => {
     if (!cmdEl.value.trim()) { toast('Введите команду', { type: 'warn' }); return; }
@@ -78,7 +78,7 @@ function buildRunPanel(ctx, roots) {
       termState.preview = r;
       decisionOut.textContent = '';
       decisionOut.appendChild(decisionLine(r.decision));
-    } catch (e) { toastError(e, 'Не удалось получить решение'); }
+    } catch (e) { toastError(e, 'Не удалось проверить команду'); }
   };
 
   const doRun = async (approved = false) => {
@@ -89,7 +89,7 @@ function buildRunPanel(ctx, roots) {
         body: { mode: termState.mode, command: cmdEl.value, cwd: cwdEl.value || undefined, approved, network: networkEl.checked },
       });
       if (r && r.session_id) {
-        toastOk('Сессия запущена', `pid ${r.pid}`);
+        toastOk('Команда запущена', `pid ${r.pid}`);
         cmdEl.value = ''; termState.command = ''; termState.preview = null;
         ctx.refresh();
         openSessionDetail(r.session_id, ctx);
@@ -97,8 +97,8 @@ function buildRunPanel(ctx, roots) {
       }
       if (r && r.approval_id) {
         const ok = await confirmDialog({
-          title: 'Требуется подтверждение', okText: 'Запустить всё равно', danger: true,
-          text: `Политика попросила подтверждение (approval #${r.approval_id}) для: ${cmdEl.value}`,
+          title: 'Нужно ваше подтверждение', okText: 'Запустить всё равно', danger: true,
+          text: `Эта команда требует подтверждения: ${cmdEl.value}`,
         });
         if (ok) await doRun(true);
       }
@@ -107,17 +107,17 @@ function buildRunPanel(ctx, roots) {
 
   return panel('Запуск команды', h('div.stack.sm',
     field('Режим', modeSeg),
-    field('Рабочая директория', cwdEl),
+    field('В какой папке выполнять', cwdEl),
     field('Команда', cmdEl),
     networkField,
     decisionOut,
     h('div.row', h('div.spacer'),
-      h('button.btn.btn-sm', { type: 'button', onClick: doPreview }, icon('search', 13), h('span', 'Preview')),
-      actionButton('Run', () => doRun(false), { cls: 'btn btn-sm btn-primary', iconName: 'play' }))));
+      h('button.btn.btn-sm', { type: 'button', onClick: doPreview }, icon('search', 13), h('span', 'Проверить')),
+      actionButton('Запустить', () => doRun(false), { cls: 'btn btn-sm btn-primary', iconName: 'play' }))));
 }
 
 function decisionLine(decision) {
-  const label = { auto: 'AUTO — выполнится сразу', ask: 'ASK — потребует подтверждения', deny: 'DENY — запрещено политикой' }[decision] || decision;
+  const label = { auto: 'Выполнится сразу', ask: 'Спросит подтверждение', deny: 'Запрещено' }[decision] || decision;
   return h('div.row', statusBadge(decision), h('span.small', label));
 }
 
@@ -135,10 +135,10 @@ function buildRootsPanel(roots, ctx) {
   }
   if (items.length) items.forEach((r) => addRow(r)); else addRow('');
 
-  return panel('Разрешённые корни (project_host)', h('div.stack.sm',
+  return panel('Разрешённые папки (для режима «В проекте»)', h('div.stack.sm',
     rows,
-    h('button.btn.btn-sm', { type: 'button', onClick: () => addRow('') }, icon('plus', 12), h('span', 'Ещё путь')),
-    h('div.xsmall.dim', 'sandbox всегда ограничен своим cwd — эти корни только для project_host.'),
+    h('button.btn.btn-sm', { type: 'button', onClick: () => addRow('') }, icon('plus', 12), h('span', 'Ещё папка')),
+    h('div.xsmall.dim', 'В «Песочнице» команда и так видит только свою папку — эти пути нужны только для режима «В проекте».'),
     h('div.row', h('div.spacer'),
       actionButton('Сохранить', async () => {
         const values = els.map((e) => e.value.trim()).filter(Boolean);
@@ -190,8 +190,8 @@ async function openSessionDetail(id, ctx) {
     modal.footer.appendChild(h('div.spacer'));
     modal.footer.appendChild(h('button.btn', { type: 'button', onClick: () => modal.close() }, 'Закрыть'));
     if (!st.finished) {
-      modal.footer.appendChild(actionButton('Kill', async () => {
-        try { await api.raw(`/api/terminal/sessions/${encodeURIComponent(id)}/kill`, { method: 'POST' }); toastOk('Сессия остановлена'); ctx.refresh(); await tick(); }
+      modal.footer.appendChild(actionButton('Остановить', async () => {
+        try { await api.raw(`/api/terminal/sessions/${encodeURIComponent(id)}/kill`, { method: 'POST' }); toastOk('Команда остановлена'); ctx.refresh(); await tick(); }
         catch (e) { toastError(e, 'Не удалось остановить'); }
       }, { cls: 'btn btn-danger', iconName: 'stop' }));
       setTimeout(tick, 1500);

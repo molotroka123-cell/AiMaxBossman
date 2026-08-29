@@ -1,21 +1,23 @@
 /* ============================================================
-   resources.js — Feature 12: Resource Brain.
-   Endpoints: GET /api/resources, POST /api/resources/policy
-   (+ POST /api/resources/estimate — используется опционально ниже).
+   resources.js — Нагрузка на память: сколько её занято, сколько
+   отдано под задачи и по какому правилу BOSSMAN её делит.
+   Endpoints: GET /api/resources, POST /api/resources/policy.
    ============================================================ */
 
 import { api } from '../api.js';
 import {
-  h, statusBadge, meter, toggle,
-  toastOk, toastError, actionButton, field, input,
+  h, toggle, toastOk, toastError, input,
   fmtGb, fmtDateShort, fmtNum,
 } from '../components.js';
-import { panel, pageHead, errorBanner, emptyPanel } from './_shared.js';
+import {
+  pageHead, panel, meter, stat, tag, btn, blank, errorNote,
+  segmented, field, statusPill,
+} from './_ui.js';
 
 const POLICIES = [
-  { value: 'balanced', label: 'Balanced' },
-  { value: 'performance', label: 'Performance' },
-  { value: 'low_power', label: 'Low power' },
+  { value: 'balanced', label: 'Поровну' },
+  { value: 'performance', label: 'На скорость' },
+  { value: 'low_power', label: 'Экономно' },
 ];
 
 const ResourcesPage = {
@@ -29,31 +31,43 @@ const ResourcesPage = {
     try { data = await api.raw('/api/resources'); }
     catch (e) { err = e; }
 
-    if (err) return h('div.stack.lg', pageHead('Ресурсы', 'Resource Brain: RAM-бюджет для локальных моделей'), errorBanner(err, ctx));
+    const head = pageHead('Нагрузка на память',
+      'Сколько оперативной памяти занято и сколько её отдавать под задачи. BOSSMAN следит, чтобы серверу всегда хватало.');
+
+    if (err) return h('div.bx-page', head, errorNote(err, () => ctx.refresh()));
 
     const reservations = Array.isArray(data.reservations) ? data.reservations : [];
+    const availGb = fmtGb(data.available_mb);
 
-    const sensors = panel('Память системы', h('div.stack.sm',
-      meter('Использовано системой', data.used_mb || 0, data.total_mb || 1, `${fmtGb(data.used_mb)} / ${fmtGb(data.total_mb)} ГБ`),
-      meter('Зарезервировано под задачи', data.reserved_mb || 0, data.total_mb || 1, `${fmtGb(data.reserved_mb)} ГБ`),
-      h('div.row', h('span.small.dim', 'Доступно для новых задач'), h('div.spacer'),
-        h('b', `${fmtGb(data.available_mb)} ГБ`)),
-      h('div.xsmall.dim', `резервный минимум (reserve floor): ${fmtGb(data.reserve_floor_mb)} ГБ`)));
+    const memPanel = panel('Память сервера', h('div.stack.sm',
+      meter('Занято прямо сейчас', data.used_mb || 0, data.total_mb || 1,
+        `${fmtGb(data.used_mb)} / ${fmtGb(data.total_mb)} ГБ`, { accent: 'var(--bx-violet)' }),
+      meter('Отдано под задачи', data.reserved_mb || 0, data.total_mb || 1,
+        `${fmtGb(data.reserved_mb)} ГБ`, { accent: 'var(--bx-azure)' }),
+      h('div', { style: { display: 'flex', gap: 'var(--bx-6)', marginTop: '6px' } },
+        stat('Свободно для новых задач', `${availGb} ГБ`),
+        stat('Неприкосновенный запас', `${fmtGb(data.reserve_floor_mb)} ГБ`))),
+    { icon: 'system' });
 
     const policyPanel = buildPolicyPanel(data, ctx);
 
     const resPanel = reservations.length
-      ? panel(`Активные резервации (${reservations.length})`, h('div.mini-list',
-        reservations.map((r) => h('div.mini-row',
-          statusBadge(r.status || 'held'),
-          h('span.name', `${r.holder_kind}:${r.holder_id}`),
-          h('span.badge.mono', `${fmtNum(r.amount_mb)} MB`),
-          h('span.xsmall.dim', fmtDateShort(r.created_at))))))
-      : emptyPanel({ iconName: 'system', title: 'Резерваций нет', hint: 'Ресурсы резервируются автоматически, когда включён enforce (или задача помечена resource_managed).' });
+      ? panel(`Что сейчас держит память · ${reservations.length}`,
+        h('div.bx-list', reservations.map((r) => h('div.bx-list-row',
+          h('div', { style: { minWidth: 0 } },
+            h('div.bx-list-name', `${r.holder_kind}: ${r.holder_id}`),
+            h('div.bx-list-note', fmtDateShort(r.created_at))),
+          h('span.bx-list-end',
+            tag(`${fmtNum(r.amount_mb)} МБ`),
+            statusPill(r.status || 'held'))))))
+      : blank({
+        iconName: 'system',
+        title: 'Память под задачи никто не держит',
+        hint: 'Как только пойдут задачи, требующие памяти, они появятся здесь — и BOSSMAN проследит, чтобы её хватило.',
+      });
 
-    return h('div.stack.lg',
-      pageHead('Ресурсы', 'Resource Brain: RAM-бюджет для локальных моделей'),
-      h('div.grid.cols-2', sensors, policyPanel),
+    return h('div.bx-page', head,
+      h('div.bx-row', memPanel, policyPanel),
       resPanel);
   },
 
@@ -61,33 +75,40 @@ const ResourcesPage = {
 };
 
 function buildPolicyPanel(data, ctx) {
-  const seg = h('div.seg', POLICIES.map((p) => h('button', {
-    type: 'button', class: data.policy === p.value ? 'on' : '',
-    onClick: async () => {
-      try { await api.raw('/api/resources/policy', { method: 'POST', body: { policy: p.value } }); toastOk(`Политика: ${p.label}`); ctx.refresh(); }
-      catch (e) { toastError(e, 'Не удалось сменить политику'); }
-    },
-  }, p.label)));
+  const seg = segmented(POLICIES, data.policy, async (value) => {
+    try {
+      await api.raw('/api/resources/policy', { method: 'POST', body: { policy: value } });
+      toastOk('Правило обновлено');
+      ctx.refresh();
+    } catch (e) { toastError(e, 'Не удалось сменить правило'); }
+  });
 
-  const enforceRow = h('div.row',
-    h('div', h('div.small', 'Enforce'), h('div.xsmall.dim', 'Блокировать запуск при нехватке памяти (иначе Resource Brain только наблюдает).')),
-    h('div.spacer'),
+  const enforceRow = h('div', { style: { display: 'flex', alignItems: 'flex-start', gap: 'var(--bx-3)' } },
+    h('div', { style: { flex: '1 1 auto', minWidth: 0 } },
+      h('div', { style: { fontSize: '13.5px', color: 'var(--bx-ink)', fontWeight: 600 } },
+        'Не запускать задачи, если памяти не хватает'),
+      h('div', { style: { fontSize: '12px', color: 'var(--bx-ink-3)', marginTop: '2px', lineHeight: 1.45 } },
+        'Если выключено — BOSSMAN только предупреждает, но всё равно запускает.')),
     toggle(!!data.enforce, async (checked) => {
-      try { await api.raw('/api/resources/policy', { method: 'POST', body: { enforce: checked } }); toastOk(checked ? 'Enforce включён' : 'Enforce выключен'); ctx.refresh(); }
-      catch (e) { toastError(e, 'Не удалось изменить'); }
-    }, 'Enforce'));
+      try {
+        await api.raw('/api/resources/policy', { method: 'POST', body: { enforce: checked } });
+        toastOk(checked ? 'Защита включена' : 'Защита выключена');
+        ctx.refresh();
+      } catch (e) { toastError(e, 'Не удалось изменить'); }
+    }, 'Не запускать при нехватке памяти'));
 
-  const overrideEl = input({ type: 'number', min: '0', placeholder: 'авто (из метрик)', value: data.total_override_mb ? String(data.total_override_mb) : '', class: 'input mono' });
+  const overrideEl = input({ type: 'number', min: '0', placeholder: 'считать автоматически',
+    value: data.total_override_mb ? String(data.total_override_mb) : '', class: 'input mono' });
   const floorEl = input({ type: 'number', min: '0', value: String(data.reserve_floor_mb || 16000), class: 'input mono' });
 
-  return panel('Политика', h('div.stack.sm',
+  return panel('Как делить память', h('div.stack.sm',
     seg,
     enforceRow,
-    h('div.grid.cols-2',
-      field('Total override, MB', overrideEl, 'Переопределить общий объём памяти вместо значения из метрик.'),
-      field('Reserve floor, MB', floorEl, 'Неприкосновенный минимум свободной памяти.')),
-    h('div.row', h('div.spacer'),
-      actionButton('Сохранить', async () => {
+    h('div.bx-form-grid',
+      field('Всего памяти считать (МБ)', overrideEl, 'Оставьте пустым — BOSSMAN возьмёт реальное значение с сервера.'),
+      field('Всегда держать свободным (МБ)', floorEl, 'Столько памяти BOSSMAN не отдаст ни одной задаче.')),
+    h('div', { style: { display: 'flex', justifyContent: 'flex-end' } },
+      btn('Сохранить', async () => {
         try {
           await api.raw('/api/resources/policy', {
             method: 'POST',
@@ -96,10 +117,11 @@ function buildPolicyPanel(data, ctx) {
               reserve_floor_mb: Number(floorEl.value) || 0,
             },
           });
-          toastOk('Политика сохранена');
+          toastOk('Настройки сохранены');
           ctx.refresh();
         } catch (e) { toastError(e, 'Не удалось сохранить'); }
-      }, { cls: 'btn btn-primary btn-sm', iconName: 'check' }))));
+      }, { variant: 'primary', size: 'sm', iconName: 'check' }))),
+  { icon: 'settings' });
 }
 
 export default ResourcesPage;

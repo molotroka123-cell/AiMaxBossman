@@ -9,11 +9,12 @@ import {
   h, icon, badge, toast, toastOk, toastError,
   actionButton, field, input, checkbox, textarea, fmtNum,
 } from '../components.js';
-import { panel, pageHead, errorBanner, mono } from './_shared.js';
+import { mono } from './_shared.js';
+import { panel, pageHead, errorNote } from './_ui.js';
 
 const RouterPage = {
   id: 'router',
-  title: 'Роутер моделей',
+  title: 'Выбор модели',
   icon: 'retry',
   nav: 'more',
 
@@ -22,7 +23,7 @@ const RouterPage = {
     try { rules = await api.raw('/api/router/rules'); }
     catch (e) { err = e; }
 
-    if (err) return h('div.stack.lg', pageHead('Роутер моделей', 'Кто и почему получает задачу'), errorBanner(err, ctx));
+    if (err) return h('div.bx-page', pageHead('Выбор модели', 'Как BOSSMAN решает, какой модели отдать задачу'), errorNote(err, () => ctx.refresh()));
 
     const requires = (rules && rules.requires) || {};
     const roleScores = (rules && rules.role_scores) || {};
@@ -41,24 +42,24 @@ const RouterPage = {
     };
     syncPrefer();
 
-    const requiresPanel = panel('Требуемые capability по типу задачи',
+    const requiresPanel = panel('Что модель должна уметь для разных задач',
       h('div.stack.sm',
         Object.keys(requires).length
           ? Object.entries(requires).map(([kind, caps]) => h('div.row.tight',
             h('span.badge.mono', kind), h('span.small.dim', '→'),
             (caps || []).length ? caps.map((c) => badge(c)) : h('span.xsmall.dim', 'без требований')))
-          : h('div.small.dim', 'requires не заданы — роутер не фильтрует по capability.'),
-        h('div.xsmall.dim', { style: { marginTop: '4px' } }, 'Правка — через JSON ниже (ключ requires).')));
+          : h('div.small.dim', 'Требований нет — подойдёт любая модель.'),
+        h('div.xsmall.dim', { style: { marginTop: '4px' } }, 'Менять — в блоке для продвинутых ниже.')));
 
     const roleScoresPanel = Object.keys(roleScores).length
-      ? panel('Ролевые скоры моделей', h('div.stack.sm',
+      ? panel('Оценки моделей по ролям', h('div.stack.sm',
         Object.entries(roleScores).map(([alias, scores]) => h('div.row.tight',
           h('span.badge.mono', alias),
           ...Object.entries(scores || {}).map(([kind, v]) => badge(`${kind}: ${fmtNum(v, 2)}`))))))
       : null;
 
     const rulesJson = textarea({ rows: 10, class: 'textarea mono', value: JSON.stringify(rules, null, 2) });
-    const rawPanel = panel('Правила целиком (JSON, PATCH сливает поверху)',
+    const rawPanel = panel('Все правила целиком · для продвинутых',
       h('div.stack.sm',
         rulesJson,
         h('div.row', h('div.spacer'),
@@ -76,11 +77,11 @@ const RouterPage = {
     const preview = buildPreviewPanel();
     const explain = buildExplainPanel();
 
-    return h('div.stack.lg',
-      pageHead('Роутер моделей', 'Кто и почему получает задачу — веса, предпросмотр выбора, объяснение маршрута'),
-      h('div.grid.cols-2', requiresPanel, panel('Предпочтения', preferLocal)),
+    return h('div.bx-page',
+      pageHead('Выбор модели', 'Как BOSSMAN решает, какой модели отдать задачу: требования, предпросмотр выбора и объяснение.'),
+      h('div.bx-row', requiresPanel, panel('Предпочтения', preferLocal)),
       roleScoresPanel,
-      h('div.grid.cols-2', preview, explain),
+      h('div.bx-row', preview, explain),
       rawPanel);
   },
 };
@@ -110,8 +111,8 @@ function buildPreviewPanel() {
       out.textContent = '';
       out.appendChild(h('div.stack.sm',
         h('div.row', h('span.small', 'Выбор:'), h('div.spacer'),
-          r.selected ? h('span.badge.badge-ok.mono', r.selected) : h('span.badge.badge-warn', 'никого не выбрали')),
-        r.selected ? h('div.xsmall.dim', `score ${fmtScore(r.score)}`) : null,
+          r.selected ? h('span.badge.badge-ok.mono', r.selected) : h('span.badge.badge-warn', 'никто не подошёл')),
+        r.selected ? h('div.xsmall.dim', `оценка ${fmtScore(r.score)}`) : null,
         r.reasons && r.reasons.length
           ? h('ul.small', { style: { margin: 0, paddingLeft: '18px' } }, r.reasons.map((x) => h('li', x))) : null,
         r.rejected && Object.keys(r.rejected).length
@@ -125,14 +126,14 @@ function buildPreviewPanel() {
     }
   };
 
-  return panel('Предпросмотр выбора', h('div.stack.sm',
+  return panel('Проверить, кого выберет', h('div.stack.sm',
     h('div.grid.cols-2',
       field('Тип задачи', typeEl),
-      field('Мин. контекст', ctxEl)),
+      field('Минимальный размер контекста', ctxEl)),
     h('div.grid.cols-2',
-      field('Макс. цена out, $/1M', priceEl),
-      field('Своб. память, MB', memEl)),
-    h('label.check', cloudEl, h('span', 'Разрешено облако')),
+      field('Макс. цена ответа, $ за 1М', priceEl),
+      field('Свободно памяти, МБ', memEl)),
+    h('label.check', cloudEl, h('span', 'Можно использовать облако')),
     h('div.row', h('div.spacer'), actionButton('Проверить', run, { cls: 'btn btn-primary btn-sm', iconName: 'search' })),
     out));
 }
@@ -162,8 +163,8 @@ function buildExplainPanel() {
     }
   };
 
-  return panel('Объяснение маршрута задачи', h('div.stack.sm',
-    field('ID задачи', taskEl),
+  return panel('Почему выбрали эту модель', h('div.stack.sm',
+    field('Номер задачи', taskEl),
     h('div.row', h('div.spacer'), actionButton('Показать', run, { cls: 'btn btn-sm', iconName: 'info' })),
     out));
 }

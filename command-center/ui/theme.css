@@ -666,3 +666,247 @@
   .bx-app, .bx-btn, .bx-bar > i { transition: none; }
   .bx-pill.is-live .bx-pill-dot, .bx-btn.is-loading::after { animation: none; }
 }
+
+/* ============================================================
+   Общие примитивы страниц (не только главной).
+   Всё ниже — чтобы Миссии, Агенты, Подтверждения, Ресурсы и
+   остальные страницы говорили на том же языке, что и главная,
+   не копируя разметку из home.js в каждый файл.
+   ============================================================ */
+
+/* Каркас обычной страницы — как .bx-home, но чуть плотнее по вертикали. */
+.bx-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bx-5);
+  font-family: var(--bx-font);
+  font-feature-settings: "cv11", "ss01", "tnum" 0;
+  padding-bottom: var(--bx-8);
+}
+
+/* Заголовок страницы: не гигантский hero главной, а спокойный H1. */
+.bx-pagehead { display: flex; align-items: flex-start; gap: var(--bx-4); flex-wrap: wrap; }
+.bx-pagehead-title {
+  margin: 0;
+  font-size: var(--bx-h1);
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1.05;
+  color: var(--bx-ink);
+}
+.bx-pagehead-sub { margin: 6px 0 0; font-size: 13.5px; color: var(--bx-ink-2); letter-spacing: -.004em; }
+.bx-pagehead-aside { display: flex; gap: var(--bx-2); flex-wrap: wrap; align-items: center; margin-left: auto; }
+
+/* ---------------------------------------------------------------- сетка карточек */
+
+.bx-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--bx-4);
+  align-items: start;
+}
+.bx-cards.is-wide { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
+
+/* Универсальная плитка сущности (агент, миссия, решение…). */
+.bx-tile {
+  --bx-accent: var(--bx-azure);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bx-3);
+  padding: var(--bx-5);
+  border-radius: var(--bx-r-lg);
+  border: 1px solid var(--bx-hairline);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .032), rgba(255, 255, 255, .008)),
+    var(--bx-bg-2);
+  box-shadow: var(--bx-shadow), var(--bx-inner);
+  transition: transform var(--bx-t), border-color var(--bx-t), box-shadow var(--bx-t);
+}
+[data-theme="light"] .bx-tile { background: linear-gradient(180deg, #ffffff, #fbfcfe); }
+.bx-tile.is-clickable { cursor: pointer; }
+.bx-tile.is-clickable:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--bx-accent) 30%, transparent);
+  box-shadow: var(--bx-shadow-lg), 0 0 0 1px color-mix(in srgb, var(--bx-accent) 15%, transparent);
+}
+.bx-tile.is-muted { opacity: .66; }
+
+.bx-tile-head { display: flex; align-items: flex-start; gap: var(--bx-3); }
+.bx-tile-head .bx-spacer { flex: 1 1 auto; }
+
+.bx-tile-icon {
+  width: 44px; height: 44px; flex: none;
+  display: grid; place-items: center;
+  border-radius: var(--bx-r-sm);
+  border: 1px solid color-mix(in srgb, var(--bx-accent) 28%, transparent);
+  background: linear-gradient(150deg,
+              color-mix(in srgb, var(--bx-accent) 22%, transparent),
+              color-mix(in srgb, var(--bx-accent) 6%, transparent));
+  color: color-mix(in srgb, var(--bx-accent) 78%, #fff);
+}
+
+.bx-tile-title {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 700;
+  letter-spacing: -.015em;
+  color: var(--bx-ink);
+  line-height: 1.2;
+  overflow-wrap: break-word;
+}
+.bx-tile-sub { margin: 3px 0 0; font-size: 12.5px; color: var(--bx-ink-3); letter-spacing: -.003em; }
+.bx-tile-text { font-size: 13px; color: var(--bx-ink-2); line-height: 1.5; overflow-wrap: anywhere; }
+
+.bx-tile-actions { display: flex; gap: var(--bx-2); flex-wrap: wrap; margin-top: auto; padding-top: var(--bx-1); }
+
+/* ---------------------------------------------------------------- чипы-метки */
+
+.bx-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+.bx-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 11px;
+  border-radius: var(--bx-r-full);
+  border: 1px solid var(--bx-hairline);
+  background: var(--bx-surface);
+  color: var(--bx-ink-2);
+  font-size: 12px; font-weight: 550; white-space: nowrap;
+}
+.bx-tag b { color: var(--bx-ink); font-weight: 650; }
+.bx-tag.is-accent { color: color-mix(in srgb, var(--bx-accent) 82%, #fff);
+  border-color: color-mix(in srgb, var(--bx-accent) 34%, transparent);
+  background: color-mix(in srgb, var(--bx-accent) 12%, transparent); }
+
+/* ---------------------------------------------------------------- полоски цифр */
+
+.bx-stats { display: flex; flex-wrap: wrap; gap: var(--bx-2) var(--bx-5); }
+.bx-stat { display: flex; flex-direction: column; gap: 2px; }
+.bx-stat-label { font-size: 11px; color: var(--bx-ink-3); text-transform: uppercase; letter-spacing: .06em; }
+.bx-stat-value { font-size: 15px; font-weight: 700; color: var(--bx-ink); font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- метрика с полосой + подпись */
+
+.bx-meter { display: flex; flex-direction: column; gap: 7px; }
+.bx-meter-top { display: flex; align-items: baseline; gap: var(--bx-2); font-size: 13px; }
+.bx-meter-top .bx-meter-label { color: var(--bx-ink-2); }
+.bx-meter-top .bx-meter-val { margin-left: auto; color: var(--bx-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bx-meter.is-warn .bx-bar > i { background: linear-gradient(90deg, color-mix(in srgb, var(--bx-amber) 55%, transparent), var(--bx-amber)); }
+.bx-meter.is-err .bx-bar > i { background: linear-gradient(90deg, color-mix(in srgb, var(--bx-rose) 55%, transparent), var(--bx-rose)); }
+
+.bx-bignum { font-size: clamp(30px, 4vw, 44px); font-weight: 800; letter-spacing: -.04em; color: var(--bx-ink); line-height: 1; font-variant-numeric: tabular-nums; }
+.bx-bignum.is-accent { color: color-mix(in srgb, var(--bx-azure) 88%, #fff); }
+
+/* ---------------------------------------------------------------- моноблок (превью письма, команда) */
+
+.bx-code {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--bx-r-sm);
+  background: var(--bx-surface);
+  border: 1px solid var(--bx-hairline);
+  color: var(--bx-ink-2);
+  font-family: var(--bx-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: auto;
+}
+
+/* ---------------------------------------------------------------- сегментированный переключатель */
+
+.bx-seg {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: var(--bx-r-full);
+  border: 1px solid var(--bx-hairline);
+  background: var(--bx-surface);
+  flex-wrap: wrap;
+}
+.bx-seg button {
+  border: 0; background: none; cursor: pointer;
+  height: 32px; padding: 0 16px;
+  border-radius: var(--bx-r-full);
+  color: var(--bx-ink-3);
+  font: 600 12.5px/1 var(--bx-font);
+  transition: all var(--bx-t);
+}
+.bx-seg button:hover { color: var(--bx-ink-2); }
+.bx-seg button.is-on {
+  color: var(--bx-ink);
+  background: color-mix(in srgb, var(--bx-azure) 18%, transparent);
+  box-shadow: 0 6px 18px -10px color-mix(in srgb, var(--bx-azure) 60%, transparent);
+}
+
+/* ---------------------------------------------------------------- поля ввода */
+
+.bx-field { display: flex; flex-direction: column; gap: 6px; }
+.bx-field-label { font-size: 12.5px; font-weight: 600; color: var(--bx-ink-2); }
+.bx-field-note { font-size: 11.5px; color: var(--bx-ink-3); line-height: 1.45; }
+.bx-input, .bx-textarea {
+  width: 100%;
+  border-radius: var(--bx-r-sm);
+  border: 1px solid var(--bx-hairline-2);
+  background: var(--bx-surface);
+  color: var(--bx-ink);
+  font: 500 14px/1.4 var(--bx-font);
+  padding: 11px 13px;
+  outline: none;
+  transition: border-color var(--bx-t), box-shadow var(--bx-t);
+}
+.bx-input.is-mono, .bx-textarea.is-mono { font-family: var(--bx-mono); font-size: 13px; }
+.bx-textarea { resize: vertical; min-height: 84px; line-height: 1.5; }
+.bx-input:focus, .bx-textarea:focus {
+  border-color: color-mix(in srgb, var(--bx-azure) 45%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bx-azure) 12%, transparent);
+}
+.bx-input::placeholder, .bx-textarea::placeholder { color: var(--bx-ink-3); }
+
+.bx-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--bx-4); }
+
+/* ---------------------------------------------------------------- крупное пустое состояние */
+
+.bx-blank {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: var(--bx-3);
+  padding: var(--bx-9) var(--bx-5);
+}
+.bx-blank-icon {
+  width: 56px; height: 56px;
+  display: grid; place-items: center;
+  border-radius: var(--bx-r);
+  border: 1px solid var(--bx-hairline);
+  background: var(--bx-surface);
+  color: var(--bx-ink-3);
+}
+.bx-blank-title { font-size: 16px; font-weight: 700; color: var(--bx-ink); }
+.bx-blank-hint { font-size: 13px; color: var(--bx-ink-3); max-width: 46ch; line-height: 1.55; }
+
+/* ---------------------------------------------------------------- строки списка внутри панели */
+
+.bx-list { display: flex; flex-direction: column; }
+.bx-list-row {
+  display: flex; align-items: center; gap: var(--bx-3);
+  padding: 11px 0;
+  border-top: 1px solid var(--bx-hairline);
+  font-size: 13px;
+}
+.bx-list-row:first-child { border-top: 0; }
+.bx-list-row .bx-list-name { color: var(--bx-ink); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.bx-list-row .bx-list-note { color: var(--bx-ink-3); font-size: 12px; }
+.bx-list-row .bx-list-end { margin-left: auto; display: flex; align-items: center; gap: var(--bx-2); }
+
+@media (max-width: 860px) {
+  .bx-cards, .bx-cards.is-wide { grid-template-columns: 1fr; }
+  .bx-pagehead { flex-direction: column; gap: var(--bx-2); }
+  .bx-pagehead-aside { margin-left: 0; width: 100%; }
+  .bx-pagehead-aside .bx-btn { flex: 1 1 auto; }
+  .bx-tile-actions .bx-btn { flex: 1 1 100%; }
+  .bx-seg { width: 100%; justify-content: stretch; }
+  .bx-seg button { flex: 1 1 auto; height: 40px; }
+  /* На узком экране широкая пилюля статуса уходит под заголовок, а не
+     сдавливает название до переносов посреди слова. */
+  .bx-tile-head { flex-wrap: wrap; }
+  .bx-tile-head > div { flex-basis: 60%; }
+}

@@ -5,14 +5,14 @@
 
 import { api, pick } from '../api.js';
 import {
-  h, statusLabel, toastOk, toastError,
+  h, toastOk, toastError,
   actionButton, field, input, fmtClock,
 } from '../components.js';
-import { panel, pageHead, errorBanner } from './_shared.js';
+import { panel, pageHead, errorNote, statusText } from './_ui.js';
 
 const GovernorPage = {
   id: 'governor',
-  title: 'AI Governor',
+  title: 'Присмотр',
   icon: 'info',
   nav: 'more',
 
@@ -23,20 +23,21 @@ const GovernorPage = {
     const rules = rulesR.status === 'fulfilled' ? rulesR.value : null;
     const items = interR.status === 'fulfilled' ? (Array.isArray(interR.value) ? interR.value : []) : [];
 
-    const head = pageHead('AI Governor', 'Останавливает зацикленные и убыточные прогоны, эскалирует зависшие');
+    const head = pageHead('Присмотр за агентами',
+      'BOSSMAN сам останавливает работу, которая зациклилась или зря тратит деньги, и зовёт вас, если что-то застряло.');
 
     const rulesPanel = rulesR.status === 'rejected'
-      ? errorBanner(rulesR.reason, ctx)
+      ? errorNote(rulesR.reason, () => ctx.refresh())
       : buildRulesPanel(rules, ctx);
 
     const feed = interR.status === 'rejected'
-      ? errorBanner(interR.reason, ctx)
-      : panel(`Вмешательства (${items.length})`,
+      ? errorNote(interR.reason, () => ctx.refresh())
+      : panel(`Когда пришлось вмешаться · ${items.length}`,
         items.length
           ? h('div.log', items.map(interventionRow))
-          : h('div.log-empty', 'Вмешательств пока не было — governor молчит, пока всё идёт штатно.'));
+          : h('div.log-empty', 'Вмешиваться пока не приходилось — всё идёт как надо.'));
 
-    return h('div.stack.lg', head, rulesPanel, feed);
+    return h('div.bx-page', head, rulesPanel, feed);
   },
 
   onEvent(ev) { return ev.kind === 'governor.intervention'; },
@@ -48,7 +49,7 @@ function interventionRow(it) {
     h('span.log-ts', fmtClock(pick(it, ['created_at']))),
     h('span.log-msg',
       h('b', `${it.target_kind}:${it.target_id}`), ' — ',
-      h('span', statusLabel(it.action)), ' · ', it.reason || '—'));
+      h('span', statusText(it.action).word), ' · ', it.reason || '—'));
 }
 
 function buildRulesPanel(rules, ctx) {
@@ -57,11 +58,11 @@ function buildRulesPanel(rules, ctx) {
   const npEl = input({ type: 'number', min: '1', value: String(r.no_progress_steps ?? 6), class: 'input mono' });
   const retriesEl = input({ type: 'number', min: '0', value: String(r.max_retries ?? 5), class: 'input mono' });
 
-  return panel('Пороги', h('div.stack.sm',
+  return panel('Когда вмешиваться', h('div.stack.sm',
     h('div.grid.cols-3',
-      field('Повторов одной ошибки', errEl, 'После скольких одинаковых ошибок останавливать задачу.'),
-      field('Шагов без прогресса', npEl, 'Одинаковые ответы подряд — пауза задачи.'),
-      field('Max retries движка', retriesEl, 'Governor не подменяет движок, если он справится сам.')),
+      field('Повторов одной ошибки', errEl, 'После скольких одинаковых ошибок остановить задачу.'),
+      field('Шагов на месте', npEl, 'Сколько одинаковых ответов подряд считать «застрял» и ставить на паузу.'),
+      field('Повторов у самой задачи', retriesEl, 'Не вмешиваться, пока задача сама пробует справиться.')),
     h('div.row', h('div.spacer'),
       actionButton('Сохранить', async () => {
         try {

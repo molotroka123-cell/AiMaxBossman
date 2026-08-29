@@ -11,7 +11,7 @@ import {
   toastOk, toastError, actionButton, field, input, select,
   fmtContext, fmtCost,
 } from '../components.js';
-import { panel, pageHead, errorBanner, emptyPanel } from './_shared.js';
+import { panel, pageHead, errorNote, blank } from './_ui.js';
 
 function looksLikeOpenRouter(p) {
   const s = `${p.name || ''} ${p.base_url || ''}`.toLowerCase();
@@ -28,13 +28,13 @@ const OpenRouterPage = {
     let providers = []; let err = null;
     try { providers = listOf(await api.providers(), 'providers'); } catch (e) { err = e; }
 
-    const head = pageHead('OpenRouter', 'Каталог удалённых моделей — синхронизация, pin в реестр, live-пробы возможностей');
-    if (err) return h('div.stack.lg', head, errorBanner(err, ctx));
+    const head = pageHead('OpenRouter', 'Каталог облачных моделей OpenRouter: обновить список, закрепить нужные и проверить их возможности.');
+    if (err) return h('div.bx-page', head, errorNote(err, () => ctx.refresh()));
 
     if (!providers.length) {
-      return h('div.stack.lg', head, emptyPanel({
-        iconName: 'models', title: 'Провайдеров нет',
-        hint: 'Добавьте провайдера OpenRouter (openai_compat, base_url https://openrouter.ai/api/v1, ключ) на странице «Модели», затем вернитесь сюда.',
+      return h('div.bx-page', head, blank({
+        iconName: 'models', title: 'Поставщиков моделей нет',
+        hint: 'Добавьте OpenRouter как поставщика на странице «Модели» (адрес https://openrouter.ai/api/v1 и ключ), затем вернитесь сюда.',
         action: h('button.btn.btn-primary', { type: 'button', onClick: () => ctx.navigate('models') }, 'К моделям'),
       }));
     }
@@ -48,26 +48,26 @@ const OpenRouterPage = {
     const providerEl = select(providers.map((p) => ({ value: pick(p, ['id']), label: `${pick(p, ['name'], 'провайдер')}${looksLikeOpenRouter(p) ? ' · OpenRouter?' : ''}` })), { value: state.providerId });
     providerEl.addEventListener('change', () => { state.providerId = providerEl.value; ctx.refresh(); });
 
-    const providerRow = h('div.row', field('Провайдер', providerEl), h('div.spacer'),
-      actionButton('Sync', async () => {
+    const providerRow = h('div.row', field('Поставщик', providerEl), h('div.spacer'),
+      actionButton('Обновить список', async () => {
         try {
           const r = await api.raw(`/api/openrouter/${encodeURIComponent(state.providerId)}/sync`, { method: 'POST' });
-          toastOk(`Каталог синхронизирован: ${r.synced} моделей`);
+          toastOk(`Список обновлён: ${r.synced} моделей`);
           ctx.refresh();
-        } catch (e) { toastError(e, 'Синхронизация не удалась — проверьте API-ключ провайдера'); }
+        } catch (e) { toastError(e, 'Не удалось обновить — проверьте ключ поставщика'); }
       }, { cls: 'btn btn-primary btn-sm', iconName: 'retry' }));
 
     const catalogPanel = await buildCatalogPanel(state.providerId, ctx);
     const pinnedPanel = await buildPinnedPanel(state.providerId, ctx);
 
-    return h('div.stack.lg', head, providerRow, catalogPanel, pinnedPanel);
+    return h('div.bx-page', head, providerRow, catalogPanel, pinnedPanel);
   },
 
   onEvent(ev) { return ev.kind === 'model.created'; },
 };
 
 async function buildCatalogPanel(providerId, ctx) {
-  const searchEl = input({ placeholder: 'поиск по имени/remote_id…' });
+  const searchEl = input({ placeholder: 'поиск по названию модели…' });
   const tableOut = h('div.small.dim', 'Загрузка каталога…');
 
   async function loadCatalog(q) {
@@ -76,7 +76,7 @@ async function buildCatalogPanel(providerId, ctx) {
     try {
       const rows = await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/catalog${q ? `?q=${encodeURIComponent(q)}` : ''}`);
       tableOut.textContent = '';
-      if (!rows.length) { tableOut.appendChild(h('div.small.dim', 'Каталог пуст — нажмите «Sync».')); return; }
+      if (!rows.length) { tableOut.appendChild(h('div.small.dim', 'Список пуст — нажмите «Обновить список».')); return; }
       tableOut.appendChild(h('div.stack.sm', { style: { overflowX: 'auto' } }, rows.map((m) => catalogRow(m, providerId, ctx))));
     } catch (e) { tableOut.textContent = ''; tableOut.appendChild(h('div.small', { style: { color: 'var(--err)' } }, e.message || 'Не удалось загрузить каталог')); }
   }
@@ -85,7 +85,7 @@ async function buildCatalogPanel(providerId, ctx) {
   searchEl.addEventListener('input', () => debouncedLoad(searchEl.value.trim()));
   await loadCatalog('');
 
-  return panel('Каталог OpenRouter', h('div.stack.sm', field('Поиск', searchEl), tableOut));
+  return panel('Каталог моделей OpenRouter', h('div.stack.sm', field('Поиск', searchEl), tableOut));
 }
 
 function catalogRow(m, providerId, ctx) {
@@ -94,13 +94,13 @@ function catalogRow(m, providerId, ctx) {
     h('div.row',
       h('div', { style: { flex: '1', minWidth: 0 } },
         h('div.mono.small', m.remote_id), h('div.xsmall.dim', m.display_name || '')),
-      m.stale ? badge('stale', 'idle') : null,
-      actionButton('Pin', () => doPin(m, providerId, ctx), { cls: 'btn btn-sm btn-primary', iconName: 'plus' })),
+      m.stale ? badge('устарело', 'idle') : null,
+      actionButton('Закрепить', () => doPin(m, providerId, ctx), { cls: 'btn btn-sm btn-primary', iconName: 'plus' })),
     h('div.row.tight',
-      badge(`ctx ${fmtContext(m.context_window)}`),
-      badge(`in ${fmtCost(m.price_in)}/1M`), badge(`out ${fmtCost(m.price_out)}/1M`),
+      badge(`контекст ${fmtContext(m.context_window)}`),
+      badge(`вход ${fmtCost(m.price_in)}/1М`), badge(`ответ ${fmtCost(m.price_out)}/1М`),
       badge(mods),
-      (m.supported_parameters || []).length ? badge(`${m.supported_parameters.length} params`) : null));
+      (m.supported_parameters || []).length ? badge(`${m.supported_parameters.length} настроек`) : null));
 }
 
 async function doPin(m, providerId, ctx) {
@@ -119,7 +119,7 @@ async function buildPinnedPanel(providerId, ctx) {
   catch { models = []; }
 
   if (!models.length) {
-    return emptyPanel({ iconName: 'models', title: 'Закреплённых моделей нет', hint: 'Нажмите «Pin» у модели в каталоге выше — она появится здесь и в общем реестре моделей.' });
+    return blank({ iconName: 'models', title: 'Закреплённых моделей нет', hint: 'Нажмите «Закрепить» у модели в каталоге выше — она появится здесь и в общем списке моделей.' });
   }
 
   const rows = await Promise.all(models.map((m) => pinnedRow(m, ctx)));
@@ -136,7 +136,7 @@ async function pinnedRow(m, ctx) {
       out.textContent = '';
       if (!caps.length) { out.appendChild(h('span.xsmall.dim', 'ещё не проверялась')); return; }
       for (const c of caps) {
-        out.appendChild(badge(`${c.capability}: ${c.advertised ? 'заявлено' : 'не заявлено'} / ${c.verified ? 'подтверждено' : 'не подтверждено'}`,
+        out.appendChild(badge(`${c.capability}: ${c.advertised ? 'заявлено' : 'не заявлено'} / ${c.verified ? 'проверено' : 'не проверено'}`,
           c.verified ? 'ok' : c.advertised ? 'warn' : 'idle'));
       }
     } catch { out.textContent = ''; out.appendChild(h('span.xsmall.dim', 'нет данных')); }
@@ -147,9 +147,9 @@ async function pinnedRow(m, ctx) {
     h('div.row',
       h('div', { style: { flex: '1', minWidth: 0 } }, h('b.small', pick(m, ['alias'], '')), h('span.xsmall.dim', ` · ${pick(m, ['name'], '')}`)),
       statusBadge(m.status || 'unknown'),
-      actionButton('Probe', async () => {
-        try { await api.raw(`/api/openrouter/models/${encodeURIComponent(id)}/probe`, { method: 'POST' }); toastOk('Пробы выполнены'); await loadCaps(); }
-        catch (e) { toastError(e, 'Пробы не удались'); }
+      actionButton('Проверить', async () => {
+        try { await api.raw(`/api/openrouter/models/${encodeURIComponent(id)}/probe`, { method: 'POST' }); toastOk('Проверка выполнена'); await loadCaps(); }
+        catch (e) { toastError(e, 'Проверка не удалась'); }
       }, { cls: 'btn btn-sm', iconName: 'bolt' })),
     out);
 }

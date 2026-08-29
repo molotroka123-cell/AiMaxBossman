@@ -10,11 +10,12 @@ import {
   toast, toastOk, toastError, openModal, actionButton,
   field, select, fmtDateShort, fmtRelative, fmtNum,
 } from '../components.js';
-import { idVal, panel, pageHead, errorBanner, emptyPanel } from './_shared.js';
+import { idVal } from './_shared.js';
+import { panel, pageHead, errorNote, blank } from './_ui.js';
 
 const BenchmarksPage = {
   id: 'benchmarks',
-  title: 'Benchmark Lab',
+  title: 'Замеры моделей',
   icon: 'bolt',
   nav: 'more',
 
@@ -30,23 +31,23 @@ const BenchmarksPage = {
     const modelById = new Map(models.map((m) => [String(pick(m, ['id'])), m]));
     const modelLabel = (id) => { const m = modelById.get(String(id)); return m ? pick(m, ['alias', 'name'], `#${id}`) : `модель #${id}`; };
 
-    const head = pageHead('Benchmark Lab', benches.length ? `${benches.length} прогонов` : 'Реальные замеры: TTFT, tok/s, latency, стабильность', [
-      h('button.btn.btn-primary', { type: 'button', onClick: () => openStartBench(ctx, models) }, icon('play', 14), h('span', 'Запустить')),
-    ]);
+    const head = pageHead('Замеры моделей',
+      'Проверяем модели в деле: насколько быстро отвечают и стабильно ли работают. Замер идёт в фоне и не мешает работать.',
+      { actions: [h('button.btn.btn-primary', { type: 'button', onClick: () => openStartBench(ctx, models) }, icon('play', 14), h('span', 'Запустить замер'))] });
 
-    const recPanel = panel('Рекомендации', rec && rec.for_speed
-      ? h('div.row', h('span.small', 'Быстрее всех:'), h('div.spacer'),
+    const recPanel = panel('Самая быстрая модель', rec && rec.for_speed
+      ? h('div.row', h('span.small', 'Отвечает быстрее всех:'), h('div.spacer'),
         h('span.badge.badge-ok.mono', modelLabel(rec.for_speed.model_id)),
-        h('span.xsmall.dim', `${fmtNum(rec.for_speed.gen_tps, 1)} tok/s`))
-      : h('div.small.dim', rec ? `Пока недостаточно завершённых замеров (учтено: ${rec.based_on}).` : 'Недоступно.'));
+        h('span.xsmall.dim', { title: 'токенов в секунду — примерно слова в секунду' }, `${fmtNum(rec.for_speed.gen_tps, 1)} слов/сек`))
+      : h('div.small.dim', rec ? `Пока мало завершённых замеров, чтобы сравнивать (учтено: ${rec.based_on}).` : 'Данных пока нет.'));
 
     const body = benchR.status === 'rejected'
-      ? errorBanner(benchR.reason, ctx)
+      ? errorNote(benchR.reason, () => ctx.refresh())
       : benches.length
-        ? h('div.grid.auto-lg', benches.map((b) => benchCard(b, modelLabel, ctx)))
-        : emptyPanel({ iconName: 'bolt', title: 'Замеров ещё нет', hint: 'Запустите бенчмарк модели — прогон идёт в фоне, не блокирует интерфейс.' });
+        ? h('div.bx-cards', benches.map((b) => benchCard(b, modelLabel, ctx)))
+        : blank({ iconName: 'bolt', title: 'Замеров ещё нет', hint: 'Запустите замер модели — он пройдёт в фоне и не помешает остальной работе.' });
 
-    return h('div.stack.lg', head, recPanel, body);
+    return h('div.bx-page', head, recPanel, body);
   },
 
   onEvent(ev) { return ev.kind.startsWith('benchmark.'); },
@@ -62,20 +63,20 @@ function benchCard(b, modelLabel, ctx) {
       statusBadge(b.status, { live: b.status === 'running' })),
     b.status === 'completed'
       ? h('div.stat-strip',
-        res.gen_tps ? h('div', h('span.s-label', 'gen'), h('span.s-value', `${fmtNum(res.gen_tps, 1)} tok/s`)) : null,
-        res.ttft_ms_approx ? h('div', h('span.s-label', 'TTFT'), h('span.s-value', `${fmtNum(res.ttft_ms_approx)} мс`)) : null,
-        res.latency_ms_median ? h('div', h('span.s-label', 'latency'), h('span.s-value', `${fmtNum(res.latency_ms_median)} мс`)) : null,
-        res.stability ? h('div', h('span.s-label', 'stability'), h('span.s-value', `${Math.round((res.stability.success_rate || 0) * 100)}%`)) : null)
+        res.gen_tps ? h('div', { title: 'токенов в секунду — примерно слова' }, h('span.s-label', 'Скорость'), h('span.s-value', `${fmtNum(res.gen_tps, 1)} сл/с`)) : null,
+        res.ttft_ms_approx ? h('div', { title: 'сколько ждать до начала ответа' }, h('span.s-label', 'Первый ответ'), h('span.s-value', `${fmtNum(res.ttft_ms_approx)} мс`)) : null,
+        res.latency_ms_median ? h('div', { title: 'типичное время одного ответа' }, h('span.s-label', 'Задержка'), h('span.s-value', `${fmtNum(res.latency_ms_median)} мс`)) : null,
+        res.stability ? h('div', h('span.s-label', 'Стабильно'), h('span.s-value', `${Math.round((res.stability.success_rate || 0) * 100)}%`)) : null)
       : b.status === 'failed' ? h('div.xsmall', { style: { color: 'var(--err)' } }, b.error || 'ошибка')
-        : h('div.small.dim', 'выполняется…'));
+        : h('div.small.dim', 'идёт замер…'));
 }
 
 function openStartBench(ctx, models) {
   if (!models.length) { toast('Сначала добавьте модель на странице «Модели»', { type: 'warn' }); return; }
   const modelEl = select(models.map((m) => ({ value: pick(m, ['id']), label: pick(m, ['alias', 'name'], `#${pick(m, ['id'])}`) })));
   const modal = openModal({
-    title: 'Запустить benchmark',
-    body: field('Модель', modelEl, '3 прогона на tok/s, TTFT approx, coding/reasoning-семплы, 5 запросов на стабильность — займёт до минуты.'),
+    title: 'Запустить замер',
+    body: field('Модель', modelEl, 'Проверим скорость чтения и ответа, время до первого слова и стабильность на нескольких запросах — займёт до минуты.'),
     footer: (handle) => [
       h('div.spacer'),
       h('button.btn', { type: 'button', onClick: () => handle.close() }, 'Отмена'),
@@ -83,9 +84,9 @@ function openStartBench(ctx, models) {
         try {
           await api.raw('/api/benchmarks', { method: 'POST', body: { model_id: idVal(modelEl.value) } });
           handle.close();
-          toastOk('Benchmark запущен в фоне');
+          toastOk('Замер запущен в фоне');
           ctx.refresh();
-        } catch (e) { toastError(e, 'Не удалось запустить benchmark'); }
+        } catch (e) { toastError(e, 'Не удалось запустить замер'); }
       }, { cls: 'btn btn-primary', iconName: 'play' }),
     ],
   });
@@ -111,16 +112,16 @@ async function openBenchDetail(id, modelLabel) {
     b.status === 'failed' ? h('div.small', { style: { color: 'var(--err)' } }, b.error) : null,
     b.status === 'completed' ? h('div.stack.sm',
       h('div.stat-strip',
-        h('div', h('span.s-label', 'TTFT approx'), h('span.s-value', res.ttft_ms_approx ? `${fmtNum(res.ttft_ms_approx)} мс` : '—')),
-        h('div', h('span.s-label', 'prompt tok/s'), h('span.s-value', res.prompt_tps ? fmtNum(res.prompt_tps, 1) : '—')),
-        h('div', h('span.s-label', 'gen tok/s'), h('span.s-value', res.gen_tps ? fmtNum(res.gen_tps, 1) : '—')),
-        h('div', h('span.s-label', 'latency медиана'), h('span.s-value', res.latency_ms_median ? `${fmtNum(res.latency_ms_median)} мс` : '—'))),
+        h('div', { title: 'сколько ждать до начала ответа' }, h('span.s-label', 'Первый ответ'), h('span.s-value', res.ttft_ms_approx ? `${fmtNum(res.ttft_ms_approx)} мс` : '—')),
+        h('div', { title: 'как быстро читает ваш текст' }, h('span.s-label', 'Чтение'), h('span.s-value', res.prompt_tps ? `${fmtNum(res.prompt_tps, 1)} сл/с` : '—')),
+        h('div', { title: 'как быстро пишет ответ' }, h('span.s-label', 'Ответ'), h('span.s-value', res.gen_tps ? `${fmtNum(res.gen_tps, 1)} сл/с` : '—')),
+        h('div', { title: 'типичное время одного ответа' }, h('span.s-label', 'Задержка'), h('span.s-value', res.latency_ms_median ? `${fmtNum(res.latency_ms_median)} мс` : '—'))),
       res.stability ? h('div.row', h('span.small', 'Стабильность:'), h('div.spacer'),
-        h('span.badge', `${Math.round((res.stability.success_rate || 0) * 100)}% успехов`),
-        h('span.xsmall.dim', `σ latency ${fmtNum(res.stability.latency_stdev_ms, 1)} мс`)) : null,
-      res.coding_sample ? panel('Coding sample', h('pre.block', res.coding_sample)) : null,
-      res.reasoning_sample ? panel('Reasoning sample', h('pre.block', res.reasoning_sample)) : null,
-      h('div.xsmall.dim', `tool calling: ${res.tool_calling || '—'}`)) : null));
+        h('span.badge', `${Math.round((res.stability.success_rate || 0) * 100)}% успешных`),
+        h('span.xsmall.dim', { title: 'разброс времени ответа' }, `разброс ${fmtNum(res.stability.latency_stdev_ms, 1)} мс`)) : null,
+      res.coding_sample ? panel('Пример: код', h('pre.block', res.coding_sample)) : null,
+      res.reasoning_sample ? panel('Пример: рассуждение', h('pre.block', res.reasoning_sample)) : null,
+      h('div.xsmall.dim', `работа с инструментами: ${res.tool_calling || '—'}`)) : null));
 }
 
 export default BenchmarksPage;

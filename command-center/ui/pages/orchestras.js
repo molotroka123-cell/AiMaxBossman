@@ -9,11 +9,11 @@ import {
   h, icon, badge,
   toast, toastOk, toastError, actionButton, field, input, textarea,
 } from '../components.js';
-import { panel, pageHead, errorBanner, emptyPanel } from './_shared.js';
+import { panel, pageHead, errorNote, blank } from './_ui.js';
 
 const OrchestrasPage = {
   id: 'orchestras',
-  title: 'NL-оркестрация',
+  title: 'Команды агентов',
   icon: 'plus',
   nav: 'more',
 
@@ -22,12 +22,12 @@ const OrchestrasPage = {
     try { const r = await api.raw('/api/orchestras'); orchestras = Array.isArray(r) ? r : []; }
     catch (e) { err = e; }
 
-    const head = pageHead('NL-оркестрация', 'Опишите команду словами — конфигурация проверяется до создания');
+    const head = pageHead('Команды агентов', 'Опишите команду обычными словами — BOSSMAN соберёт её и покажет, что понял, до создания.');
 
-    const nameEl = input({ placeholder: 'NL-команда', value: '' });
+    const nameEl = input({ placeholder: 'Название команды', value: '' });
     const textEl = textarea({
       rows: 5,
-      placeholder: 'Пример: Researcher главный, qwen-coder воркер, максимум 3 воркера, бюджет $5, всё опасное — подтверждать.',
+      placeholder: 'Пример: Исследователь — главный, qwen-coder — помощник, максимум 3 помощника, бюджет $5, всё важное — спрашивать у меня.',
     });
     const previewOut = h('div.small.dim', 'Опишите команду и нажмите «Разобрать».');
     let preview = null;
@@ -48,21 +48,21 @@ const OrchestrasPage = {
       const cfg = o.config || {};
       previewOut.appendChild(h('div.stack.sm',
         h('div.row',
-          h('span.badge', preview.valid ? 'валидно' : 'есть проблемы'),
+          h('span.badge', preview.valid ? 'всё понятно' : 'есть вопросы'),
           h('div.spacer'), h('b', o.name || 'без имени'), h('span.xsmall.dim', ` · ${o.mode || 'manager'}`)),
         h('div.row.tight',
-          cfg.max_workers ? badge(`до ${cfg.max_workers} воркеров`) : null,
+          cfg.max_workers ? badge(`до ${cfg.max_workers} помощников`) : null,
           cfg.duration_hours ? badge(`${cfg.duration_hours} ч`) : null,
           cfg.cloud_budget_usd ? badge(`бюджет $${cfg.cloud_budget_usd}`) : null,
-          cfg.approval_policy ? badge(`approvals: ${cfg.approval_policy}`, cfg.approval_policy === 'required' ? 'warn' : 'ok') : null),
+          cfg.approval_policy ? badge(cfg.approval_policy === 'required' ? 'важное — спрашивать' : 'без подтверждений', cfg.approval_policy === 'required' ? 'warn' : 'ok') : null),
         (preview.members || []).length
           ? h('div.mini-list', preview.members.map((m) => h('div.mini-row',
             h('span.badge', m.role),
             h('span.name', m.agent_name || m.model_alias || '—'),
-            m.create_agent ? h('span.xsmall.dim', 'новый агент-обёртка') : null)))
+            m.create_agent ? h('span.xsmall.dim', 'новый агент под модель') : null)))
           : h('div.small.dim', 'Участники не распознаны.'),
         (preview.created_agents || []).length
-          ? h('div.xsmall.dim', `Будут созданы агенты-обёртки под модели: ${preview.created_agents.join(', ')}`) : null,
+          ? h('div.xsmall.dim', `Под эти модели создадим агентов: ${preview.created_agents.join(', ')}`) : null,
         (preview.warnings || []).length
           ? h('div.stack.sm', preview.warnings.map((w) => h('div.small', { style: { color: 'var(--warn)' } }, '⚠ ', w)))
           : null));
@@ -70,17 +70,17 @@ const OrchestrasPage = {
 
     const confirmBtn = h('button.btn.btn-primary', {
       type: 'button',
-      title: 'Сначала разберите текст в валидную конфигурацию',
+      title: 'Сначала разберите текст, чтобы всё было понятно',
       disabled: true,
       onClick: async () => {
         if (!preview || !preview.valid) return;
         try {
           const r = await api.raw('/api/orchestras/confirm', { method: 'POST', body: preview });
-          toastOk('Оркестр создан', `#${r.orchestra_id} · ${r.members} участников`);
+          toastOk('Команда создана', `#${r.orchestra_id} · ${r.members} участников`);
           preview = null; textEl.value = ''; renderPreview();
           confirmBtn.disabled = true;
           ctx.refresh();
-        } catch (e) { toastError(e, 'Не удалось создать оркестр'); }
+        } catch (e) { toastError(e, 'Не удалось создать команду'); }
       },
     }, icon('check', 14), h('span', 'Создать'));
 
@@ -89,18 +89,18 @@ const OrchestrasPage = {
 
     const composer = panel('Описание команды', h('div.stack.sm',
       field('Название (необязательно)', nameEl),
-      field('Текст', textEl, 'Ключевые слова: «главный/manager» — manager, «reviewer/проверяет» — reviewer, «воркер» — worker. Числа — лимиты и бюджет.'),
+      field('Опишите команду', textEl, 'Слова-подсказки: «главный» — старший в команде, «проверяет» — проверяющий, «помощник» — исполнитель. Числа — это лимиты и бюджет.'),
       h('div.row', h('div.spacer'), parseBtn),
-      panel('Proposed configuration', previewOut),
+      panel('Что получилось', previewOut),
       h('div.row', h('div.spacer'), confirmBtn)));
 
     const listBody = err
-      ? errorBanner(err, ctx)
+      ? errorNote(err, () => ctx.refresh())
       : orchestras.length
         ? h('div.grid.auto-lg', orchestras.map(orchestraCard))
-        : emptyPanel({ iconName: 'plus', title: 'Оркестров пока нет', hint: 'Создайте первый через форму выше.' });
+        : blank({ iconName: 'plus', title: 'Команд пока нет', hint: 'Создайте первую через форму выше.' });
 
-    return h('div.stack.lg', head, composer, h('div.section-title', 'Существующие оркестры'), listBody);
+    return h('div.bx-page', head, composer, h('div.section-title', 'Готовые команды'), listBody);
   },
 
   onEvent(ev) { return ev.kind.startsWith('orchestra.'); },
@@ -111,8 +111,8 @@ function orchestraCard(o) {
   return h('div.card',
     h('div.card-head',
       h('div', { style: { flex: '1', minWidth: 0 } },
-        h('div.card-title', o.name), h('div.card-sub', `${o.mode || 'manager'} · ${(o.members || []).length} участников`)),
-      cfg.max_workers ? badge(`до ${cfg.max_workers} воркеров`) : null),
+        h('div.card-title', o.name), h('div.card-sub', `${(o.members || []).length} участников`)),
+      cfg.max_workers ? badge(`до ${cfg.max_workers} помощников`) : null),
     (o.members || []).length
       ? h('div.mini-list', o.members.map((m) => h('div.mini-row',
         h('span.badge', m.role), h('span.name', m.name || `агент #${m.agent_id}`))))
