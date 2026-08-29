@@ -97,3 +97,17 @@ FILES: bossman/db.py, bossman/errors.py, tests/browser_support.py, tests/test_br
 RESULT: без Postgres — DEPENDENCY_UNAVAILABLE(503) с подсказкой и без пароля в тексте; schema.sql читается utf-8; Chromium ищется кроссплатформенно без запуска драйвера, битый путь не уходит в launch (это и вешало прогон на Windows); launch с timeout=60s
 TEST: pytest tests -q БЕЗ переменных -> 354 passed (было 2 failed / hang)
 NEXT: остались Linux-зависимые пункты (runsc/KVM, netns+nftables) и red-team Stage 8
+
+2026-08-29T10:40Z
+ACTION: Red-team Stage 8 — 18 атакующих проб, 3 реальные дыры закрыты
+FILES: bossman/sandbox/artifacts.py, bossman/sandbox/runtimes/safe.py, bossman/obs.py, tests/test_sandbox_redteam_findings.py
+RESULT: RT-01 хардлинк проходил ArtifactGate (эксфильтрация любого файла хоста); RT-02 OFFLINE-песочница шла под uid ядра = root, из-под root не действует protected_hardlinks; RT-03 секрет с дефисами внутри токена и поле «key» проходили редакцию в траекторию и датасет
+TEST: pytest tests -q -> 371 passed (10 регрессов)
+NEXT: Stage 10
+
+2026-08-29T11:00Z
+ACTION: Этап 10 — Dev Factory (автономная петля разработки)
+FILES: bossman/dev_factory/{models,store,planner,workspace,evidence,reviewer,factory,executor,subsystem,routes,__init__}.py, tests/test_dev_factory.py, docs/context/STAGE10_STATUS.md
+RESULT: петля до патча без авто-мержа; пути публикации в коде нет (проверено разбором AST); успех невозможен без доказательств; сбой песочницы fail-closed; бюджет конечен; рестарт не повторяет консеквентные шаги; инъекции из репозитория не меняют план
+TEST: pytest tests/test_dev_factory.py -q -> 21 passed; полный набор 392 passed
+NEXT: подключить реальный планировщик через существующий Gateway; executor.edit как шов под модель
