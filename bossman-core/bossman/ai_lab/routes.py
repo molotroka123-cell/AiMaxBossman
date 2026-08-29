@@ -13,23 +13,18 @@ sandbox_id; путь к trajectory.jsonl сервер вычисляет сам 
 """
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from .. import errors
 from ..config import settings
 from ..perimeter import SCOPE_ADMIN, require_scope
-from .candidates import CandidateStore, load_trajectory
+from .candidates import CandidateStore, load_trajectory, sandbox_trajectory_path
 from .export import EvalRunner, Exporter
 
 router = APIRouter(prefix="/api/lab", tags=["ai-lab"],
                    dependencies=[Depends(require_scope(SCOPE_ADMIN))])
-
-# id песочницы — короткий безопасный идентификатор, не путь
-_SANDBOX_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 
 def _lab_root() -> Path:
@@ -52,18 +47,12 @@ def _sandbox_workspace() -> Path:
 def _trajectory_path(sandbox_id: str) -> Path:
     """sandbox_id → путь к trajectory.jsonl СТРОГО внутри workspace песочницы.
 
-    Отказ единообразный (NOT_FOUND без пути хоста): не различаем «плохой id» и
-    «нет файла», чтобы не превращать ручку в зонд файловой системы.
+    Сдерживание живёт в candidates.sandbox_trajectory_path (единая батарея
+    отказов для store и роутов). Отказ единообразный (NOT_FOUND без пути
+    хоста): не различаем «плохой id» и «нет файла», чтобы не превращать ручку
+    в зонд файловой системы.
     """
-    denied = errors.NotFound(f"trajectory not found: {sandbox_id[:80]!r}")
-    if not _SANDBOX_ID_RE.fullmatch(sandbox_id):
-        raise denied
-    root = _sandbox_workspace().resolve()
-    path = (root / sandbox_id / "trajectory.jsonl").resolve()
-    # Проверка сдерживания ПОСЛЕ resolve(): ловит и symlink-побег из каталога.
-    if not path.is_relative_to(root) or not path.is_file():
-        raise denied
-    return path
+    return sandbox_trajectory_path(sandbox_id, _sandbox_workspace())
 
 
 class CreateCandidateIn(BaseModel):
@@ -92,15 +81,20 @@ async def inspect_trajectory(sandbox_id: str):
 
 @router.get("/candidates")
 async def list_candidates():
-    return _store().list()
+    # trajectory_path — путь хоста: клиенту не нужен (только sandbox_id).
+    return [{k: v for k, v in row.items() if k not in ("samples", "trajectory_path")}
+            for row in _store().list()]
 
 
 @router.post("/candidates")
 async def create_candidate(body: CreateCandidateIn):
     """Кандидат создаётся ТОЛЬКО из sandbox_id — произвольный путь хоста этой
-    ручке недоступен (containment в _trajectory_path)."""
-    path = _trajectory_path(body.sandbox_id)
-    cand = _store().create(str(path), sandbox_id=body.sandbox_id)
+    ручке недоступен: путь считает CandidateStore.create_from_sandbox с полным
+    сдерживанием (reject ../, абсолютных, дисков, UNC, NUL, %2e%2e, symlink-
+    побега) и перепроверкой после resolve()."""
+    cand = _store().create_from_sandbox(
+        body.sandbox_id, workspace_root=_sandbox_workspace(),
+        sandbox_id_verified=True)
     return {"id": cand.id, "state": cand.state, "samples": len(cand.samples),
             "reasons": list(cand.reasons)}
 
@@ -123,14 +117,13 @@ async def run_eval(body: EvalIn):
 
 @router.post("/exports/{candidate_id}/sft")
 async def export_sft(candidate_id: str):
-    path = _exporter().export_sft(candidate_id)
-    return {"path": str(path)}
+    # Только имя файла, не путь хоста.
+    return {"path": _exporter().export_sft(candidate_id).name}
 
 
 @router.post("/exports/{candidate_id}/dpo")
 async def export_dpo(candidate_id: str):
-    path = _exporter().export_dpo(candidate_id)
-    return {"path": str(path)}
+    return {"path": _exporter().export_dpo(candidate_id).name}
 
 
 @router.post("/exports/{candidate_id}/launch_training")
