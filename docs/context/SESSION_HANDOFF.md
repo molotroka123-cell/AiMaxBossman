@@ -5,14 +5,15 @@
 > перечитывай весь repo и весь ZIP.
 
 ## CURRENT OBJECTIVE
-Достроить Stage 8 (AI Lab Sandbox) control plane. **Ядро уже написано и зелёное.**
-Дальше — реальные рантаймы (SAFE rootless → gVisor → MicroVM), egress-энфорсмент,
-persistent Secret Broker backend, интеграция инструментов песочницы в toolkit,
-dataset-gate из траекторий.
+Stage 8 (AI Lab Sandbox) — **все 6 пунктов NEXT закрыты**: ядро, SAFE-рантайм,
+egress-барьер, инструменты агента, персистентный Secret Broker, адаптеры сильной
+изоляции, dataset gate. Дальше — интеграция с живым хостом (установка runsc/KVM
+и проверка сильных рантаймов «в железе»), подключение sandbox-инструментов
+конкретным агентам в их agent.yaml, и повторный red-team всего Stage 8.
 
 ## CURRENT HEAD
 - ветка: `claude/bossman-control-v03-43igbk`
-- HEAD: `dd44df0` (feat(sandbox): SAFE rootless runtime). Всё запушено в origin.
+- HEAD: `3b01d19` (security(sandbox): egress-барьер ALLOWLIST). Всё запушено в origin.
 - baseline этой большой сессии: `ddf2259`.
 
 ## WHAT EXISTS (написано в этой сессии)
@@ -25,8 +26,9 @@ dataset-gate из траекторий.
 - Закрыты аудитные P0/P1 (см. `docs/context/DECISIONS.md`).
 
 ## WHAT WORKS (проверено тестами)
-- `bossman/sandbox` — 48 адверсариальных тестов зелёных (core 13 + security 24 + safe runtime 11).
-- Полный набор `bossman-core`: **276 passed** (2 браузерных требуют
+- `bossman/sandbox` — 79 адверсариальных тестов зелёных (core 12 + security 24 +
+  safe runtime 11 + tools/broker 8 + dataset 8 + strong runtimes 5 + egress 10 + прочее).
+- Полный набор `bossman-core`: **307 passed** (2 браузерных требуют
   `BOSSMAN_TEST_CHROMIUM`, см. TEST COMMANDS).
 - Все 5 подсистем этапов 4–8 регистрируются в реестре жизненного цикла:
   `resource_brain, remote_client, search_everything, video_factory, sandbox`.
@@ -38,21 +40,26 @@ dataset-gate из траекторий.
   `_staging/s8/stage8/RUNTIME_SELECTION.md`). Fail-closed уже работает: адаптер
   объявляет `RuntimeCapabilities.tiers`, политика отвергает недостижимый tier
   (проверено `test_hostile_policy_rejected_by_safe_runtime`).
-- **Egress-энфорсмент частично**: SAFE в режиме OFFLINE реально уходит в сетевой
-  namespace без интерфейсов (`unshare -rn`). Для ALLOWLIST фильтра по хостам
-  ещё нет — нужен proxy/nftables-плейн (SafeRuntime честно ставит
-  `supports_allowlist=False`, поэтому ALLOWLIST через него отвергается).
-- **Secret Broker** — только `InMemorySecretBroker`. Нужен persistent backend
-  (тот же контракт: `grant/revoke/revoke_sandbox/redeem`).
-- **Toolbox песочницы** (shell/git/files/browser внутри sandbox) — не начат.
-- **Dataset-gate** (trajectory → sanitize → validate → candidate → human gate) —
-  не начат. `TrajectoryRecorder` уже пишет события, это вход пайплайна.
-- Sandbox **не подключён** к runner/агентам как инструмент — только подсистема +
-  read-only `/sandbox/status`,`/sandbox/sessions`.
+- **Сильные рантаймы не проверены «в железе»**: `GvisorRuntime`/`MicroVMRuntime`
+  написаны и честно определяют возможности по наличию `runsc` / `/dev/kvm`, но на
+  этом хосте ни того, ни другого нет, поэтому реальный запуск под ними не
+  прогонялся — только fail-closed путь (отказ). Нужен хост с runsc/KVM.
+- **Egress**: ALLOWLIST энфорсится CONNECT-прокси (`sandbox/egress.py`); процессу
+  адрес отдаётся через `labels['egress_proxy']`, но SAFE-рантайм пока НЕ
+  выставляет его как `http(s)_proxy` в окружении песочницы и не блокирует прямые
+  сокеты в обход прокси — для этого нужен netns+nftables или контейнерный рантайм.
+- **Toolbox внутри песочницы** (shell/git/files/browser как инструменты самой
+  песочницы) — не начат; снаружи есть `sandbox.*` инструменты агента.
+- Sandbox-инструменты зарегистрированы в REGISTRY, но **ни одному агенту не выданы**
+  в его `agent.yaml` — это осознанно (выдача = решение владельца).
+- Stage 8 **не проходил повторный red-team** (в прошлом аудите 7 агентов упали по
+  лимиту сессии).
 
 ## FILES CHANGED (Stage 8)
 `bossman/sandbox/{__init__,models,policy,runtime,resources,network,secrets,artifacts,trajectory,manager,subsystem,routes}.py`,
-`bossman/sandbox/runtimes/{__init__,safe}.py`, `tests/test_sandbox_safe_runtime.py`,
+`bossman/sandbox/{dataset,egress,tools}.py`,
+`bossman/sandbox/runtimes/{__init__,safe,strong}.py`,
+`tests/test_sandbox_{safe_runtime,tools_and_broker,dataset_gate,strong_runtimes,egress}.py`,
 `bossman/errors.py` (+6 кодов), `bossman/api.py` (регистрация подсистемы),
 `tests/test_sandbox_core.py`, `tests/test_sandbox_security.py`.
 
@@ -71,7 +78,16 @@ Control plane, всё через `SandboxManager`:
 - `resources.py` — `ResourceLeaseAdapter` поверх `bossman.resource_brain.BRAIN`
   (reserve/release, double-release safe).
 - `network.py` — `NetworkGuard.decide(host,policy,port)` → `NetDecision`.
-- `secrets.py` — `InMemorySecretBroker` (+ `SecretBrokerBackend` Protocol).
+- `secrets.py` — `InMemorySecretBroker`, `PostgresSecretBroker` (материал секрета
+  в БД не хранится; резолвится control-plane'ом на redeem).
+- `egress.py` — `EgressProxy`: CONNECT-туннель, default deny через NetworkGuard,
+  в OFFLINE не поднимается; менеджер стартует/останавливает его.
+- `dataset.py` — `DatasetGate`: sanitize→validate→CANDIDATE→human gate;
+  `training_samples()` бросает PermissionError без явного одобрения человека.
+- `tools.py` — `sandbox.create/run/status/collect/destroy` в общем REGISTRY;
+  create/run под approval, argv только массивом, collect через ArtifactGate.
+- `runtimes/safe.py` — SAFE rootless; `runtimes/strong.py` — Gvisor/MicroVM
+  (tiers по реальному наличию runsc//dev/kvm).
 - `artifacts.py` — `ArtifactGate.inspect(rel)` / `.safe_archive_members(path)`.
 - `trajectory.py` — `TrajectoryRecorder.record(kind, **data)` (redacted).
 - `manager.py` — `SandboxManager.create/start/poll/freeze/cancel/destroy/recover`,
@@ -96,14 +112,13 @@ memory входит durable-память только как candidate (ещё �
 ## TEST COMMANDS
 ```
 cd bossman-core
-python -m pytest tests/test_sandbox_core.py tests/test_sandbox_security.py tests/test_sandbox_safe_runtime.py -q   # 48
+python -m pytest tests/test_sandbox_*.py -q                                       # 79
 CHROME=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome | head -1)
-BOSSMAN_TEST_CHROMIUM="$CHROME" python -m pytest -q                              # 276
+BOSSMAN_TEST_CHROMIUM="$CHROME" python -m pytest -q                              # 307
 ```
 
 ## LATEST TEST RESULTS
-`276 passed` (полный набор, с BOSSMAN_TEST_CHROMIUM). Sandbox: `48 passed`
-(core 13 + security 24 + safe runtime 11).
+`307 passed` (полный набор, с BOSSMAN_TEST_CHROMIUM). Sandbox: `79 passed`.
 
 ## KNOWN FAILURES
 Нет падающих тестов. Открытые долги — в разделе «WHAT DOES NOT WORK» и в

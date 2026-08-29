@@ -1,8 +1,8 @@
 {
   "stage": 8,
-  "objective": "Stage 8 AI Lab Sandbox: ядро готово; дальше реальные рантаймы, egress-энфорсмент, persistent secret backend, sandbox-инструменты, dataset gate",
+  "objective": "Stage 8 AI Lab Sandbox: все 6 пунктов NEXT закрыты; осталось железо (runsc/KVM), замыкание egress на процесс, выдача инструментов агенту, red-team",
   "branch": "claude/bossman-control-v03-43igbk",
-  "head": "dd44df0",
+  "head": "3b01d19",
   "completed": [
     "shared seams (errors/lifecycle/correlation/obs)",
     "stage4 resource_brain",
@@ -11,7 +11,12 @@
     "stage7 video_factory",
     "stage8 sandbox core (models/policy/runtime/resources/network/secrets/artifacts/trajectory/manager/subsystem/routes)",
     "audit P0/P1: compact amnesia, project runner race, browser approvals (3 bypasses), gateway 4xx failover, telegram webhook auth, gitignore projects pkg",
-    "stage8 SAFE rootless runtime (runtimes/safe.py)"
+    "stage8 SAFE rootless runtime (runtimes/safe.py)",
+    "stage8 sandbox tools",
+    "stage8 PostgresSecretBroker",
+    "stage8 dataset gate",
+    "stage8 gvisor/microvm adapters",
+    "stage8 egress proxy (ALLOWLIST)"
   ],
   "active_files": [
     "bossman-core/bossman/sandbox/*.py",
@@ -27,16 +32,16 @@
     "FAIL-003 workflow reconcile/limit -> читать journal.jsonl"
   ],
   "tests": {
-    "full_suite": "275 passed",
-    "sandbox": "47 passed",
+    "full_suite": "307 passed",
+    "sandbox": "79 passed",
     "cmd": "BOSSMAN_TEST_CHROMIUM=<chromium> python -m pytest -q"
   },
   "next_actions": [
-    "2 egress enforcement в рантайме поверх NetworkGuard",
-    "3 sandbox.* tools в toolkit через публичный register()",
-    "4 PostgresSecretBroker (тот же контракт)",
-    "5 gvisor/microvm адаптеры (fail-closed готов)",
-    "6 dataset gate из trajectory.jsonl"
+    "1 проверить gvisor/microvm на хосте с runsc//dev/kvm",
+    "2 пробросить http(s)_proxy в SafeRuntime._env и закрыть прямые сокеты",
+    "3 выдать sandbox.* инструменты агенту в agent.yaml",
+    "4 повторный red-team Stage 8",
+    "5 toolbox внутри песочницы"
   ],
   "security_gates": [
     "OFF=OFF (BOSSMAN_SANDBOX_ENABLED default off)",
@@ -46,5 +51,5 @@
     "artifact gate: traversal/symlink/archive/size/exec/secret-scan",
     "трактория без секретов (obs.redact)"
   ],
-  "last_updated": "2026-08-29T07:57:59Z"
+  "last_updated": "2026-08-29T08:15:03Z"
 }

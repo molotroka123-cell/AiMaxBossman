@@ -55,3 +55,24 @@ FILES: bossman/sandbox/policy.py, tests/test_sandbox_safe_runtime.py
 RESULT: Если рантайм не умеет отрезать сеть (нет unshare/netns), OFFLINE-заявка отвергается (IsolationUnavailable), а не исполняется с полной сетью под видом OFFLINE
 TEST: pytest tests/test_sandbox_*.py -> 48 passed; всего 276 passed
 NEXT: NEXT.md шаг 2 (ALLOWLIST egress proxy) или шаг 3 (sandbox.* инструменты агента)
+
+2026-08-29T08:40Z
+ACTION: Закрыты NEXT шаги 3–4 — инструменты агента и персистентный Secret Broker
+FILES: bossman/sandbox/{tools,secrets,subsystem,__init__}.py, tests/test_sandbox_tools_and_broker.py
+RESULT: sandbox.create/run/status/collect/destroy в REGISTRY (create/run под approval, argv только массивом, collect через ArtifactGate); PostgresSecretBroker хранит только scope, не материал секрета
+TEST: 8 passed; всего 284 passed
+NEXT: dataset gate и адаптеры сильной изоляции
+
+2026-08-29T08:50Z
+ACTION: Закрыты NEXT шаги 5–6 — dataset gate и Gvisor/MicroVM адаптеры
+FILES: bossman/sandbox/dataset.py, bossman/sandbox/runtimes/strong.py, tests/test_sandbox_{dataset_gate,strong_runtimes}.py
+RESULT: путь «сырые логи → обучение» физически закрыт (PermissionError без явного человека); HOSTILE без KVM отвергается, а не исполняется в контейнере
+TEST: 13 passed; всего 297 passed
+NEXT: egress-барьер для ALLOWLIST
+
+2026-08-29T09:00Z
+ACTION: Закрыт NEXT шаг 2 — реальный egress-барьер
+FILES: bossman/sandbox/{egress,manager,__init__}.py, tests/test_sandbox_egress.py
+RESULT: CONNECT-прокси спрашивает NetworkGuard на каждое соединение; приватные сети/metadata/control-plane запрещены даже при явном allowlist; в OFFLINE прокси не поднимается; менеджер стартует и закрывает его по жизненному циклу
+TEST: 10 passed; всего 307 passed
+NEXT: см. docs/context/NEXT.md — железо (runsc/KVM), замыкание egress на процесс, выдача инструментов агенту, red-team Stage 8

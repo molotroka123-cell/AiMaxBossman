@@ -1,59 +1,38 @@
-# NEXT — исполняемые шаги (Stage 8 continuation)
+# NEXT — исполняемые шаги (Stage 8)
 
-Порядок по приоритету. Каждый шаг — конкретный, с файлом и командой проверки.
+Все шесть исходных пунктов закрыты (см. WORKLOG). Ниже — то, что осталось.
 
-## 1. SAFE rootless runtime adapter — ✅ СДЕЛАНО (dd44df0)
-<!-- Реализован bossman/sandbox/runtimes/safe.py; 10 тестов в tests/test_sandbox_safe_runtime.py.
-     Следующий незакрытый шаг — №2. Исходное задание шага 1 ниже для истории. -->
-- Реализуй `bossman/sandbox/runtimes/safe.py` → класс `SafeRuntime` (тот же
-  Protocol `SandboxRuntime`, что и `FakeRuntime`).
-- `capabilities()` → `RuntimeCapabilities(name="safe", tiers={ROOTLESS},
-  supports_offline=True, supports_allowlist=False, ...)`.
-- `prepare()` — создать одноразовую рабочую копию `workspace_root/<id>/work`
-  (копия/worktree источника `spec.workspace_source`, НЕ mount оригинала).
-- `start()`/`poll()` — запуск задачи через `asyncio.create_subprocess_exec`
-  (НИКОГДА shell), под `bwrap`/`unshare` если доступно (rootless namespaces),
-  с rlimits (pids/mem/wall) из `spec.resources`.
-- `destroy()` — снести рабочую копию.
-- Тест: `tests/test_sandbox_safe_runtime.py` — реальный запуск `echo`, проверка
-  изоляции workspace, cleanup, OFFLINE (нет сети). Команда:
-  `python -m pytest tests/test_sandbox_safe_runtime.py -q`.
-- Ожидание: SAFE-задача выполняется и не видит host-ФС вне своей копии.
+## 1. Проверить сильные рантаймы на живом хосте
+- Установить gVisor (`runsc`) и/или дать доступ к `/dev/kvm` + лаунчер MicroVM.
+- Убедиться, что `GvisorRuntime().capabilities().tiers` содержит CONTAINER, а
+  `MicroVMRuntime()` — MICROVM, и прогнать реальную задачу под каждым.
+- Ожидание: DEVELOPER/HOSTILE перестают отвергаться и реально исполняются.
+- Команда: `python -m pytest tests/test_sandbox_strong_runtimes.py -q`
+  (сейчас проверяется только fail-closed путь, потому что бинарей нет).
 
-## 2. Egress enforcement в рантайме
-- `NetworkGuard.decide()` уже даёт вердикт. Нужен реальный барьер: в SafeRuntime
-  запускать процесс в network namespace без интерфейсов (OFFLINE) или через
-  proxy, который зовёт `manager.check_network(session, host)` перед соединением.
-- Тест: попытка соединения на 127.0.0.1/169.254.169.254 из песочницы → отказ.
+## 2. Замкнуть egress на процесс песочницы
+- `EgressProxy` уже поднимается менеджером и кладёт адрес в
+  `session.spec.labels['egress_proxy']`.
+- Осталось: в `SafeRuntime._env()` пробросить `http_proxy`/`https_proxy` на этот
+  адрес, а прямые сокеты в обход прокси закрыть (netns + nftables redirect или
+  контейнерный рантайм с сетью только через прокси).
+- Тест: процесс в ALLOWLIST-песочнице не может открыть сокет мимо прокси.
 
-## 3. Wire sandbox как инструмент агента
-- Добавь `sandbox.*` tools в `bossman/toolkit` через публичный `register()`
-  (как это делает `search_everything/tools.py`; НЕ править `toolkit/__init__.py`).
-- Минимум: `sandbox.create`, `sandbox.run`, `sandbox.status`, `sandbox.collect`
-  (последний — через `manager.artifact_gate(session).inspect(...)`).
-- Approvals: создание CONNECTED/HOSTILE песочницы и любой egress — через
-  существующий approvals-путь (Этап 1/6), не в обход.
+## 3. Выдать sandbox-инструменты агенту
+- Инструменты `sandbox.*` в REGISTRY, но ни в одном `agent.yaml` не выданы.
+- Добавить нужному агенту в его `agent.yaml` с `confirm: true` на create/run.
 
-## 4. Persistent Secret Broker backend
-- Реализуй `PostgresSecretBroker` (тот же контракт `SecretBrokerBackend`):
-  таблицы grants (id, sandbox_id, scope, issued_at, ttl, revoked). Материал
-  секрета резолвится из существующего vault/.env НА control-plane, не хранится
-  в grant-строке. `CREATE TABLE IF NOT EXISTS` в subsystem.validate().
-- Тест: grant→redeem→revoke против in-memory фейка store (без живого PG).
+## 4. Повторный red-team всего Stage 8
+- Прошлый аудит не покрыл Stage 8 (агенты упали по лимиту сессии).
+- Цели атаки: обход approvals через `sandbox.*`, побег из рабочей копии,
+  обход ArtifactGate, утечка секрета в траекторию/датасет, обход egress-прокси,
+  зависшая аренда при падении, гонки в автомате состояний.
 
-## 5. gVisor / MicroVM адаптеры (fail-closed уже готов)
-- `runtimes/gvisor.py`, `runtimes/microvm.py`. Если бинаря/KVM нет —
-  `capabilities().tiers` не включает нужный tier, и `PolicyEngine.resolve`
-  сам отдаст `IsolationUnavailable` (проверено `test_risk_escalation_requires_microvm`).
-- CubeSandbox: см. `_staging/s8/stage8/RUNTIME_SELECTION.md` перед интеграцией.
+## 5. Toolbox внутри песочницы
+- shell/git/files/browser как инструменты САМОЙ песочницы (не агента).
+- Браузер в песочнице обязан использовать отдельный профиль (non-negotiable #9).
 
-## 6. Dataset gate из траекторий
-- `TrajectoryRecorder` пишет `workspace/_sandbox/<id>/trajectory.jsonl`.
-- Пайплайн: raw → sanitize (secrets уже вычищены) → validate/eval → candidate →
-  human gate. Sandbox-обучения входят durable-память ТОЛЬКО как candidate
-  (non-negotiable #12).
-
-## Команды проверки на каждом шаге
+## Команды проверки
 ```
 cd bossman-core && python -m pytest tests/test_sandbox_*.py -q
 BOSSMAN_TEST_CHROMIUM=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome|head -1) python -m pytest -q
