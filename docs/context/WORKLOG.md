@@ -179,3 +179,8 @@ ACTION: Детерминированный гейт реального SAFE вм
 FILES: bossman-core/bossman/sandbox/runtimes/safe.py (safe_runtime_available чтит BOSSMAN_RUN_REAL_SANDBOX), .github/workflows/bossman-core-ci.yml (env=0)
 RESULT: три итерации пробы показали — реальный SafeRuntime /bin/true СОБИРАЕТСЯ на раннере, но тесты через менеджер уходят в DESTROYED; тривиальной пробой набор ограничений раннера не воспроизвести. Введён явный флаг (как runsc/KVM, item 23): раннер объявлен неспособным (=0) → 5 тестов реального исполнения честно skip; dev/Ai Max без флага → авто-проба их запускает. Локально с флагом: 2 passed/15 skipped; без — идут. Push 15616ca.
 NEXT: подтвердить bossman-core CI зелёным (check-in); command-center — два сетевых висяка (см. выше) отдельно
+
+2026-08-29T19:51Z
+ACTION: CI ПОЛНОСТЬЮ ЗЕЛЁНЫЙ на HEAD c36b3c9 — оба workflow подтверждены
+RESULT: Bossman Core CI run #12 → success (все 9 jobs: security/gateway-context/stage8-14/rest × py3.11+py3.12, compile). Command Center CI run #86 → success (pytest × py3.11+py3.12, secrets/JS checks). Pre-dispatch hardening (P0/P1) + CI-инфраструктура закрыты и подтверждены зелёным CI.
+NEXT: PRE-DISPATCH АУДИТ ВЛАДЕЛЬЦА (FINAL_HARDENING_STATUS.md). Stage 13 Dispatch НЕ начинать. Открытые пункты вне мандата: runsc/KVM на железе (BLOCKED_BY_HOST), LOCAL-LIVE прогон dev-factory, воспроизведение 2 command-center висяков на self-hosted раннере (см. NEXT.md §5).
