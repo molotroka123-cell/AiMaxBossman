@@ -166,3 +166,10 @@ TEST: локально затронутые наборы зелёные (egress+
 PUSH: d3a3510 (после merge чужого Stage13-пака и hardware-audit)
 CI: перезапущен на d3a3510 — ожидается зелёный; флак-висяк py3.12 под наблюдением (signal-метод назовёт тест, если повторится)
 NEXT: дождаться CI; если py3.12 снова висит — назвать тест и чинить; PRE-DISPATCH аудит владельца; Stage 13 НЕ начинать
+
+2026-08-29T19:06Z
+ACTION: Второй виток CI — исправлена проба способности; command-center висяки названы
+FILES: bossman-core/bossman/sandbox/runtimes/safe.py (проба теперь запускает реальный `unshare -r -n`), tests/test_sandbox_egress.py (allowlist гейт на netguard.available())
+RESULT (bossman-core CI): реальный отказ на раннере — не обход каталогов (это работает), а `unshare -r` (unprivileged userns) запрещён seccomp'ом раннера → SAFE-процесс FAILED. Проба переписана на точную команду OFFLINE-пути; egress-allowlist гейтится на nftables. Локально 35 passed/1 skipped. Push fccc533.
+RESULT (command-center CI): secret-scan и флак-канарейка (test_v21_snapshot) ИСПРАВЛЕНЫ (429 passed). Остались ДВА висяка, названные signal-методом: test_discovery::test_open_port_that_stays_silent_is_not_called_absent (py3.12) и test_v21_failure_injection::test_provider_failure_retries_are_bounded_and_status_is_honest (py3.11). Код under-test ограничен (wait_for 2.5с) и локально оба идут за ~2.5с; на раннере зависают >180с — специфика сети/asyncio-teardown раннера. НЕ трогаю продовый discovery.py спекулятивно (риск уронить 429 зелёных). Это предсуществующие тесты, не связанные с hardening; теперь падают быстро и ИМЕНОВАННО вместо тихого 30-мин kill.
+NEXT: bossman-core CI на fccc533 — ожидается зелёный (проверка check-in'ом); command-center — два сетевых висяка чинить с воспроизведением на раннере (bounded-timeout/закрытие httpx-клиента), отдельно от security-мандата
