@@ -37,7 +37,7 @@ from .network import NetworkGuard
 from .policy import PolicyEngine, RiskEngine
 from .resources import ResourceLeaseAdapter
 from .runtime import FakeRuntime, SandboxRuntime
-from .secrets import InMemorySecretBroker
+from .secrets import InMemorySecretBroker, PostgresSecretBroker
 from .trajectory import TrajectoryRecorder
 
 __all__ = [
@@ -45,7 +45,8 @@ __all__ = [
     "PolicyMode", "NetworkMode", "RiskLevel", "IsolationTier", "RiskAssessment",
     "ResourceRequest", "RuntimeCapabilities", "SecretGrant", "Artifact",
     "PolicyEngine", "RiskEngine", "NetworkGuard", "ResourceLeaseAdapter",
-    "SandboxRuntime", "FakeRuntime", "InMemorySecretBroker", "ArtifactGate",
+    "SandboxRuntime", "FakeRuntime", "InMemorySecretBroker", "PostgresSecretBroker",
+    "ArtifactGate",
     "TrajectoryRecorder", "can_transition", "allowed_transitions",
     "sandbox_enabled", "build_subsystem", "router",
 ]

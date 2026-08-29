@@ -41,6 +41,10 @@ class SandboxSubsystem:
             raise errors.IsolationUnavailable("sandbox enabled but runtime provides no isolation tier")
 
     async def start(self) -> None:
+        # Инструменты регистрируем ВСЕГДА: при выключенной фиче они честно
+        # отдают SANDBOX_DISABLED, и агент видит причину вместо «нет инструмента».
+        from .tools import register_tools
+        register_tools()
         if not self.manager.enabled:
             log.info("sandbox OFF — no workers/runtime/network/scanner started")
             return
