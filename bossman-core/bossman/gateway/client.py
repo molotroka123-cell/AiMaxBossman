@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+import os
+from typing import Any, AsyncIterator
+
+import httpx
+
+
+class GatewayClient:
+    """Thin reusable client for Bossman Core and future local applications."""
+
+    def __init__(self, base_url: str | None = None, api_key: str | None = None, timeout: float = 600.0):
+        self.base_url = (base_url or os.getenv("BOSSMAN_GATEWAY_URL", "http://127.0.0.1:8765/v1")).rstrip("/")
+        self.api_key = api_key if api_key is not None else os.getenv("BOSSMAN_GATEWAY_CORE_KEY", "")
+        self._client = httpx.AsyncClient(timeout=httpx.Timeout(timeout))
+
+    def _headers(self) -> dict[str, str]:
+        if not self.api_key:
+            return {}
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    async def close(self) -> None:
+        await self._client.aclose()
+
+    async def chat(self, *, model: str, messages: list[dict], tools: list[dict] | None = None,
+                   max_tokens: int | None = None, **extra: Any) -> dict:
+        payload: dict[str, Any] = {"model": model, "messages": messages, **extra}
+        if tools:
+            payload["tools"] = tools
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        r = await self._client.post(f"{self.base_url}/chat/completions", headers=self._headers(), json=payload)
+        r.raise_for_status()
+        return r.json()
+
+    async def embeddings(self, *, model: str, input: str | list[str], **extra: Any) -> dict:
+        r = await self._client.post(f"{self.base_url}/embeddings", headers=self._headers(), json={"model": model, "input": input, **extra})
+        r.raise_for_status()
+        return r.json()
+
+    async def stream_chat(self, *, model: str, messages: list[dict], **extra: Any) -> AsyncIterator[bytes]:
+        payload = {"model": model, "messages": messages, "stream": True, **extra}
+        async with self._client.stream("POST", f"{self.base_url}/chat/completions", headers=self._headers(), json=payload) as r:
+            r.raise_for_status()
+            async for chunk in r.aiter_raw():
+                if chunk:
+                    yield chunk
