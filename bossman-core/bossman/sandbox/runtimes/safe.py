@@ -274,6 +274,7 @@ class SafeRuntime:
             except OSError:
                 pass
         self._results[session.id] = proc.returncode
+        session.exit_code = proc.returncode
         return SandboxState.COMPLETED if proc.returncode == 0 else SandboxState.FAILED
 
     def _apply_lockdown(self, session: SandboxSession) -> None:

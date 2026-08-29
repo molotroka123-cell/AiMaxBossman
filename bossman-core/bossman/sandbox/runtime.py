@@ -118,6 +118,7 @@ class FakeRuntime:
             raise RuntimeCrash("fake: crash during run")
         # success и partial_output оба завершаются COMPLETED (артефакты отдельно
         # проходят Artifact Gate; partial_output влияет на набор артефактов, не на статус).
+        session.exit_code = 0
         return SandboxState.COMPLETED
 
     async def freeze(self, session: SandboxSession) -> None:

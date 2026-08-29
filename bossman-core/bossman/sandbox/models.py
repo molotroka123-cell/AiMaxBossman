@@ -223,6 +223,9 @@ class SandboxSession:
     state: SandboxState = SandboxState.REQUESTED
     lease_id: str | None = None
     runtime_handle: Any = None
+    # Код возврата процесса песочницы. Живёт на сессии, чтобы вызывающему не
+    # приходилось лезть во внутренности конкретного рантайма.
+    exit_code: int | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     history: list[tuple[float, SandboxState, str]] = field(default_factory=list)

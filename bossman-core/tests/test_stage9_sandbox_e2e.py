@@ -6,6 +6,8 @@
 """
 import os
 
+from pathlib import Path
+
 import pytest
 
 # Менеджер создаётся тестом напрямую (enabled=True) — глобальный env-флаг
@@ -81,7 +83,7 @@ async def test_stage9_sandbox_full_lifecycle(tmp_path):
     (src / "out.txt").write_text("stage9-artifact", encoding="utf-8")
 
     s = await m.create(SandboxSpec(task="t", resources=ResourceRequest(wall_time_seconds=15),
-                                   workspace_source=str(src),
+                                   workspace_source=str(src), trusted_source=True,
                                    labels={"argv": ["/bin/cat", "out.txt"]}), snap=snap)
     await m.start(s)
     for _ in range(100):
@@ -89,9 +91,11 @@ async def test_stage9_sandbox_full_lifecycle(tmp_path):
         if s.exit_code is not None or s.state.value in ("DONE", "FINISHED", "SUCCEEDED", "COMPLETED"):
             break
     assert s.exit_code == 0, getattr(s, "error", None)
-    # артефакт проходит ArtifactGate
-    art = m.artifact_gate(s).inspect("out.txt")
-    assert art is not None
+    # артефакт проходит ArtifactGate: gate смотрит в out/ песочницы, где лежит
+    # её вывод (сама рабочая копия — не артефакт, она одноразовая)
+    art = m.artifact_gate(s).inspect("stdout.log")
+    assert art is not None and art.sha256
+    assert "stage9-artifact" in (Path(tmp_path) / s.id / "out" / "stdout.log").read_text()
     await m.destroy(s)
     # идемпотентность: повторный destroy не бросает
     await m.destroy(s)
@@ -109,13 +113,16 @@ async def test_stage9_sandbox_timeout_kills_process(tmp_path):
     outcome: Exception | None = None
     for _ in range(300):
         try:
-            state = await m.poll(s)
+            await m.poll(s)
         except RuntimeTimeout as exc:
             outcome = exc
             break
-        if s.exit_code is not None:
+        if s.state.value in ("DESTROYED", "FAILED") or s.exit_code is not None:
             break
-    assert outcome is not None or s.exit_code not in (0, None)
+    # Менеджер перехватывает RuntimeTimeout и сносит песочницу: успехом это не
+    # становится ни при каком раскладе.
+    assert outcome is not None or s.state.value in ("DESTROYED", "FAILED"), s.state.value
+    assert s.exit_code in (None,) or s.exit_code != 0
     await m.destroy(s)
 
 
@@ -130,7 +137,8 @@ async def test_stage9_sandbox_traversal_and_executable_quarantined(tmp_path):
     gate = m.artifact_gate(s)
     with pytest.raises(errors.ArtifactRejected):
         gate.inspect("../etc/passwd")
-    (tmp_path / s.id / "tool.bin").write_bytes(b"MZ\x00\x00")
+    out_dir = tmp_path / s.id / "out"; out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "tool.bin").write_bytes(b"MZ\x00\x00")
     art = gate.inspect("tool.bin")
     assert art.quarantined
     await m.destroy(s)
