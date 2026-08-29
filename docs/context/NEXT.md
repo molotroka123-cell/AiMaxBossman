@@ -1,7 +1,8 @@
 # NEXT — исполняемые шаги (Stage 8)
 
-Всё запланированное по Stage 8 сделано. Осталось то, что упирается в железо или
-требует отдельного захода.
+Всё запланированное по Stage 8 сделано. Пункты 1–3 внешнего аудита (29.08)
+закрыты: отказ без Postgres, кроссплатформенный Chromium, зависание полного
+pytest. Осталось то, что упирается в Linux-железо.
 
 ## 1. Проверить сильные рантаймы на живом хосте  (БЛОКЕР: нет бинарей)
 - Установить gVisor (`runsc`) и/или дать `/dev/kvm` + лаунчер MicroVM.
@@ -36,5 +37,5 @@
 ## Команды проверки
 ```
 cd bossman-core && python -m pytest tests/test_sandbox_*.py -q      # 85
-BOSSMAN_TEST_CHROMIUM=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome|head -1) python -m pytest -q   # 347
+python -m pytest -q                                                 # 354 (переменные не нужны)
 ```

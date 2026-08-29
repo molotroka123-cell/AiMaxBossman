@@ -90,3 +90,10 @@ FILES: merge-коммит 820ea18
 RESULT: конфликтов нет (территории не пересекались); объединённое дерево зелёное
 TEST: pytest bossman-core -q -> 347 passed
 NEXT: см. docs/context/NEXT.md — runsc/KVM в железе, netns+nftables, red-team Stage 8
+
+2026-08-29T10:10Z
+ACTION: Закрыты пункты 1-3 внешнего аудита
+FILES: bossman/db.py, bossman/errors.py, tests/browser_support.py, tests/test_browser_{approvals_p1,emulator_e2e,support_helper}.py, tests/test_db_fail_fast.py
+RESULT: без Postgres — DEPENDENCY_UNAVAILABLE(503) с подсказкой и без пароля в тексте; schema.sql читается utf-8; Chromium ищется кроссплатформенно без запуска драйвера, битый путь не уходит в launch (это и вешало прогон на Windows); launch с timeout=60s
+TEST: pytest tests -q БЕЗ переменных -> 354 passed (было 2 failed / hang)
+NEXT: остались Linux-зависимые пункты (runsc/KVM, netns+nftables) и red-team Stage 8

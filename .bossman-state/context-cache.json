@@ -2,7 +2,7 @@
   "stage": 8,
   "objective": "Stage 8 закрыт по плану; остались: runsc/KVM в железе, блокировка прямых сокетов мимо прокси, red-team Stage 8, toolbox внутри песочницы",
   "branch": "claude/bossman-control-v03-43igbk",
-  "head": "820ea18",
+  "head": "55508b7",
   "completed": [
     "shared seams (errors/lifecycle/correlation/obs)",
     "stage4 resource_brain",
@@ -18,7 +18,9 @@
     "stage8 gvisor/microvm adapters",
     "stage8 egress proxy (ALLOWLIST)",
     "stage8 proxy env в процессе песочницы",
-    "stage8 инструменты выданы агенту coder"
+    "stage8 инструменты выданы агенту coder",
+    "audit fix: db fail-fast без Postgres",
+    "audit fix: кроссплатформенный поиск Chromium (снят windows-hang)"
   ],
   "active_files": [
     "bossman-core/bossman/sandbox/*.py",
@@ -34,13 +36,13 @@
     "FAIL-003 workflow reconcile/limit -> читать journal.jsonl"
   ],
   "tests": {
-    "full_suite": "347 passed",
+    "full_suite": "354 passed (без env)",
     "sandbox": "85 passed",
-    "cmd": "BOSSMAN_TEST_CHROMIUM=<chromium> python -m pytest -q"
+    "cmd": "python -m pytest -q"
   },
   "next_actions": [
-    "1 runsc//dev/kvm на живом хосте (блокер: нет бинарей)",
-    "2 netns+nftables: закрыть прямые сокеты мимо egress-прокси",
+    "1 runsc//dev/kvm на Linux-хосте (Ai Max)",
+    "2 netns+nftables: закрыть прямые сокеты мимо egress-прокси (Linux)",
     "3 повторный red-team Stage 8",
     "4 toolbox внутри песочницы"
   ],
@@ -52,5 +54,5 @@
     "artifact gate: traversal/symlink/archive/size/exec/secret-scan",
     "трактория без секретов (obs.redact)"
   ],
-  "last_updated": "2026-08-29T08:26:11Z"
+  "last_updated": "2026-08-29T08:44:03Z"
 }

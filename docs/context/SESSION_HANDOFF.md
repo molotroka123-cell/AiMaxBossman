@@ -14,7 +14,7 @@ dataset gate. Остаётся то, что нельзя сделать на э�
 
 ## CURRENT HEAD
 - ветка: `claude/bossman-control-v03-43igbk`
-- HEAD: `820ea18` (merge: sandbox + openrouter/gateway-ветка). Всё запушено в origin.
+- HEAD: `55508b7` (fix: отказ без Postgres + кроссплатформенный Chromium). Всё запушено.
 - baseline этой большой сессии: `ddf2259`.
 
 ## WHAT EXISTS (написано в этой сессии)
@@ -29,9 +29,9 @@ dataset gate. Остаётся то, что нельзя сделать на э�
 ## WHAT WORKS (проверено тестами)
 - `bossman/sandbox` — 79 адверсариальных тестов зелёных (core 12 + security 24 +
   safe runtime 11 + tools/broker 8 + dataset 8 + strong runtimes 5 + egress 10 + прочее).
-- Полный набор `bossman-core`: **347 passed** (включая тесты параллельной
-  ветки openrouter/gateway после merge; 2 браузерных требуют
-  `BOSSMAN_TEST_CHROMIUM`, см. TEST COMMANDS).
+- Полный набор `bossman-core`: **354 passed** БЕЗ переменных окружения —
+  Chromium ищется сам (linux/windows/macOS). Раньше на linux было 2 failed,
+  на windows полный прогон висел.
 - Все 5 подсистем этапов 4–8 регистрируются в реестре жизненного цикла:
   `resource_brain, remote_client, search_everything, video_factory, sandbox`.
 
@@ -116,15 +116,17 @@ memory входит durable-память только как candidate (ещё �
 ```
 cd bossman-core
 python -m pytest tests/test_sandbox_*.py -q                                       # 85
-CHROME=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome | head -1)
-BOSSMAN_TEST_CHROMIUM="$CHROME" python -m pytest -q                              # 347
+python -m pytest -q                                                              # 354
 ```
 
 ## LATEST TEST RESULTS
-`347 passed` (полный набор, с BOSSMAN_TEST_CHROMIUM). Sandbox: `85 passed`.
+`354 passed` (полный набор, без переменных окружения). Sandbox: `85 passed`.
 
 ## KNOWN FAILURES
-Нет падающих тестов. Открытые долги — в разделе «WHAT DOES NOT WORK» и в
+Нет падающих тестов. Закрыто по аудиту 29.08: Core без Postgres теперь отдаёт
+DEPENDENCY_UNAVAILABLE(503) с подсказкой вместо сырого трейса; браузерные тесты
+находят Chromium кроссплатформенно (`tests/browser_support.py`), поэтому полный
+прогон на Windows больше не виснет. Открытые долги — в разделе «WHAT DOES NOT WORK» и в
 `docs/context/NEXT.md`. Незакрытый долг вне Stage 8: gateway request/run
 correlation-logging (P2) и context_engine O(N) vector scan (P2, масштаб).
 
