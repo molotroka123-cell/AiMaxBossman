@@ -24,7 +24,7 @@ REDACTED = "«REDACTED»"
 # Ключи, значения которых считаем секретами (в JSON, query, key=value, заголовках).
 _SENSITIVE_KEYS = (
     "authorization", "bearer", "cookie", "set-cookie",
-    "api_key", "api-key", "apikey", "x-api-key",
+    "api_key", "api-key", "apikey", "x-api-key", "key", "keys",
     "access_token", "refresh_token", "token",
     "secret", "client_secret", "password", "passwd", "pwd",
 )
@@ -40,7 +40,17 @@ _RE_KV = re.compile(
 )
 
 # 3) sk-/ghp_/xoxb- и подобные длинные токены провайдеров как «голый» секрет.
-_RE_TOKENLIKE = re.compile(r"\b(sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{10,})\b")
+# Токены провайдеров содержат дефисы и подчёркивания ВНУТРИ (sk-proj-…, sk-or-v1-…),
+# поэтому класс символов не может быть только [A-Za-z0-9]: red-team показал, что
+# «sk-LEAK-abcdef0123456789» проходил мимо фильтра целиком.
+_RE_TOKENLIKE = re.compile(
+    r"(sk-[A-Za-z0-9_-]{12,}"          # OpenAI/OpenRouter и производные
+    r"|ghp_[A-Za-z0-9_-]{12,}"         # GitHub PAT
+    r"|gho_[A-Za-z0-9_-]{12,}|ghs_[A-Za-z0-9_-]{12,}"
+    r"|xox[baprs]-[A-Za-z0-9-]{10,}"   # Slack
+    r"|AKIA[0-9A-Z]{16}"               # AWS access key id
+    r"|AIza[0-9A-Za-z_-]{30,}"         # Google API key
+    r"|hf_[A-Za-z0-9]{16,})")          # HuggingFace
 
 
 def redact(text: str) -> str:

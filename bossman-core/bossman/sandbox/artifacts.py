@@ -67,7 +67,16 @@ class ArtifactGate:
         if not real.exists() or not real.is_file():
             raise errors.ArtifactRejected(f"not a regular file: {rel}")
 
-        size = real.stat().st_size
+        st = real.stat()
+        # ХАРДЛИНК наружу (red-team): у жёсткой ссылки нет пути-цели, поэтому
+        # resolve() её не ловит — файл выглядит обычным и лежит внутри root, а
+        # содержимое принадлежит чужому файлу хоста. Настоящий артефакт песочницы
+        # всегда имеет ровно одну ссылку.
+        if st.st_nlink > 1:
+            raise errors.ArtifactRejected(
+                f"hard link is not a sandbox artifact (nlink={st.st_nlink}): {rel}",
+                extra={"rel": rel, "nlink": st.st_nlink})
+        size = st.st_size
         reasons: list[str] = list(reasons_sym)
         quarantined = bool(reasons_sym)
 
@@ -78,7 +87,7 @@ class ArtifactGate:
         data = real.read_bytes()
         sha = hashlib.sha256(data).hexdigest()
 
-        if Path(rel).suffix.lower() in EXECUTABLE_EXTS or (real.stat().st_mode & 0o111):
+        if Path(rel).suffix.lower() in EXECUTABLE_EXTS or (st.st_mode & 0o111):
             quarantined = True
             reasons.append("executable")
 

@@ -109,10 +109,10 @@ class SafeRuntime:
             else:
                 shutil.copy2(src_p, work / src_p.name)
         self._workdirs[session.id] = work
-        # Если процесс пойдёт под выделенным uid, ему нужны права на свою
-        # рабочую область и каталог вывода (и только на них).
-        if self._needs_lockdown(session):
-            uid = sandbox_uid(session.id)
+        # Процессу под выделенным uid нужны права на свою рабочую область и
+        # каталог вывода (и только на них).
+        uid = self._drop_uid_for(session)
+        if uid is not None:
             for d in (root, work, out):
                 try:
                     os.chown(d, uid, uid)
@@ -121,13 +121,31 @@ class SafeRuntime:
 
     @staticmethod
     def _needs_lockdown(session: SandboxSession) -> bool:
-        """Нужен ли принудительный барьер: есть прокси (значит режим не OFFLINE)."""
+        """Нужен ли сетевой барьер: есть прокси (значит режим не OFFLINE)."""
         return bool(session.spec.labels.get("egress_proxy"))
+
+    @staticmethod
+    def _drop_uid_for(session: SandboxSession) -> int | None:
+        """Под каким uid исполнять код песочницы.
+
+        ВСЕГДА сбрасываем привилегии, а не только когда есть egress-прокси.
+        Red-team: раньше OFFLINE-песочница (режим по умолчанию) шла под uid ядра,
+        то есть под root — а из-под root не действует protected_hardlinks, и
+        вредоносный код делал хардлинк на любой файл хоста (/etc/shadow) прямо в
+        свою рабочую область. Изоляция кода не должна зависеть от режима сети."""
+        if os.name != "posix" or not hasattr(os, "setuid"):
+            return None
+        try:
+            if os.geteuid() != 0:
+                return None      # мы и так непривилегированы — setuid невозможен
+        except AttributeError:
+            return None
+        return sandbox_uid(session.id)
 
     def _preexec(self, session: SandboxSession):
         """rlimits применяются в дочернем процессе до exec."""
         r = session.spec.resources
-        drop_to_uid = sandbox_uid(session.id) if self._needs_lockdown(session) else None
+        drop_to_uid = self._drop_uid_for(session)
 
         def _apply() -> None:
             if resource is None:      # без POSIX-rlimits дочерний не запускаем
