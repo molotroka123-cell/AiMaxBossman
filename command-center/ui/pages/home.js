@@ -21,7 +21,19 @@
 import { api, listOf, pick } from '../api.js';
 import { h, icon, toast, toastOk, toastError, fmtGb, fmtRelative } from '../components.js';
 import { errorBanner } from './_shared.js';
+import { statusText } from './_ui.js';
 import { appCard, appIcon } from './appcards.js';
+
+/* Человеческие имена частей системы — чтобы на главной не мелькали
+   queue_worker и db. */
+const HEALTH_NAME = {
+  db: 'База данных', database: 'База данных',
+  worker: 'Обработчик задач', queue_worker: 'Обработчик задач',
+  scheduler: 'Планировщик', queue: 'Очередь задач',
+  event_bus: 'Обмен событиями', events: 'Обмен событиями',
+  metrics: 'Сбор показателей', models: 'Модели',
+  disk: 'Диск', memory: 'Память',
+};
 
 const RAW_LOG_KINDS = new Set(['run.log', 'ws.open', 'ws.closed', 'ws.connecting',
   'ws.idle', 'system.metrics']);
@@ -367,18 +379,19 @@ function buildHealth(sys, models, ctx) {
     }));
 
   const online = models.filter((m) => String(m.status) === 'online').length;
-  const tone = (s) => (['ok', 'healthy', 'up', 'online'].includes(String(s)) ? 'ok'
-    : ['warn', 'degraded', 'warning'].includes(String(s)) ? 'warn' : 'err');
 
   const body = h('div',
-    line('Модели онлайн', null, `${online} из ${models.length}`),
+    line('Моделей на связи', null, `${online} из ${models.length}`),
     items.length
-      ? items.slice(0, 4).map((c) => line(c.name, null, null,
-        pill(String(c.status), { tone: tone(c.status) })))
+      ? items.slice(0, 4).map((c) => {
+        const st = statusText(c.status);
+        return line(HEALTH_NAME[c.name] || c.name, null, null,
+          pill(st.word, { tone: st.tone }));
+      })
       : h('div.bx-empty', { style: { marginTop: '8px' } },
-        h('div', 'Сервер не прислал состояние компонентов.')));
+        h('div', 'Сервер пока не прислал состояние частей системы.')));
 
-  return panel('Здоровье системы', body,
+  return panel('Состояние системы', body,
     h('button.bx-btn.bx-btn-ghost.bx-btn-sm',
       { type: 'button', onClick: () => ctx.navigate('system') }, 'Подробно'));
 }
@@ -399,6 +412,33 @@ function buildActivity(activity, ctx) {
       h('div.bx-feed', meaningful.slice(0, 6).map(feedItem))));
 }
 
+// Событие приходит как «agent.created» — техническая метка. Owner видит
+// человеческую фразу, а сырой kind остаётся в подсказке для отладки.
+const EVENT_LABEL = {
+  'agent.created': 'Создан агент', 'agent.updated': 'Изменён агент', 'agent.deleted': 'Удалён агент',
+  'model.created': 'Добавлена модель', 'model.status': 'Модель сменила состояние',
+  'model.degraded': 'Модель отвечает с ошибками',
+  'provider.created': 'Добавлен поставщик моделей',
+  'mission.created': 'Создана миссия', 'mission.started': 'Миссия запущена',
+  'mission.completed': 'Миссия завершена', 'mission.stopped': 'Миссия остановлена',
+  'task.created': 'Поставлена задача', 'task.started': 'Задача пошла в работу',
+  'task.completed': 'Задача выполнена', 'task.failed': 'Задача завершилась ошибкой',
+  'approval.created': 'Ждёт вашего решения', 'approval.decided': 'Решение принято',
+  'governor.intervention': 'Сработал присмотр за агентами',
+  'session.forked': 'Создано ответвление',
+};
+
+function humanKind(kind) {
+  if (EVENT_LABEL[kind]) return EVENT_LABEL[kind];
+  const head = kind.split('.')[0];
+  const byHead = {
+    agent: 'Событие агента', model: 'Событие модели', mission: 'Событие миссии',
+    task: 'Событие задачи', approval: 'Подтверждение', resource: 'Память и ресурсы',
+    recovery: 'Восстановление', governor: 'Присмотр',
+  };
+  return byHead[head] || 'Событие';
+}
+
 function feedItem(e) {
   const kind = String(pick(e, ['kind', 'type'], 'event'));
   const data = e.data && typeof e.data === 'object' ? e.data : {};
@@ -412,7 +452,7 @@ function feedItem(e) {
   return h('div.bx-feed-item',
     h('span.bx-feed-icon', icon(glyph, 15)),
     h('div.bx-feed-text',
-      h('div.bx-feed-title', kind),
+      h('div.bx-feed-title', { title: kind }, humanKind(kind)),
       text ? h('div.bx-feed-note', { title: String(text) }, String(text)) : null,
       h('div.bx-feed-time', fmtRelative(pick(e, ['ts', 'created_at'])))));
 }
