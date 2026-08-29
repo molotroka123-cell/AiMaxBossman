@@ -97,6 +97,17 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                     body["model"] = alias
                 metrics.end(started, route.backend_name, body.get("usage") if isinstance(body, dict) else None)
                 return JSONResponse(body, headers={"x-bossman-backend": route.backend_name, "x-bossman-route-model": route.model})
+            except BackendError as exc:
+                if not exc.failover:
+                    # Ошибка самого запроса/политики (4xx): не переключаемся на
+                    # следующий таргет (в т.ч. облачный) и НЕ гасим здоровье
+                    # бэкенда — тот же ответ дал бы любой. Возвращаем как есть.
+                    metrics.end(started, route.backend_name, error=True)
+                    raise HTTPException(exc.status_code or 502,
+                                        {"message": str(exc), "backend": route.backend_name}) from exc
+                route.backend.health.healthy = False
+                errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")
+                continue
             except Exception as exc:
                 route.backend.health.healthy = False
                 errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")
@@ -140,6 +151,23 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                         yield chunk
                     metrics.end(started, route.backend_name)
                     return
+                except BackendError as exc:
+                    if not exc.failover:
+                        # 4xx запроса/политики: не переключаемся на следующий
+                        # (в т.ч. облачный) таргет и не гасим здоровье бэкенда.
+                        metrics.end(started, route.backend_name, error=True)
+                        if not emitted:
+                            yield ("data: " + json.dumps({"error": {"code": "REQUEST_REJECTED",
+                                    "message": str(exc), "status": exc.status_code}}) + "\n\n").encode()
+                        else:
+                            yield b'\ndata: {"error":{"message":"upstream stream failed"}}\n\n'
+                        return
+                    route.backend.health.healthy = False
+                    errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")
+                    if emitted:
+                        metrics.end(started, route.backend_name, error=True)
+                        yield b'\ndata: {"error":{"message":"upstream stream failed"}}\n\n'
+                        return
                 except Exception as exc:
                     route.backend.health.healthy = False
                     errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")

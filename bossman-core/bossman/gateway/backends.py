@@ -10,8 +10,27 @@ import httpx
 from .config import BackendConfig
 
 
+# 4xx, при которых переключение на следующий таргет оправдано (бэкенд занят/
+# таймаут), в отличие от 400/401/403/404/422 — ошибок самого запроса/политики,
+# которые дал бы любой таргет.
+_FAILOVER_4XX = {408, 425, 429}
+
+
 class BackendError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+    @property
+    def failover(self) -> bool:
+        """Стоит ли пробовать следующий таргет. 4xx запроса/политики — НЕТ
+        (тот же ответ дал бы любой бэкенд; эскалация на облако недопустима, и
+        здоровье бэкенда гасить нельзя). 5xx / нет ответа / транспорт — ДА."""
+        if self.status_code is None:
+            return True
+        if self.status_code >= 500:
+            return True
+        return self.status_code in _FAILOVER_4XX
 
 
 @dataclass(slots=True)
@@ -58,17 +77,20 @@ class OpenAIBackend:
     async def json_request(self, path: str, payload: dict) -> tuple[dict, httpx.Headers]:
         r = await self.client.post(path, json=payload, headers=self.headers())
         if r.status_code >= 400:
-            raise BackendError(f"{self.config.name} returned HTTP {r.status_code}: {r.text[:1000]}")
+            raise BackendError(f"{self.config.name} returned HTTP {r.status_code}: {r.text[:1000]}",
+                               status_code=r.status_code)
         try:
             return r.json(), r.headers
         except ValueError as exc:
+            # битый JSON = нездоровый бэкенд → failover (status_code=None)
             raise BackendError(f"{self.config.name} returned invalid JSON") from exc
 
     async def stream_request(self, path: str, payload: dict) -> AsyncIterator[bytes]:
         async with self.client.stream("POST", path, json=payload, headers=self.headers()) as r:
             if r.status_code >= 400:
                 body = (await r.aread())[:1000]
-                raise BackendError(f"{self.config.name} returned HTTP {r.status_code}: {body.decode(errors='replace')}")
+                raise BackendError(f"{self.config.name} returned HTTP {r.status_code}: {body.decode(errors='replace')}",
+                                   status_code=r.status_code)
             async for chunk in r.aiter_raw():
                 if chunk:
                     yield chunk
