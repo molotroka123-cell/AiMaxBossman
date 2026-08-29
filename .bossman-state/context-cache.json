@@ -54,7 +54,7 @@
     "artifact gate: traversal/symlink/archive/size/exec/secret-scan",
     "трактория без секретов (obs.redact)"
   ],
-  "last_updated": "2026-08-29T12:00:00Z",
+  "last_updated": "2026-08-29T12:35:00Z",
   "stage11": {
     "status": "done",
     "head": "cb97ad4",
@@ -87,5 +87,11 @@
       "PWA приёмка в браузере на живом Core (Postgres)",
       "Swift build/test на macOS"
     ]
+  },
+  "hardware_run": {
+    "at": "2026-08-29T12:35:00Z",
+    "live_local_model": "PASS (qwen2.5:7b on Ollama 11435, 1 inference)",
+    "full_suite": "346 passed / 26 skipped / 0 failed",
+    "live_openrouter": "SKIP (нет OPENROUTER_API_KEY)"
   }
 }
