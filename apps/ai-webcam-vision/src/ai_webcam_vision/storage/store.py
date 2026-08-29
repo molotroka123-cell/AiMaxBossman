@@ -27,6 +27,32 @@ SCHEMA_VERSION = 1
 #: Gap longer than this between two samples is not counted as continuous time.
 MAX_GAP_SECONDS = 120.0
 
+
+def _as_utc(value: datetime) -> datetime:
+    """Aware UTC. A naive value is treated as UTC and said so explicitly."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def resolve_timezone(name: str):
+    """The clinic's timezone, or a clear error. Never a silent fallback to UTC.
+
+    A day that starts at UTC midnight in a UTC+2 clinic shifts two hours of
+    every evening into the wrong day, and nothing in the numbers says so.
+    """
+    from ..errors import ConfigError
+
+    label = (name or "UTC").strip() or "UTC"
+    if label.upper() == "UTC":
+        return timezone.utc
+    try:
+        from zoneinfo import ZoneInfo
+
+        return ZoneInfo(label)
+    except Exception as exc:
+        raise ConfigError(f"AWV_TIMEZONE {label!r} is not a known timezone") from None
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_meta (
     key TEXT PRIMARY KEY,
@@ -84,8 +110,10 @@ CREATE INDEX IF NOT EXISTS ix_artifacts_job ON artifacts(job_id);
 
 
 class Store:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, timezone_name: str = "UTC") -> None:
         self.path = Path(path)
+        self.timezone_name = timezone_name
+        self.tz = resolve_timezone(timezone_name)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         # Clinic operational data: the directory and the database stay
         # owner-only, which also covers the -wal/-shm sidecars SQLite creates.
@@ -134,6 +162,16 @@ class Store:
         source_is_mock: bool,
     ) -> int:
         with self.connect() as conn:
+            # One instant, one observation. A replay after a worker restart,
+            # or a second consumer looking at the same frame, must not add a
+            # second row: every downstream number is time-weighted, and two
+            # rows for one instant are how a day quietly grows past 24 hours.
+            existing = conn.execute(
+                "SELECT id FROM observations WHERE room_id=? AND ts=?",
+                (room_id, evidence.ts.isoformat()),
+            ).fetchone()
+            if existing is not None:
+                return int(existing["id"])
             cursor = conn.execute(
                 """
                 INSERT INTO observations (
@@ -192,47 +230,80 @@ class Store:
         return int(row["n"])
 
     def metrics(self, room_id: str, start: datetime, end: datetime) -> dict:
+        # Timestamps are stored as UTC ISO strings; the bounds must be
+        # normalised the same way or the string range filter drops rows.
+        start_utc = _as_utc(start)
+        end_utc = _as_utc(end)
         with self.connect() as conn:
             rows = conn.execute(
                 "SELECT ts, debounced_state FROM observations "
                 "WHERE room_id=? AND ts>=? AND ts<? ORDER BY ts",
-                (room_id, start.isoformat(), end.isoformat()),
+                (room_id, start_utc.isoformat(), end_utc.isoformat()),
             ).fetchall()
 
         seconds: dict[str, float] = {}
         counted = 0
         skipped_gaps = 0
+        unavailable = 0.0
         for current, following in zip(rows, rows[1:]):
             delta = (
                 datetime.fromisoformat(following["ts"]) - datetime.fromisoformat(current["ts"])
             ).total_seconds()
             if delta <= 0:
+                # Duplicate or out-of-order rows contribute nothing. Negative
+                # time is not a thing, and a clock step must not create it.
                 continue
             if delta > MAX_GAP_SECONDS:
+                # Nobody was watching. That is an outage, not occupancy: it is
+                # reported as such and never credited to the preceding state.
                 skipped_gaps += 1
+                unavailable += delta
                 continue
             seconds[current["debounced_state"]] = seconds.get(current["debounced_state"], 0.0) + delta
             counted += 1
 
         clinical = seconds.get(State.CLINICAL_WORK.value, 0.0)
         occupied = sum(seconds.get(s.value, 0.0) for s in OCCUPIED_STATES)
-        window = (end - start).total_seconds()
+        window = (end_utc - start_utc).total_seconds()
+        monitored = sum(seconds.values())
         return {
             "room_id": room_id,
-            "window": {"start": start.isoformat(), "end": end.isoformat(), "seconds": window},
+            "timezone": self.timezone_name,
+            "window": {
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+                "seconds": window,
+            },
             "samples": len(rows),
             "counted_intervals": counted,
             "skipped_gaps": skipped_gaps,
             "max_gap_seconds": MAX_GAP_SECONDS,
+            #: Time actually covered by observations. Everything below is
+            #: weighted by it, so the numbers never claim more than was seen.
+            "monitored_seconds": round(monitored, 2),
+            "unavailable_seconds": round(unavailable, 2),
             "seconds_by_state": {k: round(v, 2) for k, v in sorted(seconds.items())},
             "clinical_seconds": round(clinical, 2),
             "occupied_seconds": round(occupied, 2),
-            "utilisation": round(clinical / window, 4) if window > 0 else 0.0,
+            #: Two denominators, both named. Dividing clinical time by a whole
+            #: calendar day and calling that "utilisation" understates the
+            #: room every morning and is not comparable between days.
+            "utilisation_of_monitored": round(clinical / monitored, 4) if monitored > 0 else 0.0,
+            "utilisation_of_window": round(clinical / window, 4) if window > 0 else 0.0,
         }
 
     def today_bounds(self, at: datetime | None = None) -> tuple[datetime, datetime]:
-        now = at or datetime.now(timezone.utc)
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        """The clinic's day, in the clinic's timezone.
+
+        A naive ``at`` is read as clinic-local time rather than silently
+        treated as UTC: mixing naive and aware values is how rows disappear
+        from a range filter without anyone noticing.
+        """
+        now = at or datetime.now(self.tz)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=self.tz)
+        local = now.astimezone(self.tz)
+        start = local.replace(hour=0, minute=0, second=0, microsecond=0)
         return start, start + timedelta(days=1)
 
     # ----------------------------------------------------------------- jobs

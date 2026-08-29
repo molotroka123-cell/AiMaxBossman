@@ -25,12 +25,24 @@ log = get_logger("transport.ffmpeg")
 _URL_PLACEHOLDER = "<stream-url>"
 
 
+#: Environment variable that names an ffmpeg binary outside PATH.
+FFMPEG_ENV_VAR = "AWV_FFMPEG"
+
+#: The default value of ``AWV_FFMPEG_PATH``. Anything else is an explicit
+#: operator decision and outranks every fallback.
+DEFAULT_FFMPEG = "ffmpeg"
+
+
 @dataclass(frozen=True)
 class FfmpegInfo:
     available: bool
     path: str | None
     version: str | None
     reason: str | None = None
+    #: Where the binary came from: configured | path | AWV_FFMPEG | imageio_ffmpeg.
+    source: str | None = None
+    #: Every place that was searched, in order, for an honest failure report.
+    searched: tuple[str, ...] = ()
 
     def to_dict(self) -> dict:
         return {
@@ -38,38 +50,120 @@ class FfmpegInfo:
             "path": self.path,
             "version": self.version,
             "reason": self.reason,
+            "source": self.source,
+            "searched": list(self.searched),
         }
 
 
-class FfmpegRunner:
-    """Thin, timeout-bounded wrapper around the ffmpeg binary."""
+def _executable(candidate: str | None) -> str | None:
+    if not candidate:
+        return None
+    path = Path(candidate)
+    if path.is_file():
+        return str(path)
+    return None
 
-    def __init__(self, ffmpeg_path: str = "ffmpeg") -> None:
+
+class FfmpegRunner:
+    """Thin, timeout-bounded wrapper around the ffmpeg binary.
+
+    Discovery order — an operator's explicit choice first, then the places a
+    working binary actually lives on a machine that has no system ffmpeg:
+
+    1. ``AWV_FFMPEG_PATH`` when it is not the bare default ``"ffmpeg"``;
+    2. ``PATH``;
+    3. the ``AWV_FFMPEG`` environment variable;
+    4. the static binary shipped by the ``imageio-ffmpeg`` package.
+
+    Stopping at ``PATH`` used to make the service report "not supported"
+    while a perfectly good binary sat on disk next to it.
+    """
+
+    def __init__(
+        self,
+        ffmpeg_path: str = DEFAULT_FFMPEG,
+        *,
+        env: dict[str, str] | None = None,
+        allow_bundled: bool = True,
+    ) -> None:
         self._configured = ffmpeg_path
+        self._env = env
+        self._allow_bundled = allow_bundled
         self._resolved: str | None = None
+        self._source: str | None = None
+        self._searched: tuple[str, ...] = ()
         self._info: FfmpegInfo | None = None
 
     # ------------------------------------------------------------ discovery
+    def _environ(self) -> dict[str, str]:
+        import os
+
+        return dict(os.environ) if self._env is None else dict(self._env)
+
+    def _bundled(self) -> str | None:
+        if not self._allow_bundled:
+            return None
+        try:
+            import imageio_ffmpeg
+        except Exception:
+            return None
+        try:
+            return _executable(imageio_ffmpeg.get_ffmpeg_exe())
+        except Exception:  # pragma: no cover - broken installation
+            return None
+
+    def _discover(self) -> tuple[str | None, str | None, tuple[str, ...]]:
+        env = self._environ()
+        searched: list[str] = []
+
+        if self._configured and self._configured != DEFAULT_FFMPEG:
+            # An explicit operator choice is never silently replaced by a
+            # fallback: a typo must surface as a failure, not as a different
+            # binary quietly doing the work.
+            searched.append(f"configured AWV_FFMPEG_PATH={self._configured!r}")
+            found = _executable(self._configured) or shutil.which(self._configured, path=env.get("PATH"))
+            return (found, "configured", tuple(searched)) if found else (None, None, tuple(searched))
+
+        searched.append("PATH")
+        found = shutil.which(self._configured or DEFAULT_FFMPEG, path=env.get("PATH"))
+        if found:
+            return found, "path", tuple(searched)
+
+        searched.append(FFMPEG_ENV_VAR)
+        candidate = env.get(FFMPEG_ENV_VAR, "").strip()
+        found = _executable(candidate) or (shutil.which(candidate, path=env.get("PATH")) if candidate else None)
+        if found:
+            return found, FFMPEG_ENV_VAR, tuple(searched)
+
+        searched.append("imageio_ffmpeg")
+        found = self._bundled()
+        if found:
+            return found, "imageio_ffmpeg", tuple(searched)
+
+        return None, None, tuple(searched)
+
     def resolve(self) -> str | None:
         if self._resolved is None:
-            candidate = Path(self._configured)
-            if candidate.is_file():
-                self._resolved = str(candidate)
-            else:
-                self._resolved = shutil.which(self._configured)
+            self._resolved, self._source, self._searched = self._discover()
         return self._resolved
 
     def info(self, *, refresh: bool = False) -> FfmpegInfo:
         """Honest availability report. Never claims a binary that is absent."""
         if self._info is not None and not refresh:
             return self._info
+        if refresh:
+            self._resolved = None
         path = self.resolve()
         if not path:
             self._info = FfmpegInfo(
                 available=False,
                 path=None,
                 version=None,
-                reason=f"ffmpeg binary {self._configured!r} not found in PATH",
+                reason=(
+                    "ffmpeg binary not found; searched: " + ", ".join(self._searched)
+                ),
+                source=None,
+                searched=self._searched,
             )
             return self._info
         import subprocess
@@ -84,10 +178,16 @@ class FfmpegRunner:
             )
             first = (out.stdout or out.stderr or "").splitlines()
             version = first[0].strip() if first else "unknown"
-            self._info = FfmpegInfo(available=out.returncode == 0, path=path, version=version,
-                                    reason=None if out.returncode == 0 else "ffmpeg -version failed")
+            self._info = FfmpegInfo(
+                available=out.returncode == 0,
+                path=path,
+                version=version,
+                reason=None if out.returncode == 0 else "ffmpeg -version failed",
+                source=self._source,
+                searched=self._searched,
+            )
         except Exception as exc:  # pragma: no cover - defensive
-            self._info = FfmpegInfo(False, path, None, scrub(exc))
+            self._info = FfmpegInfo(False, path, None, scrub(exc), self._source, self._searched)
         return self._info
 
     def require(self) -> str:
@@ -197,7 +297,11 @@ class FfmpegFrameSource(FrameSource):
 
     # ------------------------------------------------------------- internal
     def _input_args(self, url: SecretUrl) -> list[str]:
-        args = ["-hide_banner", "-loglevel", "error", "-nostdin"]
+        # "-an" is not an optimisation. Audio capture is denied by design, so
+        # no ffmpeg invocation may open an audio stream even when the source
+        # has one — the guarantee has to hold in the argument vector, not
+        # only in a configuration flag somebody could flip.
+        args = ["-hide_banner", "-loglevel", "error", "-nostdin", "-an"]
         if self.descriptor.kind is SourceKind.RTSP_CAMERA and self._rtsp_transport:
             args += ["-rtsp_transport", self._rtsp_transport]
             args += ["-timeout", str(int(self._connect_timeout * 1_000_000))]

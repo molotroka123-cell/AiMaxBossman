@@ -45,6 +45,17 @@ class CaptureTimeout(CaptureError):
         super().__init__(message, code="capture_timeout")
 
 
+class StaleFrame(CaptureError):
+    """A frame arrived too late to be evidence about the present.
+
+    A capture that took a minute describes a minute ago. Feeding it to the
+    classifier as "now" invents occupancy that has already ended.
+    """
+
+    def __init__(self, message: object = "") -> None:
+        super().__init__(message, code="stale_frame")
+
+
 class BaselineMissing(VisionError):
     def __init__(self, message: object = "") -> None:
         super().__init__(message, code="baseline_missing")

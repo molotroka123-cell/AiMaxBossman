@@ -33,17 +33,26 @@ rtsp://<user>:<password>@<ip>:554/stream2   # default here: low bitrate sampling
 
 Order of preference:
 
-1. an ONVIF motion/event source, if the exact firmware exposes a usable
-   subscription;
+1. an ONVIF motion/event source, **if** the exact firmware exposes a usable
+   subscription. No ONVIF client exists in this build and none has been run
+   against Tapo C200 firmware: `capabilities.motion.onvif_subscription`
+   reports `implemented: false`, `verified_on_tapo_c200: false`,
+   `evidence: NOT RUN`. Do not read the plan as a feature;
 2. a clinic edge/NVR bridge;
 3. a low-rate frame-difference fallback.
 
 Whichever produces the event, translate it into `POST /hooks/motion` with a
 `source` label. Do **not** scrape iOS/Android push notifications.
 
-Status of the fallback: not implemented in this version. The motion gate is
-driven by the webhook; without a webhook the service samples at the idle
-interval. This is stated here rather than implied to be working.
+Status of the frame-difference fallback: not implemented in this version.
+The motion gate is driven by the webhook; without a webhook the service
+samples at the idle interval. This is stated here rather than implied to be
+working.
+
+The webhook is the vendor-neutral path and the only one that is proven:
+`tests/test_motion_ingress.py` drives `/hooks/motion` with arbitrary vendor
+labels, with no label at all, and with an attacker-supplied camera address
+that the hook must ignore (it is a wake signal, never a transport).
 
 ## PTZ
 

@@ -3,13 +3,21 @@ from __future__ import annotations
 import shutil
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 import pytest
 
-from ai_webcam_vision.config import Settings
-from ai_webcam_vision.transport.ffmpeg import FfmpegRunner
+# The suite must exercise the checkout it lives in. Without this an editable
+# install pointing at a different working copy silently wins over ``src/`` and
+# the tests report on code that is not the code in front of you.
+_SRC = Path(__file__).resolve().parents[1] / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
+from ai_webcam_vision.config import Settings  # noqa: E402
+from ai_webcam_vision.transport.ffmpeg import FfmpegRunner  # noqa: E402
 
 
 def resolve_ffmpeg() -> str | None:

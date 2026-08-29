@@ -10,15 +10,24 @@ import asyncio
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import StrEnum
 from typing import Any
 
 from .. import __version__
 from ..config import CameraMode, Settings
 from ..crm import CrmContext, build_crm
 from ..crm.base import CrmClient
-from ..errors import BaselineMissing, CaptureError, DependencyMissing, PrivacyDenied, VisionError
+from ..errors import (
+    BaselineMissing,
+    CaptureError,
+    DependencyMissing,
+    PrivacyDenied,
+    StaleFrame,
+    VisionError,
+)
 from ..logging_setup import get_logger
 from ..pipeline import (
+    ALLOWED_TRANSITIONS,
     ANALYZER_ID,
     ANALYZER_VERSION,
     Analyzer,
@@ -27,7 +36,8 @@ from ..pipeline import (
     MotionGate,
     SnapshotStore,
     State,
-    StateDebouncer,
+    TemporalPolicy,
+    TemporalStateMachine,
     Thresholds,
     classify,
 )
@@ -50,6 +60,7 @@ class Counters:
     frames_captured: int = 0
     frames_analyzed: int = 0
     frames_dropped: int = 0
+    frames_stale: int = 0
     capture_failures: int = 0
     retry_sleeps: int = 0
     reconnects: int = 0
@@ -63,9 +74,41 @@ class Counters:
         return dict(self.__dict__)
 
 
+class HealthState(StrEnum):
+    """What an owner needs to know. "degraded" alone is not actionable."""
+
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    CAMERA_OFFLINE = "camera_offline"
+    CRM_UNAVAILABLE = "crm_unavailable"
+    DETECTOR_UNAVAILABLE = "detector_unavailable"
+
+
 @dataclass
 class SourceHealth:
     state: str = "unknown"          # unknown | ok | degraded | unavailable
+    detail: str = ""
+    checked_at: str | None = None
+    consecutive_failures: int = 0
+
+    def to_dict(self) -> dict:
+        return {
+            "state": self.state,
+            "detail": self.detail,
+            "checked_at": self.checked_at,
+            "consecutive_failures": self.consecutive_failures,
+        }
+
+
+@dataclass
+class ComponentHealth:
+    """One named part of the system: camera, CRM or detector.
+
+    ``disabled`` is not a fault — it is a configured decision, and conflating
+    the two is how an owner learns to ignore the health page.
+    """
+
+    state: str = "unknown"   # unknown | ok | degraded | offline | unavailable | disabled
     detail: str = ""
     checked_at: str | None = None
     consecutive_failures: int = 0
@@ -111,12 +154,21 @@ class VisionService:
         self.runner = runner or FfmpegRunner(settings.ffmpeg_path)
         self.source = source or build_source(settings, self.runner)
         self.crm = crm or build_crm(settings)
-        self.store = store or Store(settings.db_path)
+        self.store = store or Store(settings.db_path, timezone_name=settings.timezone_name)
         self.baseline = BaselineStore(settings.baseline_path)
         self.analyzer = Analyzer(self.baseline, settings.chair_zone, settings.work_zone)
         self.motion = MotionGate(settings.motion_hold_seconds)
         self.queue = BoundedFrameQueue(settings.frame_queue_max)
-        self.debouncer = StateDebouncer(settings.debounce_samples)
+        self.temporal = TemporalStateMachine(
+            TemporalPolicy(
+                min_samples=settings.debounce_samples,
+                min_dwell_seconds=settings.min_dwell_seconds,
+                clinical_dwell_seconds=settings.clinical_dwell_seconds,
+                turnover_dwell_seconds=settings.turnover_dwell_seconds,
+                turnover_lookback_seconds=settings.turnover_lookback_seconds,
+                dropout_grace_seconds=settings.dropout_grace_seconds,
+            )
+        )
         self.snapshots = SnapshotStore(settings.snapshot_dir, settings.privacy)
         self.thresholds = Thresholds(
             room=settings.room_threshold,
@@ -125,7 +177,14 @@ class VisionService:
         )
         self.counters = Counters()
         self.source_health = SourceHealth()
+        self.crm_health = ComponentHealth(
+            state="disabled" if self.crm.descriptor.kind == "disabled" else "unknown",
+            detail=self.crm.descriptor.detail,
+        )
         self.jobs = JobManager(on_change=self._persist_job)
+        #: The persistent runtime loop. Created on :meth:`start` when
+        #: ``AWV_RUNTIME_ENABLED`` is set; a job-only deployment keeps None.
+        self.runtime = None
         self._sleep = sleep or asyncio.sleep
         self._stopping = asyncio.Event()
         self._closed = False
@@ -145,6 +204,11 @@ class VisionService:
     # ------------------------------------------------------------ lifecycle
     async def start(self) -> None:
         self.settings.state_dir.mkdir(parents=True, exist_ok=True)
+        if self.settings.runtime_enabled and self.runtime is None:
+            from .supervisor import RuntimeSupervisor
+
+            self.runtime = RuntimeSupervisor(self)
+            await self.runtime.start()
         log.info("service started room=%s mode=%s", self.settings.room_id, self.settings.camera_mode.value)
 
     async def aclose(self) -> None:
@@ -153,6 +217,8 @@ class VisionService:
             return
         self._closed = True
         self._stopping.set()
+        if self.runtime is not None:
+            await self.runtime.stop()
         await self.jobs.shutdown()
         await self.source.aclose()
         await self.crm.aclose()
@@ -235,12 +301,33 @@ class VisionService:
         }
 
     # -------------------------------------------------------------- sample
+    @property
+    def max_frame_age(self) -> float:
+        return self.settings.max_frame_age
+
+    def _reject_if_stale(self, frame: Frame) -> None:
+        """A late frame is evidence about the past, never about now.
+
+        Without this a capture that took a minute (slow reconnect, congested
+        VPN, an ffmpeg that only just gave up) is timestamped and stored as
+        the room's current state, inventing occupancy that already ended.
+        """
+        age = (datetime.now(timezone.utc) - frame.ts).total_seconds()
+        if age > self.max_frame_age:
+            self.counters.frames_stale += 1
+            self.source_health.state = "degraded"
+            self.source_health.detail = f"frame arrived {age:.1f}s late"
+            raise StaleFrame(
+                f"frame is {age:.1f}s old, budget is {self.max_frame_age:.1f}s"
+            )
+
     async def _analyze_and_store(self, frame: Frame) -> dict:
+        self._reject_if_stale(frame)
         evidence = self.analyzer.analyze(frame, self.motion.active())
         self.counters.frames_analyzed += 1
         crm_context = await self._crm_context(evidence.ts)
         classification = classify(evidence, crm_context, self.thresholds)
-        debounced = self.debouncer.feed(classification.state)
+        debounced = self.temporal.feed(classification.state, evidence.ts)
         self.store.add_observation(
             room_id=self.settings.room_id,
             evidence=evidence,
@@ -257,18 +344,45 @@ class VisionService:
             "classification": classification.to_dict(),
             "debounced_state": debounced.value,
             "crm": crm_context.to_dict(),
+            "temporal": self.temporal.to_dict(),
             "source": self.source.descriptor.to_dict(),
             "motion": self.motion.state().to_dict(),
         }
 
     async def _crm_context(self, at: datetime) -> CrmContext:
+        now = datetime.now(timezone.utc).isoformat()
         try:
-            return await self.crm.context(self.settings.room_id, at)
+            context = await self.crm.context(self.settings.room_id, at)
         except VisionError as exc:
             log.warning("CRM lookup failed")
             self.counters.last_error = exc.safe_message
             self.counters.last_error_code = exc.code
+            self.crm_health.state = "unavailable"
+            self.crm_health.detail = exc.safe_message
+            self.crm_health.checked_at = now
+            self.crm_health.consecutive_failures += 1
             return CrmContext(available=False, source=f"error:{exc.code}", is_mock=self.crm.descriptor.is_mock)
+        self.crm_health.checked_at = now
+        self.crm_health.consecutive_failures = 0
+        if self.crm.descriptor.kind == "disabled":
+            self.crm_health.state = "disabled"
+            self.crm_health.detail = "no CRM configured"
+        elif context.stale:
+            self.crm_health.state = "degraded"
+            self.crm_health.detail = "CRM answered with data older than the freshness budget"
+        else:
+            self.crm_health.state = "ok"
+            self.crm_health.detail = "last lookup succeeded"
+        return context
+
+    def note_detector_dropout(self) -> State:
+        """No usable evidence this cycle.
+
+        Told to the state machine explicitly: a silent gap must hold the
+        current state for a while (one procedure, not three) and then admit
+        UNKNOWN rather than keep asserting a state nobody can see.
+        """
+        return self.temporal.feed_dropout(datetime.now(timezone.utc))
 
     async def sample_once(self) -> dict:
         frame = await self._grab_with_retry()
@@ -408,6 +522,53 @@ class VisionService:
         })
 
     # -------------------------------------------------------------- health
+    def _components(self, ffmpeg, needs_ffmpeg: bool) -> dict[str, ComponentHealth]:
+        """Camera, CRM and detector reported separately.
+
+        Three different faults need three different actions: reboot the
+        camera, call the CRM vendor, capture a baseline. A single "degraded"
+        tells the owner none of that.
+        """
+        camera_state = {
+            "unavailable": "offline",
+            "ok": "ok",
+            "degraded": "degraded",
+        }.get(self.source_health.state, "unknown")
+        camera = ComponentHealth(
+            state=camera_state,
+            detail=self.source_health.detail or self.source.descriptor.detail,
+            checked_at=self.source_health.checked_at,
+            consecutive_failures=self.source_health.consecutive_failures,
+        )
+
+        if needs_ffmpeg and not ffmpeg.available:
+            detector = ComponentHealth(state="unavailable", detail=ffmpeg.reason or "ffmpeg unavailable")
+        elif not self.baseline.exists:
+            detector = ComponentHealth(
+                state="unavailable",
+                detail="empty-room baseline not captured",
+            )
+        else:
+            detector = ComponentHealth(
+                state="ok",
+                detail=f"{ANALYZER_ID}:{ANALYZER_VERSION} ready",
+            )
+        return {"camera": camera, "crm": self.crm_health, "detector": detector}
+
+    @staticmethod
+    def _health_state(components: dict[str, ComponentHealth]) -> HealthState:
+        """Worst-first: without a detector nothing else matters, and a dead
+        camera outranks a dead CRM because there is no evidence at all."""
+        if components["detector"].state == "unavailable":
+            return HealthState.DETECTOR_UNAVAILABLE
+        if components["camera"].state == "offline":
+            return HealthState.CAMERA_OFFLINE
+        if components["crm"].state == "unavailable":
+            return HealthState.CRM_UNAVAILABLE
+        if any(c.state in {"degraded", "unknown"} for c in components.values()):
+            return HealthState.DEGRADED
+        return HealthState.HEALTHY
+
     def health(self) -> dict:
         ffmpeg = self.runner.info()
         needs_ffmpeg = self.settings.camera_mode in (CameraMode.RTSP, CameraMode.FILE)
@@ -418,6 +579,11 @@ class VisionService:
             blockers.append("empty-room baseline not captured")
         if self.source_health.state == "unavailable":
             blockers.append(f"source unavailable: {self.source_health.detail}")
+        if self.crm_health.state == "unavailable":
+            blockers.append(f"CRM unavailable: {self.crm_health.detail}")
+
+        components = self._components(ffmpeg, needs_ffmpeg)
+        health_state = self._health_state(components)
 
         if needs_ffmpeg and not ffmpeg.available:
             status = "unavailable"
@@ -428,6 +594,9 @@ class VisionService:
 
         return {
             "status": status,
+            "health_state": health_state.value,
+            "components": {name: item.to_dict() for name, item in components.items()},
+            "runtime": self.runtime.status() if self.runtime is not None else {"state": "stopped", "running": False},
             "app": {"id": APP_ID, "version": __version__, "contract": CONTRACT_VERSION},
             "room_id": self.settings.room_id,
             "uptime_seconds": round((datetime.now(timezone.utc) - self.started_at).total_seconds(), 2),
@@ -509,16 +678,59 @@ class VisionService:
                     "note": "no outbound traffic occurs unless explicitly enabled",
                 },
             },
+            # What drives the sampling rate, and what is merely a plan.
+            # ONVIF event subscription is not implemented here and has never
+            # been run against Tapo C200 firmware. Saying so in the payload
+            # means the claim cannot quietly drift into "supported".
+            "motion": {
+                "primary_source": "webhook",
+                "webhook": {
+                    "endpoint": "POST /hooks/motion",
+                    "implemented": True,
+                    "vendor_neutral": True,
+                    "detail": (
+                        "any bridge that can make one HTTP POST — ONVIF bridge, "
+                        "NVR, edge script — opens the sampling window"
+                    ),
+                },
+                "onvif_subscription": {
+                    "implemented": False,
+                    "verified_on_tapo_c200": False,
+                    "evidence": "NOT RUN",
+                    "blocked_by": "hardware",
+                    "detail": (
+                        "no ONVIF client exists in this build and no Tapo C200 "
+                        "firmware has been tested; use the webhook"
+                    ),
+                },
+                "frame_difference_fallback": {
+                    "implemented": False,
+                    "detail": "without a webhook the service samples at the idle interval",
+                },
+                "state": self.motion.state().to_dict(),
+            },
             "states": [state.value for state in State],
+            "temporal_policy": self.temporal.policy.to_dict(),
+            "allowed_transitions": {
+                state.value: sorted(t.value for t in targets)
+                for state, targets in ALLOWED_TRANSITIONS.items()
+            },
             "config": self.settings.public_dict(),
         }
 
     def metrics(self) -> dict:
+        today = self.room_metrics_today()
         return {
             "app": {"id": APP_ID, "version": __version__},
+            #: Seconds of the current day actually covered by observations.
+            #: The launcher card reads this; it must exist, and it must be
+            #: measured coverage rather than wall-clock time.
+            "monitored_today": today["monitored_seconds"],
+            "today": today,
             "counters": self.counters.to_dict(),
             "queue": self.queue.stats().to_dict(),
             "motion": self.motion.state().to_dict(),
+            "temporal": self.temporal.to_dict(),
             "source_health": self.source_health.to_dict(),
             "observations": self.store.count_observations(self.settings.room_id),
             "compute": detect_accelerator(probe_nvidia=False).to_dict(),

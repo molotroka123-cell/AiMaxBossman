@@ -63,8 +63,8 @@ ui:
   health_path: /api/v1/health
   metrics_path: /api/v1/metrics
   facts:
-    - { label: Камера, from: "health.camera.state", fallback: "нет данных" }
-    - { label: CRM, from: "health.crm.state", fallback: "не подключён" }
+    - { label: Камера, from: "health.components.camera.state", fallback: "нет данных" }
+    - { label: CRM, from: "health.components.crm.state", fallback: "не подключён" }
     - { label: "Под наблюдением сегодня", from: "metrics.monitored_today", fallback: "—" }
   actions:
     - { id: open, label: "Открыть", primary: true }

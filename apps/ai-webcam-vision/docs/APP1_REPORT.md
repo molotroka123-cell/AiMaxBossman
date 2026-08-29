@@ -1,5 +1,25 @@
 # APP1 — honest build report
 
+> **Superseded in part by `APP1_AUDIT_STAGE2.md` (2026-08-28).** This document
+> describes the build as it stood before the stage-2 audit. Three claims below
+> did not survive it and are corrected here rather than quietly edited away:
+>
+> * **Test totals.** 102 → **207**. The per-file table below is the old one.
+> * **ffmpeg discovery.** "The ffmpeg-dependent tests found a real binary here
+>   through the `imageio-ffmpeg` dev dependency" was true of the *tests* and
+>   false of the *application*: the app looked only in `PATH` and reported the
+>   camera as unsupported on this very host. Fixed; the tests no longer
+>   resolve the binary on the app's behalf.
+> * **"A new state must repeat `AWV_DEBOUNCE_SAMPLES` times"** was hysteresis
+>   in name only — it counted samples, not time. Replaced by a temporal state
+>   machine with wall-clock dwell, dropout tolerance and a legal-transition
+>   table.
+>
+> Everything the audit re-verified rather than fixed is marked as such in
+> `APP1_AUDIT_STAGE2.md`. The evidence labels in that document
+> (`LOCAL PASS` / `MOCK CRM PASS` / `REAL CRM PASS` / `REAL TAPO PASS` /
+> `NOT RUN` / `FAIL`) are the current ones.
+
 Date: 2026-08-28. Environment: Linux x86_64, Python 3.11.15, no GPU, no Tapo C200.
 
 Evidence levels used throughout: **REAL IMPLEMENTED**, **REAL TESTED**,

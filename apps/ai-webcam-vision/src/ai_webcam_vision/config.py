@@ -132,9 +132,14 @@ class Settings:
     ffmpeg_path: str = "ffmpeg"
     connect_timeout: float = 8.0
     capture_timeout: float = 15.0
+    #: A frame older than this describes the past, not the present.
+    max_frame_age: float = 30.0
 
     frame_width: int = 160
     frame_height: int = 90
+
+    #: Run the persistent sampling loop, not only on-demand jobs.
+    runtime_enabled: bool = False
 
     active_interval: float = 1.0
     idle_interval: float = 10.0
@@ -151,13 +156,28 @@ class Settings:
     chair_threshold: float = 0.055
     work_threshold: float = 0.012
     debounce_samples: int = 2
+    #: Temporal policy for the state machine. Counting samples alone is not
+    #: hysteresis: at 5 Hz two samples is 0.4 s.
+    min_dwell_seconds: float = 6.0
+    clinical_dwell_seconds: float = 30.0
+    turnover_dwell_seconds: float = 15.0
+    turnover_lookback_seconds: float = 600.0
+    dropout_grace_seconds: float = 45.0
 
     state_dir: Path = Path("./data")
+    #: The clinic's timezone. Daily metrics are cut on its midnight.
+    timezone_name: str = "UTC"
 
     crm_kind: CrmKind = CrmKind.DISABLED
     crm_base_url: str = ""
     crm_token: Secret = field(default_factory=lambda: Secret("", "crm_token"))
     crm_timeout: float = 5.0
+    crm_retries: int = 3
+    crm_retry_base_delay: float = 0.25
+    #: Older than this and a CRM answer is marked stale.
+    crm_max_age: float = 300.0
+    #: Older than this and it stops counting as an answer at all.
+    crm_hard_max_age: float = 3600.0
 
     api_token: Secret = field(default_factory=lambda: Secret("", "api_token"))
     host: str = "127.0.0.1"
@@ -205,6 +225,7 @@ class Settings:
                 "connect_seconds": self.connect_timeout,
                 "capture_seconds": self.capture_timeout,
                 "crm_seconds": self.crm_timeout,
+                "max_frame_age_seconds": self.max_frame_age,
             },
             "sampling": {
                 "active_interval_seconds": self.active_interval,
@@ -213,6 +234,7 @@ class Settings:
                 "frame_queue_max": self.frame_queue_max,
                 "frame_size": [self.frame_width, self.frame_height],
                 "motion_hold_seconds": self.motion_hold_seconds,
+                "runtime_enabled": self.runtime_enabled,
             },
             "retry": {
                 "max_attempts": self.retry.max_attempts,
@@ -236,8 +258,11 @@ class Settings:
                 "kind": self.crm_kind.value,
                 "base_url_configured": bool(self.crm_base_url),
                 "token_configured": bool(self.crm_token),
+                "retries": self.crm_retries,
+                "max_age_seconds": self.crm_max_age,
+                "hard_max_age_seconds": self.crm_hard_max_age,
             },
-            "storage": {"state_dir": str(self.state_dir)},
+            "storage": {"state_dir": str(self.state_dir), "timezone": self.timezone_name},
             "api": {"host": self.host, "port": self.port, "auth_required": bool(self.api_token)},
         }
 
@@ -270,12 +295,23 @@ class Settings:
                     "generic_http CRM requires AWV_CRM_EGRESS_ENABLED=true (outbound "
                     "traffic is off unless explicitly configured)"
                 )
+        if self.privacy.recording_enabled:
+            # There is no recorder in this build. Accepting the flag and
+            # reporting it as enabled would tell an owner the clinic is
+            # recording when nothing is, which is the worst of both answers.
+            raise PrivacyDenied(
+                "continuous video recording is not implemented in this build; "
+                "AWV_RECORDING_ENABLED=true would be a flag that does nothing"
+            )
         if self.privacy.audio_capture:
             raise PrivacyDenied("audio capture is denied by design in this build")
         if self.privacy.face_identification:
             raise PrivacyDenied("face identification is denied by design in this build")
         if self.privacy.patient_identification:
             raise PrivacyDenied("patient identification from pixels is denied by design")
+        from .storage.store import resolve_timezone
+
+        resolve_timezone(self.timezone_name)  # raises ConfigError on a bad name
         parse_zone(",".join(str(v) for v in self.chair_zone), "AWV_CHAIR_ZONE")
         parse_zone(",".join(str(v) for v in self.work_zone), "AWV_WORK_ZONE")
         return self
@@ -316,8 +352,10 @@ class Settings:
             ffmpeg_path=_get(env, "AWV_FFMPEG_PATH", "ffmpeg"),
             connect_timeout=_get_float(env, "AWV_CONNECT_TIMEOUT_SECONDS", 8.0, minimum=0.1),
             capture_timeout=_get_float(env, "AWV_CAPTURE_TIMEOUT_SECONDS", 15.0, minimum=0.1),
+            max_frame_age=_get_float(env, "AWV_MAX_FRAME_AGE_SECONDS", 30.0, minimum=0.1),
             frame_width=_get_int(env, "AWV_FRAME_WIDTH", 160, minimum=16),
             frame_height=_get_int(env, "AWV_FRAME_HEIGHT", 90, minimum=16),
+            runtime_enabled=_get_bool(env, "AWV_RUNTIME_ENABLED", False),
             active_interval=_get_float(env, "AWV_ACTIVE_INTERVAL_SECONDS", 1.0, minimum=0.0),
             idle_interval=_get_float(env, "AWV_IDLE_INTERVAL_SECONDS", 10.0, minimum=0.0),
             max_sample_rate_hz=_get_float(env, "AWV_MAX_SAMPLE_RATE_HZ", 5.0, minimum=0.001),
@@ -347,11 +385,21 @@ class Settings:
             chair_threshold=_get_float(env, "AWV_CHAIR_THRESHOLD", 0.055, minimum=0.0),
             work_threshold=_get_float(env, "AWV_WORK_THRESHOLD", 0.012, minimum=0.0),
             debounce_samples=_get_int(env, "AWV_DEBOUNCE_SAMPLES", 2, minimum=1),
+            min_dwell_seconds=_get_float(env, "AWV_MIN_DWELL_SECONDS", 6.0, minimum=0.0),
+            clinical_dwell_seconds=_get_float(env, "AWV_CLINICAL_DWELL_SECONDS", 30.0, minimum=0.0),
+            turnover_dwell_seconds=_get_float(env, "AWV_TURNOVER_DWELL_SECONDS", 15.0, minimum=0.0),
+            turnover_lookback_seconds=_get_float(env, "AWV_TURNOVER_LOOKBACK_SECONDS", 600.0, minimum=0.0),
+            dropout_grace_seconds=_get_float(env, "AWV_DROPOUT_GRACE_SECONDS", 45.0, minimum=0.0),
             state_dir=Path(_get(env, "AWV_STATE_DIR", "./data")),
+            timezone_name=_get(env, "AWV_TIMEZONE", "UTC"),
             crm_kind=crm_kind,
             crm_base_url=_get(env, "AWV_CRM_BASE_URL", "").rstrip("/"),
             crm_token=Secret(env.get("AWV_CRM_TOKEN", ""), "crm_token"),
             crm_timeout=_get_float(env, "AWV_CRM_TIMEOUT_SECONDS", 5.0, minimum=0.1),
+            crm_retries=_get_int(env, "AWV_CRM_RETRIES", 3, minimum=1),
+            crm_retry_base_delay=_get_float(env, "AWV_CRM_RETRY_BASE_DELAY_SECONDS", 0.25, minimum=0.0),
+            crm_max_age=_get_float(env, "AWV_CRM_MAX_AGE_SECONDS", 300.0, minimum=0.0),
+            crm_hard_max_age=_get_float(env, "AWV_CRM_HARD_MAX_AGE_SECONDS", 3600.0, minimum=0.0),
             api_token=Secret(env.get("AWV_API_TOKEN", ""), "api_token"),
             host=_get(env, "AWV_HOST", "127.0.0.1"),
             port=_get_int(env, "AWV_PORT", 8870, minimum=1),
