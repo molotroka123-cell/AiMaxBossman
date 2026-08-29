@@ -43,8 +43,16 @@ class TrajectoryRecorder:
         }
         self.events.append(event)
         if self.sink_path:
-            with self.sink_path.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
+            # Запись траектории НИКОГДА не должна ронять путь очистки: каталог
+            # песочницы мог быть уже снесён destroy()-ом, диск мог кончиться.
+            # Событие в памяти уже сохранено — файл best-effort.
+            # Каталог НЕ пересоздаём: после destroy() песочницы её директория
+            # снесена намеренно, и воскрешать её ради лог-строки нельзя.
+            try:
+                with self.sink_path.open("a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
+            except OSError:
+                pass
         return event
 
     # Удобные обёртки под обязательные категории.

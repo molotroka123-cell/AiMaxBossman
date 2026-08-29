@@ -46,8 +46,8 @@ class RiskEngine:
             bump(RiskLevel.HIGH, "network=INTERNET")
         elif spec.network_mode == NetworkMode.ALLOWLIST:
             bump(RiskLevel.MEDIUM, "network=ALLOWLIST")
-        if spec.workspace_source:
-            bump(RiskLevel.MEDIUM, "external workspace source")
+        if spec.workspace_source and not spec.trusted_source:
+            bump(RiskLevel.MEDIUM, "untrusted workspace source")
         if spec.policy_mode == PolicyMode.HOSTILE:
             bump(RiskLevel.HOSTILE, "policy_mode=HOSTILE")
 

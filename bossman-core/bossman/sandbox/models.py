@@ -155,6 +155,11 @@ class SandboxSpec:
     allowlist: tuple[str, ...] = ()          # хосты для NetworkMode.ALLOWLIST
     secret_scopes: tuple[str, ...] = ()      # запрошенные брокером scope'ы
     workspace_source: str | None = None      # путь-источник (копируется, не монтируется как есть)
+    # Источник считается НЕДОВЕРЕННЫМ по умолчанию (fail closed): внешний код
+    # поднимает риск до MEDIUM и требует контейнерной изоляции. Явный
+    # trusted_source=True — осознанное решение вызывающей стороны для своего же
+    # рабочего каталога; риск тогда не поднимается.
+    trusted_source: bool = False
     labels: dict[str, str] = field(default_factory=dict)
 
 
