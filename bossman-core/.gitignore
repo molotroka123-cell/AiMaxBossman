@@ -4,3 +4,12 @@ __pycache__/
 .pytest_cache/
 projects/
 workspace/
+
+# Bossman ComputerUse runtime — профили, cookies и загрузки живых сессий
+.browser-profiles/
+browser-profiles/
+**/browser-profile/
+**/browser-profiles/
+**/.auth/
+playwright/.auth/
+**/downloads/

@@ -98,4 +98,4 @@ def tool_line(name: str, tool: ToolDef) -> str:
 
 
 # Регистрация всех модулей с инструментами.
-from . import files, shell, gitops, journal, net, media, office  # noqa: E402,F401
+from . import files, shell, gitops, journal, net, media, office, browser  # noqa: E402,F401

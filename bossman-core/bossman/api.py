@@ -46,6 +46,14 @@ async def startup() -> None:
 async def shutdown() -> None:
     for t in _background:
         t.cancel()
+    # Закрыть браузерные контексты ДО закрытия БД: иначе Chromium остаётся
+    # осиротевшим процессом после каждой остановки сервиса. shutdown() у
+    # менеджера идемпотентен — если браузер не поднимался, он ничего не делает.
+    from .toolkit.browser import MANAGER as _BROWSER
+    try:
+        await _BROWSER.shutdown()
+    except Exception:
+        pass
     await db.close()
 
 
