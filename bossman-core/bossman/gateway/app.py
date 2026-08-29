@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import json
@@ -53,7 +53,7 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
     @app.middleware("http")
     async def correlation(request: Request, call_next):
         # ÐšÐ¾Ñ€Ñ€ÐµÐ»ÑÑ†Ð¸Ñ: Ð²Ñ…Ð¾Ð´ÑÑ‰Ð¸Ð¹ X-Request-Id (Ð¸Ð»Ð¸ ÑÐ²ÐµÐ¶Ð¸Ð¹ uuid) Ð²Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÑ‚ÑÑ
-        # Ð·Ð°Ð³Ð¾Ð»Ð¾Ð²ÐºÐ¾Ð¼ Ð¸ Ð¿Ð¾Ð¿Ð°Ð´Ð°ÐµÑ‚ Ð² Ð»Ð¾Ð³ ÐºÐ°Ð¶Ð´Ð¾Ð¹ Ð¿Ð¾Ð¿Ñ‹Ñ‚ÐºÐ¸ Ð¼Ð°Ñ€ÑˆÑ€ÑƒÑ‚Ð¸Ð·Ð°Ñ†Ð¸Ð¸. X-Run-Id â€”
+        # заголовком и попадает в лог каждой попытки маршрутизации. X-Run-Id —
         # ÑÐºÐ²Ð¾Ð·Ð½Ð¾Ð¹ id Ð¿Ñ€Ð¾Ð³Ð¾Ð½Ð° ÑÐ´Ñ€Ð°, Ñ‚Ð¾Ð¶Ðµ Ð»Ð¾Ð³Ð¸Ñ€ÑƒÐµÑ‚ÑÑ. Ð¡Ð¾Ð´ÐµÑ€Ð¶Ð¸Ð¼Ð¾Ðµ Ð·Ð°Ð¿Ñ€Ð¾ÑÐ¾Ð² Ð² Ð»Ð¾Ð³
         # Ð½Ðµ Ð¿Ð¸ÑˆÐµÑ‚ÑÑ Ð½Ð¸ÐºÐ¾Ð³Ð´Ð°.
         request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
