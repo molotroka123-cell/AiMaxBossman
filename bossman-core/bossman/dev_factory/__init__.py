@@ -28,14 +28,22 @@ from .models import (
     allowed_transitions,
     can_transition,
 )
-from .planner import FakePlanner, Planner, detect_injection, wrap_untrusted
+from .planner import (
+    ALLOWED_TEST_BINARIES,
+    FakePlanner,
+    LLMPlanner,
+    Planner,
+    detect_injection,
+    wrap_untrusted,
+)
 from .reviewer import AdversarialReviewer, ReviewResult
 from .workspace import WorkspaceManager
 
 __all__ = [
     "DevFactory", "DevJob", "DevStep", "JobState", "StepKind", "Verdict", "Evidence",
     "Patch", "RetryBudget", "CONSEQUENTIAL_KINDS", "can_transition", "allowed_transitions",
-    "FakePlanner", "Planner", "detect_injection", "wrap_untrusted",
+    "FakePlanner", "LLMPlanner", "Planner", "detect_injection", "wrap_untrusted",
+    "ALLOWED_TEST_BINARIES",
     "AdversarialReviewer", "ReviewResult", "WorkspaceManager", "SandboxExecutor",
     "from_test_output", "write_evidence", "build_subsystem", "router",
 ]
