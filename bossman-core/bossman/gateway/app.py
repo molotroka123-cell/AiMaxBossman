@@ -18,9 +18,9 @@ from .router import CloudPolicyDenied, ModelRouter, RouteNotFound
 from .telemetry import GatewayMetrics
 
 
-# Gateway Ð¿ÐµÑ€ÐµÑÑ‚Ð°Ñ‘Ñ‚ Ð±Ñ‹Ñ‚ÑŒ Ñ‡Ñ‘Ñ€Ð½Ñ‹Ð¼ ÑÑ‰Ð¸ÐºÐ¾Ð¼: Ð¾Ð´Ð½Ð° ÑÑ‚Ñ€Ð¾ÐºÐ° Ð»Ð¾Ð³Ð° Ð½Ð° Ð·Ð°Ð¿Ñ€Ð¾Ñ Ñ
-# request_id/run_id, Ð²Ñ‹Ð±Ñ€Ð°Ð½Ð½Ñ‹Ð¼ Ð±ÑÐºÐµÐ½Ð´Ð¾Ð¼, Ð¸ÑÑ…Ð¾Ð´Ð¾Ð¼ Ð¸ Ð»Ð°Ñ‚ÐµÐ½Ñ‚Ð½Ð¾ÑÑ‚ÑŒÑŽ. Ð‘ÐµÐ· Ñ‚ÐµÐ»
-# Ð·Ð°Ð¿Ñ€Ð¾ÑÐ¾Ð², Ð¿Ñ€Ð¾Ð¼Ð¿Ñ‚Ð¾Ð² Ð¸ ÐºÐ»ÑŽÑ‡ÐµÐ¹.
+# Gateway перестаёт быть чёрным ящиком: одна строка лога на запрос с
+# request_id/run_id, выбранным бэкендом, исходом и латентностью. Без тел
+# запросов, промптов и ключей.
 logger = logging.getLogger("bossman.gateway")
 
 
@@ -52,10 +52,10 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
 
     @app.middleware("http")
     async def correlation(request: Request, call_next):
-        # ÐšÐ¾Ñ€Ñ€ÐµÐ»ÑÑ†Ð¸Ñ: Ð²Ñ…Ð¾Ð´ÑÑ‰Ð¸Ð¹ X-Request-Id (Ð¸Ð»Ð¸ ÑÐ²ÐµÐ¶Ð¸Ð¹ uuid) Ð²Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÑ‚ÑÑ
+                # Корреляция: входящий X-Request-Id (или свежий uuid) возвращается
         # заголовком и попадает в лог каждой попытки маршрутизации. X-Run-Id —
-        # ÑÐºÐ²Ð¾Ð·Ð½Ð¾Ð¹ id Ð¿Ñ€Ð¾Ð³Ð¾Ð½Ð° ÑÐ´Ñ€Ð°, Ñ‚Ð¾Ð¶Ðµ Ð»Ð¾Ð³Ð¸Ñ€ÑƒÐµÑ‚ÑÑ. Ð¡Ð¾Ð´ÐµÑ€Ð¶Ð¸Ð¼Ð¾Ðµ Ð·Ð°Ð¿Ñ€Ð¾ÑÐ¾Ð² Ð² Ð»Ð¾Ð³
-        # Ð½Ðµ Ð¿Ð¸ÑˆÐµÑ‚ÑÑ Ð½Ð¸ÐºÐ¾Ð³Ð´Ð°.
+                # сквозной id прогона ядра, тоже логируется. Содержимое запросов в лог
+                # не пишется никогда.
         request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
         run_id = request.headers.get("x-run-id") or request.headers.get("x-bossman-run-id")
         request.state.request_id = request_id
@@ -111,8 +111,8 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         try:
             routes = owned_router.resolve(alias, capabilities, cloud_allowed=cloud_allowed)
         except CloudPolicyDenied as exc:
-            # ÐžÑ‚Ð´ÐµÐ»ÑŒÐ½Ñ‹Ð¹ ÐºÐ¾Ð´: ÑÐ´Ñ€Ð¾ Ð¾Ñ‚Ð»Ð¸Ñ‡Ð¸Ñ‚ Â«Ð¿Ð¾Ð»Ð¸Ñ‚Ð¸ÐºÐ° Ð·Ð°Ð¿Ñ€ÐµÑ‚Ð¸Ð»Ð° Ð¾Ð±Ð»Ð°ÐºÐ¾Â» Ð¾Ñ‚ Â«Ð½ÐµÑ‡ÐµÐ¼
-            # Ð¾Ð±ÑÐ»ÑƒÐ¶Ð¸Ñ‚ÑŒÂ» Ð¸ Ð¾Ñ‚ Â«Ð¼Ð¾Ð´ÐµÐ»ÑŒ Ð½ÐµÐ´Ð¾ÑÑ‚ÑƒÐ¿Ð½Ð°Â». Ð”Ð°Ð½Ð½Ñ‹Ðµ Ð½Ð°Ñ€ÑƒÐ¶Ñƒ Ð½Ðµ ÑƒÑˆÐ»Ð¸.
+            # Отдельный код: Ñдро отличит «политика запретила облако» от «нечем
+                        # служить» и от «модель недоступна». Данные наружу не ушли.
             _log_outcome(request_id, run_id, c.name, alias, None, None, "error", None, 0)
             return JSONResponse({"error": {"code": "POLICY_DENIED", "message": str(exc)}},
                                 status_code=403)
@@ -120,8 +120,8 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
             _log_outcome(request_id, run_id, c.name, alias, None, None, "error", None, 0)
             raise HTTPException(404, str(exc)) from exc
         except CircuitOpenError as exc:
-            # Ð²ÑÐµ Ð¿Ð¾Ð´Ñ…Ð¾Ð´ÑÑ‰Ð¸Ðµ Ñ†ÐµÐ»Ð¸ Ñ€Ð°Ð·Ð¾Ð¼ÐºÐ½ÑƒÑ‚Ñ‹ Ð°Ð²Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¾Ð¼: Ð¾Ñ‚ÐºÐ°Ð· ÑÑ€Ð°Ð·Ñƒ, Ð±ÐµÐ·
-            # Ð¾Ð¶Ð¸Ð´Ð°Ð½Ð¸Ñ Ñ‚Ð°Ð¹Ð¼Ð°ÑƒÑ‚Ð¾Ð² Ð¼Ñ‘Ñ€Ñ‚Ð²Ñ‹Ñ… Ð±ÑÐºÐµÐ½Ð´Ð¾Ð²
+                        # все подходящие цели разомкнуты автоматом: отказ сразу, без
+                        # ожидания таймаутов мёртвых бэкендов
             _log_outcome(request_id, run_id, c.name, alias, None, None, "error", None, 0)
             return JSONResponse({"error": {"code": "NO_BACKENDS_AVAILABLE", "message": str(exc)}},
                                 status_code=503)
@@ -150,17 +150,17 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                 return JSONResponse(body, headers={"x-bossman-backend": route.backend_name, "x-bossman-route-model": route.model})
             except BackendError as exc:
                 if not exc.failover:
-                    # ÐžÑˆÐ¸Ð±ÐºÐ° ÑÐ°Ð¼Ð¾Ð³Ð¾ Ð·Ð°Ð¿Ñ€Ð¾ÑÐ°/Ð¿Ð¾Ð»Ð¸Ñ‚Ð¸ÐºÐ¸ (4xx): Ð½Ðµ Ð¿ÐµÑ€ÐµÐºÐ»ÑŽÑ‡Ð°ÐµÐ¼ÑÑ Ð½Ð°
-                    # ÑÐ»ÐµÐ´ÑƒÑŽÑ‰Ð¸Ð¹ Ñ‚Ð°Ñ€Ð³ÐµÑ‚ (Ð² Ñ‚.Ñ‡. Ð¾Ð±Ð»Ð°Ñ‡Ð½Ñ‹Ð¹) Ð¸ ÐÐ• Ð³Ð°ÑÐ¸Ð¼ Ð·Ð´Ð¾Ñ€Ð¾Ð²ÑŒÐµ
-                    # Ð±ÑÐºÐµÐ½Ð´Ð° â€” Ñ‚Ð¾Ñ‚ Ð¶Ðµ Ð¾Ñ‚Ð²ÐµÑ‚ Ð´Ð°Ð» Ð±Ñ‹ Ð»ÑŽÐ±Ð¾Ð¹. Ð’Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÐ¼ ÐºÐ°Ðº ÐµÑÑ‚ÑŒ.
+                                        # Ошибка самого запроса/политики (4xx): не переключаемся на
+                                        # следующий таргет (в т.ч. облачный) и НЕ гасим здоровье
+                                        # бэкенда — тот же ответ дал бы любой. Возвращаем как есть.
                     metrics.end(started, route.backend_name, error=True)
                     _log_outcome(request_id, run_id, c.name, alias, route.backend_name,
                                  route.model, "error", started, len(errors))
                     raise HTTPException(exc.status_code or 502,
                                         {"message": str(exc), "backend": route.backend_name}) from exc
                 route.backend.health.healthy = False
-                # checked_at Ð¾Ð±ÑÐ·Ð°Ñ‚ÐµÐ»ÐµÐ½: Ð±ÐµÐ· Ð½ÐµÐ³Ð¾ unhealthy-Ñ„Ð»Ð°Ð³ Ð½Ðµ Ð²Ð»Ð¸ÑÐµÑ‚ Ð´Ð°Ð¶Ðµ
-                # Ð½Ð° ÑÐ¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²ÐºÑƒ Ñ†ÐµÐ»ÐµÐ¹ Ð² resolve()
+                                # checked_at обязателен: без него unhealthy-флаг не влияет даже
+                # на Ñортировку целей в resolve()
                 route.backend.health.checked_at = time.time()
                 errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")
                 continue
@@ -220,8 +220,8 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                     return
                 except BackendError as exc:
                     if not exc.failover:
-                        # 4xx Ð·Ð°Ð¿Ñ€Ð¾ÑÐ°/Ð¿Ð¾Ð»Ð¸Ñ‚Ð¸ÐºÐ¸: Ð½Ðµ Ð¿ÐµÑ€ÐµÐºÐ»ÑŽÑ‡Ð°ÐµÐ¼ÑÑ Ð½Ð° ÑÐ»ÐµÐ´ÑƒÑŽÑ‰Ð¸Ð¹
-                        # (Ð² Ñ‚.Ñ‡. Ð¾Ð±Ð»Ð°Ñ‡Ð½Ñ‹Ð¹) Ñ‚Ð°Ñ€Ð³ÐµÑ‚ Ð¸ Ð½Ðµ Ð³Ð°ÑÐ¸Ð¼ Ð·Ð´Ð¾Ñ€Ð¾Ð²ÑŒÐµ Ð±ÑÐºÐµÐ½Ð´Ð°.
+                                                # 4xx запроса/политики: не переключаемся на следующий
+                                                # (в т.ч. облачный) таргет и не гасим здоровье бэкенда.
                         metrics.end(started, route.backend_name, error=True)
                         _log_outcome(request_id, run_id, c.name, alias, route.backend_name,
                                      route.model, "error", started, len(errors))
@@ -232,8 +232,8 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                             yield b'\ndata: {"error":{"message":"upstream stream failed"}}\n\n'
                         return
                     route.backend.health.healthy = False
-                    # checked_at Ð¾Ð±ÑÐ·Ð°Ñ‚ÐµÐ»ÐµÐ½: Ð±ÐµÐ· Ð½ÐµÐ³Ð¾ unhealthy-Ñ„Ð»Ð°Ð³ Ð½Ðµ Ð²Ð»Ð¸ÑÐµÑ‚
-                    # Ð´Ð°Ð¶Ðµ Ð½Ð° ÑÐ¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²ÐºÑƒ Ñ†ÐµÐ»ÐµÐ¹ Ð² resolve()
+                                    # checked_at обязателен: без него unhealthy-флаг не влияет
+                    # даже на Ñортировку целей в resolve()
                     route.backend.health.checked_at = time.time()
                     errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")
                     if emitted:
@@ -261,8 +261,8 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         return StreamingResponse(generator(), media_type="text/event-stream", headers={"x-accel-buffering":"no"})
 
     def _cloud_allowed(request: Request) -> bool:
-        # Ð¯Ð´Ñ€Ð¾ ÑÐ¾Ð¾Ð±Ñ‰Ð°ÐµÑ‚ Ð¾Ð±Ð»Ð°Ñ‡Ð½ÑƒÑŽ Ð¿Ð¾Ð»Ð¸Ñ‚Ð¸ÐºÑƒ Ð°Ð³ÐµÐ½Ñ‚Ð° Ð·Ð°Ð³Ð¾Ð»Ð¾Ð²ÐºÐ¾Ð¼. ÐžÑ‚ÑÑƒÑ‚ÑÑ‚Ð²Ð¸Ðµ = Ñ€Ð°Ð·Ñ€ÐµÑˆÐµÐ½Ð¾
-        # (Ð¿Ñ€ÑÐ¼Ð¾Ð¹ ÑÑ‚Ð¾Ñ€Ð¾Ð½Ð½Ð¸Ð¹ ÐºÐ»Ð¸ÐµÐ½Ñ‚); ÑÐ´Ñ€Ð¾ BOSSMAN Ð²ÑÐµÐ³Ð´Ð° Ð¿Ñ€Ð¾ÑÑ‚Ð°Ð²Ð»ÑÐµÑ‚ ÑÐ²Ð½Ð¾.
+                # Ядро сообщает облачную политику агента заголовком. Отсутствие = разрешено
+                # (прямой сторонний клиент); ядро BOSSMAN всегда проставляет явно.
         return request.headers.get("x-bossman-cloud-allowed", "1").strip() not in ("0", "false", "no")
 
     @app.post("/v1/chat/completions")
