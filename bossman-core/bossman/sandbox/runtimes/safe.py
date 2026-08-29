@@ -34,6 +34,7 @@ from ..models import (
     SandboxSession,
     SandboxState,
 )
+from ..netguard import EgressLockdown, available as lockdown_available, sandbox_uid
 from ..runtime import DestroyFailure, RuntimeCrash, RuntimeTimeout
 
 log = obs.get_logger("bossman.sandbox.safe")
@@ -62,13 +63,18 @@ class SafeRuntime:
         self._procs: dict[str, asyncio.subprocess.Process] = {}
         self._workdirs: dict[str, Path] = {}
         self._results: dict[str, int | None] = {}
+        # Активные блокировки egress по песочницам (nftables + выделенный uid).
+        self._locks: dict[str, EgressLockdown] = {}
 
     def capabilities(self) -> RuntimeCapabilities:
         return RuntimeCapabilities(
             name=self.name,
             tiers=frozenset({IsolationTier.ROOTLESS}),  # честно: только слабый tier
             supports_offline=_unshare_available(),
-            supports_allowlist=False,   # egress-фильтра по хостам здесь нет
+            # ALLOWLIST честен только когда есть ЧЕМ его заставить: nftables +
+            # root. Иначе процесс мог бы открыть сокет мимо прокси, и режим был
+            # бы фикцией — политика такой рантайм отвергнет.
+            supports_allowlist=lockdown_available(),
             supports_readonly_root=False,
             supports_seccomp=False,
             supports_pid_limit=True,
@@ -103,10 +109,25 @@ class SafeRuntime:
             else:
                 shutil.copy2(src_p, work / src_p.name)
         self._workdirs[session.id] = work
+        # Если процесс пойдёт под выделенным uid, ему нужны права на свою
+        # рабочую область и каталог вывода (и только на них).
+        if self._needs_lockdown(session):
+            uid = sandbox_uid(session.id)
+            for d in (root, work, out):
+                try:
+                    os.chown(d, uid, uid)
+                except (OSError, AttributeError):
+                    pass
+
+    @staticmethod
+    def _needs_lockdown(session: SandboxSession) -> bool:
+        """Нужен ли принудительный барьер: есть прокси (значит режим не OFFLINE)."""
+        return bool(session.spec.labels.get("egress_proxy"))
 
     def _preexec(self, session: SandboxSession):
         """rlimits применяются в дочернем процессе до exec."""
         r = session.spec.resources
+        drop_to_uid = sandbox_uid(session.id) if self._needs_lockdown(session) else None
 
         def _apply() -> None:
             if resource is None:      # без POSIX-rlimits дочерний не запускаем
@@ -129,6 +150,18 @@ class SafeRuntime:
                 resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))
             # Новая сессия: сигнал уходит всей группе, а не только лидеру.
             os.setsid()
+            # Сброс привилегий в выделенный uid ПОСЛЕ лимитов: именно по этому
+            # uid nftables режет весь трафик мимо прокси. Порядок setgid→setuid
+            # обязателен — обратный оставил бы группу root.
+            if drop_to_uid is not None:
+                try:
+                    os.setgid(drop_to_uid)
+                    os.setgroups([])
+                    os.setuid(drop_to_uid)
+                except (OSError, AttributeError, PermissionError):
+                    # Не смогли сбросить права — процесс НЕ запускаем под root
+                    # с открытой сетью: это тихий обход барьера.
+                    os._exit(97)
 
         return _apply
 
@@ -184,6 +217,9 @@ class SafeRuntime:
         if work is None:
             raise RuntimeCrash("start before prepare")
         argv = self._argv(session)
+        # Барьер ставим ДО запуска процесса: иначе между exec и правилами
+        # существует окно, в которое можно успеть открыть сокет.
+        self._apply_lockdown(session)
         out_path = self._root_for(session) / "out" / "stdout.log"
         try:
             proc = await asyncio.create_subprocess_exec(   # НИКОГДА не shell
@@ -222,6 +258,25 @@ class SafeRuntime:
         self._results[session.id] = proc.returncode
         return SandboxState.COMPLETED if proc.returncode == 0 else SandboxState.FAILED
 
+    def _apply_lockdown(self, session: SandboxSession) -> None:
+        proxy = session.spec.labels.get("egress_proxy")
+        if not proxy:
+            return
+        if not lockdown_available():
+            # Прокси есть, а заставить ходить через него нечем → не запускаем.
+            raise RuntimeCrash(
+                "egress lockdown unavailable (need root + nftables); refusing to run "
+                "with unenforced network policy")
+        host, _, port = str(proxy).rpartition(":")
+        lock = EgressLockdown(session.id)
+        lock.apply(host or "127.0.0.1", int(port))
+        self._locks[session.id] = lock
+
+    def _release_lockdown(self, session: SandboxSession) -> None:
+        lock = self._locks.pop(session.id, None)
+        if lock is not None:
+            lock.remove()
+
     async def freeze(self, session: SandboxSession) -> None:
         """SAFE-рантайм не умеет снапшотить память: «заморозка» = остановка
         процесса с сохранением рабочей копии для расследования."""
@@ -247,6 +302,8 @@ class SafeRuntime:
 
     async def destroy(self, session: SandboxSession) -> None:
         await self._kill(session)
+        # Правила firewall сносятся вместе с песочницей — в хосте не остаётся следов.
+        self._release_lockdown(session)
         self._procs.pop(session.id, None)
         self._workdirs.pop(session.id, None)
         root = self._root_for(session)

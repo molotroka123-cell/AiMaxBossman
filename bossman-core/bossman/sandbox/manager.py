@@ -110,8 +110,10 @@ class SandboxManager:
     async def start(self, s: SandboxSession) -> None:
         self._transition(s, SandboxState.PREPARING, "prepare env")
         try:
-            await self.runtime.prepare(s)
+            # Прокси поднимаем ДО prepare: рантайму нужно знать про него ещё на
+            # подготовке среды (выделенный uid, права на рабочую область).
             await self._start_egress(s)
+            await self.runtime.prepare(s)
             self._transition(s, SandboxState.READY, "env ready")
             self._transition(s, SandboxState.RUNNING, "start")
             await self.runtime.start(s)

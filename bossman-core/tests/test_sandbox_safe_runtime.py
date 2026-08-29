@@ -45,10 +45,14 @@ def _spec(**kw):
 
 
 def test_capabilities_are_honest():
+    from bossman.sandbox import netguard
     caps = SafeRuntime().capabilities()
     # Заявляет ТОЛЬКО ROOTLESS — иначе политика пропустила бы HOSTILE через слабый рантайм.
     assert caps.tiers == frozenset({IsolationTier.ROOTLESS})
-    assert caps.supports_allowlist is False
+    # ALLOWLIST объявляется ровно тогда, когда барьер (root+nftables) реально
+    # доступен: заявлять его без принуждения — значит выпустить процесс в сеть
+    # мимо прокси. Обе стороны равенства берутся из факта, а не из константы.
+    assert caps.supports_allowlist == netguard.available()
 
 
 @pytest.mark.asyncio
