@@ -1,35 +1,73 @@
-"""Stage 11 — AI Lab: инспекция траекторий + REST-роутер.
+"""Stage 11 — AI Lab: REST-роутер поверх CandidateStore/EvalRunner/Exporter.
 
-Только чтение raw trajectory; кандидаты/evals/exports через CandidateStore/
-EvalRunner/Exporter. Никаких мутаций cloud_policy/агентов/провайдеров.
+Периметр: ВСЕ маршруты — только admin-устройству Stage 6. Траектории, кандидаты
+и экспорт — это сырьё для обучения; ни chat-, ни events-устройству они не нужны.
+
+Containment: клиент НИКОГДА не передаёт путь файловой системы. Только
+sandbox_id; путь к trajectory.jsonl сервер вычисляет сам внутри workspace
+песочницы и проверяет, что итог не выходит за её пределы (symlink/../ и т.п.).
+В ошибках реальный путь хоста не фигурирует.
+
+Жизненный цикл: роутер STATELESS — хранилища открываются на запрос, воркеров и
+долгоживущих соединений нет, поэтому подсистема жизненного цикла ему не нужна.
 """
 from __future__ import annotations
 
-import json
+import re
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from .. import errors
-from ..authz import require_core_key
-from .candidates import CandidateStore
-from .export import EvalRunner, Exporter, LocalTrainingAdapter
+from ..config import settings
+from ..perimeter import SCOPE_ADMIN, require_scope
+from .candidates import CandidateStore, load_trajectory
+from .export import EvalRunner, Exporter
 
-router = APIRouter(prefix="/api/lab")
+router = APIRouter(prefix="/api/lab", tags=["ai-lab"],
+                   dependencies=[Depends(require_scope(SCOPE_ADMIN))])
+
+# id песочницы — короткий безопасный идентификатор, не путь
+_SANDBOX_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 
-def _store(request: Request) -> CandidateStore:
-    svc = request.app.state.svc
-    root = getattr(svc.settings, "ai_lab_dir", None) or Path(svc.settings.data_dir) / "ai_lab"
-    return CandidateStore(root)
+def _lab_root() -> Path:
+    return Path(settings.workspace_dir) / "_ai_lab"
 
 
-def _exporter(request: Request) -> Exporter:
-    svc = request.app.state.svc
-    root = Path(getattr(svc.settings, "ai_lab_dir", None) or
-                Path(svc.settings.data_dir) / "ai_lab") / "exports"
-    return Exporter(_store(request), root)
+def _store() -> CandidateStore:
+    return CandidateStore(_lab_root())
+
+
+def _exporter() -> Exporter:
+    return Exporter(_store(), _lab_root() / "exports")
+
+
+def _sandbox_workspace() -> Path:
+    from ..sandbox.subsystem import MANAGER
+    return Path(MANAGER.workspace_root)
+
+
+def _trajectory_path(sandbox_id: str) -> Path:
+    """sandbox_id → путь к trajectory.jsonl СТРОГО внутри workspace песочницы.
+
+    Отказ единообразный (NOT_FOUND без пути хоста): не различаем «плохой id» и
+    «нет файла», чтобы не превращать ручку в зонд файловой системы.
+    """
+    denied = errors.NotFound(f"trajectory not found: {sandbox_id[:80]!r}")
+    if not _SANDBOX_ID_RE.fullmatch(sandbox_id):
+        raise denied
+    root = _sandbox_workspace().resolve()
+    path = (root / sandbox_id / "trajectory.jsonl").resolve()
+    # Проверка сдерживания ПОСЛЕ resolve(): ловит и symlink-побег из каталога.
+    if not path.is_relative_to(root) or not path.is_file():
+        raise denied
+    return path
+
+
+class CreateCandidateIn(BaseModel):
+    sandbox_id: str
 
 
 class DecideIn(BaseModel):
@@ -44,68 +82,59 @@ class EvalIn(BaseModel):
 
 
 @router.get("/trajectories/{sandbox_id}")
-async def inspect_trajectory(sandbox_id: str, request: Request):
+async def inspect_trajectory(sandbox_id: str):
     """Read-only инспекция raw-траектории из workspace песочницы."""
-    svc = request.app.state.svc
-    ws = Path(getattr(svc.settings, "sandbox_workspace", Path("_sandbox")))
-    path = ws / sandbox_id / "trajectory.jsonl"
-    if not path.is_file():
-        raise errors.BossmanError(f"trajectory not found: {sandbox_id}",
-                                  code=errors.ErrorCode.NOT_FOUND)
-    from .candidates import load_trajectory
+    path = _trajectory_path(sandbox_id)
     events, sha, meta = load_trajectory(path)
     return {"sandbox_id": sandbox_id, "sha256": sha, **meta,
             "events_preview": events[:20]}     # превью; сырьё уходит только в candidates
 
 
 @router.get("/candidates")
-async def list_candidates(request: Request):
-    return await _list(_store(request))
+async def list_candidates():
+    return _store().list()
 
 
-async def _list(store: CandidateStore):
-    return store.list()
-
-
-@router.post("/candidates/{trajectory_path:path}")
-async def create_candidate(trajectory_path: str, request: Request):
-    body = await request.json()
-    cand = _store(request).create(trajectory_path,
-                                  sandbox_id=str(body.get("sandbox_id", "unknown")))
+@router.post("/candidates")
+async def create_candidate(body: CreateCandidateIn):
+    """Кандидат создаётся ТОЛЬКО из sandbox_id — произвольный путь хоста этой
+    ручке недоступен (containment в _trajectory_path)."""
+    path = _trajectory_path(body.sandbox_id)
+    cand = _store().create(str(path), sandbox_id=body.sandbox_id)
     return {"id": cand.id, "state": cand.state, "samples": len(cand.samples),
             "reasons": list(cand.reasons)}
 
 
-# Человеческий гейт обучающего набора: разрешение на превращение траектории в
-# обучающие данные — такое же консеквентное решение, как approvals ядра.
-@router.post("/candidates/{candidate_id}/decide", dependencies=[Depends(require_core_key)])
-async def decide_candidate(candidate_id: str, body: DecideIn, request: Request):
-    cand = _store(request).decide(candidate_id, approve=body.approve, by=body.by)
+@router.post("/candidates/{candidate_id}/decide")
+async def decide_candidate(candidate_id: str, body: DecideIn):
+    """Человеческий гейт обучающего набора — такое же консеквентное решение,
+    как approvals ядра; скоуп admin уже проверен на роутере."""
+    cand = _store().decide(candidate_id, approve=body.approve, by=body.by)
     return {"id": cand.id, "state": cand.state, "decided_by": cand.decided_by}
 
 
 @router.post("/evals/run")
-async def run_eval(body: EvalIn, request: Request):
-    runner = EvalRunner(chat_fn=None, brain=getattr(request.app.state.svc, "brain", None))
+async def run_eval(body: EvalIn):
+    from ..resource_brain import BRAIN
+    runner = EvalRunner(chat_fn=None, brain=BRAIN)
     return runner.run(body.cases, model_alias=body.model_alias,
                       max_cases=max(0, body.max_cases))
 
 
 @router.post("/exports/{candidate_id}/sft")
-async def export_sft(candidate_id: str, request: Request):
-    path = _exporter(request).export_sft(candidate_id)
+async def export_sft(candidate_id: str):
+    path = _exporter().export_sft(candidate_id)
     return {"path": str(path)}
 
 
 @router.post("/exports/{candidate_id}/dpo")
-async def export_dpo(candidate_id: str, request: Request):
-    path = _exporter(request).export_dpo(candidate_id)
+async def export_dpo(candidate_id: str):
+    path = _exporter().export_dpo(candidate_id)
     return {"path": str(path)}
 
 
-@router.post("/exports/{candidate_id}/launch_training",
-             dependencies=[Depends(require_core_key)])
-async def launch_training(candidate_id: str, request: Request):
+@router.post("/exports/{candidate_id}/launch_training")
+async def launch_training(candidate_id: str):
     """Демонстративно отказной путь: адаптер по умолчанию не сконфигурирован."""
-    path = _exporter(request).launch_training(Path(f"{candidate_id}.sft.jsonl"))
+    path = _exporter().launch_training(Path(f"{candidate_id}.sft.jsonl"))
     return {"armed": path}

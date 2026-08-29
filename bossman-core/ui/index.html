@@ -55,25 +55,25 @@ const PANELS = [
 ];
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-// Ключ ядра нужен только консеквентным ручкам (решение подтверждения, смена
-// cloud_policy, approve проекта). Он не зашит в статику — владелец вводит его
-// один раз, дальше он живёт в localStorage этого браузера. На 401 спрашиваем
-// заново: обычно это значит, что ключ на сервере сменили.
-const coreKey = () => localStorage.getItem("bossman_core_key") || "";
-const askCoreKey = () => {
-  const k = prompt("Ключ ядра (BOSSMAN_CORE_API_KEY):", "");
-  if (k) localStorage.setItem("bossman_core_key", k.trim());
+// Доступ к API ядра — токеном устройства Stage 6 (rcd_.../rcs_...), тем же
+// механизмом, что и /remote/*. Токен не зашит в статику: владелец вводит его
+// один раз (bootstrap_remote_device.py выдаёт устройство с нужными скоупами),
+// дальше он живёт в localStorage этого браузера. На 401 спрашиваем заново.
+const deviceToken = () => localStorage.getItem("bossman_device_token") || "";
+const askDeviceToken = () => {
+  const k = prompt("Токен устройства Stage 6 (rcd_...):", "");
+  if (k) localStorage.setItem("bossman_device_token", k.trim());
   return k ? k.trim() : "";
 };
 const api = async (path, opts) => {
   const send = async () => {
     const base = opts ? {headers: {"Content-Type": "application/json"}, ...opts} : {headers: {}};
-    const key = coreKey();
-    if (key) base.headers = {...(base.headers || {}), "X-Bossman-Key": key};
+    const t = deviceToken();
+    if (t) base.headers = {...(base.headers || {}), "Authorization": "Bearer " + t};
     return fetch(path, base);
   };
   let r = await send();
-  if (r.status === 401 && askCoreKey()) r = await send();
+  if ((r.status === 401 || r.status === 403) && askDeviceToken()) r = await send();
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 };
@@ -272,7 +272,10 @@ async function projState(slug) {
 
 // ---- живые обновления по WS: UI обновляется сам ----
 function connectWS() {
-  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/events");
+  // Токен на WS едет субпротоколом (заголовок Sec-WebSocket-Protocol), не в URL:
+  // query string попадает в access-логи, заголовок — нет.
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/events",
+                           deviceToken() ? ["bossman.bearer." + deviceToken()] : []);
   ws.onmessage = (e) => {
     const ev = JSON.parse(e.data);
     const active = document.querySelector("section.active")?.id?.replace("panel-", "");

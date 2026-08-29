@@ -1,11 +1,15 @@
 """Stage 10 — read-only статус фабрики. Никаких мутаций и публикаций отсюда."""
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from ..perimeter import SCOPE_ADMIN, require_scope
 
 from .subsystem import FACTORY
 
-router = APIRouter(prefix="/dev-factory", tags=["dev-factory"])
+# Периметр: статус фабрики и ПОЛНЫЙ diff патча — только admin-устройству.
+router = APIRouter(prefix="/dev-factory", tags=["dev-factory"],
+                   dependencies=[Depends(require_scope(SCOPE_ADMIN))])
 
 
 @router.get("/jobs")

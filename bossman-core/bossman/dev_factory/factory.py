@@ -154,7 +154,15 @@ class DevFactory:
                 # Правку кода делает исполнитель (модель/агент). Без него шаг
                 # считается выполненным вхолостую — доказательства даст TEST.
                 if self.executor is not None:
-                    await self.executor.edit(job, step)
+                    try:
+                        await self.executor.edit(job, step)
+                    except errors.BossmanError as exc:
+                        # Сбой правки — потраченная попытка (bounded retry),
+                        # а не крах всего задания и не тихий «успех».
+                        job.history.append((job.updated_at, job.state.value,
+                                            f"edit failed: {exc.code.value}"))
+                        store.save(self.root, job)
+                        return False
                 step.done = True
             elif step.kind is StepKind.TEST:
                 ev = await self._run_tests(job, step)

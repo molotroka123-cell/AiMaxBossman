@@ -176,8 +176,11 @@ class LLMPlanner:
             return self.test_argv
         argv = [str(a) for a in value][:20]
         head = argv[0].rsplit("/", 1)[-1]
-        if not any(head == b or head.startswith(b) for b in
-                   (x.rsplit("/", 1)[-1] for x in ALLOWED_TEST_BINARIES)):
+        # ТОЛЬКО точное имя исполняемого: startswith пропускал бы
+        # «python-malicious» как «python». И даже точное совпадение — не
+        # песочница (python/node сами исполняют код): реальную границу держит
+        # Этап 8, TEST-шаги идут только через SandboxExecutor.
+        if head not in {x.rsplit("/", 1)[-1] for x in ALLOWED_TEST_BINARIES}:
             return self.test_argv         # незнакомая команда → безопасный дефолт
         return tuple(argv)
 

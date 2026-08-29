@@ -46,8 +46,8 @@ sudo tailscale serve --bg --https=9443 http://127.0.0.1:8700   # Bossman Control
 ```bash
 cd bossman-core
 pip install -e ".[dev]"
-cp .env.example .env            # адреса 127.0.0.1, SANDBOX_MODE=local,
-                                # BOSSMAN_CORE_API_KEY — сгенерировать свой
+cp .env.example .env            # адреса 127.0.0.1, SANDBOX_MODE=local;
+                                # доступ к API — устройством Stage 6 (скоупы)
 set -a; source .env; set +a
 bossman serve                   # http://127.0.0.1:8700
 ```

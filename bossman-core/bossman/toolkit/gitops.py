@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import shlex
 
 from . import ToolContext, ToolDef, ToolResult, clip, register
 
@@ -10,8 +9,10 @@ ALLOWED = {"status", "diff", "branch", "commit", "log", "add", "checkout"}
 
 
 async def _git(ctx: ToolContext, *argv: str) -> tuple[int, str]:
-    proc = await asyncio.create_subprocess_shell(
-        f"git -C {shlex.quote(str(ctx.workdir))} " + " ".join(shlex.quote(a) for a in argv),
+    # argv-only, без шелла: аргументы агента попадают в exec как есть, никакая
+    # строка не интерпретируется. Дисциплина Этапа 8 действует и на хосте.
+    proc = await asyncio.create_subprocess_exec(
+        "git", "-C", str(ctx.workdir), *argv,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
     out, _ = await proc.communicate()
     return proc.returncode or 0, out.decode(errors="replace")

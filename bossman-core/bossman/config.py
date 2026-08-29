@@ -53,13 +53,6 @@ class Settings:
     # чужое действие. Пустой секрет => вебхук approve/reject запрещён (403).
     telegram_webhook_secret: str = field(default_factory=lambda: _env("TELEGRAM_WEBHOOK_SECRET", ""))
 
-    # Ключ доступа к консеквентным маршрутам ядра. Подтверждения — граница
-    # безопасности НАД песочницей, браузером и облаком: решать их по сетевому
-    # положению нельзя (за Tailscale serve запрос приходит с loopback, поэтому
-    # проверка «только 127.0.0.1» здесь была бы фикцией). Не задан → решения
-    # подтверждений и смена политики агента ОТКЛОНЯЮТСЯ (fail closed).
-    core_api_key: str = field(default_factory=lambda: _env("BOSSMAN_CORE_API_KEY", ""))
-
     # уведомление в Telegram, если задача заняла дольше минуты (раздел 5, шаг 6)
     notify_after_seconds: int = int(_env("NOTIFY_AFTER_SECONDS", "60"))
 

@@ -10,6 +10,7 @@ from .candidates import AiLabCandidate, CandidateStore, load_trajectory
 from .export import (EvalRunner, Exporter, LocalTrainingAdapter,
                      MAX_EVAL_CASES, TrainingDisabled)
 from .sanitizer import SANITIZER_VERSION, sanitize_obj, sanitize_text
+from .routes import router
 from .routes import router as lab_router
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "EvalRunner", "Exporter", "LocalTrainingAdapter", "MAX_EVAL_CASES",
     "TrainingDisabled", "SANITIZER_VERSION", "sanitize_obj", "sanitize_text",
     "lab_router",
+    "router",
 ]

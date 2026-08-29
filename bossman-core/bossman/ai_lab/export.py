@@ -65,8 +65,14 @@ class EvalRunner:
                 f"too many eval cases: {len(cases)} > {MAX_EVAL_CASES}",
                 code=errors.ErrorCode.POLICY_DENIED)
         n = min(len(cases), max(0, max_cases))
+        # Аренда Resource Brain на время прогона. acquire ДО try: отказ в
+        # ёмкости (ResourceExhausted) пролетает наверх при НУЛЕ модельных
+        # вызовов и нуле удержанного. Полученная аренда обязана вернуться на
+        # ЛЮБОМ исходе — успех, сбой модели, сбой валидации, — иначе каждый
+        # eval навсегда съедает кусок пула.
+        lease = None
         if self.brain is not None:
-            self.brain.acquire(
+            lease = self.brain.acquire(
                 type("Req", (), {"kind": "eval", "estimated_ram": ram_mb,
                                  "estimated_disk": 0})(),
                 snap=getattr(self.brain, "current_snapshot", None) or _snap(),
@@ -87,7 +93,8 @@ class EvalRunner:
                 results.append({"id": case.get("id"), "expected": expected,
                                 "got": got, "pass": got.strip() == expected})
         finally:
-            pass
+            if lease is not None:
+                self.brain.release(lease.id)
         passed = sum(1 for r in results if r["pass"])
         return {"cases": len(results), "passed": passed, "model_calls": model_calls,
                 "results": results,

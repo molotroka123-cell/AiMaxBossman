@@ -1,12 +1,16 @@
 """Stage 8 — read-only HTTP-статус песочницы. Никаких мутаций через этот роутер."""
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from ..perimeter import SCOPE_ADMIN, require_scope
 
 from . import sandbox_enabled
 from .subsystem import MANAGER
 
-router = APIRouter(prefix="/sandbox", tags=["sandbox"])
+# Периметр: операционное состояние песочницы — только admin-устройству.
+router = APIRouter(prefix="/sandbox", tags=["sandbox"],
+                   dependencies=[Depends(require_scope(SCOPE_ADMIN))])
 
 
 @router.get("/status")

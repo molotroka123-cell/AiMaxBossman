@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-import shlex
 import uuid
 
 from .. import errors, obs
@@ -22,18 +21,20 @@ from . import ToolContext, ToolDef, ToolResult, clip, register
 _log = obs.get_logger("bossman.toolkit.shell")
 
 
-def _build_command(cmd: str, ctx: ToolContext) -> str:
-    """Собрать командную строку исполнителя либо отказать (fail closed).
+def _build_command(cmd: str, ctx: ToolContext) -> list[str]:
+    """Собрать argv исполнителя либо отказать (fail closed).
 
-    docker  → контейнер без сети, смонтирован только workdir;
-    local   → хостовый шелл, БЕЗ изоляции: только при BOSSMAN_UNSAFE_LOCAL_EXEC=1;
+    docker  → контейнер без сети, смонтирован только workdir; `cmd` попадает
+              внутрь ЕДИНСТВЕННЫМ аргументом `sh -lc` контейнера — хостовый
+              шелл строку не видит вообще (argv-only дисциплина Этапа 8);
+    local   → хостовый `sh -c`, БЕЗ изоляции: только при BOSSMAN_UNSAFE_LOCAL_EXEC=1;
     иное    → PolicyDenied.
     """
     mode = (settings.sandbox_mode or "").strip().lower()
     if mode == "docker":
-        return (f"docker run --rm --network none "
-                f"-v {shlex.quote(str(ctx.workdir.resolve()))}:/work -w /work "
-                f"{settings.sandbox_image} sh -lc {shlex.quote(cmd)}")
+        return ["docker", "run", "--rm", "--network", "none",
+                "-v", f"{ctx.workdir.resolve()}:/work", "-w", "/work",
+                settings.sandbox_image, "sh", "-lc", cmd]
     if mode == "local":
         if not settings.allow_unsafe_local_exec:
             raise errors.PolicyDenied(
@@ -43,15 +44,17 @@ def _build_command(cmd: str, ctx: ToolContext) -> str:
         # Разработческий режим и он ЗНАЕТ, что он разработческий: пусть это видно
         # в журнале, а не только в .env, о котором через месяц никто не вспомнит.
         _log.warning("exec без изоляции: SANDBOX_MODE=local + BOSSMAN_UNSAFE_LOCAL_EXEC=1")
-        return f"cd {shlex.quote(str(ctx.workdir))} && {cmd}"
+        return ["sh", "-c", cmd]
     raise errors.PolicyDenied(
         f"неизвестный SANDBOX_MODE={settings.sandbox_mode!r}: ожидается docker или local")
 
 
 async def _exec(cmd: str, ctx: ToolContext, timeout: int = 600) -> tuple[int, str]:
-    full = _build_command(cmd, ctx)
-    proc = await asyncio.create_subprocess_shell(
-        full, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+    argv = _build_command(cmd, ctx)
+    mode = (settings.sandbox_mode or "").strip().lower()
+    proc = await asyncio.create_subprocess_exec(
+        *argv, cwd=str(ctx.workdir) if mode == "local" else None,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
     try:
         out, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.TimeoutError:

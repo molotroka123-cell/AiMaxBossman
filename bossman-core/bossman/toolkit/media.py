@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-import shlex
 
 from . import ToolContext, ToolDef, ToolResult, clip, register
 
 
-async def _sh(cmd: str, timeout: int = 900) -> tuple[int, str]:
-    proc = await asyncio.create_subprocess_shell(
-        cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+async def _run(argv: list[str], timeout: int = 900, cwd=None) -> tuple[int, str]:
+    # argv-only, без шелла: аргументы из плана агента не интерпретируются.
+    proc = await asyncio.create_subprocess_exec(
+        *argv, cwd=cwd,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
     out, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     return proc.returncode or 0, out.decode(errors="replace")
 
@@ -19,8 +20,9 @@ async def _sh(cmd: str, timeout: int = 900) -> tuple[int, str]:
 async def probe(args: dict, ctx: ToolContext) -> ToolResult:
     """Метаданные файла через ffprobe: размер, длительность, разрешение."""
     path = (ctx.workdir / args["path"]).resolve()
-    code, out = await _sh(
-        f"ffprobe -v quiet -print_format json -show_format -show_streams {shlex.quote(str(path))}")
+    code, out = await _run(
+        ["ffprobe", "-v", "quiet", "-print_format", "json",
+         "-show_format", "-show_streams", str(path)])
     if code != 0:
         return ToolResult(f"ffprobe не смог прочитать {args['path']}", error=True,
                           one_line=f"probe {args['path']}: ошибка")
@@ -37,13 +39,13 @@ async def probe(args: dict, ctx: ToolContext) -> ToolResult:
 
 async def ffmpeg(args: dict, ctx: ToolContext) -> ToolResult:
     """Прямой вызов ffmpeg с аргументами из плана (склейка, crossfade, LUFS, 9:16)."""
-    argv = args["args"]
-    if any(a.startswith(("/", "..", "-i/")) for a in argv if isinstance(a, str) and "/" in a and a.startswith("/")):
-        return ToolResult("абсолютные пути запрещены — только внутри рабочей папки",
+    argv = [str(a) for a in args["args"]]
+    # Пути только внутри рабочей папки: абсолютные и с выходом наверх — отказ.
+    if any(a.startswith("/") or a.startswith("..") or "/../" in a for a in argv):
+        return ToolResult("абсолютные пути и «..» запрещены — только внутри рабочей папки",
                           one_line="ffmpeg: отказ по пути", error=True)
-    cmd = "cd " + shlex.quote(str(ctx.workdir)) + " && ffmpeg -y -hide_banner -v error " + \
-          " ".join(shlex.quote(a) for a in argv)
-    code, out = await _sh(cmd, timeout=int(args.get("timeout", 1800)))
+    code, out = await _run(["ffmpeg", "-y", "-hide_banner", "-v", "error", *argv],
+                           timeout=int(args.get("timeout", 1800)), cwd=str(ctx.workdir))
     body, cut = clip(out or "готово", 1000)
     return ToolResult(f"код выхода: {code}\n{body}",
                       one_line=f"ffmpeg → код {code}", truncated=cut, error=code != 0)

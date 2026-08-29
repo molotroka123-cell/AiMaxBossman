@@ -6,12 +6,16 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+
+from ..perimeter import SCOPE_CHAT, require_scope
 
 from .. import errors
 from .service import get_service
 
-router = APIRouter(tags=["search"])
+# Периметр: поиск — пользовательская операция уровня задач (chat).
+router = APIRouter(tags=["search"],
+                   dependencies=[Depends(require_scope(SCOPE_CHAT))])
 
 
 @router.get("/search")

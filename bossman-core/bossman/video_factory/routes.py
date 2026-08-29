@@ -8,10 +8,14 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from ..perimeter import SCOPE_CHAT, require_scope
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/video", tags=["video"])
+# Периметр: видео-задания — пользовательская операция уровня задач (chat).
+router = APIRouter(prefix="/video", tags=["video"],
+                   dependencies=[Depends(require_scope(SCOPE_CHAT))])
 
 
 class CreateJobBody(BaseModel):

@@ -7,14 +7,18 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
+from ..perimeter import SCOPE_ADMIN, require_scope
 
 from ..obs import get_logger
 from .probe import detect_probe
 
 _log = get_logger("bossman.resource_brain")
 
-router = APIRouter(prefix="/resource", tags=["resource"])
+# Периметр: снимок пула/аренды — только admin-устройству.
+router = APIRouter(prefix="/resource", tags=["resource"],
+                   dependencies=[Depends(require_scope(SCOPE_ADMIN))])
 
 
 def _brain():

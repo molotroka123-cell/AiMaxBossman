@@ -19,7 +19,14 @@ from pydantic import BaseModel
 from . import approvals as approvals_mod
 from . import db, errors, events, obs, runner
 from .agents import load_all, set_cloud_policy
-from .authz import require_core_key
+from .perimeter import (
+    SCOPE_ADMIN,
+    SCOPE_APPROVE,
+    SCOPE_CHAT,
+    SCOPE_EVENTS,
+    authenticate_websocket,
+    require_scope,
+)
 from .config import ROOT, settings
 from .lifecycle import registry as _subsystems
 from .projects.plan import State, journal_tail, project_dir
@@ -139,7 +146,7 @@ class TaskIn(BaseModel):
     source: str = "ui"
 
 
-@app.post("/tasks")
+@app.post("/tasks", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def create_task(body: TaskIn):
     row = await db.fetchrow(
         "INSERT INTO tasks (agent, source, text) VALUES ($1,$2,$3) RETURNING *",
@@ -149,7 +156,7 @@ async def create_task(body: TaskIn):
     return row
 
 
-@app.get("/tasks/{task_id}")
+@app.get("/tasks/{task_id}", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def get_task(task_id: int):
     row = await db.fetchrow("SELECT * FROM tasks WHERE id=$1", task_id)
     if not row:
@@ -157,7 +164,7 @@ async def get_task(task_id: int):
     return row
 
 
-@app.get("/tasks")
+@app.get("/tasks", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def list_tasks(status: str | None = None, limit: int = 50):
     if status:
         return await db.fetch("SELECT * FROM tasks WHERE status=$1 ORDER BY id DESC LIMIT $2",
@@ -169,7 +176,19 @@ async def list_tasks(status: str | None = None, limit: int = 50):
 
 @app.websocket("/events")
 async def ws_events(ws: WebSocket):
-    await ws.accept()
+    """Шина событий — только со скоупом events (Stage 6), проверка ДО подписки.
+
+    Браузер не умеет Authorization на WS, поэтому токен едет субпротоколом
+    `bossman.bearer.<token>` (заголовок, не URL). Отказ — закрытие 1008 до
+    того, как открыта подписка: анонимный клиент не видит ни одного события.
+    """
+    try:
+        _, chosen = await authenticate_websocket(ws, SCOPE_EVENTS)
+    except errors.BossmanError:
+        # 1008 = policy violation; причину не детализируем (не оракул для подбора)
+        await ws.close(code=1008)
+        return
+    await ws.accept(subprotocol=chosen)
     q = events.subscribe()
     try:
         while True:
@@ -188,18 +207,18 @@ class Decision(BaseModel):
     by: str = "ui"
 
 
-@app.get("/approvals")
+@app.get("/approvals", dependencies=[Depends(require_scope(SCOPE_APPROVE))])
 async def list_approvals(status: str = "pending"):
     return await db.fetch("SELECT * FROM approvals WHERE status=$1 ORDER BY id", status)
 
 
-@app.post("/approvals/{approval_id}", dependencies=[Depends(require_core_key)])
+@app.post("/approvals/{approval_id}", dependencies=[Depends(require_scope(SCOPE_APPROVE))])
 async def decide_approval(approval_id: int, body: Decision):
-    """Решение по подтверждению — только с ключом ядра (см. authz.require_core_key).
+    """Решение по подтверждению — только устройство Stage 6 со скоупом approve.
 
     Telegram-вебхук ниже — отдельный вход с собственной проверкой секрета;
-    Stage 6 (/remote/...) — свой вход по токену устройства со скоупом approve.
-    Общее у всех трёх: ни один не пускает решать анонимно.
+    /remote/... — тот же Stage 6 с тем же скоупом. Общее у всех входов: ни один
+    не пускает решать анонимно, и localhost НЕ считается аутентификацией.
     """
     row = await approvals_mod.decide(approval_id, body.approve, body.by)
     if not row:
@@ -233,7 +252,7 @@ async def telegram_webhook(update: dict, request: Request):
 
 # ---------- агенты ----------
 
-@app.get("/agents")
+@app.get("/agents", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def list_agents():
     out = []
     for spec in load_all().values():
@@ -256,7 +275,7 @@ class AgentPatch(BaseModel):
     cloud_policy: str
 
 
-@app.patch("/agents/{name}", dependencies=[Depends(require_core_key)])
+@app.patch("/agents/{name}", dependencies=[Depends(require_scope(SCOPE_ADMIN))])
 async def patch_agent(name: str, body: AgentPatch):
     try:
         spec = set_cloud_policy(name, body.cloud_policy)
@@ -270,7 +289,7 @@ async def patch_agent(name: str, body: AgentPatch):
 
 # ---------- модели ----------
 
-@app.get("/models")
+@app.get("/models", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def list_models():
     """Установленные (из /opt/bossman/models), загруженные сейчас (llama-swap /running),
     среднее заполнение окна и доля кэша по агентам (10.7)."""
@@ -294,7 +313,7 @@ async def list_models():
             "context_stats": ctx_stats}
 
 
-@app.post("/models/{alias}/load")
+@app.post("/models/{alias}/load", dependencies=[Depends(require_scope(SCOPE_ADMIN))])
 async def load_model(alias: str):
     # llama-swap грузит модель при первом запросе к ней; health апстрима — самый дешёвый триггер
     async with httpx.AsyncClient(timeout=900) as client:
@@ -302,7 +321,7 @@ async def load_model(alias: str):
     return {"alias": alias, "status": resp.status_code}
 
 
-@app.post("/models/{alias}/unload")
+@app.post("/models/{alias}/unload", dependencies=[Depends(require_scope(SCOPE_ADMIN))])
 async def unload_model(alias: str):
     # эндпоинт сверить с актуальным README llama-swap (в старых версиях /unload общий)
     async with httpx.AsyncClient(timeout=60) as client:
@@ -312,7 +331,7 @@ async def unload_model(alias: str):
 
 # ---------- расходы ----------
 
-@app.get("/spend")
+@app.get("/spend", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def spend():
     """Локальные токены (бесплатно, для статистики) и облачные по агентам за день/месяц."""
     return {
@@ -333,7 +352,7 @@ async def spend():
 
 # ---------- изменения (лента действий агентов; коммиты/PR — из ATLAS поверх) ----------
 
-@app.get("/changes")
+@app.get("/changes", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def changes(limit: int = 100):
     return await db.fetch(
         """SELECT agent, tool, args, status, approved_by, created_at
@@ -356,7 +375,7 @@ async def _project(slug_or_id: str) -> dict:
     return row
 
 
-@app.post("/projects")
+@app.post("/projects", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def create_project(body: ProjectIn):
     """brief → план и оценка. План уходит на утверждение до любых трат."""
     await db.execute(
@@ -384,12 +403,12 @@ async def _plan_and_register(slug: str, brief: str) -> None:
         events.emit("project.updated", slug=slug, status="failed", reason=str(exc))
 
 
-@app.get("/projects")
+@app.get("/projects", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def list_projects():
     return await db.fetch("SELECT * FROM projects ORDER BY updated_at DESC")
 
 
-@app.post("/projects/{slug}/approve", dependencies=[Depends(require_core_key)])
+@app.post("/projects/{slug}/approve", dependencies=[Depends(require_scope(SCOPE_APPROVE))])
 async def approve_project(slug: str):
     row = await _project(slug)
     await db.execute("UPDATE projects SET status='approved', updated_at=now() WHERE id=$1", row["id"])
@@ -397,7 +416,7 @@ async def approve_project(slug: str):
     return {"slug": row["slug"], "status": "approved"}
 
 
-@app.post("/projects/{slug}/run")
+@app.post("/projects/{slug}/run", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def run_project_ep(slug: str):
     row = await _project(slug)
     if row["status"] not in ("approved", "paused", "preview_gate", "running", "failed"):
@@ -409,7 +428,7 @@ async def run_project_ep(slug: str):
     return {"slug": row["slug"], "status": "running"}
 
 
-@app.post("/projects/{slug}/pause")
+@app.post("/projects/{slug}/pause", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def pause_project(slug: str):
     row = await _project(slug)
     st = State(row["slug"])
@@ -420,7 +439,7 @@ async def pause_project(slug: str):
     return {"slug": row["slug"], "status": "paused"}
 
 
-@app.get("/projects/{slug}/state")
+@app.get("/projects/{slug}/state", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def project_state(slug: str):
     row = await _project(slug)
     st = State(row["slug"])
@@ -430,13 +449,13 @@ async def project_state(slug: str):
     return {"project": row, "state": st.data, "tasks": tasks}
 
 
-@app.get("/projects/{slug}/journal")
+@app.get("/projects/{slug}/journal", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def project_journal(slug: str, lines: int = 100):
     row = await _project(slug)
     return {"journal": journal_tail(row["slug"], lines)}
 
 
-@app.post("/projects/{slug}/tasks/{tid}/retry")
+@app.post("/projects/{slug}/tasks/{tid}/retry", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def retry_project_task(slug: str, tid: str):
     """«Пересобрать этап/задачу»: сбросить в state.json и запустить заново."""
     row = await _project(slug)
