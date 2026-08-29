@@ -21,8 +21,15 @@ def unsubscribe(q: asyncio.Queue) -> None:
 
 
 def emit(kind: str, **data: Any) -> None:
-    msg = json.dumps({"kind": kind, "ts": datetime.now(timezone.utc).isoformat(), **data},
-                     ensure_ascii=False, default=str)
+    # ЭТАП 4–7: подмешиваем текущий бандл correlation (request_id/task_id/run_id/
+    # job_id/device_id), чтобы WS-событие и лог-строка несли одинаковые id.
+    # Явные поля в data имеют приоритет над бандлом.
+    from . import correlation
+    cid = correlation.current()
+    payload = {"kind": kind, "ts": datetime.now(timezone.utc).isoformat()}
+    payload.update(cid)
+    payload.update(data)
+    msg = json.dumps(payload, ensure_ascii=False, default=str)
     for q in list(_subscribers):
         try:
             q.put_nowait(msg)

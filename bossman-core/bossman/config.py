@@ -40,6 +40,11 @@ class Settings:
 
     telegram_bot_token: str = field(default_factory=lambda: _env("TELEGRAM_BOT_TOKEN", ""))
     telegram_chat_id: str = field(default_factory=lambda: _env("TELEGRAM_CHAT_ID", ""))
+    # Секрет вебхука Telegram: задаётся в setWebhook(secret_token=...), Telegram
+    # присылает его в заголовке X-Telegram-Bot-Api-Secret-Token. Без него любой,
+    # кто достучится до порта ядра, мог бы подделать «approve:<id>» и подтвердить
+    # чужое действие. Пустой секрет => вебхук approve/reject запрещён (403).
+    telegram_webhook_secret: str = field(default_factory=lambda: _env("TELEGRAM_WEBHOOK_SECRET", ""))
 
     # уведомление в Telegram, если задача заняла дольше минуты (раздел 5, шаг 6)
     notify_after_seconds: int = int(_env("NOTIFY_AFTER_SECONDS", "60"))

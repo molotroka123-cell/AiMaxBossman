@@ -6,25 +6,75 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hmac
 import json
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import approvals as approvals_mod
-from . import db, events, runner
+from . import db, errors, events, obs, runner
 from .agents import load_all, set_cloud_policy
 from .config import ROOT, settings
+from .lifecycle import registry as _subsystems
 from .projects.plan import State, journal_tail, project_dir
 from .projects.planner import plan_project
 from .projects.runner import run_project
 
 app = FastAPI(title="Bossman Core", version="0.3")
 _background: set[asyncio.Task] = set()
+
+# ЭТАП 4–7: единый рендер ошибок домена (BossmanError + складываемые легаси-
+# исключения → {"error":{code,message,cid}}) и структурный лог с вычисткой секретов.
+obs.configure_logging()
+errors.install_error_handlers(app)
+
+# Подсистемы этапов 4–7 регистрируются здесь (до startup); реестр их и поднимает,
+# и грациозно останавливает. Импорт — ленивый и терпимый: если пакет ещё не
+# подъехал (частичная сборка), ядро всё равно стартует.
+def _register_subsystems() -> None:
+    for modname, factory in (
+        ("bossman.resource_brain", "build_subsystem"),
+        ("bossman.remote_client", "build_subsystem"),
+        ("bossman.search_everything", "build_subsystem"),
+        ("bossman.video_factory", "build_subsystem"),
+    ):
+        try:
+            import importlib
+            mod = importlib.import_module(modname)
+            build = getattr(mod, factory, None)
+            if build is None:
+                continue
+            sub = build()
+            if sub is not None:
+                _subsystems.register(sub)
+        except Exception as exc:  # noqa: BLE001 — подсистема опциональна на этапе сборки
+            obs.get_logger("bossman.api").warning("subsystem register skipped: %s (%s)", modname, exc)
+
+
+def _include_stage_routers() -> None:
+    for modname in (
+        "bossman.resource_brain",
+        "bossman.remote_client",
+        "bossman.search_everything",
+        "bossman.video_factory",
+    ):
+        try:
+            import importlib
+            mod = importlib.import_module(modname)
+            router = getattr(mod, "router", None)
+            if router is not None:
+                app.include_router(router)
+        except Exception as exc:  # noqa: BLE001
+            obs.get_logger("bossman.api").warning("router include skipped: %s (%s)", modname, exc)
+
+
+_register_subsystems()
+_include_stage_routers()
 
 
 def _spawn(coro) -> None:
@@ -40,12 +90,18 @@ async def startup() -> None:
     await db.pool()
     await runner.mark_interrupted()   # после перезагрузки: незавершённое помечено и видно
     _spawn(runner.worker())
+    # ЭТАП 4–7: поднять зарегистрированные подсистемы. Критичная (validate/start
+    # с critical=True) уронит boot; опциональная деградирует, но не мешает старту.
+    await _subsystems.start_all()
 
 
 @app.on_event("shutdown")
 async def shutdown() -> None:
     for t in _background:
         t.cancel()
+    # ЭТАП 4–7: остановить подсистемы в обратном порядке ДО закрытия ядровых
+    # ресурсов (браузер/gateway/context/БД). Каждая stop() идемпотентна.
+    await _subsystems.stop_all()
     # Закрыть браузерные контексты ДО закрытия БД: иначе Chromium остаётся
     # осиротевшим процессом после каждой остановки сервиса. shutdown() у
     # менеджера идемпотентен — если браузер не поднимался, он ничего не делает.
@@ -140,14 +196,26 @@ async def decide_approval(approval_id: int, body: Decision):
 
 
 @app.post("/telegram/webhook")
-async def telegram_webhook(update: dict):
-    """Кнопки да/нет из Telegram (callback_data: approve:<id> / reject:<id>)."""
+async def telegram_webhook(update: dict, request: Request):
+    """Кнопки да/нет из Telegram (callback_data: approve:<id> / reject:<id>).
+
+    Граница безопасности: подтверждения (платежи confirmed_click, cloud_policy=ask,
+    чувствительные submit'ы браузера) нельзя решать без проверки. Telegram
+    присылает секрет вебхука в X-Telegram-Bot-Api-Secret-Token — сверяем его в
+    постоянном времени. Нет настроенного секрета или несовпадение → 403, никакого
+    approvals.decide().
+    """
+    secret = settings.telegram_webhook_secret
+    got = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if not secret or not hmac.compare_digest(secret, got):
+        raise errors.AuthDenied("telegram webhook secret mismatch")
     cb = update.get("callback_query") or {}
     data = cb.get("data") or ""
     if ":" in data:
         action, sid = data.split(":", 1)
-        who = (cb.get("from") or {}).get("username", "telegram")
-        await approvals_mod.decide(int(sid), action == "approve", f"tg:{who}")
+        if action in ("approve", "reject") and sid.isdigit():
+            who = (cb.get("from") or {}).get("username", "telegram")
+            await approvals_mod.decide(int(sid), action == "approve", f"tg:{who}")
     return {"ok": True}
 
 
