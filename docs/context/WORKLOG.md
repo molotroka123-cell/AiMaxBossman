@@ -48,3 +48,10 @@ FILES: bossman/sandbox/runtimes/{__init__,safe}.py, sandbox/trajectory.py, sandb
 RESULT: Реальное исполнение процессов с копией рабочей области, rlimits, OFFLINE через unshare -rn, wall-time; траектория больше не роняет очистку и не воскрешает снесённый каталог; источник рабочей области недоверенный по умолчанию
 TEST: pytest tests/test_sandbox_safe_runtime.py -> 10 passed; всего 275 passed
 NEXT: NEXT.md шаг 2 — egress ALLOWLIST-энфорсмент (proxy/nftables)
+
+2026-08-29T08:15Z
+ACTION: Закрыт fail-closed пробел — OFFLINE без энфорсмента рантайма
+FILES: bossman/sandbox/policy.py, tests/test_sandbox_safe_runtime.py
+RESULT: Если рантайм не умеет отрезать сеть (нет unshare/netns), OFFLINE-заявка отвергается (IsolationUnavailable), а не исполняется с полной сетью под видом OFFLINE
+TEST: pytest tests/test_sandbox_*.py -> 48 passed; всего 276 passed
+NEXT: NEXT.md шаг 2 (ALLOWLIST egress proxy) или шаг 3 (sandbox.* инструменты агента)

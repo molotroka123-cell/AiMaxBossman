@@ -25,8 +25,8 @@ dataset-gate из траекторий.
 - Закрыты аудитные P0/P1 (см. `docs/context/DECISIONS.md`).
 
 ## WHAT WORKS (проверено тестами)
-- `bossman/sandbox` — 37 адверсариальных тестов зелёные.
-- Полный набор `bossman-core`: **265 passed** (2 браузерных требуют
+- `bossman/sandbox` — 48 адверсариальных тестов зелёных (core 13 + security 24 + safe runtime 11).
+- Полный набор `bossman-core`: **276 passed** (2 браузерных требуют
   `BOSSMAN_TEST_CHROMIUM`, см. TEST COMMANDS).
 - Все 5 подсистем этапов 4–8 регистрируются в реестре жизненного цикла:
   `resource_brain, remote_client, search_everything, video_factory, sandbox`.
@@ -96,14 +96,14 @@ memory входит durable-память только как candidate (ещё �
 ## TEST COMMANDS
 ```
 cd bossman-core
-python -m pytest tests/test_sandbox_core.py tests/test_sandbox_security.py -q   # 37
+python -m pytest tests/test_sandbox_core.py tests/test_sandbox_security.py tests/test_sandbox_safe_runtime.py -q   # 48
 CHROME=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome | head -1)
-BOSSMAN_TEST_CHROMIUM="$CHROME" python -m pytest -q                              # 265
+BOSSMAN_TEST_CHROMIUM="$CHROME" python -m pytest -q                              # 276
 ```
 
 ## LATEST TEST RESULTS
-`275 passed` (полный набор, с BOSSMAN_TEST_CHROMIUM). Sandbox: `47 passed`
-(core 13 + security 24 + safe runtime 10).
+`276 passed` (полный набор, с BOSSMAN_TEST_CHROMIUM). Sandbox: `48 passed`
+(core 13 + security 24 + safe runtime 11).
 
 ## KNOWN FAILURES
 Нет падающих тестов. Открытые долги — в разделе «WHAT DOES NOT WORK» и в

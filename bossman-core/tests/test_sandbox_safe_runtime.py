@@ -164,3 +164,15 @@ async def test_argv_string_is_not_shell_interpreted(tmp_path):
     await m.poll(s)
     assert not marker.exists()          # шелл не выполнял строку
     assert s.state == SandboxState.DESTROYED   # spawn упал → FAILED → снос
+
+
+@pytest.mark.asyncio
+async def test_offline_requires_runtime_enforcement(tmp_path, monkeypatch):
+    """OFFLINE обязан энфорситься рантаймом. Если netns/unshare нет — «OFFLINE»
+    был бы фикцией (процесс с полной сетью), поэтому fail closed, а не запуск."""
+    import bossman.sandbox.runtimes.safe as safe_mod
+    monkeypatch.setattr(safe_mod, "_unshare_available", lambda: False)
+    m, rt = _mgr(tmp_path)
+    assert rt.capabilities().supports_offline is False
+    with pytest.raises(errors.IsolationUnavailable):
+        await m.create(_spec(labels={"argv": ["/bin/echo", "x"]}), snap=_snap())

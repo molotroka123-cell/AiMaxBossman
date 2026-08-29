@@ -82,6 +82,13 @@ class PolicyEngine:
 
         # 3) Сеть: OFFLINE по умолчанию. HOSTILE-режим не выпускаем в INTERNET.
         net = spec.network_mode
+        # OFFLINE обязан ЭНФОРСИТЬСЯ рантаймом. Если рантайм не умеет отрезать
+        # сеть (нет netns/unshare), «OFFLINE» был бы фикцией — процесс получил бы
+        # полный доступ. Это тихий даунгрейд, запрещённый fail-closed правилом.
+        if net == NetworkMode.OFFLINE and not caps.supports_offline:
+            raise errors.IsolationUnavailable(
+                f"runtime '{caps.name}' cannot enforce OFFLINE network isolation",
+                extra={"runtime": caps.name})
         if mode == PolicyMode.HOSTILE and net == NetworkMode.INTERNET:
             raise errors.PolicyDenied(
                 "HOSTILE lab may not use INTERNET egress", extra={"network_mode": net.value})
