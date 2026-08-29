@@ -1,8 +1,8 @@
 {
-  "stage": 10,
-  "objective": "Этапы 1-10 закрыты по всему, что выполнимо на этом хосте. Осталось: runsc/KVM на железе (Ai Max) и периодический red-team",
+  "stage": 12,
+  "objective": "Pre-dispatch hardening закрыт: периметр ядра под Stage 6 scopes, AI Lab containment+lease, argv-only на хосте, dev-factory planner/editor через Gateway, CI ядра. Stage 13 Dispatch НЕ начат — нужен аудит владельца.",
   "branch": "claude/bossman-control-v03-43igbk",
-  "head": "aa312d5",
+  "head": "PENDING_PUSH",
   "completed": [
     "общие швы (errors/lifecycle/correlation/obs)",
     "этап 4 resource_brain",
@@ -13,15 +13,20 @@
     "этап 8 red-team: 3 дыры найдены и закрыты (хардлинк, uid ядра, редакция секретов)",
     "этап 10 dev_factory: петля до патча без авто-мержа, LLMPlanner через Gateway, шов редактора",
     "аудит: db fail-fast без Postgres, кроссплатформенный Chromium (снят windows-hang)",
-    "P0/P1 ядра: compact-амнезия, гонка project runner, browser approvals (3 обхода), gateway failover 4xx, telegram webhook"
+    "P0/P1 ядра: compact-амнезия, гонка project runner, browser approvals (3 обхода), gateway failover 4xx, telegram webhook",
+    "P0 core auth: все маршруты ядра под Stage 6 scopes (убран core_api_key)",
+    "P0 approval bypass: decide недостижим без scope approve (доказано счётчиком)",
+    "P0 AI Lab: admin + containment по sandbox_id + release аренды Resource Brain",
+    "P1 argv-only: gitops/media/shell → create_subprocess_exec; планировщик точное имя",
+    "P1 dev-factory: LLMPlanner+GatewayEditor через существующий Gateway",
+    "CI: bossman-core gate (партиции 3.11/3.12), канарейки помечены, pytest-timeout"
   ],
-  "tests": {
-    "full_suite": "480 passed, 2 skipped",
-    "cmd": "cd bossman-core && python -m pytest -q"
-  },
+  "tests": "bossman-core 589 passed / 2 skipped; command-center 430 passed / 2 skipped; secret-scan PASS",
   "next_actions": [
-    "1 runsc//dev/kvm на Ai Max — блокер: на этом хосте нет бинаря и нет /dev/kvm",
-    "2 периодический red-team после каждого крупного изменения (не разово)"
+    "PRE-DISPATCH аудит владельца (FINAL_HARDENING_STATUS.md); Stage 13 не начинать",
+    "runsc/KVM на железе — сильные рантаймы Stage 8 (BLOCKED_BY_HOST)",
+    "LOCAL-LIVE прогон dev-factory с живым Gateway и моделью",
+    "периодический red-team на новом HEAD"
   ],
   "security_gates": [
     "OFF=OFF (BOSSMAN_SANDBOX_ENABLED по умолчанию выключен)",
@@ -37,5 +42,5 @@
   "known_failures": [
     "FAIL-001..003 см. docs/context/FAILURES.md"
   ],
-  "last_updated": "2026-08-29T09:32:31Z"
+  "last_updated": "2026-08-29T18:35Z"
 }

@@ -1,37 +1,32 @@
 # NEXT — исполняемые шаги
 
-Всё, что можно было закрыть на этом хосте, закрыто. Осталось ровно два пункта:
-один упирается в железо, второй — постоянная практика.
+Периметр и хостовое исполнение закрыты (см. FINAL_HARDENING_STATUS.md). Осталось:
 
-## 1. runsc / MicroVM на живом хосте  (БЛОКЕР: железо)
-Проверено на этом хосте: `runsc` не установлен, `/dev/kvm` отсутствует
-(`ls /dev/kvm` → нет файла). Поэтому сильные рантаймы протестированы только по
-пути ОТКАЗА (fail closed), что само по себе правильно, но недостаточно.
+## 1. PRE-DISPATCH АУДИТ ВЛАДЕЛЬЦА (перед Stage 13)
+Stage 13 Dispatch НЕ начат намеренно. Нужен отдельный аудит/одобрение владельца
+по FINAL_HARDENING_STATUS.md. Проверить особенно: branch protection (required
+checks) и политику Tailscale (наружу только /remote).
 
-Что сделать на Ai Max (Linux с KVM):
-1. Установить gVisor (`runsc`) и/или обеспечить `/dev/kvm` + лаунчер MicroVM.
-2. `python -m pytest tests/test_sandbox_strong_runtimes.py -q` — сейчас проверяет
-   только отказ; после установки `GvisorRuntime().capabilities().tiers` должен
-   содержать CONTAINER, `MicroVMRuntime()` — MICROVM.
-3. Прогнать реальную задачу в режимах DEVELOPER и HOSTILE: они должны
-   ИСПОЛНЯТЬСЯ, а не отвергаться с `IsolationUnavailable`.
-4. Барьер egress (`netguard.py`) уже наследуется этими рантаймами — проверить,
-   что ALLOWLIST через них работает и прямой сокет по-прежнему блокируется.
+## 2. runsc / MicroVM на живом хосте  (БЛОКЕР: железо)
+Раннер без runsc/KVM: сильные рантаймы Stage 8 протестированы только по пути
+ОТКАЗА (fail closed). На Ai Max (Linux+KVM): установить gVisor / обеспечить
+/dev/kvm, прогнать `tests/test_sandbox_strong_runtimes.py`, затем реальную
+задачу в DEVELOPER/HOSTILE (должны ИСПОЛНЯТЬСЯ), проверить egress-барьер.
 
-## 2. Периодический red-team (постоянная практика)
-Не разовая задача. После каждого крупного изменения повторять атаки, а не
-доверять зелёным тестам: в этой сессии дважды оказывалось, что «закрытая» дыра
-жива (см. FAIL-001 в `FAILURES.md`).
+## 3. LOCAL-LIVE dev-factory
+LLMPlanner+GatewayEditor подключены, но живьём (реальный Gateway+модель, реальная
+правка+тест в песочнице) не гонялись. Прогнать одну задачу end-to-end на хосте с
+живым Gateway; убедиться, что патч собирается и НЕ публикуется автоматически.
 
-Существующие пробы расширять, а не заменять:
-`tests/test_sandbox_redteam_findings.py`, `tests/test_sandbox_toolbox.py`,
-`tests/test_sandbox_egress_lockdown.py`, `tests/test_dev_factory.py`.
-
-Цели, которые стоит атаковать заново после правок: обход approvals, побег из
-рабочей копии, ArtifactGate (symlink/хардлинк/архив), утечка секрета в
-траекторию/датасет/патч, обход egress-барьера, зависшая аренда, гонки автомата.
+## 4. Периодический red-team (постоянная практика)
+После каждого крупного изменения повторять атаки, а не доверять зелёным тестам
+(см. FAIL-001 в FAILURES.md). Новые цели: обход scope-гейта, WS-подписка без
+events, containment AI Lab (traversal/symlink), argv-only (нет shell-инъекции в
+gitops/media/shell), editor (побег из рабочей копии).
 
 ## Команды проверки
 ```
-cd bossman-core && python -m pytest -q            # 480 passed, 2 skipped
+cd bossman-core && python -m pytest -q --timeout=180 --timeout-method=thread   # 589 passed, 2 skipped
+cd command-center && python -m pytest -q --timeout=180 --timeout-method=thread  # 430 passed, 2 skipped
+python tools/ci_secret_scan.py                                                  # PASS
 ```

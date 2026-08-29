@@ -38,7 +38,9 @@ cd /opt/bossman/bossman-infra
 # в .env добавить: COMPOSE_FILE=compose.yaml:compose.server.yaml:../bossman-core/compose.core.yaml
 #                  CORE_DIR=../bossman-core
 docker compose up -d --build
-sudo tailscale serve --bg --https=9443 http://127.0.0.1:8700   # Bossman Control с телефона
+# наружу — ТОЛЬКО клиентская поверхность /remote (см. docs/deployment/TAILSCALE_V1_POLICY.md);
+# сырое ядро наружу не публикуем. Доступ всё равно под Stage 6 scopes.
+sudo tailscale serve --bg --https=9443 --set-path=/remote http://127.0.0.1:8700/remote
 ```
 
 **Разработка на ноутбуке** (без GPU, инфраструктура — profiles=пусто или CPU-тест):

@@ -148,3 +148,12 @@ RESULT: (1) POST /approvals/{id}, PATCH /agents/{name}, POST /projects/{slug}/ap
 TEST: pytest tests -q -> 507 passed, 2 skipped (было 494/2); живая проверка на api.app: аноним 401, неверный ключ 401, верный ключ доходит до обработчика
 SECURITY: подтверждение больше нельзя решить анонимно с порта ядра; у агента больше нет неизолированного исполнителя по умолчанию
 NEXT: без изменений — runsc/KVM на железе и периодический red-team
+
+2026-08-29T18:35Z
+ACTION: Pre-dispatch hardening — периметр ядра, AI Lab, хостовое исполнение, dev-factory, CI
+FILES: bossman-core/bossman/perimeter.py (новый), api.py, ai_lab/{routes,export,__init__}.py, dev_factory/{editor(новый),subsystem,factory,planner,routes}.py, sandbox/routes.py, resource_brain/routes.py, video_factory/routes.py, search_everything/router.py, toolkit/{gitops,media,shell}.py, config.py, obs.py, ui/index.html, .env.example, README.md; tests/{test_core_auth_perimeter,test_ai_lab_containment,test_host_execution_argv,test_dev_factory_editor,test_dev_factory_wiring}.py (новые) + пометки канареек; .github/workflows/{bossman-core-ci(новый),command-center-ci}.yml; both pyproject (pytest-timeout); docs/context/{CORE_AUTH_MATRIX,FINAL_HARDENING_STATUS}.md, docs/deployment/TAILSCALE_V1_POLICY.md
+RESULT: единый Stage 6 auth-слой на всех маршрутах ядра (убран отдельный core_api_key); approvals/decide недостижим без scope approve (доказано счётчиком); AI Lab admin+containment по sandbox_id+release аренды; argv-only на gitops/media/shell; планировщик точное имя исполняемого; dev-factory planner+editor подключены через существующий Gateway; CI ядра добавлен, канарейки помечены поштучно, зависший тест падает по pytest-timeout
+TEST: bossman-core 589 passed/2 skipped (было 494/2); command-center — прогон в фоне; секрет-скан PASS
+SECURITY: localhost НЕ аутентификация (за tailscale serve всё с loopback); WS-токен субпротоколом, не в URL; наружу только /remote (TAILSCALE_V1_POLICY)
+BLOCKED_BY_HOST: runsc/KVM (сильные рантаймы Stage 8), живой Gateway/модель (LOCAL-LIVE прогон правки), live OpenRouter
+NEXT: только pre-dispatch аудит владельца; Stage 13 НЕ начинать
