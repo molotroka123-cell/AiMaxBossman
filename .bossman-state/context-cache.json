@@ -1,8 +1,8 @@
 {
-  "stage": 8,
-  "objective": "Stage 8 закрыт по плану; остались: runsc/KVM в железе, блокировка прямых сокетов мимо прокси, red-team Stage 8, toolbox внутри песочницы",
+  "stage": 10,
+  "objective": "Этапы 1-10 в ветке; Stage 8 прошёл red-team (3 дыры закрыты), Stage 10 Dev Factory даёт патч без авто-мержа. Осталось: runsc/KVM в железе, toolbox внутри песочницы, реальный планировщик через Gateway",
   "branch": "claude/bossman-control-v03-43igbk",
-  "head": "55508b7",
+  "head": "7d424dc",
   "completed": [
     "shared seams (errors/lifecycle/correlation/obs)",
     "stage4 resource_brain",
@@ -20,7 +20,10 @@
     "stage8 proxy env в процессе песочницы",
     "stage8 инструменты выданы агенту coder",
     "audit fix: db fail-fast без Postgres",
-    "audit fix: кроссплатформенный поиск Chromium (снят windows-hang)"
+    "audit fix: кроссплатформенный поиск Chromium (снят windows-hang)",
+    "stage8 red-team: 3 дыры закрыты",
+    "stage8 egress lockdown (nftables+uid)",
+    "stage10 dev_factory"
   ],
   "active_files": [
     "bossman-core/bossman/sandbox/*.py",
@@ -36,15 +39,14 @@
     "FAIL-003 workflow reconcile/limit -> читать journal.jsonl"
   ],
   "tests": {
-    "full_suite": "354 passed (без env)",
-    "sandbox": "85 passed",
+    "full_suite": "432 passed, 2 skipped",
     "cmd": "python -m pytest -q"
   },
   "next_actions": [
-    "1 runsc//dev/kvm на Linux-хосте (Ai Max)",
-    "2 netns+nftables: закрыть прямые сокеты мимо egress-прокси (Linux)",
-    "3 повторный red-team Stage 8",
-    "4 toolbox внутри песочницы"
+    "1 runsc//dev/kvm на живом хосте (блокер: нет бинарей)",
+    "2 toolbox внутри песочницы",
+    "3 реальный планировщик Dev Factory через Gateway",
+    "4 периодический red-team после каждого крупного изменения"
   ],
   "security_gates": [
     "OFF=OFF (BOSSMAN_SANDBOX_ENABLED default off)",
@@ -54,5 +56,5 @@
     "artifact gate: traversal/symlink/archive/size/exec/secret-scan",
     "трактория без секретов (obs.redact)"
   ],
-  "last_updated": "2026-08-29T08:44:03Z"
+  "last_updated": "2026-08-29T09:21:18Z"
 }

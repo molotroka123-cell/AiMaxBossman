@@ -1,134 +1,83 @@
-# SESSION HANDOFF — Stage 8 (AI Lab Sandbox)
+# SESSION HANDOFF — Bossman Core (этапы 1–10)
 
-> Для следующей модели (Claude Opus 5). Этот файл самодостаточен: продолжай **без**
-> исходного чата. Работай через точечный поиск / git diff / этот handoff, не
-> перечитывай весь repo и весь ZIP.
-
-## CURRENT OBJECTIVE
-Stage 8 (AI Lab Sandbox) закрыт по всем запланированным пунктам: ядро,
-SAFE-рантайм, egress-барьер + проброс прокси в процесс, инструменты агента
-(выданы `coder`), персистентный Secret Broker, адаптеры сильной изоляции,
-dataset gate. Остаётся то, что нельзя сделать на этом хосте или требует
-отдельного захода: проверка runsc/KVM «в железе», блокировка прямых сокетов
-мимо прокси, toolbox ВНУТРИ песочницы и повторный red-team Stage 8.
+> Самодостаточно: продолжай **без** исходного чата. Работай точечным поиском и
+> git diff, не перечитывай весь repo.
 
 ## CURRENT HEAD
 - ветка: `claude/bossman-control-v03-43igbk`
-- HEAD: `55508b7` (fix: отказ без Postgres + кроссплатформенный Chromium). Всё запушено.
-- baseline этой большой сессии: `ddf2259`.
-
-## WHAT EXISTS (написано в этой сессии)
-Стадии 1–7 уже были интегрированы ранее. **В этой сессии добавлено:**
-- **Общие швы** (`bossman/errors.py`, `lifecycle.py`, `correlation.py`, `obs.py`) —
-  таксономия ошибок, реестр подсистем, correlation-id, JSON-лог с вычисткой секретов.
-- **Этапы 4–7** доведены и слиты: `resource_brain/`, `search_everything/`,
-  `remote_client/`, `video_factory/` (+ `tests/test_stage4_7.py`).
-- **Этап 8 sandbox** (`bossman/sandbox/`) — см. ARCHITECTURE ниже.
-- Закрыты аудитные P0/P1 (см. `docs/context/DECISIONS.md`).
-
-## WHAT WORKS (проверено тестами)
-- `bossman/sandbox` — 79 адверсариальных тестов зелёных (core 12 + security 24 +
-  safe runtime 11 + tools/broker 8 + dataset 8 + strong runtimes 5 + egress 10 + прочее).
-- Полный набор `bossman-core`: **354 passed** БЕЗ переменных окружения —
-  Chromium ищется сам (linux/windows/macOS). Раньше на linux было 2 failed,
-  на windows полный прогон висел.
-- Все 5 подсистем этапов 4–8 регистрируются в реестре жизненного цикла:
-  `resource_brain, remote_client, search_everything, video_factory, sandbox`.
-
-## WHAT DOES NOT WORK / НЕ СДЕЛАНО (следующие шаги)
-- **SAFE rootless рантайм ГОТОВ** (`sandbox/runtimes/safe.py`) — реальные процессы,
-  копия рабочей области, rlimits, OFFLINE через `unshare -rn`, wall-time.
-  **Нет** адаптеров gVisor-класса и MicroVM (CubeSandbox — кандидат, см.
-  `_staging/s8/stage8/RUNTIME_SELECTION.md`). Fail-closed уже работает: адаптер
-  объявляет `RuntimeCapabilities.tiers`, политика отвергает недостижимый tier
-  (проверено `test_hostile_policy_rejected_by_safe_runtime`).
-- **Сильные рантаймы не проверены «в железе»**: `GvisorRuntime`/`MicroVMRuntime`
-  написаны и честно определяют возможности по наличию `runsc` / `/dev/kvm`, но на
-  этом хосте ни того, ни другого нет, поэтому реальный запуск под ними не
-  прогонялся — только fail-closed путь (отказ). Нужен хост с runsc/KVM.
-- **Egress**: ALLOWLIST энфорсится CONNECT-прокси (`sandbox/egress.py`), адрес
-  пробрасывается процессу как `http(s)_proxy/all_proxy` с пустым `NO_PROXY`.
-  НО прямые сокеты мимо прокси пока НЕ заблокированы — нужен netns+nftables
-  redirect либо контейнерный рантайм с сетью только через прокси. Именно поэтому
-  `SafeRuntime.supports_allowlist=False`, и ALLOWLIST через него отвергается.
-- **Toolbox внутри песочницы** (shell/git/files/browser как инструменты самой
-  песочницы) — не начат; снаружи есть `sandbox.*` инструменты агента.
-- Sandbox-инструменты выданы агенту `coder` (`agents/coder/agent.yaml`),
-  `sandbox.create`/`sandbox.run` — с `: confirm`. Остальным агентам НЕ выданы.
-- Stage 8 **не проходил повторный red-team** (в прошлом аудите 7 агентов упали по
-  лимиту сессии).
-
-## FILES CHANGED (Stage 8)
-`bossman/sandbox/{__init__,models,policy,runtime,resources,network,secrets,artifacts,trajectory,manager,subsystem,routes}.py`,
-`bossman/sandbox/{dataset,egress,tools}.py`,
-`bossman/sandbox/runtimes/{__init__,safe,strong}.py`,
-`tests/test_sandbox_{safe_runtime,tools_and_broker,dataset_gate,strong_runtimes,egress}.py`,
-`bossman/errors.py` (+6 кодов), `bossman/api.py` (регистрация подсистемы),
-`tests/test_sandbox_core.py`, `tests/test_sandbox_security.py`.
-
-## ARCHITECTURE (bossman/sandbox)
-Control plane, всё через `SandboxManager`:
-- `models.py` — `SandboxState` (12 состояний) + единственный граф переходов
-  `_TRANSITIONS`; `SandboxSpec/Policy/Session`, `PolicyMode{SAFE,DEVELOPER,CONNECTED,
-  HOSTILE}`, `NetworkMode{OFFLINE,ALLOWLIST,INTERNET}`, `RiskLevel{LOW,MEDIUM,HIGH,
-  HOSTILE}`, `IsolationTier{ROOTLESS,CONTAINER,MICROVM}`, `RISK_MIN_ISOLATION`,
-  `POLICY_MIN_ISOLATION`, `ResourceRequest`, `RuntimeCapabilities`, `SecretGrant`,
-  `Artifact`.
-- `policy.py` — `RiskEngine.assess(spec)`; `PolicyEngine.resolve(spec,risk,caps)` →
-  `SandboxPolicy`, fail-closed (`IsolationUnavailable`/`PolicyDenied`).
-- `runtime.py` — `SandboxRuntime` Protocol + `FakeRuntime` (сценарии в
-  `spec.labels["fake_scenario"]`).
-- `resources.py` — `ResourceLeaseAdapter` поверх `bossman.resource_brain.BRAIN`
-  (reserve/release, double-release safe).
-- `network.py` — `NetworkGuard.decide(host,policy,port)` → `NetDecision`.
-- `secrets.py` — `InMemorySecretBroker`, `PostgresSecretBroker` (материал секрета
-  в БД не хранится; резолвится control-plane'ом на redeem).
-- `egress.py` — `EgressProxy`: CONNECT-туннель, default deny через NetworkGuard,
-  в OFFLINE не поднимается; менеджер стартует/останавливает его.
-- `dataset.py` — `DatasetGate`: sanitize→validate→CANDIDATE→human gate;
-  `training_samples()` бросает PermissionError без явного одобрения человека.
-- `tools.py` — `sandbox.create/run/status/collect/destroy` в общем REGISTRY;
-  create/run под approval, argv только массивом, collect через ArtifactGate.
-- `runtimes/safe.py` — SAFE rootless; `runtimes/strong.py` — Gvisor/MicroVM
-  (tiers по реальному наличию runsc//dev/kvm).
-- `artifacts.py` — `ArtifactGate.inspect(rel)` / `.safe_archive_members(path)`.
-- `trajectory.py` — `TrajectoryRecorder.record(kind, **data)` (redacted).
-- `manager.py` — `SandboxManager.create/start/poll/freeze/cancel/destroy/recover`,
-  `check_network`, `grant_secret`, `artifact_gate`.
-- `subsystem.py` — `SandboxSubsystem` (`MANAGER` синглтон, OFF=OFF на start()).
-- `__init__.py` — `sandbox_enabled()` (env `BOSSMAN_SANDBOX_ENABLED`, дефолт OFF),
-  `build_subsystem()`, `router`.
-
-## ACTIVE DECISIONS
-См. `docs/context/DECISIONS.md`. Кратко: переиспользуем Resource Brain (Этап 4),
-Gateway (Этап 3), Context/Memory (Этап 2.222) — второго не заводим. Sandbox
-memory входит durable-память только как candidate (ещё не реализовано).
-
-## SECURITY BOUNDARIES (non-negotiable, НЕ ослаблять)
-1. OFF значит OFF. 2. Сеть по умолчанию OFFLINE. 3. Никакого host docker.sock.
-4. Никаких сырых прод-секретов в песочнице (только брокер). 5. Fail closed на
-недостижимой изоляции. 6. Прод-ФС не монтируется как writable. 7. Лимиты ресурсов
-через Resource Brain. 8. Approvals остаются над песочницей. 9. Прод браузер-профиль
-не переиспользуется. 10. Прод-эндпоинты private-first. Полный список:
-`_staging/s8/NON_NEGOTIABLES.md`.
-
-## TEST COMMANDS
-```
-cd bossman-core
-python -m pytest tests/test_sandbox_*.py -q                                       # 85
-python -m pytest -q                                                              # 354
-```
+- HEAD: `7d424dc`. Всё запушено в origin.
+- В ветке параллельно работают другие воркеры (Stage 9 e2e, `ai_lab`, openrouter,
+  Stage 11/12). Перед работой делай fetch+merge: конфликты бывают в общем списке
+  подсистем `bossman/api.py` и в `docs/context/WORKLOG.md` (журнал — дописываемый,
+  при конфликте сохраняй ОБЕ стороны).
 
 ## LATEST TEST RESULTS
-`354 passed` (полный набор, без переменных окружения). Sandbox: `85 passed`.
+`432 passed, 2 skipped` — весь `bossman-core`, БЕЗ переменных окружения
+(Chromium ищется сам через `tests/browser_support.py`).
 
-## KNOWN FAILURES
-Нет падающих тестов. Закрыто по аудиту 29.08: Core без Postgres теперь отдаёт
-DEPENDENCY_UNAVAILABLE(503) с подсказкой вместо сырого трейса; браузерные тесты
-находят Chromium кроссплатформенно (`tests/browser_support.py`), поэтому полный
-прогон на Windows больше не виснет. Открытые долги — в разделе «WHAT DOES NOT WORK» и в
-`docs/context/NEXT.md`. Незакрытый долг вне Stage 8: gateway request/run
-correlation-logging (P2) и context_engine O(N) vector scan (P2, масштаб).
+```
+cd bossman-core
+python -m pytest -q                       # 432 passed, 2 skipped
+python -m pytest tests/test_sandbox_*.py -q
+python -m pytest tests/test_dev_factory.py -q
+```
 
-## NEXT EXACT ACTIONS
-См. `docs/context/NEXT.md` — там пронумерованный исполняемый список.
+## ЧТО РАБОТАЕТ
+Подсистемы в реестре жизненного цикла (все `critical=False`, ленивая регистрация
+в `bossman/api.py`): `resource_brain`, `remote_client`, `search_everything`,
+`video_factory`, `sandbox`, `dev_factory` (+ `ai_lab` роутер от другого воркера).
+
+- **Этап 4 Resource Brain** — аренды памяти закрывают OOM-race, единый пул (VRAM
+  как претензия, не суммируется).
+- **Этап 5 Search** — поверх `context_engine`, второго RAG нет, секреты не
+  индексируются, sensitivity-gate на выдаче.
+- **Этап 6 Remote Client** — устройства в Postgres, scope на каждом роуте,
+  токены хешированы (показ один раз), аварийный lock fail-closed.
+- **Этап 7 Video Factory** — возобновляемая, под допуском, ffmpeg только argv,
+  дубли не перезаписываются, браузерный провайдер стопается на captcha.
+- **Этап 8 Sandbox** — см. ниже, прошёл red-team.
+- **Этап 10 Dev Factory** — `bossman/dev_factory/`, петля до ПАТЧА без
+  авто-мержа; подробности в `docs/context/STAGE10_STATUS.md`.
+
+## ЭТАП 8 — что закрыто и ЧЕМ доказано
+- **OFF значит OFF**: `BOSSMAN_SANDBOX_ENABLED` по умолчанию выключен.
+- **Fail closed**: риск и режим задают минимальный `IsolationTier`; недостижимый
+  tier → `IsolationUnavailable`, без тихого даунгрейда. OFFLINE без энфорсмента
+  рантайма тоже отвергается.
+- **Egress**: ALLOWLIST реально энфорсится — CONNECT-прокси (`egress.py`) плюс
+  **принудительный барьер** (`netguard.py`): процесс идёт под выделенным uid, а
+  nftables по `meta skuid` режет весь трафик кроме прокси. Проверено живой
+  пробой: прямой сокет → BLOCKED, через прокси → CONNECTED. Правила сносятся
+  вместе с песочницей.
+- **Red-team пройден** (18 проб). Найдены и закрыты ТРИ дыры — регрессы в
+  `tests/test_sandbox_redteam_findings.py`:
+  - хардлинк проходил ArtifactGate (эксфильтрация любого файла хоста);
+  - песочница шла под uid ядра = root (сброс прав был привязан к наличию прокси);
+  - секрет с дефисами внутри токена и поле `key` проходили редакцию.
+
+## ЧТО НЕ СДЕЛАНО (упирается в железо/следующий заход)
+- **runsc / MicroVM не проверены «в железе»**: на хосте нет `runsc` и нет
+  `/dev/kvm` (проверено). Адаптеры написаны и честно определяют возможности,
+  протестирован только путь ОТКАЗА. Нужен хост с runsc/KVM.
+- **Toolbox ВНУТРИ песочницы** (shell/git/files/browser как её собственные
+  инструменты) — не начат. Браузер там обязан использовать отдельный профиль.
+- **Dev Factory**: реальный планировщик на модели не подключён (есть контракт
+  `Planner` + `FakePlanner`); `executor.edit()` — шов под модель, сам ничего не
+  пишет, чтобы пустой прогон не выдавал себя за работу.
+- Вне этапов: `context_engine` делает O(N)-скан векторов (P2, масштаб).
+
+## ГРАНИЦЫ БЕЗОПАСНОСТИ (НЕ ослаблять)
+1. OFF=OFF. 2. Сеть по умолчанию OFFLINE. 3. Никакого host docker.sock.
+4. Никаких сырых прод-секретов в песочнице — только брокер. 5. Fail closed на
+недостижимой изоляции. 6. Прод-ФС не writable-монтируется. 7. Лимиты через
+Resource Brain. 8. Approvals ВЫШЕ песочницы и выше Dev Factory. 9. Прод
+браузер-профиль не переиспользуется. 10. Прод-эндпоинты private-first.
+11. Сырые логи → обучение запрещено (dataset gate). 12. Память из песочницы —
+только кандидат. Полный список: `_staging/s8/NON_NEGOTIABLES.md`.
+
+**Важное правило работы:** не объявляй security-фикс закрытым без повторной
+атаки на новый HEAD. Зелёный тест ≠ закрытая дыра (см. FAIL-001 в FAILURES.md).
+
+## СЛЕДУЮЩИЕ ШАГИ
+`docs/context/NEXT.md` — пронумерованный исполняемый список.
+Решения — `DECISIONS.md`, провалы — `FAILURES.md`, журнал — `WORKLOG.md`.
