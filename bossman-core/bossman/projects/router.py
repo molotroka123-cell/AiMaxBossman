@@ -21,7 +21,7 @@ class Route:
 
 
 def load_registry() -> dict:
-    return yaml.safe_load(settings.tools_registry.read_text()) or {}
+    return yaml.safe_load(settings.tools_registry.read_text(encoding="utf-8")) or {}
 
 
 def choose(capability: str, *, private: bool = False, clip_seconds: float = 0.0,

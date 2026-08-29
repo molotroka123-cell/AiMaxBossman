@@ -161,6 +161,18 @@ def _project_lock_key(slug: str) -> int:
     return h - (1 << 32) if h >= (1 << 31) else h  # в диапазон int4
 
 
+def _reconcile_external_status(slug: str, state: State) -> None:
+    """После долгого ожидания (генерация, проверка, аппрувал) перечитываем
+    state.json с диска. «Стоп» с Пульта мог записать статус 'paused', пока
+    раннер ждал: устаревший in-memory снимок со статусом 'running' не должен
+    перезатереть его при следующем save() и не должен начинать следующую
+    платную задачу."""
+    disk = State(slug)
+    if disk.data.get("status") == "paused":
+        state.data = disk.data          # дисковая правда вместо нашего снимка
+        raise ProjectPaused("пауза по запросу пользователя")
+
+
 async def run_project(slug: str) -> None:
     """Единственный писатель на проект. Две параллельные попытки одного slug
     (два вызова API, API+CLI, повтор при живом запуске) раньше выполняли каждую
@@ -199,8 +211,7 @@ async def _run_project_locked(slug: str) -> None:
 
     try:
         for t in plan.tasks:
-            if State(slug).data.get("status") == "paused":     # «стоп» с Пульта
-                raise ProjectPaused("пауза по запросу пользователя")
+            _reconcile_external_status(slug, state)            # «стоп» с Пульта
             if state.is_done(t.id):
                 continue                                        # готовое не переделывается
             if prev_stage and t.stage != prev_stage:
@@ -224,6 +235,7 @@ async def _run_project_locked(slug: str) -> None:
                 decision = await approvals.wait(approval_id)
                 if decision["status"] != "approved":
                     raise ProjectPaused("превью-гейт: остановлено пользователем")
+                _reconcile_external_status(slug, state)
                 state.data["preview_gate_passed"] = True
                 state.save()
                 await db.execute("UPDATE projects SET status='running' WHERE slug=$1", slug)
@@ -231,6 +243,7 @@ async def _run_project_locked(slug: str) -> None:
             route = choose(t.tool, clip_seconds=float(t.params.get("seconds", 0) or 0),
                            total_clips=sum(1 for x in plan.tasks if x.is_clip),
                            budget_left=(budget - state.data["spent"]) if budget else None)
+            _reconcile_external_status(slug, state)             # пауза могла прийти во время сводки этапа
             state.mark(t.id, "running")
             await _db_task_update(slug, t, "running")
 
@@ -238,9 +251,11 @@ async def _run_project_locked(slug: str) -> None:
             artifacts: list[str] = []
             for attempt in range(1, MAX_RETRIES + 2):           # 1 попытка + 2 перегенерации
                 artifacts, cost = await _execute(slug, t, route, state)
+                _reconcile_external_status(slug, state)         # пауза во время долгой генерации
                 state.mark(t.id, "running", cost=cost)
                 await _db_task_update(slug, t, "running", cost)
                 passed, notes = await _check(slug, t, artifacts, attempt)
+                _reconcile_external_status(slug, state)         # пауза во время проверки — не перегенерировать платно
                 if passed:
                     break
                 journal_append(slug, f"[{t.stage}] {t.name}: проверка FAIL (попытка {attempt}): {notes[:150]}")
@@ -255,6 +270,7 @@ async def _run_project_locked(slug: str) -> None:
                 decision = await approvals.wait(approval_id)
                 if decision["status"] != "approved":
                     raise ProjectPaused(f"задача {t.id} отклонена после проверок")
+                _reconcile_external_status(slug, state)
             state.mark(t.id, "done", artifacts=artifacts)
             await _db_task_update(slug, t, "done")
             if t.is_clip:
@@ -263,6 +279,7 @@ async def _run_project_locked(slug: str) -> None:
 
         if prev_stage:
             await _stage_summary(slug, prev_stage)
+        _reconcile_external_status(slug, state)                 # пауза во время финальной сводки
         state.data["status"] = "done"
         state.save()
         await db.execute("UPDATE projects SET status='done', spent=$2, updated_at=now() WHERE slug=$1",

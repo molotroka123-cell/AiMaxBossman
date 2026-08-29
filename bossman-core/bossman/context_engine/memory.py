@@ -52,8 +52,41 @@ class MemoryManager:
                        source_refs=source_refs or [],created_at=now,updated_at=now,
                        last_verified_at=now if verification else "",metadata=meta)
         self._detect_conflicts(m)
+        self._merge_durable(m)
         for p in self.plugins: p.write_candidate(m)
         return m
+
+    # Durable-статусы: повторная дистилляция того же текста не вправе понижать
+    # запись до CANDIDATE и затирать её provenance (verification, supersession,
+    # contradiction). Иначе promoted-решение исчезает из выборки ACTIVE/DISPUTED.
+    _DURABLE_STATUSES=(MemoryStatus.ACTIVE,MemoryStatus.DISPUTED,MemoryStatus.SUPERSEDED)
+
+    def _merge_durable(self,m: MemoryRecord) -> None:
+        """Upsert поверх уже продвинутой записи сохраняет её статус и provenance:
+        status/last_verified_at/supersedes/contradicted_by — существующие,
+        source_refs — объединение, confidence/importance — max(старое, новое).
+        Новый memory_id (настоящий кандидат) не затрагивается."""
+        row=self.store.db.execute("SELECT * FROM memories WHERE memory_id=?",(m.memory_id,)).fetchone()
+        if not row: return
+        old=self.store._row_memory(row)
+        if old.status not in self._DURABLE_STATUSES: return
+        m.status=old.status
+        m.last_verified_at=old.last_verified_at or m.last_verified_at
+        m.supersedes=list(dict.fromkeys([*old.supersedes,*m.supersedes]))
+        m.contradicted_by=list(dict.fromkeys([*old.contradicted_by,*m.contradicted_by]))
+        m.source_refs=list(dict.fromkeys([*old.source_refs,*m.source_refs]))
+        m.confidence=max(old.confidence,m.confidence)
+        m.importance=max(old.importance,m.importance)
+        if old.created_at: m.created_at=old.created_at
+        prov=dict(m.metadata.get("provenance") or {})
+        old_prov=dict(old.metadata.get("provenance") or {})
+        prov["source"]=list(dict.fromkeys([*(old_prov.get("source") or []),*(prov.get("source") or [])]))
+        prov["confidence"]=m.confidence
+        if old_prov.get("verification") and not prov.get("verification"):
+            prov["verification"]=old_prov["verification"]
+        if old_prov.get("timestamp"): prov["timestamp"]=old_prov["timestamp"]
+        if old_prov.get("content_hash"): prov["content_hash"]=old_prov["content_hash"]
+        m.metadata["provenance"]=prov
 
     # ---- раздельные классы памяти (kind-namespaces, не один JSON) ----
     def fact(self, text: str, **kw) -> MemoryRecord: return self.candidate(MemoryKind.FACT, text, **kw)
