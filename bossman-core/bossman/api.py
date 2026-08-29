@@ -66,6 +66,7 @@ def _include_stage_routers() -> None:
         "bossman.video_factory",
         "bossman.sandbox",
         "bossman.dev_factory",
+        "bossman.ai_lab",
     ):
         try:
             import importlib

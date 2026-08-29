@@ -76,6 +76,24 @@ async def test_probe_chat_and_tools(env, monkeypatch):
     assert tools_row["advertised"] is True and tools_row["verified"] is True
 
 
+async def test_connect_and_sync_never_infer(env, monkeypatch):
+    """Stage 9: Connect/catalog/TTL-cache не делают НИ ОДНОГО inference-вызова
+    в OpenRouter — только GET /models и GET /key."""
+    _patch_openrouter_transport(monkeypatch)
+    prov = await _openrouter_provider(env)
+    from tests.v2 import fake_provider_app as fpm
+    fpm.requests.clear()                          # только вызовы этого теста
+    await env.client.post(f"/api/openrouter/{prov['id']}/connect")
+    await env.client.post(f"/api/openrouter/{prov['id']}/sync")
+    await env.client.post(f"/api/openrouter/{prov['id']}/sync")   # из кэша
+    await env.client.get(f"/api/openrouter/{prov['id']}/catalog")
+    from tests.v2 import fake_provider_app as fpm
+    hosts = [r["host"] for r in fpm.requests]
+    assert any("router" in h for h in hosts)       # запросы к fake-роутеру были
+    paths = [r["path"] for r in fpm.requests if "router" in r["host"]]
+    assert all(not p.endswith("/chat/completions") for p in paths), paths
+
+
 async def test_sync_without_key_422(env):
     prov = (await env.client.post("/api/providers", json={
         "name": "openrouter-nokey", "kind": "openai_compat",

@@ -19,7 +19,7 @@ def _journal(ctx: ToolContext):
 async def log(args: dict, ctx: ToolContext) -> ToolResult:
     p = _journal(ctx)
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
-    with p.open("a") as f:
+    with p.open("a", encoding="utf-8") as f:
         f.write(f"- {ts} [{ctx.agent}] {args['text'].strip()}\n")
     return ToolResult("ok", one_line="запись в журнал")
 
@@ -35,7 +35,7 @@ async def search_journal(args: dict, ctx: ToolContext) -> ToolResult:
     for src in sources:
         if not src.exists():
             continue
-        for para in src.read_text().split("\n\n"):
+        for para in src.read_text(encoding="utf-8", errors="replace").split("\n\n"):
             if query in para.lower():
                 chunk = para.strip()
                 while estimate_tokens(chunk) > 400:
