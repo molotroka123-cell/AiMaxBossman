@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101114">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'">
+  <link rel="manifest" href="/remote/app/manifest.webmanifest">
+  <link rel="stylesheet" href="/remote/app/styles.css">
+  <title>BOSSMAN Remote</title>
+</head>
+<body>
+  <main>
+    <header><div><h1>BOSSMAN</h1><small>Private Remote Client · Stage 12</small></div><button id="refresh" class="ghost">↻</button></header>
+    <div id="flash" class="flash"></div>
+    <section id="login" class="panel">
+      <h2>Подключение</h2>
+      <p class="muted">Откройте приложение только через приватный HTTPS/Tailscale. Device token не сохраняется: он обменивается на session token.</p>
+      <label>Device token<input id="device-token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="rcd_…"></label>
+      <button id="login-btn">Открыть сессию</button>
+    </section>
+    <section id="app" hidden>
+      <div class="panel"><div class="row"><div><strong id="identity"></strong><div id="live-event" class="muted truncate">events: connecting…</div></div><button id="logout-btn" class="ghost">Выйти</button></div></div>
+      <section class="panel">
+        <h2>Новая задача</h2>
+        <select id="agent"></select>
+        <textarea id="task-text" rows="5" maxlength="20000" placeholder="Что сделать? Cmd/Ctrl+Enter — отправить"></textarea>
+        <button id="send-task">Отправить BOSSMAN</button>
+      </section>
+      <section class="panel"><h2>Задачи</h2><div id="tasks"></div></section>
+      <section id="approvals-panel" class="panel" hidden><h2>Подтверждения</h2><div id="approvals"></div></section>
+      <section id="admin-panel" class="panel danger-zone" hidden><h2>Emergency</h2><p>Мгновенно блокирует все удалённые устройства. Для разблокировки нужен локальный оператор/admin.</p><button id="lock-all" class="danger">LOCK ALL DEVICES</button></section>
+    </section>
+  </main>
+  <script type="module" src="/remote/app/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "BOSSMAN Private Remote",
+  "short_name": "BOSSMAN",
+  "start_url": "/remote/app",
+  "scope": "/remote/app/",
+  "display": "standalone",
+  "background_color": "#0b0c0f",
+  "theme_color": "#101114",
+  "description": "Private, scope-gated remote client for BOSSMAN Core"
+}
