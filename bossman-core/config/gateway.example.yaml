@@ -44,7 +44,7 @@ aliases:
         model: REPLACE_WITH_CLOUD_FALLBACK
         priority: 100
         capabilities: [text, tools]
-  bossman-code:
+  bossman-coder:
     targets:
       - backend: ollama
         model: REPLACE_WITH_CODER_MODEL
@@ -74,4 +74,4 @@ clients:
     key_env: BOSSMAN_GATEWAY_IPHONE_KEY
     requests_per_minute: 120
     burst: 20
-    allowed_aliases: [bossman-fast, bossman-smart, bossman-code, bossman-vision]
+    allowed_aliases: [bossman-fast, bossman-smart, bossman-coder, bossman-vision]

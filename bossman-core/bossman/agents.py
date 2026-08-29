@@ -2,12 +2,13 @@
 prompt.md (кто он), memory.md (его собственные заметки, правки видны в git)."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
-from .config import settings
+from .config import ROOT, settings
 
 CLOUD_POLICIES = ("never", "ask", "allowed")
 
@@ -78,12 +79,12 @@ class AgentSpec:
     @property
     def prompt(self) -> str:
         p = (self.path / "prompt.md") if self.path else None
-        return p.read_text() if p and p.exists() else ""
+        return p.read_text(encoding="utf-8") if p and p.exists() else ""
 
     @property
     def memory(self) -> str:
         p = (self.path / "memory.md") if self.path else None
-        return p.read_text() if p and p.exists() else ""
+        return p.read_text(encoding="utf-8") if p and p.exists() else ""
 
 
 def _parse_tools(raw: list) -> list[ToolGrant]:
@@ -99,7 +100,7 @@ def _parse_tools(raw: list) -> list[ToolGrant]:
 
 
 def load_agent(path: Path) -> AgentSpec:
-    cfg = yaml.safe_load((path / "agent.yaml").read_text())
+    cfg = yaml.safe_load((path / "agent.yaml").read_text(encoding="utf-8"))
     limits = cfg.get("limits") or {}
     policy = cfg.get("cloud_policy", "never")
     if policy not in CLOUD_POLICIES:
@@ -124,7 +125,11 @@ def load_agent(path: Path) -> AgentSpec:
     )
 
 
-def load_all(agents_dir: Path | None = None) -> dict[str, AgentSpec]:
+# маркер «определи gateway-конфиг автоматически» для load_all/validate
+_AUTO = object()
+
+
+def load_all(agents_dir: Path | None = None, gateway_config=_AUTO) -> dict[str, AgentSpec]:
     root = agents_dir or settings.agents_dir
     agents: dict[str, AgentSpec] = {}
     if root.exists():
@@ -132,7 +137,45 @@ def load_all(agents_dir: Path | None = None) -> dict[str, AgentSpec]:
             if (d / "agent.yaml").exists():
                 spec = load_agent(d)
                 agents[spec.name] = spec
+    # Стартовая валидация моделей против алиасов Gateway (аудит 2026-08-29:
+    # alias-мисматч). По умолчанию (_AUTO) применяется только когда режим
+    # Gateway включён и его конфиг найден; gateway_config=None отключает
+    # проверку (тесты/загрузка без Gateway), явный конфиг — включает всегда.
+    cfg = auto_gateway_config() if gateway_config is _AUTO else gateway_config
+    validate_agent_models(agents, cfg)
     return agents
+
+
+def validate_agent_models(agents: dict[str, AgentSpec], gateway_config) -> None:
+    """Быстрая проверка при загрузке агентов: каждый agent.model должен
+    разрешаться в алиас Gateway-конфига. Иначе в Gateway-режиме первый же вызов
+    модели агента упал бы RouteNotFound/404 уже в рантайме (аудит 2026-08-29).
+    gateway_config=None — валидация не применяется: Gateway-режим выключен или
+    его конфиг недоступен, проверять не по чему."""
+    if gateway_config is None:
+        return
+    aliases = set(gateway_config.aliases)
+    unresolved = {a.name: a.model for a in agents.values() if a.model not in aliases}
+    if unresolved:
+        detail = ", ".join(f"{name} -> {model}" for name, model in sorted(unresolved.items()))
+        raise ValueError(
+            f"модели агентов не разрешаются в алиасы Gateway: {detail}; "
+            f"известные алиасы: {sorted(aliases)}")
+
+
+def auto_gateway_config():
+    """Gateway-конфиг, когда режим Gateway включён и его конфиг существует;
+    иначе None. Путь — как в bossman.gateway.config.load_gateway_config:
+    BOSSMAN_GATEWAY_CONFIG, затем config/gateway.yaml (cwd или корень ядра)."""
+    if not settings.gateway_url:
+        return None
+    env = os.environ.get("BOSSMAN_GATEWAY_CONFIG")
+    candidates = [Path(env)] if env else [Path("config/gateway.yaml"), ROOT / "config" / "gateway.yaml"]
+    for cand in candidates:
+        if cand.exists():
+            from .gateway.config import load_gateway_config
+            return load_gateway_config(cand)
+    return None
 
 
 def set_cloud_policy(name: str, policy: str, agents_dir: Path | None = None) -> AgentSpec:
@@ -142,7 +185,7 @@ def set_cloud_policy(name: str, policy: str, agents_dir: Path | None = None) -> 
         raise ValueError(f"cloud_policy должна быть одной из {CLOUD_POLICIES}")
     root = agents_dir or settings.agents_dir
     path = root / name / "agent.yaml"
-    cfg = yaml.safe_load(path.read_text())
+    cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
     cfg["cloud_policy"] = policy
-    path.write_text(yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False))
+    path.write_text(yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False), encoding="utf-8")
     return load_agent(root / name)
