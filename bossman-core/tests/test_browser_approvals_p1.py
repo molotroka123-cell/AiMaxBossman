@@ -10,6 +10,7 @@ import pytest
 
 from bossman.toolkit import by_api_name
 from bossman.toolkit.browser import _submit_like, is_sensitive_label
+from browser_support import chromium_available, chromium_path, reason
 
 
 # ---------- расширенный лексикон ----------
@@ -43,8 +44,6 @@ def test_registry_confirm_symmetry():
 
 # ---------- структурное определение submit (текстовый gate это пропускал) ----------
 
-_CHROME = os.getenv("BOSSMAN_TEST_CHROMIUM") or "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
-
 _HTML = """<!doctype html><html><body>
 <form id='f' onsubmit='return false'>
   <button id='iconsubmit' type='submit' aria-label=''>➤</button>
@@ -56,11 +55,11 @@ _HTML = """<!doctype html><html><body>
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(not os.path.exists(_CHROME), reason="chromium binary not available")
+@pytest.mark.skipif(not chromium_available(), reason=reason())
 async def test_submit_like_structural_detection():
     from playwright.async_api import async_playwright
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True, executable_path=_CHROME)
+        browser = await p.chromium.launch(headless=True, executable_path=chromium_path(), timeout=60_000)
         page = await browser.new_page()
         await page.set_content(_HTML)
         # Иконочная submit-кнопка в форме: без осмысленного текста, но state-changing.

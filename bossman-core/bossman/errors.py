@@ -41,6 +41,7 @@ class ErrorCode(str, Enum):
     ARTIFACT_REJECTED = "ARTIFACT_REJECTED"        # артефакт не прошёл gate — 422
     SECRET_DENIED = "SECRET_DENIED"                # brokered secret запрещён/просрочен — 403
     NETWORK_DENIED = "NETWORK_DENIED"              # egress заблокирован политикой — 403
+    DEPENDENCY_UNAVAILABLE = "DEPENDENCY_UNAVAILABLE"  # нет внешней зависимости (Postgres/Redis) — 503
 
 
 _HTTP: dict[ErrorCode, int] = {
@@ -64,6 +65,7 @@ _HTTP: dict[ErrorCode, int] = {
     ErrorCode.ARTIFACT_REJECTED: 422,
     ErrorCode.SECRET_DENIED: 403,
     ErrorCode.NETWORK_DENIED: 403,
+    ErrorCode.DEPENDENCY_UNAVAILABLE: 503,
 }
 
 _RETRYABLE: set[ErrorCode] = {
@@ -188,6 +190,10 @@ class SecretDenied(BossmanError):
 
 class NetworkDenied(BossmanError):
     code = ErrorCode.NETWORK_DENIED
+
+
+class DependencyUnavailable(BossmanError):
+    code = ErrorCode.DEPENDENCY_UNAVAILABLE
 
 
 # --- складывание существующих исключений ядра под единую крышу ---

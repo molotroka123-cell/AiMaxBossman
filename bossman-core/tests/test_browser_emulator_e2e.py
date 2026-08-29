@@ -8,7 +8,12 @@ from pathlib import Path
 import pytest
 from playwright.async_api import async_playwright
 
-pytestmark = pytest.mark.asyncio
+from browser_support import chromium_available, chromium_path, reason
+
+# Нет браузера — честный skip. Раньше здесь стоял жёсткий linux-путь, и на
+# Windows запуск несуществующего бинаря ВИСЕЛ, срывая весь прогон папки.
+pytestmark = [pytest.mark.asyncio,
+              pytest.mark.skipif(not chromium_available(), reason=reason())]
 
 HTML = """<!doctype html><html><head><title>Bossman Browser Emulator</title></head><body>
 <button id='normal' onclick="document.querySelector('#status').textContent='clicked'">Generate Preview</button>
@@ -24,7 +29,7 @@ HTML = """<!doctype html><html><head><title>Bossman Browser Emulator</title></he
 
 async def test_emulator_15_scenarios(tmp_path: Path):
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True, executable_path=os.getenv('BOSSMAN_TEST_CHROMIUM') or '/usr/bin/chromium')
+        browser = await p.chromium.launch(headless=True, executable_path=chromium_path(), timeout=60_000)
         ctx = await browser.new_context(accept_downloads=True)
         page = await ctx.new_page(); await page.set_content(HTML)
         # 1 launch/title
@@ -63,9 +68,9 @@ async def test_emulator_15_scenarios(tmp_path: Path):
 
 async def test_persistent_profile_and_isolation(tmp_path: Path):
     async with async_playwright() as p:
-        exe=os.getenv('BOSSMAN_TEST_CHROMIUM') or '/usr/bin/chromium'
+        exe=chromium_path()
         a=tmp_path/'a'; b=tmp_path/'b'
-        ca=await p.chromium.launch_persistent_context(str(a),headless=True,executable_path=exe)
+        ca=await p.chromium.launch_persistent_context(str(a),headless=True,executable_path=exe,timeout=60_000)
         # Cookie ОБЯЗАНА иметь срок жизни: сессионную (без expires) Chromium в
         # профиль на диск не пишет вовсе, поэтому проверять на ней персистентность
         # профиля бессмысленно — тест падал не на нашем коде, а на своём условии.
@@ -73,11 +78,11 @@ async def test_persistent_profile_and_isolation(tmp_path: Path):
         await ca.add_cookies([{"name":"bossman","value":"A","url":"https://example.com",
                                "expires": _time.time() + 3600}])
         await ca.close()
-        ca2=await p.chromium.launch_persistent_context(str(a),headless=True,executable_path=exe)
+        ca2=await p.chromium.launch_persistent_context(str(a),headless=True,executable_path=exe,timeout=60_000)
         cookies=await ca2.cookies("https://example.com")
         assert any(c["name"]=="bossman" and c["value"]=="A" for c in cookies)
         await ca2.close()
-        cb=await p.chromium.launch_persistent_context(str(b),headless=True,executable_path=exe)
+        cb=await p.chromium.launch_persistent_context(str(b),headless=True,executable_path=exe,timeout=60_000)
         cookies_b=await cb.cookies("https://example.com")
         assert not any(c["name"]=="bossman" for c in cookies_b)
         await cb.close()
