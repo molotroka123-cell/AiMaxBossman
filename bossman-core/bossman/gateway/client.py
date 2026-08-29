@@ -6,6 +6,13 @@ from typing import Any, AsyncIterator
 import httpx
 
 
+class GatewayCloudDenied(RuntimeError):
+    """Gateway отказал в облаке по политике (HTTP 403 POLICY_DENIED).
+
+    Отдельный тип, чтобы ядро отличило запрет облака от обычной ошибки апстрима
+    и превратило его в CloudDenied/NeedsCloudApproval по политике агента."""
+
+
 class GatewayClient:
     """Thin reusable client for Bossman Core and future local applications."""
 
@@ -23,13 +30,24 @@ class GatewayClient:
         await self._client.aclose()
 
     async def chat(self, *, model: str, messages: list[dict], tools: list[dict] | None = None,
-                   max_tokens: int | None = None, **extra: Any) -> dict:
+                   max_tokens: int | None = None, cloud_allowed: bool = True, **extra: Any) -> dict:
         payload: dict[str, Any] = {"model": model, "messages": messages, **extra}
         if tools:
             payload["tools"] = tools
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        r = await self._client.post(f"{self.base_url}/chat/completions", headers=self._headers(), json=payload)
+        headers = dict(self._headers())
+        # Облачная политика агента едет заголовком, а не полем тела: в тело нельзя,
+        # оно уходит апстриму. Gateway сам вырежет облачные цели при "0".
+        headers["X-Bossman-Cloud-Allowed"] = "1" if cloud_allowed else "0"
+        r = await self._client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
+        if r.status_code == 403:
+            try:
+                code = (r.json().get("error") or {}).get("code")
+            except Exception:
+                code = None
+            if code == "POLICY_DENIED":
+                raise GatewayCloudDenied(model)
         r.raise_for_status()
         return r.json()
 

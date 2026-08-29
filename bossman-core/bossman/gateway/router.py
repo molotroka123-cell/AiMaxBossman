@@ -12,6 +12,15 @@ class RouteNotFound(RuntimeError):
     pass
 
 
+class CloudPolicyDenied(RuntimeError):
+    """Алиас обслуживается только облаком, а облако запрещено политикой.
+
+    Это НЕ «маршрут не найден»: маршрут есть, но он ведёт наружу, а владелец
+    объявил, что данные наружу не уходят. Отдаётся как отдельный исход, чтобы
+    ядро отличило «нечем обслужить» от «политика запретила отправку»."""
+    pass
+
+
 @dataclass(slots=True)
 class Route:
     alias: str
@@ -19,6 +28,7 @@ class Route:
     model: str
     target: ModelTarget
     backend: OpenAIBackend
+    is_cloud: bool = False
 
 
 class ModelRouter:
@@ -43,20 +53,38 @@ class ModelRouter:
         pairs = await asyncio.gather(*(one(n,b) for n,b in self.backends.items()))
         return dict(pairs)
 
-    def resolve(self, alias: str, required_capabilities: set[str] | None = None) -> list[Route]:
+    def resolve(self, alias: str, required_capabilities: set[str] | None = None,
+                cloud_allowed: bool = True) -> list[Route]:
+        """Маршруты под алиас.
+
+        cloud_allowed=False (облачная политика never, либо ask без подтверждения)
+        ВЫРЕЗАЕТ облачные цели ещё до сети: политику держит сам Gateway, а не
+        надежда, что ядро правильно угадает облачность по имени алиаса. Если
+        после этого не осталось ни одной цели — CloudPolicyDenied: данные не
+        уходят никуда.
+        """
         cfg = self.config.aliases.get(alias)
         if not cfg:
             raise RouteNotFound(f"Unknown model alias: {alias}")
         required = set(required_capabilities or ()) | cfg.required_capabilities
         candidates = []
+        dropped_cloud = False
         for t in sorted(cfg.targets, key=lambda x: x.priority):
             backend = self.backends.get(t.backend)
             if not backend:
                 continue
             if required and not required.issubset(t.capabilities):
                 continue
-            candidates.append(Route(alias, t.backend, t.model, t, backend))
+            is_cloud = bool(getattr(backend.config, "cloud", False))
+            if is_cloud and not cloud_allowed:
+                dropped_cloud = True
+                continue        # облачная цель при запрете облака — мимо, не в сеть
+            candidates.append(Route(alias, t.backend, t.model, t, backend, is_cloud))
         if not candidates:
+            if dropped_cloud:
+                raise CloudPolicyDenied(
+                    f"алиас '{alias}' обслуживается только облаком, а облачная "
+                    f"политика это запрещает — данные не отправлены")
             raise RouteNotFound(f"No configured target for alias '{alias}' with capabilities {sorted(required)}")
         # healthy targets first; unchecked targets are optimistically usable
         return sorted(candidates, key=lambda r: (r.backend.health.checked_at > 0 and not r.backend.health.healthy, r.target.priority))

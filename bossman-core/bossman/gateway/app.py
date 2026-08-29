@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from .auth import AuthManager, AuthenticatedClient, ensure_alias_allowed
 from .backends import BackendError
 from .config import GatewayConfig, load_gateway_config
-from .router import ModelRouter, RouteNotFound
+from .router import CloudPolicyDenied, ModelRouter, RouteNotFound
 from .telemetry import GatewayMetrics
 
 
@@ -58,7 +58,8 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         rows = [m for m in owned_router.list_models() if "*" in c.config.allowed_aliases or m["id"] in c.config.allowed_aliases]
         return {"object": "list", "data": rows}
 
-    async def run_json(path: str, payload: dict[str, Any], c: AuthenticatedClient) -> JSONResponse:
+    async def run_json(path: str, payload: dict[str, Any], c: AuthenticatedClient,
+                       cloud_allowed: bool = True) -> JSONResponse:
         alias = str(payload.get("model") or "")
         if not alias:
             raise HTTPException(400, "model is required")
@@ -67,7 +68,12 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         if any(isinstance(m.get("content"), list) for m in payload.get("messages", []) if isinstance(m, dict)):
             capabilities.add("vision")
         try:
-            routes = owned_router.resolve(alias, capabilities)
+            routes = owned_router.resolve(alias, capabilities, cloud_allowed=cloud_allowed)
+        except CloudPolicyDenied as exc:
+            # Отдельный код: ядро отличит «политика запретила облако» от «нечем
+            # обслужить» и от «модель недоступна». Данные наружу не ушли.
+            return JSONResponse({"error": {"code": "POLICY_DENIED", "message": str(exc)}},
+                                status_code=403)
         except RouteNotFound as exc:
             raise HTTPException(404, str(exc)) from exc
 
@@ -98,7 +104,8 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         metrics.end(started, None, error=True)
         raise HTTPException(502, {"message": "All model routes failed", "attempts": errors})
 
-    async def run_stream(path: str, payload: dict[str, Any], c: AuthenticatedClient):
+    async def run_stream(path: str, payload: dict[str, Any], c: AuthenticatedClient,
+                         cloud_allowed: bool = True):
         alias = str(payload.get("model") or "")
         if not alias:
             raise HTTPException(400, "model is required")
@@ -107,7 +114,10 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         if any(isinstance(m.get("content"), list) for m in payload.get("messages", []) if isinstance(m, dict)):
             capabilities.add("vision")
         try:
-            routes = owned_router.resolve(alias, capabilities)
+            routes = owned_router.resolve(alias, capabilities, cloud_allowed=cloud_allowed)
+        except CloudPolicyDenied as exc:
+            return JSONResponse({"error": {"code": "POLICY_DENIED", "message": str(exc)}},
+                                status_code=403)
         except RouteNotFound as exc:
             raise HTTPException(404, str(exc)) from exc
         # Streaming cannot transparently fall back after bytes are emitted. We fall back only before first byte.
@@ -144,15 +154,24 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
             yield ("data: " + json.dumps({"error":{"message":"All model routes failed","attempts":errors}}) + "\n\n").encode()
         return StreamingResponse(generator(), media_type="text/event-stream", headers={"x-accel-buffering":"no"})
 
+    def _cloud_allowed(request: Request) -> bool:
+        # Ядро сообщает облачную политику агента заголовком. Отсутствие = разрешено
+        # (прямой сторонний клиент); ядро BOSSMAN всегда проставляет явно.
+        return request.headers.get("x-bossman-cloud-allowed", "1").strip() not in ("0", "false", "no")
+
     @app.post("/v1/chat/completions")
     async def chat(request: Request, c: AuthenticatedClient = Depends(client)):
         payload = await request.json()
-        return await run_stream("/v1/chat/completions", payload, c) if payload.get("stream") else await run_json("/v1/chat/completions", payload, c)
+        ca = _cloud_allowed(request)
+        return await (run_stream if payload.get("stream") else run_json)(
+            "/v1/chat/completions", payload, c, cloud_allowed=ca)
 
     @app.post("/v1/responses")
     async def responses(request: Request, c: AuthenticatedClient = Depends(client)):
         payload = await request.json()
-        return await run_stream("/v1/responses", payload, c) if payload.get("stream") else await run_json("/v1/responses", payload, c)
+        ca = _cloud_allowed(request)
+        return await (run_stream if payload.get("stream") else run_json)(
+            "/v1/responses", payload, c, cloud_allowed=ca)
 
     @app.post("/v1/embeddings")
     async def embeddings(request: Request, c: AuthenticatedClient = Depends(client)):

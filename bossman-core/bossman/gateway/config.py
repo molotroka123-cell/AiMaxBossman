@@ -20,6 +20,11 @@ class BackendConfig:
     kind: str = "openai"
     health_path: str = "/v1/models"
     extra_headers: dict[str, str] = field(default_factory=dict)
+    # Облачность объявляется явно, а не угадывается по имени: это источник
+    # истины для облачной политики. Backend без флага считается локальным —
+    # ошибиться в сторону «локальный» безопасно, потому что забытый флаг у
+    # настоящего облака поймает второй барьер (ключ агента / сеть без интернета).
+    cloud: bool = False
 
     def resolved_api_key(self) -> str | None:
         if self.api_key_env:

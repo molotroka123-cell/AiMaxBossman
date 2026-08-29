@@ -15,7 +15,7 @@ import yaml
 from . import db
 from .agents import AgentSpec
 from .config import settings
-from .gateway.client import GatewayClient
+from .gateway.client import GatewayClient, GatewayCloudDenied
 
 CLOUD_PREFIXES = ("claude-", "cloud-", "gemini", "gpt-")
 
@@ -97,8 +97,26 @@ async def chat(agent: AgentSpec, messages: list[dict], *,
     # транспорт: при заданном BOSSMAN_GATEWAY_URL идём через приватный Gateway,
     # иначе — прежним путём напрямую к LiteLLM ключом агента (совместимость).
     if settings.gateway_url:
-        data = await _gateway_client().chat(
-            model=alias, messages=messages, tools=tools, max_tokens=max_tokens)
+        # Ключевая правка облачной границы: для capability-алиаса (bossman-smart и
+        # т.п.) ядро НЕ знает по имени, ведёт ли маршрут в облако — is_cloud() тут
+        # бесполезен. Поэтому политику решает Gateway, а ядро лишь сообщает, можно
+        # ли ему трогать облако для ЭТОГО агента. never → нельзя; ask → только с
+        # подтверждением; allowed → можно.
+        cloud_allowed = agent.cloud_policy == "allowed" or (
+            agent.cloud_policy == "ask" and bool(cloud_approved_by))
+        try:
+            data = await _gateway_client().chat(
+                model=alias, messages=messages, tools=tools, max_tokens=max_tokens,
+                cloud_allowed=cloud_allowed)
+        except GatewayCloudDenied:
+            # Gateway вырезал облако и локально обслужить не смог. Превращаем в тот
+            # же исход, что и прямой облачный алиас: never → отказ, ask → нужно
+            # подтверждение владельца.
+            if agent.cloud_policy == "never":
+                raise CloudDenied(
+                    f"{agent.name}: cloud_policy=never, алиас {alias} требует облака")
+            preview = "\n\n".join(f"[{m['role']}]\n{m['content']}" for m in messages)
+            raise NeedsCloudApproval(alias, preview)
     else:
         key = agent.api_key or settings.litellm_master_key
         payload: dict[str, Any] = {"model": alias, "messages": messages}
