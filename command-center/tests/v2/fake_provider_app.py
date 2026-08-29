@@ -11,6 +11,8 @@ from fastapi.responses import JSONResponse
 
 app = FastAPI()
 
+requests = []          # журнал всех запросов для тестов (path/host инспекция)
+
 MODELS = [
     {
         "id": "fake/fast",
@@ -41,6 +43,11 @@ async def key_info(req: Request):
 @app.get("/v1/models")
 async def models():
     return {"data": MODELS}
+
+@app.middleware("http")
+async def _record(request: Request, call_next):
+    requests.append({"path": request.url.path, "host": request.headers.get("host", "")})
+    return await call_next(request)
 
 @app.post("/v1/chat/completions")
 async def chat(req: Request):

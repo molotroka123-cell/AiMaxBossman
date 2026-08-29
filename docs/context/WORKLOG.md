@@ -91,9 +91,19 @@ RESULT: конфликтов нет (территории не пересека�
 TEST: pytest bossman-core -q -> 347 passed
 NEXT: см. docs/context/NEXT.md — runsc/KVM в железе, netns+nftables, red-team Stage 8
 
+<<<<<<< HEAD
 2026-08-29T10:10Z
 ACTION: Закрыты пункты 1-3 внешнего аудита
 FILES: bossman/db.py, bossman/errors.py, tests/browser_support.py, tests/test_browser_{approvals_p1,emulator_e2e,support_helper}.py, tests/test_db_fail_fast.py
 RESULT: без Postgres — DEPENDENCY_UNAVAILABLE(503) с подсказкой и без пароля в тексте; schema.sql читается utf-8; Chromium ищется кроссплатформенно без запуска драйвера, битый путь не уходит в launch (это и вешало прогон на Windows); launch с timeout=60s
 TEST: pytest tests -q БЕЗ переменных -> 354 passed (было 2 failed / hang)
 NEXT: остались Linux-зависимые пункты (runsc/KVM, netns+nftables) и red-team Stage 8
+=======
+[2026-08-29T09:00:50Z]
+STAGE9_ACTION: полный Stage 9 E2E набор
+FILES: bossman-core/tests/test_stage9_{gateway_e2e,sandbox_e2e,resource_stress,recovery,agent_smoke}.py; command-center/tests/test_feat_openrouter{,_smoke}.py; bossman/toolkit/{files,journal}.py (utf-8); bossman/gateway/app.py (400 on broken json); bossman/sandbox/runtimes/safe.py (nt fail-closed)
+TEST: stage9 20 passed/4 skipped; openrouter 26 passed/1 skipped
+RESULT: DONE
+ISSUE: live OpenRouter/SAFE-live/live-local — BLOCKED_BY_HOST (ключ/POSIX/env)
+NEXT: Stage 11 AI Lab (отдельный воркер)
+>>>>>>> 02d60c5 (test(stage9): live-system e2e suite — gateway/sandbox/resource/recovery/agent smokes + utf8 fixes)
