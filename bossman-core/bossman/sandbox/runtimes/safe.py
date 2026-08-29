@@ -69,34 +69,41 @@ def safe_runtime_available() -> bool:
             return True
     except AttributeError:
         return True
-    try:
-        from ..netguard import sandbox_uid as _suid
-        uid = _suid("probe")
-        # Реальный путь исполнения SAFE: сброс на выделенный uid + (для OFFLINE,
-        # режим по умолчанию) обёртка `unshare -r -n` — новый user+net namespace.
-        # Именно unshare -r (unprivileged userns) чаще всего запрещён на CI-
-        # раннере (seccomp/kernel.unprivileged_userns_clone=0): тогда процесс
-        # уходит в FAILED. Проверяем ровно эту команду, а не голый /bin/true.
-        argv = (["unshare", "-r", "-n", "--", "/bin/true"]
-                if _unshare_available() else ["/bin/true"])
+    # Единственная надёжная проверка — прогнать РЕАЛЬНЫЙ SAFE-рантайм на
+    # тривиальном задании: он собирает вместе всё, что может не сработать на
+    # чужом хосте (сброс uid + chown + `unshare -r -n` + rlimits из ResourceRequest
+    # — в частности RLIMIT_AS, которого хватает локально, но под которым на
+    # CI-раннере процесс падает). Что-то из этого не даёт COMPLETED → capability
+    # нет → честный skip. Результат кэшируется (lru_cache), прогон однократный.
+    import asyncio
+
+    from ..models import SandboxSpec, SandboxState
+    from ..models import SandboxSession as _Session
+
+    async def _probe_run() -> bool:
         with tempfile.TemporaryDirectory() as tmp:
-            work = os.path.join(tmp, "work")
-            os.mkdir(work)
-            # tmp создан 0700 под root — воспроизводим реальную укладку: даём
-            # доступ выделенному uid и на leaf, и на промежуточный каталог.
-            for d in (tmp, work):
-                os.chown(d, uid, uid)
-
-            def _drop():
+            rt = SafeRuntime(workspace_root=tmp)
+            spec = SandboxSpec(task="__probe__",
+                               labels={"argv": ["/bin/true"]})
+            session = _Session(id="probe", spec=spec)
+            try:
+                await rt.prepare(session)
+                await rt.start(session)
+                # опрос до терминального состояния с общим потолком времени
+                for _ in range(100):
+                    st = await rt.poll(session)
+                    if st in (SandboxState.COMPLETED, SandboxState.FAILED):
+                        return st is SandboxState.COMPLETED
+                    await asyncio.sleep(0.05)
+                return False
+            finally:
                 try:
-                    os.setgid(uid); os.setuid(uid)
+                    await rt.destroy(session)
                 except Exception:
-                    os._exit(97)
+                    pass
 
-            proc = subprocess.run(argv, cwd=work, preexec_fn=_drop,
-                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                  timeout=15)
-            return proc.returncode == 0
+    try:
+        return asyncio.run(_probe_run())
     except Exception:
         return False
 
