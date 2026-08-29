@@ -77,13 +77,18 @@ def safe_runtime_available() -> bool:
     # нет → честный skip. Результат кэшируется (lru_cache), прогон однократный.
     import asyncio
 
-    from ..models import SandboxSpec, SandboxState
+    from ..models import ResourceRequest, SandboxSpec, SandboxState
     from ..models import SandboxSession as _Session
 
     async def _probe_run() -> bool:
         with tempfile.TemporaryDirectory() as tmp:
             rt = SafeRuntime(workspace_root=tmp)
+            # RLIMIT_AS ровно как у самого строгого теста (256 МБ): иначе процесс,
+            # которому нужно 256–512 МБ виртуальной памяти, ронял бы тест, но
+            # проходил пробу на дефолтных 512 МБ. Проба обязана быть не слабее тестов.
             spec = SandboxSpec(task="__probe__",
+                               resources=ResourceRequest(ram_bytes=256 * 1024 * 1024,
+                                                         wall_time_seconds=15),
                                labels={"argv": ["/bin/true"]})
             session = _Session(id="probe", spec=spec)
             try:
