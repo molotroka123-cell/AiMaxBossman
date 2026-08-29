@@ -8,5 +8,12 @@
 from __future__ import annotations
 
 from .safe import SafeRuntime, safe_runtime_available
+from .strong import (
+    GvisorRuntime,
+    MicroVMRuntime,
+    gvisor_available,
+    kvm_available,
+)
 
-__all__ = ["SafeRuntime", "safe_runtime_available"]
+__all__ = ["SafeRuntime", "safe_runtime_available", "GvisorRuntime", "MicroVMRuntime",
+           "gvisor_available", "kvm_available"]

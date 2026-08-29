@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 
 from .artifacts import ArtifactGate
+from .dataset import CandidateState, DatasetCandidate, DatasetGate
 from .manager import SandboxManager
 from .models import (
     Artifact,
@@ -47,7 +48,8 @@ __all__ = [
     "PolicyEngine", "RiskEngine", "NetworkGuard", "ResourceLeaseAdapter",
     "SandboxRuntime", "FakeRuntime", "InMemorySecretBroker", "PostgresSecretBroker",
     "ArtifactGate",
-    "TrajectoryRecorder", "can_transition", "allowed_transitions",
+    "TrajectoryRecorder", "DatasetGate", "DatasetCandidate", "CandidateState",
+    "can_transition", "allowed_transitions",
     "sandbox_enabled", "build_subsystem", "router",
 ]
 
