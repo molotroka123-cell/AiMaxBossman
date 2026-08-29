@@ -157,3 +157,12 @@ TEST: bossman-core 589 passed/2 skipped (было 494/2); command-center — п�
 SECURITY: localhost НЕ аутентификация (за tailscale serve всё с loopback); WS-токен субпротоколом, не в URL; наружу только /remote (TAILSCALE_V1_POLICY)
 BLOCKED_BY_HOST: runsc/KVM (сильные рантаймы Stage 8), живой Gateway/модель (LOCAL-LIVE прогон правки), live OpenRouter
 NEXT: только pre-dispatch аудит владельца; Stage 13 НЕ начинать
+
+2026-08-29T18:45Z
+ACTION: Первый прогон CI ядра — устранены красные, вызванные окружением раннера, и флак
+FILES: bossman-core/bossman/sandbox/runtimes/safe.py (safe_runtime_available → кэш-проба реальной способности), tests/test_sandbox_egress.py, tests/test_stage9_sandbox_e2e.py (гейт по этой пробе вместо posix-only), command-center/tests/test_v21_snapshot.py (не-hex канарейка), .github/workflows/* (timeout-method thread→signal)
+RESULT: bossman-core CI падал на тестах реального SAFE-исполнения — на раннере сброшенный uid не проходит в 0700-tmp под root (DESTROYED). Проба воспроизводит ровно это и честно skip'ает там, где способности нет; на dev-хосте/Ai Max тесты идут. Egress-allowlist — та же проба. command-center: канарейка кончалась на hex и `SECRET[-4:]` ложно совпадал с sha256 в манифесте (флак) — хвост сделан не-hex. timeout-method signal называет зависший тест вместо безымянного убийства job'а.
+TEST: локально затронутые наборы зелёные (egress+safe+stage9 28 passed/1 skipped; snapshot 16 passed)
+PUSH: d3a3510 (после merge чужого Stage13-пака и hardware-audit)
+CI: перезапущен на d3a3510 — ожидается зелёный; флак-висяк py3.12 под наблюдением (signal-метод назовёт тест, если повторится)
+NEXT: дождаться CI; если py3.12 снова висит — назвать тест и чинить; PRE-DISPATCH аудит владельца; Stage 13 НЕ начинать
