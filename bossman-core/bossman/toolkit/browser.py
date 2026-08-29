@@ -51,7 +51,12 @@ BLOCKERS = re.compile(
     r"captcha|verify you are human|too many requests|rate limit|automation (?:is )?not allowed|"
     r"bot detected|unusual traffic|access denied", re.I,
 )
-DANGEROUS_KEYS = {"enter", "numpadenter", "control+enter", "ctrl+enter", "meta+enter", "shift+enter"}
+# Клавиши-активаторы: не только Enter, но и Space/Spacebar — стандартная
+# активация сфокусированной кнопки/submit (red-team: press("Space") на submit
+# обходил Enter-барьер). Пробел печатают через browser.type, а не press, поэтому
+# запрет press(Space) без подтверждения безопасен.
+DANGEROUS_KEYS = {"enter", "numpadenter", "control+enter", "ctrl+enter", "meta+enter", "shift+enter",
+                  " ", "space", "spacebar"}
 EXECUTABLE_EXTS = {".exe", ".msi", ".bat", ".cmd", ".com", ".scr", ".ps1", ".vbs", ".js", ".jar", ".app", ".dmg"}
 
 
@@ -314,7 +319,7 @@ async def _submit_like(loc) -> bool:
                 if (tag === 'input' && ['submit', 'image', 'button'].includes(type)) return inForm;
                 if (type === 'submit') return true;
                 const role = (el.getAttribute && el.getAttribute('role')) || '';
-                if (role === 'button' && inForm) return true;
+                if (role === 'button') return true;  // role=button меняет состояние и вне формы (fetch/XHR)
                 return false;
             }""",
             timeout=3000))
@@ -555,6 +560,17 @@ async def _press(args: dict, ctx: ToolContext) -> ToolResult: return await _pres
 async def _confirmed_press(args: dict, ctx: ToolContext) -> ToolResult: return await _press_impl(args, ctx, True)
 
 
+async def _select_auto_submits(loc) -> bool:
+    """<select> с inline onchange/oninput-хендлером — вероятный авто-submit.
+    Fail-open только для этого слоя: барьер по подписи/домену остаётся."""
+    try:
+        return bool(await loc.evaluate(
+            "el => !!(el && (el.getAttribute('onchange') || el.getAttribute('oninput')))",
+            timeout=3000))
+    except Exception:
+        return False
+
+
 async def _select_impl(args: dict, ctx: ToolContext, confirmed: bool) -> ToolResult:
     sess = await MANAGER.session(ctx.agent)
     async with sess.lock:
@@ -563,9 +579,12 @@ async def _select_impl(args: dict, ctx: ToolContext, confirmed: bool) -> ToolRes
         # мог отправить форму / сменить способ оплаты без подтверждения. Теперь —
         # тот же барьер, что у click: чувствительный контекст/домен → confirmed_select.
         context_text = await _context_for_locator(loc, sess.page, shown)
-        if not confirmed and _action_requires_confirmation(context_text, sess.page.url):
-            return ToolResult("refused: select is sensitive by target/form/domain context; "
-                              "use browser.confirmed_select", error=True)
+        # red-team: <select onchange="this.form.submit()"> с безобидной подписью
+        # отправлял форму без подтверждения. Структурно ловим change/input-хендлер.
+        auto_submits = await _select_auto_submits(loc)
+        if not confirmed and (auto_submits or _action_requires_confirmation(context_text, sess.page.url)):
+            return ToolResult("refused: select is consequential (onchange handler / sensitive "
+                              "target/form/domain); use browser.confirmed_select", error=True)
         old_url = sess.page.url
         selected = await loc.select_option(value=str(args.get("value", "")))
         await _settle(sess.page, old_url)
