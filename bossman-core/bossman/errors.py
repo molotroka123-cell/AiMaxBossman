@@ -34,6 +34,13 @@ class ErrorCode(str, Enum):
     NOT_FOUND = "NOT_FOUND"                         # 404
     CONFLICT = "CONFLICT"                           # 409
     INTERNAL = "INTERNAL"                           # 500
+    # --- Этап 8: песочница / изоляция ---
+    SANDBOX_DISABLED = "SANDBOX_DISABLED"          # фича выключена — OFF значит OFF — 409
+    ISOLATION_UNAVAILABLE = "ISOLATION_UNAVAILABLE"  # нужный tier недоступен, fail closed — 503
+    INVALID_TRANSITION = "INVALID_TRANSITION"      # запрещённый переход автомата — 409
+    ARTIFACT_REJECTED = "ARTIFACT_REJECTED"        # артефакт не прошёл gate — 422
+    SECRET_DENIED = "SECRET_DENIED"                # brokered secret запрещён/просрочен — 403
+    NETWORK_DENIED = "NETWORK_DENIED"              # egress заблокирован политикой — 403
 
 
 _HTTP: dict[ErrorCode, int] = {
@@ -51,6 +58,12 @@ _HTTP: dict[ErrorCode, int] = {
     ErrorCode.NOT_FOUND: 404,
     ErrorCode.CONFLICT: 409,
     ErrorCode.INTERNAL: 500,
+    ErrorCode.SANDBOX_DISABLED: 409,
+    ErrorCode.ISOLATION_UNAVAILABLE: 503,
+    ErrorCode.INVALID_TRANSITION: 409,
+    ErrorCode.ARTIFACT_REJECTED: 422,
+    ErrorCode.SECRET_DENIED: 403,
+    ErrorCode.NETWORK_DENIED: 403,
 }
 
 _RETRYABLE: set[ErrorCode] = {
@@ -151,6 +164,30 @@ class NotFound(BossmanError):
 
 class Conflict(BossmanError):
     code = ErrorCode.CONFLICT
+
+
+class SandboxDisabled(BossmanError):
+    code = ErrorCode.SANDBOX_DISABLED
+
+
+class IsolationUnavailable(BossmanError):
+    code = ErrorCode.ISOLATION_UNAVAILABLE
+
+
+class InvalidTransition(BossmanError):
+    code = ErrorCode.INVALID_TRANSITION
+
+
+class ArtifactRejected(BossmanError):
+    code = ErrorCode.ARTIFACT_REJECTED
+
+
+class SecretDenied(BossmanError):
+    code = ErrorCode.SECRET_DENIED
+
+
+class NetworkDenied(BossmanError):
+    code = ErrorCode.NETWORK_DENIED
 
 
 # --- складывание существующих исключений ядра под единую крышу ---
