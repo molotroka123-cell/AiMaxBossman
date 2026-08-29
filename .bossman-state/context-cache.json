@@ -1,8 +1,8 @@
 {
   "stage": 8,
-  "objective": "Stage 8 AI Lab Sandbox: все 6 пунктов NEXT закрыты; осталось железо (runsc/KVM), замыкание egress на процесс, выдача инструментов агенту, red-team",
+  "objective": "Stage 8 закрыт по плану; остались: runsc/KVM в железе, блокировка прямых сокетов мимо прокси, red-team Stage 8, toolbox внутри песочницы",
   "branch": "claude/bossman-control-v03-43igbk",
-  "head": "3b01d19",
+  "head": "820ea18",
   "completed": [
     "shared seams (errors/lifecycle/correlation/obs)",
     "stage4 resource_brain",
@@ -16,7 +16,9 @@
     "stage8 PostgresSecretBroker",
     "stage8 dataset gate",
     "stage8 gvisor/microvm adapters",
-    "stage8 egress proxy (ALLOWLIST)"
+    "stage8 egress proxy (ALLOWLIST)",
+    "stage8 proxy env в процессе песочницы",
+    "stage8 инструменты выданы агенту coder"
   ],
   "active_files": [
     "bossman-core/bossman/sandbox/*.py",
@@ -32,16 +34,15 @@
     "FAIL-003 workflow reconcile/limit -> читать journal.jsonl"
   ],
   "tests": {
-    "full_suite": "307 passed",
-    "sandbox": "79 passed",
+    "full_suite": "347 passed",
+    "sandbox": "85 passed",
     "cmd": "BOSSMAN_TEST_CHROMIUM=<chromium> python -m pytest -q"
   },
   "next_actions": [
-    "1 проверить gvisor/microvm на хосте с runsc//dev/kvm",
-    "2 пробросить http(s)_proxy в SafeRuntime._env и закрыть прямые сокеты",
-    "3 выдать sandbox.* инструменты агенту в agent.yaml",
-    "4 повторный red-team Stage 8",
-    "5 toolbox внутри песочницы"
+    "1 runsc//dev/kvm на живом хосте (блокер: нет бинарей)",
+    "2 netns+nftables: закрыть прямые сокеты мимо egress-прокси",
+    "3 повторный red-team Stage 8",
+    "4 toolbox внутри песочницы"
   ],
   "security_gates": [
     "OFF=OFF (BOSSMAN_SANDBOX_ENABLED default off)",
@@ -51,5 +52,5 @@
     "artifact gate: traversal/symlink/archive/size/exec/secret-scan",
     "трактория без секретов (obs.redact)"
   ],
-  "last_updated": "2026-08-29T08:15:03Z"
+  "last_updated": "2026-08-29T08:26:11Z"
 }

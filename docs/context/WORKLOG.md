@@ -76,3 +76,17 @@ FILES: bossman/sandbox/{egress,manager,__init__}.py, tests/test_sandbox_egress.p
 RESULT: CONNECT-прокси спрашивает NetworkGuard на каждое соединение; приватные сети/metadata/control-plane запрещены даже при явном allowlist; в OFFLINE прокси не поднимается; менеджер стартует и закрывает его по жизненному циклу
 TEST: 10 passed; всего 307 passed
 NEXT: см. docs/context/NEXT.md — железо (runsc/KVM), замыкание egress на процесс, выдача инструментов агенту, red-team Stage 8
+
+2026-08-29T09:20Z
+ACTION: Замкнут egress на процесс и выданы инструменты агенту (NEXT шаги 2–3)
+FILES: bossman/sandbox/runtimes/safe.py, agents/coder/agent.yaml, tests/test_sandbox_{egress,tools_and_broker}.py
+RESULT: адрес прокси идёт в процесс через http(s)_proxy/all_proxy с пустым NO_PROXY; sandbox.* выданы coder, create/run с «: confirm»; прямые сокеты мимо прокси пока НЕ закрыты (нужен netns+nftables)
+TEST: 22 passed по затронутым наборам; полный набор 311
+NEXT: merge параллельной ветки и push
+
+2026-08-29T09:30Z
+ACTION: Merge параллельной ветки (openrouter discovery, circuit breaker, memory/state integrity) и push
+FILES: merge-коммит 820ea18
+RESULT: конфликтов нет (территории не пересекались); объединённое дерево зелёное
+TEST: pytest bossman-core -q -> 347 passed
+NEXT: см. docs/context/NEXT.md — runsc/KVM в железе, netns+nftables, red-team Stage 8

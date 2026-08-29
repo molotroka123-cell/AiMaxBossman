@@ -5,15 +5,16 @@
 > перечитывай весь repo и весь ZIP.
 
 ## CURRENT OBJECTIVE
-Stage 8 (AI Lab Sandbox) — **все 6 пунктов NEXT закрыты**: ядро, SAFE-рантайм,
-egress-барьер, инструменты агента, персистентный Secret Broker, адаптеры сильной
-изоляции, dataset gate. Дальше — интеграция с живым хостом (установка runsc/KVM
-и проверка сильных рантаймов «в железе»), подключение sandbox-инструментов
-конкретным агентам в их agent.yaml, и повторный red-team всего Stage 8.
+Stage 8 (AI Lab Sandbox) закрыт по всем запланированным пунктам: ядро,
+SAFE-рантайм, egress-барьер + проброс прокси в процесс, инструменты агента
+(выданы `coder`), персистентный Secret Broker, адаптеры сильной изоляции,
+dataset gate. Остаётся то, что нельзя сделать на этом хосте или требует
+отдельного захода: проверка runsc/KVM «в железе», блокировка прямых сокетов
+мимо прокси, toolbox ВНУТРИ песочницы и повторный red-team Stage 8.
 
 ## CURRENT HEAD
 - ветка: `claude/bossman-control-v03-43igbk`
-- HEAD: `3b01d19` (security(sandbox): egress-барьер ALLOWLIST). Всё запушено в origin.
+- HEAD: `820ea18` (merge: sandbox + openrouter/gateway-ветка). Всё запушено в origin.
 - baseline этой большой сессии: `ddf2259`.
 
 ## WHAT EXISTS (написано в этой сессии)
@@ -28,7 +29,8 @@ egress-барьер, инструменты агента, персистентн
 ## WHAT WORKS (проверено тестами)
 - `bossman/sandbox` — 79 адверсариальных тестов зелёных (core 12 + security 24 +
   safe runtime 11 + tools/broker 8 + dataset 8 + strong runtimes 5 + egress 10 + прочее).
-- Полный набор `bossman-core`: **307 passed** (2 браузерных требуют
+- Полный набор `bossman-core`: **347 passed** (включая тесты параллельной
+  ветки openrouter/gateway после merge; 2 браузерных требуют
   `BOSSMAN_TEST_CHROMIUM`, см. TEST COMMANDS).
 - Все 5 подсистем этапов 4–8 регистрируются в реестре жизненного цикла:
   `resource_brain, remote_client, search_everything, video_factory, sandbox`.
@@ -44,14 +46,15 @@ egress-барьер, инструменты агента, персистентн
   написаны и честно определяют возможности по наличию `runsc` / `/dev/kvm`, но на
   этом хосте ни того, ни другого нет, поэтому реальный запуск под ними не
   прогонялся — только fail-closed путь (отказ). Нужен хост с runsc/KVM.
-- **Egress**: ALLOWLIST энфорсится CONNECT-прокси (`sandbox/egress.py`); процессу
-  адрес отдаётся через `labels['egress_proxy']`, но SAFE-рантайм пока НЕ
-  выставляет его как `http(s)_proxy` в окружении песочницы и не блокирует прямые
-  сокеты в обход прокси — для этого нужен netns+nftables или контейнерный рантайм.
+- **Egress**: ALLOWLIST энфорсится CONNECT-прокси (`sandbox/egress.py`), адрес
+  пробрасывается процессу как `http(s)_proxy/all_proxy` с пустым `NO_PROXY`.
+  НО прямые сокеты мимо прокси пока НЕ заблокированы — нужен netns+nftables
+  redirect либо контейнерный рантайм с сетью только через прокси. Именно поэтому
+  `SafeRuntime.supports_allowlist=False`, и ALLOWLIST через него отвергается.
 - **Toolbox внутри песочницы** (shell/git/files/browser как инструменты самой
   песочницы) — не начат; снаружи есть `sandbox.*` инструменты агента.
-- Sandbox-инструменты зарегистрированы в REGISTRY, но **ни одному агенту не выданы**
-  в его `agent.yaml` — это осознанно (выдача = решение владельца).
+- Sandbox-инструменты выданы агенту `coder` (`agents/coder/agent.yaml`),
+  `sandbox.create`/`sandbox.run` — с `: confirm`. Остальным агентам НЕ выданы.
 - Stage 8 **не проходил повторный red-team** (в прошлом аудите 7 агентов упали по
   лимиту сессии).
 
@@ -112,13 +115,13 @@ memory входит durable-память только как candidate (ещё �
 ## TEST COMMANDS
 ```
 cd bossman-core
-python -m pytest tests/test_sandbox_*.py -q                                       # 79
+python -m pytest tests/test_sandbox_*.py -q                                       # 85
 CHROME=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux/chrome | head -1)
-BOSSMAN_TEST_CHROMIUM="$CHROME" python -m pytest -q                              # 307
+BOSSMAN_TEST_CHROMIUM="$CHROME" python -m pytest -q                              # 347
 ```
 
 ## LATEST TEST RESULTS
-`307 passed` (полный набор, с BOSSMAN_TEST_CHROMIUM). Sandbox: `79 passed`.
+`347 passed` (полный набор, с BOSSMAN_TEST_CHROMIUM). Sandbox: `85 passed`.
 
 ## KNOWN FAILURES
 Нет падающих тестов. Открытые долги — в разделе «WHAT DOES NOT WORK» и в
