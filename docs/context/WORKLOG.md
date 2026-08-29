@@ -107,3 +107,11 @@ RESULT: DONE
 ISSUE: live OpenRouter/SAFE-live/live-local — BLOCKED_BY_HOST (ключ/POSIX/env)
 NEXT: Stage 11 AI Lab (отдельный воркер)
 >>>>>>> 02d60c5 (test(stage9): live-system e2e suite — gateway/sandbox/resource/recovery/agent smokes + utf8 fixes)
+
+[2026-08-29T09:08:50Z]
+STAGE12_ACTION: (prep) Stage 11 закрыт перед интеграцией Stage 12
+FILES: bossman/ai_lab/{__init__,sanitizer,candidates,export,routes}.py, tests/test_stage11_ai_lab.py, api.py (router), docs/context/STAGE11_STATUS.md
+RESULT: 18/18 tests passed, training OFF by default
+TEST: pytest ../bossman-core/tests/test_stage11_ai_lab.py -q
+SECURITY: raw->training bypass closed; secrets+PII redacted; provenance enforced; approval revocation blocks export
+NEXT: Stage 12 integration
