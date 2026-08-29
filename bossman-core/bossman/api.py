@@ -45,18 +45,18 @@ errors.install_error_handlers(app)
 # и грациозно останавливает. Импорт — ленивый и терпимый: если пакет ещё не
 # подъехал (частичная сборка), ядро всё равно стартует.
 def _register_subsystems() -> None:
-    for modname, factory in (
+    for modname, attr in (
         ("bossman.resource_brain", "build_subsystem"),
         ("bossman.remote_client", "build_subsystem"),
         ("bossman.search_everything", "build_subsystem"),
         ("bossman.video_factory", "build_subsystem"),
         ("bossman.sandbox", "build_subsystem"),
-        ("bossman.dev_factory", "build_subsystem"),
+        ("bossman.computer_operator", "build_subsystem"),
     ):
         try:
             import importlib
             mod = importlib.import_module(modname)
-            build = getattr(mod, factory, None)
+            build = getattr(mod, attr, None)
             if build is None:
                 continue
             sub = build()
@@ -75,6 +75,7 @@ def _include_stage_routers() -> None:
         "bossman.sandbox",
         "bossman.dev_factory",
         "bossman.ai_lab",
+        "bossman.computer_operator",
     ):
         try:
             import importlib
@@ -166,6 +167,9 @@ async def get_task(task_id: int):
 
 @app.get("/tasks", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def list_tasks(status: str | None = None, limit: int = 50):
+    # Stage 13: limit не доверяем клиенту — отрицательный/гигантский лимит в
+    # Postgres означает «без лимита» (выкачка таблицы аутентифицированным чатом).
+    limit = max(1, min(limit, 500))
     if status:
         return await db.fetch("SELECT * FROM tasks WHERE status=$1 ORDER BY id DESC LIMIT $2",
                               status, limit)
@@ -354,6 +358,7 @@ async def spend():
 
 @app.get("/changes", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def changes(limit: int = 100):
+    limit = max(1, min(limit, 500))  # Stage 13: см. list_tasks — потолок выкачки
     return await db.fetch(
         """SELECT agent, tool, args, status, approved_by, created_at
            FROM tool_calls ORDER BY id DESC LIMIT $1""", limit)
