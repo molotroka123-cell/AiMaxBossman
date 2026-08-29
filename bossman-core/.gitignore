@@ -5,6 +5,14 @@ __pycache__/
 projects/
 workspace/
 
+# Context & Memory Engine (ЭТАП 2.222) runtime — SQLite/WAL индекс и вектора не в git
+**/_context/
+context.db
+context.db-wal
+context.db-shm
+*.db-wal
+*.db-shm
+
 # Bossman ComputerUse runtime — профили, cookies и загрузки живых сессий
 .browser-profiles/
 browser-profiles/
