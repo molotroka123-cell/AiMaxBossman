@@ -2,8 +2,11 @@
 __pycache__/
 *.egg-info/
 .pytest_cache/
-projects/
-workspace/
+# Рантайм-каталоги проектов и рабочей области (ROOT/projects, ROOT/workspace).
+# Якорим ведущим слэшем: без него правило ловило и пакет-исходник
+# bossman/projects/ (planner/runner/plan/router) — он не попадал в git.
+/projects/
+/workspace/
 
 # ЭТАП 3 — AI Gateway: боевой конфиг может нести ключи клиентов/провайдеров.
 # В git живёт только config/gateway.example.yaml с плейсхолдерами.
