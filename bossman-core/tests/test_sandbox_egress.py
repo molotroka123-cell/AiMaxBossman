@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 
 import pytest
 
@@ -130,6 +131,8 @@ def _mgr(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(os.name == "nt",
+                    reason="SAFE-исполнение процессов POSIX-only (preexec_fn/unshare)")
 async def test_offline_sandbox_starts_no_proxy(tmp_path):
     from bossman.sandbox import ResourceRequest, SandboxSpec
     m, snap = _mgr(tmp_path)
@@ -142,6 +145,8 @@ async def test_offline_sandbox_starts_no_proxy(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(os.name == "nt",
+                    reason="SAFE-исполнение процессов POSIX-only (preexec_fn/unshare)")
 async def test_allowlist_sandbox_gets_proxy_and_releases_it(tmp_path):
     """ALLOWLIST поднимает прокси и отдаёт его адрес процессу; destroy закрывает."""
     from bossman.sandbox import NetworkMode, PolicyMode, ResourceRequest, SandboxSpec

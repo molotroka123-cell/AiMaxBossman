@@ -17,10 +17,14 @@ from __future__ import annotations
 
 import asyncio
 import os
-import resource
 import shutil
 import subprocess
 from pathlib import Path
+
+try:
+    import resource               # POSIX rlimits
+except ImportError:               # Windows: модуля нет — рантайм там fail-closed
+    resource = None               # (safe_runtime_available() -> False)
 
 from ... import obs
 from ..models import (
@@ -105,6 +109,8 @@ class SafeRuntime:
         r = session.spec.resources
 
         def _apply() -> None:
+            if resource is None:      # без POSIX-rlimits дочерний не запускаем
+                raise RuntimeError("rlimits unavailable on this platform")
             # Память (адресное пространство).
             if r.ram_bytes > 0:
                 resource.setrlimit(resource.RLIMIT_AS, (r.ram_bytes, r.ram_bytes))

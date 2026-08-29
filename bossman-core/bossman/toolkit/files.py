@@ -18,7 +18,7 @@ async def fs_read(args: dict, ctx: ToolContext) -> ToolResult:
     path = _resolve(ctx, args["path"])
     if not path.exists():
         return ToolResult(f"нет файла: {args['path']}", one_line=f"нет файла {args['path']}", error=True)
-    lines = path.read_text(errors="replace").splitlines()
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     start = int(args.get("from", 1))
     end = min(int(args.get("to", start + 199)), start + 199, len(lines))  # ≤ 200 строк
     body = "\n".join(f"{i}\t{lines[i-1]}" for i in range(start, end + 1))
@@ -33,7 +33,7 @@ async def fs_read(args: dict, ctx: ToolContext) -> ToolResult:
 async def fs_write(args: dict, ctx: ToolContext) -> ToolResult:
     path = _resolve(ctx, args["path"])
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(args["content"])
+    path.write_text(args["content"], encoding="utf-8")
     line = f"записан {args['path']} ({len(args['content'])} байт)"
     return ToolResult(line, one_line=line)
 
@@ -41,12 +41,12 @@ async def fs_write(args: dict, ctx: ToolContext) -> ToolResult:
 async def fs_edit(args: dict, ctx: ToolContext) -> ToolResult:
     """Замена точного фрагмента (diff-подход: старое → новое, без переписывания файла)."""
     path = _resolve(ctx, args["path"])
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8", errors="replace")
     old = args["old"]
     if text.count(old) != 1:
         return ToolResult(f"фрагмент найден {text.count(old)} раз — нужен уникальный",
                           one_line=f"edit {args['path']}: фрагмент не уникален", error=True)
-    path.write_text(text.replace(old, args["new"], 1))
+    path.write_text(text.replace(old, args["new"], 1), encoding="utf-8")
     line = f"правка в {args['path']}"
     return ToolResult(line, one_line=line)
 
@@ -61,7 +61,8 @@ async def fs_search(args: dict, ctx: ToolContext) -> ToolResult:
         if not f.is_file() or f.stat().st_size > 2_000_000:
             continue
         try:
-            for n, line in enumerate(f.read_text(errors="replace").splitlines(), 1):
+            for n, line in enumerate(f.read_text(encoding="utf-8",
+                                                 errors="replace").splitlines(), 1):
                 if pattern.search(line):
                     if skipped < offset:
                         skipped += 1

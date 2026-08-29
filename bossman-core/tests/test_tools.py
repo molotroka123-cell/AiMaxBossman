@@ -1,4 +1,4 @@
-"""Приёмка 11: ни один инструмент не возвращает результат выше лимита из 10.4;
+﻿"""Приёмка 11: ни один инструмент не возвращает результат выше лимита из 10.4;
 truncated и способ дочитать присутствуют."""
 import pytest
 
@@ -13,7 +13,8 @@ def ctx(tmp_path):
 
 
 async def test_fs_read_limits_to_200_lines(ctx):
-    (ctx.workdir / "big.txt").write_text("\n".join(f"строка {i}" for i in range(1, 501)))
+    (ctx.workdir / "big.txt").write_text("\n".join(f"строка {i}" for i in range(1, 501)),
+                                         encoding="utf-8")
     res = await fs_read({"path": "big.txt"}, ctx)
     assert res.truncated and "fs.read" in res.more       # как дочитать — указано
     assert len(res.content.splitlines()) <= 200
@@ -21,7 +22,8 @@ async def test_fs_read_limits_to_200_lines(ctx):
 
 
 async def test_fs_read_range_continues(ctx):
-    (ctx.workdir / "big.txt").write_text("\n".join(f"строка {i}" for i in range(1, 501)))
+    (ctx.workdir / "big.txt").write_text("\n".join(f"строка {i}" for i in range(1, 501)),
+                                         encoding="utf-8")
     res = await fs_read({"path": "big.txt", "from": 201, "to": 400}, ctx)
     assert res.content.splitlines()[0].startswith("201")
 
@@ -32,7 +34,8 @@ async def test_fs_read_refuses_escape(ctx):
 
 
 async def test_fs_search_limits_to_50_hits(ctx):
-    (ctx.workdir / "data.txt").write_text("\n".join("иголка тут" for _ in range(200)))
+    (ctx.workdir / "data.txt").write_text("\n".join("иголка тут" for _ in range(200)),
+                                          encoding="utf-8")
     res = await fs_search({"pattern": "иголка"}, ctx)
     assert len(res.content.splitlines()) == 50
     assert res.truncated and "offset=50" in res.more

@@ -1,6 +1,7 @@
 """Stage 8 — security-тесты: сеть, секреты, artifact gate, редакция траектории."""
 from __future__ import annotations
 
+import os
 import tarfile
 import time
 import zipfile
@@ -99,6 +100,8 @@ def test_path_traversal_rejected(tmp_path):
         gate.inspect("/etc/passwd")
 
 
+@pytest.mark.skipif(os.name == "nt",
+                    reason="symlink без Developer Mode/админ-прав (WinError 1314)")
 def test_symlink_escape_quarantined_or_rejected(tmp_path):
     root = tmp_path / "root"
     root.mkdir()
@@ -111,6 +114,8 @@ def test_symlink_escape_quarantined_or_rejected(tmp_path):
         gate.inspect("link.txt")  # symlink escape наружу → отказ
 
 
+@pytest.mark.skipif(os.name == "nt",
+                    reason="symlink без Developer Mode/админ-прав (WinError 1314)")
 def test_symlink_inside_root_is_quarantined(tmp_path):
     root = tmp_path / "root"
     root.mkdir()
