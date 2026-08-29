@@ -63,9 +63,11 @@ jobs:
           # Тот же режим, что в разработке: воркеры не стартуют сами,
           # тесты сами крутят движок и не зависят от таймингов раннера.
           BCC_DATA_DIR: ${{ runner.temp }}/bcc-data
-        # Без --timeout: плагина pytest-timeout в зависимостях нет, флаг
-        # уронил бы прогон. Ограничение по времени даёт timeout-minutes job'а.
-        run: python -m pytest -q --durations=10
+        # pytest-timeout (в dev-зависимостях): единичный зависший тест — обычно
+        # браузерный, ждущий сети/headless — ПАДАЕТ на 180с и виден, а не съедает
+        # весь бюджет job'а до kill по timeout-minutes. thread-метод не требует
+        # SIGALRM и работает внутри asyncio-петли.
+        run: python -m pytest -q --durations=15 --timeout=180 --timeout-method=thread
 
   checks:
     name: секреты, JS, запрещённые файлы

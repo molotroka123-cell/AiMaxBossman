@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-timeout>=2.2"]
 # ЭТАП 3: psutil опционален — без него Gateway работает, но отдаёт меньше
 # метрик процесса/системной памяти в /metrics.
 resource = ["psutil>=5.9"]

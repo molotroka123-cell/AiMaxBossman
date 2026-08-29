@@ -1,0 +1,140 @@
+name: Bossman Core CI
+
+# Отдельный gate ядра: раньше CI гонял только Command Center, а bossman-core не
+# проверялся автоматически вовсе. Набор ядра разбит на предсказуемые группы,
+# чтобы один огромный job не упирался в timeout раннера и чтобы падение было
+# видно по конкретной области, а не «где-то в 600 тестах».
+#
+# Железные возможности (KVM/runsc/nft root/живой OpenRouter/Swift) на обычном
+# GitHub-раннере отсутствуют — соответствующие тесты честно skip'аются самими
+# фикстурами; отдельного «hardware» job здесь нет намеренно.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bossman-core-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: pytest ${{ matrix.group.name }} (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+        group:
+          # Партиции по областям. Пути к файлам — не логика, а разбиение
+          # бюджета времени; сумма покрывает весь каталог tests/.
+          - name: security
+            paths: >-
+              tests/test_core_auth_perimeter.py tests/test_ai_lab_containment.py
+              tests/test_host_execution_argv.py tests/test_sandbox_security.py
+              tests/test_sandbox_redteam_findings.py tests/test_sandbox_egress.py
+              tests/test_sandbox_egress_lockdown.py tests/test_sandbox_dataset_gate.py
+              tests/test_stage12_security.py tests/test_alias_and_auth_boundary.py
+              tests/test_browser_approval_and_injection.py tests/test_browser_approvals_p1.py
+          - name: gateway-context
+            paths: >-
+              tests/test_gateway_stage3.py tests/test_gateway_circuit_breaker.py
+              tests/test_gateway_client_stage3.py tests/test_gateway_cloud_policy.py
+              tests/test_gateway_failover_4xx.py tests/test_gateway_router_stage3.py
+              tests/test_llm_gateway_stage3.py tests/test_context.py
+              tests/test_context_engine_integration.py tests/test_context_engine_stage_2_222.py
+              tests/test_context_quality_benchmark.py tests/test_retrieval_extra.py
+              tests/test_memory_and_state_integrity.py tests/test_memory_classes.py
+              tests/test_compact_plugins.py tests/test_compact_structured.py
+          - name: stage8-14
+            paths: >-
+              tests/test_sandbox_core.py tests/test_sandbox_safe_runtime.py
+              tests/test_sandbox_strong_runtimes.py tests/test_sandbox_toolbox.py
+              tests/test_sandbox_tools_and_broker.py tests/test_dev_factory.py
+              tests/test_dev_factory_editor.py tests/test_dev_factory_wiring.py
+              tests/test_stage11_ai_lab.py tests/test_stage12_mobile_api.py
+              tests/test_stage9_agent_smoke.py tests/test_stage9_gateway_e2e.py
+              tests/test_stage9_recovery.py tests/test_stage9_resource_stress.py
+              tests/test_stage9_sandbox_e2e.py tests/test_remote_client.py
+          - name: rest
+            # Всё остальное в tests/ — приёмочные этапов 4–7, ресурсы, поиск,
+            # видео, инструменты, роутер. --ignore держит группу отделённой от
+            # трёх предыдущих, чтобы тесты не считались дважды.
+            paths: tests/
+            ignore: >-
+              --ignore=tests/test_core_auth_perimeter.py --ignore=tests/test_ai_lab_containment.py
+              --ignore=tests/test_host_execution_argv.py --ignore=tests/test_sandbox_security.py
+              --ignore=tests/test_sandbox_redteam_findings.py --ignore=tests/test_sandbox_egress.py
+              --ignore=tests/test_sandbox_egress_lockdown.py --ignore=tests/test_sandbox_dataset_gate.py
+              --ignore=tests/test_stage12_security.py --ignore=tests/test_alias_and_auth_boundary.py
+              --ignore=tests/test_browser_approval_and_injection.py --ignore=tests/test_browser_approvals_p1.py
+              --ignore=tests/test_gateway_stage3.py --ignore=tests/test_gateway_circuit_breaker.py
+              --ignore=tests/test_gateway_client_stage3.py --ignore=tests/test_gateway_cloud_policy.py
+              --ignore=tests/test_gateway_failover_4xx.py --ignore=tests/test_gateway_router_stage3.py
+              --ignore=tests/test_llm_gateway_stage3.py --ignore=tests/test_context.py
+              --ignore=tests/test_context_engine_integration.py --ignore=tests/test_context_engine_stage_2_222.py
+              --ignore=tests/test_context_quality_benchmark.py --ignore=tests/test_retrieval_extra.py
+              --ignore=tests/test_memory_and_state_integrity.py --ignore=tests/test_memory_classes.py
+              --ignore=tests/test_compact_plugins.py --ignore=tests/test_compact_structured.py
+              --ignore=tests/test_sandbox_core.py --ignore=tests/test_sandbox_safe_runtime.py
+              --ignore=tests/test_sandbox_strong_runtimes.py --ignore=tests/test_sandbox_toolbox.py
+              --ignore=tests/test_sandbox_tools_and_broker.py --ignore=tests/test_dev_factory.py
+              --ignore=tests/test_dev_factory_editor.py --ignore=tests/test_dev_factory_wiring.py
+              --ignore=tests/test_stage11_ai_lab.py --ignore=tests/test_stage12_mobile_api.py
+              --ignore=tests/test_stage9_agent_smoke.py --ignore=tests/test_stage9_gateway_e2e.py
+              --ignore=tests/test_stage9_recovery.py --ignore=tests/test_stage9_resource_stress.py
+              --ignore=tests/test_stage9_sandbox_e2e.py --ignore=tests/test_remote_client.py
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: bossman-core/pyproject.toml
+
+      - name: Install bossman-core
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "./bossman-core[dev,resource]"
+
+      - name: Chromium для 2 браузерных тестов
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Pytest (${{ matrix.group.name }})
+        working-directory: bossman-core
+        # browser_support сам находит Chromium в стандартной раскладке Playwright
+        # (~/.cache/ms-playwright после install) — отдельная env-переменная не нужна.
+        # --timeout: зависший тест ПАДАЕТ на 120с и виден, а не съедает бюджет.
+        run: >-
+          python -m pytest -q --durations=10 --timeout=120 --timeout-method=thread
+          ${{ matrix.group.paths }} ${{ matrix.group.ignore }}
+
+  compile:
+    name: compile + секреты
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile
+        run: python -m compileall -q bossman-core/bossman
+
+      - name: Secret-pattern scan
+        run: python tools/ci_secret_scan.py

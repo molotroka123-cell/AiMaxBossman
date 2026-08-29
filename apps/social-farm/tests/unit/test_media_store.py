@@ -148,7 +148,7 @@ def test_credential_material_is_refused_by_the_media_namespace(store):
     (b'{"access_token": "x"}', "экспорт токенов"),
     (b'[{"name":"sessionid","httpOnly":true}]', "выгрузка cookie"),
     (b"# Netscape HTTP Cookie File\n.instagram.com\tTRUE\t/", "cookie-jar"),
-    (b"-----BEGIN RSA PRIVATE KEY-----\nMIIE", "приватный ключ"),
+    (b"-----BEGIN RSA PRIVATE KEY-----\nMIIE", "приватный ключ"),  # ci-secret-scan: allow
 ])
 def test_credential_shapes_are_recognised(blob, expected):
     assert looks_like_credential_material(blob) == expected

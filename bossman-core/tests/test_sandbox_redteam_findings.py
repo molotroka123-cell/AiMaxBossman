@@ -64,10 +64,10 @@ def test_privileges_dropped_regardless_of_network_mode():
 # ---------- RT-03: секрет протекал в траекторию и датасет ----------
 
 LEAKY = [
-    "sk-LEAK-abcdef0123456789",          # дефис ВНУТРИ токена — паттерн не ловил
-    "sk-or-v1-0123456789abcdef0123",     # реальный вид ключа OpenRouter
-    "ghp_0123456789abcdefABCD",
-    "AKIAIOSFODNN7EXAMPLE",
+    "sk-LEAK-abcdef0123456789",          # дефис ВНУТРИ токена — паттерн не ловил  # ci-secret-scan: allow
+    "sk-or-v1-0123456789abcdef0123",     # реальный вид ключа OpenRouter  # ci-secret-scan: allow
+    "ghp_0123456789abcdefABCD",  # ci-secret-scan: allow
+    "AKIAIOSFODNN7EXAMPLE",  # ci-secret-scan: allow
 ]
 
 
@@ -80,8 +80,8 @@ def test_token_with_hyphens_is_redacted(secret):
 def test_key_named_field_is_redacted():
     """Слово `key` не значилось секретным ключом — `key=<токен>` и {'key': …}
     уходили в лог как есть."""
-    assert "sk-LEAK-abcdef0123456789" not in obs.redact("key=sk-LEAK-abcdef0123456789")
-    red = obs.redact_obj({"key": "sk-LEAK-abcdef0123456789"})
+    assert "sk-LEAK-abcdef0123456789" not in obs.redact("key=sk-LEAK-abcdef0123456789")  # ci-secret-scan: allow
+    red = obs.redact_obj({"key": "sk-LEAK-abcdef0123456789"})  # ci-secret-scan: allow
     assert red["key"] == obs.REDACTED
 
 
@@ -89,17 +89,17 @@ def test_secret_does_not_reach_trajectory_or_dataset():
     """Сквозная проверка: вложенная структура → траектория → датасет-кандидат."""
     rec = TrajectoryRecorder("sbx1")
     rec.record("tool_call",
-               nested={"deep": [{"authorization": "Bearer sk-LEAK-abcdef0123456789"}]},
-               text="key=sk-LEAK-abcdef0123456789")
+               nested={"deep": [{"authorization": "Bearer sk-LEAK-abcdef0123456789"}]},  # ci-secret-scan: allow
+               text="key=sk-LEAK-abcdef0123456789")  # ci-secret-scan: allow
     blob = json.dumps(rec.events, ensure_ascii=False)
-    assert "sk-LEAK-abcdef0123456789" not in blob
+    assert "sk-LEAK-abcdef0123456789" not in blob  # ci-secret-scan: allow
 
     candidate = DatasetGate().build_candidate("sbx1", rec.events)
-    assert "sk-LEAK-abcdef0123456789" not in json.dumps(candidate.samples, ensure_ascii=False)
+    assert "sk-LEAK-abcdef0123456789" not in json.dumps(candidate.samples, ensure_ascii=False)  # ci-secret-scan: allow
 
 
 def test_redaction_stays_idempotent_and_keeps_non_secrets():
-    once = obs.redact("sk-LEAK-abcdef0123456789")
+    once = obs.redact("sk-LEAK-abcdef0123456789")  # ci-secret-scan: allow
     assert obs.redact(once) == once
     # не-секреты не должны затираться, иначе логи станут бесполезными
     assert obs.redact("lease_id=abc123") == "lease_id=abc123"

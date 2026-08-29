@@ -93,7 +93,7 @@ class _FakeDB:
 
 
 def _broker(db):
-    material = {"openrouter": "sk-REAL-SECRET-DO-NOT-LEAK"}
+    material = {"openrouter": "sk-REAL-SECRET-DO-NOT-LEAK"}  # ci-secret-scan: allow
     return PostgresSecretBroker(lambda s: material.get(s), db=db,
                                 allowed_scopes=frozenset({"openrouter"}))
 
@@ -105,7 +105,7 @@ async def test_pg_broker_grant_redeem_revoke():
     await b.ensure_schema()
     assert any("CREATE TABLE IF NOT EXISTS sandbox_secret_grants" in s for s in db.executed)
     g = await b.grant("sbx1", "openrouter", 60)
-    assert await b.redeem(g.id, "sbx1") == "sk-REAL-SECRET-DO-NOT-LEAK"
+    assert await b.redeem(g.id, "sbx1") == "sk-REAL-SECRET-DO-NOT-LEAK"  # ci-secret-scan: allow
     assert await b.revoke(g.id) is True
     with pytest.raises(errors.SecretDenied):
         await b.redeem(g.id, "sbx1")
@@ -117,7 +117,7 @@ async def test_pg_broker_never_stores_secret_material():
     b = _broker(db)
     g = await b.grant("sbx1", "openrouter", 60)
     # В строке гранта только scope — сам секрет в базе отсутствует.
-    assert "sk-REAL-SECRET-DO-NOT-LEAK" not in str(db.rows[g.id])
+    assert "sk-REAL-SECRET-DO-NOT-LEAK" not in str(db.rows[g.id])  # ci-secret-scan: allow
     assert db.rows[g.id]["scope"] == "openrouter"
 
 

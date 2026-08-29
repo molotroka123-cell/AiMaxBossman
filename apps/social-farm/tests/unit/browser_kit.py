@@ -23,7 +23,7 @@ from social_farm.browser import (AccountBrowserSession, BrowserConfig, FixtureDo
 # Значения, которые не должны появиться НИГДЕ на выходе. Длинные и заметные:
 # короткую строку можно случайно найти в чужом тексте, и тест соврал бы в обе
 # стороны.
-PASSWORD = "ochen-sekretnyj-parol-2026"
+PASSWORD = "ochen-sekretnyj-parol-2026"  # ci-secret-scan: allow
 CSRF_TOKEN = "csrf-9f2a1c4e8b7d6a5f0e3c2b1a"
 OTP_CODE = "918273"
 SESSION_COOKIE = "sessionid-77aa11bb22cc33dd44ee"

@@ -133,13 +133,13 @@ async def test_untrusted_source_requires_stronger_isolation(tmp_path):
 
 @pytest.mark.asyncio
 async def test_env_carries_no_host_secrets(tmp_path, monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-must-not-leak-into-sandbox")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-must-not-leak-into-sandbox")  # ci-secret-scan: allow
     m, rt = _mgr(tmp_path)
     s = await m.create(_spec(labels={"argv": ["/usr/bin/env"]}), snap=_snap())
     await m.start(s)
     await m.poll(s)
     out = (tmp_path / s.id / "out" / "stdout.log").read_text()
-    assert "sk-must-not-leak-into-sandbox" not in out
+    assert "sk-must-not-leak-into-sandbox" not in out  # ci-secret-scan: allow
     assert "OPENROUTER_API_KEY" not in out
     assert "BOSSMAN_SANDBOX_ID" in out    # своё окружение на месте
 

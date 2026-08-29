@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "greenlet>=3.0"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "greenlet>=3.0", "pytest-timeout>=2.2"]
 # MCP-рантайм (bcc/v2/mcp_runtime.py). Импорт ленивый: без пакета сервер
 # стартует, а MCP-эндпоинты честно отвечают «недоступно».
 mcp = ["mcp>=2.1,<3"]

@@ -93,9 +93,9 @@ def test_secret_file_refused_by_connector(tmp_path):
     root = tmp_path / "proj"
     root.mkdir()
     (root / "app.py").write_text("def f():\n    return 'browser index docs'\n")
-    (root / ".env").write_text("API_KEY=sk-abcdef0123456789abcdef\n")
-    (root / "secrets.json").write_text('{"token": "ghp_abcdefghijklmnopqrstuvwxyz0123456789"}')
-    (root / "config.pem").write_text("-----BEGIN PRIVATE KEY-----\nZZZ\n-----END PRIVATE KEY-----\n")
+    (root / ".env").write_text("API_KEY=sk-abcdef0123456789abcdef\n")  # ci-secret-scan: allow
+    (root / "secrets.json").write_text('{"token": "ghp_abcdefghijklmnopqrstuvwxyz0123456789"}')  # ci-secret-scan: allow
+    (root / "config.pem").write_text("-----BEGIN PRIVATE KEY-----\nZZZ\n-----END PRIVATE KEY-----\n")  # ci-secret-scan: allow
     ids = [d.id for d in filesystem_documents(root, project="p")]
     assert ids == ["app.py"], f"коннектор выдал секрет-подобные файлы: {ids}"
     # Прямая проверка политики.
@@ -103,14 +103,14 @@ def test_secret_file_refused_by_connector(tmp_path):
     assert pol.is_secret(path=".env")
     assert pol.is_secret(path="secrets.json")
     assert pol.is_secret(path="config.pem")
-    assert pol.is_secret_content("here is sk-abcdef0123456789abcdef token")
+    assert pol.is_secret_content("here is sk-abcdef0123456789abcdef token")  # ci-secret-scan: allow
 
 
 def test_secret_content_refused_at_ingest(tmp_path):
     # Adversarial: секрет замаскирован под обычный SearchDocument — ingest отклоняет.
     e = _engine(tmp_path)
     got = e.upsert([SearchDocument(
-        "sneaky.txt", "please index my key sk-abcdef0123456789abcdef now", "repo", "p",
+        "sneaky.txt", "please index my key sk-abcdef0123456789abcdef now", "repo", "p",  # ci-secret-scan: allow
         {"sensitivity": "normal"},
     )])
     assert got == [], "секрет-подобное содержимое не должно индексироваться"
@@ -184,7 +184,7 @@ def test_search_query_tool_callable(tmp_path):
         # search.index тоже вызывается и отклоняет секрет.
         idx = REGISTRY["search.index"]
         refused = asyncio.run(idx.handler(
-            {"text": "leak sk-abcdef0123456789abcdef", "source_uri": "bad"},
+            {"text": "leak sk-abcdef0123456789abcdef", "source_uri": "bad"},  # ci-secret-scan: allow
             ToolContext(agent="test")))
         assert refused.error, "search.index должен отклонить секрет"
     finally:

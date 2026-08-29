@@ -126,9 +126,9 @@ def test_correlation_rejects_unknown_key():
 # ---------- obs.py redaction ----------
 
 @pytest.mark.parametrize("raw,must_not_contain", [
-    ("Authorization: Bearer sk-abcdef0123456789ABCD", "sk-abcdef0123456789ABCD"),
+    ("Authorization: Bearer sk-abcdef0123456789ABCD", "sk-abcdef0123456789ABCD"),  # ci-secret-scan: allow
     ('{"api_key": "super-secret-value-1234"}', "super-secret-value-1234"),
-    ("token=ghp_0123456789abcdefABCDEF cookie=sess-1234567890", "ghp_0123456789abcdefABCDEF"),
+    ("token=ghp_0123456789abcdefABCDEF cookie=sess-1234567890", "ghp_0123456789abcdefABCDEF"),  # ci-secret-scan: allow
     ("password: hunter2hunter2", "hunter2hunter2"),
 ])
 def test_redact_removes_secrets(raw, must_not_contain):
@@ -138,7 +138,7 @@ def test_redact_removes_secrets(raw, must_not_contain):
 
 
 def test_redact_is_idempotent():
-    once = obs.redact("Authorization: Bearer sk-abcdef0123456789ABCD")
+    once = obs.redact("Authorization: Bearer sk-abcdef0123456789ABCD")  # ci-secret-scan: allow
     assert obs.redact(once) == once
 
 
@@ -155,8 +155,8 @@ def test_json_formatter_carries_cid_and_redacts(caplog):
     fmt = obs.JsonFormatter()
     filt = obs.RedactionFilter()
     rec = logger.makeRecord("bossman.test.obs", 20, __file__, 1,
-                            "leak Authorization: Bearer sk-abcdef0123456789ABCD", (), None)
+                            "leak Authorization: Bearer sk-abcdef0123456789ABCD", (), None)  # ci-secret-scan: allow
     filt.filter(rec)
     line = fmt.format(rec)
-    assert "sk-abcdef0123456789ABCD" not in line
+    assert "sk-abcdef0123456789ABCD" not in line  # ci-secret-scan: allow
     assert obs.REDACTED in line

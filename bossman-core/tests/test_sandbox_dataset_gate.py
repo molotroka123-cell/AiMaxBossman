@@ -74,10 +74,10 @@ def test_rejected_candidate_stays_locked():
 
 def test_end_to_end_from_trajectory_file(tmp_path):
     rec = TrajectoryRecorder("sbx9", sink_path=tmp_path / "tr.jsonl")
-    rec.record("tool_call", tool="http", token="ghp_0123456789abcdefABCDEF")
+    rec.record("tool_call", tool="http", token="ghp_0123456789abcdefABCDEF")  # ci-secret-scan: allow
     rec.record("test_result", passed=3)
     rec.lifecycle("RUNNING")
     c = DatasetGate().from_trajectory_file(tmp_path / "tr.jsonl", "sbx9")
     assert len(c.samples) == 2                      # lifecycle отфильтрован
-    assert "ghp_0123456789abcdefABCDEF" not in json.dumps(c.samples)
+    assert "ghp_0123456789abcdefABCDEF" not in json.dumps(c.samples)  # ci-secret-scan: allow
     assert c.state is CandidateState.CANDIDATE      # автопродвижения нет

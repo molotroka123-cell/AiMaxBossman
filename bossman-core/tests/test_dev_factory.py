@@ -267,17 +267,17 @@ async def test_secrets_not_copied_into_workspace(tmp_path):
 
 def test_reviewer_rejects_patch_with_secret():
     r = AdversarialReviewer()
-    res = r.review(Patch(diff="+ api_key=sk-abcdef0123456789ABCD", files=("a.py",)),
+    res = r.review(Patch(diff="+ api_key=sk-abcdef0123456789ABCD", files=("a.py",)),  # ci-secret-scan: allow
                    evidence_verdict=Verdict.PASS)
     assert not res.approved and any("секрет" in f for f in res.findings)
 
 
 def test_evidence_output_is_redacted(tmp_path):
-    ev = from_test_output("1 passed\ntoken=ghp_0123456789abcdefABCD")
-    assert "ghp_0123456789abcdefABCD" not in ev.summary
+    ev = from_test_output("1 passed\ntoken=ghp_0123456789abcdefABCD")  # ci-secret-scan: allow
+    assert "ghp_0123456789abcdefABCD" not in ev.summary  # ci-secret-scan: allow
     from bossman.dev_factory import write_evidence
-    p = write_evidence(tmp_path, "log.txt", "sk-LEAK-abcdef0123456789 1 passed")
-    assert "sk-LEAK-abcdef0123456789" not in open(p, encoding="utf-8").read()
+    p = write_evidence(tmp_path, "log.txt", "sk-LEAK-abcdef0123456789 1 passed")  # ci-secret-scan: allow
+    assert "sk-LEAK-abcdef0123456789" not in open(p, encoding="utf-8").read()  # ci-secret-scan: allow
 
 
 # ---------- граница подтверждения / ревью ----------

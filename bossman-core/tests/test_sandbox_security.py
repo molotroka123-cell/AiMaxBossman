@@ -56,7 +56,7 @@ def test_allowlist_only_permits_listed():
 # ---------- секреты ----------
 
 def _broker(scopes=("openrouter",)):
-    material = {"openrouter": "sk-REAL-SECRET-VALUE-do-not-leak"}
+    material = {"openrouter": "sk-REAL-SECRET-VALUE-do-not-leak"}  # ci-secret-scan: allow
     return InMemorySecretBroker(lambda scope: material.get(scope), allowed_scopes=frozenset(scopes))
 
 
@@ -178,10 +178,10 @@ def test_tar_archive_traversal_rejected(tmp_path):
 
 def test_trajectory_redacts_secrets(tmp_path):
     rec = TrajectoryRecorder("sbx1", sink_path=tmp_path / "tr.jsonl")
-    ev = rec.record("tool_call", tool="http", header="Authorization: Bearer sk-abcdef0123456789ABCD",
+    ev = rec.record("tool_call", tool="http", header="Authorization: Bearer sk-abcdef0123456789ABCD",  # ci-secret-scan: allow
                     api_key="super-secret-value-1234")
-    assert "sk-abcdef0123456789ABCD" not in str(ev)
+    assert "sk-abcdef0123456789ABCD" not in str(ev)  # ci-secret-scan: allow
     assert ev["api_key"] == "«REDACTED»"
     written = (tmp_path / "tr.jsonl").read_text()
-    assert "sk-abcdef0123456789ABCD" not in written
+    assert "sk-abcdef0123456789ABCD" not in written  # ci-secret-scan: allow
     assert "super-secret-value-1234" not in written
