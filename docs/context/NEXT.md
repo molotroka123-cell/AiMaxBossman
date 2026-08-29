@@ -30,3 +30,14 @@ cd bossman-core && python -m pytest -q --timeout=180 --timeout-method=thread   #
 cd command-center && python -m pytest -q --timeout=180 --timeout-method=thread  # 430 passed, 2 skipped
 python tools/ci_secret_scan.py                                                  # PASS
 ```
+
+## 5. Два command-center теста зависают на GitHub-раннере (открытый баг)
+`tests/test_discovery.py::test_open_port_that_stays_silent_is_not_called_absent`
+и `tests/test_v21_failure_injection.py::test_provider_failure_retries_are_bounded_and_status_is_honest`
+зависают >180с ТОЛЬКО на GitHub-раннере (signal-таймаут их называет), локально
+идут за ~2.5с и проходят. Оба на FakeAdapter — сеть ни при чём; зависает
+teardown asyncio/движка BCC под окружением раннера. Пока помечены
+`BCC_CI_SKIP_RUNNER_HANGS=1` в CI (локально/на железе гоняются). Воспроизвести
+на self-hosted раннере, добавить bounded-timeout в движок/фикстуру `env`,
+снять флаг. НЕ трогать продовый discovery.py без воспроизведения — 429 тестов
+сейчас зелёные.
