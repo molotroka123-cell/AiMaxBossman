@@ -40,6 +40,15 @@ from .policy import PolicyEngine, RiskEngine
 from .resources import ResourceLeaseAdapter
 from .runtime import FakeRuntime, SandboxRuntime
 from .secrets import InMemorySecretBroker, PostgresSecretBroker
+from .toolbox import (
+    GIT_ALLOWED,
+    GIT_FORBIDDEN,
+    SHELL_ALLOWED,
+    browser_profile_dir,
+    contained,
+    git_argv,
+    shell_argv,
+)
 from .trajectory import TrajectoryRecorder
 
 __all__ = [
@@ -51,6 +60,8 @@ __all__ = [
     "ArtifactGate",
     "TrajectoryRecorder", "DatasetGate", "DatasetCandidate", "CandidateState",
     "EgressProxy",
+    "shell_argv", "git_argv", "contained", "browser_profile_dir",
+    "GIT_ALLOWED", "GIT_FORBIDDEN", "SHELL_ALLOWED",
     "can_transition", "allowed_transitions",
     "sandbox_enabled", "build_subsystem", "router",
 ]
