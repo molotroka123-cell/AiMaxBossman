@@ -152,12 +152,26 @@ class SafeRuntime:
     def _env(self, session: SandboxSession) -> dict[str, str]:
         """Минимальное окружение: НИКАКИХ host-секретов (non-negotiable #4).
         Наследование os.environ запрещено — там живут ключи и токены."""
-        return {
+        env = {
             "PATH": "/usr/local/bin:/usr/bin:/bin",
             "HOME": str(self._workdirs.get(session.id, Path("/tmp"))),
             "LANG": "C.UTF-8",
             "BOSSMAN_SANDBOX_ID": session.id,
         }
+        # Если менеджер поднял egress-прокси (ALLOWLIST/INTERNET), процесс обязан
+        # ходить через него: адрес отдаётся стандартными переменными, которые
+        # понимают curl/pip/git/requests. NO_PROXY намеренно пуст — исключений,
+        # ходящих мимо барьера, быть не должно.
+        proxy = session.spec.labels.get("egress_proxy")
+        if proxy:
+            url = f"http://{proxy}"
+            env.update({
+                "http_proxy": url, "https_proxy": url,
+                "HTTP_PROXY": url, "HTTPS_PROXY": url,
+                "all_proxy": url, "ALL_PROXY": url,
+                "no_proxy": "", "NO_PROXY": "",
+            })
+        return env
 
     async def start(self, session: SandboxSession) -> None:
         work = self._workdirs.get(session.id)

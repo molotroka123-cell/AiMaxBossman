@@ -162,3 +162,29 @@ async def test_allowlist_sandbox_gets_proxy_and_releases_it(tmp_path):
     await m.poll(s)
     await m.destroy(s)
     assert m.proxies == {}          # выход закрыт вместе с песочницей
+
+
+@pytest.mark.asyncio
+async def test_proxy_env_is_injected_into_sandbox_process(tmp_path):
+    """Процесс песочницы обязан ходить через прокси: адрес приходит стандартными
+    переменными, а NO_PROXY пуст — исключений мимо барьера нет."""
+    from bossman.sandbox.runtimes import SafeRuntime
+    from bossman.sandbox.models import SandboxSession, SandboxSpec
+    rt = SafeRuntime(workspace_root=tmp_path)
+    s = SandboxSession(id="sbx1", spec=SandboxSpec(task="t",
+                       labels={"egress_proxy": "127.0.0.1:9999"}))
+    env = rt._env(s)
+    for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "all_proxy"):
+        assert env[k] == "http://127.0.0.1:9999"
+    assert env["no_proxy"] == "" and env["NO_PROXY"] == ""
+
+
+@pytest.mark.asyncio
+async def test_no_proxy_env_without_egress(tmp_path):
+    """В OFFLINE прокси нет — и переменных прокси в окружении тоже быть не должно."""
+    from bossman.sandbox.runtimes import SafeRuntime
+    from bossman.sandbox.models import SandboxSession, SandboxSpec
+    rt = SafeRuntime(workspace_root=tmp_path)
+    s = SandboxSession(id="sbx2", spec=SandboxSpec(task="t"))
+    env = rt._env(s)
+    assert not any("proxy" in k.lower() for k in env)

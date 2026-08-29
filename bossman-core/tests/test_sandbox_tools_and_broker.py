@@ -143,3 +143,27 @@ async def test_pg_broker_revoke_sandbox_and_scope_guard():
     assert await b.revoke_sandbox("sbx1") == 2
     with pytest.raises(errors.SecretDenied):
         await b.grant("sbx1", "github_pat", 60)   # scope не разрешён
+
+
+# ---------- выдача инструментов агенту ----------
+
+def test_coder_agent_has_sandbox_tools_with_approval():
+    """Инструменты выданы агенту coder, консеквентные — под подтверждением."""
+    from bossman.agents import load_all
+    a = load_all()["coder"]
+    assert a.grant("sandbox.create").confirm is True
+    assert a.grant("sandbox.run").confirm is True
+    for n in ("sandbox.status", "sandbox.collect", "sandbox.destroy"):
+        assert a.grant(n) is not None, n
+    # строка «name: confirm» не должна утечь как имя инструмента
+    assert a.grant("sandbox.create: confirm") is None
+
+
+def test_agents_without_grant_cannot_use_sandbox():
+    """Остальным агентам песочница не выдана — доступ не появляется сам собой."""
+    from bossman.agents import load_all
+    for name in ("analyst", "fresh-vibes"):
+        a = load_all().get(name)
+        if a is None:
+            continue
+        assert a.grant("sandbox.create") is None, name

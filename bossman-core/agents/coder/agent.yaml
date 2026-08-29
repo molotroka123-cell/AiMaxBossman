@@ -13,6 +13,13 @@ tools:
   - git
   - search_journal
   - log
+  # ЭТАП 8: изолированная песочница. create/run — консеквентные (создают среду и
+  # исполняют код), поэтому явно под подтверждением; чтение и снос — без.
+  - sandbox.create: confirm
+  - sandbox.run: confirm
+  - sandbox.status
+  - sandbox.collect
+  - sandbox.destroy
 limits:
   max_steps: 60
   max_tokens: 400000
