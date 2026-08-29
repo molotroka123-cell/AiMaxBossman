@@ -140,3 +140,11 @@ RESULT: mobile API расширяет Stage 6; PWA на /remote/app; iOS отд�
 TEST: stage12 31 passed; stage11 18 passed; full bossman-core 345 passed/27 skipped/0 failed
 SECURITY: IDOR 404, scope-гвардейцы, logout/revoke, redaction email/IP (дописан слой Stage 11 sanitizer), SW не кэширует /remote/*, нет CDN/токенов в URL
 NEXT: живой прогон на железе + пуш результатов
+
+2026-08-29T14:20Z
+ACTION: Закрыты обе находки аудита — открытые консеквентные маршруты ядра и второй путь исполнения мимо песочницы
+FILES: bossman/authz.py (новый), bossman/api.py, bossman/ai_lab/routes.py, bossman/config.py, bossman/toolkit/shell.py, ui/index.html, .env.example, README.md, tests/test_core_route_authz.py
+RESULT: (1) POST /approvals/{id}, PATCH /agents/{name}, POST /projects/{slug}/approve и гейт обучающего набора (/api/lab/.../decide, launch_training) требуют BOSSMAN_CORE_API_KEY; сравнение постоянного времени, ключ не настроен => отказ (fail closed), проверка по адресу источника сознательно НЕ используется (за tailscale serve всё приходит с loopback). (2) SANDBOX_MODE=local теперь исполняет только вместе с явным BOSSMAN_UNSAFE_LOCAL_EXEC=1, неизвестное значение режима отвергается вместо тихого падения в хостовый шелл.
+TEST: pytest tests -q -> 507 passed, 2 skipped (было 494/2); живая проверка на api.app: аноним 401, неверный ключ 401, верный ключ доходит до обработчика
+SECURITY: подтверждение больше нельзя решить анонимно с порта ядра; у агента больше нет неизолированного исполнителя по умолчанию
+NEXT: без изменений — runsc/KVM на железе и периодический red-team

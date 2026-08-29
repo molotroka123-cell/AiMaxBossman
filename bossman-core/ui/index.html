@@ -55,8 +55,25 @@ const PANELS = [
 ];
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// Ключ ядра нужен только консеквентным ручкам (решение подтверждения, смена
+// cloud_policy, approve проекта). Он не зашит в статику — владелец вводит его
+// один раз, дальше он живёт в localStorage этого браузера. На 401 спрашиваем
+// заново: обычно это значит, что ключ на сервере сменили.
+const coreKey = () => localStorage.getItem("bossman_core_key") || "";
+const askCoreKey = () => {
+  const k = prompt("Ключ ядра (BOSSMAN_CORE_API_KEY):", "");
+  if (k) localStorage.setItem("bossman_core_key", k.trim());
+  return k ? k.trim() : "";
+};
 const api = async (path, opts) => {
-  const r = await fetch(path, opts ? {headers:{"Content-Type":"application/json"}, ...opts} : undefined);
+  const send = async () => {
+    const base = opts ? {headers: {"Content-Type": "application/json"}, ...opts} : {headers: {}};
+    const key = coreKey();
+    if (key) base.headers = {...(base.headers || {}), "X-Bossman-Key": key};
+    return fetch(path, base);
+  };
+  let r = await send();
+  if (r.status === 401 && askCoreKey()) r = await send();
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 };

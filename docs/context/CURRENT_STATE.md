@@ -1,7 +1,7 @@
 # CURRENT STATE
 
 - Ветка: `claude/bossman-control-v03-43igbk` | HEAD: `dc5b4f9` | всё запушено.
-- Полный набор bossman-core: **265 passed**.
+- Полный набор bossman-core: **507 passed, 2 skipped**.
 
 ## Стадии
 | Стадия | Состояние |
@@ -24,3 +24,9 @@
 - `BOSSMAN_GATEWAY_URL`, `BOSSMAN_GATEWAY_CORE_KEY` — Этап 3.
 - `TELEGRAM_WEBHOOK_SECRET` — обязателен, иначе вебхук approvals отдаёт 403.
 - `BOSSMAN_TEST_CHROMIUM` — путь к Chromium для 2 браузерных тестов.
+- `BOSSMAN_CORE_API_KEY` — обязателен для консеквентных маршрутов ядра
+  (решение подтверждения, cloud_policy агента, approve проекта, гейт
+  обучающего набора). Не задан → эти маршруты отдают 401.
+- `BOSSMAN_UNSAFE_LOCAL_EXEC` — только разработка: разрешает
+  `SANDBOX_MODE=local` (исполнение команды агента на хосте без изоляции).
+  Без него `local` отказывает, неизвестный режим — тоже.

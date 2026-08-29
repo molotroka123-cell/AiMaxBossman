@@ -34,9 +34,16 @@ class Settings:
     projects_dir: Path = field(default_factory=lambda: Path(_env("PROJECTS_DIR", str(ROOT / "projects"))))
     workspace_dir: Path = field(default_factory=lambda: Path(_env("WORKSPACE_DIR", str(ROOT / "workspace"))))
 
-    # sandbox: docker = контейнер без сети (боевой режим); local = subprocess (только разработка)
+    # sandbox: docker = контейнер без сети (боевой режим); local = subprocess БЕЗ
+    # изоляции. local — это выполнение произвольной команды агента прямо на хосте,
+    # то есть ровно то, от чего Stage 8 защищает всё остальное. Поэтому он больше
+    # не включается одним лишь SANDBOX_MODE=local: нужен ещё осознанный
+    # BOSSMAN_UNSAFE_LOCAL_EXEC=1. Любое неизвестное значение sandbox_mode тоже
+    # ведёт к отказу, а не тихо в хостовый шелл (fail closed).
     sandbox_mode: str = field(default_factory=lambda: _env("SANDBOX_MODE", "docker"))
     sandbox_image: str = field(default_factory=lambda: _env("SANDBOX_IMAGE", "bossman-sandbox:latest"))
+    allow_unsafe_local_exec: bool = field(default_factory=lambda: _env(
+        "BOSSMAN_UNSAFE_LOCAL_EXEC", "").lower() in ("1", "true", "yes"))
 
     telegram_bot_token: str = field(default_factory=lambda: _env("TELEGRAM_BOT_TOKEN", ""))
     telegram_chat_id: str = field(default_factory=lambda: _env("TELEGRAM_CHAT_ID", ""))
@@ -45,6 +52,13 @@ class Settings:
     # кто достучится до порта ядра, мог бы подделать «approve:<id>» и подтвердить
     # чужое действие. Пустой секрет => вебхук approve/reject запрещён (403).
     telegram_webhook_secret: str = field(default_factory=lambda: _env("TELEGRAM_WEBHOOK_SECRET", ""))
+
+    # Ключ доступа к консеквентным маршрутам ядра. Подтверждения — граница
+    # безопасности НАД песочницей, браузером и облаком: решать их по сетевому
+    # положению нельзя (за Tailscale serve запрос приходит с loopback, поэтому
+    # проверка «только 127.0.0.1» здесь была бы фикцией). Не задан → решения
+    # подтверждений и смена политики агента ОТКЛОНЯЮТСЯ (fail closed).
+    core_api_key: str = field(default_factory=lambda: _env("BOSSMAN_CORE_API_KEY", ""))
 
     # уведомление в Telegram, если задача заняла дольше минуты (раздел 5, шаг 6)
     notify_after_seconds: int = int(_env("NOTIFY_AFTER_SECONDS", "60"))

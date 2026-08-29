@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from . import approvals as approvals_mod
 from . import db, errors, events, obs, runner
 from .agents import load_all, set_cloud_policy
+from .authz import require_core_key
 from .config import ROOT, settings
 from .lifecycle import registry as _subsystems
 from .projects.plan import State, journal_tail, project_dir
@@ -192,8 +193,14 @@ async def list_approvals(status: str = "pending"):
     return await db.fetch("SELECT * FROM approvals WHERE status=$1 ORDER BY id", status)
 
 
-@app.post("/approvals/{approval_id}")
+@app.post("/approvals/{approval_id}", dependencies=[Depends(require_core_key)])
 async def decide_approval(approval_id: int, body: Decision):
+    """Решение по подтверждению — только с ключом ядра (см. authz.require_core_key).
+
+    Telegram-вебхук ниже — отдельный вход с собственной проверкой секрета;
+    Stage 6 (/remote/...) — свой вход по токену устройства со скоупом approve.
+    Общее у всех трёх: ни один не пускает решать анонимно.
+    """
     row = await approvals_mod.decide(approval_id, body.approve, body.by)
     if not row:
         raise HTTPException(409, "уже решено или не существует")
@@ -249,7 +256,7 @@ class AgentPatch(BaseModel):
     cloud_policy: str
 
 
-@app.patch("/agents/{name}")
+@app.patch("/agents/{name}", dependencies=[Depends(require_core_key)])
 async def patch_agent(name: str, body: AgentPatch):
     try:
         spec = set_cloud_policy(name, body.cloud_policy)
@@ -382,7 +389,7 @@ async def list_projects():
     return await db.fetch("SELECT * FROM projects ORDER BY updated_at DESC")
 
 
-@app.post("/projects/{slug}/approve")
+@app.post("/projects/{slug}/approve", dependencies=[Depends(require_core_key)])
 async def approve_project(slug: str):
     row = await _project(slug)
     await db.execute("UPDATE projects SET status='approved', updated_at=now() WHERE id=$1", row["id"])

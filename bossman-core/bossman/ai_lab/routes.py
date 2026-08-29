@@ -8,10 +8,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from .. import errors
+from ..authz import require_core_key
 from .candidates import CandidateStore
 from .export import EvalRunner, Exporter, LocalTrainingAdapter
 
@@ -75,7 +76,9 @@ async def create_candidate(trajectory_path: str, request: Request):
             "reasons": list(cand.reasons)}
 
 
-@router.post("/candidates/{candidate_id}/decide")
+# Человеческий гейт обучающего набора: разрешение на превращение траектории в
+# обучающие данные — такое же консеквентное решение, как approvals ядра.
+@router.post("/candidates/{candidate_id}/decide", dependencies=[Depends(require_core_key)])
 async def decide_candidate(candidate_id: str, body: DecideIn, request: Request):
     cand = _store(request).decide(candidate_id, approve=body.approve, by=body.by)
     return {"id": cand.id, "state": cand.state, "decided_by": cand.decided_by}
@@ -100,7 +103,8 @@ async def export_dpo(candidate_id: str, request: Request):
     return {"path": str(path)}
 
 
-@router.post("/exports/{candidate_id}/launch_training")
+@router.post("/exports/{candidate_id}/launch_training",
+             dependencies=[Depends(require_core_key)])
 async def launch_training(candidate_id: str, request: Request):
     """Демонстративно отказной путь: адаптер по умолчанию не сконфигурирован."""
     path = _exporter(request).launch_training(Path(f"{candidate_id}.sft.jsonl"))

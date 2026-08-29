@@ -1,6 +1,13 @@
 """run и tests — команды в sandbox: docker-контейнер без сети, смонтирован только workdir.
 Результат: код выхода + первые 30 и последние 30 строк (≤3K токенов);
-полный вывод — в assets/logs/<id>.txt, дочитывается через fs.read."""
+полный вывод — в assets/logs/<id>.txt, дочитывается через fs.read.
+
+Изоляция здесь — не украшение. Команду в `run`/`tests` диктует модель, а её
+контекст содержит недоверенное: содержимое репозитория, README, issue, веб-
+страницу. Второй путь исполнения без изоляции сводил бы на нет Stage 8, поэтому
+режим `local` (хостовый шелл) требует отдельного осознанного включения, а любое
+незнакомое значение SANDBOX_MODE трактуется как отказ, а не как «ну пусть local».
+"""
 from __future__ import annotations
 
 import asyncio
@@ -8,17 +15,41 @@ import re
 import shlex
 import uuid
 
+from .. import errors, obs
 from ..config import settings
 from . import ToolContext, ToolDef, ToolResult, clip, register
 
+_log = obs.get_logger("bossman.toolkit.shell")
 
-async def _exec(cmd: str, ctx: ToolContext, timeout: int = 600) -> tuple[int, str]:
-    if settings.sandbox_mode == "docker":
-        full = (f"docker run --rm --network none "
+
+def _build_command(cmd: str, ctx: ToolContext) -> str:
+    """Собрать командную строку исполнителя либо отказать (fail closed).
+
+    docker  → контейнер без сети, смонтирован только workdir;
+    local   → хостовый шелл, БЕЗ изоляции: только при BOSSMAN_UNSAFE_LOCAL_EXEC=1;
+    иное    → PolicyDenied.
+    """
+    mode = (settings.sandbox_mode or "").strip().lower()
+    if mode == "docker":
+        return (f"docker run --rm --network none "
                 f"-v {shlex.quote(str(ctx.workdir.resolve()))}:/work -w /work "
                 f"{settings.sandbox_image} sh -lc {shlex.quote(cmd)}")
-    else:  # local — только для разработки на ноутбуке, без изоляции
-        full = f"cd {shlex.quote(str(ctx.workdir))} && {cmd}"
+    if mode == "local":
+        if not settings.allow_unsafe_local_exec:
+            raise errors.PolicyDenied(
+                "SANDBOX_MODE=local исполняет команду агента на хосте без изоляции; "
+                "включите осознанно через BOSSMAN_UNSAFE_LOCAL_EXEC=1 либо "
+                "используйте SANDBOX_MODE=docker")
+        # Разработческий режим и он ЗНАЕТ, что он разработческий: пусть это видно
+        # в журнале, а не только в .env, о котором через месяц никто не вспомнит.
+        _log.warning("exec без изоляции: SANDBOX_MODE=local + BOSSMAN_UNSAFE_LOCAL_EXEC=1")
+        return f"cd {shlex.quote(str(ctx.workdir))} && {cmd}"
+    raise errors.PolicyDenied(
+        f"неизвестный SANDBOX_MODE={settings.sandbox_mode!r}: ожидается docker или local")
+
+
+async def _exec(cmd: str, ctx: ToolContext, timeout: int = 600) -> tuple[int, str]:
+    full = _build_command(cmd, ctx)
     proc = await asyncio.create_subprocess_shell(
         full, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
     try:

@@ -1,6 +1,6 @@
 # TEST STATUS
 
-Последний полный прогон: **265 passed** (`bossman-core`, с BOSSMAN_TEST_CHROMIUM).
+Последний полный прогон: **507 passed, 2 skipped** (`bossman-core`).
 
 | Набор | Результат |
 |---|---|
@@ -15,6 +15,7 @@
 | tests/test_hardening_p0_p1.py | 8 passed |
 | tests/test_browser_approvals_p1.py | 16 passed |
 | tests/test_gateway_failover_4xx.py | 4 passed |
+| tests/test_core_route_authz.py (гейт ключа + отказ неизолированного exec) | 13 passed |
 
 Команды:
 ```
