@@ -47,9 +47,9 @@ class ContextEngine:
 
     # ---- индексирование источников ----
     def index_text(self, text: str, *, source_uri: str, source_type: str = "text",
-                   project: str = "", metadata: dict | None = None):
+                   project: str = "", metadata: dict | None = None, sensitivity: str = "normal"):
         return self.ingestor.ingest_text(text, source_uri=source_uri, source_type=source_type,
-                                         project=project, metadata=metadata)
+                                         project=project, metadata=metadata, sensitivity=sensitivity)
 
     def index_tree(self, root: str | Path, *, project: str = ""):
         return self.ingestor.ingest_tree(root, project=project)
