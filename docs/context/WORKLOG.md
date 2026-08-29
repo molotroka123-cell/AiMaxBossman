@@ -126,3 +126,10 @@ RESULT: 18/18 tests passed, training OFF by default
 TEST: pytest ../bossman-core/tests/test_stage11_ai_lab.py -q
 SECURITY: raw->training bypass closed; secrets+PII redacted; provenance enforced; approval revocation blocks export
 NEXT: Stage 12 integration
+
+2026-08-29T11:30Z
+ACTION: Закрыты последние выполнимые пункты — планировщик на модели и toolbox внутри песочницы
+FILES: bossman/dev_factory/{planner,executor,__init__}.py, bossman/sandbox/{toolbox,__init__}.py, tests/test_dev_factory.py, tests/test_sandbox_toolbox.py
+RESULT: LLMPlanner идёт через существующий Gateway, разбор ответа строгий (REVIEW/PATCH дописывает система, argv только массивом, сбой модели → запасной план); toolbox песочницы без публикации (git push/remote/config отсутствуют) и без шелл-инъекций (включая закрытый «sh -c»), файлы не выходят за рабочую область, браузер с отдельным профилем
+TEST: pytest tests -q -> 480 passed, 2 skipped
+NEXT: только runsc/KVM на железе (Ai Max) и периодический red-team

@@ -5,19 +5,19 @@
 
 ## CURRENT HEAD
 - ветка: `claude/bossman-control-v03-43igbk`
-- HEAD: `7d424dc`. Всё запушено в origin.
+- HEAD: `2c28ae7`. Всё запушено в origin.
 - В ветке параллельно работают другие воркеры (Stage 9 e2e, `ai_lab`, openrouter,
   Stage 11/12). Перед работой делай fetch+merge: конфликты бывают в общем списке
   подсистем `bossman/api.py` и в `docs/context/WORKLOG.md` (журнал — дописываемый,
   при конфликте сохраняй ОБЕ стороны).
 
 ## LATEST TEST RESULTS
-`432 passed, 2 skipped` — весь `bossman-core`, БЕЗ переменных окружения
+`480 passed, 2 skipped` — весь `bossman-core`, БЕЗ переменных окружения
 (Chromium ищется сам через `tests/browser_support.py`).
 
 ```
 cd bossman-core
-python -m pytest -q                       # 432 passed, 2 skipped
+python -m pytest -q                       # 480 passed, 2 skipped
 python -m pytest tests/test_sandbox_*.py -q
 python -m pytest tests/test_dev_factory.py -q
 ```
@@ -59,11 +59,14 @@ python -m pytest tests/test_dev_factory.py -q
 - **runsc / MicroVM не проверены «в железе»**: на хосте нет `runsc` и нет
   `/dev/kvm` (проверено). Адаптеры написаны и честно определяют возможности,
   протестирован только путь ОТКАЗА. Нужен хост с runsc/KVM.
-- **Toolbox ВНУТРИ песочницы** (shell/git/files/browser как её собственные
-  инструменты) — не начат. Браузер там обязан использовать отдельный профиль.
-- **Dev Factory**: реальный планировщик на модели не подключён (есть контракт
-  `Planner` + `FakePlanner`); `executor.edit()` — шов под модель, сам ничего не
-  пишет, чтобы пустой прогон не выдавал себя за работу.
+- **Toolbox ВНУТРИ песочницы — ГОТОВ** (`sandbox/toolbox.py`): shell только
+  массивом argv (и «sh -c» закрыт), git без push/remote/config, файлы не выходят
+  за рабочую область, браузер получает отдельный профиль.
+- **Dev Factory планировщик — ГОТОВ** (`LLMPlanner`): идёт через существующий
+  Gateway, разбор ответа строгий (REVIEW/PATCH дописывает система, argv только
+  массивом, незнакомая команда → безопасный дефолт, сбой модели → запасной план).
+  `executor.edit()` — шов под модель: без редактора НИЧЕГО не пишет, чтобы пустой
+  прогон не выдавал себя за работу.
 - Вне этапов: `context_engine` делает O(N)-скан векторов (P2, масштаб).
 
 ## ГРАНИЦЫ БЕЗОПАСНОСТИ (НЕ ослаблять)

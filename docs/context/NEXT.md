@@ -1,30 +1,37 @@
 # NEXT — исполняемые шаги
 
-## 1. runsc / MicroVM на живом хосте  (БЛОКЕР: нет бинарей и /dev/kvm)
-- Установить gVisor (`runsc`) и/или дать `/dev/kvm` + лаунчер MicroVM.
-- Проверить: `GvisorRuntime().capabilities().tiers` содержит CONTAINER,
-  `MicroVMRuntime()` — MICROVM; прогнать реальную задачу под каждым.
-- Сейчас протестирован только путь ОТКАЗА (fail closed).
-- `python -m pytest tests/test_sandbox_strong_runtimes.py -q`
+Всё, что можно было закрыть на этом хосте, закрыто. Осталось ровно два пункта:
+один упирается в железо, второй — постоянная практика.
 
-## 2. Toolbox ВНУТРИ песочницы
-- shell/git/files/browser как инструменты самой песочницы (не агента снаружи).
-- Браузер там обязан использовать ОТДЕЛЬНЫЙ профиль (non-negotiable #9).
+## 1. runsc / MicroVM на живом хосте  (БЛОКЕР: железо)
+Проверено на этом хосте: `runsc` не установлен, `/dev/kvm` отсутствует
+(`ls /dev/kvm` → нет файла). Поэтому сильные рантаймы протестированы только по
+пути ОТКАЗА (fail closed), что само по себе правильно, но недостаточно.
 
-## 3. Dev Factory: реальный планировщик
-- Подключить `Planner` к модели ЧЕРЕЗ существующий Gateway (Этап 3), второго не
-  заводить. `FakePlanner` остаётся для детерминированных тестов.
-- Реализовать `executor.edit()` как шов под модель/агента. Инвариант: пустой
-  прогон не должен выдавать себя за работу — доказательства даёт только шаг TEST.
+Что сделать на Ai Max (Linux с KVM):
+1. Установить gVisor (`runsc`) и/или обеспечить `/dev/kvm` + лаунчер MicroVM.
+2. `python -m pytest tests/test_sandbox_strong_runtimes.py -q` — сейчас проверяет
+   только отказ; после установки `GvisorRuntime().capabilities().tiers` должен
+   содержать CONTAINER, `MicroVMRuntime()` — MICROVM.
+3. Прогнать реальную задачу в режимах DEVELOPER и HOSTILE: они должны
+   ИСПОЛНЯТЬСЯ, а не отвергаться с `IsolationUnavailable`.
+4. Барьер egress (`netguard.py`) уже наследуется этими рантаймами — проверить,
+   что ALLOWLIST через них работает и прямой сокет по-прежнему блокируется.
 
-## 4. Периодический red-team
-- Повторять атаки после каждого крупного изменения, а не один раз.
-- Пробы лежат в `tests/test_sandbox_redteam_findings.py` и
-  `tests/test_dev_factory.py`; расширять их, а не заменять.
+## 2. Периодический red-team (постоянная практика)
+Не разовая задача. После каждого крупного изменения повторять атаки, а не
+доверять зелёным тестам: в этой сессии дважды оказывалось, что «закрытая» дыра
+жива (см. FAIL-001 в `FAILURES.md`).
+
+Существующие пробы расширять, а не заменять:
+`tests/test_sandbox_redteam_findings.py`, `tests/test_sandbox_toolbox.py`,
+`tests/test_sandbox_egress_lockdown.py`, `tests/test_dev_factory.py`.
+
+Цели, которые стоит атаковать заново после правок: обход approvals, побег из
+рабочей копии, ArtifactGate (symlink/хардлинк/архив), утечка секрета в
+траекторию/датасет/патч, обход egress-барьера, зависшая аренда, гонки автомата.
 
 ## Команды проверки
 ```
-cd bossman-core && python -m pytest -q            # 432 passed, 2 skipped
-python -m pytest tests/test_sandbox_*.py -q
-python -m pytest tests/test_dev_factory.py -q
+cd bossman-core && python -m pytest -q            # 480 passed, 2 skipped
 ```

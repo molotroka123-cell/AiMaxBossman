@@ -1,8 +1,8 @@
 {
   "stage": 10,
-  "objective": "Этапы 1-10 в ветке; Stage 8 прошёл red-team (3 дыры закрыты), Stage 10 Dev Factory даёт патч без авто-мержа. Осталось: runsc/KVM в железе, toolbox внутри песочницы, реальный планировщик через Gateway",
+  "objective": "Этапы 1-10 закрыты по всему, что выполнимо на этом хосте. Осталось: runsc/KVM на железе (Ai Max) и периодический red-team",
   "branch": "claude/bossman-control-v03-43igbk",
-  "head": "7d424dc",
+  "head": "2c28ae7",
   "completed": [
     "shared seams (errors/lifecycle/correlation/obs)",
     "stage4 resource_brain",
@@ -23,7 +23,9 @@
     "audit fix: кроссплатформенный поиск Chromium (снят windows-hang)",
     "stage8 red-team: 3 дыры закрыты",
     "stage8 egress lockdown (nftables+uid)",
-    "stage10 dev_factory"
+    "stage10 dev_factory",
+    "stage8 toolbox внутри песочницы",
+    "stage10 LLMPlanner через Gateway + шов редактора"
   ],
   "active_files": [
     "bossman-core/bossman/sandbox/*.py",
@@ -39,14 +41,12 @@
     "FAIL-003 workflow reconcile/limit -> читать journal.jsonl"
   ],
   "tests": {
-    "full_suite": "432 passed, 2 skipped",
+    "full_suite": "480 passed, 2 skipped",
     "cmd": "python -m pytest -q"
   },
   "next_actions": [
-    "1 runsc//dev/kvm на живом хосте (блокер: нет бинарей)",
-    "2 toolbox внутри песочницы",
-    "3 реальный планировщик Dev Factory через Gateway",
-    "4 периодический red-team после каждого крупного изменения"
+    "1 runsc//dev/kvm на Ai Max (блокер: железо)",
+    "2 периодический red-team после каждого крупного изменения"
   ],
   "security_gates": [
     "OFF=OFF (BOSSMAN_SANDBOX_ENABLED default off)",
@@ -56,5 +56,5 @@
     "artifact gate: traversal/symlink/archive/size/exec/secret-scan",
     "трактория без секретов (obs.redact)"
   ],
-  "last_updated": "2026-08-29T09:21:18Z"
+  "last_updated": "2026-08-29T09:31:11Z"
 }
