@@ -61,8 +61,8 @@ const TONE = {
   stopped: 'var(--wf-stopped)',
 };
 const STATUS_TEXT = {
-  success: 'Success', running: 'Running', pending: 'Pending', queued: 'Queued',
-  waiting: 'Waiting', failed: 'Failed', stopped: 'Stopped',
+  success: 'Готово', running: 'Идёт', pending: 'Ожидает', queued: 'В очереди',
+  waiting: 'Ждёт', failed: 'Ошибка', stopped: 'Остановлено',
 };
 const SERIES = ['var(--wf-s1)', 'var(--wf-s2)', 'var(--wf-s3)', 'var(--wf-s4)'];
 
@@ -77,7 +77,7 @@ function ensureCss() {
 
 const BuilderPage = {
   id: 'builder',
-  title: 'Workflow Builder',
+  title: 'Конструктор миссий',
   icon: 'bolt',
   nav: 'primary',
 
@@ -95,7 +95,7 @@ const BuilderPage = {
         h('section.panel', empty({
           iconName: 'empty',
           title: 'Миссий пока нет',
-          hint: 'Канвас строится из реальной миссии: её плана, задач, раннов и approvals. Создайте миссию — граф появится сам.',
+          hint: 'Схема собирается из настоящей миссии — её плана, задач, запусков и подтверждений. Создайте миссию, и схема появится сама.',
           action: h('button.btn.btn-primary', { type: 'button', onClick: () => ctx.navigate('missions') }, 'К миссиям'),
         })));
     }
@@ -149,7 +149,7 @@ function buildHead(ctx, st, missions, data) {
       h('span.wf-crumb-root', 'Миссии'), h('span.wf-crumb-root', '/'), sel,
       statusBadge(m.status, { live: running })),
     h('div.spacer'),
-    h('div.wf-tabs', { role: 'tablist' }, tab('builder', 'Канвас'), tab('runs', 'Запуски')),
+    h('div.wf-tabs', { role: 'tablist' }, tab('builder', 'Схема'), tab('runs', 'Запуски')),
     runBtn);
 }
 
@@ -164,7 +164,7 @@ async function startMission(ctx, m) {
 async function stopMission(ctx, m) {
   const ok = await confirmDialog({
     title: 'Остановить миссию?',
-    text: `«${m.title}» — активные задачи будут остановлены, незавершённая работа помечена как stopped.`,
+    text: `«${m.title}» — все идущие сейчас задачи будут остановлены.`,
     okText: 'Остановить', danger: true,
   });
   if (!ok) return;

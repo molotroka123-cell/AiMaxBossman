@@ -6,7 +6,7 @@
 
 import { api } from '../api.js';
 import { h, statusBadge, select, field } from '../components.js';
-import { panel, pageHead, errorBanner } from './_shared.js';
+import { panel, pageHead, errorNote } from './_ui.js';
 
 const AgentMapPage = {
   id: 'agentmap',
@@ -21,7 +21,7 @@ const AgentMapPage = {
     const state = ctx.state.agentmap || (ctx.state.agentmap = { orchestraId: '' });
 
     const orchSelect = select(
-      [{ value: '', label: 'Все агенты (без оркестра)' },
+      [{ value: '', label: 'Все агенты' },
         ...orchestras.map((o) => ({ value: o.id, label: `${o.name} · ${(o.members || []).length} чел.` }))],
       { value: state.orchestraId },
     );
@@ -33,17 +33,17 @@ const AgentMapPage = {
       graph = await api.raw(`/api/agentmap${qs}`);
     } catch (e) { err = e; }
 
-    const head = pageHead('Карта агентов', 'Живой граф из реальных задач и оркестров', []);
-    const controls = h('div.row', field('Оркестр', orchSelect), h('div.spacer'));
+    const head = pageHead('Карта агентов', 'Кто кому передаёт работу — по реальным задачам и командам, в реальном времени.');
+    const controls = h('div.row', field('Команда', orchSelect), h('div.spacer'));
 
-    if (err) return h('div.stack.lg', head, controls, errorBanner(err, ctx));
+    if (err) return h('div.bx-page', head, controls, errorNote(err, () => ctx.refresh()));
 
     const nodes = graph.nodes || [];
     const edges = graph.edges || [];
 
     if (!nodes.length) {
-      return h('div.stack.lg', head, controls, h('section.panel',
-        h('div.panel-body', h('div.small.dim', 'Агентов нет — создайте хотя бы одного на странице «Агенты».'))));
+      return h('div.bx-page', head, controls, h('section.bx-panel',
+        h('div.bx-panel-body', h('div.small.dim', 'Агентов нет — создайте хотя бы одного на странице «Агенты».'))));
     }
 
     const rows = classify(nodes, edges);
@@ -57,9 +57,9 @@ const AgentMapPage = {
       }
     `);
 
-    return h('div.stack.lg',
+    return h('div.bx-page',
       head, controls, styleTag,
-      h('div.agentmap-graph', panel('Граф', h('div', { style: { overflowX: 'auto' } }, buildSvg(rows, edges)))),
+      h('div.agentmap-graph', panel('Схема связей', h('div', { style: { overflowX: 'auto' } }, buildSvg(rows, edges)))),
       h('div.agentmap-roles.stack', rows.map((row) => panel(row.label, h('div.mini-list', row.items.map(nodeRow))))));
   },
 
@@ -87,10 +87,10 @@ function classify(nodes, edges) {
   const rest = nodes.filter((n) => !classified.has(n.id));
 
   const rows = [];
-  if (managers.length) rows.push({ label: 'Manager', items: managers });
-  if (workers.length) rows.push({ label: 'Workers', items: workers });
-  if (rest.length) rows.push({ label: managers.length || workers.length || reviewers.length ? 'Прочее' : 'Агенты', items: rest });
-  if (reviewers.length) rows.push({ label: 'Reviewer', items: reviewers });
+  if (managers.length) rows.push({ label: 'Главные', items: managers });
+  if (workers.length) rows.push({ label: 'Помощники', items: workers });
+  if (rest.length) rows.push({ label: managers.length || workers.length || reviewers.length ? 'Прочие' : 'Агенты', items: rest });
+  if (reviewers.length) rows.push({ label: 'Проверяющие', items: reviewers });
   return rows;
 }
 

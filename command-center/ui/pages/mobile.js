@@ -185,13 +185,13 @@ function missionRow(m, ctx) {
     meter('Прогресс', Number(m.progress || 0) * 100, 100, pct(m.progress || 0)),
     h('div.cmd-actions',
       status === 'running'
-        ? h('button.cmd-btn', { type: 'button', onClick: () => act('pause') }, 'Pause') : null,
+        ? h('button.cmd-btn', { type: 'button', onClick: () => act('pause') }, 'Пауза') : null,
       status !== 'running'
-        ? h('button.cmd-btn.cmd-btn-primary', { type: 'button', onClick: () => act('resume') }, 'Resume') : null,
+        ? h('button.cmd-btn.cmd-btn-primary', { type: 'button', onClick: () => act('resume') }, 'Продолжить') : null,
       h('button.cmd-btn.cmd-btn-danger', {
         type: 'button',
         onClick: () => act('stop', `Миссия «${pick(m, ['title'], id)}» будет остановлена вместе с её задачами.`),
-      }, 'Stop')));
+      }, 'Остановить')));
 }
 
 /* ---------------- Approvals (в т.ч. kind=tool из tool-loop) ---------------- */
@@ -237,15 +237,15 @@ function approvalRow(a, ctx) {
   return h('div.cmd-approval',
     h('div.cmd-row',
       h('b', tool || kind),
-      tool ? badge('tool', 'warn') : null,
+      tool ? badge('инструмент', 'warn') : null,
       h('div.spacer'),
       h('span.xsmall.dim', fmtRelative(pick(a, ['created_at'])))),
     taskId ? h('div.xsmall.dim', `задача #${taskId}`) : null,
     preview ? h('div.xsmall.dim.wrap-any', preview.slice(0, 160)) : null,
     more, full,
     h('div.cmd-approval-actions',
-      h('button.cmd-btn.cmd-btn-ok', { type: 'button', onClick: () => decide(true) }, 'Approve'),
-      h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: () => decide(false) }, 'Reject')));
+      h('button.cmd-btn.cmd-btn-ok', { type: 'button', onClick: () => decide(true) }, 'Разрешить'),
+      h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: () => decide(false) }, 'Отклонить')));
 }
 
 /* ---------------- Agents ---------------- */
@@ -328,11 +328,11 @@ async function openAgentSheet(a, taskId, models, ctx) {
   modal.footer.textContent = '';
   modal.footer.appendChild(h('div.cmd-actions', { style: { width: '100%' } },
     task && status === 'running'
-      ? h('button.cmd-btn', { type: 'button', onClick: () => run('pause') }, 'Pause') : null,
+      ? h('button.cmd-btn', { type: 'button', onClick: () => run('pause') }, 'Пауза') : null,
     task && status === 'paused'
-      ? h('button.cmd-btn.cmd-btn-primary', { type: 'button', onClick: () => run('resume') }, 'Resume') : null,
+      ? h('button.cmd-btn.cmd-btn-primary', { type: 'button', onClick: () => run('resume') }, 'Продолжить') : null,
     task && LIVE_TASK.includes(status)
-      ? h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: () => run('stop') }, 'Stop') : null,
+      ? h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: () => run('stop') }, 'Остановить') : null,
     task && !LIVE_TASK.includes(status)
       ? h('div.small.dim', 'Задача уже завершена — действия недоступны.') : null));
 }
@@ -341,9 +341,9 @@ async function openAgentSheet(a, taskId, models, ctx) {
 
 function runtimeCard(rt, ctx) {
   return h('div.cmd-card',
-    h('div.cmd-title', 'Runtime'),
-    section('Terminal', terminalBody(rt.terminal, ctx)),
-    section('Browser', browserBody(rt.browser, ctx)),
+    h('div.cmd-title', 'Что сейчас запущено'),
+    section('Терминал', terminalBody(rt.terminal, ctx)),
+    section('Браузер', browserBody(rt.browser, ctx)),
     section('OpenCode', opencodeBody(rt.opencode, ctx)));
 }
 
@@ -363,7 +363,7 @@ function terminalBody(state, ctx) {
     const kill = async () => {
       if (!(await confirmDialog({
         title: 'Убить процесс?', text: String(s.command || '').slice(0, 200),
-        okText: 'Kill', danger: true,
+        okText: 'Остановить', danger: true,
       }))) return;
       try {
         await api.raw(`/api/terminal/sessions/${encodeURIComponent(s.id)}/kill`, { method: 'POST' });
@@ -376,7 +376,7 @@ function terminalBody(state, ctx) {
         h('span.cmd-mono', String(s.command || '').slice(0, 80) || '—')),
       h('div.xsmall.dim.wrap-any', `${s.mode || ''} · ${s.cwd || ''}`),
       h('div.cmd-actions',
-        h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: kill }, 'Kill')));
+        h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: kill }, 'Остановить')));
   }));
 }
 
@@ -396,13 +396,13 @@ function browserBody(state, ctx) {
     return h('div.cmd-item',
       h('div.cmd-row', dot(taken ? 'paused' : 'running', { live: !taken }),
         h('span.cmd-agent-name', `#${s.id}`),
-        taken ? badge('take over', 'warn') : null),
+        taken ? badge('вы за рулём', 'warn') : null),
       h('div.xsmall.dim.wrap-any', String(s.current_url || 'страница не открыта').slice(0, 120)),
       h('div.cmd-actions',
         taken
           ? h('button.cmd-btn.cmd-btn-primary', { type: 'button', onClick: () => act('resume') }, 'Вернуть агенту')
-          : h('button.cmd-btn', { type: 'button', onClick: () => act('takeover') }, 'Take Over'),
-        h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: () => act('stop') }, 'Stop')));
+          : h('button.cmd-btn', { type: 'button', onClick: () => act('takeover') }, 'Взять управление'),
+        h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: () => act('stop') }, 'Закрыть')));
   }));
 }
 
@@ -422,12 +422,12 @@ function opencodeBody(state, ctx) {
     return emptyNote('Сессий OpenCode нет', unavailable ? String(reason) : '');
   }
   return h('div.stack.sm',
-    unavailable ? h('div.xsmall.dim', `OpenCode недоступен: ${String(reason)} — Abort может не сработать`) : null,
+    unavailable ? h('div.xsmall.dim', `OpenCode недоступен: ${String(reason)} — прерывание может не сработать`) : null,
     ...live.map((s) => {
       const sid = s.session_id || s.id;
       const abort = async () => {
         if (!(await confirmDialog({
-          title: 'Прервать сессию OpenCode?', text: String(sid), okText: 'Abort', danger: true,
+          title: 'Прервать сессию OpenCode?', text: String(sid), okText: 'Прервать', danger: true,
         }))) return;
         try {
           await api.raw(`/api/opencode/sessions/${encodeURIComponent(sid)}/abort`, { method: 'POST' });
@@ -441,7 +441,7 @@ function opencodeBody(state, ctx) {
         s.worktree_path || s.project_path
           ? h('div.xsmall.dim.wrap-any', String(s.worktree_path || s.project_path)) : null,
         h('div.cmd-actions',
-          h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: abort }, 'Abort')));
+          h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: abort }, 'Прервать')));
     }));
 }
 

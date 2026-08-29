@@ -11,7 +11,7 @@ import {
   toast, toastOk, toastError, openModal, actionButton,
   input, fmtDateShort,
 } from '../components.js';
-import { pageHead, errorBanner, emptyPanel } from './_shared.js';
+import { pageHead, errorNote, blank } from './_ui.js';
 
 const BrowserPage = {
   id: 'browser',
@@ -24,20 +24,20 @@ const BrowserPage = {
     try { sessions = listOf(await api.raw('/api/browser/sessions'), 'sessions'); }
     catch (e) { err = e; }
 
-    const head = pageHead('Браузер', sessions.length ? `${sessions.length} сессий` : 'Playwright, DOM-first, Human Take Over', [
-      h('button.btn.btn-primary', { type: 'button', onClick: () => createSession(ctx) }, icon('plus', 14), h('span', 'Новая сессия')),
-    ]);
+    const head = pageHead('Браузер', sessions.length ? `${sessions.length} сессий` : 'Агент работает в настоящем браузере, а вы можете в любой момент взять управление на себя.', {
+      actions: [h('button.btn.btn-primary', { type: 'button', onClick: () => createSession(ctx) }, icon('plus', 14), h('span', 'Новое окно'))],
+    });
 
     const body = err
-      ? errorBanner(err, ctx)
+      ? errorNote(err, () => ctx.refresh())
       : sessions.length
         ? h('div.grid.auto-lg', sessions.map((s) => sessionCard(s, ctx)))
-        : emptyPanel({
-          iconName: 'search', title: 'Сессий пока нет',
-          hint: 'Chromium с DOM-first снапшотами: navigate/click/type — авто, login/upload/submit — с подтверждением, платежи — запрещены.',
+        : blank({
+          iconName: 'search', title: 'Окон браузера пока нет',
+          hint: 'Агент сам открывает страницы и нажимает кнопки. Вход, загрузку файлов и отправку форм он делает только с вашего разрешения, а оплату — никогда.',
         });
 
-    return h('div.stack.lg', head, body);
+    return h('div.bx-page', head, body);
   },
 
   onEvent(ev) { return ev.kind === 'agent.tool_call' && ev.tool === 'browser'; },
@@ -51,7 +51,7 @@ function sessionCard(s, ctx) {
         h('div.card-sub.truncate', s.current_url || 'адрес пока не открыт')),
       statusBadge(s.status || 'created', { live: s.status === 'running' })),
     h('div.row.tight',
-      s.takeover ? h('span.badge.badge-warn', 'Take Over') : null,
+      s.takeover ? h('span.badge.badge-warn', 'вы за рулём') : null,
       s.agent_id ? h('span.badge', `агент #${s.agent_id}`) : null,
       s.task_id ? h('span.badge', `задача #${s.task_id}`) : null),
     h('div.xsmall.dim', s.last_action ? `последнее действие: ${s.last_action}` : `создана ${fmtDateShort(s.created_at)}`));
@@ -118,22 +118,22 @@ function openLivePanel(id, ctx) {
     stateOut.textContent = '';
     stateOut.appendChild(h('div.row.tight',
       statusBadge(st.paused ? 'paused' : 'running', { live: !st.paused }),
-      st.takeover ? h('span.badge.badge-warn', 'Take Over активен') : null,
+      st.takeover ? h('span.badge.badge-warn', 'вы управляете') : null,
       h('span.xsmall.dim', st.title || '')));
     actionsRow.textContent = '';
     actionsRow.appendChild(h('div.spacer'));
     if (st.takeover) {
-      actionsRow.appendChild(actionButton('Resume', async () => {
+      actionsRow.appendChild(actionButton('Вернуть агенту', async () => {
         try { await api.raw(`/api/browser/sessions/${encodeURIComponent(id)}/resume`, { method: 'POST' }); toastOk('Управление возвращено агенту'); await refreshState(); ctx.refresh(); }
         catch (e) { toastError(e, 'Не удалось вернуть управление'); }
       }, { cls: 'btn btn-primary btn-sm', iconName: 'play' }));
     } else {
-      actionsRow.appendChild(actionButton('Take Over', async () => {
+      actionsRow.appendChild(actionButton('Взять управление', async () => {
         try { await api.raw(`/api/browser/sessions/${encodeURIComponent(id)}/takeover`, { method: 'POST' }); toastOk('Вы взяли управление'); await refreshState(); ctx.refresh(); }
         catch (e) { toastError(e, 'Не удалось перехватить управление'); }
       }, { cls: 'btn btn-sm', iconName: 'pause' }));
     }
-    actionsRow.appendChild(actionButton('Stop', async () => {
+    actionsRow.appendChild(actionButton('Закрыть окно', async () => {
       try { await api.raw(`/api/browser/sessions/${encodeURIComponent(id)}/stop`, { method: 'POST' }); toastOk('Сессия остановлена'); stopped = true; modal.close(); ctx.refresh(); }
       catch (e) { toastError(e, 'Не удалось остановить'); }
     }, { cls: 'btn btn-sm btn-danger', iconName: 'stop' }));

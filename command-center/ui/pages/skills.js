@@ -35,7 +35,7 @@ input_schema:
 
 const SkillsPage = {
   id: 'skills',
-  title: 'Скиллы',
+  title: 'Навыки',
   icon: 'edit',
   nav: 'primary',
 
@@ -47,10 +47,11 @@ const SkillsPage = {
     const servers = serversR.status === 'fulfilled' ? listOf(serversR.value, 'servers') : [];
     const tools = toolsR.status === 'fulfilled' ? listOf(toolsR.value, 'tools') : [];
 
-    const head = pageHead('Скиллы', skills.length ? `${skills.length} проверенных процессов` : 'Переиспользуемые процессы для агентов', [
-      h('button.btn', { type: 'button', onClick: () => openImportSkill(ctx) }, icon('search', 14), h('span', 'Импорт')),
-      h('button.btn.btn-primary', { type: 'button', onClick: () => openCreateSkill(ctx) }, icon('plus', 14), h('span', 'Новый скилл')),
-    ]);
+    const head = pageHead('Навыки',
+      skills.length ? `${skills.length} готовых наборов действий для агентов` : 'Готовые пошаговые процессы, которые агент выполняет по команде.', [
+        h('button.btn', { type: 'button', onClick: () => openImportSkill(ctx) }, icon('search', 14), h('span', 'Загрузить')),
+        h('button.btn.btn-primary', { type: 'button', onClick: () => openCreateSkill(ctx) }, icon('plus', 14), h('span', 'Новый навык')),
+      ]);
 
     const body = skillsR.status === 'rejected'
       ? errorBanner(skillsR.reason, ctx)
@@ -58,9 +59,9 @@ const SkillsPage = {
         ? h('div.grid.auto-lg', skills.map((s) => skillCard(s, ctx)))
         : h('section.panel', empty({
           iconName: 'edit',
-          title: 'Скиллов пока нет',
-          hint: 'Скилл — это SKILL.md: process + input_schema. Запуск скилла реально ставит задачу агенту.',
-          action: h('button.btn.btn-primary', { type: 'button', onClick: () => openCreateSkill(ctx) }, icon('plus', 14), h('span', 'Новый скилл')),
+          title: 'Навыков пока нет',
+          hint: 'Навык — это готовый порядок действий с описанием, что подать на вход. Запуск навыка сразу ставит задачу агенту.',
+          action: h('button.btn.btn-primary', { type: 'button', onClick: () => openCreateSkill(ctx) }, icon('plus', 14), h('span', 'Новый навык')),
         }));
 
     const mcpServersPanel = mcpServersSection(servers, serversR, ctx);
@@ -68,7 +69,7 @@ const SkillsPage = {
 
     return h('div.stack.lg',
       head, body,
-      h('div.section-title', 'MCP Hub'),
+      h('div.section-title', 'Подключённые инструменты'),
       mcpServersPanel, mcpToolsPanel);
   },
 
@@ -85,19 +86,19 @@ function skillCard(s, ctx) {
     s.description ? h('div.xsmall.dim.wrap-any', s.description) : null,
     (s.required_tools || []).length ? h('div.row.tight', (s.required_tools || []).map((t) => badge(t, 'info'))) : null,
     h('div.card-actions',
-      actionButton('Run', () => openRunSkill(ctx, s), { cls: 'btn btn-sm btn-primary', iconName: 'play' }),
-      actionButton('Clone', () => openCloneSkill(ctx, s), { cls: 'btn btn-sm', iconName: 'plus' }),
-      actionButton('Export', () => openExportSkill(s), { cls: 'btn btn-sm' }),
-      actionButton('Assign', () => openAssignSkill(ctx, s), { cls: 'btn btn-sm' })));
+      actionButton('Запустить', () => openRunSkill(ctx, s), { cls: 'btn btn-sm btn-primary', iconName: 'play' }),
+      actionButton('Копия', () => openCloneSkill(ctx, s), { cls: 'btn btn-sm', iconName: 'plus' }),
+      actionButton('Скачать', () => openExportSkill(s), { cls: 'btn btn-sm' }),
+      actionButton('Назначить', () => openAssignSkill(ctx, s), { cls: 'btn btn-sm' })));
 }
 
 /* ---------------- Create / Import ---------------- */
 
 function openCreateSkill(ctx) {
-  skillEditorModal(ctx, { title: 'Новый скилл', endpoint: '/api/skills', idValue: '', content: SKILL_TEMPLATE });
+  skillEditorModal(ctx, { title: 'Новый навык', endpoint: '/api/skills', idValue: '', content: SKILL_TEMPLATE });
 }
 function openImportSkill(ctx) {
-  skillEditorModal(ctx, { title: 'Импорт скилла', endpoint: '/api/skills/import', idValue: '', content: '', importMode: true });
+  skillEditorModal(ctx, { title: 'Загрузка навыка', endpoint: '/api/skills/import', idValue: '', content: '', importMode: true });
 }
 
 function skillEditorModal(ctx, { title, endpoint, idValue, content, importMode }) {
@@ -108,21 +109,21 @@ function skillEditorModal(ctx, { title, endpoint, idValue, content, importMode }
   const modal = openModal({
     title, wide: true,
     body: h('div.stack',
-      field('ID скилла', idEl, 'Латиница/цифры/дефис — это же имя каталога в .agents/skills/.'),
-      field('Содержимое SKILL.md', contentEl, 'Frontmatter (metadata/permissions/required_tools/input_schema) + текст процесса.'),
-      h('label.check', overwriteEl, h('span', 'Перезаписать, если такой ID уже существует'))),
+      field('Короткое имя (id)', idEl, 'Латиница, цифры и дефис — это же имя папки навыка.'),
+      field('Описание навыка', contentEl, 'Сверху — настройки навыка, ниже — пошаговый текст, что делать.'),
+      h('label.check', overwriteEl, h('span', 'Заменить, если навык с таким именем уже есть'))),
     footer: (handle) => [
       h('div.spacer'),
       h('button.btn', { type: 'button', onClick: () => handle.close() }, 'Отмена'),
       actionButton(importMode ? 'Импортировать' : 'Создать', async () => {
-        if (!idEl.value.trim()) { toast('Укажите ID скилла', { type: 'warn' }); idEl.focus(); return; }
+        if (!idEl.value.trim()) { toast('Укажите имя навыка', { type: 'warn' }); idEl.focus(); return; }
         if (!contentEl.value.trim()) { toast('Содержимое не может быть пустым', { type: 'warn' }); return; }
         try {
           await api.raw(endpoint, { method: 'POST', body: { id: idEl.value.trim(), content: contentEl.value, overwrite: overwriteEl.checked } });
           handle.close();
-          toastOk(importMode ? 'Скилл импортирован' : 'Скилл создан');
+          toastOk(importMode ? 'Навык загружен' : 'Навык создан');
           ctx.refresh();
-        } catch (e) { toastError(e, 'Не удалось сохранить скилл'); }
+        } catch (e) { toastError(e, 'Не удалось сохранить навык'); }
       }, { cls: 'btn btn-primary', iconName: 'check' }),
     ],
   });
@@ -131,26 +132,26 @@ function skillEditorModal(ctx, { title, endpoint, idValue, content, importMode }
 function openCloneSkill(ctx, s) {
   const idEl = input({ value: `${s.id}-copy`, class: 'input mono' });
   const modal = openModal({
-    title: `Клонировать «${s.name || s.id}»`,
-    body: field('Новый ID', idEl),
+    title: `Сделать копию «${s.name || s.id}»`,
+    body: field('Имя копии', idEl),
     footer: (handle) => [
       h('div.spacer'),
       h('button.btn', { type: 'button', onClick: () => handle.close() }, 'Отмена'),
-      actionButton('Клонировать', async () => {
-        if (!idEl.value.trim()) { toast('Укажите новый ID', { type: 'warn' }); return; }
+      actionButton('Создать копию', async () => {
+        if (!idEl.value.trim()) { toast('Укажите имя копии', { type: 'warn' }); return; }
         try {
           await api.raw(`/api/skills/${encodeURIComponent(s.id)}/clone`, { method: 'POST', body: { new_id: idEl.value.trim() } });
           handle.close();
-          toastOk('Скилл склонирован');
+          toastOk('Копия навыка создана');
           ctx.refresh();
-        } catch (e) { toastError(e, 'Не удалось клонировать'); }
+        } catch (e) { toastError(e, 'Не удалось создать копию'); }
       }, { cls: 'btn btn-primary', iconName: 'check' }),
     ],
   });
 }
 
 async function openExportSkill(s) {
-  const modal = openModal({ title: `Export · ${s.name || s.id}`, wide: true, body: h('div.small.dim', 'Загрузка…'), footer: h('div') });
+  const modal = openModal({ title: `Скачать · ${s.name || s.id}`, wide: true, body: h('div.small.dim', 'Загрузка…'), footer: h('div') });
   modal.footer.appendChild(h('div.spacer'));
   modal.footer.appendChild(h('button.btn', { type: 'button', onClick: () => modal.close() }, 'Закрыть'));
   try {
@@ -159,7 +160,7 @@ async function openExportSkill(s) {
     const ta = textarea({ rows: 18, class: 'textarea mono', value: r.content || '', readonly: true });
     ta.addEventListener('focus', () => ta.select());
     modal.body.appendChild(h('div.stack.sm',
-      h('div.xsmall.dim.mono', `fingerprint: ${r.fingerprint || '—'}`), ta));
+      h('div.xsmall.dim.mono', `отпечаток: ${r.fingerprint || '—'}`), ta));
   } catch (e) {
     modal.body.textContent = '';
     modal.body.appendChild(h('div.small', { style: { color: 'var(--err)' } }, e.message || 'Не удалось выгрузить'));
@@ -172,7 +173,7 @@ async function openAssignSkill(ctx, s) {
   if (!agents.length) { toast('Сначала создайте агента', { type: 'warn' }); return; }
   const agentEl = select(agents.map((a) => ({ value: pick(a, ['id']), label: pick(a, ['name'], 'без имени') })));
   const modal = openModal({
-    title: `Назначить «${s.name || s.id}»`,
+    title: `Кому доверить «${s.name || s.id}»`,
     body: field('Агент', agentEl),
     footer: (handle) => [
       h('div.spacer'),
@@ -181,7 +182,7 @@ async function openAssignSkill(ctx, s) {
         try {
           await api.raw(`/api/skills/${encodeURIComponent(s.id)}/assign`, { method: 'POST', body: { agent_id: idVal(agentEl.value) } });
           handle.close();
-          toastOk('Скилл назначен агенту');
+          toastOk('Навык назначен агенту');
           ctx.refresh();
         } catch (e) { toastError(e, 'Не удалось назначить'); }
       }, { cls: 'btn btn-primary', iconName: 'check' }),
@@ -190,12 +191,12 @@ async function openAssignSkill(ctx, s) {
 }
 
 async function openRunSkill(ctx, s) {
-  const modal = openModal({ title: `Run · ${s.name || s.id}`, wide: true, body: h('div.small.dim', 'Загрузка схемы…'), footer: h('div') });
+  const modal = openModal({ title: `Запуск · ${s.name || s.id}`, wide: true, body: h('div.small.dim', 'Загрузка…'), footer: h('div') });
   let detail;
   try { detail = await api.raw(`/api/skills/${encodeURIComponent(s.id)}`); }
   catch (e) {
     modal.body.textContent = '';
-    modal.body.appendChild(h('div.small', { style: { color: 'var(--err)' } }, e.message || 'Не удалось загрузить скилл'));
+    modal.body.appendChild(h('div.small', { style: { color: 'var(--err)' } }, e.message || 'Не удалось загрузить навык'));
     return;
   }
   let agents = ctx.state.agents;
@@ -207,7 +208,7 @@ async function openRunSkill(ctx, s) {
   const propNames = Object.keys(props);
 
   const agentEl = select(
-    [{ value: '', label: agents.length ? '— без запуска, только draft-задача —' : 'агентов нет' },
+    [{ value: '', label: agents.length ? '— не запускать, сохранить черновик —' : 'агентов нет' },
       ...agents.map((a) => ({ value: pick(a, ['id']), label: pick(a, ['name'], 'без имени') }))],
   );
 
@@ -219,7 +220,7 @@ async function openRunSkill(ctx, s) {
       inputEls[name] = el;
       return field(`${name}${required.has(name) ? ' *' : ''}`, el, p.description || '');
     })
-    : [h('div.small.dim', 'У скилла нет input_schema — можно передать произвольные ключи ниже.')];
+    : [h('div.small.dim', 'У навыка нет заданных полей — можно добавить свои ниже.')];
 
   const freeRows = h('div.stack.sm');
   const freePairs = [];
@@ -236,7 +237,7 @@ async function openRunSkill(ctx, s) {
   modal.body.textContent = '';
   modal.body.appendChild(h('div.stack',
     detail.process ? h('pre.block', String(detail.process).slice(0, 400)) : null,
-    field('Агент (запустить сразу)', agentEl, 'Пусто — создаст черновик задачи без запуска.'),
+    field('Кто выполнит', agentEl, 'Пусто — просто сохраним черновик задачи, без запуска.'),
     ...formFields,
     !propNames.length ? h('div.stack.sm', freeRows, h('button.btn.btn-sm', { type: 'button', onClick: () => addFreeRow() }, icon('plus', 12), h('span', 'Ещё поле'))) : null));
 
@@ -258,16 +259,16 @@ async function openRunSkill(ctx, s) {
         method: 'POST', body: { input: inputData, agent_id: idVal(agentEl.value) },
       });
       modal.close();
-      toastOk(agentEl.value ? 'Скилл запущен как задача' : 'Черновик задачи создан', `task #${r.task_id}`);
+      toastOk(agentEl.value ? 'Навык запущен как задача' : 'Черновик задачи создан', `задача #${r.task_id}`);
       ctx.navigate('tasks', { task: r.task_id });
-    } catch (e) { toastError(e, 'Не удалось запустить скилл'); }
+    } catch (e) { toastError(e, 'Не удалось запустить навык'); }
   }, { cls: 'btn btn-primary', iconName: 'play' }));
 }
 
 /* ---------------- MCP Hub ---------------- */
 
 function mcpServersSection(servers, serversR, ctx) {
-  const head = pageHead('MCP-серверы', servers.length ? `${servers.length} подключено` : 'Ни одного сервера', [
+  const head = pageHead('Серверы инструментов', servers.length ? `${servers.length} подключено` : 'Ни одного не подключено', [
     h('button.btn.btn-sm', { type: 'button', onClick: () => openAddMcpServer(ctx) }, icon('plus', 13), h('span', 'Добавить сервер')),
   ]);
   const body = serversR.status === 'rejected'
@@ -287,7 +288,7 @@ function mcpServersSection(servers, serversR, ctx) {
             catch (e) { toastError(e, 'Не удалось удалить'); }
           },
         }, icon('trash', 13)))))
-      : h('section.panel', empty({ iconName: 'key', title: 'MCP-серверов нет', hint: 'Добавьте stdio- или http-сервер, чтобы его инструменты стали доступны агентам под политикой AUTO/ASK/DENY.' }));
+      : h('section.panel', empty({ iconName: 'key', title: 'Серверов инструментов нет', hint: 'Подключите сервер, чтобы его инструменты стали доступны агентам. Для каждого можно выбрать: разрешать, спрашивать или запрещать.' }));
   return h('div.stack', head, body);
 }
 
@@ -327,7 +328,7 @@ function openAddMcpServer(ctx) {
 }
 
 function mcpToolsSection(tools, toolsR, ctx) {
-  const head = h('div.section-title', 'MCP-инструменты и политика');
+  const head = h('div.section-title', 'Инструменты и права');
   const body = toolsR.status === 'rejected'
     ? errorBanner(toolsR.reason, ctx)
     : tools.length
@@ -335,14 +336,14 @@ function mcpToolsSection(tools, toolsR, ctx) {
         h('div', { style: { flex: '1', minWidth: 0 } },
           h('div.mono.small', t.canonical),
           t.description ? h('div.xsmall.dim.truncate', t.description) : null),
-        select([{ value: 'auto', label: 'auto' }, { value: 'ask', label: 'ask' }, { value: 'deny', label: 'deny' }], {
+        select([{ value: 'auto', label: 'разрешать' }, { value: 'ask', label: 'спрашивать' }, { value: 'deny', label: 'запрещать' }], {
           value: t.policy || 'ask',
           onChange: async (e) => {
-            try { await api.raw('/api/mcp/policy', { method: 'POST', body: { canonical: t.canonical, policy: e.target.value } }); toastOk(`Политика: ${e.target.value}`); }
-            catch (err) { toastError(err, 'Не удалось сохранить политику'); }
+            try { await api.raw('/api/mcp/policy', { method: 'POST', body: { canonical: t.canonical, policy: e.target.value } }); toastOk('Право обновлено'); }
+            catch (err) { toastError(err, 'Не удалось сохранить право'); }
           },
         }))))
-      : emptyPanel({ iconName: 'key', title: 'Инструментов не обнаружено', hint: 'Появятся после того, как подключённый сервер задекларирует их по MCP-протоколу.' });
+      : emptyPanel({ iconName: 'key', title: 'Инструментов пока нет', hint: 'Они появятся, когда подключённый сервер сообщит, что умеет.' });
   return h('div.stack', head, body);
 }
 

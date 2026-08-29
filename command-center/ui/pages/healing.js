@@ -4,12 +4,12 @@
    ============================================================ */
 
 import { api } from '../api.js';
-import { h, statusLabel, toastOk, toastError, actionButton, field, input, fmtClock } from '../components.js';
-import { panel, pageHead, errorBanner } from './_shared.js';
+import { h, toastOk, toastError, actionButton, field, input, fmtClock } from '../components.js';
+import { panel, pageHead, errorNote, statusText } from './_ui.js';
 
 const HealingPage = {
   id: 'healing',
-  title: 'Self-Healing',
+  title: 'Восстановление',
   icon: 'check',
   nav: 'more',
 
@@ -20,18 +20,19 @@ const HealingPage = {
     const rules = rulesR.status === 'fulfilled' ? rulesR.value : null;
     const items = attemptsR.status === 'fulfilled' ? (Array.isArray(attemptsR.value) ? attemptsR.value : []) : [];
 
-    const head = pageHead('Self-Healing', 'Автовосстановление упавших endpoint’ов моделей и других подсистем');
+    const head = pageHead('Самовосстановление',
+      'Если модель перестала отвечать или другая часть системы дала сбой, BOSSMAN сам пытается её вернуть в строй.');
 
-    const rulesPanel = rulesR.status === 'rejected' ? errorBanner(rulesR.reason, ctx) : buildRulesPanel(rules, ctx);
+    const rulesPanel = rulesR.status === 'rejected' ? errorNote(rulesR.reason, () => ctx.refresh()) : buildRulesPanel(rules, ctx);
 
     const feed = attemptsR.status === 'rejected'
-      ? errorBanner(attemptsR.reason, ctx)
-      : panel(`Попытки восстановления (${items.length})`,
+      ? errorNote(attemptsR.reason, () => ctx.refresh())
+      : panel(`Попытки вернуть в строй · ${items.length}`,
         items.length
           ? h('div.log', items.map(attemptRow))
-          : h('div.log-empty', 'Пока всё стабильно — попыток восстановления не было.'));
+          : h('div.log-empty', 'Пока всё работает стабильно — восстанавливать ничего не приходилось.'));
 
-    return h('div.stack.lg', head, rulesPanel, feed);
+    return h('div.bx-page', head, rulesPanel, feed);
   },
 
   onEvent(ev) { return ev.kind.startsWith('recovery.') || ev.kind === 'model.degraded'; },
@@ -43,11 +44,7 @@ function attemptRow(a) {
     h('span.log-ts', fmtClock(a.created_at)),
     h('span.log-msg',
       h('b', `${a.target_kind}:${a.target_id ?? '—'}`), ' — ',
-      statusBadgeInline(a.status), ' ', h('span.mono', a.action), a.failure ? ` · ${a.failure}` : ''));
-}
-
-function statusBadgeInline(status) {
-  return h('span.small', statusLabel(status));
+      h('span.small', statusText(a.status).word), ' ', h('span.mono', a.action), a.failure ? ` · ${a.failure}` : ''));
 }
 
 function buildRulesPanel(rules, ctx) {
@@ -56,11 +53,11 @@ function buildRulesPanel(rules, ctx) {
   const errEl = input({ type: 'number', min: '1', value: String(r.error_threshold ?? 3), class: 'input mono' });
   const limitEl = input({ type: 'number', min: '1', value: String(r.attempt_limit ?? 3), class: 'input mono' });
 
-  return panel('Пороги', h('div.stack.sm',
+  return panel('Когда восстанавливать', h('div.stack.sm',
     h('div.grid.cols-3',
-      field('Окно ошибок, сек', winEl, 'В течение какого окна считаем сетевые ошибки подряд.'),
-      field('Порог ошибок', errEl, 'Сколько сетевых ошибок в окне — сигнал деградации.'),
-      field('Лимит попыток', limitEl, 'После скольких попыток — эскалация человеку.')),
+      field('За сколько секунд считать', winEl, 'В каком промежутке времени учитывать ошибки подряд.'),
+      field('Сколько ошибок — тревога', errEl, 'После скольких сбоев подряд считать, что модель «упала».'),
+      field('Сколько раз пробовать', limitEl, 'Если не помогло — BOSSMAN позовёт вас.')),
     h('div.row', h('div.spacer'),
       actionButton('Сохранить', async () => {
         try {

@@ -10,13 +10,14 @@ import {
   toastOk, toastError, openModal, actionButton,
   field, textarea, select, fmtDateShort,
 } from '../components.js';
-import { idVal, panel, pageHead, errorBanner } from './_shared.js';
+import { idVal } from './_shared.js';
+import { panel, pageHead, errorNote } from './_ui.js';
 
 const forkState = { taskId: '', runId: '' };
 
 const ForksPage = {
   id: 'forks',
-  title: 'Форки сессий',
+  title: 'Развилки',
   icon: 'retry',
   nav: 'more',
 
@@ -25,15 +26,15 @@ const ForksPage = {
     try { tasks = listOf(await api.tasks(), 'tasks'); } catch (e) { err = e; }
     const withRuns = tasks; // last_run присутствует у всех — фильтровать не будем, чтобы не скрывать draft-задачи
 
-    const head = pageHead('Форки сессий', 'Ответвиться от любого чекпоинта прогона с новой инструкцией, агентом или моделью');
-    if (err) return h('div.stack.lg', head, errorBanner(err, ctx));
+    const head = pageHead('Развилки', 'Продолжить любой запуск с любой сохранённой точки — с новой инструкцией, другим агентом или моделью.');
+    if (err) return h('div.bx-page', head, errorNote(err, () => ctx.refresh()));
 
     const taskEl = select(
       [{ value: '', label: 'выберите задачу' }, ...withRuns.map((t) => ({ value: pick(t, ['id']), label: `#${pick(t, ['id'])} · ${pick(t, ['title'], '')}`.slice(0, 60) }))],
       { value: forkState.taskId },
     );
-    const runOut = h('div.small.dim', 'Выберите задачу, чтобы увидеть её прогоны.');
-    const cpOut = h('div.small.dim', 'Выберите прогон, чтобы увидеть чекпоинты.');
+    const runOut = h('div.small.dim', 'Выберите задачу, чтобы увидеть её запуски.');
+    const cpOut = h('div.small.dim', 'Выберите запуск, чтобы увидеть сохранённые точки.');
     const lineageOut = h('div.small.dim', '—');
 
     taskEl.addEventListener('change', async () => {
@@ -41,24 +42,24 @@ const ForksPage = {
       forkState.runId = '';
       await loadRuns();
       await loadLineage();
-      cpOut.textContent = ''; cpOut.appendChild(h('div.small.dim', 'Выберите прогон.'));
+      cpOut.textContent = ''; cpOut.appendChild(h('div.small.dim', 'Выберите запуск.'));
     });
 
     async function loadRuns() {
       runOut.textContent = '';
       if (!forkState.taskId) { runOut.appendChild(h('div.small.dim', 'Выберите задачу.')); return; }
-      runOut.appendChild(h('div.small.dim', 'Загрузка прогонов…'));
+      runOut.appendChild(h('div.small.dim', 'Загрузка запусков…'));
       try {
         const detail = await api.task(idVal(forkState.taskId));
         const runs = listOf(detail.runs, 'runs');
         runOut.textContent = '';
-        if (!runs.length) { runOut.appendChild(h('div.small.dim', 'У задачи ещё нет прогонов.')); return; }
+        if (!runs.length) { runOut.appendChild(h('div.small.dim', 'У задачи ещё не было запусков.')); return; }
         const runEl = select(runs.map((r) => ({
           value: pick(r, ['id']),
-          label: `run #${pick(r, ['id'])} · ${statusLabelOf(r.status)}${r.model_alias ? ` · ${r.model_alias}` : ''}`,
+          label: `запуск #${pick(r, ['id'])} · ${statusLabelOf(r.status)}${r.model_alias ? ` · ${r.model_alias}` : ''}`,
         })), { value: forkState.runId });
         runEl.addEventListener('change', async () => { forkState.runId = runEl.value; await loadCheckpoints(ctx); });
-        runOut.appendChild(field('Прогон', runEl));
+        runOut.appendChild(field('Запуск', runEl));
         if (!forkState.runId && runs.length) { forkState.runId = String(pick(runs[runs.length - 1], ['id'])); runEl.value = forkState.runId; }
         await loadCheckpoints(ctx);
       } catch (e) { runOut.textContent = ''; runOut.appendChild(h('div.small', { style: { color: 'var(--err)' } }, e.message)); }
@@ -66,17 +67,17 @@ const ForksPage = {
 
     async function loadCheckpoints(ctx2) {
       cpOut.textContent = '';
-      if (!forkState.runId) { cpOut.appendChild(h('div.small.dim', 'Выберите прогон.')); return; }
-      cpOut.appendChild(h('div.small.dim', 'Загрузка чекпоинтов…'));
+      if (!forkState.runId) { cpOut.appendChild(h('div.small.dim', 'Выберите запуск.')); return; }
+      cpOut.appendChild(h('div.small.dim', 'Загрузка точек…'));
       try {
         const cps = await api.raw(`/api/runs/${encodeURIComponent(forkState.runId)}/checkpoints`);
         cpOut.textContent = '';
-        if (!cps.length) { cpOut.appendChild(h('div.small.dim', 'У этого прогона ещё нет чекпоинтов.')); return; }
+        if (!cps.length) { cpOut.appendChild(h('div.small.dim', 'У этого запуска ещё нет сохранённых точек.')); return; }
         cpOut.appendChild(h('div.mini-list', cps.map((cp) => h('div.mini-row',
           h('span.badge.mono', `шаг ${cp.step}`),
-          h('span.name', cp.note || `checkpoint #${cp.id}`),
+          h('span.name', cp.note || `точка #${cp.id}`),
           h('span.xsmall.dim', fmtDateShort(cp.created_at)),
-          actionButton('Fork', () => openForkModal(ctx2, forkState.runId, cp), { cls: 'btn btn-sm btn-primary', iconName: 'retry' })))));
+          actionButton('Ответвить', () => openForkModal(ctx2, forkState.runId, cp), { cls: 'btn btn-sm btn-primary', iconName: 'retry' })))));
       } catch (e) { cpOut.textContent = ''; cpOut.appendChild(h('div.small', { style: { color: 'var(--err)' } }, e.message)); }
     }
 
@@ -91,10 +92,10 @@ const ForksPage = {
 
     if (forkState.taskId) { loadRuns(); loadLineage(); }
 
-    return h('div.stack.lg', head,
-      panel('Выбор прогона', h('div.stack.sm', field('Задача', taskEl), runOut)),
-      panel('Чекпоинты', cpOut),
-      panel('Дерево форков', lineageOut));
+    return h('div.bx-page', head,
+      panel('Выбор запуска', h('div.stack.sm', field('Задача', taskEl), runOut)),
+      panel('Сохранённые точки', cpOut),
+      panel('Дерево ответвлений', lineageOut));
   },
 
   onEvent(ev) { return ev.kind === 'session.forked'; },
@@ -115,16 +116,16 @@ function openForkModal(ctx, runId, cp) {
   let agentEl = null; let modelEl = null;
 
   const modal = openModal({
-    title: `Fork · run #${runId}, шаг ${cp.step}`,
+    title: `Ответвление · запуск #${runId}, шаг ${cp.step}`,
     body: h('div.stack',
       cp.note ? h('div.small.dim', cp.note) : null,
-      field('Инструкция для продолжения', instrEl),
-      field('Агент (переопределить)', agentSel),
-      field('Модель (переопределить)', modelSel)),
+      field('Что сделать иначе в продолжении', instrEl),
+      field('Другой агент (по желанию)', agentSel),
+      field('Другая модель (по желанию)', modelSel)),
     footer: (handle) => [
       h('div.spacer'),
       h('button.btn', { type: 'button', onClick: () => handle.close() }, 'Отмена'),
-      actionButton('Создать форк', async () => {
+      actionButton('Создать ответвление', async () => {
         try {
           const r = await api.raw(`/api/runs/${encodeURIComponent(runId)}/fork`, {
             method: 'POST',
@@ -136,9 +137,9 @@ function openForkModal(ctx, runId, cp) {
             },
           });
           handle.close();
-          toastOk('Форк создан', `новая задача #${r.new_task_id}`);
+          toastOk('Ответвление создано', `новая задача #${r.new_task_id}`);
           ctx.navigate('tasks', { task: r.new_task_id });
-        } catch (e) { toastError(e, 'Не удалось создать форк'); }
+        } catch (e) { toastError(e, 'Не удалось создать ответвление'); }
       }, { cls: 'btn btn-primary', iconName: 'retry' }),
     ],
   });

@@ -51,10 +51,10 @@ const ImagesPage = {
 
     const head = pageHead(
       'Изображения',
-      'Генерация, библиотека, коллекции и очередь изображений',
+      'Создание картинок, ваша библиотека и коллекции.',
       [
-        h('label.btn.btn-sm', { title: 'Импортировать файл' },
-          icon('plus', 13), h('span', 'Импортировать'),
+        h('label.btn.btn-sm', { title: 'Загрузить файл с компьютера' },
+          icon('plus', 13), h('span', 'Загрузить файл'),
           h('input', {
             type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml',
             hidden: true, onChange: (e) => importFile(e.target.files?.[0], ctx),
@@ -210,7 +210,7 @@ function mainContent(assets, jobs, ctx) {
     return emptyPanel({
       iconName: 'empty',
       title: 'Библиотека пока пустая',
-      hint: 'Создайте первое изображение через промпт выше или импортируйте файл.',
+      hint: 'Создайте первое изображение по описанию выше или загрузите свой файл.',
     });
   }
   return h('section.panel.images-library',
@@ -265,8 +265,8 @@ function inspector(asset, collections, ctx) {
     h('div.panel-body.stack',
       preview,
       h('div',
-        h('div.xsmall.dim', 'Промпт'),
-        h('div.small.images-prompt-copy', asset.prompt || 'Импортированное изображение')),
+        h('div.xsmall.dim', 'Описание'),
+        h('div.small.images-prompt-copy', asset.prompt || 'Загруженное изображение')),
       h('div.images-detail-grid',
         detail('Модель', asset.model_alias),
         detail('Размер', `${asset.width || '—'}×${asset.height || '—'}`),
@@ -280,7 +280,7 @@ function inspector(asset, collections, ctx) {
       (collections || []).map((c) => h('option', { value: c.id }, c.name))),
       asset.collection_id ?? '')),
       h('div.stack.tight',
-        h('button.btn.btn-sm', { type: 'button', onClick: () => reusePrompt(asset, ctx) }, 'Повторить промпт'),
+        h('button.btn.btn-sm', { type: 'button', onClick: () => reusePrompt(asset, ctx) }, 'Повторить описание'),
         h('button.btn.btn-sm', { type: 'button', onClick: () => variation(asset, ctx) }, 'Вариация'),
         h('button.btn.btn-sm', { type: 'button', onClick: () => toggleFavorite(asset, ctx) },
           asset.favorite ? 'Убрать из избранного' : 'В избранное'),
@@ -344,7 +344,7 @@ function templatesPanel() {
 
 async function createJob(ctx) {
   if (!composerState.prompt.trim()) {
-    toast('Введите промпт', { type: 'warn' }); return;
+    toast('Введите описание', { type: 'warn' }); return;
   }
   try {
     await api.raw('/api/images/jobs', {
