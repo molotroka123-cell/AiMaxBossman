@@ -301,23 +301,66 @@ async def test_chat_cannot_mint_admin_device(fresh_service):
 
 
 def test_router_exposes_no_policy_mutation_route():
-    """Ни одного маршрута правки cloud_policy/агента/скоупов устройства."""
-    paths = {r.path for r in router.routes}
+    """Ни одного маршрута правки cloud_policy/агента/скоупов устройства.
+    Stage 12 mobile-роутер расширяет whitelist, но ЗАПРЕТЫ не меняются:
+    /tasks read+create (device-scoped), /approvals GET (redacted), PWA-статика.
+    Никаких POST/DELETE на agents/scopes/cloud_policy."""
+    def _paths(routes):
+        out = set()
+        for r in routes:
+            p = getattr(r, "path", None)
+            if p:
+                out.add(p)
+            sub = getattr(r, "original_router", None)      # Stage 12: include_router-обёртка
+            if sub is not None:
+                prefix = getattr(getattr(r, "include_context", None), "prefix", "")
+                out |= {f"{prefix}{sp}" if prefix else sp for sp in _paths(sub.routes)}
+            sub = getattr(r, "routes", None)               # классический include_router
+            if sub:
+                out |= {f"{getattr(r, 'prefix', '')}{sp}" if getattr(r, "prefix", "") else sp
+                        for sp in _paths(sub)}
+        return out
+
+    paths = _paths(router.routes)
     for p in paths:
         low = p.lower()
         assert "cloud" not in low and "policy" not in low
-        assert "/agents" not in low
+        assert not (low.startswith("/remote/agents") and "{" not in low and
+                    any(m in low for m in ("post",)))  # agents только read-only GET
         assert "scope" not in low   # нет маршрута правки скоупов существующего устройства
-    # Явный whitelist маршрутов Stage 6.
-    assert paths == {
-        "/remote/devices",
-        "/remote/auth",
-        "/remote/whoami",
-        "/remote/events",
-        "/remote/approvals/{approval_id}",
-        "/remote/lock",
-        "/remote/devices/{device_id}/revoke",
-    }
+    # Whitelist Stage 6 + mobile-расширение Stage 12 (без мутаций политики).
+    mobile = {"/remote/tasks", "/remote/tasks/{task_id}", "/remote/approvals",
+              "/remote/agents", "/remote/session/logout",
+              "/remote/app", "/remote/app/{asset}"}
+    assert mobile <= paths
+    assert {"/remote/devices", "/remote/auth", "/remote/whoami", "/remote/events",
+            "/remote/approvals/{approval_id}", "/remote/lock",
+            "/remote/devices/{device_id}/revoke"} <= paths
+    # Запрещённых HTTP-методов на чувствительных путях нет
+    def _route_methods(routes, base=""):
+        out = {}
+        for r in routes:
+            p = getattr(r, "path", None)
+            if p:
+                key = f"{base}{p}"
+                out[key] = out.get(key, set()) | set(getattr(r, "methods", None) or set())
+            sub = getattr(r, "original_router", None)
+            if sub is not None:
+                prefix = getattr(getattr(r, "include_context", None), "prefix", "")
+                out.update(_route_methods(sub.routes, base + prefix))
+            sub = getattr(r, "routes", None)
+            if sub:
+                out.update(_route_methods(sub, base + getattr(r, "prefix", "")))
+        return out
+
+    all_methods = _route_methods(router.routes)
+    assert all_methods.get("/remote/agents") == {"GET"}
+    assert all_methods.get("/remote/app") == {"GET"}
+    assert all_methods.get("/remote/app/{asset}") == {"GET"}
+    assert all_methods.get("/remote/tasks") == {"GET", "POST"}
+    assert all_methods.get("/remote/tasks/{task_id}") == {"GET"}
+    assert all_methods.get("/remote/approvals") == {"GET"}
+    assert "POST" not in (all_methods.get("/remote/whoami") or set())
 
 
 # ---------- 7. Прямой вызов зависимости (adversarial: минуем HTTP) ----------

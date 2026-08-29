@@ -2,59 +2,40 @@
   "stage": 10,
   "objective": "Этапы 1-10 закрыты по всему, что выполнимо на этом хосте. Осталось: runsc/KVM на железе (Ai Max) и периодический red-team",
   "branch": "claude/bossman-control-v03-43igbk",
-  "head": "2c28ae7",
+  "head": "aa312d5",
   "completed": [
-    "shared seams (errors/lifecycle/correlation/obs)",
-    "stage4 resource_brain",
-    "stage5 search_everything",
-    "stage6 remote_client",
-    "stage7 video_factory",
-    "stage8 sandbox core (models/policy/runtime/resources/network/secrets/artifacts/trajectory/manager/subsystem/routes)",
-    "audit P0/P1: compact amnesia, project runner race, browser approvals (3 bypasses), gateway 4xx failover, telegram webhook auth, gitignore projects pkg",
-    "stage8 SAFE rootless runtime (runtimes/safe.py)",
-    "stage8 sandbox tools",
-    "stage8 PostgresSecretBroker",
-    "stage8 dataset gate",
-    "stage8 gvisor/microvm adapters",
-    "stage8 egress proxy (ALLOWLIST)",
-    "stage8 proxy env в процессе песочницы",
-    "stage8 инструменты выданы агенту coder",
-    "audit fix: db fail-fast без Postgres",
-    "audit fix: кроссплатформенный поиск Chromium (снят windows-hang)",
-    "stage8 red-team: 3 дыры закрыты",
-    "stage8 egress lockdown (nftables+uid)",
-    "stage10 dev_factory",
-    "stage8 toolbox внутри песочницы",
-    "stage10 LLMPlanner через Gateway + шов редактора"
-  ],
-  "active_files": [
-    "bossman-core/bossman/sandbox/*.py",
-    "bossman-core/tests/test_sandbox_core.py",
-    "bossman-core/tests/test_sandbox_security.py"
-  ],
-  "decisions": [
-    "DEC-001..DEC-011 см. docs/context/DECISIONS.md"
-  ],
-  "failures": [
-    "FAIL-001 фиктивное закрытие approvals",
-    "FAIL-002 gitignore глотал пакет",
-    "FAIL-003 workflow reconcile/limit -> читать journal.jsonl"
+    "общие швы (errors/lifecycle/correlation/obs)",
+    "этап 4 resource_brain",
+    "этап 5 search_everything",
+    "этап 6 remote_client",
+    "этап 7 video_factory",
+    "этап 8 sandbox: ядро, SAFE-рантайм, egress-прокси + принудительный барьер nftables/uid, secret broker (in-memory + postgres), artifact gate, dataset gate, адаптеры gvisor/microvm, toolbox внутри песочницы",
+    "этап 8 red-team: 3 дыры найдены и закрыты (хардлинк, uid ядра, редакция секретов)",
+    "этап 10 dev_factory: петля до патча без авто-мержа, LLMPlanner через Gateway, шов редактора",
+    "аудит: db fail-fast без Postgres, кроссплатформенный Chromium (снят windows-hang)",
+    "P0/P1 ядра: compact-амнезия, гонка project runner, browser approvals (3 обхода), gateway failover 4xx, telegram webhook"
   ],
   "tests": {
     "full_suite": "480 passed, 2 skipped",
-    "cmd": "python -m pytest -q"
+    "cmd": "cd bossman-core && python -m pytest -q"
   },
   "next_actions": [
-    "1 runsc//dev/kvm на Ai Max (блокер: железо)",
-    "2 периодический red-team после каждого крупного изменения"
+    "1 runsc//dev/kvm на Ai Max — блокер: на этом хосте нет бинаря и нет /dev/kvm",
+    "2 периодический red-team после каждого крупного изменения (не разово)"
   ],
   "security_gates": [
-    "OFF=OFF (BOSSMAN_SANDBOX_ENABLED default off)",
-    "network default OFFLINE; private/link-local/metadata/control-plane заблокированы всегда",
-    "fail closed на недостижимой изоляции (IsolationUnavailable)",
-    "секреты только через брокер (grant/scope/TTL/binding), redeem только control plane",
-    "artifact gate: traversal/symlink/archive/size/exec/secret-scan",
-    "трактория без секретов (obs.redact)"
+    "OFF=OFF (BOSSMAN_SANDBOX_ENABLED по умолчанию выключен)",
+    "сеть по умолчанию OFFLINE; приватные/link-local/metadata/control-plane блокируются даже в INTERNET",
+    "fail closed на недостижимой изоляции; OFFLINE без энфорсмента рантайма тоже отвергается",
+    "ALLOWLIST энфорсится принудительно: выделенный uid + nftables, прямой сокет мимо прокси заблокирован",
+    "секреты только через брокер; материал не хранится в БД грантов",
+    "artifact gate: traversal/symlink/хардлинк/архив/размер/exec/secret-scan",
+    "сырые логи → обучение запрещено (dataset gate, нужен человек)",
+    "dev factory не публикует: терминал петли AWAITING_APPROVAL",
+    "toolbox песочницы: git без push/remote/config, shell только argv"
   ],
-  "last_updated": "2026-08-29T09:31:11Z"
+  "known_failures": [
+    "FAIL-001..003 см. docs/context/FAILURES.md"
+  ],
+  "last_updated": "2026-08-29T09:32:31Z"
 }

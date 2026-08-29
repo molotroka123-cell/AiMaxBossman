@@ -1,0 +1,23 @@
+name: BossmanRemoteApp
+options:
+  bundleIdPrefix: ai.bossman.private
+settings:
+  base:
+    IPHONEOS_DEPLOYMENT_TARGET: 17.0
+    SWIFT_VERSION: 6.0
+packages:
+  BossmanRemoteKit:
+    path: ../BossmanRemoteKit
+targets:
+  BossmanRemoteApp:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: BOSSMAN
+        UILaunchScreen: {}
+        NSFaceIDUsageDescription: "Unlock the private BOSSMAN remote client."
+    dependencies:
+      - package: BossmanRemoteKit

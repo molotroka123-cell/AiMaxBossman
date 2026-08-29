@@ -133,3 +133,10 @@ FILES: bossman/dev_factory/{planner,executor,__init__}.py, bossman/sandbox/{tool
 RESULT: LLMPlanner идёт через существующий Gateway, разбор ответа строгий (REVIEW/PATCH дописывает система, argv только массивом, сбой модели → запасной план); toolbox песочницы без публикации (git push/remote/config отсутствуют) и без шелл-инъекций (включая закрытый «sh -c»), файлы не выходят за рабочую область, браузер с отдельным профилем
 TEST: pytest tests -q -> 480 passed, 2 skipped
 NEXT: только runsc/KVM на железе (Ai Max) и периодический red-team
+[2026-08-29T09:20:27Z]
+STAGE12_ACTION: интеграция пакета + adversarial hardening + encoding fix
+FILES: bossman/remote_client/{mobile_api.py,__init__.py}, remote-app/, scripts/bootstrap_remote_device.py, ios/, tests/test_stage12_{mobile_api,security}.py, tests/test_remote_client.py, gateway/app.py (utf-8)
+RESULT: mobile API расширяет Stage 6; PWA на /remote/app; iOS отдельным пакетом; BOM+mojibake устранены (0 mojibake lines, 42 gateway tests green)
+TEST: stage12 31 passed; stage11 18 passed; full bossman-core 345 passed/27 skipped/0 failed
+SECURITY: IDOR 404, scope-гвардейцы, logout/revoke, redaction email/IP (дописан слой Stage 11 sanitizer), SW не кэширует /remote/*, нет CDN/токенов в URL
+NEXT: живой прогон на железе + пуш результатов
