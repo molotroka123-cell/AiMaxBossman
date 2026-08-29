@@ -69,10 +69,16 @@ def safe_runtime_available() -> bool:
             return True
     except AttributeError:
         return True
-    uid = 0
     try:
         from ..netguard import sandbox_uid as _suid
         uid = _suid("probe")
+        # Реальный путь исполнения SAFE: сброс на выделенный uid + (для OFFLINE,
+        # режим по умолчанию) обёртка `unshare -r -n` — новый user+net namespace.
+        # Именно unshare -r (unprivileged userns) чаще всего запрещён на CI-
+        # раннере (seccomp/kernel.unprivileged_userns_clone=0): тогда процесс
+        # уходит в FAILED. Проверяем ровно эту команду, а не голый /bin/true.
+        argv = (["unshare", "-r", "-n", "--", "/bin/true"]
+                if _unshare_available() else ["/bin/true"])
         with tempfile.TemporaryDirectory() as tmp:
             work = os.path.join(tmp, "work")
             os.mkdir(work)
@@ -87,9 +93,9 @@ def safe_runtime_available() -> bool:
                 except Exception:
                     os._exit(97)
 
-            proc = subprocess.run(["/bin/true"], cwd=work, preexec_fn=_drop,
+            proc = subprocess.run(argv, cwd=work, preexec_fn=_drop,
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                  timeout=10)
+                                  timeout=15)
             return proc.returncode == 0
     except Exception:
         return False

@@ -9,6 +9,7 @@ import pytest
 
 from bossman.sandbox import EgressProxy
 from bossman.sandbox.runtimes import safe_runtime_available
+from bossman.sandbox.netguard import available as egress_lockdown_available
 from bossman.sandbox.egress import parse_connect
 from bossman.sandbox.models import IsolationTier, NetworkMode, PolicyMode, SandboxPolicy
 from bossman.sandbox.trajectory import TrajectoryRecorder
@@ -147,9 +148,9 @@ async def test_offline_sandbox_starts_no_proxy(tmp_path):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(not safe_runtime_available(),
-                    reason="SAFE реальное исполнение недоступно в этом окружении "
-                           "(нет обхода родительских каталогов сброшенным uid)")
+@pytest.mark.skipif(not (safe_runtime_available() and egress_lockdown_available()),
+                    reason="нужен рабочий SAFE-рантайм И egress-барьер "
+                           "(root + nftables) — на CI-раннере их нет")
 async def test_allowlist_sandbox_gets_proxy_and_releases_it(tmp_path):
     """ALLOWLIST поднимает прокси и отдаёт его адрес процессу; destroy закрывает."""
     from bossman.sandbox import NetworkMode, PolicyMode, ResourceRequest, SandboxSpec
