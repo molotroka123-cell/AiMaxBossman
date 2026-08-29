@@ -48,36 +48,95 @@ const OpenRouterPage = {
     const providerEl = select(providers.map((p) => ({ value: pick(p, ['id']), label: `${pick(p, ['name'], 'провайдер')}${looksLikeOpenRouter(p) ? ' · OpenRouter?' : ''}` })), { value: state.providerId });
     providerEl.addEventListener('change', () => { state.providerId = providerEl.value; ctx.refresh(); });
 
+    const connectPanel = await buildConnectPanel(state.providerId, ctx);
+
     const providerRow = h('div.row', field('Поставщик', providerEl), h('div.spacer'),
       actionButton('Обновить список', async () => {
         try {
-          const r = await api.raw(`/api/openrouter/${encodeURIComponent(state.providerId)}/sync`, { method: 'POST' });
-          toastOk(`Список обновлён: ${r.synced} моделей`);
+          const r = await api.raw(`/api/openrouter/${encodeURIComponent(state.providerId)}/sync?force=true`, { method: 'POST' });
+          toastOk(r.cached ? 'Открыт сохранённый каталог' : `Список обновлён: ${r.synced} моделей`);
           ctx.refresh();
-        } catch (e) { toastError(e, 'Не удалось обновить — проверьте ключ поставщика'); }
+        } catch (e) { toastError(e, 'OpenRouter недоступен — показан сохранённый каталог'); ctx.refresh(); }
       }, { cls: 'btn btn-primary btn-sm', iconName: 'retry' }));
 
     const catalogPanel = await buildCatalogPanel(state.providerId, ctx);
     const pinnedPanel = await buildPinnedPanel(state.providerId, ctx);
 
-    return h('div.bx-page', head, providerRow, catalogPanel, pinnedPanel);
+    return h('div.bx-page', head, providerRow, connectPanel, catalogPanel, pinnedPanel);
   },
 
   onEvent(ev) { return ev.kind === 'model.created'; },
 };
 
+async function buildConnectPanel(providerId, ctx) {
+  let st = null;
+  try { st = await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/status`); }
+  catch { st = { has_key: false, catalog_models: 0, last_synced_at: null }; }
+
+  const out = h('div.stack.sm');
+  const when = st.last_synced_at ? new Date(st.last_synced_at).toLocaleString() : null;
+  if (st.has_key && st.catalog_models) {
+    out.appendChild(h('div.row.tight',
+      badge(st.has_key ? 'ключ сохранён' : 'ключа нет', st.has_key ? 'ok' : 'warn'),
+      badge(`моделей в каталоге: ${st.catalog_models}`),
+      when ? badge(`sync: ${when}`) : null));
+    return panel('Подключение', out);
+  }
+
+  const keyEl = input({ placeholder: 'sk-or-… ключ OpenRouter', type: 'password' });
+  const note = h('div.xsmall.dim', when ? `Ключ сохранён, но каталог пуст — последний sync: ${when}` : 'Вставьте ключ и нажмите Connect — каталог загрузится автоматически.');
+  out.appendChild(field('API KEY', keyEl), note,
+    actionButton('Connect', async () => {
+      try {
+        if (keyEl.value.trim()) {
+          await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/key`, {
+            method: 'PATCH', body: { api_key: keyEl.value.trim() },
+          });
+        }
+        const r = await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/connect`, { method: 'POST' });
+        toastOk(`Подключено: ${r.models} моделей в каталоге`);
+        ctx.refresh();
+      } catch (e) { toastError(e, 'Connect не удался — проверьте ключ'); }
+    }, { cls: 'btn btn-primary', iconName: 'bolt' }));
+  return panel('Подключение', out);
+}
+
+const FILTERS = [
+  { id: 'all', label: 'ALL', fn: () => true },
+  { id: 'free', label: 'FREE', fn: (m) => !m.price_in && !m.price_out },
+  { id: 'coding', label: 'CODING', fn: (m) => `${m.remote_id} ${m.display_name}`.toLowerCase().includes('code') },
+  { id: 'vision', label: 'VISION', fn: (m) => (m.input_modalities || []).includes('image') },
+  { id: 'tools', label: 'TOOLS', fn: (m) => (m.supported_parameters || []).includes('tools') },
+];
+
 async function buildCatalogPanel(providerId, ctx) {
   const searchEl = input({ placeholder: 'поиск по названию модели…' });
   const tableOut = h('div.small.dim', 'Загрузка каталога…');
+  const state = ctx.state.openrouter || (ctx.state.openrouter = {});
+  if (!state.filter) state.filter = 'all';
+  let lastRows = [];
+
+  function renderRows() {
+    const fn = (FILTERS.find((f) => f.id === state.filter) || FILTERS[0]).fn;
+    const rows = lastRows.filter(fn);
+    tableOut.textContent = '';
+    if (!rows.length) { tableOut.appendChild(h('div.small.dim', lastRows.length ? 'Под фильтр ничего не подошло.' : 'Список пуст — нажмите «Обновить список».')); return; }
+    tableOut.appendChild(h('div.stack.sm', { style: { overflowX: 'auto' } }, rows.map((m) => catalogRow(m, providerId, ctx))));
+  }
+
+  const filterRow = h('div.row.tight', FILTERS.map((f) => {
+    const b = h('button.btn.btn-sm' + (state.filter === f.id ? '.btn-primary' : ''), { type: 'button' }, f.label);
+    b.addEventListener('click', () => { state.filter = f.id; ctx.refresh(); });
+    return b;
+  }));
 
   async function loadCatalog(q) {
     tableOut.textContent = '';
     tableOut.appendChild(h('div.small.dim', 'Загрузка…'));
     try {
-      const rows = await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/catalog${q ? `?q=${encodeURIComponent(q)}` : ''}`);
-      tableOut.textContent = '';
-      if (!rows.length) { tableOut.appendChild(h('div.small.dim', 'Список пуст — нажмите «Обновить список».')); return; }
-      tableOut.appendChild(h('div.stack.sm', { style: { overflowX: 'auto' } }, rows.map((m) => catalogRow(m, providerId, ctx))));
+      const rows = await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/catalog?limit=200${q ? `&q=${encodeURIComponent(q)}` : ''}`);
+      lastRows = rows;
+      renderRows();
     } catch (e) { tableOut.textContent = ''; tableOut.appendChild(h('div.small', { style: { color: 'var(--err)' } }, e.message || 'Не удалось загрузить каталог')); }
   }
 
@@ -85,7 +144,7 @@ async function buildCatalogPanel(providerId, ctx) {
   searchEl.addEventListener('input', () => debouncedLoad(searchEl.value.trim()));
   await loadCatalog('');
 
-  return panel('Каталог моделей OpenRouter', h('div.stack.sm', field('Поиск', searchEl), tableOut));
+  return panel('Каталог моделей OpenRouter', h('div.stack.sm', field('Поиск', searchEl), filterRow, tableOut));
 }
 
 function catalogRow(m, providerId, ctx) {

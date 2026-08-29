@@ -9,15 +9,20 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
 from ..db import models as models_t, providers as providers_t, utcnow
 from ..v2.capability_probe import probe_model
 from ..v2.openrouter_catalog_service import OpenRouterCatalogService
-from ..v2.openrouter_ext import OpenRouterClient
+from ..v2.openrouter_ext import DEFAULT_BASE, OpenRouterClient
 from ..v2.tables import model_capability_checks as caps_t, provider_catalog_models as catalog_t
 from . import Feature
 
 router = APIRouter()
+
+
+class ApiKeyIn(BaseModel):
+    api_key: str
 
 
 def _svc_or_404(request):
@@ -33,20 +38,96 @@ async def _openrouter_provider(svc, provider_id: int) -> dict:
     return dict(row._mapping)
 
 
+def _client_for(svc, provider: dict) -> OpenRouterClient:
+    key = svc.vault.decrypt(provider.get("api_key_enc")) or ""
+    return OpenRouterClient(key, base_url=provider.get("base_url") or DEFAULT_BASE)
+
+
+@router.post("/openrouter/{provider_id}/connect")
+async def connect(provider_id: int, request: Request):
+    """Подключить OpenRouter: проверить ключ (без инференса) и подтянуть каталог.
+
+    invalid-ключ → 400 с чистым текстом; сеть → 502. Сырой ключ ни в ответе,
+    ни в событиях не появляется. CatalogUnavailable при авто-sync не валит
+    connect: ключ подтверждён, каталог можно подтянуть позже кнопкой Refresh.
+    """
+    svc = _svc_or_404(request)
+    provider = await _openrouter_provider(svc, provider_id)
+    if not svc.vault.decrypt(provider.get("api_key_enc")):
+        raise HTTPException(422, {"message": "у провайдера нет api_key",
+                                  "hint": "вставьте ключ и повторите Connect"})
+    state, detail = await _client_for(svc, provider).validate_key()
+    if state == "invalid":
+        raise HTTPException(400, {"message": detail,
+                                  "hint": "проверьте ключ на openrouter.ai/keys"})
+    if state == "network":
+        raise HTTPException(502, {"message": detail, "hint": "повторите позже"})
+    try:
+        sync_result = await OpenRouterCatalogService(svc.db, svc.vault).sync(provider_id)
+    except LookupError:
+        raise HTTPException(404, {"message": "провайдер не найден"})
+    except Exception as exc:             # каталог не критичен для факта подключения
+        sync_result = {"synced": 0, "cached": True, "error": type(exc).__name__}
+    await svc.bus.emit("openrouter.connected", provider_id=provider_id,
+                       models=sync_result.get("synced", 0))
+    return {"ok": True, "models": sync_result.get("synced", 0),
+            "cached": sync_result.get("cached", False),
+            "last_synced_at": sync_result.get("last_synced_at")}
+
+
+@router.patch("/openrouter/{provider_id}/key")
+async def set_key(provider_id: int, body: ApiKeyIn, request: Request):
+    """Сохранить/заменить ключ провайдера. Ключ шифруется в vault; наружу и в
+    события идёт только факт обновления, не значение."""
+    svc = _svc_or_404(request)
+    await _openrouter_provider(svc, provider_id)          # 404, если нет такого
+    key = body.api_key.strip()
+    if not key:
+        raise HTTPException(422, {"message": "api_key пустой"})
+    async with svc.db.session() as s:
+        await s.execute(sa.update(providers_t).where(
+            providers_t.c.id == provider_id
+        ).values(api_key_enc=svc.vault.encrypt(key)))
+        await s.commit()
+    await svc.bus.emit("openrouter.key_updated", provider_id=provider_id)
+    return {"ok": True}
+
+
+@router.get("/openrouter/{provider_id}/status")
+async def status(provider_id: int, request: Request):
+    """Состояние для UI: ключ есть/нет, размер каталога, последний успешный sync."""
+    svc = _svc_or_404(request)
+    try:
+        return await OpenRouterCatalogService(svc.db, svc.vault).catalog_status(provider_id)
+    except LookupError:
+        raise HTTPException(404, {"message": "провайдер не найден"})
+
+
 @router.post("/openrouter/{provider_id}/sync")
-async def sync_catalog(provider_id: int, request: Request):
-    """Синхронизировать удалённый каталог OpenRouter (не активирует модели авто)."""
+async def sync_catalog(provider_id: int, request: Request, force: bool = False):
+    """Синхронизировать удалённый каталог OpenRouter (не активирует модели авто).
+
+    force=True — ручной Refresh, идёт в сеть мимо TTL. При недоступности
+    OpenRouter кэш остаётся нетронутым, наружу 503 с меткой последнего sync.
+    """
     svc = _svc_or_404(request)
     service = OpenRouterCatalogService(svc.db, svc.vault)
     try:
-        result = await service.sync(provider_id)
+        result = await service.sync(provider_id, force=force)
     except ValueError as exc:            # нет ключа
         raise HTTPException(422, {"message": str(exc),
                                   "hint": "добавьте api_key в провайдере OpenRouter"})
     except LookupError:
         raise HTTPException(404, {"message": "провайдер не найден"})
     except Exception as exc:             # сеть/HTTP — наружу человекочитаемо
-        raise HTTPException(502, {"message": f"OpenRouter недоступен: {exc}"})
+        detail = getattr(exc, "last_synced_at", None)
+        cached = getattr(exc, "cached_count", 0)
+        raise HTTPException(503, {
+            "message": f"OpenRouter недоступен: показан последний сохранённый каталог",
+            "hint": "каталог в кэше не изменён; повторите позже",
+            "last_synced_at": str(detail) if detail is not None else None,
+            "cached_models": cached,
+            "error_type": type(exc).__name__})
     return result
 
 

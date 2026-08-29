@@ -86,6 +86,24 @@ class OpenRouterClient:
     def _client(self, timeout: float = 60) -> httpx.AsyncClient:
         return httpx.AsyncClient(timeout=timeout, transport=self.transport)
 
+    async def validate_key(self) -> tuple[str, str]:
+        """Проверка ключа без инференса: GET /key.
+
+        Возвращает (state, detail): ok | invalid | network. Ошибки сети и
+        отказ ключа различаются: первый — «попробуйте позже», второй —
+        «ключ не принят». Сырой ключ ни в одном сообщении не появляется.
+        """
+        try:
+            async with self._client(15) as client:
+                r = await client.get(f"{self.base_url}/key", headers=self._headers())
+        except httpx.HTTPError:
+            return "network", "нет связи с OpenRouter"
+        if r.status_code == 401:
+            return "invalid", "ключ отклонён OpenRouter (401)"
+        if r.status_code >= 400:
+            return "network", f"OpenRouter ответил {r.status_code}"
+        return "ok", ""
+
     async def list_models(self) -> list[OpenRouterModelCard]:
         async with self._client(30) as client:
             r = await client.get(f"{self.base_url}/models", headers=self._headers())
