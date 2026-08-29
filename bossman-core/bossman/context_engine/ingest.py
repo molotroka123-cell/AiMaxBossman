@@ -16,11 +16,12 @@ class Ingestor:
         self.store = store
         self.embedder = embedder
 
-    def ingest_text(self, text: str, *, source_uri: str, source_type: str = "text", project: str = "", metadata: dict | None = None) -> Document:
+    def ingest_text(self, text: str, *, source_uri: str, source_type: str = "text", project: str = "",
+                    metadata: dict | None = None, sensitivity: str = "normal") -> Document:
         now = utcnow(); h = sha256_text(text)
         doc = Document(
             document_id=stable_id("doc", source_uri, h),source_type=source_type,source_uri=source_uri,text=text,project=project,
-            created_at=now,updated_at=now,metadata=metadata or {},content_hash=h,
+            created_at=now,updated_at=now,metadata=metadata or {},content_hash=h,sensitivity=sensitivity,
         )
         chunks = chunk_document(doc)
         vectors = self.embedder.embed([c.text for c in chunks]) if chunks else []
