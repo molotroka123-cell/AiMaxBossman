@@ -81,9 +81,32 @@ PLAN_SYSTEM = """Ты планировщик инженерных задач. В
 _MODEL_KINDS = {"EDIT": StepKind.EDIT, "TEST": StepKind.TEST}
 
 # Исполняемые, которые допустимы в argv шага TEST. Всё прочее отвергается: так
-# «тест» не превращается в произвольную команду.
+# «тест» не превращается в произвольную команду. Path-запись (со слешем)
+# допускается только при ПОЛНОМ совпадении с записью списка (например
+# /usr/bin/env): basename-сравнение пропускало бы «/tmp/evil/python».
 ALLOWED_TEST_BINARIES = ("python", "python3", "pytest", "npm", "npx", "node",
                          "go", "cargo", "make", "/usr/bin/env")
+
+
+def _binary_identity_ok(argv0: str) -> bool:
+    """EXACT identity исполняемого: без отсечения каталога и без startswith.
+
+    - обрамление пробелами, NUL — отказ;
+    - path-форма (любые слеши, нормализованные к «/») — только полное
+      совпадение с path-записью allowlist; «C:/evil/python»,
+      «..\\bin\\python», «/tmp/evil/python», «python.exe.exe» — отказ;
+    - точное имя — сравнение casefold (семантика Windows), но БЕЗ суффиксов:
+      «python.exe» и «python-malicious» мимо списка не проходят.
+    """
+    a = argv0.strip()
+    if not a or a != argv0 or "\x00" in a:
+        return False
+    norm = a.replace("\\", "/")
+    if "/" in norm:                      # путь: только полное совпадение
+        return norm.casefold() in {p.replace("\\", "/").casefold()
+                                   for p in ALLOWED_TEST_BINARIES if "/" in p}
+    return norm.casefold() in {b.casefold()
+                               for b in ALLOWED_TEST_BINARIES if "/" not in b}
 
 
 class LLMPlanner:
@@ -175,13 +198,15 @@ class LLMPlanner:
         if not isinstance(value, (list, tuple)) or not value:
             return self.test_argv
         argv = [str(a) for a in value][:20]
-        head = argv[0].rsplit("/", 1)[-1]
-        # ТОЛЬКО точное имя исполняемого: startswith пропускал бы
-        # «python-malicious» как «python». И даже точное совпадение — не
-        # песочница (python/node сами исполняют код): реальную границу держит
-        # Этап 8, TEST-шаги идут только через SandboxExecutor.
-        if head not in {x.rsplit("/", 1)[-1] for x in ALLOWED_TEST_BINARIES}:
-            return self.test_argv         # незнакомая команда → безопасный дефолт
+        # ТОЛЬКО точное identity исполняемого: startswith пропускал бы
+        # «python-malicious» как «python», а basename-сравнение (rsplit по
+        # слешу) пропускало бы «/tmp/evil/python» и «C:\evil\python» — путь
+        # принимается только при ПОЛНОМ совпадении с path-записью списка.
+        # И даже точное совпадение — не песочница (python/node сами исполняют
+        # код): реальную границу держит Этап 8, TEST-шаги идут только через
+        # SandboxExecutor.
+        if not _binary_identity_ok(argv[0]):
+            return self.test_argv         # незнакомое исполняемое → безопасный дефолт
         return tuple(argv)
 
     def _with_system_steps(self, steps: list[DevStep]) -> list[DevStep]:

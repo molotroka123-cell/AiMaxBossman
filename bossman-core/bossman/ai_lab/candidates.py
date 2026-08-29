@@ -11,13 +11,64 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import time
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from .. import errors
 from ..sandbox.dataset import DatasetGate
 from .sanitizer import SANITIZER_VERSION, content_sha256, sanitize_obj
+
+# id песочницы — короткий безопасный идентификатор, а НЕ путь: только ASCII
+# буквы/цифры/«-»/«_», первый символ — буква или цифра. Этим отсекаются ../,
+# абсолютные пути, буквы дисков (C:), UNC (\\server), NUL, %-кодирование
+# (%2e%2e, %00) и сверхдлинные имена — все они не проходят полный матч.
+_SANDBOX_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+_SANDBOX_ID_MAX = 64
+
+
+def sandbox_id_rejected(sandbox_id: str) -> bool:
+    """Полная батарея отказов для sandbox_id ДО любых операций с путями."""
+    if not isinstance(sandbox_id, str) or not sandbox_id:
+        return True
+    if "\x00" in sandbox_id:
+        return True                        # NUL (и в любом виде)
+    if "%" in sandbox_id:
+        return True                        # URL-кодирование: %2e%2e, %2f, %00
+    if len(sandbox_id) > _SANDBOX_ID_MAX:
+        return True                        # сверхдлинное имя
+    if "/" in sandbox_id or "\\" in sandbox_id:
+        return True                        # сегменты пути, смешанные слеши, UNC
+    if ".." in sandbox_id:
+        return True                        # «..» где угодно в id — отказ
+    pw = PureWindowsPath(sandbox_id)
+    if pw.is_absolute() or pw.drive or pw.root:
+        return True                        # абсолютный путь, диск (C:\), UNC, корень
+    return _SANDBOX_ID_RE.fullmatch(sandbox_id) is None
+
+
+def sandbox_trajectory_path(sandbox_id: str, workspace_root: str | Path) -> Path:
+    """sandbox_id → путь к trajectory.jsonl СТРОГО внутри workspace песочницы.
+
+    Путь вычисляет СЕРВЕР: <workspace_root>/<sandbox_id>/trajectory.jsonl.
+    Сдерживание проверяется ПОСЛЕ resolve() — ловит symlink/junction-побег.
+    Сравнение — normcase-префикс: детерминировано на всех платформах
+    (case-insensitive на Windows). Отказ единообразный (NotFound с одним
+    только sandbox_id): не различаем «плохой id» и «нет файла», чтобы ручка
+    не стала зондом файловой системы, и никогда не показываем путь хоста.
+    """
+    denied = errors.NotFound(f"trajectory not found: sandbox_id={sandbox_id[:80]!r}")
+    if sandbox_id_rejected(sandbox_id):
+        raise denied
+    root = Path(workspace_root).resolve()
+    path = (root / sandbox_id / "trajectory.jsonl").resolve()
+    inside = os.path.normcase(str(path)).startswith(
+        os.path.normcase(str(root) + os.sep))
+    if not inside or not path.is_file():
+        raise denied
+    return path
 
 # маркеры отравленных/непригодных траекторий (defense in depth поверх DatasetGate)
 _POISON_MARKERS = (
@@ -69,11 +120,17 @@ class AiLabCandidate:
 
 def load_trajectory(path: str | Path) -> tuple[list[dict], str, dict]:
     """Читает append-only JSONL траектории ТОЛЬКО на чтение.
-    Возвращает (события, sha256 содержимого, meta). Raw не мутируется."""
+    Возвращает (события, sha256 содержимого, meta). Raw не мутируется.
+    Ошибки НЕ раскрывают путь хоста (единое сообщение без p)."""
     p = Path(path)
     if not p.is_file():
-        raise errors.BossmanError(f"trajectory not found: {p}", code=errors.ErrorCode.NOT_FOUND)
-    raw = p.read_bytes()
+        raise errors.BossmanError("trajectory not found",
+                                  code=errors.ErrorCode.NOT_FOUND)
+    try:
+        raw = p.read_bytes()
+    except OSError:
+        raise errors.BossmanError("trajectory not readable",
+                                  code=errors.ErrorCode.NOT_FOUND) from None
     sha = __import__("hashlib").sha256(raw).hexdigest()
     events: list[dict] = []
     for line in raw.decode("utf-8", errors="replace").splitlines():
@@ -131,6 +188,26 @@ class CandidateStore:
         os_replace(tmp, self._path)
 
     # --- API ---
+
+    def create_from_sandbox(self, sandbox_id: str, *, workspace_root: str | Path,
+                            sandbox_id_verified: bool = False) -> AiLabCandidate:
+        """Кандидат из траектории песочницы БЕЗ произвольных путей хоста.
+
+        Путь к raw вычисляет сам store: <workspace_root>/<sandbox_id>/
+        trajectory.jsonl с полным сдерживанием (sandbox_trajectory_path:
+        отказ абсолютным путям, «..», дискам, UNC, NUL, %-кодированию,
+        сверхдлинным именам; сдерживание после resolve() ловит symlink-побег).
+        `sandbox_id_verified` — интерлок: вызывающий (роут) подтверждает, что
+        id пришёл из доверенного источника и прошёл свою проверку; store в
+        ЛЮБОМ случае перепроверяет всё сам (defense in depth). Ошибки — только
+        с sandbox_id, без путей хоста.
+        """
+        if not sandbox_id_verified:
+            raise errors.PolicyDenied(
+                "sandbox_id must be verified by the caller before store-level creation",
+                code=errors.ErrorCode.POLICY_DENIED)
+        path = sandbox_trajectory_path(sandbox_id, workspace_root)
+        return self.create(str(path), sandbox_id=sandbox_id)
 
     def create(self, trajectory_path: str, *, sandbox_id: str,
                candidate_id: str | None = None) -> AiLabCandidate:
