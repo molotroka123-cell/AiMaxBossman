@@ -167,9 +167,10 @@ async def test_alias_and_probe_history_survive_refresh(env, monkeypatch):
     assert before
 
     # модель исчезла из remote — каталог обязан пометить stale, но НЕ снести pin
+    # (force: TTL-кэш без force вернул бы сохранённый каталог без похода в remote)
     fake.cards = [c for c in fake.cards if c["id"] != "vendor/plain"]
-    again = (await env.client.post(f"/api/openrouter/{prov['id']}/sync")).json()
-    assert again["synced"] == 3 and again["stale"] == 1
+    again = (await env.client.post(f"/api/openrouter/{prov['id']}/sync?force=true")).json()
+    assert again["synced"] == 3 and again["stale"] == 1 and again["cached"] is False
 
     async with env.svc.db.session() as s:
         row = (await s.execute(sa.select(catalog_t).where(

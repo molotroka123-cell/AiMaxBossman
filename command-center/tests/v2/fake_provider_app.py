@@ -30,6 +30,14 @@ MODELS = [
     },
 ]
 
+@app.get("/v1/key")
+async def key_info(req: Request):
+    """Проверка ключа без инференса: 200 на любой Bearer, кроме канарейки 'bad'."""
+    auth = req.headers.get("authorization") or ""
+    if not auth.startswith("Bearer ") or auth == "Bearer bad":
+        return JSONResponse({"error": {"message": "Invalid key"}}, status_code=401)
+    return {"data": {"label": "test", "usage": 0, "limit": None}}
+
 @app.get("/v1/models")
 async def models():
     return {"data": MODELS}

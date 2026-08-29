@@ -13,7 +13,7 @@ import httpx
 import yaml
 
 from . import db
-from .agents import AgentSpec
+from .agents import AgentSpec, auto_gateway_config, load_all, validate_agent_models
 from .config import settings
 from .gateway.client import GatewayClient, GatewayCloudDenied
 
@@ -28,8 +28,15 @@ _gateway: GatewayClient | None = None
 def _gateway_client() -> GatewayClient:
     global _gateway
     if _gateway is None:
-        _gateway = GatewayClient(base_url=settings.gateway_url,
-                                 api_key=settings.gateway_core_key)
+        client = GatewayClient(base_url=settings.gateway_url,
+                               api_key=settings.gateway_core_key)
+        # Хук стартовой валидации (аудит 2026-08-29: alias-мисматч давал 404 на
+        # первом же вызове модели). Вместо молчаливого RouteNotFound в сети —
+        # ранний ValueError со списком неразрешённых пар агент→модель. Клиент
+        # кэшируется только после успешной проверки, иначе ValidationError
+        # можно было бы «переждать» повторными вызовами.
+        validate_agent_models(load_all(), auto_gateway_config())
+        _gateway = client
     return _gateway
 
 
@@ -61,7 +68,7 @@ def is_cloud(alias: str) -> bool:
 def real_window(alias: str) -> int:
     """Реальный потолок модели из tools/registry.yaml (10.7), не паспортное окно."""
     try:
-        reg = yaml.safe_load(settings.tools_registry.read_text()) or {}
+        reg = yaml.safe_load(settings.tools_registry.read_text(encoding="utf-8")) or {}
         return int((reg.get("model_windows") or {}).get(alias, 65536))
     except FileNotFoundError:
         return 65536

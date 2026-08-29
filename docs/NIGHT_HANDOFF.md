@@ -151,3 +151,11 @@ BCC_DATA_DIR=/tmp/bcc-data BCC_PORT=8821 python -m bcc.app
 Продакшн-деплой, финансовые действия, удаление данных, отправка сообщений
 наружу, force-push, слияние в защищённую ветку — ничего не выполнялось.
 Секретов не закоммичено (скан диффа перед каждым коммитом + шаг в CI).
+
+## 2026-08-29 — OpenRouter UX + red-team sweep (этот агент)
+
+FIXED: OpenRouter connect/validate/TTL-cache/outage-cached-catalog/status + UI Connect&filters (b586fa2); gateway circuit breaker+health classification+correlation (2bfb475); memory ACTIVE->CANDIDATE clobber, atomic state.json, pause/cancel reconcile (864aa4b); canonical bossman-coder alias + startup validation + auth boundary tests (fca65d0).
+TESTS: openrouter 30 passed/1 skip(smoke); gateway 35 passed; context/projects 56 passed; alias/auth+remote 91 passed; test_router 6 passed (cp1252 fixed). Real OpenRouter smoke = skip без OPENROUTER_API_KEY, бюджет: 1 catalog fetch + max 1 дешёвый inference.
+NOT FIXED: core API без per-request credentials (loopback-only default, осознанно — rewrite запрещён); HALF_OPEN self-expiry token; in-flight cost при pause не персистится.
+FILES: bcc/features/openrouter.py, bcc/v2/openrouter_catalog_service.py, bcc/v2/openrouter_ext.py, ui/pages/openrouter.js, bossman/gateway/{backends,router,app,config,main}.py, bossman/context_engine/memory.py, bossman/projects/{plan,runner,router}.py, bossman/{agents,llm}.py, config/gateway.example.yaml + 3 новых тест-файла.
+COMMITS: b586fa2, 2bfb475, 864aa4b, fca65d0 (все в claude/bossman-control-v03-43igbk).

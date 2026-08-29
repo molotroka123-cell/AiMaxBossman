@@ -5,7 +5,11 @@ state.json — источник истины (9.5): перезагрузка, п
 """
 from __future__ import annotations
 
+import contextlib
 import json
+import os
+import shutil
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,7 +48,7 @@ def project_dir(slug: str) -> Path:
 
 
 def load_plan(slug: str) -> Plan:
-    raw = yaml.safe_load((project_dir(slug) / "plan.yaml").read_text())
+    raw = yaml.safe_load((project_dir(slug) / "plan.yaml").read_text(encoding="utf-8"))
     tasks = [PlanTask(stage=st["name"], **{k: v for k, v in t.items()})
              for st in raw["stages"] for t in st["tasks"]]
     return Plan(title=raw.get("title", slug), tasks=tasks,
@@ -56,7 +60,7 @@ def load_plan(slug: str) -> Plan:
 def save_plan(slug: str, plan_yaml: str) -> None:
     d = project_dir(slug)
     d.mkdir(parents=True, exist_ok=True)
-    (d / "plan.yaml").write_text(plan_yaml)
+    (d / "plan.yaml").write_text(plan_yaml, encoding="utf-8")
 
 
 class State:
@@ -68,12 +72,35 @@ class State:
         self.data: dict = {"status": "draft", "tasks": {}, "spent": 0.0,
                            "clips_done": 0, "preview_gate_passed": False}
         if self.path.exists():
-            self.data = json.loads(self.path.read_text())
+            try:
+                self.data = json.loads(self.path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                # один полу-записанный файл не должен навсегда «кирпичить» проект:
+                # save() держит предыдущую копию рядом (state.json.bak)
+                bak = self.path.with_name(self.path.name + ".bak")
+                self.data = json.loads(bak.read_text(encoding="utf-8"))
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.data["updated_at"] = datetime.now(timezone.utc).isoformat()
-        self.path.write_text(json.dumps(self.data, ensure_ascii=False, indent=1))
+        payload = json.dumps(self.data, ensure_ascii=False, indent=1)
+        # Атомарная запись: временный файл-сосед + os.replace. Truncate+write
+        # оставлял после краша/гонки обрезанный JSON — проект переставал грузиться.
+        fd, tmp_name = tempfile.mkstemp(dir=str(self.path.parent), prefix=".state-", suffix=".tmp")
+        tmp = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(payload)
+                f.flush()
+                os.fsync(f.fileno())
+            if self.path.exists():  # дешёвая страховка: предыдущая копия рядом
+                with contextlib.suppress(OSError):
+                    shutil.copyfile(self.path, self.path.with_name(self.path.name + ".bak"))
+            os.replace(tmp, self.path)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                tmp.unlink()
+            raise
 
     def task(self, task_id: str) -> dict:
         return self.data["tasks"].setdefault(
@@ -96,7 +123,7 @@ class State:
 def journal_append(slug: str, text: str) -> None:
     p = project_dir(slug) / "journal.md"
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
-    with p.open("a") as f:
+    with p.open("a", encoding="utf-8") as f:
         f.write(f"- {ts} {text.strip()}\n")
 
 
@@ -104,4 +131,4 @@ def journal_tail(slug: str, lines: int = 20) -> str:
     p = project_dir(slug) / "journal.md"
     if not p.exists():
         return ""
-    return "\n".join(p.read_text().splitlines()[-lines:])
+    return "\n".join(p.read_text(encoding="utf-8").splitlines()[-lines:])
