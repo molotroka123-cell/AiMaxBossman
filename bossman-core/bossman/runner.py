@@ -68,6 +68,37 @@ def _tool_schemas(agent: AgentSpec) -> list[dict]:
     return [REGISTRY[g.name].schema() for g in agent.tools if g.name in REGISTRY]
 
 
+# Инструменты, которые нельзя вырезать при tool pruning: подтверждаемые действия
+# (платёж/отправка) — их наличие критично для безопасного пути ЭТАПА 1.
+_ALWAYS_TOOLS = ("browser_confirmed_click", "browser_confirmed_press")
+
+
+def apply_context_engine(builder: ContextBuilder, tools: list[dict], *, project: str,
+                         task_text: str, memory_md: str = "") -> list[dict]:
+    """ЭТАП 2.222 — точка интеграции context_engine в реальный путь LLM-запроса.
+
+    Слой поверх ContextBuilder: наполняет ранее пустой блок `retrieved`
+    долговременной памятью (с provenance) и evidence-чанками (с source-refs), и
+    обрезает tool-схемы под задачу (tool schema pruning). Движок долгоживущий на
+    процесс. Любая ошибка движка/ранкера деградирует к прежнему поведению ядра —
+    петля не падает. Отключаемо флагом settings.context_engine_enabled.
+    """
+    if not settings.context_engine_enabled:
+        return tools
+    try:
+        from .context_engine import get_engine, prune_tool_schemas
+        engine = get_engine(settings.context_db)
+        if memory_md.strip():
+            engine.index_text(memory_md, source_uri=f"agents/{project}/memory.md",
+                              source_type="markdown", project=project)
+        engine.inject_into_builder(builder, task_text, project=project)
+        if tools:
+            return prune_tool_schemas(tools, task_text, keep_min=10, always=_ALWAYS_TOOLS)
+        return tools
+    except Exception:
+        return tools
+
+
 async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
                      api_name: str, args: dict, ctx: ToolContext) -> tuple[str, str]:
     """Шаг 4 петли: инструмент в списке агента? право есть? нужно подтверждение?
@@ -145,6 +176,10 @@ async def run_task(task: dict) -> None:
     budget = ContextBudget(window=real_window(agent.model))
     builder = ContextBuilder(budget, _system_prompt(agent))
     tools = _tool_schemas(agent)
+    # ЭТАП 2.222: наполнить блок retrieved долговременной памятью + evidence и
+    # обрезать tool-схемы под задачу. Слой поверх ContextBuilder, не замена.
+    tools = apply_context_engine(builder, tools, project=agent.name,
+                                 task_text=task["text"], memory_md=agent.memory)
     started = time.monotonic()
     total_tokens = 0
     steps = 0
