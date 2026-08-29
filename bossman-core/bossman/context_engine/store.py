@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from pathlib import Path
 from typing import Iterable
@@ -117,20 +118,26 @@ class ContextStore:
 
     def lexical_search(self, query: str, limit: int = 50, project: str = "") -> list[tuple[Chunk, float]]:
         if self._fts:
-            cleaned = " ".join(x.replace('"', '') for x in query.split() if x.strip())
-            if not cleaned:
-                return []
-            sql = """SELECT c.*, bm25(chunks_fts) AS rank FROM chunks_fts JOIN chunks c USING(chunk_id)
-                     WHERE chunks_fts MATCH ?"""
-            params: list[object] = [cleaned]
-            if project:
-                sql += " AND c.project=?"; params.append(project)
-            sql += " ORDER BY rank LIMIT ?"; params.append(limit)
-            try:
-                rows = self.db.execute(sql, params).fetchall()
-                return [(self._row_chunk(r), 1.0 / (1.0 + max(0.0, float(r["rank"])))) for r in rows]
-            except sqlite3.OperationalError:
-                pass
+            # OR + prefix вместо implicit-AND: лишнее слово в запросе не обнуляет
+            # весь match, а prefix (`term*`) ловит другую словоформу (RU-морфология).
+            # bm25 ранжирует по релевантности, лучшие совпадения впереди.
+            terms = [re.sub(r"\W+", "", x, flags=re.UNICODE).lower() for x in query.split()]
+            terms = [t for t in terms if len(t) >= 2]
+            if terms:
+                match = " OR ".join(f"{t}*" for t in terms)
+                sql = """SELECT c.*, bm25(chunks_fts) AS rank FROM chunks_fts JOIN chunks c USING(chunk_id)
+                         WHERE chunks_fts MATCH ?"""
+                params: list[object] = [match]
+                if project:
+                    sql += " AND c.project=?"; params.append(project)
+                sql += " ORDER BY rank LIMIT ?"; params.append(limit)
+                try:
+                    rows = self.db.execute(sql, params).fetchall()
+                    if rows:
+                        return [(self._row_chunk(r), 1.0 / (1.0 + max(0.0, float(r["rank"])))) for r in rows]
+                except sqlite3.OperationalError:
+                    pass
+            # Пустой FTS-результат не обрывает retrieval — падаем на token-overlap.
         # Portable fallback: token overlap.
         q = {x.lower() for x in query.split() if len(x) > 1}
         if not q:

@@ -32,6 +32,21 @@ def test_index_survives_restart(tmp_path):
     store2.close()
 
 
+def test_lexical_recall_with_extra_query_terms(tmp_path):
+    # Лишние слова в запросе не должны обнулять FTS-match (implicit-AND баг):
+    # используется OR + prefix, а пустой результат FTS падает на token-overlap.
+    store, ing, retr = _stack(tmp_path)
+    ing.ingest_text("hybrid retrieval reranking pipeline",
+                    source_uri="a.md", source_type="markdown", project="p")
+    hits = store.lexical_search("как устроен hybrid pipeline вообще сегодня", 50, "p")
+    assert any(c.source_uri == "a.md" for c, _ in hits), "OR/prefix recall не работает"
+    # морфология: prefix ловит другую словоформу (уплотнени* -> уплотнения)
+    ing.ingest_text("порог уплотнения окна", source_uri="m.md", source_type="markdown", project="p")
+    hits2 = store.lexical_search("уплотнени окн", 50, "p")
+    assert any(c.source_uri == "m.md" for c, _ in hits2)
+    store.close()
+
+
 def test_sensitivity_aware_filtering(tmp_path):
     store, ing, retr = _stack(tmp_path)
     ing.ingest_text("Публичная заметка про токены и бюджет.",
