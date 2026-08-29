@@ -13,7 +13,8 @@ import pytest
 # Менеджер создаётся тестом напрямую (enabled=True) — глобальный env-флаг
 # BOSSMAN_SANDBOX_ENABLED не нужен: здесь проверяется сам рантайм и fail-closed.
 
-posix_only = pytest.mark.skipif(os.name != "posix",
+from bossman.sandbox.runtimes import safe_runtime_available
+posix_only = pytest.mark.skipif(not safe_runtime_available(),
                                 reason="SAFE-исполнение процессов POSIX-only "
                                        "(rlimits/unshare); на Windows — fail-closed")
 

@@ -8,6 +8,7 @@ import os
 import pytest
 
 from bossman.sandbox import EgressProxy
+from bossman.sandbox.runtimes import safe_runtime_available
 from bossman.sandbox.egress import parse_connect
 from bossman.sandbox.models import IsolationTier, NetworkMode, PolicyMode, SandboxPolicy
 from bossman.sandbox.trajectory import TrajectoryRecorder
@@ -131,8 +132,9 @@ def _mgr(tmp_path):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(os.name == "nt",
-                    reason="SAFE-исполнение процессов POSIX-only (preexec_fn/unshare)")
+@pytest.mark.skipif(not safe_runtime_available(),
+                    reason="SAFE реальное исполнение недоступно в этом окружении "
+                           "(нет обхода родительских каталогов сброшенным uid)")
 async def test_offline_sandbox_starts_no_proxy(tmp_path):
     from bossman.sandbox import ResourceRequest, SandboxSpec
     m, snap = _mgr(tmp_path)
@@ -145,8 +147,9 @@ async def test_offline_sandbox_starts_no_proxy(tmp_path):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(os.name == "nt",
-                    reason="SAFE-исполнение процессов POSIX-only (preexec_fn/unshare)")
+@pytest.mark.skipif(not safe_runtime_available(),
+                    reason="SAFE реальное исполнение недоступно в этом окружении "
+                           "(нет обхода родительских каталогов сброшенным uid)")
 async def test_allowlist_sandbox_gets_proxy_and_releases_it(tmp_path):
     """ALLOWLIST поднимает прокси и отдаёт его адрес процессу; destroy закрывает."""
     from bossman.sandbox import NetworkMode, PolicyMode, ResourceRequest, SandboxSpec

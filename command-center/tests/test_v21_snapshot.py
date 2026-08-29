@@ -15,7 +15,10 @@ from bcc.db import approvals as approvals_t, providers as providers_t, settings_
 from bcc.features.snapshot import MAX_ARTIFACT_BYTES, RESTORE_KIND
 
 # Заведомо уникальное «секретное» значение: ищем его во всех байтах артефакта.
-SECRET = "sk-live-BOSSMAN-PLAINTEXT-CANARY-0a1b2c3d4e5f"  # ci-secret-scan: allow
+# Хвост канарейки — НЕ hex: проверка `SECRET[-4:] not in manifest` иначе
+# ложно срабатывала на sha256-отпечатках в манифесте (4 hex-символа
+# сталкиваются с любым хэшем). «QZWX» в хэше появиться не может.
+SECRET = "sk-live-BOSSMAN-PLAINTEXT-CANARY-QZWX"  # ci-secret-scan: allow
 WALLET = "wallet-seed-canary-correct-horse-battery-staple"
 
 

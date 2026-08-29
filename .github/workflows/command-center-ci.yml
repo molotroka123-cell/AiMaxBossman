@@ -65,9 +65,10 @@ jobs:
           BCC_DATA_DIR: ${{ runner.temp }}/bcc-data
         # pytest-timeout (в dev-зависимостях): единичный зависший тест — обычно
         # браузерный, ждущий сети/headless — ПАДАЕТ на 180с и виден, а не съедает
-        # весь бюджет job'а до kill по timeout-minutes. thread-метод не требует
-        # SIGALRM и работает внутри asyncio-петли.
-        run: python -m pytest -q --durations=15 --timeout=180 --timeout-method=thread
+        # весь бюджет job'а. signal-метод (SIGALRM) прерывает даже зависший в
+        # блокирующем syscall main-thread и НАЗЫВАЕТ тест — в отличие от thread,
+        # который такой висяк прервать не может и убивает весь job безымянно.
+        run: python -m pytest -q --durations=15 --timeout=180 --timeout-method=signal
 
   checks:
     name: секреты, JS, запрещённые файлы

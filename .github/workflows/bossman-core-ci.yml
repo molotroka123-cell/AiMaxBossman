@@ -117,7 +117,7 @@ jobs:
         # (~/.cache/ms-playwright после install) — отдельная env-переменная не нужна.
         # --timeout: зависший тест ПАДАЕТ на 120с и виден, а не съедает бюджет.
         run: >-
-          python -m pytest -q --durations=10 --timeout=120 --timeout-method=thread
+          python -m pytest -q --durations=10 --timeout=120 --timeout-method=signal
           ${{ matrix.group.paths }} ${{ matrix.group.ignore }}
 
   compile:

@@ -16,9 +16,11 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 try:
@@ -43,9 +45,54 @@ log = obs.get_logger("bossman.sandbox.safe")
 DEFAULT_ARGV = ("/bin/echo", "bossman-sandbox-ready")
 
 
+@functools.lru_cache(maxsize=1)
 def safe_runtime_available() -> bool:
-    """SAFE-рантайм работоспособен, если есть чем исполнять процессы."""
-    return os.name == "posix"
+    """SAFE-рантайм реально работоспособен в ЭТОМ окружении?
+
+    Мало быть POSIX. Когда мы root, рантайм ВСЕГДА сбрасывает привилегии на
+    выделенный uid (см. _drop_uid_for) — а дочерний процесс должен ещё и войти
+    (cwd) в свою рабочую копию, то есть пройти все родительские каталоги. Если
+    родитель создан с 0700 под root (типичный tmp на CI-раннере), сброшенный
+    uid туда не проходит: процесс не стартует, песочница уходит в DESTROYED, и
+    тесты «реального исполнения» падают не по своей вине.
+
+    Поэтому пробуем ровно эту способность: во временном каталоге, chown'нутом на
+    выделенный uid, запускаем `true` под тем же сбросом привилегий с cwd внутрь.
+    Получилось — capability есть (dev-хост, Ai Max); нет — честный skip (CI-
+    раннер без нужных прав обхода), а не ложный FAIL. Результат кэшируется.
+    """
+    if os.name != "posix":
+        return False
+    # Не root — сброса привилегий не будет, обычный запуск процессов доступен.
+    try:
+        if not hasattr(os, "setuid") or os.geteuid() != 0:
+            return True
+    except AttributeError:
+        return True
+    uid = 0
+    try:
+        from ..netguard import sandbox_uid as _suid
+        uid = _suid("probe")
+        with tempfile.TemporaryDirectory() as tmp:
+            work = os.path.join(tmp, "work")
+            os.mkdir(work)
+            # tmp создан 0700 под root — воспроизводим реальную укладку: даём
+            # доступ выделенному uid и на leaf, и на промежуточный каталог.
+            for d in (tmp, work):
+                os.chown(d, uid, uid)
+
+            def _drop():
+                try:
+                    os.setgid(uid); os.setuid(uid)
+                except Exception:
+                    os._exit(97)
+
+            proc = subprocess.run(["/bin/true"], cwd=work, preexec_fn=_drop,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                  timeout=10)
+            return proc.returncode == 0
+    except Exception:
+        return False
 
 
 def _unshare_available() -> bool:
