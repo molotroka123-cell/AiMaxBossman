@@ -24,6 +24,12 @@ class MemoryKind(str, Enum):
     TODO = "todo"
     CONSTRAINT = "constraint"
     SUMMARY = "summary"
+    # ЭТАП 2.222 — раздельные классы памяти (см. docs/stage-2.222/memory/README.md):
+    # рабочая память, нерешённые вопросы/противоречия и сжатые производные хранятся
+    # как отдельные kind, а не смешиваются в один JSON.
+    WORKING = "working"
+    UNRESOLVED = "unresolved"
+    DISTILLED = "distilled"
 
 
 @dataclass(slots=True)

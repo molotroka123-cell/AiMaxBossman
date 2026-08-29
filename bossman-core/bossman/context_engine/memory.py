@@ -6,7 +6,7 @@ from typing import Protocol
 
 from .models import MemoryKind, MemoryRecord, MemoryStatus
 from .store import ContextStore
-from .utils import stable_id, utcnow
+from .utils import sha256_text, stable_id, utcnow
 
 
 class MemoryPlugin(Protocol):
@@ -36,14 +36,82 @@ class MemoryManager:
         self.plugins=plugins or [StoreMemoryPlugin(store)]
 
     def candidate(self, kind: MemoryKind, text: str, *, project: str="", source_refs: list[str] | None=None,
-                  confidence: float=.6, importance: float=.5, metadata: dict | None=None) -> MemoryRecord:
+                  confidence: float=.6, importance: float=.5, metadata: dict | None=None,
+                  memory_id: str | None=None, verification: str="") -> MemoryRecord:
         now=utcnow()
-        m=MemoryRecord(memory_id=stable_id("mem",kind.value,project,text),kind=kind,text=text.strip(),project=project,
-                       status=MemoryStatus.CANDIDATE,confidence=max(0,min(1,confidence)),importance=max(0,min(1,importance)),
-                       source_refs=source_refs or [],created_at=now,updated_at=now,metadata=metadata or {})
+        text=text.strip()
+        conf=max(0,min(1,confidence))
+        meta=dict(metadata or {})
+        # Provenance каждой durable-записи: источник, момент, хэш содержимого,
+        # уверенность, верификация. Потеря provenance = quality regression.
+        meta["provenance"]={"source":list(source_refs or []),"timestamp":now,
+                            "content_hash":sha256_text(text),"confidence":conf,
+                            "verification":verification}
+        m=MemoryRecord(memory_id=memory_id or stable_id("mem",kind.value,project,text),kind=kind,text=text,project=project,
+                       status=MemoryStatus.CANDIDATE,confidence=conf,importance=max(0,min(1,importance)),
+                       source_refs=source_refs or [],created_at=now,updated_at=now,
+                       last_verified_at=now if verification else "",metadata=meta)
         self._detect_conflicts(m)
         for p in self.plugins: p.write_candidate(m)
         return m
+
+    # ---- раздельные классы памяти (kind-namespaces, не один JSON) ----
+    def fact(self, text: str, **kw) -> MemoryRecord: return self.candidate(MemoryKind.FACT, text, **kw)
+    def constraint(self, text: str, **kw) -> MemoryRecord: return self.candidate(MemoryKind.CONSTRAINT, text, importance=kw.pop("importance",.75), **kw)
+    def procedure(self, text: str, **kw) -> MemoryRecord: return self.candidate(MemoryKind.PROCEDURE, text, **kw)
+    def episode(self, text: str, **kw) -> MemoryRecord: return self.candidate(MemoryKind.EPISODE, text, **kw)
+    def working(self, text: str, **kw) -> MemoryRecord: return self.candidate(MemoryKind.WORKING, text, **kw)
+    def unresolved(self, text: str, **kw) -> MemoryRecord: return self.candidate(MemoryKind.UNRESOLVED, text, **kw)
+    def distilled(self, text: str, **kw) -> MemoryRecord: return self.candidate(MemoryKind.DISTILLED, text, **kw)
+    def preference(self, text: str, **kw) -> MemoryRecord: return self.candidate(MemoryKind.PREFERENCE, text, **kw)
+    def todo(self, text: str, **kw) -> MemoryRecord: return self.candidate(MemoryKind.TODO, text, **kw)
+
+    def _next_seq_id(self, prefix: str) -> str:
+        """Стабильный последовательный ID (DEC-0001, FAIL-0001). Читается из
+        store, поэтому переживает restart и продолжает нумерацию."""
+        rows=self.store.db.execute("SELECT memory_id FROM memories WHERE memory_id LIKE ?",(f"{prefix}-%",)).fetchall()
+        nums=[]
+        for r in rows:
+            tail=r[0].rsplit("-",1)[-1]
+            if tail.isdigit(): nums.append(int(tail))
+        return f"{prefix}-{(max(nums)+1) if nums else 1:04d}"
+
+    def decision(self, text: str, *, project: str="", source_refs: list[str] | None=None,
+                 confidence: float=.82, importance: float=.7, verification: str="",
+                 metadata: dict | None=None) -> MemoryRecord:
+        """Решение со стабильным ID DEC-000N. superseded-запись не удаляется."""
+        return self.candidate(MemoryKind.DECISION, text, project=project, source_refs=source_refs,
+                              confidence=confidence, importance=importance, verification=verification,
+                              metadata=metadata, memory_id=self._next_seq_id("DEC"))
+
+    def failure(self, symptom: str, *, cause: str="", fix: str="", verification: str="",
+                project: str="", source_refs: list[str] | None=None, confidence: float=.76,
+                importance: float=.65, metadata: dict | None=None) -> MemoryRecord:
+        """Negative memory: симптом → причина → fix → verification.
+
+        Coder-агент ищет failure memory ПЕРЕД повторным экспериментом
+        (retrieve_failures), чтобы не повторять проваленный подход.
+        """
+        text=f"SYMPTOM: {symptom}"
+        if cause: text+=f"\nCAUSE: {cause}"
+        if fix: text+=f"\nFIX: {fix}"
+        if verification: text+=f"\nVERIFICATION: {verification}"
+        meta=dict(metadata or {})
+        meta["failure"]={"symptom":symptom,"cause":cause,"fix":fix,"verification":verification}
+        return self.candidate(MemoryKind.FAILURE, text, project=project, source_refs=source_refs,
+                              confidence=confidence, importance=importance, verification=verification,
+                              metadata=meta, memory_id=self._next_seq_id("FAIL"))
+
+    def retrieve_failures(self, query: str, *, project: str="", limit: int=8) -> list[MemoryRecord]:
+        """Только negative memory, ACTIVE/DISPUTED, отсортированная по релевантности."""
+        q={w.lower() for w in re.findall(r"\w{2,}",query)}
+        out=[]
+        for m in self.store.memories(project,(MemoryStatus.ACTIVE,MemoryStatus.DISPUTED)):
+            if m.kind is not MemoryKind.FAILURE: continue
+            words={w.lower() for w in re.findall(r"\w{2,}",m.text)}
+            score=len(q & words)/max(1,len(q)) + m.importance*0.25
+            out.append((score,m))
+        return [m for _,m in sorted(out,key=lambda x:x[0],reverse=True)[:limit]]
 
     def promote(self, memory_id: str, *, verified: bool=False) -> MemoryRecord:
         row=self.store.db.execute("SELECT * FROM memories WHERE memory_id=?",(memory_id,)).fetchone()
