@@ -4,8 +4,28 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 
 from . import ToolContext, ToolDef, ToolResult, clip, register
+
+
+def _path_arg_ok(a: str) -> bool:
+    """Аргумент-путь — только относительный и только внутрь workdir:
+    отказ абсолютным (/, \\, диск C:, UNC \\\\server), «..» как компонент в
+    ЛЮБОЙ записи слешей (sub\\..\\..\\x ловится так же, как sub/../../x).
+    Не-путевые аргументы (фильтры, опции) без слешей не проверяются."""
+
+    if not a:
+        return True
+    if "\x00" in a:
+        return False
+    if a[0] in "/\\":
+        return False
+    if re.match(r"^[A-Za-z]:", a):
+        return False
+    if "/" in a or "\\" in a:
+        return ".." not in re.split(r"[/\\]+", a)
+    return True
 
 
 async def _run(argv: list[str], timeout: int = 900, cwd=None) -> tuple[int, str]:
@@ -40,8 +60,9 @@ async def probe(args: dict, ctx: ToolContext) -> ToolResult:
 async def ffmpeg(args: dict, ctx: ToolContext) -> ToolResult:
     """Прямой вызов ffmpeg с аргументами из плана (склейка, crossfade, LUFS, 9:16)."""
     argv = [str(a) for a in args["args"]]
-    # Пути только внутри рабочей папки: абсолютные и с выходом наверх — отказ.
-    if any(a.startswith("/") or a.startswith("..") or "/../" in a for a in argv):
+    # Пути только внутри рабочей папки: абсолютные, диски, UNC и «..» в любой
+    # записи слешей — отказ (argv-only остаётся, но пути тоже содержатся).
+    if any(not _path_arg_ok(a) for a in argv):
         return ToolResult("абсолютные пути и «..» запрещены — только внутри рабочей папки",
                           one_line="ffmpeg: отказ по пути", error=True)
     code, out = await _run(["ffmpeg", "-y", "-hide_banner", "-v", "error", *argv],
