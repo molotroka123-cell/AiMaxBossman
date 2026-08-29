@@ -107,6 +107,30 @@ def test_runner_apply_context_engine_populates_and_prunes(tmp_path, monkeypatch)
     close_all()
 
 
+def test_runner_structured_compaction_preserves_anchors(tmp_path, monkeypatch):
+    from bossman import runner
+    from bossman.config import settings
+    from bossman.context import ContextBudget, ContextBuilder
+    from bossman.context_engine import close_all
+
+    close_all()
+    monkeypatch.setattr(settings, "context_db", tmp_path / "c.db")
+    monkeypatch.setattr(settings, "context_engine_enabled", True)
+    b = ContextBuilder(ContextBudget(window=64_000), system="s")
+    # старые сообщения с якорями (уйдут в структурированные секции)
+    b.add_assistant("Правлю bossman/runner.py, версия v0.3.")
+    b.add_tool_result("run", "Прогон: 37 passed, 0 failed. Держи 128 GB как якорь.", "run: 37 passed")
+    # много мусорной свежей истории
+    for i in range(10):
+        b.add_tool_result("fs.read", f"мусорный вывод {i} " * 20, f"итог {i}")
+    res = runner.compact_session(b, query="интеграция context engine", budget_tokens=500)
+    assert res is not None
+    for a in ("bossman/runner.py", "v0.3", "37 passed", "128 GB"):
+        assert a in res.text, f"structured compaction потеряла якорь {a}"
+    assert res.quality_checks["anchors_preserved"] is True
+    close_all()
+
+
 def test_runner_apply_context_engine_disabled_is_noop(tmp_path, monkeypatch):
     from bossman import runner
     from bossman.config import settings
