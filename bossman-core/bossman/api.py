@@ -43,6 +43,7 @@ def _register_subsystems() -> None:
         ("bossman.search_everything", "build_subsystem"),
         ("bossman.video_factory", "build_subsystem"),
         ("bossman.sandbox", "build_subsystem"),
+        ("bossman.dev_factory", "build_subsystem"),
     ):
         try:
             import importlib
@@ -64,6 +65,7 @@ def _include_stage_routers() -> None:
         "bossman.search_everything",
         "bossman.video_factory",
         "bossman.sandbox",
+        "bossman.dev_factory",
     ):
         try:
             import importlib
