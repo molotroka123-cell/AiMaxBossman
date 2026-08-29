@@ -13,7 +13,9 @@ from pathlib import Path
 
 from .. import correlation, errors, obs
 from .artifacts import ArtifactGate
+from .egress import EgressProxy
 from .models import (
+    NetworkMode,
     SandboxSession,
     SandboxSpec,
     SandboxState,
@@ -52,6 +54,8 @@ class SandboxManager:
         self.broker = broker
         self.sessions: dict[str, SandboxSession] = {}
         self.trajectories: dict[str, TrajectoryRecorder] = {}
+        # Активные egress-прокси по песочницам (только для ALLOWLIST/INTERNET).
+        self.proxies: dict[str, EgressProxy] = {}
 
     # ---- переходы ----
 
@@ -107,6 +111,7 @@ class SandboxManager:
         self._transition(s, SandboxState.PREPARING, "prepare env")
         try:
             await self.runtime.prepare(s)
+            await self._start_egress(s)
             self._transition(s, SandboxState.READY, "env ready")
             self._transition(s, SandboxState.RUNNING, "start")
             await self.runtime.start(s)
@@ -149,6 +154,7 @@ class SandboxManager:
         if s.state != SandboxState.DESTROYING:
             self._transition(s, SandboxState.DESTROYING, note)
         destroy_error: str | None = None
+        await self._stop_egress(s)      # выход закрывается раньше сноса среды
         try:
             await self.runtime.destroy(s)
         except DestroyFailure as exc:
@@ -168,6 +174,29 @@ class SandboxManager:
         # Снос-фейл фиксируем как FAILED-примечание, но среду считаем снесённой
         # (fail closed: ресурсы освобождены, песочница нежива).
         self._transition(s, SandboxState.DESTROYED, note if not destroy_error else f"destroyed_with_error:{destroy_error}")
+
+    async def _start_egress(self, s: SandboxSession) -> None:
+        """Для ALLOWLIST/INTERNET поднять локальный CONNECT-прокси — единственный
+        разрешённый выход песочницы. В OFFLINE не поднимается вовсе."""
+        if s.policy is None or s.policy.network_mode == NetworkMode.OFFLINE:
+            return
+        proxy = EgressProxy(s.policy, guard=self.network, recorder=self._traj(s))
+        await proxy.start()
+        self.proxies[s.id] = proxy
+        addr = proxy.address
+        if addr:
+            # Рантайм отдаёт адрес прокси процессу как http(s)_proxy.
+            s.spec.labels["egress_proxy"] = f"{addr[0]}:{addr[1]}"
+        self._traj(s).record("network", host="-", allowed=True,
+                             reason=f"egress proxy on {s.spec.labels.get('egress_proxy')}")
+
+    async def _stop_egress(self, s: SandboxSession) -> None:
+        proxy = self.proxies.pop(s.id, None)
+        if proxy is not None:
+            try:
+                await proxy.stop()
+            except Exception:  # noqa: BLE001
+                pass
 
     async def _fail(self, s: SandboxSession, where: str, exc: BaseException) -> None:
         s.error = repr(exc)

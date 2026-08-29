@@ -16,6 +16,7 @@ import os
 
 from .artifacts import ArtifactGate
 from .dataset import CandidateState, DatasetCandidate, DatasetGate
+from .egress import EgressProxy
 from .manager import SandboxManager
 from .models import (
     Artifact,
@@ -49,6 +50,7 @@ __all__ = [
     "SandboxRuntime", "FakeRuntime", "InMemorySecretBroker", "PostgresSecretBroker",
     "ArtifactGate",
     "TrajectoryRecorder", "DatasetGate", "DatasetCandidate", "CandidateState",
+    "EgressProxy",
     "can_transition", "allowed_transitions",
     "sandbox_enabled", "build_subsystem", "router",
 ]
