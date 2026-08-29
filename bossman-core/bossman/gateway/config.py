@@ -25,6 +25,13 @@ class BackendConfig:
     # ошибиться в сторону «локальный» безопасно, потому что забытый флаг у
     # настоящего облака поймает второй барьер (ключ агента / сеть без интернета).
     cloud: bool = False
+    # Health-probe живёт на коротком собственном таймауте, а не на таймауте
+    # инференса: чёрная дыра в сети не должна вешать /health на 120 секунд.
+    health_timeout_seconds: float = 4.0
+    # Circuit breaker: N неудач подряд (транспорт/таймаут/5xx) размыкают
+    # автомат на cooldown секунд. Клиентские 4xx автомат не двигают.
+    circuit_failure_threshold: int = 3
+    circuit_cooldown_seconds: float = 30.0
 
     def resolved_api_key(self) -> str | None:
         if self.api_key_env:

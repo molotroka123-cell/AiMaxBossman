@@ -4,7 +4,7 @@ import asyncio
 import time
 from dataclasses import dataclass
 
-from .backends import OpenAIBackend
+from .backends import CircuitOpenError, OpenAIBackend
 from .config import GatewayConfig, ModelTarget
 
 
@@ -68,6 +68,7 @@ class ModelRouter:
             raise RouteNotFound(f"Unknown model alias: {alias}")
         required = set(required_capabilities or ()) | cfg.required_capabilities
         candidates = []
+        skipped_open: list[str] = []
         dropped_cloud = False
         for t in sorted(cfg.targets, key=lambda x: x.priority):
             backend = self.backends.get(t.backend)
@@ -79,12 +80,22 @@ class ModelRouter:
             if is_cloud and not cloud_allowed:
                 dropped_cloud = True
                 continue        # облачная цель при запрете облака — мимо, не в сеть
+            if not backend.breaker.allow_attempt():
+                # Разомкнутый автомат: цель ПРОПУСКАЕТСЯ, а не деприоритизируется
+                # (иначе каждый запрос снова платит её полный таймаут). В
+                # HALF_OPEN это одна пробная попытка; провал переоткроет автомат.
+                skipped_open.append(f"{t.backend}/{t.model}")
+                continue
             candidates.append(Route(alias, t.backend, t.model, t, backend, is_cloud))
         if not candidates:
             if dropped_cloud:
                 raise CloudPolicyDenied(
                     f"алиас '{alias}' обслуживается только облаком, а облачная "
                     f"политика это запрещает — данные не отправлены")
+            if skipped_open:
+                raise CircuitOpenError(
+                    f"все цели алиаса '{alias}' разомкнуты автоматом "
+                    f"({', '.join(skipped_open)}) — отказ сразу, бэкенды не дёргаем")
             raise RouteNotFound(f"No configured target for alias '{alias}' with capabilities {sorted(required)}")
         # healthy targets first; unchecked targets are optimistically usable
         return sorted(candidates, key=lambda r: (r.backend.health.checked_at > 0 and not r.backend.health.healthy, r.target.priority))
