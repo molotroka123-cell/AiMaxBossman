@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from ai_3d_maker.control import CONTRACT_VERSION, OPERATIONS, ControlPlane
-from ai_3d_maker.errors import JobNotFoundError, UnsafePathError
+from ai_3d_maker.errors import InvalidSpecError, JobNotFoundError, UnsafePathError
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 SRC = APP_ROOT / "src"
@@ -282,3 +282,45 @@ def test_control_plane_construction_is_cheap_and_repeatable(settings):
     a = ControlPlane(settings)
     b = ControlPlane(settings)
     assert a.profile.id == b.profile.id
+
+
+def test_the_control_plane_scans_machine_instructions_by_content_not_extension(control):
+    """A print program dropped into a job under a harmless name is still scanned."""
+    asyncio.run(control.jobs_create(simple_payload("sniff")))
+    job_dir = Path(control.store.get("sniff").directory)
+    (job_dir / "notes.txt").write_text(
+        "G90\nM82\nG28\nM104 S400\nG1 X10 Y10 Z0.2 E1\n", encoding="utf-8"
+    )
+    token = control.confirmation_for("sniff", "notes.txt")["confirmation"]
+    result = control.printer_confirm({
+        "job_id": "sniff", "artifact": "notes.txt",
+        "action": "transfer_to_media", "confirmation": token,
+    })
+    assert result["error"] == "UNSAFE_GCODE"
+
+
+def test_the_control_plane_reports_whether_the_artifact_was_scanned(control):
+    asyncio.run(control.jobs_create(simple_payload("scanned")))
+    token = control.confirmation_for("scanned")["confirmation"]
+    result = control.printer_confirm({
+        "job_id": "scanned", "action": "transfer_to_media", "confirmation": token,
+    })
+    assert result["gcode_scan"] is None
+    assert result["artifact_is_machine_instructions"] is False
+
+
+def test_slicer_settings_are_bounded_at_intake_not_at_the_subprocess(control):
+    """No slicer is installed here, so a bad setting must be caught before that."""
+    payload = simple_payload("badsettings")
+    payload["slice"] = True
+    payload["slicer_settings"] = {"--infill-overlap": 30}
+    with pytest.raises(InvalidSpecError):
+        asyncio.run(control.jobs_create(payload))
+
+
+def test_ordinary_slicer_settings_pass_intake(control):
+    payload = simple_payload("goodsettings")
+    payload["slice"] = True
+    payload["slicer_settings"] = {"layer_height": 0.2, "wall_line_count": 3}
+    result = asyncio.run(control.jobs_create(payload))["result"]
+    assert result["evidence"]["slicer"]["status"] == "NOT_RUN"

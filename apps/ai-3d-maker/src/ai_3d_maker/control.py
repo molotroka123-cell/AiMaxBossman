@@ -14,6 +14,7 @@ plugin. `api.py` is a thin HTTP skin over this same object.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import platform
 import resource
@@ -30,9 +31,18 @@ from .gcode import GCodeScan, scan_gcode
 from .mesh import sha256_file
 from .paths import resolve_within, safe_job_id
 from .pipeline import GCODE_NAME, JobRequest, Pipeline
-from .printer import PhysicalAction, PhysicalRequest, Transport, confirmation_token, execute_physical
+from .printer import (
+    PhysicalAction,
+    PhysicalRequest,
+    Transport,
+    confirmation_token,
+    execute_physical,
+    looks_like_gcode,
+)
 from .profile import PrinterProfile, load_material_defaults
+from .slicer import validate_slicer_settings
 from .spec import DesignSpec
+from .tolerance import CalibrationProfile
 from .storage import JobStore
 
 CONTRACT_VERSION = "ai-3d-maker/control/1"
@@ -103,6 +113,7 @@ class ControlPlane:
             if raw is None:
                 raise Ai3dError("a design job requires a 'spec' object")
             spec = DesignSpec.model_validate(raw)
+        calibration = self._parse_calibration(payload.get("calibration_profile"))
         return JobRequest(
             kind=kind,
             spec=spec,
@@ -113,10 +124,33 @@ class ControlPlane:
             place_on_bed=bool(payload.get("place_on_bed", True)),
             drop_small_components=bool(payload.get("drop_small_components", False)),
             slice_after_build=bool(payload.get("slice", False)),
-            slicer_settings=dict(payload.get("slicer_settings") or {}),
+            # Bounded here, at the edge, rather than deep inside an adapter
+            # that may never run on a host with no slicer installed.
+            slicer_settings=validate_slicer_settings(payload.get("slicer_settings")),
             calibrated_tolerance_mm=payload.get("calibrated_tolerance_mm"),
+            calibration=calibration,
             scale_to_fit=bool(payload.get("scale_to_fit", False)),
         )
+
+    @staticmethod
+    def _parse_calibration(raw) -> CalibrationProfile | None:
+        """A calibration profile is selected explicitly, by value or by path.
+
+        There is no implicit default: an uncalibrated printer has no measured
+        capability, and inventing one would be the whole failure this app is
+        built to avoid.
+        """
+        if raw is None:
+            return None
+        try:
+            if isinstance(raw, dict):
+                return CalibrationProfile(**raw)
+            return CalibrationProfile.load(str(raw))
+        except (TypeError, ValueError, OSError, json.JSONDecodeError) as exc:
+            raise Ai3dError(
+                f"calibration profile is not usable: {exc}",
+                detail={"calibration_profile": raw if isinstance(raw, str) else "<inline>"},
+            ) from exc
 
     async def jobs_create(self, payload: dict) -> dict:
         """Create and run a job. `wait=False` returns as soon as it is scheduled."""
@@ -235,8 +269,11 @@ class ControlPlane:
             raise Ai3dError(f"job {job_id!r} has no artifact to send")
 
         digest = sha256_file(artifact)
+        # Whether a file is a print program is decided by its content, not by
+        # its name: `model.gcode` renamed to `notes.txt` is still scanned.
+        is_machine_instructions = looks_like_gcode(artifact)
         scan: GCodeScan | None = None
-        if artifact.suffix.lower() == ".gcode":
+        if is_machine_instructions:
             scan = scan_gcode(
                 artifact.read_text(encoding="utf-8", errors="replace"),
                 self.profile,
@@ -263,11 +300,15 @@ class ControlPlane:
             payload_out["job_id"] = job_id
             payload_out["artifact"] = str(artifact)
             payload_out["artifact_sha256"] = digest
+            payload_out["artifact_is_machine_instructions"] = is_machine_instructions
+            payload_out["gcode_scan"] = scan.as_dict() if scan else None
             return payload_out
         out = result.as_dict()
         out["job_id"] = job_id
         out["artifact"] = str(artifact)
         out["artifact_sha256"] = digest
+        out["artifact_is_machine_instructions"] = is_machine_instructions
+        out["gcode_scan"] = scan.as_dict() if scan else None
         return out
 
     def confirmation_for(self, job_id: str, artifact_name: str | None = None) -> dict:

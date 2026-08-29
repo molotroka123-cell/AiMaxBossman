@@ -11,6 +11,11 @@ reach a heater or a motor.
 
 The verdict is never inferred from "an STL file exists". Every stage records
 its own status, and `printable` is set only by `printability.decide_printability`.
+
+Alongside the stage log the run keeps an `EvidenceLedger`: one label per engine
+(`PASS` / `FAIL` / `NOT_RUN`) saying what actually executed on this host. A
+printable verdict says nothing about whether a slicer ran or a printer printed,
+and the ledger is where that distinction is written down instead of implied.
 """
 
 from __future__ import annotations
@@ -24,8 +29,9 @@ from pathlib import Path
 from . import printability as printability_mod
 from .artifacts import list_artifacts, write_manifest, write_report
 from .cad.compiler import compile_mesh, compile_scad
-from .cad.external import cadquery_export
+from .cad.external import cadquery_export, openscad_info
 from .config import Settings
+from .evidence import FAIL, NOT_RUN, PASS, EvidenceLedger
 from .errors import (
     Ai3dError,
     CapabilityUnavailableError,
@@ -44,6 +50,7 @@ from .repair import repair_mesh
 from .requirements import evaluate_requirements
 from .slicer import slice_auto
 from .spec import DesignSpec
+from .tolerance import CalibrationProfile
 from .storage import (
     CANCELLED,
     FAILED,
@@ -77,6 +84,7 @@ class JobRequest:
     slice_after_build: bool = False
     slicer_settings: dict = field(default_factory=dict)
     calibrated_tolerance_mm: float | None = None
+    calibration: "CalibrationProfile | None" = None
     scale_to_fit: bool = False
 
     def as_dict(self) -> dict:
@@ -92,6 +100,7 @@ class JobRequest:
             "slice_after_build": self.slice_after_build,
             "slicer_settings": self.slicer_settings,
             "calibrated_tolerance_mm": self.calibrated_tolerance_mm,
+            "calibration_profile": self.calibration.as_dict() if self.calibration else None,
             "scale_to_fit": self.scale_to_fit,
         }
 
@@ -127,10 +136,13 @@ class Pipeline:
         record = self.store.get(job_id)
         job_dir = Path(record.directory)
         self.store.update(job_id, status=RUNNING)
+        # Owned here, not inside _run_stages, so that a job which dies partway
+        # through still reports what had and had not run when it died.
+        evidence = EvidenceLedger()
         try:
             deadline = time.monotonic() + self.settings.job_timeout_s
             result = await asyncio.wait_for(
-                self._run_stages(job_id, job_dir, request, deadline),
+                self._run_stages(job_id, job_dir, request, deadline, evidence),
                 timeout=self.settings.job_timeout_s,
             )
         except (asyncio.TimeoutError, JobTimeoutError):
@@ -141,30 +153,42 @@ class Pipeline:
                 "detail": detail,
             }
             self.store.update(job_id, status=TIMED_OUT, error=payload)
-            return {"job_id": job_id, "status": TIMED_OUT, **payload}
+            return {"job_id": job_id, "status": TIMED_OUT, "evidence": evidence.as_dict(), **payload}
         except JobCancelledError as exc:
             self.store.update(job_id, status=CANCELLED, error=exc.as_dict())
-            return {"job_id": job_id, "status": CANCELLED, **exc.as_dict()}
+            return {"job_id": job_id, "status": CANCELLED, "evidence": evidence.as_dict(), **exc.as_dict()}
         except Ai3dError as exc:
             self.store.update(job_id, status=FAILED, error=exc.as_dict())
             self._finalise_artifacts(job_id, job_dir)
-            return {"job_id": job_id, "status": FAILED, **exc.as_dict()}
+            return {"job_id": job_id, "status": FAILED, "evidence": evidence.as_dict(), **exc.as_dict()}
         except Exception as exc:  # unexpected: still recorded, never swallowed
             payload = {"error": "INTERNAL_ERROR", "message": f"{type(exc).__name__}: {exc}", "detail": {}}
             self.store.update(job_id, status=FAILED, error=payload)
             self._finalise_artifacts(job_id, job_dir)
-            return {"job_id": job_id, "status": FAILED, **payload}
+            return {"job_id": job_id, "status": FAILED, "evidence": evidence.as_dict(), **payload}
 
         status = SUCCEEDED if result.get("printable") else FAILED
         self.store.update(job_id, status=status, result=result)
         return result
 
     async def _run_stages(
-        self, job_id: str, job_dir: Path, request: JobRequest, deadline: float | None = None
+        self,
+        job_id: str,
+        job_dir: Path,
+        request: JobRequest,
+        deadline: float | None = None,
+        evidence: EvidenceLedger | None = None,
     ) -> dict:
         job_dir.mkdir(parents=True, exist_ok=True)
         warnings: list[str] = []
         stages: dict[str, str] = {}
+        evidence = evidence if evidence is not None else EvidenceLedger()
+        scad_info = openscad_info(self.settings.openscad_bin)
+        evidence.not_run(
+            "openscad_render",
+            scad_info["reason"] or "OpenSCAD is installed but this build never invokes it",
+            engine="openscad",
+        )
 
         # ---------------------------------------------------------- intake
         started = time.time()
@@ -174,7 +198,8 @@ class Pipeline:
             if request.spec is None:
                 raise CapabilityUnavailableError("design job without a DesignSpec")
             gate = evaluate_requirements(
-                request.spec, request.calibrated_tolerance_mm, profile=self.profile
+                request.spec, request.calibrated_tolerance_mm,
+                profile=self.profile, calibration=request.calibration,
             )
             (job_dir / SPEC_NAME).write_text(
                 json.dumps(json.loads(request.spec.canonical_json()), indent=2, sort_keys=True),
@@ -184,18 +209,35 @@ class Pipeline:
             if not gate.ready:
                 stages["intake"] = "blocked"
                 self._stage(job_id, "intake", "failed", started, gate.as_dict())
+                evidence.record(
+                    "spec_compiled", FAIL, engine="pydantic+requirement-gate",
+                    detail={"status": gate.status, "questions": gate.questions},
+                )
+                blocked = f"blocked at the requirement gate: {gate.status}"
+                for key in ("cad_engine", "step_export", "mesh_validation",
+                            "mesh_cross_check", "printability", "slicer", "gcode_safety"):
+                    evidence.not_run(key, blocked)
                 return self._finish(
                     job_id, job_dir, request,
                     printable=False, status=gate.status,
                     reasons=gate.questions, warnings=warnings, stages=stages,
                     mesh_report=None, fit_report=None, verdict=None,
+                    evidence=evidence,
+                    # A job blocked at the gate still has to say what the gate
+                    # was reading, including which calibration backed it.
+                    extra={"requirement_gate": gate.as_dict()},
                 )
             stages["intake"] = "ok"
             self._stage(job_id, "intake", "ok", started, gate.as_dict())
+            evidence.record(
+                "spec_compiled", PASS, engine="pydantic+requirement-gate",
+                detail={"features": len(request.spec.features), "status": gate.status},
+            )
         else:
             source = self._stage_source_file(job_dir, request)
             stages["intake"] = "ok"
             self._stage(job_id, "intake", "ok", started, {"source": str(source)})
+            evidence.not_run("spec_compiled", "this is an STL import job, not a DesignSpec build")
 
         # -------------------------------------------------- generate/import
         started = time.time()
@@ -203,7 +245,17 @@ class Pipeline:
         if request.kind == "design":
             assert request.spec is not None
             (job_dir / SCAD_NAME).write_text(compile_scad(request.spec), encoding="utf-8")
-            compiled = compile_mesh(request.spec)
+            try:
+                compiled = compile_mesh(request.spec)
+            except Ai3dError as exc:
+                # The kernel ran and rejected the spec. That is a FAIL with a
+                # reason, not a stage that never happened.
+                evidence.record(
+                    "cad_engine", FAIL, engine="native",
+                    reason=exc.message,
+                    detail=exc.as_dict().get("detail", {}),
+                )
+                raise
             mesh = compiled.mesh
             generate_detail = compiled.as_dict()
             step_result = cadquery_export(request.spec, job_dir / STEP_NAME, job_dir / "model_cadquery.stl")
@@ -212,10 +264,26 @@ class Pipeline:
             }
             if step_result["status"] == "NOT_AVAILABLE":
                 warnings.append(f"STEP export unavailable: {step_result.get('error')}")
+                evidence.not_run("step_export", step_result.get("error") or "CadQuery not available",
+                                 engine="cadquery")
+            elif step_result["status"] == "PASS":
+                evidence.record("step_export", PASS, engine="cadquery",
+                                detail={"step": step_result.get("step")})
+            else:
+                evidence.record("step_export", FAIL, engine="cadquery",
+                                reason=step_result.get("error") or "",
+                                detail={"status": step_result["status"]})
+            evidence.record(
+                "cad_engine", PASS,
+                engine=f"{compiled.engine}/csg:{compiled.backend}",
+                detail={"triangles": len(mesh.faces), "features_applied": compiled.features_applied},
+            )
         else:
             source = job_dir / SOURCE_DIR / safe_artifact_name(Path(request.source_stl or "input.stl").name)
             mesh = load_stl(source, max_triangles=self.settings.max_triangles)
             generate_detail = {"engine": "stl-import", "triangles": len(mesh.faces), "source": str(source)}
+            evidence.not_run("cad_engine", "no CAD kernel is involved in an STL import job")
+            evidence.not_run("step_export", "STEP export only applies to a DesignSpec build")
         stages["generate"] = "ok"
         self._stage(job_id, "generate", "ok", started, generate_detail)
 
@@ -266,6 +334,21 @@ class Pipeline:
         final_report = inspect_mesh(mesh)
         stages["inspect_final"] = final_report.status.lower()
         self._stage(job_id, "inspect_final", "ok", started, final_report.as_dict())
+        evidence.record(
+            "mesh_validation",
+            FAIL if final_report.status == "FAIL" else PASS,
+            engine="meshcheck",
+            detail={
+                "triangles": final_report.triangles,
+                "watertight": final_report.is_watertight,
+                "edge_manifold": final_report.is_edge_manifold,
+                "winding_consistent": final_report.is_winding_consistent,
+                "components": final_report.components,
+                "volume_mm3": final_report.signed_volume_mm3,
+                "extents_mm": list(final_report.extents_mm),
+                "errors": final_report.errors,
+            },
+        )
 
         # ----------------------------------------------------- printability
         started = time.time()
@@ -276,6 +359,11 @@ class Pipeline:
         warnings.extend(w for w in verdict.warnings if w not in warnings)
         stages["printability"] = "ok" if verdict.printable else "failed"
         self._stage(job_id, "printability", "ok" if verdict.printable else "failed", started, verdict.as_dict())
+        evidence.record(
+            "printability", PASS if verdict.printable else FAIL,
+            engine="printability.decide_printability",
+            detail={"status": verdict.status, "reasons": verdict.reasons, "checks": verdict.checks},
+        )
 
         # ----------------------------------------------------------- export
         started = time.time()
@@ -305,6 +393,17 @@ class Pipeline:
         self._stage(job_id, "export", stages["export"], started, export_detail)
 
         cross = cross_check_with_trimesh(stl_path if verdict.printable else job_dir / "model.rejected.stl")
+        if cross["status"] == "OK":
+            evidence.record(
+                "mesh_cross_check", PASS,
+                engine=f"trimesh {_trimesh_version()}", detail=cross,
+            )
+        elif cross["status"] == "NOT_AVAILABLE":
+            evidence.not_run("mesh_cross_check", cross.get("reason", "trimesh not importable"),
+                             engine="trimesh")
+        else:
+            evidence.record("mesh_cross_check", FAIL, engine="trimesh",
+                            reason=cross.get("reason", ""), detail=cross)
 
         # ------------------------------------------------------------ slice
         slice_result = None
@@ -325,6 +424,19 @@ class Pipeline:
             self._stage(job_id, "slice", stages["slice"], started, slice_result.as_dict())
             if slice_result.status == "NOT_AVAILABLE":
                 warnings.append(f"slicing unavailable: {slice_result.error}")
+                evidence.not_run("slicer", slice_result.error or "no slicer on this host",
+                                 engine=slice_result.engine)
+                evidence.not_run("gcode_safety", "no slicer produced G-code to scan")
+            elif slice_result.ok:
+                evidence.record("slicer", PASS, engine=slice_result.engine,
+                                detail={"gcode": slice_result.gcode_path,
+                                        "version": slice_result.engine_version,
+                                        "command": slice_result.command})
+            else:
+                evidence.record("slicer", FAIL, engine=slice_result.engine,
+                                reason=slice_result.error or "",
+                                detail={"returncode": slice_result.returncode})
+                evidence.not_run("gcode_safety", "the slicer failed, so there is no G-code to scan")
 
             if slice_result.ok:
                 started = time.time()
@@ -335,9 +447,23 @@ class Pipeline:
                 self._stage(job_id, "gcode_scan", stages["gcode_scan"], started, scan_result)
                 dry = dry_run(gcode_text, self.profile, scan).as_dict()
                 self._stage(job_id, "print_dry_run", "ok", started, dry)
+                evidence.record(
+                    "gcode_safety", FAIL if scan.status == "FAILED" else PASS,
+                    engine="gcode.scan_gcode",
+                    detail={
+                        "status": scan.status,
+                        "units_mode": scan.units_mode,
+                        "commands_scanned": scan.commands_scanned,
+                        "max_nozzle_target_c": scan.max_nozzle_target_c,
+                        "max_bed_target_c": scan.max_bed_target_c,
+                        "errors": [i for i in scan.issues if i["severity"] == "ERROR"],
+                    },
+                )
         elif request.slice_after_build:
             stages["slice"] = "skipped"
             self._stage(job_id, "slice", "skipped", time.time(), {"reason": "model is not printable"})
+            evidence.not_run("slicer", "the model did not pass the printability gate")
+            evidence.not_run("gcode_safety", "nothing was sliced, so there is no G-code to scan")
 
         # ------------------------------------------------ printer preparation
         started = time.time()
@@ -373,6 +499,7 @@ class Pipeline:
             mesh_report=final_report,
             fit_report=fit_report,
             verdict=verdict,
+            evidence=evidence,
             extra={
                 "raw_mesh_report": raw_report.as_dict(),
                 "repair": repair_report.as_dict(),
@@ -427,6 +554,7 @@ class Pipeline:
         mesh_report,
         fit_report,
         verdict,
+        evidence: EvidenceLedger,
         extra: dict | None = None,
     ) -> dict:
         result = {
@@ -445,6 +573,7 @@ class Pipeline:
             "mesh": mesh_report.as_dict() if mesh_report else None,
             "fit": fit_report.as_dict() if fit_report else None,
             "printability": verdict.as_dict() if verdict else None,
+            "evidence": evidence.as_dict(),
             "physical_print": {
                 "performed": False,
                 "requires_explicit_human_confirmation": True,
@@ -479,6 +608,7 @@ class Pipeline:
             "artifacts": [a.as_dict() for a in list_artifacts(job_dir)],
             "confirmation_token": prepare.get("confirmation_token"),
             "transport": self.settings.printer_transport,
+            "evidence": evidence.summary_lines(),
         })
         write_manifest(job_dir, extra={
             "job_id": job_id,
@@ -487,6 +617,15 @@ class Pipeline:
             "bytes_used": dir_size_bytes(job_dir),
         })
         return result
+
+
+def _trimesh_version() -> str:
+    try:
+        import trimesh  # noqa: PLC0415
+
+        return str(getattr(trimesh, "__version__", "unknown"))
+    except Exception:  # pragma: no cover - only when trimesh is absent
+        return "unknown"
 
 
 def build_mesh_from_spec(spec: DesignSpec) -> Mesh:

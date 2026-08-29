@@ -31,6 +31,9 @@ class JobPayload(BaseModel):
     slice: bool = False
     slicer_settings: dict[str, Any] = Field(default_factory=dict)
     calibrated_tolerance_mm: float | None = None
+    # A measured calibration profile, inline or by path. Absent means no
+    # measured capability and no compensation, which is the default.
+    calibration_profile: dict[str, Any] | str | None = None
     scale_to_fit: bool = False
     wait: bool = True
 

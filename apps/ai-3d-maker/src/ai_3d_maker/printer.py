@@ -14,13 +14,16 @@ Three independent conditions must all hold before any physical action runs:
 
 Failing any one of them is a refusal, never a downgrade to "do it anyway".
 Additionally, G-code that failed the safety scan can never be sent, regardless
-of confirmation.
+of confirmation - and G-code that was never scanned at all is refused on the
+same gate, because "no scan" is not evidence of safety. Which files count as
+machine instructions is decided by content, not by the file extension.
 """
 
 from __future__ import annotations
 
 import hashlib
 import re
+import struct
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -49,6 +52,56 @@ class Transport(StrEnum):
 # transfers jobs by TF card or USB cable; there is no official network print
 # interface and this app does not invent one.
 HARDWARE_TRANSPORTS = {Transport.TF_CARD, Transport.USB_SERIAL}
+
+
+# File suffixes that are unambiguously machine instructions.
+GCODE_SUFFIXES = {".gcode", ".gco", ".g", ".gc", ".ngc", ".nc", ".cnc"}
+
+# Commands whose presence means the file really is a print program rather than
+# text that happens to contain a capital letter and a digit.
+_GCODE_MARKERS = {
+    "G0", "G1", "G28", "G90", "G91", "G92",
+    "M82", "M83", "M104", "M109", "M140", "M190",
+}
+_GCODE_LINE = re.compile(r"^\s*([GM])0*(\d{1,3})(?=$|[\s;A-Za-z])")
+_SNIFF_BYTES = 64 * 1024
+_SNIFF_LINES = 400
+
+
+def _is_binary_stl(head: bytes, size: int) -> bool:
+    """Binary STL: 80-byte header, uint32 triangle count, then 50 bytes each."""
+    if len(head) < 84:
+        return False
+    (count,) = struct.unpack("<I", head[80:84])
+    return size == 84 + 50 * count
+
+
+def looks_like_gcode(path: Path) -> bool:
+    """Content sniff: does this file contain executable machine instructions?
+
+    Extension alone is not trusted - renaming `model.gcode` to `model.stl`
+    must not buy a bypass of the safety scan. Conversely a genuine STL is
+    recognised by its own format and never sniffed as G-code.
+    """
+    path = Path(path)
+    if path.suffix.lower() in GCODE_SUFFIXES:
+        return True
+    try:
+        head = path.read_bytes()[:_SNIFF_BYTES]
+        size = path.stat().st_size
+    except OSError:
+        return False
+    if head[:5].lower() == b"solid" or _is_binary_stl(head, size):
+        return False
+    markers = 0
+    for line in head.decode("utf-8", errors="replace").splitlines()[:_SNIFF_LINES]:
+        code = line.split(";", 1)[0]
+        m = _GCODE_LINE.match(code)
+        if m and f"{m.group(1).upper()}{int(m.group(2))}" in _GCODE_MARKERS:
+            markers += 1
+            if markers >= 3:
+                return True
+    return False
 
 
 def confirmation_token(job_id: str, artifact_sha256: str) -> str:
@@ -130,6 +183,7 @@ def dry_run(gcode_text: str, profile: PrinterProfile, scan: GCodeScan) -> DryRun
     pos = {"X": 0.0, "Y": 0.0, "Z": 0.0, "E": 0.0}
     abs_xyz = True
     abs_e = True
+    unit_scale = 1.0  # G20/G21: every reported length is millimetres
     filament = 0.0
     extrusion_moves = 0
     layers = 0
@@ -151,7 +205,11 @@ def dry_run(gcode_text: str, profile: PrinterProfile, scan: GCodeScan) -> DryRun
         params = {}
         for key, value in re.findall(r"([A-Za-z])\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+))", rest):
             params.setdefault(key.upper(), float(value))
-        if cmd == "G90":
+        if cmd == "G20":
+            unit_scale = 25.4
+        elif cmd == "G21":
+            unit_scale = 1.0
+        elif cmd == "G90":
             abs_xyz = True
         elif cmd == "G91":
             abs_xyz = False
@@ -162,7 +220,7 @@ def dry_run(gcode_text: str, profile: PrinterProfile, scan: GCodeScan) -> DryRun
         elif cmd == "G92":
             for axis in ("X", "Y", "Z", "E"):
                 if axis in params:
-                    pos[axis] = params[axis]
+                    pos[axis] = params[axis] * unit_scale
         elif cmd == "G28":
             for axis in ("X", "Y", "Z"):
                 pos[axis] = 0.0
@@ -170,9 +228,11 @@ def dry_run(gcode_text: str, profile: PrinterProfile, scan: GCodeScan) -> DryRun
             previous_e = pos["E"]
             for axis in ("X", "Y", "Z"):
                 if axis in params:
-                    pos[axis] = params[axis] if abs_xyz else pos[axis] + params[axis]
+                    value = params[axis] * unit_scale
+                    pos[axis] = value if abs_xyz else pos[axis] + value
             if "E" in params:
-                pos["E"] = params["E"] if abs_e else pos["E"] + params["E"]
+                value = params["E"] * unit_scale
+                pos["E"] = value if abs_e else pos["E"] + value
                 delta = pos["E"] - previous_e
                 if delta > 0:
                     filament += delta
@@ -216,6 +276,18 @@ def execute_physical(
             "G-code failed the safety scan; physical execution is refused",
             detail={"issues": scan.issues[:20], "profile_id": scan.profile_id},
         )
+
+    # Gate 1b: an unscanned print program is refused on the same gate. The
+    # absence of a scan is not evidence of safety, and the file name extension
+    # is not what decides whether a file is a print program.
+    if scan is None and request.artifact_path is not None:
+        artifact = Path(request.artifact_path)
+        if artifact.is_file() and looks_like_gcode(artifact):
+            raise UnsafeGcodeError(
+                f"{artifact.name!r} contains machine instructions that have "
+                "not been scanned; physical execution is refused",
+                detail={"artifact": str(artifact), "scan": None},
+            )
 
     # Gate 2: explicit human confirmation bound to this exact artifact.
     expected = confirmation_token(request.job_id, request.artifact_sha256)

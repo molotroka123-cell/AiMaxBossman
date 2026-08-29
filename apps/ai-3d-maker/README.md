@@ -13,12 +13,19 @@ write. A model that is open, non-manifold, inverted or too large for the
 machine is reported as `NOT_PRINTABLE` and its geometry is written to
 `model.rejected.stl` — a name that cannot be mistaken for a print-ready file.
 
+And "printable" is not one claim, it is several. Whether the spec compiled,
+whether a CAD kernel ran, whether the mesh was validated, whether a slicer ran,
+whether the G-code was scanned and whether anything was printed are six
+different questions with six different amounts of evidence behind them. Every
+result carries an **evidence ledger** answering each one separately with
+`PASS`, `FAIL` or `NOT_RUN` — and a `NOT_RUN` always says why.
+
 ---
 
 ## Pipeline
 
 ```
-request ─▶ intake (schema + requirement gate)
+request ─▶ intake (schema + requirement gate + calibration source)
         ─▶ generate (DesignSpec → CSG) │ import (STL parse)
         ─▶ inspect  (watertight, manifold, winding, degenerate, components)
         ─▶ repair   (weld, drop degenerate/duplicate, unify winding, fix orientation)
@@ -29,8 +36,15 @@ request ─▶ intake (schema + requirement gate)
         ─▶ [slice]  (optional, external, honestly NOT_AVAILABLE when missing)
         ─▶ [G-code safety scan]
         ─▶ printer preparation (dry run, confirmation token)
+        ─▶ evidence ledger  ◀── one label per engine, nothing collapsed
         ─▶ STOP
 ```
+
+On this host the ledger reads: spec `PASS`, CAD `PASS` (manifold3d), mesh
+validation `PASS`, trimesh cross-check `PASS`, STEP `NOT_RUN` (no CadQuery),
+OpenSCAD `NOT_RUN` (not on PATH), slicer `NOT_RUN` (no CuraEngine, no
+PrusaSlicer), G-code scan `NOT_RUN` (nothing was sliced), generative `NOT_RUN`
+(no adapter), printer `NOT_RUN` (no machine attached).
 
 The pipeline stops at preparation. **Nothing in `pipeline.py` can reach a heater
 or a motor.** Physical action lives behind a separate confirmed call.
@@ -49,7 +63,8 @@ funnel to hardware, and it requires **all** of:
    sha256 of the specific artifact** — so a human must have looked at that file.
 
 Independently of all three, G-code that failed the safety scan can never be
-sent. TF-card transfer cannot start a print: on a Neptune 3 Plus a person
+sent — and neither can G-code that was never scanned. Whether a file is a print
+program is decided by reading it, not by its extension. TF-card transfer cannot start a print: on a Neptune 3 Plus a person
 starts the job from the printer's own screen. USB serial control is **not
 implemented** and reports `BLOCKED_BY_HARDWARE`.
 
@@ -135,6 +150,12 @@ Measured dimensional capability is a third, separate thing and lives in a
 calibration profile (`tolerance.CalibrationProfile`) that must be explicitly
 selected. Default compensation is zero, because an uncalibrated printer has no
 measured capability to compensate for.
+
+A calibration profile cannot be constructed without the printer, material,
+nozzle, layer height, line width, coupon measurements, measurement date and
+version it belongs to — a tolerance figure without them is not checkable. Every
+result says where its capability number came from: `measured_profile`,
+`caller_assertion_unverified`, or `none`. See `docs/CALIBRATION.md`.
 
 ---
 

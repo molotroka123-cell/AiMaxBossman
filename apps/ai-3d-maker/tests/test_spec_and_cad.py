@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 
 import pytest
@@ -10,12 +11,17 @@ from pydantic import ValidationError
 from ai_3d_maker.cad import csg
 from ai_3d_maker.cad.compiler import compile_mesh, compile_scad
 from ai_3d_maker.cad.external import cadquery_export, openscad_info
-from ai_3d_maker.errors import CapabilityUnavailableError
+from ai_3d_maker.errors import CapabilityUnavailableError, InvalidSpecError
 from ai_3d_maker.mesh import mesh_digest
 from ai_3d_maker.meshcheck import inspect_mesh
 from ai_3d_maker.spec import DesignSpec
 
 requires_csg = pytest.mark.skipif(not csg.is_available(), reason="no CSG backend installed")
+
+
+@pytest.fixture
+def control_for_cad(control):
+    return control
 
 
 def spec(**over) -> DesignSpec:
@@ -183,3 +189,78 @@ def test_cadquery_export_reports_not_available_when_missing(tmp_path):
     if result["status"] == "NOT_AVAILABLE":
         assert not (tmp_path / "m.step").exists()
         assert result["step"] is None
+
+
+# ------------------------------------------- a spec that contradicts itself
+"""Dimension-critical parts go the deterministic parametric route, so the
+compiler has to notice when the numbers in the spec do not do what the spec
+says they do. A hole placed off the part is not a hole; a file that leaves it
+unsaid is worse than no file, because it looks finished."""
+
+
+def two_feature_spec(translate, hole_height=20.0, operation="cut") -> DesignSpec:
+    return DesignSpec.model_validate({
+        "name": "plate",
+        "features": [
+            {"primitive": {"id": "body", "kind": "box", "size_mm": [20, 20, 5]}, "operation": "add"},
+            {"primitive": {"id": "hole", "kind": "cylinder", "size_mm": [4, hole_height]},
+             "transform": {"translate_mm": list(translate)}, "operation": operation},
+        ],
+    })
+
+
+@requires_csg
+def test_a_cut_that_removes_nothing_is_refused(profile):
+    """A 4 mm hole placed 100 mm away from a 20 mm plate removes no material."""
+    with pytest.raises(InvalidSpecError, match="hole"):
+        compile_mesh(two_feature_spec((100.0, 0.0, -5.0)))
+
+
+@requires_csg
+def test_a_cut_that_misses_in_z_is_refused():
+    with pytest.raises(InvalidSpecError, match="removed no material"):
+        compile_mesh(two_feature_spec((10.0, 10.0, 20.0), hole_height=5.0))
+
+
+@requires_csg
+def test_a_cut_that_really_removes_material_is_accepted():
+    result = compile_mesh(two_feature_spec((10.0, 10.0, -5.0)))
+    assert result.mesh.volume() < 2000.0
+    assert result.features_applied == 2
+
+
+@requires_csg
+def test_the_compiler_records_what_each_boolean_changed():
+    result = compile_mesh(two_feature_spec((10.0, 10.0, -5.0)))
+    effects = {e["feature"]: e for e in result.feature_effects}
+    assert effects["hole"]["operation"] == "cut"
+    assert effects["hole"]["volume_before_mm3"] > effects["hole"]["volume_after_mm3"]
+
+
+@requires_csg
+def test_an_added_solid_that_changes_nothing_is_reported_but_not_fatal():
+    """A boss entirely inside the body is pointless, not contradictory."""
+    spec = DesignSpec.model_validate({
+        "name": "plate",
+        "features": [
+            {"primitive": {"id": "body", "kind": "box", "size_mm": [20, 20, 20]}, "operation": "add"},
+            {"primitive": {"id": "inner", "kind": "box", "size_mm": [2, 2, 2]},
+             "transform": {"translate_mm": [5, 5, 5]}, "operation": "add"},
+        ],
+    })
+    result = compile_mesh(spec)
+    assert any("inner" in note for note in result.notes)
+
+
+@requires_csg
+def test_a_contradictory_spec_fails_the_job_with_the_feature_named(control_for_cad):
+    import asyncio
+
+    result = asyncio.run(control_for_cad.jobs_create({
+        "kind": "design", "job_id": "contradiction",
+        "spec": json.loads(two_feature_spec((100.0, 0.0, -5.0)).canonical_json()),
+    }))["result"]
+    assert result["status"] == "failed"
+    assert result["error"] == "INVALID_SPEC"
+    assert "hole" in result["message"]
+    assert result["evidence"]["cad_engine"]["status"] == "FAIL"

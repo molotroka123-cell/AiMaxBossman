@@ -9,6 +9,13 @@ Two artifacts come out of a spec:
 `compile_mesh` is the path this app trusts. It never returns a mesh it has not
 combined properly: if booleans are needed and no CSG backend exists, it raises
 CapabilityUnavailableError rather than concatenating triangle soup.
+
+It also checks that every boolean did what the spec said it would. A hole
+placed off the part removes nothing, and a solid with no hole in it is a
+perfectly valid mesh — watertight, manifold, printable, and wrong. Nothing
+downstream can catch that, because downstream only ever sees the geometry, not
+the intent. So the compiler measures the volume before and after each feature
+and refuses a `cut` or `intersect` that changed nothing.
 """
 
 from __future__ import annotations
@@ -23,6 +30,11 @@ from . import csg, primitives
 DEFAULT_SEGMENTS = primitives.DEFAULT_SEGMENTS
 
 
+# A boolean that moves less than this fraction of the running volume did not
+# really do anything; the difference is kernel noise, not material.
+NO_EFFECT_RELATIVE_TOLERANCE = 1e-9
+
+
 @dataclass(slots=True)
 class CompileResult:
     mesh: Mesh
@@ -30,6 +42,9 @@ class CompileResult:
     backend: str
     features_applied: int
     notes: list[str] = field(default_factory=list)
+    # One entry per boolean: what it was asked to do and what it actually did
+    # to the volume. This is the audit trail for "the hole is really there".
+    feature_effects: list[dict] = field(default_factory=list)
 
     def as_dict(self) -> dict:
         return {
@@ -38,6 +53,7 @@ class CompileResult:
             "features_applied": self.features_applied,
             "triangles": len(self.mesh.faces),
             "notes": self.notes,
+            "feature_effects": self.feature_effects,
         }
 
 
@@ -67,6 +83,7 @@ def compile_mesh(spec: DesignSpec, *, segments: int = DEFAULT_SEGMENTS) -> Compi
         )
 
     notes: list[str] = []
+    effects: list[dict] = []
     result: Mesh | None = None
     for feature in spec.features:
         solid = _primitive_mesh(feature, segments)
@@ -75,6 +92,7 @@ def compile_mesh(spec: DesignSpec, *, segments: int = DEFAULT_SEGMENTS) -> Compi
                 raise InvalidSpecError("first feature must be an 'add'")
             result = solid
             continue
+        before = result.volume()
         try:
             if feature.operation == "add":
                 result = csg.union(result, solid)
@@ -86,6 +104,14 @@ def compile_mesh(spec: DesignSpec, *, segments: int = DEFAULT_SEGMENTS) -> Compi
             raise InvalidSpecError(
                 f"feature {feature.primitive.id!r} ({feature.operation}) produced no solid: {exc}"
             ) from exc
+        after = result.volume()
+        effects.append({
+            "feature": feature.primitive.id,
+            "operation": feature.operation,
+            "volume_before_mm3": before,
+            "volume_after_mm3": after,
+        })
+        _check_effect(feature, before, after, notes)
 
     assert result is not None  # guaranteed by DesignSpec min_length=1
     return CompileResult(
@@ -94,6 +120,30 @@ def compile_mesh(spec: DesignSpec, *, segments: int = DEFAULT_SEGMENTS) -> Compi
         backend=backend.name if needs_boolean else "not-needed",
         features_applied=len(spec.features),
         notes=notes,
+        feature_effects=effects,
+    )
+
+
+def _check_effect(feature: Feature, before: float, after: float, notes: list[str]) -> None:
+    """Did this feature do what the spec said it would?"""
+    changed = abs(after - before) > max(abs(before), 1.0) * NO_EFFECT_RELATIVE_TOLERANCE
+    if changed:
+        return
+    name = feature.primitive.id
+    if feature.operation in {"cut", "intersect"}:
+        raise InvalidSpecError(
+            f"feature {name!r} ({feature.operation}) removed no material: the body is "
+            f"{before:g} mm^3 before and after. The primitive does not reach the solid it "
+            "is meant to modify, so the finished part would have no such feature.",
+            detail={
+                "feature": name,
+                "operation": feature.operation,
+                "volume_before_mm3": before,
+                "volume_after_mm3": after,
+            },
+        )
+    notes.append(
+        f"feature {name!r} (add) changed nothing: it lies entirely inside the existing body"
     )
 
 
