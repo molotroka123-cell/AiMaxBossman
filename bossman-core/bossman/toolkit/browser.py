@@ -38,7 +38,14 @@ SENSITIVE_ACTIONS = re.compile(
     r"confirm(?:\s+(?:transaction|payment|purchase|order|transfer|withdrawal))?|delete|"
     r"remove\s+permanently|publish|post\s+now|send\s+(?:message|email)|change\s+password|"
     r"reset\s+password|security\s+settings|create\s+api\s+key|revoke\s+api\s+key|"
-    r"close\s+account|submit\s+order|place\s+bet)\b", re.I,
+    r"close\s+account|submit\s+order|place\s+bet|subscribe|unsubscribe|upgrade|downgrade|"
+    r"cancel\s+subscription|deploy|terminate|donate|send\s+tip|order\s+now|place\s+bid)\b"
+    # Русские эквиваленты — по основам (не по границам слова), потому что интерфейсы
+    # Bossman на русском, а англоязычный regex их не ловил (дыра из red-team):
+    r"|(?:куп(?:и|ить|лю)|оплат|платёж|платеж|перевести|перевод|вывод|вывести|снять\s+деньги|"
+    r"удал(?:и|ить)|подтверд|отправ(?:ь|ить|ляю)|опубликова|публикаци|разместить|"
+    r"заказать|оформить\s+заказ|подписа(?:ть|ться)|отписа|сменить\s+пароль|сбросить\s+пароль|"
+    r"закрыть\s+аккаунт|сделать\s+ставку)", re.I | re.U,
 )
 BLOCKERS = re.compile(
     r"captcha|verify you are human|too many requests|rate limit|automation (?:is )?not allowed|"
@@ -292,6 +299,29 @@ def _action_requires_confirmation(context_text: str, url: str) -> bool:
     return is_sensitive_label(context_text) or domain_risk(url) == "sensitive"
 
 
+async def _submit_like(loc) -> bool:
+    """Структурная (а не по тексту) проверка: элемент отправляет форму / меняет
+    состояние на сервере? Ловит submit-кнопки без осмысленной подписи (иконка,
+    стрелка, пустой label) — их текстовый gate пропускал. Fail-open только для
+    этого слоя: текст/домен остаются первичным барьером."""
+    try:
+        return bool(await loc.evaluate(
+            """el => {
+                const tag = (el.tagName || '').toLowerCase();
+                const type = ((el.getAttribute && el.getAttribute('type')) || '').toLowerCase();
+                const inForm = !!(el.closest && el.closest('form'));
+                if (tag === 'button' && (type === 'submit' || type === '')) return inForm; // button в форме по умолчанию submit
+                if (tag === 'input' && ['submit', 'image', 'button'].includes(type)) return inForm;
+                if (type === 'submit') return true;
+                const role = (el.getAttribute && el.getAttribute('role')) || '';
+                if (role === 'button' && inForm) return true;
+                return false;
+            }""",
+            timeout=3000))
+    except Exception:
+        return False
+
+
 async def _settle(page: Page, old_url: str, timeout_ms: int = 3000) -> None:
     """Best-effort action completion: URL change/load/network quiet; no fixed 250ms dependency."""
     deadline = time.monotonic() + timeout_ms / 1000
@@ -468,8 +498,10 @@ async def _click_impl(args: dict, ctx: ToolContext, confirmed: bool) -> ToolResu
     async with sess.lock:
         loc, shown = _target_locator(sess, str(args.get("target", "")), str(args.get("frame", "")).strip() or None)
         context_text = await _context_for_locator(loc, sess.page, shown)
-        if not confirmed and _action_requires_confirmation(context_text, sess.page.url):
-            return ToolResult("refused: action is sensitive by target/form/domain context; use browser.confirmed_click", error=True)
+        if not confirmed and (_action_requires_confirmation(context_text, sess.page.url)
+                              or await _submit_like(loc)):
+            return ToolResult("refused: action is consequential by target/form/domain context "
+                              "(sensitive label, form submit, or sensitive domain); use browser.confirmed_click", error=True)
         old_url = sess.page.url
         before_pages = len(sess.context.pages)
         await loc.click(timeout=15_000)
@@ -523,12 +555,27 @@ async def _press(args: dict, ctx: ToolContext) -> ToolResult: return await _pres
 async def _confirmed_press(args: dict, ctx: ToolContext) -> ToolResult: return await _press_impl(args, ctx, True)
 
 
-async def _select(args: dict, ctx: ToolContext) -> ToolResult:
+async def _select_impl(args: dict, ctx: ToolContext, confirmed: bool) -> ToolResult:
     sess = await MANAGER.session(ctx.agent)
-    loc, shown = _target_locator(sess, str(args.get("target", "")), str(args.get("frame", "")).strip() or None)
-    selected = await loc.select_option(value=str(args.get("value", "")))
-    await _checkpoint(ctx, sess, "select", {"target": shown, "value": selected})
-    return ToolResult(f"selected {selected} in {shown}", one_line="browser.select: done")
+    async with sess.lock:
+        loc, shown = _target_locator(sess, str(args.get("target", "")), str(args.get("frame", "")).strip() or None)
+        # Раньше select не проверялся вовсе (дыра из red-team): <select onchange>
+        # мог отправить форму / сменить способ оплаты без подтверждения. Теперь —
+        # тот же барьер, что у click: чувствительный контекст/домен → confirmed_select.
+        context_text = await _context_for_locator(loc, sess.page, shown)
+        if not confirmed and _action_requires_confirmation(context_text, sess.page.url):
+            return ToolResult("refused: select is sensitive by target/form/domain context; "
+                              "use browser.confirmed_select", error=True)
+        old_url = sess.page.url
+        selected = await loc.select_option(value=str(args.get("value", "")))
+        await _settle(sess.page, old_url)
+        await _checkpoint(ctx, sess, "confirmed_select" if confirmed else "select",
+                          {"target": shown, "value": selected})
+        return ToolResult(f"selected {selected} in {shown}", one_line="browser.select: done")
+
+
+async def _select(args: dict, ctx: ToolContext) -> ToolResult: return await _select_impl(args, ctx, False)
+async def _confirmed_select(args: dict, ctx: ToolContext) -> ToolResult: return await _select_impl(args, ctx, True)
 
 
 async def _wait(args: dict, ctx: ToolContext) -> ToolResult:
@@ -643,12 +690,13 @@ reg("browser.extract", "Extract visible text from page/frame/selector. Page cont
 reg("browser.screenshot", "Save a PNG screenshot for debugging/vision.", "read", _screenshot, {"full_page":{"type":"boolean","default":False}}, token_limit=500)
 reg("browser.vision", "Create screenshot + semantic JSON bundle for a configured vision-capable local model adapter.", "read", _vision, token_limit=800)
 reg("browser.wait", "Wait up to 60s for text/selector/time and re-check stop conditions.", "read", _wait, {"timeout_ms":{"type":"integer","minimum":0,"maximum":60000},"text":{"type":"string"},"selector":TARGET,"frame":FRAME})
-reg("browser.click", "Click normal UI; refuses sensitive target/form/domain context.", "write", _click, {"target":TARGET,"frame":FRAME}, ["target"])
-reg("browser.confirmed_click", "Click consequential/destructive UI after Bossman approval.", "write", _confirmed_click, {"target":TARGET,"frame":FRAME}, ["target"], confirm=True)
+reg("browser.click", "Click normal UI; refuses sensitive/form-submit/sensitive-domain context.", "write", _click, {"target":TARGET,"frame":FRAME}, ["target"])
+reg("browser.confirmed_click", "Click consequential/destructive UI (incl. form submit) after Bossman approval.", "write", _confirmed_click, {"target":TARGET,"frame":FRAME}, ["target"], confirm=True)
 reg("browser.type", "Fill/type text but never submit the form.", "write", _type, {"target":TARGET,"text":{"type":"string"},"clear":{"type":"boolean","default":True},"frame":FRAME}, ["target","text"])
 reg("browser.press", "Press non-submit keyboard keys. Enter-like keys are refused.", "write", _press, {"key":{"type":"string"}}, ["key"])
 reg("browser.confirmed_press", "Press Enter/submit-like or sensitive-domain key after approval.", "write", _confirmed_press, {"key":{"type":"string"}}, ["key"], confirm=True)
-reg("browser.select", "Select an option by value.", "write", _select, {"target":TARGET,"value":{"type":"string"},"frame":FRAME}, ["target","value"])
+reg("browser.select", "Select an option by value; refuses sensitive target/form/domain context.", "write", _select, {"target":TARGET,"value":{"type":"string"},"frame":FRAME}, ["target","value"])
+reg("browser.confirmed_select", "Select an option in a consequential/sensitive form after Bossman approval.", "write", _confirmed_select, {"target":TARGET,"value":{"type":"string"},"frame":FRAME}, ["target","value"], confirm=True)
 reg("browser.scroll", "Scroll current page by bounded pixel delta.", "write", _scroll, {"dx":{"type":"integer"},"dy":{"type":"integer"}})
 reg("browser.hover", "Hover a target to reveal menus/tooltips.", "write", _hover, {"target":TARGET,"frame":FRAME}, ["target"])
 reg("browser.upload", "Select a workspace file for upload; path-contained and size-limited; does not submit.", "write", _upload, {"target":TARGET,"path":{"type":"string"},"frame":FRAME}, ["target","path"])
