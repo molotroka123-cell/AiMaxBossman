@@ -111,8 +111,8 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         try:
             routes = owned_router.resolve(alias, capabilities, cloud_allowed=cloud_allowed)
         except CloudPolicyDenied as exc:
-            # Отдельный код: Ñдро отличит «политика запретила облако» от «нечем
-                        # служить» и от «модель недоступна». Данные наружу не ушли.
+            # Отдельный код: ядро отличит «политика запретила облако» от «нечем
+                        #   обслужить» и от «модель недоступна». Данные наружу не ушли.
             _log_outcome(request_id, run_id, c.name, alias, None, None, "error", None, 0)
             return JSONResponse({"error": {"code": "POLICY_DENIED", "message": str(exc)}},
                                 status_code=403)
@@ -160,7 +160,7 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                                         {"message": str(exc), "backend": route.backend_name}) from exc
                 route.backend.health.healthy = False
                                 # checked_at обязателен: без него unhealthy-флаг не влияет даже
-                # на Ñортировку целей в resolve()
+                # на сортировку целей в resolve()
                 route.backend.health.checked_at = time.time()
                 errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")
                 continue
@@ -233,7 +233,7 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                         return
                     route.backend.health.healthy = False
                                     # checked_at обязателен: без него unhealthy-флаг не влияет
-                    # даже на Ñортировку целей в resolve()
+                    # даже на сортировку целей в resolve()
                     route.backend.health.checked_at = time.time()
                     errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")
                     if emitted:
