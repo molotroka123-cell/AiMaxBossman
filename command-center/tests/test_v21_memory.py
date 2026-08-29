@@ -448,11 +448,17 @@ def test_lexical_primitives_have_exactly_one_owner():
     именем. Наружу экспортировался старый, с зашитыми константами, — правка
     «в переранжировщике» до боя не доходила вообще.
     """
-    import bcc.v2.memory as memory
-    from bcc.v2.memory import chunking, local_index, reranker, sqlite_index
+    import importlib.util
 
-    assert chunking.tokenize is local_index.tokenize
-    assert chunking.stem is local_index.stem
+    import bcc.v2.memory as memory
+    from bcc.v2.memory import local_index, reranker, sqlite_index
+
+    # `chunking.py` удалён: 467 строк параллельной логики разбиения без единого
+    # импорта в бою. Мёртвый модуль рядом с живым — это вопрос «а какой из них
+    # настоящий», и задают его в самый неудобный момент.
+    assert importlib.util.find_spec("bcc.v2.memory.chunking") is None, (
+        "chunking.py вернулся; разбивщик должен быть один — chunking_v22")
+
     assert reranker.tokenize is local_index.tokenize
     assert sqlite_index.tokenize is local_index.tokenize
 

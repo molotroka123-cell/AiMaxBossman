@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -22,6 +23,33 @@ def safe_slug(value: str) -> str:
     value = re.sub(r"[^\w\- ]+", "", value, flags=re.UNICODE).strip()
     value = re.sub(r"\s+", "-", value)
     return value[:80] or "memory"
+
+def _atomic_write(dest: Path, body: str) -> None:
+    """Записать заметку целиком или не записать вовсе.
+
+    Прямой `write_text` открывает файл на запись и усекает его ДО того, как
+    что-то записано. Падение процесса в этот момент оставляет обрезанную
+    заметку — и это худший исход из возможных: не отказ, который заметят, а
+    тихо испорченный источник истины. Восстановить его нечем: производные
+    индексы пересобираются из заметок, а заметки — ни из чего.
+
+    Временный файл лежит в том же каталоге: `os.replace` атомарен только в
+    пределах одной файловой системы.
+    """
+    tmp = dest.with_name(dest.name + f".tmp-{os.getpid()}")
+    try:
+        with open(tmp, "w", encoding="utf-8") as handle:
+            handle.write(body)
+            handle.flush()
+            os.fsync(handle.fileno())      # иначе «записано» означает лишь «в кэше»
+        os.replace(tmp, dest)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
 
 @dataclass(slots=True)
 class ObsidianVault:
@@ -110,7 +138,7 @@ class ObsidianVault:
             fm.append(f"source_run_id: {source_run_id}")
         fm += ["---", ""]
         body = "\n".join(fm) + f"# {title}\n\n{content.strip()}\n"
-        dest.write_text(body, encoding="utf-8")
+        _atomic_write(dest, body)
         return dest
 
     def content_hash(self, path: Path) -> str:
