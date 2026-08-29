@@ -113,6 +113,12 @@ jobs:
 
       - name: Pytest (${{ matrix.group.name }})
         working-directory: bossman-core
+        env:
+          # Стоковый GitHub-раннер не тянет реальный rootless-SAFE (ptrace/seccomp/
+          # tmp-права): тесты реального исполнения честно skip'аются здесь, как
+          # hardware-тесты (runsc/KVM). На dev/Ai Max флаг не ставят — там авто-проба
+          # их запускает. Живьём SAFE проверяется на железе, не на общем раннере.
+          BOSSMAN_RUN_REAL_SANDBOX: "0"
         # browser_support сам находит Chromium в стандартной раскладке Playwright
         # (~/.cache/ms-playwright после install) — отдельная env-переменная не нужна.
         # --timeout: зависший тест ПАДАЕТ на 120с и виден, а не съедает бюджет.
