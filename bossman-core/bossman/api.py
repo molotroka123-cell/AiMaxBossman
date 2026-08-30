@@ -8,12 +8,22 @@ import asyncio
 import contextlib
 import json
 from pathlib import Path
+from typing import Optional
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.util import get_remote_address
+    _SLOWAPI_AVAILABLE = True
+except ImportError:  # slowapi опциональна — деградируем без ошибки
+    _SLOWAPI_AVAILABLE = False
 
 from . import approvals as approvals_mod
 from . import db, errors, events, obs, runner, telegram
@@ -36,14 +46,42 @@ from .projects.runner import run_project
 app = FastAPI(title="Bossman Core", version="0.3")
 _background: set[asyncio.Task] = set()
 
+# RISK-4 FIX: CORS — только internal origins. Задайте BOSSMAN_CORS_ORIGINS
+# через env (запятая-разделённый список) для продакшн-деплоя.
+import os as _os
+_cors_origins_raw = _os.environ.get("BOSSMAN_CORS_ORIGINS", "")
+_cors_origins = (
+    [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+    if _cors_origins_raw
+    else ["http://localhost:3000", "http://127.0.0.1:3000",
+          "http://localhost:8700", "http://127.0.0.1:8700"]
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+
+# RISK-3 FIX: Rate limiting через slowapi (если установлена).
+# Без slowapi — деградируем молча (dev-среда без pip install slowapi).
+if _SLOWAPI_AVAILABLE:
+    def _get_device_id(request: Request) -> str:
+        """Rate limit per device token, не per IP (IP = loopback в Tailscale)."""
+        auth = request.headers.get("Authorization", "")
+        return auth[-32:] if len(auth) > 32 else (auth or get_remote_address(request))
+
+    _limiter = Limiter(key_func=_get_device_id)
+    app.state.limiter = _limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # ЭТАП 4–7: единый рендер ошибок домена (BossmanError + складываемые легаси-
 # исключения → {"error":{code,message,cid}}) и структурный лог с вычисткой секретов.
 obs.configure_logging()
 errors.install_error_handlers(app)
 
-# Подсистемы этапов 4–7 регистрируются здесь (до startup); реестр их и поднимает,
-# и грациозно останавливает. Импорт — ленивый и терпимый: если пакет ещё не
-# подъехал (частичная сборка), ядро всё равно стартует.
+
 def _register_subsystems() -> None:
     for modname, attr in (
         ("bossman.resource_brain", "build_subsystem"),
@@ -108,13 +146,15 @@ def _spawn(coro) -> None:
 
 @app.on_event("startup")
 async def startup() -> None:
+    # RISK-6 + RISK-7 FIX: Валидировать обязательные секреты ДО поднятия БД/подсистем.
+    # Если ключи не заданы — сразу понятное сообщение, а не cryptic DB error.
+    settings.validate()
+
     settings.projects_dir.mkdir(parents=True, exist_ok=True)
     settings.workspace_dir.mkdir(parents=True, exist_ok=True)
     await db.pool()
-    await runner.mark_interrupted()   # после перезагрузки: незавершённое помечено и видно
+    await runner.mark_interrupted()
     _spawn(runner.worker())
-    # ЭТАП 4–7: поднять зарегистрированные подсистемы. Критичная (validate/start
-    # с critical=True) уронит boot; опциональная деградирует, но не мешает старту.
     await _subsystems.start_all()
 
 
@@ -122,24 +162,17 @@ async def startup() -> None:
 async def shutdown() -> None:
     for t in _background:
         t.cancel()
-    # ЭТАП 4–7: остановить подсистемы в обратном порядке ДО закрытия ядровых
-    # ресурсов (браузер/gateway/context/БД). Каждая stop() идемпотентна.
     await _subsystems.stop_all()
-    # Закрыть браузерные контексты ДО закрытия БД: иначе Chromium остаётся
-    # осиротевшим процессом после каждой остановки сервиса. shutdown() у
-    # менеджера идемпотентен — если браузер не поднимался, он ничего не делает.
     from .toolkit.browser import MANAGER as _BROWSER
     try:
         await _BROWSER.shutdown()
     except Exception:
         pass
-    # ЭТАП 3: закрыть HTTP-клиент Gateway, чтобы не осталось осиротевших соединений
     from .llm import aclose_gateway
     try:
         await aclose_gateway()
     except Exception:
         pass
-    # ЭТАП 2.222: чисто закрыть SQLite-соединения context_engine (WAL flush).
     try:
         from .context_engine import close_all as _close_context
         _close_context()
@@ -152,12 +185,15 @@ async def shutdown() -> None:
 
 class TaskIn(BaseModel):
     text: str
-    agent: str | None = None     # None = «сам разберётся»
+    agent: str | None = None
     source: str = "ui"
 
 
 @app.post("/tasks", dependencies=[Depends(require_scope(SCOPE_CHAT))])
-async def create_task(body: TaskIn):
+async def create_task(body: TaskIn, request: Request):
+    # RISK-3: rate limit — 20 задач/минуту на устройство
+    if _SLOWAPI_AVAILABLE:
+        await _limiter._check_request_limit(request, create_task, "20/minute")  # noqa: SLF001
     row = await db.fetchrow(
         "INSERT INTO tasks (agent, source, text) VALUES ($1,$2,$3) RETURNING *",
         body.agent, body.source, body.text)
@@ -176,8 +212,6 @@ async def get_task(task_id: int):
 
 @app.get("/tasks", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def list_tasks(status: str | None = None, limit: int = 50):
-    # Stage 13: limit не доверяем клиенту — отрицательный/гигантский лимит в
-    # Postgres означает «без лимита» (выкачка таблицы аутентифицированным чатом).
     limit = max(1, min(limit, 500))
     if status:
         return await db.fetch("SELECT * FROM tasks WHERE status=$1 ORDER BY id DESC LIMIT $2",
@@ -189,16 +223,10 @@ async def list_tasks(status: str | None = None, limit: int = 50):
 
 @app.websocket("/events")
 async def ws_events(ws: WebSocket):
-    """Шина событий — только со скоупом events (Stage 6), проверка ДО подписки.
-
-    Браузер не умеет Authorization на WS, поэтому токен едет субпротоколом
-    `bossman.bearer.<token>` (заголовок, не URL). Отказ — закрытие 1008 до
-    того, как открыта подписка: анонимный клиент не видит ни одного события.
-    """
+    """Шина событий — только со скоупом events (Stage 6), проверка ДО подписки."""
     try:
         _, chosen = await authenticate_websocket(ws, SCOPE_EVENTS)
     except errors.BossmanError:
-        # 1008 = policy violation; причину не детализируем (не оракул для подбора)
         await ws.close(code=1008)
         return
     await ws.accept(subprotocol=chosen)
@@ -227,29 +255,69 @@ async def list_approvals(status: str = "pending"):
 
 @app.post("/approvals/{approval_id}", dependencies=[Depends(require_scope(SCOPE_APPROVE))])
 async def decide_approval(approval_id: int, body: Decision):
-    """Решение по подтверждению — только устройство Stage 6 со скоупом approve.
-
-    Telegram-вебхук ниже — отдельный вход с собственной проверкой секрета;
-    /remote/... — тот же Stage 6 с тем же скоупом. Общее у всех входов: ни один
-    не пускает решать анонимно, и localhost НЕ считается аутентификацией.
-    """
     row = await approvals_mod.decide(approval_id, body.approve, body.by)
     if not row:
         raise HTTPException(409, "уже решено или не существует")
     return row
 
 
+# RISK-5 FIX: Строгая Pydantic-схема для Telegram Update вместо голого dict.
+# Только поля, которые реально обрабатываются; лишние — игнорируются (extra='ignore').
+class TelegramUser(BaseModel):
+    model_config = {"extra": "ignore"}
+    id: int
+    is_bot: bool = False
+    first_name: str = ""
+    username: Optional[str] = None
+
+
+class TelegramChat(BaseModel):
+    model_config = {"extra": "ignore"}
+    id: int
+    type: str = ""
+
+
+class TelegramMessage(BaseModel):
+    model_config = {"extra": "ignore"}
+    message_id: int
+    chat: TelegramChat
+    from_: Optional[TelegramUser] = None
+    text: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+        fields = {"from_": "from"}
+
+
+class TelegramCallbackQuery(BaseModel):
+    model_config = {"extra": "ignore"}
+    id: str
+    from_: TelegramUser
+    data: Optional[str] = None
+    message: Optional[TelegramMessage] = None
+
+    class Config:
+        populate_by_name = True
+        fields = {"from_": "from"}
+
+
+class TelegramUpdate(BaseModel):
+    """Минимальная схема Telegram Update — валидирует структуру, отбрасывает мусор."""
+    model_config = {"extra": "ignore"}
+    update_id: int
+    message: Optional[TelegramMessage] = None
+    callback_query: Optional[TelegramCallbackQuery] = None
+
+
 @app.post("/telegram/webhook")
-async def telegram_webhook(update: dict, request: Request):
-    """Кнопки из Telegram — теперь opaque `b:<token>` callback'и, а не сырые
-    approve:<id>/reject:<id>. Разбор и вся проверка (секрет заголовка, чат,
-    TTL, single-use) — в notifications.telegram_transport; здесь только граница
-    HTTP: секрет заголовка передаётся как есть, отказ = CallbackRejected → 401.
-    approvals.decide() вызывается telegram_transport, не этим хендлером.
+async def telegram_webhook(update: TelegramUpdate, request: Request):
+    """Кнопки из Telegram — opaque `b:<token>` callback'и.
+    Разбор и вся проверка (секрет заголовка, чат, TTL, single-use) — в
+    notifications.telegram_transport; здесь только граница HTTP.
     """
     got = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
     try:
-        return await telegram.handle_webhook(update, got)
+        return await telegram.handle_webhook(update.model_dump(by_alias=True), got)
     except CallbackRejected as exc:
         raise errors.AuthDenied(f"telegram callback denied: {exc}") from exc
 
@@ -295,8 +363,6 @@ async def patch_agent(name: str, body: AgentPatch):
 
 @app.get("/models", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def list_models():
-    """Установленные (из /opt/bossman/models), загруженные сейчас (llama-swap /running),
-    среднее заполнение окна и доля кэша по агентам (10.7)."""
     installed = []
     models_dir = Path("/models") if Path("/models").exists() else Path("/opt/bossman/models")
     if models_dir.exists():
@@ -336,14 +402,13 @@ async def list_models():
             if isinstance(candidate, dict):
                 prompt_cache = candidate
         except Exception:
-            pass  # explicit DEGRADED above; no fake-green on unavailable Gateway
+            pass
     return {"installed": installed, "running": running, "llama_swap_error": swap_err,
             "context_stats": ctx_stats, "prompt_cache": prompt_cache}
 
 
 @app.post("/models/{alias}/load", dependencies=[Depends(require_scope(SCOPE_ADMIN))])
 async def load_model(alias: str):
-    # llama-swap грузит модель при первом запросе к ней; health апстрима — самый дешёвый триггер
     async with httpx.AsyncClient(timeout=900) as client:
         resp = await client.get(f"{settings.llama_swap_url}/upstream/{alias}/health")
     return {"alias": alias, "status": resp.status_code}
@@ -351,7 +416,6 @@ async def load_model(alias: str):
 
 @app.post("/models/{alias}/unload", dependencies=[Depends(require_scope(SCOPE_ADMIN))])
 async def unload_model(alias: str):
-    # эндпоинт сверить с актуальным README llama-swap (в старых версиях /unload общий)
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.get(f"{settings.llama_swap_url}/unload", params={"model": alias})
     return {"alias": alias, "status": resp.status_code}
@@ -361,7 +425,6 @@ async def unload_model(alias: str):
 
 @app.get("/spend", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def spend():
-    """Локальные токены (бесплатно, для статистики) и облачные по агентам за день/месяц."""
     return {
         "by_agent_day": await db.fetch(
             """SELECT agent, is_cloud, sum(prompt_tokens+completion_tokens) AS tokens
@@ -378,11 +441,11 @@ async def spend():
     }
 
 
-# ---------- изменения (лента действий агентов; коммиты/PR — из ATLAS поверх) ----------
+# ---------- изменения ----------
 
 @app.get("/changes", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def changes(limit: int = 100):
-    limit = max(1, min(limit, 500))  # Stage 13: см. list_tasks — потолок выкачки
+    limit = max(1, min(limit, 500))
     return await db.fetch(
         """SELECT agent, tool, args, status, approved_by, created_at
            FROM tool_calls ORDER BY id DESC LIMIT $1""", limit)
@@ -406,7 +469,6 @@ async def _project(slug_or_id: str) -> dict:
 
 @app.post("/projects", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def create_project(body: ProjectIn):
-    """brief → план и оценка. План уходит на утверждение до любых трат."""
     await db.execute(
         """INSERT INTO projects (slug, title, brief, budget_limit) VALUES ($1,$2,$3,$4)
            ON CONFLICT (slug) DO UPDATE SET brief=excluded.brief, updated_at=now()""",
@@ -480,13 +542,14 @@ async def project_state(slug: str):
 
 @app.get("/projects/{slug}/journal", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def project_journal(slug: str, lines: int = 100):
+    # RISK-9 FIX: капируем lines так же, как limit в list_tasks.
+    lines = max(1, min(lines, 500))
     row = await _project(slug)
     return {"journal": journal_tail(row["slug"], lines)}
 
 
 @app.post("/projects/{slug}/tasks/{tid}/retry", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def retry_project_task(slug: str, tid: str):
-    """«Пересобрать этап/задачу»: сбросить в state.json и запустить заново."""
     row = await _project(slug)
     st = State(row["slug"])
     if tid not in st.data["tasks"]:

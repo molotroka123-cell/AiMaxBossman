@@ -28,8 +28,11 @@ class Settings:
     # Dense autonomous loops use the cheaper 5m cache-write TTL.  Operators
     # can opt long human-in-loop sessions into 1h without changing prompts.
     prompt_cache_ttl: str = field(default_factory=lambda: _env("BOSSMAN_PROMPT_CACHE_TTL", "5m"))
-    database_url: str = field(default_factory=lambda: _env(
-        "BOSSMAN_DATABASE_URL", "postgresql://bossman:bossman@postgres:5432/bossman"))
+
+    # RISK-7 FIX: нет дефолтного пароля 'bossman'.
+    # BOSSMAN_DATABASE_URL обязателен — приложение упадёт при старте, если не задан.
+    # Пример: postgresql://bossman:STRONG_PASSWORD@postgres:5432/bossman
+    database_url: str = field(default_factory=lambda: _env("BOSSMAN_DATABASE_URL", ""))
     redis_url: str = field(default_factory=lambda: _env("REDIS_URL", "redis://redis:6379/0"))
 
     agents_dir: Path = field(default_factory=lambda: Path(_env("AGENTS_DIR", str(ROOT / "agents"))))
@@ -69,6 +72,26 @@ class Settings:
 
     host: str = field(default_factory=lambda: _env("CORE_HOST", "127.0.0.1"))
     port: int = int(_env("CORE_PORT", "8700"))
+
+    def validate(self) -> None:
+        """RISK-6 + RISK-7: Проверить обязательные секреты при старте.
+        Вызывается в startup() до поднятия подсистем."""
+        errors: list[str] = []
+        if not self.litellm_master_key or self.litellm_master_key in ("sk-CHANGE_ME", ""):
+            errors.append(
+                "LITELLM_MASTER_KEY не задан или содержит placeholder. "
+                "Установите реальный ключ в .env (RISK-6)."
+            )
+        if not self.database_url:
+            errors.append(
+                "BOSSMAN_DATABASE_URL не задан. "
+                "Установите postgresql://user:password@host/db (RISK-7)."
+            )
+        if errors:
+            raise RuntimeError(
+                "Bossman не может стартовать — критические настройки отсутствуют:\n"
+                + "\n".join(f"  • {e}" for e in errors)
+            )
 
 
 settings = Settings()

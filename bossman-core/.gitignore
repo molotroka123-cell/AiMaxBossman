@@ -1,30 +1,67 @@
-.env
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
 *.egg-info/
+.eggs/
+
+# Виртуальные окружения
+.venv/
+venv/
+env/
+.env
+*.env
+
+# Секреты (никогда в git)
+.env.local
+.env.production
+.env.staging
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# RISK-11 FIX: бинарные архивы — не должны попадать в git;
+# содержимое zip не сканируется secret scanning и не видно в code review.
+*.zip
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tgz
+*.rar
+*.7z
+
+# Базы данных и workspace
+workspace/
+*.db
+*.sqlite
+*.sqlite3
+
+# Логи
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Тесты
 .pytest_cache/
-# Рантайм-каталоги проектов и рабочей области (ROOT/projects, ROOT/workspace).
-# Якорим ведущим слэшем: без него правило ловило и пакет-исходник
-# bossman/projects/ (planner/runner/plan/router) — он не попадал в git.
-/projects/
-/workspace/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
-# ЭТАП 3 — AI Gateway: боевой конфиг может нести ключи клиентов/провайдеров.
-# В git живёт только config/gateway.example.yaml с плейсхолдерами.
-config/gateway.yaml
-gateway.yaml
-# Context & Memory Engine (ЭТАП 2.222) runtime — SQLite/WAL индекс и вектора не в git
-**/_context/
-context.db
-context.db-wal
-context.db-shm
-*.db-wal
-*.db-shm
-
-# Bossman ComputerUse runtime — профили, cookies и загрузки живых сессий
-.browser-profiles/
-browser-profiles/
-**/browser-profile/
-**/browser-profiles/
-**/.auth/
-playwright/.auth/
-**/downloads/
+# Временные файлы проектов
+projects/
