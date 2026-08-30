@@ -24,6 +24,7 @@ import socket
 from pathlib import Path
 from urllib.parse import urlparse
 
+import httpcore
 import httpx
 
 TOKEN_KEYS = re.compile(r"(token|secret|password|passwd|authorization|api[_-]?key|"
@@ -122,34 +123,79 @@ def resolve_pinned_ip(host: str, *, allow_private: bool = False) -> str:
     return sorted(ips)[0]
 
 
+try:
+    from httpcore._backends.anyio import AnyIOBackend as _ConcreteNetworkBackend
+except ImportError:  # httpcore сменил внутренности — базовый класс (fail-closed)
+    _ConcreteNetworkBackend = httpcore.AsyncNetworkBackend
+
+
+class _PinnedBackend(_ConcreteNetworkBackend):
+    """Коннект строго на уже проверенный IP: DNS между валидацией и коннектом
+    больше не участвует (анти-rebinding), SNI/TLS остаются на исходном имени."""
+
+    def __init__(self, pins: dict[str, str]):
+        super().__init__()
+        self._pins = pins
+
+    async def connect_tcp(self, host, port, timeout=None, local_address=None,
+                          socket_options=None):
+        return await super().connect_tcp(self._pins.get(host, host), port,
+                                         timeout=timeout, local_address=local_address,
+                                         socket_options=socket_options)
+
+
+class PinnedTransport(httpx.AsyncHTTPTransport):
+    """Обычный httpx-транспорт (весь glue httpx↔httpcore, дефолтная TLS-проверка),
+    у которого connection-pool создаётся с pinned-резолвом (анти-rebinding)."""
+
+    def __init__(self, pins: dict[str, str]):
+        super().__init__()
+        self._pool = httpcore.AsyncConnectionPool(network_backend=_PinnedBackend(pins))
+
+
 async def safe_get(url: str, *, allow_private: bool = False,
                    allowed_hosts: set[str] | None = None,
                    max_bytes: int = 1_000_000, timeout: float = 15.0,
                    max_redirects: int = 3, headers: dict | None = None) -> httpx.Response:
-    """GET с защитой от SSRF и небезопасных redirect'ов.
+    """GET с защитой от SSRF, DNS-rebinding и небезопасных redirect'ов.
 
-    Redirect'ы НЕ следуются автоматически: каждый hop валидируется и
-    резолвится заново (public→private redirect отсекается). Коннект — на
-    pinned IP через SNI/Host исходного имени.
+    Каждый hop: валидация URL → резолв (ВСЕ адреса проверяются) → коннект на
+    проверенный IP (hostname сохраняется для Host/SNI/сертификата). Redirect'ы
+    не следуются автоматически — следующий hop валидируется заново. Тело
+    читается потоково до `max_bytes`; превышение — отказ без аллокации всего
+    тела.
     """
     hops = 0
     current = url
+    pins: dict[str, str] = {}
     while True:
         _, host = validate_url(current, allow_private=allow_private, allowed_hosts=allowed_hosts)
-        resolve_pinned_ip(host, allow_private=allow_private)  # анти-rebinding: любой небезопасный резолв → отказ
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as c:
-            r = await c.get(current, headers={"User-Agent": "BossmanPlugins/1.0", **(headers or {})})
-        if r.is_redirect:
-            loc = r.headers.get("location")
-            if not loc:
-                raise PluginSecurityError("redirect without Location")
-            hops += 1
-            if hops > max_redirects:
-                raise PluginSecurityError("too many redirects")
-            current = httpx.URL(r.request.url).join(loc).__str__()
-            continue  # revalidate next hop before following
-        r.read()
-        return r
+        pins[host] = resolve_pinned_ip(host, allow_private=allow_private)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=False,
+                                     transport=PinnedTransport(pins)) as c:
+            async with c.stream("GET", current,
+                                headers={"User-Agent": "BossmanPlugins/1.0",
+                                         **(headers or {})}) as r:
+                if r.is_redirect:
+                    loc = r.headers.get("location")
+                    if not loc:
+                        raise PluginSecurityError("redirect without Location")
+                    hops += 1
+                    if hops > max_redirects:
+                        raise PluginSecurityError("too many redirects")
+                    current = httpx.URL(r.request.url).join(loc).__str__()
+                    continue  # revalidate next hop before following
+                chunks: list[bytes] = []
+                total = 0
+                async for chunk in r.aiter_bytes():
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise PluginSecurityError(f"response exceeds max_bytes={max_bytes}")
+                    chunks.append(chunk)
+                return httpx.Response(r.status_code,
+                                      headers={k: v for k, v in r.headers.items()
+                                               if k.lower() != "content-length"},
+                                      content=b"".join(chunks))
 
 
 # ----------------------------------------------------------------- path
