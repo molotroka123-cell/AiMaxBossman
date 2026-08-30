@@ -6,7 +6,7 @@ START_HEAD:
 `8b75db64d594a7e4de84f8c49c4074f613cccb6a` (актуальный remote на момент старта, синхронизирован через `git fetch` + fast-forward)
 
 FINAL_HEAD:
-`<заполняется после commit/push>`
+`b0a5a0c` (см. git — фактический sha после push)
 
 FILES_INSPECTED:
 - `bossman-core/bossman/world_intelligence/{__init__,routes,subsystem}.py` (новый Pythia drop-in, commit 4fb8b6f)
