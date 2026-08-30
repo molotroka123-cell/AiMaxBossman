@@ -176,9 +176,10 @@ async def test_safe_get_follows_safe_and_returns(monkeypatch):
 
     real = httpx.AsyncClient
     monkeypatch.setattr(httpx, "AsyncClient",
-                        lambda *a, **k: real(*a, transport=httpx.MockTransport(handler),
-                                             follow_redirects=False,
-                                             **{kk: vv for kk, vv in k.items() if kk != "follow_redirects"}))
+                        lambda *a, **k: real(*a, follow_redirects=False,
+                                             transport=httpx.MockTransport(handler),
+                                             **{kk: vv for kk, vv in k.items()
+                                                if kk not in ("follow_redirects", "transport")}))
     r = await safe_get("http://ok.example/x")
     assert r.status_code == 200 and "hello-public" in r.text
 
@@ -201,7 +202,10 @@ def test_symlink_escape_denied(tmp_path):
     outside = Path(tempfile.mkdtemp()) / "secret.txt"
     outside.write_text("S", encoding="utf-8")
     link = tmp_path / "link.md"
-    os.symlink(outside, link)
+    try:
+        os.symlink(outside, link)
+    except OSError as exc:
+        pytest.skip(f"SKIP_HOST: symlink privilege unavailable on this host: {exc}")
     with pytest.raises(PluginSecurityError):
         confine_path(tmp_path, "link.md", must_exist=True)
 
