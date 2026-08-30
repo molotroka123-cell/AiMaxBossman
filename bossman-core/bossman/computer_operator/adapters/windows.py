@@ -7,12 +7,22 @@ class WindowsDesktop:
     def __init__(self): self.is_windows=platform.system().lower()=="windows"
     def _req(self):
         if not self.is_windows: raise RuntimeError("Windows backend requires Windows")
+    @staticmethod
+    def _active_window():
+        # pywinauto 0.6.x lacks an "active window" helper; resolve the OS
+        # foreground window handle via user32 and wrap it with the uia backend.
+        import ctypes
+        from pywinauto import Desktop
+        hwnd=ctypes.windll.user32.GetForegroundWindow()
+        if hwnd:
+            w=Desktop(backend="uia").window(handle=hwnd)
+            if w is not None: return w
+        return Desktop(backend="uia").top_window()
     async def foreground(self):
         self._req()
         def f():
             try:
-                from pywinauto import Desktop
-                w=Desktop(backend="uia").get_active()
+                w=self._active_window()
                 return {"title":w.window_text(),"app":str(getattr(w.element_info,"name","") or ""),"handle":int(w.handle)}
             except Exception as e: return {"title":"","app":"","error":type(e).__name__}
         return await asyncio.to_thread(f)
@@ -20,8 +30,7 @@ class WindowsDesktop:
         self._req()
         def f():
             try:
-                from pywinauto import Desktop
-                w=Desktop(backend="uia").get_active()
+                w=self._active_window()
                 out=[]
                 for c in w.descendants()[:500]:
                     e=c.element_info
@@ -41,8 +50,7 @@ class WindowsDesktop:
     async def _uia(self,a):
         def f():
             try:
-                from pywinauto import Desktop
-                w=Desktop(backend="uia").get_active()
+                w=self._active_window()
                 cands=w.descendants(title=a.target)
                 if not cands: return False
                 c=cands[0]

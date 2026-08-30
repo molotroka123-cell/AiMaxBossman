@@ -32,6 +32,7 @@ class Planner:
         s,e=t.find("{"),t.rfind("}")
         if s<0 or e<=s: raise ValueError("planner JSON object required")
         raw=json.loads(t[s:e+1])
+        raw=self._normalize_synonyms(raw)
         kind=ActionKind(str(raw.get("kind","")).upper())
         x=raw.get("expected") or {}
         if not isinstance(x,dict): raise ValueError("expected must be object")
@@ -51,3 +52,30 @@ class Planner:
             idempotency_key=self._s(raw.get("idempotency_key"),200))
     @staticmethod
     def _s(v,n): return None if v is None else str(v)[:n]
+    @staticmethod
+    def _normalize_synonyms(raw:dict)->dict:
+        """Small local models often emit action/parameters/expected_postcondition
+        instead of kind/args/expected (observed live with llama3.2/qwen 2026-08-30).
+        Accept common synonyms; the ActionKind enum still validates the result."""
+        if not isinstance(raw,dict): return raw
+        if "kind" not in raw and raw.get("action"):
+            raw["kind"]=raw["action"]
+        if "args" not in raw and isinstance(raw.get("parameters"),dict):
+            raw["args"]=raw["parameters"]
+        if "expected" not in raw and isinstance(raw.get("expected_postcondition"),dict):
+            raw["expected"]=raw["expected_postcondition"]
+        args=raw.get("args")
+        if isinstance(args,dict) and not raw.get("target"):
+            tgt=args.get("application") or args.get("app") or args.get("target")
+            if tgt: raw["target"]=tgt
+        x=raw.get("expected")
+        if isinstance(x,dict):
+            fg=x.pop("foreground",None) if isinstance(x.get("foreground"),dict) else None
+            if isinstance(fg,dict):
+                if fg.get("title") and not x.get("window_title_contains"):
+                    x["window_title_contains"]=fg["title"]
+                if fg.get("app") and not x.get("foreground_app_contains"):
+                    x["foreground_app_contains"]=fg["app"]
+            url=x.pop("url",None) if isinstance(x.get("url"),str) else None
+            if url and not x.get("url_contains"): x["url_contains"]=url
+        return raw
