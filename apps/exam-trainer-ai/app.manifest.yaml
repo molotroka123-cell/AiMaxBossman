@@ -1,0 +1,51 @@
+id: exam-trainer-ai
+name: Exam Trainer AI
+version: "1.0.0"
+kind: workload
+contract: "1.0"
+
+description: >
+  Commercial multilingual exam-preparation trainer built from lawful public/official practice material.
+
+runtime:
+  language: python
+  python: ">=3.11"
+  standalone: true
+  imports_bossman: false
+
+default_port: 8912
+
+control_contract:
+  transport: http
+  http:
+    health: "GET /health"
+    capabilities: "GET /capabilities"
+    metrics: "GET /metrics"
+    jobs.create: "POST /api/jobs"
+    jobs.list: "GET /api/jobs"
+    jobs.status: "GET /api/jobs/{job_id}"
+    jobs.cancel: "POST /api/jobs/{job_id}/cancel"
+    artifacts.list: "GET /api/jobs/{job_id}/artifacts"
+
+commands:
+  - /exam create
+  - /exam diagnostic
+  - /exam train
+  - /exam mock
+
+permissions:
+  browser.read_public: auto
+  browser.authenticated_read: ask
+  copyrighted_bulk_copy: deny
+  leaked_exam_content: deny
+  external.publish: ask
+
+ui:
+  subtitle: "Commercial multilingual exam-preparation trainer built from lawful pub"
+  icon: box
+  order: 50
+  health_path: /health
+  metrics_path: /metrics
+  actions:
+    - id: open
+      label: Open

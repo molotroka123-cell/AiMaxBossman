@@ -1,0 +1,52 @@
+id: pc-autopilot-mini
+name: PC Autopilot Mini
+version: "1.0.0"
+kind: workload
+contract: "1.0"
+
+description: >
+  Teach-once, deterministic-repeat PC macro utility using Bossman only for creation/repair.
+
+runtime:
+  language: python
+  python: ">=3.11"
+  standalone: true
+  imports_bossman: false
+
+default_port: 8914
+
+control_contract:
+  transport: http
+  http:
+    health: "GET /health"
+    capabilities: "GET /capabilities"
+    metrics: "GET /metrics"
+    jobs.create: "POST /api/jobs"
+    jobs.list: "GET /api/jobs"
+    jobs.status: "GET /api/jobs/{job_id}"
+    jobs.cancel: "POST /api/jobs/{job_id}/cancel"
+    artifacts.list: "GET /api/jobs/{job_id}/artifacts"
+
+commands:
+  - /autopilot teach
+  - /autopilot run
+  - /autopilot validate
+  - /autopilot repair
+
+permissions:
+  computer.safe_action: auto
+  filesystem.write: ask
+  external.send: ask
+  credentials.use: ask
+  payment: deny
+  security.disable: deny
+
+ui:
+  subtitle: "Teach-once, deterministic-repeat PC macro utility using Bossman only f"
+  icon: box
+  order: 50
+  health_path: /health
+  metrics_path: /metrics
+  actions:
+    - id: open
+      label: Open

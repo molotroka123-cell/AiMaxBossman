@@ -1,0 +1,51 @@
+id: file-commander-mini
+name: File Commander Mini
+version: "1.0.0"
+kind: workload
+contract: "1.0"
+
+description: >
+  Tiny deterministic file hygiene utility with preview-first operations.
+
+runtime:
+  language: python
+  python: ">=3.11"
+  standalone: true
+  imports_bossman: false
+
+default_port: 8911
+
+control_contract:
+  transport: http
+  http:
+    health: "GET /health"
+    capabilities: "GET /capabilities"
+    metrics: "GET /metrics"
+    jobs.create: "POST /api/jobs"
+    jobs.list: "GET /api/jobs"
+    jobs.status: "GET /api/jobs/{job_id}"
+    jobs.cancel: "POST /api/jobs/{job_id}/cancel"
+    artifacts.list: "GET /api/jobs/{job_id}/artifacts"
+
+commands:
+  - /files scan
+  - /files plan
+  - /files organize
+  - /files duplicates
+
+permissions:
+  filesystem.read: auto
+  filesystem.write: ask
+  filesystem.delete: ask
+  filesystem.secure_erase: deny
+  external.upload: deny
+
+ui:
+  subtitle: "Tiny deterministic file hygiene utility with preview-first operations."
+  icon: box
+  order: 50
+  health_path: /health
+  metrics_path: /metrics
+  actions:
+    - id: open
+      label: Open

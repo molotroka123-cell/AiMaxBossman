@@ -1,0 +1,51 @@
+id: bossman-accountant
+name: Bossman Accountant
+version: "1.0.0"
+kind: workload
+contract: "1.0"
+
+description: >
+  Standalone local-first accounting, finance reporting and owner analytics app.
+
+runtime:
+  language: python
+  python: ">=3.11"
+  standalone: true
+  imports_bossman: false
+
+default_port: 8910
+
+control_contract:
+  transport: http
+  http:
+    health: "GET /health"
+    capabilities: "GET /capabilities"
+    metrics: "GET /metrics"
+    jobs.create: "POST /api/jobs"
+    jobs.list: "GET /api/jobs"
+    jobs.status: "GET /api/jobs/{job_id}"
+    jobs.cancel: "POST /api/jobs/{job_id}/cancel"
+    artifacts.list: "GET /api/jobs/{job_id}/artifacts"
+
+commands:
+  - /accountant import
+  - /accountant report
+  - /accountant pnl
+  - /accountant cashflow
+
+permissions:
+  filesystem.project_write: ask
+  banking.read_import: ask
+  banking.transfer: deny
+  external.send_report: ask
+  browser.read: ask
+
+ui:
+  subtitle: "Standalone local-first accounting, finance reporting and owner analyti"
+  icon: box
+  order: 50
+  health_path: /health
+  metrics_path: /metrics
+  actions:
+    - id: open
+      label: Open

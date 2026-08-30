@@ -5,6 +5,11 @@
 """
 from __future__ import annotations
 
+import logging
+import uuid
+from datetime import date, datetime, time as dtime
+from decimal import Decimal
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -530,8 +535,11 @@ class Database:
                 async with self.engine.begin() as conn:
                     await conn.execute(sa.text(
                         f"ALTER TABLE {table} ADD COLUMN {if_not}{col} {sqltype}"))
-            except sa.exc.OperationalError:
-                pass  # SQLite: duplicate column — колонка уже есть
+            except sa.exc.DBAPIError as exc:
+                if _is_duplicate_column_error(exc):
+                    continue      # колонка уже существует — идемпотентный случай
+                log.error("migration ALTER failed: %r", exc)
+                raise
 
     async def ping(self) -> bool:
         async with self.session() as s:
@@ -557,13 +565,41 @@ def _sqlite_pragmas(dbapi_conn, _record) -> None:
     cur.close()
 
 
+def _is_duplicate_column_error(exc: Exception) -> bool:
+    """Только конкретный duplicate-column: SQLSTATE 42701 (PostgreSQL) либо
+    sqlite-сообщение 'duplicate column'. Остальные ошибки — не миграционный шум."""
+    orig = getattr(exc, "orig", None)
+    pgcode = getattr(orig, "pgcode", None) or getattr(exc, "pgcode", None)
+    if pgcode == "42701":
+        return True
+    text = str(orig or exc).lower()
+    return "duplicate column" in text or "already exists" in text
+
+
+def _jsonable(value: Any) -> Any:
+    """Нормализация значения на DB-границе: datetime/date/time → isoformat,
+    UUID → str, Decimal → фиксированная запись. Только ожидаемые типы колонок;
+    неожидаемые типы НЕ маскируются строкой (упадут явно при кодировании)."""
+    if isinstance(value, (datetime, date, dtime)):
+        return value.isoformat()
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, Decimal):
+        return format(value, "f")
+    return value
+
+
 def row_dict(row: Any) -> dict | None:
-    """Строка результата → обычный dict (для JSON-ответов)."""
-    return dict(row._mapping) if row is not None else None
+    """Строка результата → dict для JSON-ответов; значения нормализуются на
+    DB-boundary (datetime→isoformat, UUID/Decimal→str), без глобального
+    default=str, чтобы неожиданные типы не маскировались."""
+    if row is None:
+        return None
+    return {k: _jsonable(v) for k, v in dict(row._mapping).items()}
 
 
 def rows_dicts(rows: Any) -> list[dict]:
-    return [dict(r._mapping) for r in rows]
+    return [row_dict(r) for r in rows]
 
 
 async def fetch_one(session: AsyncSession, table: sa.Table, row_id: int) -> dict | None:
