@@ -724,6 +724,31 @@ async def _health(svc: Services) -> dict:
                                        svc.start_workers)
     health["metrics"] = _loop_health(svc.metrics.last_tick, svc.metrics.interval * 3,
                                      svc.start_workers)
+    # P1 no-fake-green: подсистемы с внешними зависимостями не должны выглядеть
+    # зелёными, когда они недоступны. Пустой health или unknown не превращается в ok.
+    try:
+        browser = svc.browser
+        if browser is None:
+            from .v2.browser_control import BrowserManager
+            browser = svc.browser = BrowserManager(svc.settings.data_dir / "browser")
+        health["browser"] = ({"status": "ok", "detail": "playwright доступен"}
+                             if browser.available else
+                             {"status": "offline", "detail": "playwright/chromium не установлен"})
+    except Exception as exc:                                  # честное unknown, не ok
+        health["browser"] = {"status": "unknown", "detail": f"{type(exc).__name__}"}
+    try:
+        async with svc.db.session() as s:
+            rows = (await s.execute(sa.select(dbm.models.c.status))).fetchall()
+        statuses = [str(r.status or "unknown").lower() for r in rows]
+        if not statuses:
+            health["models"] = {"status": "empty", "detail": "ни одной модели не настроено"}
+        else:
+            bad = [x for x in statuses if x in ("offline", "error")]
+            health["models"] = (
+                {"status": "degraded", "detail": f"{len(bad)} из {len(statuses)} моделей недоступны"}
+                if bad else {"status": "ok", "detail": f"моделей: {len(statuses)}"})
+    except Exception as exc:
+        health["models"] = {"status": "unknown", "detail": f"{type(exc).__name__}"}
     return health
 
 

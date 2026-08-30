@@ -589,7 +589,9 @@ async function loadTopStats() {
       ? rawHealth.map((c) => String(c.status || c.state || 'unknown'))
       : Object.values(rawHealth).map((v) => (v && typeof v === 'object' ? String(v.status || v.state || 'unknown') : String(v)));
     const bad = values.some((v) => ['down', 'error', 'failed', 'false', 'offline'].includes(v.toLowerCase()));
-    const warn = values.some((v) => ['degraded', 'warning', 'warn'].includes(v.toLowerCase()));
+    /* no-fake-green: пустые/неизвестные статусы не могут выглядеть зелёными */
+    const warnSet = ['degraded', 'warning', 'warn', 'unknown', 'empty', 'stale', 'starting', 'stopped'];
+    const warn = values.length === 0 || values.some((v) => warnSet.includes(v.toLowerCase()));
     syncTopStats({
       cpu: cur.cpu_pct === undefined || cur.cpu_pct === null ? null : Number(cur.cpu_pct),
       ramUsed: cur.ram_used_mb === undefined ? null : Number(cur.ram_used_mb),

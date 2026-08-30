@@ -20,24 +20,34 @@ const BrowserPage = {
   nav: 'primary',
 
   async render(ctx) {
-    let sessions = []; let err = null;
+    let sessions = []; let err = null; let rt = null;
     try { sessions = listOf(await api.raw('/api/browser/sessions'), 'sessions'); }
     catch (e) { err = e; }
+    try { rt = await api.raw('/api/browser/health'); } catch { /* честный unknown ниже */ }
 
     const head = pageHead('Браузер', sessions.length ? `${sessions.length} сессий` : 'Агент работает в настоящем браузере, а вы можете в любой момент взять управление на себя.', {
       actions: [h('button.btn.btn-primary', { type: 'button', onClick: () => createSession(ctx) }, icon('plus', 14), h('span', 'Новое окно'))],
     });
+
+    /* P1 no-fake-green: рантайм недоступен — оператор видит OFFLINE, а не пустоту */
+    const offlineBanner = (!err && rt && rt.available === false)
+      ? h('div.card', { style: { borderLeft: '4px solid var(--err)', padding: '10px 14px', marginBottom: '12px' } },
+          statusBadge('offline'),
+          h('span.small', ' Рантайм браузера недоступен (нужен Playwright + Chromium). Создание сессий завершится ошибкой.'))
+      : null;
 
     const body = err
       ? errorNote(err, () => ctx.refresh())
       : sessions.length
         ? h('div.grid.auto-lg', sessions.map((s) => sessionCard(s, ctx)))
         : blank({
-          iconName: 'search', title: 'Окон браузера пока нет',
-          hint: 'Агент сам открывает страницы и нажимает кнопки. Вход, загрузку файлов и отправку форм он делает только с вашего разрешения, а оплату — никогда.',
+          iconName: 'search', title: rt && rt.available === false ? 'Браузер недоступен' : 'Окон браузера пока нет',
+          hint: rt && rt.available === false
+            ? 'Состояние: OFFLINE. Установите Playwright и Chromium, чтобы агент мог работать в браузере.'
+            : 'Состояние: EMPTY — сессий нет, рантайм готов. Агент сам открывает страницы и нажимает кнопки. Вход, загрузку файлов и отправку форм он делает только с вашего разрешения, а оплату — никогда.',
         });
 
-    return h('div.bx-page', head, body);
+    return h('div.bx-page', head, offlineBanner, body);
   },
 
   onEvent(ev) { return ev.kind === 'agent.tool_call' && ev.tool === 'browser'; },

@@ -1130,6 +1130,11 @@ async function loadTaskDetail(id, bodyEl, ctx) {
     actions.appendChild(h('button.btn.btn-sm', { type: 'button', onClick: () => ctx.navigate('approvals') },
       icon('approvals', 13), h('span', 'В очередь подтверждений')));
   }
+  /* P1: цепочка Task → Session → Diff → Merge должна быть достижима из задачи */
+  if (status === 'running' || status === 'completed' || status === 'paused') {
+    actions.appendChild(h('button.btn.btn-sm', { type: 'button', onClick: () => ctx.navigate('coding') },
+      icon('edit', 13), h('span', 'Diff / Merge')));
+  }
 
   /* лог */
   const logEl = h('div.log');
@@ -1533,9 +1538,11 @@ function normalizeSystem(data) {
   }));
 
   const tones = health.map((c) => statusTone(c.status));
-  const overall = !health.length ? 'ok'
-    : tones.includes('err') ? 'err'
-      : tones.includes('warn') ? 'warn' : 'ok';
+  /* P1 no-fake-green: нет данных, unknown или idle-статус компонента — это НЕ «в норме».
+     Разрешённые честные состояния: ok / warn (degraded|unknown|empty) / err (offline|down). */
+  const overall = tones.includes('err') ? 'err'
+    : (!health.length || tones.includes('warn') || tones.includes('idle')) ? 'warn'
+      : 'ok';
 
   return {
     cpu: num(pick(cur, ['cpu_pct', 'cpu', 'cpu_percent'])),

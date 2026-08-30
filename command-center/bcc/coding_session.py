@@ -147,10 +147,19 @@ class CodingWorktreeManager:
         return {"stat": stat.strip(), "patch": patch[:max_bytes], "truncated": truncated,
                 "files": [f for f in names.splitlines() if f.strip()]}
 
+    async def _current_branch(self, repo: str | Path) -> str:
+        code, out, _ = await _git(repo, "rev-parse", "--abbrev-ref", "HEAD", check=False)
+        b = out.strip()
+        return b if code == 0 and b and b != "HEAD" else ""
+
+    async def _resolve_target(self, meta: SessionMeta, into: str | None) -> str:
+        """Куда вливаем: явный into → текущая ветка источника → запиненная база."""
+        return into or await self._current_branch(meta.source_repo) or meta.base_ref
+
     async def merge_preview(self, session_id: str, *, into: str | None = None) -> dict:
         """Conflict-aware превью без касания рабочего дерева (git merge-tree)."""
         meta = self._require(session_id)
-        target = into or meta.base_ref
+        target = await self._resolve_target(meta, into)
         # git merge-tree --write-tree отдаёт ненулевой код при конфликте
         code, out, err = await _git(meta.source_repo, "merge-tree", "--write-tree",
                                     target, meta.branch, check=False)
@@ -165,31 +174,41 @@ class CodingWorktreeManager:
         return {"session_id": meta.session_id, "into": target, "clean": clean,
                 "conflicts": conflicts[:200]}
 
-    async def merge(self, session_id: str, *, into: str, allow_conflicts: bool = False) -> dict:
-        """Реальный merge ветки сессии в into. Сериализован; конфликты → abort."""
+    async def merge(self, session_id: str, *, into: str | None = None,
+                    allow_conflicts: bool = False) -> dict:
+        """Реальный merge ветки сессии. Сериализован; конфликты → abort.
+
+        Слияние фиксируется коммитом (commit-tree) и двигает ref цели —
+        рабочее дерево источника остаётся нетронутым, а результат НЕ становится
+        недостижимым сиротой (раньше detached-worktree merge терял коммит).
+        """
         meta = self._require(session_id)
         async with _MERGE_LOCK:
-            preview = await self.merge_preview(session_id, into=into)
+            target = await self._resolve_target(meta, into)
+            preview = await self.merge_preview(session_id, into=target)
             if not preview["clean"] and not allow_conflicts:
                 return {"merged": False, "reason": "conflicts", "conflicts": preview["conflicts"]}
-            # мержим в отдельном временном worktree на into — рабочее дерево источника цело
-            tmp = (self.root / f".merge-{meta.session_id}").resolve()
-            if tmp.exists():
-                shutil.rmtree(tmp, ignore_errors=True)
-            await _git(meta.source_repo, "worktree", "add", "--detach", str(tmp), into)
-            try:
-                code, _, err = await _git(tmp, "merge", "--no-edit", meta.branch, check=False)
-                if code:
-                    await _git(tmp, "merge", "--abort", check=False)
-                    return {"merged": False, "reason": "merge failed", "detail": err.strip()[:500]}
-                _, head, _ = await _git(tmp, "rev-parse", "HEAD")
-            finally:
-                await _git(meta.source_repo, "worktree", "remove", "--force", str(tmp), check=False)
-                shutil.rmtree(tmp, ignore_errors=True)
+            # чистое слияние: merge-tree уже дал дерево — коммитим его напрямую
+            code, out, _ = await _git(meta.source_repo, "merge-tree", "--write-tree",
+                                      target, meta.branch)
+            tree = (out.splitlines() or [""])[0].strip()
+            msg = f"Merge coding-session {meta.session_id} ({meta.branch}) into {target}"
+            code, commit, err = await _git(
+                meta.source_repo, "-c", "user.name=BOSSMAN", "-c", "user.email=bossman@local",
+                "commit-tree", tree, "-p", target, "-p", meta.branch, "-m", msg)
+            if code or not commit.strip():
+                return {"merged": False, "reason": "merge failed", "detail": err.strip()[:500]}
+            head = commit.strip()
+            # двигаем ref только если target — ветка; голый коммит честно отклоняем
+            code, _, _ = await _git(meta.source_repo, "rev-parse", "--verify",
+                                    f"refs/heads/{target}", check=False)
+            if code:
+                return {"merged": False, "reason": "target is not a branch", "into": target}
+            await _git(meta.source_repo, "update-ref", f"refs/heads/{target}", head)
             data = self._load()
             data[meta.session_id]["status"] = "merged"
             self._save(data)
-            return {"merged": True, "into": into, "head": head.strip()}
+            return {"merged": True, "into": target, "head": head}
 
     async def discard(self, session_id: str) -> dict:
         """Явный discard: снять worktree + удалить ветку. Не авто, только по команде."""

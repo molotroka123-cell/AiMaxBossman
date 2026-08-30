@@ -16,6 +16,7 @@ import SkillsPage from './skills.js';
 import TerminalPage from './terminal.js';
 import BenchmarksPage from './benchmarks.js';
 import BrowserPage from './browser.js';
+import CodingPage from './coding.js';
 import AgentMapPage from './agentmap.js';
 import OrchestrasPage from './orchestras.js';
 import ForksPage from './forks.js';
@@ -37,6 +38,7 @@ export const FEATURE_PAGES = [
   TerminalPage,
   BenchmarksPage,
   BrowserPage,
+  CodingPage,
   AgentMapPage,
   OrchestrasPage,
   ForksPage,

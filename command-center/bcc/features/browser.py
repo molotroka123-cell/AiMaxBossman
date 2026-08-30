@@ -68,6 +68,14 @@ async def _record(svc, session_id: int, **values) -> None:
         await s.commit()
 
 
+@router.get("/browser/health")
+async def browser_health(request: Request):
+    """Честное состояние рантайма браузера: available/false, а не «пусто = зелёный»."""
+    mgr = _mgr(request.app.state.svc)
+    return {"available": bool(mgr.available),
+            "active_sessions": len(getattr(mgr, "_sessions", {}) or {})}
+
+
 @router.post("/browser/sessions")
 async def create_session(request: Request):
     svc = request.app.state.svc
