@@ -405,6 +405,44 @@ facts = sa.Table(
     sa.Index("ix_facts_invalid_at", "invalid_at"),
 )
 
+# V2 Context OS — Decision / Failure / Procedure memory (Phase 1)
+decisions = sa.Table(
+    "decisions", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("key", sa.String(200), unique=True, nullable=False),  # use-existing-stage13@v1
+    sa.Column("decision", sa.Text, nullable=False),
+    sa.Column("reason", sa.Text, default=""),
+    sa.Column("alternatives_rejected", sa.JSON, default=list),
+    sa.Column("scope", sa.String(200), default="Bossman V1"),
+    sa.Column("created_by", sa.String(120), default=""),
+    sa.Column("superseded_by", sa.Integer, sa.ForeignKey("decisions.id", ondelete="SET NULL")),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
+failures = sa.Table(
+    "failures", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("symptom", sa.Text, nullable=False),
+    sa.Column("root_cause", sa.Text, default=""),
+    sa.Column("attempted_fix", sa.Text, default=""),
+    sa.Column("result", sa.Text, default=""),
+    sa.Column("files", sa.JSON, default=list),
+    sa.Column("test", sa.String(300), default=""),
+    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="SET NULL")),
+    sa.Column("run_id", sa.Integer, sa.ForeignKey("task_runs.id", ondelete="SET NULL")),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
+procedures = sa.Table(
+    "procedures", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("name", sa.String(200), unique=True, nullable=False),
+    sa.Column("description", sa.Text, default=""),
+    sa.Column("steps", sa.JSON, default=list),
+    sa.Column("scope", sa.String(200), default=""),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
 # Сессии UI: HttpOnly-cookie вместо вечного токена в localStorage (V2.1, фаза N).
 sessions = sa.Table(
     "sessions", metadata,
