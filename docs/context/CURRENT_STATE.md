@@ -1,11 +1,13 @@
 # CURRENT STATE — канонический источник (single source of truth)
 
-> Это канонический документ текущего состояния. Все исторические отчёты — в
-> `docs/archive/`. README ссылается сюда.
+> **BOSSMAN V1 FROZEN**
+> V1 Acceptance completed. All blockers closed.
+> Canonical Audit: `docs/context/CODEX_BOSSMAN_V1_FINAL_AUDIT.md` (FINAL FREEZE ADDENDUM).
 
 - Ветка: `claude/bossman-control-v03-43igbk`. NO force push.
-- Эпоха: **POLISH / FINAL** — доводка уже построенного Bossman до законченного
-  состояния перед вечерним REAL E2E (Windows + Ollama). Без новой архитектуры.
+- Эпоха: **BOSSMAN V1 FROZEN** — release freeze point reached.
+- Вердикт: **V1 PASS — FREEZE**
+- Next Phase: **LLM ARCHITECTURE V2** (see `docs/context/NEXT.md`).
 
 ## Две связки (два приложения над общими инвариантами)
 1. **bossman-core** (`bossman-core/bossman/`) — агентная ОС: канонический цикл

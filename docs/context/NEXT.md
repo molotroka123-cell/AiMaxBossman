@@ -1,8 +1,34 @@
 # NEXT — исполняемые шаги
 
-Периметр и хостовое исполнение закрыты (см. FINAL_HARDENING_STATUS.md). Осталось:
+> **BOSSMAN V1 FROZEN** (Release Freeze: 2026-08-30)
+> V1 is complete and frozen. Future development begins with **LLM ARCHITECTURE V2**.
 
-## 1. PRE-DISPATCH АУДИТ ВЛАДЕЛЬЦА (перед Stage 13)
+---
+
+# LLM ARCHITECTURE V2
+
+## Initial Planned Pillars
+
+1. **Working Memory**: Task-scoped active state, step trackers, invariants, and versioned checkpointing with optimistic concurrency.
+2. **Context Compiler**: Priority-budgeted multi-channel context assembly (P0 Security Invariants → P1 Objectives → P2 Working State → P3 Decisions → P4 Failures → P5 Observations → P6 Background Evidence) with token clipping and deduplication.
+3. **Executable Task DAG**: Dependency graph execution with parallel branches, barrier sync, and rollback semantics.
+4. **Adaptive Reasoning Levels**: Dynamic depth selection based on task complexity, confidence score, and capability classification.
+5. **Task-Specific Model Routing**: Routing planner, coder, critic, extractor, and fast classifier queries to specialized local vs cloud models.
+6. **Planner / Coder / Critic / Verifier Separation**: Strict modular roles with discrete input/output validation contracts.
+7. **Confidence-Based Escalation**: Automated escalation ladder (Local Fast → Local Smart/Coder → Cloud/Human Approval) triggered on low verification confidence or policy constraints.
+8. **Multi-Candidate Generation + Judge**: Parallel generation of alternative solutions with deterministic and LLM judging against rubric criteria.
+9. **Execution-Grounded Verification**: Runtime proofs and test-backed validation loops before transition to DONE state.
+10. **Self-Repair Policy**: Bounded retry and repair loops with negative memory / failure pattern recall before re-attempting failed steps.
+11. **Model Capability Registry**: Dynamic registration and validation of local/cloud model features (tools, vision, reasoning, context windows, cost parameters).
+12. **Real-World Model Scorecards**: Empirical benchmarks tracking real-world speed, cost, error rates, and task completion accuracy.
+13. **Speculative Local-First Execution**: Opportunistic local execution with fallback on threshold breach.
+14. **Conditional Multi-Model Debate**: Multi-agent consensus for high-stakes architectural or sensitive actions.
+15. **Tool-Aware Reasoning**: Fine-grained schema compression, tool capability filtering, and structured output adherence.
+16. **Structured Inter-Agent Contracts**: Typed envelope schemas with immutable provenance, correlation tokens, and anti-replay integrity.
+
+---
+
+## 1. PRE-DISPATCH АУДИТ ВЛАДЕЛЬЦА (post-freeze)
 Stage 13 Dispatch НЕ начат намеренно. Нужен отдельный аудит/одобрение владельца
 по FINAL_HARDENING_STATUS.md. Проверить особенно: branch protection (required
 checks) и политику Tailscale (наружу только /remote).
