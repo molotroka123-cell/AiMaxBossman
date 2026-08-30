@@ -99,8 +99,76 @@ CREATE TABLE IF NOT EXISTS agent_memory_index (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Проекты (раздел 9): источник истины — state.json в папке проекта, БД — для панелей и учёта.
-CREATE TABLE IF NOT EXISTS projects (
+-- Решения с поддержкой перекрытия (supersession).
+CREATE TABLE IF NOT EXISTS decisions (
+    id              BIGSERIAL PRIMARY KEY,
+    decision_id     TEXT NOT NULL UNIQUE,
+    scope           TEXT NOT NULL,
+    subject         TEXT NOT NULL,
+    decision        TEXT NOT NULL,
+    reason          TEXT,
+    alternatives_rejected JSONB NOT NULL DEFAULT '[]',
+    evidence        JSONB NOT NULL DEFAULT '[]',
+    valid_from      TIMESTAMPTZ NOT NULL,
+    supersedes      BIGINT,
+    source_kind     TEXT NOT NULL DEFAULT 'agent',
+    source_run_id   BIGINT,
+    source_note     TEXT,
+    confidence      REAL NOT NULL DEFAULT 1.0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_decisions_scope ON decisions(scope, subject);
+CREATE INDEX IF NOT EXISTS idx_decisions_id ON decisions(decision_id);
+
+-- Записи о сбоях с анализом причин.
+CREATE TABLE IF NOT EXISTS failures (
+    id              BIGSERIAL PRIMARY KEY,
+    task_id         TEXT NOT NULL,
+    symptom         TEXT NOT NULL,
+    error_class     TEXT NOT NULL,
+    root_cause      TEXT NOT NULL,
+    attempted_fix   TEXT,
+    result          TEXT,
+    files           JSONB NOT NULL DEFAULT '[]',
+    tests           JSONB NOT NULL DEFAULT '[]',
+    environment     JSONB NOT NULL DEFAULT '{}',
+    resolved        BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    resolved_at     TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_failures_task ON failures(task_id);
+CREATE INDEX IF NOT EXISTS idx_failures_resolved ON failures(resolved);
+
+-- Рабочая память: активное состояние задачи с versioning и conflict detection.
+CREATE TABLE IF NOT EXISTS working_memory (
+    id                BIGSERIAL PRIMARY KEY,
+    task_id           TEXT NOT NULL,
+    objective         TEXT NOT NULL,
+    status            TEXT NOT NULL DEFAULT 'active', -- active | paused | completed | failed
+    current_step      TEXT,
+    plan_version      INT NOT NULL DEFAULT 1,
+    constraints       JSONB NOT NULL DEFAULT '[]',
+    invariants        JSONB NOT NULL DEFAULT '[]',
+    decisions         JSONB NOT NULL DEFAULT '[]',
+    completed_steps   JSONB NOT NULL DEFAULT '[]',
+    pending_steps     JSONB NOT NULL DEFAULT '[]',
+    open_questions    JSONB NOT NULL DEFAULT '[]',
+    recent_failures   JSONB NOT NULL DEFAULT '[]',
+    observations      JSONB NOT NULL DEFAULT '[]',
+    artifacts         JSONB NOT NULL DEFAULT '[]',
+    relevant_files    JSONB NOT NULL DEFAULT '[]',
+    next_action       JSONB,
+    context_version   INT NOT NULL DEFAULT 1,
+    version           INT NOT NULL DEFAULT 1,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_working_memory_task ON working_memory(task_id);
+CREATE INDEX IF NOT EXISTS idx_working_memory_version ON working_memory(task_id, version DESC);
     id           BIGSERIAL PRIMARY KEY,
     slug         TEXT NOT NULL UNIQUE,
     title        TEXT NOT NULL,
