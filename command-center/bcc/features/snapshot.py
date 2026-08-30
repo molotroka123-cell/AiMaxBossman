@@ -597,6 +597,17 @@ async def restore(snapshot_id: int, request: Request):
         have = {r[0] for r in (await s.execute(sa.select(snapshots_t.c.id))).fetchall()}
         missing = [r for r in keep_rows if r["id"] not in have]
         if missing:
+            # SQLite DateTime may come back as string after JSON roundtrip or driver
+            from datetime import datetime as _dt
+
+            for r in missing:
+                ca = r.get("created_at")
+                if isinstance(ca, str):
+                    try:
+                        # handle '2026-08-30T20:16:08.231921' or with Z
+                        r["created_at"] = _dt.fromisoformat(ca.replace("Z", ""))
+                    except Exception:
+                        r["created_at"] = _dt.now()
             await s.execute(sa.insert(snapshots_t), missing)
             await s.commit()
 
