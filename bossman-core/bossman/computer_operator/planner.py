@@ -76,6 +76,10 @@ class Planner:
                     x["window_title_contains"]=fg["title"]
                 if fg.get("app") and not x.get("foreground_app_contains"):
                     x["foreground_app_contains"]=fg["app"]
+            fa=x.pop("foreground_app",None) if isinstance(x.get("foreground_app"),str) else None
+            if fa and not x.get("foreground_app_contains"): x["foreground_app_contains"]=fa
+            wt=x.pop("window_title",None) if isinstance(x.get("window_title"),str) else None
+            if wt and not x.get("window_title_contains"): x["window_title_contains"]=wt
             url=x.pop("url",None) if isinstance(x.get("url"),str) else None
             if url and not x.get("url_contains"): x["url_contains"]=url
         return raw
