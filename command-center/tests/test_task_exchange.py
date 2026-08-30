@@ -213,17 +213,6 @@ async def test_bounded_retries_then_failed(xenv):
                and b.get("task_id") == task["task_id"] for b in finals)
 
 
-async def test_boundary_normalization_row_dict():
-    from bcc.db import _jsonable
-    from datetime import datetime
-    from decimal import Decimal
-    import uuid
-    assert _jsonable(datetime(2026, 1, 1, 12, 0)) == "2026-01-01T12:00:00"
-    assert _jsonable(Decimal("10.50")) == "10.50"
-    u = uuid.uuid4()
-    assert _jsonable(u) == str(u)
-
-
 async def test_migrate_only_swallows_duplicate_column(xenv):
     from bcc.db import _is_duplicate_column_error
     assert _is_duplicate_column_error(Exception("duplicate column name: foo"))

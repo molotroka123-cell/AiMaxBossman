@@ -576,30 +576,16 @@ def _is_duplicate_column_error(exc: Exception) -> bool:
     return "duplicate column" in text or "already exists" in text
 
 
-def _jsonable(value: Any) -> Any:
-    """Нормализация значения на DB-границе: datetime/date/time → isoformat,
-    UUID → str, Decimal → фиксированная запись. Только ожидаемые типы колонок;
-    неожидаемые типы НЕ маскируются строкой (упадут явно при кодировании)."""
-    if isinstance(value, (datetime, date, dtime)):
-        return value.isoformat()
-    if isinstance(value, uuid.UUID):
-        return str(value)
-    if isinstance(value, Decimal):
-        return format(value, "f")
-    return value
-
-
 def row_dict(row: Any) -> dict | None:
-    """Строка результата → dict для JSON-ответов; значения нормализуются на
-    DB-boundary (datetime→isoformat, UUID/Decimal→str), без глобального
-    default=str, чтобы неожиданные типы не маскировались."""
-    if row is None:
-        return None
-    return {k: _jsonable(v) for k, v in dict(row._mapping).items()}
+    """Строка результата → обычный dict (для JSON-ответов). Значения остаются
+    нативными Python-типами: FastAPI jsonable_encoder кодирует datetime сам,
+    а внутренний код (snapshot restore, session TTL) опирается на datetime.
+    Неожидаемые типы НЕ маскируются строкой."""
+    return dict(row._mapping) if row is not None else None
 
 
 def rows_dicts(rows: Any) -> list[dict]:
-    return [row_dict(r) for r in rows]
+    return [dict(r._mapping) for r in rows]
 
 
 async def fetch_one(session: AsyncSession, table: sa.Table, row_id: int) -> dict | None:
