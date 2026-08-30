@@ -880,9 +880,16 @@ class TaskEngine:
 
     async def _save_checkpoint(self, run_id: int, messages: list[dict], step: int,
                                note: str = "", **values: Any) -> None:
+        ckpt: dict[str, Any] = {"messages": messages, "step": step, "note": note}
+        sm = getattr(self, "_sm", None)
+        if sm is not None:
+            try:
+                ckpt["sm"] = sm.checkpoint()
+            except Exception:
+                pass
         async with self.db.session() as s:
             await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
-                checkpoint={"messages": messages, "step": step, "note": note}, **values))
+                checkpoint=ckpt, **values))
             await s.commit()
 
     async def _finish(self, run_id: int, task_id: int, status: str, *,
