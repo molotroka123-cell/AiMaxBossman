@@ -26,3 +26,28 @@ def actual_usd(*,prompt_tokens:int,completion_tokens:int,
                         prompt_price_per_token=prompt_price_per_token,
                         completion_price_per_token=completion_price_per_token,
                         fixed_request_usd=fixed_request_usd)
+
+def cache_aware_actual_usd(*,prompt_tokens:int,completion_tokens:int,
+                           cached_tokens:int=0,cache_write_tokens:int=0,
+                           prompt_price_per_token,completion_price_per_token,
+                           cache_read_price_per_token,cache_write_price_per_token,
+                           fixed_request_usd=0):
+    """Fallback billing estimate when the provider did not return ``usage.cost``.
+
+    Cached and cache-write tokens are subsets of prompt tokens and are charged
+    at their own non-zero rates.  Inconsistent provider counters fail closed
+    instead of silently producing a negative fresh-token count.
+    """
+    counts=(prompt_tokens,completion_tokens,cached_tokens,cache_write_tokens)
+    if any(not isinstance(v,int) or v<0 for v in counts):
+        raise ValueError("token counts must be non-negative integers")
+    if cached_tokens+cache_write_tokens>prompt_tokens:
+        raise ValueError("cache token counters exceed prompt_tokens")
+    fresh=prompt_tokens-cached_tokens-cache_write_tokens
+    return money(
+        Decimal(fresh)*normalize_per_token_price(prompt_price_per_token)
+        +Decimal(cached_tokens)*normalize_per_token_price(cache_read_price_per_token)
+        +Decimal(cache_write_tokens)*normalize_per_token_price(cache_write_price_per_token)
+        +Decimal(completion_tokens)*normalize_per_token_price(completion_price_per_token)
+        +_d(fixed_request_usd)
+    )

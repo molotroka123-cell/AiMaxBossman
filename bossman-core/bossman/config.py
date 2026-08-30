@@ -25,6 +25,9 @@ class Settings:
     # ключом BOSSMAN_GATEWAY_CORE_KEY (не ключом провайдера и не ключом агента).
     gateway_url: str = field(default_factory=lambda: _env("BOSSMAN_GATEWAY_URL", ""))
     gateway_core_key: str = field(default_factory=lambda: _env("BOSSMAN_GATEWAY_CORE_KEY", ""))
+    # Dense autonomous loops use the cheaper 5m cache-write TTL.  Operators
+    # can opt long human-in-loop sessions into 1h without changing prompts.
+    prompt_cache_ttl: str = field(default_factory=lambda: _env("BOSSMAN_PROMPT_CACHE_TTL", "5m"))
     database_url: str = field(default_factory=lambda: _env(
         "BOSSMAN_DATABASE_URL", "postgresql://bossman:bossman@postgres:5432/bossman"))
     redis_url: str = field(default_factory=lambda: _env("REDIS_URL", "redis://redis:6379/0"))

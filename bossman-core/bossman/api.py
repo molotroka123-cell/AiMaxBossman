@@ -313,8 +313,32 @@ async def list_models():
                   round(avg(CASE WHEN prefix_cache_hit THEN 1 ELSE 0 END)::numeric, 3) AS cache_rate,
                   count(*) AS calls
            FROM model_calls WHERE created_at > now() - interval '7 days' GROUP BY agent""")
+    prompt_cache = {
+        "state": "UNSUPPORTED" if not settings.gateway_url else "DEGRADED",
+        "miss_reason": "gateway disabled" if not settings.gateway_url else "gateway unavailable",
+        "cache_hit_percent": 0.0,
+        "cached_tokens": 0,
+        "fresh_input_tokens": 0,
+        "cache_write_tokens": 0,
+        "saved_usd": 0.0,
+        "actual_cost_usd": 0.0,
+        "session_affinity": False,
+        "provider": None,
+        "model": None,
+        "ttl": None,
+        "prefix_stability_percent": None,
+    }
+    if settings.gateway_url:
+        try:
+            from .llm import gateway_metrics
+            gateway_snapshot = await gateway_metrics()
+            candidate = (gateway_snapshot or {}).get("prompt_cache")
+            if isinstance(candidate, dict):
+                prompt_cache = candidate
+        except Exception:
+            pass  # explicit DEGRADED above; no fake-green on unavailable Gateway
     return {"installed": installed, "running": running, "llama_swap_error": swap_err,
-            "context_stats": ctx_stats}
+            "context_stats": ctx_stats, "prompt_cache": prompt_cache}
 
 
 @app.post("/models/{alias}/load", dependencies=[Depends(require_scope(SCOPE_ADMIN))])

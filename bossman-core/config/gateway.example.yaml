@@ -21,11 +21,16 @@ backends:
     enabled: false
   openrouter:
     base_url: https://openrouter.ai/api
+    kind: openrouter
+    cloud: true
     api_key_env: OPENROUTER_API_KEY
     health_path: /v1/models
     timeout_seconds: 180
     max_concurrency: 4
     enabled: false
+    prompt_cache_enabled: true
+    prompt_cache_ttl: 5m  # set 1h for long human-in-loop sessions
+    session_affinity_enabled: true
 
 aliases:
   bossman-fast:
@@ -58,6 +63,20 @@ aliases:
         model: REPLACE_WITH_CODER_MODEL
         priority: 10
         capabilities: [text, tools, code]
+  bossman-opus:
+    targets:
+      - backend: openrouter
+        model: anthropic/claude-opus-5
+        priority: 10
+        capabilities: [text, tools, code]
+        context_window: 1000000
+        max_output_tokens: 128000
+        # Verified 2026-08-30; re-check OpenRouter pricing before production use.
+        price_usd_per_million_input_tokens: "5"
+        price_usd_per_million_output_tokens: "25"
+        price_usd_per_million_cache_read_tokens: "0.5"
+        price_usd_per_million_cache_write_tokens_5m: "6.25"
+        price_usd_per_million_cache_write_tokens_1h: "10"
   bossman-vision:
     required_capabilities: [vision]
     targets:

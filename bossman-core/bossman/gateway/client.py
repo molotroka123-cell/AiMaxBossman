@@ -30,7 +30,9 @@ class GatewayClient:
         await self._client.aclose()
 
     async def chat(self, *, model: str, messages: list[dict], tools: list[dict] | None = None,
-                   max_tokens: int | None = None, cloud_allowed: bool = True, **extra: Any) -> dict:
+                   max_tokens: int | None = None, cloud_allowed: bool = True,
+                   session_id: str = "", cache_ttl: str | None = None,
+                   run_id: str | int | None = None, **extra: Any) -> dict:
         payload: dict[str, Any] = {"model": model, "messages": messages, **extra}
         if tools:
             payload["tools"] = tools
@@ -40,6 +42,12 @@ class GatewayClient:
         # Облачная политика агента едет заголовком, а не полем тела: в тело нельзя,
         # оно уходит апстриму. Gateway сам вырежет облачные цели при "0".
         headers["X-Bossman-Cloud-Allowed"] = "1" if cloud_allowed else "0"
+        if session_id:
+            headers["X-Bossman-Session-Id"] = session_id
+        if cache_ttl:
+            headers["X-Bossman-Cache-TTL"] = cache_ttl
+        if run_id is not None:
+            headers["X-Bossman-Run-Id"] = str(run_id)
         r = await self._client.post(f"{self.base_url}/chat/completions", headers=headers, json=payload)
         if r.status_code == 403:
             try:
@@ -56,9 +64,25 @@ class GatewayClient:
         r.raise_for_status()
         return r.json()
 
-    async def stream_chat(self, *, model: str, messages: list[dict], **extra: Any) -> AsyncIterator[bytes]:
+    async def metrics(self) -> dict:
+        root = self.base_url[:-3] if self.base_url.endswith("/v1") else self.base_url
+        r = await self._client.get(f"{root}/metrics", headers=self._headers())
+        r.raise_for_status()
+        return r.json()
+
+    async def stream_chat(self, *, model: str, messages: list[dict], cloud_allowed: bool = True,
+                          session_id: str = "", cache_ttl: str | None = None,
+                          run_id: str | int | None = None, **extra: Any) -> AsyncIterator[bytes]:
         payload = {"model": model, "messages": messages, "stream": True, **extra}
-        async with self._client.stream("POST", f"{self.base_url}/chat/completions", headers=self._headers(), json=payload) as r:
+        headers = dict(self._headers())
+        headers["X-Bossman-Cloud-Allowed"] = "1" if cloud_allowed else "0"
+        if session_id:
+            headers["X-Bossman-Session-Id"] = session_id
+        if cache_ttl:
+            headers["X-Bossman-Cache-TTL"] = cache_ttl
+        if run_id is not None:
+            headers["X-Bossman-Run-Id"] = str(run_id)
+        async with self._client.stream("POST", f"{self.base_url}/chat/completions", headers=headers, json=payload) as r:
             r.raise_for_status()
             async for chunk in r.aiter_raw():
                 if chunk:

@@ -18,6 +18,12 @@ class BackendConfig:
     max_concurrency: int = 2
     enabled: bool = True
     kind: str = "openai"
+    # Provider-specific request shaping is opt-in.  ``openrouter`` enables
+    # sticky session affinity and prompt caching; generic OpenAI-compatible
+    # backends continue to receive the original payload byte-for-byte.
+    prompt_cache_enabled: bool = True
+    prompt_cache_ttl: str = "5m"
+    session_affinity_enabled: bool = True
     health_path: str = "/v1/models"
     extra_headers: dict[str, str] = field(default_factory=dict)
     # Облачность объявляется явно, а не угадывается по имени: это источник
@@ -54,6 +60,9 @@ class ModelTarget:
     # а не «наверное дёшево».
     price_usd_per_million_input_tokens: str | None = None
     price_usd_per_million_output_tokens: str | None = None
+    price_usd_per_million_cache_read_tokens: str | None = None
+    price_usd_per_million_cache_write_tokens_5m: str | None = None
+    price_usd_per_million_cache_write_tokens_1h: str | None = None
     fixed_request_usd: str | None = None
 
 
@@ -123,6 +132,9 @@ def load_gateway_config(path: str | Path | None = None) -> GatewayConfig:
                 max_output_tokens=t.get("max_output_tokens"),
                 price_usd_per_million_input_tokens=t.get("price_usd_per_million_input_tokens"),
                 price_usd_per_million_output_tokens=t.get("price_usd_per_million_output_tokens"),
+                price_usd_per_million_cache_read_tokens=t.get("price_usd_per_million_cache_read_tokens"),
+                price_usd_per_million_cache_write_tokens_5m=t.get("price_usd_per_million_cache_write_tokens_5m"),
+                price_usd_per_million_cache_write_tokens_1h=t.get("price_usd_per_million_cache_write_tokens_1h"),
                 fixed_request_usd=t.get("fixed_request_usd"),
             ))
         aliases[name] = AliasConfig(

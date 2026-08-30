@@ -15,6 +15,12 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from .auth import AuthManager, AuthenticatedClient, ensure_alias_allowed
 from .backends import BackendError, CircuitOpenError
 from .config import GatewayConfig, ModelTarget, load_gateway_config
+from .prompt_cache import (
+    SSEUsageCollector,
+    cache_metadata_rejected,
+    extract_cache_usage,
+    prepare_provider_payload,
+)
 from .router import CloudPolicyDenied, ModelRouter, RouteNotFound
 from .telemetry import GatewayMetrics
 from ..cost_control.enforcer import BudgetApprovalRejected as _BudgetApprovalRejected
@@ -36,7 +42,11 @@ def _prompt_tokens_upper(payload: dict[str, Any]) -> int:
     """Консервативная оценка prompt-токенов ТЕМ ЖЕ методом, что и остальное
     ядро (bossman.context.estimate_tokens) — не второй алгоритм подсчёта."""
     from ..context import estimate_tokens
-    text = json.dumps(payload.get("messages") or payload.get("input") or "", ensure_ascii=False)
+    billable_prefix = {
+        "messages_or_input": payload.get("messages") or payload.get("input") or "",
+        "tools": payload.get("tools") or [],
+    }
+    text = json.dumps(billable_prefix, ensure_ascii=False)
     return estimate_tokens(text)
 
 
@@ -65,8 +75,36 @@ def _route_price(target: ModelTarget) -> tuple[Decimal, Decimal, Decimal] | None
         return None
 
 
+def _per_token(value: Any) -> Decimal | None:
+    if value is None or value == "":
+        return None
+    try:
+        result = Decimal(str(value)) / Decimal("1000000")
+    except Exception:
+        return None
+    return result if result.is_finite() and result >= 0 else None
+
+
+def _cache_prices(route, p_in: Decimal, cache_meta: dict[str, Any]) -> tuple[Decimal, Decimal]:
+    """Cache read/write prices per token, with documented Anthropic ratios as fallback."""
+    target = route.target
+    read = _per_token(target.price_usd_per_million_cache_read_tokens)
+    write_field = (target.price_usd_per_million_cache_write_tokens_1h
+                   if cache_meta.get("ttl") == "1h"
+                   else target.price_usd_per_million_cache_write_tokens_5m)
+    write = _per_token(write_field)
+    anthropic = (route.model or "").lower().lstrip("~").startswith("anthropic/")
+    if read is None:
+        read = p_in * (Decimal("0.1") if anthropic else Decimal("1"))
+    if write is None:
+        multiplier = Decimal("2") if cache_meta.get("ttl") == "1h" else Decimal("1.25")
+        write = p_in * (multiplier if anthropic else Decimal("1"))
+    return read, write
+
+
 async def _cost_reserve(route, payload: dict[str, Any], *, cloud_allowed: bool,
-                        request_id: str, attempt_index: int, run_id: str | None, client_name: str):
+                        request_id: str, attempt_index: int, run_id: str | None, client_name: str,
+                        cache_meta: dict[str, Any] | None = None):
     """Immediately-before-cloud-upstream гейт (см. integration/GATEWAY_COST_HOOK.md
     пакета). Только для облачных целей; для локальных — no-op (None, None).
 
@@ -90,9 +128,14 @@ async def _cost_reserve(route, payload: dict[str, Any], *, cloud_allowed: bool,
                 f"потолок completion-токенов, а бюджетная политика включена")
         return None, None
     p_in, p_out, fixed = price
+    cache_meta = cache_meta or {}
+    cache_read_price, cache_write_price = _cache_prices(route, p_in, cache_meta)
+    # A cold Anthropic write is more expensive than ordinary input.  Reserve
+    # against that upper bound; a warm read is reconciled from provider usage.
+    reserve_prompt_price = max(p_in, cache_write_price) if cache_meta.get("cache_control_applied") else p_in
     estimated = estimate_usd(prompt_tokens_upper=_prompt_tokens_upper(payload),
                              completion_tokens_upper=completion_cap,
-                             prompt_price_per_token=p_in, completion_price_per_token=p_out,
+                             prompt_price_per_token=reserve_prompt_price, completion_price_per_token=p_out,
                              fixed_request_usd=fixed)
     context = BudgetContext(run_id=run_id, owner_device_id=client_name)
     idempotency_key = f"{request_id}:{attempt_index}:{route.backend_name}:{route.model}"
@@ -108,11 +151,12 @@ async def _cost_reserve(route, payload: dict[str, Any], *, cloud_allowed: bool,
     enforcer = BudgetEnforcer(GOVERNOR, _approval_create, _approval_wait)
     reservation = await enforcer.reserve(context, estimated, idempotency_key=idempotency_key,
                                          cloud_allowed=cloud_allowed)
-    return reservation, (enforcer, p_in, p_out, fixed)
+    return reservation, (enforcer, p_in, p_out, cache_read_price, cache_write_price, fixed)
 
 
 async def _cost_settle(enforcer, reservation, usage_body: Any, p_in: Decimal, p_out: Decimal,
-                       fixed: Decimal) -> None:
+                       cache_read_price: Decimal, cache_write_price: Decimal,
+                       fixed: Decimal) -> Decimal | None:
     """reserve → commit по факту usage. Стрим/бэкенд без usage → коммитим саму
     бронь (верхнюю границу): расход никогда не занижается, лишь изредка
     (честно) переоценивается.
@@ -120,15 +164,26 @@ async def _cost_settle(enforcer, reservation, usage_body: Any, p_in: Decimal, p_
     Учёт расхода никогда не превращает уже успешный (и уже оплаченный у
     провайдера) ответ в ошибку для клиента — все сбои здесь только логируются."""
     from .. import events
-    from ..cost_control.pricing import actual_usd
+    from ..cost_control.models import money
+    from ..cost_control.pricing import cache_aware_actual_usd
     from ..cost_control.store import BudgetExtensionRequired
     try:
         if isinstance(usage_body, dict) and usage_body.get("usage"):
-            u = usage_body["usage"]
-            actual = actual_usd(prompt_tokens=int(u.get("prompt_tokens") or 0),
-                                completion_tokens=int(u.get("completion_tokens") or 0),
-                                prompt_price_per_token=p_in, completion_price_per_token=p_out,
-                                fixed_request_usd=fixed)
+            u = extract_cache_usage(usage_body)
+            if u.get("provider_cost") is not None:
+                actual = money(u["provider_cost"])
+            else:
+                actual = cache_aware_actual_usd(
+                    prompt_tokens=int(u.get("prompt_tokens") or 0),
+                    completion_tokens=int(u.get("completion_tokens") or 0),
+                    cached_tokens=int(u.get("cached_tokens") or 0),
+                    cache_write_tokens=int(u.get("cache_write_tokens") or 0),
+                    prompt_price_per_token=p_in,
+                    completion_price_per_token=p_out,
+                    cache_read_price_per_token=cache_read_price,
+                    cache_write_price_per_token=cache_write_price,
+                    fixed_request_usd=fixed,
+                )
         else:
             actual = reservation.estimated_usd
         try:
@@ -145,10 +200,73 @@ async def _cost_settle(enforcer, reservation, usage_body: Any, p_in: Decimal, p_
                             reason="actual cost exceeds reservation and extension denied — "
                                    "needs manual reconciliation",
                             reservation_id=reservation.id, delta_usd=str(exc.delta_usd))
+            else:
+                enforcer.commit(reservation.id, actual)
+        return actual
     except Exception as exc:  # noqa: BLE001 — учёт расхода не должен ронять успешный ответ
         events.emit("budget.exceeded",
                     reason=f"cost settlement failed: {type(exc).__name__}: {exc}",
                     reservation_id=getattr(reservation, "id", None))
+        # Usage can be incomplete or internally inconsistent.  The pre-call
+        # reservation is deliberately conservative, so commit that bound as
+        # billing evidence instead of leaving it ACTIVE until TTL cleanup.
+        try:
+            enforcer.commit(reservation.id, reservation.estimated_usd)
+            return reservation.estimated_usd
+        except Exception as fallback_exc:  # DB failure: keep ACTIVE for reconciliation
+            events.emit("budget.exceeded",
+                        reason=f"fallback cost settlement failed: {type(fallback_exc).__name__}: {fallback_exc}",
+                        reservation_id=getattr(reservation, "id", None))
+            return None
+
+
+def _cache_economics(route, usage_body: Any, cache_meta: dict[str, Any]) -> tuple[Decimal | None, Decimal | None]:
+    usage = extract_cache_usage(usage_body if isinstance(usage_body, dict) else None)
+    provider_actual = usage.get("provider_cost")
+    price = _route_price(route.target)
+    if price is None:
+        return provider_actual, None
+    from ..cost_control.models import money
+    from ..cost_control.pricing import actual_usd, cache_aware_actual_usd
+    p_in, p_out, fixed = price
+    read_price, write_price = _cache_prices(route, p_in, cache_meta)
+    baseline = actual_usd(
+        prompt_tokens=int(usage.get("prompt_tokens") or 0),
+        completion_tokens=int(usage.get("completion_tokens") or 0),
+        prompt_price_per_token=p_in,
+        completion_price_per_token=p_out,
+        fixed_request_usd=fixed,
+    )
+    if provider_actual is not None:
+        return money(provider_actual), baseline
+    try:
+        actual = cache_aware_actual_usd(
+            prompt_tokens=int(usage.get("prompt_tokens") or 0),
+            completion_tokens=int(usage.get("completion_tokens") or 0),
+            cached_tokens=int(usage.get("cached_tokens") or 0),
+            cache_write_tokens=int(usage.get("cache_write_tokens") or 0),
+            prompt_price_per_token=p_in,
+            completion_price_per_token=p_out,
+            cache_read_price_per_token=read_price,
+            cache_write_price_per_token=write_price,
+            fixed_request_usd=fixed,
+        )
+    except ValueError:
+        actual = None
+    return actual, baseline
+
+
+def _upstream_provider(body: Any) -> str | None:
+    if not isinstance(body, dict):
+        return None
+    if isinstance(body.get("provider"), str):
+        return body["provider"]
+    metadata = body.get("openrouter_metadata")
+    if isinstance(metadata, dict):
+        for key in ("provider_name", "provider"):
+            if isinstance(metadata.get(key), str):
+                return metadata[key]
+    return None
 
 
 def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter | None = None) -> FastAPI:
@@ -195,6 +313,40 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         if request is None:
             return None, None
         return getattr(request.state, "request_id", None), getattr(request.state, "run_id", None)
+
+    def _prepare_cache(route, forward: dict[str, Any], path: str,
+                       request: Request | None) -> tuple[dict[str, Any], dict[str, Any]]:
+        backend_cfg = route.backend.config
+        session_id = request.headers.get("x-bossman-session-id", "") if request else ""
+        requested_ttl = request.headers.get("x-bossman-cache-ttl") if request else None
+        try:
+            return prepare_provider_payload(
+                forward,
+                provider_kind=backend_cfg.kind,
+                provider_model=route.model,
+                session_id=session_id,
+                requested_ttl=requested_ttl,
+                default_ttl=backend_cfg.prompt_cache_ttl,
+                enabled=backend_cfg.prompt_cache_enabled,
+                session_affinity=backend_cfg.session_affinity_enabled,
+                endpoint=path,
+            )
+        except Exception:  # fail-open: request semantics survive cache shaping failure
+            return dict(forward), {
+                "provider": str(backend_cfg.kind or "openai").lower(),
+                "model": route.model,
+                "enabled": bool(backend_cfg.prompt_cache_enabled),
+                "ttl": backend_cfg.prompt_cache_ttl if backend_cfg.prompt_cache_ttl in {"5m", "1h"} else "5m",
+                "mode": "none",
+                "session_affinity": False,
+                "session_id_hash": None,
+                "prefix_hash": None,
+                "prefix_tokens": 0,
+                "cache_control_applied": False,
+                "state": "DEGRADED",
+                "miss_reason": "invalid metadata",
+                "degraded_reason": "invalid metadata",
+            }
 
     def _log_outcome(request_id: str | None, run_id: str | None, client_name: str,
                      alias: str, backend: str | None, model: str | None,
@@ -258,6 +410,8 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         for route in routes:
             forward = dict(payload)
             forward["model"] = route.model
+            prepared, cache_meta = _prepare_cache(route, forward, path, request)
+            cache_degraded = None
             reservation = None
             cost_state = None
             settled = False
@@ -266,25 +420,46 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                 # для каждой цели своей — см. integration/GATEWAY_COST_HOOK.md.
                 # Локальные цели проходят мимо (reservation остаётся None).
                 reservation, cost_state = await _cost_reserve(
-                    route, forward, cloud_allowed=cloud_allowed, request_id=request_id,
-                    attempt_index=len(errors), run_id=run_id, client_name=c.name)
+                    route, prepared, cloud_allowed=cloud_allowed, request_id=request_id,
+                    attempt_index=len(errors), run_id=run_id, client_name=c.name,
+                    cache_meta=cache_meta)
                 metrics.queued += 1
                 try:
                     await asyncio.wait_for(route.backend.semaphore.acquire(), timeout=cfg.queue_timeout_seconds)
                 finally:
                     metrics.queued = max(0, metrics.queued - 1)
                 try:
-                    body, _ = await route.backend.json_request(path, forward)
+                    try:
+                        body, _ = await route.backend.json_request(path, prepared)
+                    except BackendError as exc:
+                        if prepared != forward and cache_metadata_rejected(str(exc), exc.status_code):
+                            # Cache metadata is optional.  A provider contract
+                            # mismatch retries once without it, under the same
+                            # Cost Governor reservation and policy decision.
+                            cache_degraded = "invalid metadata"
+                            body, _ = await route.backend.json_request(path, forward)
+                        else:
+                            raise
                 finally:
                     route.backend.semaphore.release()
                 if reservation is not None:
-                    enforcer, p_in, p_out, fixed = cost_state
-                    await _cost_settle(enforcer, reservation, body, p_in, p_out, fixed)
+                    enforcer, p_in, p_out, p_cache_read, p_cache_write, fixed = cost_state
+                    await _cost_settle(enforcer, reservation, body, p_in, p_out,
+                                       p_cache_read, p_cache_write, fixed)
                     settled = True
                 # expose alias externally so clients stay decoupled from backend model names
                 if isinstance(body, dict) and "model" in body:
                     body["model"] = alias
-                metrics.end(started, route.backend_name, body.get("usage") if isinstance(body, dict) else None)
+                usage_body = body if isinstance(body, dict) else None
+                usage = extract_cache_usage(usage_body)
+                actual_cost, baseline_cost = _cache_economics(route, usage_body, cache_meta)
+                metrics.end(started, route.backend_name,
+                            body.get("usage") if isinstance(body, dict) else None)
+                metrics.end_cache(
+                    cache_meta, usage, backend=route.backend_name, model=route.model,
+                    actual_cost=actual_cost, baseline_cost=baseline_cost,
+                    upstream_provider=_upstream_provider(body), degraded_reason=cache_degraded,
+                )
                 _log_outcome(request_id, run_id, c.name, alias, route.backend_name, route.model,
                              "ok", started, len(errors))
                 return JSONResponse(body, headers={"x-bossman-backend": route.backend_name, "x-bossman-route-model": route.model})
@@ -365,6 +540,9 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
             errors = []
             for route in routes:
                 forward = dict(payload); forward["model"] = route.model
+                prepared, cache_meta = _prepare_cache(route, forward, path, request)
+                cache_degraded = None
+                collector = SSEUsageCollector()
                 acquired = False
                 emitted = False
                 reservation = None
@@ -375,22 +553,45 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                     # цели своя проверка. Стрим не даёт точный usage до конца
                     # потока — коммитим по факту саму бронь, см. _cost_settle.
                     reservation, cost_state = await _cost_reserve(
-                        route, forward, cloud_allowed=cloud_allowed, request_id=request_id,
-                        attempt_index=len(errors), run_id=run_id, client_name=c.name)
+                        route, prepared, cloud_allowed=cloud_allowed, request_id=request_id,
+                        attempt_index=len(errors), run_id=run_id, client_name=c.name,
+                        cache_meta=cache_meta)
                     metrics.queued += 1
                     try:
                         await asyncio.wait_for(route.backend.semaphore.acquire(), timeout=cfg.queue_timeout_seconds)
                         acquired = True
                     finally:
                         metrics.queued = max(0, metrics.queued - 1)
-                    async for chunk in route.backend.stream_request(path, forward):
-                        emitted = True
-                        yield chunk
+                    try:
+                        async for chunk in route.backend.stream_request(path, prepared):
+                            emitted = True
+                            collector.feed(chunk)
+                            yield chunk
+                    except BackendError as exc:
+                        if not emitted and prepared != forward and \
+                                cache_metadata_rejected(str(exc), exc.status_code):
+                            cache_degraded = "invalid metadata"
+                            async for chunk in route.backend.stream_request(path, forward):
+                                emitted = True
+                                collector.feed(chunk)
+                                yield chunk
+                        else:
+                            raise
+                    collector.finish()
                     if reservation is not None:
-                        enforcer, p_in, p_out, fixed = cost_state
-                        await _cost_settle(enforcer, reservation, None, p_in, p_out, fixed)
+                        enforcer, p_in, p_out, p_cache_read, p_cache_write, fixed = cost_state
+                        await _cost_settle(enforcer, reservation, collector.body, p_in, p_out,
+                                           p_cache_read, p_cache_write, fixed)
                         settled = True
-                    metrics.end(started, route.backend_name)
+                    usage = extract_cache_usage(collector.body)
+                    actual_cost, baseline_cost = _cache_economics(route, collector.body, cache_meta)
+                    metrics.end(started, route.backend_name,
+                                (collector.body or {}).get("usage"))
+                    metrics.end_cache(
+                        cache_meta, usage, backend=route.backend_name, model=route.model,
+                        actual_cost=actual_cost, baseline_cost=baseline_cost,
+                        degraded_reason=cache_degraded,
+                    )
                     _log_outcome(request_id, run_id, c.name, alias, route.backend_name,
                                  route.model, "ok", started, len(errors))
                     return
@@ -439,14 +640,16 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                     if acquired:
                         route.backend.semaphore.release()
                     if reservation is not None and not settled:
-                        enforcer, p_in, p_out, fixed = cost_state
+                        enforcer, p_in, p_out, p_cache_read, p_cache_write, fixed = cost_state
                         if emitted:
                             # Часть потока уже ушла клиенту — провайдер, вероятно,
                             # принял к оплате сгенерированное. Коммитим бронь
                             # целиком (верхнюю границу), как и в успешном случае
                             # выше: расход никогда не занижается.
                             try:
-                                await _cost_settle(enforcer, reservation, None, p_in, p_out, fixed)
+                                collector.finish()
+                                await _cost_settle(enforcer, reservation, collector.body, p_in, p_out,
+                                                   p_cache_read, p_cache_write, fixed)
                             except Exception:  # noqa: BLE001 — сбой учёта не должен рвать генератор
                                 pass
                         else:

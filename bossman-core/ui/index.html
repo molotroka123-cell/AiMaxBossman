@@ -157,6 +157,7 @@ async function setPolicy(name, policy) {
 render.models = async () => {
   const m = await api("/models");
   const running = Array.isArray(m.running) ? m.running : [];
+  const pc = m.prompt_cache || {state:"UNKNOWN", miss_reason:"unknown"};
   $("#panel-models").innerHTML = `
     <div class="card"><h3>Загружены сейчас</h3>
       ${m.llama_swap_error ? `<div class="dim">llama-swap недоступен: ${esc(m.llama_swap_error)}</div>` : ""}
@@ -172,6 +173,20 @@ render.models = async () => {
       ${m.context_stats.map(s => `<div class="row"><b>${esc(s.agent)}</b>
         <span class="dim">заполнение ${Math.round((s.avg_fill ?? 0)*100)}% · кэш ${Math.round((s.cache_rate ?? 0)*100)}% · ${s.calls} вызовов</span>
       </div>`).join("") || `<div class="dim">вызовов ещё не было</div>`}
+    </div>
+    <div class="card"><h3>PROMPT CACHE</h3>
+      <div class="row"><b>Cache State</b><span>${esc(pc.state ?? "UNKNOWN")}</span>
+        ${pc.miss_reason ? `<span class="dim">${esc(pc.miss_reason)}</span>` : ""}</div>
+      <div class="row"><span>Cache Hit %</span><b>${Number(pc.cache_hit_percent ?? 0).toFixed(1)}%</b></div>
+      <div class="row"><span>Cached Tokens</span><b>${Number(pc.cached_tokens ?? 0)}</b></div>
+      <div class="row"><span>Fresh Input Tokens</span><b>${Number(pc.fresh_input_tokens ?? 0)}</b></div>
+      <div class="row"><span>Cache Write Tokens</span><b>${Number(pc.cache_write_tokens ?? 0)}</b></div>
+      <div class="row"><span>Saved $</span><b>${Number(pc.saved_usd ?? 0).toFixed(6)}</b></div>
+      <div class="row"><span>Actual Cost</span><b>$${Number(pc.actual_cost_usd ?? 0).toFixed(6)}</b></div>
+      <div class="row"><span>Session Affinity</span><b>${pc.session_affinity ? "ON" : "OFF"}</b></div>
+      <div class="row"><span>Provider / Model</span><b>${esc(pc.provider ?? "unknown")} / ${esc(pc.model ?? "unknown")}</b></div>
+      <div class="row"><span>TTL</span><b>${esc(pc.ttl ?? "unknown")}</b></div>
+      <div class="row"><span>PREFIX_STABILITY</span><b>${pc.prefix_stability_percent == null ? "UNKNOWN" : Number(pc.prefix_stability_percent).toFixed(1) + "%"}</b></div>
     </div>`;
 };
 

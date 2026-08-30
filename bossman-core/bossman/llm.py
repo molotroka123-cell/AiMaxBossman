@@ -6,7 +6,6 @@
 """
 from __future__ import annotations
 
-import hashlib
 from typing import Any
 
 import httpx
@@ -16,6 +15,7 @@ from . import db
 from .agents import AgentSpec, auto_gateway_config, load_all, validate_agent_models
 from .config import settings
 from .gateway.client import GatewayClient, GatewayCloudDenied
+from .gateway.prompt_cache import extract_cache_usage, stable_session_id
 
 CLOUD_PREFIXES = ("claude-", "cloud-", "gemini", "gpt-")
 
@@ -74,15 +74,6 @@ def real_window(alias: str) -> int:
         return 65536
 
 
-# для оценки попадания в кэш префикса: хэш стабильного начала последнего вызова агента
-_last_prefix: dict[str, str] = {}
-
-
-def _prefix_hash(messages: list[dict]) -> str:
-    head = "".join(m["content"] for m in messages if m["role"] == "system")[:6000 * 3]
-    return hashlib.sha256(head.encode()).hexdigest()
-
-
 async def chat(agent: AgentSpec, messages: list[dict], *,
                alias: str | None = None,
                tools: list[dict] | None = None,
@@ -112,9 +103,11 @@ async def chat(agent: AgentSpec, messages: list[dict], *,
         cloud_allowed = agent.cloud_policy == "allowed" or (
             agent.cloud_policy == "ask" and bool(cloud_approved_by))
         try:
+            session_id = stable_session_id(agent.name, run_id) if run_id is not None else ""
             data = await _gateway_client().chat(
                 model=alias, messages=messages, tools=tools, max_tokens=max_tokens,
-                cloud_allowed=cloud_allowed)
+                cloud_allowed=cloud_allowed, session_id=session_id,
+                cache_ttl=settings.prompt_cache_ttl, run_id=run_id)
         except GatewayCloudDenied:
             # Gateway вырезал облако и локально обслужить не смог. Превращаем в тот
             # же исход, что и прямой облачный алиас: never → отказ, ask → нужно
@@ -137,12 +130,10 @@ async def chat(agent: AgentSpec, messages: list[dict], *,
         resp.raise_for_status()
         data = resp.json()
     usage = data.get("usage") or {}
-    prompt_toks = int(usage.get("prompt_tokens") or 0)
-    completion_toks = int(usage.get("completion_tokens") or 0)
-
-    ph = _prefix_hash(messages)
-    cache_hit = _last_prefix.get(agent.name) == ph
-    _last_prefix[agent.name] = ph
+    cache_usage = extract_cache_usage(data)
+    prompt_toks = int(cache_usage.get("prompt_tokens") or 0)
+    completion_toks = int(cache_usage.get("completion_tokens") or 0)
+    cache_hit = int(cache_usage.get("cached_tokens") or 0) > 0
     window = real_window(alias)
 
     await db.execute(
@@ -160,8 +151,19 @@ async def chat(agent: AgentSpec, messages: list[dict], *,
             run_id, agent.name, alias, preview, prompt_toks, completion_toks,
             cloud_approved_by or ("policy:allowed" if agent.cloud_policy == "allowed" else None))
     msg = data["choices"][0]["message"]
-    msg["_usage"] = {"prompt_tokens": prompt_toks, "completion_tokens": completion_toks}
+    msg["_usage"] = {
+        "prompt_tokens": prompt_toks,
+        "completion_tokens": completion_toks,
+        "cached_tokens": int(cache_usage.get("cached_tokens") or 0),
+        "cache_write_tokens": int(cache_usage.get("cache_write_tokens") or 0),
+    }
     return msg
+
+
+async def gateway_metrics() -> dict | None:
+    if not settings.gateway_url:
+        return None
+    return await _gateway_client().metrics()
 
 
 async def vision_caption(agent_name: str, path: str, question: str) -> str:
