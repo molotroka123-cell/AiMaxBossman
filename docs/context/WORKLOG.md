@@ -180,17 +180,22 @@ FILES: bossman-core/bossman/sandbox/runtimes/safe.py (safe_runtime_available ч�
 RESULT: три итерации пробы показали — реальный SafeRuntime /bin/true СОБИРАЕТСЯ на раннере, но тесты через менеджер уходят в DESTROYED; тривиальной пробой набор ограничений раннера не воспроизвести. Введён явный флаг (как runsc/KVM, item 23): раннер объявлен неспособным (=0) → 5 тестов реального исполнения честно skip; dev/Ai Max без флага → авто-проба их запускает. Локально с флагом: 2 passed/15 skipped; без — идут. Push 15616ca.
 NEXT: подтвердить bossman-core CI зелёным (check-in); command-center — два сетевых висяка (см. выше) отдельно
 
-<<<<<<< HEAD
 2026-08-29T19:51Z
 ACTION: CI ПОЛНОСТЬЮ ЗЕЛЁНЫЙ на HEAD c36b3c9 — оба workflow подтверждены
 RESULT: Bossman Core CI run #12 → success (все 9 jobs: security/gateway-context/stage8-14/rest × py3.11+py3.12, compile). Command Center CI run #86 → success (pytest × py3.11+py3.12, secrets/JS checks). Pre-dispatch hardening (P0/P1) + CI-инфраструктура закрыты и подтверждены зелёным CI.
 NEXT: PRE-DISPATCH АУДИТ ВЛАДЕЛЬЦА (FINAL_HARDENING_STATUS.md). Stage 13 Dispatch НЕ начинать. Открытые пункты вне мандата: runsc/KVM на железе (BLOCKED_BY_HOST), LOCAL-LIVE прогон dev-factory, воспроизведение 2 command-center висяков на self-hosted раннере (см. NEXT.md §5).
-=======
-[2026-08-29T20:19:05Z]
-STAGE13_ACTION: pack integrated + 3-agent red team + subsystem registration P0 fix
+
+2026-08-29T20:19Z
+ACTION: Stage 13 pack integrated + 3-agent red team + subsystem registration P0 fix
 FILES: bossman/computer_operator/* (16), api.py, ai_lab/{candidates,routes}.py, dev_factory/planner.py, toolkit/media.py, tests/test_stage13_{auth,ailab,hostexec,operator}_redteam.py, tests/test_computer_operator_*.py, tests/test_sandbox_toolbox.py
 RESULT: bossman-core FULL 681 passed / 30 skipped / 0 failed; subsystems register again (P0 fix); operator hardened (bossman-surface deny, control lease, stale gate, secret redaction)
 TEST: redteam batteries 31+83+57+21; live-local qwen2.5:7b PASS
 SECURITY: LLM cannot click BOSSMAN approval UI; desktop lease exclusive; stale approval/screen rejected; secrets REDACTED in journal
 NEXT: push + CI + GPT handoff folder
->>>>>>> 0d2c6e3 (docs: stage13 worklog)
+
+2026-08-29T22:19Z
+ACTION: Stage 13 worklog + honest symlink skip (WinError 1314) — docs sync
+FILES: docs/context/WORKLOG.md, bossman-core/tests/test_sandbox_toolbox.py, docs/context/STAGE13_STATUS.md, ГПТ от GLM-5.3/*
+RESULT: 51be3b2 pushed; WORKLOG conflict resolved; symlink skip marked honest on Windows
+TEST: local 797 collected; stage13 batteries 192/3skipped, sandbox 141/3skipped
+NEXT: full audit + dashboard button sweep (muse-spark-1.2)
