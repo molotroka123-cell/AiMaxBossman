@@ -179,3 +179,114 @@ def test_load_jsonl_roundtrip(tmp_path):
                  encoding="utf-8")
     rows = load_jsonl(p)
     assert len(rows) == 2 and rows[0]["executor"] == "bossman"
+
+
+# ------------------------------------------------------------- RC-HARDENING-1: LSP workspace confinement
+
+async def test_lsp_workspace_allowed_root_pass(monkeypatch, tmp_path, fake_server):
+    """LSP_ALLOWED_ROOT: PASS — workspace внутри allowed roots не блокируется."""
+    import json as _json
+    import sys as _sys
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    (allowed / "x.py").write_text("x=1\n", encoding="utf-8")
+
+    async def _fake_roots(svc):
+        return [allowed]
+
+    monkeypatch.setattr("bcc.features.tools_code.allowed_roots", _fake_roots)
+    monkeypatch.setenv("LSP_SERVERS", _json.dumps({"python": [_sys.executable, str(fake_server[0] if isinstance(fake_server, tuple) else fake_server)]}))
+    # fake_server fixture is tuple (python, script) — handle both
+    argv = fake_server if isinstance(fake_server, tuple) else (_sys.executable, str(fake_server))
+    # ensure LSP_SERVERS uses correct argv
+    monkeypatch.setenv("LSP_SERVERS", _json.dumps({"python": list(argv)}))
+    await CI.setup(None)
+    spec = REGISTRY.get("code:symbols")
+    svc = type("S", (), {"db": object()})()
+    ctx = type("C", (), {"svc": svc, "task": {}, "run_id": 1, "agent": {}, "workspace": str(allowed), "call_id": "c", "step": 0})()
+    res = await spec.handler({"lang": "python", "uri": "file:///x.py", "workspace": str(allowed)}, ctx)
+    # должен пройти confinement (не denied), затем успешно вызвать fake LSP
+    assert not (res.error and "workspace denied" in res.content), res.content
+    assert not (res.error and "outside allowed roots" in res.content)
+
+
+async def test_lsp_workspace_outside_root_denied(monkeypatch, tmp_path):
+    """LSP_OUTSIDE_ROOT_DENIED: PASS — workspace вне allowed roots → DENY."""
+    import json as _json
+    import sys as _sys
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+
+    async def _fake_roots(svc):
+        return [allowed]
+
+    monkeypatch.setattr("bcc.features.tools_code.allowed_roots", _fake_roots)
+    monkeypatch.setenv("LSP_SERVERS", _json.dumps({"python": [_sys.executable, "-c", "pass"]}))
+    await CI.setup(None)
+    spec = REGISTRY.get("code:symbols")
+    svc = type("S", (), {"db": object()})()
+    ctx = type("C", (), {"svc": svc, "task": {}, "run_id": 1, "agent": {}, "workspace": str(allowed), "call_id": "c", "step": 0})()
+    res = await spec.handler({"lang": "python", "uri": "file:///x.py", "workspace": str(outside)}, ctx)
+    assert res.error
+    assert "workspace denied" in res.content or "outside allowed roots" in res.content
+
+
+async def test_lsp_workspace_path_traversal_denied(monkeypatch, tmp_path):
+    """LSP_PATH_TRAVERSAL_DENIED: PASS — traversal через .. вне roots → DENY."""
+    import json as _json
+    import sys as _sys
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    # traversal tries to escape: allowed/../outside
+    traversal = allowed / ".." / "outside_via_dotdot"
+    # ensure outside exists for resolve(strict=True) to succeed, then check confinement
+    outside = tmp_path / "outside_via_dotdot"
+    outside.mkdir(exist_ok=True)
+
+    async def _fake_roots(svc):
+        return [allowed]
+
+    monkeypatch.setattr("bcc.features.tools_code.allowed_roots", _fake_roots)
+    monkeypatch.setenv("LSP_SERVERS", _json.dumps({"python": [_sys.executable, "-c", "pass"]}))
+    await CI.setup(None)
+    spec = REGISTRY.get("code:symbols")
+    svc = type("S", (), {"db": object()})()
+    ctx = type("C", (), {"svc": svc, "task": {}, "run_id": 1, "agent": {}, "workspace": str(allowed), "call_id": "c", "step": 0})()
+    # workspace is traversal path that resolves outside allowed
+    res = await spec.handler({"lang": "python", "uri": "file:///x.py", "workspace": str(traversal)}, ctx)
+    assert res.error
+    assert "workspace denied" in res.content or "outside allowed roots" in res.content
+
+
+async def test_lsp_workspace_symlink_escape_denied(monkeypatch, tmp_path):
+    """LSP_SYMLINK_ESCAPE_DENIED: PASS/SKIP_HOST — symlink внутри allowed, target вне → DENY."""
+    import json as _json
+    import sys as _sys
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    target = tmp_path / "secret_outside"
+    target.mkdir()
+    (target / "evil.txt").write_text("secret", encoding="utf-8")
+    link = allowed / "link_to_outside"
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"symlink not supported on this host: {exc}")
+    # also need resolve to follow symlink: Path(link).resolve() should == target
+    if link.resolve() != target.resolve():
+        pytest.skip("symlink resolution differs on this host")
+
+    async def _fake_roots(svc):
+        return [allowed]
+
+    monkeypatch.setattr("bcc.features.tools_code.allowed_roots", _fake_roots)
+    monkeypatch.setenv("LSP_SERVERS", _json.dumps({"python": [_sys.executable, "-c", "pass"]}))
+    await CI.setup(None)
+    spec = REGISTRY.get("code:symbols")
+    svc = type("S", (), {"db": object()})()
+    ctx = type("C", (), {"svc": svc, "task": {}, "run_id": 1, "agent": {}, "workspace": str(link), "call_id": "c", "step": 0})()
+    res = await spec.handler({"lang": "python", "uri": "file:///x.py", "workspace": str(link)}, ctx)
+    assert res.error
+    assert "workspace denied" in res.content or "outside allowed roots" in res.content

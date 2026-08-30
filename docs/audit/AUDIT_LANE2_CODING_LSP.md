@@ -3,10 +3,10 @@ lane: 2
 subsystem: coding-lsp-benchmark
 base_head: 3c152d1
 branch: claude/audit-lane2-coding
-final_head: 9bfaf744827d0e814331f8cd3a1ffdce7be64931
+final_head: 3ec45113de414ba869a6ed260038c716b7216468
 verdict: PASS
 p0: 0   p1: 0   p2: 3
-tests: {passed: 28, failed: 0, skipped: 0}
+tests: {passed: 31, failed: 0, skipped: 1}
 skip_labels: [SKIP_HOST, NOT_TESTED_LIVE]
 host_only_remaining: "real pyright/gopls definition/hover/diagnostics (requires LSP_SERVERS + binaries); concurrent merge contention under load; 10-task Bossman vs OpenCode benchmark on single hardware/model/repo"
 ---
