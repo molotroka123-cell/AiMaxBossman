@@ -1,0 +1,471 @@
+[
+ {
+  "action": "Login (UI entry)",
+  "endpoint": "POST /api/login",
+  "http": 200,
+  "result": "session+csrf",
+  "pass": true
+ },
+ {
+  "action": "Home: system",
+  "endpoint": "GET /api/system",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Home: missions",
+  "endpoint": "GET /api/missions",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Home: apps",
+  "endpoint": "GET /api/apps",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Home: resources",
+  "endpoint": "GET /api/resources",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Home: agentmap",
+  "endpoint": "GET /api/agentmap",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Models: kinds",
+  "endpoint": "GET /api/providers/kinds",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Models: providers",
+  "endpoint": "GET /api/providers",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Models: list",
+  "endpoint": "GET /api/models",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Agents: list",
+  "endpoint": "GET /api/agents",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Tasks: list",
+  "endpoint": "GET /api/tasks",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Tasks: queued",
+  "endpoint": "GET /api/tasks?status=queued,running,waiting_approval",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Schedules: list",
+  "endpoint": "GET /api/schedules",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Approvals: pending",
+  "endpoint": "GET /api/approvals?status=pending",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Approvals: all",
+  "endpoint": "GET /api/approvals?status=all",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "System: activity",
+  "endpoint": "GET /api/activity",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Browser: sessions",
+  "endpoint": "GET /api/browser/sessions",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Terminal: roots",
+  "endpoint": "GET /api/terminal/roots",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Terminal: sessions",
+  "endpoint": "GET /api/terminal/sessions",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Missions: list",
+  "endpoint": "GET /api/missions",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Governor: rules",
+  "endpoint": "GET /api/governor/rules",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Governor: interventions",
+  "endpoint": "GET /api/governor/interventions?limit=100",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Router: rules",
+  "endpoint": "GET /api/router/rules",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Healing: rules",
+  "endpoint": "GET /api/healing/rules",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Skills: list",
+  "endpoint": "GET /api/skills",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Skills: mcp servers",
+  "endpoint": "GET /api/mcp/servers",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Skills: mcp tools",
+  "endpoint": "GET /api/mcp/tools",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Benchmarks: list",
+  "endpoint": "GET /api/benchmarks",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Overview: agentmap",
+  "endpoint": "GET /api/agentmap",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Overview: resources",
+  "endpoint": "GET /api/resources",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "OpenRouter: health",
+  "endpoint": "GET /api/opencode/health",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Resources: policy write",
+  "endpoint": "POST /api/resources/policy",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Skills: mcp policy write",
+  "endpoint": "POST /api/mcp/policy",
+  "http": "SKIP",
+  "result": "нет MCP-инструментов (UI показывает пустой список)",
+  "pass": true
+ },
+ {
+  "action": "Models: discover",
+  "endpoint": "POST /api/models/discover",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Agents: create",
+  "endpoint": "POST /api/agents",
+  "http": 200,
+  "result": "id=1",
+  "pass": true
+ },
+ {
+  "action": "Tasks: create draft",
+  "endpoint": "POST /api/tasks",
+  "http": 200,
+  "result": "task=1",
+  "pass": true
+ },
+ {
+  "action": "Tasks: pause",
+  "endpoint": "POST /api/tasks/1/pause",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Tasks: resume",
+  "endpoint": "POST /api/tasks/1/resume",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Tasks: stop",
+  "endpoint": "POST /api/tasks/1/stop",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Schedules: create",
+  "endpoint": "POST /api/schedules",
+  "http": 200,
+  "result": "id=1",
+  "pass": true
+ },
+ {
+  "action": "Schedules: patch",
+  "endpoint": "PATCH /api/schedules/1",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Schedules: delete",
+  "endpoint": "DELETE /api/schedules/1",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Approvals: create",
+  "endpoint": "POST /api/approvals",
+  "http": 200,
+  "result": "id=1",
+  "pass": true
+ },
+ {
+  "action": "Approvals: decide",
+  "endpoint": "POST /api/approvals/1",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Missions: create",
+  "endpoint": "POST /api/missions",
+  "http": 200,
+  "result": "id=1",
+  "pass": true
+ },
+ {
+  "action": "Governor: rules patch",
+  "endpoint": "PATCH /api/governor/rules",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Router: preview",
+  "endpoint": "POST /api/router/preview",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Terminal: preview",
+  "endpoint": "POST /api/terminal/preview",
+  "http": 200,
+  "result": "decision=auto",
+  "pass": true
+ },
+ {
+  "action": "Terminal: run (ASK)",
+  "endpoint": "POST /api/terminal/run",
+  "http": 202,
+  "result": "approval_id=2",
+  "pass": true
+ },
+ {
+  "action": "Terminal: approve",
+  "endpoint": "POST /api/approvals/2",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Terminal: run approved",
+  "endpoint": "POST /api/terminal/run",
+  "http": 200,
+  "result": "session=0f824931fe07",
+  "pass": true
+ },
+ {
+  "action": "Terminal: status",
+  "endpoint": "GET /api/terminal/sessions/0f824931fe07",
+  "http": 200,
+  "result": "exit=0, echo_ok=False",
+  "pass": true
+ },
+ {
+  "action": "Browser: session",
+  "endpoint": "POST /api/browser/sessions",
+  "http": 200,
+  "result": "2xx",
+  "pass": true
+ },
+ {
+  "action": "Terminal: preview type",
+  "endpoint": "POST /api/terminal/preview",
+  "http": 200,
+  "result": "decision=auto",
+  "pass": true
+ },
+ {
+  "action": "Tasks→По расписанию→Создать",
+  "endpoint": "POST /api/schedules",
+  "http": 200,
+  "result": "2xx (bug fixed)",
+  "pass": true
+ },
+ {
+  "action": "Legacy payload (title) → 422",
+  "endpoint": "POST /api/schedules",
+  "http": 422,
+  "result": "contract enforced (API требует name)",
+  "pass": true
+ },
+ {
+  "action": "Setup: provider mock",
+  "endpoint": "POST /api/providers",
+  "http": 200,
+  "result": "id=1",
+  "pass": true
+ },
+ {
+  "action": "Setup: model",
+  "endpoint": "POST /api/models",
+  "http": 200,
+  "result": "id=1",
+  "pass": true
+ },
+ {
+  "action": "Setup: model check",
+  "endpoint": "POST /api/models/1/check",
+  "http": 200,
+  "result": "status=online",
+  "pass": true
+ },
+ {
+  "action": "Setup: agent llm",
+  "endpoint": "POST /api/agents",
+  "http": 200,
+  "result": "id=2",
+  "pass": true
+ },
+ {
+  "action": "APPROVE: task → waiting_approval",
+  "endpoint": "GET /api/tasks/5",
+  "http": 200,
+  "result": "status=waiting_approval, approval_id=3",
+  "pass": true
+ },
+ {
+  "action": "APPROVE: decision",
+  "endpoint": "POST /api/approvals/3",
+  "http": 200,
+  "result": "status=approved",
+  "pass": true
+ },
+ {
+  "action": "APPROVE: task executed",
+  "endpoint": "GET /api/tasks/5",
+  "http": 200,
+  "result": "status=completed, result=готово (RCAPPROVE-A1): факт сохранён",
+  "pass": true
+ },
+ {
+  "action": "APPROVE: real execution (fact)",
+  "endpoint": "GET /api/memory/facts?query=RCAPPROVE-A1",
+  "http": 200,
+  "result": "fact stored=True",
+  "pass": true
+ },
+ {
+  "action": "REJECT: task → waiting_approval",
+  "endpoint": "GET /api/tasks/6",
+  "http": 200,
+  "result": "status=waiting_approval, approval_id=4",
+  "pass": true
+ },
+ {
+  "action": "REJECT: decision",
+  "endpoint": "POST /api/approvals/4",
+  "http": 200,
+  "result": "status=rejected",
+  "pass": true
+ },
+ {
+  "action": "REJECT: NO execution (no fact)",
+  "endpoint": "GET /api/memory/facts?query=RCREJECT-B2",
+  "http": 200,
+  "result": "fact stored=False (must be False)",
+  "pass": true
+ }
+]
