@@ -56,6 +56,7 @@ def _register_subsystems() -> None:
         ("bossman.cost_control", "build_subsystem"),
         ("bossman.world_intelligence", "build_subsystem"),
         ("bossman.notifications", "build_subsystem"),
+        ("bossman.profiles", "build_subsystem"),
     ):
         try:
             import importlib
@@ -83,6 +84,7 @@ def _include_stage_routers() -> None:
         "bossman.cost_control",
         "bossman.world_intelligence",
         "bossman.notifications",
+        "bossman.profiles",
     ):
         try:
             import importlib

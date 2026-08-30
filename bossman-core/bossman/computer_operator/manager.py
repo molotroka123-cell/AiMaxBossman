@@ -34,14 +34,20 @@ class ControlLease:
 
 class ComputerOperatorManager:
     def __init__(self,*,store,planner,observer,action_router,approval_create,approval_wait,event_emit,
-                 policy=None,verifier=None,control_lease=None):
+                 policy=None,verifier=None,control_lease=None,access_check=None):
         self.store=store; self.planner=planner; self.observer=observer; self.action_router=action_router
         self.approval_create=approval_create; self.approval_wait=approval_wait; self.event_emit=event_emit
         self.policy=policy or ComputerPolicy(); self.verifier=verifier or Verifier()
         self.control_lease=control_lease or ControlLease()
+        # Профильный чек доступа к управлению компом (см. profiles.gate). None → no-op:
+        # существующие локальные потоки не режем; профиль с выключенным тумблером
+        # computer_control ЗАПРЕЩАЕТ создание задачи (бросает PermissionError ДО _save).
+        self.access_check=access_check
         self.locks={}; self.global_locked=False
 
     def create_task(self,goal,*,mode=TaskMode.CONTROL,source="local",owner_device_id=None):
+        if self.access_check is not None:
+            self.access_check(owner_device_id)   # бросает PermissionError, если запрещено
         t=ComputerTask.create(goal,mode=mode,source=source,owner_device_id=owner_device_id)
         self._save(t); self._emit(t,"created"); return t
 

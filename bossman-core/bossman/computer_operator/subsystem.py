@@ -47,6 +47,20 @@ def default_store_path() -> Path:
     return Path(getattr(settings, "workspace_dir", ".")) / "computer_operator" / "tasks.json"
 
 
+def _profile_access_check(device_id):
+    """Ленивый мост к profiles.service (без жёсткого импорта/цикла).
+
+    Бросает profiles.gate.CapabilityDenied (PermissionError), если профиль,
+    привязанный к устройству, запрещает управление компьютером. Если profiles
+    не поднят — no-op (локальный хозяин), поведение ядра не меняется.
+    """
+    try:
+        from ..profiles.service import computer_access_check
+    except Exception:  # noqa: BLE001 — profiles опционален
+        return
+    computer_access_check(device_id)
+
+
 def build_manager(*, store_path=None, launcher=None) -> ComputerOperatorManager:
     """Собрать менеджер на РЕАЛЬНЫХ компонентах.
 
@@ -66,7 +80,10 @@ def build_manager(*, store_path=None, launcher=None) -> ComputerOperatorManager:
             desktop,
         ]),
         approval_create=approvals.create, approval_wait=approvals.wait,
-        event_emit=events.emit)
+        event_emit=events.emit,
+        # Профильный gate: устройство с выключенным тумблером computer_control
+        # НЕ создаёт desktop-задачу (no-op, если profiles-сервис не поднят).
+        access_check=_profile_access_check)
 
 
 MANAGER = build_manager()
