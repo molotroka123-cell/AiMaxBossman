@@ -22,10 +22,9 @@ sys.path.insert(0, "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\command-
 import aiosqlite
 
 
-# Define the conflict error class inline for tests that need it
-class OptimisticConcurrencyConflict(Exception):
-    """Raised when working memory version mismatch detected."""
-    pass
+# Conflict error is owned by the implementation module (minimal fix of
+# unpassable inline definition committed at 0516bb0 — see audit doc).
+from bossman.working_memory import OptimisticConcurrencyConflict
 
 
 @pytest.fixture
@@ -266,7 +265,9 @@ async def test_working_memory_version_conflict(tmp_db):
 @pytest.mark.asyncio
 async def test_working_memory_bulk_operations(tmp_db):
     """Test list_by_task and other bulk operations."""
-    from bossman.working_memory import list_by_task
+    from bossman.working_memory import (
+        create, update, append_observation, complete_step, list_by_task,
+    )
 
     async with aiosqlite.connect(tmp_db) as db:
         import bossman.core.db as bdb
