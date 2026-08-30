@@ -54,6 +54,7 @@ def _register_subsystems() -> None:
         ("bossman.dev_factory", "build_subsystem"),
         ("bossman.computer_operator", "build_subsystem"),
         ("bossman.cost_control", "build_subsystem"),
+        ("bossman.world_intelligence", "build_subsystem"),
         ("bossman.notifications", "build_subsystem"),
     ):
         try:
@@ -80,6 +81,7 @@ def _include_stage_routers() -> None:
         "bossman.ai_lab",
         "bossman.computer_operator",
         "bossman.cost_control",
+        "bossman.world_intelligence",
         "bossman.notifications",
     ):
         try:
