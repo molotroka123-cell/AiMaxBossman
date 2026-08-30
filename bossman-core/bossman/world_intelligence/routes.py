@@ -1,20 +1,19 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from ..lifecycle import Subsystem
-from ..world_intelligence.subsystem import (
-    PythiaWorldSubsystem,
-    get_pythia,
-    get_pythia_view,
-    get_pythia_health,
-    get_pythia_events,
-    get_pythia_predictions,
-)
+from ..perimeter import SCOPE_CHAT, require_scope
+from ..world_intelligence.subsystem import PythiaWorldSubsystem, get_pythia
 
 
-router = APIRouter(prefix="/world_intelligence", tags=["world-intelligence"])
+# Pythia — источник знания только для чтения: минимальный скоуп chat (Stage 6),
+# на уровне роутера, чтобы ни одна ручка не осталась без auth. Ни один маршрут
+# world_intelligence не мутирует состояние — admin-скоуп тут не нужен.
+router = APIRouter(prefix="/world_intelligence", tags=["world-intelligence"],
+                   dependencies=[Depends(require_scope(SCOPE_CHAT))])
 
 
 # ---------- Pythia health ----------
@@ -27,7 +26,7 @@ class HealthOut(BaseModel):
 
 @router.get("/health", response_model=HealthOut, summary="Pythia World Intelligence health")
 async def world_health(
-    pythia: PythiaWorldIntelligence = Depends(get_pythia),
+    pythia: PythiaWorldSubsystem = Depends(get_pythia),
 ) -> HealthOut:
     data = await pythia.health()
     if data is None:
@@ -54,7 +53,7 @@ class AgentViewOut(BaseModel):
     summary="Pythia agent view — machine-readable intelligence snapshot",
 )
 async def world_agent_view(
-    pythia: PythiaWorldIntelligence = Depends(get_pythia),
+    pythia: PythiaWorldSubsystem = Depends(get_pythia),
 ) -> AgentViewOut:
     data = await pythia.agent_view()
     if data is None:
@@ -76,7 +75,7 @@ async def world_agent_view(
 
 @router.get("/predictions", summary="Pythia predictions")
 async def world_predictions(
-    pythia: PythiaWorldIntelligence = Depends(get_pythia),
+    pythia: PythiaWorldSubsystem = Depends(get_pythia),
 ) -> dict[str, Any]:
     data = await pythia.predictions()
     if data is None:
@@ -88,7 +87,7 @@ async def world_predictions(
 
 @router.get("/world", summary="Pythia world state")
 async def world_world(
-    pythia: PythiaWorldIntelligence = Depends(get_pythia),
+    pythia: PythiaWorldSubsystem = Depends(get_pythia),
 ) -> dict[str, Any]:
     data = await pythia.world()
     if data is None:
@@ -100,7 +99,7 @@ async def world_world(
 
 @router.get("/health-score", summary="Pythia health score")
 async def world_health_score(
-    pythia: PythiaWorldIntelligence = Depends(get_pythia),
+    pythia: PythiaWorldSubsystem = Depends(get_pythia),
 ) -> dict[str, Any]:
     data = await pythia.health_score()
     if data is None:
@@ -112,7 +111,7 @@ async def world_health_score(
 
 @router.get("/state", summary="Pythia state")
 async def world_state(
-    pythia: PythiaWorldIntelligence = Depends(get_pythia),
+    pythia: PythiaWorldSubsystem = Depends(get_pythia),
 ) -> dict[str, Any]:
     data = await pythia.state()
     if data is None:
@@ -124,7 +123,7 @@ async def world_state(
 
 @router.get("/state/stream", summary="Pythia state stream")
 async def world_state_stream(
-    pythia: PythiaWorldIntelligence = Depends(get_pythia),
+    pythia: PythiaWorldSubsystem = Depends(get_pythia),
 ) -> dict[str, Any]:
     data = await pythia.state_stream()
     if data is None:

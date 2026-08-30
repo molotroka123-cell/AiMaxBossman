@@ -160,7 +160,7 @@ def get_pythia() -> PythiaWorldSubsystem:
 # Convenience functions for fastapi dependency injection
 async def get_pythia_view() -> dict[str, Any] | None:
     """FastAPI dependency: returns /agent/view data from Pythia."""
-    return get_pythia().agent_view()
+    return await get_pythia().agent_view()
 
 
 async def get_pythia_health() -> dict[str, Any] | None:
