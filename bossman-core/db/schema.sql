@@ -169,6 +169,11 @@ CREATE TABLE IF NOT EXISTS working_memory (
 
 CREATE INDEX IF NOT EXISTS idx_working_memory_task ON working_memory(task_id);
 CREATE INDEX IF NOT EXISTS idx_working_memory_version ON working_memory(task_id, version DESC);
+
+-- P0 FIX: restored missing CREATE TABLE statement for projects.
+-- Previously the CREATE TABLE IF NOT EXISTS projects ( header was absent,
+-- causing a syntax error when schema.sql was applied to a fresh PostgreSQL DB.
+CREATE TABLE IF NOT EXISTS projects (
     id           BIGSERIAL PRIMARY KEY,
     slug         TEXT NOT NULL UNIQUE,
     title        TEXT NOT NULL,
@@ -218,6 +223,29 @@ CREATE TABLE IF NOT EXISTS qa_results (
     attempt         INT NOT NULL DEFAULT 1,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Telemetry for Math V2 routing (additive, does not modify V1 tables).
+CREATE TABLE IF NOT EXISTS routing_outcomes (
+    id              BIGSERIAL PRIMARY KEY,
+    task_id         TEXT NOT NULL,
+    task_class      TEXT NOT NULL,
+    model_alias     TEXT NOT NULL,
+    is_cloud        BOOLEAN NOT NULL DEFAULT false,
+    prompt_tokens   INT NOT NULL DEFAULT 0,
+    completion_tokens INT NOT NULL DEFAULT 0,
+    latency_ms      INT,
+    api_cost_usd    NUMERIC(14,8) NOT NULL DEFAULT 0,
+    retries         INT NOT NULL DEFAULT 0,
+    verifier_score  REAL,
+    success         BOOLEAN,
+    reasoning_level INT NOT NULL DEFAULT 1,    -- 0=deterministic 1=cheap 2=normal 3=deep 4=multi-verify
+    marginal_gain   REAL,
+    escalated       BOOLEAN NOT NULL DEFAULT false,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_routing_outcomes_class  ON routing_outcomes(task_class, model_alias);
+CREATE INDEX IF NOT EXISTS idx_routing_outcomes_task   ON routing_outcomes(task_id);
 
 CREATE INDEX IF NOT EXISTS idx_tasks_status       ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_approvals_status   ON approvals(status);
