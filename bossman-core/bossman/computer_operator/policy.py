@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import urlparse
+from .applist import canonical_app
 from .models import ActionKind,ComputerAction,TaskMode
 
 CONSEQUENTIAL=frozenset({
@@ -44,6 +45,11 @@ class ComputerPolicy:
             return PolicyDecision(False,reason="typed text too long")
         if a.kind is ActionKind.TYPE and self.refs_secret_args(a.args):
             return PolicyDecision(True,True,"credential entry requires approval","computer_secret_entry")
+        # APP_LAUNCH — deny-by-default: запускается только логическое имя из
+        # allowlist. Путь/аргументы/подстановки от модели отсекаются здесь, до
+        # роутера, чтобы запуск приложения не превратился в произвольный exec.
+        if a.kind is ActionKind.APP_LAUNCH and canonical_app(a.target) is None:
+            return PolicyDecision(False,reason="app is not in launch allowlist")
         semantic=str(a.args.get("semantic","")).lower().strip()
         if semantic in CONSEQUENTIAL:
             return PolicyDecision(True,True,f"consequential:{semantic}",f"computer_{semantic}")
