@@ -6,7 +6,8 @@
 
 ## HEAD
 - POLISH_START_HEAD: `51aa965df224c39e77c68a68ed60abfff8f072ad` (actual remote HEAD, не из ZIP).
-- POLISH_FINAL_HEAD: см. последний коммит этой ветки после push (обновляется при пуше).
+- POLISH_FINAL_HEAD (код): `3a74e79` (push `51aa965..3a74e79`, no force); этот
+  документ-финализатор — трейлинг docs-коммит поверх (только markdown, код не менялся).
 
 ## Deleted / archived (repo hygiene, Wave 1)
 - `git rm`: `BOSSMAN_POLISH_PHASE_V1.zip` (интегрированный transfer-пак; `.gitignore` уже исключает `/*.zip`).
