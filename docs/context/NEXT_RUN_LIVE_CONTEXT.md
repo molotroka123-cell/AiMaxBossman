@@ -52,3 +52,13 @@ Plugins (закрыто в aa7f1a0), Coding workflow. Адаптировать �
 - Пакет BOSSMAN_NEXT_RUN_8_9_PACK адаптирован в репо: код (lsp_bridge/code_intel/eval_scorecard)
   + MD (MASTER_PROMPT, SCORECARD, LIVE_CONTEXT, EVENING_TEST_MATRIX). Временный ZIP удалён из git
   (по решению владельца — в репо только адаптированный код и отчёты, не временный пакет).
+
+## UPDATE (POLISH Wave 3 + LSP polish)
+- DONE: LSP capability negotiation + Location/LocationLink normalization (bcc/lsp_bridge.py, kept argv-only).
+- DONE: coding worktree session — bcc/coding_session.py (CodingWorktreeManager: create/status/diff/
+  merge_preview/merge(serialized,conflict-aware)/discard/cleanup_orphans, base pinned to SHA, source read-only,
+  durable JSON meta) + diff_aware_review (reject DONE without real diff/tests evidence).
+- Reference-checked vs opencode-worktree/opencode-agent/forge; EXTENDS forks.py, no second engine.
+- Tests: tests/test_polish_lsp_and_coding.py — 15 passed. command-center full 509 passed / 2 skipped. secret scan PASS.
+- Report: docs/context/POLISH_PHASE_REPORT.md.
+- Next POLISH waves need live services/host (external plugin exec, A/B benchmark, UX) → evening matrix.

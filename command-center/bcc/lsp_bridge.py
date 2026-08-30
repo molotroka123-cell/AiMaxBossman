@@ -34,6 +34,16 @@ class LSPConfig:
 
 
 class LSPClient:
+    # LSP method → ключ провайдера в server capabilities (для negotiation)
+    _CAP_KEY = {
+        "textDocument/definition": "definitionProvider",
+        "textDocument/references": "referencesProvider",
+        "textDocument/hover": "hoverProvider",
+        "textDocument/documentSymbol": "documentSymbolProvider",
+        "textDocument/implementation": "implementationProvider",
+        "workspace/symbol": "workspaceSymbolProvider",
+    }
+
     def __init__(self, config: LSPConfig) -> None:
         if not config.argv:
             raise ValueError("empty LSP argv")
@@ -43,6 +53,7 @@ class LSPClient:
         self._pending: dict[int, asyncio.Future] = {}
         self._reader: asyncio.Task | None = None
         self._diagnostics: dict[str, list] = {}
+        self.capabilities: dict = {}   # заполняется из ответа initialize
 
     async def start(self) -> None:
         ws = self.cfg.workspace.resolve(strict=True)
@@ -53,13 +64,49 @@ class LSPClient:
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE)
         self._reader = asyncio.create_task(self._read_loop())
-        await self.request("initialize", {
+        init = await self.request("initialize", {
             "processId": None, "rootUri": ws.as_uri(),
             "capabilities": {"textDocument": {
                 "definition": {}, "references": {}, "hover": {},
                 "documentSymbol": {}, "implementation": {}, "publishDiagnostics": {}},
                 "workspace": {"symbol": {}}}})
+        # capability negotiation: запоминаем, что сервер РЕАЛЬНО умеет
+        caps = (init or {}).get("capabilities") if isinstance(init, dict) else None
+        self.capabilities = caps if isinstance(caps, dict) else {}
         await self.notify("initialized", {})
+
+    def supports(self, method: str) -> bool:
+        """Объявляет ли сервер поддержку метода.
+
+        Если сервер вообще не прислал capabilities (напр. минимальный сервер) —
+        оптимистично разрешаем (unknown → try). Если capabilities есть, но
+        нужный провайдер явно выключен/отсутствует — отказ (не дёргаем зря)."""
+        if not self.capabilities:
+            return True
+        key = self._CAP_KEY.get(method)
+        if key is None:
+            return True
+        return bool(self.capabilities.get(key))
+
+    @staticmethod
+    def normalize_locations(result) -> list[dict]:
+        """Единая форма для definition/references/implementation.
+
+        LSP возвращает Location {uri,range}, LocationLink {targetUri,targetRange},
+        один объект, список или None — нормализуем в list[{uri, range}]."""
+        if result is None:
+            return []
+        items = result if isinstance(result, list) else [result]
+        out: list[dict] = []
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            if "targetUri" in it:          # LocationLink
+                out.append({"uri": it.get("targetUri"),
+                            "range": it.get("targetSelectionRange") or it.get("targetRange")})
+            elif "uri" in it:              # Location
+                out.append({"uri": it.get("uri"), "range": it.get("range")})
+        return out
 
     async def close(self) -> None:
         if not self.proc:
@@ -105,22 +152,32 @@ class LSPClient:
 
     # ---- read-only queries ----
 
+    def _require(self, method: str) -> None:
+        if not self.supports(method):
+            raise LSPError(f"server does not advertise support for {method}")
+
     async def symbols(self, uri: str):
+        self._require("textDocument/documentSymbol")
         return await self.request("textDocument/documentSymbol", {"textDocument": {"uri": uri}})
 
     async def workspace_symbols(self, query: str):
+        self._require("workspace/symbol")
         return await self.request("workspace/symbol", {"query": query})
 
     async def definition(self, uri, line, char):
+        self._require("textDocument/definition")
         return await self._pos("textDocument/definition", uri, line, char)
 
     async def implementation(self, uri, line, char):
+        self._require("textDocument/implementation")
         return await self._pos("textDocument/implementation", uri, line, char)
 
     async def hover(self, uri, line, char):
+        self._require("textDocument/hover")
         return await self._pos("textDocument/hover", uri, line, char)
 
     async def references(self, uri, line, char):
+        self._require("textDocument/references")
         return await self.request("textDocument/references", {
             "textDocument": {"uri": uri}, "position": {"line": line, "character": char},
             "context": {"includeDeclaration": False}})
