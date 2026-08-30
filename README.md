@@ -23,6 +23,10 @@
 железа (hardware audit, benchmark, Phase 1 setup-брифа), выполняется на самой машине
 в день приезда по `BOSSMAN_CLAUDE_CODE_SETUP.md`.
 
+> **Текущее состояние системы — канонически:**
+> [`docs/context/CURRENT_STATE.md`](docs/context/CURRENT_STATE.md).
+> Исторические отчёты — в [`docs/archive/`](docs/archive/).
+
 **Статус: V2.2 — текущий этап закрыт.**
 Control plane — настоящий агентный рантайм: модель реально вызывает инструменты
 (терминал, браузер, MCP, память, код, OpenCode) через один канонический цикл с

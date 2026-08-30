@@ -246,3 +246,75 @@ async def test_status_endpoint_reports_no_secrets(monkeypatch):
     assert "ghp_shouldnotappear" not in blob        # сырой секрет не отдаётся
     gh = next(p for p in out["plugins"] if p["plugin"] == "github")
     assert gh["credential"] in {"configured", "missing"}
+
+
+# ---------- real read-only SQL execution (POLISH: validation-only -> real) ----------
+
+async def test_sql_read_executes_real_readonly_query(tmp_path, monkeypatch):
+    import sqlite3
+    db = tmp_path / "d.db"
+    con = sqlite3.connect(db); con.execute("CREATE TABLE t(id int, name text)")
+    con.execute("INSERT INTO t VALUES (1,'a'),(2,'b')"); con.commit(); con.close()
+    monkeypatch.setenv("SQL_PLUGIN_DSN", f"sqlite:///{db}")
+    spec = REGISTRY.get("plugin:sql.read")
+    ctx = type("C", (), {"svc": None, "task": {}, "run_id": 1, "agent": {},
+                         "workspace": "", "call_id": "c", "step": 0})()
+    res = await spec.handler({"sql": "SELECT name FROM t ORDER BY id"}, ctx)
+    assert not res.error and res.data["rows"] == [{"name": "a"}, {"name": "b"}]
+
+
+async def test_sql_write_blocked_before_execution(tmp_path, monkeypatch):
+    import sqlite3
+    db = tmp_path / "d2.db"
+    con = sqlite3.connect(db); con.execute("CREATE TABLE t(id int)"); con.commit(); con.close()
+    monkeypatch.setenv("SQL_PLUGIN_DSN", f"sqlite:///{db}")
+    spec = REGISTRY.get("plugin:sql.read")
+    ctx = type("C", (), {"svc": None, "task": {}, "run_id": 1, "agent": {},
+                         "workspace": "", "call_id": "c", "step": 0})()
+    res = await spec.handler({"sql": "INSERT INTO t VALUES (9)"}, ctx)
+    assert res.error and "read-only" in res.content
+    # и на уровне БД mode=ro тоже запретил бы — данные не изменились
+    con = sqlite3.connect(db); n = con.execute("SELECT count(*) FROM t").fetchone()[0]; con.close()
+    assert n == 0
+
+
+async def test_sql_no_dsn_is_skip(monkeypatch):
+    monkeypatch.delenv("SQL_PLUGIN_DSN", raising=False)
+    spec = REGISTRY.get("plugin:sql.read")
+    ctx = type("C", (), {"svc": None, "task": {}, "run_id": 1, "agent": {},
+                         "workspace": "", "call_id": "c", "step": 0})()
+    res = await spec.handler({"sql": "SELECT 1"}, ctx)
+    assert res.error and "SKIP_EXTERNAL_CREDENTIAL" in res.content
+
+
+# ---------- real Obsidian write execution (POLISH: local authority reuse) ----------
+
+async def test_obsidian_write_executes_and_confines(tmp_path, monkeypatch):
+    vault = tmp_path / "vault"; vault.mkdir()
+    monkeypatch.setenv("OBSIDIAN_VAULT", str(vault))
+    spec = REGISTRY.get("plugin:obsidian.write")
+    ctx = type("C", (), {"svc": None, "task": {}, "run_id": 1, "agent": {},
+                         "workspace": "", "call_id": "c", "step": 0})()
+    res = await spec.handler({"path": "notes/x.md", "content": "hello"}, ctx)
+    assert not res.error
+    assert (vault / "notes" / "x.md").read_text("utf-8") == "hello"
+
+
+async def test_obsidian_write_blocks_escape(tmp_path, monkeypatch):
+    vault = tmp_path / "vault"; vault.mkdir()
+    monkeypatch.setenv("OBSIDIAN_VAULT", str(vault))
+    spec = REGISTRY.get("plugin:obsidian.write")
+    ctx = type("C", (), {"svc": None, "task": {}, "run_id": 1, "agent": {},
+                         "workspace": "", "call_id": "c", "step": 0})()
+    res = await spec.handler({"path": "../escape.md", "content": "x"}, ctx)
+    assert res.error and "blocked" in res.one_line
+    assert not (tmp_path / "escape.md").exists()
+
+
+async def test_obsidian_write_no_cred_is_skip(monkeypatch):
+    monkeypatch.delenv("OBSIDIAN_VAULT", raising=False)
+    spec = REGISTRY.get("plugin:obsidian.write")
+    ctx = type("C", (), {"svc": None, "task": {}, "run_id": 1, "agent": {},
+                         "workspace": "", "call_id": "c", "step": 0})()
+    res = await spec.handler({"path": "x.md", "content": "y"}, ctx)
+    assert res.error and "SKIP_EXTERNAL_CREDENTIAL" in res.content

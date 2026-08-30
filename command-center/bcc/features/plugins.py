@@ -18,6 +18,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import os
 from dataclasses import dataclass, field
 
@@ -194,6 +195,31 @@ async def _h_http_get(args, ctx: ToolContext) -> ToolResult:
                       data={"status": r.status_code})
 
 
+def _sqlite_path_from_dsn(dsn: str) -> str | None:
+    """Путь к SQLite-файлу из DSN. None → не sqlite (пока поддерживаем только его)."""
+    d = str(dsn or "").strip()
+    for pfx in ("sqlite+aiosqlite:///", "sqlite:///", "sqlite://", "file:"):
+        if d.startswith(pfx):
+            return d[len(pfx):].split("?", 1)[0] or None
+    if d.endswith((".db", ".sqlite", ".sqlite3")):
+        return d
+    return None
+
+
+def _run_sqlite_read(path: str, sql: str, params, limit: int) -> list[dict]:
+    """Реальное read-only исполнение: соединение mode=ro (гарантия на уровне БД)."""
+    import sqlite3
+    uri = f"file:{os.path.abspath(path).replace(os.sep, '/')}?mode=ro"
+    con = sqlite3.connect(uri, uri=True, timeout=5.0)
+    con.row_factory = sqlite3.Row
+    try:
+        cur = con.execute(sql, params if isinstance(params, (list, tuple)) else ())
+        rows = [dict(r) for r in cur.fetchmany(max(1, min(int(limit), 5000)))]
+    finally:
+        con.close()
+    return rows
+
+
 async def _h_sql_read(args, ctx: ToolContext) -> ToolResult:
     sql = str(args.get("sql") or "")
     if not sql_read_only_ok(sql):
@@ -202,9 +228,18 @@ async def _h_sql_read(args, ctx: ToolContext) -> ToolResult:
     dsn = _cred("SQL_PLUGIN_DSN")
     if not dsn:
         return _skip_no_cred(next(c for c in MANIFEST if c.tool_name == "plugin:sql.read"))
-    # реальное соединение — read-only; в этой среде без DSN честный SKIP выше.
-    return ToolResult(content="[sql.read: query validated read-only; execute via read-only DSN]",
-                      one_line="sql.read ok (validated)")
+    path = _sqlite_path_from_dsn(dsn)
+    if path is None:
+        return ToolResult(content="only sqlite read-only DSN supported in this adapter",
+                          one_line="sql.read: unsupported DSN", error=True)
+    try:
+        rows = await asyncio.to_thread(
+            _run_sqlite_read, path, sql, args.get("params"), int(args.get("limit") or 500))
+    except Exception as exc:                       # noqa: BLE001 — ошибка БД = данные, не падение
+        return ToolResult(content=f"sql error: {exc}", one_line="sql.read error", error=True)
+    import json as _json
+    return ToolResult(content=_json.dumps(rows, ensure_ascii=False, default=str)[:200_000],
+                      one_line=f"sql.read: {len(rows)} rows", external=True, data={"rows": rows})
 
 
 async def _h_obsidian_read(args, ctx: ToolContext) -> ToolResult:
@@ -217,6 +252,28 @@ async def _h_obsidian_read(args, ctx: ToolContext) -> ToolResult:
         return ToolResult(content=f"blocked: {exc}", one_line="obsidian.read blocked", error=True)
     return ToolResult(content=p.read_text("utf-8", "replace")[:200_000],
                       one_line=f"obsidian.read {p.name}", external=True)
+
+
+async def _h_obsidian_write(args, ctx: ToolContext) -> ToolResult:
+    """Реальная запись заметки внутри vault (confined). Политика ASK применяется
+    движком ДО хендлера; здесь — уже подтверждённое действие. Путь строго под vault."""
+    root = _cred("OBSIDIAN_VAULT")
+    if not root or root == "n/a":
+        return _skip_no_cred(next(c for c in MANIFEST if c.tool_name == "plugin:obsidian.write"))
+    rel = str(args.get("path") or "")
+    content = str(args.get("content") or "")
+    try:
+        p = confine_path(root, rel, must_exist=False)   # запись — файла может ещё не быть
+    except PluginSecurityError as exc:
+        return ToolResult(content=f"blocked: {exc}", one_line="obsidian.write blocked", error=True)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(p.write_text, content[:2_000_000], "utf-8")
+    except OSError as exc:
+        return ToolResult(content=f"write error: {exc}", one_line="obsidian.write error", error=True)
+    return ToolResult(content=f"written {len(content)} bytes → {p.name}",
+                      one_line=f"obsidian.write {p.name}", external=True,
+                      data={"bytes": len(content)})
 
 
 async def _h_generic_external(cap: Capability):
@@ -240,6 +297,8 @@ def _handler_for(cap: Capability):
         return _h_sql_read
     if cap.tool_name == "plugin:obsidian.read":
         return _h_obsidian_read
+    if cap.tool_name == "plugin:obsidian.write":
+        return _h_obsidian_write
     # остальные — generic (credential-gated / ready), политика решает эффект
     return None  # заполняется в setup через фабрику (нужен cap в замыкании)
 
