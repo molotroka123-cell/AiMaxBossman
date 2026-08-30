@@ -683,6 +683,20 @@ def parse_time(value: Any, *, default: datetime | None = None) -> datetime:
     return to_naive_utc(value)
 
 
+def _filter_query(rows: list[dict], query: str | None) -> list[dict]:
+    """Подстрочный фильтр поиска (case-insensitive) по текстовым полям факта."""
+    needle = " ".join(str(query or "").split()).lower()
+    if not needle:
+        return rows
+    out = []
+    for row in rows:
+        haystack = " ".join(str(row.get(k) or "") for k in
+                            ("subject", "predicate", "object", "statement")).lower()
+        if needle in haystack:
+            out.append(row)
+    return out
+
+
 def public_fact(row: dict) -> dict:
     """Строка факта наружу: только поля, безопасные для модели и UI."""
     return {
@@ -739,21 +753,37 @@ class FactStore:
         return public_fact(result["fact"])
 
     async def search(self, *, subject: str | None = None, predicate: str | None = None,
-                     include_superseded: bool = False, limit: int = 50) -> list[dict]:
+                     include_superseded: bool = False, limit: int = 50,
+                     query: str | None = None, current_only: bool | None = None) -> list[dict]:
+        """Поиск фактов.
+
+        `query` — подстрочный фильтр по subject/predicate/object/statement;
+        `current_only=False` — включить перекрытые/истёкшие.
+        """
+        if current_only is not None:
+            include_superseded = not current_only
         async with self.svc.db.session() as session:
             rows = await query_facts(session, subject=subject, predicate=predicate,
                                      include_superseded=include_superseded, limit=limit)
-        return [public_fact(r) for r in rows]
+        return [public_fact(r) for r in _filter_query(rows, query)]
 
     async def as_of(self, *, world_at: Any = None, when: Any = None,
                     subject: str | None = None, predicate: str | None = None,
-                    limit: int = 50) -> list[dict]:
-        """Ось МИРА: что было правдой на дату (`world_at`; `when` — синоним)."""
+                    limit: int = 50, known_at: Any = None,
+                    query: str | None = None) -> list[dict]:
+        """Ось МИРА: что было правдой на дату (`world_at`; `when` — синоним).
+
+        `known_at` — ось ЗНАНИЯ: что было известно на дату (`known_as_of`).
+        `query` — подстрочный фильтр, как в search().
+        """
         moment = world_at if world_at is not None else when
+        known = known_at if known_at is not None else None
         async with self.svc.db.session() as session:
             rows = await query_facts(session, subject=subject, predicate=predicate,
-                                     as_of=parse_time(moment), limit=limit)
-        return [public_fact(r) for r in rows]
+                                     as_of=parse_time(moment),
+                                     known_as_of=parse_time(known) if known else None,
+                                     limit=limit)
+        return [public_fact(r) for r in _filter_query(rows, query)]
 
     async def history(self, *, subject: str, predicate: str | None = None,
                       limit: int = 100) -> list[dict]:

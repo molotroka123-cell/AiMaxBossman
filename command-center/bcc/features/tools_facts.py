@@ -46,7 +46,7 @@ async def http_add_fact(body: FactIn, request: Request):
     try:
         row = await FactStore(request.app.state.svc).add(
             subject=body.subject, predicate=body.predicate, statement=body.statement,
-            object_value=body.object,
+            object=body.object,
             valid_at=parse_time(body.valid_at) if body.valid_at else None,
             mode=body.mode, source_kind=body.source_kind,
             source_note=body.source_note, confidence=body.confidence, meta=body.meta,
@@ -102,7 +102,7 @@ async def tool_fact_add(args: dict, ctx: ToolContext) -> ToolResult:
             subject=str(args.get("subject") or ""),
             predicate=str(args.get("predicate") or ""),
             statement=str(args.get("statement") or ""),
-            object_value=str(args.get("object") or ""),
+            object=str(args.get("object") or ""),
             valid_at=parse_time(args.get("valid_at")) if args.get("valid_at") else None,
             mode=str(args.get("mode") or "append"), source_kind="run",
             source_run_id=ctx.run_id, source_note=str(args.get("source_note") or ""),
