@@ -166,23 +166,45 @@ def _skip_no_cred(cap: Capability) -> ToolResult:
 
 # ------------------------------------------------------------- SQL read-only guard
 import re as _re
-_SQL_READ = _re.compile(r"^\s*(select|with|pragma\s+(table_info|index_list|index_info))\b", _re.I)
-_SQL_BAD = _re.compile(r"\b(insert|update|delete|drop|alter|create|attach|detach|"
-                       r"vacuum|replace|reindex|pragma)\b", _re.I)
+_SQL_STRING = _re.compile(r"'(?:[^']|'')*'|\"(?:[^\"]|\"\")*\"")
+_SQL_RO_PRAGMA = _re.compile(r"\bpragma\s+(?:table_info|index_list|index_xinfo|index_info)\s*\(",
+                             _re.I)
+_SQL_WRITE = _re.compile(r"\b(insert|update|delete|drop|alter|create|attach|detach|"
+                         r"vacuum|replace|reindex|pragma|begin|commit|rollback|savepoint|"
+                         r"release)\b", _re.I)
 
 
 def sql_read_only_ok(sql: str) -> bool:
-    """True только для одиночного read-only оператора. pragma-write ловится _SQL_BAD,
-    read-only pragma разрешён через _SQL_READ (проверяется первым)."""
-    s = str(sql or "")
-    if ";" in s.strip().rstrip(";"):
+    """True только для одиночного read-only оператора (fail-closed).
+
+    * ровно один оператор (`;` внутри — отказ);
+    * строковые литералы вырезаются ПЕРЕД сканом ключевых слов — данные не
+      триггерят ни ложных отказов, ни обходов;
+    * write-токены запрещены везде, включая data-modifying CTE
+      (`WITH … DELETE/INSERT/UPDATE`) и PRAGMA-запись; разрешены только формы
+      `pragma (table_info|index_list|index_xinfo|index_info)(`;
+    * оператор обязан начинаться с select/with/pragma.
+    Драйверная гарантия остаётся: соединение `mode=ro` (_run_sqlite_read).
+    """
+    s = str(sql or "").strip()
+    if s.endswith(";"):
+        s = s[:-1].rstrip()
+    if not s or ";" in s:
         return False
-    if _SQL_READ.search(s):
-        return True
-    return not _SQL_BAD.search(s) and bool(_re.match(r"^\s*select\b", s, _re.I))
+    scrubbed = _SQL_RO_PRAGMA.sub(" ", _SQL_STRING.sub(" ", s))
+    if _SQL_WRITE.search(scrubbed):
+        return False
+    return bool(_re.match(r"^\s*(select|with|pragma)\b", s, _re.I))
 
 
 # ------------------------------------------------------------- handlers
+
+def _known_secret_values() -> set[str]:
+    """Значения настроенных кредов — для скраба из внешнего контента/ошибок.
+    Сами значения НИКОГДА не попадают в логи/аудит (см. plugin_security.redact)."""
+    return {os.environ[ref] for ref in {c.credential_ref for c in MANIFEST}
+            if ref and os.environ.get(ref)}
+
 
 async def _h_http_get(args, ctx: ToolContext) -> ToolResult:
     url = str(args.get("url") or "")
@@ -191,6 +213,8 @@ async def _h_http_get(args, ctx: ToolContext) -> ToolResult:
     except PluginSecurityError as exc:
         return ToolResult(content=f"blocked: {exc}", one_line=f"http.get blocked: {exc}", error=True)
     body = r.content[:1_000_000].decode("utf-8", "replace")
+    # настроенные секреты не должны утекать через эхо внешнего контента
+    body = redact(body, secret_values=_known_secret_values())
     return ToolResult(content=body, one_line=f"http.get {r.status_code}", external=True,
                       data={"status": r.status_code})
 
