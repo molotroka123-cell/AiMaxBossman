@@ -56,6 +56,31 @@ async def _run(cap: str, args: dict, ctx: ToolContext) -> ToolResult:
         ws = Path(workspace).resolve(strict=True)
     except (OSError, RuntimeError) as exc:
         return ToolResult(content=f"bad workspace: {exc}", one_line=f"code.{cap} bad ws", error=True)
+    # RC-HARDENING-1: enforce canonical allowed-roots perimeter (same as code tools).
+    # Reuses existing helpers from tools_code — no second engine, no duplication.
+    # Symlink/junction escape is handled by _within after resolve().
+    # When svc/db unavailable (unit tests with svc=None) skip — existing fake-LSP tests use tmp_path outside repo.
+    if ctx is not None and getattr(ctx, "svc", None) is not None and hasattr(ctx.svc, "db"):
+        try:
+            from .tools_code import allowed_roots as _allowed_roots, _within as _is_within  # reuse canonical
+            roots = await _allowed_roots(ctx.svc)
+            if not _is_within(ws, roots):
+                return ToolResult(
+                    content=f"workspace {ws} outside allowed roots: {', '.join(str(r) for r in roots)}",
+                    one_line=f"code.{cap}: workspace denied", error=True)
+        except Exception as exc:  # noqa: BLE001 — fallback deny only if we can prove outside
+            # If helper itself fails, try fallback to repo-root check without breaking.
+            try:
+                from ..config import ROOT as _ROOT
+                repo = _ROOT.parent.resolve()
+                rp = ws.resolve()
+                rr = repo.resolve()
+                if not (rp == rr or rr in rp.parents):
+                    return ToolResult(content=f"workspace {ws} outside allowed roots",
+                                      one_line=f"code.{cap}: workspace denied", error=True)
+            except Exception:
+                return ToolResult(content=f"workspace check failed: {exc}",
+                                  one_line=f"code.{cap}: workspace denied", error=True)
     client = LSPClient(LSPConfig(argv=tuple(argv), workspace=ws))
     try:
         await client.start()
