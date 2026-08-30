@@ -80,7 +80,7 @@ START_HEAD (актуальный remote на старте): `4e72785`
 | Secret scan | PASS | `tools/ci_secret_scan.py` PASS; bundle без hardcoded секретов |
 | Full tests bossman-core | PASS | 906 passed / 0 failed / 4 skipped |
 | Full tests command-center | PASS | 433 passed / 0 failed / 2 skipped |
-| CI | NOT_VERIFIED_YET | проверяется на FINAL_REMOTE_HEAD после push (см. конец) |
+| CI | GREEN | на FINAL_REMOTE_HEAD `f4a37d9`: Bossman Core CI 9/9 jobs success (py3.11+3.12), Command Center CI 3/3 jobs success |
 
 ---
 
