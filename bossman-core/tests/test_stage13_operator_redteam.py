@@ -1,4 +1,4 @@
-﻿"""Stage 13 computer-operator red team + completion tests.
+"""Stage 13 computer-operator red team + completion tests.
 Covers: BOSSMAN security-surface policy guard, desktop control lease, stale
 generation rejection, prompt-injection containment, restart mid-approval,
 run() crash containment (routes fire-and-forget), secret-entry redaction."""
