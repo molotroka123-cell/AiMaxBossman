@@ -25,3 +25,15 @@
   сливаются, а не заменяются.
 - **DEC-011** Один писатель на проект: межпроцессный advisory-лок Postgres в
   `projects.run_project`.
+- **DEC-012 (V2)** LLM — компонент рассуждения, не рантайм исполнения; единственный
+  путь исполнения остаётся `typed action → policy → approval → executor`.
+- **DEC-013 (V2)** Контекст — задача constrained optimization (информационная
+  плотность на токен), а не максимизация размера.
+- **DEC-014 (V2)** P0 security и P1 objective — обязательный контекст, не кандидаты
+  рейтинга; compression не может их молча удалить.
+- **DEC-015 (V2)** Авторизация скоупа и временная валидность предшествуют
+  рейтингованию релевантности; retrieved-текст — DATA, не authority.
+- **DEC-016 (V2)** Рабочее состояние — append-only versioned rows (каждая версия =
+  чекпоинт) с optimistic concurrency; chat history состоянием не является.
+- **DEC-017 (V2)** Маршрутизация моделей будет evidence-driven (scorecard-телеметрия
+  `ModelScorecardEvent`), а не по именам моделей.
