@@ -204,7 +204,8 @@ async def test_lsp_workspace_allowed_root_pass(monkeypatch, tmp_path, fake_serve
     spec = REGISTRY.get("code:symbols")
     svc = type("S", (), {"db": object()})()
     ctx = type("C", (), {"svc": svc, "task": {}, "run_id": 1, "agent": {}, "workspace": str(allowed), "call_id": "c", "step": 0})()
-    res = await spec.handler({"lang": "python", "uri": "file:///x.py", "workspace": str(allowed)}, ctx)
+    # uri обязан быть внутри resolved workspace (контракт RC-HARDENING-1)
+    res = await spec.handler({"lang": "python", "uri": (allowed / "x.py").as_uri(), "workspace": str(allowed)}, ctx)
     # должен пройти confinement (не denied), затем успешно вызвать fake LSP
     assert not (res.error and "workspace denied" in res.content), res.content
     assert not (res.error and "outside allowed roots" in res.content)
@@ -290,3 +291,103 @@ async def test_lsp_workspace_symlink_escape_denied(monkeypatch, tmp_path):
     res = await spec.handler({"lang": "python", "uri": "file:///x.py", "workspace": str(link)}, ctx)
     assert res.error
     assert "workspace denied" in res.content or "outside allowed roots" in res.content
+
+
+# ------------------------------------------------- RC-HARDENING-1: uri confinement
+
+async def test_lsp_uri_outside_workspace_denied(monkeypatch, tmp_path, fake_server):
+    """LSP_URI_OUTSIDE_DENIED: PASS — file:// URI вне resolved workspace → DENY."""
+    import json as _json
+    import sys as _sys
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    (allowed / "x.py").write_text("x=1\n", encoding="utf-8")
+    outside = tmp_path / "outside.py"
+    outside.write_text("secret = 1\n", encoding="utf-8")
+
+    async def _fake_roots(svc):
+        return [allowed]
+
+    monkeypatch.setattr("bcc.features.tools_code.allowed_roots", _fake_roots)
+    monkeypatch.setenv("LSP_SERVERS", _json.dumps({"python": list(fake_server)}))
+    await CI.setup(None)
+    spec = REGISTRY.get("code:symbols")
+    svc = type("S", (), {"db": object()})()
+    ctx = type("C", (), {"svc": svc, "task": {}, "run_id": 1, "agent": {}, "workspace": str(allowed), "call_id": "c", "step": 0})()
+    res = await spec.handler({"lang": "python", "uri": outside.as_uri(), "workspace": str(allowed)}, ctx)
+    assert res.error and "uri denied" in res.one_line, res.content
+    assert "escapes workspace" in res.content
+
+
+async def test_lsp_uri_traversal_denied(monkeypatch, tmp_path, fake_server):
+    """LSP_URI_TRAVERSAL_DENIED: PASS — `..` в URI, вылезающий за workspace → DENY."""
+    import json as _json
+    import sys as _sys
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    outside = tmp_path / "outside_via_dotdot.py"
+    outside.write_text("secret = 1\n", encoding="utf-8")
+
+    async def _fake_roots(svc):
+        return [allowed]
+
+    monkeypatch.setattr("bcc.features.tools_code.allowed_roots", _fake_roots)
+    monkeypatch.setenv("LSP_SERVERS", _json.dumps({"python": list(fake_server)}))
+    await CI.setup(None)
+    spec = REGISTRY.get("code:symbols")
+    svc = type("S", (), {"db": object()})()
+    ctx = type("C", (), {"svc": svc, "task": {}, "run_id": 1, "agent": {}, "workspace": str(allowed), "call_id": "c", "step": 0})()
+    bad = f"{allowed.as_uri()}/../outside_via_dotdot.py"
+    res = await spec.handler({"lang": "python", "uri": bad, "workspace": str(allowed)}, ctx)
+    assert res.error and "uri denied" in res.one_line, res.content
+
+
+async def test_lsp_uri_percent_encoded_traversal_denied(monkeypatch, tmp_path, fake_server):
+    """LSP_URI_ENCODED_TRAVERSAL_DENIED: PASS — %2e%2e не обходит канонизацию."""
+    import json as _json
+    import sys as _sys
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+
+    async def _fake_roots(svc):
+        return [allowed]
+
+    monkeypatch.setattr("bcc.features.tools_code.allowed_roots", _fake_roots)
+    monkeypatch.setenv("LSP_SERVERS", _json.dumps({"python": list(fake_server)}))
+    await CI.setup(None)
+    spec = REGISTRY.get("code:symbols")
+    svc = type("S", (), {"db": object()})()
+    ctx = type("C", (), {"svc": svc, "task": {}, "run_id": 1, "agent": {}, "workspace": str(allowed), "call_id": "c", "step": 0})()
+    bad = f"{allowed.as_uri()}/%2e%2e/secret.py"
+    res = await spec.handler({"lang": "python", "uri": bad, "workspace": str(allowed)}, ctx)
+    assert res.error and "uri denied" in res.one_line, res.content
+
+
+async def test_lsp_uri_symlink_escape_denied(monkeypatch, tmp_path, fake_server):
+    """LSP_URI_SYMLINK_DENIED: PASS/SKIP_HOST — symlink в workspace, цель вне → DENY."""
+    import json as _json
+    import sys as _sys
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    target = tmp_path / "secret_outside"
+    target.mkdir()
+    (target / "evil.py").write_text("secret = 1\n", encoding="utf-8")
+    link = allowed / "link_dir"
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"symlink not supported on this host: {exc}")
+    if link.resolve() != target.resolve():
+        pytest.skip("symlink resolution differs on this host")
+
+    async def _fake_roots(svc):
+        return [allowed]
+
+    monkeypatch.setattr("bcc.features.tools_code.allowed_roots", _fake_roots)
+    monkeypatch.setenv("LSP_SERVERS", _json.dumps({"python": list(fake_server)}))
+    await CI.setup(None)
+    spec = REGISTRY.get("code:symbols")
+    svc = type("S", (), {"db": object()})()
+    ctx = type("C", (), {"svc": svc, "task": {}, "run_id": 1, "agent": {}, "workspace": str(allowed), "call_id": "c", "step": 0})()
+    res = await spec.handler({"lang": "python", "uri": (link / "evil.py").as_uri(), "workspace": str(allowed)}, ctx)
+    assert res.error and "uri denied" in res.one_line, res.content

@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter
 
@@ -23,6 +24,34 @@ from . import Feature
 router = APIRouter()
 
 CAPS = ["definition", "references", "hover", "symbols", "diagnostics"]
+
+
+def _canonical_uri(supplied: str, ws: Path) -> str:
+    """file:// URI или путь → канонический file:// URI ВНУТРИ workspace.
+
+    RC-HARDENING-1 (uri-плечо): канонизируем (percent-decode, `..`, symlink-
+    компоненты через resolve) и доказываем вложенность в resolved workspace.
+    Сетевой host в URI запрещён; эскейп — PermissionError.
+    """
+    raw = str(supplied or "").strip()
+    if not raw:
+        return ""
+    if raw.lower().startswith("file:"):
+        parts = urlparse(raw)
+        if parts.netloc not in ("", "localhost"):
+            raise PermissionError(f"remote host in file URI: {raw}")
+        p = Path(unquote(parts.path))
+    else:
+        p = Path(raw)
+    if not p.is_absolute():
+        p = ws / p
+    try:
+        resolved = p.resolve(strict=False)   # resolve существующие symlink/junction
+    except (OSError, RuntimeError) as exc:
+        raise PermissionError(f"unresolvable path: {raw}") from exc
+    if not (resolved == ws or ws in resolved.parents):
+        raise PermissionError(f"path escapes workspace: {raw}")
+    return resolved.as_uri()
 
 
 def _servers() -> dict[str, list[str]]:
@@ -84,7 +113,11 @@ async def _run(cap: str, args: dict, ctx: ToolContext) -> ToolResult:
     client = LSPClient(LSPConfig(argv=tuple(argv), workspace=ws))
     try:
         await client.start()
-        uri = str(args.get("uri") or "")
+        try:
+            uri = _canonical_uri(str(args.get("uri") or ""), ws)
+        except PermissionError as exc:
+            return ToolResult(content=f"denied: {exc}", one_line=f"code.{cap}: uri denied",
+                              error=True)
         line = int(args.get("line") or 0)
         char = int(args.get("char") or 0)
         if cap == "definition":

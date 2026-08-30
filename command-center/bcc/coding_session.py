@@ -184,7 +184,20 @@ class CodingWorktreeManager:
         """
         meta = self._require(session_id)
         async with _MERGE_LOCK:
+            # цель выводится СЕРВЕРНО: текущая ветка источника → запиненная база.
+            # Произвольный into от клиента авторитетом не является.
             target = await self._resolve_target(meta, into)
+            # дисциплина перед merge: сессия должна быть закоммичена (чистый worktree)
+            st = await self.status(session_id)
+            if st["dirty"]:
+                return {"merged": False, "reason": "session_dirty",
+                        "uncommitted_files": st["uncommitted_files"][:50]}
+            # и исходный репозиторий — без незакоммиченных правок
+            code, porcelain, _ = await _git(meta.source_repo, "status", "--porcelain",
+                                            check=False)
+            if porcelain.strip():
+                dirty = [ln[3:] for ln in porcelain.splitlines() if ln.strip()]
+                return {"merged": False, "reason": "source_dirty", "dirty_files": dirty[:50]}
             preview = await self.merge_preview(session_id, into=target)
             if not preview["clean"] and not allow_conflicts:
                 return {"merged": False, "reason": "conflicts", "conflicts": preview["conflicts"]}

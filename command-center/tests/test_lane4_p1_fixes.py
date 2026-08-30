@@ -112,3 +112,61 @@ async def test_browser_health_endpoint(env):
     body = r.json()
     assert isinstance(body["available"], bool)
     assert body["active_sessions"] == 0
+
+
+async def test_merge_dirty_session_is_blocked_409(env, tmp_path):
+    """Сессия с незакоммиченными правками не вливается: явный 409 session_dirty."""
+    src = tmp_path / "src3"
+    await _init_repo(src)
+    await _allow(env, tmp_path)
+    r = await env.client.post("/api/coding-sessions", json={
+        "session_id": "api3", "source_repo": str(src)})
+    assert r.status_code == 200, r.text
+    wt = Path(r.json()["worktree"])
+    (wt / "a.py").write_text("A = 'uncommitted'\n", encoding="utf-8")   # dirty, без коммита
+    r = await env.client.post("/api/coding-sessions/api3/merge", json={})
+    assert r.status_code == 409, r.text
+    err = r.json()["error"]
+    assert "session_dirty" in err["message"], err
+    assert "a.py" in err.get("uncommitted_files", [])
+
+
+async def test_merge_dirty_source_is_blocked_409(env, tmp_path):
+    """Незакоммиченные правки в исходном репозитории → явный 409 source_dirty."""
+    src = tmp_path / "src4"
+    await _init_repo(src)
+    await _allow(env, tmp_path)
+    r = await env.client.post("/api/coding-sessions", json={
+        "session_id": "api4", "source_repo": str(src)})
+    assert r.status_code == 200, r.text
+    wt = Path(r.json()["worktree"])
+    (wt / "b.py").write_text("B = 1\n", encoding="utf-8")
+    await _git(wt, "add", "-A")
+    await _git(wt, "commit", "-qm", "clean session change")
+    (src / "c.py").write_text("C = 'dirty source'\n", encoding="utf-8")  # грязный источник
+    r = await env.client.post("/api/coding-sessions/api4/merge", json={})
+    assert r.status_code == 409, r.text
+    err = r.json()["error"]
+    assert "source_dirty" in err["message"], err
+    assert "c.py" in err.get("dirty_files", [])
+
+
+async def test_merge_target_is_server_derived(env, tmp_path):
+    """Клиентский `into` не принимается: цель — текущая ветка источника (server-side)."""
+    src = tmp_path / "src5"
+    await _init_repo(src)
+    await _allow(env, tmp_path)
+    r = await env.client.post("/api/coding-sessions", json={
+        "session_id": "api5", "source_repo": str(src)})
+    assert r.status_code == 200, r.text
+    wt = Path(r.json()["worktree"])
+    (wt / "d.py").write_text("D = 1\n", encoding="utf-8")
+    await _git(wt, "add", "-A")
+    await _git(wt, "commit", "-qm", "add d")
+    # пытаемся подсунуть чужой into — тело игнорируется, цель резолвит сервер
+    r = await env.client.post("/api/coding-sessions/api5/merge", json={
+        "into": "refs/heads/evil-target"})
+    assert r.status_code == 200, r.text
+    assert r.json()["into"] == "master", r.json()
+    _, shown, _ = await _git(src, "show", "master:d.py")
+    assert shown.strip() == "D = 1"

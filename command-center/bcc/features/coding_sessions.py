@@ -32,7 +32,12 @@ class SessionCreate(BaseModel):
 
 
 class MergeIn(BaseModel):
-    into: str | None = None
+    """Merge: тело клиента не влияет на цель — target выводится сервером
+    (текущая ветка источника → запиненная база). Произвольный `into` недоверенный."""
+
+
+class PreviewIn(BaseModel):
+    into: str | None = None      # превью read-only: into можно посмотреть
 
 
 def _mgr(svc) -> CodingWorktreeManager:
@@ -100,7 +105,7 @@ async def session_diff(session_id: str, request: Request):
 
 
 @router.post("/coding-sessions/{session_id}/merge_preview")
-async def merge_preview(session_id: str, body: MergeIn, request: Request):
+async def merge_preview(session_id: str, body: PreviewIn, request: Request):
     try:
         return await _mgr(request.app.state.svc).merge_preview(session_id, into=body.into)
     except CodingSessionError as exc:
@@ -109,17 +114,19 @@ async def merge_preview(session_id: str, body: MergeIn, request: Request):
 
 @router.post("/coding-sessions/{session_id}/merge")
 async def merge(session_id: str, body: MergeIn, request: Request):
-    """Политика: чистый merge или отказ. Конфликты → 409 (никогда не «влитой мусор»)."""
+    """Политика: чистый merge или отказ. Конфликты/грязное состояние → 409.
+    Цель слияния выводится сервером — клиентский `into` не принимается."""
     svc = request.app.state.svc
     try:
-        # into=None → менеджер сам резолвит цель (текущая ветка источника → база)
-        res = await _mgr(svc).merge(session_id, into=body.into)
+        res = await _mgr(svc).merge(session_id, into=None)
     except CodingSessionError as exc:
         raise _err(exc)
     if not res.get("merged"):
+        extra = {k: v for k, v in res.items()
+                 if k not in ("merged", "reason", "into", "head")}
         raise HTTPException(409, {"message": f"merge отклонён: {res.get('reason')}",
                                   "conflicts": res.get("conflicts", []),
-                                  "detail": res.get("detail", "")})
+                                  "detail": res.get("detail", ""), **extra})
     await svc.bus.emit("coding.session.merged", session_id=session_id,
                        into=res.get("into", ""), head=res.get("head", ""))
     return res
