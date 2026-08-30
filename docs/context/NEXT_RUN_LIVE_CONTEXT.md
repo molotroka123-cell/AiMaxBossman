@@ -47,3 +47,8 @@ Plugins (закрыто в aa7f1a0), Coding workflow. Адаптировать �
 - Tests: `tests/test_code_intel_and_scorecard.py` — 13 passed (LSP over real pipes via fake server; scorecard summarize/compare).
 - Features load: 30 total (code_intel + plugins present).
 - Next: full command-center regression + secret scan + push; verify remote HEAD + CI.
+
+## UPDATE (pack fully adapted → temp zip removed)
+- Пакет BOSSMAN_NEXT_RUN_8_9_PACK адаптирован в репо: код (lsp_bridge/code_intel/eval_scorecard)
+  + MD (MASTER_PROMPT, SCORECARD, LIVE_CONTEXT, EVENING_TEST_MATRIX). Временный ZIP удалён из git
+  (по решению владельца — в репо только адаптированный код и отчёты, не временный пакет).
