@@ -7,6 +7,23 @@ from .store import CallbackRejected,SQLiteNotificationStore
 
 API="https://api.telegram.org"
 
+
+def _egress_guard_text(text:str)->str:
+    """Канонический egress_guard на ЕДИНСТВЕННОМ telegram-choke-point.
+
+    Все telegram-отправки идут через send(), поэтому проверка секретов/
+    эксфильтрации живёт здесь, а не в каждом вызывающем. OFF по умолчанию →
+    текст без изменений. DENY/HOLD → безопасная заглушка вместо содержимого
+    (egress fail-closed для sensitive-канала). Сбой guard'а не роняет отправку.
+    """
+    try:
+        from ..cybersec import guards
+        v=guards.egress_guard(text,channel="telegram")
+        if v.decision is guards.EgressDecision.ALLOW:return text
+        return f"[BOSSMAN: сообщение задержано egress-guard ({v.decision.value})]"
+    except Exception:
+        return text
+
 class TelegramTransportError(RuntimeError):pass
 
 ActionHandler=Callable[[dict,str],Awaitable[None]]
@@ -45,7 +62,7 @@ class TelegramTransport:
                 opaque=self.store.create_callback(a,chat)
                 row.append({"text":a.label[:50],"callback_data":"b:"+opaque})
             keyboard=[row]
-        text=f"{n.title}\n\n{n.body}"[:4000]
+        text=_egress_guard_text(f"{n.title}\n\n{n.body}")[:4000]
         payload={"chat_id":chat,"text":text,"disable_web_page_preview":True}
         if keyboard:payload["reply_markup"]={"inline_keyboard":keyboard}
         await self._post("sendMessage",payload)
