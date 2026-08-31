@@ -125,6 +125,7 @@ CREATE INDEX IF NOT EXISTS idx_decisions_id ON decisions(decision_id);
 -- Записи о сбоях с анализом причин.
 CREATE TABLE IF NOT EXISTS failures (
     id              BIGSERIAL PRIMARY KEY,
+    failure_id      TEXT NOT NULL UNIQUE,   -- стабильный внешний id (симметрия с decisions.decision_id)
     task_id         TEXT NOT NULL,
     symptom         TEXT NOT NULL,
     error_class     TEXT NOT NULL,
@@ -167,8 +168,24 @@ CREATE TABLE IF NOT EXISTS working_memory (
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_working_memory_task ON working_memory(task_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_working_memory_task ON working_memory(task_id);
 CREATE INDEX IF NOT EXISTS idx_working_memory_version ON working_memory(task_id, version DESC);
+
+-- Append-only снапшоты версий рабочей памяти (checkpoint/restore).
+CREATE TABLE IF NOT EXISTS working_memory_versions (
+    id                BIGSERIAL PRIMARY KEY,
+    working_memory_id BIGINT NOT NULL REFERENCES working_memory(id) ON DELETE CASCADE,
+    task_id           TEXT NOT NULL,
+    version           INT NOT NULL,
+    snapshot          JSONB NOT NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (working_memory_id, version)
+);
+CREATE INDEX IF NOT EXISTS idx_wm_versions_task ON working_memory_versions(task_id, version DESC);
+
+-- Проекты (P0-восстановление: CREATE TABLE был утерян в 9880087 при вставке
+-- memory-таблиц; колонки остались «сиротами» → схема не применялась вовсе).
+CREATE TABLE IF NOT EXISTS projects (
     id           BIGSERIAL PRIMARY KEY,
     slug         TEXT NOT NULL UNIQUE,
     title        TEXT NOT NULL,
