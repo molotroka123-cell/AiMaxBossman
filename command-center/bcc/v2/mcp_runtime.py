@@ -1,13 +1,19 @@
-"""MCP client runtime (V2.1, фаза D) — реальное исполнение протокола.
+"""MCP client runtime (V2.1, фаза D; путь SDK исправлен в V2.6, D1) — реальное
+исполнение протокола.
 
-Протокол НЕ хэндроллится: используется официальный SDK `mcp` (2.x,
-`mcp.client.client.Client` + `StdioServerParameters`). Импорт ленивый, так что
-отсутствие пакета не ломает старт приложения (см. `bcc/api.py::_wire_v2_managers`).
+Протокол НЕ хэндроллится: используется официальный SDK `mcp` через его
+СТАБИЛЬНЫЕ пути — `mcp.client.session.ClientSession` +
+`mcp.client.stdio.stdio_client` + `StdioServerParameters`. (Ранее импортировался
+`mcp.client.client.Client` — путь, которого в 1.x SDK нет вовсе; ImportError
+глотался, и рантайм вечно врал «SDK не установлен» при установленном mcp.)
+Импорт ленивый, так что отсутствие пакета не ломает старт приложения
+(см. `bcc/api.py::_wire_v2_managers`).
 
 Ключевое устройство: SDK построен на anyio-таскгруппах, а таскгруппу нельзя
 входить в одной задаче и выходить в другой. Поэтому на каждый сервер заводится
-ОДНА задача-водитель (`_Connection._run`), которая владеет контекстом `Client`,
-а все вызовы приходят к ней через очередь и возвращаются через future.
+ОДНА задача-водитель (`_Connection._run`), которая владеет контекстами
+`stdio_client`/`ClientSession`, а все вызовы приходят к ней через очередь и
+возвращаются через future.
 Тогда `connect/call/disconnect` можно звать откуда угодно (HTTP-эндпоинт,
 хэндлер инструмента, тик фичи) без нарушения контракта anyio.
 
@@ -38,11 +44,17 @@ def sdk_available() -> bool:
     return True
 
 
-def load_sdk() -> tuple[Any, Any]:
-    """(Client, StdioServerParameters) из официального SDK. Бросает при отсутствии."""
+def load_sdk() -> tuple[Any, Any, Any]:
+    """(ClientSession, stdio_client, StdioServerParameters) из официального SDK.
+
+    Именно эти пути существуют и в 1.x, и в 2.x SDK (в отличие от выдуманного
+    `mcp.client.client.Client`, из-за которого MCP молча «отсутствовал»).
+    Бросает ImportError при реально отсутствующем пакете — честный degrade.
+    """
     from mcp import StdioServerParameters                     # type: ignore
-    from mcp.client.client import Client                      # type: ignore
-    return Client, StdioServerParameters
+    from mcp.client.session import ClientSession              # type: ignore
+    from mcp.client.stdio import stdio_client                 # type: ignore
+    return ClientSession, stdio_client, StdioServerParameters
 
 
 def sdk_version() -> str:
@@ -101,7 +113,10 @@ def _text_of(result: Any) -> tuple[str, bool, Any, list[dict]]:
         else:
             parts.append(str(block))
             blocks.append({"type": kind or "unknown"})
+    # 2.x SDK: structured_content; в 1.x поле называлось structuredContent.
     structured = getattr(result, "structured_content", None)
+    if structured is None:
+        structured = getattr(result, "structuredContent", None)
     if not parts and structured is not None:
         parts.append(str(structured))
     is_error = bool(getattr(result, "is_error", False) or getattr(result, "isError", False))
@@ -119,7 +134,7 @@ _STOP = object()
 
 
 class _Connection:
-    """Одна задача владеет контекстом Client; наружу — очередь запросов."""
+    """Одна задача владеет контекстами stdio_client/ClientSession; наружу — очередь запросов."""
 
     def __init__(self, spec: MCPServerSpec, *,
                  on_event: Callable[[str, dict], Awaitable[None]] | None = None) -> None:
@@ -200,7 +215,7 @@ class _Connection:
     async def _run(self) -> None:
         assert self._ready is not None
         try:
-            Client, Params = load_sdk()
+            ClientSession, stdio_client, Params = load_sdk()
         except Exception as exc:
             self._fail_ready(MCPUnavailable(f"MCP SDK недоступен ({exc}); {SDK_HINT}"))
             self.health.status = "unhealthy"
@@ -216,13 +231,17 @@ class _Connection:
 
         crash: BaseException | None = None
         try:
-            async with Client(self._params(Params)) as client:
-                self.health.status = "healthy"
-                self.health.connected = True
-                self.health.detail = ""
-                if not self._ready.done():
-                    self._ready.set_result(True)
-                await self._pump(client)
+            # Реальный контракт SDK: stdio_client даёт (read, write) потоки,
+            # поверх них — ClientSession с явным initialize() (handshake).
+            async with stdio_client(self._params(Params)) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    self.health.status = "healthy"
+                    self.health.connected = True
+                    self.health.detail = ""
+                    if not self._ready.done():
+                        self._ready.set_result(True)
+                    await self._pump(session)
         except asyncio.CancelledError:
             self.health.status = "stopped"
             self.health.connected = False
@@ -370,12 +389,12 @@ class MCPRuntime:
         return [c.health.as_dict() for c in self._conns.values()]
 
     async def probe(self, server_id: str) -> ServerHealth:
-        """Живая проверка: реальный `tools/list` мимо кэша SDK."""
+        """Живая проверка: реальный `tools/list` (ClientSession не кэширует)."""
         conn = self._conns.get(str(server_id))
         if conn is None or not conn.running:
             return self.health(server_id)
         try:
-            result = await conn.request("list_tools", cache_mode="refresh", timeout=10.0)
+            result = await conn.request("list_tools", timeout=10.0)
         except Exception as exc:
             conn.health.status = "unhealthy"
             conn.health.connected = False
@@ -391,9 +410,10 @@ class MCPRuntime:
     # ---- протокол
 
     async def list_tools(self, server_id: str, *, refresh: bool = False) -> list[MCPToolView]:
+        # ClientSession не кэширует tools/list: каждый вызов и так «свежий»,
+        # поэтому refresh сохраняется в сигнатуре, но различия не делает.
         conn = self._conn(server_id)
-        result = await conn.request("list_tools",
-                                    cache_mode="refresh" if refresh else "use")
+        result = await conn.request("list_tools")
         views = [MCPToolView(server_id=str(server_id), name=t.name,
                              description=getattr(t, "description", "") or "",
                              input_schema=_schema_of(t))

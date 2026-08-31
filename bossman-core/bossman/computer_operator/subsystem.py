@@ -13,10 +13,12 @@ from pathlib import Path
 from .. import approvals, events
 from ..config import settings
 from .adapters.app_launch import AppLaunchAdapter
+from .adapters.browser import ExistingBrowserAdapter
 from .adapters.router import ActionRouter
 from .adapters.screenshot import LocalScreenshotProvider
 from .adapters.vision import VisionInputAdapter
 from .adapters.windows import WindowsDesktop
+from .capabilities import CapabilityRegistry
 from .manager import ComputerOperatorManager
 from .observer import Observer
 from .planner import Planner
@@ -66,7 +68,49 @@ def _profile_access_check(device_id, source="local"):
     computer_access_check(device_id, source)
 
 
-def build_manager(*, store_path=None, launcher=None) -> ComputerOperatorManager:
+# Синонимы op планировщика -> имя СУЩЕСТВУЮЩЕГО инструмента browser.* (policy.py
+# валидирует op=="navigate", в toolkit исторически это browser.open).
+_BROWSER_OP_ALIASES = {"navigate": "open"}
+
+
+async def _browser_toolkit_dispatch(action, observation):
+    """Мост BROWSER-действий к СУЩЕСТВУЮЩЕМУ browser-toolkit (V2.6, D2).
+
+    Второго браузера и второй политики не появляется: `op` из args уходит в уже
+    зарегистрированный инструмент `browser.<op>` со всеми его стенами
+    (blocked/sensitive-домены, отказ от submit без confirmed_* и т.д.).
+    Неизвестный op — честная ошибка-данные для replan, а не тихий no-op.
+    """
+    from ..toolkit import REGISTRY, ToolContext
+    op = str((action.args or {}).get("op") or "").strip().lower()
+    tool = REGISTRY.get(f"browser.{_BROWSER_OP_ALIASES.get(op, op)}") if op else None
+    if tool is None:
+        raise RuntimeError(f"browser op is not a registered browser tool: {op!r}")
+    args = {k: v for k, v in (action.args or {}).items() if k != "op"}
+    if action.target and "target" not in args:
+        args["target"] = action.target
+    ctx = ToolContext(agent="computer-operator",
+                      workdir=Path(getattr(settings, "workspace_dir", ".")))
+    result = await tool.handler(args, ctx)
+    if getattr(result, "error", False):
+        raise RuntimeError(f"browser.{op}: {(result.content or '')[:400]}")
+    return result
+
+
+def _supported_kinds_provider(registry: CapabilityRegistry):
+    """Ленивый поставщик поддержанных ActionKind для планировщика (V2.6, D4).
+
+    Проба идёт по РЕАЛЬНО зарегистрированным адаптерам; ошибка пробы не роняет
+    планирование — Planner.allowed_kinds() сам откатывается на полный список
+    (degrade-open по доступности; политика всё равно фильтрует действия).
+    """
+    async def provider():
+        caps = await registry.probe()
+        return sorted({c.action.value for c in caps if c.supported and c.action})
+    return provider
+
+
+def build_manager(*, store_path=None, launcher=None, browser_dispatch=None) -> ComputerOperatorManager:
     """Собрать менеджер на РЕАЛЬНЫХ компонентах.
 
     Платформенная недоступность честно проявляется на вызове (WindowsDesktop
@@ -74,16 +118,23 @@ def build_manager(*, store_path=None, launcher=None) -> ComputerOperatorManager:
     что рабочий стол есть.
     """
     desktop = WindowsDesktop()
+    # Порядок: специфичные по виду/источнику раньше общего desktop-бэкенда.
+    # BROWSER обслуживает существующий browser-toolkit (V2.6, D2: раньше
+    # ActionKind.BROWSER проходил policy, но роутер не имел backend'а и падал).
+    backends = [
+        AppLaunchAdapter(launcher=launcher),
+        ExistingBrowserAdapter(browser_dispatch or _browser_toolkit_dispatch),
+        VisionInputAdapter(desktop),
+        desktop,
+    ]
     return ComputerOperatorManager(
         store=JsonTaskStore(store_path or default_store_path()),
-        planner=Planner(planner_chat, model_alias=PLANNER_ALIAS),
+        # V2.6, D4: планировщику предлагаются только виды с реальным backend'ом
+        # на этом хосте (CapabilityRegistry опрашивает те же адаптеры роутера).
+        planner=Planner(planner_chat, model_alias=PLANNER_ALIAS,
+                        supported=_supported_kinds_provider(CapabilityRegistry(backends))),
         observer=Observer(desktop, LocalScreenshotProvider()),
-        # Порядок: специфичные по виду/источнику раньше общего desktop-бэкенда.
-        action_router=ActionRouter([
-            AppLaunchAdapter(launcher=launcher),
-            VisionInputAdapter(desktop),
-            desktop,
-        ]),
+        action_router=ActionRouter(backends),
         approval_create=approvals.create, approval_wait=approvals.wait,
         event_emit=events.emit,
         # Профильный gate: устройство с выключенным тумблером computer_control

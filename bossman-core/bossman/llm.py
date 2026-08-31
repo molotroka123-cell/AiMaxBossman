@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 import yaml
 
-from . import db
+from . import db, obs
 from .agents import AgentSpec, auto_gateway_config, load_all, validate_agent_models
 from .config import settings
 from .gateway.client import GatewayClient, GatewayCloudDenied

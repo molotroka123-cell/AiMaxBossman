@@ -246,3 +246,21 @@ CREATE INDEX IF NOT EXISTS idx_project_tasks_proj ON project_tasks(project_id, s
 -- defined once above (see the decisions/failures/working_memory memory section).
 -- A duplicate CREATE TABLE IF NOT EXISTS block here was a dead no-op and was removed
 -- to prevent schema drift (autonomous dedup — AUTONOMOUS_ENGINEERING_DECISIONS #1).
+
+-- V2.6 — Artifact Engine (модуль M): first-class артефакты-результаты.
+-- NOTE: таблица artifacts уже занята медиа-конвейером (project_id/kind/meta) выше,
+-- поэтому реестр результатов живёт в artifact_registry — иначе CREATE ... IF NOT EXISTS
+-- тихо превратился бы в no-op, а INSERT-ы модуля M падали бы на чужих колонках.
+CREATE TABLE IF NOT EXISTS artifact_registry (
+    id            BIGSERIAL PRIMARY KEY,
+    artifact_id   TEXT NOT NULL UNIQUE,
+    type          TEXT NOT NULL,
+    path          TEXT NOT NULL,
+    creator_task  TEXT,
+    source_evidence JSONB NOT NULL DEFAULT '[]',
+    content_hash  TEXT NOT NULL,
+    version       INT NOT NULL DEFAULT 1,
+    verification  TEXT NOT NULL DEFAULT 'unverified',
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_artifact_registry_path ON artifact_registry(path);
