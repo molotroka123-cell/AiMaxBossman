@@ -160,11 +160,15 @@ async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
     tool = by_api_name(api_name)
     if tool is None:
         return f"нет такого инструмента: {api_name}", f"{api_name}: нет инструмента"
+    # V2.6 D3: в аудит-таблицу и предпросмотры аргументы попадают только через
+    # канонический obs.redact_obj — сырой Bearer/API-key в args не должен осесть
+    # в tool_calls/approvals/Telegram. Сам инструмент получает СЫРЫЕ args.
+    safe_args = obs.redact_obj(args)
     grant = agent.grant(tool.name)
     if grant is None:
         await db.execute(
             "INSERT INTO tool_calls (run_id, agent, tool, args, status) VALUES ($1,$2,$3,$4,'denied')",
-            run_id, agent.name, tool.name, args)
+            run_id, agent.name, tool.name, safe_args)
         return (f"инструмент {tool.name} не выдан агенту {agent.name} — отказ",
                 f"{tool.name}: отказ (не выдан)")
 
@@ -181,7 +185,7 @@ async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
     approved_by = None
     if needs_confirm:
         preview = f"Агент {agent.title} хочет выполнить {tool.name}\nаргументы: " + \
-                  json.dumps(args, ensure_ascii=False, indent=1)[:2000]
+                  json.dumps(safe_args, ensure_ascii=False, indent=1)[:2000]
         await db.execute("UPDATE tasks SET status='waiting_approval' WHERE id=$1", task_id)
         events.emit("task.updated", id=task_id, status="waiting_approval")
         approval_id = await approvals.create("action", preview, task_id=task_id,
@@ -192,7 +196,7 @@ async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
         if decision["status"] != "approved":
             await db.execute(
                 "INSERT INTO tool_calls (run_id, agent, tool, args, status) VALUES ($1,$2,$3,$4,'rejected')",
-                run_id, agent.name, tool.name, args)
+                run_id, agent.name, tool.name, safe_args)
             return (f"действие {tool.name} отклонено пользователем — не выполнять и не повторять",
                     f"{tool.name}: отклонено")
         approved_by = decision.get("decided_by")
@@ -203,12 +207,14 @@ async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
         result_text = f"ошибка {tool.name}: {exc}"
         await db.execute(
             "INSERT INTO tool_calls (run_id, agent, tool, args, result_preview, status) "
-            "VALUES ($1,$2,$3,$4,$5,'error')", run_id, agent.name, tool.name, args, result_text[:500])
+            "VALUES ($1,$2,$3,$4,$5,'error')", run_id, agent.name, tool.name, safe_args,
+            obs.redact(result_text)[:500])
         return result_text, f"{tool.name}: ошибка"
     await db.execute(
         """INSERT INTO tool_calls (run_id, agent, tool, args, result_preview, truncated, approved_by)
            VALUES ($1,$2,$3,$4,$5,$6,$7)""",
-        run_id, agent.name, tool.name, args, result.render()[:500], result.truncated, approved_by)
+        run_id, agent.name, tool.name, safe_args, obs.redact(result.render())[:500],
+        result.truncated, approved_by)
     events.emit("tool.called", agent=agent.name, tool=tool.name, run_id=run_id)
     rendered = result.render()
     if tool.rights in ("read", "send") and tool.name not in ("log", "search_journal"):
@@ -311,7 +317,8 @@ async def run_task(task: dict) -> None:
                 await db.execute("UPDATE tasks SET status='waiting_approval' WHERE id=$1", task["id"])
                 events.emit("task.updated", id=task["id"], status="waiting_approval")
                 approval_id = await approvals.create(
-                    "cloud", f"Отправить в облако ({need.alias}):\n\n{need.preview[:6000]}",
+                    "cloud",
+                    f"Отправить в облако ({need.alias}):\n\n{obs.redact(need.preview)[:6000]}",
                     task_id=task["id"], run_id=run_id)
                 decision = await approvals.wait(approval_id)
                 await db.execute("UPDATE tasks SET status='running' WHERE id=$1", task["id"])

@@ -19,6 +19,7 @@ from .db import (Database, agents as agents_t, approvals as approvals_t,
                  checkpoints as checkpoints_t, fetch_one, run_events as run_events_t,
                  task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
 from .events import EventBus
+from .plugin_security import redact as _ps_redact
 from .providers import ChatResult, ProviderError
 from .registry import Registry
 from .tools import (REGISTRY as TOOLS, ToolContext, agent_policy_rules, allowed_tools_for,
@@ -805,7 +806,10 @@ class TaskEngine:
             "run_id": run_id, "task_id": task_id, "step": step,
             "call_id": str(call.id), "tool": name,
             "source": spec.source if spec is not None else "unknown",
-            "args": call.arguments, "args_hash": args_hash(name, call.arguments),
+            # V2.6 D3: в аудит-таблицу args идут только через redact (по именам
+            # ключей); anti-replay hash считается от СЫРЫХ аргументов — он не
+            # обратим и должен совпадать между попытками.
+            "args": _ps_redact(call.arguments), "args_hash": args_hash(name, call.arguments),
             "effect": effect, "status": status, "approval_id": approval_id,
             "approved_by": approved_by, "result_preview": preview,
             "truncated": truncated, "duration_ms": duration_ms, "error": error,

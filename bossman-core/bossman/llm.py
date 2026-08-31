@@ -143,7 +143,10 @@ async def chat(agent: AgentSpec, messages: list[dict], *,
         run_id, agent.name, alias, cloud, prompt_toks, completion_toks,
         block_tokens, prompt_toks / window if window else None, cache_hit)
     if cloud:
-        preview = "\n\n".join(f"[{m['role']}]\n{m['content'][:2000]}" for m in messages)
+        # V2.6 D3: prompt_preview — журнал «каждый байт, который ушёл», но секреты
+        # в нём оседать не должны (obs.py и создан ради этого пути).
+        preview = obs.redact(
+            "\n\n".join(f"[{m['role']}]\n{m['content'][:2000]}" for m in messages))
         await db.execute(
             """INSERT INTO cloud_calls (run_id, agent, alias, prompt_preview,
                prompt_tokens, completion_tokens, approved_by)

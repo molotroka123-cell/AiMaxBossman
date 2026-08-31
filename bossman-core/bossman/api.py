@@ -174,6 +174,18 @@ async def get_task(task_id: int):
     return row
 
 
+@app.get("/tasks/{task_id}/explain", dependencies=[Depends(require_scope(SCOPE_CHAT))])
+async def explain_task(task_id: int):
+    """V2.6 Flight Recorder: связный трейс задачи (почему модель/инструмент/
+    эскалация/остановка, ресурсы, evidence). Read-side сборка из канонических
+    таблиц — ноль накладных на петлю; секреты в выводе редактируются."""
+    from . import flight_recorder
+    trace = await flight_recorder.explain_task(task_id)
+    if trace is None:
+        raise HTTPException(404)
+    return trace
+
+
 @app.get("/tasks", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def list_tasks(status: str | None = None, limit: int = 50):
     # Stage 13: limit не доверяем клиенту — отрицательный/гигантский лимит в
