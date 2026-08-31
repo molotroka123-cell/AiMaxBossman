@@ -8,13 +8,28 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import logging
+
 from cryptography.fernet import Fernet, InvalidToken
 
 KEY_FILE = "secret.key"
+KEY_ENV = "BOSSMAN_VAULT_KEY"
+_log = logging.getLogger("bcc.secrets")
 
 
 class Vault:
-    """Fernet поверх файла-ключа в data dir."""
+    """Fernet-шифрование секретов at-rest.
+
+    Источник ключа (Security Hardening V1.1, H6):
+    * если задан `BOSSMAN_VAULT_KEY` (валидный Fernet-ключ) — берём его. Это путь
+      для внешнего/защищённого секрет-стора и для РОТАЦИИ: подставил новый ключ в
+      env, перешифровал секреты, снял старый. Ключ в файл не пишется.
+    * иначе — файл-ключ в data dir (0600, вне git), как раньше.
+
+    Ротация: сгенерировать новый ключ (`Fernet.generate_key()`), выставить в
+    `BOSSMAN_VAULT_KEY`, для каждого хранимого секрета decrypt старым → encrypt
+    новым, затем убрать старый ключ. См. docs/security/SECURITY_HARDENING_V1_1.md.
+    """
 
     def __init__(self, data_dir: Path):
         self.path = Path(data_dir) / KEY_FILE
@@ -22,6 +37,10 @@ class Vault:
         self._fernet = Fernet(self._load_or_create())
 
     def _load_or_create(self) -> bytes:
+        env_key = (os.environ.get(KEY_ENV) or "").strip()
+        if env_key:
+            # Ключ из внешнего секрет-стора/env — не персистим на диск.
+            return env_key.encode()
         if self.path.exists():
             return self.path.read_bytes().strip()
         key = Fernet.generate_key()
@@ -42,7 +61,11 @@ class Vault:
         try:
             return self._fernet.decrypt(blob.encode()).decode()
         except InvalidToken:
-            # ключ шифрования сменили — считаем, что секрета нет (не роняем сервис)
+            # Ключ не подходит к шифротексту (сменили ключ без ре-шифрования, или
+            # повреждение). Не роняем сервис, но и НЕ молчим: это security-событие,
+            # маскирующее возможную потерю/подмену секрета (H6).
+            _log.warning("vault: cannot decrypt a stored secret (key mismatch or tampering); "
+                         "treating as absent — check BOSSMAN_VAULT_KEY / rotation")
             return None
 
 
