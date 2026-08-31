@@ -43,3 +43,27 @@ def test_inspection_failure_never_breaks_the_tool_call(monkeypatch):
                         lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("boom")))
     text = "irrelevant"
     assert _cybersec_inspect_external(text, agent="a", tool="fs.read") == text
+
+
+# ---- egress_guard, подключённый в runner._guard_egress ----
+
+def test_guard_egress_off_by_default_passes_through(monkeypatch):
+    monkeypatch.delenv("BOSSMAN_CYBERSEC_V1_ENABLED", raising=False)
+    from bossman.runner import _guard_egress
+    text = "готово: задача #1"
+    assert _guard_egress(text, channel="telegram") == text
+
+
+def test_guard_egress_blocks_secret_when_enabled(monkeypatch):
+    monkeypatch.setenv("BOSSMAN_CYBERSEC_V1_ENABLED", "1")
+    from bossman.runner import _guard_egress
+    out = _guard_egress("authorization: Bearer sk-live-SUPERSECRET-1234567890",  # ci-secret-scan: allow
+                        channel="telegram")
+    assert "SUPERSECRET" not in out and "задержан" in out
+
+
+def test_guard_egress_allows_clean_when_enabled(monkeypatch):
+    monkeypatch.setenv("BOSSMAN_CYBERSEC_V1_ENABLED", "1")
+    from bossman.runner import _guard_egress
+    text = "✅ задача #7 — done"
+    assert _guard_egress(text, channel="telegram") == text

@@ -200,27 +200,24 @@ async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
 
 
 def _cybersec_inspect_external(text: str, *, agent: str, tool: str) -> str:
-    """CyberSec V1 Prompt Injection Firewall на границе ingest внешних данных.
+    """Канонический ingest_guard на границе ingest внешних данных.
 
-    Та же граница, где шаг 7 уже помечает внешний результат как данные —
-    firewall лишь добавляет ДЕТЕКТ и, при находке, обезвреживает управляющие
-    маркеры внутри текста. OFF по умолчанию (BOSSMAN_CYBERSEC_V1_ENABLED);
-    сбой инспекции никогда не должен ронять инструмент — при исключении
-    возвращается исходный текст (шаг 7 его и так уже пометил как данные).
+    Та же граница, где шаг 7 уже помечает внешний результат как данные. Вместо
+    прямого вызова injection.inspect здесь — единая точка `cybersec.guards.
+    ingest_guard` (одна из ДВУХ канонических точек периметра). OFF по умолчанию;
+    сбой инспекции не должен ронять инструмент — при исключении возвращаем
+    исходный текст (шаг 7 его и так пометил данными).
     """
     try:
-        from .cybersec import gates, injection
-        if not gates.cybersec_enabled():
-            return text
-        verdict = injection.inspect(text)
+        from .cybersec import guards
+        verdict = guards.ingest_guard(text)
         if verdict.safe:
-            return text
+            return verdict.text
         events.emit("cybersec.injection_detected", agent=agent, tool=tool,
-                    severity=verdict.severity,
-                    findings=[f.pattern_id for f in verdict.findings])
-        return verdict.sanitized
+                    findings=list(verdict.findings))
+        return verdict.text
     except Exception as exc:  # noqa: BLE001 — firewall вторичен, инструмент не должен падать
-        _log.warning("cybersec injection inspect skipped: %s", exc)
+        _log.warning("cybersec ingest_guard skipped: %s", exc)
         return text
 
 
@@ -356,7 +353,29 @@ async def run_task(task: dict) -> None:
     took = time.monotonic() - started
     if task.get("source") == "telegram" or took > settings.notify_after_seconds:
         mark = "✅" if status == "done" else "⚠️"
-        await telegram.notify(f"{mark} [{agent.title}] задача #{task['id']} — {status}\n\n{final[:1500]}")
+        body = f"{mark} [{agent.title}] задача #{task['id']} — {status}\n\n{final[:1500]}"
+        await telegram.notify(_guard_egress(body, channel="telegram"))
+
+
+def _guard_egress(text: str, *, channel: str) -> str:
+    """Канонический egress_guard перед отправкой наружу.
+
+    OFF по умолчанию → текст без изменений (поведение ядра не меняется). Включён:
+    DENY (секрет/эксфильтрация) или HOLD (не смогли проверить чувствительный
+    канал) → отправляем безопасную заглушку вместо содержимого, а не «на авось».
+    Сбой самого guard'а не должен ронять задачу.
+    """
+    try:
+        from .cybersec import guards
+        v = guards.egress_guard(text, channel=channel)
+        if v.decision is guards.EgressDecision.ALLOW:
+            return text
+        events.emit("cybersec.egress_blocked", channel=channel,
+                    decision=v.decision.value, reason=v.reason)
+        return f"[BOSSMAN: сообщение задержано egress-guard ({v.decision.value}); см. панель]"
+    except Exception as exc:  # noqa: BLE001 — guard вторичен
+        _log.warning("cybersec egress_guard skipped: %s", exc)
+        return text
 
 
 async def worker() -> None:

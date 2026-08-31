@@ -10,13 +10,13 @@ Computer Control/Recovery остаются каноничными. Модули 
 from __future__ import annotations
 
 from . import (
-    benchmark, blast_radius, defender, evidence, gates, ids, injection,
+    benchmark, blast_radius, defender, evidence, gates, guards, ids, injection,
     learning, recovery, redteam, repo_scanner, secret_guardian, security_memory,
     supply_chain, training, trust,
 )
 
 __all__ = [
-    "benchmark", "blast_radius", "defender", "evidence", "gates", "ids",
+    "benchmark", "blast_radius", "defender", "evidence", "gates", "guards", "ids",
     "injection", "learning", "recovery", "redteam", "repo_scanner",
     "secret_guardian", "security_memory", "supply_chain", "training", "trust",
 ]
@@ -34,4 +34,5 @@ LAYERED_OVER = {
     "benchmark": "security-specific metrics for the existing benchmark path",
     "redteam": "typed AttackIntent only — never shell/secrets/network",
     "training": "FROZEN red-vs-blue harness behind a triple gate",
+    "guards": "canonical ingest_guard/egress_guard — two chokepoints, not scattered checks",
 }
