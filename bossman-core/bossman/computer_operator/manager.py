@@ -5,6 +5,7 @@ from .models import ActionKind,ComputerAction,ComputerTask,StepRecord,TaskMode,T
 from ..obs import redact,redact_obj
 from .policy import ComputerPolicy
 from .verifier import Verifier
+from .loop_guard import LoopGuard
 
 class ControlLease:
     """Exclusive desktop control lease: single live holder, TTL + heartbeat, revocable."""
@@ -44,6 +45,7 @@ class ComputerOperatorManager:
         # computer_control ЗАПРЕЩАЕТ создание задачи (бросает PermissionError ДО _save).
         self.access_check=access_check
         self.locks={}; self.global_locked=False
+        self.loop_guards={}   # task_id -> LoopGuard (защита от слепого повтора)
 
     def create_task(self,goal,*,mode=TaskMode.CONTROL,source="local",owner_device_id=None):
         if self.access_check is not None:
@@ -90,7 +92,9 @@ class ComputerOperatorManager:
                 if t.replans_used>t.max_replans:return self._fail(t,"planner replan budget")
                 continue
             if a.kind is ActionKind.COMPLETE:
-                t.state=TaskState.COMPLETED; t.pending_action=None; self._save(t); self._emit(t,"completed"); return t.state
+                t.state=TaskState.COMPLETED; t.pending_action=None; self._save(t)
+                self.loop_guards.pop(t.id,None)
+                self._emit(t,"completed"); return t.state
             if a.kind is ActionKind.FAIL:return self._fail(t,a.text or "planner failed")
             d=self.policy.classify(a,mode=t.mode,locked=self.global_locked)
             if not d.allow:
@@ -118,6 +122,14 @@ class ComputerOperatorManager:
                 t=cur
             if t.state in {TaskState.PAUSED,TaskState.USER_CONTROL,TaskState.CANCELLED,TaskState.LOCKED}:
                 return self._fail(t,"input state changed before action")
+            guard=self.loop_guards.setdefault(t.id,LoopGuard())
+            gv=guard.check(a,before)
+            if gv.tripped:
+                # Не повторяем одно и то же вслепую: тратим replan, а не действие.
+                t.replans_used+=1; last=f"loop guard [{gv.kind}]: {gv.reason}"; self._save(t)
+                self._emit(t,"loop_guard",kind=gv.kind,reason=gv.reason)
+                if t.replans_used>t.max_replans:return self._fail(t,f"loop guard: {gv.reason}")
+                continue
             t.state=TaskState.RUNNING; self._save(t)
             try: backend=await self.action_router.execute(a,before)
             except Exception as e:
@@ -129,6 +141,7 @@ class ComputerOperatorManager:
             after=await self.observer.observe(generation=t.generation); t.last_observation=after
             step.after_observation_id=after.id
             v=self.verifier.verify(a,after); step.verified=v.ok; step.finished_at=time.time()
+            guard.record(a,before,after,v.ok)
             t.pending_action=None; t.waiting_approval_id=None; self._save(t)
             if v.ok:
                 last=f"verified via {backend}:{v.reason}"; self._emit(t,"step_verified",action=a.kind.value)
@@ -139,6 +152,7 @@ class ComputerOperatorManager:
 
     def pause(self,i): return self._state(i,TaskState.PAUSED,"paused",invalidate=True)
     def take_control(self,i):
+        self.loop_guards.pop(i,None)   # оператор вмешался -> прежние подписи не значат ничего
         t=self._state(i,TaskState.USER_CONTROL,"user_control",invalidate=True)
         self.control_lease.revoke()
         return t
@@ -146,6 +160,7 @@ class ComputerOperatorManager:
     def resume(self,i):
         t=self._req(i)
         if t.state not in {TaskState.PAUSED,TaskState.USER_CONTROL,TaskState.RECOVERING}:raise RuntimeError("invalid resume")
+        self.loop_guards.pop(i,None)   # внешнее вмешательство -> история неактуальна
         t.state=TaskState.RECOVERING; t.generation+=1; t.pending_action=None; t.waiting_approval_id=None
         self._save(t); self._emit(t,"recovering"); return t
     def recover_all(self):
@@ -169,7 +184,9 @@ class ComputerOperatorManager:
             self._save(t);self._emit(t,event)
         return t
     def _fail(self,t,reason,state=TaskState.FAILED):
-        t.state=state;t.last_error=str(reason)[:3000];t.pending_action=None;self._save(t);self._emit(t,"failed",error=t.last_error);return t.state
+        t.state=state;t.last_error=str(reason)[:3000];t.pending_action=None;self._save(t)
+        self.loop_guards.pop(t.id,None)   # задача терминальна -> история не нужна
+        self._emit(t,"failed",error=t.last_error);return t.state
     def _req(self,i):
         t=self.store.get(i)
         if not t:raise KeyError(i)
