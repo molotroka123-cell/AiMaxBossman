@@ -39,7 +39,13 @@ CyberSec НЕ реализуется в этой эпохе. НЕ вводить
 CyberSec-слою прав на самоповышение/самомерж. Любая авто-реакция сильнее «alert/
 degrade/require-approval» — только через существующий approval-путь.
 
-## Открытые пред-условия (закрыть до CyberSec V1)
-- OPEN P0 working_memory schema (см. FREEZE-док) — durable state должен быть надёжен.
-- REAL POSTGRES GATE (SKIP_HOST сейчас) — прогнать на реальном PG.
-- Live-провайдеры/бенчмарк — на owner hardware.
+## Статус пред-условий (обновлено)
+- ~~OPEN P0 working_memory schema~~ — **ЗАКРЫТО**: typed view над каноничной схемой.
+- ~~REAL POSTGRES GATE (SKIP_HOST)~~ — **ЗАКРЫТО**: 24/24 PASS на живом PostgreSQL 16.13.
+- Live-провайдеры/бенчмарк — по-прежнему требуют owner hardware.
+
+## Реализация
+Этот документ — handoff. Сам слой реализован: см. `CYBERSEC_AI_V1.md`
+(модули и карта авторитетов), `CYBERSEC_V1_ZIP_DELTA.md` (что починено
+относительно эталонного пакета) и `FUTURE_RED_BLUE_STRESS_TEST.md`
+(замороженный стресс-тест).
