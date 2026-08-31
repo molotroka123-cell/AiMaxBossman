@@ -60,7 +60,7 @@ class DecisionRecord:
 
 DECISION_SCHEMA = """
 CREATE TABLE IF NOT EXISTS decisions (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              BIGSERIAL PRIMARY KEY,
     decision_id     TEXT NOT NULL UNIQUE,
     scope           TEXT NOT NULL,
     subject         TEXT NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS decisions (
     alternatives_rejected TEXT NOT NULL DEFAULT '[]',
     evidence        TEXT NOT NULL DEFAULT '[]',
     valid_from      TIMESTAMP NOT NULL,
-    supersedes      INTEGER,
+    supersedes      BIGINT,
     source_kind     TEXT NOT NULL DEFAULT 'agent',
     source_run_id   INTEGER,
     source_note     TEXT,
@@ -87,10 +87,13 @@ CREATE INDEX IF NOT EXISTS idx_decisions_id ON decisions(decision_id);
 # ──────────────────────────────────────────────────────────────────────
 
 async def init_decisions_table() -> None:
-    """Initialize the decisions table (call during startup)."""
-    async with (await pool()) as conn:
-        await conn.executescript(DECISION_SCHEMA)
-        await conn.commit()
+    """Initialize the decisions table (call during startup).
+
+    asyncpg has no executescript/commit; simple-query execute() runs the
+    multi-statement DDL. Canonical schema lives in db/schema.sql (JSONB/BIGSERIAL);
+    this IF-NOT-EXISTS DDL is a Postgres-valid fallback only.
+    """
+    await execute(DECISION_SCHEMA)
 
 
 async def create_decision(
@@ -209,49 +212,38 @@ async def supersede_decision(
 
     valid = valid_from or datetime.now(timezone.utc)
 
-    async with (await pool()) as conn:
-        # Mark the old decision as superseded by the new one
-        await conn.execute(
-            """UPDATE decisions SET supersedes = (SELECT id FROM decisions
-               WHERE decision_id = $2),
-               updated_at = now()
-               WHERE decision_id = $1""",
-            old_decision_id, new_decision_id,
-        )
+    # First check the old decision exists (fail before any write).
+    old = await get_decision(old_decision_id)
+    if old is None:
+        raise errors.NotFound(f"Decision {old_decision_id} not found")
 
-        # Insert the new decision
-        # First check if old decision exists
-        old = await get_decision(old_decision_id)
-        if old is None:
-            raise errors.NotFound(f"Decision {old_decision_id} not found")
+    # Insert the new decision (superseding record).
+    new = await create_decision(
+        decision_id=new_decision_id,
+        scope=old.scope,
+        subject=old.subject,
+        decision=old.decision,
+        reason=old.reason,
+        alternatives_rejected=old.alternatives_rejected,
+        evidence=old.evidence,
+        valid_from=valid,
+        source_kind=old.source_kind,
+        source_run_id=old.source_run_id,
+        source_note=old.source_note,
+        confidence=old.confidence,
+    )
 
-        new = await create_decision(
-            decision_id=new_decision_id,
-            scope=old.scope,
-            subject=old.subject,
-            decision=old.decision,
-            reason=old.reason,
-            alternatives_rejected=old.alternatives_rejected,
-            evidence=old.evidence,
-            valid_from=valid,
-            source_kind=old.source_kind,
-            source_run_id=old.source_run_id,
-            source_note=old.source_note,
-            confidence=old.confidence,
-        )
+    # Mark old as superseded by new (asyncpg: module execute(), no commit()).
+    await execute(
+        "UPDATE decisions SET supersedes = $1, updated_at = now() WHERE id = $2",
+        new.id, old.id,
+    )
 
-        # Mark old as superseded by new
-        await conn.execute(
-            """UPDATE decisions SET supersedes = $1 WHERE id = $2""",
-            new.id, old.id,
-        )
-        await conn.commit()
-
-        return {
-            "old_decision_id": old_decision_id,
-            "new_decision_id": new_decision_id,
-            "supersedes": new.id,
-        }
+    return {
+        "old_decision_id": old_decision_id,
+        "new_decision_id": new_decision_id,
+        "supersedes": new.id,
+    }
 
 
 async def query_decisions(

@@ -258,6 +258,11 @@ class WorkingMemory:
         )
 
 
-class ConcurrencyError(Exception):
-    """Raised when optimistic concurrency check fails."""
+class OptimisticConcurrencyConflict(Exception):
+    """Raised when optimistic concurrency check fails (version mismatch on write)."""
     pass
+
+
+# Backward-compatible alias: internal call sites and older imports use
+# ConcurrencyError; the canonical public name is OptimisticConcurrencyConflict.
+ConcurrencyError = OptimisticConcurrencyConflict

@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from . import errors
-from .db import pool, fetchrow, fetchval, execute
+from .db import execute, fetch, fetchrow, fetchval, pool
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -84,10 +84,12 @@ CREATE INDEX IF NOT EXISTS idx_failures_resolved ON failures(resolved);
 # ──────────────────────────────────────────────────────────────────────
 
 async def init_failures_table() -> None:
-    """Initialize the failures table (call during startup)."""
-    async with (await pool()) as conn:
-        await conn.executescript(FAILURE_SCHEMA)
-        await conn.commit()
+    """Initialize the failures table (call during startup).
+
+    asyncpg has no executescript/commit; the simple-query protocol runs the
+    multi-statement DDL in one execute() (statements are Postgres-valid).
+    """
+    await execute(FAILURE_SCHEMA)
 
 
 async def record_failure(
@@ -109,28 +111,27 @@ async def record_failure(
     tests_json = json.dumps(tests or [])
     env_json = json.dumps(environment or {})
 
-    async with (await pool()) as conn:
-        row = await conn.fetchrow(
-            """INSERT INTO failures
-               (failure_id, task_id, symptom, error_class, root_cause,
-                attempted_fix, result, files, tests, environment,
-                created_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
-               RETURNING failure_id, task_id, symptom, error_class, root_cause,
-                         attempted_fix, result, files, tests, environment,
-                         resolved, created_at""",
-            fid,
-            task_id,
-            symptom,
-            error_class,
-            root_cause,
-            attempted_fix,
-            result,
-            files_json,
-            tests_json,
-            env_json,
-        )
-        return FailureRecord(
+    row = await fetchrow(
+        """INSERT INTO failures
+           (failure_id, task_id, symptom, error_class, root_cause,
+            attempted_fix, result, files, tests, environment,
+            created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+           RETURNING failure_id, task_id, symptom, error_class, root_cause,
+                     attempted_fix, result, files, tests, environment,
+                     resolved, created_at""",
+        fid,
+        task_id,
+        symptom,
+        error_class,
+        root_cause,
+        attempted_fix,
+        result,
+        files_json,
+        tests_json,
+        env_json,
+    )
+    return FailureRecord(
             failure_id=row["failure_id"],
             task_id=row["task_id"],
             symptom=row["symptom"],
@@ -148,11 +149,10 @@ async def record_failure(
 
 async def get_failure(failure_id: str) -> FailureRecord | None:
     """Get a failure by its failure_id."""
-    async with (await pool()) as conn:
-        row = await fetchrow(
-            "SELECT * FROM failures WHERE failure_id = $1",
-            failure_id,
-        )
+    row = await fetchrow(
+        "SELECT * FROM failures WHERE failure_id = $1",
+        failure_id,
+    )
 
     if row is None:
         return None
@@ -176,40 +176,41 @@ async def get_failure(failure_id: str) -> FailureRecord | None:
 
 async def get_unresolved_failures(task_id: str) -> list[FailureRecord]:
     """Get all unresolved failures for a task."""
-    async with (await pool()) as conn:
-        rows = await conn.execute(
-            "SELECT * FROM failures WHERE task_id = $1 AND resolved = FALSE ORDER BY created_at DESC",
-            task_id,
+    # asyncpg execute() returns a status string, not an async iterator — must fetch().
+    rows = await fetch(
+        "SELECT * FROM failures WHERE task_id = $1 AND resolved = FALSE ORDER BY created_at DESC",
+        task_id,
+    )
+    return [
+        FailureRecord(
+            failure_id=row["failure_id"],
+            task_id=row["task_id"],
+            symptom=row["symptom"],
+            error_class=row["error_class"],
+            root_cause=row["root_cause"],
+            attempted_fix=row["attempted_fix"],
+            result=row["result"],
+            files=json.loads(row["files"]),
+            tests=json.loads(row["tests"]),
+            environment=json.loads(row["environment"]),
+            resolved=row["resolved"],
+            created_at=row["created_at"],
+            resolved_at=row.get("resolved_at"),
         )
-        records = []
-        async for row in rows:
-            records.append(FailureRecord(
-                failure_id=row["failure_id"],
-                task_id=row["task_id"],
-                symptom=row["symptom"],
-                error_class=row["error_class"],
-                root_cause=row["root_cause"],
-                attempted_fix=row["attempted_fix"],
-                result=row["result"],
-                files=json.loads(row["files"]),
-                tests=json.loads(row["tests"]),
-                environment=json.loads(row["environment"]),
-                resolved=row["resolved"],
-                created_at=row["created_at"],
-                resolved_at=row.get("resolved_at"),
-            ))
-        return records
+        for row in rows
+    ]
 
 
 async def resolve_failure(failure_id: str) -> bool:
     """Mark a failure as resolved."""
     now = datetime.now(timezone.utc)
-    async with (await pool()) as conn:
-        result = await conn.execute(
-            "UPDATE failures SET resolved = TRUE, resolved_at = $1 WHERE failure_id = $2",
-            now, failure_id,
-        )
-        return result.status == "UPDATE 1"  # postgres returns "UPDATE 1" if row updated
+    # asyncpg execute() returns the command tag string, e.g. "UPDATE 1"; there is
+    # no .status attribute. One row updated ⇒ exactly "UPDATE 1".
+    status = await execute(
+        "UPDATE failures SET resolved = TRUE, resolved_at = $1 WHERE failure_id = $2",
+        now, failure_id,
+    )
+    return status == "UPDATE 1"
 
 
 async def query_failures(
@@ -220,39 +221,29 @@ async def query_failures(
     limit: int = 50,
 ) -> list[FailureRecord]:
     """Query failures with filters."""
-    async with (await pool()) as conn:
-        conditions: list[str] = []
-        params: list[Any] = []
-        param_idx = 1
+    conditions: list[str] = []
+    params: list[Any] = []
+    param_idx = 1
 
-        if task_id is not None:
-            conditions.append(f"task_id = ${param_idx}")
-            params.append(task_id)
-            param_idx += 1
+    if task_id is not None:
+        conditions.append(f"task_id = ${param_idx}")
+        params.append(task_id)
+        param_idx += 1
 
-        if resolved is not None:
-            conditions.append(f"resolved = ${param_idx}")
-            params.append(resolved)
-            param_idx += 1
+    if resolved is not None:
+        conditions.append(f"resolved = ${param_idx}")
+        params.append(resolved)
+        param_idx += 1
 
-        if error_class is not None:
-            conditions.append(f"error_class = ${param_idx}")
-            params.append(error_class)
-            param_idx += 1
+    if error_class is not None:
+        conditions.append(f"error_class = ${param_idx}")
+        params.append(error_class)
+        param_idx += 1
 
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
-        query = f"SELECT * FROM failures WHERE {where_clause} ORDER BY created_at DESC LIMIT ${param_idx}"
-        params.append(limit)
-
-        rows = await conn.execute(query, *params)
-        # Actually need to fetch them
-        # Let me use fetch instead
-        async with (await pool()) as conn:
-            q_where = " WHERE " + " AND ".join(conditions) if conditions else " "
-            q_params = params[:-1]  # remove limit
-            query = f"SELECT * FROM failures {q_where} ORDER BY created_at DESC LIMIT ${param_idx}"
-            q_params.append(limit)
-            rows = await conn.fetch(query, *q_params)
+    where_clause = " AND ".join(conditions) if conditions else "TRUE"
+    query = f"SELECT * FROM failures WHERE {where_clause} ORDER BY created_at DESC LIMIT ${param_idx}"
+    params.append(limit)
+    rows = await fetch(query, *params)
 
     return [
         FailureRecord(
