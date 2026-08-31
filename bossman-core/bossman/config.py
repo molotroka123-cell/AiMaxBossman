@@ -67,6 +67,14 @@ class Settings:
     context_db: Path = field(default_factory=lambda: Path(
         _env("CONTEXT_DB", str(Path(_env("WORKSPACE_DIR", str(ROOT / "workspace"))) / "_context" / "context.db"))))
 
+    # V2.6 — Personal Context Router (модуль N): OFF = memory.md инжектится в
+    # system целиком (RAW, как раньше); ON = в system остаются только критические
+    # ограничения из memory.md, остальное приходит ранжированными чанками через
+    # context_engine (блок retrieved). Требование IntelligenceRetention>=0.99 не
+    # доказано без A/B — поэтому default RAW.
+    personal_context_select: bool = field(default_factory=lambda: _env(
+        "BOSSMAN_PERSONAL_CONTEXT_SELECT", "").lower() in ("1", "true", "yes"))
+
     # V2.6 — Adaptive Compute (модуль B): OFF по умолчанию, поведение ядра не
     # меняется. Включён — тривиальные задачи (C0) не платят за retrieval
     # (embed+hybrid search), уровень compute выбирается детерминированно.

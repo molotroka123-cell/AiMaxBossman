@@ -112,6 +112,30 @@ def pick_agent(agents: dict[str, AgentSpec], text: str) -> AgentSpec:
     return scores[0][1] if scores else next(iter(agents.values()))
 
 
+def _memory_for_system(mem: str) -> str:
+    """V2.6 модуль N (Personal Context Router): что из memory.md кладём в system.
+
+    Инвариант RAW fallback — личная память НИКОГДА не теряется целиком:
+    - флаг personal_context_select OFF (default) -> RAW, прежнее поведение;
+    - context_engine выключен -> RAW (без retrieved-канала память не урезаем,
+      иначе ранжированным чанкам просто неоткуда прийти);
+    - любой сбой отбора -> RAW (degrade-safe).
+    Включено и движок жив: в system остаются только критические ограничения
+    (KeepRisk: их не режем ради токенов никогда) + указатель на retrieved;
+    остальная память продолжает приходить чанками через apply_context_engine.
+    """
+    if not settings.personal_context_select:
+        return mem
+    if not settings.context_engine_enabled:
+        return mem
+    try:
+        from . import personal_context
+        critical, _stats = personal_context.select_memory(mem)
+        return personal_context.render_selected(critical)
+    except Exception:  # noqa: BLE001 — отбор вторичен, память важнее
+        return mem
+
+
 def _system_prompt(agent: AgentSpec) -> str:
     lines = [agent.prompt.strip(), "", "## Доступные инструменты"]
     for grant in agent.tools:
@@ -120,7 +144,7 @@ def _system_prompt(agent: AgentSpec) -> str:
             lines.append(tool_line(grant.name, t))
     mem = agent.memory.strip()
     if mem:
-        lines += ["", "## Твоя память (memory.md)", mem]
+        lines += ["", "## Твоя память (memory.md)", _memory_for_system(mem)]
     return "\n".join(lines)
 
 
