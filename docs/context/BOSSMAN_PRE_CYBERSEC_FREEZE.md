@@ -58,10 +58,10 @@ Skill Factory+Beta-LCB / Recovery Kernel / Self-Improvement Lab.
 ## 8 mini-modules — статус
 | Mini | Статус |
 |---|---|
-| 01 Working Memory | **PROVEN on real PG** (typed view, версии, concurrency) |
-| 02 Decision Memory | **PROVEN on real PG** (supersede + история) |
-| 03 Failure Memory | **PROVEN on real PG** (record/query/resolve, JSONB queryable) |
-| 05 Context Optimizer | context_engine + context_os + V3 Guardian; p95 0.263 ms |
+| 01 Working Memory | PROVEN on real PG at the time; was **not called from any production entrypoint** until `runner.py` wiring in `FINAL_CONNECTIVITY_MATRIX.md`'s pass — see there for current status |
+| 02 Decision Memory | same caveat as 01 — DB layer proven, runtime caller added later |
+| 03 Failure Memory | same caveat as 01 — DB layer proven, runtime caller added later |
+| 05 Context Optimizer | **CORRECTION**: only `context_engine` was ever wired into `runner.py`'s hot path. `context_os` (command-center) and V3 `data_guardian` ("Guardian") were implemented but never called from production — see `FINAL_CONNECTIVITY_MATRIX.md` |
 | 22 Evidence Confidence | `model_intelligence.Confidence` + verifier (не авторизует) |
 | 29 Skill Reliability | Beta-LCB (было raw success_rate); off-hot-path |
 | 30 Skill Factory | verified-trace stage-gate (EXPERIMENTAL→SHADOW→PRODUCTION), OFF |

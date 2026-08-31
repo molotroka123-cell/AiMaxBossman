@@ -5,7 +5,7 @@ START_SHA=afa106d
 CODE_SHA=ca6e2b9                     (код + тесты + docs/security)
 DOCS_SHA=7f5caab                     (README / CURRENT_STATE / этот отчёт)
 ALL_COUNTERS_MEASURED_AT=7f5caab     (счётчики ниже относятся к этому дереву)
-FINAL_SHA=<этот коммит: он лишь вписывает SHA выше, код не трогает>
+FINAL_SHA=e64250d                    (коммит, вписавший SHA выше; кода не трогал)
 
 CYBERSEC_MODULES_CONNECTED=10/10
   01 Prompt Injection Firewall   bossman/cybersec/injection.py

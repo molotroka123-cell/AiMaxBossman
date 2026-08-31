@@ -3,8 +3,10 @@
 ```
 START_LOCAL_SHA=4b6d7cb
 START_REMOTE_SHA=4b6d7cb          (совпадали; Agent B на этой ветке не коммитил)
-FINAL_LOCAL_SHA=<см. git rev-parse HEAD>
-FINAL_REMOTE_SHA=<совпадает после push>
+FINAL_LOCAL_SHA=24ab1c9           (коммит, добавивший этот отчёт)
+FINAL_REMOTE_SHA=24ab1c9          (совпал после push; см. более поздние отчёты
+                                   для текущего HEAD — этот файл описывает
+                                   состояние на момент своего коммита, не canon)
 
 EXTERNAL_COMMITS_RECONCILED=YES (сиблинг-ветки просмотрены, не мержены; RC-фиксы уже в HEAD)
 
@@ -27,7 +29,14 @@ ORDINARY_DECISION_SPEED_REGRESSION=NONE (V3 OFF по умолчанию; hot-pat
 
 V3_7PACK=INTEGRATED (feature-gated OFF, adapter-only, 23 теста)
 MINI_01/02/03=PROVEN_ON_REAL_PG
-MINI_05=INTEGRATED (Guardian+context_engine+context_os)
+MINI_05=CORRECTION (2026-08-31, FINAL_CLOSURE_AUDIT): эта строка была
+  завышена. `bossman_v3/data_guardian/` реализован, но не имеет НИ ОДНОГО
+  production-импорта (`grep bossman_v3` вне тестов пуст); `context_os`
+  (command-center) отдельно реализован, но его `attach_to_engine`/
+  `attach_state_machine` тоже не вызываются нигде. Верно: context_engine
+  (Stage 2.222) — единственный реально подключённый ретрив/компакт-путь
+  (`runner.py`, hot path). Guardian и context_os — PARTIAL/UNWIRED, не
+  INTEGRATED. См. `docs/context/FINAL_CONNECTIVITY_MATRIX.md`.
 MINI_22=EXISTS (Confidence/verifier, не авторизует)
 MINI_29=UPGRADED (Beta-LCB)
 MINI_30=INTEGRATED_OFF (stage-gate)

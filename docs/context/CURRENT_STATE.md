@@ -1,16 +1,22 @@
 # CURRENT STATE — канонический источник (single source of truth)
 
-> **CYBERSEC V1 — слой реализован, тренировочная лаборатория ЗАМОРОЖЕНА**
-> Предыдущая точка: BOSSMAN V1 FROZEN (`docs/context/CODEX_BOSSMAN_V1_FINAL_AUDIT.md`),
-> затем PRE-CYBERSEC (`BOSSMAN_PRE_CYBERSEC_FREEZE.md`, вердикт PARTIAL).
+> **PRE-HARDWARE FREEZE** (`docs/context/PRE_HARDWARE_FREEZE.md`)
+> Closure audit: connectivity matrix built (`FINAL_CONNECTIVITY_MATRIX.md`),
+> 1 P0 found+fixed, 4 P1 found+fixed, 2 P1 documented+deferred with reason.
+> Предыдущие точки: CYBERSEC V1 (`docs/security/CYBERSEC_AI_V1.md`), затем
+> BOSSMAN V1 FROZEN, PRE-CYBERSEC (`BOSSMAN_PRE_CYBERSEC_FREEZE.md`, PARTIAL).
 
 - Ветка: `claude/bossman-control-v03-43igbk`. NO force push.
-- Эпоха: **CYBERSEC AI V1** — защитный слой подключён, всё OFF по умолчанию.
-- Вердикт: **PRE-CYBERSEC PARTIAL** (A/B бенчмарк и live-провайдеры не измерялись).
+- Эпоха: **PRE-HARDWARE FREEZE** — code freeze, не final production acceptance.
+- Вердикт: **BOSSMAN PRE-HARDWARE FREEZE PASS** (это code freeze; A/B
+  бенчмарк, live-провайдеры и RED vs BLUE стресс-тест остаются на реальное
+  железо — см. `docs/context/REAL_HARDWARE_FINAL_ACCEPTANCE.md`).
+- Working/Decision/Failure Memory и Prompt Injection Firewall теперь
+  production-wired (`runner.py`) — были доказаны на живом PG/написаны, но не
+  вызывались; это закрыто в этом проходе, см. connectivity matrix.
 - Стресс-тест RED vs BLUE: **НЕ ЗАПУСКАЛСЯ**, подготовлен и заморожен
   (`docs/security/FUTURE_RED_BLUE_STRESS_TEST.md`).
-- Next Phase: включение слоя на реальном хосте под наблюдением + замороженный
-  стресс-тест в одноразовой песочнице.
+- Next Phase: реальное железо — `REAL_HARDWARE_FINAL_ACCEPTANCE.md` целиком.
 
 ## Две связки (два приложения над общими инвариантами)
 1. **bossman-core** (`bossman-core/bossman/`) — агентная ОС: канонический цикл
