@@ -103,11 +103,15 @@ async def test_agent_a_cannot_run_inside_agent_b_area(env):
 
 async def test_owner_may_work_in_own_area(env):
     ctx = _ctx(env, mission_id=9, agent_id=1)
-    result = await _tool_run({"command": "echo своё > draft.txt", "cwd": "scratch",
+    # cmd.exe при перенаправлении пишет в OEM-кодировке хоста (тут cp1252) и
+    # превращает кириллицу в '????' — свойство оболочки ОС, а не продукта,
+    # поэтому на Windows эхо ASCII: проверяется изоляция своей области.
+    word = "ok" if os.name == "nt" else "своё"
+    result = await _tool_run({"command": f"echo {word} > draft.txt", "cwd": "scratch",
                               "mode": "project_host"}, ctx)
     assert result.error is False, result.content
     own = scratch.owner_dir(env.settings, mission_id=9, agent_id=1)
-    assert (own / "draft.txt").read_text(encoding="utf-8").strip() == "своё"
+    assert (own / "draft.txt").read_text(encoding="utf-8").strip() == word
 
 
 # ------------------------------------------------------------------ через code.*

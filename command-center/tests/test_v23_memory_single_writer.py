@@ -88,13 +88,17 @@ def test_existing_note_is_never_silently_overwritten(vault):
 def test_only_one_chunker_is_wired_into_the_running_code():
     """Два разбивщика с пересекающейся ответственностью — это вопрос «какой
     настоящий», который задаётся в самый неудобный момент."""
-    import subprocess
-
     root = Path(__file__).resolve().parents[1]
-    out = subprocess.run(
-        ["grep", "-rn", "--include=*.py", "-e", "chunking_v22", "-e", "from .chunking",
-         "-e", "memory.chunking", str(root / "bcc")],
-        capture_output=True, text=True).stdout
+    # на Windows утилиты grep нет: тот же рекурсивный поиск по *.py делаем
+    # средствами Python — формат строк «путь:строка:текст» сохранён, все
+    # утверждения ниже не тронуты
+    patterns = ("chunking_v22", "from .chunking", "memory.chunking")
+    out = "\n".join(
+        f"{p.relative_to(root).as_posix()}:{n}:{line}"
+        for p in sorted((root / "bcc").rglob("*.py"))
+        for n, line in enumerate(
+            p.read_text(encoding="utf-8", errors="replace").splitlines(), 1)
+        if any(e in line for e in patterns))
     live = {line.split(":")[0] for line in out.splitlines()
             if "chunking_v22.py" not in line.split(":")[0]}
     # использовать разрешено ровно один модуль разбиения

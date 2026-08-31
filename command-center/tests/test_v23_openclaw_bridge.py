@@ -369,7 +369,12 @@ def test_memory_conflict_sees_through_symlink(tmp_path):
     ours = tmp_path / "Obsidian" / "BOSSMAN"
     ours.mkdir(parents=True)
     link = tmp_path / "openclaw-vault"
-    link.symlink_to(ours, target_is_directory=True)
+    try:
+        # на Windows без привилегий/Dev Mode симлинк не создать (WinError 1314) —
+        # это ограничение ФС хоста, а не продукта
+        link.symlink_to(ours, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"ФС не даёт создать символическую ссылку: {exc}")
     assert memory_conflict({"memory": {"wiki": {"path": str(link)}}}, str(ours))
 
 
@@ -378,6 +383,9 @@ def test_memory_conflict_normalises_tilde_relative_and_noise(tmp_path, monkeypat
     home = tmp_path / "home"
     (home / "Obsidian" / "BOSSMAN").mkdir(parents=True)
     monkeypatch.setenv("HOME", str(home))
+    # ntpath.expanduser на Windows читает USERPROFILE и игнорирует HOME —
+    # без этого `~` не раскроется в подменённый дом и проверка потеряет смысл
+    monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.chdir(home)
     ours = str(home / "Obsidian" / "BOSSMAN")
 
