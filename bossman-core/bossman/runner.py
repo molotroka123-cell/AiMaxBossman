@@ -217,6 +217,13 @@ async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
     if needs_confirm:
         preview = f"Агент {agent.title} хочет выполнить {tool.name}\nаргументы: " + \
                   json.dumps(safe_args, ensure_ascii=False, indent=1)[:2000]
+        # V2.6 модуль D: до подтверждения владелец видит, какие минимальные
+        # допущения делают действие безопасным (bounded <= 3, детерминированно).
+        try:
+            from .counterfactual import critical_assumptions, render_for_preview
+            preview += render_for_preview(critical_assumptions(tool.name, args))
+        except Exception:  # noqa: BLE001 — enrichment вторичен
+            pass
         await db.execute("UPDATE tasks SET status='waiting_approval' WHERE id=$1", task_id)
         events.emit("task.updated", id=task_id, status="waiting_approval")
         approval_id = await approvals.create("action", preview, task_id=task_id,
@@ -408,8 +415,12 @@ async def run_task(task: dict) -> None:
         "status": "completed" if status == "done" else "failed",
         "current_step": final[:2000]}), "update_task_state")
     if status != "done" and not _learning_excluded(task_id):
+        # V2.6 модуль C: error_class больше не вырожденный "task_failed" на всё —
+        # детерминированная классификация симптома делает failure memory
+        # пригодной для извлечения паттернов (failure_patterns.extract_patterns).
+        from .failure_patterns import classify_error
         await _record_memory(failure_memory.record_failure(
-            task_id, final[:2000], "task_failed", final[:2000], "",
+            task_id, final[:2000], classify_error(final), final[:2000], "",
             status, environment={"agent": agent.name, "steps": steps}), "record_failure")
 
     took = time.monotonic() - started

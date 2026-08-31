@@ -28,9 +28,45 @@ def _plan_from_goal(goal: str, kpi_targets: dict) -> dict:
     return {"milestones": [{"name": "Выполнение", "tasks": len(tasks)}], "tasks": tasks}
 
 
+def _compile_plan(plan: dict) -> list[dict]:
+    """V2.6 модуль F: план миссии проходит типизированную компиляцию через
+    существующий DAG-движок (bcc/v2/task_graph) ДО постановки задач: схема,
+    дубликаты, циклы, недостающие зависимости → 400, а не тихая очередь.
+    Возврат — задачи плана в ТОПОЛОГИЧЕСКОМ порядке (id по возрастанию =
+    порядок зависимостей для воркера). Плоский план (без depends_on) проходит
+    как раньше — простое не усложняем."""
+    from ..v2.task_graph import (GraphValidationError, TaskGraph, mark_running,
+                                 mark_succeeded, ready_nodes)
+    tasks = list(plan.get("tasks", []))
+    nodes = []
+    for i, t in enumerate(tasks):
+        nodes.append({
+            "node_id": str(t.get("node_id") or f"t{i + 1}"),
+            "action_type": str(t.get("kind") or "generic"),
+            "depends_on": [str(d) for d in (t.get("depends_on") or [])],
+            "input": {"index": i},
+        })
+    try:
+        graph = TaskGraph.from_list(nodes)
+    except GraphValidationError as exc:
+        raise HTTPException(400, {"message": "план миссии не прошёл компиляцию",
+                                  "errors": str(exc)[:2000]})
+    ordered: list[dict] = []
+    while True:
+        ready = ready_nodes(graph)
+        if not ready:
+            break
+        for node in ready:
+            mark_running(graph, node.node_id)
+            mark_succeeded(graph, node.node_id)
+            ordered.append(tasks[node.input["index"]])
+    return ordered
+
+
 async def _create_tasks(svc, mission_id: int, plan: dict) -> None:
+    ordered = _compile_plan(plan)
     async with svc.db.session() as s:
-        for t in plan.get("tasks", []):
+        for t in ordered:
             await s.execute(sa.insert(tasks_t).values(
                 title=t.get("title", "задача"), prompt=t["prompt"],
                 agent_id=t.get("agent_id"), status="draft", kind=t.get("kind", "generic"),

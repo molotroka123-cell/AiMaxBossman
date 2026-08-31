@@ -66,12 +66,32 @@ def is_cloud(alias: str) -> bool:
 
 
 def real_window(alias: str) -> int:
-    """Реальный потолок модели из tools/registry.yaml (10.7), не паспортное окно."""
+    """Реальный потолок модели из tools/registry.yaml (10.7), не паспортное окно.
+
+    V2.6 модуль E: результат — детерминированный разбор статичного файла, ровно
+    «GOOD»-случай execution cache. Ключ включает mtime файла: правка registry
+    инвалидирует запись сама (environment fingerprint)."""
     try:
-        reg = yaml.safe_load(settings.tools_registry.read_text(encoding="utf-8")) or {}
-        return int((reg.get("model_windows") or {}).get(alias, 65536))
+        mtime = settings.tools_registry.stat().st_mtime
     except FileNotFoundError:
         return 65536
+    try:
+        from .exec_cache import get_cache
+        cache = get_cache()
+        key = cache.key("parsed_registry", str(settings.tools_registry), mtime)
+        rec = cache.get(key)
+        if rec is not None:
+            reg = rec.result
+        else:
+            reg = yaml.safe_load(settings.tools_registry.read_text(encoding="utf-8")) or {}
+            cache.put(key, reg, verified=True,
+                      evidence=f"parsed {settings.tools_registry} @mtime={mtime}")
+    except Exception:  # noqa: BLE001 — кэш вторичен: прямой разбор как раньше
+        try:
+            reg = yaml.safe_load(settings.tools_registry.read_text(encoding="utf-8")) or {}
+        except FileNotFoundError:
+            return 65536
+    return int((reg.get("model_windows") or {}).get(alias, 65536))
 
 
 async def chat(agent: AgentSpec, messages: list[dict], *,
