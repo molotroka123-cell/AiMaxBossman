@@ -7,6 +7,8 @@ execute()+async-for, result.status) на asyncpg-пуле. Здесь — дет
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 import bossman.decision_memory as dm
@@ -26,14 +28,24 @@ def _fail_row(fid="fail-1", resolved=False):
 
 # ---------------- failure_memory ----------------
 
-async def test_init_failures_uses_execute_not_executescript(monkeypatch):
+async def test_init_failures_verifies_canonical_table_no_embedded_ddl(monkeypatch):
+    """init больше НЕ создаёт вторую схему: он проверяет каноничную таблицу."""
     seen = {}
-    async def fake_execute(sql, *a):
+    async def fake_fetchval(sql, *a):
         seen["sql"] = sql
-        return "CREATE TABLE"
-    monkeypatch.setattr(fm, "execute", fake_execute)
+        return True
+    monkeypatch.setattr(fm, "fetchval", fake_fetchval)
     await fm.init_failures_table()
-    assert "CREATE TABLE IF NOT EXISTS failures" in seen["sql"]
+    assert "to_regclass" in seen["sql"] and "failures" in seen["sql"]
+    assert "CREATE TABLE" not in Path(fm.__file__).read_text(encoding="utf-8")
+
+
+async def test_init_failures_raises_when_canonical_table_missing(monkeypatch):
+    async def fake_fetchval(sql, *a):
+        return False
+    monkeypatch.setattr(fm, "fetchval", fake_fetchval)
+    with pytest.raises(Exception):
+        await fm.init_failures_table()
 
 
 async def test_get_unresolved_failures_fetches_list(monkeypatch):
@@ -70,15 +82,22 @@ async def test_query_failures_single_fetch(monkeypatch):
 
 # ---------------- decision_memory ----------------
 
-async def test_init_decisions_uses_execute_and_pg_valid_ddl(monkeypatch):
+async def test_init_decisions_verifies_canonical_table_no_embedded_ddl(monkeypatch):
     seen = {}
-    async def fake_execute(sql, *a):
+    async def fake_fetchval(sql, *a):
         seen["sql"] = sql
-        return "CREATE TABLE"
-    monkeypatch.setattr(dm, "execute", fake_execute)
+        return True
+    monkeypatch.setattr(dm, "fetchval", fake_fetchval)
     await dm.init_decisions_table()
-    # PG-valid: BIGSERIAL, not SQLite AUTOINCREMENT
-    assert "BIGSERIAL" in seen["sql"] and "AUTOINCREMENT" not in seen["sql"]
+    assert "to_regclass" in seen["sql"] and "decisions" in seen["sql"]
+    assert "CREATE TABLE" not in Path(dm.__file__).read_text(encoding="utf-8")
+
+
+async def test_no_pool_as_context_manager_anywhere(monkeypatch):
+    """`async with (await pool())` ЗАКРЫВАЕТ глобальный пул asyncpg — запрещено."""
+    for mod in (dm, fm):
+        src = Path(mod.__file__).read_text(encoding="utf-8")
+        assert "async with (await pool()) as" not in src, f"{mod.__name__}: pool-closing pattern"
 
 
 async def test_supersede_decision_no_commit_path(monkeypatch):
