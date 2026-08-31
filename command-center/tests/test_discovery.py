@@ -139,16 +139,35 @@ async def test_open_port_that_stays_silent_is_not_called_absent():
 
 
 async def test_closed_port_says_the_server_is_not_running():
-    """Свободный порт — это «не запущено», и текст обязан отличаться."""
+    """Свободный порт — это «не запущено», и текст обязан отличаться.
+
+    Нюанс хоста: на некоторых Windows-машинах фильтр роняет SYN даже на
+    loopback — тогда закрытый порт неотличим от медленной сети, и честный
+    ответ кода — «не ответил» (состояние порта не утверждается)."""
     sock = await asyncio.start_server(lambda r, w: None, "127.0.0.1", 0)
     port = sock.sockets[0].getsockname()[1]
     sock.close()
     await sock.wait_closed()              # порт освободили — теперь он закрыт
 
+    # Как хост ведёт себя с закрытым loopback-портом: refuse или дроп?
+    refused = True
+    try:
+        _, w = await asyncio.wait_for(asyncio.open_connection("127.0.0.1", port),
+                                      timeout=1.0)
+        w.close()
+        refused = False
+    except (ConnectionRefusedError, OSError):
+        refused = True
+    except asyncio.TimeoutError:
+        refused = False
+
     result = await discover(endpoints=[("свободный", f"http://127.0.0.1:{port}/v1")],
                             model_dirs=[])
     detail = result["endpoints"][0]["detail"]
-    assert "не запущен" in detail and "закрыт" in detail, detail
+    if refused:
+        assert "не запущен" in detail and "закрыт" in detail, detail
+    else:
+        assert "не ответил" in detail, detail
 
 
 def test_ollama_spare_port_is_probed_by_default():
@@ -169,7 +188,11 @@ def test_windows_paths_survive_the_env_split(monkeypatch):
 
 def test_empty_env_falls_back_to_defaults(monkeypatch):
     monkeypatch.setenv("BCC_MODELS_DIRS", "   ")
-    assert "~/.ollama/models" in model_dirs_from_env()
+    dirs = model_dirs_from_env()
+    if os.name == "nt":
+        assert r"%USERPROFILE%\.ollama\models" in dirs
+    else:
+        assert "~/.ollama/models" in dirs
 
 
 def test_ollama_store_is_read_from_manifests_not_from_gguf(tmp_path):

@@ -94,7 +94,10 @@ async def test_schema_init_is_noop_not_second_authority(pg):
     import bossman.failure_memory as fm
     await dm.init_decisions_table()
     await fm.init_failures_table()
-    src = (open("bossman/decision_memory.py").read() + open("bossman/failure_memory.py").read())
+    src = (
+        open("bossman/decision_memory.py", encoding="utf-8").read()
+        + open("bossman/failure_memory.py", encoding="utf-8").read()
+    )
     assert "CREATE TABLE" not in src, "embedded DDL вернулся — это второй источник правды"
 
 

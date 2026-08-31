@@ -14,9 +14,13 @@ host/local = ALWAYS ASK (mandatory_confirm нельзя переотменить
 """
 from __future__ import annotations
 
+import asyncio
 import shlex
+import sys
 import uuid
 
+from .. import errors
+from ..config import settings
 from . import ToolContext, ToolDef, ToolResult, clip, register
 # Приватные помощники соседнего модуля того же пакета — осознанное переиспользование
 # (repo practice): один sandbox-путь, одна дисциплина head/tail, один предикат approval.
@@ -48,10 +52,36 @@ def build_python_argv(code: str, ctx: ToolContext) -> list[str]:
     return _build_command(_python_cmd(code), ctx)
 
 
+async def _exec_local_python(code: str, ctx: ToolContext, timeout: int) -> tuple[int, str]:
+    """Local-режим: фиксированный интерпретатор БЕЗ шелла — код одним argv.
+
+    На Windows-хосте ни `sh`, ни `python3` не существуют (argv shell.py `sh -c`
+    давал FileNotFoundError); `sys.executable` — тот же контролируемый
+    интерпретатор. Инвариант «не произвольный шелл» не ослабляется: нет даже
+    промежуточного шелла, gating BOSSMAN_UNSAFE_LOCAL_EXEC сохранён."""
+    if not settings.allow_unsafe_local_exec:
+        raise errors.PolicyDenied(
+            "SANDBOX_MODE=local требует осознанного BOSSMAN_UNSAFE_LOCAL_EXEC=1 "
+            "(или переведите SANDBOX_MODE=docker)")
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable, "-c", code,
+        cwd=str(ctx.workdir),
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+    try:
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        proc.kill()
+        return 124, f"истёк таймаут {timeout}с"
+    return proc.returncode or 0, out.decode(errors="replace")
+
+
 async def run(args: dict, ctx: ToolContext) -> ToolResult:
     code_arg = str(args["code"])
     timeout = _clamp_timeout(args.get("timeout_s", 60))
-    exit_code, out = await _exec(_python_cmd(code_arg), ctx, timeout=timeout)
+    if (settings.sandbox_mode or "").strip().lower() == "local":
+        exit_code, out = await _exec_local_python(code_arg, ctx, timeout)
+    else:
+        exit_code, out = await _exec(_python_cmd(code_arg), ctx, timeout=timeout)
     log_id = uuid.uuid4().hex[:8]
     log_path = ctx.workdir / "assets" / "logs" / f"analysis-{log_id}.txt"
     log_path.parent.mkdir(parents=True, exist_ok=True)

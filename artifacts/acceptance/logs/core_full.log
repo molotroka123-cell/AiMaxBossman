@@ -1,0 +1,243 @@
+.....................s..............................................F... [  5%]
+........................................................................ [ 11%]
+........................................................................ [ 16%]
+........................................................................ [ 22%]
+........................................................................ [ 28%]
+........................................................................ [ 33%]
+........................................................................ [ 39%]
+........................................................................ [ 45%]
+.....................................ss..sssssss..s.......sssssssssss... [ 50%]
+.............ss................................................s........ [ 56%]
+........................................................................ [ 62%]
+......................................................ss................ [ 67%]
+........................................................................ [ 73%]
+........................................................................ [ 79%]
+.....................s...................sss........................F... [ 84%]
+........................................................................ [ 90%]
+........................................................................ [ 96%]
+..................................................                       [100%]
+================================== FAILURES ===================================
+_______________ test_profile_lock_exclusion_and_stale_recovery ________________
+
+tmp_path = WindowsPath('C:/Users/timur/AppData/Local/Temp/bossman_pytest_bg/test_profile_lock_exclusion_an0')
+
+    def test_profile_lock_exclusion_and_stale_recovery(tmp_path: Path):
+        p = tmp_path / ".lock"
+        a = ProfileLock(p); a.acquire()
+        b = ProfileLock(p)
+>       with pytest.raises(RuntimeError): b.acquire()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'RuntimeError'>
+
+tests\test_browser_policy.py:47: Failed
+__________________ test_local_execution_runs_python_and_logs __________________
+
+tmp_path = WindowsPath('C:/Users/timur/AppData/Local/Temp/bossman_pytest_bg/test_local_execution_runs_pyth0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001C3FFAE7A80>
+
+    def test_local_execution_runs_python_and_logs(tmp_path, monkeypatch):
+        """local + осознанный флаг: настоящий python3 -c, вывод и лог как у shell.run."""
+        monkeypatch.setattr(settings, "sandbox_mode", "local", raising=False)
+        monkeypatch.setattr(settings, "allow_unsafe_local_exec", True, raising=False)
+>       result = asyncio.run(analysis.run(
+            {"code": "print('hello-analysis', 2 + 2)"}, _ctx(tmp_path)))
+
+tests\test_v26_analysis_tool.py:109: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Python314\Lib\asyncio\runners.py:204: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Python314\Lib\asyncio\runners.py:127: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python314\Lib\asyncio\base_events.py:719: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+bossman\toolkit\analysis.py:54: in run
+    exit_code, out = await _exec(_python_cmd(code_arg), ctx, timeout=timeout)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+bossman\toolkit\shell.py:55: in _exec
+    proc = await asyncio.create_subprocess_exec(
+C:\Python314\Lib\asyncio\subprocess.py:224: in create_subprocess_exec
+    transport, protocol = await loop.subprocess_exec(
+C:\Python314\Lib\asyncio\base_events.py:1798: in subprocess_exec
+    transport = await self._make_subprocess_transport(
+C:\Python314\Lib\asyncio\windows_events.py:401: in _make_subprocess_transport
+    transp = _WindowsSubprocessTransport(self, protocol, args, shell,
+C:\Python314\Lib\asyncio\base_subprocess.py:40: in __init__
+    self._start(args=args, shell=shell, stdin=stdin, stdout=stdout,
+C:\Python314\Lib\asyncio\windows_events.py:879: in _start
+    self._proc = windows_utils.Popen(
+C:\Python314\Lib\asyncio\windows_utils.py:153: in __init__
+    super().__init__(args, stdin=stdin_rfd, stdout=stdout_wfd,
+C:\Python314\Lib\subprocess.py:1038: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Popen: returncode: None args: ('sh', '-c', 'python3 -c \'print(\'"\'"\'hell...>
+args = 'sh -c "python3 -c \'print(\'\\"\'\\"\'hello-analysis\'\\"\'\\"\', 2 + 2)\'"'
+executable = None, preexec_fn = None, close_fds = False, pass_fds = ()
+cwd = 'C:\\Users\\timur\\AppData\\Local\\Temp\\bossman_pytest_bg\\test_local_execution_runs_pyth0'
+env = None, startupinfo = <subprocess.STARTUPINFO object at 0x000001C3CEF3BE70>
+creationflags = 0, shell = False, p2cread = Handle(2900), p2cwrite = -1
+c2pread = -1, c2pwrite = Handle(2768), errread = -1, errwrite = Handle(1360)
+unused_restore_signals = True, unused_gid = None, unused_gids = None
+unused_uid = None, unused_umask = -1, unused_start_new_session = False
+unused_process_group = -1
+
+    def _execute_child(self, args, executable, preexec_fn, close_fds,
+                       pass_fds, cwd, env,
+                       startupinfo, creationflags, shell,
+                       p2cread, p2cwrite,
+                       c2pread, c2pwrite,
+                       errread, errwrite,
+                       unused_restore_signals,
+                       unused_gid, unused_gids, unused_uid,
+                       unused_umask,
+                       unused_start_new_session, unused_process_group):
+        """Execute program (MS Windows version)"""
+    
+        assert not pass_fds, "pass_fds not supported on Windows."
+    
+        if isinstance(args, str):
+            pass
+        elif isinstance(args, bytes):
+            if shell:
+                raise TypeError('bytes args is not allowed on Windows')
+            args = list2cmdline([args])
+        elif isinstance(args, os.PathLike):
+            if shell:
+                raise TypeError('path-like args is not allowed when '
+                                'shell is true')
+            args = list2cmdline([args])
+        else:
+            args = list2cmdline(args)
+    
+        if executable is not None:
+            executable = os.fsdecode(executable)
+    
+        # Process startup details
+        if startupinfo is None:
+            startupinfo = STARTUPINFO()
+        else:
+            # bpo-34044: Copy STARTUPINFO since it is modified above,
+            # so the caller can reuse it multiple times.
+            startupinfo = startupinfo.copy()
+    
+        use_std_handles = -1 not in (p2cread, c2pwrite, errwrite)
+        if use_std_handles:
+            startupinfo.dwFlags |= _winapi.STARTF_USESTDHANDLES
+            startupinfo.hStdInput = p2cread
+            startupinfo.hStdOutput = c2pwrite
+            startupinfo.hStdError = errwrite
+    
+        attribute_list = startupinfo.lpAttributeList
+        have_handle_list = bool(attribute_list and
+                                "handle_list" in attribute_list and
+                                attribute_list["handle_list"])
+    
+        # If we were given an handle_list or need to create one
+        if have_handle_list or (use_std_handles and close_fds):
+            if attribute_list is None:
+                attribute_list = startupinfo.lpAttributeList = {}
+            handle_list = attribute_list["handle_list"] = \
+                list(attribute_list.get("handle_list", []))
+    
+            if use_std_handles:
+                handle_list += [int(p2cread), int(c2pwrite), int(errwrite)]
+    
+            handle_list[:] = self._filter_handle_list(handle_list)
+    
+            if handle_list:
+                if not close_fds:
+                    warnings.warn("startupinfo.lpAttributeList['handle_list'] "
+                                  "overriding close_fds", RuntimeWarning)
+    
+                # When using the handle_list we always request to inherit
+                # handles but the only handles that will be inherited are
+                # the ones in the handle_list
+                close_fds = False
+    
+        if shell:
+            startupinfo.dwFlags |= _winapi.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = _winapi.SW_HIDE
+            if not executable:
+                # gh-101283: without a fully-qualified path, before Windows
+                # checks the system directories, it first looks in the
+                # application directory, and also the current directory if
+                # NeedCurrentDirectoryForExePathW(ExeName) is true, so try
+                # to avoid executing unqualified "cmd.exe".
+                comspec = os.environ.get('ComSpec')
+                if not comspec:
+                    system_root = os.environ.get('SystemRoot', '')
+                    comspec = os.path.join(system_root, 'System32', 'cmd.exe')
+                    if not os.path.isabs(comspec):
+                        raise FileNotFoundError('shell not found: neither %ComSpec% nor %SystemRoot% is set')
+                if os.path.isabs(comspec):
+                    executable = comspec
+            else:
+                comspec = executable
+    
+            args = '{} /c "{}"'.format (comspec, args)
+    
+        if cwd is not None:
+            cwd = os.fsdecode(cwd)
+    
+        sys.audit("subprocess.Popen", executable, args, cwd, env)
+    
+        # Start the process
+        try:
+>           hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                                     # no special security
+                                     None, None,
+                                     int(not close_fds),
+                                     creationflags,
+                                     env,
+                                     cwd,
+                                     startupinfo)
+E                                    FileNotFoundError: [WinError 2] The system cannot find the file specified
+
+C:\Python314\Lib\subprocess.py:1552: FileNotFoundError
+---------------------------- Captured stderr call -----------------------------
+{"ts": "2026-08-31T21:20:17.290892+00:00", "level": "WARNING", "logger": "bossman.toolkit.shell", "msg": "exec без изоляции: SANDBOX_MODE=local + BOSSMAN_UNSAFE_LOCAL_EXEC=1"}
+------------------------------ Captured log call ------------------------------
+WARNING  bossman.toolkit.shell:shell.py:46 exec без изоляции: SANDBOX_MODE=local + BOSSMAN_UNSAFE_LOCAL_EXEC=1
+============================== warnings summary ===============================
+tests/test_alias_and_auth_boundary.py: 1 warning
+tests/test_core_auth_perimeter.py: 32 warnings
+tests/test_world_intelligence_pythia.py: 1 warning
+  C:\AiMaxBossman-claude-bossman-control-v03-43igbk\bossman-core\bossman\api.py:109: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_alias_and_auth_boundary.py: 2 warnings
+tests/test_core_auth_perimeter.py: 64 warnings
+tests/test_world_intelligence_pythia.py: 2 warnings
+  C:\Python314\Lib\site-packages\fastapi\applications.py:4598: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_alias_and_auth_boundary.py: 1 warning
+tests/test_core_auth_perimeter.py: 32 warnings
+tests/test_world_intelligence_pythia.py: 1 warning
+  C:\AiMaxBossman-claude-bossman-control-v03-43igbk\bossman-core\bossman\api.py:121: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_browser_policy.py::test_profile_lock_exclusion_and_stale_recovery
+FAILED tests/test_v26_analysis_tool.py::test_local_execution_runs_python_and_logs
+2 failed, 1241 passed, 31 skipped, 136 warnings in 129.01s (0:02:09)

@@ -1,0 +1,412 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0 -- C:\Python314\python.exe
+rootdir: C:\AiMaxBossman-claude-bossman-control-v03-43igbk\command-center
+configfile: pyproject.toml
+plugins: asyncio-1.4.0, timeout-2.4.0, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 45.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 307 items
+
+tests/test_persistence.py::test_run_survives_restart_and_completes PASSED [  0%]
+tests/test_plugins_adapter.py::test_capabilities_registered_into_existing_registry PASSED [  0%]
+tests/test_plugins_adapter.py::test_unknown_capability_is_denied_by_absence PASSED [  0%]
+tests/test_plugins_adapter.py::test_duplicate_capability_not_double_registered PASSED [  1%]
+tests/test_plugins_adapter.py::test_read_is_auto_write_and_send_are_ask PASSED [  1%]
+tests/test_plugins_adapter.py::test_destructive_send_is_not_auto_replayable PASSED [  1%]
+tests/test_plugins_adapter.py::test_default_agent_gets_no_plugins PASSED [  2%]
+tests/test_plugins_adapter.py::test_ollama_capability_declares_local_only PASSED [  2%]
+tests/test_plugins_adapter.py::test_openrouter_capability_routes_through_cost_governor_authority PASSED [  2%]
+tests/test_plugins_adapter.py::test_sql_read_allowed[SELECT 1] PASSED    [  3%]
+tests/test_plugins_adapter.py::test_sql_read_allowed[select * from t where x=1] PASSED [  3%]
+tests/test_plugins_adapter.py::test_sql_read_allowed[WITH a AS (SELECT 1) SELECT * FROM a] PASSED [  3%]
+tests/test_plugins_adapter.py::test_sql_read_allowed[PRAGMA table_info(t)] PASSED [  4%]
+tests/test_plugins_adapter.py::test_sql_read_allowed[  select id from users  ] PASSED [  4%]
+tests/test_plugins_adapter.py::test_sql_write_denied[INSERT INTO t VALUES (1)] PASSED [  4%]
+tests/test_plugins_adapter.py::test_sql_write_denied[update t set x=1] PASSED [  5%]
+tests/test_plugins_adapter.py::test_sql_write_denied[delete from t] PASSED [  5%]
+tests/test_plugins_adapter.py::test_sql_write_denied[drop table t] PASSED [  5%]
+tests/test_plugins_adapter.py::test_sql_write_denied[ALTER TABLE t ADD c int] PASSED [  6%]
+tests/test_plugins_adapter.py::test_sql_write_denied[CREATE TABLE t(x)] PASSED [  6%]
+tests/test_plugins_adapter.py::test_sql_write_denied[ATTACH DATABASE 'x' AS y] PASSED [  6%]
+tests/test_plugins_adapter.py::test_sql_write_denied[PRAGMA journal_mode=WAL] PASSED [  7%]
+tests/test_plugins_adapter.py::test_sql_write_denied[REPLACE INTO t VALUES(1)] PASSED [  7%]
+tests/test_plugins_adapter.py::test_sql_write_denied[VACUUM] PASSED      [  7%]
+tests/test_plugins_adapter.py::test_sql_write_denied[SELECT 1; DROP TABLE t] PASSED [  8%]
+tests/test_plugins_adapter.py::test_sql_write_denied[select 1;delete from t] PASSED [  8%]
+tests/test_plugins_adapter.py::test_ssrf_literal_targets_blocked[http://127.0.0.1/x] PASSED [  8%]
+tests/test_plugins_adapter.py::test_ssrf_literal_targets_blocked[http://169.254.169.254/latest/meta-data] PASSED [  9%]
+tests/test_plugins_adapter.py::test_ssrf_literal_targets_blocked[http://localhost/] PASSED [  9%]
+tests/test_plugins_adapter.py::test_ssrf_literal_targets_blocked[http://10.0.0.5/] PASSED [  9%]
+tests/test_plugins_adapter.py::test_ssrf_literal_targets_blocked[http://192.168.1.1/] PASSED [ 10%]
+tests/test_plugins_adapter.py::test_ssrf_literal_targets_blocked[http://[::1]/] PASSED [ 10%]
+tests/test_plugins_adapter.py::test_ssrf_literal_targets_blocked[http://0.0.0.0/] PASSED [ 10%]
+tests/test_plugins_adapter.py::test_ssrf_literal_targets_blocked[ftp://host/x] PASSED [ 11%]
+tests/test_plugins_adapter.py::test_ssrf_literal_targets_blocked[http://u:p@host/x] PASSED [ 11%]
+tests/test_plugins_adapter.py::test_ssrf_literal_targets_blocked[http://foo.local/] PASSED [ 11%]
+tests/test_plugins_adapter.py::test_ssrf_public_literal_allowed PASSED   [ 12%]
+tests/test_plugins_adapter.py::test_ssrf_dns_rebinding_blocked PASSED    [ 12%]
+tests/test_plugins_adapter.py::test_safe_get_rejects_redirect_to_private PASSED [ 12%]
+tests/test_plugins_adapter.py::test_safe_get_follows_safe_and_returns PASSED [ 13%]
+tests/test_plugins_adapter.py::test_path_read_inside_root PASSED         [ 13%]
+tests/test_plugins_adapter.py::test_path_traversal_denied[../escape] PASSED [ 13%]
+tests/test_plugins_adapter.py::test_path_traversal_denied[../../etc/passwd] PASSED [ 14%]
+tests/test_plugins_adapter.py::test_path_traversal_denied[/etc/passwd] PASSED [ 14%]
+tests/test_plugins_adapter.py::test_symlink_escape_denied SKIPPED (S...) [ 14%]
+tests/test_plugins_adapter.py::test_redaction_by_key_and_value PASSED    [ 14%]
+tests/test_plugins_adapter.py::test_external_without_credential_skips_no_side_effect PASSED [ 15%]
+tests/test_plugins_adapter.py::test_http_get_blocks_ssrf_at_handler PASSED [ 15%]
+tests/test_plugins_adapter.py::test_status_endpoint_reports_no_secrets PASSED [ 15%]
+tests/test_plugins_adapter.py::test_sql_read_executes_real_readonly_query PASSED [ 16%]
+tests/test_plugins_adapter.py::test_sql_write_blocked_before_execution PASSED [ 16%]
+tests/test_plugins_adapter.py::test_sql_no_dsn_is_skip PASSED            [ 16%]
+tests/test_plugins_adapter.py::test_obsidian_write_executes_and_confines PASSED [ 17%]
+tests/test_plugins_adapter.py::test_obsidian_write_blocks_escape PASSED  [ 17%]
+tests/test_plugins_adapter.py::test_obsidian_write_no_cred_is_skip PASSED [ 17%]
+tests/test_plugin_security.py::test_sql_gate_cte_write_denied[WITH a AS (SELECT 1) DELETE FROM t] PASSED [ 18%]
+tests/test_plugin_security.py::test_sql_gate_cte_write_denied[WITH a AS (SELECT 1) INSERT INTO t VALUES (1)] PASSED [ 18%]
+tests/test_plugin_security.py::test_sql_gate_cte_write_denied[WITH a AS (SELECT 1) UPDATE t SET x=1] PASSED [ 18%]
+tests/test_plugin_security.py::test_sql_gate_literal_false_positive PASSED [ 19%]
+tests/test_plugin_security.py::test_sql_gate_matrix[SELECT 1-True] PASSED [ 19%]
+tests/test_plugin_security.py::test_sql_gate_matrix[WITH a AS (SELECT 1) SELECT * FROM a-True] PASSED [ 19%]
+tests/test_plugin_security.py::test_sql_gate_matrix[PRAGMA table_info(t)-True] PASSED [ 20%]
+tests/test_plugin_security.py::test_sql_gate_matrix[PRAGMA index_list(t)-True] PASSED [ 20%]
+tests/test_plugin_security.py::test_sql_gate_matrix[SELECT 1; DROP TABLE t-False] PASSED [ 20%]
+tests/test_plugin_security.py::test_sql_gate_matrix[select 1;delete from t-False] PASSED [ 21%]
+tests/test_plugin_security.py::test_sql_gate_matrix[PRAGMA journal_mode=WAL-False] PASSED [ 21%]
+tests/test_plugin_security.py::test_sql_gate_matrix[PRAGMA main.table_info(t)-False] PASSED [ 21%]
+tests/test_plugin_security.py::test_sql_gate_matrix[VACUUM-False] PASSED [ 22%]
+tests/test_plugin_security.py::test_sql_gate_matrix[-False] PASSED       [ 22%]
+tests/test_plugin_security.py::test_sql_gate_matrix[None-False] PASSED   [ 22%]
+tests/test_plugin_security.py::test_sql_driver_readonly_backstop PASSED  [ 23%]
+tests/test_plugin_security.py::test_ssrf_private_ip_denied PASSED        [ 23%]
+tests/test_plugin_security.py::test_dns_rebind_pinned_connect PASSED     [ 23%]
+tests/test_plugin_security.py::test_tls_verify_preserved PASSED          [ 24%]
+tests/test_plugin_security.py::test_http_max_bytes_matrix PASSED         [ 24%]
+tests/test_plugin_security.py::test_redact_outputs_no_secret_values PASSED [ 24%]
+tests/test_plugin_security.py::test_redact_error_path PASSED             [ 25%]
+tests/test_polish_lsp_and_coding.py::test_lsp_records_capabilities PASSED [ 25%]
+tests/test_polish_lsp_and_coding.py::test_lsp_rejects_unsupported_capability PASSED [ 25%]
+tests/test_polish_lsp_and_coding.py::test_lsp_empty_caps_is_optimistic PASSED [ 26%]
+tests/test_polish_lsp_and_coding.py::test_normalize_location_and_locationlink PASSED [ 26%]
+tests/test_polish_lsp_and_coding.py::test_safe_name PASSED               [ 26%]
+tests/test_polish_lsp_and_coding.py::test_create_isolated_worktree_leaves_source_untouched PASSED [ 27%]
+tests/test_polish_lsp_and_coding.py::test_diff_reports_real_patch PASSED [ 27%]
+tests/test_polish_lsp_and_coding.py::test_merge_clean_and_conflict_preview PASSED [ 27%]
+tests/test_polish_lsp_and_coding.py::test_merge_conflict_is_blocked PASSED [ 28%]
+tests/test_polish_lsp_and_coding.py::test_discard_and_orphan_cleanup PASSED [ 28%]
+tests/test_polish_lsp_and_coding.py::test_no_double_active_session PASSED [ 28%]
+tests/test_polish_lsp_and_coding.py::test_reviewer_rejects_done_with_empty_diff PASSED [ 28%]
+tests/test_polish_lsp_and_coding.py::test_reviewer_rejects_done_with_red_tests PASSED [ 29%]
+tests/test_polish_lsp_and_coding.py::test_reviewer_approves_with_real_evidence PASSED [ 29%]
+tests/test_polish_lsp_and_coding.py::test_reviewer_flags_sensitive_paths_for_human PASSED [ 29%]
+tests/test_providers.py::test_openai_compat_chat_parses_answer_and_usage PASSED [ 30%]
+tests/test_providers.py::test_openai_compat_health_offline_when_endpoint_down PASSED [ 30%]
+tests/test_providers.py::test_openai_compat_health_error_on_bad_key PASSED [ 30%]
+tests/test_providers.py::test_openai_compat_list_models PASSED           [ 31%]
+tests/test_providers.py::test_anthropic_chat_request_and_parsing PASSED  [ 31%]
+tests/test_providers.py::test_anthropic_health_and_missing_key PASSED    [ 31%]
+tests/test_providers.py::test_build_adapter_unknown_kind PASSED          [ 32%]
+tests/test_queue_retry.py::test_task_fails_after_max_retries PASSED      [ 32%]
+tests/test_queue_retry.py::test_task_completes_on_second_attempt PASSED  [ 32%]
+tests/test_scheduler.py::test_interval_schedule_catch_up_fires_once PASSED [ 33%]
+tests/test_scheduler.py::test_once_schedule_disables_itself PASSED       [ 33%]
+tests/test_scheduler.py::test_daily_next_run_is_tomorrow_when_time_passed PASSED [ 33%]
+tests/test_skill_discovery_memoized.py::test_second_discover_skips_reparse PASSED [ 34%]
+tests/test_skill_discovery_memoized.py::test_cache_is_not_mutable_from_outside PASSED [ 34%]
+tests/test_task_exchange.py::test_fake_manifest_appears_and_disappears PASSED [ 34%]
+tests/test_task_exchange.py::test_malformed_manifest_is_ignored_not_crash PASSED [ 35%]
+tests/test_task_exchange.py::test_roundtrip_deterministic PASSED         [ 35%]
+tests/test_task_exchange.py::test_external_capability_fails_honestly PASSED [ 35%]
+tests/test_task_exchange.py::test_oversized_rejected PASSED              [ 36%]
+tests/test_task_exchange.py::test_malformed_json_rejected PASSED         [ 36%]
+tests/test_task_exchange.py::test_reply_to_traversal_denied PASSED       [ 36%]
+tests/test_task_exchange.py::test_app_mismatch_rejected PASSED           [ 37%]
+tests/test_task_exchange.py::test_unknown_and_denied_capabilities PASSED [ 37%]
+tests/test_task_exchange.py::test_ask_creates_approval PASSED            [ 37%]
+tests/test_task_exchange.py::test_replay_rejected_and_mutation_not_repeated PASSED [ 38%]
+tests/test_task_exchange.py::test_crash_recovery_no_loss_no_duplicate PASSED [ 38%]
+tests/test_task_exchange.py::test_bounded_retries_then_failed PASSED     [ 38%]
+tests/test_task_exchange.py::test_migrate_only_swallows_duplicate_column PASSED [ 39%]
+tests/test_task_graph_v2.py::test_valid_dag_from_list PASSED             [ 39%]
+tests/test_task_graph_v2.py::test_cycle_rejected PASSED                  [ 39%]
+tests/test_task_graph_v2.py::test_missing_dependency_rejected PASSED     [ 40%]
+tests/test_task_graph_v2.py::test_ready_nodes_independent_both_ready PASSED [ 40%]
+tests/test_task_graph_v2.py::test_dependency_failure_blocks_dependents PASSED [ 40%]
+tests/test_task_graph_v2.py::test_bounded_retry_attempts_increment_then_failed PASSED [ 41%]
+tests/test_task_graph_v2.py::test_skip_cascades_to_dependents PASSED     [ 41%]
+tests/test_task_graph_v2.py::test_graph_context_view_fields PASSED       [ 41%]
+tests/test_task_graph_v2.py::test_unknown_action_type_with_allowlist PASSED [ 42%]
+tests/test_task_graph_v2.py::test_retry_limit_out_of_bounds_invalid PASSED [ 42%]
+tests/test_task_graph_v2.py::test_statuses_and_mark_running_guard PASSED [ 42%]
+tests/test_task_graph_v2.py::test_perf_200_node_chain_validate_and_ready_under_1s PASSED [ 42%]
+tests/test_v21_auth.py::test_login_sets_httponly_cookie_and_returns_csrf PASSED [ 43%]
+tests/test_v21_auth.py::test_cookie_session_authenticates_get_without_token PASSED [ 43%]
+tests/test_v21_auth.py::test_unauthenticated_api_is_401 PASSED           [ 43%]
+tests/test_v21_auth.py::test_mutation_by_cookie_requires_csrf PASSED     [ 44%]
+tests/test_v21_auth.py::test_logout_invalidates_session_server_side PASSED [ 44%]
+tests/test_v21_auth.py::test_expired_session_is_rejected PASSED          [ 44%]
+tests/test_v21_auth.py::test_session_id_never_appears_in_urls PASSED     [ 45%]
+tests/test_v21_auth.py::test_ws_authenticates_from_cookie PASSED         [ 45%]
+tests/test_v21_auth.py::test_ws_rejects_anonymous PASSED                 [ 45%]
+tests/test_v21_auth.py::test_legacy_header_still_works_by_default PASSED [ 46%]
+tests/test_v21_auth.py::test_legacy_mode_can_be_disabled PASSED          [ 46%]
+tests/test_v21_auth.py::test_ws_query_token_refused_when_legacy_disabled PASSED [ 46%]
+tests/test_v21_auth.py::test_cookie_secure_flag_matches_scheme PASSED    [ 47%]
+tests/test_v21_auth.py::test_settings_defaults_are_safe PASSED           [ 47%]
+tests/test_v21_e2e_mission.py::test_autonomous_mission_with_ten_plus_tool_calls FAILED [ 47%]
+tests/test_v21_e2e_mission.py::test_real_host_smoke_is_not_claimed PASSED [ 48%]
+tests/test_v21_failure_injection.py::test_provider_failure_retries_are_bounded_and_status_is_honest PASSED [ 48%]
+tests/test_v21_failure_injection.py::test_provider_recovers_after_transient_failure PASSED [ 48%]
+tests/test_v21_failure_injection.py::test_tool_timeout_does_not_kill_run_and_is_reported PASSED [ 49%]
+tests/test_v21_failure_injection.py::test_mcp_server_crash_is_bounded_and_visible FAILED [ 49%]
+tests/test_v21_failure_injection.py::test_browser_failure_is_data_not_crash PASSED [ 49%]
+tests/test_v21_failure_injection.py::test_reviewer_fail_loop_is_bounded_and_escalates PASSED [ 50%]
+tests/test_v21_failure_injection.py::test_state_survives_process_restart_midway PASSED [ 50%]
+tests/test_v21_failure_injection.py::test_no_infinite_loop_when_model_keeps_calling_same_tool PASSED [ 50%]
+tests/test_v21_failure_injection.py::test_non_idempotent_tool_is_not_replayed_after_restart PASSED [ 51%]
+tests/test_v21_failure_injection.py::test_governor_does_not_pause_a_run_making_real_tool_calls PASSED [ 51%]
+tests/test_v21_failure_injection.py::test_governor_still_catches_a_real_loop PASSED [ 51%]
+tests/test_v21_mcp.py::test_server_starts_and_connects FAILED            [ 52%]
+tests/test_v21_mcp.py::test_disconnect_stops_server PASSED               [ 52%]
+tests/test_v21_mcp.py::test_tools_discovered_and_persisted FAILED        [ 52%]
+tests/test_v21_mcp.py::test_manual_call_returns_real_result FAILED       [ 53%]
+tests/test_v21_mcp.py::test_restore_registry_survives_restart FAILED     [ 53%]
+tests/test_v21_mcp.py::test_unassigned_mcp_tool_never_reaches_model FAILED [ 53%]
+tests/test_v21_mcp.py::test_registry_glob_selects_one_server PASSED      [ 54%]
+tests/test_v21_mcp.py::test_auto_mcp_tool_executes_and_returns_real_result FAILED [ 54%]
+tests/test_v21_mcp.py::test_ask_mcp_tool_creates_approval FAILED         [ 54%]
+tests/test_v21_mcp.py::test_approved_mcp_tool_executes_exactly_once FAILED [ 55%]
+tests/test_v21_mcp.py::test_denied_mcp_tool_never_reaches_server FAILED  [ 55%]
+tests/test_v21_mcp.py::test_server_crash_marks_unhealthy_and_emits_event FAILED [ 55%]
+tests/test_v21_mcp.py::test_crashed_server_reports_error_to_model_not_run_failure FAILED [ 56%]
+tests/test_v21_mcp.py::test_missing_server_is_honest_404 PASSED          [ 56%]
+tests/test_v21_mcp.py::test_broken_command_reports_unhealthy PASSED      [ 56%]
+tests/test_v21_memory.py::test_config_is_explicit_and_index_reports_files PASSED [ 57%]
+tests/test_v21_memory.py::test_memsearch_backend_fails_honestly_when_binary_missing PASSED [ 57%]
+tests/test_v21_memory.py::test_search_finds_the_right_note PASSED        [ 57%]
+tests/test_v21_memory.py::test_model_calls_memory_search_and_cites_source PASSED [ 57%]
+tests/test_v21_memory.py::test_memory_is_not_injected_into_every_call PASSED [ 58%]
+tests/test_v21_memory.py::test_memory_write_creates_note_only_in_bossman_folder PASSED [ 58%]
+tests/test_v21_memory.py::test_memory_write_asks_approval_without_permission PASSED [ 58%]
+tests/test_v21_memory.py::test_new_note_is_searchable_after_incremental_reindex PASSED [ 59%]
+tests/test_v21_memory.py::test_write_outside_write_root_is_refused PASSED [ 59%]
+tests/test_v21_memory.py::test_tool_refuses_write_outside_and_run_survives PASSED [ 59%]
+tests/test_v21_memory.py::test_context_pack_respects_token_budget_and_dedup PASSED [ 60%]
+tests/test_v21_memory.py::test_search_tool_keeps_memory_budget_separate PASSED [ 60%]
+tests/test_v21_memory.py::test_expand_returns_full_section PASSED        [ 60%]
+tests/test_v21_memory.py::test_memory_tools_are_registered_canonically PASSED [ 61%]
+tests/test_v21_memory.py::test_tools_report_honestly_when_vault_not_configured PASSED [ 61%]
+tests/test_v21_memory.py::test_chunking_splits_by_heading PASSED         [ 61%]
+tests/test_v21_memory.py::test_lexical_primitives_have_exactly_one_owner PASSED [ 62%]
+tests/test_v21_memory.py::test_reranker_default_weights_keep_the_previous_formula PASSED [ 62%]
+tests/test_v21_memory.py::test_snapshot_takes_only_rebuildable_stores PASSED [ 62%]
+tests/test_v21_nl_permissions.py::test_example_sentence_compiles_en PASSED [ 63%]
+tests/test_v21_nl_permissions.py::test_example_sentence_compiles_ru PASSED [ 63%]
+tests/test_v21_nl_permissions.py::test_compiled_rules_change_decide_effect PASSED [ 63%]
+tests/test_v21_nl_permissions.py::test_deny_wins_over_auto_regardless_of_phrase_order PASSED [ 64%]
+tests/test_v21_nl_permissions.py::test_unparseable_phrases_are_reported PASSED [ 64%]
+tests/test_v21_nl_permissions.py::test_effect_words_without_object_are_reported PASSED [ 64%]
+tests/test_v21_nl_permissions.py::test_policy_delta_marks_broadening_and_narrowing PASSED [ 65%]
+tests/test_v21_nl_permissions.py::test_compile_endpoint_shows_preview_without_applying PASSED [ 65%]
+tests/test_v21_nl_permissions.py::test_narrowing_applies_directly PASSED [ 65%]
+tests/test_v21_nl_permissions.py::test_broadening_requires_confirmation PASSED [ 66%]
+tests/test_v21_nl_permissions.py::test_approval_cannot_be_reused_for_another_policy PASSED [ 66%]
+tests/test_v21_nl_permissions.py::test_apply_reports_unrecognised PASSED [ 66%]
+tests/test_v21_nl_permissions.py::test_apply_without_any_rule_is_422 PASSED [ 67%]
+tests/test_v21_opencode.py::test_tools_registered_with_canonical_contract PASSED [ 67%]
+tests/test_v21_opencode.py::test_e2e_failing_test_fixed_through_bossman_tool_loop PASSED [ 67%]
+tests/test_v21_opencode.py::test_session_start_asks_human_by_default PASSED [ 68%]
+tests/test_v21_opencode.py::test_unapproved_path_is_refused_not_asked PASSED [ 68%]
+tests/test_v21_opencode.py::test_abort_stops_long_running_session PASSED [ 68%]
+tests/test_v21_opencode.py::test_fork_and_children_are_mapped PASSED     [ 69%]
+tests/test_v21_opencode.py::test_session_and_diff_survive_restart PASSED [ 69%]
+tests/test_v21_opencode.py::test_health_online_against_fake_server PASSED [ 69%]
+tests/test_v21_opencode.py::test_health_unavailable_is_honest_not_500 PASSED [ 70%]
+tests/test_v21_opencode.py::test_tool_reports_unavailable_without_inventing_work PASSED [ 70%]
+tests/test_v21_opencode.py::test_real_opencode_host_smoke SKIPPED (б...) [ 70%]
+tests/test_v21_openrouter_router.py::test_catalog_sync_persists_remote_metadata PASSED [ 71%]
+tests/test_v21_openrouter_router.py::test_alias_and_probe_history_survive_refresh PASSED [ 71%]
+tests/test_v21_openrouter_router.py::test_tool_calls_survive_provider_adapter_round_trip PASSED [ 71%]
+tests/test_v21_openrouter_router.py::test_structured_output_probe_verified PASSED [ 71%]
+tests/test_v21_openrouter_router.py::test_streaming_probe_collects_sse_chunks PASSED [ 72%]
+tests/test_v21_openrouter_router.py::test_vision_probe_skipped_when_not_advertised PASSED [ 72%]
+tests/test_v21_openrouter_router.py::test_advertised_and_verified_stored_separately PASSED [ 72%]
+tests/test_v21_openrouter_router.py::test_router_rejects_advertised_but_unverified_tools_model PASSED [ 73%]
+tests/test_v21_openrouter_router.py::test_router_picks_verified_model_over_advertised_one PASSED [ 73%]
+tests/test_v21_openrouter_router.py::test_router_unknown_capability_falls_back_to_advertised PASSED [ 73%]
+tests/test_v21_openrouter_router.py::test_router_uses_probe_results_from_db PASSED [ 74%]
+tests/test_v21_openrouter_router.py::test_shortlist_is_bounded PASSED    [ 74%]
+tests/test_v21_openrouter_router.py::test_router_candidates_endpoint_is_bounded PASSED [ 74%]
+tests/test_v21_skills_tools.py::test_skill_run_exposes_only_declared_tools PASSED [ 75%]
+tests/test_v21_skills_tools.py::test_skill_without_tools_does_not_inherit_agent_tools PASSED [ 75%]
+tests/test_v21_skills_tools.py::test_allowed_tools_for_uses_skill_meta_over_agent_tools PASSED [ 75%]
+tests/test_v21_skills_tools.py::test_skill_run_reports_unknown_declared_tool PASSED [ 76%]
+tests/test_v21_skills_tools.py::test_skill_run_rejects_bad_input PASSED  [ 76%]
+tests/test_v21_skills_tools.py::test_skill_run_validates_agent PASSED    [ 76%]
+tests/test_v21_skills_tools.py::test_skill_version_and_result_persisted_on_task PASSED [ 77%]
+tests/test_v21_skills_tools.py::test_same_fingerprint_reuses_version_row PASSED [ 77%]
+tests/test_v21_skills_tools.py::test_contract_and_prompt_are_explicit PASSED [ 77%]
+tests/test_v21_skills_tools.py::test_forge_does_not_propose_from_a_single_chat PASSED [ 78%]
+tests/test_v21_skills_tools.py::test_forge_permission_expansion_needs_approval PASSED [ 78%]
+tests/test_v21_skills_tools.py::test_forge_rejection_keeps_skill_unchanged PASSED [ 78%]
+tests/test_v21_skills_tools.py::test_forge_narrowing_applies_without_approval PASSED [ 79%]
+tests/test_v21_skills_tools.py::test_forge_preview_is_json_and_auditable PASSED [ 79%]
+tests/test_v21_snapshot.py::test_create_writes_artifact_and_manifest_with_checksums PASSED [ 79%]
+tests/test_v21_snapshot.py::test_snapshot_contains_no_plaintext_secret PASSED [ 80%]
+tests/test_v21_snapshot.py::test_snapshot_copies_nothing_huge PASSED     [ 80%]
+tests/test_v21_snapshot.py::test_list_returns_created_snapshots PASSED   [ 80%]
+tests/test_v21_snapshot.py::test_restore_preview_reports_what_would_change PASSED [ 81%]
+tests/test_v21_snapshot.py::test_restore_preview_detects_corrupted_artifact PASSED [ 81%]
+tests/test_v21_snapshot.py::test_preview_and_restore_404_for_unknown_snapshot PASSED [ 81%]
+tests/test_v21_snapshot.py::test_restore_without_approval_is_refused_and_creates_one PASSED [ 82%]
+tests/test_v21_snapshot.py::test_rejected_approval_does_not_restore PASSED [ 82%]
+tests/test_v21_snapshot.py::test_foreign_approval_cannot_authorise_restore PASSED [ 82%]
+tests/test_v21_snapshot.py::test_approved_restore_rolls_state_back PASSED [ 83%]
+tests/test_v21_snapshot.py::test_approval_cannot_be_replayed PASSED      [ 83%]
+tests/test_v21_snapshot.py::test_snapshot_registry_survives_restore PASSED [ 83%]
+tests/test_v21_snapshot.py::test_restore_refuses_corrupted_artifact_even_when_approved PASSED [ 84%]
+tests/test_v21_snapshot.py::test_snapshot_endpoints_require_auth PASSED  [ 84%]
+tests/test_v21_snapshot.py::test_provider_key_survives_restore PASSED    [ 84%]
+tests/test_v21_tools_terminal_browser.py::test_terminal_policy_classification PASSED [ 85%]
+tests/test_v21_tools_terminal_browser.py::test_terminal_effect_hook_cannot_be_loosened_by_permission PASSED [ 85%]
+tests/test_v21_tools_terminal_browser.py::test_model_runs_real_command_and_reads_output FAILED [ 85%]
+tests/test_v21_tools_terminal_browser.py::test_model_edits_code_runs_tests_and_reads_diff FAILED [ 85%]
+tests/test_v21_tools_terminal_browser.py::test_terminal_refuses_cwd_outside_roots PASSED [ 86%]
+tests/test_v21_tools_terminal_browser.py::test_destructive_command_is_denied_not_asked PASSED [ 86%]
+tests/test_v21_tools_terminal_browser.py::test_git_push_asks_even_with_permission PASSED [ 86%]
+tests/test_v21_tools_terminal_browser.py::test_model_drives_browser_end_to_end PASSED [ 87%]
+tests/test_v21_tools_terminal_browser.py::test_human_takeover_blocks_agent_then_resume_works PASSED [ 87%]
+tests/test_v21_tools_terminal_browser.py::test_browser_payment_is_never_allowed PASSED [ 87%]
+tests/test_v21_tools_terminal_browser.py::test_sensitive_browser_actions_ask_even_with_permission PASSED [ 88%]
+tests/test_v21_tool_loop.py::test_model_calls_tool_and_continues_reasoning PASSED [ 88%]
+tests/test_v21_tool_loop.py::test_tool_not_granted_is_refused_as_data PASSED [ 88%]
+tests/test_v21_tool_loop.py::test_deny_policy_blocks_tool PASSED         [ 89%]
+tests/test_v21_tool_loop.py::test_ask_creates_approval_and_frees_worker PASSED [ 89%]
+tests/test_v21_tool_loop.py::test_approved_tool_executes_exactly_once PASSED [ 89%]
+tests/test_v21_tool_loop.py::test_rejected_tool_is_not_executed PASSED   [ 90%]
+tests/test_v21_tool_loop.py::test_model_cannot_self_approve PASSED       [ 90%]
+tests/test_v21_tool_loop.py::test_tool_error_is_data_not_run_failure PASSED [ 90%]
+tests/test_v21_tool_loop.py::test_tool_timeout_is_bounded PASSED         [ 91%]
+tests/test_v21_tool_loop.py::test_external_tool_output_is_marked_as_data PASSED [ 91%]
+tests/test_v21_tool_loop.py::test_multi_step_tool_chain PASSED           [ 91%]
+tests/test_v21_tool_loop.py::test_tools_absent_keeps_v2_behaviour PASSED [ 92%]
+tests/test_v21_tool_loop.py::test_decide_effect_precedence PASSED        [ 92%]
+tests/test_v21_tool_loop.py::test_registry_only_returns_assigned_tools PASSED [ 92%]
+tests/test_v22_browser_security.py::test_redact_secrets_covers_nested_structures PASSED [ 93%]
+tests/test_v22_browser_security.py::test_redact_secrets_without_secrets_is_identity PASSED [ 93%]
+tests/test_v22_browser_security.py::test_redact_secrets_survives_whitespace_collapse PASSED [ 93%]
+tests/test_v22_browser_security.py::test_redact_secrets_survives_truncation PASSED [ 94%]
+tests/test_v22_browser_security.py::test_redact_secrets_survives_url_and_html_encoding PASSED [ 94%]
+tests/test_v22_browser_security.py::test_redaction_does_not_eat_unrelated_text PASSED [ 94%]
+tests/test_v22_browser_security.py::test_password_value_never_reaches_the_model PASSED [ 95%]
+tests/test_v22_browser_security.py::test_secret_typed_into_plain_field_is_scrubbed PASSED [ 95%]
+tests/test_v22_browser_security.py::test_secret_in_page_url_never_reaches_the_model PASSED [ 95%]
+tests/test_v22_browser_security.py::test_non_password_secret_fields_are_not_read_out PASSED [ 96%]
+tests/test_v22_browser_security.py::test_secret_field_stays_clickable_after_broadened_rule PASSED [ 96%]
+tests/test_v22_browser_security.py::test_secret_with_whitespace_does_not_reach_the_model PASSED [ 96%]
+tests/test_v22_browser_security.py::test_ambiguous_selector_is_refused_not_guessed PASSED [ 97%]
+tests/test_v22_browser_security.py::test_stale_ref_after_dom_change_does_not_click_neighbour PASSED [ 97%]
+tests/test_v22_browser_security.py::test_ref_from_previous_snapshot_is_stale_even_if_element_survived PASSED [ 97%]
+tests/test_v22_browser_security.py::test_captcha_detection_recognises_providers_and_ignores_normal_pages PASSED [ 98%]
+tests/test_v22_browser_security.py::test_captcha_stops_the_agent_and_hands_over_to_human PASSED [ 98%]
+tests/test_v22_browser_security.py::test_page_without_captcha_is_not_taken_over PASSED [ 98%]
+tests/test_v22_chunking.py::test_fenced_code_is_atomic_under_normal_limit PASSED [ 99%]
+tests/test_v22_chunking.py::test_markdown_table_is_atomic PASSED         [ 99%]
+tests/test_v22_chunking.py::test_large_plain_paragraph_splits PASSED     [ 99%]
+tests/test_v22_chunking.py::test_parse_blocks_recognizes_atoms PASSED    [100%]
+
+============================== warnings summary ===============================
+tests/test_v21_tools_terminal_browser.py::test_destructive_command_is_denied_not_asked
+  C:\Python314\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-581 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "C:\Python314\Lib\threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "C:\Python314\Lib\threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_v21_tool_loop.py::test_multi_step_tool_chain
+  C:\Python314\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-648 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "C:\Python314\Lib\threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "C:\Python314\Lib\threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_v21_e2e_mission.py::test_autonomous_mission_with_ten_plus_tool_calls
+FAILED tests/test_v21_failure_injection.py::test_mcp_server_crash_is_bounded_and_visible
+FAILED tests/test_v21_mcp.py::test_server_starts_and_connects - AssertionErro...
+FAILED tests/test_v21_mcp.py::test_tools_discovered_and_persisted - Assertion...
+FAILED tests/test_v21_mcp.py::test_manual_call_returns_real_result - Assertio...
+FAILED tests/test_v21_mcp.py::test_restore_registry_survives_restart - Assert...
+FAILED tests/test_v21_mcp.py::test_unassigned_mcp_tool_never_reaches_model - ...
+FAILED tests/test_v21_mcp.py::test_auto_mcp_tool_executes_and_returns_real_result
+FAILED tests/test_v21_mcp.py::test_ask_mcp_tool_creates_approval - AssertionE...
+FAILED tests/test_v21_mcp.py::test_approved_mcp_tool_executes_exactly_once - ...
+FAILED tests/test_v21_mcp.py::test_denied_mcp_tool_never_reaches_server - Ass...
+FAILED tests/test_v21_mcp.py::test_server_crash_marks_unhealthy_and_emits_event
+FAILED tests/test_v21_mcp.py::test_crashed_server_reports_error_to_model_not_run_failure
+FAILED tests/test_v21_tools_terminal_browser.py::test_model_runs_real_command_and_reads_output
+FAILED tests/test_v21_tools_terminal_browser.py::test_model_edits_code_runs_tests_and_reads_diff
+====== 15 failed, 290 passed, 2 skipped, 2 warnings in 133.24s (0:02:13) ======

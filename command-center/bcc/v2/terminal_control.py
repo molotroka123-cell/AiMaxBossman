@@ -189,11 +189,20 @@ class TerminalManager:
 
     async def _read(self, s: TerminalSession) -> None:
         assert s.proc.stdout is not None
+        import locale
+
         while True:
             line = await s.proc.stdout.readline()
             if not line:
                 break
-            s.output.append(line.decode(errors="replace").rstrip("\r\n"))
+            try:
+                text = line.decode("utf-8")
+            except UnicodeDecodeError:
+                # Windows-хост: cmd.exe/консольные утилиты пишут в OEM-кодировке
+                # (cp866/cp1251), а не в UTF-8 — иначе кириллица превращается
+                # в mojibake и вывод теряет смысл.
+                text = line.decode(locale.getpreferredencoding(False), errors="replace")
+            s.output.append(text.rstrip("\r\n"))
             if len(s.output) > 5000:
                 del s.output[:1000]
         s.exit_code = await s.proc.wait()

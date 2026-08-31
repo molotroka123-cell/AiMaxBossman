@@ -1,0 +1,22 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0 -- C:\Python314\python.exe
+rootdir: C:\AiMaxBossman-claude-bossman-control-v03-43igbk\bossman-core
+configfile: pyproject.toml
+plugins: asyncio-1.4.0, timeout-2.4.0, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+timeout: 20.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 10 items
+
+tests/test_browser_policy.py::test_sensitive_classifier PASSED           [ 10%]
+tests/test_browser_policy.py::test_dangerous_enter_is_classified PASSED  [ 20%]
+tests/test_browser_policy.py::test_domain_policy_env PASSED              [ 30%]
+tests/test_browser_policy.py::test_workspace_path_escape PASSED          [ 40%]
+tests/test_browser_policy.py::test_filename_sanitization PASSED          [ 50%]
+tests/test_browser_policy.py::test_profile_lock_exclusion_and_stale_recovery PASSED [ 60%]
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! KeyboardInterrupt !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+C:\Python314\Lib\site-packages\_pytest\nodes.py:280: KeyboardInterrupt
+(to show a full traceback on KeyboardInterrupt use --full-trace)
+============================== 6 passed in 1.40s ==============================

@@ -1,0 +1,19 @@
+server:
+  host: 127.0.0.1
+  port: 8877
+  allow_unauthenticated_loopback: false
+backends:
+  ollama:
+    base_url: http://127.0.0.1:11434
+    health_path: /v1/models
+    timeout_seconds: 60
+aliases:
+  bossman-fast:
+    targets:
+      - backend: ollama
+        model: qwen2.5:7b
+        capabilities: [text, tools]
+clients:
+  bossman-core:
+    key_env: BOSSMAN_GATEWAY_CORE_KEY
+    allowed_aliases: [bossman-fast]

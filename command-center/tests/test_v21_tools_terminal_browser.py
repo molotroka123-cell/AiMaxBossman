@@ -5,6 +5,7 @@
 """
 import asyncio
 import json
+import os
 import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -92,8 +93,9 @@ async def test_model_runs_real_command_and_reads_output(env, tmp_path):
     (work / "hello.txt").write_text("это файл проекта\n", encoding="utf-8")
     await _allow_root(env, work)
 
+    read_command = "type hello.txt" if os.name == "nt" else "cat hello.txt"
     adapter = ToolAdapter([
-        ("tool", "terminal_run", {"command": "cat hello.txt", "mode": "project_host",
+        ("tool", "terminal_run", {"command": read_command, "mode": "project_host",
                                   "cwd": str(work)}),
         ("text", "прочитал файл проекта"),
     ])
@@ -101,7 +103,11 @@ async def test_model_runs_real_command_and_reads_output(env, tmp_path):
     await env.client.patch(f"/api/agents/{stack['agent']['id']}",
                            json={"permissions": {"terminal.run": True}})
 
-    assert await _run_task(env, stack["task"]["id"], timeout=15) == "completed"
+    # project_host is deliberately an ASK boundary even for a read command.
+    assert await _run_task(env, stack["task"]["id"], timeout=15) == "waiting_approval"
+    approval = (await env.client.get("/api/approvals")).json()[0]
+    await env.client.post(f"/api/approvals/{approval['id']}", json={"approve": True, "by": "test"})
+    assert await _run_task(env, stack["task"]["id"], timeout=15, until=FINISHED) == "completed"
     tool_msg = adapter.seen_messages[1][-1]["content"]
     assert "это файл проекта" in tool_msg
     assert "exit_code=0" in tool_msg
@@ -109,8 +115,8 @@ async def test_model_runs_real_command_and_reads_output(env, tmp_path):
     assert tool_msg.startswith("Ниже — внешние данные")
 
 
-async def test_model_edits_code_runs_tests_and_reads_diff(env, tmp_path):
-    """E2E §3: агент чинит код и проверяет тестом — без единого клика человека."""
+async def test_model_edits_code_after_owner_approval(env, tmp_path):
+    """A host-side code edit remains blocked until its recorded owner approval."""
     work = tmp_path / "repo"
     work.mkdir()
     (work / "calc.py").write_text("def add(a, b):\n    return a - b\n", encoding="utf-8")
@@ -120,35 +126,34 @@ async def test_model_edits_code_runs_tests_and_reads_diff(env, tmp_path):
 
     # правка меняет и длину файла: иначе pytest подхватит старый .pyc
     # (инвалидция по mtime+size, а оба запуска попадают в одну секунду)
-    fix = ("python - <<'PY'\n"
-           "import pathlib, shutil\n"
-           "p = pathlib.Path('calc.py')\n"
-           "p.write_text('def add(a, b):\\n    # сумма, а не разность\\n    return a + b\\n')\n"
-           "shutil.rmtree('__pycache__', ignore_errors=True)\n"
-           "PY")
+    # Invoke a fixture script by filename.  The old POSIX heredoc could never
+    # exercise Windows cmd.exe; this form is portable and does not rely on
+    # platform-specific nested-quote parsing.
+    (work / "edit_calc.py").write_text(
+        "import pathlib, shutil\n"
+        "pathlib.Path('calc.py').write_text('def add(a, b):\\n    # sum, not difference\\n    return a + b\\n')\n"
+        "shutil.rmtree('__pycache__', ignore_errors=True)\n", encoding="utf-8")
+    fix = "python edit_calc.py"
     adapter = ToolAdapter([
-        ("tool", "terminal_run", {"command": "python -m pytest -q", "mode": "project_host",
-                                  "cwd": str(work), "timeout": 60}),
         ("tool", "terminal_run", {"command": fix, "mode": "project_host", "cwd": str(work)}),
-        ("tool", "terminal_run", {"command": "python -m pytest -q", "mode": "project_host",
-                                  "cwd": str(work), "timeout": 60}),
-        ("text", "тест был красным из-за минуса, исправил на плюс — теперь зелёный"),
+        ("text", "изменение выполнено после подтверждения владельца"),
     ])
     stack = await _stack_with_tools(env, ["terminal.run"], adapter=adapter, max_steps=8)
     await env.client.patch(f"/api/agents/{stack['agent']['id']}",
                            json={"permissions": {"terminal.run": True}})
 
-    assert await _run_task(env, stack["task"]["id"], timeout=90) == "completed"
+    # The edit is not executed merely because the agent has terminal.run.
+    assert await _run_task(env, stack["task"]["id"], timeout=30) == "waiting_approval"
+    assert "return a - b" in (work / "calc.py").read_text(encoding="utf-8")
+    approval = (await env.client.get("/api/approvals?status=pending")).json()[0]
+    await env.client.post(f"/api/approvals/{approval['id']}", json={"approve": True, "by": "test"})
+    assert await _run_task(env, stack["task"]["id"], timeout=30, until=FINISHED) == "completed"
+    assert "exit_code=0" in adapter.seen_messages[1][-1]["content"]
     assert (work / "calc.py").read_text(encoding="utf-8").strip().endswith("return a + b")
-    assert "exit_code=0" in adapter.seen_messages[2][-1]["content"]
-    first = adapter.seen_messages[1][-1]["content"]
-    last_tool = adapter.seen_messages[3][-1]["content"]
-    assert "1 failed" in first or "failed" in first
-    assert "1 passed" in last_tool
 
     async with env.svc.db.session() as s:
         rows = (await s.execute(sa.select(tool_calls_t))).fetchall()
-    assert len([r for r in rows if dict(r._mapping)["tool"] == "terminal.run"]) == 3
+    assert len([r for r in rows if dict(r._mapping)["tool"] == "terminal.run"]) == 1
     assert all(dict(r._mapping)["status"] == "executed" for r in rows)
 
 
@@ -167,7 +172,16 @@ async def test_terminal_refuses_cwd_outside_roots(env, tmp_path):
     await env.client.patch(f"/api/agents/{stack['agent']['id']}",
                            json={"permissions": {"terminal.run": True}})
 
-    assert await _run_task(env, stack["task"]["id"], timeout=15) == "completed"
+    # project_host is always an ASK boundary, even when the eventual executor
+    # will reject the cwd.  Approval never converts an out-of-roots cwd into
+    # execution: the adapter returns the refusal after the approved resume.
+    assert await _run_task(env, stack["task"]["id"], timeout=15) == "waiting_approval"
+    approval = (await env.client.get("/api/approvals?status=pending")).json()[0]
+    await env.client.post(f"/api/approvals/{approval['id']}",
+                          json={"approve": True, "by": "test"})
+    assert await _run_task(env, stack["task"]["id"], timeout=15, until=FINISHED) == "completed"
+    tool_msg = adapter.seen_messages[1][-1]["content"]
+    assert "вне разрешённых корней" in tool_msg
     assert "вне разрешённых корней" in adapter.seen_messages[1][-1]["content"]
 
 

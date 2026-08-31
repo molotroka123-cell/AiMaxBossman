@@ -32,6 +32,12 @@ def test_policy_auto_and_ask(tmp_path):
     assert pol.decision("pip install requests", tmp_path) == "ask"
 
 
+def test_project_host_tool_effect_always_asks_even_with_permission():
+    """P1 regression: a terminal capability cannot bypass owner approval on host."""
+    from bcc.features.tools_terminal import _run_effect
+    assert _run_effect({"command": "git status", "mode": "project_host"})[0] == "ask"
+
+
 def test_system_admin_never_auto(tmp_path):
     pol = TerminalPolicy(allowed_roots=[tmp_path], mode="system_admin")
     assert pol.decision("git status", tmp_path) == "ask"   # даже безобидное — ask
@@ -70,7 +76,9 @@ def test_posix_host_keeps_the_native_shell():
     with mock.patch.object(os, "name", "posix"):
         shell = host_shell()
     assert shell is None
-    assert host_shell() is None            # и без подмены — на этой машине тоже
+    # The unmocked assertion must reflect the machine that is running the
+    # suite: Windows legitimately uses sh/cmd, POSIX keeps the native shell.
+    assert (host_shell() is None) is (os.name != "nt")
 
 
 def test_windows_prefers_sh_when_git_for_windows_is_installed():
@@ -102,7 +110,8 @@ def test_windows_read_commands_are_auto_without_touching_linux(tmp_path):
     commands = ["dir", "type calc.py", "git status", "pip install requests",
                 "git push --force"]
 
-    posix = {c: pol.decision(c, tmp_path) for c in commands}
+    with mock.patch.object(os, "name", "posix"):
+        posix = {c: pol.decision(c, tmp_path) for c in commands}
     with mock.patch.object(os, "name", "nt"):
         windows = {c: pol.decision(c, tmp_path) for c in commands}
 
@@ -148,12 +157,18 @@ async def test_terminal_denies_outside_root(env):
 async def test_terminal_runs_in_project_host(env):
     """project_host запускает реальную безобидную команду (subprocess) и стримит вывод."""
     import asyncio
+    import os as _os
     d = env.settings.data_dir
     d.mkdir(parents=True, exist_ok=True)
     await env.client.post("/api/terminal/roots", json={"roots": [str(d)]})
+    # На Windows cmd.exe отдаёт текст в пайп в OEM/ANSI системной локали: если у
+    # хоста нет кириллицы (английская locale для non-Unicode), не-ASCII маркер
+    # физически превращается в '?'. Суть теста — реальный запуск + стрим вывода,
+    # поэтому маркер платформо-адаптивный.
+    marker = "privet-terminal" if _os.name == "nt" else "привет-терминал"
     # echo не в AUTO-списке project_host → нужен approved (имитируем нажатие)
     r = (await env.client.post("/api/terminal/run",
-                               json={"command": "echo привет-терминал", "mode": "project_host",
+                               json={"command": f"echo {marker}", "mode": "project_host",
                                      "cwd": str(d), "approved": True})).json()
     sid = r["session_id"]
     for _ in range(50):
@@ -162,7 +177,7 @@ async def test_terminal_runs_in_project_host(env):
             break
         await asyncio.sleep(0.05)
     assert st["finished"] and st["exit_code"] == 0
-    assert any("привет-терминал" in line for line in st["output_tail"])
+    assert any(marker in line for line in st["output_tail"])
 
 
 # ---------- Agent Map ----------

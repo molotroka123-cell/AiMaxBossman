@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "C:\AiMaxBossman-claude-bossman-control-v03-43igbk\tools\pytest_watchdog.py", line 84, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "C:\AiMaxBossman-claude-bossman-control-v03-43igbk\tools\pytest_watchdog.py", line 65, in main
+    time.sleep(0.5)
+    ~~~~~~~~~~^^^^^
+KeyboardInterrupt
+^C

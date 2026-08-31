@@ -35,6 +35,19 @@ def _example_gateway_config():
     return load_gateway_config(GATEWAY_EXAMPLE)
 
 
+def test_gateway_default_ollama_url_honors_ollama_host(monkeypatch, tmp_path):
+    """A moved local Ollama daemon must not leave Gateway on a stale port."""
+    cfg_path = tmp_path / "gateway.yaml"
+    cfg_path.write_text("backends:\n  ollama:\n    base_url: http://127.0.0.1:11434\n",
+                        encoding="utf-8")
+    monkeypatch.setenv("OLLAMA_HOST", "127.0.0.1:11435")
+    assert load_gateway_config(cfg_path).backends["ollama"].base_url == "http://127.0.0.1:11435"
+
+    cfg_path.write_text("backends:\n  ollama:\n    base_url: http://127.0.0.1:19000/v1\n",
+                        encoding="utf-8")
+    assert load_gateway_config(cfg_path).backends["ollama"].base_url == "http://127.0.0.1:19000/v1"
+
+
 # ---------- Часть 1: alias-консистентность ----------
 
 def test_all_bundled_agents_resolve_against_gateway_example():

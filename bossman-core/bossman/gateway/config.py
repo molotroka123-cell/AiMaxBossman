@@ -8,6 +8,32 @@ from typing import Any
 import yaml
 
 
+_DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
+
+
+def _resolved_ollama_base_url(value: str) -> str:
+    """Respect a local Ollama service moved by ``OLLAMA_HOST``.
+
+    The bundled config's conventional ``127.0.0.1:11434`` is a default, not
+    an operator override.  Ollama itself can legitimately move (for example
+    when a stale WSL port forward owns 11434); in that case its advertised
+    endpoint is the authoritative local endpoint.  A non-default configured
+    URL is always left untouched.
+    """
+    if value.rstrip("/") != _DEFAULT_OLLAMA_BASE_URL:
+        return value
+    host = os.getenv("OLLAMA_HOST", "").strip().rstrip("/")
+    if not host:
+        return value
+    if "://" not in host:
+        host = f"http://{host}"
+    # Gateway request paths already include ``/v1`` (for example
+    # ``/v1/chat/completions``), so the backend base must remain the service
+    # root.  Operators sometimes include /v1 in an OpenAI-compatible URL;
+    # normalize that spelling rather than producing /v1/v1/….
+    return host[:-3] if host.endswith("/v1") else host
+
+
 @dataclass(slots=True)
 class BackendConfig:
     name: str
@@ -116,7 +142,10 @@ def load_gateway_config(path: str | Path | None = None) -> GatewayConfig:
 
     backends: dict[str, BackendConfig] = {}
     for name, cfg in (raw.get("backends") or {}).items():
-        backends[name] = BackendConfig(name=name, **(cfg or {}))
+        cfg = dict(cfg or {})
+        if name == "ollama" and "base_url" in cfg:
+            cfg["base_url"] = _resolved_ollama_base_url(str(cfg["base_url"]))
+        backends[name] = BackendConfig(name=name, **cfg)
 
     aliases: dict[str, AliasConfig] = {}
     for name, cfg in (raw.get("aliases") or {}).items():

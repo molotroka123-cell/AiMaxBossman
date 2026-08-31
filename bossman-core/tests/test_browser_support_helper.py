@@ -31,6 +31,21 @@ def test_nonexistent_env_var_does_not_win(tmp_path, monkeypatch):
     monkeypatch.setenv("BOSSMAN_TEST_CHROMIUM", str(tmp_path / "nope" / "chrome"))
     monkeypatch.setattr(browser_support, "_browser_roots", lambda: [])
     monkeypatch.setattr(browser_support, "_SYSTEM_PATHS", ())
+
+    # Тест проверяет «нет источников → None/существующий», а не сам sync-фоллбек:
+    # реальный запуск sync_playwright в процессе после asyncio-тестов дедлочит
+    # на Windows (см. докстринг browser_support), поэтому драйвер блокируем.
+    import builtins
+
+    real_import = builtins.__import__
+
+    def _no_playwright(name, *a, **kw):
+        if name.startswith("playwright"):
+            raise ImportError("simulated: playwright missing")
+        return real_import(name, *a, **kw)
+
+    monkeypatch.setattr(builtins, "__import__", _no_playwright)
+
     path = browser_support.chromium_path()
     assert path is None or Path(path).exists()
     _fresh()

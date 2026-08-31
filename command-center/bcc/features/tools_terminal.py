@@ -253,6 +253,11 @@ def _run_effect(args: dict) -> tuple[str, str] | None:
         return "ask", f"требует подтверждения: {ask}"
     if args.get("network"):
         return "ask", "включение сети в песочнице"
+    # A project-host command crosses the container boundary.  A granted
+    # capability may enable the tool, but must never turn arbitrary host shell
+    # execution into AUTO; only the persisted owner approval may do that.
+    if args.get("mode") == "project_host":
+        return "ask", "host shell always requires owner approval"
     if args.get("mode") == "system_admin":
         return "ask", "режим system_admin"
     # Читающие команды (git status/diff/log, pytest, npm test, линт, сборка)
