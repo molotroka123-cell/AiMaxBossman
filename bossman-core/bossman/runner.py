@@ -30,6 +30,24 @@ async def _record_memory(coro, what: str) -> None:
     except Exception as exc:  # noqa: BLE001 — память вторична по отношению к самой задаче
         _log.warning("memory write skipped (%s): %s", what, exc)
 
+
+def _learning_excluded(task_id: str) -> bool:
+    """Secret Holdout (Learning Quality Guard, req.2): исход задачи из holdout НЕ
+    попадает в durable LEARNING-корпус (decision/failure memory), иначе holdout
+    перестанет быть независимым срезом. No-op (False), пока holdout не задан —
+    fast path и дефолтное поведение не меняются. Операционная working_memory
+    (state/restore задачи) под это НЕ подпадает: она нужна самой задаче.
+    """
+    try:
+        from .learning_guard import get_holdout
+        h = get_holdout()
+        if h is not None and h.is_holdout(task_id):
+            _log.info("learning-evidence excluded: task %s is in secret holdout", task_id)
+            return True
+    except Exception:  # noqa: BLE001 — guard вторичен, не ломаем задачу
+        pass
+    return False
+
 QUEUE_KEY = "bossman:tasks"
 
 # Данные извне (письмо, страница, вывод команды) подаются как данные, не команды.
@@ -297,11 +315,12 @@ async def run_task(task: dict) -> None:
                     task_id=task["id"], run_id=run_id)
                 decision = await approvals.wait(approval_id)
                 await db.execute("UPDATE tasks SET status='running' WHERE id=$1", task["id"])
-                await _record_memory(decision_memory.create_decision(
-                    f"cloud-escalation-{approval_id}", "cost_control",
-                    f"task {task_id}: cloud call to {need.alias}",
-                    decision["status"], f"owner {decision['status']} cloud escalation",
-                    source_kind="approval", source_run_id=run_id), "create_decision")
+                if not _learning_excluded(task_id):
+                    await _record_memory(decision_memory.create_decision(
+                        f"cloud-escalation-{approval_id}", "cost_control",
+                        f"task {task_id}: cloud call to {need.alias}",
+                        decision["status"], f"owner {decision['status']} cloud escalation",
+                        source_kind="approval", source_run_id=run_id), "create_decision")
                 if decision["status"] != "approved":
                     status, final = "failed", "отправка в облако отклонена"
                     break
@@ -345,7 +364,7 @@ async def run_task(task: dict) -> None:
     await _record_memory(_WM.update_task_state(task_id, {
         "status": "completed" if status == "done" else "failed",
         "current_step": final[:2000]}), "update_task_state")
-    if status != "done":
+    if status != "done" and not _learning_excluded(task_id):
         await _record_memory(failure_memory.record_failure(
             task_id, final[:2000], "task_failed", final[:2000], "",
             status, environment={"agent": agent.name, "steps": steps}), "record_failure")
