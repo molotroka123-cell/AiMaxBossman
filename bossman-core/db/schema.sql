@@ -225,30 +225,7 @@ CREATE INDEX IF NOT EXISTS idx_model_calls_agent  ON model_calls(agent, created_
 CREATE INDEX IF NOT EXISTS idx_tool_calls_run     ON tool_calls(run_id);
 CREATE INDEX IF NOT EXISTS idx_project_tasks_proj ON project_tasks(project_id, status);
 
--- LLM Architecture V2: durable working state (append-only versioned rows;
--- each row = durable checkpoint; optimistic concurrency via version check).
-CREATE TABLE IF NOT EXISTS working_memory (
-    id              BIGSERIAL PRIMARY KEY,
-    task_id         TEXT NOT NULL,
-    objective       TEXT NOT NULL,
-    status          TEXT NOT NULL DEFAULT 'active',
-    current_step    TEXT,
-    plan_version    INT NOT NULL DEFAULT 1,
-    constraints     JSONB NOT NULL DEFAULT '[]'::jsonb,
-    invariants      JSONB NOT NULL DEFAULT '[]'::jsonb,
-    decisions       JSONB NOT NULL DEFAULT '[]'::jsonb,
-    completed_steps JSONB NOT NULL DEFAULT '[]'::jsonb,
-    pending_steps   JSONB NOT NULL DEFAULT '[]'::jsonb,
-    open_questions  JSONB NOT NULL DEFAULT '[]'::jsonb,
-    recent_failures JSONB NOT NULL DEFAULT '[]'::jsonb,
-    observations    JSONB NOT NULL DEFAULT '[]'::jsonb,
-    artifacts       JSONB NOT NULL DEFAULT '[]'::jsonb,
-    relevant_files  JSONB NOT NULL DEFAULT '[]'::jsonb,
-    next_action     JSONB,
-    context_version INT NOT NULL DEFAULT 1,
-    version         INT NOT NULL DEFAULT 1,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_working_memory_task    ON working_memory(task_id);
-CREATE INDEX IF NOT EXISTS idx_working_memory_version ON working_memory(task_id, version DESC);
+-- NOTE: the `working_memory` table (LLM Architecture V2 durable working state) is
+-- defined once above (see the decisions/failures/working_memory memory section).
+-- A duplicate CREATE TABLE IF NOT EXISTS block here was a dead no-op and was removed
+-- to prevent schema drift (autonomous dedup — AUTONOMOUS_ENGINEERING_DECISIONS #1).

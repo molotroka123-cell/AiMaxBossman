@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import platform
 import sys
 import types
 
@@ -51,6 +52,12 @@ def fake_pywinauto(monkeypatch):
     return _FakeDesktop
 
 
+@pytest.mark.skipif(
+    platform.system().lower() != "windows",
+    reason="SKIP_HOST: requires Windows — WindowsDesktop.foreground() calls "
+           "ctypes.windll.user32.GetForegroundWindow(), which does not exist off Windows "
+           "(the fake pywinauto does not mock user32). Runs and validates on a Windows host.",
+)
 def test_windows_foreground_uses_os_foreground_handle_not_get_active(fake_pywinauto):
     """Live reproducer regression: pywinauto 0.6.9 has no Desktop.get_active().
 

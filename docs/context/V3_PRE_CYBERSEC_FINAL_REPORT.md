@@ -48,7 +48,7 @@ BOSSMAN_VERIFIED_SUCCESS=NOT_MEASURED
 AAF=NOT_MEASURED (требует контролируемого бенч-прогона)
 
 CORE_REGRESSION_BEFORE=939 passed / 1 failed / 4 skipped
-CORE_REGRESSION_AFTER=962 passed / 1 failed / 4 skipped   (+23 новых; 1 fail = HOST_SPECIFIC baseline)
+CORE_REGRESSION_AFTER=962 passed / 0 failed / 5 skipped   (+23 новых; бывший HOST_SPECIFIC fail → честный SKIP_HOST)
 COMMAND_CENTER_BEFORE=1 error (collection blocked by working_memory import)
 COMMAND_CENTER_AFTER=615 passed / 3 skipped / 0 failed
 
@@ -83,6 +83,44 @@ feature-gated с проверенными security-инвариантами; р�
 decision/failure memory починены и покрыты; collection-блокер CC устранён; обе
 регрессии зелёные (кроме 1 HOST_SPECIFIC baseline); секрет-скан PASS; честные
 freeze/entrypoint-доки. Никаких новых P0/P1, никакого fake-green.
+
+## AUTONOMOUS_ENGINEERING_DECISIONS
+(по разрешению section 21; hard-инварианты соблюдены: без LLM→shell, без обхода
+policy/approval, без force-push, без fake-green, без self-promotion, без потери
+критического контекста, без скрытой деградации, без дублирования канона.)
+
+### AED-1 — Дедуп таблицы `working_memory` в db/schema.sql
+- ORIGINAL_PLAN: оставить схему как есть (задокументировать дубль).
+- NEW_DECISION: удалить второй `CREATE TABLE IF NOT EXISTS working_memory` (строки ~228–254) — он был мёртвым no-op дублем первого определения.
+- WHY_CHANGED: два идентичных определения → риск дрейфа схемы при будущей правке одного из них.
+- RATIONALE: `CREATE TABLE IF NOT EXISTS` для уже созданной таблицы — no-op; удаление дубля не меняет рантайм, но убирает источник рассинхрона.
+- EVIDENCE: `grep -c "CREATE TABLE IF NOT EXISTS working_memory"` = 1 (было 2); полная регрессия зелёная.
+- RESOURCE_IMPACT: нейтрально (−26 строк схемы).
+- QUALITY_IMPACT: + (одна каноничная точка правды для таблицы).
+- SECURITY_IMPACT: нет.
+- ROLLBACK_PATH: `git revert` коммита схемы.
+
+### AED-2 — Честный SKIP_HOST для Windows-only Stage13-теста (CI green)
+- ORIGINAL_PLAN: считать fail «HOST_SPECIFIC baseline», не трогать.
+- NEW_DECISION: пометить `test_windows_foreground_…` как `skipif(system!=Windows)` с честной причиной SKIP_HOST.
+- WHY_CHANGED: тест звал `ctypes.windll.user32.GetForegroundWindow()` (нет вне Windows; fake pywinauto не мокает user32) → он ПАДАЛ на Linux-раннере, держа bossman-core CI постоянно красным, ничего при этом не проверяя.
+- RATIONALE: тест не может выполниться на не-Windows; корректная метка — SKIP_HOST (не fake-green: падающий-на-старте тест → честный skip, ассерты по-прежнему работают на Windows).
+- EVIDENCE: локально `1 passed, 1 skipped`; полный набор bossman-core: **962 passed / 0 failed / 5 skipped** (было 962/1/4).
+- RESOURCE_IMPACT: нейтрально.
+- QUALITY_IMPACT: + (CI-здоровье; тест сохраняет ценность на Windows-хосте).
+- SECURITY_IMPACT: нет.
+- ROLLBACK_PATH: снять `skipif`.
+
+### AED-3 — НЕ делать глубокий «фикс» orphaned asyncpg-memory вслепую + флаг дублирования канона
+- ORIGINAL_PLAN (из V3-промта): «repair all P0» → в т.ч. добавить `project_id` + `working_memory_versions` в схему под asyncpg-класс.
+- NEW_DECISION: НЕ патчить каноничную схему/JSONB-контракт вслепую; оставить OPEN P0 задокументированным; отдельно зафиксировать, что модули `working/decision/failure_memory` (asyncpg) ДУБЛИРУЮТ каноничную memory-authority `context_engine` (протестирована в `test_memory_classes.py`).
+- WHY_CHANGED: (1) без живого Postgres любой такой «фикс» непроверяем → риск fake-green (инвариант #4); JSONB-параметры asyncpg требуют кодека/`::jsonb`-каста — это итеративно правится только против реального PG. (2) Три asyncpg-модуля — потенциальное дублирование каноничного движка памяти (инвариант #8): выбор «какой движок памяти канон для V2» — архитектурная/владельческая граница, не рядовое инженерное решение.
+- RATIONALE: ExpectedVerifiedUtility(blind schema/JSONB patch) < ExpectedVerifiedUtility(document+defer): риск сломать boot и выдать непроверенный green перевешивает.
+- EVIDENCE: модули не импортируются в проде (orphaned); `context_engine` уже покрывает decision/failure семантику (тесты зелёные). Что БЫЛО безопасно и проверяемо — сделано: asyncpg-контракт (executescript/commit/async-for/status) починен и покрыт (6 тестов).
+- RESOURCE_IMPACT: экономия (не вкладываемся в непроверяемый рефактор orphaned-кода).
+- QUALITY_IMPACT: + честность статуса; каноничная память остаётся авторитетом.
+- SECURITY_IMPACT: нейтрально (модули не в проде).
+- ROLLBACK_PATH: n/a (осознанное невмешательство); при появлении live PG — закрыть по FREEZE-доку.
 
 ## Следующий шаг (owner hardware)
 Поднять реальный Postgres → закрыть OPEN P0 (миграция working_memory + versions,
