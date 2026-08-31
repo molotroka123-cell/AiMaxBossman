@@ -1,76 +1,194 @@
 # AiMaxBossman
 
-Домашний ИИ-сервер Bossman: приватные локальные агенты, ваш интерфейс,
-облако — только осознанно и на виду.
+Домашний ИИ-сервер Bossman: приватная агентная ОС и панель управления к ней.
+Модель не выполняет произвольные команды — она формирует **типизированное
+намерение**, которое проходит политику, права и (если нужно) подтверждение
+владельца, и только потом исполняется. Всё, что происходит, попадает в аудит.
+Облако — только осознанно, через единственный шлюз, под счётчиком стоимости.
 
-## 🎯 Цель сессии до приезда компьютера
+Ветка разработки: `claude/bossman-control-v03-43igbk` (без force push).
+Числа в этом файле измерены на коммите **`ca6e2b9`**, 2026-08-31 (см. «Статус»).
 
-**Собрать BOSSMAN AI Command Center** — локальный dashboard и control plane для
-управления моделями, агентами, задачами и автоматизациями. Обязательные документы:
+## Что это
 
-- [`docs/BOSSMAN_CLAUDE_CODE_SETUP.md`](docs/BOSSMAN_CLAUDE_CODE_SETUP.md) —
-  master setup brief: правила безопасности (обязательны всегда), порядок настройки
-  железа в день приезда, фазы 1–3, lead-pipeline, цены, fail-safe.
-- [`docs/COMMAND_CENTER_SESSION_GOAL.md`](docs/COMMAND_CENTER_SESSION_GOAL.md) —
-  полное ТЗ Command Center: 70 разделов, MVP (раздел 62), Definition of Done (64–65).
-- [`docs/COMMAND_CENTER_ARCHITECTURE.md`](docs/COMMAND_CENTER_ARCHITECTURE.md) —
-  архитектура, выбранная для MVP.
-- [`docs/COMMAND_CENTER_PLAN.md`](docs/COMMAND_CENTER_PLAN.md) — план реализации.
+Два приложения над общим набором инвариантов.
 
-Критерий готовности сессии: открыть dashboard → подключить локальную и облачную
-модель → создать агента → дать задачу (сейчас или по расписанию) → закрыть браузер →
-вернуться и увидеть результат, логи и состояние машины. Всё, что требует реального
-железа (hardware audit, benchmark, Phase 1 setup-брифа), выполняется на самой машине
-в день приезда по `BOSSMAN_CLAUDE_CODE_SETUP.md`.
-
-> **Текущее состояние системы — канонически:**
-> [`docs/context/CURRENT_STATE.md`](docs/context/CURRENT_STATE.md).
-> Исторические отчёты — в [`docs/archive/`](docs/archive/).
-
-**Статус: V2.2 — текущий этап закрыт.**
-Control plane — настоящий агентный рантайм: модель реально вызывает инструменты
-(терминал, браузер, MCP, память, код, OpenCode) через один канонический цикл с
-правами AUTO/ASK/DENY. V2.2 добавила масштабирование памяти, производные
-хранилища в снапшотах, петлю самообучения с ограниченными переходами и изоляцию
-рабочей области агента.
-
-- Итог этапа: [`docs/V2_2_CURRENT_PHASE_FINAL_REPORT.md`](docs/V2_2_CURRENT_PHASE_FINAL_REPORT.md).
-
-- Оценки по направлениям: [`docs/V2_1_FINAL_SCORECARD.md`](docs/V2_1_FINAL_SCORECARD.md)
-  — **10 DONE, 7 PARTIAL, 0 FAILED**; что не проверено — названо прямо.
-- Доказательства сквозных прогонов: [`docs/V2_1_E2E_PROOF.md`](docs/V2_1_E2E_PROOF.md).
-- Безопасность доступа: [`docs/V2_1_SECURITY_REPORT.md`](docs/V2_1_SECURITY_REPORT.md).
-- Что и как сделано: [`docs/V2_1_IMPLEMENTATION_REPORT.md`](docs/V2_1_IMPLEMENTATION_REPORT.md).
-- Рабочий контекст волны: [`docs/V2_1_RUNTIME_CONTEXT.md`](docs/V2_1_RUNTIME_CONTEXT.md).
-
-Тесты: **на коммите `b0bac7c`: 323 passed, 1 skipped** — локально за 90 с,
-на GitHub Actions за 86.8 с (py3.11 и py3.12). Числа совпадают: набор один
-(`cd command-center && timeout 900 python -u -m pytest -q`).
-Пропуск — намеренный: реальный smoke по `opencode serve`, бинаря в этом
-окружении нет, и он честно не засчитан.
-Число всегда называется вместе с коммитом: иначе через неделю непонятно, к
-какому состоянию оно относится.
-
-Запуск: `cd command-center && pip install -e . && bcc` → http://127.0.0.1:8800
-(токен печатается в консоли; в браузере он меняется на HttpOnly-сессию).
-Ветка разработки: `claude/bossman-control-v03-43igbk`.
-
-Более ранние срезы — [`docs/V2_FINAL_SCORECARD.md`](docs/V2_FINAL_SCORECARD.md)
-и [`docs/COMMAND_CENTER_REPORT.md`](docs/COMMAND_CENTER_REPORT.md) — помечены
-как исторические: числа в них относятся к своим коммитам.
-
-| Часть | Что это | Документы |
+| Приложение | Путь | Роль |
 |---|---|---|
-| [`bossman-infra/`](bossman-infra/) | инфраструктура: LiteLLM, llama-swap, Postgres+pgvector, Redis, Open WebUI, Uptime Kuma | [чек-лист этапа 0 и ТЗ инфраструктуры](bossman-infra/docs/STAGE0_AND_SPEC.md) |
-| [`bossman-core/`](bossman-core/) | Bossman Control v0.3: петля агентов, панели, проекты, работа с контекстом | [ТЗ Bossman Control v0.3](bossman-infra/docs/BOSSMAN_CONTROL_TZ.md) |
+| **bossman-core** | `bossman-core/bossman/` | агентная ОС: канонический цикл действия, Gateway (Stage 3), Cost Governor, Resource Brain, Search, Remote Client, Video Factory, Sandbox, Dev Factory, AI Lab, Computer Operator (Stage 13), Pythia (только intelligence, не авторитет) |
+| **command-center** | `command-center/bcc/` | FastAPI dashboard / control plane: единый `REGISTRY` (`ToolSpec`) + `decide_effect` (AUTO/ASK/DENY) + approvals + Vault (Fernet) + EventBus; фичи авто-подхватываются из `bcc/features/` |
 
-Порядок внедрения:
+**Канонический цикл действия**, один и тот же для обоих приложений
+(`fresh observation` — обязательный шаг: результат берётся из свежего наблюдения
+за миром, а не из того, что модель предположила):
 
-1. **До приезда железа** — прогнать `bossman-infra` на ноутбуке (только облако
-   или CPU-тест), прогнать `python -m pytest` в `bossman-core`.
-2. **День приезда** — чек-лист этапа 0 (~2,5 часа + загрузка моделей).
-3. **Поверх инфраструктуры** — подключить `bossman-core/compose.core.yaml`
-   (см. [`bossman-core/README.md`](bossman-core/README.md)).
+```
+intent → typed action → scopes/policy → approval → executor
+       → fresh observation → verification → audit
+```
 
-Железо: ACEMAGIC M1A PRO+ (Ryzen AI MAX+ 395, 128 ГБ LPDDR5X, 2 ТБ NVMe).
-Доступ — только через Tailscale; ни один порт не открыт в интернет.
+**Каноничная память — одна авторитетность** (унифицировано в этом проходе):
+
+```
+db/schema.sql (единственный DDL)  →  bossman.db pool (jsonb-кодек, авто-применение схемы)
+        ↓                    ↓                     ↓
+  WorkingMemory        decision_memory        failure_memory      ← typed views
+```
+
+`context_engine` — retrieval/RAG-индекс (documents / chunks / embeddings), а **не**
+конкурирующий durable-store. Встроенный DDL из модулей памяти удалён:
+`init_*_table()` проверяет каноничную таблицу через `to_regclass` и честно падает,
+если её нет, вместо тихого создания второй расходящейся схемы.
+
+## Инварианты
+
+- **Нет второго** Gateway / Policy / Approval / Tool Registry / Secret Store /
+  Event Bus / Memory engine. Новый код подключается адаптером к существующему
+  авторитету, а не заводит свой.
+- **Запрещено `LLM → произвольная команда → shell`.** Везде argv-only.
+  Cloud: `Agent → Stage 3 Gateway → Cost Governor → Provider`.
+  Local: `Agent → Stage 3 Gateway → Ollama` при `cloud_policy=never` (0 облачных вызовов).
+- **Секреты — только по ссылке/маске.** Vault (Fernet at-rest), `mask()` → «…last4»;
+  никогда в логи, аудит и коммиты.
+- **Deny-by-default** в разрешениях; `resolve(allowed)` при пустом наборе не даёт ничего.
+- **Stage 13 Computer Operator** — единственный исполнитель действий на десктопе (allowlist).
+
+## Что уже работает
+
+| Область | Состояние | Доказательство |
+|---|---|---|
+| Каноничный цикл действия в обоих приложениях | работает | наборы тестов core и command-center |
+| `db/schema.sql` на **чистой** БД | применяется | `psql -v ON_ERROR_STOP=1` → exit 0, 15 таблиц, 31 индекс |
+| WorkingMemory (create/update, оптимистическая конкурентность, checkpoint/restore, версии), decision_memory (create/query/supersede с историей), failure_memory (record/query/resolve, JSONB реально queryable через `@>`), restart → restore durable state | PASS на живом Postgres | `bossman-core/tests/test_pg_memory_gate.py` |
+| Периметр: SSRF (pinned DNS, no auto-redirect, `max_bytes`), SQL read-only (`mode=ro` + modifying-CTE gate), path/symlink confinement, LSP workspace confinement, Telegram webhook (constant-time secret + allowlist), Remote Client device-tokens + scopes | зелёное | 141 тест в core и 90 в command-center по срезу security/perimeter/approval/scope/permission |
+| Плагины command-center: 13 капабилити `plugin:<id>.<cap>`, каждая с типизированным контрактом и `default_effect` | работает | без креда — честный `SKIP_EXTERNAL_CREDENTIAL`, не падение |
+| V3 Self-Improvement Lab | **proposal-only** | доказано тестами: нет merge/push/deploy/promote/grant, нет subprocess/сети/записи |
+
+**REAL PostgreSQL gate больше не SKIP.** Прогнан на живом PostgreSQL 16.13
+(локальный кластер, порт 5433) с чистой базой и проходит. Без `BOSSMAN_TEST_PG_DSN`
+тесты честно помечаются `SKIP_HOST` — fake-green нет.
+
+**V3 7-Pack** вендорится в `bossman-core/bossman_v3/` (Guardian, Computer Agent,
+Visual State, Self-Healing, Skill Factory + Beta-LCB, Recovery Kernel,
+Self-Improvement Lab). **Выключен по умолчанию**: нужен `BOSSMAN_V3_ENABLED=1`
+**плюс** пофичевый флаг (`BOSSMAN_V3_COMPUTER_AGENT`, `BOSSMAN_V3_RECOVERY_KERNEL`,
+…). Слой adapter-only — Protocols и тонкие адаптеры, второго
+Gateway/Policy/Registry/Memory он не создаёт.
+
+## Статус
+
+- **Фаза:** CYBERSEC V1 — защитный слой реализован, лаборатория **заморожена**.
+- **Вердикт:** `BOSSMAN PRE-CYBERSEC PARTIAL` — не FREEZE PASS, потому что A/B
+  бенчмарк (AAF, IntelligenceRetention) и live-провайдеры требуют реального
+  железа и не измерялись. Числа не выдумываются.
+- **CyberSec AI V1:** 10 модулей в `bossman-core/bossman/cybersec/`, всё **OFF**
+  по умолчанию; тренировочная лаборатория за тройным гейтом + фактами одноразовой
+  песочницы. Реальный стресс-тест RED (Fable через OpenCode) vs BLUE (Bossman)
+  **не запускался** — см. `docs/security/FUTURE_RED_BLUE_STRESS_TEST.md`.
+
+Тесты, измеренные на коммите `ca6e2b9` (2026-08-31):
+
+| Набор | Результат |
+|---|---|
+| `bossman-core` без Postgres | **1072 passed, 10 skipped, 0 failed** (~17 с) |
+| `bossman-core` с живым PostgreSQL 16.13 | **1077 passed, 5 skipped, 0 failed** (~17 с) |
+| `bossman-core/tests/test_pg_memory_gate.py` (живой PG) | **5 passed** |
+| `bossman-core` CyberSec V1 (unit + интеграция + структурные) | **79 passed** |
+| `command-center` | **610 passed, 2 skipped, 0 failed** (~166 с) |
+
+Разница 1072 → 1077 — это ровно гейт памяти. Число всегда называется вместе с
+коммитом; в рабочем дереве может идти параллельная работа, поэтому пересчитывайте
+счётчики сами, а не копируйте эти.
+
+## Быстрый старт
+
+```bash
+# тесты (без Postgres гейт памяти честно SKIP_HOST)
+cd bossman-core   && python -m pytest -q --timeout=120
+cd command-center && python -m pytest -q --timeout=120
+python tools/ci_secret_scan.py
+
+# поднять реальный PostgreSQL, чтобы гейт памяти не скипался
+initdb -D /tmp/pgdata -A trust -U postgres
+pg_ctl -D /tmp/pgdata -o '-p 5433' -l /tmp/pg.log start
+createuser -h 127.0.0.1 -p 5433 -U postgres -s bossman
+createdb   -h 127.0.0.1 -p 5433 -U postgres -O bossman bossman
+export BOSSMAN_TEST_PG_DSN=postgresql://bossman:bossman@127.0.0.1:5433/bossman
+cd bossman-core && python -m pytest -q --timeout=120 tests/test_pg_memory_gate.py
+```
+
+Запуск command-center: `cd command-center && pip install -e . && bcc` →
+http://127.0.0.1:8800 (токен печатается в консоли, в браузере меняется на
+HttpOnly-сессию). Точки входа core: `bossman` (CLI) и `bossman-gateway`.
+Ключевые переменные окружения:
+
+| Переменная | Значение по умолчанию | Смысл |
+|---|---|---|
+| `BOSSMAN_DATABASE_URL` | `postgresql://bossman:bossman@postgres:5432/bossman` | каноничный durable-store; без него core честно падает на старте |
+| `BOSSMAN_TEST_PG_DSN` | не задана | DSN для REAL-PG гейта; без неё гейт — `SKIP_HOST` |
+| `BOSSMAN_V3_ENABLED` | `0` (OFF) | мастер-флаг V3 7-Pack; нужен ещё и пофичевый флаг |
+| `BOSSMAN_LOW_MEMORY` | `0` | режим экономии памяти (в т.ч. `low_memory_budget` Guardian) |
+| `BOSSMAN_SANDBOX_ENABLED` | `0` (OFF) | Stage 8 sandbox; выключен — менеджер ничего не исполняет |
+| `BOSSMAN_CYBERSEC_V1_ENABLED` | `0` (OFF) | защитный слой CyberSec (firewall / IDS / guardian) |
+| `BOSSMAN_CYBER_LAB_ENABLED` + `BOSSMAN_CYBER_LAB_ACK` | `0` / пусто | тренировочная лаборатория; нужны ещё и факты одноразовой песочницы |
+| `TELEGRAM_WEBHOOK_SECRET` | пусто | без него вебхук отвечает 403 (constant-time сверка + allowlist) |
+| `BOSSMAN_GATEWAY_URL`, `BOSSMAN_GATEWAY_CORE_KEY` | — | адрес и ключ Stage 3 Gateway |
+| `SQL_PLUGIN_DSN`, `LSP_SERVERS` | — | command-center: SQL-плагин (sqlite read-only DSN) и LSP-мост |
+
+## Структура репозитория
+
+| Путь | Что внутри |
+|---|---|
+| `bossman-core/bossman/` | агентная ОС: gateway, perimeter, approvals, memory (`working_memory.py`, `decision_memory.py`, `failure_memory.py`), `context_engine`, `computer_operator`, `sandbox`, `dev_factory`, `ai_lab`, `cost_control` |
+| `bossman-core/bossman_v3/` | V3 7-Pack, feature-gated **OFF**, adapter-only (`feature_flags.py`, `adapters/`, `contracts.py`) |
+| `bossman-core/bossman/cybersec/` | CyberSec AI V1: 10 защитных модулей + замороженный red-vs-blue движок, **OFF** по умолчанию |
+| `bossman-core/db/schema.sql` | **единственный DDL** каноничной памяти |
+| `bossman-core/tests/` | ~1080 тестов, включая `test_pg_memory_gate.py`, `test_v3_authority_boundaries.py`, `test_cybersec_v1.py`, `test_cybersec_integration.py` |
+| `command-center/bcc/` | control plane: `tools.py` (REGISTRY/`decide_effect`), `permissions.py`, `secrets.py` (Vault), `plugin_security.py`, `features/`, `lsp_bridge.py`, `coding_session.py`, `eval_scorecard.py` |
+| `bossman-infra/` | инфраструктура: LiteLLM, llama-swap, Postgres + pgvector, Redis, Open WebUI, Uptime Kuma |
+| `apps/` | 8 прикладных приложений поверх ядра (манифест + ТЗ; часть уже с `src/`) |
+| `docs/context/`, `docs/security/` | канонический статус, отчёты, лог решений/провалов, периметр и handoff CyberSec |
+| `tools/` | `ci_secret_scan.py` и утилиты CI |
+
+## Что дальше / цели
+
+1. **Дожать computer control** — Stage 13 Computer Operator: capabilities,
+   loop-guard, верификация свежим наблюдением.
+2. **Real-host acceptance** — то, что сейчас честно `SKIP_HOST`: живые провайдеры
+   (Ollama и облако через Gateway), Windows Stage 13 foreground и Notepad-E2E,
+   браузер, runsc/KVM для сильных рантаймов Stage 8 (проверен только путь отказа).
+3. **A/B бенчмарк** — AAF и IntelligenceRetention, RAW vs GUARDED verified-success.
+   **Не измерялся**: нужны реальные модели и набор задач.
+4. **CyberSec AI V1** — слой реализован и выключен по умолчанию. Осталось:
+   включить его на реальном хосте под наблюдением и провести замороженный
+   стресс-тест RED vs BLUE (только в одноразовой песочнице, без продакшн-секретов
+   и продакшн-сети). Слой не может ослаблять политику, повышать себе права или
+   обходить Cost Governor.
+
+## Документация
+
+| Документ | О чём |
+|---|---|
+| [`docs/context/CURRENT_STATE.md`](docs/context/CURRENT_STATE.md) | канонический источник текущего состояния |
+| [`docs/context/BOSSMAN_PRE_CYBERSEC_FREEZE.md`](docs/context/BOSSMAN_PRE_CYBERSEC_FREEZE.md) | baseline перед CyberSec: авторитеты, PG-гейт, замеры скорости, поверхность атаки |
+| [`docs/context/V3_PRE_CYBERSEC_FINAL_REPORT.md`](docs/context/V3_PRE_CYBERSEC_FINAL_REPORT.md) | итоговый отчёт прохода + автономные инженерные решения (AED) |
+| [`docs/context/V3_PRE_CYBERSEC_SYNC.md`](docs/context/V3_PRE_CYBERSEC_SYNC.md) | сверка веток и 5 закрытых P0 с доказательствами |
+| [`docs/security/CYBERSEC_AI_V1.md`](docs/security/CYBERSEC_AI_V1.md) | реализованный слой: 10 модулей, карта авторитетов, гейты, конвейер обучения |
+| [`docs/security/CYBERSEC_V1_ZIP_DELTA.md`](docs/security/CYBERSEC_V1_ZIP_DELTA.md) | что взято из эталонного пакета и какие 12 его дефектов починены |
+| [`docs/security/FUTURE_RED_BLUE_STRESS_TEST.md`](docs/security/FUTURE_RED_BLUE_STRESS_TEST.md) | замороженный стресс-тест RED vs BLUE: контракт, L0–L5, протокол эпизода |
+| [`docs/security/CYBERSEC_AI_V1_ENTRYPOINT.md`](docs/security/CYBERSEC_AI_V1_ENTRYPOINT.md) | исходный handoff: точки интеграции на существующих швах |
+| [`docs/context/NEXT.md`](docs/context/NEXT.md) | исполняемые шаги и открытые баги |
+| [`docs/context/FAILURES.md`](docs/context/FAILURES.md) | реестр провалов: почему зелёным тестам нельзя верить на слово |
+
+## Честность статусов
+
+Правило — **никакого fake-green**: тест, который не может проверить то, что
+заявляет, не помечается зелёным, а честно скипается с явной причиной.
+
+- `SKIP_HOST` — нужен другой хост или недоступный локально сервис (Windows, KVM/gVisor, реальный Postgres без DSN).
+- `SKIP_EXTERNAL_SERVICE` — внешний сервис не поднят в этой среде (например, бинарь `opencode`).
+- `SKIP_EXTERNAL_CREDENTIAL` — нет реального креда для плагина (`OPENROUTER_API_KEY` и т.п.).
+- `NOT_TESTED_LIVE` — код есть, живого прогона не было, и это сказано прямо.
+
+Из этого же правила следуют вердикт `PARTIAL` вместо `FREEZE PASS` и отсутствие
+цифр по бенчмарку: то, что не измерено, здесь не заявляется.

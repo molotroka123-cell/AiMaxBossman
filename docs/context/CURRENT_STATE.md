@@ -1,13 +1,16 @@
 # CURRENT STATE — канонический источник (single source of truth)
 
-> **BOSSMAN V1 FROZEN**
-> V1 Acceptance completed. All blockers closed.
-> Canonical Audit: `docs/context/CODEX_BOSSMAN_V1_FINAL_AUDIT.md` (FINAL FREEZE ADDENDUM).
+> **CYBERSEC V1 — слой реализован, тренировочная лаборатория ЗАМОРОЖЕНА**
+> Предыдущая точка: BOSSMAN V1 FROZEN (`docs/context/CODEX_BOSSMAN_V1_FINAL_AUDIT.md`),
+> затем PRE-CYBERSEC (`BOSSMAN_PRE_CYBERSEC_FREEZE.md`, вердикт PARTIAL).
 
 - Ветка: `claude/bossman-control-v03-43igbk`. NO force push.
-- Эпоха: **BOSSMAN V1 FROZEN** — release freeze point reached.
-- Вердикт: **V1 PASS — FREEZE**
-- Next Phase: **LLM ARCHITECTURE V2** (see `docs/context/NEXT.md`).
+- Эпоха: **CYBERSEC AI V1** — защитный слой подключён, всё OFF по умолчанию.
+- Вердикт: **PRE-CYBERSEC PARTIAL** (A/B бенчмарк и live-провайдеры не измерялись).
+- Стресс-тест RED vs BLUE: **НЕ ЗАПУСКАЛСЯ**, подготовлен и заморожен
+  (`docs/security/FUTURE_RED_BLUE_STRESS_TEST.md`).
+- Next Phase: включение слоя на реальном хосте под наблюдением + замороженный
+  стресс-тест в одноразовой песочнице.
 
 ## Две связки (два приложения над общими инвариантами)
 1. **bossman-core** (`bossman-core/bossman/`) — агентная ОС: канонический цикл
@@ -47,6 +50,21 @@ Event Bus / Browser / Telegram / MCP / Memory / Cost / Session engine.
 (не падение). SQL read — **реальное исполнение** read-only (`sqlite mode=ro`,
 single-statement guard), не только валидация.
 
+## CyberSec AI V1 (`bossman-core/bossman/cybersec/`)
+Слой ПОВЕРХ существующих авторитетов, не вторая система: ни один модуль не выдаёт
+разрешений, только ужесточает решение / детектит / требует approval. Карта
+«модуль → усиленный авторитет» — `bossman.cybersec.LAYERED_OVER`.
+10 модулей: injection firewall, behavior IDS, secret guardian, repo scanner,
+blast radius, supply chain, cyber recovery, security memory (вид над каноничной
+`failure_memory`), security benchmark, red-team lab (только типизированный
+`AttackIntent`, каталог 14 сценариев L0–L5).
+Гейты: `BOSSMAN_CYBERSEC_V1_ENABLED`, `BOSSMAN_CYBER_LAB_ENABLED`,
+`BOSSMAN_CYBER_LAB_ACK` + `SandboxFacts` (одноразовая песочница, без продакшн-
+секретов и продакшн-сети). Умолчания `SandboxFacts` небезопасны → fail-closed.
+Обучение: PROPOSED → BENCHMARKED → SHADOW → VERIFIED → PROMOTED, причём
+PROMOTED — только по явному решению владельца. Детали:
+`docs/security/CYBERSEC_AI_V1.md`, `CYBERSEC_V1_ZIP_DELTA.md`.
+
 ## Тесты
 - Полные наборы гоняются каждой волной POLISH. Точные счётчики и PASS/FAIL/SKIP —
   в `POLISH_FINAL_REPORT.md` (обновляется перед push).
@@ -61,5 +79,7 @@ Ollama→Gateway→Planner→Stage13→Windows→Notepad→fresh observation; li
 - `BOSSMAN_SANDBOX_ENABLED` (дефолт OFF), `BOSSMAN_GATEWAY_URL`,
   `BOSSMAN_GATEWAY_CORE_KEY`, `TELEGRAM_WEBHOOK_SECRET` (иначе вебхук 403),
   `BOSSMAN_TEST_CHROMIUM`, `BOSSMAN_UNSAFE_LOCAL_EXEC` (только dev).
+- CyberSec: `BOSSMAN_CYBERSEC_V1_ENABLED` (дефолт OFF), `BOSSMAN_CYBER_LAB_ENABLED`
+  (дефолт OFF), `BOSSMAN_CYBER_LAB_ACK` (иначе лаборатория заморожена).
 - Command Center: `SQL_PLUGIN_DSN` (только sqlite read-only DSN в адаптере),
   `LSP_SERVERS`, плюс per-plugin креды (без них — SKIP). Доступ к API — токеном.
