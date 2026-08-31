@@ -1,268 +1,145 @@
-"""
-Bossman V2 Working Memory - PostgreSQL/asyncpg implementation
-Canonical production DB contract for active task state management.
-"""
+"""Working Memory — типизированный VIEW поверх ЕДИНОЙ каноничной персистентности.
 
-import asyncio
-import json
-import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime
-import asyncpg
+Канон (одна авторитетность памяти):
+* durable-хранилище — Postgres через `bossman.db` (пул сам применяет
+  `db/schema.sql` и регистрирует jsonb-кодек);
+* DDL здесь НЕТ: схема таблиц `working_memory` / `working_memory_versions`
+  принадлежит `db/schema.sql`;
+* ключ состояния — `task_id` (одна активная строка на задачу, UNIQUE(task_id)),
+  как и у сиблингов decision/failure memory. Проектный скоуп выводится из
+  `tasks.project_id`, дублировать его здесь не нужно;
+* версии — append-only снапшоты в `working_memory_versions` (checkpoint/restore);
+* конкурентность — оптимистическая по колонке `version` (SELECT ... FOR UPDATE).
+"""
+from __future__ import annotations
 
-logger = logging.getLogger(__name__)
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+from .db import fetch, fetchrow, pool
+
+# JSONB-колонки: значения передаём НАТИВНЫМИ объектами — кодек пула кодирует их
+# ровно один раз (ручной json.dumps здесь дал бы двойное кодирование).
+_JSON_FIELDS = (
+    "constraints", "invariants", "decisions", "completed_steps", "pending_steps",
+    "open_questions", "recent_failures", "observations", "artifacts",
+    "relevant_files", "next_action",
+)
+
+_STATE_COLUMNS = (
+    "objective", "status", "current_step", "plan_version", "context_version",
+) + _JSON_FIELDS
+
+
+class OptimisticConcurrencyConflict(Exception):
+    """Версия строки изменилась между чтением и записью — запись отклонена."""
+
+
+# Обратно-совместимый алиас (исторические импорты).
+ConcurrencyError = OptimisticConcurrencyConflict
 
 
 class WorkingMemory:
-    """
-    Production-grade Working Memory using PostgreSQL/asyncpg.
-    Implements optimistic concurrency, append-only versions, and exact restore.
-    """
-    
-    def __init__(self, db_pool: asyncpg.Pool, project_id: int):
-        self.db = db_pool
-        self.project_id = project_id
-        self._version_cache: Dict[str, int] = {}
-    
+    """Типизированный view активного состояния задачи над каноничным Postgres."""
+
     async def create_task_state(
         self,
         task_id: str,
         objective: str,
-        constraints: List[Dict] = None,
-        invariants: List[Dict] = None
+        constraints: Optional[List[Any]] = None,
+        invariants: Optional[List[Any]] = None,
     ) -> Dict[str, Any]:
-        """Create a new task state with version 1."""
-        async with self.db.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO working_memory 
-                (project_id, task_id, objective, constraints, invariants, version)
-                VALUES ($1, $2, $3, $4, $5, 1)
-                ON CONFLICT (project_id, task_id) DO NOTHING
-                """,
-                self.project_id, task_id, objective,
-                json.dumps(constraints or []), json.dumps(invariants or [])
-            )
-            
-            # Create initial version snapshot
-            state = await self.get_task_state(task_id)
-            await self._create_version_snapshot(conn, task_id, state)
-            
-            return state
-    
+        """Создать состояние задачи (идемпотентно) и снять снапшот версии 1."""
+        async with (await pool()).acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    """INSERT INTO working_memory (task_id, objective, constraints, invariants)
+                       VALUES ($1, $2, $3, $4)
+                       ON CONFLICT (task_id) DO NOTHING""",
+                    task_id, objective, constraints or [], invariants or [])
+                row = await conn.fetchrow(
+                    "SELECT * FROM working_memory WHERE task_id = $1", task_id)
+                await self._snapshot(conn, dict(row))
+                return dict(row)
+
     async def get_task_state(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """Get current task state."""
-        async with self.db.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                SELECT * FROM working_memory
-                WHERE project_id = $1 AND task_id = $2
-                """,
-                self.project_id, task_id
-            )
-            
-            if not row:
-                return None
-            
-            return dict(row)
-    
+        row = await fetchrow("SELECT * FROM working_memory WHERE task_id = $1", task_id)
+        return dict(row) if row else None
+
     async def update_task_state(
         self,
         task_id: str,
         updates: Dict[str, Any],
-        expected_version: Optional[int] = None
+        expected_version: Optional[int] = None,
     ) -> Dict[str, Any]:
+        """Обновить состояние с оптимистической конкурентностью.
+
+        `expected_version` не совпал с текущим → OptimisticConcurrencyConflict
+        ДО какой-либо записи. Версия инкрементируется, снимается снапшот.
         """
-        Update task state with optimistic concurrency control.
-        Returns updated state or raises ConcurrencyError.
-        """
-        async with self.db.acquire() as conn:
+        allowed = {k: v for k, v in (updates or {}).items() if k in _STATE_COLUMNS}
+        if not allowed:
+            raise ValueError("no updatable columns in updates")
+
+        async with (await pool()).acquire() as conn:
             async with conn.transaction():
-                # Get current version
                 current = await conn.fetchrow(
-                    """
-                    SELECT version FROM working_memory
-                    WHERE project_id = $1 AND task_id = $2
-                    FOR UPDATE
-                    """,
-                    self.project_id, task_id
-                )
-                
+                    "SELECT version FROM working_memory WHERE task_id = $1 FOR UPDATE", task_id)
                 if not current:
                     raise ValueError(f"Task {task_id} not found")
-                
-                current_version = current['version']
-                
-                # Check optimistic concurrency
-                if expected_version is not None and current_version != expected_version:
-                    raise ConcurrencyError(
-                        f"Version mismatch: expected {expected_version}, got {current_version}"
-                    )
-                
-                # Build update query
-                set_clauses = []
-                params = []
-                param_idx = 1
-                
-                for key, value in updates.items():
-                    if key in ['constraints', 'invariants', 'decisions', 'completed_steps',
-                              'pending_steps', 'open_questions', 'recent_failures',
-                              'observations', 'artifacts', 'relevant_files']:
-                        set_clauses.append(f"{key} = ${param_idx}")
-                        params.append(json.dumps(value))
-                    else:
-                        set_clauses.append(f"{key} = ${param_idx}")
-                        params.append(value)
-                    param_idx += 1
-                
-                # Always increment version
-                set_clauses.append(f"version = version + 1")
-                set_clauses.append(f"updated_at = NOW()")
-                
-                query = f"""
-                    UPDATE working_memory
-                    SET {', '.join(set_clauses)}
-                    WHERE project_id = ${param_idx} AND task_id = ${param_idx + 1}
-                    RETURNING *
-                """
-                params.extend([self.project_id, task_id])
-                
-                row = await conn.fetchrow(query, *params)
-                
-                # Create version snapshot
-                await self._create_version_snapshot(conn, task_id, dict(row))
-                
+                if expected_version is not None and current["version"] != expected_version:
+                    raise OptimisticConcurrencyConflict(
+                        f"Version mismatch: expected {expected_version}, got {current['version']}")
+
+                sets, params = [], []
+                for i, (key, value) in enumerate(allowed.items(), start=1):
+                    sets.append(f"{key} = ${i}")
+                    params.append(value)
+                idx = len(params) + 1
+                sets += ["version = version + 1", "updated_at = now()"]
+                row = await conn.fetchrow(
+                    f"UPDATE working_memory SET {', '.join(sets)} WHERE task_id = ${idx} RETURNING *",
+                    *params, task_id)
+                await self._snapshot(conn, dict(row))
                 return dict(row)
-    
-    async def _create_version_snapshot(
-        self,
-        conn: asyncpg.Connection,
-        task_id: str,
-        state: Dict[str, Any]
-    ) -> None:
-        """Create append-only version snapshot."""
+
+    @staticmethod
+    async def _snapshot(conn, state: Dict[str, Any]) -> None:
+        """Append-only снапшот текущей версии (идемпотентен по (wm_id, version))."""
         await conn.execute(
-            """
-            INSERT INTO working_memory_versions (working_memory_id, version, snapshot)
-            SELECT id, version, $1
-            FROM working_memory
-            WHERE project_id = $2 AND task_id = $3
-            """,
-            json.dumps(state), self.project_id, task_id
-        )
-    
-    async def restore_version(self, task_id: str, version: int) -> Dict[str, Any]:
-        """Restore task state to specific version."""
-        async with self.db.acquire() as conn:
-            async with conn.transaction():
-                # Get version snapshot
-                snapshot = await conn.fetchrow(
-                    """
-                    SELECT snapshot FROM working_memory_versions
-                    WHERE working_memory_id = (
-                        SELECT id FROM working_memory
-                        WHERE project_id = $1 AND task_id = $2
-                    ) AND version = $3
-                    """,
-                    self.project_id, task_id, version
-                )
-                
-                if not snapshot:
-                    raise ValueError(f"Version {version} not found for task {task_id}")
-                
-                # Restore state
-                state = json.loads(snapshot['snapshot'])
-                
-                # Update current state
-                await conn.execute(
-                    """
-                    UPDATE working_memory
-                    SET 
-                        objective = $1,
-                        status = $2,
-                        current_step = $3,
-                        plan_version = $4,
-                        constraints = $5,
-                        invariants = $6,
-                        decisions = $7,
-                        completed_steps = $8,
-                        pending_steps = $9,
-                        open_questions = $10,
-                        recent_failures = $11,
-                        observations = $12,
-                        artifacts = $13,
-                        relevant_files = $14,
-                        next_action = $15,
-                        context_version = $16,
-                        version = version + 1,
-                        updated_at = NOW()
-                    WHERE project_id = $17 AND task_id = $18
-                    """,
-                    state.get('objective'),
-                    state.get('status'),
-                    state.get('current_step'),
-                    state.get('plan_version'),
-                    json.dumps(state.get('constraints', [])),
-                    json.dumps(state.get('invariants', [])),
-                    json.dumps(state.get('decisions', [])),
-                    json.dumps(state.get('completed_steps', [])),
-                    json.dumps(state.get('pending_steps', [])),
-                    json.dumps(state.get('open_questions', [])),
-                    json.dumps(state.get('recent_failures', [])),
-                    json.dumps(state.get('observations', [])),
-                    json.dumps(state.get('artifacts', [])),
-                    json.dumps(state.get('relevant_files', [])),
-                    state.get('next_action'),
-                    state.get('context_version'),
-                    self.project_id,
-                    task_id
-                )
-                
-                return await self.get_task_state(task_id)
-    
+            """INSERT INTO working_memory_versions (working_memory_id, task_id, version, snapshot)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (working_memory_id, version) DO NOTHING""",
+            state["id"], state["task_id"], state["version"],
+            {k: _jsonable(v) for k, v in state.items()})
+
     async def list_versions(self, task_id: str) -> List[Dict[str, Any]]:
-        """List all versions for a task."""
-        async with self.db.acquire() as conn:
-            rows = await conn.fetch(
-                """
-                SELECT version, created_at FROM working_memory_versions
-                WHERE working_memory_id = (
-                    SELECT id FROM working_memory
-                    WHERE project_id = $1 AND task_id = $2
-                )
-                ORDER BY version DESC
-                """,
-                self.project_id, task_id
-            )
-            
-            return [dict(row) for row in rows]
-    
+        return await fetch(
+            """SELECT version, created_at FROM working_memory_versions
+               WHERE task_id = $1 ORDER BY version DESC""", task_id)
+
+    async def restore_version(self, task_id: str, version: int) -> Dict[str, Any]:
+        """Восстановить состояние из снапшота версии (создаёт новую версию)."""
+        snap = await fetchrow(
+            """SELECT snapshot FROM working_memory_versions
+               WHERE task_id = $1 AND version = $2""", task_id, version)
+        if not snap:
+            raise ValueError(f"Version {version} not found for task {task_id}")
+        state = snap["snapshot"]
+        restore = {k: state.get(k) for k in _STATE_COLUMNS if k in state}
+        return await self.update_task_state(task_id, restore)
+
     async def checkpoint(self, task_id: str) -> Dict[str, Any]:
-        """Create a checkpoint of current state."""
         state = await self.get_task_state(task_id)
         if not state:
             raise ValueError(f"Task {task_id} not found")
-        
-        return {
-            'task_id': task_id,
-            'version': state['version'],
-            'timestamp': datetime.utcnow().isoformat(),
-            'state': state
-        }
-    
+        return {"task_id": task_id, "version": state["version"],
+                "timestamp": datetime.now(timezone.utc).isoformat(), "state": state}
+
     async def restore_checkpoint(self, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
-        """Restore from checkpoint."""
-        return await self.restore_version(
-            checkpoint['task_id'],
-            checkpoint['version']
-        )
+        return await self.restore_version(checkpoint["task_id"], checkpoint["version"])
 
 
-class OptimisticConcurrencyConflict(Exception):
-    """Raised when optimistic concurrency check fails (version mismatch on write)."""
-    pass
-
-
-# Backward-compatible alias: internal call sites and older imports use
-# ConcurrencyError; the canonical public name is OptimisticConcurrencyConflict.
-ConcurrencyError = OptimisticConcurrencyConflict
+def _jsonable(v: Any) -> Any:
+    """datetime → ISO-строка: снапшот должен быть валидным JSON."""
+    return v.isoformat() if isinstance(v, datetime) else v

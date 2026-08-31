@@ -58,28 +58,8 @@ class DecisionRecord:
 # Schema
 # ──────────────────────────────────────────────────────────────────────
 
-DECISION_SCHEMA = """
-CREATE TABLE IF NOT EXISTS decisions (
-    id              BIGSERIAL PRIMARY KEY,
-    decision_id     TEXT NOT NULL UNIQUE,
-    scope           TEXT NOT NULL,
-    subject         TEXT NOT NULL,
-    decision        TEXT NOT NULL,
-    reason          TEXT,
-    alternatives_rejected TEXT NOT NULL DEFAULT '[]',
-    evidence        TEXT NOT NULL DEFAULT '[]',
-    valid_from      TIMESTAMP NOT NULL,
-    supersedes      BIGINT,
-    source_kind     TEXT NOT NULL DEFAULT 'agent',
-    source_run_id   INTEGER,
-    source_note     TEXT,
-    confidence      REAL NOT NULL DEFAULT 1.0,
-    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_decisions_scope ON decisions(scope, subject);
-CREATE INDEX IF NOT EXISTS idx_decisions_id ON decisions(decision_id);
-"""
+# Схема таблицы `decisions` принадлежит ЕДИНСТВЕННОМУ авторитету —
+# bossman-core/db/schema.sql (применяется в db.pool()). DDL здесь намеренно НЕТ.
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -87,13 +67,12 @@ CREATE INDEX IF NOT EXISTS idx_decisions_id ON decisions(decision_id);
 # ──────────────────────────────────────────────────────────────────────
 
 async def init_decisions_table() -> None:
-    """Initialize the decisions table (call during startup).
-
-    asyncpg has no executescript/commit; simple-query execute() runs the
-    multi-statement DDL. Canonical schema lives in db/schema.sql (JSONB/BIGSERIAL);
-    this IF-NOT-EXISTS DDL is a Postgres-valid fallback only.
-    """
-    await execute(DECISION_SCHEMA)
+    """No-op совместимости: схему применяет db.pool() из db/schema.sql."""
+    ok = await fetchval("SELECT to_regclass('public.decisions') IS NOT NULL")
+    if not ok:
+        raise errors.DependencyUnavailable(
+            "таблица decisions отсутствует: схему создаёт db/schema.sql через db.pool()",
+            extra={"dependency": "postgres", "table": "decisions"})
 
 
 async def create_decision(
@@ -121,7 +100,7 @@ async def create_decision(
     evidence = evidence or []
     valid = valid_from or datetime.now(timezone.utc)
 
-    async with (await pool()) as conn:
+    async with (await pool()).acquire() as conn:
         row = await conn.fetchrow(
             """INSERT INTO decisions
                (decision_id, scope, subject, decision, reason,
@@ -138,8 +117,8 @@ async def create_decision(
             subject,
             decision,
             reason,
-            json.dumps(alternatives),
-            json.dumps(evidence),
+            alternatives,
+            evidence,
             valid,
             source_kind,
             source_run_id,
@@ -153,8 +132,8 @@ async def create_decision(
             subject=row["subject"],
             decision=row["decision"],
             reason=row["reason"],
-            alternatives_rejected=json.loads(row["alternatives_rejected"]),
-            evidence=json.loads(row["evidence"]),
+            alternatives_rejected=row["alternatives_rejected"],
+            evidence=row["evidence"],
             valid_from=row["valid_from"],
             supersedes=row["supersedes"],
             source_kind=row["source_kind"],
@@ -168,11 +147,10 @@ async def create_decision(
 
 async def get_decision(decision_id: str) -> DecisionRecord | None:
     """Get a decision by its decision_id."""
-    async with (await pool()) as conn:
-        row = await fetchrow(
-            "SELECT * FROM decisions WHERE decision_id = $1",
-            decision_id,
-        )
+    row = await fetchrow(
+        "SELECT * FROM decisions WHERE decision_id = $1",
+        decision_id,
+    )
 
     if row is None:
         return None
@@ -184,8 +162,8 @@ async def get_decision(decision_id: str) -> DecisionRecord | None:
         subject=row["subject"],
         decision=row["decision"],
         reason=row["reason"],
-        alternatives_rejected=json.loads(row["alternatives_rejected"]),
-        evidence=json.loads(row["evidence"]),
+        alternatives_rejected=row["alternatives_rejected"],
+        evidence=row["evidence"],
         valid_from=row["valid_from"],
         supersedes=row["supersedes"],
         source_kind=row["source_kind"],
@@ -258,7 +236,7 @@ async def query_decisions(
     If current_only=True, only return decisions that are not superseded
     (i.e., currently valid decisions).
     """
-    async with (await pool()) as conn:
+    async with (await pool()).acquire() as conn:
         if current_only:
             query = """SELECT * FROM decisions
                        WHERE supersedes IS NULL
@@ -281,10 +259,8 @@ async def query_decisions(
             subject=row["subject"],
             decision=row["decision"],
             reason=row["reason"],
-            alternatives_rejected=json.loads(row["alternatives_rejected"])
-            if row["alternatives_rejected"]
-            else [],
-            evidence=json.loads(row["evidence"]) if row["evidence"] else [],
+            alternatives_rejected=row["alternatives_rejected"] or [],
+            evidence=row["evidence"] or [],
             valid_from=row["valid_from"],
             supersedes=row["supersedes"],
             source_kind=row["source_kind"],
@@ -321,7 +297,7 @@ async def record_decision_unsafe(
     alternatives = alternatives_rejected or []
     evidence = evidence or []
 
-    async with (await pool()) as conn:
+    async with (await pool()).acquire() as conn:
         row = await conn.fetchrow(
             """INSERT INTO decisions
                (decision_id, scope, subject, decision, reason,
@@ -338,8 +314,8 @@ async def record_decision_unsafe(
             subject,
             decision,
             reason,
-            json.dumps(alternatives),
-            json.dumps(evidence),
+            alternatives,
+            evidence,
             "agent",
             None,
             "",
@@ -352,8 +328,8 @@ async def record_decision_unsafe(
             subject=row["subject"],
             decision=row["decision"],
             reason=row["reason"],
-            alternatives_rejected=json.loads(row["alternatives_rejected"]),
-            evidence=json.loads(row["evidence"]),
+            alternatives_rejected=row["alternatives_rejected"],
+            evidence=row["evidence"],
             valid_from=row["valid_from"],
             supersedes=row["supersedes"],
             source_kind=row["source_kind"],

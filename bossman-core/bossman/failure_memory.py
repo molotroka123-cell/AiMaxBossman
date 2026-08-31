@@ -58,25 +58,9 @@ class FailureRecord:
 # Schema
 # ──────────────────────────────────────────────────────────────────────
 
-FAILURE_SCHEMA = """
-CREATE TABLE IF NOT EXISTS failures (
-    failure_id      TEXT PRIMARY KEY,
-    task_id         TEXT NOT NULL,
-    symptom         TEXT NOT NULL,
-    error_class     TEXT NOT NULL,
-    root_cause      TEXT NOT NULL,
-    attempted_fix   TEXT,
-    result          TEXT,
-    files           TEXT NOT NULL DEFAULT '[]',
-    tests           TEXT NOT NULL DEFAULT '[]',
-    environment     TEXT NOT NULL DEFAULT '{}',
-    resolved        BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    resolved_at     TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_failures_task ON failures(task_id);
-CREATE INDEX IF NOT EXISTS idx_failures_resolved ON failures(resolved);
-"""
+# Схема таблицы `failures` принадлежит ЕДИНСТВЕННОМУ авторитету —
+# bossman-core/db/schema.sql (применяется в db.pool()). Здесь DDL намеренно НЕТ:
+# два определения одной таблицы = два источника правды.
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -84,12 +68,16 @@ CREATE INDEX IF NOT EXISTS idx_failures_resolved ON failures(resolved);
 # ──────────────────────────────────────────────────────────────────────
 
 async def init_failures_table() -> None:
-    """Initialize the failures table (call during startup).
+    """No-op совместимости: схему применяет db.pool() из db/schema.sql.
 
-    asyncpg has no executescript/commit; the simple-query protocol runs the
-    multi-statement DDL in one execute() (statements are Postgres-valid).
+    Возвращает управление, если каноничная таблица на месте; иначе — честная ошибка
+    (а не тихое создание второй, расходящейся схемы).
     """
-    await execute(FAILURE_SCHEMA)
+    ok = await fetchval("SELECT to_regclass('public.failures') IS NOT NULL")
+    if not ok:
+        raise errors.DependencyUnavailable(
+            "таблица failures отсутствует: схему создаёт db/schema.sql через db.pool()",
+            extra={"dependency": "postgres", "table": "failures"})
 
 
 async def record_failure(
@@ -107,9 +95,9 @@ async def record_failure(
     """Record a new failure failure."""
 
     fid = f"fail-{datetime.now().timestamp()}"
-    files_json = json.dumps(files or [])
-    tests_json = json.dumps(tests or [])
-    env_json = json.dumps(environment or {})
+    files_val = files or []
+    tests_val = tests or []
+    env_val = environment or {}
 
     row = await fetchrow(
         """INSERT INTO failures
@@ -127,9 +115,9 @@ async def record_failure(
         root_cause,
         attempted_fix,
         result,
-        files_json,
-        tests_json,
-        env_json,
+        files_val,
+        tests_val,
+        env_val,
     )
     return FailureRecord(
             failure_id=row["failure_id"],
@@ -139,9 +127,9 @@ async def record_failure(
             root_cause=row["root_cause"],
             attempted_fix=row["attempted_fix"],
             result=row["result"],
-            files=json.loads(row["files"]),
-            tests=json.loads(row["tests"]),
-            environment=json.loads(row["environment"]),
+            files=row["files"],
+            tests=row["tests"],
+            environment=row["environment"],
             resolved=row["resolved"],
             created_at=row["created_at"],
         )
@@ -165,9 +153,9 @@ async def get_failure(failure_id: str) -> FailureRecord | None:
         root_cause=row["root_cause"],
         attempted_fix=row["attempted_fix"],
         result=row["result"],
-        files=json.loads(row["files"]),
-        tests=json.loads(row["tests"]),
-        environment=json.loads(row["environment"]),
+        files=row["files"],
+        tests=row["tests"],
+        environment=row["environment"],
         resolved=row["resolved"],
         created_at=row["created_at"],
         resolved_at=row.get("resolved_at"),
@@ -190,9 +178,9 @@ async def get_unresolved_failures(task_id: str) -> list[FailureRecord]:
             root_cause=row["root_cause"],
             attempted_fix=row["attempted_fix"],
             result=row["result"],
-            files=json.loads(row["files"]),
-            tests=json.loads(row["tests"]),
-            environment=json.loads(row["environment"]),
+            files=row["files"],
+            tests=row["tests"],
+            environment=row["environment"],
             resolved=row["resolved"],
             created_at=row["created_at"],
             resolved_at=row.get("resolved_at"),
@@ -254,9 +242,9 @@ async def query_failures(
             root_cause=row["root_cause"],
             attempted_fix=row["attempted_fix"],
             result=row["result"],
-            files=json.loads(row["files"]) if row["files"] else [],
-            tests=json.loads(row["tests"]) if row["tests"] else [],
-            environment=json.loads(row["environment"]) if row["environment"] else {},
+            files=row["files"] or [],
+            tests=row["tests"] or [],
+            environment=row["environment"] or {},
             resolved=row["resolved"],
             created_at=row["created_at"],
             resolved_at=row.get("resolved_at"),
