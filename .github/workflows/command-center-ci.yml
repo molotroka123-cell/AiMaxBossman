@@ -94,6 +94,21 @@ jobs:
       - name: Secret-pattern scan
         run: python tools/ci_secret_scan.py
 
+      # SAST/SCA — advisory (Security Hardening V1.1): не роняют сборку, дают
+      # ранний сигнал по уязвимым зависимостям и опасным примитивам.
+      - name: Dependency audit (pip-audit, advisory)
+        continue-on-error: true
+        run: |
+          python -m pip install --quiet pip-audit
+          pip install --quiet -e command-center || true
+          pip-audit --progress-spinner off || true
+
+      - name: SAST (bandit high-severity, advisory)
+        continue-on-error: true
+        run: |
+          python -m pip install --quiet bandit
+          bandit -r command-center/bcc -q --severity-level high --confidence-level medium || true
+
       - name: Файлы, которых не должно быть в git
         run: |
           if git ls-files | grep -E "(^|/)\.env$|\.pem$|(^|/)token$|(^|/)secret\.key$"; then

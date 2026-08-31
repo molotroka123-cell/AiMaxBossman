@@ -23,8 +23,11 @@ from typing import Any
 
 
 def _sha(*parts: Any) -> str:
+    # НЕ криптографическое использование: это отпечаток состояния для детекции
+    # петель (сравнение наблюдений), а не защита. usedforsecurity=False —
+    # корректно документирует намерение и снимает ложный SAST-флаг B324.
     blob = json.dumps(parts, sort_keys=True, default=str, ensure_ascii=False)
-    return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha1(blob.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
 
 
 def action_signature(action: Any) -> str:

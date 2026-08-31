@@ -1,0 +1,24 @@
+# Dependabot — ранний сигнал по уязвимым/устаревшим зависимостям.
+# Security Hardening V1.1 (H5): дёшево ловить supply-chain проблемы заранее.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/bossman-core"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "security"]
+
+  - package-ecosystem: "pip"
+    directory: "/command-center"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "security"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["ci", "security"]
