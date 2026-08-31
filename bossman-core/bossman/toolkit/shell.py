@@ -107,8 +107,20 @@ async def tests(args: dict, ctx: ToolContext) -> ToolResult:
                       truncated=True, more=f"fs.read(path='{rel}')", error=code != 0)
 
 
+def _host_exec_needs_approval() -> bool:
+    """host/local исполнение = ALWAYS ASK; изолированный docker (сеть none) = AUTO.
+
+    Защита-в-глубину без убийства fast-path: pytest/npm внутри одноразового
+    контейнера без сети идут AUTO, а исполнение на РЕАЛЬНОЙ машине всегда
+    требует подтверждения владельца (Security Hardening V1.1, H3). Неизвестный
+    режим трактуем как требующий approval (fail-closed).
+    """
+    return (settings.sandbox_mode or "").strip().lower() != "docker"
+
+
 register(ToolDef("run", "Команда в sandbox (без сети, смонтирован только репозиторий).",
                  "exec", run, params={"cmd": {"type": "string"}, "timeout": {"type": "integer"}},
-                 required=["cmd"], token_limit=3000))
+                 required=["cmd"], mandatory_confirm=_host_exec_needs_approval, token_limit=3000))
 register(ToolDef("tests", "Прогнать тесты; вернуть сводку прошло/упало и первую ошибку.",
-                 "exec", tests, params={"cmd": {"type": "string"}}, token_limit=2000))
+                 "exec", tests, params={"cmd": {"type": "string"}},
+                 mandatory_confirm=_host_exec_needs_approval, token_limit=2000))

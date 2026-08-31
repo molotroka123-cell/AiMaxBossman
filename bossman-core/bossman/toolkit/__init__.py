@@ -51,6 +51,11 @@ class ToolDef:
     params: dict = field(default_factory=dict)   # JSON-схема properties
     required: list[str] = field(default_factory=list)
     confirm_default: bool = False # действие необратимо → подтверждение, если агент не переопределил
+    # Обязательное подтверждение, вычисляемое в момент вызова (напр. host-shell
+    # исполняется на реальной машине, а не в изолированном контейнере). В отличие
+    # от confirm_default его НЕЛЬЗЯ переотменить грантом агента — оно добавляется
+    # поверх (Security Hardening V1.1, H3: host/local exec = ALWAYS ASK).
+    mandatory_confirm: Callable[[], bool] | None = None
     token_limit: int = 4000
 
     def schema(self) -> dict:

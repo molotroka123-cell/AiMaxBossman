@@ -188,3 +188,49 @@ def test_manager_no_access_check_keeps_old_behavior(tmp_path):
         event_emit=lambda *a, **k: None)     # access_check=None
     t = mgr.create_task("local goal", owner_device_id="rcd_whatever")
     assert t.id
+
+
+# ---------- Security Hardening V1.1: fail-closed для не-локальных источников ----------
+
+def test_nonlocal_unknown_device_is_denied(tmp_path):
+    """Удалённый/telegram источник без профиля → fail-CLOSED (не 'локальный хозяин')."""
+    from bossman.profiles import gate
+    svc = ProfileService(ProfileStore(tmp_path))
+    # локальный источник без профиля — по-прежнему разрешён (хозяин)
+    svc.computer_access_check("rcd_x", source="local")
+    # не-локальный источник без профиля — запрещён
+    with pytest.raises(gate.CapabilityDenied):
+        svc.computer_access_check("rcd_x", source="remote")
+    with pytest.raises(gate.CapabilityDenied):
+        svc.computer_access_check("rcd_x", source="telegram")
+
+
+def test_module_callback_failcloses_when_service_down_for_nonlocal(tmp_path, monkeypatch):
+    """Сервис не поднят: локальный — no-op; не-локальный — fail-closed."""
+    from bossman.profiles import service as svcmod
+    monkeypatch.setattr(svcmod, "_SERVICE", None)
+    svcmod.computer_access_check("rcd_x", source="local")   # no-op
+    with pytest.raises(svcmod.ProfilesUnavailable):
+        svcmod.computer_access_check("rcd_x", source="remote")
+
+
+def test_manager_failcloses_for_nonlocal_source_when_profiles_down(tmp_path, monkeypatch):
+    """Полный путь: computer_operator.create_task с не-локальным источником и
+    неподнятым gate → PermissionError (задача не создаётся)."""
+    from bossman.computer_operator.manager import ComputerOperatorManager
+    from bossman.computer_operator.store import JsonTaskStore
+    from bossman.computer_operator.subsystem import _profile_access_check
+    from bossman.profiles import service as svcmod
+    monkeypatch.setattr(svcmod, "_SERVICE", None)
+
+    mgr = ComputerOperatorManager(
+        store=JsonTaskStore(tmp_path / "tasks.json"),
+        planner=object(), observer=object(), action_router=object(),
+        approval_create=lambda *a, **k: None, approval_wait=lambda *a, **k: None,
+        event_emit=lambda *a, **k: None, access_check=_profile_access_check)
+
+    with pytest.raises(PermissionError):
+        mgr.create_task("открой блокнот", source="remote", owner_device_id="rcd_guest")
+    # локальный источник — не режем (хозяин)
+    t = mgr.create_task("открой блокнот", source="local", owner_device_id=None)
+    assert t.id

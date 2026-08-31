@@ -151,6 +151,15 @@ async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
                 f"{tool.name}: отказ (не выдан)")
 
     needs_confirm = grant.confirm if grant.confirm is not None else tool.confirm_default
+    # Обязательное подтверждение (host-shell и т.п.) добавляется ПОВЕРХ и не
+    # переотменяется грантом агента: агент не может отписаться от approval на
+    # реальное host-исполнение (Security Hardening V1.1, H3).
+    if tool.mandatory_confirm is not None:
+        try:
+            if tool.mandatory_confirm():
+                needs_confirm = True
+        except Exception:  # noqa: BLE001 — сбой предиката трактуем как «нужно спросить»
+            needs_confirm = True
     approved_by = None
     if needs_confirm:
         preview = f"Агент {agent.title} хочет выполнить {tool.name}\nаргументы: " + \

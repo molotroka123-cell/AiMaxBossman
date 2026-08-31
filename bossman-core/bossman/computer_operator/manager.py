@@ -49,7 +49,13 @@ class ComputerOperatorManager:
 
     def create_task(self,goal,*,mode=TaskMode.CONTROL,source="local",owner_device_id=None):
         if self.access_check is not None:
-            self.access_check(owner_device_id)   # бросает PermissionError, если запрещено
+            # Источник передаётся в gate: не-локальный источник без профиля/сервиса
+            # получает fail-CLOSED (Security Hardening V1.1). Совместимо со старыми
+            # одно-аргументными колбэками.
+            try:
+                self.access_check(owner_device_id,source)
+            except TypeError:
+                self.access_check(owner_device_id)   # бросает PermissionError, если запрещено
         t=ComputerTask.create(goal,mode=mode,source=source,owner_device_id=owner_device_id)
         self._save(t); self._emit(t,"created"); return t
 

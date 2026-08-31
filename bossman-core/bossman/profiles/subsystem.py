@@ -17,7 +17,10 @@ log = obs.get_logger("bossman.profiles")
 
 class ProfilesSubsystem:
     name = "profiles"
-    critical = False
+    # critical=True: профильный gate — security-контур (управление компом,
+    # личные данные). Если он не поднялся, загрузка ПРЕРЫВАЕТСЯ громко, а не
+    # деградирует в permissive (Security Hardening V1.1, H2/H7).
+    critical = True
 
     async def validate(self) -> None:
         root = settings.workspace_dir / "_profiles"

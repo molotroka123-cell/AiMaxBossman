@@ -47,18 +47,23 @@ def default_store_path() -> Path:
     return Path(getattr(settings, "workspace_dir", ".")) / "computer_operator" / "tasks.json"
 
 
-def _profile_access_check(device_id):
+def _profile_access_check(device_id, source="local"):
     """Ленивый мост к profiles.service (без жёсткого импорта/цикла).
 
-    Бросает profiles.gate.CapabilityDenied (PermissionError), если профиль,
-    привязанный к устройству, запрещает управление компьютером. Если profiles
-    не поднят — no-op (локальный хозяин), поведение ядра не меняется.
+    Бросает profiles.gate.CapabilityDenied / ProfilesUnavailable (обе —
+    PermissionError), если управление компом запрещено ИЛИ (для не-локального
+    источника) профильный gate недоступен. Локальный хозяин без профиля — как
+    раньше, no-op (Security Hardening V1.1, H2/H7 fail-closed для не-локальных).
+    Полное отсутствие пакета profiles тоже fail-closed для не-локального источника.
     """
     try:
         from ..profiles.service import computer_access_check
-    except Exception:  # noqa: BLE001 — profiles опционален
+    except Exception as exc:  # noqa: BLE001 — пакет недоступен
+        if source != "local":
+            raise PermissionError(
+                f"profiles package unavailable; computer control denied for source {source!r}") from exc
         return
-    computer_access_check(device_id)
+    computer_access_check(device_id, source)
 
 
 def build_manager(*, store_path=None, launcher=None) -> ComputerOperatorManager:
