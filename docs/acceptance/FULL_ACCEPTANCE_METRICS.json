@@ -1,0 +1,18 @@
+{
+  "campaign_start_utc": "2026-08-31T20:29:00Z",
+  "last_update_utc": "2026-08-31T20:40:00Z",
+  "start_remote_sha": "bfa2b0e902f11b2ce0a7d2176a7211d7f71f73c5",
+  "final_local_sha": null,
+  "final_remote_sha": null,
+  "phases": {},
+  "bugs_found": 0,
+  "bugs_fixed": 0,
+  "bugs_open": 0,
+  "p0_open": 0,
+  "p1_open": 0,
+  "p2_open": 0,
+  "checkpoint_count": 1,
+  "push_count": 0,
+  "cloud_calls_local_test": null,
+  "intelligence_retention": null
+}

@@ -46,3 +46,7 @@ secret.key
 # Правило намеренно узкое: если в .claude/ появится настройка проекта или
 # скилл, они останутся под контролем версий.
 .claude/worktrees/
+
+# Acceptance live-run artifacts: binaries and personal media stay local
+.audit-learning-guard-*/
+artifacts/video_factory/

@@ -163,3 +163,165 @@ class GuardedBrowserProvider:
 
         # 4) Только теперь — реальное нажатие «Generate».
         return await self._do_submit()
+
+# --- OpenRouter Video: тонкий адаптер к тому же протоколу VideoProvider -----
+
+class OpenRouterVideoProvider:
+    """Тонкий адаптер OpenRouter `/api/v1/videos` (async submit→poll→download).
+
+    Архитектурные правила:
+    - Это НЕ второй движок: класс реализует тот же `VideoProvider`-протокол и
+      подключается в `VideoFactory(provider=...)` как обычный провайдер.
+    - Opt-in и ничего по умолчанию: нужен явный `api_key` (или
+      `OPENROUTER_API_KEY`) и включённый фичевый флаг
+      `BOSSMAN_VIDEO_OPENROUTER=1` (см. `enabled()`); облако никогда не
+      вызывается молча.
+    - Бюджетный guard: `budget_cap` (USD, накопительно по провайдеру) —
+      превышение → `VideoProviderFailed` ДО нового сабмита.
+    - Все ошибки провайдера/сети → `errors.VideoProviderFailed` (пайплайн
+      ведёт учёт попыток и пишет новый дубль `take-NNN.mp4`).
+    - Тестируемость: `client` инъектируется (async-клиент с
+      post/get(url, ...)); в тестах — стаб, в проде — httpx.AsyncClient.
+
+    Ref-изображения передаются как data-URI через `input_references`
+    (reference-to-video); провайдер сам их не читает с диска — путь/URI даёт
+    вызывающая сторона через `extra_payload` или `set_references()`.
+    """
+
+    name = "openrouter-video"
+
+    def __init__(
+        self,
+        *,
+        model: str = "bytedance/seedance-2.0-mini",
+        api_key: str | None = None,
+        base_url: str = "https://openrouter.ai/api/v1",
+        resolution: str = "720p",
+        aspect_ratio: str = "9:16",
+        budget_cap: float | None = None,
+        poll_interval_s: float = 20.0,
+        poll_timeout_s: float = 900.0,
+        extra_payload: dict | None = None,
+        client: Any | None = None,
+    ) -> None:
+        import os
+
+        key = api_key or os.getenv("OPENROUTER_API_KEY")
+        if not key:
+            raise errors.VideoProviderFailed(
+                "openrouter video provider: OPENROUTER_API_KEY is not set",
+                extra={"stage": "init"},
+            )
+        self.model = model
+        self.api_key = key
+        self.base_url = base_url.rstrip("/")
+        self.resolution = resolution
+        self.aspect_ratio = aspect_ratio
+        self.budget_cap = budget_cap
+        self.poll_interval_s = poll_interval_s
+        self.poll_timeout_s = poll_timeout_s
+        self.extra_payload = dict(extra_payload or {})
+        self.spend_usd = 0.0
+        self._client = client  # seam для тестов; ленивый httpx.AsyncClient в проде
+
+    @staticmethod
+    def enabled() -> bool:
+        """True, только если пользователь ЯВНО включил провайдер."""
+        import os
+
+        flag = os.getenv("BOSSMAN_VIDEO_OPENROUTER", "0").strip().lower()
+        return flag in {"1", "true", "yes", "on"} and bool(os.getenv("OPENROUTER_API_KEY"))
+
+    def set_references(self, data_uris: list[str]) -> None:
+        self.extra_payload["input_references"] = [
+            {"type": "image_url", "image_url": {"url": u}} for u in data_uris
+        ]
+
+    def _headers(self) -> dict:
+        return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+
+    def _client_or_default(self) -> Any:
+        if self._client is None:
+            import httpx
+
+            self._client = httpx.AsyncClient(timeout=120.0)
+        return self._client
+
+    async def _post(self, path: str, json: dict) -> dict:
+        c = self._client_or_default()
+        r = await c.post(f"{self.base_url}{path}", headers=self._headers(), json=json)
+        if r.status_code not in (200, 202):
+            raise errors.VideoProviderFailed(
+                f"openrouter video: submit HTTP {r.status_code}",
+                extra={"body": str(getattr(r, "text", ""))[:300]},
+            )
+        return r.json()
+
+    async def _get(self, path: str) -> dict:
+        c = self._client_or_default()
+        r = await c.get(f"{self.base_url}{path}", headers=self._headers())
+        if r.status_code != 200:
+            raise errors.VideoProviderFailed(
+                f"openrouter video: HTTP {r.status_code}",
+                extra={"path": path},
+            )
+        return r.json()
+
+    async def generate(self, *, prompt: str, duration_s: float, output_dir: str) -> str:
+        if self.budget_cap is not None and self.spend_usd >= self.budget_cap:
+            raise errors.VideoProviderFailed(
+                f"openrouter video: budget cap ${self.budget_cap} reached "
+                f"(spent ${self.spend_usd:.2f})",
+                extra={"stage": "budget"},
+            )
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "duration": int(duration_s),
+            "resolution": self.resolution,
+            "aspect_ratio": self.aspect_ratio,
+            **self.extra_payload,
+        }
+        import asyncio
+
+        submitted = await self._post("/videos", payload)
+        job_id = submitted.get("id")
+        if not job_id:
+            raise errors.VideoProviderFailed(
+                "openrouter video: no job id in submit response",
+                extra={"stage": "submit"},
+            )
+        deadline = asyncio.get_event_loop().time() + self.poll_timeout_s
+        status = submitted.get("status", "pending")
+        cost = None
+        urls: list[str] = []
+        while status not in ("completed", "failed", "cancelled", "expired"):
+            if asyncio.get_event_loop().time() > deadline:
+                raise errors.VideoProviderFailed(
+                    f"openrouter video: job {job_id} poll timeout",
+                    extra={"stage": "poll"},
+                )
+            await asyncio.sleep(self.poll_interval_s)
+            data = await self._get(f"/videos/{job_id}")
+            status = data.get("status", "pending")
+            cost = (data.get("usage") or {}).get("cost")
+            urls = data.get("unsigned_urls") or []
+        if cost is not None:
+            self.spend_usd += float(cost)
+        if status != "completed" or not urls:
+            raise errors.VideoProviderFailed(
+                f"openrouter video: job {job_id} terminal status={status}",
+                extra={"job": str(job_id)},
+            )
+        c = self._client_or_default()
+        dl = await c.get(urls[0], headers=self._headers())
+        if dl.status_code != 200 or not dl.content:
+            raise errors.VideoProviderFailed(
+                f"openrouter video: download HTTP {dl.status_code}",
+                extra={"stage": "download"},
+            )
+        out_dir_path = Path(output_dir)
+        out_dir_path.mkdir(parents=True, exist_ok=True)
+        take = next_take_path(out_dir_path)
+        take.write_bytes(dl.content)
+        return str(take)
