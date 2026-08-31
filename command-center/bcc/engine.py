@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import time
 from datetime import timedelta
@@ -200,9 +201,32 @@ class TaskEngine:
                     await self.bus.emit("worker.error", message=f"{type(exc).__name__}: {exc}")
                     await asyncio.sleep(self.poll_interval)
         finally:
-            # выключение процесса: незавершённые run'ы отдаём lease-recovery
+            # выключение процесса: незавершённые run'ы отдаём lease-recovery.
+            # ВАЖНО: не «cancel и забыли» — дожидаемся, пока каждая отменённая
+            # задача отработает свой CancelledError и ОСВОБОДИТ коннект БД. Иначе
+            # осиротевшая run/heartbeat-задача доходит до `await s.commit()` уже
+            # на закрываемом пуле, и закрытие event loop виснет под Python 3.12
+            # (см. docs/context/FABLE5_GENERAL_OPTIMIZATION_AUDIT.md).
             for t in self._active.values():
                 t.cancel()
+            if self._active:
+                await asyncio.gather(*self._active.values(), return_exceptions=True)
+            self._active.clear()
+
+    async def aclose(self) -> None:
+        """Отменить и ДОЖДАТЬСЯ все фоновые run/heartbeat-задачи движка.
+
+        Вызывается из Services.stop СТРОГО до dispose пула БД. Порядок —
+        суть фикса: сначала слить все задачи, держащие коннекты, потом закрывать
+        пул. Работает и когда worker_loop не запускался (start_workers=False):
+        задачи, порождённые ручным прогоном в тестах, тоже дренируются здесь.
+        """
+        tasks = list(self._active.values())
+        for t in tasks:
+            t.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._active.clear()
 
     async def _execute_pooled(self, run_id: int) -> None:
         """Исполнение в пуле: hard cancel по Stop завершает run как stopped
@@ -291,6 +315,11 @@ class TaskEngine:
             await self._run(run_id)
         finally:
             heartbeat.cancel()
+            # Дожидаемся отмены heartbeat: он держит db-сессию в цикле
+            # `sleep → s.execute → s.commit`; без await он переживает execute()
+            # и виснет при закрытии пула на 3.12 (FABLE5 lifecycle audit).
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await heartbeat
 
     async def _heartbeat(self, run_id: int) -> None:
         """Продление аренды: пока worker жив, run не считается протухшим."""

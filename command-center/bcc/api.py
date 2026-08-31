@@ -142,6 +142,12 @@ class Services:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
         self._tasks = []
+        # Слить фоновые run/heartbeat-задачи движка ДО dispose пула БД:
+        # осиротевшая задача, дошедшая до `await s.commit()` на закрываемом пуле,
+        # вешает закрытие event loop под Python 3.12. Порядок «drain → dispose» —
+        # и есть фикс (см. docs/context/FABLE5_GENERAL_OPTIMIZATION_AUDIT.md).
+        with contextlib.suppress(Exception):
+            await self.engine.aclose()
         if getattr(self, "browser", None) is not None:
             with contextlib.suppress(Exception):
                 await self.browser.close()
