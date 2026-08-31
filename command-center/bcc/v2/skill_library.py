@@ -52,8 +52,32 @@ class SkillLibrary:
     def __init__(self, roots: Iterable[Path], canonical_root: Path):
         self.roots = [Path(r).expanduser().resolve() for r in roots]
         self.canonical_root = Path(canonical_root).expanduser().resolve()
+        self._cache: list[Skill] | None = None
+        self._cache_key: tuple | None = None
+
+    def _scan_key(self) -> tuple:
+        """Дешёвый ключ состояния ФС: (путь, mtime) каждого SKILL.md.
+
+        Glob дёшев; дорогой parse_skill (чтение файла + yaml) — нет. Ключ по
+        mtime позволяет пропустить именно повторный parse, когда на диске
+        ничего не изменилось (FABLE5 perf: discover/by_id re-парсили ФС на
+        каждый вызов). Изменение/добавление/удаление SKILL.md меняет ключ."""
+        entries = []
+        for root in self.roots:
+            if not root.is_dir():
+                continue
+            for path in sorted(root.glob(f"*/{SKILL_FILE}")):
+                try:
+                    mt = path.stat().st_mtime_ns
+                except OSError:
+                    mt = 0
+                entries.append((str(root), str(path.resolve()), mt))
+        return tuple(entries)
 
     def discover(self) -> list[Skill]:
+        key = self._scan_key()
+        if self._cache is not None and self._cache_key == key:
+            return list(self._cache)          # копия: кэш не мутируем наружу
         found: list[Skill] = []
         seen_paths: set[Path] = set()
         for root in self.roots:
@@ -65,7 +89,9 @@ class SkillLibrary:
                     continue
                 seen_paths.add(rp)
                 found.append(parse_skill(rp, root))
-        return found
+        self._cache = found
+        self._cache_key = key
+        return list(found)
 
     def by_id(self) -> dict[str, Skill]:
         # Earlier roots have priority.

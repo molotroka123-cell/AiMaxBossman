@@ -19,10 +19,17 @@ class Ingestor:
     def ingest_text(self, text: str, *, source_uri: str, source_type: str = "text", project: str = "",
                     metadata: dict | None = None, sensitivity: str = "normal") -> Document:
         now = utcnow(); h = sha256_text(text)
+        document_id = stable_id("doc", source_uri, h)
         doc = Document(
-            document_id=stable_id("doc", source_uri, h),source_type=source_type,source_uri=source_uri,text=text,project=project,
+            document_id=document_id,source_type=source_type,source_uri=source_uri,text=text,project=project,
             created_at=now,updated_at=now,metadata=metadata or {},content_hash=h,sensitivity=sensitivity,
         )
+        # Fast path: тот же source_uri + тот же контент → тот же document_id.
+        # Если он уже проиндексирован, повторный chunk+embed не нужен (это ровно
+        # те же данные). Убирает переэмбеддинг неизменного memory.md на каждой
+        # задаче — см. docs/context/FABLE5_GENERAL_OPTIMIZATION_AUDIT.md.
+        if self.store.document_indexed(document_id):
+            return doc
         chunks = chunk_document(doc)
         vectors = self.embedder.embed([c.text for c in chunks]) if chunks else []
         self.store.upsert_document(doc)

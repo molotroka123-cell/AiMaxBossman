@@ -87,6 +87,17 @@ class ContextStore:
     def close(self) -> None:
         self.db.close()
 
+    def document_indexed(self, document_id: str) -> bool:
+        """Документ уже проиндексирован (есть хотя бы один чанк)?
+
+        document_id = stable_id(source_uri, content_hash), поэтому равенство id
+        означает «тот же источник с тем же содержимым». Позволяет пропустить
+        повторный chunk+embed идентичного текста (FABLE5 perf: memory.md
+        переэмбеддился на каждой задаче)."""
+        row = self.db.execute(
+            "SELECT 1 FROM chunks WHERE document_id=? LIMIT 1", (document_id,)).fetchone()
+        return row is not None
+
     def upsert_document(self, doc: Document) -> None:
         self.db.execute(
             """INSERT INTO documents VALUES (?,?,?,?,?,?,?,?,?,?,?)
