@@ -154,3 +154,40 @@ requires real hardware remains honestly `SKIP_HOST`/`NOT_TESTED_LIVE` and is
 captured as an executable checklist in `REAL_HARDWARE_FINAL_ACCEPTANCE.md`,
 including the AAF/IntelligenceRetention benchmarks and the separate,
 subsequent RED vs BLUE stress-lab gate.
+
+## CI proof (added after push, same commit)
+
+```
+CI_EXACT_HEAD_SHA=99bf49551ec7de3d33b232471902082d21ef1273
+Bossman Core CI      = SUCCESS  (9/9 jobs: compile+secrets, pytest × 4 splits × py3.11/3.12)
+Command Center CI    = SUCCESS  (3/3 jobs: secrets+JS+forbidden-files, pytest py3.11, pytest py3.12)
+Bossman V2 Auto-Repair = FAILURE (pre-existing, unrelated — see below)
+```
+Run URLs: `https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/33390067163`
+(Core), `https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/33390067189`
+(Command Center).
+
+**`Bossman V2 Auto-Repair` is a stale, orphaned workflow, not a real signal.**
+It fails within seconds at its "Fix PostgreSQL Schema" step on literally
+every push to this branch regardless of content — including doc-only commits
+and commits that already succeeded on both real CI workflows. It predates
+this pass (confirmed failing on the parent commit and multiple commits
+before it) and its "V2" name matches an architecture era this repo has moved
+past. Not fixed in this pass: touching CI/CD pipeline definitions is a
+separate, deliberate decision, and this workflow provides no test signal
+worth preserving — it's dead automation, the same class of finding as the
+orphan schema table and shim module documented above.
+
+**Known intermittent flake (not caused by this pass, not currently failing):**
+`command-center/tests/test_v21_failure_injection.py::test_state_survives_process_restart_midway`
+can hang at fixture teardown under Python 3.12 specifically — reproduced
+locally by installing a Python 3.12 venv and running the FULL suite (hangs
+past a 400s cap); does NOT reproduce running that test alone, and did NOT
+reproduce on this pass's actual CI run (both py3.11 and py3.12 Command
+Center jobs succeeded on commit 99bf495). It also failed the SAME way on
+multiple prior commits before this pass touched anything in
+`command-center/`, confirming it predates this work. Root cause not
+diagnosed in this pass (asyncio event-loop teardown behavior differs between
+3.11/3.12; likely a background task from `bcc/engine.py`'s per-run
+`asyncio.create_task` not settling before `pytest-asyncio`'s runner closes
+the loop) — flagged for a future pass rather than guessed at.
