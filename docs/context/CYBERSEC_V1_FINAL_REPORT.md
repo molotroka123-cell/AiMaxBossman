@@ -3,7 +3,9 @@
 ```
 START_SHA=afa106d
 CODE_SHA=ca6e2b9                     (код + тесты + docs/security)
-FINAL_SHA=<см. git rev-parse HEAD после этого коммита>
+DOCS_SHA=7f5caab                     (README / CURRENT_STATE / этот отчёт)
+ALL_COUNTERS_MEASURED_AT=7f5caab     (счётчики ниже относятся к этому дереву)
+FINAL_SHA=<этот коммит: он лишь вписывает SHA выше, код не трогает>
 
 CYBERSEC_MODULES_CONNECTED=10/10
   01 Prompt Injection Firewall   bossman/cybersec/injection.py
