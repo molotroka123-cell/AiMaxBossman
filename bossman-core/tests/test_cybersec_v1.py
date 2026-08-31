@@ -105,7 +105,7 @@ def test_detects_exfiltration_request():
 
 
 def test_secret_egress_blocked_and_value_not_echoed():
-    payload = "authorization: Bearer sk-live-SUPERSECRET-1234567890"
+    payload = "authorization: Bearer sk-live-SUPERSECRET-1234567890"  # ci-secret-scan: allow — fake canary
     with pytest.raises(secret_guardian.SecretEgressBlocked) as e:
         secret_guardian.assert_no_secret_egress(payload, destination="webhook")
     assert "SUPERSECRET" not in str(e.value)      # секрет не утёк в исключение

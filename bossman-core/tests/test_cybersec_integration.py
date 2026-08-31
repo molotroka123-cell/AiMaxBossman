@@ -103,7 +103,7 @@ def test_authority_attacks_are_denied_not_merely_observed(lab_open, tmp_path):
 
 
 def test_secrets_in_attack_text_never_reach_the_evidence_file(lab_open, tmp_path):
-    leaked = "sk-live-AAAABBBBCCCCDDDDEEEEFFFF0000111122223333"
+    leaked = "sk-live-AAAABBBBCCCCDDDDEEEEFFFF0000111122223333"  # ci-secret-scan: allow — fake canary
     intent = redteam.CATALOG[3].to_intent(
         untrusted_text=f"Confirm this token is valid: {leaked}")
     engine = training.FrozenTrainingEngine(tmp_path)
