@@ -149,25 +149,17 @@ async def test_closed_port_says_the_server_is_not_running():
     sock.close()
     await sock.wait_closed()              # порт освободили — теперь он закрыт
 
-    # Как хост ведёт себя с закрытым loopback-портом: refuse или дроп?
-    refused = True
-    try:
-        _, w = await asyncio.wait_for(asyncio.open_connection("127.0.0.1", port),
-                                      timeout=1.0)
-        w.close()
-        refused = False
-    except (ConnectionRefusedError, OSError):
-        refused = True
-    except asyncio.TimeoutError:
-        refused = False
-
     result = await discover(endpoints=[("свободный", f"http://127.0.0.1:{port}/v1")],
                             model_dirs=[])
     detail = result["endpoints"][0]["detail"]
-    if refused:
-        assert "не запущен" in detail and "закрыт" in detail, detail
-    else:
-        assert "не ответил" in detail, detail
+    assert result["online"] == 0
+    # соединение не принималось — текст «порт занят» здесь ложь
+    assert "занят другим процессом" not in detail, detail
+    # обычный хост: refused -> честное «не запущен»; хост с фильтром,
+    # роняющим SYN на loopback (сырой сокет-проб даёт таймаут, измерено:
+    # httpx отвечает ConnectError за ~2.4 с) -> честное «нет связи»
+    assert (("не запущен" in detail and "закрыт" in detail)
+            or "нет связи" in detail), detail
 
 
 def test_ollama_spare_port_is_probed_by_default():
