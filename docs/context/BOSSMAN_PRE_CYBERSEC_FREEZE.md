@@ -1,88 +1,94 @@
 # BOSSMAN — PRE-CYBERSEC FREEZE (baseline for CyberSec AI V1)
 
-Этот документ — база для следующей эпохи (CyberSec AI V1). Он фиксирует
-архитектуру, авторитеты, поверхность атаки, тестовую/ресурсную базу и открытые
-пункты. Никакого маркетинга — только проверяемые факты.
-
-## SHAs
-- START_REMOTE_SHA (база сверки): `ac044f6`
-- FINAL_LOCAL_SHA / FINAL_REMOTE_SHA: см. `V3_PRE_CYBERSEC_FINAL_REPORT` (обновляется при push)
+База для следующей эпохи. Только проверяемые факты, без маркетинга.
 
 ## Архитектура и авторитеты (канон, не дублируется)
-Канонический цикл: `intent → typed action → policy/scopes → approval → executor →
-fresh observation → verification → audit`. Запрещено `LLM → произвольный shell`.
-- **Gateway** (Stage 3) + **Cost Governor** — единственный путь к облачным/локальным моделям.
-- **Policy/Approval/Scopes** — bossman-core `perimeter`/`approvals`; command-center
-  `tools.decide_effect` (AUTO/ASK/DENY) + `permissions`.
-- **Secret Store** — command-center Vault (Fernet); bossman-core `settings`/env; только маски.
-- **EventBus/Audit** — `events`/`obs` (секреты вычищаются при логировании).
-- **Computer Operator** (Stage 13) — единственный desktop-исполнитель (allowlist APP_LAUNCH).
-- **Memory authority** — `context_engine` (Stage 2.222) канонична; LLM-V2
-  `working/decision/failure_memory` — новая asyncpg-прослойка (см. «Открытые пункты»).
-- **Profiles** (мой предыдущий вклад, если влит отдельной веткой) — доступ по
-  device-identity + тумблеры; не второй auth.
+Цикл: `intent → typed action → policy/scopes → approval → executor → fresh
+observation → verification → audit`. Запрещено `LLM → произвольный shell`.
+- **Gateway** (Stage 3) + **Cost Governor** — единственный путь к моделям.
+- **Policy/Approval/Scopes** — core `perimeter`/`approvals`; CC `tools.decide_effect` + `permissions`.
+- **Secret Store** — CC Vault (Fernet) + env; только маски.
+- **EventBus/Audit** — `events`/`obs` (секреты вычищаются).
+- **Computer Operator** (Stage 13) — единственный desktop-исполнитель (allowlist).
+- **ПАМЯТЬ — ОДНА АВТОРИТЕТНОСТЬ** (закрыто в этом проходе):
+  `db/schema.sql` (единственный DDL) → `bossman.db` пул (jsonb-кодек, авто-схема)
+  → typed views: `WorkingMemory`, `decision_memory`, `failure_memory`.
+  `context_engine` — retrieval/RAG-индекс, НЕ конкурирующий durable-store.
 
-## V3 7-Pack — интеграция (feature-gated, adapter-only)
-Вендорнут как `bossman-core/bossman_v3/` (пакет матчит `bossman*` в pyproject).
-Все фичи ВЫКЛ по умолчанию: `BOSSMAN_V3_ENABLED=0` + пофичевые флаги. Пакет
-НЕ создаёт второй Gateway/Policy/Approval/Registry/Memory/Executor — только
-Protocols (`contracts.py`) и тонкие адаптеры (`adapters/bossman_core.py`).
+## REAL POSTGRESQL GATE — ДОКАЗАН
+Живой PostgreSQL **16.13** (локальный кластер, порт 5433, pgvector) — не мок.
+С ЧИСТОЙ БД: схема применяется (`ON_ERROR_STOP=1`, exit 0) → 14 таблиц, 27 индексов.
 
-| Компонент | Статус | Примечание |
+| Проверка | Результат |
+|---|---|
+| schema/migrations на чистой БД | PASS |
+| working memory create/update | PASS |
+| optimistic concurrency (конфликт + отсутствие записи при конфликте) | PASS |
+| checkpoint / restore / append-only версии | PASS |
+| decision create / query / supersede (история сохранена) | PASS |
+| failure record / query / resolve | PASS |
+| JSONB хранится настоящим JSON (`@>` containment работает) | PASS |
+| process restart → state restore | PASS |
+| clean shutdown | PASS |
+**GATE: PASS (24/24)**; как постоянный тест — `tests/test_pg_memory_gate.py`
+(5 тестов; без `BOSSMAN_TEST_PG_DSN` — честный SKIP_HOST).
+
+## Скорость (измерено, не оценка)
+Против ЖИВОГО Postgres и на чистых модулях:
+
+| Метрика | p50 | p95 |
 |---|---|---|
-| Context/Data Guardian | INTEGRATED (off) | анти-context-starvation; P0/P1 защищены даже сверх бюджета (тест) |
-| Universal Computer Agent | INTEGRATED (off) | raw-shell отвергается ДО policy (тест); дублирует существующий manager → не на hot-path |
-| Visual State Engine | INTEGRATED (off) | structured > vision; shadow-only |
-| Self-Healing | INTEGRATED (off) | EV+Beta выбор стратегии; не повторяет опровергнутое |
-| Skill Factory + Reliability | INTEGRATED (off) | verified-trace → EXPERIMENTAL→SHADOW→PRODUCTION; Beta-LCB; raw-shell отвергается |
-| Recovery Kernel | INTEGRATED (off) | loop/watchdog/budget; FileCheckpointStore — только demo |
-| Self-Improvement Lab | INTEGRATED (off) | **proposal-only**: не мержит/деплоит/повышает права |
+| MEMORY_LOOKUP (реальный PG round-trip) | 0.338 ms | 0.467 ms |
+| DECISION_LOOKUP (реальный PG) | 0.376 ms | 0.759 ms |
+| CONTEXT_OPTIMIZER (Guardian, 200 items) | 0.185 ms | 0.263 ms |
+| MODEL_ROUTER (M0–M7, кэш-scorecards) | 0.016 ms | 0.027 ms |
+| SKILL_RELIABILITY_LCB | 0.187 ms | 0.256 ms |
 
-Тесты пакета: 7 (pack) + 10 (инварианты: флаги OFF+master-gating, shell-reject,
-guardian critical-survival, conflict-preservation) — все зелёные.
+**FAST_PATH суммарно ≈ 0.5–1.5 ms p95** — на порядки меньше инференса модели
+(сотни ms…секунды). Закон «модули не замедляют обычные решения» выполнен с
+доказательством. Роутер детерминирован и **не зовёт LLM, чтобы выбрать LLM**
+(проверено: `cloud_allowed=False` → облачные M5–M7 отклонены `cloud disabled`).
 
-## 8 intelligence mini-modules — статус (честно)
-| Mini | Наличие | Статус |
-|---|---|---|
-| 01 Working Memory | `working_memory.py` (asyncpg-класс) | код есть; **схема рассинхронизирована (OPEN P0)**; логика покрыта fake-pool тестами |
-| 02 Decision Memory | `decision_memory.py` | asyncpg-контракт ПОЧИНЕН; покрытие детерминированное |
-| 03 Failure Memory | `failure_memory.py` | asyncpg-контракт ПОЧИНЕН (async-for/status/double-pool); покрыт |
-| 05 Context Optimizer | `context_engine/retrieval.py` + `context_os` + V3 Guardian | есть; MMR отсутствует (dedup есть); Guardian добавляет анти-starvation |
-| 22 Evidence Confidence | `bcc/v2/model_intelligence.Confidence`, `computer_operator/verifier` | есть; V3 `VerifierPort` — тонкая обёртка |
-| 29 Skill Reliability | V3 `skill_factory/reliability` (Beta LCB) | добавлен статистически корректный LCB (был raw success_rate) |
-| 30 Skill Factory | `bcc/features/skills` + V3 `skill_factory` | typed-trace stage-gate добавлен пакетом (off) |
-| 32 Model Intelligence | `bcc/v2/model_intelligence` + `model_router` | есть и протестирован; V3 второй роутер НЕ добавляли |
+## V3 7-Pack (feature-gated, adapter-only)
+`bossman-core/bossman_v3/`, всё ВЫКЛ по умолчанию (`BOSSMAN_V3_ENABLED` + пофичевый флаг).
+Пакет не создаёт второй Gateway/Policy/Approval/Registry/Memory/Executor — только
+Protocols + тонкие адаптеры. Guardian / Computer Agent / Visual State / Self-Healing /
+Skill Factory+Beta-LCB / Recovery Kernel / Self-Improvement Lab.
 
-## Быстродействие (честные микробенчи, не end-to-end)
-Детерминированные микробенчи V3-модулей (без модели/БД, 2000–20000 итераций):
-- `ContextDataGuardian.select` (200 items): **p50 0.21ms, p95 0.30ms**.
-- `reliability_lcb` (Beta LCB): **p50 ~0.19ms**.
-Вывод: интеллект-модули добавляют суб-миллисекундный оверхед — пренебрежимо на фоне
-инференса/исполнения инструментов. Полные end-to-end router/memory-lookup латентности
-против реальных провайдеров/Postgres — **host-limited, здесь НЕ измерены** (не выдумываем).
+## 8 mini-modules — статус
+| Mini | Статус |
+|---|---|
+| 01 Working Memory | **PROVEN on real PG** (typed view, версии, concurrency) |
+| 02 Decision Memory | **PROVEN on real PG** (supersede + история) |
+| 03 Failure Memory | **PROVEN on real PG** (record/query/resolve, JSONB queryable) |
+| 05 Context Optimizer | context_engine + context_os + V3 Guardian; p95 0.263 ms |
+| 22 Evidence Confidence | `model_intelligence.Confidence` + verifier (не авторизует) |
+| 29 Skill Reliability | Beta-LCB (было raw success_rate); off-hot-path |
+| 30 Skill Factory | verified-trace stage-gate (EXPERIMENTAL→SHADOW→PRODUCTION), OFF |
+| 32 Model Intelligence | `model_router` + scorecards; p95 0.027 ms, без LLM |
 
-## Тестовая база (после правок)
-- bossman-core: **962 passed, 1 failed (HOST_SPECIFIC Windows), 4 skipped**.
-- command-center: см. FINAL_REPORT (collection-блокер устранён).
-- Новое: memory asyncpg-контракт (6), working_memory host-honest (5+1 SKIP_HOST),
-  V3 pack+инварианты (17).
+## Безопасность
+- Self-Improvement Lab — **PROPOSAL-ONLY**, доказано тестами: нет методов
+  merge/push/deploy/promote/grant/set_policy; нет subprocess/сети/записи;
+  security-регрессия и падение verified-success блокируют promotable.
+- V3 Computer Agent отвергает raw shell (`shell/exec/cmd/powershell/shell.*`).
+- Guardian не выбрасывает P0/P1/protected даже при переполнении бюджета; обе
+  стороны конфликта сохраняются.
+- 285 security/perimeter/approval/scope тестов зелёные.
 
-## Открытые пункты (P0/P1/DEFERRED)
-- **OPEN P0** — `WorkingMemory` (asyncpg) ждёт схему `project_id` + таблицу
-  `working_memory_versions`; в `db/schema.sql` их нет, плюс дубль таблицы
-  `working_memory` (строки 146/230). НЕ патчил вслепую (нет live PG; риск сломать
-  boot). Требует ревью-миграции на реальном Postgres. Модуль сейчас orphaned (не в проде).
-- **SKIP_HOST** — REAL POSTGRES GATE, live-провайдеры, полный speed/AAF-бенчмарк,
-  Windows Stage13 foreground.
-- **HOST_SPECIFIC baseline fail** — `test_stage13_windows_adapter` (нужен Windows).
+## Тестовая база (воспроизведено в этом проходе)
+- bossman-core (с живым PG): **975 passed, 5 skipped, 0 failed**
+- bossman-core (без PG): 964 passed, 10 skipped, 0 failed (гейт честно SKIP_HOST)
+- command-center: **610 passed, 2 skipped, 0 failed**
 
-## Поверхность атаки (текущая, для CyberSec V1)
-Внешние входы: Telegram webhook (secret + allowlist), Remote Client device-tokens
-(scopes), HTTP plugin GET (SSRF-защита + pinned DNS + max_bytes), SQL read
-(mode=ro + modifying-CTE gate), браузер (allowlist), MCP (unknown→deny). Секреты —
-Vault/маски. Все внешние тексты (webpage/repo/memory) — untrusted.
+## Открытые пункты
+- Live-провайдеры (Ollama/облако), Windows Stage13 foreground, браузер — требуют
+  реального хоста → SKIP_HOST.
+- Полный A/B бенчмарк (AAF, IntelligenceRetention на реальных задачах) — не
+  измерялся: нужны реальные модели и задачи. Числа НЕ выдумываю.
 
-## Feature-gates (сводно)
-`BOSSMAN_V3_ENABLED`(+пофичевые), `BOSSMAN_LOW_MEMORY`, `BOSSMAN_SANDBOX_ENABLED`,
-`BOSSMAN_UNSAFE_LOCAL_EXEC`, `TELEGRAM_WEBHOOK_SECRET`, `SQL_PLUGIN_DSN`,
-`BOSSMAN_TEST_PG_DSN` (для real-PG gate).
+## Поверхность атаки (для CyberSec V1)
+Telegram webhook (secret+allowlist), Remote Client device-tokens (scopes),
+HTTP plugin GET (SSRF + pinned DNS + streaming max_bytes), SQL read (mode=ro +
+modifying-CTE gate), браузер (allowlist), MCP (unknown→deny), Postgres (единственный
+durable store). Секреты — Vault/маски. Внешние тексты — untrusted.

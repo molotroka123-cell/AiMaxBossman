@@ -3,55 +3,46 @@
 Ветка: `claude/bossman-control-v03-43igbk`. NO force push. Remote — источник истины.
 
 ## HEADs
-- START_LOCAL_SHA (до сверки): `e3bbe39` (локальные дубликаты Lane-2, уже в remote)
-- START_REMOTE_SHA: `ac044f6` — принят как база (remote ушёл далеко вперёд)
-- Действие: `git checkout -B … origin/…` (сброс на remote); мои прошлые cherry-pick'и
-  Lane-2 (LSP confinement) оказались ДУБЛИКАТАМИ уже-влитой работы → отброшены.
+- START_LOCAL_SHA = START_REMOTE_SHA = `4b6d7cb` (совпадали; конкурентной работы
+  Agent B на этой ветке не было — проверено `git log --all --since=24h`).
+- Сиблинг-ветки (не мержил, только сверился): `fix/p0-p1-schema-memory-pg-gate`,
+  `feature/hard-reasoning-v2-master-prompt`, `security/audit-fixes-10-issues`,
+  `claude/v2-reasoning-engine`, `claude/bossman-v2-context-os`.
 
-## Классификация внешних изменений на remote (ключевое)
-| SHA | Что | Решение |
+## Классификация внешних изменений
+| Источник | Что | Решение |
 |---|---|---|
-| e3d53a5,5941c8f,09e5a22 | RC Master Fix Pass: SQL modifying-CTE gate, DNS pinned-connect, streaming max_bytes, redaction, регресс-тесты | KEEP — проверено присутствие в HEAD (см. ниже) |
-| 5fbe17f, ac9506f | LSP workspace confinement (canonical allowed_roots/_within) | KEEP — совпадает с моим Lane-2 (дубликат отброшен) |
-| cc4ef67 | V1 freeze | KEEP |
-| 0516bb0→93e4ef8, 9880087, 50e0668, 8468674 | LLM-V2: working/decision/failure memory, task graph, model intelligence | KEEP + **REPAIR** (fake-green P0/P1, см. ниже) |
-| 31d6982, eef14fd | context-os (hierarchical/compiler/state/stores) | KEEP |
-| befad9a, ba84377, 7fe28ef | apps ecosystem V1 | KEEP |
+| `fix/p0-p1-schema-memory-pg-gate` (84af8df) | независимо нашёл ту же потерю `CREATE TABLE projects` | **KEEP-IDEA / REPAIR независимо** — я починил на своей ветке (ветки не мержу, чтобы не тащить чужой незавершённый контекст) |
+| `ac044f6` и ранее (LLM-V2 memory) | working/decision/failure memory | **REPAIR** — см. P0 ниже |
+| RC-фиксы (SQL CTE, DNS pin, max_bytes, LSP confinement) | уже в HEAD | KEEP (проверено, не дублировал) |
 
-Проверка RC-фиксов в текущем HEAD (не дублировать): `sql_read_only_ok` режет
-modifying-CTE (`plugins.py:183`); `resolve_pinned_ip`+`stream`+`max_bytes` в
-`plugin_security.py:106,176,192`; LSP `allowed_roots/_within` в `code_intel.py:94`. ✅
+## P0/P1, найденные и ЗАКРЫТЫЕ в этом проходе (все — с живым Postgres)
 
-## Baseline (до моих правок, честно)
-- bossman-core: **939 passed, 1 failed, 4 skipped**.
-  - 1 failed = `test_stage13_windows_adapter::test_windows_foreground_…` →
-    **HOST_SPECIFIC**: тест мокает `pywinauto`, но не `is_windows`; на Linux
-    `WindowsDesktop.foreground()` бьёт `RuntimeError("Windows backend requires Windows")`
-    раньше мок-пути. Требует Windows-хост. Владелец — недавняя computer_operator-работа. Не трогаю.
-- command-center: **1 error (collection)** — `tests/test_working_memory.py` не
-  импортируется (`OptimisticConcurrencyConflict` отсутствовал) → блокировал весь набор. **NEW/REAL P1 → починено.**
-
-## P0/P1, найденные и обработанные (fake-green в LLM-V2 memory)
-Модули `working_memory.py`/`decision_memory.py`/`failure_memory.py` — **не
-импортируются нигде в проде** (orphaned scaffolding parallel-work), но написаны
-с реальными дефектами:
-
-| ID | Дефект | Файл | Действие |
+| ID | Дефект | Доказательство | Статус |
 |---|---|---|---|
-| P1 | контракт имени: `ConcurrencyError` vs ожидаемый `OptimisticConcurrencyConflict` (ронял сбор CC) | working_memory.py:261 | FIX: канонический тип + alias |
-| P0 | asyncpg: `executescript`/`commit` (нет в asyncpg Pool) | decision/failure init | FIX: `execute()` (simple-query DDL) |
-| P0 | asyncpg: SQLite `AUTOINCREMENT` в embedded DDL (parse-fail на PG) | decision_memory.py:63 | FIX: `BIGSERIAL`/`BIGINT` |
-| P1 | `await conn.execute()` затем `async for` (execute → строка статуса) | failure_memory.py:180 | FIX: `fetch()` |
-| P1 | `result.status` на строке | failure_memory.py:212 | FIX: сравнение строки `== "UPDATE 1"` |
-| P1 | dead double-pool в `query_failures` | failure_memory.py:247 | FIX: одиночный `fetch()` |
-| P1 | `commit()` в `supersede_decision` | decision_memory.py:248 | FIX: `execute()`, без commit |
-| **P0 (OPEN)** | схема/класс рассинхрон: `WorkingMemory` требует `project_id` + `working_memory_versions`, которых НЕТ в `db/schema.sql` (+ дубликат таблицы `working_memory` строки 146/230) | working_memory.py / db/schema.sql | **DEFER — не патчу вслепую** (нет live PG для валидации миграции; риск сломать boot > пользы). Задокументировано в FREEZE-доке как открытый P0. |
+| **P0-1** | `db/schema.sql`: утерян `CREATE TABLE projects` (регресс из `9880087`); колонки остались «сиротами», две таблицы ссылаются на `projects(id)` | pre-fix схема на чистой БД: `ERROR: syntax error at or near "id"` (exit 3). Схема **не применялась вовсе** — Postgres был недоступен в принципе | **FIXED** — post-fix: 14 таблиц, 27 индексов, `ON_ERROR_STOP=1` exit 0 |
+| **P0-2** | `async with (await pool()) as conn:` в `decision_memory` (4 места) — вход в asyncpg **Pool** как в контекст-менеджер **ЗАКРЫВАЕТ пул** на выходе → весь процесс теряет БД | живой прогон: `InterfaceError: pool is closed` после первой же операции | **FIXED** — `.acquire()` / модульные хелперы; регресс-тест `test_no_pool_as_context_manager_anywhere` |
+| **P0-3** | `failures`: модуль писал/читал `failure_id`, которого НЕТ в каноничной схеме | живой прогон: `UndefinedColumnError: column "failure_id" does not exist` | **FIXED** — `failure_id TEXT NOT NULL UNIQUE` добавлен в схему (симметрия с `decisions.decision_id`) |
+| **P0-4** | Двойное JSON-кодирование: пул уже несёт jsonb-кодек (`json.dumps`), а модули дополнительно звали `json.dumps` → в JSONB лежала *строка*, `@>`-запросы не работали | живой тест `FM_JSONB_QUERYABLE` (containment `files @> '["a.py"]'`) | **FIXED** — нативные объекты; containment=1 |
+| **P0-5** | `working_memory` требовал `project_id` + таблицу `working_memory_versions`, которых не было | ранее «guaranteed crash» | **FIXED** — переписан как typed view (task-scoped) + добавлена `working_memory_versions` |
+| P1-1 | дубль таблицы `working_memory` в схеме | статически | FIXED (дедуп) |
+| P1-2 | Windows Stage13 тест падал на Linux (нет `ctypes.windll`) | локально | FIXED (честный SKIP_HOST) |
 
-Покрытие починок — детерминированное (без live PG):
-`command-center/tests/test_working_memory.py` (5 passed + 1 SKIP_HOST real-PG gate),
-`bossman-core/tests/test_memory_asyncpg_contract.py` (6 passed).
+## Единая авторитетность памяти (RESOLVED)
+Было: три модуля со **своими встроенными DDL** (`DECISION_SCHEMA`, `FAILURE_SCHEMA`)
+и working_memory с чужим пулом → несколько источников правды о схеме.
 
-## Postgres
-Живого Postgres в среде НЕТ (нет `PG*`/`DATABASE_URL`, порт 5432 закрыт, docker
-недоступен; `config.py` указывает на docker-hostname `postgres`). Поэтому «REAL
-POSTGRES GATE» — **SKIP_HOST**; asyncpg 0.31 установлен, но сервера нет.
+Стало — **ОДНА каноничная персистентность**:
+```
+db/schema.sql (единственный DDL)  →  bossman.db pool (jsonb codec, авто-применение схемы)
+      ↓                    ↓                    ↓
+WorkingMemory (view)  decision_memory (view)  failure_memory (view)
+```
+* встроенный DDL удалён из обоих модулей; `init_*_table()` теперь **проверяет**
+  каноничную таблицу (`to_regclass`) и честно падает, если её нет — вместо тихого
+  создания второй, расходящейся схемы;
+* `WorkingMemory` использует канон-пул, ключ — `task_id` (как у сиблингов);
+  проектный скоуп выводится из `tasks.project_id`, дублировать не нужно;
+* `context_engine` остаётся **retrieval/RAG-индексом** (documents/chunks/embeddings),
+  а не конкурирующим durable-авторитетом.
+Регресс-тест запрещает возврат встроенного DDL и pool-closing паттерна.
