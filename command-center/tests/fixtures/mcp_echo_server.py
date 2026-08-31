@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Детерминированный локальный MCP-сервер для тестов Lane D.
 
-Настоящий сервер на официальном SDK (`mcp.server.mcpserver.MCPServer`),
+Настоящий сервер на официальном SDK (`mcp.server.fastmcp.FastMCP`, mcp==1.27),
 поднимается по stdio отдельным процессом — никаких моков протокола.
 
 Инструменты:
@@ -20,9 +20,12 @@ import os
 import sys
 from pathlib import Path
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.fastmcp import FastMCP
 
-server = MCPServer(name="echo-fixture", version="1.0.0")
+# SDK 1.27: класс называется FastMCP (mcp.server.mcpserver.MCPServer не существует —
+# вся MCP-связка падала именно на этом импорте каскадом из 13 тестов).
+# Параметра `version` у конструктора в 1.27 больше нет — версия уходит в протоколе.
+server = FastMCP(name="echo-fixture")
 
 
 def _bump(tool: str) -> int:
