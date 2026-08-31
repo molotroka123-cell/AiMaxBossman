@@ -91,7 +91,7 @@ def memory_turn(client: httpx.Client, url: str, headers: dict, model: str) -> di
 
 def run_arm(name: str, url: str, headers: dict) -> dict:
     rows: dict[str, list[dict]] = {key: [] for key in TASKS}
-    with httpx.Client(timeout=httpx.Timeout(180)) as client:
+    with httpx.Client(timeout=httpx.Timeout(420)) as client:
         for task, (prompt, scorer) in TASKS.items():
             for _ in range(REPEATS):
                 if task == "memory_sensitive":
@@ -137,7 +137,7 @@ def metric_delta(before: dict, after: dict) -> dict:
 
 
 def write_config(path: Path) -> None:
-    path.write_text(f"""server:\n  host: 127.0.0.1\n  port: {PORT}\n  allow_unauthenticated_loopback: false\nbackends:\n  ollama:\n    base_url: http://127.0.0.1:11434\n    health_path: /v1/models\n    timeout_seconds: 180\n    max_concurrency: 1\naliases:\n  bossman-fast:\n    targets:\n      - backend: ollama\n        model: {MODEL}\n        capabilities: [text, tools]\nclients:\n  bossman-core:\n    key_env: BOSSMAN_GATEWAY_CORE_KEY\n    allowed_aliases: [bossman-fast]\n""", encoding="utf-8")
+    path.write_text(f"""server:\n  host: 127.0.0.1\n  port: {PORT}\n  allow_unauthenticated_loopback: false\nbackends:\n  ollama:\n    base_url: http://{os.environ.get("OLLAMA_HOST", "127.0.0.1:11434").replace("0.0.0.0", "127.0.0.1")}\n    health_path: /v1/models\n    timeout_seconds: 360\n    max_concurrency: 1\naliases:\n  bossman-fast:\n    targets:\n      - backend: ollama\n        model: {MODEL}\n        capabilities: [text, tools]\nclients:\n  bossman-core:\n    key_env: BOSSMAN_GATEWAY_CORE_KEY\n    requests_per_minute: 10000\n    burst: 1000\n    allowed_aliases: [bossman-fast]\n""", encoding="utf-8")
 
 
 def wait_for_gateway() -> None:
@@ -217,7 +217,7 @@ def main() -> None:
         write_config(config)
         env = dict(os.environ, BOSSMAN_GATEWAY_CONFIG=str(config), BOSSMAN_GATEWAY_CORE_KEY=KEY)
         process = subprocess.Popen([sys.executable, "-m", "bossman.gateway.main"], cwd=CORE, env=env,
-                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
         try:
             try:
                 wait_for_gateway()
