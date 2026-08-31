@@ -48,6 +48,37 @@ def _learning_excluded(task_id: str) -> bool:
         pass
     return False
 
+async def _select_compute(task: dict):
+    """V2.6 модуль B: детерминированный выбор уровня compute (без LLM).
+
+    OFF по умолчанию (BOSSMAN_ADAPTIVE_COMPUTE) → None, поведение ядра не
+    меняется. Включён: DecisionSignals + Uncertainty (первый production-читатель
+    failure memory) → ComputeLevel; C0 освобождает тривиальную задачу от
+    retrieval (embed+hybrid search — O8 из FABLE5-аудита). Сбой → None.
+    """
+    if not settings.adaptive_compute:
+        return None, ()
+    try:
+        from . import compute_budget, uncertainty
+        from .signals import derive_signals
+        prior_runs = await db.fetchrow(
+            "SELECT count(*) AS n FROM runs WHERE task_id=$1 AND status='failed'",
+            task["id"])
+        failures = int(prior_runs["n"]) if prior_runs else 0
+        sig = derive_signals(task["text"], previous_failures=failures)
+        u = uncertainty.estimate(
+            failure_history=min(1.0, failures / 3.0), risk=sig.risk,
+            task_class=task.get("agent") or "")
+        sig = sig.with_(uncertainty=u.score)
+        level, reasons = compute_budget.select_level(sig)
+        events.emit("task.compute_level", id=task["id"], level=level.name,
+                    reasons=reasons[:5])
+        return level, tuple(reasons)
+    except Exception as exc:  # noqa: BLE001 — контроллер вторичен
+        _log.warning("adaptive compute skipped: %s", exc)
+        return None, ()
+
+
 QUEUE_KEY = "bossman:tasks"
 
 # Данные извне (письмо, страница, вывод команды) подаются как данные, не команды.
@@ -270,10 +301,15 @@ async def run_task(task: dict) -> None:
     budget = ContextBudget(window=real_window(agent.model))
     builder = ContextBuilder(budget, _system_prompt(agent))
     tools = _tool_schemas(agent)
+    # V2.6 модуль B: уровень compute (None при выключенном флаге — как раньше).
+    compute_level, _compute_reasons = await _select_compute(task)
     # ЭТАП 2.222: наполнить блок retrieved долговременной памятью + evidence и
     # обрезать tool-схемы под задачу. Слой поверх ContextBuilder, не замена.
-    tools = apply_context_engine(builder, tools, project=agent.name,
-                                 task_text=task["text"], memory_md=agent.memory)
+    # V2.6: на C0 (тривиально) retrieval не выполняется — demand-driven
+    # активация: простой таск не платит за embed+hybrid search.
+    if compute_level is None or int(compute_level) > 0:
+        tools = apply_context_engine(builder, tools, project=agent.name,
+                                     task_text=task["text"], memory_md=agent.memory)
     started = time.monotonic()
     total_tokens = 0
     steps = 0

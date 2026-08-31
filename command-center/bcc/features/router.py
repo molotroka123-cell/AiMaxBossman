@@ -3,15 +3,25 @@
 Обвязка готовой чистой логики bcc/v2/model_router.route над реестром моделей:
 регистрирует хук engine.pick_model, кладёт объяснение маршрута в task_runs.route
 и шлёт router.route_selected. Логику скоринга не переписываем (пак — owner).
+
+V2.6 (модули B/G, за правилом rules["adaptive"]=true, OFF по умолчанию):
+- classify_reasoning (L0–L4, bcc/v2/model_intelligence) наконец подключён к
+  реальному pick_model — уровень выводится детерминированно из промпта/меты и
+  ложится в route.reasoning (виден в /router/explain);
+- success_rate становится per-(model, task.kind), консервативно: класс-метрика
+  используется только при n >= CLASS_MIN_EPISODES, иначе fallback на глобальную
+  (никаких выводов из одного эпизода).
 """
 from __future__ import annotations
 
 import json
+import re
 
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 
 from ..db import models as models_t, settings_kv, task_runs as runs_t, tasks as tasks_t
+from ..v2.model_intelligence import TaskComplexityFeatures, classify_reasoning
 from ..v2.model_router import (MAX_CANDIDATES, ModelCandidate, RouteRequest,
                                candidate_digest, route, shortlist)
 from ..v2.tables import model_capability_checks as caps_t
@@ -24,6 +34,38 @@ DEFAULT_RULES = {
     # роль-скоры моделей по типу задачи можно доуточнять из UI; дефолт — из caps
     "prefer_local": True,
 }
+
+# V2.6: класс-специфичная метрика допускается только при достаточной выборке.
+CLASS_MIN_EPISODES = 5
+
+_MULTI_STEP_RE = re.compile(
+    r"(затем|потом|после (этого|чего)|шаг|этап|and then|after that|step \d|"
+    r"сравн|мигрир|migrate|refactor)", re.I)
+_MUTATION_RE = re.compile(
+    r"(удали|delete|drop |перепиши|rewrite|deploy|деплой|push|commit|измени|"
+    r"замени|write|запиши)", re.I)
+_SECURITY_RE = re.compile(
+    r"(secret|секрет|парол|password|token|ключ|креденш|credential|прав[а ]|"
+    r"доступ|policy|полит)", re.I)
+
+
+def complexity_features(prompt: str, meta: dict, *,
+                        previous_failures: int = 0) -> TaskComplexityFeatures:
+    """Детерминированный вывод фич сложности из текста/меты (без LLM/ML)."""
+    text = prompt or ""
+    steps = len(_MULTI_STEP_RE.findall(text))
+    allowed = meta.get("allowed_tools")
+    tool_count = len(allowed) if isinstance(allowed, list) else 0
+    return TaskComplexityFeatures(
+        dependent_steps=min(steps, 8),
+        security_impact=0.8 if _SECURITY_RE.search(text) else 0.0,
+        mutation_impact=0.8 if _MUTATION_RE.search(text) else 0.0,
+        previous_failures=previous_failures,
+        ambiguity=float(meta.get("ambiguity") or 0.0),
+        tool_count=tool_count,
+        requires_verification=bool(meta.get("review")),
+        code_change_scope=0.7 if _MUTATION_RE.search(text) and "код" in text.lower()
+        else 0.0)
 
 router = APIRouter()
 
@@ -77,8 +119,15 @@ async def _verified_caps(svc) -> dict[int, tuple[set[str], set[str]]]:
     return out
 
 
-async def _candidates(svc, rules: dict) -> list[ModelCandidate]:
-    """Кандидаты из реестра + живой сигнал (health, bench, доля успехов, пробы)."""
+async def _candidates(svc, rules: dict, *,
+                      kind: str | None = None) -> list[ModelCandidate]:
+    """Кандидаты из реестра + живой сигнал (health, bench, доля успехов, пробы).
+
+    V2.6 модуль G: при rules["adaptive"] и заданном kind доля успехов берётся
+    per-(alias, task.kind), но ТОЛЬКО при n >= CLASS_MIN_EPISODES — консервативно,
+    без выводов из единичных эпизодов; иначе глобальная per-alias.
+    """
+    adaptive = bool(rules.get("adaptive"))
     async with svc.db.session() as s:
         models = (await s.execute(sa.select(models_t))).fetchall()
         # доля успешных run'ов по alias (historical performance)
@@ -87,8 +136,22 @@ async def _candidates(svc, rules: dict) -> list[ModelCandidate]:
             sa.func.count().label("n"),
             sa.func.sum(sa.case((runs_t.c.status == "completed", 1), else_=0)).label("ok"))
             .where(runs_t.c.model_alias.isnot(None)).group_by(runs_t.c.model_alias))).fetchall()
+        class_stats = []
+        if adaptive and kind:
+            class_stats = (await s.execute(sa.select(
+                runs_t.c.model_alias,
+                sa.func.count().label("n"),
+                sa.func.sum(sa.case((runs_t.c.status == "completed", 1), else_=0)).label("ok"))
+                .select_from(runs_t.join(tasks_t, runs_t.c.task_id == tasks_t.c.id))
+                .where(sa.and_(runs_t.c.model_alias.isnot(None),
+                               tasks_t.c.kind == kind))
+                .group_by(runs_t.c.model_alias))).fetchall()
     success = {r._mapping["model_alias"]: (r._mapping["ok"] or 0) / r._mapping["n"]
                for r in stats if r._mapping["n"]}
+    for r in class_stats:
+        m = r._mapping
+        if m["n"] >= CLASS_MIN_EPISODES:      # достаточная выборка по классу
+            success[m["model_alias"]] = (m["ok"] or 0) / m["n"]
     probes = await _verified_caps(svc)
     role_scores = rules.get("role_scores") or {}
     out: list[ModelCandidate] = []
@@ -125,22 +188,44 @@ async def _make_pick_hook(svc):
             return None
         budget = meta.get("cloud_budget_usd")
         cloud_allowed = budget is None or budget > 0
+        prefer_local = bool(rules.get("prefer_local", True))
+        require_verified = bool(rules.get("require_verified", False))
+        reasoning_info = None
+        if rules.get("adaptive"):
+            # V2.6 модуль B: L0–L4 из детерминированных фич; прошлые провалы —
+            # из task_runs (та же БД, один индексный запрос на РОУТИРУЕМУЮ задачу).
+            async with svc.db.session() as s:
+                failed = (await s.execute(sa.select(sa.func.count()).where(sa.and_(
+                    runs_t.c.task_id == task["id"],
+                    runs_t.c.status == "failed")))).scalar() or 0
+            feats = complexity_features(task.get("prompt") or "", meta,
+                                        previous_failures=int(failed))
+            level, level_reasons = classify_reasoning(feats)
+            reasoning_info = {"level": level, "reasons": level_reasons}
+            if level in ("L3", "L4"):
+                # сильный уровень: локальность не приоритет, непроверенные
+                # способности отсеиваются (verified-only)
+                prefer_local = False
+                require_verified = True
+            # L0/L1 оставляют prefer_local как есть (обычно True) — дёшево/локально
         req = RouteRequest(
             task_type=kind, requires=_requires(kind, rules),
             min_context=int(meta.get("min_context") or 0),
             cloud_allowed=cloud_allowed,
             max_price_out=meta.get("max_price_out"),
             available_memory_mb=meta.get("available_memory_mb"),
-            prefer_local=bool(rules.get("prefer_local", True)),
+            prefer_local=prefer_local,
             max_candidates=int(rules.get("max_candidates") or MAX_CANDIDATES),
-            require_verified=bool(rules.get("require_verified", False)))
-        decision = route(req, await _candidates(svc, rules))
+            require_verified=require_verified)
+        decision = route(req, await _candidates(svc, rules, kind=kind))
         if decision.model is None:
             return None            # никого не выбрали → модель агента
         route_info = {"alias": decision.model.alias, "score": decision.score,
                       "reasons": decision.reasons, "rejected": decision.rejected,
                       "task_type": kind, "considered": decision.considered,
                       "total_candidates": decision.total}
+        if reasoning_info is not None:
+            route_info["reasoning"] = reasoning_info
         await svc.bus.emit("router.route_selected", task_id=task["id"],
                            model_id=decision.model.id, alias=decision.model.alias,
                            reason="; ".join(decision.reasons)[:300])

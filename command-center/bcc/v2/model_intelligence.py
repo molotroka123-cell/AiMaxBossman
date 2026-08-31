@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
+from typing import Any
 
 REASONING_LEVELS = ("L0", "L1", "L2", "L3", "L4")
 # L0 — детерминированно/без LLM; L1 — лёгкий локальный; L2 — обычный;

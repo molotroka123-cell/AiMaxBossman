@@ -67,6 +67,12 @@ class Settings:
     context_db: Path = field(default_factory=lambda: Path(
         _env("CONTEXT_DB", str(Path(_env("WORKSPACE_DIR", str(ROOT / "workspace"))) / "_context" / "context.db"))))
 
+    # V2.6 — Adaptive Compute (модуль B): OFF по умолчанию, поведение ядра не
+    # меняется. Включён — тривиальные задачи (C0) не платят за retrieval
+    # (embed+hybrid search), уровень compute выбирается детерминированно.
+    adaptive_compute: bool = field(default_factory=lambda: _env(
+        "BOSSMAN_ADAPTIVE_COMPUTE", "").lower() in ("1", "true", "yes"))
+
     host: str = field(default_factory=lambda: _env("CORE_HOST", "127.0.0.1"))
     port: int = int(_env("CORE_PORT", "8700"))
 
