@@ -1,0 +1,139 @@
+{
+ "rss_python_baseline_mb": 14.3,
+ "rss_after_core_import_mb": 65.2,
+ "rss_after_v26_import_mb": 66.0,
+ "v26_import_cost_mb": 0.8,
+ "derive_signals_ms": {
+  "n": 2000,
+  "p50": 0.0275,
+  "p95": 0.0456,
+  "mean": 0.0296
+ },
+ "uncertainty_estimate_ms": {
+  "n": 2000,
+  "p50": 0.004,
+  "p95": 0.0065,
+  "mean": 0.0044
+ },
+ "select_level_ms": {
+  "n": 2000,
+  "p50": 0.0003,
+  "p95": 0.0004,
+  "mean": 0.0003
+ },
+ "counterfactual_ms": {
+  "n": 2000,
+  "p50": 0.0004,
+  "p95": 0.0004,
+  "mean": 0.0004
+ },
+ "controller_stack_per_task_ms": {
+  "n": 2000,
+  "p50": 0.013,
+  "p95": 0.0203,
+  "mean": 0.014
+ },
+ "fastpath_orchestration_ms": {
+  "n": 500,
+  "p50": 0.0688,
+  "p95": 0.1058,
+  "mean": 0.0742
+ },
+ "real_window_cold_ms": {
+  "n": 1,
+  "p50": 9.3736,
+  "p95": 9.3736,
+  "mean": 9.3736
+ },
+ "real_window_warm_ms": {
+  "n": 2000,
+  "p50": 0.0062,
+  "p95": 0.0079,
+  "mean": 0.0067
+ },
+ "exec_cache": {
+  "entries": 1,
+  "hits": 2020,
+  "misses": 1,
+  "rejected_kinds": 0,
+  "hit_rate": 0.9995
+ },
+ "registry_yaml_parse_uncached_ms": {
+  "n": 200,
+  "p50": 8.8376,
+  "p95": 9.7233,
+  "mean": 8.9377
+ },
+ "personal_context": [
+  {
+   "agent": "analyst",
+   "raw_tokens": 27,
+   "selected_tokens": 21,
+   "saved_pct": 22.2,
+   "total_lines": 3,
+   "kept_lines": 0
+  },
+  {
+   "agent": "coder",
+   "raw_tokens": 26,
+   "selected_tokens": 21,
+   "saved_pct": 19.2,
+   "total_lines": 3,
+   "kept_lines": 0
+  },
+  {
+   "agent": "fresh-vibes",
+   "raw_tokens": 28,
+   "selected_tokens": 21,
+   "saved_pct": 25.0,
+   "total_lines": 3,
+   "kept_lines": 0
+  }
+ ],
+ "file_parse": {
+  "csv_1000_rows": {
+   "cold_ms": 1.6617,
+   "cached_ms": 0.0767,
+   "sections": 1,
+   "bytes": 24051
+  },
+  "xlsx_200_rows": {
+   "cold_ms": 1.1795,
+   "cached_ms": 0.058,
+   "sections": 1,
+   "bytes": 14223
+  },
+  "md_100_sections": {
+   "cold_ms": 0.2083,
+   "cached_ms": 0.029,
+   "sections": 100,
+   "bytes": 4779
+  }
+ },
+ "parse_workload_rss_delta_mb": 0.55,
+ "parse_workload_python_peak_mb": 0.44,
+ "rss_final_mb": 67.8,
+ "research_quick_ms": {
+  "n": 30,
+  "p50": 0.2559,
+  "p95": 0.3192,
+  "mean": 0.2664
+ },
+ "research_report": {
+  "claims": 2,
+  "sources": 3,
+  "contradictions": 2,
+  "rounds_used": 1
+ },
+ "voice": {
+  "stt_available": false,
+  "tts_available": false,
+  "stt_provider": null,
+  "tts_provider": null
+ },
+ "not_measurable_here": {
+  "VRAM": "GPU отсутствует на хосте (nvidia-smi нет) — не 'не измерено', а физически нет",
+  "VerifiedSuccess A/B": "нет локальных/облачных моделей (config/gateway.yaml отсутствует, в репо только example с REPLACE_WITH_*)",
+  "IntelligenceRetention": "то же: требует same-model прогона Raw vs Model+Bossman"
+ }
+}

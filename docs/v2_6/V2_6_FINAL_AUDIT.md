@@ -72,7 +72,11 @@ NEW_P0=0 · NEW_P1=0 · NEW_REGRESSIONS=0
 - Переиспользует проверенную работу — **да** (evidence-aware кэш, security-классы никогда).
 - Объясняет решение — **да** (`/tasks/{id}/explain`).
 - Fast path остался быстрым — **да**: p50 0.156 ms → 0.125 ms.
-- VerifiedSuccess / IntelligenceRetention / RAM / VRAM — **NOT MEASURED** (нужен owner hardware + честный A/B; выдумывать запрещено).
+- RAM — **ИЗМЕРЕНО**: +0.8 MB на все модули V2.6, стек контроллеров 0.013 ms/задача,
+  кэш реестра 9.37 ms → 0.0062 ms (см. V2_6_RESOURCE_REPORT.md).
+- VRAM — GPU на этом хосте физически отсутствует.
+- VerifiedSuccess / IntelligenceRetention — **NOT MEASURED**: нет ни одной модели
+  (нет `config/gateway.yaml`), нужен owner hardware; выдумывать запрещено.
 
 ## FINAL REPORT
 
@@ -96,7 +100,9 @@ FAST_PATH_P50_AFTER=0.125 ms
 VERIFIED_SUCCESS_BEFORE=NOT MEASURED
 VERIFIED_SUCCESS_AFTER=NOT MEASURED
 INTELLIGENCE_RETENTION=NOT MEASURED (поэтому Personal Context = OFF)
-PEAK_RAM=NOT MEASURED · PEAK_VRAM=NOT MEASURED
+PEAK_RAM=67.8 MB RSS (V2.6 добавляет +0.8 MB) · PEAK_VRAM=GPU отсутствует на хосте
+CONTROLLER_OVERHEAD_PER_TASK=0.013 ms p50 (измерено)
+EXEC_CACHE_MEASURED_WIN=9.37 ms -> 0.0062 ms на real_window (~1400x)
 LOCAL_PROVIDER_CAPABILITIES=text, code, tools, vision (alias), stt/tts
   (при наличии бинарей whisper/piper)
 CLOUD_PROVIDER_CAPABILITIES=зависят от gateway.yaml владельца (в репо только
