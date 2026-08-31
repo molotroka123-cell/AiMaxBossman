@@ -12,12 +12,23 @@ import traceback
 
 import redis.asyncio as aioredis
 
-from . import approvals, db, events, telegram
+from . import approvals, db, decision_memory, events, failure_memory, obs, telegram, working_memory
 from .agents import AgentSpec, load_all
 from .config import settings
 from .context import SUMMARY_MAX_TOKENS, ContextBudget, ContextBuilder
 from .llm import CloudDenied, NeedsCloudApproval, chat, real_window
 from .toolkit import REGISTRY, ToolContext, by_api_name, tool_line
+
+_log = obs.get_logger("bossman.runner")
+_WM = working_memory.WorkingMemory()
+
+
+async def _record_memory(coro, what: str) -> None:
+    """Записать в каноничную память задачи; сбой памяти не должен ронять задачу."""
+    try:
+        await coro
+    except Exception as exc:  # noqa: BLE001 — память вторична по отношению к самой задаче
+        _log.warning("memory write skipped (%s): %s", what, exc)
 
 QUEUE_KEY = "bossman:tasks"
 
@@ -174,8 +185,34 @@ async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
     events.emit("tool.called", agent=agent.name, tool=tool.name, run_id=run_id)
     rendered = result.render()
     if tool.rights in ("read", "send") and tool.name not in ("log", "search_journal"):
+        rendered = _cybersec_inspect_external(rendered, agent=agent.name, tool=tool.name)
         rendered = EXTERNAL_DATA_HEADER + rendered  # внешнее — как данные (шаг 7)
     return rendered, result.one_line or f"{tool.name}: выполнено"
+
+
+def _cybersec_inspect_external(text: str, *, agent: str, tool: str) -> str:
+    """CyberSec V1 Prompt Injection Firewall на границе ingest внешних данных.
+
+    Та же граница, где шаг 7 уже помечает внешний результат как данные —
+    firewall лишь добавляет ДЕТЕКТ и, при находке, обезвреживает управляющие
+    маркеры внутри текста. OFF по умолчанию (BOSSMAN_CYBERSEC_V1_ENABLED);
+    сбой инспекции никогда не должен ронять инструмент — при исключении
+    возвращается исходный текст (шаг 7 его и так уже пометил как данные).
+    """
+    try:
+        from .cybersec import gates, injection
+        if not gates.cybersec_enabled():
+            return text
+        verdict = injection.inspect(text)
+        if verdict.safe:
+            return text
+        events.emit("cybersec.injection_detected", agent=agent, tool=tool,
+                    severity=verdict.severity,
+                    findings=[f.pattern_id for f in verdict.findings])
+        return verdict.sanitized
+    except Exception as exc:  # noqa: BLE001 — firewall вторичен, инструмент не должен падать
+        _log.warning("cybersec injection inspect skipped: %s", exc)
+        return text
 
 
 async def run_task(task: dict) -> None:
@@ -196,6 +233,9 @@ async def run_task(task: dict) -> None:
     workdir.mkdir(parents=True, exist_ok=True)
     ctx = ToolContext(agent=agent.name, run_id=run_id, workdir=workdir,
                       journal=workdir / "journal.md", notes_dir=workdir / "notes")
+
+    task_id = str(task["id"])
+    await _record_memory(_WM.create_task_state(task_id, task["text"][:4000]), "create_task_state")
 
     budget = ContextBudget(window=real_window(agent.model))
     builder = ContextBuilder(budget, _system_prompt(agent))
@@ -251,6 +291,11 @@ async def run_task(task: dict) -> None:
                     task_id=task["id"], run_id=run_id)
                 decision = await approvals.wait(approval_id)
                 await db.execute("UPDATE tasks SET status='running' WHERE id=$1", task["id"])
+                await _record_memory(decision_memory.create_decision(
+                    f"cloud-escalation-{approval_id}", "cost_control",
+                    f"task {task_id}: cloud call to {need.alias}",
+                    decision["status"], f"owner {decision['status']} cloud escalation",
+                    source_kind="approval", source_run_id=run_id), "create_decision")
                 if decision["status"] != "approved":
                     status, final = "failed", "отправка в облако отклонена"
                     break
@@ -290,6 +335,14 @@ async def run_task(task: dict) -> None:
                      task["id"], status, final)
     events.emit("task.updated", id=task["id"], status=status, agent=agent.name,
                 result=final[:1000])
+
+    await _record_memory(_WM.update_task_state(task_id, {
+        "status": "completed" if status == "done" else "failed",
+        "current_step": final[:2000]}), "update_task_state")
+    if status != "done":
+        await _record_memory(failure_memory.record_failure(
+            task_id, final[:2000], "task_failed", final[:2000], "",
+            status, environment={"agent": agent.name, "steps": steps}), "record_failure")
 
     took = time.monotonic() - started
     if task.get("source") == "telegram" or took > settings.notify_after_seconds:
