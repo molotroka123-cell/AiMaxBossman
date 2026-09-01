@@ -1,1 +1,17 @@
-{"phase":"0_preflight","timestamp":"2026-09-01T18:00Z","gpu":"RTX 5090","vram_mib":32607,"cuda":"12.8","torch":"2.8.0+cu128","pytorch_cuda":true,"cpu_vcpus":32,"ram_gib":187,"workspace_persistent":true,"remote_sha":"d1f218d","local_sha":"d1f218d","cloud_calls":0,"postgres":false,"ollama":false,"preflight":"PASS","runpod_ready_script":"NO_deps_pending"}
+{
+  "host": {"gpu": "RTX 5090", "vram_mib": 32607, "cuda": "12.8", "torch": "2.8.0+cu128", "cpu_vcpus": 32, "ram_gib": 187.8, "cgroup_caps": "none found", "region": "EU", "workspace_persistent": true},
+  "stack": {"postgres": "16 @127.0.0.1:5432 running", "redis": "running", "ollama": "0.33.2 @11434", "gateway": "importable"},
+  "cloud_keys_present": false,
+  "gateway_e2e": {"status": "LIVE_PROVEN", "http": 200, "alias": "bossman-fast", "backend": "ollama", "model": "qwen2.5:7b", "fallbacks": 0, "cold_ttft_s": 10.58, "evidence": "/workspace/artifacts/gateway_e2e_resp.json"},
+  "ab_small": {
+    "model": "qwen2.5:7b", "quant": "Q4_K_M", "digest": "845dbda0ea48", "repeats": 3,
+    "direct_verified_success": 0.6667, "bossman_verified_success": 0.6667,
+    "intelligence_retention": 1.0, "cloud_calls": 0, "retries": 0,
+    "per_class": {"simple_instruction": 1.0, "coding": 1.0, "tool_use": 1.0, "memory_sensitive": 1.0, "reasoning": 0.0, "long_context": 0.0},
+    "class_note": "reasoning/long_context 0/3 BOTH arms - model capability ceiling, identical direct vs bossman",
+    "peak_vram_mib": 6894, "peak_gateway_rss_mib": 53.2, "peak_ollama_rss_mib_note": "sampler misses runner subprocess - underreport, use VRAM",
+    "gate": {"bossman_ge_direct_minus_1pp": true, "retention_ge_099": true},
+    "evidence": "/workspace/benchmarks/ab_small_qwen25_7b.log",
+    "cross_host_note": "identical per-class outcomes and token counts vs local Windows campaign (same digest 845dbda0ea48)"
+  }
+}
