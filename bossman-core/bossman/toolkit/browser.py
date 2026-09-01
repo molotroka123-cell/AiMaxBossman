@@ -91,7 +91,19 @@ def _safe_agent(name: str) -> str:
 
 
 def _headless() -> bool:
-    return os.getenv("BOSSMAN_BROWSER_HEADLESS", "0").strip().lower() in {"1", "true", "yes", "on"}
+    """RunPod preflight audit: явного значения BOSSMAN_BROWSER_HEADLESS нет —
+    по умолчанию headed Chromium, который на безголовом Linux-контейнере
+    (RunPod и любой другой без X-сервера) не запустится вовсе. На Windows-
+    рабочей машине владельца DISPLAY не используется и не проверяется, так
+    что дефолт для неё не меняется. На POSIX без DISPLAY (headless-хост)
+    дефолт — headless=True; это единственный случай, где отсутствие
+    DISPLAY означает «безголовый хост», а не «просто Windows»."""
+    raw = os.getenv("BOSSMAN_BROWSER_HEADLESS")
+    if raw is not None:
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+    if os.name == "posix" and not os.environ.get("DISPLAY"):
+        return True
+    return False
 
 
 def profile_root() -> Path:

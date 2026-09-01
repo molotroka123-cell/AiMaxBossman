@@ -22,10 +22,40 @@ import psutil
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT / "bossman-core"
-MODEL = "qwen2.5:7b"
+# RunPod preflight audit: MODEL had no override — benchmarking anything else
+# meant hand-editing this file. Now overridable per run without a code change.
+MODEL = os.environ.get("BOSSMAN_AB_MODEL", "qwen2.5:7b")
 PORT = 8767
 KEY = "local-hardware-acceptance-only"
 REPEATS = 3
+
+
+def _ollama_direct_base_url() -> str:
+    """Single source of truth for the 'direct' arm's Ollama endpoint.
+
+    Historically hard-coded to 127.0.0.1:11435 — a workaround for the owner's
+    Windows/WSL2 box, where WSL's port-forward squats on the real Ollama
+    default (11434) and Ollama itself falls back to 11435. On a plain Linux
+    host (RunPod included) Ollama listens on the standard 11434, and this
+    Windows-specific fallback must not be the silent default there.
+
+    Resolution order: BOSSMAN_AB_OLLAMA_URL (explicit override) > OLLAMA_HOST
+    (same env var write_config() already honors for the gateway arm) > the
+    Windows-workaround 11435 ONLY if OLLAMA_HOST is unset AND we're actually
+    on Windows; otherwise the real Ollama default 11434.
+    """
+    explicit = os.environ.get("BOSSMAN_AB_OLLAMA_URL")
+    if explicit:
+        return explicit.rstrip("/")
+    host = os.environ.get("OLLAMA_HOST")
+    if host:
+        host = host.replace("0.0.0.0", "127.0.0.1")
+        if not host.startswith("http"):
+            host = f"http://{host}"
+        return host.rstrip("/")
+    default_port = 11435 if sys.platform == "win32" else 11434
+    return f"http://127.0.0.1:{default_port}"
+
 
 TASKS = {
     "simple_instruction": ("Return only this exact token: ALPHA-17.", lambda x: x.strip() == "ALPHA-17"),
@@ -137,7 +167,10 @@ def metric_delta(before: dict, after: dict) -> dict:
 
 
 def write_config(path: Path) -> None:
-    path.write_text(f"""server:\n  host: 127.0.0.1\n  port: {PORT}\n  allow_unauthenticated_loopback: false\nbackends:\n  ollama:\n    base_url: http://{os.environ.get("OLLAMA_HOST", "127.0.0.1:11434").replace("0.0.0.0", "127.0.0.1")}\n    health_path: /v1/models\n    timeout_seconds: 360\n    max_concurrency: 1\naliases:\n  bossman-fast:\n    targets:\n      - backend: ollama\n        model: {MODEL}\n        capabilities: [text, tools]\nclients:\n  bossman-core:\n    key_env: BOSSMAN_GATEWAY_CORE_KEY\n    requests_per_minute: 10000\n    burst: 1000\n    allowed_aliases: [bossman-fast]\n""", encoding="utf-8")
+    # Same resolution as the direct arm (_ollama_direct_base_url) — both arms
+    # must point at the SAME Ollama instance or the A/B compares two servers.
+    gateway_backend_url = _ollama_direct_base_url()
+    path.write_text(f"""server:\n  host: 127.0.0.1\n  port: {PORT}\n  allow_unauthenticated_loopback: false\nbackends:\n  ollama:\n    base_url: {gateway_backend_url}\n    health_path: /v1/models\n    timeout_seconds: 360\n    max_concurrency: 1\naliases:\n  bossman-fast:\n    targets:\n      - backend: ollama\n        model: {MODEL}\n        capabilities: [text, tools]\nclients:\n  bossman-core:\n    key_env: BOSSMAN_GATEWAY_CORE_KEY\n    requests_per_minute: 10000\n    burst: 1000\n    allowed_aliases: [bossman-fast]\n""", encoding="utf-8")
 
 
 def wait_for_gateway() -> None:
@@ -180,7 +213,10 @@ class ResourceSampler:
                 pass
             for proc in psutil.process_iter(["name", "memory_info"]):
                 try:
-                    if (proc.info["name"] or "").lower() == "ollama.exe":
+                    # "ollama.exe" on Windows, plain "ollama" on Linux/RunPod —
+                    # matching only the .exe form silently read 0 on any Linux
+                    # host (peak_ollama_rss never updated, no error raised).
+                    if (proc.info["name"] or "").lower() in ("ollama.exe", "ollama"):
                         self.peak_ollama_rss = max(self.peak_ollama_rss, proc.info["memory_info"].rss)
                 except (psutil.Error, OSError):
                     pass
@@ -199,7 +235,7 @@ def main() -> None:
         sampler = ResourceSampler(gateway_pid)
         sampler.start()
         try:
-            direct = run_arm("direct", "http://127.0.0.1:11435/v1/chat/completions", {})
+            direct = run_arm("direct", f"{_ollama_direct_base_url()}/v1/chat/completions", {})
             before = gateway_metrics(existing_gateway)
             bossman = run_arm("bossman", f"{existing_gateway}/v1/chat/completions",
                               {"Authorization": f"Bearer {KEY}", "X-Bossman-Cloud-Allowed": "0"})
@@ -228,7 +264,7 @@ def main() -> None:
             sampler = ResourceSampler(process.pid)
             sampler.start()
             try:
-                direct = run_arm("direct", "http://127.0.0.1:11435/v1/chat/completions", {})
+                direct = run_arm("direct", f"{_ollama_direct_base_url()}/v1/chat/completions", {})
                 bossman = run_arm("bossman", f"http://127.0.0.1:{PORT}/v1/chat/completions",
                                   {"Authorization": f"Bearer {KEY}", "X-Bossman-Cloud-Allowed": "0"})
             finally:
