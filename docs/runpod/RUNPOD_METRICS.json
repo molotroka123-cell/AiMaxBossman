@@ -3,6 +3,8 @@
   "stack": {"postgres": "16 @127.0.0.1:5432 running", "redis": "running", "ollama": "0.33.2 @11434", "gateway": "importable"},
   "cloud_keys_present": false,
   "gateway_e2e": {"status": "LIVE_PROVEN", "http": 200, "alias": "bossman-fast", "backend": "ollama", "model": "qwen2.5:7b", "fallbacks": 0, "cold_ttft_s": 10.58, "evidence": "/workspace/artifacts/gateway_e2e_resp.json"},
+  "first_real_task": {"status": "LIVE_PROVEN", "tasks": [1, 2, 3], "agent": "analyst", "result": "OK", "warm_latency_ms": 64.4, "working_memory_rows": 3, "gateway_requests": 3, "fallbacks": 0},
+  "memory_restart": {"status": "LIVE_PROVEN", "pg_service_restart": true, "serve_process_restart": true, "pre_restart_wm_rows": 2, "post_restart_wm_rows_still_present": 2, "new_task_after_restart": "done", "wm_total": 3},
   "ab_small": {
     "model": "qwen2.5:7b", "quant": "Q4_K_M", "digest": "845dbda0ea48", "repeats": 3,
     "direct_verified_success": 0.6667, "bossman_verified_success": 0.6667,
@@ -13,5 +15,14 @@
     "gate": {"bossman_ge_direct_minus_1pp": true, "retention_ge_099": true},
     "evidence": "/workspace/benchmarks/ab_small_qwen25_7b.log",
     "cross_host_note": "identical per-class outcomes and token counts vs local Windows campaign (same digest 845dbda0ea48)"
+  },
+  "ab_medium": {
+    "model": "qwen2.5:14b", "quant": "Q4_K_M", "repeats": 3,
+    "direct_verified_success": 1.0, "bossman_verified_success": 1.0,
+    "intelligence_retention": 1.0, "cloud_calls": 0,
+    "per_class_both_arms": {"simple_instruction": 1.0, "reasoning": 1.0, "coding": 1.0, "long_context": 1.0, "tool_use": 1.0, "memory_sensitive": 1.0},
+    "class_note": "14b solves reasoning and long_context (7b ceiling 0/3 confirmed as model capability, not Bossman)",
+    "peak_vram_mib": 15178,
+    "evidence": "/workspace/benchmarks/ab_medium_qwen25_14b.log"
   }
 }
