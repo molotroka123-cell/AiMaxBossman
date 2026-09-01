@@ -10,6 +10,10 @@ Result возможные: LIVE_PROVEN / INTEGRATION_PROVEN / PARTIAL / HOST_NOT
 | Model alias resolution | gateway config aliases | YES | alias bossman-fast → qwen2.5:7b | LIVE_PROVEN | gateway log model=qwen2.5:7b | - |
 | Cloud policy / local-only | bossman/llm.py CloudDenied | YES | env без ключей + fallbacks=0 | INTEGRATION_PROVEN (zero keys present + fallbacks=0; негативный CloudDenied-тест pending) | gateway_e2e.log | - |
 | Direct vs Bossman (SMALL tier) | tools/local_hardware_ab.py | YES | 6 классов x 3 | PASS: 0.667 vs 0.667, Retention 1.0 | /workspace/benchmarks/ab_small_qwen25_7b.log | - |
+| Direct vs Bossman (MEDIUM tier) | tools/local_hardware_ab.py | YES | 6 классов x 3 | PASS: 1.0 vs 1.0, Retention 1.0, reasoning/long_context решены 14b | /workspace/benchmarks/ab_medium_qwen25_14b.log | - |
+| Task engine (real task) | bossman/runner.py run_task | YES | bossman task → analyst → OK | LIVE_PROVEN: tasks 1-3 done, WM persisted | psql tasks/runs + gateway log | - |
+| Memory restart/restore | db + working_memory | YES | PG service restart + serve restart | LIVE_PROVEN: rows intact, new task done | RUNPOD_METRICS.json memory_restart | - |
+| Model Router (real decisions) | command-center/bcc/v2/model_router.py | YES | route() с живыми метриками, 6 сценариев | INTEGRATION_PROVEN: память-констрейнт, falsified-caps, cloud-denied работают | /workspace/benchmarks/router_real.json | BCC engine HTTP path pending |
 
 ## Очередь заполнения (A3 строит по коду)
 Core (task execution, sessions, EventBus, approvals, policy/scopes, verifier, cost, Secret Store, Flight Recorder, explain) — pending

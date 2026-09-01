@@ -9,10 +9,16 @@ RAM_GIB=187.8 (no cgroup caps found: cpu.max/memory.max absent)
 CPU_VCPU=32
 STACK=PostgreSQL 16 @5432 (bossman/bossman, .env 600) + Redis PONG + Ollama 0.33.2 @11434 (OLLAMA_MODELS=/workspace/ollama)
 CLOUD_KEYS_PRESENT=NONE
-LAST_COMPLETED_PHASE=FIRST_REAL_BOSSMAN_TASK + MEDIUM_A/B + MEMORY_RESTART
-NEXT_PHASE=ROUTER_REAL (SMALL/MEDIUM) → CONTEXT_STRESS → FILES/ARTIFACTS → MCP/BROWSER → SECURITY → RECOVERY
+LAST_COMPLETED_PHASE=ROUTER_REAL
+NEXT_PHASE=CONTEXT_STRESS (8k/16k/32k) → LARGE tier → FILES/ARTIFACTS → MCP/BROWSER → SECURITY → RECOVERY
 RUNPOD_PREFLIGHT=PASS
 RUNPOD_READY=YES
+
+## Router REAL (a146d0b-era evidence)
+- bcc/v2/model_router.route() driven with LIVE-MEASURED inputs: tps/latency from ollama generate (7b 420.7 tok/s / 146ms; 14b 263.2 tok/s / 52ms warm), VRAM peaks from our A/B (6894/15178 MiB), success rates from our A/B (7b 0.667/reasoning 0.0; 14b 1.0)
+- 6 сценариев корректны: A simple→14b (оправданная эскалация: measured success 1.0 vs 0.667); B reasoning→14b; C memory_cap 12GB→7b (14b честно отброшен по реальному VRAM); D/E cloud denied/allowed→локальная 14b (облако не навязывается); F falsified tools→7b (проба важнее рекламы каталога)
+- Status: INTEGRATION_PROVEN (production logic + live inputs; BCC engine HTTP path pending)
+- Evidence: /workspace/benchmarks/router_real.json
 
 ## Phase results so far
 - FIRST REAL BOSSMAN TASK: LIVE_PROVEN — `bossman task` → runner → analyst → gateway (bossman-smart) → ollama qwen2.5:7b → result "OK", tasks 1-3 done, WM rows persisted, warm 64ms
