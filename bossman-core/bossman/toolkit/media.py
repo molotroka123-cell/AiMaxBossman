@@ -39,6 +39,12 @@ async def _run(argv: list[str], timeout: int = 900, cwd=None) -> tuple[int, str]
 
 async def probe(args: dict, ctx: ToolContext) -> ToolResult:
     """Метаданные файла через ffprobe: размер, длительность, разрешение."""
+    # Тот же барьер путей, что у ffmpeg: без него probe читал абсолютные и «..»
+    # пути наружу (Fable5.1 red-team F-003) — оракул существования/метаданных
+    # файлов вне рабочей папки. Только внутри workdir.
+    if not _path_arg_ok(str(args["path"])):
+        return ToolResult("абсолютные пути и «..» запрещены — только внутри рабочей папки",
+                          one_line="probe: отказ по пути", error=True)
     path = (ctx.workdir / args["path"]).resolve()
     code, out = await _run(
         ["ffprobe", "-v", "quiet", "-print_format", "json",

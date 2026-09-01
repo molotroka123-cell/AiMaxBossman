@@ -7,9 +7,20 @@ from pathlib import Path
 from . import ToolContext, ToolDef, ToolResult, clip, register
 
 
+def _contains(root: Path, p: Path) -> bool:
+    """True, если p — сам корень или лежит ВНУТРИ него.
+
+    Проверка через отношение путей (relative_to/parents), а НЕ по префиксу строки:
+    str.startswith пропускал соседа с общим префиксом имени (workdir `.../coder`
+    считал `.../coder-secrets` «внутри»). Символические ссылки/junction ловятся
+    тем, что оба пути уже .resolve()-нуты вызывающим (реальная цель сравнивается)."""
+    return p == root or root in p.parents
+
+
 def _resolve(ctx: ToolContext, rel: str) -> Path:
+    root = ctx.workdir.resolve()
     p = (ctx.workdir / rel).resolve()
-    if not str(p).startswith(str(ctx.workdir.resolve())):
+    if not _contains(root, p):
         raise PermissionError(f"путь вне рабочей папки: {rel}")
     return p
 
@@ -57,7 +68,18 @@ async def fs_search(args: dict, ctx: ToolContext) -> ToolResult:
     offset = int(args.get("offset", 0))
     hits: list[str] = []
     skipped = 0
+    root = ctx.workdir.resolve()
+    # Инвариант containment: glob НЕ доверяем. rglob('../../*') и directory-
+    # junction внутри workdir выводят пути наружу; каждый кандидат сверяем с
+    # корнем по реальной цели (.resolve), иначе fs.search читал бы любой файл
+    # процесса (Fable5.1 red-team F-001).
     for f in sorted(ctx.workdir.rglob(args.get("glob", "*"))):
+        try:
+            real = f.resolve()
+        except OSError:
+            continue
+        if not _contains(root, real):
+            continue
         if not f.is_file() or f.stat().st_size > 2_000_000:
             continue
         try:
@@ -85,11 +107,15 @@ async def fs_list(args: dict, ctx: ToolContext) -> ToolResult:
     depth = int(args.get("depth", 1))
     offset = int(args.get("offset", 0))
     entries: list[str] = []
+    root = ctx.workdir.resolve()
     def walk(d: Path, level: int) -> None:
         for p in sorted(d.iterdir()):
             rel = p.relative_to(ctx.workdir)
             entries.append(f"{rel}/" if p.is_dir() else f"{rel} ({p.stat().st_size} Б)")
-            if p.is_dir() and level < depth:
+            # В директорию не рекурсируем, если её реальная цель выходит за workdir
+            # (junction/symlink внутрь чужого каталога) — иначе fs.list перечислял
+            # бы содержимое вне рабочей папки (Fable5.1 red-team F-002).
+            if p.is_dir() and level < depth and _contains(root, p.resolve()):
                 walk(p, level + 1)
     walk(base, 1)
     page = entries[offset:offset + 100]
