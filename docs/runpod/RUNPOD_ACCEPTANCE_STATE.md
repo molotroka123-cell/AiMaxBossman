@@ -9,10 +9,17 @@ RAM_GIB=187.8 (no cgroup caps found: cpu.max/memory.max absent)
 CPU_VCPU=32
 STACK=PostgreSQL 16 @5432 (bossman/bossman, .env 600) + Redis PONG + Ollama 0.33.2 @11434 (OLLAMA_MODELS=/workspace/ollama)
 CLOUD_KEYS_PRESENT=NONE
-LAST_COMPLETED_PHASE=CONTEXT_STRESS
-NEXT_PHASE=LARGE tier (32b pull идёт) → FILES/ARTIFACTS → MCP/BROWSER → SECURITY → RECOVERY → SCHEDULER → CONCURRENCY/LONG-RUN
+LAST_COMPLETED_PHASE=FILES_ARTIFACTS_MCP
+NEXT_PHASE=BROWSER_REAL → SECURITY → RECOVERY → SCHEDULER → CONCURRENCY/LONG-RUN
 RUNPOD_PREFLIGHT=PASS
 RUNPOD_READY=YES
+
+## Files/artifacts/MCP REAL
+- file_intel: csv/json/md/zip реально распарсены (kind, sections, sha256 в render); corrupted zip → честная ошибка; unsupported → honest unavailable; file_intel тесты 11 passed
+- ARTIFACT ENGINE: LIVE_PROVEN — register_artifact x2 → версии 1→2, ids distinct, reopen hash match, creator_task записан, registry_rows=2
+- MCP: 15/15 PASSED на Linux (реальный SDK-путь FastMCP через stdio; mcp пакет доставлен)
+- LARGE tier A/B (qwen2.5:32b): Direct 15/18 = Bossman 15/18, Retention 1.0, VRAM 27524 MiB; coding 0/3 в ОБОИХ руках (32b вербозность ломает exact-match; 7b/14b дают 3/3 → 14b sweet spot для coder)
+- Bandit -lll: 0 findings; secret scan: только 2 известные фейковые тестовые константы
 
 ## Context stress REAL (7b, DIRECT vs BOSSMAN, needles P0-start/supplier-end/contradiction/security)
 - 8k: обе руки 4/4 (P0+supplier+contradiction+security) — задачи #4
