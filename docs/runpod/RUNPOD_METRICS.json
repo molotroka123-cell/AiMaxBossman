@@ -1,0 +1,1 @@
+{"phase":"0_preflight","timestamp":"2026-09-01T18:00Z","gpu":"RTX 5090","vram_mib":32607,"cuda":"12.8","torch":"2.8.0+cu128","pytorch_cuda":true,"cpu_vcpus":32,"ram_gib":187,"workspace_persistent":true,"remote_sha":"d1f218d","local_sha":"d1f218d","cloud_calls":0,"postgres":false,"ollama":false,"preflight":"PASS"}
