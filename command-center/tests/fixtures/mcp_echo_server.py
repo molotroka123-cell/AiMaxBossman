@@ -20,12 +20,22 @@ import os
 import sys
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+# SDK 1.x называет класс FastMCP (`mcp.server.fastmcp`), в 2.x он переименован в
+# MCPServer (`mcp.server.mcpserver`). Жёсткий импорт любого ОДНОГО из них ломает
+# фикстуру на другой версии SDK (что и наблюдалось: 1.27 vs 2.x на разных хостах).
+# Поэтому пробуем оба и падаем с внятным сообщением, если нет ни одного.
+try:                                    # SDK 1.x
+    from mcp.server.fastmcp import FastMCP as _ServerClass
+except ImportError:                     # SDK 2.x
+    try:
+        from mcp.server.mcpserver import MCPServer as _ServerClass
+    except ImportError as exc:          # ни один путь не сработал — честный отказ
+        raise ImportError(
+            "MCP SDK не найден: ожидался mcp.server.fastmcp.FastMCP (1.x) "
+            "или mcp.server.mcpserver.MCPServer (2.x)") from exc
 
-# SDK 1.27: класс называется FastMCP (mcp.server.mcpserver.MCPServer не существует —
-# вся MCP-связка падала именно на этом импорте каскадом из 13 тестов).
-# Параметра `version` у конструктора в 1.27 больше нет — версия уходит в протоколе.
-server = FastMCP(name="echo-fixture")
+# Параметра `version` у конструктора нет ни в 1.x, ни в 2.x — версия уходит в протоколе.
+server = _ServerClass(name="echo-fixture")
 
 
 def _bump(tool: str) -> int:

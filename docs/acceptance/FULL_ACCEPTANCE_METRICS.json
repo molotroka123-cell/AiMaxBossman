@@ -13,6 +13,6 @@
   "p2_open": 0,
   "checkpoint_count": 1,
   "push_count": 0,
-  "cloud_calls_local_test": null,
-  "intelligence_retention": null
+  "cloud_calls_local_test": 0,
+  "intelligence_retention": 1.0
 }

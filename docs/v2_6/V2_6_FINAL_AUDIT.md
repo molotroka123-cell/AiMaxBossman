@@ -6,8 +6,8 @@
 ## Регрессия (финальный HEAD)
 
 ```
-bossman-core (живой PostgreSQL 16.13):  1262 passed, 5 skipped, 0 failed
-command-center:                          633 passed, 2 skipped, 0 failed
+bossman-core (живой PostgreSQL 16.13):  1270 passed, 5 skipped, 0 failed
+command-center:                          634 passed, 2 skipped, 0 failed
 compileall: PASS · secret scan: PASS
 NEW_P0=0 · NEW_P1=0 · NEW_REGRESSIONS=0
 ```
@@ -50,6 +50,8 @@ NEW_P0=0 · NEW_P1=0 · NEW_REGRESSIONS=0
 | D6 | `Any` без импорта в `model_intelligence.py` | **Закрыт** |
 | NEW | `artifact_id` не уникален по путям (UNIQUE violation на живом PG) | **Найден и закрыт** + регресс-тест |
 | NEW | `obs` не импортирован в `llm.py` (моя регрессия) | **Найден полной регрессией и закрыт** |
+| NEW | MCP-фикстура жёстко импортировала `FastMCP` → падала на SDK 2.x (на 1.x падала обратная правка) | **Закрыт** — фикстура работает на ОБЕИХ версиях SDK |
+| NEW | `test_v21_e2e_mission` требовал ровно 1 approval — стало 6 после P1-ужесточения | **Закрыт** — проверка переписана на дисциплину (memory.write спрашивает, ни один ask-вызов не проехал), без ослабления политики |
 
 Остаются открытыми (задокументированы, не заявляются как сделанные): D5
 (`context_os` мёртвый хук), D7 (скриншот operator'а без потребителя).
@@ -75,8 +77,18 @@ NEW_P0=0 · NEW_P1=0 · NEW_REGRESSIONS=0
 - RAM — **ИЗМЕРЕНО**: +0.8 MB на все модули V2.6, стек контроллеров 0.013 ms/задача,
   кэш реестра 9.37 ms → 0.0062 ms (см. V2_6_RESOURCE_REPORT.md).
 - VRAM — GPU на этом хосте физически отсутствует.
-- VerifiedSuccess / IntelligenceRetention — **NOT MEASURED**: нет ни одной модели
-  (нет `config/gateway.yaml`), нужен owner hardware; выдумывать запрещено.
+- VerifiedSuccess / IntelligenceRetention — **ИЗМЕРЕНЫ на железе владельца**
+  параллельной сессией (см. `docs/acceptance/SWARM_STATE.md`, harness
+  `tools/local_hardware_ab.py`): qwen2.5:7b Q4_K_M, Direct **12/18** vs
+  Bossman **12/18**, **IntelligenceRetention = 1.0**, CLOUD_CALLS = 0,
+  пик VRAM ≈ 5.9 GiB. Совпадение по всем классам (simple/coding/tool_use/
+  memory 3/3; reasoning и long_context 0/3 в ОБОИХ режимах — потолок самой
+  модели, а не Bossman). Прогон выполнялся на дереве, УЖЕ содержащем V2.6
+  (флаги adaptive/personal-context по умолчанию OFF), то есть доказано:
+  **V2.6 не ухудшил качество** (деградация 0 п.п. при пороге ≤1 п.п.).
+  Чего этот прогон НЕ доказывает: пользу включённых флагов (adaptive compute,
+  personal-context selection) — для них нужен отдельный A/B со ВКЛЮЧЁННЫМИ
+  флагами; поэтому они остаются выключенными.
 
 ## FINAL REPORT
 
@@ -97,9 +109,11 @@ POSTGRES_TESTS=live PG 16.13 (PG-gated tests executed, not skipped)
 SECURITY_TESTS=included in both suites (guards, egress, redaction, sandbox)
 FAST_PATH_P50_BEFORE=0.156 ms
 FAST_PATH_P50_AFTER=0.125 ms
-VERIFIED_SUCCESS_BEFORE=NOT MEASURED
-VERIFIED_SUCCESS_AFTER=NOT MEASURED
-INTELLIGENCE_RETENTION=NOT MEASURED (поэтому Personal Context = OFF)
+VERIFIED_SUCCESS_BEFORE=12/18 (Direct qwen2.5:7b Q4_K_M, owner hardware)
+VERIFIED_SUCCESS_AFTER=12/18 (Bossman, то же железо/модель) — деградация 0 п.п.
+INTELLIGENCE_RETENTION=1.0 (порог >=0.99 пройден; CLOUD_CALLS=0, VRAM пик ~5.9 GiB)
+  ВАЖНО: прогон с флагами adaptive/personal-context OFF -> доказано отсутствие
+  ухудшения от V2.6; польза включённых флагов НЕ доказана, они остаются OFF
 PEAK_RAM=67.8 MB RSS (V2.6 добавляет +0.8 MB) · PEAK_VRAM=GPU отсутствует на хосте
 CONTROLLER_OVERHEAD_PER_TASK=0.013 ms p50 (измерено)
 EXEC_CACHE_MEASURED_WIN=9.37 ms -> 0.0062 ms на real_window (~1400x)

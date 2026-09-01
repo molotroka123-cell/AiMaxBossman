@@ -283,7 +283,21 @@ async def test_autonomous_mission_with_ten_plus_tool_calls(
         status = await _drain(env, task_id, timeout=180)
 
     assert status == "completed", f"миссия не завершилась: {status}"
-    assert approvals_seen == 1, "ожидалось ровно одно подтверждение (memory.write)"
+    # Раньше здесь стояло `== 1` (эпоха, когда спрашивал только memory.write).
+    # После P1-ужесточения КАЖДЫЙ project_host shell-вызов тоже обязан спросить
+    # владельца, поэтому фиксировать магическое число нельзя — иначе тест начнёт
+    # требовать ослабления политики. Проверяем дисциплину: подтверждения были,
+    # memory.write среди них, и НИ ОДИН ask-вызов не проехал без подтверждения.
+    assert approvals_seen >= 1, "ни одного подтверждения — политика не сработала"
+    async with env.svc.db.session() as s:
+        ask_rows = [dict(r._mapping) for r in (await s.execute(
+            sa.select(tool_calls_t).where(tool_calls_t.c.effect == "ask"))).fetchall()]
+    assert ask_rows, "ни одного ask-вызова не зафиксировано"
+    assert any(r["tool"] == "memory.write" for r in ask_rows), \
+        f"memory.write обязан спрашивать; спрашивали: {sorted({r['tool'] for r in ask_rows})}"
+    unapproved = [r["tool"] for r in ask_rows
+                  if r["status"] not in ("approved", "executed", "rejected", "denied")]
+    assert not unapproved, f"ask-вызовы остались без решения владельца: {unapproved}"
 
     # --- проверяем РЕЗУЛЬТАТ, а не рапорт
     assert (project / "calc.py").read_text(encoding="utf-8").strip().endswith("return a + b")
