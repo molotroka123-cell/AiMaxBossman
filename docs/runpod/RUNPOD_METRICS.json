@@ -24,5 +24,13 @@
     "class_note": "14b solves reasoning and long_context (7b ceiling 0/3 confirmed as model capability, not Bossman)",
     "peak_vram_mib": 15178,
     "evidence": "/workspace/benchmarks/ab_medium_qwen25_14b.log"
+  },
+  "context_stress_7b": {
+    "needles": ["P0-code-start", "supplier-code-end", "contradiction-hq", "security-banana-absent"],
+    "8k": {"direct": 4, "bossman": 4, "of": 4},
+    "16k": {"direct": 4, "bossman": 4, "of": 4},
+    "32k": {"direct": 3, "bossman": 3, "of": 4, "note": "start-needle lost IDENTICALLY both arms - 7b capability ceiling; end+contradiction+security kept"},
+    "bossman_degradation_vs_direct": 0.0,
+    "evidence": ["/workspace/artifacts/stress_direct.json", "/workspace/artifacts/stress_bossman.json", "/workspace/artifacts/stress_bossman_32k.json"]
   }
 }

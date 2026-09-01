@@ -9,10 +9,18 @@ RAM_GIB=187.8 (no cgroup caps found: cpu.max/memory.max absent)
 CPU_VCPU=32
 STACK=PostgreSQL 16 @5432 (bossman/bossman, .env 600) + Redis PONG + Ollama 0.33.2 @11434 (OLLAMA_MODELS=/workspace/ollama)
 CLOUD_KEYS_PRESENT=NONE
-LAST_COMPLETED_PHASE=ROUTER_REAL
-NEXT_PHASE=CONTEXT_STRESS (8k/16k/32k) → LARGE tier → FILES/ARTIFACTS → MCP/BROWSER → SECURITY → RECOVERY
+LAST_COMPLETED_PHASE=CONTEXT_STRESS
+NEXT_PHASE=LARGE tier (32b pull идёт) → FILES/ARTIFACTS → MCP/BROWSER → SECURITY → RECOVERY → SCHEDULER → CONCURRENCY/LONG-RUN
 RUNPOD_PREFLIGHT=PASS
 RUNPOD_READY=YES
+
+## Context stress REAL (7b, DIRECT vs BOSSMAN, needles P0-start/supplier-end/contradiction/security)
+- 8k: обе руки 4/4 (P0+supplier+contradiction+security) — задачи #4
+- 16k: обе руки 4/4 — задача #5
+- 32k: обе руки 3/4 — P0-игла В НАЧАЛЕ теряется ОДИНАКОВО (DIRECT и BOSSMAN; модель честно ответила «P0-код отсутствует»); end-игла и противоречие сохранены; security-констрейнт не нарушен
+- ВЕРДИКТ: контекст-путь Bossman БЕЗ деградации vs direct на всех тирах (scores идентичны); 32k start-loss = потолок 7b (на 14b long_context в A/B = 1.0)
+- NOTE: execve limit ~128KB — 32k текст нельзя передать argv CLI; использован продакшн-путь db.insert+runner.enqueue (то же, что CLI)
+- Evidence: /workspace/artifacts/stress_direct.json, stress_bossman.json, stress_bossman_32k.json; tasks 4-6
 
 ## Router REAL (a146d0b-era evidence)
 - bcc/v2/model_router.route() driven with LIVE-MEASURED inputs: tps/latency from ollama generate (7b 420.7 tok/s / 146ms; 14b 263.2 tok/s / 52ms warm), VRAM peaks from our A/B (6894/15178 MiB), success rates from our A/B (7b 0.667/reasoning 0.0; 14b 1.0)
