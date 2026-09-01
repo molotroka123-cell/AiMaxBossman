@@ -1,6 +1,7 @@
 """Postgres (asyncpg): пул, применение схемы, короткие помощники."""
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Any
@@ -28,10 +29,21 @@ async def pool() -> asyncpg.Pool:
     (это его единственное durable-хранилище), и разработчик должен сразу
     увидеть, что именно поднять."""
     global _pool
+    # Pool привязан к event loop, на котором создан: pytest-asyncio/тесты и
+    # некоторые embed-сценарии пересоздают loop, и переиспользование старого
+    # пула даёт «Future attached to a different loop». Честно пересоздаём.
+    _loop = asyncio.get_running_loop()
+    if _pool is not None and getattr(_pool, "_bossman_loop", None) is not _loop:
+        try:
+            await _pool.close()
+        except Exception:  # noqa: BLE001 — старый loop может быть уже мёртв
+            pass
+        _pool = None
     if _pool is None:
         try:
             _pool = await asyncpg.create_pool(settings.database_url, min_size=1, max_size=10,
                                               init=_init_conn)
+            _pool._bossman_loop = _loop
         except (OSError, asyncpg.PostgresError) as exc:
             raise errors.DependencyUnavailable(
                 f"Postgres недоступен ({_dsn_hint()}): {type(exc).__name__}. "
