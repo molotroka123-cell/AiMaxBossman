@@ -18,6 +18,7 @@ LAST_COMPLETED_PHASE=0_PREFLIGHT
 NEXT_PHASE=await GPU Acceptance Master Prompt (then Phase 2 fast baseline small model)
 KNOWN_FAILURES=none yet
 KNOWN_WORKAROUNDS=none needed on Linux so far (Windows teardown-hang workaround not applicable)
+SETUP_PENDING=pip install Bossman deps (bossman-core editable + deps), install Ollama binary, install/start PostgreSQL (canonical path), then re-run python3 tools/runpod_preflight.py expecting RUNPOD_READY=YES
 IMPORTANT_DECISIONS=env persisted via /etc/profile.d/bossman_env.sh; repo at /workspace/AiMaxBossman
 BENCHMARK_PATHS=/workspace/benchmarks (empty)
 ARTIFACT_PATHS=/workspace/artifacts (empty)
