@@ -1,32 +1,32 @@
 # RUNPOD LOCAL HANDOFF (machine-readable)
-CURRENT_SHA=4983eb7
-LAST_VERIFIED_SHA=4983eb7
+CURRENT_SHA=см. последний push (docs/runpod)
+LAST_VERIFIED_SHA=60f328d+ (этот цикл документов)
 RUNPOD_GPU=RTX 5090 32GB (32607 MiB), driver 570.133.20, CUDA 12.8
-VRAM=32607 MiB (peak used so far 6894 MiB with 7B Q4_K_M + 32k ctx)
+VRAM=32607 MiB; пики: 6894 (7B) / 15178 (14B) / 27524 (32B) / 2 MiB после auto-unload
 MODEL_RUNTIME=Ollama 0.33.2 @127.0.0.1:11434, env OLLAMA_MODELS=/workspace/ollama
-MODELS_DOWNLOADED=qwen2.5:7b (SMALL), qwen2.5:14b (MEDIUM)
+MODELS_DOWNLOADED=qwen2.5:7b, qwen2.5:14b, qwen2.5:32b (все Q4_K_M)
 MODEL_PATHS=/workspace/ollama (blobs)
-MODEL_REVISIONS=qwen2.5:7b id=845dbda0ea48; qwen2.5:14b id=<see ollama list>
+MODEL_REVISIONS=7b:845dbda0ea48; 14b:7cdf5a0187d5; 32b:9f13ba1299af
 QUANTIZATIONS=Q4_K_M (default tags)
 CACHE_PATHS=/workspace/hf-cache (HF_HOME, HUGGINGFACE_HUB_CACHE), /workspace/ollama
-POSTGRES_STATE=PostgreSQL 16 running @127.0.0.1:5432, role/db bossman, DSN in /workspace/AiMaxBossman/.env (chmod 600, gitignored) + /etc/profile.d/bossman_env.sh
-GATEWAY_STATE=WORKING (LIVE_PROVEN): BOSSMAN_GATEWAY_CONFIG=/workspace/artifacts/gateway.runpod.yaml, port 8877, aliases bossman-fast/bossman-smart/bossman-coder (все → qwen2.5:7b пока), client key в /workspace/artifacts/gw.key (600); core env BOSSMAN_GATEWAY_URL=http://127.0.0.1:8877/v1
-ROUTER_STATE=static alias-per-agent (validated fail-fast); динамический роутер command-center/bcc — не тестирован
-MEMORY_STATE=LIVE_PROVEN: PostgreSQL write → PG service restart + serve restart → restore (WM rows intact, новая задача done)
-CONTEXT_STATE=not tested yet
-SECURITY_STATE=P1 project_host ASK enforced (from repo history); cloud keys absent; sandbox/policy tests pending
-LIVE_PROVEN_FUNCTIONS=gateway inference path (local provider), ollama backend, gateway auth (client key), model alias resolution
-PARTIAL_FUNCTIONS=
-GATED_FUNCTIONS=
-HOST_NOT_APPLICABLE=Windows GUI computer control
-LAST_COMPLETED_PHASE=FIRST_REAL_TASK + MEDIUM_A/B + MEMORY_RESTART
-NEXT_PHASE=ROUTER_REAL (SMALL/MEDIUM) → CONTEXT_STRESS → FILES/ARTIFACTS → MCP/BROWSER → SECURITY → RECOVERY
-KNOWN_FAILURES=see RUNPOD_FAILURES.md (GAP-001 RSS sampler, BUG-002 pgvector env, DISC-001 alias fail-fast)
-KNOWN_WORKAROUNDS=long-lived background procs under ssh: setsid + </dev/null (stdin наследуется иначе); pgvector pre-created superuser'ом
-FUTURE_LOCAL_BLOCKERS=none found yet
-FUTURE_MEMORY_EXPANSION_ITEMS=none audited yet
-BENCHMARK_PATHS=/workspace/benchmarks (ab_small_qwen25_7b.log JSON, pull logs)
-ARTIFACT_PATHS=/workspace/artifacts (gateway_e2e_resp.json, gateway_e2e.log)
+POSTGRES_STATE=PostgreSQL 16 + pgvector/pg_trgm/pgcrypto @127.0.0.1:5432, role/db bossman, DSN в /workspace/AiMaxBossman/.env (600) и /etc/profile.d/bossman_env.sh (600)
+GATEWAY_STATE=WORKING: BOSSMAN_GATEWAY_CONFIG=/workspace/artifacts/gateway.runpod.yaml (порт 8877, aliases fast/smart/coder, client rate 6000rpm/200burst после BUG-003), key в /workspace/artifacts/gw.key; core env BOSSMAN_GATEWAY_URL=http://127.0.0.1:8877/v1
+ROUTER_STATE=bcc/v2/model_router.route() INTEGRATION_PROVEN на живых метриках; BCC engine HTTP path pending
+MEMORY_STATE=LIVE_PROVEN: PG write → PG restart + serve restart → restore; WM 1 row/task (108 задач)
+CONTEXT_STATE=8k/16k 4/4 обе руки; 32k 3/4 обе руки (потолок 7b); деградация Bossman-пути 0.0
+SECURITY_STATE=egress redaction ✓, auth negative ✓, sandbox secrets grants ✓, cloud_policy=never enforced, CyberSec layer GATED_NOT_ENABLED (by design)
+LIVE_PROVEN_FUNCTIONS=gateway-inference, task-engine, memory-restart, files-csv/json/md/zip, artifact-engine, MCP-stdio, browser-chromium, recovery-cycle, scheduler-cron, flight-recorder-explain, concurrency-4, long-run-50, router-logic
+PARTIAL_FUNCTIONS=router (BCC engine HTTP pending), computer (контракты только; GUI = HOST_NOT_APPLICABLE на Linux)
+GATED_FUNCTIONS=CyberSec V1 (BOSSMAN_CYBERSEC_V1_ENABLED), V3: UCA/Visual State/Self-Healing/Skill Factory/Recovery Kernel/SIL/Context Guardian
+HOST_NOT_APPLICABLE=Windows GUI computer control, Windows-only тесты
+LAST_COMPLETED_PHASE=все 10 приоритетных фаз владельца
+NEXT_PHASE=BCC-engine router HTTP live; research engine live; command-center full regression на pod; long-run 100; runner 429-backoff (FUTURE_LOCAL)
+KNOWN_FAILURES=RUNPOD_FAILURES.md: BUG-002 pgvector env, BUG-003 gateway client rate default, GAP-001 RSS sampler, DISC-001 alias fail-fast, NOTE-002 scheduler wiring
+KNOWN_WORKAROUNDS=setsid+/dev/null для фоновых процессов под ssh; pgvector pre-create суперпользователем; execve limit ~128KB (длинные тексты — через db.insert+enqueue, не argv)
+FUTURE_LOCAL_BLOCKERS=не обнаружено; жёстких аппаратных потолков в коде не найдено (порты/пути/модели — из конфига)
+FUTURE_MEMORY_EXPANSION_ITEMS=лимиты конфигурируемы; каноническая память PostgreSQL; кэши bounded
+BENCHMARK_PATHS=/workspace/benchmarks: ab_small_qwen25_7b.log, ab_medium_qwen25_14b.log, ab_large_qwen25_32b.log, router_real.json, final_regression_core.log
+ARTIFACT_PATHS=/workspace/artifacts: gateway_e2e_resp.json, stress_direct.json, stress_bossman.json, stress_bossman_32k.json, files/files_real.json, gateway.runpod.yaml, gw.key (600)
 CLOUD_CALLS=0
 SAFE_TO_CONTINUE_LOCAL=YES
-SETUP_PENDING=none (all RUNPOD_READY gates green)
+SETUP_PENDING=нет

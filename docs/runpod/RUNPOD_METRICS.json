@@ -1,36 +1,26 @@
 {
   "host": {"gpu": "RTX 5090", "vram_mib": 32607, "cuda": "12.8", "torch": "2.8.0+cu128", "cpu_vcpus": 32, "ram_gib": 187.8, "cgroup_caps": "none found", "region": "EU", "workspace_persistent": true},
-  "stack": {"postgres": "16 @127.0.0.1:5432 running", "redis": "running", "ollama": "0.33.2 @11434", "gateway": "importable"},
+  "stack": {"postgres": "16 @127.0.0.1:5432 running", "redis": "running", "ollama": "0.33.2 @11434", "gateway": "working"},
   "cloud_keys_present": false,
   "gateway_e2e": {"status": "LIVE_PROVEN", "http": 200, "alias": "bossman-fast", "backend": "ollama", "model": "qwen2.5:7b", "fallbacks": 0, "cold_ttft_s": 10.58, "evidence": "/workspace/artifacts/gateway_e2e_resp.json"},
-  "first_real_task": {"status": "LIVE_PROVEN", "tasks": [1, 2, 3], "agent": "analyst", "result": "OK", "warm_latency_ms": 64.4, "working_memory_rows": 3, "gateway_requests": 3, "fallbacks": 0},
-  "memory_restart": {"status": "LIVE_PROVEN", "pg_service_restart": true, "serve_process_restart": true, "pre_restart_wm_rows": 2, "post_restart_wm_rows_still_present": 2, "new_task_after_restart": "done", "wm_total": 3},
-  "ab_small": {
-    "model": "qwen2.5:7b", "quant": "Q4_K_M", "digest": "845dbda0ea48", "repeats": 3,
-    "direct_verified_success": 0.6667, "bossman_verified_success": 0.6667,
-    "intelligence_retention": 1.0, "cloud_calls": 0, "retries": 0,
-    "per_class": {"simple_instruction": 1.0, "coding": 1.0, "tool_use": 1.0, "memory_sensitive": 1.0, "reasoning": 0.0, "long_context": 0.0},
-    "class_note": "reasoning/long_context 0/3 BOTH arms - model capability ceiling, identical direct vs bossman",
-    "peak_vram_mib": 6894, "peak_gateway_rss_mib": 53.2, "peak_ollama_rss_mib_note": "sampler misses runner subprocess - underreport, use VRAM",
-    "gate": {"bossman_ge_direct_minus_1pp": true, "retention_ge_099": true},
-    "evidence": "/workspace/benchmarks/ab_small_qwen25_7b.log",
-    "cross_host_note": "identical per-class outcomes and token counts vs local Windows campaign (same digest 845dbda0ea48)"
+  "first_real_task": {"status": "LIVE_PROVEN", "agent": "analyst", "result": "OK", "warm_latency_ms": 64.4, "fallbacks": 0},
+  "memory_restart": {"status": "LIVE_PROVEN", "pg_service_restart": true, "serve_process_restart": true, "pre_restart_wm_rows": 2, "post_restart_wm_rows_still_present": 2, "new_task_after_restart": "done"},
+  "ab_tiers": {
+    "small_qwen2.5_7b_845dbda0ea48": {"direct": 0.667, "bossman": 0.667, "retention": 1.0, "peak_vram_mib": 6894, "ceiling_classes": ["reasoning", "long_context"]},
+    "medium_qwen2.5_14b_7cdf5a0187d5": {"direct": 1.0, "bossman": 1.0, "retention": 1.0, "peak_vram_mib": 15178, "all_classes_1_0": true},
+    "large_qwen2.5_32b_9f13ba1299af": {"direct": 0.833, "bossman": 0.833, "retention": 1.0, "peak_vram_mib": 27524, "ceiling_classes": ["coding"], "note": "32b verbosidad breaks exact-match; 14b is coder sweet spot"},
+    "gate": {"bossman_ge_direct_minus_1pp": true, "retention_ge_099": true}
   },
-  "ab_medium": {
-    "model": "qwen2.5:14b", "quant": "Q4_K_M", "repeats": 3,
-    "direct_verified_success": 1.0, "bossman_verified_success": 1.0,
-    "intelligence_retention": 1.0, "cloud_calls": 0,
-    "per_class_both_arms": {"simple_instruction": 1.0, "reasoning": 1.0, "coding": 1.0, "long_context": 1.0, "tool_use": 1.0, "memory_sensitive": 1.0},
-    "class_note": "14b solves reasoning and long_context (7b ceiling 0/3 confirmed as model capability, not Bossman)",
-    "peak_vram_mib": 15178,
-    "evidence": "/workspace/benchmarks/ab_medium_qwen25_14b.log"
-  },
-  "context_stress_7b": {
-    "needles": ["P0-code-start", "supplier-code-end", "contradiction-hq", "security-banana-absent"],
-    "8k": {"direct": 4, "bossman": 4, "of": 4},
-    "16k": {"direct": 4, "bossman": 4, "of": 4},
-    "32k": {"direct": 3, "bossman": 3, "of": 4, "note": "start-needle lost IDENTICALLY both arms - 7b capability ceiling; end+contradiction+security kept"},
-    "bossman_degradation_vs_direct": 0.0,
-    "evidence": ["/workspace/artifacts/stress_direct.json", "/workspace/artifacts/stress_bossman.json", "/workspace/artifacts/stress_bossman_32k.json"]
-  }
+  "router": {"status": "INTEGRATION_PROVEN", "scenarios": 6, "vram_cap_demotion": true, "falsified_caps_rule": true, "cloud_denied": true, "evidence": "/workspace/benchmarks/router_real.json"},
+  "context_stress_7b": {"8k": "4/4 both arms", "16k": "4/4 both arms", "32k": "3/4 both arms (start-needle, model ceiling)", "bossman_degradation_vs_direct": 0.0},
+  "files_artifacts": {"file_intel_formats": ["csv", "json", "md", "zip"], "corrupted_honest_error": true, "unsupported_honest": true, "tests_passed": 11, "artifact_versions_1_2": true, "registry_rows": 2},
+  "mcp": {"status": "LIVE_PROVEN", "tests": "15/15 on Linux, real SDK FastMCP stdio"},
+  "browser": {"status": "LIVE_PROVEN", "repo_tests": "18/18 headless chromium", "real_nav_example_com": true},
+  "security": {"egress_canary_redacted": true, "auth_negative_case": true, "secrets_grant_redeem_revoke": true, "cross_sandbox_denied": "SecretDenied", "cybersec_layer": "GATED_NOT_ENABLED", "cloud_policy_never_enforced": true},
+  "recovery": {"provider_kill": "task failed honest", "failure_recorded": true, "restore_then_done": true},
+  "scheduler": {"cron_precision": "10:07 -> 10:15", "production_tick": "source=schedule task done", "overlap_guard": "_OVERLAP_SQL"},
+  "flight_recorder": {"explain_task_len": 1248, "contains": ["intent", "agent_selection+reason", "runs", "retries", "models WHY"], "no_secrets": true},
+  "concurrency_4": {"wall_s": 4.0, "done": "4/4"},
+  "long_run_50": {"wall_s": "approximately 300-600", "done": "50/50 after BUG-003 config fix", "latency_first20_p50_s": 0.15, "latency_last10_p50_s": 0.05, "latency_last10_p95_s": 0.69, "real_429_in_clean_run": 0, "vram_after_mib": 2, "ram_leak": "none (stable ~32 GiB)", "wm_rows_per_task": 1},
+  "totals": {"runs": 108, "wm_rows": 108, "artifacts": 2, "cloud_calls": 0}
 }
