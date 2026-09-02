@@ -74,8 +74,3 @@ def mask(key: str | None) -> str | None:
     if not key:
         return None
     return "…" + key[-4:] if len(key) > 4 else "…"
-
-
-def mask_enc(vault: Vault, blob: str | None) -> str | None:
-    """Маска для хранимого шифротекста (без выноса ключа за пределы функции)."""
-    return mask(vault.decrypt(blob))

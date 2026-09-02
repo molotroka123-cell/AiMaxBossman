@@ -5,6 +5,11 @@
 `tools/registry.yaml` `can:[...]`, bcc `models.caps`). Роутеры выбирают по
 capability, а не по имени бренда. Словарь advisory: существующие free-form
 конфиги остаются валидными, `unknown_capabilities()` лишь подсвечивает опечатки.
+
+F-018 disposition: GATED_NON_PROTECTIVE — модуль НИЧЕГО НЕ ENFORCE'ИТ. Ни один
+гейт безопасности, роутер или approval-путь не запрещает действие на основании
+этого словаря; это только канонические имена и линт опечаток. Не ссылаться на
+него как на контроль (см. docs/security/F018_DEAD_CODE_DISPOSITIONS.md).
 """
 from __future__ import annotations
 

@@ -186,12 +186,24 @@ def wait_for_gateway() -> None:
 
 
 class ResourceSampler:
-    """Host-level maxima only; it does not retain prompts or model output."""
+    """Host-level maxima only; it does not retain prompts or model output.
+
+    peak_ollama_rss — сумма RSS по ДЕРЕВУ процессов ollama: сам сервер
+    (`ollama`/`ollama.exe`) + его дети (`ollama runner`/`llama-server`, именно
+    они держат веса модели) + любой процесс с «ollama» в cmdline, если дерево
+    не удалось обойти. До F-018/секрем: брался max RSS одного процесса с именем
+    ollama — runner-ребёнок (~весь размер модели) не учитывался вовсе.
+    Если psutil не смог перечислить процессы/детей, метрика помечается
+    `peak_ollama_rss_partial=True` вместо тихого занижения.
+    """
+    OLLAMA_NAMES = ("ollama.exe", "ollama")
+
     def __init__(self, gateway_pid: int) -> None:
         self.gateway_pid = gateway_pid
         self.peak_gateway_rss = 0
         self.peak_ollama_rss = 0
         self.peak_vram_mib = 0
+        self.ollama_partial = False
         self.stop_event = threading.Event()
         self.thread = threading.Thread(target=self._run, daemon=True)
 
@@ -203,28 +215,85 @@ class ResourceSampler:
         self.thread.join(timeout=3)
         return {"peak_gateway_rss_mib": round(self.peak_gateway_rss / 1024 / 1024, 2),
                 "peak_ollama_rss_mib": round(self.peak_ollama_rss / 1024 / 1024, 2),
+                "peak_ollama_rss_scope": "process_tree",
+                "peak_ollama_rss_partial": self.ollama_partial,
                 "peak_vram_mib": self.peak_vram_mib}
+
+    @staticmethod
+    def _is_ollama(proc) -> bool:
+        info = getattr(proc, "info", None) or {}
+        # "ollama.exe" on Windows, plain "ollama" on Linux/RunPod —
+        # matching only the .exe form silently read 0 on any Linux
+        # host (peak_ollama_rss never updated, no error raised).
+        if (info.get("name") or "").lower() in ("ollama.exe", "ollama"):
+            return True
+        cmdline = info.get("cmdline") or []
+        try:
+            joined = " ".join(str(part) for part in cmdline).lower()
+        except TypeError:
+            return False
+        # `ollama runner --model …` / `llama-server` spawned by ollama: the
+        # child holds the model weights, the parent is a thin HTTP server.
+        return "ollama" in joined
+
+    def _ollama_rss_snapshot(self) -> tuple[int, bool]:
+        """(сумма RSS дерева ollama в байтах, partial) за один проход."""
+        total = 0
+        partial = False
+        seen: set[int] = set()
+
+        def add(proc) -> None:
+            nonlocal total, partial
+            pid = getattr(proc, "pid", None)
+            if pid in seen:
+                return
+            try:
+                info = getattr(proc, "info", None) or {}
+                mem = info.get("memory_info") or proc.memory_info()
+                total += int(mem.rss)
+                seen.add(pid)
+            except (psutil.Error, OSError, AttributeError):
+                partial = True
+
+        try:
+            procs = list(psutil.process_iter(["pid", "name", "cmdline", "memory_info"]))
+        except (psutil.Error, OSError):
+            return 0, True
+        for proc in procs:
+            try:
+                if not self._is_ollama(proc):
+                    continue
+            except (psutil.Error, OSError):
+                partial = True
+                continue
+            add(proc)
+            try:
+                children = proc.children(recursive=True)
+            except (psutil.Error, OSError, AttributeError):
+                partial = True
+                continue
+            for child in children:
+                add(child)
+        return total, partial
+
+    def sample_once(self) -> None:
+        """Один замер (вызывается из фонового потока; тестируется напрямую)."""
+        try:
+            self.peak_gateway_rss = max(self.peak_gateway_rss, psutil.Process(self.gateway_pid).memory_info().rss)
+        except (psutil.Error, OSError):
+            pass
+        rss, partial = self._ollama_rss_snapshot()
+        self.peak_ollama_rss = max(self.peak_ollama_rss, rss)
+        self.ollama_partial = self.ollama_partial or partial
+        try:
+            out = subprocess.check_output(["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"], text=True, timeout=3)
+            self.peak_vram_mib = max(self.peak_vram_mib, *(int(line.strip()) for line in out.splitlines() if line.strip()))
+        except (OSError, subprocess.SubprocessError, ValueError):
+            pass
 
     def _run(self) -> None:
         while not self.stop_event.is_set():
-            try:
-                self.peak_gateway_rss = max(self.peak_gateway_rss, psutil.Process(self.gateway_pid).memory_info().rss)
-            except (psutil.Error, OSError):
-                pass
-            for proc in psutil.process_iter(["name", "memory_info"]):
-                try:
-                    # "ollama.exe" on Windows, plain "ollama" on Linux/RunPod —
-                    # matching only the .exe form silently read 0 on any Linux
-                    # host (peak_ollama_rss never updated, no error raised).
-                    if (proc.info["name"] or "").lower() in ("ollama.exe", "ollama"):
-                        self.peak_ollama_rss = max(self.peak_ollama_rss, proc.info["memory_info"].rss)
-                except (psutil.Error, OSError):
-                    pass
-            try:
-                out = subprocess.check_output(["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"], text=True, timeout=3)
-                self.peak_vram_mib = max(self.peak_vram_mib, *(int(line.strip()) for line in out.splitlines() if line.strip()))
-            except (OSError, subprocess.SubprocessError, ValueError):
-                pass
+            self.sample_once()
             self.stop_event.wait(.25)
 
 

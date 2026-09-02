@@ -5,6 +5,14 @@
 секрета резолвит control plane в момент брокерируемого запроса (redeem) —
 песочница получает только grant-id, не сам секрет. grant/scope/TTL/revoke/
 binding. In-memory backend для тестов; интерфейс готов под persistent backend.
+
+F-018 disposition: GATED_NON_PROTECTIVE (не удалять — Stage 8 тесты и контракт).
+Хук для брокера в менеджере ЕСТЬ (`SandboxManager(..., broker=...)`,
+`grant_secret()`), но продакшн-инстанс в `sandbox/subsystem.py` создаётся БЕЗ
+брокера: `grant_secret()` при `broker is None` → `SecretDenied("no secret broker
+configured")`, т.е. путь fail-closed — секреты в песочницу не выдаются вовсе.
+Этот модуль сам по себе ничего не защищает, пока оператор не передаст
+`PostgresSecretBroker(resolver)`/`InMemorySecretBroker(resolver)` в менеджер.
 """
 from __future__ import annotations
 

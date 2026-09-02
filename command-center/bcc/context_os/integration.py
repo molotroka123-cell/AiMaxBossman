@@ -1,46 +1,31 @@
-"""Wire Context OS into TaskEngine / Gateway without breaking V1.
+"""Wire Context OS into TaskEngine / Gateway — НЕ ПОДКЛЮЧЕНО (F-018).
 
-Engine hook: before each LLM call inject decisions + recent failures.
-Gateway hook: optional compiled prompt passthrough (header-driven).
+Исторически: `attach_to_engine` собирал `before_call_hook` и... не регистрировал
+его нигде (у bcc TaskEngine нет хука before_call) — только вешал компилятор
+атрибутом на engine. Ни один вызывающий в репозитории его не звал. Чтобы никто
+не поверил, что «Context OS защищает/фильтрует контекст», функция теперь бросает
+NotImplementedError с явным сообщением. Каноничный контекст — bossman-core
+`bossman.context_engine`.
 
-Both fail-open: DB unavailable → original messages unchanged.
+`attach_state_machine` оставлен как библиотечный monkey-patch без вызывающих:
+он тоже ничего не защищает (только state в checkpoint).
 """
 from __future__ import annotations
 
-from typing import Any
-
-from .compiler import ContextCompiler
-from .hierarchical import HierarchicalContextManager
 from .state import StateMachine
+
+NOT_WIRED_MESSAGE = (
+    "bcc.context_os.integration.attach_to_engine is NOT WIRED — non-protective. "
+    "bcc TaskEngine has no before_call hook; the canonical context engine is "
+    "bossman-core bossman.context_engine. See docs/security/F018_DEAD_CODE_DISPOSITIONS.md"
+)
 
 
 async def attach_to_engine(engine, db) -> None:
-    """Register before_run/on_step hooks that use Context OS."""
-    from .stores import DecisionStore, FailureStore
-
-    hcm = HierarchicalContextManager(global_text="BOSSMAN V1 invariants")
-    dec = DecisionStore(db)
-    fail = FailureStore(db)
-    compiler = ContextCompiler(hcm, dec, fail)
-
-    async def before_call_hook(task, agent, messages, run_id, **kw):
-        # inject compiled context as system message prefix (non-destructive)
-        try:
-            ctx = await compiler.request(
-                task_id=task.get("id"),
-                objective=task.get("prompt", "")[:500],
-                max_tokens=4000,
-                include=["decisions", "recent_failures"],
-            )
-            if ctx.prompt and len(ctx.prompt) > 20:
-                # prepend as ephemeral system note, not replacing history
-                messages.insert(1, {"role": "system", "content": f"[Context OS]\n{ctx.prompt[:2000]}"})
-        except Exception:
-            pass
-
-    # engine doesn't have this hook yet — use on_step to persist state
-    engine._context_compiler = compiler
-    engine._hcm = hcm
+    """Раньше: «Register before_run/on_step hooks that use Context OS».
+    Хук никогда не регистрировался (dead by bug) — честный отказ вместо
+    иллюзии защиты."""
+    raise NotImplementedError(NOT_WIRED_MESSAGE)
 
 
 def attach_state_machine(engine) -> None:

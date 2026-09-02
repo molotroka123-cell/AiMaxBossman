@@ -41,6 +41,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
+from .permissions import PermissionPolicy
+
 INDEX_VERSION = 1
 
 # Только код. `.md` сознательно не берём: markdown уже индексирует
@@ -460,6 +462,9 @@ class CodeIndex:
     roots: list[Path] = field(default_factory=list)
     extensions: frozenset[str] = DEFAULT_EXTENSIONS
     extra_ignores: tuple[str, ...] = ()
+    # F-018: deny-лист чувствительных файлов (`*.env`, `*id_rsa*`, `*wallet*`)
+    # из PermissionPolicy.safe_default — раньше не имел ни одного импортёра.
+    read_policy: PermissionPolicy = field(default_factory=PermissionPolicy.safe_default)
     k1: float = 1.5
     b: float = 0.75
 
@@ -519,9 +524,13 @@ class CodeIndex:
     def iter_files(self) -> list[Path]:
         """Файлы под разрешёнными корнями, прошедшие игноры и расширения.
         Ничего вне `roots` не индексируется — то же ограничение, что у
-        `terminal.run` на `cwd`."""
+        `terminal.run` на `cwd`: symlink внутри корня, ведущий наружу,
+        отбрасывается по `_within` (F-018: до этого `_within` не вызывался и
+        цель такого symlink попадала в индекс). Пути из deny-листа
+        `read_policy` (секреты/ключи/кошельки) не индексируются никогда."""
         out: list[Path] = []
         seen: set[Path] = set()
+        roots = [Path(r) for r in self.roots]
         for root in self.roots:
             root = Path(root)
             if not root.exists():
@@ -538,12 +547,18 @@ class CodeIndex:
                     rel = p.name
                 if rules.match(rel):
                     continue
+                # deny-лист: и по относительному пути, и по имени symlink'а,
+                # и по имени реальной цели (symlink `config.py` → `../.env`)
+                if self.read_policy.denies_read(rel) or self.read_policy.denies_read(p.name):
+                    continue
                 try:
                     if p.stat().st_size > MAX_FILE_BYTES:
                         continue
                 except OSError:
                     continue
                 rp = p.resolve()
+                if not _within(rp, roots) or self.read_policy.denies_read(rp.name):
+                    continue
                 if rp not in seen:
                     seen.add(rp)
                     out.append(rp)

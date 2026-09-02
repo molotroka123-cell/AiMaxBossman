@@ -49,6 +49,19 @@ from bossman.remote_client.auth import (
 # ===========================================================================
 
 
+@pytest.fixture(autouse=True)
+async def _db_pool_per_loop():
+    """BUG-004: pytest-asyncio 1.x даёт КАЖДОМУ тесту свой event loop, а
+    `bossman.db._pool` — процессный singleton. Пул, созданный первым DB-запросом
+    (b3 → /tasks) на loop теста N, переиспользовался тестами N+1… на других loop
+    → «Task got Future attached to a different loop». Закрываем пул на выходе
+    из теста на том же loop, где он создан (graceful close); защита от чужого
+    loop живёт в самом db.pool() (loop-identity + terminate) и покрыта
+    tests/test_secrem_f018_wiring.py."""
+    yield
+    await db_mod.close()
+
+
 @pytest.fixture
 def svc():
     s = DeviceService(InMemoryDeviceStore())

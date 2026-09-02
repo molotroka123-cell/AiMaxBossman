@@ -103,4 +103,7 @@ def tool_line(name: str, tool: ToolDef) -> str:
 
 
 # Регистрация всех модулей с инструментами.
-from . import files, shell, gitops, journal, net, media, office, browser  # noqa: E402,F401
+# F-018: fileintel (file.parse, artifact.create) и analysis (analysis.run) — V2.6-
+# интеграция, которую оставили «на оркестратор» и не сделали; без этой строки
+# инструменты не существовали в REGISTRY ни для одного агента.
+from . import files, shell, gitops, journal, net, media, office, browser, fileintel, analysis  # noqa: E402,F401
