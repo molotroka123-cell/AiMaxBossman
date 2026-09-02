@@ -85,14 +85,27 @@ def _per_token(value: Any) -> Decimal | None:
     return result if result.is_finite() and result >= 0 else None
 
 
-def _cache_prices(route, p_in: Decimal, cache_meta: dict[str, Any]) -> tuple[Decimal, Decimal]:
-    """Cache read/write prices per token, with documented Anthropic ratios as fallback."""
+def _configured_cache_prices(route, cache_meta: dict[str, Any]) -> tuple[Decimal | None, Decimal | None]:
+    """Cache read/write prices per token STRICTLY from configuration; None = unknown.
+
+    No fallback ratios here on purpose: an unknown bucket price must never turn into
+    an invented discount (same rule as `bossman_shared.cache_observation.cost_pair`)."""
     target = route.target
     read = _per_token(target.price_usd_per_million_cache_read_tokens)
     write_field = (target.price_usd_per_million_cache_write_tokens_1h
                    if cache_meta.get("ttl") == "1h"
                    else target.price_usd_per_million_cache_write_tokens_5m)
-    write = _per_token(write_field)
+    return read, _per_token(write_field)
+
+
+def _cache_prices(route, p_in: Decimal, cache_meta: dict[str, Any]) -> tuple[Decimal, Decimal]:
+    """Cache read/write prices per token for BUDGET RESERVATION/SETTLEMENT only, with
+    documented Anthropic ratios as fallback.
+
+    The fallback is deliberately conservative for spending (a write is assumed to cost
+    MORE than plain input), which is the right bias when reserving money.  It must NOT
+    be used to compute reported savings — see `_cache_economics`."""
+    read, write = _configured_cache_prices(route, cache_meta)
     anthropic = (route.model or "").lower().lstrip("~").startswith("anthropic/")
     if read is None:
         read = p_in * (Decimal("0.1") if anthropic else Decimal("1"))
@@ -221,6 +234,17 @@ async def _cost_settle(enforcer, reservation, usage_body: Any, p_in: Decimal, p_
 
 
 def _cache_economics(route, usage_body: Any, cache_meta: dict[str, Any]) -> tuple[Decimal | None, Decimal | None]:
+    """(actual, baseline) for cache telemetry. `baseline - actual` MUST be a cache
+    effect, never price-table drift (AUDIT-ONLY-001 / F6).
+
+    Two rules make it so:
+      * unknown cache bucket price → that bucket is charged at the ordinary input
+        price, i.e. no discount is invented, so savings come out as zero instead of
+        fabricated (mirrors `bossman_shared.cache_observation.cost_pair`);
+      * when the provider billed the request itself, the baseline is that same billed
+        amount adjusted by the measured cache delta — mixing a provider-billed actual
+        with a local-price-table baseline compares two different cost bases.
+    """
     usage = extract_cache_usage(usage_body if isinstance(usage_body, dict) else None)
     provider_actual = usage.get("provider_cost")
     price = _route_price(route.target)
@@ -229,7 +253,16 @@ def _cache_economics(route, usage_body: Any, cache_meta: dict[str, Any]) -> tupl
     from ..cost_control.models import money
     from ..cost_control.pricing import actual_usd, cache_aware_actual_usd
     p_in, p_out, fixed = price
-    read_price, write_price = _cache_prices(route, p_in, cache_meta)
+    configured_read, configured_write = _configured_cache_prices(route, cache_meta)
+    read_price = configured_read if configured_read is not None else p_in
+    write_price = configured_write if configured_write is not None else p_in
+    cached_tokens = int(usage.get("cached_tokens") or 0)
+    written_tokens = int(usage.get("cache_write_tokens") or 0)
+    if provider_actual is not None:
+        actual = money(provider_actual)
+        cache_delta = (Decimal(cached_tokens) * (p_in - read_price)
+                       + Decimal(written_tokens) * (p_in - write_price))
+        return actual, actual + cache_delta
     baseline = actual_usd(
         prompt_tokens=int(usage.get("prompt_tokens") or 0),
         completion_tokens=int(usage.get("completion_tokens") or 0),
@@ -237,14 +270,12 @@ def _cache_economics(route, usage_body: Any, cache_meta: dict[str, Any]) -> tupl
         completion_price_per_token=p_out,
         fixed_request_usd=fixed,
     )
-    if provider_actual is not None:
-        return money(provider_actual), baseline
     try:
         actual = cache_aware_actual_usd(
             prompt_tokens=int(usage.get("prompt_tokens") or 0),
             completion_tokens=int(usage.get("completion_tokens") or 0),
-            cached_tokens=int(usage.get("cached_tokens") or 0),
-            cache_write_tokens=int(usage.get("cache_write_tokens") or 0),
+            cached_tokens=cached_tokens,
+            cache_write_tokens=written_tokens,
             prompt_price_per_token=p_in,
             completion_price_per_token=p_out,
             cache_read_price_per_token=read_price,

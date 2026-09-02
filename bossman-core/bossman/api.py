@@ -333,6 +333,9 @@ async def list_models():
         "fresh_input_tokens": 0,
         "cache_write_tokens": 0,
         "saved_usd": 0.0,
+        # No gateway snapshot -> no provider evidence -> savings are not claimable.
+        "savings_basis": "none",
+        "savings_events": 0,
         "actual_cost_usd": 0.0,
         "session_affinity": False,
         "provider": None,

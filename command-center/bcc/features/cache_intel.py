@@ -45,6 +45,14 @@ async def _observations(svc, limit: int = 500) -> list[dict]:
     return out
 
 
+def _waste_signals(obs: list[dict]) -> list:
+    """Single production entry point into the observe-only waste detector."""
+    from .._shared import cache_intelligence as ci
+    if ci is None:
+        return []
+    return ci.detect_context_waste(obs)
+
+
 async def economics(svc) -> dict:
     from .._shared import cache_observation as co
     obs = await _observations(svc)
@@ -60,8 +68,14 @@ async def economics(svc) -> dict:
     s = log.summary()
     measured = s["measured_actual_cost_usd"]
     baseline = s["estimated_baseline_cost_usd"]
+    # AUDIT-ONLY-001 / F6: savings must not survive a reuse quality regression.
+    # The detector derives reuse quality from the provider evidence in these same
+    # observations, so a RED `reuse_degrades_quality` signal nulls the claim.
+    quality_regression = next((sig.detail for sig in _waste_signals(obs)
+                               if sig.kind == "reuse_degrades_quality"), None)
     saved = None
-    if measured is not None and baseline is not None and s["unknown_cost_requests"] == 0:
+    if (measured is not None and baseline is not None and s["unknown_cost_requests"] == 0
+            and quality_regression is None):
         saved = round(baseline - measured, 6)
     by_route: dict[str, int] = {}
     ttl_dist: dict[str, int] = {}
@@ -75,12 +89,16 @@ async def economics(svc) -> dict:
                      "actual_cost_usd": measured, "degraded_events": s["degraded_events"],
                      "unknown_events": s["unknown_events"]},
         "estimated": {"baseline_cost_usd": baseline, "saved_usd": saved,
-                      "note": "baseline is a counterfactual all-fresh estimate; saved is null when any cost is unknown"},
+                      "quality_regression": quality_regression,
+                      "note": "baseline is a counterfactual all-fresh estimate; saved is null when any cost "
+                              "is unknown or reuse degrades verified success"},
         "unknown": {"cost_requests": s["unknown_cost_requests"],
                     "cache_control_without_usage": s["cache_control_without_usage"], "dropped_invalid": dropped},
         "by_route": by_route, "ttl_distribution": ttl_dist,
         "warning": ("cache_control applied but no provider usage evidence — savings cannot be claimed"
-                    if s["cache_control_without_usage"] else None),
+                    if s["cache_control_without_usage"] else
+                    (f"reuse degrades verified success ({quality_regression}) — savings cannot be claimed"
+                     if quality_regression else None)),
         "hit_rate_is_diagnostic_not_kpi": True,
     }
 
@@ -112,7 +130,7 @@ async def intelligence(svc) -> dict:
                        "BOSSMAN_AUTONOMY_TRAINER_SHADOW": _flag("BOSSMAN_AUTONOMY_TRAINER_SHADOW")}}
     from .._shared import cache_intelligence as ci, cache_observation as co
     if ci is not None and _flag("BOSSMAN_CONTEXT_WASTE_OBSERVE"):
-        panel["waste_signals"] = [dataclasses.asdict(s_) for s_ in ci.detect_context_waste(obs)]
+        panel["waste_signals"] = [dataclasses.asdict(s_) for s_ in _waste_signals(obs)]
     else:
         panel["waste_signals"] = None
     if ci is not None and co is not None and _flag("BOSSMAN_CACHE_ADVISOR"):

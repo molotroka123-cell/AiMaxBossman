@@ -28,6 +28,11 @@ class GatewayMetrics:
     cache_actual_cost_usd: Decimal = field(default_factory=lambda: Decimal("0"))
     cache_baseline_cost_usd: Decimal = field(default_factory=lambda: Decimal("0"))
     cache_saved_usd: Decimal = field(default_factory=lambda: Decimal("0"))
+    # Requests that actually contributed to cache_saved_usd (provider-observed cache
+    # tokens + both costs known + cache eligible). Requests skipped by that gate are
+    # counted separately so the number can be audited instead of merely trusted.
+    cache_savings_events: int = 0
+    cache_savings_skipped: int = 0
     prefix_comparisons: int = 0
     prefix_matches: int = 0
     last_cache: dict = field(default_factory=dict)
@@ -141,8 +146,18 @@ class GatewayMetrics:
                 self.cache_actual_cost_usd += actual
             if baseline is not None:
                 self.cache_baseline_cost_usd += baseline
-            if actual is not None and baseline is not None:
+            # AUDIT-ONLY-001 / F6: cache savings may be accrued ONLY from provider
+            # evidence.  Without this gate `baseline - actual` was booked for every
+            # request — including ones where the provider reported zero cache tokens
+            # and ones where prompt caching was disabled entirely — so the published
+            # "Saved $" was price-table drift, not an attributable cache effect.
+            provider_cache_tokens = (int(usage.get("cached_tokens") or 0)
+                                     + int(usage.get("cache_write_tokens") or 0))
+            if actual is not None and baseline is not None and eligible and provider_cache_tokens:
                 self.cache_saved_usd += baseline - actual
+                self.cache_savings_events += 1
+            else:
+                self.cache_savings_skipped += 1
             self.last_cache = {
                 "session_affinity": bool(meta.get("session_affinity")),
                 "provider": upstream_provider or backend,
@@ -188,6 +203,19 @@ class GatewayMetrics:
                 "fresh_input_tokens": self.fresh_input_tokens,
                 "cache_write_tokens": self.cache_write_tokens,
                 "saved_usd": float(self.cache_saved_usd),
+                # Named cost concepts kept apart (AUDIT-ONLY-001 / F6): the only
+                # savings number this process may publish is the provider-observed
+                # one.  verified_net_savings additionally needs non-inferior
+                # VerifiedSuccess evidence, which the gateway does not hold — it is
+                # reported as null rather than approximated.
+                "provider_observed_savings_usd": float(self.cache_saved_usd),
+                "savings_basis": ("provider-observed" if self.cache_savings_events else "none"),
+                "savings_events": self.cache_savings_events,
+                "savings_skipped_requests": self.cache_savings_skipped,
+                "verified_net_savings_usd": None,
+                "savings_note": ("saved_usd accrues only from requests with provider-reported "
+                                 "cache tokens and configured cache prices; verified net savings "
+                                 "require VerifiedSuccess evidence not available at the gateway"),
                 "actual_cost_usd": float(self.cache_actual_cost_usd),
                 "estimated_baseline_cost_usd": float(self.cache_baseline_cost_usd),
                 "prefix_stability_percent": prefix_stability,

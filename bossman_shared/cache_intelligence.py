@@ -35,6 +35,33 @@ class WasteSignal:
     evidence: dict = field(default_factory=dict)
 
 
+MIN_REUSE_QUALITY_SAMPLES = 3
+
+
+def _reuse_episodes_from_observations(obs: list[Mapping[str, Any]]) -> list[dict]:
+    """Reuse-quality evidence carried by the observations themselves.
+
+    An observation whose PROVIDER usage shows ``cache_read_tokens > 0`` is a reused
+    context; one that reports none is fresh.  ``verified_success`` may be a bool or a
+    float; ``None`` means the outcome was never verified and is not scored.
+
+    This exists because the production caller passes observations only (no episodes),
+    so without it a reuse quality regression could never be surfaced next to the
+    savings number computed from the very same stream (AUDIT-ONLY-001 / F6)."""
+    out: list[dict] = []
+    for o in obs:
+        vs = o.get("verified_success")
+        if vs is None or isinstance(vs, str):
+            continue
+        try:
+            score = float(vs)
+        except (TypeError, ValueError):
+            continue
+        out.append({"reused": int(o.get("cache_read_tokens") or 0) > 0,
+                    "verified_success": score})
+    return out
+
+
 def detect_context_waste(observations: Iterable[Mapping[str, Any]], *,
                          layout: Mapping[str, Any] | None = None,
                          episodes: Iterable[Mapping[str, Any]] = ()) -> list[WasteSignal]:
@@ -91,6 +118,13 @@ def detect_context_waste(observations: Iterable[Mapping[str, Any]], *,
     scored = [e for e in eps if "verified_success" in e]
     reused = [e for e in scored if e.get("reused")]
     fresh = [e for e in scored if not e.get("reused")]
+    if not (reused and fresh):
+        derived = _reuse_episodes_from_observations(obs)
+        d_reused = [e for e in derived if e["reused"]]
+        d_fresh = [e for e in derived if not e["reused"]]
+        if (len(d_reused) >= MIN_REUSE_QUALITY_SAMPLES
+                and len(d_fresh) >= MIN_REUSE_QUALITY_SAMPLES):
+            reused, fresh = d_reused, d_fresh
     if reused and fresh:
         r = sum(float(e.get("verified_success") or 0) for e in reused) / len(reused)
         f = sum(float(e.get("verified_success") or 0) for e in fresh) / len(fresh)
