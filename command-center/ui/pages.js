@@ -1558,6 +1558,92 @@ function normalizeSystem(data) {
 
 const sysState = { cpu: [], ram: [], node: null };
 
+/* ---------- PASS3: Provider Cache Economics + Cognitive Reuse Intelligence ----------
+   Панели различают три уровня достоверности: «измерено» (из usage провайдера или
+   БД), «оценка» (контрфактический расчёт), «неизвестно» (данных нет — не заявляем).
+   Hit rate показывается как диагностика, не как KPI. */
+const EVIDENCE_TONE = { measured: 'ok', estimated: 'warn', unknown: 'dim' };
+const EVIDENCE_WORD = { measured: 'измерено', estimated: 'оценка', unknown: 'неизвестно' };
+
+function evidenceHead(level, text) {
+  return h('div.row', h('b.small', text), h('div.spacer'),
+    ui.pill(EVIDENCE_WORD[level], { tone: EVIDENCE_TONE[level] }));
+}
+
+function kvRow(label, value) {
+  const v = value === null || value === undefined || value === '' ? '—' : String(value);
+  return h('div.row.xsmall', h('span.dim', label), h('div.spacer'), h('span.num', v));
+}
+
+function fmtUsd(v) { return typeof v === 'number' ? `$${v.toFixed(4)}` : null; }
+
+async function fetchCachePanels() {
+  const settled = await Promise.allSettled([api.cacheEconomics(), api.cacheIntelligence()]);
+  return settled.map((r) => (r.status === 'fulfilled' && r.value && typeof r.value === 'object'
+    ? r.value
+    : { available: false, reason: String((r.reason && r.reason.message) || r.reason || 'нет ответа') }));
+}
+
+function cacheEconomicsPanel(econ) {
+  if (!econ || !econ.available) {
+    return ui.panel('Экономика кэша провайдера',
+      h('div.small.dim', `Нет наблюдений кэша: ${econ && econ.reason ? econ.reason : 'сервер не прислал данные'}.`),
+      { icon: 'system' });
+  }
+  const m = econ.measured || {}; const est = econ.estimated || {}; const unk = econ.unknown || {};
+  const counts = m.counts || {}; const tok = m.tokens || {};
+  const states = ['HIT', 'WRITE', 'MISS', 'BYPASS', 'UNKNOWN', 'DEGRADED'];
+  const body = h('div.stack.sm',
+    econ.warning ? ui.pill(econ.warning, { tone: 'err' }) : null,
+    evidenceHead('measured', 'По usage провайдера'),
+    h('div.row', states.map((st) => h('span.xsmall', `${st} ${counts[st] ?? 0}`))),
+    kvRow('Запросов с кэшем', m.eligible_requests),
+    kvRow('Hit rate (диагностика, не KPI)', m.hit_rate_percent === null || m.hit_rate_percent === undefined
+      ? null : `${m.hit_rate_percent}%`),
+    kvRow('Токены fresh / read / write', `${tok.fresh ?? 0} / ${tok.cache_read ?? 0} / ${tok.cache_write ?? 0}`),
+    kvRow('Фактическая стоимость', fmtUsd(m.actual_cost_usd)),
+    kvRow('Degraded / unknown событий', `${m.degraded_events ?? 0} / ${m.unknown_events ?? 0}`),
+    evidenceHead('estimated', 'Контрфактический расчёт'),
+    kvRow('База «всё fresh»', fmtUsd(est.baseline_cost_usd)),
+    kvRow('Экономия', est.saved_usd === null || est.saved_usd === undefined
+      ? 'не может быть заявлена' : fmtUsd(est.saved_usd)),
+    evidenceHead('unknown', 'Без доказательства'),
+    kvRow('Запросов без цены', unk.cost_requests),
+    kvRow('cache_control без usage', unk.cache_control_without_usage),
+    kvRow('Отброшено невалидных', unk.dropped_invalid),
+    econ.by_route ? kvRow('По маршрутам', Object.entries(econ.by_route).map(([k, v]) => `${k}:${v}`).join(' · ')) : null);
+  return ui.panel('Экономика кэша провайдера', body, { icon: 'system' });
+}
+
+function cacheIntelligencePanel(intel) {
+  if (!intel || !intel.available) {
+    return ui.panel('Когнитивное переиспользование',
+      h('div.small.dim', `Нет данных: ${intel && intel.reason ? intel.reason : 'сервер не прислал данные'}.`),
+      { icon: 'system' });
+  }
+  const m = intel.measured || {}; const unk = intel.unknown || {};
+  const lc = intel.learning_candidates || {}; const flags = intel.flags || {};
+  const rate = typeof m.verified_success_rate === 'number' ? `${Math.round(m.verified_success_rate * 100)}%` : null;
+  const body = h('div.stack.sm',
+    evidenceHead('measured', 'Из базы данных и наблюдений'),
+    kvRow('Проверок / подтверждённых', `${m.evaluations ?? 0} / ${m.verified_evaluations ?? 0}`),
+    kvRow('VerifiedSuccess', rate),
+    kvRow('Завершённых задач', m.completed_tasks),
+    kvRow('Устаревший / degraded кэш', m.stale_or_degraded_cache_events),
+    evidenceHead('unknown', 'Не измерено'),
+    h('div.stack.xs', Object.entries(unk).map(([k, v]) => kvRow(k, v))),
+    evidenceHead('measured', 'Кандидаты обучения'),
+    kvRow('Продвинуто / откачено / карантин', `${lc.promoted ?? 0} / ${lc.rolled_back ?? 0} / ${lc.quarantined ?? 0}`),
+    h('div.row', Object.entries(flags).map(([k, v]) => ui.pill(`${k.replace('BOSSMAN_', '')}: ${v ? 'вкл' : 'выкл'}`,
+      { tone: v ? 'warn' : 'dim' }))),
+    kvRow('Сигналы лишнего контекста', intel.waste_signals === null ? 'выключено флагом' : (intel.waste_signals || []).length),
+    kvRow('Советы по кэшу (только рекомендации)', intel.advice === null ? 'выключено флагом' : (intel.advice || []).length),
+    intel.advice && intel.advice.length
+      ? h('div.stack.xs', intel.advice.slice(0, 4).map((a) => h('div.xsmall.dim', `${a.action || a.kind || '—'}: ${a.reason || ''}`)))
+      : null);
+  return ui.panel('Когнитивное переиспользование', body, { icon: 'system' });
+}
+
 const SystemPage = {
   id: 'system',
   title: 'Система',
@@ -1569,6 +1655,7 @@ const SystemPage = {
     catch (e) { err = e; }
 
     if (err) return h('div.stack.lg', errorBanner(err, ctx));
+    const [econ, intel] = await fetchCachePanels();
 
     /* серии для спарклайнов: из истории сервера, дальше дополняются по WS */
     sysState.cpu = sys.history.map((s) => Number(pick(s, ['cpu_pct', 'cpu'], NaN))).filter(Number.isFinite);
@@ -1637,6 +1724,7 @@ const SystemPage = {
       h('div.bx-row', cpuPanel, ramPanel),
       h('div.bx-row', diskPanel, gpuPanel),
       healthPanel,
+      h('div.bx-row', cacheEconomicsPanel(econ), cacheIntelligencePanel(intel)),
       sys.ts ? h('div.bx-pagehead-sub', { style: { margin: 0 } }, `Данные на ${fmtDateShort(sys.ts)}`) : null);
 
     sysState.node = { cpuSpark, ramSpark };

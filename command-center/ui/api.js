@@ -177,6 +177,8 @@ export const api = {
 
   // system
   system: (opts) => GET('/api/system', opts),
+  cacheEconomics: (opts) => GET('/api/cache/economics', opts),
+  cacheIntelligence: (opts) => GET('/api/cache/intelligence', opts),
 
   // providers
   providerKinds: () => GET('/api/providers/kinds'),

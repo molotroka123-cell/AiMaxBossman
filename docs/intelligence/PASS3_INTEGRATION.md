@@ -45,6 +45,13 @@ Observations carry hashes and numbers only; `validate_observation` rejects conte
   evaluations (measured), degraded/stale events, learning candidates, and `unknown` for anything
   not instrumented (false-success rate, same-model A/B, time-to-resume). Waste signals and
   advice appear only with their flags on.
+- UI: the existing System page (`command-center/ui/pages.js`, `SystemPage`) renders both
+  panels under the health list. Every row sits under a header pill that names its evidence
+  level (`измерено` / `оценка` / `неизвестно`); savings show "cannot be claimed" when any cost
+  is unknown, and flag-gated sections show "disabled by flag" instead of an empty list. The
+  panels are fetched with `Promise.allSettled`, so a failing cache endpoint never breaks the
+  system metrics view. Rendering was checked by syntax only (`node --check`); a browser
+  screenshot was not taken on this host (NOT_TESTED_ON_THIS_HOST).
 
 ## Observe-only / advisory-only layers
 
