@@ -45,7 +45,7 @@ from ..db import (agents as agents_t, approvals as approvals_t, settings_kv,
 from ..permissions import agent_allowed
 from ..tools import REGISTRY as TOOLS
 from ..v2 import skill_evaluation as evaluation
-from ..v2.mcp_hub import MCPServerSpec, namespaced_tool
+from ..v2.mcp_hub import MCPServerSpec, command_policy_refusal, namespaced_tool
 from ..v2.skill_library import (SkillLibrary, build_skill_prompt, default_skill_roots,
                                 skill_contract)
 from ..v2.tables import mcp_servers as mcp_servers_t, mcp_tools as mcp_tools_t
@@ -739,6 +739,14 @@ async def add_mcp(request: Request):
     errs = spec.validate()
     if errs:
         raise HTTPException(422, {"message": "; ".join(errs)})
+    # F-014: stdio-транспорт ЗАПУСКАЕТ ПРОЦЕСС. Команда проверяется по allowlist
+    # бинарников ДО записи в БД — отклонённый сервер не должен ни сохраниться,
+    # ни быть поднят позже рантаймом.
+    if spec.transport == "stdio":
+        refusal = command_policy_refusal(spec.command)
+        if refusal:
+            await svc.bus.emit("mcp.command_refused", server=spec.name, detail=refusal[:400])
+            raise HTTPException(403, {"message": f"команда запуска MCP отклонена: {refusal}"})
     async with svc.db.session() as s:
         res = await s.execute(sa.insert(mcp_servers_t).values(
             name=spec.name, transport=spec.transport, command=spec.command,

@@ -1,3 +1,4 @@
+import sys
 """Feature 10 — Skill Library + MCP Hub."""
 from bcc.v2.mcp_hub import MCPServerSpec, namespaced_tool
 
@@ -88,7 +89,8 @@ async def test_assign_skill_to_agent(env):
 async def test_mcp_registry_and_policy(env):
     srv = (await env.client.post("/api/mcp/servers",
                                  json={"name": "fs", "transport": "stdio",
-                                       "command": ["mcp-fs"]})).json()
+                                       # F-014: команда запуска — только из allowlist (интерпретатор)
+                                       "command": [sys.executable, "mcp_fs.py"]})).json()
     assert srv["id"]
     bad = await env.client.post("/api/mcp/servers", json={"name": "x", "transport": "http"})
     assert bad.status_code == 422       # http без url
