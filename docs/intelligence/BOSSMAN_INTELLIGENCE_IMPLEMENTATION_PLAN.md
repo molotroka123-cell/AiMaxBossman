@@ -11,6 +11,9 @@ corpus), P5 (learning guard) exist; P3/P4/P6/P7 partial. Counts from
 - P2: `learning/` package, schema, split corpora, retrieval, 16 VERIFIED cases, idea catalogue.
 - P5 hooks: Deep Fix `verified()` requires an independent verifier; records route by status.
 - P6 seeds: SECREM variant tests for paths, URLs, approvals, MCP metadata, sessions.
+- P6 step 1 DONE: shared mutator catalogue + sibling sweeps in both apps (found and fixed 2 gaps).
+- P1 F4.1 DONE: Deep Fix plan-binding gate in the command-center engine (flag OFF).
+- Token economy: Anthropic prompt caching with measured usage in the cc adapter (hit rate unmeasured here).
 
 ## Next (ordered by PriorityAid and dependency)
 

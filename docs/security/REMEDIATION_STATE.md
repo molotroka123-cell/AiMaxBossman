@@ -41,13 +41,13 @@ HOST=Linux container, no GPU, docker daemon НЕ запущен (F-009 container
 | BUG-005 | BOUNDED/FIXED | test_secrem_discovery.py |
 
 ## COMPACT CHECKPOINT (update after every verified block)
-HEAD_SHA=see `git log -1` (this commit: sibling sweep)
-ACTIVE_FINDING=sibling sweep (F8.4) DONE — found+fixed 2 gaps: plugin validate_url (metadata hostnames, numeric IPv4 literals), media._path_arg_ok bare '..'
-ROOT_CAUSE=per-component boundary parsers with unequal coverage
-FILES_CHANGED=command-center/bcc/plugin_security.py, bossman-core/bossman/toolkit/media.py, tests/_secrem/mutators.py (both apps), tests/test_secrem_sibling_sweep.py (both apps)
-TESTS_RUN=cc sweep+plugins+browser+discovery 117 passed (2 pre-existing isolation failures in test_plugin_security.py, identical on base); core sweep+test_tools 50 passed
-RESULT=VERIFIED learning record SWEEP-sibling-boundary-gaps; SAFE_FOR_V2_FREEZE unchanged (YES)
-NEXT_EXACT_ACTION=Deep Fix runner wiring in command-center engine behind BOSSMAN_DEEP_FIX_ENABLED (plan hash before patch, verifier isolation) — or owner-host checklist when hardware is available
+HEAD_SHA=see `git log -1` (this commit: Deep Fix plan-binding gate)
+ACTIVE_FINDING=Deep Fix gate F4.1 in cc engine DONE (flag BOSSMAN_DEEP_FIX_ENABLED, OFF by default)
+ROOT_CAUSE=verification plan was mutable after the run started
+FILES_CHANGED=command-center/bcc/features/deep_fix.py, command-center/tests/test_deep_fix_gate.py
+TESTS_RUN=test_deep_fix_gate + governor/review + F-012 suites: 27 passed
+RESULT=VERIFIED learning record DEEPFIX-plan-binding-gate-cc; freeze verdict unchanged (YES)
+NEXT_EXACT_ACTION=owner-host checklist (docs/runpod/POST_SECURITY_FINAL_ACCEPTANCE.md) when hardware is available; otherwise intelligence plan step 2 (failing-test-first context slices + repo-map cache per HEAD, tool-side)
 BLOCKERS=docker/GPU/Windows-only proofs; Anthropic key absent (cache hit unmeasured)
 UNCOMMITTED_WORK=none after this commit
 KNOWN_TEST_ISOLATION=command-center/tests/test_plugin_security.py::test_redact_* fail when the file runs alone (plugin tools registered by app setup in other modules); green in the full run
