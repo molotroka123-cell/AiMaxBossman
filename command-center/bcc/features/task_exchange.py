@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -30,6 +31,16 @@ LEDGER_NAME = "_ledger.json"
 BUCKETS = ("inbox", "claimed", "completed", "failed", "artifacts")
 EXTERNAL_CAPABILITIES = {"browser.read", "browser.write", "llm.reasoning",
                          "computer.ui", "llm.chat"}
+
+
+# F-017: app_id и task_id становятся именами каталогов/файлов. Один сегмент
+# без разделителей, без ведущей точки, без процентов (закодированный traversal).
+_SAFE_SEGMENT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._-]{0,199}")
+
+
+def is_safe_segment(value: Any) -> bool:
+    """Ровно один безопасный сегмент пути: не пусто, не `.`/`..`, без `/` `\\` `%`."""
+    return isinstance(value, str) and _SAFE_SEGMENT.fullmatch(value) is not None
 
 
 # ------------------------------------------------------------------ layout
@@ -151,6 +162,11 @@ class LocalTaskExchange:
 
         task_id = str(task.get("task_id") or "")
         idem = str(task.get("idempotency_key") or "")
+        if task_id and not is_safe_segment(task_id):
+            # F-017: task_id даёт имя файла в completed/ — побег за каталог запрещён
+            self._fail(dirs, path, {**task, "task_id": src_or_unknown(path)},
+                       "task_id must be a single safe path segment")
+            return "failed"
 
         # anti-replay / duplicate
         if (task_id and task_id in ledger.get("completed_ids", [])) or \
@@ -304,12 +320,28 @@ async def tick_now():
     return {"ok": True, **counts}
 
 
+def src_or_unknown(path: Path) -> str:
+    """Имя для файла отказа, когда task_id из JSON нельзя использовать как имя."""
+    return path.stem if is_safe_segment(path.stem) else "unknown"
+
+
 @router.get("/taskxchange/result/{app_id}/{task_id}")
 async def result(app_id: str, task_id: str):
-    dirs = _buckets(app_id)
+    # F-017: валидация ДО любого обращения к ФС (раньше _buckets делал mkdir по
+    # app_id с `..`, создавая каталоги вне APPS_DIR). Только зарегистрированное
+    # приложение, только один безопасный сегмент — и никаких mkdir на чтении.
+    if not is_safe_segment(app_id):
+        raise HTTPException(status_code=400, detail="invalid app_id")
+    if not is_safe_segment(task_id):
+        raise HTTPException(status_code=400, detail="invalid task_id")
+    if app_id not in known_apps():
+        raise HTTPException(status_code=404, detail="unknown app")
+    root = exchange_root(app_id).resolve()
     for bucket in ("completed", "failed"):
-        p = dirs[bucket] / f"{task_id}.json"
-        if p.exists():
+        p = (root / bucket / f"{task_id}.json")
+        if root not in p.resolve().parents:
+            raise HTTPException(status_code=400, detail="invalid task_id")
+        if p.is_file():
             try:
                 return json.loads(p.read_text(encoding="utf-8"))
             except ValueError:

@@ -11,12 +11,14 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import os
+import socket
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit
 
 from .providers import OpenAICompatAdapter, ProviderError
 
@@ -38,6 +40,18 @@ KNOWN_ENDPOINTS: list[tuple[str, str]] = [
 
 PROBE_TIMEOUT = 2.5     # локальный сервер отвечает мгновенно; дольше — значит его нет
 PORT_TIMEOUT = 1.0      # TCP-рукопожатие на localhost укладывается в миллисекунды
+RESOLVE_TIMEOUT = 2.0   # DNS для extra_urls: имя, которое не резолвится быстро, не зондируем
+
+# F-017: extra_urls приходят из HTTP-тела и зондируются нашим клиентом — это
+# SSRF-поверхность. Назначение discovery — локальные серверы моделей, поэтому
+# петля и RFC1918 разрешены, а вот link-local (169.254.x — metadata облаков),
+# multicast, unspecified и не-http(s) не зондируются никогда.
+ALLOWED_SCHEMES = frozenset({"http", "https"})
+BLOCKED_HOSTNAMES = frozenset({
+    "metadata.google.internal", "metadata", "instance-data",
+    "instance-data.ec2.internal", "metadata.azure.com",
+})
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
 
 # Каталоги для поиска весов; расширяется через env BCC_MODELS_DIRS.
 # Разделитель — os.pathsep: ':' на Unix, ';' на Windows. Резать по ':' нельзя,
@@ -86,6 +100,90 @@ def model_dirs_from_env() -> list[str]:
     if not raw.strip():
         return default_model_dirs()
     return [p.strip() for p in raw.split(os.pathsep) if p.strip()]
+
+
+def _address_reason(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> str | None:
+    """Почему адрес нельзя зондировать (None — можно)."""
+    if ip.version == 6:
+        # IPv4, завёрнутый в IPv6 (::ffff:169.254.169.254, NAT64, 6to4, Teredo),
+        # проверяется как IPv4 — иначе metadata-адрес проходит «в обёртке».
+        inner = ip.ipv4_mapped
+        if inner is None and ip in _NAT64:
+            inner = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        if inner is None and ip.sixtofour is not None:
+            inner = ip.sixtofour
+        if inner is None and ip.teredo is not None:
+            inner = ip.teredo[1]
+        if inner is not None:
+            ip = inner
+    if ip.is_unspecified:
+        return "unspecified-адрес"
+    if ip.is_link_local:
+        return "link-local (metadata-диапазон)"
+    if ip.is_multicast:
+        return "multicast"
+    if ip.is_loopback:
+        return None               # петля — назначение discovery; проверяется ДО
+                                  # is_reserved: у IPv6 ::1 лежит в «::/8»
+    if ip.is_reserved:
+        return "зарезервированный диапазон"
+    return None
+
+
+async def _reject_reason(url: str) -> str | None:
+    """F-017: причина, по которой URL из extra_urls НЕ зондируется (None — можно).
+
+    Проверяются схема, userinfo, известные metadata-имена и КАЖДЫЙ адрес, в
+    который резолвится хост: имя, ведущее в 169.254.x.x, — тот же SSRF.
+    Ожидание DNS ограничено RESOLVE_TIMEOUT; нерезолвящееся имя отклоняется
+    (fail-closed: нельзя доказать, что адрес не запрещён).
+    """
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return "некорректный URL"
+    scheme = (parts.scheme or "").lower()
+    if scheme not in ALLOWED_SCHEMES:
+        return f"схема {scheme or '(нет)'!r} — допустимы только http и https"
+    if "@" in parts.netloc or parts.username is not None or parts.password is not None:
+        return "userinfo (логин:пароль@) в адресе не допускается"
+    try:
+        host = parts.hostname
+        port = parts.port
+    except ValueError:
+        return "некорректный порт"
+    if not host:
+        return "в адресе нет хоста"
+    host = host.lower().rstrip(".")
+    if host in BLOCKED_HOSTNAMES:
+        return f"{host} — служебный metadata-хост"
+    addrs: list[ipaddress.IPv4Address | ipaddress.IPv6Address]
+    try:
+        addrs = [ipaddress.ip_address(host.split("%", 1)[0])]
+    except ValueError:
+        if host == "localhost" or host.endswith(".localhost"):
+            addrs = [ipaddress.IPv4Address("127.0.0.1")]      # RFC 6761, без DNS
+        else:
+            try:
+                infos = await asyncio.wait_for(
+                    asyncio.to_thread(socket.getaddrinfo, host, port or 80,
+                                      type=socket.SOCK_STREAM),
+                    timeout=RESOLVE_TIMEOUT)
+            except (asyncio.TimeoutError, OSError, UnicodeError):
+                return f"имя {host} не разрешилось в адрес"
+            addrs = []
+            for info in infos:
+                try:
+                    addrs.append(ipaddress.ip_address(str(info[4][0]).split("%", 1)[0]))
+                except (ValueError, IndexError, TypeError):
+                    return f"имя {host} разрешилось в непонятный адрес"
+            if not addrs:
+                return f"имя {host} не разрешилось в адрес"
+    for ip in addrs:
+        why = _address_reason(ip)
+        if why:
+            return f"адрес {ip} — {why}"
+    return None
 
 
 async def _port_state(base_url: str) -> bool | None:
@@ -250,12 +348,22 @@ async def discover(extra_urls: list[str] | None = None,
     чтобы UI не предлагал добавить дубль.
     """
     targets = list(endpoints if endpoints is not None else KNOWN_ENDPOINTS)
+    rejected: list[dict] = []
     for url in extra_urls or []:
-        url = url.strip().rstrip("/")
-        if url and url not in [u for _, u in targets]:
-            targets.append(("указан вручную", url))
+        url = str(url).strip().rstrip("/")
+        if not url or url in [u for _, u in targets] or url in {r["base_url"] for r in rejected}:
+            continue
+        why = await _reject_reason(url)
+        if why is not None:
+            # F-017: отказ виден в ответе честно (rejected=True), но в сеть не уходит
+            rejected.append({"label": "указан вручную", "base_url": url, "ok": False,
+                             "rejected": True, "detail": f"адрес отклонён: {why}",
+                             "models": []})
+            continue
+        targets.append(("указан вручную", url))
 
-    results = await asyncio.gather(*(_probe(label, url, transport) for label, url in targets))
+    results = list(await asyncio.gather(
+        *(_probe(label, url, transport) for label, url in targets))) + rejected
 
     registered = {(p.get("base_url") or "").rstrip("/") for p in known_providers or []}
     for r in results:
