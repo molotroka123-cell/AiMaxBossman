@@ -145,8 +145,13 @@ def refusing_transport(package: OutreachPackage) -> dict:
 
 class OutreachGate:
     def __init__(self, *, ledger: SideEffectLedger | None = None, approvals: ApprovalRegistry | None = None,
-                 transport: Callable[[OutreachPackage], dict] | None = None, max_per_run: int = 5,
+                 transport: Callable[[OutreachPackage], dict] | None = None, max_per_run: int = 5, mode: str = "SIMULATED",
                  cooldown_s: int = DEFAULT_COOLDOWN_S, clock: Callable[[], float] = time.time) -> None:
+        # PASS 3: LIVE mode (production composition root) forbids the memory fallback
+        # and unissued approvals; SIMULATED keeps them for unit/E2E fixtures.
+        if mode not in ("SIMULATED", "LIVE"):
+            raise OutreachRefused(f"unknown outreach mode {mode!r}")
+        self.mode = mode
         self.ledger = ledger if ledger is not None else SideEffectLedger()
         self.approvals = approvals or ApprovalRegistry(clock)
         self.transport = transport or refusing_transport
@@ -165,6 +170,10 @@ class OutreachGate:
         """Empty string = may send. Every rule is checked before any external effect."""
         if not flags.enabled(flags.EXTERNAL_OUTREACH):
             return f"{flags.EXTERNAL_OUTREACH} is off"
+        if self.mode == "LIVE" and getattr(self.ledger, "store", None) is None:
+            return "LIVE outreach requires a durable safety store (memory ledger is simulation-only)"
+        if self.mode == "LIVE" and not getattr(self.approvals, "require_issued", False):
+            return "LIVE outreach requires owner-issued approvals (ApprovalRegistry live mode)"
         if not package.recipient or "@" not in package.recipient and not package.recipient.startswith("http"):
             return "recipient must be a public business email or contact form url"
         if not package.card.verified:

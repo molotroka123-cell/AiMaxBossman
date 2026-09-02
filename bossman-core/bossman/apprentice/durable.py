@@ -33,6 +33,7 @@ class DurableSafetyStore:
               CREATE TABLE IF NOT EXISTS blocks (recipient TEXT PRIMARY KEY, reason TEXT NOT NULL, at REAL NOT NULL);
               CREATE TABLE IF NOT EXISTS teacher_outcomes (key TEXT PRIMARY KEY, score REAL NOT NULL, samples INTEGER NOT NULL, detail TEXT, at REAL NOT NULL);
               CREATE TABLE IF NOT EXISTS pending_approvals (task_id TEXT PRIMARY KEY, payload TEXT NOT NULL, at REAL NOT NULL);
+              CREATE TABLE IF NOT EXISTS issued_approvals (nonce TEXT PRIMARY KEY, digest TEXT NOT NULL, scope TEXT NOT NULL, owner TEXT NOT NULL, task_id TEXT NOT NULL, expires_at REAL, at REAL NOT NULL);
             """)
             self._db.commit()
         except sqlite3.Error as exc:
@@ -130,3 +131,12 @@ class DurableSafetyStore:
             if consume: self._db.execute("DELETE FROM pending_approvals WHERE task_id=?", (task_id,))
             return json.loads(row[0])
         return self._tx(resume) if consume else resume()
+
+    # ---- owner-issued approvals (PASS 3): only the trusted issuer writes here; models cannot mint rows
+    def record_issued_approval(self, *, nonce: str, digest: str, scope: str, owner: str, task_id: str, expires_at: float | None) -> None:
+        self._tx(lambda: self._db.execute("INSERT INTO issued_approvals(nonce,digest,scope,owner,task_id,expires_at,at) VALUES(?,?,?,?,?,?,?)", (nonce, digest, scope, owner, task_id, expires_at, self.clock())))
+
+    def issued_approval(self, nonce: str) -> dict | None:
+        with self._lock:
+            row = self._db.execute("SELECT digest,scope,owner,task_id,expires_at FROM issued_approvals WHERE nonce=?", (nonce,)).fetchone()
+            return {"digest": row[0], "scope": row[1], "owner": row[2], "task_id": row[3], "expires_at": row[4]} if row else None

@@ -107,13 +107,21 @@ def resolve_target(target: SemanticTarget, obs: Observation) -> Resolution:
 
 
 # ------------------------------------------------------------------ side effects
-class SideEffectLedger:
-    """Process-local idempotency ledger shared by all engines of a process. Keyed
-    by side_effect_id; the first claim wins, later claims see the stored result."""
+class DurableRequired(RuntimeError):
+    """LIVE external effects need a durable safety store; memory fallback is for simulation only."""
 
-    def __init__(self, store: Any | None = None) -> None:
+
+class SideEffectLedger:
+    """Idempotency ledger keyed by side_effect_id; the first claim wins, later claims
+    see the stored result. Memory fallback is for SIMULATED/unit modes only: with
+    live=True a durable store is mandatory (PASS 3, DURABLE-LIVE-001)."""
+
+    def __init__(self, store: Any | None = None, *, live: bool = False) -> None:
+        if live and store is None:
+            raise DurableRequired("LIVE side effects require a DurableSafetyStore (no memory fallback)")
         self._lock = threading.Lock()
         self.store = store
+        self.live = live
         self._done: dict[str, dict] = {}
         self._claimed: set[str] = set()
 
@@ -175,9 +183,17 @@ def step_digest(task_id: str, step_id: str, kind: str, target_label: str, text: 
 class ApprovalRegistry:
     """One-time nonce consumption. Validation mirrors company.runtime._valid_approval."""
 
-    def __init__(self, clock: Callable[[], float] = time.time, store: Any | None = None) -> None:
+    def __init__(self, clock: Callable[[], float] = time.time, store: Any | None = None, *,
+                 live: bool = False, require_issued: bool | None = None) -> None:
+        if live and store is None:
+            raise DurableRequired("LIVE approvals require a DurableSafetyStore (no memory fallback)")
         self.clock = clock
         self.store = store
+        self.live = live
+        # LIVE: an approval is valid only if the trusted owner issuer recorded its nonce
+        # (OwnerApprovalIssuer). A model can manufacture `approver="human:owner"`; it
+        # cannot manufacture an issued row.
+        self.require_issued = live if require_issued is None else require_issued
         self._consumed: set[str] = set()
         self._lock = threading.Lock()
 
@@ -194,6 +210,15 @@ class ApprovalRegistry:
             return "approval expired"
         if not d.nonce:
             return "approval without nonce (one-time consumption impossible)"
+        if self.require_issued:
+            issued = self.store.issued_approval(d.nonce) if self.store is not None and hasattr(self.store, "issued_approval") else None
+            if issued is None:
+                return "approval was not issued by the trusted owner issuer (a model cannot mint owner approvals)"
+            if issued["digest"] != d.digest or issued["scope"] != d.scope or (issued["owner"] != d.approver) or \
+                    (issued["expires_at"] is not None and d.expires_at != issued["expires_at"]):
+                return "approval does not match the owner-issued decision (recipient/content/scope/expiry changed)"
+            if issued["expires_at"] is not None and self.clock() >= float(issued["expires_at"]):
+                return "approval expired"
         if self.store is not None and self.store.nonce_consumed(d.nonce):
             return "approval already consumed (replay)"
         with self._lock:

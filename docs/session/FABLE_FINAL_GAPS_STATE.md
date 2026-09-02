@@ -1,18 +1,18 @@
 # FABLE FINAL GAPS — session checkpoint (read this first)
 
-CURRENT_HEAD=(git log -1; PASS2 commit on top of 8a90fce)
-COMPLETED_PASS=PASS2 hermetic Claude Code teacher
-STATUS=PASS1+PASS2 committed; PASS3 not started
-FILES_READ=apprentice/{claude_code_client,live_workspace,teacher(build_bundle,AcceptanceBinding)}.py, tests/test_apprentice_live_safety.py (names)
-FILES_CHANGED=apprentice/teacher_sandbox.py (new), claude_code_client.py, live_workspace.py, teacher.py (restore=True), tests/test_teacher_isolation.py (new)
-TESTS_RUN=cd bossman-core && python -m pytest tests/test_teacher_isolation.py tests/test_apprentice_live_safety.py tests/test_apprentice_teacher.py tests/test_apprentice_e2e.py -q --timeout=300 → 43 passed, 1 skipped (live gated); BOSSMAN_TEACHER_LIVE_SMOKE=1 -k live_001 → 1 passed (real claude, 70 s)
-TEST_RESULTS=PASS; TEACHER-LIVE-001 PASS with the real local `claude` (2 paid calls ≈ $0.06 each: first exposed the CLI result-envelope bug, second passed after the fix)
-ACCEPTANCE_IDS=BENCH-* PASS (PASS1); TEACHER-ISO-001..005 PASS; TEACHER-LIVE-001 PASS (isolation level on this host: process-cwd+tool-denylist; bwrap absent)
+CURRENT_HEAD=(git log -1; PASS3 commit on top of 4212087)
+COMPLETED_PASS=PASS3 durable LIVE + owner auth
+STATUS=PASS1-3 committed; PASS4 not started
+FILES_READ=apprentice/{guards,durable,outreach(OutreachGate),engine(ctor)}.py, remote_client/{security,auth(SCOPE_*, Principal)}.py
+FILES_CHANGED=apprentice/durable.py (issued_approvals table), guards.py (live=True needs store; require_issued), outreach.py (mode SIMULATED|LIVE), owner_auth.py (new), composition.py (new), tests/test_durable_live_owner_auth.py (new)
+TESTS_RUN=cd bossman-core && python -m pytest tests/test_durable_live_owner_auth.py tests/test_apprentice_live_safety.py tests/test_apprentice_outreach.py tests/test_apprentice_e2e.py tests/test_lead_uca_adversarial.py tests/test_apprentice_core.py -q → 62 passed
+TEST_RESULTS=PASS
+ACCEPTANCE_IDS=BENCH-* PASS; TEACHER-ISO-001..005 PASS; TEACHER-LIVE-001 PASS; DURABLE-LIVE-001..005 PASS; OWNER-AUTH-001..005 PASS
 KNOWN_BLOCKERS=no docker daemon on this host; no bwrap; no Anthropic/Claude executable; no Higgsfield session; no Google Maps live
-NEXT_PASS=PASS3 durable LIVE (no durable store → refuse LIVE effects in the composition root) + owner-auth issuer/challenge bound to authenticated owner; persist consumption via DurableSafetyStore
-NEXT_FILES=bossman-core/bossman/apprentice/guards.py, durable.py, outreach.py (OutreachGate ctor/send), engine.py (composition of ledger/registry), auth primitives found by grep (bossman/perimeter or auth module)
-NEXT_TESTS=bossman-core/tests/test_durable_live_owner_auth.py (new), tests/test_apprentice_live_safety.py, tests/test_apprentice_outreach.py
-EXACT_NEXT_COMMAND=cd bossman-core && python -m pytest tests/test_durable_live_owner_auth.py tests/test_apprentice_live_safety.py tests/test_apprentice_outreach.py -q --no-header -p no:cacheprovider -o addopts="" --timeout=300
+NEXT_PASS=PASS4 real E2E: (A) real Chromium via Playwright on a local page with the real apprentice engine; (B) real claude teacher bug A→B learning; (C) real public source (OSM Nominatim or other) → site issue → demo → WAIT_APPROVAL; BLOCKED_BY_ENVIRONMENT where honest
+NEXT_FILES=bossman-core/bossman/toolkit/browser.py (API), computer_operator/adapters/browser.py, apprentice/engine.py (observer/actuator protocol), tests/fixtures/apprentice/sim.py (protocol reference), apprentice/teacher.py (TeacherFallback.request)
+NEXT_TESTS=bossman-core/tests/test_e2e_real_gui.py, test_e2e_real_claude.py, test_e2e_real_outreach.py (new, gated by env; BLOCKED reasons recorded)
+EXACT_NEXT_COMMAND=cd bossman-core && python -m pytest tests/test_e2e_real_gui.py tests/test_e2e_real_claude.py tests/test_e2e_real_outreach.py -q --no-header -p no:cacheprovider -o addopts="" --timeout=600 -rs
 
 ## Verified facts at 7fc4343 (existence checks only)
 - jsonschema dev dependency present in bossman-core/pyproject.toml [dev]
