@@ -1,0 +1,30 @@
+{
+  "generated": "2026-09-02",
+  "head": "4eb97a5 (last code commit; docs commit follows)",
+  "gates": {
+    "no_open_critical": {"pass": true, "evidence": "0 CRITICAL findings in FABLE_51 set"},
+    "no_open_high": {"pass": true, "evidence": "F-001 FIXED (Fable Phase 2); F-009 FIXED host-path authz (container mount NOT_TESTED_ON_THIS_HOST, defense-in-depth only)"},
+    "f009_closed": {"pass": true, "status": "FIXED+NOT_TESTED_ON_THIS_HOST(container)", "tests": "command-center/tests/test_secrem_f009_terminal.py"},
+    "f012_closed": {"pass": true, "status": "FIXED", "tests": "command-center/tests/test_secrem_f012_verification.py"},
+    "f013_f014_closed": {"pass": true, "status": "FIXED", "tests": "test_secrem_f013_approval_identity.py, test_secrem_mcp_boundary.py"},
+    "f006_f007_closed": {"pass": true, "status": "FIXED", "tests": "bossman-core/tests/test_secrem_f006_f007_untrusted.py, command-center/tests/test_secrem_facts_boundary.py"},
+    "f008_f016_closed": {"pass": true, "status": "FIXED", "tests": "test_secrem_f008_gateway_failclosed.py, test_secrem_router_failclosed.py"},
+    "no_arbitrary_shell": {"pass": true, "evidence": "stage13 hostexec red-team green; projects cmd argv-only; MCP spawn allowlist"},
+    "no_approval_bypass": {"pass": true, "evidence": "F-013 identity digest, F-015 approval-by-record, F-005 projects approvals"},
+    "cloud_fail_closed": {"pass": true, "evidence": "gateway header explicit-only, embeddings gated, client default 0, cc router strict True"},
+    "verified_success_requires_fresh_evidence": {"pass": true, "evidence": "review_gate → verification.verify_all; UNVERIFIED escalates"},
+    "no_security_regression": {"pass": true, "evidence": "core 1360 passed, 5 skipped, 0 failed; command-center 718 passed, 3 skipped, 0 failed; root 35 passed, 0 failed; secret scan PASS; compileall OK"},
+    "learning_schema_works": {"pass": true, "evidence": "tests/test_learning_trace.py 15 passed"},
+    "corpora_separated": {"pass": true, "evidence": "fix_cases.jsonl VERIFIED only; failed_experiments.jsonl separate"},
+    "secrets_redacted_no_cot": {"pass": true, "evidence": "validator rejects secret residues and hidden-reasoning fields"},
+    "backfilled_security_cases": {"pass": true, "evidence": "16 VERIFIED cases incl. F-001..F-003"},
+    "retrieval_selects_verified": {"pass": true, "evidence": "LearningStore.retrieve default verified_only; include_failed warns"},
+    "company_flag_off_default": {"pass": true, "evidence": "AI_COMPANY_MODE_ENABLED unset → CompanyModeDisabled"},
+    "company_no_duplicate_engines": {"pass": true, "evidence": "executor/approval_gate/verifier/kpi_reader injected"},
+    "company_synthetic_demo": {"pass": true, "evidence": "tests/test_company_mode.py 24 passed; publish denied; score 62.5→100.0"},
+    "deep_fix_flag_off_default": {"pass": true, "evidence": "BOSSMAN_DEEP_FIX_ENABLED unset → enabled() False"}
+  },
+  "not_tested_on_this_host": ["F-009 docker RW bind-mount proof", "Windows junction PoCs (poc_fs_symlink.py, poc_variants.py)", "GPU/RunPod soak and router real-model E2E", "BUG-004 on Windows/RunPod"],
+  "accepted_risk_requires_owner": ["DNS rebinding between resolve and connect (http/browser/discovery)", "browser in-page sub-requests unfiltered", "single-token command-center authority (per-capability HTTP authz)"],
+  "safe_for_v2_freeze": "YES"
+}

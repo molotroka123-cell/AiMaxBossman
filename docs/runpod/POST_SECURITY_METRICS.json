@@ -1,0 +1,11 @@
+{
+  "host": "linux-container (no GPU, no docker daemon)",
+  "final_sha": "4eb97a5 (last code commit; docs commit follows)",
+  "regression": {"bossman_core": "1360 passed, 5 skipped, 0 failed", "command_center": "718 passed, 3 skipped, 0 failed", "root": "35 passed, 0 failed"},
+  "security": {"cloud_calls": 0, "secrets_leaked": 0, "arbitrary_shell": 0, "approval_bypass": 0,
+               "pocs_blocked": 3, "pocs_not_tested_on_this_host": 2, "cc_poc_v2": "blocked"},
+  "learning": {"verified_cases": 16, "failed_experiments": 1, "intelligence_ideas": 200},
+  "gpu": {"router_e2e": "NOT_TESTED_ON_THIS_HOST", "soak_tasks": "NOT_TESTED_ON_THIS_HOST",
+          "vram_peak_mib": null, "ollama_rss_peak_mib": null},
+  "runpod_todo": ["preflight", "full suites", "F-009 docker proof", "BUG-004 windows", "router E2E", "soak>=100"]
+}
