@@ -52,6 +52,13 @@ async def _session_for(ctx, args: dict) -> int:
     """Сессия браузера этого run'а: переиспользуем, пока не попросили новую."""
     explicit = args.get("session_id")
     if explicit:
+        # F-011: явный session_id принимается ТОЛЬКО если сессия принадлежит этой
+        # задаче — чужой номер (другой задачи/миссии) не даёт управлять её браузером.
+        async with ctx.svc.db.session() as s:
+            row = (await s.execute(sa.select(bs_t.c.id).where(sa.and_(
+                bs_t.c.id == int(explicit), bs_t.c.task_id == ctx.task["id"])))).first()
+        if row is None:
+            raise PermissionError(f"browser session {explicit} не принадлежит задаче {ctx.task['id']}")
         return int(explicit)
     async with ctx.svc.db.session() as s:
         row = (await s.execute(sa.select(bs_t.c.id).where(sa.and_(

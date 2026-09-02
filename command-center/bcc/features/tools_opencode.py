@@ -175,6 +175,9 @@ async def find_session(svc, session_id: str = "", *, run_id=None,
     query = sa.select(oc_t).order_by(oc_t.c.id.desc()).limit(1)
     if session_id:
         query = sa.select(oc_t).where(oc_t.c.session_id == session_id).limit(1)
+        # F-011: явный session_id — только своей задачи (чужую сессию не отдаём)
+        if task_id is not None:
+            query = query.where(oc_t.c.task_id == task_id)
     elif run_id is not None:
         query = query.where(oc_t.c.run_id == run_id)
     elif task_id is not None:
