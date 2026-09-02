@@ -240,6 +240,18 @@ def _gate(metrics: dict[str, Any], cases: list[dict[str, Any]], baseline: dict[s
     classes = evidence_classes or {}
     real_n = classes.get("REAL_SANDBOX", 0) + classes.get("LIVE", 0)
     if tier in STRICT_TIERS:
+        # Fable-originated improvement (review 1377c9e): optional manifest MAC pinning.
+        # OFF unless BENCHMARK_MANIFEST_SECRET is set; ON, a forged manifest is refused.
+        secret = os.environ.get("BENCHMARK_MANIFEST_SECRET", "")
+        if secret:
+            import hashlib as _hashlib
+            import hmac as _hmac
+            supplied_mac = str(manifest.get("mac", ""))
+            payload = json.dumps({k: manifest[k] for k in sorted(manifest) if k != "mac"}, sort_keys=True)
+            expected = _hmac.new(secret.encode(), payload.encode(), _hashlib.sha256).hexdigest()
+            if not _hmac.compare_digest(supplied_mac, expected):
+                return {"ready": False, "status": "NO-GO",
+                        "reasons": ["manifest MAC validation failed: forgery attempt detected"]}
         covered = {c.get("capability") for c in cases
                    if c.get("passed") and c.get("evidence_class") in ("REAL_SANDBOX", "LIVE")
                    and c.get("capability")}

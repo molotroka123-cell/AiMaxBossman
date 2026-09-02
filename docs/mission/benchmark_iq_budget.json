@@ -1,0 +1,28 @@
+{
+ "mission_id": "BENCHMARK-SYSTEM-IQ-001",
+ "total_usd": 3.0,
+ "reservations": [
+  {
+   "reservation_id": "rsv-803c9ca40f2a",
+   "mission_id": "BENCHMARK-SYSTEM-IQ-001",
+   "owner_id": "bossman",
+   "purpose": "fable-direct-call",
+   "worst_case_usd": 0.09901,
+   "created_at": 1788381516.4802957,
+   "status": "COMMITTED",
+   "actual_usd": 0.033609,
+   "request_id": "req_011CefFseMNzsSt2sGBjMK2d"
+  },
+  {
+   "reservation_id": "rsv-ded21eceadd8",
+   "mission_id": "BENCHMARK-SYSTEM-IQ-001",
+   "owner_id": "bossman",
+   "purpose": "fable-direct-call",
+   "worst_case_usd": 0.09901,
+   "created_at": 1788381566.1085424,
+   "status": "COMMITTED",
+   "actual_usd": 0.033609,
+   "request_id": "req_011CefFwJRBc2Y7r2HEVpuHC"
+  }
+ ]
+}

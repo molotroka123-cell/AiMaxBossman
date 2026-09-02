@@ -3,6 +3,9 @@ must come from measured REAL_SANDBOX/LIVE cases; strict tiers enforce coverage;
 a NO-GO gate must fail the process (exit 1)."""
 from __future__ import annotations
 
+import hashlib
+import hmac as hmac_mod
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -48,6 +51,32 @@ def test_capability_coverage_requires_real_evidence(tmp_path: Path):
     missing = gate_caps[0].split("coverage: ", 1)[1]
     assert "universal_computer_apprentice" in missing       # its MOCK case cannot satisfy coverage
     assert "persistence" not in missing                     # covered by the REAL_SANDBOX durable-restart case
+
+
+def test_fable_manifest_mac_pinning_opt_in(tmp_path: Path, monkeypatch):
+    """Fable-originated: strict tiers refuse a forged manifest when MAC pinning is ON."""
+    import hashlib
+    import hmac as hmac_mod
+    runner = BenchmarkRunner(output_root=tmp_path / "out")
+    manifest = json.loads((CORE / "bossman" / "benchmark" / "datasets" / "v1" / "manifest.json").read_text(encoding="utf-8"))
+    secret = "bench-mac-secret"
+    payload = json.dumps({k: manifest[k] for k in sorted(manifest) if k != "mac"}, sort_keys=True)
+    manifest["mac"] = hmac_mod.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    monkeypatch.setenv("BENCHMARK_MANIFEST_SECRET", secret)
+    ok = BenchmarkRunner(manifest_file=_write_manifest(tmp_path, manifest), output_root=tmp_path / "ok").run("release", sha=HEAD)[0]
+    assert all("MAC" not in r for r in ok["release_gate"]["reasons"])
+    manifest["release_requires_live"] = False                    # forged change
+    bad = BenchmarkRunner(manifest_file=_write_manifest(tmp_path, manifest), output_root=tmp_path / "bad").run("release", sha=HEAD)[0]
+    assert "manifest MAC validation failed: forgery attempt detected" in bad["release_gate"]["reasons"]
+    monkeypatch.delenv("BENCHMARK_MANIFEST_SECRET")
+    off = BenchmarkRunner(output_root=tmp_path / "off").run("release", sha=HEAD)[0]
+    assert not any("MAC" in r for r in off["release_gate"]["reasons"])   # OFF by default
+
+
+def _write_manifest(tmp_path: Path, data: dict) -> Path:
+    p = tmp_path / "manifest.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    return p
 
 
 def test_gate_no_go_never_claims_ready_without_baseline(tmp_path: Path):
