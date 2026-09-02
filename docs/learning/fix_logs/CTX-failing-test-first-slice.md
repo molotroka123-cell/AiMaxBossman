@@ -10,7 +10,7 @@ OUTCOME: FIXED
 VERIFIED_BY: pytest:tests/test_context_slice.py
 CONFIDENCE: 0.8
 TAGS: {"bug_class": "discovery_cost", "component": "tools.context_slice", "domain": "efficiency", "severity": "INFO"}
-FINDINGS: 
+FINDINGS:
 
 ## Task
 Tool-side context compiler: repo map cached per HEAD sha + failing-test-first slice (ideas F5.1, F5.10, F2.8)

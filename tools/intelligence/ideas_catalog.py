@@ -289,7 +289,7 @@ def _record(idea, source: str) -> dict:
         "BASELINE": "session 2026-09-02: 16 VERIFIED cases, 0 measured A/B (ESTIMATE only)",
         "DECISION": decision, "DECISION_EVIDENCE": why,
         "IMPLEMENTATION_STATUS": "NOT_STARTED" if decision != "REJECT" else "N/A",
-        "RESULT": "", "VERIFICATION": "", "LESSONS": "", 
+        "RESULT": "", "VERIFICATION": "", "LESSONS": "",
         "TEACH_LOCAL_MODEL": f"Decision {decision}: {why}",
         "CONFIDENCE": conf, "LIMITATIONS": "Estimates are ordinal expert judgments, not measurements",
         "PRIORITY_AID": aid,

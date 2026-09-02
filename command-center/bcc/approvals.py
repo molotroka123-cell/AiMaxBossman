@@ -75,4 +75,3 @@ class Approvals:
         if ok:
             await self.bus.emit("approval.consumed", id=aid, approval_kind=kind)
         return ok
-
