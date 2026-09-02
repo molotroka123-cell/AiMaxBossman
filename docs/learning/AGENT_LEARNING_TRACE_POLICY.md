@@ -75,3 +75,18 @@ context-injection form (lessons, evidence, provenance) for local models.
 - Task templates for strong models (session packs / master prompts) must end with
   "write the learning trace, validate it, commit it with the fix".
 - Sub-agents report the same fields in their final message; the lead validates and stores.
+
+## Handoff packet (token economy, idea F7.9)
+
+Before escalating a task to a stronger model or a new session, produce the packet with tools,
+not prose:
+
+```
+python tools/context_slice.py map <app_root>                 # once per commit (cached by sha)
+python tools/context_slice.py slice <app_root> <failing_test> # hashed manifest, depth 2
+python -m learning.trace retrieve --finding_id <F-xxx> --limit 3   # verified cases + rejected fixes
+```
+
+The packet = failing test + slice manifest (file@sha256) + evidence ledger so far + surviving
+hypotheses + retrieved VERIFIED cases (compact form). The receiving model starts at the frontier
+and never re-discovers; a stale manifest hash means re-slice before editing.
