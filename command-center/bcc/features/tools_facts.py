@@ -26,13 +26,18 @@ class FactIn(BaseModel):
 
 
 def _render(rows: list[dict]) -> str:
+    """Текст фактов для модели. F-006: у каждого факта виден источник
+    ([source=human|run|note|…]) — текст «OWNER APPROVED …», записанный заметкой
+    или прогоном, не должен читаться как указание владельца. Заголовок «это
+    внешние данные» ставит движок по ToolSpec.external_output, не этот текст."""
     if not rows:
         return "факты не найдены"
     lines = []
     for row in rows:
         item = public_fact(row)
+        source = str(item.get("source_kind") or "unknown").replace("]", "")
         lines.append(
-            f"fact#{item['id']} | {item['subject']} :: {item['predicate']}\n"
+            f"fact#{item['id']} | {item['subject']} :: {item['predicate']} [source={source}]\n"
             f"{item['statement']}\n"
             f"world=[{item.get('valid_at')} .. {item.get('invalid_at') or '∞'}] "
             f"knowledge=[{item.get('created_at')} .. {item.get('expired_at') or '∞'}] "
@@ -172,14 +177,14 @@ SPECS = [
             "meta": {"type": "object"},
         }, required=["subject", "predicate", "statement"]),
     ToolSpec(
-        name="memory.fact.search", handler=tool_fact_search, source="memory", category="read",
+        name="memory.fact.search", external_output=True, handler=tool_fact_search, source="memory", category="read",
         default_effect="auto", description="Искать текущие/исторические структурированные факты.",
         input_schema={
             "query": {"type": "string"}, "subject": {"type": "string"},
             "predicate": {"type": "string"}, "current_only": {"type": "boolean"},
             "limit": {"type": "integer", "minimum": 1, "maximum": 200}}),
     ToolSpec(
-        name="memory.fact.at_time", handler=tool_fact_at_time, source="memory", category="read",
+        name="memory.fact.at_time", external_output=True, handler=tool_fact_at_time, source="memory", category="read",
         default_effect="auto", description="Bi-temporal query по world_at и known_at.",
         input_schema={
             "world_at": {"type": "string"}, "known_at": {"type": "string"},
@@ -187,7 +192,7 @@ SPECS = [
             "predicate": {"type": "string"}, "limit": {"type": "integer"}},
         required=["world_at"]),
     ToolSpec(
-        name="memory.fact.history", handler=tool_fact_history, source="memory", category="read",
+        name="memory.fact.history", external_output=True, handler=tool_fact_history, source="memory", category="read",
         default_effect="auto", description="Полная temporal history для subject/predicate.",
         input_schema={"subject": {"type": "string"}, "predicate": {"type": "string"},
                       "limit": {"type": "integer"}}, required=["subject"]),
