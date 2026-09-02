@@ -30,8 +30,9 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: claude/bossman-control-v03-43igbk
+        # CI-AUTOREPAIR-REF-001: no hard-coded ref. On push this checks out the
+        # pushed commit; on pull_request it checks out the candidate merge
+        # commit — the candidate change is what gets tested, not the base branch.
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -87,11 +88,13 @@ jobs:
           commit-message: 'fix(P0): Auto-repair Bossman V2 critical issues'
           title: 'fix(P0): Auto-repair Bossman V2 critical issues'
           body: |
-            Automated repair of critical Bossman V2 issues:
-            - Fixed PostgreSQL schema
-            - Fixed Working Memory DB contract
-            - Fixed Decision Memory DB contract
-            - Fixed Failure Memory DB contract
-            - Verified all tests pass
+            Automated repair attempt of critical Bossman V2 issues (CI-AUTOREPAIR-REPORT-001).
+            The triggering test run FAILED — that is why this PR exists.
+            Status of this branch: REPAIR ATTEMPTED, NOT VERIFIED.
+            - PostgreSQL schema re-applied
+            - Memory DB contracts targeted in the failing run
+            CI-AUTOREPAIR-REPORT-001 invariant: no success claims are made here.
+            Success can only be established by a fresh green run of the full suite
+            on THIS PR's merge commit.
           branch: auto-fix/bossman-v2-repair
           base: claude/bossman-control-v03-43igbk
