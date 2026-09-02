@@ -142,7 +142,12 @@ def _weighted_geometric_mean(parts: dict[str, float | None], weights: dict[str, 
     Returns the value plus exactly which components were measured, so a high
     score computed from a thin slice of evidence is visible rather than implied.
     """
-    measured = {k: v for k, v in parts.items() if v is not None}
+    measured = {k: v for k, v in parts.items()
+                if v is not None and isinstance(v, (int, float)) and not isinstance(v, bool)
+                and math.isfinite(float(v))}   # red team A1: NaN/Inf are CORRUPTION,
+    # not extreme scores: Inf must not clamp to a perfect 1.0 and NaN must not
+    # silently become the floor; both are excluded so the component is reported
+    # missing (INSUFFICIENT_EVIDENCE) instead of fabricating evidence.
     missing = sorted(k for k in weights if k not in measured)
     measured_weight = sum(weights[k] for k in measured)
     if measured_weight <= 0:
