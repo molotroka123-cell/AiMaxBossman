@@ -18,7 +18,8 @@ def test_reserve_commit_release_and_remaining(tmp_path: Path):
     b.commit(rid, 0.05)
     assert b.remaining() == 8.95                      # actual spend replaces worst-case hold
     rid2 = b.reserve(1.0)
-    b.release(rid2)
+    b.mark_reconciling(rid2)
+    b.trusted_reconcile(rid2, request_id="r2", actual_usd=None)
     assert b.remaining() == 8.95                      # released reservation frees budget
     with pytest.raises(BudgetExhausted):
         b.reserve(100.0)                              # hard cap not weakenable
@@ -64,5 +65,5 @@ def test_corrupt_ledger_fails_closed(tmp_path: Path):
     assert b.remaining() == 9.0                       # nothing assumed spent
     rid = b.reserve(9.0)                              # ...but the cap still applies
     assert b.remaining() == 0.0
-    b.release(rid)
+    b.trusted_reconcile(rid, request_id="r", actual_usd=None)
     assert b.remaining() == 9.0
