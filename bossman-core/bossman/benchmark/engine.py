@@ -299,9 +299,9 @@ def run_isolated(sha: str, tier: str, output_root: Path, *, allow_live: bool = F
                     "child_returncode": proc.returncode, "child": child, "child_stderr_tail": proc.stderr[-800:],
                     "child_provenance_supported": bool(prov), "child_provenance": prov, "run_id": report.get("run_id"),
                     "scores": report.get("scores"), "metrics": report.get("metrics")}
-        target = output_root / full
+        target = output_root / "isolated"          # envelopes live apart from reports (load_latest reads reports only)
         target.mkdir(parents=True, exist_ok=True)
-        (target / f"isolated-{uuid.uuid4()}.json").write_text(json.dumps(envelope, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        (target / f"{full}-{uuid.uuid4()}.json").write_text(json.dumps(envelope, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         return envelope
     finally:
         if not keep_worktree:
@@ -327,7 +327,7 @@ def render_markdown(report: dict[str, Any]) -> str:
 
 
 def load_latest(output_root: Path, sha: str) -> dict[str, Any]:
-    files = sorted((Path(output_root) / sha).glob("*.json"), key=lambda p: p.stat().st_mtime)
+    files = sorted((p for p in (Path(output_root) / sha).glob("*.json") if not p.name.startswith("isolated-")), key=lambda p: p.stat().st_mtime)
     if not files:
         raise FileNotFoundError(f"no benchmark JSON for {sha} under {output_root}")
     return json.loads(files[-1].read_text(encoding="utf-8"))
