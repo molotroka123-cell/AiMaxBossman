@@ -8,7 +8,9 @@ Fable's.
 ## Base
 
 - START_REMOTE_SHA `9613e459b7ee28428a34829b63350acd4bb327b5`
-- FINAL_REMOTE_SHA: see `AUDIT_STATE.md` (written after push)
+- CODE_COMPLETE_SHA `0e8960ae8443e2247d78b1c5216e3d2cdaaa6df4` — all 4 GitHub workflows green
+  (root-ci, Bossman Core CI, Command Center CI, Bossman V2 Auto-Repair). This commit adds
+  only this line, so it is the same tree plus documentation.
 - Branch `claude/bossman-control-v03-43igbk`
 - No paid API call was made in this session. No Fable re-invocation. Budget ledger untouched.
 
@@ -135,6 +137,7 @@ cd bossman-core && python -c "from bossman.benchmark.sandbox_runtime import CASE
 | `ea2d03b` | durable store F1/F2/F3 |
 | `99e3a88` | promotion F4/F5 |
 | `d033128` | cache savings F6 |
+| `0e8960a` | decoy credentials assembled at runtime (secret-scan hygiene) |
 
 Each is independently revertable.
 

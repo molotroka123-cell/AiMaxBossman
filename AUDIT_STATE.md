@@ -1,6 +1,7 @@
 # AUDIT_STATE — AUDIT-ONLY-001 (independent verification complete)
 
 BASE_SHA=9613e459b7ee28428a34829b63350acd4bb327b5
+CODE_COMPLETE_SHA=0e8960ae8443e2247d78b1c5216e3d2cdaaa6df4 (GitHub CI 4/4 SUCCESS)
 Branch claude/bossman-control-v03-43igbk
 
 ## Verdicts (ours, after local reproduction — NOT Fable's)
@@ -25,6 +26,8 @@ The Fable audit log itself is unmodified.
 | ea2d03b | durable: immutable completion, abandon tombstone, poisoned store (F1/F2/F3) |
 | 99e3a88 | learning: mandatory and scope-bound promotion evidence (F4/F5) |
 | d033128 | cache: savings only from provider evidence (F6) |
+| 8520bf0 | docs: correction report, state, GLM red-team handoff |
+| 0e8960a | benchmark: decoy credentials assembled at runtime (secret-scan hygiene) |
 
 Each independently revertable.
 
