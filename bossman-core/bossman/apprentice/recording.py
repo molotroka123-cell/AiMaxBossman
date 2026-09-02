@@ -94,8 +94,10 @@ class EpisodeRecorder:
     def finish(self, result: TaskResult) -> dict:
         errors = [{"step_id": r.get("step_id", ""), "error_code": r.get("error_code", ""), "result": r.get("result", "")}
                   for r in self.records if r.get("result") != "ok"]
-        status = "UNVERIFIED" if result.state is ApprenticeState.SUCCEED else (
-            "PARTIAL" if result.checkpoints_reached else "FAILED_EXPERIMENT")
+        failed_ver = any(str(r.get("result", "")).startswith(("verification_failed", "receipt_invalid")) for r in self.records)
+        verified = result.state is ApprenticeState.SUCCEED and not failed_ver and all(
+            (r.get("verification") or {}).get("ok") for r in self.records if r.get("result") == "ok")
+        status = "UNVERIFIED" if verified else ("FAILED_EXPERIMENT" if failed_ver or not result.checkpoints_reached else "PARTIAL")
         ep = {
             "task_id": self.task.task_id, "record_type": "episode", "learning_status": status,
             "title": f"episode: {self.task.goal[:80]}", "summary": result.reason[:500],
@@ -103,7 +105,7 @@ class EpisodeRecorder:
             "app": self.app, "app_version": self.app_version, "model": self.model, "agent": self.agent,
             "run_id": self.task.run_id, "session_id": self.task.session_id, "principal_id": self.principal_id,
             "head_sha": self.task.head_sha, "start_sha": self.task.head_sha, "end_sha": self.task.head_sha,
-            "outcome": result.state.value, "checkpoints_reached": list(result.checkpoints_reached),
+            "outcome": result.state.value, "verified": verified, "checkpoints_reached": list(result.checkpoints_reached),
             "action_records": list(self.records), "errors": errors,
             "semantic_anchors": semantic_anchors(self.records),
             "recovery": [{"step_id": e["step_id"], "error_code": e["error_code"]} for e in errors if e["error_code"]],

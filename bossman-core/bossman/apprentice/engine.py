@@ -25,12 +25,13 @@ from bossman.cybersec.trust import TrustLevel
 from . import flags
 from ._bootstrap import trace
 from .errors import (ApprenticeDisabled, ApprovalInvalid, ApprovalRequired, BudgetExhausted, DuplicateAction,
-                     FalseCompletion, FlagDisabled, InjectionBlocked, LessonBlocked, LoopDetected, PolicyRefused,
-                     SecretInRecord, SelectorDrift, StaleObservation, VerificationFailed, WrongWindow)
+                     FalseCompletion, FlagDisabled, IdempotencyKeyRequired, InjectionBlocked, InvalidObservation,
+                     LessonBlocked, LoopDetected, PolicyRefused, ReceiptInvalid, SecretInRecord, SelectorDrift,
+                     StaleObservation, VerificationFailed, WrongWindow)
 from .guards import (ApprovalRegistry, SideEffectLedger, freshness_error, observation_hash, observation_ref,
                      resolve_target, side_effect_id, step_digest)
-from .models import (APPROVAL_RISK, TERMINAL, TRANSITIONS, ActionRecord, AppIdentity, ApprenticeState,
-                     ApprenticeTask, ObservationRef, Plan, PlanStep, RiskClass, TaskResult, Verification,
+from .models import (APPROVAL_RISK, TERMINAL, TRANSITIONS, WRITE_RISK, ActionRecord, AppIdentity, ApprenticeState,
+                     ApprenticeTask, EffectReceipt, ObservationRef, Plan, PlanStep, RiskClass, TaskResult, Verification,
                      expected_as_dict, new_id)
 
 REDACTED = "***REDACTED***"
@@ -110,6 +111,8 @@ class _Ctx:
     pending_digest: str = ""
     dropped_records: int = 0
     resume_from: dict | None = None
+    latest_binding: dict = field(default_factory=dict)
+    action_id: str = ""
 
 
 class UniversalComputerApprentice:
@@ -119,7 +122,7 @@ class UniversalComputerApprentice:
                  on_record: Callable[[ActionRecord], None] | None = None,
                  lessons: list[dict] | None = None, fallback: Callable[..., Plan | None] | None = None,
                  clock: Callable[[], float] = time.time, policy: ComputerPolicy | None = None,
-                 loop_guard: LoopGuard | None = None) -> None:
+                 loop_guard: LoopGuard | None = None, allowed_skew_s: float = 300.0) -> None:
         self.planner, self.observer, self.actuator = planner, observer, actuator
         self.verifier = verifier or DefaultVerifier()
         self.approval_gate = approval_gate
@@ -131,6 +134,7 @@ class UniversalComputerApprentice:
         self.clock = clock
         self.policy = policy or ComputerPolicy()
         self.loop_guard = loop_guard or LoopGuard()
+        self.allowed_skew_s = float(allowed_skew_s)
         self._ctx: _Ctx | None = None
 
     # ------------------------------------------------------------ public API
@@ -185,6 +189,10 @@ class UniversalComputerApprentice:
     def transitions(self) -> list[tuple[str, str, str]]:
         return list(self._ctx.transitions) if self._ctx else []
 
+    def last_view(self) -> ObservationView | None:
+        """Sanitized view of the latest observation (what the planner would see now)."""
+        return self._view(self._ctx.latest) if (self._ctx and self._ctx.latest is not None) else None
+
     # ------------------------------------------------------------ state machine
     def _go(self, ctx: _Ctx, new: ApprenticeState, reason: str) -> None:
         if new not in TRANSITIONS[ctx.state]:
@@ -227,7 +235,15 @@ class UniversalComputerApprentice:
                 if ctx.steps_used >= ctx.task.max_steps:
                     return self._fail(ctx, f"budget exhausted: {ctx.task.max_steps} steps")
                 self._go(ctx, ApprenticeState.OBSERVE, f"before {step.step_id}")
-                obs = self._observe(ctx)
+                ctx.action_id = new_id("act")
+                try:
+                    obs = self._observe(ctx, action_id=ctx.action_id)
+                except InvalidObservation as exc:
+                    self._record_refusal(ctx, step, None, exc)
+                    res = self._recover(ctx, step, exc)
+                    if res is not None:
+                        return res
+                    continue
                 if ctx.resume_from and self._try_resume(ctx, obs):
                     self._go(ctx, ApprenticeState.PLAN, "resumed from checkpoint")
                     continue
@@ -246,8 +262,8 @@ class UniversalComputerApprentice:
                         return self.resume(decision)
                 return self._result(ctx, "waiting for owner approval")
             except (StaleObservation, WrongWindow, SelectorDrift, InjectionBlocked, LessonBlocked, LoopDetected,
-                    PolicyRefused, BudgetExhausted, VerificationFailed) as exc:
-                if not isinstance(exc, VerificationFailed):        # verification failures are already recorded
+                    PolicyRefused, BudgetExhausted, VerificationFailed, IdempotencyKeyRequired) as exc:
+                if not isinstance(exc, VerificationFailed):        # verification / receipt failures are already recorded
                     self._record_refusal(ctx, step, obs, exc)
                 if isinstance(exc, BudgetExhausted):
                     return self._fail(ctx, str(exc))
@@ -267,18 +283,42 @@ class UniversalComputerApprentice:
         return self._result(ctx, ctx.last_failure)
 
     # ------------------------------------------------------------ observe
-    def _observe(self, ctx: _Ctx) -> Observation:
-        obs = self.observer.observe()
+    def _observe(self, ctx: _Ctx, *, action_id: str = "", side_effect_id: str = "") -> Observation:
+        """Fresh observation bound to task/run/session/action. Rejects observations from the
+        future (clock skew) and observations the observer binds to another task/run/session."""
+        t = ctx.task
+        binding = {"task_id": t.task_id, "run_id": t.run_id, "session_id": t.session_id, "action_id": action_id,
+                   "side_effect_id": side_effect_id}
+        obs = self.observer.observe(binding=binding) if getattr(self.observer, "accepts_binding", False) else self.observer.observe()
+        now = self.clock()
+        if float(obs.created_at) > now + self.allowed_skew_s:
+            raise InvalidObservation(f"observation {obs.id} is from the future ({obs.created_at:.0f} > now {now:.0f} + skew)")
+        if float(obs.created_at) <= 0:
+            raise InvalidObservation(f"observation {obs.id} has no timestamp")
+        binding_of = getattr(self.observer, "binding_of", None)
+        if callable(binding_of):
+            got = binding_of(obs) or {}
+            if not got:
+                raise InvalidObservation(f"observation {obs.id} is not bound to a task/run/session")
+            for k in ("task_id", "run_id", "session_id"):
+                if str(got.get(k, "")) != binding[k]:
+                    raise InvalidObservation(f"observation {obs.id} belongs to another task/run/session ({k}={got.get(k)!r})")
         ctx.generation = int(obs.generation)
         ctx.latest = obs
+        ctx.latest_binding = binding
         return obs
+
+    def _ref(self, ctx: _Ctx, obs: Observation, **override: str) -> ObservationRef:
+        b = {**ctx.latest_binding, **override} if obs is ctx.latest else {**{k: "" for k in ctx.latest_binding}, **override}
+        return ObservationRef.of(obs, observation_hash(obs), **{k: b.get(k, "") for k in ("task_id", "run_id", "session_id", "action_id", "side_effect_id")})
 
     def _view(self, obs: Observation) -> ObservationView:
         els = obs.ui_tree.get("elements", []) if isinstance(obs.ui_tree, dict) else []
         raw = "\n".join([obs.summary or ""] + [str(e.get("text") or "") for e in els if isinstance(e, dict)])
         verdict = firewall_inspect(raw, source_trust=TrustLevel.UNTRUSTED)
         tr = trace()
-        return ObservationView(ref=observation_ref(obs), foreground=dict(obs.foreground or {}),
+        ref = self._ref(self._ctx, obs) if self._ctx is not None else observation_ref(obs)
+        return ObservationView(ref=ref, foreground=dict(obs.foreground or {}),
                                elements=[dict(e) for e in els if isinstance(e, dict)],
                                text=tr.redact_text(verdict.sanitized), untrusted=not verdict.safe,
                                injection_severity=verdict.severity,
@@ -328,13 +368,16 @@ class UniversalComputerApprentice:
             host = urlparse(str(step.args.get("url", ""))).hostname or ""
             if step.allowed_domains and not any(host == d or host.endswith("." + d) for d in step.allowed_domains):
                 raise InjectionBlocked(f"navigation to {host!r} is outside allowed domains {list(step.allowed_domains)}")
+        # 4b. writes need an explicit idempotency key (refused BEFORE any execution)
+        if step.risk in WRITE_RISK and not step.idempotency_key:
+            raise IdempotencyKeyRequired(f"{step.risk.value} action {step.step_id} has no idempotency_key")
         # 5. negative-lesson pre-check (P4)
         if flags.enabled(flags.LESSON_PRECHECK):
             for lesson in self.lessons:
                 if (lesson.get("app", "") in (step.app.app, "") and lesson.get("target_label") == label
                         and lesson.get("action_kind") == step.kind.value):
                     raise LessonBlocked(f"verified negative lesson {lesson.get('lesson_id', '?')}: {lesson.get('summary', '')}")
-        action = self._computer_action(step, label)
+        action = self._computer_action(step, label, ctx.action_id)
         # 6. loop guard (existing)
         verdict = self.loop_guard.check(action, obs)
         if verdict.tripped:
@@ -350,7 +393,8 @@ class UniversalComputerApprentice:
         if needs_approval and not step.args.get("_approved_digest") == digest:
             raise ApprovalRequired(f"{step.risk.value} action needs owner approval ({decision.reason or 'risk'})", digest)
         # 9. side-effect idempotency
-        seid = side_effect_id(task.task_id, step.step_id, step.kind.value, label, step.text, clean_args) if step.side_effecting else ""
+        seid = (side_effect_id(task.task_id, step.step_id, step.kind.value, label, step.text, clean_args, step.idempotency_key)
+                if (step.side_effecting or step.risk in WRITE_RISK) else "")
         duplicate = False
         result: dict | None = None
         if seid:
@@ -359,31 +403,62 @@ class UniversalComputerApprentice:
                 duplicate, result = True, (prior or {"detail": "in progress elsewhere"})
         # 10. budget already checked in loop; actuate
         pre_ref = view.ref
+        receipt: EffectReceipt | None = None
         if not duplicate:
             try:
-                result = dict(self.actuator.act(step, obs) or {})
+                raw = self.actuator.act(step, obs, action_id=action.id, side_effect_id=seid)
             except Exception as exc:  # noqa: BLE001 — actuator failure is a recoverable step failure
                 if seid:
                     self.ledger.abandon(seid)
-                self._append_record(ctx, step, label, action, pre_ref, None, None, f"actuator_error:{exc!r}", seid, view)
+                self._append_record(ctx, step, label, action, pre_ref, None, None, f"actuator_error:{exc!r}", seid, view,
+                                    error_code="actuator_error")
                 raise VerificationFailed(f"actuator error: {exc!r}")
             if seid:
+                why = self._receipt_error(raw, seid, action, step)
+                if why:
+                    self.ledger.abandon(seid)               # NOT completed: the effect is neither duplicated nor silently lost
+                    self._append_record(ctx, step, label, action, pre_ref, None, None, f"receipt_invalid: {why}", seid, view,
+                                        error_code="receipt_invalid")
+                    raise ReceiptInvalid(why)
+                receipt = raw
+                result = {"receipt": receipt.as_dict()}
                 self.ledger.complete(seid, result)
-        # VERIFY on a fresh post-observation
+            else:
+                result = raw.as_dict() if isinstance(raw, EffectReceipt) else dict(raw or {})
+        elif result and isinstance(result.get("receipt"), dict):
+            receipt = EffectReceipt(**result["receipt"])
+        # VERIFY on a fresh post-observation (bound to this action + side effect)
         self._go(ctx, ApprenticeState.VERIFY, step.step_id)
-        after = self._observe(ctx)
+        after = self._observe(ctx, action_id=action.id, side_effect_id=seid)
         ver = self.verifier.verify(step, action, obs, after)
         self.loop_guard.record(action, obs, after, ver.ok)
-        self._append_record(ctx, step, label, action, pre_ref, observation_ref(after), ver,
-                            "ok" if ver.ok else "verification_failed", seid, view, duplicate=duplicate, result_detail=result)
+        self._append_record(ctx, step, label, action, pre_ref, self._ref(ctx, after), ver,
+                            "ok" if ver.ok else "verification_failed", seid, view, duplicate=duplicate, receipt=receipt)
         if not ver.ok:
             raise VerificationFailed(ver.reason)
         return True
 
-    def _computer_action(self, step: PlanStep, label: str) -> ComputerAction:
-        return ComputerAction.make(step.kind, expected=step.expected, target=label or None, text=step.text or None,
-                                   args={k: v for k, v in step.args.items() if k != "_approved_digest"},
-                                   source=step.source, idempotency_key=step.step_id)
+    def _receipt_error(self, raw: Any, seid: str, action: ComputerAction, step: PlanStep) -> str:
+        """Empty string = receipt verified against the request."""
+        if not isinstance(raw, EffectReceipt):
+            return f"actuator returned {type(raw).__name__}, not an EffectReceipt"
+        if raw.side_effect_id != seid:
+            return f"receipt side_effect_id {raw.side_effect_id[:12]!r} != requested {seid[:12]!r}"
+        if raw.action_id != action.id:
+            return f"receipt action_id {raw.action_id!r} != {action.id!r}"
+        if raw.action_type != step.kind.value:
+            return f"receipt action_type {raw.action_type!r} != action {step.kind.value!r}"
+        now = self.clock()
+        if not raw.observed_at or raw.observed_at <= 0 or raw.observed_at > now + self.allowed_skew_s:
+            return f"receipt observed_at {raw.observed_at!r} is missing or from the future"
+        if not str(raw.evidence_source).strip():
+            return "receipt without evidence_source"
+        return ""
+
+    def _computer_action(self, step: PlanStep, label: str, action_id: str = "") -> ComputerAction:
+        return ComputerAction(id=action_id or new_id("act"), kind=step.kind, expected=step.expected, target=label or None,
+                              text=step.text or None, args={k: v for k, v in step.args.items() if k != "_approved_digest"},
+                              source=step.source, idempotency_key=step.idempotency_key or step.step_id)
 
     # ------------------------------------------------------------ recovery
     def _recover(self, ctx: _Ctx, step: PlanStep, exc: Exception) -> TaskResult | None:
@@ -436,17 +511,18 @@ class UniversalComputerApprentice:
     # ------------------------------------------------------------ records
     def _record_refusal(self, ctx: _Ctx, step: PlanStep | None, obs: Observation | None, exc: Exception) -> None:
         label = step.target.label() if (step and step.target) else ""
-        action = self._computer_action(step, label) if step else ComputerAction.make(ActionKind.NOOP)
-        pre = observation_ref(obs) if obs is not None else ObservationRef("none", -1, "", 0.0)
+        action = self._computer_action(step, label, ctx.action_id) if step else ComputerAction.make(ActionKind.NOOP)
+        pre = self._ref(ctx, obs) if obs is not None else ObservationRef("none", -1, "", 0.0, ctx.task.task_id, ctx.task.run_id,
+                                                                          ctx.task.session_id, ctx.action_id)
         s = step or PlanStep(step_id="(none)", kind=ActionKind.NOOP, app=AppIdentity())
         view = self._view(obs) if obs is not None else None
         self._append_record(ctx, s, label, action, pre, None, None, f"refused:{getattr(exc, 'code', 'error')}", "",
-                            view, error=f"{exc}")
+                            view, error=f"{exc}", error_code=getattr(exc, "code", "error"))
 
     def _append_record(self, ctx: _Ctx, step: PlanStep, label: str, action: ComputerAction, pre: ObservationRef,
                        post: ObservationRef | None, ver: Verification | None, result: str, seid: str,
                        view: ObservationView | None, *, duplicate: bool = False, error: str = "",
-                       result_detail: dict | None = None, **_: Any) -> None:
+                       receipt: EffectReceipt | None = None, error_code: str = "", **_: Any) -> None:
         tr = trace()
         sensitive = bool(step.args.get("sensitive")) or (view.sensitive if view else False) or (
             step.kind is ActionKind.TYPE and ComputerPolicy.refs_secret_args(step.args))
@@ -470,8 +546,8 @@ class UniversalComputerApprentice:
             side_effect_id=seid, timestamp=self.clock(),
             evidence_source=f"observer:{getattr(self.observer, 'name', type(self.observer).__name__)}",
             step_id=step.step_id, injection_flagged=bool(view.untrusted) if view else False,
-            duplicate_suppressed=duplicate, error_code=getattr(ver, "method", "") if (ver and not ver.ok) else (
-                result.split(":", 1)[1] if result.startswith("refused:") else ""), checkpoint=step.checkpoint)
+            duplicate_suppressed=duplicate, error_code=error_code or ("verification_failed" if (ver and not ver.ok) else ""),
+            checkpoint=step.checkpoint, receipt=receipt.as_dict() if receipt else None)
         blob = json.dumps(rec.to_dict(), default=str, ensure_ascii=False)
         if tr.has_secret(blob):
             ctx.dropped_records += 1

@@ -142,7 +142,10 @@ class SideEffectLedger:
         return len(self._done)
 
 
-def side_effect_id(task_id: str, step_id: str, kind: str, target_label: str, text: str, args: dict) -> str:
+def side_effect_id(task_id: str, step_id: str, kind: str, target_label: str, text: str, args: dict, key: str = "") -> str:
+    """Explicit idempotency key (task-scoped) wins; otherwise the deterministic step identity."""
+    if key:
+        return sha("side_effect", task_id, "key", key)[:32]
     return sha("side_effect", task_id, step_id, kind, target_label, sha(text), args)[:32]
 
 

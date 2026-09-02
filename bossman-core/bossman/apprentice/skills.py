@@ -18,7 +18,7 @@ from bossman.learning_guard.models import ABResult, RollbackInfo, SecuritySnapsh
 
 from . import flags
 from ._bootstrap import trace
-from .errors import FlagDisabled, SelectorDrift, VerificationFailed
+from .errors import FlagDisabled, SelectorDrift, UnverifiedEpisode, VerificationFailed
 from .guards import resolve_target
 from .models import AppIdentity, ApprenticeTask, Plan, PlanStep, RiskClass, SemanticTarget, sha
 from .recording import ApprenticeMemory, assert_sanitized
@@ -52,6 +52,9 @@ def generalize(episodes: list[dict], *, skill_id: str, title: str, task_type: st
     from steps that were verified ok; failures become failure branches with their recovery."""
     if not episodes:
         raise ValueError("at least one episode is required")
+    bad = [str(e.get("task_id")) for e in episodes if e.get("verified") is not True]
+    if bad:
+        raise UnverifiedEpisode(f"episodes with failed/absent verification cannot become a skill: {bad}")
     actions: list[dict] = []
     seen: set[str] = set()
     checkpoints: list[dict] = []

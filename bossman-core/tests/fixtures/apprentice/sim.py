@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from bossman.computer_operator.models import ActionKind, Observation
-from bossman.apprentice.models import Plan, PlanStep
+from bossman.apprentice.models import EffectReceipt, Plan, PlanStep
 
 _ids = itertools.count(1)
 
@@ -57,6 +57,7 @@ class World:
 
 class SimObserver:
     name = "sim"
+    accepts_binding = True
 
     def __init__(self, world: World, *, clock: Callable[[], float] | None = None) -> None:
         self.world = world
@@ -64,8 +65,10 @@ class SimObserver:
         self._t = 1_000.0
         self._last_version: dict[str, int] = {}
         self.observations = 0
+        self.bindings: dict[str, dict] = {}
+        self.binding_override: dict | None = None      # tests: simulate an observer bound to another task/run
 
-    def observe(self) -> Observation:
+    def observe(self, *, binding: dict | None = None) -> Observation:
         self._gen += 1
         self._t += 1.0
         self.observations += 1
@@ -74,7 +77,11 @@ class SimObserver:
                           ui_tree={"elements": [e.as_dict() for e in w.elements]}, sensitive=w.sensitive,
                           generation=self._gen)
         self._last_version[obs.id] = w.version
+        self.bindings[obs.id] = dict(self.binding_override if self.binding_override is not None else (binding or {}))
         return obs
+
+    def binding_of(self, obs: Observation) -> dict:
+        return self.bindings.get(obs.id, {})
 
     def is_current(self, obs: Observation) -> bool:
         return self._last_version.get(obs.id) == self.world.version
@@ -84,8 +91,17 @@ class SimActuator:
     def __init__(self, world: World) -> None:
         self.world = world
         self.calls: list[tuple[str, str]] = []
+        self.receipts = True            # tests: False -> answer with a plain dict instead of an EffectReceipt
 
-    def act(self, step: PlanStep, obs: Observation) -> dict:
+    def act(self, step: PlanStep, obs: Observation, *, action_id: str = "", side_effect_id: str = ""):
+        result = self._do(step, obs)
+        if side_effect_id and self.receipts:
+            self._t = getattr(self, "_t", 0.0)
+            return EffectReceipt(side_effect_id=side_effect_id, action_id=action_id, action_type=step.kind.value,
+                                 observed_at=__import__("time").time(), evidence_source="sim:actuator")
+        return result
+
+    def _do(self, step: PlanStep, obs: Observation) -> dict:
         w = self.world
         label = step.target.label() if step.target else step.kind.value
         self.calls.append((step.kind.value, label))

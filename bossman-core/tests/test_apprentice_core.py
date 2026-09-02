@@ -125,8 +125,8 @@ def test_stale_observation_forces_reobserve(on):
     flips = {"n": 0}
     real = obs.observe
 
-    def observe():
-        o = real()
+    def observe(**kw):
+        o = real(**kw)
         if flips["n"] == 0:          # world changes right after the first observation
             flips["n"] += 1
             w.touch()
@@ -153,7 +153,7 @@ def test_wrong_window_refuses_action(on):
 def test_wrong_window_twice_fails_instead_of_acting(on):
     w = _world(); w.app = "Calc"; w.title = "Calc"
     eng, _, act = _engine(w)
-    act.act = lambda step, obs: {"detail": "focus ignored"}       # focus does nothing -> still wrong window
+    act.act = lambda step, obs, **kw: {"detail": "focus ignored"}   # focus does nothing -> still wrong window
     res = eng.run(_task(max_recoveries=2))
     assert res.state is ApprenticeState.FAIL and all(c[0] == "FOCUS" for c in act.calls) is True or act.calls == []
     assert not any(c[0] in ("TYPE", "CLICK") for c in act.calls)
@@ -313,7 +313,8 @@ def test_record_schema_forbids_hidden_reasoning():
                 "application": {"app": "", "window_title": "", "url": "", "tab_id": ""},
                 "semantic_target": {"role": "", "name": "", "text": "", "description": "", "anchors": []},
                 "action": {"kind": "NOOP", "text_redacted": "", "args_redacted": {}, "idempotency_key": "k"},
-                "precondition": "", "pre_observation": {"id": "o", "generation": 1, "hash": "h", "observed_at": 1.0},
+                "precondition": "", "pre_observation": {"id": "o", "generation": 1, "hash": "h", "observed_at": 1.0, "task_id": "t",
+                                                        "run_id": "r", "session_id": "s", "action_id": "a"},
                 "expected_transition": {}, "post_observation": None, "verification": None, "result": "ok",
                 "risk_class": "LOW", "side_effect_id": "", "timestamp": 1.0, "evidence_source": "sim"})
     jsonschema.validate(rec, SCHEMA)

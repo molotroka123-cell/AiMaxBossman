@@ -92,3 +92,19 @@ class PersonalDataRefused(ApprenticeError):
 
 class OutreachRefused(ApprenticeError):
     code = "outreach_refused"
+
+
+class IdempotencyKeyRequired(ApprenticeError):
+    code = "idempotency_key_required"
+
+
+class ReceiptInvalid(VerificationFailed):
+    code = "receipt_invalid"
+
+
+class InvalidObservation(StaleObservation):
+    code = "invalid_observation"
+
+
+class UnverifiedEpisode(ApprenticeError):
+    code = "unverified_episode"

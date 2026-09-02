@@ -46,9 +46,11 @@ TRANSITIONS: dict[ApprenticeState, frozenset[ApprenticeState]] = {
 
 class RiskClass(str, Enum):
     LOW = "LOW"; MEDIUM = "MEDIUM"; HIGH = "HIGH"; EXTERNAL_EFFECT = "EXTERNAL_EFFECT"
+    REVERSIBLE_WRITE = "REVERSIBLE_WRITE"; IRREVERSIBLE_WRITE = "IRREVERSIBLE_WRITE"
 
 
-APPROVAL_RISK = frozenset({RiskClass.HIGH, RiskClass.EXTERNAL_EFFECT})
+APPROVAL_RISK = frozenset({RiskClass.HIGH, RiskClass.EXTERNAL_EFFECT, RiskClass.IRREVERSIBLE_WRITE})
+WRITE_RISK = frozenset({RiskClass.REVERSIBLE_WRITE, RiskClass.IRREVERSIBLE_WRITE})   # need idempotency key + receipt
 _COORD_KEYS = frozenset({"x", "y", "coordinates", "coords", "px", "point", "bbox"})
 
 
@@ -132,6 +134,7 @@ class PlanStep:
     derived_from_observation: bool = False  # planner derived the instruction from observed text
     allowed_domains: tuple[str, ...] = ()
     source: str = "planner"                 # planner | skill:<id> | recovery
+    idempotency_key: str = ""               # REQUIRED for REVERSIBLE_WRITE / IRREVERSIBLE_WRITE
 
     def __post_init__(self) -> None:
         if any(k in _COORD_KEYS for k in self.args):
@@ -152,14 +155,34 @@ class Plan:
 
 @dataclass(frozen=True, slots=True)
 class ObservationRef:
+    """Observation identity + binding (task / run / session / action / side effect)."""
     id: str
     generation: int
     hash: str
     observed_at: float
+    task_id: str = ""
+    run_id: str = ""
+    session_id: str = ""
+    action_id: str = ""
+    side_effect_id: str = ""
 
     @classmethod
-    def of(cls, obs: Observation, hash_: str) -> "ObservationRef":
-        return cls(id=obs.id, generation=int(obs.generation), hash=hash_, observed_at=float(obs.created_at))
+    def of(cls, obs: Observation, hash_: str, **binding: str) -> "ObservationRef":
+        return cls(id=obs.id, generation=int(obs.generation), hash=hash_, observed_at=float(obs.created_at), **binding)
+
+    def as_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class EffectReceipt:
+    """What an actuator must return for a side-effecting action. The engine verifies it
+    against the request (never takes the actuator's word)."""
+    side_effect_id: str
+    action_id: str
+    action_type: str
+    observed_at: float
+    evidence_source: str
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -201,6 +224,7 @@ class ActionRecord:
     duplicate_suppressed: bool = False
     error_code: str = ""
     checkpoint: str = ""
+    receipt: dict | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)

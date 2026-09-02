@@ -428,13 +428,12 @@ class TeacherFallback:
                                            binding=binding, regression_tests=regression_tests, attempt=calls)
             attempts.append(verdict)
             status = verdict.status
+            decision = None
             if self.sanctions is not None:
                 decision = self.sanctions.apply(verdict, model_id=obs.model_id, model_version=obs.model_version,
                                                 task_type=task.task_type, repository=binding.environment or "repo", now=self.clock())
                 if decision.stop:
                     return TeacherResult(status, attempts, observations, None, decision.report, calls, decision.reason)
-                if not decision.retry_allowed:
-                    break
             if verdict.accepted:
                 strategy = strategy_from_verdict(current, obs, verdict, task=task, bug_class=bug_class, agent=agent, principal_id=principal_id)
                 if self.memory is not None and flags.enabled(flags.SKILL_RECORDING):
@@ -442,6 +441,8 @@ class TeacherFallback:
                 break
             if verdict.status != TeacherStatus.TEACHER_OUTPUT_REJECTED.value:
                 break                                     # quarantine / tampering: no corrective retry
+            if decision is not None and not decision.retry_allowed:
+                break
             current = build_bundle(bug_description=current.bug_description, files=current.files, failing_test=current.failing_test,
                                    constraints=current.constraints, allowed_paths=current.allowed_paths,
                                    acceptance_tests=current.acceptance_tests, critique=verdict.critique)
