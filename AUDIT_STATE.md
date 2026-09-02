@@ -1,30 +1,66 @@
-# AUDIT_STATE — AUDIT-ONLY-001 (mission ledger + run logs)
+# AUDIT_STATE — AUDIT-ONLY-001 (independent verification complete)
 
-REMOTE_SHA=b8a26dce6bcf8ec45bc904f96dfaccaf6ac88644 (=EXPECTED ✓, delta audit not needed)
+BASE_SHA=9613e459b7ee28428a34829b63350acd4bb327b5
+Branch claude/bossman-control-v03-43igbk
 
-## Budget ledger (durable: budget.json, cap $3.00, reserve $0.30 untouched)
-| request_id | model | in/out | cost | purpose |
-|---|---|---|---|---|
-| req_011CefJ9UHa3q9UpzRggzGDM | claude-sonnet-4-5-20250929 | 3843/1600 (cache 0/0) | $0.035529 | consolidated security audit (durable/deep_fix/promotion/cache + benchmark math + capability priority) |
-ACTUAL=$0.035529 · REMAINING=$2.964471 · stop-threshold $2.70 never approached.
+## Verdicts (ours, after local reproduction — NOT Fable's)
 
-## HOW TO RE-RUN (next session, one command)
-1. set key: `$env:ANTHROPIC_API_KEY = "<fresh key from owner>"` (NEVER commit it)
-2. run: `& "$env:LOCALAPPDATA\Temp\opencode\venvs\py311\Scripts\python.exe" docs\mission\AUDIT-ONLY-001\run_audit.py`
-   - script self-contained: builds bundle from current HEAD, reserves via DirectApiBudget (durable, cross-process safe), calls direct API, writes full log to `docs\mission\AUDIT-ONLY-001\fable_consolidated.json` (usage + verdict_raw)
-   - double-commit/reconciliation is automatic; unknown model => REFUSED
-3. read verdict: `python -c "import json;print(json.load(open(r'docs\mission\AUDIT-ONLY-001\fable_consolidated.json',encoding='utf-8'))['verdict_raw'])"`
+| finding | Fable | reproduced | status |
+|---|---|---|---|
+| F1 receipt lost update | P0 | P3 | CONFIRMED (code), exploit REFUTED — FIXED |
+| F2 abandon race | P1 | P2 | CONFIRMED as a different defect — FIXED |
+| F3 silent rollback | P0 | P1 | error masking; partial-write story DISPROVED — FIXED |
+| F4 no security baseline | P1 | P3 | CONFIRMED but unreachable — FIXED narrowly |
+| F5 cross-corpus | P1 | P2 | PARTIAL (premise half wrong) — 9/11 fixed, 2 xfail(strict) |
+| F6 cache false savings | P2 | P2 | CONFIRMED at a DIFFERENT location — FIXED |
 
-## Confirmed findings (Fable, for GLM verification next session)
-- F3-DURABLE-TX-SILENT-FAIL (P0): `durable.py _tx` rollback failure silenced (`except sqlite3.Error: pass`) → partial-write window can undermine nonce-once. Fix plan: raise TransactionPoisonedError, poison/close connection, integrity check.
-- F2 (P1) promotion GC guard · F4-PROMOTION-NO-BASELINE (P1): `promotion.advance` security snapshots Optional → gate skippable. Fix: mandatory params + PromotionError.
-- F5-PROMOTION-CROSS-CORPUS (P1): no corpus_id binding on Candidate/SecuritySnapshot → cross-corpus promotion poisoning path.
-- F6-CACHE-FALSE-SAVINGS (P2): waste detector savings accounting.
-- Benchmark math: Fable's formula critique + capability priority (top-6) — full text in fable_consolidated.json.
-GLM triage pending next session (F3/F4 need local repro tests before CONFIRMED; both have exact code paths).
+Details and every disagreement with Fable: `docs/mission/AUDIT-ONLY-001/CORRECTION_REPORT.md`.
+The Fable audit log itself is unmodified.
 
-## Local evidence already collected
-secret scan PASS · CI 4/4 green at b8a26dc · prior adversarial suites green (47+9+11) · trading-learning module: NOT_IMPLEMENTED (no files) · uncommitted changes: only docs/mission artifacts.
+## Commits
 
-## Scores (provisional, pending F3/F4 confirmation)
-SECURITY 7.5/10 · UCA 8/10 · MEMORY/CONTEXT/REASONING 6.5/10 · BENCHMARK 7/10 (2/18 capabilities) · OVERALL 7/10, PRODUCTION_READY=NO-GO for release gate until capability coverage + P0-F3 closed.
+| commit | content |
+|---|---|
+| cafe4c8 | benchmark: 16 REAL_SANDBOX capability cases + IQ v2 math |
+| ea2d03b | durable: immutable completion, abandon tombstone, poisoned store (F1/F2/F3) |
+| 99e3a88 | learning: mandatory and scope-bound promotion evidence (F4/F5) |
+| d033128 | cache: savings only from provider evidence (F6) |
+
+Each independently revertable.
+
+## Capability coverage
+
+BEFORE 2/18 measured REAL_SANDBOX (persistence, recovery).
+AFTER **18/18** — every required capability has an executable case that imports a
+real production class, drives its real call path, records observed facts, and is
+judged by an external verifier that refuses any case lacking both a positive and a
+negative check.
+
+nightly gate: **READY** (SystemIQ MEASURED at full component weight).
+release gate: **NO-GO** — honestly. LIVE evidence still needs an owner-approved
+paid run; no such call was made.
+
+## Tests
+
+- bossman-core full suite: **1640 passed, 7 failed, 57 skipped, 2 xfailed**.
+- All 7 failures are host-specific and proven so:
+  - 6 × `OSError WinError 1314` (creating a symlink needs Developer Mode/admin on
+    this Windows host) in test_pass3_deep_fix_p0 and test_secrem_sibling_sweep;
+  - 1 × `OSError WinError 193` in test_teacher_iso_001, reproduced **identically at
+    the untouched base commit 9613e459** in a clean worktree.
+- `tests/audit001`: all green (2 documented xfail(strict=True)).
+- compileall clean; secret scan clean; `git diff --check` clean.
+
+## Budget
+
+No paid API call in this session. Fable not re-invoked. Ledger unchanged at $0.035529.
+
+## Open
+
+- AUDIT001-F5-REPLAY (P2) — durable single-use evidence ledger.
+- AUDIT001-F5-PROVENANCE (P2) — mandatory provenance on every SecuritySnapshot.
+- `ObservationLog.record` has no idempotency key; harmless today (log is rebuilt per
+  poll from a bounded window) but would double-count if observations become durable.
+
+READY_FOR_GLM_RED_TEAM = YES — see `RED_TEAM_HANDOFF.md`.
+READY_FOR_PRODUCTION = NO-GO (release tier still lacks LIVE evidence).
