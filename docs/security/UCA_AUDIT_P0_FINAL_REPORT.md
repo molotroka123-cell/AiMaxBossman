@@ -1,7 +1,7 @@
 # Universal Computer Apprentice + audit P0 closure — final report
 
 START_SHA (remote, before this work): `3b15d466dcc8747db502940896884a8774dcdb25`
-FINAL_LOCAL_SHA = FINAL_REMOTE_SHA: see the last line of this file (`git rev-parse HEAD` == `origin/claude/bossman-control-v03-43igbk`).
+Last commit of this pass: `7a4baf2d3579dcbd42212c64a69ff0fe8d0ef48a` (CI green: root-ci 33649145826, Bossman Core CI 33649146058, V2 Auto-Repair 33649146083 — first green run of that workflow; Command Center CI was cancelled by the next push and is green on the following commit 8a13f1d, run 33649600327). A foreign commit 8a13f1d (durable safety store / live teacher bridge / benchmark engine, not reviewed by this pass) landed on top; local and remote HEAD are equal at the moment of this report.
 Branch: `claude/bossman-control-v03-43igbk`. No force-push. Two foreign commits landed mid-work
 (0898696 video log, 42da6c1 jsonschema dev-dep + Kimi K3 prompt) and were fast-forwarded, not rewritten.
 
