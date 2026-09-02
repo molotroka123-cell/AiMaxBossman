@@ -20,10 +20,12 @@ import re
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 
-from ..db import models as models_t, settings_kv, task_runs as runs_t, tasks as tasks_t
+from ..db import (models as models_t, providers as providers_t, settings_kv,
+                  task_runs as runs_t, tasks as tasks_t)
 from ..v2.model_intelligence import TaskComplexityFeatures, classify_reasoning
 from ..v2.model_router import (MAX_CANDIDATES, ModelCandidate, RouteRequest,
-                               candidate_digest, route, shortlist)
+                               candidate_digest, derive_local, disqualify, route,
+                               shortlist)
 from ..v2.tables import model_capability_checks as caps_t
 from . import Feature
 
@@ -129,7 +131,14 @@ async def _candidates(svc, rules: dict, *,
     """
     adaptive = bool(rules.get("adaptive"))
     async with svc.db.session() as s:
-        models = (await s.execute(sa.select(models_t))).fetchall()
+        # F-016: «местность» выводится из модели И провайдера (kind + base_url),
+        # а не из одной строки kind=local, которую легко проставить неверно.
+        models = (await s.execute(
+            sa.select(models_t,
+                      providers_t.c.kind.label("provider_kind"),
+                      providers_t.c.base_url.label("provider_base_url"))
+            .select_from(models_t.outerjoin(
+                providers_t, models_t.c.provider_id == providers_t.c.id)))).fetchall()
         # доля успешных run'ов по alias (historical performance)
         stats = (await s.execute(sa.select(
             runs_t.c.model_alias,
@@ -162,10 +171,11 @@ async def _candidates(svc, rules: dict, *,
         advertised = {k for k, v in raw_caps.items() if v}
         verified, unsupported = probes.get(m["id"], (set(), set()))
         bench = m["bench"] if isinstance(m["bench"], dict) else {}
+        local, _why = derive_local(m["kind"], m["provider_kind"], m["provider_base_url"])
         out.append(ModelCandidate(
             id=m["id"], alias=m["alias"],
             online=m["status"] == "online",
-            local=m["kind"] == "local",
+            local=local,
             context_window=m["context_window"] or 8192,
             capabilities=advertised,
             verified_capabilities=set(verified),
@@ -177,6 +187,75 @@ async def _candidates(svc, rules: dict, *,
     return out
 
 
+def cloud_policy(meta: dict, agent: dict | None, rules: dict) -> tuple[bool, str]:
+    """F-016: облако fail-closed. (разрешено?, объяснение).
+
+    Облако открывает ТОЛЬКО строгий bool True в одном из мест:
+      - task.meta.cloud_allowed;
+      - agent.permissions.cloud_allowed;
+      - rules.cloud_default_allow (глобальный дефолт роутера).
+    Любое явное значение, отличное от True (False, "true", 1, "yes"), — отказ:
+    оно перевешивает и глобальный дефолт. Явный cloud_budget_usd <= 0 (или не
+    число) — лимит, закрывающий облако даже при разрешении. Отсутствие меты
+    и бюджета — НЕ разрешение.
+    """
+    meta = meta if isinstance(meta, dict) else {}
+    perms = (agent or {}).get("permissions") if isinstance(agent, dict) else None
+    perms = perms if isinstance(perms, dict) else {}
+    grants: list[str] = []
+    for label, value in (("task.meta.cloud_allowed", meta.get("cloud_allowed")),
+                         ("agent.permissions.cloud_allowed", perms.get("cloud_allowed"))):
+        if value is None:
+            continue
+        if value is not True:
+            return False, f"{label}={value!r}: облако открывает только строгое true"
+        grants.append(label)
+    if not grants and rules.get("cloud_default_allow") is True:
+        grants.append("router.rules.cloud_default_allow")
+    if not grants:
+        return False, ("облако не разрешено явно (нужен true в task.meta.cloud_allowed, "
+                       "agent.permissions.cloud_allowed или rules.cloud_default_allow)")
+    budget = meta.get("cloud_budget_usd")
+    if budget is not None:
+        if (isinstance(budget, bool) or not isinstance(budget, (int, float))
+                or budget != budget or budget <= 0):
+            return False, f"cloud_budget_usd={budget!r}: облачный бюджет закрыт"
+    return True, "; ".join(grants)
+
+
+async def check_forced_model(svc, model_id, *, meta: dict | None, agent: dict | None,
+                             kind: str | None) -> list[str]:
+    """F-016: принудительная модель (meta.force_model_id, форк с model_id)
+    проходит ТУ ЖЕ жёсткую политику, что и авто-выбор: облако fail-closed,
+    цена, способности, здоровье. Пустой список = модель допущена; иначе —
+    причины отказа (строки disqualify + пояснение облачной политики).
+    """
+    rules = await _rules(svc)
+    meta = meta if isinstance(meta, dict) else {}
+    kind = kind or "generic"
+    try:
+        mid = int(model_id)
+    except (TypeError, ValueError):
+        return [f"unknown model id {model_id!r}"]
+    allowed, why = cloud_policy(meta, agent, rules)
+    req = RouteRequest(
+        task_type=kind, requires=_requires(kind, rules),
+        min_context=int(meta.get("min_context") or 0),
+        cloud_allowed=allowed,
+        max_price_out=meta.get("max_price_out"),
+        available_memory_mb=meta.get("available_memory_mb"),
+        prefer_local=bool(rules.get("prefer_local", True)),
+        require_verified=bool(rules.get("require_verified", False)))
+    cand = next((c for c in await _candidates(svc, rules, kind=kind)
+                 if int(c.id) == mid), None)
+    if cand is None:
+        return [f"unknown model id {mid}"]
+    bad = disqualify(req, cand)
+    if "cloud disabled" in bad:
+        bad.append(f"cloud policy: {why}")
+    return bad
+
+
 async def _make_pick_hook(svc):
     async def pick_model(task, agent):
         rules = await _rules(svc)
@@ -186,8 +265,8 @@ async def _make_pick_hook(svc):
         kind = task.get("kind") or "generic"
         if not (meta.get("route") or kind not in ("generic", None)):
             return None
-        budget = meta.get("cloud_budget_usd")
-        cloud_allowed = budget is None or budget > 0
+        # F-016: облако fail-closed — без явного разрешения кандидаты только местные
+        cloud_allowed, cloud_why = cloud_policy(meta, agent, rules)
         prefer_local = bool(rules.get("prefer_local", True))
         require_verified = bool(rules.get("require_verified", False))
         reasoning_info = None
@@ -223,7 +302,8 @@ async def _make_pick_hook(svc):
         route_info = {"alias": decision.model.alias, "score": decision.score,
                       "reasons": decision.reasons, "rejected": decision.rejected,
                       "task_type": kind, "considered": decision.considered,
-                      "total_candidates": decision.total}
+                      "total_candidates": decision.total,
+                      "cloud_allowed": cloud_allowed, "cloud_policy": cloud_why}
         if reasoning_info is not None:
             route_info["reasoning"] = reasoning_info
         await svc.bus.emit("router.route_selected", task_id=task["id"],

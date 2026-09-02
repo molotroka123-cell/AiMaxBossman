@@ -10,11 +10,69 @@ V2.1: роутер обязан опираться на ПРОВЕРЕННЫЕ (
 """
 from __future__ import annotations
 
+import ipaddress
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlsplit
 
 MAX_CANDIDATES = 12          # сколько моделей доходит до полного скоринга
 MAX_REJECTED = 24            # сколько отказов объясняем (остальное — счётчиком)
+
+# F-016: «местная» модель — это НЕ одна строка kind=local в БД. Local только
+# когда сходятся три независимых признака: kind модели, вид провайдера и адрес.
+# Виды провайдеров, которые вообще могут указывать на локальный сервер
+# (allowlist, fail-closed: anthropic/openai/openrouter — всегда облако).
+LOCAL_PROVIDER_KINDS = frozenset({
+    "openai_compat", "openai-compat", "openai_compatible", "ollama", "llama.cpp",
+    "llamacpp", "llama_cpp", "lmstudio", "lm_studio", "vllm", "local",
+})
+# Хосты «на этой машине»: петля, RFC1918, IPv6 ULA. Link-local сюда намеренно
+# не входит — 169.254.x.x это metadata-диапазон облаков, а не локальный сервер.
+_LOCAL_NETS = tuple(ipaddress.ip_network(n) for n in (
+    "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+    "::1/128", "fc00::/7"))
+_LOCAL_HOSTNAMES = frozenset({"localhost", "host.docker.internal"})
+
+
+def _local_host(host: str) -> bool:
+    host = host.strip().lower().rstrip(".")
+    if host in _LOCAL_HOSTNAMES or host.endswith(".localhost"):
+        return True
+    try:
+        ip = ipaddress.ip_address(host.split("%", 1)[0])
+    except ValueError:
+        return False              # неизвестное имя → не доказано, что местное
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return any(ip in net for net in _LOCAL_NETS)
+
+
+def derive_local(kind: str | None, provider_kind: str | None,
+                 base_url: str | None) -> tuple[bool, str | None]:
+    """(local?, почему нет). Local ⇔ kind модели == local И провайдер
+    openai_compat-подобный И host base_url — петля/RFC1918/host.docker.internal.
+
+    Пустой base_url означает «дефолтный endpoint провайдера» — то есть облако.
+    Строка kind=local у облачного провайдера — ошибка данных (или подмена),
+    и роутер обязан считать такую модель облачной.
+    """
+    if (kind or "").strip().lower() != "local":
+        return False, f"model kind is {kind!r}, not local"
+    pk = (provider_kind or "").strip().lower()
+    if pk not in LOCAL_PROVIDER_KINDS:
+        return False, f"provider kind {provider_kind!r} is cloud-only"
+    url = (base_url or "").strip()
+    if not url:
+        return False, "base_url is empty (provider default endpoint = cloud)"
+    try:
+        host = urlsplit(url).hostname or ""
+    except ValueError:
+        return False, f"base_url {url!r} is malformed"
+    if not host:
+        return False, f"base_url {url!r} has no host"
+    if not _local_host(host):
+        return False, f"base_url host {host!r} is not a local address"
+    return True, None
 
 
 @dataclass(slots=True)

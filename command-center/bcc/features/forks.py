@@ -9,21 +9,44 @@ from __future__ import annotations
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 
-from ..db import (checkpoints as cp_t, session_forks as forks_t, tasks as tasks_t,
-                  task_runs as runs_t, utcnow)
+from ..db import (agents as agents_t, checkpoints as cp_t, session_forks as forks_t,
+                  tasks as tasks_t, task_runs as runs_t, utcnow)
 from ..v2.replay import ForkRequest, fork_checkpoint
 from . import Feature
+from .router import check_forced_model
 
 router = APIRouter()
 
 
 async def _force_model_hook(svc):
-    """Форк с другой моделью: meta.force_model_id → pick_model возвращает её."""
+    """Форк с другой моделью: meta.force_model_id → pick_model возвращает её.
+
+    F-016: принудительная модель проходит ту же политику, что и авто-выбор
+    (облако fail-closed, цена, способности). Отказ → None (модель агента /
+    роутер) + событие router.force_refused с причиной; молча «взять что
+    указали» нельзя.
+    """
     async def pick_model(task, agent):
         meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
         mid = meta.get("force_model_id")
-        return {"model_id": int(mid)} if mid else None
+        if not mid:
+            return None
+        reasons = await check_forced_model(svc, mid, meta=meta, agent=agent,
+                                           kind=task.get("kind") or "generic")
+        if reasons:
+            await svc.bus.emit("router.force_refused", task_id=task.get("id"),
+                               model_id=mid, reason="; ".join(reasons)[:500])
+            return None
+        return {"model_id": int(mid)}
     return pick_model
+
+
+async def _agent_row(svc, agent_id) -> dict:
+    if not agent_id:
+        return {}
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(agents_t).where(agents_t.c.id == int(agent_id)))).first()
+    return dict(row._mapping) if row is not None else {}
 
 
 async def _setup(svc):
@@ -69,7 +92,21 @@ async def fork(run_id: int, request: Request):
     meta = dict(src_task.get("meta") or {})
     meta["fork_of_run"] = run_id
     if body.get("model_id"):
-        meta["force_model_id"] = int(body["model_id"])
+        try:
+            meta["force_model_id"] = int(body["model_id"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, {"message": "model_id должен быть целым числом"})
+        # F-016: модель проверяется политикой ДО создания задачи/прогона —
+        # отказ роутера не должен оставлять после себя форк-задачу.
+        agent = await _agent_row(svc, body.get("agent_id") or src_task.get("agent_id"))
+        reasons = await check_forced_model(
+            svc, meta["force_model_id"], meta=meta, agent=agent,
+            kind=src_task.get("kind") or "generic")
+        if reasons:
+            raise HTTPException(403, {
+                "message": "модель отклонена политикой роутера",
+                "model_id": meta["force_model_id"], "reasons": reasons,
+                "hint": "разрешите облако явно (cloud_allowed=true) или выберите местную модель"})
     async with svc.db.session() as s:
         res = await s.execute(sa.insert(tasks_t).values(
             title=f"Форк #{run_id}: {src_task.get('title', '')}"[:300],
