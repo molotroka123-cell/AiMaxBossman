@@ -128,7 +128,7 @@ class TeacherObservation:
     symbols: list[str]
     commands: list[str]
     root_cause: str
-    patch: dict[str, str]
+    patch: dict[str, str] | str
     attempt_errors: list[str]
     claimed_tests: dict[str, Any]
     artifacts: list[str]
@@ -151,7 +151,8 @@ def observe_teacher(output: dict) -> TeacherObservation:
     o = {k: v for k, v in dict(output).items() if k not in _DROP_KEYS}
     log = str(o.get("log_text") or "")
     verdict = firewall_inspect(log, source_trust=TrustLevel.UNTRUSTED)
-    patch = {str(p): str(c) for p, c in (o.get("patch") or o.get("diff") or {}).items()} if isinstance(o.get("patch") or o.get("diff"), dict) else {}
+    raw_patch = o.get("patch") or o.get("diff") or {}
+    patch = {str(p): str(c) for p, c in raw_patch.items()} if isinstance(raw_patch, dict) else (str(raw_patch) if raw_patch else {})
     obs = TeacherObservation(
         opened_files=[str(x) for x in o.get("opened_files") or []][:100],
         symbols=[str(x) for x in o.get("symbols") or []][:200],
@@ -213,10 +214,22 @@ class TeacherVerdict:
         return self.status == TeacherStatus.TEACHER_OUTPUT_ACCEPTED.value
 
 
-def security_findings(patch: dict[str, str], *, allowed_paths: tuple[str, ...]) -> list[str]:
+def patch_paths(patch: dict[str, str] | str) -> list[str]:
+    if isinstance(patch, dict):
+        return list(patch)
+    paths: list[str] = []
+    for line in patch.splitlines():
+        if line.startswith("+++ "):
+            value = line[4:].strip().split("\t", 1)[0]
+            if value != "/dev/null": paths.append(value[2:] if value.startswith("b/") else value)
+    return paths
+
+
+def security_findings(patch: dict[str, str] | str, *, allowed_paths: tuple[str, ...]) -> list[str]:
     tr = trace()
     out: list[str] = []
-    for path, content in patch.items():
+    items = patch.items() if isinstance(patch, dict) else ((p, patch) for p in patch_paths(patch))
+    for path, content in items:
         low = path.lower()
         if any(tok in low for tok in PROTECTED_PATH_TOKENS):
             out.append(f"protected path touched: {path}")
@@ -255,7 +268,7 @@ class PatchVerifier:
         if not obs.patch:
             return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + ["no patch"], [], "teacher produced no patch", attempt=attempt)
         # 1. acceptance tampering (path level, before touching the workspace)
-        touched_tests = [p for p in obs.patch if p in acceptance.hashes]
+        touched_tests = [p for p in patch_paths(obs.patch) if p in acceptance.hashes]
         # 2. security review of the patch content (before applying)
         sec = security_findings(obs.patch, allowed_paths=bundle.allowed_paths)
         sec = [s for s in sec if not (touched_tests and s.startswith("out of scope") and s.split(": ", 1)[1] in touched_tests)]
@@ -293,14 +306,14 @@ class PatchVerifier:
             workspace.restore(token)
             return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + [f"acceptance tests failing: {failed}"], ev,
                                   f"tests still failing after the patch: {failed}; excerpt: {excerpt[:200]}", rolled_back=True,
-                                  files_changed=sorted(obs.patch), attempt=attempt)
+                                  files_changed=sorted(patch_paths(obs.patch)), attempt=attempt)
         if regression_tests:
             rp, rf, rex = workspace.run_tests(regression_tests)
             ev.append(self._evidence(binding, "regression", rp, f"{list(regression_tests)} still pass", rex[:300] or ("pass" if rp else "fail")))
             if not rp:
                 workspace.restore(token)
                 return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + [f"new regressions: {rf}"], ev,
-                                      f"patch fixes the target but breaks {rf}", rolled_back=True, files_changed=sorted(obs.patch), attempt=attempt)
+                                      f"patch fixes the target but breaks {rf}", rolled_back=True, files_changed=sorted(patch_paths(obs.patch)), attempt=attempt)
         # 5. evidence freshness + binding (task / run / HEAD / environment)
         now = self.clock()
         for e in ev:
@@ -310,7 +323,7 @@ class PatchVerifier:
                 return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_REJECTED.value, reasons + [f"evidence rejected: {err}"], ev,
                                       f"evidence not fresh/bound: {err}", rolled_back=True, attempt=attempt)
         return TeacherVerdict(TeacherStatus.TEACHER_OUTPUT_ACCEPTED.value, reasons + ["independent tests, diff review, security scan, freshness and binding passed"],
-                              ev, "", files_changed=sorted(obs.patch), attempt=attempt)
+                              ev, "", files_changed=sorted(patch_paths(obs.patch)), attempt=attempt)
 
     def _evidence(self, b: EvidenceBinding, kind: str, passed: bool, expected: str, actual: str) -> Evidence:
         at = self.clock()

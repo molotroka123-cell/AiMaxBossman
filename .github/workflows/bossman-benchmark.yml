@@ -1,0 +1,63 @@
+name: Bossman internal benchmark
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "Tier to run (LIVE is only possible with both attestations)"
+        required: false
+        default: "pr"
+        type: choice
+        options: [smoke, pr, nightly, release]
+      owner_approved:
+        description: "Authenticated owner approved LIVE benchmark"
+        required: false
+        default: false
+        type: boolean
+      budget_reserved:
+        description: "Budget reservation exists for LIVE benchmark"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # PR CI always uses deterministic MOCK/SIMULATED fixtures: no credential
+      # and no paid provider calls.  A future LIVE fixture additionally needs
+      # both workflow dispatch attestations and --allow-live below.
+      BOSSMAN_BENCHMARK_NO_PAID_CALLS: ${{ github.event_name == 'pull_request' && '1' || '0' }}
+      BOSSMAN_BENCHMARK_OWNER_APPROVED: ${{ github.event_name == 'workflow_dispatch' && inputs.owner_approved && '1' || '0' }}
+      BOSSMAN_BENCHMARK_BUDGET_RESERVED: ${{ github.event_name == 'workflow_dispatch' && inputs.budget_reserved && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install core
+        run: python -m pip install -e "./bossman-core[dev]"
+      - name: SMOKE (all PRs, no paid calls)
+        if: github.event_name == 'pull_request'
+        working-directory: bossman-core
+        run: python -m bossman.benchmark run --tier smoke --output ../benchmark-ci-results
+      - name: PR (all PRs, no paid calls)
+        if: github.event_name == 'pull_request'
+        working-directory: bossman-core
+        run: python -m bossman.benchmark run --tier pr --output ../benchmark-ci-results
+      - name: Manually dispatched tier
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: bossman-core
+        run: >-
+          python -m bossman.benchmark run --tier ${{ inputs.tier }} --output ../benchmark-ci-results
+          ${{ inputs.owner_approved && inputs.budget_reserved && '--allow-live' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bossman-benchmark-results
+          path: benchmark-ci-results

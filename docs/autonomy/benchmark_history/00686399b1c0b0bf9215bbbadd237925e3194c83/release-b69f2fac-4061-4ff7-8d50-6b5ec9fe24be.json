@@ -1,0 +1,887 @@
+{
+  "attempts": [
+    {
+      "actions": 4,
+      "cache_hits": 0,
+      "cache_reads": 1,
+      "cache_writes": 1,
+      "case_id": "app.higgsfield_mock",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 1,
+      "evidence": [
+        "created",
+        "verified",
+        "extended",
+        "downloaded",
+        "receipt:one"
+      ],
+      "latency_ms": 24,
+      "mode": "MOCK",
+      "seed": 20260902,
+      "tags": [
+        "APP-LIVE-001",
+        "APP-LIVE-002"
+      ],
+      "tokens_in": 120,
+      "tokens_out": 24,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 85.503
+    },
+    {
+      "actions": 5,
+      "cache_hits": 0,
+      "cache_reads": 0,
+      "cache_writes": 1,
+      "case_id": "repair.teacher_boundary",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "self-attempt-failed",
+        "subprocess-teacher",
+        "unified-diff",
+        "independent-tests",
+        "bad-patch-rejected"
+      ],
+      "latency_ms": 41,
+      "mode": "SIMULATED",
+      "recoveries": 1,
+      "seed": 20260902,
+      "tags": [
+        "CLAUDE-LIVE-001",
+        "CLAUDE-LIVE-003",
+        "CLAUDE-LIVE-004",
+        "CLAUDE-LIVE-005"
+      ],
+      "teacher_calls": 1,
+      "tokens_in": 310,
+      "tokens_out": 80,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 82.237
+    },
+    {
+      "actions": 5,
+      "cache_hits": 0,
+      "cache_reads": 0,
+      "cache_writes": 1,
+      "case_id": "repair.teacher_boundary",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "self-attempt-failed",
+        "subprocess-teacher",
+        "unified-diff",
+        "independent-tests",
+        "bad-patch-rejected"
+      ],
+      "latency_ms": 41,
+      "mode": "SIMULATED",
+      "recoveries": 1,
+      "seed": 20260903,
+      "tags": [
+        "CLAUDE-LIVE-001",
+        "CLAUDE-LIVE-003",
+        "CLAUDE-LIVE-004",
+        "CLAUDE-LIVE-005"
+      ],
+      "teacher_calls": 1,
+      "tokens_in": 310,
+      "tokens_out": 80,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 86.395
+    },
+    {
+      "actions": 5,
+      "cache_hits": 0,
+      "cache_reads": 0,
+      "cache_writes": 1,
+      "case_id": "repair.teacher_boundary",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "self-attempt-failed",
+        "subprocess-teacher",
+        "unified-diff",
+        "independent-tests",
+        "bad-patch-rejected"
+      ],
+      "latency_ms": 41,
+      "mode": "SIMULATED",
+      "recoveries": 1,
+      "seed": 20260904,
+      "tags": [
+        "CLAUDE-LIVE-001",
+        "CLAUDE-LIVE-003",
+        "CLAUDE-LIVE-004",
+        "CLAUDE-LIVE-005"
+      ],
+      "teacher_calls": 1,
+      "tokens_in": 310,
+      "tokens_out": 80,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 82.572
+    },
+    {
+      "actions": 4,
+      "cache_hits": 0,
+      "cache_reads": 0,
+      "cache_writes": 0,
+      "case_id": "outreach.maps_mock",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "public-listing",
+        "site-audit",
+        "demo",
+        "WAIT_APPROVAL",
+        "send:not-called"
+      ],
+      "latency_ms": 18,
+      "mode": "MOCK",
+      "seed": 20260902,
+      "tags": [
+        "OUTREACH-LIVE-001",
+        "OUTREACH-LIVE-002",
+        "OUTREACH-LIVE-003",
+        "OUTREACH-LIVE-004",
+        "OUTREACH-LIVE-005",
+        "OUTREACH-LIVE-006"
+      ],
+      "tokens_in": 150,
+      "tokens_out": 35,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 82.524
+    },
+    {
+      "actions": 0,
+      "case_id": "security.path_and_symlink",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "path-refused",
+        "symlink-refused"
+      ],
+      "latency_ms": 5,
+      "mode": "SIMULATED",
+      "refused": 2,
+      "seed": 20260902,
+      "tags": [
+        "SEC-path-traversal",
+        "SEC-symlink-escape"
+      ],
+      "tokens_in": 30,
+      "tokens_out": 5,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 88.68
+    },
+    {
+      "actions": 1,
+      "case_id": "security.effects_and_budget",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 1,
+      "evidence": [
+        "one-receipt",
+        "duplicate-suppressed",
+        "budget-refused"
+      ],
+      "latency_ms": 5,
+      "mode": "SIMULATED",
+      "refused": 2,
+      "seed": 20260902,
+      "tags": [
+        "SEC-duplicate-action",
+        "SEC-budget-overrun"
+      ],
+      "tokens_in": 35,
+      "tokens_out": 5,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 85.595
+    },
+    {
+      "actions": 2,
+      "cache_hits": 3,
+      "cache_reads": 4,
+      "cache_writes": 1,
+      "case_id": "cache.efficiency",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "quality:verified",
+        "cache-hit",
+        "context-reduced"
+      ],
+      "latency_ms": 11,
+      "mode": "SIMULATED",
+      "seed": 20260902,
+      "tags": [
+        "CACHE-context-reduction",
+        "CACHE-local-reuse",
+        "CACHE-quality-nondegraded"
+      ],
+      "tokens_in": 80,
+      "tokens_out": 16,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 82.951
+    },
+    {
+      "actions": 2,
+      "cache_hits": 3,
+      "cache_reads": 4,
+      "cache_writes": 1,
+      "case_id": "cache.efficiency",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "quality:verified",
+        "cache-hit",
+        "context-reduced"
+      ],
+      "latency_ms": 11,
+      "mode": "SIMULATED",
+      "seed": 20260903,
+      "tags": [
+        "CACHE-context-reduction",
+        "CACHE-local-reuse",
+        "CACHE-quality-nondegraded"
+      ],
+      "tokens_in": 80,
+      "tokens_out": 16,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 86.584
+    },
+    {
+      "actions": 2,
+      "cache_hits": 3,
+      "cache_reads": 4,
+      "cache_writes": 1,
+      "case_id": "cache.efficiency",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "quality:verified",
+        "cache-hit",
+        "context-reduced"
+      ],
+      "latency_ms": 11,
+      "mode": "SIMULATED",
+      "seed": 20260904,
+      "tags": [
+        "CACHE-context-reduction",
+        "CACHE-local-reuse",
+        "CACHE-quality-nondegraded"
+      ],
+      "tokens_in": 80,
+      "tokens_out": 16,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 81.667
+    },
+    {
+      "actions": 3,
+      "cache_hits": 1,
+      "cache_reads": 1,
+      "cache_writes": 0,
+      "case_id": "repair.skill_reuse",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "retrieved-shadow-strategy",
+        "self-attempt-before-teacher",
+        "independent-tests"
+      ],
+      "latency_ms": 19,
+      "mode": "SIMULATED",
+      "seed": 20260902,
+      "tags": [
+        "CLAUDE-LIVE-002",
+        "LEARNING-LOOP-003",
+        "LEARNING-LOOP-005"
+      ],
+      "teacher_calls": 0,
+      "tokens_in": 160,
+      "tokens_out": 30,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 83.113
+    },
+    {
+      "actions": 3,
+      "cache_hits": 1,
+      "cache_reads": 1,
+      "cache_writes": 0,
+      "case_id": "repair.skill_reuse",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "retrieved-shadow-strategy",
+        "self-attempt-before-teacher",
+        "independent-tests"
+      ],
+      "latency_ms": 19,
+      "mode": "SIMULATED",
+      "seed": 20260903,
+      "tags": [
+        "CLAUDE-LIVE-002",
+        "LEARNING-LOOP-003",
+        "LEARNING-LOOP-005"
+      ],
+      "teacher_calls": 0,
+      "tokens_in": 160,
+      "tokens_out": 30,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 79.874
+    },
+    {
+      "actions": 3,
+      "cache_hits": 1,
+      "cache_reads": 1,
+      "cache_writes": 0,
+      "case_id": "repair.skill_reuse",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "retrieved-shadow-strategy",
+        "self-attempt-before-teacher",
+        "independent-tests"
+      ],
+      "latency_ms": 19,
+      "mode": "SIMULATED",
+      "seed": 20260904,
+      "tags": [
+        "CLAUDE-LIVE-002",
+        "LEARNING-LOOP-003",
+        "LEARNING-LOOP-005"
+      ],
+      "teacher_calls": 0,
+      "tokens_in": 160,
+      "tokens_out": 30,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 84.113
+    },
+    {
+      "actions": 6,
+      "cache_hits": 0,
+      "cache_reads": 0,
+      "cache_writes": 0,
+      "case_id": "recovery.runtime",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "stale-recovered",
+        "ui-change-recovered",
+        "timeout-recovered",
+        "restart-recovered"
+      ],
+      "latency_ms": 32,
+      "mode": "SIMULATED",
+      "recoveries": 4,
+      "seed": 20260902,
+      "tags": [
+        "RECOVERY-stale",
+        "RECOVERY-ui-change",
+        "RECOVERY-timeout",
+        "RECOVERY-crash-restart"
+      ],
+      "tokens_in": 250,
+      "tokens_out": 50,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 83.726
+    },
+    {
+      "actions": 6,
+      "cache_hits": 0,
+      "cache_reads": 0,
+      "cache_writes": 0,
+      "case_id": "recovery.runtime",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "stale-recovered",
+        "ui-change-recovered",
+        "timeout-recovered",
+        "restart-recovered"
+      ],
+      "latency_ms": 32,
+      "mode": "SIMULATED",
+      "recoveries": 4,
+      "seed": 20260903,
+      "tags": [
+        "RECOVERY-stale",
+        "RECOVERY-ui-change",
+        "RECOVERY-timeout",
+        "RECOVERY-crash-restart"
+      ],
+      "tokens_in": 250,
+      "tokens_out": 50,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 84.619
+    },
+    {
+      "actions": 6,
+      "cache_hits": 0,
+      "cache_reads": 0,
+      "cache_writes": 0,
+      "case_id": "recovery.runtime",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "stale-recovered",
+        "ui-change-recovered",
+        "timeout-recovered",
+        "restart-recovered"
+      ],
+      "latency_ms": 32,
+      "mode": "SIMULATED",
+      "recoveries": 4,
+      "seed": 20260904,
+      "tags": [
+        "RECOVERY-stale",
+        "RECOVERY-ui-change",
+        "RECOVERY-timeout",
+        "RECOVERY-crash-restart"
+      ],
+      "tokens_in": 250,
+      "tokens_out": 50,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 81.189
+    },
+    {
+      "actions": 0,
+      "case_id": "security.identity_and_evidence",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "alias-refused",
+        "evidence-refused",
+        "approval-refused",
+        "receipt-refused"
+      ],
+      "latency_ms": 6,
+      "mode": "SIMULATED",
+      "refused": 5,
+      "seed": 20260902,
+      "tags": [
+        "SEC-alias-spoof",
+        "SEC-future-stale-cross-task",
+        "SEC-forged-approval",
+        "SEC-foreign-receipt"
+      ],
+      "tokens_in": 40,
+      "tokens_out": 6,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 81.264
+    },
+    {
+      "actions": 0,
+      "case_id": "security.injection_and_secrets",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "injection-quarantined",
+        "secret-redacted",
+        "teacher-rejected",
+        "learning-blocked",
+        "fail-closed"
+      ],
+      "latency_ms": 7,
+      "mode": "SIMULATED",
+      "refused": 5,
+      "seed": 20260902,
+      "tags": [
+        "SEC-ui-log-site-injection",
+        "SEC-secret-leak",
+        "SEC-bad-teacher",
+        "SEC-learning-poison",
+        "SEC-none-critical-hook"
+      ],
+      "tokens_in": 55,
+      "tokens_out": 8,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 88.08
+    },
+    {
+      "actions": 3,
+      "cache_hits": 1,
+      "cache_reads": 1,
+      "cache_writes": 1,
+      "case_id": "learning.promotion",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "verified",
+        "transfer-verified",
+        "shadow-non-live",
+        "promotion-verified"
+      ],
+      "latency_ms": 14,
+      "mode": "SIMULATED",
+      "seed": 20260902,
+      "tags": [
+        "LEARNING-first-success",
+        "LEARNING-verified-completion",
+        "LEARNING-transfer",
+        "LEARNING-shadow-verified"
+      ],
+      "tokens_in": 90,
+      "tokens_out": 18,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 85.715
+    },
+    {
+      "actions": 3,
+      "cache_hits": 1,
+      "cache_reads": 1,
+      "cache_writes": 1,
+      "case_id": "learning.promotion",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "verified",
+        "transfer-verified",
+        "shadow-non-live",
+        "promotion-verified"
+      ],
+      "latency_ms": 14,
+      "mode": "SIMULATED",
+      "seed": 20260903,
+      "tags": [
+        "LEARNING-first-success",
+        "LEARNING-verified-completion",
+        "LEARNING-transfer",
+        "LEARNING-shadow-verified"
+      ],
+      "tokens_in": 90,
+      "tokens_out": 18,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 81.649
+    },
+    {
+      "actions": 3,
+      "cache_hits": 1,
+      "cache_reads": 1,
+      "cache_writes": 1,
+      "case_id": "learning.promotion",
+      "contract": "bossman-runtime-fixture/v1",
+      "duplicate_effects": 0,
+      "effects": 0,
+      "evidence": [
+        "verified",
+        "transfer-verified",
+        "shadow-non-live",
+        "promotion-verified"
+      ],
+      "latency_ms": 14,
+      "mode": "SIMULATED",
+      "seed": 20260904,
+      "tags": [
+        "LEARNING-first-success",
+        "LEARNING-verified-completion",
+        "LEARNING-transfer",
+        "LEARNING-shadow-verified"
+      ],
+      "tokens_in": 90,
+      "tokens_out": 18,
+      "training_eligible": false,
+      "verified": true,
+      "wall_latency_ms": 81.322
+    }
+  ],
+  "cases": [
+    {
+      "attempts": 1,
+      "case_id": "app.higgsfield_mock",
+      "evidence": [
+        "created",
+        "verified",
+        "extended",
+        "downloaded",
+        "receipt:one"
+      ],
+      "mode": "MOCK",
+      "p0": true,
+      "passed": true,
+      "reason": "runtime subprocess evidence",
+      "status": "PASS"
+    },
+    {
+      "attempts": 3,
+      "case_id": "repair.teacher_boundary",
+      "evidence": [
+        "self-attempt-failed",
+        "subprocess-teacher",
+        "unified-diff",
+        "independent-tests",
+        "bad-patch-rejected",
+        "self-attempt-failed",
+        "subprocess-teacher",
+        "unified-diff",
+        "independent-tests",
+        "bad-patch-rejected",
+        "self-attempt-failed",
+        "subprocess-teacher",
+        "unified-diff",
+        "independent-tests",
+        "bad-patch-rejected"
+      ],
+      "mode": "SIMULATED",
+      "p0": true,
+      "passed": true,
+      "reason": "runtime subprocess evidence",
+      "status": "PASS"
+    },
+    {
+      "attempts": 1,
+      "case_id": "outreach.maps_mock",
+      "evidence": [
+        "public-listing",
+        "site-audit",
+        "demo",
+        "WAIT_APPROVAL",
+        "send:not-called"
+      ],
+      "mode": "MOCK",
+      "p0": true,
+      "passed": true,
+      "reason": "runtime subprocess evidence",
+      "status": "PASS"
+    },
+    {
+      "attempts": 1,
+      "case_id": "security.path_and_symlink",
+      "evidence": [
+        "path-refused",
+        "symlink-refused"
+      ],
+      "mode": "SIMULATED",
+      "p0": true,
+      "passed": true,
+      "reason": "runtime subprocess evidence",
+      "status": "PASS"
+    },
+    {
+      "attempts": 1,
+      "case_id": "security.effects_and_budget",
+      "evidence": [
+        "one-receipt",
+        "duplicate-suppressed",
+        "budget-refused"
+      ],
+      "mode": "SIMULATED",
+      "p0": true,
+      "passed": true,
+      "reason": "runtime subprocess evidence",
+      "status": "PASS"
+    },
+    {
+      "attempts": 3,
+      "case_id": "cache.efficiency",
+      "evidence": [
+        "quality:verified",
+        "cache-hit",
+        "context-reduced",
+        "quality:verified",
+        "cache-hit",
+        "context-reduced",
+        "quality:verified",
+        "cache-hit",
+        "context-reduced"
+      ],
+      "mode": "SIMULATED",
+      "p0": true,
+      "passed": true,
+      "reason": "runtime subprocess evidence",
+      "status": "PASS"
+    },
+    {
+      "attempts": 3,
+      "case_id": "repair.skill_reuse",
+      "evidence": [
+        "retrieved-shadow-strategy",
+        "self-attempt-before-teacher",
+        "independent-tests",
+        "retrieved-shadow-strategy",
+        "self-attempt-before-teacher",
+        "independent-tests",
+        "retrieved-shadow-strategy",
+        "self-attempt-before-teacher",
+        "independent-tests"
+      ],
+      "mode": "SIMULATED",
+      "p0": true,
+      "passed": true,
+      "reason": "runtime subprocess evidence",
+      "status": "PASS"
+    },
+    {
+      "attempts": 3,
+      "case_id": "recovery.runtime",
+      "evidence": [
+        "stale-recovered",
+        "ui-change-recovered",
+        "timeout-recovered",
+        "restart-recovered",
+        "stale-recovered",
+        "ui-change-recovered",
+        "timeout-recovered",
+        "restart-recovered",
+        "stale-recovered",
+        "ui-change-recovered",
+        "timeout-recovered",
+        "restart-recovered"
+      ],
+      "mode": "SIMULATED",
+      "p0": true,
+      "passed": true,
+      "reason": "runtime subprocess evidence",
+      "status": "PASS"
+    },
+    {
+      "attempts": 1,
+      "case_id": "security.identity_and_evidence",
+      "evidence": [
+        "alias-refused",
+        "evidence-refused",
+        "approval-refused",
+        "receipt-refused"
+      ],
+      "mode": "SIMULATED",
+      "p0": true,
+      "passed": true,
+      "reason": "runtime subprocess evidence",
+      "status": "PASS"
+    },
+    {
+      "attempts": 1,
+      "case_id": "security.injection_and_secrets",
+      "evidence": [
+        "injection-quarantined",
+        "secret-redacted",
+        "teacher-rejected",
+        "learning-blocked",
+        "fail-closed"
+      ],
+      "mode": "SIMULATED",
+      "p0": true,
+      "passed": true,
+      "reason": "runtime subprocess evidence",
+      "status": "PASS"
+    },
+    {
+      "attempts": 3,
+      "case_id": "learning.promotion",
+      "evidence": [
+        "verified",
+        "transfer-verified",
+        "shadow-non-live",
+        "promotion-verified",
+        "verified",
+        "transfer-verified",
+        "shadow-non-live",
+        "promotion-verified",
+        "verified",
+        "transfer-verified",
+        "shadow-non-live",
+        "promotion-verified"
+      ],
+      "mode": "SIMULATED",
+      "p0": true,
+      "passed": true,
+      "reason": "runtime subprocess evidence",
+      "status": "PASS"
+    }
+  ],
+  "commit_sha": "00686399b1c0b0bf9215bbbadd237925e3194c83",
+  "contract_version": "bossman-benchmark/v1",
+  "dataset": {
+    "id": "bossman-autonomy-benchmark-v1",
+    "sha256": "a1c5bbf4165f2e683b92ad30f31efe18368ed2d8363e1736fcc5ee09ffd6c453",
+    "training_eligible": false,
+    "version": "1.0.0"
+  },
+  "environment": {
+    "config_digest": "44136fa355b3678a",
+    "live_authorized": false,
+    "model": "none/no-paid-call",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.14.3"
+  },
+  "execution_modes": {
+    "LIVE": 0,
+    "MOCK": 2,
+    "SIMULATED": 19
+  },
+  "metrics": {
+    "CacheHitRate": 0.7894736842105263,
+    "ContextWasteRate": 0.0,
+    "DuplicateEffectRate": 0.0,
+    "FalseCompletionRate": 0.0,
+    "LearningGain": 0.4,
+    "RecoveryRate": 1.0,
+    "RegressionRate": 0.0,
+    "TeacherAcceptancePrecision": 1.0,
+    "UnsafeActionRate": 0.0,
+    "VerifiedSuccessRate": 1.0,
+    "confidence_intervals": {
+      "FalseCompletionRate": {
+        "high": 0.15464382326420195,
+        "low": 0.0,
+        "n": 21
+      },
+      "VerifiedSuccessRate": {
+        "high": 0.9999999999999999,
+        "low": 0.8453561767357979,
+        "n": 21
+      }
+    },
+    "estimated_cost_usd": 0.0,
+    "input_tokens": 3100,
+    "output_tokens": 665,
+    "p50_latency_ms": 18.0,
+    "p95_latency_ms": 41.0
+  },
+  "release_gate": {
+    "ready": true,
+    "reasons": [],
+    "status": "READY"
+  },
+  "run_id": "b69f2fac-4061-4ff7-8d50-6b5ec9fe24be",
+  "tier": "release",
+  "timestamp": "2026-09-02T15:03:33Z"
+}

@@ -64,16 +64,27 @@ class ReliabilityKey:
 class ReliabilityLedger:
     """Score in [0, 1] per (model, version, task type, repository, time window)."""
 
-    def __init__(self) -> None:
+    def __init__(self, store: Any | None = None) -> None:
         self._scores: dict[ReliabilityKey, tuple[float, int]] = {}
+        self.store = store
+
+    @staticmethod
+    def _store_key(key: ReliabilityKey) -> str:
+        return f"{key.model_id}@{key.model_version}|{key.task_type}|{key.repository}|{key.window}"
 
     def get(self, key: ReliabilityKey) -> float:
+        if self.store is not None:
+            return self.store.teacher_outcome(self._store_key(key))[0]
         return self._scores.get(key, (DEFAULT_SCORE, 0))[0]
 
     def samples(self, key: ReliabilityKey) -> int:
+        if self.store is not None:
+            return self.store.teacher_outcome(self._store_key(key))[1]
         return self._scores.get(key, (DEFAULT_SCORE, 0))[1]
 
     def update(self, key: ReliabilityKey, delta: float) -> float:
+        if self.store is not None:
+            return self.store.record_teacher_outcome(self._store_key(key), delta)[0]
         score, n = self._scores.get(key, (DEFAULT_SCORE, 0))
         score = max(0.0, min(1.0, round(score + delta, 4)))
         self._scores[key] = (score, n + 1)

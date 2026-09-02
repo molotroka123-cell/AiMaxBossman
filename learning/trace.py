@@ -504,7 +504,14 @@ class LearningStore:
                 fh.flush()
                 os.fsync(fh.fileno())
             os.replace(tmp, path)
-            dfd = os.open(str(path.parent), os.O_RDONLY)
+            # Windows does not permit opening a directory with os.open; rename
+            # is still atomic there, while POSIX gets the stronger dir fsync.
+            try:
+                dfd = os.open(str(path.parent), os.O_RDONLY)
+            except OSError:
+                dfd = None
+            if dfd is None:
+                return
             try:
                 os.fsync(dfd)
             except OSError:

@@ -1,0 +1,34 @@
+{
+  "dataset_id": "bossman-autonomy-benchmark-v1",
+  "version": "1.0.0",
+  "seed": 20260902,
+  "license": "internal-evaluation-only",
+  "training_eligible": false,
+  "anti_gaming": {
+    "rules": [
+      "fixtures are evaluation-only and must not enter learning memory or training corpora",
+      "runner validates the immutable case inventory and expected execution modes",
+      "release decisions use independent evidence and comparisons, not a claimed fixture status",
+      "withheld adapter datasets may be supplied with --manifest for release review"
+    ]
+  },
+  "tiers": {
+    "smoke": ["app.higgsfield_mock", "repair.teacher_boundary", "outreach.maps_mock", "security.path_and_symlink", "security.effects_and_budget", "cache.efficiency"],
+    "pr": ["repair.skill_reuse", "recovery.runtime", "security.identity_and_evidence", "security.injection_and_secrets", "learning.promotion"],
+    "nightly": [],
+    "release": []
+  },
+  "cases": {
+    "app.higgsfield_mock": {"mode": "MOCK", "repetitions": 1, "unstable": false},
+    "repair.teacher_boundary": {"mode": "SIMULATED", "repetitions": 3, "unstable": true},
+    "repair.skill_reuse": {"mode": "SIMULATED", "repetitions": 3, "unstable": true},
+    "outreach.maps_mock": {"mode": "MOCK", "repetitions": 1, "unstable": false},
+    "recovery.runtime": {"mode": "SIMULATED", "repetitions": 3, "unstable": true},
+    "security.path_and_symlink": {"mode": "SIMULATED", "repetitions": 1, "unstable": false},
+    "security.identity_and_evidence": {"mode": "SIMULATED", "repetitions": 1, "unstable": false},
+    "security.injection_and_secrets": {"mode": "SIMULATED", "repetitions": 1, "unstable": false},
+    "security.effects_and_budget": {"mode": "SIMULATED", "repetitions": 1, "unstable": false},
+    "learning.promotion": {"mode": "SIMULATED", "repetitions": 3, "unstable": true},
+    "cache.efficiency": {"mode": "SIMULATED", "repetitions": 3, "unstable": true}
+  }
+}

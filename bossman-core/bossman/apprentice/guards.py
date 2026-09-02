@@ -111,12 +111,15 @@ class SideEffectLedger:
     """Process-local idempotency ledger shared by all engines of a process. Keyed
     by side_effect_id; the first claim wins, later claims see the stored result."""
 
-    def __init__(self) -> None:
+    def __init__(self, store: Any | None = None) -> None:
         self._lock = threading.Lock()
+        self.store = store
         self._done: dict[str, dict] = {}
         self._claimed: set[str] = set()
 
     def claim(self, side_effect_id: str) -> tuple[bool, dict | None]:
+        if self.store is not None:
+            return self.store.claim_side_effect(side_effect_id)
         with self._lock:
             if side_effect_id in self._done:
                 return False, self._done[side_effect_id]
@@ -126,15 +129,23 @@ class SideEffectLedger:
             return True, None
 
     def complete(self, side_effect_id: str, result: dict) -> None:
+        if self.store is not None:
+            self.store.complete_side_effect(side_effect_id, result)
+            return
         with self._lock:
             self._claimed.discard(side_effect_id)
             self._done[side_effect_id] = dict(result)
 
     def abandon(self, side_effect_id: str) -> None:
+        if self.store is not None:
+            self.store.abandon_side_effect(side_effect_id)
+            return
         with self._lock:
             self._claimed.discard(side_effect_id)
 
     def seen(self, side_effect_id: str) -> bool:
+        if self.store is not None:
+            return self.store.side_effect_seen(side_effect_id)
         with self._lock:
             return side_effect_id in self._done
 
@@ -164,8 +175,9 @@ def step_digest(task_id: str, step_id: str, kind: str, target_label: str, text: 
 class ApprovalRegistry:
     """One-time nonce consumption. Validation mirrors company.runtime._valid_approval."""
 
-    def __init__(self, clock: Callable[[], float] = time.time) -> None:
+    def __init__(self, clock: Callable[[], float] = time.time, store: Any | None = None) -> None:
         self.clock = clock
+        self.store = store
         self._consumed: set[str] = set()
         self._lock = threading.Lock()
 
@@ -182,11 +194,17 @@ class ApprovalRegistry:
             return "approval expired"
         if not d.nonce:
             return "approval without nonce (one-time consumption impossible)"
+        if self.store is not None and self.store.nonce_consumed(d.nonce):
+            return "approval already consumed (replay)"
         with self._lock:
             if d.nonce in self._consumed:
                 return "approval already consumed (replay)"
         return ""
 
     def consume(self, d: ApprovalDecision) -> None:
+        if self.store is not None:
+            if not self.store.consume_nonce_once(d.nonce):
+                raise RuntimeError("approval nonce was already consumed")
+            return
         with self._lock:
             self._consumed.add(d.nonce)

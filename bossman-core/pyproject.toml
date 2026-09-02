@@ -36,3 +36,8 @@ include = ["bossman*"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "live: requires an explicitly enabled external service/session",
+    "restart: destroys and recreates a process or durable store",
+    "security: adversarial security boundary coverage",
+]

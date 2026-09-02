@@ -158,6 +158,8 @@ class OutreachGate:
 
     def block(self, recipient: str, reason: str = "") -> None:
         self.blocked.add(recipient.lower())
+        if getattr(self.ledger, "store", None) is not None:
+            self.ledger.store.block_recipient(recipient, reason)
 
     def refusal(self, task_id: str, package: OutreachPackage, approval: Any) -> str:
         """Empty string = may send. Every rule is checked before any external effect."""
@@ -167,14 +169,15 @@ class OutreachGate:
             return "recipient must be a public business email or contact form url"
         if not package.card.verified:
             return f"problem not verified ({package.card.problem}); no outreach without a verified reason"
-        if package.recipient.lower() in self.blocked:
+        if package.recipient.lower() in self.blocked or (getattr(self.ledger, "store", None) is not None and self.ledger.store.recipient_blocked(package.recipient)):
             return "recipient is blocked; blocks are never bypassed"
         if self._per_run.get(task_id, 0) >= self.max_per_run:
             return f"per-run recipient cap {self.max_per_run} reached (no mass mailing)"
         if self.ledger.seen(package.side_effect_id()):
             return "duplicate external effect (same recipient + content already sent)"
         last = self._last_sent.get(package.recipient.lower())
-        if last is not None and self.clock() - last < self.cooldown_s:
+        durable_until = self.ledger.store.get_cooldown(package.recipient) if getattr(self.ledger, "store", None) is not None else None
+        if (last is not None and self.clock() - last < self.cooldown_s) or (durable_until is not None and self.clock() < durable_until):
             return "recipient contacted recently; no re-sending inside the cooldown"
         why = self.approvals.validate(approval, digest=outreach_digest(task_id, package), scope=task_id)
         if why:
@@ -197,6 +200,8 @@ class OutreachGate:
         self.approvals.consume(approval)
         self.ledger.complete(seid, {"receipt": trace().redact_obj(dict(receipt or {})), "at": self.clock()})
         self._last_sent[package.recipient.lower()] = self.clock()
+        if getattr(self.ledger, "store", None) is not None:
+            self.ledger.store.set_cooldown(package.recipient, self.clock() + self.cooldown_s)
         self._per_run[task_id] = self._per_run.get(task_id, 0) + 1
         self.sent_log.append({"task_id": task_id, "recipient": package.recipient, "content_digest": package.content_digest,
                               "side_effect_id": seid, "at": self.clock()})
