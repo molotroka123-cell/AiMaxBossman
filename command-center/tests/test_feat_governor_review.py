@@ -63,23 +63,34 @@ async def test_governor_no_progress_pause():
 
 
 async def test_reviewer_gate_fail_then_pass(env):
-    """Кодер: 1-й ответ без «тест», 2-й с «тест» → FAIL→фидбек→PASS→completed."""
+    """F-012 (миграция контракта): FAIL→фидбек→VERIFIED→completed, но PASS даёт
+    только СВЕЖЕЕ доказательство (файл перечитан), а не текст ответа.
+
+    Кодер: 1-й ответ — текст без эффекта (файла нет) → FAILED; 2-й — реально
+    создаёт файл, который ожидает review.evidence → VERIFIED → completed.
+    Раньше тест проверял подстроку «тест» в ответе — тот самый spoofing-канал."""
     calls = {"n": 0}
+    target = env.settings.data_dir / "review_out.txt"
 
     class Coder(FakeAdapter):
         def __init__(self):
             super().__init__("")
         async def chat(self, model, messages, **kw):
             calls["n"] += 1
-            text = "код без проверок" if calls["n"] == 1 else "код с тестами внутри"
             from bcc.providers import ChatResult
-            return ChatResult(text=text, tokens_in=5, tokens_out=3)
+            if calls["n"] == 1:
+                # эхо критерия БЕЗ эффекта — раньше этого хватало для PASS
+                return ChatResult(text="код с тестами внутри: тест написан", tokens_in=5, tokens_out=3)
+            target.write_text("def test_x(): assert True\n", encoding="utf-8")
+            return ChatResult(text="файл создан", tokens_in=5, tokens_out=3)
 
     env.svc.registry.adapter_factory = lambda m, p: Coder()
     stack = await make_stack(env.client, max_steps=4)
     await env.client.post("/api/review/enable",
                           json={"task_id": stack["task"]["id"], "criteria": "тест",
-                                "max_review_retries": 2})
+                                "max_review_retries": 2,
+                                "evidence": [{"kind": "file", "target": str(target),
+                                              "expect": {"contains": "def test_"}}]})
     await env.client.post(f"/api/tasks/{stack['task']['id']}/retry")
     for _ in range(10):
         rid = await env.svc.engine.claim()
@@ -89,16 +100,21 @@ async def test_reviewer_gate_fail_then_pass(env):
     t = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["task"]
     assert t["status"] == "completed"
     status = (await env.client.get(f"/api/review/status?task_id={stack['task']['id']}")).json()
-    assert any(not h["passed"] for h in status["history"])   # был FAIL
-    assert any(h["passed"] for h in status["history"])       # и потом PASS
+    assert any(h["status"] == "FAILED" for h in status["history"])    # был FAIL (файла не было)
+    assert any(h["status"] == "VERIFIED" for h in status["history"])  # и потом VERIFIED
+    assert status["evaluations"][-1]["artifacts"][0]["evidence"][0]["source"] == "file:reopen"
 
 
 async def test_reviewer_gate_escalates_after_limit(env):
+    """Ожидаемый файл так и не появился → FAILED×3 → waiting_approval + review_escalation."""
     env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("плохой код навсегда")
     stack = await make_stack(env.client, max_steps=6)
+    missing = env.settings.data_dir / "never_created.txt"
     await env.client.post("/api/review/enable",
                           json={"task_id": stack["task"]["id"], "criteria": "НЕТ_ТАКОГО",
-                                "max_review_retries": 2})
+                                "max_review_retries": 2,
+                                "evidence": [{"kind": "file", "target": str(missing),
+                                              "expect": {"exists": True}}]})
     await env.client.post(f"/api/tasks/{stack['task']['id']}/retry")
     for _ in range(12):
         rid = await env.svc.engine.claim()
