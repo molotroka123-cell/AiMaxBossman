@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BossmanLearningFixCase",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "model",
+    "agent",
+    "start_sha",
+    "end_sha",
+    "task",
+    "symptom",
+    "reproduction",
+    "evidence",
+    "root_cause_hypotheses",
+    "rejected_hypotheses",
+    "root_cause",
+    "relevant_code_paths",
+    "fix_strategy",
+    "alternatives_considered",
+    "why_this_fix",
+    "files_changed",
+    "tests_added",
+    "original_repro_result",
+    "adversarial_variants",
+    "regression_result",
+    "external_verification",
+    "generalizable_lessons",
+    "teach_local_model",
+    "confidence",
+    "limitations",
+    "verified_by",
+    "learning_status"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agent": {
+      "type": "string",
+      "minLength": 1
+    },
+    "start_sha": {
+      "type": "string"
+    },
+    "end_sha": {
+      "type": "string"
+    },
+    "task": {
+      "type": "string"
+    },
+    "symptom": {
+      "type": "string"
+    },
+    "reproduction": {
+      "type": [
+        "string",
+        "array"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "root_cause_hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rejected_hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "root_cause": {
+      "type": "string"
+    },
+    "relevant_code_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fix_strategy": {
+      "type": "string"
+    },
+    "alternatives_considered": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "why_this_fix": {
+      "type": "string"
+    },
+    "files_changed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tests_added": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "original_repro_result": {
+      "type": "string"
+    },
+    "adversarial_variants": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "regression_result": {
+      "type": "string"
+    },
+    "external_verification": {
+      "type": "string"
+    },
+    "failure_recovery_lessons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "generalizable_lessons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "teach_local_model": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verified_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "learning_status": {
+      "type": "string",
+      "enum": [
+        "VERIFIED",
+        "FAILED_EXPERIMENT",
+        "PARTIAL",
+        "UNVERIFIED",
+        "REJECTED"
+      ]
+    }
+  }
+}
