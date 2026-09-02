@@ -425,6 +425,12 @@ class TaskEngine:
             tokens_in += result.tokens_in
             tokens_out += result.tokens_out
             cost += _cost(model, result)
+            if result.cache_read_tokens or result.cache_write_tokens:
+                # Prompt cache: только измерение провайдера (никаких «ожидаемых» экономий)
+                await self._log(run_id, "info", "model.prompt_cache",
+                                f"{alias}: cache_read={result.cache_read_tokens} "
+                                f"cache_write={result.cache_write_tokens} "
+                                f"hit={'yes' if result.cache_read_tokens else 'no'}")
 
             if result.has_tool_calls:
                 messages.append(_assistant_tool_message(result))

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -50,10 +51,17 @@ class ChatResult:
     tool_calls: list[ToolCall] = field(default_factory=list)
     raw_message: dict[str, Any] = field(default_factory=dict)
     provider_meta: dict[str, Any] = field(default_factory=dict)
+    # Prompt cache (Anthropic): измеренные провайдером токены, не оценка.
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
 
     @property
     def usage(self) -> dict[str, int]:
-        return {"tokens_in": self.tokens_in, "tokens_out": self.tokens_out}
+        out = {"tokens_in": self.tokens_in, "tokens_out": self.tokens_out}
+        if self.cache_read_tokens or self.cache_write_tokens:   # только измеренный кэш
+            out["cache_read_tokens"] = self.cache_read_tokens
+            out["cache_write_tokens"] = self.cache_write_tokens
+        return out
 
     @property
     def has_tool_calls(self) -> bool:
@@ -221,6 +229,20 @@ class AnthropicAdapter(_BaseAdapter):
     kind = "anthropic"
     version = "2023-06-01"
     default_base = "https://api.anthropic.com"
+    # Prompt caching (Anthropic Messages API): стабильный префикс — system и
+    # tools — помечается cache_control; динамика (messages) идёт ПОСЛЕ него.
+    # BCC_ANTHROPIC_PROMPT_CACHE=0 выключает; BCC_ANTHROPIC_CACHE_TTL=1h — длинный TTL.
+    # Экономия не декларируется: usage.cache_read_input_tokens/
+    # cache_creation_input_tokens возвращаются в ChatResult как измерение.
+
+    @staticmethod
+    def cache_policy() -> dict | None:
+        if os.environ.get("BCC_ANTHROPIC_PROMPT_CACHE", "1").strip().lower() in ("0", "false", "no"):
+            return None
+        control = {"type": "ephemeral"}
+        if os.environ.get("BCC_ANTHROPIC_CACHE_TTL", "5m").strip().lower() == "1h":
+            control["ttl"] = "1h"
+        return control
 
     def _headers(self) -> dict:
         return {
@@ -235,23 +257,30 @@ class AnthropicAdapter(_BaseAdapter):
         # system у Anthropic — отдельное поле, а не роль в messages
         system = "\n\n".join(str(m.get("content") or "")
                              for m in messages if m.get("role") == "system")
+        control = self.cache_policy()
         payload: dict[str, Any] = {
             "model": model,
             "max_tokens": int(kw.get("max_tokens") or 2048),
-            "messages": _to_anthropic_messages(messages),
         }
-        if system:
-            payload["system"] = system
-        if kw.get("temperature") is not None:
-            payload["temperature"] = kw["temperature"]
         if kw.get("tools"):
-            # OpenAI-схемы инструментов → формат Anthropic (плоский, input_schema)
-            payload["tools"] = [{
+            # OpenAI-схемы инструментов → формат Anthropic (плоский, input_schema).
+            # tools — часть стабильного префикса: breakpoint на последнем инструменте.
+            tools = [{
                 "name": t["function"]["name"],
                 "description": t["function"].get("description", ""),
                 "input_schema": t["function"].get("parameters")
                 or {"type": "object", "properties": {}},
             } for t in kw["tools"] if t.get("function")]
+            if tools and control:
+                tools[-1] = {**tools[-1], "cache_control": dict(control)}
+            payload["tools"] = tools
+        if system:
+            # system — стабильный префикс; блок с cache_control (кэшируется вместе с tools)
+            payload["system"] = ([{"type": "text", "text": system, "cache_control": dict(control)}]
+                                 if control else system)
+        payload["messages"] = _to_anthropic_messages(messages)   # динамика — после префикса
+        if kw.get("temperature") is not None:
+            payload["temperature"] = kw["temperature"]
         resp = await self._request("POST", f"{self.base_url}/v1/messages",
                                    timeout=kw.get("timeout", CHAT_TIMEOUT),
                                    headers=self._headers(), json=payload)
@@ -264,15 +293,23 @@ class AnthropicAdapter(_BaseAdapter):
                           raw_arguments=json.dumps(b.get("input") or {}, ensure_ascii=False))
                  for i, b in enumerate(blocks) if b.get("type") == "tool_use"]
         usage = data.get("usage") or {}
+        cache_read = int(usage.get("cache_read_input_tokens") or 0)
+        cache_write = int(usage.get("cache_creation_input_tokens") or 0)
+        meta = {k: data[k] for k in ("id", "usage") if k in data}
+        meta["prompt_cache"] = {"applied": bool(control), "read_tokens": cache_read,
+                                "write_tokens": cache_write,
+                                "hit": cache_read > 0}
         return ChatResult(
             text=text,
-            tokens_in=int(usage.get("input_tokens") or 0),
+            # input_tokens у Anthropic НЕ включает кэшированные — полный вход = сумма
+            tokens_in=int(usage.get("input_tokens") or 0) + cache_read + cache_write,
             tokens_out=int(usage.get("output_tokens") or 0),
             finish=data.get("stop_reason") or "stop",
             model=data.get("model") or model,
             tool_calls=calls,
             raw_message={"content": blocks},
-            provider_meta={k: data[k] for k in ("id", "usage") if k in data},
+            provider_meta=meta,
+            cache_read_tokens=cache_read, cache_write_tokens=cache_write,
         )
 
     async def health(self) -> Health:

@@ -40,8 +40,19 @@ HOST=Linux container, no GPU, docker daemon НЕ запущен (F-009 container
 | BUG-004 | FIXED (Linux) | test_stage13_auth_redteam.py green |
 | BUG-005 | BOUNDED/FIXED | test_secrem_discovery.py |
 
-## EXACT_NEXT_TASK
-1. RunPod/owner host: run `python tools/runpod_preflight.py`, then full suites; prove F-009 container mount (docker) and BUG-004 on Windows; record in docs/runpod/POST_SECURITY_FINAL_ACCEPTANCE.md.
-2. Intelligence plan step 1: extract SECREM mutators into a shared library (tests/_secrem/mutators.py in both apps) + sibling sweep (docs/intelligence/BOSSMAN_INTELLIGENCE_IMPLEMENTATION_PLAN.md).
-3. Deep Fix runner wiring in the command-center engine behind BOSSMAN_DEEP_FIX_ENABLED (verifier isolation, plan hash before patch).
-4. Owner decisions: DNS pinning for http/browser/discovery; browser request interception; per-capability HTTP authz for command-center.
+## COMPACT CHECKPOINT (update after every verified block)
+HEAD_SHA=see `git log -1` (last: prompt-cache commit after a212f6d/4d46f5a)
+ACTIVE_FINDING=none open; efficiency item: Anthropic prompt caching (bcc AnthropicAdapter) DONE (tests), live hit UNMEASURED
+ROOT_CAUSE=n/a (all F-001..F-018 dispositioned; see FABLE_51_FINAL_RETEST.md)
+FILES_CHANGED=command-center/bcc/providers.py, command-center/bcc/engine.py, command-center/tests/test_providers.py, data/learning/failed_experiments.jsonl
+TESTS_RUN=command-center tests/test_providers.py (9 passed), test_v21_tool_loop + test_v2_core (21 passed); full suites last green at 4eb97a5 (core 1360/5 skipped, cc 718/3, root 35)
+RESULT=SAFE_FOR_V2_FREEZE=YES on this host; owner-host checklist in docs/runpod/POST_SECURITY_FINAL_ACCEPTANCE.md
+NEXT_EXACT_ACTION=SECREM mutator library + sibling sweep (task #64): create command-center/tests/_secrem/mutators.py and bossman-core/tests/_secrem/mutators.py from test_secrem_* variants; add sibling-sweep tests over http/browser/discovery URL policy and terminal/browser approval replay
+BLOCKERS=docker/GPU/Windows-only proofs (NOT_TESTED_ON_THIS_HOST); Anthropic API key absent (cache hit unmeasured)
+UNCOMMITTED_WORK=none after the prompt-cache commit
+
+## EXACT_NEXT_TASK (long form)
+1. Mutator library + sibling sweep (above).
+2. Deep Fix runner wiring in the command-center engine behind BOSSMAN_DEEP_FIX_ENABLED (verifier isolation, plan hash before patch).
+3. Owner host: runpod_preflight → full suites → docker F-009 proof → BUG-004 Windows → router E2E → soak; measure Anthropic cache_read_input_tokens on a real key.
+4. Owner decisions: DNS pinning (http/browser/discovery), browser request interception, per-capability HTTP authz.
