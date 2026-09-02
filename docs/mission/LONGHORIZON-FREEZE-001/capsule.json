@@ -2,25 +2,36 @@
     "mission_id":  "LFZ-20260902-GLM-7f13546",
     "acceptance_id":  "LONGHORIZON-FREEZE-001",
     "phase":  "PASS4_LOCAL_WORK",
-    "head_at_write":  "f240ddc",
+    "head_at_write":  "b6fd5e1",
     "claude_api_configured":  true,
     "completed":  [
                       "CI-HISTORY-001",
                       "CI-AUTOREPAIR-REPORT-001",
-                      "CI-AUTOREPAIR-REF-001"
+                      "CI-AUTOREPAIR-REF-001",
+                      "P0-FINISH-BUDGET-001",
+                      "UCA_REAL_BROWSER",
+                      "HIGGSFIELD_REAL_ATTEMPT(BLOCKED_BY_ENVIRONMENT)",
+                      "DIRECT_FABLE_TEACHER_BUG_A_B",
+                      "RESTART_RESUME_PROOF",
+                      "ZIP3_INGEST",
+                      "KEY_FUNCTION_TOUCH_MATRIX"
                   ],
     "pending":  [
-                    "UCA_REAL_BROWSER",
-                    "TEACHER_REAL",
-                    "OUTREACH_REAL_WAIT_APPROVAL",
-                    "RESTART_PROOF",
-                    "BENCHMARK_RELEASE_GATE",
-                    "FREEZE_REPORTS"
+                    "FABLE_FINAL_REVIEW(reserved)",
+                    "FREEZE_REPORT",
+                    "FINAL_PUSH"
                 ],
     "blockers":  [
 
                  ],
-    "next_safe_action":  "run release-tier benchmark + live-safety tests; then real teacher acceptance",
+    "next_safe_action":  "benchmark release on final HEAD -\u003e compact Fable final review -\u003e freeze report -\u003e push",
     "cloud_cost_usd":  0.0,
-    "escalation_policy":  "Fable only through REACTIVE_ESCALATION or HIGH_VALUE_IMPROVEMENT gate; preserve a mandatory final-review reserve (\u003e=1.25 USD). Small agents scout cheaply -\u003e GLM ranks -\u003e Fable gets top issues as one compact bundle -\u003e local workers implement -\u003e verifier checks."
+    "escalation_policy":  "Fable only through REACTIVE_ESCALATION or HIGH_VALUE_IMPROVEMENT gate; preserve a mandatory final-review reserve (\u003e=1.25 USD). Small agents scout cheaply -\u003e GLM ranks -\u003e Fable gets top issues as one compact bundle -\u003e local workers implement -\u003e verifier checks.",
+    "restart_proof":  {
+                          "resumed_pid":  39232,
+                          "resumed_at":  1788379706.0230281,
+                          "head":  "b6fd5e1f33c85946dacd5457a6e071adb8e9c4e9",
+                          "same_mission_id":  "LFZ-20260902-GLM-7f13546",
+                          "no_duplicated_work":  true
+                      }
 }
