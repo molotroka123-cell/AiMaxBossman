@@ -11,10 +11,13 @@ jobs:
   repair-and-test:
     runs-on: ubuntu-latest
     
+    timeout-minutes: 30
     services:
       postgres:
-        image: postgres:15
+        # db/schema.sql needs `CREATE EXTENSION vector` — the plain postgres image has no pgvector.
+        image: pgvector/pgvector:pg16
         env:
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: bossman_test
         options: >-
@@ -31,15 +34,15 @@ jobs:
           ref: claude/bossman-control-v03-43igbk
       
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       
       - name: Install dependencies
         run: |
           cd bossman-core
-          pip install -e .
-          pip install pytest pytest-asyncio asyncpg
+          pip install -e ".[dev,resource]"
+          pip install asyncpg httpx psutil
       
       - name: Fix PostgreSQL Schema
         run: |
@@ -58,14 +61,20 @@ jobs:
           "
       
       - name: Run P0 Tests
+        env:
+          BOSSMAN_TEST_PG_DSN: postgresql://postgres:postgres@localhost:5432/bossman_test
+          BOSSMAN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bossman_test
         run: |
           cd bossman-core
-          pytest tests/ -v -k "test_schema or test_working_memory or test_decision_memory or test_failure_memory"
-      
+          python -m pytest tests/ -q --timeout=120 --timeout-method=signal -k "test_schema or test_working_memory or test_decision_memory or test_failure_memory"
+
       - name: Run Full Test Suite
+        env:
+          BOSSMAN_TEST_PG_DSN: postgresql://postgres:postgres@localhost:5432/bossman_test
+          BOSSMAN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bossman_test
         run: |
           cd bossman-core
-          pytest tests/ -v --tb=short
+          python -m pytest tests/ -q --tb=short --timeout=300 --timeout-method=signal
       
       - name: Create PR if fixes needed
         if: failure()
