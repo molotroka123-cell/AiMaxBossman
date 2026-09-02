@@ -59,7 +59,7 @@ def test_runtime_runs_when_flag_on(monkeypatch):
     site = seo.default_site()
     rt = CompanyRuntime(seo.build_plan(), executor=seo.make_executor(site), verifier=seo.make_verifier(site),
                         kpi_reader=seo.make_kpi_reader(site), synthetic=False)
-    assert rt.run().status == "VERIFIED"
+    assert rt.run().status == "PARTIAL"          # P0-05: publish DENIED ⇒ прогон не VERIFIED целиком
 
 
 # ---- план / DAG ----------------------------------------------------------------
@@ -121,7 +121,7 @@ def test_synthetic_e2e_report():
     assert report.task_states == {"seo-audit": "DONE", "seo-fix-titles": "DONE", "seo-fix-meta": "DONE",
                                   "seo-fix-alt": "DONE", "seo-rescore": "DONE", "seo-publish": "DENIED"}
     assert report.denied == ("seo-publish",)
-    assert report.status == "VERIFIED" and report.completion == "PARTIAL"
+    assert report.status == "PARTIAL" and report.completion == "PARTIAL"   # P0-05: DENIED-задача ⇒ не VERIFIED
     # KPI до/после — свежее чтение сайта, а не заявления исполнителя
     assert report.kpi_before["seo_readiness"] == 62.5
     assert report.kpi_after["seo_readiness"] == 100.0
@@ -145,7 +145,7 @@ def test_synthetic_e2e_report():
     assert report.rounds == 1
     assert report.budget["spent"] == 8.0 and report.budget["spent"] <= report.budget["max_total_cost"]
     d = report.to_dict()
-    assert d["status"] == "VERIFIED" and d["denied"] == ["seo-publish"]
+    assert d["status"] == "PARTIAL" and d["denied"] == ["seo-publish"]
 
 
 def test_synthetic_e2e_is_deterministic():
@@ -168,7 +168,7 @@ def test_learning_records_validate_and_encode_denial():
     assert denied["symptom"].startswith("denied by approval gate")
     assert denied["verified_by"] == []
     run = recs["obj-synthetic-seo/run"]
-    assert run["learning_status"] == "VERIFIED" and run["outcome"] == "PARTIAL"
+    assert run["learning_status"] == "PARTIAL" and run["outcome"] == "PARTIAL"   # P0-05: частичный прогон — не VERIFIED
     assert any("seo_readiness: 62.5 -> 100.0" in e for e in run["evidence"])
     assert any("seo-publish DENIED" in x for x in run["limitations"])
 
@@ -203,8 +203,14 @@ def test_default_gate_denies_and_records_approver():
 
 
 def test_explicit_external_approval_lets_gated_task_run():
+    from bossman.company.model import task_digest
+    plan = seo.build_plan()
+
     def owner_gate(task, req):
-        return ApprovalDecision(True, "human:owner", f"approved {req.kind} for {task.id}")
+        # P0-05: одобрение действительно только с canonical digest, scope и одноразовым nonce
+        return ApprovalDecision(True, "human:owner", f"approved {req.kind} for {task.id}",
+                                digest=task_digest(plan.objective.id, task), scope=plan.objective.id,
+                                nonce=f"nonce-{task.id}-{req.kind}")
     report, site, rt = seo.run_demo(approval_gate=owner_gate)
     assert report.task_states["seo-publish"] == "DONE" and site.published is True
     assert report.completion == "COMPLETE" and report.status == "VERIFIED"
@@ -237,7 +243,7 @@ def test_budget_exceeded_skips_task_and_downstream():
     assert st["seo-fix-titles"] == st["seo-fix-meta"] == st["seo-fix-alt"] == "BUDGET_EXCEEDED"
     assert st["seo-rescore"] == "SKIPPED" and st["seo-publish"] == "SKIPPED"
     assert site.writes == 0 and rt.executor_calls == ("seo-audit",)
-    assert report.status == "VERIFIED" and report.completion == "PARTIAL"   # аудит верифицирован, остальное не делалось
+    assert report.status == "PARTIAL" and report.completion == "PARTIAL"   # P0-05: аудит верифицирован, но BUDGET_EXCEEDED ⇒ не VERIFIED
     recs = {r["task_id"]: r for r in report.learning_records}
     assert recs["obj-synthetic-seo/seo-fix-alt"]["outcome"] == "BLOCKED_ENV"
     assert all(learning_validate(r) == [] for r in report.learning_records)

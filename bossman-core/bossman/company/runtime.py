@@ -26,7 +26,7 @@ import time
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from .model import (ApprovalDecision, ApprovalRequirement, CompanyModeDisabled, CompanyPlan,
+from .model import (task_digest, ApprovalDecision, ApprovalRequirement, CompanyModeDisabled, CompanyPlan,
                     CompanyReport, CompanyRunState, CompanyTask, KPI, TaskOutcome,
                     VerificationOutcome, WorkResult, enabled)
 from .planner import replan
@@ -73,11 +73,19 @@ class CompanyRuntime:
                  kpi_reader: KpiReader | None = None,
                  synthetic: bool = False,
                  max_rounds: int = 3,
-                 clock: Callable[[], float] | None = None) -> None:
+                 clock: Callable[[], float] | None = None,
+                 cost_meter: Callable[[CompanyTask, WorkResult], float] | None = None,
+                 executor_principal: str = "executor",
+                 verifier_principal: str = "") -> None:
         self.plan = plan
         self.executor = executor
         self.approval_gate = approval_gate or deny_all_gate
         self.verifier = verifier
+        # P0-05: измеренная стоимость (Cost Governor/метр) — не только самоотчёт исполнителя
+        self.cost_meter = cost_meter
+        # P0-05: identity по principal, не по display-строке; verifier == executor → UNVERIFIED
+        self.executor_principal = executor_principal
+        self.verifier_principal = verifier_principal or (f"verifier:{_callable_name(verifier)}" if verifier else "")
         self.kpi_reader = kpi_reader
         self.synthetic = synthetic
         self.max_rounds = max(1, max_rounds)
@@ -149,12 +157,20 @@ class CompanyRuntime:
                             kinds=[r.kind for r in task.requires_approval])
                 return
             self._trace("task.approved", task.id, decision.reason, approver=decision.approver)
-        # 3. бюджет
-        ok, why = self.plan.budget.allows(task.estimated_cost, self.state.spent, self.state.executed)
+        # 3. бюджет: reserve ДО запуска (оценка), commit/release ПОСЛЕ (факт)
+        if self.state.budget_exhausted:
+            o.set_state("BUDGET_EXCEEDED", "budget exhausted by an earlier overrun")
+            self._trace("task.budget_exceeded", task.id, o.reason)
+            return
+        ok, why = self.plan.budget.allows(task.estimated_cost, self.state.spent,
+                                          self.state.executed, self.state.reserved)
         if not ok:
             o.set_state("BUDGET_EXCEEDED", why)
             self._trace("task.budget_exceeded", task.id, why)
             return
+        reserved = max(0.0, float(task.estimated_cost))
+        self.state.reserved += reserved
+        self._trace("task.reserved", task.id, cost=reserved, reserved_total=self.state.reserved)
         # 4. исполнение
         o.set_state("RUNNING")
         o.attempts += 1
@@ -163,19 +179,26 @@ class CompanyRuntime:
         try:
             result = self.executor(task)
         except Exception as exc:  # noqa: BLE001 — сбой исполнителя = FAILED, не падение прогона
+            self._release(task, reserved)
             o.result = None
             o.set_state("FAILED", f"executor raised: {exc!r}")
             self._trace("task.failed", task.id, o.reason)
             return
         if not isinstance(result, WorkResult) or result.task_id != task.id:
+            self._release(task, reserved)
             o.result = result if isinstance(result, WorkResult) else None
             o.set_state("FAILED", "executor returned a result for a different task or wrong type")
             self._trace("task.failed", task.id, o.reason)
             return
         o.result = result
-        self.state.spent += max(0.0, float(result.cost))
-        self.state.executed += 1
-        self._trace("task.result", task.id, result.summary, ok=result.ok, cost=result.cost)
+        actual = self._commit(task, result, reserved)
+        self._trace("task.result", task.id, result.summary, ok=result.ok, cost=actual,
+                    self_reported_cost=result.cost)
+        if actual is None:                       # overrun → терминально BUDGET_EXCEEDED, без retry
+            o.set_state("BUDGET_EXCEEDED", f"cost overrun: actual exceeds the envelope "
+                                           f"(spent={self.state.spent:.2f}, max={self.plan.budget.max_total_cost})")
+            self._trace("task.budget_exceeded", task.id, o.reason)
+            return
         # 5. верификация свежим наблюдением
         if task.evidence_requirements:
             o.verification = self._verify(task, result)
@@ -193,21 +216,79 @@ class CompanyRuntime:
         self._trace("task.done", task.id,
                     o.verification.status if o.verification else "no evidence requirement")
 
+    # ---- бюджет: reserve / commit / release ----------------------------------
+    def _release(self, task: CompanyTask, reserved: float) -> None:
+        self.state.reserved = max(0.0, self.state.reserved - reserved)
+        self._trace("task.released", task.id, cost=reserved, reserved_total=self.state.reserved)
+
+    def _commit(self, task: CompanyTask, result: WorkResult, reserved: float) -> float | None:
+        """Факт = max(самоотчёт, измеритель). Если факт не помещается в конверт —
+        коммитим то, что реально потрачено, помечаем overrun и закрываем бюджет
+        (молчаливого превышения нет). Возвращает факт или None при overrun."""
+        self_reported = max(0.0, float(result.cost))
+        measured = None
+        if self.cost_meter is not None:
+            try:
+                measured = max(0.0, float(self.cost_meter(task, result)))
+            except Exception as exc:  # noqa: BLE001 — сбой метра: остаёмся консервативными
+                self._trace("task.cost_meter_error", task.id, repr(exc))
+        actual = max(self_reported, measured) if measured is not None else self_reported
+        self.state.reserved = max(0.0, self.state.reserved - reserved)
+        self.state.spent += actual
+        self.state.executed += 1
+        limit = self.plan.budget.max_total_cost
+        per_task = self.plan.budget.max_task_cost
+        if self.state.spent > limit or (per_task is not None and actual > per_task):
+            self.state.budget_exhausted = True
+            self.state.overruns.append(task.id)
+            self._trace("task.cost_overrun", task.id, actual=actual, spent=self.state.spent,
+                        max_total_cost=limit, max_task_cost=per_task)
+            return None
+        self._trace("task.committed", task.id, cost=actual, measured=measured is not None)
+        return actual
+
+    def _valid_approval(self, task: CompanyTask, d: ApprovalDecision) -> str:
+        """Пустая строка = одобрение действительно; иначе причина отказа."""
+        if not d.approved:
+            return d.reason or "denied"
+        want = task_digest(self.plan.objective.id, task)
+        if d.digest != want:
+            return "approval digest does not match this task/action"
+        if d.scope != self.plan.objective.id:
+            return "approval scope is another objective"
+        if d.expires_at is not None and self.clock() >= d.expires_at:
+            return "approval expired"
+        if not d.nonce:
+            return "approval without nonce (one-time consumption impossible)"
+        if d.nonce in self.state.consumed_nonces:
+            return "approval already consumed (replay)"
+        return ""
+
     def _ask_gate(self, task: CompanyTask) -> ApprovalDecision:
+        """Роль не участвует. Каждое требование — отдельное решение гейта; любое
+        не-ApprovalDecision, исключение, чужой digest/scope, истёкший срок или
+        повтор nonce — отказ (fail closed). Одобрение потребляется один раз."""
         for req in task.requires_approval:
             try:
                 d = self.approval_gate(task, req)
-            except Exception as exc:  # noqa: BLE001 — сбой гейта = отказ (fail-closed)
+            except Exception as exc:  # noqa: BLE001 — сбой гейта = отказ
                 return ApprovalDecision(False, "gate:error", f"gate raised for {req.kind}: {exc!r}")
             if not isinstance(d, ApprovalDecision):
                 return ApprovalDecision(False, "gate:invalid", f"gate returned {type(d).__name__}, not ApprovalDecision")
-            if not d.approved:
-                return d
-        return ApprovalDecision(True, d.approver, d.reason)  # все требования одобрены
+            why = self._valid_approval(task, d)
+            if why:
+                return ApprovalDecision(False, d.approver or "gate", f"{req.kind}: {why}")
+            self.state.consumed_nonces.add(d.nonce)
+        last = d if task.requires_approval else ApprovalDecision(True, "policy:ungated", "no approval required")
+        return ApprovalDecision(True, last.approver, last.reason, digest=last.digest, scope=last.scope,
+                                expires_at=last.expires_at, nonce=last.nonce)
 
     def _verify(self, task: CompanyTask, result: WorkResult) -> VerificationOutcome:
         if self.verifier is None:
             return VerificationOutcome("UNVERIFIED", "no verifier injected — self-report is not evidence")
+        if not self.verifier_principal or self.verifier_principal == self.executor_principal:
+            return VerificationOutcome("UNVERIFIED", "verifier principal is the executor — "
+                                                     "self-verification is not evidence")
         try:
             v = self.verifier(task, result)
         except Exception as exc:  # noqa: BLE001 — наблюдение недоступно → UNVERIFIED, не PASS
@@ -218,13 +299,17 @@ class CompanyRuntime:
 
     # ---- отчёт ----------------------------------------------------------------
     def _overall_status(self) -> str:
-        outs = self.state.outcomes.values()
+        """VERIFIED только если КАЖДАЯ задача DONE и КАЖДАЯ проверена свежим
+        наблюдением; любая DENIED/SKIPPED/BUDGET_EXCEEDED/непроверенная → не VERIFIED."""
+        outs = list(self.state.outcomes.values())
         if any(o.state == "FAILED" for o in outs):
             return "FAILED"
-        checked = [o for o in outs if o.state == "DONE" and o.verification is not None]
-        if checked and all(o.verification.verified for o in checked):
-            return "VERIFIED"
-        return "UNVERIFIED"
+        done = [o for o in outs if o.state == "DONE"]
+        if any(o.verification is None or not o.verification.verified for o in done):
+            return "UNVERIFIED"                  # сделанная, но не проверенная работа — важнее PARTIAL
+        if not outs or len(done) != len(outs):
+            return "PARTIAL"                     # всё сделанное проверено, но часть задач не выполнена
+        return "VERIFIED"
 
     def _report(self) -> CompanyReport:
         st = self.state
@@ -243,6 +328,8 @@ class CompanyRuntime:
             denied=tuple(o.task_id for o in outcomes if o.state == "DENIED"),
             budget={"max_total_cost": self.plan.budget.max_total_cost,
                     "max_task_cost": self.plan.budget.max_task_cost, "spent": st.spent,
+                    "reserved": st.reserved, "overruns": list(st.overruns),
+                    "budget_exhausted": st.budget_exhausted,
                     "executed": st.executed, "currency": self.plan.budget.currency},
             rounds=st.rounds, trace=tuple(st.trace), learning_records=records,
         )
@@ -282,7 +369,13 @@ class CompanyRuntime:
             rec["external_verification"] = o.verification.reason
         if o.state == "DONE" and o.verification is not None and o.verification.verified:
             rec["learning_status"], rec["outcome"] = "VERIFIED", "FIXED"
-            rec["verified_by"] = [f"verifier:{_callable_name(self.verifier)}"]
+            rec["verified_by"] = [self.verifier_principal]
+            rec["verifiers"] = [{"principal_id": self.verifier_principal, "role": "verifier",
+                                 "independence_class": "external_tool"}]
+            rec["evidence_records"] = [{"observed_at": float(self.clock()), "task_id": rec["task_id"],
+                                        "source": self.verifier_principal, "principal_id": self.verifier_principal,
+                                        "expected": "; ".join(f"{e.kind}:{e.target}" for e in task.evidence_requirements) or "fresh observation",
+                                        "actual": o.verification.reason or "verified"}]
         elif o.state == "DENIED":
             rec["learning_status"], rec["outcome"] = "PARTIAL", "ACCEPTED_RISK_REQUIRES_OWNER"
             rec["symptom"] = "denied by approval gate: " + (o.approval.reason if o.approval else "")
@@ -309,10 +402,16 @@ class CompanyRuntime:
         rec["evidence"] = [f"kpi {s['name']}: {s['before']} -> {s['after']}" for s in kpi_summary]
         rec["evidence"] += [e for o in outcomes for e in o.evidence]
         rec["limitations"] = [f"{o.task_id} {o.state}: {o.reason}" for o in outcomes if o.state != "DONE"]
-        if status == "VERIFIED":
+        if status == "VERIFIED" and completion == "COMPLETE":
             rec["learning_status"] = "VERIFIED"
-            rec["outcome"] = "FIXED" if completion == "COMPLETE" else "PARTIAL"
-            rec["verified_by"] = [f"verifier:{_callable_name(self.verifier)}"]
+            rec["outcome"] = "FIXED"
+            rec["verified_by"] = [self.verifier_principal]
+            rec["verifiers"] = [{"principal_id": self.verifier_principal, "role": "verifier",
+                                 "independence_class": "external_tool"}]
+            rec["evidence_records"] = [{"observed_at": float(self.clock()), "task_id": rec["task_id"],
+                                        "source": self.verifier_principal, "principal_id": self.verifier_principal,
+                                        "expected": "all tasks verified by fresh observation",
+                                        "actual": "; ".join(o.verification.status for o in outcomes if o.verification)}]
             rec["external_verification"] = "; ".join(
                 f"{o.task_id}: {o.verification.reason}" for o in outcomes if o.verification)
             rec["confidence"] = 0.9

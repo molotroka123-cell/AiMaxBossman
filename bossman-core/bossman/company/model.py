@@ -135,9 +135,25 @@ class EvidenceRequirement:
 
 @dataclass(frozen=True, slots=True)
 class ApprovalDecision:
+    """Решение гейта. Одобрение действительно ТОЛЬКО если привязано к
+    canonical identity задачи (digest), к objective (scope), не истекло
+    (expires_at) и не было потреблено ранее (nonce — одноразовое)."""
     approved: bool
     approver: str = ""            # кто решил (human:<id> | policy:<name>); не модель
     reason: str = ""
+    digest: str = ""              # task_digest(objective_id, task)
+    scope: str = ""               # objective id
+    expires_at: float | None = None
+    nonce: str = ""
+
+
+def task_digest(objective_id: str, task: "CompanyTask") -> str:
+    """Canonical identity действия, которое одобряется: objective + task id +
+    action + kind + виды требований. Одобрение другой задачи/действия не подходит."""
+    import hashlib
+    raw = "|".join([str(objective_id), task.id, task.action, task.kind,
+                    ",".join(sorted(r.kind for r in task.requires_approval))])
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,9 +163,12 @@ class BudgetEnvelope:
     max_tasks: int | None = None
     currency: str = "credits"
 
-    def allows(self, task_cost: float, spent: float, executed: int) -> tuple[bool, str]:
+    def allows(self, task_cost: float, spent: float, executed: int,
+               reserved: float = 0.0) -> tuple[bool, str]:
+        """Проверка ДО запуска: оценка + уже потраченное + зарезервированное."""
         if task_cost < 0:
             return False, "negative cost estimate"
+        spent = spent + max(0.0, reserved)
         if self.max_task_cost is not None and task_cost > self.max_task_cost:
             return False, f"task estimate {task_cost} > max_task_cost {self.max_task_cost}"
         if spent + task_cost > self.max_total_cost:
@@ -309,8 +328,12 @@ class TaskOutcome:
 class CompanyRunState:
     outcomes: dict[str, TaskOutcome] = field(default_factory=dict)
     trace: list[dict[str, Any]] = field(default_factory=list)
-    spent: float = 0.0
+    spent: float = 0.0            # committed (authoritative) cost
+    reserved: float = 0.0         # reserved for in-flight tasks (reserve → commit/release)
     executed: int = 0
+    budget_exhausted: bool = False
+    overruns: list[str] = field(default_factory=list)
+    consumed_nonces: set = field(default_factory=set)
     rounds: int = 0
     kpi_before: dict[str, float] = field(default_factory=dict)
     kpi_after: dict[str, float] = field(default_factory=dict)
