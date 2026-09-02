@@ -93,6 +93,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        # CI-HISTORY-001: full history is required — tests execute historical
+        # benchmark commits in isolated worktrees (run_isolated / ShaMismatch
+        # integrity refuses unknown SHAs instead of relabelling them).
+        with:
+          fetch-depth: 0
 
       - name: Python ${{ matrix.python }}
         uses: actions/setup-python@v5

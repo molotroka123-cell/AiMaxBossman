@@ -37,6 +37,11 @@ jobs:
       BOSSMAN_BENCHMARK_BUDGET_RESERVED: ${{ github.event_name == 'workflow_dispatch' && inputs.budget_reserved && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
+        # Full history: benchmark provenance/compare may execute historical
+        # benchmark commits in isolated worktrees (run_isolated refuses
+        # unknown SHAs by design).
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
