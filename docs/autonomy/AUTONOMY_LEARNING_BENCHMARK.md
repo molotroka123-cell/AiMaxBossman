@@ -67,3 +67,19 @@ cases are process-isolated, and release claims need independently verified
 runtime evidence.  The runner also accepts a separately supplied manifest for
 withheld release datasets; changing a public fixture is visible in its report
 dataset SHA and cannot turn a MOCK/SIMULATED case into LIVE.
+
+## Evidence classes and SHA integrity (PASS 1 of the final gap closure)
+
+Three separated evidence classes, assigned by the runner from the manifest (a child process can
+never promote itself): `REGRESSION` (MOCK/SIMULATED fixtures, cheap CI regression detection,
+feeds **RegressionScore** only), `REAL_SANDBOX` (`bossman.benchmark.sandbox_runtime`: real SQLite
+durable store across a real process restart, real `LiveWorkspace` + `git apply` on a real repo;
+feeds **RealCapabilityScore**), `LIVE` (owner + budget attestations; **LiveCapabilityScore**).
+A class without samples reports `INSUFFICIENT_EVIDENCE`, never 0 or 1. Every report carries
+`provenance` (requested_sha, actual_git_head, tree_sha, benchmark_engine_hash, runtime_hash,
+dataset_hash, engine_path, python, platform, environment_digest). `run --sha X` is refused
+(exit 3, `ShaMismatch`) unless X is the executing checkout; `run-isolated --sha X` and
+`compare-isolated --base --candidate` execute each commit's own benchmark code in a detached
+`git worktree` and bind the worktree HEAD + engine hash into an `isolated-*.json` envelope.
+Acceptance: `bossman-core/tests/test_benchmark_truth.py` (BENCH-MODE-001/002, BENCH-SHA-001/002/003,
+BENCH-PROVENANCE-001).
