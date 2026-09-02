@@ -274,6 +274,15 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
     owned_router = router or ModelRouter(cfg)
     auth = AuthManager(cfg)
     metrics = GatewayMetrics()
+    # F-008: счётчик РЕАЛЬНЫХ облачных отправок (по resolved route.is_cloud, а не
+    # по имени алиаса). Живёт на объекте метрик и попадает в snapshot /metrics
+    # как cloud_requests_total — «каждый байт, который ушёл наружу», посчитан.
+    metrics.cloud_requests_total = 0
+
+    def _count_cloud(route) -> None:
+        if route.is_cloud:
+            with metrics._lock:
+                metrics.cloud_requests_total += 1
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -370,7 +379,9 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
     async def metric_snapshot(_: AuthenticatedClient = Depends(client)):
         if not cfg.metrics_enabled:
             raise HTTPException(404, "Metrics disabled")
-        return metrics.snapshot()
+        snap = metrics.snapshot()
+        snap["cloud_requests_total"] = int(getattr(metrics, "cloud_requests_total", 0))
+        return snap
 
     @app.get("/v1/models")
     async def models(c: AuthenticatedClient = Depends(client)):
@@ -378,7 +389,9 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         return {"object": "list", "data": rows}
 
     async def run_json(path: str, payload: dict[str, Any], c: AuthenticatedClient,
-                       cloud_allowed: bool = True, request: Request | None = None) -> JSONResponse:
+                       cloud_allowed: bool = False, request: Request | None = None) -> JSONResponse:
+        # F-008: cloud_allowed по умолчанию False (fail-closed) — забытый параметр
+        # у нового маршрута не открывает облако.
         request_id, run_id = _correlation(request)
         alias = str(payload.get("model") or "")
         if not alias:
@@ -462,7 +475,12 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                 )
                 _log_outcome(request_id, run_id, c.name, alias, route.backend_name, route.model,
                              "ok", started, len(errors))
-                return JSONResponse(body, headers={"x-bossman-backend": route.backend_name, "x-bossman-route-model": route.model})
+                _count_cloud(route)
+                # F-008: аудит по РАЗРЕШЁННОМУ маршруту — клиент (llm.py) пишет
+                # cloud_calls по этому заголовку, а не по префиксу алиаса.
+                return JSONResponse(body, headers={"x-bossman-backend": route.backend_name,
+                                                   "x-bossman-route-model": route.model,
+                                                   "x-bossman-cloud": "1" if route.is_cloud else "0"})
             except BudgetPricingUnknown as exc:
                 # Неизвестная цена при включённом бюджете: fail closed, к сети
                 # даже не подступались — не сигнал здоровья бэкенда.
@@ -512,7 +530,7 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         raise HTTPException(502, {"message": "All model routes failed", "attempts": errors})
 
     async def run_stream(path: str, payload: dict[str, Any], c: AuthenticatedClient,
-                         cloud_allowed: bool = True, request: Request | None = None):
+                         cloud_allowed: bool = False, request: Request | None = None):
         request_id, run_id = _correlation(request)
         alias = str(payload.get("model") or "")
         if not alias:
@@ -594,6 +612,7 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                     )
                     _log_outcome(request_id, run_id, c.name, alias, route.backend_name,
                                  route.model, "ok", started, len(errors))
+                    _count_cloud(route)
                     return
                 except (BudgetPricingUnknown, _BudgetHardStop, _BudgetApprovalRejected) as exc:
                     # Пре-сетевой отказ бюджета: как и обычный локальный сбой —
@@ -657,12 +676,27 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
             metrics.end(started, None, error=True)
             _log_outcome(request_id, run_id, c.name, alias, None, None, "error", started, len(errors))
             yield ("data: " + json.dumps({"error":{"message":"All model routes failed","attempts":errors}}) + "\n\n").encode()
-        return StreamingResponse(generator(), media_type="text/event-stream", headers={"x-accel-buffering":"no"})
+        # F-008: заголовки стрима уходят ДО выбора обслужившей цели (fallback до
+        # первого байта). Поэтому x-bossman-cloud здесь — верхняя граница: "1",
+        # если хоть одна кандидатная цель облачная. Аудит никогда не занижает
+        # облачность; при cloud_allowed=False кандидатов-облаков нет → всегда "0".
+        any_cloud = any(r.is_cloud for r in routes)
+        return StreamingResponse(generator(), media_type="text/event-stream",
+                                 headers={"x-accel-buffering": "no",
+                                          "x-bossman-cloud": "1" if any_cloud else "0"})
 
     def _cloud_allowed(request: Request) -> bool:
-                # Ядро сообщает облачную политику агента заголовком. Отсутствие = разрешено
-                # (прямой сторонний клиент); ядро BOSSMAN всегда проставляет явно.
-        return request.headers.get("x-bossman-cloud-allowed", "1").strip() not in ("0", "false", "no")
+        # F-008 (fail-closed): облако разрешено ТОЛЬКО явным "1"/"true"/"yes".
+        # Отсутствующий или непонятный заголовок = запрет: UNKNOWN ≠ LOCAL.
+        # Раньше отсутствие означало «разрешено» — прямой клиент (bearer или
+        # loopback без auth), забывший заголовок, уводил данные в облако.
+        # Loopback-без-auth сохраняется как режим доступа, но политика облака
+        # для него такая же закрытая. Ядро BOSSMAN (gateway/client.py) всегда
+        # шлёт заголовок явно: "1" только когда политика агента разрешает.
+        raw = request.headers.get("x-bossman-cloud-allowed")
+        if raw is None:
+            return False
+        return raw.strip().lower() in ("1", "true", "yes")
 
     @app.post("/v1/chat/completions")
     async def chat(request: Request, c: AuthenticatedClient = Depends(client)):
@@ -690,6 +724,9 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
             payload = await request.json()
         except ValueError as exc:  # битый JSON — ошибка клиента, не сервера
             raise HTTPException(400, "invalid JSON body") from exc
-        return await run_json("/v1/embeddings", payload, c, request=request)
+        # F-008: эмбеддинги — тот же egress, что и chat: политика облака
+        # проходит через run_json тем же заголовком (раньше не проверялась вовсе).
+        ca = _cloud_allowed(request)
+        return await run_json("/v1/embeddings", payload, c, cloud_allowed=ca, request=request)
 
     return app

@@ -35,7 +35,10 @@ def _priced_target(backend="openrouter", model="gpt-4o", priority=100, **extra):
 def _client(cfg: GatewayConfig, transport: httpx.MockTransport) -> httpx.AsyncClient:
     backends = {n: OpenAIBackend(c, transport) for n, c in cfg.backends.items()}
     app = create_gateway_app(cfg, router=ModelRouter(cfg, backends))
-    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://gw")
+    # F-008: облако fail-closed — тесты бюджета явно разрешают облако заголовком,
+    # чтобы проверять именно бюджетную политику, а не политику облака.
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://gw",
+                             headers={"x-bossman-cloud-allowed": "1"})
 
 
 def _cloud_hits(counter):

@@ -62,7 +62,26 @@ class NeedsCloudApproval(Exception):
 
 
 def is_cloud(alias: str) -> bool:
+    """Облачность ПО ИМЕНИ алиаса — только предварительная проверка политики
+    (never/ask до сети). Для аудита источник истины — resolved route Gateway
+    (заголовок x-bossman-cloud), см. resolved_cloud()."""
     return alias.startswith(CLOUD_PREFIXES)
+
+
+def resolved_cloud(alias: str, data: dict[str, Any] | None) -> bool:
+    """F-008: облачность фактического вызова = заголовок Gateway (если он
+    есть) ИЛИ префикс алиаса. Никогда не полагаемся только на префикс:
+    capability-алиас (bossman-smart) может уйти в облако через fallback, а
+    prefix-классификатор его считал локальным — дыра в аудите cloud_calls."""
+    hdr = data.get("_bossman_cloud") if isinstance(data, dict) else None
+    return bool(hdr) or is_cloud(alias)
+
+
+def _agent_cloud_allowed(agent: AgentSpec, cloud_approved_by: str | None = None) -> bool:
+    """Заголовок X-Bossman-Cloud-Allowed="1" — ТОЛЬКО когда политика агента
+    разрешает: allowed, либо ask с подтверждением владельца. Иначе "0"."""
+    return agent.cloud_policy == "allowed" or (
+        agent.cloud_policy == "ask" and bool(cloud_approved_by))
 
 
 def real_window(alias: str) -> int:
@@ -120,8 +139,7 @@ async def chat(agent: AgentSpec, messages: list[dict], *,
         # бесполезен. Поэтому политику решает Gateway, а ядро лишь сообщает, можно
         # ли ему трогать облако для ЭТОГО агента. never → нельзя; ask → только с
         # подтверждением; allowed → можно.
-        cloud_allowed = agent.cloud_policy == "allowed" or (
-            agent.cloud_policy == "ask" and bool(cloud_approved_by))
+        cloud_allowed = _agent_cloud_allowed(agent, cloud_approved_by)
         try:
             session_id = stable_session_id(agent.name, run_id) if run_id is not None else ""
             data = await _gateway_client().chat(
@@ -156,13 +174,20 @@ async def chat(agent: AgentSpec, messages: list[dict], *,
     cache_hit = int(cache_usage.get("cached_tokens") or 0) > 0
     window = real_window(alias)
 
+    # F-008: аудит по РАЗРЕШЁННОМУ маршруту. model_calls.is_cloud — из заголовка
+    # Gateway, если он есть (иначе — по алиасу); cloud_calls пишется, если
+    # маршрут был облачным ИЛИ алиас облачный — никогда «только по префиксу».
+    route_cloud = data.get("_bossman_cloud") if isinstance(data, dict) else None
+    call_is_cloud = bool(route_cloud) if route_cloud is not None else cloud
+    audit_cloud = resolved_cloud(alias, data)
+
     await db.execute(
         """INSERT INTO model_calls (run_id, agent, alias, is_cloud, prompt_tokens,
            completion_tokens, block_tokens, window_fill, prefix_cache_hit)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)""",
-        run_id, agent.name, alias, cloud, prompt_toks, completion_toks,
+        run_id, agent.name, alias, call_is_cloud, prompt_toks, completion_toks,
         block_tokens, prompt_toks / window if window else None, cache_hit)
-    if cloud:
+    if audit_cloud:
         # V2.6 D3: prompt_preview — журнал «каждый байт, который ушёл», но секреты
         # в нём оседать не должны (obs.py и создан ради этого пути).
         preview = obs.redact(
@@ -202,8 +227,13 @@ async def vision_caption(agent_name: str, path: str, question: str) -> str:
     # ЭТАП 3: через Gateway зрение запрашивается capability-алиасом bossman-vision
     # (роутер сам выберет vision-совместимую цель). Без Gateway — прежний путь.
     if settings.gateway_url:
+        # F-008: облако для зрения — только по политике агента-владельца вызова
+        # (раньше клиент слал "1" по умолчанию). Неизвестный агент → закрыто.
+        spec = load_all().get(agent_name)
+        cloud_allowed = _agent_cloud_allowed(spec) if spec is not None else False
         resp = await _gateway_client().chat(
-            model="bossman-vision", messages=messages, max_tokens=400)
+            model="bossman-vision", messages=messages, max_tokens=400,
+            cloud_allowed=cloud_allowed)
         return resp["choices"][0]["message"]["content"]
     payload = {"model": "bossman-writer", "messages": messages, "max_tokens": 400}
     async with httpx.AsyncClient(timeout=300) as client:
