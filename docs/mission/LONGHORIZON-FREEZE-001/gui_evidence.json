@@ -1,0 +1,9 @@
+{
+  "browser": "real chromium (playwright)",
+  "first_run_steps": 4,
+  "second_run_steps": 2,
+  "checkpoint_resume_used": true,
+  "semantic_targets_only": true,
+  "side_effect_store": "DurableSafetyStore",
+  "url": "file:///C:/Users/timur/AppData/Local/Temp/opencode/pt311guiH/test_real_chromium_uca_observe0/page.html"
+}

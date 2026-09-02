@@ -1,0 +1,10 @@
+{
+  "target": "https://higgsfield.ai",
+  "attempted": true,
+  "url": "https://higgsfield.ai/",
+  "title": "Higgsfield AI — AI-native creative suite",
+  "auth_markers": [
+    "cta: sign up"
+  ],
+  "verdict": "BLOCKED_BY_ENVIRONMENT: account/authentication required for the workflow"
+}

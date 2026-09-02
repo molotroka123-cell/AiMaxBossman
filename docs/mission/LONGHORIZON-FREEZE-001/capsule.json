@@ -1,0 +1,25 @@
+﻿{
+    "mission_id":  "LFZ-20260902-GLM-7f13546",
+    "acceptance_id":  "LONGHORIZON-FREEZE-001",
+    "phase":  "PASS4_LOCAL_WORK",
+    "head_at_write":  "f240ddc",
+    "claude_api_configured":  true,
+    "completed":  [
+                      "CI-HISTORY-001",
+                      "CI-AUTOREPAIR-REPORT-001",
+                      "CI-AUTOREPAIR-REF-001"
+                  ],
+    "pending":  [
+                    "UCA_REAL_BROWSER",
+                    "TEACHER_REAL",
+                    "OUTREACH_REAL_WAIT_APPROVAL",
+                    "RESTART_PROOF",
+                    "BENCHMARK_RELEASE_GATE",
+                    "FREEZE_REPORTS"
+                ],
+    "blockers":  [
+
+                 ],
+    "next_safe_action":  "run release-tier benchmark + live-safety tests; then real teacher acceptance",
+    "cloud_cost_usd":  0.0
+}
