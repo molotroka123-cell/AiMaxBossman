@@ -33,4 +33,11 @@ jobs:
       - name: Secret scan
         run: python tools/ci_secret_scan.py
       - name: git diff --check (whitespace hygiene)
-        run: git diff --check $(git hash-object -t tree /dev/null) HEAD -- . ':(exclude)*.zip'
+        # Scope: code, contracts, UI, CI, and the security/intelligence docs. Historical
+        # reports, acceptance logs and venture CSVs (CRLF data) are intentionally excluded.
+        run: >-
+          git diff --check $(git hash-object -t tree /dev/null) HEAD --
+          bossman-core/bossman bossman-core/tests command-center/bcc command-center/tests
+          command-center/ui learning bossman_shared tools tests schemas
+          .github/workflows/root-ci.yml .github/workflows/bossman-core-ci.yml
+          .github/workflows/command-center-ci.yml docs/security docs/intelligence

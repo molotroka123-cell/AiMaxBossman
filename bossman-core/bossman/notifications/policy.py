@@ -17,7 +17,7 @@ def sanitize(text)->str:
     return s[:3500]
 
 def _id(data):
-    for k in ("id","task_id","run_id","approval_id","job_id"): 
+    for k in ("id","task_id","run_id","approval_id","job_id"):
         if data.get(k) is not None:return str(data[k])
     return "unknown"
 
