@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bossman.local/schemas/apprentice_action_record.schema.json",
+  "title": "Universal Computer Apprentice action record",
+  "description": "One attempted action of the apprentice. Stored only redacted. Hidden reasoning and raw secrets are forbidden fields.",
+  "type": "object",
+  "additionalProperties": false,
+  "x-forbidden-fields": ["chain_of_thought", "hidden_reasoning", "thoughts", "scratchpad", "raw_prompt", "cookies", "authorization", "password"],
+  "required": ["record_id", "task_id", "run_id", "session_id", "application", "semantic_target", "action",
+               "precondition", "pre_observation", "expected_transition", "post_observation", "verification",
+               "result", "risk_class", "side_effect_id", "timestamp", "evidence_source"],
+  "properties": {
+    "record_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "session_id": {"type": "string", "minLength": 1},
+    "step_id": {"type": "string"},
+    "application": {
+      "type": "object", "additionalProperties": false,
+      "required": ["app", "window_title", "url", "tab_id"],
+      "properties": {"app": {"type": "string"}, "window_title": {"type": "string"}, "url": {"type": "string"},
+                     "tab_id": {"type": "string"}, "expected": {"type": "object"}}
+    },
+    "semantic_target": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "name", "text", "description", "anchors"],
+      "properties": {"role": {"type": "string"}, "name": {"type": "string"}, "text": {"type": "string"},
+                     "description": {"type": "string"}, "anchors": {"type": "array", "items": {"type": "string"}}}
+    },
+    "action": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "text_redacted", "args_redacted", "idempotency_key"],
+      "properties": {"kind": {"type": "string", "enum": ["NOOP", "WAIT", "FOCUS", "CLICK", "DOUBLE_CLICK", "TYPE", "HOTKEY",
+                                                         "SCROLL", "DRAG", "APP_LAUNCH", "APP_CLOSE", "BROWSER", "UI_INVOKE",
+                                                         "TAKE_SCREENSHOT", "COMPLETE", "FAIL"]},
+                     "text_redacted": {"type": "string"}, "args_redacted": {"type": "object"},
+                     "idempotency_key": {"type": "string"}, "source": {"type": "string"}}
+    },
+    "precondition": {"type": "string"},
+    "pre_observation": {"$ref": "#/$defs/observation_ref"},
+    "expected_transition": {"type": "object"},
+    "post_observation": {"oneOf": [{"$ref": "#/$defs/observation_ref"}, {"type": "null"}]},
+    "verification": {
+      "oneOf": [{"type": "null"}, {
+        "type": "object", "additionalProperties": false,
+        "required": ["method", "ok", "reason"],
+        "properties": {"method": {"type": "string"}, "ok": {"type": "boolean"}, "reason": {"type": "string"},
+                       "verifier_principal": {"type": "string"}}
+      }]
+    },
+    "result": {"type": "string"},
+    "risk_class": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "EXTERNAL_EFFECT"]},
+    "side_effect_id": {"type": "string"},
+    "timestamp": {"type": "number"},
+    "evidence_source": {"type": "string", "minLength": 1},
+    "injection_flagged": {"type": "boolean"},
+    "duplicate_suppressed": {"type": "boolean"},
+    "error_code": {"type": "string"},
+    "checkpoint": {"type": "string"}
+  },
+  "$defs": {
+    "observation_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "generation", "hash", "observed_at"],
+      "properties": {"id": {"type": "string"}, "generation": {"type": "integer"}, "hash": {"type": "string"},
+                     "observed_at": {"type": "number"}}
+    }
+  }
+}
