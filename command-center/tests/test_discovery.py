@@ -1,5 +1,6 @@
 """Обнаружение локальных моделей: опрос endpoint'ов и скан диска."""
 import asyncio
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -9,9 +10,6 @@ import httpx
 import pytest
 
 from bcc import discovery
-_RUNNER_HANG = pytest.mark.skipif(
-    os.environ.get("BCC_CI_SKIP_RUNNER_HANGS") == "1",
-    reason="зависает ТОЛЬКО на GitHub-раннере (asyncio teardown), локально идёт за ~2.5с; открыт баг на воспроизведение — см. docs/context/NEXT.md")
 
 from bcc.discovery import (KNOWN_ENDPOINTS, _scan_files, default_model_dirs, discover,
                            expand_dir, model_dirs_from_env)
@@ -112,7 +110,38 @@ def test_local_probe_ignores_proxy_env(monkeypatch):
 
 # ---------------------------------------------------------------- занятый порт
 
-@_RUNNER_HANG
+async def _silent_server():
+    """Сервер «принял и молчит» (как форвардер WSL2) с учётом handler-задач и
+    writer'ов: на Python ≥ 3.12 Server.wait_closed() ждёт закрытия ВСЕХ
+    соединений, а молчащий handler транспорт сам не закрывает никогда —
+    поэтому teardown обязан отменить handler'ы и закрыть writer'ы явно
+    (тот же приём, что tests/test_secrem_discovery.py::_silent_server)."""
+    handlers: list[asyncio.Task] = []
+    writers: list[asyncio.StreamWriter] = []
+
+    async def silent(reader, writer):
+        handlers.append(asyncio.current_task())
+        writers.append(writer)
+        await asyncio.sleep(30)           # молчит ровно как форвардер
+
+    server = await asyncio.start_server(silent, "127.0.0.1", 0)
+    return server, handlers, writers
+
+
+async def _close_silent(server, handlers, writers):
+    server.close()
+    for t in handlers:
+        t.cancel()
+    for w in writers:
+        w.close()
+    await asyncio.gather(*handlers, return_exceptions=True)   # отмена дошла
+    await asyncio.wait_for(server.wait_closed(), 5)
+    for w in writers:
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(w.wait_closed(), 2)
+
+
+@pytest.mark.timeout(60)
 async def test_open_port_that_stays_silent_is_not_called_absent():
     """Дефект с боевой машины: 11434 держал форвардер WSL2.
 
@@ -120,11 +149,12 @@ async def test_open_port_that_stays_silent_is_not_called_absent():
     и про занятый, и про свободный порт один текст «не ответил за 2.5 с» —
     диагноз указывал на отсутствующий сервер вместо занятого порта, и найти
     настоящую причину по нему было нельзя.
-    """
-    async def silent(reader, writer):
-        await asyncio.sleep(30)           # молчит ровно как форвардер
 
-    server = await asyncio.start_server(silent, "127.0.0.1", 0)
+    Teardown детерминирован (раньше тест пропускался на раннере из-за
+    wait_closed(), ждавшего вечно молчащий handler): после закрытия сервера в
+    цикле не должно остаться ни одной незавершённой задачи, кроме текущей.
+    """
+    server, handlers, writers = await _silent_server()
     port = server.sockets[0].getsockname()[1]
     try:
         result = await discover(endpoints=[("занятый", f"http://127.0.0.1:{port}/v1")],
@@ -133,10 +163,13 @@ async def test_open_port_that_stays_silent_is_not_called_absent():
         assert result["online"] == 0
         assert "занят другим процессом" in detail, detail
         assert str(port) in detail
+        assert handlers, "сервер не принял ни одного соединения"
     finally:
-        server.close()
-        await server.wait_closed()
-
+        await _close_silent(server, handlers, writers)
+    assert all(t.done() for t in handlers)
+    pending = [t for t in asyncio.all_tasks()
+               if t is not asyncio.current_task() and not t.done()]
+    assert pending == [], pending
 
 async def test_closed_port_says_the_server_is_not_running():
     """Свободный порт — это «не запущено», и текст обязан отличаться.

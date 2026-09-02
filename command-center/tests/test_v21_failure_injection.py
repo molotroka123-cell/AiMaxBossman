@@ -9,16 +9,11 @@ import sys
 from pathlib import Path
 
 import pytest
-import pytest as _pytest
 import sqlalchemy as sa
 
 from bcc.db import (approvals as approvals_t, run_events as run_events_t, settings_kv,
                     task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
 from bcc.providers import ProviderError
-import os as _os  # noqa: E402
-_RUNNER_HANG = _pytest.mark.skipif(
-    _os.environ.get("BCC_CI_SKIP_RUNNER_HANGS") == "1",
-    reason="зависает ТОЛЬКО на GitHub-раннере (asyncio/engine teardown), локально идёт за ~2.5с; открыт баг на воспроизведение на раннере — см. docs/context/NEXT.md")
 from bcc.tools import REGISTRY, ToolResult, ToolSpec
 from bcc.v2.tables import mcp_servers as mcp_servers_t
 
@@ -58,7 +53,7 @@ async def _events(env, run_id: int | None = None) -> list[dict]:
 
 # ------------------------------------------------------- 1. падение провайдера
 
-@_RUNNER_HANG
+@pytest.mark.timeout(60)
 async def test_provider_failure_retries_are_bounded_and_status_is_honest(env):
     """Модель недоступна: ретраи по max_retries, потом честный failed — не «успех»."""
     adapter = FakeAdapter(fail_times=99, error="endpoint недоступен")
