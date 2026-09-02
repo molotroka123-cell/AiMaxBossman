@@ -33,6 +33,10 @@ jobs:
         # CI-AUTOREPAIR-REF-001: no hard-coded ref. On push this checks out the
         # pushed commit; on pull_request it checks out the candidate merge
         # commit — the candidate change is what gets tested, not the base branch.
+        # CI-HISTORY-001 (same class): the suite executes historical benchmark
+        # commits in isolated worktrees; shallow history cannot resolve them.
+        with:
+          fetch-depth: 0
       
       - name: Set up Python
         uses: actions/setup-python@v5

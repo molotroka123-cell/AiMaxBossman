@@ -1,24 +1,17 @@
 # FABLE FINAL GAPS — session checkpoint (read this first)
 
-CURRENT_HEAD=(git log -1; PASS3 commit on top of 4212087)
-COMPLETED_PASS=PASS3 durable LIVE + owner auth
-STATUS=PASS1-3 committed; PASS4 not started
-FILES_READ=apprentice/{guards,durable,outreach(OutreachGate),engine(ctor)}.py, remote_client/{security,auth(SCOPE_*, Principal)}.py
-FILES_CHANGED=apprentice/durable.py (issued_approvals table), guards.py (live=True needs store; require_issued), outreach.py (mode SIMULATED|LIVE), owner_auth.py (new), composition.py (new), tests/test_durable_live_owner_auth.py (new)
-TESTS_RUN=cd bossman-core && python -m pytest tests/test_durable_live_owner_auth.py tests/test_apprentice_live_safety.py tests/test_apprentice_outreach.py tests/test_apprentice_e2e.py tests/test_lead_uca_adversarial.py tests/test_apprentice_core.py -q → 62 passed
-TEST_RESULTS=PASS
-ACCEPTANCE_IDS=BENCH-* PASS; TEACHER-ISO-001..005 PASS; TEACHER-LIVE-001 PASS; DURABLE-LIVE-001..005 PASS; OWNER-AUTH-001..005 PASS
-KNOWN_BLOCKERS=no docker daemon on this host; no bwrap; no Anthropic/Claude executable; no Higgsfield session; no Google Maps live
-NEXT_PASS=PASS4 real E2E: (A) real Chromium via Playwright on a local page with the real apprentice engine; (B) real claude teacher bug A→B learning; (C) real public source (OSM Nominatim or other) → site issue → demo → WAIT_APPROVAL; BLOCKED_BY_ENVIRONMENT where honest
-NEXT_FILES=bossman-core/bossman/toolkit/browser.py (API), computer_operator/adapters/browser.py, apprentice/engine.py (observer/actuator protocol), tests/fixtures/apprentice/sim.py (protocol reference), apprentice/teacher.py (TeacherFallback.request)
-NEXT_TESTS=bossman-core/tests/test_e2e_real_gui.py, test_e2e_real_claude.py, test_e2e_real_outreach.py (new, gated by env; BLOCKED reasons recorded)
-EXACT_NEXT_COMMAND=cd bossman-core && python -m pytest tests/test_e2e_real_gui.py tests/test_e2e_real_claude.py tests/test_e2e_real_outreach.py -q --no-header -p no:cacheprovider -o addopts="" --timeout=600 -rs
-
-## Verified facts at 7fc4343 (existence checks only)
-- jsonschema dev dependency present in bossman-core/pyproject.toml [dev]
-- bossman/apprentice/durable.py (132 lines), claude_code_client.py (88), live_workspace.py (106) exist
-- bossman/benchmark/{engine,cli,fixture_runtime}.py exist; .github/workflows/bossman-benchmark.yml exists (PR/manual only)
-- docs/autonomy/AUTONOMY_LEARNING_BENCHMARK.md + benchmark_history exist
+CURRENT_HEAD=a21512f166fa450cf7ebb349ee7ad8b2b6fc1c47 (verified 2026-09-02)
+COMPLETED_PASS=PASS1 benchmark truth · PASS2 hermetic teacher · PASS3 durable LIVE + owner auth
+STATUS=PASS1-3 committed and CI-green; PASS4 real E2E not started
+CI_STATE=Core CI PASS · Command Center PASS · root-ci PASS · CI-HISTORY-001 fixed (fetch-depth 0 in core+benchmark) · Auto-Repair truthful (REPAIR ATTEMPTED, NOT VERIFIED) + candidate-commit checkout · Bossman V2 Auto-Repair job: fetch-depth 0 added this checkpoint (was the last shallow-clone hole)
+FILES_VERIFIED_EXISTING=durable.py, owner_auth.py, composition.py, teacher_sandbox.py, test_durable_live_owner_auth.py, test_apprentice_e2e.py, test_lead_uca_adversarial.py, test_apprentice_live_safety.py (restart+workspace+stub-client), test_teacher_live.py (env-gated live teacher, NEW this session)
+BENCHMARK=release tier READY at a21512f (RegressionScore 1.0 n=21, RealCapabilityScore 1.0 n=4 REAL_SANDBOX, LiveCapabilityScore INSUFFICIENT_EVIDENCE n=0 — honest); evidence docs/mission/LONGHORIZON-FREEZE-001/bench/
+MISSION=LONGHORIZON-FREEZE-001 in progress (mission_id LFZ-20260902-GLM-7f13546); capsule docs/mission/LONGHORIZON-FREEZE-001/capsule.json
+LIVE_TEACHER_STATE=real claude CLI 2.1.251 present and reaches provider; provider answered 429 "Insufficient balance or no resource package" (relay billing) — BUG A→B acceptance attempted, BLOCKED_BY_ENVIRONMENT until balance; retry gated by BOSSMAN_TEACHER_LIVE=1
+KNOWN_BLOCKERS=no bwrap; no Higgsfield session (BLOCKED_BY_ENVIRONMENT for HIGGSFIELD_REAL); teacher relay balance; branch protection OFF (EXTERNAL_OWNER_ACTION_REQUIRED)
+NEXT_PASS=PASS4 real E2E: (A) real Chromium via Playwright + real apprentice engine (Chromium 1234 installed locally; headless browser tests already 4/4); (B) real claude teacher bug A→B (test_teacher_live.py, awaiting provider balance); (C) real public source → site issue → demo → WAIT_APPROVAL
+NEXT_TESTS=bossman-core/tests/test_e2e_real_gui.py, test_teacher_live.py (exists), test_e2e_real_outreach.py (new, env-gated)
+EXACT_NEXT_COMMAND=cd bossman-core && python -m pytest tests/test_teacher_live.py tests/test_e2e_real_outreach.py -q --timeout=600 -rs   (BOSSMAN_TEACHER_LIVE=1 for the live teacher)
 
 ## Remaining passes
-PASS1 benchmark truth · PASS2 hermetic teacher · PASS3 durable LIVE + owner auth · PASS4 real E2E (GUI/Claude/outreach, BLOCKED honestly) · PASS5 FrontierBench v2 + auditor · PASS6 BEST decision inventory + evidence registry · PASS7 release gate + freeze report
+PASS4 real E2E (GUI/Claude/outreach, BLOCKED honestly) · PASS5 FrontierBench v2 + auditor · PASS6 BEST decision inventory + evidence registry · PASS7 release gate + freeze report
