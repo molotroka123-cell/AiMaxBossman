@@ -34,6 +34,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 FLAG = "BOSSMAN_DEEP_FIX_ENABLED"
+_WIN_DRIVE = __import__("re").compile(r"^[A-Za-z]:")
 
 STATES = ("RECEIVED", "CONTEXT_READY", "REPRODUCED", "ROOT_CAUSE_PROPOSED", "FIX_PLANNED",
           "PATCHED", "FOCUSED_TESTED", "ADVERSARIAL_TESTED", "REGRESSION_TESTED", "VERIFIED",
@@ -51,20 +52,100 @@ class DeepFixGateError(RuntimeError):
     """Переход запрещён гейтом — с причиной."""
 
 
+# Классы независимости верификатора относительно кодера (P0-02). Строковое
+# сравнение alias'ов («verifier:qwen-14b» ≠ «qwen-14b») независимостью НЕ является.
+INDEPENDENCE_CLASSES = ("same_run", "same_model", "cross_model", "external_tool", "human")
+INDEPENDENT_CLASSES = frozenset({"cross_model", "external_tool", "human"})
+EVIDENCE_TTL_S = 6 * 3600     # свежесть наблюдения по умолчанию
+
+
+@dataclass(frozen=True, slots=True)
+class Principal:
+    """Типизированная идентичность участника: кто именно наблюдал/правил."""
+    principal_id: str
+    model_id: str = ""
+    role: str = ""               # coder | verifier | human | tool
+    run_id: str = ""
+    independence_class: str = "same_run"
+
+    def __post_init__(self) -> None:
+        if not self.principal_id:
+            raise ValueError("principal_id required")
+        if self.independence_class not in INDEPENDENCE_CLASSES:
+            raise ValueError(f"unknown independence_class {self.independence_class!r}")
+
+    def independent_of(self, other: "Principal") -> tuple[bool, str]:
+        """Независим ⇔ другой principal, другой run, другая модель/инструмент/человек."""
+        if self.principal_id == other.principal_id:
+            return False, "same principal"
+        if self.run_id and other.run_id and self.run_id == other.run_id:
+            return False, "same run"
+        if self.independence_class not in INDEPENDENT_CLASSES:
+            return False, f"independence_class {self.independence_class} is not independent"
+        if self.independence_class == "cross_model" and self.model_id and self.model_id == other.model_id:
+            return False, "same model execution claimed as cross_model"
+        return True, "independent"
+
+
 @dataclass(frozen=True, slots=True)
 class Evidence:
     kind: str            # repro | test | variant | regression | observation
     detail: str
     passed: bool
     source: str = ""     # кто/что наблюдало (pytest, verifier:<name>, human)
-    at: float = field(default_factory=time.time)
+    at: float = field(default_factory=time.time)      # observed_at
+    collected_at: float = 0.0                         # когда попало в ledger (>= at)
+    task_id: str = ""
+    run_id: str = ""
+    principal_id: str = ""
+    environment: str = ""                             # env/session fingerprint
+    head_sha: str = ""                                # HEAD/patch/plan binding
+    ttl_s: float = EVIDENCE_TTL_S
+    expected: str = ""
+    actual: str = ""
+
+    def freshness_error(self, *, run: "DeepFixRun", now: float | None = None) -> str:
+        """Пустая строка = свежее и привязанное; иначе причина отказа."""
+        now = time.time() if now is None else now
+        if not self.source.strip():
+            return "evidence without source"
+        if not self.at or self.at <= 0:
+            return "evidence without observed_at"
+        if self.collected_at and self.collected_at < self.at:
+            return "collected_at before observed_at"
+        if self.task_id and self.task_id != run.task_id:
+            return f"evidence for another task {self.task_id!r}"
+        if not self.task_id:
+            return "evidence not bound to task_id"
+        if run.run_id and self.run_id != run.run_id:
+            return f"evidence for another run {self.run_id!r}"
+        if run.head_sha and self.head_sha != run.head_sha:
+            return f"evidence bound to another head {self.head_sha[:12]!r}"
+        if run.environment and self.environment != run.environment:
+            return "evidence from another environment/session"
+        if run.plan_bound_at and self.at < run.plan_bound_at:
+            return "evidence observed before the plan was bound"
+        if run.patched_at and self.at < run.patched_at:
+            return "evidence observed before the patch was applied"
+        if now - self.at > self.ttl_s:
+            return "evidence older than its TTL"
+        if not self.expected or not self.actual:
+            return "evidence without expected/actual"
+        return ""
 
 
 @dataclass(slots=True)
 class DeepFixRun:
     task_id: str
-    coder: str                              # агент/модель, который правит код
-    allowed_paths: tuple[str, ...] = ()     # область патча (posix-глобы/префиксы)
+    coder: str                              # агент/модель, который правит код (display)
+    allowed_paths: tuple[str, ...] = ()     # область патча (repo-relative префиксы/глобы)
+    repo_root: str = ""                     # если задан — canonical containment через realpath
+    run_id: str = ""
+    head_sha: str = ""
+    environment: str = ""
+    coder_principal: Principal | None = None
+    plan_bound_at: float = 0.0
+    patched_at: float = 0.0
     state: str = "RECEIVED"
     history: list[tuple[str, str, float]] = field(default_factory=list)   # (from, to, ts)
     context: dict[str, Any] = field(default_factory=dict)
@@ -80,6 +161,7 @@ class DeepFixRun:
     regression: Evidence | None = None
     verification: Evidence | None = None
     verifier: str = ""
+    verifier_principal: Principal | None = None
     failure_reason: str = ""
 
     # ------------------------------------------------------------ helpers
@@ -135,6 +217,7 @@ class DeepFixRun:
         if not plan.strip():
             raise DeepFixGateError("empty plan")
         self.plan = plan
+        self.plan_bound_at = time.time()
         self._to("FIX_PLANNED")
 
     def patched(self, files_changed: list[str]) -> None:
@@ -145,6 +228,7 @@ class DeepFixRun:
         if outside:
             raise DeepFixGateError(f"patch touches files outside the declared scope: {outside}")
         self.files_changed = list(files_changed)
+        self.patched_at = time.time()
         self._to("PATCHED")
 
     def focused_tested(self, evidence: list[Evidence]) -> None:
@@ -186,17 +270,31 @@ class DeepFixRun:
         self.regression = evidence
         self._to("REGRESSION_TESTED")
 
-    def verified(self, *, verifier: str, evidence: Evidence) -> None:
-        """Только независимый верификатор (не coder) со свежим наблюдением."""
+    def verified(self, *, verifier: Principal, evidence: Evidence, now: float | None = None) -> None:
+        """Только независимый верификатор (typed Principal, не строка) со СВЕЖИМ
+        наблюдением, привязанным к task/run/head/env и собранным ПОСЛЕ патча и
+        привязки плана. Строковый alias, at=0, пустой source, чужой run или старый
+        HEAD → отказ (никогда не VERIFIED)."""
         self._require("REGRESSION_TESTED")
-        if not verifier or verifier.strip().lower() == self.coder.strip().lower():
-            raise DeepFixGateError("verifier must be independent of the coder (no self-certification)")
+        if not isinstance(verifier, Principal):
+            raise DeepFixGateError("verifier must be a typed Principal, not a display string")
+        coder = self.coder_principal or Principal(principal_id=self.coder, role="coder",
+                                                  run_id=self.run_id)
+        ok, why = verifier.independent_of(coder)
+        if not ok:
+            raise DeepFixGateError(f"verifier is not independent of the coder: {why}")
         if evidence.kind != "observation":
             raise DeepFixGateError("verification needs a fresh observation, not a claim")
+        if evidence.principal_id and evidence.principal_id != verifier.principal_id:
+            raise DeepFixGateError("evidence was observed by a different principal than the verifier")
+        stale = evidence.freshness_error(run=self, now=now)
+        if stale:
+            raise DeepFixGateError(f"evidence not fresh/bound: {stale}")
         if not evidence.passed:
             self.fail("VERIFICATION_FAILED", evidence.detail)
             return
-        self.verifier, self.verification = verifier, evidence
+        self.verifier, self.verification = verifier.principal_id, evidence
+        self.verifier_principal = verifier
         self._to("VERIFIED")
 
     def learning_record(self, *, model: str, start_sha: str, end_sha: str,
@@ -233,6 +331,24 @@ class DeepFixRun:
             "confidence": float(extra.pop("confidence", 0.7 if status == "VERIFIED" else 0.3)),
             "limitations": list(extra.pop("limitations", [])),
             "verified_by": [self.verifier] if self.verifier else [],
+            "verifiers": ([{"principal_id": self.verifier_principal.principal_id,
+                            "model_id": self.verifier_principal.model_id,
+                            "role": self.verifier_principal.role,
+                            "run_id": self.verifier_principal.run_id,
+                            "independence_class": self.verifier_principal.independence_class}]
+                          if self.verifier_principal else []),
+            "evidence_records": ([{"observed_at": self.verification.at,
+                                   "collected_at": self.verification.collected_at or self.verification.at,
+                                   "task_id": self.verification.task_id, "run_id": self.verification.run_id,
+                                   "source": self.verification.source,
+                                   "principal_id": self.verification.principal_id,
+                                   "environment": self.verification.environment,
+                                   "head_sha": self.verification.head_sha,
+                                   "expected": self.verification.expected,
+                                   "actual": self.verification.actual}]
+                                 if self.verification else []),
+            "run_id": self.run_id, "principal_id": (self.coder_principal.principal_id
+                                                    if self.coder_principal else self.coder),
             "learning_status": status,
             "outcome": "FIXED" if status == "VERIFIED" else ("PARTIAL" if status == "PARTIAL" else "REJECTED"),
         }
@@ -247,19 +363,52 @@ class DeepFixRun:
 
     # ------------------------------------------------------------ scope
     def _allowed(self, path: str) -> bool:
-        if not self.allowed_paths:
-            return True
-        p = PurePosixPath(Path(path).as_posix())
-        for pat in self.allowed_paths:
-            pp = PurePosixPath(pat)
-            if p == pp or pat.endswith("/") and str(p).startswith(pat) or p.match(pat):
-                return True
+        """Canonical repo-relative containment (P0-01).
+
+        Отказ: абсолютные пути (POSIX/Windows drive/UNC), любой `..` после
+        нормализации разделителей, пустые/точечные пути. Сравнение — по
+        нормализованным компонентам (не по лексическому relative_to с `..`).
+        При заданном repo_root дополнительно: realpath файла (и его родителя,
+        если файла ещё нет) обязан лежать внутри realpath(root)/allowed — symlink
+        наружу отвергается."""
+        raw = str(path or "").replace("\\", "/")
+        if not raw.strip() or "\x00" in raw:
+            return False
+        if raw.startswith("/") or raw.startswith("//") or _WIN_DRIVE.match(raw):
+            return False
+        parts = [c for c in raw.split("/") if c not in ("", ".")]
+        if not parts or any(c == ".." for c in parts):
+            return False
+        rel = PurePosixPath(*parts)
+        if self.allowed_paths:
+            allowed = False
+            for pat in self.allowed_paths:
+                pp = PurePosixPath(str(pat).replace("\\", "/").rstrip("/"))
+                if not str(pp) or any(c == ".." for c in pp.parts):
+                    continue
+                if rel == pp or pp in rel.parents or rel.match(str(pp)):
+                    allowed = True
+                    break
+            if not allowed:
+                return False
+        if self.repo_root:
+            root = Path(self.repo_root).resolve()
+            target = (root / rel)
+            probe = target if target.exists() or target.is_symlink() else target.parent
             try:
-                p.relative_to(pp)
-                return True
-            except ValueError:
-                continue
-        return False
+                real = probe.resolve(strict=False)
+            except OSError:
+                return False
+            if real != root and root not in real.parents:
+                return False
+            if target.is_symlink():          # сам файл — symlink наружу
+                try:
+                    tr = target.resolve(strict=True)
+                except OSError:
+                    return False
+                if tr != root and root not in tr.parents:
+                    return False
+        return True
 
     def summary(self) -> dict:
         return {"task_id": self.task_id, "state": self.state, "coder": self.coder,
