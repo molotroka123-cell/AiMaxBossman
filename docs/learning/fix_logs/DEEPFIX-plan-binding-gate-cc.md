@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:command-center/tests/test_deep_fix_gate.py
 CONFIDENCE: 0.8
-TAGS: {"domain": "security", "bug_class": "verification_spoofing", "component": "bcc.features.deep_fix", "severity": "LOW", "security_boundary": "verification"}
+TAGS: {"bug_class": "verification_spoofing", "component": "bcc.features.deep_fix", "domain": "security", "security_boundary": "verification", "severity": "LOW"}
 FINDINGS: F-012
 
 ## Task

@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:bossman-core/tests/test_tools.py, poc:.agents/redteam/poc_sibling_probe.py re-run, glm-5.3-runpod-regression
 CONFIDENCE: 0.95
-TAGS: {"domain": "security", "bug_class": "path_traversal", "component": "bossman.toolkit.files", "severity": "MEDIUM", "security_boundary": "filesystem"}
+TAGS: {"bug_class": "path_traversal", "component": "bossman.toolkit.files", "domain": "security", "security_boundary": "filesystem", "severity": "MEDIUM"}
 FINDINGS: F-002
 
 ## Task

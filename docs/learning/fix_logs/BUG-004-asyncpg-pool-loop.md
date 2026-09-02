@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:bossman-core/tests/test_stage13_auth_redteam.py, pytest:bossman-core/tests/test_secrem_f018_wiring.py
 CONFIDENCE: 0.85
-TAGS: {"domain": "reliability", "bug_class": "event_loop_affinity", "component": "bossman.db", "severity": "LOW", "security_boundary": "none"}
+TAGS: {"bug_class": "event_loop_affinity", "component": "bossman.db", "domain": "reliability", "security_boundary": "none", "severity": "LOW"}
 FINDINGS: BUG-004
 
 ## Task

@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:bossman-core/tests/test_secrem_f008_gateway_failclosed.py, pytest:bossman-core/tests/test_gateway_cloud_policy.py
 CONFIDENCE: 0.88
-TAGS: {"domain": "security", "bug_class": "fail_open", "component": "bossman.gateway", "severity": "MEDIUM", "security_boundary": "egress"}
+TAGS: {"bug_class": "fail_open", "component": "bossman.gateway", "domain": "security", "security_boundary": "egress", "severity": "MEDIUM"}
 FINDINGS: F-008, F-016
 
 ## Task

@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:command-center/tests/test_secrem_f012_verification.py, pytest:command-center/tests/test_feat_governor_review.py
 CONFIDENCE: 0.88
-TAGS: {"domain": "security", "bug_class": "verification_spoofing", "component": "bcc.features.review_gate", "severity": "MEDIUM", "security_boundary": "verification"}
+TAGS: {"bug_class": "verification_spoofing", "component": "bcc.features.review_gate", "domain": "security", "security_boundary": "verification", "severity": "MEDIUM"}
 FINDINGS: F-012
 
 ## Task

@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:command-center/tests/test_secrem_discovery.py
 CONFIDENCE: 0.85
-TAGS: {"domain": "security", "bug_class": "ssrf", "component": "bcc.discovery", "severity": "LOW", "security_boundary": "egress"}
+TAGS: {"bug_class": "ssrf", "component": "bcc.discovery", "domain": "security", "security_boundary": "egress", "severity": "LOW"}
 FINDINGS: F-017, BUG-005
 
 ## Task

@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:command-center/tests/test_secrem_mcp_boundary.py
 CONFIDENCE: 0.85
-TAGS: {"domain": "security", "bug_class": "prompt_injection", "component": "bcc.features.tools_mcp", "severity": "MEDIUM", "security_boundary": "mcp"}
+TAGS: {"bug_class": "prompt_injection", "component": "bcc.features.tools_mcp", "domain": "security", "security_boundary": "mcp", "severity": "MEDIUM"}
 FINDINGS: F-014
 
 ## Task

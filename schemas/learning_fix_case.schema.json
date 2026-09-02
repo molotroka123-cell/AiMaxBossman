@@ -228,6 +228,109 @@
       "items": {
         "type": "string"
       }
+    },
+    "verifiers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "principal_id",
+          "independence_class"
+        ],
+        "properties": {
+          "principal_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "independence_class": {
+            "type": "string",
+            "enum": [
+              "same_run",
+              "same_model",
+              "cross_model",
+              "external_tool",
+              "human"
+            ]
+          }
+        }
+      }
+    },
+    "evidence_records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "observed_at",
+          "task_id",
+          "source",
+          "expected",
+          "actual"
+        ],
+        "properties": {
+          "observed_at": {
+            "type": "number"
+          },
+          "collected_at": {
+            "type": "number"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "principal_id": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "string"
+          },
+          "actual": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "principal_id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "supersedes_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "tombstone": {
+      "type": "boolean"
+    },
+    "superseded_by_version": {
+      "type": "integer",
+      "minimum": 1
     }
   },
   "x-forbidden-fields": [

@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:command-center/tests/test_secrem_sibling_sweep.py, pytest:bossman-core/tests/test_secrem_sibling_sweep.py
 CONFIDENCE: 0.85
-TAGS: {"domain": "security", "bug_class": "ssrf", "component": "cross-boundary", "severity": "MEDIUM", "security_boundary": "egress"}
+TAGS: {"bug_class": "ssrf", "component": "cross-boundary", "domain": "security", "security_boundary": "egress", "severity": "MEDIUM"}
 FINDINGS: F-003, F-004, F-010, F-017
 
 ## Task

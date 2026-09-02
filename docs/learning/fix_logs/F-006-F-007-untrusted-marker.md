@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:bossman-core/tests/test_secrem_f006_f007_untrusted.py
 CONFIDENCE: 0.85
-TAGS: {"domain": "security", "bug_class": "prompt_injection", "component": "bossman.context", "severity": "MEDIUM", "security_boundary": "context"}
+TAGS: {"bug_class": "prompt_injection", "component": "bossman.context", "domain": "security", "security_boundary": "context", "severity": "MEDIUM"}
 FINDINGS: F-006, F-007
 
 ## Task

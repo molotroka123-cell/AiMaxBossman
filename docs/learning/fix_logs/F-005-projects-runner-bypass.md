@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:bossman-core/tests/test_secrem_f005_projects.py
 CONFIDENCE: 0.85
-TAGS: {"domain": "security", "bug_class": "policy_bypass", "component": "bossman.projects.runner", "severity": "MEDIUM", "security_boundary": "execution"}
+TAGS: {"bug_class": "policy_bypass", "component": "bossman.projects.runner", "domain": "security", "security_boundary": "execution", "severity": "MEDIUM"}
 FINDINGS: F-005
 
 ## Task

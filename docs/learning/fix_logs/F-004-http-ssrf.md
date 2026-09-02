@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:bossman-core/tests/test_secrem_f004_http_ssrf.py
 CONFIDENCE: 0.85
-TAGS: {"domain": "security", "bug_class": "ssrf", "component": "bossman.toolkit.net", "severity": "MEDIUM", "security_boundary": "egress"}
+TAGS: {"bug_class": "ssrf", "component": "bossman.toolkit.net", "domain": "security", "security_boundary": "egress", "severity": "MEDIUM"}
 FINDINGS: F-004
 
 ## Task

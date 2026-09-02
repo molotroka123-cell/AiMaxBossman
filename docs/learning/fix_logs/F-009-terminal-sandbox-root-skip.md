@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:command-center/tests/test_secrem_f009_terminal.py
 CONFIDENCE: 0.85
-TAGS: {"domain": "security", "bug_class": "authz_bypass", "component": "bcc.features.tools_terminal", "severity": "HIGH", "security_boundary": "host_filesystem"}
+TAGS: {"bug_class": "authz_bypass", "component": "bcc.features.tools_terminal", "domain": "security", "security_boundary": "host_filesystem", "severity": "HIGH"}
 FINDINGS: F-009, F-011
 
 ## Task

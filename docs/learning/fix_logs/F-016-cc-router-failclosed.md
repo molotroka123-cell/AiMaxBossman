@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:command-center/tests/test_secrem_router_failclosed.py
 CONFIDENCE: 0.85
-TAGS: {"domain": "security", "bug_class": "fail_open", "component": "bcc.features.router", "severity": "MEDIUM", "security_boundary": "egress"}
+TAGS: {"bug_class": "fail_open", "component": "bcc.features.router", "domain": "security", "security_boundary": "egress", "severity": "MEDIUM"}
 FINDINGS: F-016
 
 ## Task

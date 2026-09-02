@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:command-center/tests/test_secrem_browser_policy.py
 CONFIDENCE: 0.85
-TAGS: {"domain": "security", "bug_class": "ssrf", "component": "bcc.v2.browser_control", "severity": "MEDIUM", "security_boundary": "egress"}
+TAGS: {"bug_class": "ssrf", "component": "bcc.v2.browser_control", "domain": "security", "security_boundary": "egress", "severity": "MEDIUM"}
 FINDINGS: F-010
 
 ## Task

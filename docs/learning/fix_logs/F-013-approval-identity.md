@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:command-center/tests/test_secrem_f013_approval_identity.py, pytest:command-center/tests/test_v21_tool_loop.py
 CONFIDENCE: 0.9
-TAGS: {"domain": "security", "bug_class": "toctou", "component": "bcc.engine", "severity": "MEDIUM", "security_boundary": "approval"}
+TAGS: {"bug_class": "toctou", "component": "bcc.engine", "domain": "security", "security_boundary": "approval", "severity": "MEDIUM"}
 FINDINGS: F-013
 
 ## Task

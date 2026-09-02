@@ -35,11 +35,21 @@ def _case(**over) -> dict:
         "teach_local_model": ["Recognize: path arg from model reaching a glob/walk"],
         "confidence": 0.9, "limitations": ["Windows junctions not exercised on Linux host"],
         "verified_by": ["pytest", "fable-5.1-redteam-retest"], "learning_status": "VERIFIED",
+        "run_id": "run-lead-1", "principal_id": "agent:lead#run-lead-1",
+        "verifiers": [{"principal_id": "tool:pytest#ci-77", "model_id": "", "role": "verifier",
+                       "run_id": "ci-77", "independence_class": "external_tool"}],
+        "evidence_records": [{"observed_at": 1_700_000_000.0, "collected_at": 1_700_000_001.0,
+                              "task_id": "F-TEST-001", "run_id": "run-lead-1", "source": "pytest",
+                              "principal_id": "tool:pytest#ci-77", "environment": "linux-ci",
+                              "head_sha": "bbbb", "expected": "PoC blocked", "actual": "PoC blocked"}],
         "tags": {"domain": "security", "bug_class": "path_traversal", "component": "toolkit.files",
                  "severity": "HIGH", "security_boundary": "filesystem"},
         "outcome": "FIXED", "finding_ids": ["F-001"],
     }
     base.update(over)
+    if "evidence_records" not in over:      # доказательство привязано к задаче/HEAD записи
+        for r in base["evidence_records"]:
+            r["task_id"], r["head_sha"] = base["task_id"], base["end_sha"]
     return base
 
 
@@ -61,10 +71,24 @@ def test_verified_requires_evidence_and_independent_verifier():
     assert any("evidence" in e for e in validate(_case(evidence=[])))
     assert any("external_verification" in e for e in validate(_case(external_verification="")))
     assert any("verified_by" in e for e in validate(_case(verified_by=[])))
-    # самосертификация: верификатор == агент записи
-    errs = validate(_case(verified_by=["lead"]))
-    assert any("independent" in e for e in errs)
-    assert any("independent" in e for e in validate(_case(verified_by=["self-report"])))
+    # самосертификация: тот же principal / тот же run / та же модель под alias'ом
+    same = {"principal_id": "agent:lead#run-lead-1", "independence_class": "cross_model", "model_id": "x"}
+    assert any("independent" in e for e in validate(_case(verifiers=[same])))
+    same_run = {"principal_id": "verifier:alias", "run_id": "run-lead-1", "independence_class": "cross_model"}
+    assert any("independent" in e for e in validate(_case(verifiers=[same_run])))
+    same_model = {"principal_id": "verifier:claude", "model_id": "claude-fable-5-1", "run_id": "r9",
+                  "independence_class": "cross_model"}
+    assert any("independent" in e for e in validate(_case(verifiers=[same_model])))
+    # legacy: только строки в verified_by → UNVERIFIED-подобная ошибка, не VERIFIED
+    legacy = _case(); legacy.pop("verifiers"); legacy.pop("evidence_records")
+    assert any("typed verifiers" in e for e in validate(legacy))
+    # свежесть/привязка доказательства
+    bad_ev = dict(_case()["evidence_records"][0]); bad_ev["observed_at"] = 0
+    assert any("observed_at" in e for e in validate(_case(evidence_records=[bad_ev])))
+    other_task = dict(_case()["evidence_records"][0]); other_task["task_id"] = "OTHER"
+    assert any("another task" in e for e in validate(_case(evidence_records=[other_task])))
+    old_head = dict(_case()["evidence_records"][0]); old_head["head_sha"] = "aaaa"
+    assert any("head_sha" in e for e in validate(_case(evidence_records=[old_head])))
     # FAILED_EXPERIMENT без верификации допустим
     assert validate(_case(learning_status="FAILED_EXPERIMENT", verified_by=[],
                           external_verification="", evidence=[])) == []
@@ -107,7 +131,7 @@ def test_corpora_are_separated_and_markdown_rendered(tmp_path):
 def test_add_rejects_invalid(tmp_path):
     store = LearningStore(tmp_path / "data", tmp_path / "docs")
     with pytest.raises(ValidationError):
-        store.add(_case(verified_by=["lead"]))
+        store.add(_case(verifiers=[{"principal_id": "agent:lead#run-lead-1", "independence_class": "cross_model"}]))
     assert not (tmp_path / "data" / "fix_cases.jsonl").exists()
 
 
@@ -140,7 +164,8 @@ def test_cli_validate_and_retrieve(tmp_path):
     r = subprocess.run([sys.executable, "-m", "learning.trace", "validate", str(f)],
                        cwd=ROOT, capture_output=True, text=True)
     assert r.returncode == 0 and r.stdout.strip() == "OK"
-    f.write_text(json.dumps(_case(verified_by=["lead"])), encoding="utf-8")
+    f.write_text(json.dumps(_case(verifiers=[{"principal_id": "agent:lead#run-lead-1",
+                                              "independence_class": "human"}])), encoding="utf-8")
     r = subprocess.run([sys.executable, "-m", "learning.trace", "validate", str(f)],
                        cwd=ROOT, capture_output=True, text=True)
     assert r.returncode == 1 and "independent" in r.stdout

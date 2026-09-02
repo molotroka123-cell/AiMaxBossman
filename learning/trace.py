@@ -18,9 +18,12 @@
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
+import os
 import re
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Iterable
@@ -111,6 +114,10 @@ def _type_ok(value: Any, spec: dict) -> bool:
             return all(_type_ok(v, items) for v in value) if items else True
         if tt == "number" and isinstance(value, (int, float)) and not isinstance(value, bool):
             return True
+        if tt == "integer" and isinstance(value, int) and not isinstance(value, bool):
+            return True
+        if tt == "boolean" and isinstance(value, bool):
+            return True
         if tt == "object" and isinstance(value, dict):
             return True
         if tt is None:
@@ -158,14 +165,10 @@ def validate(case: dict, *, schema: dict | None = None) -> list[str]:
             errors.append("VERIFIED requires non-empty evidence")
         if not str(case.get("external_verification") or "").strip():
             errors.append("VERIFIED requires external_verification")
-        verifiers = [str(v) for v in (case.get("verified_by") or [])]
-        if not verifiers:
+        if not (case.get("verified_by") or []):
             errors.append("VERIFIED requires verified_by")
-        me = {str(case.get("agent", "")).lower(), str(case.get("model", "")).lower()}
-        independent = [v for v in verifiers
-                       if v.lower() not in me and not any(m in v.lower() for m in SELF_VERIFIER_MARKERS)]
-        if verifiers and not independent:
-            errors.append("VERIFIED requires an independent verifier (no same-agent self-certification)")
+        errors += _identity_errors(case)
+        errors += _evidence_record_errors(case)
         if "case_id" in case and case["case_id"] != case_id(case):
             errors.append("case_id does not match deterministic hash")
     for s in _walk_strings(case):
@@ -173,6 +176,60 @@ def validate(case: dict, *, schema: dict | None = None) -> list[str]:
             errors.append("secret-like value present (redact before storing)")
             break
     return errors
+
+
+# P0-02: независимость — по типизированной identity, не по display-строкам.
+INDEPENDENT_CLASSES = frozenset({"cross_model", "external_tool", "human"})
+EVIDENCE_TTL_S = 30 * 24 * 3600     # запись учит долго; наблюдение должно быть датировано
+
+
+def _identity_errors(case: dict) -> list[str]:
+    verifiers = case.get("verifiers")
+    if not verifiers:
+        return ["VERIFIED requires typed verifiers[] (principal_id + independence_class); "
+                "legacy string-only verified_by is UNVERIFIED until migrated"]
+    me_principal = str(case.get("principal_id") or case.get("agent") or "")
+    me_model = str(case.get("model") or "")
+    me_run = str(case.get("run_id") or "")
+    for v in verifiers:
+        if not isinstance(v, dict):
+            return ["verifier entries must be objects"]
+        cls = str(v.get("independence_class") or "")
+        pid = str(v.get("principal_id") or "")
+        if cls not in INDEPENDENT_CLASSES:
+            continue
+        if pid and pid == me_principal:
+            continue
+        if me_run and str(v.get("run_id") or "") == me_run:
+            continue
+        if cls == "cross_model" and str(v.get("model_id") or "") == me_model:
+            continue
+        return []          # хотя бы один независимый верификатор
+    return ["VERIFIED requires an independent verifier (different principal, run and model/tool/human)"]
+
+
+def _evidence_record_errors(case: dict) -> list[str]:
+    recs = case.get("evidence_records")
+    if not recs:
+        return ["VERIFIED requires evidence_records[] with observed_at/source/task binding"]
+    for r in recs:
+        if not isinstance(r, dict):
+            return ["evidence_records entries must be objects"]
+        if not float(r.get("observed_at") or 0) > 0:
+            return ["evidence_record without observed_at"]
+        if float(r.get("collected_at") or r.get("observed_at")) < float(r.get("observed_at")):
+            return ["evidence_record collected_at before observed_at"]
+        if not str(r.get("source") or "").strip():
+            return ["evidence_record without source"]
+        if str(r.get("task_id") or "") != str(case.get("task_id")):
+            return ["evidence_record bound to another task"]
+        if case.get("run_id") and str(r.get("run_id") or "") != str(case.get("run_id")):
+            return ["evidence_record bound to another run"]
+        if case.get("end_sha") and r.get("head_sha") and r["head_sha"] != case["end_sha"]:
+            return ["evidence_record bound to another head_sha"]
+        if not str(r.get("expected") or "") or not str(r.get("actual") or ""):
+            return ["evidence_record without expected/actual"]
+    return []
 
 
 _MD_SECTIONS = [
@@ -214,9 +271,25 @@ def render_markdown(case: dict) -> str:
     return "\n".join(lines)
 
 
+class ConflictError(RuntimeError):
+    """CAS: ожидаемая версия записи не совпала с текущей."""
+
+
 class LearningStore:
-    """JSONL-хранилище с разделением корпусов. Запись всегда редактируется и
-    валидируется; VERIFIED → fix_cases.jsonl, остальное → failed_experiments.jsonl."""
+    """JSONL-хранилище с ЕДИНЫМ authoritative состоянием на case_id.
+
+    Инварианты (P0-03):
+      * case_id живёт ровно в одном корпусе (VERIFIED → fix_cases.jsonl, иначе →
+        failed_experiments.jsonl); новая запись с тем же case_id — это версия
+        (version+1, supersedes_version), старая версия уходит в history.jsonl с
+        tombstone=True и superseded_by_version — retrieval её больше не видит;
+      * запись атомарна: temp-файл в том же каталоге → fsync → os.replace, для
+        обоих корпусов и истории; параллельные писатели сериализуются файловой
+        блокировкой (fcntl.flock) на data_dir/.lock;
+      * CAS: add(case, expected_version=N) отвергает запись, если текущая
+        версия ≠ N (ConflictError) — детерминированное разрешение конфликта;
+      * повреждённый/оборванный хвост файла не становится authoritative: строка,
+        которая не парсится, игнорируется (и считается в .corrupt_lines)."""
 
     def __init__(self, data_dir: Path | None = None, docs_dir: Path | None = None,
                  schema: dict | None = None):
@@ -225,23 +298,72 @@ class LearningStore:
         self.schema = schema or load_schema()
         self.verified_path = self.data_dir / "fix_cases.jsonl"
         self.failed_path = self.data_dir / "failed_experiments.jsonl"
+        self.history_path = self.data_dir / "history.jsonl"
+        self.corrupt_lines = 0
+
+    # ------------------------------------------------------------ locking
+    @contextlib.contextmanager
+    def _locked(self):
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        lock_path = self.data_dir / ".lock"
+        fh = open(lock_path, "a+")
+        try:
+            try:
+                import fcntl
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            except ImportError:            # Windows: msvcrt
+                import msvcrt
+                msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+            yield
+        finally:
+            try:
+                import fcntl
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+            except ImportError:
+                pass
+            fh.close()
 
     # ------------------------------------------------------------ write
-    def add(self, case: dict, *, write_markdown: bool = True) -> dict:
+    def current(self, cid: str) -> dict | None:
+        """Текущая (authoritative) запись по case_id из любого корпуса."""
+        for c in self._read(self.verified_path) + self._read(self.failed_path):
+            if c.get("case_id") == cid and not c.get("tombstone"):
+                return c
+        return None
+
+    def add(self, case: dict, *, write_markdown: bool = True,
+            expected_version: int | None = None) -> dict:
         case = redact_obj(dict(case))
         case.setdefault("created_at", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
         case["case_id"] = case_id(case)
-        errors = validate(case, schema=self.schema)
-        if errors:
-            raise ValidationError(errors)
-        target = self.verified_path if case["learning_status"] == "VERIFIED" else self.failed_path
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        existing = {c["case_id"] for c in self._read(target)}
-        if case["case_id"] in existing:
-            self._rewrite(target, [c for c in self._read(target) if c["case_id"] != case["case_id"]] + [case])
-        else:
-            with target.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(case, ensure_ascii=False, sort_keys=True) + "\n")
+        case.pop("tombstone", None); case.pop("superseded_by_version", None)
+        with self._locked():
+            verified = self._read(self.verified_path)
+            failed = self._read(self.failed_path)
+            prev = next((c for c in verified + failed if c.get("case_id") == case["case_id"]), None)
+            cur_version = int(prev.get("version") or 1) if prev else 0
+            if expected_version is not None and expected_version != cur_version:
+                raise ConflictError(f"case {case['case_id']}: expected version {expected_version}, "
+                                    f"current is {cur_version}")
+            case["version"] = cur_version + 1
+            if prev is not None:
+                case["supersedes_version"] = cur_version
+            errors = validate(case, schema=self.schema)
+            if errors:
+                raise ValidationError(errors)
+            # единственное authoritative место: убрать старую версию отовсюду
+            verified = [c for c in verified if c.get("case_id") != case["case_id"]]
+            failed = [c for c in failed if c.get("case_id") != case["case_id"]]
+            if case["learning_status"] == "VERIFIED":
+                verified.append(case)
+            else:
+                failed.append(case)
+            self._rewrite(self.verified_path, verified)
+            self._rewrite(self.failed_path, failed)
+            if prev is not None:
+                tomb = dict(prev); tomb["tombstone"] = True
+                tomb["superseded_by_version"] = case["version"]
+                self._append_atomic(self.history_path, tomb)
         if write_markdown:
             self.docs_dir.mkdir(parents=True, exist_ok=True)
             safe = re.sub(r"[^A-Za-z0-9_.\-]", "_", str(case["task_id"]))
@@ -249,27 +371,62 @@ class LearningStore:
         return case
 
     # ------------------------------------------------------------ read
-    @staticmethod
-    def _read(path: Path) -> list[dict]:
+    def _read(self, path: Path) -> list[dict]:
         if not path.exists():
             return []
         out = []
         for line in path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
-            if line:
-                out.append(json.loads(line))
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                self.corrupt_lines += 1          # оборванный хвост — не authoritative
+                continue
+            if isinstance(rec, dict):
+                out.append(rec)
         return out
 
     @staticmethod
-    def _rewrite(path: Path, cases: list[dict]) -> None:
-        path.write_text("".join(json.dumps(c, ensure_ascii=False, sort_keys=True) + "\n"
-                                for c in cases), encoding="utf-8")
+    def _atomic_write(path: Path, text: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(text)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, path)
+            dfd = os.open(str(path.parent), os.O_RDONLY)
+            try:
+                os.fsync(dfd)
+            except OSError:
+                pass
+            finally:
+                os.close(dfd)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
+            raise
+
+    def _rewrite(self, path: Path, cases: list[dict]) -> None:
+        self._atomic_write(path, "".join(json.dumps(c, ensure_ascii=False, sort_keys=True) + "\n"
+                                         for c in cases))
+
+    def _append_atomic(self, path: Path, rec: dict) -> None:
+        existing = self._read(path)
+        self._rewrite(path, existing + [rec])
 
     def verified(self) -> list[dict]:
-        return [c for c in self._read(self.verified_path) if c.get("learning_status") == "VERIFIED"]
+        return [c for c in self._read(self.verified_path)
+                if c.get("learning_status") == "VERIFIED" and not c.get("tombstone")]
 
     def failed(self) -> list[dict]:
-        return self._read(self.failed_path)
+        return [c for c in self._read(self.failed_path) if not c.get("tombstone")]
+
+    def history(self) -> list[dict]:
+        return self._read(self.history_path)
 
     def retrieve(self, *, domain: str | None = None, bug_class: str | None = None,
                  component: str | None = None, severity: str | None = None,
@@ -278,7 +435,8 @@ class LearningStore:
                  limit: int = 8) -> list[dict]:
         """Фильтр по тегам/исходу/находке/тексту. По умолчанию — только VERIFIED.
         include_failed=True добавляет прочие статусы, каждый с пометкой
-        `retrieval_warning` — их нельзя использовать как предпочтительное поведение."""
+        `retrieval_warning` — их нельзя использовать как предпочтительное поведение.
+        Superseded (tombstone) версии не возвращаются никогда."""
         pool = list(self.verified())
         if include_failed:
             for c in self.failed():
@@ -312,6 +470,7 @@ class LearningStore:
         """Компактная форма для инъекции в контекст локальной модели: уроки,
         доказательства, provenance — без длинных полей."""
         return {"case_id": case.get("case_id"), "task_id": case.get("task_id"),
+                "version": case.get("version"),
                 "learning_status": case.get("learning_status"), "outcome": case.get("outcome"),
                 "symptom": case.get("symptom"), "root_cause": case.get("root_cause"),
                 "evidence": (case.get("evidence") or [])[:4],

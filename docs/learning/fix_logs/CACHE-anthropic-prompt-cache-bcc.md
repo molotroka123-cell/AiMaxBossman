@@ -10,7 +10,7 @@ OUTCOME: PARTIAL
 VERIFIED_BY: pytest:command-center/tests/test_providers.py
 CONFIDENCE: 0.6
 TAGS: {"domain": "efficiency", "bug_class": "missing_instrumentation", "component": "bcc.providers", "severity": "INFO"}
-FINDINGS: 
+FINDINGS:
 
 ## Task
 Real Anthropic prompt caching in command-center AnthropicAdapter with measured instrumentation

@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:tests/test_context_slice.py
 CONFIDENCE: 0.8
-TAGS: {"domain": "efficiency", "bug_class": "discovery_cost", "component": "tools.context_slice", "severity": "INFO"}
+TAGS: {"bug_class": "discovery_cost", "component": "tools.context_slice", "domain": "efficiency", "severity": "INFO"}
 FINDINGS: 
 
 ## Task

@@ -9,7 +9,7 @@ LEARNING_STATUS: VERIFIED
 OUTCOME: FIXED
 VERIFIED_BY: pytest:command-center/tests/test_secrem_f015_self_assert.py, pytest:command-center/tests/test_feat_terminal_map.py
 CONFIDENCE: 0.88
-TAGS: {"domain": "security", "bug_class": "authz_bypass", "component": "bcc.features.terminal", "severity": "LOW", "security_boundary": "approval"}
+TAGS: {"bug_class": "authz_bypass", "component": "bcc.features.terminal", "domain": "security", "security_boundary": "approval", "severity": "LOW"}
 FINDINGS: F-015
 
 ## Task
