@@ -102,7 +102,11 @@ async def test_agent_a_cannot_run_inside_agent_b_area(env):
 
 
 async def test_owner_may_work_in_own_area(env):
-    ctx = _ctx(env, mission_id=9, agent_id=1)
+    # F-009/F-011: terminal_sessions теперь хранит task_id/agent_id (FK) — нужны
+    # реальные задача и агент, а не синтетические id.
+    from .helpers import make_stack
+    stack = await make_stack(env.client)
+    ctx = _ctx(env, mission_id=9, agent_id=stack["agent"]["id"], task_id=stack["task"]["id"])
     # cmd.exe при перенаправлении пишет в OEM-кодировке хоста (тут cp1252) и
     # превращает кириллицу в '????' — свойство оболочки ОС, а не продукта,
     # поэтому на Windows эхо ASCII: проверяется изоляция своей области.

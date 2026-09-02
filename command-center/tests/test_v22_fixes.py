@@ -14,6 +14,14 @@ from bcc.v2.mcp_hub import MCPServerSpec
 from bcc.v2.memory.memsearch_bridge import MemSearchBridge
 
 
+@pytest.fixture(autouse=True)
+def _mcp_allow_true_binary(monkeypatch):
+    """F-014: запуск MCP-сервера — только бинарник из allowlist. Тестовый spec
+    использует `true`; разрешаем именно его (owner-allowlist заменяет встроенный)."""
+    import shutil
+    monkeypatch.setenv("BCC_MCP_COMMAND_ALLOWLIST", shutil.which("true") or "/usr/bin/true")
+
+
 # ---------------------------------------------------------------- мост memsearch
 
 def test_bridge_passes_excludes():

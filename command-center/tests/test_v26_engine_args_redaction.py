@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from bcc.db import tool_calls as tool_calls_t
 from bcc.tools import args_hash
 
-SECRET = "sk-BCCREDACT-test-1234567890abcdef"
+SECRET = "sk-BCCREDACT-test-1234567890abcdef"  # ci-secret-scan: allow (synthetic test canary)
 
 
 class _Call:

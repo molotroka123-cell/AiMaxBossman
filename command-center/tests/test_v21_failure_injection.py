@@ -27,6 +27,13 @@ from .test_v21_tool_loop import FINISHED, ToolAdapter, _run_task, _stack_with_to
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
+@pytest.fixture(autouse=True)
+def _allow_private_browser_targets(monkeypatch):
+    """F-010: браузер по умолчанию не ходит на loopback; тестовый сервер живёт на
+    127.0.0.1 — owner-override только для этого файла."""
+    monkeypatch.setenv("BCC_BROWSER_ALLOW_PRIVATE", "1")
+
+
 
 @pytest.fixture(autouse=True)
 def clean_registry():

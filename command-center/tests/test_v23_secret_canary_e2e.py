@@ -30,6 +30,13 @@ from .helpers import make_stack
 
 CANARY = "BOSSMAN_CANARY_SECRET_91f03f_DO_NOT_LEAK"  # ci-secret-scan: allow (канарейка)
 
+@pytest.fixture(autouse=True)
+def _allow_private_browser_targets(monkeypatch):
+    """F-010: браузер по умолчанию не ходит на loopback; тестовый сервер живёт на
+    127.0.0.1 — owner-override только для этого файла."""
+    monkeypatch.setenv("BCC_BROWSER_ALLOW_PRIVATE", "1")
+
+
 LOGIN_PAGE = """<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <title>Вход</title></head><body>
 <h1>Вход</h1>

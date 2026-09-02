@@ -19,7 +19,7 @@ pytestmark = [
     pytest.mark.skipif(not DSN, reason="SKIP_HOST: no BOSSMAN_TEST_PG_DSN (real PostgreSQL) available"),
 ]
 
-SECRET = "sk-FLIGHTREC-test-1234567890abcdef"
+SECRET = "sk-FLIGHTREC-test-1234567890abcdef"  # ci-secret-scan: allow (synthetic test canary)
 
 
 @pytest.fixture()
