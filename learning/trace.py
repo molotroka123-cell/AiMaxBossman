@@ -325,6 +325,11 @@ class LearningStore:
         self.verified_path = self.data_dir / "fix_cases.jsonl"
         self.failed_path = self.data_dir / "failed_experiments.jsonl"
         self.history_path = self.data_dir / "history.jsonl"
+        # Audit P0: единственный authoritative journal (append-only, атомарный);
+        # fix_cases/failed_experiments/history — производные snapshot'ы, которые
+        # перестраиваются из журнала при любом расхождении (crash между записями).
+        self.journal_path = self.data_dir / "journal.jsonl"
+        self._corrupt_by_path: dict[str, int] = {}
         self.corrupt_lines = 0
 
     # ------------------------------------------------------------ locking
@@ -350,8 +355,14 @@ class LearningStore:
             fh.close()
 
     # ------------------------------------------------------------ write
+    def _sync(self) -> None:
+        """Перед чтением: snapshot'ы приводятся к журналу (crash/подмена/legacy)."""
+        with self._locked():
+            self._ensure_consistent()
+
     def current(self, cid: str) -> dict | None:
         """Текущая (authoritative) запись по case_id из любого корпуса."""
+        self._sync()
         for c in self._read(self.verified_path) + self._read(self.failed_path):
             if c.get("case_id") == cid and not c.get("tombstone"):
                 return c
@@ -364,6 +375,7 @@ class LearningStore:
         case["case_id"] = case_id(case)
         case.pop("tombstone", None); case.pop("superseded_by_version", None)
         with self._locked():
+            self._ensure_consistent()
             verified = self._read(self.verified_path)
             failed = self._read(self.failed_path)
             prev = next((c for c in verified + failed if c.get("case_id") == case["case_id"]), None)
@@ -377,30 +389,77 @@ class LearningStore:
             errors = validate(case, schema=self.schema)
             if errors:
                 raise ValidationError(errors)
-            # единственное authoritative место: убрать старую версию отовсюду
-            verified = [c for c in verified if c.get("case_id") != case["case_id"]]
-            failed = [c for c in failed if c.get("case_id") != case["case_id"]]
-            if case["learning_status"] == "VERIFIED":
-                verified.append(case)
-            else:
-                failed.append(case)
-            self._rewrite(self.verified_path, verified)
-            self._rewrite(self.failed_path, failed)
-            if prev is not None:
-                tomb = dict(prev); tomb["tombstone"] = True
-                tomb["superseded_by_version"] = case["version"]
-                self._append_atomic(self.history_path, tomb)
+            # commit point — одна атомарная запись в журнал; snapshot'ы производные
+            self._append_atomic(self.journal_path, {"txn": self._next_txn(), "case": case})
+            self._materialize()
         if write_markdown:
             self.docs_dir.mkdir(parents=True, exist_ok=True)
             safe = re.sub(r"[^A-Za-z0-9_.\-]", "_", str(case["task_id"]))
             (self.docs_dir / f"{safe}.md").write_text(render_markdown(case), encoding="utf-8")
         return case
 
+    # ------------------------------------------------------------ journal (authoritative)
+    def _journal(self) -> list[dict]:
+        """Все транзакции журнала по порядку; битые строки (оборванный хвост) пропускаются."""
+        return [t for t in self._read(self.journal_path) if isinstance(t.get("case"), dict)]
+
+    def _next_txn(self) -> int:
+        entries = self._journal()
+        return (int(entries[-1].get("txn") or len(entries)) + 1) if entries else 1
+
+    def _journal_state(self) -> tuple[dict[str, dict], list[dict]]:
+        """(latest case per case_id, superseded versions in commit order)."""
+        latest: dict[str, dict] = {}
+        superseded: list[dict] = []
+        for t in self._journal():
+            c = t["case"]
+            cid = str(c.get("case_id") or "")
+            if not cid:
+                continue
+            prev = latest.get(cid)
+            if prev is not None:
+                tomb = dict(prev); tomb["tombstone"] = True
+                tomb["superseded_by_version"] = c.get("version")
+                superseded.append(tomb)
+            latest[cid] = c
+        return latest, superseded
+
+    def _snapshot_versions(self) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for c in self._read(self.verified_path) + self._read(self.failed_path):
+            if c.get("case_id"):
+                out[str(c["case_id"])] = int(c.get("version") or 1)
+        return out
+
+    def _materialize(self) -> None:
+        """Перестроить производные snapshot'ы из журнала (идемпотентно)."""
+        latest, superseded = self._journal_state()
+        cases = list(latest.values())
+        self._rewrite(self.verified_path, [c for c in cases if c.get("learning_status") == "VERIFIED"])
+        self._rewrite(self.failed_path, [c for c in cases if c.get("learning_status") != "VERIFIED"])
+        self._rewrite(self.history_path, superseded)
+
+    def _ensure_consistent(self) -> None:
+        """Журнал пуст, snapshot'ы есть (legacy) → bootstrap журнала из snapshot'ов;
+        журнал есть и расходится со snapshot'ами (crash/подмена) → rematerialize."""
+        if not self.journal_path.exists() or not self._journal():
+            legacy = self._read(self.verified_path) + self._read(self.failed_path)
+            if legacy:
+                self._rewrite(self.journal_path, "".join(
+                    json.dumps({"txn": i + 1, "case": c}, ensure_ascii=False, sort_keys=True) + "\n"
+                    for i, c in enumerate(legacy)))
+            return
+        latest, _ = self._journal_state()
+        want = {cid: int(c.get("version") or 1) for cid, c in latest.items()}
+        if want != self._snapshot_versions():
+            self._materialize()
+
     # ------------------------------------------------------------ read
     def _read(self, path: Path) -> list[dict]:
         if not path.exists():
             return []
         out = []
+        corrupt = 0
         for line in path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line:
@@ -408,10 +467,12 @@ class LearningStore:
             try:
                 rec = json.loads(line)
             except json.JSONDecodeError:
-                self.corrupt_lines += 1          # оборванный хвост — не authoritative
+                corrupt += 1                     # оборванный хвост — не authoritative
                 continue
             if isinstance(rec, dict):
                 out.append(rec)
+        self._corrupt_by_path[str(path)] = corrupt      # счётчик на файл: повторное чтение не удваивает
+        self.corrupt_lines = sum(self._corrupt_by_path.values())
         return out
 
     @staticmethod
@@ -436,7 +497,10 @@ class LearningStore:
                 os.unlink(tmp)
             raise
 
-    def _rewrite(self, path: Path, cases: list[dict]) -> None:
+    def _rewrite(self, path: Path, cases: "list[dict] | str") -> None:
+        if isinstance(cases, str):
+            self._atomic_write(path, cases)
+            return
         self._atomic_write(path, "".join(json.dumps(c, ensure_ascii=False, sort_keys=True) + "\n"
                                          for c in cases))
 
@@ -445,13 +509,16 @@ class LearningStore:
         self._rewrite(path, existing + [rec])
 
     def verified(self) -> list[dict]:
+        self._sync()
         return [c for c in self._read(self.verified_path)
                 if c.get("learning_status") == "VERIFIED" and not c.get("tombstone")]
 
     def failed(self) -> list[dict]:
+        self._sync()
         return [c for c in self._read(self.failed_path) if not c.get("tombstone")]
 
     def history(self) -> list[dict]:
+        self._sync()
         return self._read(self.history_path)
 
     def retrieve(self, *, domain: str | None = None, bug_class: str | None = None,
