@@ -1,0 +1,17 @@
+{
+ "mission_id": "AUDIT-ONLY-001",
+ "total_usd": 3.0,
+ "reservations": [
+  {
+   "reservation_id": "rsv-91cd4bd86440",
+   "mission_id": "AUDIT-ONLY-001",
+   "owner_id": "bossman",
+   "purpose": "fable-direct-call",
+   "worst_case_usd": 0.097395,
+   "created_at": 1788383303.0823007,
+   "status": "COMMITTED",
+   "actual_usd": 0.035529,
+   "request_id": "req_011CefJ9UHa3q9UpzRggzGDM"
+  }
+ ]
+}
