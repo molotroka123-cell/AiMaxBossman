@@ -41,16 +41,16 @@ HOST=Linux container, no GPU, docker daemon НЕ запущен (F-009 container
 | BUG-005 | BOUNDED/FIXED | test_secrem_discovery.py |
 
 ## COMPACT CHECKPOINT (update after every verified block)
-HEAD_SHA=see `git log -1` (this commit: Deep Fix plan-binding gate)
-ACTIVE_FINDING=Deep Fix gate F4.1 in cc engine DONE (flag BOSSMAN_DEEP_FIX_ENABLED, OFF by default)
-ROOT_CAUSE=verification plan was mutable after the run started
-FILES_CHANGED=command-center/bcc/features/deep_fix.py, command-center/tests/test_deep_fix_gate.py
-TESTS_RUN=test_deep_fix_gate + governor/review + F-012 suites: 27 passed
-RESULT=VERIFIED learning record DEEPFIX-plan-binding-gate-cc; freeze verdict unchanged (YES)
-NEXT_EXACT_ACTION=owner-host checklist (docs/runpod/POST_SECURITY_FINAL_ACCEPTANCE.md) when hardware is available; otherwise intelligence plan step 2 (failing-test-first context slices + repo-map cache per HEAD, tool-side)
+HEAD_SHA=see `git log -1` (this commit: context slicer)
+ACTIVE_FINDING=intelligence plan step 2 DONE — tools/context_slice.py (repo map per sha, failing-test-first slice; measured ratio 0.03 for a real SECREM test)
+ROOT_CAUSE=discovery performed by models per task instead of by a tool per commit
+FILES_CHANGED=tools/context_slice.py, tests/test_context_slice.py, .gitignore
+TESTS_RUN=tests/test_context_slice.py 3 passed
+RESULT=VERIFIED learning record CTX-failing-test-first-slice; freeze verdict unchanged (YES)
+NEXT_EXACT_ACTION=owner-host checklist when hardware is available; otherwise wire context_slice into agent task templates (handoff packet F7.9: failing test + slice manifest + ledger) — docs/learning/AGENT_LEARNING_TRACE_POLICY.md 'Wiring into agents'
 BLOCKERS=docker/GPU/Windows-only proofs; Anthropic key absent (cache hit unmeasured)
 UNCOMMITTED_WORK=none after this commit
-KNOWN_TEST_ISOLATION=command-center/tests/test_plugin_security.py::test_redact_* fail when the file runs alone (plugin tools registered by app setup in other modules); green in the full run
+KNOWN_TEST_ISOLATION=command-center/tests/test_plugin_security.py::test_redact_* fail when the file runs alone; green in the full run
 
 ## EXACT_NEXT_TASK (long form)
 1. Mutator library + sibling sweep (above).

@@ -55,3 +55,6 @@ artifacts/video_factory/
 !/data/
 /data/*
 !/data/learning/
+
+# deterministic repo-map cache (tools/context_slice.py)
+.bossman-cache/
