@@ -69,6 +69,23 @@ def redact(value, *, secret_values: set[str] | None = None):
 # ----------------------------------------------------------------- SSRF
 
 _PRIVATE_HOSTNAMES = {"localhost", "localhost.localdomain"}
+# Metadata-endpoint'ы облаков (sibling sweep F8.4: та же граница, что у
+# browser_control/discovery/toolkit.net) — запрещены всегда, если не allow_private.
+_METADATA_HOSTNAMES = {"metadata.google.internal", "metadata", "instance-data",
+                       "instance-data.ec2.internal"}
+
+
+def _literal_ip(host: str):
+    """IP-литерал в любой форме, которую примет inet_aton (2130706433, 0x7f000001,
+    127.1, 0177.0.0.1) — иначе None. Без DNS."""
+    try:
+        return ipaddress.ip_address(host.strip("[]"))
+    except ValueError:
+        pass
+    try:
+        return ipaddress.IPv4Address(socket.inet_aton(host))
+    except (OSError, ValueError):
+        return None
 
 
 def _ip_is_safe(ip: ipaddress._BaseAddress) -> bool:
@@ -92,12 +109,11 @@ def validate_url(url: str, *, allow_private: bool = False,
         raise PluginSecurityError("host not allowlisted")
     if allow_private:
         return url, host
-    if host in _PRIVATE_HOSTNAMES or host.endswith(".local"):
+    if host in _PRIVATE_HOSTNAMES or host.endswith(".local") or host.endswith(".localhost"):
         raise PluginSecurityError("local hostname blocked")
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        ip = None
+    if host in _METADATA_HOSTNAMES or host.endswith(".internal"):
+        raise PluginSecurityError("metadata hostname blocked")
+    ip = _literal_ip(host)
     if ip is not None and not _ip_is_safe(ip):
         raise PluginSecurityError(f"non-global IP blocked: {ip}")
     return url, host

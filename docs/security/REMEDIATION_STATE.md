@@ -41,15 +41,16 @@ HOST=Linux container, no GPU, docker daemon НЕ запущен (F-009 container
 | BUG-005 | BOUNDED/FIXED | test_secrem_discovery.py |
 
 ## COMPACT CHECKPOINT (update after every verified block)
-HEAD_SHA=see `git log -1` (last: prompt-cache commit after a212f6d/4d46f5a)
-ACTIVE_FINDING=none open; efficiency item: Anthropic prompt caching (bcc AnthropicAdapter) DONE (tests), live hit UNMEASURED
-ROOT_CAUSE=n/a (all F-001..F-018 dispositioned; see FABLE_51_FINAL_RETEST.md)
-FILES_CHANGED=command-center/bcc/providers.py, command-center/bcc/engine.py, command-center/tests/test_providers.py, data/learning/failed_experiments.jsonl
-TESTS_RUN=command-center tests/test_providers.py (9 passed), test_v21_tool_loop + test_v2_core (21 passed); full suites last green at 4eb97a5 (core 1360/5 skipped, cc 718/3, root 35)
-RESULT=SAFE_FOR_V2_FREEZE=YES on this host; owner-host checklist in docs/runpod/POST_SECURITY_FINAL_ACCEPTANCE.md
-NEXT_EXACT_ACTION=SECREM mutator library + sibling sweep (task #64): create command-center/tests/_secrem/mutators.py and bossman-core/tests/_secrem/mutators.py from test_secrem_* variants; add sibling-sweep tests over http/browser/discovery URL policy and terminal/browser approval replay
-BLOCKERS=docker/GPU/Windows-only proofs (NOT_TESTED_ON_THIS_HOST); Anthropic API key absent (cache hit unmeasured)
-UNCOMMITTED_WORK=none after the prompt-cache commit
+HEAD_SHA=see `git log -1` (this commit: sibling sweep)
+ACTIVE_FINDING=sibling sweep (F8.4) DONE — found+fixed 2 gaps: plugin validate_url (metadata hostnames, numeric IPv4 literals), media._path_arg_ok bare '..'
+ROOT_CAUSE=per-component boundary parsers with unequal coverage
+FILES_CHANGED=command-center/bcc/plugin_security.py, bossman-core/bossman/toolkit/media.py, tests/_secrem/mutators.py (both apps), tests/test_secrem_sibling_sweep.py (both apps)
+TESTS_RUN=cc sweep+plugins+browser+discovery 117 passed (2 pre-existing isolation failures in test_plugin_security.py, identical on base); core sweep+test_tools 50 passed
+RESULT=VERIFIED learning record SWEEP-sibling-boundary-gaps; SAFE_FOR_V2_FREEZE unchanged (YES)
+NEXT_EXACT_ACTION=Deep Fix runner wiring in command-center engine behind BOSSMAN_DEEP_FIX_ENABLED (plan hash before patch, verifier isolation) — or owner-host checklist when hardware is available
+BLOCKERS=docker/GPU/Windows-only proofs; Anthropic key absent (cache hit unmeasured)
+UNCOMMITTED_WORK=none after this commit
+KNOWN_TEST_ISOLATION=command-center/tests/test_plugin_security.py::test_redact_* fail when the file runs alone (plugin tools registered by app setup in other modules); green in the full run
 
 ## EXACT_NEXT_TASK (long form)
 1. Mutator library + sibling sweep (above).

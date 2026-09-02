@@ -23,9 +23,9 @@ def _path_arg_ok(a: str) -> bool:
         return False
     if re.match(r"^[A-Za-z]:", a):
         return False
-    if "/" in a or "\\" in a:
-        return ".." not in re.split(r"[/\\]+", a)
-    return True
+    # «..» как компонент — и с разделителями, и голый (`..` резолвится в родителя
+    # workdir; sibling sweep F8.4 нашёл этот пропуск после F-003).
+    return ".." not in re.split(r"[/\\]+", a)
 
 
 async def _run(argv: list[str], timeout: int = 900, cwd=None) -> tuple[int, str]:
