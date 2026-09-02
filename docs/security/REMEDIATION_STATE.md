@@ -41,15 +41,15 @@ HOST=Linux container, no GPU, docker daemon НЕ запущен (F-009 container
 | BUG-005 | BOUNDED/FIXED | test_secrem_discovery.py |
 
 ## COMPACT CHECKPOINT (update after every verified block)
-HEAD_SHA=see `git log -1` (this commit: milestone checkpoint after context slicer)
-ACTIVE_FINDING=intelligence plan step 2 DONE — tools/context_slice.py (repo map per sha, failing-test-first slice; measured ratio 0.03 for a real SECREM test)
-ROOT_CAUSE=discovery performed by models per task instead of by a tool per commit
-FILES_CHANGED=tools/context_slice.py, tests/test_context_slice.py, .gitignore
-TESTS_RUN=MILESTONE full regression at ad78a38: command-center 766 passed/3 skipped/0 failed; bossman-core 1398 passed/5 skipped/0 failed; root 38 passed; compileall OK; secret scan PASS
-RESULT=VERIFIED learning record CTX-failing-test-first-slice; freeze verdict unchanged (YES)
-NEXT_EXACT_ACTION=owner-host checklist when hardware is available; otherwise wire context_slice into agent task templates (handoff packet F7.9: failing test + slice manifest + ledger) — docs/learning/AGENT_LEARNING_TRACE_POLICY.md 'Wiring into agents'
-BLOCKERS=docker/GPU/Windows-only proofs; Anthropic key absent (cache hit unmeasured)
-UNCOMMITTED_WORK=none after this commit
+HEAD_SHA=see `git log -1` (PASS3 session; START_REMOTE_SHA=49821e16c84bb247dd746fa57a880256c540ae78)
+ACTIVE_FINDING=PASS3 P0-01..05 FIXED (commits 1a568bf, b579fa4, 94598a7, be0efa4); Phase 2 DONE (539274c, 57e2d9d, c36c4ce); Phase 3 integration committed (feat(cache), feat(intelligence))
+ROOT_CAUSE=lexical path containment; string-based verifier identity; dual-corpus case_id; hooks fail-open; company budget/approval/verifier gaps; sha-only repo map; py3.12 wait_closed hang
+FILES_CHANGED=bossman/deep_fix.py, learning/trace.py, schemas/*, bossman/company/*, bcc/engine.py, tools/context_slice.py, bossman_shared/*, bossman/gateway/{app,telemetry}.py, bcc/features/cache_intel.py, bossman/learning_guard/autonomy_trainer.py, bcc/plugin_security.py (numeric telemetry exemption), .github/workflows/root-ci.yml
+TESTS_RUN=targeted: deep-fix 37, learning 23, company 30, hooks/hang 101, root cache/intel 22, gateway obs 2, cc telemetry 7, autonomy 12 — all green; full regressions: see Phase 4 section of the final report
+RESULT=P0 gates closed on this host; LIVE_CACHE_HIT_NOT_PROVEN (no key/permission)
+NEXT_EXACT_ACTION=Phase 4: full suites (root, core, cc without hang-skip), compileall, secret scan, diff --check, push, GitHub Actions evidence, final report
+BLOCKERS=docker/GPU/Windows/live-Anthropic proofs host-limited
+UNCOMMITTED_WORK=none after the Phase 3 commits
 KNOWN_TEST_ISOLATION=command-center/tests/test_plugin_security.py::test_redact_* fail when the file runs alone; green in the full run
 
 ## EXACT_NEXT_TASK (long form)

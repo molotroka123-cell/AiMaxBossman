@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bossman.local/schemas/autonomy_candidate.schema.json",
+  "title": "Bossman autonomy trainer candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidate_id", "kind", "scope", "hypothesis", "sample_count", "independently_verified", "holdout_touched", "security_regression", "rollback_ref", "status"],
+  "properties": {
+    "candidate_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "kind": {"enum": ["context", "skill", "route", "budget", "cache", "verification", "weakness_patch"]},
+    "scope": {"type": "object"},
+    "hypothesis": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "sample_count": {"type": "integer", "minimum": 0},
+    "verified_success_delta": {"type": ["number", "null"]},
+    "independently_verified": {"type": "boolean"},
+    "holdout_touched": {"type": "boolean"},
+    "security_regression": {"type": "boolean"},
+    "rollback_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+    "status": {"enum": ["CANDIDATE", "SHADOW", "PROMOTED", "QUARANTINED", "ROLLED_BACK", "REJECTED"]}
+  }
+}
