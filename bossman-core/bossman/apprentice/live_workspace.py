@@ -48,11 +48,14 @@ class LiveWorkspace:
     def read(self, path: str) -> str:
         return self._path(path).read_text(encoding="utf-8")
 
-    def write(self, path: str, text: str) -> None:
+    def write(self, path: str, text: str, *, restore: bool = False) -> None:
         rel = self._relative(path)
-        # This method is used by AcceptanceBinding.restore after a verifier has
-        # detected tampering.  Teacher diffs go through apply(), which rejects
-        # protected paths before touching the filesystem.
+        # Defense in depth (PASS 2): protected paths (acceptance tests, security
+        # policy) are immutable at the workspace layer too, not only in
+        # PatchVerifier.  Only AcceptanceBinding.restore may rewrite them, and
+        # only to their bound contents (restore=True).
+        if rel.as_posix() in self.protected_paths and not restore:
+            raise WorkspaceRefused(f"protected path is immutable: {path!r}")
         dest = self.root / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(text, encoding="utf-8", newline="")

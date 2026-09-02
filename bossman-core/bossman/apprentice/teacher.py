@@ -193,7 +193,10 @@ class AcceptanceBinding:
 
     def restore(self, workspace: Any) -> None:
         for p, c in self.contents.items():
-            workspace.write(p, c)
+            try:
+                workspace.write(p, c, restore=True)          # LiveWorkspace: protected paths only via restore
+            except TypeError:
+                workspace.write(p, c)                        # simple test doubles
 
 
 # ------------------------------------------------------------------ verification
