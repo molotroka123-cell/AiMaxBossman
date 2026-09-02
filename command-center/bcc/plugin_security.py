@@ -54,7 +54,12 @@ def redact(value, *, secret_values: set[str] | None = None):
 
     def _walk(v):
         if isinstance(v, dict):
-            return {k: ("***REDACTED***" if TOKEN_KEYS.search(str(k)) else _walk(val))
+            # Ключ похож на секрет → значение-строка/контейнер редактируется; числа и
+            # булевы (например, cache_read_tokens=900 — счётчик, не секрет) остаются:
+            # PASS3-телеметрия числовая и должна быть измеримой.
+            return {k: ("***REDACTED***" if TOKEN_KEYS.search(str(k))
+                        and not isinstance(val, (bool, int, float)) and val is not None
+                        else (_walk(val) if not TOKEN_KEYS.search(str(k)) else val))
                     for k, val in v.items()}
         if isinstance(v, (list, tuple)):
             t = [_walk(x) for x in v]

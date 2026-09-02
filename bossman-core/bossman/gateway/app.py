@@ -269,6 +269,37 @@ def _upstream_provider(body: Any) -> str | None:
     return None
 
 
+def _opaque(value: Any) -> str | None:
+    import hashlib
+    return None if value in (None, "") else hashlib.sha256(str(value).encode("utf-8")).hexdigest()[:32]
+
+
+def _record_cache_observation(metrics, route, cache_meta: dict[str, Any], usage_body: Any,
+                              *, actual_cost, baseline_cost, degraded: str | None,
+                              task_hash: str | None, session_hash: str | None) -> None:
+    """PASS3 shared observation (Gateway route). Never raises, never stores content."""
+    try:
+        from .._shared import cache_observation as co
+        if co is None:
+            return
+        raw_usage = usage_body.get("usage") if isinstance(usage_body, dict) else None
+        buckets = co.normalize_openai_style_usage(raw_usage if isinstance(raw_usage, dict) else None)
+        eligible = str(cache_meta.get("provider") or "").lower() == "openrouter" and bool(cache_meta.get("enabled"))
+        obs = co.build_observation(
+            provider=str(cache_meta.get("provider") or route.backend_name), model=str(route.model),
+            route="gateway", eligible=eligible, buckets=buckets, degraded=bool(degraded),
+            ttl=(cache_meta.get("ttl") if cache_meta.get("ttl") in ("5m", "1h") else None),
+            cache_control_applied=bool(cache_meta.get("cache_control_applied")),
+            prefix_hash=cache_meta.get("prefix_hash"), prefix_tokens=int(cache_meta.get("prefix_tokens") or 0),
+            miss_reason=(str(degraded) if degraded else None),
+            actual_cost_usd=(float(actual_cost) if actual_cost is not None else None),
+            baseline_cost_usd=(float(baseline_cost) if baseline_cost is not None else None),
+            baseline_is_estimate=True, task_id_hash=task_hash, session_id_hash=session_hash)
+        metrics.record_observation(obs)
+    except Exception as exc:  # noqa: BLE001 — телеметрия не роняет запрос
+        logger.warning("cache observation dropped: %s", type(exc).__name__)
+
+
 def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter | None = None) -> FastAPI:
     cfg = config or load_gateway_config()
     owned_router = router or ModelRouter(cfg)
@@ -473,6 +504,10 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                     actual_cost=actual_cost, baseline_cost=baseline_cost,
                     upstream_provider=_upstream_provider(body), degraded_reason=cache_degraded,
                 )
+                _record_cache_observation(metrics, route, cache_meta, usage_body,
+                                          actual_cost=actual_cost, baseline_cost=baseline_cost,
+                                          degraded=cache_degraded, task_hash=_opaque(run_id),
+                                          session_hash=cache_meta.get("session_id_hash"))
                 _log_outcome(request_id, run_id, c.name, alias, route.backend_name, route.model,
                              "ok", started, len(errors))
                 _count_cloud(route)
@@ -610,6 +645,12 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                         actual_cost=actual_cost, baseline_cost=baseline_cost,
                         degraded_reason=cache_degraded,
                     )
+                    # PASS3: наблюдение из usage, собранного observe-only коллектором
+                    # (байты стрима не менялись); нет usage в стриме → UNKNOWN.
+                    _record_cache_observation(metrics, route, cache_meta, collector.body,
+                                              actual_cost=actual_cost, baseline_cost=baseline_cost,
+                                              degraded=cache_degraded, task_hash=_opaque(run_id),
+                                              session_hash=cache_meta.get("session_id_hash"))
                     _log_outcome(request_id, run_id, c.name, alias, route.backend_name,
                                  route.model, "ok", started, len(errors))
                     _count_cloud(route)

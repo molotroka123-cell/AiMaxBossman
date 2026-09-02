@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bossman.local/schemas/cache_observation.schema.json",
+  "title": "Bossman cache observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_version", "timestamp", "provider", "model", "route", "state", "fresh_input_tokens", "cache_read_tokens", "cache_write_tokens", "output_tokens"],
+  "properties": {
+    "event_version": {"const": 1},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "task_id_hash": {"type": ["string", "null"], "maxLength": 128},
+    "session_id_hash": {"type": ["string", "null"], "maxLength": 128},
+    "provider": {"type": "string", "minLength": 1, "maxLength": 128},
+    "model": {"type": "string", "minLength": 1, "maxLength": 256},
+    "route": {"enum": ["gateway", "direct", "local"]},
+    "ttl": {"enum": ["5m", "1h", null]},
+    "cache_control_applied": {"type": "boolean"},
+    "prefix_hash": {"type": ["string", "null"], "maxLength": 128},
+    "prefix_tokens": {"type": "integer", "minimum": 0},
+    "fresh_input_tokens": {"type": "integer", "minimum": 0},
+    "cache_read_tokens": {"type": "integer", "minimum": 0},
+    "cache_write_tokens": {"type": "integer", "minimum": 0},
+    "output_tokens": {"type": "integer", "minimum": 0},
+    "state": {"enum": ["HIT", "WRITE", "MISS", "BYPASS", "UNKNOWN", "DEGRADED"]},
+    "miss_reason": {"type": ["string", "null"], "maxLength": 256},
+    "actual_cost_usd": {"type": ["number", "null"], "minimum": 0},
+    "baseline_cost_usd": {"type": ["number", "null"], "minimum": 0},
+    "baseline_is_estimate": {"type": "boolean"},
+    "verified_success": {"type": ["boolean", "null"]},
+    "environment_fingerprint": {"type": ["string", "null"], "maxLength": 256},
+    "security_context_hash": {"type": ["string", "null"], "maxLength": 128}
+  }
+}

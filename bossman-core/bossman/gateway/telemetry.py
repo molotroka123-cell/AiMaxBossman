@@ -156,6 +156,21 @@ class GatewayMetrics:
                                    else str(usage.get("cache_discount"))),
             }
 
+    def record_observation(self, obs) -> None:
+        """PASS3: normalized cache observation (numbers/hashes only) into a bounded log."""
+        log = getattr(self, "_observations", None)
+        if log is None:
+            from .._shared import cache_observation as co
+            if co is None:
+                return
+            log = self._observations = co.ObservationLog()
+        with self._lock:
+            log.record(obs)
+
+    def observations_summary(self) -> dict | None:
+        log = getattr(self, "_observations", None)
+        return None if log is None else log.summary()
+
     def snapshot(self) -> dict:
         with self._lock:
             lat = sorted(self.latencies_ms)
@@ -184,7 +199,9 @@ class GatewayMetrics:
                     "prefix_tokens": 0, "cache_discount": None} if not self.last_cache
                    else self.last_cache),
             }
+            obs_summary = (self._observations.summary() if getattr(self, "_observations", None) else None)
             return {
+                "cache_observations": obs_summary,
                 "uptime_seconds": round(time.time() - self.started_at, 1),
                 "requests_total": self.requests_total,
                 "errors_total": self.errors_total,
