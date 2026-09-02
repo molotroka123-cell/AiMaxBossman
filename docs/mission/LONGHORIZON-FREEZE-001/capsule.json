@@ -1,7 +1,6 @@
 ﻿{
     "mission_id":  "LFZ-20260902-GLM-7f13546",
     "acceptance_id":  "LONGHORIZON-FREEZE-001",
-    "phase":  "PASS4_LOCAL_WORK",
     "head_at_write":  "b6fd5e1",
     "claude_api_configured":  true,
     "completed":  [
@@ -33,5 +32,8 @@
                           "head":  "b6fd5e1f33c85946dacd5457a6e071adb8e9c4e9",
                           "same_mission_id":  "LFZ-20260902-GLM-7f13546",
                           "no_duplicated_work":  true
-                      }
+                      },
+    "phase":  "FREEZE",
+    "cloud_spend_usd":  0.1,
+    "fable_final_review":  "NO_CHANGE_JUSTIFIED"
 }

@@ -1,0 +1,12 @@
+{
+ "total_usd": 1.25,
+ "reservations": [
+  {
+   "reservation_id": "rsv-0-1788379999556-19096",
+   "worst_case_usd": 0.9,
+   "created_at": 1788379999.556374,
+   "status": "COMMITTED",
+   "actual_usd": 0.008313
+  }
+ ]
+}
