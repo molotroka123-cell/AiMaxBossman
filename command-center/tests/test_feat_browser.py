@@ -4,6 +4,14 @@ import pytest
 from bcc.v2.browser_control import BrowserPolicy
 
 
+@pytest.fixture(autouse=True)
+def _allow_private_browser_targets(monkeypatch):
+    """F-010: по умолчанию браузер не ходит на loopback/приватные адреса; эти
+    тесты поднимают тестовый HTTP-сервер на 127.0.0.1 — включаем owner-override
+    только для них (сама политика проверяется в test_secrem_browser_policy.py)."""
+    monkeypatch.setenv("BCC_BROWSER_ALLOW_PRIVATE", "1")
+
+
 # ---------- политика (чистая логика) ----------
 
 def test_policy_denies_payment_wallet():

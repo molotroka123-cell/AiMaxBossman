@@ -30,6 +30,14 @@ FIXTURE_HTML = """<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <p id="out">пока пусто</p>
 </body></html>"""
 
+@pytest.fixture(autouse=True)
+def _allow_private_browser_targets(monkeypatch):
+    """F-010: по умолчанию браузер не ходит на loopback/приватные адреса; эти
+    тесты поднимают тестовый HTTP-сервер на 127.0.0.1 — включаем owner-override
+    только для них (сама политика проверяется в test_secrem_browser_policy.py)."""
+    monkeypatch.setenv("BCC_BROWSER_ALLOW_PRIVATE", "1")
+
+
 
 @pytest.fixture
 def fixture_site(tmp_path):

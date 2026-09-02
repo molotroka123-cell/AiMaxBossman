@@ -25,6 +25,14 @@ from .browser_support import chromium_available, reason as browser_reason
 # выводе — это утечка, а не совпадение.
 CANARY = "Pa55w0rd-KANAREYKA-7f3a91e2"   # ci-secret-scan: allow (тестовая канарейка)
 
+@pytest.fixture(autouse=True)
+def _allow_private_browser_targets(monkeypatch):
+    """F-010: по умолчанию браузер не ходит на loopback/приватные адреса; эти
+    тесты поднимают тестовый HTTP-сервер на 127.0.0.1 — включаем owner-override
+    только для них (сама политика проверяется в test_secrem_browser_policy.py)."""
+    monkeypatch.setenv("BCC_BROWSER_ALLOW_PRIVATE", "1")
+
+
 LOGIN_PAGE = """<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <title>Вход</title></head><body>
 <h1>Вход в систему</h1>

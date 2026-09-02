@@ -17,7 +17,10 @@ from __future__ import annotations
 
 import asyncio
 import fnmatch
+import ipaddress
+import os
 import re
+import socket
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -50,6 +53,109 @@ DEFAULT_RULES: dict[str, Decision] = {
     "wallet": "deny",
     "bank_transfer": "deny",
 }
+
+
+# ------------------------------------------------ F-010: куда браузеру НЕЛЬЗЯ
+#
+# Пустой allowed_domains значил «куда угодно» — включая metadata-endpoint облака,
+# loopback с нашим же API и внутреннюю сеть. Теперь такие цели запрещены по
+# умолчанию; владелец включает их осознанно (локальная разработка) через
+# BCC_BROWSER_ALLOW_PRIVATE=1. Схемы вне http(s) и URL с userinfo не открываются
+# никогда: file:// читает диск, а user:pw@host — способ спрятать настоящий хост.
+
+ALLOW_PRIVATE_ENV = "BCC_BROWSER_ALLOW_PRIVATE"
+_BLOCKED_HOSTNAMES = frozenset({"localhost", "localhost.localdomain", "metadata",
+                                "metadata.google.internal", "instance-data",
+                                "instance-data.ec2.internal"})
+_BLOCKED_HOST_SUFFIXES = (".localhost", ".local", ".localdomain", ".internal", ".home.arpa",
+                          ".intranet", ".lan", ".corp", ".home")
+
+
+def owner_allows_private() -> bool:
+    return os.environ.get(ALLOW_PRIVATE_ENV, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _ip_is_public(ip: ipaddress._BaseAddress) -> bool:
+    return ip.is_global and not (ip.is_multicast or ip.is_reserved or ip.is_unspecified
+                                 or ip.is_loopback or ip.is_link_local or ip.is_private)
+
+
+def _literal_ip(host: str) -> ipaddress._BaseAddress | None:
+    """IP из строки БЕЗ DNS. Понимает и «нечестные» формы: 2130706433, 0x7f000001,
+    127.1, 0177.0.0.1 — их принимает inet_aton (а значит и резолвер браузера)."""
+    try:
+        return ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    try:
+        return ipaddress.IPv4Address(socket.inet_aton(host))
+    except (OSError, ValueError):
+        return None
+
+
+def target_refusal(url: str, *, allow_private: bool | None = None) -> str:
+    """Литеральная проверка цели навигации (без DNS). "" = можно.
+
+    Схема и userinfo проверяются всегда; локальные имена и непубличные IP —
+    если владелец не включил BCC_BROWSER_ALLOW_PRIVATE."""
+    try:
+        p = urlparse(str(url or ""))
+        host = (p.hostname or "").lower().rstrip(".")
+        userinfo = p.username is not None or p.password is not None
+    except ValueError:
+        return "некорректный URL"
+    scheme = (p.scheme or "").lower()
+    if scheme not in ("http", "https"):
+        return f"схема {scheme or '(нет)'} запрещена — браузеру доступны только http(s)"
+    if userinfo:
+        return "URL с учётными данными (user:pw@host) запрещён"
+    if not host:
+        return "в URL нет хоста"
+    if allow_private is None:
+        allow_private = owner_allows_private()
+    if allow_private:
+        return ""
+    if host in _BLOCKED_HOSTNAMES or host.endswith(_BLOCKED_HOST_SUFFIXES):
+        return f"локальный/служебный хост {host!r} запрещён (loopback/metadata/внутренняя сеть)"
+    ip = _literal_ip(host)
+    if ip is not None and not _ip_is_public(ip):
+        return (f"адрес {ip} непубличный (loopback/private/link-local/metadata) — "
+                f"запрещён без {ALLOW_PRIVATE_ENV}=1")
+    return ""
+
+
+def resolved_target_refusal(url: str, *, allow_private: bool | None = None) -> str:
+    """Литеральная проверка + DNS: ВСЕ адреса имени должны быть публичными.
+
+    Одна приватная A-запись среди публичных — отказ: иначе rebinding на второй
+    записи. NXDOMAIN — тоже отказ: браузер туда всё равно не попадёт, а «имя
+    появится позже» — классика rebinding."""
+    refusal = target_refusal(url, allow_private=allow_private)
+    if refusal:
+        return refusal
+    if allow_private is None:
+        allow_private = owner_allows_private()
+    if allow_private:
+        return ""
+    host = (urlparse(str(url)).hostname or "").lower().rstrip(".")
+    if _literal_ip(host) is not None:
+        return ""                       # литерал уже проверен, DNS не нужен
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except (socket.gaierror, UnicodeError, OSError) as exc:
+        return f"хост {host!r} не резолвится: {exc}"
+    addrs = {str(ai[4][0]) for ai in infos if ai and ai[4]}
+    if not addrs:
+        return f"хост {host!r} не имеет адресов"
+    for raw in sorted(addrs):
+        try:
+            ip = ipaddress.ip_address(raw.split("%", 1)[0])
+        except ValueError:
+            return f"хост {host!r} резолвится в непонятный адрес {raw!r}"
+        if not _ip_is_public(ip):
+            return (f"хост {host!r} резолвится в непубличный адрес {ip} — запрещён "
+                    f"(проверяются все адреса, анти-rebinding)")
+    return ""
 
 
 class BrowserUnavailable(RuntimeError):
@@ -116,14 +222,29 @@ class BrowserPolicy:
         }
 
     def domain_allowed(self, url: str) -> bool:
-        host = (urlparse(url).hostname or "").lower()
-        if not host:
+        # F-010: сначала «куда нельзя вообще» (схема, userinfo, loopback/private/
+        # metadata), и только потом allowlist владельца. Явно перечисленный
+        # 127.0.0.1 в allowed_domains — не обход: включение приватных целей
+        # делается одним осознанным переключателем окружения, а не списком.
+        if target_refusal(url):
             return False
+        host = (urlparse(url).hostname or "").lower().rstrip(".")
         if any(_host_match(host, p) for p in self.blocked_domains):
             return False
         if not self.allowed_domains:
             return True
         return any(_host_match(host, p) for p in self.allowed_domains)
+
+    def navigation_refusal(self, url: str) -> str:
+        """Причина, по которой навигацию на url делать нельзя ("" = можно).
+
+        В отличие от `decision` делает DNS-резолв, поэтому вызывается в момент
+        навигации, а не при каждом клике по текущей странице."""
+        if not self.enabled:
+            return "браузер выключен политикой"
+        if not self.domain_allowed(url):
+            return target_refusal(url) or "домен вне allowlist политики"
+        return resolved_target_refusal(url)
 
     def decision(self, action: str, *, url: str = "") -> Decision:
         if not self.enabled:
@@ -372,7 +493,10 @@ def _host_match(host: str, pattern: str) -> bool:
     if pattern.startswith("*."):
         root = pattern[2:]
         return host == root or host.endswith("." + root)
-    return fnmatch.fnmatch(host, pattern)
+    if any(ch in pattern for ch in "*?["):
+        return fnmatch.fnmatch(host, pattern)
+    # «example.com» покрывает и сам домен, и поддомены (суффиксное совпадение)
+    return host == pattern or host.endswith("." + pattern)
 
 
 class BrowserManager:
@@ -477,9 +601,12 @@ class BrowserManager:
                 and action not in READ_ACTIONS | NAV_ACTIONS):
             # Читать и уходить со страницы можно, взаимодействовать — нет.
             raise CaptchaBlocked(str(sess.captcha.get("provider") or "неизвестная"))
-        decision = sess.policy.decision(action, url=url or sess.page.url)
+        target = url or sess.page.url
+        decision = sess.policy.decision(action, url=target)
         if decision == "deny":
-            raise BrowserPolicyDenied(action)
+            why = target_refusal(target) if (url and action in NAV_ACTIONS) else ""
+            raise BrowserPolicyDenied(action, f"browser action denied: {action}"
+                                      + (f" — {why}" if why else ""))
         if decision == "ask" and actor != "human" and not approved:
             raise BrowserApprovalRequired(action)
 
@@ -522,7 +649,24 @@ class BrowserManager:
                        actor: str = "agent", approved: bool = False) -> dict[str, Any]:
         sess = self._session(session_id)
         self._guard(sess, "navigate", url=url, actor=actor, approved=approved)
+        # F-010: DNS-проверка цели (все адреса публичные) — до первого касания
+        # страницы. Резолв блокирующий, поэтому в executor.
+        loop = asyncio.get_running_loop()
+        refusal = await loop.run_in_executor(None, sess.policy.navigation_refusal, url)
+        if refusal:
+            raise BrowserPolicyDenied("navigate", f"browser action denied: navigate — {refusal}")
         await sess.page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        # Редирект с публичного сайта на приватную цель обходит проверку до goto:
+        # проверяем, куда реально приехали, и уходим с такой страницы, не читая её.
+        landed = str(getattr(sess.page, "url", "") or "")
+        why = target_refusal(landed) if landed and landed != "about:blank" else ""
+        if why:
+            try:
+                await sess.page.goto("about:blank")
+            except Exception:
+                pass
+            raise BrowserPolicyDenied("navigate", f"browser action denied: navigate — "
+                                      f"редирект на {landed[:120]!r}: {why}")
         return await self.snapshot(session_id, actor=actor, approved=True)
 
     async def _target(self, sess: BrowserRuntimeSession, selector: str = "",
