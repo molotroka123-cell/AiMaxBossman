@@ -130,6 +130,9 @@ class TerminalSession:
     output: list[str] = field(default_factory=list)
     finished: bool = False
     exit_code: int | None = None
+    # F-011: владелец живой сессии (task id). Сессия по session_id доступна
+    # только задаче, которая её создала; None = создана владельцем через HTTP.
+    owner: str | None = None
     _reader: asyncio.Task | None = None
 
 class TerminalManager:
@@ -138,8 +141,14 @@ class TerminalManager:
         self.sessions: dict[str, TerminalSession] = {}
 
     async def start(self, cmd: str, cwd: Path, policy: TerminalPolicy,
-                    *, approved: bool = False, network: bool = False) -> TerminalSession:
+                    *, approved: bool = False, network: bool = False,
+                    owner: str | None = None) -> TerminalSession:
         cwd = cwd.resolve()
+        # F-009: единая точка confinement и для host-режимов, и для sandbox —
+        # каталог, который уйдёт в `-v cwd:/work`, обязан лежать в разрешённых
+        # корнях. Контейнер — защита в глубину, а не замена авторизации пути.
+        if not within(cwd, policy.allowed_roots):
+            raise PermissionError(f"cwd outside allowed roots: {cwd}")
         decision = policy.decision(cmd, cwd)
         if decision == "deny":
             raise PermissionError("terminal command denied by policy")
@@ -182,7 +191,7 @@ class TerminalManager:
                 )
 
         sid = uuid.uuid4().hex[:12]
-        session = TerminalSession(sid, cwd, cmd, policy.mode, proc)
+        session = TerminalSession(sid, cwd, cmd, policy.mode, proc, owner=owner)
         self.sessions[sid] = session
         session._reader = asyncio.create_task(self._read(session))
         return session

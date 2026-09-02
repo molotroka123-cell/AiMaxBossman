@@ -113,7 +113,27 @@ async def _resolve_cwd(ctx, args: dict) -> tuple[Path, list[Path]]:
     raw = args.get("cwd") or ctx.workspace or (str(roots[0]) if roots else ".")
     if str(raw).strip() == SCRATCH_ALIAS:
         return scratch.ensure(scratch.for_context(ctx)), roots
-    return Path(raw).expanduser(), roots
+    # F-009: резолвим ДО авторизации — symlink/junction/../ и кодированные
+    # варианты сравниваются с корнями уже как канонический путь.
+    return Path(raw).expanduser().resolve(), roots
+
+
+def normalize_run_args(args: dict) -> dict:
+    """F-013/F-009: канонические аргументы для approval-digest и предпросмотра.
+
+    cwd резолвится так же, как при исполнении (_resolve_cwd), поэтому
+    «одобренный путь == исполненный путь»; псевдоним scratch остаётся словом
+    (он детерминированно отображается в личный каталог задачи, а не в
+    произвольный путь). Никакого доступа к БД — функция чистая."""
+    out = dict(args or {})
+    raw = out.get("cwd")
+    if raw and str(raw).strip() != SCRATCH_ALIAS:
+        try:
+            out["cwd"] = str(Path(str(raw)).expanduser().resolve())
+        except OSError:
+            out["cwd"] = str(raw)
+    out["mode"] = str(out.get("mode") or "sandbox")
+    return out
 
 
 # ------------------------------------------------------------------ tools
@@ -140,10 +160,15 @@ async def _tool_run(args: dict, ctx) -> ToolResult:
     if mode not in ("sandbox", "project_host", "system_admin"):
         mode = "sandbox"
     own_scratch = scratch.for_context(ctx)
-    effective_roots = roots if mode != "sandbox" else [cwd]
-    if mode != "sandbox" and own_scratch not in effective_roots:
-        effective_roots = [*effective_roots, own_scratch]     # своя область доступна всегда
-    if mode != "sandbox" and not within(cwd, roots) and not within(cwd, [own_scratch]):
+    # F-009 (Fable 5.1 HIGH): раньше sandbox брал effective_roots=[cwd] — то есть
+    # модель сама объявляла корнем ЛЮБОЙ каталог хоста и он уходил RW в
+    # `-v cwd:/work` без approval. Теперь для ВСЕХ режимов корни одни:
+    # разрешённые владельцем + личная scratch-область. Контейнер остаётся
+    # защитой в глубину, но не заменяет авторизацию пути на хосте.
+    effective_roots = list(roots)
+    if own_scratch not in effective_roots:
+        effective_roots.append(own_scratch)     # своя область доступна всегда
+    if not within(cwd, roots) and not within(cwd, [own_scratch]):
         return ToolResult(content=f"каталог {cwd} вне разрешённых корней "
                                   f"({', '.join(str(r) for r in roots)})",
                           one_line="terminal.run: cwd вне корней", error=True)
@@ -156,7 +181,8 @@ async def _tool_run(args: dict, ctx) -> ToolResult:
     timeout = float(args.get("timeout") or 120)
     try:
         session = await _mgr(ctx.svc).start(command, cwd, policy, approved=True,
-                                            network=bool(args.get("network")))
+                                            network=bool(args.get("network")),
+                                            owner=str(ctx.task.get("id")))
     except PermissionError as exc:
         return ToolResult(content=f"отказ политики: {exc}", one_line="terminal.run: отказ",
                           error=True)
@@ -169,7 +195,8 @@ async def _tool_run(args: dict, ctx) -> ToolResult:
     async with ctx.svc.db.session() as s:
         await s.execute(sa.insert(term_t).values(
             id=session.id, mode=mode, cwd=str(cwd), command=command, status="running",
-            pid=session.proc.pid, started_at=utcnow()))
+            pid=session.proc.pid, started_at=utcnow(),
+            task_id=ctx.task.get("id"), agent_id=(ctx.agent or {}).get("id")))
         await s.commit()
 
     deadline = asyncio.get_running_loop().time() + timeout
@@ -203,12 +230,24 @@ async def _tool_run(args: dict, ctx) -> ToolResult:
         data={"session_id": session.id, "exit_code": session.exit_code}, external=True)
 
 
+def _owned(ctx, mgr: TerminalManager, sid: str) -> str:
+    """F-011: сессия по session_id доступна только задаче-владельцу.
+    Пустая строка = ок, иначе текст отказа."""
+    sess = mgr.sessions.get(sid)
+    if sess is None:
+        return f"сессия {sid} не найдена"
+    owner = getattr(sess, "owner", None)
+    if owner is not None and owner != str(ctx.task.get("id")):
+        return f"сессия {sid} принадлежит другой задаче — доступ запрещён"
+    return ""
+
+
 async def _tool_status(args: dict, ctx) -> ToolResult:
     sid = str(args.get("session_id") or "")
     mgr = _mgr(ctx.svc)
-    if sid not in mgr.sessions:
-        return ToolResult(content=f"сессия {sid} не найдена", one_line="terminal.status: нет сессии",
-                          error=True)
+    denied = _owned(ctx, mgr, sid)
+    if denied:
+        return ToolResult(content=denied, one_line="terminal.status: отказ", error=True)
     st = mgr.status(sid)
     tail = "\n".join(st["output_tail"])[-OUTPUT_LIMIT:]
     return ToolResult(content=f"finished={st['finished']} exit_code={st['exit_code']}\n{tail}",
@@ -218,6 +257,9 @@ async def _tool_status(args: dict, ctx) -> ToolResult:
 
 async def _tool_stdin(args: dict, ctx) -> ToolResult:
     sid = str(args.get("session_id") or "")
+    denied = _owned(ctx, _mgr(ctx.svc), sid)
+    if denied:
+        return ToolResult(content=denied, one_line="terminal.stdin: отказ", error=True)
     try:
         await _mgr(ctx.svc).write_stdin(sid, str(args.get("text") or ""))
     except (KeyError, RuntimeError) as exc:
@@ -229,9 +271,9 @@ async def _tool_stdin(args: dict, ctx) -> ToolResult:
 async def _tool_kill(args: dict, ctx) -> ToolResult:
     sid = str(args.get("session_id") or "")
     mgr = _mgr(ctx.svc)
-    if sid not in mgr.sessions:
-        return ToolResult(content=f"сессия {sid} не найдена", one_line="terminal.kill: нет сессии",
-                          error=True)
+    denied = _owned(ctx, mgr, sid)
+    if denied:
+        return ToolResult(content=denied, one_line="terminal.kill: отказ", error=True)
     await mgr.kill(sid)
     async with ctx.svc.db.session() as s:
         await s.execute(sa.update(term_t).where(term_t.c.id == sid).values(
@@ -285,7 +327,7 @@ SPECS = [
         },
         required=["command"], category="exec", permission="terminal.run", source="terminal",
         default_effect="ask", timeout_seconds=300.0, idempotent=False, external_output=True,
-        effect_hook=_run_effect),
+        effect_hook=_run_effect, normalize_args=normalize_run_args),
     ToolSpec(name="terminal.status",
              description="Состояние и вывод ранее запущенной команды по session_id.",
              handler=_tool_status,
