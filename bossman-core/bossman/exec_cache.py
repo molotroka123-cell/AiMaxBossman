@@ -61,6 +61,7 @@ class ExecutionCache:
         self.blocked_by_reuse_gate = 0
         self.last_reuse_refusal = ""
         self.reuse_gate = None            # Callable[[str], tuple[bool, str]] | None
+        self.rejected_kinds = 0
 
     def _reuse_gate_active(self) -> bool:
         try:
@@ -72,7 +73,6 @@ class ExecutionCache:
         if self.reuse_gate is None:
             self.reuse_gate = reuse_allowed
         return True
-        self.rejected_kinds = 0
 
     @staticmethod
     def key(kind: str, *parts: Any) -> str:
