@@ -167,13 +167,15 @@ def test_promotion_goes_through_learning_guard_and_rollback_restores(on, tmp_pat
     mem = ApprenticeMemory(tmp_path / "mem")
     skill = mem.store_skill(_verify_skill(_skill(eps)))
     promoter = SkillPromoter(mem)
-    # insufficient evidence: 2 episodes < 3
-    assert promoter.evaluate(skill, eps[:2]).status == "CANDIDATE"
-    cand = promoter.evaluate(skill, eps)
+    # insufficient evidence: 2 episodes < 3 ; a measured baseline VerifiedSuccess (raw, without the skill) is required
+    baseline = 0.5
+    assert promoter.evaluate(skill, eps[:2], baseline_success=baseline).status == "CANDIDATE"
+    cand = promoter.evaluate(skill, eps, baseline_success=baseline)
     assert cand.status == "SHADOW", cand.reasons
+    assert promoter.evaluate(skill, eps, baseline_success=None).status == "CANDIDATE"      # no baseline -> no SHADOW
     # unverified episode (self-reported) is rejected as a source
     unverified = _episode(9)[1]
-    weak = promoter.evaluate(skill, eps[:2] + [unverified])
+    weak = promoter.evaluate(skill, eps[:2] + [unverified], baseline_success=baseline)
     assert weak.status == "CANDIDATE" and any("rejected episode" in r for r in weak.reasons)
     replays = [{"task_id": f"notes.save-{i}", "ok": True} for i in range(MIN_SHADOW_RUNS)]
     ab = ab_results_from_replays("notes.save", replays, {f"notes.save-{i}": i % 2 == 0 for i in range(MIN_SHADOW_RUNS)})
@@ -202,4 +204,4 @@ def test_promotion_goes_through_learning_guard_and_rollback_restores(on, tmp_pat
     assert mem.skills()[0]["version"] == 3
     monkeypatch.delenv(flags.SKILL_PROMOTION)
     with pytest.raises(FlagDisabled):
-        promoter.evaluate(skill, eps)
+        promoter.evaluate(skill, eps, baseline_success=baseline)
