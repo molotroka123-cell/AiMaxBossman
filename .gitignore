@@ -50,3 +50,8 @@ secret.key
 # Acceptance live-run artifacts: binaries and personal media stay local
 .audit-learning-guard-*/
 artifacts/video_factory/
+
+# Learning corpus is tracked (canonical VERIFIED/failed cases)
+!/data/
+/data/*
+!/data/learning/

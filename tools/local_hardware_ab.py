@@ -212,7 +212,8 @@ class ResourceSampler:
 
     def stop(self) -> dict:
         self.stop_event.set()
-        self.thread.join(timeout=3)
+        if self.thread.is_alive():          # stop() без start() (тесты sample_once) — не падать
+            self.thread.join(timeout=3)
         return {"peak_gateway_rss_mib": round(self.peak_gateway_rss / 1024 / 1024, 2),
                 "peak_ollama_rss_mib": round(self.peak_ollama_rss / 1024 / 1024, 2),
                 "peak_ollama_rss_scope": "process_tree",
