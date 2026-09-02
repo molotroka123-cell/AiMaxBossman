@@ -13,7 +13,7 @@
     "no_approval_bypass": {"pass": true, "evidence": "F-013 identity digest, F-015 approval-by-record, F-005 projects approvals"},
     "cloud_fail_closed": {"pass": true, "evidence": "gateway header explicit-only, embeddings gated, client default 0, cc router strict True"},
     "verified_success_requires_fresh_evidence": {"pass": true, "evidence": "review_gate → verification.verify_all; UNVERIFIED escalates"},
-    "no_security_regression": {"pass": true, "evidence": "core 1360 passed, 5 skipped, 0 failed; command-center 718 passed, 3 skipped, 0 failed; root 35 passed, 0 failed; secret scan PASS; compileall OK"},
+    "no_security_regression": {"pass": true, "evidence": "latest milestone (ad78a38): core 1398 passed/5 skipped, command-center 766 passed/3 skipped, root 38 passed, 0 failed; secret scan PASS; compileall OK"},
     "learning_schema_works": {"pass": true, "evidence": "tests/test_learning_trace.py 15 passed"},
     "corpora_separated": {"pass": true, "evidence": "fix_cases.jsonl VERIFIED only; failed_experiments.jsonl separate"},
     "secrets_redacted_no_cot": {"pass": true, "evidence": "validator rejects secret residues and hidden-reasoning fields"},

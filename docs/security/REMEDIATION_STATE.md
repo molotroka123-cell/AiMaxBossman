@@ -41,11 +41,11 @@ HOST=Linux container, no GPU, docker daemon НЕ запущен (F-009 container
 | BUG-005 | BOUNDED/FIXED | test_secrem_discovery.py |
 
 ## COMPACT CHECKPOINT (update after every verified block)
-HEAD_SHA=see `git log -1` (this commit: context slicer)
+HEAD_SHA=see `git log -1` (this commit: milestone checkpoint after context slicer)
 ACTIVE_FINDING=intelligence plan step 2 DONE — tools/context_slice.py (repo map per sha, failing-test-first slice; measured ratio 0.03 for a real SECREM test)
 ROOT_CAUSE=discovery performed by models per task instead of by a tool per commit
 FILES_CHANGED=tools/context_slice.py, tests/test_context_slice.py, .gitignore
-TESTS_RUN=tests/test_context_slice.py 3 passed
+TESTS_RUN=MILESTONE full regression at ad78a38: command-center 766 passed/3 skipped/0 failed; bossman-core 1398 passed/5 skipped/0 failed; root 38 passed; compileall OK; secret scan PASS
 RESULT=VERIFIED learning record CTX-failing-test-first-slice; freeze verdict unchanged (YES)
 NEXT_EXACT_ACTION=owner-host checklist when hardware is available; otherwise wire context_slice into agent task templates (handoff packet F7.9: failing test + slice manifest + ledger) — docs/learning/AGENT_LEARNING_TRACE_POLICY.md 'Wiring into agents'
 BLOCKERS=docker/GPU/Windows-only proofs; Anthropic key absent (cache hit unmeasured)
