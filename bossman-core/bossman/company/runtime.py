@@ -23,6 +23,8 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+
+from ..deep_fix import Principal, canonical_principal_id
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -66,6 +68,55 @@ def aggregate_kpis(kpis: tuple[KPI, ...], before: Mapping[str, float],
     return tuple(out)
 
 
+TRUSTED_APPROVER_PREFIXES = ("human:", "policy:")
+UNTRUSTED_APPROVER_PREFIXES = ("model:", "agent:", "executor", "llm:", "assistant:")
+
+
+def untrusted_approver_reason(approver: str, trusted: "frozenset[str] | None" = None) -> str:
+    """Пустая строка = approver доверенный typed principal; иначе причина отказа.
+    Модель не может одобрять: model:* / agent:* / пустой approver — всегда отказ."""
+    a = (approver or "").strip()
+    if not a:
+        return "approval without approver principal"
+    low = a.lower()
+    if low.startswith(UNTRUSTED_APPROVER_PREFIXES):
+        return f"approver {a!r} is a model/agent principal — models cannot approve"
+    if trusted is not None:
+        if a not in trusted:
+            return f"approver {a!r} is not in the trusted approver set"
+        return ""
+    if not low.startswith(TRUSTED_APPROVER_PREFIXES):
+        return f"approver {a!r} is not a typed trusted principal (human:* / policy:*)"
+    return ""
+
+
+def _principal_id(p: "str | Principal") -> str:
+    return p.principal_id if isinstance(p, Principal) else str(p or "")
+
+
+def _verifier_entry(p: "str | Principal") -> dict:
+    if isinstance(p, Principal):
+        return {"principal_id": p.principal_id, "model_id": p.model_id, "role": p.role or "verifier",
+                "run_id": p.run_id, "independence_class": p.independence_class}
+    return {"principal_id": str(p), "role": "verifier", "independence_class": "external_tool"}
+
+
+def verifier_dependency_reason(verifier: "str | Principal", executor: "str | Principal") -> str:
+    """Пустая строка = верификатор независим от исполнителя (по typed principal)."""
+    vid, eid = _principal_id(verifier), _principal_id(executor)
+    if not vid:
+        return "no verifier principal — self-report is not evidence"
+    if isinstance(verifier, Principal) and isinstance(executor, Principal):
+        ok, why = verifier.independent_of(executor)
+        return "" if ok else f"verifier is not independent of the executor: {why}"
+    if canonical_principal_id(vid) == canonical_principal_id(eid):
+        return "verifier principal is the executor (alias) — self-verification is not evidence"
+    if vid.lower().startswith("model:") and eid.lower().startswith("model:") and \
+            canonical_principal_id(vid) == canonical_principal_id(eid):
+        return "verifier is the same model as the executor"
+    return ""
+
+
 class CompanyRuntime:
     def __init__(self, plan: CompanyPlan, *, executor: Executor,
                  approval_gate: ApprovalGate | None = None,
@@ -75,8 +126,9 @@ class CompanyRuntime:
                  max_rounds: int = 3,
                  clock: Callable[[], float] | None = None,
                  cost_meter: Callable[[CompanyTask, WorkResult], float] | None = None,
-                 executor_principal: str = "executor",
-                 verifier_principal: str = "") -> None:
+                 executor_principal: "str | Principal" = "executor",
+                 verifier_principal: "str | Principal" = "",
+                 trusted_approvers: "frozenset[str] | set[str] | None" = None) -> None:
         self.plan = plan
         self.executor = executor
         self.approval_gate = approval_gate or deny_all_gate
@@ -86,6 +138,9 @@ class CompanyRuntime:
         # P0-05: identity по principal, не по display-строке; verifier == executor → UNVERIFIED
         self.executor_principal = executor_principal
         self.verifier_principal = verifier_principal or (f"verifier:{_callable_name(verifier)}" if verifier else "")
+        # Audit P0: approver — типизированный доверенный principal (human:* / policy:*),
+        # никогда model:*/agent:*; явный набор trusted_approvers сужает ещё сильнее.
+        self.trusted_approvers = frozenset(trusted_approvers) if trusted_approvers is not None else None
         self.kpi_reader = kpi_reader
         self.synthetic = synthetic
         self.max_rounds = max(1, max_rounds)
@@ -251,6 +306,9 @@ class CompanyRuntime:
         """Пустая строка = одобрение действительно; иначе причина отказа."""
         if not d.approved:
             return d.reason or "denied"
+        why = untrusted_approver_reason(d.approver, self.trusted_approvers)
+        if why:
+            return why
         want = task_digest(self.plan.objective.id, task)
         if d.digest != want:
             return "approval digest does not match this task/action"
@@ -286,9 +344,9 @@ class CompanyRuntime:
     def _verify(self, task: CompanyTask, result: WorkResult) -> VerificationOutcome:
         if self.verifier is None:
             return VerificationOutcome("UNVERIFIED", "no verifier injected — self-report is not evidence")
-        if not self.verifier_principal or self.verifier_principal == self.executor_principal:
-            return VerificationOutcome("UNVERIFIED", "verifier principal is the executor — "
-                                                     "self-verification is not evidence")
+        why = verifier_dependency_reason(self.verifier_principal, self.executor_principal)
+        if why:
+            return VerificationOutcome("UNVERIFIED", why)
         try:
             v = self.verifier(task, result)
         except Exception as exc:  # noqa: BLE001 — наблюдение недоступно → UNVERIFIED, не PASS
@@ -369,11 +427,13 @@ class CompanyRuntime:
             rec["external_verification"] = o.verification.reason
         if o.state == "DONE" and o.verification is not None and o.verification.verified:
             rec["learning_status"], rec["outcome"] = "VERIFIED", "FIXED"
-            rec["verified_by"] = [self.verifier_principal]
-            rec["verifiers"] = [{"principal_id": self.verifier_principal, "role": "verifier",
-                                 "independence_class": "external_tool"}]
-            rec["evidence_records"] = [{"observed_at": float(self.clock()), "task_id": rec["task_id"],
-                                        "source": self.verifier_principal, "principal_id": self.verifier_principal,
+            rec["verified_by"] = [_principal_id(self.verifier_principal)]
+            rec["verifiers"] = [_verifier_entry(self.verifier_principal)]
+            rec["evidence_records"] = [{"observed_at": float(self.clock()), "collected_at": float(self.clock()),
+                                        "task_id": rec["task_id"], "run_id": rec.get("run_id", ""),
+                                        "head_sha": rec["end_sha"], "environment": rec.get("environment") or ("synthetic" if self.synthetic else "live"),
+                                        "source": _principal_id(self.verifier_principal),
+                                        "principal_id": _principal_id(self.verifier_principal),
                                         "expected": "; ".join(f"{e.kind}:{e.target}" for e in task.evidence_requirements) or "fresh observation",
                                         "actual": o.verification.reason or "verified"}]
         elif o.state == "DENIED":
@@ -405,11 +465,13 @@ class CompanyRuntime:
         if status == "VERIFIED" and completion == "COMPLETE":
             rec["learning_status"] = "VERIFIED"
             rec["outcome"] = "FIXED"
-            rec["verified_by"] = [self.verifier_principal]
-            rec["verifiers"] = [{"principal_id": self.verifier_principal, "role": "verifier",
-                                 "independence_class": "external_tool"}]
-            rec["evidence_records"] = [{"observed_at": float(self.clock()), "task_id": rec["task_id"],
-                                        "source": self.verifier_principal, "principal_id": self.verifier_principal,
+            rec["verified_by"] = [_principal_id(self.verifier_principal)]
+            rec["verifiers"] = [_verifier_entry(self.verifier_principal)]
+            rec["evidence_records"] = [{"observed_at": float(self.clock()), "collected_at": float(self.clock()),
+                                        "task_id": rec["task_id"], "run_id": rec.get("run_id", ""),
+                                        "head_sha": rec["end_sha"], "environment": rec.get("environment") or ("synthetic" if self.synthetic else "live"),
+                                        "source": _principal_id(self.verifier_principal),
+                                        "principal_id": _principal_id(self.verifier_principal),
                                         "expected": "all tasks verified by fresh observation",
                                         "actual": "; ".join(o.verification.status for o in outcomes if o.verification)}]
             rec["external_verification"] = "; ".join(
