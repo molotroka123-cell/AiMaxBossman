@@ -58,6 +58,20 @@ class ExecutionCache:
         self._max = max_entries
         self.hits = 0
         self.misses = 0
+        self.blocked_by_reuse_gate = 0
+        self.last_reuse_refusal = ""
+        self.reuse_gate = None            # Callable[[str], tuple[bool, str]] | None
+
+    def _reuse_gate_active(self) -> bool:
+        try:
+            from .learning_guard.runtime_bridge import reuse_allowed, reuse_experiment_enabled  # noqa: WPS433
+        except Exception:  # noqa: BLE001
+            return False
+        if not reuse_experiment_enabled():
+            return False
+        if self.reuse_gate is None:
+            self.reuse_gate = reuse_allowed
+        return True
         self.rejected_kinds = 0
 
     @staticmethod
@@ -80,7 +94,17 @@ class ExecutionCache:
         return True
 
     def get(self, key: str, *, env_fingerprint: str = "",
-            require_verified: bool = False) -> CacheRecord | None:
+            require_verified: bool = False, task_class: str = "") -> CacheRecord | None:
+        # Audit P0 wiring: under BOSSMAN_COGNITIVE_REUSE_EXPERIMENT (OFF by default)
+        # reuse is served only when the recorded same-model A/B allows it; the flag
+        # off leaves the cache untouched.
+        if self._reuse_gate_active():
+            allowed, why = self.reuse_gate(task_class or key.split(":", 1)[0])
+            if not allowed:
+                self.misses += 1
+                self.blocked_by_reuse_gate += 1
+                self.last_reuse_refusal = why
+                return None
         rec = self._data.get(key)
         if rec is None or not rec.valid(env_fingerprint=env_fingerprint):
             if rec is not None:

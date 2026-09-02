@@ -449,12 +449,21 @@ class DeepFixRun:
 def store_learning_record(record: dict) -> dict | None:
     """Сохранить запись через корневой пакет `learning` (repo root). Возвращает
     сохранённую запись или None, если пакет недоступен (core установлен отдельно)."""
-    root = Path(__file__).resolve().parents[2]
     import sys
-    if str(root) not in sys.path:
-        sys.path.insert(0, str(root))
     try:
-        from learning import LearningStore  # noqa: WPS433
+        from learning import LearningStore  # noqa: WPS433  (installed bossman-shared)
     except Exception:  # noqa: BLE001
-        return None
-    return LearningStore().add(record, write_markdown=False)
+        root = Path(__file__).resolve().parents[2]
+        if str(root) not in sys.path and (root / "learning").is_dir():
+            sys.path.insert(0, str(root))
+        try:
+            from learning import LearningStore  # noqa: WPS433
+        except Exception:  # noqa: BLE001
+            return None
+    saved = LearningStore().add(record, write_markdown=False)
+    try:                       # Autonomy Trainer shadow wiring (OFF flag → no-op); never breaks storing
+        from .learning_guard.runtime_bridge import observe_learning_record  # noqa: WPS433
+        observe_learning_record(saved)
+    except Exception:  # noqa: BLE001
+        pass
+    return saved
