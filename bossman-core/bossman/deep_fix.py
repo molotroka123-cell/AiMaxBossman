@@ -57,6 +57,22 @@ class DeepFixGateError(RuntimeError):
 INDEPENDENCE_CLASSES = ("same_run", "same_model", "cross_model", "external_tool", "human")
 INDEPENDENT_CLASSES = frozenset({"cross_model", "external_tool", "human"})
 EVIDENCE_TTL_S = 6 * 3600     # свежесть наблюдения по умолчанию
+MAX_CLOCK_SKEW_S = 120.0      # наблюдение «из будущего» дальше этого окна — невалидно
+_ROLE_PREFIXES = ("verifier:", "coder:", "model:", "agent:", "tool:", "reviewer:", "executor:")
+
+
+def canonical_principal_id(pid: str) -> str:
+    """Канонический id: без роли-префикса, регистра и пробелов — «verifier:Qwen-14B»,
+    «qwen-14b» и «model:qwen-14b» суть один и тот же участник (alias ≠ независимость)."""
+    p = (pid or "").strip().lower()
+    changed = True
+    while changed:
+        changed = False
+        for pre in _ROLE_PREFIXES:
+            if p.startswith(pre):
+                p = p[len(pre):].strip()
+                changed = True
+    return p
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,10 +92,12 @@ class Principal:
 
     def independent_of(self, other: "Principal") -> tuple[bool, str]:
         """Независим ⇔ другой principal, другой run, другая модель/инструмент/человек."""
-        if self.principal_id == other.principal_id:
-            return False, "same principal"
+        if canonical_principal_id(self.principal_id) == canonical_principal_id(other.principal_id):
+            return False, "same principal (alias)"
         if self.run_id and other.run_id and self.run_id == other.run_id:
             return False, "same run"
+        if self.model_id and other.model_id and self.model_id.strip().lower() == other.model_id.strip().lower():
+            return False, "same model under another name is not independent"
         if self.independence_class not in INDEPENDENT_CLASSES:
             return False, f"independence_class {self.independence_class} is not independent"
         if self.independence_class == "cross_model" and self.model_id and self.model_id == other.model_id:
@@ -111,8 +129,20 @@ class Evidence:
             return "evidence without source"
         if not self.at or self.at <= 0:
             return "evidence without observed_at"
-        if self.collected_at and self.collected_at < self.at:
+        if self.at > now + MAX_CLOCK_SKEW_S:
+            return "evidence observed in the future (clock skew beyond tolerance)"
+        if not self.collected_at:
+            return "evidence without collected_at"
+        if self.collected_at < self.at:
             return "collected_at before observed_at"
+        if self.collected_at > now + MAX_CLOCK_SKEW_S:
+            return "evidence collected in the future (clock skew beyond tolerance)"
+        if not self.principal_id.strip():
+            return "evidence without principal_id"
+        if not self.head_sha.strip():
+            return "evidence without head_sha binding"
+        if not self.environment.strip():
+            return "evidence without environment binding"
         if self.task_id and self.task_id != run.task_id:
             return f"evidence for another task {self.task_id!r}"
         if not self.task_id:

@@ -91,6 +91,10 @@ def _obs(**over) -> Evidence:
                 run_id="r1", principal_id=VER.principal_id, environment="e1", head_sha="h1",
                 expected="contained", actual="contained")
     base.update(over)
+    now = time.time()
+    base.setdefault("at", now)
+    if "collected_at" not in over:      # ledger time: not before observation, never in the future
+        base["collected_at"] = max(float(base["at"]), now)
     return Evidence(**base)
 
 
@@ -106,7 +110,7 @@ def test_alias_of_same_principal_is_not_independent():
         run.verified(verifier=same_run, evidence=_obs())
     same_model = Principal(principal_id="verifier:qwen-14b", model_id="qwen-14b", role="verifier",
                            run_id="r2", independence_class="cross_model")
-    with pytest.raises(DeepFixGateError, match="same model execution"):
+    with pytest.raises(DeepFixGateError, match="same principal \\(alias\\)|same model"):
         run.verified(verifier=same_model, evidence=_obs())
     declared_same = Principal(principal_id="x", model_id="gpt", role="verifier", run_id="r2",
                               independence_class="same_model")

@@ -183,6 +183,23 @@ INDEPENDENT_CLASSES = frozenset({"cross_model", "external_tool", "human"})
 EVIDENCE_TTL_S = 30 * 24 * 3600     # запись учит долго; наблюдение должно быть датировано
 
 
+MAX_CLOCK_SKEW_S = 120.0
+_ROLE_PREFIXES = ("verifier:", "coder:", "model:", "agent:", "tool:", "reviewer:", "executor:")
+
+
+def canonical_principal_id(pid: str) -> str:
+    """Alias одного участника («verifier:Qwen-14B» / «qwen-14b») — один principal."""
+    p = (pid or "").strip().lower()
+    changed = True
+    while changed:
+        changed = False
+        for pre in _ROLE_PREFIXES:
+            if p.startswith(pre):
+                p = p[len(pre):].strip()
+                changed = True
+    return p
+
+
 def _identity_errors(case: dict) -> list[str]:
     verifiers = case.get("verifiers")
     if not verifiers:
@@ -198,12 +215,13 @@ def _identity_errors(case: dict) -> list[str]:
         pid = str(v.get("principal_id") or "")
         if cls not in INDEPENDENT_CLASSES:
             continue
-        if pid and pid == me_principal:
-            continue
+        if pid and canonical_principal_id(pid) == canonical_principal_id(me_principal):
+            continue                                   # alias той же identity
         if me_run and str(v.get("run_id") or "") == me_run:
             continue
-        if cls == "cross_model" and str(v.get("model_id") or "") == me_model:
-            continue
+        vmodel = str(v.get("model_id") or "").strip().lower()
+        if vmodel and me_model and vmodel == me_model.strip().lower():
+            continue                                   # та же модель под любым классом
         return []          # хотя бы один независимый верификатор
     return ["VERIFIED requires an independent verifier (different principal, run and model/tool/human)"]
 
@@ -217,10 +235,18 @@ def _evidence_record_errors(case: dict) -> list[str]:
             return ["evidence_records entries must be objects"]
         if not float(r.get("observed_at") or 0) > 0:
             return ["evidence_record without observed_at"]
-        if float(r.get("collected_at") or r.get("observed_at")) < float(r.get("observed_at")):
+        if not float(r.get("collected_at") or 0) > 0:
+            return ["evidence_record without collected_at"]
+        if float(r["collected_at"]) < float(r["observed_at"]):
             return ["evidence_record collected_at before observed_at"]
+        now = time.time()
+        if float(r["observed_at"]) > now + MAX_CLOCK_SKEW_S or float(r["collected_at"]) > now + MAX_CLOCK_SKEW_S:
+            return ["evidence_record timestamp in the future (clock skew beyond tolerance)"]
         if not str(r.get("source") or "").strip():
             return ["evidence_record without source"]
+        for key in ("principal_id", "head_sha", "environment"):
+            if not str(r.get(key) or "").strip():
+                return [f"evidence_record without {key}"]
         if str(r.get("task_id") or "") != str(case.get("task_id")):
             return ["evidence_record bound to another task"]
         if case.get("run_id") and str(r.get("run_id") or "") != str(case.get("run_id")):

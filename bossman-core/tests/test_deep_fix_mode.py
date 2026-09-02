@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,10 @@ def _obs(passed=True, detail="file reopened: contained", **over) -> Evidence:
                 task_id="T-1", run_id="run-1", principal_id=VERIFIER.principal_id,
                 environment="env-a", head_sha="abc123", expected="contained", actual="contained")
     base.update(over)
+    now = time.time()
+    base.setdefault("at", now)
+    if "collected_at" not in over:      # ledger time: not before observation, never in the future
+        base["collected_at"] = max(float(base["at"]), now)
     return Evidence(**base)
 
 
