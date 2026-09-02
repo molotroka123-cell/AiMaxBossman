@@ -45,9 +45,9 @@ HEAD_SHA=see `git log -1` (PASS3 session; START_REMOTE_SHA=49821e16c84bb247dd746
 ACTIVE_FINDING=PASS3 P0-01..05 FIXED (commits 1a568bf, b579fa4, 94598a7, be0efa4); Phase 2 DONE (539274c, 57e2d9d, c36c4ce); Phase 3 committed (cab3520 cache, c7c298c intelligence, dashboard panels + root-ci httpx in the following commits)
 ROOT_CAUSE=lexical path containment; string-based verifier identity; dual-corpus case_id; hooks fail-open; company budget/approval/verifier gaps; sha-only repo map; py3.12 wait_closed hang
 FILES_CHANGED=bossman/deep_fix.py, learning/trace.py, schemas/*, bossman/company/*, bcc/engine.py, tools/context_slice.py, bossman_shared/*, bossman/gateway/{app,telemetry}.py, bcc/features/cache_intel.py, bossman/learning_guard/autonomy_trainer.py, bcc/plugin_security.py (numeric telemetry exemption), .github/workflows/root-ci.yml
-TESTS_RUN=targeted (all green): deep-fix 37, learning 23, company 30, hooks/hang 101, root cache/intel 22, gateway obs 2, cc telemetry 7, autonomy 12; FULL on c7c298c: command-center 789 passed/3 skipped in 242.6s (no hang bypass, --timeout=300), root 65 passed in 5.3s; bossman-core rerun in progress (first run 19 failed only because PG@5433 was down on this host)
+TESTS_RUN=targeted (all green): deep-fix 37, learning 23, company 30, hooks/hang 101, root cache/intel 22, gateway obs 2, cc telemetry 7, autonomy 12; FULL on c7c298c: command-center 789 passed/3 skipped in 242.6s (no hang bypass, --timeout=300), root 65 passed in 5.3s; bossman-core 1447 passed/5 skipped in 27.0s with PG@5433 up (a first run showed 19 DependencyUnavailable failures only because the host PG instance was down; restarted from /tmp/pgdata)
 RESULT=P0 gates closed on this host; LIVE_CACHE_HIT_NOT_PROVEN (no key/permission)
-NEXT_EXACT_ACTION=Phase 4: read bossman-core rerun result, push, confirm root-ci green (c7c298c root-ci failed: runner lacked httpx → fixed in workflow), final report
+NEXT_EXACT_ACTION=confirm GitHub Actions green on the final HEAD (root-ci httpx fix), then final report; next owner: live Anthropic WRITE→HIT acceptance with an explicit paid-call permission
 BLOCKERS=docker/GPU/Windows/live-Anthropic proofs host-limited
 UNCOMMITTED_WORK=none after the dashboard/root-ci commits
 KNOWN_TEST_ISOLATION=command-center/tests/test_plugin_security.py::test_redact_* fail when the file runs alone; green in the full run
