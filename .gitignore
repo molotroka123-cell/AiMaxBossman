@@ -58,3 +58,4 @@ artifacts/video_factory/
 
 # deterministic repo-map cache (tools/context_slice.py)
 .bossman-cache/
+build/

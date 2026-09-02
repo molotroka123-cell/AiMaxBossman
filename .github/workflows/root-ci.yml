@@ -41,3 +41,16 @@ jobs:
           command-center/ui learning bossman_shared tools tests schemas
           .github/workflows/root-ci.yml .github/workflows/bossman-core-ci.yml
           .github/workflows/command-center-ci.yml docs/security docs/intelligence
+
+  docker-smoke:
+    name: bossman-core container ships bossman-shared
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image (repository root context)
+        run: docker build -f bossman-core/Dockerfile -t bossman-core:ci .
+      - name: Shared contracts resolve inside the container
+        run: >-
+          docker run --rm -w / bossman-core:ci python -c
+          "import bossman_shared.cache_observation, learning.trace as lt, bossman_schemas; import bossman._shared as s; assert s.AVAILABLE; assert lt.SCHEMA_PATH.exists(); print('container OK', lt.SCHEMA_PATH)"

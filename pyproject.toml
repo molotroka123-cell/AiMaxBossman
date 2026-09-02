@@ -1,0 +1,24 @@
+# bossman-shared: the repo-root contracts shared by bossman-core and command-center
+# (numeric cache observation contract, learning trace/store, JSON schemas). Installed
+# as a real distribution so wheels and containers do not depend on the repository
+# checkout (audit P0: "bossman_shared in wheels and Docker").
+[project]
+name = "bossman-shared"
+version = "0.1.0"
+description = "Shared contracts for Bossman: cache observation schema, learning trace store, JSON schemas"
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["bossman_shared", "learning", "bossman_schemas"]
+include-package-data = true
+
+[tool.setuptools.package-dir]
+bossman_schemas = "schemas"
+
+[tool.setuptools.package-data]
+bossman_schemas = ["*.json"]

@@ -29,7 +29,26 @@ from pathlib import Path
 from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
-SCHEMA_PATH = ROOT / "schemas" / "learning_fix_case.schema.json"
+
+
+def _schema_dir() -> Path:
+    """Repo checkout: <root>/schemas. Installed wheel (bossman-shared): the
+    bossman_schemas package data directory. Same files, one source of truth."""
+    local = ROOT / "schemas"
+    if (local / "learning_fix_case.schema.json").exists():
+        return local
+    try:
+        from importlib.util import find_spec  # noqa: WPS433
+        spec = find_spec("bossman_schemas")          # namespace package from the bossman-shared wheel
+        locs = list(spec.submodule_search_locations or []) if spec else []
+        if locs:
+            return Path(locs[0])
+        raise ImportError("bossman_schemas not installed")
+    except Exception:  # noqa: BLE001 — degrade to the checkout path (error surfaces on read)
+        return local
+
+
+SCHEMA_PATH = _schema_dir() / "learning_fix_case.schema.json"
 DATA_DIR = ROOT / "data" / "learning"
 DOCS_DIR = ROOT / "docs" / "learning" / "fix_logs"
 

@@ -6,8 +6,13 @@ import sys
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[2]
-if str(_ROOT) not in sys.path and (_ROOT / "bossman_shared").is_dir():
-    sys.path.insert(0, str(_ROOT))
+# Installed distribution first (bossman-shared wheel / container); the repository
+# checkout path is only a development fallback.
+try:
+    import bossman_shared as _installed  # noqa: F401
+except Exception:  # noqa: BLE001
+    if str(_ROOT) not in sys.path and (_ROOT / "bossman_shared").is_dir():
+        sys.path.insert(0, str(_ROOT))
 try:
     from bossman_shared import cache_observation as cache_observation  # noqa: F401
     from bossman_shared import cache_intelligence as cache_intelligence  # noqa: F401
