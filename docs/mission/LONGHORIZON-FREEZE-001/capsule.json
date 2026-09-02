@@ -21,5 +21,6 @@
 
                  ],
     "next_safe_action":  "run release-tier benchmark + live-safety tests; then real teacher acceptance",
-    "cloud_cost_usd":  0.0
+    "cloud_cost_usd":  0.0,
+    "escalation_policy":  "Fable only through REACTIVE_ESCALATION or HIGH_VALUE_IMPROVEMENT gate; preserve a mandatory final-review reserve (\u003e=1.25 USD). Small agents scout cheaply -\u003e GLM ranks -\u003e Fable gets top issues as one compact bundle -\u003e local workers implement -\u003e verifier checks."
 }

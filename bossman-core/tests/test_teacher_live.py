@@ -11,6 +11,7 @@ apprentice applies the method ITSELF -> teacher_calls == 0.
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 import pytest
@@ -56,9 +57,14 @@ def test_claude_live_bug_a_then_bug_b_skill_reuse(tmp_path: Path):
     ledger = SideEffectLedger(store=store)
     memory = ApprenticeMemory(tmp_path / "memory")
     sanctions = SanctionEngine()
-    verifier = PatchVerifier(verifier=Principal("verifier:patch", role="coder", run_id="live", independence_class="external_tool"))
-    teacher = Principal("teacher:claude-code", role="coder", run_id="live", independence_class="external_tool")
-    client = ClaudeCodeClient(tmp_path, command=("cmd", "/c", "claude"))
+    verifier = PatchVerifier(verifier=Principal("verifier:patch", role="coder", run_id="verifier-live-run", independence_class="external_tool"))
+    teacher = Principal("teacher:claude-code", role="coder", run_id="teacher-live-run", independence_class="external_tool")
+    if os.environ.get("BOSSMAN_TEACHER_DIRECT") == "1":
+        from bossman.apprentice.fable_direct import DirectApiBudget, FableDirectClient
+        budget = DirectApiBudget(os.environ.get("BOSSMAN_FABLE_BUDGET_FILE", str(tmp_path / "budget.json")), total_usd=2.0)
+        client = FableDirectClient(model=os.environ.get("BOSSMAN_FABLE_MODEL", "claude-sonnet-4-5"), budget=budget)
+    else:
+        client = ClaudeCodeClient(tmp_path, command=("cmd", "/c", "claude"))
     fallback = TeacherFallback(client=client, workspace=None, verifier=verifier, teacher=teacher,
                                estimated_usd=0.5, max_calls=1, sanctions=sanctions, memory=memory)
 
@@ -80,16 +86,37 @@ def test_claude_live_bug_a_then_bug_b_skill_reuse(tmp_path: Path):
     assert result_a.status == "TEACHER_OUTPUT_ACCEPTED", result_a.report
     assert ws_a.run_tests(("tests/test_calc.py::test_add",))[0] is True
     assert result_a.strategy is not None and result_a.strategy["learning_status"] == "UNVERIFIED"
-    stored = memory.store_skill(result_a.strategy)
-    assert stored["skill_state"] == "CANDIDATE"
+    assert memory.skills(verified_only=False), "fallback must have stored the strategy itself"
 
-    # ---------------- BUG B: learned strategy first, NO teacher ----------------
-    ws_b = _repo(tmp_path / "repoB", "mul", "a + b", 6)
+    # ---------------- BUG B: production skill path, NO teacher ----------------
+    # Production promotion: the UNVERIFIED candidate becomes VERIFIED only with
+    # fresh, independently observed evidence (a real test re-run on the verified
+    # workspace) — the same rule test_apprentice_e2e exercises offline.
+    from bossman.apprentice.skills import attach_verification
+    from bossman.deep_fix import Evidence
+    cand = memory.skills(verified_only=False)[0]
+    assert cand["learning_status"] == "UNVERIFIED" and learned_strategy(memory, "wrong-operator") is None
+    ok_re, failed_re, _ = ws_a.run_tests(("tests/test_calc.py::test_add",))
+    assert ok_re, failed_re
+    fresh = Evidence(kind="test", detail="live strategy replay re-run", passed=True,
+                     source="verifier:patch", at=time.time(), collected_at=time.time(), task_id=cand["task_id"],
+                     run_id=cand.get("run_id", "run-bug-a"), principal_id="verifier:patch", environment="live-acceptance",
+                     head_sha="live", expected="tests pass", actual="tests pass")
+    verified = attach_verification(cand, producer=Principal("apprentice:live", role="coder", run_id="teacher-live-run",
+                                                             independence_class="external_tool"),
+                                   verifier=Principal("verifier:patch", role="coder", run_id="verifier-live-run",
+                                                      independence_class="external_tool"),
+                                   evidence=[fresh], binding=EvidenceBinding(cand["task_id"], cand.get("run_id", "run-bug-a"),
+                                                                             "live", "live-acceptance"))
+    memory.store_skill({k: v for k, v in verified.items() if k not in ("version", "case_id", "created_at")},
+                       expected_version=int(cand.get("version") or 1))
+    client.calls = 0
     strategy = learned_strategy(memory, "wrong-operator")
     assert strategy is not None, "learned strategy must be retrievable for the analogous bug"
-    client.calls = 0
+    assert strategy["learning_status"] == "VERIFIED"
     # Apprentice applies the verified METHOD itself (inspect -> locate wrong
     # operator -> patch shape app/calc.py -> verify tests): no teacher call.
+    ws_b = _repo(tmp_path / "repoB", "mul", "a + b", 6)
     src = (tmp_path / "repoB" / "app" / "calc.py").read_text(encoding="utf-8")
     method_steps = [s["kind"] for s in strategy["semantic_actions"]]
     assert "root_cause_category" in method_steps and "verify" in method_steps

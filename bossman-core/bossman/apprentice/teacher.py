@@ -153,6 +153,10 @@ def observe_teacher(output: dict) -> TeacherObservation:
     verdict = firewall_inspect(log, source_trust=TrustLevel.UNTRUSTED)
     raw_patch = o.get("patch") or o.get("diff") or {}
     patch = {str(p): str(c) for p, c in raw_patch.items()} if isinstance(raw_patch, dict) else (str(raw_patch) if raw_patch else {})
+    raw_tests = o.get("test_results") or {}
+    # Untrusted output may carry any shape (list, string); claim data is
+    # display-only, so coerce instead of crashing the verification pipeline.
+    claimed_tests = dict(raw_tests) if isinstance(raw_tests, dict) else {"raw": raw_tests}
     obs = TeacherObservation(
         opened_files=[str(x) for x in o.get("opened_files") or []][:100],
         symbols=[str(x) for x in o.get("symbols") or []][:200],
@@ -160,7 +164,7 @@ def observe_teacher(output: dict) -> TeacherObservation:
         root_cause=tr.redact_text(str(o.get("root_cause") or ""))[:2000],
         patch=patch,
         attempt_errors=[tr.redact_text(str(x))[:500] for x in o.get("attempt_errors") or []][:50],
-        claimed_tests=dict(o.get("test_results") or {}),
+        claimed_tests=claimed_tests,
         artifacts=[str(x) for x in o.get("artifacts") or []][:50],
         log_findings=[f.pattern_id for f in verdict.findings], log_unsafe=not verdict.safe,
         model_id=str(o.get("model_id") or "claude-code"), model_version=str(o.get("model_version") or "unknown"),
