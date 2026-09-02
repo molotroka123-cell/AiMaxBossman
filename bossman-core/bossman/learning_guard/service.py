@@ -9,7 +9,7 @@ from __future__ import annotations
 from .ab import ABVerdict, evaluate_ab
 from .holdout import SecretHoldout
 from .models import Candidate, SecuritySnapshot
-from .promotion import advance
+from .promotion import NO_SECURITY_EVIDENCE, advance
 
 _HOLDOUT: SecretHoldout | None = None
 
@@ -32,12 +32,17 @@ def reject_if_holdout(task_id: str) -> None:
 
 
 def guard_promotion(candidate: Candidate, results, *,
-                    security_before: SecuritySnapshot | None = None,
-                    security_after: SecuritySnapshot | None = None,
+                    security_before: SecuritySnapshot | None = NO_SECURITY_EVIDENCE,
+                    security_after: SecuritySnapshot | None = NO_SECURITY_EVIDENCE,
                     shadow_runs: int = 0) -> tuple[Candidate, ABVerdict]:
     """Один вызов: A/B → анти-деградационные гейты → advance. Возвращает
     (обновлённый кандидат, вердикт A/B). OWNER_PROMOTED здесь не достигается —
     только через `promote(owner_approved=..., rollback=...)`.
+
+    Дефолт снимков — явный `NO_SECURITY_EVIDENCE`, а не `None`: вызов без
+    security-аргументов НЕ открывает гейт, он лишь оставляет кандидата на
+    безопасных стадиях (CANDIDATE/VALIDATION/SHADOW). Переход SHADOW → VERIFIED
+    в этом случае отклоняется (AUDIT-ONLY-001 / F4).
     """
     verdict = evaluate_ab(results)
     moved = advance(candidate, ab=verdict, security_before=security_before,

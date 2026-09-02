@@ -87,10 +87,19 @@ def test_promotion_pipeline_requires_each_stage_and_owner():
     assert c.stage is PromotionStage.VALIDATION
     c = lg.advance(c, ab=ok)                          # →SHADOW
     assert c.stage is PromotionStage.SHADOW
-    c = lg.advance(c, ab=ok, shadow_runs=5)          # мало shadow-прогонов
+    snap = SecuritySnapshot(leaks=0, bypasses=0, containment_rate=1.0)
+    c = lg.advance(c, ab=ok, security_before=snap, security_after=snap,
+                   shadow_runs=5)                    # мало shadow-прогонов
     assert c.stage is PromotionStage.SHADOW
-    c = lg.advance(c, ab=ok, shadow_runs=20)         # →VERIFIED
-    assert c.stage is PromotionStage.VERIFIED
+    # AUDIT-ONLY-001/F4: SHADOW→VERIFIED — единственный переход, дающий право на
+    # OWNER_PROMOTED, поэтому без ПОЛНОЙ пары security-снимков он fail-closed.
+    blocked = lg.advance(c, ab=ok, shadow_runs=20)
+    assert blocked.stage is PromotionStage.SHADOW and blocked.reasons
+    half = lg.advance(c, ab=ok, security_before=snap, shadow_runs=20)
+    assert half.stage is PromotionStage.SHADOW and half.reasons
+    c = lg.advance(c, ab=ok, security_before=snap, security_after=snap,
+                   shadow_runs=20)                   # →VERIFIED (с доказательством)
+    assert c.stage is PromotionStage.VERIFIED and c.security_proven
     # без owner — не продвигается
     assert lg.promote(c, owner_approved=False,
                       rollback=RollbackInfo("verified", "s0")).stage is PromotionStage.VERIFIED
@@ -117,8 +126,15 @@ def test_security_regression_blocks_even_with_passing_ab():
 # req.10 — rollback-метаданные обязательны при promotion
 def test_promotion_carries_rollback_metadata():
     ok = lg.evaluate_ab(_mk(40, "code", True, True))
-    c = Candidate("skill", "s2", stage=PromotionStage.VERIFIED)
+    # AUDIT-ONLY-001/F4: стадия VERIFIED — метка, а не доказательство; OWNER_PROMOTED
+    # дополнительно требует записанного security-доказательства (`security_proven`,
+    # выставляется только в advance() после сравнения полной пары снимков).
+    unproven = Candidate("skill", "s2", stage=PromotionStage.VERIFIED)
     rb = RollbackInfo(prev_stage="verified", prev_ref="s1", reason="baseline")
+    refused = lg.promote(unproven, owner_approved=True, rollback=rb)
+    assert refused.stage is PromotionStage.VERIFIED and refused.rollback is None
+    assert any("security" in r for r in refused.reasons)
+    c = Candidate("skill", "s2", stage=PromotionStage.VERIFIED, security_proven=True)
     done = lg.promote(c, owner_approved=True, rollback=rb)
     assert done.rollback == rb
 

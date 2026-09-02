@@ -20,15 +20,19 @@ from .ab import (ABVerdict, DEGRADATION_MAX_PP, MIN_EPISODES, RETENTION_MIN,
 from .holdout import HoldoutViolation, SecretHoldout
 from .models import (ABResult, Candidate, PromotionStage, RollbackInfo,
                      SecuritySnapshot)
-from .promotion import (MIN_SHADOW_RUNS, SecurityRegression, advance,
-                        assert_no_security_regression, promote)
+from .promotion import (MIN_SHADOW_RUNS, NO_SECURITY_EVIDENCE,
+                        MissingSecurityEvidence, SecurityRegression, advance,
+                        assert_no_security_regression, assert_security_evidence,
+                        promote, security_evidence_gap)
 from .service import (get_holdout, guard_promotion, reject_if_holdout, set_holdout)
 
 __all__ = [
     "ABResult", "ABVerdict", "Candidate", "PromotionStage", "RollbackInfo",
     "SecuritySnapshot", "SecretHoldout", "HoldoutViolation", "SecurityRegression",
+    "MissingSecurityEvidence", "NO_SECURITY_EVIDENCE",
     "evaluate_ab", "context_fallback_to_raw", "advance", "promote",
-    "assert_no_security_regression", "DEGRADATION_MAX_PP", "RETENTION_MIN",
+    "assert_no_security_regression", "assert_security_evidence",
+    "security_evidence_gap", "DEGRADATION_MAX_PP", "RETENTION_MIN",
     "MIN_EPISODES", "MIN_SHADOW_RUNS",
     "set_holdout", "get_holdout", "reject_if_holdout", "guard_promotion",
 ]

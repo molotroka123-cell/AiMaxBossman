@@ -34,6 +34,10 @@ class ABResult:
     raw_tokens: int = 0
     guarded_tokens: int = 0
     bossman_self_score: float | None = None      # audit-only, НЕ evidence
+    scope_ref: str = ""                          # отпечаток корпуса, на котором измерено
+    #  '' = измерение не несёт идентичности корпуса. Кандидат, у которого scope
+    #  объявляет неизменяемую идентичность (dataset_hash/policy_version/scope_ref),
+    #  такое доказательство ОТКЛОНЯЕТ (autonomy_trainer.promote_candidate).
 
 
 @dataclass(frozen=True)
@@ -53,6 +57,9 @@ class SecuritySnapshot:
     leaks: int = 0
     bypasses: int = 0
     containment_rate: float = 1.0
+    scope_ref: str = ""           # корпус/окружение, на котором снят срез
+    #  Два среза с РАЗНЫМ scope_ref несравнимы: сравнивать их — значит выдать
+    #  смену корпуса за улучшение security (assert_no_security_regression).
 
 
 @dataclass(frozen=True)
@@ -63,3 +70,8 @@ class Candidate:
     stage: PromotionStage = PromotionStage.CANDIDATE
     reasons: tuple[str, ...] = ()
     rollback: RollbackInfo | None = None
+    security_proven: bool = False
+    #  True только если по кандидату УЖЕ сравнили полную пару SecuritySnapshot и
+    #  регрессии не было (`promotion.advance`). `promote()` (VERIFIED →
+    #  OWNER_PROMOTED) требует этот флаг: стадия VERIFIED сама по себе — метка,
+    #  а не доказательство.

@@ -15,6 +15,7 @@ false-success, non-inferior VerifiedSuccess, явный scope/version/environmen
 """
 from __future__ import annotations
 
+import hashlib
 import os
 from dataclasses import dataclass, field, replace
 from typing import Any, Iterable
@@ -29,9 +30,34 @@ KINDS = ("context", "skill", "route", "budget", "cache", "verification", "weakne
 STATUSES = ("CANDIDATE", "SHADOW", "PROMOTED", "QUARANTINED", "ROLLED_BACK", "REJECTED")
 RISKY_KINDS = frozenset({"route", "budget", "weakness_patch"})
 
+# Ключи scope, которые задают НЕИЗМЕНЯЕМУЮ идентичность корпуса (в отличие от
+# имени task_class, которое можно молча перерезать). AUDIT-ONLY-001 / F5.
+CORPUS_IDENTITY_KEYS = ("scope_ref", "corpus_ref", "dataset_hash", "policy_version")
+LEGACY_UNSCOPED = "LEGACY_UNSCOPED"
+
 
 def enabled() -> bool:
     return os.environ.get(FLAG, "").strip().lower() in ("1", "true", "yes")
+
+
+def scope_fingerprint(scope: dict) -> str:
+    """Непрозрачный отпечаток корпуса, к которому приколот кандидат.
+
+    ``''`` — scope объявлен только ПО ИМЕНИ (task_class/environment/model_version):
+    неизменяемой идентичности нет, требовать её от уже существующих записей нельзя
+    (обратная совместимость). Как только scope объявляет ``dataset_hash`` /
+    ``policy_version`` / ``scope_ref``, доказательства (ABResult, SecuritySnapshot)
+    обязаны нести тот же отпечаток — иначе продвижение отклоняется.
+    """
+    if scope.get("scope_ref"):
+        return str(scope["scope_ref"])
+    ident = [f"{k}={scope.get(k)}" for k in CORPUS_IDENTITY_KEYS if scope.get(k)]
+    if not ident:
+        return ""
+    base = "|".join([f"task_class={scope.get('task_class', '')}",
+                     f"environment={scope.get('environment', '')}",
+                     f"model_version={scope.get('model_version', '')}", *ident])
+    return hashlib.sha256(base.encode("utf-8")).hexdigest()[:16]
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +154,16 @@ def evaluate_candidate(cand: AutonomyCandidate, episodes: Iterable[Episode], *,
         reasons.append(f"INSUFFICIENT_EVIDENCE: {len(usable)} independent verified episodes < {need}")
     if len(envs) != 1 or len(versions) != 1 or not (envs and versions and next(iter(envs)) and next(iter(versions))):
         reasons.append("scope must be one explicit environment fingerprint and model version")
+    else:
+        # Эпизоды согласованы МЕЖДУ СОБОЙ — этого мало: они обязаны принадлежать
+        # тому корпусу, к которому приколот кандидат (AUDIT-ONLY-001 / F5).
+        env, ver = next(iter(envs)), next(iter(versions))
+        want_env = str(cand.scope.get("environment") or "")
+        want_ver = str(cand.scope.get("model_version") or "")
+        if want_env and env != want_env:
+            reasons.append(f"episodes from environment {env!r} are outside scope {want_env!r}")
+        if want_ver and ver != want_ver:
+            reasons.append(f"episodes from model version {ver!r} are outside scope {want_ver!r}")
     if not cand.scope.get("task_class"):
         reasons.append("scope.task_class missing")
     successes = sum(1 for e in usable if e.verified_success)
@@ -155,9 +191,34 @@ def promote_candidate(cand: AutonomyCandidate, ab_results: Iterable[ABResult], *
         return replace(cand, reasons=("candidate is not in SHADOW; evaluate first",))
     if not rollback_tested:
         return replace(cand, reasons=("rollback not tested",))
+    # --- scope binding (AUDIT-ONLY-001 / F5): доказательства обязаны принадлежать
+    # тому корпусу, к которому приколот кандидат. До фикса cand.scope здесь не
+    # читался вообще, и 20 чистых прогонов чужого класса продвигали кандидата.
+    want_class = str(cand.scope.get("task_class") or "")
+    if not want_class:
+        # Легаси/десериализованная запись без scope. Ничего не удаляем и не
+        # промоутим: возвращаем на переоценку (обратимо — добавьте scope и
+        # прогоните evaluate_candidate заново).
+        return replace(cand, status="CANDIDATE",
+                       reasons=(f"{LEGACY_UNSCOPED}: candidate carries no scope.task_class; "
+                                "re-evaluate before promotion",))
+    ab = list(ab_results)
+    seen = {r.task_class for r in ab}
+    if seen != {want_class}:
+        return replace(cand, reasons=(
+            f"A/B evidence covers {sorted(seen)}, candidate is scoped to {want_class!r}",))
+    want_ref = scope_fingerprint(cand.scope)
+    if want_ref:
+        foreign = sorted({r.scope_ref for r in ab if r.scope_ref != want_ref})
+        if foreign:
+            return replace(cand, reasons=(
+                f"A/B evidence corpus {foreign} does not match candidate corpus {want_ref!r}",))
+        if security_before.scope_ref != want_ref or security_after.scope_ref != want_ref:
+            return replace(cand, reasons=(
+                f"security snapshots are not bound to candidate corpus {want_ref!r}",))
     lg = Candidate(kind="config", ref=cand.candidate_id, stage=PromotionStage.SHADOW)
     try:
-        moved, verdict = guard_promotion(lg, list(ab_results), security_before=security_before,
+        moved, verdict = guard_promotion(lg, ab, security_before=security_before,
                                          security_after=security_after, shadow_runs=shadow_runs)
     except SecurityRegression as exc:
         return replace(cand, security_regression=True, status="QUARANTINED", reasons=(str(exc),))
