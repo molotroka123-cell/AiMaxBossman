@@ -1,0 +1,17 @@
+{
+ "mission_id": "REDTEAM-TANDEM-001",
+ "total_usd": 5.0,
+ "reservations": [
+  {
+   "reservation_id": "rsv-620d8e721a06",
+   "mission_id": "REDTEAM-TANDEM-001",
+   "owner_id": "bossman",
+   "purpose": "fable-direct-call",
+   "worst_case_usd": 0.15144,
+   "created_at": 1788390181.957304,
+   "status": "COMMITTED",
+   "actual_usd": 0.07602,
+   "request_id": "req_011CefStYsXjRyBfRLApwrwY"
+  }
+ ]
+}
