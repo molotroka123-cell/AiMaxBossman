@@ -28,6 +28,32 @@ from .tools import (REGISTRY as TOOLS, ToolContext, agent_policy_rules, allowed_
 
 ACTIVE_RUN_STATUSES = ("queued", "leased", "running")
 
+# P0-04: хуки безопасности fail-closed. Критичный хук (ревью/approval/Deep Fix
+# gate, Resource Brain before_run, роутер pick_model) при исключении, таймауте
+# или битом результате НЕ даёт задаче завершиться. Телеметрия (on_step,
+# on_failure, after_run) деградирует мягко: событие hook.degraded и дальше.
+CRITICAL_HOOK_NAMES = frozenset({"before_run", "gate_completion", "pick_model"})
+GATE_VERDICTS = frozenset({"pass", "fail"})
+DEFAULT_HOOK_TIMEOUT_S = 60.0
+
+
+class CriticalHookFailure(Exception):
+    """Критичный хук упал/завис/вернул мусор — run не может считаться выполненным."""
+
+    def __init__(self, name: str, hook: str, reason: str):
+        self.name = name
+        self.hook = hook
+        self.reason = reason
+        super().__init__(f"critical hook {name} failed: {hook}: {reason}")
+
+
+def _hook_qualname(fn: Any) -> str:
+    qual = getattr(fn, "__qualname__", None) or getattr(fn, "__name__", None)
+    if qual is None:
+        qual = type(fn).__qualname__
+    mod = getattr(fn, "__module__", None)
+    return f"{mod}.{qual}" if mod else str(qual)
+
 
 class TaskEngine:
     def __init__(self, db: Database, bus: EventBus, registry: Registry, *,
@@ -56,25 +82,98 @@ class TaskEngine:
         self.hooks: dict[str, list] = {k: [] for k in (
             "pick_model", "before_run", "on_step", "gate_completion",
             "on_failure", "after_run")}
+        # критичность по id(fn): список self.hooks[...] остаётся списком корутин
+        # (фичи/тесты могут его трогать напрямую), метаданные — отдельно.
+        self._hook_critical: dict[int, bool] = {}
+        # каждому вызову хука — свой таймаут (asyncio.wait_for); None = без лимита
+        self.hook_timeout_s: float | None = DEFAULT_HOOK_TIMEOUT_S
         # Services проставляет себя после создания: инструментам нужен доступ к
         # approvals/vault/менеджерам браузера и терминала (V2.1).
         self.services: Any = None
 
-    def add_hook(self, name: str, fn: Any) -> None:
+    def add_hook(self, name: str, fn: Any, *, critical: bool | None = None) -> None:
+        """Зарегистрировать хук. `critical=None` → по имени: before_run,
+        gate_completion, pick_model критичны (fail-closed), остальные — телеметрия."""
         if name not in self.hooks:
             raise KeyError(f"нет такого хука: {name}")
+        if critical is None:
+            critical = name in CRITICAL_HOOK_NAMES
+        self._hook_critical[id(fn)] = bool(critical)
         self.hooks[name].append(fn)
 
-    async def _call_hooks(self, name: str, *args: Any) -> list[Any]:
-        """Исключение хука логируется и не роняет run (контракты §8)."""
-        results: list[Any] = []
-        for fn in self.hooks.get(name, ()):
+    def hook_is_critical(self, name: str, fn: Any) -> bool:
+        return self._hook_critical.get(id(fn), name in CRITICAL_HOOK_NAMES)
+
+    @staticmethod
+    def _malformed_hook_result(name: str, res: Any) -> str | None:
+        """Причина, если результат хука не по контракту; None — результат годный."""
+        if name == "gate_completion":
+            if res is None:
+                return None
+            if not isinstance(res, dict):
+                return f"malformed result: expected dict or None, got {type(res).__name__}"
+            if "verdict" in res and res["verdict"] not in GATE_VERDICTS:
+                return f"malformed verdict: {str(res['verdict'])[:40]!r} not in {sorted(GATE_VERDICTS)}"
+            return None
+        if name == "pick_model":
+            if not res:
+                return None
+            raw = res.get("model_id") if isinstance(res, dict) else res
             try:
-                results.append(await fn(*args))
-            except Exception as exc:
-                await self.bus.emit("worker.error",
-                                    message=f"хук {name}: {type(exc).__name__}: {exc}")
+                int(raw)
+            except (TypeError, ValueError):
+                return f"malformed result: model_id {type(raw).__name__} is not an int"
+        return None
+
+    async def _call_hooks(self, name: str, *args: Any) -> list[Any]:
+        """Вызвать хуки по порядку регистрации.
+
+        Некритичный хук: исключение/таймаут/битый результат → событие
+        hook.degraded, идём дальше (fail open, контракты §8 для телеметрии).
+        Критичный хук: → событие hook.critical_failure и CriticalHookFailure —
+        вызывающий код обязан НЕ завершать задачу как выполненную (P0-04).
+        В событиях нет аргументов хука и промптов: только имя хука, функция и
+        тип/короткая причина ошибки.
+        """
+        results: list[Any] = []
+        timeout = self.hook_timeout_s
+        for fn in list(self.hooks.get(name, ())):
+            qual = _hook_qualname(fn)
+            reason: str | None
+            error_type = ""
+            try:
+                coro = fn(*args)
+                res = await (asyncio.wait_for(coro, timeout=timeout)
+                             if timeout is not None else coro)
+            except asyncio.CancelledError:
+                raise                       # Stop/shutdown — не ошибка хука
+            except (asyncio.TimeoutError, TimeoutError):
+                error_type = "TimeoutError"
+                reason = f"timeout after {timeout}s"
+            except Exception as exc:  # noqa: BLE001 — любой сбой хука обрабатывается тут
+                error_type = type(exc).__name__
+                reason = _ps_redact_text(f"{error_type}: {exc}")[:200]
+            else:
+                reason = self._malformed_hook_result(name, res)
+                if reason is None:
+                    results.append(res)
+                    continue
+                error_type = "MalformedResult"
+            if self.hook_is_critical(name, fn):
+                await self.bus.emit("hook.critical_failure", hook=name, fn=qual,
+                                    error=error_type, reason=reason)
+                raise CriticalHookFailure(name, qual, reason)
+            await self.bus.emit("hook.degraded", hook=name, fn=qual,
+                                error=error_type, reason=reason)
         return results
+
+    async def _call_hooks_soft(self, name: str, *args: Any) -> list[Any]:
+        """Хуки после терминального статуса (on_failure/after_run): статус уже
+        зафиксирован, критичный сбой ничего не отменяет — событие уже отправлено."""
+        try:
+            return await self._call_hooks(name, *args)
+        except CriticalHookFailure:
+            return []
 
     # ---------- постановка в очередь ----------
 
@@ -356,7 +455,13 @@ class TaskEngine:
 
         # before_run: Resource Brain может отложить ({"defer": сек, "reason"}) или
         # запретить ({"fail": причина}) запуск до старта выполнения
-        for res in await self._call_hooks("before_run", task, run):
+        try:
+            before = await self._call_hooks("before_run", task, run)
+        except CriticalHookFailure as exc:
+            await self._fail_now(run_id, task["id"],
+                                 f"critical hook before_run failed: {exc.hook}: {exc.reason}")
+            return
+        for res in before:
             if isinstance(res, dict) and res.get("defer"):
                 delay = float(res["defer"])
                 async with self.db.session() as s:
@@ -419,6 +524,10 @@ class TaskEngine:
             except LookupError as exc:
                 await self._fail_now(run_id, task["id"], str(exc))
                 return
+            except CriticalHookFailure as exc:
+                await self._fail_now(run_id, task["id"],
+                                     f"critical hook pick_model failed: {exc.hook}: {exc.reason}")
+                return
 
             step += 1
             alias = model.get("alias") or alias
@@ -431,6 +540,13 @@ class TaskEngine:
                                 f"{alias}: cache_read={result.cache_read_tokens} "
                                 f"cache_write={result.cache_write_tokens} "
                                 f"hit={'yes' if result.cache_read_tokens else 'no'}")
+            # PASS3: нормализованное наблюдение и для MISS/BYPASS/UNKNOWN (не только при read/write)
+            try:
+                obs = cache_observation_for(model, result, task_id=task["id"], run_id=run_id)
+            except Exception:  # noqa: BLE001 — телеметрия не роняет run
+                obs = None
+            if obs is not None:
+                await self.bus.emit("cache.observation", task_id=task["id"], run_id=run_id, **obs)
 
             if result.has_tool_calls:
                 messages.append(_assistant_tool_message(result))
@@ -451,9 +567,14 @@ class TaskEngine:
                                             tokens_in=tokens_in, tokens_out=tokens_out,
                                             cost_usd=round(cost, 6), model_alias=alias)
                 cp_id = await self._insert_checkpoint(run_id, messages, step, note="tools")
-                await self._call_hooks("on_step", task, run_id,
-                                       {"messages": messages, "step": step,
-                                        "checkpoint_id": cp_id, "tools": True})
+                try:
+                    await self._call_hooks("on_step", task, run_id,
+                                           {"messages": messages, "step": step,
+                                            "checkpoint_id": cp_id, "tools": True})
+                except CriticalHookFailure as exc:
+                    await self._fail_now(run_id, task["id"],
+                                         f"critical hook on_step failed: {exc.hook}: {exc.reason}")
+                    return
                 continue                    # результаты инструментов → следующий шаг модели
 
             answer = result.text
@@ -468,17 +589,29 @@ class TaskEngine:
                                 step=step, max_steps=max_steps, model=alias)
             # каждый шаг — строка в checkpoints (история для Replay/Fork) + хук on_step
             cp_id = await self._insert_checkpoint(run_id, messages, step, note="answer")
-            await self._call_hooks("on_step", task, run_id,
-                                   {"messages": messages, "step": step,
-                                    "checkpoint_id": cp_id})
+            try:
+                await self._call_hooks("on_step", task, run_id,
+                                       {"messages": messages, "step": step,
+                                        "checkpoint_id": cp_id})
+            except CriticalHookFailure as exc:
+                await self._fail_now(run_id, task["id"],
+                                     f"critical hook on_step failed: {exc.hook}: {exc.reason}")
+                return
 
         if await self._check_interrupt(run_id, task["id"], messages, step):
             return
         if not answer:
             answer = next((m["content"] for m in reversed(messages)
                            if m["role"] == "assistant"), "")
-        # gate_completion (Reviewer Gate): задача не станет completed без PASS
-        for res in await self._call_hooks("gate_completion", task, run_id, answer):
+        # gate_completion (Reviewer Gate): задача не станет completed без PASS.
+        # P0-04: упавший/зависший/битый gate — тоже НЕ completed: эскалация
+        # человеку (waiting_approval + review_escalation), при сбое эскалации — failed.
+        try:
+            verdicts = await self._call_hooks("gate_completion", task, run_id, answer)
+        except CriticalHookFailure as exc:
+            await self._escalate_gate_failure(run_id, task, messages, step, exc)
+            return
+        for res in verdicts:
             if not isinstance(res, dict) or "verdict" not in res:
                 continue
             await self.bus.emit("evaluation.completed", task_id=task["id"], run_id=run_id,
@@ -673,8 +806,8 @@ class TaskEngine:
                             duration_ms=duration)
         if result.error:
             # ошибка инструмента — сигнал Governor'у/Self-Healing, но не провал run'а
-            await self._call_hooks("on_failure", task, run_id,
-                                   f"tool:{spec.name}: {result.content[:200]}")
+            await self._call_hooks_soft("on_failure", task, run_id,
+                                        f"tool:{spec.name}: {result.content[:200]}")
 
     async def _resume_pending_tool(self, run_id: int, task: dict, agent: dict,
                                    messages: list[dict], pending: dict,
@@ -898,7 +1031,7 @@ class TaskEngine:
         attempt = int((run or {}).get("attempt") or 0)
         max_retries = int(task.get("max_retries") or 0)
         await self._log(run_id, "error", "run.error", error)
-        await self._call_hooks("on_failure", task, run_id, error)
+        await self._call_hooks_soft("on_failure", task, run_id, error)
         if attempt < max_retries:
             delay = min(self.retry_base_delay * (2 ** attempt), self.retry_max_delay)
             # пауза хранится в БД (queued + «не раньше»), а не в sleep — переживает рестарт
@@ -994,7 +1127,7 @@ class TaskEngine:
             payload["result"] = result[:500]
         await self.bus.emit(kind, **payload)
         if status in ("completed", "failed", "stopped"):
-            await self._call_hooks("after_run", task_id, run_id, status)
+            await self._call_hooks_soft("after_run", task_id, run_id, status)
 
     async def _insert_checkpoint(self, run_id: int, messages: list[dict], step: int,
                                  note: str = "") -> int:
@@ -1005,6 +1138,40 @@ class TaskEngine:
             await s.commit()
         await self.bus.emit("checkpoint.created", checkpoint_id=cp_id, run_id=run_id, step=step)
         return cp_id
+
+    async def _escalate_gate_failure(self, run_id: int, task: dict, messages: list[dict],
+                                     step: int, exc: CriticalHookFailure) -> None:
+        """Gate упал → задача НЕ completed: run паркуется (queued, без аренды,
+        checkpoint), задача → waiting_approval, человеку — review_escalation с
+        именем упавшего хука. Если сама эскалация падает (БД approvals) — failed."""
+        task_id = int(task["id"])
+        reason = f"critical hook gate_completion failed: {exc.hook}: {exc.reason}"
+        try:
+            await self._log(run_id, "error", "run.gate_failed", reason[:500])
+            await self._approvals_create(
+                kind="review_escalation",
+                preview=(f"Проверка завершения задачи «{str(task.get('title') or '')[:80]}» "
+                         f"не выполнена: хук {exc.hook} — {exc.reason}. "
+                         f"Задача НЕ считается выполненной; нужно решение человека."),
+                task_id=task_id, run_id=run_id)
+            async with self.db.session() as s:
+                await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                    status="queued", worker_lease_until=None,
+                    checkpoint={"messages": messages, "step": step,
+                                "note": "gate_hook_failed"}))
+                await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
+                    status="waiting_approval", updated_at=utcnow()))
+                await s.commit()
+        except asyncio.CancelledError:
+            raise
+        except Exception as inner:  # noqa: BLE001 — эскалация не удалась → честный failed
+            await self.bus.emit("hook.escalation_failed", hook=exc.name, fn=exc.hook,
+                                error=type(inner).__name__)
+            await self._fail_now(run_id, task_id,
+                                 f"{reason}; escalation failed: {type(inner).__name__}")
+            return
+        await self.bus.emit("task.progress", task_id=task_id, run_id=run_id,
+                            waiting_approval=True, gate_hook_failed=exc.hook)
 
     async def _fail_now(self, run_id: int, task_id: int, error: str) -> None:
         """Провал без ретраев (нет агента/модели, попытки исчерпаны) — с записью в лог run'а."""
@@ -1065,7 +1232,71 @@ def _call_from_dict(data: dict) -> Any:
 
 
 def _cost(model: dict, result: ChatResult) -> float:
-    """Цены хранятся в USD за 1M токенов (как их публикуют провайдеры)."""
+    """Цены хранятся в USD за 1M токенов (как их публикуют провайдеры).
+
+    PASS3: корзины fresh / cache_read / cache_write считаются РАЗДЕЛЬНО.
+    result.tokens_in = fresh + read + write (см. AnthropicAdapter). Цены
+    кэш-корзин берутся из model.price_cache_read / price_cache_write, если они
+    заданы; иначе — консервативно по price_in (верхняя граница, помечается
+    оценкой в наблюдении — «экономия» без известной цены не заявляется)."""
     price_in = float(model.get("price_in") or 0.0)
     price_out = float(model.get("price_out") or 0.0)
-    return result.tokens_in / 1e6 * price_in + result.tokens_out / 1e6 * price_out
+    read = int(getattr(result, "cache_read_tokens", 0) or 0)
+    write = int(getattr(result, "cache_write_tokens", 0) or 0)
+    fresh = max(0, result.tokens_in - read - write)
+    p_read = model.get("price_cache_read")
+    p_write = model.get("price_cache_write")
+    p_read = float(p_read) if p_read is not None else price_in
+    p_write = float(p_write) if p_write is not None else price_in
+    return (fresh / 1e6 * price_in + read / 1e6 * p_read + write / 1e6 * p_write
+            + result.tokens_out / 1e6 * price_out)
+
+
+def cache_telemetry_enabled() -> bool:
+    """BOSSMAN_CACHE_TELEMETRY_V2 — безопасная числовая телеметрия (без контента);
+    по умолчанию включена, выключается явным 0."""
+    import os
+    return os.environ.get("BOSSMAN_CACHE_TELEMETRY_V2", "1").strip().lower() not in ("0", "false", "no")
+
+
+def cache_observation_for(model: dict, result: ChatResult, *, task_id, run_id) -> dict | None:
+    """PASS3 normalized observation для прямого маршрута Command Center.
+    Только числа/хэши; None, если shared-контракт недоступен или телеметрия выключена."""
+    if not cache_telemetry_enabled():
+        return None
+    from ._shared import cache_observation as co
+    if co is None:
+        return None
+    meta = result.provider_meta or {}
+    raw = meta.get("usage") if isinstance(meta.get("usage"), dict) else None
+    pc = meta.get("prompt_cache") if isinstance(meta.get("prompt_cache"), dict) else {}
+    provider_kind = str(model.get("provider_kind") or model.get("kind") or "unknown")
+    anthropic = bool(pc) or (raw is not None and "input_tokens" in raw and "cache_read_input_tokens" in raw)
+    if anthropic:
+        buckets = co.normalize_anthropic_usage(raw)
+        eligible = bool(pc.get("applied"))
+        provider = "anthropic"
+    else:
+        buckets = co.normalize_openai_style_usage(raw)
+        eligible = False                       # прямой не-Anthropic маршрут: кэш не запрашивался
+        provider = provider_kind
+    route = "local" if str(model.get("kind")) == "local" else "direct"
+    price_in = model.get("price_in"); price_out = model.get("price_out")
+    from decimal import Decimal
+    actual = baseline = None
+    est = True
+    if buckets is not None and price_in is not None and price_out is not None:
+        actual_d, baseline_d, est = co.cost_pair(
+            buckets, fresh_per_m=Decimal(str(price_in)),
+            read_per_m=(Decimal(str(model["price_cache_read"])) if model.get("price_cache_read") is not None else None),
+            write_per_m=(Decimal(str(model["price_cache_write"])) if model.get("price_cache_write") is not None else None),
+            output_per_m=Decimal(str(price_out)))
+        actual = float(actual_d) if actual_d is not None else None
+        baseline = float(baseline_d) if baseline_d is not None else None
+    obs = co.build_observation(provider=provider, model=str(model.get("alias") or model.get("name") or "?"),
+                               route=route, eligible=eligible, buckets=buckets,
+                               cache_control_applied=bool(pc.get("applied")),
+                               ttl=("5m" if pc.get("applied") else None),
+                               actual_cost_usd=actual, baseline_cost_usd=baseline, baseline_is_estimate=est,
+                               task_id_hash=co.opaque(task_id), session_id_hash=co.opaque(run_id))
+    return obs.as_dict()
