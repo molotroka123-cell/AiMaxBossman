@@ -33,7 +33,17 @@ ACTIVE_RUN_STATUSES = ("queued", "leased", "running")
 # или битом результате НЕ даёт задаче завершиться. Телеметрия (on_step,
 # on_failure, after_run) деградирует мягко: событие hook.degraded и дальше.
 CRITICAL_HOOK_NAMES = frozenset({"before_run", "gate_completion", "pick_model"})
-GATE_VERDICTS = frozenset({"pass", "fail"})
+GATE_VERDICTS = frozenset({"PASS", "FAIL", "NOT_APPLICABLE"})
+_LEGACY_VERDICTS = {"pass": "PASS", "fail": "FAIL", "not_applicable": "NOT_APPLICABLE", "n/a": "NOT_APPLICABLE"}
+
+
+def normalize_gate_verdict(raw: Any) -> str | None:
+    """Типизированный вердикт критичного гейта: PASS | FAIL | NOT_APPLICABLE; иначе None."""
+    if not isinstance(raw, str):
+        return None
+    v = raw.strip()
+    v = _LEGACY_VERDICTS.get(v.lower(), v.upper())
+    return v if v in GATE_VERDICTS else None
 DEFAULT_HOOK_TIMEOUT_S = 60.0
 
 
@@ -108,11 +118,15 @@ class TaskEngine:
     def _malformed_hook_result(name: str, res: Any) -> str | None:
         """Причина, если результат хука не по контракту; None — результат годный."""
         if name == "gate_completion":
+            # Audit P0: критичный гейт обязан вернуть typed PASS/FAIL/NOT_APPLICABLE.
+            # Молчаливый None или dict без verdict — не «мнения нет», а сбой гейта.
             if res is None:
-                return None
+                return "silent None from a critical gate (typed verdict required)"
             if not isinstance(res, dict):
-                return f"malformed result: expected dict or None, got {type(res).__name__}"
-            if "verdict" in res and res["verdict"] not in GATE_VERDICTS:
+                return f"malformed result: expected dict with verdict, got {type(res).__name__}"
+            if "verdict" not in res:
+                return "malformed result: gate dict without verdict"
+            if normalize_gate_verdict(res["verdict"]) is None:
                 return f"malformed verdict: {str(res['verdict'])[:40]!r} not in {sorted(GATE_VERDICTS)}"
             return None
         if name == "pick_model":
@@ -612,12 +626,13 @@ class TaskEngine:
             await self._escalate_gate_failure(run_id, task, messages, step, exc)
             return
         for res in verdicts:
-            if not isinstance(res, dict) or "verdict" not in res:
-                continue
+            verdict = normalize_gate_verdict(res.get("verdict")) if isinstance(res, dict) else None
+            if verdict is None:
+                continue                      # недостижимо: _call_hooks уже отверг битый результат
             await self.bus.emit("evaluation.completed", task_id=task["id"], run_id=run_id,
-                                verdict=res["verdict"],
+                                verdict=verdict,
                                 reasons=str(res.get("reasons") or "")[:500])
-            if res["verdict"] != "fail":
+            if verdict != "FAIL":
                 continue
             feedback = str(res.get("feedback") or res.get("reasons") or "ревью не пройдено")
             await self._log(run_id, "warn", "run.review_fail", feedback[:500])

@@ -152,7 +152,7 @@ async def test_gate_hook_timeout_is_critical_failure(env):
 
 # ------------------------------------------------------- (d) битый результат gate
 
-@pytest.mark.parametrize("bad", ["PASS", {"verdict": "maybe"}, 42, ["pass"]])
+@pytest.mark.parametrize("bad", ["PASS", {"verdict": "maybe"}, 42, ["pass"], None, {"note": "no verdict"}])
 async def test_malformed_gate_result_does_not_complete_task(env, bad):
     _fake(env)
 
@@ -167,17 +167,20 @@ async def test_malformed_gate_result_does_not_complete_task(env, bad):
     assert ev and ev[0]["data"]["error"] == "MalformedResult"
 
 
-async def test_gate_dict_without_verdict_is_still_no_opinion(env):
-    """Контракт сохранён: dict без verdict — «мнения нет», задача завершается."""
+async def test_gate_not_applicable_is_a_typed_verdict_and_completes(env):
+    """Audit P0: гейт без мнения обязан сказать это типизированно — NOT_APPLICABLE;
+    молчаливый None / dict без verdict — сбой гейта (см. параметризацию выше)."""
     _fake(env)
 
-    async def no_opinion(task, run_id, answer):
-        return {"note": "не моя задача"}
+    async def not_applicable(task, run_id, answer):
+        return {"verdict": "NOT_APPLICABLE", "reasons": "no plan bound"}
 
-    env.svc.engine.add_hook("gate_completion", no_opinion)
+    env.svc.engine.add_hook("gate_completion", not_applicable)
     stack = await make_stack(env.client)
     assert await _drive(env, stack["task"]["id"]) == "completed"
     assert not await _events(env, "hook.critical_failure")
+    done = await _events(env, "evaluation.completed")
+    assert done and done[-1]["data"]["verdict"] == "NOT_APPLICABLE"
 
 
 # ------------------------------------------------- (e) телеметрия деградирует мягко

@@ -78,21 +78,21 @@ async def _before_run(svc):
 async def _gate(svc):
     async def gate_completion(task, run_id, answer):
         if not enabled():
-            return None
+            return {"verdict": "NOT_APPLICABLE"}
         meta = await _meta(svc, task["id"])
         bound = (meta.get("deep_fix") or {}).get("plan_hash")
         if not bound:
-            return None
+            return {"verdict": "NOT_APPLICABLE"}
         current = plan_hash(meta.get("review"))
         if current == bound:
-            return None                      # план тот же — решает review_gate
+            return {"verdict": "NOT_APPLICABLE"}   # план тот же — решает review_gate
         reason = (f"план верификации изменён после привязки (goalpost moved): "
                   f"bound={bound[:12]}… current={current[:12]}…")
         await svc.approvals.create(kind="review_escalation", task_id=task["id"], run_id=run_id,
                                    preview=f"Deep Fix: {reason}\nНужно решение человека: "
                                            f"принять новый план или вернуть исходный.")
         await svc.bus.emit("deep_fix.plan_mismatch", task_id=task["id"], run_id=run_id)
-        return {"verdict": "fail", "requeue": False, "status": "waiting_approval",
+        return {"verdict": "FAIL", "requeue": False, "status": "waiting_approval",
                 "reasons": reason}
     return gate_completion
 

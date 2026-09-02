@@ -128,7 +128,7 @@ async def _gate(svc):
         meta = await _task_meta(svc, task["id"])
         review = meta.get("review")
         if not review:
-            return None
+            return {"verdict": "NOT_APPLICABLE"}
         max_iter = int(review.get("max_review_retries", 2)) + 1
         gate = ReviewGate(max_iterations=max_iter, iteration=int(meta.get("review_attempts", 0)))
         gate.submit_for_review()
@@ -150,15 +150,15 @@ async def _gate(svc):
         await _record_eval(svc, task["id"], run_id, gate.iteration, passed,
                            f"{status}: {feedback}", artifacts)
         if gate_status == "passed":
-            return {"verdict": "pass", "reasons": feedback}
+            return {"verdict": "PASS", "reasons": feedback}
         if gate_status == "fix":
-            return {"verdict": "fail", "feedback": feedback, "requeue": True}
+            return {"verdict": "FAIL", "feedback": feedback, "requeue": True}
         # waiting_approval — эскалация: лимит исчерпан ИЛИ верификация невозможна
         head = ("Верификация невозможна (UNVERIFIED) — нужна независимая проверка человеком."
                 if status == UNVERIFIED else f"Ревью не пройдено {gate.iteration} раз.")
         await svc.approvals.create(kind="review_escalation", task_id=task["id"], run_id=run_id,
                                    preview=f"{head}\n{feedback}")
-        return {"verdict": "fail", "requeue": False, "status": "waiting_approval",
+        return {"verdict": "FAIL", "requeue": False, "status": "waiting_approval",
                 "reasons": f"{status}: {feedback}"}
     return gate_completion
 
