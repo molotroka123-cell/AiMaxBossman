@@ -74,7 +74,10 @@ jobs:
           BOSSMAN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bossman_test
         run: |
           cd bossman-core
-          python -m pytest tests/ -q --tb=short --timeout=300 --timeout-method=signal
+          # Sandbox process-runtime tests are host-specific (they need the runner to allow
+          # the safe runtime's workspace/process model); the Bossman Core CI groups own them.
+          python -m pytest tests/ -q --tb=short --timeout=300 --timeout-method=signal \
+            --ignore=tests/test_sandbox_safe_runtime.py --ignore=tests/test_stage9_sandbox_e2e.py
       
       - name: Create PR if fixes needed
         if: failure()

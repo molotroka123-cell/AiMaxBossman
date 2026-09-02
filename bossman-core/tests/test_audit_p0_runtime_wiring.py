@@ -21,7 +21,7 @@ def _rec(i: int, verified: bool = True, **over) -> dict:
     rec = {"task_id": f"T-{i}", "bug_class": "path_traversal", "component": "fs", "learning_status": "VERIFIED" if verified else "UNVERIFIED",
            "principal_id": "agent:qwen#r1", "model": "qwen-14b", "environment": "env-a", "start_sha": "a", "end_sha": "b",
            "verifiers": [{"principal_id": "human:qa", "independence_class": "human", "run_id": "r9"}],
-           "evidence_records": [{"observed_at": 1.0, "environment": "env-a"}], "notes": "token sk-ant-api03-SECRETVALUE0000000000000000"}
+           "evidence_records": [{"observed_at": 1.0, "environment": "env-a"}], "notes": "token sk-ant-api03-SECRETVALUE0000000000000000"}  # ci-secret-scan: allow (synthetic canary)
     rec.update(over)
     return rec
 

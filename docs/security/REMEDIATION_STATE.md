@@ -41,15 +41,15 @@ HOST=Linux container, no GPU, docker daemon НЕ запущен (F-009 container
 | BUG-005 | BOUNDED/FIXED | test_secrem_discovery.py |
 
 ## COMPACT CHECKPOINT (update after every verified block)
-HEAD_SHA=see `git log -1` (PASS3 session; START_REMOTE_SHA=49821e16c84bb247dd746fa57a880256c540ae78)
-ACTIVE_FINDING=PASS3 P0-01..05 FIXED (commits 1a568bf, b579fa4, 94598a7, be0efa4); Phase 2 DONE (539274c, 57e2d9d, c36c4ce); Phase 3 committed (cab3520 cache, c7c298c intelligence, dashboard panels + root-ci httpx in the following commits)
+HEAD_SHA=38174eb (UCA + audit P0 closure; START_SHA of this pass 3b15d466)
+ACTIVE_FINDING=audit P0 list closed (identity/evidence, journal store, trainer baseline, company principals, typed gate, packaging, cache evidence, runtime wiring, V2 CI); UCA delivered as MOCK-proven single agent (LIVE_NOT_PROVEN)
 ROOT_CAUSE=lexical path containment; string-based verifier identity; dual-corpus case_id; hooks fail-open; company budget/approval/verifier gaps; sha-only repo map; py3.12 wait_closed hang
 FILES_CHANGED=bossman/deep_fix.py, learning/trace.py, schemas/*, bossman/company/*, bcc/engine.py, tools/context_slice.py, bossman_shared/*, bossman/gateway/{app,telemetry}.py, bcc/features/cache_intel.py, bossman/learning_guard/autonomy_trainer.py, bcc/plugin_security.py (numeric telemetry exemption), .github/workflows/root-ci.yml
-TESTS_RUN=targeted (all green): deep-fix 37, learning 23, company 30, hooks/hang 101, root cache/intel 22, gateway obs 2, cc telemetry 7, autonomy 12; FULL on c7c298c: command-center 789 passed/3 skipped in 242.6s (no hang bypass, --timeout=300), root 65 passed in 5.3s; bossman-core 1447 passed/5 skipped in 27.0s with PG@5433 up (a first run showed 19 DependencyUnavailable failures only because the host PG instance was down; restarted from /tmp/pgdata)
-RESULT=P0 gates closed on this host; LIVE_CACHE_HIT_NOT_PROVEN (no key/permission)
-NEXT_EXACT_ACTION=confirm GitHub Actions green on the final HEAD (root-ci httpx fix), then final report; next owner: live Anthropic WRITE→HIT acceptance with an explicit paid-call permission
+TESTS_RUN=full on final code: cc 791/3 (197.7s, no hang bypass), core 1580/5 (18.4s, PG up), root 77 (9.6s incl. wheel-install test); targeted apprentice+lead+audit 132, root audit 11
+RESULT=NO-GO live / READY for owner audit; all deterministic gates green; see docs/security/UCA_AUDIT_P0_FINAL_REPORT.md
+NEXT_EXACT_ACTION=owner: run live acceptance per UCA doc §9 with explicit permission; next engineer: durable safety store (nonces, side-effect ids, reliability) per MASTER_PROMPT_KIMI_K3_FIXES.md §3
 BLOCKERS=docker/GPU/Windows/live-Anthropic proofs host-limited
-UNCOMMITTED_WORK=none after the dashboard/root-ci commits
+UNCOMMITTED_WORK=none
 KNOWN_TEST_ISOLATION=command-center/tests/test_plugin_security.py::test_redact_* fail when the file runs alone; green in the full run
 
 ## EXACT_NEXT_TASK (long form)
