@@ -69,9 +69,9 @@ async def preview(request: Request):
     svc = request.app.state.svc
     body = await request.json()
     mode = body.get("mode", "sandbox")
-    cwd = Path(body.get("cwd") or svc.settings.data_dir)
-    roots = await _allowed_roots(svc) if mode != "sandbox" else [cwd]
-    policy = TerminalPolicy(allowed_roots=roots, mode=mode)
+    cwd = Path(body.get("cwd") or svc.settings.data_dir).expanduser().resolve()
+    # F-009: корни одни для всех режимов (sandbox больше не «[cwd]»)
+    policy = TerminalPolicy(allowed_roots=await _allowed_roots(svc), mode=mode)
     decision = policy.decision(body.get("command", ""), cwd)
     return {"decision": decision, "mode": mode, "cwd": str(cwd)}
 
@@ -82,20 +82,26 @@ async def run(request: Request):
     body = await request.json()
     mode = body.get("mode", "sandbox")
     cmd = body.get("command", "")
-    cwd = Path(body.get("cwd") or svc.settings.data_dir)
-    approved = bool(body.get("approved"))
-    roots = await _allowed_roots(svc) if mode != "sandbox" else [cwd]
-    policy = TerminalPolicy(allowed_roots=roots, mode=mode)
+    cwd = Path(body.get("cwd") or svc.settings.data_dir).expanduser().resolve()
+    # F-009: sandbox больше не объявляет cwd корнем — корни владельца для всех режимов.
+    policy = TerminalPolicy(allowed_roots=await _allowed_roots(svc), mode=mode)
     decision = policy.decision(cmd, cwd)
     if decision == "deny":
         raise HTTPException(403, {"message": "команда запрещена политикой",
                                   "hint": "деструктивная команда или cwd вне разрешённых корней"})
-    if decision == "ask" and not approved:
-        # заводим approval и отвечаем, что нужно подтверждение
-        appr = await svc.approvals.create(kind="terminal",
-                                          preview=f"[{mode}] {cmd}\ncwd: {cwd}")
-        raise HTTPException(202, {"message": "нужно подтверждение",
-                                  "approval_id": appr.get("id"), "decision": "ask"})
+    preview = f"[{mode}] {cmd}\ncwd: {cwd}"
+    if decision == "ask":
+        # F-015: «approved: true» в теле запроса — не подтверждение. Подтверждение —
+        # это запись approvals(kind=terminal, status=approved) с ТЕМ ЖЕ preview
+        # (команда+cwd+режим), предъявленная как approval_id и потребляемая один раз.
+        if body.get("approved") and not body.get("approval_id"):
+            raise HTTPException(403, {"message": "самоутверждённый флаг approved не принимается: "
+                                                 "нужен approval_id одобренной записи"})
+        if not await svc.approvals.consume(body.get("approval_id"), kind="terminal",
+                                           preview=preview):
+            appr = await svc.approvals.create(kind="terminal", preview=preview)
+            raise HTTPException(202, {"message": "нужно подтверждение",
+                                      "approval_id": appr.get("id"), "decision": "ask"})
     try:
         session = await _mgr(svc).start(cmd, cwd, policy, approved=True,
                                         network=bool(body.get("network")))

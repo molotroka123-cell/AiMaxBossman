@@ -52,3 +52,27 @@ class Approvals:
             row = await fetch_one(s, approvals_t, approval_id)
         await self.bus.emit("approval.decided", id=approval_id, status=status, by=by)
         return row
+
+    async def consume(self, approval_id, *, kind: str, preview: str) -> bool:
+        """F-015: подтверждение — это ЗАПИСЬ в таблице, а не флаг в теле запроса.
+
+        True только если approval с этим id существует, имеет статус approved,
+        тот же kind и ТОТ ЖЕ preview (детерминированное описание действия:
+        команда+cwd / действие+цель). Успешное использование переводит запись в
+        status=consumed — повторно предъявить тот же id нельзя (anti-replay)."""
+        try:
+            aid = int(approval_id)
+        except (TypeError, ValueError):
+            return False
+        async with self.db.session() as s:
+            res = await s.execute(sa.update(approvals_t).where(
+                approvals_t.c.id == aid,
+                approvals_t.c.status == "approved",
+                approvals_t.c.kind == kind,
+                approvals_t.c.preview == preview).values(status="consumed"))
+            await s.commit()
+            ok = bool(res.rowcount)
+        if ok:
+            await self.bus.emit("approval.consumed", id=aid, approval_kind=kind)
+        return ok
+

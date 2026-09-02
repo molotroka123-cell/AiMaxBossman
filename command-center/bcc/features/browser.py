@@ -123,8 +123,18 @@ async def act(session_id: int, request: Request):
     body = await request.json()
     action = body.get("action")
     mgr = _mgr(svc)
-    actor = body.get("actor", "agent")
-    approved = bool(body.get("approved"))
+    actor = str(body.get("actor") or "agent")
+    if actor not in ("agent", "human"):
+        raise HTTPException(422, {"message": "actor: agent|human"})
+    subject = str(body.get("url", body.get("selector", "")))
+    preview = f"browser {action}: {subject}"
+    # F-015: подтверждение — только запись approvals(kind=browser, тот же preview),
+    # предъявленная как approval_id (одноразовая). «approved: true» в теле — не авторитет.
+    if body.get("approved") and not body.get("approval_id"):
+        raise HTTPException(403, {"message": "самоутверждённый флаг approved не принимается: "
+                                             "нужен approval_id одобренной записи"})
+    approved = await svc.approvals.consume(body.get("approval_id"), kind="browser",
+                                           preview=preview)
     try:
         if action == "navigate":
             res = await mgr.navigate(session_id, body["url"], actor=actor, approved=approved)
@@ -146,8 +156,7 @@ async def act(session_id: int, request: Request):
     except BrowserTakeoverActive:
         raise HTTPException(409, {"message": "активен Human Take Over — действия агента заблокированы"})
     except BrowserApprovalRequired:
-        aid = await svc.approvals.create(kind="browser",
-                                         preview=f"browser {action}: {body.get('url', body.get('selector', ''))}")
+        aid = await svc.approvals.create(kind="browser", preview=preview)
         raise HTTPException(202, {"message": "нужно подтверждение",
                                   "approval_id": aid.get("id")})
     except BrowserPolicyDenied as exc:

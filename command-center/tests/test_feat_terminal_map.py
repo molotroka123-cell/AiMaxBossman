@@ -126,6 +126,12 @@ def test_windows_read_commands_are_auto_without_touching_linux(tmp_path):
 
 # ---------- Terminal API ----------
 
+def _aid(payload: dict) -> int:
+    """HTTPException(202, {...}) может прийти как {"detail": {...}} или плоско."""
+    inner = payload.get("error") or payload.get("detail") or payload
+    return int(inner["approval_id"])
+
+
 async def test_terminal_preview_decisions(env):
     r = (await env.client.post("/api/terminal/preview",
                                json={"command": "git status", "mode": "sandbox"})).json()
@@ -166,10 +172,14 @@ async def test_terminal_runs_in_project_host(env):
     # физически превращается в '?'. Суть теста — реальный запуск + стрим вывода,
     # поэтому маркер платформо-адаптивный.
     marker = "privet-terminal" if _os.name == "nt" else "привет-терминал"
-    # echo не в AUTO-списке project_host → нужен approved (имитируем нажатие)
-    r = (await env.client.post("/api/terminal/run",
-                               json={"command": f"echo {marker}", "mode": "project_host",
-                                     "cwd": str(d), "approved": True})).json()
+    # echo не в AUTO-списке project_host → нужно подтверждение. F-015: флаг
+    # approved в теле не принимается — только approval_id одобренной ЗАПИСИ.
+    body = {"command": f"echo {marker}", "mode": "project_host", "cwd": str(d)}
+    first = await env.client.post("/api/terminal/run", json=body)
+    assert first.status_code == 202, first.text
+    aid = _aid(first.json())
+    await env.client.post(f"/api/approvals/{aid}", json={"approve": True, "by": "тест"})
+    r = (await env.client.post("/api/terminal/run", json={**body, "approval_id": aid})).json()
     sid = r["session_id"]
     for _ in range(50):
         st = (await env.client.get(f"/api/terminal/sessions/{sid}")).json()
