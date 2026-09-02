@@ -79,16 +79,20 @@ def normalize_openai_style_usage(usage: Mapping[str, Any] | None) -> TokenBucket
 
 
 def classify(*, eligible: bool, buckets: TokenBuckets | None, degraded: bool = False) -> str:
+    """State from PROVIDER EVIDENCE first: measured cache_read/cache_write tokens win over
+    the internal "cache_control applied"/eligible flag (audit P0). The flag only decides
+    BYPASS vs MISS/UNKNOWN when the provider reported no cache tokens."""
+    if buckets is not None:
+        if buckets.cache_read > 0:
+            return "HIT"
+        if buckets.cache_write > 0:
+            return "WRITE"
     if not eligible:
         return "BYPASS"
     if buckets is None:
         return "UNKNOWN"
     if degraded:
         return "DEGRADED"
-    if buckets.cache_read > 0:
-        return "HIT"
-    if buckets.cache_write > 0:
-        return "WRITE"
     return "MISS"
 
 
