@@ -122,7 +122,7 @@ class UniversalComputerApprentice:
                  on_record: Callable[[ActionRecord], None] | None = None,
                  lessons: list[dict] | None = None, fallback: Callable[..., Plan | None] | None = None,
                  clock: Callable[[], float] = time.time, policy: ComputerPolicy | None = None,
-                 loop_guard: LoopGuard | None = None, allowed_skew_s: float = 300.0) -> None:
+                 loop_guard: LoopGuard | None = None, allowed_skew_s: float = 120.0) -> None:
         self.planner, self.observer, self.actuator = planner, observer, actuator
         self.verifier = verifier or DefaultVerifier()
         self.approval_gate = approval_gate
@@ -148,8 +148,9 @@ class UniversalComputerApprentice:
             label = s.target.label() if s.target else ""
             out.append({"step_id": s.step_id, "kind": s.kind.value, "target": label, "risk": s.risk.value,
                         "needs_approval": s.risk in APPROVAL_RISK, "side_effecting": s.side_effecting,
-                        "side_effect_id": side_effect_id(task.task_id, s.step_id, s.kind.value, label, s.text, s.args)
-                        if s.side_effecting else "", "checkpoint": s.checkpoint, "is_goal": s.is_goal})
+                        "side_effect_id": side_effect_id(task.task_id, s.step_id, s.kind.value, label, s.text, s.args,
+                                                         s.idempotency_key, session_id=task.session_id, app=s.app.app)
+                        if (s.side_effecting or s.risk in WRITE_RISK) else "", "checkpoint": s.checkpoint, "is_goal": s.is_goal})
         return out
 
     def run(self, task: ApprenticeTask, *, resume_from: dict | None = None) -> TaskResult:
@@ -393,7 +394,9 @@ class UniversalComputerApprentice:
         if needs_approval and not step.args.get("_approved_digest") == digest:
             raise ApprovalRequired(f"{step.risk.value} action needs owner approval ({decision.reason or 'risk'})", digest)
         # 9. side-effect idempotency
-        seid = (side_effect_id(task.task_id, step.step_id, step.kind.value, label, step.text, clean_args, step.idempotency_key)
+        app_scope = step.app.app or str((obs.foreground or {}).get("app", ""))
+        seid = (side_effect_id(task.task_id, step.step_id, step.kind.value, label, step.text, clean_args, step.idempotency_key,
+                               session_id=task.session_id, app=app_scope)
                 if (step.side_effecting or step.risk in WRITE_RISK) else "")
         duplicate = False
         result: dict | None = None
@@ -405,6 +408,7 @@ class UniversalComputerApprentice:
         pre_ref = view.ref
         receipt: EffectReceipt | None = None
         if not duplicate:
+            issued_at = self.clock()                        # receipt must be observed at/after this instant
             try:
                 raw = self.actuator.act(step, obs, action_id=action.id, side_effect_id=seid)
             except Exception as exc:  # noqa: BLE001 — actuator failure is a recoverable step failure
@@ -414,7 +418,7 @@ class UniversalComputerApprentice:
                                     error_code="actuator_error")
                 raise VerificationFailed(f"actuator error: {exc!r}")
             if seid:
-                why = self._receipt_error(raw, seid, action, step)
+                why = self._receipt_error(raw, seid, action, step, issued_at)
                 if why:
                     self.ledger.abandon(seid)               # NOT completed: the effect is neither duplicated nor silently lost
                     self._append_record(ctx, step, label, action, pre_ref, None, None, f"receipt_invalid: {why}", seid, view,
@@ -432,14 +436,15 @@ class UniversalComputerApprentice:
         after = self._observe(ctx, action_id=action.id, side_effect_id=seid)
         ver = self.verifier.verify(step, action, obs, after)
         self.loop_guard.record(action, obs, after, ver.ok)
+        outcome = "ok" if ver.ok else "verification_failed"
         self._append_record(ctx, step, label, action, pre_ref, self._ref(ctx, after), ver,
-                            "ok" if ver.ok else "verification_failed", seid, view, duplicate=duplicate, receipt=receipt)
+                            f"duplicate:{outcome}" if duplicate else outcome, seid, view, duplicate=duplicate, receipt=receipt)
         if not ver.ok:
             raise VerificationFailed(ver.reason)
         return True
 
-    def _receipt_error(self, raw: Any, seid: str, action: ComputerAction, step: PlanStep) -> str:
-        """Empty string = receipt verified against the request."""
+    def _receipt_error(self, raw: Any, seid: str, action: ComputerAction, step: PlanStep, issued_at: float) -> str:
+        """Empty string = receipt verified against the request (identity, type, freshness)."""
         if not isinstance(raw, EffectReceipt):
             return f"actuator returned {type(raw).__name__}, not an EffectReceipt"
         if raw.side_effect_id != seid:
@@ -449,8 +454,12 @@ class UniversalComputerApprentice:
         if raw.action_type != step.kind.value:
             return f"receipt action_type {raw.action_type!r} != action {step.kind.value!r}"
         now = self.clock()
-        if not raw.observed_at or raw.observed_at <= 0 or raw.observed_at > now + self.allowed_skew_s:
-            return f"receipt observed_at {raw.observed_at!r} is missing or from the future"
+        if not raw.observed_at or raw.observed_at <= 0:
+            return "receipt without observed_at"
+        if raw.observed_at < issued_at:
+            return f"receipt observed_at {raw.observed_at:.0f} is before the action was issued ({issued_at:.0f}): stale receipt"
+        if raw.observed_at > now + self.allowed_skew_s:
+            return f"receipt observed_at {raw.observed_at:.0f} is from the future (now {now:.0f} + {self.allowed_skew_s:.0f}s skew)"
         if not str(raw.evidence_source).strip():
             return "receipt without evidence_source"
         return ""

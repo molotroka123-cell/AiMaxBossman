@@ -142,10 +142,16 @@ class SideEffectLedger:
         return len(self._done)
 
 
-def side_effect_id(task_id: str, step_id: str, kind: str, target_label: str, text: str, args: dict, key: str = "") -> str:
-    """Explicit idempotency key (task-scoped) wins; otherwise the deterministic step identity."""
+def side_effect_id(task_id: str, step_id: str, kind: str, target_label: str, text: str, args: dict, key: str = "",
+                   *, session_id: str = "", app: str = "") -> str:
+    """Identity of an external effect.
+
+    With an explicit idempotency_key the identity is scoped to session + application +
+    action kind + target + key — NOT to task_id/run_id, which differ on every retry, so a
+    retried run cannot execute the same keyed effect twice. Without a key the deterministic
+    task-scoped step identity is used."""
     if key:
-        return sha("side_effect", task_id, "key", key)[:32]
+        return sha("side_effect", "key", session_id, app, kind, target_label, key)[:32]
     return sha("side_effect", task_id, step_id, kind, target_label, sha(text), args)[:32]
 
 

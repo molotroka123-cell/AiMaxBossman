@@ -94,7 +94,8 @@ class EpisodeRecorder:
     def finish(self, result: TaskResult) -> dict:
         errors = [{"step_id": r.get("step_id", ""), "error_code": r.get("error_code", ""), "result": r.get("result", "")}
                   for r in self.records if r.get("result") != "ok"]
-        failed_ver = any(str(r.get("result", "")).startswith(("verification_failed", "receipt_invalid")) for r in self.records)
+        failed_ver = any(("verification_failed" in str(r.get("result", ""))) or str(r.get("result", "")).startswith("receipt_invalid")
+                         for r in self.records)
         verified = result.state is ApprenticeState.SUCCEED and not failed_ver and all(
             (r.get("verification") or {}).get("ok") for r in self.records if r.get("result") == "ok")
         status = "UNVERIFIED" if verified else ("FAILED_EXPERIMENT" if failed_ver or not result.checkpoints_reached else "PARTIAL")
