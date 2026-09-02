@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import hashlib
 import os
+import re
 import shlex
 
 import httpx
@@ -25,9 +26,115 @@ from .router import Route, choose, load_registry
 
 MAX_RETRIES = 2  # провал проверки → перегенерация с уточнённым промптом, максимум две попытки
 
+# F-005: шаблоны cmd в registry.yaml пишет владелец, но ПАРАМЕТРЫ в них подставляет
+# план, сочинённый моделью. Поэтому: (1) плейсхолдеры — только из известного набора,
+# (2) ключи params — только те, что есть в шаблоне (плюс метаданные, которые в
+# команду не попадают), (3) шаблон режется на argv ДО подстановки — значение
+# параметра целиком становится одним элементом argv, без оболочки.
+KNOWN_PLACEHOLDERS = frozenset({"prompt", "out", "input", "text", "seconds", "model"})
+# Параметры плана, которые НЕ подставляются в команду (используются раннером:
+# длительность клипа — для лимитов/стоимости) и потому не обязаны быть в шаблоне.
+PARAM_METADATA_KEYS = frozenset({"seconds"})
+_PLACEHOLDER_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_SHELLS = frozenset({"sh", "bash", "dash", "zsh"})
+
 
 class ProjectPaused(Exception):
     pass
+
+
+class ProjectToolDenied(RuntimeError):
+    """Инструмент/шаблон/параметры не прошли проверку раннера проектов —
+    ничего не исполнено."""
+
+
+def _declared_builtins() -> set[str]:
+    """Явный allowlist builtin-инструментов: только те, что registry.yaml
+    объявляет с kind: builtin. Строка из конфига — не ключ в REGISTRY напрямую."""
+    tools = (load_registry().get("tools") or {})
+    return {str(spec.get("builtin")) for spec in tools.values()
+            if isinstance(spec, dict) and spec.get("kind") == "builtin" and spec.get("builtin")}
+
+
+async def _run_builtin(slug: str, name: str, params: dict, *, task_id: str | None = None):
+    """F-005: builtin через семантику runner._call_tool, а не REGISTRY[...].handler
+    напрямую: allowlist из registry.yaml + confirm_default/mandatory_confirm →
+    approval владельца (отказ = пауза проекта, инструмент не исполняется)."""
+    if name not in _declared_builtins():
+        raise ProjectToolDenied(f"builtin '{name}' не объявлен в registry.yaml — отказ")
+    tool = REGISTRY.get(name)
+    if tool is None:
+        raise ProjectToolDenied(f"builtin '{name}' не зарегистрирован в toolkit — отказ")
+    needs_confirm = bool(tool.confirm_default)
+    if tool.mandatory_confirm is not None:
+        try:
+            if tool.mandatory_confirm():
+                needs_confirm = True
+        except Exception:  # noqa: BLE001 — сбой предиката трактуем как «нужно спросить»
+            needs_confirm = True
+    if needs_confirm:
+        preview = (f"Проект {slug}, задача {task_id or '-'}: инструмент {tool.name}\n"
+                   f"аргументы: {compact_params(params)}")
+        approval_id = await approvals.create("action", preview, tool=tool.name,
+                                             payload={"slug": slug, "task": task_id, "args": params})
+        decision = await approvals.wait(approval_id)
+        if decision["status"] != "approved":
+            raise ProjectPaused(f"инструмент {tool.name} отклонён владельцем")
+    return await tool.handler(params, _ctx(slug))
+
+
+def compact_params(params: dict, limit: int = 800) -> str:
+    try:
+        import json
+        text = json.dumps(params, ensure_ascii=False)
+    except Exception:  # noqa: BLE001
+        text = str(params)
+    return text[:limit]
+
+
+def build_cmd_argv(template: str, params: dict, defaults: dict) -> tuple[list[str], bool]:
+    """Шаблон → argv без оболочки. Возвращает (argv, via_shell).
+
+    - shlex.split ДО подстановки: границы аргументов задаёт владелец шаблоном,
+      значение параметра модели их сдвинуть не может;
+    - плейсхолдеры только из KNOWN_PLACEHOLDERS, ключи params — только из шаблона
+      (+ PARAM_METADATA_KEYS);
+    - единственное исключение: шаблон вида `sh -c '<script>'` (piper_local в
+      registry.yaml) — это оболочка по замыслу владельца. Такой шаблон
+      исполняется через create_subprocess_shell(<script>) с shlex.quote каждой
+      подстановки; это оставшийся templated-shell, покрытый
+      tests/test_stage13_hostexec_redteam.py KNOWN_SHELL_EXCEPTIONS."""
+    try:
+        argv = shlex.split(template)
+    except ValueError as exc:
+        raise ProjectToolDenied(f"шаблон cmd не разбирается: {exc}") from exc
+    if not argv:
+        raise ProjectToolDenied("пустой шаблон cmd")
+    placeholders = set(_PLACEHOLDER_RE.findall(template))
+    unknown = placeholders - KNOWN_PLACEHOLDERS
+    if unknown:
+        raise ProjectToolDenied(f"шаблон cmd содержит неизвестные плейсхолдеры: {sorted(unknown)}")
+    extra_keys = set(params) - placeholders - PARAM_METADATA_KEYS
+    if extra_keys:
+        raise ProjectToolDenied(f"параметры плана не из шаблона cmd: {sorted(extra_keys)}")
+    values = {k: str(v) for k, v in params.items() if k in placeholders}
+    for k, v in defaults.items():
+        if k in placeholders:
+            values.setdefault(k, str(v))
+    missing = placeholders - set(values)
+    if missing:
+        raise ProjectToolDenied(f"в плане нет значений для плейсхолдеров: {sorted(missing)}")
+    via_shell = len(argv) >= 3 and argv[0] in _SHELLS and argv[1] == "-c"
+    if via_shell and len(argv) != 3:
+        raise ProjectToolDenied("shell-шаблон допустим только в форме `sh -c '<script>'`")
+
+    def _sub(elem: str, quote: bool) -> str:
+        return _PLACEHOLDER_RE.sub(
+            lambda m: shlex.quote(values[m.group(1)]) if quote else values[m.group(1)], elem)
+
+    if via_shell:
+        return [argv[0], argv[1], _sub(argv[2], quote=True)], True
+    return [_sub(a, quote=False) for a in argv], False
 
 
 async def _db_task_update(slug: str, t: PlanTask, status: str, cost: float = 0.0) -> None:
@@ -65,17 +172,25 @@ async def _execute(slug: str, t: PlanTask, route: Route, state: State) -> tuple[
 
     kind = spec.get("kind")
     if kind == "builtin":
-        tool = REGISTRY[spec["builtin"]]
-        result = await tool.handler(t.params, _ctx(slug))
+        # F-005: allowlist + подтверждение как в runner._call_tool (см. _run_builtin).
+        result = await _run_builtin(slug, str(spec.get("builtin")), t.params, task_id=t.id)
         if result.error:
             raise RuntimeError(result.content)
     elif kind == "cmd":
-        args = {k: shlex.quote(str(v)) for k, v in t.params.items()}
-        args.setdefault("out", shlex.quote(str(d / (t.outputs[0] if t.outputs else "assets/out"))))
-        args.setdefault("input", args.get("out", "''"))
-        proc = await asyncio.create_subprocess_shell(
-            spec["cmd"].format(**args), cwd=d,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        out_path = str(d / (t.outputs[0] if t.outputs else "assets/out"))
+        argv, via_shell = build_cmd_argv(str(spec["cmd"]), t.params,
+                                         {"out": out_path, "input": out_path})
+        if via_shell:
+            # Единственная оставшаяся оболочка (piper_local: `sh -c 'echo {text} | piper …'`).
+            # Подстановки внутри уже shlex.quote'нуты в build_cmd_argv. Пиннится
+            # tests/test_stage13_hostexec_redteam.py::KNOWN_SHELL_EXCEPTIONS.
+            proc = await asyncio.create_subprocess_shell(
+                argv[2], cwd=d,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        else:
+            proc = await asyncio.create_subprocess_exec(
+                *argv, cwd=d,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
         out, _ = await proc.communicate()
         if proc.returncode:
             raise RuntimeError(f"{route.tool}: код {proc.returncode}: {out.decode(errors='replace')[-500:]}")
@@ -116,11 +231,12 @@ async def _check(slug: str, t: PlanTask, artifacts: list[str], attempt: int) -> 
         return False, "нет выходного файла"
     qa = choose("qa_clip" if t.is_clip else "qa_frame", private=False)
     if qa.spec.get("kind") == "builtin":
-        tool = REGISTRY[qa.spec["builtin"]]
-        result = await tool.handler(
+        # F-005: тот же путь с allowlist/подтверждением, что и у Исполнителя.
+        result = await _run_builtin(
+            slug, str(qa.spec.get("builtin")),
             {"path": artifacts[0],
              "question": f"Проверь по критериям: {t.check}. Ответь строго 'PASS' или 'FAIL: причина'."},
-            _ctx(slug))
+            task_id=t.id)
         verdict_text = result.content
     else:
         verdict_text = "PASS"  # облачный QA без настройки не блокирует пайплайн
