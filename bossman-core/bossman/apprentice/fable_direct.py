@@ -297,4 +297,19 @@ class FableDirectClient:
         parsed["model_version"] = str(body.get("model", self.model))
         parsed["isolation"] = {"level": "trusted-transport", "credential_exposure": "header-only",
                                "env_scrubbed": True}
+        transcript_recorder = None
+        try:  # transcript agent: OFF unless BOSSMAN_FABLE_TRANSCRIPT_DIR is set
+            from .fable_transcript import recorder_from_env
+
+            transcript_recorder = recorder_from_env(os.environ.get("BOSSMAN_FABLE_TRANSCRIPT_MISSION", "default"))
+        except Exception:  # noqa: BLE001 — recording must never break a paid call
+            transcript_recorder = None
+        if transcript_recorder is not None:
+            try:
+                transcript_recorder.record(bundle=bundle, response_text=text,
+                                           usage=self.usage[-1], request_id=request_id,
+                                           purpose=str(bundle.get("PROBLEM_ID", bundle.get("ROLE", ""))[:120]),
+                                           stop_reason=str(body.get("stop_reason", "")))
+            except Exception:  # noqa: BLE001
+                pass
         return parsed
