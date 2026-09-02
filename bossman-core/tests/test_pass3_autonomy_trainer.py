@@ -52,7 +52,7 @@ def test_forbidden_learning_sources_rejected(bad, why):
 
 def test_holdout_episode_quarantines():
     hold = SecretHoldout.seal(["t2"])
-    c = at.evaluate_candidate(_cand(), [_ep(1), _ep(2), _ep(3)], holdout=hold)
+    c = at.evaluate_candidate(_cand(), [_ep(1), _ep(2), _ep(3)], holdout=hold, baseline_success=0.5)
     assert c.status == "QUARANTINED" and c.holdout_touched is True
 
 
@@ -63,12 +63,12 @@ def test_insufficient_samples_is_not_promotion_and_risky_needs_more():
     assert ok.status == "SHADOW" and ok.sample_count == 3 and ok.independently_verified
     risky = at.evaluate_candidate(_cand(kind="route"), [_ep(i) for i in range(5)])
     assert risky.status == "CANDIDATE" and any("< 10" in r for r in risky.reasons)
-    risky_ok = at.evaluate_candidate(_cand(kind="route"), [_ep(i) for i in range(10)])
+    risky_ok = at.evaluate_candidate(_cand(kind="route"), [_ep(i) for i in range(10)], baseline_success=0.5)
     assert risky_ok.status == "SHADOW"
 
 
 def test_scope_must_be_explicit_and_success_non_inferior():
-    mixed = at.evaluate_candidate(_cand(), [_ep(1), _ep(2), _ep(3, environment_fingerprint="env-b")])
+    mixed = at.evaluate_candidate(_cand(), [_ep(1), _ep(2), _ep(3, environment_fingerprint="env-b")], baseline_success=0.5)
     assert mixed.status == "CANDIDATE" and any("environment" in r for r in mixed.reasons)
     inferior = at.evaluate_candidate(_cand(), [_ep(1), _ep(2), _ep(3), _ep(4, verified_success=False)],
                                      baseline_success=0.9)
@@ -78,7 +78,7 @@ def test_scope_must_be_explicit_and_success_non_inferior():
 
 
 def test_promotion_goes_through_learning_guard_and_owner():
-    shadow = at.evaluate_candidate(_cand(), [_ep(1), _ep(2), _ep(3)])
+    shadow = at.evaluate_candidate(_cand(), [_ep(1), _ep(2), _ep(3)], baseline_success=0.5)
     ab = [ABResult(task_id=f"t{i}", task_class="fix", raw_verified=False, guarded_verified=True) for i in range(20)]
     snap = SecuritySnapshot()
     rb = RollbackInfo(prev_stage="SHADOW", prev_ref="cfg@v0")
@@ -97,3 +97,14 @@ def test_promotion_goes_through_learning_guard_and_owner():
     assert at.rollback_candidate(promoted, "drift").status == "ROLLED_BACK"
     assert at.promote_candidate(_cand(), ab, security_before=snap, security_after=snap, shadow_runs=20,
                                 owner_approved=True, rollback_tested=True, rollback=rb).status == "CANDIDATE"
+
+
+def test_shadow_requires_baseline_and_verified_successes():
+    """Audit P0: без измеренного baseline и без успешных verified-эпизодов SHADOW невозможен."""
+    no_baseline = at.evaluate_candidate(_cand(), [_ep(1), _ep(2), _ep(3)])
+    assert no_baseline.status == "CANDIDATE" and any("baseline" in r for r in no_baseline.reasons)
+    all_failed = at.evaluate_candidate(_cand(), [_ep(i, verified_success=False) for i in range(1, 4)],
+                                       baseline_success=0.0)
+    assert all_failed.status == "CANDIDATE" and any("successful" in r for r in all_failed.reasons)
+    ok = at.evaluate_candidate(_cand(), [_ep(1), _ep(2), _ep(3)], baseline_success=0.5)
+    assert ok.status == "SHADOW"

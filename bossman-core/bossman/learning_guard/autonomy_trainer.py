@@ -130,7 +130,12 @@ def evaluate_candidate(cand: AutonomyCandidate, episodes: Iterable[Episode], *,
         reasons.append("scope must be one explicit environment fingerprint and model version")
     if not cand.scope.get("task_class"):
         reasons.append("scope.task_class missing")
-    success = (sum(1 for e in usable if e.verified_success) / len(usable)) if usable else None
+    successes = sum(1 for e in usable if e.verified_success)
+    success = (successes / len(usable)) if usable else None
+    if baseline_success is None:
+        reasons.append("SHADOW requires a measured baseline VerifiedSuccess (none supplied)")
+    if successes < need:
+        reasons.append(f"SHADOW requires >= {need} successful independently verified episodes, got {successes}")
     delta = None if (success is None or baseline_success is None) else round(success - baseline_success, 4)
     if delta is not None and delta < 0:
         reasons.append("VerifiedSuccess inferior to baseline")
