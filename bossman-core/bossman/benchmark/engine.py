@@ -89,7 +89,62 @@ def _scores(attempts: list[dict[str, Any]]) -> dict[str, Any]:
         out[SCORE_BY_CLASS[cls]] = {"evidence_class": cls, "n": len(rows), "value": (rate if rows else None),
                                     "ci95": _interval(rate, len(rows)),
                                     "status": "MEASURED" if rows else "INSUFFICIENT_EVIDENCE"}
+    out.update(_capability_scores(attempts))
     return out
+
+
+# ------------------------------------------------------------------ SystemIQ / PureCodingIQ
+SYSTEM_IQ_WEIGHTS = {"VerifiedSuccessRate": 0.30, "RecoveryRate": 0.15, "RoutingQuality": 0.10,
+                     "ContextEfficiency": 0.10, "VerificationQuality": 0.10, "Persistence": 0.10,
+                     "Safety": 0.10, "CostEfficiency": 0.05}
+CODING_CAPABILITIES = ("verifier", "universal_computer_apprentice", "persistence", "recovery")
+
+
+def _capability_scores(attempts: list[dict[str, Any]]) -> dict[str, Any]:
+    """Two independent scores computed ONLY from measurable evidence
+    (REAL_SANDBOX + LIVE rows). REGRESSION rows never feed them."""
+    rows = [a for a in attempts if a.get("evidence_class") in ("REAL_SANDBOX", "LIVE")]
+    if not rows:
+        noc = {"low": None, "high": None, "n": 0}
+        return {"SystemIQ": {"n": 0, "value": None, "weights": SYSTEM_IQ_WEIGHTS, "ci95": noc, "status": "INSUFFICIENT_EVIDENCE"},
+                "PureCodingIQ": {"n": 0, "value": None, "ci95": noc, "status": "INSUFFICIENT_EVIDENCE"}}
+    metrics = _metrics(rows)
+    # Routing quality: share of verified attempts that used the cheap path when available.
+    fast_ok = sum(1 for a in rows if a.get("routing", {}).get("fast_path_used") and a.get("verified"))
+    fast_all = sum(1 for a in rows if a.get("routing", {}).get("fast_path_used"))
+    routing = fast_ok / fast_all if fast_all else (metrics["VerifiedSuccessRate"] if rows else 0.0)
+    # Persistence: durable-state cases verified (survive restart) — measured, not claimed.
+    persistence_rows = [a for a in rows if a.get("capability") in ("persistence", "idempotency", "approval")] or rows
+    persistence = _rate(persistence_rows, "verified")
+    # Safety is a hard gate elsewhere; here it is a measurable component (1 - unsafe rate).
+    safety = 1.0 - metrics["UnsafeActionRate"]
+    # Cost efficiency: normalized inverse spend per verified attempt (0 cost => 1).
+    verified_n = max(1, sum(1 for a in rows if a.get("verified")))
+    cost = sum(float(a.get("estimated_cost_usd", 0.0)) for a in rows)
+    cost_eff = 1.0 / (1.0 + cost * 100.0 / verified_n)
+    parts = {"VerifiedSuccessRate": metrics["VerifiedSuccessRate"], "RecoveryRate": metrics["RecoveryRate"],
+             "RoutingQuality": routing, "ContextEfficiency": 1.0 - metrics["ContextWasteRate"],
+             "VerificationQuality": metrics["TeacherAcceptancePrecision"], "Persistence": persistence,
+             "Safety": safety, "CostEfficiency": round(cost_eff, 4)}
+    value = round(sum(SYSTEM_IQ_WEIGHTS[k] * parts[k] for k in SYSTEM_IQ_WEIGHTS), 4)
+    coding_rows = [a for a in rows if a.get("capability") in CODING_CAPABILITIES or str(a.get("case_id", "")).startswith("repair.")]
+    if coding_rows:
+        cmet = _metrics(coding_rows)
+        minimality = [float(a["patch_minimality"]) for a in coding_rows if a.get("patch_minimality") is not None]
+        pure = round(0.40 * cmet["VerifiedSuccessRate"] + 0.20 * (1.0 - cmet["RegressionRate"])
+                     + 0.15 * cmet["TeacherAcceptancePrecision"] + 0.15 * (1.0 - cmet["UnsafeActionRate"])
+                     + 0.10 * (statistics.mean(minimality) if minimality else 1.0), 4)
+        coding = {"n": len(coding_rows), "value": pure, "ci95": _interval(cmet["VerifiedSuccessRate"], len(coding_rows)), "status": "MEASURED",
+                  "components": {"VerifiedSuccessRate": cmet["VerifiedSuccessRate"], "RegressionRate": cmet["RegressionRate"],
+                                 "VerificationQuality": cmet["TeacherAcceptancePrecision"],
+                                 "SecurityCorrectness": 1.0 - cmet["UnsafeActionRate"],
+                                 "PatchMinimality": round(statistics.mean(minimality), 4) if minimality else None}}
+    else:
+        coding = {"n": 0, "value": None, "ci95": {"low": None, "high": None, "n": 0}, "status": "INSUFFICIENT_EVIDENCE"}
+    ci = _interval(parts["VerifiedSuccessRate"], len(rows))
+    return {"SystemIQ": {"n": len(rows), "value": value, "weights": SYSTEM_IQ_WEIGHTS, "components": parts,
+                         "ci95": ci, "status": "MEASURED"},
+            "PureCodingIQ": coding}
 
 
 def _percentile(values: list[float], fraction: float) -> float:
@@ -156,7 +211,21 @@ def _metrics(attempts: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _gate(metrics: dict[str, Any], cases: list[dict[str, Any]], baseline: dict[str, Any] | None = None) -> dict[str, Any]:
+REQUIRED_CAPABILITIES = (
+    "model_selection", "router", "fast_heavy_policy", "working_state", "context_selection",
+    "raw_context_fallback", "dag_compiler", "adaptive_reasoning", "verifier", "prompt_cache",
+    "local_cognitive_reuse", "budget_router", "recovery", "persistence", "approval", "idempotency",
+    "prompt_injection_defence", "universal_computer_apprentice",
+)
+STRICT_TIERS = ("nightly", "release")
+
+
+def _gate(metrics: dict[str, Any], cases: list[dict[str, Any]], baseline: dict[str, Any] | None = None,
+          *, tier: str = "smoke", manifest: dict[str, Any] | None = None,
+          evidence_classes: dict[str, int] | None = None) -> dict[str, Any]:
+    """CI tiers (smoke/pr) gate on correctness; strict tiers (nightly/release) additionally
+    refuse READY when a mandatory capability is unmeasured, when real/LIVE coverage is
+    missing, or when the tier manifests are empty. Mocks can never produce READY."""
     p0_failures = [c["case_id"] for c in cases if not c["passed"] and c.get("p0", True)]
     reasons = []
     if p0_failures:
@@ -167,6 +236,23 @@ def _gate(metrics: dict[str, Any], cases: list[dict[str, Any]], baseline: dict[s
         reasons.append("DuplicateEffectRate > 0")
     if baseline and metrics["VerifiedSuccessRate"] < baseline["metrics"]["VerifiedSuccessRate"]:
         reasons.append("VerifiedSuccessRate regressed from baseline")
+    manifest = manifest or {}
+    classes = evidence_classes or {}
+    real_n = classes.get("REAL_SANDBOX", 0) + classes.get("LIVE", 0)
+    if tier in STRICT_TIERS:
+        covered = {c.get("capability") for c in cases
+                   if c.get("passed") and c.get("evidence_class") in ("REAL_SANDBOX", "LIVE")
+                   and c.get("capability")}
+        missing = [cap for cap in REQUIRED_CAPABILITIES if cap not in covered]
+        if missing:
+            reasons.append("required capabilities without measured REAL/LIVE coverage: " + ", ".join(missing))
+        if real_n == 0:
+            reasons.append("no REAL_SANDBOX/LIVE evidence: mock/simulated-only results cannot produce READY")
+        for req_tier in ("nightly", "release"):
+            if not manifest.get("tiers", {}).get(req_tier):
+                reasons.append(f"{req_tier} tier manifest is empty")
+        if manifest.get("release_requires_live") and classes.get("LIVE", 0) == 0:
+            reasons.append("release requires LIVE evidence but LIVE n=0")
     return {"ready": not reasons, "status": "READY" if not reasons else "NO-GO", "reasons": reasons}
 
 
@@ -199,7 +285,7 @@ class BenchmarkRunner:
             mode = spec["mode"]
             cls = MODE_CLASS.get(mode)
             if cls is None:
-                cases.append({"case_id": case_id, "mode": mode, "evidence_class": None, "passed": False, "p0": True, "status": "INVALID_SPEC", "reason": f"unknown mode {mode!r}"})
+                cases.append({"case_id": case_id, "mode": mode, "evidence_class": None, "passed": False, "p0": True, "status": "INVALID_SPEC", "reason": f"unknown mode {mode!r}", "capability": spec.get("capability")})
                 continue
             if mode == "LIVE" and not self._live_authorized(allow_live):
                 cases.append({"case_id": case_id, "mode": mode, "evidence_class": cls, "passed": False, "p0": True, "status": "BLOCKED_BY_ENVIRONMENT", "reason": "LIVE requires explicit owner approval and budget reservation"})
@@ -215,10 +301,10 @@ class BenchmarkRunner:
             attempts.extend(result_rows)
             passed = all(bool(row.get("verified")) and row.get("mode") == mode for row in result_rows)
             reason = "runtime subprocess evidence" if passed else "; ".join(sorted({f"child reported mode {r.get('mode')!r} != declared {mode!r}" for r in result_rows if r.get("mode") != mode} | {str(r.get("error"))[:120] for r in result_rows if r.get("error")})) or "verification failed"
-            cases.append({"case_id": case_id, "mode": mode, "evidence_class": cls, "passed": passed, "p0": True, "status": "PASS" if passed else "FAIL", "reason": reason, "attempts": len(result_rows), "evidence": [e for r in result_rows for e in r.get("evidence", [])]})
+            cases.append({"case_id": case_id, "mode": mode, "evidence_class": cls, "passed": passed, "p0": True, "status": "PASS" if passed else "FAIL", "reason": reason, "attempts": len(result_rows), "capability": spec.get("capability"), "evidence": [e for r in result_rows for e in r.get("evidence", [])]})
         metrics = _metrics(attempts)
         report = {"contract_version": "bossman-benchmark/v2", "run_id": str(uuid.uuid4()), "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "tier": tier, "commit_sha": prov["actual_git_head"] if prov["actual_git_head"] != "unknown" else (sha or "unknown"), "provenance": prov, "dataset": {"id": self.manifest["dataset_id"], "version": self.manifest["version"], "sha256": prov["dataset_hash"], "training_eligible": False}, "environment": {"python": sys.version.split()[0], "platform": platform.platform(), "model": os.environ.get("BOSSMAN_BENCHMARK_MODEL", "none/no-paid-call"), "model_version": os.environ.get("BOSSMAN_BENCHMARK_MODEL_VERSION", "none"), "config_digest": self._config_digest(), "live_authorized": self._live_authorized(allow_live)}, "execution_modes": {m: sum(1 for a in attempts if a.get("mode") == m) for m in MODES}, "evidence_classes": {c: sum(1 for a in attempts if a.get("evidence_class") == c) for c in EVIDENCE_CLASSES}, "cases": cases, "attempts": attempts, "metrics": metrics, "metrics_by_class": {c: _metrics([a for a in attempts if a.get("evidence_class") == c]) for c in EVIDENCE_CLASSES if any(a.get("evidence_class") == c for a in attempts)}, "scores": _scores(attempts)}
-        report["release_gate"] = _gate(metrics, cases)
+        report["release_gate"] = _gate(metrics, cases, tier=tier, manifest=self.manifest, evidence_classes=report["evidence_classes"])
         json_path, markdown_path = self._write(report)
         return report, json_path, markdown_path
 
@@ -315,7 +401,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines.extend(f"| {name} | {metrics[name]} |" for name in REQUIRED_METRICS)
     if report.get("scores"):
         lines.extend(["", "## Scores by evidence class (mocks never count toward real capability)", "", "| Score | n | value | 95% CI | status |", "|---|---:|---:|---|---|"])
-        lines.extend(f"| {name} | {s['n']} | {s['value']} | {s['ci95']['low']:.3f}–{s['ci95']['high']:.3f} | {s['status']} |" for name, s in report["scores"].items())
+        def _fmt(x):
+            return f"{x:.3f}" if isinstance(x, (int, float)) else "-"
+        lines.extend(f"| {name} | {s['n']} | {s['value']} | {_fmt(s.get('ci95', {}).get('low'))}–{_fmt(s.get('ci95', {}).get('high'))} | {s['status']} |" for name, s in report["scores"].items())
     if report.get("provenance"):
         p = report["provenance"]
         lines.extend(["", f"Provenance: head `{p['actual_git_head'][:12]}` tree `{p['tree_sha'][:12]}` engine `{p['benchmark_engine_hash'][:12]}` runtime `{p['runtime_hash'][:12]}` dataset `{p['dataset_hash'][:12]}` env `{p['environment_digest']}`"])

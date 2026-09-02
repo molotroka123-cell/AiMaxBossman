@@ -44,6 +44,9 @@ def main() -> None:
             print(json.dumps({"status": "REFUSED", "error": "ShaMismatch", "reason": str(exc)}, sort_keys=True), file=sys.stderr)
             raise SystemExit(3)
         print(json.dumps({"status": data["release_gate"]["status"], "json": str(json_path), "markdown": str(markdown_path), "commit_sha": data["commit_sha"], "scores": data["scores"]}, sort_keys=True))
+        if not data["release_gate"]["ready"]:
+            # P0: a NO-GO gate must fail the process — exit code is part of the contract.
+            raise SystemExit(1)
     elif args.command == "run-isolated":
         try:
             env = run_isolated(args.sha, args.tier, runner.output_root, allow_live=args.allow_live)

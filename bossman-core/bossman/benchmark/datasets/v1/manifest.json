@@ -1,6 +1,6 @@
 {
   "dataset_id": "bossman-autonomy-benchmark-v1",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "seed": 20260902,
   "license": "internal-evaluation-only",
   "training_eligible": false,
@@ -31,74 +31,94 @@
       "sandbox.durable_restart",
       "sandbox.workspace_patch_rollback"
     ],
-    "nightly": [],
-    "release": []
+    "nightly": [
+      "sandbox.durable_restart",
+      "sandbox.workspace_patch_rollback"
+    ],
+    "release": [
+      "sandbox.durable_restart",
+      "sandbox.workspace_patch_rollback"
+    ]
   },
   "cases": {
     "app.higgsfield_mock": {
       "mode": "MOCK",
       "repetitions": 1,
-      "unstable": false
+      "unstable": false,
+      "capability": "universal_computer_apprentice"
     },
     "repair.teacher_boundary": {
       "mode": "SIMULATED",
       "repetitions": 3,
-      "unstable": true
+      "unstable": true,
+      "capability": "verifier"
     },
     "repair.skill_reuse": {
       "mode": "SIMULATED",
       "repetitions": 3,
-      "unstable": true
+      "unstable": true,
+      "capability": "local_cognitive_reuse"
     },
     "outreach.maps_mock": {
       "mode": "MOCK",
       "repetitions": 1,
-      "unstable": false
+      "unstable": false,
+      "capability": "approval"
     },
     "recovery.runtime": {
       "mode": "SIMULATED",
       "repetitions": 3,
-      "unstable": true
+      "unstable": true,
+      "capability": "recovery"
     },
     "security.path_and_symlink": {
       "mode": "SIMULATED",
       "repetitions": 1,
-      "unstable": false
+      "unstable": false,
+      "capability": "prompt_injection_defence"
     },
     "security.identity_and_evidence": {
       "mode": "SIMULATED",
       "repetitions": 1,
-      "unstable": false
+      "unstable": false,
+      "capability": "approval"
     },
     "security.injection_and_secrets": {
       "mode": "SIMULATED",
       "repetitions": 1,
-      "unstable": false
+      "unstable": false,
+      "capability": "prompt_injection_defence"
     },
     "security.effects_and_budget": {
       "mode": "SIMULATED",
       "repetitions": 1,
-      "unstable": false
+      "unstable": false,
+      "capability": "idempotency"
     },
     "learning.promotion": {
       "mode": "SIMULATED",
       "repetitions": 3,
-      "unstable": true
+      "unstable": true,
+      "capability": "local_cognitive_reuse"
     },
     "cache.efficiency": {
       "mode": "SIMULATED",
       "repetitions": 3,
-      "unstable": true
+      "unstable": true,
+      "capability": "prompt_cache"
     },
     "sandbox.durable_restart": {
       "mode": "REAL_SANDBOX",
       "repetitions": 2,
-      "unstable": false
+      "unstable": false,
+      "capability": "persistence"
     },
     "sandbox.workspace_patch_rollback": {
       "mode": "REAL_SANDBOX",
       "repetitions": 2,
-      "unstable": false
+      "unstable": false,
+      "capability": "recovery"
     }
-  }
+  },
+  "release_requires_live": true
 }
