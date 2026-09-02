@@ -158,6 +158,10 @@ regression test that pins the defence (all in `bossman-core/tests/test_apprentic
 | T22 | Concurrent sessions acting on the same task / side effect | med | high | Ledger keyed by side_effect_id shared across engines; LearningStore lock/CAS; second session refused | ConflictError / DuplicateAction | First effect wins | `test_concurrent_sessions_share_idempotency` |
 | T23 | Mass mailing / re-sending / bypassing blocks | med | high | Per-run recipient cap, cooldown per recipient, blocked recipients list, no resend after a block | refusal reasons | Nothing sent | `test_outreach_blocks_mass_resend_and_blocked` |
 | T24 | Collection of non-public personal data for outreach | med | high | Lead card field allowlist (public business fields only); package refused otherwise | `PersonalDataRefused` | Card rebuilt from public fields | `test_outreach_refuses_non_public_personal_data` |
+| T25 (P0-1) | Failed verification still counted as success / learned from | high | critical | SUCCEED only through a verified goal step; a failed VERIFY yields step result `verification_failed` and RECOVER/FAIL; `episode.verified=False`; `generalize()` raises `UnverifiedEpisode` | record result + `error_code=verification_failed` | honest FAIL, nothing learned | `test_failed_verification_blocks_result_and_learning` |
+| T26 (P0-2) | Write executed without idempotency key or on the actuator's word | high | critical | `REVERSIBLE_WRITE`/`IRREVERSIBLE_WRITE` steps need `idempotency_key` (refused before the actuator is called) and a typed `EffectReceipt` verified against the request (side_effect_id, action_id, action_type, observed_at, evidence_source) before CONTINUE | `refused:idempotency_key_required`, `receipt_invalid` | ledger claim abandoned; replan | `test_write_without_idempotency_key_is_refused_before_execution`, `test_write_with_key_but_no_receipt_is_failed_and_not_completed` |
+| T27 (P0-3) | Receipt for another action type (effect duplicated or silently lost) | med | high | receipt.action_type must equal the action kind; mismatch -> step FAILED, ledger NOT completed | `receipt_invalid: ... action_type` | effect stays claimable exactly once after inspection | `test_receipt_action_type_mismatch_fails_step_and_keeps_ledger_open` |
+| T28 (P0-4) | Observation from the future / another task, run or session | med | high | `created_at > now + allowed_skew` rejected; observer binding (task/run/session) must match; every pre/post ref carries task_id, run_id, session_id, action_id (+ side_effect_id) | `refused:invalid_observation` | re-observe (RECOVER) | `test_observation_from_the_future_is_rejected`, `test_observation_bound_to_foreign_run_or_unbound_is_rejected`, `test_observation_records_carry_full_binding` |
 
 ## 4. Own proposals (not in the brief)
 
@@ -223,6 +227,9 @@ prevented by `side_effect_id`; per-run recipient cap; cooldown; blocked recipien
 | `BOSSMAN_APPRENTICE_LESSON_PRECHECK` | P4 |
 | `BOSSMAN_APPRENTICE_EVIDENCE_EXPORT` | P5 |
 
+All eleven flags are read at call time from the environment (`flags.enabled`), default OFF; `flags.snapshot()`
+returns the current table. Engine constructor extras: `allowed_skew_s` (observation/receipt clock skew, 300 s).
+
 ## 8. Integration hooks (lead to apply)
 
 None required for the simulated scope. Optional (not applied, proposed diff):
@@ -234,6 +241,54 @@ None required for the simulated scope. Optional (not applied, proposed diff):
 # +    from bossman.apprentice.engine import UniversalComputerApprentice  # lazy, flag-guarded
 ```
 
-## 9. E2E scenarios, live-run instructions, handoff
+## 9. E2E scenarios (MOCK / SIMULATED) — status LIVE_NOT_PROVEN (MOCK)
 
-(filled in by the final docs commit)
+All three scenarios run against safe simulators in `bossman-core/tests/fixtures/apprentice/`
+(`higgsfield_sim.py`, `teacher_sim.py` + `FakeWorkspace`, `maps_sim.py`). They prove the control
+logic (guards, verification, sanctions, approvals, learning gates), not the live integrations.
+`tests/test_apprentice_e2e.py` carries `SCENARIO_STATUS = "LIVE_NOT_PROVEN (MOCK)"`.
+
+| # | Scenario | Simulated proof | Status |
+|---|---|---|---|
+| 1 | Higgsfield video generation | open app -> mode -> upload -> prompt -> pre-launch checks -> Generate exactly once (ledger, retried session launches 0) -> queue/generating/ready/error distinguished on fresh observations -> Extend -> Download verified (format/duration/hash; substitution fails) -> episode -> independent verification -> skill with semantic anchors -> UI v2 makes it DEGRADED, blind replay never launches | LIVE_NOT_PROVEN (MOCK) |
+| 2 | Bug fix via Claude Code fallback | apprentice attempts first (2 own candidates, rolled back) -> ATTEMPTS_EXHAUSTED -> sanitized bundle (repo instructions neutralized) -> teacher simulator good/bad/tamper/security -> typed observation (commands, patch, claimed tests, no hidden reasoning) -> independent PatchVerifier -> ACCEPTED / REJECTED+rollback+retry -> circuit breaker / QUARANTINED / ACCEPTANCE_TAMPERING+tests restored -> strategy stored only from ACCEPTED, offered only after independent verification -> analogous bug solved with 0 extra teacher calls and no new spend | LIVE_NOT_PROVEN (MOCK) |
+| 3 | Google Maps leads + proposal | search by city/category on public listings -> injected listing text flagged, never acted on -> non-public field refused -> problem verified by site probe (no_website / no_https; healthy site excluded) -> card, demo, proposal -> owner package (business, reason, site link, demo, proposal, recipient) -> send only with digest-bound one-time approval -> duplicate / resend / mass / blocked refused; flag off or no approval -> nothing leaves | LIVE_NOT_PROVEN (MOCK) |
+
+### 9.1 Exact live-run instructions (lead only; never from tests)
+
+Common: run on a disposable machine/profile, `BOSSMAN_UNIVERSAL_COMPUTER_APPRENTICE=1`, keep every
+other flag OFF unless listed, keep the `SideEffectLedger` and `ApprovalRegistry` process-wide, provide a
+real `Observer` (computer_operator `Observer` + UI tree) whose `observe(binding=)` stamps the
+task/run/session binding and whose `Actuator.act(step, obs, action_id=, side_effect_id=)` returns an
+`EffectReceipt` for side-effecting steps. Record with `BOSSMAN_SKILL_RECORDING=1` into a scratch
+`ApprenticeMemory(data_dir)`; export with `BOSSMAN_APPRENTICE_EVIDENCE_EXPORT=1` and attach the bundle.
+
+1. Higgsfield: logged-in browser profile with test credits only; plan = `tests/test_apprentice_e2e.py::_hf_steps`
+   adapted to the live semantic names (never coordinates); `s_generate` risk `MEDIUM` -> raise to `HIGH` for the
+   first live run so the owner approves the single launch; verify `generation_count == 1` in the Higgsfield
+   history page and the downloaded file hash against the ready-state artifact. Pass criteria: all nine
+   checkpoints reached on fresh observations, one job in history, download verified.
+2. Claude Code fallback: `BOSSMAN_CLAUDE_CODE_FALLBACK=1`, a real `CostGovernor` (`reserve_cloud_call`) with a
+   hard limit, a git worktree workspace implementing `snapshot/restore/read/write/apply/run_tests` (unified-diff
+   apply is a known gap: implement it in the workspace adapter, not in `teacher.py`), acceptance tests
+   hash-bound before the first call. Pass criteria: ACCEPTED only with independent pytest evidence bound to
+   task/run/HEAD; a deliberately tampered acceptance test must yield ACCEPTANCE_TAMPERING with tests restored.
+3. Maps outreach: `BOSSMAN_EXTERNAL_OUTREACH=1` only after the owner has reviewed `owner_view()` for every
+   package; transport = the owner's own mailbox connector; `max_per_run <= 3`; start with a recipient the
+   owner controls. Pass criteria: exactly one message per approved package, second send refused as duplicate.
+
+### 9.2 Rollback
+
+Flags off (all default OFF) disables execution, recording, replay, promotion, fallback and outreach
+without code changes. Code rollback: `git revert` the apprentice commit range (see handoff report) — no
+existing module was modified, so the revert is self-contained. Learned skills: `SkillPromoter.rollback(skill_id, reason)`
+restores the previous version; memory files live only under the `ApprenticeMemory(data_dir)` passed by the caller.
+
+### 9.3 Known gaps (not closed in this pass)
+
+* Live adapters (real observer/actuator with receipts, unified-diff workspace, mailbox transport) are not
+  implemented — every scenario is MOCK.
+* `CostGovernor` is exercised through a duck-typed fake; the real SQLite-backed governor is not wired in tests.
+* Skill shadow replay checks anchor resolvability only (no simulated actuation); promotion still needs
+  `MIN_SHADOW_RUNS` real replays.
+* Reliability ledger and side-effect ledger are process-local (no persistence across restarts).
