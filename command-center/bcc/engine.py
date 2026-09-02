@@ -19,10 +19,11 @@ from .db import (Database, agents as agents_t, approvals as approvals_t,
                  checkpoints as checkpoints_t, fetch_one, run_events as run_events_t,
                  task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
 from .events import EventBus
-from .plugin_security import redact as _ps_redact
+from .plugin_security import redact as _ps_redact, redact_text as _ps_redact_text
 from .providers import ChatResult, ProviderError
 from .registry import Registry
 from .tools import (REGISTRY as TOOLS, ToolContext, agent_policy_rules, allowed_tools_for,
+                    approval_digest,
                     args_hash, decide_effect, execute_tool)
 
 ACTIVE_RUN_STATUSES = ("queued", "leased", "running")
@@ -599,11 +600,24 @@ class TaskEngine:
                 continue
 
             if effect == "ask":
+                # F-013: одобрение привязывается к digest'у (инструмент + отпечаток
+                # реализации + канонические аргументы + capability + контекст).
+                # В предпросмотре — КАНОНИЧЕСКИЕ аргументы (для terminal.run это
+                # уже резолвленный cwd), чтобы человек одобрял ровно то, что
+                # исполнится; секреты в аргументах редактируются (D3/F-015).
+                from .tools import normalized_args as _norm
+                try:
+                    shown_args = _norm(spec, call.arguments)
+                except Exception as exc:  # noqa: BLE001 — нормализация обязана быть чистой
+                    shown_args = {"_normalize_error": str(exc)[:200], **dict(call.arguments)}
+                digest = approval_digest(spec, call.arguments, agent=agent, task=task)
                 appr = await self._approvals_create(
                     kind="tool",
-                    preview=(f"Агент «{agent.get('name')}» хочет выполнить {spec.name}\n"
-                             f"причина политики: {reason}\nаргументы: "
-                             + json.dumps(call.arguments, ensure_ascii=False, indent=1)[:2000]),
+                    preview=_ps_redact_text(
+                        f"Агент «{agent.get('name')}» хочет выполнить {spec.name}\n"
+                        f"причина политики: {reason}\n"
+                        f"approval_digest: {digest[:16]}…\nаргументы: "
+                        + json.dumps(_ps_redact(shown_args), ensure_ascii=False, indent=1)[:2000]),
                     task_id=task["id"], run_id=run_id)
                 approval_id = (appr or {}).get("id")
                 await self._record_tool_call(run_id, task["id"], step, call, spec,
@@ -614,6 +628,7 @@ class TaskEngine:
                     pending={"call": _call_dict(call), "tool": spec.name,
                              "approval_id": approval_id,
                              "args_hash": args_hash(spec.name, call.arguments),
+                             "approval_digest": digest,
                              "remaining": [_call_dict(c) for c in calls[index + 1:]],
                              "step": step},
                     usage=usage)
@@ -640,8 +655,9 @@ class TaskEngine:
             effect="auto" if approval_id is None else "ask",
             status="error" if result.error else "executed",
             approval_id=approval_id, approved_by=approved_by,
-            preview=result.content[:500], truncated=result.truncated,
-            duration_ms=duration, error=result.content[:500] if result.error else None)
+            preview=_ps_redact_text(result.content[:500]), truncated=result.truncated,
+            duration_ms=duration,
+            error=_ps_redact_text(result.content[:500]) if result.error else None)
         messages.append(_tool_message(call, result.render()))
         await self._log(run_id, "warn" if result.error else "info",
                         "tool.error" if result.error else "tool.result",
@@ -680,11 +696,32 @@ class TaskEngine:
                             f"{pending.get('tool')}: вызов уже исполнен, повтор не делаем")
             messages.append(_tool_message(call, "результат этого вызова уже получен ранее"))
         elif status == "approved" and spec is not None:
-            await self._mark_tool_call(run_id, call.id, status="approved",
-                                       approved_by=str((row or {}).get("decided_by") or ""))
-            await self._run_tool_now(run_id, task, agent, messages, call, spec, step,
-                                     approval_id=int(approval_id) if approval_id else None,
-                                     approved_by=str((row or {}).get("decided_by") or ""))
+            # F-013: одобрение действительно ТОЛЬКО для того же инструмента, той же
+            # реализации (поколение регистрации) и тех же канонических аргументов.
+            # MCP refresh / перерегистрация / подмена аргументов в checkpoint →
+            # digest не совпадает → DENY + нужно новое одобрение. Никогда не
+            # «перерезолвим» одобренное действие в другую реализацию молча.
+            expected = str(pending.get("approval_digest") or "")
+            actual = approval_digest(spec, call.arguments, agent=agent, task=task)
+            args_ok = (not pending.get("args_hash")
+                       or pending.get("args_hash") == args_hash(spec.name, call.arguments))
+            if not expected or expected != actual or not args_ok:
+                await self._mark_tool_call(run_id, call.id, status="rejected",
+                                           approved_by="system:identity_mismatch")
+                messages.append(_tool_message(
+                    call, f"действие {pending.get('tool')} НЕ выполнено: реализация или "
+                          f"аргументы изменились после одобрения (approval identity mismatch) "
+                          f"— требуется новое одобрение"))
+                await self._log(run_id, "warn", "tool.approval_identity_mismatch",
+                                f"{pending.get('tool')}: digest {expected[:12]}… != {actual[:12]}…")
+                await self.bus.emit("tool.denied", task_id=task["id"], run_id=run_id,
+                                    tool=spec.name, reason="approval identity mismatch")
+            else:
+                await self._mark_tool_call(run_id, call.id, status="approved",
+                                           approved_by=str((row or {}).get("decided_by") or ""))
+                await self._run_tool_now(run_id, task, agent, messages, call, spec, step,
+                                         approval_id=int(approval_id) if approval_id else None,
+                                         approved_by=str((row or {}).get("decided_by") or ""))
         else:
             await self._mark_tool_call(run_id, call.id, status="rejected",
                                        approved_by=str((row or {}).get("decided_by") or ""))

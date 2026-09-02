@@ -89,6 +89,28 @@ class ToolSpec:
     # решение по конкретным аргументам (например, `git push` внутри terminal.run).
     # Ослабить он не может — только явное правило пользователя.
     effect_hook: Callable[[dict], tuple[Effect, str] | None] | None = None
+    # F-013: канонизация аргументов для approval-digest (например, terminal.run
+    # резолвит cwd в абсолютный путь). Одобрение привязывается к КАНОНИЧЕСКИМ
+    # аргументам, и исполнение обязано резолвить их так же → «approved path ==
+    # executed path». None = аргументы как есть.
+    normalize_args: Callable[[dict], dict] | None = None
+    # F-013: поколение регистрации. ToolRegistry.register выдаёт монотонный
+    # номер; любая перерегистрация (MCP refresh, замена обработчика) даёт новое
+    # поколение, и одобрение, выданное прежнему, перестаёт подходить.
+    generation: int = 0
+
+    @property
+    def impl_fingerprint(self) -> str:
+        """Отпечаток реализации: имя, источник, обработчик (модуль+qualname),
+        схема и поколение регистрации. Удалённый код (MCP) отпечатать нельзя —
+        для него identity = (server, tool, schema, description, generation)."""
+        h = getattr(self.handler, "__module__", "") + ":" + getattr(
+            self.handler, "__qualname__", repr(self.handler))
+        blob = json.dumps({"name": self.name, "source": self.source, "handler": h,
+                           "schema": self.input_schema, "required": list(self.required),
+                           "description": self.description, "generation": self.generation},
+                          sort_keys=True, ensure_ascii=False, default=str)
+        return hashlib.sha256(blob.encode()).hexdigest()[:32]
 
     @property
     def api_name(self) -> str:
@@ -121,15 +143,67 @@ def args_hash(tool: str, args: dict) -> str:
     return hashlib.sha256(blob.encode()).hexdigest()[:32]
 
 
+def normalized_args(spec: "ToolSpec", args: dict) -> dict:
+    """Канонические аргументы для одобрения (F-013). Сбой нормализации —
+    fail-closed: возвращаем исходные args, но помечаем это в digest'е
+    невозможно, поэтому исключение НЕ глотаем — пусть вызывающий увидит."""
+    if spec.normalize_args is None:
+        return dict(args or {})
+    return spec.normalize_args(dict(args or {}))
+
+
+def approval_digest(spec: "ToolSpec", args: dict, *, agent: dict | None = None,
+                    task: dict | None = None) -> str:
+    """F-013: identity одобренного действия.
+
+    HASH(tool_id, impl_fingerprint, normalized_args, capability, security_context).
+    Пересчитывается при resume; расхождение = DENY + новое одобрение. Так
+    «одобрили X → refresh перерегистрировал X → выполнилась другая реализация»
+    становится невозможным: generation в impl_fingerprint меняется."""
+    ctx = {"agent_id": (agent or {}).get("id"), "task_id": (task or {}).get("id")}
+    blob = json.dumps({
+        "tool": spec.name, "impl": spec.impl_fingerprint,
+        "args": normalized_args(spec, args),
+        "capability": {"permission": spec.permission, "category": spec.category,
+                       "source": spec.source},
+        "security_context": ctx,
+    }, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(blob.encode()).hexdigest()
+
+
 # ---------------------------------------------------------------- реестр
+
+# Источники, чью реализацию задаёт НЕ код репозитория (динамическая регистрация
+# по данным извне): подмена имени между ними и первопартийными — запрещена.
+EXTERNAL_SOURCES = frozenset({"mcp", "plugin"})
+
 
 class ToolRegistry:
     """Реестр процесса. Фичи регистрируют инструменты в своём `setup(svc)`."""
 
     def __init__(self) -> None:
         self._tools: dict[str, ToolSpec] = {}
+        self._generation = 0
 
     def register(self, spec: ToolSpec) -> ToolSpec:
+        # F-013/F-014: молчаливая подмена реализации под тем же именем из ДРУГОГО
+        # источника запрещена (второй MCP-сервер не может «перекрыть» terminal.run
+        # или чужой mcp:<server>:tool). Перерегистрация из того же источника
+        # (MCP refresh, повторный setup в тестах) допустима, но получает новое
+        # поколение — выданные ранее одобрения к ней уже не подходят.
+        # Граница проходит по ДОВЕРИЮ источника: первопартийный код (builtin,
+        # terminal, browser, memory, тестовые двойники) может заменять
+        # первопартийный — это код репозитория; но если ХОТЯ БЫ ОДНА сторона —
+        # внешний/динамический источник (mcp, plugin), подмена по имени —
+        # отказ: name-squatting через MCP-сервер невозможен.
+        existing = self._tools.get(spec.name)
+        if (existing is not None and existing.source != spec.source
+                and (existing.source in EXTERNAL_SOURCES or spec.source in EXTERNAL_SOURCES)):
+            raise ValueError(
+                f"tool name collision: {spec.name!r} already registered from source "
+                f"{existing.source!r}; refusing silent replacement by {spec.source!r}")
+        self._generation += 1
+        spec.generation = self._generation
         self._tools[spec.name] = spec
         return spec
 

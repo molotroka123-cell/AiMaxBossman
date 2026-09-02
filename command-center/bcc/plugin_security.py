@@ -211,3 +211,28 @@ def confine_path(root: str | Path, supplied: str, *, must_exist: bool = False) -
     if must_exist and not candidate.exists():
         raise FileNotFoundError(str(candidate))
     return candidate
+
+
+# --------------------------------------------------- redaction of free text
+# Значения-секреты в СВОБОДНОМ тексте (предпросмотр одобрения, result_preview,
+# события): у нас нет ключа, только строка. Зеркало паттернов bossman-core
+# obs.redact — приложения общего кода не имеют, поэтому минимальная копия
+# здесь, а не второй «движок»: ровно те же классы токенов.
+_RE_TXT_BEARER = re.compile(r"\b(Bearer|Basic|Token)\s+[A-Za-z0-9._\-+/=]{6,}", re.IGNORECASE)
+_RE_TXT_KV = re.compile(
+    r"(?i)\b(api[_-]?key|apikey|x-api-key|access[_-]?token|refresh[_-]?token|token|secret|"
+    r"client[_-]?secret|password|passwd|pwd|authorization)(\s*[:=]\s*['\"]?)([^'\"\s,;]{4,})(['\"]?)")
+_RE_TXT_TOKENLIKE = re.compile(
+    r"\b(?:sk-[A-Za-z0-9_\-]{8,}|ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|ghs_[A-Za-z0-9]{20,}|"
+    r"xox[baprs]-[A-Za-z0-9\-]{10,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{20,}|hf_[A-Za-z0-9]{20,}|"
+    r"BOSSMAN_TEST_SECRET_[A-Za-z0-9]{4,})\b")
+
+
+def redact_text(text: str) -> str:
+    """Вычистить секреты из свободного текста (идемпотентно)."""
+    if not text:
+        return text
+    text = _RE_TXT_BEARER.sub(lambda m: f"{m.group(1)} ***REDACTED***", text)
+    text = _RE_TXT_KV.sub(lambda m: f"{m.group(1)}{m.group(2)}***REDACTED***{m.group(4)}", text)
+    text = _RE_TXT_TOKENLIKE.sub("***REDACTED***", text)
+    return text
