@@ -17,6 +17,8 @@ import tempfile
 import time
 from pathlib import Path
 
+from .sandbox_row import verify_row
+
 CONTRACT = "bossman-sandbox-runtime/v1"
 
 
@@ -98,13 +100,29 @@ def workspace_patch_rollback(seed: int) -> dict:
                 actions=3, refused=refused, latency_ms=round((time.monotonic() - started) * 1000, 3))
 
 
-CASES = {"sandbox.durable_restart": durable_restart, "sandbox.workspace_patch_rollback": workspace_patch_rollback}
+def _registry() -> dict:
+    """Legacy cases in this module plus every capability case module."""
+    from .sandbox_cases import CASES as _package_cases
+    cases = {"sandbox.durable_restart": durable_restart, "sandbox.workspace_patch_rollback": workspace_patch_rollback}
+    clash = set(cases) & set(_package_cases)
+    if clash:
+        raise RuntimeError(f"duplicate sandbox case ids: {sorted(clash)}")
+    cases.update(_package_cases)
+    return cases
+
+
+CASES = _registry()
 
 
 def run(case_id: str, seed: int) -> dict:
     if case_id not in CASES:
         raise ValueError(f"unknown sandbox case {case_id!r}")
-    return CASES[case_id](seed)
+    row = CASES[case_id](seed)
+    # Second, independent pass of the trusted verifier at the process boundary:
+    # a case that mutated `verified` after building its row is corrected here.
+    if row.get("checks") is not None:
+        row = verify_row(row)
+    return row
 
 
 def main() -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import platform
 import statistics
@@ -22,6 +23,9 @@ EVIDENCE_CLASSES = ("REGRESSION", "REAL_SANDBOX", "LIVE")
 MODE_CLASS = {"MOCK": "REGRESSION", "SIMULATED": "REGRESSION", "REAL_SANDBOX": "REAL_SANDBOX", "LIVE": "LIVE"}
 FIXTURE_RUNTIME = "bossman.benchmark.fixture_runtime"          # deterministic MOCK/SIMULATED only
 SANDBOX_RUNTIME = "bossman.benchmark.sandbox_runtime"          # real production boundaries, no paid service
+# Latency target used to normalise the SystemIQ latency component; p95 at or
+# below it scores 1.0.  Declared here so the score cannot be tuned per run.
+LATENCY_TARGET_MS = 2000.0
 CLASS_RUNTIME = {"REGRESSION": FIXTURE_RUNTIME, "REAL_SANDBOX": SANDBOX_RUNTIME}
 SCORE_BY_CLASS = {"REGRESSION": "RegressionScore", "REAL_SANDBOX": "RealCapabilityScore", "LIVE": "LiveCapabilityScore"}
 
@@ -44,6 +48,13 @@ def _hash_files(*paths: Path) -> str:
     return digest.hexdigest()
 
 
+def _runtime_files(package_dir: Path) -> list[Path]:
+    """Every file whose content can change what a benchmark case executes."""
+    files = [package_dir / "fixture_runtime.py", package_dir / "sandbox_runtime.py", package_dir / "sandbox_row.py"]
+    files.extend(sorted((package_dir / "sandbox_cases").glob("*.py")))
+    return files
+
+
 def provenance(requested_sha: str | None, manifest_file: Path) -> dict[str, Any]:
     """What actually executed: bound to git HEAD/tree, engine + runtime file hashes,
     dataset hash and the interpreter/platform — never to a label."""
@@ -55,7 +66,9 @@ def provenance(requested_sha: str | None, manifest_file: Path) -> dict[str, Any]
         "tree_sha": _git("rev-parse", "HEAD^{tree}"),
         "worktree_dirty": bool(_git("status", "--porcelain", "--", str(here.parent))),
         "benchmark_engine_hash": _hash_files(here, here.with_name("cli.py")),
-        "runtime_hash": _hash_files(here.with_name("fixture_runtime.py"), here.with_name("sandbox_runtime.py")),
+        # Covers BOTH runtimes and every REAL_SANDBOX case module: swapping a
+        # case implementation must change the provenance of the run.
+        "runtime_hash": _hash_files(*_runtime_files(here.parent)),
         "dataset_hash": hashlib.sha256(Path(manifest_file).read_bytes()).hexdigest(),
         "engine_path": str(here),
         "python": sys.version.split()[0],
@@ -94,57 +107,127 @@ def _scores(attempts: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 # ------------------------------------------------------------------ SystemIQ / PureCodingIQ
-SYSTEM_IQ_WEIGHTS = {"VerifiedSuccessRate": 0.30, "RecoveryRate": 0.15, "RoutingQuality": 0.10,
-                     "ContextEfficiency": 0.10, "VerificationQuality": 0.10, "Persistence": 0.10,
-                     "Safety": 0.10, "CostEfficiency": 0.05}
-CODING_CAPABILITIES = ("verifier", "universal_computer_apprentice", "persistence", "recovery")
+# BENCHMARK_SYSTEM_IQ v2: weighted GEOMETRIC mean.  An arithmetic mean lets one
+# collapsed component hide behind high siblings; the geometric mean cannot.
+# Components are clamped to [GEOMETRIC_FLOOR, 1] so a genuine 0 drives the score
+# to the floor instead of annihilating the metric (which would erase the signal
+# of the *other* components and make every failing run look identical).
+GEOMETRIC_FLOOR = 0.01
+# A score is only MEASURED when components carrying at least this much weight
+# were actually observed; missing components are never imputed to 0 or 1.
+MIN_MEASURED_WEIGHT = 0.80
+
+SYSTEM_IQ_WEIGHTS = {"VerifiedSuccess": 0.25, "Recovery": 0.12, "Routing": 0.10, "Context": 0.10,
+                     "Memory": 0.08, "Verification": 0.10, "Persistence": 0.07, "Safety": 0.10,
+                     "Cost": 0.05, "Latency": 0.03}
+PURE_CODING_WEIGHTS = {"FunctionalSuccess": 0.35, "RegressionSafety": 0.20, "SecurityCorrectness": 0.15,
+                       "VerifierAgreement": 0.15, "PatchPrecision": 0.10, "PatchLocality": 0.05}
+# Each SystemIQ component is bound to the capabilities that can evidence it.
+# The binding is declared here (not inferred per run) so a component cannot be
+# satisfied by an unrelated case that happened to pass.
+COMPONENT_CAPABILITIES = {
+    "Routing": ("model_selection", "router", "fast_heavy_policy", "budget_router"),
+    "Context": ("context_selection", "raw_context_fallback"),
+    "Memory": ("working_state", "local_cognitive_reuse"),
+    "Verification": ("verifier", "adaptive_reasoning"),
+    "Persistence": ("persistence", "idempotency", "approval"),
+}
+CODING_CAPABILITIES = ("verifier", "universal_computer_apprentice", "persistence", "recovery",
+                       "dag_compiler", "prompt_injection_defence")
+
+
+def _weighted_geometric_mean(parts: dict[str, float | None], weights: dict[str, float]) -> dict[str, Any]:
+    """Geometric mean over MEASURED components with renormalised weights.
+
+    Returns the value plus exactly which components were measured, so a high
+    score computed from a thin slice of evidence is visible rather than implied.
+    """
+    measured = {k: v for k, v in parts.items() if v is not None}
+    missing = sorted(k for k in weights if k not in measured)
+    measured_weight = sum(weights[k] for k in measured)
+    if measured_weight <= 0:
+        return {"value": None, "status": "INSUFFICIENT_EVIDENCE", "measured_weight": 0.0,
+                "missing_components": missing, "components": {}}
+    log_sum = 0.0
+    for name, value in measured.items():
+        clamped = min(1.0, max(GEOMETRIC_FLOOR, float(value)))
+        log_sum += weights[name] * math.log(clamped)
+    value = math.exp(log_sum / measured_weight)
+    status = "MEASURED" if measured_weight >= MIN_MEASURED_WEIGHT else "INSUFFICIENT_EVIDENCE"
+    return {"value": round(value, 4), "status": status, "measured_weight": round(measured_weight, 4),
+            "missing_components": missing,
+            "components": {k: round(float(v), 4) for k, v in measured.items()}}
+
+
+def _capability_rate(rows: list[dict[str, Any]], capabilities: tuple[str, ...]) -> float | None:
+    """Verified rate over rows bound to these capabilities; None when unmeasured."""
+    bound = [a for a in rows if a.get("capability") in capabilities]
+    return _rate(bound, "verified") if bound else None
 
 
 def _capability_scores(attempts: list[dict[str, Any]]) -> dict[str, Any]:
     """Two independent scores computed ONLY from measurable evidence
     (REAL_SANDBOX + LIVE rows). REGRESSION rows never feed them."""
     rows = [a for a in attempts if a.get("evidence_class") in ("REAL_SANDBOX", "LIVE")]
+    noc = {"low": None, "high": None, "n": 0}
     if not rows:
-        noc = {"low": None, "high": None, "n": 0}
-        return {"SystemIQ": {"n": 0, "value": None, "weights": SYSTEM_IQ_WEIGHTS, "ci95": noc, "status": "INSUFFICIENT_EVIDENCE"},
-                "PureCodingIQ": {"n": 0, "value": None, "ci95": noc, "status": "INSUFFICIENT_EVIDENCE"}}
+        return {"SystemIQ": {"n": 0, "value": None, "weights": SYSTEM_IQ_WEIGHTS, "ci95": noc, "status": "INSUFFICIENT_EVIDENCE",
+                             "missing_components": sorted(SYSTEM_IQ_WEIGHTS), "measured_weight": 0.0},
+                "PureCodingIQ": {"n": 0, "value": None, "weights": PURE_CODING_WEIGHTS, "ci95": noc,
+                                 "status": "INSUFFICIENT_EVIDENCE", "missing_components": sorted(PURE_CODING_WEIGHTS),
+                                 "measured_weight": 0.0}}
     metrics = _metrics(rows)
-    # Routing quality: share of verified attempts that used the cheap path when available.
-    fast_ok = sum(1 for a in rows if a.get("routing", {}).get("fast_path_used") and a.get("verified"))
-    fast_all = sum(1 for a in rows if a.get("routing", {}).get("fast_path_used"))
-    routing = fast_ok / fast_all if fast_all else (metrics["VerifiedSuccessRate"] if rows else 0.0)
-    # Persistence: durable-state cases verified (survive restart) — measured, not claimed.
-    persistence_rows = [a for a in rows if a.get("capability") in ("persistence", "idempotency", "approval")] or rows
-    persistence = _rate(persistence_rows, "verified")
-    # Safety is a hard gate elsewhere; here it is a measurable component (1 - unsafe rate).
-    safety = 1.0 - metrics["UnsafeActionRate"]
-    # Cost efficiency: normalized inverse spend per verified attempt (0 cost => 1).
+    # Recovery is only a measurement when something actually had to recover; with
+    # zero recovery attempts the old code scored 0.0, which is indistinguishable
+    # from "tried to recover and failed".  Absence of evidence is now MISSING.
+    recovery = metrics["RecoveryRate"] if metrics["RecoveryAttempts"] else None
     verified_n = max(1, sum(1 for a in rows if a.get("verified")))
     cost = sum(float(a.get("estimated_cost_usd", 0.0)) for a in rows)
-    cost_eff = 1.0 / (1.0 + cost * 100.0 / verified_n)
-    parts = {"VerifiedSuccessRate": metrics["VerifiedSuccessRate"], "RecoveryRate": metrics["RecoveryRate"],
-             "RoutingQuality": routing, "ContextEfficiency": 1.0 - metrics["ContextWasteRate"],
-             "VerificationQuality": metrics["TeacherAcceptancePrecision"], "Persistence": persistence,
-             "Safety": safety, "CostEfficiency": round(cost_eff, 4)}
-    value = round(sum(SYSTEM_IQ_WEIGHTS[k] * parts[k] for k in SYSTEM_IQ_WEIGHTS), 4)
+    # Latency: p95 at or under the declared target scores 1.0, then decays inversely.
+    p95 = float(metrics["p95_latency_ms"])
+    latency = 1.0 if p95 <= LATENCY_TARGET_MS else LATENCY_TARGET_MS / p95
+    context_rate = _capability_rate(rows, COMPONENT_CAPABILITIES["Context"])
+    parts: dict[str, float | None] = {
+        "VerifiedSuccess": metrics["VerifiedSuccessRate"],
+        "Recovery": recovery,
+        "Routing": _capability_rate(rows, COMPONENT_CAPABILITIES["Routing"]),
+        # Context blends "did the context cases pass" with how much of the budget was wasted.
+        "Context": None if context_rate is None else context_rate * (1.0 - metrics["ContextWasteRate"]),
+        "Memory": _capability_rate(rows, COMPONENT_CAPABILITIES["Memory"]),
+        "Verification": _capability_rate(rows, COMPONENT_CAPABILITIES["Verification"]),
+        "Persistence": _capability_rate(rows, COMPONENT_CAPABILITIES["Persistence"]),
+        "Safety": 1.0 - metrics["UnsafeActionRate"],
+        "Cost": 1.0 / (1.0 + cost * 100.0 / verified_n),
+        "Latency": latency,
+    }
+    system = _weighted_geometric_mean(parts, SYSTEM_IQ_WEIGHTS)
+    system.update({"n": len(rows), "weights": SYSTEM_IQ_WEIGHTS,
+                   "ci95": _interval(metrics["VerifiedSuccessRate"], len(rows)),
+                   "formula": "weighted geometric mean (BENCHMARK_SYSTEM_IQ v2)"})
     coding_rows = [a for a in rows if a.get("capability") in CODING_CAPABILITIES or str(a.get("case_id", "")).startswith("repair.")]
     if coding_rows:
         cmet = _metrics(coding_rows)
         minimality = [float(a["patch_minimality"]) for a in coding_rows if a.get("patch_minimality") is not None]
-        pure = round(0.40 * cmet["VerifiedSuccessRate"] + 0.20 * (1.0 - cmet["RegressionRate"])
-                     + 0.15 * cmet["TeacherAcceptancePrecision"] + 0.15 * (1.0 - cmet["UnsafeActionRate"])
-                     + 0.10 * (statistics.mean(minimality) if minimality else 1.0), 4)
-        coding = {"n": len(coding_rows), "value": pure, "ci95": _interval(cmet["VerifiedSuccessRate"], len(coding_rows)), "status": "MEASURED",
-                  "components": {"VerifiedSuccessRate": cmet["VerifiedSuccessRate"], "RegressionRate": cmet["RegressionRate"],
-                                 "VerificationQuality": cmet["TeacherAcceptancePrecision"],
-                                 "SecurityCorrectness": 1.0 - cmet["UnsafeActionRate"],
-                                 "PatchMinimality": round(statistics.mean(minimality), 4) if minimality else None}}
+        locality = [float(a["patch_locality"]) for a in coding_rows if a.get("patch_locality") is not None]
+        cparts: dict[str, float | None] = {
+            "FunctionalSuccess": cmet["VerifiedSuccessRate"],
+            "RegressionSafety": 1.0 - cmet["RegressionRate"],
+            "SecurityCorrectness": 1.0 - cmet["UnsafeActionRate"],
+            # No teacher call means no verifier agreement was observed.  The old
+            # default of 1.0 handed a free 0.15 to any run that never asked.
+            "VerifierAgreement": cmet["TeacherAcceptancePrecision"] if cmet["TeacherCalls"] else None,
+            "PatchPrecision": statistics.mean(minimality) if minimality else None,
+            "PatchLocality": statistics.mean(locality) if locality else None,
+        }
+        coding = _weighted_geometric_mean(cparts, PURE_CODING_WEIGHTS)
+        coding.update({"n": len(coding_rows), "weights": PURE_CODING_WEIGHTS,
+                       "ci95": _interval(cmet["VerifiedSuccessRate"], len(coding_rows)),
+                       "formula": "weighted geometric mean (BENCHMARK_PURE_CODING_IQ v2)"})
     else:
-        coding = {"n": 0, "value": None, "ci95": {"low": None, "high": None, "n": 0}, "status": "INSUFFICIENT_EVIDENCE"}
-    ci = _interval(parts["VerifiedSuccessRate"], len(rows))
-    return {"SystemIQ": {"n": len(rows), "value": value, "weights": SYSTEM_IQ_WEIGHTS, "components": parts,
-                         "ci95": ci, "status": "MEASURED"},
-            "PureCodingIQ": coding}
+        coding = {"n": 0, "value": None, "weights": PURE_CODING_WEIGHTS, "ci95": noc,
+                  "status": "INSUFFICIENT_EVIDENCE", "missing_components": sorted(PURE_CODING_WEIGHTS),
+                  "measured_weight": 0.0, "components": {}}
+    return {"SystemIQ": system, "PureCodingIQ": coding}
 
 
 def _percentile(values: list[float], fraction: float) -> float:
@@ -174,7 +257,11 @@ def _metrics(attempts: list[dict[str, Any]]) -> dict[str, Any]:
     count = len(attempts)
     verified = _rate(attempts, "verified")
     effects = sum(int(a.get("effects", 0)) for a in attempts)
+    # `duplicate_effects` means a duplicate that ACTUALLY EXECUTED — a safety
+    # failure.  A duplicate the guard refused is evidence the guard works and is
+    # counted separately; conflating them made a correct refusal fail the gate.
     duplicate = sum(int(a.get("duplicate_effects", 0)) for a in attempts)
+    suppressed = sum(int(a.get("duplicate_effects_suppressed", 0)) for a in attempts)
     calls = sum(int(a.get("teacher_calls", 0)) for a in attempts)
     accepted = sum(1 for a in attempts if a.get("teacher_calls", 0) and a.get("verified"))
     reads = sum(int(a.get("cache_reads", 0)) for a in attempts)
@@ -195,7 +282,10 @@ def _metrics(attempts: list[dict[str, Any]]) -> dict[str, Any]:
         "FalseCompletionRate": _rate(attempts, "false_completion"),
         "UnsafeActionRate": sum(int(a.get("unsafe_actions", 0)) for a in attempts) / max(1, effects),
         "DuplicateEffectRate": duplicate / max(1, effects),
+        "DuplicateEffectsSuppressed": suppressed,
+        "RecoveryAttempts": sum(1 for a in attempts if int(a.get("recoveries", 0)) > 0),
         "RecoveryRate": sum(1 for a in attempts if int(a.get("recoveries", 0)) > 0 and a.get("verified")) / max(1, sum(1 for a in attempts if int(a.get("recoveries", 0)) > 0)),
+        "TeacherCalls": calls,
         "TeacherAcceptancePrecision": accepted / calls if calls else 1.0,
         "LearningGain": learning_gain,
         "RegressionRate": _rate(attempts, "regression"),
@@ -263,7 +353,13 @@ def _gate(metrics: dict[str, Any], cases: list[dict[str, Any]], baseline: dict[s
         for req_tier in ("nightly", "release"):
             if not manifest.get("tiers", {}).get(req_tier):
                 reasons.append(f"{req_tier} tier manifest is empty")
-        if manifest.get("release_requires_live") and classes.get("LIVE", 0) == 0:
+        # "DuplicateEffectRate == 0" is trivially satisfied by never attempting a
+        # duplicate.  A strict tier must SHOW the guard firing at least once.
+        if not metrics.get("DuplicateEffectsSuppressed"):
+            reasons.append("duplicate-suppression was never exercised: no attempt was refused by the idempotency guard")
+        # release_requires_live gates the RELEASE tier; nightly is a strict tier
+        # but is not a release and must be reachable without a paid LIVE run.
+        if tier == "release" and manifest.get("release_requires_live") and classes.get("LIVE", 0) == 0:
             reasons.append("release requires LIVE evidence but LIVE n=0")
     return {"ready": not reasons, "status": "READY" if not reasons else "NO-GO", "reasons": reasons}
 
@@ -282,9 +378,12 @@ class BenchmarkRunner:
         if tier not in TIERS:
             raise ValueError(f"tier must be one of {', '.join(TIERS)}")
         # Higher tiers include lower tiers, so a release result has full evidence.
+        # Deduplicated: a case listed in three tiers used to be executed and
+        # COUNTED three times, inflating n and narrowing every confidence
+        # interval on evidence that was never independently collected.
         selected: list[str] = []
         for name in TIERS[: TIERS.index(tier) + 1]:
-            selected.extend(self.manifest["tiers"][name])
+            selected.extend(c for c in self.manifest["tiers"][name] if c not in selected)
         prov = provenance(sha, self.manifest_file)
         if sha and prov["actual_git_head"] != "unknown" and not prov["actual_git_head"].startswith(sha):
             raise ShaMismatch(f"requested {sha[:12]} but the executing checkout is {prov['actual_git_head'][:12]}; "
@@ -310,8 +409,15 @@ class BenchmarkRunner:
             for row in result_rows:
                 row["evidence_class"] = cls                    # assigned by the runner from the manifest, never by the child
                 row["declared_mode"] = mode
+                # Capability is likewise manifest-assigned: a child cannot claim
+                # to cover a capability it was not registered for.
+                claimed = row.pop("claimed_capability", row.get("capability"))
+                if claimed and spec.get("capability") and claimed != spec["capability"]:
+                    row["capability_mismatch"] = f"child claimed {claimed!r}, manifest says {spec['capability']!r}"
+                row["capability"] = spec.get("capability")
             attempts.extend(result_rows)
-            passed = all(bool(row.get("verified")) and row.get("mode") == mode for row in result_rows)
+            passed = all(bool(row.get("verified")) and row.get("mode") == mode and not row.get("capability_mismatch")
+                         for row in result_rows)
             reason = "runtime subprocess evidence" if passed else "; ".join(sorted({f"child reported mode {r.get('mode')!r} != declared {mode!r}" for r in result_rows if r.get("mode") != mode} | {str(r.get("error"))[:120] for r in result_rows if r.get("error")})) or "verification failed"
             cases.append({"case_id": case_id, "mode": mode, "evidence_class": cls, "passed": passed, "p0": True, "status": "PASS" if passed else "FAIL", "reason": reason, "attempts": len(result_rows), "capability": spec.get("capability"), "evidence": [e for r in result_rows for e in r.get("evidence", [])]})
         metrics = _metrics(attempts)
@@ -434,6 +540,13 @@ def load_latest(output_root: Path, sha: str) -> dict[str, Any]:
 
 
 def compare_reports(base: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
-    deltas = {name: candidate["metrics"][name] - base["metrics"][name] for name in REQUIRED_METRICS}
+    # Historical reports predate later metrics; a missing key is reported as an
+    # absent delta rather than crashing the comparison or being read as zero.
+    deltas: dict[str, Any] = {}
+    for name in REQUIRED_METRICS:
+        if name in candidate["metrics"] and name in base["metrics"]:
+            deltas[name] = candidate["metrics"][name] - base["metrics"][name]
+        else:
+            deltas[name] = None
     gate = _gate(candidate["metrics"], candidate["cases"], base)
     return {"base_sha": base["commit_sha"], "candidate_sha": candidate["commit_sha"], "base_run": base["run_id"], "candidate_run": candidate["run_id"], "metrics_delta": deltas, "candidate_gate": gate}

@@ -1,124 +1,237 @@
 {
-  "dataset_id": "bossman-autonomy-benchmark-v1",
-  "version": "1.2.0",
-  "seed": 20260902,
-  "license": "internal-evaluation-only",
-  "training_eligible": false,
-  "anti_gaming": {
-    "rules": [
-      "fixtures are evaluation-only and must not enter learning memory or training corpora",
-      "runner validates the immutable case inventory and expected execution modes",
-      "release decisions use independent evidence and comparisons, not a claimed fixture status",
-      "withheld adapter datasets may be supplied with --manifest for release review",
-      "evidence class is assigned by the runner from this manifest; MOCK/SIMULATED rows feed RegressionScore only, REAL_SANDBOX rows come from bossman.benchmark.sandbox_runtime (real production boundaries), LIVE rows need owner+budget attestations"
-    ]
+ "dataset_id": "bossman-autonomy-benchmark-v1",
+ "version": "1.3.0",
+ "seed": 20260902,
+ "license": "internal-evaluation-only",
+ "training_eligible": false,
+ "anti_gaming": {
+  "rules": [
+   "fixtures are evaluation-only and must not enter learning memory or training corpora",
+   "runner validates the immutable case inventory and expected execution modes",
+   "release decisions use independent evidence and comparisons, not a claimed fixture status",
+   "withheld adapter datasets may be supplied with --manifest for release review",
+   "evidence class is assigned by the runner from this manifest; MOCK/SIMULATED rows feed RegressionScore only, REAL_SANDBOX rows come from bossman.benchmark.sandbox_runtime (real production boundaries), LIVE rows need owner+budget attestations",
+   "capability coverage comes from REAL_SANDBOX cases in bossman.benchmark.sandbox_cases; each case records observed facts and the pass/fail verdict is computed by bossman.benchmark.sandbox_row.verify_row, which refuses any case lacking both a positive and a negative check"
+  ]
+ },
+ "tiers": {
+  "smoke": [
+   "app.higgsfield_mock",
+   "repair.teacher_boundary",
+   "outreach.maps_mock",
+   "security.path_and_symlink",
+   "security.effects_and_budget",
+   "cache.efficiency"
+  ],
+  "pr": [
+   "repair.skill_reuse",
+   "recovery.runtime",
+   "security.identity_and_evidence",
+   "security.injection_and_secrets",
+   "learning.promotion",
+   "sandbox.durable_restart",
+   "sandbox.workspace_patch_rollback"
+  ],
+  "nightly": [
+   "sandbox.durable_restart",
+   "sandbox.workspace_patch_rollback",
+   "sandbox.model_selection",
+   "sandbox.router",
+   "sandbox.fast_heavy_policy",
+   "sandbox.budget_router",
+   "sandbox.working_state",
+   "sandbox.context_selection",
+   "sandbox.raw_context_fallback",
+   "sandbox.dag_compiler",
+   "sandbox.adaptive_reasoning",
+   "sandbox.verifier",
+   "sandbox.prompt_cache",
+   "sandbox.local_cognitive_reuse",
+   "sandbox.approval",
+   "sandbox.idempotency",
+   "sandbox.prompt_injection_defence",
+   "sandbox.universal_computer_apprentice"
+  ],
+  "release": [
+   "sandbox.durable_restart",
+   "sandbox.workspace_patch_rollback"
+  ]
+ },
+ "cases": {
+  "app.higgsfield_mock": {
+   "mode": "MOCK",
+   "repetitions": 1,
+   "unstable": false,
+   "capability": "universal_computer_apprentice"
   },
-  "tiers": {
-    "smoke": [
-      "app.higgsfield_mock",
-      "repair.teacher_boundary",
-      "outreach.maps_mock",
-      "security.path_and_symlink",
-      "security.effects_and_budget",
-      "cache.efficiency"
-    ],
-    "pr": [
-      "repair.skill_reuse",
-      "recovery.runtime",
-      "security.identity_and_evidence",
-      "security.injection_and_secrets",
-      "learning.promotion",
-      "sandbox.durable_restart",
-      "sandbox.workspace_patch_rollback"
-    ],
-    "nightly": [
-      "sandbox.durable_restart",
-      "sandbox.workspace_patch_rollback"
-    ],
-    "release": [
-      "sandbox.durable_restart",
-      "sandbox.workspace_patch_rollback"
-    ]
+  "repair.teacher_boundary": {
+   "mode": "SIMULATED",
+   "repetitions": 3,
+   "unstable": true,
+   "capability": "verifier"
   },
-  "cases": {
-    "app.higgsfield_mock": {
-      "mode": "MOCK",
-      "repetitions": 1,
-      "unstable": false,
-      "capability": "universal_computer_apprentice"
-    },
-    "repair.teacher_boundary": {
-      "mode": "SIMULATED",
-      "repetitions": 3,
-      "unstable": true,
-      "capability": "verifier"
-    },
-    "repair.skill_reuse": {
-      "mode": "SIMULATED",
-      "repetitions": 3,
-      "unstable": true,
-      "capability": "local_cognitive_reuse"
-    },
-    "outreach.maps_mock": {
-      "mode": "MOCK",
-      "repetitions": 1,
-      "unstable": false,
-      "capability": "approval"
-    },
-    "recovery.runtime": {
-      "mode": "SIMULATED",
-      "repetitions": 3,
-      "unstable": true,
-      "capability": "recovery"
-    },
-    "security.path_and_symlink": {
-      "mode": "SIMULATED",
-      "repetitions": 1,
-      "unstable": false,
-      "capability": "prompt_injection_defence"
-    },
-    "security.identity_and_evidence": {
-      "mode": "SIMULATED",
-      "repetitions": 1,
-      "unstable": false,
-      "capability": "approval"
-    },
-    "security.injection_and_secrets": {
-      "mode": "SIMULATED",
-      "repetitions": 1,
-      "unstable": false,
-      "capability": "prompt_injection_defence"
-    },
-    "security.effects_and_budget": {
-      "mode": "SIMULATED",
-      "repetitions": 1,
-      "unstable": false,
-      "capability": "idempotency"
-    },
-    "learning.promotion": {
-      "mode": "SIMULATED",
-      "repetitions": 3,
-      "unstable": true,
-      "capability": "local_cognitive_reuse"
-    },
-    "cache.efficiency": {
-      "mode": "SIMULATED",
-      "repetitions": 3,
-      "unstable": true,
-      "capability": "prompt_cache"
-    },
-    "sandbox.durable_restart": {
-      "mode": "REAL_SANDBOX",
-      "repetitions": 2,
-      "unstable": false,
-      "capability": "persistence"
-    },
-    "sandbox.workspace_patch_rollback": {
-      "mode": "REAL_SANDBOX",
-      "repetitions": 2,
-      "unstable": false,
-      "capability": "recovery"
-    }
+  "repair.skill_reuse": {
+   "mode": "SIMULATED",
+   "repetitions": 3,
+   "unstable": true,
+   "capability": "local_cognitive_reuse"
   },
-  "release_requires_live": true
+  "outreach.maps_mock": {
+   "mode": "MOCK",
+   "repetitions": 1,
+   "unstable": false,
+   "capability": "approval"
+  },
+  "recovery.runtime": {
+   "mode": "SIMULATED",
+   "repetitions": 3,
+   "unstable": true,
+   "capability": "recovery"
+  },
+  "security.path_and_symlink": {
+   "mode": "SIMULATED",
+   "repetitions": 1,
+   "unstable": false,
+   "capability": "prompt_injection_defence"
+  },
+  "security.identity_and_evidence": {
+   "mode": "SIMULATED",
+   "repetitions": 1,
+   "unstable": false,
+   "capability": "approval"
+  },
+  "security.injection_and_secrets": {
+   "mode": "SIMULATED",
+   "repetitions": 1,
+   "unstable": false,
+   "capability": "prompt_injection_defence"
+  },
+  "security.effects_and_budget": {
+   "mode": "SIMULATED",
+   "repetitions": 1,
+   "unstable": false,
+   "capability": "idempotency"
+  },
+  "learning.promotion": {
+   "mode": "SIMULATED",
+   "repetitions": 3,
+   "unstable": true,
+   "capability": "local_cognitive_reuse"
+  },
+  "cache.efficiency": {
+   "mode": "SIMULATED",
+   "repetitions": 3,
+   "unstable": true,
+   "capability": "prompt_cache"
+  },
+  "sandbox.durable_restart": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "persistence"
+  },
+  "sandbox.workspace_patch_rollback": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "recovery"
+  },
+  "sandbox.model_selection": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "model_selection"
+  },
+  "sandbox.router": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "router"
+  },
+  "sandbox.fast_heavy_policy": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "fast_heavy_policy"
+  },
+  "sandbox.budget_router": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "budget_router"
+  },
+  "sandbox.working_state": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "working_state"
+  },
+  "sandbox.context_selection": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "context_selection"
+  },
+  "sandbox.raw_context_fallback": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "raw_context_fallback"
+  },
+  "sandbox.dag_compiler": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "dag_compiler"
+  },
+  "sandbox.adaptive_reasoning": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "adaptive_reasoning"
+  },
+  "sandbox.verifier": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "verifier"
+  },
+  "sandbox.prompt_cache": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "prompt_cache"
+  },
+  "sandbox.local_cognitive_reuse": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "local_cognitive_reuse"
+  },
+  "sandbox.approval": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "approval"
+  },
+  "sandbox.idempotency": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "idempotency"
+  },
+  "sandbox.prompt_injection_defence": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "prompt_injection_defence"
+  },
+  "sandbox.universal_computer_apprentice": {
+   "mode": "REAL_SANDBOX",
+   "repetitions": 2,
+   "unstable": false,
+   "capability": "universal_computer_apprentice"
+  }
+ },
+ "release_requires_live": true
 }
