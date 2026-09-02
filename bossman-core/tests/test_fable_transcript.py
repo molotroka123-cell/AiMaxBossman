@@ -1,4 +1,4 @@
-"""FableTranscriptRecorder: durable corpus of every paid-model exchange."""
+﻿"""FableTranscriptRecorder: durable corpus of every paid-model exchange."""
 from __future__ import annotations
 
 import json
@@ -17,14 +17,14 @@ USAGE = {"model": "claude-sonnet-4-5-20250929", "input_tokens": 100, "output_tok
 
 def test_record_appends_durable_jsonl_with_redaction(tmp_path: Path):
     rec = FableTranscriptRecorder(tmp_path, "M-1")
-    secret_bundle = {"note": "key sk-ant-api03-AAAA1111BBBB2222CCCC3333DDDD"}
+    secret_bundle = {"note": "key sk-ant-api03-AAAA1111BBBB2222CCCC3333DDDD"}  # ci-secret-scan: allow (fake canary, proves redaction)
     entry = rec.record(bundle=secret_bundle, response_text=RESPONSE,
                        usage=USAGE, request_id="req_test1", purpose="unit", stop_reason="end_turn")
     assert entry["request_id"] == "req_test1"
     raw = (tmp_path / "M-1" / "transcript.jsonl").read_text(encoding="utf-8").strip()
     parsed = json.loads(raw)
     assert parsed["schema_version"] == 1 and parsed["mission_id"] == "M-1"
-    assert "sk-ant-api03-AAAA1111BBBB2222CCCC3333DDDD" not in raw, "secret must be redacted"
+    assert "sk-ant-api03-AAAA1111BBBB2222CCCC3333DDDD" not in raw, "secret must be redacted"  # ci-secret-scan: allow (fake canary)
     index = (tmp_path / "index.jsonl").read_text(encoding="utf-8").strip()
     assert "req_test1" in index
 
@@ -83,7 +83,7 @@ def test_fable_direct_client_writes_transcript_via_env(tmp_path: Path, monkeypat
     monkeypatch.setenv("BOSSMAN_FABLE_TRANSCRIPT_DIR", str(tmp_path))
     monkeypatch.setenv("BOSSMAN_FABLE_TRANSCRIPT_MISSION", "WIRE-1")
     monkeypatch.setattr(fd.httpx, "post", lambda *a, **k: _fake_http_response())
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-api03-test-dummy")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-api03-test-dummy")  # ci-secret-scan: allow (fake)
     budget = fd.DirectApiBudget(tmp_path / "budget.json", total_usd=1.0,
                                 mission_id="WIRE-1", owner_id="bossman")
     client = fd.FableDirectClient(budget=budget)
@@ -100,7 +100,7 @@ def test_recording_failure_never_breaks_paid_call(tmp_path: Path, monkeypatch: p
     monkeypatch.setenv("BOSSMAN_FABLE_TRANSCRIPT_DIR", "Z:/definitely/not/a/real/path")
     monkeypatch.setenv("BOSSMAN_FABLE_TRANSCRIPT_MISSION", "WIRE-2")
     monkeypatch.setattr(fd.httpx, "post", lambda *a, **k: _fake_http_response())
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-api03-test-dummy")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-api03-test-dummy")  # ci-secret-scan: allow (fake)
     budget = fd.DirectApiBudget(tmp_path / "budget.json", total_usd=1.0,
                                 mission_id="WIRE-2", owner_id="bossman")
     client = fd.FableDirectClient(budget=budget)
