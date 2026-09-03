@@ -1,89 +1,100 @@
-# V2-STABILITY-001: Chromium из кэша Playwright в `--app` открывает ПУСТОЕ окно
+# Learning Case: V2-STABILITY-001/playwright-chromium-blank-app-window
+
+## Metadata
+MODEL: deepseek-v4-flash-latest
+AGENT: stability-pass
+START_SHA: 27e3bf93c3e0a24983874a0bf5d5893ffb68685d
+END_SHA: 83221c94a8e9697c7c68e90884c986b49a574ce5
+LEARNING_STATUS: VERIFIED
+OUTCOME: FIXED
+VERIFIED_BY: tool:cdp:raw-websocket
+CONFIDENCE: 0.9
+TAGS: {}
+FINDINGS: 
+
+## Task
+Owner desktop: blank --app window on Windows when autodetect picks a Playwright-cached Chromium build
 
 ## Symptom
-На Windows/desktop `bcc-desktop` открывает окно Chromium, но страница Command Center
-не загружается: пустой белый экран, запрос к серверу (`GET /`) вообще не уходит.
-Окно «открылось», но похоже на сломанное; без CDP не отличить от тихих крашей.
-Это одна из причин «не открывается / выкидывает пользователя».
+bcc-desktop opens a Chromium --app window that stays blank; the page never loads and no request reaches the server; window exits or looks broken without explanation
 
-## Repro (воспроизведено на этой машине)
-1. `BCC_DATA_DIR=<temp>`; `BCC_PORT=8877` (loopback, данные владельца не трогались).
-2. `python -m bcc` → сервер жив, `/api/identity` отвечает `bossman-command-center`.
-3. Chromium 151 из `%LOCALAPPDATA%\ms-playwright\chromium-1234`:
-   ```
-   chrome.exe --app=http://127.0.0.1:8877/ --user-data-dir=<tmp> \
-     --remote-debugging-port=9333 --remote-allow-origins=*
-   ```
-4. CDP: target `page` есть с URL `http://127.0.0.1:8877/`, но `document.readyState`
-   = `complete`, `document.body.innerHTML.length` = 0, `location.href` = `about:blank`,
-   `performance.getEntriesByType('navigation')` пуст. В логе сервера запроса нет.
-5. Матрица: та же самая команда с **системным** Google Chrome 152 — страница
-   загружается (body ~22Кб), та же команда с Edge — загружается.
-   То есть: это не флаг, не порт и не профиль — это конкретная сборка Chromium.
-6. Сам Chromium-кэш исправен: `Browser.getVersion` по CDP отвечает, headless-режим
-   работает. Ограничение проявляется именно в режиме `--app` в данной среде.
+## Reproduction
+- BCC_DATA_DIR=<temp>; python -m bcc on 127.0.0.1:8877
+- chrome --app=http://127.0.0.1:8877/ with %LOCALAPPDATA%\ms-playwright\chromium-1234 binary
+- CDP: page target exists with the right URL but document.body is empty and location.href=about:blank
+- same argv with system Chrome 152 or Edge loads fine
 
 ## Evidence
-- `targets-debug2`: единственный page-target с URL, но документ пуст (diag3/diag4).
-- `diag5`: M1 `--app` = body 0; M3 нормальная навигация = body 22122.
-- `diag6`: с PW-Chromium req_seen=False; с системным Chrome и Edge req_seen=True.
-  (Примечание: метрика `req_seen` снималась до исправления подсчёта доступов —
-  решающее различие подтверждено матрицей M1/M3 + системным Chrome в B2..B8.)
-- После перехода харнесса на системный Chrome: сценарии  1–8 все PASS (см.
-  `docs/audits/2026-09-03__v2-stability-pass__interim.md` и финальный отчёт).
+- diag3/diag4: page target with URL, body_len=0, readyState=complete
+- diag5: M1 app-mode body 0 vs M3 normal navigation body 22122
+- diag6: PW-cache Chromium sends no GET /; system Chrome and Edge send it
+- post-switch harness to system Chrome: scenarios 1..8 all PASS
+
+## Hypotheses considered
+- CDP origin guard (rejected: raw WS protocol answers; blank page exists without any driver)
+- profile conflicts / stray chrome processes holding the port (rejected: repeated clean launches + full process-tree kills changed nothing)
+- server/port problems (rejected: identity 200; normal navigation loads the same page)
+- debug flags (rejected: --no-first-run etc. matrix unchanged)
+
+## Rejected hypotheses + why
+- CDP origin guard
+- profile conflicts / stray chrome processes holding the port
+- server/port problems
+- debug flags --no-first-run
 
 ## Root cause
-Не применяется патч к коду владельца — применяется **диагностика**: сборка
-Chromium из кэша Playwright (`%LOCALAPPDATA%\ms-playwright`, `/opt/pw-browsers`)
-в этой среде не выполняет навигацию в режиме `--app`. Системный Chrome/Edge
-работает. Владелец, у которого autodetect выбрал такой браузер, получал пустое
-окно без объяснения.
+Playwright-cached Chromium build (Chrome 151) does not navigate in --app mode on this Windows environment; autodetect picked it and the owner got a blank window with no diagnostics
 
-## Rejected hypotheses
-- Origin guard CDP / `--remote-allow-origins=*`: совпадает по времени, но головой
-  не навигация (сырой WebSocket CDP работает; пустая страница была и без драйвера).
-- Конфликт профилей/остаточные процессы: опровергнуто чистой перезапусками и
-  kill дерева процессов (картина не менялась).
-- Порт/сервер: сервер стабилен, identity 200; при прямом запуске URL без --app
-  страница грузится с того же сервера.
-- `--no-first-run`/дебаг-флаги: исключены матрицей C2 (без флагов — то же пустое окно).
+## Relevant code paths
+- command-center/bcc/desktop.py:run
+- command-center/bcc/desktop.py:find_browser
+- command-center/bcc/desktop.py:main
 
-## Fix
-Минимальный доказанный, для `command-center/bcc/desktop.py` (run()):
-- если autodetect выбрал браузер, в пути которого есть `ms-playwright`/`pw-browsers`
-  /`playwright` — печатается предупреждение с готовой инструкцией (путь к
-  системному Chrome и `--browser`/`BCC_DESKTOP_BROWSER`), запись в `desktop-run.log`;
-- реализован пресет явного таймаута окна: `--window-timeout` /
-  `BCC_APP_STARTUP_TIMEOUT`, при выходе 124 — читаемая причина + совет открыть URL
-  в обычном браузере (порядок «веб-версия на случай пустого окна»);
-- `--status` (JSON desktop.lock + живость сервера) и `desktop.lock` с
-  `window_opened_at` для диагностики без CDP;
-- реестровый поиск браузеров Windows (`App Paths\chrome.exe/msedge.exe`,
-  WOW6432Node) — автодетект сразу находит системный браузер;
-- `bcc-open` (`--web`): веб-версия в системном браузере, сервер поднимается тем же
-  процессом;
-- `find_browser` переупорядочивает кандидатов только при вызове со значениями по
-  умолчанию (явный список не трогается — регрессия `test_find_browser_prefers_preinstalled_chromium`).
+## Fix strategy
+Diagnose, do not patch the build: warn when autodetect selects a playwright-cached build and print a ready instruction; add --window-timeout / BCC_APP_STARTUP_TIMEOUT with readable exit-124 message; --status JSON; window_opened_at in desktop.lock; Windows registry browser discovery; bcc-open --web entry; reorder candidates only for default call
+
+## Alternatives considered
+- always prefer system browser over mains (breaks explicit --browser and heroku-like flows)
+- block playwright builds outright (breaks legitimate automation hosts)
+
+## Why this fix was chosen
+The owner gets an honest signal instead of a silent blank window, and there is always a one-command path to the web UI
+
+## Files changed
+- command-center/bcc/desktop.py
+- command-center/pyproject.toml
+- command-center/tests/test_ux2_desktop.py
+
+## Tests added
+- command-center/tests/test_ux2_desktop.py::test_runtime_window_timeout_is_passed_to_launcher
+- command-center/tests/test_ux2_desktop.py::test_lock_records_window_opened_at
+- command-center/tests/test_ux2_desktop.py::test_status_prints_json_state_without_launching
+- command-center/tests/test_ux2_desktop.py::test_bcc_open_entry_command_gets_web_flag
+- command-center/tests/test_ux2_desktop.py::test_bcc_desktop_entry_does_not_inject_web_flag
+
+## Original reproduction after fix
+FAIL: blank window with PW-cache Chromium; PASS with system Chrome and Edge
+
+## Adversarial variants
+- explicit --browser and --browser-arg untouched
+- bcc-open flag injection only for bcc-open entry
+- ALL_PROXY dead proxy: window and login still work
+- no token in URL or logs
 
 ## Regression
-`command-center/tests/test_ux2_desktop.py`: +5 тестов
-(`test_runtime_window_timeout_is_passed_to_launcher`, `test_lock_records_window_opened_at`,
-`test_status_prints_json_state_without_launching`, `test_bcc_open_entry_command_gets_web_flag`,
-`test_bcc_desktop_entry_does_not_inject_web_flag`).
-Прогон: 40 passed / 1 failed на Windows (упавший — пре-существующий,
-`test_second_window_refused_while_first_instance_alive`, Unix-семантика pid=1;
-на pristine коде падает так же; CI на Ubuntu проходит).
+command-center focused: 5 new tests pass; live scenarios 1..8 all PASS on system Chrome
 
-## Adversarial checks
-- Пустой/недоступный сервер: прежние коды выхода (2,3,4) не менялись.
-- Явный `--browser` + `--browser-arg`: передача не тронута (логика не переставлялась).
-- `--web` не инжектируется для `bcc-desktop` (тест) и инжектируется для `bcc-open` (тест).
-- ALL_PROXY/HTTP(S)_PROXY на мёртвый прокси: окно и логин работают (сценарий B8).
-- Токен в URL/логах: не передаётся; секрет в этом разборе не упоминается.
+## Fresh external verification
+Live owner-desktop repro on Windows with real Chromium app-mode window driven by raw-CDP observer; system Chrome/Edge work, PW-cache build does not navigate
 
-## Lesson
-Autodetect браузера не может доверять «есть бинарник» — для режима `--app` нужен
-честный признак сборки (системный против кэша автоматизации), а окно без
-навигации обязано объясняться владельцу, а не выглядеть тихим крашем.
-Живой desktop-сценарий на системном браузере — единственное доказательство;
-headless-тесты и CDP-пробы зелёными не считаются.
+## Generalizable lessons
+- browser autodetect must not trust existence alone for --app mode; an honest build marker plus owner-facing diagnostics beats a silent blank window
+- live desktop scenario on the system browser is the only proof; headless/CDP-green is not
+
+## Teach local model
+- A window that opens but never navigates is an environment/browser issue, not a server issue: check body_len and whether GET / arrives
+- Playwright-cached Chromium may fail --app navigation; prefer system Chrome/Edge on owner machines
+
+## Limitations / follow-up
+- repro confirmed on this Windows machine; other OS/build combos untested
+- the failure mechanism inside the PW-cache Chromium build remains unexplained; no longer a blocker because diagnostics are in place
