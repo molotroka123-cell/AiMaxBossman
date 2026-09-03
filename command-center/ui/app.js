@@ -662,6 +662,7 @@ el.themeBtn.addEventListener('click', () => setTheme(getTheme() === 'dark' ? 'li
 el.refreshBtn.addEventListener('click', () => refresh());
 if (el.staleNow) el.staleNow.addEventListener('click', () => { bus.reconnectNow(); syncConn(bus.state); });
 window.__bxConn = { bus, label: connLabel };
+window.__bxPages = PAGES.map((p) => ({ id: p.id, title: p.title, nav: p.nav || 'primary' }));
 el.menuBtn.addEventListener('click', () => setMenu(!el.shell.classList.contains('menu-open')));
 el.scrim.addEventListener('click', () => { if (el.shell.classList.contains('menu-open')) setMenu(false); });
 el.paletteBtn.addEventListener('click', () => openPalette());

@@ -128,7 +128,7 @@ function buildRootsPanel(roots, ctx) {
   function addRow(value = '') {
     const el = input({ value, class: 'input mono' });
     const row = h('div.row.tight', el, h('button.btn.btn-sm.btn-ghost', {
-      type: 'button', onClick: () => { row.remove(); const i = els.indexOf(el); if (i >= 0) els.splice(i, 1); },
+      type: 'button', title: 'Убрать папку', 'aria-label': 'Убрать папку', onClick: () => { row.remove(); const i = els.indexOf(el); if (i >= 0) els.splice(i, 1); },
     }, icon('trash', 12)));
     els.push(el);
     rows.appendChild(row);

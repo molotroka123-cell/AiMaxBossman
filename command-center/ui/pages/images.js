@@ -180,7 +180,7 @@ function librarySidebar(collections, assets, storage, ctx) {
   return h('aside.images-side',
     h('section.panel',
       h('div.panel-head', h('h2', 'Коллекции'), h('div.spacer'),
-        h('button.btn.btn-sm', { type: 'button', onClick: () => createCollection(ctx) }, icon('plus', 12))),
+        h('button.btn.btn-sm', { type: 'button', title: 'Новая коллекция', 'aria-label': 'Новая коллекция', onClick: () => createCollection(ctx) }, icon('plus', 12))),
       h('div.panel-body.tight.images-collections',
         collectionRow('Все изображения', assets.length, true, () => { activeTab = 'library'; ctx.refresh(); }),
         collectionRow('Избранное', favoriteCount, false, () => { activeTab = 'library'; ctx.refresh(); }),
