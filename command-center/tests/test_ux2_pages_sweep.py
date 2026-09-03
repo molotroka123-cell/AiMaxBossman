@@ -97,3 +97,37 @@ def test_every_page_renders_and_buttons_work(live, tmp_path):  # noqa: F811
                 failures.append(f"{r['id']}: «{m['label']}» не открыла/не закрыла модалку: {m.get('error')}")
     assert not failures, "\n".join(failures)
     assert errors == [], "\n".join(errors)
+
+
+def test_every_page_fits_mobile_viewport(live):  # noqa: F811
+    """Телефон (390×844): ни одна страница не даёт горизонтальной прокрутки, консоль чистая,
+    панель «Процесс работы» на телефоне занимает всю ширину и закрывается."""
+    from playwright.sync_api import sync_playwright
+
+    errors: list[str] = []
+    overflow: list[str] = []
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
+        page.on("console", lambda m: errors.append(f"[{page.url}] {m.text}") if m.type == "error" and not NETWORK_NOISE.search(m.text) else None)
+        page.on("pageerror", lambda e: errors.append(f"[{page.url}] {e}"))
+        _login(page, live)
+        pages = page.evaluate("window.__bxPages")
+        for p in pages:
+            page.goto(f"{live.url}/#/{p['id']}", wait_until="domcontentloaded")
+            page.wait_for_function("!document.querySelector('#view .skeleton') && document.getElementById('view').childElementCount > 0", timeout=20000)
+            page.wait_for_timeout(150)
+            w = page.evaluate("({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth })")
+            if w["sw"] > w["cw"] + 1:
+                overflow.append(f"{p['id']}: scrollWidth {w['sw']} > viewport {w['cw']}")
+        # панель процесса на телефоне: во всю ширину, закрывается кнопкой
+        page.click("#think-open")
+        page.wait_for_selector("#think-pane:not([hidden])", timeout=5000)
+        box = page.locator("#think-pane").bounding_box()
+        assert box and box["width"] >= 380, box
+        page.click("#think-close")
+        page.wait_for_selector("#think-pane[hidden]", state="attached", timeout=5000)
+        browser.close()
+
+    assert overflow == [], "\n".join(overflow)
+    assert errors == [], "\n".join(errors)
