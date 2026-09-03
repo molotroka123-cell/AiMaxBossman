@@ -89,7 +89,7 @@ function skillCard(s, ctx) {
     iconName: 'bolt',
     title: s.name || s.id,
     sub: `${s.id} · v${s.version || '1.0'}`,
-    statusNode: ui.tag(`${agents} ${ui.plural(agents, 'агент', 'агента', 'агентов')}`),
+    statusNode: ui.tag(ui.plural(agents, 'агент', 'агента', 'агентов')),
     tags: (s.required_tools || []).map((t) => ui.tag(t)),
     body: [s.description ? h('div.xsmall.dim.wrap-any', s.description) : null],
     actions: [

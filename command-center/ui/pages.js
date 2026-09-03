@@ -344,8 +344,8 @@ const ModelsPage = {
     const byId = new Map(providers.map((p) => [String(pick(p, ['id'])), p]));
 
     const head = ui.pageHead('Модели',
-      `${models.length} ${ui.plural(models.length, 'модель', 'модели', 'моделей')} · `
-      + `${providers.length} ${ui.plural(providers.length, 'поставщик', 'поставщика', 'поставщиков')}`,
+      `${ui.plural(models.length, 'модель', 'модели', 'моделей')} · `
+      + `${ui.plural(providers.length, 'поставщик', 'поставщика', 'поставщиков')}`,
       { actions: [
         ui.btn('Проверить все', async () => {
           if (!models.length) return;

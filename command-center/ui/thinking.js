@@ -159,6 +159,13 @@ export function mountThinking({ bus, api, button }) {
     if (kind === 'system.metrics' || kind === 'hello') return;
     events.unshift(ev);
     if (events.length > MAX_EVENTS) events.length = MAX_EVENTS;
+    applyFacts(ev);
+    if (open) scheduleRender();
+  }
+
+  /** Обновляет карточки прогонов по одному событию (без записи в ленту). */
+  function applyFacts(ev) {
+    const kind = String(ev.kind || '');
     const r = (kind.startsWith('task.') || kind.startsWith('tool.') || kind === 'router.fallback' || kind === 'run.log'
       || kind.startsWith('hook.') || kind === 'evaluation.completed' || kind === 'checkpoint.created') ? run(ev) : null;
     if (r) {
@@ -180,7 +187,6 @@ export function mountThinking({ bus, api, button }) {
       if (kind === 'run.log' && ev.level === 'error') r.errors += 1;
       if (kind === 'evaluation.completed') { r.note = `проверка: ${ev.verdict || ''}`; if (ev.verdict === 'PASS') { r.state = 'completed'; r.finished_at = Date.now(); } }
     }
-    if (open) scheduleRender();
   }
 
   /* Поток событий бывает взрывным (десятки в секунду). Полная перерисовка на
@@ -204,8 +210,12 @@ export function mountThinking({ bus, api, button }) {
         const id = lr.id != null ? Number(lr.id) : `t${t.id}`;
         if (!runs.has(id)) {
           const started = parseTs(lr.started_at || t.updated_at || t.created_at) || new Date();
-          runs.set(id, { run_id: id, task_id: t.id, title: t.title, state: String(t.status || 'running'), step: lr.step ?? null, max_steps: lr.max_steps ?? null,
-            model: lr.model || '', last_tool: '', last_tool_ms: null, waiting: String(t.status) === 'waiting_approval', waiting_for: '', retries: 0, errors: 0,
+          // Поля прогона приходят из /api/tasks: модель в `model_alias`, шаг — в checkpoint.
+          const cp = (lr.checkpoint && typeof lr.checkpoint === 'object') ? lr.checkpoint : {};
+          runs.set(id, { run_id: id, task_id: t.id, title: t.title, state: String(t.status || 'running'),
+            step: cp.step ?? lr.step ?? null, max_steps: lr.max_steps ?? t.max_steps ?? null,
+            model: lr.model_alias || lr.model || '', last_tool: '', last_tool_ms: null,
+            waiting: String(t.status) === 'waiting_approval', waiting_for: '', retries: 0, errors: 0,
             started_at: started.getTime(), finished_at: null, updated: Date.now(), note: '' });
         }
       }
@@ -213,10 +223,14 @@ export function mountThinking({ bus, api, button }) {
     try {
       if (!events.length) {
         const recent = await api.activity();
-        for (const row of (Array.isArray(recent) ? recent : (recent && recent.items) || []).slice(0, 60)) {
+        const rows = (Array.isArray(recent) ? recent : (recent && recent.items) || []).slice(0, 60);
+        for (const row of rows) {
           const data = row.data && typeof row.data === 'object' ? row.data : {};
           events.push({ ...data, kind: row.kind, ts: row.ts });
         }
+        // Карточки должны согласоваться с лентой: факты из уже случившихся событий
+        // применяем от старых к новым (сами события в ленту повторно не кладём).
+        for (const ev of [...events].reverse()) applyFacts(ev);
       }
     } catch { /* лента не критична */ }
     renderNow(); renderLog();

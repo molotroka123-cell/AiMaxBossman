@@ -917,7 +917,8 @@
   font-family:var(--bx-font);color:var(--bx-ink)}
 .bx-think[hidden]{display:none}
 .bx-think-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 14px 8px}
-.bx-think-title{display:flex;align-items:center;gap:8px;font-size:var(--bx-card-title)}
+.bx-think-title{display:flex;align-items:center;gap:8px;font-size:15px;min-width:0}
+.bx-think-title b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bx-think-actions{display:flex;gap:4px}
 .bx-think-sub{padding:0 14px 10px;font-size:var(--bx-caption);color:var(--bx-ink-3);line-height:1.35}
 .bx-think-section{padding:8px 14px 4px;font-size:var(--bx-caption);letter-spacing:.06em;text-transform:uppercase;color:var(--bx-ink-3)}

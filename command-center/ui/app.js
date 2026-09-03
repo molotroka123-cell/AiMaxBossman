@@ -366,7 +366,10 @@ function syncConn(stateName) {
 function syncStaleBanner() {
   const b = el.stale;
   if (!b) return;
-  const down = state.ready && (conn.state === 'closed' || conn.state === 'connecting') && bus.disconnectedAt > 0;
+  // Баннер «данные устарели» имеет смысл только после первой успешной связи:
+  // при самом первом подключении устаревать ещё нечему.
+  const down = state.ready && (conn.state === 'closed' || conn.state === 'connecting')
+    && bus.disconnectedAt > 0 && bus.lastOpenAt > 0;
   if (!down) { b.hidden = true; return; }
   const since = bus.disconnectedAt;
   const left = bus.nextRetryAt ? Math.max(0, Math.ceil((bus.nextRetryAt - Date.now()) / 1000)) : 0;

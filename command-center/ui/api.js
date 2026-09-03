@@ -268,7 +268,9 @@ export class EventStream {
     const now = Date.now();
     if (state === 'open') {
       this.nextRetryAt = 0;
-      const wasDown = this.disconnectedAt > 0;
+      // «Восстановлено» — только если связь ДО этого уже была: первое подключение
+      // после входа не является восстановлением и не должно радовать тостом.
+      const wasDown = this.disconnectedAt > 0 && this.lastOpenAt > 0;
       const downtimeMs = wasDown ? now - this.disconnectedAt : 0;
       this.lastOpenAt = now;
       this.disconnectedAt = 0;
