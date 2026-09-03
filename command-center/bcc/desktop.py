@@ -203,6 +203,17 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     приложением, 5 не удалось создать ярлык."""
     from .config import settings
 
+    if out is None:
+        # pythonw (ярлык BOSSMAN): консоли нет — информационный вывод отбрасываем,
+        # иначе первый же print уронил бы запуск двойным кликом.
+        out = open(os.devnull, "w", encoding="utf-8")
+    else:
+        try:
+            # Русская консоль Windows (cp1251/cp1252): русские сообщения не должны
+            # ронять установщик/запуск кодировочной ошибкой.
+            out.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 — StringIO в тестах, пайпы и т.п.
+            pass
     args = build_parser().parse_args(list(argv) if argv is not None else None)
     host = args.host or settings.host
     port = args.port or settings.port
