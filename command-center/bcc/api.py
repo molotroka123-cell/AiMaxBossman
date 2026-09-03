@@ -143,12 +143,30 @@ class Services:
                                     message=f"tick {feature.name}: {type(exc).__name__}: {exc}")
             await asyncio.sleep(feature.tick_seconds)
 
+    #: Сколько ждать отменённые фоновые задачи. Предел нужен потому, что не всё
+    #: отменяемо: `asyncio.to_thread` прерывать нельзя — поток дописывает своё, и
+    #: безусловный `await task` висит, пока он не закончит. Без предела медленный
+    #: диск или загруженная машина превращают остановку в зависание (в CI это
+    #: видно как teardown на 178 секунд и срабатывание pytest-timeout).
+    STOP_TIMEOUT = 10.0
+
     async def stop(self) -> None:
         for task in self._tasks:
             task.cancel()
-        for task in self._tasks:
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await task
+        pending = [t for t in self._tasks if not t.done()]
+        if pending:
+            done, alive = await asyncio.wait(pending, timeout=self.STOP_TIMEOUT)
+            for task in done:
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    task.result()
+            if alive:
+                # Молчать нельзя: зависшая задача — это диагноз, а не мелочь.
+                names = ", ".join(sorted(t.get_name() for t in alive))
+                self.stop_stragglers = names
+                with contextlib.suppress(Exception):
+                    await self.bus.emit("worker.error",
+                                        message=f"остановка: задачи не завершились за "
+                                                f"{self.STOP_TIMEOUT:.0f} c: {names}")
         self._tasks = []
         # Слить фоновые run/heartbeat-задачи движка ДО dispose пула БД:
         # осиротевшая задача, дошедшая до `await s.commit()` на закрываемом пуле,

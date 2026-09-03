@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 
 import pytest
 
@@ -49,3 +50,68 @@ async def test_stop_leaves_no_tasks_behind(tmp_path):
     assert svc._tasks, "worker'ы должны быть заведены"
     await svc.stop()
     assert svc._tasks == []
+
+
+@pytest.mark.anyio
+async def test_stop_does_not_hang_on_an_uncancellable_task(tmp_path, monkeypatch):
+    """Остановка обязана завершаться, даже если задача отмену игнорирует.
+
+    Раньше stop() ждал каждую отменённую задачу без предела. Задача, которая
+    проглотила CancelledError и продолжила работу, вешала остановку навсегда —
+    а вместе с ней и завершение теста. Предел делает остановку конечной, а
+    задачу, которая не умерла, — названной, а не проглоченной молча.
+
+    Оговорка: 178-секундный teardown, замеченный в CI на py3.12, этим тестом НЕ
+    воспроизведён. Здесь закрыта доказуемая опасность, а не тот конкретный случай.
+    """
+    settings = make_settings(tmp_path)
+    app, svc = await start_app(settings, start_workers=False)
+    monkeypatch.setattr(type(svc), "STOP_TIMEOUT", 0.5, raising=False)
+    release = threading.Event()
+
+    async def _stubborn() -> None:
+        while not release.is_set():
+            try:
+                await asyncio.sleep(0.05)
+            except asyncio.CancelledError:
+                continue          # именно так выглядит задача, игнорирующая отмену
+
+    task = asyncio.create_task(_stubborn(), name="stubborn")
+    svc._tasks.append(task)
+    await asyncio.sleep(0.05)
+
+    started = asyncio.get_running_loop().time()
+    try:
+        await asyncio.wait_for(svc.stop(), timeout=8)
+    finally:
+        release.set()
+    elapsed = asyncio.get_running_loop().time() - started
+
+    assert elapsed < 5, f"остановка заняла {elapsed:.1f} c — предел не сработал"
+    assert "stubborn" in getattr(svc, "stop_stragglers", ""), \
+        "незавершившаяся задача должна быть названа, а не проглочена"
+    assert svc._tasks == []
+
+
+@pytest.mark.anyio
+async def test_stop_still_awaits_tasks_that_cancel_properly(tmp_path):
+    """Предел не превращает остановку в «бросить и уйти»: послушные задачи дожидаются."""
+    settings = make_settings(tmp_path)
+    app, svc = await start_app(settings, start_workers=False)
+    finished = asyncio.Event()
+
+    async def _polite() -> None:
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            finished.set()
+            raise
+
+    task = asyncio.create_task(_polite(), name="polite")
+    svc._tasks.append(task)
+    await asyncio.sleep(0.05)
+
+    await svc.stop()
+
+    assert finished.is_set() and task.cancelled()
+    assert not getattr(svc, "stop_stragglers", "")
