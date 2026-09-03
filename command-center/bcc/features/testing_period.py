@@ -78,12 +78,25 @@ def enabled() -> bool:
     return os.environ.get(FLAG, "1").strip().lower() not in ("0", "false", "no", "off")
 
 
+def _log_dir_for(data_dir) -> Path:
+    """Каталог журнала по самому каталогу данных.
+
+    Отдельно от _log_dir, потому что процесс лаунчера объекта настроек ещё не
+    имеет: у него на руках только путь.
+    """
+    return Path(data_dir) / LOG_DIRNAME
+
+
+def _log_path_for(data_dir) -> Path:
+    return _log_dir_for(data_dir) / "session-log.jsonl"
+
+
 def _log_dir(settings) -> Path:
-    return Path(settings.data_dir) / LOG_DIRNAME
+    return _log_dir_for(settings.data_dir)
 
 
 def _log_path(settings) -> Path:
-    return _log_dir(settings) / "session-log.jsonl"
+    return _log_path_for(settings.data_dir)
 
 
 def _now_iso() -> str:
@@ -199,6 +212,56 @@ class SessionLog:
             return self.path.stat().st_size
         except OSError:
             return 0
+
+
+# Закрытый список исходов запуска. Ровно то, что умеет записать desktop.run —
+# без запаса «на будущее»: причина, которую никто не пишет, при разборе журнала
+# выглядит как «такого не случалось», хотя её просто нет в коде.
+LAUNCH_REASONS = ("start", "ok", "no-browser-found", "port-busy-foreign",
+                  "server-start-failed", "no-server-flag", "browser-launch-failed",
+                  "refused-second-window", "window-not-ready")
+
+
+def mask_home(value: str) -> str:
+    """Домашний каталог заменяем на ~: в путях Windows видно имя пользователя."""
+    text = str(value or "")
+    try:
+        home = str(Path.home())
+    except (OSError, RuntimeError):
+        return text
+    return text.replace(home, "~") if home and len(home) > 3 else text
+
+
+def record_launch(data_dir, kind: str, payload: dict) -> bool:
+    """Записать событие запуска в ТОТ ЖЕ журнал — из процесса лаунчера.
+
+    Зачем отдельная функция. Журнал заводится в setup(), то есть уже ПОСЛЕ того,
+    как сервер поднялся. Если окно не открылось совсем — браузер не найден, порт
+    занят чужим, сервер не встал, launcher упал — сервера нет, журнала нет, и в
+    присланном файле про этот запуск нет ни строчки. Следы остаются только в
+    desktop-run.log, который в git не уезжает и которого получатель не видит.
+    Здесь исход запуска ложится в общий jsonl и уедет со следующей удачной
+    сессией.
+
+    Пишем синхронно и с теми же ограничителями, что и SessionLog: выключенный
+    режим и предел размера обязаны действовать и на этот путь, иначе процесс
+    лаунчера обошёл бы их стороной.
+    """
+    if not enabled():
+        return False
+    try:
+        path = _log_path_for(data_dir)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and path.stat().st_size > MAX_LOG_BYTES:
+            return False
+        record = {"ts": _now_iso(), "session": "launcher", "source": "desktop",
+                  "kind": kind, "data": _safe_payload(payload or {})}
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+        return True
+    except OSError:
+        # Наблюдатель не имеет права помешать запуску, который он наблюдает.
+        return False
 
 
 def _secret_values(svc) -> set[str]:

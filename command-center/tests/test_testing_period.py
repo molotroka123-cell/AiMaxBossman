@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import time
@@ -387,3 +388,140 @@ def test_a_click_that_works_is_not_called_dead(live):  # noqa: F811
     dead = [e for e in events if e["kind"] == "ui.dead_click"
             and "think-open" in e["data"].get("element", "")]
     assert not dead, f"рабочая кнопка записана как мёртвая: {dead}"
+
+
+# ------------------------------------- исход запуска доходит до журнала
+
+def _launch_records(settings) -> list[dict]:
+    path = tp._log_path_for(settings.data_dir)
+    if not path.exists():
+        return []
+    return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines()
+            if '"desktop.launch"' in l]
+
+
+def test_failed_launch_reaches_the_published_journal(tmp_path, monkeypatch):
+    """Главный пробел: если окно не открылось, сервера нет — и журнала тоже.
+
+    Следы такого запуска лежали только в desktop-run.log, который в git не
+    уезжает. Теперь исход ложится в тот же jsonl и уедет со следующей удачной
+    сессией — иначе присланный файл про этот запуск молчит вообще.
+    """
+    from bcc import desktop
+    from bcc.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
+    monkeypatch.setattr(settings, "database_url", f"sqlite+aiosqlite:///{tmp_path / 'data' / 'x.db'}")
+    monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: None)   # браузера нет
+
+    code = desktop.run(["--host", "127.0.0.1", "--port", "0", "--no-show-token"],
+                       out=io.StringIO())
+
+    assert code == 2
+    records = _launch_records(settings)
+    assert records, "исход запуска обязан попасть в журнал тестового периода"
+    reasons = {r["data"]["reason"] for r in records}
+    assert "no-browser-found" in reasons
+    assert all(r["source"] == "desktop" for r in records)
+    assert all(r["data"]["reason"] in tp.LAUNCH_REASONS for r in records), \
+        "причина — код из закрытого списка, а не свободный текст"
+
+
+def test_launch_record_ties_start_and_outcome(tmp_path, monkeypatch):
+    """Начало и исход одного запуска обязаны сшиваться одним идентификатором."""
+    from bcc import desktop
+    from bcc.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
+    monkeypatch.setattr(settings, "database_url", f"sqlite+aiosqlite:///{tmp_path / 'data' / 'x.db'}")
+    monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/bin/true")
+
+    desktop.run(["--host", "127.0.0.1", "--port", "0", "--browser", "/bin/true",
+                 "--profile", str(tmp_path / "prof"), "--no-show-token"],
+                launcher=lambda *a, **k: 0, out=io.StringIO())
+
+    records = _launch_records(settings)
+    ids = {r["data"]["launch_id"] for r in records if r["data"]["reason"] != "no-browser-found"}
+    assert len(ids) == 1, f"начало и исход должны нести один launch_id: {ids}"
+    reasons = [r["data"]["reason"] for r in records]
+    assert reasons[0] == "start" and "ok" in reasons
+
+
+def test_launch_record_carries_no_paths_and_no_free_text_of_others(tmp_path, monkeypatch):
+    """Пути и чужие тексты в журнал не уезжают: там видно имя пользователя."""
+    from bcc import desktop
+    from bcc.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
+    monkeypatch.setattr(settings, "database_url", f"sqlite+aiosqlite:///{tmp_path / 'data' / 'x.db'}")
+    monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/opt/secret-place/chromium")
+
+    def _boom(*_a, **_kw):
+        raise OSError("не запустить /opt/secret-place/chromium: нет доступа")
+
+    desktop.run(["--host", "127.0.0.1", "--port", "0", "--browser", "/opt/secret-place/chromium",
+                 "--profile", str(tmp_path / "prof"), "--no-show-token"],
+                launcher=_boom, out=io.StringIO())
+
+    raw = tp._log_path_for(settings.data_dir).read_text(encoding="utf-8")
+    assert "desktop.launch" in raw
+    assert "/opt/secret-place" not in raw, "полный путь к браузеру в журнал не пишем"
+    assert "chromium" in raw, "имя браузера остаётся — оно и нужно для разбора"
+    failed = [r for r in _launch_records(settings) if r["data"]["reason"] == "browser-launch-failed"]
+    assert failed and failed[0]["data"]["detail"] == "OSError", \
+        "чужой текст исключения не пишем, только его класс"
+
+
+def test_launch_record_respects_the_switched_off_mode(tmp_path, monkeypatch):
+    """Выключенный режим обязан гасить и запись лаунчера, а не только серверную."""
+    from bcc import desktop
+    from bcc.config import settings
+
+    monkeypatch.setenv(tp.FLAG, "0")
+    monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
+    monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: None)
+
+    desktop.run(["--host", "127.0.0.1", "--port", "0", "--no-show-token"], out=io.StringIO())
+
+    assert not tp._log_path_for(settings.data_dir).exists()
+
+
+def test_launch_record_respects_the_size_limit(tmp_path, monkeypatch):
+    """Процесс лаунчера не должен обходить предел размера журнала."""
+    monkeypatch.setattr(tp, "MAX_LOG_BYTES", 64)
+    data_dir = tmp_path / "data"
+    path = tp._log_path_for(data_dir)
+    path.parent.mkdir(parents=True)
+    path.write_text("x" * 200 + "\n", encoding="utf-8")
+
+    assert tp.record_launch(data_dir, "desktop.launch", {"reason": "ok"}) is False
+
+
+def test_the_closed_list_of_reasons_matches_what_the_launcher_actually_writes():
+    """Список причин и код обязаны сходиться в обе стороны.
+
+    Причина, которой нет в списке, при разборе журнала выглядит опечаткой;
+    причина, которую никто не пишет, — как «такого не случалось». И то и другое
+    вводит в заблуждение того, кто читает присланный журнал, поэтому сверяем
+    список с настоящими вызовами в desktop.py, а не с намерением.
+    """
+    import ast
+
+    source = (Path(__file__).resolve().parents[1] / "bcc" / "desktop.py").read_text(encoding="utf-8")
+    written = set()
+    for node in ast.walk(ast.parse(source)):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                and node.func.id == "_record_launch"):
+            for arg in node.args[2:3]:
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                    written.add(arg.value)
+                elif isinstance(arg, ast.IfExp):    # "window-not-ready" if ... else "ok"
+                    for branch in (arg.body, arg.orelse):
+                        if isinstance(branch, ast.Constant):
+                            written.add(branch.value)
+
+    assert written, "вызовы _record_launch в desktop.py не найдены — тест перестал что-либо проверять"
+    assert written - set(tp.LAUNCH_REASONS) == set(), \
+        f"лаунчер пишет причину вне закрытого списка: {sorted(written - set(tp.LAUNCH_REASONS))}"
+    assert set(tp.LAUNCH_REASONS) - written == set(), \
+        f"в списке есть причины, которых никто не пишет: {sorted(set(tp.LAUNCH_REASONS) - written)}"

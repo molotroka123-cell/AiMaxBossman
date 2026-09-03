@@ -20,6 +20,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -187,6 +188,35 @@ def open_window(browser: str, url: str, profile_dir: Path, *, extra: Sequence[st
     profile_dir.mkdir(parents=True, exist_ok=True)
     argv = browser_argv(browser, url, profile_dir, window_size=window_size, extra=extra)
     return subprocess.Popen(argv, stdin=subprocess.DEVNULL)  # noqa: S603 — argv-only, без shell
+
+
+def _record_launch(data_dir: Path, launch_id: str, reason: str, *, code: int | None = None,
+                   detail: str = "", browser: str = "", lifetime: float | None = None) -> None:
+    """Исход запуска — в журнал тестового периода, а не только в desktop-run.log.
+
+    desktop-run.log в git не уезжает: если окно не открылось совсем, владелец
+    присылает журнал, в котором про этот запуск нет ни строчки. Здесь тот же
+    исход ложится в общий jsonl и уедет со следующей удачной сессией.
+
+    Причина — код из закрытого списка, а не свободный текст: для кода 3 в
+    журнал уходит текст uvicorn, для кода 6 — текст OSError с путём к браузеру.
+    Такое кладём отдельным полем, урезанным и с заменой домашнего каталога.
+    """
+    try:
+        from .features import testing_period
+
+        payload: dict = {"launch_id": launch_id, "reason": reason, "pid": os.getpid()}
+        if code is not None:
+            payload["code"] = code
+        if browser:
+            payload["browser"] = os.path.basename(browser) or "?"
+        if lifetime is not None:
+            payload["lifetime_s"] = round(lifetime, 1)
+        if detail:
+            payload["detail"] = testing_period.mask_home(str(detail))[:200]
+        testing_period.record_launch(data_dir, "desktop.launch", payload)
+    except Exception:  # noqa: BLE001 — журнал не имеет права мешать запуску
+        pass
 
 
 def _run_log_path(data_dir: Path) -> Path:
@@ -544,6 +574,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         print("[bcc-desktop] не найден Chromium/Chrome/Edge — укажите --browser или BCC_DESKTOP_BROWSER;"
               " веб-версия остаётся доступной командой `bcc`.", file=out, flush=True)
         _append_run_log(data_dir, "exit code=2 no-browser-found")
+        _record_launch(data_dir, "-", "no-browser-found", code=2)
         _pause_console(out)
         return 2
 
@@ -562,7 +593,9 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
               "(или BCC_DESKTOP_BROWSER). Веб-версия: `bcc`.", file=out, flush=True)
         _pause_console(out)
 
-    _append_run_log(data_dir, f"start pid={os.getpid()} url={url}")
+    launch_id = uuid.uuid4().hex[:8]
+    _append_run_log(data_dir, f"start pid={os.getpid()} launch={launch_id} url={url}")
+    _record_launch(data_dir, launch_id, "start", browser=browser)
     lock = _read_lock(data_dir)
     if lock:
         # Второе окно на том же профиле Chrome не открывает, а молча завершается
@@ -593,6 +626,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
                    "закройте его полностью и запустите BOSSMAN заново.")
             print(msg, file=out, flush=True)
             _append_run_log(data_dir, f"refused-second-window existing-port={lock_port}")
+            _record_launch(data_dir, launch_id, "refused-second-window", code=0)
             _pause_console(out)
             return 0
 
@@ -607,11 +641,13 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         print(f"[bcc-desktop] порт {port} занят другим приложением (это не Command Center) —"
               f" укажите другой --port", file=out, flush=True)
         _append_run_log(data_dir, f"exit code=4 port-busy-foreign port={port}")
+        _record_launch(data_dir, launch_id, "port-busy-foreign", code=4)
         _pause_console(out)
         return 4
     elif args.no_server:
         print(f"[bcc-desktop] сервер по адресу {url} не отвечает, а --no-server задан", file=out, flush=True)
         _append_run_log(data_dir, "exit code=3 no-server-flag")
+        _record_launch(data_dir, launch_id, "no-server-flag", code=3)
         _pause_console(out)
         return 3
     else:
@@ -620,6 +656,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             reason = started.error or "причина неизвестна"
             print(f"[bcc-desktop] сервер не поднялся на {url}: {reason}", file=out, flush=True)
             _append_run_log(data_dir, f"exit code=3 server-start-failed {reason}")
+            _record_launch(data_dir, launch_id, "server-start-failed", code=3, detail=reason)
             started.stop()
             _pause_console(out)
             return 3
@@ -641,6 +678,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
                 reason = started.error or "причина неизвестна"
                 print(f"[bcc-desktop] сервер не поднялся на {url}: {reason}", file=out, flush=True)
                 _append_run_log(data_dir, f"exit code=3 server-start-failed {reason}")
+                _record_launch(data_dir, launch_id, "server-start-failed", code=3, detail=reason)
                 started.stop()
                 _pause_console(out)
                 return 3
@@ -711,12 +749,17 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     lifetime = time.monotonic() - t0
     if launch_error is not None:
         _append_run_log(data_dir, f"browser-launch-failed {type(launch_error).__name__}: {launch_error}")
+        _record_launch(data_dir, launch_id, "browser-launch-failed", code=6,
+                       detail=type(launch_error).__name__, browser=browser)
         print(f"[bcc-desktop] не удалось запустить браузер {browser}: {launch_error}\n"
               f"[bcc-desktop] проверьте путь или задайте свой: --browser \"C:\\путь\\chrome.exe\"",
               file=out, flush=True)
         _pause_console(out)
         return 6
     _append_run_log(data_dir, f"browser-exit code={code} lifetime={lifetime:.1f}s url={url}")
+    _record_launch(data_dir, launch_id,
+                   "window-not-ready" if code == STARTUP_FAILED_CODE else "ok",
+                   code=int(code or 0), lifetime=lifetime, browser=browser)
     if code == 124:
         print(f"[bcc-desktop] окно не открылось за отведённое время ({win_timeout or 'BCC_APP_STARTUP_TIMEOUT'} c) — "
               "вероятно, браузер не смог загрузить страницу (см. chrome_debug.log в профиле окна).\n"
