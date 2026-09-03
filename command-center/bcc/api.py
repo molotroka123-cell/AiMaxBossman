@@ -114,7 +114,11 @@ class Services:
                 await feature.setup(self)
         await self.engine.recover()          # crash recovery при старте процесса
         if self.start_workers:
-            self._tasks = [
+            # Именно += : фичи регистрируют свои подписки в _tasks во время
+            # setup() выше (missions, benchlab, failure_to_case). Присваивание
+            # затирало бы их ручки, и stop() не отменял бы подписку — в тестах
+            # это не видно, потому что там start_workers=False.
+            self._tasks += [
                 asyncio.create_task(self.engine.worker_loop(), name="bcc-worker"),
                 asyncio.create_task(self.scheduler.loop(), name="bcc-scheduler"),
                 asyncio.create_task(self.metrics.loop(), name="bcc-metrics"),
