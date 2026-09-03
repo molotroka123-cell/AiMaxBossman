@@ -747,3 +747,98 @@ def test_explicit_show_token_is_respected_even_without_a_console(tmp_path, monke
 
     assert "--no-show-token" not in seen["argv"]
     assert desktop.TOKEN_STDOUT_ENV not in os.environ, "нельзя глушить анонс, когда токен просили явно"
+
+
+
+def test_runtime_window_timeout_is_passed_to_launcher(tmp_path, monkeypatch):
+    """--window-timeout доходит до launcher'а (по умолчанию BCC_APP_STARTUP_TIMEOUT)."""
+    from bcc.config import settings
+    monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
+    monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/bin/true")
+    seen = {}
+
+    def fake_launcher(browser, url, profile_dir, *, extra=(), window_size="1440,900", timeout=None):
+        seen["timeout"] = timeout
+        return 124
+
+    out = io.StringIO()
+    code = desktop.run(["--host", "127.0.0.1", "--port", "0", "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "prof"), "--window-timeout", "3.5",
+                        "--no-show-token"], launcher=fake_launcher, out=out)
+    assert code == 124
+    assert seen["timeout"] == 3.5
+    assert "не открылось за отведённое время" in out.getvalue()
+
+
+def test_lock_records_window_opened_at(tmp_path, monkeypatch):
+    """desktop.lock получает window_opened_at — диагностика для --status без CDP."""
+    from bcc.config import settings
+    monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
+    monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/bin/true")
+    seen = {}
+
+    def fake_launcher(browser, url, profile_dir, *, extra=(), window_size="1440,900", timeout=None):
+        seen["lock"] = json.loads(
+            desktop._desktop_lock_path(Path(settings.data_dir)).read_text(encoding="utf-8"))
+        return 0
+
+    out = io.StringIO()
+    desktop.run(["--host", "127.0.0.1", "--port", "0", "--browser", "/bin/true",
+                 "--profile", str(tmp_path / "prof"), "--no-show-token"],
+                launcher=fake_launcher, out=out)
+    assert "window_opened_at" in seen["lock"]
+    assert seen["lock"]["pid"] > 0
+
+
+def test_status_prints_json_state_without_launching(tmp_path, monkeypatch):
+    """--status не запускает окно: печатает desktop.lock и живость сервера."""
+    from bcc.config import settings
+    monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
+    launched = []
+    out = io.StringIO()
+    code = desktop.run(["--status", "--port", str(settings.port), "--no-show-token"],
+                       launcher=lambda *a, **k: launched.append(1) or 0, out=out)
+    assert code == 0
+    assert not launched
+    state = json.loads(out.getvalue())
+    assert state["port"] == settings.port
+    assert "server_alive" in state
+    assert state["lock"] is None
+
+
+def test_bcc_open_entry_command_gets_web_flag(monkeypatch):
+    """Запуск через `bcc-open` включает --web автоматически."""
+    monkeypatch.setattr(desktop.os.path, "basename", lambda p: "bcc-open.exe")
+    monkeypatch.setattr(desktop.sys, "argv", ["bcc-open.exe"])
+    monkeypatch.setattr(desktop.sys, "stdout", None)
+    monkeypatch.setattr(desktop.sys, "stderr", None)
+    monkeypatch.setattr(desktop, "bind_missing_std_streams", lambda *a, **k: None)
+    seen = {}
+
+    def fake_run(argv=None, **kwargs):
+        seen["argv"] = list(argv or [])
+        return 0
+
+    monkeypatch.setattr(desktop, "run", fake_run)
+    with pytest.raises(SystemExit):
+        desktop.main()
+    assert seen["argv"][0] == "--web" and "--web" in seen["argv"]
+
+
+def test_bcc_desktop_entry_does_not_inject_web_flag(monkeypatch):
+    """`bcc-desktop` НЕ получает --web — окно остаётся окном."""
+    monkeypatch.setattr(desktop.os.path, "basename", lambda p: "bcc-desktop.exe")
+    monkeypatch.setattr(desktop.sys, "argv", ["bcc-desktop.exe"])
+    monkeypatch.setattr(desktop.sys, "stdout", None)
+    monkeypatch.setattr(desktop.sys, "stderr", None)
+    monkeypatch.setattr(desktop, "bind_missing_std_streams", lambda *a, **k: None)
+    seen = {}
+
+    def fake_run(argv=None, **kwargs):
+        seen["argv"] = list(argv or [])
+        return 0
+
+    monkeypatch.setattr(desktop, "run", fake_run)
+    with pytest.raises(SystemExit):
+        desktop.main()
+    assert "--web" not in seen["argv"]

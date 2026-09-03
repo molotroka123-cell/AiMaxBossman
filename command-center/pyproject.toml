@@ -24,6 +24,7 @@ mcp = ["mcp>=2.1,<3"]
 [project.scripts]
 bcc = "bcc.app:main"
 bcc-desktop = "bcc.desktop:main"
+bcc-open = "bcc.desktop:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -48,9 +48,59 @@ BROWSER_CANDIDATES: tuple[str, ...] = (
 )
 
 
+def _registry_browser(entry: str) -> str | None:
+    """Путь браузера из реестра Windows (64/32-битные кусты), None если нет."""
+    if os.name != "nt":
+        return None
+    import winreg
+    for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        try:
+            with winreg.OpenKey(hive, entry) as key:
+                value, _ = winreg.QueryValueEx(key, None)
+            if isinstance(value, str) and value and Path(value).exists():
+                return value
+        except OSError:
+            continue
+    return None
+
+
+def _windows_browser_candidates() -> tuple[str, ...]:
+    """Системные браузеры Windows по стандартным путям и реестру."""
+    found: list[str] = []
+    paths = (
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    )
+    for p in paths:
+        if Path(p).exists() and p not in found:
+            found.append(p)
+    reg_entries = (
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe",
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe",
+        r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe",
+        r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe",
+    )
+    for entry in reg_entries:
+        p = _registry_browser(entry)
+        if p and p not in found:
+            found.append(p)
+    return tuple(found)
+
+
 def find_browser(candidates: Sequence[str] = BROWSER_CANDIDATES) -> str | None:
     """Первый существующий Chromium-совместимый браузер (абсолютный путь) или None."""
-    for cand in candidates:
+    ordered = list(candidates)
+    if os.name == "nt" and candidates is BROWSER_CANDIDATES:
+        # Системные браузеры Windows впереди фиксированных путей: реестр знает
+        # актуальный путь даже на 32-битной Windows/портативных установках.
+        # Явный список кандидатов (тесты, вызовы с параметром) НЕ переставляем.
+        sys_browsers = _windows_browser_candidates()
+        if sys_browsers:
+            ordered = list(sys_browsers) + [c for c in ordered
+                                            if c and c not in sys_browsers]
+    for cand in ordered:
         if not cand:
             continue
         p = Path(cand)
@@ -367,6 +417,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--window-size", default="1440,900")
     p.add_argument("--no-server", action="store_true", help="не поднимать сервер, только окно")
     p.add_argument("--browser-arg", action="append", default=[], help="дополнительный флаг браузеру (можно несколько)")
+    p.add_argument("--window-timeout", type=float, default=None,
+                   help="максимум секунд ожидания окна (по умолчанию BCC_APP_STARTUP_TIMEOUT, иначе без таймаута)")
+    p.add_argument("--status", action="store_true",
+                   help="показать состояние запуска (desktop.lock + сервер) и выйти")
+    p.add_argument("--web", action="store_true",
+                   help="открыть веб-версию в системном браузере (без --app-окна)")
     p.add_argument("--install-shortcut", action="store_true",
                    help="создать ярлык BOSSMAN на рабочем столе (и в меню «Пуск» на Windows) и выйти")
     p.add_argument("--uninstall-shortcut", action="store_true", help="удалить созданные ярлыки и выйти")
@@ -407,6 +463,15 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     url = f"http://{host}:{port}/"
     profile_dir = Path(args.profile) if args.profile else Path(settings.data_dir) / "desktop-profile"
 
+    if args.status:
+        # Диагностика для владельца без CDP: что говорит desktop.lock и жив ли сервер.
+        data_dir = Path(settings.data_dir)
+        lock = _read_lock(data_dir)
+        state = {"lock": lock, "server_alive": server_alive(url),
+                 "port": port, "url": url}
+        print(json.dumps(state, ensure_ascii=False, indent=1), file=out, flush=True)
+        return 0
+
     if args.install_shortcut or args.uninstall_shortcut or args.print_launcher:
         from . import desktop_install
 
@@ -441,6 +506,21 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         _pause_console(out)
         return 2
 
+    # Воспроизведено на Windows: Chromium из кэша Playwright (`%LOCALAPPDATA%\\ms-playwright`,
+    # `/opt/pw-browsers`) в режиме --app НЕ загружает страницу — окно открывается пустым,
+    # запрос к серверу не уходит. Системный Chrome/Edge в тех же условиях работает.
+    # Сам браузер работоспособен (headless/CDP отвечают) — это ограничение сборки в --app.
+    _PW_MARKERS = ("ms-playwright", "pw-browsers", "playwright")
+    if any(m in str(browser).lower() for m in _PW_MARKERS):
+        _append_run_log(data_dir, "warning playwright-browser-binary-detected "
+                                  "(--app window may stay blank)")
+        print(f"[bcc-desktop] ВНИМАНИЕ: браузер {browser} — сборка из кэша Playwright. "
+              "В режиме --app такое окно может открыться ПУСТЫМ (страница не загружается).\n"
+              "[bcc-desktop] Укажите системный Chrome/Edge: —browser \"C:\\Program Files\\"
+              "Google\\Chrome\\Application\\chrome.exe\" "
+              "(или BCC_DESKTOP_BROWSER). Веб-версия: `bcc`.", file=out, flush=True)
+        _pause_console(out)
+
     _append_run_log(data_dir, f"start pid={os.getpid()} url={url}")
     lock = _read_lock(data_dir)
     if lock:
@@ -467,7 +547,9 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
                 pass
         if owner_alive and lock_port and identify_server(f"http://{host}:{lock_port}/"):
             msg = (f"[bcc-desktop] окно BOSSMAN уже запущено (порт {lock_port}) — второе окно "
-                   "на том же профиле не открываю, иначе Chrome закроется сам")
+                   "на том же профиле не открываю, иначе Chrome закроется сам.\n"
+                   "[bcc-desktop] Совет: если окно ПУСТОЕ (страница не загрузилась) — "
+                   "закройте его полностью и запустите BOSSMAN заново.")
             print(msg, file=out, flush=True)
             _append_run_log(data_dir, f"refused-second-window existing-port={lock_port}")
             _pause_console(out)
@@ -509,6 +591,34 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         print(access_banner(url, read_access_token(data_dir), Path(data_dir) / TOKEN_FILE_NAME,
                             console_owns_app=started is not None), file=out, flush=True)
 
+    if args.web:
+        # Веб-версия в системном браузере (без --app-окна): сервер поднимается
+        # этим же процессом и живёт столько же, сколько живёт процесс.
+        if started is None:
+            started = _BackgroundServer(host, port)
+            if not started.start(url):
+                reason = started.error or "причина неизвестна"
+                print(f"[bcc-desktop] сервер не поднялся на {url}: {reason}", file=out, flush=True)
+                _append_run_log(data_dir, f"exit code=3 server-start-failed {reason}")
+                started.stop()
+                _pause_console(out)
+                return 3
+            print(f"[bcc-desktop] сервер запущен: {url}", file=out, flush=True)
+        try:
+            import webbrowser
+            opened = webbrowser.open(url)
+            print(f"[bcc-desktop] открываю веб-версию в браузере: {url} "
+                  f"({'ок' if opened else 'не удалось — откройте вручную'})", file=out, flush=True)
+        except KeyboardInterrupt:
+            pass
+        try:
+            while started.thread.is_alive():
+                time.sleep(0.5)
+        except KeyboardInterrupt:
+            pass
+        started.stop()
+        return 0
+
     print(f"[bcc-desktop] окно: {browser} (профиль {profile_dir})", file=out, flush=True)
     # До try: иначе неожиданная ошибка внутри оставит t0 несвязанным, и вместо
     # причины владелец получил бы UnboundLocalError уже после finally.
@@ -517,7 +627,9 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     try:
         try:
             _desktop_lock_path(data_dir).write_text(
-                json.dumps({"pid": os.getpid(), "port": port}), encoding="utf-8")
+                json.dumps({"pid": os.getpid(), "port": port,
+                            "window_opened_at": time.strftime("%Y-%m-%dT%H:%M:%S")}),
+                encoding="utf-8")
             wrote_lock = True
         except OSError:
             pass
@@ -531,7 +643,17 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             pass
         launch_error: OSError | None = None
         try:
-            code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg), window_size=args.window_size)
+            # --window-timeout / BCC_APP_STARTUP_TIMEOUT: если окно не открылось
+            # за это время, launch_window() возвращает 124 вместо вечного ожидания.
+            win_timeout = args.window_timeout
+            if win_timeout is None:
+                try:
+                    win_timeout = float(os.environ.get("BCC_APP_STARTUP_TIMEOUT", "") or 0) or None
+                except ValueError:
+                    win_timeout = None
+            code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg),
+                            window_size=args.window_size,
+                            **({"timeout": win_timeout} if win_timeout else {}))
         except OSError as exc:
             # Раньше это улетало трейсбеком и консоль закрывалась вместе с ним:
             # владелец видел «открылась только командная строка» без причины.
@@ -554,7 +676,13 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         _pause_console(out)
         return 6
     _append_run_log(data_dir, f"browser-exit code={code} lifetime={lifetime:.1f}s url={url}")
-    if lifetime < 10:
+    if code == 124:
+        print(f"[bcc-desktop] окно не открылось за отведённое время ({win_timeout or 'BCC_APP_STARTUP_TIMEOUT'} c) — "
+              "вероятно, браузер не смог загрузить страницу (см. chrome_debug.log в профиле окна).\n"
+              f"[bcc-desktop] Совет: закройте все окна Chrome и запустите снова; при пустом окне "
+              f"откройте {url} в обычном браузере вручную (токен в консоли выше).", file=out, flush=True)
+        _pause_console(out)
+    elif lifetime < 10:
         print(f"[bcc-desktop] окно закрылось через {lifetime:.1f} c (код {code}) — вероятно, краш "
               f"или второй Chrome на том же профиле. Логи: {_run_log_path(data_dir)} и "
               f"{profile_dir}{os.sep}chrome_debug.log", file=out, flush=True)
@@ -566,6 +694,10 @@ def main() -> None:
     from .config import settings
 
     argv = list(sys.argv[1:])
+    # `bcc-open` — тот же лаунчер, но веб-версия в системном браузере
+    # (без --app-окна Chromium).
+    if os.path.basename(sys.argv[0]).lower().startswith("bcc-open"):
+        argv.insert(0, "--web")
     stream = bind_missing_std_streams(Path(settings.data_dir))
     if stream is None or sys.stdout is not stream:
         # Консоль на месте (или подменён только stderr) — владелец читает баннер сам.
