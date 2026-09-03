@@ -290,12 +290,12 @@
   gap: 9px;
   height: var(--bx-btn-h);
   padding: 0 18px;
-  border-radius: var(--bx-r-sm);
+  border-radius: var(--bx-r-full);
   border: 1px solid var(--bx-hairline-2);
   background: var(--bx-surface-2);
   color: var(--bx-ink);
   font: 600 13.5px/1 var(--bx-font);
-  letter-spacing: -.005em;
+  letter-spacing: .01em;
   cursor: pointer;
   white-space: nowrap;
   transition: transform var(--bx-t), background var(--bx-t),
@@ -338,7 +338,7 @@
 .bx-btn-block{ width: 100%; }
 .bx-btn-pill { border-radius: var(--bx-r-full); }
 
-.bx-btn-icon { width: var(--bx-btn-h); padding: 0; border-radius: var(--bx-r-sm); }
+.bx-btn-icon { width: var(--bx-btn-h); padding: 0; border-radius: var(--bx-r-full); }
 
 /* Загрузка: кнопка остаётся на месте и той же ширины — прыгающая раскладка
    выглядит как ошибка, даже когда всё в порядке. */

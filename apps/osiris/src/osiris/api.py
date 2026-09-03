@@ -13,6 +13,7 @@ from .prompt_cache import wrap_cloud
 from .provenance import PassportError
 from .sources import Fetcher
 from .store import Store
+from .twitter import refuse, status as twitter_status
 from .ui import page
 
 
@@ -84,6 +85,7 @@ def build_app(store: Store | None = None, transport=None) -> FastAPI:
             "grants": True,
             "provenance": True,
             "local_runtime_hook": True,
+            "twitter": "frozen",
         }
 
     @api.get("/metrics")
@@ -172,6 +174,14 @@ def build_app(store: Store | None = None, transport=None) -> FastAPI:
     @api.post("/api/cloud/cache-wrap")
     def cloud_wrap(prompt: str):
         return wrap_cloud(prompt)
+
+    @api.get("/api/twitter/status")
+    def twitter():
+        return twitter_status()
+
+    @api.post("/api/twitter/lookup")
+    def twitter_lookup():
+        raise HTTPException(423, refuse("lookup"))
 
     return api
 

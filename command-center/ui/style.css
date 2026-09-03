@@ -78,7 +78,10 @@ html, body { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(1100px 520px at 8% -12%, rgba(61, 139, 255, .09), transparent 58%),
+    radial-gradient(900px 480px at 108% 0%, rgba(160, 107, 255, .06), transparent 52%),
+    var(--bg);
   color: var(--fg);
   font: 14px/1.5 var(--font);
   -webkit-font-smoothing: antialiased;
@@ -112,17 +115,19 @@ a:hover { text-decoration: underline; }
   place-items: center;
   padding: 24px;
   background:
-    radial-gradient(720px 380px at 50% -10%, rgba(61, 139, 255, .07), transparent 70%),
+    radial-gradient(720px 380px at 50% -10%, rgba(61, 139, 255, .12), transparent 70%),
+    radial-gradient(640px 280px at 80% 110%, rgba(160, 107, 255, .08), transparent 60%),
     var(--bg);
 }
 
 .login-card {
   width: min(400px, 100%);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 30px 28px 26px;
-  box-shadow: var(--shadow);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  border-radius: 22px;
+  padding: 32px 28px 26px;
+  box-shadow: var(--shadow), 0 0 0 1px rgba(255,255,255,.03) inset;
+  backdrop-filter: blur(16px);
 }
 
 .login-mark {
@@ -184,6 +189,7 @@ a:hover { text-decoration: underline; }
   color: var(--accent);
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
+  box-shadow: 0 0 18px -6px var(--accent);
 }
 .brand-text { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .brand-text b { font-size: 13.5px; letter-spacing: .09em; font-weight: 650; }
@@ -193,9 +199,9 @@ a:hover { text-decoration: underline; }
 
 .nav-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   background: none;
   color: var(--dim);
   font: inherit;
@@ -203,14 +209,15 @@ a:hover { text-decoration: underline; }
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: color var(--t), background var(--t), border-color var(--t);
+  transition: color var(--t), background var(--t), border-color var(--t), transform var(--t);
 }
 .nav-item svg { flex: none; opacity: .85; }
-.nav-item:hover { color: var(--fg-2); background: var(--line-soft); }
+.nav-item:hover { color: var(--fg-2); background: var(--line-soft); transform: translateX(1px); }
 .nav-item.active {
   color: var(--fg);
-  background: var(--accent-soft);
+  background: linear-gradient(90deg, var(--accent-soft), transparent);
   border-color: var(--accent-line);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .nav-item.active svg { color: var(--accent); opacity: 1; }
 .nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -282,16 +289,16 @@ kbd {
 .topbar-stats .stat b { color: var(--fg-2); font-weight: 600; font-family: var(--mono); }
 
 .icon-btn {
-  width: 32px; height: 32px; flex: none;
+  width: 34px; height: 34px; flex: none;
   display: grid; place-items: center;
-  background: none;
+  background: color-mix(in srgb, var(--panel-2) 70%, transparent);
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   color: var(--dim);
   cursor: pointer;
-  transition: color var(--t), border-color var(--t), background var(--t);
+  transition: color var(--t), border-color var(--t), background var(--t), transform var(--t), box-shadow var(--t);
 }
-.icon-btn:hover { color: var(--fg); border-color: var(--dim-2); background: var(--line-soft); }
+.icon-btn:hover { color: var(--fg); border-color: var(--accent-line); background: var(--accent-soft); transform: translateY(-1px); box-shadow: 0 8px 18px -12px var(--accent); }
 .icon-btn.spin svg { animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -306,9 +313,9 @@ kbd {
    ============================================================ */
 
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line) 85%, var(--accent) 15%);
+  border-radius: 16px;
   box-shadow: var(--shadow-sm);
 }
 .panel-head {
@@ -396,22 +403,34 @@ kbd {
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  padding: 8px 14px;
+  padding: 8px 16px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   background: var(--panel-2);
   color: var(--fg-2);
-  font: inherit; font-size: 13px; font-weight: 500;
+  font: inherit; font-size: 13px; font-weight: 600;
+  letter-spacing: .01em;
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--t), border-color var(--t), color var(--t), opacity var(--t);
+  transition: background var(--t), border-color var(--t), color var(--t), opacity var(--t), transform var(--t), box-shadow var(--t);
 }
-.btn:hover:not(:disabled) { color: var(--fg); border-color: var(--dim-2); background: var(--line-soft); }
+.btn:hover:not(:disabled) { color: var(--fg); border-color: var(--dim-2); background: var(--line-soft); transform: translateY(-1px); }
 .btn:active:not(:disabled) { transform: translateY(.5px); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 
-.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
-.btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 86%, #fff); border-color: color-mix(in srgb, var(--accent) 86%, #fff); color: var(--accent-fg); }
+.btn-primary {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 92%, #fff), color-mix(in srgb, var(--accent) 78%, #000));
+  border-color: transparent;
+  color: var(--accent-fg);
+  font-weight: 650;
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--accent) 80%, transparent), inset 0 1px 0 rgba(255,255,255,.28);
+}
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 98%, #fff), var(--accent));
+  border-color: transparent;
+  color: var(--accent-fg);
+  box-shadow: 0 14px 32px -12px color-mix(in srgb, var(--accent) 90%, transparent);
+}
 
 .btn-danger { color: var(--err); border-color: color-mix(in srgb, var(--err) 32%, transparent); background: color-mix(in srgb, var(--err) 8%, transparent); }
 .btn-danger:hover:not(:disabled) { color: #fff; background: var(--err); border-color: var(--err); }
@@ -422,7 +441,7 @@ kbd {
 .btn-ghost { background: none; border-color: transparent; color: var(--dim); }
 .btn-ghost:hover:not(:disabled) { background: var(--line-soft); color: var(--fg); border-color: transparent; }
 
-.btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 7px; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
 .btn-block { width: 100%; }
 .btn.busy { pointer-events: none; opacity: .6; }
 

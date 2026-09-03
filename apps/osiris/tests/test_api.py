@@ -60,3 +60,11 @@ def test_fact_roundtrip(tmp_path):
 def test_export_403_without_grant(tmp_path):
     r = client(tmp_path).post("/api/export", json={"subject": "org:9"})
     assert r.status_code == 403
+
+
+def test_twitter_frozen(tmp_path):
+    c = client(tmp_path)
+    r = c.get("/api/twitter/status")
+    assert r.status_code == 200
+    assert r.json()["status"] == "frozen"
+    assert c.post("/api/twitter/lookup").status_code == 423
