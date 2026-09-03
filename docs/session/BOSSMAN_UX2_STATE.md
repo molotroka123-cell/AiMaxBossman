@@ -1,0 +1,9 @@
+# BOSSMAN UX 2.0 — mission checkpoint (read this first)
+
+CONTRACT=mission message of 2026-09-03 (frequent push, finish-first, no destructive changes) + EFFICIENCY/CACHE MODE rules; the referenced BOSSMAN_MASTER_CONTEXT_ECONOMY_2.md and BOSSMAN_FABLE5_UX_2_MASTER_PROMPT.md are NOT present in the repository or on the host (searched /) — recorded, proceeding on the message's explicit priorities.
+CURRENT_HEAD=see git log -1 (started from remote 8de51ce)
+COMPLETED=UX2-1 Thinking process pane (command-center/ui/thinking.js, theme.css bx-think-*, topbar button #think-open, Ctrl+., palette action): live task cards (state, step, model, tool+duration, waiting-for-owner, retries, errors, elapsed timer) + event feed from the same server bus; no hidden chain-of-thought (events are typed, server-redacted). Verified in real Chromium against a live uvicorn server: tests/test_ux2_thinking_pane.py (1 passed, 0 console errors).
+NEXT=UX2-2 restart/reconnect UX (EventStream backoff → visible countdown + "reconnected, data refreshed" toast + stale-data banner); UX2-3 button/function verification sweep (all pages, 0 console errors, every visible button labelled+enabled, primary actions open their modal) as a Chromium test; UX2-4 desktop app launcher (Chromium --app kiosk window via preinstalled binary; native pywebview BLOCKED if no GTK); then discovered improvements, regression, freeze readiness.
+NEXT_FILES=command-center/ui/api.js (EventStream 229-335), ui/app.js (syncConn/bus.subscribe ~330-380), ui/pages/index.js (FEATURE_PAGES ids), tests/test_ux2_thinking_pane.py (LiveServer harness to reuse)
+EXACT_NEXT_COMMAND=cd command-center && python -m pytest tests/test_ux2_thinking_pane.py tests/test_ux2_reconnect.py -q --no-header -p no:cacheprovider -o addopts="" --timeout=180 -rs
+BLOCKED_BY_ENVIRONMENT=none for UX2-1

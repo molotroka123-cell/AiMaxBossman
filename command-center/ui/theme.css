@@ -910,3 +910,32 @@
   .bx-tile-head { flex-wrap: wrap; }
   .bx-tile-head > div { flex-basis: 60%; }
 }
+
+/* ---------- UX 2.0: панель «Процесс работы» (правый выдвижной блок) ---------- */
+.bx-think{position:fixed;top:0;right:0;bottom:0;width:min(400px,100vw);z-index:60;display:flex;flex-direction:column;
+  background:var(--bx-surface);border-left:1px solid var(--bx-hairline);box-shadow:-12px 0 32px rgba(0,0,0,.28);
+  font-family:var(--bx-font);color:var(--bx-ink)}
+.bx-think[hidden]{display:none}
+.bx-think-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 14px 8px}
+.bx-think-title{display:flex;align-items:center;gap:8px;font-size:var(--bx-card-title)}
+.bx-think-actions{display:flex;gap:4px}
+.bx-think-sub{padding:0 14px 10px;font-size:var(--bx-caption);color:var(--bx-ink-3);line-height:1.35}
+.bx-think-section{padding:8px 14px 4px;font-size:var(--bx-caption);letter-spacing:.06em;text-transform:uppercase;color:var(--bx-ink-3)}
+.bx-think-now{padding:0 10px;display:flex;flex-direction:column;gap:8px;max-height:44vh;overflow:auto}
+.bx-think-card{border:1px solid var(--bx-hairline);border-radius:12px;padding:10px 12px;background:var(--bx-surface-2)}
+.bx-think-card[data-state="waiting_approval"]{border-color:var(--bx-amber)}
+.bx-think-card[data-state="stopped"],.bx-think-card[data-state="completed"]{opacity:.75}
+.bx-think-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.bx-think-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:var(--bx-caption)}
+.bx-think-grid span{color:var(--bx-ink-3)}
+.bx-think-grid b{font-weight:600;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bx-think-note{margin-top:6px;font-size:var(--bx-caption);color:var(--bx-ink-2)}
+.bx-think-log{flex:1;overflow:auto;padding:0 10px 14px;display:flex;flex-direction:column;gap:4px}
+.bx-think-row{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:8px;font-size:var(--bx-caption);
+  padding:5px 6px;border-radius:8px}
+.bx-think-row:hover{background:var(--bx-surface-2)}
+.bx-think-time{color:var(--bx-ink-3);font-family:var(--bx-mono);font-variant-numeric:tabular-nums}
+.bx-think-text{color:var(--bx-ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bx-think-empty{padding:10px 6px;color:var(--bx-ink-3);font-size:var(--bx-caption)}
+body.bx-think-open .main{padding-right:min(400px,100vw)}
+@media (max-width:760px){body.bx-think-open .main{padding-right:0}.bx-think{width:100vw}}

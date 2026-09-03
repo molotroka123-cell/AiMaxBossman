@@ -10,6 +10,7 @@ import {
 } from './components.js';
 import { PAGES, openTaskModal, openAgentModal, openScheduleModal, openModelWizard, stopAllRunning } from './pages.js';
 import { FEATURE_PAGES } from './pages/index.js';
+import { mountThinking } from './thinking.js';
 
 PAGES.push(...FEATURE_PAGES); // V2-страницы встают в общую навигацию
 
@@ -77,6 +78,9 @@ let pendingRefresh = false;
 let lastRendered = null;
 
 const bus = new EventStream();
+/* UX 2.0: панель «Процесс работы» — открывается кнопкой в шапке или Ctrl+. */
+const thinking = mountThinking({ bus, api, button: document.getElementById('think-open') });
+window.__bxThinking = thinking;
 
 /* ---------------- Тема ---------------- */
 
@@ -387,6 +391,7 @@ let paletteSel = 0;
 function paletteActions() {
   const activeCount = (state.tasks || []).filter((t) => ['running', 'queued', 'paused'].includes(String(t.status))).length;
   const items = [
+    { group: 'Действия', title: 'Процесс работы', sub: 'что система делает прямо сейчас', iconName: 'system', keys: 'process thinking live progress', run: () => thinking.open() },
     { group: 'Действия', title: 'Новая задача', sub: 'композер + агент', iconName: 'play', keys: 'task new zadacha novaya', run: () => openTaskModal(ctx) },
     { group: 'Действия', title: 'Новый агент', sub: 'роль, prompt, модель', iconName: 'agents', keys: 'agent new agent novy', run: () => openAgentModal(ctx) },
     { group: 'Действия', title: 'Добавить модель', sub: 'провайдер → модель', iconName: 'models', keys: 'model add provider', run: () => openModelWizard(ctx) },
