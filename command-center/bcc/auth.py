@@ -8,6 +8,7 @@ from __future__ import annotations
 import hmac
 import os
 import secrets as _secrets
+import sys
 from pathlib import Path
 
 TOKEN_FILE = "token"
@@ -37,7 +38,23 @@ class TokenAuth:
 
     def announce(self, created: bool = False) -> None:
         head = "создан новый токен" if created else "токен"
-        print(f"[bcc] {head} доступа: {self.token}\n[bcc] файл токена: {self.path}", flush=True)
+        text = f"[bcc] {head} доступа: {self.token}\n[bcc] файл токена: {self.path}"
+        stream = sys.stdout
+        if stream is None:
+            return  # pythonw (ярлык BOSSMAN): консоли нет, токен — в файле с правами 600
+        try:
+            # Русская консоль Windows (cp1251/cp1252): печать токена не должна
+            # ронять старт сервера кодировочной ошибкой.
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 — StringIO в тестах, пайпы и т.п.
+            pass
+        try:
+            print(text, flush=True)
+        except (UnicodeEncodeError, OSError, ValueError):
+            try:
+                print(text.encode("ascii", "backslashreplace").decode("ascii"), flush=True)
+            except Exception:  # noqa: BLE001 — анонс лишь удобство, не требование
+                pass
 
     def check(self, token: str | None) -> bool:
         if not token:
