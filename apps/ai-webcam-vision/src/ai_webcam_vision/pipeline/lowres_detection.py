@@ -24,6 +24,13 @@ class ImageSize:
     height: int
 
     def __post_init__(self) -> None:
+        for name, value in (("width", self.width), ("height", self.height)):
+            # bool — подкласс int, а float приходит из недоделённого масштаба
+            # (NaN и inf — тоже float). Оба варианта дают молча кривую геометрию:
+            # рамка уезжает на кадре, и заметить это по событию уже нельзя.
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise TypeError(
+                    f"image {name} must be an int number of pixels, got {type(value).__name__}")
         if self.width < 1 or self.height < 1:
             raise ValueError("image width and height must both be >= 1")
 
