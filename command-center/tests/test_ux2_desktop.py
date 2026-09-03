@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 import json
 import os
+import sys
+import subprocess
 import tempfile
 import time
 from pathlib import Path
@@ -899,3 +901,81 @@ def test_server_backed_runs_survive_a_missing_repo_database(tmp_path, monkeypatc
     assert seen.get("called"), "сервер не поднялся, и launcher не был вызван"
     assert code == 0
     assert (tmp_path / "data" / "bcc.db").exists(), "база создана во временном каталоге"
+
+
+# ------------------------------------------- таймаут старта не трогает окно
+
+def _sleeper(seconds: float) -> list[str]:
+    return [sys.executable, "-c", f"import time; time.sleep({seconds})"]
+
+
+def test_working_window_outliving_startup_timeout_is_never_killed(tmp_path, monkeypatch):
+    """Главное свойство: таймаут старта не имеет права закрыть рабочее окно.
+
+    Раньше timeout уходил прямо в proc.wait(timeout=...), и по его истечении
+    окно получало terminate и kill — владелец, пользовавшийся окном дольше
+    таймаута, видел, как оно закрывается само.
+    """
+    proc_box = {}
+
+    def fake_open(browser, url, profile_dir, *, extra=(), window_size="1440,900"):
+        Path(profile_dir).mkdir(parents=True, exist_ok=True)
+        proc = subprocess.Popen(_sleeper(1.5), stdin=subprocess.DEVNULL)  # noqa: S603
+        proc_box["proc"] = proc
+        return proc
+
+    monkeypatch.setattr(desktop, "open_window", fake_open)
+    started = time.monotonic()
+
+    code = desktop.launch_window("/bin/true", "http://127.0.0.1:1/", tmp_path / "prof",
+                                 timeout=0.3)
+
+    elapsed = time.monotonic() - started
+    assert code == 0, "окно завершилось само, кодом 0 — его никто не убивал"
+    assert code != desktop.STARTUP_FAILED_CODE
+    assert elapsed >= 1.4, f"вернулись через {elapsed:.2f} c — значит окно закрыли по таймауту"
+    assert proc_box["proc"].returncode == 0
+
+
+def test_window_that_dies_early_returns_its_own_exit_code(tmp_path, monkeypatch):
+    """Окно, умершее раньше срока, — это и есть «не открылось»; код его собственный."""
+    def fake_open(browser, url, profile_dir, *, extra=(), window_size="1440,900"):
+        Path(profile_dir).mkdir(parents=True, exist_ok=True)
+        return subprocess.Popen([sys.executable, "-c", "raise SystemExit(3)"],  # noqa: S603
+                                stdin=subprocess.DEVNULL)
+
+    monkeypatch.setattr(desktop, "open_window", fake_open)
+
+    code = desktop.launch_window("/bin/true", "http://127.0.0.1:1/", tmp_path / "prof",
+                                 timeout=10)
+
+    assert code == 3, "код выхода браузера обязан дойти до вызывающего как есть"
+
+
+def test_unconfirmed_window_is_closed_only_when_readiness_is_checkable(tmp_path, monkeypatch):
+    """Завершать окно можно, лишь когда готовность проверяема и не подтвердилась."""
+    def fake_open(browser, url, profile_dir, *, extra=(), window_size="1440,900"):
+        Path(profile_dir).mkdir(parents=True, exist_ok=True)
+        return subprocess.Popen(_sleeper(30), stdin=subprocess.DEVNULL)  # noqa: S603
+
+    monkeypatch.setattr(desktop, "open_window", fake_open)
+
+    code = desktop.launch_window("/bin/true", "http://127.0.0.1:1/", tmp_path / "prof",
+                                 timeout=0.4, ready=lambda: False)
+
+    assert code == desktop.STARTUP_FAILED_CODE
+
+
+def test_confirmed_window_waits_for_the_owner_not_for_the_timeout(tmp_path, monkeypatch):
+    """Подтверждённая готовность снимает предел: дальше решает владелец."""
+    def fake_open(browser, url, profile_dir, *, extra=(), window_size="1440,900"):
+        Path(profile_dir).mkdir(parents=True, exist_ok=True)
+        return subprocess.Popen(_sleeper(1.2), stdin=subprocess.DEVNULL)  # noqa: S603
+
+    monkeypatch.setattr(desktop, "open_window", fake_open)
+    started = time.monotonic()
+
+    code = desktop.launch_window("/bin/true", "http://127.0.0.1:1/", tmp_path / "prof",
+                                 timeout=0.3, ready=lambda: True)
+
+    assert code == 0 and time.monotonic() - started >= 1.1

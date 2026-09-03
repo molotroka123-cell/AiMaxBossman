@@ -10,7 +10,7 @@ OUTCOME: FIXED
 VERIFIED_BY: tool:cdp:raw-websocket
 CONFIDENCE: 0.9
 TAGS: {}
-FINDINGS: 
+FINDINGS:
 
 ## Task
 Owner desktop: blank --app window on Windows when autodetect picks a Playwright-cached Chromium build

@@ -351,19 +351,60 @@ def _read_lock(data_dir: Path) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+#: Код выхода: окно не пережило отведённое на старт время.
+STARTUP_FAILED_CODE = 124
+
+
 def launch_window(browser: str, url: str, profile_dir: Path, *, extra: Sequence[str] = (),
-                  window_size: str = "1440,900", timeout: float | None = None) -> int:
-    """Открывает окно и ждёт его закрытия; возвращает код выхода браузера."""
+                  window_size: str = "1440,900", timeout: float | None = None,
+                  ready: Callable[[], bool] | None = None) -> int:
+    """Открывает окно и ждёт, пока владелец сам его закроет.
+
+    Таймаут здесь — **только про старт**, а не про срок жизни окна. Раньше он
+    уходил прямо в ``proc.wait(timeout=...)``, и по его истечении окно
+    получало terminate и kill: исправно работающее окно закрывалось само через
+    заданное время, потому что владелец им пользовался дольше таймаута. Это и
+    был дефект — таймаут старта не имеет права трогать открытое окно.
+
+    Теперь так:
+
+    * окно, пережившее отведённое на старт время, считается запущенным и ждётся
+      БЕЗ предела — закрыть его может только владелец;
+    * окно, умершее раньше срока, возвращает свой код выхода: это и есть
+      «не открылось», и причину разбирает вызывающий по коду и времени жизни;
+    * если вызывающий умеет проверить готовность (``ready``), опрос идёт до
+      дедлайна: подтверждённое окно дальше живёт без предела, а неподтверждённое
+      завершается аккуратно (terminate, затем kill) с кодом
+      ``STARTUP_FAILED_CODE``.
+
+    Граница честности: «окно живо, но пустое» одним таймаутом не отличить от
+    «окно живо и работает». Без ``ready`` такой случай сюда не приходит вовсе —
+    его разбирают диагностика пустого окна и сторож, а не убийство по времени.
+    """
     proc = open_window(browser, url, profile_dir, extra=extra, window_size=window_size)
-    try:
-        return proc.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
+    if not timeout:
+        return proc.wait()
+
+    deadline = time.monotonic() + timeout
+    confirmed = ready is None
+    while time.monotonic() < deadline:
+        code = proc.poll()
+        if code is not None:
+            return code                      # умерло само — это и есть «не открылось»
+        if not confirmed and ready is not None and ready():
+            confirmed = True
+            break
+        time.sleep(0.2)
+
+    if not confirmed:
+        # Готовность проверяема и не подтвердилась — только теперь завершаем.
         proc.terminate()
         try:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
-        return 124
+        return STARTUP_FAILED_CODE
+    return proc.wait()                        # старт состоялся: дальше решает владелец
 
 
 class _BackgroundServer:
