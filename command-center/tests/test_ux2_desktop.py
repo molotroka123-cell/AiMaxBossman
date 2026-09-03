@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+import time
 from pathlib import Path
 
 import pytest
@@ -55,38 +56,79 @@ def test_run_reports_missing_browser(tmp_path, monkeypatch):
     assert "не найден" in out.getvalue()
 
 
+def test_local_health_checks_ignore_proxy_environment(live, monkeypatch):  # noqa: F811
+    """Прокси из окружения не должен применяться к 127.0.0.1.
+
+    ALL_PROXY/HTTP(S)_PROXY адресованы внешним провайдерам; если проверка
+    «сервер уже работает» унаследует их, она уйдёт на прокси и либо соврёт
+    (чужой ответ), либо упадёт. Здесь прокси заведомо мёртв и указывает на
+    закрытый порт: живой локальный сервер всё равно должен определяться.
+    """
+    from .test_ux2_thinking_pane import _free_port, loopback_get
+
+    dead = f"socks5://127.0.0.1:{_free_port()}"
+    for var in ("ALL_PROXY", "all_proxy", "HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy"):
+        monkeypatch.setenv(var, dead)
+    for var in ("NO_PROXY", "no_proxy"):
+        monkeypatch.delenv(var, raising=False)
+
+    assert desktop.server_alive(live.url + "/") is True      # запуск окна: сервер найден
+    assert loopback_get(live.url + "/").status_code < 500    # готовность в тестах и снимках
+    # и никакого «сервера» там, где его нет
+    assert desktop.server_alive(f"http://127.0.0.1:{_free_port()}/") is False
+
+
+def _devtools_endpoint(profile_dir, proc, timeout: float = 60.0):
+    """Порт и ws-путь отладки из ``DevToolsActivePort`` в профиле окна.
+
+    Браузер создаёт этот файл только после того, как отладочный сервер начал
+    слушать, поэтому файл — сам по себе признак готовности: ни угадывания
+    порта, ни гонки, ни опроса чужого адреса. HTTP-эндпоинт ``/json/version``
+    здесь сознательно не используется: именно он в CI не отвечал 30 секунд,
+    пока браузер был жив и уже печатал «DevTools listening».
+    """
+    marker = Path(profile_dir) / "DevToolsActivePort"
+    deadline = time.monotonic() + timeout
+    seen = ""
+    while time.monotonic() < deadline:
+        rc = proc.poll()
+        if marker.exists():
+            seen = marker.read_text(encoding="utf-8", errors="replace")
+            lines = seen.splitlines()
+            if len(lines) >= 2 and lines[0].strip().isdigit():
+                return int(lines[0].strip()), lines[1].strip()
+        if rc is not None:
+            raise AssertionError(f"окно завершилось, rc={rc}, DevToolsActivePort={seen!r}")
+        time.sleep(0.1)
+    raise AssertionError(
+        f"DevToolsActivePort не появился за {timeout} с (rc={proc.poll()}, содержимое={seen!r})")
+
+
 @pytest.mark.timeout(120)
 @pytest.mark.skipif(not chromium_available(), reason=browser_reason())
 def test_real_chromium_app_window_renders_command_center(live, tmp_path):  # noqa: F711
     """Настоящее окно --app с предустановленным Chromium: без дисплея — headless-снимок,
     который доказывает, что команда окна работает и страница входа отрисована."""
-    import json
-    import time
-    import urllib.request
-
     from playwright.sync_api import sync_playwright
-
-    from .test_ux2_thinking_pane import _free_port
 
     browser = desktop.find_browser()
     assert browser, "предустановленный Chromium не найден"
-    cdp = _free_port()
+    profile = tmp_path / "profile"
+    # Порт отладки выбирает сам браузер (0) и публикует его в профиле. Тест
+    # больше не занимает порт заранее: между выбором и запуском окна ядро могло
+    # отдать его другому соединению, и тогда мы опрашивали чужой адрес.
     proc = desktop.open_window(
-        browser, live.url + "/", tmp_path / "profile",
-        extra=("--headless=new", "--no-sandbox", "--disable-gpu", f"--remote-debugging-port={cdp}"))
+        browser, live.url + "/", profile,
+        extra=("--headless=new", "--no-sandbox", "--disable-gpu",
+               "--remote-debugging-address=127.0.0.1", "--remote-debugging-port=0"))
     try:
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        deadline = time.time() + 30
-        version = None
-        while time.time() < deadline and proc.poll() is None:
-            try:
-                version = json.loads(opener.open(f"http://127.0.0.1:{cdp}/json/version", timeout=1).read())
-                break
-            except Exception:  # noqa: BLE001
-                time.sleep(0.3)
-        assert version and "Chrome" in version.get("Browser", ""), f"окно не поднялось: {version}, rc={proc.poll()}"
+        port, ws_path = _devtools_endpoint(profile, proc)
+        # Регрессия к сбою CI: порт получен из DevToolsActivePort, а не угадан.
+        assert port > 0 and ws_path.startswith("/devtools/browser/"), (port, ws_path)
         with sync_playwright() as pw:
-            b = pw.chromium.connect_over_cdp(f"http://127.0.0.1:{cdp}")
+            b = pw.chromium.connect_over_cdp(f"ws://127.0.0.1:{port}{ws_path}")
+            info = b.new_browser_cdp_session().send("Browser.getVersion")
+            assert "Chrome" in info.get("product", ""), info
             pages = [p for c in b.contexts for p in c.pages]
             page = next((p for p in pages if p.url.startswith(live.url)), None)
             assert page is not None, [p.url for p in pages]

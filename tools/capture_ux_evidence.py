@@ -67,8 +67,11 @@ class Server:
         deadline = time.time() + 25
         while time.time() < deadline:
             try:
-                if httpx.get(self.url, timeout=1).status_code < 500:
-                    return self
+                # trust_env=False: прокси из окружения предназначен для внешних
+                # адресов; применённый к 127.0.0.1 он ломает проверку готовности.
+                with httpx.Client(trust_env=False, timeout=1) as client:
+                    if client.get(self.url).status_code < 500:
+                        return self
             except httpx.HTTPError:
                 time.sleep(0.15)
         raise RuntimeError("сервер не поднялся")

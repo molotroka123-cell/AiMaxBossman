@@ -35,6 +35,18 @@ UI_DIR = Path(__file__).resolve().parents[1] / "ui"
 pytestmark = [pytest.mark.timeout(180), pytest.mark.skipif(not chromium_available(), reason=browser_reason())]
 
 
+def loopback_get(url: str, timeout: float = 1.0) -> "httpx.Response":
+    """GET по локальному адресу в обход прокси из окружения.
+
+    ALL_PROXY/HTTP(S)_PROXY предназначены для внешних провайдеров; применённые
+    к 127.0.0.1 они отправляют проверку готовности на прокси, и та врёт (или
+    падает на отсутствующем socks-расширении). trust_env=False действует только
+    на этот узкий клиент — обычные клиенты провайдеров прокси не теряют.
+    """
+    with httpx.Client(trust_env=False, timeout=timeout) as client:
+        return client.get(url)
+
+
 def _free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -64,7 +76,7 @@ class LiveServer:
         deadline = time.time() + 20
         while time.time() < deadline:
             try:
-                if httpx.get(f"http://127.0.0.1:{self.port}/", timeout=1).status_code < 500:
+                if loopback_get(f"http://127.0.0.1:{self.port}/").status_code < 500:
                     return self
             except httpx.HTTPError:
                 time.sleep(0.1)
@@ -134,7 +146,10 @@ def test_thinking_pane_shows_live_execution_facts(live):
         live.emit("run.log", run_id=7, level="info", message="step 2 done")
         live.emit("task.progress", task_id=1, run_id=7, waiting_approval=True, tool="terminal.run")
 
-        card = page.locator('.bx-think-card[data-run="7"]')
+        # Рендеры панели склеены по кадрам, поэтому карточка появляется раньше,
+        # чем в ней отрисованы последние события. Ждём состояние из последнего
+        # события — тогда счётчики повторов и ошибок заведомо уже перерисованы.
+        card = page.locator('.bx-think-card[data-run="7"][data-state="waiting_approval"]')
         card.wait_for(timeout=10000)
         text = card.inner_text()
         for fragment in ("qwen-14b", "fs.read", "2 из 5", "решение владельца (terminal.run)"):
