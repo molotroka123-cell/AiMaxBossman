@@ -326,6 +326,7 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
     app = FastAPI(title="BOSSMAN Command Center", version="0.1", lifespan=lifespan)
     app.state.svc = svc
     _install_error_handlers(app)
+    _install_testing_period_log(app)
     app.include_router(_public_router())
     app.include_router(_api_router())
     for feature in svc.features:             # V2-фичи: под /api и токен-auth
@@ -334,6 +335,45 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
                                dependencies=[Depends(require_token)])
     _mount_ui(app, svc.settings)
     return app
+
+
+def _install_testing_period_log(app: FastAPI) -> None:
+    """Режим тестового периода: каждый HTTP-запрос попадает в журнал владельца.
+
+    Middleware нельзя добавить из `setup()` фичи — он вешается до старта
+    приложения, а setup зовётся уже в lifespan. Поэтому подключение здесь, но
+    вся работа и все границы секрета живут в самой фиче. Тела запросов и
+    заголовки авторизации не читаются вовсе: там бывают токены.
+    """
+    from .features import testing_period
+
+    if not testing_period.enabled():
+        return
+
+    @app.middleware("http")
+    async def _log_requests(request: Request, call_next):
+        started = time.monotonic()
+        status = 0
+        failure = ""
+        try:
+            response = await call_next(request)
+            status = response.status_code
+            return response
+        except Exception as exc:  # noqa: BLE001 — записываем и отдаём дальше как есть
+            status, failure = 500, f"{type(exc).__name__}: {exc}"
+            raise
+        finally:
+            log = getattr(getattr(app.state, "svc", None), "testing_log", None)
+            if log is not None and not request.url.path.startswith("/api/testing/log"):
+                payload = {"method": request.method, "path": request.url.path,
+                           "status": status, "ms": round((time.monotonic() - started) * 1000, 1)}
+                if failure:
+                    payload["error"] = failure
+                kind = "http.error" if (status >= 400 or failure) else "http.request"
+                # Дожидаемся записи, а не бросаем задачу в фон: журнал должен
+                # быть согласован с ответом, который владелец только что видел,
+                # а брошенная задача при ошибке даёт висящее исключение.
+                await log.write("server", kind, payload)
 
 
 def _install_error_handlers(app: FastAPI) -> None:

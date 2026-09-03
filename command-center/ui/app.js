@@ -11,6 +11,7 @@ import {
 import { PAGES, openTaskModal, openAgentModal, openScheduleModal, openModelWizard, stopAllRunning } from './pages.js';
 import { FEATURE_PAGES } from './pages/index.js';
 import { mountThinking } from './thinking.js';
+import { mountTestingPeriod } from './testing.js';
 
 PAGES.push(...FEATURE_PAGES); // V2-страницы встают в общую навигацию
 
@@ -618,6 +619,10 @@ async function boot() {
   syncNav();
   bus.start();
   onRoute();
+
+  /* Тестовый период: плашка и запись действий. Наблюдатель, а не условие
+     запуска — его отказ не должен мешать приложению работать. */
+  mountTestingPeriod().catch(() => {});
 
   /* стартовые данные для верхней строки и бейджа */
   refreshApprovals();
