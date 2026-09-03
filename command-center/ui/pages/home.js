@@ -95,11 +95,13 @@ const HomePage = {
   section: 'main',
 
   async render(ctx) {
-    const [appsR, missionsR, agentsR, modelsR, approvalsR, systemR, resourcesR, mapR, activityR] =
+    const [appsR, missionsR, agentsR, modelsR, approvalsR, systemR, resourcesR, mapR, activityR,
+           liveTasksR, failedTasksR] =
       await Promise.allSettled([
         api.raw('/api/apps'), api.raw('/api/missions'), api.agents(), api.models(),
         api.approvals('pending'), api.system(), api.raw('/api/resources'),
         api.raw('/api/agentmap'), api.activity(),
+        api.tasks('running,waiting_approval,paused,queued'), api.tasks('failed'),
       ]);
 
     const apps = appsR.status === 'fulfilled' ? listOf(appsR.value, 'apps') : [];
@@ -112,6 +114,8 @@ const HomePage = {
     const graph = mapR.status === 'fulfilled' ? mapR.value : { nodes: [] };
     const activity = activityR.status === 'fulfilled'
       ? listOf(activityR.value, 'events', 'activity') : [];
+    const liveTasks = liveTasksR.status === 'fulfilled' ? listOf(liveTasksR.value, 'tasks') : [];
+    const failedTasks = failedTasksR.status === 'fulfilled' ? listOf(failedTasksR.value, 'tasks') : [];
 
     ctx.state.models = models;
     ctx.state.agents = agents;
@@ -122,6 +126,8 @@ const HomePage = {
     return h('div.bx-home',
       everythingFailed ? errorBanner(systemR.reason, ctx) : null,
       buildHero({ sys, apps, agents, graph, online: systemR.status === 'fulfilled' }),
+      buildAttention({ approvals, failedTasks, missions, sys, models, liveTasks }, ctx),
+      buildNow({ liveTasks, missions, activity }, ctx),
       buildCommandBar(ctx, agents),
       buildApps(apps, appsR, ctx),
       h('div.bx-row',
@@ -134,6 +140,8 @@ const HomePage = {
 
   onEvent(ev) {
     return ev.kind.startsWith('mission.') || ev.kind.startsWith('task.')
+      || ev.kind.startsWith('tool.') || ev.kind === 'router.fallback'
+      || ev.kind.startsWith('hook.') || ev.kind === 'evaluation.completed'
       || ev.kind.startsWith('approval.') || ev.kind.startsWith('resource.')
       || ev.kind === 'model.status' || ev.kind.startsWith('agent.');
   },
@@ -459,3 +467,217 @@ function feedItem(e) {
 
 export default HomePage;
 export { appIcon };
+
+/* ---------------------------------------------------------------- A2. «Нужно ваше внимание»
+
+   Владелец не должен обходить 29 страниц, чтобы понять, где он нужен.
+   Сюда попадает ТОЛЬКО то, что действительно ждёт его решения или сломано:
+   очередь подтверждений, упавшие задачи и миссии, отказавшая подсистема,
+   недоступная модель. Ничего «на всякий случай» — иначе блок перестанут
+   читать в первый же день.                                              */
+
+const ATTENTION_TONE = { block: 'err', wait: 'warn', warn: 'warn' };
+
+function attentionRow(item, ctx) {
+  return h('button.bx-attn-row', {
+    type: 'button',
+    'data-kind': item.kind,
+    'data-severity': item.severity,
+    onClick: () => ctx.navigate(item.page, item.params || null),
+  },
+    h('span', { class: `bx-attn-dot is-${ATTENTION_TONE[item.severity] || 'warn'}` }),
+    h('span.bx-attn-main',
+      h('span.bx-attn-title', item.title),
+      item.note ? h('span.bx-attn-note', item.note) : null),
+    item.count > 1 ? h('span.bx-attn-count', String(item.count)) : null,
+    h('span.bx-attn-go', 'Открыть →'));
+}
+
+/** Собирает список только из реального состояния (никаких выдуманных строк). */
+export function collectAttention({ approvals = [], failedTasks = [], missions = [], sys = null,
+                                   models = [], liveTasks = [] } = {}) {
+  const items = [];
+
+  if (approvals.length) {
+    const first = approvals[0] || {};
+    items.push({
+      kind: 'approval', severity: 'wait', page: 'approvals', count: approvals.length,
+      title: approvals.length === 1 ? 'Одно решение ждёт вас' : `${approvals.length} решения ждут вас`,
+      note: pick(first, ['title', 'action', 'tool'], '') || 'очередь подтверждений',
+    });
+  }
+
+  const waiting = liveTasks.filter((t) => String(pick(t, ['status'], '')) === 'waiting_approval');
+  if (waiting.length && !approvals.length) {
+    items.push({
+      kind: 'task-wait', severity: 'wait', page: 'tasks', count: waiting.length,
+      title: `Задача ждёт вашего решения`,
+      note: pick(waiting[0], ['title'], `#${pick(waiting[0], ['id'])}`),
+    });
+  }
+
+  if (failedTasks.length) {
+    items.push({
+      kind: 'task-failed', severity: 'block', page: 'tasks', count: failedTasks.length,
+      title: failedTasks.length === 1 ? 'Задача завершилась ошибкой' : `${failedTasks.length} задач с ошибкой`,
+      note: pick(failedTasks[0], ['title'], '')
+        || (failedTasks[0] && failedTasks[0].last_run && failedTasks[0].last_run.error) || 'откройте задачи',
+    });
+  }
+
+  const badMissions = missions.filter((m) => ['failed', 'blocked', 'error'].includes(String(pick(m, ['status'], ''))));
+  if (badMissions.length) {
+    items.push({
+      kind: 'mission-failed', severity: 'block', page: 'missions', count: badMissions.length,
+      title: badMissions.length === 1 ? 'Миссия остановлена' : `${badMissions.length} миссии остановлены`,
+      note: pick(badMissions[0], ['title'], `#${pick(badMissions[0], ['id'])}`),
+    });
+  }
+
+  const health = (sys && sys.health && typeof sys.health === 'object') ? sys.health : {};
+  for (const [name, value] of Object.entries(health)) {
+    const status = typeof value === 'string' ? value : (value && (value.status || value.state)) || '';
+    if (['error', 'fail', 'failed', 'down', 'critical'].includes(String(status).toLowerCase())) {
+      items.push({
+        kind: 'health', severity: 'block', page: 'system', count: 1,
+        title: `Сбой: ${HEALTH_NAME[name] || name}`,
+        note: typeof value === 'object' && value && value.detail ? String(value.detail) : 'подсистема не отвечает',
+      });
+    }
+  }
+
+  const brokenModels = models.filter((m) => ['error', 'offline', 'unavailable']
+    .includes(String(pick(m, ['status'], '')).toLowerCase()));
+  if (brokenModels.length) {
+    items.push({
+      kind: 'model', severity: 'warn', page: 'models', count: brokenModels.length,
+      title: brokenModels.length === 1 ? 'Модель недоступна' : `${brokenModels.length} моделей недоступны`,
+      note: pick(brokenModels[0], ['display_name', 'name', 'remote_id'], ''),
+    });
+  }
+
+  const order = { block: 0, wait: 1, warn: 2 };
+  return items.sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
+}
+
+function buildAttention(data, ctx) {
+  const items = collectAttention(data);
+  if (!items.length) {
+    return h('section.bx-panel.bx-attn.is-calm', { id: 'attention' },
+      h('div.bx-panel-body.bx-attn-calm',
+        icon('check', 16),
+        h('span', 'Ничего не ждёт вашего решения.')));
+  }
+  return h('section.bx-panel.bx-attn', { id: 'attention', 'data-count': String(items.length) },
+    h('div.bx-panel-head', h('h2', 'Нужно ваше внимание'), h('div.bx-spacer'),
+      h('span.bx-attn-total', String(items.length))),
+    h('div.bx-panel-body.bx-attn-list', items.map((i) => attentionRow(i, ctx))));
+}
+
+/* ---------------------------------------------------------------- A3. «Сейчас в работе»
+
+   Компактное состояние текущей работы: что за миссия/задача, фаза, чем
+   занята прямо сейчас, какая модель, сколько идёт, что проверено, чего
+   ждёт. Всё — из уже существующих API и общей шины событий; своей базы
+   состояния здесь нет.                                                  */
+
+const NOW_STATUS = {
+  running: 'выполняется', queued: 'в очереди', paused: 'на паузе',
+  waiting_approval: 'ждёт вашего решения', planning: 'планирует',
+};
+
+function nowFacts(task, activity) {
+  const id = pick(task, ['id']);
+  const runId = pick(task, ['run_id', 'runId'], null);
+  const mine = (activity || []).filter((e) => {
+    const t = e && (e.task_id ?? e.data?.task_id);
+    const r = e && (e.run_id ?? e.data?.run_id);
+    return (t != null && String(t) === String(id)) || (runId != null && r != null && String(r) === String(runId));
+  });
+  const last = (kinds) => mine.find((e) => kinds.includes(String(e.kind || '')));
+  const tool = last(['tool.called', 'tool.denied']);
+  const evaluation = last(['evaluation.completed']);
+  const fallback = last(['router.fallback']);
+  return {
+    tool: tool ? (tool.tool || tool.data?.tool || '') : '',
+    verified: evaluation ? (evaluation.verdict || evaluation.data?.verdict || evaluation.result || '') : '',
+    fallback: !!fallback,
+  };
+}
+
+function buildNow({ liveTasks = [], missions = [], activity = [] }, ctx) {
+  const rank = { running: 0, waiting_approval: 1, paused: 2, queued: 3 };
+  const task = [...liveTasks].sort((a, b) =>
+    (rank[String(pick(a, ['status'], ''))] ?? 9) - (rank[String(pick(b, ['status'], ''))] ?? 9))[0];
+  const mission = missions.find((m) => ['running', 'planning'].includes(String(pick(m, ['status'], ''))));
+
+  if (!task && !mission) {
+    return h('section.bx-panel.bx-now', { id: 'now-card' },
+      h('div.bx-panel-head', h('h2', 'Сейчас в работе'), h('div.bx-spacer')),
+      h('div.bx-panel-body', h('div.bx-empty', h('div', 'Сейчас ничего не выполняется.'))));
+  }
+
+  const status = String(pick(task || mission, ['status'], 'running'));
+  const run = (task && task.last_run && typeof task.last_run === 'object') ? task.last_run : {};
+  const started = run.started_at || pick(task || mission, ['started_at', 'created_at'], null);
+  const since = started ? Date.parse(String(started).endsWith('Z') || String(started).includes('+')
+    ? started : `${started}Z`) : NaN;
+  const facts = task ? nowFacts(task, activity) : { tool: '', verified: '', fallback: false };
+  const title = pick(task || mission, ['title'], null)
+    || (task ? `Задача #${pick(task, ['id'])}` : `Миссия #${pick(mission, ['id'])}`);
+
+  const cell = (label, value) => h('div.bx-now-cell',
+    h('span.bx-now-label', label), h('span.bx-now-value', value || '—'));
+
+  const elapsed = h('span.bx-now-value.bx-now-elapsed',
+    Number.isFinite(since) ? { 'data-since': String(since) } : null,
+    Number.isFinite(since) ? humanElapsed(Date.now() - since) : '—');
+
+  const node = h('section.bx-panel.bx-now', { id: 'now-card', 'data-status': status },
+    h('div.bx-panel-head', h('h2', 'Сейчас в работе'), h('div.bx-spacer'),
+      h('button.bx-btn.bx-btn-ghost.bx-btn-sm', { type: 'button', id: 'now-open-think',
+        title: 'Показать процесс работы (Ctrl+.)',
+        onClick: () => (window.__bxThinking ? window.__bxThinking.open() : ctx.navigate('tasks')) },
+        'Процесс работы')),
+    h('div.bx-panel-body',
+      h('div.bx-now-title', title),
+      h('div.bx-now-grid',
+        cell('состояние', NOW_STATUS[status] || status),
+        h('div.bx-now-cell', h('span.bx-now-label', 'идёт'), elapsed),
+        cell('модель', run.model_alias || pick(task || mission, ['model', 'model_id'], '')),
+        cell('шаг', (() => {
+          const step = (run.checkpoint && run.checkpoint.step) ?? pick(task || mission, ['step'], null);
+          const max = pick(task || mission, ['max_steps'], null);
+          return step ? (max != null ? `${step} из ${max}` : String(step)) : '';
+        })()),
+        cell('инструмент', facts.tool),
+        cell('проверено', facts.verified)),
+      status === 'waiting_approval'
+        ? h('div.bx-now-wait', icon('approvals', 14),
+          h('span', 'Ждёт вашего решения'),
+          h('button.bx-btn.bx-btn-primary.bx-btn-sm',
+            { type: 'button', onClick: () => ctx.navigate('approvals') }, 'Решить'))
+        : null,
+      facts.fallback ? h('div.bx-now-note', 'Была смена модели (запасной маршрут).') : null));
+
+  startElapsedTicker(node);
+  return node;
+}
+
+function humanElapsed(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return `${s} с`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} мин ${String(s % 60).padStart(2, '0')} с`;
+  return `${Math.floor(m / 60)} ч ${String(m % 60).padStart(2, '0')} мин`;
+}
+
+/** Таймер живёт ровно столько, сколько его карточка в документе. */
+function startElapsedTicker(root) {
+  const id = setInterval(() => {
+    if (!root.isConnected) { clearInterval(id); return; }
+    for (const node of root.querySelectorAll('.bx-now-elapsed[data-since]')) {
+      node.textContent = humanElapsed(Date.now() - Number(node.dataset.since));
+    }
+  }, 1000);
+}

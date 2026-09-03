@@ -949,3 +949,38 @@ body.bx-think-open .main{padding-right:min(400px,100vw)}
 .stale-retry{opacity:.75;font-variant-numeric:tabular-nums;white-space:nowrap}
 .stale-banner .btn{margin-left:auto}
 @keyframes bx-stale-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ---------- UX 2.0 final: «Нужно ваше внимание» и «Сейчас в работе» ---------- */
+.bx-attn{border-color:color-mix(in srgb, var(--bx-amber) 34%, transparent)}
+.bx-attn.is-calm{border-color:var(--bx-line)}
+.bx-attn-total{font-weight:700;color:var(--bx-amber);font-variant-numeric:tabular-nums}
+.bx-attn-list{display:flex;flex-direction:column;gap:8px}
+.bx-attn-calm{display:flex;align-items:center;gap:10px;color:var(--bx-dim)}
+.bx-attn-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;cursor:pointer;
+  padding:11px 13px;border-radius:12px;border:1px solid var(--bx-line);background:var(--bx-surface-2,transparent);
+  color:inherit;font:inherit;transition:border-color .15s ease, transform .12s ease}
+.bx-attn-row:hover{border-color:color-mix(in srgb, var(--bx-accent) 45%, transparent);transform:translateY(-1px)}
+.bx-attn-row:focus-visible{outline:2px solid var(--bx-accent);outline-offset:2px}
+.bx-attn-dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--bx-amber)}
+.bx-attn-dot.is-err{background:var(--bx-red,#ff6b6b)}
+.bx-attn-dot.is-warn{background:var(--bx-amber)}
+.bx-attn-main{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
+.bx-attn-title{font-weight:600}
+.bx-attn-note{font-size:12.5px;color:var(--bx-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bx-attn-count{font-variant-numeric:tabular-nums;font-weight:700;color:var(--bx-amber)}
+.bx-attn-go{font-size:12.5px;color:var(--bx-dim);white-space:nowrap}
+.bx-now-title{font-weight:650;margin-bottom:10px;overflow:hidden;text-overflow:ellipsis}
+.bx-now-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px 16px}
+.bx-now-cell{display:flex;flex-direction:column;min-width:0}
+.bx-now-label{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--bx-dim)}
+.bx-now-value{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bx-now-elapsed{font-variant-numeric:tabular-nums}
+.bx-now-wait{display:flex;align-items:center;gap:10px;margin-top:12px;padding:9px 12px;border-radius:11px;
+  background:color-mix(in srgb, var(--bx-amber) 13%, transparent);
+  border:1px solid color-mix(in srgb, var(--bx-amber) 38%, transparent)}
+.bx-now-note{margin-top:10px;font-size:12.5px;color:var(--bx-dim)}
+.bx-now[data-status="waiting_approval"]{border-color:color-mix(in srgb, var(--bx-amber) 42%, transparent)}
+@media (max-width: 560px){
+  .bx-attn-go{display:none}
+  .bx-attn-row{min-height:46px}
+}
