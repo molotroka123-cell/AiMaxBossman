@@ -52,7 +52,12 @@ def test_restart_shows_countdown_banner_and_restored_toast(live):  # noqa: F811
 
         # 4. сервер вернулся: тост о восстановлении, данные обновлены, баннер спрятан
         live.restart()
-        page.click("#stale-now")  # владелец не обязан ждать backoff
+        # Владелец не обязан ждать backoff — но если таймер повтора успел подключиться сам
+        # (медленный раннер), кнопка уже спрятана/выключена: оба пути должны дать тост ниже.
+        try:
+            page.click("#stale-now", timeout=3000)
+        except Exception:  # noqa: BLE001 — автопереподключение уже случилось
+            pass
         page.wait_for_selector(".toast:has-text('Соединение восстановлено')", timeout=30000)
         toast = page.locator(".toast:has-text('Соединение восстановлено')").first.inner_text()
         assert "Данные обновлены" in toast and "без связи" in toast

@@ -52,7 +52,7 @@ class LiveServer:
         self.svc = self.app.state.svc
         self.port = _free_port()
         self.loop = asyncio.new_event_loop()
-        self.server = uvicorn.Server(uvicorn.Config(self.app, host="127.0.0.1", port=self.port, log_level="warning", loop="none"))
+        self.server = uvicorn.Server(uvicorn.Config(self.app, host="127.0.0.1", port=self.port, log_level="warning", loop="none", timeout_graceful_shutdown=1))
         self.thread = threading.Thread(target=self._run, daemon=True)
 
     def _run(self) -> None:
@@ -86,7 +86,7 @@ class LiveServer:
         self.app = create_app(self.settings, announce_token=False, start_workers=False)
         self.svc = self.app.state.svc
         self.loop = asyncio.new_event_loop()
-        self.server = uvicorn.Server(uvicorn.Config(self.app, host="127.0.0.1", port=self.port, log_level="warning", loop="none"))
+        self.server = uvicorn.Server(uvicorn.Config(self.app, host="127.0.0.1", port=self.port, log_level="warning", loop="none", timeout_graceful_shutdown=1))
         self.thread = threading.Thread(target=self._run, daemon=True)
         return self.start()
 
