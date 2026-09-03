@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import os
+import tempfile
 import time
 from pathlib import Path
 
@@ -13,6 +14,20 @@ from bcc import desktop
 
 from .browser_support import chromium_available, reason as browser_reason
 from .test_ux2_thinking_pane import live  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def _isolated_data_dir(tmp_path_factory, monkeypatch):
+    """Тесты не должны писать в боевой каталог данных владельца.
+
+    `desktop.run()` ведёт `desktop-run.log` и `desktop.lock` в `settings.data_dir`.
+    Без изоляции прогон тестов засорял журнал, который владелец читает при
+    разборе сбоя (в присланном логе видны строки с эфемерными портами pytest),
+    а убитый в середине прогон мог оставить там же чужой lock-файл.
+    """
+    from bcc.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path_factory.mktemp("bcc-data"))
 
 
 def test_find_browser_prefers_preinstalled_chromium(tmp_path):
@@ -397,3 +412,113 @@ def test_access_banner_warns_only_when_console_owns_the_app():
     assert "закрывать нельзя" in owns
     assert "закрывать нельзя" not in attached
     assert desktop.access_banner("http://x/", None, _P("/d/token"), console_owns_app=False).count("Токен") >= 1
+
+
+def test_browser_launch_failure_is_reported_and_logged(live, tmp_path, monkeypatch):  # noqa: F811
+    """Если браузер не запустился, владелец должен увидеть причину, а не пустую консоль.
+
+    Раньше OSError из Popen улетал трейсбеком, консоль закрывалась вместе с ним,
+    и симптом выглядел как «открылась только командная строка».
+    """
+    from bcc.config import settings
+
+    data_dir = tmp_path / "desk"
+    data_dir.mkdir(exist_ok=True)
+    monkeypatch.setattr(settings, "data_dir", data_dir)
+
+    def broken_launcher(*a, **k):
+        raise FileNotFoundError(2, "No such file or directory", "chrome.exe")
+
+    out = io.StringIO()
+    code = desktop.run(["--host", "127.0.0.1", "--port", str(live.port), "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "prof"), "--no-show-token"],
+                       launcher=broken_launcher, out=out)
+    assert code == 6
+    text = out.getvalue()
+    assert "не удалось запустить браузер" in text and "chrome.exe" in text
+    log = (data_dir / "desktop-run.log").read_text(encoding="utf-8")
+    assert "browser-launch-failed FileNotFoundError" in log
+
+
+def test_run_log_records_the_exact_window_command(live, tmp_path, monkeypatch):  # noqa: F811
+    """Команда окна попадает в журнал: без неё «окно не появилось» неразбираемо."""
+    from bcc.config import settings
+
+    data_dir = tmp_path / "desk"
+    data_dir.mkdir(exist_ok=True)
+    monkeypatch.setattr(settings, "data_dir", data_dir)
+
+    out = io.StringIO()
+    assert desktop.run(["--host", "127.0.0.1", "--port", str(live.port), "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "prof"), "--no-show-token"],
+                       launcher=lambda *a, **k: 0, out=out) == 0
+    log = (data_dir / "desktop-run.log").read_text(encoding="utf-8")
+    assert "browser-argv /bin/true --app=" in log
+    assert "--user-data-dir=" in log
+    assert "token" not in log.lower()          # argv по-прежнему без секретов
+
+
+def test_tests_never_write_into_the_owner_data_dir(live, tmp_path):  # noqa: F811
+    """Регрессия к засорённому журналу: прогон пишет только во временный каталог."""
+    from bcc.config import settings
+
+    out = io.StringIO()
+    assert desktop.run(["--host", "127.0.0.1", "--port", str(live.port), "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "prof"), "--no-show-token"],
+                       launcher=lambda *a, **k: 0, out=out) == 0
+    log = Path(settings.data_dir) / "desktop-run.log"
+    assert log.exists(), "журнал ведётся"
+    assert str(log).startswith(str(Path(tempfile.gettempdir()))), log   # временный, не боевой
+
+
+def test_every_exit_path_leaves_a_matching_line_in_the_run_log(live, tmp_path, monkeypatch):  # noqa: F811
+    """`start` без парной строки итога делал журнал неразбираемым.
+
+    В присланном владельцем логе строка 21:44:24 `start ...` не имеет пары, и по
+    журналу нельзя отличить «убили снаружи» от «сервер не поднялся».
+    """
+    from bcc.config import settings
+
+    log = Path(settings.data_dir) / "desktop-run.log"
+
+    # порт занят чужим приложением
+    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: None)
+    monkeypatch.setattr(desktop, "port_busy", lambda *a, **k: True)
+    out = io.StringIO()
+    assert desktop.run(["--port", str(live.port), "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "p1"), "--no-show-token"],
+                       launcher=lambda *a, **k: 0, out=out) == 4
+    assert "exit code=4 port-busy-foreign" in log.read_text(encoding="utf-8")
+
+    # браузера нет
+    monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: None)
+    out = io.StringIO()
+    assert desktop.run(["--port", str(live.port), "--profile", str(tmp_path / "p2"),
+                        "--no-show-token"], launcher=lambda *a, **k: 0, out=out) == 2
+    assert "exit code=2 no-browser-found" in log.read_text(encoding="utf-8")
+
+
+def test_server_start_failure_reports_the_reason(tmp_path, monkeypatch):
+    """«Сервер не поднялся» без причины — тупик; причина обязана дойти до владельца."""
+    from bcc.config import settings
+
+    class _Failing:
+        def __init__(self, host, port):
+            self.error = "OSError: [Errno 98] address already in use"
+
+        def start(self, url, timeout=30.0):
+            return False
+
+        def stop(self):
+            pass
+
+    monkeypatch.setattr(desktop, "_BackgroundServer", _Failing)
+    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: None)
+    monkeypatch.setattr(desktop, "port_busy", lambda *a, **k: False)
+    out = io.StringIO()
+    assert desktop.run(["--port", "8800", "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "prof"), "--no-show-token"],
+                       launcher=lambda *a, **k: 0, out=out) == 3
+    assert "address already in use" in out.getvalue()
+    log = (Path(settings.data_dir) / "desktop-run.log").read_text(encoding="utf-8")
+    assert "exit code=3 server-start-failed" in log and "address already in use" in log

@@ -191,6 +191,25 @@ def access_banner(url: str, token: str | None, token_path: Path, *, console_owns
     return "\n".join(body)
 
 
+def _pause_console(out) -> None:
+    """Не дать окну консоли закрыться раньше, чем владелец прочитает причину.
+
+    Ярлык запускает python.exe: как только процесс вышел, консоль исчезает
+    вместе с сообщением об ошибке. Ждём Enter только в настоящей консоли —
+    в тестах, пайпах и под pythonw stdin не интерактивен, и пауза не сработает.
+    """
+    try:
+        if sys.stdin is None or not sys.stdin.isatty():
+            return
+    except (AttributeError, ValueError, OSError):
+        return
+    try:
+        print("\n[bcc-desktop] нажмите Enter, чтобы закрыть это окно…", file=out, flush=True)
+        sys.stdin.readline()
+    except (EOFError, KeyboardInterrupt, OSError, ValueError):
+        pass
+
+
 def _desktop_lock_path(data_dir: Path) -> Path:
     return Path(data_dir) / "desktop.lock"
 
@@ -229,7 +248,19 @@ class _BackgroundServer:
 
         settings.ensure_dirs()
         self.server = uvicorn.Server(uvicorn.Config(create(), host=host, port=port, log_level="warning"))
-        self.thread = threading.Thread(target=self.server.run, name="bcc-desktop-server", daemon=True)
+        self.error: str | None = None
+        self.thread = threading.Thread(target=self._serve, name="bcc-desktop-server", daemon=True)
+
+    def _serve(self) -> None:
+        """Ошибка потока (обычно занятый порт) должна дойти до владельца.
+
+        Раньше поток умирал молча: `start()` возвращал False, `run()` печатал
+        «сервер не поднялся» без причины, и в журнале не оставалось ничего.
+        """
+        try:
+            self.server.run()
+        except BaseException as exc:  # noqa: BLE001 — SystemExit из uvicorn тоже сюда
+            self.error = f"{type(exc).__name__}: {exc}"
 
     def start(self, url: str, timeout: float = 30.0) -> bool:
         self.thread.start()
@@ -240,6 +271,7 @@ class _BackgroundServer:
             if not self.thread.is_alive():
                 return False
             time.sleep(0.2)
+        self.error = self.error or "сервер не ответил за %.0f с" % timeout
         return False
 
     def stop(self) -> None:
@@ -321,13 +353,15 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             print(f"  - {c}", file=out, flush=True)
         return 0
 
+    data_dir = Path(settings.data_dir)
     browser = args.browser or find_browser()
     if not browser:
         print("[bcc-desktop] не найден Chromium/Chrome/Edge — укажите --browser или BCC_DESKTOP_BROWSER;"
               " веб-версия остаётся доступной командой `bcc`.", file=out, flush=True)
+        _append_run_log(data_dir, "exit code=2 no-browser-found")
+        _pause_console(out)
         return 2
 
-    data_dir = Path(settings.data_dir)
     _append_run_log(data_dir, f"start pid={os.getpid()} url={url}")
     lock = _read_lock(data_dir)
     if lock:
@@ -343,6 +377,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
                    "на том же профиле не открываю, иначе Chrome закроется сам")
             print(msg, file=out, flush=True)
             _append_run_log(data_dir, f"refused-second-window existing-port={lock_port}")
+            _pause_console(out)
             return 0
 
     started: _BackgroundServer | None = None
@@ -355,15 +390,22 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         # чужой UI под именем BOSSMAN нельзя.
         print(f"[bcc-desktop] порт {port} занят другим приложением (это не Command Center) —"
               f" укажите другой --port", file=out, flush=True)
+        _append_run_log(data_dir, f"exit code=4 port-busy-foreign port={port}")
+        _pause_console(out)
         return 4
     elif args.no_server:
         print(f"[bcc-desktop] сервер по адресу {url} не отвечает, а --no-server задан", file=out, flush=True)
+        _append_run_log(data_dir, "exit code=3 no-server-flag")
+        _pause_console(out)
         return 3
     else:
         started = _BackgroundServer(host, port)
         if not started.start(url):
-            print(f"[bcc-desktop] сервер не поднялся на {url}", file=out, flush=True)
+            reason = started.error or "причина неизвестна"
+            print(f"[bcc-desktop] сервер не поднялся на {url}: {reason}", file=out, flush=True)
+            _append_run_log(data_dir, f"exit code=3 server-start-failed {reason}")
             started.stop()
+            _pause_console(out)
             return 3
         print(f"[bcc-desktop] сервер запущен: {url}", file=out, flush=True)
 
@@ -383,9 +425,22 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             wrote_lock = True
         except OSError:
             pass
+        # Полная команда окна в журнал: если окно не появилось, из лога видно
+        # чем именно и с какими флагами мы его запускали (секретов в argv нет).
+        try:
+            _append_run_log(data_dir, "browser-argv " + " ".join(
+                browser_argv(browser, url, profile_dir, window_size=args.window_size,
+                             extra=tuple(args.browser_arg))))
+        except Exception:  # noqa: BLE001 — журнал не должен мешать запуску
+            pass
         t0 = time.monotonic()
+        launch_error: OSError | None = None
         try:
             code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg), window_size=args.window_size)
+        except OSError as exc:
+            # Раньше это улетало трейсбеком и консоль закрывалась вместе с ним:
+            # владелец видел «открылась только командная строка» без причины.
+            launch_error, code = exc, 6
         finally:
             if started is not None:
                 started.stop()
@@ -396,11 +451,19 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             except OSError:
                 pass
     lifetime = time.monotonic() - t0
+    if launch_error is not None:
+        _append_run_log(data_dir, f"browser-launch-failed {type(launch_error).__name__}: {launch_error}")
+        print(f"[bcc-desktop] не удалось запустить браузер {browser}: {launch_error}\n"
+              f"[bcc-desktop] проверьте путь или задайте свой: --browser \"C:\\путь\\chrome.exe\"",
+              file=out, flush=True)
+        _pause_console(out)
+        return 6
     _append_run_log(data_dir, f"browser-exit code={code} lifetime={lifetime:.1f}s url={url}")
     if lifetime < 10:
         print(f"[bcc-desktop] окно закрылось через {lifetime:.1f} c (код {code}) — вероятно, краш "
               f"или второй Chrome на том же профиле. Логи: {_run_log_path(data_dir)} и "
               f"{profile_dir}{os.sep}chrome_debug.log", file=out, flush=True)
+        _pause_console(out)
     return int(code or 0)
 
 
