@@ -75,6 +75,12 @@
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
       </button>
     </header>
+    <div class="stale-banner" id="stale-banner" role="status" aria-live="polite" hidden>
+      <span class="stale-dot" aria-hidden="true"></span>
+      <span class="stale-text" id="stale-text">Нет связи с сервером. Данные на экране могли устареть.</span>
+      <span class="stale-retry" id="stale-retry"></span>
+      <button class="btn btn-sm" id="stale-now" type="button">Переподключить сейчас</button>
+    </div>
     <main class="view" id="view" tabindex="-1"></main>
   </div>
 

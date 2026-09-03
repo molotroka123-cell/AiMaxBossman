@@ -939,3 +939,13 @@
 .bx-think-empty{padding:10px 6px;color:var(--bx-ink-3);font-size:var(--bx-caption)}
 body.bx-think-open .main{padding-right:min(400px,100vw)}
 @media (max-width:760px){body.bx-think-open .main{padding-right:0}.bx-think{width:100vw}}
+
+/* ---------- UX 2.0: баннер потери соединения / устаревших данных ---------- */
+.stale-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 16px;font-size:13px;
+  background:color-mix(in srgb, var(--bx-amber) 14%, transparent);border-bottom:1px solid color-mix(in srgb, var(--bx-amber) 45%, transparent)}
+.stale-banner[hidden]{display:none}
+.stale-dot{width:8px;height:8px;border-radius:50%;background:var(--bx-amber);flex:none;animation:bx-stale-pulse 1.2s ease-in-out infinite}
+.stale-text{flex:1 1 auto;min-width:200px}
+.stale-retry{opacity:.75;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stale-banner .btn{margin-left:auto}
+@keyframes bx-stale-pulse{0%,100%{opacity:1}50%{opacity:.35}}

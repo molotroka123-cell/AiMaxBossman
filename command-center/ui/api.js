@@ -237,10 +237,12 @@ export class EventStream {
     this.attempt = 0;
     this.timer = null;
     this.stopped = true;
+    this.nextRetryAt = 0;        // epoch ms — когда запланирована следующая попытка (0 = не запланирована)
+    this.lastOpenAt = 0;         // epoch ms — последнее успешное подключение
+    this.disconnectedAt = 0;     // epoch ms — момент потери соединения (0 = сейчас на связи или ещё не было)
     this._onVisible = () => {
       if (!this.stopped && this.state !== 'open' && document.visibilityState === 'visible') {
-        this.attempt = 0;
-        this.connect();
+        this.reconnectNow();
       }
     };
     document.addEventListener('visibilitychange', this._onVisible);
@@ -261,8 +263,30 @@ export class EventStream {
 
   setState(state) {
     if (this.state === state) return;
+    const prev = this.state;
     this.state = state;
-    this.emit({ kind: `ws.${state}`, ts: Date.now() / 1000, local: true });
+    const now = Date.now();
+    if (state === 'open') {
+      this.nextRetryAt = 0;
+      const wasDown = this.disconnectedAt > 0;
+      const downtimeMs = wasDown ? now - this.disconnectedAt : 0;
+      this.lastOpenAt = now;
+      this.disconnectedAt = 0;
+      this.emit({ kind: 'ws.open', ts: now / 1000, local: true, reconnected: wasDown, downtime_ms: downtimeMs, prev });
+      return;
+    }
+    if (state === 'closed' && !this.disconnectedAt) this.disconnectedAt = this.lastOpenAt || now;
+    this.emit({ kind: `ws.${state}`, ts: now / 1000, local: true, prev, attempt: this.attempt, since: this.disconnectedAt });
+  }
+
+  /** Немедленная попытка переподключения (кнопка «Переподключить сейчас», возврат вкладки, сеть вернулась). */
+  reconnectNow() {
+    if (this.stopped) return;
+    clearTimeout(this.timer);
+    this.timer = null;
+    this.nextRetryAt = 0;
+    this.attempt = 0;
+    this.connect();
   }
 
   start() {
@@ -278,6 +302,7 @@ export class EventStream {
       try { this.ws.onclose = null; this.ws.close(); } catch { /* уже закрыт */ }
     }
     this.ws = null;
+    this.nextRetryAt = 0;
     this.setState('closed');
   }
 
@@ -330,6 +355,9 @@ export class EventStream {
     const base = Math.min(1000 * Math.pow(1.6, this.attempt - 1), 15000);
     const delay = Math.round(base * (0.85 + Math.random() * 0.3));
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => this.connect(), delay);
+    this.nextRetryAt = Date.now() + delay;
+    this.timer = setTimeout(() => { this.timer = null; this.nextRetryAt = 0; this.connect(); }, delay);
+    // Служебное событие для UI: владелец видит обратный отсчёт до повтора, а не «нет соединения» без объяснений.
+    this.emit({ kind: 'ws.retry_scheduled', ts: Date.now() / 1000, local: true, attempt: this.attempt, delay_ms: delay, at: this.nextRetryAt, since: this.disconnectedAt });
   }
 }

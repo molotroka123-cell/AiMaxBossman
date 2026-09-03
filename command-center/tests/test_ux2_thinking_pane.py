@@ -77,6 +77,19 @@ class LiveServer:
         self.server.should_exit = True
         self.thread.join(timeout=10)
 
+    def restart(self) -> "LiveServer":
+        """Перезапуск «процесса»: новый app на тех же data_dir/БД (токен и сессии браузера
+        хранятся в БД и переживают рестарт), тот же порт, новый цикл событий."""
+        import uvicorn
+        if self.thread.is_alive():
+            self.stop()
+        self.app = create_app(self.settings, announce_token=False, start_workers=False)
+        self.svc = self.app.state.svc
+        self.loop = asyncio.new_event_loop()
+        self.server = uvicorn.Server(uvicorn.Config(self.app, host="127.0.0.1", port=self.port, log_level="warning", loop="none"))
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        return self.start()
+
     @property
     def url(self) -> str:
         return f"http://127.0.0.1:{self.port}"

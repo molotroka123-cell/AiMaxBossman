@@ -5,8 +5,8 @@
 
 import { api, ApiError, EventStream, hasSession, clearCsrf, listOf, UNAUTHORIZED_EVENT } from './api.js';
 import {
-  h, append, clear, replace, icon, dot, empty, loading, toast, toastError,
-  closeTopModal, hasOpenModal, debounce, fmtGb,
+  h, append, clear, replace, icon, dot, empty, loading, toast, toastError, toastOk,
+  closeTopModal, hasOpenModal, debounce, fmtGb, fmtClock, fmtDuration,
 } from './components.js';
 import { PAGES, openTaskModal, openAgentModal, openScheduleModal, openModelWizard, stopAllRunning } from './pages.js';
 import { FEATURE_PAGES } from './pages/index.js';
@@ -32,8 +32,13 @@ const el = {
   refreshBtn: document.getElementById('refresh-btn'),
   menuBtn: document.getElementById('mobile-menu'),
   scrim: document.getElementById('scrim'),
+  conn: document.getElementById('conn'),
   connDot: document.getElementById('conn-dot'),
   connText: document.getElementById('conn-text'),
+  stale: document.getElementById('stale-banner'),
+  staleText: document.getElementById('stale-text'),
+  staleRetry: document.getElementById('stale-retry'),
+  staleNow: document.getElementById('stale-now'),
   paletteBtn: document.getElementById('palette-open'),
   paletteKbd: document.getElementById('palette-kbd'),
   palette: document.getElementById('palette'),
@@ -325,16 +330,61 @@ function syncTopStats(sys) {
   append(el.stats, items);
 }
 
+/* ---------------- Соединение: индикатор, обратный отсчёт, баннер устаревших данных ---------------- */
+
+const conn = { state: 'idle', tick: null, wasDown: false };
+
+function connLabel() {
+  const left = bus.nextRetryAt ? Math.max(0, Math.ceil((bus.nextRetryAt - Date.now()) / 1000)) : 0;
+  switch (conn.state) {
+    case 'open': return 'live-обновления';
+    case 'connecting': return bus.attempt > 0 ? `подключение… (попытка ${bus.attempt + 1})` : 'подключение…';
+    case 'closed': return left > 0 ? `нет соединения · повтор через ${left} с` : 'нет соединения';
+    default: return 'соединение…';
+  }
+}
+
 function syncConn(stateName) {
   const map = {
-    open: ['dot dot-ok', 'live-обновления'],
-    connecting: ['dot dot-warn dot-live', 'подключение…'],
-    closed: ['dot dot-err', 'нет соединения'],
-    idle: ['dot dot-idle', 'соединение…'],
+    open: 'dot dot-ok',
+    connecting: 'dot dot-warn dot-live',
+    closed: 'dot dot-err',
+    idle: 'dot dot-idle',
   };
-  const [cls, text] = map[stateName] || map.idle;
-  el.connDot.className = cls;
-  el.connText.textContent = text;
+  conn.state = map[stateName] ? stateName : 'idle';
+  el.connDot.className = map[conn.state];
+  el.connText.textContent = connLabel();
+  el.conn.dataset.state = conn.state;
+  clearInterval(conn.tick);
+  conn.tick = null;
+  if (conn.state === 'closed' || conn.state === 'connecting') {
+    conn.tick = setInterval(() => { el.connText.textContent = connLabel(); syncStaleBanner(); }, 500);
+  }
+  syncStaleBanner();
+}
+
+function syncStaleBanner() {
+  const b = el.stale;
+  if (!b) return;
+  const down = state.ready && (conn.state === 'closed' || conn.state === 'connecting') && bus.disconnectedAt > 0;
+  if (!down) { b.hidden = true; return; }
+  const since = bus.disconnectedAt;
+  const left = bus.nextRetryAt ? Math.max(0, Math.ceil((bus.nextRetryAt - Date.now()) / 1000)) : 0;
+  el.staleText.textContent = `Нет связи с сервером с ${fmtClock(since / 1000, true)} (${fmtDuration(Date.now() - since)}). `
+    + 'Данные на экране могли устареть.';
+  el.staleRetry.textContent = conn.state === 'connecting'
+    ? 'Подключаемся…'
+    : (left > 0 ? `Повтор через ${left} с` : 'Повтор…');
+  el.staleNow.disabled = conn.state === 'connecting';
+  b.hidden = false;
+}
+
+function onConnRestored(ev) {
+  /* при переподключении перечитываем данные активной страницы и говорим об этом владельцу */
+  renderPage();
+  refreshApprovals();
+  const down = ev && ev.downtime_ms ? ` после ${fmtDuration(ev.downtime_ms)} без связи` : '';
+  toastOk('Соединение восстановлено', `Данные обновлены${down}.`);
 }
 
 /* ---------------- Шина событий ---------------- */
@@ -349,11 +399,11 @@ bus.subscribe((ev) => {
 
   if (kind.startsWith('ws.')) {
     const name = kind.slice(3);
+    if (name === 'retry_scheduled') { syncConn(conn.state === 'open' ? 'closed' : conn.state); return; }
     syncConn(name);
     if (name === 'open' && state.ready) {
-      /* при переподключении перечитываем данные активной страницы */
-      renderPage();
-      refreshApprovals();
+      if (ev.reconnected) onConnRestored(ev);
+      else { renderPage(); refreshApprovals(); }
     }
     return;
   }
@@ -610,6 +660,8 @@ async function loadTopStats() {
 
 el.themeBtn.addEventListener('click', () => setTheme(getTheme() === 'dark' ? 'light' : 'dark'));
 el.refreshBtn.addEventListener('click', () => refresh());
+if (el.staleNow) el.staleNow.addEventListener('click', () => { bus.reconnectNow(); syncConn(bus.state); });
+window.__bxConn = { bus, label: connLabel };
 el.menuBtn.addEventListener('click', () => setMenu(!el.shell.classList.contains('menu-open')));
 el.scrim.addEventListener('click', () => { if (el.shell.classList.contains('menu-open')) setMenu(false); });
 el.paletteBtn.addEventListener('click', () => openPalette());
