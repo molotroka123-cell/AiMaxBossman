@@ -574,3 +574,176 @@ def test_pid_liveness_is_honest_about_this_process_and_a_dead_one():
     assert desktop._pid_alive(os.getpid()) is True
     assert desktop._pid_alive(999_999) is False
     assert desktop._pid_alive(0) is False and desktop._pid_alive(-1) is False
+
+
+def test_missing_std_streams_are_bound_to_a_file_log(tmp_path, monkeypatch):
+    """CR-1: под pythonw консоли нет, и sys.stdout/sys.stderr равны None.
+
+    Тогда любой print — наш, uvicorn'а или чужой библиотеки — падает
+    AttributeError, и запуск двойным кликом умирает молча. После подстановки
+    писать можно, и написанное лежит в файле, который владелец может прислать.
+    """
+    data_dir = tmp_path / "gui"
+    monkeypatch.setattr(desktop.sys, "stdout", None)
+    monkeypatch.setattr(desktop.sys, "stderr", None)
+
+    stream = desktop.bind_missing_std_streams(data_dir)
+
+    assert stream is not None
+    assert desktop.sys.stdout is stream and desktop.sys.stderr is stream
+    print("проверка вывода без консоли", file=desktop.sys.stdout, flush=True)
+    print("и ошибки тоже", file=desktop.sys.stderr, flush=True)
+    text = (data_dir / desktop.GUI_CONSOLE_LOG_NAME).read_text(encoding="utf-8")
+    assert "запуск без консоли" in text
+    assert "проверка вывода без консоли" in text and "и ошибки тоже" in text
+    # Владелец должен найти этот файл по журналу запусков, а не наугад.
+    assert desktop.GUI_CONSOLE_LOG_NAME in (data_dir / "desktop-run.log").read_text(encoding="utf-8")
+    stream.close()
+
+
+def test_console_binding_is_a_no_op_when_a_console_exists(tmp_path):
+    """Живую консоль подменять нельзя: владелец должен видеть токен глазами."""
+    before_out, before_err = desktop.sys.stdout, desktop.sys.stderr
+    assert desktop.bind_missing_std_streams(tmp_path / "gui") is None
+    assert desktop.sys.stdout is before_out and desktop.sys.stderr is before_err
+    assert not (tmp_path / "gui" / desktop.GUI_CONSOLE_LOG_NAME).exists()
+
+
+def test_std_streams_are_never_left_none_even_if_data_dir_is_unusable(tmp_path, monkeypatch):
+    """Если писать в data_dir нельзя, поток всё равно должен быть, а не None."""
+    blocker = tmp_path / "blocked"
+    blocker.write_text("это файл, а не каталог", encoding="utf-8")
+    monkeypatch.setattr(desktop.sys, "stdout", None)
+    monkeypatch.setattr(desktop.sys, "stderr", None)
+
+    stream = desktop.bind_missing_std_streams(blocker / "data")
+
+    assert stream is not None
+    print("не должно упасть", file=desktop.sys.stdout, flush=True)
+    stream.close()
+
+
+def test_gui_console_log_keeps_previous_runs(tmp_path, monkeypatch):
+    """Журнал дописывается: причина вчерашнего сбоя не стирается сегодняшним запуском."""
+    data_dir = tmp_path / "gui"
+    for mark in ("первый", "второй"):
+        monkeypatch.setattr(desktop.sys, "stdout", None)
+        monkeypatch.setattr(desktop.sys, "stderr", None)
+        stream = desktop.bind_missing_std_streams(data_dir)
+        print(f"{mark} запуск", file=stream, flush=True)
+        stream.close()
+        monkeypatch.undo()
+    text = (data_dir / desktop.GUI_CONSOLE_LOG_NAME).read_text(encoding="utf-8")
+    assert "первый запуск" in text and "второй запуск" in text
+
+
+def test_gui_launch_keeps_the_token_out_of_the_file_log(tmp_path, monkeypatch):
+    """Без консоли баннер читать некому, а журнал владелец пересылает — токена там быть не должно."""
+    from bcc.config import settings
+
+    data_dir = tmp_path / "gui"
+    monkeypatch.setattr(settings, "data_dir", data_dir)
+    (data_dir).mkdir(parents=True, exist_ok=True)
+    (data_dir / desktop.TOKEN_FILE_NAME).write_text("SECRET-TOKEN-XYZ", encoding="utf-8")
+    monkeypatch.setattr(desktop.sys, "stdout", None)
+    monkeypatch.setattr(desktop.sys, "stderr", None)
+    monkeypatch.setattr(desktop.sys, "argv", ["bcc-desktop"])
+    monkeypatch.delenv(desktop.TOKEN_STDOUT_ENV, raising=False)
+    seen: dict = {}
+
+    def _fake_run(argv=None, **kwargs):
+        seen["argv"] = list(argv or [])
+        seen["out"] = kwargs.get("out")
+        print("сервер запущен", file=kwargs["out"], flush=True)
+        return 0
+
+    monkeypatch.setattr(desktop, "run", _fake_run)
+    with pytest.raises(SystemExit) as exc:
+        desktop.main()
+
+    assert exc.value.code == 0
+    assert "--no-show-token" in seen["argv"], "без консоли баннер с токеном не печатаем"
+    assert os.environ[desktop.TOKEN_STDOUT_ENV] == "0", "анонс токена сервером тоже выключен"
+    seen["out"].close()
+    text = (data_dir / desktop.GUI_CONSOLE_LOG_NAME).read_text(encoding="utf-8")
+    assert "сервер запущен" in text
+    assert "SECRET-TOKEN-XYZ" not in text
+
+
+def test_console_launch_still_shows_the_token(tmp_path, monkeypatch):
+    """С живой консолью ничего не меняется: владелец видит токен и вводит его в окне."""
+    from bcc.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path / "console")
+    monkeypatch.setattr(desktop.sys, "argv", ["bcc-desktop"])
+    monkeypatch.delenv(desktop.TOKEN_STDOUT_ENV, raising=False)
+    seen: dict = {}
+
+    monkeypatch.setattr(desktop, "run", lambda argv=None, **kw: seen.setdefault("argv", list(argv or [])) and 0 or 0)
+    with pytest.raises(SystemExit):
+        desktop.main()
+
+    assert "--no-show-token" not in seen["argv"]
+    assert desktop.TOKEN_STDOUT_ENV not in os.environ
+
+
+def test_token_announce_is_silenced_when_output_goes_to_a_file(tmp_path, monkeypatch, capsys):
+    """Сервер тоже не должен печатать токен, когда stdout — файловый журнал."""
+    from bcc.auth import TokenAuth
+
+    auth = TokenAuth(tmp_path / "token")
+    capsys.readouterr()  # конструктор уже анонсировал токен в живую консоль
+    monkeypatch.setenv(desktop.TOKEN_STDOUT_ENV, "0")
+    auth.announce(created=True)
+    assert auth.token not in capsys.readouterr().out
+
+    monkeypatch.delenv(desktop.TOKEN_STDOUT_ENV)
+    auth.announce(created=True)
+    assert auth.token in capsys.readouterr().out
+
+
+def test_only_a_missing_stdout_hides_the_token(tmp_path, monkeypatch):
+    """Подменён только stderr — консоль жива, и баннер с токеном по-прежнему нужен."""
+    from bcc.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path / "half")
+    monkeypatch.setattr(desktop.sys, "stderr", None)
+    monkeypatch.setattr(desktop.sys, "argv", ["bcc-desktop"])
+    monkeypatch.delenv(desktop.TOKEN_STDOUT_ENV, raising=False)
+    seen: dict = {}
+
+    def _fake_run(argv=None, **kwargs):
+        seen["argv"] = list(argv or [])
+        return 0
+
+    monkeypatch.setattr(desktop, "run", _fake_run)
+    with pytest.raises(SystemExit):
+        desktop.main()
+
+    assert desktop.sys.stderr is not None, "stderr всё равно должен быть подменён"
+    assert "--no-show-token" not in seen["argv"]
+    assert desktop.TOKEN_STDOUT_ENV not in os.environ
+
+
+def test_explicit_show_token_is_respected_even_without_a_console(tmp_path, monkeypatch):
+    """`--show-token` — осознанный выбор владельца; молча его не отменяем."""
+    from bcc.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path / "explicit")
+    monkeypatch.setattr(desktop.sys, "stdout", None)
+    monkeypatch.setattr(desktop.sys, "stderr", None)
+    monkeypatch.setattr(desktop.sys, "argv", ["bcc-desktop", "--show-token"])
+    monkeypatch.delenv(desktop.TOKEN_STDOUT_ENV, raising=False)
+    seen: dict = {}
+
+    def _fake_run(argv=None, **kwargs):
+        seen["argv"] = list(argv or [])
+        kwargs["out"].close()
+        return 0
+
+    monkeypatch.setattr(desktop, "run", _fake_run)
+    with pytest.raises(SystemExit):
+        desktop.main()
+
+    assert "--no-show-token" not in seen["argv"]
+    assert desktop.TOKEN_STDOUT_ENV not in os.environ, "нельзя глушить анонс, когда токен просили явно"

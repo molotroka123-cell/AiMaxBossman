@@ -25,6 +25,9 @@ import urllib.request
 from pathlib import Path
 from typing import Callable, Sequence
 
+# Один и тот же переключатель для баннера окна и для анонса токена сервером.
+from .auth import TOKEN_STDOUT_ENV
+
 # Кандидаты в порядке предпочтения: предустановленный Playwright-Chromium (его же
 # использует рантайм браузера), затем системные браузеры на Chromium-движке.
 BROWSER_CANDIDATES: tuple[str, ...] = (
@@ -148,6 +151,48 @@ def _append_run_log(data_dir: Path, message: str) -> None:
             fh.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {message}\n")
     except OSError:
         pass
+
+
+GUI_CONSOLE_LOG_NAME = "desktop-console.log"
+
+
+def _gui_console_stream(data_dir: Path):
+    """Файл вместо отсутствующей консоли. ``None``, если писать некуда."""
+    try:
+        Path(data_dir).mkdir(parents=True, exist_ok=True)
+        return open(_gui_console_log_path(data_dir), "a", encoding="utf-8",
+                    errors="replace", buffering=1)
+    except OSError:
+        return None
+
+
+def _gui_console_log_path(data_dir: Path) -> Path:
+    return Path(data_dir) / GUI_CONSOLE_LOG_NAME
+
+
+def bind_missing_std_streams(data_dir: Path):
+    """Под ``pythonw`` (ярлык без консоли) ``sys.stdout``/``sys.stderr`` равны ``None``.
+
+    Тогда любой ``print`` — наш, uvicorn'а или чужой библиотеки — падает
+    ``AttributeError: 'NoneType' object has no attribute 'write'``, и запуск
+    двойным кликом умирает молча. Подставляем файловый журнал в ``data_dir``
+    ДО того, как что-либо начнёт писать: логи есть, упасть некуда.
+
+    Возвращает подставленный поток или ``None``, если консоль на месте.
+    """
+    missing = [name for name in ("stdout", "stderr") if getattr(sys, name, None) is None]
+    if not missing:
+        return None
+    stream = _gui_console_stream(data_dir)
+    if stream is None:
+        # Каталог данных недоступен — важно всё равно не оставить None.
+        stream = open(os.devnull, "w", encoding="utf-8")
+    else:
+        _append_run_log(data_dir, f"gui-console -> {_gui_console_log_path(data_dir)}")
+        stream.write(f"\n=== {time.strftime('%Y-%m-%dT%H:%M:%S')} запуск без консоли, pid={os.getpid()} ===\n")
+    for name in missing:
+        setattr(sys, name, stream)
+    return stream
 
 
 TOKEN_FILE_NAME = "token"
@@ -516,7 +561,21 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
 
 
 def main() -> None:
-    sys.exit(run())
+    from .config import settings
+
+    argv = list(sys.argv[1:])
+    stream = bind_missing_std_streams(Path(settings.data_dir))
+    if stream is None or sys.stdout is not stream:
+        # Консоль на месте (или подменён только stderr) — владелец читает баннер сам.
+        sys.exit(run(argv))
+    # Консоли нет: баннер читать некому, а этот журнал владелец пересылает при
+    # разборе сбоя. Токен остаётся только в своём файле с правами 600.
+    if "--show-token" in argv:
+        # Владелец попросил токен явно — печатаем, но под его ответственность.
+        sys.exit(run(argv, out=stream))
+    os.environ[TOKEN_STDOUT_ENV] = "0"
+    argv.append("--no-show-token")
+    sys.exit(run(argv, out=stream))
 
 
 if __name__ == "__main__":

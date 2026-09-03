@@ -13,6 +13,8 @@ from pathlib import Path
 
 TOKEN_FILE = "token"
 HEADER = "X-BCC-Token"
+# Ставится в "0" тем, кто перенаправил stdout в файл: секрет туда не пишем.
+TOKEN_STDOUT_ENV = "BCC_TOKEN_STDOUT"
 
 
 class TokenAuth:
@@ -38,6 +40,10 @@ class TokenAuth:
 
     def announce(self, created: bool = False) -> None:
         head = "создан новый токен" if created else "токен"
+        if os.environ.get(TOKEN_STDOUT_ENV) == "0":
+            # Запуск без консоли: stdout — файловый журнал, который владелец
+            # пересылает при разборе сбоя. Токен остаётся в своём файле (600).
+            return
         text = f"[bcc] {head} доступа: {self.token}\n[bcc] файл токена: {self.path}"
         stream = sys.stdout
         if stream is None:

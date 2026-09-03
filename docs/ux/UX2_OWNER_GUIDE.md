@@ -7,9 +7,12 @@
 bcc-desktop
 ```
 
-Или через Python:
+Или через Python — работает и без `pip install -e command-center`:
 ```
-python -m bcc.desktop
+python -m bcc.desktop      # окно приложения
+python -m bcc              # только сервер, без окна
+python -m bcc --help       # справка; сервер при этом не поднимается
+python -m bcc --version
 ```
 
 ### Опции командной строки
