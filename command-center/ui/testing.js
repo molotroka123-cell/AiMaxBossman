@@ -51,7 +51,7 @@ async function flush() {
   const batch = queue;
   queue = [];
   try {
-    await api('POST', '/api/testing/log', { events: batch });
+    await api.raw('/api/testing/log', { method: 'POST', body: { events: batch } });
   } catch {
     // Сервер недоступен — возвращаем пачку в очередь, но не бесконечно:
     // журнал не должен съесть память вкладки.
@@ -78,7 +78,11 @@ function styles() {
   const css = document.createElement('style');
   css.id = 'bcc-testing-style';
   css.textContent = `
-  .bcc-testing-bar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:10px;
+  :root{--bcc-testing-h:30px}
+  /* Шапка тоже липкая и тоже на top:0 — без сдвига она наезжала бы на плашку
+     при прокрутке. Правило действует только при включённом режиме. */
+  .bcc-testing-on .topbar{top:var(--bcc-testing-h)}
+  .bcc-testing-bar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:10px;
     padding:7px 14px;font:600 12px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     letter-spacing:.02em;color:#0e0b03;background:linear-gradient(90deg,#f5c451,#f0a93b);
     border-bottom:1px solid rgba(0,0,0,.25);box-shadow:0 1px 8px rgba(0,0,0,.25)}
@@ -106,8 +110,16 @@ function mountBanner(status) {
     <span class="bcc-testing-msg" id="bcc-testing-msg"></span>
     <span class="bcc-testing-count" id="bcc-testing-count"></span>
     <button class="bcc-testing-btn" id="bcc-testing-publish" type="button">Отправить в GitHub</button>`;
-  const shell = document.getElementById('shell');
-  (shell || document.body).prepend(bar);
+  // ВАЖНО: не в #shell. Он — двухколоночная сетка, и вставленная первой плашка
+  // занимает колонку сайдбара, ломая всю раскладку. Место плашки — внутри
+  // .main, над липкой шапкой: там же живёт баннер устаревших данных.
+  const main = document.querySelector('#shell .main');
+  if (main) {
+    main.prepend(bar);
+    document.body.classList.add('bcc-testing-on');
+  } else {
+    document.body.prepend(bar);
+  }
   bar.querySelector('#bcc-testing-session').textContent = status.session || '—';
   bar.querySelector('#bcc-testing-publish').addEventListener('click', publish);
   banner = bar;
@@ -124,7 +136,7 @@ function say(text, ms = 8000) {
 async function refreshCount() {
   if (!active) return;
   try {
-    const status = await api('GET', '/api/testing/status');
+    const status = await api.raw('/api/testing/status');
     const box = document.getElementById('bcc-testing-count');
     if (box) box.textContent = `${status.events ?? 0} записей`;
   } catch { /* счётчик — удобство, его отказ не важен */ }
@@ -141,7 +153,7 @@ async function publish() {
   say('собираю журнал и чищу секреты…', 0);
   try {
     await flush();                       // сначала доложить всё, что накопилось
-    const res = await api('POST', '/api/testing/publish', {});
+    const res = await api.raw('/api/testing/publish', { method: 'POST', body: {} });
     if (res.published) {
       say(`отправлено: ${res.sha} · ${res.summary?.total ?? 0} записей · вычищено ${res.redactions}`);
     } else {
@@ -197,7 +209,7 @@ function listen() {
  */
 export async function mountTestingPeriod() {
   try {
-    const status = await api('GET', '/api/testing/status');
+    const status = await api.raw('/api/testing/status');
     if (!status || !status.enabled) return null;
     active = true;
     mountBanner(status);

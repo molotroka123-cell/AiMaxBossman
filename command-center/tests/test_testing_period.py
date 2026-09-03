@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ import pytest
 from bcc.features import testing_period as tp
 
 from .conftest import client_for, make_settings, start_app
+from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
@@ -217,3 +219,60 @@ def _make_repo(repo: Path, *, with_remote: bool = True) -> None:
         subprocess.run(["git", "init", "-q", "--bare", str(bare)], capture_output=True)
         run("remote", "add", "origin", str(bare))
         run("push", "-q", "-u", "origin", "main")
+
+
+# --------------------------------------------------------------- живой браузер
+
+def test_banner_and_click_recording_work_in_a_real_browser(live):  # noqa: F811
+    """Настоящий Chromium: плашка видна, клик доехал до журнала, ошибок консоли нет.
+
+    Всё остальное в этом файле проверяет серверную половину через API. Здесь
+    проверяется то, что владелец увидит глазами, и то, что запись действительно
+    работает из браузера, а не только когда события шлёт тест.
+    """
+    from playwright.sync_api import sync_playwright
+
+    errors: list[str] = []
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        _login(page, live)
+
+        bar = page.wait_for_selector(".bcc-testing-bar", timeout=15000)
+        assert bar.is_visible(), "плашка тестового периода должна быть видна"
+        assert "TESTING PERIOD" in bar.inner_text()
+        session = page.inner_text("#bcc-testing-session").strip()
+        assert len(session) == 12, f"в плашке должен стоять номер сессии, получено {session!r}"
+        assert page.is_visible("#bcc-testing-publish"), "кнопка отправки должна быть на месте"
+
+        page.click("#think-open")                 # обычное действие владельца
+        page.click("#think-open")
+        # Очередь уходит пачкой раз в несколько секунд — ждём саму запись, а не время.
+        # wait_for_function здесь не годится: асинхронный предикат возвращает
+        # Promise, а он истинный сам по себе, и ожидание завершалось мгновенно.
+        # page.evaluate обещание дожидается по-настоящему, поэтому опрашиваем им.
+        fetch_events = ("async () => (await (await fetch('/api/testing/events?limit=1000',"
+                        " {cache: 'no-store'})).json()).events")
+        deadline = time.monotonic() + 30
+        events = []
+        while time.monotonic() < deadline:
+            events = page.evaluate(fetch_events)
+            if any(e["kind"] == "ui.click" for e in events):
+                break
+            page.wait_for_timeout(500)
+
+    kinds = {e["kind"] for e in events}
+    assert "ui.session_open" in kinds, "открытие сессии обязано быть записано"
+    assert "ui.click" in kinds
+    clicks = [e for e in events if e["kind"] == "ui.click"]
+    assert any("think-open" in c["data"].get("element", "") for c in clicks), \
+        f"клик по кнопке не опознан: {[c['data'] for c in clicks]}"
+    server_paths = {e["data"].get("path") for e in events if e["source"] == "server"}
+    assert any(p and p.startswith("/api/") for p in server_paths), \
+        "работа UI обязана попасть и в серверную половину журнала"
+    # Сам приём журнала исключён намеренно: иначе каждая отправка пачки рождала
+    # бы свою запись, и журнал наполнялся бы рассказом о себе.
+    assert "/api/testing/log" not in server_paths
+    assert not errors, f"ошибки консоли: {errors}"
