@@ -183,6 +183,7 @@ const VARIANT = {
   secondary: 'bx-btn bx-btn-secondary',
   subtle: 'bx-btn bx-btn-subtle',
   ghost: 'bx-btn bx-btn-ghost',
+  danger: 'bx-btn bx-btn-danger',
 };
 
 export function btn(label, onClick, { variant = 'secondary', iconName, size = '', title, block = false, disabled = false, accent } = {}) {

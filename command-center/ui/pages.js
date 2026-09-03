@@ -343,34 +343,32 @@ const ModelsPage = {
 
     const byId = new Map(providers.map((p) => [String(pick(p, ['id'])), p]));
 
-    const head = h('div.row',
-      h('div',
-        h('div.section-title', { style: { margin: 0 } }, 'Список моделей'),
-        h('div.small.dim', `${models.length} моделей · ${providers.length} поставщиков`)),
-      h('div.spacer'),
-      actionButton('Проверить все', async () => {
-        if (!models.length) return;
-        await Promise.allSettled(models.map((m) => api.checkModel(pick(m, ['id']))));
-        toastOk('Проверка запущена');
-        ctx.refresh();
-      }, { cls: 'btn', iconName: 'retry' }),
-      actionButton('Найти локальные', () => openDiscoveryModal(ctx), { cls: 'btn', iconName: 'search' }),
-      h('button.btn.btn-primary', { type: 'button', onClick: () => openModelWizard(ctx) },
-        icon('plus', 14), h('span', 'Добавить модель')));
+    const head = ui.pageHead('Модели',
+      `${models.length} ${ui.plural(models.length, 'модель', 'модели', 'моделей')} · `
+      + `${providers.length} ${ui.plural(providers.length, 'поставщик', 'поставщика', 'поставщиков')}`,
+      { actions: [
+        ui.btn('Проверить все', async () => {
+          if (!models.length) return;
+          await Promise.allSettled(models.map((m) => api.checkModel(pick(m, ['id']))));
+          toastOk('Проверка запущена');
+          ctx.refresh();
+        }, { iconName: 'retry', size: 'sm' }),
+        ui.btn('Найти локальные', () => openDiscoveryModal(ctx), { iconName: 'search', size: 'sm' }),
+        ui.btn('Добавить модель', () => openModelWizard(ctx), { variant: 'primary', iconName: 'plus', size: 'sm' }),
+      ] });
 
     const body = modelsR.status === 'rejected'
       ? errorBanner(modelsR.reason, ctx)
       : models.length
-        ? h('div.grid.auto-lg', models.map((m) => modelCard(m, byId.get(String(m.provider_id)), ctx)))
-        : h('section.panel', empty({
+        ? h('div.bx-cards', models.map((m) => modelCard(m, byId.get(String(m.provider_id)), ctx)))
+        : ui.blank({
           iconName: 'models',
           title: 'Моделей пока нет',
           hint: 'Подключите модель на своём компьютере (llama.cpp, Ollama, LM Studio) или облачную — и она появится здесь со своим состоянием.',
-          action: h('button.btn.btn-primary', { type: 'button', onClick: () => openModelWizard(ctx) },
-            icon('plus', 14), h('span', 'Добавить модель')),
-        }));
+          action: ui.btn('Добавить модель', () => openModelWizard(ctx), { variant: 'primary', iconName: 'plus' }),
+        });
 
-    return h('div.stack.lg', head, body);
+    return h('div.bx-page', head, body);
   },
 
   onEvent(ev) { return ev.kind === 'model.status'; },
@@ -384,19 +382,19 @@ function modelCard(m, provider, ctx) {
 
   const testOut = h('div');
 
-  return h('div.card',
-    h('div.card-head',
-      h('div', { style: { flex: '1', minWidth: 0 } },
-        h('div.card-title', modelLabel(m)),
-        h('div.card-sub',
-          `${pick(m, ['name'], '—')} · ${provider ? pick(provider, ['name'], kindLabel(provider.kind)) : 'поставщик не найден'}`)),
-      statusBadge(m.status || 'unknown')),
-
-    h('div.row.tight',
-      badge(String(m.kind) === 'cloud' ? 'облако' : 'локальная', String(m.kind) === 'cloud' ? 'info' : 'accent'),
-      m.context_window ? badge(`контекст ${fmtContext(m.context_window)}`) : null,
-      ...caps.map((c) => badge(CAP_LABEL[c] || c))),
-
+  const isCloud = String(m.kind) === 'cloud';
+  return ui.tile({
+    accent: isCloud ? 'var(--bx-violet)' : 'var(--bx-mint)',
+    iconName: 'models',
+    title: modelLabel(m),
+    sub: `${pick(m, ['name'], '—')} · ${provider ? pick(provider, ['name'], kindLabel(provider.kind)) : 'поставщик не найден'}`,
+    statusNode: ui.statusPill(m.status || 'unknown'),
+    tags: [
+      ui.tag(isCloud ? 'облако' : 'локальная', { accent: !isCloud }),
+      m.context_window ? ui.tag(`контекст ${fmtContext(m.context_window)}`) : null,
+      ...caps.map((c) => ui.tag(CAP_LABEL[c] || c)),
+    ].filter(Boolean),
+    body: [
     statusDetail ? h('div.xsmall.dim.wrap-any', statusDetail) : null,
 
     (bench || m.last_check) ? h('div.stat-strip',
@@ -407,9 +405,9 @@ function modelCard(m, provider, ctx) {
     ) : null,
 
     testOut,
-
-    h('div.card-actions',
-      actionButton('Проверить', async () => {
+    ],
+    actions: [
+      ui.btn('Проверить', async () => {
         try {
           const r = await api.checkModel(id);
           const st = pick(r || {}, ['status'], 'unknown');
@@ -419,9 +417,9 @@ function modelCard(m, provider, ctx) {
           });
           ctx.refresh();
         } catch (e) { toastError(e, 'Проверка не удалась'); }
-      }, { cls: 'btn btn-sm', iconName: 'retry', title: 'Проверить, на связи ли модель' }),
+      }, { size: 'sm', iconName: 'retry', title: 'Проверить, на связи ли модель' }),
 
-      actionButton('Проба', async () => {
+      ui.btn('Проба', async () => {
         replace(testOut, h('div.small.dim', 'Пробуем короткий запрос…'));
         try {
           const r = await api.testModel(id) || {};
@@ -439,13 +437,11 @@ function modelCard(m, provider, ctx) {
           replace(testOut, h('div.small', { style: { color: 'var(--err)' } }, e.message || 'тест не прошёл'));
           toastError(e, 'Тест модели не прошёл');
         }
-      }, { cls: 'btn btn-sm', iconName: 'bolt', title: 'Быстрая проба: короткий запрос, скорость и задержка' }),
+      }, { size: 'sm', iconName: 'bolt', title: 'Быстрая проба: короткий запрос, скорость и задержка' }),
 
-      h('button.btn.btn-sm', { type: 'button', onClick: () => openModelEdit(ctx, m) }, icon('edit', 13), h('span', 'Изменить')),
+      ui.btn('Изменить', () => openModelEdit(ctx, m), { size: 'sm', iconName: 'edit' }),
 
-      h('button.btn.btn-sm.btn-danger', {
-        type: 'button',
-        onClick: async () => {
+      ui.btn('Удалить', async () => {
           const ok = await confirmDialog({
             title: 'Удалить модель?',
             text: `${modelLabel(m)} будет убрана из реестра. Агенты, использующие её, останутся без модели.`,
@@ -454,8 +450,9 @@ function modelCard(m, provider, ctx) {
           if (!ok) return;
           try { await api.deleteModel(id); toastOk('Модель удалена'); ctx.refresh(); }
           catch (e) { toastError(e, 'Не удалось удалить модель'); }
-        },
-      }, icon('trash', 13), h('span', 'Удалить'))));
+      }, { size: 'sm', iconName: 'trash', variant: 'danger' }),
+    ],
+  });
 }
 
 /* --- мастер добавления модели: провайдер → модель --- */

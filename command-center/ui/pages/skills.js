@@ -12,7 +12,13 @@ import {
   toast, toastOk, toastError, openModal, confirmDialog, actionButton,
   field, input, textarea, select,
 } from '../components.js';
-import { idVal, pageHead, errorBanner, emptyPanel } from './_shared.js';
+import { idVal, errorBanner } from './_shared.js';
+import * as ui from './_ui.js';
+
+/* Совместимость: старые вызовы передают массив кнопок третьим аргументом. */
+const pageHead = (title, sub, opts) =>
+  ui.pageHead(title, sub, Array.isArray(opts) ? { actions: opts } : (opts || {}));
+const emptyPanel = (opts) => ui.blank(opts);
 
 const SKILL_TEMPLATE = `---
 metadata:
@@ -77,19 +83,22 @@ const SkillsPage = {
 };
 
 function skillCard(s, ctx) {
-  return h('div.card',
-    h('div.card-head',
-      h('div', { style: { flex: '1', minWidth: 0 } },
-        h('div.card-title', s.name || s.id),
-        h('div.card-sub', `${s.id} · v${s.version || '1.0'}`)),
-      badge(`${(s.agents || []).length} агентов`)),
-    s.description ? h('div.xsmall.dim.wrap-any', s.description) : null,
-    (s.required_tools || []).length ? h('div.row.tight', (s.required_tools || []).map((t) => badge(t, 'info'))) : null,
-    h('div.card-actions',
-      actionButton('Запустить', () => openRunSkill(ctx, s), { cls: 'btn btn-sm btn-primary', iconName: 'play' }),
-      actionButton('Копия', () => openCloneSkill(ctx, s), { cls: 'btn btn-sm', iconName: 'plus' }),
-      actionButton('Скачать', () => openExportSkill(s), { cls: 'btn btn-sm' }),
-      actionButton('Назначить', () => openAssignSkill(ctx, s), { cls: 'btn btn-sm' })));
+  const agents = (s.agents || []).length;
+  return ui.tile({
+    accent: 'var(--bx-azure)',
+    iconName: 'bolt',
+    title: s.name || s.id,
+    sub: `${s.id} · v${s.version || '1.0'}`,
+    statusNode: ui.tag(`${agents} ${ui.plural(agents, 'агент', 'агента', 'агентов')}`),
+    tags: (s.required_tools || []).map((t) => ui.tag(t)),
+    body: [s.description ? h('div.xsmall.dim.wrap-any', s.description) : null],
+    actions: [
+      ui.btn('Запустить', () => openRunSkill(ctx, s), { variant: 'primary', size: 'sm', iconName: 'play' }),
+      ui.btn('Копия', () => openCloneSkill(ctx, s), { size: 'sm', iconName: 'plus' }),
+      ui.btn('Скачать', () => openExportSkill(s), { size: 'sm' }),
+      ui.btn('Назначить', () => openAssignSkill(ctx, s), { size: 'sm' }),
+    ],
+  });
 }
 
 /* ---------------- Create / Import ---------------- */
@@ -228,7 +237,8 @@ async function openRunSkill(ctx, s) {
     const keyEl = input({ placeholder: 'ключ' });
     const valEl = input({ placeholder: 'значение' });
     const row = h('div.row.tight', keyEl, valEl,
-      h('button.btn.btn-sm.btn-ghost', { type: 'button', onClick: () => { row.remove(); } }, icon('trash', 12)));
+      h('button.btn.btn-sm.btn-ghost', { type: 'button', title: 'Убрать строку',
+        'aria-label': 'Убрать строку', onClick: () => { row.remove(); } }, icon('trash', 12)));
     freePairs.push({ row, keyEl, valEl });
     freeRows.appendChild(row);
   }
@@ -280,7 +290,7 @@ function mcpServersSection(servers, serversR, ctx) {
           h('div', h('b', srv.name), h('span.xsmall.dim', ` · ${srv.transport}`)),
           h('div.xsmall.dim.mono.truncate', srv.transport === 'http' ? (srv.url || '') : (srv.command || []).join(' '))),
         h('button.btn.btn-sm.btn-danger', {
-          type: 'button',
+          type: 'button', title: `Удалить сервер ${srv.name}`, 'aria-label': `Удалить сервер ${srv.name}`,
           onClick: async () => {
             const ok = await confirmDialog({ title: 'Удалить MCP-сервер?', text: srv.name, okText: 'Удалить', danger: true });
             if (!ok) return;

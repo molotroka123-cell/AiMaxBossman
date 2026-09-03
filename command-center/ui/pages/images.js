@@ -7,7 +7,14 @@ import { api, listOf } from '../api.js';
 import {
   h, icon, statusBadge, toast, toastOk, toastError, fmtDateShort,
 } from '../components.js';
-import { pageHead, errorBanner, emptyPanel } from './_shared.js';
+import { errorBanner } from './_shared.js';
+import * as ui from './_ui.js';
+
+/* Общий язык интерфейса: шапка и пустые состояния — из bx-слоя.
+   Совместимость: старые вызовы передают массив кнопок третьим аргументом. */
+const pageHead = (title, sub, opts) =>
+  ui.pageHead(title, sub, Array.isArray(opts) ? { actions: opts } : (opts || {}));
+const emptyPanel = (opts) => ui.blank(opts);
 
 const PREVIEW_CACHE = new Map();
 let selectedAssetId = null;
@@ -99,7 +106,7 @@ function statsStrip(overview, storage) {
 function miniStat(label, value, color = '') {
   return h('div.images-mini-stat',
     h('div.xsmall.dim', label),
-    h('div', { style: { fontSize: '16px', fontWeight: '700', color: color || 'var(--text)' } }, String(value)));
+    h('div.bx-metric', { style: color ? { color } : null }, String(value)));
 }
 
 function tabs(ctx) {
@@ -332,14 +339,16 @@ function generationsTable(jobs, ctx) {
         j.status === 'queued' || j.status === 'running'
           ? h('button.btn.btn-sm.btn-danger', { type: 'button', onClick: () => cancelJob(j.id, ctx) }, 'Стоп')
           : h('button.btn.btn-sm', { type: 'button', onClick: () => retryJob(j.id, ctx) }, 'Повторить'),
-      ))) : h('div.small.dim', 'Нет задач')));
+      ))) : ui.blank({ iconName: 'empty', title: 'Задач нет',
+        hint: 'Запустите генерацию — она появится здесь со своим состоянием.' })));
 }
 
 function templatesPanel() {
   return h('section.panel.images-library',
     h('div.panel-head', h('h2', 'Шаблоны')),
     h('div.panel-body',
-      h('div.small.dim', 'API шаблонов уже предусмотрен. Добавьте первые рабочие шаблоны после подключения реальных image providers.')));
+      ui.blank({ iconName: 'empty', title: 'Шаблонов пока нет',
+        hint: 'API шаблонов уже готов. Первые рабочие шаблоны появятся здесь после подключения реальных провайдеров изображений.' })));
 }
 
 async function createJob(ctx) {
@@ -539,11 +548,11 @@ function ensureStyles() {
     .images-card{position:relative;overflow:hidden;border:1px solid var(--line-soft);background:var(--bg-elev);border-radius:12px;color:var(--text);padding:0;cursor:pointer;text-align:left;min-width:0}
     .images-card:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line-soft))}
     .images-card.selected{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent)}
-    .images-card-preview{aspect-ratio:16/10;display:grid;place-items:center;background:#07101d;overflow:hidden}
+    .images-card-preview{aspect-ratio:16/10;display:grid;place-items:center;background:var(--bx-surface-2,var(--panel));overflow:hidden}
     .images-card-preview img,.images-inspector-preview img{width:100%;height:100%;object-fit:cover;display:block}
     .images-card-meta{padding:8px 9px}
-    .images-star{position:absolute;top:7px;right:7px;color:#ffd166;background:#07101dcc;border-radius:8px;padding:2px 6px}
-    .images-inspector-preview{aspect-ratio:16/10;border:1px solid var(--line-soft);border-radius:10px;overflow:hidden;background:#07101d;display:grid;place-items:center}
+    .images-star{position:absolute;top:7px;right:7px;color:var(--bx-amber);background:color-mix(in srgb, var(--bx-bg,#0a0c10) 80%, transparent);border-radius:8px;padding:2px 6px}
+    .images-inspector-preview{aspect-ratio:16/10;border:1px solid var(--line-soft);border-radius:10px;overflow:hidden;background:var(--bx-surface-2,var(--panel));display:grid;place-items:center}
     .images-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
     .images-detail{padding:7px;border:1px solid var(--line-soft);border-radius:8px;background:var(--bg-elev)}
     .images-prompt-copy{line-height:1.45;max-height:116px;overflow:auto;margin-top:4px}

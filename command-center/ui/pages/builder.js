@@ -102,9 +102,16 @@ const BuilderPage = {
     if (!missions.some((m) => m.id === st.missionId)) st.missionId = missions[0].id;
 
     let data = null;
-    try { data = await api.raw(`/api/workflow/missions/${st.missionId}`); } catch (e) { return errorBanner(e, ctx); }
+    let loadError = null;
+    // Ошибка одной миссии не должна съедать всю страницу: шапка и выбор миссии
+    // остаются на месте, иначе владелец не может переключиться на другую.
+    try { data = await api.raw(`/api/workflow/missions/${st.missionId}`); } catch (e) { loadError = e; }
 
     const root = h('div.wf-root', buildHead(ctx, st, missions, data));
+    if (loadError) {
+      root.appendChild(errorBanner(loadError, ctx));
+      return root;
+    }
     if (st.tab === 'runs') {
       root.appendChild(runsTab(data));
     } else {
@@ -579,8 +586,10 @@ function approvalsPanel(ctx, data) {
         a.preview ? h('div.wf-approval-preview', a.preview) : null),
       h('div.wf-approval-actions',
         h('button.btn.btn-sm.btn-primary', { type: 'button', title: 'Одобрить',
+          'aria-label': `Одобрить: ${a.kind}`,
           onClick: () => decide(ctx, a, true) }, icon('check', 15)),
         h('button.btn.btn-sm', { type: 'button', title: 'Отклонить',
+          'aria-label': `Отклонить: ${a.kind}`,
           onClick: () => decide(ctx, a, false) }, icon('close', 15)))))), { tight: true });
 }
 
