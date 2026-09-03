@@ -180,7 +180,20 @@ export function mountThinking({ bus, api, button }) {
       if (kind === 'run.log' && ev.level === 'error') r.errors += 1;
       if (kind === 'evaluation.completed') { r.note = `проверка: ${ev.verdict || ''}`; if (ev.verdict === 'PASS') { r.state = 'completed'; r.finished_at = Date.now(); } }
     }
-    if (open) { renderNow(); renderLog(); }
+    if (open) scheduleRender();
+  }
+
+  /* Поток событий бывает взрывным (десятки в секунду). Полная перерисовка на
+     каждое событие — это и есть «панель тормозит через час работы»: рисуем не
+     чаще одного кадра, независимо от плотности потока. */
+  let renderQueued = false;
+  let renderCount = 0;
+  function scheduleRender() {
+    if (renderQueued) return;
+    renderQueued = true;
+    const run = () => { renderQueued = false; renderCount += 1; renderNow(); renderLog(); };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+    else setTimeout(run, 16);
   }
 
   async function seed() {
@@ -216,5 +229,7 @@ export function mountThinking({ bus, api, button }) {
   });
   renderConn(); renderNow(); renderLog();
   if (open) setOpen(true);
-  return { open: () => setOpen(true), close: () => setOpen(false), isOpen: () => open, runs, events };
+  return { open: () => setOpen(true), close: () => setOpen(false), isOpen: () => open, runs, events,
+    stats: () => ({ events: events.length, runs: runs.size, renders: renderCount, maxEvents: MAX_EVENTS,
+                    rows: logBox.childElementCount, cards: nowBox.childElementCount }) };
 }

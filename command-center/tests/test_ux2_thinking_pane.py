@@ -161,3 +161,47 @@ def test_thinking_pane_shows_live_execution_facts(live):
         page.wait_for_selector("#think-pane:not([hidden])")                                # open state remembered
         browser.close()
     assert errors == [], errors
+
+
+def test_thinking_pane_stays_bounded_and_fast_under_a_long_stream(live):
+    """Долгий поток событий: память и DOM ограничены, перерисовок меньше, чем
+    событий, интерфейс не деградирует (это и есть «панель не тормозит»)."""
+    from playwright.sync_api import sync_playwright
+
+    errors: list[str] = []
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        _login(page, live)
+        page.evaluate("window.__bxThinking.open()")
+        page.wait_for_selector("#think-pane:not([hidden])", timeout=10000)
+
+        def responsiveness_ms() -> float:
+            return page.evaluate("""() => { const t = performance.now();
+                document.getElementById('think-pane').getBoundingClientRect();
+                return performance.now() - t; }""")
+
+        base = max(responsiveness_ms(), 0.01)
+        total = 900
+        for i in range(total):
+            live.emit("run.log", run_id=1, task_id=1, level="info", message=f"шаг {i}")
+        page.wait_for_timeout(1500)
+
+        stats = page.evaluate("window.__bxThinking.stats()")
+        assert stats["events"] <= stats["maxEvents"], stats      # память ограничена
+        assert stats["rows"] <= 80, stats                        # DOM ограничен
+        assert stats["renders"] < total / 2, stats               # перерисовки склеены в кадры
+        after = responsiveness_ms()
+        assert after < base + 50, f"панель деградировала: было {base:.2f} мс, стало {after:.2f} мс"
+
+        # вторая волна не растит ни память, ни DOM
+        for i in range(300):
+            live.emit("run.log", run_id=1, task_id=1, level="info", message=f"ещё {i}")
+        page.wait_for_timeout(800)
+        stats2 = page.evaluate("window.__bxThinking.stats()")
+        assert stats2["events"] <= stats["maxEvents"] and stats2["rows"] <= 80, stats2
+        browser.close()
+
+    assert errors == [], errors
