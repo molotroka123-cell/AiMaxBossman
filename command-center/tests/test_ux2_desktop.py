@@ -264,3 +264,50 @@ def test_identity_of_real_server(live):  # noqa: F811
     assert ident and ident["app"] == "bossman-command-center"
     assert ident.get("version")
     assert "token" not in str(ident).lower()
+
+def test_second_window_refused_while_first_instance_alive(tmp_path, monkeypatch):
+    """?????? ???? ?? ??? ?? ??????? Chrome ????? ??????????? (profile lock).
+    ????? ????? + ????? ?????? = ????? ? ???????? ??????????, ??? ??????? Chrome."""
+    from bcc.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    (tmp_path / "desktop.lock").write_text(__import__("json").dumps({"pid": 1, "port": 18923}), encoding="utf-8")
+    monkeypatch.setattr(desktop, "identify_server",
+                        lambda url, timeout=2.0: {"app": "bossman-command-center"} if ":18923/" in url else None)
+    calls = []
+    out = io.StringIO()
+    code = desktop.run(["--port", "18924", "--browser", "/bin/true", "--profile", str(tmp_path / "prof")],
+                       launcher=lambda *a, **k: (calls.append(1), 0)[1], out=out)
+    assert code == 0
+    assert calls == []
+    assert "BOSSMAN" in out.getvalue() and "18923" in out.getvalue()
+    assert "browser-exit" not in (tmp_path / "desktop-run.log").read_text(encoding="utf-8")
+
+
+def test_fast_browser_exit_is_logged_with_hint(tmp_path, monkeypatch):
+    """????, ??????????? ?? ???????, ????????? ????: ???, ????? ????? ? ???? ????????."""
+    from bcc.config import settings
+
+    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: None)
+    monkeypatch.setattr(desktop, "port_busy", lambda *a, **k: False)
+
+    class _FakeServer:
+        def __init__(self, host, port):
+            pass
+
+        def start(self, url):
+            return True
+
+        def stop(self):
+            pass
+
+    monkeypatch.setattr(desktop, "_BackgroundServer", _FakeServer)
+    out = io.StringIO()
+    code = desktop.run(["--port", "18925", "--browser", "/bin/true", "--profile", str(tmp_path / "prof")],
+                       launcher=lambda *a, **k: 1, out=out)
+    assert code == 1
+    assert "chrome_debug.log" in out.getvalue()
+    log = (tmp_path / "desktop-run.log").read_text(encoding="utf-8")
+    assert "browser-exit code=1" in log
+    assert not (tmp_path / "desktop.lock").exists()

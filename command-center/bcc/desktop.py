@@ -78,6 +78,7 @@ def browser_argv(browser: str, url: str, profile_dir: Path, *, window_size: str 
         "--disable-component-update",
         "--disable-sync",
         "--log-level=3",
+        "--enable-logging",  # chrome_debug.log остаётся в профиле: тихий краш окна расследуем по нему
         *extra,
     ]
 
@@ -133,6 +134,32 @@ def open_window(browser: str, url: str, profile_dir: Path, *, extra: Sequence[st
     profile_dir.mkdir(parents=True, exist_ok=True)
     argv = browser_argv(browser, url, profile_dir, window_size=window_size, extra=extra)
     return subprocess.Popen(argv, stdin=subprocess.DEVNULL)  # noqa: S603 — argv-only, без shell
+
+
+def _run_log_path(data_dir: Path) -> Path:
+    return Path(data_dir) / "desktop-run.log"
+
+
+def _append_run_log(data_dir: Path, message: str) -> None:
+    """Постоянный журнал запусков окна (переживает pythonw без консоли)."""
+    try:
+        Path(data_dir).mkdir(parents=True, exist_ok=True)
+        with open(_run_log_path(data_dir), "a", encoding="utf-8") as fh:
+            fh.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {message}\n")
+    except OSError:
+        pass
+
+
+def _desktop_lock_path(data_dir: Path) -> Path:
+    return Path(data_dir) / "desktop.lock"
+
+
+def _read_lock(data_dir: Path) -> dict | None:
+    try:
+        data = json.loads(_desktop_lock_path(data_dir).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def launch_window(browser: str, url: str, profile_dir: Path, *, extra: Sequence[str] = (),
@@ -251,6 +278,24 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
               " веб-версия остаётся доступной командой `bcc`.", file=out, flush=True)
         return 2
 
+    data_dir = Path(settings.data_dir)
+    _append_run_log(data_dir, f"start pid={os.getpid()} url={url}")
+    lock = _read_lock(data_dir)
+    if lock:
+        # Второе окно на том же профиле Chrome не открывает, а молча завершается
+        # (profile lock) — и владелец видит «само закрылось». Живой замок = окно
+        # уже открыто: второе не запускаем. Мёртвый замок = краш: затираем и идём.
+        try:
+            lock_port = int(lock.get("port", 0))
+        except (TypeError, ValueError):
+            lock_port = 0
+        if lock_port and identify_server(f"http://{host}:{lock_port}/"):
+            msg = (f"[bcc-desktop] окно BOSSMAN уже запущено (порт {lock_port}) — второе окно "
+                   "на том же профиле не открываю, иначе Chrome закроется сам")
+            print(msg, file=out, flush=True)
+            _append_run_log(data_dir, f"refused-second-window existing-port={lock_port}")
+            return 0
+
     started: _BackgroundServer | None = None
     ident = identify_server(url)
     if ident:
@@ -274,11 +319,32 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         print(f"[bcc-desktop] сервер запущен: {url}", file=out, flush=True)
 
     print(f"[bcc-desktop] окно: {browser} (профиль {profile_dir})", file=out, flush=True)
+    wrote_lock = False
     try:
-        code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg), window_size=args.window_size)
+        try:
+            _desktop_lock_path(data_dir).write_text(
+                json.dumps({"pid": os.getpid(), "port": port}), encoding="utf-8")
+            wrote_lock = True
+        except OSError:
+            pass
+        t0 = time.monotonic()
+        try:
+            code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg), window_size=args.window_size)
+        finally:
+            if started is not None:
+                started.stop()
     finally:
-        if started is not None:
-            started.stop()
+        if wrote_lock:
+            try:
+                _desktop_lock_path(data_dir).unlink()
+            except OSError:
+                pass
+    lifetime = time.monotonic() - t0
+    _append_run_log(data_dir, f"browser-exit code={code} lifetime={lifetime:.1f}s url={url}")
+    if lifetime < 10:
+        print(f"[bcc-desktop] окно закрылось через {lifetime:.1f} c (код {code}) — вероятно, краш "
+              f"или второй Chrome на том же профиле. Логи: {_run_log_path(data_dir)} и "
+              f"{profile_dir}{os.sep}chrome_debug.log", file=out, flush=True)
     return int(code or 0)
 
 
