@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -81,18 +82,49 @@ def browser_argv(browser: str, url: str, profile_dir: Path, *, window_size: str 
     ]
 
 
-def server_alive(url: str, timeout: float = 1.5) -> bool:
-    """Отвечает ли уже кто-то по этому адресу (любой HTTP-ответ, кроме 5xx)."""
-    # Локальный адрес: системный/корпоративный прокси из окружения обходим явно,
-    # иначе проверка «сервер уже работает» уходит на прокси и врёт.
+APP_IDENTITY = "bossman-command-center"
+
+
+def _get_json(url: str, timeout: float) -> dict | None:
+    """GET JSON в обход прокси из окружения (адрес локальный, прокси только врёт)."""
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
         with opener.open(url, timeout=timeout) as resp:  # noqa: S310 — локальный адрес владельца
-            return resp.status < 500
-    except urllib.error.HTTPError as e:
-        return e.code < 500
+            if resp.status != 200:
+                return None
+            data = json.loads(resp.read(64_000).decode("utf-8", "replace"))
+            return data if isinstance(data, dict) else None
+    except (urllib.error.URLError, OSError, ValueError, json.JSONDecodeError):
+        return None
+
+
+def identify_server(base_url: str, timeout: float = 2.0) -> dict | None:
+    """Кто слушает порт. Возвращает identity Command Center или None.
+
+    Порт занят чужим приложением — это НЕ повод переиспользовать его как свой
+    сервер: окно откроется на чужом UI, а владелец решит, что это BOSSMAN.
+    """
+    ident = _get_json(base_url.rstrip("/") + "/api/identity", timeout)
+    if ident and ident.get("app") == APP_IDENTITY:
+        return ident
+    return None
+
+
+def port_busy(base_url: str, timeout: float = 1.5) -> bool:
+    """Отвечает ли по адресу хоть что-нибудь (любой HTTP-статус)."""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(base_url, timeout=timeout) as resp:  # noqa: S310
+            return resp.status < 600
+    except urllib.error.HTTPError:
+        return True
     except (urllib.error.URLError, OSError, ValueError):
         return False
+
+
+def server_alive(url: str, timeout: float = 1.5) -> bool:
+    """Совместимость: «на этом адресе уже работает Command Center»."""
+    return identify_server(url, timeout) is not None
 
 
 def open_window(browser: str, url: str, profile_dir: Path, *, extra: Sequence[str] = (),
@@ -156,12 +188,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--window-size", default="1440,900")
     p.add_argument("--no-server", action="store_true", help="не поднимать сервер, только окно")
     p.add_argument("--browser-arg", action="append", default=[], help="дополнительный флаг браузеру (можно несколько)")
+    p.add_argument("--install-shortcut", action="store_true",
+                   help="создать ярлык BOSSMAN на рабочем столе (и в меню «Пуск» на Windows) и выйти")
+    p.add_argument("--uninstall-shortcut", action="store_true", help="удалить созданные ярлыки и выйти")
+    p.add_argument("--print-launcher", action="store_true", help="показать, что будет записано в ярлык, и выйти")
     return p
 
 
 def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = launch_window,
         out=sys.stdout) -> int:
-    """Точка входа с инъекцией launcher'а для тестов. Коды: 0 ок, 2 нет браузера, 3 сервер не поднялся."""
+    """Точка входа с инъекцией launcher'а для тестов.
+
+    Коды выхода: 0 ок, 2 нет браузера, 3 сервер не поднялся, 4 порт занят чужим
+    приложением, 5 не удалось создать ярлык."""
     from .config import settings
 
     args = build_parser().parse_args(list(argv) if argv is not None else None)
@@ -170,6 +209,31 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     url = f"http://{host}:{port}/"
     profile_dir = Path(args.profile) if args.profile else Path(settings.data_dir) / "desktop-profile"
 
+    if args.install_shortcut or args.uninstall_shortcut or args.print_launcher:
+        from . import desktop_install
+
+        spec = desktop_install.build_spec(host=host, port=port)
+        if args.print_launcher:
+            print(f"[bcc-desktop] команда ярлыка: {' '.join(spec.argv)}", file=out)
+            print(f"[bcc-desktop] рабочий каталог: {spec.workdir}", file=out)
+            print(f"[bcc-desktop] значок: {spec.icon}", file=out, flush=True)
+            return 0
+        if args.uninstall_shortcut:
+            removed = desktop_install.uninstall()
+            print(f"[bcc-desktop] удалено ярлыков: {len(removed)}", file=out, flush=True)
+            for r in removed:
+                print(f"  - {r}", file=out, flush=True)
+            return 0
+        try:
+            created = desktop_install.install(spec)
+        except Exception as exc:  # noqa: BLE001 — сообщаем владельцу, а не падаем трейсбеком
+            print(f"[bcc-desktop] ярлык не создан: {exc}", file=out, flush=True)
+            return 5
+        print(f"[bcc-desktop] ярлык BOSSMAN создан ({len(created)}):", file=out, flush=True)
+        for c in created:
+            print(f"  - {c}", file=out, flush=True)
+        return 0
+
     browser = args.browser or find_browser()
     if not browser:
         print("[bcc-desktop] не найден Chromium/Chrome/Edge — укажите --browser или BCC_DESKTOP_BROWSER;"
@@ -177,8 +241,16 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
         return 2
 
     started: _BackgroundServer | None = None
-    if server_alive(url):
-        print(f"[bcc-desktop] сервер уже работает: {url} — подключаюсь к нему", file=out, flush=True)
+    ident = identify_server(url)
+    if ident:
+        print(f"[bcc-desktop] Command Center уже работает: {url} "
+              f"(версия {ident.get('version', '?')}) — подключаюсь к нему", file=out, flush=True)
+    elif port_busy(url):
+        # Порт занят чужим приложением: второй сервер тут не поднять, а открывать
+        # чужой UI под именем BOSSMAN нельзя.
+        print(f"[bcc-desktop] порт {port} занят другим приложением (это не Command Center) —"
+              f" укажите другой --port", file=out, flush=True)
+        return 4
     elif args.no_server:
         print(f"[bcc-desktop] сервер по адресу {url} не отвечает, а --no-server задан", file=out, flush=True)
         return 3

@@ -24,6 +24,10 @@ from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import db as dbm, discovery
+from . import __version__
+
+# Метка приложения для настольного лаунчера (GET /api/identity)
+APP_IDENTITY = "bossman-command-center"
 from .approvals import Approvals
 from .features import load_features
 from .auth import HEADER, TokenAuth
@@ -374,6 +378,14 @@ def _mount_ui(app: FastAPI, settings: Settings) -> None:
 def _public_router() -> APIRouter:
     """Без аутентификации: только вход, выход и WS (WS проверяет cookie сам)."""
     router = APIRouter(prefix="/api")
+
+    @router.get("/identity")
+    async def identity(svc: Services = Depends(services)):
+        """Кто слушает этот порт. Нужен настольному лаунчеру: прежде чем
+        переиспользовать «уже запущенный сервер», он обязан убедиться, что это
+        именно Command Center, а не чужое приложение. Секретов здесь нет —
+        только имя приложения, версия и время старта."""
+        return {"app": APP_IDENTITY, "version": __version__, "started_at": svc.started_at}
 
     @router.post("/login")
     async def login(body: LoginIn, request: Request, response: Response,

@@ -1,0 +1,97 @@
+# BOSSMAN как настольное приложение — установка, запуск, удаление
+
+Цель владельца: **двойной клик по значку BOSSMAN → открылся Command Center**.
+Терминал для обычной работы не нужен.
+
+Никакого Electron и второго рантайма: ярлык запускает уже проверенное окно
+`bcc.desktop` (Chromium/Chrome/Edge в режиме `--app`), а сервер — тот же `bcc`.
+
+## 1. Однократная установка ярлыка
+
+| Система | Действие |
+|---|---|
+| Windows | двойной клик по `tools\desktop\install-bossman.cmd` |
+| Linux / macOS | `tools/desktop/install-bossman.sh` |
+| Любая | `bcc-desktop --install-shortcut` (или `python -m bcc.desktop --install-shortcut`) |
+
+Что создаётся:
+
+| Система | Ярлык |
+|---|---|
+| Windows | `%USERPROFILE%\Desktop\BOSSMAN.lnk` и `%APPDATA%\Microsoft\Windows\Start Menu\Programs\BOSSMAN.lnk` |
+| Linux | `~/.local/share/applications/bossman.desktop` и `~/Desktop/bossman.desktop` |
+| macOS | `~/Desktop/BOSSMAN.command` |
+
+Проверить, что попадёт в ярлык, до установки: `bcc-desktop --print-launcher`.
+
+## 2. Что именно записывается в ярлык
+
+- **Программа**: на Windows — `pythonw.exe` (окно консоли не остаётся висеть),
+  на остальных — текущий `python`.
+- **Аргументы**: `-m bcc.desktop --host <host> --port <port>`. Токен доступа в
+  аргументы и в URL **не попадает** никогда — вход через форму в окне.
+- **Рабочий каталог**: путь пакета Command Center, поэтому ярлык работает из
+  любого места, откуда его запустили.
+- **Значок**: `command-center/ui/icons/bossman.ico` (Windows) либо
+  `icon-512.png`, скопированный в тему пользователя (Linux).
+
+Значки лежат в `command-center/ui/icons/` (32/64/192/512 PNG + `.ico`); те же
+файлы использует PWA-манифест и вкладка браузера.
+
+## 3. Жизненный цикл сервера
+
+1. Окно спрашивает `GET /api/identity` по адресу `http://<host>:<port>/`.
+2. Ответ `{"app": "bossman-command-center", ...}` → **сервер переиспользуется**,
+   второй экземпляр не поднимается.
+3. Порт занят, но это не Command Center → запуск отменяется с кодом **4**
+   (чужой UI под именем BOSSMAN не открывается).
+4. Порт свободен → `uvicorn` стартует в фоновом потоке того же процесса и
+   останавливается вместе с закрытием окна.
+
+Коды выхода `bcc-desktop`:
+
+| Код | Значение |
+|---|---|
+| 0 | штатно |
+| 2 | не найден Chromium/Chrome/Edge (веб-версия по-прежнему доступна командой `bcc`) |
+| 3 | сервер не поднялся, а `--no-server` задан |
+| 4 | порт занят другим приложением |
+| 5 | не удалось создать ярлык |
+
+## 4. Поиск браузера и понятная ошибка
+
+Порядок: `BCC_DESKTOP_BROWSER` → предустановленный Chromium
+(`/opt/pw-browsers/chromium`) → `chromium` / `chrome` / `msedge` / `brave` в
+PATH → стандартные пути Windows и macOS. Если ничего не найдено, владелец
+получает одну строку с подсказкой и кодом 2, а не трейсбек.
+
+## 5. Сессия и приватность
+
+Профиль окна отдельный (`<data_dir>/desktop-profile`), cookie сессии живёт в
+нём и переживает перезапуск. Тест `test_real_chromium_app_window_renders_command_center`
+проверяет, что токен доступа не встречается ни в URL, ни в файлах профиля.
+
+## 6. Удаление
+
+```
+bcc-desktop --uninstall-shortcut
+```
+
+Удаляет созданные ярлыки и значок из темы пользователя. Данные Command Center
+(`data_dir`) не трогаются — их владелец удаляет сам, если хочет.
+
+## 7. Проверено
+
+| Проверка | Как | Результат |
+|---|---|---|
+| Реальная установка ярлыка (Linux) | `HOME=<sandbox> python -m bcc.desktop --install-shortcut` | 2 файла созданы, `Exec/Path/Icon` заполнены, значок скопирован |
+| Содержимое `.desktop` | `tests/test_ux2_desktop.py::test_linux_shortcut_is_written_and_valid` | PASS |
+| Экранирование Windows-скрипта `.lnk` | `test_windows_shortcut_script_quotes_safely` | PASS |
+| Windows-установка идёт только через argv PowerShell | `test_install_windows_uses_powershell_argv` | PASS |
+| Порт занят чужим приложением → код 4 | `test_busy_port_with_foreign_app_is_refused` (реальный чужой HTTP-сервер) | PASS |
+| Переиспользование живого Command Center | `test_run_reuses_running_server_and_does_not_bind_twice` | PASS |
+| Реальное окно `--app` и вход внутри окна | `test_real_chromium_app_window_renders_command_center` (CDP) | PASS |
+
+**BLOCKED_BY_ENVIRONMENT**: на этом хосте нет Windows и нет дисплея. Ярлык
+`.lnk` и видимое (не headless) окно проверяются на машине владельца одним
+двойным кликом; генерация скрипта ярлыка и путей проверена тестами.
