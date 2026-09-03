@@ -17,6 +17,23 @@ from .browser_support import chromium_available, reason as browser_reason
 from .test_ux2_thinking_pane import live  # noqa: F401
 
 
+def _use_temp_data_dir(monkeypatch, path) -> Path:
+    """Подменить каталог данных ВМЕСТЕ с адресом базы.
+
+    `Settings.database_url` вычисляется один раз в `__post_init__`, поэтому
+    подмена только `data_dir` оставляет адрес базы прежним — и тест, поднимающий
+    настоящий сервер, идёт в БОЕВУЮ базу репозитория. Локально она есть, и тест
+    зелёный; в CI её нет, сервер падает `unable to open database file`, `run()`
+    возвращает 3 вместо кода launcher'а. Меняем обе величины разом.
+    """
+    from bcc.config import settings
+
+    path = Path(path)
+    monkeypatch.setattr(settings, "data_dir", path)
+    monkeypatch.setattr(settings, "database_url", f"sqlite+aiosqlite:///{path / 'bcc.db'}")
+    return path
+
+
 @pytest.fixture(autouse=True)
 def _isolated_data_dir(tmp_path_factory, monkeypatch):
     """Тесты не должны писать в боевой каталог данных владельца.
@@ -26,9 +43,7 @@ def _isolated_data_dir(tmp_path_factory, monkeypatch):
     разборе сбоя (в присланном логе видны строки с эфемерными портами pytest),
     а убитый в середине прогон мог оставить там же чужой lock-файл.
     """
-    from bcc.config import settings
-
-    monkeypatch.setattr(settings, "data_dir", tmp_path_factory.mktemp("bcc-data"))
+    _use_temp_data_dir(monkeypatch, tmp_path_factory.mktemp("bcc-data"))
 
 
 def test_find_browser_prefers_preinstalled_chromium(tmp_path):
@@ -286,7 +301,7 @@ def test_second_window_refused_while_first_instance_alive(tmp_path, monkeypatch)
     ????? ????? + ????? ?????? = ????? ? ???????? ??????????, ??? ??????? Chrome."""
     from bcc.config import settings
 
-    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    _use_temp_data_dir(monkeypatch, tmp_path)
     (tmp_path / "desktop.lock").write_text(__import__("json").dumps({"pid": 1, "port": 18923}), encoding="utf-8")
     monkeypatch.setattr(desktop, "identify_server",
                         lambda url, timeout=2.0: {"app": "bossman-command-center"} if ":18923/" in url else None)
@@ -304,7 +319,7 @@ def test_fast_browser_exit_is_logged_with_hint(tmp_path, monkeypatch):
     """????, ??????????? ?? ???????, ????????? ????: ???, ????? ????? ? ???? ????????."""
     from bcc.config import settings
 
-    monkeypatch.setattr(settings, "data_dir", tmp_path)
+    _use_temp_data_dir(monkeypatch, tmp_path)
     monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: None)
     monkeypatch.setattr(desktop, "port_busy", lambda *a, **k: False)
 
@@ -343,7 +358,7 @@ def test_launcher_shows_access_token_but_never_writes_it_to_logs(live, tmp_path,
     data_dir.mkdir(exist_ok=True)
     token = "TESTTOKEN-" + "z" * 24
     (data_dir / desktop.TOKEN_FILE_NAME).write_text(token, encoding="utf-8")
-    monkeypatch.setattr(settings, "data_dir", data_dir)
+    _use_temp_data_dir(monkeypatch, data_dir)
 
     out = io.StringIO()
     code = desktop.run(["--host", "127.0.0.1", "--port", str(live.port), "--browser", "/bin/true",
@@ -368,7 +383,7 @@ def test_no_show_token_keeps_the_secret_off_screen(live, tmp_path, monkeypatch):
     data_dir.mkdir(exist_ok=True)
     token = "TESTTOKEN-" + "q" * 24
     (data_dir / desktop.TOKEN_FILE_NAME).write_text(token, encoding="utf-8")
-    monkeypatch.setattr(settings, "data_dir", data_dir)
+    _use_temp_data_dir(monkeypatch, data_dir)
 
     out = io.StringIO()
     assert desktop.run(["--host", "127.0.0.1", "--port", str(live.port), "--browser", "/bin/true",
@@ -425,7 +440,7 @@ def test_browser_launch_failure_is_reported_and_logged(live, tmp_path, monkeypat
 
     data_dir = tmp_path / "desk"
     data_dir.mkdir(exist_ok=True)
-    monkeypatch.setattr(settings, "data_dir", data_dir)
+    _use_temp_data_dir(monkeypatch, data_dir)
 
     def broken_launcher(*a, **k):
         raise FileNotFoundError(2, "No such file or directory", "chrome.exe")
@@ -447,7 +462,7 @@ def test_run_log_records_the_exact_window_command(live, tmp_path, monkeypatch): 
 
     data_dir = tmp_path / "desk"
     data_dir.mkdir(exist_ok=True)
-    monkeypatch.setattr(settings, "data_dir", data_dir)
+    _use_temp_data_dir(monkeypatch, data_dir)
 
     out = io.StringIO()
     assert desktop.run(["--host", "127.0.0.1", "--port", str(live.port), "--browser", "/bin/true",
@@ -642,7 +657,7 @@ def test_gui_launch_keeps_the_token_out_of_the_file_log(tmp_path, monkeypatch):
     from bcc.config import settings
 
     data_dir = tmp_path / "gui"
-    monkeypatch.setattr(settings, "data_dir", data_dir)
+    _use_temp_data_dir(monkeypatch, data_dir)
     (data_dir).mkdir(parents=True, exist_ok=True)
     (data_dir / desktop.TOKEN_FILE_NAME).write_text("SECRET-TOKEN-XYZ", encoding="utf-8")
     monkeypatch.setattr(desktop.sys, "stdout", None)
@@ -674,7 +689,7 @@ def test_console_launch_still_shows_the_token(tmp_path, monkeypatch):
     """С живой консолью ничего не меняется: владелец видит токен и вводит его в окне."""
     from bcc.config import settings
 
-    monkeypatch.setattr(settings, "data_dir", tmp_path / "console")
+    _use_temp_data_dir(monkeypatch, tmp_path / "console")
     monkeypatch.setattr(desktop.sys, "argv", ["bcc-desktop"])
     monkeypatch.delenv(desktop.TOKEN_STDOUT_ENV, raising=False)
     seen: dict = {}
@@ -706,7 +721,7 @@ def test_only_a_missing_stdout_hides_the_token(tmp_path, monkeypatch):
     """Подменён только stderr — консоль жива, и баннер с токеном по-прежнему нужен."""
     from bcc.config import settings
 
-    monkeypatch.setattr(settings, "data_dir", tmp_path / "half")
+    _use_temp_data_dir(monkeypatch, tmp_path / "half")
     monkeypatch.setattr(desktop.sys, "stderr", None)
     monkeypatch.setattr(desktop.sys, "argv", ["bcc-desktop"])
     monkeypatch.delenv(desktop.TOKEN_STDOUT_ENV, raising=False)
@@ -729,7 +744,7 @@ def test_explicit_show_token_is_respected_even_without_a_console(tmp_path, monke
     """`--show-token` — осознанный выбор владельца; молча его не отменяем."""
     from bcc.config import settings
 
-    monkeypatch.setattr(settings, "data_dir", tmp_path / "explicit")
+    _use_temp_data_dir(monkeypatch, tmp_path / "explicit")
     monkeypatch.setattr(desktop.sys, "stdout", None)
     monkeypatch.setattr(desktop.sys, "stderr", None)
     monkeypatch.setattr(desktop.sys, "argv", ["bcc-desktop", "--show-token"])
@@ -753,7 +768,7 @@ def test_explicit_show_token_is_respected_even_without_a_console(tmp_path, monke
 def test_runtime_window_timeout_is_passed_to_launcher(tmp_path, monkeypatch):
     """--window-timeout доходит до launcher'а (по умолчанию BCC_APP_STARTUP_TIMEOUT)."""
     from bcc.config import settings
-    monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
+    _use_temp_data_dir(monkeypatch, tmp_path / "data")
     monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/bin/true")
     seen = {}
 
@@ -773,7 +788,7 @@ def test_runtime_window_timeout_is_passed_to_launcher(tmp_path, monkeypatch):
 def test_lock_records_window_opened_at(tmp_path, monkeypatch):
     """desktop.lock получает window_opened_at — диагностика для --status без CDP."""
     from bcc.config import settings
-    monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
+    _use_temp_data_dir(monkeypatch, tmp_path / "data")
     monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/bin/true")
     seen = {}
 
@@ -793,7 +808,7 @@ def test_lock_records_window_opened_at(tmp_path, monkeypatch):
 def test_status_prints_json_state_without_launching(tmp_path, monkeypatch):
     """--status не запускает окно: печатает desktop.lock и живость сервера."""
     from bcc.config import settings
-    monkeypatch.setattr(settings, "data_dir", tmp_path / "data")
+    _use_temp_data_dir(monkeypatch, tmp_path / "data")
     launched = []
     out = io.StringIO()
     code = desktop.run(["--status", "--port", str(settings.port), "--no-show-token"],
@@ -842,3 +857,45 @@ def test_bcc_desktop_entry_does_not_inject_web_flag(monkeypatch):
     with pytest.raises(SystemExit):
         desktop.main()
     assert "--web" not in seen["argv"]
+
+
+def test_desktop_tests_never_touch_the_real_database(monkeypatch, tmp_path):
+    """Подмена каталога данных обязана уводить и адрес базы.
+
+    `Settings.database_url` считается один раз в `__post_init__`, поэтому
+    подмена только `data_dir` оставляла адрес боевой базы репозитория. Тесты,
+    поднимающие настоящий сервер, шли в неё: локально она есть и тест зелёный,
+    в CI её нет — сервер падает `unable to open database file`, и `run()`
+    возвращает 3 вместо кода launcher'а. Здесь это проверяется прямо.
+    """
+    from bcc.config import settings
+
+    repo_db = Path(__file__).resolve().parents[1] / "data" / "bcc.db"
+    target = _use_temp_data_dir(monkeypatch, tmp_path / "data")
+
+    assert Path(settings.data_dir) == target
+    assert str(target) in settings.database_url, "адрес базы не увели во временный каталог"
+    assert str(repo_db) not in settings.database_url, "тест смотрит в боевую базу репозитория"
+    assert settings.database_url.startswith("sqlite+aiosqlite:///")
+
+
+def test_server_backed_runs_survive_a_missing_repo_database(tmp_path, monkeypatch):
+    """Запуск с настоящим сервером не должен зависеть от боевой базы репозитория.
+
+    Ровно это ломало CI: там каталога `command-center/data` нет вовсе.
+    """
+    _use_temp_data_dir(monkeypatch, tmp_path / "data")
+    monkeypatch.setattr(desktop, "find_browser", lambda *a, **k: "/bin/true")
+    seen = {}
+
+    def fake_launcher(browser, url, profile_dir, *, extra=(), window_size="1440,900", timeout=None):
+        seen["called"] = True
+        return 0
+
+    code = desktop.run(["--host", "127.0.0.1", "--port", "0", "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "prof"), "--no-show-token"],
+                       launcher=fake_launcher, out=io.StringIO())
+
+    assert seen.get("called"), "сервер не поднялся, и launcher не был вызван"
+    assert code == 0
+    assert (tmp_path / "data" / "bcc.db").exists(), "база создана во временном каталоге"
