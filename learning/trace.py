@@ -320,6 +320,12 @@ class ConflictError(RuntimeError):
     """CAS: ожидаемая версия записи не совпала с текущей."""
 
 
+def _history_ids(cases: "list[dict]") -> list[tuple[str, int, int]]:
+    """Опознавательные признаки замещённых версий: кто, какая версия, чем замещена."""
+    return [(str(c.get("case_id") or ""), int(c.get("version") or 0),
+             int(c.get("superseded_by_version") or 0)) for c in cases]
+
+
 class LearningStore:
     """JSONL-хранилище с ЕДИНЫМ authoritative состоянием на case_id.
 
@@ -458,6 +464,63 @@ class LearningStore:
         self._rewrite(self.failed_path, [c for c in cases if c.get("learning_status") != "VERIFIED"])
         self._rewrite(self.history_path, superseded)
 
+    def _adopt_orphan_history(self) -> bool:
+        """Внести в журнал старые версии, которые есть только в history-снимке.
+
+        Журнал моложе корпуса: при bootstrap'е он собирался из ``fix_cases`` и
+        ``failed_experiments``, а ``history`` не читался. Поэтому замещённые
+        версии в журнал не попадали, и первый же ``_materialize`` стирал их —
+        молча, при обычном чтении. Здесь они усыновляются как предыдущие версии
+        своего case_id, после чего history снова выводится из журнала.
+
+        Усыновляется только то, что заведомо не может перехватить авторитет:
+        запись с известным case_id и версией строго младше текущей. Всё
+        остальное (чужой case_id, версия не младше) авторитетным не становится
+        и в журнал не попадает.
+        """
+        entries = self._journal()
+        if not entries:
+            return False
+        current: dict[str, int] = {}
+        known: set[tuple[str, int]] = set()
+        for t in entries:
+            c = t["case"]
+            cid = str(c.get("case_id") or "")
+            ver = int(c.get("version") or 1)
+            known.add((cid, ver))
+            current[cid] = max(current.get(cid, 0), ver)
+        pending: dict[str, list[dict]] = {}
+        for c in self._read(self.history_path):
+            cid = str(c.get("case_id") or "")
+            if cid not in current:
+                continue
+            prev = dict(c)
+            prev.pop("tombstone", None)
+            # Замещённая версия = та, что стояла до superseded_by_version.
+            ver = int(prev.pop("superseded_by_version", 0) or 0) - 1
+            if ver < 1:
+                ver = int(prev.get("version") or 0)
+            if ver < 1 or ver >= current[cid] or (cid, ver) in known:
+                continue
+            prev["version"] = ver
+            pending.setdefault(cid, []).append(prev)
+        if not pending:
+            return False
+        for lst in pending.values():
+            lst.sort(key=lambda c: int(c.get("version") or 1))
+        merged: list[dict] = []
+        for t in entries:
+            c = t["case"]
+            queue = pending.get(str(c.get("case_id") or ""))
+            cur = int(c.get("version") or 1)
+            while queue and int(queue[0].get("version") or 1) < cur:
+                merged.append(queue.pop(0))
+            merged.append(c)
+        self._rewrite(self.journal_path, "".join(
+            json.dumps({"txn": i + 1, "case": c}, ensure_ascii=False, sort_keys=True) + "\n"
+            for i, c in enumerate(merged)))
+        return True
+
     def _ensure_consistent(self) -> None:
         """Журнал пуст, snapshot'ы есть (legacy) → bootstrap журнала из snapshot'ов;
         журнал есть и расходится со snapshot'ами (crash/подмена) → rematerialize."""
@@ -467,11 +530,21 @@ class LearningStore:
                 self._rewrite(self.journal_path, "".join(
                     json.dumps({"txn": i + 1, "case": c}, ensure_ascii=False, sort_keys=True) + "\n"
                     for i, c in enumerate(legacy)))
+                self._adopt_orphan_history()
+                self._materialize()
             return
-        latest, _ = self._journal_state()
-        want = {cid: int(c.get("version") or 1) for cid, c in latest.items()}
-        if want != self._snapshot_versions():
+        if self._adopt_orphan_history():
             self._materialize()
+            return
+        latest, superseded = self._journal_state()
+        want = {cid: int(c.get("version") or 1) for cid, c in latest.items()}
+        # history — такой же производный снимок: подменённый файл обязан
+        # пересобраться, иначе history() отдаёт подложенные записи как свои.
+        if want != self._snapshot_versions() or self._history_snapshot_ids() != _history_ids(superseded):
+            self._materialize()
+
+    def _history_snapshot_ids(self) -> list[tuple[str, int, int]]:
+        return _history_ids(self._read(self.history_path))
 
     # ------------------------------------------------------------ read
     def _read(self, path: Path) -> list[dict]:

@@ -97,7 +97,13 @@ def test_fable_direct_client_writes_transcript_via_env(tmp_path: Path, monkeypat
 def test_recording_failure_never_breaks_paid_call(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     import bossman.apprentice.fable_direct as fd
 
-    monkeypatch.setenv("BOSSMAN_FABLE_TRANSCRIPT_DIR", "Z:/definitely/not/a/real/path")
+    # Каталог должен быть НЕЗАПИСЫВАЕМЫМ на любой ОС. "Z:/..." годился только на
+    # Windows: на Linux это обычный относительный путь, каталог создавался прямо
+    # в репозитории (bossman-core/Z:/...), и тест переставал проверять то, ради
+    # чего написан. Путь внутрь файла не создаётся нигде: mkdir даёт OSError.
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("файл, а не каталог", encoding="utf-8")
+    monkeypatch.setenv("BOSSMAN_FABLE_TRANSCRIPT_DIR", str(blocker / "transcripts"))
     monkeypatch.setenv("BOSSMAN_FABLE_TRANSCRIPT_MISSION", "WIRE-2")
     monkeypatch.setattr(fd.httpx, "post", lambda *a, **k: _fake_http_response())
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-api03-test-dummy")  # ci-secret-scan: allow (fake)
@@ -106,3 +112,5 @@ def test_recording_failure_never_breaks_paid_call(tmp_path: Path, monkeypatch: p
     client = fd.FableDirectClient(budget=budget)
     parsed = client.run(BUNDLE)   # must not raise despite unwritable transcript dir
     assert parsed["log_text"]
+    # И запись действительно не прошла: иначе тест был бы зелёным впустую.
+    assert blocker.is_file() and not (blocker / "transcripts").exists()

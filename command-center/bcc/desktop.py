@@ -510,6 +510,9 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
                             console_owns_app=started is not None), file=out, flush=True)
 
     print(f"[bcc-desktop] окно: {browser} (профиль {profile_dir})", file=out, flush=True)
+    # До try: иначе неожиданная ошибка внутри оставит t0 несвязанным, и вместо
+    # причины владелец получил бы UnboundLocalError уже после finally.
+    t0 = time.monotonic()
     wrote_lock = False
     try:
         try:
@@ -526,7 +529,6 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
                              extra=tuple(args.browser_arg))))
         except Exception:  # noqa: BLE001 — журнал не должен мешать запуску
             pass
-        t0 = time.monotonic()
         launch_error: OSError | None = None
         try:
             code = launcher(browser, url, profile_dir, extra=tuple(args.browser_arg), window_size=args.window_size)

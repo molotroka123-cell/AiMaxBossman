@@ -114,3 +114,65 @@ def test_invalid_write_leaves_files_untouched(tmp_path):
     with pytest.raises(ValidationError):
         st.add(_case(verifiers=[{"principal_id": "agent:lead#run-lead-1", "independence_class": "cross_model"}]))
     assert st.verified_path.read_bytes() == before
+
+
+def _journal_ids(st: LearningStore) -> list[tuple[str, int]]:
+    return [(t["case"]["case_id"], int(t["case"].get("version") or 1))
+            for t in (json.loads(l) for l in st.journal_path.read_text(encoding="utf-8").splitlines())]
+
+
+def test_pre_journal_history_is_adopted_not_destroyed(tmp_path):
+    """Корпус старше журнала: замещённые версии лежат только в history.jsonl.
+
+    Так выглядел репозиторий после миграции на журнал: bootstrap собирал журнал
+    из fix_cases + failed_experiments и не читал history, поэтому первое же
+    чтение молча стирало всю историю замещённых версий.
+    """
+    st = _store(tmp_path)
+    st.add(_case()); st.add(_case(confidence=0.95))          # v1 → v2, история из одной записи
+    assert len(st.history()) == 1
+    cid = st.verified()[0]["case_id"]
+    # воспроизводим состояние «журнал моложе корпуса»: в журнале только текущая версия
+    current = [t for t in (json.loads(l) for l in st.journal_path.read_text(encoding="utf-8").splitlines())
+               if int(t["case"].get("version") or 1) == 2]
+    st.journal_path.write_text(json.dumps({"txn": 1, "case": current[0]["case"]},
+                                          ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+
+    fresh = _store(tmp_path)
+    hist = fresh.history()
+
+    assert [c["case_id"] for c in hist] == [cid], "замещённая версия обязана пережить пересборку"
+    assert hist[0]["version"] == 1 and hist[0]["superseded_by_version"] == 2
+    assert (cid, 1) in _journal_ids(fresh), "усыновлённая версия должна попасть в журнал"
+    assert [c["version"] for c in fresh.verified()] == [2], "текущая версия не меняется"
+
+
+def test_repeated_reads_do_not_change_files(tmp_path):
+    """Усыновление идемпотентно: второе чтение уже ничего не переписывает."""
+    st = _store(tmp_path)
+    st.add(_case()); st.add(_case(confidence=0.95))
+    _store(tmp_path).history()
+    snapshot = {p.name: p.read_bytes() for p in (st.journal_path, st.verified_path, st.history_path)}
+    for _ in range(3):
+        _store(tmp_path).history()
+    assert {p.name: p.read_bytes()
+            for p in (st.journal_path, st.verified_path, st.history_path)} == snapshot
+
+
+def test_history_entry_cannot_seize_authority(tmp_path):
+    """Подложенная в history запись не становится текущей и не входит в журнал."""
+    st = _store(tmp_path)
+    st.add(_case())
+    forged_other = dict(_case(task_id="F-FORGED"), case_id="ffffffffffffffff", version=1,
+                        tombstone=True, superseded_by_version=2, confidence=0.99)
+    forged_newer = dict(st.verified()[0], version=9, tombstone=True, superseded_by_version=10,
+                        confidence=0.11)
+    st.history_path.write_text("".join(json.dumps(c, ensure_ascii=False) + "\n"
+                                       for c in (forged_other, forged_newer)), encoding="utf-8")
+
+    fresh = _store(tmp_path)
+
+    assert [c["task_id"] for c in fresh.verified()] == ["F-TEST-001"]
+    assert fresh.verified()[0]["version"] == 1 and fresh.verified()[0]["confidence"] == 0.9
+    assert fresh.history() == [], "ни чужой case_id, ни версия не младше текущей не усыновляются"
+    assert all(cid != "ffffffffffffffff" for cid, _ in _journal_ids(fresh))

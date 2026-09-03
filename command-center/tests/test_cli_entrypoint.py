@@ -62,3 +62,32 @@ def test_version_path_never_touches_uvicorn(monkeypatch, capsys):
 def test_parser_accepts_host_and_port(argv, host, port):
     args = build_parser().parse_args(argv)
     assert args.host == host and args.port == port
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "localhost", "::1", "[::1]", "127.1",
+                                  "::ffff:127.0.0.1", "2130706433", ""])
+def test_loopback_addresses_are_recognised(host):
+    from bcc.app import is_loopback
+    assert is_loopback(host) is True
+
+
+@pytest.mark.parametrize("host", ["0.0.0.0", "192.168.1.5", "10.0.0.1", "::", "example.com",
+                                  "not-an-address"])
+def test_external_addresses_are_not_mistaken_for_loopback(host):
+    from bcc.app import is_loopback
+    assert is_loopback(host) is False
+
+
+def test_binding_outside_loopback_warns_the_owner(monkeypatch, capsys):
+    """Command Center задуман локальным; открыться на весь мир молча он не должен."""
+    import bcc.app as app_mod
+
+    monkeypatch.setattr(app_mod, "create", lambda: object())
+    monkeypatch.setattr(app_mod.settings, "ensure_dirs", lambda: None)
+    monkeypatch.setattr(app_mod.uvicorn, "run", lambda *a, **k: None)
+
+    main(["--host", "0.0.0.0"])
+    assert "ВНИМАНИЕ" in capsys.readouterr().out
+
+    main(["--host", "127.0.0.1"])
+    assert "ВНИМАНИЕ" not in capsys.readouterr().out

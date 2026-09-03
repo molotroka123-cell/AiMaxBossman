@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from learning import FORBIDDEN_FIELDS, LearningStore, ValidationError, case_id, redact_text, validate
+from learning.trace import DATA_DIR
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -180,3 +181,32 @@ def test_repo_corpus_files_validate():
     for c in store.failed():
         assert validate(c) == [], c.get("task_id")
         assert c["learning_status"] != "VERIFIED"
+
+
+def test_repo_corpus_is_stable_under_read():
+    """Чтение корпуса не должно его менять.
+
+    `_materialize` перестраивает снимки из журнала при каждом чтении. Пока
+    замещённые версии жили только в `history.jsonl` и в журнал не попадали,
+    первое же чтение стирало их — молча, без ошибки, и `git status` пачкался
+    после любого прогона тестов. Байтовое сравнение до/после ловит это.
+    """
+    paths = [Path(p) for p in (DATA_DIR / "fix_cases.jsonl", DATA_DIR / "failed_experiments.jsonl",
+                               DATA_DIR / "history.jsonl", DATA_DIR / "journal.jsonl")]
+    before = {p: p.read_bytes() for p in paths if p.exists()}
+    store = LearningStore()
+    store.verified(); store.failed(); store.history()
+    for p, data in before.items():
+        assert p.read_bytes() == data, f"{p.name} изменился при обычном чтении"
+
+
+def test_repo_history_records_stay_reachable():
+    """Замещённые версии остаются в корпусе, а не пропадают при пересборке."""
+    store = LearningStore()
+    hist = store.history()
+    assert hist, "история замещённых версий не должна быть пустой"
+    current = {c["case_id"] for c in store.verified() + store.failed()}
+    for c in hist:
+        assert c.get("tombstone") is True
+        assert c["case_id"] in current, "замещённая версия без текущей записи"
+        assert int(c["version"]) < int(c["superseded_by_version"])
