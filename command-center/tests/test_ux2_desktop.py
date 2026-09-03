@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import os
 import tempfile
 import time
@@ -522,3 +523,54 @@ def test_server_start_failure_reports_the_reason(tmp_path, monkeypatch):
     assert "address already in use" in out.getvalue()
     log = (Path(settings.data_dir) / "desktop-run.log").read_text(encoding="utf-8")
     assert "exit code=3 server-start-failed" in log and "address already in use" in log
+
+
+def test_stale_lock_from_a_killed_run_does_not_block_the_window(live, tmp_path, monkeypatch):  # noqa: F811
+    """P1 из свипа владельца: убитый запуск оставляет замок с мёртвым pid.
+
+    Проверки порта мало — на порту может сидеть посторонний живой сервер, и
+    тогда guard запирал бы окно навсегда («открывается только консоль»).
+    """
+    from bcc.config import settings
+
+    data_dir = Path(settings.data_dir)
+    dead_pid = 999_999            # заведомо не существует
+    (data_dir / "desktop.lock").write_text(
+        json.dumps({"pid": dead_pid, "port": live.port}), encoding="utf-8")
+    # порт при этом отвечает как Command Center — ровно ситуация владельца
+    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: {"app": "bossman-command-center"})
+
+    opened: list[str] = []
+    out = io.StringIO()
+    code = desktop.run(["--host", "127.0.0.1", "--port", str(live.port), "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "prof"), "--no-show-token"],
+                       launcher=lambda *a, **k: opened.append("window") or 0, out=out)
+    assert code == 0
+    assert opened == ["window"], "окно должно открыться: замок протух"
+    log = (data_dir / "desktop-run.log").read_text(encoding="utf-8")
+    assert f"stale-lock-cleared pid={dead_pid}" in log
+    assert "refused-second-window" not in log
+
+
+def test_live_lock_still_refuses_a_second_window(live, tmp_path, monkeypatch):  # noqa: F811
+    """Обратная сторона: живой владелец замка по-прежнему запрещает второе окно."""
+    from bcc.config import settings
+
+    data_dir = Path(settings.data_dir)
+    (data_dir / "desktop.lock").write_text(
+        json.dumps({"pid": os.getpid(), "port": live.port}), encoding="utf-8")   # мы сами живы
+    monkeypatch.setattr(desktop, "identify_server", lambda *a, **k: {"app": "bossman-command-center"})
+
+    opened: list[str] = []
+    out = io.StringIO()
+    assert desktop.run(["--host", "127.0.0.1", "--port", str(live.port), "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "prof"), "--no-show-token"],
+                       launcher=lambda *a, **k: opened.append("window") or 0, out=out) == 0
+    assert opened == [], "второе окно на том же профиле открывать нельзя"
+    assert "уже запущено" in out.getvalue()
+
+
+def test_pid_liveness_is_honest_about_this_process_and_a_dead_one():
+    assert desktop._pid_alive(os.getpid()) is True
+    assert desktop._pid_alive(999_999) is False
+    assert desktop._pid_alive(0) is False and desktop._pid_alive(-1) is False

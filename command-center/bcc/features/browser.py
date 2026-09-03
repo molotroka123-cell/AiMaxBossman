@@ -92,7 +92,20 @@ async def create_session(request: Request):
         await _record(svc, sid, status="failed")
         raise HTTPException(503, {"message": str(exc)})
     except BrowserPolicyDenied as exc:
+        await _record(svc, sid, status="failed")
         raise HTTPException(403, {"message": str(exc)})
+    except HTTPException:
+        await _record(svc, sid, status="failed")
+        raise
+    except Exception as exc:  # noqa: BLE001
+        # Playwright падает не только двумя нашими типами: нет браузера, нет
+        # памяти, умер GPU-процесс. Раньше такое исключение уходило наружу, а
+        # строка сессии навсегда оставалась в status="created" — по базе нельзя
+        # было отличить «создаётся» от «взорвалось».
+        await _record(svc, sid, status="failed")
+        await svc.bus.emit("run.log", level="error", message=f"browser session {sid} failed to start",
+                           session_id=sid)
+        raise HTTPException(500, {"message": f"не удалось запустить сессию браузера: {exc}"}) from exc
     await _record(svc, sid, status="running", current_url=status.get("url", ""))
     await svc.bus.emit("agent.tool_call", tool="browser", session_id=sid, action="start")
     return {"session_id": sid, **status}

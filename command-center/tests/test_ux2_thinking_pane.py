@@ -157,9 +157,15 @@ def test_thinking_pane_shows_live_execution_facts(live):
         assert card.get_attribute("data-state") == "waiting_approval"
         grid = card.locator(".bx-think-grid b").all_inner_texts()
         assert grid[5] == "1" and grid[6] == "0", grid                                   # retries / errors
-        first = card.locator(".bx-think-elapsed").inner_text()
-        page.wait_for_timeout(1300)
-        assert card.locator(".bx-think-elapsed").inner_text() != first                    # live elapsed timer
+        # Таймер обязан идти. Фиксированная пауза здесь была ненадёжна: тик раз в
+        # секунду, и под нагрузкой полного набора он не всегда успевал за 1300 мс.
+        # Ждём сам факт изменения, а не угаданный интервал.
+        elapsed_sel = '.bx-think-card[data-run="7"][data-state="waiting_approval"] .bx-think-elapsed'
+        first = card.locator(".bx-think-elapsed").inner_text().strip()
+        page.wait_for_function(
+            "([sel, before]) => { const el = document.querySelector(sel);"
+            " return !!el && el.textContent.trim() !== before; }",
+            arg=[elapsed_sel, first], timeout=15000)
         rows = page.locator(".bx-think-row").all_inner_texts()
         assert len(rows) >= 6 and any("step 2 done" in r for r in rows) and any("запасная модель" in r for r in rows)
         assert "chain" not in "\n".join(rows).lower()

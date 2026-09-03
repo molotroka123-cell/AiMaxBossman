@@ -101,3 +101,57 @@ async def test_browser_denies_payment_via_api(env):
     # без реального браузера act вернёт 404 (сессия не запущена) — проверяем deny на политике
     pol = BrowserPolicy.from_dict({})
     assert pol.decision("purchase") == "deny"
+
+
+# ---------- отказ запуска сессии: строка не должна зависать в created ----------
+
+@pytest.mark.asyncio
+async def test_unexpected_start_failure_marks_session_failed_not_created(env, monkeypatch):
+    """P1 из свипа владельца: строка `id=1 status=created` при упавшем старте.
+
+    Эндпоинт ловил только BrowserUnavailable/BrowserPolicyDenied; любой другой
+    взрыв Playwright (нет памяти, нет браузера, умер GPU) уходил наружу, а
+    сессия навсегда оставалась в `created` — по базе не отличить «создаётся»
+    от «взорвалось».
+    """
+    import sqlalchemy as sa
+
+    from bcc.features import browser as feat
+    from bcc.v2.tables import browser_sessions as bs_t
+
+    class _Boom:
+        async def start(self, *a, **k):
+            raise RuntimeError("playwright: Target page, context or browser has been closed")
+
+    monkeypatch.setattr(feat, "_mgr", lambda svc: _Boom())
+
+    resp = await env.client.post("/api/browser/sessions", json={})
+    assert resp.status_code == 500, resp.text
+    assert "не удалось запустить сессию браузера" in resp.text
+
+    async with env.svc.db.session() as s:
+        rows = (await s.execute(sa.select(bs_t.c.id, bs_t.c.status))).fetchall()
+    assert rows, "строка сессии создана"
+    assert all(r[1] == "failed" for r in rows), rows      # не осталась в created
+
+
+@pytest.mark.asyncio
+async def test_policy_denied_session_is_not_left_dangling(env, monkeypatch):
+    """Отказ политики тоже закрывает строку: иначе она вечно висит в created."""
+    import sqlalchemy as sa
+
+    from bcc.features import browser as feat
+    from bcc.v2.browser_control import BrowserPolicyDenied
+    from bcc.v2.tables import browser_sessions as bs_t
+
+    class _Denied:
+        async def start(self, *a, **k):
+            raise BrowserPolicyDenied("payment denied")
+
+    monkeypatch.setattr(feat, "_mgr", lambda svc: _Denied())
+
+    resp = await env.client.post("/api/browser/sessions", json={})
+    assert resp.status_code == 403, resp.text
+    async with env.svc.db.session() as s:
+        rows = (await s.execute(sa.select(bs_t.c.status))).fetchall()
+    assert all(r[0] == "failed" for r in rows), rows

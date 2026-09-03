@@ -214,6 +214,40 @@ def _desktop_lock_path(data_dir: Path) -> Path:
     return Path(data_dir) / "desktop.lock"
 
 
+def _pid_alive(pid: int) -> bool:
+    """Жив ли процесс с этим pid.
+
+    На Windows ``os.kill(pid, 0)`` НЕ безобидная проверка: он вызывает
+    TerminateProcess и убил бы чужой процесс, поэтому там идём через
+    OpenProcess + WaitForSingleObject.
+    """
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    if os.name == "nt":
+        try:
+            import ctypes
+
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+            if not handle:
+                return False
+            try:
+                return kernel32.WaitForSingleObject(handle, 0) == 258  # WAIT_TIMEOUT — ещё работает
+            finally:
+                kernel32.CloseHandle(handle)
+        except Exception:  # noqa: BLE001 — не смогли проверить: считаем мёртвым, замок не должен запирать
+            return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True          # чужой процесс, но живой
+    except OSError:
+        return False
+    return True
+
+
 def _read_lock(data_dir: Path) -> dict | None:
     try:
         data = json.loads(_desktop_lock_path(data_dir).read_text(encoding="utf-8"))
@@ -372,7 +406,21 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             lock_port = int(lock.get("port", 0))
         except (TypeError, ValueError):
             lock_port = 0
-        if lock_port and identify_server(f"http://{host}:{lock_port}/"):
+        try:
+            lock_pid = int(lock.get("pid", 0))
+        except (TypeError, ValueError):
+            lock_pid = 0
+        # Убитый запуск (Stop-Process, закрытая консоль) не проходит finally и
+        # оставляет замок с мёртвым pid. Одной проверки порта мало: на порту
+        # может сидеть посторонний сервер, и тогда guard запирал бы окно навсегда.
+        owner_alive = _pid_alive(lock_pid)
+        if not owner_alive:
+            _append_run_log(data_dir, f"stale-lock-cleared pid={lock_pid} port={lock_port}")
+            try:
+                _desktop_lock_path(data_dir).unlink()
+            except OSError:
+                pass
+        if owner_alive and lock_port and identify_server(f"http://{host}:{lock_port}/"):
             msg = (f"[bcc-desktop] окно BOSSMAN уже запущено (порт {lock_port}) — второе окно "
                    "на том же профиле не открываю, иначе Chrome закроется сам")
             print(msg, file=out, flush=True)
