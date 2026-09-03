@@ -1,0 +1,43 @@
+id: osiris
+name: OSIRIS
+version: "0.1.0"
+kind: workload
+contract: "1.0"
+
+description: >
+  Локальная OSINT-панель: публичные источники, паспорт факта, граф организаций.
+  Уровень 0 закрыт. Twitter API заморожен.
+
+runtime:
+  language: python
+  python: ">=3.11"
+  standalone: true
+  imports_bossman: false
+
+default_port: 8920
+
+control_contract:
+  transport: http
+  http:
+    health: "GET /health"
+    capabilities: "GET /capabilities"
+    metrics: "GET /metrics"
+
+commands:
+  - /osint open
+
+permissions:
+  external.upload: deny
+  filesystem.write: ask
+
+ui:
+  subtitle: "Публичные источники · паспорт факта · уровень 0 закрыт"
+  icon: search
+  theme: azure
+  accent: "#d4af6a"
+  order: 10
+  health_path: /health
+  metrics_path: /metrics
+  actions:
+    - id: open
+      label: Открыть OSINT
