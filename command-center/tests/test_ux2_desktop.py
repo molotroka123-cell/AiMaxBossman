@@ -41,7 +41,7 @@ def test_run_reuses_running_server_and_does_not_bind_twice(live, tmp_path):  # n
 
     out = io.StringIO()
     code = desktop.run(["--host", "127.0.0.1", "--port", str(live.port), "--browser", "/bin/true",
-                        "--profile", str(tmp_path / "prof"), "--browser-arg=--x-test"],
+                        "--profile", str(tmp_path / "prof"), "--browser-arg=--x-test", "--no-show-token"],
                        launcher=fake_launcher, out=out)
     assert code == 0
     assert calls == [{"browser": "/bin/true", "url": f"http://127.0.0.1:{live.port}/", "profile": tmp_path / "prof", "extra": ("--x-test",)}]
@@ -171,7 +171,7 @@ def test_linux_shortcut_is_written_and_valid(tmp_path):
     assert "[Desktop Entry]" in entry
     assert "Name=BOSSMAN" in entry
     assert "-m bcc.desktop" in entry and "--port 8800" in entry
-    assert "Terminal=false" in entry
+    assert "Terminal=true" in entry          # консоль с токеном открывается вместе с окном
     assert f"Path={tmp_path}" in entry
     icon = tmp_path / ".local/share/icons/hicolor/512x512/apps/bossman.png"
     assert icon.exists() and icon.stat().st_size > 1000, "значок не установлен"
@@ -311,3 +311,89 @@ def test_fast_browser_exit_is_logged_with_hint(tmp_path, monkeypatch):
     log = (tmp_path / "desktop-run.log").read_text(encoding="utf-8")
     assert "browser-exit code=1" in log
     assert not (tmp_path / "desktop.lock").exists()
+
+
+# ------------------------------------------------- консоль с токеном при запуске
+
+def test_launcher_shows_access_token_but_never_writes_it_to_logs(live, tmp_path, monkeypatch):  # noqa: F811
+    """Владельцу нужен токен при первом входе, поэтому он печатается в консоль.
+
+    Но `desktop-run.log` владелец пересылает при разборе сбоев (так написано в
+    docs/ux/DESKTOP_SELF_CLOSE_AUDIT.md), поэтому секрет туда попасть не должен.
+    """
+    from bcc.config import settings
+
+    data_dir = tmp_path / "desk"
+    data_dir.mkdir(exist_ok=True)
+    token = "TESTTOKEN-" + "z" * 24
+    (data_dir / desktop.TOKEN_FILE_NAME).write_text(token, encoding="utf-8")
+    monkeypatch.setattr(settings, "data_dir", data_dir)
+
+    out = io.StringIO()
+    code = desktop.run(["--host", "127.0.0.1", "--port", str(live.port), "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "prof")],
+                       launcher=lambda *a, **k: 0, out=out)
+    assert code == 0
+    text = out.getvalue()
+    assert token in text                                  # токен виден владельцу
+    assert "BOSSMAN — вход в Command Center" in text
+    assert str(data_dir / desktop.TOKEN_FILE_NAME) in text  # и путь к файлу
+
+    run_log = (data_dir / "desktop-run.log").read_text(encoding="utf-8")
+    assert run_log.strip(), "журнал запусков должен вестись"
+    assert token not in run_log, "секрет не должен попадать в пересылаемый журнал"
+
+
+def test_no_show_token_keeps_the_secret_off_screen(live, tmp_path, monkeypatch):  # noqa: F811
+    """Режим без консоли: приложение работает, токен на экран не выводится."""
+    from bcc.config import settings
+
+    data_dir = tmp_path / "desk"
+    data_dir.mkdir(exist_ok=True)
+    token = "TESTTOKEN-" + "q" * 24
+    (data_dir / desktop.TOKEN_FILE_NAME).write_text(token, encoding="utf-8")
+    monkeypatch.setattr(settings, "data_dir", data_dir)
+
+    out = io.StringIO()
+    assert desktop.run(["--host", "127.0.0.1", "--port", str(live.port), "--browser", "/bin/true",
+                        "--profile", str(tmp_path / "prof"), "--no-show-token"],
+                       launcher=lambda *a, **k: 0, out=out) == 0
+    assert token not in out.getvalue()
+
+
+def test_shortcut_carries_no_secret_and_console_mode_is_explicit(tmp_path):
+    """Ярлык не хранит токен: секрет печатает процесс, а не файл ярлыка."""
+    from bcc import desktop_install
+
+    console = desktop_install.build_spec(executable="/usr/bin/python3", workdir=tmp_path, port=8800)
+    silent = desktop_install.build_spec(executable="/usr/bin/python3", workdir=tmp_path, port=8800,
+                                        console=False)
+    assert console.console is True and "--no-show-token" not in console.args
+    assert silent.console is False and "--no-show-token" in silent.args
+    for spec in (console, silent):
+        blob = " ".join(spec.argv) + desktop_install.desktop_entry(spec)
+        assert "token" not in blob.lower().replace("--no-show-token", "")
+
+
+def test_console_python_is_chosen_on_windows(tmp_path):
+    """На Windows консольный режим берёт python.exe вместо pythonw.exe."""
+    from bcc import desktop_install
+
+    (tmp_path / "python.exe").write_text("")
+    (tmp_path / "pythonw.exe").write_text("")
+    pyw, py = str(tmp_path / "pythonw.exe"), str(tmp_path / "python.exe")
+    assert desktop_install._console_python(pyw, windows=True) == py
+    assert desktop_install._windowless_python(py, windows=True) == pyw
+    # не Windows — интерпретатор не подменяется
+    assert desktop_install._console_python(pyw, windows=False) == pyw
+
+
+def test_access_banner_warns_only_when_console_owns_the_app():
+    """Предупреждение «не закрывайте консоль» уместно только когда сервер наш."""
+    from pathlib import Path as _P
+
+    owns = desktop.access_banner("http://127.0.0.1:8800/", "T", _P("/d/token"), console_owns_app=True)
+    attached = desktop.access_banner("http://127.0.0.1:8800/", "T", _P("/d/token"), console_owns_app=False)
+    assert "закрывать нельзя" in owns
+    assert "закрывать нельзя" not in attached
+    assert desktop.access_banner("http://x/", None, _P("/d/token"), console_owns_app=False).count("Токен") >= 1

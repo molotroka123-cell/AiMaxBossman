@@ -40,16 +40,21 @@ class LauncherSpec:
     name: str = APP_NAME
     comment: str = APP_COMMENT
     extra_env: dict[str, str] = field(default_factory=dict)
+    console: bool = True
 
     @property
     def argv(self) -> list[str]:
         return [self.executable, *self.args]
 
 
-def _windowless_python(executable: str | None = None) -> str:
-    """На Windows берём pythonw.exe — иначе у владельца висит чёрное окно консоли."""
+def _windowless_python(executable: str | None = None, *, windows: bool | None = None) -> str:
+    """pythonw.exe: приложение без окна консоли (режим --no-console).
+
+    ``windows`` задаётся явно в тестах: подменять глобальный ``os.name`` нельзя —
+    от него зависит выбор класса в ``pathlib``.
+    """
     exe = executable or sys.executable
-    if os.name != "nt":
+    if not (os.name == "nt" if windows is None else windows):
         return exe
     p = Path(exe)
     if p.name.lower() == "python.exe":
@@ -59,10 +64,32 @@ def _windowless_python(executable: str | None = None) -> str:
     return exe
 
 
+def _console_python(executable: str | None = None, *, windows: bool | None = None) -> str:
+    """python.exe: рядом с окном приложения открывается консоль.
+
+    Владельцу нужен токен доступа при первом входе, а pythonw консоли не даёт,
+    поэтому под ярлыком по умолчанию идёт консольный интерпретатор.
+    """
+    exe = executable or sys.executable
+    if not (os.name == "nt" if windows is None else windows):
+        return exe
+    p = Path(exe)
+    if p.name.lower() == "pythonw.exe":
+        cand = p.with_name("python.exe")
+        if cand.exists():
+            return str(cand)
+    return exe
+
+
 def build_spec(*, executable: str | None = None, workdir: str | Path | None = None,
                host: str | None = None, port: int | None = None,
-               icon: str | Path | None = None) -> LauncherSpec:
-    """Спецификация ярлыка: тот же вход, что у `bcc-desktop`, без секретов в аргументах."""
+               icon: str | Path | None = None, console: bool = True) -> LauncherSpec:
+    """Спецификация ярлыка: тот же вход, что у `bcc-desktop`, без секретов в аргументах.
+
+    ``console=True`` (по умолчанию): вместе с окном приложения открывается
+    консоль, в которой напечатан токен доступа. Секрета в самом ярлыке нет —
+    он печатается процессом при запуске.
+    """
     args: list[str] = ["-m", "bcc.desktop"]
     if host:
         args += ["--host", str(host)]
@@ -70,11 +97,14 @@ def build_spec(*, executable: str | None = None, workdir: str | Path | None = No
         args += ["--port", str(port)]
     if icon is None:
         icon = ICON_WINDOWS if os.name == "nt" else ICON_PNG
+    if not console:
+        args.append("--no-show-token")
     return LauncherSpec(
-        executable=_windowless_python(executable),
+        executable=(_console_python if console else _windowless_python)(executable),
         args=tuple(args),
         workdir=str(Path(workdir) if workdir else Path.cwd()),
         icon=str(icon),
+        console=console,
     )
 
 
@@ -126,7 +156,7 @@ def desktop_entry(spec: LauncherSpec) -> str:
         f"Exec={exec_line}\n"
         f"Path={spec.workdir}\n"
         f"Icon={spec.icon}\n"
-        "Terminal=false\n"
+        f"Terminal={'true' if spec.console else 'false'}\n"
         "Categories=Development;Utility;\n"
         "StartupNotify=true\n"
         f"StartupWMClass={APP_NAME}\n"

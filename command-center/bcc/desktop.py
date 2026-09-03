@@ -150,6 +150,47 @@ def _append_run_log(data_dir: Path, message: str) -> None:
         pass
 
 
+TOKEN_FILE_NAME = "token"
+
+
+def read_access_token(data_dir: Path) -> str | None:
+    """Токен доступа из файла инсталляции. Не создаёт его и не пишет в лог.
+
+    Файл заводит сам сервер (``TokenAuth``) при первом старте, поэтому читаем
+    ПОСЛЕ того, как сервер поднялся или опознан на порту.
+    """
+    path = Path(data_dir) / TOKEN_FILE_NAME
+    try:
+        value = path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return value or None
+
+
+def access_banner(url: str, token: str | None, token_path: Path, *, console_owns_app: bool) -> str:
+    """Рамка со входом для владельца.
+
+    Токен показывается только здесь, в живой консоли: в ``desktop-run.log`` его
+    нет (журнал владелец пересылает при разборе сбоев), в ярлыке и в аргументах
+    процесса — тоже нет.
+    """
+    line = "=" * 68
+    body = [line, "  BOSSMAN — вход в Command Center", "", f"  Адрес:  {url}"]
+    if token:
+        body += [f"  Токен:  {token}"]
+    else:
+        body += ["  Токен:  файл ещё не создан — появится при первом старте сервера"]
+    body += [
+        f"  Файл:   {token_path}",
+        "",
+        "  Токен нужен один раз: дальше вход помнит cookie в профиле окна.",
+    ]
+    if console_owns_app:
+        body += ["  Это окно консоли закрывать нельзя — вместе с ним закроется BOSSMAN."]
+    body += [line]
+    return "\n".join(body)
+
+
 def _desktop_lock_path(data_dir: Path) -> Path:
     return Path(data_dir) / "desktop.lock"
 
@@ -219,6 +260,14 @@ def build_parser() -> argparse.ArgumentParser:
                    help="создать ярлык BOSSMAN на рабочем столе (и в меню «Пуск» на Windows) и выйти")
     p.add_argument("--uninstall-shortcut", action="store_true", help="удалить созданные ярлыки и выйти")
     p.add_argument("--print-launcher", action="store_true", help="показать, что будет записано в ярлык, и выйти")
+    p.add_argument("--show-token", dest="show_token", action="store_true", default=True,
+                   help="показать токен доступа в консоли при запуске (по умолчанию да)")
+    p.add_argument("--no-show-token", dest="show_token", action="store_false",
+                   help="не показывать токен в консоли")
+    p.add_argument("--console", dest="console", action="store_true", default=True,
+                   help="ярлык открывает окно консоли с токеном (по умолчанию да)")
+    p.add_argument("--no-console", dest="console", action="store_false",
+                   help="ярлык запускает приложение без окна консоли")
     return p
 
 
@@ -250,7 +299,7 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
     if args.install_shortcut or args.uninstall_shortcut or args.print_launcher:
         from . import desktop_install
 
-        spec = desktop_install.build_spec(host=host, port=port)
+        spec = desktop_install.build_spec(host=host, port=port, console=args.console)
         if args.print_launcher:
             print(f"[bcc-desktop] команда ярлыка: {' '.join(spec.argv)}", file=out)
             print(f"[bcc-desktop] рабочий каталог: {spec.workdir}", file=out)
@@ -317,6 +366,13 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
             started.stop()
             return 3
         print(f"[bcc-desktop] сервер запущен: {url}", file=out, flush=True)
+
+    if args.show_token:
+        # Консоль принадлежит приложению только когда сервер поднят этим же
+        # процессом: при подключении к уже работающему серверу закрытие консоли
+        # его не убивает.
+        print(access_banner(url, read_access_token(data_dir), Path(data_dir) / TOKEN_FILE_NAME,
+                            console_owns_app=started is not None), file=out, flush=True)
 
     print(f"[bcc-desktop] окно: {browser} (профиль {profile_dir})", file=out, flush=True)
     wrote_lock = False
