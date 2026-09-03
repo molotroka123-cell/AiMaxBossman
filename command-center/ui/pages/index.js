@@ -25,6 +25,7 @@ import OpenRouterPage from './openrouter.js';
 import MobilePage from './mobile.js';
 import BuilderPage from './builder.js';
 import ImagesPage from './images.js';
+import TradingLabPage from './trading_lab.js';
 
 export const FEATURE_PAGES = [
   HomePage,
@@ -47,4 +48,5 @@ export const FEATURE_PAGES = [
   MobilePage,
   BuilderPage,
   ImagesPage,
+  TradingLabPage,
 ];

@@ -85,6 +85,7 @@ def _include_stage_routers() -> None:
         "bossman.world_intelligence",
         "bossman.notifications",
         "bossman.profiles",
+        "bossman.trading_learning",
     ):
         try:
             import importlib
