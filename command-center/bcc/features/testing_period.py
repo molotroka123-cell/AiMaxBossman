@@ -37,7 +37,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import contextlib
 import os
+import platform
 import re
 import subprocess
 import time
@@ -289,6 +291,32 @@ def _render_report(events: list[dict], summary: dict, session_id: str) -> str:
     return "\n".join(head)
 
 
+def _env_snapshot(svc) -> dict:
+    """Что за сборка и с какими флагами шёл этот прогон.
+
+    Без этого два присланных журнала несопоставимы: непонятно, одна ли версия,
+    те же ли фичи включены, та же ли платформа. Пишем только состояние флагов
+    (да/нет) — не значения переменных: там бывают пути и адреса.
+    """
+    from .. import __version__
+
+    flags = {name: os.environ.get(name, "").strip().lower() in ("1", "true", "yes")
+             for name in sorted(os.environ) if name.startswith("BOSSMAN_")
+             and name.endswith("_ENABLED")}
+    return {
+        "version": __version__,
+        "python": platform.python_version(),
+        "platform": platform.system(),
+        "release": platform.release(),
+        "testing_period": enabled(),
+        "flags_on": sorted(k for k, v in flags.items() if v),
+        "flags_off_count": sum(1 for v in flags.values() if not v),
+        "features": sorted(f.name for f in getattr(svc, "features", []) or []),
+        "host": svc.settings.host,
+        "port": svc.settings.port,
+    }
+
+
 # ------------------------------------------------------------------ ручки
 
 def _log_of(request: Request) -> SessionLog:
@@ -445,6 +473,7 @@ async def setup(svc) -> None:
     svc.testing_log = log
     await log.write("server", "session.start",
                     {"host": svc.settings.host, "port": svc.settings.port})
+    await log.write("server", "session.env", _env_snapshot(svc))
 
     queue = svc.bus.subscribe()
 
@@ -467,6 +496,23 @@ async def setup(svc) -> None:
     task = asyncio.create_task(_pump(), name="bcc-testing-period")
     if hasattr(svc, "_tasks"):
         svc._tasks.append(task)
+
+    # Штатная остановка должна быть видна. Её ОТСУТСТВИЕ — тоже улика: значит
+    # процесс не дожил до неё, а журнал просто оборвался.
+    stop_original = svc.stop
+
+    async def _stop_with_record():
+        with contextlib.suppress(Exception):
+            await log.write("server", "session.stop", {
+                "uptime_s": round(time.monotonic() - started_at, 1),
+                "events": sum(log.counts.values()),
+                "top": dict(sorted(log.counts.items(), key=lambda kv: -kv[1])[:5]),
+                "bytes": log.size_bytes(),
+            })
+        return await stop_original()
+
+    started_at = time.monotonic()
+    svc.stop = _stop_with_record
 
 
 FEATURE = Feature(name="testing_period", router=router, setup=setup)

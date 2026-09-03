@@ -276,3 +276,114 @@ def test_banner_and_click_recording_work_in_a_real_browser(live):  # noqa: F811
     # бы свою запись, и журнал наполнялся бы рассказом о себе.
     assert "/api/testing/log" not in server_paths
     assert not errors, f"ошибки консоли: {errors}"
+
+
+async def test_environment_snapshot_makes_two_journals_comparable(env):
+    """Без снимка окружения два присланных журнала несопоставимы."""
+    events = (await env.client.get("/api/testing/events", params={"limit": 500})).json()["events"]
+    snap = next((e for e in events if e["kind"] == "session.env"), None)
+    assert snap, "снимок окружения обязан быть в начале сессии"
+    data = snap["data"]
+    assert data["version"] and data["python"] and data["platform"]
+    assert isinstance(data["flags_on"], list) and isinstance(data["features"], list)
+    assert "testing_period" in data["features"], "список фич берётся из живого приложения"
+
+
+async def test_environment_snapshot_records_flag_state_not_values(env, monkeypatch):
+    """Пишем только «включено или нет»: значения переменных бывают путями и адресами."""
+    from bcc.features import testing_period as mod
+
+    monkeypatch.setenv("BOSSMAN_WATCHDOG_ENABLED", "1")
+    monkeypatch.setenv("BOSSMAN_SECRET_PATH_ENABLED", "/home/owner/private/path")
+    snap = mod._env_snapshot(env.svc)
+
+    assert "BOSSMAN_WATCHDOG_ENABLED" in snap["flags_on"]
+    assert "/home/owner/private/path" not in json.dumps(snap, ensure_ascii=False)
+    assert snap["flags_off_count"] >= 1
+
+
+async def test_stop_is_recorded_so_its_absence_becomes_evidence(tmp_path, monkeypatch):
+    """Штатная остановка видна; её отсутствие говорит, что процесс до неё не дожил."""
+    settings = make_settings(tmp_path)
+    app, svc = await start_app(settings, start_workers=False)
+    async with client_for(app, svc) as client:
+        await client.post("/api/testing/log", json={"events": [
+            {"kind": "ui.click", "data": {"element": "кнопка"}}]})
+    await svc.stop()
+
+    lines = tp._log_path(settings).read_text(encoding="utf-8").splitlines()
+    stops = [json.loads(l) for l in lines if '"session.stop"' in l]
+    assert len(stops) == 1, "остановка обязана быть записана ровно один раз"
+    data = stops[0]["data"]
+    assert data["events"] > 0 and data["uptime_s"] >= 0 and isinstance(data["top"], dict)
+
+
+def test_dead_click_is_recorded_in_a_real_browser(live):  # noqa: F811
+    """Владелец нажал — и ничего. Именно это должно попасть в журнал.
+
+    Ровно эта жалоба и была: кнопка на дашборде не включает приложения. Клик,
+    после которого не ушёл запрос, не сменился адрес и не изменился экран,
+    записывается отдельным видом, а не теряется среди обычных нажатий.
+    """
+    from playwright.sync_api import sync_playwright
+
+    errors: list[str] = []
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        _login(page, live)
+        page.wait_for_selector(".bcc-testing-bar", timeout=15000)
+
+        # Кнопка, которая заведомо ничего не делает: вешаем сами, чтобы проверять
+        # механизм, а не конкретную страницу. Не в #view — его перерисовщик
+        # приложения заменяет целиком, и кнопка исчезает до клика.
+        page.wait_for_timeout(1500)          # дать первой отрисовке улечься
+        page.evaluate("""() => {
+            const b = document.createElement('button');
+            b.id = 'dead-on-purpose';
+            b.className = 'btn';
+            b.textContent = 'Кнопка без действия';
+            b.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:9999';
+            b.addEventListener('click', (e) => e.preventDefault());
+            document.body.appendChild(b);
+        }""")
+        page.click("#dead-on-purpose")
+
+        fetch_events = ("async () => (await (await fetch('/api/testing/events?limit=1000',"
+                        " {cache: 'no-store'})).json()).events")
+        deadline = time.monotonic() + 30
+        events = []
+        while time.monotonic() < deadline:
+            events = page.evaluate(fetch_events)
+            if any(e["kind"] == "ui.dead_click" for e in events):
+                break
+            page.wait_for_timeout(500)
+
+    dead = [e for e in events if e["kind"] == "ui.dead_click"]
+    assert dead, f"мёртвый клик не записан; виды: {sorted({e['kind'] for e in events})}"
+    assert "dead-on-purpose" in dead[0]["data"]["element"]
+    assert dead[0]["data"]["checked"], "запись обязана называть, что именно проверяли"
+    assert not errors, f"ошибки консоли: {errors}"
+
+
+def test_a_click_that_works_is_not_called_dead(live):  # noqa: F811
+    """Проверка не должна быть «всегда мёртвый»: рабочая кнопка находкой не считается."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        _login(page, live)
+        page.wait_for_selector(".bcc-testing-bar", timeout=15000)
+
+        page.click("#think-open")          # настоящая кнопка: открывает панель
+        page.wait_for_timeout(2500)
+
+        events = page.evaluate(
+            "async () => (await (await fetch('/api/testing/events?limit=1000')).json()).events")
+
+    dead = [e for e in events if e["kind"] == "ui.dead_click"
+            and "think-open" in e["data"].get("element", "")]
+    assert not dead, f"рабочая кнопка записана как мёртвая: {dead}"

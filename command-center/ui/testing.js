@@ -171,10 +171,97 @@ async function publish() {
 
 /* ---------------- подключение слушателей ---------------- */
 
+/* ---------------- трение: нажал и ничего ---------------- */
+
+/* Что считается ответом на клик: ушёл запрос, сменилась страница или заметно
+   изменился экран. Ничего из этого за окном ожидания — значит владелец нажал
+   впустую, и это самая частая его жалоба. */
+const DEAD_MS = 900;
+const RAGE_MS = 2000;
+const RAGE_HITS = 3;
+let requests = 0;
+let rage = { key: '', count: 0, at: 0 };
+
+/* Только СТРУКТУРА экрана, без текста. Живые счётчики и часы тикают сами по
+   себе: если считать их изменением, мёртвый клик никогда не будет найден. */
+function viewFingerprint() {
+  const view = document.getElementById('view');
+  if (!view) return '0|0';
+  return `${view.childElementCount}|${view.querySelectorAll('*').length}`;
+}
+
+function watchDeadClick(element) {
+  const before = { req: requests, hash: location.hash, view: viewFingerprint(),
+                   modal: document.querySelectorAll('dialog,[role="dialog"],.bx-modal').length };
+  setTimeout(() => {
+    const changed = requests !== before.req
+      || location.hash !== before.hash
+      || viewFingerprint() !== before.view
+      || document.querySelectorAll('dialog,[role="dialog"],.bx-modal').length !== before.modal;
+    if (!changed) {
+      // Не «наверное не сработало», а перечисление того, что проверяли.
+      push('ui.dead_click', { element, page: location.hash || '#',
+                              waited_ms: DEAD_MS,
+                              checked: 'запрос, адрес, содержимое экрана, модальное окно' });
+    }
+  }, DEAD_MS);
+}
+
+function noteRage(element) {
+  const now = Date.now();
+  if (rage.key === element && now - rage.at < RAGE_MS) {
+    rage.count += 1;
+    if (rage.count === RAGE_HITS) {
+      push('ui.rage_click', { element, hits: RAGE_HITS, within_ms: RAGE_MS,
+                              page: location.hash || '#' });
+    }
+  } else {
+    rage = { key: element, count: 1, at: now };
+    return;
+  }
+  rage.at = now;
+}
+
+/* Счётчик запросов и отказы: клик и то, чем сервер ответил, надо связать —
+   иначе в журнале два независимых потока, которые нельзя сшить. */
+function watchFetch() {
+  const original = window.fetch;
+  if (typeof original !== 'function') return;
+  window.fetch = async function patched(input, init) {
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    // Свои запросы (отправка журнала, опрос счётчика) ответом на клик не являются:
+    // иначе фоновый опрос выдавал бы мёртвый клик за сработавший.
+    if (!String(url).includes('/api/testing/')) requests += 1;
+    const method = (init && init.method) || 'GET';
+    const started = performance.now();
+    try {
+      const res = await original.call(this, input, init);
+      const ms = Math.round(performance.now() - started);
+      if (!res.ok && !String(url).includes('/api/testing/')) {
+        push('ui.refused', { method, path: String(url).slice(0, 200),
+                             status: res.status, ms, page: location.hash || '#' });
+      }
+      return res;
+    } catch (err) {
+      if (!String(url).includes('/api/testing/')) {
+        push('ui.refused', { method, path: String(url).slice(0, 200), status: 0,
+                             ms: Math.round(performance.now() - started),
+                             error: String(err && err.message || err).slice(0, 200) });
+      }
+      throw err;
+    }
+  };
+}
+
 function listen() {
+  watchFetch();
+
   document.addEventListener('click', (e) => {
     const what = describe(e.target);
-    if (what) push('ui.click', { element: what, page: location.hash || '#' });
+    if (!what) return;
+    push('ui.click', { element: what, page: location.hash || '#' });
+    noteRage(what);
+    watchDeadClick(what);
   }, true);
 
   document.addEventListener('submit', (e) => {
@@ -216,7 +303,26 @@ export async function mountTestingPeriod() {
     listen();
     push('ui.session_open', { page: location.hash || '#',
                               screen: `${window.innerWidth}x${window.innerHeight}`,
+                              dpr: window.devicePixelRatio || 1,
+                              lang: navigator.language || '',
+                              theme: document.documentElement.getAttribute('data-theme') || '',
+                              online: navigator.onLine !== false,
                               ua: navigator.userAgent.slice(0, 200) });
+
+    // Состояние связи: обрыв объясняет половину «ничего не происходит».
+    window.addEventListener('online', () => push('ws.state', { state: 'online' }));
+    window.addEventListener('offline', () => push('ws.state', { state: 'offline' }));
+    const conn = document.getElementById('conn-text');
+    if (conn && typeof MutationObserver === 'function') {
+      let last = conn.textContent.trim();
+      new MutationObserver(() => {
+        const now = conn.textContent.trim();
+        if (now && now !== last) {
+          last = now;
+          push('ws.state', { state: now.slice(0, 80) });
+        }
+      }).observe(conn, { childList: true, characterData: true, subtree: true });
+    }
     refreshCount();
     setInterval(refreshCount, 15000);
     return status;
