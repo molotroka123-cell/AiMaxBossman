@@ -5,9 +5,6 @@
 попасть в лог-строку. Единый JSON-логгер с фильтром-редактором гарантирует, что
 значения Authorization/Bearer/token/cookie/api_key/secret/password не всплывут в
 логах, даже если их случайно передали в сообщение или в extra.
-
-Именование модуля `obs.py` (не `logging.py`) выбрано намеренно: файл с именем
-`logging.py` в пакете сбивает с толку при чтении `import logging`.
 """
 from __future__ import annotations
 
@@ -21,7 +18,6 @@ from . import correlation
 
 REDACTED = "«REDACTED»"
 
-# Ключи, значения которых считаем секретами (в JSON, query, key=value, заголовках).
 _SENSITIVE_KEYS = (
     "authorization", "bearer", "cookie", "set-cookie",
     "api_key", "api-key", "apikey", "x-api-key", "key", "keys",
@@ -32,25 +28,27 @@ _SENSITIVE_KEYS = (
 # 1) "Bearer <token>" / "Basic <token>" в любом тексте.
 _RE_BEARER = re.compile(r"\b(Bearer|Basic|Token)\s+[A-Za-z0-9._\-+/=]{6,}", re.IGNORECASE)
 
-# 2) key: value  /  key = value  /  "key": "value"  для чувствительных ключей.
-#    Значение — до кавычки/запятой/переноса/закрывающей скобки/амперсанда.
+# 2) key: value / key = value / "key": "value" для чувствительных ключей.
 _KEY_ALT = "|".join(re.escape(k) for k in _SENSITIVE_KEYS)
 _RE_KV = re.compile(
     rf'(?i)(["\']?(?:{_KEY_ALT})["\']?\s*[:=]\s*)(["\']?)([^\s"\',&}}\)]+)(\2)'
 )
 
-# 3) sk-/ghp_/xoxb- и подобные длинные токены провайдеров как «голый» секрет.
-# Токены провайдеров содержат дефисы и подчёркивания ВНУТРИ (sk-proj-…, sk-or-v1-…),
-# поэтому класс символов не может быть только [A-Za-z0-9]: red-team показал, что
-# «sk-LEAK-abcdef0123456789» проходил мимо фильтра целиком.  # ci-secret-scan: allow
+# 3) RISK-10 FIX: Расширенный список токенов провайдеров.
+# Добавлены: Anthropic (sk-ant-*), OpenRouter (sk-or-v1-*),
+# Azure Cognitive Services endpoint-ключи.
 _RE_TOKENLIKE = re.compile(
-    r"(sk-[A-Za-z0-9_-]{12,}"          # OpenAI/OpenRouter и производные
-    r"|ghp_[A-Za-z0-9_-]{12,}"         # GitHub PAT
+    r"(sk-[A-Za-z0-9_-]{12,}"          # OpenAI, OpenRouter (sk-or-v1-*), Anthropic (sk-ant-*)
+    r"|ghp_[A-Za-z0-9_-]{12,}"         # GitHub PAT classic
+    r"|github_pat_[A-Za-z0-9_]{20,}"   # GitHub PAT fine-grained
     r"|gho_[A-Za-z0-9_-]{12,}|ghs_[A-Za-z0-9_-]{12,}"
     r"|xox[baprs]-[A-Za-z0-9-]{10,}"   # Slack
     r"|AKIA[0-9A-Z]{16}"               # AWS access key id
     r"|AIza[0-9A-Za-z_-]{30,}"         # Google API key
-    r"|hf_[A-Za-z0-9]{16,})")          # HuggingFace
+    r"|hf_[A-Za-z0-9]{16,}"            # HuggingFace
+    r"|[0-9a-f]{32}(?:[0-9a-f]{8})?"   # Azure Cognitive 32/40-hex ключи
+    r"|rcd_[A-Za-z0-9_-]{16,})"        # Bossman device tokens
+)
 
 
 def redact(text: str) -> str:
@@ -87,11 +85,10 @@ class RedactionFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         try:
             msg = record.getMessage()
-        except Exception:  # noqa: BLE001 — кривой формат не должен ронять лог
+        except Exception:  # noqa: BLE001
             msg = str(record.msg)
         record.msg = redact(msg)
         record.args = ()
-        # extra-поля тоже чистим
         for k, v in list(record.__dict__.items()):
             if k in _RESERVED or not isinstance(v, str):
                 continue
@@ -140,8 +137,6 @@ def configure_logging(level: int = logging.INFO) -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Логгер с гарантированным фильтром-редактором (на случай, если
-    configure_logging ещё не звали — например, в тестах)."""
     logger = logging.getLogger(name)
     if not any(isinstance(f, RedactionFilter) for f in logger.filters):
         logger.addFilter(RedactionFilter())
