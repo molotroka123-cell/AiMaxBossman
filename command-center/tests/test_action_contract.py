@@ -238,49 +238,66 @@ async def _drive_with_approvals(env, task_id, *, ticks: int = 30) -> str | None:
     return status
 
 
+# Имена — НАСТОЯЩИЕ неЧИТАЮЩИЕ инструменты каждого семейства: с тех пор как
+# read-инструменты семейства перестали засчитываться как доказательство
+# (memory.search != memory.write, перечисление инструментов MCP != выполненное
+# им действие), подделать доказательство несуществующим именем `.probe` уже
+# нельзя — и это ровно то поведение, которое здесь и проверяется.
 FAMILY_CASES = [
-    ("apps", "Открой приложение Калькулятор"),
-    ("openclaw", "Отправь сообщение в чат"),
-    ("opencode", "Исправь баг в коде"),
-    ("mcp", "Вызови MCP инструмент"),
-    ("plugin", "Используй плагин погоды"),
+    ("apps", "apps.start", "Открой приложение Калькулятор"),
+    ("openclaw", "openclaw.send", "Отправь сообщение в чат"),
+    ("opencode", "opencode.send", "Исправь баг в коде"),
+    ("plugin", "plugin:telegram.send", "Используй плагин погоды"),
 ]
 
 
-async def _family_case(env, source: str, prompt: str, *, with_call: bool) -> str:
+async def _family_case(env, source: str, prompt: str, *, tool: str | None,
+                       status_value: str = "executed") -> str:
     env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("Готово, сделано.")
     stack = await make_stack(env.client, prompt=prompt, max_steps=4)
-    if with_call:
+    if tool is not None:
         run_id = await env.svc.engine.claim()
         assert run_id is not None
         async with env.svc.db.session() as s:
             await s.execute(sa.insert(dbm.tool_calls).values(
-                run_id=run_id, task_id=stack["task"]["id"], tool=f"{source}.probe",
-                source=source, status="executed"))
+                run_id=run_id, task_id=stack["task"]["id"], tool=tool,
+                source=source, status=status_value))
             await s.commit()
         await env.svc.engine.execute(run_id)
+        # После вето гейта с requeue задача возвращается в очередь; догоняем её
+        # до терминального состояния, иначе тест увидит промежуточный "queued".
+        await _run_once(env)
     else:
         await _run_once(env)
     task = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["task"]
     return task["status"]
 
 
-@pytest.mark.parametrize("source,prompt", FAMILY_CASES)
-async def test_family_matrix_no_call_does_not_complete(env, source, prompt):
+@pytest.mark.parametrize("source,tool,prompt", FAMILY_CASES)
+async def test_family_matrix_no_call_does_not_complete(env, source, tool, prompt):
     """B/D/G/H from the mission's matrix, generically: text claiming success
     for a wired capability's tool family, with zero real tool_calls of that
     family in this run, must not complete — regardless of which family."""
-    status = await _family_case(env, source, prompt, with_call=False)
+    status = await _family_case(env, source, prompt, tool=None)
     assert status == "failed", f"{source}: {status}"
 
 
-@pytest.mark.parametrize("source,prompt", FAMILY_CASES)
-async def test_family_matrix_executed_call_is_not_applicable(env, source, prompt):
+@pytest.mark.parametrize("source,tool,prompt", FAMILY_CASES)
+async def test_family_matrix_executed_call_is_not_applicable(env, source, tool, prompt):
     """A genuinely executed tool_calls row of the right family clears the
     veto (deeper verification, where wired, is review_gate's job — this gate
     only rules out the zero-attempt case, exactly like action_gate.py)."""
-    status = await _family_case(env, source, prompt, with_call=True)
+    status = await _family_case(env, source, prompt, tool=tool)
     assert status == "completed", f"{source}: {status}"
+
+
+@pytest.mark.parametrize("source,tool,prompt", FAMILY_CASES)
+async def test_family_matrix_unknown_tool_name_is_not_proof(env, source, tool, prompt):
+    """Строка tool_calls с именем, которого нет в реестре как неЧИТАЮЩЕГО
+    инструмента семейства, доказательством не является: иначе достаточно было
+    бы записать любое имя с нужным `source`."""
+    status = await _family_case(env, source, prompt, tool=f"{source}.probe")
+    assert status == "failed", f"{source}: {status}"
 
 
 async def test_family_matrix_rejected_or_errored_call_is_not_evidence(env):
@@ -302,12 +319,75 @@ async def test_family_matrix_rejected_or_errored_call_is_not_evidence(env):
     assert task["status"] != "completed"
 
 
+# --------------------------------------------- READ-ONLY / DENIED / PENDING
+
+async def test_readonly_family_call_is_not_execution_proof(env, tmp_path):
+    """TEST I класса «discovery != action»: инструмент того же семейства, но
+    ЧИТАЮЩИЙ (memory.search вместо memory.write; перечисление инструментов
+    MCP-сервера вместо выполненного им действия), доказательством быть не
+    может. До этой правки `_has_family_tool_call` смотрел только на `source`,
+    и любой read-вызов семейства снимал вето."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    await env.client.post("/api/memory/config", json={"root": str(vault)})
+    env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("Запомнил ALPHA-742.")
+    stack = await make_stack(env.client, prompt="Запомни: ALPHA-742", max_steps=4)
+
+    run_id = await env.svc.engine.claim()
+    assert run_id is not None
+    async with env.svc.db.session() as s:
+        await s.execute(sa.insert(dbm.tool_calls).values(
+            run_id=run_id, task_id=stack["task"]["id"], tool="memory.search",
+            source="memory", status="executed"))
+        await s.commit()
+    await env.svc.engine.execute(run_id)
+    await _run_once(env)
+
+    task = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["task"]
+    assert task["status"] == "failed"
+
+
+async def test_denied_action_is_blocked_not_completed(env, tmp_path):
+    """TEST M: политика запретила действие. Итог обязан быть правдивым —
+    строка tool_calls со status="rejected" не является исполнением."""
+    work = tmp_path / "proj"
+    work.mkdir()
+    await _allow_root(env, work)
+    status = await _family_case(env, "terminal", "Через терминал создай папку bossman_test",
+                                tool="terminal.run", status_value="rejected")
+    assert status == "failed"
+
+
+async def test_pending_approval_never_reports_completed(env, tmp_path):
+    """TEST O: инструмент ждёт подтверждения владельца и ещё не исполнялся.
+    Задача обязана стоять в waiting_approval, а не завершиться."""
+    work = tmp_path / "proj"
+    work.mkdir()
+    await _allow_root(env, work)
+    adapter = ToolAdapter([
+        ("tool", "terminal_run", {"command": "python -c \"open('x.txt','w').write('1')\"",
+                                  "mode": "project_host", "cwd": str(work)}),
+        ("text", "Готово."),
+    ])
+    stack = await _stack_with_tools(env, ["terminal.run"], adapter=adapter,
+                                    prompt="Создай файл x.txt через терминал", max_steps=6)
+    # Право НЕ выдаётся: project_host — ASK-граница, подтверждения не даём.
+    status = await _run_task(env, stack["task"]["id"], timeout=15)
+    assert status == "waiting_approval"
+    assert not (work / "x.txt").exists()
+
+
 # ------------------------------------------------------------ CAPABILITY_UNAVAILABLE
 
 UNAVAILABLE_CASES = [
     "Сгенерируй картинку заката",
     "Запусти workflow развёртывания",
     "Напомни мне завтра",
+    # Ни одного MCP-сервера в тестовом окружении не подключено, значит ни одного
+    # инструмента source="mcp" в реестре нет — capability честно недоступна.
+    # Подключённый сервер регистрирует свои инструменты, и MCP_ACTION начинает
+    # работать как остальные семейства, без изменений в коде.
+    "Вызови MCP инструмент",
 ]
 
 
@@ -509,6 +589,93 @@ async def test_cached_success_text_cannot_complete_an_unrelated_run(env):
     await _run_once(env)
     task = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["task"]
     assert task["status"] == "failed"
+
+
+# ------------------------------------------------------- RETRY BOUND / RESTART
+
+async def test_gate_failure_terminates_and_does_not_loop_forever(env, tmp_path):
+    """PHASE 8: путь FAIL гейта обязан сходиться. Модель бесконечно отвечает
+    текстом «готово» — задача обязана прийти в терминальное состояние за
+    ограниченное число прогонов (одна попытка самокоррекции, затем честный
+    отказ), а не крутить бесконечный requeue и жечь вызовы модели."""
+    work = tmp_path / "proj"
+    work.mkdir()
+    await _allow_root(env, work)
+    adapter = FakeAdapter("Готово, файл создан.")
+    env.svc.registry.adapter_factory = lambda m, p: adapter
+    stack = await make_stack(env.client, prompt="Создай файл loop.txt через терминал",
+                             max_steps=4)
+
+    for _ in range(30):                     # заведомо больше любого разумного лимита
+        run_id = await env.svc.engine.claim()
+        if run_id is None:
+            break
+        await env.svc.engine.execute(run_id)
+
+    task = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["task"]
+    assert task["status"] == "failed"
+    async with env.svc.db.session() as s:
+        runs = (await s.execute(sa.select(dbm.task_runs).where(
+            dbm.task_runs.c.task_id == stack["task"]["id"]))).fetchall()
+    assert len(runs) <= 3, f"слишком много прогонов: {len(runs)}"
+    assert adapter.calls <= 4, f"слишком много вызовов модели: {adapter.calls}"
+
+
+async def test_restart_does_not_repeat_a_completed_side_effect(tmp_path):
+    """PHASE 9: DUPLICATE_SIDE_EFFECT_COUNT=0 после изменений контракта.
+
+    Реальный внешний эффект (дозапись в файл — повтор был бы виден как второй
+    символ), затем остановка Services и запуск заново ПРОТИВ ТОЙ ЖЕ durable
+    базы, затем попытка возобновить работу. Уже выполненное действие не должно
+    выполниться второй раз."""
+    from .conftest import make_settings, start_app, client_for
+
+    settings = make_settings(tmp_path)
+    work = tmp_path / "proj"
+    work.mkdir()
+    log = work / "log.txt"
+    append = "python -c \"open('log.txt','a').write('X')\""
+
+    app, svc = await start_app(settings, start_workers=False)
+    async with client_for(app, svc) as client:
+        class _Env:
+            pass
+        env = _Env()
+        env.client, env.svc = client, svc
+        await _allow_root(env, work)
+        adapter = ToolAdapter([
+            ("tool", "terminal_run", {"command": append, "mode": "project_host",
+                                      "cwd": str(work)}),
+            ("text", "Готово."),
+        ])
+        stack = await _stack_with_tools(env, ["terminal.run"], adapter=adapter,
+                                        prompt="Создай файл log.txt через терминал",
+                                        max_steps=8)
+        await client.patch(f"/api/agents/{stack['agent']['id']}",
+                           json={"permissions": {"terminal.run": True}})
+        assert await _drive_with_approvals(env, stack["task"]["id"]) == "completed"
+        assert log.read_text(encoding="utf-8") == "X"
+        task_id = stack["task"]["id"]
+    await svc.stop()
+
+    # Перезапуск против той же durable базы.
+    app2, svc2 = await start_app(settings, start_workers=False)
+    async with client_for(app2, svc2) as client2:
+        class _Env2:
+            pass
+        env2 = _Env2()
+        env2.client, env2.svc = client2, svc2
+        svc2.registry.adapter_factory = lambda m, p: FakeAdapter("Готово.")
+        await _run_once(env2)               # ничего исполнять не должно
+        task = (await client2.get(f"/api/tasks/{task_id}")).json()["task"]
+        assert task["status"] == "completed"
+        async with svc2.db.session() as s:
+            calls = (await s.execute(sa.select(dbm.tool_calls).where(
+                dbm.tool_calls.c.task_id == task_id))).fetchall()
+    await svc2.stop()
+
+    assert log.read_text(encoding="utf-8") == "X", "side effect повторился после рестарта"
+    assert len(calls) == 1, f"дубликат чека исполнения: {len(calls)}"
 
 
 # --------------------------------------------------------------------- IDEMPOTENCY

@@ -48,6 +48,19 @@ jobs:
           # mcp — опциональная группа: без неё рантайм честно отвечает
           # «недоступно», но в CI мы хотим прогонять и его тесты
           python -m pip install -e "./command-center[dev,mcp,browser]"
+          # asyncpg/redis — НЕ зависимости Command Center и намеренно ими не
+          # становятся. Их требует ровно один тест: test_fable_hard_cap.py::
+          # test_both_paths_share_one_ledger запускает дочерний интерпретатор с
+          # PYTHONPATH на bossman-core и импортирует `bossman.apprentice`, чей
+          # __init__ тянет цепочку до bossman/db.py (asyncpg) и bossman/runner.py
+          # (redis). Без них тест падал в CI на КАЖДОМ коммите этой ветки, то
+          # есть проверка «у Fable и Command Center один потолок в $3, а не два»
+          # не выполнялась ни разу. Ставятся только сами пакеты: `pip install -e
+          # ./bossman-core` положил бы bossman-core на sys.path родительского
+          # pytest-процесса, а этот тест сознательно так не делает (см. его
+          # докстринг) — дочерний процесс находит пакет через свой PYTHONPATH.
+          # Список — подмножество объявленных зависимостей bossman-core/pyproject.toml.
+          python -m pip install asyncpg redis
 
       - name: Python compile
         run: python -m compileall -q command-center/bcc command-center/tests

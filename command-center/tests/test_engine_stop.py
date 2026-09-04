@@ -169,15 +169,22 @@ async def test_a_connection_broken_by_a_cancel_is_not_returned_to_the_pool(tmp_p
     from bcc.db import Database
 
     db = Database(f"sqlite+aiosqlite:///{tmp_path / 'pool.sqlite'}")
-    taken: list[int] = []
+    # Храним САМИ объекты соединений, а не их id(). id() освобождённого объекта
+    # переиспользуется аллокатором CPython: после invalidate() старое соединение
+    # закрывается и удаляется, а следующее может лечь по тому же адресу — тогда
+    # `id(new) != id(old)` ложно падало, хотя пул отработал правильно. Это давало
+    # нестабильное падение (на одном и том же коммите py3.11 падал, py3.12 нет).
+    # Сильная ссылка исключает переиспользование адреса, а сравнение идёт по
+    # идентичности объектов — проверка стала строже, а не слабее.
+    taken: list = []
     sa.event.listen(db.engine.sync_engine, "checkout",
-                    lambda dbapi_con, rec, proxy: taken.append(id(dbapi_con)))
+                    lambda dbapi_con, rec, proxy: taken.append(dbapi_con))
 
     async with db.session() as s:
         await s.execute(sa.text("SELECT 1"))
     async with db.session() as s:
         await s.execute(sa.text("SELECT 1"))
-    assert taken[0] == taken[1], "обычное закрытие обязано вернуть соединение в пул"
+    assert taken[0] is taken[1], "обычное закрытие обязано вернуть соединение в пул"
 
     with contextlib.suppress(asyncio.CancelledError):
         async with db.session() as s:
@@ -186,7 +193,7 @@ async def test_a_connection_broken_by_a_cancel_is_not_returned_to_the_pool(tmp_p
     async with db.session() as s:
         assert (await s.execute(sa.text("SELECT 1"))).scalar_one() == 1
 
-    assert taken[-1] != taken[-2], (
+    assert taken[-1] is not taken[-2], (
         "соединение, на котором случилась отмена, вернулось в пул — "
         "следующий запрос получит мёртвое")
     await db.engine.dispose()

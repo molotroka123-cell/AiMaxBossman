@@ -328,19 +328,32 @@ async def _has_family_tool_call(svc, run_id: int, tool_sources: frozenset[str],
     защиты для них — сам факт исполнения. «Отклонено политикой»/«ошибка
     инструмента» — это НЕ «инструментальный путь пройден», это ровно то, что
     критическое правило задания называет прямо: инструмент попытался и не
-    смог — не является доказательством, что запрошенный эффект наступил."""
+    смог — не является доказательством, что запрошенный эффект наступил.
+
+    ЧИТАЮЩИЕ инструменты семейства не считаются доказательством вообще:
+    `memory.search` — не `memory.write`, а перечисление/описание инструментов
+    MCP-сервера — не выполненное им действие («tool discovered» != «tool
+    action succeeded»). Поэтому засчитываются только те имена, которые
+    `_family_tool_names` относит к неЧИТАЮЩИМ (category != "read"). Инструмент,
+    которого в реестре уже нет (например, MCP-сервер отключили), не
+    засчитывается: недоказуемое не повышается до доказанного."""
     if not tool_sources:
+        return False
+    acting = _family_tool_names(tool_sources)
+    if not acting:
         return False
     async with svc.db.session() as s:
         if call_filter is None:
             row = (await s.execute(sa.select(tool_calls_t.c.id).where(sa.and_(
                 tool_calls_t.c.run_id == run_id,
                 tool_calls_t.c.source.in_(tool_sources),
+                tool_calls_t.c.tool.in_(acting),
                 tool_calls_t.c.status == "executed")).limit(1))).first()
             return row is not None
         rows = (await s.execute(sa.select(tool_calls_t).where(sa.and_(
             tool_calls_t.c.run_id == run_id,
             tool_calls_t.c.source.in_(tool_sources),
+            tool_calls_t.c.tool.in_(acting),
             tool_calls_t.c.status == "executed")))).fetchall()
     return any(call_filter(dict(r._mapping)) for r in rows)
 
