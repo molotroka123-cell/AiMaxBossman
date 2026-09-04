@@ -176,12 +176,87 @@ def _is_git_mutation_call(row: dict) -> bool:
     через terminal.run. «terminal.run исполнен» само по себе НЕ говорит,
     что это был именно push/commit — живой пробой владельца это нашло
     («измени файл, запусти тест и закоммить» с одним посторонним
-    terminal.run закрывало и push). Здесь — единственная в этом файле
-    проверка АРГУМЕНТОВ уже найденного вызова, а не только его источника."""
+    terminal.run закрывало и push). Здесь — проверка АРГУМЕНТОВ уже
+    найденного вызова, а не только его источника."""
     if row.get("tool") != "terminal.run":
         return False
     args = row.get("args") if isinstance(row.get("args"), dict) else {}
     return bool(_GIT_MUTATION_CMD_RE.search(str(args.get("command") or "")))
+
+
+# Команды, которые заведомо НИЧЕГО не меняют: ими нельзя «исправить код».
+# Список закрытый и намеренно маленький — сюда попадает только то, про что
+# точно известно, что оно читает (или не делает ничего), включая прогон
+# тестов: «запустил pytest» — это проверка, а не починка.
+_READONLY_HEADS = frozenset({
+    "ls", "dir", "pwd", "cat", "head", "tail", "less", "more", "echo", "printf",
+    "which", "type", "file", "stat", "tree", "env", "printenv", "whoami", "date",
+    "find", "grep", "rg", "ag", "wc", "diff", "du", "df", "uname", "id", "history",
+    "true", "false", ":", "sleep", "test", "sha256sum", "md5sum",
+    "pytest", "tox", "nox", "mypy", "ruff", "flake8", "pylint", "black", "isort",
+})
+# `git` решается по подкоманде: status/diff/log читают, commit/apply/checkout — нет.
+_READONLY_GIT_SUBCOMMANDS = frozenset({
+    "status", "diff", "log", "show", "branch", "remote", "rev-parse", "ls-files",
+    "blame", "describe", "config", "fetch", "shortlog", "tag", "grep",
+})
+_ENV_PREFIX_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+# Перенаправление в файл — изменение, даже если голова команды «читающая»
+# (`echo x > calc.py` правит файл). `2>&1` и `<` сюда не попадают.
+_WRITE_REDIRECT_RE = re.compile(r"(?<![0-9<>])>>?(?!&)")
+
+
+def _looks_like_mutation(command: str) -> bool:
+    """Меняет ли эта shell-команда что-нибудь. Инвертированная проверка:
+    НЕ «узнаём известные записи» (их бесконечно много: `python fix.py`,
+    `make`, `npm run build`, свой скрипт — канонический путь правки в этой
+    кодовой базе как раз такой, см. tests/test_v21_tools_terminal_browser.py),
+    а «узнаём известные ЧТЕНИЯ» и всё остальное считаем изменением.
+
+    Направление ошибки выбрано осознанно: незнакомая читающая команда будет
+    ошибочно принята за изменение (гарантия слабее, чем у GITHUB_ACTION, где
+    сверка точная), зато настоящая правка незнакомой формы НЕ будет ошибочно
+    заблокирована. Демонстрационный обход (`echo hi`, `ls`, `git status`,
+    `pytest` вместо реальной починки) этим ловится."""
+    cmd = str(command or "").strip()
+    if not cmd:
+        return False
+    if _WRITE_REDIRECT_RE.search(cmd):
+        return True
+    for segment in re.split(r"&&|\|\||;|\||\n", cmd):
+        tokens = segment.strip().split()
+        while tokens and (_ENV_PREFIX_RE.match(tokens[0])
+                          or tokens[0] in ("sudo", "env", "nohup", "time", "command")):
+            tokens = tokens[1:]
+        if not tokens:
+            continue
+        head = tokens[0].rsplit("/", 1)[-1]
+        if head == "git":
+            sub = next((t for t in tokens[1:] if not t.startswith("-")), "")
+            if sub not in _READONLY_GIT_SUBCOMMANDS:
+                return True
+            continue
+        if head not in _READONLY_HEADS:
+            return True
+    return False
+
+
+def _is_code_mutation_call(row: dict) -> bool:
+    """CODE_ACTION («исправь баг в коде») делит семейство terminal с
+    TERMINAL_FILE_ACTION и GITHUB_ACTION, поэтому «terminal.run исполнен»
+    для него так же недостаточно, как оказалось недостаточно для push.
+
+    Но канонической команды «почини код» не существует (в отличие от
+    `git commit`), поэтому проверка здесь другой формы: любой вызов
+    opencode.* — это уже исполнитель, созданный ровно для правки кода, и
+    он засчитывается сам по себе; terminal.run засчитывается, только если
+    команда не является заведомо читающей (_looks_like_mutation)."""
+    if row.get("source") == "opencode":
+        return True
+    if row.get("tool") != "terminal.run":
+        return False
+    args = row.get("args") if isinstance(row.get("args"), dict) else {}
+    return _looks_like_mutation(str(args.get("command") or ""))
 
 
 # Порядок — приоритет из задания (1..12), browser (MODULE 1) исключён намеренно.
@@ -190,7 +265,7 @@ CAPABILITIES: tuple[Capability, ...] = (
               evidence=_terminal_evidence),
     Capability("APPS_ACTION", _clause_re(_OPEN_VERB, _APP_TOPIC), frozenset({"apps"})),
     Capability("CODE_ACTION", _clause_re(_FIX_VERB, _CODE_TOPIC),
-              frozenset({"opencode", "terminal"})),
+              frozenset({"opencode", "terminal"}), call_filter=_is_code_mutation_call),
     Capability("GITHUB_ACTION", re.compile(
         _GIT_VERB_FUSED + "|" + _clause_re(_CREATE_VERB, _GITHUB_TOPIC).pattern,
         re.I | re.U), frozenset({"terminal"}), call_filter=_is_git_mutation_call),

@@ -209,6 +209,35 @@ async def _run_once(env):
         await env.svc.engine.execute(run_id)
 
 
+async def _drive_with_approvals(env, task_id, *, ticks: int = 30) -> str | None:
+    """Крутит настоящий воркер и одобряет всё, что просит подтверждения.
+
+    Нужен там, где путь задачи содержит ASK-границу (project_host у
+    terminal.run — всегда ASK) И последующий повтор после вето гейта:
+    одного `_run_task` мало, потому что после одобрения задача уходит на
+    второй круг, где гейт выносит окончательный вердикт."""
+    import asyncio
+    env.svc.engine.poll_interval = 0.02
+    worker = asyncio.create_task(env.svc.engine.worker_loop())
+    watcher = asyncio.create_task(env.svc.engine.approval_watcher())
+    status = None
+    try:
+        for _ in range(ticks):
+            await asyncio.sleep(0.2)
+            task = (await env.client.get(f"/api/tasks/{task_id}")).json()["task"]
+            status = task["status"]
+            if status in ("completed", "failed", "stopped"):
+                break
+            for a in (await env.client.get("/api/approvals?status=pending")).json():
+                await env.client.post(f"/api/approvals/{a['id']}",
+                                      json={"approve": True, "by": "test"})
+    finally:
+        worker.cancel()
+        watcher.cancel()
+        await asyncio.gather(worker, watcher, return_exceptions=True)
+    return status
+
+
 FAMILY_CASES = [
     ("apps", "Открой приложение Калькулятор"),
     ("openclaw", "Отправь сообщение в чат"),
@@ -360,25 +389,7 @@ async def test_compound_terminal_and_github_needs_a_real_git_mutation(env, tmp_p
     await env.client.patch(f"/api/agents/{stack['agent']['id']}",
                            json={"permissions": {"terminal.run": True}})
 
-    env.svc.engine.poll_interval = 0.02
-    import asyncio
-    worker = asyncio.create_task(env.svc.engine.worker_loop())
-    watcher = asyncio.create_task(env.svc.engine.approval_watcher())
-    try:
-        status = None
-        for _ in range(30):
-            await asyncio.sleep(0.2)
-            task = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["task"]
-            status = task["status"]
-            if status in ("completed", "failed", "stopped"):
-                break
-            for a in (await env.client.get("/api/approvals?status=pending")).json():
-                await env.client.post(f"/api/approvals/{a['id']}", json={"approve": True, "by": "t"})
-    finally:
-        worker.cancel()
-        watcher.cancel()
-        await asyncio.gather(worker, watcher, return_exceptions=True)
-
+    status = await _drive_with_approvals(env, stack["task"]["id"])
     assert status == "failed"
     async with env.svc.db.session() as s:
         events = (await s.execute(sa.select(dbm.events).where(
@@ -401,6 +412,87 @@ async def test_schedules_automation_phrasing_does_not_falsely_complete(env):
     await _run_once(env)
     task = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["task"]
     assert task["status"] == "failed"
+
+
+# ------------------------------------------------------------------- CODE_ACTION
+
+@pytest.mark.parametrize("command", [
+    "echo hi", "ls -la", "git status", "git log --oneline -5", "pytest -q",
+    "cat calc.py", "grep -rn bug .", "true", "ruff check .",
+])
+def test_readonly_commands_are_not_code_mutations(command):
+    """Читающие команды и прогон тестов — не починка кода. Именно этим
+    классом команд обходился CODE_ACTION до появления call_filter."""
+    assert ac._is_code_mutation_call(
+        {"tool": "terminal.run", "source": "terminal", "args": {"command": command}}) is False
+
+
+@pytest.mark.parametrize("command", [
+    "python edit_calc.py",          # канонический путь правки в тестах этой кодовой базы
+    "sed -i s/a/b/ calc.py", "echo fixed > calc.py", "git apply fix.patch",
+    "make build", "cp new.py calc.py",
+])
+def test_real_edit_commands_count_as_code_mutations(command):
+    """Обратная сторона того же выбора: настоящая правка незнакомой формы не
+    должна ошибочно блокироваться (см. _looks_like_mutation)."""
+    assert ac._is_code_mutation_call(
+        {"tool": "terminal.run", "source": "terminal", "args": {"command": command}}) is True
+
+
+def test_opencode_call_is_code_proof_by_itself():
+    """opencode.* — исполнитель, созданный ровно для правки кода: отдельной
+    проверки команды ему не нужно."""
+    assert ac._is_code_mutation_call(
+        {"tool": "opencode.send", "source": "opencode", "args": {"text": "почини"}}) is True
+
+
+async def test_code_action_not_satisfied_by_an_unrelated_terminal_call(env, tmp_path):
+    """Тот же класс обхода, что владелец нашёл живым пробоем для GITHUB, но
+    для CODE_ACTION: модель реально дёрнула terminal.run (`git status`),
+    ничего не починила и заявила текстом «баг исправлен». Завершаться не
+    должно."""
+    work = tmp_path / "repo"
+    work.mkdir()
+    await _allow_root(env, work)
+
+    adapter = ToolAdapter([
+        ("tool", "terminal_run", {"command": "git status", "mode": "project_host",
+                                  "cwd": str(work)}),
+        ("text", "Баг в коде исправлен, всё готово."),
+    ])
+    stack = await _stack_with_tools(env, ["terminal.run"], adapter=adapter,
+                                    prompt="Исправь баг в коде", max_steps=10)
+    await env.client.patch(f"/api/agents/{stack['agent']['id']}",
+                           json={"permissions": {"terminal.run": True}})
+    status = await _drive_with_approvals(env, stack["task"]["id"])
+    assert status == "failed"
+
+    async with env.svc.db.session() as s:
+        events = (await s.execute(sa.select(dbm.events).where(
+            dbm.events.c.kind == "action_contract.blocked"))).fetchall()
+    assert any(e._mapping["data"].get("capabilities") == ["CODE_ACTION"] for e in events)
+
+
+async def test_code_action_satisfied_by_a_real_edit(env, tmp_path):
+    """Позитивная сторона: настоящая правка файла через terminal.run
+    закрывает CODE_ACTION — фильтр не блокирует реальную работу."""
+    work = tmp_path / "repo"
+    work.mkdir()
+    (work / "calc.py").write_text("def add(a, b):\n    return a - b\n", encoding="utf-8")
+    await _allow_root(env, work)
+
+    fix = "python -c \"open('calc.py','w').write('def add(a, b):\\n    return a + b\\n')\""
+    adapter = ToolAdapter([
+        ("tool", "terminal_run", {"command": fix, "mode": "project_host", "cwd": str(work)}),
+        ("text", "Баг исправлен."),
+    ])
+    stack = await _stack_with_tools(env, ["terminal.run"], adapter=adapter,
+                                    prompt="Исправь баг в коде", max_steps=10)
+    await env.client.patch(f"/api/agents/{stack['agent']['id']}",
+                           json={"permissions": {"terminal.run": True}})
+    status = await _drive_with_approvals(env, stack["task"]["id"])
+    assert status == "completed"
+    assert "a + b" in (work / "calc.py").read_text(encoding="utf-8")
 
 
 # -------------------------------------------------------------------- CACHE_REPLAY
