@@ -61,13 +61,12 @@ _TEXT_CALL_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"```[a-z]*\s*\{\s*[^}]{0,200}web[._](?:search|open|find|cite)", re.I),
 )
 
-# Маркер ссылки в ответе: [w1] или [l3@host/path]. Достаточно ЛЮБОГО — гейт
-# проверяет наличие ссылок, а не их правильность: за правильность отвечает
-# web.cite, который сверяет цитату с текстом дословно.
-_MARKER = re.compile(r"\[[wl]\d{1,3}(?:@[^\]]{0,200})?\]")
+# Маркер ссылки в ответе: [w1] или [l3@host/path].
+_MARKER = re.compile(r"\[([wl]\d{1,3}(?:@[^\]]{0,200})?)\]")
 
 RULE_TEXT_CALL = "text_call"
 RULE_UNCITED = "uncited"
+RULE_UNVERIFIED = "unverified"
 
 
 def looks_like_text_call(answer: str) -> bool:
@@ -88,6 +87,35 @@ def looks_like_text_call(answer: str) -> bool:
 
 def has_citation_marker(answer: str) -> bool:
     return bool(_MARKER.search(str(answer or "")))
+
+
+def markers(answer: str) -> list[str]:
+    """Токены из маркеров ответа, в порядке появления и без повторов."""
+    seen: list[str] = []
+    for token in _MARKER.findall(str(answer or "")):
+        if token not in seen:
+            seen.append(token)
+    return seen
+
+
+def verified_markers(book: Any, answer: str) -> list[str]:
+    """Маркеры, за которыми стоит ПРОВЕРЕННАЯ цитата.
+
+    Проверенной ссылка становится ровно в одном месте — в успешной ветке
+    web.cite, где текст цитаты дословно найден в теле страницы и записано
+    наблюдение. Всё остальное — и выдуманный `[w9]`, и настоящий номер
+    страницы, которую модель открыла, но не цитировала, — здесь не считается:
+    иначе «со ссылкой» означало бы «модель напечатала скобки».
+    """
+    out: list[str] = []
+    for token in markers(answer):
+        try:
+            entry, _ = book.resolve_with_reason(token)
+        except Exception:  # noqa: BLE001 — реестр мог быть повреждён
+            entry = None
+        if entry is not None and getattr(entry, "cited_at", ""):
+            out.append(token)
+    return out
 
 
 def _verdict(verdict: str, *, rule: str = "", feedback: str = "") -> dict[str, Any]:
@@ -149,15 +177,31 @@ async def _decide(svc: Any, run_id: Any, answer: Any) -> dict[str, Any]:
         await _emit(svc, "web.text_call_detected", run_id=str(run_id))
         return _verdict("PASS", rule=RULE_TEXT_CALL)
 
-    if opened and not has_citation_marker(text):
+    if opened:
+        if verified_markers(book, text):
+            return _verdict("PASS")           # цитата сверена дословно — это доказательство
+
+        # Дальше два разных случая, и путать их нельзя. Ответ вообще без
+        # маркеров — модель забыла сослаться. Ответ с маркерами, за которыми
+        # ничего не стоит, — хуже: он ВЫГЛЯДИТ подтверждённым. Оба получают по
+        # одной корректирующей попытке и оба, если она не помогла, проходят —
+        # но проходят названными, а не молча.
+        printed = markers(text)
+        rule = RULE_UNVERIFIED if printed else RULE_UNCITED
+        # Счётчик ОБЩИЙ на оба случая, хотя тексты просьбы разные. Иначе модель,
+        # ответившая сперва без маркеров, а потом с пустым маркером, получила бы
+        # две просьбы вместо одной — то есть ту самую петлю, ради отсутствия
+        # которой потолок и заведён.
         if book.gate_attempts(RULE_UNCITED) == 0:
             book.bump_gate(RULE_UNCITED)
             book.save()
-            return _verdict("FAIL", rule=RULE_UNCITED,
-                            feedback=render.render_gate_feedback(RULE_UNCITED, opened))
-        await _emit(svc, "web.uncited_answer", run_id=str(run_id),
-                    pages=len(opened))
-        return _verdict("PASS", rule=RULE_UNCITED)
+            return _verdict("FAIL", rule=rule,
+                            feedback=render.render_gate_feedback(rule, opened))
+        await _emit(svc, "web.citation_unverified" if printed else "web.uncited_answer",
+                    run_id=str(run_id), pages=len(opened), markers=printed[:10],
+                    verified=False,
+                    label="веб использован, ссылка не подтверждена")
+        return _verdict("PASS", rule=rule)
 
     return _verdict("PASS")
 

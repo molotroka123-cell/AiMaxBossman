@@ -47,15 +47,15 @@ jobs:
           python -m pip install --upgrade pip
           # mcp — опциональная группа: без неё рантайм честно отвечает
           # «недоступно», но в CI мы хотим прогонять и его тесты
-          python -m pip install -e "./command-center[dev,mcp]"
+          python -m pip install -e "./command-center[dev,mcp,browser]"
 
       - name: Python compile
         run: python -m compileall -q command-center/bcc command-center/tests
 
       - name: Chromium для Playwright
-        run: |
-          python -m pip install playwright
-          python -m playwright install --with-deps chromium
+        # Сам Playwright ставится группой browser из pyproject (зависимость
+        # объявлена, а не досыпается здесь руками); тут остаётся только браузер.
+        run: python -m playwright install --with-deps chromium
 
       - name: Pytest
         working-directory: command-center
@@ -71,6 +71,11 @@ jobs:
           # skip'аются, чтобы не держать required-проверку красной из-за инфра-
           # зависа; локально и на железе продолжают гоняться.
           BCC_CI_SKIP_RUNNER_HANGS: "1"
+          # Браузер здесь ставится намеренно, значит браузерные тесты обязаны
+          # ВЫПОЛНИТЬСЯ. Без этого флага «браузера нет — пропустили» и «браузер
+          # есть — прошли» выглядят в отчёте одинаково, и потерянное покрытие
+          # заметить нельзя. С флагом пропуск становится красным тестом.
+          BCC_REQUIRE_BROWSER: "1"
         # pytest-timeout (в dev-зависимостях): единичный зависший тест — обычно
         # браузерный, ждущий сети/headless — ПАДАЕТ на 180с и виден, а не съедает
         # весь бюджет job'а. signal-метод (SIGALRM) прерывает даже зависший в

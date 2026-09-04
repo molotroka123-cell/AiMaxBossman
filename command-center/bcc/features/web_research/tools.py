@@ -1186,6 +1186,11 @@ async def tool_cite(args: dict, ctx: ToolContext) -> ToolResult:
             hint="скажи владельцу, что цитата не сохранена, и не ссылайся на неё"),
             "web.cite: наблюдение не записано")
 
+    # Цитата найдена дословно и наблюдение записано — только теперь ссылка
+    # считается подтверждённой. Гейт финального ответа смотрит именно на эту
+    # отметку: маркер [w1], напечатанный моделью от руки, ею не становится.
+    led.note_cite(entry.ref)
+
     text = render.render_cite_ok(entry, quote, index, page=page,
                                  offset=offset, length=length)
     return _ok(text, f"web.cite: [{index}] {entry.ref}",

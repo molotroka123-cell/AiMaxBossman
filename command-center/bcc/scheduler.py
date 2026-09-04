@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import asyncio
+
+from .lifecycle import sleep_or_stop, stopping
 import time
 from datetime import datetime, timedelta
 
@@ -26,6 +28,9 @@ class Scheduler:
         self.engine = engine
         self.tick_seconds = tick_seconds
         self.last_tick: float = 0.0        # для health в /api/system
+        # Ставится Services.stop(): петля выходит сама, не будучи
+        # оборванной посреди запроса к базе (см. bcc/lifecycle.py).
+        self.stop_event: asyncio.Event | None = None
 
     # ---------- CRUD ----------
 
@@ -64,7 +69,7 @@ class Scheduler:
     # ---------- тик ----------
 
     async def loop(self) -> None:
-        while True:
+        while not stopping(self.stop_event):
             self.last_tick = time.monotonic()
             try:
                 await self.tick_once()
@@ -72,7 +77,8 @@ class Scheduler:
                 raise
             except Exception as exc:
                 await self.bus.emit("scheduler.error", message=f"{type(exc).__name__}: {exc}")
-            await asyncio.sleep(self.tick_seconds)
+            if await sleep_or_stop(self.stop_event, self.tick_seconds):
+                return
 
     async def tick_once(self, now: datetime | None = None) -> list[int]:
         """Сработавшие расписания → task+run; возвращает id созданных задач."""

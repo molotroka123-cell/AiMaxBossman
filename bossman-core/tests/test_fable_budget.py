@@ -9,6 +9,7 @@ import pytest
 
 from bossman.apprentice.errors import BudgetExhausted
 from bossman.apprentice.fable_direct import DirectApiBudget
+from fable_ledger_guard import fable_ledger_off_the_real_machine  # noqa: F401
 
 
 def test_reserve_commit_release_and_remaining(tmp_path: Path):

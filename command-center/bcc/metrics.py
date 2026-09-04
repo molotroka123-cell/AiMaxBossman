@@ -6,6 +6,8 @@ GPU определяется best effort (nvidia-smi / sysfs); нет GPU — п
 from __future__ import annotations
 
 import asyncio
+
+from .lifecycle import sleep_or_stop, stopping
 import shutil
 import subprocess
 import time
@@ -32,6 +34,9 @@ class MetricsSampler:
         self.disk_path = disk_path
         self.last_tick: float = 0.0
         self.last_sample: dict | None = None
+        # Ставится Services.stop(): петля выходит сама, не будучи
+        # оборванной посреди запроса к базе (см. bcc/lifecycle.py).
+        self.stop_event: asyncio.Event | None = None
 
     def read(self) -> dict:
         """Мгновенный снимок (без обращения к БД)."""
@@ -74,14 +79,15 @@ class MetricsSampler:
 
     async def loop(self) -> None:
         psutil.cpu_percent(interval=None)   # первый вызов psutil всегда 0.0 — прогреваем
-        while True:
+        while not stopping(self.stop_event):
             try:
                 await self.sample()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 await self.bus.emit("metrics.error", message=f"{type(exc).__name__}: {exc}")
-            await asyncio.sleep(self.interval)
+            if await sleep_or_stop(self.stop_event, self.interval):
+                return
 
 
 _gpu_cache: tuple[float, list[dict] | None] = (0.0, None)

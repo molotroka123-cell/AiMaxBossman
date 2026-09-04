@@ -35,6 +35,7 @@ from .sessions import COOKIE_NAME, CSRF_HEADER, SAFE_METHODS, SessionStore, cook
 from .config import Settings, settings as default_settings
 from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
                  rows_dicts, task_runs as runs_t, tasks as tasks_t, utcnow)
+from .lifecycle import sleep_or_stop
 from .engine import TaskEngine
 from .events import EventBus
 from .metrics import MetricsSampler
@@ -73,6 +74,13 @@ class Services:
         self.engine.services = self         # V2.1: инструментам нужен доступ к сервисам
         self.scheduler = Scheduler(self.db, self.bus, self.engine)
         self.metrics = MetricsSampler(self.db, self.bus)
+        # Мягкая остановка фоновых петель. Отмена посреди запроса к базе рвёт
+        # соединение так, что вернуть его в пул уже нельзя ничем — по паре на
+        # петлю за каждую остановку (см. bcc/lifecycle.py).
+        self._stopping = asyncio.Event()
+        self._graceful: set[asyncio.Task] = set()
+        self.scheduler.stop_event = self._stopping
+        self.metrics.stop_event = self._stopping
         self.approvals = Approvals(self.db, self.bus)
         self.sessions = SessionStore(self.db, ttl_hours=settings.session_ttl_hours)
         self._wire_v2_managers()             # skills / terminal / browser (пак)
@@ -108,6 +116,11 @@ class Services:
             self.browser = None  # Playwright может быть не установлен — это норм
 
     async def start(self) -> None:
+        # Флаг остановки взводится один раз и навсегда — но start() после
+        # stop() в одном процессе обязан поднимать живые петли, а не сразу
+        # выходящие. Поэтому снимаем его здесь, а не полагаемся на то, что
+        # так никто не делает.
+        self._stopping.clear()
         await self.db.create_all()
         for feature in self.features:        # хуки engine и подписки — до старта worker'а
             if feature.setup:
@@ -118,22 +131,30 @@ class Services:
             # setup() выше (missions, benchlab, failure_to_case). Присваивание
             # затирало бы их ручки, и stop() не отменял бы подписку — в тестах
             # это не видно, потому что там start_workers=False.
-            self._tasks += [
-                asyncio.create_task(self.engine.worker_loop(), name="bcc-worker"),
+            graceful = [
                 asyncio.create_task(self.scheduler.loop(), name="bcc-scheduler"),
                 asyncio.create_task(self.metrics.loop(), name="bcc-metrics"),
+            ]
+            self._tasks += [
+                asyncio.create_task(self.engine.worker_loop(), name="bcc-worker"),
                 # V2.1: решение по approval возвращает ожидающий run в очередь
                 asyncio.create_task(self.engine.approval_watcher(), name="bcc-approvals"),
-            ]
+            ] + graceful
             for feature in self.features:
                 if feature.tick and feature.tick_seconds > 0:
-                    self._tasks.append(asyncio.create_task(
-                        self._feature_tick(feature), name=f"bcc-{feature.name}"))
+                    task = asyncio.create_task(self._feature_tick(feature),
+                                               name=f"bcc-{feature.name}")
+                    self._tasks.append(task)
+                    graceful.append(task)
+            # Только эти петли умеют выходить по флагу. Ждать в stop() ВСЕХ
+            # нельзя: подписки фич флага не смотрят, и остановка каждый раз
+            # упиралась бы в полный предел ожидания вместо миллисекунд.
+            self._graceful.update(graceful)
 
     async def _feature_tick(self, feature: Any) -> None:
         """Фоновая петля фичи (Governor, Healing, истечение резервов…):
         ошибка одного тика логируется и не убивает петлю."""
-        while True:
+        while not self._stopping.is_set():
             try:
                 await feature.tick(self)
             except asyncio.CancelledError:
@@ -141,7 +162,8 @@ class Services:
             except Exception as exc:
                 await self.bus.emit("worker.error",
                                     message=f"tick {feature.name}: {type(exc).__name__}: {exc}")
-            await asyncio.sleep(feature.tick_seconds)
+            if await sleep_or_stop(self._stopping, feature.tick_seconds):
+                return
 
     #: Сколько ждать отменённые фоновые задачи. Предел нужен потому, что не всё
     #: отменяемо: `asyncio.to_thread` прерывать нельзя — поток дописывает своё, и
@@ -150,7 +172,23 @@ class Services:
     #: видно как teardown на 178 секунд и срабатывание pytest-timeout).
     STOP_TIMEOUT = 10.0
 
+    #: Сколько ждать МЯГКОГО выхода петель, прежде чем рвать их отменой. Петля
+    #: выходит на своей же точке — дописав то, что начала, — поэтому обычно это
+    #: миллисекунды. Предел нужен на случай долгого тика.
+    STOP_GRACE = 2.0
+
     async def stop(self) -> None:
+        # Фаза 1: попросить. Отмена во время запроса к базе рвёт соединение
+        # внутри драйвера, и вернуть его в пул нельзя уже ничем: dispose() до
+        # выданных соединений не достаёт. Петля, вышедшая сама, отдаёт всё.
+        self._stopping.set()
+        soft = [t for t in self._graceful if not t.done()]
+        if soft:
+            await asyncio.wait(soft, timeout=self.STOP_GRACE)
+        self._graceful.clear()
+        # Фаза 2: как раньше — кто не вышел, того отменяем. Остановка обязана
+        # быть конечной, и петля без мягкого выхода (worker, approval_watcher)
+        # по-прежнему завершается отменой.
         for task in self._tasks:
             task.cancel()
         pending = [t for t in self._tasks if not t.done()]

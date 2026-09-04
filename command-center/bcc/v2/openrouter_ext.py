@@ -6,6 +6,8 @@ from typing import Any
 
 import httpx
 
+from ..providers import ProviderError, http_client
+
 DEFAULT_BASE = "https://openrouter.ai/api/v1"
 
 def _float(v: Any, default: float = 0.0) -> float:
@@ -84,7 +86,11 @@ class OpenRouterClient:
         }
 
     def _client(self, timeout: float = 60) -> httpx.AsyncClient:
-        return httpx.AsyncClient(timeout=timeout, transport=self.transport)
+        # openrouter.ai — адрес удалённый, и настроенный владельцем прокси для
+        # него законен. Общий помощник оставляет прокси в силе и переводит
+        # неподдержанный socks5 в обычную сетевую недоступность вместо
+        # ImportError, которого здесь никто не ловил.
+        return http_client(self.base_url, timeout=timeout, transport=self.transport)
 
     async def validate_key(self) -> tuple[str, str]:
         """Проверка ключа без инференса: GET /key.
@@ -96,8 +102,11 @@ class OpenRouterClient:
         try:
             async with self._client(15) as client:
                 r = await client.get(f"{self.base_url}/key", headers=self._headers())
-        except httpx.HTTPError:
-            return "network", "нет связи с OpenRouter"
+        except (httpx.HTTPError, ProviderError) as exc:
+            # ProviderError сюда приходит от http_client: прокси из окружения
+            # настроен, но не поддержан сборкой. Для владельца это та же
+            # «нет связи», только с причиной, которую можно устранить.
+            return "network", f"нет связи с OpenRouter: {exc}"
         if r.status_code == 401:
             return "invalid", "ключ отклонён OpenRouter (401)"
         if r.status_code >= 400:

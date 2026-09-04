@@ -22,6 +22,8 @@ from typing import Any
 
 import httpx
 
+from ..providers import ProviderError, http_client
+
 # Порядок проб для health: сначала v2-эндпоинт здоровья, затем то, что точно
 # есть у более старых сборок. Первый ответ < 500 означает «сервер жив».
 HEALTH_PATHS = ("/api/health", "/doc", "/config", "/project")
@@ -45,13 +47,18 @@ class OpenCodeBridge:
     directory: str = ""            # дефолтный проект, если вызов не задал свой
 
     def _client(self, timeout: float = 60) -> httpx.AsyncClient:
+        """То же правило про прокси, что и у провайдеров, — из одного места.
+
+        `opencode serve` слушает на этой же машине, а httpx по умолчанию читает
+        ALL_PROXY/HTTP_PROXY из окружения: запрос к 127.0.0.1:4096 уходил на
+        прокси, который про этот адрес ничего не знает. При socks5-прокси без
+        socksio до этого даже не доходило — клиент падал ImportError'ом прямо в
+        конструкторе, и health(), обязанный отвечать «unavailable» вместо
+        исключения, отдавал пятисотку.
+        """
         auth = (self.username, self.password) if self.password else None
-        return httpx.AsyncClient(
-            base_url=self.base_url.rstrip("/"),
-            timeout=timeout,
-            auth=auth,
-            transport=self.transport,
-        )
+        return http_client(self.base_url, timeout=timeout, transport=self.transport,
+                           base_url=self.base_url.rstrip("/"), auth=auth)
 
     def _params(self, directory: str = "", **extra) -> dict | None:
         params = {k: v for k, v in extra.items() if v is not None}
@@ -73,7 +80,7 @@ class OpenCodeBridge:
             try:
                 async with self._client(timeout) as c:
                     r = await c.get(path)
-            except (httpx.HTTPError, OSError) as exc:
+            except (httpx.HTTPError, OSError, ProviderError) as exc:
                 last = type(exc).__name__
                 continue
             if r.status_code < 500:

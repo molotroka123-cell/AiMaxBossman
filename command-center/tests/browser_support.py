@@ -12,10 +12,19 @@
 """
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
 PREINSTALLED = Path("/opt/pw-browsers/chromium")
+# CI ставит Playwright и Chromium намеренно и обязана их ПРОГНАТЬ. Без этого
+# флага «браузера нет — пропустили» и «браузер есть — прошли» выглядят в
+# отчёте одинаково, и потерянное покрытие заметить нельзя.
+REQUIRE_ENV = "BCC_REQUIRE_BROWSER"
+
+
+def required() -> bool:
+    return os.environ.get(REQUIRE_ENV, "").strip().lower() in ("1", "true", "yes")
 
 
 @lru_cache(maxsize=1)
@@ -39,4 +48,4 @@ def reason() -> str:
     return "Chromium недоступен: ни /opt/pw-browsers/chromium, ни путь от Playwright"
 
 
-__all__ = ["chromium_available", "reason", "PREINSTALLED"]
+__all__ = ["chromium_available", "reason", "required", "REQUIRE_ENV", "PREINSTALLED"]

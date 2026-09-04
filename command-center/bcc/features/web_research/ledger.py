@@ -216,6 +216,10 @@ class RefEntry:
     minted_at: str = ""
     minted_step: int = 0
     opened_at: str = ""
+    # Время УСПЕШНОЙ проверки цитаты через web.cite. Пустая строка — цитаты не
+    # было. Это единственный признак «источник подтверждён»: сам по себе
+    # маркер [w1] в ответе не значит ничего, его модель печатает от руки.
+    cited_at: str = ""
     raw_digest: str = ""
     body_sha256: str = ""
     status: str = ""
@@ -228,7 +232,7 @@ class RefEntry:
             "origin": self.origin, "subject": self.subject, "title": self.title,
             "snippet": self.snippet, "minted_at": self.minted_at,
             "minted_step": self.minted_step, "opened_at": self.opened_at,
-            "raw_digest": self.raw_digest, "body_sha256": self.body_sha256,
+            "cited_at": self.cited_at, "raw_digest": self.raw_digest, "body_sha256": self.body_sha256,
             "status": self.status, "chars": self.chars, "truncated": self.truncated,
         }
 
@@ -258,6 +262,7 @@ class RefEntry:
             minted_at=_clip(raw.get("minted_at"), 32),
             minted_step=max(0, step),
             opened_at=_clip(raw.get("opened_at"), 32),
+            cited_at=_clip(raw.get("cited_at"), 32),
             raw_digest=_clip(raw.get("raw_digest"), 128),
             body_sha256=_clip(raw.get("body_sha256"), 128),
             status=_clip(raw.get("status"), 64),
@@ -402,7 +407,12 @@ class Ledger:
             # оставляем. Но АДРЕС под уже выданным токеном не наш, чтобы его
             # менять: расхождение здесь означало бы, что владелец одобрил один
             # адрес, а пойдём мы по другому.
-            merged[entry.ref] = ours if ours is not None and ours.url == entry.url else entry
+            keep = ours if ours is not None and ours.url == entry.url else entry
+            # Проверенная цитата — факт, а не поле «посвежее»: если её отметил
+            # любой из двух процессов, она была, и терять её при слиянии нельзя.
+            if ours is not None and ours.url == entry.url:
+                keep.cited_at = keep.cited_at or entry.cited_at
+            merged[entry.ref] = keep
         for token, entry in self._refs.items():
             if token not in merged and len(merged) < MAX_REFS_TOTAL:
                 merged[token] = entry
@@ -727,6 +737,33 @@ class Ledger:
         out["tainted"] = self.tainted
         out["damaged"] = self.damaged
         return out
+
+    # --------------------------------------------- подтверждённые цитаты
+
+    def note_cite(self, ref: str) -> bool:
+        """Отметить, что для этой ссылки web.cite ДОСЛОВНО нашёл цитату.
+
+        Зовётся только из успешной ветки web.cite — то есть после того, как
+        текст цитаты найден в теле страницы и наблюдение записано. Никакой
+        другой путь эту отметку не ставит: иначе «подтверждено» перестало бы
+        что-либо значить.
+        """
+        token = (ref or "").strip()
+        if not token:
+            return False
+
+        def _apply() -> bool:
+            entry = self._refs.get(token) or self._find_by_number(token)
+            if entry is None:
+                return False
+            entry.cited_at = entry.cited_at or _now()
+            return True
+
+        return bool(self._transaction(_apply))
+
+    def cited_refs(self) -> list[RefEntry]:
+        """Ссылки, для которых цитата действительно проверена."""
+        return [e for e in self._refs.values() if e.cited_at]
 
     # ------------------------------------------------- счётчик попыток хука
 

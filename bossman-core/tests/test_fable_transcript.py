@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from bossman.apprentice.fable_transcript import FableTranscriptRecorder, recorder_from_env
+from fable_ledger_guard import fable_ledger_off_the_real_machine  # noqa: F401
 
 BUNDLE = {"ROLE": "auditor", "PROBLEM_ID": "T-001"}
 RESPONSE = '{"attacks": [], "ready": false}'

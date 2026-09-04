@@ -27,6 +27,7 @@ from bossman.apprentice.teacher import (AcceptanceBinding, FallbackReason, Patch
                                         build_bundle, learned_strategy)
 from bossman.apprentice.models import ApprenticeTask
 from bossman.deep_fix import Principal
+from fable_ledger_guard import fable_ledger_off_the_real_machine  # noqa: F401
 
 pytestmark = [pytest.mark.live, pytest.mark.timeout(600)]
 

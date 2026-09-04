@@ -15,8 +15,16 @@ import pytest
 
 from bcc.features import testing_period as tp
 
+from .browser_support import chromium_available, reason as browser_reason, required
 from .conftest import client_for, make_settings, start_app
 from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
+
+# Файл смешанный: почти всё здесь — серверная половина через API, и она обязана
+# гоняться всегда. Поэтому условие висит на трёх браузерных тестах поимённо, а
+# не модульным pytestmark. Импорт модуля, у которого pytestmark есть
+# (test_ux2_thinking_pane), своей отметки сюда НЕ приносит — из-за этого три
+# теста падали с ModuleNotFoundError вместо честного пропуска.
+needs_browser = pytest.mark.skipif(not chromium_available(), reason=browser_reason())
 
 
 @pytest.fixture(autouse=True)
@@ -224,6 +232,7 @@ def _make_repo(repo: Path, *, with_remote: bool = True) -> None:
 
 # --------------------------------------------------------------- живой браузер
 
+@needs_browser
 def test_banner_and_click_recording_work_in_a_real_browser(live):  # noqa: F811
     """Настоящий Chromium: плашка видна, клик доехал до журнала, ошибок консоли нет.
 
@@ -319,6 +328,7 @@ async def test_stop_is_recorded_so_its_absence_becomes_evidence(tmp_path, monkey
     assert data["events"] > 0 and data["uptime_s"] >= 0 and isinstance(data["top"], dict)
 
 
+@needs_browser
 def test_dead_click_is_recorded_in_a_real_browser(live):  # noqa: F811
     """Владелец нажал — и ничего. Именно это должно попасть в журнал.
 
@@ -369,6 +379,7 @@ def test_dead_click_is_recorded_in_a_real_browser(live):  # noqa: F811
     assert not errors, f"ошибки консоли: {errors}"
 
 
+@needs_browser
 def test_a_click_that_works_is_not_called_dead(live):  # noqa: F811
     """Проверка не должна быть «всегда мёртвый»: рабочая кнопка находкой не считается."""
     from playwright.sync_api import sync_playwright
@@ -525,3 +536,19 @@ def test_the_closed_list_of_reasons_matches_what_the_launcher_actually_writes():
         f"лаунчер пишет причину вне закрытого списка: {sorted(written - set(tp.LAUNCH_REASONS))}"
     assert set(tp.LAUNCH_REASONS) - written == set(), \
         f"в списке есть причины, которых никто не пишет: {sorted(set(tp.LAUNCH_REASONS) - written)}"
+
+
+def test_browser_coverage_is_actually_executed_where_it_is_demanded():
+    """Пропуск браузерных тестов там, где их ждут, — это дыра в покрытии.
+
+    Локально без Chromium они честно пропускаются. Но CI ставит Playwright и
+    Chromium специально, и «пропущено» там означает, что проверка тихо исчезла:
+    в строке «N passed» это не видно. Флаг BCC_REQUIRE_BROWSER превращает
+    молчаливый пропуск в красный тест.
+    """
+    if not required():
+        pytest.skip(f"{tp.FLAG.split('_')[0]}: браузерное покрытие не требуется "
+                    f"в этом окружении (нет BCC_REQUIRE_BROWSER)")
+    assert chromium_available(), (
+        "BCC_REQUIRE_BROWSER задан, но Chromium недоступен: браузерные тесты "
+        "были бы пропущены, а отчёт выглядел бы зелёным. " + browser_reason())

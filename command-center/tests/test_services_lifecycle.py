@@ -115,3 +115,51 @@ async def test_stop_still_awaits_tasks_that_cancel_properly(tmp_path):
 
     assert finished.is_set() and task.cancelled()
     assert not getattr(svc, "stop_stragglers", "")
+
+
+@pytest.mark.anyio
+async def test_stop_lets_background_loops_finish_instead_of_severing_them(tmp_path):
+    """Петли выходят сами, а не обрываются посреди запроса к базе.
+
+    Отмена во время запроса рвёт соединение внутри драйвера, и вернуть его в
+    пул после этого нельзя ничем: SQLAlchemy само не знает, в каком оно
+    состоянии, а `dispose()` до выданных соединений не достаёт. Так за каждую
+    остановку терялось по паре соединений на петлю — планировщик, сэмплер
+    метрик и шесть тиков фич, — а сборщик мусора потом ругался
+    «deleted before being closed».
+
+    Проверяется именно это: после остановки петли ЗАВЕРШИЛИСЬ, а не отменены.
+    Ждать здесь самой утечки нельзя — она случается, только если отмена попала
+    ровно в запрос, то есть тест был бы «иногда красный». Отсутствие отмены —
+    тот же факт, но проверяемый всегда. Баланс пула рядом ловит остаток.
+    """
+    import sqlalchemy as sa
+
+    settings = make_settings(tmp_path)
+    app, svc = await start_app(settings, start_workers=False)
+    balance = [0]
+    sa.event.listen(svc.db.engine.sync_engine, "checkout",
+                    lambda con, rec, proxy: balance.__setitem__(0, balance[0] + 1))
+    sa.event.listen(svc.db.engine.sync_engine, "checkin",
+                    lambda con, rec: balance.__setitem__(0, balance[0] - 1))
+
+    svc.start_workers = True
+    await svc.start()
+    # Ровно те петли, что теряли соединения: планировщик, сэмплер метрик и
+    # тики фич. Подписки, которые фичи заводят сами в setup(), сюда не входят:
+    # они висят на шине, а не на базе, и отмена им ничего не рвёт.
+    governed = {f"bcc-{f.name}" for f in svc.features if f.tick and f.tick_seconds > 0}
+    governed |= {"bcc-scheduler", "bcc-metrics"}
+    watched = {t.get_name(): t for t in svc._tasks if t.get_name() in governed}
+    assert "bcc-scheduler" in watched and "bcc-metrics" in watched, sorted(watched)
+    assert len(watched) > 2, f"тики фич не заведены: {sorted(watched)}"
+    await asyncio.sleep(0.2)             # дать петлям дойти до работы с базой
+
+    await svc.stop()
+
+    severed = sorted(name for name, t in watched.items() if t.cancelled())
+    assert not severed, (
+        f"петли оборваны отменой, а не вышли сами: {severed}. "
+        f"Соединение, отменённое посреди запроса, в пул уже не вернётся")
+    assert balance[0] == 0, (
+        f"после остановки {balance[0]} соединение(й) не вернулось в пул")

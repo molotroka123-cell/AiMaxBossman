@@ -9,6 +9,7 @@ import pytest
 
 from bossman.apprentice.errors import BudgetExhausted, FallbackRefused
 from bossman.apprentice.fable_direct import DirectApiBudget, estimate_worst_case_usd
+from fable_ledger_guard import fable_ledger_off_the_real_machine  # noqa: F401
 
 CORE = Path(__file__).resolve().parents[1]
 

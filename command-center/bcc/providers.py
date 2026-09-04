@@ -120,6 +120,49 @@ def is_local_url(url: str) -> bool:
         return False
 
 
+class ProxyUnsupported(ProviderError):
+    """Прокси из окружения настроен, но этот httpx его не умеет.
+
+    Отдельный класс, а не голый ImportError: наружу это обязано выйти честным
+    «недоступно» с внятной причиной, а не пятисоткой из ниоткуда.
+    """
+
+    def __init__(self, url: str, detail: str):
+        super().__init__(
+            f"прокси из окружения не поддержан этой сборкой, к {_host(url)} не идём: {detail}",
+            kind="network",
+            hint="для socks5 нужен httpx[socks] (пакет socksio); "
+                 "либо уберите ALL_PROXY/HTTPS_PROXY для этого адреса")
+
+
+def http_client(url: str, *, timeout: float, transport: Any = None,
+                **kw: Any) -> httpx.AsyncClient:
+    """Единственное место, где решается, идти ли через прокси из окружения.
+
+    Правило одно на весь проект и держится на `is_local_url`, а не на своей
+    копии условий: локальный адрес НИКОГДА не ходит через прокси. httpx по
+    умолчанию читает HTTP_PROXY/HTTPS_PROXY/ALL_PROXY, и запрос к
+    127.0.0.1:11434 уходил бы на прокси, который про этот адрес ничего не
+    знает: соединение висит до таймаута, а владелец видит «локальная модель не
+    отвечает» при работающей модели. Диагноз получается ложный.
+
+    Глобальный `trust_env=False` эту беду тоже убрал бы — и заодно выключил бы
+    прокси владельца там, где он настроен намеренно. Поэтому удалённые адреса
+    прокси по-прежнему видят.
+
+    Вторая забота — SOCKS. socks5-прокси httpx умеет только с пакетом socksio,
+    и без него падает ПРИ СОЗДАНИИ клиента: ImportError, которого не ждёт ни
+    один вызывающий, — наружу он выходил пятисоткой на здоровой в остальном
+    системе. Теперь это ProxyUnsupported, то есть обычная сетевая
+    недоступность с объяснением, что доустановить.
+    """
+    try:
+        return httpx.AsyncClient(timeout=timeout, transport=transport,
+                                 trust_env=not is_local_url(url), **kw)
+    except ImportError as exc:
+        raise ProxyUnsupported(url, str(exc)) from exc
+
+
 @dataclass
 class _BaseAdapter:
     base_url: str = ""
@@ -133,13 +176,7 @@ class _BaseAdapter:
         self.base_url = (self.base_url or self.default_base).rstrip("/")
 
     def _client(self, timeout: float) -> httpx.AsyncClient:
-        # Локальный адрес НИКОГДА не ходит через прокси. httpx по умолчанию
-        # читает HTTP_PROXY/HTTPS_PROXY/ALL_PROXY из окружения, и запрос к
-        # 127.0.0.1:11434 уходил бы на прокси, который про этот адрес ничего не
-        # знает: соединение висит до таймаута, а пользователь видит «локальная
-        # модель не отвечает» при работающей модели. Диагноз получается ложный.
-        return httpx.AsyncClient(timeout=timeout, transport=self.transport,
-                                 trust_env=not is_local_url(self.base_url))
+        return http_client(self.base_url, timeout=timeout, transport=self.transport)
 
     async def _request(self, method: str, url: str, *, timeout: float,
                        headers: dict | None = None, json: dict | None = None) -> httpx.Response:
