@@ -15,10 +15,12 @@
   * карточка подтверждения помечена как требующая решения, показывает обе
     кнопки, и нажатие действительно доезжает до сервера.
 
-Страница ещё не в общем реестре ui/pages/index.js (его правит ведущий),
-поэтому монтируем её тем же контрактом, каким это делает оболочка:
-динамический import модуля и page.render(ctx) в #view. Так проверяется
-ровно тот код, который потом отработает в приложении.
+Страница открывается переходом оболочки — так же, как её открывает владелец.
+Раньше тест монтировал узел в #view сам (страницы ещё не было в реестре) и
+проигрывал гонку домашней странице: её отрисовка асинхронна и приходила уже
+ПОСЛЕ нашего узла, затирая его. У оболочки от этого есть защита (renderToken),
+у ручного монтажа её не было — и в CI это дало падение «на экране домашняя
+страница вместо канала».
 """
 from __future__ import annotations
 
@@ -46,22 +48,20 @@ NETWORK_NOISE = re.compile(
 MOJIBAKE = re.compile("[ÐÑ][­-ÿ–-™Ѐ-џ]")
 NO_DATA = "нет данных"
 
-# Монтируем страницу так же, как это делает оболочка: её контракт — объект
-# с render(ctx). Ничего специально «тестового» страница не знает.
-MOUNT_JS = """async () => {
+# Открываем страницу переходом оболочки, а контракт читаем из самого модуля:
+# так проверяется ровно тот путь, которым страница откроется у владельца.
+OPEN_JS = """async () => {
   const mod = await import('./pages/mission_console.js');
   const p = mod.default;
-  const view = document.getElementById('view');
-  const ctx = {
-    state: {}, bus: window.__bxConn.bus,
-    navigate: () => {}, scheduleRefresh: () => {},
-    refresh: () => window.__mcRender(),
-  };
+  // Перерисовка — тоже средствами оболочки: уходим и возвращаемся, как это
+  // делает человек. Своей отрисовки поверх #view тест больше не заводит.
   window.__mcRender = async () => {
-    const node = await p.render(ctx, {});
-    view.replaceChildren(node);
+    location.hash = '#/home';
+    await new Promise(r => setTimeout(r, 60));
+    location.hash = '#/mission_console';
+    await new Promise(r => setTimeout(r, 60));
   };
-  await window.__mcRender();
+  location.hash = '#/mission_console';
   return {id: p.id, title: p.title, icon: p.icon, nav: p.nav,
           hasRender: typeof p.render === 'function',
           hasOnEvent: typeof p.onEvent === 'function'};
@@ -197,11 +197,9 @@ def _open(pw, live, *, viewport=None, mobile=False):  # noqa: F811
             if m.type == "error" and not NETWORK_NOISE.search(m.text) else None)
     page.on("pageerror", lambda e: errors.append(str(e)))
     _login(page, live)
-    # Первое подключение шины уже перерисовало домашнюю страницу — монтируемся
-    # после него, иначе оболочка затрёт наш узел прямо во время проверки.
     page.wait_for_selector("#conn-dot.dot-ok", timeout=20000)
-    meta = page.evaluate(MOUNT_JS)
-    page.wait_for_selector("#view .mc2030", timeout=10000)
+    meta = page.evaluate(OPEN_JS)
+    page.wait_for_selector("#view .mc2030", timeout=15000)
     return browser, page, errors, meta
 
 
@@ -382,17 +380,28 @@ def test_console_fits_a_phone_without_horizontal_scroll(live):  # noqa: F811
 
         _seed(live)
         page.evaluate("() => window.__mcRender()")
+        page.wait_for_selector("#view .mc2030", timeout=15000)
         page.wait_for_selector('#view [data-card="approval"]', timeout=10000)
         page.wait_for_timeout(200)
         full = page.evaluate("({sw: document.documentElement.scrollWidth,"
                              " cw: document.documentElement.clientWidth})")
         audit = page.evaluate(AUDIT_JS)
 
-        # тач-цели решения на телефоне не должны быть меньше пальца
-        for name in ("Подтвердить", "Отклонить"):
-            box = page.locator('#view [data-card="approval"] button',
-                               has_text=re.compile(f"^{name}$")).first.bounding_box()
-            assert box and box["height"] >= 40, f"{name}: {box}"
+        # Тач-цели решения на телефоне не должны быть меньше пальца. Замер
+        # делается одним заходом внутри страницы: оболочка перерисовывает #view
+        # по событиям шины, и узел, найденный отдельным вызовом, к моменту
+        # измерения успевает устареть — тогда высота приходит пустой.
+        heights = page.evaluate("""() => {
+          const out = {};
+          for (const name of ['Подтвердить', 'Отклонить']) {
+            const b = Array.from(document.querySelectorAll('#view [data-card="approval"] button'))
+              .find((x) => x.textContent.trim() === name);
+            out[name] = b ? b.getBoundingClientRect().height : null;
+          }
+          return out;
+        }""")
+        for name, height in heights.items():
+            assert height and height >= 40, f"{name}: {height} (кнопки: {heights})"
         browser.close()
 
     assert full["sw"] <= full["cw"] + 1, f"наполненный экран шире телефона: {full}"

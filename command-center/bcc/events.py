@@ -38,12 +38,18 @@ class EventBus:
         # именам ключей (api_key/token/password/…) на любой глубине payload —
         # ДО персиста и ДО broadcast, чтобы оба пути видели одно и то же.
         data = redact(data)
+        # Время события считается ОДИН раз. Раньше utcnow() вызывался дважды —
+        # отдельно для рассылки и отдельно для записи в историю, — и одно и то
+        # же событие приходило с разным временем в живой ленте и в /activity.
+        # Расхождение видно владельцу, а сверить два пути между собой (чтобы не
+        # считать событие дважды) при разном времени вообще невозможно.
+        now = utcnow()
         # kind/ts всегда наши: поле данных с тем же именем не должно подменять вид события
-        msg = {**data, "kind": kind, "ts": utcnow().isoformat()}
+        msg = {**data, "kind": kind, "ts": now.isoformat()}
         if self.db is not None and kind not in TRANSIENT:
             try:
                 async with self.db.session() as s:
-                    await s.execute(sa.insert(events_t).values(kind=kind, ts=utcnow(), data=data))
+                    await s.execute(sa.insert(events_t).values(kind=kind, ts=now, data=data))
                     await s.commit()
             except Exception:  # история не должна ронять основную работу
                 pass

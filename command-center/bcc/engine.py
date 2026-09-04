@@ -14,6 +14,7 @@ from datetime import timedelta
 from typing import Any
 
 import sqlalchemy as sa
+from sqlalchemy.exc import SQLAlchemyError
 
 from .db import (Database, agents as agents_t, approvals as approvals_t,
                  checkpoints as checkpoints_t, fetch_one, run_events as run_events_t,
@@ -349,21 +350,88 @@ class TaskEngine:
         try:
             await self.execute(run_id)
         except asyncio.CancelledError:
-            # отмена по Stop: опираемся на статус ЗАДАЧИ в БД (его ставит stop()),
-            # а не на разделяемое множество — оно может быть очищено гонкой worker_loop
-            async with self.db.session() as s:
-                run = await fetch_one(s, runs_t, run_id)
+            # Отмена по Stop: опираемся на статус ЗАДАЧИ в БД (его ставит stop()),
+            # а не на разделяемое множество — оно может быть очищено гонкой
+            # worker_loop. Через повтор идут и ЧТЕНИЯ: отмена рвёт операцию
+            # SQLite в полёте, соединение возвращается в пул мёртвым, и на него
+            # приходится тот самый запрос, по которому мы решаем, что это была
+            # остановка. Без повтора здесь разбор падал ещё до записи исхода.
+            state: dict[str, Any] = {}
+
+            async def read_state() -> None:
+                async with self.db.session() as s:
+                    state["run"] = await fetch_one(s, runs_t, run_id)
+                found = state["run"]
+                state["task_status"] = await self._task_status(found["task_id"]) if found else ""
+
+            if not await self._retry_db(read_state):
+                with contextlib.suppress(Exception):
+                    await self.bus.emit(
+                        "worker.error",
+                        message=f"run {run_id}: не удалось прочитать состояние после отмены; "
+                                f"строка останется «выполняется» до восстановления аренды")
+                raise
+            run = state["run"]
             if run and run["status"] in ("leased", "running"):
-                task_status = await self._task_status(run["task_id"])
-                if task_status == "stopped" or run_id in self._cancelling:
-                    await self._log(run_id, "warn", "run.stopped",
-                                    "остановлено оператором (hard cancel: активный вызов модели оборван)")
-                    await self._finish(run_id, run["task_id"], "stopped", sync_task=False)
+                if state["task_status"] == "stopped" or run_id in self._cancelling:
+                    await self._finalize_stopped(run_id, run["task_id"])
                     return
             raise
         except Exception as exc:
             await self.bus.emit("worker.error",
                                 message=f"run {run_id}: {type(exc).__name__}: {exc}")
+
+    # Отмена рвёт операцию SQLite прямо в полёте, и соединение возвращается в
+    # пул мёртвым: первый же следующий запрос получает "no active connection".
+    # На этот запрос и приходится дозапись исхода, поэтому попытка не одна.
+    # Окно повтора, а не число попыток: пул отдаёт живое соединение не с
+    # определённой попытки, а спустя время, и на нагруженной машине оно больше.
+    FINALIZE_DEADLINE = 5.0
+    FINALIZE_PAUSE = 0.05
+
+    async def _retry_db(self, write) -> bool:
+        """Повторять запись, пока соединение не перестанет быть испорченным."""
+        deadline = time.monotonic() + self.FINALIZE_DEADLINE
+        pause = self.FINALIZE_PAUSE
+        while True:
+            try:
+                await write()
+                return True
+            except asyncio.CancelledError:
+                raise
+            except SQLAlchemyError:
+                if time.monotonic() >= deadline:
+                    return False
+                await asyncio.sleep(pause)
+                pause = min(pause * 2, 0.5)
+
+    async def _finalize_stopped(self, run_id: int, task_id: int) -> bool:
+        """Дописать исход отменённого run'а, даже если отмена испортила соединение.
+
+        Без повтора run навсегда оставался бы `running` без `finished_at`:
+        задача показывает «остановлено», а прогон рядом с ней выглядит живым, и
+        само это чинится только восстановлением аренды, то есть спустя минуты.
+
+        Строку журнала повторяем так же, как и сам исход: она объясняет
+        владельцу, ПОЧЕМУ прогон оборван. Молча проглотить её — значит оставить
+        остановку без причины, что немногим лучше вечно живой строки. Каждая из
+        двух записей повторяется до первого успеха, поэтому дубликатов нет.
+
+        О неудаче говорим вслух: она видна в шине, а не только в интерфейсе.
+        """
+        logged = await self._retry_db(
+            lambda: self._log(run_id, "warn", "run.stopped",
+                              "остановлено оператором (hard cancel: активный вызов модели оборван)"))
+        done = await self._retry_db(
+            lambda: self._finish(run_id, task_id, "stopped", sync_task=False))
+        if not done or not logged:
+            with contextlib.suppress(Exception):
+                await self.bus.emit(
+                    "worker.error",
+                    message=(f"run {run_id}: остановка записана не полностью "
+                             f"(исход: {'да' if done else 'нет'}, причина в журнале: "
+                             f"{'да' if logged else 'нет'})"))
+        return done
 
     async def claim(self) -> int | None:
         """Взять run с наименьшим priority/id и поставить аренду на lease_seconds."""

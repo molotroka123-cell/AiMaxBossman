@@ -72,3 +72,27 @@ async def test_bus_without_db_still_redacts():
     q = bus.subscribe()
     await bus.emit("x", password=CANARY)
     assert q.get_nowait()["password"] == "***REDACTED***"
+
+
+async def test_one_event_has_one_time_on_both_paths(tmp_path):
+    """Время события считается один раз — иначе живая лента врёт про историю.
+
+    utcnow() вызывался дважды: отдельно для рассылки и отдельно для записи в
+    таблицу. Одно и то же событие получало два разных времени, и владелец видел
+    в ленте одно, а в истории — другое. Хуже того, сверить два пути между собой
+    (чтобы не посчитать событие дважды) при разном времени невозможно в
+    принципе: панель «Процесс работы» именно из-за этого показывала повторы и
+    ошибки кратно чаще, чем они случались.
+    """
+    db = await _db(tmp_path)
+    bus = EventBus(db)
+    q = bus.subscribe()
+    await bus.emit("router.fallback", run_id=7, reason="timeout")
+
+    live = q.get_nowait()
+    async with db.session() as s:
+        stored = (await s.execute(sa.select(events_t))).fetchall()[-1]._mapping
+
+    assert live["ts"] == stored["ts"].isoformat(), (
+        f"одно событие с двумя временами: шина {live['ts']}, история {stored['ts'].isoformat()}")
+    await db.engine.dispose()

@@ -153,10 +153,39 @@ export function mountThinking({ bus, api, button }) {
     return r;
   }
 
+  /* Одно и то же событие приходит двумя путями: живьём по шине и потом (или
+     раньше) в ответе /api/activity. Без сверки оно попадало в ленту дважды, а
+     его факты применялись дважды — «повторы» и «ошибки» на карточке показывали
+     больше, чем случилось на самом деле. Отпечаток берётся из тех полей, что
+     одинаковы у обоих путей. */
+  const seen = new Set();
+  let seeded = false;
+
+  function mark(ev) {
+    // Время нормализуем: по шине оно приходит строкой, из истории — тем, во
+    // что его превратил сервер. Сравнивать надо момент, а не запись о нём.
+    const at = parseTs(ev.ts);
+    return [ev.kind, at ? at.getTime() : String(ev.ts ?? ''), ev.run_id ?? '',
+            ev.task_id ?? '', ev.step ?? '', ev.tool ?? '', ev.message ?? ''].join('|');
+  }
+
+  function remember(ev) {
+    const key = mark(ev);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    // Множество не должно расти вечно: панель живёт часами.
+    if (seen.size > MAX_EVENTS * 2) {
+      seen.clear();
+      for (const e of events) seen.add(mark(e));
+    }
+    return true;
+  }
+
   function handle(ev) {
     const kind = String(ev.kind || '');
     if (kind.startsWith('ws.')) { conn = kind.slice(3); renderConn(); return; }
     if (kind === 'system.metrics' || kind === 'hello') return;
+    if (!remember(ev)) return;          // уже учтено из истории — не считаем второй раз
     events.unshift(ev);
     if (events.length > MAX_EVENTS) events.length = MAX_EVENTS;
     applyFacts(ev);
@@ -221,16 +250,25 @@ export function mountThinking({ bus, api, button }) {
       }
     } catch { /* без сервера — просто пусто */ }
     try {
-      if (!events.length) {
+      // История тянется один раз за сессию панели. Условие «лента пуста» тут
+      // не годится: владелец мог очистить её сам — и получил бы её обратно при
+      // следующем открытии, то есть кнопка «Очистить» ничего бы не значила.
+      if (!seeded) {
+        seeded = true;
         const recent = await api.activity();
         const rows = (Array.isArray(recent) ? recent : (recent && recent.items) || []).slice(0, 60);
+        // Пока шёл запрос, живые события могли уже прийти и уже быть учтёнными.
+        // Применять факты ко всей ленте нельзя: их применили бы повторно.
+        const older = [];
         for (const row of rows) {
           const data = row.data && typeof row.data === 'object' ? row.data : {};
-          events.push({ ...data, kind: row.kind, ts: row.ts });
+          const ev = { ...data, kind: row.kind, ts: row.ts };
+          if (remember(ev)) older.push(ev);
         }
+        events.push(...older);
         // Карточки должны согласоваться с лентой: факты из уже случившихся событий
         // применяем от старых к новым (сами события в ленту повторно не кладём).
-        for (const ev of [...events].reverse()) applyFacts(ev);
+        for (const ev of [...older].reverse()) applyFacts(ev);
       }
     } catch { /* лента не критична */ }
     renderNow(); renderLog();

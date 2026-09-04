@@ -63,8 +63,12 @@ async def test_worker_limit_and_progress_and_completion(env):
             return mission["status"] == "completed"
         await wait_for(check, timeout=15)
     finally:
+        # Отменить мало: задача-воркер держит соединение с БД и, не будучи
+        # дождавшейся своего CancelledError, доходит до commit уже на
+        # закрываемом пуле — закрытие цикла виснет (так в остальных восьми).
         loop.cancel()
         tick.cancel()
+        await asyncio.gather(loop, tick, return_exceptions=True)
     assert max_active <= 2, f"миссия запустила {max_active} задач сразу при лимите 2"
     mission = (await env.client.get(f"/api/missions/{m['id']}")).json()
     assert mission["status"] == "completed" and mission["progress"] == 1.0

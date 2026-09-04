@@ -52,7 +52,11 @@ async def test_two_slow_tasks_run_concurrently(env):
     try:
         await wait_for(lambda: _both_done(env, stack["task"]["id"], second["id"]), timeout=6)
     finally:
+        # Отменить мало: задача-воркер держит соединение с БД и, не будучи
+        # дождавшейся своего CancelledError, доходит до commit уже на
+        # закрываемом пуле — закрытие цикла виснет (так в остальных восьми).
         loop.cancel()
+        await asyncio.gather(loop, return_exceptions=True)
     assert SlowAdapter.max_concurrent == 2      # реально параллельно, не по очереди
 
 
@@ -79,7 +83,11 @@ async def test_hard_cancel_interrupts_inflight_inference(env):
         await wait_for(lambda: _run_stopped(env, stack["task"]["id"]), timeout=3)
         elapsed = asyncio.get_running_loop().time() - t0
     finally:
+        # Отменить мало: задача-воркер держит соединение с БД и, не будучи
+        # дождавшейся своего CancelledError, доходит до commit уже на
+        # закрываемом пуле — закрытие цикла виснет (так в остальных восьми).
         loop.cancel()
+        await asyncio.gather(loop, return_exceptions=True)
     assert elapsed < 2.5, f"hard cancel занял {elapsed:.1f}с — Stop не оборвал inference"
     async with env.svc.db.session() as s:
         run = (await s.execute(sa.select(task_runs))).fetchall()[-1]._mapping

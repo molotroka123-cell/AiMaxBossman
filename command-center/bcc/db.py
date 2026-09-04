@@ -5,12 +5,15 @@
 """
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 import uuid
 from datetime import date, datetime, time as dtime
 from decimal import Decimal
 
 from datetime import datetime, timezone
+from collections.abc import AsyncIterator
 from typing import Any
 
 import sqlalchemy as sa
@@ -514,8 +517,32 @@ class Database:
         if url.startswith("sqlite"):
             sa.event.listen(self.engine.sync_engine, "connect", _sqlite_pragmas)
 
-    def session(self) -> AsyncSession:
-        return self._sessionmaker()
+    @contextlib.asynccontextmanager
+    async def session(self) -> AsyncIterator[AsyncSession]:
+        """Сессия, которая не возвращает в пул соединение, сломанное отменой.
+
+        Отмена задачи (Stop, выключение) рвёт операцию SQLite прямо в полёте.
+        Само соединение при этом остаётся непригодным, но SQLAlchemy об этом не
+        знает: исключение пришло не из драйвера, а извне. Соединение уходит в
+        пул как здоровое, и первый же следующий запрос — хоть внутренняя
+        дозапись исхода, хоть обычный запрос владельца из дашборда — получает
+        "no active connection" и падает пятисоткой.
+
+        Поэтому на отмене соединение выбрасывается явно. Это единственное место,
+        через которое работают все три сотни обращений к базе, и чинить класс
+        здесь дешевле и надёжнее, чем учить каждого потребителя повторять
+        запрос.
+        """
+        s = self._sessionmaker()
+        try:
+            yield s
+        except asyncio.CancelledError:
+            with contextlib.suppress(Exception):
+                await s.invalidate()
+            raise
+        finally:
+            with contextlib.suppress(Exception):
+                await s.close()
 
     async def create_all(self) -> None:
         from . import v2  # регистрирует пак-таблицы на core-metadata до create_all

@@ -31,7 +31,11 @@ async def test_governor_stops_error_loop(env):
             return t["status"] == "stopped"
         await wait_for(stopped, timeout=12)
     finally:
+        # Отменить мало: задача-воркер держит соединение с БД и, не будучи
+        # дождавшейся своего CancelledError, доходит до commit уже на
+        # закрываемом пуле — закрытие цикла виснет (так в остальных восьми).
         loop.cancel()
+        await asyncio.gather(loop, return_exceptions=True)
     interventions = (await env.client.get("/api/governor/interventions")).json()
     assert any(i["action"] == "stopped" for i in interventions)
     # не докрутил до 20 попыток — остановлен на пороге
