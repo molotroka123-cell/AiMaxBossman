@@ -56,6 +56,13 @@ def pipeline_status() -> dict:
          "detail": "урок рождается в карантине; прямой записи в процедурную память нет"},
         {"step": "trading_benchmark", "status": "OK", "evidence_class": "HISTORICAL_REPLAY",
          "detail": "DEVELOPMENT / SEALED_HOLDOUT / ADVERSARIAL / PAPER_REPLAY"},
+        # Наблюдение за дашбордом владельца. Статус OK означает «умеем читать
+        # снятое», а не «подключены к Coinwise»: вкладку открывает владелец, и
+        # без его одобрения на конкретный адрес наблюдения не будет вовсе.
+        {"step": "coinwise_observe", "status": "OK",
+         "evidence_class": "REAL_BROWSER_READONLY",
+         "detail": ("только чтение уже открытой владельцем вкладки; DOM, потом "
+                    "локальный OCR; облачное зрение выключено; ордеров нет")},
     ]
     blocked = [s["step"] for s in steps if s["status"] == "BLOCKED"]
     return {
@@ -73,6 +80,45 @@ def pipeline_status() -> dict:
 @router.get("/status", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def status() -> dict:
     return pipeline_status()
+
+
+@router.get("/coinwise", dependencies=[Depends(require_scope(SCOPE_CHAT))])
+async def coinwise() -> dict:
+    """Что модуль наблюдения умеет и в каком он режиме.
+
+    Экран показывает это как есть: значения, их свежесть, уверенность, чем
+    получено — и крупными буквами READ_ONLY. Показывать наблюдение без этих
+    четырёх вещей нельзя: число без них выглядит как факт биржи, хотя это
+    прочитанная картинка.
+    """
+    from .coinwise import extract as cw_extract
+    from .coinwise import observer as cw_observer
+    from .coinwise import schema as cw_schema
+    from .coinwise.classify import MarketState
+
+    ocr = cw_extract.ocr_capability()
+    return {
+        "mode": cw_observer.COINWISE_MODE,
+        "read_only": True,
+        "trading_execution": TRADING_EXECUTION,
+        "paper_trading_only": PAPER_TRADING_ONLY,
+        "owner_approval_required": OWNER_APPROVAL_REQUIRED,
+        "cloud_vision_enabled": cw_extract.cloud_vision_enabled(),
+        "source_methods": [m.value for m in cw_schema.SourceMethod],
+        "evidence_classes": [e.value for e in cw_schema.ObservationEvidence],
+        "market_fields": list(cw_schema.MARKET_FIELDS),
+        "shadow_states": [s.value for s in MarketState],
+        "freshness_seconds": {"fresh": cw_schema.FRESH_SECONDS,
+                              "stale": cw_schema.STALE_SECONDS},
+        "min_field_confidence": cw_schema.MIN_FIELD_CONFIDENCE,
+        "local_ocr": {"available": ocr.available, "detail": ocr.detail,
+                      "missing": list(ocr.missing)},
+        # Ордеров нет ни одного, и это проверяемое утверждение, а не обещание:
+        # ни одна ручка модуля не создаёт и не отправляет ничего наружу.
+        "write_actions": "DENY",
+        "note": ("наблюдение за дашбордом не доказывает ни исполнения, ни цены на "
+                 "бирже: это прочитанная страница, а не отчёт биржи"),
+    }
 
 
 @router.get("/capabilities", dependencies=[Depends(require_scope(SCOPE_CHAT))])

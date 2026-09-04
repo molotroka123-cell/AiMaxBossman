@@ -357,3 +357,35 @@ def test_the_dashboard_payload_tells_the_truth_about_gaps():
     assert payload["usable"] is False
     assert payload["missing_fields"], "пропуски обязаны быть перечислены"
     assert payload["evidence_class"] == "STALE"
+
+
+# ------------------------------------------------------------ витрина
+
+def test_the_lab_surface_reports_read_only_and_no_write_actions():
+    """Экран обязан говорить режим прямо, а не показывать одни цифры.
+
+    Число без режима, свежести, уверенности и способа получения выглядит как
+    отчёт биржи, хотя это прочитанная картинка.
+    """
+    from bossman.trading_learning.routes import pipeline_status
+
+    status = pipeline_status()
+    step = next(s for s in status["steps"] if s["step"] == "coinwise_observe")
+    assert step["status"] == "OK"
+    assert step["evidence_class"] == "REAL_BROWSER_READONLY"
+    assert status["safety"]["trading_execution"] == "OFF"
+    assert status["safety"]["external_write_actions"] == "DENY"
+
+
+def test_the_observation_payload_carries_everything_the_screen_needs():
+    obs = look()
+    payload = obs.as_dict()
+    for required in ("observation_id", "task_id", "run_id", "session_id", "source_url",
+                     "symbol", "venue", "timeframe", "observed_at", "collected_at",
+                     "monotonic_collected_at", "freshness_seconds", "source_method",
+                     "field_confidence", "content_hash", "viewport", "model_version",
+                     "head_sha", "environment", "evidence_class",
+                     "injection_scan_status", "validation_status"):
+        assert required in payload, required
+    assert payload["read_only"] is True
+    assert payload["field_confidence"]["price"] > 0
