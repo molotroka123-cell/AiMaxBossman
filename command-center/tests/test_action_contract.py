@@ -327,6 +327,82 @@ async def test_compound_action_fails_if_one_required_child_fails(env, tmp_path):
     assert task["status"] != "completed"
 
 
+async def test_classify_all_covers_every_capability_a_compound_prompt_touches():
+    """Regression for the owner's live-probe finding: 'Измени тестовый файл в
+    репозитории, запусти тест и закоммить' touches BOTH TERMINAL_FILE_ACTION
+    (edit + test) and GITHUB_ACTION (commit) — classify() (first match only)
+    silently dropped the GITHUB half; classify_all must return both."""
+    caps = [c.name for c in ac.classify_all(
+        "Измени тестовый файл в репозитории, запусти тест и закоммить")]
+    assert caps == ["TERMINAL_FILE_ACTION", "GITHUB_ACTION"]
+
+
+async def test_compound_terminal_and_github_needs_a_real_git_mutation(env, tmp_path):
+    """Owner's live-probe finding, reproduced end-to-end: TERMINAL_FILE_ACTION
+    and GITHUB_ACTION share tool_sources={"terminal"} (this codebase has no
+    dedicated git tool — git runs through terminal.run). A genuinely executed
+    but UNRELATED terminal.run (e.g. `echo hi`) together with a text claim of
+    'file edited, tests passed, pushed to git' must NOT complete: it clears
+    TERMINAL_FILE_ACTION's veto but not GITHUB_ACTION's — Capability.call_filter
+    (_is_git_mutation_call) inspects the *args* of the executed call, not just
+    its tool family, specifically to catch this."""
+    work = tmp_path / "proj"
+    work.mkdir()
+    await _allow_root(env, work)
+
+    adapter = ToolAdapter([
+        ("tool", "terminal_run", {"command": "echo hi", "mode": "project_host", "cwd": str(work)}),
+        ("text", "Файл изменён, тесты прошли, изменения запушены в git."),
+    ])
+    stack = await _stack_with_tools(env, ["terminal.run"], adapter=adapter,
+                                    prompt="Измени тестовый файл в репозитории, запусти тест и закоммить",
+                                    max_steps=10)
+    await env.client.patch(f"/api/agents/{stack['agent']['id']}",
+                           json={"permissions": {"terminal.run": True}})
+
+    env.svc.engine.poll_interval = 0.02
+    import asyncio
+    worker = asyncio.create_task(env.svc.engine.worker_loop())
+    watcher = asyncio.create_task(env.svc.engine.approval_watcher())
+    try:
+        status = None
+        for _ in range(30):
+            await asyncio.sleep(0.2)
+            task = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["task"]
+            status = task["status"]
+            if status in ("completed", "failed", "stopped"):
+                break
+            for a in (await env.client.get("/api/approvals?status=pending")).json():
+                await env.client.post(f"/api/approvals/{a['id']}", json={"approve": True, "by": "t"})
+    finally:
+        worker.cancel()
+        watcher.cancel()
+        await asyncio.gather(worker, watcher, return_exceptions=True)
+
+    assert status == "failed"
+    async with env.svc.db.session() as s:
+        events = (await s.execute(sa.select(dbm.events).where(
+            dbm.events.c.kind == "action_contract.blocked"))).fetchall()
+    assert any(e._mapping["data"].get("capabilities") == ["GITHUB_ACTION"] for e in events)
+
+
+async def test_schedules_classifier_catches_automation_phrasing():
+    """Regression for the owner's live-probe finding: 'Создай тестовую
+    automation на безопасное время' was not classified at all (bare
+    'automation' wasn't in the SCHEDULES pattern), so a text-only 'готово'
+    silently completed it. Also verified end-to-end below."""
+    assert ac.classify("Создай тестовую automation на безопасное время").name == "SCHEDULES_ACTION"
+
+
+async def test_schedules_automation_phrasing_does_not_falsely_complete(env):
+    env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("Готово, автоматизация настроена.")
+    stack = await make_stack(env.client, prompt="Создай тестовую automation на безопасное время",
+                             max_steps=4)
+    await _run_once(env)
+    task = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["task"]
+    assert task["status"] == "failed"
+
+
 # -------------------------------------------------------------------- CACHE_REPLAY
 
 async def test_cached_success_text_cannot_complete_an_unrelated_run(env):

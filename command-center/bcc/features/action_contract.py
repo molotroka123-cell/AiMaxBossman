@@ -83,6 +83,15 @@ class Capability:
     pattern: "re.Pattern[str]"
     tool_sources: frozenset[str]      # bcc.tools.ToolSpec.source семейства-исполнителя
     evidence: Callable[[str], ExpectedState | None] | None = None
+    # Когда несколько capability делят один tool_sources (GITHUB_ACTION и
+    # TERMINAL_FILE_ACTION оба идут через terminal.run — своего git-инструмента
+    # в этой кодовой базе нет), одного факта «terminal.run исполнен» мало:
+    # составная задача («измени файл, запусти тест И закоммить») с ОДНИМ
+    # нерелевантным terminal.run иначе закрывала бы обе стороны сразу. Живой
+    # пробой владельца это нашёл. call_filter, если задан, дополнительно
+    # проверяет args УЖЕ найденной строки tool_calls — не просто «инструмент
+    # семейства был вызван», а «именно ЭТОТ вызов относится к этой capability».
+    call_filter: Callable[[dict], bool] | None = None
 
 
 def _clause_re(verb_pat: str, topic_pat: str) -> "re.Pattern[str]":
@@ -100,7 +109,6 @@ _DO_VERB = (r"\b(run|execute|create|make|delete|remove|save)\b|"
            r"запусти\w*|выполни\w*|создай\w*|удали\w*|сохрани\w*|сделай\w*")
 _OPEN_VERB = r"\b(open|launch|start|close|switch)\b|открой\w*|запусти\w*|включи\w*|закрой\w*|переключ\w*"
 _FIX_VERB = r"\b(fix|repair|implement|write)\b|исправь\w*|почини\w*|напиши\w*"
-_PUSH_VERB = r"\b(push|commit|create)\b|запушь\w*|закоммить\w*|закомить\w*|создай\w*"
 _SEND_VERB = r"\b(send)\b|отправь\w*|напиши\w*"
 _USE_VERB = r"\b(use|call|invoke|via)\b|используй\w*|вызови\w*|через"
 _GEN_VERB = r"\b(generate|create|draw|edit)\b|сгенерируй\w*|нарисуй\w*|создай\w*|отредактируй\w*"
@@ -112,8 +120,17 @@ _GEN_VERB = r"\b(generate|create|draw|edit)\b|сгенерируй\w*|нарис
 _MEMORY_RE = re.compile(
     r"\bremember\b|\bnote\s+that\b|запомни\w*|сохрани\w*\s+в\s+памят\w*", re.I | re.U)
 _SCHEDULE_RE = re.compile(
-    r"\bremind\s+me\b|\bschedule\s+(a|this)\b|напомни\w*|запланируй\w*|"
-    r"создай\w*[^.!?\n]{0,40}миссию|create\s+a\s+mission", re.I | re.U)
+    r"\bremind\s+me\b|\bschedule\s+(a|this)\b|\bautomation\b|напомни\w*|запланируй\w*|"
+    r"автоматизаци\w*|поставь\w*\s+на\s+автомат\w*|"
+    r"создай\w*[^.!?\n]{0,40}(миссию|automation|автоматизаци\w*)|create\s+a\s+mission",
+    re.I | re.U)
+
+# GITHUB: «push»/«commit»/«запушь»/«закоммить» — тот же случай слияния
+# глагола и темы, что MEMORY/SCHEDULES выше (владелец говорит «закоммить»,
+# а не «сделай коммит в git»): самодостаточны без отдельного слова git/PR
+# рядом. «create» — нет (слишком общий), для него остаётся clause_re с темой.
+_GIT_VERB_FUSED = r"\bpush\b|\bcommit\b|запушь\w*|закоммить\w*|закомить\w*"
+_CREATE_VERB = r"\b(create)\b|создай\w*"
 
 # ------------------------------------------------------------ topic-фрагменты
 
@@ -150,6 +167,23 @@ def _terminal_evidence(prompt: str) -> ExpectedState | None:
     return ExpectedState(kind="file", target=m.group(0), expect={"exists": True})
 
 
+_GIT_MUTATION_CMD_RE = re.compile(r"\bgit\s+(push|commit)\b", re.I)
+
+
+def _is_git_mutation_call(row: dict) -> bool:
+    """GITHUB_ACTION делит tool_sources={"terminal"} с TERMINAL_FILE_ACTION/
+    CODE_ACTION — своего git-инструмента в этой кодовой базе нет, git идёт
+    через terminal.run. «terminal.run исполнен» само по себе НЕ говорит,
+    что это был именно push/commit — живой пробой владельца это нашло
+    («измени файл, запусти тест и закоммить» с одним посторонним
+    terminal.run закрывало и push). Здесь — единственная в этом файле
+    проверка АРГУМЕНТОВ уже найденного вызова, а не только его источника."""
+    if row.get("tool") != "terminal.run":
+        return False
+    args = row.get("args") if isinstance(row.get("args"), dict) else {}
+    return bool(_GIT_MUTATION_CMD_RE.search(str(args.get("command") or "")))
+
+
 # Порядок — приоритет из задания (1..12), browser (MODULE 1) исключён намеренно.
 CAPABILITIES: tuple[Capability, ...] = (
     Capability("TERMINAL_FILE_ACTION", _TERMINAL_FILE_RE, frozenset({"terminal"}),
@@ -157,7 +191,9 @@ CAPABILITIES: tuple[Capability, ...] = (
     Capability("APPS_ACTION", _clause_re(_OPEN_VERB, _APP_TOPIC), frozenset({"apps"})),
     Capability("CODE_ACTION", _clause_re(_FIX_VERB, _CODE_TOPIC),
               frozenset({"opencode", "terminal"})),
-    Capability("GITHUB_ACTION", _clause_re(_PUSH_VERB, _GITHUB_TOPIC), frozenset({"terminal"})),
+    Capability("GITHUB_ACTION", re.compile(
+        _GIT_VERB_FUSED + "|" + _clause_re(_CREATE_VERB, _GITHUB_TOPIC).pattern,
+        re.I | re.U), frozenset({"terminal"}), call_filter=_is_git_mutation_call),
     Capability("MCP_ACTION", _clause_re(_USE_VERB, _MCP_TOPIC), frozenset({"mcp"})),
     Capability("OPENCLAW_ACTION", _clause_re(_SEND_VERB, _OPENCLAW_TOPIC), frozenset({"openclaw"})),
     Capability("MEMORY_ACTION", _MEMORY_RE, frozenset({"memory"})),
@@ -168,14 +204,27 @@ CAPABILITIES: tuple[Capability, ...] = (
 )
 
 
-def classify(prompt: str) -> Capability | None:
-    """Первая подошедшая capability по приоритету задания. Проверяется ТЕКСТ
-    ЗАДАЧИ (симметрично action_router.classify), не ответ модели."""
+def classify_all(prompt: str) -> list[Capability]:
+    """ВСЕ подошедшие capability, по приоритету задания. Проверяется ТЕКСТ
+    ЗАДАЧИ (симметрично action_router.classify), не ответ модели.
+
+    Составная задача («измени файл, запусти тест И закоммить») требует ВСЕХ
+    затронутых семейств инструментов, а не только первого совпавшего —
+    иначе один нерелевантный terminal.run (например, простое чтение) снимал
+    бы вето и с GITHUB_ACTION (push), которого модель вовсе не вызывала.
+    Живой пробой это найдено: `classify()` (только первое совпадение) молча
+    завершал «Измени тестовый файл в репозитории, запусти тест и закоммить»,
+    когда модель дёрнула ЛЮБОЙ terminal.run и заявила текстом, что запушила."""
     text = prompt or ""
-    for cap in CAPABILITIES:
-        if cap.pattern.search(text):
-            return cap
-    return None
+    return [cap for cap in CAPABILITIES if cap.pattern.search(text)]
+
+
+def classify(prompt: str) -> Capability | None:
+    """Первая (по приоритету) подошедшая capability — для одиночных случаев
+    и обратной совместимости; составные задачи гейт обрабатывает через
+    classify_all."""
+    matches = classify_all(prompt)
+    return matches[0] if matches else None
 
 
 # --------------------------------------------------------------- инфраструктура
@@ -185,9 +234,15 @@ def _family_tool_names(tool_sources: frozenset[str]) -> list[str]:
             if t.source in tool_sources and t.category != "read"]
 
 
-async def _has_family_tool_call(svc, run_id: int, tool_sources: frozenset[str]) -> bool:
+async def _has_family_tool_call(svc, run_id: int, tool_sources: frozenset[str],
+                                call_filter: Callable[[dict], bool] | None = None) -> bool:
     """Хотя бы один УСПЕШНО исполненный (status="executed") вызов инструмента
-    СЕМЕЙСТВА этой capability в этом run'е.
+    СЕМЕЙСТВА этой capability в этом run'е (опционально — прошедший
+    `call_filter` по своим args, см. Capability.call_filter: два capability
+    могут делить один tool_sources, например GITHUB_ACTION и
+    TERMINAL_FILE_ACTION оба идут через terminal.run — своего git-инструмента
+    в этой кодовой базе нет — и «terminal.run вызван» тогда недостаточно
+    специфично само по себе).
 
     Сознательно строже, чем «любой исход» у action_gate.py (browser, MODULE 1,
     не трогается этим файлом): там «любой исход» оправдан узкой ролью —
@@ -202,11 +257,17 @@ async def _has_family_tool_call(svc, run_id: int, tool_sources: frozenset[str]) 
     if not tool_sources:
         return False
     async with svc.db.session() as s:
-        row = (await s.execute(sa.select(tool_calls_t.c.id).where(sa.and_(
+        if call_filter is None:
+            row = (await s.execute(sa.select(tool_calls_t.c.id).where(sa.and_(
+                tool_calls_t.c.run_id == run_id,
+                tool_calls_t.c.source.in_(tool_sources),
+                tool_calls_t.c.status == "executed")).limit(1))).first()
+            return row is not None
+        rows = (await s.execute(sa.select(tool_calls_t).where(sa.and_(
             tool_calls_t.c.run_id == run_id,
             tool_calls_t.c.source.in_(tool_sources),
-            tool_calls_t.c.status == "executed")).limit(1))).first()
-    return row is not None
+            tool_calls_t.c.status == "executed")))).fetchall()
+    return any(call_filter(dict(r._mapping)) for r in rows)
 
 
 async def _agent_has_family_tools(svc, task: dict, tool_sources: frozenset[str]) -> bool:
@@ -266,38 +327,53 @@ def _verdict(verdict: str, *, rule: str = "", feedback: str = "", requeue: bool 
 
 async def _before_run(svc):
     async def before_run(task, run):
-        cap = classify(task.get("prompt") or "")
-        if cap is None:
+        caps = classify_all(task.get("prompt") or "")
+        if not caps:
             return None
         meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
         changed = False
         new_meta = dict(meta)
 
-        family = _family_tool_names(cap.tool_sources)
+        # Объединение семейств ВСЕХ распознанных capability — составная
+        # задача получает инструменты каждой затронутой стороны, не только
+        # первой (см. докстринг classify_all).
+        family: list[str] = []
+        seen_tools: set[str] = set()
+        for cap in caps:
+            for name in _family_tool_names(cap.tool_sources):
+                if name not in seen_tools:
+                    seen_tools.add(name)
+                    family.append(name)
         if family and "allowed_tools" not in meta:
             new_meta["allowed_tools"] = family
             changed = True
 
-        if "review" not in meta and cap.evidence is not None:
-            expected = cap.evidence(task.get("prompt") or "")
-            if expected is not None:
+        if "review" not in meta:
+            evidence_list = []
+            for cap in caps:
+                if cap.evidence is None:
+                    continue
+                expected = cap.evidence(task.get("prompt") or "")
+                if expected is not None:
+                    evidence_list.append({"kind": expected.kind, "target": expected.target,
+                                          "expect": dict(expected.expect)})
+            if evidence_list:
                 new_meta["review"] = {
                     "reviewer_agent_id": None, "criteria": "",
-                    "evidence": [{"kind": expected.kind, "target": expected.target,
-                                 "expect": dict(expected.expect)}],
-                    "max_review_retries": 2,
+                    "evidence": evidence_list, "max_review_retries": 2,
                 }
                 changed = True
 
         if not changed:
             return None
+        cap_names = [cap.name for cap in caps]
         router_meta = dict(new_meta.get("action_contract") or {})
-        router_meta.update({"capability": cap.name, "tools": family})
+        router_meta.update({"capabilities": cap_names, "tools": family})
         new_meta["action_contract"] = router_meta
         await _set_meta(svc, task["id"], new_meta)
         task["meta"] = new_meta
         await svc.bus.emit("action_contract.capability_selected", task_id=task["id"],
-                           capability=cap.name, tools=family)
+                           capabilities=cap_names, tools=family)
         return None
     return before_run
 
@@ -306,39 +382,51 @@ async def _before_run(svc):
 
 async def _gate(svc):
     async def gate_completion(task, run_id, answer):
-        cap = classify(task.get("prompt") or "")
-        if cap is None:
-            return _verdict("NOT_APPLICABLE")
-        if await _has_family_tool_call(svc, run_id, cap.tool_sources):
-            # Реальная попытка инструментального пути семейства этой
-            # capability — тексту ответа здесь сказать нечего (та же
-            # качественная граница, что action_gate.py для browser).
+        caps = classify_all(task.get("prompt") or "")
+        if not caps:
             return _verdict("NOT_APPLICABLE")
 
-        family_exists = bool(_family_tool_names(cap.tool_sources))
-        if not family_exists:
-            # Исполнителя для этой capability в реестре нет вообще (images/
-            # workflow/schedules на момент этого патча) — честный терминал
-            # сразу, без бессмысленного повтора одного и того же текста.
+        # Составная задача обязана подтвердить КАЖДУЮ затронутую сторону —
+        # ровно тот компаундный случай, который живой пробой владельца
+        # вскрыл: «измени файл, запусти тест и закоммить» с одним
+        # НЕотносящимся к делу terminal.run (например, простым чтением) не
+        # должна закрывать GITHUB_ACTION (push), которого не было. Один
+        # исполненный вызов семейства закрывает вопрос только для ТОЙ
+        # capability, чьё семейство он покрывает — не для всех сразу.
+        missing = [cap for cap in caps
+                  if not await _has_family_tool_call(svc, run_id, cap.tool_sources, cap.call_filter)]
+        if not missing:
+            return _verdict("NOT_APPLICABLE")
+
+        unavailable = [cap for cap in missing if not _family_tool_names(cap.tool_sources)]
+        if unavailable:
+            # Хотя бы для одной затронутой стороны исполнителя в реестре нет
+            # вообще (images/workflow/schedules на момент этого патча) —
+            # честный терминал сразу: повтор не породит инструмент, которого
+            # структурно не существует.
+            names = [cap.name for cap in unavailable]
             await svc.bus.emit("action_contract.capability_unavailable",
-                               task_id=task["id"], run_id=run_id, capability=cap.name)
+                               task_id=task["id"], run_id=run_id, capabilities=names)
             return _verdict("FAIL", rule=RULE, requeue=False, status="failed",
-                           feedback=f"инструмент для {cap.name} недоступен в этой системе")
+                           feedback=f"инструмент недоступен в этой системе для: {', '.join(names)}")
 
-        has_tools = await _agent_has_family_tools(svc, task, cap.tool_sources)
+        has_tools = any([await _agent_has_family_tools(svc, task, cap.tool_sources)
+                        for cap in missing])
         attempts, meta = await _attempts(svc, task["id"])
         if has_tools and attempts == 0:
             await _bump_attempts(svc, task["id"], meta)
-            names = ", ".join(_family_tool_names(cap.tool_sources))
+            parts = [f"{cap.name} ({', '.join(_family_tool_names(cap.tool_sources))})"
+                    for cap in missing]
             return _verdict(
                 "FAIL", rule=RULE, requeue=True,
                 feedback=(f"Ответ описывает, что сделать, вместо того чтобы выполнить действие "
-                         f"инструментом. Доступны инструменты: {names} — вызови нужный штатным "
-                         f"механизмом, а не пересказывай шаги владельцу. Текстовая инструкция "
-                         f"не завершает задачу."))
+                         f"инструментом. Не подтверждено выполнение: {'; '.join(parts)} — вызови "
+                         f"нужные инструменты штатным механизмом для КАЖДОЙ части задачи, а не "
+                         f"пересказывай шаги владельцу. Текстовая инструкция не завершает задачу."))
 
+        names = [cap.name for cap in missing]
         await svc.bus.emit("action_contract.blocked", task_id=task["id"], run_id=run_id,
-                           capability=cap.name, has_tools=has_tools)
+                           capabilities=names, has_tools=has_tools)
         return _verdict("FAIL", rule=RULE, requeue=False, status="failed")
     return gate_completion
 
