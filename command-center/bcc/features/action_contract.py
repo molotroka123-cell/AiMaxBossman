@@ -10,7 +10,8 @@
 инструмента filesystem.write нет), apps (MODULE 3, bcc/features/tools_apps.py),
 memory, openclaw, code (opencode.send + terminal), github (git через
 terminal.run), mcp, plugin. Для capability, у которой в реестре инструментов
-вообще нет ни одного (images/workflow/schedules — см. ниже), это ОДИН И ТОТ
+вообще нет ни одного (images/workflow/schedules/coding-sessions — см. ниже),
+это ОДИН И ТОТ
 ЖЕ файл честно возвращает CAPABILITY_UNAVAILABLE вместо попытки притвориться,
 что инструмент есть.
 
@@ -49,7 +50,8 @@ capability/action-contract слой (эта пара хуков), а не по �
     tools_mcp.py (динамическая регистрация с source="mcp"), plugins.py
     (source="plugin"), и (MODULE 3 этой же задачи) новый тонкий
     bcc/features/tools_apps.py — обёртку над уже готовым apps_control.py;
-    для images/workflow/schedules(missions) исполнителя, вызываемого моделью,
+    для images/workflow/schedules(missions)/coding_sessions исполнителя,
+    вызываемого моделью,
     сейчас НЕТ вообще — это честно отражено пустым `tool_sources`, а не
     придумано;
   * не меняет AUTO/ASK/DENY, governor, restart/dedup — прикреплённые
@@ -150,6 +152,7 @@ _MCP_TOPIC = r"\bmcp\b"
 _PLUGIN_TOPIC = r"\bplugin\b|плагин\w*"
 _IMAGE_TOPIC = r"\bimage\b|\bpicture\b|картинк\w*|изображени\w*|рисун\w*"
 _WORKFLOW_TOPIC = r"\bworkflow\b|воркфлоу\w*|рабочий\s+процесс\w*"
+_CODING_SESSION_TOPIC = (r"coding[\s_-]?session\w*|\bworktree\w*|воркtree\w*|сесси\w*\s+(?:кодинга|разработки)|отдельн\w*\s+сесси\w*")
 
 _TERMINAL_FILE_RE = re.compile(
     rf"({_DO_VERB})[^.!?\n]{{0,80}}({_TERMINAL_TOPIC}|{_FILE_TOPIC})|"
@@ -274,6 +277,13 @@ CAPABILITIES: tuple[Capability, ...] = (
     Capability("MEMORY_ACTION", _MEMORY_RE, frozenset({"memory"})),
     Capability("IMAGES_ACTION", _clause_re(_GEN_VERB, _IMAGE_TOPIC), frozenset()),
     Capability("WORKFLOW_ACTION", _clause_re(_OPEN_VERB, _WORKFLOW_TOPIC), frozenset()),
+    # coding_sessions.py существует, но НИ ОДНОГО ToolSpec не регистрирует:
+    # создание/слияние/сброс сессии живёт только в HTTP-ручках, модель вызвать
+    # это не может в принципе. Пустой tool_sources => честный
+    # CAPABILITY_UNAVAILABLE вместо текстового «готово» (PHASE 13). Нового
+    # исполнителя здесь не строим — V2 заморожен.
+    Capability("CODING_SESSIONS_ACTION",
+              _clause_re(_DO_VERB + "|" + _OPEN_VERB, _CODING_SESSION_TOPIC), frozenset()),
     Capability("SCHEDULES_ACTION", _SCHEDULE_RE, frozenset()),
     Capability("PLUGIN_ACTION", _clause_re(_USE_VERB, _PLUGIN_TOPIC), frozenset({"plugin"})),
 )
