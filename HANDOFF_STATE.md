@@ -1,71 +1,35 @@
-# HANDOFF_STATE — K1MBA_TRADING_LEARNING_LAB
+# HANDOFF_STATE — AiMaxBossman V2 Freeze Pass
 
-**START_REMOTE_SHA:** `44b8cd51efd894509912f4b80685031f213089c3`
-(origin/claude/bossman-control-v03-43igbk на момент fetch)
-**CURRENT_SHA:** `d2750fcef14d1ed818a2b9c31b93a787fb3e8db3` — мои изменения ещё не закоммичены, коммитит ведущий.
+**BRANCH:** `claude/bossman-control-v03-43igbk`
+**START_SHA:** `66cc604f2f9ae5c36a7a1f01af6d685e140f0e93`
+**FINAL_SHA:** `9e6937ee570da27063425cc4e75a1e9e75162310`
+**REMOTE:** `https://github.com/molotroka123-cell/AiMaxBossman`
+
+## Обновлено
+
+* `2026-09-04` — V2 stability+freeze pass. Два коммита поверх `66cc604`:
+  * `ae166dd` — test(fable): изолировать cross-package budget probe (исправляет `ModuleNotFoundError: No module named 'bossman'` в `test_both_paths_share_one_ledger` при Command Center CI)
+  * `9e6937e` — test(openclaw): доказать dedup survive real runtime restart (сейчас test использует реальный `stop()`→новый `Services`→`start()` с той же SQLite)
 
 ## Принятые решения
 
-1. Модуль — отдельный подпакет `bossman-core/bossman/trading_learning/`; ленивые
-   импорты и `__getattr__` по образцу `bossman.cost_control`.
-2. Live-исполнение не реализовано вообще. Окружение может только ужесточить
-   режим; `TRADING_EXECUTION=ON` в env игнорируется по построению.
-3. Переиспользовано, а не продублировано:
-   * `bossman.learning_guard.holdout.SecretHoldout` — режим SEALED_HOLDOUT;
-   * `bossman.perimeter.require_scope` (SCOPE_CHAT/SCOPE_ADMIN) — авторизация ручек;
-   * `bossman.approvals` — куда отправляется owner approval (ручка ingest отказная);
-   * контракт `bcc.features.Feature` и дизайн-система `bx-*` — экран;
-   * принцип «верификатор ≠ автор записи» взят из `learning/trace.py`.
-   Второй Memory/Router/Benchmark/EventBus НЕ создавался.
-4. Приём URL регистрируется, но не скачивается — класс BLOCKED, а не фикция.
-5. Затравочный эпизод K1mba создаётся БЕЗ свечей: доказать им прибыль нельзя.
+1. V2 code frozen. Только P0/P1 fixes.
+2. Коммиты `ae166dd` и `9e6937e` — только тесты, production-код не менялся.
+3. Command Center CI ранее красный только из-за `test_both_paths_share_one_ledger`.
 
-## Изменённые существующие файлы (только необходимое)
+## Актуальное состояние CI
 
-* `bossman-core/bossman/api.py` — одна строка `"bossman.trading_learning",` в
-  кортеж `_include_stage_routers()`. Без неё модуль был бы DEAD_OR_UNWIRED.
-* `command-center/ui/pages/index.js` — две строки (импорт страницы + её имя в
-  `FEATURE_PAGES`), ровно как предписывает комментарий-контракт файла.
+* **root-ci** — PASS на `66cc604` (exact SHA)
+* **Bossman V2 Auto-Repair** — PASS на `66cc604`
+* **Command Center CI** — был FAIL на `66cc604` (py3.11+py3.12); фикс `ae166dd` в `9e6937e`
+* **Bossman Core CI** — был CANCELLED (concurrency) на `66cc604`
 
-## Созданные продакшн-файлы
+## Оставшиеся блокеры (не code)
 
-`bossman-core/bossman/trading_learning/`: `__init__.py`, `safety.py`, `models.py`,
-`sanitize.py`, `ingest.py`, `adapters.py`, `frames.py`, `claims.py`, `strategy.py`,
-`replay.py`, `verify.py`, `market.py`, `metrics.py`, `paper.py`, `backtest.py`,
-`memory.py`, `lessons.py`, `seed.py`, `benchmark.py`, `telemetry.py`, `cli.py`,
-`routes.py`.
-`command-center/bcc/features/trading_lab.py`, `command-center/ui/pages/trading_lab.js`,
-`docs/trading/K1MBA_TRADING_LEARNING_LAB.md`.
-
-## Команды тестов
-
-```
-cd bossman-core && python3 -m pytest tests/test_trading_safety.py \
-  tests/test_trading_lookahead.py tests/test_trading_claims.py \
-  tests/test_trading_paper_memory.py tests/test_trading_pipeline_benchmark.py \
-  tests/test_trading_wiring.py -q                       # 125 passed
-cd bossman-core && python3 -m pytest tests -q            # 1809 passed, 30 skipped, 2 xfailed
-cd command-center && python3 -m pytest tests -q          # 1022 passed, 3 skipped
-python3 -m compileall -q bossman-core/bossman/trading_learning
-python3 tools/ci_secret_scan.py                          # PASS
-git diff --check                                         # чисто
-python3 -m bossman.trading_learning.cli trading_benchmark   # exit 3 = NOT_READY (честно)
-```
-
-## Активные блокеры
-
-* `ffmpeg` не установлен → `extract_audio` BLOCKED;
-* локального ASR (whisper/faster-whisper/vosk) нет → `transcribe` BLOCKED;
-* OCR-движка (tesseract/easyocr) нет → `chart_ocr` BLOCKED;
-* нет одобренного владельцем READ_ONLY источника исторических рыночных данных →
-  `verify_claims`/`run_backtest`/`paper_trade` из CLI отвечают BLOCKED;
-* из-за трёх первых пунктов бенчмарк даёт `NOT_READY` — это верный ответ.
+* **Release benchmark**: `NO-GO` — `LiveCapabilityScore = INSUFFICIENT_EVIDENCE`, `PureCodingIQ = INSUFFICIENT_EVIDENCE`. Причина: в `release` tier manifest только 2 REAL_SANDBOX cases (`sandbox.durable_restart`, `sandbox.workspace_patch_rollback`); `verifier` и `universal_computer_apprentice` capability покрыты только SIMULATED. Для GO нужен LIVE evidence или добавление REAL_SANDBOX cases для этих capabilities.
+* **Branch protection**: не настроена (GitHub API 404) — owner policy, не код.
 
 ## Следующий шаг
 
-1. Владелец решает, ставить ли ffmpeg + локальный ASR + OCR (новых зависимостей
-   я не добавлял).
-2. Подключить READ_ONLY-провайдер исторических свечей/CVD/OI/ликвидаций за
-   явным approval — только после этого бэктест и paper-replay дают числа.
-3. Дальше: реальный `verify_claims` по подключённым данным и первые эпизоды в
-   EPISODIC_MEMORY; продвижение в PROCEDURAL_MEMORY только через гейт.
+1. Владелец решает, добавлять ли REAL_SANDBOX cases для `verifier`/`universal_computer_apprentice` в release tier, или закрывать freeze с `FREEZE_READY=NO` и заявлять owner-machine blocker.
+2. Либо: запустить дашборд на текущем SHA (`9e6937e`) и проверить UI acceptance.
