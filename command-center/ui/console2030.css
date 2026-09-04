@@ -1,0 +1,684 @@
+/* ============================================================
+   console2030.css — язык «операторского канала» (страница
+   ui/pages/mission_console.js). Отдельный файл и отдельный
+   префикс mc- нужны потому, что этот экран сознательно живёт
+   по своим правилам: у остальных страниц дизайн-система bx-,
+   и подмешивать одно в другое — верный способ сломать чужое.
+
+   Три правила, из которых выведено всё остальное:
+
+   1. Один акцент. Спокойный зелёный отмечает ТОЛЬКО «здесь
+      сейчас идёт работа» и «это подтверждено». Всё прочее —
+      оттенки серого. Поэтому взгляд оператора находит живое
+      место мгновенно, а не разбирает светофор из пяти цветов.
+   2. Состояние читается словом, а не цветом. Ошибка отличается
+      от нормы штриховкой и подписью, а не краской: так экран
+      остаётся понятным при дальтонизме и в чёрно-белой печати.
+   3. Отсутствие данных — это тоже состояние, и у него есть свой
+      вид (.mc-val.is-nodata). Пустое место или ноль на его месте
+      были бы враньём.
+   ============================================================ */
+
+.mc2030 {
+  /* ---------- поверхности (тёмная основа) ---------- */
+  --mc-bg:        #070908;
+  --mc-panel:     #0b0e0d;
+  --mc-panel-2:   #0f1312;
+  --mc-line:      rgba(255, 255, 255, .075);
+  --mc-line-2:    rgba(255, 255, 255, .16);
+  --mc-ink:       #e9edeb;
+  --mc-ink-2:     #9ba5a0;
+  --mc-ink-3:     #6b7571;
+
+  /* ---------- единственный акцент ---------- */
+  --mc-accent:    #4cc98a;
+  --mc-accent-in: #0a1a12;
+  --mc-accent-8:  rgba(76, 201, 138, .08);
+  --mc-accent-16: rgba(76, 201, 138, .16);
+  --mc-accent-32: rgba(76, 201, 138, .32);
+
+  --mc-r:   14px;
+  --mc-r-s: 9px;
+  --mc-gap: 14px;
+
+  display: grid;
+  gap: var(--mc-gap);
+  position: relative;
+  padding: 18px;
+  border-radius: var(--mc-r);
+  background:
+    /* Плёнка операторского пульта: две едва различимые сетки. Это не
+       украшение — она задаёт масштаб и не даёт большим тёмным полям
+       выглядеть «пустым провалом». */
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .014) 0 1px, transparent 1px 4px),
+    radial-gradient(120% 90% at 12% 0%, rgba(76, 201, 138, .05), transparent 58%),
+    var(--mc-bg);
+  color: var(--mc-ink);
+  font-family: var(--bx-font, system-ui, sans-serif);
+  font-size: 13.5px;
+  line-height: 1.45;
+  border: 1px solid var(--mc-line);
+  overflow: hidden;                 /* уголки рамки не должны рождать прокрутку */
+}
+
+/* Уголки видоискателя: дают экрану границу без тяжёлой рамки. */
+.mc2030::before,
+.mc2030::after {
+  content: "";
+  position: absolute;
+  width: 14px; height: 14px;
+  border: 1px solid var(--mc-accent-32);
+  pointer-events: none;
+}
+.mc2030::before { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
+.mc2030::after { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
+
+/* Светлая тема: экран остаётся «пультом», но перестаёт быть чёрным пятном
+   в светлом интерфейсе. Меняются только поверхности и чернила. */
+[data-theme="light"] .mc2030 {
+  --mc-bg:      #eef1ef;
+  --mc-panel:   #ffffff;
+  --mc-panel-2: #f6f8f7;
+  --mc-line:    rgba(12, 26, 20, .1);
+  --mc-line-2:  rgba(12, 26, 20, .22);
+  --mc-ink:     #0d1512;
+  --mc-ink-2:   #46534d;
+  --mc-ink-3:   #6c7a74;
+  --mc-accent:    #157f4f;
+  --mc-accent-in: #ffffff;
+  --mc-accent-8:  rgba(21, 127, 79, .08);
+  --mc-accent-16: rgba(21, 127, 79, .14);
+  --mc-accent-32: rgba(21, 127, 79, .3);
+}
+
+.mc2030 :where(h1, h2, h3, p, dl, dd, dt, ul, ol) { margin: 0; }
+.mc2030 ol, .mc2030 ul { list-style: none; padding: 0; }
+.mc2030 * { min-width: 0; }
+
+/* ---------------------------------------------------------------- мелкая типографика */
+
+.mc-label {
+  font-size: 10px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--mc-ink-3);
+  font-weight: 600;
+}
+
+.mc-mono { font-family: var(--bx-mono, ui-monospace, monospace); }
+
+/* Значение с паспортом источника. Числа — табличными цифрами: столбцы
+   не «пляшут» при обновлении раз в секунду. */
+.mc-val {
+  font-variant-numeric: tabular-nums;
+  color: var(--mc-ink);
+  overflow-wrap: anywhere;
+}
+.mc-val.is-mono { font-family: var(--bx-mono, ui-monospace, monospace); }
+.mc-val.is-accent { color: var(--mc-accent); }
+.mc-val.is-big { font-size: 19px; font-weight: 650; letter-spacing: -.01em; }
+
+/* «Нет данных» намеренно выглядит иначе, чем любая цифра: наклон и приглушённый
+   тон читаются как отсутствие, а не как значение. */
+.mc-val.is-nodata {
+  color: var(--mc-ink-3);
+  font-style: italic;
+  font-size: .94em;
+  letter-spacing: .01em;
+}
+
+/* ---------------------------------------------------------------- пилюли и метки */
+
+.mc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--mc-line);
+  background: var(--mc-panel-2);
+  color: var(--mc-ink-2);
+  font-size: 11px;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.mc-pill-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .7;
+  flex: 0 0 auto;
+}
+.mc-pill.is-live {
+  color: var(--mc-accent);
+  border-color: var(--mc-accent-32);
+  background: var(--mc-accent-8);
+}
+.mc-pill.is-live .mc-pill-dot { opacity: 1; animation: mc-breathe 2.4s var(--bx-ease, ease) infinite; }
+.mc-pill.is-alert {
+  color: var(--mc-ink);
+  border-color: var(--mc-line-2);
+  /* Тревога без красного: диагональная штриховка. Она видна и в ч/б. */
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, .05) 0 5px, transparent 5px 10px),
+    var(--mc-panel-2);
+}
+
+@keyframes mc-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* ---------------------------------------------------------------- шапка миссии */
+
+.mc-head {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--mc-line);
+}
+
+.mc-head-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.mc-head-main { flex: 1 1 320px; }
+
+.mc-title {
+  font-size: clamp(21px, 2.4vw, 29px);
+  font-weight: 660;
+  letter-spacing: -.025em;
+  line-height: 1.12;
+}
+
+.mc-goal {
+  margin-top: 6px;
+  color: var(--mc-ink-2);
+  font-size: 13.5px;
+  max-width: 62ch;
+}
+
+.mc-head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  align-items: flex-start;
+}
+.mc-head-meta > div { display: grid; gap: 3px; }
+
+/* ---------------------------------------------------------------- маршрут моделей */
+
+.mc-route-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mc-plate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 11px;
+  border: 1px solid var(--mc-line);
+  border-radius: var(--mc-r-s);
+  background: var(--mc-panel);
+  color: var(--mc-ink-2);
+  font-size: 12px;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.mc-plate-name {
+  font-family: var(--bx-mono, ui-monospace, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mc-plate-kind { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--mc-ink-3); }
+.mc-plate.is-active {
+  color: var(--mc-ink);
+  border-color: var(--mc-accent-32);
+  background: var(--mc-accent-8);
+  box-shadow: inset 0 0 0 1px var(--mc-accent-16);
+}
+.mc-plate.is-active .mc-plate-kind { color: var(--mc-accent); }
+.mc-plate-arrow { color: var(--mc-ink-3); font-size: 12px; }
+
+/* ---------------------------------------------------------------- каркас: лента + правая колонка */
+
+.mc-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 322px);
+  gap: var(--mc-gap);
+  align-items: start;
+}
+
+@media (max-width: 1180px) {
+  .mc-body { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------------------------------------------------------------- лента канала */
+
+.mc-feed {
+  display: grid;
+  gap: 12px;
+  position: relative;
+  padding-left: 18px;
+}
+/* Рельс канала: одна линия, вдоль которой висят карточки. Она заменяет
+   рамки у каждой карточки — экран становится тише. */
+.mc-feed::before {
+  content: "";
+  position: absolute;
+  left: 3px; top: 6px; bottom: 6px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--mc-line-2) 12%, var(--mc-line-2) 88%, transparent);
+}
+
+.mc-card {
+  position: relative;
+  background: var(--mc-panel);
+  border: 1px solid var(--mc-line);
+  border-radius: var(--mc-r);
+  padding: 14px;
+}
+/* Узел карточки на рельсе. */
+.mc-card::before {
+  content: "";
+  position: absolute;
+  left: -19px; top: 20px;
+  width: 7px; height: 7px;
+  background: var(--mc-line-2);
+  border-radius: 2px;
+}
+.mc-card.is-live::before { background: var(--mc-accent); }
+.mc-card.is-decision::before { background: var(--mc-accent); transform: rotate(45deg); }
+
+.mc-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.mc-card-title {
+  font-size: 13px;
+  font-weight: 640;
+  letter-spacing: -.005em;
+}
+.mc-card-spacer { flex: 1 1 auto; }
+
+/* Карточка решения: пунктир вместо цвета — «здесь ждут вас». */
+.mc-card.is-decision {
+  border: 1px dashed var(--mc-accent-32);
+  background:
+    linear-gradient(180deg, var(--mc-accent-8), transparent 40%),
+    var(--mc-panel);
+}
+
+/* ---------------------------------------------------------------- карточка плана */
+
+.mc-steps { display: grid; gap: 2px; }
+
+.mc-step {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: var(--mc-r-s);
+  border-left: 2px solid transparent;
+}
+.mc-step-no {
+  font-family: var(--bx-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--mc-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.mc-step-title { color: var(--mc-ink-2); overflow-wrap: anywhere; }
+.mc-step-state { font-size: 11px; color: var(--mc-ink-3); white-space: nowrap; }
+
+.mc-step.is-done .mc-step-title { color: var(--mc-ink-2); }
+.mc-step.is-done .mc-step-no { color: var(--mc-accent); }
+.mc-step.is-current {
+  background: var(--mc-accent-8);
+  border-left-color: var(--mc-accent);
+}
+.mc-step.is-current .mc-step-title { color: var(--mc-ink); font-weight: 600; }
+.mc-step.is-current .mc-step-state { color: var(--mc-accent); }
+
+/* ---------------------------------------------------------------- карточка проверки */
+
+.mc-sources { display: grid; gap: 1px; }
+
+.mc-source {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--mc-line);
+}
+.mc-source:last-child { border-bottom: 0; }
+/* Состояние источника — фигурой, а не галочкой-символом: слово рядом всё
+   равно называет его прямо, а фигура одинаково выглядит в любом шрифте. */
+.mc-source-mark {
+  width: 8px; height: 8px;
+  margin-top: 6px;
+  border-radius: 2px;
+  border: 1px solid var(--mc-line-2);
+}
+.mc-source.is-ok .mc-source-mark { background: var(--mc-accent); border-color: var(--mc-accent); }
+.mc-source.is-live .mc-source-mark {
+  border-color: var(--mc-accent);
+  box-shadow: 0 0 0 3px var(--mc-accent-16);
+  animation: mc-breathe 2.4s ease infinite;
+}
+.mc-source.is-bad .mc-source-mark {
+  background: repeating-linear-gradient(135deg, var(--mc-line-2) 0 2px, transparent 2px 4px);
+}
+.mc-source-name { color: var(--mc-ink-2); overflow-wrap: anywhere; }
+.mc-source-state { font-size: 11px; color: var(--mc-ink-3); white-space: nowrap; }
+/* Сбой — штриховкой по строке, а не красным цветом. */
+.mc-source.is-bad .mc-source-name {
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--mc-line-2);
+}
+
+.mc-disclose {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--mc-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mc-ink-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+.mc-disclose:hover { border-color: var(--mc-line-2); color: var(--mc-ink); }
+.mc-disclose:focus-visible { outline: 2px solid var(--mc-accent); outline-offset: 2px; }
+.mc-disclose-caret { transition: transform 160ms ease; }
+.mc-disclose[aria-expanded="true"] .mc-disclose-caret { transform: rotate(90deg); }
+
+.mc-details {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: var(--mc-r-s);
+  background: var(--mc-panel-2);
+  border: 1px solid var(--mc-line);
+  display: grid;
+  gap: 6px;
+}
+.mc-detail-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
+  font-size: 12px;
+}
+.mc-detail-time { color: var(--mc-ink-3); font-family: var(--bx-mono, ui-monospace, monospace); }
+.mc-detail-text { color: var(--mc-ink-2); overflow-wrap: anywhere; }
+.mc-details-note { color: var(--mc-ink-3); font-size: 11.5px; }
+
+/* Честные цифры под карточкой проверки. */
+.mc-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--mc-line);
+}
+.mc-fact { display: grid; gap: 2px; }
+
+/* ---------------------------------------------------------------- карточка подтверждения */
+
+.mc-decision-body { display: grid; gap: 10px; }
+.mc-decision-text {
+  color: var(--mc-ink);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 13px;
+}
+.mc-decision-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.mc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.mc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  min-height: 36px;
+  border-radius: var(--mc-r-s);
+  border: 1px solid var(--mc-line-2);
+  background: var(--mc-panel-2);
+  color: var(--mc-ink);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 560;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+.mc-btn:hover:not(:disabled) { border-color: var(--mc-accent-32); }
+.mc-btn:focus-visible { outline: 2px solid var(--mc-accent); outline-offset: 2px; }
+.mc-btn:disabled { opacity: .5; cursor: not-allowed; }
+.mc-btn.is-primary {
+  background: var(--mc-accent);
+  border-color: var(--mc-accent);
+  color: var(--mc-accent-in);
+}
+.mc-btn.is-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.mc-btn.is-quiet { background: transparent; border-color: var(--mc-line); color: var(--mc-ink-2); }
+
+/* ---------------------------------------------------------------- карточка маршрута */
+
+.mc-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(124px, 1fr));
+  gap: 12px 16px;
+}
+.mc-cell { display: grid; gap: 3px; }
+
+/* ---------------------------------------------------------------- правая колонка */
+
+.mc-rail { display: grid; gap: var(--mc-gap); }
+
+.mc-panel {
+  background: var(--mc-panel);
+  border: 1px solid var(--mc-line);
+  border-radius: var(--mc-r);
+  padding: 14px;
+}
+.mc-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.mc-panel-head .mc-card-spacer { flex: 1 1 auto; }
+
+/* граф задач */
+
+.mc-graph { display: grid; gap: 0; }
+
+.mc-node {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 10px;
+  padding-bottom: 12px;
+  position: relative;
+}
+.mc-node:last-child { padding-bottom: 0; }
+/* Соединитель между узлами рисуем псевдоэлементом: отдельные линии в разметке
+   были бы шумом для скринридера. */
+.mc-node:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 7px; top: 15px; bottom: 1px;
+  width: 1px;
+  background: var(--mc-line-2);
+}
+.mc-node-mark {
+  width: 9px; height: 9px;
+  margin-top: 5px;
+  border-radius: 2px;
+  border: 1px solid var(--mc-line-2);
+  background: transparent;
+}
+.mc-node.is-done .mc-node-mark { background: var(--mc-accent); border-color: var(--mc-accent); }
+.mc-node.is-current .mc-node-mark {
+  border-color: var(--mc-accent);
+  box-shadow: 0 0 0 3px var(--mc-accent-16);
+}
+.mc-node.is-bad .mc-node-mark {
+  background: repeating-linear-gradient(135deg, var(--mc-line-2) 0 2px, transparent 2px 4px);
+}
+.mc-node-body { display: grid; gap: 3px; }
+.mc-node-title { font-size: 12.5px; color: var(--mc-ink-2); overflow-wrap: anywhere; }
+.mc-node.is-current .mc-node-title { color: var(--mc-ink); font-weight: 600; }
+.mc-node-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--mc-ink-3); }
+
+/* агенты */
+
+.mc-agent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--mc-line);
+}
+.mc-agent:last-child { border-bottom: 0; }
+.mc-agent-name { font-size: 12.5px; overflow-wrap: anywhere; }
+.mc-agent-role { font-size: 11px; color: var(--mc-ink-3); overflow-wrap: anywhere; }
+.mc-spark { display: block; width: 72px; height: 26px; }
+.mc-spark-line { fill: none; stroke: var(--mc-accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.mc-spark-area { fill: var(--mc-accent-16); stroke: none; }
+.mc-spark-base { stroke: var(--mc-line-2); stroke-width: 1; vector-effect: non-scaling-stroke; }
+
+/* полосы */
+
+.mc-meter { display: grid; gap: 5px; }
+.mc-meter-top { display: flex; align-items: baseline; gap: 10px; }
+.mc-meter-top .mc-card-spacer { flex: 1 1 auto; }
+.mc-bar {
+  height: 4px;
+  border-radius: 99px;
+  background: var(--mc-panel-2);
+  border: 1px solid var(--mc-line);
+  overflow: hidden;
+}
+.mc-bar > i { display: block; height: 100%; background: var(--mc-accent); }
+/* Полоса без данных не рисует заливку вовсе: пустая полоса читалась бы как ноль,
+   поэтому у неё другой рисунок — штриховка «шкала неизвестна». */
+.mc-bar.is-nodata {
+  background: repeating-linear-gradient(90deg, var(--mc-line) 0 3px, transparent 3px 7px);
+}
+.mc-bar.is-split { display: flex; }
+.mc-bar.is-split > i:last-child { background: var(--mc-line-2); }
+
+.mc-rows { display: grid; gap: 9px; }
+.mc-row { display: flex; align-items: baseline; gap: 10px; }
+.mc-row .mc-card-spacer { flex: 1 1 auto; }
+
+/* ---------------------------------------------------------------- пустое состояние */
+
+.mc-blank {
+  display: grid;
+  gap: 8px;
+  padding: 26px 18px;
+  border: 1px dashed var(--mc-line-2);
+  border-radius: var(--mc-r);
+  background: var(--mc-panel);
+  text-align: left;
+}
+.mc-blank-title { font-size: 14.5px; font-weight: 620; }
+.mc-blank-text { color: var(--mc-ink-2); max-width: 58ch; }
+.mc-blank-hint { color: var(--mc-ink-3); font-size: 12px; max-width: 58ch; }
+
+/* ---------------------------------------------------------------- командная строка */
+
+.mc-command {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--mc-line);
+}
+
+.mc-command-line {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.mc-input {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 10px 12px;
+  min-height: 40px;
+  border-radius: var(--mc-r-s);
+  border: 1px solid var(--mc-line);
+  background: var(--mc-panel);
+  color: var(--mc-ink);
+  font: inherit;
+  font-family: var(--bx-mono, ui-monospace, monospace);
+  font-size: 13px;
+}
+.mc-input::placeholder { color: var(--mc-ink-3); }
+.mc-input:focus { outline: none; border-color: var(--mc-accent-32); box-shadow: 0 0 0 3px var(--mc-accent-8); }
+
+/* На широком экране быстрые команды переносятся: обрезанная строка выглядела
+   бы как потерянные кнопки. На телефоне переносить их некуда — там лента. */
+.mc-chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.mc-chip {
+  flex: 0 0 auto;
+  padding: 6px 11px;
+  min-height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--mc-line);
+  background: transparent;
+  color: var(--mc-ink-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+.mc-chip:hover { border-color: var(--mc-accent-32); color: var(--mc-ink); }
+.mc-chip:focus-visible { outline: 2px solid var(--mc-accent); outline-offset: 2px; }
+
+.mc-hint { color: var(--mc-ink-3); font-size: 11.5px; }
+
+/* ---------------------------------------------------------------- телефон */
+
+@media (max-width: 640px) {
+  .mc2030 { padding: 14px 12px; border-radius: 12px; }
+  .mc-feed { padding-left: 15px; }
+  .mc-card::before { left: -16px; }
+  .mc-head-meta { gap: 8px 16px; }
+  .mc-agent { grid-template-columns: minmax(0, 1fr) 60px; }
+  .mc-spark { width: 60px; }
+  .mc-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+  /* На узком экране кнопки решения занимают строку целиком: тач-цель важнее
+     компактности, а рядом стоящие «подтвердить/отклонить» на 390px опасны. */
+  .mc-actions .mc-btn { flex: 1 1 140px; justify-content: center; min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc2030 *, .mc2030 *::before, .mc2030 *::after { animation: none !important; }
+}
