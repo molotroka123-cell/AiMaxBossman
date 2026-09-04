@@ -85,8 +85,12 @@ def _refused(snapshot: Snapshot, expected: Binding, exc: ObservationRefused, *,
 
 def observe(snapshot: Snapshot, *, approval: OwnerApproval | None, expected: Binding,
             environment: str = "", head_sha: str = "", model_version: str = "",
-            mock: bool = False) -> CoinwiseObservation:
+            mock: bool = False, ocr_capability: Any = None) -> CoinwiseObservation:
     """Превратить снимок в наблюдение или в честный отказ.
+
+    `ocr_capability` передаётся, а не только опрашивается: наличие движка OCR —
+    свойство машины, и тест обязан уметь проверить и «движок есть», и «движка
+    нет», не завися от того, что установлено на этой.
 
     `mock=True` — регрессионная фикстура. Она НИКОГДА не даёт
     REAL_BROWSER_READONLY: тест, выдающий себя за живой браузер, — худшее, что
@@ -122,7 +126,8 @@ def observe(snapshot: Snapshot, *, approval: OwnerApproval | None, expected: Bin
     result = primary
     if snapshot.ocr_lines and any(not v.known for v in (primary.fields or {}).values()) \
             or (snapshot.ocr_lines and not primary.fields):
-        result = extract_mod.merge(primary, extract_mod.from_ocr(snapshot.ocr_lines))
+        result = extract_mod.merge(
+            primary, extract_mod.from_ocr(snapshot.ocr_lines, capability=ocr_capability))
         notes.append("часть значений снята локальным OCR")
     if extract_mod.cloud_vision_enabled():          # по умолчанию недостижимо
         notes.append("облачное зрение разрешено владельцем явно")
