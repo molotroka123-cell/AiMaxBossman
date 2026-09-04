@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import pytest
 
+from bcc.api import create_app
 from bcc.features import tools_openclaw as oc
 from bcc.tools import ToolContext, decide_effect
 
@@ -175,20 +176,28 @@ async def test_send_is_not_delivered_twice_even_when_the_step_is_replayed(monkey
     assert first.error is False
     assert len(br.sent) == 1
 
-    # тот же шаг после «перезапуска»: провайдер выдал НОВЫЙ call_id
-    ctx2, _ = _ctx(monkeypatch, br, svc=env.svc, call_id="провайдер-выдал-другой")
-    second = await oc._tool_send(dict(ARGS), ctx2)
-    assert second.error is False
-    assert second.data.get("duplicate") is True
-    assert len(br.sent) == 1, "повтор дошёл до Gateway — человек получил второе сообщение"
+    # Настоящий restart: новый Services открывает тот же durable SQLite.
+    await env.svc.stop()
+    restarted_app = create_app(env.settings, announce_token=False, start_workers=False)
+    restarted = restarted_app.state.svc
+    await restarted.start()
+    try:
+        # Тот же mission_id и действие после restart; provider call_id уже другой.
+        ctx2, _ = _ctx(monkeypatch, br, svc=restarted, call_id="провайдер-выдал-другой")
+        second = await oc._tool_send(dict(ARGS), ctx2)
+        assert second.error is False
+        assert second.data.get("duplicate") is True
+        assert len(br.sent) == 1, "повтор дошёл до Gateway — человек получил второе сообщение"
 
-    # другой текст тому же человеку — это другое действие, оно уходит
-    other = {**ARGS, "message": "другое сообщение"}
-    ctx3, _ = _ctx(monkeypatch, br, svc=env.svc)
-    await oc._tool_send(other, ctx3)
-    assert len(br.sent) == 2
-    assert br.sent[0]["idem"] != br.sent[1]["idem"]
-    assert br.sent[0]["idem"].startswith("bossman-")
+        # Другой текст тому же человеку — это другое действие, оно уходит.
+        other = {**ARGS, "message": "другое сообщение"}
+        ctx3, _ = _ctx(monkeypatch, br, svc=restarted)
+        await oc._tool_send(other, ctx3)
+        assert len(br.sent) == 2
+        assert br.sent[0]["idem"] != br.sent[1]["idem"]
+        assert br.sent[0]["idem"].startswith("bossman-")
+    finally:
+        await restarted.stop()
 
 
 async def test_definite_refusal_is_retryable_but_ambiguity_is_not(monkeypatch, env):
