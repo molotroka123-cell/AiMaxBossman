@@ -137,7 +137,13 @@ def _devtools_endpoint(profile_dir, proc, timeout: float = 60.0):
         f"DevToolsActivePort не появился за {timeout} с (rc={proc.poll()}, содержимое={seen!r})")
 
 
-@pytest.mark.timeout(120)
+# Запас, а не ослабление проверки: тест поднимает НАСТОЯЩЕЕ окно Chromium,
+# ждёт DevTools и рендер. Типичная длительность на раннере — 37–48 с, но на
+# загруженной ноде py3.12 (после ~1400 других тестов, часть из которых тоже
+# браузерные) он вышел за 120 с и уронил CI, тогда как py3.11 в ТОМ ЖЕ прогоне
+# прошёл. Ассерты не тронуты: зависшее окно по-прежнему провалит тест, просто
+# позже, а разброс скорости раннера больше не выдаёт себя за дефект.
+@pytest.mark.timeout(300)
 @pytest.mark.skipif(not chromium_available(), reason=browser_reason())
 def test_real_chromium_app_window_renders_command_center(live, tmp_path):  # noqa: F711
     """Настоящее окно --app с предустановленным Chromium: без дисплея — headless-снимок,
