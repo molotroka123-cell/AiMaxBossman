@@ -106,10 +106,15 @@ KNOWN: dict[str, Requirement] = {
 
     "agentmap": Requirement(LOCAL, "граф собирается из таблиц агентов и раннов"),
     "apps": Requirement(LOOPBACK, "карточки приложений проверяют порты на 127.0.0.1"),
+    "apps_control": Requirement(LOOPBACK, "запуск приложения и проверка его готовности "
+                                          "стучатся только в 127.0.0.1"),
     "benchlab": Requirement(PROVIDERS, "бенчмарк гоняет живые модели через адаптер провайдера"),
     "browser": Requirement(EXTERNAL, "навигация ведёт на сайт, адрес которого заранее неизвестен"),
     "cache_intel": Requirement(LOCAL, "агрегирует уже записанные события кэша"),
     "code_intel": Requirement(LOCAL, "LSP и индекс кода — локальные процессы и файлы"),
+    "command_bar": Requirement(UNSURE, "выполняет любую ручку этого же приложения: "
+                                       "локальную или уходящую в модель — какую именно, "
+                                       "решает введённая команда"),
     "coding_sessions": Requirement(LOCAL, "git-worktree на этой машине"),
     "deep_fix": Requirement(LOCAL, "хэш плана и хуки движка, всё внутри БД"),
     "forks": Requirement(PROVIDERS, "форк переигрывает ран, то есть снова зовёт модель"),

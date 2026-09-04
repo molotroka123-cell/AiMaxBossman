@@ -26,6 +26,7 @@ import MobilePage from './mobile.js';
 import BuilderPage from './builder.js';
 import ImagesPage from './images.js';
 import TradingLabPage from './trading_lab.js';
+import MissionConsolePage from './mission_console.js';
 
 export const FEATURE_PAGES = [
   HomePage,
@@ -49,4 +50,5 @@ export const FEATURE_PAGES = [
   BuilderPage,
   ImagesPage,
   TradingLabPage,
+  MissionConsolePage,
 ];

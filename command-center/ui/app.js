@@ -12,6 +12,7 @@ import { PAGES, openTaskModal, openAgentModal, openScheduleModal, openModelWizar
 import { FEATURE_PAGES } from './pages/index.js';
 import { mountThinking } from './thinking.js';
 import { mountTestingPeriod } from './testing.js';
+import { mountCommandBar } from './commandbar.js';
 
 PAGES.push(...FEATURE_PAGES); // V2-страницы встают в общую навигацию
 
@@ -623,6 +624,11 @@ async function boot() {
   /* Тестовый период: плашка и запись действий. Наблюдатель, а не условие
      запуска — его отказ не должен мешать приложению работать. */
   mountTestingPeriod().catch(() => {});
+
+  /* Командная строка. Здесь же, а не в начале файла: каталог возможностей
+     читается с сервера, и до входа этот запрос получил бы 401 — панель молча
+     осталась бы пустой. При выключенном флаге она сама себя прячет. */
+  mountCommandBar();
 
   /* стартовые данные для верхней строки и бейджа */
   refreshApprovals();
