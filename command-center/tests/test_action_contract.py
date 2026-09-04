@@ -595,6 +595,46 @@ async def test_cached_success_text_cannot_complete_an_unrelated_run(env):
     assert task["status"] == "failed"
 
 
+# --------------------------------------------------------------- APPS HONESTY
+
+async def test_apps_tool_refuses_truthfully_when_control_is_disabled(env, monkeypatch):
+    """APPS-исполнитель существует, но выключен owner-флагом
+    BOSSMAN_APPS_CONTROL_ENABLED. Инструмент обязан честно отказать и НИЧЕГО
+    не породить — а не отрапортовать «запустил»."""
+    from bcc.features import tools_apps
+    monkeypatch.delenv("BOSSMAN_APPS_CONTROL_ENABLED", raising=False)
+
+    class _Ctx:
+        svc = env.svc
+    res = await tools_apps._start({"app_id": "whatever"}, _Ctx())
+    assert res.error is True
+    assert "выключено" in res.content
+
+
+async def test_apps_status_of_unknown_app_is_an_error_not_a_fake_state(env):
+    """Несуществующее приложение — ошибка наблюдения, а не «не запущено»
+    как утверждение о реальности."""
+    from bcc.features import tools_apps
+
+    class _Ctx:
+        svc = env.svc
+    res = await tools_apps._status({"app_id": "no-such-app"}, _Ctx())
+    assert res.error is True
+
+
+async def test_app_evidence_of_unobservable_app_is_never_verified(env):
+    """Ключевое свойство нового вида evidence kind="app": когда наблюдать
+    нечего, результат UNVERIFIED (или FAILED), но НИКОГДА не VERIFIED —
+    невозможность проверки не повышается до доказательства."""
+    from bcc.v2.verification import ExpectedState, verify
+
+    result = await verify(ExpectedState(kind="app", target="no-such-app",
+                                        expect={"running": True}),
+                          svc=env.svc, task={"id": 1})
+    assert result.status in ("UNVERIFIED", "FAILED")
+    assert result.verified is False
+
+
 # ------------------------------------------------------- RETRY BOUND / RESTART
 
 async def test_gate_failure_terminates_and_does_not_loop_forever(env, tmp_path):
