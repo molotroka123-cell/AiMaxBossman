@@ -85,9 +85,20 @@ async def test3_verified_action_via_deterministic_harness_completes(env):
     в tool_calls, как её оставляет настоящий tool loop) до того, как гейт
     читает `answer`. Даже если модель ЗАТЕМ подмешала отказную фразу в текст,
     наличие вызова инструмента — сильнее: гейт обязан вернуть NOT_APPLICABLE
-    и не мешать завершению."""
+    и не мешать завершению.
+
+    Промпт намеренно БЕЗ распознаваемого домена («браузер», а не «YouTube»):
+    bcc/features/action_router.py (BCC-V2-UNIVERSAL-ACTION-EXECUTION-P1-001)
+    для задач с выводимым доменом (например «YouTube» → youtube.com)
+    автоматически прикрепляет meta.review.evidence (kind=browser,
+    url_contains=домен) — а этот тест проверяет ИМЕННО узкий, независимый
+    от review_gate инвариант action_gate («хоть один вызов инструмента —
+    не наш случай»), не полный конвейер verified-evidence, поэтому не должен
+    внезапно требовать реальной браузерной сессии, наблюдение за которой
+    здесь не имитируется. Полный конвейер (реальный Chromium, автоматическое
+    evidence по домену) проверяется в tests/test_action_router.py."""
     env.svc.registry.adapter_factory = lambda m, p: FakeAdapter(REAL_REFUSAL)
-    stack = await make_stack(env.client, prompt="Открой YouTube в браузере")
+    stack = await make_stack(env.client, prompt="Открой браузер и покажи страницу")
 
     run_id = await env.svc.engine.claim()
     assert run_id is not None
