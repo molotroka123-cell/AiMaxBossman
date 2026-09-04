@@ -31,12 +31,13 @@ _DB_ALLOWLIST = {"tasks", "task_runs", "facts", "approvals", "tool_calls"}
 
 @dataclass(frozen=True, slots=True)
 class ExpectedState:
-    kind: str                     # file | db | browser
-    target: str                   # путь / таблица / url|session
+    kind: str                     # file | db | browser | app
+    target: str                   # путь / таблица / url|session / app_id
     expect: dict = field(default_factory=dict)
     # file: {"exists": True, "sha256": "...", "contains": "text", "min_bytes": N}
     # db:   {"where": {col: val}, "equals": {col: val}}
     # browser: {"title_contains": "...", "url_contains": "..."}
+    # app: {"running": True}  (default True — MODULE 3, bcc/features/apps_control.py)
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,7 +88,7 @@ def parse_expected(raw: Any) -> list[ExpectedState]:
             continue
         kind = str(item.get("kind") or "").strip().lower()
         target = str(item.get("target") or "").strip()
-        if kind in ("file", "db", "browser") and target:
+        if kind in ("file", "db", "browser", "app") and target:
             out.append(ExpectedState(kind=kind, target=target,
                                      expect=dict(item.get("expect") or {})))
     return out
@@ -162,6 +163,22 @@ async def _observe_browser(exp: ExpectedState, *, svc, task: dict) -> tuple[Obse
                 Evidence("browser:snapshot", f"observe failed: {exc}"))
 
 
+async def _observe_app(exp: ExpectedState, *, svc) -> tuple[ObservedState, Evidence]:
+    """Свежее состояние процесса приложения (MODULE 3): переиспользует
+    bcc/features/apps_control.process_info — тот же наблюдатель, что и
+    ручка GET /apps/{id}/process, никакого второго источника правды."""
+    try:
+        from ..features import apps_control as _apps
+        info = _apps.process_info(exp.target, svc.settings.data_dir)
+    except Exception as exc:  # noqa: BLE001 — наблюдение недоступно → UNVERIFIED, не PASS
+        return (ObservedState("app", exp.target, {"error": str(exc)[:200]}, time.time()),
+                Evidence("app:status", f"observe failed: {exc}"))
+    obs = {"running": bool(info.get("running")), "pid": info.get("pid"),
+           "port_busy": info.get("port_busy")}
+    return (ObservedState("app", exp.target, obs, time.time()),
+            Evidence("app:status", f"running={obs['running']} pid={obs['pid']}"))
+
+
 # ------------------------------------------------------------- compare
 
 def _compare(exp: ExpectedState, obs: ObservedState) -> tuple[Status, str]:
@@ -200,6 +217,13 @@ def _compare(exp: ExpectedState, obs: ObservedState) -> tuple[Status, str]:
         if not (e.get("title_contains") or e.get("url_contains")):
             return "UNVERIFIED", "ожидание браузера не задаёт проверяемого свойства"
         return "VERIFIED", "свежий снимок страницы совпал с ожиданием"
+    if exp.kind == "app":
+        want_running = bool(e.get("running", True))
+        got_running = bool(o.get("running"))
+        if want_running != got_running:
+            return ("FAILED", f"приложение {'не ' if not got_running else ''}запущено, "
+                              f"а ожидалось {'запущено' if want_running else 'не запущено'}")
+        return "VERIFIED", "свежая проверка процесса совпала с ожиданием"
     return "UNVERIFIED", f"неизвестный вид ожидания {exp.kind}"
 
 
@@ -211,6 +235,8 @@ async def verify(expected: ExpectedState, *, svc, task: dict,
         obs, ev = await _observe_db(expected, svc=svc)
     elif expected.kind == "browser":
         obs, ev = await _observe_browser(expected, svc=svc, task=task)
+    elif expected.kind == "app":
+        obs, ev = await _observe_app(expected, svc=svc)
     else:
         return VerificationResult("UNVERIFIED", expected, None, (), "неизвестный вид ожидания")
     status, reason = _compare(expected, obs)
