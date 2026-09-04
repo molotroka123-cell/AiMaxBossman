@@ -182,7 +182,21 @@ async def test_http_max_bytes_matrix(monkeypatch):
 
 # ---------------------------------------------------------------- redaction
 
-async def test_redact_outputs_no_secret_values(monkeypatch):
+@pytest.fixture
+async def plugin_tools():
+    """Регистрация инструментов плагинов — своя, а не чужая.
+
+    Оба теста ниже берут спеку из общего реестра. Регистрацию делает setup()
+    фичи plugins, и раньше эти тесты работали только потому, что setup успел
+    отработать в СОСЕДНЕМ тестовом модуле. Файл, запущенный отдельно, падал с
+    AttributeError на None вместо спеки — то есть проверка секретов молча
+    зависела от порядка запуска.
+    """
+    await P.setup(None)
+    return P.REGISTRY
+
+
+async def test_redact_outputs_no_secret_values(monkeypatch, plugin_tools):
     secret = "ghp_LANE1TESTSECRET"
     monkeypatch.setenv("GITHUB_TOKEN", secret)
     state = {"served": False, "closed": False}
@@ -203,7 +217,7 @@ async def test_redact_outputs_no_secret_values(monkeypatch):
     assert secret not in repr(res.data)             # REDACT_DATA
 
 
-async def test_redact_error_path(monkeypatch):
+async def test_redact_error_path(monkeypatch, plugin_tools):
     """Error-путь generic-коннектора не содержит значение креда (только имя)."""
     secret = "sk-lane1-error-secret"
     monkeypatch.setenv("OPENROUTER_API_KEY", secret)
@@ -213,3 +227,49 @@ async def test_redact_error_path(monkeypatch):
     res = await spec.handler({"model": "m", "messages": []}, ctx)
     blob = repr({"content": res.content, "one_line": res.one_line, "data": res.data})
     assert secret not in blob                       # REDACT_ERROR_PATH
+
+
+async def test_dns_rebind_pinned_connect_survives_a_trailing_dot(monkeypatch):
+    """Точка в конце имени отключала всю защиту от rebinding'а.
+
+    validate_url снимает завершающую точку и пинит «rebind.test», а httpx
+    передаёт транспорту «rebind.test.» — ключ не совпадает, и промах означал
+    соединение ПО ИМЕНИ, то есть второй резолв уже мимо проверки. Ровно то
+    окно, ради закрытия которого pinned-транспорт и написан: проверили один
+    адрес, пошли по другому. Достаточно было приписать точку.
+    """
+    srv = _start_local_server()
+    calls = {"n": 0}
+    real = socket.getaddrinfo
+
+    def fake(host, *a, **k):
+        if host in ("rebind.test", "rebind.test."):
+            calls["n"] += 1
+            if calls["n"] > 1:
+                raise socket.gaierror(8, "второй резолв не имеет права случиться")
+            return [(socket.AF_INET, 1, 6, "", ("127.0.0.1", 0))]
+        return real(host, *a, **k)
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake)
+    try:
+        r = await safe_get(f"http://rebind.test.:{srv.server_address[1]}/x",
+                           allow_private=True, timeout=10)
+        assert r.status_code == 200 and r.text == "pinned-ok"
+    finally:
+        srv.shutdown()
+    assert calls["n"] == 1, "имя резолвилось дважды — pinning обошли завершающей точкой"
+
+
+async def test_a_host_that_was_never_pinned_is_refused_not_resolved():
+    """Промах ключа обязан быть отказом, а не «соединимся по имени».
+
+    Тихий откат на резолв по имени — это fail-open в защите, которая
+    существует ровно для того, чтобы имя между проверкой и коннектом больше
+    не участвовало. Любая форма записи хоста, до которой мы не додумались,
+    должна ломать запрос, а не защиту.
+    """
+    from bcc.plugin_security import _PinnedBackend
+
+    backend = _PinnedBackend({"known.test": "127.0.0.1"})
+    with pytest.raises(PluginSecurityError):
+        await backend.connect_tcp("unknown.test", 80)

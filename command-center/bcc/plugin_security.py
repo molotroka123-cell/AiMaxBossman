@@ -160,7 +160,17 @@ class _PinnedBackend(_ConcreteNetworkBackend):
 
     async def connect_tcp(self, host, port, timeout=None, local_address=None,
                           socket_options=None):
-        return await super().connect_tcp(self._pins.get(host, host), port,
+        pinned = self._pins.get(host)
+        if pinned is None:
+            # Промах ключа раньше означал соединение по ИМЕНИ, то есть повторный
+            # резолв уже мимо проверки — ровно то окно rebinding'а, ради закрытия
+            # которого этот транспорт и написан. Достаточно было приписать точку
+            # к имени ("example.com."): validate_url её снимает и пинит
+            # "example.com", а httpx передаёт сюда "example.com." — промах. С IDN
+            # то же самое в обе стороны: httpx отдаёт сюда юникодную форму, а
+            # проверялась punycode. Отказ, а не тихий обход.
+            raise PluginSecurityError(f"host not pinned, refusing to resolve again: {host!r}")
+        return await super().connect_tcp(pinned, port,
                                          timeout=timeout, local_address=local_address,
                                          socket_options=socket_options)
 
@@ -191,7 +201,13 @@ async def safe_get(url: str, *, allow_private: bool = False,
     pins: dict[str, str] = {}
     while True:
         _, host = validate_url(current, allow_private=allow_private, allowed_hosts=allowed_hosts)
-        pins[host] = resolve_pinned_ip(host, allow_private=allow_private)
+        ip = resolve_pinned_ip(host, allow_private=allow_private)
+        pins[host] = ip
+        # Ключ, под которым транспорт БУДЕТ спрашивать, задаёт httpx, а не мы:
+        # он оставляет завершающую точку и разворачивает punycode обратно в
+        # юникод. Пиним под обеими формами, иначе fail-closed выше превратит
+        # законный запрос в отказ, а до правки промах давал повторный резолв.
+        pins[httpx.URL(current).host] = ip
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False,
                                      transport=PinnedTransport(pins)) as c:
             async with c.stream("GET", current,
