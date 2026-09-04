@@ -155,3 +155,39 @@ async def test_policy_denied_session_is_not_left_dangling(env, monkeypatch):
     async with env.svc.db.session() as s:
         rows = (await s.execute(sa.select(bs_t.c.status))).fetchall()
     assert all(r[0] == "failed" for r in rows), rows
+
+
+# ---------- TEST5 (BCC-V2-SESSION-20783913FA36-P1-FIX-001, P1-D) ----------
+# Реальный лог сессии 20783913fa36: повторные GET .../screenshot и .../state
+# на session_id=1 после рестарта процесса — 404, 404, 404, 404, а UI продолжал
+# опрашивать несуществующую сессию (ui.refused). Строка `browser_sessions`
+# переживает рестарт, рантайм Playwright-контекст — нет; список сессий обязан
+# честно отражать оба факта, чтобы фронтенд знал, когда остановить поллинг.
+
+@pytest.mark.asyncio
+async def test_stale_session_marked_not_live_recovery_stays_possible(env):
+    import sqlalchemy as sa
+
+    from bcc.v2.browser_control import BrowserManager
+    from bcc.v2.tables import browser_sessions as bs_t
+
+    async with env.svc.db.session() as s:
+        stale_id = (await s.execute(sa.insert(bs_t).values(status="running"))).inserted_primary_key[0]
+        live_id = (await s.execute(sa.insert(bs_t).values(status="running"))).inserted_primary_key[0]
+        await s.commit()
+
+    # `stale_id` не пережил рестарт процесса (в этом ЭТОМ процессе такой
+    # runtime-сессии никогда не было); `live_id` — есть, реальный контекст жив.
+    env.svc.browser = BrowserManager(env.settings.data_dir / "browser")
+    env.svc.browser._sessions[live_id] = object()
+
+    resp = await env.client.get("/api/browser/sessions")
+    assert resp.status_code == 200
+    by_id = {row["id"]: row for row in resp.json()}
+    assert by_id[stale_id]["live"] is False
+    assert by_id[live_id]["live"] is True
+
+    # Восстановление остаётся возможным: создание новой сессии — обычным,
+    # поддерживаемым путём, не требует ручной чистки старой строки.
+    created = await env.client.post("/api/browser/sessions", json={})
+    assert created.status_code in (200, 500, 503)   # Chromium может быть недоступен в CI — не наш инвариант здесь

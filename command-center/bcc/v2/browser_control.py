@@ -591,6 +591,13 @@ class BrowserManager:
             raise LookupError(f"browser session {session_id} is not running")
         return sess
 
+    def is_live(self, session_id: int) -> bool:
+        """Без сети и без правки состояния: есть ли в ЭТОМ процессе живой
+        Playwright-контекст для session_id. Строка в БД переживает рестарт,
+        рантайм-сессия — нет; список сессий обязан говорить правду про оба факта
+        (см. BCC-V2-SESSION-20783913FA36-P1-FIX-001, P1-D)."""
+        return session_id in self._sessions
+
     def _guard(self, sess: BrowserRuntimeSession, action: str,
                *, url: str = "", actor: str = "agent", approved: bool = False) -> None:
         if sess.paused:

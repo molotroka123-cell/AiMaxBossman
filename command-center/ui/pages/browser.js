@@ -54,12 +54,21 @@ const BrowserPage = {
 };
 
 function sessionCard(s, ctx) {
-  return h('div.card.clickable', { onClick: () => openLivePanel(s.id, ctx), style: { cursor: 'pointer' } },
+  // `live` приходит с бэкенда (P1-D): строка сессии в БД переживает рестарт
+  // процесса, реальный Playwright-контекст — нет. Карточка обязана показать
+  // это честно, а не звать в панель, которая тут же получит 404.
+  const live = s.live !== false;
+  return h('div.card.clickable', {
+      onClick: () => openLivePanel(s.id, ctx),
+      style: { cursor: 'pointer', opacity: live ? '1' : '0.6' },
+    },
     h('div.card-head',
       h('div', { style: { flex: '1', minWidth: 0 } },
         h('div.card-title', `Сессия #${s.id}`),
         h('div.card-sub.truncate', s.current_url || 'адрес пока не открыт')),
-      statusBadge(s.status || 'created', { live: s.status === 'running' })),
+      live
+        ? statusBadge(s.status || 'created', { live: s.status === 'running' })
+        : statusBadge('offline', { label: 'не активна (после рестарта)' })),
     h('div.row.tight',
       s.takeover ? h('span.badge.badge-warn', 'вы за рулём') : null,
       s.agent_id ? h('span.badge', `агент #${s.agent_id}`) : null,
@@ -94,6 +103,7 @@ function openLivePanel(id, ctx) {
   });
   let stopped = false;
   let lastUrl = null;
+  let poll = null;
 
   const shot = h('img', {
     style: { width: '100%', borderRadius: 'var(--radius-sm)', border: '1px solid var(--line-soft)', background: 'var(--bg-elev)', display: 'block' },
@@ -121,6 +131,21 @@ function openLivePanel(id, ctx) {
       stateOut.textContent = '';
       stateOut.appendChild(h('span', { style: { color: 'var(--err)' } }, e.message || 'сессия не активна в этом процессе'));
       actionsRow.textContent = '';
+      if (e.status === 404) {
+        // Сессии больше нет в этом процессе (например, после рестарта) — это
+        // настоящий 404, не сбой сети. Дальше опрашивать несуществующий ID
+        // бессмысленно и нечестно (см. BCC-V2-SESSION-20783913FA36-P1-FIX-001,
+        // P1-D): останавливаем поллинг и даём путь восстановления.
+        stopped = true;
+        if (poll) clearInterval(poll);
+        stateOut.appendChild(h('div.xsmall.dim', { style: { marginTop: '6px' } },
+          'Эта сессия больше не существует на сервере.'));
+        actionsRow.appendChild(actionButton('Обновить список', () => { modal.close(); ctx.refresh(); },
+          { cls: 'btn btn-sm', iconName: 'retry' }));
+        actionsRow.appendChild(actionButton('Открыть новое окно', () => { modal.close(); createSession(ctx); },
+          { cls: 'btn btn-sm btn-primary', iconName: 'plus' }));
+        ctx.refresh();
+      }
       return;
     }
     if (stopped) return;
@@ -171,7 +196,7 @@ function openLivePanel(id, ctx) {
 
   refreshShot();
   refreshState();
-  const poll = setInterval(() => {
+  poll = setInterval(() => {
     if (stopped) { clearInterval(poll); return; }
     refreshShot();
     refreshState();

@@ -116,7 +116,12 @@ async def list_sessions(request: Request):
     svc = request.app.state.svc
     async with svc.db.session() as s:
         rows = (await s.execute(sa.select(bs_t).order_by(bs_t.c.id.desc()).limit(50))).fetchall()
-    return [dict(r._mapping) for r in rows]
+    mgr = _mgr(svc)
+    # Строка в browser_sessions переживает рестарт процесса, рантайм-контекст
+    # Playwright — нет: без этого поля UI опрашивал бы screenshot/state для
+    # сессий, которых в этом процессе уже никогда не будет (см.
+    # BCC-V2-SESSION-20783913FA36-P1-FIX-001, P1-D).
+    return [{**dict(r._mapping), "live": mgr.is_live(r._mapping["id"])} for r in rows]
 
 
 @router.get("/browser/sessions/{session_id}/state")
