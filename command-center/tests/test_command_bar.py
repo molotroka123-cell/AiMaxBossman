@@ -21,7 +21,9 @@ from bcc.features import command_bar as cb
 
 from .conftest import client_for, make_settings, start_app, wait_for
 
-SECRET = "sk-command-bar-secret-9f2c1a"
+SECRET = "sk-command-bar-secret-9f2c1a"  # ci-secret-scan: allow — канарейка,
+# заведомо фальшивое значение: им доказывается, что введённое владельцем
+# наружу не выходит. Настоящего ключа тут нет и быть не может.
 
 
 @pytest.fixture(autouse=True)
