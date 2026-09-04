@@ -14,13 +14,9 @@
 """
 from __future__ import annotations
 
-import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from bossman.trading_learning.coinwise import extract, gate, observer, schema
 from bossman.trading_learning.adapters import Capability
