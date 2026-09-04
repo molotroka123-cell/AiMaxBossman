@@ -1072,9 +1072,18 @@ class TaskEngine:
             "effect": effect, "status": status, "approval_id": approval_id,
             "approved_by": approved_by, "result_preview": preview,
             "truncated": truncated, "duration_ms": duration_ms, "error": error,
-            "created_at": utcnow(),
-            "finished_at": utcnow() if status not in ("pending_approval",) else None,
         }
+        # Строка пишется ПОСЛЕ того, как инструмент отработал, поэтому «сейчас» —
+        # это момент завершения, а не начала. Раньше оба времени брались двумя
+        # вызовами utcnow() подряд: получалась строка, в которой вызов длился
+        # duration_ms по одному полю и ноль по другим двум. Начало восстанавливаем
+        # из измеренной длительности — тогда finished_at - created_at и duration_ms
+        # говорят одно и то же, и вопрос «когда этот вызов начался» имеет ответ.
+        now = utcnow()
+        done = status not in ("pending_approval",)
+        values["finished_at"] = now if done else None
+        values["created_at"] = (now - timedelta(milliseconds=int(duration_ms))
+                                if done and duration_ms is not None else now)
         async with self.db.session() as s:
             try:
                 await s.execute(sa.insert(tool_calls_t).values(**values))

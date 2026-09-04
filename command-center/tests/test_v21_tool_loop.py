@@ -368,3 +368,36 @@ def test_registry_only_returns_assigned_tools():
     assert REGISTRY.resolve(None) == []
     # имя для модели без точек и двоеточий
     assert REGISTRY.get("mcp:fs:read").api_name == "mcp_fs_read"
+
+
+async def test_a_tool_call_row_says_the_same_thing_by_both_measures(env):
+    """Длительность вызова и его времена не должны противоречить друг другу.
+
+    Строка tool_calls пишется ПОСЛЕ того, как инструмент отработал, а времена
+    брались двумя вызовами utcnow() подряд. Получалась строка, где по полю
+    duration_ms вызов длился секунды, а по created_at/finished_at — ноль:
+    любая лента, построенная по этим временам, показывала мгновенные вызовы, а
+    вопрос «когда этот вызов начался» оставался без ответа.
+    """
+    async def slow(args, ctx):
+        await asyncio.sleep(0.25)
+        return ToolResult(content="готово", one_line="готово")
+
+    _install("test.slow", handler=slow)
+    # Модель зовёт инструмент по api_name (точки в схеме провайдера запрещены).
+    adapter = ToolAdapter([("tool", "test_slow", {"text": "раз"}), ("text", "готово")])
+    stack = await _stack_with_tools(env, ["test.slow"], adapter=adapter)
+    await _run_task(env, stack["task"]["id"])
+
+    async with env.svc.db.session() as s:
+        rows = [dict(r._mapping) for r in (await s.execute(sa.select(tool_calls_t))).fetchall()]
+    executed = [r for r in rows if r["status"] == "executed"]
+    assert executed, f"инструмент не выполнился: {[(r['tool'], r['status']) for r in rows]}"
+    row = executed[-1]
+
+    assert row["duration_ms"] and row["duration_ms"] >= 200, row["duration_ms"]
+    assert row["created_at"] and row["finished_at"]
+    by_stamps = (row["finished_at"] - row["created_at"]).total_seconds() * 1000
+    assert abs(by_stamps - row["duration_ms"]) < 5, (
+        f"строка противоречит себе: по временам {by_stamps:.0f} мс, "
+        f"по duration_ms {row['duration_ms']} мс")
