@@ -9,6 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 import sqlalchemy as sa
@@ -256,9 +260,30 @@ async def test_both_paths_share_one_ledger(env):
     """Прямой транспорт Fable и Command Center считают одни и те же деньги:
     двух потолков по три доллара не существует."""
     from bossman_shared.fable_budget import canonical_budget as shared_cap
-    from bossman.apprentice.fable_direct import canonical_budget as direct_cap
-    assert shared_cap().path == direct_cap().path
-    assert shared_cap().total == direct_cap().total == 3.0
+
+    # Command Center intentionally does not depend on the whole bossman-core
+    # distribution at runtime.  Verify the cross-package re-export in a clean
+    # child interpreter instead of leaking bossman-core onto this pytest
+    # process' sys.path (which would make the documented standalone install
+    # pass locally but fail in Command Center CI).
+    root = Path(__file__).resolve().parents[2]
+    probe = subprocess.run(
+        [sys.executable, "-c", (
+            "from bossman.apprentice import fable_direct as direct; "
+            "from bossman_shared import fable_budget as shared; "
+            "assert direct.canonical_budget is shared.canonical_budget; "
+            "assert direct.DirectApiBudget is shared.DirectApiBudget; "
+            "assert direct.FABLE_HARD_CAP_USD == shared.FABLE_HARD_CAP_USD == 3.0"
+        )],
+        cwd=root,
+        env={**os.environ, "PYTHONPATH": os.pathsep.join(
+            (str(root / "bossman-core"), str(root)))},
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert probe.returncode == 0, probe.stderr
+    assert shared_cap().total == 3.0
 
     burn(2.5)
     inner = CountingAdapter()
@@ -269,7 +294,7 @@ async def test_both_paths_share_one_ledger(env):
         await adapter.chat(model["name"], [{"role": "user", "content": "я" * 200_000}],
                            max_tokens=8192)
     # трата прямого пути видна Command Center'у и наоборот
-    assert direct_cap().remaining() == pytest.approx(0.5, abs=1e-6)
+    assert shared_cap().remaining() == pytest.approx(0.5, abs=1e-6)
     assert inner.calls == 0
 
 
