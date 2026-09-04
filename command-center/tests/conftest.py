@@ -64,6 +64,22 @@ def client_for(app, svc: Services) -> httpx.AsyncClient:
                              base_url="http://test", headers={HEADER: svc.auth.token})
 
 
+@pytest.fixture(autouse=True)
+def _fable_ledger_off_the_real_machine(tmp_path, monkeypatch):
+    """Ни один тест не трогает боевой журнал жёсткого потолка Fable.
+
+    Журнал — один durable-файл на машине владельца, и резерв, снятый тестом,
+    съел бы настоящие деньги и остался бы съеденным. Перенаправление сделано
+    патчем атрибута в процессе, а не настройкой: переменной окружения,
+    двигающей журнал, нет намеренно — журнал, который можно перенести, это
+    потолок, который можно поднять.
+    """
+    from bcc import fable_cap
+    if fable_cap.LEDGER_AVAILABLE:
+        from bossman_shared import fable_budget
+        monkeypatch.setattr(fable_budget, "LEDGER_PATH", tmp_path / "fable_hard_cap.json")
+
+
 @pytest.fixture
 async def env(tmp_path):
     """Приложение без фоновых циклов: тесты сами дёргают engine/scheduler."""

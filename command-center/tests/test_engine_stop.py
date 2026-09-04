@@ -190,3 +190,65 @@ async def test_a_connection_broken_by_a_cancel_is_not_returned_to_the_pool(tmp_p
         "соединение, на котором случилась отмена, вернулось в пул — "
         "следующий запрос получит мёртвое")
     await db.engine.dispose()
+
+
+async def test_stop_leaves_no_connection_behind(tmp_path):
+    """После Stop не остаётся соединения, не возвращённого в пул.
+
+    Stop зовут в том числе изнутри самого прогона: инструмент, хук или — как
+    здесь — HTTP-запрос, который через ASGI выполняется в одной задаче с
+    worker'ом. Если stop() сначала отменяет задачу, а потом дописывает своё
+    событие в БД, отмена рвёт его собственный запрос посреди работы драйвера.
+    Такое соединение не возвращается в пул уже никогда: close() его не
+    спасает, потому что после обрыва внутри greenlet'а SQLAlchemy состояние
+    соединения ей самой неизвестно. Сборщик мусора находит его позже и ругается
+    «non-checked-in connection ... will be terminated».
+
+    Спрашиваем у пула напрямую, а не ждём предупреждения: предупреждение
+    печатается только на сборке мусора, и «не собралось» читалось бы как
+    «утечки нет». Баланс выдач и возвратов — тот же факт, но проверяемый
+    в тот момент, когда он ещё имеет значение.
+    """
+    settings = make_settings(tmp_path)
+    holder: dict = {}
+
+    async def press_stop(call: int, messages: list[dict]) -> None:
+        if call == 1:
+            await holder["client"].post(f"/api/tasks/{holder['task_id']}/stop")
+
+    fake = FakeAdapter("первый шаг", on_chat=None)
+    app, svc = await start_app(settings, start_workers=True,
+                               adapter_factory=lambda m, p: fake, engine_options=FAST_ENGINE)
+    balance = [0]
+    sa.event.listen(svc.db.engine.sync_engine, "checkout",
+                    lambda con, rec, proxy: balance.__setitem__(0, balance[0] + 1))
+    sa.event.listen(svc.db.engine.sync_engine, "checkin",
+                    lambda con, rec: balance.__setitem__(0, balance[0] - 1))
+
+    async with client_for(app, svc) as client:
+        holder["client"] = client
+        ids = await make_stack(client, max_steps=3)
+        holder["task_id"] = ids["task"]["id"]
+        fake.on_chat = press_stop
+
+        async def stopped():
+            data = (await client.get(f"/api/tasks/{holder['task_id']}")).json()
+            run = data["runs"][-1] if data["runs"] else {}
+            return data if run.get("status") == "stopped" and run.get("finished_at") else None
+
+        data = await wait_for(stopped, timeout=10)
+        # Stop обязан остаться Stop'ом: прогон закрыт, а не брошен «выполняется»
+        assert data["task"]["status"] == "stopped"
+        assert data["runs"][-1]["status"] == "stopped"
+
+    async def settled():
+        # даём догореть последним фоновым запросам worker'а
+        return True if balance[0] <= 0 else None
+
+    with contextlib.suppress(AssertionError):
+        await wait_for(settled, timeout=3)
+    await svc.stop()
+    assert balance[0] == 0, (
+        f"после Stop {balance[0]} соединение(й) не вернулось в пул — "
+        f"следующий владелец получит мёртвое, а сборщик мусора позже "
+        f"напечатает про non-checked-in connection")

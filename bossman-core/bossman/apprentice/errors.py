@@ -1,6 +1,20 @@
 """Typed errors. Every refusal in the apprentice is one of these (never a bare string)."""
 from __future__ import annotations
 
+# BudgetExhausted живёт в общем модуле потолка: отказ выдаёт он, и ловить его
+# обязаны обе стороны ОДНИМ И ТЕМ ЖЕ классом. Свой двойник здесь означал бы,
+# что `except BudgetExhausted` в одном приложении не ловит отказ другого.
+try:
+    from .._shared import AVAILABLE as _shared_available  # noqa: F401 — кладёт корень репозитория в sys.path
+    from bossman_shared.fable_budget import BudgetExhausted as BudgetExhausted  # noqa: F401
+except Exception:  # noqa: BLE001
+    # Общего модуля в этой установке нет — значит и платить нечем: без него и
+    # прямой транспорт, и Command Center отказывают в любом платном вызове.
+    # Разойтись этому классу не с кем, потому что второго в процессе не будет;
+    # а ронять из-за потолка весь остальной apprentice было бы несоразмерно.
+    class BudgetExhausted(RuntimeError):  # type: ignore[no-redef]
+        code = "budget_exhausted"
+
 
 class ApprenticeError(RuntimeError):
     code = "apprentice_error"
@@ -46,8 +60,7 @@ class ApprovalInvalid(ApprenticeError):
     code = "approval_invalid"
 
 
-class BudgetExhausted(ApprenticeError):
-    code = "budget_exhausted"
+# BudgetExhausted импортируется наверху: он общий с Command Center.
 
 
 class PolicyRefused(ApprenticeError):

@@ -229,12 +229,25 @@ class TaskEngine:
                 runs_t.c.status.in_(("leased", "running"))))
             active_ids = [int(r[0]) for r in res.fetchall()]
             await s.commit()
-        for run_id in active_ids:
-            worker = self._active.get(run_id)
-            if worker is not None and not worker.done():
-                self._cancelling.add(run_id)
-                worker.cancel()
-        await self.bus.emit("task.stopped", task_id=task_id)
+        # Событие — ДО отмены, и это не косметика. Stop зовут в том числе
+        # изнутри самого прогона (инструмент, хук, тест через ASGI в одной
+        # задаче с worker'ом). Тогда worker.cancel() отменяет ту же задачу,
+        # которая сейчас исполняет stop(), и следующий же await обрывается —
+        # вместе с записью события в БД, посреди работы драйвера. Соединение
+        # после такого обрыва не возвращается в пул никаким close(): его
+        # состояние уже неизвестно SQLAlchemy. Поэтому свою работу stop()
+        # доводит до конца первым, а отмену выдаёт последней — после неё
+        # здесь не остаётся ни одного await.
+        # finally: упавшая запись события не имеет права отменить саму
+        # остановку — иначе прогон продолжит работать из-за сбоя журнала.
+        try:
+            await self.bus.emit("task.stopped", task_id=task_id)
+        finally:
+            for run_id in active_ids:
+                worker = self._active.get(run_id)
+                if worker is not None and not worker.done():
+                    self._cancelling.add(run_id)
+                    worker.cancel()
         return {"ok": True, "status": "stopped"}
 
     async def pause(self, task_id: int) -> dict:

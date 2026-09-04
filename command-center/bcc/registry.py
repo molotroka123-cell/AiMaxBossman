@@ -12,6 +12,7 @@ import sqlalchemy as sa
 from .db import Database, fetch_one, models as models_t, providers as providers_t, rows_dicts, utcnow
 from .events import EventBus
 from .providers import ADAPTERS, ChatResult, ProviderAdapter, ProviderError, build_adapter
+from .fable_cap import capped
 from .secrets import Vault, mask
 
 BENCH_PROMPT = "Ответь одним словом: работаешь?"
@@ -118,7 +119,12 @@ class Registry:
             provider = await fetch_one(s, providers_t, model["provider_id"])
             if provider is None:
                 raise LookupError(f"провайдер модели {model_id} не найден")
-        return self.adapter_factory(model, provider), model
+        # Платная граница Fable оборачивается ЗДЕСЬ, а не в движке: через
+        # adapter_for ходят все — движок, benchlab, ревью-гейт, веб-поиск,
+        # проверка и тест модели, — и обойти обёртку значит обойти потолок.
+        # Обёртка ставится ПОСЛЕ фабрики, поэтому подменённая фабрика (тесты,
+        # плагины) от потолка тоже не освобождает.
+        return capped(self.adapter_factory(model, provider), provider, model), model
 
     # ---------- проверки ----------
 
