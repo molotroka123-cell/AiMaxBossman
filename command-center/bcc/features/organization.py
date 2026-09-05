@@ -203,8 +203,8 @@ async def departments(request: Request) -> list[dict]:
 
 @router.post("/departments")
 async def add_department(request: Request) -> dict:
-    from bossman_v3.organization import Department
     org = _org(request)
+    from bossman_v3.organization import Department
     body = await request.json()
     try:
         d = Department.from_dict(body)
@@ -221,8 +221,8 @@ async def agents(request: Request) -> list[dict]:
 
 @router.post("/agents")
 async def add_agent(request: Request) -> dict:
-    from bossman_v3.organization import AgentProfile
     org = _org(request)
+    from bossman_v3.organization import AgentProfile
     body = await request.json()
     try:
         a = AgentProfile.from_dict(body)
@@ -246,9 +246,9 @@ async def create_mission(request: Request) -> dict:
     """{mission_id?, title, department_id, goal?, contracts?: [DelegationContract.to_dict()], ...}.
     Без `contracts` — один контракт из цели: шаги достроит планировщик или миссия
     встанет BLOCKED/no_executable_steps на первом run."""
-    from bossman_v3.organization import DelegationContract, EvidenceRequirement, Resources, RiskTier
+    org = _org(request)                     # выключено → 503 до любого импорта ядра
     import uuid
-    org = _org(request)
+    from bossman_v3.organization import DelegationContract, EvidenceRequirement, Resources, RiskTier
     body = await request.json()
     dept = str(body.get("department_id") or "")
     if not dept:

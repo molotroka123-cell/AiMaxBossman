@@ -100,7 +100,8 @@ async def test_before_run_defer_requeues(env):
 
 async def test_gate_completion_fail_then_pass(env):
     env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("код готов")
-    verdicts = iter([{"verdict": "fail", "feedback": "нет тестов"},
+    # EH-05 (TZ-01 §2.5): FAIL гейта обязан явно сказать, возвращать ли run в очередь
+    verdicts = iter([{"verdict": "fail", "feedback": "нет тестов", "requeue": True},
                      {"verdict": "pass"}])
 
     async def gate(task, run_id, answer):

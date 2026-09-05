@@ -12,8 +12,10 @@ async def test_org_feature_off_by_default(env, monkeypatch):
     assert env.svc.organization is None
     r = await env.client.get("/api/org/snapshot")
     assert r.status_code == 503 and "disabled" in r.json()["error"]["message"]
-    r = await env.client.post("/api/org/missions", json={"department_id": "x", "goal": "y"})
-    assert r.status_code == 503
+    for path, body in (("/api/org/missions", {"department_id": "x", "goal": "y"}),
+                       ("/api/org/departments", {"department_id": "x"}), ("/api/org/agents", {"agent_id": "a"})):
+        r = await env.client.post(path, json=body)
+        assert r.status_code == 503, path            # и без bossman_v3 рядом: 503 до импорта ядра
 
 
 @pytest.fixture
