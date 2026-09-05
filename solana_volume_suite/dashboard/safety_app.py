@@ -4,7 +4,7 @@ import sys
 import time
 import asyncio
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional
 
 # Ensure solana_volume_suite and workspace root are importable
 SUITE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -18,30 +18,18 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-try:
-    from solana_volume_suite.core.liquidity_gate import check_liquidity, LiquidityGate
-    from solana_volume_suite.core.key_vault.vault import SecurityKeyVault
-    from solana_volume_suite.orchestrator_loop import VolumeOrchestratorLoop
-except ImportError:
-    from core.liquidity_gate import check_liquidity, LiquidityGate
-    from core.key_vault.vault import SecurityKeyVault
-    from orchestrator_loop import VolumeOrchestratorLoop
+# Safety inspection deliberately has no dependency on key vaults, SDKs,
+# transaction clients or strategy loops. Importing this app cannot create keys.
+from solana_volume_suite.core.liquidity_gate import check_liquidity
 
-app = FastAPI(title="Solana AI Volume Suite - Safety Control Plane")
+app = FastAPI(title="Solana Safety Control Plane — execution disabled")
 
-# Global VolumeOrchestratorLoop instance
-orchestrator = VolumeOrchestratorLoop(
-    vault_path=os.path.join(SUITE_ROOT, "wallets_encrypted.json"),
-    master_password="SuperSecretMasterPass123!",
-    test_mode=False
-)
-orchestrator_task: Optional[asyncio.Task] = None
 
-# Pre-initialize vault pool so wallet table has data immediately
-try:
-    orchestrator.initialize_vault_pool(count=10)
-except Exception:
-    pass
+def _execution_blocked():
+    return JSONResponse(status_code=403, content={
+        "status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME",
+        "execution_allowed": False, "verified_side_effect": False,
+    })
 
 
 class Assessment(BaseModel):
@@ -80,54 +68,19 @@ def get_trading_telemetry():
 
 @app.get("/api/telemetry")
 def get_suite_telemetry():
-    m = orchestrator.treasury_guard.get_recent_metrics()
-    return {
-        "bot_status": "RUNNING" if orchestrator.is_running else "STOPPED",
-        "mode": "PAPER_TRADING_ONLY",
-        "notice": "NO LIVE EXECUTION ENABLED",
-        "metrics": {
-            "volume_5m_usd": m["recent_volume_usd"],
-            "burn_5m_usd": m["recent_burn_usd"],
-            "total_volume_usd": m["total_volume_usd"],
-            "total_burn_usd": m["total_burn_usd"],
-            "efficiency_ratio": m["efficiency_ratio"],
-            "circuit_breaker_tripped": m["circuit_breaker_tripped"],
-            "pause_reason": m["pause_reason"]
-        },
-        "jito_stats": {
-            "bundles_sent": orchestrator.jito_client.total_bundles_sent,
-            "bundles_confirmed": orchestrator.jito_client.total_bundles_confirmed,
-            "bundles_dropped": orchestrator.jito_client.total_bundles_dropped,
-            "mempool_leak_prevention": "100%_SECURED"
-        },
-        "total_tx_count": orchestrator.iteration_count,
-        "recent_events": orchestrator.event_journal[:30]
-    }
+    return {**telemetry(), "mode": "PAPER_TRADING_ONLY",
+            "metrics": {"volume_5m_usd": None, "burn_5m_usd": None,
+                        "total_volume_usd": None, "total_burn_usd": None,
+                        "efficiency_ratio": None, "circuit_breaker_tripped": True,
+                        "pause_reason": "SAFETY_ONLY_RUNTIME"},
+            "jito_stats": {"bundles_sent": 0, "bundles_confirmed": 0,
+                           "bundles_dropped": 0, "mempool_leak_prevention": "NOT_MEASURED"},
+            "total_tx_count": 0, "recent_events": []}
 
 
 @app.get("/api/vault/wallets")
 def get_vault_wallets():
-    wallets = []
-    for idx, (addr, bal) in enumerate(orchestrator.wallet_balances.items()):
-        wallets.append({
-            "wallet_index": idx,
-            "alias": f"wallet_{idx}",
-            "pubkey": addr,
-            "sol_balance": bal,
-            "role": "market_maker" if idx % 2 == 0 else "momentum_trader"
-        })
-    if not wallets:
-        wallets = [
-            {
-                "wallet_index": i,
-                "alias": f"wallet_{i}",
-                "pubkey": f"SimWallet{i}PubkeyMock111111111111111111111",
-                "sol_balance": 0.5,
-                "role": "market_maker" if i % 2 == 0 else "momentum_trader"
-            }
-            for i in range(10)
-        ]
-    return {"wallets": wallets, "count": len(wallets)}
+    return {"wallets": [], "count": 0, "balances_status": "NOT_FETCHED"}
 
 
 @app.get("/api/liquidity/status")
@@ -154,10 +107,6 @@ def simulate():
 @app.post("/api/trading/kill-switch")
 @app.post("/api/bot/stop")
 def kill_switch():
-    global orchestrator_task
-    orchestrator.stop()
-    if orchestrator_task and not orchestrator_task.done():
-        orchestrator_task.cancel()
     return {"status": "STOPPED", "bot_status": "STOPPED", "live_execution_enabled": False}
 
 
@@ -173,129 +122,44 @@ def budget():
 
 @app.post("/api/bot/start")
 async def bot_start(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        body = None
-    if not body or not isinstance(body, dict):
-        return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
-    global orchestrator_task
-    orchestrator.is_running = True
-    if not orchestrator.cached_keypairs:
-        orchestrator.initialize_vault_pool(count=10)
-    orchestrator_task = asyncio.create_task(orchestrator.run())
-    return {"status": "SUCCESS", "bot_status": "RUNNING"}
+    return _execution_blocked()
 
 
 @app.post("/api/bot/sweep")
 async def bot_sweep(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        body = None
-    if not body or not isinstance(body, dict):
-        return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
-    dest = body.get("cold_destination_pubkey") or body.get("destination") or "ColdDestination"
-    total_sol = sum(orchestrator.wallet_balances.values())
-    count = len(orchestrator.wallet_balances)
-    orchestrator.wallet_balances.clear()
-    sig = f"sim_sweep_sig_{int(time.time()*1000)}"
-    return {
-        "status": "SUCCESS",
-        "destination": dest,
-        "total_sol_swept": round(total_sol, 4),
-        "wallets_swept": count,
-        "tx_signature": sig
-    }
+    return _execution_blocked()
 
 
 # -------------------------------------------------------------
-# INTERACTIVE PROTOTYPE ENDPOINTS
+# LEGACY CONTROL ROUTES — fail closed for every request
 # -------------------------------------------------------------
 
 @app.post("/api/orchestrator/start")
 async def start_orchestrator():
-    global orchestrator_task
-    if not orchestrator.is_running:
-        if not orchestrator.cached_keypairs:
-            orchestrator.initialize_vault_pool(count=10)
-        orchestrator_task = asyncio.create_task(orchestrator.run())
-        orchestrator.is_running = True
-    return {"status": "RUNNING"}
+    return _execution_blocked()
 
 
 @app.post("/api/orchestrator/stop")
 async def stop_orchestrator():
-    global orchestrator_task
-    orchestrator.stop()
-    if orchestrator_task and not orchestrator_task.done():
-        orchestrator_task.cancel()
-    return {"status": "STOPPED"}
+    return kill_switch()
 
 
 @app.get("/api/status")
 def get_status():
-    return {
-        "mode": "PAPER_TRADING_ONLY",
-        "bot_status": orchestrator.is_running,
-        "wallets": orchestrator.wallet_balances,
-        "metrics": orchestrator.treasury_guard.get_recent_metrics(),
-        "liquidity_gate_status": orchestrator.liquidity_gate.last_status,
-        "events": orchestrator.event_journal[:50]
-    }
+    return {"mode": "PAPER_TRADING_ONLY", "bot_status": False,
+            "live_execution_enabled": False, "notice": "NO LIVE EXECUTION ENABLED",
+            "wallets": {}, "metrics": get_suite_telemetry()["metrics"],
+            "liquidity_gate_status": "UNKNOWN", "events": []}
 
 
 @app.post("/api/sweep")
 async def sweep(req: Optional[SweepRequest] = None):
-    dest = req.destination if (req and req.destination) else "SafeColdStorageDestinationAddress11111111111111"
-    total_sol = sum(orchestrator.wallet_balances.values())
-    count = len(orchestrator.wallet_balances)
-    for k in orchestrator.wallet_balances:
-        orchestrator.wallet_balances[k] = 0.005  # dust for rent
-    sig = f"sim_sweep_sig_{int(time.time()*1000)}"
-    orchestrator.log_event(
-        "EMERGENCY_SWEEP",
-        f"Simulated emergency sweep of {total_sol:.4f} SOL to cold storage {dest[:4]}...{dest[-4:]}",
-        meta={"destination": dest, "total_sol": total_sol, "sig": sig}
-    )
-    return {
-        "status": "SUCCESS",
-        "mode": "PAPER_TRADING_SIMULATED",
-        "destination": dest,
-        "total_sol_swept": round(total_sol, 4),
-        "wallets_swept": count,
-        "tx_signature": sig
-    }
+    return _execution_blocked()
 
 
 @app.post("/api/vault/generate")
 async def generate_vault(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        body = None
-
-    if not body or not isinstance(body, dict):
-        return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
-
-    count = body.get("count")
-    password = body.get("password")
-    if not isinstance(count, int) or count < 1 or not isinstance(password, str) or len(password) < 6:
-        return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
-
-    try:
-        if os.path.exists(orchestrator.vault_path):
-            try:
-                os.remove(orchestrator.vault_path)
-            except OSError:
-                pass
-        orchestrator.master_password = password
-        orchestrator.vault = SecurityKeyVault(storage_path=orchestrator.vault_path)
-        orchestrator.wallet_balances.clear()
-        orchestrator.initialize_vault_pool(count=count)
-        return {"status": "SUCCESS", "count": count}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "ERROR", "message": str(e)})
+    return _execution_blocked()
 
 
 @app.websocket("/ws/telemetry")
@@ -303,17 +167,7 @@ async def websocket_telemetry(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
-            data = {
-                "mode": "PAPER_TRADING_ONLY",
-                "notice": "NO LIVE EXECUTION ENABLED",
-                "bot_status": orchestrator.is_running,
-                "wallets": orchestrator.wallet_balances,
-                "metrics": orchestrator.treasury_guard.get_recent_metrics(),
-                "liquidity_gate_status": orchestrator.liquidity_gate.last_status,
-                "events": orchestrator.event_journal[:50],
-                "timestamp": time.time()
-            }
-            await websocket.send_json(data)
+            await websocket.send_json({**get_status(), "timestamp": time.time()})
             await asyncio.sleep(1.0)
-    except (WebSocketDisconnect, Exception):
+    except WebSocketDisconnect:
         pass

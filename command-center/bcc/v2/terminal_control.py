@@ -5,6 +5,7 @@ import os
 import re
 import shlex
 import shutil
+import subprocess
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -245,7 +246,27 @@ class TerminalManager:
     async def kill(self, session_id: str) -> None:
         s = self.sessions[session_id]
         if not s.finished:
-            s.proc.kill()
+            if os.name == "nt" and s.proc.returncode is None:
+                # Killing cmd.exe alone leaves its children executing approved
+                # work after cancellation and holding the output pipe open.
+                terminator = await asyncio.create_subprocess_exec(
+                    str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "taskkill.exe"),
+                    "/PID", str(s.proc.pid), "/T", "/F",
+                    stdin=asyncio.subprocess.DEVNULL,
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+                try:
+                    code = await asyncio.wait_for(terminator.wait(), 10)
+                except asyncio.TimeoutError:
+                    terminator.kill()
+                    await terminator.wait()
+                    raise RuntimeError("terminal process tree termination timed out") from None
+                if code and s.proc.returncode is None:
+                    raise RuntimeError("terminal process tree could not be stopped")
+            elif s.proc.returncode is None:
+                s.proc.kill()
             await s.proc.wait()
             s.finished = True
             s.exit_code = s.proc.returncode

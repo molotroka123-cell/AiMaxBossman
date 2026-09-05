@@ -66,6 +66,15 @@ jobs:
       - name: Python compile
         run: python -m compileall -q command-center/bcc command-center/tests
 
+      - name: Install and prove system media renderer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -version
+          ffprobe -version
+
       - name: Chromium для Playwright
         # Сам Playwright ставится группой browser из pyproject (зависимость
         # объявлена, а не досыпается здесь руками); тут остаётся только браузер.
@@ -82,6 +91,7 @@ jobs:
           # есть — прошли» выглядят в отчёте одинаково, и потерянное покрытие
           # заметить нельзя. С флагом пропуск становится красным тестом.
           BCC_REQUIRE_BROWSER: "1"
+          BCC_REQUIRE_FFMPEG: "1"
         # pytest-timeout (в dev-зависимостях): единичный зависший тест — обычно
         # браузерный, ждущий сети/headless — ПАДАЕТ на 180с и виден, а не съедает
         # весь бюджет job'а. signal-метод (SIGALRM) прерывает даже зависший в

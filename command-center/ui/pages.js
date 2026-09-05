@@ -1070,7 +1070,7 @@ async function loadTaskDetail(id, bodyEl, ctx) {
   const task = (data && data.task) ? data.task : (data || {});
   const runs = listOf(data && (data.runs || data.task_runs) ? (data.runs || data.task_runs) : [], 'runs');
   let run = runs.length
-    ? runs.slice().sort((a, b) => (Number(pick(a, ['attempt', 'id'], 0)) - Number(pick(b, ['attempt', 'id'], 0)))).pop()
+    ? runs.slice().sort((a, b) => Number(pick(a, ['id'], 0)) - Number(pick(b, ['id'], 0))).pop()
     : null;
 
   /* если сервер вернул только ссылку на run — дочитываем его отдельно */
@@ -1086,8 +1086,12 @@ async function loadTaskDetail(id, bodyEl, ctx) {
   taskState.detail = { task, runs, run };
 
   const status = String(task.status || 'draft');
-  const result = pick(data || {}, ['result']) || (run ? pick(run, ['result']) : null);
-  const error = run ? pick(run, ['error']) : pick(task, ['error']);
+  // Run IDs identify the latest execution; retry attempt numbers may restart.
+  // A null API result is authoritative: do not resurrect historical success.
+  const result = data && Object.prototype.hasOwnProperty.call(data, 'result')
+    ? data.result : (status === 'completed' && run ? pick(run, ['result']) : null);
+  const error = data && Object.prototype.hasOwnProperty.call(data, 'error')
+    ? data.error : (run ? pick(run, ['error']) : null) || pick(task, ['error']);
   const started = run ? pick(run, ['started_at']) : pick(task, ['created_at']);
   const finished = run ? pick(run, ['finished_at']) : null;
   const tokensIn = run ? pick(run, ['tokens_in'], 0) : 0;
@@ -1123,7 +1127,7 @@ async function loadTaskDetail(id, bodyEl, ctx) {
   } else if (status === 'paused') {
     actions.appendChild(actionButton('Продолжить', () => act('resume', 'Задача продолжена'), { cls: 'btn btn-sm btn-ok', iconName: 'play' }));
     actions.appendChild(actionButton('Остановить', () => act('stop', 'Задача остановлена'), { cls: 'btn btn-sm btn-danger', iconName: 'stop' }));
-  } else if (status === 'failed' || status === 'stopped') {
+  } else if (status === 'failed' || status === 'stopped' || status === 'blocked') {
     actions.appendChild(actionButton('Повторить', () => act('retry', 'Перезапуск задачи'), { cls: 'btn btn-sm btn-primary', iconName: 'retry' }));
   } else if (status === 'completed') {
     actions.appendChild(actionButton('Повторить', () => act('retry', 'Перезапуск задачи'), { cls: 'btn btn-sm', iconName: 'retry' }));

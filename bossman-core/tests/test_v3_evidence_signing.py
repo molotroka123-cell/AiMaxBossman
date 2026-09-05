@@ -111,3 +111,20 @@ def test_journal_step_is_signed_only_when_closed(tmp_path):
     from bossman_v3.memory.journal import JournalIntegrityError
     with pytest.raises(JournalIntegrityError):
         TaskJournal.load(task_id="t1", root=tmp_path / "j")
+
+
+def test_binary_key_and_signature_survive_restart(tmp_path, monkeypatch):
+    # Regression from dbb65a2: random LF bytes were expanded by Windows CRT.
+    expected = b"\n\r\n\x1a" + b"x" * 28
+    target = tmp_path / "ключи с пробелами" / "evidence.key"
+    monkeypatch.setenv(ev.ENV_KEY_FILE, str(target))
+    monkeypatch.setattr(ev.secrets, "token_bytes", lambda count: expected)
+    ev.reset_cache()
+    first = ev.load_or_create_key()
+    payload = {"kind": "controlled-file", "verified": True}
+    signature = ev.sign(payload)
+    assert first == expected
+    assert target.read_bytes() == expected
+    ev.reset_cache()
+    assert ev.load_or_create_key() == expected
+    assert ev.verify(payload, signature)

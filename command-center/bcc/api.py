@@ -748,10 +748,16 @@ def _api_router() -> APIRouter:
                 stmt = stmt.where(tasks_t.c.status.in_(status.split(",")))
             res = await s.execute(stmt)
             rows = rows_dicts(res.fetchall())
+            latest_runs = {}
+            if rows:
+                latest_ids = (sa.select(sa.func.max(runs_t.c.id))
+                              .where(runs_t.c.task_id.in_([task["id"] for task in rows]))
+                              .group_by(runs_t.c.task_id))
+                result = await s.execute(sa.select(runs_t).where(runs_t.c.id.in_(latest_ids)))
+                latest_runs = {run["task_id"]: _run_public(run)
+                               for run in rows_dicts(result.fetchall())}
             for task in rows:
-                run = await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task["id"])
-                                      .order_by(runs_t.c.id.desc()).limit(1))
-                task["last_run"] = _run_public(dbm.row_dict(run.first()))
+                task["last_run"] = latest_runs.get(task["id"])
         return rows
 
     @router.post("/tasks")
@@ -792,8 +798,10 @@ def _api_router() -> APIRouter:
             res = await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task_id)
                                   .order_by(runs_t.c.id))
             runs = [_run_public(r) for r in rows_dicts(res.fetchall())]
-        done = [r for r in runs if r["result"]]
-        return {"task": task, "runs": runs, "result": done[-1]["result"] if done else None,
+        latest = runs[-1] if runs else None
+        current_result = (latest["result"] if latest and latest["status"] == "completed"
+                          and task["status"] == "completed" else None)
+        return {"task": task, "runs": runs, "result": current_result,
                 "error": ((task.get("meta") or {}).get("blocked_reason")
                           if task["status"] == "blocked" else runs[-1]["error"] if runs else None)}
 

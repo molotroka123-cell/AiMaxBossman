@@ -15,7 +15,7 @@ import time
 import pytest
 import sqlalchemy as sa
 
-from bcc.db import approvals as approvals_t, task_runs as runs_t, tasks as tasks_t, utcnow
+from bcc.db import agents as agents_t, approvals as approvals_t, task_runs as runs_t, tasks as tasks_t, utcnow
 
 from .browser_support import chromium_available, reason as browser_reason
 from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
@@ -48,11 +48,16 @@ def _wait_row(srv, table, row_id: int, predicate, what: str, timeout: float = 15
     raise AssertionError(f"состояние в базе не изменилось: {what}; последняя строка={last}")
 
 
-def _new_task(srv, title: str, status: str = "draft") -> int:
+def _new_task(srv, title: str, status: str = "draft", *, with_executor: bool = False) -> int:
     async def go():
         async with srv.svc.db.session() as s:
+            agent_id = None
+            if with_executor:
+                agent = await s.execute(sa.insert(agents_t).values(name="Owner action executor", enabled=True))
+                agent_id = int(agent.inserted_primary_key[0])
             res = await s.execute(sa.insert(tasks_t).values(
                 title=title, prompt="проверка владельческих действий", status=status,
+                agent_id=agent_id,
                 priority=5, max_retries=0, created_at=utcnow(), updated_at=utcnow()))
             tid = int(res.inserted_primary_key[0])
             await s.commit()
@@ -72,7 +77,7 @@ def test_owner_actions_mutate_backend_state(live):  # noqa: F811
     from playwright.sync_api import sync_playwright
 
     errors: list[str] = []
-    task_id = _new_task(live, "Действие владельца · запуск")
+    task_id = _new_task(live, "Действие владельца · запуск", with_executor=True)
 
     with sync_playwright() as pw:
         browser = _launch(pw)

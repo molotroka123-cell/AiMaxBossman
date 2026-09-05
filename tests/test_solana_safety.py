@@ -107,3 +107,37 @@ def test_legacy_entrypoint_uses_same_safe_app():
     from solana_volume_suite.dashboard.app import app
     from solana_volume_suite.dashboard.safety_app import app as safe_app
     assert app is safe_app
+
+
+@pytest.mark.parametrize("route", ["/api/bot/start", "/api/bot/sweep", "/api/vault/generate",
+                                   "/api/orchestrator/start", "/api/sweep"])
+def test_nonempty_payload_and_live_flags_cannot_enable_control(route, monkeypatch):
+    from fastapi.testclient import TestClient
+    from solana_volume_suite.dashboard.safety_app import app
+    monkeypatch.setenv("LIVE_EXECUTION_ENABLED", "YES")
+    with TestClient(app) as client:
+        response = client.post(route, json={"count": 10, "password": "request-must-not-create-keys",
+                                             "destination": "unused", "enabled": True})
+        assert response.status_code == 403
+        assert response.json()["execution_allowed"] is False
+        assert response.json()["verified_side_effect"] is False
+        assert client.get("/api/vault/wallets").json()["wallets"] == []
+        assert client.get("/api/status").json()["bot_status"] is False
+
+
+def test_safety_app_import_never_loads_optional_execution_modules():
+    import subprocess
+    import sys
+    result = subprocess.run([sys.executable, "-c", """
+import sys
+class BlockExecutionImports:
+    def find_spec(self, fullname, *args):
+        if any(part in fullname for part in ('solders', 'key_vault', 'orchestrator_loop', 'jito_client')):
+            raise AssertionError('execution module imported: ' + fullname)
+sys.meta_path.insert(0, BlockExecutionImports())
+from solana_volume_suite.dashboard.safety_app import app, telemetry
+assert telemetry()['live_execution_enabled'] is False
+print('safety import isolated')
+"""], capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, result.stderr
+    assert "safety import isolated" in result.stdout

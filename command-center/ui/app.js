@@ -1,3 +1,4 @@
+import { mountVideoTabs } from './video_chat.js';
 /* ============================================================
    app.js — оболочка BOSSMAN Command Center:
    вход по токену, роутер, WS, тема, командная палитра.
@@ -129,6 +130,8 @@ const ctx = {
   logout,
   hasSession,
 };
+
+mountVideoTabs(ctx, el.view);
 
 /* ---------------- Навигация ---------------- */
 

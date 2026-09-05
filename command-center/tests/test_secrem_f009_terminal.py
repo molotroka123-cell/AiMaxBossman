@@ -61,7 +61,13 @@ async def test_variant_dotdot_and_symlink_escape_resolved_before_authz(env, tmp_
         link = root / "escape"
         if link.exists() or link.is_symlink():
             link.unlink()
-        os.symlink(outside, link, target_is_directory=True)
+        if os.name == "nt":
+            # A junction is the native directory reparse point available to
+            # ordinary Windows users; it exercises real path escape resolution.
+            import _winapi
+            _winapi.CreateJunction(str(outside), str(link))
+        else:
+            os.symlink(outside, link, target_is_directory=True)
         res = await tt._tool_run({"command": "echo x", "cwd": str(link), "mode": "project_host"},
                                  _ctx(env))
         assert res.error is True and "вне разрешённых корней" in res.content
@@ -69,6 +75,8 @@ async def test_variant_dotdot_and_symlink_escape_resolved_before_authz(env, tmp_
         norm = tt.normalize_run_args({"command": "echo x", "cwd": str(link)})
         assert norm["cwd"] == str(outside.resolve()) and norm["mode"] == "sandbox"
     finally:
+        if os.name == "nt" and 'link' in locals() and link.exists():
+            os.rmdir(link)
         shutil.rmtree(outside, ignore_errors=True)
 
 

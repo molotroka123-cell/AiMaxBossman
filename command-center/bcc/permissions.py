@@ -14,7 +14,7 @@ ALL_PERMISSIONS = (
     "email.draft", "email.send",
     "deploy.preview", "deploy.production",
     "invoice.create", "payment.read",
-    "settings.write",
+    "settings.write", "web_designer.edit",
     # Каналы связи (мост OpenClaw): чтение состояния и отправка живым людям.
     # Отправка вынесена в отдельное право, а не подведена под email.send:
     # это другой набор получателей и другой способ ошибиться.
@@ -24,7 +24,7 @@ ALL_PERMISSIONS = (
 DANGEROUS = frozenset({
     "filesystem.write", "terminal.run", "git.write", "browser.control",
     "model.unload", "email.send", "deploy.preview", "deploy.production",
-    "invoice.create", "settings.write", "channel.send",
+    "invoice.create", "settings.write", "channel.send", "web_designer.edit",
 })
 
 

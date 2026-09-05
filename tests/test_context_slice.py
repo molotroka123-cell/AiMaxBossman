@@ -69,14 +69,14 @@ def test_repo_map_rebuilds_on_modified_file_under_same_head(tmp_path):
     assert second["cache"] == "miss" and second["sha"] == head
     assert second["fingerprint"] != first["fingerprint"]
     assert second["files"]["pkg/d.py"]["sha256"] != first["files"]["pkg/d.py"]["sha256"]
-    assert second["files"]["pkg/d.py"]["sha256"] == hashlib.sha256(b"Y = 3\n").hexdigest()[:16]
+    assert second["files"]["pkg/d.py"]["sha256"] == hashlib.sha256((root / "pkg/d.py").read_bytes()).hexdigest()[:16]
 
     (root / "pkg" / "d.py").write_text("Y = 2\n", encoding="utf-8")   # откат — прежний отпечаток
     back = repo_map(root, cache_dir=cache)
     assert back["cache"] == "hit" and back["fingerprint"] == first["fingerprint"]
 
 
-def test_fingerprint_changes_on_add_delete_rename_untracked_symlink(tmp_path):
+def test_fingerprint_changes_on_add_delete_rename_untracked(tmp_path):
     root = _git_repo(tmp_path)
     seen = {"clean": worktree_fingerprint(root)}
     assert worktree_fingerprint(root) == seen["clean"]            # детерминизм
@@ -91,7 +91,21 @@ def test_fingerprint_changes_on_add_delete_rename_untracked_symlink(tmp_path):
     seen["deleted"] = worktree_fingerprint(root)
     _git(root, "mv", "pkg/d.py", "pkg/dd.py")                              # rename
     seen["renamed"] = worktree_fingerprint(root)
-    os.symlink("pkg/a.py", root / "link.py")                               # symlink → a
+
+    values = list(seen.values())
+    assert len(set(values)) == len(values), seen
+    assert all(len(v) == 40 for v in values)
+
+
+def test_fingerprint_changes_on_native_symlink_retarget(tmp_path):
+    root = _git_repo(tmp_path)
+    seen = {"clean": worktree_fingerprint(root)}
+    try:
+        os.symlink("pkg/a.py", root / "link.py")
+    except OSError as exc:
+        if os.name == "nt" and exc.winerror == 1314:
+            pytest.skip("native file symlink creation requires Windows SeCreateSymbolicLinkPrivilege or Developer Mode")
+        raise
     seen["symlink_a"] = worktree_fingerprint(root)
     os.unlink(root / "link.py")
     os.symlink("pkg/b.py", root / "link.py")                               # тот же путь, другая цель
@@ -129,8 +143,11 @@ def test_default_cache_dir_inside_root_does_not_self_invalidate(tmp_path):
     assert ".bossman-cache" not in " ".join(first["files"])
 
 
-def test_non_git_root_falls_back_to_content_fingerprint(tmp_path):
+def test_non_git_root_falls_back_to_content_fingerprint(tmp_path, monkeypatch):
     root = _mini_repo(tmp_path / "plain")
+    # An explicit --basetemp inside a checkout must not turn this fixture into
+    # a Git subtree: stop repository discovery at the fixture's parent.
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path.resolve()))
     cache = tmp_path / "cache"
     assert head_sha(root) == NOGIT
     first = repo_map(root, cache_dir=cache)
@@ -204,6 +221,15 @@ def test_failing_test_slice_is_depth_bounded_and_hashed(tmp_path):
     deeper = failing_test_slice(root, root / "test_a.py", depth=3)
     assert "pkg/c.py" in [f["path"] for f in deeper["files"]]
     assert sl == failing_test_slice(root, root / "test_a.py", depth=2)     # детерминизм
+
+
+@pytest.mark.parametrize("raw", [b"X = 1\n", b"X = 1\r\n", b"# \xff\r\nX = 1\r\n"])
+def test_context_hashes_describe_exact_file_bytes(tmp_path, raw):
+    source = tmp_path / "source.py"
+    source.write_bytes(raw)
+    expected = hashlib.sha256(raw).hexdigest()[:16]
+    assert repo_map(tmp_path, "raw-bytes")["files"]["source.py"]["sha256"] == expected
+    assert failing_test_slice(tmp_path, source)["files"][0]["sha256"] == expected
 
 
 def test_real_secrem_test_slice_is_a_small_fraction_of_the_app(tmp_path):

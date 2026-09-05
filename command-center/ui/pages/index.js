@@ -1,3 +1,6 @@
+import WebDesignerPage from './web_designer.js';
+import VideoStudioPage from './video_studio.js';
+import { ChatPage } from '../video_chat.js';
 // Реестр V2-страниц (контракты §8). Каждый feature-агент добавляет РОВНО две
 // строки: импорт своей страницы и её имя в FEATURE_PAGES. Больше здесь ничего
 // не менять — конфликт этих строк интеграция сливает тривиально.
@@ -31,6 +34,7 @@ import WebResearchPage from './web_research.js';
 import ControlPage from './control.js';
 
 export const FEATURE_PAGES = [
+  WebDesignerPage, VideoStudioPage, ChatPage,
   HomePage,
   AppsPage,
   OverviewPage,

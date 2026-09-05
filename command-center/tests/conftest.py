@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +17,13 @@ from bcc.api import Services, create_app
 from bcc.auth import HEADER
 from bcc.config import Settings
 from bcc.providers import ChatResult, Health, ProviderError
+
+
+def pytest_sessionstart(session):
+    if os.environ.get("BCC_REQUIRE_FFMPEG") == "1":
+        missing = [name for name in ("ffmpeg", "ffprobe") if not shutil.which(name)]
+        if missing:
+            raise pytest.UsageError("Required system media executables missing: " + ", ".join(missing))
 
 
 class FakeAdapter:

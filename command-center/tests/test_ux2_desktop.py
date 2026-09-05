@@ -7,7 +7,6 @@ import json
 import os
 import sys
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 
@@ -310,7 +309,7 @@ def test_second_window_refused_while_first_instance_alive(tmp_path, monkeypatch)
     from bcc.config import settings
 
     _use_temp_data_dir(monkeypatch, tmp_path)
-    (tmp_path / "desktop.lock").write_text(__import__("json").dumps({"pid": 1, "port": 18923}), encoding="utf-8")
+    (tmp_path / "desktop.lock").write_text(__import__("json").dumps({"pid": os.getpid(), "port": 18923}), encoding="utf-8")
     monkeypatch.setattr(desktop, "identify_server",
                         lambda url, timeout=2.0: {"app": "bossman-command-center"} if ":18923/" in url else None)
     calls = []
@@ -482,7 +481,7 @@ def test_run_log_records_the_exact_window_command(live, tmp_path, monkeypatch): 
     assert "token" not in log.lower()          # argv по-прежнему без секретов
 
 
-def test_tests_never_write_into_the_owner_data_dir(live, tmp_path):  # noqa: F811
+def test_tests_never_write_into_the_owner_data_dir(live, tmp_path, tmp_path_factory):  # noqa: F811
     """Регрессия к засорённому журналу: прогон пишет только во временный каталог."""
     from bcc.config import settings
 
@@ -492,7 +491,7 @@ def test_tests_never_write_into_the_owner_data_dir(live, tmp_path):  # noqa: F81
                        launcher=lambda *a, **k: 0, out=out) == 0
     log = Path(settings.data_dir) / "desktop-run.log"
     assert log.exists(), "журнал ведётся"
-    assert str(log).startswith(str(Path(tempfile.gettempdir()))), log   # временный, не боевой
+    assert log.resolve().is_relative_to(tmp_path_factory.getbasetemp().resolve()), log
 
 
 def test_every_exit_path_leaves_a_matching_line_in_the_run_log(live, tmp_path, monkeypatch):  # noqa: F811

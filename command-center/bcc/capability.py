@@ -37,6 +37,7 @@ _VERIFICATION: tuple[tuple[str, str], ...] = (
     ("terminal.", "terminal"),
     ("fs.", "file"),
     ("files.", "file"),
+    ("web_designer.", "file"),
     ("code.", "file"),
     ("browser.", "browser"),
     ("apps.", "app"),
