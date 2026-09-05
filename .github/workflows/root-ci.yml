@@ -30,6 +30,8 @@ jobs:
         run: python -m pytest tests -q --durations=10 --timeout=120 --timeout-method=signal
       - name: README Live Scorecard is current (README_SCORECARD_CURRENT)
         run: python scripts/update_readme_scorecard.py --check
+      - name: Skips registry is current (SKIPS_REGISTRY_CURRENT)
+        run: python tools/skips_registry.py --check
       - name: compileall
         run: python -m compileall -q bossman-core/bossman command-center/bcc learning bossman_shared tools
       - name: Secret scan
