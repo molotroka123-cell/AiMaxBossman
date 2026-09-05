@@ -238,7 +238,7 @@ def test_restart_resumes_without_duplicate_side_effects(org):
 
     assert statuses[-1].done and statuses[-1].verified_results == ("w1",)
     assert w.writes == ["a.txt", "b.txt", "c.txt"]                           # DUPLICATE_SIDE_EFFECT_COUNT = 0
-    j = json.loads((org.tmp / "journals" / "m1__w1.json").read_text())
+    j = json.loads((org.tmp / "journals" / "m1__w1.json").read_text(encoding="utf-8"))
     assert [s["status"] for s in j["steps"]] == ["DONE", "DONE", "DONE"]
     # завершённую миссию можно «возобновлять» сколько угодно — ничего не исполняется
     revived.resume()

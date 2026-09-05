@@ -46,11 +46,11 @@ def bound(c, *, when=None, **updates):
 def test_astra001_final_text_does_not_complete_an_action(tmp_path):
     gate = CompletionGate(CompletionContract(mode="action", files=[FileObligation(path="x")]), tmp_path)
     assert gate.finish()[0] == "unverified"
-    (tmp_path / "x").write_text("expected")  # preexisting file cannot prove this task ran
+    (tmp_path / "x").write_text("expected", encoding="utf-8")  # preexisting file cannot prove this task ran
     assert gate.finish()[0] == "unverified"
     gate.record("fs.write", "write", {"path": "x", "content": "expected"}, error=False)
     assert gate.finish()[0] == "done"
-    (tmp_path / "x").write_text("changed")
+    (tmp_path / "x").write_text("changed", encoding="utf-8")
     assert gate.finish()[0] == "unverified"
     assert CompletionGate(CompletionContract(), tmp_path).finish()[0] == "answered"
 
@@ -65,8 +65,8 @@ def test_astra002_tampered_completion_cannot_be_resumed(tmp_path):
     j = TaskJournal.start(task_id="job", plan=[("s", "write")], root=tmp_path)
     j.record("s", receipt={"effect": "ok"}, verified=True)
     p = journal_path(tmp_path, "job")
-    raw = json.loads(p.read_text()); raw["steps"][0]["sig"] = ""
-    p.write_text(json.dumps(raw))
+    raw = json.loads(p.read_text(encoding="utf-8")); raw["steps"][0]["sig"] = ""
+    p.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(JournalIntegrityError):
         TaskJournal.load(task_id="job", root=tmp_path)
 
@@ -151,7 +151,7 @@ def test_f002_expired_capability_refuses_effect(tmp_path):
     leases = LeaseManager(FleetStore(tmp_path / "f.db"))
     lease = leases.acquire(node_id="n", work_id="w", now=time.time()-10, ttl_seconds=1)
     with pytest.raises(StaleLease):
-        with leases.mutation_guard(lease): (tmp_path / "effect").write_text("bad")
+        with leases.mutation_guard(lease): (tmp_path / "effect").write_text("bad", encoding="utf-8")
     assert not (tmp_path / "effect").exists()
 
 
@@ -270,7 +270,7 @@ async def test_sec102_http_saved_logs_remove_secret_values(tmp_path, monkeypatch
         json={"access_token":"synthetic-sensitive-value", "safe":1})))
     res=await net.http({"url":"https://example.org"}, SimpleNamespace(workdir=tmp_path))
     assert not res.error
-    assert all("synthetic-sensitive-value" not in p.read_text() for p in tmp_path.rglob("*.json"))
+    assert all("synthetic-sensitive-value" not in p.read_text(encoding="utf-8") for p in tmp_path.rglob("*.json"))
 
 
 def test_o004_mandatory_risk_reviewer_veto_is_not_skipped(tmp_path):
@@ -367,7 +367,7 @@ except JournalIntegrityError: sys.exit(3)
 
 def test_reaudit_journal_interrupted_writer_blocks_replay(tmp_path):
     j = TaskJournal.start(task_id="interrupted", plan=[("s", "send")], root=tmp_path)
-    (tmp_path / "interrupted.lock").write_text("interrupted process")
+    (tmp_path / "interrupted.lock").write_text("interrupted process", encoding="utf-8")
     with pytest.raises(JournalIntegrityError, match="interrupted"):
         j.begin("s")
     assert TaskJournal.load(task_id="interrupted", root=tmp_path).steps[0].status == "PENDING"
@@ -376,7 +376,7 @@ def test_reaudit_journal_interrupted_writer_blocks_replay(tmp_path):
 @pytest.mark.parametrize("phase", ["record", "finish"])
 def test_reaudit_completion_read_errors_fail_closed(tmp_path, monkeypatch, phase):
     gate = CompletionGate(CompletionContract(mode="action", files=[FileObligation(path="x")]), tmp_path)
-    (tmp_path / "x").write_text("expected")
+    (tmp_path / "x").write_text("expected", encoding="utf-8")
     if phase == "finish":
         gate.record("fs.write", "write", {"path": "x", "content": "expected"}, error=False)
     def denied(path): raise PermissionError("file became unreadable")
