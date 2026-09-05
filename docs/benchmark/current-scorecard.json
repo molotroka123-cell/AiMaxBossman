@@ -1,0 +1,183 @@
+{
+  "schema": "bossman.live-scorecard/1",
+  "last_update": "2026-09-05",
+  "last_evidence_sha": "eb0e969b275141873bc404704d44eafc1f5a22e6",
+  "exact_sha_ci": "NOT_RUN",
+  "live_hardware_attestation": "PENDING",
+  "benchmark_hard_failures": [],
+  "deterministic_counters": {
+    "false_success_count": 0,
+    "duplicate_side_effect_count": 0,
+    "privacy_violation_count": 0,
+    "permission_bypass_count": 0,
+    "source": "bossman-core/tests/test_v3_fleet_e2e.py, test_v3_organization_e2e.py at last_evidence_sha (deterministic suites; no live benchmark run recorded)"
+  },
+  "current_bottleneck": "FL-01: лизинг/fence флота не проверяется на стороне V2-движка (двойное исполнение при split-brain доказуемо только на уровне FleetStore), плюс EH-01: улики журнала не подписаны (HMAC) — Execution Truth и Fleet не могут подняться выше VERIFIED.",
+  "next_highest_value_fix": "TZ-05 §2: fence-проверка при каждом побочном эффекте в адаптере V3→bcc (отказ с STALE_FENCE, тест split-brain на 2 узла), затем TZ-01 подпись улик.",
+  "categories": [
+    {
+      "category": "Execution Truth",
+      "score": 8.0,
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "evidence": [
+        "TaskJournal: finished = receipt ∧ verified (bossman-core/tests/test_v3_memory_kernel.py, test_v3_invariants.py, test_v3_compound_resume.py)",
+        "FleetExecutionBridge отбрасывает поддельные verified-улики, пересобирая их из журнала (test_v3_fleet_e2e.py::forged evidence, 084ad3a)",
+        "PLACED→VERIFIED запрещён в LEGAL_TRANSITIONS (test_v3_fleet_core.py)",
+        "V2 action contract тесты (command-center/tests/test_action_contract.py)"
+      ],
+      "blockers": ["EH-01: улики без подписи/hash-chain (TZ-01)", "EH-02: независимые верификаторы не вынесены (TZ-01)"],
+      "tests": ["bossman-core/tests/test_v3_fleet_e2e.py", "bossman-core/tests/test_v3_organization_e2e.py", "command-center/tests/test_action_contract.py"],
+      "last_verified_sha": "eb0e969b275141873bc404704d44eafc1f5a22e6",
+      "last_verified_at": "2026-09-05",
+      "live_attestation": "NOT_REQUIRED",
+      "regression_delta": 0.0
+    },
+    {
+      "category": "Security",
+      "score": 8.0,
+      "status": "VERIFIED",
+      "confidence": "HIGH",
+      "evidence": [
+        "P0-A gateway loopback fail-closed при proxy-заголовках (cbdabf2, bossman-core/tests/test_gateway_loopback_proxy.py)",
+        "P0-B монотонная алгебра политики DENY⊗X=DENY, hook-ASK⊗AUTO=ASK (eb0e969, command-center/tests/test_policy_algebra.py)",
+        "Fleet: PRIVATE/LOCAL_ONLY — жёсткий гейт планировщика, CredentialBroker выдаёт только гранты (test_v3_fleet_core.py)",
+        "Secret scan в каждом CI-прогоне (tools/ci_secret_scan.py)"
+      ],
+      "blockers": ["TZ-02: scan 2.0 (энтропия), rate-limit шлюза, hash-chain журнала", "Tailscale-Serve руководство оператора"],
+      "tests": ["bossman-core/tests/test_gateway_loopback_proxy.py", "command-center/tests/test_policy_algebra.py", "bossman-core/tests/test_v3_fleet_core.py"],
+      "last_verified_sha": "eb0e969b275141873bc404704d44eafc1f5a22e6",
+      "last_verified_at": "2026-09-05",
+      "live_attestation": "NOT_REQUIRED",
+      "regression_delta": 0.8
+    },
+    {
+      "category": "Tooling / OS Integration",
+      "score": 7.0,
+      "status": "INTEGRATED",
+      "confidence": "MEDIUM",
+      "evidence": [
+        "V2 реестр инструментов/decide_effect/approvals заморожен на ffda281 и покрыт command-center/tests/test_v21_*",
+        "V3-порты → живой bcc (bossman-core/tests/test_v3_command_center_adapters.py)"
+      ],
+      "blockers": ["TZ-03: CapabilitySpec, выдача инструмента на run, детектор no-progress"],
+      "tests": ["command-center/tests/test_v21_tool_loop.py", "bossman-core/tests/test_v3_command_center_adapters.py"],
+      "last_verified_sha": "eb0e969b275141873bc404704d44eafc1f5a22e6",
+      "last_verified_at": "2026-09-05",
+      "live_attestation": "NOT_REQUIRED",
+      "regression_delta": 0.0
+    },
+    {
+      "category": "Organization Layer",
+      "score": 6.5,
+      "status": "INTEGRATED",
+      "confidence": "MEDIUM",
+      "evidence": [
+        "OrganizationRuntime над V3ExecutionBridge/FleetExecutionBridge; ORG-03..07, MEM-02 закрыты (084ad3a)",
+        "E2E: родитель не COMPLETE при непроверенном ребёнке, рестарт без дублей (bossman-core/tests/test_v3_organization_e2e.py)"
+      ],
+      "blockers": ["ORG-01: HTTP-фича/точка входа продукта", "ORG-02: планировщик миссий", "ORG-08: saga-компенсации"],
+      "tests": ["bossman-core/tests/test_v3_organization_core.py", "bossman-core/tests/test_v3_organization_e2e.py", "bossman-core/tests/test_v3_organization_company_bridge.py"],
+      "last_verified_sha": "eb0e969b275141873bc404704d44eafc1f5a22e6",
+      "last_verified_at": "2026-09-05",
+      "live_attestation": "NOT_REQUIRED",
+      "regression_delta": 0.0
+    },
+    {
+      "category": "Fleet & Resources",
+      "score": 6.0,
+      "status": "INTEGRATED",
+      "confidence": "MEDIUM",
+      "evidence": [
+        "FleetStore/LeaseManager/WorkQueue CAS-claim, fencing, reclaim (bossman-core/tests/test_v3_fleet_core.py, 20 тестов)",
+        "E2E #1–#4: размещение→исполнение, смерть узла→resume без дублей, приватность, двойной claim (test_v3_fleet_e2e.py)"
+      ],
+      "blockers": ["FL-01: fence не проверяется V2-движком (TZ-05 §2)", "RemoteNodeTransport: REMOTE_TRANSPORT_PRODUCTION_READY=NO", "нет живого многоузлового прогона (recovery-время не измерено)"],
+      "tests": ["bossman-core/tests/test_v3_fleet_core.py", "bossman-core/tests/test_v3_fleet_e2e.py"],
+      "last_verified_sha": "eb0e969b275141873bc404704d44eafc1f5a22e6",
+      "last_verified_at": "2026-09-05",
+      "live_attestation": "PENDING",
+      "regression_delta": 0.0
+    },
+    {
+      "category": "Memory / Context",
+      "score": 6.2,
+      "status": "IMPLEMENTED",
+      "confidence": "MEDIUM",
+      "evidence": [
+        "TaskJournal + FailureMemory + ContextAssembler с редакцией (bossman_v3/memory)",
+        "ScopedKnowledge: явное наследование include_parents, экспорт по allowlist (MEM-02, 084ad3a)"
+      ],
+      "blockers": ["TZ-06: решётка скоупов по дереву, ScopeToken, эмбеддинги, токен-оценка контекста", "слияние с bossman.context_engine (колонка scope)"],
+      "tests": ["bossman-core/tests/test_v3_organization_core.py", "bossman-core/tests/test_v3_memory_kernel.py"],
+      "last_verified_sha": "eb0e969b275141873bc404704d44eafc1f5a22e6",
+      "last_verified_at": "2026-09-05",
+      "live_attestation": "NOT_REQUIRED",
+      "regression_delta": 0.0
+    },
+    {
+      "category": "Testing / CI",
+      "score": 7.0,
+      "status": "VERIFIED",
+      "confidence": "MEDIUM",
+      "evidence": [
+        "4 workflow (root-ci, Bossman Core CI, Command Center CI, V2 Auto-Repair) зелёные по точному SHA 714bb01/fb201a4",
+        "Полный регресс ядра на стабильном HEAD; benchmark-тесты проверяют SHA",
+        "README_SCORECARD_CURRENT проверяется в root-ci (scripts/update_readme_scorecard.py --check)"
+      ],
+      "blockers": ["TZ-07: windows-job отсутствует, coverage gate, реестр skips", "CI по текущему HEAD ещё не наблюдался (NOT_RUN ≠ PASS)"],
+      "tests": ["tests/test_readme_scorecard.py", ".github/workflows/*.yml"],
+      "last_verified_sha": "fb201a4",
+      "last_verified_at": "2026-09-05",
+      "live_attestation": "NOT_REQUIRED",
+      "regression_delta": 0.0
+    },
+    {
+      "category": "Observability / CEO Control",
+      "score": 5.0,
+      "status": "PARTIAL",
+      "confidence": "LOW",
+      "evidence": [
+        "control_plane снимки организации и флота из durable store (bossman_v3/organization/control_plane.py, fleet/control_plane.py)"
+      ],
+      "blockers": ["TZ-08: span'ы, dead-click, страница control-plane в Command Center", "нет единого владельческого дашборда по миссиям"],
+      "tests": ["bossman-core/tests/test_v3_organization_core.py"],
+      "last_verified_sha": "eb0e969b275141873bc404704d44eafc1f5a22e6",
+      "last_verified_at": "2026-09-05",
+      "live_attestation": "NOT_REQUIRED",
+      "regression_delta": 0.0
+    },
+    {
+      "category": "Treasury / Cost",
+      "score": 6.5,
+      "status": "IMPLEMENTED",
+      "confidence": "MEDIUM",
+      "evidence": [
+        "TR-01/02/03: актуальные цены 5 семейств (provisional), токен-оценка по скрипту, потолок in·max(p_in,p_cw)+out·p_out (e724a44, tests/test_fable_budget_pricing.py)",
+        "ResourceTreasury: INV-3 PartitionViolation, конверты org→dept→mission (test_v3_organization_core.py)"
+      ],
+      "blockers": ["TR-04: usd как view над ledger", "TR-05: локальный GPU", "TR-06: burn-rate", "цены provisional (AS_OF 2026-09-05)"],
+      "tests": ["tests/test_fable_budget_pricing.py", "command-center/tests/test_fable_hard_cap.py", "bossman-core/tests/test_v3_organization_core.py"],
+      "last_verified_sha": "eb0e969b275141873bc404704d44eafc1f5a22e6",
+      "last_verified_at": "2026-09-05",
+      "live_attestation": "NOT_REQUIRED",
+      "regression_delta": 0.5
+    },
+    {
+      "category": "Mission UX / Command Center",
+      "score": 6.0,
+      "status": "IMPLEMENTED",
+      "confidence": "MEDIUM",
+      "evidence": [
+        "Command Center UI (command-center/ui) с approvals, задачами, инструментами; command-center/tests зелёные",
+        "Компактная навигация + OpenRouter Connect (исправлен appendChild) — ветка claude/v2-ui-sidebar-compact, 1401 passed, НЕ влита"
+      ],
+      "blockers": ["TZ-10: статусы blocked/capability_unavailable, aria, страница control-plane", "дизайн-ветка не влита в control"],
+      "tests": ["command-center/tests/test_ux2_pages_sweep.py", "command-center/tests/test_command_bar_ui.py"],
+      "last_verified_sha": "eb0e969b275141873bc404704d44eafc1f5a22e6",
+      "last_verified_at": "2026-09-05",
+      "live_attestation": "NOT_REQUIRED",
+      "regression_delta": 0.0
+    }
+  ]
+}
