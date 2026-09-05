@@ -199,7 +199,8 @@ def validate_project(project):
         for dimension in ("width", "height"):
             if type(seq[dimension]) is not int or not 16 <= seq[dimension] <= 8192 or seq[dimension] % 2:
                 raise StudioError("Output dimensions must be even integers in 16..8192")
-        rate(seq["fps"])
+        if rate(seq["fps"]) > 240:
+            raise StudioError("Sequence FPS exceeds the verified renderer limit of 240")
         if seq["sample_rate"] not in (32000, 44100, 48000, 96000):
             raise StudioError("Unsupported sample rate")
         for tr in seq["tracks"]:

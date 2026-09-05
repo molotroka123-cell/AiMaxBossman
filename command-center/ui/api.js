@@ -93,8 +93,12 @@ async function request(method, path, body, { signal } = {}) {
   if (csrf && UNSAFE.has(method)) headers[CSRF_HEADER] = csrf;
   let payload;
   if (body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    payload = JSON.stringify(body);
+    if (body instanceof Blob || body instanceof FormData) {
+      payload = body;
+    } else {
+      headers['Content-Type'] = 'application/json';
+      payload = JSON.stringify(body);
+    }
   }
 
   let res;

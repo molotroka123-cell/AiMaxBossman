@@ -48,6 +48,15 @@ class ProjectStore:
     def __init__(self, db):
         self.db = db
 
+    async def _write_lock(self, session, project_id):
+        # The lease check and revision commit must have one serialization point.
+        # A process-local asyncio lock cannot protect another BCC worker.
+        if self.db.url.startswith("sqlite"):
+            await session.execute(sa.text("BEGIN IMMEDIATE"))
+        else:
+            await session.execute(sa.select(projects.c.id).where(
+                projects.c.id == project_id).with_for_update())
+
     async def _row(self, session, project_id):
         result = (await session.execute(sa.select(projects).where(projects.c.id == identity(project_id)))).mappings().first()
         if result is None:
@@ -126,6 +135,7 @@ class ProjectStore:
             raise StudioError("Invalid actor")
         request_hash = _hash({"expected_revision": expected_revision, "command": command, "actor": actor})
         async with self.db.session() as session:
+            await self._write_lock(session, project_id)
             prior = await self._replay(session, project_id, operation_id, request_hash)
             if prior:
                 return prior
@@ -167,7 +177,7 @@ class ProjectStore:
             for sq in old["sequences"]:
                 for tr in sq["tracks"]:
                     for c in tr["clips"]:
-                        if c.get("media_id") in affected:
+                        if c.get("media_id") in affected or tr["id"] in changed or sq["id"] in changed:
                             affected.add(c["id"])
                         if c["id"] in affected:
                             affected.update([tr["id"], sq["id"]])
@@ -234,8 +244,13 @@ class ProjectStore:
             raise StudioError("Edit lease requires 1..100 object IDs")
         if type(ttlseconds) is not int or not 1 <= ttlseconds <= 120:
             raise StudioError("Edit lease must last 1..120 seconds")
+        if not isinstance(actor,str) or not actor or len(actor)>120:
+            raise StudioError("Invalid actor")
+        if len(set(object_ids)) != len(object_ids):
+            raise StudioError("Edit lease IDs must be unique")
         expires = utcnow()+timedelta(seconds=ttlseconds)
         async with self.db.session() as session:
+            await self._write_lock(session, project_id)
             doc = (await self._row(session, project_id))["document"]
             existing_ids = {project_id, *doc["media"].keys()}
             for seq in doc["sequences"]:
@@ -243,6 +258,22 @@ class ProjectStore:
                 for tr in seq["tracks"]:
                     existing_ids.add(tr["id"])
                     existing_ids.update(c["id"] for c in tr["clips"])
+            related=set(object_ids)
+            # Prevent a collaborator acquiring a parent lease around an already
+            # leased child (or vice versa). Sibling clips can still be edited.
+            for seq in doc["sequences"]:
+                for tr in seq["tracks"]:
+                    for c in tr["clips"]:
+                        if project_id in object_ids or seq["id"] in object_ids or tr["id"] in object_ids or c.get("media_id") in object_ids:
+                            related.add(c["id"])
+                        if c["id"] in object_ids:
+                            related.update([seq["id"],tr["id"]])
+                    if tr["id"] in object_ids:
+                        related.add(seq["id"])
+            active=(await session.execute(sa.select(leases).where(leases.c.project_id==project_id,
+                leases.c.expires_at>utcnow(),leases.c.actor!=actor))).mappings().all()
+            if any(r["object_id"] in related or r["object_id"]==project_id or project_id in object_ids for r in active):
+                raise EditLocked("Another collaborator holds an overlapping edit lease")
             for key in object_ids:
                 if identity(key) not in existing_ids:
                     raise MissingObject("Cannot lease an unknown object")

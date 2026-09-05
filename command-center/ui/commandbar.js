@@ -128,6 +128,7 @@ export function mountCommandBar({ api = defaultApi, mount = document.body,
     catalog = (data && data.capabilities) || [];
     aliases = (data && data.aliases) || {};
     form.hidden = !enabled;
+    pane.hidden = !enabled;
     if (!enabled) {
       note.textContent = 'Командная строка выключена.';
       return;

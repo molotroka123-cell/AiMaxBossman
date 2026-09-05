@@ -117,6 +117,13 @@ class TaskEngine:
         # Services проставляет себя после создания: инструментам нужен доступ к
         # approvals/vault/менеджерам браузера и терминала (V2.1).
         self.services: Any = None
+        self.executors: dict[str, Any] = {}
+
+    def register_executor(self, kind: str, handler: Any) -> None:
+        """Host code only: deterministic jobs share admission, fencing and finalization."""
+        if not kind or not callable(handler):
+            raise ValueError("executor kind and callable required")
+        self.executors[kind] = handler
 
     def add_hook(self, name: str, fn: Any, *, critical: bool | None = None) -> None:
         """Зарегистрировать хук. `critical=None` → по имени: before_run,
@@ -600,6 +607,12 @@ class TaskEngine:
                 runs_t.c.status.in_(("leased", "running")),
                 self._fence_clause(run_id)).values(
                 worker_lease_until=utcnow() + timedelta(seconds=self.lease_seconds)))
+            if upd.rowcount:
+                from .db import resource_reservations as reservations_t
+                await s.execute(sa.update(reservations_t).where(
+                    reservations_t.c.id.in_(sa.select(runs_t.c.reservation_id).where(runs_t.c.id == run_id)),
+                    reservations_t.c.holder_kind == "video_job", reservations_t.c.status == "held"
+                ).values(expires_at=utcnow() + timedelta(minutes=15)))
             await s.commit()
         return bool(upd.rowcount)
 
@@ -642,11 +655,12 @@ class TaskEngine:
             agent = await fetch_one(s, agents_t, task["agent_id"]) if task and task["agent_id"] else None
         if task is None:
             return
-        if agent is None:
+        executor = self.executors.get(task.get("kind"))
+        if agent is None and executor is None:
             await self._fail_now(run_id, task["id"],
                                  "у задачи не выбран агент — некому её выполнять")
             return
-        if not agent.get("enabled", True):
+        if agent is not None and not agent.get("enabled", True):
             await self._fail_now(run_id, task["id"], f"агент «{agent['name']}» выключен")
             return
 
@@ -674,6 +688,23 @@ class TaskEngine:
                 return
 
         await self._start(run_id, task["id"])
+        if executor is not None:
+            try:
+                await self.assert_fence(run_id)
+                try:
+                    answer = await executor(task, run, self)
+                    if not isinstance(answer, str):
+                        raise TypeError("executor must return a verified result string")
+                except (asyncio.CancelledError, FencedOut):
+                    raise
+                except Exception as exc:
+                    await self._fail_now(run_id, task["id"],
+                                         f"executor failed: {type(exc).__name__}")
+                    return
+                await self._complete_run(run_id, task, answer, [], 0, 0, 0, 0.0, "local:deterministic")
+                return
+            finally:
+                await self._release_executor_resources(run_id)
         checkpoint = run.get("checkpoint") or {}
         messages: list[dict] = list(checkpoint.get("messages") or [])
         if not messages:
@@ -795,6 +826,28 @@ class TaskEngine:
                                      f"critical hook on_step failed: {exc.hook}: {exc.reason}")
                 return
 
+        await self._complete_run(run_id, task, answer, messages, step,
+                                 tokens_in, tokens_out, cost, alias)
+
+    async def _release_executor_resources(self, run_id):
+        # A veto may leave a run waiting for review without calling _finish.
+        # Release only our still-owned video's existing ledger reservation.
+        from .db import resource_reservations as reservations_t
+        async with self.db.session() as session:
+            rid=(await session.execute(sa.select(runs_t.c.reservation_id).where(
+                runs_t.c.id==run_id,self._fence_clause(run_id)))).scalar_one_or_none()
+            if not rid:
+                return
+            held=(await session.execute(sa.select(reservations_t.c.id).where(
+                reservations_t.c.id==rid,reservations_t.c.holder_kind=="video_job",
+                reservations_t.c.status=="held"))).scalar_one_or_none()
+        if held:
+            from .features.resources import _release
+            await _release(self.services,held)
+
+    async def _complete_run(self, run_id, task, answer, messages, step,
+                            tokens_in, tokens_out, cost, alias):
+        """One completion path for both model and registered deterministic executors."""
         if await self._check_interrupt(run_id, task["id"], messages, step):
             return
         if not answer:

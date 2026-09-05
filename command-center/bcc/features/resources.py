@@ -91,10 +91,70 @@ async def _release(svc, reservation_id: int) -> None:
     await svc.bus.emit("resource.released", reservation_id=reservation_id)
 
 
+async def _video_admit(svc, task, run, policy):
+    """Measured host admission, serialized in the existing reservation ledger."""
+    from datetime import timedelta
+    from ..db import task_runs as runs_t
+    from ..video_studio.service import jobs
+    try:
+        import psutil
+        memory = psutil.virtual_memory()
+        total, used = int(memory.total / 1024**2), int((memory.total-memory.available) / 1024**2)
+    except Exception:
+        return {"defer":30,"reason":"Video resource availability is unknown; no quota was invented"}
+    async with svc.db.session() as session:
+        if svc.db.url.startswith("sqlite"):
+            await session.execute(sa.text("BEGIN IMMEDIATE"))
+        else:
+            await session.execute(sa.text("SELECT pg_advisory_xact_lock(73921408)"))
+        row=(await session.execute(sa.select(jobs).where(jobs.c.task_id==task["id"]))).mappings().first()
+        if row is None:
+            return {"fail":"Video task has no host-owned job snapshot"}
+        snapshot=row["snapshot"]
+        seq=next(x for x in snapshot["sequences"] if x["id"]==snapshot["active_sequence_id"])
+        # Conservative working-buffer estimate, explicitly not a measured peak.
+        options=row.get("options") or {}
+        width=int(options.get("width") or seq["width"])
+        height=int(options.get("height") or seq["height"])
+        pixels=max(width*height,seq["width"]*seq["height"],
+                   max((int(m.get("width") or 0)*int(m.get("height") or 0) for m in snapshot["media"].values()),default=0))
+        need=max(512,min(8192,512+int(pixels*4*16/1024**2)))
+        if task.get("kind")=="video_analysis" and (row.get("options") or {}).get("action")=="transcribe":
+            import os
+            from pathlib import Path
+            model_path=Path(os.environ.get("BOSSMAN_VIDEO_ASR_MODEL",""))
+            if not model_path.is_file():
+                return {"fail":"ASR local model is not configured"}
+            need=max(need,512+int(model_path.stat().st_size*3/1024**2))
+        held=(await session.execute(sa.select(res_t).where(res_t.c.status=="held"))).mappings().all()
+        mine=next((r for r in held if r["holder_kind"]=="video_job" and r["holder_id"]==task["id"]),None)
+        if mine:
+            await session.execute(sa.update(runs_t).where(runs_t.c.id==run["id"]).values(reservation_id=mine["id"]))
+            await session.commit()
+            return None
+        slots=sum(r["holder_kind"]=="video_job" for r in held)
+        floor=int(policy.get("reserve_floor_mb",16000)) if policy.get("enforce") else 1024
+        if policy.get("total_override_mb"):
+            total=min(total,int(policy["total_override_mb"]))
+        available=max(0,total-used-floor-sum(int(r["amount_mb"]) for r in held))
+        if slots>=min(2,max(1,svc.engine.workers)) or need>available:
+            return {"defer":30,"reason":f"Video admission: estimated {need} MB, available budget {available} MB, active slots {slots}"}
+        result=await session.execute(sa.insert(res_t).values(kind="ram",amount_mb=need,
+            holder_kind="video_job",holder_id=task["id"],status="held",created_at=utcnow(),
+            expires_at=utcnow()+timedelta(minutes=15)))
+        rid=int(result.inserted_primary_key[0])
+        await session.execute(sa.update(runs_t).where(runs_t.c.id==run["id"]).values(reservation_id=rid))
+        await session.commit()
+    await svc.bus.emit("resource.reserved",reservation_id=rid,amount_mb=need,
+                       holder=f"video_job:{task['id']}",estimate=True)
+    return None
+
 async def _before_run(svc):
     async def before_run(task, run):
         policy = await _policy(svc)
         meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
+        if task.get("kind") in ("video_render","video_analysis","video_package","video_proposal"):
+            return await _video_admit(svc,task,run,policy)
         if not (policy.get("enforce") or meta.get("resource_managed")):
             return None                       # управление памятью выключено — не мешаем
         # модель агента

@@ -277,3 +277,27 @@ def test_training_and_holdout_gold_commands_are_valid_real_domain_operations():
         q,changed,_=apply_command(p,row["command"])
         validate_project(q)
         assert row["command"]["clip_id"] in changed
+
+
+async def test_concurrent_edit_leases_have_one_owner(store):
+    results=await asyncio.gather(*(store.lease("project",["project"],actor=f"editor:{n}")
+                                 for n in range(2)),return_exceptions=True)
+    assert sum(isinstance(x,dict) for x in results)==1
+    assert sum(isinstance(x,EditLocked) for x in results)==1
+
+
+async def test_child_lease_blocks_parent_change_and_parent_lease(store):
+    await store.apply("project",0,"import",{"type":"project.import","project":document()})
+    tr=(await store.get("project"))["sequences"][0]["tracks"][0]
+    await store.lease("project",["first"],actor="human")
+    with pytest.raises(EditLocked):
+        await store.lease("project",[tr["id"]],actor="agent:1")
+    with pytest.raises(EditLocked):
+        await store.apply("project",1,"mute",{"type":"track.update","track_id":tr["id"],"patch":{"mute":True}},actor="agent:1")
+    assert (await store.get("project"))["revision"]==1
+
+
+def test_output_fps_rejects_unrenderable_project_at_admission():
+    p=document()
+    with pytest.raises(StudioError,match="240"):
+        apply(p,"sequence.update",sequence_id=p["active_sequence_id"],patch={"fps":{"num":1000,"den":1}})
