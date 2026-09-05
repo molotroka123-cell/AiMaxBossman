@@ -107,13 +107,28 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) 
             match = re.match(r"exit_code=(-?\d+)\b", str(row.get("result_preview") or ""))
             if match is None or int(match[1]) != 0:
                 return "effectful terminal outcome is failed or still unobserved"
+    # What a capability is known to be able to leave behind. The point is to stop
+    # an unrelated capability's success from being credited against somebody
+    # else's obligation — a browser click cannot be the proof that a process is
+    # running. It is NOT a list of capabilities allowed to finish.
+    #
+    # Two corrections, both from real dead ends. `memory.write` writes a markdown
+    # note into the vault, so a `file` obligation over that note is exactly the
+    # right way to check it — mapping memory to {memory, db} refused a run whose
+    # effect had genuinely happened and which `verify_all` could have confirmed
+    # by reading the file. And an UNKNOWN capability is not a known mismatch: mcp,
+    # plugin and openclaw tools can do anything the server behind them does, so
+    # refusing them here parked them behind an escalation `finalize_override`
+    # re-refused forever. Absence of knowledge is not evidence of mismatch; when
+    # we cannot say the capability is wrong, `verify_all` reads the world and
+    # answers instead.
     kinds = {e.kind for e in expected}
-    required_kinds = {"terminal": {"file", "terminal", "github"}, "browser": {"browser"},
-                      "memory": {"memory", "db"}, "apps": {"app", "process"},
-                      "opencode": {"file", "github"}}
+    known_kinds = {"terminal": {"file", "terminal", "github"}, "browser": {"browser", "file"},
+                   "memory": {"memory", "db", "file"}, "apps": {"app", "process", "file"},
+                   "opencode": {"file", "github"}}
     for row in latest.values():
-        supported = required_kinds.get(row.get("source"))
-        if supported is None or not kinds.intersection(supported):
+        supported = known_kinds.get(row.get("source"))
+        if supported is not None and not kinds.intersection(supported):
             return "effectful capability has no matching post-state verifier: " + str(row.get("tool"))
     return ""
 

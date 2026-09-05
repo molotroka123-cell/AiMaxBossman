@@ -1,0 +1,1407 @@
+--- a/command-center/bcc/video_studio/diagnostics.py
++++ b/command-center/bcc/video_studio/diagnostics.py
+@@ -0,0 +1,100 @@
++"""Structured, owner-visible failure reasons for Video Studio jobs.
++
++The engine records only `executor failed: <ExceptionClass>` (engine.py, not this
++subsystem's file to change), so a failed export used to be a black box: the
++owner saw a silent button and could not learn why. Every Video Studio executor
++now persists a typed reason code plus a redacted, bounded message next to the
++job, and the job API returns both.
++
++Nothing here emits secrets, environment, absolute host paths or a raw
++subprocess dump: `redact()` strips those before anything is stored.
++"""
++from __future__ import annotations
++
++import asyncio
++import re
++
++# The closed set of owner-visible reason codes. UNKNOWN is a real answer, not a
++# placeholder: it means "classified as nothing we recognise", and the redacted
++# message is still shown.
++TIMEOUT = "TIMEOUT"
++VERIFIER_FAILED = "VERIFIER_FAILED"
++MEDIA_DECODE_FAILED = "MEDIA_DECODE_FAILED"
++MISSING_FFMPEG = "MISSING_FFMPEG"
++RESOURCE_EXHAUSTED = "RESOURCE_EXHAUSTED"
++APPROVAL_REQUIRED = "APPROVAL_REQUIRED"
++POLICY_DENIED = "POLICY_DENIED"
++INVALID_PROJECT_STATE = "INVALID_PROJECT_STATE"
++UNKNOWN = "UNKNOWN"
++
++REASON_CODES = frozenset({TIMEOUT, VERIFIER_FAILED, MEDIA_DECODE_FAILED, MISSING_FFMPEG,
++                          RESOURCE_EXHAUSTED, APPROVAL_REQUIRED, POLICY_DENIED,
++                          INVALID_PROJECT_STATE, UNKNOWN})
++
++MAX_MESSAGE = 300
++
++_SECRETISH = re.compile(
++    r"(?i)\b(?:sk-|ghp_|gho_|github_pat_|xox[abprs]-|bearer\s+|api[-_ ]?key\s*[=:]\s*|token\s*[=:]\s*|password\s*[=:]\s*)\S+")
++# Absolute POSIX and Windows paths. Owned media is content-addressed, so the
++# only information a path carries is where this machine keeps its files.
++_ABSPATH = re.compile(r"(?:[A-Za-z]:)?[\\/](?:[\w.\-+]+[\\/]){1,}[\w.\-+]*")
++_LONGHEX = re.compile(r"\b[0-9a-fA-F]{32,}\b")
++
++
++def redact(text: object, limit: int = MAX_MESSAGE) -> str:
++    """Bounded, path-free, secret-free single line fit for the owner's screen."""
++    value = str(text or "")
++    value = _SECRETISH.sub("[redacted]", value)
++    value = _ABSPATH.sub("[path]", value)
++    value = _LONGHEX.sub(lambda m: m.group(0)[:12] + "…", value)
++    value = " ".join(value.split())
++    return value[:limit]
++
++
++# Ordered: the first matching probe wins, so specific phrases precede generic ones.
++_PHRASES = (
++    (MISSING_FFMPEG, ("is unavailable; install a local ffmpeg build", "ffmpeg is unavailable",
++                      "ffprobe is unavailable")),
++    (MEDIA_DECODE_FAILED, ("full decode failed", "unsupported or unsafe media container",
++                           "media has no usable video or audio stream", "invalid media duration",
++                           "media content hash mismatch", "sample frame missing")),
++    (VERIFIER_FAILED, ("failed independent verification", "independent media verification",
++                       "duration mismatch", "frame rate mismatch", "audio/video stream start mismatch",
++                       "artifact content hash mismatch", "output changed after",
++                       "media mismatch", "artifact ownership mismatch", "missing render artifact",
++                       "verification receipt")),
++    (RESOURCE_EXHAUSTED, ("insufficient disk space", "disk space exhausted", "exceeded its capture limit",
++                          "exceeds 8 gib limit", "no space left on device", "cannot allocate memory",
++                          "would exceed bounded chunk count", "video admission")),
++    (APPROVAL_REQUIRED, ("approval", "waiting_approval", "review escalation")),
++    (POLICY_DENIED, ("operation denied", "not permitted", "forbidden", "escaped owned storage",
++                     "escaped storage")),
++    (INVALID_PROJECT_STATE, ("revision", "already exists", "unknown ", "invalid ", "requires an",
++                             "must be", "outside", "unsupported ", "project changed")),
++)
++
++
++def classify(exc: BaseException) -> str:
++    """Map a raised failure onto the closed reason-code set. Type first, then text."""
++    if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
++        return TIMEOUT
++    if isinstance(exc, PermissionError):
++        return POLICY_DENIED
++    if isinstance(exc, MemoryError):
++        return RESOURCE_EXHAUSTED
++    if isinstance(exc, OSError) and exc.errno in (28, 12):        # ENOSPC, ENOMEM
++        return RESOURCE_EXHAUSTED
++    text = str(exc).lower()
++    for code, phrases in _PHRASES:
++        if any(phrase in text for phrase in phrases):
++            return code
++    from .model import Conflict, MissingObject, StudioError
++    if isinstance(exc, (Conflict, MissingObject, StudioError)):
++        return INVALID_PROJECT_STATE
++    return UNKNOWN
++
++
++def describe(exc: BaseException) -> dict:
++    """The full owner-visible failure record: a typed code and a safe message."""
++    code = classify(exc)
++    return {"reason_code": code, "reason": redact(exc) or type(exc).__name__}
+--- a/command-center/bcc/video_studio/media.py
++++ b/command-center/bcc/video_studio/media.py
+@@ -6,7 +6,8 @@
+ from __future__ import annotations
+ 
+ import asyncio
+-from collections import deque
++from collections import deque, OrderedDict
++from concurrent.futures import ThreadPoolExecutor
+ import hashlib
+ import json
+ import math
+@@ -160,6 +161,78 @@
+     return digest.hexdigest()
+ 
+ 
++# ---------------------------------------------------------------------------
++# Bounded hashing. Whole-file SHA-256 used to run on the DEFAULT thread pool —
++# the one the whole Command Center shares — once per media reference, on every
++# HTTP GET. A large library therefore starved everything else, and one page of
++# thumbnails multiplied it by the number of sources on the page.
++#
++# Three bounds, none of which weakens the check itself:
++#   * a small DEDICATED pool, so hashing can never occupy shared workers;
++#   * a semaphore, so N concurrent requests cannot start N whole-file reads;
++#   * per-digest in-flight sharing, so identical concurrent requests hash once.
++# ---------------------------------------------------------------------------
++HASH_WORKERS = 2
++HASH_CONCURRENCY = 2
++IDENTITY_CACHE_LIMIT = 4096
++
++_hash_pool = None
++_gates: dict = {}          # event loop -> asyncio.Semaphore
++_inflight: dict = {}       # (loop id, digest) -> shared asyncio.Task
++# digest -> strong file identity accepted for that digest, see accept_identity().
++_verified_identity: "OrderedDict[str, tuple]" = OrderedDict()
++
++
++def hash_pool():
++    global _hash_pool
++    if _hash_pool is None:
++        _hash_pool = ThreadPoolExecutor(max_workers=HASH_WORKERS, thread_name_prefix="video-hash")
++    return _hash_pool
++
++
++def file_identity(path: Path) -> tuple:
++    """Strong-enough file identity: device, inode, size and mtime in nanoseconds.
++
++    HONEST LIMIT: this is identity, not content. A rewrite that lands on the SAME
++    inode with the SAME size and a deliberately restored mtime_ns is not detected
++    by it. Every ordinary mutation — write, truncate, append, copy, os.replace,
++    relink, restore from backup — changes at least one of the four. Content is
++    still proven by SHA-256 the first time each identity is seen, and again
++    whenever any component changes.
++    """
++    st = path.stat()
++    return (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns)
++
++
++def accept_identity(digest: str, identity: tuple) -> None:
++    _verified_identity[digest] = identity
++    _verified_identity.move_to_end(digest)
++    while len(_verified_identity) > IDENTITY_CACHE_LIMIT:
++        _verified_identity.popitem(last=False)
++
++
++def identity_is_verified(digest: str, identity: tuple) -> bool:
++    return _verified_identity.get(digest) == identity
++
++
++def forget_identity(digest: str | None = None) -> None:
++    """Drop cached acceptances; a relink or a failed check must not be sticky."""
++    if digest is None:
++        _verified_identity.clear()
++    else:
++        _verified_identity.pop(digest, None)
++
++
++async def hashed(path: Path) -> str:
++    """SHA-256 a whole file off the shared pool and under the concurrency bound."""
++    loop = asyncio.get_running_loop()
++    gate = _gates.get(id(loop))
++    if gate is None:
++        gate = _gates[id(loop)] = asyncio.Semaphore(HASH_CONCURRENCY)
++    async with gate:
++        return await loop.run_in_executor(hash_pool(), digest_file, Path(path))
++
++
+ class MediaLibrary:
+     def __init__(self, root):
+         self.root = Path(root).resolve()
+@@ -195,7 +268,8 @@
+         finally:
+             temporary.unlink(missing_ok=True)
+ 
+-    def resolve(self, media):
++    def located(self, media):
++        """Containment and naming only; no content is read. Never a verification."""
+         digest = media.get("sha256", "")
+         relative = media.get("relative_path", "")
+         if not re.fullmatch(r"[0-9a-f]{64}", digest) or not isinstance(relative, str):
+@@ -203,11 +277,56 @@
+         path = (self.root / relative).resolve()
+         if not path.is_relative_to(self.root / "media") or path.stem != digest or not path.is_file():
+             raise ValueError("media path escaped owned storage or is missing")
+-        if digest_file(path) != digest:
+-            raise ValueError("media content hash mismatch; relink required")
++        return path, digest
++
++    def resolve(self, media):
++        """Synchronous, always-hashing resolve. Kept for non-async call sites.
++
++        Prefer `await library.verify(media)` on request paths: this one runs a
++        whole-file SHA-256 on whatever thread calls it, every single time.
++        """
++        path, digest = self.located(media)
++        identity = file_identity(path)
++        if not identity_is_verified(digest, identity):
++            if digest_file(path) != digest:
++                forget_identity(digest)
++                raise ValueError("media content hash mismatch; relink required")
++            accept_identity(digest, identity)
+         file_kind(path)
+         return path
+ 
++    async def verify(self, media):
++        """Bounded, deduplicated content verification of one owned media file.
++
++        Identical concurrent requests share ONE hash; a caller that goes away
++        does not abort the shared work; distinct requests queue behind a small
++        semaphore instead of each starting a whole-file read. A file whose
++        strong identity (device, inode, size, mtime_ns) is unchanged since its
++        content was proven is accepted without re-reading it — see
++        media.file_identity() for exactly what that guarantees and what it does
++        not.
++        """
++        path, digest = await asyncio.to_thread(self.located, media)
++        identity = await asyncio.to_thread(file_identity, path)
++        if identity_is_verified(digest, identity):
++            await asyncio.to_thread(file_kind, path)
++            return path
++        loop = asyncio.get_running_loop()
++        key = (id(loop), digest, identity)
++        task = _inflight.get(key)
++        if task is None:
++            async def run():
++                actual = await hashed(path)
++                if actual != digest:
++                    forget_identity(digest)
++                    raise ValueError("media content hash mismatch; relink required")
++                accept_identity(digest, await asyncio.to_thread(file_identity, path))
++                await asyncio.to_thread(file_kind, path)
++                return path
++            task = _inflight[key] = asyncio.ensure_future(run())
++            task.add_done_callback(lambda _t, k=key: _inflight.pop(k, None))
++        return await asyncio.shield(task)
++
+     async def prepare(self, media):
+         path = await blocking(self.resolve, media)
+         cache = self.root / "cache" / media["sha256"] / "v1"
+--- a/command-center/bcc/video_studio/model.py
++++ b/command-center/bcc/video_studio/model.py
+@@ -69,9 +69,30 @@
+     return result
+ 
+ 
++def held_clip(clip):
++    """True for clips whose length is declared, not derived from a source range."""
++    return bool(clip.get("freeze") or clip.get("title") or clip.get("adjustment"))
++
++
++def held_duration(clip):
++    """CANONICAL duration of a declared-length clip, in integer ticks.
++
++    One definition for the model, the API, the renderer and the UI. There is no
++    default: a freeze, title or adjustment clip without an explicit positive
++    integer `freeze_duration` is an error here, not a silent 1 s in the model
++    and a silent 0 in the renderer (the divergence that produced NaN in the
++    timeline). See tests/test_video_studio_closure.py::VS-DURATION-01.
++    """
++    raw = clip.get("freeze_duration")
++    if type(raw) is not int or isinstance(raw, bool) or not 0 < raw <= MAX_TIME:
++        raise StudioError("Freeze, title and adjustment clips require an explicit "
++                          "positive integer freeze_duration in ticks")
++    return raw
++
++
+ def clip_duration(clip):
+-    if clip.get("freeze") or clip.get("title") or clip.get("adjustment"):
+-        return ticks(clip.get("freeze_duration", TICKS))
++    if held_clip(clip):
++        return held_duration(clip)
+     segments = clip.get("speed_ramp") or [clip]
+     total = Fraction(0)
+     for segment in segments:
+--- a/command-center/bcc/video_studio/render.py
++++ b/command-center/bcc/video_studio/render.py
+@@ -16,6 +16,7 @@
+ import tempfile
+ 
+ from .media import MediaLibrary, TICKS, binary, blocking, digest_file, input_args, probe, process
++from .model import held_clip, held_duration
+ 
+ EFFECT_PARAMETERS = {
+     "eq":{"brightness","contrast","saturation","gamma"}, "color":{"brightness","contrast","saturation","gamma"},
+@@ -65,8 +66,13 @@
+ 
+ 
+ def clip_duration(clip):
+-    if clip.get("freeze") or clip.get("title") or clip.get("adjustment"):
+-        return seconds(clip.get("freeze_duration", 0))
++    """Seconds at the FFmpeg boundary; the tick value is the model's canonical one.
++
++    The declared-length branch delegates to model.held_duration so that a freeze,
++    title or adjustment clip has exactly ONE length in the whole system.
++    """
++    if held_clip(clip):
++        return held_duration(clip) / TICKS
+     if clip.get("speed_ramp"):
+         return sum((seconds(p["source_out"]) - seconds(p["source_in"])) / float(rate(p["speed"])) for p in clip["speed_ramp"])
+     return (seconds(clip["source_out"]) - seconds(clip["source_in"])) / float(rate(clip.get("speed", {"num": 1, "den": 1})))
+@@ -600,7 +606,16 @@
+         if options.get("range"):
+             start,end=seconds(options["range"]["start"]),seconds(options["range"]["end"])
+             if not 0<=start<end<=duration:raise ValueError("export range outside sequence")
+-        v=compiler.node([v],f"trim=start={fmt(start)}:end={fmt(end)},setpts=PTS-STARTPTS,scale={width}:{height}:flags=lanczos,setsar=1,fps={fps},format=yuv420p")
++        # The output is TAGGED bt709 below (-colorspace bt709). Tagging without
++        # converting made the same source come out in different colours
++        # depending on whether a spatial rescale happened to be inserted: at the
++        # sequence's own size the untouched SD-matrix pixels were simply
++        # relabelled bt709, so a pure blue decoded as (0,15,255) instead of
++        # (0,0,253). Declaring the output matrix makes swscale actually convert,
++        # at every size. SDR only — the renderer has always assumed it.
++        v=compiler.node([v],f"trim=start={fmt(start)}:end={fmt(end)},setpts=PTS-STARTPTS,"
++            f"scale={width}:{height}:flags=lanczos:out_color_matrix=bt709:out_range=tv,"
++            f"setsar=1,fps={fps},format=yuv420p")
+         a=compiler.node([a],f"atrim=start={fmt(start)}:end={fmt(end)},asetpts=PTS-STARTPTS")
+         graph=Path(td)/"graph.txt";graph.write_text(";\n".join(compiler.graph),encoding="utf-8")
+         partial=Path(td)/("output"+output_path.suffix)
+--- a/command-center/bcc/video_studio/service.py
++++ b/command-center/bcc/video_studio/service.py
+@@ -1,6 +1,7 @@
+ """Video Studio host integration: canonical DB, tasks, commands and bounded uploads."""
+ from __future__ import annotations
+ import asyncio
++import contextlib
+ import hashlib
+ import json
+ import re
+@@ -9,6 +10,7 @@
+ from pathlib import Path
+ import sqlalchemy as sa
+ from ..db import metadata, tasks as tasks_t, task_runs as runs_t, utcnow, fetch_one
++from . import diagnostics
+ from .store import ProjectStore
+ 
+ jobs = sa.Table("video_studio_jobs", metadata,
+@@ -35,6 +37,50 @@
+ def digest(value):
+     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+ 
++
++RECEIPT_VERSION = 1
++
++
++def receipt_for(path, verification, run_id):
++    """A durable record that THIS artifact was independently verified.
++
++    Produced by the executor, which owns the whole job lifetime, and consumed by
++    the completion gate, which does not: the gate runs under the engine's fixed
++    60 s critical-hook budget (engine.DEFAULT_HOOK_TIMEOUT_S — one constant for
++    every hook in the system, not raisable for this one). Re-decoding and
++    re-hashing a real export inside that budget is what made a finished, verified
++    export permanently undownloadable. The expensive proof therefore happens once,
++    where there is time for it, and the receipt is what survives.
++    """
++    from .media import file_identity
++    return {"version": RECEIPT_VERSION, "run_id": int(run_id), "path": str(path),
++            "sha256": verification.get("sha256"), "passed": verification.get("passed") is True,
++            "failures": list(verification.get("failures") or []),
++            "identity": list(file_identity(Path(path))), "checked_at": utcnow().isoformat()}
++
++
++def receipt_matches(receipt, path):
++    """Cheap, deterministic confirmation that the receipt still describes this file.
++
++    Strong file identity only: device, inode, size and mtime_ns. See
++    media.file_identity() for the exact guarantee — it is identity, not content,
++    and the content proof lives in the receipt that this identity is bound to.
++    """
++    from .media import file_identity
++    if not isinstance(receipt, dict) or receipt.get("version") != RECEIPT_VERSION:
++        return False, "verification receipt missing or of an unknown version"
++    if receipt.get("passed") is not True:
++        return False, "independent verification did not pass: " + ", ".join(receipt.get("failures") or ["unknown"])[:160]
++    if Path(receipt.get("path") or "") != Path(path):
++        return False, "verification receipt describes a different artifact"
++    try:
++        identity = list(file_identity(Path(path)))
++    except OSError:
++        return False, "verified artifact is no longer readable"
++    if identity != list(receipt.get("identity") or []):
++        return False, "verified artifact changed after verification"
++    return True, "durable independent verification receipt"
++
+ def editing_intent(text):
+     text = text.strip().lower()
+     if re.match(r"^(как|зачем|почему|что такое|расскажи|объясни|how|why|what is|explain)\b", text):
+@@ -128,7 +174,7 @@
+         media = project["media"].get(media_id)
+         if not media:
+             raise KeyError(media_id)
+-        return await asyncio.to_thread(self.media.resolve, media), media
++        return await self.media.verify(media), media
+ 
+     async def export(self, payload, *, job_kind="video_render"):
+         project = await self.store.get(payload["project_id"])
+@@ -175,20 +221,48 @@
+             task = await fetch_one(s, tasks_t, row["task_id"])
+             run = (await s.execute(sa.select(runs_t).where(runs_t.c.task_id == row["task_id"])
+                                   .order_by(runs_t.c.id.desc()).limit(1))).mappings().first()
+-        result = dict(row.get("result") or {})
++        stored = dict(row.get("result") or {})
++        result = dict(stored)
+         result.pop("path", None)
++        receipt = result.pop("receipt", None)
++        verified = bool(receipt and receipt.get("passed") is True)
++        # The owner must be able to learn WHY, not only THAT. The engine records
++        # `executor failed: <ExceptionClass>`; the typed code comes from the
++        # executor itself (see reported()) and never carries a path or a secret.
++        code = result.pop("reason_code", None)
++        reason = result.pop("reason", None)
++        if code is None and task["status"] == "waiting_approval":
++            code, reason = diagnostics.APPROVAL_REQUIRED, "Completion review is waiting for a human decision"
+         return {"job_id":job_id,"task_id":row["task_id"],"project_id":row["project_id"],
+             "revision":row["snapshot"]["revision"],"preview":bool((row.get("options") or {}).get("_preview")),"status":task["status"],"progress":row.get("progress"),
+             "error":run.get("error") if run else None,
+-            "output_url":f"/api/video-studio/exports/{job_id}/file" if task["status"] == "completed" and (row.get("result") or {}).get("path") else None,
++            "reason_code":code,"reason":reason,
++            "verified":verified,"recoverable":bool(verified and task["status"] != "completed"),
++            "output_url":f"/api/video-studio/exports/{job_id}/file" if task["status"] == "completed" and stored.get("path") else None,
+             **result}
+ 
+     async def render_executor(self, task, run, engine):
+-        from .render import render_project
++        """Render, verify independently, and leave a durable receipt behind.
++
++        The independent verification lives HERE, not in the completion gate: the
++        executor owns the whole job lifetime, the gate owns 60 fixed seconds.
++        Re-running this executor on an artifact that already carries a passed
++        receipt republishes it instead of colliding with its own immutable path
++        — that collision is what made a parked, already-verified export
++        unrecoverable forever.
++        """
++        from .render import render_project, verify_output
+         jid = task["meta"]["video_job_id"]
+         async with self.svc.db.session() as s:
+             row = dict((await s.execute(sa.select(jobs).where(jobs.c.id == jid))).mappings().one())
+-        outdir = self.root / "exports" / jid / str(run["id"])
++        recovered = await self.recover_render(jid, row)
++        if recovered is not None:
++            return recovered
++        base = self.root / "exports" / jid / str(run["id"])
++        attempt = 0
++        while (base / f"attempt-{attempt}").exists():
++            attempt += 1
++        outdir = base / f"attempt-{attempt}"
+         outdir.mkdir(parents=True, exist_ok=True)
+         async def progress(stage, details):
+             await engine.assert_fence(run["id"])
+@@ -196,36 +270,99 @@
+                 await s.execute(sa.update(jobs).where(jobs.c.id == jid).values(progress={"stage":stage,"details":details}))
+                 await s.commit()
+             await self.svc.bus.emit("video.export.progress", job_id=jid, task_id=task["id"], stage=stage, details=details)
+-        result = await render_project(row["snapshot"], self.root, outdir / ("output."+row["options"].get("_container","mp4")),
+-                                      options={k:v for k,v in row["options"].items() if not k.startswith("_")}, progress=progress)
+-        await engine.assert_fence(run["id"])
+-        from .media import digest_file
+-        result["sha256"] = await asyncio.to_thread(digest_file,Path(result["path"]))
+-        async with self.svc.db.session() as s:
+-            await s.execute(sa.update(jobs).where(jobs.c.id == jid).values(result=result))
+-            await s.commit()
++        async with self.reported(jid):
++            result = await render_project(row["snapshot"], self.root, outdir / ("output."+row["options"].get("_container","mp4")),
++                                          options={k:v for k,v in row["options"].items() if not k.startswith("_")}, progress=progress)
++            await engine.assert_fence(run["id"])
++            # Independent re-verification of the PUBLISHED artifact: a second,
++            # separate decode of the file that will actually be served, not a
++            # re-reading of what render_project claimed about its own temporary.
++            independent = await verify_output(Path(result["path"]),
++                {**(result.get("profile") or {}), **(result.get("verification") or {})})
++            if independent.get("passed") is not True:
++                raise ValueError("export failed independent verification: "
++                                 + ", ".join(independent.get("failures") or ["unknown"]))
++            await engine.assert_fence(run["id"])
++            # verify_output already digested the published file: one hash, not three.
++            result["sha256"] = independent["sha256"]
++            result["independent"] = independent
++            result["receipt"] = receipt_for(result["path"], independent, run["id"])
++            async with self.svc.db.session() as s:
++                await s.execute(sa.update(jobs).where(jobs.c.id == jid).values(result=result))
++                await s.commit()
+         return json.dumps({"job_id":jid,"verification":result.get("verification")}, ensure_ascii=False)
+ 
++    async def recover_render(self, jid, row):
++        """Republish an artifact that already holds a passed receipt, or None."""
++        result = row.get("result") or {}
++        receipt = result.get("receipt")
++        if not receipt or not result.get("path"):
++            return None
++        path = Path(result["path"]).resolve()
++        if not path.is_relative_to(self.root / "exports" / jid) or not path.is_file():
++            return None
++        ok, _ = await asyncio.to_thread(receipt_matches, receipt, path)
++        if not ok:
++            return None
++        await self.svc.bus.emit("video.export.recovered", job_id=jid, run_id=receipt.get("run_id"))
++        return json.dumps({"job_id":jid,"verification":result.get("verification"),"recovered":True},
++                          ensure_ascii=False)
++
+     async def render_gate(self, task, run_id, answer):
++        """Cheap, deterministic confirmation of a durable verification receipt.
++
++        No decode and no whole-file hash: those already happened in the executor
++        and are recorded. What the gate proves is that the artifact is inside
++        this job's owned storage, that a passed independent-verification receipt
++        exists for exactly that file, and that the file has not changed since —
++        by strong identity (device, inode, size, mtime_ns), which is what
++        receipt_matches() states and does not overstate.
++        """
+         if task.get("kind") != "video_render":
+             return {"verdict":"NOT_APPLICABLE"}
+-        from .render import verify_output
+         jid = task["meta"]["video_job_id"]
+         async with self.svc.db.session() as s:
+             row = dict((await s.execute(sa.select(jobs).where(jobs.c.id == jid))).mappings().one())
+         result = row.get("result") or {}
+         if not result.get("path"):
+-            return {"verdict":"FAIL","requeue":False,"status":"failed","reasons":"missing render artifact"}
++            return self.gate_fail(diagnostics.VERIFIER_FAILED, "missing render artifact")
+         path = Path(result["path"]).resolve()
+-        if not path.is_relative_to(self.root / "exports" / jid / str(run_id)):
+-            return {"verdict":"FAIL","requeue":False,"status":"failed","reasons":"artifact ownership mismatch"}
+-        from .media import digest_file
+-        if await asyncio.to_thread(digest_file,path) != result.get("sha256"):
+-            return {"verdict":"FAIL","requeue":False,"status":"failed","reasons":"output changed after render"}
+-        actual = await verify_output(path, {**(result.get("profile") or {}), **(result.get("verification") or {})})
+-        passed = actual.get("passed") is True
+-        return {"verdict":"PASS" if passed else "FAIL", "requeue":False,"status":"failed",
+-                "reasons":"independent media verification"}
++        if not path.is_relative_to(self.root / "exports" / jid) or not path.is_file():
++            return self.gate_fail(diagnostics.VERIFIER_FAILED, "artifact ownership mismatch")
++        ok, why = await asyncio.to_thread(receipt_matches, result.get("receipt"), path)
++        if not ok:
++            return self.gate_fail(diagnostics.VERIFIER_FAILED, why)
++        return {"verdict":"PASS","reasons":why}
++
++    @staticmethod
++    def gate_fail(code, reason):
++        return {"verdict":"FAIL","requeue":False,"status":"failed",
++                "reasons":f"{code}: {diagnostics.redact(reason)}","reason_code":code}
++
++    @contextlib.asynccontextmanager
++    async def reported(self, jid):
++        """Persist a typed reason for any executor failure before it is re-raised.
++
++        The engine records only `executor failed: <ExceptionClass>`, so without
++        this the owner sees a silent button. Nothing stored here contains a
++        secret, an absolute host path or a raw subprocess dump.
++        """
++        try:
++            yield
++        except asyncio.CancelledError:
++            raise
++        except BaseException as exc:
++            record = diagnostics.describe(exc)
++            try:
++                async with self.svc.db.session() as s:
++                    current = (await s.execute(sa.select(jobs.c.result).where(jobs.c.id == jid))).scalar_one_or_none()
++                    await s.execute(sa.update(jobs).where(jobs.c.id == jid).values(
++                        result={**(current or {}), **record}))
++                    await s.commit()
++            except Exception:                       # noqa: BLE001 — never mask the real failure
++                pass
++            await self.svc.bus.emit("video.job.failed", job_id=jid, **record)
++            raise
+ 
+     async def chat(self, text, operation_id, project_id=None):
+         if not editing_intent(text):
+@@ -299,7 +436,15 @@
+             "timeline_verified":True,"note":"Timeline prepared; preview and export remain separate tasks."})
+ 
+     async def verified_output(self, job_id):
+-        from .media import digest_file
++        """DOWNLOADABLE => VERIFIED. Never serve a file without a passed receipt.
++
++        The whole-file hash is not repeated on every download: if the artifact's
++        strong identity is exactly the one recorded when its content was proven,
++        the receipt still describes it. If ANY component of that identity
++        differs, the content is re-hashed against the receipt before a byte is
++        served — a mismatch is refused, never downgraded.
++        """
++        from .media import hashed
+         job=await self.job(job_id)
+         if job["status"] != "completed":
+             raise RuntimeError("output is not completed")
+@@ -308,7 +453,17 @@
+         path=Path(result["path"]).resolve()
+         if not path.is_relative_to(self.root / "exports" / job_id) or not path.is_file():
+             raise ValueError("output unavailable")
+-        if await asyncio.to_thread(digest_file,path) != result.get("sha256"):
++        receipt=result.get("receipt")
++        if not receipt:
++            # A job finished before receipts existed: keep the original, strictly
++            # stronger check rather than serving anything unproven.
++            if not result.get("sha256") or await hashed(path) != result["sha256"]:
++                raise RuntimeError("output changed after independent verification")
++            return path
++        if receipt.get("passed") is not True:
++            raise RuntimeError("output has no passed independent verification receipt")
++        ok,_=await asyncio.to_thread(receipt_matches,receipt,path)
++        if not ok and await hashed(path) != receipt.get("sha256"):
+             raise RuntimeError("output changed after independent verification")
+         return path
+ 
+@@ -409,7 +564,10 @@
+         stored={"analysis":value,"source_sha256":media["sha256"],"verification":{"passed":True,"source_unchanged":True}}
+         if action=="scope":
+             from .media import digest_file
+-            stored.update(path=value.pop("path"),sha256=await asyncio.to_thread(digest_file,output))
++            scope_path=value.pop("path")
++            scope_digest=await asyncio.to_thread(digest_file,Path(scope_path))
++            stored.update(path=scope_path,sha256=scope_digest,
++                          receipt=receipt_for(scope_path,{"sha256":scope_digest,"passed":True},run["id"]))
+         async with self.svc.db.session() as session:
+             await session.execute(sa.update(jobs).where(jobs.c.id==jid).values(result=stored))
+             await session.commit()
+@@ -426,14 +584,22 @@
+             await asyncio.to_thread(self.media.resolve,row["snapshot"]["media"][row["options"]["reference_media_id"]])
+         passed=(row.get("result") or {}).get("source_sha256")==media["sha256"]
+         if row["options"]["action"]=="scope":
+-            from .media import digest_file,probe
++            from .media import probe
+             result=row.get("result") or {}
+             path=Path(result.get("path","")).resolve()
+-            passed=passed and path.is_relative_to(self.root/"exports"/row["id"]/str(run_id))
+-            passed=passed and await asyncio.to_thread(digest_file,path)==result.get("sha256")
++            passed=passed and path.is_relative_to(self.root/"exports"/row["id"]) and path.is_file()
+             if passed:
++                # Same rule as render_gate and package_gate: confirm the durable
++                # receipt written by the executor, do not repeat its proof inside
++                # the fixed hook budget.
++                ok,why=await asyncio.to_thread(receipt_matches,result.get("receipt"),path)
++                passed=ok
++                if not ok:
++                    return self.gate_fail(diagnostics.VERIFIER_FAILED,why)
+                 await probe(path)
+-        return {"verdict":"PASS" if passed else "FAIL","requeue":False,"status":"failed"}
++        if not passed:
++            return self.gate_fail(diagnostics.VERIFIER_FAILED,"analysis source or artifact changed during the run")
++        return {"verdict":"PASS","reasons":"durable independent verification receipt"}
+ 
+     async def relink(self,payload,actor="human"):
+         project=await self.store.get(payload["project_id"])
+@@ -583,6 +749,8 @@
+             os.link(temporary,output)
+             result={"path":str(output),"sha256":await asyncio.to_thread(digest_file,output),
+                     "verification":verification,"kind":"portable_package"}
++            result["receipt"]=receipt_for(output,{**verification,"sha256":result["sha256"],
++                                                  "passed":verification["passed"]},run["id"])
+             async with self.svc.db.session() as session:
+                 await session.execute(sa.update(jobs).where(jobs.c.id==jid).values(result=result))
+                 await session.commit()
+@@ -607,18 +775,27 @@
+         return {"passed":True,"media_count":len(project["media"]),"portable":True}
+ 
+     async def package_gate(self,task,run_id,answer):
++        """Same shape as render_gate: confirm the receipt, do not redo the proof.
++
++        The old gate re-opened the archive and re-hashed EVERY member inside the
++        engine's fixed 60 s hook budget — the same trap that made exports
++        undownloadable. That whole-archive verification still happens, once, in
++        package_executor, where the job's own lifetime pays for it.
++        """
+         if task.get("kind")!="video_package":
+             return {"verdict":"NOT_APPLICABLE"}
+         async with self.svc.db.session() as session:
+             row=dict((await session.execute(sa.select(jobs).where(jobs.c.task_id==task["id"]))).mappings().one())
+         result=row.get("result") or {}
+         if not result.get("path"):
+-            return {"verdict":"FAIL","requeue":False,"status":"failed"}
++            return self.gate_fail(diagnostics.VERIFIER_FAILED,"missing package artifact")
+         path=Path(result["path"]).resolve()
+-        if not path.is_relative_to(self.root/"exports"/row["id"]/str(run_id)):
+-            return {"verdict":"FAIL","requeue":False,"status":"failed"}
+-        actual=await asyncio.to_thread(self.check_package,path,row["snapshot"])
+-        return {"verdict":"PASS" if actual["passed"] else "FAIL","requeue":False,"status":"failed"}
++        if not path.is_relative_to(self.root/"exports"/row["id"]) or not path.is_file():
++            return self.gate_fail(diagnostics.VERIFIER_FAILED,"artifact ownership mismatch")
++        ok,why=await asyncio.to_thread(receipt_matches,result.get("receipt"),path)
++        if not ok:
++            return self.gate_fail(diagnostics.VERIFIER_FAILED,why)
++        return {"verdict":"PASS","reasons":why}
+ 
+     async def proposal(self,payload):
+         from .model import clip
+--- a/command-center/bcc/features/video_studio.py
++++ b/command-center/bcc/features/video_studio.py
+@@ -270,13 +270,15 @@
+ 
+ @router.get("/projects/{project_id}/media-health")
+ async def media_health(project_id: str,request: Request):
+-    import asyncio
++    # One GET used to SHA-256 every source in the project, serially, on the
++    # thread pool the whole Command Center shares. Bounded, deduplicated
++    # verification does the same proof without that amplification.
+     video=service(request)
+     project=await guarded(video.store.get(project_id))
+     results=[]
+     for media in project["media"].values():
+         try:
+-            await asyncio.to_thread(video.media.resolve,media)
++            await video.media.verify(media)
+             results.append({"media_id":media["id"],"status":"AVAILABLE"})
+         except (ValueError,OSError):
+             results.append({"media_id":media["id"],"status":"MISSING_OR_CHANGED"})
+--- a/command-center/ui/pages/video_studio.js
++++ b/command-center/ui/pages/video_studio.js
+@@ -1,7 +1,7 @@
+ /* Bossman Video Studio. Human and agent share the revision-guarded command API. */
+ import { api, listOf } from '../api.js';
+ import { h, toastError } from '../components.js';
+-import { TIMEBASE, ticks, seconds, duration, activeSequence, selectedClip, endTime, snapTime, timecode, commandEnvelope, filterMedia, exportOptions, captionText, proposalBindingMatches } from './video_studio_state.js';
++import { TIMEBASE, ticks, seconds, duration, durationIsValid, activeSequence, selectedClip, endTime, snapTime, timecode, commandEnvelope, filterMedia, exportOptions, captionText, proposalBindingMatches } from './video_studio_state.js';
+ 
+ const BASE = '/api/video-studio';
+ const uid = () => crypto.randomUUID();
+@@ -353,7 +353,9 @@
+   }
+   clipNode(clip, track) {
+     const media = this.project.media[clip.media_id];
+-    const node = h('div.vs-clip', { class: `${this.selected === clip.id || this.selectedIds.has(clip.id) ? 'selected' : ''} ${clip.title ? 'title' : ''}`, tabindex: '0', role: 'button', 'aria-label': media?.name || clip.title?.text || clip.id, dataset: { clipId: clip.id },
++    // An unresolvable length is shown as such, never as a NaN-wide element.
++    const invalid = !durationIsValid(clip);
++    const node = h('div.vs-clip', { class: `${this.selected === clip.id || this.selectedIds.has(clip.id) ? 'selected' : ''} ${clip.title ? 'title' : ''} ${invalid ? 'invalid-duration' : ''}`, tabindex: '0', role: 'button', title: invalid ? this.t('failure') : undefined, 'aria-label': media?.name || clip.title?.text || clip.id, dataset: { clipId: clip.id },
+       style: { left: `${seconds(clip.start) * this.zoom}px`, width: `${Math.max(8, seconds(duration(clip)) * this.zoom)}px` },
+       onClick: e => { e.stopPropagation(); if (e.ctrlKey || e.metaKey || e.shiftKey) { if (this.selectedIds.has(clip.id)) this.selectedIds.delete(clip.id); else this.selectedIds.add(clip.id); } else this.selectedIds = new Set([clip.id]); this.selected = clip.id; this.mediaSelection = null; this.paint(); this.root.focus({ preventScroll: true }); },
+       onContextmenu: e => { e.preventDefault(); this.selected = clip.id; this.palette({ type: 'clip.remove', clip_id: clip.id, ripple: true }); },
+--- a/command-center/ui/pages/video_studio.css
++++ b/command-center/ui/pages/video_studio.css
+@@ -8,3 +8,5 @@
+ .vs-source-waveform{padding:4px 9px;border-top:1px solid #2a3943;max-height:74px;flex-shrink:0;color:#8aa3b5;font-size:9px}.vs-source-waveform img{display:block;width:100%;height:48px;object-fit:fill}.vs-mixer-strip{border:1px solid #304857;padding:7px;margin:7px 0;background:#112029}.vs-keyframes .vs-effect{font-size:10px;display:flex;gap:5px;justify-content:space-between}.vs-dialog form{overflow:auto;max-height:77vh;padding-right:5px}
+ .vs-scope{margin:9px 0}.vs-scope img{width:100%;height:auto;display:block;background:#000}.vs-scope figcaption{font-size:9px;color:#9eb0c2}.vs-scope pre{font-size:9px;white-space:pre-wrap;overflow-wrap:anywhere}
+ .vs-search-tools{padding:9px 0}.vs-search-tools>input{width:100%}.vs-search-tools>.vs-button{margin:4px 3px 4px 0;font-size:10px}
++
++.vs-clip.invalid-duration{outline:2px dashed var(--danger,#e5484d);opacity:.7}
+--- a/command-center/ui/pages/video_studio_state.js
++++ b/command-center/ui/pages/video_studio_state.js
+@@ -6,11 +6,35 @@
+   if (!Number.isSafeInteger(result) || result < 0) throw new Error('Invalid nonnegative time');
+   return result;
+ }
+-export function duration(clip) {
+-  if (clip.freeze || clip.title) return clip.freeze_duration || 0;
+-  if (clip.speed_ramp?.length) return clip.speed_ramp.reduce((n, x) => n + Math.round((x.source_out - x.source_in) * x.speed.den / x.speed.num), 0);
++/* Canonical clip duration, mirroring bcc/video_studio/model.py:clip_duration.
++   Freeze, title and adjustment clips declare their length; every other clip
++   derives it from its source range. The UI must never render NaN, so an
++   invalid or absent length normalises deterministically to 0 and is reported
++   separately by durationIsValid() — the server rejects such a clip outright. */
++export function heldClip(clip) {
++  return Boolean(clip && (clip.freeze || clip.title || clip.adjustment));
++}
++export function heldDuration(clip) {
++  const raw = clip?.freeze_duration;
++  return Number.isSafeInteger(raw) && raw > 0 ? raw : null;
++}
++export function durationIsValid(clip) {
++  if (!clip) return false;
++  if (heldClip(clip)) return heldDuration(clip) !== null;
++  return Number.isFinite(rawDuration(clip));
++}
++function rawDuration(clip) {
++  if (Array.isArray(clip.speed_ramp) && clip.speed_ramp.length) {
++    return clip.speed_ramp.reduce((n, x) => n + Math.round((x.source_out - x.source_in) * (x.speed?.den ?? NaN) / (x.speed?.num ?? NaN)), 0);
++  }
+   return Math.round((clip.source_out - clip.source_in) * (clip.speed?.den || 1) / (clip.speed?.num || 1));
+ }
++export function duration(clip) {
++  if (!clip) return 0;
++  if (heldClip(clip)) return heldDuration(clip) ?? 0;
++  const value = rawDuration(clip);
++  return Number.isFinite(value) ? value : 0;
++}
+ export function activeSequence(project) {
+   return project?.sequences?.find(s => s.id === project.active_sequence_id) || project?.sequences?.[0];
+ }
+--- a/command-center/ui/tests/video_studio_state.test.mjs
++++ b/command-center/ui/tests/video_studio_state.test.mjs
+@@ -1,6 +1,6 @@
+ import test from 'node:test';
+ import assert from 'node:assert/strict';
+-import { ticks, seconds, duration, timecode, snapTime, commandEnvelope, filterMedia, activeSequence, selectedClip, exportOptions, captionText, proposalBindingMatches } from '../pages/video_studio_state.js';
++import { ticks, seconds, duration, durationIsValid, endTime, timecode, snapTime, commandEnvelope, filterMedia, activeSequence, selectedClip, exportOptions, captionText, proposalBindingMatches } from '../pages/video_studio_state.js';
+ 
+ test('microsecond times preserve precise fractional source boundaries', () => {
+   assert.equal(ticks('1.000001'), 1000001); assert.equal(seconds(1000001), 1.000001);
+@@ -70,3 +70,20 @@
+   assert.equal(proposalBindingMatches(request, { id: 'original', revision: 7 }, 'different', request.draftText), false);
+   assert.equal(proposalBindingMatches(request, { id: 'original', revision: 7 }, request.selected, 'edited'), false);
+ });
++
++test('VS-DURATION-01: declared-length clips never produce NaN in the timeline', () => {
++  const adjustment = { id: 'adj', start: 0, adjustment: true };
++  assert.equal(duration(adjustment), 0);
++  assert.equal(durationIsValid(adjustment), false);
++  assert.equal(duration({ id: 'adj', start: 0, adjustment: true, freeze_duration: 1500000 }), 1500000);
++  assert.equal(durationIsValid({ id: 'adj', start: 0, adjustment: true, freeze_duration: 1500000 }), true);
++  assert.equal(duration({ title: { text: 'x' } }), 0);
++  assert.equal(duration({ freeze: true, freeze_duration: 0 }), 0);
++  assert.equal(duration({ freeze: true, freeze_duration: 1.5 }), 0);
++  assert.equal(duration({ freeze: true, freeze_duration: '900000' }), 0);
++  assert.equal(duration({ source_in: 0, source_out: undefined }), 0);
++  assert.equal(duration(undefined), 0);
++  const project = { active_sequence_id: 's', sequences: [{ id: 's', tracks: [{ id: 't', clips: [adjustment] }] }] };
++  assert.equal(Number.isFinite(endTime(project)), true);
++  assert.equal(endTime(project), 0);
++});
+--- a/command-center/tests/test_video_studio_render.py
++++ b/command-center/tests/test_video_studio_render.py
+@@ -146,9 +146,18 @@
+     first=await rgb(tmp_path/"concat.mp4",.3);last=await rgb(tmp_path/"concat.mp4",1.3)
+     assert first[0]>200 and first[2]<20
+     assert last[2]>200 and last[0]<20
++    # SAME resolution: the range render must reproduce the full render's frame.
++    # This is the equivalence the test is named for; the old assertion compared a
++    # 320x180 render against a 160x90 one, which 4:2:0 chroma resampling of a
++    # saturated primary cannot satisfy at any tolerance a correct renderer meets.
++    await render_project(project,tmp_path,tmp_path/"native.mp4",{"range":{"start":1_100_000,"end":1_800_000}})
++    assert all(abs(a-b)<5 for a,b in zip(last,await rgb(tmp_path/"native.mp4")))
++    # Downscaled: the HUE must survive. Tagging the output bt709 without
++    # converting to it used to leak green into a pure blue (0,15,255), which a
++    # loose per-channel tolerance against a differently sized render hid.
+     await render_project(project,tmp_path,tmp_path/"range.mp4",{"range":{"start":1_100_000,"end":1_800_000},"width":160,"height":90})
+     ranged=await rgb(tmp_path/"range.mp4")
+-    assert all(abs(a-b)<5 for a,b in zip(last,ranged))
++    assert ranged[2]>200 and ranged[0]<10 and ranged[1]<10,ranged
+ 
+ 
+ @pytest.mark.asyncio
+--- a/command-center/tests/test_video_studio_closure.py
++++ b/command-center/tests/test_video_studio_closure.py
+@@ -0,0 +1,551 @@
++"""Closure reproducers for the Video Studio audit (docs/v3/AUDIT_VIDEO_STUDIO.md).
++
++Every test here first FAILED against the audited code and is kept as the
++regression guard for the fix. Nothing is skipped when FFmpeg is present.
++"""
++from __future__ import annotations
++
++import asyncio
++import shutil
++import subprocess
++import uuid
++from pathlib import Path
++
++import pytest
++import sqlalchemy as sa
++
++from bcc.db import task_runs as runs_t
++
++BASE = "/api/video-studio"
++FFMPEG = shutil.which("ffmpeg")
++needs_ffmpeg = pytest.mark.skipif(not FFMPEG or not shutil.which("ffprobe"),
++                                  reason="real FFmpeg binaries required")
++
++
++def op():
++    return uuid.uuid4().hex
++
++
++def fixture_clip(path: Path, colour="blue", seconds=0.4):
++    subprocess.run([FFMPEG, "-v", "error", "-f", "lavfi",
++                    "-i", f"color=c={colour}:s=160x90:r=25:d={seconds}",
++                    "-f", "lavfi", "-i", f"sine=frequency=440:duration={seconds}",
++                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
++                    "-shortest", "-y", str(path)], check=True, timeout=60)
++    return path
++
++
++async def run_task(env, task_id):
++    async with env.svc.db.session() as s:
++        run = (await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task_id)
++                               .order_by(runs_t.c.id.desc()))).mappings().first()
++    assert run, "task has no run"
++    await env.svc.engine.execute(run["id"])
++    return (await env.client.get(f"/api/tasks/{task_id}")).json()
++
++
++async def prepared_project(env, tmp_path, monkeypatch):
++    """A real uploaded clip on a real timeline, ready to export."""
++    from types import SimpleNamespace
++    import os
++    import psutil
++    if not os.environ.get("VIDEO_TEST_REAL_MEMORY"):
++        monkeypatch.setattr(psutil, "virtual_memory",
++                            lambda: SimpleNamespace(total=16 * 1024**3, available=8 * 1024**3))
++    clip = fixture_clip(tmp_path / "input.mp4")
++    chat = (await env.client.post(BASE + "/chat",
++                                  json={"text": "Склей эти два видео", "operation_id": op()})).json()
++    pid = chat["project_id"]
++    upload = await env.client.post(BASE + "/media",
++                                   params={"project_id": pid, "filename": "input.mp4",
++                                           "expected_revision": 0, "operation_id": op()},
++                                   content=clip.read_bytes())
++    assert upload.status_code == 200, upload.text
++    await env.client.post(BASE + f"/chat/{chat['task_id']}/run")
++    task = await run_task(env, chat["task_id"])
++    assert task["task"]["status"] == "completed", task
++    project = (await env.client.get(BASE + "/projects/" + pid)).json()
++    return pid, project
++
++
++def watch_gate_subprocesses(env, monkeypatch):
++    """Count subprocesses started while the render completion gate is running."""
++    state = {"active": False, "inside_gate": 0, "gate_ran": False}
++    hooks = env.svc.engine.hooks["gate_completion"]
++    service = env.svc.video_studio
++    index = next(i for i, h in enumerate(hooks)
++                 if getattr(h, "__func__", None) is type(service).render_gate)
++    original = hooks[index]
++
++    async def spy(*args, **kwargs):
++        state["active"], state["gate_ran"] = True, True
++        try:
++            return await original(*args, **kwargs)
++        finally:
++            state["active"] = False
++
++    hooks[index] = spy
++    real = asyncio.create_subprocess_exec
++
++    async def counting(*args, **kwargs):
++        if state["active"]:
++            state["inside_gate"] += 1
++        return await real(*args, **kwargs)
++
++    monkeypatch.setattr(asyncio, "create_subprocess_exec", counting)
++    return state
++
++
++# ---------------------------------------------------------------- VS-EXPORT-01
++@needs_ffmpeg
++async def test_export_survives_a_gate_that_exceeds_the_fixed_hook_budget(env, tmp_path, monkeypatch):
++    """VS-EXPORT-01: a verified artifact on disk must stay downloadable.
++
++    The completion gate runs under the engine's fixed critical-hook timeout
++    (60 s, not configurable per hook). Any gate that re-decodes and re-hashes a
++    nontrivial export blows that budget. Before the fix the task parked in
++    waiting_approval with output_url null and GET .../file answered 409 forever,
++    and the parked run could never be recovered because the immutable export
++    path already existed.
++    """
++    pid, project = await prepared_project(env, tmp_path, monkeypatch)
++    spawned = watch_gate_subprocesses(env, monkeypatch)
++    # Squeeze the hook budget to the size the audit says a real 1080p export
++    # already exceeds. The mechanism, not the wall-clock, is under test.
++    env.svc.engine.hook_timeout_s = 0.05
++    request = {"project_id": pid, "expected_revision": project["revision"], "operation_id": op(),
++               "preview": False, "options": {"width": 160, "height": 90}}
++    job = (await env.client.post(BASE + "/exports", json=request)).json()
++    done = await run_task(env, job["task_id"])
++    status = (await env.client.get(BASE + "/exports/" + job["job_id"])).json()
++
++    # The artifact exists and was independently verified during the run.
++    assert status["verification"]["passed"] is True, status
++    assert done["task"]["status"] == "completed", done
++    assert status["output_url"], status
++    download = await env.client.get(status["output_url"])
++    assert download.status_code == 200 and len(download.content) > 100
++    # Structural, not merely fast: the gate must start no media process at all.
++    assert spawned["inside_gate"] == 0, spawned
++    assert spawned["gate_ran"] is True, spawned
++
++
++# ---------------------------------------------------------------- VS-EXPORT-02
++@needs_ffmpeg
++async def test_parked_export_is_recoverable_and_not_a_permanent_path_collision(env, tmp_path, monkeypatch):
++    """VS-EXPORT-02: re-running a parked export run must not die on its own artifact."""
++    pid, project = await prepared_project(env, tmp_path, monkeypatch)
++    request = {"project_id": pid, "expected_revision": project["revision"], "operation_id": op(),
++               "preview": False, "options": {"width": 160, "height": 90}}
++    job = (await env.client.post(BASE + "/exports", json=request)).json()
++    await run_task(env, job["task_id"])
++    # Park the finished run back in the queue exactly the way _escalate_gate_failure does.
++    async with env.svc.db.session() as s:
++        run = (await s.execute(sa.select(runs_t).where(runs_t.c.task_id == job["task_id"])
++                               .order_by(runs_t.c.id.desc()))).mappings().first()
++        await s.execute(sa.update(runs_t).where(runs_t.c.id == run["id"]).values(
++            status="queued", worker_lease_until=None))
++        await s.commit()
++    again = await run_task(env, job["task_id"])
++    assert again["task"]["status"] == "completed", again
++    status = (await env.client.get(BASE + "/exports/" + job["job_id"])).json()
++    assert status["output_url"], status
++    assert (await env.client.get(status["output_url"])).status_code == 200
++
++
++# ------------------------------------------------------------- VS-DURATION-01
++DURATION_CASES = [
++    ("regular clip", {"id": "c", "media_id": "m", "start": 0, "source_in": 0, "source_out": 2_000_000}, 2_000_000),
++    ("fractional speed", {"id": "c", "media_id": "m", "start": 0, "source_in": 0,
++                          "source_out": 1_000_000, "speed": {"num": 3, "den": 2}}, 666_667),
++    ("freeze", {"id": "c", "start": 0, "freeze": True, "freeze_duration": 500_000}, 500_000),
++    ("title", {"id": "c", "start": 0, "title": {"text": "x"}, "freeze_duration": 3_000_000}, 3_000_000),
++    ("adjustment", {"id": "c", "start": 0, "adjustment": True, "freeze_duration": 1_500_000}, 1_500_000),
++]
++INVALID_DURATION_CASES = [
++    ("adjustment without duration", {"id": "c", "start": 0, "adjustment": True}),
++    ("adjustment zero duration", {"id": "c", "start": 0, "adjustment": True, "freeze_duration": 0}),
++    ("title missing duration", {"id": "c", "start": 0, "title": {"text": "x"}}),
++    ("freeze fractional duration", {"id": "c", "start": 0, "freeze": True, "freeze_duration": 1.5}),
++    ("freeze malformed duration", {"id": "c", "start": 0, "freeze": True, "freeze_duration": "1s"}),
++]
++
++
++@pytest.mark.parametrize("name,clip,expected", DURATION_CASES, ids=[c[0] for c in DURATION_CASES])
++def test_one_canonical_duration_across_model_and_renderer(name, clip, expected):
++    """VS-DURATION-01: model ticks and renderer seconds must be the same number."""
++    from bcc.video_studio import model, render
++    assert model.clip_duration(clip) == expected
++    assert abs(render.clip_duration(clip) * model.TICKS - expected) <= 1
++
++
++@pytest.mark.parametrize("name,clip", INVALID_DURATION_CASES, ids=[c[0] for c in INVALID_DURATION_CASES])
++def test_invalid_duration_is_an_explicit_error_in_both_layers(name, clip):
++    """VS-DURATION-01: never a silent 1 s in the model and a silent 0 in the renderer."""
++    from bcc.video_studio import model, render
++    with pytest.raises(model.StudioError):
++        model.clip_duration(clip)
++    with pytest.raises(ValueError):
++        render.clip_duration(clip)
++
++
++async def test_adjustment_clip_without_duration_is_rejected_by_the_api(env):
++    """VS-DURATION-01: the API must not accept a clip whose duration nobody agrees on."""
++    project = (await env.client.post(BASE + "/projects",
++                                     json={"name": "QA", "operation_id": op()})).json()["project"]
++    seq = project["sequences"][0]
++    add_track = await env.client.post(BASE + "/commands", json={
++        "project_id": project["id"], "expected_revision": project["revision"], "operation_id": op(),
++        "command": {"type": "track.add", "sequence_id": seq["id"], "kind": "adjustment"}})
++    assert add_track.status_code == 200, add_track.text
++    current = add_track.json()["project"]
++    track_id = current["sequences"][0]["tracks"][-1]["id"]
++    response = await env.client.post(BASE + "/commands", json={
++        "project_id": project["id"], "expected_revision": current["revision"], "operation_id": op(),
++        "command": {"type": "clip.add", "track_id": track_id,
++                    "clip": {"id": "adj1", "start": 0, "adjustment": True}}})
++    assert response.status_code == 422, response.text
++
++
++# ------------------------------------------------------------------ VS-DIAG-01
++def test_every_failure_class_maps_to_a_typed_owner_visible_code():
++    """VS-DIAG-01: `executor failed: ValueError` is not a reason."""
++    from bcc.video_studio import diagnostics as d
++    cases = [
++        (asyncio.TimeoutError(), d.TIMEOUT),
++        (ValueError("export failed independent verification: duration mismatch"), d.VERIFIER_FAILED),
++        (ValueError("full decode failed"), d.MEDIA_DECODE_FAILED),
++        (ValueError("ffmpeg is unavailable; install a local FFmpeg build"), d.MISSING_FFMPEG),
++        (RuntimeError("insufficient disk space"), d.RESOURCE_EXHAUSTED),
++        (OSError(28, "No space left on device"), d.RESOURCE_EXHAUSTED),
++        (RuntimeError("Completion review is waiting for approval"), d.APPROVAL_REQUIRED),
++        (PermissionError("operation denied"), d.POLICY_DENIED),
++        (ValueError("export path already exists; use a new immutable artifact"), d.INVALID_PROJECT_STATE),
++        (Exception("something nobody predicted"), d.UNKNOWN),
++    ]
++    for exc, expected in cases:
++        assert d.classify(exc) == expected, (exc, d.classify(exc))
++        record = d.describe(exc)
++        assert record["reason_code"] in d.REASON_CODES
++        assert len(record["reason"]) <= d.MAX_MESSAGE
++
++
++def test_reasons_never_leak_secrets_paths_or_raw_dumps():
++    """VS-DIAG-01: bounded, path-free, secret-free."""
++    from bcc.video_studio import diagnostics as d
++    dirty = ("failed reading /home/owner/.bossman/media/deadbeef.mp4 "
++             "api_key=sk-live-9f3a2b1c0d4e5f6a7b8c authorization: Bearer abcdef123456 "
++             + "x" * 4000)
++    safe = d.redact(dirty)
++    assert "/home/owner" not in safe and "sk-live" not in safe
++    assert "abcdef123456" not in safe
++    assert len(safe) <= d.MAX_MESSAGE
++
++
++@needs_ffmpeg
++async def test_failed_export_reports_a_typed_reason_not_an_exception_class(env, tmp_path, monkeypatch):
++    """VS-DIAG-01, end to end: the owner learns WHY, from the job API."""
++    from bcc.video_studio import diagnostics as d
++    from bcc.video_studio import render as render_module
++    pid, project = await prepared_project(env, tmp_path, monkeypatch)
++    real = render_module.verify_output
++
++    async def failing(path, expected=None):
++        result = await real(path, expected)
++        return {**result, "passed": False, "failures": ["duration mismatch"]}
++
++    monkeypatch.setattr(render_module, "verify_output", failing)
++    request = {"project_id": pid, "expected_revision": project["revision"], "operation_id": op(),
++               "preview": False, "options": {"width": 160, "height": 90}}
++    job = (await env.client.post(BASE + "/exports", json=request)).json()
++    done = await run_task(env, job["task_id"])
++    assert done["task"]["status"] == "failed", done
++    status = (await env.client.get(BASE + "/exports/" + job["job_id"])).json()
++    assert status["reason_code"] == d.VERIFIER_FAILED, status
++    assert "duration mismatch" in status["reason"], status
++    assert status["output_url"] is None and status["verified"] is False
++    assert (await env.client.get(f"{BASE}/exports/{job['job_id']}/file")).status_code == 409
++
++
++# ----------------------------------------------------------------- VS-THUMB-01
++class HashSpy:
++    """Counts whole-file SHA-256 calls and the peak number running at once."""
++
++    def __init__(self, monkeypatch):
++        import threading
++        from bcc.video_studio import media as media_module
++        self.calls, self.peak, self._live = 0, 0, 0
++        self._lock = threading.Lock()
++        real = media_module.digest_file
++
++        def counted(path):
++            with self._lock:
++                self.calls += 1
++                self._live += 1
++                self.peak = max(self.peak, self._live)
++            try:
++                return real(path)
++            finally:
++                with self._lock:
++                    self._live -= 1
++
++        monkeypatch.setattr(media_module, "digest_file", counted)
++        monkeypatch.setattr(media_module.MediaLibrary, "resolve",
++                            media_module.MediaLibrary.resolve, raising=False)
++
++
++async def upload_clip(env, pid, revision, path, name):
++    response = await env.client.post(BASE + "/media",
++                                     params={"project_id": pid, "filename": name,
++                                             "expected_revision": revision, "operation_id": op()},
++                                     content=path.read_bytes())
++    assert response.status_code == 200, response.text
++    return response.json()
++
++
++def plant_derivative(video, media, kind="thumbnail"):
++    """The derivative a prepare job would have produced; the GET must not make one."""
++    name = {"thumbnail": "thumb.jpg", "proxy": "proxy.mp4", "waveform": "wave.png"}[kind]
++    target = video.root / "cache" / media["sha256"] / "v1" / name
++    target.parent.mkdir(parents=True, exist_ok=True)
++    target.write_bytes(b"\xff\xd8\xff\xdb" + b"0" * 64)
++    return target
++
++
++@needs_ffmpeg
++async def test_twenty_identical_thumbnail_gets_hash_once_and_encode_never(env, tmp_path, monkeypatch):
++    """VS-THUMB-01: a GET must not be an unbounded compute amplifier.
++
++    Before the fix each GET ran a whole-file SHA-256 of the source on the shared
++    Command Center thread pool, with no deduplication and no concurrency cap.
++    """
++    from bcc.video_studio import media as media_module
++    media_module.forget_identity()
++    pid, project = await prepared_project(env, tmp_path, monkeypatch)
++    video = env.svc.video_studio
++    current = (await env.client.get(BASE + "/projects/" + pid)).json()
++    media = next(iter(current["media"].values()))
++    plant_derivative(video, media)
++    spy = HashSpy(monkeypatch)
++    real_exec = asyncio.create_subprocess_exec
++    encodes = {"n": 0}
++
++    async def counting(*args, **kwargs):
++        encodes["n"] += 1
++        return await real_exec(*args, **kwargs)
++
++    monkeypatch.setattr(asyncio, "create_subprocess_exec", counting)
++    url = f"{BASE}/media/{media['id']}/thumbnail?project_id={pid}"
++    responses = await asyncio.gather(*[env.client.get(url) for _ in range(20)])
++    assert all(r.status_code == 200 for r in responses), [r.status_code for r in responses]
++    assert spy.calls <= 1, f"20 identical GETs hashed the source {spy.calls} times"
++    assert spy.peak <= media_module.HASH_CONCURRENCY, spy.peak
++    assert encodes["n"] == 0, "a thumbnail GET started a media process"
++
++
++@needs_ffmpeg
++async def test_distinct_media_gets_stay_inside_the_hash_concurrency_bound(env, tmp_path, monkeypatch):
++    """VS-THUMB-01: different sources must not each start a whole-file read at once."""
++    from bcc.video_studio import media as media_module
++    media_module.forget_identity()
++    pid, project = await prepared_project(env, tmp_path, monkeypatch)
++    video = env.svc.video_studio
++    revision = project["revision"]
++    for index, colour in enumerate(("red", "green", "yellow", "white", "black")):
++        clip = fixture_clip(tmp_path / f"src{index}.mp4", colour=colour, seconds=0.4 + index * 0.05)
++        result = await upload_clip(env, pid, revision, clip, f"src{index}.mp4")
++        revision = result["revision"]
++    current = (await env.client.get(BASE + "/projects/" + pid)).json()
++    for media in current["media"].values():
++        plant_derivative(video, media)
++    spy = HashSpy(monkeypatch)
++    requests = [env.client.get(f"{BASE}/media/{m['id']}/thumbnail?project_id={pid}")
++                for m in current["media"].values() for _ in range(4)]
++    responses = await asyncio.gather(*requests)
++    assert all(r.status_code == 200 for r in responses)
++    assert spy.peak <= media_module.HASH_CONCURRENCY, spy.peak
++    assert spy.calls <= len(current["media"]), spy.calls
++
++
++@needs_ffmpeg
++async def test_missing_derivative_and_unknown_media_fail_cheaply(env, tmp_path, monkeypatch):
++    """VS-THUMB-01: a failed derivative is an answer, not a re-encode."""
++    from bcc.video_studio import media as media_module
++    media_module.forget_identity()
++    pid, project = await prepared_project(env, tmp_path, monkeypatch)
++    current = (await env.client.get(BASE + "/projects/" + pid)).json()
++    media = next(iter(current["media"].values()))
++    real_exec = asyncio.create_subprocess_exec
++    encodes = {"n": 0}
++
++    async def counting(*args, **kwargs):
++        encodes["n"] += 1
++        return await real_exec(*args, **kwargs)
++
++    monkeypatch.setattr(asyncio, "create_subprocess_exec", counting)
++    missing = await env.client.get(f"{BASE}/media/{media['id']}/thumbnail?project_id={pid}")
++    assert missing.status_code == 409, missing.text
++    unknown = await env.client.get(f"{BASE}/media/m_nosuchmedia/thumbnail?project_id={pid}")
++    assert unknown.status_code == 422, unknown.text
++    assert encodes["n"] == 0
++
++
++@needs_ffmpeg
++async def test_a_cancelled_thumbnail_request_does_not_abort_the_others(env, tmp_path, monkeypatch):
++    """VS-THUMB-01: shared verification work survives one caller going away."""
++    from bcc.video_studio import media as media_module
++    media_module.forget_identity()
++    pid, project = await prepared_project(env, tmp_path, monkeypatch)
++    video = env.svc.video_studio
++    current = (await env.client.get(BASE + "/projects/" + pid)).json()
++    media = next(iter(current["media"].values()))
++    plant_derivative(video, media)
++    spy = HashSpy(monkeypatch)
++    url = f"{BASE}/media/{media['id']}/thumbnail?project_id={pid}"
++    doomed = asyncio.ensure_future(env.client.get(url))
++    others = [asyncio.ensure_future(env.client.get(url)) for _ in range(5)]
++    await asyncio.sleep(0)
++    doomed.cancel()
++    results = await asyncio.gather(*others)
++    with pytest.raises(asyncio.CancelledError):
++        await doomed
++    assert all(r.status_code == 200 for r in results)
++    assert spy.calls <= 1, spy.calls
++
++
++# ------------------------------------------------------------------ VS-HASH-01
++@needs_ffmpeg
++async def test_substituted_and_mutated_media_are_still_rejected(env, tmp_path, monkeypatch):
++    """VS-HASH-01: the identity cache must never accept content it has not proven."""
++    import os
++    from bcc.video_studio import media as media_module
++    media_module.forget_identity()
++    pid, project = await prepared_project(env, tmp_path, monkeypatch)
++    video = env.svc.video_studio
++    current = (await env.client.get(BASE + "/projects/" + pid)).json()
++    media = next(iter(current["media"].values()))
++    path = await video.media.verify(media)                 # proves content, caches identity
++    assert path.is_file()
++
++    # 1. Whole-file substitution through os.replace: a new inode.
++    replacement = fixture_clip(tmp_path / "other.mp4", colour="red", seconds=0.5)
++    os.replace(replacement, path)
++    with pytest.raises(ValueError):
++        await video.media.verify(media)
++
++    # 2. In-place rewrite that changes the size on the SAME inode.
++    media_module.forget_identity()
++    good = fixture_clip(tmp_path / "good.mp4", colour="blue", seconds=0.4)
++    path.write_bytes(good.read_bytes())
++    media = {**media, "sha256": media_module.digest_file(path)}
++    media["relative_path"] = str(path.relative_to(video.root))
++    path_name = path.with_name(media["sha256"] + path.suffix)
++    os.replace(path, path_name)
++    media["relative_path"] = str(path_name.relative_to(video.root))
++    assert await video.media.verify(media) == path_name
++    with path_name.open("r+b") as handle:
++        handle.seek(0, os.SEEK_END)
++        handle.write(b"tamper")
++    with pytest.raises(ValueError):
++        await video.media.verify(media)
++
++    # 3. Same-size in-place mutation on the same inode: mtime_ns moves, so the
++    #    content is re-hashed and the mismatch is caught.
++    media_module.forget_identity()
++    path_name.write_bytes(good.read_bytes())
++    assert await video.media.verify(media) == path_name
++    size = path_name.stat().st_size
++    with path_name.open("r+b") as handle:
++        handle.seek(size // 2)
++        handle.write(b"\x00\x01\x02\x03")
++    assert path_name.stat().st_size == size
++    with pytest.raises(ValueError):
++        await video.media.verify(media)
++
++
++def test_identity_cache_states_exactly_what_it_guarantees(tmp_path):
++    """VS-HASH-01: the honest limit of (dev, ino, size, mtime_ns), in executable form.
++
++    A cached acceptance is bound to strong file identity, NOT to content. This
++    test pins the boundary so nobody later mistakes it for a content proof: a
++    same-inode, same-size rewrite whose mtime_ns is deliberately restored is the
++    one mutation the cache does not see, and every ordinary change is.
++    """
++    import os
++    from bcc.video_studio import media as media_module
++    media_module.forget_identity()
++    target = tmp_path / "payload.bin"
++    target.write_bytes(b"A" * 4096)
++    digest = media_module.digest_file(target)
++    before = media_module.file_identity(target)
++    media_module.accept_identity(digest, before)
++    assert media_module.identity_is_verified(digest, before)
++
++    stat = target.stat()
++    with target.open("r+b") as handle:
++        handle.seek(0)
++        handle.write(b"B" * 4096)
++    assert media_module.file_identity(target) != before          # mtime_ns moved: seen
++    os.utime(target, ns=(stat.st_atime_ns, stat.st_mtime_ns))
++    assert media_module.file_identity(target) == before          # restored: NOT seen
++    assert media_module.digest_file(target) != digest            # content really did change
++
++    # Any ordinary change is caught: size, inode and device all take part.
++    target.write_bytes(b"A" * 8192)
++    assert media_module.file_identity(target) != before
++
++
++# ---------------------------------------------------------------- VS-EXPORT-03
++@needs_ffmpeg
++async def test_a_tampered_export_is_refused_by_both_the_gate_and_the_download(env, tmp_path, monkeypatch):
++    """VS-EXPORT-03: DOWNLOADABLE => VERIFIED still holds after the cheap gate.
++
++    Moving the expensive proof into the executor must not make the receipt a
++    rubber stamp: an artifact whose bytes changed after verification is refused.
++    """
++    import sqlalchemy as sa
++    from bcc.video_studio.service import jobs
++    pid, project = await prepared_project(env, tmp_path, monkeypatch)
++    request = {"project_id": pid, "expected_revision": project["revision"], "operation_id": op(),
++               "preview": False, "options": {"width": 160, "height": 90}}
++    job = (await env.client.post(BASE + "/exports", json=request)).json()
++    await run_task(env, job["task_id"])
++    status = (await env.client.get(BASE + "/exports/" + job["job_id"])).json()
++    assert (await env.client.get(status["output_url"])).status_code == 200
++
++    video = env.svc.video_studio
++    async with env.svc.db.session() as s:
++        stored = (await s.execute(sa.select(jobs.c.result).where(jobs.c.id == job["job_id"]))).scalar_one()
++    artifact = Path(stored["path"])
++    with artifact.open("r+b") as handle:
++        handle.seek(0)
++        handle.write(b"\x00\x00\x00\x00")
++
++    with pytest.raises(RuntimeError):
++        await video.verified_output(job["job_id"])
++    assert (await env.client.get(status["output_url"])).status_code == 409
++    task = {"kind": "video_render", "id": job["task_id"], "meta": {"video_job_id": job["job_id"]}}
++    verdict = await video.render_gate(task, 0, "")
++    assert verdict["verdict"] == "FAIL", verdict
++    assert verdict["reason_code"] == "VERIFIER_FAILED", verdict
++
++
++@needs_ffmpeg
++async def test_the_receipt_binds_the_published_artifact_to_the_pre_publish_proof(env, tmp_path, monkeypatch):
++    """VS-EXPORT-03: the executor's independent pass really re-checks the file."""
++    import sqlalchemy as sa
++    from bcc.video_studio.service import jobs, RECEIPT_VERSION
++    pid, project = await prepared_project(env, tmp_path, monkeypatch)
++    request = {"project_id": pid, "expected_revision": project["revision"], "operation_id": op(),
++               "preview": False, "options": {"width": 160, "height": 90}}
++    job = (await env.client.post(BASE + "/exports", json=request)).json()
++    await run_task(env, job["task_id"])
++    async with env.svc.db.session() as s:
++        stored = (await s.execute(sa.select(jobs.c.result).where(jobs.c.id == job["job_id"]))).scalar_one()
++    receipt, independent = stored["receipt"], stored["independent"]
++    assert receipt["version"] == RECEIPT_VERSION and receipt["passed"] is True
++    assert independent["decoded"] is True and independent["passed"] is True
++    assert independent["sample_frames"], "no frames were sampled by the independent pass"
++    # The published bytes are the verified bytes, and the receipt says so.
++    assert receipt["sha256"] == independent["sha256"] == stored["verification"]["sha256"]
++    assert len(receipt["identity"]) == 4
