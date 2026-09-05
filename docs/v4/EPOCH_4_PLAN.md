@@ -698,3 +698,14 @@ IMPACT: generations A/B/C remain within V4; V5 gets separate N0–N8 gates and
 cannot delay or redefine V4 acceptance. M0 still blocks runtime activation.
 The earlier unknown-only statement above records historical scope, not the
 current roadmap. No V5 implementation or performance gain is claimed.
+
+Owner creative-app amendment, 2026-09-06:
+WHAT CHANGED: expanded M8/M9 into the ordered
+[creative applications contract](CREATIVE_APPS_CONTRACT.md), covering a
+professional AI video editor and richer web-design workspace.
+WHY: owner explicitly requested both applications in parallel with epoch code.
+EVIDENCE: existing video-studio and web-designer branches provide concrete
+implementation substrates; their acceptance and safe integration are incomplete.
+IMPACT: first bounded app slices proceed on isolated existing app branches;
+M0/runtime/security gates remain unchanged. Comparative product superiority
+requires measured acceptance and is not claimed by this amendment.
