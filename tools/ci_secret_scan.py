@@ -35,7 +35,8 @@ PATTERNS = [
     ("aws access key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("aws secret", re.compile(r"(?i)aws_secret_access_key\s*[:=]\s*[\"']?[A-Za-z0-9/+=]{40}\b")),
     ("private key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY(?: BLOCK)?-----")),
-    ("wallet seed label", re.compile(r"(?i)\b(?:seed phrase|mnemonic)\b\s*[:=]\s*\S+")),
+    # фраза-значение в кавычках (≥ 8 слов), а не аннотация типа/kwarg вида `mnemonic: str`
+    ("wallet seed label", re.compile(r"(?i)\b(?:seed phrase|mnemonic)\b\s*[:=]\s*[\"'](?:[a-z]+\s+){7,}[a-z]+[\"']")),
     ("obvious password", re.compile(r"(?i)\b(?:password|passwd)\b\s*[:=]\s*[\"'][^\"']{8,}[\"']")),
 ]
 # Энтропия — только для кода и конфигурации; документация/UI-ассеты дают ложные
@@ -47,6 +48,12 @@ ENTROPY_SUFFIX = {".py", ".yml", ".yaml", ".toml", ".ini", ".cfg", ".env", ".sh"
 TOKEN = re.compile(r"[A-Za-z0-9+_-]{24,}={0,2}")
 ENV_NAME = re.compile(r"^[A-Z0-9_]+$")
 SEQUENTIAL = re.compile(r"0123456789|123456789|abcdefghij|ABCDEFGHIJ|9876543210")     # тестовые заполнители
+# Публичный ключ/адрес Solana — base58 32–44 символа: идентификатор, не секрет (секретный ключ — 87–88 символов
+# и остаётся под энтропийным детектором). Не снимается, если строка говорит о секрете.
+BASE58_PUBKEY = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$")
+SECRET_CONTEXT = re.compile(r"(?i)(secret|private|seed|mnemonic|keypair|passphrase)")
+# Канарейки в самом теле шаблона (синтетический PEM для проверки редакции и т.п.)
+CANARY_BODY = re.compile(r"(?i)(synthetic|example|canary|placeholder|dummy|fake)")
 WORDY = re.compile(r"^(?:[A-Za-z]{3,}-){2,}[A-Za-z0-9]+$")                              # слова-через-дефис
 HEX = re.compile(r"^[0-9a-fA-F]+$")
 ENTROPY_THRESHOLD = 4.0
@@ -82,6 +89,8 @@ def entropy_findings(text: str, rel: str) -> list[str]:
             body = tok.rstrip("=")
             if HEX.match(body) or DICT_HINT.search(tok) or ENV_NAME.match(tok) or SEQUENTIAL.search(tok) or WORDY.match(tok):
                 continue
+            if BASE58_PUBKEY.match(body) and not SECRET_CONTEXT.search(line):
+                continue
             if "-" in body and HEX.match(body.split("-", 1)[1].replace("-", "") or "x") and len(body.split("-", 1)[0]) <= 12:
                 continue                                          # prefix-<hex> (csrf-…, approval-…)
             if not (re.search(r"[A-Za-z]", tok) and re.search(r"[0-9]", tok)):
@@ -103,6 +112,8 @@ def pattern_findings(text: str, rel: str) -> list[str]:
             src = lines[line - 1] if 0 < line <= len(lines) else ""
             if ALLOW_MARK in src:
                 continue
+            if label == "private key" and CANARY_BODY.search(src):
+                continue                                          # синтетический PEM-заголовок в пробе/тесте
             out.append(f"{rel}:{line}: {label}")
     return out
 

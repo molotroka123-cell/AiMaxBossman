@@ -29,7 +29,7 @@ def test_encryption_roundtrip(temp_vault_file):
     5. Verify wrong password raises PermissionError.
     """
     vault = SecurityKeyVault(storage_path=temp_vault_file)
-    password = "MasterSuperSecretPassphrase123!"
+    password = "MasterSuperSecretPassphrase123!"  # ci-secret-scan: allow — тестовый пароль, не секрет
     count = 20
 
     pubkeys = vault.create_and_store_pool(count=count, password=password, mode="random")
@@ -73,7 +73,7 @@ def test_zero_knowledge_isolation(temp_vault_file):
     3. Verify SecurityLeakException is raised if any secret/seed keyword enters AI context.
     """
     vault = SecurityKeyVault(storage_path=temp_vault_file)
-    password = "ZeroKnowledgePassword456!"
+    password = "ZeroKnowledgePassword456!"  # ci-secret-scan: allow — тестовый пароль, не секрет
     vault.create_and_store_pool(count=10, password=password)
 
     audit_logger = VaultAuditLogger()
@@ -198,7 +198,7 @@ def test_hd_bip44_deterministic(temp_vault_file):
 
     # Vault storage test with hd_bip44 mode
     vault = SecurityKeyVault(storage_path=temp_vault_file)
-    pubkeys = vault.create_and_store_pool(count=5, password="HDVaultPassword!", mode="hd_bip44", mnemonic=mnemonic)
+    pubkeys = vault.create_and_store_pool(count=5, password="HDVaultPassword!", mode="hd_bip44", mnemonic=mnemonic)  # ci-secret-scan: allow — тестовый пароль, не секрет
     assert len(pubkeys) == 5
     assert pubkeys[0] == str(kp_0_a.pubkey())
     assert pubkeys[1] == str(kp_1.pubkey())

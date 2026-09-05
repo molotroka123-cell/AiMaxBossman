@@ -326,6 +326,12 @@ async def create_mission(request: Request) -> dict:
     if not dept:
         raise HTTPException(400, detail="department_id is required")
     mission_id = str(body.get("mission_id") or f"m-{uuid.uuid4().hex[:8]}")
+    import re as _re
+    ident = _re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+    bad = [x for x in [mission_id, str(body.get("work_id") or "w1")] + [str(c.get("work_id", "")) for c in body.get("contracts") or []]
+           if not ident.match(x)]
+    if bad:
+        raise HTTPException(400, detail=f"identifiers must be plain names (letters, digits, . _ -): {bad[:3]}")
     try:
         if body.get("contracts"):
             contracts = [DelegationContract.from_dict({**c, "mission_id": mission_id}) for c in body["contracts"]]

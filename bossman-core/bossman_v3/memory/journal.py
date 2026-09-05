@@ -29,6 +29,18 @@ class JournalConflict(RuntimeError):
     """Попытка переписать уже закрытый (подписанный) шаг журнала."""
 
 
+_TASK_ID_BAD = ("/", "\\", "\x00")
+
+
+def safe_task_id(task_id: str) -> str:
+    """Идентификатор журнала — имя файла внутри root. Разделители путей, `..`, пустая
+    строка и слишком длинные значения отвергаются (Astra-аудит: journal path traversal)."""
+    tid = str(task_id or "")
+    if not tid or tid in (".", "..") or any(ch in tid for ch in _TASK_ID_BAD) or ".." in tid or len(tid) > 200:
+        raise ValueError(f"unsafe journal task_id {task_id!r}: must be a plain name without path separators or '..'")
+    return tid
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -77,6 +89,7 @@ class TaskJournal:
 
     @classmethod
     def start(cls, *, task_id: str, plan: Sequence[tuple[str, str]], root: str | Path) -> "TaskJournal":
+        task_id = safe_task_id(task_id)
         j = cls(task_id=task_id,
                 steps=[JournalStep(step_id=sid, intent=intent) for sid, intent in plan],
                 root=Path(root))
@@ -85,6 +98,7 @@ class TaskJournal:
 
     @classmethod
     def load(cls, *, task_id: str, root: str | Path) -> "TaskJournal":
+        task_id = safe_task_id(task_id)
         path = Path(root) / f"{task_id}.json"
         raw = json.loads(path.read_text(encoding="utf-8"))
         return cls(task_id=raw["task_id"],
@@ -96,6 +110,7 @@ class TaskJournal:
     def _save(self) -> None:
         if self.root is None:
             return
+        safe_task_id(self.task_id)
         self.root.mkdir(parents=True, exist_ok=True)
         payload = {"task_id": self.task_id, "created_at": self.created_at,
                    "steps": [asdict(s) for s in self.steps], "notes": self.notes}

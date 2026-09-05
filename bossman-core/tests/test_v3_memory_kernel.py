@@ -191,3 +191,19 @@ def test_the_killer_case_end_to_end(tmp_path):
     assert "patch-abc123" in pack.text                     # помним результат s2
     assert "ModuleNotFoundError" in pack.text              # помним, что провалилось
     assert pack.tokens <= 8000
+
+
+def test_journal_task_id_cannot_escape_root(tmp_path):
+    """Astra-аудит (journal_path_traversal): идентификатор журнала — имя файла внутри root."""
+    import pytest
+    from bossman_v3.memory.journal import TaskJournal, safe_task_id
+    root = tmp_path / "journals"
+    for bad in ("../escaped", "a/b", "..", "", "x\\y", "a/../b"):
+        with pytest.raises(ValueError):
+            TaskJournal.start(task_id=bad, plan=[], root=root)
+        with pytest.raises(ValueError):
+            TaskJournal.load(task_id=bad, root=root)
+    assert not (tmp_path / "escaped.json").exists()
+    assert safe_task_id("m1__w1") == "m1__w1" and safe_task_id("run-7.a_b") == "run-7.a_b"
+    TaskJournal.start(task_id="ok", plan=[("s1", "x")], root=root)
+    assert (root / "ok.json").exists()

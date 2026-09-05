@@ -27,7 +27,7 @@ CANARIES = [  # ci-secret-scan: allow
     ("private key", "-----BEGIN " + "RSA PRIVATE KEY-----"),  # ci-secret-scan: allow
     ("private key", "-----BEGIN " + "OPENSSH PRIVATE KEY-----"),  # ci-secret-scan: allow
     ("private key", "-----BEGIN " + "PGP PRIVATE KEY BLOCK-----"),  # ci-secret-scan: allow
-    ("wallet seed label", "seed phrase: " + "apple banana cherry"),  # ci-secret-scan: allow
+    ("wallet seed label", "seed phrase: \"" + "abandon ability able about above absent absorb abstract absurd abuse access accident" + "\""),  # ci-secret-scan: allow
     ("obvious password", 'password = "' + 'Sup3rSecretValue!"'),  # ci-secret-scan: allow
 ]
 ENTROPY_POSITIVES = [  # ci-secret-scan: allow — случайные base64-подобные строки без словарных подстрок
