@@ -34,6 +34,7 @@ from .marketplace import CapabilityMarketplace
 from .memory_scope import ScopedKnowledge
 from .models import (EXECUTOR, LEAD, RISK, REVIEWER, AgentProfile, Department, MissionState, ReviewVerdict,
                      Resources, RiskTier, TaskState, WorkResult)
+from .planner import NO_EXECUTABLE_STEPS, PlannerPort
 from .store import OrganizationStore
 from .teams import AdaptiveTeamFormer, MissionTeam
 from .treasury import ResourceTreasury
@@ -84,9 +85,10 @@ class OrganizationRuntime:
     def __init__(self, *, store: OrganizationStore, execution: ExecutionBridge,
                  human_review: HumanReviewPort | None = None, reporter: MissionReporter | None = None,
                  reviewer: ReviewerPort | None = None, reactions: list[Reaction] | None = None,
-                 failure_root: str | None = None) -> None:
+                 failure_root: str | None = None, planner: "PlannerPort | None" = None) -> None:
         self.store = store
         self.execution = execution
+        self.planner = planner                    # ORG-02: контракт без steps → план или BLOCKED
         self.human_review = human_review or RecordingHumanReview()
         self.reporter = reporter
         self.learning = OrganizationalLearning(store)
@@ -287,6 +289,26 @@ class OrganizationRuntime:
         problems = contract.problems()
         if problems:
             return self._block(contract, "contract rejected: " + "; ".join(problems), ask_owner=True)
+
+        # 2b. ORG-02: шаги. Без исполняемых шагов делегировать нечего — это не
+        #     провал исполнителя и не попытка: BLOCKED/no_executable_steps, владелец решает.
+        if not contract.steps:
+            planned = None
+            if self.planner is not None:
+                try:
+                    planned = self.planner.plan(contract)
+                except Exception as exc:  # noqa: BLE001 — планировщик упал = плана нет
+                    self.store.log("work.planner_failed", mission_id=mission_id, work_id=contract.work_id,
+                                   detail=f"{type(exc).__name__}: {exc}"[:300])
+            if planned:
+                contract.steps = [dict(s) for s in planned]
+                contract.metadata["planned_by"] = type(self.planner).__name__
+                self.store.save_work(contract, state=TaskState(row["state"]) if row else TaskState.PLANNED)
+                self.store.log("work.planned", mission_id=mission_id, work_id=contract.work_id,
+                               detail=f"{len(planned)} step(s) by {type(self.planner).__name__}")
+            else:
+                return self._block(contract, f"{NO_EXECUTABLE_STEPS}: contract carries no executable steps "
+                                             f"and the planner produced none", ask_owner=True)
 
         # 3. попытки исчерпаны?
         if attempts >= contract.escalation.max_attempts:

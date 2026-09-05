@@ -10,6 +10,7 @@ action engine → реальные инструменты. Этот пакет �
 Пакет импортируем и тестируем без флага; флаг решает, включает ли его
 хост-процесс.
 """
+from .planner import NO_EXECUTABLE_STEPS, DeterministicPlanner, PlannerPort
 from .bridges import (ExecutionBridge, HumanReviewPort, MissionReporter, MissionStatus,
                       RecordingHumanReview, RecordingReporter, V3ExecutionBridge,
                       contracts_from_company_plan, step_from_dict, step_to_dict)
@@ -39,5 +40,6 @@ __all__ = [
     "RecordingHumanReview", "RecordingReporter", "Resources", "ResourceTreasury", "PartitionViolation", "ReviewVerdict",
     "ReviewerPort", "RiskTier", "RouteDecision", "ScopedKnowledge", "TaskState", "TreasuryDecision",
     "V3ExecutionBridge", "WorkResult", "consensus", "contracts_from_company_plan", "event_key",
+    "DeterministicPlanner", "PlannerPort", "NO_EXECUTABLE_STEPS",
     "required_roles", "snapshot", "step_from_dict", "step_to_dict",
 ]

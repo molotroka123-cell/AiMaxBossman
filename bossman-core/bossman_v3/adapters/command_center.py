@@ -54,16 +54,31 @@ def _now() -> datetime:
 class CommandCenterRuntime:
     """Один цикл событий в фоновом потоке для всех вызовов в V2."""
 
-    def __init__(self) -> None:
-        self.loop = asyncio.new_event_loop()
-        self._thread = threading.Thread(target=self._serve, name="v3-cc-runtime", daemon=True)
-        self._thread.start()
+    def __init__(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
+        """`loop=None` — свой цикл в фоновом потоке (тесты, отдельный процесс).
+        `loop=<цикл svc>` — V2 уже живёт на этом цикле (feature внутри bcc):
+        поток не создаётся, вызовы планируются на цикл svc из рабочего потока
+        организации; вызывать `call` ИЗ самого этого цикла нельзя (дедлок)."""
+        self._owned = loop is None
+        self.loop = loop or asyncio.new_event_loop()
+        self._thread: threading.Thread | None = None
+        if self._owned:
+            self._thread = threading.Thread(target=self._serve, name="v3-cc-runtime", daemon=True)
+            self._thread.start()
 
     def _serve(self) -> None:
         asyncio.set_event_loop(self.loop)
         self.loop.run_forever()
 
     def call(self, coro, timeout: float | None = 120.0):
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if running is self.loop:
+            coro.close()
+            raise RuntimeError("CommandCenterRuntime.call вызван из собственного цикла — это дедлок; "
+                               "гоните организацию в рабочем потоке (asyncio.to_thread)")
         return asyncio.run_coroutine_threadsafe(coro, self.loop).result(timeout)
 
     def close(self) -> None:
@@ -77,11 +92,14 @@ class CommandCenterRuntime:
                 t.cancel()
             if pending:
                 await asyncio.gather(*pending, return_exceptions=True)
+        if not self._owned:
+            return                                  # цикл принадлежит svc — его закрывает svc
         try:
             self.call(_drain(), timeout=10)
         finally:
             self.loop.call_soon_threadsafe(self.loop.stop)
-            self._thread.join(timeout=5)
+            if self._thread is not None:
+                self._thread.join(timeout=5)
 
 
 def _preview(action: TypedAction, task_id: int | None = None) -> str:

@@ -316,11 +316,13 @@ def test_event_reaction_runs_through_the_same_cycle(org):
     rt = org.restart(reactions=[reaction])
     out = rt.accept_event("ci.failed", {"job": "unit", "idempotency_key": "run-42"})
     assert out.accepted
-    # реакция — контракт без шагов: организация не выдумывает действий за инструмент
+    # реакция — контракт без шагов: организация не выдумывает действий за инструмент;
+    # ORG-02: это BLOCKED/no_executable_steps (не провал исполнителя), владелец решает
     results = rt.run_reactions()
     work = rt.store.work(out.work_id)
-    assert work["state"] == TaskState.FAILED.value and w.side_effects() == 0
-    assert "no executable steps" in results[0].reason
+    assert work["state"] == TaskState.BLOCKED.value and w.side_effects() == 0
+    assert results == [None]
+    assert "no_executable_steps" in work["contract"].metadata["runtime"]["last_reason"]
     dup = rt.accept_event("ci.failed", {"job": "unit", "idempotency_key": "run-42"})
     assert dup.duplicate
 
