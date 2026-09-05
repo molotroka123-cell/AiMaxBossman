@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import os
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +47,25 @@ def enabled() -> bool:
     return _env_bool("BOSSMAN_V3_ENABLED") and _env_bool("BOSSMAN_V3_ORGANIZATION")
 
 
+def fleet_enabled() -> bool:
+    return enabled() and _env_bool("BOSSMAN_V3_FLEET")
+
+
+def _local_node_state(node_id: str, capabilities: set[str]):
+    """Этот хост как единственный узел флота: ресурсы читаются, не объявляются."""
+    import platform
+    from bossman_v3.fleet import NodeState
+    ram_gb = 0.0
+    try:
+        import psutil
+        ram_gb = round(psutil.virtual_memory().total / 2**30, 1)
+    except Exception:  # noqa: BLE001
+        pass
+    return NodeState(node_id, hostname=platform.node(), os_name=platform.system(), ram_gb=ram_gb, gpu_memory_gb=0.0,
+                     capabilities=set(capabilities), privacy_level="private", trust_class="trusted_local",
+                     failure_domain="local", last_heartbeat_ts=time.time(), registered_ts=time.time())
+
+
 class OrganizationService:
     """Живая организация поверх svc. Создаётся в setup только при включённых флагах."""
 
@@ -63,6 +83,18 @@ class OrganizationService:
         self.lock = threading.Lock()
         bridge = V3ExecutionBridge(agent_factory=self._agent_factory, journal_root=self.root / "journals",
                                    cost_meter=self._cost_meter)
+        # §15: Fleet за флагом BOSSMAN_V3_FLEET — ГДЕ исполняется. Локальный транспорт, один
+        # узел = этот хост; удалённый транспорт не production (REMOTE_TRANSPORT_PRODUCTION_READY=NO).
+        self.fleet = None
+        self.node_id = ""
+        if fleet_enabled():
+            from bossman_v3.fleet import FleetControlPlane, FleetExecutionBridge, LocalNodeTransport
+            transport = LocalNodeTransport()
+            self.fleet = FleetControlPlane(self.root / "fleet.sqlite", transport=transport, heartbeat_timeout_s=180)
+            self.node_id = f"local-{__import__('platform').node()}"[:60]
+            self.fleet.registry.register(_local_node_state(self.node_id, set(REGISTRY.names())), now=time.time())
+            transport.attach(self.node_id, bridge)
+            bridge = FleetExecutionBridge(self.fleet, journal_root=self.root / "journals")
         self.runtime = OrganizationRuntime(
             store=self.store, execution=bridge, human_review=_ApprovalsPort(self),
             reporter=_BusReporter(self), planner=DeterministicPlanner(lambda t: REGISTRY.get(t) is not None),
@@ -143,6 +175,46 @@ class OrganizationService:
     def resume(self) -> list[dict]:
         with self.lock:
             return [s.to_dict() for s in self.runtime.resume()]
+
+    def heartbeat(self) -> None:
+        """Тик фичи: этот хост жив; загрузка — из psutil, если есть."""
+        if self.fleet is None:
+            return
+        from bossman_v3.fleet.models import Heartbeat
+        load, ram_used = 0.0, 0.0
+        try:
+            import psutil
+            load = psutil.cpu_percent(interval=None) / 100.0
+            ram_used = round(psutil.virtual_memory().used / 2**30, 1)
+        except Exception:  # noqa: BLE001
+            pass
+        with self.lock:
+            self.fleet.registry.heartbeat(Heartbeat(self.node_id, time.time(), load=load, ram_used_gb=ram_used))
+            self.fleet.health(time.time())
+
+    def fleet_summary(self) -> dict:
+        """Durable-сводка флота для control-plane: без секретов, только состояние."""
+        if self.fleet is None:
+            return {"enabled": False, "reason": "BOSSMAN_V3_FLEET is off"}
+        from bossman_v3.fleet import FleetDigitalTwin
+        with self.lock:
+            snap = FleetDigitalTwin(self.fleet).snapshot(time.time())
+        nodes = [{"node_id": n["node_id"], "status": n.get("status"), "hostname": n.get("hostname"), "os": n.get("os_name"),
+                  "ram_gb": n.get("ram_gb"), "capabilities": len(n.get("capabilities") or []),
+                  "heartbeat_age_s": n.get("heartbeat_age_s"), "busy_with": n.get("busy_with", [])} for n in snap["nodes"]]
+        metrics = dict(snap.get("metrics") or {})
+        flights = snap.get("flights") or {}
+        return {"enabled": True, "nodes": nodes,
+                "health": {"online": snap.get("online_nodes", []), "offline": snap.get("offline_nodes", []),
+                           "draining": snap.get("draining_nodes", [])},
+                "active_leases": [{"lease_id": l["lease_id"], "node_id": l["node_id"], "work_id": l["work_id"], "fence": l["fence"]}
+                                  for l in snap.get("active_leases", [])],
+                "queue_depth": len(snap.get("queue") or []), "blocked_work": snap.get("blocked", []),
+                "privacy_blocks": int(metrics.get("privacy_blocked", 0)), "dead_letters": snap.get("dead_letters", []),
+                "placement_failures": int(metrics.get("placement_failures", 0)),
+                "flights": {k: v["state"] for k, v in flights.items()},
+                "verified_mutations": snap.get("verified_mutations", 0), "duplicate_preventions": snap.get("duplicate_preventions", 0),
+                "remote_transport_production_ready": False, "node_auth_production_ready": False}
 
     def _sync_v2_tasks(self, mission_id: str) -> None:
         from bossman_v3.organization import TaskState
@@ -300,6 +372,12 @@ async def learning(request: Request) -> list[dict]:
     return [{"agent_id": a, "capability": c, **dict(p)} for a, c, p in rows]
 
 
+async def _tick(svc: Any) -> None:
+    org = getattr(svc, "organization", None)
+    if org is not None and org.fleet is not None:
+        await asyncio.to_thread(org.heartbeat)
+
+
 async def setup(svc: Any) -> None:
     svc.organization = None
     if not enabled():
@@ -315,4 +393,9 @@ async def setup(svc: Any) -> None:
     await svc.bus.emit("org.enabled", root=str(svc.organization.root))
 
 
-FEATURE = Feature(name="organization", router=router, setup=setup)
+@router.get("/fleet")
+async def fleet(request: Request) -> dict:
+    return await asyncio.to_thread(_org(request).fleet_summary)
+
+
+FEATURE = Feature(name="organization", router=router, setup=setup, tick=_tick, tick_seconds=30.0)

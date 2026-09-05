@@ -67,3 +67,35 @@ async def test_org_routes_when_enabled_and_snapshot_matches_store(org_env, tmp_p
     # ничего не исполнено и ни одной задачи V2 не создано: до делегирования дело не дошло
     assert (await client.get("/api/tasks")).json() in ([], {"tasks": []}) or not any(
         t.get("kind") == "organization" for t in (await client.get("/api/tasks")).json() if isinstance(t, dict))
+
+
+@pytest.fixture
+async def fleet_env(tmp_path, monkeypatch):
+    pytest.importorskip("bossman_v3", reason="bossman-core не установлен рядом с Command Center")
+    for k in ("BOSSMAN_V3_ENABLED", "BOSSMAN_V3_ORGANIZATION", "BOSSMAN_V3_FLEET"):
+        monkeypatch.setenv(k, "1")
+    monkeypatch.setenv("BOSSMAN_EVIDENCE_KEY_FILE", str(tmp_path / "keys" / "evidence.key"))
+    settings = make_settings(tmp_path)
+    app, svc = await start_app(settings, start_workers=False)
+    async with client_for(app, svc) as client:
+        yield app, svc, client
+    await svc.stop()
+
+
+async def test_fleet_appears_in_control_plane_when_enabled(fleet_env):
+    """§15: флот в /api/control-plane — только durable-сводка, локальный узел = этот хост,
+    удалённый транспорт честно NO."""
+    app, svc, client = fleet_env
+    org = svc.organization
+    assert org.fleet is not None and org.node_id.startswith("local-")
+    org.heartbeat()
+    body = (await client.get("/api/control-plane")).json()
+    fleet = body["fleet"]
+    assert fleet["enabled"] is True and fleet["remote_transport_production_ready"] is False
+    assert fleet["node_auth_production_ready"] is False
+    assert [n["node_id"] for n in fleet["nodes"]] == [org.node_id] and fleet["health"]["online"] == [org.node_id]
+    assert fleet["nodes"][0]["capabilities"] > 0 and fleet["queue_depth"] == 0 and fleet["active_leases"] == []
+    assert "secret" not in str(fleet).lower() and "api_key" not in str(fleet)
+    assert (await client.get("/api/org/fleet")).json() == fleet
+    # без флота — честно выключено
+    assert body["organization"]["enabled"] is True
