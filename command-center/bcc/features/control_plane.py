@@ -19,7 +19,8 @@ from typing import Any
 import sqlalchemy as sa
 from fastapi import APIRouter, Request
 
-from ..db import approvals as approvals_t, events as events_t, task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow
+from ..db import (agents as agents_t, approvals as approvals_t, events as events_t,
+                  task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
 from . import Feature
 
 router = APIRouter()
@@ -124,6 +125,119 @@ async def _fleet(org_service) -> dict[str, Any]:
     return await asyncio.to_thread(org_service.fleet_summary)
 
 
+
+# ---------- строки владельца (TRUTH-003 §20) ----------
+
+OWNER_ROWS_LIMIT = 50
+
+# Состояние действия — по УЛИКАМ, а не по намерению. COMPLETE выдаётся только
+# когда сработал канонический finalizer (событие task.finalized), даже если в
+# таблице уже стоит completed: «зелёная галочка» не опережает доказательство.
+ACTION_STATES = ("PLACED", "DISPATCHED", "EXECUTED", "OBSERVED", "VERIFIED", "COMPLETE",
+                 "BLOCKED", "FAILED", "STOPPED")
+
+
+def _action_state(task: dict, run: dict | None, calls: dict, finalized: bool) -> tuple[str, str]:
+    """(состояние, почему). Возвращает состояние из ACTION_STATES и причину для владельца."""
+    status = str(task.get("status") or "")
+    if status == "completed":
+        # Единственный путь к COMPLETE — канонический finalize_task. Нет его следа —
+        # владелец видит VERIFIED и предупреждение, а не зелёный «готово».
+        return ("COMPLETE", "") if finalized else ("VERIFIED", "нет следа финализатора: task.finalized не найдено")
+    if status == "failed":
+        return "FAILED", str((run or {}).get("error") or "")[:200]
+    if status == "stopped":
+        return "STOPPED", str((run or {}).get("error") or "остановлено оператором")[:200]
+    if status in ("waiting_approval", "paused"):
+        return "BLOCKED", "ожидает решения владельца" if status == "waiting_approval" else "на паузе"
+    if calls.get("verified"):
+        return "VERIFIED", ""
+    if calls.get("observed"):
+        return "OBSERVED", "эффект наблюдался, проверка ещё не подтвердила"
+    if calls.get("executed"):
+        return "EXECUTED", "инструмент вызван; вызов — не доказательство эффекта"
+    if status == "running" or (run or {}).get("status") in ("leased", "running"):
+        return "DISPATCHED", ""
+    return "PLACED", ""
+
+
+async def owner_rows(svc, limit: int = OWNER_ROWS_LIMIT) -> list[dict[str, Any]]:
+    """КТО / ГДЕ / КАКАЯ МОДЕЛЬ / ЧТО / СОСТОЯНИЕ / ПОЧЕМУ ЗАБЛОКИРОВАНО / ЦЕНА / ВНИМАНИЕ.
+
+    Одна строка на задачу, из durable-источников. Ни промптов, ни секретов:
+    в `what` идёт только заголовок задачи.
+    """
+    node = ""
+    org_service = getattr(svc, "organization", None)
+    if org_service is not None and getattr(org_service, "fleet", None) is not None:
+        node = str(getattr(org_service, "node_id", "") or "")
+    async with svc.db.session() as s:
+        trows = (await s.execute(
+            sa.select(tasks_t.c.id, tasks_t.c.title, tasks_t.c.status, tasks_t.c.agent_id,
+                      tasks_t.c.updated_at, agents_t.c.name.label("agent_name"),
+                      agents_t.c.model_id)
+            .select_from(tasks_t.outerjoin(agents_t, agents_t.c.id == tasks_t.c.agent_id))
+            .order_by(tasks_t.c.updated_at.desc()).limit(limit))).fetchall()
+        tasks = [dict(r._mapping) for r in trows]
+        ids = [t["id"] for t in tasks]
+        runs: dict[int, dict] = {}
+        cost: dict[int, float] = {}
+        calls: dict[int, dict[str, int]] = {}
+        approvals: dict[int, str] = {}
+        finalized: set[int] = set()
+        if ids:
+            for r in (await s.execute(sa.select(runs_t).where(runs_t.c.task_id.in_(ids))
+                                      .order_by(runs_t.c.id.asc()))).fetchall():
+                m = dict(r._mapping)
+                runs[m["task_id"]] = m                       # последний прогон задачи
+                cost[m["task_id"]] = cost.get(m["task_id"], 0.0) + float(m.get("cost_usd") or 0.0)
+            for r in (await s.execute(
+                    sa.select(tool_calls_t.c.task_id, tool_calls_t.c.status, tool_calls_t.c.verified,
+                              tool_calls_t.c.observed_at).where(tool_calls_t.c.task_id.in_(ids)))).fetchall():
+                m = r._mapping
+                c = calls.setdefault(int(m["task_id"]), {"executed": 0, "observed": 0, "verified": 0})
+                if str(m["status"]) == "executed":
+                    c["executed"] += 1
+                if m["observed_at"] is not None:
+                    c["observed"] += 1
+                if bool(m["verified"]):
+                    c["verified"] += 1
+            for r in (await s.execute(
+                    sa.select(approvals_t.c.task_id, approvals_t.c.preview)
+                    .where(approvals_t.c.status == "pending",
+                           approvals_t.c.task_id.in_(ids)))).fetchall():
+                approvals.setdefault(int(r._mapping["task_id"]), str(r._mapping["preview"] or "")[:200])
+            for r in (await s.execute(sa.select(events_t.c.data)
+                                      .where(events_t.c.kind == "task.finalized"))).fetchall():
+                data = r._mapping["data"] or {}
+                tid = data.get("task_id") if isinstance(data, dict) else None
+                if tid is not None:
+                    finalized.add(int(tid))
+    out: list[dict[str, Any]] = []
+    for t in tasks:
+        run = runs.get(t["id"])
+        c = calls.get(t["id"], {"executed": 0, "observed": 0, "verified": 0})
+        state, why = _action_state(t, run, c, t["id"] in finalized)
+        if t["id"] in approvals and (not why or state == "BLOCKED"):
+            # конкретное «что именно ждёт решения» полезнее общей формулировки
+            why = approvals[t["id"]] or why
+        out.append({
+            "task_id": t["id"],
+            "who": t.get("agent_name") or "—",                       # КТО
+            "where": node or "локальный хост",                        # ГДЕ
+            "model": (run or {}).get("model_alias") or "—",           # КАКАЯ МОДЕЛЬ
+            "what": str(t.get("title") or "")[:200] or f"задача #{t['id']}",
+            "action_state": state,                                    # СОСТОЯНИЕ ДЕЙСТВИЯ
+            "why_blocked": why,                                       # ПОЧЕМУ ЗАБЛОКИРОВАНО
+            "cost_usd": round(cost.get(t["id"], 0.0), 6),             # ЦЕНА
+            "attention": bool(t["id"] in approvals or state in ("BLOCKED", "FAILED")),
+            "effects": c,
+            "finalized": t["id"] in finalized,
+            "updated_at": t["updated_at"].isoformat() if t.get("updated_at") else "",
+        })
+    return out
+
+
 async def build(svc) -> dict[str, Any]:
     organization: dict[str, Any]
     org_service = getattr(svc, "organization", None)
@@ -147,6 +261,8 @@ async def build(svc) -> dict[str, Any]:
         "latency": await latency(svc),
         "retention": {"events_days": RETENTION_DAYS, "events_max_rows": RETENTION_MAX_ROWS},
         "attention": await _attention(svc, organization),
+        "owner_view": {"rows": await owner_rows(svc), "states": list(ACTION_STATES),
+                       "rule": "COMPLETE только после канонического finalize_task (событие task.finalized)"},
     }
 
 

@@ -28,6 +28,7 @@ import ImagesPage from './images.js';
 import TradingLabPage from './trading_lab.js';
 import MissionConsolePage from './mission_console.js';
 import WebResearchPage from './web_research.js';
+import ControlPage from './control.js';
 
 export const FEATURE_PAGES = [
   HomePage,
@@ -53,4 +54,5 @@ export const FEATURE_PAGES = [
   TradingLabPage,
   MissionConsolePage,
   WebResearchPage,
+  ControlPage,
 ];

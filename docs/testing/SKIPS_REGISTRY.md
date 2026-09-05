@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 89. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 90. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -21,6 +21,7 @@
 | `command-center/tests/test_feat_organization.py:74` | importorskip | `—` | bossman-core не установлен рядом с Command Center | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_mission_console.py:42` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_openrouter_connect_ui.py:9` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_owner_control_ui.py:15` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_plugins_adapter.py:208` | skip | `—` | f"SKIP_HOST: symlink privilege unavailable on this host: {exc}" | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_secrem_f009_terminal.py:113` | skip | `—` | NOT_TESTED_ON_THIS_HOST: docker daemon unavailable — F-009 container mount proof deferred to RunPod/owner host | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:43` | skipif | `_app_missing()` | f"приложения {APP} нет среди манифестов" | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
