@@ -1,0 +1,59 @@
+id: solana-volume-suite
+name: Solana AI Volume Suite
+version: "1.0.0"
+app_number: 9
+kind: workload
+contract: "1.0"
+
+description: >-
+  Autonomous dual-stage AI market-making and volume suite on Solana with Jito MEV
+  sandwich protection, Anti-Bubblemaps cascading funding, and Zero-Knowledge KeyVault.
+
+runtime:
+  language: python
+  python: ">=3.11"
+  standalone: true
+  imports_bossman: false
+
+default_port: 8501
+
+entrypoints:
+  cli: python solana_volume_suite/start_prototype.py
+  http: solana_volume_suite.dashboard.safety_app:app
+  mainnet_setup: python solana_volume_suite/setup_mainnet.py
+
+control_contract:
+  transport: http
+  http:
+    health: "GET /api/liquidity/status"
+    status: "GET /api/status"
+    telemetry: "GET /api/telemetry"
+    orchestrator.start: "POST /api/orchestrator/start"
+    orchestrator.stop: "POST /api/orchestrator/stop"
+    vault.generate: "POST /api/vault/generate"
+    sweep: "POST /api/sweep"
+
+commands:
+  - /volume start
+  - /volume stop
+  - /volume status
+  - /volume sweep
+  - /volume mainnet
+
+permissions:
+  network.rpc: allow
+  network.jito: allow
+  wallet.signing: ask
+  wallet.export: deny
+
+ui:
+  title: "Solana Volume Suite"
+  subtitle: "AI Market Maker & Jito MEV Volume Generation"
+  icon: activity
+  order: 45
+  health_path: /api/liquidity/status
+  metrics_path: /api/status
+  actions:
+    - id: open
+      label: Open Command Center
+      url: "http://localhost:8501"
