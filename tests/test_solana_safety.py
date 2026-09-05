@@ -80,11 +80,21 @@ def test_no_jito_network_or_serialization_even_with_live_environment(monkeypatch
     assert instance.total_bundles_dropped == 1
 
 
-def test_control_plane_blocks_execution_and_preserves_unknown():
+def test_control_plane_blocks_execution_and_preserves_unknown(monkeypatch, tmp_path):
     pytest.importorskip("fastapi")
     from fastapi.testclient import TestClient
     from solana_volume_suite.dashboard.safety_app import app
-    with TestClient(app) as client:
+    import secrets
+    from solana_volume_suite.dashboard import safety_app
+    token = secrets.token_urlsafe(32)
+    monkeypatch.setenv("DASHBOARD_API_TOKEN", token)
+    for key, value in {"LIVE_EXECUTION_ENABLED": "false", "PAPER_TRADING": "true",
+                       "GEMINI_REAL_MONEY_READY": "false", "SOLANA_RPC_URL": "mock://offline",
+                       "SOLANA_WSS_URL": "mock://offline", "JITO_BLOCK_ENGINE_URL": "mock://offline"}.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setattr(safety_app, "SUITE_ROOT", tmp_path)
+    app.middleware_stack = None
+    with TestClient(app, headers={"Authorization": "Bearer " + token}) as client:
         for route in ("/api/bot/start", "/api/bot/sweep", "/api/vault/generate"):
             assert client.post(route, json={}).status_code == 403
         response = client.post("/api/trading/simulate")

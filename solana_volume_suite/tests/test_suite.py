@@ -1,3 +1,4 @@
+import secrets
 import os
 import sys
 import json
@@ -42,7 +43,7 @@ def test_vault_encryption_roundtrip(temp_vault_path):
     Ensures invalid password raises PermissionError.
     """
     vault = SecurityKeyVault(storage_path=temp_vault_path)
-    password = "CorrectSuperSecretKey456!"  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
+    password = secrets.token_urlsafe(32)  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
     count = 10
 
     pubkeys = vault.create_and_store_pool(count, password)
@@ -80,7 +81,7 @@ def test_zero_knowledge_isolation(temp_vault_path):
     and that raw secret keys or sensitive tokens never enter the AI payload.
     """
     vault = SecurityKeyVault(storage_path=temp_vault_path)
-    password = "ZKIsolationTestPassword999!"  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
+    password = secrets.token_urlsafe(32)  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
     vault.create_and_store_pool(5, password)
 
     sanitized_view = vault.get_sanitized_public_view(password)
@@ -192,69 +193,18 @@ async def test_ai_fallback_on_llm_error():
 # ==============================================================================
 # TEST 5: Dashboard Endpoints via FastAPI TestClient
 # ==============================================================================
-def test_dashboard_endpoints():
-    """
-    Verifies all Command Center API endpoints:
-    /api/vault/generate, /api/vault/wallets, /api/bot/start, /api/bot/stop, /api/telemetry, /api/bot/sweep
-    """
-    client = TestClient(app)
-
-    # 1. Generate Vault
-    res_gen = client.post("/api/vault/generate", json={
-        "count": 15,
-        "password": "MasterTestPassword777!"
-    })
-    assert res_gen.status_code == 200
-    data_gen = res_gen.json()
-    assert data_gen["status"] == "SUCCESS"
-    assert data_gen["count"] == 15
-
-    # 2. Get Wallets
-    res_wallets = client.get("/api/vault/wallets")
-    assert res_wallets.status_code == 200
-    data_wallets = res_wallets.json()
-    assert data_wallets["count"] == 15
-    assert len(data_wallets["wallets"]) == 15
-    assert "sol_balance" in data_wallets["wallets"][0]
-
-    # 3. Start Bot
-    res_start = client.post("/api/bot/start", json={
-        "stage": "BONDING_CURVE",
-        "target_token_mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",  # ci-secret-scan: allow -- public Solana program/mint/destination address
-        "password": "MasterTestPassword777!",
-        "max_loss_usd": 50.0
-    })
-    assert res_start.status_code == 200
-    data_start = res_start.json()
-    assert data_start["status"] == "SUCCESS"
-    assert data_start["bot_status"] == "RUNNING"
-
-    # 4. Telemetry
-    res_telem = client.get("/api/telemetry")
-    assert res_telem.status_code == 200
-    data_telem = res_telem.json()
-    assert data_telem["bot_status"] in ["RUNNING", "PAUSED", "STOPPED"]
-    assert "metrics" in data_telem
-    assert "jito_stats" in data_telem
-    assert data_telem["jito_stats"]["mempool_leak_prevention"] == "100%_SECURED"
-
-    # 5. Stop Bot (Kill Switch)
-    res_stop = client.post("/api/bot/stop")
-    assert res_stop.status_code == 200
-    data_stop = res_stop.json()
-    assert data_stop["status"] in ["SUCCESS", "STOPPED"]
-    assert data_stop["bot_status"] == "STOPPED"
-
-    # 6. Emergency Sweep
-    cold_target = str(Keypair().pubkey())
-    res_sweep = client.post("/api/bot/sweep", json={
-        "cold_destination_pubkey": cold_target,
-        "password": "MasterTestPassword777!"
-    })
-    assert res_sweep.status_code == 200
-    data_sweep = res_sweep.json()
-    assert data_sweep["status"] == "SUCCESS"
-    assert data_sweep["destination"] == cold_target
+def test_dashboard_endpoints(client):
+    """Legacy routes share authentication, quotas and the same virtual runner."""
+    assert client.post("/api/vault/generate", json={"count": 15}).status_code == 200
+    assert client.get("/api/vault/wallets").json()["count"] == 15
+    assert client.post("/api/bot/start", json={"mode": "simulation"}).status_code == 200
+    data = client.get("/api/telemetry").json()
+    assert data["live_execution_enabled"] is False
+    assert data["confirmed_transactions"] == 0
+    assert client.post("/api/bot/stop").json()["status"] == "STOPPED"
+    swept = client.post("/api/bot/sweep", json={"destination": "mock:cold"})
+    assert swept.json()["confirmed_onchain"] is False
+    assert swept.json()["tx_signature"] is None
 
 
 # ==============================================================================

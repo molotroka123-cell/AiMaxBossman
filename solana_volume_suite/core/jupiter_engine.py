@@ -70,9 +70,6 @@ class JupiterSwapEngine:
         user_keypair: Keypair,
         slippage_bps: int = 150
     ) -> str:
-        quote = await self.get_swap_quote(input_mint, output_mint, amount_lamports, slippage_bps)
-        raw_tx_base64 = await self.build_swap_transaction(quote, str(user_keypair.pubkey()))
-        tx_bytes = base64.b64decode(raw_tx_base64)
-        tx = VersionedTransaction.from_bytes(tx_bytes)
-        signed_tx = VersionedTransaction(tx.message, [user_keypair])
-        return base64.b64encode(bytes(signed_tx)).decode("utf-8")
+        from solana_volume_suite.core.security import audit
+        audit("SECURITY_VIOLATION", reason="SWAP_SIGNING_DISABLED")
+        raise PermissionError("VIRTUAL_ONLY: swap signing and execution are disabled")

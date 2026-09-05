@@ -1,228 +1,134 @@
-import os
-import sys
+"""Offline assessment loop. No key loading, signing, AI calls or RPC transport."""
 import asyncio
-import time
+import json
+import math
+import os
 import signal
-from typing import Dict, Any, List, Optional
-from solders.pubkey import Pubkey
-from solders.keypair import Keypair
-from solders.hash import Hash
+import time
+from pathlib import Path
 
-# Ensure root of solana_volume_suite is importable
-SUITE_ROOT = os.path.dirname(os.path.abspath(__file__))
-if SUITE_ROOT not in sys.path:
-    sys.path.insert(0, SUITE_ROOT)
-
-from core.key_vault.vault import SecurityKeyVault, DEFAULT_VAULT_PATH
-from core.liquidity_gate import LiquidityGate
-from core.ai_orchestrator import AIOrchestrator, VolumeDecision
-from core.treasury_guard import TreasuryGuard
-from core.jito_client import JitoBundleClient
-from core.funding_router import AntiClusteringFundingRouter
+from solana_volume_suite.core.liquidity_gate import LiquidityGate
+from solana_volume_suite.core.security import audit, generate_password, require_virtual_mode, validate_password
+from solana_volume_suite.core.treasury_guard import TreasuryGuard
 
 
 class VolumeOrchestratorLoop:
-    """
-    Autonomous End-to-End Market Maker Runner.
-    Wires KeyVault, LiquidityGate, AIOrchestrator, TreasuryGuard, and JitoClient
-    into a fail-closed execution loop.
-    """
-
-    def __init__(
-        self,
-        vault_path: Optional[str] = None,
-        master_password: str = "SuperSecretMasterPass123!",
-        target_token_mint: str = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",  # ci-secret-scan: allow -- public SPL token mint address (identifier, not a key)
-        max_allowed_loss_usd: float = 40.0,
-        test_mode: bool = False
-    ):
-        if vault_path is None:
-            self.vault_path = os.path.join(SUITE_ROOT, "wallets_encrypted.json")
-        else:
-            self.vault_path = vault_path
-        self.master_password = master_password
-        self.target_token_mint = target_token_mint
-        self.max_allowed_loss_usd = max_allowed_loss_usd
+    def __init__(self, vault_path=None, master_password=None, target_token_mint="MOCK_TOKEN",
+                 max_allowed_loss_usd=40.0, test_mode=True, state_path=None):
+        require_virtual_mode()
+        self.master_password = master_password or generate_password()
+        validate_password(self.master_password)
+        # Compatibility argument only: never inspect, overwrite or decrypt this file.
+        self.vault_path = vault_path
+        self.target_token_mint = "MOCK_TOKEN"
         self.test_mode = test_mode
+        if not math.isfinite(max_allowed_loss_usd) or max_allowed_loss_usd <= 0:
+            raise ValueError("max_allowed_loss_usd must be positive and finite")
+        self.treasury_guard = TreasuryGuard(max_allowed_loss_usd=max_allowed_loss_usd)
+        self.liquidity_gate = LiquidityGate()
+        self.is_running = False
+        self.iteration_count = 0
+        self.event_journal = []
+        self.wallet_balances = {}
+        self.sub_wallet_addresses = []
+        self.cached_keypairs = []  # Always empty; retained for legacy callers.
+        self.state_path = Path(state_path) if state_path else None
+        self._stop_event = asyncio.Event()
+        self._task = None
 
-        self.vault = SecurityKeyVault(storage_path=self.vault_path)
-        self.liquidity_gate = LiquidityGate(max_impact_bps=120)
-        self.ai_orchestrator = AIOrchestrator()
-        if self.test_mode:
-            self.ai_orchestrator.timeout = 0.05
-        self.treasury_guard = TreasuryGuard(max_allowed_loss_usd=self.max_allowed_loss_usd)
-        self.jito_client = JitoBundleClient()
-        self.funding_router = AntiClusteringFundingRouter()
-
-        self.is_running: bool = False
-        self.iteration_count: int = 0
-        self.event_journal: List[Dict[str, Any]] = []
-        self.wallet_balances: Dict[str, float] = {}
-        self.cached_keypairs: List[Keypair] = []
-        self.sub_wallet_addresses: List[str] = []
-
-    def log_event(self, event_type: str, message: str, meta: Optional[Dict[str, Any]] = None):
-        entry = {
-            "timestamp": time.strftime("%H:%M:%S"),
-            "epoch": time.time(),
-            "type": event_type,
-            "message": message,
-            "meta": meta or {}
-        }
+    def log_event(self, event_type, message, meta=None):
+        entry = {"timestamp": time.strftime("%H:%M:%S"), "epoch": time.time(),
+                 "type": event_type, "message": message, "meta": meta or {}}
         self.event_journal.insert(0, entry)
-        if len(self.event_journal) > 300:
-            self.event_journal.pop()
+        del self.event_journal[300:]
+        audit(event_type, message=message, meta=meta or {})
 
-    def initialize_vault_pool(self, count: int = 10):
-        """Ensures encrypted sub-wallet pool exists; creates 10 wallets if absent."""
-        need_create = not os.path.exists(self.vault_path)
-        if not need_create:
-            try:
-                self.cached_keypairs = self.vault.load_keypairs(self.master_password)
-                self.sub_wallet_addresses = [str(kp.pubkey()) for kp in self.cached_keypairs]
-            except Exception:
-                try:
-                    os.remove(self.vault_path)
-                except OSError:
-                    pass
-                need_create = True
+    def initialize_vault_pool(self, count=10):
+        require_virtual_mode()
+        if type(count) is not int or not 1 <= count <= 100:
+            raise ValueError("Virtual wallet count must be between 1 and 100")
+        self.sub_wallet_addresses = [f"mock:wallet:{idx}" for idx in range(count)]
+        self.wallet_balances = {addr: 0.5 for addr in self.sub_wallet_addresses}
+        self.log_event("VAULT_READY", "Created fictitious wallet labels; no keys exist", {"count": count})
 
-        if need_create:
-            self.log_event("VAULT_INIT", f"Vault file not found or invalid. Auto-generating {count} encrypted sub-wallets...")
-            self.sub_wallet_addresses = self.vault.create_and_store_pool(count, self.master_password, mode="random")
-            self.cached_keypairs = self.vault.load_keypairs(self.master_password)
-
-        # Initialize simulated SOL balances
-        for idx, addr in enumerate(self.sub_wallet_addresses):
-            if addr not in self.wallet_balances:
-                self.wallet_balances[addr] = round(0.42 + (idx % 4) * 0.18, 3)
-
-        self.log_event("VAULT_READY", f"Loaded {len(self.cached_keypairs)} sub-wallets under Zero-Knowledge constraints.")
-
-    async def step(self) -> Dict[str, Any]:
-        """Executes a single step of the autonomous loop."""
+    async def step(self):
+        require_virtual_mode()
         self.iteration_count += 1
-
-        # 1. Fetch live pool liquidity
-        if self.test_mode:
-            reserves = {
-                "model": "CONSTANT_PRODUCT",
-                "input_asset": "SOL",
-                "reserve_in": int(650.0 * 10**9),
-                "reserve_out": int(1_000_000_000 * 10**6),
-                "fee_bps": 25,
-                "liquidity_usd": 117_000.0
-            }
-        else:
-            reserves = await self.liquidity_gate.fetch_dexscreener_reserves(self.target_token_mint)
-
-        # 2. Get decision from AI Orchestrator
-        market_state = {
-            "stage": "PAPER_TRADING_AMM",
-            "token_mint": self.target_token_mint,
-            "liquidity_usd": reserves.get("liquidity_usd", 120000.0),
-            "sol_reserve": reserves.get("reserve_in", 650 * 10**9) / 1e9,
-            "seconds_since_last_external_tx": round(self.funding_router.generate_poisson_interval(lam=18.0), 1),
-            "recent_dump_size_sol": 0.0,
-            "active_wallets_count": len(self.cached_keypairs)
-        }
-
-        decision: VolumeDecision = await self.ai_orchestrator.get_volume_decision(
-            market_state=market_state,
-            active_wallet_count=len(self.cached_keypairs)
-        )
-
-        # 3. Liquidity Gate Validation (Price Impact <= 1.2%)
-        gate_evaluation = self.liquidity_gate.validate_and_slice_order(
-            amount_sol=decision.amount_sol,
-            pool_reserves=reserves
-        )
-
-        # 4. Treasury Guard Check
+        reserves = {"model": "CONSTANT_PRODUCT", "input_asset": "SOL",
+                    "reserve_in": 650 * 10**9, "reserve_out": 10**15, "fee_bps": 25}
+        gate = self.liquidity_gate.validate_and_slice_order(0.1, reserves)
+        decision = {"action": "WAIT", "amount_sol": 0.1, "delay_sec": 2.0,
+                    "confirmed_onchain": False, "tx_signature": None,
+                    "reason": "OFFLINE_HYPOTHETICAL_ASSESSMENT"}
         if not self.treasury_guard.is_within_budget():
-            self.is_running = False
-            self.log_event("CIRCUIT_BREAKER", f"Treasury limit reached: {self.treasury_guard.pause_reason}")
-            return {
-                "iteration": self.iteration_count,
-                "status": "CIRCUIT_BREAKER_TRIPPED",
-                "decision": decision.model_dump(),
-                "gate": gate_evaluation
-            }
+            self.stop()
+            self.log_event("CIRCUIT_BREAKER", "Simulation budget exhausted")
+        self.log_event("TRADE_HELD", "Hypothetical assessment only", {"gate": gate["status"]})
+        return {"iteration": self.iteration_count, "status": "SIMULATED", "decision": decision, "gate": gate}
 
-        # 5. Execute Slices or Direct Order
-        if gate_evaluation["execution_allowed"] and decision.action in ["BUY", "SELL", "KOTH_PULSE", "FLOOR_DEFENSE"]:
-            slices = gate_evaluation.get("slices_sol", [decision.amount_sol])
-            selected_kp = self.cached_keypairs[decision.wallet_index % len(self.cached_keypairs)]
-            wallet_addr = str(selected_kp.pubkey())
-
-            for slice_sol in slices:
-                # Record trade friction
-                record = self.treasury_guard.record_trade(
-                    volume_sol=slice_sol,
-                    dex_type="raydium",
-                    jito_tip_lamports=self.jito_client.calculate_dynamic_tip("medium")
-                )
-
-                # Simulated execution signature
-                sig = f"sim_jito_sig_{int(time.time()*1000)}_{self.iteration_count}"
-                decision.confirmed_onchain = True
-                decision.tx_signature = sig
-
-                # Update wallet balance
-                current_bal = self.wallet_balances.get(wallet_addr, 0.5)
-                delta = -slice_sol if decision.action == "BUY" else (slice_sol * 0.98)
-                self.wallet_balances[wallet_addr] = max(0.01, round(current_bal + delta, 4))
-
-                self.log_event(
-                    "TRADE_EXECUTED",
-                    f"[{decision.action}] {slice_sol:.4f} SOL | Wallet #{decision.wallet_index} ({wallet_addr[:4]}...{wallet_addr[-4:]}) | Impact: {gate_evaluation['estimated_impact_bps']} bps",
-                    meta={
-                        "action": decision.action,
-                        "amount_sol": slice_sol,
-                        "wallet_index": decision.wallet_index,
-                        "wallet_address": wallet_addr,
-                        "impact_bps": gate_evaluation["estimated_impact_bps"],
-                        "delay_sec": decision.delay_sec,
-                        "reason": decision.reason,
-                        "sig": sig
-                    }
-                )
-        else:
-            self.log_event("TRADE_HELD", f"[{decision.action}] {decision.reason} | Gate: {gate_evaluation['status']}")
-
-        return {
-            "iteration": self.iteration_count,
-            "status": "COMPLETED",
-            "decision": decision.model_dump(),
-            "gate": gate_evaluation
-        }
-
-    async def run(self, max_iterations: Optional[int] = None):
-        """Infinite (or bounded) loop."""
-        self.initialize_vault_pool()
+    async def run(self, max_iterations=None):
+        require_virtual_mode()
+        if self._task is not None and not self._task.done():
+            raise RuntimeError("Orchestrator already running")
+        if not self.wallet_balances:
+            self.initialize_vault_pool()
+        self._task = asyncio.current_task()
+        self._stop_event.clear()
         self.is_running = True
-        self.log_event("RUNNER_START", f"Volume Suite Orchestrator started for mint {self.target_token_mint}")
-
+        self.log_event("RUNNER_START", "Offline virtual loop started")
         try:
-            while self.is_running:
-                step_result = await self.step()
-                if max_iterations and self.iteration_count >= max_iterations:
+            for_iteration = 0
+            while not self._stop_event.is_set():
+                await self.step()
+                for_iteration += 1
+                if max_iterations is not None and for_iteration >= max_iterations:
                     break
-
-                if not self.is_running:
-                    break
-
-                delay = 0.05 if self.test_mode else step_result["decision"]["delay_sec"]
-                # In live mode clamp delay to 6.0 for responsive UI demonstration
-                delay = min(delay, 5.0)
-                await asyncio.sleep(delay)
-        except asyncio.CancelledError:
-            self.log_event("RUNNER_CANCEL", "Runner task cancelled.")
+                try:
+                    await asyncio.wait_for(self._stop_event.wait(), timeout=0.05 if self.test_mode else 2.0)
+                except asyncio.TimeoutError:
+                    pass
         finally:
             self.is_running = False
-            self.log_event("RUNNER_STOP", "Volume Suite Orchestrator stopped.")
+            self._task = None
+            self.log_event("RUNNER_STOP", "Offline virtual loop stopped")
+            self.save_state()
 
     def stop(self):
-        """Kill Switch: Immediately stops loop."""
         self.is_running = False
-        self.log_event("KILL_SWITCH", "Emergency STOP triggered by operator.")
+        self._stop_event.set()
+        self.log_event("KILL_SWITCH", "Simulation stop requested")
+
+    def handle_signal(self, signum, frame=None):
+        self.log_event("SIGNAL_RECEIVED", signal.Signals(signum).name)
+        self.stop()
+
+    def install_signal_handlers(self):
+        # Standalone only. Uvicorn owns dashboard signals and invokes lifespan cleanup.
+        previous = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
+        for sig in previous:
+            signal.signal(sig, self.handle_signal)
+        return previous
+
+    def save_state(self):
+        if self.state_path is None:
+            return
+        self.state_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.state_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps({"mode": "PAPER_TRADING_ONLY", "running": False,
+            "iterations": self.iteration_count, "wallets": self.wallet_balances,
+            "events": self.event_journal}, indent=2), encoding="utf-8")
+        os.replace(temporary, self.state_path)
+
+
+async def main():
+    runner = VolumeOrchestratorLoop(state_path=Path(__file__).parent / "runtime" / "state.json")
+    previous = runner.install_signal_handlers()
+    try:
+        await runner.run()
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

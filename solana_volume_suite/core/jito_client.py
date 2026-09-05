@@ -131,6 +131,8 @@ class JitoBundleClient:
         If Jito returns an error or fails, the transaction is DROPPED.
         NEVER route to standard RPC.
         """
+        from solana_volume_suite.core.security import audit
+        audit("SECURITY_VIOLATION", reason="JITO_SUBMISSION_DISABLED")
         self.total_bundles_dropped += 1
         raise JitoBundleDropException(
             "LIVE_EXECUTION_DISABLED: Bundle DROPPED (no public mempool fallback)."

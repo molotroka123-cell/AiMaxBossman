@@ -1,3 +1,4 @@
+import secrets
 """End-to-End integration tests for the Solana AI Volume Suite interactive prototype."""
 import os
 import sys
@@ -15,7 +16,7 @@ if WORKSPACE_ROOT not in sys.path:
 
 from orchestrator_loop import VolumeOrchestratorLoop
 from core.liquidity_gate import LiquidityGate
-from dashboard.safety_app import app, orchestrator
+from solana_volume_suite.dashboard import safety_app
 
 
 @pytest.mark.asyncio
@@ -27,11 +28,12 @@ async def test_orchestrator_loop_three_iterations(tmp_path):
     vault_file = str(tmp_path / "temp_vault.json")
     loop = VolumeOrchestratorLoop(
         vault_path=vault_file,
-        master_password="SuperSecretTestPass123!",
+        master_password=secrets.token_urlsafe(32),
         test_mode=True
     )
     loop.initialize_vault_pool(count=10)
-    assert len(loop.cached_keypairs) == 10
+    assert loop.cached_keypairs == []
+    assert len(loop.sub_wallet_addresses) == 10
     assert len(loop.wallet_balances) == 10
 
     # Run exactly 3 iterations
@@ -62,7 +64,8 @@ def test_liquidity_gate_evaluates_and_blocks_or_slices_orders():
     # 1. Normal order within bounds (0.1 SOL on 650 SOL pool => ~1.5 bps)
     small_eval = gate.validate_and_slice_order(0.1, pool_reserves=reserves_standard)
     assert small_eval["status"] == "PASS"
-    assert small_eval["execution_allowed"] is True
+    assert small_eval["execution_allowed"] is False
+    assert small_eval["simulation_allowed"] is True
     assert small_eval["estimated_impact_bps"] <= 120
     assert small_eval["slices_sol"] == [0.1]
 
@@ -105,54 +108,17 @@ def test_kill_switch_immediately_halts():
     assert loop.event_journal[0]["type"] == "KILL_SWITCH"
 
 
-def test_dashboard_interactive_endpoints():
-    """
-    Tests dashboard prototype endpoints:
-    /api/status, /api/orchestrator/start, /api/orchestrator/stop, /api/sweep, /api/vault/generate.
-    """
-    with TestClient(app) as client:
-        # 1. GET /api/status
-        status_resp = client.get("/api/status")
-        assert status_resp.status_code == 200
-        status_data = status_resp.json()
-        assert status_data["mode"] == "PAPER_TRADING_ONLY"
-        assert "bot_status" in status_data
-        assert "wallets" in status_data
-        assert "metrics" in status_data
-        assert "liquidity_gate_status" in status_data
-        assert "events" in status_data
-
-        # 2. POST /api/orchestrator/start
-        start_resp = client.post("/api/orchestrator/start")
-        assert start_resp.status_code == 200
-        assert start_resp.json()["status"] == "RUNNING"
-        assert orchestrator.is_running is True
-
-        # 3. POST /api/orchestrator/stop
-        stop_resp = client.post("/api/orchestrator/stop")
-        assert stop_resp.status_code == 200
-        assert stop_resp.json()["status"] == "STOPPED"
-        assert orchestrator.is_running is False
-
-        # 4. POST /api/sweep
-        sweep_resp = client.post("/api/sweep", json={"destination": "ColdDestTestAddress111111111111111111111111"})
-        assert sweep_resp.status_code == 200
-        sweep_data = sweep_resp.json()
-        assert sweep_data["status"] == "SUCCESS"
-        assert sweep_data["mode"] == "PAPER_TRADING_SIMULATED"
-        assert "total_sol_swept" in sweep_data
-
-        # 5. POST /api/vault/generate
-        # Empty body -> 403 BLOCKED
-        blocked_resp = client.post("/api/vault/generate", json={})
-        assert blocked_resp.status_code == 403
-
-        # Valid body -> 200 SUCCESS
-        gen_resp = client.post("/api/vault/generate", json={
-            "count": 5,
-            "password": "ValidMasterPassword123!"
-        })
-        assert gen_resp.status_code == 200
-        assert gen_resp.json()["status"] == "SUCCESS"
-        assert gen_resp.json()["count"] == 5
-        assert len(orchestrator.cached_keypairs) == 5
+def test_dashboard_interactive_endpoints(client):
+    assert client.get("/api/status").json()["mode"] == "PAPER_TRADING_ONLY"
+    assert client.post("/api/orchestrator/start").json()["status"] == "RUNNING"
+    assert safety_app.orchestrator.is_running is True
+    assert client.post("/api/orchestrator/stop").json()["status"] == "STOPPED"
+    assert safety_app.orchestrator.is_running is False
+    sweep = client.post("/api/sweep", json={"destination": "mock:cold"})
+    assert sweep.json()["mode"] == "PAPER_TRADING_SIMULATED"
+    assert sweep.json()["tx_signature"] is None
+    assert client.post("/api/vault/generate", json={}).status_code == 403
+    generated = client.post("/api/vault/generate", json={"count": 5})
+    assert generated.json()["count"] == 5
+    assert safety_app.orchestrator.cached_keypairs == []
+    assert len(safety_app.orchestrator.wallet_balances) == 5

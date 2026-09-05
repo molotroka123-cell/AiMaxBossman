@@ -102,10 +102,9 @@ class JupiterSwapEngine:
         swap_tx_base64: str,
         keypair: Keypair
     ) -> VersionedTransaction:
-        tx_bytes = base64.b64decode(swap_tx_base64)
-        unsigned_tx = VersionedTransaction.from_bytes(tx_bytes)
-        # Sign with sub-wallet keypair
-        return VersionedTransaction(unsigned_tx.message, [keypair])
+        from solana_volume_suite.core.security import audit
+        audit("SECURITY_VIOLATION", reason="LEGACY_SWAP_SIGNING_DISABLED")
+        raise PermissionError("VIRTUAL_ONLY: signing disabled")
 
     async def plan_floor_defense_ladder(
         self,
@@ -118,38 +117,6 @@ class JupiterSwapEngine:
         Floor Defense Mode:
         When external dump > 2.0 SOL occurs, ladder buyback 30-50% across 3 distinct sub-wallets.
         """
-        if len(defense_wallets) < 3:
-            raise ValueError("Floor Defense requires at least 3 distinct defense sub-wallets")
-
-        total_buyback_sol = dump_size_sol * 0.40  # 40% absorption
-        slices = [
-            total_buyback_sol * 0.45,  # 1st ladder rung (aggressive)
-            total_buyback_sol * 0.35,  # 2nd ladder rung
-            total_buyback_sol * 0.20   # 3rd ladder rung
-        ]
-
-        ladder_plans = []
-        for idx in range(3):
-            sol_amount = round(slices[idx], 4)
-            wallet = defense_wallets[idx]
-            lamports = int(sol_amount * 10**9)
-
-            quote = await self.get_swap_quote(
-                input_mint=SOL_MINT,
-                output_mint=target_token_mint,
-                amount_lamports=lamports,
-                slippage_bps=120,
-                client=client
-            )
-            raw_tx = await self.build_swap_transaction(quote, str(wallet.pubkey()), client=client)
-            signed_tx = self.sign_jupiter_transaction(raw_tx, wallet)
-
-            ladder_plans.append({
-                "rung": idx + 1,
-                "wallet_pubkey": str(wallet.pubkey()),
-                "amount_sol": sol_amount,
-                "signed_transaction": signed_tx,
-                "quote": quote
-            })
-
-        return ladder_plans
+        from solana_volume_suite.core.security import audit
+        audit("SECURITY_VIOLATION", reason="LIVE_STRATEGY_DISABLED")
+        raise PermissionError("VIRTUAL_ONLY: live strategy planning disabled")

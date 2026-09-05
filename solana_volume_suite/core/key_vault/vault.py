@@ -1,4 +1,6 @@
 import os
+import hashlib
+from solana_volume_suite.core.security import require_virtual_mode, validate_password
 import json
 import base64
 from datetime import datetime, timezone
@@ -14,7 +16,7 @@ from spl.token.constants import TOKEN_PROGRAM_ID
 import spl.token.instructions as spl_ix
 import base58
 
-from core.key_vault.hd_wallet import SolanaHDWallet
+from .hd_wallet import SolanaHDWallet
 
 DEFAULT_VAULT_PATH = "wallets_encrypted.json"
 PBKDF2_ITERATIONS = 100_000
@@ -46,10 +48,9 @@ class RentReclaimer:
 
 class SecurityKeyVault:
     """
-    Zero-Knowledge Prompting Vault with AES-256-GCM authenticated encryption.
-    Keys are PBKDF2HMAC (SHA256, 100k iterations) encrypted on disk.
-    Raw secret keys are NEVER exposed to AI LLM context.
-    Supports both random Keypairs and deterministic BIP-44 HD derivation.
+    AES-256-GCM fixture vault containing publicly known mock key material only.
+    Not suitable for funded wallets. Legacy real vaults and mnemonic imports are
+    rejected; encryption exists to exercise authentication and tamper tests.
     """
 
     def __init__(self, storage_path: str = DEFAULT_VAULT_PATH):
@@ -79,8 +80,10 @@ class SecurityKeyVault:
         """
         if type(count) is not int or not 1 <= count <= 1000:
             raise ValueError("Wallet count must be an integer between 1 and 1000")
-        if not isinstance(password, str) or len(password) < 12:
-            raise ValueError("Vault password must contain at least 12 characters")
+        require_virtual_mode()
+        validate_password(password)
+        if mnemonic is not None:
+            raise ValueError("Mnemonic import is forbidden in virtual mode")
         if mode not in {"random", "hd_bip44"}:
             raise ValueError("Unknown wallet mode")
         if mode == "hd_bip44":
@@ -104,6 +107,7 @@ class SecurityKeyVault:
                 pk_str = str(kp.pubkey())
                 pubkeys.append(pk_str)
                 wallets_data.append({
+                    "virtual_only": True,
                     "wallet_index": idx,
                     "pubkey": pk_str,
                     "secret_base58": base58.b58encode(bytes(kp)).decode("utf-8")
@@ -111,10 +115,11 @@ class SecurityKeyVault:
         else:
             mode = "random"
             for idx in range(count):
-                kp = Keypair()
+                kp = Keypair.from_seed(hashlib.sha256(f"PUBLIC MOCK WALLET DO NOT FUND {idx}".encode()).digest())
                 pk_str = str(kp.pubkey())
                 pubkeys.append(pk_str)
                 wallets_data.append({
+                    "virtual_only": True,
                     "wallet_index": idx,
                     "pubkey": pk_str,
                     "secret_base58": base58.b58encode(bytes(kp)).decode("utf-8")
@@ -134,6 +139,7 @@ class SecurityKeyVault:
             metadata["master_mnemonic_hash"] = mnemonic_hash
 
         payload = {
+            "format": "public-mock-v1",
             "salt": base64.b64encode(salt).decode("utf-8"),
             "nonce": base64.b64encode(nonce).decode("utf-8"),
             "ciphertext": base64.b64encode(ciphertext).decode("utf-8"),
@@ -151,12 +157,17 @@ class SecurityKeyVault:
         Decrypts vault in memory and returns Keypair objects for signing.
         Fails closed with PermissionError if password is incorrect.
         """
+        require_virtual_mode()
         if not os.path.exists(self.storage_path):
             raise FileNotFoundError(f"Vault storage file '{self.storage_path}' not found.")
+        if os.path.getsize(self.storage_path) > 1_000_000:
+            raise ValueError("Vault exceeds the virtual fixture size limit")
 
         with open(self.storage_path, "r", encoding="utf-8") as f:
             payload = json.load(f)
 
+        if not isinstance(payload, dict) or payload.get("format") != "public-mock-v1":
+            raise PermissionError("Only explicitly marked mock fixtures can be opened")
         salt = base64.b64decode(payload["salt"])
         nonce = base64.b64decode(payload["nonce"])
         ciphertext = base64.b64decode(payload["ciphertext"])
@@ -173,8 +184,11 @@ class SecurityKeyVault:
 
         keypairs = []
         for item in wallets_data:
+            expected = Keypair.from_seed(hashlib.sha256(f"PUBLIC MOCK WALLET DO NOT FUND {item['wallet_index']}".encode()).digest())
             raw_bytes = base58.b58decode(item["secret_base58"])
-            keypairs.append(Keypair.from_bytes(raw_bytes))
+            if item.get("virtual_only") is not True or raw_bytes != bytes(expected):
+                raise PermissionError("Refusing non-mock vault material")
+            keypairs.append(expected)
         return keypairs
 
     def get_public_addresses(self, password: Optional[str] = None) -> List[str]:

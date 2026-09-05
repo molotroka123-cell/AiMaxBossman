@@ -1,47 +1,138 @@
-"""Local safety control plane and interactive prototype dashboard backend."""
-import os
-import sys
-import time
+"""Authenticated, single-process, offline control plane."""
 import asyncio
+import os
+import time
+from collections import deque
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
-from typing import Optional, Dict, Any, List
-
-# Ensure solana_volume_suite and workspace root are importable
-SUITE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if SUITE_ROOT not in sys.path:
-    sys.path.insert(0, SUITE_ROOT)
-WORKSPACE_ROOT = os.path.dirname(SUITE_ROOT)
-if WORKSPACE_ROOT not in sys.path:
-    sys.path.insert(0, WORKSPACE_ROOT)
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
+from solana_volume_suite.core.liquidity_gate import check_liquidity
+from solana_volume_suite.core.security import audit, require_virtual_mode, valid_bearer, validate_password
+from solana_volume_suite.orchestrator_loop import VolumeOrchestratorLoop
+from solana_volume_suite.tools.github_hygiene import GitHubHygieneSearcher, GitHubSearchError, GitHubRateLimitError
 
-try:
-    from solana_volume_suite.core.liquidity_gate import check_liquidity, LiquidityGate
-    from solana_volume_suite.core.key_vault.vault import SecurityKeyVault
-    from solana_volume_suite.orchestrator_loop import VolumeOrchestratorLoop
-except ImportError:
-    from core.liquidity_gate import check_liquidity, LiquidityGate
-    from core.key_vault.vault import SecurityKeyVault
-    from orchestrator_loop import VolumeOrchestratorLoop
+SUITE_ROOT = Path(__file__).resolve().parents[1]
+orchestrator = None
+orchestrator_task = None
+sockets = set()
+searcher = GitHubHygieneSearcher()
+github_results = []
+github_searched_at = None
 
-app = FastAPI(title="Solana AI Volume Suite - Safety Control Plane")
 
-# Global VolumeOrchestratorLoop instance
-orchestrator = VolumeOrchestratorLoop(
-    vault_path=os.path.join(SUITE_ROOT, "wallets_encrypted.json"),
-    master_password="SuperSecretMasterPass123!",
-    test_mode=False
-)
-orchestrator_task: Optional[asyncio.Task] = None
+async def stop_runner():
+    global orchestrator_task
+    if orchestrator is not None:
+        orchestrator.stop()
+    if orchestrator_task is not None:
+        if not orchestrator_task.done():
+            orchestrator_task.cancel()
+        try:
+            await orchestrator_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            audit("RUNNER_FAILURE", reason="TASK_FAILED")
+        orchestrator_task = None
+    if orchestrator is not None:
+        orchestrator.save_state()
 
-# Pre-initialize vault pool so wallet table has data immediately
-try:
-    orchestrator.initialize_vault_pool(count=10)
-except Exception:
-    pass
+
+@asynccontextmanager
+async def lifespan(app):
+    global orchestrator
+    require_virtual_mode()
+    validate_password(os.getenv("DASHBOARD_API_TOKEN", ""))
+    orchestrator = VolumeOrchestratorLoop(
+        max_allowed_loss_usd=float(os.getenv("MAX_ALLOWED_LOSS_USD", "40")),
+        test_mode=False, state_path=SUITE_ROOT / "runtime" / "state.json")
+    orchestrator.initialize_vault_pool()
+    try:
+        yield
+    finally:
+        await stop_runner()
+        for ws in tuple(sockets):
+            with suppress(RuntimeError, WebSocketDisconnect):
+                await ws.close(code=1001)
+        sockets.clear()
+
+
+app = FastAPI(title="Virtual Bot Safety Control Plane", lifespan=lifespan)
+
+
+class APIProtection:
+    """Authenticate before reading bounded bodies. Never trust forwarded IP headers.
+
+    A single shared dashboard token has one quota per operation across all IPs,
+    stronger than per-IP limiting and constant-memory. Deploy one worker locally.
+    """
+    def __init__(self, app):
+        self.app = app
+        self.buckets = {}
+        self.last_rate_log = {}
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or not scope["path"].startswith("/api"):
+            return await self.app(scope, receive, send)
+        headers = dict(scope.get("headers", []))
+        auth = headers.get(b"authorization", b"").decode("latin-1")
+        if not valid_bearer(auth):
+            await JSONResponse({"detail": "Unauthorized"}, status_code=401,
+                               headers={"WWW-Authenticate": "Bearer"})(scope, receive, send)
+            return
+        path = scope["path"].rstrip("/")
+        stops = {"/api/orchestrator/stop", "/api/bot/stop", "/api/trading/kill-switch"}
+        if path not in stops:
+            try:
+                require_virtual_mode()
+            except PermissionError:
+                await JSONResponse({"detail": "VIRTUAL_ONLY"}, status_code=403)(scope, receive, send)
+                return
+        group = ("start" if path in {"/api/orchestrator/start", "/api/bot/start"}
+                 else "vault" if path == "/api/vault/generate"
+                 else "github" if path == "/api/github/search" else "other")
+        if path not in stops:
+            now = time.monotonic()
+            bucket = self.buckets.setdefault(group, deque())
+            while bucket and now - bucket[0] >= 60:
+                bucket.popleft()
+            limit = 120 if group == "other" else 5
+            if len(bucket) >= limit:
+                # Bound log volume too: one event per bucket window.
+                if now - self.last_rate_log.get(group, float("-inf")) >= 60:
+                    audit("security.rate_limit_exceeded", operation=group)
+                    self.last_rate_log[group] = now
+                await JSONResponse({"detail": "Rate limit exceeded"}, status_code=429,
+                                   headers={"Retry-After": "60"})(scope, receive, send)
+                return
+            bucket.append(now)
+        chunks, size = [], 0
+        while True:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return
+            chunk = message.get("body", b"")
+            size += len(chunk)
+            if size > 8192:
+                await JSONResponse({"detail": "Request body too large"}, status_code=413)(scope, receive, send)
+                return
+            chunks.append(chunk)
+            if not message.get("more_body", False):
+                break
+        replayed = False
+        async def replay():
+            nonlocal replayed
+            if replayed:
+                return await receive()
+            replayed = True
+            return {"type": "http.request", "body": b"".join(chunks), "more_body": False}
+        await self.app(scope, replay, send)
+
+
+app.add_middleware(APIProtection)
 
 
 class Assessment(BaseModel):
@@ -52,82 +143,49 @@ class Assessment(BaseModel):
     fee_bps: int = Field(default=25, strict=True, ge=0, lt=10000)
 
 
-class SweepRequest(BaseModel):
-    destination: Optional[str] = "SafeColdStorageDestinationAddress11111111111111"
+class SearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    query: str = Field(min_length=1, max_length=200)
+    min_stars: int = Field(default=0, strict=True, ge=0, le=1_000_000_000)
+    language: str = Field(default="Python", min_length=1, max_length=40)
 
 
 def telemetry():
-    return {
-        "mode": "PAPER_TRADING", "live_execution_enabled": False,
-        "notice": "NO LIVE EXECUTION ENABLED", "bot_status": "STOPPED",
-        "jito_status": "DISABLED", "confirmed_transactions": 0,
-        "volume_5m_usd": None, "volume_1h_usd": None, "burn_rate": None,
-        "wallets": [], "balances_status": "NOT_FETCHED",
-        "liquidity": check_liquidity(1, {}, {}),
-    }
+    return {"mode": "PAPER_TRADING", "live_execution_enabled": False, "paper_trading": True,
+            "gemini_real_money_ready": False, "notice": "NO LIVE EXECUTION ENABLED",
+            "bot_status": "RUNNING" if orchestrator and orchestrator.is_running else "STOPPED",
+            "jito_status": "DISABLED", "confirmed_transactions": 0,
+            "volume_5m_usd": None, "volume_1h_usd": None, "burn_rate": None,
+            "wallets": [], "balances_status": "MOCK_ONLY", "liquidity": check_liquidity(1, {}, {})}
 
 
 @app.get("/")
 def index():
-    return FileResponse(Path(__file__).parent / "static" / "index.html")
+    return FileResponse(Path(__file__).parent / "static" / "index.html",
+                        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+                                 "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"})
 
 
-# Safety-only telemetry endpoints preserved for test compatibility
 @app.get("/api/trading/telemetry")
 def get_trading_telemetry():
     return telemetry()
 
 
+@app.get("/api/status")
 @app.get("/api/telemetry")
-def get_suite_telemetry():
-    m = orchestrator.treasury_guard.get_recent_metrics()
-    return {
-        "bot_status": "RUNNING" if orchestrator.is_running else "STOPPED",
-        "mode": "PAPER_TRADING_ONLY",
-        "notice": "NO LIVE EXECUTION ENABLED",
-        "metrics": {
-            "volume_5m_usd": m["recent_volume_usd"],
-            "burn_5m_usd": m["recent_burn_usd"],
-            "total_volume_usd": m["total_volume_usd"],
-            "total_burn_usd": m["total_burn_usd"],
-            "efficiency_ratio": m["efficiency_ratio"],
-            "circuit_breaker_tripped": m["circuit_breaker_tripped"],
-            "pause_reason": m["pause_reason"]
-        },
-        "jito_stats": {
-            "bundles_sent": orchestrator.jito_client.total_bundles_sent,
-            "bundles_confirmed": orchestrator.jito_client.total_bundles_confirmed,
-            "bundles_dropped": orchestrator.jito_client.total_bundles_dropped,
-            "mempool_leak_prevention": "100%_SECURED"
-        },
-        "total_tx_count": orchestrator.iteration_count,
-        "recent_events": orchestrator.event_journal[:30]
-    }
+def get_status():
+    return {**telemetry(), "mode": "PAPER_TRADING_ONLY",
+            "wallets": orchestrator.wallet_balances,
+            "metrics": orchestrator.treasury_guard.get_recent_metrics(),
+            "liquidity_gate_status": orchestrator.liquidity_gate.last_status,
+            "events": orchestrator.event_journal[:50]}
 
 
 @app.get("/api/vault/wallets")
-def get_vault_wallets():
-    wallets = []
-    for idx, (addr, bal) in enumerate(orchestrator.wallet_balances.items()):
-        wallets.append({
-            "wallet_index": idx,
-            "alias": f"wallet_{idx}",
-            "pubkey": addr,
-            "sol_balance": bal,
-            "role": "market_maker" if idx % 2 == 0 else "momentum_trader"
-        })
-    if not wallets:
-        wallets = [
-            {
-                "wallet_index": i,
-                "alias": f"wallet_{i}",
-                "pubkey": f"SimWallet{i}PubkeyMock111111111111111111111",
-                "sol_balance": 0.5,
-                "role": "market_maker" if i % 2 == 0 else "momentum_trader"
-            }
-            for i in range(10)
-        ]
-    return {"wallets": wallets, "count": len(wallets)}
+def wallets():
+    items = [{"wallet_index": i, "pubkey": addr, "sol_balance": balance, "source": "MOCK"}
+             for i, (addr, balance) in enumerate(orchestrator.wallet_balances.items())]
+    return {"wallets": items, "count": len(items)}
 
 
 @app.get("/api/liquidity/status")
@@ -146,18 +204,14 @@ def assess(req: Assessment):
 def simulate():
     return JSONResponse(status_code=409, content={
         "state": "FAILED_OR_UNKNOWN", "reason": "VERIFIED_POOL_ADAPTER_UNAVAILABLE",
-        "execution_allowed": False, "verified_side_effect": False,
-        "liquidity_gate_status": "UNKNOWN",
-    })
+        "execution_allowed": False, "verified_side_effect": False, "liquidity_gate_status": "UNKNOWN"})
 
 
 @app.post("/api/trading/kill-switch")
 @app.post("/api/bot/stop")
-def kill_switch():
-    global orchestrator_task
-    orchestrator.stop()
-    if orchestrator_task and not orchestrator_task.done():
-        orchestrator_task.cancel()
+@app.post("/api/orchestrator/stop")
+async def kill_switch():
+    await stop_runner()
     return {"status": "STOPPED", "bot_status": "STOPPED", "live_execution_enabled": False}
 
 
@@ -171,149 +225,122 @@ def budget():
     return {"execution_budget_usd": 0, "spent_usd": None, "status": "DISABLED"}
 
 
-@app.post("/api/bot/start")
-async def bot_start(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        body = None
-    if not body or not isinstance(body, dict):
-        return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
+async def start_runner():
     global orchestrator_task
-    orchestrator.is_running = True
-    if not orchestrator.cached_keypairs:
-        orchestrator.initialize_vault_pool(count=10)
-    orchestrator_task = asyncio.create_task(orchestrator.run())
-    return {"status": "SUCCESS", "bot_status": "RUNNING"}
+    if orchestrator_task is None or orchestrator_task.done():
+        if orchestrator_task is not None:
+            await orchestrator_task  # Surface failures rather than silently replacing them.
+        orchestrator_task = asyncio.create_task(orchestrator.run())
+        await asyncio.sleep(0)
+    return {"status": "RUNNING", "bot_status": "RUNNING", "mode": "PAPER_TRADING_ONLY"}
 
-
-@app.post("/api/bot/sweep")
-async def bot_sweep(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        body = None
-    if not body or not isinstance(body, dict):
-        return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
-    dest = body.get("cold_destination_pubkey") or body.get("destination") or "ColdDestination"
-    total_sol = sum(orchestrator.wallet_balances.values())
-    count = len(orchestrator.wallet_balances)
-    orchestrator.wallet_balances.clear()
-    sig = f"sim_sweep_sig_{int(time.time()*1000)}"
-    return {
-        "status": "SUCCESS",
-        "destination": dest,
-        "total_sol_swept": round(total_sol, 4),
-        "wallets_swept": count,
-        "tx_signature": sig
-    }
-
-
-# -------------------------------------------------------------
-# INTERACTIVE PROTOTYPE ENDPOINTS
-# -------------------------------------------------------------
 
 @app.post("/api/orchestrator/start")
-async def start_orchestrator():
-    global orchestrator_task
-    if not orchestrator.is_running:
-        if not orchestrator.cached_keypairs:
-            orchestrator.initialize_vault_pool(count=10)
-        orchestrator_task = asyncio.create_task(orchestrator.run())
-        orchestrator.is_running = True
-    return {"status": "RUNNING"}
+async def start_orchestrator(request: Request):
+    body = await request.body()
+    if body not in (b"", b"{}"):
+        audit("SECURITY_VIOLATION", reason="UNSUPPORTED_START_CONFIGURATION")
+        return JSONResponse({"detail": "Start accepts no configuration or credentials"}, status_code=403)
+    return await start_runner()
 
 
-@app.post("/api/orchestrator/stop")
-async def stop_orchestrator():
-    global orchestrator_task
-    orchestrator.stop()
-    if orchestrator_task and not orchestrator_task.done():
-        orchestrator_task.cancel()
-    return {"status": "STOPPED"}
-
-
-@app.get("/api/status")
-def get_status():
-    return {
-        "mode": "PAPER_TRADING_ONLY",
-        "bot_status": orchestrator.is_running,
-        "wallets": orchestrator.wallet_balances,
-        "metrics": orchestrator.treasury_guard.get_recent_metrics(),
-        "liquidity_gate_status": orchestrator.liquidity_gate.last_status,
-        "events": orchestrator.event_journal[:50]
-    }
-
-
-@app.post("/api/sweep")
-async def sweep(req: Optional[SweepRequest] = None):
-    dest = req.destination if (req and req.destination) else "SafeColdStorageDestinationAddress11111111111111"
-    total_sol = sum(orchestrator.wallet_balances.values())
-    count = len(orchestrator.wallet_balances)
-    for k in orchestrator.wallet_balances:
-        orchestrator.wallet_balances[k] = 0.005  # dust for rent
-    sig = f"sim_sweep_sig_{int(time.time()*1000)}"
-    orchestrator.log_event(
-        "EMERGENCY_SWEEP",
-        f"Simulated emergency sweep of {total_sol:.4f} SOL to cold storage {dest[:4]}...{dest[-4:]}",
-        meta={"destination": dest, "total_sol": total_sol, "sig": sig}
-    )
-    return {
-        "status": "SUCCESS",
-        "mode": "PAPER_TRADING_SIMULATED",
-        "destination": dest,
-        "total_sol_swept": round(total_sol, 4),
-        "wallets_swept": count,
-        "tx_signature": sig
-    }
+@app.post("/api/bot/start")
+async def bot_start(request: Request):
+    # Legacy callers must explicitly request simulation; no passwords or RPC URLs.
+    try:
+        body = await request.json()
+    except ValueError:
+        body = None
+    if body != {"mode": "simulation"}:
+        audit("SECURITY_VIOLATION", reason="UNSUPPORTED_START_CONFIGURATION")
+        return JSONResponse({"detail": "Use mode=simulation only"}, status_code=403)
+    return await start_runner()
 
 
 @app.post("/api/vault/generate")
 async def generate_vault(request: Request):
     try:
         body = await request.json()
-    except Exception:
+    except ValueError:
         body = None
+    if not isinstance(body, dict) or set(body) != {"count"}:
+        return JSONResponse({"detail": "Only count is accepted; keys and passwords cannot be imported"}, status_code=403)
+    count = body["count"]
+    if type(count) is not int or not 1 <= count <= 100:
+        return JSONResponse({"detail": "count must be an integer between 1 and 100"}, status_code=422)
+    if orchestrator_task is not None and not orchestrator_task.done():
+        return JSONResponse({"detail": "Stop the simulation before resetting mock wallets"}, status_code=409)
+    orchestrator.initialize_vault_pool(count)
+    return {"status": "SUCCESS", "count": count, "mode": "MOCK_ONLY"}
 
-    if not body or not isinstance(body, dict):
-        return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
 
-    count = body.get("count")
-    password = body.get("password")
-    if not isinstance(count, int) or count < 1 or not isinstance(password, str) or len(password) < 6:
-        return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
-
+@app.post("/api/bot/sweep")
+@app.post("/api/sweep")
+async def sweep(request: Request):
     try:
-        if os.path.exists(orchestrator.vault_path):
-            try:
-                os.remove(orchestrator.vault_path)
-            except OSError:
-                pass
-        orchestrator.master_password = password
-        orchestrator.vault = SecurityKeyVault(storage_path=orchestrator.vault_path)
-        orchestrator.wallet_balances.clear()
-        orchestrator.initialize_vault_pool(count=count)
-        return {"status": "SUCCESS", "count": count}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "ERROR", "message": str(e)})
+        body = await request.json()
+    except ValueError:
+        body = None
+    if not isinstance(body, dict) or set(body) != {"destination"} or body["destination"] != "mock:cold":
+        audit("SECURITY_VIOLATION", reason="NON_MOCK_SWEEP")
+        return JSONResponse({"detail": "Only destination=mock:cold is accepted"}, status_code=403)
+    await stop_runner()
+    total = sum(orchestrator.wallet_balances.values())
+    orchestrator.wallet_balances = {key: 0.0 for key in orchestrator.wallet_balances}
+    orchestrator.log_event("SIMULATED_SWEEP", "Reset fictitious balances")
+    orchestrator.save_state()
+    return {"status": "SUCCESS", "mode": "PAPER_TRADING_SIMULATED", "destination": "mock:cold",
+            "total_sol_swept": total, "confirmed_onchain": False, "tx_signature": None}
+
+
+@app.post("/api/github/search")
+async def github_search(req: SearchRequest):
+    global github_results, github_searched_at
+    try:
+        repos = await asyncio.to_thread(searcher.search_repositories, req.query, req.min_stars, req.language)
+        filtered = searcher.filter_garbage(repos)
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=422)
+    except GitHubRateLimitError as exc:
+        audit("security.rate_limit_exceeded", operation="github_upstream")
+        return JSONResponse({"detail": str(exc)}, status_code=429,
+                            headers={"Retry-After": str(exc.retry_after)})
+    except GitHubSearchError:
+        return JSONResponse({"detail": "GitHub search unavailable; previous results retained"}, status_code=502)
+    github_results = filtered
+    github_searched_at = time.time()
+    return github_results
+
+
+@app.get("/api/github/results")
+def results():
+    return github_results
 
 
 @app.websocket("/ws/telemetry")
-async def websocket_telemetry(websocket: WebSocket):
-    await websocket.accept()
+async def websocket_telemetry(ws: WebSocket):
+    if len(sockets) >= 4:
+        await ws.close(code=1013)
+        return
+    sockets.add(ws)
     try:
+        await ws.accept()
+        auth = ws.headers.get("authorization")
+        if not auth:
+            first = await asyncio.wait_for(ws.receive_text(), timeout=3)
+            if len(first) > 512:
+                await ws.close(code=1008)
+                return
+            auth = "Bearer " + first
+        if not valid_bearer(auth):
+            await ws.close(code=1008)
+            return
         while True:
-            data = {
-                "mode": "PAPER_TRADING_ONLY",
-                "notice": "NO LIVE EXECUTION ENABLED",
-                "bot_status": orchestrator.is_running,
-                "wallets": orchestrator.wallet_balances,
-                "metrics": orchestrator.treasury_guard.get_recent_metrics(),
-                "liquidity_gate_status": orchestrator.liquidity_gate.last_status,
-                "events": orchestrator.event_journal[:50],
-                "timestamp": time.time()
-            }
-            await websocket.send_json(data)
-            await asyncio.sleep(1.0)
-    except (WebSocketDisconnect, Exception):
-        pass
+            require_virtual_mode()
+            await ws.send_json(get_status())
+            await asyncio.sleep(1)
+    except (WebSocketDisconnect, asyncio.TimeoutError, PermissionError):
+        with suppress(RuntimeError, WebSocketDisconnect):
+            await ws.close(code=1008)
+    finally:
+        sockets.discard(ws)
