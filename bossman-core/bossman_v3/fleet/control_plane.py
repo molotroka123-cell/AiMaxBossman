@@ -152,6 +152,16 @@ class FleetExecutionBridge:
         self.journal_root = Path(journal_root) if journal_root else None
 
     def execute(self, contract: DelegationContract, *, agent_id: str) -> WorkResult:
+        from bossman_shared import reality_guard
+        jid = f"{contract.mission_id}__{contract.work_id}"
+        try:
+            participant = reality_guard.lookup("compound", jid, jid, actor=agent_id, plan=contract.steps)
+            # RealityStore is explicitly single-host; do not pretend it fences remote nodes.
+            if participant is not None and not isinstance(self.plane.transport, LocalNodeTransport):
+                raise reality_guard.RealityBlocked("distributed Reality backend is unavailable")
+        except Exception:
+            return WorkResult(contract.work_id, executed=False, produced_by=agent_id,
+                              reason="Reality: admission blocked", metadata={"waiting_approval": True})
         plane = self.plane
         now = time.time()
         flight = plane.flights.open(contract.work_id, contract.mission_id)
@@ -198,7 +208,11 @@ class FleetExecutionBridge:
         plane.metrics["dispatches"] += 1
         try:
             plane.flights.transition(flight, FlightState.EXECUTING)
-            result = plane.transport.dispatch(node_id, req)
+            with reality_guard.fleet_fence(lambda: plane.leases.valid(lease, now=time.time())[0]):
+                if not plane.leases.valid(lease, now=time.time())[0]:
+                    raise reality_guard.RealityBlocked("Fleet lease expired before dispatch")
+                result = plane.transport.dispatch(node_id, req)
+                reality_guard.require_complete("compound", jid, jid)
         except (NodeUnavailable, ConnectionError, TimeoutError, OSError) as exc:
             return self._lost(flight, contract, agent_id, node_id, lease, f"node lost: {type(exc).__name__}: {exc}")
         except Exception as exc:  # noqa: BLE001 — падение исполнителя узла = потеря узла для этой работы

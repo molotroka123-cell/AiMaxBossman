@@ -30,6 +30,7 @@ from ..computer_agent.agent import (ApprovalDeniedError, PolicyDeniedError,
 from ..contracts import TypedAction, SideEffectClass
 from ..memory.failure_memory import FailureMemory
 from ..memory.journal import TaskJournal, JournalIntegrityError
+from bossman_shared import reality_guard
 
 _EXPECTED = (PolicyDeniedError, ApprovalDeniedError, StaleObservationError,
              UnsafeActionError, UnsupportedActionError)
@@ -111,6 +112,11 @@ class CompoundRunner:
             self.journal.bind_plan([step_to_dict(s) for s in plan])
         except JournalIntegrityError as exc:
             return CompoundResult(False, reason=str(exc))
+        try:
+            reality = reality_guard.lookup("compound", self.journal.task_id, self.journal.task_id,
+                                           actor=self.model, plan=[step_to_dict(s) for s in plan])
+        except Exception:
+            return CompoundResult(False, reason="Reality: immutable IR or host profile unavailable")
         done_ids = {s.step_id for s in self.journal.finished()}
         executed: list[str] = []
         not_run: list[str] = []
@@ -141,8 +147,10 @@ class CompoundRunner:
                     with external_guard() if external_guard is not None else nullcontext():
                         self.journal.begin(step.step_id, by=self.model)
                         yield
-                outcome = self.agent.run(step.action, {**dict(context or {}),
-                                                       "execution_guard": guarded_effect})
+                outcome = reality_guard.dispatch_sync(
+                    reality, step.action.action_type, dict(step.action.args),
+                    lambda: self.agent.run(step.action, {**dict(context or {}),
+                                                        "execution_guard": guarded_effect}))
             except _EXPECTED as exc:
                 reason = f"{type(exc).__name__}: {exc}"
                 self.journal.fail(step.step_id, error=reason, by=self.model)
@@ -180,4 +188,8 @@ class CompoundRunner:
             first = remaining_required[0]
             return CompoundResult(False, executed, not_run, first.step_id,
                                   "обязательный шаг не завершён")
+        try:
+            reality_guard.require_complete("compound", self.journal.task_id, self.journal.task_id)
+        except Exception:
+            return CompoundResult(False, executed, not_run, None, "Reality: proof incomplete")
         return CompoundResult(True, executed, not_run, None, "")

@@ -1,0 +1,42 @@
+{
+  "status": "PASS",
+  "mode": "real local git + local bare remote; no cloud",
+  "base_sha": "020089ed7229b68cd86f8bc68dafd0dde06de164",
+  "base_tree": "587a9cb0dea864051245c68ffb055a5eb1e4ee65",
+  "fixed_sha": "e576a404cdfa1ea08ffcbffaa361ec51327016a5",
+  "fixed_tree": "0b5146d69a7f3435916ca594d9f5fe68057ea59a",
+  "remote_sha": "e576a404cdfa1ea08ffcbffaa361ec51327016a5",
+  "exact_patch": "diff --git a/calc.py b/calc.py\nindex 12ee743..4693ad3 100644\n--- a/calc.py\n+++ b/calc.py\n@@ -1,2 +1,2 @@\n def add(a, b):\n-    return a - b\n+    return a + b",
+  "mission_fingerprint": "1d6fec54ad8f93fc09b23305eebc4fdc4d4f342eccc58ed1b7c077d73070d519",
+  "obligations": 5,
+  "observations": {
+    "reproduce": {
+      "tree": "587a9cb0dea864051245c68ffb055a5eb1e4ee65",
+      "source_digest": "964268d585b333ca01f7302b27855d5a0e813d19a3772dfd6da821b588966ad2",
+      "exit_code": 1
+    },
+    "fix": "def add(a, b):\n    return a + b\n",
+    "test": {
+      "tree": "0b5146d69a7f3435916ca594d9f5fe68057ea59a",
+      "source_digest": "792fa4a42cce458f5e65afff6ac22e29655040e989db6c1fe50424507403f5f1",
+      "exit_code": 0
+    },
+    "commit": {
+      "commit": "e576a404cdfa1ea08ffcbffaa361ec51327016a5",
+      "tree": "0b5146d69a7f3435916ca594d9f5fe68057ea59a",
+      "parent": "020089ed7229b68cd86f8bc68dafd0dde06de164"
+    },
+    "push": {
+      "commit": "e576a404cdfa1ea08ffcbffaa361ec51327016a5",
+      "tree": "0b5146d69a7f3435916ca594d9f5fe68057ea59a",
+      "patch": "diff --git a/calc.py b/calc.py\nindex 12ee743..4693ad3 100644\n--- a/calc.py\n+++ b/calc.py\n@@ -1,2 +1,2 @@\n def add(a, b):\n-    return a - b\n+    return a + b"
+    }
+  },
+  "completed_steps": [
+    "reproduce",
+    "fix",
+    "test",
+    "commit",
+    "push"
+  ]
+}

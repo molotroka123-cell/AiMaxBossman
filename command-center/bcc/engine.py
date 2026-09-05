@@ -14,6 +14,8 @@ from datetime import timedelta
 from typing import Any
 
 import sqlalchemy as sa
+from . import _shared  # bootstrap the separately installed shared contracts
+from bossman_shared import reality_guard
 from sqlalchemy.exc import SQLAlchemyError
 
 from .db import (Database, agents as agents_t, approvals as approvals_t,
@@ -112,6 +114,7 @@ class TaskEngine:
         # критичность по id(fn): список self.hooks[...] остаётся списком корутин
         # (фичи/тесты могут его трогать напрямую), метаданные — отдельно.
         self._hook_critical: dict[int, bool] = {}
+        self.add_hook("gate_completion", reality_guard.completion_hook, critical=True)
         # каждому вызову хука — свой таймаут (asyncio.wait_for); None = без лимита
         self.hook_timeout_s: float | None = DEFAULT_HOOK_TIMEOUT_S
         # Services проставляет себя после создания: инструментам нужен доступ к
@@ -557,6 +560,12 @@ class TaskEngine:
         trace_token = current_trace_id.set(run_trace_id(run_id))       # TRUTH-003 §14: один trace на run
         try:
             await self._run(run_id)
+        except reality_guard.RealityBlocked:
+            async with self.db.session() as s:
+                held_run = await fetch_one(s, runs_t, run_id)
+            if held_run:
+                await self._finish(run_id, held_run["task_id"], "failed",
+                                   error="Reality: host reconciliation required; no automatic retry")
         except FencedOut as exc:
             await self._fenced_out_exit(run_id, str(exc))
         except asyncio.CancelledError:
@@ -642,6 +651,8 @@ class TaskEngine:
             agent = await fetch_one(s, agents_t, task["agent_id"]) if task and task["agent_id"] else None
         if task is None:
             return
+        await asyncio.to_thread(reality_guard.lookup, "bcc", task["id"], run_id,
+                                actor=task.get("agent_id"))
         if agent is None:
             await self._fail_now(run_id, task["id"],
                                  "у задачи не выбран агент — некому её выполнять")
@@ -873,6 +884,7 @@ class TaskEngine:
         """Вызов модели: сначала pick_model-хук (Smart Router) может перекрыть выбор;
         при ошибке маршрута — модель агента; при её ошибке — fallback_model.
         `tools` — схемы ТОЛЬКО выданных этому run'у инструментов."""
+        await asyncio.to_thread(reality_guard.block_unmetered_model, "bcc", task["id"], run_id)
         kw: dict[str, Any] = {"max_tokens": agent.get("max_tokens")}
         if tools:
             kw["tools"] = tools
@@ -1022,7 +1034,10 @@ class TaskEngine:
                                     tool=spec.name, prior_run_id=prior.get("run_id"))
                 return
         started = time.monotonic()
-        result = await execute_tool(spec, call.arguments, ctx)
+        result = await reality_guard.dispatch(
+            "bcc", task["id"], run_id, str(agent.get("id", "")), spec.name, call.arguments,
+            lambda: execute_tool(spec, call.arguments, ctx),
+            fence_check=lambda: self.assert_fence(run_id))
         duration = int((time.monotonic() - started) * 1000)
         await self._record_tool_call(
             run_id, task["id"], step, call, spec,
@@ -1402,6 +1417,13 @@ class TaskEngine:
                       error: str | None = None, result: str | None = None,
                       checkpoint: dict | None = None, sync_task: bool = True,
                       **values: Any) -> None:
+        if status == "completed":
+            # Recheck even for callers which do not go through gate_completion.
+            # The existing transaction's run fence remains authoritative below.
+            async with self.db.session() as s:
+                completion_task = await fetch_one(s, tasks_t, task_id)
+            await asyncio.to_thread(reality_guard.require_complete, "bcc", task_id, run_id,
+                                    actor=(completion_task or {}).get("agent_id"))
         run_values: dict[str, Any] = {"status": status, "finished_at": utcnow(), **values}
         if error is not None:
             run_values["error"] = error

@@ -1,0 +1,12 @@
+{
+  "repository": "molotroka123-cell/AiMaxBossman",
+  "branch": "claude/bossman-control-v03-43igbk",
+  "observed_head": "836d34023f9264992ab6b86b06060cae3912e5df",
+  "scope": "Read-only integration anchors, not full repository audit",
+  "file_blobs": {
+    "bossman_shared/__init__.py": "7de45e140b1254715ad096e8f39e68d659c5b045",
+    "bossman-core/pyproject.toml": "876ebdd892f7418a41abb5168619ef15219e5745",
+    "command-center/bcc/engine.py": "f5f5de1bba5568d354fb389907f49e940ca21488"
+  },
+  "tested_python": "3.12.13 (main, Aug  7 2026, 02:25:39) [Clang 22.1.3 ]"
+}

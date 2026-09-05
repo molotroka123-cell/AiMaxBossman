@@ -9,6 +9,35 @@ permissions:
   contents: read
 
 jobs:
+  reality-installed:
+    name: Reality installed applications and controlled git (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install shared wheel and both applications
+        run: python -m pip install . "./bossman-core[dev,resource]" "./command-center[dev]"
+      - name: Shared module resolves outside the checkout
+        working-directory: /tmp
+        run: >-
+          python -c "import bossman.runner, bcc.engine;
+          assert bossman.runner.reality_guard is bcc.engine.reality_guard;
+          import bossman_shared.reality; print(bossman_shared.reality.__file__)"
+      - name: Root Reality suite
+        run: python -m pytest tests/reality -q --timeout=60
+      - name: Core and Fleet integration
+        run: python -m pytest bossman-core/tests/test_reality_integration.py -q --timeout=60
+      - name: Command Center integration
+        run: python -m pytest command-center/tests/test_reality_integration.py -q --timeout=60
+      - name: Controlled local git mission
+        run: python scripts/reality_git_acceptance.py --output /tmp/reality-git-acceptance
+
   root-tests:
     name: root pytest + hygiene (py${{ matrix.python }})
     runs-on: ubuntu-latest

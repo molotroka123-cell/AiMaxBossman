@@ -19,6 +19,8 @@ from .context import SUMMARY_MAX_TOKENS, ContextBudget, ContextBuilder
 from .llm import CloudDenied, NeedsCloudApproval, chat, real_window
 from .completion import CompletionContract, CompletionGate
 from .toolkit import REGISTRY, ToolContext, by_api_name, tool_line
+from . import _shared  # bootstrap the separately installed shared contracts
+from bossman_shared import reality_guard
 
 _log = obs.get_logger("bossman.runner")
 _WM = working_memory.WorkingMemory()
@@ -269,7 +271,11 @@ async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
         approved_by = decision.get("decided_by")
 
     try:
-        result = await tool.handler(args, ctx)
+        result = await reality_guard.dispatch(
+            "core", task_id, run_id, agent.name, tool.name, args,
+            lambda: tool.handler(args, ctx))
+    except reality_guard.RealityBlocked:
+        raise  # Escrow is a host recovery state, not corrective model feedback.
     except Exception as exc:  # ошибка инструмента — данные для модели, не падение петли
         if ctx.completion_gate is not None:
             ctx.completion_gate.record(tool.name, tool.rights, args, error=True)
@@ -366,6 +372,7 @@ async def run_task(task: dict) -> None:
     cloud_ok_by: str | None = None
 
     try:
+        await asyncio.to_thread(reality_guard.lookup, "core", task["id"], run_id, actor=agent.name)
         while steps < agent.max_steps:
             if time.monotonic() - started > agent.timeout_min * 60:
                 status, final = "failed", "остановлено: превышен timeout_min агента"
@@ -384,6 +391,7 @@ async def run_task(task: dict) -> None:
                         handoff.quality_checks.get("nonempty"):
                     builder.apply_compaction(handoff.text)
                 else:
+                    await asyncio.to_thread(reality_guard.block_unmetered_model, "core", task["id"], run_id)
                     summary_msg = await chat(agent, builder.compaction_messages(), run_id=run_id,
                                              cloud_approved_by=cloud_ok_by, max_tokens=800)
                     builder.apply_compaction(summary_msg.get("content") or "")
@@ -392,6 +400,7 @@ async def run_task(task: dict) -> None:
             steps += 1
             block_tokens = builder.block_tokens(task["text"])
             try:
+                await asyncio.to_thread(reality_guard.block_unmetered_model, "core", task["id"], run_id)
                 msg = await chat(agent, builder.build(task["text"]), tools=tools or None,
                                  run_id=run_id, block_tokens=block_tokens,
                                  cloud_approved_by=cloud_ok_by)
@@ -447,6 +456,11 @@ async def run_task(task: dict) -> None:
         if status != "done":
             final = completion_reason + "\n\n" + final
         events.emit("task.completion", id=task["id"], run_id=run_id, status=status, reason=completion_reason)
+    if status == "done":
+        try:
+            await asyncio.to_thread(reality_guard.require_complete, "core", task["id"], run_id)
+        except Exception:
+            status, final = "failed", "Reality: proof incomplete; host reconciliation required"
 
     await db.execute(
         """UPDATE runs SET status=$2, steps=$3, prompt_tokens=$4, finished_at=now(), error=$5
