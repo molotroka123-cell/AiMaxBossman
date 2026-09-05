@@ -85,7 +85,9 @@ async function buildConnectPanel(providerId, ctx) {
 
   const keyEl = input({ placeholder: 'sk-or-… ключ OpenRouter', type: 'password' });
   const note = h('div.xsmall.dim', when ? `Ключ сохранён, но каталог пуст — последний sync: ${when}` : 'Вставьте ключ и нажмите Connect — каталог загрузится автоматически.');
-  out.appendChild(field('API KEY', keyEl), note,
+  // append (не appendChild): у appendChild один аргумент, и подсказка с кнопкой
+  // Connect молча выпадали — на странице оставалось одно поле без действия.
+  out.append(field('API KEY', keyEl), note,
     actionButton('Connect', async () => {
       try {
         if (keyEl.value.trim()) {
