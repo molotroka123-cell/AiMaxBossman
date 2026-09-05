@@ -29,6 +29,11 @@ async def test_core_loop_final_text_requires_real_file_receipt(tmp_path, monkeyp
     guard.install("test", host)
     guard.enroll("core", 1, 1, asdict(mission), trusted_ir=asdict(mission), profile="test")
     agent = AgentSpec("worker", "worker", "fixture-local", tools=[ToolGrant("fs.write", False)], max_steps=3)
+    agent.path = tmp_path / "agent"
+    agent.path.mkdir()
+    (agent.path / "prompt.md").write_text(
+        "KEEP EXISTING SAFETY POLICY. " + "existing instructions " * 400, encoding="utf-8")
+    monkeypatch.setattr(runner, "real_window", lambda _: 4096)
     async def handler(args, ctx):
         target.write_text(args["content"], encoding="utf-8")
         return ToolResult(content="file written")
@@ -48,12 +53,20 @@ async def test_core_loop_final_text_requires_real_file_receipt(tmp_path, monkeyp
     monkeypatch.setattr(guard, "block_unmetered_model", lambda *a: None)
     done = {"content": "done", "_usage": {"prompt_tokens": 1, "completion_tokens": 1}}
     response = dict(done, tool_calls=[{"function": {"name": "file_write", "arguments": __import__("json").dumps(args)}}])
-    monkeypatch.setattr(runner, "chat", AsyncMock(side_effect=[response, done] if perform_write else [done]))
+    model = AsyncMock(side_effect=[response, done] if perform_write else [done])
+    monkeypatch.setattr(runner, "chat", model)
     await runner.run_task({"id": 1, "text": "controlled file", "agent": "worker",
                            "completion_contract": {"mode": "action", "files": [{"path": "result.txt", "contains": "verified"}]}})
     finished = [call.args for call in execute.call_args_list if "UPDATE runs SET status=" in call.args[0]]
     assert finished[-1][2] == "done" if perform_write else finished[-1][2] != "done"
     assert target.exists() is perform_write
+    from bossman_shared.reasoning_protocol import reasoning_protocol_prompt
+    for invocation in model.call_args_list:
+        outbound = invocation.args[1]
+        system = outbound[0]["content"]
+        assert system.startswith("KEEP EXISTING SAFETY POLICY.")
+        assert system.count(reasoning_protocol_prompt()) == 1
+        assert any(m["role"] == "user" and "controlled file" in m["content"] for m in outbound)
 
 
 @pytest.mark.parametrize("change", ["args", "target", "expected", "actor", "plan"])

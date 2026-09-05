@@ -15,12 +15,13 @@ import redis.asyncio as aioredis
 from . import approvals, db, decision_memory, events, failure_memory, obs, telegram, working_memory
 from .agents import AgentSpec, load_all
 from .config import settings
-from .context import SUMMARY_MAX_TOKENS, ContextBudget, ContextBuilder
+from .context import SUMMARY_MAX_TOKENS, ContextBudget, ContextBuilder, estimate_tokens
 from .llm import CloudDenied, NeedsCloudApproval, chat, real_window
 from .completion import CompletionContract, CompletionGate
 from .toolkit import REGISTRY, ToolContext, by_api_name, tool_line
 from . import _shared  # bootstrap the separately installed shared contracts
 from bossman_shared import reality_guard
+from bossman_shared.reasoning_protocol import reasoning_protocol_prompt, with_reasoning_protocol
 
 _log = obs.get_logger("bossman.runner")
 _WM = working_memory.WorkingMemory()
@@ -353,6 +354,13 @@ async def run_task(task: dict) -> None:
 
     budget = ContextBudget(window=real_window(agent.model))
     builder = ContextBuilder(budget, _system_prompt(agent))
+    # Preserve the original fitted policy, then insert the complete reviewed
+    # protocol. Appending before the 5% system fitter would silently truncate it.
+    # Pay for its bounded context overhead from history, not the safety reserve.
+    protocol_tokens = estimate_tokens(reasoning_protocol_prompt()) + 1
+    budget.limits["system"] += protocol_tokens
+    budget.limits["history"] = max(0, budget.limits["history"] - protocol_tokens)
+    builder.system = with_reasoning_protocol(builder.system)
     tools = _tool_schemas(agent)
     # V2.6 модуль B: уровень compute (None при выключенном флаге — как раньше).
     compute_level, _compute_reasons = await _select_compute(task)

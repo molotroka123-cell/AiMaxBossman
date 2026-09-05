@@ -16,6 +16,7 @@ from typing import Any
 import sqlalchemy as sa
 from . import _shared  # bootstrap the separately installed shared contracts
 from bossman_shared import reality_guard
+from bossman_shared.reasoning_protocol import with_reasoning_protocol
 from sqlalchemy.exc import SQLAlchemyError
 
 from .db import (Database, agents as agents_t, approvals as approvals_t,
@@ -691,6 +692,15 @@ class TaskEngine:
             if agent.get("system_prompt"):
                 messages.append({"role": "system", "content": agent["system_prompt"]})
             messages.append({"role": "user", "content": task["prompt"]})
+        # Apply to both new and resumed runs. Only this reviewed constant enters
+        # system context; roadmap files and tool/model output remain data.
+        system_index = next((i for i, m in enumerate(messages) if m.get("role") == "system"), None)
+        if system_index is None:
+            messages.insert(0, {"role": "system", "content": with_reasoning_protocol(
+                str(agent.get("system_prompt") or ""))})
+        else:
+            messages[system_index] = {**messages[system_index], "content": with_reasoning_protocol(
+                str(messages[system_index].get("content") or ""))}
         step = int(checkpoint.get("step") or 0)
         max_steps = max(1, int(agent.get("max_steps") or 1))
         tokens_in = int(run.get("tokens_in") or 0)
@@ -1085,6 +1095,22 @@ class TaskEngine:
                             f"{pending.get('tool')}: вызов уже исполнен, повтор не делаем")
             messages.append(_tool_message(call, "результат этого вызова уже получен ранее"))
         elif status == "approved" and spec is not None:
+            # An approval binds action identity; it cannot restore a revoked
+            # capability or override a DENY introduced while the run was parked.
+            allowed = {item.name for item in TOOLS.resolve(allowed_tools_for(task, agent))}
+            effect, reason = decide_effect(spec, call.arguments, agent, policy_rules)
+            if spec.name not in allowed or effect == "deny":
+                await self._mark_tool_call(run_id, call.id, status="denied",
+                                           approved_by="system:authorization_revoked")
+                messages.append(_tool_message(
+                    call, f"действие {spec.name} НЕ выполнено: текущее разрешение отозвано "
+                          f"или политика запрещает действие ({reason})"))
+                await self.bus.emit("tool.denied", task_id=task["id"], run_id=run_id,
+                                    tool=spec.name, reason="authorization revoked")
+                # Process any remaining calls through the normal policy path.
+                return not (remaining and await self._execute_tool_calls(
+                    run_id, task, agent, messages, remaining, step, policy_rules,
+                    TOOLS.resolve(allowed_tools_for(task, agent)), usage={}))
             # F-013: одобрение действительно ТОЛЬКО для того же инструмента, той же
             # реализации (поколение регистрации) и тех же канонических аргументов.
             # MCP refresh / перерегистрация / подмена аргументов в checkpoint →
@@ -1141,7 +1167,11 @@ class TaskEngine:
             if usage.get(key) is not None:
                 values[key] = usage[key]
         async with self.db.session() as s:
-            await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(**values))
+            upd = await s.execute(sa.update(runs_t).where(
+                runs_t.c.id == run_id, self._fence_clause(run_id)).values(**values))
+            if not upd.rowcount:
+                await s.rollback()
+                raise FencedOut(run_id, self._fences.get(run_id))
             await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
                 status="waiting_approval", updated_at=utcnow()))
             await s.commit()
@@ -1471,6 +1501,7 @@ class TaskEngine:
         task_id = int(task["id"])
         reason = f"critical hook gate_completion failed: {exc.hook}: {exc.reason}"
         try:
+            await self.assert_fence(run_id)
             await self._log(run_id, "error", "run.gate_failed", reason[:500])
             await self._approvals_create(
                 kind="review_escalation",
@@ -1479,14 +1510,18 @@ class TaskEngine:
                          f"Задача НЕ считается выполненной; нужно решение человека."),
                 task_id=task_id, run_id=run_id)
             async with self.db.session() as s:
-                await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                upd = await s.execute(sa.update(runs_t).where(
+                    runs_t.c.id == run_id, self._fence_clause(run_id)).values(
                     status="queued", worker_lease_until=None,
                     checkpoint={"messages": messages, "step": step,
                                 "note": "gate_hook_failed"}))
+                if not upd.rowcount:
+                    await s.rollback()
+                    raise FencedOut(run_id, self._fences.get(run_id))
                 await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
                     status="waiting_approval", updated_at=utcnow()))
                 await s.commit()
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, FencedOut):
             raise
         except Exception as inner:  # noqa: BLE001 — эскалация не удалась → честный failed
             await self.bus.emit("hook.escalation_failed", hook=exc.name, fn=exc.hook,
