@@ -17,6 +17,7 @@ from pathlib import Path
 STATE_ROOT = Path.home() / ".bossman" / "reality"
 _hosts = {}
 _fleet_fence = contextvars.ContextVar("reality_fleet_fence", default=None)
+_UNSPECIFIED_ACTOR = object()
 
 
 class RealityBlocked(RuntimeError):
@@ -74,7 +75,7 @@ def enroll(scope, task_id, run_id, proposal, *, trusted_ir, profile, plan=None):
     return mission
 
 
-def lookup(scope, task_id, run_id, *, actor=None, plan=None):
+def lookup(scope, task_id, run_id, *, actor=_UNSPECIFIED_ACTOR, plan=None):
     path = _marker(scope, task_id)
     if not path.exists():
         return None
@@ -87,7 +88,7 @@ def lookup(scope, task_id, run_id, *, actor=None, plan=None):
         mission = host.load(body["mission"])
         if mission.fingerprint != body["fingerprint"] or mission.run_id != str(run_id):
             raise RealityBlocked("persisted IR mismatch")
-        if actor is not None and mission.executor != str(actor):
+        if actor is not _UNSPECIFIED_ACTOR and (actor is None or mission.executor != str(actor)):
             raise RealityBlocked("executor principal changed")
         if plan is not None and body["plan"] != digest(plan):
             raise RealityBlocked("compound plan changed")
@@ -122,6 +123,18 @@ class Session:
         if self.host.fence_check(self.mission, effect, self.mission.executor, fence) is not True:
             raise RealityBlocked("host fence lost; escrow retained")
 
+    def before_io(self, effect, fence):
+        # Adapter fence checks may await DB/network reads after the original
+        # claim. Revalidate host authority after that wait and before dispatch.
+        self.host.validate(self.mission)
+        self.host.route_allowed(effect.action)
+        self.check_fence(effect, fence)
+
+    def check_arguments(self, effect, args):
+        from .reality.contracts import digest
+        if effect.args_digest != digest(args):
+            raise RealityBlocked("dispatch arguments changed after claim")
+
     def confirm(self, effect, fence):
         from .reality.contracts import digest
         self.check_fence(effect, fence)
@@ -132,6 +145,7 @@ class Session:
                 return self.host.observed(obligation, rt.observers[obligation.verifier](target))
             receipt = rt.authority.observe(self.mission, obligation.id, observe,
                 dispatch_binding=digest([self.mission.fingerprint, effect.id, fence]))
+            self.host.validate(self.mission)
             self.check_fence(effect, fence)
             rt.store.confirm(self.mission, effect.id, self.mission.executor, fence, receipt, rt.authority)
         self.host.call(confirm)
@@ -151,6 +165,10 @@ async def dispatch(scope, task_id, run_id, actor, action, args, invoke, *, fence
         effect, fence = await asyncio.to_thread(session.claim, action, args)
         if fence_check is not None:
             await fence_check()
+        await asyncio.to_thread(session.before_io, effect, fence)
+        # No await between this binding check and invoking the adapter: the
+        # caller's mutable dict must not change while earlier checks await.
+        session.check_arguments(effect, args)
         # Cancellation / adapter error leaves escrow intact, with no refund/retry.
         result = await invoke()
         if getattr(result, "error", False):
@@ -174,7 +192,7 @@ def dispatch_sync(session, action, args, invoke):
     return result
 
 
-def require_complete(scope, task_id, run_id, *, actor=None):
+def require_complete(scope, task_id, run_id, *, actor=_UNSPECIFIED_ACTOR):
     session = lookup(scope, task_id, run_id, actor=actor)
     if session is not None:
         session.complete()
@@ -186,9 +204,7 @@ async def completion_hook(task, run_id, answer):
             session = lookup("bcc", task["id"], run_id, actor=task.get("agent_id"))
             if session is None:
                 return {"verdict": "NOT_APPLICABLE"}
-            from .reality.runtime import make_completion_hook
-            return session.host.call(lambda rt: asyncio.run(
-                make_completion_hook(rt, lambda task, run: session.mission)(task, run_id, answer)))
+            return session.complete()
         except Exception:
             return {"verdict": "FAIL", "requeue": False, "reasons": "reality_proof_incomplete"}
     return await asyncio.to_thread(check)

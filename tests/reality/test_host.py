@@ -254,3 +254,61 @@ def test_poststate_divergence_restricts_after_restart(setup):
     assert restored.effective_level() == 0
     guard.install("local", restored)
     with pytest.raises(guard.RealityBlocked): write(setup)
+
+
+@pytest.mark.parametrize("actor", [None, "", False])
+def test_participating_dispatch_requires_actor(setup, actor):
+    _, _, args, target = setup
+    async def invoke():
+        target.write_text("verified")
+    with pytest.raises(guard.RealityBlocked):
+        asyncio.run(guard.dispatch("core", 1, "r1", actor, "file.write", args, invoke))
+    assert not target.exists()
+
+
+@pytest.mark.parametrize("change", ["fence", "policy", "arguments"])
+def test_async_preflight_rechecks_after_adapter_wait(setup, change):
+    host, _, args, target = setup
+    valid = [True]
+    level = [1]
+    host.fence_check = lambda *a: valid[0]
+    host.level_provider = lambda: level[0]
+    async def adapter_fence():
+        await asyncio.sleep(0)
+        if change == "fence":
+            valid[0] = False
+        elif change == "policy":
+            level[0] = 0
+        else:
+            args["content"] = "unauthorized"
+    async def invoke():
+        target.write_text(args["content"])
+    with pytest.raises(guard.RealityBlocked):
+        asyncio.run(guard.dispatch("core", 1, "r1", "worker", "file.write", args,
+                                   invoke, fence_check=adapter_fence))
+    assert not target.exists()
+    assert host.call(lambda rt: rt.store.db.execute("SELECT state FROM effects").fetchone()[0]) == "EFFECT_ESCROW"
+
+
+def test_completion_hook_keeps_fleet_fence(setup):
+    host, mission, _, _ = setup
+    guard.enroll("bcc", 1, "r1", asdict(mission), trusted_ir=asdict(mission), profile="local")
+    write(setup)
+    with guard.fleet_fence(lambda: False):
+        result = asyncio.run(guard.completion_hook({"id": 1, "agent_id": "worker"}, "r1", "done"))
+    assert result["verdict"] == "FAIL"
+    assert host.call(lambda rt: rt.store.db.execute("SELECT state FROM missions").fetchone()[0]) == "ACTIVE"
+
+
+def test_policy_revoked_during_observer_cannot_confirm(setup):
+    host, _, _, target = setup
+    level = [1]
+    host.level_provider = lambda: level[0]
+    def observer(path):
+        level[0] = 0
+        return Path(path).read_text()
+    host.observers["reader"] = observer
+    with pytest.raises(guard.RealityBlocked):
+        write(setup)
+    assert target.read_text() == "verified"
+    assert host.call(lambda rt: rt.store.db.execute("SELECT state FROM effects").fetchone()[0]) == "EFFECT_ESCROW"
