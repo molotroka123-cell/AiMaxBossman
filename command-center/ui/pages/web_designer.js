@@ -26,6 +26,7 @@ const state = {
   templates: [], palettes: [],
   selected: null, pick: true, device: 'desktop',
   generating: false, genNote: null,
+  dirty: false,               // в редакторе есть несохранённое
 };
 
 let frame = null;          // живой iframe превью (обновляется точечно)
@@ -93,9 +94,25 @@ const saveCode = debounce(async () => {
   try {
     const res = await api.raw(`/api/web-designer/projects/${state.id}/code`,
       { method: 'PUT', body: { html: editorNode ? editorNode.value : state.code, note: 'правка кода' } });
-    if (res && res.ok) { state.meta = res.meta; reloadFrame(); }
+    if (res && res.ok) { state.meta = res.meta; state.dirty = false; reloadFrame(); }
   } catch (e) { toastError(e, 'Не удалось сохранить код'); }
 }, 900);
+
+/* Немедленное сохранение: при смене проекта, Ctrl+S — debounce не успел бы. */
+async function flushSave(toast) {
+  if (!state.dirty || !editorNode || !state.id) return;
+  try {
+    const res = await api.raw(`/api/web-designer/projects/${state.id}/code`,
+      { method: 'PUT', body: { html: editorNode.value, note: 'правка кода' } });
+    if (res && res.ok) {
+      state.meta = res.meta;
+      state.code = editorNode.value;
+      state.dirty = false;
+      reloadFrame();
+      if (toast) toastOk('Код сохранён');
+    }
+  } catch (e) { toastError(e, 'Не удалось сохранить код'); }
+}
 
 async function sendEdit(payload, okMsg) {
   try {
@@ -242,7 +259,8 @@ function styleNode() {
 function head(ctx) {
   const opts = state.projects.map((p) => h('option', { value: String(p.id), selected: p.id === state.id },
     `${p.name} · v${p.version}`));
-  const sel = h('select', { style: { maxWidth: '220px' }, onChange: () => {
+  const sel = h('select', { style: { maxWidth: '220px' }, onChange: async () => {
+    await flushSave();                 // не теряем правки при смене проекта
     state.id = Number(sel.value); state.selected = null;
     try { localStorage.setItem(LAST_KEY, String(state.id)); } catch { /* приватный режим */ }
     ctx.refresh();
@@ -254,9 +272,23 @@ function head(ctx) {
     { pills: [verPill = pill(`v${(state.meta && state.meta.version) || 0}`, { tone: 'info' })],
       actions: [
         sel,
-        btn('+ Проект', () => { state.id = null; state.selected = null;
-          try { localStorage.removeItem(LAST_KEY); } catch { /* приватный режим */ } ctx.refresh(); },
+        btn('+ Проект', async () => {
+          await flushSave();               // debounce мог не догнать — сохраняем принудительно
+          state.id = null; state.selected = null;
+          try { localStorage.removeItem(LAST_KEY); } catch { /* приватный режим */ }
+          ctx.refresh();
+        },
           { variant: 'ghost', size: 'sm', title: 'Новый проект веб-дизайна' }),
+        btn('Скачать HTML', () => {
+          const blob = new Blob([editorNode ? editorNode.value : state.code],
+            { type: 'text/html;charset=utf-8' });
+          const a = h('a', { href: URL.createObjectURL(blob),
+            download: `${((state.meta && state.meta.name) || 'site').replace(/[\\/:*?"<>|]+/g, '_')}.html` });
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+        }, { variant: 'ghost', size: 'sm', title: 'Сохранить текущий код как файл' }),
         btn('Задача «сделать сайт»', async () => {
           try {
             const res = await api.createTask({
@@ -275,9 +307,15 @@ function head(ctx) {
 
 function editorPanel() {
   editorNode = h('textarea.bd-code', { spellcheck: 'false',
-    onInput: () => saveCode() }, state.code);
+    onInput: () => { state.dirty = true; saveCode(); },
+    onKeyDown: (e) => {
+      if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 's') {
+        e.preventDefault();
+        flushSave(true);
+      }
+    } }, state.code);
   return panel('Код сайта', editorNode, {
-    aside: h('span.bd-mini', 'правки сохраняются автоматически'),
+    aside: h('span.bd-mini', 'автосохранение · Ctrl+S — сохранить сейчас'),
   });
 }
 
