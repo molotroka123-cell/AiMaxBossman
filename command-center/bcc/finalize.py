@@ -65,12 +65,40 @@ def _effectful(row: dict) -> bool:
 
 
 def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) -> str:
+    """What makes the DECLARED obligations of this run unfulfillable.
+
+    Scope is deliberate. The finalizer enforces the obligations a task actually
+    carries (`meta.review.evidence` / `meta.required_effects`); it does not
+    invent new ones from prompt text or from the mere presence of a tool call.
+    Those layers already exist and are not duplicated here:
+
+      * `features/action_contract._gate` vetoes a CLASSIFIED action task unless
+        the run holds a genuinely `executed` call of the matching non-reading
+        tool family — the zero-attempt and failed-attempt cases;
+      * `features/action_router` / `review_gate` attach evidence where a real
+        post-state verifier is wired, and that evidence lands in `expected`.
+
+    Re-deriving obligations here (any effectful row implies a contract; any
+    classified prompt implies a contract) made every family without a wired
+    verifier — apps, openclaw, opencode, plugin, mcp — unfinishable: the task
+    parked in `waiting_approval` behind a `review_escalation` that no owner
+    decision could ever clear, because `finalize_override` re-ran the same
+    impossible check. A refusal the owner cannot resolve is not fail-closed,
+    it is a dead end.
+
+    A DENIED or REJECTED call is not a failed obligation: the effect provably
+    never happened, and the model handled the refusal as data. Whether the task
+    still owes an effect is decided by `verify_all` over `expected`, which reads
+    the world instead of the executor's status.
+    """
+    if not expected:
+        return ""
     # A retry of the exact action may recover a failed attempt. An unrelated
     # successful probe cannot erase a failed mutation. Read-only diagnostic
     # failures are not task failure evidence.
     latest = {}
     for row in rows:
-        if _effectful(row):
+        if _effectful(row) and row.get("status") not in ("denied", "rejected"):
             latest[(row.get("tool"), row.get("args_hash") or repr(row.get("args")))] = row
     for row in latest.values():
         if row.get("status") != "executed" or row.get("error"):
@@ -79,13 +107,6 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) 
             match = re.match(r"exit_code=(-?\d+)\b", str(row.get("result_preview") or ""))
             if match is None or int(match[1]) != 0:
                 return "effectful terminal outcome is failed or still unobserved"
-    if latest and not expected:
-        return "effectful execution has no required post-state verification contract"
-    if not expected and task:
-        from .features.action_contract import classify_all
-        from .features.action_router import classify
-        if classify_all(task.get("prompt") or "") or classify(task.get("prompt") or ""):
-            return "action task has no required post-state verification contract"
     kinds = {e.kind for e in expected}
     required_kinds = {"terminal": {"file", "terminal", "github"}, "browser": {"browser"},
                       "memory": {"memory", "db"}, "apps": {"app", "process"},

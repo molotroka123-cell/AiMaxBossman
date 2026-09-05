@@ -1087,7 +1087,12 @@ async function loadTaskDetail(id, bodyEl, ctx) {
 
   const status = String(task.status || 'draft');
   const result = pick(data || {}, ['result']) || (run ? pick(run, ['result']) : null);
-  const error = run ? pick(run, ['error']) : pick(task, ['error']);
+  /* Причина берётся из ответа ручки, а не только из run'а: у задачи, которую
+     движок не допустил до очереди (blocked, исполнитель недоступен), прогона
+     НЕТ вовсе, а причину сервер кладёт в `error` верхнего уровня ответа
+     (bcc/api.py: blocked_reason для blocked). Пока читали только run.error и
+     task.error, честный отказ движка не доходил до владельца ни одной строкой. */
+  const error = pick(data || {}, ['error']) ?? (run ? pick(run, ['error']) : pick(task, ['error']));
   const started = run ? pick(run, ['started_at']) : pick(task, ['created_at']);
   const finished = run ? pick(run, ['finished_at']) : null;
   const tokensIn = run ? pick(run, ['tokens_in'], 0) : 0;
@@ -1127,7 +1132,11 @@ async function loadTaskDetail(id, bodyEl, ctx) {
     actions.appendChild(actionButton('Повторить', () => act('retry', 'Перезапуск задачи'), { cls: 'btn btn-sm btn-primary', iconName: 'retry' }));
   } else if (status === 'completed') {
     actions.appendChild(actionButton('Повторить', () => act('retry', 'Перезапуск задачи'), { cls: 'btn btn-sm', iconName: 'retry' }));
-  } else if (status === 'draft') {
+  } else if (status === 'draft' || status === 'blocked') {
+    /* blocked = исполнитель недоступен (BLOCKED_CAPABILITY_UNAVAILABLE). Причина
+       показана ниже в блоке ошибки; владельцу нужна кнопка, которой он повторит
+       запуск ПОСЛЕ того, как назначит включённого агента. Без неё задача,
+       честно отказавшаяся исполняться, становилась тупиком в интерфейсе. */
     actions.appendChild(actionButton('Запустить', () => act('run', 'Задача поставлена в очередь'), { cls: 'btn btn-sm btn-primary', iconName: 'play' }));
   }
   if (status === 'waiting_approval') {
