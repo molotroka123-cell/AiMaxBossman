@@ -39,12 +39,26 @@ class JournalStep:
     by: str = ""
     note: str = ""
     updated_at: str = ""
+    # EH-01: подпись закрытого шага (receipt ∧ verified) ключом процесса.
+    sig: str = ""
+    signer: str = ""
+    nonce: str = ""
+    issued_at: str = ""
 
     @property
     def finished(self) -> bool:
         """Чек исполнения И подтверждение. Ни одного из двух по отдельности
         не хватает — это тот же контракт, что V2 защищает в gate_completion."""
         return self.receipt is not None and self.verified
+
+    def signed_record(self, task_id: str) -> dict[str, Any]:
+        return {"task_id": task_id, "step_id": self.step_id, "receipt": dict(self.receipt or {}),
+                "verified": self.verified, "by": self.by, "updated_at": self.updated_at,
+                "sig": self.sig, "signer": self.signer, "nonce": self.nonce, "issued_at": self.issued_at}
+
+    def signature_valid(self, task_id: str) -> bool:
+        from bossman_v3 import evidence as _signing
+        return bool(self.sig) and _signing.verify_signed(self.signed_record(task_id))
 
 
 @dataclass
@@ -92,9 +106,16 @@ class TaskJournal:
             if s.step_id != step_id:
                 continue
             done = receipt is not None and verified
-            self.steps[i] = replace(s, receipt=dict(receipt) if receipt else None,
-                                    verified=bool(verified), by=by, note=note,
-                                    status=DONE if done else s.status, updated_at=_now())
+            new = replace(s, receipt=dict(receipt) if receipt else None,
+                          verified=bool(verified), by=by, note=note,
+                          status=DONE if done else s.status, updated_at=_now(),
+                          sig="", signer="", nonce="", issued_at="")
+            if done:
+                # EH-01: закрытый шаг подписывается здесь и только здесь.
+                from bossman_v3 import evidence as _signing
+                f = _signing.sign_fields(new.signed_record(self.task_id), signer=_signing.JOURNAL_SIGNER)
+                new = replace(new, **f)
+            self.steps[i] = new
             self._save()
             return self.steps[i]
         raise KeyError(f"шага {step_id!r} нет в плане задачи {self.task_id!r}")

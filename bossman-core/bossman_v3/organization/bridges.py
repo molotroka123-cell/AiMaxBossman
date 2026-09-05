@@ -199,8 +199,11 @@ def _evidence_from_step(journal_id: str, step: PlanStep, journal: TaskJournal) -
     else:
         kind, ref = "step", step.step_id
     receipt = dict(js.receipt or {})
-    return Evidence(kind=kind, ref=ref, verified=True, source=f"journal:{journal_id}/{step.step_id}",
-                    observed_at=js.updated_at, detail=json.dumps(receipt, ensure_ascii=False, sort_keys=True)[:300])
+    # EH-01: улика поднимается только из подписанного журналом шага и подписывается сама
+    if not js.signature_valid(journal.task_id):
+        raise RuntimeError(f"journal step {journal_id}/{step.step_id} is not signed — evidence refused")
+    return Evidence.signed(kind, ref, source=f"journal:{journal_id}/{step.step_id}", observed_at=js.updated_at,
+                           detail=json.dumps(receipt, ensure_ascii=False, sort_keys=True)[:300])
 
 
 # ------------------------------------------------- company-plan adapter

@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Mapping
 
+from bossman_v3 import evidence as _signing
+
 # ---------------------------------------------------------------- roles
 
 LEAD, EXECUTOR, REVIEWER, QA, RESEARCHER, RISK, AUDITOR = (
@@ -223,18 +225,45 @@ class Evidence:
     kind: str
     ref: str
     verified: bool
-    source: str = ""            # journal:<task_id>/<step_id> | bcc.v2.verification | ...
+    source: str = ""            # journal:<task_id>/<step_id> | bcc.v2.verification | ... (информационно)
     observed_at: str = ""
     detail: str = ""
+    # EH-01: подпись HMAC над каноническим телом улики. verified=True доверяется
+    # ТОЛЬКО с валидной подписью доверенного signer'а (contracts._trusted).
+    sig: str = ""
+    signer: str = ""
+    nonce: str = ""
+    issued_at: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {"kind": self.kind, "ref": self.ref, "verified": self.verified, "source": self.source,
-                "observed_at": self.observed_at, "detail": self.detail}
+                "observed_at": self.observed_at, "detail": self.detail,
+                "sig": self.sig, "signer": self.signer, "nonce": self.nonce, "issued_at": self.issued_at}
+
+    def signed_record(self) -> dict[str, Any]:
+        return self.to_dict()
+
+    def signature_valid(self) -> bool:
+        """Подпись валидна и signer доверенный. Без ключа/подписи — False (fail-closed)."""
+        return bool(self.sig) and _signing.verify_signed(self.signed_record())
+
+    @classmethod
+    def signed(cls, kind: str, ref: str, *, source: str, observed_at: str = "", detail: str = "",
+               signer: str = _signing.JOURNAL_SIGNER) -> "Evidence":
+        """Создать verified-улику с подписью процесса. Вызывать только из кода,
+        который сам наблюдал результат (журнал V3 / верификатор), не из адаптеров модели."""
+        body = {"kind": kind, "ref": ref, "verified": True, "source": source,
+                "observed_at": observed_at, "detail": detail}
+        f = _signing.sign_fields(body, signer=signer)
+        return cls(kind, ref, True, source, observed_at, detail,
+                   sig=f["sig"], signer=f["signer"], nonce=f["nonce"], issued_at=f["issued_at"])
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "Evidence":
         return cls(str(raw["kind"]), str(raw.get("ref", "")), bool(raw.get("verified", False)),
-                   str(raw.get("source", "")), str(raw.get("observed_at", "")), str(raw.get("detail", "")))
+                   str(raw.get("source", "")), str(raw.get("observed_at", "")), str(raw.get("detail", "")),
+                   sig=str(raw.get("sig", "")), signer=str(raw.get("signer", "")),
+                   nonce=str(raw.get("nonce", "")), issued_at=str(raw.get("issued_at", "")))
 
 
 @dataclass

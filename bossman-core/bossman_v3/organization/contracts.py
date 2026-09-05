@@ -25,7 +25,7 @@ from .models import EXECUTOR, Evidence, Resources, RiskTier, WorkResult
 # Источники, которым разрешено ставить verified=True. Любая улика с verified=True
 # из другого источника считается НЕподтверждённой: доверие — свойство слоя, а не
 # флага в словаре.
-TRUSTED_EVIDENCE_SOURCES = ("journal:", "bcc.v2.verification", "bossman_v3.verifier")
+TRUSTED_EVIDENCE_SOURCES = ("journal:", "bcc.v2.verification", "bossman_v3.verifier")  # информационно (EH-01: решает подпись)
 
 
 class EvidenceRequirement(_CompanyEvidenceRequirement):
@@ -141,7 +141,10 @@ class DelegationContract:
         trusted = [e for e in result.evidence if e.verified and _trusted(e)]
         untrusted_verified = [e for e in result.evidence if e.verified and not _trusted(e)]
         for e in untrusted_verified:
-            errors.append(f"evidence {e.kind}:{e.ref} claims verified from untrusted source {e.source!r}")
+            # EH-01: без подписи — «unsigned verified evidence»; с подписью, но не
+            # доверенного signer'а или битой — «signature invalid». Оба — fail-closed.
+            why = "unsigned verified evidence" if not e.sig else "signature invalid"
+            errors.append(f"evidence {e.kind}:{e.ref} claims verified from untrusted source {e.source!r} ({why})")
         by_kind: dict[str, list[Evidence]] = {}
         for e in trusted:
             by_kind.setdefault(e.kind, []).append(e)
@@ -198,7 +201,9 @@ def _same_target(ref: str, target: str) -> bool:
 
 
 def _trusted(e: Evidence) -> bool:
-    return any(e.source.startswith(p) for p in TRUSTED_EVIDENCE_SOURCES)
+    """EH-01: улика доверена ⇔ HMAC валиден И signer ∈ TRUSTED_SIGNERS. Префикс
+    `source` больше ничего не доказывает — он остаётся для чтения человеком."""
+    return e.signature_valid()
 
 
 def consensus(results: list[WorkResult], *, minimum_verified: int = 2) -> bool:

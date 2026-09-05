@@ -44,9 +44,13 @@ def test_prose_is_not_evidence_even_with_verified_flag_from_untrusted_source():
 
 def test_journal_backed_evidence_is_accepted():
     c = _contract()
-    r = WorkResult("w1", executed=True, evidence=[Evidence("file", "/tmp/x", True, source="journal:m1__w1/s1")])
+    r = WorkResult("w1", executed=True, evidence=[Evidence.signed("file", "/tmp/x", source="journal:m1__w1/s1")])
     ok, errors = c.validate(r)
     assert ok and errors == []
+    # EH-01: та же улика без подписи — отказ, а не доверие по префиксу source
+    ok, errors = c.validate(WorkResult("w1", executed=True,
+                                       evidence=[Evidence("file", "/tmp/x", True, source="journal:m1__w1/s1")]))
+    assert not ok and any("unsigned verified evidence" in e for e in errors)
 
 
 def test_missing_and_unverified_evidence_fail_closed():
@@ -61,7 +65,7 @@ def test_missing_and_unverified_evidence_fail_closed():
 def test_side_effect_work_with_nothing_executed_is_not_success():
     c = _contract()
     ok, errors = c.validate(WorkResult("w1", executed=False,
-                                       evidence=[Evidence("file", "/tmp/x", True, source="journal:m1__w1/s1")]))
+                                       evidence=[Evidence.signed("file", "/tmp/x", source="journal:m1__w1/s1")]))
     assert not ok and "nothing was executed" in errors[0]
 
 

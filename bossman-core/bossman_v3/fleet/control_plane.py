@@ -288,5 +288,7 @@ def _journal_evidence(j: TaskJournal, plan) -> list[Evidence]:
         expect = dict(step.action.args).get("expect")
         kind, ref = (str(expect["kind"]), str(expect.get("target", step.step_id))) if isinstance(expect, dict) and expect.get("kind") \
             else ("step", step.step_id)
-        out.append(Evidence(kind, ref, True, source=f"journal:{j.task_id}/{step.step_id}", observed_at=js.updated_at))
+        if not js.signature_valid(j.task_id):
+            continue                                    # EH-01: незаподписанный шаг — не улика
+        out.append(Evidence.signed(kind, ref, source=f"journal:{j.task_id}/{step.step_id}", observed_at=js.updated_at))
     return out
