@@ -265,12 +265,15 @@ async def test_jito_only_invariant_and_drop_on_failure():
     tip_ix = client.build_tip_instruction(kp.pubkey(), tip_lamports=MIN_JITO_TIP_LAMPORTS)
     assert tip_ix is not None
 
-    tx = client.compile_v0_transaction(
-        payer=kp.pubkey(),
-        instructions=[tip_ix],
-        recent_blockhash=Hash.default(),
-        signers=[kp]
-    )
+    with pytest.raises(PermissionError, match="signing is disabled"):
+        tx = client.compile_v0_transaction(
+            payer=kp.pubkey(),
+            instructions=[tip_ix],
+            recent_blockhash=Hash.default(),
+            signers=[kp]
+        )
+    tx = object()  # The submission guard must not inspect or serialize input.
+
 
     with pytest.raises(JitoBundleDropException) as excinfo:
         await client.send_bundle([tx])
@@ -323,16 +326,16 @@ def test_pumpfun_migration_threshold_safeguard():
     kp = Keypair()
     mint = Pubkey.from_string("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263")  # ci-secret-scan: allow -- public Solana program/mint/destination address
 
-    # Below 95% -> Success
-    bundles = engine.assemble_pump_buy_bundle(
-        buyer_kp=kp,
-        mint=mint,
-        amount_sol=0.05,
-        curve_progress_pct=94.5,
-        recent_blockhash=Hash.default(),
-        pool_sol_reserve=30.0
-    )
-    assert len(bundles) >= 1
+    # Even a below-threshold plan cannot reach transaction signing.
+    with pytest.raises(PermissionError, match="signing is disabled"):
+        bundles = engine.assemble_pump_buy_bundle(
+            buyer_kp=kp,
+            mint=mint,
+            amount_sol=0.05,
+            curve_progress_pct=94.5,
+            recent_blockhash=Hash.default(),
+            pool_sol_reserve=30.0
+        )
 
     # At or above 95% -> MUST RAISE MigrationThresholdExceededException
     with pytest.raises(MigrationThresholdExceededException):

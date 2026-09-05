@@ -94,7 +94,7 @@ def test_control_plane_blocks_execution_and_preserves_unknown(monkeypatch, tmp_p
         monkeypatch.setenv(key, value)
     monkeypatch.setattr(safety_app, "SUITE_ROOT", tmp_path)
     app.middleware_stack = None
-    with TestClient(app, headers={"Authorization": "Bearer " + token}) as client:
+    with TestClient(app, base_url="http://127.0.0.1", headers={"Authorization": "Bearer " + token}) as client:
         for route in ("/api/bot/start", "/api/bot/sweep", "/api/vault/generate"):
             assert client.post(route, json={}).status_code == 403
         response = client.post("/api/trading/simulate")

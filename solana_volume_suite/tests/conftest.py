@@ -24,5 +24,5 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setattr(safety_app, "SUITE_ROOT", tmp_path)
     # Fresh middleware quotas for each independent test session.
     safety_app.app.middleware_stack = None
-    with TestClient(safety_app.app, headers={"Authorization": "Bearer " + os.environ["DASHBOARD_API_TOKEN"]}) as client:
+    with TestClient(safety_app.app, base_url="http://127.0.0.1", headers={"Authorization": "Bearer " + os.environ["DASHBOARD_API_TOKEN"]}) as client:
         yield client

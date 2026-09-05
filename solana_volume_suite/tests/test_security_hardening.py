@@ -93,10 +93,10 @@ async def test_signal_stops_and_persists(tmp_path, sig):
 
 
 def test_websocket_auth(client):
-    with client.websocket_connect("/ws/telemetry", headers={"Authorization": "Bearer invalid"}) as ws:
+    with client.websocket_connect("ws://127.0.0.1/ws/telemetry", headers={"Authorization": "Bearer invalid"}) as ws:
         with pytest.raises(WebSocketDisconnect):
             ws.receive_json()
-    with client.websocket_connect("/ws/telemetry") as ws:
+    with client.websocket_connect("ws://127.0.0.1/ws/telemetry") as ws:
         assert ws.receive_json()["live_execution_enabled"] is False
 
 

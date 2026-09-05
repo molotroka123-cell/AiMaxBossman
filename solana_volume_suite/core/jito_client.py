@@ -111,14 +111,9 @@ class JitoBundleClient:
         """
         Compiles an atomic VersionedTransaction (MessageV0) compliant with Jito requirements.
         """
-        luts = address_lookup_table_accounts or []
-        msg = MessageV0.try_compile(
-            payer=payer,
-            instructions=instructions,
-            address_lookup_table_accounts=luts,
-            recent_blockhash=recent_blockhash
-        )
-        return VersionedTransaction(msg, signers)
+        from solana_volume_suite.core.security import audit
+        audit("SECURITY_VIOLATION", reason="JITO_SIGNING_DISABLED")
+        raise PermissionError("VIRTUAL_ONLY: transaction signing is disabled")
 
     async def send_bundle(
         self,

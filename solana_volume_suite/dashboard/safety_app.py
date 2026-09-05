@@ -1,10 +1,12 @@
 """Authenticated, single-process, offline control plane."""
 import asyncio
 import os
+import json
 import time
 from collections import deque
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
@@ -21,10 +23,19 @@ sockets = set()
 searcher = GitHubHygieneSearcher()
 github_results = []
 github_searched_at = None
+control_lock = asyncio.Lock()
+control_epoch = 0
+BODY_TIMEOUT_SECONDS = 3.0
 
 
 async def stop_runner():
-    global orchestrator_task
+    async with control_lock:
+        await _stop_runner_locked()
+
+
+async def _stop_runner_locked():
+    global orchestrator_task, control_epoch
+    control_epoch += 1
     if orchestrator is not None:
         orchestrator.stop()
     if orchestrator_task is not None:
@@ -43,7 +54,9 @@ async def stop_runner():
 
 @asynccontextmanager
 async def lifespan(app):
-    global orchestrator
+    global orchestrator, control_lock, control_epoch
+    control_lock = asyncio.Lock()
+    control_epoch = 0
     require_virtual_mode()
     validate_password(os.getenv("DASHBOARD_API_TOKEN", ""))
     orchestrator = VolumeOrchestratorLoop(
@@ -75,14 +88,43 @@ class APIProtection:
         self.last_rate_log = {}
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or not scope["path"].startswith("/api"):
+        if scope["type"] not in {"http", "websocket"}:
             return await self.app(scope, receive, send)
-        headers = dict(scope.get("headers", []))
-        auth = headers.get(b"authorization", b"").decode("latin-1")
+        raw_headers = scope.get("headers", [])
+        hosts = [value.decode("latin-1") for key, value in raw_headers if key == b"host"]
+        origins = [value.decode("latin-1") for key, value in raw_headers if key == b"origin"]
+        status = None
+        try:
+            parsed_host = urlsplit("http://" + hosts[0]) if len(hosts) == 1 else None
+            if (parsed_host is None or parsed_host.hostname not in {"127.0.0.1", "localhost", "::1"}
+                    or parsed_host.username or parsed_host.password or parsed_host.path
+                    or parsed_host.query or parsed_host.fragment):
+                status = 400
+            elif parsed_host.port is not None and not 1 <= parsed_host.port <= 65535:
+                status = 400
+            elif origins:
+                scheme = {"ws": "http", "wss": "https"}.get(scope.get("scheme"), scope.get("scheme", "http"))
+                if len(origins) != 1 or origins[0].lower() != scheme + "://" + hosts[0].lower():
+                    status = 403
+        except ValueError:
+            status = 400
+        if status is not None:
+            if scope["type"] == "websocket":
+                return await send({"type": "websocket.close", "code": 1008})
+            return await JSONResponse({"detail": "Untrusted host or origin"}, status_code=status)(scope, receive, send)
+        auth_headers = [value.decode("latin-1") for key, value in raw_headers if key == b"authorization"]
+        if scope["type"] == "websocket":
+            if len(auth_headers) > 1:
+                return await send({"type": "websocket.close", "code": 1008})
+            return await self.app(scope, receive, send)
+        if not scope["path"].startswith("/api"):
+            return await self.app(scope, receive, send)
+        auth = auth_headers[0] if len(auth_headers) == 1 else ""
         if not valid_bearer(auth):
             await JSONResponse({"detail": "Unauthorized"}, status_code=401,
                                headers={"WWW-Authenticate": "Bearer"})(scope, receive, send)
             return
+        scope.setdefault("state", {})["control_epoch"] = control_epoch
         path = scope["path"].rstrip("/")
         stops = {"/api/orchestrator/stop", "/api/bot/stop", "/api/trading/kill-switch"}
         if path not in stops:
@@ -109,26 +151,43 @@ class APIProtection:
                                    headers={"Retry-After": "60"})(scope, receive, send)
                 return
             bucket.append(now)
-        chunks, size = [], 0
-        while True:
-            message = await receive()
-            if message["type"] == "http.disconnect":
-                return
-            chunk = message.get("body", b"")
-            size += len(chunk)
-            if size > 8192:
-                await JSONResponse({"detail": "Request body too large"}, status_code=413)(scope, receive, send)
-                return
-            chunks.append(chunk)
-            if not message.get("more_body", False):
-                break
+        # STOP is body-independent and cannot be delayed by chunked input.
+        body = bytearray()
+        if path not in stops:
+            try:
+                async with asyncio.timeout(BODY_TIMEOUT_SECONDS):
+                    while True:
+                        message = await receive()
+                        if message["type"] == "http.disconnect":
+                            return
+                        body.extend(message.get("body", b""))
+                        if len(body) > 8192:
+                            return await JSONResponse({"detail": "Request body too large"}, status_code=413)(scope, receive, send)
+                        if not message.get("more_body", False):
+                            break
+            except TimeoutError:
+                return await JSONResponse({"detail": "Request body deadline exceeded"}, status_code=408)(scope, receive, send)
+            if body:
+                try:
+                    value = json.loads(body)
+                    pending = [(value, 0)]
+                    while pending:
+                        item, depth = pending.pop()
+                        if depth > 32:
+                            raise ValueError("JSON nesting limit")
+                        if isinstance(item, dict):
+                            pending.extend((v, depth + 1) for v in item.values())
+                        elif isinstance(item, list):
+                            pending.extend((v, depth + 1) for v in item)
+                except (ValueError, RecursionError):
+                    return await JSONResponse({"detail": "Invalid or excessively nested JSON"}, status_code=400)(scope, receive, send)
         replayed = False
         async def replay():
             nonlocal replayed
             if replayed:
                 return await receive()
             replayed = True
-            return {"type": "http.request", "body": b"".join(chunks), "more_body": False}
+            return {"type": "http.request", "body": bytes(body), "more_body": False}
         await self.app(scope, replay, send)
 
 
@@ -225,14 +284,23 @@ def budget():
     return {"execution_budget_usd": 0, "spent_usd": None, "status": "DISABLED"}
 
 
-async def start_runner():
+async def start_runner(expected_epoch=None):
     global orchestrator_task
-    if orchestrator_task is None or orchestrator_task.done():
-        if orchestrator_task is not None:
-            await orchestrator_task  # Surface failures rather than silently replacing them.
-        orchestrator_task = asyncio.create_task(orchestrator.run())
-        await asyncio.sleep(0)
-    return {"status": "RUNNING", "bot_status": "RUNNING", "mode": "PAPER_TRADING_ONLY"}
+    async with control_lock:
+        if expected_epoch is not None and expected_epoch != control_epoch:
+            return JSONResponse({"detail": "Start invalidated by a later stop; send a new request"}, status_code=409)
+        require_virtual_mode()
+        if orchestrator_task is None or orchestrator_task.done():
+            if orchestrator_task is not None:
+                try:
+                    await orchestrator_task
+                except (asyncio.CancelledError, Exception):
+                    audit("RUNNER_FAILURE", reason="PREVIOUS_TASK_FAILED")
+            orchestrator_task = asyncio.create_task(orchestrator.run())
+            await asyncio.sleep(0)
+        if orchestrator_task.done() or not orchestrator.is_running:
+            return JSONResponse({"detail": "Runner did not start"}, status_code=503)
+        return {"status": "RUNNING", "bot_status": "RUNNING", "mode": "PAPER_TRADING_ONLY"}
 
 
 @app.post("/api/orchestrator/start")
@@ -241,7 +309,7 @@ async def start_orchestrator(request: Request):
     if body not in (b"", b"{}"):
         audit("SECURITY_VIOLATION", reason="UNSUPPORTED_START_CONFIGURATION")
         return JSONResponse({"detail": "Start accepts no configuration or credentials"}, status_code=403)
-    return await start_runner()
+    return await start_runner(request.state.control_epoch)
 
 
 @app.post("/api/bot/start")
@@ -254,7 +322,7 @@ async def bot_start(request: Request):
     if body != {"mode": "simulation"}:
         audit("SECURITY_VIOLATION", reason="UNSUPPORTED_START_CONFIGURATION")
         return JSONResponse({"detail": "Use mode=simulation only"}, status_code=403)
-    return await start_runner()
+    return await start_runner(request.state.control_epoch)
 
 
 @app.post("/api/vault/generate")
@@ -268,10 +336,11 @@ async def generate_vault(request: Request):
     count = body["count"]
     if type(count) is not int or not 1 <= count <= 100:
         return JSONResponse({"detail": "count must be an integer between 1 and 100"}, status_code=422)
-    if orchestrator_task is not None and not orchestrator_task.done():
-        return JSONResponse({"detail": "Stop the simulation before resetting mock wallets"}, status_code=409)
-    orchestrator.initialize_vault_pool(count)
-    return {"status": "SUCCESS", "count": count, "mode": "MOCK_ONLY"}
+    async with control_lock:
+        if orchestrator_task is not None and not orchestrator_task.done():
+            return JSONResponse({"detail": "Stop the simulation before resetting mock wallets"}, status_code=409)
+        orchestrator.initialize_vault_pool(count)
+        return {"status": "SUCCESS", "count": count, "mode": "MOCK_ONLY"}
 
 
 @app.post("/api/bot/sweep")
@@ -284,13 +353,14 @@ async def sweep(request: Request):
     if not isinstance(body, dict) or set(body) != {"destination"} or body["destination"] != "mock:cold":
         audit("SECURITY_VIOLATION", reason="NON_MOCK_SWEEP")
         return JSONResponse({"detail": "Only destination=mock:cold is accepted"}, status_code=403)
-    await stop_runner()
-    total = sum(orchestrator.wallet_balances.values())
-    orchestrator.wallet_balances = {key: 0.0 for key in orchestrator.wallet_balances}
-    orchestrator.log_event("SIMULATED_SWEEP", "Reset fictitious balances")
-    orchestrator.save_state()
-    return {"status": "SUCCESS", "mode": "PAPER_TRADING_SIMULATED", "destination": "mock:cold",
-            "total_sol_swept": total, "confirmed_onchain": False, "tx_signature": None}
+    async with control_lock:
+        await _stop_runner_locked()
+        total = sum(orchestrator.wallet_balances.values())
+        orchestrator.wallet_balances = {key: 0.0 for key in orchestrator.wallet_balances}
+        orchestrator.log_event("SIMULATED_SWEEP", "Reset fictitious balances")
+        orchestrator.save_state()
+        return {"status": "SUCCESS", "mode": "PAPER_TRADING_SIMULATED", "destination": "mock:cold",
+                "total_sol_swept": total, "confirmed_onchain": False, "tx_signature": None}
 
 
 @app.post("/api/github/search")
@@ -336,6 +406,9 @@ async def websocket_telemetry(ws: WebSocket):
             await ws.close(code=1008)
             return
         while True:
+            if not valid_bearer(auth):
+                await ws.close(code=1008)
+                return
             require_virtual_mode()
             await ws.send_json(get_status())
             await asyncio.sleep(1)

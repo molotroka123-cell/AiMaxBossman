@@ -1,6 +1,7 @@
 import time
+import math
 from typing import List, Dict, Any, Tuple, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 MAX_PRICE_IMPACT_PCT = 1.2  # Maximum 1.2% price impact allowed per transaction
 
@@ -60,6 +61,7 @@ class TreasuryMetrics(BaseModel):
 
 
 class TradeFrictionRecord(BaseModel):
+    model_config = ConfigDict(frozen=True, allow_inf_nan=False)
     timestamp: float = Field(default_factory=time.time)
     volume_sol: float
     sol_usd_price: float = 180.0
@@ -90,6 +92,10 @@ class TreasuryGuard:
         max_volume_target_usd: float = 10000.0,
         sol_usd_price: float = 180.0
     ):
+        for name, value in (("max_allowed_loss_usd", max_allowed_loss_usd),
+                            ("max_volume_target_usd", max_volume_target_usd),
+                            ("sol_usd_price", sol_usd_price)):
+            self._validate_number(name, value, positive=True)
         self.max_allowed_loss_usd = max_allowed_loss_usd
         self.max_volume_target_usd = max_volume_target_usd
         self.sol_usd_price = sol_usd_price
@@ -97,6 +103,11 @@ class TreasuryGuard:
         self.metrics = TreasuryMetrics()
         self.is_circuit_breaker_tripped: bool = False
         self.pause_reason: str = ""
+
+    @staticmethod
+    def _validate_number(name, value, positive=False):
+        if type(value) not in (int, float) or not math.isfinite(value) or value < 0 or (positive and value == 0):
+            raise ValueError(f"{name} must be a finite {'positive' if positive else 'nonnegative'} number")
 
     def record_trade(
         self,
@@ -110,6 +121,21 @@ class TreasuryGuard:
         slippage_usd: Optional[float] = None,
         jito_tip_sol: Optional[float] = None
     ) -> TradeFrictionRecord:
+        # Validate the complete input before touching the ledger. Negative fees
+        # are not refunds; accepting them could replenish the loss budget.
+        for name, value in locals().copy().items():
+            if name not in {"self", "dex_type"} and value is not None:
+                self._validate_number(name, value)
+        if dex_type not in {"pumpfun", "raydium"}:
+            raise ValueError("Unsupported fee model")
+        if slippage_bps > 10000:
+            raise ValueError("slippage_bps exceeds 10000")
+        if any(type(v) is not int for v in (jito_tip_lamports, network_fee_lamports)):
+            raise ValueError("Lamport fees must be integers")
+        if volume_sol is not None and any(v is not None for v in (volume_usd, fee_usd, slippage_usd, jito_tip_sol)):
+            raise ValueError("Cannot mix SOL and USD cost formats")
+        if (slippage_usd is not None or jito_tip_sol is not None) and volume_usd is None and fee_usd is None:
+            raise ValueError("USD cost fields require the USD format")
         if volume_usd is not None or fee_usd is not None:
             # Stage 2 direct USD format
             vol_usd = volume_usd or 0.0
@@ -133,7 +159,7 @@ class TreasuryGuard:
             self.metrics.total_fees_paid_usd += f_usd
             self.metrics.total_slippage_loss_usd += slip_usd
             self.metrics.total_jito_tips_sol += tip_sol
-            total_loss = self.metrics.total_fees_paid_usd + self.metrics.total_slippage_loss_usd
+            total_loss = self.get_total_burn_usd()
             self.metrics.burn_rate_ratio = (
                 total_loss / self.metrics.total_volume_generated_usd
                 if self.metrics.total_volume_generated_usd > 0 else 0.0
@@ -185,8 +211,12 @@ class TreasuryGuard:
         return record
 
     def is_within_budget(self) -> bool:
-        total_loss = self.metrics.total_fees_paid_usd + self.metrics.total_slippage_loss_usd
-        return total_loss <= self.max_allowed_loss_usd
+        total_loss = self.get_total_burn_usd()
+        safe = (math.isfinite(total_loss) and math.isfinite(self.max_allowed_loss_usd)
+                and 0 <= total_loss < self.max_allowed_loss_usd)
+        if not safe:
+            self.is_circuit_breaker_tripped = True
+        return safe and not self.is_circuit_breaker_tripped
 
     def get_status(self) -> Dict:
         return self.metrics.model_dump()
@@ -222,6 +252,9 @@ class TreasuryGuard:
         }
 
     def reset_circuit_breaker(self, new_limit_usd: float = 50.0):
+        self._validate_number("new_limit_usd", new_limit_usd, positive=True)
+        if new_limit_usd <= self.get_total_burn_usd():
+            raise ValueError("A reset cannot reopen an exhausted budget")
         self.max_allowed_loss_usd = new_limit_usd
         self.is_circuit_breaker_tripped = False
         self.pause_reason = ""
