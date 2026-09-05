@@ -32,6 +32,7 @@ from .approvals import Approvals
 from .features import load_features
 from .auth import HEADER, TokenAuth
 from .sessions import COOKIE_NAME, CSRF_HEADER, SAFE_METHODS, SessionStore, cookie_kwargs
+from .login_guard import LoginRateLimiter
 from .config import Settings, settings as default_settings
 from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
                  rows_dicts, task_runs as runs_t, tasks as tasks_t, utcnow)
@@ -83,6 +84,7 @@ class Services:
         self.metrics.stop_event = self._stopping
         self.approvals = Approvals(self.db, self.bus)
         self.sessions = SessionStore(self.db, ttl_hours=settings.session_ttl_hours)
+        self.login_guard = LoginRateLimiter()          # SEC-03: rate-limit/lockout на /api/login
         self._wire_v2_managers()             # skills / terminal / browser (пак)
         self.features = load_features()      # V2: модули bcc/features/* (контракты §8)
         self.start_workers = start_workers
@@ -491,10 +493,20 @@ def _public_router() -> APIRouter:
     async def login(body: LoginIn, request: Request, response: Response,
                     svc: Services = Depends(services)):
         """Токен обменивается на серверную сессию: браузеру уходит HttpOnly-cookie,
-        а CSRF-токен — в теле ответа (его хранит JS и шлёт заголовком)."""
+        а CSRF-токен — в теле ответа (его хранит JS и шлёт заголовком).
+        SEC-03: перебор ограничен (`bcc.login_guard`), проверка ДО сравнения токена."""
+        client_key = (request.client.host if request.client else "unknown")
+        allowed, retry_after = svc.login_guard.check(client_key)
+        if not allowed:
+            await svc.bus.emit("auth.rate_limited", client=client_key, retry_after_s=retry_after)
+            raise ApiError("слишком много попыток входа", status=429,
+                           hint=f"повторите через {retry_after:.0f} с")
         if not svc.auth.check(body.token):
+            if svc.login_guard.failure(client_key):
+                await svc.bus.emit("auth.lockout", client=client_key)
             raise ApiError("неверный токен", status=401,
                            hint="токен печатается в консоль при старте сервера")
+        svc.login_guard.success(client_key)
         sess = await svc.sessions.create(label=body.label or "ui")
         response.set_cookie(COOKIE_NAME, sess["id"],
                             **cookie_kwargs(request.url.scheme,
