@@ -70,7 +70,7 @@ class _Executor:
         name = str(action.args["name"])
         if name in self.w.crash_on.get(self.node_id, set()):
             raise ConnectionError(f"{self.node_id} lost power")
-        (self.w.root / name).write_text("1", encoding="utf-8")
+        (self.w.root / name).write_text(str(action.args.get("content", "1")), encoding="utf-8")
         self.w.writes.append((self.node_id, name))
         now = datetime.now(timezone.utc)
         return ExecutionReceipt("fs.write", now, now, effect_id=f"{self.node_id}:{name}")
