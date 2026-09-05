@@ -122,6 +122,9 @@ class GatewayConfig:
     bind_host: str = "127.0.0.1"
     bind_port: int = 8765
     allow_unauthenticated_loopback: bool = False
+    # Явный allowlist алиасов для loopback-псевдоклиента; пусто/None = все ("*").
+    # Задаётся оператором вместе с флагом — «*» никогда не появляется молча.
+    loopback_allowed_aliases: set[str] | None = None
     queue_timeout_seconds: float = 300.0
     health_ttl_seconds: float = 15.0
     metrics_enabled: bool = True
@@ -192,6 +195,8 @@ def load_gateway_config(path: str | Path | None = None) -> GatewayConfig:
         bind_host=str(server.get("host", "127.0.0.1")),
         bind_port=int(server.get("port", 8765)),
         allow_unauthenticated_loopback=bool(server.get("allow_unauthenticated_loopback", False)),
+        loopback_allowed_aliases=(set(server["loopback_allowed_aliases"])
+                                  if server.get("loopback_allowed_aliases") else None),
         queue_timeout_seconds=float(server.get("queue_timeout_seconds", 300)),
         health_ttl_seconds=float(server.get("health_ttl_seconds", 15)),
         metrics_enabled=bool(server.get("metrics_enabled", True)),

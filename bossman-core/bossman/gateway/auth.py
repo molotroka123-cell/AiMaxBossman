@@ -48,9 +48,22 @@ class AuthManager:
     def _hash(key: str) -> str:
         return hashlib.sha256(key.encode()).hexdigest()
 
+    # P0-A (аудит SEC/TL): запрос, пришедший через reverse-proxy / Tailscale Serve,
+    # выглядит как 127.0.0.1, но локальным НЕ является. Любой заголовок
+    # проксирования — признак внешнего происхождения → loopback-проход не даётся,
+    # проверяется bearer как для всех (fail-closed).
+    _PROXY_HEADERS = ("x-forwarded-for", "x-real-ip", "forwarded", "x-forwarded-host",
+                      "x-forwarded-proto", "via", "cf-connecting-ip", "true-client-ip")
+
+    def _is_direct_loopback(self, request: Request) -> bool:
+        if not (request.client and request.client.host in {"127.0.0.1", "::1", "testclient"}):
+            return False
+        return not any(h in request.headers for h in self._PROXY_HEADERS)
+
     def authenticate(self, request: Request) -> AuthenticatedClient:
-        if self.config.allow_unauthenticated_loopback and request.client and request.client.host in {"127.0.0.1", "::1", "testclient"}:
-            pseudo = ClientConfig(name="loopback", allowed_aliases={"*"}, requests_per_minute=10_000, burst=1000)
+        if self.config.allow_unauthenticated_loopback and self._is_direct_loopback(request):
+            aliases = set(self.config.loopback_allowed_aliases or {"*"})
+            pseudo = ClientConfig(name="loopback", allowed_aliases=aliases, requests_per_minute=10_000, burst=1000)
             return AuthenticatedClient("loopback", pseudo)
         value = request.headers.get("authorization", "")
         if not value.lower().startswith("bearer "):
