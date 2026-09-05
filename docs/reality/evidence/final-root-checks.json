@@ -1,0 +1,70 @@
+{
+  "status": "PASS",
+  "code_sha": "dbb65a298944acfdb0cedfa8b4cbfb39840e8a4e",
+  "created_at_utc": "2026-09-05T17:59:31.872075+00:00",
+  "steps": [
+    {
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "scripts/reality_git_acceptance.py",
+        "--output",
+        ".audit-work/git-acceptance-dbb65a2"
+      ],
+      "exit_code": 0,
+      "stdout": "{\n  \"status\": \"PASS\",\n  \"mode\": \"real local git + local bare remote; no cloud\",\n  \"base_sha\": \"020089ed7229b68cd86f8bc68dafd0dde06de164\",\n  \"base_tree\": \"587a9cb0dea864051245c68ffb055a5eb1e4ee65\",\n  \"fixed_sha\": \"e576a404cdfa1ea08ffcbffaa361ec51327016a5\",\n  \"fixed_tree\": \"0b5146d69a7f3435916ca594d9f5fe68057ea59a\",\n  \"remote_sha\": \"e576a404cdfa1ea08ffcbffaa361ec51327016a5\",\n  \"exact_patch\": \"diff --git a/calc.py b/calc.py\\nindex 12ee743..4693ad3 100644\\n--- a/calc.py\\n+++ b/calc.py\\n@@ -1,2 +1,2 @@\\n def add(a, b):\\n-    return a - b\\n+    return a + b\",\n  \"mission_fingerprint\": \"1d6fec54ad8f93fc09b23305eebc4fdc4d4f342eccc58ed1b7c077d73070d519\",\n  \"obligations\": 5,\n  \"observations\": {\n    \"reproduce\": {\n      \"tree\": \"587a9cb0dea864051245c68ffb055a5eb1e4ee65\",\n      \"source_digest\": \"964268d585b333ca01f7302b27855d5a0e813d19a3772dfd6da821b588966ad2\",\n      \"exit_code\": 1\n    },\n    \"fix\": \"def add(a, b):\\n    return a + b\\n\",\n    \"test\": {\n      \"tree\": \"0b5146d69a7f3435916ca594d9f5fe68057ea59a\",\n      \"source_digest\": \"792fa4a42cce458f5e65afff6ac22e29655040e989db6c1fe50424507403f5f1\",\n      \"exit_code\": 0\n    },\n    \"commit\": {\n      \"commit\": \"e576a404cdfa1ea08ffcbffaa361ec51327016a5\",\n      \"tree\": \"0b5146d69a7f3435916ca594d9f5fe68057ea59a\",\n      \"parent\": \"020089ed7229b68cd86f8bc68dafd0dde06de164\"\n    },\n    \"push\": {\n      \"commit\": \"e576a404cdfa1ea08ffcbffaa361ec51327016a5\",\n      \"tree\": \"0b5146d69a7f3435916ca594d9f5fe68057ea59a\",\n      \"patch\": \"diff --git a/calc.py b/calc.py\\nindex 12ee743..4693ad3 100644\\n--- a/calc.py\\n+++ b/calc.py\\n@@ -1,2 +1,2 @@\\n def add(a, b):\\n-    return a - b\\n+    return a + b\"\n    }\n  },\n  \"completed_steps\": [\n    \"reproduce\",\n    \"fix\",\n    \"test\",\n    \"commit\",\n    \"push\"\n  ],\n  \"verified_local_settlements\": 5,\n  \"redacted_local_lessons\": 5\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "tools/ci_secret_scan.py"
+      ],
+      "exit_code": 0,
+      "stdout": "Secret-pattern scan: PASS\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "syntax_checked_files": [
+    "bossman-core/bossman/runner.py",
+    "bossman-core/bossman_v3/execution/compound.py",
+    "bossman-core/bossman_v3/fleet/control_plane.py",
+    "bossman-core/tests/test_reality_integration.py",
+    "bossman_shared/evidence.py",
+    "bossman_shared/reality/__init__.py",
+    "bossman_shared/reality/contracts.py",
+    "bossman_shared/reality/host.py",
+    "bossman_shared/reality/intelligence.py",
+    "bossman_shared/reality/policy.py",
+    "bossman_shared/reality/proof.py",
+    "bossman_shared/reality/runtime.py",
+    "bossman_shared/reality/store.py",
+    "bossman_shared/reality_guard.py",
+    "bossman_shared/reasoning_protocol.py",
+    "command-center/bcc/engine.py",
+    "command-center/bcc/features/tools_terminal.py",
+    "command-center/bcc/v2/terminal_control.py",
+    "command-center/tests/test_reality_integration.py",
+    "command-center/tests/test_reality_terminal_audit.py",
+    "scripts/reality_git_acceptance.py",
+    "tests/reality/test_host.py",
+    "tests/reality/test_package.py",
+    "tests/reality/test_reasoning_protocol.py",
+    "tests/test_evidence_signing_shared.py"
+  ],
+  "signer_regression": {
+    "red_before_binary_fix": "new deterministic LF/CRLF key test failed byte equality before O_BINARY",
+    "green_after_binary_fix": "binary key restart test passes; included in both final package matrices",
+    "full_existing_signer_suite": "4 passed, 1 failed: pre-existing POSIX mode0600 assertion sees Windows stat0666; no skip/suppression",
+    "windows_acl": "NOT_PROVEN"
+  }
+}

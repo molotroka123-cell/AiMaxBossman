@@ -1,0 +1,437 @@
+{
+  "source_root": "C:\\AiMaxBossman-reality-v010",
+  "source_git_sha": "dbb65a298944acfdb0cedfa8b4cbfb39840e8a4e",
+  "commands": [
+    {
+      "label": "build-shared",
+      "command": [
+        "C:\\Users\\timur\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+        "build",
+        "--wheel",
+        "--out-dir",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels",
+        "C:\\AiMaxBossman-reality-v010"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 5.141,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\build-shared.log",
+      "tail": "/cache_observation.py'\nadding 'bossman_shared/evidence.py'\nadding 'bossman_shared/fable_budget.py'\nadding 'bossman_shared/http_transport.py'\nadding 'bossman_shared/privacy.py'\nadding 'bossman_shared/reality_guard.py'\nadding 'bossman_shared/reasoning_protocol.py'\nadding 'bossman_shared/reality/__init__.py'\nadding 'bossman_shared/reality/contracts.py'\nadding 'bossman_shared/reality/host.py'\nadding 'bossman_shared/reality/intelligence.py'\nadding 'bossman_shared/reality/policy.py'\nadding 'bossman_shared/reality/proof.py'\nadding 'bossman_shared/reality/runtime.py'\nadding 'bossman_shared/reality/store.py'\nadding 'learning/__init__.py'\nadding 'learning/trace.py'\nadding 'bossman_shared-0.1.0.dist-info/METADATA'\nadding 'bossman_shared-0.1.0.dist-info/WHEEL'\nadding 'bossman_shared-0.1.0.dist-info/top_level.txt'\nadding 'bossman_shared-0.1.0.dist-info/RECORD'\nremoving build\\bdist.win-amd64\\wheel\nSuccessfully built .audit-work\\final-package-verification\\wheels\\bossman_shared-0.1.0-py3-none-any.whl\n"
+    },
+    {
+      "label": "build-core",
+      "command": [
+        "C:\\Users\\timur\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+        "build",
+        "--wheel",
+        "--out-dir",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels",
+        "C:\\AiMaxBossman-reality-v010\\bossman-core"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 6.922,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\build-core.log",
+      "tail": "/organization/teams.py'\nadding 'bossman_v3/organization/treasury.py'\nadding 'bossman_v3/recovery_kernel/__init__.py'\nadding 'bossman_v3/recovery_kernel/kernel.py'\nadding 'bossman_v3/self_healing/__init__.py'\nadding 'bossman_v3/self_healing/controller.py'\nadding 'bossman_v3/self_improvement/__init__.py'\nadding 'bossman_v3/self_improvement/lab.py'\nadding 'bossman_v3/skill_factory/__init__.py'\nadding 'bossman_v3/skill_factory/factory.py'\nadding 'bossman_v3/skill_factory/reliability.py'\nadding 'bossman_v3/visual_state/__init__.py'\nadding 'bossman_v3/visual_state/fusion.py'\nadding 'bossman_v3/visual_state/models.py'\nadding 'bossman_core-0.3.0.dist-info/METADATA'\nadding 'bossman_core-0.3.0.dist-info/WHEEL'\nadding 'bossman_core-0.3.0.dist-info/entry_points.txt'\nadding 'bossman_core-0.3.0.dist-info/top_level.txt'\nadding 'bossman_core-0.3.0.dist-info/RECORD'\nremoving build\\bdist.win-amd64\\wheel\nSuccessfully built .audit-work\\final-package-verification\\wheels\\bossman_core-0.3.0-py3-none-any.whl\n"
+    },
+    {
+      "label": "build-bcc",
+      "command": [
+        "C:\\Users\\timur\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+        "build",
+        "--wheel",
+        "--out-dir",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels",
+        "C:\\AiMaxBossman-reality-v010\\command-center"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 4.734,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\build-bcc.log",
+      "tail": "adding 'bcc/v2/skill_library.py'\nadding 'bcc/v2/tables.py'\nadding 'bcc/v2/task_graph.py'\nadding 'bcc/v2/terminal_control.py'\nadding 'bcc/v2/tool_messages.py'\nadding 'bcc/v2/verification.py'\nadding 'bcc/v2/memory/__init__.py'\nadding 'bcc/v2/memory/chunking_v22.py'\nadding 'bcc/v2/memory/context_pack.py'\nadding 'bcc/v2/memory/facts.py'\nadding 'bcc/v2/memory/local_index.py'\nadding 'bcc/v2/memory/memsearch_bridge.py'\nadding 'bcc/v2/memory/obsidian.py'\nadding 'bcc/v2/memory/reranker.py'\nadding 'bcc/v2/memory/service.py'\nadding 'bcc/v2/memory/sqlite_index.py'\nadding 'bossman_command_center-0.1.0.dist-info/METADATA'\nadding 'bossman_command_center-0.1.0.dist-info/WHEEL'\nadding 'bossman_command_center-0.1.0.dist-info/entry_points.txt'\nadding 'bossman_command_center-0.1.0.dist-info/top_level.txt'\nadding 'bossman_command_center-0.1.0.dist-info/RECORD'\nremoving build\\bdist.win-amd64\\wheel\nSuccessfully built .audit-work\\final-package-verification\\wheels\\bossman_command_center-0.1.0-py3-none-any.whl\n"
+    },
+    {
+      "label": "venv-311",
+      "command": [
+        "C:\\Users\\timur\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+        "venv",
+        "--python",
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 0.203,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\venv-311.log",
+      "tail": "\nUsing CPython 3.11.16 interpreter at: C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe\nCreating virtual environment at: .audit-work\\installed-final311\nActivate with: .audit-work\\installed-final311\\Scripts\\activate\n"
+    },
+    {
+      "label": "install-311",
+      "command": [
+        "C:\\Users\\timur\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+        "pip",
+        "install",
+        "--python",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Scripts\\python.exe",
+        "--no-deps",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels\\bossman_command_center-0.1.0-py3-none-any.whl",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels\\bossman_core-0.3.0-py3-none-any.whl",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels\\bossman_shared-0.1.0-py3-none-any.whl"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 0.907,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\install-311.log",
+      "tail": "\nUsing Python 3.11.16 environment at: .audit-work\\installed-final311\nResolved 3 packages in 2ms\nPrepared 3 packages in 275ms\nInstalled 3 packages in 394ms\n + bossman-command-center==0.1.0 (from file:///C:/AiMaxBossman-reality-v010/.audit-work/final-package-verification/wheels/bossman_command_center-0.1.0-py3-none-any.whl)\n + bossman-core==0.3.0 (from file:///C:/AiMaxBossman-reality-v010/.audit-work/final-package-verification/wheels/bossman_core-0.3.0-py3-none-any.whl)\n + bossman-shared==0.1.0 (from file:///C:/AiMaxBossman-reality-v010/.audit-work/final-package-verification/wheels/bossman_shared-0.1.0-py3-none-any.whl)\n"
+    },
+    {
+      "label": "isolated-import-311",
+      "command": [
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Scripts\\python.exe",
+        "-I",
+        "-c",
+        "import json, pathlib, sys\nimport bossman_shared.reality, bossman_shared.reality_guard, bossman_shared.reasoning_protocol\nimport bossman.runner, bcc.engine\nprefix=pathlib.Path(sys.prefix).resolve()\nmodules=[bossman_shared.reality,bossman_shared.reality_guard,bossman_shared.reasoning_protocol,bossman.runner,bcc.engine]\npaths={m.__name__:str(pathlib.Path(m.__file__).resolve()) for m in modules}\nassert all(pathlib.Path(p).is_relative_to(prefix) for p in paths.values()),paths\nassert bossman.runner.reality_guard is bossman_shared.reality_guard\nassert bcc.engine.reality_guard is bossman_shared.reality_guard\nassert bossman_shared.reasoning_protocol.reasoning_protocol_prompt()\nprint(json.dumps({'python':sys.version,'isolated':sys.flags.isolated,'prefix':str(prefix),'module_paths':paths,'same_guard_instance':True,'status':'PASS'}))\n"
+      ],
+      "cwd": "C:\\Users\\timur\\AppData\\Local\\Temp",
+      "exit_code": 0,
+      "elapsed_seconds": 1.406,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\isolated-import-311.log",
+      "tail": "{\"python\": \"3.11.16 (main, Aug 25 2026, 13:59:19) [MSC v.1944 64 bit (AMD64)]\", \"isolated\": 1, \"prefix\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\", \"module_paths\": {\"bossman_shared.reality\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality\\\\__init__.py\", \"bossman_shared.reality_guard\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality_guard.py\", \"bossman_shared.reasoning_protocol\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reasoning_protocol.py\", \"bossman.runner\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman\\\\runner.py\", \"bcc.engine\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bcc\\\\engine.py\"}, \"same_guard_instance\": true, \"status\": \"PASS\"}\n\n"
+    },
+    {
+      "label": "shared-tests-311",
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "C:\\AiMaxBossman-reality-v010\\tests\\reality",
+        "-q",
+        "--basetemp",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\pytest-311"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 6.172,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\shared-tests-311.log",
+      "tail": "................................................................... [ 88%]\n.........                                                                [100%]\n76 passed, 5 subtests passed in 5.68s\n\n"
+    },
+    {
+      "label": "venv-312",
+      "command": [
+        "C:\\Users\\timur\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+        "venv",
+        "--python",
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci312\\Scripts\\python.exe",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 0.234,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\venv-312.log",
+      "tail": "\nUsing CPython 3.12.14 interpreter at: C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci312\\Scripts\\python.exe\nCreating virtual environment at: .audit-work\\installed-final312\nActivate with: .audit-work\\installed-final312\\Scripts\\activate\n"
+    },
+    {
+      "label": "install-312",
+      "command": [
+        "C:\\Users\\timur\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+        "pip",
+        "install",
+        "--python",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Scripts\\python.exe",
+        "--no-deps",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels\\bossman_command_center-0.1.0-py3-none-any.whl",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels\\bossman_core-0.3.0-py3-none-any.whl",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels\\bossman_shared-0.1.0-py3-none-any.whl"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 0.5,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\install-312.log",
+      "tail": "\nUsing Python 3.12.14 environment at: .audit-work\\installed-final312\nResolved 3 packages in 2ms\nInstalled 3 packages in 273ms\n + bossman-command-center==0.1.0 (from file:///C:/AiMaxBossman-reality-v010/.audit-work/final-package-verification/wheels/bossman_command_center-0.1.0-py3-none-any.whl)\n + bossman-core==0.3.0 (from file:///C:/AiMaxBossman-reality-v010/.audit-work/final-package-verification/wheels/bossman_core-0.3.0-py3-none-any.whl)\n + bossman-shared==0.1.0 (from file:///C:/AiMaxBossman-reality-v010/.audit-work/final-package-verification/wheels/bossman_shared-0.1.0-py3-none-any.whl)\n"
+    },
+    {
+      "label": "isolated-import-312",
+      "command": [
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Scripts\\python.exe",
+        "-I",
+        "-c",
+        "import json, pathlib, sys\nimport bossman_shared.reality, bossman_shared.reality_guard, bossman_shared.reasoning_protocol\nimport bossman.runner, bcc.engine\nprefix=pathlib.Path(sys.prefix).resolve()\nmodules=[bossman_shared.reality,bossman_shared.reality_guard,bossman_shared.reasoning_protocol,bossman.runner,bcc.engine]\npaths={m.__name__:str(pathlib.Path(m.__file__).resolve()) for m in modules}\nassert all(pathlib.Path(p).is_relative_to(prefix) for p in paths.values()),paths\nassert bossman.runner.reality_guard is bossman_shared.reality_guard\nassert bcc.engine.reality_guard is bossman_shared.reality_guard\nassert bossman_shared.reasoning_protocol.reasoning_protocol_prompt()\nprint(json.dumps({'python':sys.version,'isolated':sys.flags.isolated,'prefix':str(prefix),'module_paths':paths,'same_guard_instance':True,'status':'PASS'}))\n"
+      ],
+      "cwd": "C:\\Users\\timur\\AppData\\Local\\Temp",
+      "exit_code": 0,
+      "elapsed_seconds": 1.281,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\isolated-import-312.log",
+      "tail": "{\"python\": \"3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]\", \"isolated\": 1, \"prefix\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\", \"module_paths\": {\"bossman_shared.reality\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality\\\\__init__.py\", \"bossman_shared.reality_guard\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality_guard.py\", \"bossman_shared.reasoning_protocol\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reasoning_protocol.py\", \"bossman.runner\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman\\\\runner.py\", \"bcc.engine\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bcc\\\\engine.py\"}, \"same_guard_instance\": true, \"status\": \"PASS\"}\n\n"
+    },
+    {
+      "label": "shared-tests-312",
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci312\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "C:\\AiMaxBossman-reality-v010\\tests\\reality",
+        "-q",
+        "--basetemp",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\pytest-312"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 5.75,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\shared-tests-312.log",
+      "tail": "................................................................... [ 88%]\n.........                                                                [100%]\n76 passed, 5 subtests passed in 5.27s\n\n"
+    },
+    {
+      "label": "final-build-shared",
+      "command": [
+        "C:\\Users\\timur\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+        "build",
+        "--wheel",
+        "--out-dir",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels",
+        "C:\\AiMaxBossman-reality-v010"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 1.828,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\final-build-shared.log",
+      "tail": "/cache_observation.py'\nadding 'bossman_shared/evidence.py'\nadding 'bossman_shared/fable_budget.py'\nadding 'bossman_shared/http_transport.py'\nadding 'bossman_shared/privacy.py'\nadding 'bossman_shared/reality_guard.py'\nadding 'bossman_shared/reasoning_protocol.py'\nadding 'bossman_shared/reality/__init__.py'\nadding 'bossman_shared/reality/contracts.py'\nadding 'bossman_shared/reality/host.py'\nadding 'bossman_shared/reality/intelligence.py'\nadding 'bossman_shared/reality/policy.py'\nadding 'bossman_shared/reality/proof.py'\nadding 'bossman_shared/reality/runtime.py'\nadding 'bossman_shared/reality/store.py'\nadding 'learning/__init__.py'\nadding 'learning/trace.py'\nadding 'bossman_shared-0.1.0.dist-info/METADATA'\nadding 'bossman_shared-0.1.0.dist-info/WHEEL'\nadding 'bossman_shared-0.1.0.dist-info/top_level.txt'\nadding 'bossman_shared-0.1.0.dist-info/RECORD'\nremoving build\\bdist.win-amd64\\wheel\nSuccessfully built .audit-work\\final-package-verification\\wheels\\bossman_shared-0.1.0-py3-none-any.whl\n"
+    },
+    {
+      "label": "final-reinstall-311",
+      "command": [
+        "C:\\Users\\timur\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+        "pip",
+        "install",
+        "--python",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Scripts\\python.exe",
+        "--no-deps",
+        "--reinstall-package",
+        "bossman-shared",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels\\bossman_shared-0.1.0-py3-none-any.whl"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 0.187,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\final-reinstall-311.log",
+      "tail": "\nUsing Python 3.11.16 environment at: .audit-work\\installed-final311\nResolved 1 package in 1ms\nPrepared 1 package in 19ms\nUninstalled 1 package in 3ms\nInstalled 1 package in 8ms\n ~ bossman-shared==0.1.0 (from file:///C:/AiMaxBossman-reality-v010/.audit-work/final-package-verification/wheels/bossman_shared-0.1.0-py3-none-any.whl)\n"
+    },
+    {
+      "label": "final-isolated-import-311",
+      "command": [
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Scripts\\python.exe",
+        "-I",
+        "-c",
+        "import json,pathlib,sys\nimport bossman_shared.reality,bossman_shared.reality_guard,bossman_shared.reasoning_protocol\nimport bossman.runner,bcc.engine\nprefix=pathlib.Path(sys.prefix).resolve()\nmodules=[bossman_shared.reality,bossman_shared.reality_guard,bossman_shared.reasoning_protocol,bossman.runner,bcc.engine]\npaths={m.__name__:str(pathlib.Path(m.__file__).resolve()) for m in modules}\nassert all(pathlib.Path(p).is_relative_to(prefix) for p in paths.values()),paths\nassert bossman.runner.reality_guard is bossman_shared.reality_guard\nassert bcc.engine.reality_guard is bossman_shared.reality_guard\nassert bossman_shared.reasoning_protocol.reasoning_protocol_prompt()\nprint(json.dumps({'python':sys.version,'isolated':sys.flags.isolated,'prefix':str(prefix),'module_paths':paths,'same_guard_instance':True,'status':'PASS'}))\n"
+      ],
+      "cwd": "C:\\Users\\timur\\AppData\\Local\\Temp",
+      "exit_code": 0,
+      "elapsed_seconds": 1.078,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\final-isolated-import-311.log",
+      "tail": "{\"python\": \"3.11.16 (main, Aug 25 2026, 13:59:19) [MSC v.1944 64 bit (AMD64)]\", \"isolated\": 1, \"prefix\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\", \"module_paths\": {\"bossman_shared.reality\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality\\\\__init__.py\", \"bossman_shared.reality_guard\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality_guard.py\", \"bossman_shared.reasoning_protocol\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reasoning_protocol.py\", \"bossman.runner\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman\\\\runner.py\", \"bcc.engine\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bcc\\\\engine.py\"}, \"same_guard_instance\": true, \"status\": \"PASS\"}\n\n"
+    },
+    {
+      "label": "final-shared-tests-311",
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "C:\\AiMaxBossman-reality-v010\\tests\\reality",
+        "C:\\AiMaxBossman-reality-v010\\tests\\test_evidence_signing_shared.py::test_binary_key_and_signature_survive_restart",
+        "-q",
+        "--basetemp",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\pytest-final-311"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 4.375,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\final-shared-tests-311.log",
+      "tail": "................................................................... [ 73%]\n........................                                                 [100%]\n91 passed, 5 subtests passed in 3.93s\n\n"
+    },
+    {
+      "label": "final-reinstall-312",
+      "command": [
+        "C:\\Users\\timur\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+        "pip",
+        "install",
+        "--python",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Scripts\\python.exe",
+        "--no-deps",
+        "--reinstall-package",
+        "bossman-shared",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels\\bossman_shared-0.1.0-py3-none-any.whl"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 0.235,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\final-reinstall-312.log",
+      "tail": "\nUsing Python 3.12.14 environment at: .audit-work\\installed-final312\nResolved 1 package in 1ms\nPrepared 1 package in 0.74ms\nUninstalled 1 package in 5ms\nInstalled 1 package in 13ms\n ~ bossman-shared==0.1.0 (from file:///C:/AiMaxBossman-reality-v010/.audit-work/final-package-verification/wheels/bossman_shared-0.1.0-py3-none-any.whl)\n"
+    },
+    {
+      "label": "final-isolated-import-312",
+      "command": [
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Scripts\\python.exe",
+        "-I",
+        "-c",
+        "import json,pathlib,sys\nimport bossman_shared.reality,bossman_shared.reality_guard,bossman_shared.reasoning_protocol\nimport bossman.runner,bcc.engine\nprefix=pathlib.Path(sys.prefix).resolve()\nmodules=[bossman_shared.reality,bossman_shared.reality_guard,bossman_shared.reasoning_protocol,bossman.runner,bcc.engine]\npaths={m.__name__:str(pathlib.Path(m.__file__).resolve()) for m in modules}\nassert all(pathlib.Path(p).is_relative_to(prefix) for p in paths.values()),paths\nassert bossman.runner.reality_guard is bossman_shared.reality_guard\nassert bcc.engine.reality_guard is bossman_shared.reality_guard\nassert bossman_shared.reasoning_protocol.reasoning_protocol_prompt()\nprint(json.dumps({'python':sys.version,'isolated':sys.flags.isolated,'prefix':str(prefix),'module_paths':paths,'same_guard_instance':True,'status':'PASS'}))\n"
+      ],
+      "cwd": "C:\\Users\\timur\\AppData\\Local\\Temp",
+      "exit_code": 0,
+      "elapsed_seconds": 1.172,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\final-isolated-import-312.log",
+      "tail": "{\"python\": \"3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]\", \"isolated\": 1, \"prefix\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\", \"module_paths\": {\"bossman_shared.reality\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality\\\\__init__.py\", \"bossman_shared.reality_guard\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality_guard.py\", \"bossman_shared.reasoning_protocol\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reasoning_protocol.py\", \"bossman.runner\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman\\\\runner.py\", \"bcc.engine\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bcc\\\\engine.py\"}, \"same_guard_instance\": true, \"status\": \"PASS\"}\n\n"
+    },
+    {
+      "label": "final-shared-tests-312",
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci312\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "C:\\AiMaxBossman-reality-v010\\tests\\reality",
+        "C:\\AiMaxBossman-reality-v010\\tests\\test_evidence_signing_shared.py::test_binary_key_and_signature_survive_restart",
+        "-q",
+        "--basetemp",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\pytest-final-312"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 4.562,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\final-shared-tests-312.log",
+      "tail": "................................................................... [ 73%]\n........................                                                 [100%]\n91 passed, 5 subtests passed in 4.11s\n\n"
+    }
+  ],
+  "imports": {
+    "311": {
+      "exit_code": 0,
+      "output": "{\"python\": \"3.11.16 (main, Aug 25 2026, 13:59:19) [MSC v.1944 64 bit (AMD64)]\", \"isolated\": 1, \"prefix\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\", \"module_paths\": {\"bossman_shared.reality\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality\\\\__init__.py\", \"bossman_shared.reality_guard\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality_guard.py\", \"bossman_shared.reasoning_protocol\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reasoning_protocol.py\", \"bossman.runner\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bossman\\\\runner.py\", \"bcc.engine\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final311\\\\Lib\\\\site-packages\\\\bcc\\\\engine.py\"}, \"same_guard_instance\": true, \"status\": \"PASS\"}",
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\final-isolated-import-311.log"
+    },
+    "312": {
+      "exit_code": 0,
+      "output": "{\"python\": \"3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]\", \"isolated\": 1, \"prefix\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\", \"module_paths\": {\"bossman_shared.reality\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality\\\\__init__.py\", \"bossman_shared.reality_guard\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reality_guard.py\", \"bossman_shared.reasoning_protocol\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman_shared\\\\reasoning_protocol.py\", \"bossman.runner\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bossman\\\\runner.py\", \"bcc.engine\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\installed-final312\\\\Lib\\\\site-packages\\\\bcc\\\\engine.py\"}, \"same_guard_instance\": true, \"status\": \"PASS\"}",
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\final-isolated-import-312.log"
+    }
+  },
+  "shared_tests": {
+    "311": {
+      "exit_code": 0,
+      "summary": "91 passed, 5 subtests passed in 3.93s",
+      "pythonpath": "C:\\AiMaxBossman-reality-v010",
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\final-shared-tests-311.log"
+    },
+    "312": {
+      "exit_code": 0,
+      "summary": "91 passed, 5 subtests passed in 4.11s",
+      "pythonpath": "C:\\AiMaxBossman-reality-v010",
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\final-shared-tests-312.log"
+    }
+  },
+  "limitations": [
+    "Runtime third-party dependencies supplied through matching existing Python site-packages; local project packages must resolve from fresh wheels.",
+    "No network provider inference, UI validation or full Core/BCC suites in this bounded packaging check."
+  ],
+  "wheels": [
+    {
+      "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels\\bossman_command_center-0.1.0-py3-none-any.whl",
+      "sha256": "eef72aad21c99a1a2e2166dc67205001d58a38671d7c7d0ff007dd7127fd0a23",
+      "size": 805513
+    },
+    {
+      "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels\\bossman_core-0.3.0-py3-none-any.whl",
+      "sha256": "3db1b60bc99979c3f6ddec34500b1a717fc8f26d465bd8ee61017a54d62740e9",
+      "size": 915182
+    },
+    {
+      "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\final-package-verification\\wheels\\bossman_shared-0.1.0-py3-none-any.whl",
+      "sha256": "d4de9c0de11c62ff5aedaaeb58f31b7a529ed15646db61c78402e9f43aeb7aba",
+      "size": 60398
+    }
+  ],
+  "status": "PASS",
+  "source_git_sha_after": "dbb65a298944acfdb0cedfa8b4cbfb39840e8a4e",
+  "initial_source_git_sha": "dcd9a9abcae2ef2a9ad26cc1c76f81fb0961d307",
+  "final_source_hashes": {
+    "bossman_shared\\__init__.py": "28bcffb606a49311db4f70883509a1ef7957144edb7ccbc64cc9c96060508497",
+    "bossman_shared\\action_receipt.py": "891334158bc7728ec0f3737700e0f17b374e7726bd908e9062ae278fa8ca44dc",
+    "bossman_shared\\cache_intelligence.py": "8220a7fb9b23db129c578fdec7d44400efb0db3795732b3bc72f46a705a12b96",
+    "bossman_shared\\cache_observation.py": "1c85174c5dcfcf21c2cea25fe833150c2c5fb7da7a85fb7c1a8a93823e4e3ddb",
+    "bossman_shared\\evidence.py": "63722d84b0595c16853445bbe3a6ea354f0eaaade1ed4221c3a52391f58ee992",
+    "bossman_shared\\fable_budget.py": "d1ecbc6c237d27f599d9520b50b68ed28eedcd3a24c0b7c4555e98abb6a12702",
+    "bossman_shared\\http_transport.py": "a4e2fb79a9963897b0c1e279f905bdd9b0e7a1362072023c920503602ce440bd",
+    "bossman_shared\\privacy.py": "1ab217f390e9844dd7c353a19dd90a640c2111dd09ad1ba62e5f5275f36e1137",
+    "bossman_shared\\reality\\__init__.py": "e8684bd21c164ae475cf092e3990b6b5224b64c9ebb40cb1d869eacde0c9336c",
+    "bossman_shared\\reality\\contracts.py": "41ec115afaa952a35e9782d08770e750f2540c583cfcf4a3c4f7a0ae89dcba24",
+    "bossman_shared\\reality\\host.py": "416b9972a7d666bb4e6454c1c8a4e1a60ba20d1f6677733c26bcac37c154ed94",
+    "bossman_shared\\reality\\intelligence.py": "2df351dc8e1cdede585c58af840361743dd931a99fc6cae80569b2e1548e7043",
+    "bossman_shared\\reality\\policy.py": "4c6192283529a44a9496ecacb909cee72e58797335b1f9f37cfa3beeb196d5f9",
+    "bossman_shared\\reality\\proof.py": "55b7e8bb2eccaa4d6057a7832cb77f3868ddc224a5d37374f9fcee608d45cb18",
+    "bossman_shared\\reality\\runtime.py": "e99ef33f4f4336f8a718be38707c6c67c367c722c93f8d4d3473e21ff61e3bd1",
+    "bossman_shared\\reality\\store.py": "96b4369bd8f9f9b57e25f68c1170aecd935bc1b2c07dd4972cdfd1545b5dddbb",
+    "bossman_shared\\reality_guard.py": "64f237a377e9b92fd83cdf6aa188ecb8ce0964a3d411dd8fd7a19bbcabee0230",
+    "bossman_shared\\reasoning_protocol.py": "f971840e723c48ad9f21a598ffc4a3b3f2484d9a1b0a19cae87cb2b6dc6e647a",
+    "bossman-core\\bossman\\runner.py": "480f47753fde7b5bc21312e580f7bed37f7b399f88577fdc8deb49511d248670",
+    "command-center\\bcc\\engine.py": "9db4e1eeb99d2ce0200f672875144a08736da31a8845180e9d88314c06c73a8c"
+  },
+  "source_unchanged_during_final_check": true,
+  "wheel_and_installed_source_parity": [
+    {
+      "module": "bossman_shared/evidence.py",
+      "source_sha256": "63722d84b0595c16853445bbe3a6ea354f0eaaade1ed4221c3a52391f58ee992",
+      "wheel_sha256": "63722d84b0595c16853445bbe3a6ea354f0eaaade1ed4221c3a52391f58ee992",
+      "installed_sha256": {
+        "311": "63722d84b0595c16853445bbe3a6ea354f0eaaade1ed4221c3a52391f58ee992",
+        "312": "63722d84b0595c16853445bbe3a6ea354f0eaaade1ed4221c3a52391f58ee992"
+      },
+      "match": true
+    },
+    {
+      "module": "bossman_shared/reality/host.py",
+      "source_sha256": "416b9972a7d666bb4e6454c1c8a4e1a60ba20d1f6677733c26bcac37c154ed94",
+      "wheel_sha256": "416b9972a7d666bb4e6454c1c8a4e1a60ba20d1f6677733c26bcac37c154ed94",
+      "installed_sha256": {
+        "311": "416b9972a7d666bb4e6454c1c8a4e1a60ba20d1f6677733c26bcac37c154ed94",
+        "312": "416b9972a7d666bb4e6454c1c8a4e1a60ba20d1f6677733c26bcac37c154ed94"
+      },
+      "match": true
+    },
+    {
+      "module": "bossman_shared/reality_guard.py",
+      "source_sha256": "64f237a377e9b92fd83cdf6aa188ecb8ce0964a3d411dd8fd7a19bbcabee0230",
+      "wheel_sha256": "64f237a377e9b92fd83cdf6aa188ecb8ce0964a3d411dd8fd7a19bbcabee0230",
+      "installed_sha256": {
+        "311": "64f237a377e9b92fd83cdf6aa188ecb8ce0964a3d411dd8fd7a19bbcabee0230",
+        "312": "64f237a377e9b92fd83cdf6aa188ecb8ce0964a3d411dd8fd7a19bbcabee0230"
+      },
+      "match": true
+    },
+    {
+      "module": "bossman_shared/reasoning_protocol.py",
+      "source_sha256": "f971840e723c48ad9f21a598ffc4a3b3f2484d9a1b0a19cae87cb2b6dc6e647a",
+      "wheel_sha256": "f971840e723c48ad9f21a598ffc4a3b3f2484d9a1b0a19cae87cb2b6dc6e647a",
+      "installed_sha256": {
+        "311": "f971840e723c48ad9f21a598ffc4a3b3f2484d9a1b0a19cae87cb2b6dc6e647a",
+        "312": "f971840e723c48ad9f21a598ffc4a3b3f2484d9a1b0a19cae87cb2b6dc6e647a"
+      },
+      "match": true
+    },
+    {
+      "module": "bossman/runner.py",
+      "source_sha256": "480f47753fde7b5bc21312e580f7bed37f7b399f88577fdc8deb49511d248670",
+      "wheel_sha256": "480f47753fde7b5bc21312e580f7bed37f7b399f88577fdc8deb49511d248670",
+      "installed_sha256": {
+        "311": "480f47753fde7b5bc21312e580f7bed37f7b399f88577fdc8deb49511d248670",
+        "312": "480f47753fde7b5bc21312e580f7bed37f7b399f88577fdc8deb49511d248670"
+      },
+      "match": true
+    },
+    {
+      "module": "bcc/engine.py",
+      "source_sha256": "9db4e1eeb99d2ce0200f672875144a08736da31a8845180e9d88314c06c73a8c",
+      "wheel_sha256": "9db4e1eeb99d2ce0200f672875144a08736da31a8845180e9d88314c06c73a8c",
+      "installed_sha256": {
+        "311": "9db4e1eeb99d2ce0200f672875144a08736da31a8845180e9d88314c06c73a8c",
+        "312": "9db4e1eeb99d2ce0200f672875144a08736da31a8845180e9d88314c06c73a8c"
+      },
+      "match": true
+    }
+  ]
+}

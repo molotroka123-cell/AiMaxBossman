@@ -38,5 +38,8 @@
     "test",
     "commit",
     "push"
-  ]
+  ],
+  "verified_local_settlements": 5,
+  "redacted_local_lessons": 5,
+  "integration_code_sha": "dbb65a298944acfdb0cedfa8b4cbfb39840e8a4e"
 }

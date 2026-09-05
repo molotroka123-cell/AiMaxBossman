@@ -1,0 +1,49 @@
+{
+  "archive_name": "Bossman_Reality_Compiler_v0.1.0.zip",
+  "archive_sha256": "814a5f23be2e07c4601e8ab5593a2a315b34bcad1166e46a9fdb8a0b65cb886a",
+  "original_python_files": [
+    {
+      "path": "bossman_shared/reality/__init__.py",
+      "archive_sha256": "e8684bd21c164ae475cf092e3990b6b5224b64c9ebb40cb1d869eacde0c9336c",
+      "byte_identical": true,
+      "lf_identical": true
+    },
+    {
+      "path": "bossman_shared/reality/contracts.py",
+      "archive_sha256": "41ec115afaa952a35e9782d08770e750f2540c583cfcf4a3c4f7a0ae89dcba24",
+      "byte_identical": true,
+      "lf_identical": true
+    },
+    {
+      "path": "bossman_shared/reality/intelligence.py",
+      "archive_sha256": "2df351dc8e1cdede585c58af840361743dd931a99fc6cae80569b2e1548e7043",
+      "byte_identical": true,
+      "lf_identical": true
+    },
+    {
+      "path": "bossman_shared/reality/policy.py",
+      "archive_sha256": "4c6192283529a44a9496ecacb909cee72e58797335b1f9f37cfa3beeb196d5f9",
+      "byte_identical": true,
+      "lf_identical": true
+    },
+    {
+      "path": "bossman_shared/reality/proof.py",
+      "archive_sha256": "55b7e8bb2eccaa4d6057a7832cb77f3868ddc224a5d37374f9fcee608d45cb18",
+      "byte_identical": true,
+      "lf_identical": true
+    },
+    {
+      "path": "bossman_shared/reality/runtime.py",
+      "archive_sha256": "e99ef33f4f4336f8a718be38707c6c67c367c722c93f8d4d3473e21ff61e3bd1",
+      "byte_identical": true,
+      "lf_identical": true
+    },
+    {
+      "path": "bossman_shared/reality/store.py",
+      "archive_sha256": "96b4369bd8f9f9b57e25f68c1170aecd935bc1b2c07dd4972cdfd1545b5dddbb",
+      "byte_identical": true,
+      "lf_identical": true
+    }
+  ],
+  "status": "PASS"
+}
