@@ -46,7 +46,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install core
-        run: python -m pip install -e "./bossman-core[dev]"
+        run: |
+          python -m pip install -e .
+          python -m pip install -e "./bossman-core[dev]"
       - name: SMOKE (all PRs, no paid calls)
         if: github.event_name == 'pull_request'
         working-directory: bossman-core
