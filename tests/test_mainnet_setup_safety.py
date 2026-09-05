@@ -49,7 +49,7 @@ def test_unlock_failure_preserves_existing_file_and_configuration(wizard):
     env = Path(scope["ENV_PATH"])
     env.write_bytes(b"preexisting configuration")
     with pytest.raises(RuntimeError, match="original file preserved"):
-        scope["run_setup_wizard"](password="test-only-password", non_interactive=True)
+        scope["run_setup_wizard"](password="test-only-password", non_interactive=True)  # ci-secret-scan: allow -- synthetic password for stubbed vault
     assert path.read_bytes() == original
     assert env.read_bytes() == b"preexisting configuration"
     vault.create_and_store_pool.assert_not_called()

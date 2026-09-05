@@ -1,0 +1,27 @@
+{
+  "mission_id": "BOSS-FINAL-REALITY-CLOSURE-010",
+  "start_local_sha": "a14515d1164c97ed20ea563168845c06ee9a80ce",
+  "start_remote_sha": "a14515d1164c97ed20ea563168845c06ee9a80ce",
+  "initial_scorecard_freshness": "PARTIALLY_STALE",
+  "owner_worktree_preserved": true,
+  "untracked_owner_paths": [
+    ".audit-work/",
+    ".checkpoint-push-b7aaf43/",
+    "bossman-core/tests/test_reality_integration.py",
+    "bossman_shared/reality/",
+    "bossman_shared/reality_guard.py",
+    "command-center/tests/test_reality_integration.py",
+    "docs/acceptance/evidence/bossman-browser-example.png",
+    "docs/reality/",
+    "tests/reality/"
+  ],
+  "integration_worktree": "C:\\boss-final-010\\integration",
+  "remote_updates_integrated": [
+    "0da3f134df9df8af8c15d5bd12d43be1b6897351"
+  ],
+  "max_openrouter_spend_usd": 3,
+  "openrouter_spend_usd": 0,
+  "mainnet_side_effect_testing": "DISABLED",
+  "agent_concurrency_limit": 3,
+  "specialists_requested": 10
+}
