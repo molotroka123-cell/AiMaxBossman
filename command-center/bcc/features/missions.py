@@ -146,7 +146,11 @@ async def _tick(svc):
         if not tasks:
             continue
         active = [t for t in tasks if t["status"] in ("queued", "running", "waiting_approval")]
-        done = [t for t in tasks if t["status"] in ("completed", "failed", "stopped")]
+        done = [t for t in tasks if t["status"] == "completed"]
+        failed = [t for t in tasks if t["status"] in ("failed", "stopped", "cancelled")]
+        if failed:
+            await _finish_mission(svc, m["id"], "failed", "required child did not complete successfully")
+            continue
         # таймаут миссии
         if m["duration_minutes"] and m["started_at"]:
             if (utcnow() - m["started_at"]).total_seconds() > m["duration_minutes"] * 60:

@@ -164,9 +164,8 @@ async def _gate(svc):
 
 
 async def _tick(svc):
-    """Manual override: одобренная эскалация ревью → задача принудительно completed.
-    Это решение ЧЕЛОВЕКА (approval), а не самоотчёт — единственный путь мимо
-    свежей верификации; помечается override=True в событии."""
+    """Human review settles reviewer judgement; finalize_override still requires
+    fresh verification of every declared effect before completion."""
     async with svc.db.session() as s:
         from ..db import approvals as appr_t
         rows = (await s.execute(sa.select(appr_t).where(
