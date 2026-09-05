@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Protocol
 
-from .embeddings import Embedder, cosine
+from .embeddings import Embedder, cosine, valid_vector
 from .models import RetrievalHit
 from .store import ContextStore
 
@@ -49,13 +49,16 @@ class HybridRetriever:
         # получает sensitive chunk, даже если он релевантнее. None = без фильтра.
         allow = set(sensitivity_allow) if sensitivity_allow is not None else None
         def _ok(chunk) -> bool:
-            return allow is None or (chunk.sensitivity or "normal") in allow
+            return chunk.project == project and (allow is None or (chunk.sensitivity or "normal") in allow)
         by_id: dict[str, RetrievalHit] = {}
         for chunk, score in self.store.lexical_search(query, candidate_limit, project):
             if not _ok(chunk): continue
             by_id[chunk.chunk_id] = RetrievalHit(chunk=chunk, lexical_score=score, reasons=["lexical"])
-        qv = self.embedder.embed([query])[0]
-        for chunk, vec in self.store.all_vector_chunks(project):
+        try:
+            qv = self.embedder.embed([query])[0]
+        except Exception:
+            qv = []  # Local embedding failure must not erase lexical evidence.
+        for chunk, vec in self.store.all_vector_chunks(project) if valid_vector(qv, self.embedder.dimension) else []:
             if not _ok(chunk): continue
             score = cosine(qv, vec)
             if score <= 0: continue

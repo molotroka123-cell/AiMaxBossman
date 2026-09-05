@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Iterable
 
 from .models import Chunk, Document, MemoryKind, MemoryRecord, MemoryStatus
+from .embeddings import valid_vector
 from .utils import json_dumps
 
 _SCHEMA = """
@@ -46,6 +47,10 @@ CREATE TABLE IF NOT EXISTS chunks (
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(document_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_project ON chunks(project);
+CREATE TABLE IF NOT EXISTS current_documents (
+  project TEXT NOT NULL, source_uri TEXT NOT NULL, document_id TEXT NOT NULL,
+  PRIMARY KEY(project, source_uri)
+);
 CREATE TABLE IF NOT EXISTS memories (
   memory_id TEXT PRIMARY KEY,
   kind TEXT NOT NULL,
@@ -74,6 +79,14 @@ class ContextStore:
         self.db = sqlite3.connect(self.path)
         self.db.row_factory = sqlite3.Row
         self.db.executescript(_SCHEMA)
+        # Upgrade the derived index for legacy stores without deleting raw
+        # documents/chunks. Existing explicit current pointers are preserved.
+        with self.db:
+            self.db.execute("""INSERT OR IGNORE INTO current_documents(project,source_uri,document_id)
+                SELECT d.project,d.source_uri,d.document_id FROM documents d
+                WHERE d.document_id=(SELECT newest.document_id FROM documents newest
+                    WHERE newest.project=d.project AND newest.source_uri=d.source_uri
+                    ORDER BY newest.updated_at DESC,newest.rowid DESC LIMIT 1)""")
         self._fts = self._ensure_fts()
 
     def _ensure_fts(self) -> bool:
@@ -90,7 +103,7 @@ class ContextStore:
     def document_indexed(self, document_id: str) -> bool:
         """Документ уже проиндексирован (есть хотя бы один чанк)?
 
-        document_id = stable_id(source_uri, content_hash), поэтому равенство id
+        document_id = stable_id(project, source_uri, content_hash), поэтому равенство id
         означает «тот же источник с тем же содержимым». Позволяет пропустить
         повторный chunk+embed идентичного текста (FABLE5 perf: memory.md
         переэмбеддился на каждой задаче)."""
@@ -98,7 +111,7 @@ class ContextStore:
             "SELECT 1 FROM chunks WHERE document_id=? LIMIT 1", (document_id,)).fetchone()
         return row is not None
 
-    def upsert_document(self, doc: Document) -> None:
+    def upsert_document(self, doc: Document, *, commit: bool = True) -> None:
         self.db.execute(
             """INSERT INTO documents VALUES (?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(document_id) DO UPDATE SET source_type=excluded.source_type,source_uri=excluded.source_uri,text=excluded.text,
@@ -107,9 +120,11 @@ class ContextStore:
             (doc.document_id, doc.source_type, doc.source_uri, doc.text, doc.project, doc.created_at, doc.updated_at,
              doc.author, json_dumps(doc.metadata), doc.sensitivity, doc.content_hash),
         )
-        self.db.commit()
+        if commit:
+            self.db.commit()
 
-    def replace_chunks(self, document_id: str, chunks: Iterable[Chunk], vectors: dict[str, list[float]] | None = None) -> None:
+    def replace_chunks(self, document_id: str, chunks: Iterable[Chunk], vectors: dict[str, list[float]] | None = None,
+                       *, commit: bool = True) -> None:
         old = [r[0] for r in self.db.execute("SELECT chunk_id FROM chunks WHERE document_id=?", (document_id,))]
         if self._fts:
             for cid in old:
@@ -125,7 +140,30 @@ class ContextStore:
             if self._fts:
                 self.db.execute("INSERT INTO chunks_fts(chunk_id,text,heading,project,source_uri) VALUES (?,?,?,?,?)",
                                 (c.chunk_id,c.text,c.heading,c.project,c.source_uri))
-        self.db.commit()
+        if commit:
+            self.db.commit()
+
+    def index_document(self, doc: Document, chunks: Iterable[Chunk] | None = None,
+                       vectors: dict[str, list[float]] | None = None) -> None:
+        """Publish one source snapshot atomically; keep old raw evidence addressable.
+
+        None chunks means same content/layout: refresh classification/metadata
+        without recomputing vectors. Old snapshots stay available via get_chunk,
+        but only the selected source version can enter ordinary retrieval.
+        """
+        with self.db:
+            self.upsert_document(doc, commit=False)
+            if chunks is None:
+                self.db.execute("UPDATE chunks SET sensitivity=?,metadata=? WHERE document_id=?",
+                                (doc.sensitivity, json_dumps(doc.metadata), doc.document_id))
+            else:
+                self.replace_chunks(doc.document_id, chunks, vectors, commit=False)
+            self.db.execute("INSERT INTO current_documents VALUES(?,?,?) "
+                            "ON CONFLICT(project,source_uri) DO UPDATE SET document_id=excluded.document_id",
+                            (doc.project, doc.source_uri, doc.document_id))
+
+    _CURRENT_JOIN = " LEFT JOIN current_documents AS current ON current.project=c.project AND current.source_uri=c.source_uri"
+    _CURRENT = "(current.document_id IS NULL OR current.document_id=c.document_id)"
 
     def lexical_search(self, query: str, limit: int = 50, project: str = "") -> list[tuple[Chunk, float]]:
         if self._fts:
@@ -136,11 +174,10 @@ class ContextStore:
             terms = [t for t in terms if len(t) >= 2]
             if terms:
                 match = " OR ".join(f"{t}*" for t in terms)
-                sql = """SELECT c.*, bm25(chunks_fts) AS rank FROM chunks_fts JOIN chunks c USING(chunk_id)
-                         WHERE chunks_fts MATCH ?"""
+                sql = ("SELECT c.*, bm25(chunks_fts) AS rank FROM chunks_fts JOIN chunks c USING(chunk_id)"
+                       + self._CURRENT_JOIN + " WHERE chunks_fts MATCH ? AND " + self._CURRENT)
                 params: list[object] = [match]
-                if project:
-                    sql += " AND c.project=?"; params.append(project)
+                sql += " AND c.project=?"; params.append(project)
                 sql += " ORDER BY rank LIMIT ?"; params.append(limit)
                 try:
                     rows = self.db.execute(sql, params).fetchall()
@@ -153,8 +190,9 @@ class ContextStore:
         q = {x.lower() for x in query.split() if len(x) > 1}
         if not q:
             return []
-        sql = "SELECT * FROM chunks" + (" WHERE project=?" if project else "")
-        rows = self.db.execute(sql, (project,) if project else ()).fetchall()
+        sql = ("SELECT c.* FROM chunks c" + self._CURRENT_JOIN + " WHERE " + self._CURRENT
+               + " AND c.project=?")
+        rows = self.db.execute(sql, (project,)).fetchall()
         scored: list[tuple[Chunk,float]] = []
         for r in rows:
             words = {x.lower().strip(".,:;!?()[]{}") for x in r["text"].split()}
@@ -164,9 +202,18 @@ class ContextStore:
         return sorted(scored, key=lambda x: x[1], reverse=True)[:limit]
 
     def all_vector_chunks(self, project: str = "") -> list[tuple[Chunk, list[float]]]:
-        sql = "SELECT * FROM chunks WHERE vector IS NOT NULL" + (" AND project=?" if project else "")
-        rows = self.db.execute(sql, (project,) if project else ()).fetchall()
-        return [(self._row_chunk(r), json.loads(r["vector"])) for r in rows]
+        sql = ("SELECT c.* FROM chunks c" + self._CURRENT_JOIN + " WHERE c.vector IS NOT NULL AND "
+               + self._CURRENT + " AND c.project=?")
+        rows = self.db.execute(sql, (project,)).fetchall()
+        result = []
+        for row in rows:
+            try:
+                vector = json.loads(row["vector"])
+            except (ValueError, TypeError):
+                continue
+            if valid_vector(vector):
+                result.append((self._row_chunk(row), vector))
+        return result
 
     def get_chunk(self, chunk_id: str) -> Chunk | None:
         row = self.db.execute("SELECT * FROM chunks WHERE chunk_id=?", (chunk_id,)).fetchone()

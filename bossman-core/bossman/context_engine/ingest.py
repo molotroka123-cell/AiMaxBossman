@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .chunking import chunk_document
-from .embeddings import Embedder
+from .embeddings import Embedder, valid_vector
 from .models import Document
 from .store import ContextStore
 from .utils import sha256_text, stable_id, utcnow
@@ -19,21 +19,28 @@ class Ingestor:
     def ingest_text(self, text: str, *, source_uri: str, source_type: str = "text", project: str = "",
                     metadata: dict | None = None, sensitivity: str = "normal") -> Document:
         now = utcnow(); h = sha256_text(text)
-        document_id = stable_id("doc", source_uri, h)
+        document_id = stable_id("doc", project, source_uri, h)
         doc = Document(
             document_id=document_id,source_type=source_type,source_uri=source_uri,text=text,project=project,
             created_at=now,updated_at=now,metadata=metadata or {},content_hash=h,sensitivity=sensitivity,
         )
-        # Fast path: тот же source_uri + тот же контент → тот же document_id.
+        # Fast path: same project/source/content and same chunking layout.
         # Если он уже проиндексирован, повторный chunk+embed не нужен (это ровно
         # те же данные). Убирает переэмбеддинг неизменного memory.md на каждой
         # задаче — см. docs/context/FABLE5_GENERAL_OPTIMIZATION_AUDIT.md.
-        if self.store.document_indexed(document_id):
+        stored = self.store.db.execute("SELECT source_type,created_at,updated_at FROM documents WHERE document_id=?",
+                                       (document_id,)).fetchone()
+        if stored and stored["source_type"] == source_type and self.store.document_indexed(document_id):
+            doc.created_at, doc.updated_at = stored["created_at"], stored["updated_at"]
+            self.store.index_document(doc)
             return doc
         chunks = chunk_document(doc)
         vectors = self.embedder.embed([c.text for c in chunks]) if chunks else []
-        self.store.upsert_document(doc)
-        self.store.replace_chunks(doc.document_id, chunks, {c.chunk_id:v for c,v in zip(chunks,vectors)})
+        if len(vectors) != len(chunks):
+            raise ValueError("embedder returned an incomplete source snapshot")
+        if any(not valid_vector(vector, self.embedder.dimension) for vector in vectors):
+            raise ValueError("embedder returned invalid source vectors")
+        self.store.index_document(doc, chunks, {c.chunk_id:v for c,v in zip(chunks,vectors)})
         return doc
 
     def ingest_file(self, path: str | Path, *, project: str = "", source_root: str | Path | None = None) -> Document | None:

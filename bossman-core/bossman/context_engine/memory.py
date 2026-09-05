@@ -23,6 +23,7 @@ class StoreMemoryPlugin:
         mems = self.store.memories(project, (MemoryStatus.ACTIVE, MemoryStatus.DISPUTED))
         scored=[]
         for m in mems:
+            if m.project != project: continue
             words={w.lower() for w in re.findall(r"\w{2,}",m.text)}
             score=len(q & words)/max(1,len(q)) + m.importance*0.25 + m.confidence*0.15
             scored.append((score,m))
@@ -69,6 +70,8 @@ class MemoryManager:
         row=self.store.db.execute("SELECT * FROM memories WHERE memory_id=?",(m.memory_id,)).fetchone()
         if not row: return
         old=self.store._row_memory(row)
+        if (old.project, old.kind, old.text) != (m.project, m.kind, m.text):
+            raise ValueError("memory identity cannot replace its verified payload or project")
         if old.status not in self._DURABLE_STATUSES: return
         m.status=old.status
         m.last_verified_at=old.last_verified_at or m.last_verified_at
@@ -140,6 +143,7 @@ class MemoryManager:
         q={w.lower() for w in re.findall(r"\w{2,}",query)}
         out=[]
         for m in self.store.memories(project,(MemoryStatus.ACTIVE,MemoryStatus.DISPUTED)):
+            if m.project != project: continue
             if m.kind is not MemoryKind.FAILURE: continue
             words={w.lower() for w in re.findall(r"\w{2,}",m.text)}
             score=len(q & words)/max(1,len(q)) + m.importance*0.25
@@ -166,10 +170,23 @@ class MemoryManager:
         new.updated_at=utcnow(); self.store.upsert_memory(old); self.store.upsert_memory(new)
 
     def retrieve(self, query: str, *, project: str="", limit: int=12) -> list[MemoryRecord]:
+        if limit <= 0:
+            return []
         merged: dict[str,MemoryRecord]={}
         for p in self.plugins:
-            for m in p.retrieve(query,project,limit): merged.setdefault(m.memory_id,m)
-        return sorted(merged.values(),key=lambda m:(m.importance,m.confidence),reverse=True)[:limit]
+            for m in p.retrieve(query,project,limit):
+                row = self.store.db.execute("SELECT * FROM memories WHERE memory_id=?", (m.memory_id,)).fetchone()
+                if row is not None:
+                    m = self.store._row_memory(row)  # Durable state overrides stale plugin copies.
+                if m.project != project or m.status not in (MemoryStatus.ACTIVE, MemoryStatus.DISPUTED):
+                    continue
+                merged.setdefault(m.memory_id,m)
+        q = {w.lower() for w in re.findall(r"\w{2,}", query)}
+        def score(m):
+            words = {w.lower() for w in re.findall(r"\w{2,}", m.text)}
+            return (len(q & words) / max(1, len(q)) + m.importance*.25 + m.confidence*.15,
+                    m.updated_at, m.memory_id)
+        return sorted(merged.values(), key=score, reverse=True)[:limit]
 
     def _detect_conflicts(self, candidate: MemoryRecord) -> None:
         # Conservative deterministic conflict marker. It avoids claiming logical
@@ -178,6 +195,7 @@ class MemoryManager:
         cwords={w.lower() for w in re.findall(r"\w{3,}",candidate.text)}
         cneg=bool(neg.search(candidate.text))
         for old in self.store.memories(candidate.project,(MemoryStatus.ACTIVE,MemoryStatus.DISPUTED)):
+            if old.project != candidate.project: continue
             if old.kind != candidate.kind: continue
             owords={w.lower() for w in re.findall(r"\w{3,}",old.text)}
             overlap=len(cwords&owords)/max(1,min(len(cwords),len(owords)))

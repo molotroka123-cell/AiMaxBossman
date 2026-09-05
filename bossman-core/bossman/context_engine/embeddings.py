@@ -37,7 +37,17 @@ class HashEmbedder:
         return [v / norm for v in vec]
 
 
+def valid_vector(value, dimension: int | None = None) -> bool:
+    return (isinstance(value, (list, tuple)) and bool(value)
+            and (dimension is None or len(value) == dimension)
+            and all(type(x) in (int, float) and math.isfinite(x) for x in value))
+
+
 def cosine(a: list[float], b: list[float]) -> float:
-    if len(a) != len(b) or not a:
+    if not valid_vector(a) or not valid_vector(b, len(a)):
         return 0.0
-    return sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x*x for x in a))
+    norm_b = math.sqrt(sum(x*x for x in b))
+    if not norm_a or not norm_b or not math.isfinite(norm_a * norm_b):
+        return 0.0
+    return max(-1.0, min(1.0, sum(x*y for x, y in zip(a,b)) / (norm_a * norm_b)))

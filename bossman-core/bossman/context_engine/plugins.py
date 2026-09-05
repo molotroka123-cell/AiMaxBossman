@@ -55,6 +55,14 @@ class JsonMemoryPlugin:
         records = data if isinstance(data, list) else data.get("memories", [])
         q={w.lower() for w in query.split() if len(w)>2}; scored=[]
         for item in records:
+            if str(item.get("project") or project) != project:
+                continue
+            try:
+                status = MemoryStatus(str(item.get("status", "active")))
+            except ValueError:
+                continue
+            if status not in (MemoryStatus.ACTIVE, MemoryStatus.DISPUTED):
+                continue
             text=str(item.get("text","")).strip()
             if not text: continue
             words={w.lower().strip(".,:;!?()[]{}") for w in text.split()}
@@ -64,7 +72,7 @@ class JsonMemoryPlugin:
             try: kind=MemoryKind(kind_raw)
             except ValueError: kind=MemoryKind.SUMMARY
             rec=MemoryRecord(memory_id=str(item.get("memory_id") or stable_id("jsonmem",str(self.path),text)),kind=kind,
-                             text=text,project=str(item.get("project") or project),status=MemoryStatus.ACTIVE,
+                             text=text,project=str(item.get("project") or project),status=status,
                              confidence=float(item.get("confidence",.65)),importance=float(item.get("importance",.5)),
                              source_refs=list(item.get("source_refs") or [f"file://{self.path}"]),metadata={"plugin":self.name})
             scored.append((score,rec))
