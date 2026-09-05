@@ -189,49 +189,89 @@ a:hover { text-decoration: underline; }
 .brand-text b { font-size: 13.5px; letter-spacing: .09em; font-weight: 650; }
 .brand-text i { font-style: normal; font-size: 11px; color: var(--dim); letter-spacing: .02em; }
 
-.nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; }
+/* --- Навигация: компактные строки, разделы по смыслу, различимая активная строка --- */
+
+.nav { padding: 8px 8px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; }
+
+.nav-group { display: flex; flex-direction: column; gap: 1px; }
+.nav-group + .nav-group { margin-top: 6px; }
+
+/* Заголовок раздела: закреплённый — подпись, остальные — кнопка со стрелкой. */
+.nav-group-head {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; min-height: 26px;
+  margin: 0; padding: 4px 6px 4px 8px;
+  border: 1px solid transparent; border-radius: 7px;
+  background: none;
+  color: var(--dim-2);
+  font: 700 10.5px/1 var(--font);
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: default;
+  transition: color var(--t), background var(--t);
+}
+.nav-group-head.is-static { padding-left: 10px; }
+button.nav-group-head { cursor: pointer; }
+button.nav-group-head:hover { color: var(--fg-2); background: var(--line-soft); }
+.nav-group-head svg { flex: none; transition: transform var(--t); }
+.nav-group.open .nav-group-head svg { transform: rotate(90deg); }
+.nav-group-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Число страниц видно только у свёрнутого раздела: раскрытый и так показывает их все. */
+.nav-group-count { font: 600 10.5px/1 var(--mono); letter-spacing: 0; color: var(--dim-2); }
+.nav-group.open .nav-group-count { display: none; }
+/* Точка на заголовке: активная страница лежит в свёрнутом разделе. */
+.nav-group-dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
+.nav-group.has-active:not(.open) .nav-group-dot { display: block; }
+.nav-group.has-active:not(.open) .nav-group-head { color: var(--fg-2); }
+
+.nav-group-body { display: flex; flex-direction: column; gap: 1px; }
 
 .nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px;
+  position: relative;
+  display: flex; align-items: center; gap: 9px;
+  min-height: 30px;
+  padding: 4px 8px 4px 10px;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   background: none;
   color: var(--dim);
   font: inherit;
-  font-size: 13.5px;
+  font-size: 13px;
+  line-height: 1.25;
   cursor: pointer;
   text-align: left;
   width: 100%;
   transition: color var(--t), background var(--t), border-color var(--t);
 }
-.nav-item svg { flex: none; opacity: .85; }
-.nav-item:hover { color: var(--fg-2); background: var(--line-soft); }
+.nav-item svg { flex: none; opacity: .8; }
+.nav-item:hover { color: var(--fg); background: var(--line-soft); }
+.nav-item:hover svg { opacity: 1; }
+/* Активная строка — заливка, полоса акцента слева и полужирная подпись: три
+   признака сразу, чтобы читалось и в светлой теме, и боковым зрением. */
 .nav-item.active {
   color: var(--fg);
+  font-weight: 600;
   background: var(--accent-soft);
   border-color: var(--accent-line);
 }
+.nav-item.active::before {
+  content: '';
+  position: absolute; left: -1px; top: 6px; bottom: 6px;
+  width: 3px; border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
 .nav-item.active svg { color: var(--accent); opacity: 1; }
+.nav-item:focus-visible, .nav-group-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .nav-badge {
-  min-width: 19px; height: 19px; padding: 0 6px;
+  min-width: 18px; height: 18px; padding: 0 5px;
   display: grid; place-items: center;
   border-radius: 20px;
   background: var(--warn);
   color: #10131a;
-  font: 600 11px/1 var(--mono);
-}
-
-.nav-more-label {
-  margin-top: 10px;
-  padding: 10px 10px 2px;
-  border-top: 1px solid var(--line-soft);
-  font-size: 10.5px;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--dim-2);
+  font: 600 10.5px/1 var(--mono);
 }
 
 .sidebar-foot { padding: 10px; border-top: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 8px; }
@@ -874,8 +914,15 @@ pre.block {
     transform: translateX(-100%);
     transition: transform 180ms cubic-bezier(.2, .8, .3, 1);
     box-shadow: var(--shadow);
+    /* Выдвинутое меню лежит НАД затемнением (.scrim, 60) и ПОД модалками (70):
+       иначе каждый тап по пункту попадал в затемнение и просто закрывал меню. */
+    z-index: 65;
   }
   .shell.menu-open .sidebar { transform: none; }
+  /* В выдвижном меню строки крупнее: палец не мышь, плотность настольного
+     сайдбара здесь не нужна — экран всё равно один раздел за раз. */
+  .nav-item { min-height: 40px; font-size: 14px; padding: 6px 10px; }
+  .nav-group-head { min-height: 34px; }
 
   .only-mobile { display: grid !important; }
   .view { padding: 14px 14px 84px; }

@@ -60,13 +60,25 @@ const DEFAULT_PAGE = LANDING.find((id) => PAGE_BY_ID.has(id)) || 'home';
 const SUPERSEDED = new Set(LANDING.slice(LANDING.indexOf(DEFAULT_PAGE) + 1));
 
 // Сайдбар устроен от человека, а не от устройства системы: сверху то, чем
-// пользуются, ниже — техническая часть. Страница объявляет свой раздел полем
-// `section`; всё, что его не объявило, считается системным.
-const SECTIONS = [
-  { id: 'main', label: 'Основное' },
-  { id: 'system', label: 'Система' },
+// пользуются каждый день, ниже — четыре сворачиваемых раздела по смыслу.
+// Двадцать три страницы одним столбиком не помещались в экран и требовали
+// прокрутки, чтобы найти нужную; раздел из пяти-семи строк читается сразу.
+// Порядок внутри раздела — по частоте использования, а не по дате появления
+// страницы. Страница может объявить раздел полем `section`; всё, что не
+// названо ни здесь, ни там, попадает в «Систему», как и раньше.
+const NAV_GROUPS = [
+  { id: 'main', label: 'Основное', pinned: true,
+    pages: ['home-v3', 'apps', 'missions', 'agents', 'approvals', 'mission_console'] },
+  { id: 'work', label: 'Работа',
+    pages: ['tasks', 'schedules', 'builder', 'orchestras', 'forks', 'agentmap', 'command'] },
+  { id: 'models', label: 'Модели',
+    pages: ['models', 'router', 'openrouter', 'benchmarks'] },
+  { id: 'tools', label: 'Инструменты',
+    pages: ['terminal', 'browser', 'web_research', 'coding', 'skills', 'images', 'trading_lab'] },
+  { id: 'system', label: 'Система',
+    pages: ['system', 'resources', 'governor', 'healing', 'settings'] },
 ];
-const MAIN_ORDER = ['home-v3', 'apps', 'missions', 'agents', 'approvals'];
+const NAV_GROUPS_KEY = 'bcc.nav.groups';
 
 /* ---------------- Состояние ---------------- */
 
@@ -235,7 +247,7 @@ function navButton(page) {
     type: 'button', class: 'nav-item', dataset: { page: page.id },
     onClick: () => navigate(page.id),
   },
-  icon(page.icon, 16),
+  icon(page.icon, 15),
   h('span.nav-label', page.title),
   h('span', { class: 'nav-badge', dataset: { badge: page.id }, hidden: true }));
 }
@@ -250,52 +262,142 @@ function mnavButton(page) {
   h('span', { class: 'mnav-dot', dataset: { badge: page.id }, hidden: true }));
 }
 
-function sectionOf(page) {
-  if (page.section) return page.section;
-  return MAIN_ORDER.includes(page.id) ? 'main' : 'system';
+/* Раздел страницы: явное поле `section`, иначе — место в NAV_GROUPS, иначе «Система». */
+function groupOf(page) {
+  if (page.section && NAV_GROUPS.some((g) => g.id === page.section)) return page.section;
+  const listed = NAV_GROUPS.find((g) => g.pages.includes(page.id));
+  return listed ? listed.id : 'system';
+}
+
+/* Какие разделы владелец раскрыл сам. Хранится в браузере: это удобство
+   просмотра, а не данные системы. Раздел с активной страницей открыт всегда,
+   независимо от этой настройки, — иначе выбранное можно потерять из виду. */
+function loadGroupPrefs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(NAV_GROUPS_KEY) || '{}');
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch { return {}; }
+}
+function saveGroupPrefs(prefs) {
+  try { localStorage.setItem(NAV_GROUPS_KEY, JSON.stringify(prefs)); } catch { /* приватный режим */ }
+}
+
+const navGroupPrefs = loadGroupPrefs();
+const navGroupNodes = new Map();  // id раздела → { root, head, body, pages }
+const navForcedOpen = new Set();  // раздел раскрыт автоматически из-за активной страницы
+
+function isGroupOpen(group) {
+  if (group.pinned) return true;
+  if (navForcedOpen.has(group.id)) return true;
+  return navGroupPrefs[group.id] === true;
+}
+
+function applyGroupState(group) {
+  const node = navGroupNodes.get(group.id);
+  if (!node) return;
+  const open = isGroupOpen(group);
+  node.root.classList.toggle('open', open);
+  if (node.head.tagName === 'BUTTON') node.head.setAttribute('aria-expanded', open ? 'true' : 'false');
+  node.body.hidden = !open;
+}
+
+function toggleGroup(group) {
+  const open = isGroupOpen(group);
+  navForcedOpen.delete(group.id);
+  navGroupPrefs[group.id] = !open;
+  saveGroupPrefs(navGroupPrefs);
+  applyGroupState(group);
 }
 
 function buildNav() {
   clear(el.nav);
   clear(el.mobilenav);
+  navGroupNodes.clear();
 
   // Вытесненные посадочные страницы остаются доступны по прямой ссылке, но в
   // меню их нет: две «главных» рядом — это вопрос «а какая настоящая».
   const visible = PAGES.filter((p) => !SUPERSEDED.has(p.id));
 
-  const buckets = new Map(SECTIONS.map((s) => [s.id, []]));
-  for (const page of visible) {
-    const bucket = buckets.get(sectionOf(page)) || buckets.get('system');
-    bucket.push(page);
-  }
+  const buckets = new Map(NAV_GROUPS.map((g) => [g.id, []]));
+  for (const page of visible) buckets.get(groupOf(page)).push(page);
 
-  // Порядок основного раздела задан явно: он отражает частоту использования,
-  // а не порядок, в котором страницы когда-то написали.
-  const main = buckets.get('main');
-  main.sort((a, b) => {
-    const ia = MAIN_ORDER.indexOf(a.id);
-    const ib = MAIN_ORDER.indexOf(b.id);
-    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-  });
+  // Внутри раздела порядок задан списком в NAV_GROUPS; страницы, которых там
+  // нет, идут следом в порядке регистрации — ни одна не теряется.
+  const rank = (group, page) => { const i = group.pages.indexOf(page.id); return i < 0 ? 99 : i; };
 
-  for (const section of SECTIONS) {
-    const pages = buckets.get(section.id) || [];
+  for (const group of NAV_GROUPS) {
+    const pages = buckets.get(group.id);
     if (!pages.length) continue;
-    el.nav.appendChild(h('div.nav-section', section.label));
-    for (const page of pages) el.nav.appendChild(navButton(page));
+    pages.sort((a, b) => rank(group, a) - rank(group, b));
+    group.pageIds = pages.map((p) => p.id);
+
+    const bodyId = `nav-group-${group.id}`;
+    const body = h('div', { class: 'nav-group-body', id: bodyId, role: 'group', 'aria-label': group.label },
+      pages.map(navButton));
+
+    // Закреплённый раздел — просто подпись; остальные — кнопка-переключатель со
+    // стрелкой и числом страниц, чтобы свёрнутый раздел не выглядел пустым.
+    const head = group.pinned
+      ? h('div.nav-group-head.is-static', h('span.nav-group-label', group.label))
+      : h('button', {
+        type: 'button', class: 'nav-group-head', dataset: { group: group.id },
+        'aria-controls': bodyId, 'aria-expanded': 'false',
+        onClick: () => toggleGroup(group),
+      },
+      icon('chevron', 12),
+      h('span.nav-group-label', group.label),
+      h('span.nav-group-count', { 'aria-hidden': 'true' }, String(pages.length)),
+      h('span.nav-group-dot', { title: 'здесь открытая страница' }));
+
+    const root = h('div', { class: 'nav-group', dataset: { group: group.id } }, head, body);
+    navGroupNodes.set(group.id, { root, head, body, pages });
+    el.nav.appendChild(root);
+    applyGroupState(group);
   }
 
   // Нижняя панель телефона — только основной раздел: системные страницы там
   // не помещаются и на телефоне почти не нужны. Они остаются в боковом меню
   // и в командной палитре.
-  for (const page of main.slice(0, 5)) el.mobilenav.appendChild(mnavButton(page));
+  for (const page of buckets.get('main').slice(0, 5)) el.mobilenav.appendChild(mnavButton(page));
 }
 
 function syncNav() {
   for (const node of document.querySelectorAll('[data-page]')) {
-    node.classList.toggle('active', node.dataset.page === currentPage);
+    const active = node.dataset.page === currentPage;
+    node.classList.toggle('active', active);
+    if (active) node.setAttribute('aria-current', 'page');
+    else node.removeAttribute('aria-current');
+  }
+  // Раздел с открытой страницей раскрывается сам; если владелец его потом свернёт,
+  // на заголовке останется точка — выбранное не исчезает из виду.
+  for (const group of NAV_GROUPS) {
+    const node = navGroupNodes.get(group.id);
+    if (!node) continue;
+    const hasActive = (group.pageIds || []).includes(currentPage);
+    node.root.classList.toggle('has-active', hasActive);
+    if (hasActive && !isGroupOpen(group)) navForcedOpen.add(group.id);
+    if (!hasActive) navForcedOpen.delete(group.id);
+    applyGroupState(group);
   }
 }
+
+/* Стрелки ходят по видимым строкам меню (страницы и заголовки разделов),
+   Home/End — к краям. Tab по-прежнему работает как обычно. */
+el.nav.addEventListener('keydown', (e) => {
+  const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End'];
+  if (!keys.includes(e.key)) return;
+  const rows = Array.from(el.nav.querySelectorAll('button.nav-item, button.nav-group-head'))
+    .filter((b) => b.offsetParent !== null);
+  const i = rows.indexOf(document.activeElement);
+  if (i < 0) return;
+  e.preventDefault();
+  let next = i;
+  if (e.key === 'ArrowDown') next = Math.min(i + 1, rows.length - 1);
+  else if (e.key === 'ArrowUp') next = Math.max(i - 1, 0);
+  else if (e.key === 'Home') next = 0;
+  else next = rows.length - 1;
+  rows[next].focus();
+});
 
 function setBadge(pageId, count) {
   if (pageId === 'approvals') state.approvals = count;
