@@ -146,22 +146,42 @@ class V3ExecutionBridge:
     def journal_id(contract: DelegationContract) -> str:
         return f"{contract.mission_id}__{contract.work_id}"
 
-    def journal(self, contract: DelegationContract, plan: list[PlanStep]) -> TaskJournal:
+    @staticmethod
+    def plan_digest(plan: list[PlanStep]) -> str:
+        """ASTRA-003: идентичность плана = шаги + действия + ожидания, не только id шагов."""
+        import hashlib
+        body = json.dumps([step_to_dict(p) for p in plan], sort_keys=True, ensure_ascii=False, default=str)
+        return hashlib.sha256(body.encode("utf-8")).hexdigest()[:32]
+
+    def journal(self, contract: DelegationContract, plan: list[PlanStep]) -> TaskJournal | None:
+        """Существующий журнал переиспользуется только для ТОГО ЖЕ плана; изменённый план под
+        тем же id — None (владелец решает), а не «продолжить с чужими шагами»."""
         jid = self.journal_id(contract)
         path = self.journal_root / f"{jid}.json"
+        digest = self.plan_digest(plan)
         if path.exists():
             j = TaskJournal.load(task_id=jid, root=self.journal_root)
-            if [s.step_id for s in j.steps] == [p.step_id for p in plan]:
+            same_ids = [s.step_id for s in j.steps] == [p.step_id for p in plan]
+            if same_ids and (j.plan_digest == digest or not j.plan_digest):
+                if not j.plan_digest:
+                    j.plan_digest = digest; j._save()          # журнал до ASTRA-003: зафиксировать отпечаток
                 return j
-        return TaskJournal.start(task_id=jid, plan=[(p.step_id, p.intent) for p in plan], root=self.journal_root)
+            if j.finished():
+                return None                                   # план изменился после закрытых шагов
+        return TaskJournal.start(task_id=jid, plan=[(p.step_id, p.intent) for p in plan], root=self.journal_root,
+                                 plan_digest=digest)
 
     def execute(self, contract: DelegationContract, *, agent_id: str) -> WorkResult:
         plan = [step_from_dict(s) for s in contract.steps]
         if not plan:
             return WorkResult(contract.work_id, executed=False, produced_by=agent_id,
                               reason="contract carries no executable steps for the V3 chain")
-        agent = self.agent_factory(agent_id, contract)
         journal = self.journal(contract, plan)
+        if journal is None:
+            return WorkResult(contract.work_id, executed=False, produced_by=agent_id,
+                              reason="plan_mismatch: contract steps changed after the journal recorded finished steps",
+                              metadata={"plan_mismatch": True, "ask_owner": True})
+        agent = self.agent_factory(agent_id, contract)
         fm = self.failure_memory_for(contract.department_id) if self.failure_memory_for else None
         already = {s.step_id for s in journal.finished()}
         t0 = time.monotonic()

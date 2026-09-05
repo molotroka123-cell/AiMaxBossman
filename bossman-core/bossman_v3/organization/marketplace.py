@@ -89,6 +89,8 @@ class CapabilityMarketplace:
             return "at max load"
         if TIER_RANK[a.tier] < TIER_RANK[min_tier]:
             return f"tier {a.tier} below escalated minimum {min_tier}"
+        if str(getattr(c, "privacy", "private")).lower() in ("private", "local_only") and a.tier in ("cheap_cloud", "frontier"):
+            return f"cloud-tier agent {a.tier!r} not allowed for {c.privacy} work"      # O001: PRIVATE ⇒ no cloud
         if c.budget.usd and a.cost_per_call_usd:
             st = self.learning.stats(a.agent_id, c.required_capability)
             expected_calls = max(1, len(c.steps)) * (1.0 + st.retry_rate)

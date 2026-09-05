@@ -142,6 +142,10 @@ class OrganizationRuntime:
         if len(set(ids)) != len(ids):
             raise ValueError("duplicate work_id in mission contracts")
         known = set(ids)
+        for wid in ids:                                           # O002: work_id глобален в store
+            row = self.store.work(wid)
+            if row is not None and row["mission_id"] != mission_id:
+                raise ValueError(f"work_id {wid!r} already belongs to mission {row['mission_id']!r}")
         for c in contracts:
             if c.mission_id != mission_id:
                 raise ValueError(f"contract {c.work_id} belongs to mission {c.mission_id!r}")
@@ -365,6 +369,14 @@ class OrganizationRuntime:
 
         # 7b. флот не смог разместить работу (нет узла / приватность / ресурсы):
         #     это не провал исполнителя и не попытка — BLOCKED до изменения флота/решения владельца
+        if result.metadata.get("plan_mismatch"):
+            # ASTRA-003: план под тем же work_id изменился после закрытых шагов — не провал и не
+            # попытка: резерв снят, BLOCKED, владелец решает (журнал с чужими шагами не продолжаем)
+            self.treasury.release(scopes, contract.budget)
+            self.store.save_work(contract, state=TaskState.PLANNED, attempts=attempts)
+            self.store.save_result(result, mission_id)
+            self._dissolve(team, mission_id)
+            return self._block(contract, result.reason, ask_owner=True, result=result)
         if result.metadata.get("fleet_blocked"):
             self.treasury.release(scopes, contract.budget)
             self.store.save_work(contract, state=TaskState.PLANNED, attempts=attempts)

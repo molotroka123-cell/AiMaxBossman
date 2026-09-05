@@ -84,15 +84,17 @@ class TaskJournal:
     notes: list[dict] = field(default_factory=list)
     created_at: str = field(default_factory=_now)
     root: Path | None = None
+    plan_digest: str = ""          # ASTRA-003: отпечаток плана (шаги + действия + ожидания), с которым журнал начат
 
     # ------------------------------------------------------------ lifecycle
 
     @classmethod
-    def start(cls, *, task_id: str, plan: Sequence[tuple[str, str]], root: str | Path) -> "TaskJournal":
+    def start(cls, *, task_id: str, plan: Sequence[tuple[str, str]], root: str | Path,
+              plan_digest: str = "") -> "TaskJournal":
         task_id = safe_task_id(task_id)
         j = cls(task_id=task_id,
                 steps=[JournalStep(step_id=sid, intent=intent) for sid, intent in plan],
-                root=Path(root))
+                root=Path(root), plan_digest=plan_digest)
         j._save()
         return j
 
@@ -105,14 +107,14 @@ class TaskJournal:
                    steps=[JournalStep(**s) for s in raw["steps"]],
                    notes=list(raw.get("notes") or []),
                    created_at=raw.get("created_at", _now()),
-                   root=Path(root))
+                   root=Path(root), plan_digest=str(raw.get("plan_digest") or ""))
 
     def _save(self) -> None:
         if self.root is None:
             return
         safe_task_id(self.task_id)
         self.root.mkdir(parents=True, exist_ok=True)
-        payload = {"task_id": self.task_id, "created_at": self.created_at,
+        payload = {"task_id": self.task_id, "created_at": self.created_at, "plan_digest": self.plan_digest,
                    "steps": [asdict(s) for s in self.steps], "notes": self.notes}
         (self.root / f"{self.task_id}.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
@@ -124,9 +126,10 @@ class TaskJournal:
         for i, s in enumerate(self.steps):
             if s.step_id != step_id:
                 continue
-            if s.finished:
-                # TRUTH-003 §12: закрытый шаг не переписывается — ни зомби-воркером,
-                # ни повтором. Существующая подписанная запись остаётся истиной.
+            if s.finished and s.signature_valid(self.task_id):
+                # TRUTH-003 §12: ПОДПИСАННЫЙ закрытый шаг не переписывается — ни зомби-воркером,
+                # ни повтором. Закрытый без валидной подписи (подделка/битый файл) истиной не
+                # является и заменяется честной подписанной записью (ASTRA-002).
                 raise JournalConflict(f"step {step_id!r} of {self.task_id!r} is already finished; "
                                       f"refusing to overwrite a signed receipt")
             done = receipt is not None and verified
@@ -166,6 +169,11 @@ class TaskJournal:
 
     def finished(self) -> list[JournalStep]:
         return [s for s in self.steps if s.finished]
+
+    def finished_signed(self) -> list[JournalStep]:
+        """ASTRA-002: закрытым для возобновления считается только шаг с валидной подписью —
+        флаги `receipt/verified` в файле без подписи не пропускают работу."""
+        return [s for s in self.steps if s.finished and s.signature_valid(self.task_id)]
 
     def remaining(self) -> list[JournalStep]:
         return [s for s in self.steps if not s.finished]

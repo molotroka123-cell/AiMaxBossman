@@ -126,9 +126,21 @@ class DelegationContract:
             out.append("side-effect work must declare evidence_required")
         if self.escalation.max_attempts < 1:
             out.append("escalation.max_attempts must be >= 1")
+        import math
+        for f in Resources._FIELDS:                               # O003: отрицательные/NaN/inf не проходят admission
+            v = getattr(self.budget, f, 0)
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or v < 0 or not math.isfinite(float(v)):
+                out.append(f"budget.{f} must be a finite non-negative number")
+                break
         return out
 
     # ------------------------------------------------------------ validate
+
+    def _bound(self, e: Evidence) -> bool:
+        """Журнальная улика принимается только из журнала ЭТОЙ работы; улики верификаторов — по signer'у."""
+        if e.source.startswith("journal:"):
+            return e.source.startswith(_journal_prefix(self.mission_id, self.work_id))
+        return True
 
     def validate(self, result: WorkResult) -> tuple[bool, list[str]]:
         """Принять или отклонить исход. Читаются только `evidence` и `executed`;
@@ -138,7 +150,11 @@ class DelegationContract:
             errors.append("work_id mismatch")
         if self.side_effect and not result.executed:
             errors.append("nothing was executed by the lower layer")
-        trusted = [e for e in result.evidence if e.verified and _trusted(e)]
+        trusted = [e for e in result.evidence if e.verified and _trusted(e) and self._bound(e)]
+        for e in result.evidence:
+            if e.verified and _trusted(e) and not self._bound(e):
+                # ASTRA-004: валидно подписанная улика ЧУЖОЙ работы/миссии не подтверждает эту
+                errors.append(f"evidence {e.kind}:{e.ref} is bound to another work ({e.source!r})")
         untrusted_verified = [e for e in result.evidence if e.verified and not _trusted(e)]
         for e in untrusted_verified:
             # EH-01: без подписи — «unsigned verified evidence»; с подписью, но не
@@ -198,6 +214,10 @@ def _same_target(ref: str, target: str) -> bool:
     """Точное совпадение или совпадение по хвосту пути с разделителем: `x.txt`
     подходит к `/work/x.txt`, но не к `/work/ax.txt`."""
     return ref == target or ref.endswith("/" + target) or ref.endswith("\\" + target)
+
+
+def _journal_prefix(mission_id: str, work_id: str) -> str:
+    return f"journal:{mission_id}__{work_id}/"
 
 
 def _trusted(e: Evidence) -> bool:

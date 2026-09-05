@@ -100,7 +100,7 @@ class CompoundRunner:
         return rec.to_dict()
 
     def run(self, plan: Sequence[PlanStep], context: Mapping[str, Any] | None = None) -> CompoundResult:
-        done_ids = {s.step_id for s in self.journal.finished()}
+        done_ids = {s.step_id for s in self.journal.finished_signed()}
         executed: list[str] = []
         not_run: list[str] = []
 
@@ -149,7 +149,7 @@ class CompoundRunner:
 
         remaining_required = [s for s in plan
                               if s.required and s.step_id not in {x.step_id
-                                                                  for x in self.journal.finished()}]
+                                                                  for x in self.journal.finished_signed()}]
         if remaining_required:
             first = remaining_required[0]
             return CompoundResult(False, executed, not_run, first.step_id,
