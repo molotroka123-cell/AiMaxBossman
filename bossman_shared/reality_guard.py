@@ -142,13 +142,15 @@ class Session:
         def confirm(rt):
             obligation = self.mission.obligation(effect.obligation_id)
             def observe(target):
-                return self.host.observed(obligation, rt.observers[obligation.verifier](target))
+                return self.host.observed(obligation, rt.observers[obligation.verifier](target),
+                                          mission=self.mission, effect=effect, fence=fence)
             receipt = rt.authority.observe(self.mission, obligation.id, observe,
                 dispatch_binding=digest([self.mission.fingerprint, effect.id, fence]))
             self.host.validate(self.mission)
             self.check_fence(effect, fence)
             rt.store.confirm(self.mission, effect.id, self.mission.executor, fence, receipt, rt.authority)
         self.host.call(confirm)
+        self.host.record_confirmed(self.mission, effect, fence)
 
     def complete(self):
         external = _fleet_fence.get()

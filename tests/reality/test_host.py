@@ -312,3 +312,150 @@ def test_policy_revoked_during_observer_cannot_confirm(setup):
         write(setup)
     assert target.read_text() == "verified"
     assert host.call(lambda rt: rt.store.db.execute("SELECT state FROM effects").fetchone()[0]) == "EFFECT_ESCROW"
+
+
+def learning_host(setup):
+    from bossman_shared.reality.intelligence import Bid
+    old, mission, args, target = setup
+    redacted = []
+    def redact(value):
+        redacted.append(value)
+        return value
+    host = LocalHost(old.path, policy=old.policy, authority=old.authority,
+        observers=old.observers, actions=old.actions, fence_check=old.fence_check,
+        level_provider=old.level_provider, route_bids={"file.write": Bid("file.write", .5, 0, 1, 0, 1)},
+        learning_redactor=redact)
+    guard.install("local", host)
+    return host, redacted
+
+
+def learning_counts(host):
+    from bossman_shared.reality.intelligence import LearningLedger
+    ledger = LearningLedger(str(host.path) + ".learning")
+    try:
+        return (ledger.db.execute("SELECT COUNT(*) FROM settlements WHERE success=1").fetchone()[0],
+                ledger.db.execute("SELECT COUNT(*) FROM lessons").fetchone()[0])
+    finally:
+        ledger.close()
+
+
+def test_learning_confirmed_effect_survives_restart_without_duplicate(setup):
+    host, redacted = learning_host(setup)
+    _, mission, _, target = setup
+    write(setup)
+    assert target.read_text() == "verified"
+    assert learning_counts(host) == (1, 1)
+    assert set(redacted) == {"cause_not_assessed", "independent_poststate_confirmed"}
+    restored, _ = learning_host(setup)
+    restored.record_confirmed(mission, mission.effects[0], 1)
+    assert learning_counts(restored) == (1, 1)
+    with pytest.raises(guard.RealityBlocked):
+        write(setup)
+    assert learning_counts(restored) == (1, 1)
+
+
+@pytest.mark.parametrize("invalid", ["unconfirmed", "tampered", "stale", "wrong_fence"])
+def test_learning_never_settles_without_fresh_bound_proof(setup, invalid):
+    host, _ = learning_host(setup)
+    _, mission, _, _ = setup
+    # Confirm without learning first, then challenge the host audit boundary.
+    guard.install("local", setup[0])
+    if invalid != "unconfirmed":
+        write(setup)
+    if invalid == "tampered":
+        def tamper(rt):
+            raw = json.loads(rt.store.db.execute("SELECT payload FROM receipts").fetchone()[0])
+            raw["signature"] = "0" * 64
+            rt.store.db.execute("UPDATE receipts SET payload=?", (json.dumps(raw),))
+        host.call(tamper)
+    if invalid == "stale":
+        host.authority.clock = lambda: 9_999_999_999
+    with pytest.raises(Exception):
+        host.record_confirmed(mission, mission.effects[0], 2 if invalid == "wrong_fence" else 1)
+    assert learning_counts(host) == (0, 0)
+
+
+def test_learning_divergence_contains_hashes_and_fixed_text_only(setup):
+    host, _ = learning_host(setup)
+    _, _, args, target = setup
+    clinical = "private clinical patient narrative must never enter a lesson"
+    async def invoke():
+        target.write_text(clinical)
+    with pytest.raises(guard.RealityBlocked):
+        asyncio.run(guard.dispatch("core", 1, "r1", "worker", "file.write", args, invoke))
+    assert host.effective_level() == 0
+    assert learning_counts(host) == (0, 1)
+    import sqlite3
+    with sqlite3.connect(str(host.path) + ".learning") as connection:
+        payload = connection.execute("SELECT payload FROM lessons").fetchone()[0]
+    assert clinical not in payload and str(target) not in payload
+    assert "observed_poststate_diverged" in payload
+    assert json.loads(payload)["cause_knowledge"] == "INFERRED"
+
+
+def test_learning_absent_config_does_not_settle_or_record(setup):
+    write(setup)
+    assert learning_counts(setup[0]) == (0, 0)
+
+
+def test_learning_audit_failure_retains_confirmed_effect_without_replay(setup, monkeypatch):
+    from bossman_shared.reality.intelligence import LearningLedger
+    host, _ = learning_host(setup)
+    _, mission, _, target = setup
+    original = LearningLedger.record_lesson
+    def unavailable(*args, **kwargs):
+        raise OSError("learning store unavailable")
+    monkeypatch.setattr(LearningLedger, "record_lesson", unavailable)
+    with pytest.raises(guard.RealityBlocked):
+        write(setup)
+    assert target.read_text() == "verified"
+    assert host.call(lambda rt: rt.store.db.execute("SELECT state FROM effects").fetchone()[0]) == "CONFIRMED"
+    assert learning_counts(host) == (0, 0)
+    with pytest.raises(guard.RealityBlocked):
+        write(setup)
+    monkeypatch.setattr(LearningLedger, "record_lesson", original)
+    host.record_confirmed(mission, mission.effects[0], 1)
+    assert learning_counts(host) == (1, 1)
+
+
+def test_configured_learning_route_respects_quarantine_before_io(setup):
+    from bossman_shared.reality.intelligence import LearningLedger
+    host, _ = learning_host(setup)
+    ledger = LearningLedger(str(host.path) + ".learning")
+    ledger.settle("owner-confirmed-hard-failure", host.route_bids["file.write"],
+                  verified_success=False, hard_fail=True)
+    ledger.close()
+    with pytest.raises(guard.RealityBlocked):
+        write(setup)
+    assert not setup[3].exists()
+    assert learning_counts(host) == (0, 0)
+
+
+@pytest.mark.parametrize("invalid", ["paid", "cloud", "action", "redactor"])
+def test_learning_config_is_local_zero_cost_host_owned(setup, invalid):
+    from bossman_shared.reality.intelligence import Bid
+    from bossman_shared.reality.contracts import RealityError
+    old = setup[0]
+    bid = Bid("different" if invalid == "action" else "file.write", .5,
+              1 if invalid == "paid" else 0, 1, 0, 1, local=invalid != "cloud")
+    with pytest.raises(RealityError):
+        LocalHost(old.path, policy=old.policy, authority=old.authority,
+            observers=old.observers, actions=old.actions, fence_check=old.fence_check,
+            level_provider=old.level_provider, route_bids={"file.write": bid},
+            learning_redactor=None if invalid == "redactor" else str)
+
+
+def test_learning_transport_failure_never_infers_success_or_quarantine(setup):
+    from bossman_shared.reality.intelligence import LearningLedger
+    host, _ = learning_host(setup)
+    async def unavailable():
+        raise OSError("transport outcome unknown")
+    with pytest.raises(guard.RealityBlocked):
+        asyncio.run(guard.dispatch("core", 1, "r1", "worker", "file.write", setup[2], unavailable))
+    assert learning_counts(host) == (0, 0)
+    ledger = LearningLedger(str(host.path) + ".learning")
+    try:
+        assert ledger.reputation("file.write")["quarantined"] is False
+    finally:
+        ledger.close()
+    assert host.call(lambda rt: rt.store.db.execute("SELECT state FROM effects").fetchone()[0]) == "EFFECT_ESCROW"

@@ -40,3 +40,24 @@ def test_key_created_in_env_path_with_0600(tmp_path, monkeypatch):
     key = ev.load_or_create_key()
     assert len(key) == 32 and stat.S_IMODE(os.stat(tmp_path / "k" / "evidence.key").st_mode) == 0o600
     ev.reset_cache()
+
+
+def test_binary_key_and_signature_survive_restart(tmp_path, monkeypatch):
+    # Force LF/CRLF/control bytes: Windows text descriptors must not translate
+    # random key material. Random tests only hit this failure intermittently.
+    expected = b"\n\r\n\x1a" + b"x" * 28
+    target = tmp_path / "binary.key"
+    monkeypatch.setenv(ev.ENV_KEY_FILE, str(target))
+    monkeypatch.setattr(ev.secrets, "token_bytes", lambda count: expected)
+    ev.reset_cache()
+    try:
+        first = ev.load_or_create_key()
+        payload = {"kind": "controlled-file", "verified": True}
+        signature = ev.sign(payload)
+        assert first == expected
+        assert target.read_bytes() == expected
+        ev.reset_cache()
+        assert ev.load_or_create_key() == expected
+        assert ev.verify(payload, signature)
+    finally:
+        ev.reset_cache()

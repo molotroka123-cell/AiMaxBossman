@@ -21,12 +21,14 @@ sys.path[:0] = [str(ROOT), str(ROOT / "bossman-core")]
 from bossman_shared import evidence, reality_guard as guard
 from bossman_shared.reality.contracts import Effect, Mission, Obligation, digest
 from bossman_shared.reality.host import LocalHost, persistent_authority
+from bossman_shared.reality.intelligence import Bid, LearningLedger
 from bossman_shared.reality.policy import Constitution
 from bossman_v3.computer_agent.agent import UniversalComputerAgent
 from bossman_v3.contracts import (ApprovalDecision, ExecutionReceipt, Observation,
                                 PolicyDecision, SideEffectClass, TypedAction, VerificationResult)
 from bossman_v3.execution import CompoundRunner, PlanStep
 from bossman_v3.memory import TaskJournal
+from bossman_v3.memory.assembler import redact
 from bossman_v3.organization.bridges import step_to_dict
 
 
@@ -111,7 +113,9 @@ def run(output):
         authority=persistent_authority({n: "independent-host-verifier" for n in actions}),
         observers={n: (lambda target, n=n: observe(n)) for n in actions},
         actions={"git." + n: actions[n] for n in actions},
-        fence_check=lambda *a: True, level_provider=lambda: 1)
+        fence_check=lambda *a: True, level_provider=lambda: 1,
+        route_bids={"git." + n: Bid("git." + n, 0.5, 0, 1, 0.0, 1.0)
+                    for n in actions}, learning_redactor=redact)
     guard.install("controlled", host)
     guard.enroll("compound", "git-acceptance", "git-acceptance", asdict(mission),
                  trusted_ir=asdict(mission), profile="controlled", plan=[step_to_dict(s) for s in plan])
@@ -142,11 +146,19 @@ def run(output):
         raise RuntimeError(result.reason)
     observed = {n: observe(n) for n in actions}
     assert observed == expected
+    ledger = LearningLedger(str(host.path) + ".learning")
+    try:
+        settlements = ledger.db.execute("SELECT COUNT(*) FROM settlements WHERE success=1").fetchone()[0]
+        lessons = ledger.db.execute("SELECT COUNT(*) FROM lessons").fetchone()[0]
+        assert settlements == lessons == len(actions)
+    finally:
+        ledger.close()
     report = {"status": "PASS", "mode": "real local git + local bare remote; no cloud",
               "base_sha": base, "base_tree": base_tree, "fixed_sha": commit, "fixed_tree": tree,
               "remote_sha": observed["push"]["commit"], "exact_patch": expected_patch,
               "mission_fingerprint": mission.fingerprint, "obligations": 5,
-              "observations": observed, "completed_steps": result.executed}
+              "observations": observed, "completed_steps": result.executed,
+              "verified_local_settlements": settlements, "redacted_local_lessons": lessons}
     (output / "evidence.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
 
