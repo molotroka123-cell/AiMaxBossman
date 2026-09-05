@@ -153,8 +153,8 @@ def test_every_fact_in_the_pack_has_provenance(tmp_path):
 
 
 @pytest.mark.parametrize("secret", [
-    "sk-test-abcdefghijklmnopqrstuvwxyz0123",
-    "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+    "sk-test-abcdefghijklmnopqrstuvwxyz0123",        # ci-secret-scan: allow — канарейка, доказывает редакцию
+    "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",       # ci-secret-scan: allow — канарейка, доказывает редакцию
     "Authorization: Bearer abcdef.token.value",
 ])
 def test_secrets_never_reach_the_assembled_context(tmp_path, secret):
