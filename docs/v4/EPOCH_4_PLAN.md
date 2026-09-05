@@ -680,4 +680,21 @@ No claim that 128 GB hardware tests ran on a machine not actually available.
 
 ## Epoch 5
 
-???
+**Bossman Steward** — owner-defined desired state sustained through bounded,
+verified Continuity missions. See [the canonical Epoch 5 plan](../v5/EPOCH_5_PLAN.md).
+It adds a lifecycle above missions; it does not replace the executor, policy,
+approval, evidence or budget authorities. Implementation has not started.
+
+Owner scope amendment, 2026-09-06:
+WHAT CHANGED: Epoch 5 is now explicitly designed; added the cross-epoch
+[product quality contract](../PRODUCT_EVOLUTION_CONTRACT.md), including UX,
+installation, accessibility, responsiveness and resource budgets.
+WHY: owner explicitly requested both Epochs 4 and 5 while Fable closes V3,
+covering the whole application and conserving usage limits.
+EVIDENCE: direct new scope instruction supersedes the earlier unknown-only
+Epoch 5 rule; the audited substrate supports missions, events and scoped
+memory, but no accepted desired-state lifecycle is demonstrated.
+IMPACT: generations A/B/C remain within V4; V5 gets separate N0–N8 gates and
+cannot delay or redefine V4 acceptance. M0 still blocks runtime activation.
+The earlier unknown-only statement above records historical scope, not the
+current roadmap. No V5 implementation or performance gain is claimed.
