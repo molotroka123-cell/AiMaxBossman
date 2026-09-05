@@ -90,7 +90,8 @@ class ZeroKnowledgeAIInterface:
     def build_sanitized_ai_prompt_context(
         self,
         market_metrics: Dict[str, Any],
-        wallet_balances: Optional[Dict[str, float]] = None
+        wallet_balances: Optional[Dict[str, float]] = None,
+        password: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Creates an isolated, Zero-Knowledge payload for the AI model.
@@ -103,17 +104,29 @@ class ZeroKnowledgeAIInterface:
         self.scan_for_leaks(market_metrics)
 
         sanitized_wallets = []
-        public_view = self.vault.get_sanitized_public_view()
+        try:
+            public_view = self.vault.get_sanitized_public_view(password)
+        except PermissionError:
+            public_view = []
+
         balances = wallet_balances or {}
 
-        for w in public_view:
-            idx = w.get("wallet_index", 0)
-            pk = w.get("pubkey", "")
-            sanitized_wallets.append({
-                "wallet_idx": idx,
-                "pubkey": pk,
-                "balance_sol": balances.get(pk, 0.0)
-            })
+        if public_view:
+            for w in public_view:
+                idx = w.get("wallet_index", 0)
+                pk = w.get("pubkey", "")
+                sanitized_wallets.append({
+                    "wallet_idx": idx,
+                    "pubkey": pk,
+                    "balance_sol": balances.get(pk, 0.0)
+                })
+        else:
+            for idx, pk in enumerate(balances.keys()):
+                sanitized_wallets.append({
+                    "wallet_idx": idx,
+                    "pubkey": pk,
+                    "balance_sol": balances[pk]
+                })
 
         clean_payload = {
             "market_state": self._sanitize_dict(market_metrics),
