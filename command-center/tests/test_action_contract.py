@@ -121,6 +121,29 @@ async def test_terminal_text_only_claim_does_not_complete(env, tmp_path):
     assert not (work / "hello.txt").exists()
 
 
+def test_terminal_tool_name_is_not_mistaken_for_file_evidence():
+    """A canonical dotted tool name is metadata, not a path to verify."""
+    assert ac._terminal_evidence(
+        "Request terminal.run with exactly this command: git push."
+    ) is None
+
+
+def test_terminal_evidence_skips_tool_name_and_keeps_real_filename():
+    evidence = ac._terminal_evidence(
+        "Use terminal.run to create reports/result.json."
+    )
+    assert evidence is not None
+    assert evidence.kind == "file"
+    assert evidence.target == "reports/result.json"
+
+
+def test_use_terminal_to_write_file_is_an_action_contract():
+    caps = [cap.name for cap in ac.classify_all(
+        "Use terminal.run to write glm_acceptance.txt."
+    )]
+    assert "TERMINAL_FILE_ACTION" in caps
+
+
 async def test_terminal_real_execution_with_matching_file_completes(env, tmp_path):
     """Real subprocess (project_host — no docker needed), real filesystem
     state, evidence auto-derived from the task text (bcc/features/
