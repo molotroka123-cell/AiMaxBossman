@@ -1,0 +1,18 @@
+name: Solana safety gates
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install pytest fastapi httpx cryptography solana solders base58
+      - run: python -m pytest -q tests/test_solana_safety.py solana_volume_suite/tests/test_safety_vault.py

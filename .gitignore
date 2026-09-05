@@ -39,7 +39,9 @@ apps/*/data/
 .env
 !/.env.example
 !apps/*/.env.example
+!solana_volume_suite/.env.example
 secret.key
+*wallets_encrypted*.json
 
 # Рабочие копии репозитория, которые создаёт харнесс под изолированных агентов.
 # Это дубликаты того же дерева (сотни мегабайт), а не содержимое проекта.

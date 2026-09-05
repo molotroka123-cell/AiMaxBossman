@@ -1,0 +1,1191 @@
+{
+  "schema_version": "1.0",
+  "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+  "findings": [
+    {
+      "id": "ASTRA-001",
+      "severity": "P1",
+      "title": "Core worker accepts model final text as done without an effect obligation gate",
+      "confidence": "HIGH",
+      "axis": "Honesty / Execution Truth",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman/runner.py",
+          "line": 358,
+          "symbol": "run_task",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        },
+        {
+          "file": "bossman-core/bossman/runner.py",
+          "line": 416,
+          "symbol": "run_task",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        },
+        {
+          "file": "bossman-core/bossman/runner.py",
+          "line": 505,
+          "symbol": "worker",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "why_it_matters": "Redis or database polling worker invokes run_task. A side-effect request receiving a model response with no tool_calls breaks with default done; subsequent database and memory writes publish done/completed. No independent post-state gate occurs between that branch and final writes. This is a reachable legacy worker path; not a claim that V3 adapters share this behavior.",
+      "failure_scenario": "Redis or database polling worker invokes run_task. A side-effect request receiving a model response with no tool_calls breaks with default done; subsequent database and memory writes publish done/completed. No independent post-state gate occurs between that branch and final writes. This is a reachable legacy worker path; not a claim that V3 adapters share this behavior.",
+      "affected_invariant": "SIDE_EFFECT_REQUIRED && !VERIFIED_SIDE_EFFECT => !TASK_SUCCESS; MODEL_TEXT != EXECUTION_PROOF",
+      "minimal_fix": "Classify required outcomes before the loop and gate the terminal database write on nonempty independently verified obligations; preserve a separate informational-answer terminal outcome.",
+      "ideal_fix": "One completion authority shared by Core, BCC and V3, consuming typed outcome obligations rather than language heuristics.",
+      "tests": "Inject no-tool final text for a file-write mission; assert file absent and task not done. Positive fresh-file read must finish. Runtime legacy service test NOT_RUN here.",
+      "estimated_effort": "2–4 engineer-days",
+      "regression_risk": "MEDIUM: state and persisted evidence migration must preserve safe retries",
+      "dependencies": [],
+      "verification_status": "SOURCE_CONFIRMED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "ASTRA-002",
+      "severity": "P1",
+      "title": "Compound resume trusts unsigned journal completion flags",
+      "confidence": "HIGH",
+      "axis": "Honesty / Execution Truth",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/memory/journal.py",
+          "line": 52,
+          "symbol": "JournalStep.finished",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        },
+        {
+          "file": "bossman-core/bossman_v3/execution/compound.py",
+          "line": 75,
+          "symbol": "CompoundRunner.run",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "why_it_matters": "An unsigned JournalStep with an invented receipt and verified=True is skipped and CompoundResult.completed becomes true with zero execution. Probe unsigned_journal_skips_execution reproduces this. Organization evidence export separately checks signatures and refuses this unsigned entry, so full Organization success from this probe is NOT demonstrated.",
+      "failure_scenario": "An unsigned JournalStep with an invented receipt and verified=True is skipped and CompoundResult.completed becomes true with zero execution. Probe unsigned_journal_skips_execution reproduces this. Organization evidence export separately checks signatures and refuses this unsigned entry, so full Organization success from this probe is NOT demonstrated.",
+      "affected_invariant": "UNPROVEN != VERIFIED; ANY_REQUIRED_CHILD_NOT_VERIFIED => !PARENT_SUCCESS",
+      "minimal_fix": "Validate signed records on load and before skip/guard decisions; reject or quarantine invalid entries rather than executing uncertain irreversible work.",
+      "ideal_fix": "Journal completion capability binds task, action digest, verifier result and durable generation; callers cannot set verified booleans directly.",
+      "tests": "Run evidence/reproduce.py unsigned_journal_skips_execution; regression expects false completion or explicit invalid-journal block.",
+      "estimated_effort": "2–4 engineer-days",
+      "regression_risk": "MEDIUM: state and persisted evidence migration must preserve safe retries",
+      "dependencies": [],
+      "verification_status": "REPRODUCED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "ASTRA-003",
+      "severity": "P1",
+      "title": "Resumed plan identity compares step IDs but not actions or expectations",
+      "confidence": "HIGH",
+      "axis": "Honesty / Execution Truth",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/organization/bridges.py",
+          "line": 154,
+          "symbol": "V3ExecutionBridge.journal",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        },
+        {
+          "file": "bossman-core/bossman_v3/organization/bridges.py",
+          "line": 196,
+          "symbol": "_evidence_from_step",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "why_it_matters": "Reuse mission/work and step s, change target a.txt to b.txt. Bridge retains finished write-A journal; evidence export derives kind/ref from the new plan. Old signature remains valid because action args and intent are not part of the persisted signed record. Probe changed_action_same_step_id confirms stale journal reuse; full HTTP exploit not run.",
+      "failure_scenario": "Reuse mission/work and step s, change target a.txt to b.txt. Bridge retains finished write-A journal; evidence export derives kind/ref from the new plan. Old signature remains valid because action args and intent are not part of the persisted signed record. Probe changed_action_same_step_id confirms stale journal reuse; full HTTP exploit not run.",
+      "affected_invariant": "CACHE_HIT != NEW_EXECUTION_PROOF; SIGNED_RECEIPT != POST_STATE_VERIFICATION",
+      "minimal_fix": "Persist and compare canonical action/expected-state digest; reject changed plan until an explicit migration with fresh verification.",
+      "ideal_fix": "Versioned plan manifest and action-scoped evidence, with declared reusable invariant versus one-time effect obligations.",
+      "tests": "Change args, target, scopes, side-effect class and expectation while retaining IDs; each must invalidate prior completion.",
+      "estimated_effort": "2–4 engineer-days",
+      "regression_risk": "MEDIUM: state and persisted evidence migration must preserve safe retries",
+      "dependencies": [],
+      "verification_status": "REPRODUCED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "ASTRA-004",
+      "severity": "P1",
+      "title": "Contract accepts validly signed old evidence from another mission and ignores expected value",
+      "confidence": "HIGH",
+      "axis": "Honesty / Execution Truth",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/organization/contracts.py",
+          "line": 141,
+          "symbol": "DelegationContract.validate",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        },
+        {
+          "file": "bossman-core/bossman_v3/organization/contracts.py",
+          "line": 152,
+          "symbol": "DelegationContract.validate",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        },
+        {
+          "file": "bossman_shared/evidence.py",
+          "line": 109,
+          "symbol": "verify_signed",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "why_it_matters": "Probe signs a synthetic file evidence dated 2000 for another mission, attaches it to current WorkResult with correct work_id and executed=True. validate accepts it, including an unmet contains expectation. Contract matches kind/target and HMAC, not mission/action binding, observed freshness or req.expect. Obtaining valid signed evidence is a precondition; arbitrary remote signature forgery is not shown.",
+      "failure_scenario": "Probe signs a synthetic file evidence dated 2000 for another mission, attaches it to current WorkResult with correct work_id and executed=True. validate accepts it, including an unmet contains expectation. Contract matches kind/target and HMAC, not mission/action binding, observed freshness or req.expect. Obtaining valid signed evidence is a precondition; arbitrary remote signature forgery is not shown.",
+      "affected_invariant": "SIGNED_RECEIPT != POST_STATE_VERIFICATION; stale evidence must not prove new execution",
+      "minimal_fix": "Require task/attempt/action/expectation digests and verifier-observed value in the signed body; verify freshness appropriate to the obligation and reject mismatches.",
+      "ideal_fix": "Obligation compiler produces verifier-specific typed claims; historical immutable artifact reuse is explicit and distinct from a newly executed effect.",
+      "tests": "Run signed_stale_cross_mission_evidence; add mismatched expected-content, identical basename in another root, rotated key and approved artifact reuse cases.",
+      "estimated_effort": "2–4 engineer-days",
+      "regression_risk": "MEDIUM: state and persisted evidence migration must preserve safe retries",
+      "dependencies": [],
+      "verification_status": "REPRODUCED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "ASTRA-005",
+      "severity": "P1",
+      "title": "Crash after irreversible effect but before journal record can be classified as not started",
+      "confidence": "HIGH",
+      "axis": "Honesty / Execution Truth",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/execution/compound.py",
+          "line": 91,
+          "symbol": "CompoundRunner.run",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        },
+        {
+          "file": "bossman-core/bossman_v3/execution/compound.py",
+          "line": 118,
+          "symbol": "CompoundRunner.run",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        },
+        {
+          "file": "bossman-core/bossman_v3/fleet/resume.py",
+          "line": 42,
+          "symbol": "FleetResumeKernel.decide",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "why_it_matters": "CompoundRunner writes no durable executing intent before agent.run. Process death after external effect leaves journal PENDING without by/note. ResumeKernel sees lost_in_flight=True but started=False and permits an irreversible step. Probe irreversible_pending_after_crash reproduces the decision boundary using the surviving state; a real external duplicate was not produced.",
+      "failure_scenario": "CompoundRunner writes no durable executing intent before agent.run. Process death after external effect leaves journal PENDING without by/note. ResumeKernel sees lost_in_flight=True but started=False and permits an irreversible step. Probe irreversible_pending_after_crash reproduces the decision boundary using the surviving state; a real external duplicate was not produced.",
+      "affected_invariant": "DUPLICATE_SIDE_EFFECT_COUNT == 0; UNKNOWN != PASS",
+      "minimal_fix": "Persist STARTED intent and effect key before dispatch; any ambiguous non-idempotent attempt must reconcile or block instead of replay.",
+      "ideal_fix": "Effect intent/outcome ledger with sink idempotency key and fenced execution; unknown delivery goes into uncertainty state until post-state reconciliation.",
+      "tests": "Terminate subprocess before effect, after effect, before observation and before record; assert at most one effect and no automatic replay for unknown non-idempotent state.",
+      "estimated_effort": "2–4 engineer-days",
+      "regression_risk": "MEDIUM: state and persisted evidence migration must preserve safe retries",
+      "dependencies": [],
+      "verification_status": "REPRODUCED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "ASTRA-006",
+      "severity": "P2",
+      "title": "Benchmark absence of recovery/context events earns maximum sub-scores",
+      "confidence": "HIGH",
+      "axis": "Testing & CI Discipline",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/benchmark_overlay/scorer.py",
+          "line": 38,
+          "symbol": "BenchmarkScorer.score_mission",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        },
+        {
+          "file": "bossman-core/bossman_v3/benchmark_overlay/scorer.py",
+          "line": 39,
+          "symbol": "BenchmarkScorer.score_mission",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "why_it_matters": "A mission with no observed duplicate event gets recovery_idempotency=10; no context handoff also yields context_continuity=10. These may be policy scoring choices but cannot be interpreted as executed recovery/context verification or attestation. Overlay is passive and this does not itself execute a task.",
+      "failure_scenario": "A mission with no observed duplicate event gets recovery_idempotency=10; no context handoff also yields context_continuity=10. These may be policy scoring choices but cannot be interpreted as executed recovery/context verification or attestation. Overlay is passive and this does not itself execute a task.",
+      "affected_invariant": "NOT_RUN != PASS; EVENT != EXECUTION_PROOF",
+      "minimal_fix": "Represent unexercised dimensions as null/NOT_APPLICABLE and publish coverage with the diagnostic score.",
+      "ideal_fix": "Coverage certificate joins required failure modes, executed probes and evidence completeness before any score is labeled verified.",
+      "tests": "Empty/sparse event stream must not receive verified maximum dimensions; verify numerator and denominator with missing events.",
+      "estimated_effort": "2–4 engineer-days",
+      "regression_risk": "MEDIUM: state and persisted evidence migration must preserve safe retries",
+      "dependencies": [],
+      "verification_status": "SOURCE_CONFIRMED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "FINDING_ID": "ASTRA-SEC-101",
+      "severity": "P1",
+      "confidence": "HIGH",
+      "title": "Core HTTP policy has a DNS validation/connection race",
+      "files": [
+        {
+          "path": "bossman-core/bossman/toolkit/net.py",
+          "line": 155,
+          "symbol": "_request_checked"
+        }
+      ],
+      "failure_scenario": "Attacker-controlled hostname resolves publicly during check_url, then to loopback/private IP when ordinary httpx opens the connection. Confirmation of the public URL does not authorize the rebinding destination. No live exploit attempted.",
+      "why_it_matters": "Attacker-controlled hostname resolves publicly during check_url, then to loopback/private IP when ordinary httpx opens the connection. Confirmation of the public URL does not authorize the rebinding destination. No live exploit attempted.",
+      "affected_invariant": "Network egress must use the destination actually authorized",
+      "minimal_fix": "Use a transport pinned to validated IPs at every redirect; retain original hostname for TLS/SNI.",
+      "ideal_fix": "Share a tested bounded pinned egress transport across Core and Command Center.",
+      "tests": [
+        "Two-answer DNS rebinding fixture must connect only to first approved address",
+        "Mixed A/AAAA denial and redirect rebinding",
+        "Proxy-environment behavior"
+      ],
+      "estimated_effort": "1-2 days",
+      "regression_risk": "Medium: HTTP proxy and TLS compatibility",
+      "dependencies": [
+        "Common transport interface"
+      ],
+      "evidence_type": "SOURCE",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "ASTRA-SEC-101",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "path": "bossman-core/bossman/toolkit/net.py",
+          "line": 155,
+          "symbol": "_request_checked"
+        }
+      ],
+      "verification_status": "SOURCE_REVIEWED"
+    },
+    {
+      "FINDING_ID": "ASTRA-SEC-102",
+      "severity": "P2",
+      "confidence": "HIGH",
+      "title": "Core HTTP response has no byte budget before buffering or logging",
+      "files": [
+        {
+          "path": "bossman-core/bossman/toolkit/net.py",
+          "line": 175,
+          "symbol": "http"
+        }
+      ],
+      "failure_scenario": "A slow but continuously streaming or very large public response is fully buffered by client.request before token clipping, then duplicated into text/log content. A 60-second timeout is not an aggregate byte cap. Can exhaust worker memory/disk and expose raw returned sensitive fields in local assets/logs.",
+      "why_it_matters": "A slow but continuously streaming or very large public response is fully buffered by client.request before token clipping, then duplicated into text/log content. A 60-second timeout is not an aggregate byte cap. Can exhaust worker memory/disk and expose raw returned sensitive fields in local assets/logs.",
+      "affected_invariant": "Bound external input and protect telemetry privacy",
+      "minimal_fix": "Stream with decompressed-byte cap; reject oversize responses and redact persisted output.",
+      "ideal_fix": "Unified egress budgets for bytes, duration and storage; explicit artifact classification and retention.",
+      "tests": [
+        "Compressed-response expansion over limit",
+        "Chunked body without content-length",
+        "Response with synthetic sensitive fields in ignored fields"
+      ],
+      "estimated_effort": "1 day",
+      "regression_risk": "Medium: callers relying on full raw downloads",
+      "dependencies": [],
+      "evidence_type": "SOURCE",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "ASTRA-SEC-102",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "path": "bossman-core/bossman/toolkit/net.py",
+          "line": 175,
+          "symbol": "http"
+        }
+      ],
+      "verification_status": "SOURCE_REVIEWED"
+    },
+    {
+      "FINDING_ID": "ASTRA-SEC-103",
+      "severity": "P1",
+      "confidence": "HIGH",
+      "title": "ZIP scanner omits private-key members and treats scan failures as clean",
+      "files": [
+        {
+          "path": "tools/ci_secret_scan.py",
+          "line": 117,
+          "symbol": "scan_zip"
+        }
+      ],
+      "failure_scenario": "Synthetic private-key marker in private.txt is detected but identical marker in private.pem is skipped. Nested ZIP and corrupt ZIP both return zero findings. Top-level forbidden-name policy is not applied to archive members; >2 MB files are also skipped. This is a scanner completeness defect, not proof that committed archives contain real credentials.",
+      "why_it_matters": "Synthetic private-key marker in private.txt is detected but identical marker in private.pem is skipped. Nested ZIP and corrupt ZIP both return zero findings. Top-level forbidden-name policy is not applied to archive members; >2 MB files are also skipped. This is a scanner completeness defect, not proof that committed archives contain real credentials.",
+      "affected_invariant": "UNKNOWN != PASS; NOT_RUN != PASS",
+      "minimal_fix": "Apply forbidden member paths before suffix filtering; emit unscannable findings for corrupt/oversize/unsupported archive contents.",
+      "ideal_fix": "Bounded recursive archive scanner with depth, aggregate expanded-size limits and explicit scanned/skipped/error coverage manifest.",
+      "tests": [
+        "scanner_probe.json: pem=[], text=[private key], nested=[], corrupt=[]",
+        "Archive traversal member names are inspected but never extracted",
+        "ZIP bomb limits produce UNKNOWN/BLOCKED rather than PASS"
+      ],
+      "estimated_effort": "1-2 days",
+      "regression_risk": "Medium: historical archives need triage",
+      "dependencies": [],
+      "evidence_type": "SYNTHETIC_RUNTIME_PROBE",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "ASTRA-SEC-103",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "path": "tools/ci_secret_scan.py",
+          "line": 117,
+          "symbol": "scan_zip"
+        }
+      ],
+      "verification_status": "SOURCE_REVIEWED"
+    },
+    {
+      "FINDING_ID": "ASTRA-SEC-104",
+      "severity": "P2",
+      "confidence": "HIGH",
+      "title": "Default startup announcement writes the installation bearer token to stdout",
+      "files": [
+        {
+          "path": "command-center/bcc/auth.py",
+          "line": 41,
+          "symbol": "TokenAuth.announce"
+        }
+      ],
+      "failure_scenario": "TokenAuth defaults announce=True and Services defaults announce_token=True. A redirected console or process manager captures the long-lived access token unless operator pre-sets BCC_TOKEN_STDOUT=0. Probe captured a generated temporary token without recording its value. No existing production log was searched for secrets.",
+      "why_it_matters": "TokenAuth defaults announce=True and Services defaults announce_token=True. A redirected console or process manager captures the long-lived access token unless operator pre-sets BCC_TOKEN_STDOUT=0. Probe captured a generated temporary token without recording its value. No existing production log was searched for secrets.",
+      "affected_invariant": "Secrets must not enter ordinary telemetry",
+      "minimal_fix": "Suppress announcement for non-TTY stdout by default; print only path and explicit retrieval instructions.",
+      "ideal_fix": "Short-lived setup challenge and platform key storage; token rotation and revocation.",
+      "tests": [
+        "Redirect stdout and assert token absent",
+        "Explicit interactive opt-in test",
+        "Existing token restart does not reprint token"
+      ],
+      "estimated_effort": "0.5-1 day",
+      "regression_risk": "Low: onboarding needs clear token retrieval",
+      "dependencies": [],
+      "evidence_type": "SYNTHETIC_RUNTIME_PROBE",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "ASTRA-SEC-104",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "path": "command-center/bcc/auth.py",
+          "line": 41,
+          "symbol": "TokenAuth.announce"
+        }
+      ],
+      "verification_status": "SOURCE_REVIEWED"
+    },
+    {
+      "FINDING_ID": "ASTRA-CI-101",
+      "severity": "P1",
+      "confidence": "HIGH",
+      "title": "Exact audited SHA is not green and branch has no enforced required checks",
+      "files": [
+        {
+          "path": ".github/workflows/root-ci.yml",
+          "line": 11,
+          "symbol": "jobs.root-tests"
+        }
+      ],
+      "failure_scenario": "GitHub check evidence reports 16 completed checks: 12 success and 4 failure on the audited SHA. Protection API reports Branch not protected and rulesets list is empty. Pushes can advance this branch without a clean audit gate. Scanner alerts in Solana code are not automatically credential leaks.",
+      "why_it_matters": "GitHub check evidence reports 16 completed checks: 12 success and 4 failure on the audited SHA. Protection API reports Branch not protected and rulesets list is empty. Pushes can advance this branch without a clean audit gate. Scanner alerts in Solana code are not automatically credential leaks.",
+      "affected_invariant": "UNKNOWN != PASS; exact-SHA verification",
+      "minimal_fix": "Triage scanner alerts at their exact locations, fix genuine content issues or narrowly annotate proven public/synthetic data, then run all required checks on resulting SHA.",
+      "ideal_fix": "Enforce a named aggregate exact-SHA gate and branch rules; record expected checks, conclusion and SHA, treating absent/cancelled/pending as not verified.",
+      "tests": [
+        "Missing/empty/cancelled checks never pass acceptance",
+        "Move branch between check fetch and acceptance: reject stale SHA",
+        "Protected branch rejects failed required gate"
+      ],
+      "estimated_effort": "1-2 days",
+      "regression_risk": "Medium: rules depend on repository owner permissions",
+      "dependencies": [
+        "GitHub branch rule authorization and repository plan"
+      ],
+      "evidence_type": "REMOTE_API_AND_CI_LOGS",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "ASTRA-CI-101",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "path": ".github/workflows/root-ci.yml",
+          "line": 11,
+          "symbol": "jobs.root-tests"
+        }
+      ],
+      "verification_status": "SOURCE_REVIEWED"
+    },
+    {
+      "FINDING_ID": "ASTRA-CI-102",
+      "severity": "P2",
+      "confidence": "HIGH",
+      "title": "SAST and dependency audit cannot block and installation errors are swallowed",
+      "files": [
+        {
+          "path": ".github/workflows/bossman-core-ci.yml",
+          "line": 157,
+          "symbol": "jobs.compile dependency audit"
+        }
+      ],
+      "failure_scenario": "pip-audit and bandit use continue-on-error plus || true; dependency installation also uses || true. A scan failure or vulnerability can appear as successful step execution. Earlier secret-scan failure can prevent these subsequent checks from running altogether. Same pattern exists in command-center-ci.yml:117-129.",
+      "why_it_matters": "pip-audit and bandit use continue-on-error plus || true; dependency installation also uses || true. A scan failure or vulnerability can appear as successful step execution. Earlier secret-scan failure can prevent these subsequent checks from running altogether. Same pattern exists in command-center-ci.yml:117-129.",
+      "affected_invariant": "NOT_RUN != PASS; UNKNOWN != PASS",
+      "minimal_fix": "Capture machine-readable scan results as always-uploaded artifacts; separate tooling failure from findings.",
+      "ideal_fix": "Pinned reproducible SCA/SAST jobs with reviewed expiring baseline and blocking new high-confidence high-severity findings.",
+      "tests": [
+        "Inject scanner tool failure and assert ERROR",
+        "Inject known vulnerable fixture dependency and assert finding",
+        "Ensure scan still runs when independent secret gate fails"
+      ],
+      "estimated_effort": "1-2 days",
+      "regression_risk": "Medium: initial baseline noise",
+      "dependencies": [],
+      "evidence_type": "SOURCE",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "ASTRA-CI-102",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "path": ".github/workflows/bossman-core-ci.yml",
+          "line": 157,
+          "symbol": "jobs.compile dependency audit"
+        }
+      ],
+      "verification_status": "SOURCE_REVIEWED"
+    },
+    {
+      "FINDING_ID": "ASTRA-CI-103",
+      "severity": "P2",
+      "confidence": "HIGH",
+      "title": "Linux-only CI misses a demonstrated Windows permission assertion failure",
+      "files": [
+        {
+          "path": ".github/workflows/bossman-core-ci.yml",
+          "line": 28,
+          "symbol": "jobs.core.runs-on"
+        }
+      ],
+      "failure_scenario": "All reviewed workflow jobs use ubuntu-latest. On Windows test_v3_evidence_signing.py:75 assumes POSIX mode 0600; root agent local evidence reports failure. POSIX permission bits do not attest Windows ACL protection. Windows path, launcher and event-loop regressions have no hosted gate.",
+      "why_it_matters": "All reviewed workflow jobs use ubuntu-latest. On Windows test_v3_evidence_signing.py:75 assumes POSIX mode 0600; root agent local evidence reports failure. POSIX permission bits do not attest Windows ACL protection. Windows path, launcher and event-loop regressions have no hosted gate.",
+      "affected_invariant": "Platform-specific claims require matching evidence",
+      "minimal_fix": "Add Windows portable-contract smoke job and replace unconditional POSIX assertion with platform-specific security check.",
+      "ideal_fix": "Windows ACL and launcher acceptance lane plus Linux sandbox/hardware lane, publishing independent capabilities.",
+      "tests": [
+        "Windows key ACL forbids unintended readers",
+        "UNC/drive/case/path traversal suite",
+        "Fresh UTF-8 subprocess and explicit asyncio-mode harness"
+      ],
+      "estimated_effort": "2-3 days",
+      "regression_risk": "Medium: dependencies and Windows timing",
+      "dependencies": [],
+      "evidence_type": "WORKFLOW_SOURCE_AND_ROOT_AGENT_TEST_EVIDENCE",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "ASTRA-CI-103",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "path": ".github/workflows/bossman-core-ci.yml",
+          "line": 28,
+          "symbol": "jobs.core.runs-on"
+        }
+      ],
+      "verification_status": "SOURCE_REVIEWED"
+    },
+    {
+      "FINDING_ID": "ASTRA-CI-104",
+      "severity": "P2",
+      "confidence": "HIGH",
+      "title": "Known hangs and real sandbox execution are outside normal CI evidence",
+      "files": [
+        {
+          "path": ".github/workflows/command-center-ci.yml",
+          "line": 86,
+          "symbol": "jobs.test BCC_CI_SKIP_RUNNER_HANGS"
+        }
+      ],
+      "failure_scenario": "CI sets BCC_CI_SKIP_RUNNER_HANGS=1 for two tests and core sets BOSSMAN_RUN_REAL_SANDBOX=0 at bossman-core-ci.yml:126. Green unit jobs cannot prove real containment or the skipped teardown/retry invariants. Exclusions are documented; this is an acceptance coverage gap.",
+      "why_it_matters": "CI sets BCC_CI_SKIP_RUNNER_HANGS=1 for two tests and core sets BOSSMAN_RUN_REAL_SANDBOX=0 at bossman-core-ci.yml:126. Green unit jobs cannot prove real containment or the skipped teardown/retry invariants. Exclusions are documented; this is an acceptance coverage gap.",
+      "affected_invariant": "NOT_RUN != PASS; UNPROVEN != VERIFIED",
+      "minimal_fix": "Publish skip reasons/counts and scheduled unskipped reproduction with strict timeouts.",
+      "ideal_fix": "Capability-addressed acceptance runner with signed environment identity, cancellation-safe teardown and required sandbox lane before autonomy.",
+      "tests": [
+        "Run skipped retry and discovery tests in fresh processes",
+        "Cancellation during process/network teardown",
+        "Sandbox escape/egress tests on actual runtime"
+      ],
+      "estimated_effort": "2-4 days",
+      "regression_risk": "Medium: runner-specific nondeterminism",
+      "dependencies": [
+        "Controlled sandbox/hardware runner"
+      ],
+      "evidence_type": "SOURCE",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "ASTRA-CI-104",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "path": ".github/workflows/command-center-ci.yml",
+          "line": 86,
+          "symbol": "jobs.test BCC_CI_SKIP_RUNNER_HANGS"
+        }
+      ],
+      "verification_status": "SOURCE_REVIEWED"
+    },
+    {
+      "id": "F001",
+      "area": "Fleet",
+      "title": "Lease acquisition violates shared/exclusive exclusion and fences live sharers",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/fleet/leases.py",
+      "line": 38,
+      "symbol": "LeaseManager.acquire / valid",
+      "failure_scenario": "Exclusive acquisition checks only existing exclusive leases; a live shared lease does not prevent an exclusive lease. New shared leases also invalidate older shared tokens. Root executed shared_exclusive_lease_conflict.",
+      "violated_invariant": "A valid exclusive owner must have no concurrent shared owner; valid sharers must coexist.",
+      "minimal_fix": "Reject exclusive requests when any live lease exists and shared requests when an exclusive lease exists; separate shared membership from ownership generations.",
+      "ideal_fix": "Transactional resource lease state with exclusive generation and explicit shared holders.",
+      "tests": "Shared→exclusive and exclusive→shared rejection; shared→shared both valid; TTL/reclaim race.",
+      "effort": "M",
+      "change_risk": "medium",
+      "dependencies": "none",
+      "evidence_status": "EXECUTED: ../probes.json",
+      "estimated_effort": "M",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/fleet/leases.py",
+          "line": 38,
+          "symbol": "LeaseManager.acquire / valid",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "A valid exclusive owner must have no concurrent shared owner; valid sharers must coexist.",
+      "regression_risk": "medium",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "F002",
+      "area": "Fleet",
+      "title": "Fencing checked after dispatch, not before resource mutation",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/fleet/node_agent.py",
+      "line": 72,
+      "symbol": "LocalNodeTransport.dispatch",
+      "failure_scenario": "The request contains lease_id/fence but dispatch only reads contract/context_policy/agent_id. FleetControlPlane validates at control_plane.py:220 after execute returns. An expired worker can already mutate before its result is refused.",
+      "violated_invariant": "Stale workers cannot mutate a fenced resource.",
+      "minimal_fix": "Pass a lease capability to the execution boundary and validate before every mutating step.",
+      "ideal_fix": "Sink-enforced fencing and idempotency with monotonic resource generations, cancellation and reconciliation.",
+      "tests": "Expire lease while paused immediately before mutation; stale write must fail and fresh owner must succeed.",
+      "effort": "L",
+      "change_risk": "high",
+      "dependencies": "F001; root crash-before-journal finding",
+      "evidence_status": "SOURCE_INSPECTED",
+      "estimated_effort": "L",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/fleet/node_agent.py",
+          "line": 72,
+          "symbol": "LocalNodeTransport.dispatch",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Stale workers cannot mutate a fenced resource.",
+      "regression_risk": "high",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "F003",
+      "area": "Fleet",
+      "title": "Queue completion has no owner or fence check",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/fleet/queue.py",
+      "line": 77,
+      "symbol": "WorkQueue.complete",
+      "failure_scenario": "Worker A loses its claim; B receives claim fence 2; A invokes complete(work_id) and deletes B’s live work. fleet/store.py:224 DELETE filters only work_id.",
+      "violated_invariant": "Only the current claim owner and generation can acknowledge/dead-letter/release work.",
+      "minimal_fix": "Require Claim on complete and CAS delete by work_id, claimed_by and claim_fence; fence release/failure too.",
+      "ideal_fix": "One transaction for result commit, fenced acknowledgement and durable event.",
+      "tests": "Reclaim A→B then stale A complete/release/failure; none may alter B claim.",
+      "effort": "M",
+      "change_risk": "medium",
+      "dependencies": "none",
+      "evidence_status": "EXECUTED: ../probes.json",
+      "estimated_effort": "M",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/fleet/queue.py",
+          "line": 77,
+          "symbol": "WorkQueue.complete",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Only the current claim owner and generation can acknowledge/dead-letter/release work.",
+      "regression_risk": "medium",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "F004",
+      "area": "Fleet",
+      "title": "Retry and human-wait decisions leave queue immediately claimable",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/fleet/queue.py",
+      "line": 85,
+      "symbol": "WorkQueue.on_failure",
+      "failure_scenario": "BACKOFF returns REQUEUE_AFTER_2s but persists no availability timestamp; HUMAN_REQUIRED releases claim then returns WAIT_HUMAN with no blocked state. eligible_for reads all unclaimed rows at line 53.",
+      "violated_invariant": "Backoff and human-wait states must control eligibility durably.",
+      "minimal_fix": "Persist state/not_before/attempt count and exclude waiting-human and future rows; only authenticated approval clears wait.",
+      "ideal_fix": "Durable retry policy machine with jitter, clock control, max elapsed budget and fenced transitions.",
+      "tests": "Immediate claim after timeout denied; clock advance allows; approval remains unclaimable after restart.",
+      "effort": "M",
+      "change_risk": "medium",
+      "dependencies": "none",
+      "evidence_status": "EXECUTED BACKOFF: ../probes.json; SOURCE_INSPECTED HUMAN_REQUIRED",
+      "estimated_effort": "M",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/fleet/queue.py",
+          "line": 85,
+          "symbol": "WorkQueue.on_failure",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Backoff and human-wait states must control eligibility durably.",
+      "regression_risk": "medium",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "F005",
+      "area": "Fleet",
+      "title": "Unified memory admission double-counts physical headroom",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/fleet/scheduler.py",
+      "line": 43,
+      "symbol": "FleetScheduler.reject_reasons",
+      "failure_scenario": "A node with 16 GB unified pool admits 12 GB host plus 12 GB GPU requirements: the probe returns no rejection. Separate comparisons and max(gpu_free,ram_free) reuse one pool.",
+      "violated_invariant": "Physical aggregate reserved demand cannot exceed shared available capacity.",
+      "minimal_fix": "Represent unified pool once; add disjoint host/GPU demands plus safety margin and deduct active reservations atomically.",
+      "ideal_fix": "Typed resource topology with measured resident model footprint, KV/workspace buffers, pool overlap semantics and fair reservation.",
+      "tests": "16 GB rejects disjoint 12+12; non-unified independent pools pass where appropriate; concurrent reservations cannot oversubscribe.",
+      "effort": "M",
+      "change_risk": "medium",
+      "dependencies": "F001",
+      "evidence_status": "EXECUTED: probes.json/unified_pool_double_count",
+      "estimated_effort": "M",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/fleet/scheduler.py",
+          "line": 43,
+          "symbol": "FleetScheduler.reject_reasons",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Physical aggregate reserved demand cannot exceed shared available capacity.",
+      "regression_risk": "medium",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "F006",
+      "area": "Fleet",
+      "title": "Minimized contract drops constraints while retaining sensitive step arguments",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/fleet/node_agent.py",
+      "line": 98,
+      "symbol": "_minimized",
+      "failure_scenario": "Minimized transport removes constraints/deadline/dependencies/metadata but retains whole goal, placement and steps; synthetic payload remains in step args. PrivacyRouter public/untrusted selection therefore does not prove payload minimization.",
+      "violated_invariant": "Minimization must preserve enforceable restrictions and remove non-authorized data.",
+      "minimal_fix": "Preserve policy/security envelope and allowlist only transport-required payload fields; reject minimization when action needs undisclosed sensitive data.",
+      "ideal_fix": "Content-classified immutable envelope with separate executable policy and encrypted artifact capabilities.",
+      "tests": "Nested sensitive steps/goal/placement scrub or reject; constraints survive; minimized contract cannot expand permissions.",
+      "effort": "M",
+      "change_risk": "medium",
+      "dependencies": "none",
+      "evidence_status": "EXECUTED: probes.json/minimized_discards_constraints_keeps_step_payload",
+      "estimated_effort": "M",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/fleet/node_agent.py",
+          "line": 98,
+          "symbol": "_minimized",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Minimization must preserve enforceable restrictions and remove non-authorized data.",
+      "regression_risk": "medium",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "O001",
+      "area": "Organization",
+      "title": "Private/local-only contract can route to cloud-tier agent",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/organization/marketplace.py",
+      "line": 77,
+      "symbol": "CapabilityMarketplace._reject_reason",
+      "failure_scenario": "Only frontier executor registered: local_only contract routes to that cloud-tier executor. Fleet selecting a trusted local node does not restrict a model endpoint. command-center/bcc/features/organization.py:73-99 binds a V2 agent but does not copy contract.privacy into task metadata.",
+      "violated_invariant": "Privacy must hold through agent/model/provider routing and tool egress, not only physical placement.",
+      "minimal_fix": "Reject cloud-tier/provider candidates for local_only/private policies and propagate an immutable privacy policy to V2/model broker.",
+      "ideal_fix": "One end-to-end data-egress policy enforced at every model/tool/network sink, with approved declassification.",
+      "tests": "Cloud-only pool + local_only fails closed; fallback cannot cloud-escalate; capture outgoing requests to prove payload remains local.",
+      "effort": "L",
+      "change_risk": "high",
+      "dependencies": "Model broker and V2 privacy integration",
+      "evidence_status": "EXECUTED selection: probes.json/local_only_cloud_marketplace; no real cloud request made",
+      "estimated_effort": "L",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/organization/marketplace.py",
+          "line": 77,
+          "symbol": "CapabilityMarketplace._reject_reason",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Privacy must hold through agent/model/provider routing and tool egress, not only physical placement.",
+      "regression_risk": "high",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "O002",
+      "area": "Organization",
+      "title": "Cross-mission work ID collision corrupts ownership and payload",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/organization/store.py",
+      "line": 163,
+      "symbol": "OrganizationStore.save_work",
+      "failure_scenario": "Saving work same for first then second mission preserves SQL mission_id=first but replaces contract.mission_id=second and resets state to planned; second mission contains no rows. receive_mission:139 only checks duplicate IDs within incoming contracts. Fleet tables likewise globally key work_id.",
+      "violated_invariant": "Mission/work identity and immutable contract payload must remain consistent; a second mission cannot reset first mission’s completed work.",
+      "minimal_fix": "Reject any already-owned work_id at mission intake and validate digest/mission on updates transactionally.",
+      "ideal_fix": "Composite (mission_id,work_id) keys through contracts, results, queue, flights, journals and APIs, with migration.",
+      "tests": "Two missions sharing task-1 cannot overwrite; completed work remains completed; interrupted receive is atomic.",
+      "effort": "L",
+      "change_risk": "high",
+      "dependencies": "Fleet/store schema migration",
+      "evidence_status": "EXECUTED: probes.json/cross_mission_work_collision",
+      "estimated_effort": "L",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/organization/store.py",
+          "line": 163,
+          "symbol": "OrganizationStore.save_work",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Mission/work identity and immutable contract payload must remain consistent; a second mission cannot reset first mission’s completed work.",
+      "regression_risk": "high",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "O003",
+      "area": "Organization",
+      "title": "Negative and non-finite resources bypass budget admission",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/organization/models.py",
+      "line": 74,
+      "symbol": "Resources / Resources.fits",
+      "failure_scenario": "Reserve USD -100 under cap 10 makes USD 100 request eligible; NaN usage fits finite cap because comparison is false. Resource dataclass has no validation.",
+      "violated_invariant": "Resource estimates, limits and actuals are finite non-negative values with explicit units.",
+      "minimal_fix": "Reject negative/NaN/infinite and invalid integral values on every constructor/deserializer and external cost receipt.",
+      "ideal_fix": "Validated resource types, decimal money, bounded arithmetic and immutable signed usage receipts.",
+      "tests": "Negative reserve rejected; NaN/infinity rejected through API and direct construction; no state mutation on invalid input.",
+      "effort": "M",
+      "change_risk": "medium",
+      "dependencies": "none",
+      "evidence_status": "EXECUTED: probes.json/negative_nan_treasury",
+      "estimated_effort": "M",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/organization/models.py",
+          "line": 74,
+          "symbol": "Resources / Resources.fits",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Resource estimates, limits and actuals are finite non-negative values with explicit units.",
+      "regression_risk": "medium",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "O004",
+      "area": "Organization",
+      "title": "Mandatory risk role is formed but never reviewed when reviewer exists",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/organization/runtime.py",
+      "line": 398,
+      "symbol": "OrganizationRuntime._attempt",
+      "failure_scenario": "High-risk department requires reviewer and risk. Team formation requires both, but runtime selects reviewer_id = REVIEWER or RISK and calls reviewer once; risk member has no veto opportunity.",
+      "violated_invariant": "Every mandatory review gate must produce its own independent verdict before completion.",
+      "minimal_fix": "Evaluate all mandatory review roles and aggregate fail-closed; distinguish proof revalidation from substantive risk review.",
+      "ideal_fix": "Persist independent policy/risk/QA verdicts bound to contract and evidence hashes with quorum rules.",
+      "tests": "Reviewer approves while risk vetoes: mission must not complete; missing or crashed risk verdict blocks.",
+      "effort": "M",
+      "change_risk": "medium",
+      "dependencies": "ReviewerPort contract",
+      "evidence_status": "SOURCE_INSPECTED",
+      "estimated_effort": "M",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/organization/runtime.py",
+          "line": 398,
+          "symbol": "OrganizationRuntime._attempt",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Every mandatory review gate must produce its own independent verdict before completion.",
+      "regression_risk": "medium",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "O005",
+      "area": "Organization",
+      "title": "Treasury reserve and execution state are not a crash-consistent transaction",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/organization/runtime.py",
+      "line": 334,
+      "symbol": "OrganizationRuntime._attempt / ResourceTreasury.restore",
+      "failure_scenario": "Reserve mutates only memory; work is persisted executing; envelope persistence happens after commit at line 414. Crash after charge or reviewer exception leaves no settled durable usage. restore at treasury.py:94 explicitly drops reservations; restarted or concurrent runtime can spend available budget again.",
+      "violated_invariant": "Every in-flight spend has one durable reservation and every incurred charge is reconciled exactly once.",
+      "minimal_fix": "Persist reservation ID and envelope debit atomically before dispatch; reconcile unknown in-flight outcomes on restart rather than dropping reserve. Wrap reviewer/settlement lifecycle with durable cleanup state.",
+      "ideal_fix": "Transactional usage ledger and per-attempt reservation IDs, provider receipt reconciliation, fencing and outbox.",
+      "tests": "Kill after reserve, after provider charge, during review and before settlement; restart preserves exposure and cannot double settle.",
+      "effort": "L",
+      "change_risk": "high",
+      "dependencies": "O002; root crash-before-journal finding",
+      "evidence_status": "SOURCE_INSPECTED",
+      "estimated_effort": "L",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/organization/runtime.py",
+          "line": 334,
+          "symbol": "OrganizationRuntime._attempt / ResourceTreasury.restore",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Every in-flight spend has one durable reservation and every incurred charge is reconciled exactly once.",
+      "regression_risk": "high",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "O006",
+      "area": "Organization",
+      "title": "Renewable capacity is accumulated as lifetime spend",
+      "severity": "P2",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/organization/treasury.py",
+      "line": 136,
+      "symbol": "ResourceTreasury.commit",
+      "failure_scenario": "Resources combines consumables (USD/tokens) and renewable capacity (concurrency/gpu_memory_gb). commit adds every actual dimension to spent. Sequential concurrency=1 jobs exhaust concurrency limit after N jobs although no jobs remain active.",
+      "violated_invariant": "Capacity is reserved while occupied and released on completion; consumption accumulates.",
+      "minimal_fix": "Separate consumable totals from renewable gauges and release capacity in settlement.",
+      "ideal_fix": "Resource dimensions tagged quantity/rate/capacity with interval-based occupancy and actual metering.",
+      "tests": "Many serial one-slot jobs under concurrency cap 1 succeed; overlapping two-slot occupancy is rejected.",
+      "effort": "M",
+      "change_risk": "medium",
+      "dependencies": "none",
+      "evidence_status": "SOURCE_INSPECTED",
+      "estimated_effort": "M",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/organization/treasury.py",
+          "line": 136,
+          "symbol": "ResourceTreasury.commit",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Capacity is reserved while occupied and released on completion; consumption accumulates.",
+      "regression_risk": "medium",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "O007",
+      "area": "Organization",
+      "title": "Knowledge parent read trusts caller-supplied prefixes instead of lineage",
+      "severity": "P1",
+      "confidence": "high",
+      "path": "bossman-core/bossman_v3/organization/memory_scope.py",
+      "line": 120,
+      "symbol": "ScopedKnowledge.read",
+      "failure_scenario": "include_parents=(department:foreign,) is accepted solely by prefix and exposes foreign facts; root probe parent_scope_prefix_only returned foreign_parent_returned true. export similarly trusts caller supplied source_department without matching fact ownership.",
+      "violated_invariant": "Cross-scope access requires authenticated membership/lineage or explicit authorized export.",
+      "minimal_fix": "Resolve permitted ancestors from durable ownership, not request strings; bind export policy to stored source scope.",
+      "ideal_fix": "Central scope authorization graph and audited capability grants for reads/writes/exports.",
+      "tests": "Mission A cannot read department B via include_parents; forged source department cannot authorize export.",
+      "effort": "M",
+      "change_risk": "medium",
+      "dependencies": "Scope ownership store",
+      "evidence_status": "EXECUTED read: ../probes.json; SOURCE_INSPECTED export",
+      "estimated_effort": "M",
+      "evidence_note": "",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/organization/memory_scope.py",
+          "line": 120,
+          "symbol": "ScopedKnowledge.read",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "affected_invariant": "Cross-scope access requires authenticated membership/lineage or explicit authorized export.",
+      "regression_risk": "medium",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "FINDING_ID": "PROD-001",
+      "severity": "P2",
+      "confidence": "HIGH",
+      "title": "V2 context pack exceeds its serialized token budget",
+      "files": [
+        {
+          "path": "command-center/bcc/v2/memory/context_pack.py",
+          "line": 56,
+          "symbol": "build_context_pack"
+        }
+      ],
+      "why_it_matters": "V2 context pack exceeds its serialized token budget",
+      "failure_scenario": "8 unique hits accepted at budget56 return estimated72 due to final labels/separators.",
+      "affected_invariant": "Full serialized context must fit budget",
+      "minimal_fix": "Count identical final rendering during admission and assert final bound",
+      "ideal_fix": "Model tokenizer plus tools/output reserve",
+      "tests": "Replay56->72; property budgets; multilingual fixtures",
+      "estimated_effort": "0.5-1 day",
+      "regression_risk": "Low",
+      "dependencies": "Tokenizer interface",
+      "evidence": [
+        {
+          "path": "command-center/bcc/v2/memory/context_pack.py",
+          "line": 56,
+          "symbol": "build_context_pack"
+        }
+      ],
+      "last_verified_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "PROD-001",
+      "evidence_note": "probes.json context_pack",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "FINDING_ID": "PROD-002",
+      "severity": "P1",
+      "confidence": "HIGH",
+      "title": "Unknown OpenRouter prices become free",
+      "files": [
+        {
+          "path": "command-center/bcc/v2/openrouter_ext.py",
+          "line": 13,
+          "symbol": "_float/per_million/parse_model_card"
+        }
+      ],
+      "why_it_matters": "Unknown OpenRouter prices become free",
+      "failure_scenario": "Missing/malformed catalog pricing returns0; sync stores it and router price caps accept it.",
+      "affected_invariant": "UNKNOWN != PASS; bounded spend requires known price",
+      "minimal_fix": "Preserve unknown separately; reject or conservatively reserve",
+      "ideal_fix": "Versioned fresh finite nonnegative pricing and late settlement",
+      "tests": "Missing/malformed/NaN/negative versus legitimate0; sync provenance; cap unknown",
+      "estimated_effort": "1-2 days",
+      "regression_risk": "Medium",
+      "dependencies": "Catalog schema; treasury policy",
+      "evidence": [
+        {
+          "path": "command-center/bcc/v2/openrouter_ext.py",
+          "line": 13,
+          "symbol": "_float/per_million/parse_model_card"
+        }
+      ],
+      "last_verified_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "PROD-002",
+      "evidence_note": "probes.json missing_pricing; catalog_service97-98; model_router159",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "FINDING_ID": "PROD-003",
+      "severity": "P2",
+      "confidence": "HIGH",
+      "title": "Unavailable NVIDIA process telemetry becomes measured zero",
+      "files": [
+        {
+          "path": "command-center/bcc/metrics.py",
+          "line": 167,
+          "symbol": "_nvidia/_nvidia_procs"
+        }
+      ],
+      "why_it_matters": "Unavailable NVIDIA process telemetry becomes measured zero",
+      "failure_scenario": "Card query succeeds; process query unavailable or N/A; process VRAM emitted0.",
+      "affected_invariant": "Unknown resource usage != zero",
+      "minimal_fix": "Return null with query availability and partial-data flags",
+      "ideal_fix": "Shared metric value/status/age/source contract",
+      "tests": "Timeout/nonzero exit/N-A/mixed known-unknown/valid-empty0",
+      "estimated_effort": "0.5-1 day",
+      "regression_risk": "Low-medium",
+      "dependencies": "Downstream null handling",
+      "evidence": [
+        {
+          "path": "command-center/bcc/metrics.py",
+          "line": 167,
+          "symbol": "_nvidia/_nvidia_procs"
+        }
+      ],
+      "last_verified_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "PROD-003",
+      "evidence_note": "probes.json unavailable_process_query; test_metrics_gpu62-68",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "FINDING_ID": "PROD-004",
+      "severity": "P2",
+      "confidence": "HIGH",
+      "title": "Global latest100 task fetch hides active mission children",
+      "files": [
+        {
+          "path": "command-center/ui/pages/mission_console.js",
+          "line": 289,
+          "symbol": "MissionConsolePage.render/scopeTasks"
+        }
+      ],
+      "why_it_matters": "Global latest100 task fetch hides active mission children",
+      "failure_scenario": "100 newer unrelated tasks push selected mission tasks out before client filter.",
+      "affected_invariant": "Required child graph must be complete or explicitly partial",
+      "minimal_fix": "Mission-filtered server query and pagination",
+      "ideal_fix": "Canonical snapshot with completeness watermark",
+      "tests": "Active mission with101 newer unrelated tasks; API failure vs empty",
+      "estimated_effort": "1 day",
+      "regression_risk": "Low",
+      "dependencies": "Mission-scoped API",
+      "evidence": [
+        {
+          "path": "command-center/ui/pages/mission_console.js",
+          "line": 289,
+          "symbol": "MissionConsolePage.render/scopeTasks"
+        }
+      ],
+      "last_verified_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33",
+      "id": "PROD-004",
+      "evidence_note": "scopeTasks228-233 and fetch289 source inspection",
+      "verification_status": "SOURCE_REVIEWED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "ASTRA-007",
+      "severity": "P1",
+      "title": "Journal task identifier can escape its storage root",
+      "confidence": "HIGH",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/memory/journal.py",
+          "line": 84,
+          "symbol": "TaskJournal.load / _save",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "failure_scenario": "task_id ../escaped writes outside journal root in confined probe; API accepts caller mission IDs, but complete HTTP exploit was not run",
+      "why_it_matters": "task_id ../escaped writes outside journal root in confined probe; API accepts caller mission IDs, but complete HTTP exploit was not run",
+      "affected_invariant": "Privacy and storage boundaries must be enforced; unknown data is not authorized; context must fit final budget",
+      "minimal_fix": "Constrain identifiers or use opaque encoded filenames and resolved containment checks",
+      "ideal_fix": "Use server-generated immutable storage IDs independent of user titles",
+      "tests": "Replay evidence/reproduce.py probe journal_path_traversal_confined_probe; add positive permitted case and negative adversarial case",
+      "estimated_effort": "1–3 engineer-days",
+      "regression_risk": "MEDIUM: compatibility and serialization changes",
+      "dependencies": [],
+      "verification_status": "REPRODUCED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "ASTRA-008",
+      "severity": "P1",
+      "title": "Context redactor removes PEM header but leaves sensitive body",
+      "confidence": "HIGH",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/memory/assembler.py",
+          "line": 33,
+          "symbol": "redact",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "failure_scenario": "Synthetic multiline private-key marker loses header but body survives; this redactor also protects scoped facts and Fleet event payloads",
+      "why_it_matters": "Synthetic multiline private-key marker loses header but body survives; this redactor also protects scoped facts and Fleet event payloads",
+      "affected_invariant": "Privacy and storage boundaries must be enforced; unknown data is not authorized; context must fit final budget",
+      "minimal_fix": "Redact complete structured multiline spans and sensitive value fields",
+      "ideal_fix": "Central tested typed-data redaction at persistence and egress boundaries",
+      "tests": "Replay evidence/reproduce.py probe pem_body_redaction; add positive permitted case and negative adversarial case",
+      "estimated_effort": "1–3 engineer-days",
+      "regression_risk": "MEDIUM: compatibility and serialization changes",
+      "dependencies": [],
+      "verification_status": "REPRODUCED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "ASTRA-009",
+      "severity": "P1",
+      "title": "Parent-scope inheritance validates type prefix but not actual ancestry",
+      "confidence": "HIGH",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/organization/memory_scope.py",
+          "line": 104,
+          "symbol": "ScopedKnowledge.read",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "failure_scenario": "Caller requests department:other as parent of mission:mine and receives foreign fact in synthetic store probe; untrusted API reachability not proven",
+      "why_it_matters": "Caller requests department:other as parent of mission:mine and receives foreign fact in synthetic store probe; untrusted API reachability not proven",
+      "affected_invariant": "Privacy and storage boundaries must be enforced; unknown data is not authorized; context must fit final budget",
+      "minimal_fix": "Derive permitted ancestors from stored mission/department identity",
+      "ideal_fix": "Principal-bound retrieval capabilities with server-side ancestry and revocation",
+      "tests": "Replay evidence/reproduce.py probe parent_scope_prefix_only; add positive permitted case and negative adversarial case",
+      "estimated_effort": "1–3 engineer-days",
+      "regression_risk": "MEDIUM: compatibility and serialization changes",
+      "dependencies": [],
+      "verification_status": "REPRODUCED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    },
+    {
+      "id": "ASTRA-010",
+      "severity": "P2",
+      "title": "V3 context header is outside enforced token budget",
+      "confidence": "HIGH",
+      "evidence": [
+        {
+          "file": "bossman-core/bossman_v3/memory/assembler.py",
+          "line": 132,
+          "symbol": "ContextAssembler.assemble",
+          "sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+        }
+      ],
+      "failure_scenario": "Empty journal with long task ID budget1 emits estimated21 tokens; char/4 estimator also does not establish actual model-token fit",
+      "why_it_matters": "Empty journal with long task ID budget1 emits estimated21 tokens; char/4 estimator also does not establish actual model-token fit",
+      "affected_invariant": "Privacy and storage boundaries must be enforced; unknown data is not authorized; context must fit final budget",
+      "minimal_fix": "Budget the final serialized header and separators; assert hard bound",
+      "ideal_fix": "Model tokenizer with tool-schema and output reserve and measured estimation error",
+      "tests": "Replay evidence/reproduce.py probe context_header_exceeds_budget; add positive permitted case and negative adversarial case",
+      "estimated_effort": "1–3 engineer-days",
+      "regression_risk": "MEDIUM: compatibility and serialization changes",
+      "dependencies": [],
+      "verification_status": "REPRODUCED",
+      "audited_sha": "7b1377a4f69336a1ca9d8eb4d432a758e195ae33"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Solana Safety Assessment</title>
+<style>body{font:18px system-ui;max-width:850px;margin:40px auto;padding:20px;background:#101823;color:#edf2f7}strong{color:#ffd27d}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#192536;padding:20px}button{padding:12px;font:inherit}label{display:block;margin:12px 0}input{padding:8px}</style>
+<h1>Solana Safety Assessment</h1><strong>NO LIVE EXECUTION ENABLED</strong>
+<p>Paper mode. No wallet keys, signing, strategy automation or transaction submission.</p>
+<h2>Runtime status</h2><pre id="status">Loading…</pre>
+<button id="stop">Keep execution stopped</button>
+<h2>Hypothetical liquidity assessment</h2>
+<p>Constant-product model, SOL input, 500 SOL minimum input reserve, 120 bps maximum impact including fees. This does not validate an on-chain pool or authorize a trade. Splitting cannot bypass the total-order limit.</p>
+<form id="form"><label>Order (lamports) <input name="amount_lamports" type="number" min="1" max="9007199254740991" value="100000000" required></label>
+<label>Input reserve (lamports) <input name="reserve_in" type="number" min="1" max="9007199254740991" value="500000000000" required></label>
+<label>Output reserve (raw token units) <input name="reserve_out" type="number" min="1" max="9007199254740991" value="1000000000000" required></label>
+<button>Assess hypothetical inputs</button></form><pre id="result">Not assessed</pre>
+<script>
+async function show(url,id,options){try{const r=await fetch(url,options);document.getElementById(id).textContent=JSON.stringify(await r.json(),null,2)}catch(e){document.getElementById(id).textContent='UNKNOWN — service unavailable'}}
+show('/api/trading/telemetry','status');
+document.getElementById('stop').onclick=()=>show('/api/trading/kill-switch','status',{method:'POST'});
+document.getElementById('form').onsubmit=e=>{e.preventDefault();const data=Object.fromEntries([...new FormData(e.target)].map(([k,v])=>[k,Number(v)]));show('/api/liquidity/assess','result',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})};
+</script></html>
