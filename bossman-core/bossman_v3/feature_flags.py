@@ -21,6 +21,7 @@ class V3Flags:
     recovery_kernel: bool
     self_improvement: bool
     data_guardian: bool
+    organization: bool
     low_memory: bool
 
     @classmethod
@@ -37,5 +38,6 @@ class V3Flags:
             recovery_kernel=enabled("BOSSMAN_V3_RECOVERY_KERNEL"),
             self_improvement=enabled("BOSSMAN_V3_SELF_IMPROVEMENT"),
             data_guardian=enabled("BOSSMAN_V3_DATA_GUARDIAN"),
+            organization=enabled("BOSSMAN_V3_ORGANIZATION"),
             low_memory=_env_bool("BOSSMAN_LOW_MEMORY", False),
         )
