@@ -62,3 +62,4 @@ artifacts/video_factory/
 .bossman-cache/
 build/
 astra-security-results/
+/.audit-work/

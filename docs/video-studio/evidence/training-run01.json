@@ -1,0 +1,22 @@
+{
+  "base": "Qwen/Qwen2.5-0.5B-Instruct",
+  "base_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "method": "LoRA",
+  "weights_trained": true,
+  "train_sha256": "bef590aaa86fe1016d8947f16e0769f7dca8f24bcbbb3c437b291ce92e4b3d4f",
+  "suite_sha256": "5d72b17e329a5c6e3ea6e84699b4500fc901f777820eecdaedc309371ce4c298",
+  "steps": 160,
+  "seed": 43,
+  "baseline_exact": 0,
+  "candidate_exact": 13,
+  "holdout_total": 24,
+  "preserved_baseline_passes": true,
+  "eligible_for_review": true,
+  "activated": false,
+  "scope": "six editing command families; unseen templates and IDs; no general intelligence claim",
+  "seconds": 272.44,
+  "max_gpu_mib": 1513,
+  "first_loss": 1.4066054821014404,
+  "last_loss": 8.670656097820029e-05,
+  "torch": "2.8.0+cu128"
+}
