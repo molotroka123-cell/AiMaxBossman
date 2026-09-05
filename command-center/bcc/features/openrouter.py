@@ -267,7 +267,27 @@ async def capabilities(model_id: int, request: Request):
 
 
 ENV_API_KEY = "BOSSMAN_OPENROUTER_API_KEY"
+ENV_MODELS = "BOSSMAN_OPENROUTER_MODELS"          # конфигурация, не код: "z-ai/glm-4.5-air,qwen/qwen3-coder"
 ENV_PROVIDER_NAME = "OpenRouter (env)"
+
+
+def _alias_for(remote_id: str) -> str:
+    return "or-" + remote_id.replace("/", "-").replace(":", "-")[:100]
+
+
+async def _ensure_models(svc, provider_id: int, remote_ids: list[str]) -> list[str]:
+    """Модели из конфигурации: точные ID — данные окружения, не ядро. Идемпотентно."""
+    created = []
+    for remote_id in remote_ids:
+        alias = _alias_for(remote_id)
+        async with svc.db.session() as s:
+            exists = (await s.execute(sa.select(models_t.c.id).where(models_t.c.alias == alias))).first()
+        if exists:
+            continue
+        await svc.registry.create_model(provider_id=provider_id, name=remote_id, alias=alias, kind="cloud",
+                                        context_window=None)
+        created.append(alias)
+    return created
 
 
 async def setup(svc) -> None:
@@ -279,6 +299,7 @@ async def setup(svc) -> None:
     key = (os.environ.get(ENV_API_KEY) or "").strip()
     if not key:
         return
+    remote_ids = [m.strip() for m in (os.environ.get(ENV_MODELS) or "").split(",") if m.strip()]
     async with svc.db.session() as s:
         rows = (await s.execute(sa.select(providers_t).where(
             providers_t.c.base_url.like("https://openrouter.ai/%")))).fetchall()
@@ -290,10 +311,16 @@ async def setup(svc) -> None:
                     api_key_enc=svc.vault.encrypt(key)))
                 await s.commit()
             await svc.bus.emit("provider.key_from_env", provider_id=row["id"], source=ENV_API_KEY)
-        return
-    created = await svc.registry.create_provider(ENV_PROVIDER_NAME, "openai_compat", DEFAULT_BASE, key)
-    await svc.bus.emit("provider.bootstrapped", provider_id=created.get("id"), name=ENV_PROVIDER_NAME,
-                       source=ENV_API_KEY)
+        provider_id = int(row["id"])
+    else:
+        created = await svc.registry.create_provider(ENV_PROVIDER_NAME, "openai_compat", DEFAULT_BASE, key)
+        provider_id = int(created.get("id"))
+        await svc.bus.emit("provider.bootstrapped", provider_id=provider_id, name=ENV_PROVIDER_NAME,
+                           source=ENV_API_KEY)
+    if remote_ids:
+        aliases = await _ensure_models(svc, provider_id, remote_ids)
+        if aliases:
+            await svc.bus.emit("model.bootstrapped", provider_id=provider_id, aliases=aliases, source=ENV_MODELS)
 
 
 FEATURE = Feature(name="openrouter", router=router, setup=setup)
