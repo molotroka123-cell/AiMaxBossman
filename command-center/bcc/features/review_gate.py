@@ -177,15 +177,14 @@ async def _tick(svc):
         async with svc.db.session() as s:
             t = (await s.execute(sa.select(tasks_t.c.status).where(
                 tasks_t.c.id == task_id))).first()
-            if t and t._mapping["status"] not in ("completed", "cancelled"):
-                await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
-                    status="completed", updated_at=utcnow()))
-                # погасим approval, чтобы не срабатывать повторно
-                await s.execute(sa.update(appr_t).where(appr_t.c.id == a["id"]).values(
-                    kind="review_escalation_done"))
-                await s.commit()
-                await svc.bus.emit("task.completed", task_id=task_id, run_id=a["run_id"],
-                                   override=True)
+            # погасим approval, чтобы не срабатывать повторно; сама запись completed —
+            # только через каноническую точку (EH-04), как решение человека (override)
+            await s.execute(sa.update(appr_t).where(appr_t.c.id == a["id"]).values(
+                kind="review_escalation_done"))
+            await s.commit()
+        if t and t._mapping["status"] not in ("completed", "cancelled"):
+            from ..finalize import finalize_override
+            await finalize_override(svc, task_id, approval=a)
 
 
 @router.post("/review/enable")

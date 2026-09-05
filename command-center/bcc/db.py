@@ -493,6 +493,13 @@ V2_NEW_COLUMNS: list[tuple[str, str, str]] = [
     # claim и при каждом возврате в очередь recover'ом. Запись сайд-эффекта и
     # закрытие run условны по fence: зомби-воркер с устаревшим fence не пишет.
     ("task_runs", "fence", "INTEGER DEFAULT 0"),
+    # TRUTH-003 §2: ActionReceipt на каждый вызов инструмента (заявление исполнителя);
+    # verified/verifier/observed_at заполняет только верификатор пост-состояния.
+    ("tool_calls", "receipt_json", "JSON"),
+    ("tool_calls", "verified", "BOOLEAN DEFAULT 0"),
+    ("tool_calls", "verifier", "VARCHAR(80)"),
+    ("tool_calls", "observed_at", "DATETIME"),
+    ("tool_calls", "receipt_sig", "VARCHAR(64)"),
     ("agents", "workspace", "VARCHAR(500)"),
 ]
 
@@ -505,6 +512,10 @@ for _table, _col, _sqltype in V2_NEW_COLUMNS:
             _coltype: sa.types.TypeEngine = sa.JSON()
         elif _sqltype.startswith("INTEGER"):
             _coltype = sa.Integer()
+        elif _sqltype.startswith("BOOLEAN"):
+            _coltype = sa.Boolean()
+        elif _sqltype.startswith("DATETIME"):
+            _coltype = sa.DateTime()
         else:
             _coltype = sa.String(500)
         _default = "generic" if _col == "kind" else None

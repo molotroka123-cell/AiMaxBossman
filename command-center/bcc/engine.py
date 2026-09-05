@@ -832,11 +832,19 @@ class TaskEngine:
                 await self.bus.emit("task.progress", task_id=task["id"], run_id=run_id,
                                     waiting_approval=True)
             return
-        # лог пишем ДО смены статуса: увидев «completed», UI уже видит полную историю run'а
+        # EH-04: единственная точка финализации — bcc.lifecycle.finalize_task. Она
+        # перепроверяет fence, объявленные эффекты свежим наблюдением и открытые
+        # approval'ы; отказ = решение владельцу (как упавший гейт), не completed.
+        from .finalize import finalize_task
+        decision = await finalize_task(self, run_id, task["id"], answer=answer, verdicts=verdicts,
+                                       usage={"tokens_in": tokens_in, "tokens_out": tokens_out,
+                                              "cost_usd": round(cost, 6), "model_alias": alias})
+        if not decision.ok:
+            await self._log(run_id, "warn", "run.finalize_refused", decision.reason[:500])
+            await self._escalate_gate_failure(run_id, task, messages, step,
+                                              CriticalHookFailure("finalize", "bcc.finalize.finalize_task", decision.reason))
+            return
         await self._log(run_id, "info", "run.completed", "задача выполнена")
-        await self._finish(run_id, task["id"], "completed", result=answer,
-                           tokens_in=tokens_in, tokens_out=tokens_out, cost_usd=round(cost, 6),
-                           model_alias=alias)
 
     async def _call_model(self, task: dict, agent: dict, messages: list[dict],
                           run_id: int, *, tools: list[dict] | None = None
@@ -1207,6 +1215,7 @@ class TaskEngine:
         values["finished_at"] = now if done else None
         values["created_at"] = (now - timedelta(milliseconds=int(duration_ms))
                                 if done and duration_ms is not None else now)
+        values["receipt_json"] = self._action_receipt(run_id, task_id, step, call, name, spec, status, values)
         await self.assert_fence(run_id)          # FL-01: receipt пишет только держатель
         async with self.db.session() as s:
             try:
@@ -1222,6 +1231,28 @@ class TaskEngine:
                     duration_ms=duration_ms, error=error, approved_by=approved_by,
                     finished_at=utcnow()))
                 await s.commit()
+
+    def _action_receipt(self, run_id: int, task_id: int, step: int, call: Any, name: str, spec: Any,
+                        status: str, values: dict) -> dict | None:
+        """TRUTH-003 §2: ActionReceipt как заявление исполнителя (observation_type=tool_result_only,
+        verification UNVERIFIED). Верифицирует только наблюдатель пост-состояния (lifecycle/review_gate)."""
+        try:
+            from bossman_shared.action_receipt import ActionReceipt
+        except Exception:  # noqa: BLE001 — bcc без общего пакета: receipt не пишется, исполнение не страдает
+            return None
+        try:
+            side = "READ_ONLY" if (spec is None or getattr(spec, "idempotent", True)) else "IDEMPOTENT_WRITE"
+            rec = ActionReceipt.from_v3(
+                task_id=str(task_id), step_id=f"step-{step}/{call.id}", action_type=name, effect_type=side,
+                args=dict(getattr(call, "arguments", {}) or {}), started_at=values.get("created_at"),
+                finished_at=values.get("finished_at"), observed_at=None, executor_status=status,
+                observation_type="tool_result_only", observation_ref="", verification_status="UNVERIFIED",
+                verification_reason="tool result is not post-state verification", run_id=str(run_id),
+                fencing_token=self._fences.get(run_id), executor_metadata={"effect": values.get("effect"),
+                                                                            "args_hash": values.get("args_hash")})
+            return rec.to_dict()
+        except Exception:  # noqa: BLE001
+            return None
 
     async def _mark_tool_call(self, run_id: int, call_id: str, *, status: str,
                               approved_by: str = "") -> None:
