@@ -10,6 +10,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hmac
+import os
+import sys
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -31,11 +33,12 @@ APP_IDENTITY = "bossman-command-center"
 from .approvals import Approvals
 from .features import load_features
 from .auth import HEADER, TokenAuth
+from .v2.verification import KINDS as VERIFICATION_KINDS
 from .sessions import COOKIE_NAME, CSRF_HEADER, SAFE_METHODS, SessionStore, cookie_kwargs
 from .login_guard import LoginRateLimiter
 from .config import Settings, settings as default_settings
 from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
-                 rows_dicts, task_runs as runs_t, tasks as tasks_t, utcnow)
+                 rows_dicts, settings_kv, task_runs as runs_t, tasks as tasks_t, utcnow)
 from .lifecycle import sleep_or_stop
 from .engine import TaskEngine
 from .events import EventBus
@@ -56,6 +59,27 @@ class ApiError(Exception):
         self.status = status
         self.hint = hint
         self.code = code            # машиночитаемый род ошибки для UI (например "csrf")
+
+
+async def _capability_probes(svc) -> dict[str, bool]:
+    """Измеренные предпосылки рантайма. Неизвестное НЕ считается выполненным."""
+    from .features.browser import CHROMIUM
+    chromium = False
+    try:
+        import importlib.util
+        if importlib.util.find_spec("playwright") is not None:
+            chromium = os.path.exists(CHROMIUM) or bool(os.environ.get("PLAYWRIGHT_BROWSERS_PATH"))
+    except Exception:                       # noqa: BLE001 — проба не должна ронять ответ
+        chromium = False
+    roots = False
+    try:
+        from .features.tools_terminal import _roots
+        # Измеряем факт, а не запись в настройках: корень, которого нет на диске,
+        # не даёт способности исполняться, сколько бы его ни объявляли.
+        roots = any(p.is_dir() for p in await _roots(svc))
+    except Exception:                       # noqa: BLE001
+        roots = False
+    return {"chromium": chromium, "terminal_roots": roots}
 
 
 # ---------- сборка сервисов ----------
@@ -573,6 +597,27 @@ def _api_router() -> APIRouter:
     @router.get("/activity")
     async def activity(limit: int = 50, svc: Services = Depends(services)):
         return await svc.bus.recent(min(limit, 200))
+
+    @router.get("/capabilities")
+    async def capabilities(svc: Services = Depends(services)):
+        """TRUTH-003 §17: манифест способностей — что умеем и ЧЕМ это доказывается.
+
+        Выводится из реестра инструментов этого процесса, поэтому не расходится
+        с тем, что реально исполняется. `granted` — правило capability ∧ policy
+        ∧ runtime; отказ несёт причину, а не молчание. Способность без
+        `verification_strategy` не может закрыть шаг с side effect'ом.
+        """
+        from . import capability as cap_mod
+        from .tools import REGISTRY as TOOLS
+        probes = await _capability_probes(svc)
+        agent = {"permissions": []}          # манифест процесса, а не конкретного агента
+        items = []
+        for cap in cap_mod.manifest(TOOLS):
+            spec = TOOLS.get(cap.tool)
+            g = cap_mod.grant(cap, spec=spec, args={}, agent=agent, probes=probes)
+            items.append({**cap.to_dict(), "grant": g.to_dict()})
+        return {"platform": sys.platform, "probes": probes, "capabilities": items,
+                "provable_kinds": list(VERIFICATION_KINDS)}
 
     # ---------- провайдеры и модели ----------
 
