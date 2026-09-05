@@ -794,7 +794,8 @@ def _api_router() -> APIRouter:
             runs = [_run_public(r) for r in rows_dicts(res.fetchall())]
         done = [r for r in runs if r["result"]]
         return {"task": task, "runs": runs, "result": done[-1]["result"] if done else None,
-                "error": runs[-1]["error"] if runs else None}
+                "error": ((task.get("meta") or {}).get("blocked_reason")
+                          if task["status"] == "blocked" else runs[-1]["error"] if runs else None)}
 
     @router.post("/tasks/{task_id}/{action}")
     async def task_action(task_id: int, action: str, svc: Services = Depends(services)):
@@ -807,7 +808,7 @@ def _api_router() -> APIRouter:
                 raise ApiError("задача уже в очереди или выполняется",
                                hint="сначала остановите её")
             run_id = await svc.engine.enqueue(task_id)
-            return {"ok": True, "status": "queued", "run_id": run_id}
+            return await svc.engine.admission_result(task_id, run_id)
         if action == "stop":
             return await svc.engine.stop(task_id)
         if action == "pause":

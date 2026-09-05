@@ -224,9 +224,60 @@ class TaskEngine:
 
     # ---------- постановка в очередь ----------
 
+    @staticmethod
+    def _executor_block_reason(agent: dict | None) -> str | None:
+        if agent is None:
+            return "Исполнитель не выбран или недоступен. Выберите включённого агента для задачи."
+        if not agent.get("enabled", True):
+            return "Выбранный агент выключен. Включите его или выберите другого исполнителя."
+        return None
+
+    async def _executor_admission(self, task_id: int, *, run_id: int | None = None) -> bool:
+        """Reject unavailable executors before creating/starting a run; never auto-escalate."""
+        async with self.db.session() as s:
+            task = await fetch_one(s, tasks_t, task_id)
+            if task is None:
+                raise ValueError("task not found")
+            agent = await fetch_one(s, agents_t, task["agent_id"]) if task["agent_id"] else None
+            reason = self._executor_block_reason(agent)
+            meta = dict(task.get("meta") or {})
+            if reason is None:
+                if meta.get("reason_code") == "BLOCKED_CAPABILITY_UNAVAILABLE":
+                    meta.pop("reason_code", None)
+                    meta.pop("blocked_reason", None)
+                    await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(meta=meta))
+                    await s.commit()
+                return True
+            if run_id is not None:
+                upd = await s.execute(sa.update(runs_t).where(
+                    runs_t.c.id == run_id, self._fence_clause(run_id)).values(
+                    status="blocked", error=reason, worker_lease_until=None, finished_at=utcnow()))
+                if not upd.rowcount:
+                    await s.rollback()
+                    raise FencedOut(run_id, self._fences.get(run_id))
+            meta.update(reason_code="BLOCKED_CAPABILITY_UNAVAILABLE", blocked_reason=reason)
+            await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
+                status="blocked", meta=meta, updated_at=utcnow()))
+            await s.commit()
+        await self.bus.emit("task.blocked", task_id=task_id, run_id=run_id,
+                            code="BLOCKED_CAPABILITY_UNAVAILABLE", reason=reason)
+        return False
+
+    async def admission_result(self, task_id: int, run_id: int | None) -> dict:
+        if run_id is not None:
+            return {"ok": True, "status": "queued", "run_id": run_id}
+        async with self.db.session() as s:
+            task = await fetch_one(s, tasks_t, task_id)
+        meta = (task or {}).get("meta") or {}
+        return {"ok": False, "status": "blocked", "run_id": None,
+                "code": meta.get("reason_code", "BLOCKED_CAPABILITY_UNAVAILABLE"),
+                "reason": meta.get("blocked_reason", "Исполнитель недоступен")}
+
     async def enqueue(self, task_id: int, *, attempt: int = 0,
-                      checkpoint: dict | None = None) -> int:
+                      checkpoint: dict | None = None) -> int | None:
         """Создать run в состоянии queued и перевести задачу в queued."""
+        if not await self._executor_admission(task_id):
+            return None
         async with self.db.session() as s:
             res = await s.execute(sa.insert(runs_t).values(
                 task_id=task_id, attempt=attempt, status="queued", checkpoint=checkpoint))
@@ -290,11 +341,15 @@ class TaskEngine:
     async def resume(self, task_id: int) -> dict:
         """Снять паузу: run с checkpoint снова становится доступен worker'у."""
         run = await self.active_run(task_id)
+        if not await self._executor_admission(task_id, run_id=run["id"] if run else None):
+            return await self.admission_result(task_id, None)
         if run is None:
             last = await self.last_run(task_id)
             checkpoint = (last or {}).get("checkpoint")
             attempt = int((last or {}).get("attempt") or 0)
-            await self.enqueue(task_id, attempt=attempt, checkpoint=checkpoint)
+            run_id = await self.enqueue(task_id, attempt=attempt, checkpoint=checkpoint)
+            if run_id is None:
+                return await self.admission_result(task_id, None)
         else:
             async with self.db.session() as s:
                 await s.execute(sa.update(runs_t).where(runs_t.c.id == run["id"]).values(
@@ -307,7 +362,7 @@ class TaskEngine:
     async def retry(self, task_id: int) -> dict:
         """Ручной перезапуск: новая попытка с нуля (счётчик attempt сбрасывается)."""
         run_id = await self.enqueue(task_id, attempt=0)
-        return {"ok": True, "status": "queued", "run_id": run_id}
+        return await self.admission_result(task_id, run_id)
 
     async def last_run(self, task_id: int) -> dict | None:
         async with self.db.session() as s:
@@ -642,12 +697,8 @@ class TaskEngine:
             agent = await fetch_one(s, agents_t, task["agent_id"]) if task and task["agent_id"] else None
         if task is None:
             return
-        if agent is None:
-            await self._fail_now(run_id, task["id"],
-                                 "у задачи не выбран агент — некому её выполнять")
-            return
-        if not agent.get("enabled", True):
-            await self._fail_now(run_id, task["id"], f"агент «{agent['name']}» выключен")
+        if self._executor_block_reason(agent) is not None:
+            await self._executor_admission(task["id"], run_id=run_id)
             return
 
         # before_run: Resource Brain может отложить ({"defer": сек, "reason"}) или
