@@ -13,7 +13,7 @@ build-backend = "setuptools.build_meta"
 packages = ["bossman_os", "bossman_os.extensions"]
 
 [tool.setuptools.package-data]
-bossman_os = ["extensions/*.py"]
+bossman_os = ["extensions/*.py", "console.html"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

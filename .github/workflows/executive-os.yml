@@ -1,0 +1,38 @@
+name: Executive OS additive overlay
+on:
+  push:
+    paths: ['addons/executive_os/**', '.github/workflows/executive-os.yml']
+  pull_request:
+    paths: ['addons/executive_os/**', '.github/workflows/executive-os.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '${{ matrix.python }}'
+      - name: Preserve the existing Core and freeze
+        shell: pwsh
+        run: |
+          git diff --exit-code be6697426bcddd186a39dc2a99ceaf28ab647414 HEAD -- bossman-core command-center bossman_shared learning schemas
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install distributions
+        run: python -m pip install . './bossman-core[dev]' './command-center[dev]' ./addons/executive_os
+      - name: Test the installed overlay
+        run: python -m pytest addons/executive_os/tests -q --basetemp=.audit-work/executive-os-ci
+      - name: Build distributable wheel
+        run: python -m pip wheel --no-deps ./addons/executive_os --wheel-dir .audit-work/wheels
+      - uses: actions/upload-artifact@v4
+        with:
+          name: executive-os-python-${{ matrix.python }}
+          path: .audit-work/wheels/*.whl

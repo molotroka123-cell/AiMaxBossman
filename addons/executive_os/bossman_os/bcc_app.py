@@ -39,6 +39,18 @@ def create(*, data_dir: str | Path | None = None, state_root: str | Path | None 
         "artifact_root": Path(artifact_root) if artifact_root is not None else directory / "artifacts",
         "runtime_factory": runtime_factory,
     }
+
+    @app.get("/executive-os", include_in_schema=False)
+    async def executive_console():
+        from fastapi.responses import FileResponse
+        return FileResponse(Path(__file__).with_name("console.html"), media_type="text/html")
+
+    # BCC may already mount its UI at "/". Place this one public static route
+    # ahead of that catch-all; authenticated /api routes keep their own guards.
+    console_route = next(route for route in app.router.routes
+                         if getattr(route, "endpoint", None) is executive_console)
+    app.router.routes.remove(console_route)
+    app.router.routes.insert(0, console_route)
     return app
 
 

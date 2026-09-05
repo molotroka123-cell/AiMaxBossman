@@ -34,6 +34,8 @@ Wrapper подключает новый Feature только к этому эк�
 
 API под `/api/executive-os`: `GET /status`, `POST /missions`, `GET /missions/{id}`, `POST /missions/{id}/run`, `POST /recover`, `POST /propose`, `POST /evaluate`. Каждый запрос требует существующий BCC token/session. Ключ владельца создаётся в `data-dir/token`; хранить его вне Git и не вставлять в URL/логи.
 
+Консоль: `http://127.0.0.1:8812/executive-os`. Ввод токена остаётся только в памяти вкладки. Кнопки проверяют статус, создают миссию с двумя зависимыми шагами и запрашивают предложение модели. Статическая страница общедоступна на loopback; операции требуют авторизации.
+
 Пример тела `POST /missions`:
 
 ```json

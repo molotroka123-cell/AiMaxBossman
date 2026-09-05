@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Executive OS — локальные миссии</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #e8eef6; background: #0c131c; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1080px; margin: 0 auto; padding: 44px 24px 64px; }
+    .eyebrow { color: #7fbaad; font-size: 12px; text-transform: uppercase; letter-spacing: .15em; }
+    h1 { font-size: clamp(28px, 5vw, 42px); letter-spacing: -.035em; margin: 12px 0; }
+    .intro { color: #a8b8c9; line-height: 1.6; max-width: 700px; margin-bottom: 30px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    section { background: #121e2a; border: 1px solid #283847; border-radius: 14px; padding: 24px; }
+    h2 { font-size: 18px; margin: 0 0 19px; }
+    label { display: block; font-size: 13px; color: #b5c5d5; margin: 16px 0 7px; }
+    input, textarea { width: 100%; border: 1px solid #405469; border-radius: 7px; padding: 11px 12px; background: #0a141e; color: #e8eef6; font: inherit; }
+    textarea { min-height: 128px; resize: vertical; }
+    input:focus, textarea:focus, button:focus-visible { outline: 2px solid #81d5bd; outline-offset: 3px; }
+    button { border: 1px solid #426355; border-radius: 7px; padding: 11px 15px; background: #b0e5cd; color: #122c23; font: inherit; font-weight: 650; cursor: pointer; }
+    button.secondary { color: #d2e5df; background: #19332c; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .hint { color: #8fa3b6; font-size: 12px; line-height: 1.6; }
+    .access { margin-bottom: 18px; }
+    .access-row { display: flex; gap: 12px; align-items: end; }
+    .access-row > div { flex: 1; }
+    .access label { margin-top: 0; }
+    .output { margin-top: 18px; }
+    #progress { min-height: 22px; color: #98d9c1; font-size: 14px; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #0a141e; padding: 16px; border-radius: 8px; font-size: 12px; line-height: 1.6; max-height: 520px; overflow: auto; }
+    @media (max-width: 700px) { main { padding: 26px 16px; } .grid { grid-template-columns: 1fr; } section { padding: 18px; } .access-row { display: block; } .access-row button { margin-top: 15px; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Bossman · Executive OS</div>
+  <h1>Локальные миссии с проверкой результата</h1>
+  <p class="intro">Создайте отдельную миссию: запись файла и зависимая проверка его содержимого. Выполнение остаётся внутри каталога миссии. Предложение локальной модели показывается для просмотра.</p>
+  <section class="access" aria-labelledby="access-title">
+    <h2 id="access-title">Доступ владельца</h2>
+    <div class="access-row">
+      <div><label for="token">Токен отдельного экземпляра BCC</label><input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="X-BCC-Token"></div>
+      <button type="button" class="secondary" id="status">Проверить статус</button>
+    </div>
+    <p class="hint">Введите токен, созданный этим экземпляром BCC. Он используется только для запросов в этой вкладке и не сохраняется страницей.</p>
+  </section>
+  <div class="grid">
+    <section aria-labelledby="mission-title">
+      <h2 id="mission-title">Записать и проверить файл</h2>
+      <label for="mission">Идентификатор новой миссии</label><input id="mission" maxlength="80" spellcheck="false">
+      <label for="project">Проект</label><input id="project" value="default" maxlength="80" spellcheck="false">
+      <label for="content">Содержимое report.txt</label><textarea id="content" maxlength="65536">Отчёт создан локально. Содержимое будет независимо проверено.</textarea>
+      <p class="hint">Создаются два шага: запись report.txt и проверка тех же байтов. Для следующего запуска используйте новый идентификатор.</p>
+      <div class="actions"><button type="button" id="execute">Создать и выполнить</button></div>
+    </section>
+    <section aria-labelledby="proposal-title">
+      <h2 id="proposal-title">Предложение локальной модели</h2>
+      <label for="objective">Задача</label><textarea id="objective" maxlength="3000" placeholder="Например: предложи структуру отчёта о проверке проекта"></textarea>
+      <p class="hint">Используется локальный маршрут. Ответ модели не запускает действия и не даёт дополнительных разрешений.</p>
+      <div class="actions"><button type="button" class="secondary" id="propose">Получить предложение</button></div>
+    </section>
+  </div>
+  <section class="output" aria-labelledby="result-title">
+    <h2 id="result-title">Результат и свидетельства</h2>
+    <div id="progress" role="status" aria-live="polite">Готово к работе. Введите токен владельца.</div>
+    <pre id="result" tabindex="0">Здесь появятся статус, результат миссии или предложение модели.</pre>
+  </section>
+</main>
+<script>
+  const byId = id => document.getElementById(id);
+  const buttons = Array.from(document.querySelectorAll('button'));
+  byId('mission').value = 'mission-' + Date.now();
+  async function request(path, method = 'GET', body) {
+    const token = byId('token').value.trim();
+    if (!token) throw new Error('Введите токен владельца этого экземпляра BCC.');
+    const options = { method, headers: { 'X-BCC-Token': token }, credentials: 'omit' };
+    if (body !== undefined) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(body); }
+    const response = await fetch('/api/executive-os' + path, options);
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { message: text }; }
+    if (!response.ok) {
+      const error = new Error('Запрос отклонён: HTTP ' + response.status);
+      error.details = data;
+      throw error;
+    }
+    return data;
+  }
+  async function action(label, work) {
+    buttons.forEach(button => button.disabled = true);
+    byId('progress').textContent = label;
+    try {
+      const result = await work();
+      byId('result').textContent = JSON.stringify(result, null, 2);
+      byId('progress').textContent = 'Ответ получен. Статус выполнения и проверок указан ниже.';
+    } catch (error) {
+      byId('progress').textContent = error.message;
+      byId('result').textContent = JSON.stringify(error.details || { error: error.message }, null, 2);
+    } finally { buttons.forEach(button => button.disabled = false); }
+  }
+  byId('status').addEventListener('click', () => action('Проверяем доступ и состояние…', () => request('/status')));
+  byId('execute').addEventListener('click', () => action('Создаём миссию, записываем файл и проверяем результат…', async () => {
+    const id = byId('mission').value.trim();
+    const project = byId('project').value.trim();
+    const content = byId('content').value;
+    await request('/missions', 'POST', { id, project, steps: [
+      { id: 'write', depends_on: [], action: 'artifact.write', path: 'report.txt', content },
+      { id: 'verify', depends_on: ['write'], action: 'artifact.verify', path: 'report.txt', content }
+    ] });
+    await request('/missions/' + encodeURIComponent(id) + '/run', 'POST');
+    return request('/missions/' + encodeURIComponent(id));
+  }));
+  byId('propose').addEventListener('click', () => action('Локальная модель готовит предложение…', () => request('/propose', 'POST', {
+    objective: byId('objective').value.trim(), project: byId('project').value.trim(), context_roots: []
+  })));
+</script>
+</body>
+</html>

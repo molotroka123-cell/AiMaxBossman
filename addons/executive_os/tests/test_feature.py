@@ -100,6 +100,20 @@ async def test_http_cannot_grant_capabilities_or_assert_success(sidecar):
 
 
 @pytest.mark.asyncio
+async def test_public_console_has_no_token_and_api_still_requires_auth(sidecar):
+    app, client, _ = sidecar
+    page = await client.get("/executive-os")
+    assert page.status_code == 200
+    assert "text/html" in page.headers["content-type"]
+    assert 'type="password"' in page.text
+    assert app.state.svc.auth.token not in page.text
+    assert "localStorage" not in page.text and "sessionStorage" not in page.text
+    assert "innerHTML" not in page.text
+    assert "X-BCC-Token" in page.text
+    assert (await client.get("/api/executive-os/status")).status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_runtime_errors_are_mapped_without_private_details(sidecar):
     _, client, auth = sidecar
     for ident, expected in (("denied", 403), ("invalid", 400), ("conflict", 409), ("io-failure", 409)):
