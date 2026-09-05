@@ -96,7 +96,7 @@ def _totals(rows: Sequence[Measurement]) -> dict:
 
 def _ratios(base: dict, candidate: dict) -> dict:
     bv, cv = base["verified"], candidate["verified"]
-    return {
+    ratios = {
         "throughput": (cv / candidate["elapsed_seconds"]) / (bv / base["elapsed_seconds"]) if bv and cv else None,
         "cost_per_verified": (candidate["cost_usd"] / cv) / (base["cost_usd"] / bv)
         if bv and cv and base["cost_usd"] > 0 else None,
@@ -104,6 +104,9 @@ def _ratios(base: dict, candidate: dict) -> dict:
         if base["avoidable_interventions"] else None,
         "success_delta": (cv - bv) / base["attempts"],
     }
+    if any(value is not None and not math.isfinite(value) for value in ratios.values()):
+        raise ValueError("nonfinite derived ratio")
+    return ratios
 
 
 def evaluate(manifest: Mapping[str, str], baseline: Dataset, candidate: Dataset,

@@ -1,5 +1,6 @@
 """Synthetic arithmetic fixtures; no measured Bossman speedup is claimed."""
 from dataclasses import replace
+import json
 
 import pytest
 
@@ -85,4 +86,6 @@ def test_extreme_measurements_fail_without_uncaught_arithmetic_error():
     m, b, c = datasets()
     b = replace(b, records=tuple(replace(r, cost_usd=5e-324) for r in b.records))
     c = replace(c, records=tuple(replace(r, cost_usd=1e300) for r in c.records))
-    assert evaluate(m, b, c, bootstrap_samples=200)["verdict"] == "INSUFFICIENT_EVIDENCE"
+    result = evaluate(m, b, c, bootstrap_samples=200)
+    assert result["verdict"] == "INSUFFICIENT_EVIDENCE"
+    json.dumps(result, allow_nan=False)
