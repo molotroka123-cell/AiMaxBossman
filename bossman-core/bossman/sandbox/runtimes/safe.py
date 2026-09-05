@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import asyncio
-import functools
 import os
 import shutil
 import subprocess
@@ -45,7 +44,6 @@ log = obs.get_logger("bossman.sandbox.safe")
 DEFAULT_ARGV = ("/bin/echo", "bossman-sandbox-ready")
 
 
-@functools.lru_cache(maxsize=1)
 def safe_runtime_available() -> bool:
     """SAFE-рантайм реально работоспособен в ЭТОМ окружении?
 

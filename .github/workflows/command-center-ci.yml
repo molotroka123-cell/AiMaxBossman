@@ -45,6 +45,7 @@ jobs:
       - name: Install Command Center
         run: |
           python -m pip install --upgrade pip
+          python -m pip install -e .
           # mcp — опциональная группа: без неё рантайм честно отвечает
           # «недоступно», но в CI мы хотим прогонять и его тесты
           python -m pip install -e "./command-center[dev,mcp,browser]"
@@ -147,7 +148,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install Command Center (no browser/mcp extras)
-        run: python -m pip install -e "./command-center[dev]"
+        run: |
+          python -m pip install -e .
+          python -m pip install -e "./command-center[dev]"
       - name: Windows-specific and path-sensitive tests
         working-directory: command-center
         env:
