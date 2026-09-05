@@ -211,7 +211,8 @@ def test_scoped_knowledge_isolates_projects_and_exports_only_allowlisted_kinds(t
     store = OrganizationStore(tmp_path / "org.sqlite")
     k = ScopedKnowledge(store)
     k.publish("project:A", "verified_fact", {"x": 1}, provenance="journal:a/s1")
-    k.publish("project:A", "raw_state", {"token": "sk-abcdefghijklmnopqrstuvwxyz0123"}, provenance="dump")
+    k.publish("project:A", "raw_state", {"token": "sk-abcdefghijklmnopqrstuvwxyz0123"},  # ci-secret-scan: allow — канарейка
+              provenance="dump")
     assert k.read("project:B") == []
     assert [f.kind for f in k.read("project:A")] == ["verified_fact", "raw_state"]
     raw = k.read("project:A", kind="raw_state")[0]
