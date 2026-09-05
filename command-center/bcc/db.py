@@ -489,6 +489,10 @@ V2_NEW_COLUMNS: list[tuple[str, str, str]] = [
     ("tasks", "meta", "JSON"),
     ("task_runs", "route", "JSON"),
     ("task_runs", "reservation_id", "INTEGER"),
+    # FL-01 (TZ-05 §2): fencing-токен аренды — монотонный epoch, +1 при каждом
+    # claim и при каждом возврате в очередь recover'ом. Запись сайд-эффекта и
+    # закрытие run условны по fence: зомби-воркер с устаревшим fence не пишет.
+    ("task_runs", "fence", "INTEGER DEFAULT 0"),
     ("agents", "workspace", "VARCHAR(500)"),
 ]
 

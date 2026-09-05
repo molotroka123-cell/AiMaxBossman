@@ -48,6 +48,16 @@ def normalize_gate_verdict(raw: Any) -> str | None:
 DEFAULT_HOOK_TIMEOUT_S = 60.0
 
 
+class FencedOut(RuntimeError):
+    """FL-01: у этого воркера устаревший fence — run уже перехвачен другим
+    (recover после истечения аренды). Воркер обязан немедленно прекратить run
+    без записи результата: ни receipt, ни checkpoint, ни статуса."""
+
+    def __init__(self, run_id: int, fence: int | None):
+        super().__init__(f"run {run_id}: fence {fence} устарел — run перехвачен другим воркером")
+        self.run_id, self.fence = run_id, fence
+
+
 class CriticalHookFailure(Exception):
     """Критичный хук упал/завис/вернул мусор — run не может считаться выполненным."""
 
@@ -88,6 +98,12 @@ class TaskEngine:
         self.workers = workers if workers is not None else int(os.environ.get("BCC_WORKERS", "3"))
         self._active: dict[int, asyncio.Task] = {}       # run_id → задача исполнения
         self._cancelling: set[int] = set()               # hard cancel по Stop
+        # FL-01: fence, под которым ЭТОТ движок держит run; условные записи
+        # сравнивают с ним. Run без записи здесь (execute() напрямую) принимает
+        # текущий fence из БД при старте.
+        self._fences: dict[int, int] = {}
+        self._held_since: dict[int, Any] = {}            # run_id → utcnow() на момент claim/execute
+        self._fenced_out: set[int] = set()               # heartbeat обнаружил перехват
         # Хуки V2 (контракты §8): фичи регистрируют корутины в setup(); порядок вызова —
         # pick_model → before_run → on_step → gate_completion → on_failure → after_run.
         self.hooks: dict[str, list] = {k: [] for k in (
@@ -465,10 +481,14 @@ class TaskEngine:
             upd = await s.execute(sa.update(runs_t).where(
                 runs_t.c.id == run_id, runs_t.c.status == "queued").values(
                 status="leased",
+                fence=sa.func.coalesce(runs_t.c.fence, 0) + 1,
                 worker_lease_until=now + timedelta(seconds=self.lease_seconds)))
             await s.commit()
             if not upd.rowcount:      # кто-то успел раньше (несколько процессов на одну БД)
                 return None
+            fence = (await s.execute(sa.select(runs_t.c.fence).where(runs_t.c.id == run_id))).scalar()
+        self._fences[run_id] = int(fence or 0)
+        self._held_since[run_id] = now
         return run_id
 
     async def recover(self) -> int:
@@ -489,8 +509,11 @@ class TaskEngine:
             max_retries = int(run["max_retries"] or 0)
             if attempt <= max_retries:
                 async with self.db.session() as s:
+                    # FL-01: новый epoch — прежний держатель (если он ещё жив и
+                    # просто «замёрз») больше не может ни писать, ни продлевать аренду.
                     await s.execute(sa.update(runs_t).where(runs_t.c.id == run["id"]).values(
-                        status="queued", attempt=attempt, worker_lease_until=None))
+                        status="queued", attempt=attempt, worker_lease_until=None,
+                        fence=sa.func.coalesce(runs_t.c.fence, 0) + 1))
                     await s.execute(sa.update(tasks_t).where(tasks_t.c.id == run["task_id"]).values(
                         status="queued", updated_at=utcnow()))
                     await s.commit()
@@ -506,10 +529,26 @@ class TaskEngine:
     # ---------- выполнение ----------
 
     async def execute(self, run_id: int) -> None:
-        heartbeat = asyncio.create_task(self._heartbeat(run_id))
+        if run_id not in self._fences:
+            # прямой вызов (тесты/ручной прогон): держим run под его текущим fence
+            async with self.db.session() as s:
+                cur = (await s.execute(sa.select(runs_t.c.fence).where(runs_t.c.id == run_id))).scalar()
+            self._fences[run_id] = int(cur or 0)
+        self._held_since.setdefault(run_id, utcnow())
+        self._fenced_out.discard(run_id)
+        heartbeat = asyncio.create_task(self._heartbeat(run_id, asyncio.current_task()))
         try:
             await self._run(run_id)
+        except FencedOut as exc:
+            await self._fenced_out_exit(run_id, str(exc))
+        except asyncio.CancelledError:
+            if run_id in self._fenced_out:
+                await self._fenced_out_exit(run_id, "heartbeat: аренда перехвачена другим воркером")
+                return
+            raise
         finally:
+            self._fences.pop(run_id, None)
+            self._held_since.pop(run_id, None)
             heartbeat.cancel()
             # Дожидаемся отмены heartbeat: он держит db-сессию в цикле
             # `sleep → s.execute → s.commit`; без await он переживает execute()
@@ -517,19 +556,63 @@ class TaskEngine:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await heartbeat
 
-    async def _heartbeat(self, run_id: int) -> None:
-        """Продление аренды: пока worker жив, run не считается протухшим."""
+    async def _heartbeat(self, run_id: int, owner: asyncio.Task | None = None) -> None:
+        """Продление аренды: пока worker жив, run не считается протухшим.
+
+        FL-01: продление УСЛОВНО по fence. 0 обновлённых строк = run перехвачен
+        (recover + claim другого воркера) → задача-владелец отменяется и выходит
+        без записи результата (см. execute)."""
         try:
             while True:
                 await asyncio.sleep(self.heartbeat_seconds)
-                async with self.db.session() as s:
-                    await s.execute(sa.update(runs_t).where(
-                        runs_t.c.id == run_id,
-                        runs_t.c.status.in_(("leased", "running"))).values(
-                        worker_lease_until=utcnow() + timedelta(seconds=self.lease_seconds)))
-                    await s.commit()
+                if not await self._heartbeat_once(run_id):
+                    self._fenced_out.add(run_id)
+                    if owner is not None and not owner.done():
+                        owner.cancel()
+                    return
         except asyncio.CancelledError:
             return
+
+    async def _heartbeat_once(self, run_id: int) -> bool:
+        """Одно условное продление аренды; False — fence устарел (0 строк)."""
+        async with self.db.session() as s:
+            upd = await s.execute(sa.update(runs_t).where(
+                runs_t.c.id == run_id,
+                runs_t.c.status.in_(("leased", "running")),
+                self._fence_clause(run_id)).values(
+                worker_lease_until=utcnow() + timedelta(seconds=self.lease_seconds)))
+            await s.commit()
+        return bool(upd.rowcount)
+
+    # ---------- FL-01: fencing ----------
+
+    def fence_of(self, run_id: int) -> int | None:
+        """Fence, под которым этот движок держит run (None — run не наш)."""
+        return self._fences.get(run_id)
+
+    def _fence_clause(self, run_id: int):
+        fence = self._fences.get(run_id)
+        return sa.true() if fence is None else sa.func.coalesce(runs_t.c.fence, 0) == fence
+
+    async def assert_fence(self, run_id: int) -> None:
+        """Проверка ПЕРЕД внешним эффектом (TZ-05 §2.2 п.3): эффект не должен
+        произойти, если run уже перехвачен. Run, который движок не держит, не
+        проверяется (нечего сравнивать) — это путь V3-адаптера без claim."""
+        fence = self._fences.get(run_id)
+        if fence is None:
+            return
+        async with self.db.session() as s:
+            cur = (await s.execute(sa.select(runs_t.c.fence).where(runs_t.c.id == run_id))).scalar()
+        if int(cur or 0) != fence:
+            raise FencedOut(run_id, fence)
+
+    async def _fenced_out_exit(self, run_id: int, why: str) -> None:
+        """Выход зомби-воркера: только журнал и событие, никаких записей в run."""
+        with contextlib.suppress(Exception):
+            await self._log(run_id, "warn", "run.fenced_out", why[:500])
+        with contextlib.suppress(Exception):
+            await self.bus.emit("run.fenced_out", run_id=run_id, fence=self._fences.get(run_id),
+                                reason=why[:200])
 
     async def _run(self, run_id: int) -> None:
         async with self.db.session() as s:
@@ -882,6 +965,29 @@ class TaskEngine:
         ctx = ToolContext(svc=self.services, task=task, run_id=run_id, agent=agent,
                           step=step, workspace=str(task.get("workspace_path") or ""),
                           call_id=str(call.id))
+        # FL-01 §2.2 п.3: fence проверяется ДО эффекта, не только при записи receipt.
+        await self.assert_fence(run_id)
+        # INV-2 идемпотентность: неидемпотентный шаг с тем же (task, step, args)
+        # уже исполнен прежней попыткой (рестарт между эффектом и checkpoint) —
+        # исполнитель не вызывается второй раз, модели отдаётся сохранённый исход.
+        if not getattr(spec, "idempotent", True):
+            prior = await self._prior_effect(task["id"], run_id, step, spec.name, call.arguments)
+            if prior is not None:
+                await self._record_tool_call(
+                    run_id, task["id"], step, call, spec,
+                    effect="auto" if approval_id is None else "ask", status="replayed",
+                    approval_id=approval_id, approved_by=approved_by,
+                    preview=str(prior.get("result_preview") or "")[:500], duration_ms=0)
+                messages.append(_tool_message(
+                    call, "этот шаг уже исполнен прежней попыткой (run "
+                          f"{prior.get('run_id')}); повтор не делаем. Сохранённый результат: "
+                          + str(prior.get("result_preview") or "")))
+                await self._log(run_id, "warn", "tool.replay_guard",
+                                f"{spec.name}: неидемпотентный шаг {step} уже исполнен run'ом "
+                                f"{prior.get('run_id')} — эффект не повторяется")
+                await self.bus.emit("tool.replayed", task_id=task["id"], run_id=run_id,
+                                    tool=spec.name, prior_run_id=prior.get("run_id"))
+                return
         started = time.monotonic()
         result = await execute_tool(spec, call.arguments, ctx)
         duration = int((time.monotonic() - started) * 1000)
@@ -1097,6 +1203,7 @@ class TaskEngine:
         values["finished_at"] = now if done else None
         values["created_at"] = (now - timedelta(milliseconds=int(duration_ms))
                                 if done and duration_ms is not None else now)
+        await self.assert_fence(run_id)          # FL-01: receipt пишет только держатель
         async with self.db.session() as s:
             try:
                 await s.execute(sa.insert(tool_calls_t).values(**values))
@@ -1120,6 +1227,27 @@ class TaskEngine:
                 tool_calls_t.c.call_id == str(call_id))).values(
                 status=status, approved_by=approved_by or None))
             await s.commit()
+
+    async def _prior_effect(self, task_id: int, run_id: int, step: int, tool: str,
+                            arguments: dict) -> dict | None:
+        """INV-2: исполненный receipt того же шага/инструмента/аргументов из
+        ПРЕЖНЕЙ попытки той же задачи — другой run или тот же run до того, как
+        этот воркер его взял (recover сохраняет строку run'а, attempt+1).
+        Повторы внутри текущей попытки (два одинаковых вызова в одном шаге) —
+        не дубль по рестарту и не перехватываются. None — эффекта не было."""
+        held_since = self._held_since.get(run_id)
+        async with self.db.session() as s:
+            row = (await s.execute(sa.select(tool_calls_t).where(sa.and_(
+                tool_calls_t.c.task_id == task_id,
+                (tool_calls_t.c.run_id != run_id) if held_since is None
+                else sa.or_(tool_calls_t.c.run_id != run_id,
+                            tool_calls_t.c.created_at < held_since),
+                tool_calls_t.c.step == step,
+                tool_calls_t.c.tool == tool,
+                tool_calls_t.c.args_hash == args_hash(tool, arguments),
+                tool_calls_t.c.status == "executed")).order_by(
+                tool_calls_t.c.id.desc()).limit(1))).first()
+        return dict(row._mapping) if row is not None else None
 
     async def _tool_call_status(self, run_id: int, call_id: str) -> str:
         async with self.db.session() as s:
@@ -1181,9 +1309,13 @@ class TaskEngine:
 
     async def _start(self, run_id: int, task_id: int) -> None:
         async with self.db.session() as s:
-            await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+            upd = await s.execute(sa.update(runs_t).where(
+                runs_t.c.id == run_id, self._fence_clause(run_id)).values(
                 status="running", started_at=utcnow(),
                 worker_lease_until=utcnow() + timedelta(seconds=self.lease_seconds)))
+            if not upd.rowcount:
+                await s.rollback()
+                raise FencedOut(run_id, self._fences.get(run_id))
             await s.execute(sa.update(tasks_t).where(
                 tasks_t.c.id == task_id,
                 tasks_t.c.status.notin_(("stopped", "paused"))).values(
@@ -1202,8 +1334,12 @@ class TaskEngine:
             except Exception:
                 pass
         async with self.db.session() as s:
-            await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+            upd = await s.execute(sa.update(runs_t).where(
+                runs_t.c.id == run_id, self._fence_clause(run_id)).values(
                 checkpoint=ckpt, **values))
+            if not upd.rowcount:
+                await s.rollback()
+                raise FencedOut(run_id, self._fences.get(run_id))
             await s.commit()
 
     async def _finish(self, run_id: int, task_id: int, status: str, *,
@@ -1218,7 +1354,12 @@ class TaskEngine:
         if checkpoint is not None:
             run_values["checkpoint"] = checkpoint
         async with self.db.session() as s:
-            await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(**run_values))
+            upd = await s.execute(sa.update(runs_t).where(
+                runs_t.c.id == run_id, self._fence_clause(run_id)).values(**run_values))
+            if not upd.rowcount:
+                # FL-01: закрыть run может только текущий держатель fence
+                await s.rollback()
+                raise FencedOut(run_id, self._fences.get(run_id))
             if sync_task:
                 await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
                     status=status, updated_at=utcnow()))

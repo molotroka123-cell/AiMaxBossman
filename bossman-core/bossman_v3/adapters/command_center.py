@@ -189,6 +189,11 @@ class CommandCenterExecutor:
         call_id = f"v3-{uuid.uuid4().hex[:12]}"
         ctx = ToolContext(svc=self.svc, task=self.task, run_id=self.run_id,
                           agent=self.agent, call_id=call_id)
+        # FL-01: если run держится движком V2 под fence — проверить ДО эффекта.
+        # FencedOut пробрасывается как есть: для цепочки это «шаг не исполнен».
+        engine = getattr(self.svc, "engine", None)
+        if engine is not None and hasattr(engine, "assert_fence"):
+            self.rt.call(engine.assert_fence(self.run_id), timeout=30)
         started = _now()
         result = self.rt.call(execute_tool(spec, args, ctx), timeout=spec.timeout_seconds + 30)
         finished = _now()

@@ -20,13 +20,20 @@
 9. **Событие ≠ доказательство.** Журнал флота — аудит; дедуп по event_id; без chain-of-thought.
 10. **Удалённый транспорт не подделывается.** `RemoteNodeTransport` поднимает `RemoteTransportUnavailable`.
 
-## Findings аудита (Agent 6), не закрытые в этом проходе
+## Findings аудита (Agent 6) — состояние
 
-- **P0 (V2, заморожен)** `command-center/bcc/tools.py:286-290`: пользовательские `tool_rules` применяются последними и могут
-  вернуть `effect="auto"` после ужесточения hook'ом. Нужен неизменяемый пол политики. Не трогается без снятия заморозки V2.
-- **P0 (ядро)** `bossman-core/bossman/gateway/auth.py:52`: `allow_unauthenticated_loopback` даёт loopback-клиенту
-  `allowed_aliases={"*"}`; при Tailscale-serve внешний трафик выглядит как 127.0.0.1. Флот на этот шлюз не опирается;
-  рекомендация владельцу — выключить флаг по умолчанию.
+- **ЗАКРЫТО P0-B** `command-center/bcc/tools.py` `decide_effect`: пол политики — DENY любого слоя абсорбирующий,
+  подсказка хука — пол (`ToolSpec.hook_is_floor`, по умолчанию True); явный опт-аут только у хука-константы OpenCode.
+  Тесты `command-center/tests/test_policy_algebra.py`.
+- **ЗАКРЫТО P0-A** `bossman-core/bossman/gateway/auth.py`: loopback-проход только для прямого 127.0.0.1/::1 без
+  proxy-заголовков; `loopback_allowed_aliases` в конфиге. Тесты `bossman-core/tests/test_gateway_loopback_proxy.py`.
+- **ЗАКРЫТО FL-01 (TZ-05 §2)** `command-center/bcc/engine.py`: fencing-токен `task_runs.fence` поверх аренды; условные
+  записи и heartbeat, `assert_fence` до внешнего эффекта (в V2 `_run_tool_now` и в V3 `CommandCenterExecutor`),
+  replay-guard неидемпотентного шага. Fleet `Lease.fence` и engine `fence` — два независимых уровня: флот защищает
+  размещение/claim в `WorkQueue`, движок — сами записи и эффекты run'а. Тесты `command-center/tests/test_fence_fl01.py`.
+
+## Findings аудита, не закрытые в этом проходе
+
 - **P1** bcc `approvals.consume` привязан к `(kind, preview)` без срока/скоупа. В V3-адаптере preview теперь включает
   `task#<id>` (закрыто для V3-пути); сам V2 не менялся.
 - **P1** `settings_kv`/`providers` без проекта/узла — секреты не скоупированы по проекту (V2).
