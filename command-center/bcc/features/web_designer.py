@@ -117,7 +117,15 @@ def _public_meta(meta: dict) -> dict:
 
 
 def _save_code(svc, pdir: Path, html: str, note: str) -> dict:
-    """Записать новую текущую версию + снимок в историю. Возвращает версию."""
+    """Записать новую текущую версию + снимок в историю. Возвращает версию.
+
+    Единственная точка записи кода проекта, поэтому предел размера проверяется
+    здесь: в схемах запросов он стоит не на всех путях — ответ модели и откат
+    к версии приходят мимо них.
+    """
+    if len(html) > MAX_HTML_CHARS:
+        raise HTTPException(status_code=413,
+                            detail=f"документ больше предела в {MAX_HTML_CHARS} символов")
     meta = _load_meta(pdir) or {}
     version = int(meta.get("version", 0)) + 1
     _current_path(pdir).write_text(html, encoding="utf-8")
@@ -132,10 +140,20 @@ def _save_code(svc, pdir: Path, html: str, note: str) -> dict:
                      "chars": len(html)})
     meta["versions"] = versions[-MAX_VERSIONS:]
     _save_meta(pdir, meta)
-    # держим каталог истории в пределах MAX_VERSIONS снимков
-    for old in sorted(history.glob("v*.html"))[:-MAX_VERSIONS]:
-        old.unlink(missing_ok=True)
+    # Держим каталог истории в пределах MAX_VERSIONS снимков. Сортировка ЧИСЛОВАЯ:
+    # по именам «v10» идёт раньше «v9», поэтому лексикографический срез удалял
+    # снимки, которые остаются в списке версий, и откат к ним отвечал 404.
+    snapshots = sorted(history.glob("v*.html"), key=_snapshot_number)
+    for stale in snapshots[:-MAX_VERSIONS]:
+        stale.unlink(missing_ok=True)
     return _public_meta(meta)
+
+
+def _snapshot_number(path: Path) -> int:
+    try:
+        return int(path.stem[1:])
+    except ValueError:
+        return -1
 
 
 def _note(note: str) -> str:
@@ -212,6 +230,12 @@ async def list_projects(request: Request):
 async def create_project(body: ProjectIn, request: Request):
     svc = request.app.state.svc
     await _ensure_dir_layout(svc)
+    existing = sum(1 for d in _root(svc).iterdir() if d.is_dir() and d.name.isdigit())
+    if existing >= MAX_PROJECTS:
+        # Раньше предел применялся только к списку: проекты продолжали копиться
+        # на диске, а лишние просто не показывались. Отказ честнее молчания.
+        raise HTTPException(status_code=409,
+                            detail=f"достигнут предел в {MAX_PROJECTS} проектов — удалите ненужные")
     pid = _next_id(svc)
     pdir = _pdir(svc, pid)
     meta = {

@@ -8,6 +8,9 @@ from __future__ import annotations
 import re
 
 import pytest
+from fastapi import HTTPException
+
+import pytest
 
 from bcc.web_designer_dom import (
     apply_edit, assign_bd_ids, find_by_path, inject_preview,
@@ -247,3 +250,51 @@ def test_preview_iframe_is_sandboxed_in_the_ui():
     values = re.findall(r"sandbox:\s*'([^']*)'", page)
     assert values == ["allow-scripts"], values
     assert "ev.source !== frame.contentWindow" in page
+
+
+# ------------------------------------------------- границы хранения
+
+async def test_listed_version_can_always_be_restored(env):
+    """Снимки чистились лексикографически: «v10» сортируется раньше «v9», поэтому
+    срез удалял файлы версий, которые остаются в списке, и откат к ним отвечал
+    404. Список версий и каталог снимков обязаны говорить одно и то же."""
+    from bcc.features import web_designer as wd
+    data = await _create(env, template="blank")
+    pid = data["meta"]["id"]
+    for i in range(wd.MAX_VERSIONS + 12):
+        res = await env.client.put(f"/api/web-designer/projects/{pid}/code",
+                                   json={"html": f"<html><body><p>{i}</p></body></html>",
+                                         "note": f"правка {i}"})
+        assert res.status_code == 200, res.text
+    listed = (await env.client.get(f"/api/web-designer/projects/{pid}/versions")).json()["items"]
+    assert len(listed) == wd.MAX_VERSIONS
+    for item in listed:
+        res = await env.client.post(
+            f"/api/web-designer/projects/{pid}/versions/{item['version']}/restore")
+        assert res.status_code == 200, f"версия {item['version']} в списке, но не восстановима"
+
+
+async def test_oversized_document_is_refused_on_every_write_path(env):
+    """Предел размера стоял в схемах запросов, но откат и ответ модели идут мимо
+    них. Проверяется единственная точка записи."""
+    from bcc.features import web_designer as wd
+    data = await _create(env, template="blank")
+    pid = data["meta"]["id"]
+    pdir = wd._pdir(env.svc, int(pid))
+    huge = "<html><body>" + "я" * (wd.MAX_HTML_CHARS + 1) + "</body></html>"
+    with pytest.raises(HTTPException) as exc:
+        wd._save_code(env.svc, pdir, huge, "слишком большой")
+    assert exc.value.status_code == 413
+
+
+async def test_project_limit_refuses_instead_of_hiding(env):
+    """Предел применялся только к списку: проекты копились на диске, а лишние
+    просто не показывались."""
+    from bcc.features import web_designer as wd
+    root = wd._root(env.svc)
+    root.mkdir(parents=True, exist_ok=True)
+    for i in range(1, wd.MAX_PROJECTS + 1):
+        (root / str(i)).mkdir(exist_ok=True)
+    res = await env.client.post("/api/web-designer/projects",
+                                json={"name": "лишний", "prompt": "кафе", "template": "blank"})
+    assert res.status_code == 409 and "предел" in res.json()["error"]["message"]
