@@ -541,6 +541,8 @@ class TaskEngine:
         self._held_since.setdefault(run_id, utcnow())
         self._fenced_out.discard(run_id)
         heartbeat = asyncio.create_task(self._heartbeat(run_id, asyncio.current_task()))
+        from .trace import current_trace_id, run_trace_id
+        trace_token = current_trace_id.set(run_trace_id(run_id))       # TRUTH-003 §14: один trace на run
         try:
             await self._run(run_id)
         except FencedOut as exc:
@@ -551,6 +553,7 @@ class TaskEngine:
                 return
             raise
         finally:
+            current_trace_id.reset(trace_token)
             self._fences.pop(run_id, None)
             self._held_since.pop(run_id, None)
             heartbeat.cancel()

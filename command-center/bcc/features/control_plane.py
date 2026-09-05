@@ -11,6 +11,7 @@ SLO (гистограмм задержек ещё нет — `NOT_IMPLEMENTED`, 
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from datetime import timedelta
 from typing import Any
@@ -18,11 +19,47 @@ from typing import Any
 import sqlalchemy as sa
 from fastapi import APIRouter, Request
 
-from ..db import approvals as approvals_t, task_runs as runs_t, utcnow
+from ..db import approvals as approvals_t, events as events_t, task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow
 from . import Feature
 
 router = APIRouter()
 CACHE_SECONDS = 2.0
+# TRUTH-003 §14: ограниченное хранение событий — по возрасту и по числу строк
+RETENTION_DAYS = int(os.environ.get("BOSSMAN_EVENTS_RETENTION_DAYS", "14"))
+RETENTION_MAX_ROWS = int(os.environ.get("BOSSMAN_EVENTS_MAX_ROWS", "200000"))
+
+
+def _pct(values: list[float], q: float) -> float | None:
+    if not values:
+        return None
+    xs = sorted(values)
+    k = max(0, min(len(xs) - 1, int(round(q * (len(xs) - 1)))))
+    return round(float(xs[k]), 3)
+
+
+async def latency(svc) -> dict[str, Any]:
+    """Базовые задержки из durable-таблиц: исполнение (tool_calls.duration_ms), верификация
+    (события verification.result), миссии/задачи (created_at → updated_at у completed). Только
+    измеренное; пусто → None, а не 0."""
+    async with svc.db.session() as s:
+        exec_ms = [float(r[0]) for r in (await s.execute(sa.select(tool_calls_t.c.duration_ms).where(
+            tool_calls_t.c.duration_ms.isnot(None)).order_by(tool_calls_t.c.id.desc()).limit(2000))).fetchall()]
+        ver_rows = (await s.execute(sa.select(events_t.c.data).where(events_t.c.kind == "verification.result")
+                                    .order_by(events_t.c.id.desc()).limit(2000))).fetchall()
+        task_rows = (await s.execute(sa.select(tasks_t.c.created_at, tasks_t.c.updated_at).where(
+            tasks_t.c.status == "completed").order_by(tasks_t.c.id.desc()).limit(2000))).fetchall()
+    ver_ms = [float(r[0].get("verification_ms")) for r in ver_rows if isinstance(r[0], dict) and r[0].get("verification_ms") is not None]
+    task_s = [(r[1] - r[0]).total_seconds() for r in task_rows if r[0] and r[1]]
+    return {"execution_ms": {"n": len(exec_ms), "p50": _pct(exec_ms, 0.5), "p95": _pct(exec_ms, 0.95)},
+            "verification_ms": {"n": len(ver_ms), "p50": _pct(ver_ms, 0.5), "p95": _pct(ver_ms, 0.95)},
+            "task_completion_s": {"n": len(task_s), "p50": _pct(task_s, 0.5), "p95": _pct(task_s, 0.95)}}
+
+
+async def _tick(svc) -> None:
+    """Ретеншн событий: раз в 10 минут, ограничено по возрасту и строкам."""
+    removed = await svc.bus.prune(max_age_days=RETENTION_DAYS, max_rows=RETENTION_MAX_ROWS)
+    if any(removed.values()):
+        await svc.bus.emit("events.pruned", **removed, retention_days=RETENTION_DAYS, max_rows=RETENTION_MAX_ROWS)
 
 
 async def _queue(svc) -> dict[str, int]:
@@ -78,6 +115,15 @@ async def _attention(svc, org: dict[str, Any] | None) -> list[dict[str, Any]]:
     return out
 
 
+async def _fleet(org_service) -> dict[str, Any]:
+    """§15: durable-сводка флота, когда фича organization включена с BOSSMAN_V3_FLEET."""
+    if org_service is None or getattr(org_service, "fleet", None) is None:
+        return {"enabled": False, "nodes": [], "active_leases": [], "queue_depth": 0, "blocked_work": [],
+                "reason": "fleet is off (BOSSMAN_V3_ENABLED + BOSSMAN_V3_ORGANIZATION + BOSSMAN_V3_FLEET)",
+                "remote_transport_production_ready": False, "node_auth_production_ready": False}
+    return await asyncio.to_thread(org_service.fleet_summary)
+
+
 async def build(svc) -> dict[str, Any]:
     organization: dict[str, Any]
     org_service = getattr(svc, "organization", None)
@@ -96,9 +142,10 @@ async def build(svc) -> dict[str, Any]:
         "queue": queue,
         "treasury": {"fable": fable, "envelopes": organization.get("treasury") if organization.get("enabled") else {},
                      "burn_rate_usd_per_h": round(burn, 6), "eta_exhaustion_hours": eta_h},
-        "fleet": {"enabled": False, "nodes": [], "placements": [],
-                  "reason": "fleet control plane lives in bossman_v3.fleet and is not wired into Command Center yet"},
+        "fleet": await _fleet(org_service),
         "slo": {"status": "NOT_IMPLEMENTED", "routes": []},
+        "latency": await latency(svc),
+        "retention": {"events_days": RETENTION_DAYS, "events_max_rows": RETENTION_MAX_ROWS},
         "attention": await _attention(svc, organization),
     }
 
@@ -115,4 +162,11 @@ async def control_plane(request: Request) -> dict[str, Any]:
     return body
 
 
-FEATURE = Feature(name="control_plane", router=router)
+@router.get("/observability/trace/{trace_id}")
+async def trace_chain(trace_id: str, request: Request) -> dict[str, Any]:
+    """Цепочка событий одного действия по trace_id (без промптов и секретов — их в шине нет)."""
+    events = await request.app.state.svc.bus.by_trace(trace_id)
+    return {"trace_id": trace_id, "events": [{"kind": e["kind"], "ts": str(e["ts"]), "data": e.get("data")} for e in events]}
+
+
+FEATURE = Feature(name="control_plane", router=router, tick=_tick, tick_seconds=600.0)

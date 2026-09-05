@@ -70,13 +70,19 @@ async def finalize_task(engine, run_id: int, task_id: int, *, answer: str, usage
     expected = _required_expectations(task)
     checks["expectations"] = len(expected)
     if expected:
+        import time as _time
+        t_verify = _time.monotonic()
         try:
             from .features.tools_terminal import _roots
             roots = await _roots(svc) if svc is not None else []
         except Exception:  # noqa: BLE001
             roots = []
+        await engine.bus.emit("observation.started", task_id=task_id, run_id=run_id, expectations=len(expected))
         status, reason, results = await verify_all(expected, svc=svc, task=task, roots=roots)
         checks["verification"] = status
+        checks["verification_ms"] = int((_time.monotonic() - t_verify) * 1000)
+        await engine.bus.emit("verification.result", task_id=task_id, run_id=run_id, status=status,
+                              reason=reason[:300], verification_ms=checks["verification_ms"])
         checks["verification_reason"] = reason[:300]
         observed = [r.observed.observed_at for r in results if r.observed is not None]
         if last_effect is not None and observed and min(observed) < last_effect.timestamp():

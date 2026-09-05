@@ -82,3 +82,49 @@ def test_e2e_receipts_carry_fence_and_fresh_post_state(tmp_path):
     assert rec.idempotency_key == "m1__w1/w1-s1" and rec.request_digest and rec.executor_metadata["node_id"] == f.node_id
     assert step.signature_valid("m1__w1")                                 # подпись шага покрывает receipt
     assert s.plane.flights.duplicate_preventions == 0 and len(s.plane.store.verified_mutations()) == 1
+
+
+def test_stale_observation_never_closes_a_step(tmp_path):
+    """§11: наблюдение старше завершения исполнения — StaleObservationError; шаг не закрыт,
+    улики нет, повторная попытка после свежего наблюдения закрывает шаг ровно один раз."""
+    from datetime import datetime, timedelta, timezone
+
+    from bossman_v3.computer_agent.agent import StaleObservationError, UniversalComputerAgent
+    from bossman_v3.contracts import ApprovalDecision, ExecutionReceipt, Observation, PolicyDecision, VerificationResult
+    from bossman_v3.execution import CompoundRunner
+
+    class P:  # noqa: D401
+        def authorize(self, a, c): return PolicyDecision(True)
+
+    class A:
+        def request(self, a, p, c): return ApprovalDecision(True, "ap")
+
+    class E:
+        def __init__(self): self.n = 0
+        def supports(self, t): return True
+        def execute(self, a):
+            self.n += 1; now = datetime.now(timezone.utc)
+            return ExecutionReceipt(a.action_type, now, now, effect_id=f"e{self.n}")
+
+    class StaleObserver:
+        def observe_fresh(self, a, r):
+            return Observation(r.completed_at - timedelta(seconds=30), "cache", {"exists": True})   # старое чтение
+
+    class FreshObserver:
+        def observe_fresh(self, a, r):
+            return Observation(r.completed_at + timedelta(milliseconds=1), "fs", {"exists": True})
+
+    class V:
+        def verify(self, a, r, o): return VerificationResult(True)
+
+    plan = [PlanStep("s1", "x", TypedAction("fs.write", {"name": "a"}, side_effect=SideEffectClass.IDEMPOTENT_WRITE))]
+    j = TaskJournal.start(task_id="stale", plan=[("s1", "x")], root=tmp_path)
+    ex = E()
+    with pytest.raises(StaleObservationError):
+        UniversalComputerAgent(P(), A(), ex, StaleObserver(), V()).run(plan[0].action)
+    res = CompoundRunner(UniversalComputerAgent(P(), A(), ex, StaleObserver(), V()), j).run(plan)
+    assert not res.completed and j.finished() == [] and "StaleObservation" in res.reason
+    res2 = CompoundRunner(UniversalComputerAgent(P(), A(), ex, FreshObserver(), V()), j).run(plan)
+    assert res2.completed and len(j.finished()) == 1 and ex.n == 3            # 1 stale + 1 stale-in-runner + 1 fresh
+    rec = ActionReceipt.from_dict(j.finished()[0].receipt)
+    assert rec.fresh()[0] and rec.verified()
