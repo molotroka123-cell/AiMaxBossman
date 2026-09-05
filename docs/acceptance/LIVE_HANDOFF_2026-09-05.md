@@ -1,10 +1,10 @@
 # Live acceptance handoff — 2026-09-05
 
 CURRENT_MISSION_ID=astra-acceptance-20260905
-STATUS=IN_PROGRESS
+STATUS=COMPLETE_WITH_OPEN_FINDINGS
 MAX_OPENROUTER_SPEND_USD=3.00
 KEY_USE_DEADLINE_UTC=2026-09-05T16:12:53Z
-PAID_INFERENCE_CALLS=0
+PAID_INFERENCE_CALLS=5
 LAST_VERIFIED_SHA=36375b047bccfa2801f4d1469eadf10eeca3bd0d
 
 This checkpoint records real UI verification, not completed acceptance.
@@ -128,3 +128,11 @@ be read reliably. Do not weaken this honesty behavior.
 
 NEXT_EXACT_ACTION: commit and push this sanitized audit/evidence checkpoint,
 verify remote SHA parity, then continue the bounded free-model comparison.
+
+## Final closure
+
+The mission is closed as an audit, with acceptance result `FAIL`. The authoritative
+summary is `docs/acceptance/FINAL_ASTRA_AUDIT_2026-09-05.md`. The temporary
+OpenRouter provider and encrypted test credential were removed through the normal
+provider API and absence was verified in the runtime database. Open findings are
+preserved as explicit engineering actions; no free-model hot-swap was claimed.
