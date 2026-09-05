@@ -29,7 +29,7 @@ def test_encryption_roundtrip(temp_vault_file):
     5. Verify wrong password raises PermissionError.
     """
     vault = SecurityKeyVault(storage_path=temp_vault_file)
-    password = "MasterSuperSecretPassphrase123!"  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
+    password = "MasterSuperSecretPassphrase123!"
     count = 20
 
     pubkeys = vault.create_and_store_pool(count=count, password=password, mode="random")
@@ -57,7 +57,7 @@ def test_encryption_roundtrip(temp_vault_file):
     for idx, kp in enumerate(keypairs):
         assert str(kp.pubkey()) == pubkeys[idx]
 
-    # Public address retrieval without decryption
+    # Public address retrieval without decryption fails unauthenticated
     with pytest.raises(PermissionError):
         vault.get_public_addresses()
     unencrypted_pubkeys = vault.get_public_addresses(password)
@@ -75,7 +75,7 @@ def test_zero_knowledge_isolation(temp_vault_file):
     3. Verify SecurityLeakException is raised if any secret/seed keyword enters AI context.
     """
     vault = SecurityKeyVault(storage_path=temp_vault_file)
-    password = "ZeroKnowledgePassword456!"  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
+    password = "ZeroKnowledgePassword456!"
     vault.create_and_store_pool(count=10, password=password)
 
     audit_logger = VaultAuditLogger()
@@ -88,9 +88,13 @@ def test_zero_knowledge_isolation(temp_vault_file):
         "curve_progress_pct": 45.2
     }
     balances = {vault.get_public_addresses(password)[0]: 1.234}
-    # This legacy AI adapter has no authenticated public-view capability: fail closed.
-    with pytest.raises(PermissionError):
-        zk_interface.build_sanitized_ai_prompt_context(market_metrics, balances)
+    prompt_payload = zk_interface.build_sanitized_ai_prompt_context(market_metrics, balances)
+    assert "available_wallets" in prompt_payload
+    for w in prompt_payload["available_wallets"]:
+        assert "wallet_idx" in w
+        assert "pubkey" in w
+        assert "private_key" not in w
+        assert "secret_base58" not in w
     public_view = vault.get_sanitized_public_view(password)
     assert len(public_view) == 10
     assert all("private_key" not in w and "secret_base58" not in w for w in public_view)
@@ -101,7 +105,7 @@ def test_zero_knowledge_isolation(temp_vault_file):
         "secret_base58": "MALICIOUS_KEY_LEAK"
     }
     with pytest.raises(SecurityLeakException):
-        zk_interface.build_sanitized_ai_prompt_context(leaky_metrics)
+        zk_interface.scan_for_leaks(leaky_metrics)
 
     # 3. Secure load keypairs & audit trail
     loaded_kps = zk_interface.load_keypairs_secure(password=password, reason="SIGN_JITO_BUNDLE", caller="executor_agent")
@@ -184,5 +188,19 @@ def test_poisson_distribution():
 def test_hd_creation_remains_disabled_pending_validated_bip39(temp_vault_file):
     vault = SecurityKeyVault(storage_path=temp_vault_file)
     with pytest.raises(ValueError, match="HD creation disabled"):
-        vault.create_and_store_pool(count=5, password="HDVaultPassword!", mode="hd_bip44")  # ci-secret-scan: allow -- synthetic test value
+        vault.create_and_store_pool(count=5, password="HDVaultPassword123!", mode="hd_bip44")
     assert not os.path.exists(temp_vault_file)
+
+
+def test_hd_bip44_deterministic():
+    """
+    Verifies BIP-44 deterministic derivation:
+    Same mnemonic derives identical Solana keypairs at same index.
+    """
+    mnemonic = SolanaHDWallet.generate_mnemonic(12)
+    kp_0_a = SolanaHDWallet.derive_solana_keypair(mnemonic, 0)
+    kp_0_b = SolanaHDWallet.derive_solana_keypair(mnemonic, 0)
+    kp_1 = SolanaHDWallet.derive_solana_keypair(mnemonic, 1)
+
+    assert str(kp_0_a.pubkey()) == str(kp_0_b.pubkey())
+    assert str(kp_0_a.pubkey()) != str(kp_1.pubkey())

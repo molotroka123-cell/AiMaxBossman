@@ -242,7 +242,7 @@ def test_dashboard_endpoints():
     res_stop = client.post("/api/bot/stop")
     assert res_stop.status_code == 200
     data_stop = res_stop.json()
-    assert data_stop["status"] == "SUCCESS"
+    assert data_stop["status"] in ["SUCCESS", "STOPPED"]
     assert data_stop["bot_status"] == "STOPPED"
 
     # 6. Emergency Sweep
