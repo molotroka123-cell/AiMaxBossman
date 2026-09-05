@@ -1,7 +1,7 @@
 {
   "schema": "bossman.live-scorecard/1",
   "last_update": "2026-09-05",
-  "last_evidence_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+  "last_evidence_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
   "exact_sha_ci": "UNPROVEN",
   "live_hardware_attestation": "PENDING",
   "benchmark_hard_failures": [],
@@ -12,8 +12,8 @@
     "permission_bypass_count": 0,
     "source": "bossman-core/tests/test_v3_org_benchmark.py (A–E), test_v3_benchmark_overlay.py, test_v3_fleet_e2e.py, command-center/tests/test_fence_fl01.py at last_evidence_sha; deterministic suites, no live run recorded ; SALVAGE-004: bossman-core/tests/test_astra_remediation.py (ASTRA-004/005, F003/F004, O005), test_v3_astra_p1.py, test_v3_fence_receipts.py at ffd7d25"
   },
-  "current_bottleneck": "Внешняя приёмка: exact-SHA CI и Windows-прогон по ffd7d25, branch protection не включена (ASTRA-CI-101, действие владельца); реальный sandbox/железо NOT_RUN; live OpenRouter-приёмка не проводилась (0.00 USD).",
-  "next_highest_value_fix": "Дождаться 4+2 workflow по FINAL_SHA и закрыть красные; включить branch protection через tools/astra_branch_protection.py; Windows ACL ключей; затем coverage baseline/gate (TRUTH-003 §16) и страница владельца Mission/Control Plane (§20).",
+  "current_bottleneck": "Полный зелёный набор всех шести workflow по ОДНОМУ SHA ещё не наблюдался: на 38c836b root-ci, V2 Auto-Repair, ASTRA acceptance (включая windows-latest) и Solana safety — PASS, а Core CI и Command Center CI отменены более новым пушем (отменён ≠ пройден). Branch protection выключена (ASTRA-CI-101, действие владельца); аттестация железа и реальный sandbox NOT_RUN; live-приёмка OpenRouter не проводилась (0.00 USD).",
+  "next_highest_value_fix": "Включить branch protection (tools/astra_branch_protection.py --apply) и сделать четыре обязательные проверки required; затем Windows ACL ключей и live-приёмка на дешёвой модели по конфигурации; затем поднять покрытие Command Center по фичам с наименьшим покрытием.",
   "categories": [
     {
       "category": "Execution Truth",
@@ -42,7 +42,7 @@
         "bossman-core/tests/test_v3_organization_e2e.py",
         "command-center/tests/test_action_contract.py"
       ],
-      "last_verified_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.3
@@ -75,20 +75,21 @@
         "tests/test_ci_secret_scan.py",
         "command-center/tests/test_login_rate_limit.py"
       ],
-      "last_verified_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.2
     },
     {
       "category": "Tooling / OS Integration",
-      "score": 7.0,
+      "score": 7.5,
       "status": "INTEGRATED",
       "confidence": "MEDIUM",
       "evidence": [
         "V2 реестр инструментов/decide_effect/approvals заморожен на ffda281 и покрыт command-center/tests/test_v21_*",
         "V3-порты → живой bcc (bossman-core/tests/test_v3_command_center_adapters.py)",
-        "OpenRouter как провайдер из окружения (ключ+модели — данные), тот же tool loop через фейковый провайдер детерминированно (command-center/tests/test_feat_openrouter_agent_flow.py)"
+        "OpenRouter как провайдер из окружения (ключ+модели — данные), тот же tool loop через фейковый провайдер детерминированно (command-center/tests/test_feat_openrouter_agent_flow.py)",
+        "CapabilitySpec как узкий адаптер над ToolSpec: манифест /api/capabilities, правило выдачи capability ∧ policy ∧ runtime, неизмеренная предпосылка = отказ, инструмент без верификатора помечен provable=False (command-center/tests/test_capability_manifest.py)"
       ],
       "blockers": [
         "TZ-03: CapabilitySpec, выдача инструмента на run, детектор no-progress"
@@ -97,10 +98,10 @@
         "command-center/tests/test_v21_tool_loop.py",
         "bossman-core/tests/test_v3_command_center_adapters.py"
       ],
-      "last_verified_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
+      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.0
+      "regression_delta": 0.5
     },
     {
       "category": "Organization Layer",
@@ -126,7 +127,7 @@
         "bossman-core/tests/test_v3_organization_planner.py",
         "command-center/tests/test_feat_organization.py"
       ],
-      "last_verified_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.3
@@ -152,7 +153,7 @@
         "command-center/tests/test_fence_fl01.py",
         "bossman-core/tests/test_v3_fleet_safety_proofs.py"
       ],
-      "last_verified_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
       "last_verified_at": "2026-09-05",
       "live_attestation": "PENDING",
       "regression_delta": 0.5
@@ -175,14 +176,14 @@
         "bossman-core/tests/test_v3_organization_core.py",
         "bossman-core/tests/test_v3_memory_kernel.py"
       ],
-      "last_verified_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.3
     },
     {
       "category": "Testing / CI",
-      "score": 7.5,
+      "score": 8.0,
       "status": "VERIFIED",
       "confidence": "MEDIUM",
       "evidence": [
@@ -192,10 +193,12 @@
         "Пассивный benchmark overlay: 9 hard fail'ов, 5 стресс-бенчмарков над реальными Organization/Fleet/CompoundRunner, мост в scorecard `--from-benchmark` (bossman-core/tests/test_v3_benchmark_overlay.py, test_v3_org_benchmark.py)",
         "Сквозной E2E миссия→организация→флот→узел→V3→файл→свежее чтение→подписанные улики→VERIFIED→ревью→COMPLETE→benchmark→scorecard (bossman-core/tests/test_v3_cross_layer_e2e.py)",
         "Реестр 10 доказательств безопасности флота, каждое привязано к существующему тесту (test_v3_fleet_safety_proofs.py)",
-        "Windows portable job (astra-acceptance) + windows-paths job; skips registry 89/0 без причины (d7b3519); полный регресс на интегрированном дереве: Core 2047, CC 1471, root 152; VERIFY.py 5/5 PASS"
+        "Windows portable job (astra-acceptance) + windows-paths job; skips registry 89/0 без причины (d7b3519); полный регресс на интегрированном дереве: Core 2047, CC 1471, root 152; VERIFY.py 5/5 PASS",
+        "Exact-SHA CI на 38c836b: root-ci PASS, V2 Auto-Repair PASS, ASTRA acceptance PASS (включая windows-latest portable), Solana safety PASS; Core/CC CI на том же SHA отменены более новым пушем (concurrency), не падением",
+        "Неснижаемый порог покрытия из измерения: bossman_v3 89% → gate 85% (проверено локально 88.89%), bcc 76% → gate 72% (docs/testing/COVERAGE_BASELINE.md)"
       ],
       "blockers": [
-        "Exact-SHA CI по ffd7d25 не завершён на момент записи; coverage baseline/gate не установлен"
+        "Core CI и Command Center CI по одному SHA подряд отменяются пушами: полный зелёный набор всех шести workflow по ОДНОМУ SHA ещё не наблюдался"
       ],
       "tests": [
         "tests/test_readme_scorecard.py",
@@ -205,39 +208,35 @@
         "bossman-core/tests/test_v3_cross_layer_e2e.py",
         "bossman-core/tests/test_v3_fleet_safety_proofs.py"
       ],
-      "last_verified_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.2
+      "regression_delta": 0.5
     },
     {
       "category": "Observability / CEO Control",
-      "score": 6.0,
+      "score": 7.0,
       "status": "PARTIAL",
       "confidence": "LOW",
       "evidence": [
         "control_plane снимки организации и флота из durable store (bossman_v3/organization/control_plane.py, fleet/control_plane.py)",
         "GET /api/control-plane: organization/queue/treasury/fleet/slo/attention из durable-источников, снимок совпадает после рестарта (5709611, command-center/tests/test_feat_control_plane.py)",
         "AST-скан: события и run-лог не несут messages/prompt/api_key/cookie/token (test_no_private_fields_in_events.py)",
-        "trace_id на весь цикл, ретеншн событий, latency-метрики, Fleet в /api/control-plane (f42bcff, 57f4f31, test_observability_trace.py)"
+        "trace_id на весь цикл, ретеншн событий, latency-метрики, Fleet в /api/control-plane (f42bcff, 57f4f31, test_observability_trace.py)",
+        "Пульт владельца: /api/control-plane → owner_view (КТО/ГДЕ/МОДЕЛЬ/ЧТО/СОСТОЯНИЕ/ПОЧЕМУ/ЦЕНА/ВНИМАНИЕ) и ui/pages/control.js; зелёный COMPLETE только после task.finalized (command-center/tests/test_owner_control_view.py, test_owner_control_ui.py — Playwright, выполнены)"
       ],
       "blockers": [
-        "TZ-08 §2.1 ретеншн событий",
-        "§2.2 гистограммы задержек, SLO, burn-rate алерт",
-        "§2.3 span'ы",
-        "§2.4 цепочка INV-5",
-        "§2.6 dead-click",
-        "UI-страница control-plane (TZ-10)"
+        "SLO по маршрутам не реализован (slo.status = NOT_IMPLEMENTED)"
       ],
       "tests": [
         "command-center/tests/test_feat_control_plane.py",
         "command-center/tests/test_no_private_fields_in_events.py",
         "bossman-core/tests/test_v3_organization_core.py"
       ],
-      "last_verified_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.5
+      "regression_delta": 1.0
     },
     {
       "category": "Treasury / Cost",
@@ -260,33 +259,34 @@
         "command-center/tests/test_fable_hard_cap.py",
         "bossman-core/tests/test_v3_organization_core.py"
       ],
-      "last_verified_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.3
     },
     {
       "category": "Mission UX / Command Center",
-      "score": 6.2,
+      "score": 6.8,
       "status": "IMPLEMENTED",
       "confidence": "MEDIUM",
       "evidence": [
         "Command Center UI (command-center/ui) с approvals, задачами, инструментами; command-center/tests зелёные",
         "Компактная навигация + OpenRouter Connect (исправлен appendChild) — ветка claude/v2-ui-sidebar-compact, 1401 passed, НЕ влита",
         "Данные для страницы владельца доступны: `/api/control-plane`, `/api/org/snapshot` (UI-страница — TZ-10, не сделана)",
-        "PROD-004 фильтрация миссии до LIMIT + пагинация; CSRF-403 → форма входа вместо мёртвой кнопки (d114e30); журнал тестового периода 51307af16b90: 8 ошибок разобраны"
+        "PROD-004 фильтрация миссии до LIMIT + пагинация; CSRF-403 → форма входа вместо мёртвой кнопки (d114e30); журнал тестового периода 51307af16b90: 8 ошибок разобраны",
+        "Страница «Пульт» в реестре UI; цвет = уровень доказанности, промпты на экран не выводятся"
       ],
       "blockers": [
-        "Страница владельца Mission/Control Plane не сделана"
+        "Покрытие Command Center 76%: часть UI-фич без тестов"
       ],
       "tests": [
         "command-center/tests/test_ux2_pages_sweep.py",
         "command-center/tests/test_command_bar_ui.py"
       ],
-      "last_verified_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.2
+      "regression_delta": 0.6
     }
   ]
 }
