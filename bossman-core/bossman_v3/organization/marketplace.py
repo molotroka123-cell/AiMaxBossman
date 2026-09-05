@@ -11,9 +11,21 @@ frontier важнее всего остального: механическую 
 Эскалация — по данным обучения, не по настроению: на следующую ступень
 переходят после провала текущей на этой способности (мандат §9), и каждый
 переход виден в решении.
+
+ORG-05: внутри одного tier ранжирование — не по точечной надёжности (чистая
+эксплуатация морит голодом новых агентов), а по риску контракта: LOW —
+Thompson-выборка из Beta-апостериора с детерминированным seed от digest
+контракта (воспроизводимо в тестах, но исследует); MEDIUM — UCB μ + 0.5σ;
+HIGH — только μ (никакого исследования на опасной работе, там независимый
+ревьюер). Штраф за ложный успех остаётся лексикографически выше.
+
+ORG-06: бюджетная проверка кандидата — ожидаемое число вызовов
+|steps| · (1 + retry_rate) · cost_per_call против бюджета контракта, а не цена
+одного вызова.
 """
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
@@ -77,18 +89,34 @@ class CapabilityMarketplace:
             return "at max load"
         if TIER_RANK[a.tier] < TIER_RANK[min_tier]:
             return f"tier {a.tier} below escalated minimum {min_tier}"
-        if c.budget.usd and a.cost_per_call_usd > c.budget.usd:
-            return f"call cost {a.cost_per_call_usd} exceeds work budget {c.budget.usd}"
+        if c.budget.usd and a.cost_per_call_usd:
+            st = self.learning.stats(a.agent_id, c.required_capability)
+            expected_calls = max(1, len(c.steps)) * (1.0 + st.retry_rate)
+            expected_cost = expected_calls * a.cost_per_call_usd
+            if expected_cost > c.budget.usd:
+                return (f"expected cost {expected_cost:.3f} ({expected_calls:.1f} calls × {a.cost_per_call_usd}) "
+                        f"exceeds work budget {c.budget.usd}")
         return ""
 
     # ------------------------------------------------------------- scoring
 
-    def _score(self, a: AgentProfile, capability: str) -> tuple:
-        s = self.learning.stats(a.agent_id, capability)
+    def _quality(self, a: AgentProfile, c: DelegationContract) -> float:
+        """Оценка качества внутри tier с исследованием, пропорциональным риску."""
+        s = self.learning.stats(a.agent_id, c.required_capability)
+        if c.risk == RiskTier.HIGH:
+            return s.reliability                                  # только эксплуатация
+        if c.risk == RiskTier.MEDIUM:
+            return s.reliability + 0.5 * s.uncertainty            # UCB, c = 0.5
+        alpha, beta = s.posterior                                 # LOW: Thompson, детерминированный seed
+        rng = random.Random(f"{c.digest()}|{a.agent_id}")
+        return rng.betavariate(alpha, beta)
+
+    def _score(self, a: AgentProfile, c: DelegationContract) -> tuple:
+        s = self.learning.stats(a.agent_id, c.required_capability)
         # Лексикографически: уровень (дешевле — лучше), потом штраф за ложные
-        # успехи (это худшее, что может делать агент), потом надёжность, нагрузка,
-        # цена, задержка. Имя — детерминированный tie-break.
-        return (TIER_RANK[a.tier], round(s.false_success_rate, 3), -round(s.reliability, 3),
+        # успехи (это худшее, что может делать агент), потом качество с
+        # исследованием, нагрузка, цена, задержка. Имя — детерминированный tie-break.
+        return (TIER_RANK[a.tier], round(s.false_success_rate, 3), -round(self._quality(a, c), 4),
                 a.current_load, a.cost_per_call_usd, a.latency_ms, a.agent_id)
 
     # --------------------------------------------------------------- route
@@ -105,7 +133,7 @@ class CapabilityMarketplace:
                 rejected[a.agent_id] = why
             else:
                 eligible.append(a)
-        eligible.sort(key=lambda a: self._score(a, c.required_capability))
+        eligible.sort(key=lambda a: self._score(a, c))
         if not eligible:
             return RouteDecision((), f"no eligible agent for role={role!r} capability={c.required_capability!r} "
                                      f"in department {c.department_id!r} (min tier {min_tier})",

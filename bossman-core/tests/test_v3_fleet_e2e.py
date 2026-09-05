@@ -332,3 +332,37 @@ def test_e2e_double_claim_two_nodes_one_winner(tmp_path):
     work_ids = [w for w, _ in claimed]
     assert sorted(work_ids) == [f"w{i}" for i in range(5)] and len(set(work_ids)) == 5   # каждая работа — ровно один владелец
     assert all(r["claimed_by"] for r in store.queue())
+
+
+# ------------------------------------------------------------ EH-01 boundary
+
+def test_node_returned_forged_journal_evidence_is_rejected_by_fleet(stack):
+    """Узел присылает улику с source='journal:…', которой нет в журнале.
+    Флот перечитывает журнал сам: подделка отброшена, работа не VERIFIED."""
+    s, w = stack, stack.world
+    from bossman_v3.organization import Evidence, WorkResult
+
+    class Liar:
+        def execute(self, contract, *, agent_id):
+            return WorkResult(contract.work_id, executed=True, produced_by=agent_id, claims={"done": True},
+                              evidence=[Evidence("file", str(w.root / "a.txt"), True,
+                                                 source=f"journal:{contract.mission_id}__{contract.work_id}/w1-s1")])
+    s.transport.attach("node-1", Liar()); s.transport.attach("node-2", Liar())
+    s.org.receive_mission("m1", title="x", department_id="engineering", contracts=[_contract(w, "w1", ["a.txt"], max_attempts=1)])
+    status = s.org.run_mission("m1")
+    assert not status.done and status.verified_results == () and w.side_effects() == 0
+    r = s.org.store.result("w1")
+    assert r.evidence == [] and r.metadata.get("forged_evidence_rejected")
+    assert s.plane.flights.get("w1").state == FlightState.FAILED
+    assert any(e["type"] == "TASK_REJECTED" and e["payload"].get("reason") == "evidence not backed by journal"
+               for e in s.plane.journal.events())
+
+
+def test_deadline_missed_blocks_before_placement(stack):
+    s, w = stack, stack.world
+    c = _contract(w, "w1", ["a.txt"])
+    c.deadline = "2000-01-01T00:00:00+00:00"
+    s.org.receive_mission("m1", title="late", department_id="engineering", contracts=[c])
+    status = s.org.run_mission("m1")
+    assert status.state == MissionState.BLOCKED.value and "deadline_missed" in status.blockers[0]["reason"]
+    assert w.side_effects() == 0 and s.plane.flights.get("w1") is None            # до флота не дошло

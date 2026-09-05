@@ -8,13 +8,23 @@
 экспоненциально затухающим счётчикам, чтобы старые провалы не держали агента
 вечно внизу, а новые — быстро проявлялись. Апостериор консервативен: у агента
 без истории надёжность 0.5, а не 1.0 — «неизвестно» не равно «надёжно».
+
+ORG-04: затухание задаётся ПЕРИОДОМ ПОЛУРАСПАДА (λ = 2^(−1/T½)), а сырое число
+наблюдений `n_raw` хранится отдельно от эффективной выборки `attempts`
+(= Σλ^k ≤ 1/(1−λ)). Пороги («не меньше двух попыток») сравниваются с `n_raw`;
+надёжность — это надёжность НЕДАВНЕГО окна, и её потолок (1+n_eff)/(2+n_eff)
+известен и честен, а не артефакт.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
-DECAY = 0.9          # множитель старой истории при каждом новом наблюдении
+DEFAULT_HALF_LIFE = 40.0     # наблюдений; λ = 2^(−1/T½) ≈ 0.983 → n_eff ≤ 58, потолок надёжности ≈ 0.983
+
+
+def decay_for(half_life: float) -> float:
+    return 2.0 ** (-1.0 / max(1.0, float(half_life)))
 
 
 @dataclass
@@ -28,13 +38,31 @@ class OutcomeStats:
     cost_usd_total: float = 0.0
     latency_ms_total: float = 0.0
     last_outcome: str = ""
+    n_raw: int = 0                          # сырые наблюдения, без затухания
+    verified_raw: int = 0
 
     # --------------------------------------------------------------- math
 
     @property
+    def posterior(self) -> tuple[float, float]:
+        """Beta(α, β) по затухающим счётчикам: α = 1 + успехи, β = 1 + провалы."""
+        return 1.0 + self.verified_success, 1.0 + max(0.0, self.attempts - self.verified_success)
+
+    @property
     def reliability(self) -> float:
-        """P(подтверждённый успех) — сглаженная Beta(1,1)."""
-        return (1.0 + self.verified_success) / (2.0 + self.attempts)
+        """P(подтверждённый успех) в недавнем окне — среднее Beta(α, β)."""
+        a, b = self.posterior
+        return a / (a + b)
+
+    @property
+    def uncertainty(self) -> float:
+        """σ апостериора: у агента без истории велика, у опытного — мала."""
+        a, b = self.posterior
+        return ((a * b) / ((a + b) ** 2 * (a + b + 1))) ** 0.5
+
+    @property
+    def retry_rate(self) -> float:
+        return self.retries / self.attempts if self.attempts else 0.0
 
     @property
     def false_success_rate(self) -> float:
@@ -53,23 +81,25 @@ class OutcomeStats:
                 "failures": self.failures, "false_success_attempts": self.false_success_attempts,
                 "retries": self.retries, "escalations": self.escalations,
                 "cost_usd_total": self.cost_usd_total, "latency_ms_total": self.latency_ms_total,
-                "last_outcome": self.last_outcome, "reliability": round(self.reliability, 4),
-                "false_success_rate": round(self.false_success_rate, 4)}
+                "last_outcome": self.last_outcome, "n_raw": self.n_raw, "verified_raw": self.verified_raw,
+                "reliability": round(self.reliability, 4), "false_success_rate": round(self.false_success_rate, 4)}
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "OutcomeStats":
         return cls(**{k: raw.get(k, 0.0) for k in ("attempts", "verified_success", "failures",
                                                    "false_success_attempts", "retries", "escalations",
                                                    "cost_usd_total", "latency_ms_total")},
-                   last_outcome=str(raw.get("last_outcome", "")))
+                   last_outcome=str(raw.get("last_outcome", "")), n_raw=int(raw.get("n_raw", 0)),
+                   verified_raw=int(raw.get("verified_raw", 0)))
 
 
 class OrganizationalLearning:
     """In-memory агрегат + persist через store (если дан)."""
 
-    def __init__(self, store=None) -> None:
+    def __init__(self, store=None, *, half_life: float = DEFAULT_HALF_LIFE) -> None:
         self._stats: dict[tuple[str, str], OutcomeStats] = {}
         self.store = store
+        self.decay = decay_for(half_life)
         if store is not None:
             for agent_id, capability, payload in store.learning():
                 self._stats[(agent_id, capability)] = OutcomeStats.from_dict(payload)
@@ -83,10 +113,12 @@ class OrganizationalLearning:
         s = self._stats.setdefault((agent_id, capability), OutcomeStats())
         for name in ("attempts", "verified_success", "failures", "false_success_attempts",
                      "retries", "escalations", "cost_usd_total", "latency_ms_total"):
-            setattr(s, name, getattr(s, name) * DECAY)
+            setattr(s, name, getattr(s, name) * self.decay)
         s.attempts += 1
+        s.n_raw += 1
         if verified:
             s.verified_success += 1
+            s.verified_raw += 1
             s.last_outcome = "verified"
         else:
             s.failures += 1
@@ -106,7 +138,8 @@ class OrganizationalLearning:
         return [{"agent_id": a, "capability": c, **s.to_dict()}
                 for (a, c), s in sorted(self._stats.items())]
 
-    def failing_agents(self, *, min_attempts: float = 2.0, threshold: float = 0.4) -> list[dict[str, Any]]:
-        """Кто систематически не подтверждает работу — сигнал для CEO control plane."""
+    def failing_agents(self, *, min_attempts: int = 2, threshold: float = 0.4) -> list[dict[str, Any]]:
+        """Кто систематически не подтверждает работу — сигнал для CEO control plane.
+        Порог — по СЫРЫМ наблюдениям (ORG-04), не по затухающей выборке."""
         return [r for r in self.report()
-                if r["attempts"] >= min_attempts and r["reliability"] < threshold]
+                if r["n_raw"] >= min_attempts and r["reliability"] < threshold]

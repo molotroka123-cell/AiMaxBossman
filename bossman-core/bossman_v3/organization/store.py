@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS org_results (
   work_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, verified INTEGER NOT NULL, payload TEXT NOT NULL,
   updated_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS org_treasury (
-  scope TEXT PRIMARY KEY, limit_json TEXT NOT NULL, spent_json TEXT NOT NULL, updated_at TEXT NOT NULL);
+  scope TEXT PRIMARY KEY, limit_json TEXT NOT NULL, spent_json TEXT NOT NULL, updated_at TEXT NOT NULL,
+  reserved_json TEXT NOT NULL DEFAULT '{}', parent TEXT NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS org_learning (
   agent_id TEXT NOT NULL, capability TEXT NOT NULL, payload TEXT NOT NULL, updated_at TEXT NOT NULL,
   PRIMARY KEY (agent_id, capability));
@@ -71,6 +72,11 @@ class OrganizationStore:
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as con:
             con.executescript(SCHEMA)
+            cols = {r["name"] for r in con.execute("PRAGMA table_info(org_treasury)").fetchall()}
+            if "reserved_json" not in cols:            # миграция старых баз
+                con.execute("ALTER TABLE org_treasury ADD COLUMN reserved_json TEXT NOT NULL DEFAULT '{}'")
+            if "parent" not in cols:
+                con.execute("ALTER TABLE org_treasury ADD COLUMN parent TEXT NOT NULL DEFAULT ''")
 
     def _connect(self) -> sqlite3.Connection:
         con = sqlite3.connect(self.path, timeout=30)
@@ -206,17 +212,23 @@ class OrganizationStore:
 
     # ----------------------------------------------------------- treasury
 
-    def save_envelope(self, scope: str, *, limit: Resources, spent: Resources) -> None:
+    def save_envelope(self, scope: str, *, limit: Resources, spent: Resources,
+                      reserved: Resources | None = None, parent: str = "") -> None:
         with self._connect() as con:
-            con.execute("INSERT INTO org_treasury(scope,limit_json,spent_json,updated_at) VALUES(?,?,?,?) "
-                        "ON CONFLICT(scope) DO UPDATE SET limit_json=excluded.limit_json, spent_json=excluded.spent_json, "
-                        "updated_at=excluded.updated_at",
-                        (scope, _dumps(limit.to_dict()), _dumps(spent.to_dict()), _now()))
+            con.execute("INSERT INTO org_treasury(scope,limit_json,spent_json,updated_at,reserved_json,parent) "
+                        "VALUES(?,?,?,?,?,?) ON CONFLICT(scope) DO UPDATE SET limit_json=excluded.limit_json, "
+                        "spent_json=excluded.spent_json, updated_at=excluded.updated_at, "
+                        "reserved_json=excluded.reserved_json, parent=excluded.parent",
+                        (scope, _dumps(limit.to_dict()), _dumps(spent.to_dict()), _now(),
+                         _dumps((reserved or Resources()).to_dict()), parent))
 
     def envelopes(self) -> dict[str, tuple[Resources, Resources]]:
         return {r["scope"]: (Resources.from_dict(json.loads(r["limit_json"])),
                              Resources.from_dict(json.loads(r["spent_json"])))
                 for r in self._rows("SELECT * FROM org_treasury ORDER BY scope")}
+
+    def envelope_parents(self) -> dict[str, str]:
+        return {r["scope"]: r["parent"] for r in self._rows("SELECT scope, parent FROM org_treasury")}
 
     # ----------------------------------------------------------- learning
 

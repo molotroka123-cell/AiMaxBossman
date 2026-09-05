@@ -27,12 +27,18 @@ class TreasuryDecision:
     ask_owner: bool = False
 
 
+class PartitionViolation(ValueError):
+    """INV-3: дочерний конверт не может быть больше родительского, а сумма
+    дочерних — больше родителя."""
+
+
 @dataclass
 class Envelope:
     scope: str
     limit: Resources
     spent: Resources = field(default_factory=Resources)
     reserved: Resources = field(default_factory=Resources)
+    parent: str = ""
 
     @property
     def committed_and_reserved(self) -> Resources:
@@ -42,8 +48,9 @@ class Envelope:
         return self.limit - self.committed_and_reserved
 
     def to_dict(self) -> dict[str, Any]:
-        return {"scope": self.scope, "limit": self.limit.to_dict(), "spent": self.spent.to_dict(),
-                "reserved": self.reserved.to_dict(), "remaining": self.remaining().to_dict()}
+        return {"scope": self.scope, "parent": self.parent, "limit": self.limit.to_dict(),
+                "spent": self.spent.to_dict(), "reserved": self.reserved.to_dict(),
+                "remaining": self.remaining().to_dict()}
 
 
 class ResourceTreasury:
@@ -56,12 +63,27 @@ class ResourceTreasury:
 
     # ------------------------------------------------------------- setup
 
-    def set_limit(self, scope: str, limit: Resources) -> None:
+    def set_limit(self, scope: str, limit: Resources, *, parent: str = "") -> None:
+        """INV-3 (ORG-07): по каждому измерению, где у родителя задан лимит,
+        дочерний лимит ≤ родительского и Σ лимитов детей ≤ родителя."""
+        if parent:
+            p = self.envelope(parent)
+            siblings = sum((e.limit for e in self._env.values() if e.parent == parent and e.scope != scope), Resources())
+            for name in Resources._FIELDS:
+                cap = getattr(p.limit, name)
+                if not cap:
+                    continue
+                if getattr(limit, name) > cap:
+                    raise PartitionViolation(f"{scope}.{name}={getattr(limit, name)} exceeds {parent}.{name}={cap}")
+                if getattr(siblings, name) + getattr(limit, name) > cap:
+                    raise PartitionViolation(f"sum of children of {parent} on {name} would exceed {cap}")
         env = self._env.get(scope)
         if env is None:
-            self._env[scope] = Envelope(scope=scope, limit=limit)
+            self._env[scope] = Envelope(scope=scope, limit=limit, parent=parent)
         else:
             env.limit = limit
+            if parent:
+                env.parent = parent
 
     def envelope(self, scope: str) -> Envelope:
         env = self._env.get(scope)
@@ -69,10 +91,12 @@ class ResourceTreasury:
             env = self._env[scope] = Envelope(scope=scope, limit=Resources())
         return env
 
-    def restore(self, scope: str, *, limit: Resources, spent: Resources) -> None:
-        """Восстановление после рестарта: факт возвращается, резервы — нет
-        (незавершённая работа перерезервирует сама)."""
-        self._env[scope] = Envelope(scope=scope, limit=limit, spent=spent)
+    def restore(self, scope: str, *, limit: Resources, spent: Resources, parent: str = "") -> None:
+        """Восстановление после рестарта: лимит и факт возвращаются, резервы —
+        нет: каждая незавершённая работа резервирует заново при следующей попытке,
+        и восстановленный резерв дал бы двойной учёт. Сохранённый reserved_json —
+        для наблюдаемости («что было в полёте на момент смерти»), не для баланса."""
+        self._env[scope] = Envelope(scope=scope, limit=limit, spent=spent, parent=parent)
 
     @staticmethod
     def scopes_for(department_id: str, mission_id: str | None) -> list[str]:

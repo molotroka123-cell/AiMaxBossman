@@ -21,6 +21,7 @@ DUPLICATE_SIDE_EFFECT_COUNT=0 на уровне организации; на у�
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Protocol
 
 from .bridges import (ExecutionBridge, HumanReviewPort, MissionReporter, MissionStatus,
@@ -96,15 +97,16 @@ class OrganizationRuntime:
         self.knowledge = ScopedKnowledge(store, failure_root=failure_root)
         self.events = EventIntake(store, reactions or [])
         self._departments: dict[str, Department] = {d.department_id: d for d in store.departments()}
+        parents = store.envelope_parents()
         for scope, (limit, spent) in store.envelopes().items():
-            self.treasury.restore(scope, limit=limit, spent=spent)
+            self.treasury.restore(scope, limit=limit, spent=spent, parent=parents.get(scope, ""))
 
     # ------------------------------------------------------------ registry
 
     def register_department(self, d: Department) -> None:
+        self.treasury.set_limit(f"department:{d.department_id}", d.budget, parent="organization")   # INV-3
         self._departments[d.department_id] = d
         self.store.save_department(d)
-        self.treasury.set_limit(f"department:{d.department_id}", d.budget)
         self._persist_envelope(f"department:{d.department_id}")
 
     def register_agent(self, a: AgentProfile) -> None:
@@ -151,7 +153,7 @@ class OrganizationRuntime:
                                 state=MissionState.RECEIVED, source=source,
                                 payload={"contracts": ids, "budget": (budget or Resources()).to_dict()})
         if budget is not None:
-            self.treasury.set_limit(f"mission:{mission_id}", budget)
+            self.treasury.set_limit(f"mission:{mission_id}", budget, parent=f"department:{department_id}")   # INV-3
             self._persist_envelope(f"mission:{mission_id}")
         for c in contracts:
             self.store.save_work(c, state=TaskState.PLANNED, assigned=[], attempts=0)
@@ -269,6 +271,17 @@ class OrganizationRuntime:
             drow = self.store.work(dep)
             if drow is None or drow["state"] != TaskState.COMPLETED.value:
                 return self._block(contract, f"dependency {dep!r} is not completed", ask_owner=False)
+
+        # 1b. SLA (ORG-03): истёкший deadline — не делегируем, владелец решает
+        if contract.deadline:
+            try:
+                due = datetime.fromisoformat(contract.deadline.replace("Z", "+00:00"))
+                if due.tzinfo is None:
+                    due = due.replace(tzinfo=timezone.utc)
+            except ValueError:
+                return self._block(contract, f"deadline is not ISO-8601: {contract.deadline!r}", ask_owner=True)
+            if datetime.now(timezone.utc) > due:
+                return self._block(contract, f"deadline_missed: {contract.deadline}", ask_owner=True)
 
         # 2. контракт корректен?
         problems = contract.problems()
@@ -465,7 +478,7 @@ class OrganizationRuntime:
 
     def _persist_envelope(self, scope: str) -> None:
         env = self.treasury.envelope(scope)
-        self.store.save_envelope(scope, limit=env.limit, spent=env.spent)
+        self.store.save_envelope(scope, limit=env.limit, spent=env.spent, reserved=env.reserved, parent=env.parent)
 
     def _finish_mission(self, mission_id: str, status: MissionStatus) -> None:
         mission = self.store.mission(mission_id)

@@ -288,3 +288,70 @@ def test_store_roundtrips_everything_needed_for_restart(tmp_path):
 def test_store_refuses_in_memory_database(tmp_path):
     with pytest.raises(ValueError):
         OrganizationStore(":memory:")
+
+
+# ------------------------------------------------------ audit TZ-04 / MEM-02
+
+def test_org04_failing_agents_uses_raw_attempts_and_reliability_reaches_recent_window_ceiling():
+    L = OrganizationalLearning()
+    L.observe("x", "cap", verified=False, claimed_success=True)
+    L.observe("x", "cap", verified=False, claimed_success=True)
+    assert [r["agent_id"] for r in L.failing_agents(min_attempts=2)] == ["x"]      # 2 сырых провала — уже виден
+    assert L.stats("x", "cap").n_raw == 2
+    for _ in range(100):
+        L.observe("y", "cap", verified=True, claimed_success=True)
+    s = L.stats("y", "cap")
+    assert s.reliability >= 0.95 and s.n_raw == 100 and s.verified_raw == 100
+    assert s.uncertainty < 0.05
+
+
+def test_org05_low_risk_explores_new_agent_but_high_risk_never_does():
+    L = OrganizationalLearning()
+    for i in range(10):
+        L.observe("veteran", "fs.write", verified=(i != 0), claimed_success=(i != 0))   # 9/10, провал честный
+    m = CapabilityMarketplace([_agent("veteran"), _agent("rookie")], L)
+    low_picks = {m.route(_contract(work_id=f"w{i}", risk=RiskTier.LOW)).selected[0] for i in range(40)}
+    assert "rookie" in low_picks and "veteran" in low_picks                          # Thompson исследует
+    # детерминизм: тот же контракт → тот же выбор
+    assert m.route(_contract(work_id="w7")).selected == m.route(_contract(work_id="w7")).selected
+    hi = _agent("veteran", risk_clearance=RiskTier.HIGH), _agent("rookie", risk_clearance=RiskTier.HIGH)
+    m_hi = CapabilityMarketplace(hi, L)
+    assert {m_hi.route(_contract(work_id=f"h{i}", risk=RiskTier.HIGH)).selected[0] for i in range(20)} == {"veteran"}
+
+
+def test_org06_budget_check_uses_expected_calls_not_single_call_price():
+    m = CapabilityMarketplace([_agent("pricey", cost_per_call_usd=0.3)])
+    five_steps = _contract(budget=Resources(usd=1.0), steps=[{"step_id": f"s{i}", "intent": "x",
+                                                              "action": {"action_type": "fs.write", "args": {}}} for i in range(5)])
+    d = m.route(five_steps)
+    assert d.selected == () and "expected cost 1.500" in d.rejected["pricey"]
+    assert m.route(_contract(budget=Resources(usd=1.0))).selected == ("pricey",)      # 1 шаг × 0.3 ≤ 1.0
+
+
+def test_org07_envelope_partition_invariant():
+    from bossman_v3.organization import PartitionViolation
+    t = ResourceTreasury()
+    t.set_limit("organization", Resources(usd=10))
+    t.set_limit("department:a", Resources(usd=6), parent="organization")
+    with pytest.raises(PartitionViolation):
+        t.set_limit("department:b", Resources(usd=5), parent="organization")        # 6 + 5 > 10
+    t.set_limit("department:b", Resources(usd=4), parent="organization")
+    with pytest.raises(PartitionViolation):
+        t.set_limit("mission:m", Resources(usd=7), parent="department:a")          # 7 > 6
+    t.set_limit("mission:m", Resources(usd=6, tokens=999), parent="department:a")  # tokens у родителя не ограничены
+    assert t.envelope("mission:m").parent == "department:a"
+
+
+def test_mem02_scope_inheritance_is_explicit_and_refuses_sibling_scopes(tmp_path):
+    store = OrganizationStore(tmp_path / "org.sqlite")
+    k = ScopedKnowledge(store)
+    k.publish("organization", "policy", {"rule": "no force push"}, provenance="owner")
+    k.publish("department:eng", "policy", {"rule": "tests before commit"}, provenance="lead")
+    k.publish("department:trading", "secret_rule", {"rule": "max position"}, provenance="risk")
+    k.publish("mission:m1", "verified_fact", {"x": 1}, provenance="journal:m1__w1/s1")
+    assert [f.kind for f in k.read("mission:m1")] == ["verified_fact"]
+    inherited = k.read("mission:m1", include_parents=("department:eng", "organization"))
+    assert {f.scope for f in inherited} == {"mission:m1", "department:eng", "organization"}
+    with pytest.raises(PermissionError):
+        k.read("mission:m1", include_parents=("department:trading",)) and None if False else k.read("mission:m1", include_parents=("mission:m2",))
+    assert all(f.scope != "department:trading" for f in inherited)

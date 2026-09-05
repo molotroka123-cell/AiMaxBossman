@@ -23,11 +23,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+from typing import Protocol
+
 from ..memory.assembler import redact
 from ..memory.failure_memory import FailureMemory
 from .models import Department
 
 ORG_SCOPE = "organization"
+
+
+class KnowledgePort(Protocol):
+    """Узкий порт памяти для Organization/Fleet. Сегодня реализуется
+    ScopedKnowledge над org_knowledge; путь слияния с каноническим
+    bossman.context_engine (колонка scope рядом с project) описан в
+    docs/v3/organization/ARCHITECTURE.md — интерфейс при этом не меняется."""
+
+    def publish(self, scope: str, kind: str, payload: Mapping[str, Any], *, provenance: str,
+                confidence: float = 1.0, valid_until: str = "", source_scope: str = "") -> "Fact": ...
+    def read(self, scope: str, *, kind: str | None = None, include_expired: bool = False,
+             include_parents: tuple[str, ...] = ()) -> list["Fact"]: ...
+    def export(self, fact: "Fact", *, to_scope: str, source_department: Department) -> "Fact": ...
 
 
 class ExportBlocked(PermissionError):
@@ -80,9 +95,19 @@ class ScopedKnowledge:
 
     # ------------------------------------------------------------ reading
 
-    def read(self, scope: str, *, kind: str | None = None, include_expired: bool = False) -> list[Fact]:
+    def read(self, scope: str, *, kind: str | None = None, include_expired: bool = False,
+             include_parents: tuple[str, ...] = ()) -> list[Fact]:
+        """Факты скоупа. Наследование (MEM-02) — ЯВНОЕ: вызывающий (рантайм
+        организации) перечисляет родительские скоупы, которые миссия вправе
+        видеть (её отдел, организация). Скоуп другого проекта/отдела так не
+        читается никогда — изоляция остаётся границей, а не соглашением."""
         out = []
-        for row in self.store.facts(scope):
+        rows = list(self.store.facts(scope))
+        for parent in include_parents:
+            if parent == scope or parent.split(":", 1)[0] not in ("organization", "department", "project"):
+                raise PermissionError(f"scope {parent!r} is not a parent scope; use export() for cross-scope transfer")
+            rows.extend(self.store.facts(parent))
+        for row in rows:
             f = Fact(row["fact_id"], row["scope"], row["kind"], row.get("payload") or {},
                      str(row.get("provenance", "")), float(row.get("confidence", 0.0)),
                      str(row.get("created_at", "")), str(row.get("source_scope", "")),

@@ -55,3 +55,21 @@
 - Targeted (organization + V3): 77 passed локально (включая 3 живых теста через `bcc`).
 - Secret scan: PASS. Compile: OK.
 - Полная регрессия ядра: см. итоговый отчёт миссии.
+
+## 6. Swarm-миссия BOSS-SWARM-INTEGRATION-008 — findings, закрытые в Organization
+
+| ID (аудит `docs/audit`) | Что было | Что сделано | Тест |
+|---|---|---|---|
+| ORG-03 | `deadline` не исполнялся | `_attempt`: `now > deadline → BLOCKED/deadline_missed`, владелец | `test_deadline_missed_blocks_before_placement` |
+| ORG-04 | затухание 0.9 на всех счётчиках: `failing_agents(min_attempts=2)` слеп после 2 попыток, потолок надёжности 0.917 | `n_raw`/`verified_raw` отдельно; λ = 2^(−1/T½), T½=40 по умолчанию; пороги — по `n_raw`; `posterior`/`uncertainty` | `test_org04_…` |
+| ORG-05 | точечная надёжность внутри tier = starvation новых агентов | LOW — Thompson (seed = digest контракта, детерминированно), MEDIUM — UCB μ+0.5σ, HIGH — только μ | `test_org05_…` |
+| ORG-06 | `cost_per_call > budget` | E[calls] = |steps|·(1+retry_rate)·cost ≤ budget | `test_org06_…` |
+| ORG-07 / INV-3 | конверты без разбиения; резервы терялись молча | `set_limit(parent=…)`: child ≤ parent и Σ children ≤ parent → `PartitionViolation`; `reserved_json`/`parent` в store (резервы не восстанавливаются намеренно — иначе двойной учёт; задокументировано) | `test_org07_…` |
+| MEM-02 | `read(scope)` — строгое равенство | явное наследование `include_parents=(department, organization)`; чужой отдел/миссия → `PermissionError` | `test_mem02_…` |
+| EH-01 (граница флота) | улика доверяется по префиксу `journal:` | `FleetExecutionBridge` перечитывает улики из журнала сам; присланные узлом и не подтверждённые журналом — отброшены, `TASK_REJECTED` | `test_node_returned_forged_journal_evidence_is_rejected_by_fleet` |
+| Agent 3 | два `EvidenceRequirement`, слабая независимость ревьюера | один тип (org расширяет `bossman.company`); `ContractReviewer` через `deep_fix.Principal` | существующие тесты |
+| Agent 6 P0-3 | approvals bcc по `(kind, preview)` | preview V3-адаптера включает `task#<id>` | `test_v3_command_center_adapters` |
+
+Не сделано здесь (передано в TZ-04 §2 / §5 параллельной сессии): HTTP-feature `bcc/features/organization.py`,
+`PlannerPort` для контрактов без шагов, saga-компенсации (ORG-01, ORG-02, ORG-08). Причина: изменения в
+`command-center` затрагивают замороженный V2 и параллельно запланированы другой сессией — во избежание коллизий.

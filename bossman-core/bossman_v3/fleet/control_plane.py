@@ -200,6 +200,23 @@ class FleetExecutionBridge:
         finally:
             plane.registry.adjust_active(node_id, -1)
 
+        # EH-01 на границе флота: уликам, ПРИСЛАННЫМ узлом, не верим — они
+        # перечитываются из durable-журнала V3 (общее хранилище). Узел, вернувший
+        # «journal:…» без реальной записи в журнале, улик не получает.
+        if self.journal_root is not None and contract.steps:
+            plan = [step_from_dict(s) for s in contract.steps]
+            jid = f"{contract.mission_id}__{contract.work_id}"
+            jpath = self.journal_root / f"{jid}.json"
+            derived = _journal_evidence(TaskJournal.load(task_id=jid, root=self.journal_root), plan) if jpath.exists() else []
+            forged = [e for e in result.evidence if e.verified and e.source not in {d.source for d in derived}]
+            if forged:
+                result.metadata["forged_evidence_rejected"] = [e.source for e in forged]
+                plane.journal.emit(FleetEventType.TASK_REJECTED, mission_id=contract.mission_id, work_id=contract.work_id,
+                                   node_id=node_id, payload={"reason": "evidence not backed by journal",
+                                                             "count": len(forged)})
+            result.evidence = derived
+            result.executed = result.executed and bool(derived) if contract.side_effect else result.executed
+
         valid, why = plane.leases.valid(lease, now=time.time())
         plane.leases.release(lease)
         plane.journal.emit(FleetEventType.LEASE_RELEASED, mission_id=contract.mission_id, work_id=contract.work_id,
