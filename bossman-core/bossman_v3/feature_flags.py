@@ -22,6 +22,7 @@ class V3Flags:
     self_improvement: bool
     data_guardian: bool
     organization: bool
+    fleet: bool
     low_memory: bool
 
     @classmethod
@@ -39,5 +40,6 @@ class V3Flags:
             self_improvement=enabled("BOSSMAN_V3_SELF_IMPROVEMENT"),
             data_guardian=enabled("BOSSMAN_V3_DATA_GUARDIAN"),
             organization=enabled("BOSSMAN_V3_ORGANIZATION"),
+            fleet=enabled("BOSSMAN_V3_FLEET"),
             low_memory=_env_bool("BOSSMAN_LOW_MEMORY", False),
         )

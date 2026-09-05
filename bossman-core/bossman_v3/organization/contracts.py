@@ -18,6 +18,8 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
+from bossman.company.model import EvidenceRequirement as _CompanyEvidenceRequirement
+
 from .models import EXECUTOR, Evidence, Resources, RiskTier, WorkResult
 
 # Источники, которым разрешено ставить verified=True. Любая улика с verified=True
@@ -26,11 +28,13 @@ from .models import EXECUTOR, Evidence, Resources, RiskTier, WorkResult
 TRUSTED_EVIDENCE_SOURCES = ("journal:", "bcc.v2.verification", "bossman_v3.verifier")
 
 
-@dataclass(frozen=True)
-class EvidenceRequirement:
-    kind: str                          # file | db | browser | app | test | artifact | ...
-    target: str = ""
-    expect: Mapping[str, Any] = field(default_factory=dict)
+class EvidenceRequirement(_CompanyEvidenceRequirement):
+    """ОДИН тип требования к уликам на весь репозиторий: канонический —
+    bossman.company.model.EvidenceRequirement (зеркало ExpectedState V2);
+    здесь только сериализация для durable store. Второго датакласса нет."""
+
+    def __init__(self, kind: str, target: str = "", expect: Mapping[str, Any] | None = None) -> None:
+        super().__init__(kind, target, dict(expect or {}))
 
     def to_dict(self) -> dict[str, Any]:
         return {"kind": self.kind, "target": self.target, "expect": dict(self.expect)}
@@ -83,11 +87,17 @@ class DelegationContract:
     # План шагов для нижнего слоя (V3 PlanStep в сериализованном виде). Пустой —
     # исполнитель получает контракт «как есть» и сам строит план.
     steps: list[dict[str, Any]] = field(default_factory=list)
+    # Требования к МЕСТУ исполнения (для Fleet): приватность и ресурсы. Флот
+    # решает «где», организация — «кто»; контракт лишь объявляет, что нужно.
+    privacy: str = "private"                   # private | local_only | internal | public
+    placement: dict[str, Any] = field(default_factory=dict)   # capabilities/pools/min_ram_gb/min_gpu_memory_gb/required_models/...
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if isinstance(self.risk, str) and not isinstance(self.risk, RiskTier):
             self.risk = RiskTier(self.risk)
+        if self.privacy not in ("private", "local_only", "internal", "public"):
+            raise ValueError(f"unknown privacy level {self.privacy!r}")
 
     # ------------------------------------------------------------ identity
 
@@ -159,7 +169,8 @@ class DelegationContract:
                 "deliverables": list(self.deliverables), "required_role": self.required_role,
                 "parent_id": self.parent_id, "dependencies": list(self.dependencies),
                 "escalation": self.escalation.to_dict(), "side_effect": self.side_effect,
-                "steps": [dict(s) for s in self.steps], "metadata": dict(self.metadata)}
+                "steps": [dict(s) for s in self.steps], "privacy": self.privacy,
+                "placement": dict(self.placement), "metadata": dict(self.metadata)}
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "DelegationContract":
@@ -176,7 +187,8 @@ class DelegationContract:
                    dependencies=list(raw.get("dependencies") or []),
                    escalation=EscalationPolicy.from_dict(raw.get("escalation")),
                    side_effect=bool(raw.get("side_effect", True)),
-                   steps=[dict(s) for s in raw.get("steps") or []], metadata=dict(raw.get("metadata") or {}))
+                   steps=[dict(s) for s in raw.get("steps") or []], privacy=str(raw.get("privacy", "private")),
+                   placement=dict(raw.get("placement") or {}), metadata=dict(raw.get("metadata") or {}))
 
 
 def _same_target(ref: str, target: str) -> bool:

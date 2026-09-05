@@ -84,12 +84,15 @@ class CommandCenterRuntime:
             self._thread.join(timeout=5)
 
 
-def _preview(action: TypedAction) -> str:
+def _preview(action: TypedAction, task_id: int | None = None) -> str:
     """Стабильное описание действия: по нему одобренная запись находится при
-    повторном прогоне после того, как владелец нажал «одобрить»."""
+    повторном прогоне после того, как владелец нажал «одобрить». Идентификатор
+    задачи входит в preview намеренно: одобрение привязано к задаче и не может
+    быть «подобрано» другой задачей с тем же текстом действия (аудит P0-3)."""
     args = {k: v for k, v in dict(action.args).items() if k != "expect"}
     body = json.dumps(args, ensure_ascii=False, sort_keys=True)
-    return f"v3 {action.action_type}: {body}"[:500]
+    scope = f"task#{task_id} " if task_id is not None else ""
+    return f"v3 {scope}{action.action_type}: {body}"[:500]
 
 
 # ------------------------------------------------------------------- policy
@@ -122,10 +125,11 @@ class CommandCenterApproval:
 
     def request(self, action: TypedAction, policy: PolicyDecision,
                 context: Mapping[str, Any]) -> ApprovalDecision:
-        preview = _preview(action)
+        preview = _preview(action, self.task_id)
         approved = self.rt.call(self.svc.approvals.list(status="approved", limit=500))
         for row in approved:
-            if row.get("kind") == APPROVAL_KIND and row.get("preview") == preview:
+            if row.get("kind") == APPROVAL_KIND and row.get("preview") == preview \
+                    and (row.get("task_id") in (None, self.task_id)):
                 ok = self.rt.call(self.svc.approvals.consume(row["id"], kind=APPROVAL_KIND,
                                                              preview=preview))
                 if ok:

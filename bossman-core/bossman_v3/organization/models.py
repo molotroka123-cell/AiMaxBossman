@@ -73,36 +73,38 @@ class Resources:
     compute_seconds: int = 0
     wall_seconds: int = 0
     concurrency: int = 0
+    # Hybrid Treasury (Fleet): физический ресурс локального железа стоит 0 $,
+    # но не 0 — GPU-секунды, резерв unified/GPU-памяти и сетевой трафик учитываются.
+    gpu_seconds: int = 0
+    gpu_memory_gb: float = 0.0
+    network_bytes: int = 0
+
+    _FIELDS = ("usd", "tokens", "compute_seconds", "wall_seconds", "concurrency",
+               "gpu_seconds", "gpu_memory_gb", "network_bytes")
 
     def __add__(self, other: "Resources") -> "Resources":
-        return Resources(self.usd + other.usd, self.tokens + other.tokens,
-                         self.compute_seconds + other.compute_seconds,
-                         self.wall_seconds + other.wall_seconds,
-                         self.concurrency + other.concurrency)
+        return Resources(**{f: getattr(self, f) + getattr(other, f) for f in self._FIELDS})
 
     def __sub__(self, other: "Resources") -> "Resources":
-        return Resources(max(0.0, self.usd - other.usd), max(0, self.tokens - other.tokens),
-                         max(0, self.compute_seconds - other.compute_seconds),
-                         max(0, self.wall_seconds - other.wall_seconds),
-                         max(0, self.concurrency - other.concurrency))
+        return Resources(**{f: max(0, getattr(self, f) - getattr(other, f)) for f in self._FIELDS})
 
     def fits(self, used: "Resources") -> tuple[bool, str]:
-        for name in ("usd", "tokens", "compute_seconds", "wall_seconds", "concurrency"):
+        for name in self._FIELDS:
             limit = getattr(self, name)
             if limit and getattr(used, name) > limit:
                 return False, f"{name}: {getattr(used, name)} > {limit}"
         return True, "fits"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"usd": self.usd, "tokens": self.tokens, "compute_seconds": self.compute_seconds,
-                "wall_seconds": self.wall_seconds, "concurrency": self.concurrency}
+        return {f: getattr(self, f) for f in self._FIELDS}
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any] | None) -> "Resources":
         raw = dict(raw or {})
-        return cls(float(raw.get("usd", 0.0)), int(raw.get("tokens", 0)),
-                   int(raw.get("compute_seconds", 0)), int(raw.get("wall_seconds", 0)),
-                   int(raw.get("concurrency", 0)))
+        return cls(usd=float(raw.get("usd", 0.0)), tokens=int(raw.get("tokens", 0)),
+                   compute_seconds=int(raw.get("compute_seconds", 0)), wall_seconds=int(raw.get("wall_seconds", 0)),
+                   concurrency=int(raw.get("concurrency", 0)), gpu_seconds=int(raw.get("gpu_seconds", 0)),
+                   gpu_memory_gb=float(raw.get("gpu_memory_gb", 0.0)), network_bytes=int(raw.get("network_bytes", 0)))
 
 
 # -------------------------------------------------------- departments

@@ -39,6 +39,7 @@ from .treasury import ResourceTreasury
 
 EVENT_MISSION = "events"
 TERMINAL = {TaskState.COMPLETED, TaskState.FAILED}
+MAX_INFRA_RETRIES = 2          # переносов после потери узла до эскалации владельцу
 
 
 class ReviewerPort(Protocol):
@@ -48,14 +49,29 @@ class ReviewerPort(Protocol):
 
 class ContractReviewer:
     """Ревьюер по умолчанию: детерминированная повторная валидация улик.
-    Он независим от производителя (это гарантирует marketplace) и может только
-    наложить вето — подтвердить непроверенное он не способен по построению."""
+    Независимость проверяется типизированными principal'ами (bossman.deep_fix:
+    alias одной модели под другим именем — не независимость), а не сравнением
+    строк agent_id. Ревьюер может только наложить вето — подтвердить
+    непроверенное он не способен по построению."""
+
+    def __init__(self, marketplace: CapabilityMarketplace | None = None) -> None:
+        self.marketplace = marketplace
+
+    def _principal(self, agent_id: str, role: str) -> "Principal | str":
+        from bossman.deep_fix import Principal
+        a = self.marketplace.agent(agent_id) if self.marketplace else None
+        if a is None:
+            return f"{role}:{agent_id}"
+        return Principal(principal_id=a.principal, model_id=a.model, role=role,
+                         independence_class="cross_model" if a.model else "external_tool")
 
     def review(self, contract: DelegationContract, result: WorkResult, *, reviewer_id: str,
                producer_id: str) -> ReviewVerdict:
-        independent = reviewer_id != producer_id
-        if not independent:
-            return ReviewVerdict(reviewer_id, False, "reviewer is the producer — self-review is not review",
+        from bossman.company.runtime import verifier_dependency_reason
+        why = verifier_dependency_reason(self._principal(reviewer_id, "verifier"),
+                                         self._principal(producer_id, "coder"))
+        if reviewer_id == producer_id or why:
+            return ReviewVerdict(reviewer_id, False, why or "reviewer is the producer — self-review is not review",
                                  independent=False)
         ok, errors = contract.validate(result)
         if not ok:
@@ -72,9 +88,9 @@ class OrganizationRuntime:
         self.execution = execution
         self.human_review = human_review or RecordingHumanReview()
         self.reporter = reporter
-        self.reviewer = reviewer or ContractReviewer()
         self.learning = OrganizationalLearning(store)
         self.marketplace = CapabilityMarketplace(store.agents(), self.learning)
+        self.reviewer = reviewer or ContractReviewer(self.marketplace)
         self.teams = AdaptiveTeamFormer(self.marketplace)
         self.treasury = ResourceTreasury()
         self.knowledge = ScopedKnowledge(store, failure_root=failure_root)
@@ -310,6 +326,32 @@ class OrganizationRuntime:
                            detail=result.reason)
             self.human_review.request(contract, f"lower layer waits for the owner: {result.reason}")
             self._dissolve(team, mission_id)
+            return result
+
+        # 7b. флот не смог разместить работу (нет узла / приватность / ресурсы):
+        #     это не провал исполнителя и не попытка — BLOCKED до изменения флота/решения владельца
+        if result.metadata.get("fleet_blocked"):
+            self.treasury.release(scopes, contract.budget)
+            self.store.save_work(contract, state=TaskState.PLANNED, attempts=attempts)
+            self.store.save_result(result, mission_id)
+            self._dissolve(team, mission_id)
+            return self._block(contract, result.reason, ask_owner=bool(result.metadata.get("ask_owner")), result=result)
+
+        # 7c. инфраструктурный провал (узел потерян): исполнитель не виноват,
+        #     попытка не списывается; ограниченное число переносов, потом BLOCKED
+        if result.metadata.get("infrastructure_failure"):
+            self.treasury.release(scopes, contract.budget)
+            infra = int(runtime_meta.get("infra_retries", 0)) + 1
+            contract.metadata["runtime"] = {**runtime_meta, "infra_retries": infra, "last_reason": result.reason[:500],
+                                            "failed_agents": failed_agents}
+            self.store.save_result(result, mission_id)
+            self._dissolve(team, mission_id)
+            self.store.log("work.infrastructure_failure", mission_id=mission_id, work_id=contract.work_id,
+                           detail=f"{result.reason[:200]} (infra retry {infra}/{MAX_INFRA_RETRIES})")
+            if infra > MAX_INFRA_RETRIES:
+                self.store.save_work(contract, state=TaskState.PLANNED, attempts=attempts)
+                return self._block(contract, f"infrastructure retries exhausted: {result.reason}", ask_owner=True, result=result)
+            self.store.save_work(contract, state=TaskState.PLANNED, attempts=attempts)
             return result
 
         # 8. валидация по контракту — единственный источник success
