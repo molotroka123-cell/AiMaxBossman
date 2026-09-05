@@ -409,7 +409,9 @@ def _autonomous(_args: dict) -> tuple[str, str]:
 
     Хук может только УЖЕСТОЧИТЬ решение: даже агент с правом terminal.run не
     получает AUTO на OpenCode. Ослабить может лишь явное правило пользователя
-    в `agents.permissions.tool_rules` — это осознанное решение человека.
+    в `agents.permissions.tool_rules` — это осознанное решение человека, поэтому
+    спецификации ниже объявляют `hook_is_floor=False` (P0-B: хук-константа, не
+    зависящая от аргументов; DENY при этом остаётся полом всегда).
     """
     return "ask", "запуск автономного кодинг-агента OpenCode"
 
@@ -431,7 +433,7 @@ SPECS = [
         },
         category="exec", permission="terminal.run", source="opencode",
         default_effect="ask", timeout_seconds=180.0, idempotent=False,
-        effect_hook=_autonomous),
+        effect_hook=_autonomous, hook_is_floor=False),
     ToolSpec(
         name="opencode.send",
         description=("Отправить задание в сессию OpenCode. wait=true — дождаться ответа, "
@@ -445,7 +447,7 @@ SPECS = [
         },
         required=["text"], category="exec", permission="terminal.run", source="opencode",
         default_effect="ask", timeout_seconds=900.0, idempotent=False,
-        external_output=True, effect_hook=_autonomous),
+        external_output=True, effect_hook=_autonomous, hook_is_floor=False),
     ToolSpec(
         name="opencode.status",
         description="Состояние сессии OpenCode (idle/busy/retry) и её список задач.",

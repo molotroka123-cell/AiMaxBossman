@@ -89,6 +89,11 @@ class ToolSpec:
     # решение по конкретным аргументам (например, `git push` внутри terminal.run).
     # Ослабить он не может — только явное правило пользователя.
     effect_hook: Callable[[dict], tuple[Effect, str] | None] | None = None
+    # P0-B: подсказка хука — ПОЛ политики: правило владельца (`tool_rules`) не
+    # опускает hook-ASK до AUTO (git push, network, host shell…). False — только
+    # для хуков-констант, которые лишь снимают AUTO с выданного права и по замыслу
+    # снимаются осознанным правилом владельца (OpenCode). DENY — пол всегда.
+    hook_is_floor: bool = True
     # F-013: канонизация аргументов для approval-digest (например, terminal.run
     # резолвит cwd в абсолютный путь). Одобрение привязывается к КАНОНИЧЕСКИМ
     # аргументам, и исполнение обязано резолвить их так же → «approved path ==
@@ -254,7 +259,8 @@ def decide_effect(spec: ToolSpec, args: dict, agent: dict,
       2. право агента (выдано → AUTO; опасное и не выдано → ASK);
       3. хук самого инструмента по аргументам — может только УЖЕСТОЧИТЬ
          (`git push` внутри `terminal.run` остаётся ASK даже с правом);
-      4. явное правило пользователя (`tool_rules`) — последнее слово.
+      4. явное правило пользователя (`tool_rules`) — последнее слово, но не ниже
+         пола: DENY любого слоя и подсказка хука не ослабляются (P0-B).
     """
     import fnmatch
     from .permissions import agent_allowed, is_dangerous
@@ -270,6 +276,7 @@ def decide_effect(spec: ToolSpec, args: dict, agent: dict,
         elif is_dangerous(spec.permission):
             effect, reason = "ask", f"право {spec.permission} не выдано агенту"
 
+    hint_floor: Effect | None = None
     if spec.effect_hook is not None:
         try:
             hinted = spec.effect_hook(args)
@@ -277,14 +284,30 @@ def decide_effect(spec: ToolSpec, args: dict, agent: dict,
             hinted = ("ask", f"хук политики {spec.name} упал — на всякий случай ASK")
         if hinted:
             hint_effect, hint_reason = hinted
+            if spec.hook_is_floor or hint_effect == "deny":
+                hint_floor = hint_effect if hint_effect in ("auto", "ask", "deny") else "ask"
             if _strictness(hint_effect) > _strictness(effect):
                 effect, reason = hint_effect, hint_reason
 
+    # P0-B (аудит): алгебра политики монотонна вниз. Пол = самое строгое из
+    # (a) DENY, принятого любым слоем выше, и (b) подсказки хука инструмента по
+    # аргументам (`git push`/force и т.п.). Правило пользователя может ужесточить
+    # что угодно и может снять ASK, который возник только из невыданного права
+    # или из default'а инструмента (owner-одобренные `tool_rules`, nl_permissions),
+    # но НЕ может опустить решение ниже пола: DENY ⊗ X = DENY, hook-ASK ⊗ AUTO = ASK.
+    # Исключение только явное: `hook_is_floor=False` у хука-константы (OpenCode).
+    floor: Effect = "deny" if effect == "deny" else ("auto" if hint_floor is None else hint_floor)
     for rule in (policy_rules or []):
         pat_tool = str(rule.get("tool") or rule.get("action") or "*")
         pat_res = str(rule.get("resource") or "*")
         if fnmatch.fnmatch(spec.name, pat_tool) and fnmatch.fnmatch(resource, pat_res):
-            effect = str(rule.get("effect") or effect)
+            wanted = str(rule.get("effect") or effect)
+            if _strictness(wanted) < _strictness(floor):
+                reason = (f"правило {pat_tool}/{pat_res} просит {wanted}, но пол политики — {floor}: "
+                          f"нижний слой не может ослабить решение верхнего")
+                effect = floor
+                continue
+            effect = wanted
             reason = str(rule.get("reason") or f"правило политики {pat_tool}/{pat_res}")
 
     if effect not in ("auto", "ask", "deny"):
