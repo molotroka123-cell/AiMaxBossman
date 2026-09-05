@@ -1,6 +1,7 @@
 import os
 import sys
 import argparse
+import getpass
 import httpx
 from typing import Optional
 from solders.pubkey import Pubkey
@@ -60,6 +61,13 @@ def run_setup_wizard(
     print("  SOLANA MAINNET AI VOLUME SUITE: EASY CONNECT    ")
     print("==================================================")
 
+    # Validate before network access or touching existing encrypted material.
+    master_pass = password
+    if master_pass is None and not non_interactive:
+        master_pass = getpass.getpass("Enter Master Vault Password (min 12 chars): ")
+    if not isinstance(master_pass, str) or len(master_pass) < 12:
+        raise ValueError("An explicit vault password of at least 12 characters is required")
+
     # 1. RPC Configuration
     selected_rpc = rpc_url or DEFAULT_MAINNET_RPC
     if not non_interactive and not rpc_url:
@@ -84,13 +92,6 @@ def run_setup_wizard(
         print(f"  [!] Invalid Mint address, using standard sample.")
         target_mint = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"  # ci-secret-scan: allow -- public SPL token mint address (identifier, not a key)
 
-    # 3. Vault Password
-    master_pass = password or "SuperSecretMasterPass123!"
-    if not non_interactive and not password:
-        user_pass = input("Enter Master Vault Password (min 12 chars, press Enter for default): ").strip()
-        if len(user_pass) >= 12:
-            master_pass = user_pass
-
     # 4. Generate/Load Vault
     vault_file = os.path.join(SUITE_ROOT, DEFAULT_VAULT_PATH)
     vault = SecurityKeyVault(storage_path=vault_file)
@@ -101,13 +102,8 @@ def run_setup_wizard(
         try:
             pubkeys = vault.get_public_addresses(master_pass)
             print(f"  [+] Found existing vault with {len(pubkeys)} sub-wallets.")
-        except Exception:
-            try:
-                os.remove(vault_file)
-            except OSError:
-                pass
-            print(f"\n[*] Re-encrypting {wallet_count} sub-wallets with new master password...")
-            pubkeys = vault.create_and_store_pool(wallet_count, master_pass, mode="random")
+        except Exception as exc:
+            raise RuntimeError("Cannot unlock existing vault; original file preserved") from exc
 
     # 5. Anti-Bubblemaps Transit Instructions
     print("\n--------------------------------------------------")
