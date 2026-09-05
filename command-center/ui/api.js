@@ -46,7 +46,7 @@ export class ApiError extends Error {
     this.actions = actions;
     this.path = path;
   }
-  get isAuth() { return this.status === 401 || this.status === 403; }
+  get isAuth() { return this.status === 401; }
   get isOffline() { return this.status === 0; }
 }
 
@@ -70,7 +70,7 @@ function hintFor(status) {
   return '';
 }
 
-/* Любой 401/403 — сигнал оболочке показать экран входа, откуда бы вызов ни шёл. */
+/* 401 требует входа; 403 означает отказ в действии при действующей сессии. */
 export const UNAUTHORIZED_EVENT = 'bcc:unauthorized';
 
 function notifyUnauthorized() {
@@ -110,7 +110,7 @@ async function request(method, path, body, { signal } = {}) {
   }
 
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) notifyUnauthorized();
+    if (res.status === 401) notifyUnauthorized();
     const e = data && typeof data === 'object' ? (data.error || data.detail || null) : null;
     const message = (e && typeof e === 'object' && e.message)
       || (typeof e === 'string' ? e : '')

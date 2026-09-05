@@ -178,7 +178,7 @@ function openLivePanel(id, ctx) {
     if (!urlEl.value.trim()) { toast('Введите адрес', { type: 'warn' }); return; }
     try {
       await api.raw(`/api/browser/sessions/${encodeURIComponent(id)}/act`, {
-        method: 'POST', body: { action: 'navigate', url: urlEl.value.trim(), actor: 'human', approved: true },
+        method: 'POST', body: { action: 'navigate', url: urlEl.value.trim(), actor: 'human' },
       });
       await Promise.all([refreshState(), refreshShot()]);
     } catch (e) { toastError(e, 'Не удалось перейти'); }
