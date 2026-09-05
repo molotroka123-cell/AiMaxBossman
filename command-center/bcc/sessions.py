@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import secrets
+import time
 from datetime import timedelta
 
 import sqlalchemy as sa
@@ -24,9 +25,18 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 class SessionStore:
+    # `last_seen` обновляется не чаще, чем раз в TOUCH_INTERVAL_S на сессию.
+    # Это единственная ЗАПИСЬ, которую делал каждый authenticated-запрос, а на
+    # SQLite запись сериализует всё остальное: открытие панели — это три десятка
+    # параллельных вызовов /api, и каждый ждал чужой коммит. Точность поля от
+    # прореживания не страдает: оно показывается в списке сессий и не влияет ни
+    # на срок жизни (за него отвечает expires_at), ни на отзыв.
+    TOUCH_INTERVAL_S = 60.0
+
     def __init__(self, db: Database, ttl_hours: int = 720):
         self.db = db
         self.ttl = timedelta(hours=max(1, ttl_hours))
+        self._touched: dict[str, float] = {}
 
     async def create(self, label: str = "ui") -> dict:
         sid = secrets.token_urlsafe(32)
@@ -52,13 +62,19 @@ class SessionStore:
             return None
         return row
 
-    async def touch(self, sid: str) -> None:
+    async def touch(self, sid: str, *, force: bool = False) -> None:
+        now = time.monotonic()
+        last = self._touched.get(sid)
+        if not force and last is not None and now - last < self.TOUCH_INTERVAL_S:
+            return
+        self._touched[sid] = now
         async with self.db.session() as s:
             await s.execute(sa.update(sessions_t).where(sessions_t.c.id == sid).values(
                 last_seen=utcnow()))
             await s.commit()
 
     async def revoke(self, sid: str) -> bool:
+        self._touched.pop(sid, None)
         async with self.db.session() as s:
             res = await s.execute(sa.update(sessions_t).where(sa.and_(
                 sessions_t.c.id == sid, sessions_t.c.revoked.is_(False))).values(revoked=True))
@@ -66,6 +82,7 @@ class SessionStore:
         return bool(res.rowcount)
 
     async def revoke_all(self) -> int:
+        self._touched.clear()
         async with self.db.session() as s:
             res = await s.execute(sa.update(sessions_t).where(
                 sessions_t.c.revoked.is_(False)).values(revoked=True))

@@ -87,7 +87,28 @@ function notifyUnauthorized() {
 
 /* ---------------- Транспорт ---------------- */
 
-async function request(method, path, body, { signal } = {}) {
+/* Совпадающие GET'ы, выпущенные одновременно, склеиваются в один запрос.
+
+   При открытии панели оболочка и страница обзора независимо спрашивают одно и
+   то же: /api/system уходил трижды, /api/models, /api/agents и подтверждения —
+   дважды. Это не кэш: ответ ждут те же самые вызовы, что ждали бы своего
+   запроса, и данные не могут оказаться старее, чем они получили бы сами.
+   Как только запрос завершился, запись снимается — следующий вызов пойдёт в
+   сеть заново. Изменяющие методы сюда не попадают никогда. */
+const inflight = new Map();
+
+async function request(method, path, body, opts = {}) {
+  if (method !== 'GET' || opts.signal) return rawRequest(method, path, body, opts);
+  const existing = inflight.get(path);
+  if (existing) return existing;
+  const p = rawRequest(method, path, body, opts).finally(() => {
+    if (inflight.get(path) === p) inflight.delete(path);
+  });
+  inflight.set(path, p);
+  return p;
+}
+
+async function rawRequest(method, path, body, { signal } = {}) {
   const headers = {};
   const csrf = getCsrf();
   if (csrf && UNSAFE.has(method)) headers[CSRF_HEADER] = csrf;

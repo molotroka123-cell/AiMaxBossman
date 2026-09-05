@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 90. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 91. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -28,7 +28,7 @@
 | `command-center/tests/test_smoke_live_owner.py:44` | skipif | `_port_taken()` | порт приложения занят посторонним процессом | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:23` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_testing_period.py:27` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `command-center/tests/test_testing_period.py:550` | skip | `—` | f"{tp.FLAG.split('_')[0]}: браузерное покрытие не требуется "
+| `command-center/tests/test_testing_period.py:586` | skip | `—` | f"{tp.FLAG.split('_')[0]}: браузерное покрытие не требуется "
                     f"в этом окружении (нет BCC_REQUIRE_BROWSER)" | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_ux2_desktop.py:147` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_ux2_home_attention.py:19` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -49,6 +49,7 @@
 | `command-center/tests/test_v23_secret_canary_e2e.py:91` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_v23_secret_canary_e2e.py:187` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_v26_mcp_sdk_path.py:95` | skip | `—` | пакет mcp не установлен в этом окружении | Command Center | необязательный пакет / соседний компонент | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_windows_terminal_quoting.py:13` | skipif | `os.name != "nt"` | requires native Windows cmd.exe | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_ai_lab_containment.py:73` | skip | `—` | symlink not permitted on this fs | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_apprentice_live_safety.py:74` | skip | `—` | symlink creation unavailable on this Windows account | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_browser_approvals_p1.py:58` | skipif | `not chromium_available()` | reason() | Bossman Core | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
