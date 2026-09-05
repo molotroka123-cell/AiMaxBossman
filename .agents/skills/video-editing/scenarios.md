@@ -2,6 +2,17 @@
 
 Placeholders PROJECT/CLIP/MEDIA/JOB must be replaced by IDs from inspect. Each command must match the advertised runtime schema; optional examples marked capability-dependent are rejected until supported.
 
+Executable coverage: `command-center/tests/test_video_studio_skill_scenarios.py`
+runs all twelve workflows through registered ToolSpecs, real FFmpeg media, SQLite,
+and independently verified output downloads. It evaluates the workflow contract,
+not model reasoning, visual aesthetics, speech intelligibility, or autonomy.
+Use `python -m pytest command-center/tests/test_video_studio_skill_scenarios.py -q`.
+Set `VIDEO_TEST_REAL_MEMORY=1` to exercise measured host admission; normal CI uses
+explicit deterministic admission telemetry while decoding/rendering real files.
+Queued extension and recovery tests separately cover actual local translation,
+portable import, cached proxies, scope PNGs, hardware probe, crash recovery and
+permission-preserving ordinary-agent fallback.
+
 ## 1. Склейка двух роликов
 
 Tool: `video.timeline.inspect`

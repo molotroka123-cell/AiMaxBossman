@@ -261,11 +261,25 @@ def validate_project(project):
                     if times != sorted(set(times)) or any(t > duration for t in times):
                         raise StudioError("Keyframe times must be unique, ordered and inside clip")
     sequence(project)
+    # Shared subsequences form a DAG. Enumerating every root-to-leaf path grows
+    # exponentially for a tiny diamond graph and blocks the API event loop.
+    # Tri-color traversal computes each node's longest depth once: O(V + E).
+    colors, depths = {}, {}
     for origin in nested:
-        pending = [(origin, frozenset())]
+        pending = [(origin, False)]
         while pending:
-            node, ancestors = pending.pop()
-            if node in ancestors or len(ancestors) > 16:
-                raise StudioError("Nested sequences contain a cycle or exceed depth 16")
-            pending.extend((child, ancestors | {node}) for child in nested[node])
+            node, finish = pending.pop()
+            if finish:
+                depths[node] = max((1 + depths[child] for child in nested[node]), default=0)
+                if depths[node] > 16:
+                    raise StudioError("Nested sequences exceed depth 16")
+                colors[node] = 2
+                continue
+            if colors.get(node) == 2:
+                continue
+            if colors.get(node) == 1:
+                raise StudioError("Nested sequences contain a cycle")
+            colors[node] = 1
+            pending.append((node, True))
+            pending.extend((child, False) for child in nested[node])
     return project

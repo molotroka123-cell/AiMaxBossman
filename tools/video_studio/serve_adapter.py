@@ -13,12 +13,16 @@ import os
 from pathlib import Path
 import re
 import secrets
+import subprocess
+import sys
+import tempfile
 import threading
 import time
 
 MODEL_ID = "bossman-video-lora"
 MAX_INPUT = 3500
 MAX_OUTPUT = 128
+INFERENCE_SECONDS = 85
 
 
 def digest(path):
@@ -72,6 +76,48 @@ class Runtime:
         self.tokenizer=tokenizer;self.model=model
 
     def generate(self, messages, max_tokens, stop_event):
+        """Run one fixed local worker; exiting releases Torch/CUDA and DLL memory."""
+        validate_request({"model":MODEL_ID,"messages":messages,"max_tokens":max_tokens})
+        with self.inference_lock:
+            if stop_event.is_set():raise TimeoutError("request cancelled")
+            if any(digest(path)!=expected for path,expected in self.asset_digests.items()):
+                raise ValueError("model assets changed after server initialization")
+            payload=json.dumps({"messages":messages,"max_tokens":max_tokens,
+                "assets":{str(path):value for path,value in self.asset_digests.items()}},ensure_ascii=False).encode("utf-8")
+            argv=[sys.executable,str(Path(__file__).resolve()),"--worker","--adapter",str(self.adapter),
+                  "--report",str(self.report_path),"--gpu-mib",str(self.gpu_mib)]
+            with tempfile.TemporaryFile() as output,tempfile.TemporaryFile() as errors:
+                child=subprocess.Popen(argv,stdin=subprocess.PIPE,stdout=output,stderr=errors,
+                    creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0))
+                deadline=time.monotonic()+INFERENCE_SECONDS
+                try:
+                    pending=payload
+                    while True:
+                        if stop_event.is_set() or time.monotonic()>deadline:
+                            raise TimeoutError("local inference cancelled or timed out")
+                        if os.fstat(output.fileno()).st_size>65536 or os.fstat(errors.fileno()).st_size>1024*1024:
+                            raise ValueError("local worker output exceeded its bound")
+                        try:
+                            child.communicate(input=pending,timeout=.1)
+                            break
+                        except subprocess.TimeoutExpired:
+                            pending=None
+                    if child.returncode!=0:raise ValueError("local inference worker failed")
+                    output.seek(0);raw=output.read(65537)
+                    if len(raw)>65536:raise ValueError("local worker response exceeded its bound")
+                    value=json.loads(raw)
+                    if (not isinstance(value,dict) or set(value)!={"text","prompt_tokens","output_tokens"}
+                        or not isinstance(value["text"],str) or len(value["text"])>8192
+                        or type(value["prompt_tokens"]) is not int or not 0<=value["prompt_tokens"]<=3500
+                        or type(value["output_tokens"]) is not int or not 0<=value["output_tokens"]<=max_tokens):
+                        raise ValueError("invalid local worker response")
+                    return value["text"],value["prompt_tokens"],value["output_tokens"]
+                finally:
+                    if child.poll() is None:child.kill()
+                    child.communicate()
+
+    def _generate_local(self, messages, max_tokens, stop_event):
+        # Only the short-lived --worker process imports the heavyweight runtime.
         import torch
         from transformers import StoppingCriteria,StoppingCriteriaList
         class Cancelled(StoppingCriteria):
@@ -196,9 +242,24 @@ def main():
     parser.add_argument("--adapter",type=Path,required=True);parser.add_argument("--report",type=Path,required=True)
     parser.add_argument("--port",type=int,default=8879);parser.add_argument("--token-file",type=Path)
     parser.add_argument("--gpu-mib",type=int,default=2048)
+    parser.add_argument("--worker",action="store_true",help=argparse.SUPPRESS)
     args=parser.parse_args()
     if not 1024<=args.port<=65535:parser.error("port must be 1024..65535")
     runtime=Runtime(args.adapter,args.report,args.gpu_mib)
+    if args.worker:
+        raw=sys.stdin.buffer.read(20001)
+        if len(raw)>20000:raise ValueError("worker request too large")
+        request=json.loads(raw)
+        if set(request)!={"messages","max_tokens","assets"}:raise ValueError("invalid worker request")
+        if request["assets"]!={str(path):value for path,value in runtime.asset_digests.items()}:
+            raise ValueError("worker assets differ from the reviewed parent snapshot")
+        messages,maximum=validate_request({"model":MODEL_ID,"messages":request["messages"],"max_tokens":request["max_tokens"]})
+        # Framework diagnostics cannot corrupt the machine-readable response.
+        from contextlib import redirect_stdout
+        with redirect_stdout(sys.stderr):
+            text,prompt_tokens,output_tokens=runtime._generate_local(messages,maximum,threading.Event())
+        sys.stdout.buffer.write(json.dumps({"text":text,"prompt_tokens":prompt_tokens,"output_tokens":output_tokens},ensure_ascii=False).encode("utf-8"))
+        return
     token=token_file(args.token_file or args.report.parent/"server.token")
     import uvicorn
     uvicorn.run(create_app(runtime,token),host="127.0.0.1",port=args.port,access_log=False,proxy_headers=False,limit_concurrency=4)

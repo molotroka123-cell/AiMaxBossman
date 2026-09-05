@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ticks, seconds, duration, timecode, snapTime, commandEnvelope, filterMedia, activeSequence, selectedClip } from '../pages/video_studio_state.js';
+import { ticks, seconds, duration, timecode, snapTime, commandEnvelope, filterMedia, activeSequence, selectedClip, exportOptions, captionText, proposalBindingMatches } from '../pages/video_studio_state.js';
 
 test('microsecond times preserve precise fractional source boundaries', () => {
   assert.equal(ticks('1.000001'), 1000001); assert.equal(seconds(1000001), 1.000001);
@@ -36,4 +36,37 @@ test('media library searches tags, filters folders and sorts metadata without mu
   assert.deepEqual(filterMedia(media, '', 'two').map(m => m.id), ['b']);
   assert.deepEqual(filterMedia(media, '', '', 'duration').map(m => m.id), ['b', 'a']);
   assert.deepEqual(Object.keys(media), ['a', 'b']);
+});
+
+test('Reels and square profiles retain backend dimensions unless explicitly overridden', () => {
+  for (const profile of ['reels', 'square']) {
+    const options = exportOptions({ profile, width: '', height: '', crf: '20' });
+    assert.equal(options.profile, profile); assert.equal('width' in options, false); assert.equal('height' in options, false);
+  }
+  assert.equal(exportOptions({ profile: 'reels', width: '720', height: '1280' }).height, 1280);
+  assert.throws(() => exportOptions({ width: '721' }));
+});
+test('export exact FPS and selected range are validated without replacing full export with a range', () => {
+  const options = exportOptions({ fps_num: '30000', fps_den: '1001', range_mode: 'range', range_start: '0.000001', range_end: '1.000001' });
+  assert.deepEqual(options.fps, { num: 30000, den: 1001 }); assert.deepEqual(options.range, { start: 1, end: 1000001 });
+  assert.equal('range' in exportOptions({ range_mode: 'all', range_start: 1, range_end: 0 }), false);
+  assert.throws(() => exportOptions({ range_mode: 'range', range_start: 1, range_end: 0 }));
+  assert.throws(() => exportOptions({ fps_num: '25', fps_den: '0' }));
+});
+
+test('VTT timestamp conversion preserves comma decimals inside caption text', () => {
+  const cues = [{ start: 1234000, end: 2000000, text: 'Цена 1,234. Привет!' }];
+  const vtt = captionText(cues, 'vtt');
+  assert.match(vtt, /00:00:01\.234 --> 00:00:02\.000/); assert.match(vtt, /Цена 1,234/);
+  assert.match(captionText(cues), /00:00:01,234/);
+  assert.throws(() => captionText([{ start: 1, end: 0, text: 'bad' }]));
+});
+
+test('late model drafts cannot cross projects even when imported clip IDs and revisions coincide', () => {
+  const request = { projectId: 'original', revision: 7, selected: 'retained-clip-id', draftText: 'human draft' };
+  assert.equal(proposalBindingMatches(request, { id: 'original', revision: 7 }, request.selected, request.draftText), true);
+  assert.equal(proposalBindingMatches(request, { id: 'copy', revision: 7 }, request.selected, request.draftText), false);
+  assert.equal(proposalBindingMatches(request, { id: 'original', revision: 8 }, request.selected, request.draftText), false);
+  assert.equal(proposalBindingMatches(request, { id: 'original', revision: 7 }, 'different', request.draftText), false);
+  assert.equal(proposalBindingMatches(request, { id: 'original', revision: 7 }, request.selected, 'edited'), false);
 });

@@ -116,7 +116,9 @@ async def _video_admit(svc, task, run, policy):
         options=row.get("options") or {}
         width=int(options.get("width") or seq["width"])
         height=int(options.get("height") or seq["height"])
+        profile_pixels={"youtube":1920*1080,"reels":1080*1920,"square":1080*1080}.get(options.get("profile"),0)
         pixels=max(width*height,seq["width"]*seq["height"],
+                   profile_pixels,
                    max((int(m.get("width") or 0)*int(m.get("height") or 0) for m in snapshot["media"].values()),default=0))
         need=max(512,min(8192,512+int(pixels*4*16/1024**2)))
         if task.get("kind")=="video_analysis" and (row.get("options") or {}).get("action")=="transcribe":
@@ -126,6 +128,8 @@ async def _video_admit(svc, task, run, policy):
             if not model_path.is_file():
                 return {"fail":"ASR local model is not configured"}
             need=max(need,512+int(model_path.stat().st_size*3/1024**2))
+        if task.get("kind")=="video_analysis" and options.get("action")=="translate":
+            need=max(need,1536)
         held=(await session.execute(sa.select(res_t).where(res_t.c.status=="held"))).mappings().all()
         mine=next((r for r in held if r["holder_kind"]=="video_job" and r["holder_id"]==task["id"]),None)
         if mine:
@@ -153,7 +157,7 @@ async def _before_run(svc):
     async def before_run(task, run):
         policy = await _policy(svc)
         meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
-        if task.get("kind") in ("video_render","video_analysis","video_package","video_proposal"):
+        if task.get("kind") in ("video_render","video_analysis","video_package","video_import","video_proposal"):
             return await _video_admit(svc,task,run,policy)
         if not (policy.get("enforce") or meta.get("resource_managed")):
             return None                       # управление памятью выключено — не мешаем
@@ -205,10 +209,12 @@ async def _tick(svc):
             res_t.c.expires_at < now))).fetchall()
     for r in stale:
         async with svc.db.session() as s:
-            await s.execute(sa.update(res_t).where(res_t.c.id == r._mapping["id"]).values(
+            changed=await s.execute(sa.update(res_t).where(res_t.c.id == r._mapping["id"],
+                res_t.c.status=="held",res_t.c.expires_at<now).values(
                 status="expired", released_at=utcnow()))
             await s.commit()
-        await svc.bus.emit("resource.released", reservation_id=r._mapping["id"], expired=True)
+        if changed.rowcount:
+            await svc.bus.emit("resource.released", reservation_id=r._mapping["id"], expired=True)
 
 
 async def _setup(svc):

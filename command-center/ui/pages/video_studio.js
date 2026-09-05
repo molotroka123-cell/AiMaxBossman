@@ -1,7 +1,7 @@
 /* Bossman Video Studio. Human and agent share the revision-guarded command API. */
 import { api, listOf } from '../api.js';
 import { h, toastError } from '../components.js';
-import { TIMEBASE, ticks, seconds, duration, activeSequence, selectedClip, endTime, snapTime, timecode, commandEnvelope, filterMedia } from './video_studio_state.js';
+import { TIMEBASE, ticks, seconds, duration, activeSequence, selectedClip, endTime, snapTime, timecode, commandEnvelope, filterMedia, exportOptions, captionText, proposalBindingMatches } from './video_studio_state.js';
 
 const BASE = '/api/video-studio';
 const uid = () => crypto.randomUUID();
@@ -9,6 +9,8 @@ const readPreference = (key, fallback) => { try { return JSON.parse(localStorage
 const preference = (key, value) => { try { localStorage.setItem(`vs.${key}`, JSON.stringify(value)); } catch { /* storage optional */ } };
 let editor;
 const RU_LABELS = { 'Timeline, s': 'Позиция, с', 'Source in, s': 'Начало исходника, с', 'Source out, s': 'Конец исходника, с', brightness: 'Яркость', contrast: 'Контраст', saturation: 'Насыщенность', gamma: 'Гамма', x: 'Позиция X', y: 'Позиция Y', scale: 'Масштаб', rotation: 'Поворот', opacity: 'Непрозрачность', Volume: 'Громкость', Pan: 'Панорама', 'Speed ×': 'Скорость ×', Reverse: 'Реверс', 'Freeze frame': 'Стоп-кадр', 'Source second': 'Позиция в исходнике, с', 'Duration, s': 'Длительность, с', 'Delta, s': 'Сдвиг, с', Width: 'Ширина', Height: 'Высота', 'Font size': 'Размер шрифта', Color: 'Цвет', Kind: 'Тип', Profile: 'Профиль', 'Quality (CRF)': 'Качество (CRF)', 'Start, s': 'Начало, с', 'End, s': 'Конец, с', Parameter: 'Параметр', Value: 'Значение', 'Clip-local seconds': 'Время внутри клипа, с', Easing: 'Интерполяция', 'RGB curves': 'Кривые RGB', 'Color balance': 'Баланс цвета', 'Chroma key': 'Хромакей', Mask: 'Маска', 'Stabilize (deshake)': 'Стабилизация (deshake)', 'Sequence settings': 'Параметры секвенции', 'Duplicate sequence': 'Дублировать секвенцию', 'Imported replacement': 'Импортированная замена', Relink: 'Перепривязка', 'Render progress': 'Прогресс рендера', fade_in: 'Появление', fade_out: 'Исчезновение', audio_fade_in: 'Нарастание звука', audio_fade_out: 'Затухание звука', equalizer: 'Эквалайзер', compressor: 'Компрессор', limiter: 'Лимитер', denoise: 'Шумоподавление', loudnorm: 'Нормализация громкости', slip: 'Сдвиг содержимого', slide: 'Сдвиг клипа с подрезкой', 'Enable / disable': 'Включить / выключить' };
+
+Object.assign(RU_LABELS, { 'FPS numerator': 'FPS: числитель', 'FPS denominator': 'FPS: знаменатель', 'Video codec': 'Видеокодек', 'Audio codec': 'Аудиокодек', Container: 'Контейнер', 'Video bitrate (optional, 4M)': 'Видеобитрейт (необязательно, 4M)', 'Audio bitrate': 'Аудиобитрейт', 'Export area': 'Область экспорта', 'Encoding mode': 'Режим кодирования', Font: 'Шрифт', Transform: 'Преобразование', 'Crop left': 'Обрезка слева', 'Crop top': 'Обрезка сверху', 'Crop right': 'Обрезка справа', 'Crop bottom': 'Обрезка снизу', Scope: 'Вид измерения', prepare: 'Подготовка медиа', scope: 'Scopes: снимок', hardware_probe: 'Проверка кодека', translate: 'Перевод EN → RU', search: 'Поиск по тексту', broll: 'Подбор B-roll', duplicates: 'Поиск дублей', portable_import: 'Восстановление ZIP', frequency: 'Частота', width: 'Ширина полосы', gain: 'Усиление', threshold: 'Порог', ratio: 'Степень сжатия', attack: 'Атака, мс', release: 'Восстановление, мс', integrated: 'Целевая громкость LUFS', true_peak: 'Истинный пик dBTP', range: 'Диапазон LRA', reduction: 'Подавление, дБ', limit: 'Предел', duration: 'Длительность, с', Similarity: 'Сходство', Blend: 'Смешивание', Shape: 'Форма', Radius: 'Радиус', 'Points 0..1': 'Точки 0..1', Seconds: 'Секунды' });
 
 const TEXT = {
   ru: { media: 'Медиа', properties: 'Свойства', montage: 'Монтаж', color: 'Цвет', audio: 'Звук', vfx: 'VFX', ai: 'ИИ', import: 'Импорт', export: 'Экспорт', preview: 'Создать preview', project: 'Проект', create: 'Новый проект', open: 'Открыть', rename: 'Переименовать', duplicate: 'Дублировать', archive: 'Архивировать', search: 'Поиск файлов и тегов', all: 'Все папки', name: 'Название', duration: 'Длительность', size: 'Размер', empty: 'Ваш следующий монтаж начинается здесь', emptyHelp: 'Создайте проект и импортируйте исходники. Видео остаётся локально.', drop: 'Перетащите видео, аудио или изображения', noMedia: 'Исходники ещё не импортированы', addTrack: 'Дорожка', split: 'Разрезать', remove: 'Удалить', undo: 'Отменить', redo: 'Повторить', marker: 'Маркер', snap: 'Привязка', range: 'Диапазон', refresh: 'Обновить', saved: 'Сохранено', select: 'Выберите клип на таймлайне', apply: 'Применить', dry: 'Проверить изменения', history: 'История', commands: 'Команды', assistant: 'Bossman AI', proposal: 'Предлагаемые изменения', explain: 'Агент использует те же команды. Сначала проверьте план, затем примените его к текущей revision.', local: 'Локально · без передачи исходников', missing: 'Исходник недоступен', busy: 'Выполняется', cancel: 'Отмена', reset: 'Сбросить раскладку', noPreview: 'Предпросмотр проекта ещё не создан', previewHint: 'Выберите исходник или создайте preview текущей версии.', revisions: 'Версии', title: 'Титр', advanced: 'Расширенная команда', close: 'Закрыть', fullscreen: 'Полный экран', source: 'Исходник', output: 'Результат', conflict: 'Конфликт версии. Изменения не применены; обновите проект и проверьте план снова.', load: 'Загрузка…', folder: 'Папка', tags: 'Теги', add: 'На таймлайн', effect: 'Эффект', keyframe: 'Ключевой кадр', download: 'Скачать файл', verified: 'Проверено', unknown: 'Исход неизвестен', bounds: 'Начало / конец, секунды', inspect: 'Свойства источника', portable: 'Переносимый проект', timeline: 'Таймлайн', fit: 'По размеру', start: 'Начать', selectProject: 'Выберите проект', failure: 'Ошибка', lock: 'Заблокировать', agentUndo: 'Отменить последнюю операцию', changes: 'Изменённые объекты', warning: 'Предупреждения', current: 'Текущая версия', compare: 'Сравнить', unavailable: 'Недоступно', captions: 'Субтитры' },
@@ -45,7 +47,7 @@ class Editor {
     if (!this.project || this.busy || this.dragging) return;
     const next = await api.raw(`${BASE}/projects/${encodeURIComponent(this.project.id)}`);
     if (next.revision !== this.project.revision) {
-      if (this.root.contains(document.activeElement) && document.activeElement.matches('input,textarea,select')) {
+      if (document.querySelector('dialog.vs-dialog[open]') || (this.root.contains(document.activeElement) && document.activeElement.matches('input,textarea,select'))) {
         this.remoteChange = true; return; // Retain the edit's original revision; never overwrite concurrent work.
       }
       this.project = next; this.review = null; this.paint();
@@ -64,6 +66,7 @@ class Editor {
     this.project = await api.raw(`${BASE}/projects/${encodeURIComponent(id)}`);
     if (!this.projects.some(p => p.id === id)) this.projects.push(this.project);
     this.selected = null; this.selectedIds.clear(); this.mediaSelection = null; this.previewUrl = ''; this.review = null; this.playhead = 0; this.timelineOffset = { left: 0, top: 0 };
+    this.proposing = false; this.proposalStatus = ''; this.draftRaw = '';
     preference('project', id); this.params.project_id = id; this.jobs.clear(); await this.restoreJobs();
     history.replaceState(null, '', `#/video-studio?project_id=${encodeURIComponent(id)}`); this.paint();
   }
@@ -74,6 +77,7 @@ class Editor {
     for (const field of fields) {
       const input = field.options ? h('select', ...field.options.map(x => h('option', { value: typeof x === 'string' ? x : x.value, selected: (typeof x === 'string' ? x : x.value) === field.value }, typeof x === 'string' ? x : x.label)))
         : h(field.multiline ? 'textarea' : 'input', { type: field.type || 'text', value: field.value ?? '', required: !!field.required, min: field.min, max: field.max, step: field.step ?? 'any', rows: field.multiline ? 5 : null });
+      input.setAttribute('aria-label', this.label(field.label));
       inputs[field.key] = input; body.append(h('label.vs-field', h('span', this.label(field.label)), input));
     }
     body.append(h('button.vs-button.vs-primary', { type: 'submit' }, this.t('apply'))); dialog.append(body); document.body.append(dialog);
@@ -87,6 +91,11 @@ class Editor {
   }
   paint() {
     if (this.disposed) return;
+    if (this.project) {
+      this.selectedIds = new Set([...this.selectedIds].filter(id => selectedClip(this.project, id)));
+      if (this.selected && !selectedClip(this.project, this.selected)) this.selected = null;
+      if (this.mediaSelection && !this.project.media[this.mediaSelection]) this.mediaSelection = null;
+    }
     const oldScroll = this.root.querySelector('.vs-timeline-scroll'); const scrollLeft = oldScroll?.scrollLeft || 0; const scrollTop = oldScroll?.scrollTop || 0;
     this.root.style.setProperty('--vs-library', `${this.layout.library}px`); this.root.style.setProperty('--vs-inspector', `${this.layout.inspector}px`);
     this.root.style.setProperty('--vs-timeline', `${this.layout.timeline}px`);
@@ -136,9 +145,9 @@ class Editor {
       h('div.vs-library-filters', h('select', { 'aria-label': this.t('folder'), onChange: e => { this.folder = e.target.value; this.paint(); } }, h('option', { value: '' }, this.t('all')), ...folders.map(f => h('option', { value: f, selected: f === this.folder }, f))),
         h('select', { 'aria-label': 'Sort', onChange: e => { this.sort = e.target.value; this.paint(); } }, ...['name', 'duration', 'size'].map(k => h('option', { value: k, selected: this.sort === k }, this.t(k))))),
       h('div.vs-media-grid', ...media.map(m => h('article.vs-media-card', { tabindex: '0', draggable: true, class: this.mediaSelection === m.id ? 'selected' : '',
-        onDragstart: e => e.dataTransfer.setData('application/bossman-media', m.id), onClick: () => { this.mediaSelection = m.id; this.selected = null; this.paint(); },
+        onDragstart: e => e.dataTransfer.setData('application/bossman-media', m.id), onClick: () => { this.mediaSelection = m.id; this.selected = null; this.selectedIds.clear(); this.paint(); },
         onDblclick: () => this.guard(() => this.addMedia(m.id)), onContextmenu: e => { e.preventDefault(); this.mediaMenu(m); } },
-        h('div.vs-thumb', m.has_video || m.width ? h('img', { src: `${BASE}/media/${encodeURIComponent(m.id)}/thumbnail?project_id=${encodeURIComponent(this.project.id)}`, alt: '', loading: 'lazy', onError: e => { e.target.hidden = true; } }) : h('span', '♫'), h('span.vs-duration', timecode(m.duration_ticks, m.fps))),
+        h('div.vs-thumb', m.has_video || m.width ? h('img', { src: `${BASE}/media/${encodeURIComponent(m.id)}/thumbnail?project_id=${encodeURIComponent(this.project.id)}&source=${encodeURIComponent(m.sha256)}`, alt: '', loading: 'lazy', onError: e => { e.target.hidden = true; } }) : h('span', '♫'), h('span.vs-duration', timecode(m.duration_ticks, m.fps))),
         h('div.vs-media-name', { title: m.name }, m.name), h('div.vs-media-meta', m.has_video ? `${m.width}×${m.height}` : `${m.sample_rate || '—'} Hz`, m.tags?.length ? ` · ${m.tags.join(', ')}` : '')))),
       !media.length ? h('div.vs-library-empty', h('span', '⇩'), h('p', this.t('noMedia')), h('small', this.t('drop'))) : null,
       this.uploadStage ? h('div.vs-stage', { role: 'status' }, this.uploadStage) : null);
@@ -152,6 +161,7 @@ class Editor {
       try { data = await api.raw(`${BASE}/media?${query}`, { method: 'POST', body: file }); }
       catch (error) { this.uploadStage = ''; throw error; }
       this.project = data.project;
+      if (data.media?.id) await this.analyse(data.media.id, 'prepare');
     }
     this.uploadStage = ''; this.paint();
   }
@@ -167,7 +177,7 @@ class Editor {
   }
   preview() {
     const media = this.project.media[this.mediaSelection];
-    const url = media ? `${BASE}/media/${encodeURIComponent(media.id)}/file?project_id=${encodeURIComponent(this.project.id)}` : this.previewUrl;
+    const url = media ? `${BASE}/media/${encodeURIComponent(media.id)}/${this.sourceProxy && media.has_video ? 'proxy' : 'file'}?project_id=${encodeURIComponent(this.project.id)}&source=${encodeURIComponent(media.sha256)}` : this.previewUrl;
     const stage = h('div.vs-preview-stage');
     if (url) {
       const player = h(media && !media.has_video && media.width ? 'img' : 'video', { src: url, controls: true, preload: 'metadata', playsinline: true, 'aria-label': this.t('preview'),
@@ -182,6 +192,9 @@ class Editor {
         this.button('▶', () => this.togglePlay()), this.button('▶│', () => this.seek(endTime(this.project))), h('span', timecode(endTime(this.project), activeSequence(this.project).fps)),
         this.button('⛶', () => stage.requestFullscreen(), { title: this.t('fullscreen') })),
       h('div.vs-preview-actions', this.button(this.t('preview'), () => { this.mediaSelection = null; return this.startExport(true); }, { disabled: this.busy || !endTime(this.project) }), h('small', `${activeSequence(this.project).width}×${activeSequence(this.project).height} · ${activeSequence(this.project).fps.num}/${activeSequence(this.project).fps.den} fps`)),
+      media ? h('div.vs-preview-actions', this.button(this.lang === 'ru' ? 'Подготовить прокси / волну' : 'Prepare proxy / waveform', () => this.analyse(media.id, 'prepare')),
+        media.has_video ? this.button(this.sourceProxy ? 'Proxy ✓' : 'Proxy', () => { this.sourceProxy = !this.sourceProxy; this.paint(); }, { 'aria-pressed': !!this.sourceProxy }) : null) : null,
+      media?.has_audio ? h('div.vs-source-waveform', h('small', this.lang === 'ru' ? 'Аудиоволна исходника · весь файл' : 'Source waveform · whole file'), h('img', { src: `${BASE}/media/${encodeURIComponent(media.id)}/waveform?project_id=${encodeURIComponent(this.project.id)}&source=${encodeURIComponent(media.sha256)}`, alt: this.lang === 'ru' ? 'Аудиоволна исходника' : 'Source waveform', onError: e => e.target.replaceWith(h('small', this.lang === 'ru' ? 'Сначала подготовьте аудиоволну.' : 'Prepare the waveform first.')) })) : null,
       this.jobList());
   }
   togglePlay() { const player = this.root.querySelector('.vs-preview video'); if (player) { if (player.paused) return player.play(); player.pause(); } }
@@ -197,7 +210,9 @@ class Editor {
         this.button(this.lang === 'ru' ? 'Перепривязать' : 'Relink', () => this.form('Relink', [{ key: 'replacement_media_id', label: 'Imported replacement', options: Object.values(this.project.media).filter(m => m.id !== media.id).map(m => ({ value: m.id, label: m.name })) }], async f => {
           const result = await api.raw(`${BASE}/media/relink`, { method: 'POST', body: { project_id: this.project.id, media_id: media.id, replacement_media_id: f.replacement_media_id, expected_revision: this.project.revision, operation_id: uid() } }); this.project = result.project; this.paint();
         }))));
-      else panel.append(h('p.vs-muted', this.t('select'))); return panel;
+      else panel.append(h('p.vs-muted', this.t('select')));
+      if (this.workspace === 'ai') panel.append(this.aiSearchControls());
+      return panel;
     }
     const { clip, track } = selected;
     const body = h('div.vs-inspector-body');
@@ -207,14 +222,21 @@ class Editor {
     body.append(number('Timeline, s', seconds(clip.start), n => this.command({ type: 'clip.move', clip_id: clip.id, start: ticks(n) }), { min: 0 }),
       number('Source in, s', seconds(clip.source_in), n => this.command({ type: 'clip.trim', clip_id: clip.id, source_in: ticks(n) }), { min: 0 }),
       number('Source out, s', seconds(clip.source_out), n => this.command({ type: 'clip.trim', clip_id: clip.id, source_out: ticks(n) }), { min: 0 }));
-    const transform = h('details', { open: ['montage', 'vfx'].includes(this.workspace) }, h('summary', 'Transform'));
+    const transform = h('details', { open: ['montage', 'vfx'].includes(this.workspace) }, h('summary', this.label('Transform')));
     for (const [key, fallback] of Object.entries({ x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 })) transform.append(number(key, clip.transform?.[key] ?? fallback,
       n => this.command({ type: 'clip.transform', clip_id: clip.id, patch: { [key]: n } }), key === 'opacity' ? { min: 0, max: 1, step: .05 } : {}));
+    const crop = h('details', h('summary', this.lang === 'ru' ? 'Обрезка кадра · доли 0–1' : 'Crop · fractions 0–1'));
+    for (const [index, key] of ['left', 'top', 'right', 'bottom'].entries()) crop.append(number(`Crop ${key}`, clip.transform?.crop?.[index] || 0, n => { const values = [...(clip.transform?.crop || [0, 0, 0, 0])]; values[index] = n; return this.command({ type: 'clip.transform', clip_id: clip.id, patch: { crop: values } }); }, { min: 0, max: .99, step: .01 }));
+    transform.append(crop);
     body.append(transform, this.workspaceControls(clip, number));
     body.append(h('details', { open: true }, h('summary', this.t('effect')), ...(clip.effects || []).map(effect => h('div.vs-effect', h('strong', effect.type), h('small', JSON.stringify(effect.params)),
       this.button(effect.enabled ? '◉' : '○', () => this.command({ type: 'effect.apply', clip_id: clip.id, effect: { ...effect, enabled: !effect.enabled } }), { title: 'Enable / disable' }),
       this.button('×', () => this.command({ type: 'effect.remove', clip_id: clip.id, effect_id: effect.id }), { title: this.t('remove') }))),
       this.button(`＋ ${this.t('effect')}`, () => this.effectDialog(clip)), this.button(`◇ ${this.t('keyframe')}`, () => this.keyframeDialog(clip))));
+    body.append(h('details.vs-keyframes', h('summary', this.t('keyframe')),
+      ...Object.entries(clip.keyframes || {}).flatMap(([param, frames]) => frames.map(frame => h('div.vs-effect',
+        h('span', `${param} · ${seconds(frame.t)} s · ${frame.value} · ${frame.easing}`),
+        this.button('×', () => this.command({ type: 'keyframe.remove', clip_id: clip.id, param, t: frame.t }), { title: this.t('remove') }))))));
     body.append(h('div.vs-inspector-tools', this.button(this.t('split'), () => this.command({ type: 'clip.split', clip_id: clip.id, at: this.playhead }), { disabled: track.locked }),
       this.button(this.t('remove'), () => this.command({ type: 'clip.remove', clip_id: clip.id }), { disabled: track.locked }),
       this.button(this.t('advanced'), () => this.palette({ type: 'clip.transform', clip_id: clip.id, patch: {} }))));
@@ -235,11 +257,19 @@ class Editor {
       controls.append(this.button('RGB curves', () => this.form('RGB curves', [{ key: 'params', label: 'Points 0..1', value: '{"master":[[0,0],[0.5,0.5],[1,1]]}', multiline: true }], f => effect('curves', JSON.parse(f.params)))),
         this.button('LUT .cube', () => this.form('LUT .cube', [{ key: 'cube_text', label: 'LUT_3D_SIZE + RGB samples', multiline: true }], f => effect('lut3d', f))),
         this.button('Color balance', () => this.form('Color balance', ['rs', 'gs', 'bs', 'rm', 'gm', 'bm', 'rh', 'gh', 'bh'].map(key => ({ key, label: key, type: 'number', min: -1, max: 1, value: 0 })), f => effect('colorbalance', Object.fromEntries(Object.entries(f).map(([k, v]) => [k, Number(v)]))))));
+      controls.append(this.button(this.lang === 'ru' ? 'Scopes · снимок исходника' : 'Scopes · source snapshot', () => this.form('Scopes', [{ key: 'scope_kind', label: 'Scope', options: ['waveform', 'histogram', 'vectorscope'] }, { key: 'source_in', label: 'Source second', type: 'number', min: 0, value: seconds(clip.source_in) }], f => this.analyse(clip.media_id, 'scope', { scope_kind: f.scope_kind, source_in: ticks(f.source_in) })), { disabled: !clip.media_id }));
+      const scope = [...this.jobs.values()].reverse().find(job => job.action === 'scope' && job.status === 'completed' && job.output_url && job.analysis?.source_sha256 === this.project.media[clip.media_id]?.sha256);
+      if (scope) controls.append(h('figure.vs-scope', h('img', { src: scope.output_url, alt: 'Source scope snapshot' }), h('figcaption', this.lang === 'ru' ? 'Измеренный снимок исходника, не live preview' : 'Measured source snapshot, not live preview'), h('details', h('summary', 'Source / time / SHA256'), h('pre', JSON.stringify(scope.analysis, null, 2)))));
     } else if (this.workspace === 'audio') {
       controls.append(h('h3', this.t('audio')), number('Volume', clip.volume ?? 1, value => this.command({ type: 'clip.audio', clip_id: clip.id, patch: { volume: value } }), { min: 0, max: 16 }),
         number('Pan', clip.pan ?? 0, value => this.command({ type: 'clip.audio', clip_id: clip.id, patch: { pan: value } }), { min: -1, max: 1 }));
       const presets = { loudnorm: { integrated: -16, true_peak: -1, range: 11 }, denoise: { reduction: 12 }, limiter: { limit: .95 }, compressor: { threshold: .125, ratio: 4, attack: 20, release: 250 }, equalizer: { frequency: 1000, width: 1, gain: 0 }, audio_fade_in: { duration: .5 }, audio_fade_out: { duration: .5 } };
       for (const [name, params] of Object.entries(presets)) controls.append(this.button(name, () => this.form(name, Object.entries(params).map(([key, value]) => ({ key, label: key, type: 'number', value })), f => effect(name, Object.fromEntries(Object.entries(f).map(([k, v]) => [k, Number(v)]))))));
+      controls.append(h('h3', this.lang === 'ru' ? 'Микшер дорожек' : 'Track mixer'), ...activeSequence(this.project).tracks.map(track => h('div.vs-mixer-strip', h('strong', track.name),
+        number('Volume', track.volume ?? 1, value => this.command({ type: 'track.update', track_id: track.id, patch: { volume: value } }), { min: 0, max: 16 }),
+        number('Pan', track.pan ?? 0, value => this.command({ type: 'track.update', track_id: track.id, patch: { pan: value } }), { min: -1, max: 1 }),
+        this.button('M', () => this.command({ type: 'track.update', track_id: track.id, patch: { mute: !track.mute } }), { 'aria-pressed': track.mute }),
+        this.button('S', () => this.command({ type: 'track.update', track_id: track.id, patch: { solo: !track.solo } }), { 'aria-pressed': track.solo }))));
     } else if (this.workspace === 'vfx') {
       controls.append(h('h3', 'VFX'), this.button('Chroma key', () => this.form('Chroma key', [{ key: 'color', label: 'RGB hex', value: '00FF00' }, { key: 'similarity', label: 'Similarity', value: .1, min: .01, max: 1, type: 'number' }, { key: 'blend', label: 'Blend', value: .05, min: 0, max: 1, type: 'number' }], f => effect('chroma', { color: f.color, similarity: Number(f.similarity), blend: Number(f.blend) }))),
         this.button('Mask', () => this.form('Mask', [{ key: 'shape', label: 'Shape', options: ['rectangle', 'circle'] }, { key: 'x', label: 'x (0..1)', type: 'number', value: 0 }, { key: 'y', label: 'y (0..1)', type: 'number', value: 0 }, { key: 'width', label: 'Width (0..1)', type: 'number', value: 1 }, { key: 'height', label: 'Height (0..1)', type: 'number', value: 1 }, { key: 'radius', label: 'Radius', type: 'number', value: .5 }], f => effect('mask', Object.fromEntries(Object.entries(f).map(([k, v]) => [k, k === 'shape' ? v : Number(v)]))))));
@@ -251,6 +281,7 @@ class Editor {
         this.button(this.lang === 'ru' ? 'Найти сцены и паузы' : 'Find scenes and pauses', () => this.analyse(mediaId, 'analyse'), { disabled: !mediaId }),
         this.button(this.lang === 'ru' ? 'Распознать речь' : 'Transcribe speech', () => this.analyse(mediaId, 'transcribe'), { disabled: !mediaId || this.capabilities?.transcription?.status !== 'AVAILABLE', title: this.capabilities?.transcription?.reason }),
         h('p.vs-muted', this.capabilities?.transcription?.reason || ''), h('div.vs-effect', h('strong', this.lang === 'ru' ? 'Генерация изображений / видео' : 'Image / video generation'), h('p', this.capabilities?.generation?.reason || this.t('unavailable'))));
+      controls.append(this.aiSearchControls());
     } else {
       controls.append(number('Speed ×', (clip.speed?.num || 1) / (clip.speed?.den || 1), value => this.command({ type: 'clip.speed', clip_id: clip.id, speed: { num: Math.round(value * 1000), den: 1000 } }), { min: .01, max: 100 }),
         this.button('Reverse', () => this.command({ type: 'clip.reverse', clip_id: clip.id, reverse: !clip.reverse }), { class: clip.reverse ? 'active' : '' }),
@@ -262,6 +293,29 @@ class Editor {
   keyframeDialog(clip) {
     this.form(this.t('keyframe'), [{ key: 'param', label: 'Parameter', value: 'opacity', options: ['x', 'y', 'scale', 'rotation', 'opacity', 'volume'] }, { key: 't', label: 'Clip-local seconds', type: 'number', min: 0, value: seconds(Math.max(0, this.playhead - clip.start)) }, { key: 'value', label: 'Value', type: 'number', value: 1 }, { key: 'easing', label: 'Easing', options: ['linear', 'hold', 'ease_in', 'ease_out', 'ease_in_out'] }],
       f => this.command({ type: 'keyframe.set', clip_id: clip.id, param: f.param, t: ticks(f.t), value: Number(f.value), easing: f.easing }));
+  }
+  aiSearchControls() {
+    const mediaId = this.mediaSelection || selectedClip(this.project, this.selected)?.clip.media_id || Object.keys(this.project.media)[0];
+    const panel = h('div.vs-search-tools', h('h3', this.lang === 'ru' ? 'Поиск по материалам' : 'Search project material'),
+      h('p.vs-muted', this.lang === 'ru' ? 'Локально, $0. Поиск по тексту субтитров, названиям и тегам. Содержание невиденных кадров не угадывается.' : 'Local, $0. Search captions, names and tags. Unseen visual content is not inferred.'),
+      h('input', { type: 'search', 'aria-label': this.lang === 'ru' ? 'Запрос по материалам' : 'Material query', value: this.materialQuery || '', onInput: e => this.materialQuery = e.target.value }));
+    for (const [action, ru, en] of [['search', 'Найти момент', 'Find moment'], ['broll', 'Предложить B-roll', 'Suggest B-roll'], ['duplicates', 'Найти дубли', 'Find duplicates']]) panel.append(this.button(this.lang === 'ru' ? ru : en, () => {
+      if (action !== 'duplicates' && !String(this.materialQuery || '').trim()) throw new Error(this.lang === 'ru' ? 'Введите запрос.' : 'Enter a query.');
+      return this.analyse(mediaId, action, { query: this.materialQuery || '', limit: 10 });
+    }, { disabled: !mediaId }));
+    const job = [...this.jobs.values()].reverse().find(item => ['search', 'broll', 'duplicates'].includes(item.action) && item.status === 'completed');
+    if (job?.analysis) {
+      for (const warning of job.analysis.warnings || []) panel.append(h('p.vs-muted', warning));
+      if (!job.analysis.matches?.length) panel.append(h('p', job.analysis.next_action || (this.lang === 'ru' ? 'Совпадений нет.' : 'No matches.')));
+      for (const hit of job.analysis.matches || []) panel.append(h('div.vs-effect', h('strong', hit.text || hit.kind || ''), h('small', hit.evidence || `${hit.samples || 0} sampled frames`),
+        this.button(this.lang === 'ru' ? 'Перейти' : 'Go to result', async () => {
+          if (hit.sequence_id && hit.sequence_id !== this.project.active_sequence_id) await this.command({ type: 'sequence.select', sequence_id: hit.sequence_id });
+          if (hit.start !== null && hit.start !== undefined) this.seek(hit.start);
+          if (hit.media_id || hit.media_ids?.[0]) { this.mediaSelection = hit.media_id || hit.media_ids[0]; this.selected = null; this.selectedIds.clear(); }
+          this.paint();
+        }), job.action === 'broll' && hit.media_id ? this.button(this.t('add'), () => this.addMedia(hit.media_id, undefined, this.playhead)) : null));
+    }
+    return panel;
   }
   timeline() {
     const sequence = activeSequence(this.project); const width = Math.max(900, seconds(endTime(this.project) + 8 * TIMEBASE) * this.zoom); const interval = this.zoom > 100 ? 1 : this.zoom > 35 ? 5 : 10;
@@ -341,29 +395,54 @@ class Editor {
       action(this.lang === 'ru' ? 'Открыть архив' : 'Open archive', async () => { const archived = listOf(await api.raw(`${BASE}/projects?archived=true`), 'projects'); this.form(this.t('open'), [{ key: 'id', label: this.t('project'), options: archived.map(p => ({ value: p.id, label: p.name })) }], f => this.open(f.id)); }),
       action(this.t('history'), () => this.historyDialog()), action(this.t('portable'), async () => {
         const job = await api.raw(`${BASE}/portable`, { method: 'POST', body: { project_id: this.project.id, expected_revision: this.project.revision, operation_id: uid() } }); this.jobs.set(job.job_id, job); this.paint(); this.pollJob(job.job_id);
-      }), action('Sequence settings', () => {
+      }), action(this.lang === 'ru' ? 'Импорт переносимого ZIP' : 'Import portable ZIP', () => this.portableImportDialog()), action('OpenTimelineIO / Shotcut', () => this.interchangeDialog()), action(this.lang === 'ru' ? 'Проверка аппаратного кодирования' : 'Hardware encode probe', () => this.hardwareDialog()), action('Sequence settings', () => {
         const seq = activeSequence(this.project);
         this.form('Sequence settings', [{ key: 'width', label: 'Width', type: 'number', value: seq.width }, { key: 'height', label: 'Height', type: 'number', value: seq.height }, { key: 'num', label: 'FPS numerator', type: 'number', value: seq.fps.num }, { key: 'den', label: 'FPS denominator', type: 'number', value: seq.fps.den }], f => this.command({ type: 'sequence.settings', patch: { width: Number(f.width), height: Number(f.height), fps: { num: Number(f.num), den: Number(f.den) } } }));
       }), action('Duplicate sequence', () => this.command({ type: 'sequence.duplicate' }))));
     document.body.append(dialog); dialog.addEventListener('cancel', () => dialog.remove()); dialog.showModal();
   }
+  interchangeDialog() {
+    const dialog = h('dialog.vs-dialog', h('div.vs-dialog-head', h('h2', 'OpenTimelineIO / Shotcut'), this.button('×', () => { dialog.close(); dialog.remove(); })));
+    const download = async format => {
+      const value = await api.raw(`${BASE}/projects/${encodeURIComponent(this.project.id)}/${format}`);
+      const blob = new Blob([value.raw ?? JSON.stringify(value, null, 2)], { type: format === 'shotcut' ? 'application/xml' : 'application/json' });
+      const url = URL.createObjectURL(blob); h('a', { href: url, download: `${this.project.id}.${format === 'shotcut' ? 'mlt' : 'otio'}` }).click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+    dialog.append(h('p', this.lang === 'ru' ? 'Обмен монтажом с явными ограничениями. Исходники остаются локальными; неподдерживаемые эффекты могут быть отклонены. Это не проверка паритета редакторов.' : 'Timeline interchange has explicit limits. Sources stay local; unsupported effects may be rejected. This is not editor parity.'),
+      this.button('OTIO ↓', () => download('otio')), this.button('Shotcut .mlt ↓', () => download('shotcut')),
+      h('label.vs-button', 'OTIO ↑', h('input', { type: 'file', hidden: true, accept: '.otio,.json', onChange: e => this.guard(async () => {
+        const file = e.target.files?.[0]; if (!file) return; if (file.size > 32 * 1024 * 1024) throw new Error('OTIO exceeds 32 MiB');
+        const result = await api.raw(`${BASE}/otio/import`, { method: 'POST', body: { project_id: this.project.id, expected_revision: this.project.revision, operation_id: uid(), data: await file.text() } });
+        this.project = result.project; this.review = null; this.paint(); dialog.close(); dialog.remove();
+      }) })));
+    document.body.append(dialog); dialog.addEventListener('cancel', () => dialog.remove()); dialog.showModal();
+  }
+  portableImportDialog() {
+    const dialog = h('dialog.vs-dialog', h('div.vs-dialog-head', h('h2', this.lang === 'ru' ? 'Импорт переносимого ZIP' : 'Import portable ZIP'), this.button('×', () => { dialog.close(); dialog.remove(); })));
+    dialog.append(h('p', this.lang === 'ru' ? 'Проверенный пакет восстановит содержимое текущего проекта. Задача повторно проверяет каждый исходник; предыдущая версия остаётся в истории.' : 'A verified package restores this project. The job rechecks every source; the previous revision remains in history.'),
+      h('input', { type: 'file', accept: '.zip', 'aria-label': 'Portable ZIP', onChange: e => this.guard(async () => {
+        const file = e.target.files?.[0]; if (!file) return;
+        const query = new URLSearchParams({ project_id: this.project.id, expected_revision: this.project.revision, operation_id: uid() });
+        const job = await api.raw(`${BASE}/portable/import?${query}`, { method: 'POST', body: file });
+        this.jobs.set(job.job_id, { ...job, action: 'portable_import' }); this.pollJob(job.job_id); dialog.close(); dialog.remove(); this.paint();
+      }) }));
+    document.body.append(dialog); dialog.addEventListener('cancel', () => dialog.remove()); dialog.showModal();
+  }
   titleDialog() {
     const tracks = activeSequence(this.project).tracks.filter(t => t.kind === 'video' && !t.locked);
     if (!tracks.length) throw new Error('Add an unlocked video track first');
-    this.form(this.t('title'), [{ key: 'track_id', label: this.t('addTrack'), options: tracks.map(t => ({ value: t.id, label: t.name })) }, { key: 'text', label: this.t('title'), multiline: true, required: true }, { key: 'duration', label: 'Duration, s', type: 'number', value: 3 }, { key: 'size', label: 'Font size', type: 'number', value: 48 }, { key: 'color', label: 'Color', value: '#ffffff' }], f => this.command({ type: 'title.add', track_id: f.track_id, start: this.playhead, duration: ticks(f.duration), title: { text: f.text, size: Number(f.size), color: f.color, font: 'Arial' } }));
+    this.form(this.t('title'), [{ key: 'track_id', label: this.t('addTrack'), options: tracks.map(t => ({ value: t.id, label: t.name })) }, { key: 'text', label: this.t('title'), multiline: true, required: true }, { key: 'duration', label: 'Duration, s', type: 'number', value: 3 }, { key: 'font', label: 'Font', value: 'Arial' }, { key: 'size', label: 'Font size', type: 'number', value: 48 }, { key: 'color', label: 'Color', value: '#ffffff' }], f => this.command({ type: 'title.add', track_id: f.track_id, start: this.playhead, duration: ticks(f.duration), title: { text: f.text, size: Number(f.size), color: f.color, font: f.font } }));
   }
-  captionsDialog() {
-    let cues = structuredClone(this.project.captions || []);
+  captionsDialog(draft, expectedRevision = this.project.revision) {
+    let cues = structuredClone(draft || this.project.captions || []);
     const dialog = h('dialog.vs-dialog.vs-caption-dialog'); const rows = h('div.vs-caption-rows');
     const draw = () => rows.replaceChildren(...cues.map((cue, index) => h('div.vs-caption-row',
-      h('input', { type: 'number', step: '.001', min: 0, value: seconds(cue.start), 'aria-label': `Cue ${index + 1} start`, onChange: e => cue.start = ticks(e.target.value) }),
-      h('input', { type: 'number', step: '.001', min: 0, value: seconds(cue.end), 'aria-label': `Cue ${index + 1} end`, onChange: e => cue.end = ticks(e.target.value) }),
+      h('input', { type: 'number', step: '.001', min: 0, value: seconds(cue.start), 'aria-label': `Cue ${index + 1} start`, onChange: e => this.guard(() => { cue.start = ticks(e.target.value); }) }),
+      h('input', { type: 'number', step: '.001', min: 0, value: seconds(cue.end), 'aria-label': `Cue ${index + 1} end`, onChange: e => this.guard(() => { cue.end = ticks(e.target.value); }) }),
       h('textarea', { rows: 2, value: cue.text, 'aria-label': `Cue ${index + 1} text`, onInput: e => cue.text = e.target.value }),
       this.button('×', () => { cues.splice(index, 1); draw(); }))));
-    const subtitleTime = value => { const ms = Math.round(value / 1000); return `${String(Math.floor(ms / 3600000)).padStart(2, '0')}:${String(Math.floor(ms / 60000) % 60).padStart(2, '0')}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')},${String(ms % 1000).padStart(3, '0')}`; };
     const download = ext => {
-      const body = cues.map((c, i) => `${i + 1}\n${subtitleTime(c.start)} --> ${subtitleTime(c.end)}\n${c.text}\n`).join('\n');
-      const blob = new Blob([ext === 'vtt' ? `WEBVTT\n\n${body.replace(/,(\d{3})/g, '.$1')}` : body], { type: 'text/plain;charset=utf-8' });
+      const blob = new Blob([captionText(cues, ext)], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob); const link = h('a', { href: url, download: `captions.${ext}` }); link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
     dialog.append(h('div.vs-dialog-head', h('h2', this.t('captions')), this.button('×', () => { dialog.close(); dialog.remove(); })),
@@ -371,10 +450,16 @@ class Editor {
       h('label.vs-button', 'SRT / VTT ↑', h('input', { type: 'file', hidden: true, accept: '.srt,.vtt', onChange: e => this.guard(async () => {
         const file = e.target.files?.[0]; if (!file) return; if (file.size > 2_000_000) throw new Error('Subtitle file exceeds 2 MB');
         const result = await api.raw(`${BASE}/captions/import`, { method: 'POST', body: { project_id: this.project.id, expected_revision: this.project.revision, operation_id: uid(), text: await file.text(), format: file.name.toLowerCase().endsWith('.vtt') ? 'vtt' : 'srt' } });
-        this.project = result.project; cues = structuredClone(this.project.captions); draw(); this.paint();
-      }) })), rows, this.button('＋ Cue', () => { cues.push({ id: uid().replaceAll('-', ''), start: this.playhead, end: this.playhead + 2 * TIMEBASE, text: '' }); draw(); }),
+        this.project = result.project; expectedRevision = this.project.revision; cues = structuredClone(this.project.captions); draw(); this.paint();
+      }) })), rows, this.button(this.lang === 'ru' ? '＋ Субтитр' : '＋ Cue', () => { cues.push({ id: uid().replaceAll('-', ''), start: this.playhead, end: this.playhead + 2 * TIMEBASE, text: '' }); draw(); }),
       this.button('SRT ↓', () => download('srt')), this.button('VTT ↓', () => download('vtt')),
-      this.button(this.t('apply'), async () => { await this.command({ type: 'captions.replace', captions: cues }); dialog.close(); dialog.remove(); }, { class: 'vs-primary' }));
+      this.button(this.lang === 'ru' ? 'Перевести сохранённые EN → RU' : 'Translate saved EN → RU', () => {
+        if (JSON.stringify(cues) !== JSON.stringify(this.project.captions)) throw new Error(this.lang === 'ru' ? 'Сначала примените изменения субтитров.' : 'Apply the caption edits first.');
+        const mediaId = selectedClip(this.project, this.selected)?.clip.media_id || Object.keys(this.project.media)[0];
+        if (!mediaId) throw new Error(this.t('noMedia'));
+        dialog.close(); dialog.remove(); return this.analyse(mediaId, 'translate', { source: 'en', target: 'ru' });
+      }, { disabled: !this.project.captions?.length || this.capabilities?.translation?.status !== 'CONFIGURED', title: this.capabilities?.translation?.reason }),
+      this.button(this.t('apply'), async () => { if (this.project.revision !== expectedRevision) throw new Error(this.t('conflict')); await this.command({ type: 'captions.replace', captions: cues }); dialog.close(); dialog.remove(); }, { class: 'vs-primary' }));
     draw(); document.body.append(dialog); dialog.addEventListener('cancel', () => dialog.remove()); dialog.showModal();
   }
   assistant() {
@@ -403,11 +488,12 @@ class Editor {
   async requestProposal() {
     const objective = String(this.objective || '').trim(); if (!objective) throw new Error(this.lang === 'ru' ? 'Введите задачу монтажа' : 'Enter an editing objective');
     if (!this.selected) throw new Error(this.t('select'));
-    const revision = this.project.revision; const selected = this.selected; const draftText = this.proposalText; this.review = null; this.proposing = true; this.proposalStatus = this.t('busy'); this.paint();
+    const projectId = this.project.id; const revision = this.project.revision; const selected = this.selected; const draftText = this.proposalText; this.review = null; this.proposing = true; this.proposalStatus = this.t('busy'); this.paint();
     try {
       const job = await api.raw(`${BASE}/proposals`, { method: 'POST', body: { project_id: this.project.id, expected_revision: revision, operation_id: uid(), objective, clip_id: selected } });
-      this.jobs.set(job.job_id, { ...job, action: 'Draft', proposalRequest: { revision, selected, draftText } }); this.pollJob(job.job_id);
-    } catch (error) { this.proposing = false; throw error; } finally { this.paint(); }
+      if (this.project?.id !== projectId) return;
+      this.jobs.set(job.job_id, { ...job, action: 'Draft', proposalRequest: { projectId, revision, selected, draftText } }); this.pollJob(job.job_id);
+    } catch (error) { if (this.project?.id !== projectId) return; this.proposing = false; throw error; } finally { this.paint(); }
   }
   async historyDialog() {
     const history = await api.raw(`${BASE}/projects/${encodeURIComponent(this.project.id)}/history`);
@@ -449,15 +535,47 @@ class Editor {
     document.body.append(dialog); dialog.addEventListener('cancel', () => dialog.remove()); dialog.showModal();
   }
   exportDialog(preview) {
-    this.form(this.t('export'), [{ key: 'profile', label: 'Profile', value: 'source', options: ['source', 'youtube', 'reels', 'square'] }, { key: 'width', label: 'Width', type: 'number', min: 16, max: 7680, value: activeSequence(this.project).width }, { key: 'height', label: 'Height', type: 'number', min: 16, max: 4320, value: activeSequence(this.project).height }, { key: 'crf', label: 'Quality (CRF)', type: 'number', min: 0, max: 51, value: 20 }],
-      f => this.startExport(preview, { profile: f.profile, width: Number(f.width), height: Number(f.height), crf: Number(f.crf) }));
+    const seq = activeSequence(this.project);
+    const software = ['libx264', 'libx265', 'libvpx-vp9', 'prores_ks'].filter(codec => this.capabilities?.encoders?.includes(codec));
+    const verified = [...this.jobs.values()].filter(job => job.analysis?.available === true && job.action === 'hardware_probe').map(job => job.analysis.codec);
+    this.form(this.t('export'), [
+      { key: 'profile', label: 'Profile', value: 'source', options: ['source', 'youtube', 'reels', 'square'] },
+      { key: 'width', label: 'Width', type: 'number', min: 16, max: 8192, value: '' },
+      { key: 'height', label: 'Height', type: 'number', min: 16, max: 8192, value: '' },
+      { key: 'fps_num', label: 'FPS numerator', type: 'number', min: 1, value: seq.fps.num },
+      { key: 'fps_den', label: 'FPS denominator', type: 'number', min: 1, value: seq.fps.den },
+      { key: 'video_codec', label: 'Video codec', value: 'libx264', options: [...new Set([...(software.length ? software : ['libx264']), ...verified])] },
+      { key: 'container', label: 'Container', value: 'mp4', options: ['mp4', 'mov', 'mkv', 'webm'] },
+      { key: 'crf', label: 'Quality (CRF)', type: 'number', min: 0, max: 51, value: 20 },
+      { key: 'bitrate', label: 'Video bitrate (optional, 4M)', value: '' },
+      { key: 'audio_codec', label: 'Audio codec', value: 'aac', options: ['aac', 'libopus', 'pcm_s16le'].filter(codec => this.capabilities?.encoders?.includes(codec)) },
+      { key: 'audio_bitrate', label: 'Audio bitrate', value: '192k' },
+      { key: 'range_mode', label: 'Export area', value: 'all', options: [{ value: 'all', label: this.lang === 'ru' ? 'Вся секвенция' : 'Full sequence' }, { value: 'range', label: this.t('range') }] },
+      { key: 'range_start', label: 'Start, s', type: 'number', min: 0, value: seconds(seq.range?.start || 0) },
+      { key: 'range_end', label: 'End, s', type: 'number', min: 0, value: seconds(seq.range?.end || endTime(this.project)) },
+      { key: 'mode', label: 'Encoding mode', value: 'render', options: [{ value: 'render', label: this.lang === 'ru' ? 'Рендер с эффектами' : 'Render effects' }, { value: 'stream_copy', label: this.lang === 'ru' ? 'Без перекодирования: только совместимая склейка' : 'Stream copy: compatible cuts only' }] },
+    ], f => this.startExport(preview, exportOptions(f)));
+    document.querySelector('dialog.vs-dialog form')?.append(h('p.vs-muted', this.lang === 'ru' ? 'Пустые размеры используют профиль. Аудио: 48 кГц, стерео. Аппаратные кодеки появятся после проверки кодирования на этом устройстве.' : 'Blank dimensions use the profile. Audio: 48 kHz stereo. Hardware codecs require an actual encode probe on this device.'));
   }
   async startExport(preview, options = {}) {
-    const job = await api.raw(`${BASE}/exports`, { method: 'POST', body: { project_id: this.project.id, expected_revision: this.project.revision, operation_id: uid(), preview, options } });
+    const { container = 'mp4', ...renderOptions } = options;
+    if (renderOptions.video_codec?.endsWith('_nvenc')) {
+      const seq = activeSequence(this.project), defaults = { source: [seq.width, seq.height], youtube: [1920, 1080], reels: [1080, 1920], square: [1080, 1080] }[renderOptions.profile || 'source'];
+      const width = renderOptions.width || defaults[0], height = renderOptions.height || defaults[1];
+      if (![...this.jobs.values()].some(job => job.action === 'hardware_probe' && job.analysis?.available && job.analysis.codec === renderOptions.video_codec && job.analysis.width === width && job.analysis.height === height)) throw new Error(this.lang === 'ru' ? 'Сначала проверьте аппаратный кодек с этими размерами кадра.' : 'Probe this hardware codec with these dimensions first.');
+    }
+    const job = await api.raw(`${BASE}/exports`, { method: 'POST', body: { project_id: this.project.id, expected_revision: this.project.revision, operation_id: uid(), preview, container, options: renderOptions } });
     this.jobs.set(job.job_id, { ...job, preview }); this.paint(); this.pollJob(job.job_id);
   }
-  async analyse(mediaId, action) {
-    const job = await api.raw(`${BASE}/analysis`, { method: 'POST', body: { project_id: this.project.id, media_id: mediaId, expected_revision: this.project.revision, operation_id: uid(), action, language: this.lang } });
+  hardwareDialog() {
+    const mediaId = this.mediaSelection || selectedClip(this.project, this.selected)?.clip.media_id || Object.keys(this.project.media)[0];
+    if (!mediaId) throw new Error(this.lang === 'ru' ? 'Импортируйте исходник для профиля проверки.' : 'Import a source for the probe profile.');
+    const seq = activeSequence(this.project), codecs = ['h264_nvenc', 'hevc_nvenc', 'av1_nvenc'].filter(codec => this.capabilities?.encoders?.includes(codec));
+    if (!codecs.length) throw new Error(this.capabilities?.hardware_status || this.t('unavailable'));
+    this.form(this.lang === 'ru' ? 'Проверка аппаратного кодирования' : 'Hardware encode probe', [{ key: 'codec', label: 'Video codec', options: codecs }, { key: 'width', label: 'Width', type: 'number', value: seq.width }, { key: 'height', label: 'Height', type: 'number', value: seq.height }], f => this.analyse(mediaId, 'hardware_probe', { codec: f.codec, width: Number(f.width), height: Number(f.height) }));
+  }
+  async analyse(mediaId, action, options = {}) {
+    const job = await api.raw(`${BASE}/analysis`, { method: 'POST', body: { project_id: this.project.id, media_id: mediaId, expected_revision: this.project.revision, operation_id: uid(), action, language: this.lang, ...options } });
     this.jobs.set(job.job_id, { ...job, action }); this.paint(); this.pollJob(job.job_id);
   }
   async restoreJobs() {
@@ -470,29 +588,37 @@ class Editor {
     }
   }
   async pollJob(id) {
+    const projectId = this.project?.id;
     while (!this.disposed) {
-      await new Promise(resolve => setTimeout(resolve, 1200)); if (!this.root.isConnected) return;
+      await new Promise(resolve => setTimeout(resolve, 1200)); if (!this.root.isConnected || this.project?.id !== projectId) return;
       try {
-        const old = this.jobs.get(id); const result = await api.raw(`${BASE}/exports/${encodeURIComponent(id)}`); const job = { ...old, ...result }; this.jobs.set(id, job);
+        const old = this.jobs.get(id); const result = await api.raw(`${BASE}/exports/${encodeURIComponent(id)}`);
+        if (this.project?.id !== projectId || result.project_id !== projectId) return;
+        const job = { ...old, ...result }; this.jobs.set(id, job);
+        if (job.action === 'portable_import' && job.status === 'completed') await this.refresh();
         if (job.proposalRequest && ['completed', 'failed', 'cancelled', 'stopped', 'unknown'].includes(job.status)) {
           this.proposing = false; const draft = job.proposal;
           this.proposalStatus = draft ? `${draft.model || 'local'} · ${draft.mode || ''}` : job.error || job.status; this.draftRaw = draft?.raw || '';
-          if (draft?.valid === true && draft?.applicable === true && draft.command && this.project.revision === job.proposalRequest.revision && this.selected === job.proposalRequest.selected && this.proposalText === job.proposalRequest.draftText) {
+          if (draft?.valid === true && draft?.applicable === true && draft.command && proposalBindingMatches(job.proposalRequest, this.project, this.selected, this.proposalText)) {
             this.proposalText = JSON.stringify(draft.command, null, 2); this.review = null;
           } else this.proposalStatus += ` · ${draft?.validation_error || draft?.error || (draft ? this.t('conflict') : '')}`;
           if (!this.root.querySelector('input:focus,textarea:focus,select:focus')) this.paint();
         }
         if (job.status === 'completed' && job.output_url && job.preview) { this.previewUrl = job.output_url; this.previewRevision = job.revision; this.mediaSelection = null; }
-        if (job.status === 'completed' && job.preview && !this.dragging && !this.root.querySelector('input:focus,textarea:focus,select:focus')) this.paint();
+        if (job.status === 'completed' && (job.preview || ['prepare', 'scope', 'search', 'broll', 'duplicates'].includes(job.action)) && !this.dragging && !this.root.querySelector('input:focus,textarea:focus,select:focus')) this.paint();
         else this.root.querySelector('.vs-jobs')?.replaceWith(this.jobList());
         if (['completed', 'failed', 'cancelled', 'stopped', 'unknown'].includes(job.status)) return;
       } catch (e) { if (this.jobs.get(id)?.proposalRequest) this.proposing = false; this.jobs.set(id, { ...this.jobs.get(id), status: 'unknown', error: e.message }); this.paint(); return; }
     }
   }
   jobList() {
-    return h('div.vs-jobs', ...[...this.jobs.values()].map(job => h('div.vs-job', h('div', h('strong', job.action || (job.preview ? 'Preview' : this.t('export'))), h('span', ` · ${job.status}${job.status === 'running' && (job.progress?.stage || job.stage) ? ` / ${job.progress?.stage || job.stage}` : ''}`)),
+    return h('div.vs-jobs', ...[...this.jobs.values()].map(job => h('div.vs-job', h('div', h('strong', job.action ? this.label(job.action) : (job.preview ? 'Preview' : this.t('export'))), h('span', ` · ${job.status}${job.status === 'running' && (job.progress?.stage || job.stage) ? ` / ${job.progress?.stage || job.stage}` : ''}`)),
       job.progress?.details?.out_time_us ? h('small', `Rendered ${seconds(Number(job.progress.details.out_time_us)).toFixed(2)} s`) : null,
       job.analysis ? h('details', h('summary', 'Analysis'), h('pre', JSON.stringify(job.analysis, null, 2))) : null,
+      job.action === 'translate' && job.status === 'completed' && job.analysis?.captions ? this.button(this.lang === 'ru' ? 'Проверить перевод' : 'Review translation', () => {
+        if (job.analysis.project_id !== this.project.id || job.analysis.expected_revision !== this.project.revision) throw new Error(this.t('conflict'));
+        this.captionsDialog(job.analysis.captions, job.analysis.expected_revision);
+      }) : null,
       job.progress !== undefined && Number.isFinite(job.progress) ? h('progress', { max: 1, value: job.progress, 'aria-label': 'Render progress' }) : null,
       job.error ? h('small.vs-warning', String(job.error)) : null,
       job.output_url ? h('a', { href: job.output_url, download: '' }, `↓ ${this.t('download')}`) : null,

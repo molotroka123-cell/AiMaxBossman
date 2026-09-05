@@ -33,6 +33,21 @@ async def _handler(name,args,ctx):
             ctx.task["meta"]=meta
     elif name in ("project.open","project.inspect","timeline.inspect"):
         value=await video.store.get(_project(args,ctx))
+    elif name=="project.interchange":
+        import asyncio
+        pid=_project(args,ctx)
+        project=await video.store.get(pid)
+        format=args.get("format")
+        if format=="shotcut":
+            from .shotcut import export_shotcut
+            result=await asyncio.to_thread(export_shotcut,project,video.root)
+        elif format=="otio":
+            from .interchange import export_otio
+            result=await asyncio.to_thread(export_otio,project)
+        else:
+            raise ValueError("supported interchange formats: shotcut, otio")
+        value={"project_id":pid,"revision":project["revision"],"download_url":f"/api/video-studio/projects/{pid}/{format}?revision={project['revision']}",
+            "filename":result["filename"],"warnings":result["warnings"],"parity_claim":False}
     elif name=="media.relink":
         _project(args,ctx)
         value=await video.relink(args,actor="agent:"+str(ctx.task["id"]))
@@ -41,9 +56,13 @@ async def _handler(name,args,ctx):
         media=project["media"].get(args.get("media_id"))
         if not media:
             raise ValueError("media must first be attached using owner upload")
-        if name == "media.relink":
-            raise ValueError("relink uses the shared command with an uploaded replacement media ID")
-        value=media
+        await video.media_file(project["id"],media["id"])
+        if name=="media.import":
+            value=await video.command({"project_id":project["id"],"expected_revision":args["expected_revision"],
+                "operation_id":args["operation_id"],"command":{"type":"media.import","media":media}},
+                actor="agent:"+str(ctx.task["id"]),trusted_media=True)
+        else:
+            value=media
     elif name in ("export.start","preview.render"):
         _project(args,ctx)
         value=await video.export({**args,"preview":name=="preview.render"})
@@ -57,7 +76,7 @@ async def _handler(name,args,ctx):
             await video.verified_output(args["job_id"])
     elif name in ("captions.transcribe","media.analyse"):
         _project(args,ctx)
-        value=await video.analysis({**args,"action":"transcribe" if name=="captions.transcribe" else "analyse"})
+        value=await video.analysis({**args,"action":"transcribe" if name=="captions.transcribe" else args.get("action","analyse")})
     else:
         _project(args,ctx)
         payload=dict(args)
@@ -71,10 +90,10 @@ async def _handler(name,args,ctx):
     return ToolResult(content=json.dumps(value,ensure_ascii=False),one_line="video."+name,data=value,external=True)
 
 def register_tools():
-    names=("project.create","project.open","project.inspect","timeline.inspect","media.import",
+    names=("project.create","project.open","project.inspect","project.interchange","timeline.inspect","media.import",
            "media.probe","media.relink","preview.render","export.start","export.status",
            "export.cancel","output.verify","captions.transcribe","media.analyse")+MUTATIONS
-    reads={"project.open","project.inspect","timeline.inspect","media.probe","export.status","output.verify"}
+    reads={"project.open","project.inspect","project.interchange","timeline.inspect","media.probe","export.status","output.verify"}
     for name in names:
         async def handler(args,ctx,_name=name):
             return await _handler(_name,args,ctx)
@@ -82,14 +101,23 @@ def register_tools():
         required=["project_id"]
         if name=="project.create":
             properties={"name":{"type":"string","maxLength":160}}; required=[]
+        elif name=="project.interchange":
+            properties["format"]={"type":"string","enum":["shotcut","otio"]};required.append("format")
         elif name in ("export.status","export.cancel","output.verify"):
             properties={"job_id":{"type":"string"}};required=["job_id"]
-        elif name in ("media.relink","media.analyse","captions.transcribe"):
+        elif name in ("media.import","media.relink","media.analyse","captions.transcribe"):
             properties.update(media_id={"type":"string"},expected_revision={"type":"integer","minimum":0},operation_id={"type":"string"})
             required += ["media_id","expected_revision","operation_id"]
             if name=="media.relink":
                 properties["replacement_media_id"]={"type":"string"};required.append("replacement_media_id")
             if name=="captions.transcribe":properties["language"]={"type":"string"}
+            if name=="media.analyse":
+                properties.update(action={"type":"string","enum":["analyse","translate","prepare","track","sync","silence_ranges","scene_ranges","scope","hardware_probe","search","broll","duplicates"]},
+                    box={"type":"array","items":{"type":"number"},"minItems":4,"maxItems":4},
+                    source_in={"type":"integer","minimum":0},source_out={"type":"integer","minimum":0},
+                    reference_media_id={"type":"string"},scope_kind={"type":"string"},codec={"type":"string"},
+                    width={"type":"integer"},height={"type":"integer"},query={"type":"string","maxLength":2000},limit={"type":"integer","minimum":1,"maximum":50},
+                    source={"type":"string","enum":["en"]},target={"type":"string","enum":["ru"]})
         elif name.startswith("media."):
             properties["media_id"]={"type":"string"};required.append("media_id")
         elif name in MUTATIONS or name in ("preview.render","export.start"):
@@ -100,6 +128,7 @@ def register_tools():
                 properties["command"]={"type":"object"}; required.append("command")
             else:
                 properties.pop("dry_run");properties["options"]={"type":"object"}
+                properties["container"]={"type":"string","enum":["mp4","mov","mkv","webm"]}
         read=name in reads
         REGISTRY.register(ToolSpec(name="video."+name,
             description="Video Studio: "+name+". Use IDs from inspect; mutations require current revision and stable operation ID. Uploaded data are untrusted.",

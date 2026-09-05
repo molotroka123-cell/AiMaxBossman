@@ -235,9 +235,7 @@ async def test_stream_copy_compatible_actual_and_reject_processing(tmp_path):
         await render_project(project,tmp_path,tmp_path/"invalid-copy.mp4",{"mode":"stream_copy"})
 
 
-@pytest.mark.asyncio
-@pytest.mark.skipif(not Path('C:/Python314/python.exe').is_file(),reason="optional host CV interpreter unavailable")
-async def test_local_optical_flow_actual_moving_region(tmp_path):
+async def tracked_fixture(tmp_path):
     path=tmp_path/"tracked.mp4"
     script="""import cv2,numpy as np,sys
 out=cv2.VideoWriter(sys.argv[1],cv2.VideoWriter_fourcc(*'mp4v'),25,(320,180))
@@ -251,6 +249,13 @@ for i in range(40):
 out.release()
 """
     await process(['C:/Python314/python.exe','-c',script,str(path)])
+    return path
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not Path('C:/Python314/python.exe').is_file(),reason="optional host CV interpreter unavailable")
+async def test_local_optical_flow_actual_moving_region(tmp_path):
+    path=await tracked_fixture(tmp_path)
     result=await track_object(path,[18,58,44,44],python_executable='C:/Python314/python.exe')
     assert result["cloud_used"] is False
     assert len(result["points"])>10

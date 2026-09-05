@@ -139,12 +139,17 @@ class VideoService:
         if prior:
             if prior["digest"] != fingerprint:
                 raise RuntimeError("operation id reused with different payload")
+            await self.svc.engine.enqueue(prior["task_id"],only_if_draft=True)
             return await self.job(prior["id"])
         if project["revision"] != payload["expected_revision"]:
             raise RuntimeError("revision conflict")
         jid = uuid.uuid4().hex
         options = dict(payload.get("options") or {})
         options["_preview"] = bool(payload.get("preview"))
+        container=payload.get("container","mp4")
+        if container not in ("mp4","mov","mkv","webm"):
+            raise ValueError("unsupported export container")
+        options["_container"]="mp4" if payload.get("preview") else container
         if payload.get("preview"):
             options.update(width=320,height=180)
         # The host issues paths, kind, retry policy and authority; requests cannot set them.
@@ -157,7 +162,7 @@ class VideoService:
             await s.execute(sa.insert(jobs).values(id=jid, operation_id=op, digest=fingerprint,
                 project_id=project["id"], task_id=tid, snapshot=project, options=options))
             await s.commit()
-        await self.svc.engine.enqueue(tid)
+        await self.svc.engine.enqueue(tid,only_if_draft=True)
         return await self.job(jid)
 
     async def job(self, job_id):
@@ -191,7 +196,7 @@ class VideoService:
                 await s.execute(sa.update(jobs).where(jobs.c.id == jid).values(progress={"stage":stage,"details":details}))
                 await s.commit()
             await self.svc.bus.emit("video.export.progress", job_id=jid, task_id=task["id"], stage=stage, details=details)
-        result = await render_project(row["snapshot"], self.root, outdir / "output.mp4",
+        result = await render_project(row["snapshot"], self.root, outdir / ("output."+row["options"].get("_container","mp4")),
                                       options={k:v for k,v in row["options"].items() if not k.startswith("_")}, progress=progress)
         await engine.assert_fence(run["id"])
         from .media import digest_file
@@ -310,7 +315,7 @@ class VideoService:
     async def analysis(self,payload):
         import os
         action=payload["action"]
-        if action not in ("analyse","transcribe"):
+        if action not in ("analyse","transcribe","translate","prepare","track","sync","silence_ranges","scene_ranges","scope","hardware_probe","search","broll","duplicates"):
             raise ValueError("unknown analysis action")
         project=await self.store.get(payload["project_id"])
         if payload["media_id"] not in project["media"]:
@@ -319,13 +324,25 @@ class VideoService:
             model=os.environ.get("BOSSMAN_VIDEO_ASR_MODEL","")
             if not model or not Path(model).is_file():
                 raise RuntimeError("ASR BLOCKED: host local model not configured")
+        if action=="translate":
+            model=os.environ.get("BOSSMAN_VIDEO_TRANSLATION_MODEL","")
+            runtime=os.environ.get("BOSSMAN_VIDEO_TRANSLATION_PYTHON","")
+            if not model or not (Path(model)/"config.json").is_file() or not runtime or not Path(runtime).is_file():
+                raise RuntimeError("Translation BLOCKED: host local model/runtime not configured")
+            if not project.get("captions"):
+                raise ValueError("translation requires supplied or transcribed captions")
         options={"action":action,"media_id":payload["media_id"],"language":payload.get("language","auto")}
+        for key in ("box","source_in","source_out","reference_media_id","scope_kind","codec","width","height","source","target","query","limit"):
+            if payload.get(key) is not None:
+                options[key]=payload[key]
+        if action=="sync" and options.get("reference_media_id") not in project["media"]:
+            raise ValueError("reference media must be attached to project")
         return await self.export({"project_id":payload["project_id"],"expected_revision":payload["expected_revision"],
             "operation_id":payload["operation_id"],"options":options},job_kind="video_analysis")
 
     async def analysis_executor(self,task,run,engine):
         import os
-        from .analysis import analyse_media,transcribe
+        from .analysis import analyse_media,transcribe,track_object,synchronize_audio,silence_keep_ranges,scene_ranges,scope_media,hardware_probe
         jid=task["meta"]["video_job_id"]
         async with self.svc.db.session() as session:
             row=dict((await session.execute(sa.select(jobs).where(jobs.c.id==jid))).mappings().one())
@@ -337,12 +354,51 @@ class VideoService:
                 await session.execute(sa.update(jobs).where(jobs.c.id==jid).values(progress={"stage":stage,"details":details}))
                 await session.commit()
             await self.svc.bus.emit("video.export.progress",job_id=jid,task_id=task["id"],stage=stage,details=details)
-        if row["options"]["action"]=="analyse":
+        action=row["options"]["action"]
+        if action in ("analyse","silence_ranges","scene_ranges"):
             value=await analyse_media(path,progress=progress)
+            if action=="silence_ranges":
+                value["keep_ranges"]=silence_keep_ranges(value,source_in=row["options"].get("source_in",0),
+                    source_out=row["options"].get("source_out"))
+            elif action=="scene_ranges":
+                value["segments"]=scene_ranges(value)
+        elif action=="prepare":
+            value={"artifacts":await self.media.prepare(media)}
+        elif action=="track":
+            value=await track_object(path,row["options"].get("box"),start=row["options"].get("source_in",0),
+                end=row["options"].get("source_out"))
+        elif action=="sync":
+            reference=row["snapshot"]["media"][row["options"]["reference_media_id"]]
+            reference_path=await asyncio.to_thread(self.media.resolve,reference)
+            value=await synchronize_audio(reference_path,path)
+            await asyncio.to_thread(self.media.resolve,reference)
+        elif action=="scope":
+            output=self.root/"exports"/jid/str(run["id"])/"scope.png"
+            value=await scope_media(path,self.root,output,kind=row["options"].get("scope_kind","waveform"),
+                time=row["options"].get("source_in",0))
+        elif action=="hardware_probe":
+            value=await hardware_probe(row["options"].get("width",1280),row["options"].get("height",720),
+                row["options"].get("codec","libx264"))
+        elif action=="translate":
+            from .language import translate_captions
+            value=await translate_captions(row["snapshot"]["captions"],self.root,
+                model_path=os.environ.get("BOSSMAN_VIDEO_TRANSLATION_MODEL"),
+                python_executable=os.environ.get("BOSSMAN_VIDEO_TRANSLATION_PYTHON"),
+                source=row["options"].get("source","en"),target=row["options"].get("target","ru"),progress=progress)
+            value.update(project_id=row["project_id"],expected_revision=row["snapshot"]["revision"])
+        elif action in ("search","broll","duplicates"):
+            from .retrieval import search_project,suggest_broll,find_duplicates
+            if action=="search":
+                value=search_project(row["snapshot"],row["options"].get("query",""),limit=row["options"].get("limit",10))
+            elif action=="broll":
+                value=suggest_broll(row["snapshot"],row["options"].get("query",""),limit=row["options"].get("limit",5))
+            else:
+                value=await find_duplicates(row["snapshot"],self.root,progress=progress)
         else:
             captions=await transcribe(path,model_path=os.environ.get("BOSSMAN_VIDEO_ASR_MODEL"),
                                      language=row["options"].get("language","auto"),progress=progress)
             await engine.assert_fence(run["id"])
+            await asyncio.to_thread(self.media.resolve,media)
             result=await self.command({"project_id":row["project_id"],"expected_revision":row["snapshot"]["revision"],
                 "operation_id":"asr-"+jid,"command":{"type":"captions.replace","captions":captions}},
                 actor="agent:"+str(task["id"]))
@@ -350,9 +406,12 @@ class VideoService:
         await engine.assert_fence(run["id"])
         # Re-read original after processing; observations never authorize a changed source.
         await asyncio.to_thread(self.media.resolve,media)
+        stored={"analysis":value,"source_sha256":media["sha256"],"verification":{"passed":True,"source_unchanged":True}}
+        if action=="scope":
+            from .media import digest_file
+            stored.update(path=value.pop("path"),sha256=await asyncio.to_thread(digest_file,output))
         async with self.svc.db.session() as session:
-            await session.execute(sa.update(jobs).where(jobs.c.id==jid).values(result={"analysis":value,
-                "source_sha256":media["sha256"],"verification":{"passed":True,"source_unchanged":True}}))
+            await session.execute(sa.update(jobs).where(jobs.c.id==jid).values(result=stored))
             await session.commit()
         return json.dumps({"job_id":jid,"local_analysis_verified":True},ensure_ascii=False)
 
@@ -363,7 +422,17 @@ class VideoService:
             row=dict((await session.execute(sa.select(jobs).where(jobs.c.task_id==task["id"]))).mappings().one())
         media=row["snapshot"]["media"][row["options"]["media_id"]]
         await asyncio.to_thread(self.media.resolve,media)
+        if row["options"].get("reference_media_id"):
+            await asyncio.to_thread(self.media.resolve,row["snapshot"]["media"][row["options"]["reference_media_id"]])
         passed=(row.get("result") or {}).get("source_sha256")==media["sha256"]
+        if row["options"]["action"]=="scope":
+            from .media import digest_file,probe
+            result=row.get("result") or {}
+            path=Path(result.get("path","")).resolve()
+            passed=passed and path.is_relative_to(self.root/"exports"/row["id"]/str(run_id))
+            passed=passed and await asyncio.to_thread(digest_file,path)==result.get("sha256")
+            if passed:
+                await probe(path)
         return {"verdict":"PASS" if passed else "FAIL","requeue":False,"status":"failed"}
 
     async def relink(self,payload,actor="human"):
@@ -380,6 +449,103 @@ class VideoService:
         return await self.export({"project_id":payload["project_id"],"expected_revision":payload["expected_revision"],
             "operation_id":payload["operation_id"],"options":{}},job_kind="video_package")
 
+    async def import_package(self,request,project_id,expected_revision,operation_id):
+        """Stream owner upload; parsing/probing/commit run under canonical admission."""
+        from .media import digest_file
+        import os
+        identifier(project_id);identifier(operation_id)
+        await self.store.get(project_id)
+        incoming=self.root/"uploads";incoming.mkdir(exist_ok=True)
+        temporary=incoming/(uuid.uuid4().hex+".partial")
+        limit=8*1024**3;count=0;hash=hashlib.sha256()
+        if int(request.headers.get("content-length") or 0)>limit:
+            raise ValueError("portable upload exceeds 8 GiB limit")
+        try:
+            with temporary.open("xb") as stream:
+                async for chunk in request.stream():
+                    count+=len(chunk)
+                    if count>limit:raise ValueError("portable upload exceeds 8 GiB limit")
+                    if shutil.disk_usage(incoming).free<len(chunk)+64*1024**2:
+                        raise RuntimeError("insufficient portable upload disk space")
+                    hash.update(chunk);await asyncio.to_thread(stream.write,chunk)
+                stream.flush();os.fsync(stream.fileno())
+            if not count:raise ValueError("empty portable upload")
+            key=hash.hexdigest();target=incoming/(key+".portable.zip")
+            try:os.link(temporary,target)
+            except FileExistsError:
+                if await asyncio.to_thread(digest_file,target)!=key:
+                    raise RuntimeError("existing staged archive changed")
+            return await self.export({"project_id":project_id,"expected_revision":expected_revision,"operation_id":operation_id,
+                "options":{"archive":target.relative_to(self.root).as_posix(),"archive_sha256":key}},job_kind="video_import")
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    async def import_executor(self,task,run,engine):
+        import tempfile,zipfile
+        from .media import digest_file
+        from .model import validate_project
+        jid=task["meta"]["video_job_id"]
+        async with self.svc.db.session() as session:
+            row=dict((await session.execute(sa.select(jobs).where(jobs.c.id==jid))).mappings().one())
+        archive_path=(self.root/row["options"]["archive"]).resolve()
+        if not archive_path.is_relative_to(self.root/"uploads"):
+            raise PermissionError("archive outside owned upload directory")
+        if await asyncio.to_thread(digest_file,archive_path)!=row["options"]["archive_sha256"]:
+            raise ValueError("staged archive changed")
+        with zipfile.ZipFile(archive_path) as archive:
+            entries=archive.infolist();names=[x.filename for x in entries]
+            if len(entries)>10001 or len(set(names))!=len(names):
+                raise ValueError("portable archive contains duplicate/excessive entries")
+            manifest=archive.getinfo("project.json")
+            if manifest.file_size>32*1024**2 or sum(x.file_size for x in entries)>8*1024**3:
+                raise ValueError("portable archive expands beyond import limits")
+            project=json.loads(await asyncio.to_thread(archive.read,manifest))
+            validate_project(project)
+            expected={"project.json",*(m["relative_path"] for m in project["media"].values())}
+            if set(names)!=expected:
+                raise ValueError("portable archive contains unexpected entries")
+            with tempfile.TemporaryDirectory(prefix="portable-",dir=self.root) as directory:
+                for key,media in list(project["media"].items()):
+                    # Never extract names/paths from the archive onto the filesystem.
+                    # The only output is a new random owned temporary filename.
+                    temporary=Path(directory)/(uuid.uuid4().hex+".upload")
+                    hash=hashlib.sha256()
+                    with archive.open(media["relative_path"]) as member,temporary.open("xb") as output:
+                        while chunk:=await asyncio.to_thread(member.read,1024*1024):
+                            if shutil.disk_usage(directory).free<len(chunk)+64*1024**2:
+                                raise RuntimeError("insufficient import disk space")
+                            await asyncio.to_thread(output.write,chunk);hash.update(chunk)
+                            await engine.assert_fence(run["id"])
+                    if hash.hexdigest()!=media["sha256"]:
+                        raise ValueError("portable media digest mismatch")
+                    verified=await self.media.import_file(temporary,name=media["name"])
+                    if verified["sha256"]!=media["sha256"]:
+                        raise ValueError("media changed during portable admission")
+                    verified.update(id=key,tags=media.get("tags",[]),folder=media.get("folder",""))
+                    project["media"][key]=verified
+                    temporary.unlink()
+        await engine.assert_fence(run["id"])
+        result=await self.command({"project_id":row["project_id"],"expected_revision":row["snapshot"]["revision"],
+            "operation_id":"portable-import-"+jid,"command":{"type":"project.import","project":project}},
+            actor="agent:"+str(task["id"]),trusted_media=True)
+        observed=await self.store.get(row["project_id"])
+        if digest(observed)!=digest(result["project"]):
+            raise RuntimeError("import post-state changed")
+        stored={"kind":"portable_import","revision":result["revision"],"project_digest":digest(observed),
+            "verification":{"passed":True,"media_count":len(project["media"]),"source_hashes_verified":True}}
+        async with self.svc.db.session() as session:
+            await session.execute(sa.update(jobs).where(jobs.c.id==jid).values(result=stored));await session.commit()
+        return json.dumps({"job_id":jid,"portable_import_verified":True})
+
+    async def import_gate(self,task,run_id,answer):
+        if task.get("kind")!="video_import":return {"verdict":"NOT_APPLICABLE"}
+        async with self.svc.db.session() as session:
+            row=dict((await session.execute(sa.select(jobs).where(jobs.c.task_id==task["id"]))).mappings().one())
+        observed=await self.store.get(row["project_id"])
+        for media in observed["media"].values():await asyncio.to_thread(self.media.resolve,media)
+        passed=digest(observed)==(row.get("result") or {}).get("project_digest")
+        return {"verdict":"PASS" if passed else "FAIL","status":"failed","requeue":False}
+
     async def package_executor(self,task,run,engine):
         import os
         import zipfile
@@ -395,8 +561,12 @@ class VideoService:
         try:
             with zipfile.ZipFile(temporary,"x",compression=zipfile.ZIP_STORED,allowZip64=True) as archive:
                 archive.writestr("project.json",json.dumps(project,ensure_ascii=False,sort_keys=True))
+                written=set()
                 for media in project["media"].values():
                     source=await asyncio.to_thread(self.media.resolve,media)
+                    if media["relative_path"] in written:
+                        continue
+                    written.add(media["relative_path"])
                     with source.open("rb") as original,archive.open(media["relative_path"],"w",force_zip64=True) as target:
                         while chunk:=original.read(1024*1024):
                             if shutil.disk_usage(directory).free < len(chunk)+64*1024**2:
@@ -510,3 +680,13 @@ class VideoService:
             trusted_media=True)
         result["warnings"]+= ["OTIO media hashes validated inside owned storage; foreign-editor effect parity is not guaranteed"]
         return result
+
+    async def prepared_file(self,project_id,media_id,kind):
+        _,media=await self.media_file(project_id,media_id)
+        name={"thumbnail":"thumb.jpg","proxy":"proxy.mp4","waveform":"wave.png"}[kind]
+        path=(self.root/"cache"/media["sha256"] / "v1" / name).resolve()
+        if not path.is_relative_to(self.root/"cache"):
+            raise PermissionError("cache artifact escaped storage")
+        if not path.is_file():
+            raise RuntimeError("queue analysis action prepare before requesting this derivative")
+        return path

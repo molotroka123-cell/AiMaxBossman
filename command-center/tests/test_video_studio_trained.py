@@ -66,6 +66,67 @@ def server_module():
     return module
 
 
+def isolated_runtime(module,tmp_path):
+    adapter=tmp_path/'adapter';adapter.mkdir()
+    (adapter/'adapter_model.safetensors').write_bytes(b'fixture-only-never-loaded')
+    (adapter/'adapter_config.json').write_text(json.dumps({'base_model_name_or_path':'Qwen/Qwen2.5-0.5B-Instruct',
+        'peft_type':'LORA','task_type':'CAUSAL_LM'}))
+    report=tmp_path/'report.json'
+    report.write_text(json.dumps({'weights_trained':True,'method':'LoRA','base':'Qwen/Qwen2.5-0.5B-Instruct','base_revision':'a'*40}))
+    return module.Runtime(adapter,report)
+
+
+def child_fixture(module,monkeypatch,code):
+    """Real OS child, replacing only its heavyweight model body for lifecycle tests."""
+    import subprocess,sys
+    original=subprocess.Popen;children=[]
+    def launch(argv,**kwargs):
+        assert argv[0]==sys.executable and argv[1].endswith('serve_adapter.py') and '--worker' in argv
+        assert '--adapter' in argv and '--report' in argv
+        child=original([sys.executable,'-c',code],**kwargs);children.append(child)
+        return child
+    monkeypatch.setattr(module.subprocess,'Popen',launch)
+    return children
+
+
+def test_isolated_generation_reaps_real_child_without_parent_model(tmp_path,monkeypatch):
+    import threading
+    module=server_module();runtime=isolated_runtime(module,tmp_path)
+    children=child_fixture(module,monkeypatch,
+        'import sys,json; data=json.load(sys.stdin); assert len(data["assets"])==3; print(json.dumps({"text":"draft","prompt_tokens":8,"output_tokens":2}))')
+    assert runtime.generate([{'role':'user','content':'reverse'}],8,threading.Event())==('draft',8,2)
+    assert children[0].poll()==0 and runtime.model is None and runtime.tokenizer is None
+
+
+@pytest.mark.parametrize('cancel',[False,True])
+def test_isolated_inference_deadline_or_cancel_kills_and_reaps(tmp_path,monkeypatch,cancel):
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+    module=server_module();runtime=isolated_runtime(module,tmp_path)
+    module.INFERENCE_SECONDS=.2
+    children=child_fixture(module,monkeypatch,'import time,sys; sys.stdin.read(); time.sleep(30)')
+    stop=threading.Event()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future=executor.submit(runtime.generate,[{'role':'user','content':'reverse'}],8,stop)
+        if cancel:
+            import time
+            until=time.monotonic()+2
+            while not children and time.monotonic()<until:time.sleep(.01)
+            stop.set()
+        with pytest.raises(TimeoutError):future.result(timeout=3)
+    assert children and children[0].poll() is not None
+
+
+def test_changed_adapter_refuses_before_child_spawn(tmp_path,monkeypatch):
+    import threading
+    module=server_module();runtime=isolated_runtime(module,tmp_path)
+    runtime.weights.write_bytes(b'changed')
+    children=child_fixture(module,monkeypatch,'raise AssertionError("must not start")')
+    with pytest.raises(ValueError,match='assets changed'):
+        runtime.generate([{'role':'user','content':'reverse'}],8,threading.Event())
+    assert not children
+
+
 @pytest.mark.parametrize('change',[
     {'max_tokens':129},{'max_tokens':True},{'tools':[{}]},{'stream':True},{'model':'other'},
     {'messages':[{'role':'user','content':'a'*3501}]},{'messages':[{'role':'tool','content':'x'}]},

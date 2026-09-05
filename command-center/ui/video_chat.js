@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { h, toastError, toastOk } from './components.js';
-const state = { text: '', files: [], requestId: '', lastProject: '', requestKey:'', uploaded:new Set() };
+const state = { text: '', files: [], requestId: '', lastProject: '', requestKey:'', uploaded:new Set(),agentId:'' };
 const newId = () => crypto.randomUUID();
 export async function routeVideoRequest(text, files, ctx) {
   const key=JSON.stringify([text,files.map(f=>[f.name,f.size,f.lastModified])]);
@@ -39,6 +39,12 @@ export const ChatPage={id:'bossman-chat',title:'Bossman Chat',icon:'terminal',se
   async render(ctx) {
     let records=[];
     try {records=(await api.raw('/api/video-studio/chat')).messages||[];}catch(e){toastError(e);}
+    let agents=[];
+    try {const result=await api.agents();agents=(Array.isArray(result)?result:result.agents||[]).filter(a=>a.enabled!==false);}catch(e){toastError(e);}
+    const agentSelect=h('select',{'aria-label':'Агент для обычного вопроса'},
+      h('option',{value:''},'Выберите агента для обычных вопросов'),
+      ...agents.map(a=>h('option',{value:String(a.id),selected:String(a.id)===state.agentId},a.name||`Агент ${a.id}`)));
+    agentSelect.addEventListener('change',()=>{state.agentId=agentSelect.value;});
     const taskResults=await Promise.allSettled(records.slice(0,20).map(row=>api.task(row.task_id)));
     const resultById=new Map(records.slice(0,20).map((row,i)=>[row.task_id,taskResults[i].status==='fulfilled'?taskResults[i].value:null]));
     const input=h('textarea',{rows:4,placeholder:'Склей эти два видео',value:state.text,
@@ -50,12 +56,18 @@ export const ChatPage={id:'bossman-chat',title:'Bossman Chat',icon:'terminal',se
     send.addEventListener('click',async()=>{
       send.disabled=true;
       try {
-        if(!await routeVideoRequest(input.value.trim(),state.files,ctx))
-          status.textContent='Это вопрос, а не команда монтажа. Для общего агента используйте поле на главной.';
+        if(!await routeVideoRequest(input.value.trim(),state.files,ctx)) {
+          if(!state.agentId) {status.textContent='Выберите существующего агента для ответа на обычный вопрос.';return;}
+          if(state.files.length) {status.textContent='Вложения сохранены. Для обычного вопроса сначала уберите медиа: они не отправляются общему агенту автоматически.';return;}
+          const text=input.value.trim();
+          if(!text) return;
+          await api.createTask({title:text.split('\n')[0].slice(0,100),prompt:text,agent_id:Number(state.agentId),priority:5,run_now:true});
+          state.text='';input.value='';toastOk('Вопрос отправлен выбранному агенту');ctx.navigate('tasks');
+        }
       } catch(e){toastError(e);status.textContent=e.message;}
       finally{send.disabled=false;}
     });
-    return h('section.bx-panel',h('div.bx-panel-body',h('h2','Bossman Chat'),input,files,send,status,
+    return h('section.bx-panel',h('div.bx-panel-body',h('h2','Bossman Chat'),input,files,agentSelect,send,status,
       ...records.map(row=>h('article.bx-panel',h('p',row.text),h('p',`Задача #${row.task_id} · ${resultById.get(row.task_id)?.task?.status||'сохранена'}`),
         resultById.get(row.task_id)?.result?h('pre',String(resultById.get(row.task_id).result)):null,
         h('button.bx-btn',{type:'button',onClick:()=>ctx.navigate('video-studio',{project_id:row.project_id})},'Открыть Video Studio')))));

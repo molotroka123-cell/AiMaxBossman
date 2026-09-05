@@ -49,3 +49,42 @@ export function filterMedia(media, query = '', folder = '', sort = 'name') {
     && [m.name, m.folder, ...(m.tags || [])].join(' ').toLocaleLowerCase().includes(q))
     .sort((a, b) => sort === 'duration' ? b.duration_ticks - a.duration_ticks : sort === 'size' ? b.bytes - a.bytes : a.name.localeCompare(b.name));
 }
+
+// Blank dimensions deliberately preserve the renderer's selected profile.
+export function exportOptions(fields) {
+  const options = { profile: fields.profile || 'source', crf: Number(fields.crf ?? 20) };
+  for (const key of ['width', 'height']) if (String(fields[key] ?? '').trim()) {
+    const value = Number(fields[key]);
+    if (!Number.isInteger(value) || value < 16 || value > 8192 || value % 2) throw new Error('Export dimensions must be even integers, 16–8192');
+    options[key] = value;
+  }
+  if (fields.fps_num || fields.fps_den) {
+    const num = Number(fields.fps_num), den = Number(fields.fps_den);
+    if (!Number.isSafeInteger(num) || !Number.isSafeInteger(den) || num <= 0 || den <= 0 || num / den > 240) throw new Error('Invalid export FPS');
+    options.fps = { num, den };
+  }
+  for (const key of ['video_codec', 'audio_codec', 'bitrate', 'audio_bitrate', 'container', 'mode']) if (fields[key]) options[key] = fields[key];
+  if (fields.range_mode === 'range') {
+    options.range = { start: ticks(fields.range_start), end: ticks(fields.range_end) };
+    if (options.range.end <= options.range.start) throw new Error('Export range must have positive duration');
+  }
+  return options;
+}
+
+export function captionText(cues, format = 'srt') {
+  const time = value => {
+    if (!Number.isSafeInteger(value) || value < 0) throw new Error('Invalid caption time');
+    const ms = Math.round(value / 1000);
+    return `${String(Math.floor(ms / 3600000)).padStart(2, '0')}:${String(Math.floor(ms / 60000) % 60).padStart(2, '0')}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}${format === 'vtt' ? '.' : ','}${String(ms % 1000).padStart(3, '0')}`;
+  };
+  const body = cues.map((cue, index) => {
+    if (cue.end <= cue.start) throw new Error('Caption end must follow start');
+    return `${index + 1}\n${time(cue.start)} --> ${time(cue.end)}\n${cue.text}\n`;
+  }).join('\n');
+  return format === 'vtt' ? `WEBVTT\n\n${body}` : body;
+}
+
+export function proposalBindingMatches(request, project, selected, draftText) {
+  return !!request && project?.id === request.projectId && project.revision === request.revision
+    && selected === request.selected && draftText === request.draftText;
+}

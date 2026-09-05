@@ -17,4 +17,11 @@
 
 Шестисемейный holdout уже использован для оценки этого эксперимента. Если менять датасет/параметры по его ошибкам, нужен новый внешний holdout; нельзя выдавать повторную подгонку под эти 24 случая за независимое улучшение.
 
+Адаптер подключён к локальному draft endpoint `127.0.0.1:8879` через существующий
+model adapter и каноническую очередь BCC. Он требует token file, проверяет hashes,
+не принимает browser Origin и не отправляет данные в облако. Каждый inference
+выполняется в отдельном ограниченном процессе; завершение, отмена и timeout
+освобождают весь процесс Torch. Финальная проверка bridge и queued proposal:
+32 passed, включая реальные веса. Кнопка Apply остаётся явным действием владельца.
+
 Основные источники: [Qwen model card](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct), [PEFT LoRA](https://huggingface.co/docs/peft/package_reference/lora), [PyTorch Windows/CUDA](https://pytorch.org/get-started/locally/). OpenTimelineIO подключается отдельно как формат обмена монтажом, а не как генеративная модель: [официальный репозиторий](https://github.com/AcademySoftwareFoundation/OpenTimelineIO).

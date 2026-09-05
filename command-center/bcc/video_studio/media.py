@@ -38,7 +38,7 @@ def binary(name: str) -> str:
     return value
 
 
-async def process(argv, *, progress=None, diagnostic=None, stage="render", timeout=3600, max_output=8_388_608):
+async def process(argv, *, progress=None, diagnostic=None, stage="render", timeout=3600, max_output=8_388_608, binary_output=False):
     """Bound captures, propagate failure, and terminate AND reap on cancellation."""
     proc = await asyncio.create_subprocess_exec(*map(str, argv), stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
@@ -47,14 +47,14 @@ async def process(argv, *, progress=None, diagnostic=None, stage="render", timeo
 
     async def stdout():
         while True:
-            line = await proc.stdout.readline()
+            line = await proc.stdout.read(65536) if binary_output else await proc.stdout.readline()
             if not line:
                 return
             if not progress and "-progress" not in argv:
                 if len(result) + len(line) > max_output:
                     raise ValueError("media process output exceeded its capture limit")
                 result.extend(line)
-            if progress and b"=" in line:
+            if progress and not binary_output and b"=" in line:
                 key, value = line.decode("utf-8", "replace").strip().split("=", 1)
                 if key in {"out_time_us", "progress", "frame"}:
                     await progress(stage, {key: value})
@@ -235,6 +235,64 @@ class MediaLibrary:
     @staticmethod
     def capabilities():
         return capabilities()
+
+    async def reverse_proxy(self, media, source_in, source_out, fps, progress=None):
+        """Lossless disk chunks bound the reverse frame buffer, not whole footage.
+
+        The 64 MiB target has a one-frame minimum for very large images;
+        decoder/encoder work buffers are additional. Originals stay immutable.
+        """
+        from .render import rate,seconds,fmt
+        frame_rate=rate(fps)
+        if frame_rate>240:raise ValueError("reverse proxy frame rate exceeds 240")
+        start,end=seconds(source_in),seconds(source_out)
+        if end<=start or not (media.get("has_video") or media.get("has_audio")):raise ValueError("reverse proxy needs a positive source interval")
+        if media.get("metadata",{}).get("color_transfer") in {"smpte2084","arib-std-b67"}:raise ValueError("HDR reverse needs an explicit tone-mapping profile")
+        source=await blocking(self.resolve,media)
+        recipe={"version":1,"source":media["sha256"],"in":source_in,"out":source_out,"fps":fps}
+        key=hashlib.sha256(json.dumps(recipe,sort_keys=True).encode()).hexdigest()
+        cache=self.root/"cache"/"reverse";cache.mkdir(parents=True,exist_ok=True)
+        manifest=cache/(key+".json")
+        if manifest.exists():
+            value=json.loads(manifest.read_text(encoding="utf-8"))
+            await blocking(self.resolve,value)
+            return value
+        # 8 bytes/pixel conservatively covers high-depth packed source frames.
+        pixels=max(1,int(media["width"])*int(media["height"]))
+        frame_budget=max(64*1024**2,pixels*8)
+        frames=max(1,min(120,(64*1024**2)//(pixels*8)))
+        chunk_seconds=float(Fraction(frames,1)/frame_rate)
+        if not media.get("has_video"):chunk_seconds=30
+        total=math.ceil((end-start)/chunk_seconds)
+        if total>100_000:raise ValueError("reverse proxy would exceed bounded chunk count")
+        if shutil.disk_usage(cache).free<128*1024**2:raise ValueError("insufficient disk space for reverse proxy")
+        with tempfile.TemporaryDirectory(prefix=key[:12]+"-",dir=cache) as td:
+            directory=Path(td);parts=[]
+            for index in range(total):
+                a=start+index*chunk_seconds;b=min(end,a+chunk_seconds)
+                if shutil.disk_usage(cache).free<64*1024**2:raise ValueError("disk space exhausted preparing reverse proxy")
+                target=directory/f"part-{index:06}.mkv"
+                argv=[binary("ffmpeg"),"-hide_banner","-loglevel","error","-nostdin","-y","-ss",fmt(a),*input_args(source)]
+                if media.get("has_video"):
+                    argv += ["-vf",f"trim=duration={fmt(b-a)},setpts=PTS-STARTPTS,fps={frame_rate},reverse,setpts=PTS-STARTPTS",
+                        "-map","0:v:0","-c:v","ffv1","-level","3","-g","1"]
+                else:argv += ["-vn"]
+                if media.get("has_audio"):
+                    argv += ["-map","0:a:0","-af",f"atrim=duration={fmt(b-a)},asetpts=PTS-STARTPTS,areverse,asetpts=PTS-STARTPTS,aresample=48000", "-c:a","pcm_f32le","-ac","2"]
+                else:argv += ["-an"]
+                argv += ["-t",fmt(b-a),str(target)]
+                await process(argv,timeout=3600)
+                parts.append(target)
+                if progress:await progress("preparing_reverse",{"chunk":index+1,"chunks":total,"reverse_frame_budget_bytes":frame_budget})
+            concat=directory/"chunks.ffconcat"
+            concat.write_text("ffconcat version 1.0\n"+"".join(f"file '{p.name}'\n" for p in reversed(parts)),encoding="ascii")
+            output=directory/"reverse.mkv"
+            await process([binary("ffmpeg"),"-hide_banner","-loglevel","error","-nostdin","-y","-protocol_whitelist","file","-f","concat","-safe","1","-i",str(concat),"-map","0","-c","copy",str(output)],timeout=3600)
+            value=await self.import_file(output,name="Reverse proxy: "+media["name"])
+            value["metadata"]["reverse_recipe"]={**recipe,"chunks":total,"max_chunk_frames":frames,"frame_buffer_budget_bytes":frame_budget}
+            temp=cache/(uuid.uuid4().hex+".json")
+            temp.write_text(json.dumps(value),encoding="utf-8");os.replace(temp,manifest)
+            return value
 
 
 def capabilities():

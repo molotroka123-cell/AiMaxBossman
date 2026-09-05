@@ -160,15 +160,28 @@ def main():
     rows=[line.split("|") for line in ROWS.splitlines()]
     lines=["# Bossman Video Studio — обязательная карта функций", "",
         "BASE_SHA: `debee6930f29595b84cea64d526b6f8bef139e8a`.",
-        "Статусы ниже первоначальные: реализация и проверка продолжаются. Наличие command/кнопки не означает завершение.",
+        "Финальный ограниченный выпуск: PARTIAL относительно полного ТЗ. Колонки UI/backend/проверка описывают требование, а не обещание его полной реализации. Фактические доказательства и ограничения: docs/video-studio/UX_SPEC.md, BACKEND.md и FINAL_REPORT.md. Наличие command/кнопки не означает завершение.",
         "Общий вход изменения: `{project_id,expected_revision,operation_id,command,dry_run}`; результат `{revision,project,changed_ids,warnings,artifacts,undo}`. Асинхронные операции возвращают `task_id/job_id`, затем фактический status и verification.", "",
         "| ID | Конкретное поведение | UI | Backend | Инструмент агента | Вход → результат | Проверка | Зависимости | Статус |",
         "|---|---|---|---|---|---|---|---|---|"]
-    not_started={"Генерация изображений","Генерация видео","Перевод субтитров","Поиск момента по описанию",
-                 "Автофрейминг","Предложения B-roll","Локальное удаление фона"}
+    blocked={"Генерация изображений","Генерация видео"}
+    verified={"Создать проект","Открыть проект","Автосохранение каждой операции","Импорт нескольких файлов",
+              "Метаданные источников","Thumbnails","Прокси","Split","Undo/redo","Reverse"}
+    direct={"project.create","project.open","project.inspect","project.interchange","timeline.inspect",
+            "media.import","media.probe","media.relink","preview.render","export.start","export.status",
+            "export.cancel","output.verify","captions.transcribe","captions.edit","clip.split","clip.trim",
+            "clip.move","effect.apply","keyframe.set","audio.process","history.undo"}
     for i,(behavior,ui,op,verify,dependency) in enumerate(rows,1):
-        status="NOT_STARTED" if behavior in not_started else "PARTIAL"
-        lines.append(f"| VS-{i:03d} | {behavior} | {ui} | `{op}` | `video.{op}` через общий слой | Типизированные параметры → revision/artifact/status | {verify} | {dependency} | {status} |")
+        status="BLOCKED" if behavior in blocked else "IMPLEMENTED" if behavior in verified else "PARTIAL"
+        if op in direct:
+            tool=f"`video.{op}`"
+        elif op.startswith(("clip.","track.","effect.","keyframe.","marker.","range.","project.rename","project.archive","media.update")) or op=="commands":
+            tool="`video.timeline.apply` (поддержанные typed commands)"
+        elif op in {"media.prepare","media.analyse","media.inspect"}:
+            tool="`video.media.analyse` / `video.project.inspect` (поддержанные actions)"
+        else:
+            tool="Отдельный tool не заявлен; см. фактический registry в bcc/video_studio/tools.py"
+        lines.append(f"| VS-{i:03d} | {behavior} | {ui} | `{op}` | {tool} | Типизированные параметры → revision/artifact/status | Критерий: {verify}; доказательства в UX_SPEC/BACKEND | {dependency} | {status} |")
     target.write_text("\n".join(lines)+"\n",encoding="utf-8")
     print(f"{len(rows)} explicit capability rows written")
 

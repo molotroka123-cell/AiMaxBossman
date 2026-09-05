@@ -301,3 +301,21 @@ def test_output_fps_rejects_unrenderable_project_at_admission():
     p=document()
     with pytest.raises(StudioError,match="240"):
         apply(p,"sequence.update",sequence_id=p["active_sequence_id"],patch={"fps":{"num":1000,"den":1}})
+
+
+def test_shared_dag_validation_is_linear_and_render_expansion_is_bounded():
+    from bcc.video_studio.model import new_sequence,new_clip
+    from bcc.video_studio.render import bounded_sequence_graph
+    p=new_project("dag","Shared DAG")
+    layers=[[new_sequence("Layer",f"s{i}_{j}") for j in range(4)] for i in range(12)]
+    p["sequences"]=[s for layer in layers for s in layer];p["active_sequence_id"]=p["sequences"][0]["id"]
+    for index,layer in enumerate(layers[:-1]):
+        for seq in layer:
+            for child in layers[index+1]:
+                seq["tracks"][0]["clips"].append(new_clip({"nested_sequence_id":child["id"],"source_out":TICKS}))
+    validate_project(p)
+    with pytest.raises(ValueError,match="4096"):
+        bounded_sequence_graph(p,p["active_sequence_id"])
+    layers[-1][0]["tracks"][0]["clips"].append(new_clip({"nested_sequence_id":p["active_sequence_id"],"source_out":TICKS}))
+    with pytest.raises(StudioError,match="cycle"):validate_project(p)
+    with pytest.raises(ValueError,match="cycle"):bounded_sequence_graph(p,p["active_sequence_id"])

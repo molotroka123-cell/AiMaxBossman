@@ -59,7 +59,7 @@ def rate(value):
     if type(n) is not int or type(d) is not int or not 0 < n <= 1_000_000 or not 0 < d <= 1_000_000:
         raise ValueError("rate must use positive integer numerator and denominator")
     result = Fraction(n, d)
-    if not Fraction(1, 100) <= result <= 240:
+    if not Fraction(1, 100) <= result <= 1000:
         raise ValueError("rate outside supported range")
     return result
 
@@ -147,6 +147,32 @@ def subtitles_file(path, width, height, rows, style=None):
     path.write_text(header, encoding="utf-8")
 
 
+def bounded_sequence_graph(project, sequence_id, max_expansion=4096):
+    """Linear graph validation plus a saturating expanded-render work estimate."""
+    sequences={s["id"]:s for s in project["sequences"]}
+    clips_by_id={key:[c for tr in seq["tracks"] for c in tr["clips"]] for key,seq in sequences.items()}
+    edges={key:[c["nested_sequence_id"] for c in clips if c.get("nested_sequence_id")] for key,clips in clips_by_id.items()}
+    colors,depths,work={}, {}, {}
+    pending=[(sequence_id,False)]
+    while pending:
+        key,finish=pending.pop()
+        if key not in sequences:raise ValueError("Unknown nested sequence")
+        clips=clips_by_id[key];children=edges[key]
+        if finish:
+            depths[key]=max((depths[c]+1 for c in children),default=0)
+            work[key]=min(max_expansion+1,1+len(clips)+sum(work[c] for c in children))
+            if depths[key]>16:raise ValueError("Nested sequence depth exceeds 16")
+            colors[key]=2
+            continue
+        if colors.get(key)==2:continue
+        if colors.get(key)==1:raise ValueError("Nested sequence cycle")
+        colors[key]=1;pending.append((key,True))
+        pending.extend((child,False) for child in children)
+    if work[sequence_id]>max_expansion:
+        raise ValueError("Expanded render exceeds 4096 sequence/clip nodes; render smaller sequences first")
+    return set(colors)
+
+
 class Compiler:
     def __init__(self, project, library, temporary):
         self.project, self.library, self.temporary = project, library, temporary
@@ -158,6 +184,8 @@ class Compiler:
         return f"n{self.counter}"
 
     def node(self, inputs, filters, outputs=1):
+        if len(self.graph)>=50000:
+            raise ValueError("Compiled render exceeds 50000 filter nodes; split or pre-render the sequence")
         labels = [self.label() for _ in range(outputs)]
         self.graph.append("".join(f"[{x}]" for x in inputs) + filters + "".join(f"[{x}]" for x in labels))
         return labels[0] if outputs == 1 else labels
@@ -307,6 +335,8 @@ class Compiler:
         return ",".join(filters)
 
     def sequence(self, sequence_id, visiting=()):
+        if not visiting:
+            bounded_sequence_graph(self.project,sequence_id)
         if sequence_id in visiting:raise ValueError("nested sequence cycle")
         seq=self.sequences[sequence_id]
         width,height=int(seq["width"]),int(seq["height"])
@@ -507,9 +537,10 @@ async def render_project(project, root, output_path, options=None, progress=None
     height=int(number(options.get("height",dh),minimum=16,maximum=8192))
     if width%2 or height%2:raise ValueError("export dimensions must be even")
     fps=rate(options.get("fps",seq["fps"]))
+    if fps>240:raise ValueError("output frame rate must not exceed 240")
     codec=options.get("video_codec","libx264");audio_codec=options.get("audio_codec","aac")
-    if codec not in {"libx264","libx265","h264_nvenc","hevc_nvenc","av1_nvenc","libvpx-vp9","prores_ks"}:raise ValueError("unsupported video codec")
-    if audio_codec not in {"aac","libopus","pcm_s16le"}:raise ValueError("unsupported audio codec")
+    if codec not in {"libx264","libx265","h264_nvenc","hevc_nvenc","av1_nvenc","libvpx-vp9","prores_ks","ffv1"}:raise ValueError("unsupported video codec")
+    if audio_codec not in {"aac","libopus","pcm_s16le","pcm_f32le"}:raise ValueError("unsupported audio codec")
     output_path=Path(output_path).resolve();root=Path(root).resolve()
     if not output_path.is_relative_to(root) or output_path.suffix.lower() not in {".mp4",".mov",".mkv",".webm"}:raise ValueError("export must use an owned output path and supported container")
     if output_path.exists():raise ValueError("export path already exists; use a new immutable artifact")
@@ -517,6 +548,50 @@ async def render_project(project, root, output_path, options=None, progress=None
     if options.get("mode") == "stream_copy":
         return await stream_copy(project,root,output_path,options,progress)
     if options.get("mode","render")!="render":raise ValueError("unknown export mode")
+    # Rewrite only a private render snapshot; project history and source IDs do
+    # not change when an intermediate execution cache is prepared.
+    from copy import deepcopy
+    project=deepcopy(project)
+    library=MediaLibrary(root)
+    sequences_by_id={s["id"]:s for s in project["sequences"]}
+    reachable=bounded_sequence_graph(project,seq["id"])
+    for sequence_ in project["sequences"]:
+        if sequence_["id"] not in reachable:continue
+        for track_ in sequence_["tracks"]:
+            for clip_ in track_["clips"]:
+                if not clip_.get("reverse") or clip_.get("freeze"):continue
+                if clip_.get("nested_sequence_id"):
+                    nested=sequences_by_id[clip_["nested_sequence_id"]]
+                    span=clip_["source_out"]-clip_["source_in"]
+                    estimate=span/TICKS*float(rate(sequence_["fps"]))*nested["width"]*nested["height"]*8
+                    if span<=30*TICKS and estimate<=64*1024**2:continue
+                    cache=root/"cache"/"nested";cache.mkdir(parents=True,exist_ok=True)
+                    fingerprint=hashlib.sha256(json.dumps({"project":project,"sequence":nested["id"]},sort_keys=True).encode()).hexdigest()
+                    metadata_path=cache/(fingerprint+".json")
+                    if metadata_path.exists():
+                        media_=json.loads(metadata_path.read_text(encoding="utf-8"));await blocking(library.resolve,media_)
+                    else:
+                        with tempfile.TemporaryDirectory(prefix="nested-",dir=cache) as td:
+                            artifact=Path(td)/"nested.mkv"
+                            await render_project(project,root,artifact,{"sequence_id":nested["id"],"video_codec":"ffv1","audio_codec":"pcm_f32le"},progress)
+                            media_=await library.import_file(artifact,name="Nested sequence reverse intermediate")
+                        temporary=cache/(fingerprint+"-"+os.urandom(6).hex()+".json")
+                        temporary.write_text(json.dumps(media_),encoding="utf-8");os.replace(temporary,metadata_path)
+                    project["media"][media_["id"]]=media_
+                    clip_.pop("nested_sequence_id");clip_["media_id"]=media_["id"]
+                if not clip_.get("media_id"):continue
+                media_=project["media"][clip_["media_id"]]
+                if media_.get("metadata",{}).get("format") in {"png_pipe","jpeg_pipe"}:
+                    clip_["reverse"]=False;continue
+                parts_=clip_.get("speed_ramp") or [clip_]
+                begin=min(p["source_in"] for p in parts_);finish=max(p["source_out"] for p in parts_)
+                estimated=(finish-begin)/TICKS*float(rate(sequence_["fps"]))*media_["width"]*media_["height"]*8
+                if finish-begin<=30*TICKS and estimated<=64*1024**2:continue
+                proxy=await library.reverse_proxy(media_,begin,finish,sequence_["fps"],progress)
+                project["media"][proxy["id"]]=proxy
+                clip_.update(media_id=proxy["id"],source_in=0,source_out=finish-begin,reverse=False)
+                if clip_.get("speed_ramp"):
+                    clip_["speed_ramp"]=[{**part,"source_in":finish-part["source_out"],"source_out":finish-part["source_in"]} for part in reversed(parts_)]
     if progress:await progress("compiling",{"revision":project["revision"]})
     with tempfile.TemporaryDirectory(prefix="render-",dir=root) as td:
         compiler=Compiler(project,MediaLibrary(root),Path(td))

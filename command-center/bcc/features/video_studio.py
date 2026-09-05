@@ -28,6 +28,7 @@ class Export(Strict):
     expected_revision: int = Field(ge=0)
     operation_id: str = Field(min_length=1,max_length=96,pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
     preview: bool = False
+    container: str = Field(default="mp4",pattern=r"^(mp4|mov|mkv|webm)$")
     options: dict[str, Any] = Field(default_factory=dict)
 class OtioImport(Strict):
     project_id: str
@@ -46,6 +47,18 @@ class Analysis(Strict):
     expected_revision: int = Field(ge=0)
     operation_id: str = Field(min_length=1,max_length=96,pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
     action: str = "analyse"
+    box: list[float] | None = Field(default=None,min_length=4,max_length=4)
+    source_in: int = Field(default=0,ge=0)
+    source_out: int | None = Field(default=None,ge=0)
+    reference_media_id: str | None = None
+    scope_kind: str = Field(default="waveform",pattern=r"^(waveform|histogram|vectorscope)$")
+    codec: str = Field(default="libx264",pattern=r"^(libx264|h264_nvenc|hevc_nvenc|av1_nvenc)$")
+    width: int = Field(default=1280,ge=16,le=8192)
+    height: int = Field(default=720,ge=16,le=8192)
+    source: str = Field(default="en",pattern=r"^en$")
+    target: str = Field(default="ru",pattern=r"^ru$")
+    query: str = Field(default="",max_length=2000)
+    limit: int = Field(default=10,ge=1,le=50)
     language: str = Field(default="auto",pattern=r"^(auto|[a-z]{2,3})$")
 class Captions(Strict):
     project_id: str
@@ -99,6 +112,11 @@ async def capabilities(request: Request):
     data["transcription"]={"status":"AVAILABLE" if model and Path(model).is_file() else "BLOCKED",
                            "reason":"Host local model configured" if model and Path(model).is_file() else "No host-approved local ASR model configured"}
     data["generation"]=generation_status()
+    translation=os.environ.get("BOSSMAN_VIDEO_TRANSLATION_MODEL","")
+    runtime=os.environ.get("BOSSMAN_VIDEO_TRANSLATION_PYTHON","")
+    configured=bool(translation and (Path(translation)/"config.json").is_file() and runtime and Path(runtime).is_file())
+    data["translation"]={"status":"CONFIGURED" if configured else "BLOCKED","source":"en","target":"ru",
+        "draft_only":True,"reason":"Local files configured; integrity checked per job" if configured else "No host-approved local translation model/runtime configured"}
     return data
 
 @router.get("/projects")
@@ -144,16 +162,18 @@ async def media_file(media_id: str,project_id: str,request: Request):
 
 @router.get("/media/{media_id}/thumbnail")
 async def thumbnail(media_id: str,project_id: str,request: Request):
-    svc = service(request)
-    path, media = await guarded(svc.media_file(project_id,media_id))
-    artifacts = await guarded(svc.media.prepare(media))
-    relative = artifacts.get("thumbnail")
-    if not relative:
-        raise HTTPException(404,"thumbnail unavailable")
-    path = (svc.root / relative).resolve()
-    if not path.is_relative_to(svc.root):
-        raise HTTPException(403,"artifact denied")
+    path=await guarded(service(request).prepared_file(project_id,media_id,"thumbnail"))
     return FileResponse(path,media_type="image/jpeg")
+
+@router.get("/media/{media_id}/proxy")
+async def proxy(media_id: str,project_id: str,request: Request):
+    path=await guarded(service(request).prepared_file(project_id,media_id,"proxy"))
+    return FileResponse(path,media_type="video/mp4")
+
+@router.get("/media/{media_id}/waveform")
+async def waveform(media_id: str,project_id: str,request: Request):
+    path=await guarded(service(request).prepared_file(project_id,media_id,"waveform"))
+    return FileResponse(path,media_type="image/png")
 
 @router.get("/projects/{project_id}/exports")
 async def project_exports(project_id: str,request: Request):
@@ -173,6 +193,10 @@ async def portable(body: Export,request: Request):
     if body.preview or body.options:
         raise HTTPException(422,"portable package takes no render options")
     return await guarded(service(request).package(body.model_dump()))
+
+@router.post("/portable/import")
+async def portable_import(request: Request,project_id: str,expected_revision: int,operation_id: str):
+    return await guarded(service(request).import_package(request,project_id,expected_revision,operation_id))
 
 @router.post("/analysis")
 async def analysis(body: Analysis,request: Request):
@@ -206,16 +230,30 @@ async def otio_import(body: OtioImport,request: Request):
         raise HTTPException(409,"OpenTimelineIO is not installed") from None
 
 @router.get("/projects/{project_id}/otio")
-async def otio_export(project_id: str,request: Request):
+async def otio_export(project_id: str,request: Request,revision: int | None=None):
     import asyncio,json
     from ..video_studio.interchange import export_otio
     from fastapi.responses import Response
-    project=await guarded(service(request).store.get(project_id))
+    store=service(request).store
+    project=await guarded(store.get(project_id) if revision is None else store.version(project_id,revision))
     try:
         result=await asyncio.to_thread(export_otio,project)
     except ImportError:
         raise HTTPException(409,"OpenTimelineIO is not installed") from None
     return Response(result["data"],media_type="application/json",headers={
+        "Content-Disposition":f'attachment; filename="{result["filename"]}"',
+        "X-Bossman-Interchange-Warnings":str(len(result["warnings"])),
+        "X-Bossman-Parity-Claim":"false"})
+
+@router.get("/projects/{project_id}/shotcut")
+async def shotcut_export(project_id: str,request: Request,revision: int | None=None):
+    import asyncio
+    from ..video_studio.shotcut import export_shotcut
+    from fastapi.responses import Response
+    video=service(request)
+    project=await guarded(video.store.get(project_id) if revision is None else video.store.version(project_id,revision))
+    result=await guarded(asyncio.to_thread(export_shotcut,project,video.root))
+    return Response(result["data"],media_type="application/xml",headers={
         "Content-Disposition":f'attachment; filename="{result["filename"]}"',
         "X-Bossman-Interchange-Warnings":str(len(result["warnings"])),
         "X-Bossman-Parity-Claim":"false"})
@@ -266,8 +304,8 @@ async def output(job_id: str,request: Request):
     if status["status"] != "completed":
         raise HTTPException(409,"export not independently verified and completed")
     path=await guarded(video.verified_output(job_id))
-    return FileResponse(path,media_type="application/zip" if path.suffix==".zip" else "video/mp4",
-                        filename="bossman-project.zip" if path.suffix==".zip" else "bossman-video.mp4")
+    media_type={".zip":"application/zip",".png":"image/png",".webm":"video/webm",".mov":"video/quicktime",".mkv":"video/x-matroska"}.get(path.suffix,"video/mp4")
+    return FileResponse(path,media_type=media_type,filename="bossman-project.zip" if path.suffix==".zip" else "bossman-video"+path.suffix)
 
 @router.post("/chat")
 async def chat(body: Chat,request: Request):
@@ -315,6 +353,8 @@ async def setup(svc):
     svc.engine.register_executor("video_analysis",svc.video_studio.analysis_executor)
     svc.engine.add_hook("gate_completion",svc.video_studio.analysis_gate)
     svc.engine.register_executor("video_package",svc.video_studio.package_executor)
+    svc.engine.register_executor("video_import",svc.video_studio.import_executor)
+    svc.engine.add_hook("gate_completion",svc.video_studio.import_gate)
     svc.engine.add_hook("gate_completion",svc.video_studio.package_gate)
     svc.engine.register_executor("video_proposal",svc.video_studio.proposal_executor)
     svc.engine.add_hook("gate_completion",svc.video_studio.proposal_gate)
