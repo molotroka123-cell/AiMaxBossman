@@ -50,6 +50,8 @@ const el = {
 
 const IS_MAC = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
 const THEME_KEY = 'bcc.theme';
+/* Задачи, которые «про сайт»: под них открывается визуальная панель веб-дизайна. */
+const WEB_TASK_RE = /сайт|веб[- ]?дизайн|web[- ]?design|лендинг|landing|портфолио|website|landing page/i;
 const PAGE_BY_ID = new Map(PAGES.map((p) => [p.id, p]));
 // Посадочная страница по старшинству: home-v3 (лаунчер) → overview (V2) → home (MVP).
 // Прежние страницы остаются в PAGE_BY_ID, поэтому прямые ссылки #/home и
@@ -414,6 +416,13 @@ bus.subscribe((ev) => {
   }
 
   if (kind.startsWith('approval.')) refreshApprovals();
+
+  /* Веб-дизайн: создана задача про сайт — визуальная панель открывается сама.
+     Если пользователь уже в панели, deep-link не нужен (иначе цикл проектов). */
+  if (kind === 'task.created' && currentPage !== 'web_designer'
+      && WEB_TASK_RE.test(String(ev.title || ''))) {
+    navigate('web_designer', { task: String(ev.title || '') });
+  }
 
   if (kind === 'system.metrics') {
     const data = ev.data && typeof ev.data === 'object' ? ev.data : ev;
