@@ -9,7 +9,9 @@
   ↓
 ORGANIZATION LAYER  — КТО делает работу (отделы, роли, команды, делегирование, бюджеты, качество, обучение)
   ↓ MissionReporter (пассивный отчёт наверх)        ← (Executive OS — будущий слой миссий; сейчас его роль
-  ↓ DelegationContract 2.0                              выполняет владелец/тест или bossman.company-план)
+  ↓ DelegationContract 2.0 (+privacy, placement)        выполняет владелец/тест или bossman.company-план)
+FLEET OS            — ГДЕ исполняется: `FleetExecutionBridge` реализует порт `ExecutionBridge`
+  ↓                   (см. docs/v3/fleet/ARCHITECTURE.md); без флота порт реализует V3ExecutionBridge напрямую
 V3 FOUNDATION       — CompoundRunner + TaskJournal + UniversalComputerAgent: память, состояние, возобновление
   ↓ adapters/command_center (V3-порты → bcc)
 V2 ACTION ENGINE    — ЗАМОРОЖЕН (ffda281): реестр инструментов, decide_effect, approvals, свежая верификация
@@ -30,7 +32,7 @@ V2 ACTION ENGINE    — ЗАМОРОЖЕН (ffda281): реестр инстру�
 | `teams.py` | Динамический граф: временная команда под контракт, слоты по риску (LOW: executor; MEDIUM: +reviewer; HIGH: lead+executor+reviewer[+risk]); рёбра ownership/delegation/review; распуск после работы | §1, §3, §6 |
 | `treasury.py` | Конверты organization → department → mission; reserve → commit/release; перерасход записывается и эскалируется владельцу | §8 |
 | `learning.py` | Статистика (агент × способность): попытки, подтверждённые успехи, провалы, ложные успехи, ретраи, эскалации, цена, задержка; Beta(1,1) с забыванием | §7 |
-| `memory_scope.py` | Скоупы знания поверх V3-памяти: `organization / department:* / project:* / mission:* / team:* / agent:*`; происхождение, уверенность, срок годности; экспорт по allowlist отдела; FailureMemory — по корню на отдел | §4 |
+| `memory_scope.py` | `KnowledgePort` (узкий порт памяти) + `ScopedKnowledge`: скоупы `organization / department:* / project:* / mission:* / team:* / agent:*`; происхождение, уверенность, срок годности; явное наследование `include_parents` (MEM-02); экспорт по allowlist отдела; FailureMemory — по корню на отдел. Путь слияния с каноническим `bossman.context_engine` (Agent 2): колонка `scope` рядом с `project` в `context_engine/store.py`, `org_knowledge` становится view — интерфейс порта не меняется | §4 |
 | `events.py` | Реакции на события → контракты (не побочные эффекты); дедуп по idempotency-ключу, backpressure, ограниченные ретраи, только зарегистрированные виды | §9 |
 | `control_plane.py` | Снимок организации из durable store: активные миссии, владельцы, работающие агенты, блокеры, ожидание владельца, казначейство, проваливающиеся агенты, подтверждённо завершённое | §10 |
 | `store.py` | SQLite (stdlib): отделы, агенты, миссии, команды, контракты, результаты, конверты, обучение, знания, события, журнал | восстановление после рестарта |
