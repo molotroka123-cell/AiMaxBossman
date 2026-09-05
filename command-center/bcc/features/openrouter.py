@@ -6,6 +6,8 @@ pin в реестр) и capability_probe (chat/tools/structured/vision проб�
 refresh. Ключ хранится шифрованным (как у всех провайдеров).
 """
 from __future__ import annotations
+from bcc.v2.openrouter_ext import catalog_price_values
+from bcc.provider_governance import known_prices
 
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
@@ -178,7 +180,7 @@ async def pin_model(provider_id: int, request: Request):
         res = await s.execute(sa.insert(models_t).values(
             provider_id=provider_id, name=remote_id, alias=alias, kind="cloud",
             context_window=c["context_window"] or 8192,
-            price_in=c["price_in"] or 0.0, price_out=c["price_out"] or 0.0,
+            **catalog_price_values(c), pricing_known=known_prices(catalog_price_values(c)),
             caps=caps, status="unknown"))
         mid = int(res.inserted_primary_key[0])
         await s.commit()

@@ -32,9 +32,10 @@ class Claim:
 
 class WorkQueue:
     def __init__(self, store: FleetStore, scheduler: FleetScheduler, journal: FleetEventJournal | None = None,
-                 retry: RetryPolicy | None = None) -> None:
+                 retry: RetryPolicy | None = None, authorize_requeue=None) -> None:
         self.store, self.scheduler, self.journal = store, scheduler, journal
         self.retry = retry or RetryPolicy()
+        self.authorize_requeue = authorize_requeue or (lambda principal, work_id: False)
 
     def enqueue(self, work_id: str, mission_id: str, *, priority: int, requirement: PlacementRequirement,
                 payload: dict[str, Any] | None = None) -> bool:
@@ -70,50 +71,98 @@ class WorkQueue:
             return Claim(row["work_id"], node.node_id, fence, row["payload"])
         return None
 
-    def release(self, work_id: str, node_id: str) -> bool:
-        return self.store.release_claim(work_id, node_id)
+    @staticmethod
+    def _identity(claim: Claim):
+        if not isinstance(claim, Claim):
+            raise TypeError("a fenced Claim is required")
+        return claim.work_id, claim.node_id, claim.claim_fence
 
-    def complete(self, work_id: str) -> bool:
-        return self.store.dequeue(work_id)
+    def release(self, claim: Claim) -> bool:
+        with self.store.connect() as con:
+            return con.execute("UPDATE fleet_work_queue SET claimed_by=NULL, claimed_ts=NULL "
+                               "WHERE work_id=? AND claimed_by=? AND claim_fence=?",
+                               self._identity(claim)).rowcount == 1
 
-    # ------------------------------------------------------------ retries
+    def complete(self, claim: Claim) -> bool:
+        with self.store.connect() as con:
+            return con.execute("DELETE FROM fleet_work_queue WHERE work_id=? AND claimed_by=? AND claim_fence=?",
+                               self._identity(claim)).rowcount == 1
 
-    def on_failure(self, work_id: str, mission_id: str, *, reason: str, attempts: int,
-                   payload: dict[str, Any] | None = None) -> tuple[FailureClass, str]:
-        """Решение после провала: REQUEUE (с задержкой), WAIT_HUMAN, DEAD_LETTER."""
+    def on_failure(self, work_id: str, mission_id: str, *, claim: Claim, reason: str,
+                   attempts: int = 0, payload: dict[str, Any] | None = None,
+                   now: float | None = None) -> tuple[FailureClass, str]:
+        import json
+        now = time.time() if now is None else now
+        identity = self._identity(claim)
+        if claim.work_id != work_id:
+            raise PermissionError("failure work identity mismatch")
         fc = classify_failure(reason)
-        if fc == FailureClass.NEVER_RETRY:
-            self._dead(work_id, mission_id, reason, fc, attempts, payload)
-            return fc, "DEAD_LETTER"
-        if fc == FailureClass.HUMAN_REQUIRED:
-            self.store.release_claim(work_id)
-            return fc, "WAIT_HUMAN"
-        if attempts >= self.retry.max_attempts:
-            self._dead(work_id, mission_id, reason, fc, attempts, payload)
-            return fc, "DEAD_LETTER"
-        self.store.release_claim(work_id)
-        return fc, f"REQUEUE_AFTER_{self.retry.delay_for(attempts):.0f}s"
+        with self.store.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            try:
+                row = con.execute("SELECT * FROM fleet_work_queue WHERE work_id=? AND claimed_by=? "
+                                  "AND claim_fence=? AND mission_id=?", (*identity, mission_id)).fetchone()
+                if row is None:
+                    raise PermissionError("stale queue claim")
+                attempts = int(row["attempts"])  # persisted authority, never caller-controlled
+                if fc == FailureClass.NEVER_RETRY or attempts >= self.retry.max_attempts:
+                    body = json.loads(row["payload"])
+                    body["requirement"] = json.loads(row["requirement"])
+                    con.execute("INSERT OR REPLACE INTO fleet_dead_letter VALUES(?,?,?,?,?,?,?,0)",
+                                (work_id, mission_id, reason[:2000], fc.value, attempts, json.dumps(body), now))
+                    con.execute("DELETE FROM fleet_work_queue WHERE work_id=? AND claimed_by=? AND claim_fence=?", identity)
+                    decision = "DEAD_LETTER"
+                else:
+                    waiting = fc == FailureClass.HUMAN_REQUIRED
+                    delay = 0 if waiting else self.retry.delay_for(attempts)
+                    con.execute("UPDATE fleet_work_queue SET claimed_by=NULL, claimed_ts=NULL, queue_state=?, "
+                                "not_before=? WHERE work_id=? AND claimed_by=? AND claim_fence=?",
+                                ("waiting_human" if waiting else "ready", now + delay, *identity))
+                    decision = "WAIT_HUMAN" if waiting else f"REQUEUE_AFTER_{delay:.0f}s"
+                con.execute("COMMIT")
+            except BaseException:
+                con.execute("ROLLBACK")
+                raise
+        return fc, decision
 
-    def _dead(self, work_id: str, mission_id: str, reason: str, fc: FailureClass, attempts: int, payload) -> None:
-        self.store.dead_letter(work_id, mission_id, reason=reason, failure_class=fc.value, attempts=attempts,
-                               payload=dict(payload or {}))
-        self.store.dequeue(work_id)
-        if self.journal:
-            self.journal.emit(FleetEventType.TASK_DEAD_LETTERED, mission_id=mission_id, work_id=work_id,
-                              payload={"reason": reason[:200], "class": fc.value, "attempts": attempts})
+    def resume_waiting(self, work_id: str, *, by: str) -> bool:
+        if not self.authorize_requeue(by, work_id):
+            raise PermissionError("authenticated approval is required")
+        with self.store.connect() as con:
+            return con.execute("UPDATE fleet_work_queue SET queue_state='ready',not_before=0 "
+                               "WHERE work_id=? AND queue_state='waiting_human'", (work_id,)).rowcount == 1
 
     def dead_letters(self) -> list[dict[str, Any]]:
         return self.store.dead_letters()
 
     def requeue_dead_letter(self, work_id: str, *, by: str) -> bool:
         """Явное решение человека/политики; модель не может вернуть работу из карантина."""
-        if not (by.startswith("human:") or by.startswith("policy:")):
-            raise PermissionError("dead-letter requeue requires a human:* or policy:* principal")
-        item = next((d for d in self.store.dead_letters() if d["work_id"] == work_id), None)
-        if item is None:
-            return False
-        self.store.mark_requeued(work_id)
-        return self.store.enqueue(work_id, item["mission_id"], 5, item["payload"].get("requirement", {}), item["payload"])
+        if not self.authorize_requeue(by, work_id):
+            raise PermissionError("dead-letter requeue requires authenticated authorization")
+        import json
+        with self.store.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            try:
+                item = con.execute("SELECT * FROM fleet_dead_letter WHERE work_id=? AND requeued=0",
+                                   (work_id,)).fetchone()
+                if item is None:
+                    con.execute("ROLLBACK")
+                    return False
+                body = json.loads(item["payload"])
+                changed = con.execute(
+                    "INSERT OR IGNORE INTO fleet_work_queue(work_id,mission_id,priority,requirement,payload,enqueued_ts) "
+                    "VALUES(?,?,?,?,?,?)", (work_id, item["mission_id"], 5,
+                                           json.dumps(body.get("requirement", {})), item["payload"], time.time())).rowcount
+                if not changed:
+                    con.execute("ROLLBACK")
+                    return False
+                con.execute("UPDATE fleet_dead_letter SET requeued=1 WHERE work_id=?", (work_id,))
+                con.execute("COMMIT")
+                return True
+            except BaseException:
+                con.execute("ROLLBACK")
+                raise
+
 
 
 def _req(raw: dict[str, Any]) -> PlacementRequirement:

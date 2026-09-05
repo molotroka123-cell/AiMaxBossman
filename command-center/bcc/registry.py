@@ -77,7 +77,11 @@ class Registry:
             return await fetch_one(s, models_t, model_id)
 
     async def create_model(self, **values: Any) -> dict:
-        values = {k: v for k, v in values.items() if v is not None}
+        values = {k: v for k, v in values.items() if v is not None or k in ("price_in", "price_out")}
+        from .provider_governance import known_prices
+        values.setdefault("price_in", None)
+        values.setdefault("price_out", None)
+        values["pricing_known"] = known_prices(values)
         values.setdefault("alias", values.get("name"))
         async with self.db.session() as s:
             provider = await fetch_one(s, providers_t, int(values["provider_id"]))
@@ -91,8 +95,12 @@ class Registry:
         return row or {}
 
     async def update_model(self, model_id: int, **values: Any) -> dict | None:
-        values = {k: v for k, v in values.items() if v is not None}
+        values = {k: v for k, v in values.items() if v is not None or k in ("price_in", "price_out")}
         async with self.db.session() as s:
+            if "price_in" in values or "price_out" in values:
+                from .provider_governance import known_prices
+                prior = await fetch_one(s, models_t, model_id)
+                values["pricing_known"] = known_prices({**(prior or {}), **values})
             if values:
                 await s.execute(sa.update(models_t).where(models_t.c.id == model_id).values(**values))
                 await s.commit()
@@ -124,7 +132,8 @@ class Registry:
         # проверка и тест модели, — и обойти обёртку значит обойти потолок.
         # Обёртка ставится ПОСЛЕ фабрики, поэтому подменённая фабрика (тесты,
         # плагины) от потолка тоже не освобождает.
-        return capped(self.adapter_factory(model, provider), provider, model), model
+        from .provider_governance import GovernedAdapter
+        return GovernedAdapter(capped(self.adapter_factory(model, provider), provider, model), provider, model), model
 
     # ---------- проверки ----------
 

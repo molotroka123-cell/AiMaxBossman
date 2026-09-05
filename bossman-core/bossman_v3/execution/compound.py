@@ -21,14 +21,15 @@ ExecutorPort. Привязка к V2 будет отдельным адапте�
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from contextlib import contextmanager, nullcontext
 from typing import Any, Mapping, Sequence
 
 from ..computer_agent.agent import (ApprovalDeniedError, PolicyDeniedError,
                                     StaleObservationError, UniversalComputerAgent,
                                     UnsafeActionError, UnsupportedActionError)
-from ..contracts import TypedAction
+from ..contracts import TypedAction, SideEffectClass
 from ..memory.failure_memory import FailureMemory
-from ..memory.journal import TaskJournal
+from ..memory.journal import TaskJournal, JournalIntegrityError
 
 _EXPECTED = (PolicyDeniedError, ApprovalDeniedError, StaleObservationError,
              UnsafeActionError, UnsupportedActionError)
@@ -97,16 +98,31 @@ class CompoundRunner:
             fencing_token=int(fence) if fence is not None else None, run_id=str(ctx.get("run_id", "")),
             executor_metadata={"effect_id": outcome.effect_id, "approval_id": outcome.approval_id,
                                "model": self.model, "node_id": ctx.get("node_id", "")})
-        return rec.to_dict()
+        body = rec.to_dict()
+        body.update(effect_id=outcome.effect_id, action_type=step.action.action_type,
+                    approval_id=outcome.approval_id,
+                    observed_state=dict(obs.state), expect=dict(step.action.args).get("expect", {}),
+                    verification_passed=outcome.verification.passed)
+        return body
 
     def run(self, plan: Sequence[PlanStep], context: Mapping[str, Any] | None = None) -> CompoundResult:
-        done_ids = {s.step_id for s in self.journal.finished_signed()}
+        from ..organization.bridges import step_to_dict
+        try:
+            self.journal.bind_plan([step_to_dict(s) for s in plan])
+        except JournalIntegrityError as exc:
+            return CompoundResult(False, reason=str(exc))
+        done_ids = {s.step_id for s in self.journal.finished()}
         executed: list[str] = []
         not_run: list[str] = []
 
         for step in plan:
             if step.step_id in done_ids:
                 continue                      # уже сделано — не переигрываем
+            state = next(s for s in self.journal.steps if s.step_id == step.step_id)
+            if state.in_flight and step.action.side_effect not in (
+                    SideEffectClass.READ_ONLY, SideEffectClass.IDEMPOTENT_WRITE):
+                return CompoundResult(False, executed, not_run, step.step_id,
+                                      "unknown previous effect; reconciliation required before replay")
 
             if not self._guard_passed(step):
                 not_run.append(step.step_id)
@@ -116,7 +132,17 @@ class CompoundRunner:
                 continue
 
             try:
-                outcome = self.agent.run(step.action, dict(context or {}))
+                before_step = (context or {}).get("before_step")
+                if before_step is not None:
+                    before_step(step.action)
+                external_guard = (context or {}).get("execution_guard")
+                @contextmanager
+                def guarded_effect():
+                    with external_guard() if external_guard is not None else nullcontext():
+                        self.journal.begin(step.step_id, by=self.model)
+                        yield
+                outcome = self.agent.run(step.action, {**dict(context or {}),
+                                                       "execution_guard": guarded_effect})
             except _EXPECTED as exc:
                 reason = f"{type(exc).__name__}: {exc}"
                 self.journal.fail(step.step_id, error=reason, by=self.model)

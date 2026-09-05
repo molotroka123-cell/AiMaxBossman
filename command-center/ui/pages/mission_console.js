@@ -303,7 +303,26 @@ const MissionConsolePage = {
     const spend = settled(spendR);
 
     const mission = pickMission(missions);
-    const tasks = scopeTasks(allTasks, mission);
+    let tasks = scopeTasks(allTasks, mission);
+    let tasksComplete = tasksR.status === 'fulfilled';
+    if (mission) {
+      tasks = [];
+      let before = null;
+      tasksComplete = false;
+      try {
+        for (let page = 0; page < 100; page++) {
+          const url = `/api/tasks?mission_id=${encodeURIComponent(mission.id)}&limit=500`
+            + (before === null ? '' : `&before_id=${before}`);
+          const rows = listOf(await api.raw(url), 'tasks');
+          tasks.push(...rows);
+          if (rows.length < 500) { tasksComplete = true; break; }
+          const next = Math.min(...rows.map(t => Number(t.id)));
+          if (!Number.isFinite(next) || (before !== null && next >= before)) break;
+          before = next;
+        }
+        tasks = scopeTasks(tasks, mission);
+      } catch { tasksComplete = false; }
+    }
     const current = pickCurrent(tasks);
     const run = runOf(current);
 
@@ -320,6 +339,7 @@ const MissionConsolePage = {
 
     return h('div.mc2030', { 'data-page': 'mission_console' },
       headerBlock(data),
+      !tasksComplete ? h('p', { role: 'status' }, 'Список задач загружен не полностью. Обновите страницу.') : null,
       h('div.mc-body', feedBlock(data, ctx), railBlock(data)),
       commandBlock(data, ctx));
   },

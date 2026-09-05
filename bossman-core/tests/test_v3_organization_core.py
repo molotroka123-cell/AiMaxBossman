@@ -33,6 +33,16 @@ def _agent(aid, *, tier="local_small", roles=(EXECUTOR,), caps=("fs.write",), de
 
 # --------------------------------------------------------------- contracts
 
+def _bound_evidence(c, kind="file", ref="/tmp/x"):
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    return Evidence.signed(kind, ref, source="bossman_v3.verifier", observed_at=now,
+                           binding={"mission_id": c.mission_id, "work_id": c.work_id,
+                                    "contract_digest": c.digest(), "attempt_id": "fixture-attempt",
+                                    "action_digest": "fixture-action", "started_at": now,
+                                    "verification_passed": True, "verified_expect": {}})
+
+
 def test_prose_is_not_evidence_even_with_verified_flag_from_untrusted_source():
     c = _contract()
     r = WorkResult("w1", executed=True, claims={"done": True, "summary": "я всё сделал"},
@@ -44,7 +54,7 @@ def test_prose_is_not_evidence_even_with_verified_flag_from_untrusted_source():
 
 def test_journal_backed_evidence_is_accepted():
     c = _contract()
-    r = WorkResult("w1", executed=True, evidence=[Evidence.signed("file", "/tmp/x", source="journal:m1__w1/s1")])
+    r = WorkResult("w1", executed=True, evidence=[_bound_evidence(c)])
     ok, errors = c.validate(r)
     assert ok and errors == []
     # EH-01: та же улика без подписи — отказ, а не доверие по префиксу source
@@ -65,7 +75,7 @@ def test_missing_and_unverified_evidence_fail_closed():
 def test_side_effect_work_with_nothing_executed_is_not_success():
     c = _contract()
     ok, errors = c.validate(WorkResult("w1", executed=False,
-                                       evidence=[Evidence.signed("file", "/tmp/x", source="journal:m1__w1/s1")]))
+                                       evidence=[_bound_evidence(c)]))
     assert not ok and "nothing was executed" in errors[0]
 
 
@@ -83,7 +93,7 @@ def test_contract_digest_is_stable_across_roundtrip_and_ignores_runtime_metadata
 
 
 def test_consensus_counts_only_verified_results():
-    good = WorkResult("w", True, [Evidence("t", "r", True, source="journal:a/b")], success=True)
+    good = WorkResult("w", True, [Evidence.signed("t", "r", source="journal:a/b")], success=True)
     claimed = WorkResult("w", True, [Evidence("t", "r", False, source="journal:a/b")], success=True)
     assert consensus([good, good]) is True
     assert consensus([good, claimed]) is False
@@ -214,17 +224,18 @@ def test_learning_is_conservative_and_decays(tmp_path):
 def test_scoped_knowledge_isolates_projects_and_exports_only_allowlisted_kinds(tmp_path):
     store = OrganizationStore(tmp_path / "org.sqlite")
     k = ScopedKnowledge(store)
-    k.publish("project:A", "verified_fact", {"x": 1}, provenance="journal:a/s1")
-    k.publish("project:A", "raw_state", {"token": "sk-abcdefghijklmnopqrstuvwxyz0123"},  # ci-secret-scan: allow — канарейка
+    k.publish("department:engineering", "verified_fact", {"x": 1}, provenance="journal:a/s1")
+    k.publish("department:engineering", "raw_state", {"token": "sk-abcdefghijklmnopqrstuvwxyz0123"},  # ci-secret-scan: allow — канарейка
               provenance="dump")
     assert k.read("project:B") == []
-    assert [f.kind for f in k.read("project:A")] == ["verified_fact", "raw_state"]
-    raw = k.read("project:A", kind="raw_state")[0]
+    assert [f.kind for f in k.read("department:engineering")] == ["verified_fact", "raw_state"]
+    raw = k.read("department:engineering", kind="raw_state")[0]
     assert "sk-abc" not in str(raw.payload) and "[REDACTED]" in str(raw.payload)   # секрет отредактирован до записи
     eng = Department("engineering")
-    fact = k.read("project:A", kind="verified_fact")[0]
+    store.save_department(eng)
+    fact = k.read("department:engineering", kind="verified_fact")[0]
     exported = k.export(fact, to_scope="project:B", source_department=eng)
-    assert exported.source_scope == "project:A" and "exported from project:A" in exported.provenance
+    assert exported.source_scope == "department:engineering" and "exported from department:engineering" in exported.provenance
     with pytest.raises(ExportBlocked):
         k.export(raw, to_scope="project:B", source_department=eng)
 
@@ -275,7 +286,7 @@ def test_store_roundtrips_everything_needed_for_restart(tmp_path):
     store.save_agent(_agent("coder", model="glm"))
     c = _contract()
     store.save_work(c, state=TaskState.EXECUTING, assigned=["coder"], attempts=1)
-    r = WorkResult("w1", True, [Evidence("file", "/tmp/x", True, source="journal:m1__w1/s1")], success=True)
+    r = WorkResult("w1", True, [_bound_evidence(c)], success=True)
     store.save_result(r, "m1")
     store.save_envelope("department:engineering", limit=Resources(usd=5), spent=Resources(usd=1))
 
@@ -354,6 +365,9 @@ def test_mem02_scope_inheritance_is_explicit_and_refuses_sibling_scopes(tmp_path
     k.publish("department:trading", "secret_rule", {"rule": "max position"}, provenance="risk")
     k.publish("mission:m1", "verified_fact", {"x": 1}, provenance="journal:m1__w1/s1")
     assert [f.kind for f in k.read("mission:m1")] == ["verified_fact"]
+    from bossman_v3.organization import MissionState
+    store.save_department(Department("eng"))
+    store.save_mission("m1", title="owned", department_id="eng", state=MissionState.RECEIVED)
     inherited = k.read("mission:m1", include_parents=("department:eng", "organization"))
     assert {f.scope for f in inherited} == {"mission:m1", "department:eng", "organization"}
     with pytest.raises(PermissionError):

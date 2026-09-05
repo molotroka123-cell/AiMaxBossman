@@ -80,6 +80,8 @@ class FleetControlPlane:
         self.artifacts = ArtifactRegistry(self.store)
         self.resume = FleetResumeKernel()
         self.transport: NodeTransport = transport or LocalNodeTransport()
+        if isinstance(self.transport, LocalNodeTransport):
+            self.transport.leases = self.leases
         self.twin = FleetDigitalTwin(self)
         self.lease_ttl_s = lease_ttl_s
         self.metrics = {"placements": 0, "placement_failures": 0, "lease_conflicts": 0, "node_lost": 0,
@@ -110,7 +112,7 @@ class FleetControlPlane:
             lease = self.leases.acquire(node_id=best.node_id, work_id=contract.work_id, now=now,
                                         ttl_seconds=self.lease_ttl_s,
                                         resource_class=str(contract.placement.get("resource_class", "default")),
-                                        exclusive=bool(contract.placement.get("exclusive", False)))
+                                        exclusive=bool(contract.placement.get("exclusive", False)), requirement=req)
         except LeaseConflict as exc:
             self.metrics["lease_conflicts"] += 1
             return Placement(contract.work_id, "BLOCKED", None, f"resource_leased:{exc}", None, tuple(explanations))
@@ -132,7 +134,9 @@ class FleetControlPlane:
         self.metrics["node_lost"] += 1
         for f in self.store.flights(node_id=node_id, states=("LEASED", "DISPATCHED", "EXECUTING")):
             self.flights.transition(f, FlightState.NODE_LOST, reason=reason)
-            self.store.release_claim(f.work_id, node_id)
+            for row in self.store.queue():
+                if row["work_id"] == f.work_id and row["claimed_by"] == node_id:
+                    self.store.release_claim(f.work_id, node_id, row["claim_fence"])
 
     def snapshot(self, now: float | None = None) -> dict[str, Any]:
         return self.twin.snapshot(time.time() if now is None else now)
@@ -323,10 +327,7 @@ def _journal_evidence(j: TaskJournal, plan, *, flight=None, journal=None) -> lis
                                                              "receipt_fence": js.receipt.get("fencing_token"),
                                                              "current_fence": flight.fence})
             continue
-        expect = dict(step.action.args).get("expect")
-        kind, ref = (str(expect["kind"]), str(expect.get("target", step.step_id))) if isinstance(expect, dict) and expect.get("kind") \
-            else ("step", step.step_id)
-        if not js.signature_valid(j.task_id):
-            continue                                    # EH-01: незаподписанный шаг — не улика
-        out.append(Evidence.signed(kind, ref, source=f"journal:{j.task_id}/{step.step_id}", observed_at=js.updated_at))
+        from ..organization.bridges import _evidence_from_step
+        if js.signature_valid(j.task_id):
+            out.append(_evidence_from_step(j.task_id, step, j))
     return out

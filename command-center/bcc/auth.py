@@ -1,7 +1,7 @@
 """Локальный токен-доступ (раздел 8): bind на 127.0.0.1 + обязательный X-BCC-Token.
 
 Токен генерируется при первом старте, хранится в data dir с правами 600 и
-печатается в консоль — чтобы владелец мог вставить его в UI один раз.
+не попадает в stdout без явного opt-in в интерактивной консоли.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from pathlib import Path
 
 TOKEN_FILE = "token"
 HEADER = "X-BCC-Token"
-# Ставится в "0" тем, кто перенаправил stdout в файл: секрет туда не пишем.
+# Только значение "1" и интерактивный первый запуск разрешают печать токена.
 TOKEN_STDOUT_ENV = "BCC_TOKEN_STDOUT"
 
 
@@ -44,10 +44,14 @@ class TokenAuth:
             # Запуск без консоли: stdout — файловый журнал, который владелец
             # пересылает при разборе сбоя. Токен остаётся в своём файле (600).
             return
-        text = f"[bcc] {head} доступа: {self.token}\n[bcc] файл токена: {self.path}"
         stream = sys.stdout
         if stream is None:
             return  # pythonw (ярлык BOSSMAN): консоли нет, токен — в файле с правами 600
+        interactive_opt_in = (created and os.environ.get(TOKEN_STDOUT_ENV) == "1"
+                              and bool(getattr(stream, "isatty", lambda: False)()))
+        text = f"[bcc] файл токена доступа: {self.path}"
+        if interactive_opt_in:
+            text = f"[bcc] {head} доступа: {self.token}\n" + text
         try:
             # Русская консоль Windows (cp1251/cp1252): печать токена не должна
             # ронять старт сервера кодировочной ошибкой.

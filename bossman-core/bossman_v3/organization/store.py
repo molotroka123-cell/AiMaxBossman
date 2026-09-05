@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
@@ -37,6 +38,12 @@ CREATE TABLE IF NOT EXISTS org_work (
 CREATE TABLE IF NOT EXISTS org_results (
   work_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, verified INTEGER NOT NULL, payload TEXT NOT NULL,
   updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS org_attempts (
+  attempt_id TEXT PRIMARY KEY, work_id TEXT NOT NULL, mission_id TEXT NOT NULL,
+  contract_digest TEXT NOT NULL, state TEXT NOT NULL, scopes_json TEXT NOT NULL,
+  estimate_json TEXT NOT NULL, actual_json TEXT, created_at TEXT NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS org_one_active_attempt ON org_attempts(work_id)
+  WHERE state='reserved';
 CREATE TABLE IF NOT EXISTS org_treasury (
   scope TEXT PRIMARY KEY, limit_json TEXT NOT NULL, spent_json TEXT NOT NULL, updated_at TEXT NOT NULL,
   reserved_json TEXT NOT NULL DEFAULT '{}', parent TEXT NOT NULL DEFAULT '');
@@ -115,6 +122,28 @@ class OrganizationStore:
 
     # ----------------------------------------------------------- missions
 
+    def receive_mission(self, mission_id: str, *, title: str, department_id: str,
+                        contracts: list[DelegationContract], source: str = "", budget=None) -> None:
+        """Commit ownership and all work together; a conflicting intake writes nothing."""
+        now = _now()
+        with self._connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            con.execute("INSERT INTO org_missions VALUES(?,?,?,?,?,?,?,?)",
+                        (mission_id, title, department_id, MissionState.RECEIVED.value, source,
+                         _dumps({"contracts": [c.work_id for c in contracts],
+                                 "budget": (budget or Resources()).to_dict()}), now, now))
+            for c in contracts:
+                if c.mission_id != mission_id:
+                    raise ValueError("mission ownership mismatch")
+                con.execute("INSERT INTO org_work VALUES(?,?,?,?,?,?,?,?,?)",
+                            (c.work_id, c.mission_id, c.department_id, c.digest(), TaskState.PLANNED.value,
+                             "[]", 0, _dumps(c.to_dict()), now))
+            if budget is not None:
+                con.execute("INSERT INTO org_treasury(scope,limit_json,spent_json,updated_at,reserved_json,parent) "
+                            "VALUES(?,?,?,?,?,?)", (f"mission:{mission_id}", _dumps(budget.to_dict()),
+                                                   _dumps(Resources().to_dict()), now,
+                                                   _dumps(Resources().to_dict()), f"department:{department_id}"))
+
     def save_mission(self, mission_id: str, *, title: str, department_id: str, state: MissionState,
                      source: str = "", payload: dict[str, Any] | None = None) -> None:
         now = _now()
@@ -163,7 +192,19 @@ class OrganizationStore:
     def save_work(self, c: DelegationContract, *, state: TaskState, assigned: list[str] | None = None,
                   attempts: int | None = None) -> None:
         with self._connect() as con:
-            cur = con.execute("SELECT assigned, attempts FROM org_work WHERE work_id=?", (c.work_id,)).fetchone()
+            con.execute("BEGIN IMMEDIATE")
+            cur = con.execute("SELECT * FROM org_work WHERE work_id=?", (c.work_id,)).fetchone()
+            if cur and (cur["mission_id"] != c.mission_id or cur["department_id"] != c.department_id):
+                raise ValueError("work_id already belongs to another mission or department")
+            if cur and cur["digest"] != c.digest():
+                prior = DelegationContract.from_dict(json.loads(cur["payload"]))
+                # Planning may fill a previously empty plan before the first attempt.
+                planned = not prior.steps and bool(c.steps) and not cur["attempts"]
+                prior.steps = c.steps if planned else prior.steps
+                if planned:
+                    prior.metadata["planned_by"] = c.metadata.get("planned_by")
+                if prior.digest() != c.digest():
+                    raise ValueError("immutable work contract changed; new work_id required")
             prev_assigned = json.loads(cur["assigned"]) if cur else []
             prev_attempts = int(cur["attempts"]) if cur else 0
             con.execute("INSERT INTO org_work(work_id,mission_id,department_id,digest,state,assigned,attempts,payload,updated_at) "
@@ -193,6 +234,10 @@ class OrganizationStore:
 
     def save_result(self, r: WorkResult, mission_id: str) -> None:
         with self._connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            work = con.execute("SELECT mission_id FROM org_work WHERE work_id=?", (r.work_id,)).fetchone()
+            if work is None or work["mission_id"] != mission_id:
+                raise ValueError("result work ownership mismatch")
             con.execute("INSERT INTO org_results(work_id,mission_id,verified,payload,updated_at) VALUES(?,?,?,?,?) "
                         "ON CONFLICT(work_id) DO UPDATE SET verified=excluded.verified, payload=excluded.payload, "
                         "updated_at=excluded.updated_at",
@@ -215,6 +260,13 @@ class OrganizationStore:
     def save_envelope(self, scope: str, *, limit: Resources, spent: Resources,
                       reserved: Resources | None = None, parent: str = "") -> None:
         with self._connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            previous = con.execute("SELECT spent_json,reserved_json FROM org_treasury WHERE scope=?", (scope,)).fetchone()
+            if previous:
+                prior_spent = Resources.from_dict(json.loads(previous["spent_json"]))
+                spent = Resources(**{f: max(getattr(spent, f), getattr(prior_spent, f)) for f in Resources._FIELDS})
+                # Reservation/settlement own this balance. A stale runtime snapshot cannot release it.
+                reserved = Resources.from_dict(json.loads(previous["reserved_json"]))
             con.execute("INSERT INTO org_treasury(scope,limit_json,spent_json,updated_at,reserved_json,parent) "
                         "VALUES(?,?,?,?,?,?) ON CONFLICT(scope) DO UPDATE SET limit_json=excluded.limit_json, "
                         "spent_json=excluded.spent_json, updated_at=excluded.updated_at, "
@@ -229,6 +281,81 @@ class OrganizationStore:
 
     def envelope_parents(self) -> dict[str, str]:
         return {r["scope"]: r["parent"] for r in self._rows("SELECT scope, parent FROM org_treasury")}
+
+    def envelope_reserves(self) -> dict[str, Resources]:
+        return {r["scope"]: Resources.from_dict(json.loads(r["reserved_json"]))
+                for r in self._rows("SELECT scope, reserved_json FROM org_treasury")}
+
+    def active_attempt(self, work_id: str) -> dict | None:
+        return next((dict(r) for r in self._rows(
+            "SELECT * FROM org_attempts WHERE work_id=? AND state='reserved'", (work_id,))), None)
+
+    def begin_attempt(self, c: DelegationContract, scopes: list[str], assigned: list[str]) -> str:
+        """Reserve all envelopes and mark execution in ONE durable transaction."""
+        with self._connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            work = con.execute("SELECT * FROM org_work WHERE work_id=?", (c.work_id,)).fetchone()
+            if work is None or work["mission_id"] != c.mission_id or work["digest"] != c.digest():
+                raise ValueError("attempt contract ownership mismatch")
+            if con.execute("SELECT 1 FROM org_attempts WHERE work_id=? AND state='reserved'",
+                           (c.work_id,)).fetchone():
+                raise ValueError("unreconciled execution/spend remains reserved")
+            if work["state"] == TaskState.COMPLETED.value:
+                raise ValueError("completed work cannot be dispatched again")
+            for scope in dict.fromkeys(scopes):
+                row = con.execute("SELECT * FROM org_treasury WHERE scope=?", (scope,)).fetchone()
+                limit = Resources.from_dict(json.loads(row["limit_json"])) if row else Resources()
+                spent = Resources.from_dict(json.loads(row["spent_json"])) if row else Resources()
+                reserved = Resources.from_dict(json.loads(row["reserved_json"])) if row else Resources()
+                ok, why = limit.fits(spent + reserved + c.budget)
+                if not ok:
+                    raise ValueError(f"budget exceeded in {scope}: {why}")
+                con.execute("INSERT INTO org_treasury(scope,limit_json,spent_json,updated_at,reserved_json) "
+                            "VALUES(?,?,?,?,?) ON CONFLICT(scope) DO UPDATE SET reserved_json=excluded.reserved_json, "
+                            "updated_at=excluded.updated_at",
+                            (scope, _dumps(limit.to_dict()), _dumps(spent.to_dict()), _now(),
+                             _dumps((reserved + c.budget).to_dict())))
+            attempt = uuid.uuid4().hex
+            con.execute("INSERT INTO org_attempts VALUES(?,?,?,?,?,?,?,NULL,?)",
+                        (attempt, c.work_id, c.mission_id, c.digest(), "reserved", _dumps(list(dict.fromkeys(scopes))),
+                         _dumps(c.budget.to_dict()), _now()))
+            con.execute("UPDATE org_work SET state=?, assigned=?, attempts=attempts+1, updated_at=? WHERE work_id=?",
+                        (TaskState.EXECUTING.value, _dumps(assigned), _now(), c.work_id))
+            return attempt
+
+    def settle_attempt(self, attempt_id: str, actual: Resources, result: WorkResult):
+        """Idempotent settlement; a crash before this transaction retains exposure."""
+        from .treasury import TreasuryDecision
+        with self._connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            row = con.execute("SELECT * FROM org_attempts WHERE attempt_id=?", (attempt_id,)).fetchone()
+            if row is None or row["work_id"] != result.work_id:
+                raise ValueError("unknown or mismatched reservation")
+            if row["state"] == "settled":
+                if row["actual_json"] != _dumps(actual.to_dict()):
+                    raise ValueError("reservation already settled with different usage")
+                return TreasuryDecision(True, "already settled")
+            estimate = Resources.from_dict(json.loads(row["estimate_json"]))
+            overrun = None
+            for scope in json.loads(row["scopes_json"]):
+                env = con.execute("SELECT * FROM org_treasury WHERE scope=?", (scope,)).fetchone()
+                spent = Resources.from_dict(json.loads(env["spent_json"])) + actual.consumed()
+                reserved = Resources.from_dict(json.loads(env["reserved_json"])) - estimate
+                ok, why = Resources.from_dict(json.loads(env["limit_json"])).fits(spent + reserved)
+                if not ok:
+                    overrun = TreasuryDecision(False, f"cost overrun in {scope}: {why}", scope, True)
+                con.execute("UPDATE org_treasury SET spent_json=?, reserved_json=?, updated_at=? WHERE scope=?",
+                            (_dumps(spent.to_dict()), _dumps(reserved.to_dict()), _now(), scope))
+            con.execute("UPDATE org_attempts SET state='settled', actual_json=? WHERE attempt_id=?",
+                        (_dumps(actual.to_dict()), attempt_id))
+            con.execute("INSERT INTO org_results VALUES(?,?,?,?,?) ON CONFLICT(work_id) DO UPDATE SET "
+                        "verified=excluded.verified,payload=excluded.payload,updated_at=excluded.updated_at",
+                        (result.work_id, row["mission_id"], int(result.verified), _dumps(result.to_dict()), _now()))
+            # Completion and settlement cannot be torn by a crash.
+            if result.verified:
+                con.execute("UPDATE org_work SET state=?,updated_at=? WHERE work_id=?",
+                            (TaskState.COMPLETED.value, _now(), result.work_id))
+            return overrun or TreasuryDecision(True, "committed")
 
     # ----------------------------------------------------------- learning
 

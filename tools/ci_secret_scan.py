@@ -7,6 +7,7 @@ ZIP-архивов (раньше `.zip` пропускался целиком). 
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import math
 import re
@@ -35,8 +36,7 @@ PATTERNS = [
     ("aws access key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("aws secret", re.compile(r"(?i)aws_secret_access_key\s*[:=]\s*[\"']?[A-Za-z0-9/+=]{40}\b")),
     ("private key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY(?: BLOCK)?-----")),
-    # фраза-значение в кавычках (≥ 8 слов), а не аннотация типа/kwarg вида `mnemonic: str`
-    ("wallet seed label", re.compile(r"(?i)\b(?:seed phrase|mnemonic)\b\s*[:=]\s*[\"'](?:[a-z]+\s+){7,}[a-z]+[\"']")),
+    ("wallet seed label", re.compile(r"(?i)\b(?:seed phrase|mnemonic)\b\s*[:=]\s*\S+")),
     ("obvious password", re.compile(r"(?i)\b(?:password|passwd)\b\s*[:=]\s*[\"'][^\"']{8,}[\"']")),
 ]
 # Энтропия — только для кода и конфигурации; документация/UI-ассеты дают ложные
@@ -48,12 +48,6 @@ ENTROPY_SUFFIX = {".py", ".yml", ".yaml", ".toml", ".ini", ".cfg", ".env", ".sh"
 TOKEN = re.compile(r"[A-Za-z0-9+_-]{24,}={0,2}")
 ENV_NAME = re.compile(r"^[A-Z0-9_]+$")
 SEQUENTIAL = re.compile(r"0123456789|123456789|abcdefghij|ABCDEFGHIJ|9876543210")     # тестовые заполнители
-# Публичный ключ/адрес Solana — base58 32–44 символа: идентификатор, не секрет (секретный ключ — 87–88 символов
-# и остаётся под энтропийным детектором). Не снимается, если строка говорит о секрете.
-BASE58_PUBKEY = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$")
-SECRET_CONTEXT = re.compile(r"(?i)(secret|private|seed|mnemonic|keypair|passphrase)")
-# Канарейки в самом теле шаблона (синтетический PEM для проверки редакции и т.п.)
-CANARY_BODY = re.compile(r"(?i)(synthetic|example|canary|placeholder|dummy|fake)")
 WORDY = re.compile(r"^(?:[A-Za-z]{3,}-){2,}[A-Za-z0-9]+$")                              # слова-через-дефис
 HEX = re.compile(r"^[0-9a-fA-F]+$")
 ENTROPY_THRESHOLD = 4.0
@@ -89,8 +83,6 @@ def entropy_findings(text: str, rel: str) -> list[str]:
             body = tok.rstrip("=")
             if HEX.match(body) or DICT_HINT.search(tok) or ENV_NAME.match(tok) or SEQUENTIAL.search(tok) or WORDY.match(tok):
                 continue
-            if BASE58_PUBKEY.match(body) and not SECRET_CONTEXT.search(line):
-                continue
             if "-" in body and HEX.match(body.split("-", 1)[1].replace("-", "") or "x") and len(body.split("-", 1)[0]) <= 12:
                 continue                                          # prefix-<hex> (csrf-…, approval-…)
             if not (re.search(r"[A-Za-z]", tok) and re.search(r"[0-9]", tok)):
@@ -112,31 +104,70 @@ def pattern_findings(text: str, rel: str) -> list[str]:
             src = lines[line - 1] if 0 < line <= len(lines) else ""
             if ALLOW_MARK in src:
                 continue
-            if label == "private key" and CANARY_BODY.search(src):
-                continue                                          # синтетический PEM-заголовок в пробе/тесте
             out.append(f"{rel}:{line}: {label}")
     return out
 
 
 def scan_text(text: str, rel: str, *, entropy: bool) -> list[str]:
     found = pattern_findings(text, rel)
+    # An immutable audit fixture contains only SYNTHETIC_BODY_ONLY, not key material.
+    # Exact member bytes and rule are pinned; all other members and rules still run.
+    if (rel == "docs/audits/astra-7b1377a/AIMAXBOSSMAN_ASTRA_FULL_AUDIT_7b1377a.zip!evidence/reproduce.py"
+            and hashlib.sha256(text.encode("utf-8")).hexdigest() ==
+            "ad5812ca0d4f5df4774f5bd66e0ac00d608f5b8e1a4931b42527b4aafd64fd91"):
+        found = [f for f in found if not f.endswith(": private key")]
     if entropy:
         found += entropy_findings(text, rel)
     return found
 
 
 def scan_zip(path: Path, rel: str) -> list[str]:
+    """Bounded recursion; unreadable or uninspected archive content fails closed."""
     out = []
+    budget = {"expanded": 0, "members": 0}
+
+    def visit(source, label, depth=0):
+        if depth > 3:
+            out.append(f"{label}: unscannable archive depth limit")
+            return
+        try:
+            with zipfile.ZipFile(source) as zf:
+                for info in zf.infolist():
+                    budget["members"] += 1
+                    budget["expanded"] += info.file_size
+                    if budget["members"] > 5000 or budget["expanded"] > 32_000_000:
+                        out.append(f"{label}: unscannable archive resource limit")
+                        return
+                    name = info.filename.replace("\\", "/")
+                    member = f"{label}!{name}"
+                    if info.is_dir():
+                        continue
+                    if any(rx.search(name.lower()) for rx in FORBIDDEN_FILES):
+                        out.append(f"{member}: forbidden private-key/environment member")
+                    if info.file_size > MAX_BYTES or info.flag_bits & 1:
+                        out.append(f"{member}: unscannable oversized/encrypted member")
+                        continue
+                    with zf.open(info) as stream:
+                        data = stream.read(MAX_BYTES + 1)
+                    if len(data) > MAX_BYTES:
+                        out.append(f"{member}: unscannable member size limit")
+                        continue
+                    suffix = Path(name).suffix.lower()
+                    if suffix == ".zip" or data.startswith(b"PK\x03\x04"):
+                        visit(io.BytesIO(data), member, depth + 1)
+                    elif suffix in (".gz", ".7z", ".rar", ".tar", ".bz2", ".xz"):
+                        out.append(f"{member}: unscannable unsupported archive")
+                    else:
+                        out.extend(scan_text(data.decode("utf-8", "ignore"), member, entropy=False))
+        except (zipfile.BadZipFile, OSError, RuntimeError, EOFError, NotImplementedError):
+            out.append(f"{label}: unscannable corrupt/unsupported archive")
+
     try:
-        with zipfile.ZipFile(path) as zf:
-            for info in zf.infolist():
-                suffix = Path(info.filename).suffix.lower()
-                if info.is_dir() or suffix not in ZIP_MEMBER_SUFFIX or info.file_size > MAX_BYTES:
-                    continue
-                text = zf.read(info).decode("utf-8", "ignore")
-                out += scan_text(text, f"{rel}!{info.filename}", entropy=False)      # в архивах — только паттерны
-    except (zipfile.BadZipFile, OSError):
-        return out
+        if path.stat().st_size > 50_000_000:
+            return [f"{rel}: unscannable archive size limit"]
+        visit(path, rel)
+    except OSError:
+        out.append(f"{rel}: unscannable unreadable archive")
     return out
 
 
@@ -154,8 +185,10 @@ def scan_paths(paths: list[Path], root: Path) -> list[str]:
             continue
         try:
             if path.stat().st_size > MAX_BYTES and suffix not in ZIP_SUFFIX:
+                findings.append(f"{rel}: unscannable oversized file")
                 continue
         except OSError:
+            findings.append(f"{rel}: unscannable unreadable file")
             continue
         if suffix in ZIP_SUFFIX:
             findings += scan_zip(path, rel)
@@ -163,6 +196,7 @@ def scan_paths(paths: list[Path], root: Path) -> list[str]:
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
         except OSError:
+            findings.append(f"{rel}: unscannable unreadable file")
             continue
         findings += scan_text(text, rel, entropy=suffix in ENTROPY_SUFFIX)
     return findings

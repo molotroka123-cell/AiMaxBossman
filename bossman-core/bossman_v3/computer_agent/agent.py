@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
@@ -92,7 +93,9 @@ class UniversalComputerAgent:
                 raise ApprovalDeniedError(approval.reason or "approval denied")
             approval_id = approval.approval_id
 
-        receipt = self.executor.execute(action)
+        guard = context.get("execution_guard")
+        with guard() if guard is not None else nullcontext():
+            receipt = self.executor.execute(action)
         observation = self.observer.observe_fresh(action, receipt)
         if observation.observed_at < receipt.completed_at:
             raise StaleObservationError(

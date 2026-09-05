@@ -35,8 +35,11 @@ class BenchmarkScorer:
             "action_execution": 10.0 if has("side_effect.executed") else 0.0,
             "verification_truth": 10.0 if has("verification.completed", "verified", True)
             and not has("verification.completed", "verified", False) else 0.0,
-            "recovery_idempotency": 0.0 if "duplicate_side_effect" in hard else 10.0,
-            "context_continuity": 10.0 if (not has("context.handoff") or has("context.handoff", "constraints_retained", True)) else 0.0,
+            "recovery_idempotency": (0.0 if "duplicate_side_effect" in hard else
+                (10.0 if has("recovery.completed", "idempotency_verified", True) else None)),
+            "context_continuity": (10.0 if all(x.data.get("constraints_retained") is True
+                                               for x in kinds["context.handoff"]) else 0.0)
+                                  if has("context.handoff") else None,
             "resource_efficiency": self._resource_score(kinds.get("resource.usage", [])),
             "autonomy_friction": self._autonomy_score(kinds.get("approval.requested", [])),
         }
@@ -67,6 +70,7 @@ class BenchmarkScorer:
             return round(x / d, 6) if d else None
 
         agg = {
+            "dimension_coverage": {d: sum(m.scores[d] is not None for m in ms) for d in DIMS},
             "total_score_secondary": round(mean([m.total for m in ms]), 2) if ms else 0.0,
             "hard_failures": hard,
             "mission_count": n, "verified_success_count": verified,

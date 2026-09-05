@@ -106,7 +106,7 @@ async def test_model_check_and_test_update_status(tmp_path):
                                adapter_factory=lambda m, p: fake)
     async with client_for(app, svc) as client:
         provider = (await client.post("/api/providers", json={
-            "name": "локальный", "kind": "openai_compat", "base_url": "http://x/v1"})).json()
+            "name": "локальный", "kind": "openai_compat", "base_url": "http://127.0.0.1:1234/v1"})).json()
         model = (await client.post("/api/models", json={
             "provider_id": provider["id"], "name": "local-7b"})).json()
 

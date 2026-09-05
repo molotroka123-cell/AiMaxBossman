@@ -14,7 +14,9 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import json
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
@@ -104,11 +106,9 @@ class DelegationContract:
     def digest(self) -> str:
         """Канонический отпечаток: по нему один и тот же контракт узнаётся
         после рестарта и не делегируется второй раз."""
-        raw = json.dumps({"work_id": self.work_id, "mission_id": self.mission_id,
-                          "goal": self.goal, "capability": self.required_capability,
-                          "criteria": self.success_criteria,
-                          "evidence": [e.to_dict() for e in self.evidence_required],
-                          "steps": self.steps}, sort_keys=True, ensure_ascii=False, default=str)
+        body = self.to_dict()
+        body["metadata"] = {k: v for k, v in body["metadata"].items() if k not in ("runtime", "v2", "fleet_dispatch")}
+        raw = json.dumps(body, sort_keys=True, ensure_ascii=False, allow_nan=False)
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
     # ---------------------------------------------------------- well-formed
@@ -136,12 +136,6 @@ class DelegationContract:
 
     # ------------------------------------------------------------ validate
 
-    def _bound(self, e: Evidence) -> bool:
-        """Журнальная улика принимается только из журнала ЭТОЙ работы; улики верификаторов — по signer'у."""
-        if e.source.startswith("journal:"):
-            return e.source.startswith(_journal_prefix(self.mission_id, self.work_id))
-        return True
-
     def validate(self, result: WorkResult) -> tuple[bool, list[str]]:
         """Принять или отклонить исход. Читаются только `evidence` и `executed`;
         `claims` не участвуют по построению."""
@@ -151,10 +145,6 @@ class DelegationContract:
         if self.side_effect and not result.executed:
             errors.append("nothing was executed by the lower layer")
         trusted = [e for e in result.evidence if e.verified and _trusted(e) and self._bound(e)]
-        for e in result.evidence:
-            if e.verified and _trusted(e) and not self._bound(e):
-                # ASTRA-004: валидно подписанная улика ЧУЖОЙ работы/миссии не подтверждает эту
-                errors.append(f"evidence {e.kind}:{e.ref} is bound to another work ({e.source!r})")
         untrusted_verified = [e for e in result.evidence if e.verified and not _trusted(e)]
         for e in untrusted_verified:
             # EH-01: без подписи — «unsigned verified evidence»; с подписью, но не
@@ -168,6 +158,9 @@ class DelegationContract:
             candidates = by_kind.get(req.kind, [])
             if req.target:
                 candidates = [c for c in candidates if _same_target(c.ref, req.target)]
+            if req.expect:
+                candidates = [c for c in candidates if all(
+                    c.binding.get("verified_expect", {}).get(k) == v for k, v in req.expect.items())]
             if not candidates:
                 have = [e for e in result.evidence if e.kind == req.kind]
                 if have and not any(h.verified for h in have):
@@ -175,6 +168,23 @@ class DelegationContract:
                 else:
                     errors.append(f"missing evidence:{req.kind}" + (f"@{req.target}" if req.target else ""))
         return not errors, errors
+
+    def _bound(self, evidence: Evidence) -> bool:
+        b = evidence.binding
+        if (b.get("mission_id") != self.mission_id or b.get("work_id") != self.work_id
+                or b.get("contract_digest") != self.digest() or not b.get("action_digest")
+                or not b.get("attempt_id") or not b.get("verification_passed")):
+            return False
+        try:
+            observed = datetime.fromisoformat(evidence.observed_at)
+            started = datetime.fromisoformat(b["started_at"])
+            age_limit = float(self.metadata.get("evidence_max_age_seconds", 300))
+            now = datetime.now(timezone.utc)
+            return (math.isfinite(age_limit) and 0 < age_limit <= 86400
+                    and observed.tzinfo is not None and started.tzinfo is not None
+                    and started <= observed <= now and (now - observed).total_seconds() <= age_limit)
+        except (ValueError, TypeError, KeyError):
+            return False
 
     # ------------------------------------------------------------ persist
 
@@ -211,13 +221,9 @@ class DelegationContract:
 
 
 def _same_target(ref: str, target: str) -> bool:
-    """Точное совпадение или совпадение по хвосту пути с разделителем: `x.txt`
-    подходит к `/work/x.txt`, но не к `/work/ax.txt`."""
-    return ref == target or ref.endswith("/" + target) or ref.endswith("\\" + target)
+    """Only the exact declared evidence target can satisfy a contract."""
+    return ref == target
 
-
-def _journal_prefix(mission_id: str, work_id: str) -> str:
-    return f"journal:{mission_id}__{work_id}/"
 
 
 def _trusted(e: Evidence) -> bool:

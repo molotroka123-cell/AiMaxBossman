@@ -180,6 +180,8 @@ class _BaseAdapter:
 
     async def _request(self, method: str, url: str, *, timeout: float,
                        headers: dict | None = None, json: dict | None = None) -> httpx.Response:
+        from bossman_shared.privacy import assert_provider_egress
+        assert_provider_egress(self.kind, url)
         try:
             async with self._client(timeout) as client:
                 resp = await client.request(method, url, headers=headers, json=json)

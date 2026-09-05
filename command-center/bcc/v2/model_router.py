@@ -85,8 +85,8 @@ class ModelCandidate:
     capabilities: set[str] = field(default_factory=set)            # advertised
     verified_capabilities: set[str] = field(default_factory=set)   # проба: OK
     unsupported_capabilities: set[str] = field(default_factory=set)  # проба: FAIL
-    price_in: float = 0.0      # USD / 1M
-    price_out: float = 0.0
+    price_in: float | None = None      # USD / 1M; None means unknown
+    price_out: float | None = None
     latency_ms: float | None = None
     gen_tps: float | None = None
     memory_mb: float | None = None
@@ -131,6 +131,11 @@ class RouteDecision:
 def disqualify(req: RouteRequest, m: ModelCandidate) -> list[str]:
     """Жёсткие фильтры. Пустой список = кандидат допущен."""
     bad: list[str] = []
+    import math
+    known = all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                and math.isfinite(v) and v >= 0 for v in (m.price_in, m.price_out))
+    if not m.local and not known:
+        bad.append("unknown or invalid cloud pricing")
     if not m.online:
         bad.append("unhealthy/offline")
     if not req.cloud_allowed and not m.local:
@@ -155,7 +160,7 @@ def disqualify(req: RouteRequest, m: ModelCandidate) -> list[str]:
     if unproven:
         bad.append("capabilities advertised but not verified: " + ", ".join(unproven))
 
-    if req.max_price_out is not None and m.price_out > req.max_price_out:
+    if req.max_price_out is not None and m.price_out is not None and m.price_out > req.max_price_out:
         bad.append(f"output price {m.price_out} > {req.max_price_out}")
     if (req.available_memory_mb is not None and m.local and m.memory_mb is not None
             and m.memory_mb > req.available_memory_mb):

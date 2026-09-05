@@ -20,11 +20,12 @@ egress-политика, а не надежда на сеть:
   аргументов) — владелец снимает его грантом агента (confirm: false) вместе с
   ALLOW_HOSTS; политика хостов при этом продолжает действовать.
 
-Остаточный риск: между нашей резолюцией и соединением httpx возможен DNS-rebind;
-это не закрывается без пиннинга IP в транспорте (сознательно не сделано здесь).
+Соединение закреплено за проверенным IP; ответы ограничены по объёму и времени.
 """
 from __future__ import annotations
 
+import asyncio
+import zlib
 import ipaddress
 import json
 import os
@@ -34,10 +35,14 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 
+from bossman_shared.http_transport import PinnedTransport
+from bossman_v3.memory.assembler import redact, redact_data
+
 from . import ToolContext, ToolDef, ToolResult, clip, compact_json, register
 
 ALLOWED_SCHEMES = frozenset({"http", "https"})
 MAX_REDIRECTS = 3
+MAX_RESPONSE_BYTES = 2_000_000
 
 # Метаданные облаков и прочие «магические» хосты — всегда под запретом, если
 # владелец не перечислил их явно в BOSSMAN_HTTP_ALLOW_HOSTS.
@@ -109,10 +114,10 @@ def _is_private(ip) -> bool:
     if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
         ip = ip.ipv4_mapped
     return (ip.is_loopback or ip.is_link_local or ip.is_private or ip.is_unspecified
-            or ip.is_multicast or ip.is_reserved)
+            or ip.is_multicast or ip.is_reserved or not ip.is_global)
 
 
-def check_url(url: str) -> str:
+def check_url(url: str, *, pins: dict[str, str] | None = None) -> str:
     """Проверить URL по egress-политике. Возвращает нормализованный URL или
     поднимает EgressDenied. Вызывается для исходного URL и КАЖДОГО редиректа."""
     parts = urlsplit(url)
@@ -124,20 +129,24 @@ def check_url(url: str) -> str:
         raise EgressDenied("в URL нет хоста")
     if parts.username or parts.password:
         raise EgressDenied("учётные данные в URL запрещены")
-    if _host_allowlisted(host):
+    allowlisted = _host_allowlisted(host)
+    if allowlisted and pins is None:
         return url  # владелец перечислил хост явно — его решение
-    if host in METADATA_HOSTS or host in ("localhost", "0.0.0.0") or host.endswith(".localhost"):
+    if not allowlisted and (host in METADATA_HOSTS or host in ("localhost", "0.0.0.0") or host.endswith(".localhost")):
         raise EgressDenied(f"хост '{host}' запрещён политикой egress (loopback/metadata)")
     addrs = _resolve_host(host)
     if not addrs:
         raise EgressDenied(f"хост '{host}' не резолвится — запрос не отправлен")
     for ip in addrs:
-        if _is_metadata(ip):
+        if not allowlisted and _is_metadata(ip):
             raise EgressDenied(f"хост '{host}' → {ip}: metadata-endpoint облака запрещён")
-        if _is_private(ip) and not _allow_private():
+        if not allowlisted and _is_private(ip) and not _allow_private():
             raise EgressDenied(
                 f"хост '{host}' → {ip}: приватный/loopback-адрес запрещён "
                 f"(BOSSMAN_HTTP_ALLOW_PRIVATE=1 или BOSSMAN_HTTP_ALLOW_HOSTS для исключений)")
+    if pins is not None:
+        pins[host] = str(addrs[0])
+        pins[httpx.URL(url).host] = str(addrs[0])
     return url
 
 
@@ -151,42 +160,85 @@ async def _request_checked(client: httpx.AsyncClient, method: str, url: str, *,
                            json_body, params) -> httpx.Response:
     """Запрос с ручным следованием редиректам: не более MAX_REDIRECTS хопов,
     каждый хоп заново проходит check_url (redirect-to-private → отказ)."""
-    check_url(url)
+    pins = getattr(client, "_bossman_pins", None)
+    if pins is None:
+        raise EgressDenied("HTTP client has no pinned destination authority")
     hops = 0
     while True:
-        resp = await client.request(method, url, json=json_body, params=params,
-                                    follow_redirects=False)
-        location = resp.headers.get("location")
-        if resp.status_code not in (301, 302, 303, 307, 308) or not location:
-            return resp
-        hops += 1
-        if hops > MAX_REDIRECTS:
-            raise EgressDenied(f"слишком много редиректов (> {MAX_REDIRECTS})")
-        url = check_url(urljoin(url, location))
-        if resp.status_code in (301, 302, 303) and method.upper() != "GET":
-            method, json_body = "GET", None  # как браузер: тело не переносится
-        params = None  # query уже внутри Location
+        # DNS must not block the event loop or bypass the total request deadline.
+        # A cancelled worker gets its own pins, never the live transport authority.
+        resolved_pins = {}
+        await asyncio.to_thread(check_url, url, pins=resolved_pins)
+        pins.update(resolved_pins)
+        async with client.stream(method, url, json=json_body, params=params,
+                                 headers={"Accept-Encoding": "identity"}, follow_redirects=False) as resp:
+            location = resp.headers.get("location")
+            if resp.status_code not in (301, 302, 303, 307, 308) or not location:
+                content = await _bounded_body(resp)
+                headers = {k: v for k, v in resp.headers.items()
+                           if k.lower() not in ("content-encoding", "content-length", "transfer-encoding")}
+                return httpx.Response(resp.status_code, headers=headers, content=content, request=resp.request)
+            hops += 1
+            if hops > MAX_REDIRECTS:
+                raise EgressDenied(f"too many redirects (> {MAX_REDIRECTS})")
+            url = urljoin(url, location)
+            if resp.status_code in (301, 302, 303) and method.upper() != "GET":
+                method, json_body = "GET", None
+            params = None
+
+
+async def _bounded_body(response: httpx.Response) -> bytes:
+    if response.is_stream_consumed:
+        data = response.content
+        if len(data) > MAX_RESPONSE_BYTES:
+            raise EgressDenied("response exceeds decompressed byte budget")
+        return data
+    encoding = response.headers.get("content-encoding", "identity").lower()
+    if encoding not in ("identity", "gzip", "deflate", ""):
+        raise EgressDenied("unsupported content encoding for bounded HTTP input")
+    decoder = zlib.decompressobj(16 + zlib.MAX_WBITS if encoding == "gzip" else zlib.MAX_WBITS) \
+        if encoding in ("gzip", "deflate") else None
+    data = bytearray()
+    raw_bytes = 0
+    async for chunk in response.aiter_raw(chunk_size=65536):
+        raw_bytes += len(chunk)
+        if raw_bytes > MAX_RESPONSE_BYTES:
+            raise EgressDenied("response exceeds transfer byte budget")
+        remaining = MAX_RESPONSE_BYTES - len(data) + 1
+        data.extend(decoder.decompress(chunk, remaining) if decoder else chunk)
+        if len(data) > MAX_RESPONSE_BYTES or (decoder and decoder.unconsumed_tail):
+            raise EgressDenied("response exceeds decompressed byte budget")
+        if decoder and decoder.unused_data:
+            raise EgressDenied("multiple compressed members refused")
+    if decoder and not decoder.eof:
+        raise EgressDenied("incomplete compressed response")
+    return bytes(data)
 
 
 async def http(args: dict, ctx: ToolContext) -> ToolResult:
     method = str(args.get("method", "GET") or "GET").upper()
     url = str(args["url"])
     try:
-        async with httpx.AsyncClient(timeout=60, transport=_TRANSPORT) as client:
+        pins = {}
+        async with asyncio.timeout(60), httpx.AsyncClient(
+                timeout=60, transport=_TRANSPORT or PinnedTransport(pins), trust_env=False) as client:
+            client._bossman_pins = pins
             resp = await _request_checked(client, method, url,
                                           json_body=args.get("json"), params=args.get("params"))
-    except EgressDenied as exc:
+    except (EgressDenied, TimeoutError, zlib.error) as exc:
         # Отказ политики — данные для модели, не падение петли; в сеть не ходили.
         return ToolResult(f"http: запрос отклонён egress-политикой: {exc}",
                           one_line=f"http {method} {url[:60]} → запрещено", error=True)
     raw_path = ctx.workdir / "assets" / "logs" / f"http-{uuid.uuid4().hex[:8]}.json"
     raw_path.parent.mkdir(parents=True, exist_ok=True)
-    raw_path.write_text(resp.text)
     try:
-        data = _pick(resp.json(), args.get("fields") or [])
-        body = compact_json(data)
+        clean = redact_data(resp.json())
+        persisted = json.dumps(clean, ensure_ascii=False)
+        body = compact_json(_pick(clean, args.get("fields") or []))
     except json.JSONDecodeError:
-        body = resp.text
+        persisted = redact(resp.text)
+        body = persisted
+    raw_path.write_text(persisted, encoding="utf-8")
     body, cut = clip(f"статус: {resp.status_code}\n{body}", 2000)
     rel = raw_path.relative_to(ctx.workdir)
     return ToolResult(body, one_line=f"http {method} {url[:60]} → {resp.status_code}",

@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 
 -- Прогоны: одна задача может выполняться несколько раз (retry).
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completion_contract JSONB NOT NULL DEFAULT '{}';
+
 CREATE TABLE IF NOT EXISTS runs (
     id                BIGSERIAL PRIMARY KEY,
     task_id           BIGINT NOT NULL REFERENCES tasks(id),

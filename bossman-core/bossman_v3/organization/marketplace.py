@@ -75,6 +75,8 @@ class CapabilityMarketplace:
                        exclude: set[str]) -> str:
         if not a.enabled:
             return "disabled"
+        if c.privacy in ("private", "local_only") and a.is_cloud:
+            return "privacy requires local execution; cloud agent rejected"
         if a.agent_id in exclude:
             return "excluded (producer of the work under review / already failed)"
         if a.department_id != c.department_id:

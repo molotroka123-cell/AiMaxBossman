@@ -123,12 +123,17 @@ class OrganizationService:
             if bound.get("task_id"):
                 trow = (await s.execute(sa.select(tasks_t).where(tasks_t.c.id == int(bound["task_id"])))).first()
                 task = dict(trow._mapping) if trow is not None else None
+                ownership = ((task or {}).get("meta") or {}).get("organization") or {}
+                if task and (ownership.get("mission_id") != contract.mission_id
+                             or ownership.get("work_id") != contract.work_id):
+                    raise PermissionError("bound V2 task belongs to another work item")
             if task is None:
                 res = await s.execute(sa.insert(tasks_t).values(
                     title=f"[org {contract.mission_id}/{contract.work_id}] {contract.goal[:200]}",
                     prompt=contract.goal, agent_id=agent["id"], status="running", priority=5,
                     max_retries=0, kind=TASK_KIND, created_at=utcnow(), updated_at=utcnow(),
-                    meta={"organization": {"mission_id": contract.mission_id, "work_id": contract.work_id}}))
+                    meta={"privacy": contract.privacy, "organization": {
+                        "mission_id": contract.mission_id, "work_id": contract.work_id}}))
                 task_id = int(res.inserted_primary_key[0])
                 # run без аренды: очередь V2 его не берёт (claim только queued), recover не трогает
                 rres = await s.execute(sa.insert(runs_t).values(

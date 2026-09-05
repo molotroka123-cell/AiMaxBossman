@@ -1,4 +1,6 @@
 from __future__ import annotations
+from bcc.v2.openrouter_ext import catalog_price_values
+from bcc.provider_governance import known_prices
 
 from datetime import timedelta
 
@@ -90,7 +92,14 @@ class OpenRouterCatalogService:
                 .where(provider_catalog_models.c.provider_id == provider_id)
                 .values(stale=True, last_synced_at=now)
             )
+            # Existing aliases retain identity, but old/removed prices lose authority.
+            await s.execute(sa.update(models_t).where(models_t.c.provider_id == provider_id)
+                            .values(pricing_known=False, price_in=None, price_out=None))
             for c in cards:
+                await s.execute(sa.update(models_t).where(models_t.c.provider_id == provider_id,
+                                                          models_t.c.name == c.id)
+                                .values(price_in=c.price_in, price_out=c.price_out,
+                                        pricing_known=known_prices({"price_in":c.price_in,"price_out":c.price_out})))
                 values = dict(
                     display_name=c.name,
                     context_window=c.context_length,
@@ -200,8 +209,8 @@ class OpenRouterCatalogService:
                 kind="cloud",
                 context_window=c.get("context_window") or 8192,
                 caps=c.get("advertised_caps") or {},
-                price_in=c.get("price_in") or 0.0,
-                price_out=c.get("price_out") or 0.0,
+                **catalog_price_values(c),
+                pricing_known=known_prices(catalog_price_values(c)),
                 status="unknown",
             ))
             mid = int(inserted.inserted_primary_key[0])

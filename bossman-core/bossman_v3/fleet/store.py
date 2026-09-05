@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS fleet_leases (
   lease_id TEXT PRIMARY KEY, node_id TEXT NOT NULL, work_id TEXT NOT NULL, resource_class TEXT NOT NULL,
   exclusive INTEGER NOT NULL, acquired_ts REAL NOT NULL, expires_ts REAL NOT NULL, fence INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS fleet_leases_node ON fleet_leases(node_id, resource_class);
+CREATE TABLE IF NOT EXISTS fleet_memory_reservations (
+  lease_id TEXT PRIMARY KEY, host_gb REAL NOT NULL, gpu_gb REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS fleet_fences (
   node_id TEXT NOT NULL, resource_class TEXT NOT NULL, fence INTEGER NOT NULL,
   PRIMARY KEY (node_id, resource_class));
@@ -62,6 +64,11 @@ class FleetStore:
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as con:
             con.executescript(SCHEMA)
+            cols = {r["name"] for r in con.execute("PRAGMA table_info(fleet_work_queue)")}
+            if "queue_state" not in cols:
+                con.execute("ALTER TABLE fleet_work_queue ADD COLUMN queue_state TEXT NOT NULL DEFAULT 'ready'")
+            if "not_before" not in cols:
+                con.execute("ALTER TABLE fleet_work_queue ADD COLUMN not_before REAL NOT NULL DEFAULT 0")
 
     def connect(self) -> sqlite3.Connection:
         con = sqlite3.connect(self.path, timeout=30, isolation_level=None)   # autocommit; транзакции — явно
@@ -199,7 +206,8 @@ class FleetStore:
             con.execute("BEGIN IMMEDIATE")
             try:
                 cur = con.execute("UPDATE fleet_work_queue SET claimed_by=?, claimed_ts=?, claim_fence=claim_fence+1, "
-                                  "attempts=attempts+1 WHERE work_id=? AND claimed_by IS NULL", (node_id, now, work_id))
+                                  "attempts=attempts+1 WHERE work_id=? AND claimed_by IS NULL "
+                                  "AND queue_state='ready' AND not_before<=?", (node_id, now, work_id, now))
                 if cur.rowcount != 1:
                     con.execute("ROLLBACK")
                     return None
@@ -210,18 +218,16 @@ class FleetStore:
                 con.execute("ROLLBACK")
                 raise
 
-    def release_claim(self, work_id: str, node_id: str | None = None) -> bool:
+    def release_claim(self, work_id: str, node_id: str, claim_fence: int) -> bool:
         with self.connect() as con:
-            if node_id is None:
-                cur = con.execute("UPDATE fleet_work_queue SET claimed_by=NULL, claimed_ts=NULL WHERE work_id=?", (work_id,))
-            else:
-                cur = con.execute("UPDATE fleet_work_queue SET claimed_by=NULL, claimed_ts=NULL WHERE work_id=? AND claimed_by=?",
-                                  (work_id, node_id))
-            return cur.rowcount == 1
+            return con.execute("UPDATE fleet_work_queue SET claimed_by=NULL, claimed_ts=NULL "
+                               "WHERE work_id=? AND claimed_by=? AND claim_fence=?",
+                               (work_id, node_id, claim_fence)).rowcount == 1
 
-    def dequeue(self, work_id: str) -> bool:
+    def dequeue(self, work_id: str, node_id: str, claim_fence: int) -> bool:
         with self.connect() as con:
-            return con.execute("DELETE FROM fleet_work_queue WHERE work_id=?", (work_id,)).rowcount == 1
+            return con.execute("DELETE FROM fleet_work_queue WHERE work_id=? AND claimed_by=? AND claim_fence=?",
+                               (work_id, node_id, claim_fence)).rowcount == 1
 
     # -------------------------------------------------------- dead letter
 

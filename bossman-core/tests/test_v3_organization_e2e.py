@@ -98,7 +98,7 @@ class _Observer:
 
     def observe_fresh(self, action, receipt):
         p = self.world.root / str(action.args["name"])
-        return Observation(observed_at=receipt.completed_at + timedelta(milliseconds=1), source="fs",
+        return Observation(observed_at=datetime.now(timezone.utc), source="fs",
                            state={"exists": p.exists()})
 
 

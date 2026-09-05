@@ -87,3 +87,20 @@ def test_zip_content_is_scanned_and_forbidden_files_flagged(tmp_path):
 
 def test_repository_itself_is_clean():
     assert scan.main() == 0
+
+
+def test_astra_sec103_nested_pem_corrupt_and_oversize_zip_are_not_clean(tmp_path):
+    import io
+    inner=io.BytesIO()
+    with zipfile.ZipFile(inner, "w") as z:
+        z.writestr("hidden.pem", "-----BEGIN " + "PRIVATE KEY-----\nSYNTHETIC\n-----END PRIVATE KEY-----")
+    outer=tmp_path / "outer.zip"
+    with zipfile.ZipFile(outer, "w") as z:
+        z.writestr("opaque.bin", inner.getvalue())
+    assert any("hidden.pem" in row for row in scan.scan_paths([outer], tmp_path))
+    corrupt=tmp_path / "corrupt.zip"; corrupt.write_bytes(b"not a zip")
+    assert scan.scan_paths([corrupt], tmp_path)
+    big=tmp_path / "big.zip"
+    with zipfile.ZipFile(big, "w", compression=zipfile.ZIP_DEFLATED) as z:
+        z.writestr("large.txt", b"x" * 2_000_001)
+    assert scan.scan_paths([big], tmp_path)

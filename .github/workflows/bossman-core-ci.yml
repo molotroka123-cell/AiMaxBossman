@@ -150,19 +150,17 @@ jobs:
       - name: Secret-pattern scan
         run: python tools/ci_secret_scan.py
 
-      # SAST/SCA — advisory в Security Hardening V1.1: сообщают о находках, но не
-      # роняют сборку (continue-on-error). После триажа baseline можно сделать
-      # блокирующими. Дают ранний сигнал по уязвимым зависимостям и опасным
-      # примитивам, дополняя secret-scan.
-      - name: Dependency audit (pip-audit, advisory)
-        continue-on-error: true
-        run: |
-          python -m pip install --quiet pip-audit
-          pip install --quiet -e bossman-core || true
-          pip-audit --progress-spinner off || true
+      - name: Install security tools and component
+        run: python -m pip install --upgrade pip bandit==1.9.4 pip-audit==2.10.1 -e ./bossman-core
 
-      - name: SAST (bandit high-severity, advisory)
-        continue-on-error: true
-        run: |
-          python -m pip install --quiet bandit
-          bandit -r bossman-core/bossman -q --severity-level high --confidence-level medium || true
+      - name: SAST and dependency gate
+        run: python tools/astra_security_gate.py --component bossman-core
+
+      - name: Security reports (including failed scans)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bossman-core-security-${{ github.sha }}
+          path: astra-security-results/
+          if-no-files-found: error
+          retention-days: 30

@@ -24,7 +24,7 @@ class ContextPack:
 
 def estimate_tokens(text: str) -> int:
     # Conservative language-agnostic estimate. Exact tokenizer is model-specific.
-    return max(1, math.ceil(len(text) / 3.5))
+    return math.ceil(len(text) / 3.5)
 
 def _fingerprint(text: str) -> str:
     text = re.sub(r"\s+", " ", text).strip().lower()
@@ -38,6 +38,8 @@ def build_context_pack(
     max_items: int = 8,
     per_item_tokens: int = 1400,
 ) -> ContextPack:
+    if min(max_tokens, max_items, per_item_tokens) < 0:
+        raise ValueError("context limits must be nonnegative")
     items: list[ContextItem] = []
     seen: set[str] = set()
     used = 0
@@ -52,12 +54,11 @@ def build_context_pack(
 
         max_chars = int(per_item_tokens * 3.5)
         content = h.content.strip()[:max_chars]
-        citation = f"{h.source}" + (f" — {h.heading}" if h.heading else "")
-        block = f"[SOURCE: {citation}]\n{content}"
-        cost = estimate_tokens(block)
-        if used + cost > max_tokens:
+        candidate = ContextItem(h.source, h.heading, content, h.score, h.chunk_hash)
+        cost = estimate_tokens(_render(items + [candidate]))
+        if cost > max_tokens:
             continue
-        used += cost
+        used = cost
         items.append(ContextItem(
             source=h.source,
             heading=h.heading,
@@ -66,8 +67,12 @@ def build_context_pack(
             chunk_hash=h.chunk_hash,
         ))
 
-    text = "\n\n---\n\n".join(
+    text = _render(items)
+    return ContextPack(query, items, estimate_tokens(text), text)
+
+
+def _render(items: list[ContextItem]) -> str:
+    return "\n\n---\n\n".join(
         f"[SOURCE {i+1}: {x.source}{' — ' + x.heading if x.heading else ''}]\n{x.content}"
         for i, x in enumerate(items)
     )
-    return ContextPack(query, items, estimate_tokens(text), text)

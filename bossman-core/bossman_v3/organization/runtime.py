@@ -100,8 +100,10 @@ class OrganizationRuntime:
         self.events = EventIntake(store, reactions or [])
         self._departments: dict[str, Department] = {d.department_id: d for d in store.departments()}
         parents = store.envelope_parents()
+        reserves = store.envelope_reserves()
         for scope, (limit, spent) in store.envelopes().items():
-            self.treasury.restore(scope, limit=limit, spent=spent, parent=parents.get(scope, ""))
+            self.treasury.restore(scope, limit=limit, spent=spent, parent=parents.get(scope, ""),
+                                  reserved=reserves.get(scope, Resources()))
 
     # ------------------------------------------------------------ registry
 
@@ -147,6 +149,8 @@ class OrganizationRuntime:
             if row is not None and row["mission_id"] != mission_id:
                 raise ValueError(f"work_id {wid!r} already belongs to mission {row['mission_id']!r}")
         for c in contracts:
+            if self.store.work(c.work_id) is not None:
+                raise ValueError(f"work_id {c.work_id!r} already owned")
             if c.mission_id != mission_id:
                 raise ValueError(f"contract {c.work_id} belongs to mission {c.mission_id!r}")
             for dep in c.dependencies:
@@ -155,14 +159,9 @@ class OrganizationRuntime:
             if c.department_id not in self._departments:
                 raise KeyError(f"contract {c.work_id}: unknown department {c.department_id!r}")
         _topological(contracts)                          # цикл → ValueError до записи
-        self.store.save_mission(mission_id, title=title, department_id=department_id,
-                                state=MissionState.RECEIVED, source=source,
-                                payload={"contracts": ids, "budget": (budget or Resources()).to_dict()})
-        if budget is not None:
-            self.treasury.set_limit(f"mission:{mission_id}", budget, parent=f"department:{department_id}")   # INV-3
-            self._persist_envelope(f"mission:{mission_id}")
-        for c in contracts:
-            self.store.save_work(c, state=TaskState.PLANNED, assigned=[], attempts=0)
+        self.store.receive_mission(mission_id, title=title, department_id=department_id,
+                                   contracts=contracts, source=source, budget=budget)
+        self._reload_treasury()
         self.store.log("mission.received", mission_id=mission_id, detail=title)
         return self.status(mission_id)
 
@@ -266,7 +265,14 @@ class OrganizationRuntime:
             # исполнителем; предел — escalation.max_attempts в _attempt
 
     def _attempt(self, contract: DelegationContract, mission_id: str) -> WorkResult | None:
+        from bossman_shared.privacy import execution_privacy
+        with execution_privacy(contract.privacy):
+            return self._attempt_scoped(contract, mission_id)
+
+    def _attempt_scoped(self, contract: DelegationContract, mission_id: str) -> WorkResult | None:
         row = self.store.work(contract.work_id)
+        if self.store.active_attempt(contract.work_id):
+            return self._block(contract, "unreconciled execution/spend; reservation retained", ask_owner=True)
         attempts = int(row["attempts"]) if row else 0
         runtime_meta = dict(contract.metadata.get("runtime") or {})
         failed_agents: list[str] = list(runtime_meta.get("failed_agents") or [])
@@ -335,12 +341,14 @@ class OrganizationRuntime:
 
         # 5. казначейство — резерв ДО делегирования
         scopes = self.treasury.scopes_for(contract.department_id, mission_id)
-        reserve = self.treasury.reserve(scopes, contract.budget)
-        if not reserve.allowed:
-            return self._block(contract, reserve.reason, ask_owner=reserve.ask_owner)
+        try:
+            reservation_id = self.store.begin_attempt(contract, scopes, team.members)
+        except ValueError as exc:
+            return self._block(contract, str(exc), ask_owner=True)
+        self._reload_treasury()
 
         # 6. делегирование в V3
-        self.store.save_work(contract, state=TaskState.EXECUTING, assigned=team.members, attempts=attempts + 1)
+
         self.store.log("work.delegated", mission_id=mission_id, work_id=contract.work_id,
                        detail=f"executor={executor_id} team={team.slots} tier>={min_tier}")
         self._bump_load(team, +1)
@@ -348,16 +356,25 @@ class OrganizationRuntime:
             result = self.execution.execute(contract, agent_id=executor_id)
         except Exception as exc:  # noqa: BLE001 — падение исполнителя = шаг не исполнен
             result = WorkResult(contract.work_id, executed=False, produced_by=executor_id,
-                                reason=f"execution bridge raised: {type(exc).__name__}: {exc}")
+                                reason=f"execution bridge raised: {type(exc).__name__}: {exc}",
+                                metadata={"unknown_usage": True})
         finally:
             self._bump_load(team, -1)
         if not isinstance(result, WorkResult) or result.work_id != contract.work_id:
             result = WorkResult(contract.work_id, executed=False, produced_by=executor_id,
-                                reason="execution bridge returned a result for another work item")
+                                reason="execution bridge returned a result for another work item",
+                                metadata={"unknown_usage": True})
+
+        if result.metadata.get("unknown_usage"):
+            self.store.save_result(result, mission_id)
+            self._dissolve(team, mission_id)
+            return self._block(contract, "unknown execution/usage; reservation retained for reconciliation",
+                               ask_owner=True, result=result)
 
         # 7. ждёт владельца? — не провал и не попытка
         if result.metadata.get("waiting_approval"):
-            self.treasury.release(scopes, contract.budget)
+            self.store.settle_attempt(reservation_id, self._accounted_cost(contract, result), result)
+            self._reload_treasury()
             self.store.save_work(contract, state=TaskState.WAITING_APPROVAL, attempts=attempts)
             self._remember(contract, last_reason=result.reason, failed_agents=failed_agents)
             self.store.save_result(result, mission_id)
@@ -378,7 +395,8 @@ class OrganizationRuntime:
             self._dissolve(team, mission_id)
             return self._block(contract, result.reason, ask_owner=True, result=result)
         if result.metadata.get("fleet_blocked"):
-            self.treasury.release(scopes, contract.budget)
+            self.store.settle_attempt(reservation_id, self._accounted_cost(contract, result), result)
+            self._reload_treasury()
             self.store.save_work(contract, state=TaskState.PLANNED, attempts=attempts)
             self.store.save_result(result, mission_id)
             self._dissolve(team, mission_id)
@@ -387,7 +405,8 @@ class OrganizationRuntime:
         # 7c. инфраструктурный провал (узел потерян): исполнитель не виноват,
         #     попытка не списывается; ограниченное число переносов, потом BLOCKED
         if result.metadata.get("infrastructure_failure"):
-            self.treasury.release(scopes, contract.budget)
+            self.store.settle_attempt(reservation_id, self._accounted_cost(contract, result), result)
+            self._reload_treasury()
             infra = int(runtime_meta.get("infra_retries", 0)) + 1
             contract.metadata["runtime"] = {**runtime_meta, "infra_retries": infra, "last_reason": result.reason[:500],
                                             "failed_agents": failed_agents}
@@ -408,22 +427,33 @@ class OrganizationRuntime:
 
         # 9. независимое ревью (может только запретить)
         reviewer_id = team.slots.get(REVIEWER) or team.slots.get(RISK)
-        if ok and reviewer_id:
-            self.store.save_work(contract, state=TaskState.VERIFYING)
-            verdict = self.reviewer.review(contract, result, reviewer_id=reviewer_id, producer_id=executor_id)
-            result.reviewed_by = reviewer_id
-            result.metadata["review"] = verdict.to_dict()
-            if not verdict.approved:
-                result.success = False
-                result.metadata["review_veto"] = True
-                result.contract_errors.append(f"review veto by {reviewer_id}: {verdict.reason}")
-                ok = False
+        reviews = []
+        if ok:
+            for role in (REVIEWER, RISK, "qa", "auditor"):
+                rid = team.slots.get(role)
+                if not rid:
+                    continue
+                self.store.save_work(contract, state=TaskState.VERIFYING)
+                try:
+                    verdict = self.reviewer.review(contract, result, reviewer_id=rid, producer_id=executor_id)
+                    if verdict.reviewer_id != rid or not verdict.independent:
+                        verdict = ReviewVerdict(rid, False, "review identity/independence mismatch", False)
+                except Exception as exc:
+                    verdict = ReviewVerdict(rid, False, f"review unavailable: {type(exc).__name__}", False)
+                reviews.append({"role": role, **verdict.to_dict()})
+                result.reviewed_by = result.reviewed_by or rid
+                result.metadata.setdefault("review", verdict.to_dict())
+                if not verdict.approved:
+                    result.success = False
+                    result.metadata["review_veto"] = True
+                    result.contract_errors.append(f"review veto by {rid}: {verdict.reason}")
+                    ok = False
+            result.metadata["reviews"] = reviews
 
         # 10. казначейство — факт
-        actual = result.cost if any(result.cost.to_dict().values()) else contract.budget
-        commit = self.treasury.commit(scopes, contract.budget, actual)
-        for scope in scopes:
-            self._persist_envelope(scope)
+        actual = self._accounted_cost(contract, result)
+        commit = self.store.settle_attempt(reservation_id, actual, result)
+        self._reload_treasury()
 
         # 11. обучение — по наблюдаемому исходу
         claimed = any(bool(result.claims.get(k)) for k in ("runner_completed", "claimed_effect", "done"))
@@ -509,6 +539,21 @@ class OrganizationRuntime:
     def _dissolve(self, team: MissionTeam, mission_id: str) -> None:
         team.dissolved = True
         self.store.save_team(team.team_id, mission_id, team.to_dict(), dissolved=True)
+
+    @staticmethod
+    def _accounted_cost(contract, result):
+        if result.metadata.get("usage_complete") is True:
+            return result.cost
+        # Missing usage never means free. Keep a conservative accounting debit.
+        result.metadata["cost_source"] = "conservative_reservation"
+        return Resources(**{f: max(getattr(result.cost, f), getattr(contract.budget, f))
+                            for f in Resources._FIELDS})
+
+    def _reload_treasury(self):
+        parents, reserves = self.store.envelope_parents(), self.store.envelope_reserves()
+        for scope, (limit, spent) in self.store.envelopes().items():
+            self.treasury.restore(scope, limit=limit, spent=spent, parent=parents.get(scope, ""),
+                                  reserved=reserves.get(scope, Resources()))
 
     def _persist_envelope(self, scope: str) -> None:
         env = self.treasury.envelope(scope)

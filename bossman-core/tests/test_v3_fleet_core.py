@@ -208,24 +208,28 @@ def test_claim_respects_eligibility_privacy_and_capability(tmp_path):
 
 def test_retry_classification_and_dead_letter_is_durable(tmp_path):
     store = FleetStore(tmp_path / "f.sqlite")
-    q = WorkQueue(store, FleetScheduler())
+    q = WorkQueue(store, FleetScheduler(), authorize_requeue=lambda by, work: by == "human:owner")
     assert classify_failure("PolicyDeniedError: hard_deny") == FailureClass.NEVER_RETRY
-    assert classify_failure("ApprovalDeniedError: ожидает решения владельца") == FailureClass.HUMAN_REQUIRED
-    assert classify_failure("node lost: NodeUnavailable") == FailureClass.REROUTE
-    assert classify_failure("request timed out") == FailureClass.BACKOFF
+    assert classify_failure("ApprovalDeniedError: owner") == FailureClass.HUMAN_REQUIRED
     q.enqueue("w1", "m1", priority=1, requirement=_req())
-    fc, action = q.on_failure("w1", "m1", reason="PolicyDeniedError: forbidden", attempts=1)
+    claim = q.claim(_node("n"), now=10)
+    _, action = q.on_failure("w1", "m1", claim=claim, reason="PolicyDeniedError: forbidden", now=10)
     assert action == "DEAD_LETTER" and store.queue() == []
-    again = FleetStore(tmp_path / "f.sqlite")
-    assert [d["work_id"] for d in again.dead_letters()] == ["w1"]
+    assert [d["work_id"] for d in FleetStore(tmp_path / "f.sqlite").dead_letters()] == ["w1"]
     q.enqueue("w2", "m1", priority=1, requirement=_req())
-    fc, action = q.on_failure("w2", "m1", reason="node lost", attempts=1)
-    assert fc == FailureClass.REROUTE and action.startswith("REQUEUE_AFTER_")
-    fc, action = q.on_failure("w2", "m1", reason="node lost", attempts=99)
+    now = 100
+    for attempt in range(q.retry.max_attempts):
+        claim = q.claim(_node("n"), now=now)
+        assert claim is not None
+        fc, action = q.on_failure("w2", "m1", claim=claim, reason="node lost", attempts=999, now=now)
+        if attempt + 1 < q.retry.max_attempts:
+            assert fc == FailureClass.REROUTE and action.startswith("REQUEUE_AFTER_")
+            assert q.claim(_node("n"), now=now) is None
+        now += 10000
     assert action == "DEAD_LETTER"
     with pytest.raises(PermissionError):
         q.requeue_dead_letter("w2", by="agent:coder")
-    assert q.requeue_dead_letter("w2", by="human:owner") is True
+    assert q.requeue_dead_letter("w2", by="human:owner")
 
 
 # -------------------------------------------------------------- credentials
@@ -293,7 +297,7 @@ def test_resume_kernel_blocks_in_flight_irreversible_step_after_node_loss(tmp_pa
     j.record("s1", receipt={"eff": 1}, verified=True)
     k = FleetResumeKernel()
     d = k.decide(j, _plan(), lost_in_flight=True)
-    assert d.resumable and d.next_step_id == "s2" and d.finished_steps == ("s1",)     # s2 не начинался
+    assert not d.resumable and "owner decision" in d.reason  # legacy pending is ambiguous after loss
     j.fail("s2", error="node lost mid-flight", by="node-1")
     d = k.decide(j, _plan(), lost_in_flight=True)
     assert not d.resumable and "owner decision" in d.reason

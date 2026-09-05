@@ -862,6 +862,12 @@ class TaskEngine:
         await self._log(run_id, "info", "run.completed", "задача выполнена")
 
     async def _call_model(self, task: dict, agent: dict, messages: list[dict],
+                          run_id: int, *, tools: list[dict] | None = None) -> tuple[ChatResult, dict]:
+        from bossman_shared.privacy import execution_privacy
+        with execution_privacy((task.get("meta") or {}).get("privacy", "public")):
+            return await self._call_model_scoped(task, agent, messages, run_id, tools=tools)
+
+    async def _call_model_scoped(self, task: dict, agent: dict, messages: list[dict],
                           run_id: int, *, tools: list[dict] | None = None
                           ) -> tuple[ChatResult, dict]:
         """Вызов модели: сначала pick_model-хук (Smart Router) может перекрыть выбор;

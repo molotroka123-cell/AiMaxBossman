@@ -31,11 +31,11 @@ from .journal import TaskJournal
 P_NEXT, P_DONE, P_FAILED, P_NOTE = 0, 1, 2, 6
 
 _SECRET_PATTERNS = (
+    re.compile(r"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----[\s\S]*?(?:-----END (?:[A-Z0-9]+ )*PRIVATE KEY-----|$)"),
     re.compile(r"\bsk-[A-Za-z0-9_\-]{16,}"),
     re.compile(r"\bghp_[A-Za-z0-9]{20,}"),
     re.compile(r"(?i)\bauthorization\s*:\s*bearer\s+\S+"),
     re.compile(r"(?i)\b(api[_-]?key|access[_-]?token|password|secret)\b\s*[:=]\s*\S+"),
-    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
 )
 REDACTED = "[REDACTED]"
 
@@ -47,8 +47,19 @@ def redact(text: str) -> str:
     return out
 
 
+def redact_data(value: Any) -> Any:
+    """Preserve JSON structure while removing sensitive field values and spans."""
+    if isinstance(value, Mapping):
+        return {str(k): (REDACTED if re.search(
+            r"(?i)(?:password|secret|authorization|private.?key|api.?key|access.?token|refresh.?token)", str(k))
+            else redact_data(v)) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [redact_data(v) for v in value]
+    return redact(value) if isinstance(value, str) else value
+
+
 def estimate_tokens(text: str) -> int:
-    return max(1, len(text) // 4)
+    return (len(text) + 3) // 4
 
 
 @dataclass(frozen=True)
@@ -113,6 +124,8 @@ class ContextAssembler:
 
     def assemble(self, journal: TaskJournal, *, budget_tokens: int = 16000,
                  model: str = "") -> ContextPack:
+        if budget_tokens < 0:
+            raise ValueError("budget_tokens must be nonnegative")
         items = self._items(journal)
         guardian = self._guardian or ContextDataGuardian(GuardianConfig(token_budget=budget_tokens))
         report = guardian.select(items)
@@ -120,19 +133,21 @@ class ContextAssembler:
         # Жёсткий потолок вызывающего: guardian мог оставить критичное сверх
         # номинального бюджета — для окна модели это всё равно нужно обрезать,
         # но обрезать по приоритету, а не случайно.
-        kept, used = [], 0
+        header = redact(f"ЗАДАЧА {journal.task_id}" + (f" · модель {model}" if model else ""))
+        if estimate_tokens(header) > budget_tokens:
+            header = ""
+        kept = []
+        text = header
         for item in sorted(report.selected, key=lambda x: (x.priority, -x.importance)):
-            cost = max(1, item.token_count)
-            if used + cost > budget_tokens:
+            candidate = "\n".join(x for x in [text, redact(str(item.content))] if x)
+            if estimate_tokens(candidate) > budget_tokens:
                 continue
             kept.append(item)
-            used += cost
+            text = candidate
 
         dropped = len(items) - len(kept)
-        header = f"ЗАДАЧА {journal.task_id}" + (f" · модель {model}" if model else "")
-        text = "\n".join([header] + [str(i.content) for i in kept])
         provenance = {i.item_id: {"source": i.source, "category": i.category,
                                   "version": i.version, "at": str(i.metadata.get("at", ""))}
                       for i in kept}
         return ContextPack(text=redact(text), tokens=estimate_tokens(text),
-                           dropped=dropped, provenance=provenance)
+                           dropped=dropped, provenance=redact_data(provenance))

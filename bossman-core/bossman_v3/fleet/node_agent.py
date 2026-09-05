@@ -17,6 +17,9 @@ Node Agent на машине: регистрируется, шлёт heartbeat, 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import inspect
+import json
+import time
 from typing import Any, Mapping, Protocol
 
 from ..organization.bridges import ExecutionBridge
@@ -57,6 +60,7 @@ class LocalNodeTransport:
     def __init__(self) -> None:
         self._runtimes: dict[str, ExecutionBridge] = {}
         self._down: set[str] = set()
+        self.leases = None
 
     def attach(self, node_id: str, runtime: ExecutionBridge) -> None:
         self._runtimes[node_id] = runtime
@@ -70,6 +74,14 @@ class LocalNodeTransport:
         return node_id in self._runtimes and node_id not in self._down
 
     def dispatch(self, node_id: str, request: NodeExecutionRequest) -> WorkResult:
+        if (self.leases is None or request.work_id != request.contract.work_id
+                or request.mission_id != request.contract.mission_id):
+            raise PermissionError("missing lease authority or request identity mismatch")
+        lease = next((l for l in self.leases.store.leases(node_id=node_id)
+                      if l.lease_id == request.lease_id and l.fence == request.fence
+                      and l.work_id == request.work_id), None)
+        if lease is None or not self.leases.valid(lease, now=time.time())[0]:
+            raise PermissionError("stale execution lease")
         rt = self._runtimes.get(node_id)
         if rt is None or node_id in self._down:
             raise NodeUnavailable(f"node {node_id!r} is not attached to the local transport")
@@ -80,7 +92,12 @@ class LocalNodeTransport:
         # ActionReceipt шага; флот потом отвергает receipt'ы, записанные под устаревшим fence.
         contract.metadata["fleet_dispatch"] = {"fence": int(request.fence), "lease_id": request.lease_id,
                                                "node_id": node_id}
-        return rt.execute(contract, agent_id=request.agent_id)
+        if "execution_guard" in inspect.signature(rt.execute).parameters:
+            return rt.execute(contract, agent_id=request.agent_id,
+                              execution_guard=lambda: self.leases.mutation_guard(lease))
+        # Legacy local bridges have one opaque operation; guard the entire call.
+        with self.leases.mutation_guard(lease):
+            return rt.execute(contract, agent_id=request.agent_id)
 
     def cancel(self, node_id: str, work_id: str) -> bool:
         return False                      # безопасной отмены у локального моста нет — честно
@@ -102,8 +119,14 @@ class RemoteNodeTransport:
 def _minimized(c: DelegationContract) -> DelegationContract:
     """Минимизированный контекст для недоверенного узла: без inputs/constraints/
     метаданных — только цель, способность, критерии, улики и шаги."""
-    return DelegationContract(work_id=c.work_id, mission_id=c.mission_id, department_id=c.department_id, goal=c.goal,
-                              required_capability=c.required_capability, success_criteria=list(c.success_criteria),
-                              evidence_required=list(c.evidence_required), budget=c.budget, risk=c.risk,
-                              priority=c.priority, required_role=c.required_role, side_effect=c.side_effect,
-                              steps=[dict(s) for s in c.steps], privacy=c.privacy, placement=dict(c.placement))
+    # Arbitrary step arguments cannot be proven public by stripping context.
+    # Require a fully public contract; retain every security/policy constraint.
+    from ..memory.assembler import redact_data
+    body = c.to_dict()
+    if c.privacy != "public" or c.placement.get("contains_secrets"):
+        raise PermissionError("sensitive work cannot be minimized for an untrusted node")
+    if c.inputs or c.steps or c.metadata:
+        raise PermissionError("minimization requires an explicitly public, data-free contract")
+    if redact_data(body) != body:
+        raise PermissionError("secret-bearing contract refused by minimized transport")
+    return DelegationContract.from_dict(body)

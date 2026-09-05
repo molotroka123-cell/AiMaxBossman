@@ -96,6 +96,9 @@ async def test_fleet_appears_in_control_plane_when_enabled(fleet_env):
     assert [n["node_id"] for n in fleet["nodes"]] == [org.node_id] and fleet["health"]["online"] == [org.node_id]
     assert fleet["nodes"][0]["capabilities"] > 0 and fleet["queue_depth"] == 0 and fleet["active_leases"] == []
     assert "secret" not in str(fleet).lower() and "api_key" not in str(fleet)
-    assert (await client.get("/api/org/fleet")).json() == fleet
+    def _stable(f):   # heartbeat/registered timestamps двигаются между двумя запросами
+        return {k: ([{kk: vv for kk, vv in n.items() if not kk.endswith("_ts")} for n in v] if k == "nodes" else v)
+                for k, v in f.items()}
+    assert _stable((await client.get("/api/org/fleet")).json()) == _stable(fleet)
     # без флота — честно выключено
     assert body["organization"]["enabled"] is True

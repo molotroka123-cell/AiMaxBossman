@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+import math
+from numbers import Real
 from typing import Any, Mapping
 
 from bossman_v3 import evidence as _signing
@@ -84,6 +86,18 @@ class Resources:
     _FIELDS = ("usd", "tokens", "compute_seconds", "wall_seconds", "concurrency",
                "gpu_seconds", "gpu_memory_gb", "network_bytes")
 
+    def __post_init__(self) -> None:
+        for name in self._FIELDS:
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, Real) or not math.isfinite(value) or value < 0:
+                raise ValueError(f"{name} must be finite and nonnegative")
+            if name not in ("usd", "gpu_memory_gb") and int(value) != value:
+                raise ValueError(f"{name} must be an integer")
+
+    def consumed(self) -> "Resources":
+        return Resources(**{f: (0 if f in ("concurrency", "gpu_memory_gb") else getattr(self, f))
+                            for f in self._FIELDS})
+
     def __add__(self, other: "Resources") -> "Resources":
         return Resources(**{f: getattr(self, f) + getattr(other, f) for f in self._FIELDS})
 
@@ -103,10 +117,7 @@ class Resources:
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any] | None) -> "Resources":
         raw = dict(raw or {})
-        return cls(usd=float(raw.get("usd", 0.0)), tokens=int(raw.get("tokens", 0)),
-                   compute_seconds=int(raw.get("compute_seconds", 0)), wall_seconds=int(raw.get("wall_seconds", 0)),
-                   concurrency=int(raw.get("concurrency", 0)), gpu_seconds=int(raw.get("gpu_seconds", 0)),
-                   gpu_memory_gb=float(raw.get("gpu_memory_gb", 0.0)), network_bytes=int(raw.get("network_bytes", 0)))
+        return cls(**{name: raw.get(name, 0) for name in cls._FIELDS})
 
 
 # -------------------------------------------------------- departments
@@ -234,10 +245,11 @@ class Evidence:
     signer: str = ""
     nonce: str = ""
     issued_at: str = ""
+    binding: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {"kind": self.kind, "ref": self.ref, "verified": self.verified, "source": self.source,
-                "observed_at": self.observed_at, "detail": self.detail,
+                "observed_at": self.observed_at, "detail": self.detail, "binding": dict(self.binding),
                 "sig": self.sig, "signer": self.signer, "nonce": self.nonce, "issued_at": self.issued_at}
 
     def signed_record(self) -> dict[str, Any]:
@@ -249,21 +261,23 @@ class Evidence:
 
     @classmethod
     def signed(cls, kind: str, ref: str, *, source: str, observed_at: str = "", detail: str = "",
-               signer: str = _signing.JOURNAL_SIGNER) -> "Evidence":
+               signer: str = _signing.JOURNAL_SIGNER, binding: Mapping[str, Any] | None = None) -> "Evidence":
         """Создать verified-улику с подписью процесса. Вызывать только из кода,
         который сам наблюдал результат (журнал V3 / верификатор), не из адаптеров модели."""
         body = {"kind": kind, "ref": ref, "verified": True, "source": source,
-                "observed_at": observed_at, "detail": detail}
+                "observed_at": observed_at, "detail": detail, "binding": dict(binding or {})}
         f = _signing.sign_fields(body, signer=signer)
         return cls(kind, ref, True, source, observed_at, detail,
-                   sig=f["sig"], signer=f["signer"], nonce=f["nonce"], issued_at=f["issued_at"])
+                   sig=f["sig"], signer=f["signer"], nonce=f["nonce"], issued_at=f["issued_at"],
+                   binding=dict(binding or {}))
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "Evidence":
         return cls(str(raw["kind"]), str(raw.get("ref", "")), bool(raw.get("verified", False)),
                    str(raw.get("source", "")), str(raw.get("observed_at", "")), str(raw.get("detail", "")),
                    sig=str(raw.get("sig", "")), signer=str(raw.get("signer", "")),
-                   nonce=str(raw.get("nonce", "")), issued_at=str(raw.get("issued_at", "")))
+                   nonce=str(raw.get("nonce", "")), issued_at=str(raw.get("issued_at", "")),
+                   binding=dict(raw.get("binding") or {}))
 
 
 @dataclass
@@ -285,7 +299,7 @@ class WorkResult:
 
     @property
     def verified(self) -> bool:
-        return self.success and bool(self.evidence) and all(e.verified for e in self.evidence)
+        return self.success and bool(self.evidence) and all(e.verified and e.signature_valid() for e in self.evidence)
 
     def to_dict(self) -> dict[str, Any]:
         return {"work_id": self.work_id, "executed": self.executed,

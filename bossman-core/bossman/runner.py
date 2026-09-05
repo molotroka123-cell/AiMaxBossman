@@ -17,6 +17,7 @@ from .agents import AgentSpec, load_all
 from .config import settings
 from .context import SUMMARY_MAX_TOKENS, ContextBudget, ContextBuilder
 from .llm import CloudDenied, NeedsCloudApproval, chat, real_window
+from .completion import CompletionContract, CompletionGate
 from .toolkit import REGISTRY, ToolContext, by_api_name, tool_line
 
 _log = obs.get_logger("bossman.runner")
@@ -270,12 +271,16 @@ async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
     try:
         result = await tool.handler(args, ctx)
     except Exception as exc:  # ошибка инструмента — данные для модели, не падение петли
+        if ctx.completion_gate is not None:
+            ctx.completion_gate.record(tool.name, tool.rights, args, error=True)
         result_text = f"ошибка {tool.name}: {exc}"
         await db.execute(
             "INSERT INTO tool_calls (run_id, agent, tool, args, result_preview, status) "
             "VALUES ($1,$2,$3,$4,$5,'error')", run_id, agent.name, tool.name, safe_args,
             obs.redact(result_text)[:500])
         return result_text, f"{tool.name}: ошибка"
+    if ctx.completion_gate is not None:
+        ctx.completion_gate.record(tool.name, tool.rights, args, error=result.error)
     await db.execute(
         """INSERT INTO tool_calls (run_id, agent, tool, args, result_preview, truncated, approved_by)
            VALUES ($1,$2,$3,$4,$5,$6,$7)""",
@@ -334,6 +339,8 @@ async def run_task(task: dict) -> None:
     workdir.mkdir(parents=True, exist_ok=True)
     ctx = ToolContext(agent=agent.name, run_id=run_id, workdir=workdir,
                       journal=workdir / "journal.md", notes_dir=workdir / "notes")
+    completion = CompletionGate(CompletionContract.model_validate(task.get("completion_contract") or {}), workdir)
+    ctx.completion_gate = completion
 
     task_id = str(task["id"])
     await _record_memory(_WM.create_task_state(task_id, task["text"][:4000]), "create_task_state")
@@ -435,6 +442,12 @@ async def run_task(task: dict) -> None:
     except Exception:
         status, final = "failed", "ошибка петли:\n" + traceback.format_exc(limit=3)
 
+    if status == "done":
+        status, completion_reason = completion.finish()
+        if status != "done":
+            final = completion_reason + "\n\n" + final
+        events.emit("task.completion", id=task["id"], run_id=run_id, status=status, reason=completion_reason)
+
     await db.execute(
         """UPDATE runs SET status=$2, steps=$3, prompt_tokens=$4, finished_at=now(), error=$5
            WHERE id=$1""",
@@ -445,9 +458,9 @@ async def run_task(task: dict) -> None:
                 result=final[:1000])
 
     await _record_memory(_WM.update_task_state(task_id, {
-        "status": "completed" if status == "done" else "failed",
+        "status": "completed" if status == "done" else status,
         "current_step": final[:2000]}), "update_task_state")
-    if status != "done" and not _learning_excluded(task_id):
+    if status not in ("done", "answered") and not _learning_excluded(task_id):
         # V2.6 модуль C: error_class больше не вырожденный "task_failed" на всё —
         # детерминированная классификация симптома делает failure memory
         # пригодной для извлечения паттернов (failure_patterns.extract_patterns).

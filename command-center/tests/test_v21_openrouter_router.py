@@ -329,6 +329,8 @@ async def test_advertised_and_verified_stored_separately(env, monkeypatch):
 # ------------------------------------------------------- 4. ГЛАВНОЕ ПРАВИЛО роутера
 
 def _cand(alias, **kw):
+    kw.setdefault("price_in", 0.0)
+    kw.setdefault("price_out", 0.0)
     return ModelCandidate(id=alias, alias=alias, local=False, **kw)
 
 
@@ -411,7 +413,7 @@ def test_shortlist_is_bounded():
 async def test_router_candidates_endpoint_is_bounded(env):
     prov = (await env.client.post("/api/providers", json={
         "name": "local-many", "kind": "openai_compat",
-        "base_url": "http://local.test/v1"})).json()
+        "base_url": "http://127.0.0.1:1234/v1"})).json()
     for i in range(12):
         await env.client.post("/api/models", json={
             "provider_id": prov["id"], "name": f"m{i}", "alias": f"many-{i}",

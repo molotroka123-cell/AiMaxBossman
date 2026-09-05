@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -10,23 +11,27 @@ from ..providers import ProviderError, http_client
 
 DEFAULT_BASE = "https://openrouter.ai/api/v1"
 
-def _float(v: Any, default: float = 0.0) -> float:
+def _float(v: Any, default: float | None = None) -> float | None:
     try:
-        return float(v)
+        value = float(v)
+        return value if not isinstance(v, bool) and math.isfinite(value) and value >= 0 else default
     except (TypeError, ValueError):
         return default
 
-def per_million(v: Any) -> float:
+def per_million(v: Any) -> float | None:
     """OpenRouter pricing fields are commonly per-token strings; normalize to USD / 1M."""
-    return _float(v) * 1_000_000
+    value = _float(v)
+    if value is None or not math.isfinite(value * 1_000_000):
+        return None
+    return value * 1_000_000
 
 @dataclass(slots=True)
 class OpenRouterModelCard:
     id: str
     name: str
     context_length: int = 0
-    price_in: float = 0.0
-    price_out: float = 0.0
+    price_in: float | None = None
+    price_out: float | None = None
     input_modalities: list[str] = field(default_factory=list)
     output_modalities: list[str] = field(default_factory=list)
     supported_parameters: list[str] = field(default_factory=list)
@@ -71,6 +76,12 @@ def parse_model_card(raw: dict[str, Any]) -> OpenRouterModelCard:
         created=int(raw["created"]) if raw.get("created") is not None else None,
         raw=dict(raw),
     )
+
+def catalog_price_values(row):
+    """Re-read original provider metadata so legacy zero defaults cannot become authority."""
+    card = parse_model_card(row.get("raw_metadata") or {})
+    return {"price_in": card.price_in, "price_out": card.price_out}
+
 
 class OpenRouterClient:
     def __init__(self, api_key: str, base_url: str = DEFAULT_BASE,
@@ -128,6 +139,8 @@ class OpenRouterClient:
                        temperature: float | None = None,
                        stream: bool = False,
                        provider: dict[str, Any] | None = None) -> dict[str, Any]:
+        from bossman_shared.privacy import assert_provider_egress
+        assert_provider_egress("openrouter", self.base_url)
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -157,6 +170,8 @@ class OpenRouterClient:
                          max_tokens: int = 32, temperature: float | None = 0,
                          max_chunks: int = 32) -> list[str]:
         """SSE-стрим → список текстовых дельт. Пустой список = стрим не работает."""
+        from bossman_shared.privacy import assert_provider_egress
+        assert_provider_egress("openrouter", self.base_url)
         payload: dict[str, Any] = {
             "model": model, "messages": messages,
             "max_tokens": max_tokens, "stream": True,

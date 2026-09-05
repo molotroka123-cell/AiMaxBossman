@@ -29,7 +29,7 @@ from ..computer_agent.agent import UniversalComputerAgent
 from ..contracts import SideEffectClass, TypedAction
 from ..execution.compound import CompoundResult, CompoundRunner, PlanStep
 from ..memory.failure_memory import FailureMemory
-from ..memory.journal import TaskJournal
+from ..memory.journal import TaskJournal, journal_path, JournalIntegrityError, digest
 from .contracts import DelegationContract
 from .models import Evidence, Resources, WorkResult
 
@@ -146,32 +146,35 @@ class V3ExecutionBridge:
     def journal_id(contract: DelegationContract) -> str:
         return f"{contract.mission_id}__{contract.work_id}"
 
-    @staticmethod
-    def plan_digest(plan: list[PlanStep]) -> str:
-        """ASTRA-003: идентичность плана = шаги + действия + ожидания, не только id шагов."""
-        import hashlib
-        body = json.dumps([step_to_dict(p) for p in plan], sort_keys=True, ensure_ascii=False, default=str)
-        return hashlib.sha256(body.encode("utf-8")).hexdigest()[:32]
-
     def journal(self, contract: DelegationContract, plan: list[PlanStep]) -> TaskJournal | None:
         """Существующий журнал переиспользуется только для ТОГО ЖЕ плана; изменённый план под
         тем же id — None (владелец решает), а не «продолжить с чужими шагами»."""
         jid = self.journal_id(contract)
-        path = self.journal_root / f"{jid}.json"
-        digest = self.plan_digest(plan)
+        path = journal_path(self.journal_root, jid)
         if path.exists():
             j = TaskJournal.load(task_id=jid, root=self.journal_root)
-            same_ids = [s.step_id for s in j.steps] == [p.step_id for p in plan]
-            if same_ids and (j.plan_digest == digest or not j.plan_digest):
-                if not j.plan_digest:
-                    j.plan_digest = digest; j._save()          # журнал до ASTRA-003: зафиксировать отпечаток
-                return j
-            if j.finished():
-                return None                                   # план изменился после закрытых шагов
-        return TaskJournal.start(task_id=jid, plan=[(p.step_id, p.intent) for p in plan], root=self.journal_root,
-                                 plan_digest=digest)
+        else:
+            j = TaskJournal.start(task_id=jid, plan=[(p.step_id, p.intent) for p in plan], root=self.journal_root)
+        j.bind_plan([step_to_dict(p) for p in plan])
+        prior = next((n.get("contract_digest") for n in j.notes if "contract_digest" in n), None)
+        if prior is not None and prior != contract.digest():
+            raise JournalIntegrityError("contract identity or policy changed; reconciliation required")
+        binding = {"mission_id": contract.mission_id, "work_id": contract.work_id,
+                   "contract_digest": contract.digest()}
+        if j.execution_binding and j.execution_binding != binding:
+            raise JournalIntegrityError("journal execution ownership changed")
+        if not j.execution_binding:
+            if any(s.finished for s in j.steps):
+                raise JournalIntegrityError("legacy execution binding requires reconciliation")
+            j.execution_binding = binding
+            j._save()
+        if prior is None:
+            j.notes.append({"contract_digest": contract.digest()})
+            j._save()
+        return j
 
-    def execute(self, contract: DelegationContract, *, agent_id: str) -> WorkResult:
+    def execute(self, contract: DelegationContract, *, agent_id: str, before_step=None,
+                execution_guard=None) -> WorkResult:
         plan = [step_from_dict(s) for s in contract.steps]
         if not plan:
             return WorkResult(contract.work_id, executed=False, produced_by=agent_id,
@@ -187,7 +190,7 @@ class V3ExecutionBridge:
         t0 = time.monotonic()
         dispatch = dict(contract.metadata.get("fleet_dispatch") or {})
         res = agent_run(agent, journal, plan, model=agent_id, failure_memory=fm,
-                        context={"fence": dispatch.get("fence"), "node_id": dispatch.get("node_id", ""),
+                        context={"before_step": before_step, "execution_guard": execution_guard, "fence": dispatch.get("fence"), "node_id": dispatch.get("node_id", ""),
                                  "lease_id": dispatch.get("lease_id", ""), "run_id": self.journal_id(contract)})
         elapsed = time.monotonic() - t0
 
@@ -217,6 +220,8 @@ def agent_run(agent: UniversalComputerAgent, journal: TaskJournal, plan: list[Pl
 
 def _evidence_from_step(journal_id: str, step: PlanStep, journal: TaskJournal) -> Evidence:
     js = next(s for s in journal.steps if s.step_id == step.step_id)
+    if js.action_digest != digest(step_to_dict(step)):
+        raise JournalIntegrityError("evidence action binding mismatch")
     expect = dict(step.action.args).get("expect")
     if isinstance(expect, Mapping) and expect.get("kind"):
         kind, ref = str(expect["kind"]), str(expect.get("target", step.step_id))
@@ -226,7 +231,16 @@ def _evidence_from_step(journal_id: str, step: PlanStep, journal: TaskJournal) -
     # EH-01: улика поднимается только из подписанного журналом шага и подписывается сама
     if not js.signature_valid(journal.task_id):
         raise RuntimeError(f"journal step {journal_id}/{step.step_id} is not signed — evidence refused")
-    return Evidence.signed(kind, ref, source=f"journal:{journal_id}/{step.step_id}", observed_at=js.updated_at,
+    expected = dict(expect.get("expect") or {}) if isinstance(expect, Mapping) else {}
+    if isinstance(expect, Mapping):
+        expected.update({k: v for k, v in expect.items() if k not in ("kind", "target", "expect")})
+    binding = {**js.execution_binding,
+               "action_digest": js.action_digest, "attempt_id": js.attempt_id,
+               "started_at": receipt.get("started_at", ""), "verified_expect": expected,
+               "verification_passed": receipt.get("verification_passed", False),
+               "observed_state": receipt.get("observed_state", {})}
+    return Evidence.signed(kind, ref, source=f"journal:{journal_id}/{step.step_id}",
+                           observed_at=receipt.get("observed_at", js.updated_at), binding=binding,
                            detail=json.dumps(receipt, ensure_ascii=False, sort_keys=True)[:300])
 
 

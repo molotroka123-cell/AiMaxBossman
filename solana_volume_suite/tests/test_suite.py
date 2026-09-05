@@ -42,7 +42,7 @@ def test_vault_encryption_roundtrip(temp_vault_path):
     Ensures invalid password raises PermissionError.
     """
     vault = SecurityKeyVault(storage_path=temp_vault_path)
-    password = "CorrectSuperSecretKey456!"  # ci-secret-scan: allow — тестовый пароль, не секрет
+    password = "CorrectSuperSecretKey456!"  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
     count = 10
 
     pubkeys = vault.create_and_store_pool(count, password)
@@ -80,7 +80,7 @@ def test_zero_knowledge_isolation(temp_vault_path):
     and that raw secret keys or sensitive tokens never enter the AI payload.
     """
     vault = SecurityKeyVault(storage_path=temp_vault_path)
-    password = "ZKIsolationTestPassword999!"  # ci-secret-scan: allow — тестовый пароль, не секрет
+    password = "ZKIsolationTestPassword999!"  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
     vault.create_and_store_pool(5, password)
 
     sanitized_view = vault.get_sanitized_public_view(password)
@@ -119,9 +119,9 @@ def test_zero_knowledge_isolation(temp_vault_path):
 def test_pumpfun_pda_derivation():
     """
     Validates PDA derivation math: seeds=[b"bonding-curve", bytes(mint)]
-    on program 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P.
+    on program 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P.  # ci-secret-scan: allow -- public Solana program/mint/destination address
     """
-    test_mint = Pubkey.from_string("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263")
+    test_mint = Pubkey.from_string("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263")  # ci-secret-scan: allow -- public Solana program/mint/destination address
     pda, bump = get_bonding_curve_pda(test_mint)
 
     assert isinstance(pda, Pubkey)
@@ -167,7 +167,7 @@ async def test_ai_fallback_on_llm_error():
 
     market_state = {
         "stage": "pumpfun_bonding_curve",
-        "token_mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        "token_mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",  # ci-secret-scan: allow -- public Solana program/mint/destination address
         "curve_progress_pct": 20.0,
         "seconds_since_last_external_tx": 30.0,  # Stagnant > 25s triggers KOTH_PULSE
         "recent_dump_size_sol": 0.0,
@@ -220,7 +220,7 @@ def test_dashboard_endpoints():
     # 3. Start Bot
     res_start = client.post("/api/bot/start", json={
         "stage": "BONDING_CURVE",
-        "target_token_mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        "target_token_mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",  # ci-secret-scan: allow -- public Solana program/mint/destination address
         "password": "MasterTestPassword777!",
         "max_loss_usd": 50.0
     })
@@ -371,7 +371,7 @@ def test_pumpfun_migration_threshold_safeguard():
     """
     engine = PumpFunEngine(jito_client=JitoBundleClient())
     kp = Keypair()
-    mint = Pubkey.from_string("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263")
+    mint = Pubkey.from_string("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263")  # ci-secret-scan: allow -- public Solana program/mint/destination address
 
     # Below 95% -> Success
     bundles = engine.assemble_pump_buy_bundle(

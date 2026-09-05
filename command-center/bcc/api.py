@@ -274,8 +274,8 @@ class ModelIn(BaseModel):
     kind: str = "local"
     context_window: int = 8192
     caps: dict = Field(default_factory=dict)
-    price_in: float = 0.0
-    price_out: float = 0.0
+    price_in: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    price_out: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class DiscoverIn(BaseModel):
@@ -288,8 +288,8 @@ class ModelPatch(BaseModel):
     kind: str | None = None
     context_window: int | None = None
     caps: dict | None = None
-    price_in: float | None = None
-    price_out: float | None = None
+    price_in: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    price_out: float | None = Field(default=None, ge=0, allow_inf_nan=False)
 
 
 class AgentIn(BaseModel):
@@ -605,7 +605,7 @@ def _api_router() -> APIRouter:
 
     @router.patch("/models/{model_id}")
     async def patch_model(model_id: int, body: ModelPatch, svc: Services = Depends(services)):
-        row = await svc.registry.update_model(model_id, **body.model_dump(exclude_none=True))
+        row = await svc.registry.update_model(model_id, **body.model_dump(exclude_unset=True))
         if row is None:
             raise ApiError("модель не найдена", status=404)
         return row
@@ -683,9 +683,14 @@ def _api_router() -> APIRouter:
 
     @router.get("/tasks")
     async def list_tasks(status: str | None = None, limit: int = 100,
+                         mission_id: int | None = None, before_id: int | None = None,
                          svc: Services = Depends(services)):
         async with svc.db.session() as s:
-            stmt = sa.select(tasks_t).order_by(tasks_t.c.id.desc()).limit(min(limit, 500))
+            stmt = sa.select(tasks_t).order_by(tasks_t.c.id.desc()).limit(max(1, min(limit, 500)))
+            if mission_id is not None:
+                stmt = stmt.where(tasks_t.c.mission_id == mission_id)
+            if before_id is not None:
+                stmt = stmt.where(tasks_t.c.id < before_id)
             if status:
                 stmt = stmt.where(tasks_t.c.status.in_(status.split(",")))
             res = await s.execute(stmt)
@@ -796,7 +801,7 @@ def _api_router() -> APIRouter:
     @router.patch("/schedules/{schedule_id}")
     async def patch_schedule(schedule_id: int, body: SchedulePatch,
                              svc: Services = Depends(services)):
-        row = await svc.scheduler.update(schedule_id, **body.model_dump(exclude_none=True))
+        row = await svc.scheduler.update(schedule_id, **body.model_dump(exclude_unset=True))
         if row is None:
             raise ApiError("расписание не найдено", status=404)
         return row

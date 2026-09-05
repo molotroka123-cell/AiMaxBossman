@@ -27,6 +27,9 @@ async def test_env_configured_openrouter_models_drive_the_same_tool_loop(tmp_pat
         assert aliases == ["or-qwen-qwen3-coder", "or-z-ai-glm-4.5-air"] and all(m["kind"] == "cloud" for m in models)
         glm = next(m for m in models if m["alias"] == "or-z-ai-glm-4.5-air")
 
+        # The fake provider has an explicitly known free tariff; absent prices must block.
+        await svc.registry.update_model(glm["id"], price_in=0.0, price_out=0.0)
+
         # детерминированный «OpenRouter»: модель предлагает инструмент (proposal), потом отвечает текстом
         adapter = ToolAdapter([("tool", "terminal_run", {"command": "echo hi"}), ("text", "готово: hi")])
         svc.registry.adapter_factory = lambda m, p: adapter

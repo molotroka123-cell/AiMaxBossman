@@ -25,7 +25,8 @@ from typing import Any, Mapping
 
 from typing import Protocol
 
-from ..memory.assembler import redact
+from ..memory.assembler import redact, redact_data
+from ..memory.journal import journal_path
 from ..memory.failure_memory import FailureMemory
 from .models import Department
 
@@ -85,7 +86,7 @@ class ScopedKnowledge:
 
     def publish(self, scope: str, kind: str, payload: Mapping[str, Any], *, provenance: str,
                 confidence: float = 1.0, valid_until: str = "", source_scope: str = "") -> Fact:
-        clean = json.loads(redact(json.dumps(dict(payload), ensure_ascii=False, default=str)))
+        clean = redact_data(dict(payload))
         fact = Fact(self._fact_id(scope, kind, clean), scope, kind, clean, redact(provenance),
                     max(0.0, min(1.0, confidence)), _now(), source_scope or scope, valid_until)
         self.store.save_fact(fact.fact_id, scope, kind, {
@@ -104,7 +105,7 @@ class ScopedKnowledge:
         out = []
         rows = list(self.store.facts(scope))
         for parent in include_parents:
-            if parent == scope or parent.split(":", 1)[0] not in ("organization", "department", "project"):
+            if parent not in self._ancestors(scope):
                 raise PermissionError(f"scope {parent!r} is not a parent scope; use export() for cross-scope transfer")
             rows.extend(self.store.facts(parent))
         for row in rows:
@@ -124,7 +125,12 @@ class ScopedKnowledge:
     def export(self, fact: Fact, *, to_scope: str, source_department: Department) -> Fact:
         """Явный перенос между скоупами. Вид факта обязан быть в allowlist
         отдела-источника; происхождение сохраняется, уверенность не растёт."""
-        if fact.kind not in source_department.allowed_exports:
+        stored = next((f for f in self.read(fact.scope, include_expired=True) if f.fact_id == fact.fact_id), None)
+        owner = self._owner_department(fact.scope)
+        department = next((d for d in self.store.departments() if d.department_id == owner), None)
+        if stored != fact or department is None or owner != source_department.department_id:
+            raise ExportBlocked("fact ownership or source department could not be verified")
+        if fact.kind not in department.allowed_exports:
             raise ExportBlocked(f"department {source_department.department_id!r} does not export {fact.kind!r}")
         return self.publish(to_scope, fact.kind, fact.payload,
                             provenance=f"{fact.provenance} | exported from {fact.scope}",
@@ -137,4 +143,24 @@ class ScopedKnowledge:
         """Память провалов V3.1 — отдельный корень на отдел (изоляция)."""
         if self._failure_root is None:
             return None
-        return FailureMemory(self._failure_root / department_id)
+        safe = journal_path(self._failure_root, department_id)
+        return FailureMemory(safe.with_suffix(""))
+
+    def _owner_department(self, scope: str) -> str:
+        kind, _, ident = scope.partition(":")
+        if kind == "department":
+            return ident if any(d.department_id == ident for d in self.store.departments()) else ""
+        if kind == "mission":
+            mission = self.store.mission(ident)
+            return mission["department_id"] if mission else ""
+        if kind == "agent":
+            return next((a.department_id for a in self.store.agents() if a.agent_id == ident), "")
+        return ""
+
+    def _ancestors(self, scope: str) -> set[str]:
+        owner = self._owner_department(scope)
+        if not owner:
+            return set()
+        result = {ORG_SCOPE, f"department:{owner}"}
+        result.discard(scope)
+        return result

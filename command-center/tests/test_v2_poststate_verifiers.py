@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import time
 import subprocess
 from pathlib import Path
 
@@ -12,7 +13,7 @@ import sqlalchemy as sa
 from bcc.db import schedules as schedules_t, utcnow
 from bcc.v2.memory.facts import FactStore
 from bcc.v2.tables import terminal_sessions as ts_t
-from bcc.v2.verification import ExpectedState, parse_expected, payload_digest, verify, verify_all
+from bcc.v2.verification import ExpectedState, ObservedState, _compare, parse_expected, payload_digest, verify, verify_all
 
 
 async def _session(svc, sid: str, *, exit_code, status="finished", command="echo hi"):
@@ -112,6 +113,38 @@ async def test_process_verifier_uses_live_pid(env):
     gone = await verify(ExpectedState("process", str(proc.pid), {"running": False}), svc=env.svc, task={})
     assert gone.status == "VERIFIED"
     assert (await verify(ExpectedState("process", "x", {"running": True}), svc=env.svc, task={})).status == "UNVERIFIED"
+
+
+def test_observe_pid_windows_without_psutil_is_unobservable(monkeypatch):
+    """SALVAGE-004: на Windows без psutil ответ — «наблюдение недоступно» (UNVERIFIED),
+    а не сигнал 0: там os.kill(pid, 0) завершил бы наблюдаемый процесс."""
+    import builtins
+    from bcc.v2.verification import observe_pid
+    real_import = builtins.__import__
+
+    def no_psutil(name, *a, **k):
+        if name == "psutil":
+            raise ImportError("psutil")
+        return real_import(name, *a, **k)
+    monkeypatch.setattr(builtins, "__import__", no_psutil)
+    killed = []
+    monkeypatch.setattr(os, "kill", lambda *a: killed.append(a))
+    obs = observe_pid(os.getpid(), platform="nt")
+    assert "running" not in obs and "no process observation source" in obs["error"]
+    assert killed == []          # наблюдатель ничего не «убивал»
+
+
+def test_observe_pid_disagreeing_sources_are_not_proof(monkeypatch):
+    """psutil из другого PID namespace говорит «нет», procfs/сигнал — «есть»: расхождение
+    источников → error → UNVERIFIED. Ни один источник не объявляется истиной."""
+    import psutil
+    from bcc.v2.verification import observe_pid
+    monkeypatch.setattr(psutil, "pid_exists", lambda pid: False)
+    obs = observe_pid(os.getpid())
+    assert "running" not in obs and "disagree" in obs["error"] and obs["sources"]["psutil"] is False
+    exp = ExpectedState("process", str(os.getpid()), {"running": True})
+    status, reason = _compare(exp, ObservedState("process", exp.target, obs, time.time()))
+    assert status == "UNVERIFIED"
 
 
 async def test_verify_all_aggregates_new_kinds_fail_closed(env, tmp_path):

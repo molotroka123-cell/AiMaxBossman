@@ -23,6 +23,16 @@ def _contract():
                               budget=Resources(usd=1.0, tokens=1000, compute_seconds=60))
 
 
+def _bound_evidence(c, kind="file", ref="/tmp/x"):
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    return Evidence.signed(kind, ref, source="bossman_v3.verifier", observed_at=now,
+                           binding={"mission_id": c.mission_id, "work_id": c.work_id,
+                                    "contract_digest": c.digest(), "attempt_id": "fixture-attempt",
+                                    "action_digest": "fixture-action", "started_at": now,
+                                    "verification_passed": True, "verified_expect": {}})
+
+
 def test_evidence_unsigned_verified_is_rejected():
     ok, errors = _contract().validate(WorkResult("w1", executed=True, evidence=[
         Evidence("file", "/tmp/x", True, source="journal:m1__w1/s1")]))
@@ -34,7 +44,7 @@ def test_evidence_unsigned_verified_is_rejected():
 
 
 def test_signed_evidence_is_accepted_and_roundtrips():
-    e = Evidence.signed("file", "/tmp/x", source="journal:m1__w1/s1", observed_at="t")
+    e = _bound_evidence(_contract())
     assert e.signature_valid() and e.signer == "bossman_v3.memory.journal" and len(e.sig) == 64
     ok, errors = _contract().validate(WorkResult("w1", executed=True, evidence=[e]))
     assert ok and errors == []
@@ -72,7 +82,8 @@ def test_key_file_created_private_and_stable(tmp_path):
     p = ev.key_path()
     k1 = ev.load_or_create_key()
     assert p.exists() and len(k1) == 32
-    assert stat.S_IMODE(os.stat(p).st_mode) == 0o600
+    if os.name == "posix":
+        assert stat.S_IMODE(os.stat(p).st_mode) == 0o600
     ev.reset_cache()
     assert ev.load_or_create_key() == k1
     # без ключа — проверить нельзя (fail-closed), подписать нельзя
@@ -97,6 +108,6 @@ def test_journal_step_is_signed_only_when_closed(tmp_path):
     raw = json.loads(path.read_text(encoding="utf-8"))
     raw["steps"][0]["receipt"] = {"path": "/tmp/evil"}
     path.write_text(json.dumps(raw), encoding="utf-8")
-    forged = TaskJournal.load(task_id="t1", root=tmp_path / "j")
-    assert forged.steps[0].finished and not forged.steps[0].signature_valid("t1")
-    assert not forged.steps[1].signature_valid("t1")
+    from bossman_v3.memory.journal import JournalIntegrityError
+    with pytest.raises(JournalIntegrityError):
+        TaskJournal.load(task_id="t1", root=tmp_path / "j")

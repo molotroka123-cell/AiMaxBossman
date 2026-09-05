@@ -70,7 +70,7 @@ class SecurityKeyVault:
         count: int,
         password: str,
         mode: str = "random",
-        mnemonic: Optional[str] = None
+        mnemonic: Optional[str] = None  # ci-secret-scan: allow -- type annotation only; no credential value
     ) -> List[str]:
         """
         Generates N wallets (random or hd_bip44), encrypts with AES-256-GCM,

@@ -79,7 +79,7 @@ class _Executor:
 class _Observer:
     def __init__(self, w): self.w = w
     def observe_fresh(self, action, receipt):
-        return Observation(receipt.completed_at + timedelta(milliseconds=1), "fs",
+        return Observation(datetime.now(timezone.utc), "fs",
                            {"exists": (self.w.root / str(action.args["name"])).exists()})
 
 
@@ -302,7 +302,7 @@ def test_e2e_private_work_never_reaches_cloud(stack):
     pub.inputs["customer_list"] = ["a", "b"]
     s.org.receive_mission("m2", title="public", department_id="engineering", contracts=[pub])
     s.org.run_mission("m2")
-    assert seen["inputs"] == {} and set(seen["meta"]) <= {"fleet_dispatch"}          # MINIMIZED context (fence/lease — конверт диспетчеризации, не контекст владельца)
+    assert seen == {}  # undeclared input/step minimization cannot carry executable private context
 
 
 # ------------------------------------------------------------------ E2E #4

@@ -40,7 +40,7 @@ class SolanaHDWallet:
         return " ".join(selected)
 
     @staticmethod
-    def mnemonic_to_seed(mnemonic: str, passphrase: str = "") -> bytes:
+    def mnemonic_to_seed(mnemonic: str, passphrase: str = "") -> bytes:  # ci-secret-scan: allow -- type annotation only; no credential value
         """
         Derives a 64-byte binary seed from mnemonic using PBKDF2-HMAC-SHA512 (2048 iterations).
         Standard BIP-39 specification.
@@ -54,14 +54,14 @@ class SolanaHDWallet:
         )
 
     @staticmethod
-    def hash_mnemonic(mnemonic: str) -> str:
+    def hash_mnemonic(mnemonic: str) -> str:  # ci-secret-scan: allow -- type annotation only; no credential value
         """Returns SHA-256 fingerprint of the mnemonic for metadata verification without storing raw words."""
         return hashlib.sha256(mnemonic.strip().encode("utf-8")).hexdigest()
 
     @classmethod
     def derive_solana_keypair(
         cls,
-        mnemonic: str,
+        mnemonic: str,  # ci-secret-scan: allow -- type annotation only; no credential value
         wallet_index: int,
         passphrase: str = ""
     ) -> Keypair:

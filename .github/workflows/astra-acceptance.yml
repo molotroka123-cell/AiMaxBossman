@@ -1,0 +1,81 @@
+name: ASTRA acceptance
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '20 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      sandbox:
+        description: Run real sandbox tests on the configured private Linux runner
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  portable:
+    name: ASTRA portable (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: python -m pip install -e . -e ./bossman-core[dev] -e ./command-center[dev]
+      - name: Core and portable persistence regressions
+        run: >-
+          python -m pytest bossman-core/tests/test_astra_remediation.py
+          bossman-core/tests/test_v3_evidence_signing.py
+          bossman-core/tests/test_v3_organization_e2e.py
+          -q --timeout=120 --timeout-method=thread --junitxml=astra-core.xml
+      - name: Command Center regressions
+        run: >-
+          python -m pytest command-center/tests/test_astra_remediation_cc.py
+          -q --timeout=120 --timeout-method=thread --junitxml=astra-cc.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astra-portable-${{ matrix.os }}-${{ github.sha }}
+          path: astra-*.xml
+          if-no-files-found: error
+  runner:
+    name: ASTRA runner recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e . -e ./command-center[dev]
+      - run: python tools/astra_acceptance.py --profile runner
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astra-runner-${{ github.sha }}
+          path: astra-acceptance-results/
+          if-no-files-found: error
+  sandbox:
+    name: ASTRA real sandbox
+    if: github.event_name == 'workflow_dispatch' && inputs.sandbox
+    runs-on: [self-hosted, linux, bossman-sandbox]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e . -e ./bossman-core[dev]
+      - run: python tools/astra_acceptance.py --profile sandbox
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: astra-sandbox-${{ github.sha }}
+          path: astra-acceptance-results/
+          if-no-files-found: error

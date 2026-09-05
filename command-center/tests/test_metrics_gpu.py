@@ -64,8 +64,8 @@ def test_na_from_wsl_is_dropped_not_counted_as_zero(monkeypatch):
     """«[N/A]» — это «не измерено», а не «ноль»: сумма не должна врать."""
     _fake_smi(monkeypatch)
     second = metrics._nvidia()[1]
-    assert second["procs"] == []
-    assert second["vram_procs_mb"] == 0.0
+    assert second["procs"][0]["vram_used_mb"] is None
+    assert second["vram_procs_mb"] is None
 
 
 def test_gpu_cache_is_shorter_than_the_sampling_step():

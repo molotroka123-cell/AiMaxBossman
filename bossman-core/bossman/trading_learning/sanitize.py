@@ -38,7 +38,7 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 # Невидимые символы — классический способ спрятать инструкцию от человека.
-_INVISIBLE = re.compile(r"[​-‏‪-‮⁠-⁯﻿]")
+_INVISIBLE = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]")
 _MAX_LEN = 4000        # длинный «транскрипт» в модель не уходит — режем на входе
 
 

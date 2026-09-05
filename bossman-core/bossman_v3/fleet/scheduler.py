@@ -16,6 +16,7 @@ Admission (§24, инновация 7): работа с явными требо�
 from __future__ import annotations
 
 from typing import Iterable
+import math
 
 from .models import NodeExplanation, NodeState, NodeStatus, PlacementRequirement
 from .privacy import PrivacyRouter
@@ -31,6 +32,14 @@ class FleetScheduler:
 
     def reject_reasons(self, node: NodeState, req: PlacementRequirement) -> list[str]:
         r: list[str] = []
+        for value in (req.min_ram_gb, req.min_gpu_memory_gb, node.ram_free_gb, node.gpu_free_gb):
+            if not math.isfinite(value) or value < 0:
+                return ["insufficient_memory:invalid resource measurement or demand"]
+        if node.unified_memory:
+            free = min(node.ram_free_gb, (node.gpu_free_gb if node.gpu_memory_gb > 0 else node.ram_free_gb))
+            demand = req.min_ram_gb + req.min_gpu_memory_gb
+            if demand and demand + max(1.0, free * 0.05) > free:
+                r.append(f"insufficient_unified_memory:{free:.1f}<{demand:.1f}GB plus safety margin")
         if node.status != NodeStatus.ONLINE:
             r.append(f"node_{node.status.value}")
         pd = self.privacy.decide(requested_privacy=req.privacy, node=node, contains_secrets=req.contains_secrets)
@@ -44,7 +53,7 @@ class FleetScheduler:
         if req.min_ram_gb and node.ram_free_gb < req.min_ram_gb:
             r.append(f"insufficient_memory:{node.ram_free_gb:.0f}<{req.min_ram_gb:.0f}GB")
         if req.min_gpu_memory_gb:
-            free = node.gpu_free_gb if not node.unified_memory else max(node.gpu_free_gb, node.ram_free_gb)
+            free = node.gpu_free_gb if not node.unified_memory else min((node.gpu_free_gb if node.gpu_memory_gb > 0 else node.ram_free_gb), node.ram_free_gb)
             if free < req.min_gpu_memory_gb:
                 r.append(f"insufficient_gpu_memory:{free:.0f}<{req.min_gpu_memory_gb:.0f}GB")
         if req.allowed_os and node.os_name not in req.allowed_os:

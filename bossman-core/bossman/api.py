@@ -151,17 +151,21 @@ async def shutdown() -> None:
 
 # ---------- задачи ----------
 
+from .completion import CompletionContract
+
+
 class TaskIn(BaseModel):
     text: str
     agent: str | None = None     # None = «сам разберётся»
     source: str = "ui"
+    completion_contract: CompletionContract = CompletionContract()
 
 
 @app.post("/tasks", dependencies=[Depends(require_scope(SCOPE_CHAT))])
 async def create_task(body: TaskIn):
     row = await db.fetchrow(
-        "INSERT INTO tasks (agent, source, text) VALUES ($1,$2,$3) RETURNING *",
-        body.agent, body.source, body.text)
+        "INSERT INTO tasks (agent, source, text, completion_contract) VALUES ($1,$2,$3,$4) RETURNING *",
+        body.agent, body.source, body.text, body.completion_contract.model_dump())
     await runner.enqueue(row["id"])
     events.emit("task.created", id=row["id"], agent=body.agent, text=body.text[:200])
     return row

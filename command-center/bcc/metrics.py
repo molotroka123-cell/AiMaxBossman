@@ -122,20 +122,20 @@ def _smi(exe: str, query: str, kind: str) -> list[list[str]] | None:
             for line in out.stdout.strip().splitlines() if line.strip()]
 
 
-def _nvidia_procs(exe: str) -> dict[str, list[dict]]:
+def _nvidia_procs(exe: str) -> dict[str, list[dict]] | None:
     """VRAM по процессам, сгруппированная по UUID карты.
 
     Без этого «использовано VRAM» — это вся карта разом: браузер, игра и наша
     модель в одной цифре. Списать её на модель нельзя, а именно так её и читали.
     """
     rows = _smi(exe, "gpu_uuid,pid,process_name,used_gpu_memory", "compute-apps")
+    if rows is None or any(len(p) < 4 for p in rows):
+        return None
     procs: dict[str, list[dict]] = {}
-    for parts in rows or []:
+    for parts in rows:
         if len(parts) < 4:
             continue
         used = _num(parts[3])
-        if used is None:
-            continue          # «[N/A]» бывает в WSL и в контейнере без --gpus
         procs.setdefault(parts[0], []).append(
             {"pid": _num(parts[1]), "name": parts[2], "vram_used_mb": used})
     return procs
@@ -153,7 +153,8 @@ def _nvidia() -> list[dict] | None:
     for parts in rows:
         if len(parts) < 6:
             continue
-        uuid, mine = parts[0], procs.get(parts[0], [])
+        uuid, mine = parts[0], (procs or {}).get(parts[0], [])
+        complete = procs is not None and all(p["vram_used_mb"] is not None for p in mine)
         used, total = _num(parts[3]), _num(parts[4])
         gpus.append({
             "name": parts[1],
@@ -164,8 +165,10 @@ def _nvidia() -> list[dict] | None:
             "vram_used_mb": used,
             "vram_total_mb": total,
             "vram_free_mb": round(total - used, 1) if (used is not None and total is not None) else None,
-            "vram_procs_mb": round(sum(p["vram_used_mb"] for p in mine), 1) if mine else 0.0,
-            "procs": sorted(mine, key=lambda p: -p["vram_used_mb"])[:8],
+            "vram_procs_mb": round(sum(p["vram_used_mb"] for p in mine), 1) if complete else None,
+            "procs": sorted(mine, key=lambda p: -(p["vram_used_mb"] or 0))[:8],
+            "process_query_available": procs is not None,
+            "process_query_complete": complete,
             "uuid": uuid,
             "temp_c": _num(parts[5]),
         })
@@ -211,6 +214,8 @@ def _read(path: Path) -> str | None:
 
 def _num(value: str | None) -> float | None:
     try:
-        return float(value)  # type: ignore[arg-type]
+        import math
+        number = float(value)
+        return number if math.isfinite(number) and number >= 0 else None
     except (TypeError, ValueError):
         return None

@@ -48,8 +48,9 @@ models = sa.Table(
     sa.Column("kind", sa.String(16), default="local"),          # local | cloud
     sa.Column("context_window", sa.Integer, default=8192),
     sa.Column("caps", sa.JSON, default=dict),                   # vision, tools, reasoning, coding
-    sa.Column("price_in", sa.Float, default=0.0),               # USD за 1M входных токенов
-    sa.Column("price_out", sa.Float, default=0.0),
+    sa.Column("price_in", sa.Float),               # USD за 1M входных токенов
+    sa.Column("price_out", sa.Float),
+    sa.Column("pricing_known", sa.Boolean, default=False),
     sa.Column("status", sa.String(16), default="unknown"),      # unknown|online|offline|error
     sa.Column("status_detail", sa.Text, default=""),
     sa.Column("last_check", sa.DateTime),
@@ -479,6 +480,7 @@ snapshots = sa.Table(
 # Новые колонки существующих таблиц добавляются идемпотентным ALTER в Database.migrate():
 # SQLAlchemy create_all не добавляет колонки в существующие таблицы.
 V2_NEW_COLUMNS: list[tuple[str, str, str]] = [
+    ("models", "pricing_known", "BOOLEAN NOT NULL DEFAULT FALSE"),
     # (таблица, колонка, SQL-тип с default'ом)
     ("tasks", "mission_id", "INTEGER"),
     ("tasks", "orchestra_id", "INTEGER"),

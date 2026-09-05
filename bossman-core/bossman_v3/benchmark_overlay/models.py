@@ -25,7 +25,7 @@ class BenchmarkPolicy:
 @dataclass(slots=True)
 class MissionScore:
     mission_id: str
-    scores: dict[str, float]
+    scores: dict[str, float | None]
     hard_failures: list[str]
     verified_success: bool
     metrics: dict[str, float] = field(default_factory=dict)
@@ -35,7 +35,7 @@ class MissionScore:
         """Вторичный агрегат (0–100). Любой hard fail → 0. Не авторитетен: оси независимы."""
         if self.hard_failures:
             return 0.0
-        vals = list(self.scores.values())
+        vals = [v if v is not None else 0.0 for v in self.scores.values()]
         return round((sum(vals) / max(len(vals), 1)) * 10.0, 2)
 
 

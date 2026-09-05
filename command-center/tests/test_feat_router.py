@@ -9,6 +9,8 @@ from .helpers import make_stack
 
 
 def _cand(alias, **kw):
+    kw.setdefault("price_in", 0.0)
+    kw.setdefault("price_out", 0.0)
     return ModelCandidate(id=alias, alias=alias, **kw)
 
 

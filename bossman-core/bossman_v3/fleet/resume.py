@@ -39,8 +39,8 @@ class FleetResumeKernel:
         step = next((p for p in plan if p.step_id == nxt.step_id), None)
         if step is None:
             return ResumeDecision(False, nxt.step_id, finished, f"step {nxt.step_id!r} missing from plan")
-        started = nxt.status == FAILED or bool(nxt.by) or bool(nxt.note)
-        if lost_in_flight and started and step.action.side_effect not in SAFE_CLASSES:
+        started = nxt.in_flight or nxt.status == FAILED or bool(nxt.by) or bool(nxt.note)
+        if lost_in_flight and step.action.side_effect not in SAFE_CLASSES:
             return ResumeDecision(False, nxt.step_id, finished,
                                   f"step {nxt.step_id!r} ({step.action.side_effect.value}) was in flight on a lost node "
                                   "and is not idempotent — owner decision required before re-execution")

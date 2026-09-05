@@ -33,7 +33,7 @@ async def _seed(env, alias: str, *, kind: str = "local", base_url: str = LOCAL_U
         mid = (await s.execute(sa.insert(models_t).values(
             provider_id=pid, name=alias, alias=alias, kind=kind, status="online",
             context_window=32768, caps=caps if caps is not None else {"coding": True},
-            price_in=0.0, price_out=price_out, bench={}))).inserted_primary_key[0]
+            price_in=0.0, price_out=price_out, pricing_known=True, bench={}))).inserted_primary_key[0]
         await s.commit()
     return int(mid)
 

@@ -37,6 +37,7 @@ class ToolContext:
     workdir: Path = Path(".")     # корень, за который fs.* не выходит
     journal: Path | None = None   # journal.md текущего проекта/агента
     notes_dir: Path | None = None
+    completion_gate: Any = None
 
 
 Handler = Callable[[dict, ToolContext], Awaitable[ToolResult]]

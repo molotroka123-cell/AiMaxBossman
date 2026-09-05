@@ -285,22 +285,61 @@ async def _observe_schedule(exp: ExpectedState, *, svc) -> tuple[ObservedState, 
     return ObservedState("schedule", exp.target, obs, time.time()), Evidence("schedule:row", f"id={exp.target} enabled={obs['enabled']} kind={obs['kind']}")
 
 
+def observe_pid(pid: int, *, platform: str = os.name) -> dict[str, Any]:
+    """Живость процесса по НЕЗАВИСИМЫМ источникам (SALVAGE-004, блокер process-verifier).
+
+    Возвращает {"running": bool} только когда все доступные источники согласны.
+    Источники: psutil (если установлен), procfs (Linux) и сигнал 0 (только POSIX).
+    На Windows os.kill(pid, 0) — НЕ проверка: там это TerminateProcess с кодом 0,
+    то есть наблюдатель убил бы наблюдаемый процесс. Без psutil на Windows
+    наблюдение недоступно → {"error": ...} → UNVERIFIED, а не выдуманный ответ.
+    Расхождение источников (например psutil из другого PID namespace говорит
+    «нет», а procfs/сигнал — «есть») тоже {"error": ...}: это не доказательство."""
+    sources: dict[str, bool] = {}
+    errors: list[str] = []
+    try:
+        import psutil
+        try:
+            sources["psutil"] = bool(psutil.pid_exists(pid)
+                                     and psutil.Process(pid).status() != psutil.STATUS_ZOMBIE)
+        except psutil.NoSuchProcess:
+            sources["psutil"] = False
+        except Exception as exc:  # noqa: BLE001 — AccessDenied и т.п.: источник недоступен
+            errors.append(f"psutil:{type(exc).__name__}")
+    except ImportError:
+        errors.append("psutil:missing")
+    if platform == "posix":
+        proc = Path("/proc") / str(pid)
+        if Path("/proc/self").exists():
+            try:
+                state = (proc / "status").read_text(encoding="utf-8", errors="replace") if proc.exists() else ""
+                sources["procfs"] = proc.exists() and "State:\tZ" not in state
+            except OSError as exc:
+                errors.append(f"procfs:{type(exc).__name__}")
+        try:
+            os.kill(pid, 0); sources["signal0"] = True
+        except ProcessLookupError:
+            sources["signal0"] = False
+        except PermissionError:
+            sources["signal0"] = True
+        except OSError as exc:
+            errors.append(f"signal0:{type(exc).__name__}")
+    if not sources:
+        return {"error": "no process observation source available: " + ", ".join(errors), "pid": pid}
+    if len(set(sources.values())) > 1:
+        return {"error": "process observation sources disagree: " + ", ".join(f"{k}={v}" for k, v in sorted(sources.items())),
+                "pid": pid, "sources": dict(sources)}
+    return {"running": next(iter(sources.values())), "pid": pid, "sources": dict(sources)}
+
+
 async def _observe_process(exp: ExpectedState) -> tuple[ObservedState, Evidence]:
     try:
         pid = int(exp.target)
     except (TypeError, ValueError):
         return ObservedState("process", exp.target, {"error": "pid must be an int"}, time.time()), Evidence("process:pid", "bad pid")
-    try:
-        import psutil
-        running = psutil.pid_exists(pid) and psutil.Process(pid).status() != psutil.STATUS_ZOMBIE
-    except Exception:  # noqa: BLE001 — без psutil: сигнал 0
-        try:
-            os.kill(pid, 0); running = True
-        except ProcessLookupError:
-            running = False
-        except PermissionError:
-            running = True
-    return ObservedState("process", exp.target, {"running": bool(running), "pid": pid}, time.time()), Evidence("process:pid", f"pid {pid} running={running}")
+    obs = observe_pid(pid)
+    note = f"pid {pid} running={obs['running']}" if "running" in obs else f"pid {pid} unobservable: {obs['error']}"
+    return ObservedState("process", exp.target, obs, time.time()), Evidence("process:pid", note)
 
 
 # ------------------------------------------------------------- compare

@@ -722,7 +722,7 @@ def test_token_announce_is_silenced_when_output_goes_to_a_file(tmp_path, monkeyp
 
     monkeypatch.delenv(desktop.TOKEN_STDOUT_ENV)
     auth.announce(created=True)
-    assert auth.token in capsys.readouterr().out
+    assert auth.token not in capsys.readouterr().out
 
 
 def test_only_a_missing_stdout_hides_the_token(tmp_path, monkeypatch):

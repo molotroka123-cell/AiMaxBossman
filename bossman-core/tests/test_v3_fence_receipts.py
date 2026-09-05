@@ -47,6 +47,8 @@ def test_zombie_receipt_under_stale_fence_is_not_evidence(tmp_path):
     plan = [PlanStep("s1", "a", TypedAction("fs.write", {"name": "a"}, side_effect=SideEffectClass.IDEMPOTENT_WRITE)),
             PlanStep("s2", "b", TypedAction("fs.write", {"name": "b"}, side_effect=SideEffectClass.IDEMPOTENT_WRITE))]
     j = TaskJournal.start(task_id="m1__w1", plan=[(s.step_id, s.intent) for s in plan], root=tmp_path)
+    from bossman_v3.organization.bridges import step_to_dict
+    j.bind_plan([step_to_dict(s) for s in plan])
     j.record("s1", receipt=_receipt("s1", 41), verified=True, by="A")
     t_leased_42 = time.time() + 0.05
     time.sleep(0.1)

@@ -11,10 +11,10 @@ from core.key_vault import RentReclaimer
 from core.jito_client import JitoBundleClient
 from core.treasury_guard import SubImpactEngine
 
-PUMP_PROGRAM = Pubkey.from_string("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P")
-PUMP_GLOBAL = Pubkey.from_string("4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf")
-PUMP_FEE_RECIPIENT = Pubkey.from_string("CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM")
-PUMP_EVENT_AUTHORITY = Pubkey.from_string("Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1")
+PUMP_PROGRAM = Pubkey.from_string("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P")  # ci-secret-scan: allow -- public Solana program/mint/destination address
+PUMP_GLOBAL = Pubkey.from_string("4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf")  # ci-secret-scan: allow -- public Solana program/mint/destination address
+PUMP_FEE_RECIPIENT = Pubkey.from_string("CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM")  # ci-secret-scan: allow -- public Solana program/mint/destination address
+PUMP_EVENT_AUTHORITY = Pubkey.from_string("Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1")  # ci-secret-scan: allow -- public Solana program/mint/destination address
 SYSVAR_RENT = Pubkey.from_string("SysvarRent111111111111111111111111111111111")
 
 BUY_DISCRIMINATOR = struct.pack("<Q", 16927863322537952870)

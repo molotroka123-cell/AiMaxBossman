@@ -91,12 +91,14 @@ class ResourceTreasury:
             env = self._env[scope] = Envelope(scope=scope, limit=Resources())
         return env
 
-    def restore(self, scope: str, *, limit: Resources, spent: Resources, parent: str = "") -> None:
+    def restore(self, scope: str, *, limit: Resources, spent: Resources, parent: str = "",
+                reserved: Resources | None = None) -> None:
         """Восстановление после рестарта: лимит и факт возвращаются, резервы —
         нет: каждая незавершённая работа резервирует заново при следующей попытке,
         и восстановленный резерв дал бы двойной учёт. Сохранённый reserved_json —
         для наблюдаемости («что было в полёте на момент смерти»), не для баланса."""
-        self._env[scope] = Envelope(scope=scope, limit=limit, spent=spent, parent=parent)
+        self._env[scope] = Envelope(scope=scope, limit=limit, spent=spent.consumed(), parent=parent,
+                                    reserved=reserved or Resources())
 
     @staticmethod
     def scopes_for(department_id: str, mission_id: str | None) -> list[str]:
@@ -132,8 +134,8 @@ class ResourceTreasury:
         for scope in scopes:
             env = self.envelope(scope)
             env.reserved = env.reserved - estimate
-            env.spent = env.spent + actual
-            ok, why = env.limit.fits(env.spent)
+            env.spent = env.spent + actual.consumed()
+            ok, why = env.limit.fits(env.committed_and_reserved)
             if not ok and overrun is None:
                 overrun = TreasuryDecision(False, f"cost overrun in {scope}: {why}", scope, ask_owner=True)
         return overrun or TreasuryDecision(True, "committed")
