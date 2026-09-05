@@ -102,3 +102,29 @@ continue a bounded GLM/free mix. Use direct argv-safe commands for Windows file
 mutation rather than repeating the failed nested-quote command.
 
 No stronger model escalation is authorized merely to mask UI/tooling failures.
+
+## Checkpoint 2026-09-05T17:16:00Z — Twitch visual acceptance
+
+- Live task 9 used the dynamically discovered `z-ai/glm-5.3-flash` model.
+  It opened `https://www.twitch.tv/k1m6a`, saved a browser screenshot, then
+  read the DOM. All three requested browser calls executed successfully.
+- Independent screenshot inspection confirmed the Twitch channel, a playing
+  market chart, and chart panels labelled `Aggregated CVD Pro` and
+  `Aggregated Open Interest Pro`. No stream advertisement overlay was visible;
+  a Twitch cookie-consent banner was visible and correctly not classified as
+  an advertisement.
+- Exact CVD/OI values were not promoted to verified data. They are pixels in a
+  compressed video frame and were too blurred for reliable exact extraction.
+  The GLM response reported `NOT_OBSERVABLE` instead of inventing values.
+- Task 9 usage: 5,753 input tokens, 760 output tokens, $0.000621, no retry.
+  Aggregate GLM totals: 5 calls, 12,586 input tokens, 3,570 output tokens,
+  $0.001836. Two of five missions now have independently verified outcomes.
+- Evidence: `docs/acceptance/evidence/twitch-k1m6a-glm53.png`.
+
+ASTRA_CORRECTION: browser screenshot paths alone do not make pixel-only facts
+available to the model. A future local-model path needs explicit vision/OCR with
+confidence thresholds, and must retain `NOT_OBSERVABLE` when exact values cannot
+be read reliably. Do not weaken this honesty behavior.
+
+NEXT_EXACT_ACTION: commit and push this sanitized audit/evidence checkpoint,
+verify remote SHA parity, then continue the bounded free-model comparison.
