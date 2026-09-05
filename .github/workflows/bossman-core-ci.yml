@@ -92,7 +92,7 @@ jobs:
               --ignore=tests/test_stage9_sandbox_e2e.py --ignore=tests/test_remote_client.py
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         # CI-HISTORY-001: full history is required — tests execute historical
         # benchmark commits in isolated worktrees (run_isolated / ShaMismatch
         # integrity refuses unknown SHAs instead of relabelling them).
@@ -136,7 +136,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -157,7 +157,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Python 3.12
         uses: actions/setup-python@v5
