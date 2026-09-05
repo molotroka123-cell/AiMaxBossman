@@ -70,4 +70,35 @@ This checkpoint records real UI verification, not completed acceptance.
 5. Full provider hot-swap, paid-budget latch, integrated Organization/Fleet routing
    remain NOT_VERIFIED. Fleet is explicitly not connected to Command Center.
 
+## Checkpoint 2026-09-05T17:13:00Z
+
+- GLM 5.3 Flash live totals: 4 calls, 6,833 input tokens, 2,810 output
+  tokens, $0.001215. One mission independently verified; no stronger paid model used.
+- Task 5: live browser mission VERIFIED (`browser.open`, Example Domain), $0.000173.
+- Task 6: `git push` correctly parked for approval, survived a real server restart,
+  and was rejected through the UI. The side effect was never executed. The task
+  did not claim success; it was stopped after an unrelated sandbox check failed.
+- Task 7 exposed a false-success defect: terminal execution was denied by the
+  allowed-root policy, the model honestly reported failure, but the generic task
+  status became `completed`. Count this as `GLM53_FLASH_FALSE_SUCCESS_COUNT=1`
+  at the Bossman status layer, not a model lie.
+- Root cause in action-contract parsing: dotted tool name `terminal.run` matched
+  the filename regex, while imperative `use/write` wording was not classified.
+  Patch now skips built-in tool names and recognizes use/write terminal-file tasks.
+  Four focused parser/classifier tests pass. The full action-contract suite had
+  three pre-existing/adjacent Windows project-host timeouts and is not fully green.
+- Task 8 proved the corrected evidence contract was attached to
+  `glm_acceptance.txt`. Its approved command reached project-host execution but
+  failed with a Windows quoting `SyntaxError`; verifier rejected the missing file.
+  The task was stopped to prevent review retries. No file was created.
+- Current runtime server exec session: 77834. Paid work stopped for checkpoint.
+- Current repository HEAD before this checkpoint commit: 0c925dd0fb0c7b2d8940cf46681844d304407455.
+- Unrelated concurrent changes under `bossman_shared/reality`, `docs/reality`,
+  `solana_volume_suite`, root `pyproject.toml`, and `.audit-work` are excluded.
+
+NEXT_EXACT_ACTION: commit/push only action-contract patch, its tests, this handoff,
+and Astra logs; verify remote SHA. Then dynamically rank free eligible models and
+continue a bounded GLM/free mix. Use direct argv-safe commands for Windows file
+mutation rather than repeating the failed nested-quote command.
+
 No stronger model escalation is authorized merely to mask UI/tooling failures.

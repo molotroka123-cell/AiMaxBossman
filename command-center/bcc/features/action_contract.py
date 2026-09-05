@@ -155,8 +155,9 @@ _WORKFLOW_TOPIC = r"\bworkflow\b|воркфлоу\w*|рабочий\s+проце
 _CODING_SESSION_TOPIC = (r"coding[\s_-]?session\w*|\bworktree\w*|воркtree\w*|сесси\w*\s+(?:кодинга|разработки)|отдельн\w*\s+сесси\w*")
 
 _TERMINAL_FILE_RE = re.compile(
-    rf"({_DO_VERB})[^.!?\n]{{0,80}}({_TERMINAL_TOPIC}|{_FILE_TOPIC})|"
-    rf"({_TERMINAL_TOPIC}|{_FILE_TOPIC})[^.!?\n]{{0,80}}({_DO_VERB})", re.I | re.U)
+    rf"({_DO_VERB}|{_USE_VERB}|{_FIX_VERB})[^.!?\n]{{0,80}}({_TERMINAL_TOPIC}|{_FILE_TOPIC})|"
+    rf"({_TERMINAL_TOPIC}|{_FILE_TOPIC})[^.!?\n]{{0,80}}({_DO_VERB}|{_USE_VERB}|{_FIX_VERB})",
+    re.I | re.U)
 
 _FILENAME_RE = re.compile(r"\b[\w][\w./-]{0,80}\.[a-zA-Z0-9]{1,8}\b")
 
@@ -164,10 +165,20 @@ _FILENAME_RE = re.compile(r"\b[\w][\w./-]{0,80}\.[a-zA-Z0-9]{1,8}\b")
 def _terminal_evidence(prompt: str) -> ExpectedState | None:
     """Явное имя файла в тексте задачи (закрытый, детерминированный вывод —
     как action_router.target_domain: не нашли — не изобретаем)."""
-    m = _FILENAME_RE.search(prompt or "")
-    if not m:
-        return None
-    return ExpectedState(kind="file", target=m.group(0), expect={"exists": True})
+    # Tool names also contain a dot (for example ``terminal.run``) and match the
+    # deliberately broad filename regex.  They describe the requested executor,
+    # not a filesystem outcome, so never turn them into file evidence.
+    # These built-ins may not have been registered yet when the pre-run hook
+    # derives evidence (feature setup order differs in tests and deployments).
+    tool_names = set(REGISTRY.names()) | {
+        "terminal.run", "terminal.stdin", "terminal.kill",
+    }
+    for match in _FILENAME_RE.finditer(prompt or ""):
+        target = match.group(0)
+        if target in tool_names:
+            continue
+        return ExpectedState(kind="file", target=target, expect={"exists": True})
+    return None
 
 
 _GIT_MUTATION_CMD_RE = re.compile(r"\bgit\s+(push|commit)\b", re.I)
