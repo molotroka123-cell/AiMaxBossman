@@ -145,6 +145,10 @@ class TaskEngine:
                 return "malformed result: gate dict without verdict"
             if normalize_gate_verdict(res["verdict"]) is None:
                 return f"malformed verdict: {str(res['verdict'])[:40]!r} not in {sorted(GATE_VERDICTS)}"
+            # EH-05 (TZ-01 §2.5): FAIL без явного `requeue` — не «по умолчанию повторить»,
+            # а сбой гейта: гейт обязан сказать, возвращать ли run в очередь.
+            if normalize_gate_verdict(res["verdict"]) == "FAIL" and "requeue" not in res:
+                return "malformed result: FAIL verdict without explicit requeue"
             return None
         if name == "pick_model":
             if not res:
