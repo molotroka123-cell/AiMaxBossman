@@ -67,3 +67,20 @@
 - **Не начато по решению владельца:** Autonomous Operations.
 - **Осторожно:** `bossman-core/tests/conftest.py` держит ключ подписи улик в tmp; `Evidence(verified=True)` без `Evidence.signed(...)` отвергается везде; `CommandCenterRuntime.call` из собственного цикла бросает RuntimeError; фича organization отвечает 503 ДО импорта ядра (Command Center CI без bossman-core); гейт с FAIL обязан нести `requeue`; секрет-скан теперь считает энтропию в коде/конфиге — фальшивые токены в тестах помечать `# ci-secret-scan: allow`.
 - **Следующий шаг для Opus:** TZ-01 §2.2 — `ActionReceipt` как расширение `tool_calls` (`receipt_json, verified, verifier, observed_at, sig`) + верификаторы terminal/files/apps/github с подписью `bossman_v3.verifier`; затем §2.3 `finalize()` и grep-тест `test_no_direct_completed_writes`.
+
+
+## 7. Итог сессии SALVAGE-004 (Fable, 2026-09-05)
+
+- Пакет `AiMaxBossman_ASTRA_Fixes_35390ec(1).zip` объединён с HEAD адресно (2077bbf): 59 файлов
+  совпали с хешами манифеста и взяты из payload, 14 новых, 4 слиты трёхсторонне, 4 разрешены
+  вручную в пользу payload (compound/journal/bridges/contracts). Интерим-реализации ASTRA-002/003/004
+  из c36dd5b заменены механизмами пакета (bind_plan, execution_binding, durable intent).
+- Дополнительно: V2-HOOK-CANCEL-01 (0fa1317), observe_pid с перекрёстной проверкой источников
+  (2077bbf), CSRF-403 → повторный вход (d114e30), UTF-8 в Windows-тестах и pin pip/setuptools для
+  SCA (ffd7d25). Статусы 35 находок и трассы: `docs/security/ASTRA_SALVAGE_DELTA_HEAD.md`.
+- Открыто для владельца: branch protection (`tools/astra_branch_protection.py --apply`), exact-SHA CI
+  по FINAL_SHA, Windows ACL ключей, sandbox/железо, live OpenRouter (лимит 3.00 USD, UNKNOWN_PRICE →
+  блок). Остатки TRUTH-003: coverage gate (§16), CapabilitySpec (§17), страница владельца (§20).
+- Как гонять: Core — `cd bossman-core && pytest tests` (медленные benchmark-gate тесты, ~5 мин);
+  CC — `cd command-center && pytest tests` (~8 мин, Chromium нужен, иначе skip ≠ pass);
+  root — `pytest tests`; пакетная проверка — `VERIFY.py --repo .` из распакованного архива.
