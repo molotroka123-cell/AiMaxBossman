@@ -1,6 +1,6 @@
 # Epoch 4 — Bossman Continuity
 
-Status: DEFINED; implementation NOT STARTED. This is the execution contract,
+Status: DEFINED; isolated foundation implementation IN PROGRESS; runtime rollout BLOCKED on M0. This is the execution contract,
 not a claim of achieved capability. Date: 2026-09-05.
 
 Audited baseline: `d6b43cea0a1127bba7fa2cdabbd80dfa6da681bc` on
@@ -22,6 +22,189 @@ OWNER_VISIBLE_PRODUCT_CHANGE=Give a goal once; see the relevant workspace, verif
 Continuity names the missing property of the existing system. It does not imply
 AGI, unrestricted self-modification, guaranteed success, or exactly-once delivery
 to external systems that cannot support it.
+
+## Three Generations Within Epoch 4
+
+Owner-directed scope amendment, 2026-09-06: deepen the whole epoch by two more
+generations and target threefold OS improvement. These are three delivery
+generations INSIDE Bossman Continuity, not Epochs 5 and 6. Existing security,
+verification, concurrency and M0 closure gates remain mandatory.
+
+### Generation A — Preserve the mission
+
+The initial plan: one immutable mission identity, independent post-state
+verification, state-aware computer use, canonical recovery and scoped context.
+Deliver M1–M3 and the first integration slices of M5/M9. An interruption changes
+the attempt, not the owner's goal, completed effects or authorization boundary.
+The unit of work becomes a durable mission instead of an individual model turn.
+
+### Generation B — Adapt the method
+
+Within a validated contract, choose among measured alternative execution
+strategies. The system learns which allowed method works in this environment,
+while the goal, required evidence and permission floor remain fixed.
+
+- Maintain versioned strategy profiles per task family, application version,
+  model and environment class. Record verified outcomes, actual costs, retries,
+  latency and uncertainty; do not use model self-confidence as observed success.
+- Before execution, compare admissible routes: structured API/DOM/accessibility/
+  visual interaction, model choice, context composition and checkpoint cadence.
+  Hard policy/privacy/capability/resource filters run before utility ranking.
+- During execution, detect drift and lack of progress; reobserve and replan the
+  remaining subgraph. A plan change cannot remove an outstanding effect, reuse
+  old authorization or clear an unknown irreversible effect.
+- Diagnose failures using controlled replays in local fixtures and bounded
+  strategy comparisons. Label correlation separately from causality. Promote
+  a strategy only against a paired baseline and an independent holdout.
+- Reuse the existing router, SelfHealingController, SkillFactory/LearningGuard
+  and Fleet scheduler; add measured strategy adapters instead of another set
+  of agents, databases or scoring engines. Unknown utility means conservative
+  fallback, not permission to explore on risky live tasks.
+
+Generation B acceptance: the same holdout missions complete with fewer avoidable
+retries/interventions under injected environment changes, with no quality loss
+outside the existing margin and zero policy/evidence violations. At least three
+task families and two distinct environment/model configurations must be tested.
+
+### Generation C — Reuse verified capability
+
+Compile recurring verified subgraphs into reusable parameterized execution
+recipes. The runtime composes recipes, context and model placement across
+missions, while every actual effect still traverses current authorization and
+fresh verification. Reuse saves repeated planning, not safety checks.
+
+- Build a dependency index from existing skill versions, capability manifests,
+  artifact provenance and contracts. Match typed inputs/outputs, environment
+  constraints, permission requirements and evidence requirements before reuse.
+- Compile deterministic safe segments to existing executor calls. Keep model
+  reasoning at ambiguous boundaries; never replace independent verification
+  with a cached success flag. Raw shell learned from arbitrary traces is barred.
+- Invalidate recipes when app/schema/model/capability versions, policy, input
+  hashes or environment assumptions change. Revocation reaches queued and
+  resumed missions before dispatch, not merely the skill picker UI.
+- Incrementally refresh context and derived environment views rather than
+  replaying full histories/screenshots. Mandatory obligations, prior failures
+  and provenance survive compression; protected state is not TTL-evicted.
+- Across compatible missions, share only pure computation and permitted model
+  residency. Effects, approvals, receipts, tenant-scoped memory and budget
+  reservations never deduplicate across mission identities by similarity.
+- Schedule ready dependency nodes according to verified model capabilities,
+  one unified memory budget, data locality and owner priority. A reused recipe
+  may reduce model calls; it never bypasses the canonical ledger/fence.
+- Package reusable composite workflows for research/build/test, browser/editor,
+  media and project operations through the same contracts. Do not invent a
+  special autonomous architecture for each vertical.
+
+Generation C acceptance: novel holdout compositions reuse verified components
+across at least three task families without cross-owner data leakage, stale
+evidence reuse or privilege expansion. The triple-performance protocol below
+must pass before claiming the owner's threefold goal achieved.
+
+### Whole-system depth matrix
+
+| Subsystem | A: preserve | B: adapt | C: reuse and compose |
+|---|---|---|---|
+| Mission IR | Bound goal/effects/evidence | Revise remaining strategy under same obligations | Typed composition with preserved effect identities |
+| Computer / visual | Fresh semantic target and state identity | Select structured or visual route by measured reliability | Environment-scoped reusable interaction recipes |
+| Recovery | Signed durable checkpoint / ambiguous-effect block | Failure-conditioned bounded recovery | Reuse proven recovery patterns with current-state revalidation |
+| Skills | Trusted trace → experimental version | Holdout evaluation, revocation and applicability | Typed recipe graph and incremental invalidation |
+| Environment twin | Bounded operational snapshot | Drift-aware preflight and capacity prediction with uncertainty | Incremental dependency invalidation and permitted locality reuse |
+| Simulation | No-effect preflight | Compare alternative plans in controlled fixtures | Validate composed recipes before eligible dispatch |
+| Model intelligence | Verified capabilities and privacy filter | Per-family measured utility and calibrated uncertainty | Joint context/model/residency scheduling within one ledger |
+| Context / memory | Authority/scope/provenance preserved | Measured retrieval and compression choices | Reusable derived context with dependency tracking |
+| Events | Authenticated idempotent intake | Priority/backpressure based on measured capacity | Coalesce equivalent read-only work; retain separate effect contracts |
+| Fleet | Leases/fencing and conservative placement | Locality/residency-aware task placement | Compose compatible workloads; never share effect or approval identity |
+| Owner control | NEVER/ASK/AUTO with current scope | Preview impact of bounded delegation | Reusable owner-defined permissions; no learned privilege expansion |
+| Desktop / apps | Right workspace and truthful timeline | Show alternate methods, blockers and recovery choices | Goal-level workflow reuse with retained advanced inspection |
+| Observability | Facts/effects/costs by current run | Compare methods and explain measured tradeoffs | Attribute saved work to actual reused component/version |
+| Security | Hard boundaries and adversarial regressions | Attack strategy changes and stale grants | Attack composite recipes, invalidation and cross-mission reuse |
+| Certification | Golden mission and crash matrix | Paired strategy A/B and environment drift | Unseen compositions, ablations and triple-performance qualification |
+
+### Threefold performance contract
+
+Freeze the repaired M0 baseline, hardware, task set, permissions, provider/model
+versions, budget and workload mix before comparing. Measure the whole system,
+including planning, failed attempts, retries, verification, recovery and idle
+model residency. Report local/cloud costs separately. No changing to an easier
+model/task or spending three times more compute to manufacture a speedup.
+
+| Metric | Definition | Target versus frozen baseline |
+|---|---|---|
+| Verified throughput | Independently correct completed missions / elapsed active execution hour, fixed workload and resource envelope | >= 3x |
+| Cost per verified result | Total measured run cost, including failures/retries/verifiers, / verified completions | <= 1/3 |
+| Avoidable owner intervention | Clarification or manual repair caused by missing state/recovery per 100 attempted missions | <= 1/3 |
+
+For local-only runs where monetary cost is unmeasured, report cost as a vector
+of input/output tokens, CPU/GPU time and peak/resident memory; require at least
+threefold reduction in the preregistered dominant resource without regression
+in the other measured resource caps. Do not call free/unknown API pricing zero
+total system cost. Mandatory owner approvals do not count as avoidable
+interventions and must never be removed to improve this metric.
+
+Reliability, correctness, privacy and security are constraints, not tradable
+score multipliers. All required effects remain verified; the existing verified
+success noninferiority margin is at most 1 percentage point; zero accepted
+security bypasses and zero duplicate irreversible effects remain absolute gates.
+If the baseline already has zero interventions/errors, the ratio is N/A and
+the zero must be preserved; never divide by zero or claim an infinite gain.
+
+Qualification protocol:
+
+1. Predeclare task families, task weights, difficulty, supported platforms,
+   budgets and expected artifacts. Use G01–G24 plus novel composed holdouts;
+   training/replay traces cannot appear in the holdout set.
+2. Run A versus M0, B versus A, C versus B, and final C versus M0. At least
+   100 paired runs per declared aggregate; report each task family separately.
+   Pair input/seed/environment where possible and alternate execution order.
+3. Report all attempts, sample counts, warm/cold residency, costs, p50/p95,
+   verified success and reasons for interventions. Include failed and aborted
+   missions in cost/time denominators; never silently discard difficult runs.
+4. Bootstrap paired task-family samples for 95% confidence intervals. Claim
+   the throughput target only if the lower bound is >= 3; cost/intervention
+   reduction only if the upper bound is <= 1/3. Small/zero baselines are
+   INSUFFICIENT_EVIDENCE rather than a successful ratio.
+5. Ablate recipe reuse, strategy selection, incremental context and residency
+   one at a time. Explain which component produces which measured gain;
+   geometric benefit is not the product of correlated synthetic scores.
+6. Re-run security/crash/privacy suites for the winning configuration. If the
+   target fails, publish the actual ratios and bottleneck, retain the best
+   safe configuration, and do not announce '3x achieved'.
+
+### Delivery order for the deeper generations
+
+The existing M0–M11 integration graph remains authoritative. M4–M7 now deliver
+Generation B adapters after A's contracts/observations/recovery are accepted.
+M8 composes Generation C recipes on the existing factories; M9 presents all
+three levels without exposing implementation internals. M10 adds the paired
+and novel-composition qualification; M11 releases the measured configuration.
+Each milestone may have A/B/C evidence slices; closing an A slice does not
+close the whole milestone. Runtime activation still waits for M0 and the
+relevant dependency gates. Do not start a parallel kernel or widen trust.
+
+Record `GENERATION_A/B/C=NOT_STARTED|PARTIAL|ACCEPTED` and
+`TRIPLE_PERFORMANCE=NOT_MEASURED|INSUFFICIENT_EVIDENCE|NOT_MET|MET` in the release
+report. Current status: A=PARTIAL (isolated foundations), B=NOT_STARTED,
+C=NOT_STARTED, TRIPLE_PERFORMANCE=NOT_MEASURED. No generational acceptance is
+claimed by this plan amendment.
+
+### Open-source reuse
+
+The owner explicitly permits compatible open-source implementations. Prefer
+existing repository modules, then mature dependencies or narrowly adapted
+upstream code when they remove a demonstrated gap. Record source URL, license,
+copyright/attribution, exact commit/version, modified files, purpose, runtime
+and memory cost, transitive dependencies, vulnerability scan and rollback.
+Check actual license terms before incorporation; do not infer permission from
+public visibility. Preserve required notices and avoid incompatible licensing.
+
+Untrusted upstream code never runs an install hook or gains filesystem/network
+permissions merely because it is open source. Review its execution boundary,
+pin versions, test the real integration and adversarial inputs. No new resident
+model for each logical role, duplicate orchestrator, hidden telemetry, silent
+cloud upload, or weakened policy/verification in exchange for apparent speed.
+External selection follows a concrete implementation need, not an unbounded
+list of fashionable frameworks. No new upstream dependency is selected by
+this amendment itself.
 
 ## Why This Epoch Exists
 
@@ -425,6 +608,11 @@ is pending. An irreversible effect may require reconciliation, not reversal.
 8. Release manifest lists supported capabilities/platforms and external/hardware
    limitations. Required branch protection is verified by an authorized repo
    administrator; unavailable admin access is an OWNER_ONLY blocker.
+9. All three internal generations are accepted with their dependency and
+   holdout evidence. Report the threefold-performance verdict separately;
+   the owner's 3x objective is unmet unless every applicable primary metric
+   meets the confidence-bound gate. Technical completion must not be presented
+   as achievement of the unmeasured or unmet performance objective.
 
 `V4_FUNCTIONAL_BETA`: integrated mission loop demonstrated, but some required
 certification/platform gates remain open; opt-in only, documented scope.
@@ -459,6 +647,17 @@ Routine implementation choices do not reopen the epoch design. Changing
 release thresholds or widening trust requires an explicit amendment and review.
 Initial revision: architecture and roadmap defined from the baseline above;
 no implementation deviations yet.
+
+Owner scope amendment, 2026-09-06:
+WHAT CHANGED: added two internal generations (adaptive method selection and
+verified recipe composition), whole-system depth matrix, triple-performance
+qualification and explicit open-source reuse policy.
+WHY: direct owner request to deepen V4 by two generations and triple OS metrics.
+EVIDENCE: current isolated visual/IR/preflight/skill foundations and golden
+tests expose the composition boundaries; they provide no measured 3x result.
+IMPACT: M4–M10 acceptance expands; current trust/M0/rollback gates remain;
+Epoch 5 remains unknown. Expanded implementation starts only after this
+amendment is committed and published, and its dependencies are accepted.
 
 ## Deferred Items
 
