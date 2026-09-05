@@ -266,4 +266,34 @@ async def capabilities(model_id: int, request: Request):
     return out
 
 
-FEATURE = Feature(name="openrouter", router=router)
+ENV_API_KEY = "BOSSMAN_OPENROUTER_API_KEY"
+ENV_PROVIDER_NAME = "OpenRouter (env)"
+
+
+async def setup(svc) -> None:
+    """Временный путь провайдера через окружение (BOSS-V3-PRODUCTIZATION-CLOSURE-002):
+    ключ берётся ТОЛЬКО из переменной окружения, в репозитории и в логах его нет;
+    при старте он один раз шифруется в vault как у любого провайдера. Без
+    переменной ничего не создаётся; повторный старт не дублирует провайдера."""
+    import os
+    key = (os.environ.get(ENV_API_KEY) or "").strip()
+    if not key:
+        return
+    async with svc.db.session() as s:
+        rows = (await s.execute(sa.select(providers_t).where(
+            providers_t.c.base_url.like("https://openrouter.ai/%")))).fetchall()
+    if rows:
+        row = dict(rows[0]._mapping)
+        if not svc.vault.decrypt(row.get("api_key_enc")):
+            async with svc.db.session() as s:
+                await s.execute(sa.update(providers_t).where(providers_t.c.id == row["id"]).values(
+                    api_key_enc=svc.vault.encrypt(key)))
+                await s.commit()
+            await svc.bus.emit("provider.key_from_env", provider_id=row["id"], source=ENV_API_KEY)
+        return
+    created = await svc.registry.create_provider(ENV_PROVIDER_NAME, "openai_compat", DEFAULT_BASE, key)
+    await svc.bus.emit("provider.bootstrapped", provider_id=created.get("id"), name=ENV_PROVIDER_NAME,
+                       source=ENV_API_KEY)
+
+
+FEATURE = Feature(name="openrouter", router=router, setup=setup)

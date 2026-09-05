@@ -164,26 +164,26 @@ README — только проекция, которую перерисовыв�
 <!-- BOSSMAN_LIVE_SCORECARD_START -->
 | # | Ось системы | Оценка | Статус | Уверенность | Улики |
 |---|---|---:|---|---|---|
-| 1 | Execution Truth | 8.0/10 | VERIFIED | HIGH | TaskJournal: finished = receipt ∧ verified (bossman-core/tests/test_v3_memory_kernel.py, test_v3_invariants.py, test_v3_compound_resume.py); FleetExecutionBridge отбрасывает поддельные verified-улики, пересобирая их из журнала (test_v3_fleet_e2e.py::forged evidence, 084ad3a); PLACED→VERIFIED запрещён в LEGAL_TRANSITIONS (test_v3_fleet_core.py); V2 action contract тесты (command-center/tests/test_action_contract.py) |
-| 2 | Security | 8.0/10 | VERIFIED | HIGH | P0-A gateway loopback fail-closed при proxy-заголовках (cbdabf2, bossman-core/tests/test_gateway_loopback_proxy.py); P0-B монотонная алгебра политики DENY⊗X=DENY, hook-ASK⊗AUTO=ASK (eb0e969, command-center/tests/test_policy_algebra.py); Fleet: PRIVATE/LOCAL_ONLY — жёсткий гейт планировщика, CredentialBroker выдаёт только гранты (test_v3_fleet_core.py); Secret scan в каждом CI-прогоне (tools/ci_secret_scan.py) |
+| 1 | Execution Truth | 8.5/10 | VERIFIED | HIGH | EH-01: улика verified=True доверяется только с HMAC-подписью доверенного signer'а; журнал подписывает закрытый шаг (000f331, bossman-core/tests/test_v3_evidence_signing.py); FL-01: fence движка — зомби-воркер не пишет receipt/статус, внешний эффект не повторяется (2487694, command-center/tests/test_fence_fl01.py); TaskJournal: finished = receipt ∧ verified (bossman-core/tests/test_v3_memory_kernel.py, test_v3_invariants.py, test_v3_compound_resume.py); FleetExecutionBridge отбрасывает поддельные verified-улики, пересобирая их из журнала (test_v3_fleet_e2e.py::forged evidence, 084ad3a); PLACED→VERIFIED запрещён в LEGAL_TRANSITIONS (test_v3_fleet_core.py); V2 action contract тесты (command-center/tests/test_action_contract.py) |
+| 2 | Security | 8.0/10 | VERIFIED | HIGH | P0-A gateway loopback fail-closed при proxy-заголовках (cbdabf2, bossman-core/tests/test_gateway_loopback_proxy.py); P0-B монотонная алгебра политики DENY⊗X=DENY, hook-ASK⊗AUTO=ASK (eb0e969, command-center/tests/test_policy_algebra.py); Fleet: PRIVATE/LOCAL_ONLY — жёсткий гейт планировщика, CredentialBroker выдаёт только гранты (test_v3_fleet_core.py); Secret scan в каждом CI-прогоне (tools/ci_secret_scan.py); EH-01: ключ подписи улик 0600 вне модели; fail-closed без ключа (bossman_shared/evidence.py) |
 | 3 | Tooling / OS Integration | 7.0/10 | INTEGRATED | MEDIUM | V2 реестр инструментов/decide_effect/approvals заморожен на ffda281 и покрыт command-center/tests/test_v21_*; V3-порты → живой bcc (bossman-core/tests/test_v3_command_center_adapters.py) |
 | 4 | Organization Layer | 6.5/10 | INTEGRATED | MEDIUM | OrganizationRuntime над V3ExecutionBridge/FleetExecutionBridge; ORG-03..07, MEM-02 закрыты (084ad3a); E2E: родитель не COMPLETE при непроверенном ребёнке, рестарт без дублей (bossman-core/tests/test_v3_organization_e2e.py) |
-| 5 | Fleet & Resources | 6.0/10 | INTEGRATED | MEDIUM | FleetStore/LeaseManager/WorkQueue CAS-claim, fencing, reclaim (bossman-core/tests/test_v3_fleet_core.py, 20 тестов); E2E #1–#4: размещение→исполнение, смерть узла→resume без дублей, приватность, двойной claim (test_v3_fleet_e2e.py) |
+| 5 | Fleet & Resources | 6.5/10 | INTEGRATED | MEDIUM | FleetStore/LeaseManager/WorkQueue CAS-claim, fencing, reclaim (bossman-core/tests/test_v3_fleet_core.py, 20 тестов); E2E #1–#4: размещение→исполнение, смерть узла→resume без дублей, приватность, двойной claim (test_v3_fleet_e2e.py); FL-01: task_runs.fence, условные записи и heartbeat, assert_fence до эффекта в V2 и в V3-адаптере (2487694, test_fence_fl01.py) |
 | 6 | Memory / Context | 6.2/10 | IMPLEMENTED | MEDIUM | TaskJournal + FailureMemory + ContextAssembler с редакцией (bossman_v3/memory); ScopedKnowledge: явное наследование include_parents, экспорт по allowlist (MEM-02, 084ad3a) |
 | 7 | Testing / CI | 7.0/10 | VERIFIED | MEDIUM | 4 workflow (root-ci, Bossman Core CI, Command Center CI, V2 Auto-Repair) зелёные по точному SHA 714bb01/fb201a4; Полный регресс ядра на стабильном HEAD; benchmark-тесты проверяют SHA; README_SCORECARD_CURRENT проверяется в root-ci (scripts/update_readme_scorecard.py --check) |
 | 8 | Observability / CEO Control | 5.0/10 | PARTIAL | LOW | control_plane снимки организации и флота из durable store (bossman_v3/organization/control_plane.py, fleet/control_plane.py) |
 | 9 | Treasury / Cost | 6.5/10 | IMPLEMENTED | MEDIUM | TR-01/02/03: актуальные цены 5 семейств (provisional), токен-оценка по скрипту, потолок in·max(p_in,p_cw)+out·p_out (e724a44, tests/test_fable_budget_pricing.py); ResourceTreasury: INV-3 PartitionViolation, конверты org→dept→mission (test_v3_organization_core.py) |
 | 10 | Mission UX / Command Center | 6.0/10 | IMPLEMENTED | MEDIUM | Command Center UI (command-center/ui) с approvals, задачами, инструментами; command-center/tests зелёные; Компактная навигация + OpenRouter Connect (исправлен appendChild) — ветка claude/v2-ui-sidebar-compact, 1401 passed, НЕ влита |
 
-- **Current bottleneck:** FL-01: лизинг/fence флота не проверяется на стороне V2-движка (двойное исполнение при split-brain доказуемо только на уровне FleetStore), плюс EH-01: улики журнала не подписаны (HMAC) — Execution Truth и Fleet не могут подняться выше VERIFIED.
-- **Next highest-value fix:** TZ-05 §2: fence-проверка при каждом побочном эффекте в адаптере V3→bcc (отказ с STALE_FENCE, тест split-brain на 2 узла), затем TZ-01 подпись улик.
-- **Last evidence SHA:** `eb0e969b275141873bc404704d44eafc1f5a22e6` · **Current HEAD SHA:** `eb0e969b2751` · **Evidence freshness:** FRESH
+- **Current bottleneck:** EH-02/EH-04: улики verified теперь подписаны (EH-01) и fence движка закрывает дубли (FL-01), но верификаторы пост-состояния есть лишь для 4 семейств и нет единой точки finalize() — Execution Truth не может стать ATTESTED; Organization без HTTP-входа и планировщика шагов (ORG-01/02) остаётся библиотекой.
+- **Next highest-value fix:** TZ-01 §2.2–2.3: ActionReceipt + детерминированные верификаторы пост-состояния для terminal/files/apps/github, единый finalize() с grep-тестом; затем TZ-04 ORG-01/02 (точка входа Organization).
+- **Last evidence SHA:** `000f331276b921e37e9e70690278d327c0038f90` · **Current HEAD SHA:** `000f331276b9` · **Evidence freshness:** FRESH
 - **Last scorecard update:** 2026-09-05
 - **Benchmark hard failures:** none observed
 - **Live hardware attestation:** PENDING
 - **Exact-SHA CI:** NOT_RUN
 
-_Среднее (вторично, не авторитетно): 6.6/10. 10.0 = ATTESTED; ни одна ось не ATTESTED без живой аттестации железа._
+_Среднее (вторично, не авторитетно): 6.7/10. 10.0 = ATTESTED; ни одна ось не ATTESTED без живой аттестации железа._
 <!-- BOSSMAN_LIVE_SCORECARD_END -->
 
 ### Текущее узкое место
@@ -302,6 +302,17 @@ adapter-only). LIVE-бенчмарк дополнительно требует `
 Дополнительно: секреты только по ссылке/маске (Vault с шифрованием at-rest),
 маскирование секретов в записях и логах, deny-by-default в разрешениях,
 одноразовые nonce-подтверждения, hash-привязка приёмочных тестов.
+
+### Провайдеры через окружение (без ключей в репозитории)
+
+- `BOSSMAN_OPENROUTER_API_KEY` — при старте Command Center один раз создаёт провайдера
+  OpenRouter (`https://openrouter.ai/api/v1`) с ключом, зашифрованным в vault; в коде,
+  логах и ответах API ключа нет. Без переменной ничего не создаётся.
+- `BOSSMAN_EVIDENCE_KEY_FILE` — файл ключа подписи улик (по умолчанию
+  `~/.bossman/keys/evidence.key`, 0600, создаётся сам). Улика `verified=True` без валидной
+  подписи не принимается.
+- Organization Layer как продукт: `BOSSMAN_V3_ENABLED=1` + `BOSSMAN_V3_ORGANIZATION=1` →
+  `/api/org/*`; снимок владельца — `GET /api/control-plane`.
 
 ## Внутренний бенчмарк
 
