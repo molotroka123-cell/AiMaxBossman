@@ -29,7 +29,7 @@ def test_encryption_roundtrip(temp_vault_file):
     5. Verify wrong password raises PermissionError.
     """
     vault = SecurityKeyVault(storage_path=temp_vault_file)
-    password = "MasterSuperSecretPassphrase123!"
+    password = "MasterSuperSecretPassphrase123!"  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
     count = 20
 
     pubkeys = vault.create_and_store_pool(count=count, password=password, mode="random")
@@ -75,7 +75,7 @@ def test_zero_knowledge_isolation(temp_vault_file):
     3. Verify SecurityLeakException is raised if any secret/seed keyword enters AI context.
     """
     vault = SecurityKeyVault(storage_path=temp_vault_file)
-    password = "ZeroKnowledgePassword456!"
+    password = "ZeroKnowledgePassword456!"  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
     vault.create_and_store_pool(count=10, password=password)
 
     audit_logger = VaultAuditLogger()
@@ -188,7 +188,7 @@ def test_poisson_distribution():
 def test_hd_creation_remains_disabled_pending_validated_bip39(temp_vault_file):
     vault = SecurityKeyVault(storage_path=temp_vault_file)
     with pytest.raises(ValueError, match="HD creation disabled"):
-        vault.create_and_store_pool(count=5, password="HDVaultPassword123!", mode="hd_bip44")
+        vault.create_and_store_pool(count=5, password="HDVaultPassword123!", mode="hd_bip44")  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
     assert not os.path.exists(temp_vault_file)
 
 
@@ -197,7 +197,7 @@ def test_hd_bip44_deterministic():
     Verifies BIP-44 deterministic derivation:
     Same mnemonic derives identical Solana keypairs at same index.
     """
-    mnemonic = SolanaHDWallet.generate_mnemonic(12)
+    mnemonic = SolanaHDWallet.generate_mnemonic(12)  # ci-secret-scan: allow -- synthetic local test fixture; no deployed credentials
     kp_0_a = SolanaHDWallet.derive_solana_keypair(mnemonic, 0)
     kp_0_b = SolanaHDWallet.derive_solana_keypair(mnemonic, 0)
     kp_1 = SolanaHDWallet.derive_solana_keypair(mnemonic, 1)

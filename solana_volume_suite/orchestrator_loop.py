@@ -32,7 +32,7 @@ class VolumeOrchestratorLoop:
         self,
         vault_path: Optional[str] = None,
         master_password: str = "SuperSecretMasterPass123!",
-        target_token_mint: str = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        target_token_mint: str = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",  # ci-secret-scan: allow -- public SPL token mint address (identifier, not a key)
         max_allowed_loss_usd: float = 40.0,
         test_mode: bool = False
     ):
