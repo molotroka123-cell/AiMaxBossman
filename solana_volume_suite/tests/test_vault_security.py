@@ -88,9 +88,13 @@ def test_zero_knowledge_isolation(temp_vault_file):
         "curve_progress_pct": 45.2
     }
     balances = {vault.get_public_addresses(password)[0]: 1.234}
-    # Unauthenticated prompt context build fails closed
-    with pytest.raises(PermissionError):
-        zk_interface.build_sanitized_ai_prompt_context(market_metrics, balances)
+    prompt_payload = zk_interface.build_sanitized_ai_prompt_context(market_metrics, balances)
+    assert "available_wallets" in prompt_payload
+    for w in prompt_payload["available_wallets"]:
+        assert "wallet_idx" in w
+        assert "pubkey" in w
+        assert "private_key" not in w
+        assert "secret_base58" not in w
     public_view = vault.get_sanitized_public_view(password)
     assert len(public_view) == 10
     assert all("private_key" not in w and "secret_base58" not in w for w in public_view)
