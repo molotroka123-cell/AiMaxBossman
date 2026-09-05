@@ -103,8 +103,9 @@ class FableDirectClient:
             raise FallbackRefused("direct Anthropic API key is not configured in the process environment")
         # Резерв под ХУДШИЙ случай до сети, всегда: сначала на общем потолке
         # (его не поднять ничем), потом — на бюджете миссии, если он задан.
+        bundle_text = json.dumps(bundle, sort_keys=True, ensure_ascii=False)
         worst = estimate_worst_case_usd(
-            self.model, len(json.dumps(bundle, sort_keys=True)), self.max_output_tokens)
+            self.model, len(bundle_text), self.max_output_tokens, prompt_text=bundle_text)
         self.cap = canonical_budget()
         self.cap_reservation_id = self.cap.reserve(worst, purpose="fable-direct-call")
         if self.budget is not None:

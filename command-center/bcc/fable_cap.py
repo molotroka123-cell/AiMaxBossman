@@ -85,6 +85,13 @@ def paid_fable_boundary(provider: dict) -> bool:
     return not is_local_url(base)
 
 
+def _prompt_payload(messages: list[dict], tools: Any = None) -> str:
+    payload: list[Any] = [messages]
+    if tools:
+        payload.append(tools)
+    return json.dumps(payload, ensure_ascii=False, default=str)
+
+
 def prompt_chars(messages: list[dict], tools: Any = None) -> int:
     """Размер запроса в знаках — то, что уйдёт в сеть, а не только текст.
 
@@ -117,8 +124,9 @@ class CappedAdapter:
                 + LEDGER_PROBLEM)
         max_out = int(kw.get("max_tokens") or DEFAULT_MAX_OUTPUT_TOKENS)
         try:
+            payload = _prompt_payload(messages, kw.get("tools"))
             worst = estimate_worst_case_usd(
-                model, prompt_chars(messages, kw.get("tools")), max_out)
+                model, len(payload), max_out, prompt_text=payload, messages=max(1, len(messages)))
         except BudgetExhausted as exc:
             # цена неизвестна — отказ ДО того, как адаптер был вызван
             raise BudgetRefused(str(exc)) from exc

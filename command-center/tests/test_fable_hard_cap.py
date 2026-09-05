@@ -206,8 +206,11 @@ async def test_two_workers_cannot_reserve_more_than_the_cap_together(env):
     gate = asyncio.Event()
     inner.hold = gate
 
-    # каждый вызов резервирует ~1.37 USD худшего случая: под потолок влезают два
-    big = [{"role": "user", "content": "я" * 250_000}]
+    # каждый вызов резервирует ~1.37 USD худшего случая: под потолок влезают два.
+    # TR-02/TR-03: кириллица оценивается 1.8 симв/токен, вход — по max(p_in, p_cache_write),
+    # поэтому размер промпта подобран под ту же цифру: 600k «я» → ≈333k токенов × 3.75 $/M
+    # + 8192 × 15 $/M ≈ 1.37 USD.
+    big = [{"role": "user", "content": "я" * 600_000}]
     calls = [asyncio.create_task(adapter.chat(model["name"], big, max_tokens=8192))
              for _ in range(4)]
     for _ in range(200):                       # даём всем дойти до резерва

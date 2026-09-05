@@ -47,13 +47,52 @@ from pathlib import Path
 from typing import Any, Iterator
 
 # USD per 1M tokens: (input, output, cache_read, cache_write). Unknown model => refuse.
+# TR-01: the table must contain every model the product can actually route to;
+# `test_price_table_covers_configured_models` turns a stale table into a red CI
+# instead of a silent product refusal. Values for the 5-family are PROVISIONAL
+# (taken as the same tier as the 4.x family they replace) and must be reconciled
+# with the official price list on the PRICE_TABLE_AS_OF date.
+PRICE_TABLE_AS_OF = "2026-09-05"
 PRICE_TABLE: dict[str, tuple[float, float, float, float]] = {
     "claude-sonnet-4-5": (3.0, 15.0, 0.30, 3.75),
     "claude-haiku-4-5": (1.0, 5.0, 0.10, 1.25),
+    "claude-haiku-4-5-20251001": (1.0, 5.0, 0.10, 1.25),
     "claude-opus-4-1": (15.0, 75.0, 1.50, 18.75),
+    "claude-opus-5": (15.0, 75.0, 1.50, 18.75),
+    "claude-sonnet-5": (3.0, 15.0, 0.30, 3.75),
+    "claude-fable-5-1": (15.0, 75.0, 1.50, 18.75),
 }
-# Conservative tokenizer upper bound: Anthropic text is ~3.5-4 chars/token; use 3.0.
+# Legacy single-ratio bound, kept ONLY for the tightness test (TR-03). It is NOT an
+# upper bound for Cyrillic/CJK — see estimate_tokens_upper (TR-02).
 _CHARS_PER_TOKEN_UPPER_BOUND = 3.0
+
+# TR-02: LOWER bounds of chars/token per script ⇒ UPPER bound of tokens. Observed
+# averages: latin ≈ 3.5–4.0, cyrillic ≈ 2.0–2.6, CJK ≈ 0.8–1.2 chars/token.
+_CHARS_PER_TOKEN_LOWER_BOUND = {"latin": 3.0, "cyrillic": 1.8, "cjk": 0.7, "other": 1.0}
+_PER_MESSAGE_OVERHEAD_TOKENS = 8
+
+
+def _script(ch: str) -> str:
+    o = ord(ch)
+    if o < 0x0250:                                   # ASCII + Latin-1 + Latin Extended-A/B
+        return "latin"
+    if 0x0400 <= o <= 0x052F:                        # Cyrillic + Supplement + Extended-B
+        return "cyrillic"
+    if (0x3040 <= o <= 0x30FF or 0x3400 <= o <= 0x4DBF or 0x4E00 <= o <= 0x9FFF
+            or 0xAC00 <= o <= 0xD7AF or 0xF900 <= o <= 0xFAFF or 0x20000 <= o <= 0x2FA1F):
+        return "cjk"                                 # Kana, CJK Unified (+ext A/B), Hangul
+    return "other"
+
+
+def estimate_tokens_upper(text: str, *, messages: int = 1) -> int:
+    """Upper bound of tokens for `text`: Σ_script chars/r_script + per-message
+    overhead. Never lower than the legacy latin-only estimate."""
+    counts: dict[str, int] = {}
+    for ch in text:
+        k = _script(ch)
+        counts[k] = counts.get(k, 0) + 1
+    total = sum(n / _CHARS_PER_TOKEN_LOWER_BOUND[k] for k, n in counts.items())
+    return int(total + 0.999999) + _PER_MESSAGE_OVERHEAD_TOKENS * max(1, messages)
 
 # The whole budget for paid Fable work, for this machine, for good.
 FABLE_HARD_CAP_USD = 3.00
@@ -71,14 +110,35 @@ class BudgetExhausted(RuntimeError):
     code = "budget_exhausted"
 
 
-def estimate_worst_case_usd(model: str, prompt_chars: int, max_output_tokens: int) -> float:
-    """Safe upper bound: charge the most expensive bucket for every token."""
+def _legacy_worst_case_usd(model: str, prompt_chars: int, max_output_tokens: int) -> float:
+    """Pre-TR-03 formula (most expensive bucket for every token). Test reference only."""
+    rates = PRICE_TABLE[model]
+    tokens = prompt_chars / _CHARS_PER_TOKEN_UPPER_BOUND + max_output_tokens
+    return round(tokens / 1_000_000 * max(rates), 6)
+
+
+def estimate_worst_case_usd(model: str, prompt_chars: int, max_output_tokens: int, *,
+                            prompt_text: str | None = None, messages: int = 1) -> float:
+    """Safe upper bound of the cost of one request.
+
+    TR-03: worst = tokens_in · max(p_in, p_cache_write) + max_output · p_out. Still an
+    upper bound (cache reads are cheaper than input; cache write is the most expensive
+    way an input token can be billed), and 3–5× tighter than charging the output
+    price for input tokens.
+    TR-02: when `prompt_text` is given, input tokens are bounded per script
+    (Cyrillic/CJK need more tokens per char than Latin); `prompt_chars` alone is
+    treated as Latin (legacy callers) — pass the text to be safe for non-Latin prompts.
+    """
     rates = PRICE_TABLE.get(model)
     if rates is None:
         raise BudgetExhausted(f"unknown model {model!r}: price required before any spend")
-    worst = max(rates)
-    tokens = prompt_chars / _CHARS_PER_TOKEN_UPPER_BOUND + max_output_tokens
-    return round(tokens / 1_000_000 * worst, 6)
+    p_in, p_out, _p_cache_read, p_cache_write = rates
+    if prompt_text is not None:
+        tokens_in = estimate_tokens_upper(prompt_text, messages=messages)
+    else:
+        tokens_in = prompt_chars / _CHARS_PER_TOKEN_UPPER_BOUND + _PER_MESSAGE_OVERHEAD_TOKENS * max(1, messages)
+    worst = tokens_in / 1_000_000 * max(p_in, p_cache_write) + max(0, max_output_tokens) / 1_000_000 * p_out
+    return round(worst, 6)
 
 
 def actual_usd(model: str, *, input_tokens: int, output_tokens: int,
@@ -217,6 +277,7 @@ class DirectApiBudget:
             rid = f"rsv-{uuid.uuid4().hex[:12]}"
             self._records.append({"reservation_id": rid, "mission_id": self.mission_id, "owner_id": self.owner_id,
                                   "purpose": purpose[:120], "worst_case_usd": amount, "created_at": time.time(),
+                                  "price_version": PRICE_TABLE_AS_OF,
                                   "status": "RESERVED", "actual_usd": None, "request_id": ""})
             return rid
 
