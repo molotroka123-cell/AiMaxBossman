@@ -133,7 +133,7 @@ OWNER_ROWS_LIMIT = 50
 # Состояние действия — по УЛИКАМ, а не по намерению. COMPLETE выдаётся только
 # когда сработал канонический finalizer (событие task.finalized), даже если в
 # таблице уже стоит completed: «зелёная галочка» не опережает доказательство.
-ACTION_STATES = ("PLACED", "DISPATCHED", "EXECUTED", "OBSERVED", "VERIFIED", "COMPLETE",
+ACTION_STATES = ("PLACED", "DISPATCHED", "EXECUTED", "OBSERVED", "VERIFIED", "UNVERIFIED", "COMPLETE",
                  "BLOCKED", "FAILED", "STOPPED")
 
 
@@ -141,9 +141,13 @@ def _action_state(task: dict, run: dict | None, calls: dict, finalized: bool) ->
     """(состояние, почему). Возвращает состояние из ACTION_STATES и причину для владельца."""
     status = str(task.get("status") or "")
     if status == "completed":
-        # Единственный путь к COMPLETE — канонический finalize_task. Нет его следа —
-        # владелец видит VERIFIED и предупреждение, а не зелёный «готово».
-        return ("COMPLETE", "") if finalized else ("VERIFIED", "нет следа финализатора: task.finalized не найдено")
+        if finalized:
+            return "COMPLETE", ""
+        return ("VERIFIED" if calls.get("verified") else "UNVERIFIED",
+                "нет следа финализатора текущего запуска: task.finalized не найдено")
+    if status == "blocked":
+        return "BLOCKED", str((task.get("meta") or {}).get("blocked_reason")
+                              or (run or {}).get("error") or "исполнитель недоступен")[:200]
     if status == "failed":
         return "FAILED", str((run or {}).get("error") or "")[:200]
     if status == "stopped":
@@ -174,14 +178,14 @@ async def owner_rows(svc, limit: int = OWNER_ROWS_LIMIT) -> list[dict[str, Any]]
     async with svc.db.session() as s:
         trows = (await s.execute(
             sa.select(tasks_t.c.id, tasks_t.c.title, tasks_t.c.status, tasks_t.c.agent_id,
-                      tasks_t.c.updated_at, agents_t.c.name.label("agent_name"),
+                      tasks_t.c.updated_at, tasks_t.c.meta, agents_t.c.name.label("agent_name"),
                       agents_t.c.model_id)
             .select_from(tasks_t.outerjoin(agents_t, agents_t.c.id == tasks_t.c.agent_id))
             .order_by(tasks_t.c.updated_at.desc()).limit(limit))).fetchall()
         tasks = [dict(r._mapping) for r in trows]
         ids = [t["id"] for t in tasks]
         runs: dict[int, dict] = {}
-        cost: dict[int, float] = {}
+        cost: dict[int, float | None] = {}
         calls: dict[int, dict[str, int]] = {}
         approvals: dict[int, str] = {}
         finalized: set[int] = set()
@@ -190,11 +194,16 @@ async def owner_rows(svc, limit: int = OWNER_ROWS_LIMIT) -> list[dict[str, Any]]
                                       .order_by(runs_t.c.id.asc()))).fetchall():
                 m = dict(r._mapping)
                 runs[m["task_id"]] = m                       # последний прогон задачи
-                cost[m["task_id"]] = cost.get(m["task_id"], 0.0) + float(m.get("cost_usd") or 0.0)
+                previous = cost.get(m["task_id"], 0.0)
+                measured = m.get("cost_usd")
+                cost[m["task_id"]] = (None if previous is None or measured is None
+                                      else previous + float(measured))
             for r in (await s.execute(
-                    sa.select(tool_calls_t.c.task_id, tool_calls_t.c.status, tool_calls_t.c.verified,
+                    sa.select(tool_calls_t.c.task_id, tool_calls_t.c.run_id, tool_calls_t.c.status, tool_calls_t.c.verified,
                               tool_calls_t.c.observed_at).where(tool_calls_t.c.task_id.in_(ids)))).fetchall():
                 m = r._mapping
+                if m["run_id"] != (runs.get(m["task_id"]) or {}).get("id"):
+                    continue
                 c = calls.setdefault(int(m["task_id"]), {"executed": 0, "observed": 0, "verified": 0})
                 if str(m["status"]) == "executed":
                     c["executed"] += 1
@@ -211,7 +220,7 @@ async def owner_rows(svc, limit: int = OWNER_ROWS_LIMIT) -> list[dict[str, Any]]
                                       .where(events_t.c.kind == "task.finalized"))).fetchall():
                 data = r._mapping["data"] or {}
                 tid = data.get("task_id") if isinstance(data, dict) else None
-                if tid is not None:
+                if (tid in runs and data.get("run_id") == runs[tid]["id"]):
                     finalized.add(int(tid))
     out: list[dict[str, Any]] = []
     for t in tasks:
@@ -229,8 +238,8 @@ async def owner_rows(svc, limit: int = OWNER_ROWS_LIMIT) -> list[dict[str, Any]]
             "what": str(t.get("title") or "")[:200] or f"задача #{t['id']}",
             "action_state": state,                                    # СОСТОЯНИЕ ДЕЙСТВИЯ
             "why_blocked": why,                                       # ПОЧЕМУ ЗАБЛОКИРОВАНО
-            "cost_usd": round(cost.get(t["id"], 0.0), 6),             # ЦЕНА
-            "attention": bool(t["id"] in approvals or state in ("BLOCKED", "FAILED")),
+            "cost_usd": round(cost[t["id"]], 6) if cost.get(t["id"]) is not None else None,
+            "attention": bool(t["id"] in approvals or state in ("BLOCKED", "FAILED", "UNVERIFIED")),
             "effects": c,
             "finalized": t["id"] in finalized,
             "updated_at": t["updated_at"].isoformat() if t.get("updated_at") else "",

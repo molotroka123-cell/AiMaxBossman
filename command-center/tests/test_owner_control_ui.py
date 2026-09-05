@@ -27,11 +27,11 @@ def _seed(srv, *, status, finalized=False):
             tid = int((await s.execute(sa.insert(tasks_t).values(
                 title="починить отчёт", prompt="секретный промпт владельца", agent_id=aid,
                 status=status, created_at=utcnow(), updated_at=utcnow()))).inserted_primary_key[0])
-            await s.execute(sa.insert(runs_t).values(task_id=tid, status="completed",
-                                                     model_alias="glm-local", cost_usd=0.5))
+            rid = int((await s.execute(sa.insert(runs_t).values(task_id=tid, status="completed",
+                                                     model_alias="glm-local", cost_usd=0.5))).inserted_primary_key[0])
             if finalized:
                 await s.execute(sa.insert(events_t).values(kind="task.finalized", ts=utcnow(),
-                                                           data={"task_id": tid}))
+                                                           data={"task_id": tid, "run_id": rid}))
             await s.commit()
         return tid
     return asyncio.run_coroutine_threadsafe(go(), srv.loop).result(10)
@@ -107,7 +107,7 @@ def test_action_button_announces_busy_and_restores_after_failure(live):
 
 def test_green_complete_only_after_the_finalizer(live):
     """Задача уже `completed` в таблице, но следа финализатора нет: экран обязан
-    показать VERIFIED с причиной, а не зелёное «готово»."""
+    показать UNVERIFIED с причиной, а не зелёное «готово»."""
     from playwright.sync_api import sync_playwright
 
     _seed(live, status="completed", finalized=False)
@@ -116,7 +116,7 @@ def test_green_complete_only_after_the_finalizer(live):
         try:
             page = browser.new_page()
             text = _open(page, live)
-            assert "VERIFIED" in text and "финализатора" in text
+            assert "UNVERIFIED" in text and "финализатора" in text
             # зелёной плашки COMPLETE на экране нет (упоминание правила внизу — не плашка)
             assert page.locator("td .badge-ok").count() == 0
             assert page.locator("td .badge", has_text="COMPLETE").count() == 0

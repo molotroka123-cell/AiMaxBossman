@@ -12,6 +12,36 @@ from bcc.db import agents as agents_t, approvals as approvals_t, events as event
 from bcc.features.control_plane import ACTION_STATES, _action_state, owner_rows
 
 
+async def test_old_run_evidence_and_finalizer_cannot_verify_new_run(env):
+    tid, old = await _task(env.svc, title="повтор", status="completed")
+    await _call(env.svc, tid, old, verified=True, observed=True)
+    async with env.svc.db.session() as s:
+        await s.execute(sa.insert(events_t).values(kind="task.finalized", ts=utcnow(),
+                                                   data={"task_id": tid, "run_id": old}))
+        await s.execute(sa.insert(runs_t).values(task_id=tid, status="completed"))
+        await s.commit()
+    row = next(r for r in await owner_rows(env.svc) if r["task_id"] == tid)
+    assert row["action_state"] == "UNVERIFIED"
+    assert not row["finalized"] and row["attention"]
+    assert row["effects"]["verified"] == 0
+
+
+async def test_blocked_without_run_shows_executor_reason(env):
+    async with env.svc.db.session() as s:
+        tid = int((await s.execute(sa.insert(tasks_t).values(title="нет агента", prompt="p",
+            status="blocked", meta={"blocked_reason": "Выберите исполнителя"}))).inserted_primary_key[0])
+        await s.commit()
+    row = next(r for r in await owner_rows(env.svc) if r["task_id"] == tid)
+    assert row["action_state"] == "BLOCKED" and row["attention"]
+    assert row["why_blocked"] == "Выберите исполнителя"
+    assert row["cost_usd"] is None
+
+
+def test_completed_without_any_observation_is_unverified():
+    state, reason = _action_state({"status": "completed"}, {"status": "completed"}, {}, False)
+    assert state == "UNVERIFIED" and reason
+
+
 async def _task(svc, *, title, status, agent="кодер", model="glm-local", cost=0.0):
     async with svc.db.session() as s:
         aid = int((await s.execute(sa.insert(agents_t).values(name=agent))).inserted_primary_key[0])
@@ -67,7 +97,7 @@ async def test_completed_without_finalizer_is_not_shown_as_complete(env):
     # тот же ряд после следа канонического финализатора
     async with env.svc.db.session() as s:
         await s.execute(sa.insert(events_t).values(kind="task.finalized", ts=utcnow(),
-                                                   data={"task_id": tid}))
+                                                   data={"task_id": tid, "run_id": rid}))
         await s.commit()
     row = next(r for r in await owner_rows(env.svc) if r["task_id"] == tid)
     assert row["action_state"] == "COMPLETE" and row["finalized"] and row["why_blocked"] == ""
