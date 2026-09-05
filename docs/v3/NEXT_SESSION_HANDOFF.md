@@ -84,3 +84,14 @@
 - Как гонять: Core — `cd bossman-core && pytest tests` (медленные benchmark-gate тесты, ~5 мин);
   CC — `cd command-center && pytest tests` (~8 мин, Chromium нужен, иначе skip ≠ pass);
   root — `pytest tests`; пакетная проверка — `VERIFY.py --repo .` из распакованного архива.
+
+### Закрытие сессии (продолжение §7)
+
+Дополнительно закрыто: CapabilitySpec и манифест `/api/capabilities` (§17),
+пульт владельца `/api/control-plane → owner_view` + `ui/pages/control.js` (§20,
+зелёный COMPLETE только после `task.finalized`), измеренный порог покрытия
+(§16, `docs/testing/COVERAGE_BASELINE.md`).
+
+Что осталось и почему — `docs/v3/OPEN_WORK_AUDIT.md`. Первое, что делать
+дальше: дождаться шести зелёных workflow по одному SHA (мешают параллельные
+пуши в ветку), затем branch protection владельцем.

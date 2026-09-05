@@ -86,7 +86,13 @@ jobs:
         # весь бюджет job'а. signal-метод (SIGALRM) прерывает даже зависший в
         # блокирующем syscall main-thread и НАЗЫВАЕТ тест — в отличие от thread,
         # который такой висяк прервать не может и убивает весь job безымянно.
-        run: python -m pytest -q --durations=15 --timeout=180 --timeout-method=signal
+        # TRUTH-003 §16: порог — не «красивое число», а измеренный базовый уровень
+        # минус допуск на дрожание среды (docs/testing/COVERAGE_BASELINE.md).
+        # Он ловит удаление тестов и большие куски кода без них; качество проверок
+        # держат адресные тесты инвариантов, а не процент.
+        run: >-
+          python -m pytest -q --durations=15 --timeout=180 --timeout-method=signal
+          --cov=bcc --cov-report=term:skip-covered --cov-fail-under=72
 
   checks:
     name: секреты, JS, запрещённые файлы

@@ -71,7 +71,7 @@ def run_setup_wizard(
     rpc_ok = test_rpc_connection(selected_rpc)
 
     # 2. Target Token Mint
-    target_mint = mint or "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
+    target_mint = mint or "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"  # ci-secret-scan: allow -- public SPL token mint address (identifier, not a key)
     if not non_interactive and not mint:
         user_mint = input(f"Enter Target Token Mint Address (press Enter for sample Bonk): ").strip()
         if user_mint:
@@ -82,7 +82,7 @@ def run_setup_wizard(
         print(f"  [+] Target Token Mint validated: {target_mint}")
     except Exception:
         print(f"  [!] Invalid Mint address, using standard sample.")
-        target_mint = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
+        target_mint = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"  # ci-secret-scan: allow -- public SPL token mint address (identifier, not a key)
 
     # 3. Vault Password
     master_pass = password or "SuperSecretMasterPass123!"

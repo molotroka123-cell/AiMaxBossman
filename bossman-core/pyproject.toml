@@ -17,7 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 # jsonschema: только для тестов (валидация схем apprentice-записей против
 # schemas/*.schema.json); runtime-код сознательно не тянет валидатор схем.
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-timeout>=2.2", "jsonschema>=4.20"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-timeout>=2.2", "jsonschema>=4.20", "pytest-cov>=5.0"]
 # ЭТАП 3: psutil опционален — без него Gateway работает, но отдаёт меньше
 # метрик процесса/системной памяти в /metrics.
 resource = ["psutil>=5.9"]
