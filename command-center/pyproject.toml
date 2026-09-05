@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "greenlet>=3.0", "pytest-timeout>=2.2"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "greenlet>=3.0", "pytest-timeout>=2.2", "pytest-cov>=5.0"]
 # Браузерные тесты. Отдельной группой, а не в dev: Playwright тянет за собой
 # браузер, и требовать его от всех, кто просто хочет прогнать юнит-тесты,
 # незачем. Без этой группы браузерные тесты честно SKIP'аются, а не падают.

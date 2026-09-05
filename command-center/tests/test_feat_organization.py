@@ -96,9 +96,17 @@ async def test_fleet_appears_in_control_plane_when_enabled(fleet_env):
     assert [n["node_id"] for n in fleet["nodes"]] == [org.node_id] and fleet["health"]["online"] == [org.node_id]
     assert fleet["nodes"][0]["capabilities"] > 0 and fleet["queue_depth"] == 0 and fleet["active_leases"] == []
     assert "secret" not in str(fleet).lower() and "api_key" not in str(fleet)
-    def _stable(f):   # heartbeat/registered timestamps двигаются между двумя запросами
-        return {k: ([{kk: vv for kk, vv in n.items() if not kk.endswith("_ts")} for n in v] if k == "nodes" else v)
-                for k, v in f.items()}
+    def _stable(v):
+        """Сводка одна и та же в обеих ручках — с точностью до величин, которые
+        по построению текут между двумя запросами (метки времени, возраст, доли
+        секунды до истечения аренды). Сравнивать их значило бы проверять часы."""
+        drop = ("_ts", "_at", "_s", "_ms", "_seconds")
+        if isinstance(v, dict):
+            return {k: _stable(x) for k, x in v.items()
+                    if not (k.endswith(drop) or k in ("now", "since", "uptime", "age"))}
+        if isinstance(v, list):
+            return [_stable(x) for x in v]
+        return v
     assert _stable((await client.get("/api/org/fleet")).json()) == _stable(fleet)
     # без флота — честно выключено
     assert body["organization"]["enabled"] is True

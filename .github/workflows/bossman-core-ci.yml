@@ -131,6 +131,26 @@ jobs:
           python -m pytest -q --durations=10 --timeout=120 --timeout-method=signal
           ${{ matrix.group.paths }} ${{ matrix.group.ignore }}
 
+  coverage:
+    name: покрытие (неснижаемый порог)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -e . -e ./bossman-core[dev]
+      # Группы выше делят набор между job'ами, поэтому порог по группе был бы
+      # неправдой: он считается по ПОЛНОМУ прогону. Базовый уровень и правила
+      # изменения порога — docs/testing/COVERAGE_BASELINE.md.
+      - name: Full core suite with coverage
+        working-directory: bossman-core
+        run: >-
+          python -m pytest tests -q --timeout=300 --timeout-method=signal
+          --cov=bossman_v3 --cov-report=term:skip-covered --cov-fail-under=85
+
   compile:
     name: compile + секреты
     runs-on: ubuntu-latest
