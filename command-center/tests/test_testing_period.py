@@ -403,6 +403,42 @@ def test_a_click_that_works_is_not_called_dead(live):  # noqa: F811
 
 # ------------------------------------- исход запуска доходит до журнала
 
+
+@needs_browser
+@pytest.mark.parametrize("feedback", ["text", "busy", "ancestor", "focus"])
+def test_visible_feedback_outside_view_is_not_dead(live, feedback):
+    """Observe text/busy/hidden/autofill feedback; never record field contents."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        _login(page, live)
+        page.wait_for_selector(".bcc-testing-bar")
+        page.wait_for_timeout(1500)
+        page.evaluate("""mode => {
+          const box = document.createElement('section');
+          box.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:9999';
+          const button = document.createElement('button');
+          button.id = 'feedback-probe'; button.textContent = 'Run';
+          const input = document.createElement('input');
+          box.append(button, input); document.body.append(box);
+          button.onclick = () => {
+            if (mode === 'text') button.textContent = 'Done';
+            if (mode === 'busy') { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
+            if (mode === 'ancestor') box.hidden = true;
+            if (mode === 'focus') { input.value = 'private-input-never-export'; input.focus(); }
+          };
+        }""", feedback)
+        page.click("#feedback-probe")
+        page.wait_for_timeout(1200)
+        page.evaluate("async () => (await import('/testing.js'))._internal.flush()")
+        events = page.evaluate("async () => (await (await fetch('/api/testing/events?limit=1000')).json()).events")
+        assert any(e["kind"] == "ui.click" and "feedback-probe" in e["data"].get("element", "") for e in events)
+        assert not any(e["kind"] == "ui.dead_click" and "feedback-probe" in e["data"].get("element", "") for e in events)
+        assert "private-input-never-export" not in json.dumps(events)
+        browser.close()
+
 def _launch_records(settings) -> list[dict]:
     path = tp._log_path_for(settings.data_dir)
     if not path.exists():

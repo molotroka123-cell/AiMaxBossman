@@ -256,6 +256,7 @@ const STATUS_TONE = {
   queued: 'warn', pending: 'warn', paused: 'warn', waiting_approval: 'warn', warning: 'warn', degraded: 'warn', warn: 'warn',
   offline: 'err', error: 'err', failed: 'err', rejected: 'err', down: 'err', critical: 'err',
   unknown: 'idle', draft: 'idle', stopped: 'idle', disabled: 'idle', idle: 'idle',
+  blocked: 'warn', capability_unavailable: 'err',
   // V2: миссии/терминал/ресурсы/governor/healing/openrouter — общий словарь тонов
   planning: 'info', cancelled: 'idle', created: 'idle',
   auto: 'ok', ask: 'warn', deny: 'err',
@@ -269,6 +270,7 @@ export const STATUS_LABEL = {
   draft: 'черновик', queued: 'в очереди', running: 'выполняется', paused: 'на паузе',
   waiting_approval: 'ждёт подтверждения', completed: 'завершена', failed: 'ошибка', stopped: 'остановлена',
   leased: 'взята воркером',
+  blocked: 'заблокировано', capability_unavailable: 'нет исполнителя',
   online: 'online', offline: 'offline', error: 'ошибка', unknown: 'неизвестно',
   pending: 'ожидает', approved: 'подтверждено', rejected: 'отклонено',
   ok: 'в норме', healthy: 'в норме', degraded: 'предупреждение', down: 'недоступен',

@@ -190,11 +190,28 @@ function viewFingerprint() {
   return `${view.childElementCount}|${view.querySelectorAll('*').length}`;
 }
 
-function watchDeadClick(element) {
+function watchDeadClick(element, target) {
   const before = { req: requests, hash: location.hash, view: viewFingerprint(),
+                   focus: document.activeElement,
                    modal: document.querySelectorAll('dialog,[role="dialog"],.bx-modal').length };
+  // Observe visible feedback without recording text or input values. The banner
+  // and thinking pane live outside #view; their busy/hidden changes count too.
+  let mutated = false;
+  const observer = new MutationObserver(() => { mutated = true; });
+  const view = document.getElementById('view');
+  if (view) observer.observe(view, { subtree: true, childList: true, characterData: true, attributes: true });
+  const control = target?.closest?.('button, a, [role="button"], input[type="submit"], .btn, .nav-item, [data-page]');
+  if (control) {
+    observer.observe(control, { subtree: true, childList: true, characterData: true, attributes: true });
+    for (let parent = control.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+      observer.observe(parent, { attributes: true });
+    }
+  }
   setTimeout(() => {
-    const changed = requests !== before.req
+    mutated ||= observer.takeRecords().length > 0;
+    observer.disconnect();
+    const changed = mutated || document.activeElement !== before.focus
+      || requests !== before.req
       || location.hash !== before.hash
       || viewFingerprint() !== before.view
       || document.querySelectorAll('dialog,[role="dialog"],.bx-modal').length !== before.modal;
@@ -202,7 +219,7 @@ function watchDeadClick(element) {
       // Не «наверное не сработало», а перечисление того, что проверяли.
       push('ui.dead_click', { element, page: location.hash || '#',
                               waited_ms: DEAD_MS,
-                              checked: 'запрос, адрес, содержимое экрана, модальное окно' });
+                              checked: 'запрос, адрес, изменения экрана и элемента, фокус, модальное окно' });
     }
   }, DEAD_MS);
 }
@@ -261,7 +278,7 @@ function listen() {
     if (!what) return;
     push('ui.click', { element: what, page: location.hash || '#' });
     noteRage(what);
-    watchDeadClick(what);
+    watchDeadClick(what, e.target);
   }, true);
 
   document.addEventListener('submit', (e) => {

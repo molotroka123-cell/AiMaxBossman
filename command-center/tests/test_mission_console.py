@@ -224,6 +224,34 @@ def _check_no_invented_numbers(audit: dict) -> list[str]:
 # --------------------------------------------------------------- пустой сервер
 
 
+def test_command_requires_explicit_executor_and_sends_selected_id(live):
+    """Real UI -> API -> durable task: an available agent is not a selection."""
+    from playwright.sync_api import sync_playwright
+
+    _seed(live)
+    with _client(live) as client:
+        agent_id = client.get('/api/agents').json()[0]['id']
+    with sync_playwright() as pw:
+        browser, page, errors, _ = _open(pw, live)
+        assert page.input_value('#mc-command-agent') == ''
+        page.fill('#mc-command-input', 'Без выбранного исполнителя')
+        with page.expect_response(lambda r: r.url.endswith('/api/tasks') and r.request.method == 'POST') as response:
+            page.locator('.mc-command button[type=submit]').click()
+        draft = response.value.json()['task']
+        assert draft['status'] == 'draft' and draft['agent_id'] is None
+        page.select_option('#mc-command-agent', str(agent_id))
+        page.fill('#mc-command-input', 'Доложи состояние миссии')
+        with page.expect_response(lambda r: r.url.endswith('/api/tasks') and r.request.method == 'POST') as response:
+            page.locator('.mc-command button[type=submit]').click()
+        task = response.value.json()['task']
+        assert task['agent_id'] == agent_id and task['status'] == 'queued'
+        with _client(live) as client:
+            saved = client.get(f"/api/tasks/{task['id']}").json()['task']
+        assert saved['agent_id'] == agent_id
+        assert not errors
+        browser.close()
+
+
 def test_empty_console_is_calm_and_shows_no_zeros(live):  # noqa: F811
     """Пустой сервер: страница рендерится, говорит человеческим текстом,
     а на месте неизвестных величин стоит «нет данных», а не нули."""

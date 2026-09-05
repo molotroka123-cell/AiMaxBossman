@@ -51,7 +51,7 @@ const SRC = {
 /* Состояние самого экрана (не данные): что оператор развернул руками.
    Живёт в модуле, потому что оболочка перерисовывает страницу целиком
    на каждом событии шины, и складывать это в DOM бессмысленно. */
-const ui = { verifyOpen: false, draft: '' };
+const ui = { verifyOpen: false, draft: '', executorId: '' };
 
 /* ============================================================ стили */
 
@@ -859,7 +859,15 @@ const QUICK = [
 ];
 
 function commandBlock({ agents, models }, ctx) {
-  const canRun = agents.some((a) => a.enabled !== false) && models.length > 0;
+  const eligible = agents.filter((a) => a.enabled !== false && a.enabled !== 0
+    && models.some((m) => String(m.id) === String(a.model_id) && m.enabled !== false && m.enabled !== 0));
+  // The owner chooses the executor explicitly; never silently select a cloud route.
+  if (!eligible.some((a) => String(a.id) === ui.executorId)) ui.executorId = '';
+  const executor = h('select.mc-input', { id: 'mc-command-agent', 'aria-label': 'Исполнитель команды', 'data-src': '/api/agents + /api/models',
+    onChange: (e) => { ui.executorId = e.target.value; } },
+    h('option', { value: '' }, 'Выберите исполнителя — иначе черновик'),
+    eligible.map((a) => h('option', { value: String(a.id), selected: String(a.id) === ui.executorId },
+      `${a.name || a.id} · ${models.find((m) => String(m.id) === String(a.model_id))?.alias || a.model_id}`)));
 
   const input = h('input.mc-input', {
     type: 'text',
@@ -875,26 +883,29 @@ function commandBlock({ agents, models }, ctx) {
 
   const send = h('button.mc-btn.is-primary', {
     type: 'submit',
-    title: canRun
-      ? 'Создать задачу из команды и поставить её в очередь'
-      : 'Задача будет создана черновиком: запускать её пока некому',
+    title: 'С выбранным исполнителем — в очередь; без исполнителя — в черновики',
   }, 'Отправить');
 
   const form = h('form.mc-command', {
     onSubmit: async (e) => {
       e.preventDefault();
       const text = String(input.value || '').trim();
+      const selected = eligible.find((a) => String(a.id) === executor.value);
+      const canRun = Boolean(selected);
       if (!text) { toastError(new Error('Команда пустая'), 'Введите команду'); return; }
       send.disabled = true;
       try {
         const res = await api.raw('/api/tasks', {
           method: 'POST',
-          body: { prompt: text, title: text.slice(0, 80), run_now: canRun },
+          body: { prompt: text, title: text.slice(0, 80), agent_id: selected?.id ?? null, run_now: canRun },
         });
         const id = pick(res && res.task ? res.task : res, ['id']);
         ui.draft = '';
         input.value = '';
-        toastOk(canRun ? 'Команда принята' : 'Команда сохранена черновиком',
+        const task = res?.task || res;
+        if (task?.status === 'blocked' || res?.ok === false) {
+          toastError(new Error(task?.meta?.blocked_reason || res?.reason || 'Нет доступного исполнителя'), 'Задача заблокирована');
+        } else toastOk(canRun ? 'Команда принята' : 'Команда сохранена черновиком',
           canRun
             ? `Задача ${id ?? ''} поставлена в очередь.`
             : 'Запускать нечем: нет включённого агента или модели.');
@@ -906,6 +917,7 @@ function commandBlock({ agents, models }, ctx) {
       }
     },
   },
+  executor,
   h('div.mc-command-line', input, send),
   h('div.mc-chips', { role: 'group', 'aria-label': 'Быстрые команды' },
     QUICK.map((text) => h('button.mc-chip', {
@@ -913,9 +925,7 @@ function commandBlock({ agents, models }, ctx) {
       title: 'Подставить в строку команды',
       onClick: () => { input.value = text; ui.draft = text; input.focus(); },
     }, text))),
-  h('p.mc-hint', canRun
-    ? 'Команда становится задачей: её видно в графе справа и в ленте канала.'
-    : 'Пока нет включённого агента и модели, команда сохранится черновиком и запущена не будет.'));
+  h('p.mc-hint', 'Выберите исполнителя для запуска. Без выбора команда сохранится черновиком.'));
 
   return form;
 }

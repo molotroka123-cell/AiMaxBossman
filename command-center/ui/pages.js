@@ -28,6 +28,7 @@ const TASK_STATUSES = [
   { id: 'queued', title: 'В очереди' },
   { id: 'waiting_approval', title: 'Ждут подтверждения' },
   { id: 'paused', title: 'На паузе' },
+  { id: 'blocked', title: 'Заблокированы' },
   { id: 'failed', title: 'Ошибки' },
   { id: 'completed', title: 'Завершены' },
   { id: 'stopped', title: 'Остановлены' },
@@ -1105,7 +1106,13 @@ async function loadTaskDetail(id, bodyEl, ctx) {
   /* кнопки по статусу */
   const actions = h('div.row.tight');
   const act = async (action, label) => {
-    try { await api.taskAction(pick(task, ['id']), action); toastOk(label); ctx.refresh(); }
+    try {
+      const result = await api.taskAction(pick(task, ['id']), action);
+      if (result?.ok === false || result?.status === 'blocked') {
+        toastError(new Error(result.reason || 'Нет доступного исполнителя'), 'Задача заблокирована');
+      } else { toastOk(label); }
+      ctx.refresh();
+    }
     catch (e) { toastError(e, `Не удалось выполнить «${label}»`); }
   };
   if (status === 'running') {
