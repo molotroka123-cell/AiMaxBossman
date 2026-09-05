@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 91. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 93. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -60,6 +60,8 @@
 | `bossman-core/tests/test_e2e_real_outreach.py:73` | skip | `—` | outreach live acceptance requires BOSSMAN_OUTREACH_LIVE=1 (owner-authorized) | Bossman Core | живой внешний сервис / owner-authorized live | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_e2e_real_outreach.py:97` | skip | `—` | BLOCKED_BY_ENVIRONMENT: public directory unreachable | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_e2e_real_outreach.py:114` | skip | `—` | BLOCKED_BY_ENVIRONMENT: no candidate with a verifiable public-site problem in this sweep | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_epoch4_golden_foundation.py:35` | importorskip | `—` | G01/G02 require the Command Center package | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_epoch4_verified_skills.py:22` | skipif | `os.name != "posix"` | bounded dirfd readback adapter is POSIX-only; Windows stays unavailable | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_pg_memory_gate.py:23` | skipif | `not DSN` | SKIP_HOST: no BOSSMAN_TEST_PG_DSN (real PostgreSQL) available | Bossman Core | реальный PostgreSQL | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_runner_memory_wiring.py:22` | skipif | `not DSN` | SKIP_HOST: no BOSSMAN_TEST_PG_DSN (real PostgreSQL) available | Bossman Core | реальный PostgreSQL | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_sandbox_egress.py:136` | skipif | `not safe_runtime_available()` | SAFE реальное исполнение недоступно в этом окружении (нет обхода родительских каталогов сброшенным uid) | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
