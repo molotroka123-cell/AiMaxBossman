@@ -38,15 +38,18 @@ export function clearToken() { clearCsrf(); }
 /* ---------------- Ошибки ---------------- */
 
 export class ApiError extends Error {
-  constructor(message, { status = 0, hint = '', actions = null, path = '' } = {}) {
+  constructor(message, { status = 0, hint = '', actions = null, path = '', code = '' } = {}) {
     super(message || 'Неизвестная ошибка');
     this.name = 'ApiError';
     this.status = status;
     this.hint = hint;
     this.actions = actions;
     this.path = path;
+    this.code = code;
   }
-  get isAuth() { return this.status === 401; }
+  /* 401 — сессии нет; 403 code=csrf — сессия есть, но CSRF-токен этой вкладки
+     потерян или от другого входа: без повторного входа ни один POST не пройдёт. */
+  get isAuth() { return this.status === 401 || (this.status === 403 && this.code === 'csrf'); }
   get isOffline() { return this.status === 0; }
 }
 
@@ -110,15 +113,17 @@ async function request(method, path, body, { signal } = {}) {
   }
 
   if (!res.ok) {
-    if (res.status === 401) notifyUnauthorized();
     const e = data && typeof data === 'object' ? (data.error || data.detail || null) : null;
+    const code = (e && typeof e === 'object' && typeof e.code === 'string') ? e.code : '';
+    if (res.status === 401) notifyUnauthorized();
+    if (res.status === 403 && code === 'csrf') { clearCsrf(); notifyUnauthorized(); }
     const message = (e && typeof e === 'object' && e.message)
       || (typeof e === 'string' ? e : '')
       || (data && typeof data.message === 'string' ? data.message : '')
       || humanStatus(res.status, path);
     const hint = (e && typeof e === 'object' && e.hint) || hintFor(res.status);
     const actions = (e && typeof e === 'object' && e.actions) || null;
-    throw new ApiError(message, { status: res.status, hint, actions, path });
+    throw new ApiError(message, { status: res.status, hint, actions, path, code });
   }
   return data;
 }

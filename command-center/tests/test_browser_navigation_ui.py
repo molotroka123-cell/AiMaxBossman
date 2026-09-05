@@ -74,3 +74,32 @@ def test_policy_403_keeps_session_but_401_requires_login(live):
             page.locator("#login-submit").wait_for(state="visible")
         finally:
             browser.close()
+
+
+def test_lost_csrf_token_requires_login_instead_of_dead_403(live):
+    """Журнал тестового периода 51307af16b90: POST /api/providers и /api/browser/.../act
+    отвечали 403 за 0 мс — cookie сессии жива, а CSRF-токен вкладки потерян (другой вход,
+    очищенное хранилище). Для владельца это «кнопка не работает». Теперь такой 403 несёт
+    code=csrf, UI считает его auth-ошибкой и показывает форму входа; политический 403
+    (см. тест выше) сессию по-прежнему не трогает."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page()
+            _login(page, live)
+            result = page.evaluate("""async () => {
+              const {api, UNAUTHORIZED_EVENT} = await import('/api.js');
+              localStorage.setItem('bcc.csrf', 'stale-token-from-another-login');
+              let events = 0;
+              window.addEventListener(UNAUTHORIZED_EVENT, () => events++);
+              try { await api.createProvider({name: 'x', provider_kind: 'openai_compat', base_url: 'http://127.0.0.1:9'}); }
+              catch (e) { return {status: e.status, code: e.code, isAuth: e.isAuth, events,
+                                  csrf: localStorage.getItem('bcc.csrf')}; }
+              return {unexpected: true};
+            }""")
+            assert result == {"status": 403, "code": "csrf", "isAuth": True, "events": 1, "csrf": None}
+            page.locator("#login-submit").wait_for(state="visible")
+        finally:
+            browser.close()

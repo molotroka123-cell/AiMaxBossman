@@ -49,11 +49,13 @@ from .secrets import Vault
 class ApiError(Exception):
     """Ошибка с человекочитаемым текстом и подсказкой — ровно то, что увидит оператор."""
 
-    def __init__(self, message: str, *, status: int = 400, hint: str | None = None):
+    def __init__(self, message: str, *, status: int = 400, hint: str | None = None,
+                 code: str | None = None):
         super().__init__(message)
         self.message = message
         self.status = status
         self.hint = hint
+        self.code = code            # машиночитаемый род ошибки для UI (например "csrf")
 
 
 # ---------- сборка сервисов ----------
@@ -239,7 +241,11 @@ async def require_token(request: Request, x_bcc_token: str | None = Header(defau
         if request.method not in SAFE_METHODS:
             sent = request.headers.get(CSRF_HEADER)
             if not sent or not hmac.compare_digest(str(sent), str(sess["csrf"])):
-                raise ApiError("не пройдена CSRF-проверка", status=403,
+                # code="csrf": UI отличает «сессия есть, но CSRF-токен этой вкладки потерян/чужой»
+                # (лечится повторным входом) от политического 403 (сессия остаётся).
+                # Журнал тестового периода 51307af16b90: 4 таких 403 за 0 мс на POST
+                # /api/providers и /api/browser/.../act выглядели для владельца как «кнопка не работает».
+                raise ApiError("не пройдена CSRF-проверка", status=403, code="csrf",
                                hint=f"передайте заголовок {CSRF_HEADER} из ответа /api/login")
         request.state.session_id = sess["id"]
         await svc.sessions.touch(sess["id"])
@@ -442,6 +448,8 @@ def _install_error_handlers(app: FastAPI) -> None:
         body: dict[str, Any] = {"message": exc.message}
         if exc.hint:
             body["hint"] = exc.hint
+        if exc.code:
+            body["code"] = exc.code
         return JSONResponse({"error": body}, status_code=exc.status)
 
     @app.exception_handler(ProviderError)
