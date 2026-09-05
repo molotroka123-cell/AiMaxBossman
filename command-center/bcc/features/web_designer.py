@@ -35,6 +35,21 @@ router = APIRouter()
 
 FEATURE = Feature(name="web_designer", router=router)
 
+# Превью — это ЧУЖОЙ код: его пишет модель, вставляет владелец, правит генератор.
+# Отдаётся он с /api, то есть с origin самой панели, поэтому без песочницы скрипт
+# внутри превью получил бы ровно те же права, что и панель: cookie сессии уходит
+# автоматически с любым fetch, а CSRF-токен лежит в localStorage того же origin —
+# то есть страница-визитка могла бы дойти до terminal.run. `sandbox allow-scripts`
+# в CSP даёт кадру НЕПРОЗРАЧНЫЙ origin: ни cookie, ни localStorage, ни /api.
+# Заголовок дублирует атрибут iframe намеренно: защита не должна зависеть от того,
+# что клиент не забыл её выставить. Скрипты внутри при этом продолжают работать —
+# пикер общается с панелью через postMessage, ему origin не нужен.
+PREVIEW_HEADERS = {
+    "Content-Security-Policy": "sandbox allow-scripts; form-action 'none'; frame-ancestors 'self'",
+    "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "no-store",
+}
+
 MAX_HTML_CHARS = dom.MAX_HTML_CHARS
 MAX_PROJECTS = 100
 MAX_VERSIONS = 50
@@ -300,7 +315,7 @@ async def preview(pid: int, request: Request):
     if not html:
         raise HTTPException(status_code=409, detail="в проекте пока нет кода")
     try:
-        return HTMLResponse(dom.inject_preview(html))
+        return HTMLResponse(dom.inject_preview(html), headers=PREVIEW_HEADERS)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 

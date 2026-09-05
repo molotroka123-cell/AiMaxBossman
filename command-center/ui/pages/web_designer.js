@@ -37,6 +37,10 @@ let verPill = null;        // пилюля версии в шапке
 /* ---------------- сообщения из превью (пикер) ---------------- */
 
 window.addEventListener('message', (ev) => {
+  // Сообщение принимается только от САМОГО кадра превью. Поле source в теле —
+  // это данные, а не удостоверение: любое окно может прислать 'bd-preview'.
+  // Origin здесь не проверяется намеренно — у песочницы он 'null' по построению.
+  if (!frame || ev.source !== frame.contentWindow) return;
   const d = ev && ev.data;
   if (!d || d.source !== 'bd-preview') return;
   if (d.type === 'ready' && frame && frame.contentWindow) {
@@ -278,7 +282,12 @@ function editorPanel() {
 }
 
 function previewPanel(ctx) {
-  frame = h('iframe.bd-frame', { src: previewUrl(), title: 'Живое превью сайта' });
+  // sandbox БЕЗ allow-same-origin — превью получает непрозрачный origin и не
+  // может ни прочитать cookie/localStorage панели, ни позвать её /api. Скрипты
+  // разрешены: без них не работает ни пикер, ни сам сайт. Сервер выставляет то
+  // же ограничение заголовком CSP, здесь — чтобы кадр был безопасен сразу.
+  frame = h('iframe.bd-frame', { src: previewUrl(), title: 'Живое превью сайта',
+                                 sandbox: 'allow-scripts' });
   const pickBtn = btn(state.pick ? 'Выделение: вкл' : 'Выделение: выкл', () => {
     state.pick = !state.pick;
     pickBtn.querySelector('span').textContent = state.pick ? 'Выделение: вкл' : 'Выделение: выкл';
