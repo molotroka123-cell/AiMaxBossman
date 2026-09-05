@@ -15,7 +15,8 @@ import redis.asyncio as aioredis
 from . import approvals, db, decision_memory, events, failure_memory, obs, telegram, working_memory
 from .agents import AgentSpec, load_all
 from .config import settings
-from .context import SUMMARY_MAX_TOKENS, ContextBudget, ContextBuilder, estimate_tokens
+from .context import (SUMMARY_MAX_TOKENS, RETRIEVED_DATA_HEADER, ContextBudget,
+                      ContextBuilder, ContextOverflowError, estimate_tokens)
 from .llm import CloudDenied, NeedsCloudApproval, chat, real_window
 from .completion import CompletionContract, CompletionGate
 from .toolkit import REGISTRY, ToolContext, by_api_name, tool_line
@@ -121,16 +122,17 @@ def pick_agent(agents: dict[str, AgentSpec], text: str) -> AgentSpec:
 
 
 def _memory_for_system(mem: str) -> str:
-    """V2.6 модуль N (Personal Context Router): что из memory.md кладём в system.
+    """Legacy helper name: selects memory DATA, never system instructions.
 
-    Инвариант RAW fallback — личная память НИКОГДА не теряется целиком:
+    На этапе отбора сохраняется RAW fallback:
     - флаг personal_context_select OFF (default) -> RAW, прежнее поведение;
     - context_engine выключен -> RAW (без retrieved-канала память не урезаем,
       иначе ранжированным чанкам просто неоткуда прийти);
     - любой сбой отбора -> RAW (degrade-safe).
-    Включено и движок жив: в system остаются только критические ограничения
-    (KeepRisk: их не режем ради токенов никогда) + указатель на retrieved;
-    остальная память продолжает приходить чанками через apply_context_engine.
+    Включено и движок жив: отбор оставляет критические строки + указатель на
+    retrieved. Возвращаемый текст передаётся отдельным блоком данных, не system.
+    Финальный ContextBuilder учитывает общий бюджет; опущенные данные явно
+    помечаются. Политика владельца должна находиться в prompt.md и host grants.
     """
     if not settings.personal_context_select:
         return mem
@@ -150,10 +152,13 @@ def _system_prompt(agent: AgentSpec) -> str:
         t = REGISTRY.get(grant.name)
         if t:
             lines.append(tool_line(grant.name, t))
-    mem = agent.memory.strip()
-    if mem:
-        lines += ["", "## Твоя память (memory.md)", _memory_for_system(mem)]
     return "\n".join(lines)
+
+
+def _memory_context(agent: AgentSpec) -> str:
+    """Preserve RAW/selected notes under the external-data trust boundary."""
+    mem = agent.memory.strip()
+    return _memory_for_system(mem) if mem else ""
 
 
 def _tool_schemas(agent: AgentSpec) -> list[dict]:
@@ -208,6 +213,9 @@ def compact_session(builder: ContextBuilder, *, query: str, budget_tokens: int =
         engine = get_engine(settings.context_db)
         msgs = [_CEMessage(role=(it.role if it.role in ("assistant", "user") else "tool"),
                            content=it.content) for it in builder.history]
+        if builder.summary:
+            msgs.insert(0, _CEMessage(role="user", content=RETRIEVED_DATA_HEADER
+                                     + "## Предыдущая сводка\n" + builder.summary))
         if not msgs:
             return None
         return engine.compact(msgs, target_tokens=budget_tokens, keep_recent=6, query=query)
@@ -353,9 +361,8 @@ async def run_task(task: dict) -> None:
     await _record_memory(_WM.create_task_state(task_id, task["text"][:4000]), "create_task_state")
 
     budget = ContextBudget(window=real_window(agent.model))
-    builder = ContextBuilder(budget, _system_prompt(agent))
-    # Preserve the original fitted policy, then insert the complete reviewed
-    # protocol. Appending before the 5% system fitter would silently truncate it.
+    builder = ContextBuilder(budget, _system_prompt(agent), memory=_memory_context(agent))
+    # Preserve the original policy, then insert the complete reviewed protocol.
     # Pay for its bounded context overhead from history, not the safety reserve.
     protocol_tokens = estimate_tokens(reasoning_protocol_prompt()) + 1
     budget.limits["system"] += protocol_tokens
@@ -381,6 +388,8 @@ async def run_task(task: dict) -> None:
 
     try:
         await asyncio.to_thread(reality_guard.lookup, "core", task["id"], run_id, actor=agent.name)
+        schema_tokens = estimate_tokens(json.dumps(tools, ensure_ascii=False)) if tools else 0
+        builder.ensure_required_fits(task["text"], tool_tokens=schema_tokens)
         while steps < agent.max_steps:
             if time.monotonic() - started > agent.timeout_min * 60:
                 status, final = "failed", "остановлено: превышен timeout_min агента"
@@ -409,7 +418,7 @@ async def run_task(task: dict) -> None:
             block_tokens = builder.block_tokens(task["text"])
             try:
                 await asyncio.to_thread(reality_guard.block_unmetered_model, "core", task["id"], run_id)
-                msg = await chat(agent, builder.build(task["text"]), tools=tools or None,
+                msg = await chat(agent, builder.build(task["text"], tool_tokens=schema_tokens), tools=tools or None,
                                  run_id=run_id, block_tokens=block_tokens,
                                  cloud_approved_by=cloud_ok_by)
             except NeedsCloudApproval as need:
@@ -454,7 +463,7 @@ async def run_task(task: dict) -> None:
                 tool_calls_since_compact += 1
         else:
             status, final = "failed", "остановлено: превышен max_steps агента"
-    except CloudDenied as exc:
+    except (CloudDenied, ContextOverflowError) as exc:
         status, final = "failed", str(exc)
     except Exception:
         status, final = "failed", "ошибка петли:\n" + traceback.format_exc(limit=3)

@@ -1,7 +1,7 @@
 """V2.6 модуль N — Personal Context Router: отбор критики из memory.md.
 
 Всё детерминировано, без LLM/сети/БД. Ключевой инвариант — RAW fallback:
-default OFF = memory.md в system целиком (как раньше); context_engine выключен =
+default OFF = memory.md отбирается целиком для отдельного блока ДАННЫХ; context_engine выключен =
 тоже RAW (без retrieved-канала память не урезаем). KeepRisk: критические
 ограничения переживают отбор ВСЕГДА.
 """
@@ -107,19 +107,21 @@ def _fake_agent(tmp_path: Path) -> AgentSpec:
     return AgentSpec(name="t", title="T", model="local-small", tools=[], path=tmp_path)
 
 
-def test_system_prompt_off_keeps_full_memory(tmp_path, monkeypatch):
+def test_memory_data_off_keeps_full_memory(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "personal_context_select", False, raising=False)
-    prompt = runner._system_prompt(_fake_agent(tmp_path))
-    assert "## Твоя память (memory.md)" in prompt
+    agent = _fake_agent(tmp_path)
+    prompt = runner._memory_context(agent)
+    assert MEMORY not in runner._system_prompt(agent)
     assert "React 18" in prompt  # RAW: память целиком, как раньше
     assert "НИКОГДА не отправляй пароли" in prompt
 
 
-def test_system_prompt_on_keeps_critical_drops_trivia(tmp_path, monkeypatch):
+def test_memory_data_on_keeps_critical_drops_trivia(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "personal_context_select", True, raising=False)
     monkeypatch.setattr(settings, "context_engine_enabled", True, raising=False)
-    prompt = runner._system_prompt(_fake_agent(tmp_path))
-    assert "## Твоя память (memory.md)" in prompt
+    agent = _fake_agent(tmp_path)
+    prompt = runner._memory_context(agent)
+    assert MEMORY not in runner._system_prompt(agent)
     assert "НИКОГДА не отправляй пароли" in prompt
     assert personal_context.RETRIEVED_NOTE in prompt
     assert "React 18" not in prompt

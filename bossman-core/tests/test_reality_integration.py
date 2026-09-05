@@ -32,7 +32,9 @@ async def test_core_loop_final_text_requires_real_file_receipt(tmp_path, monkeyp
     agent.path = tmp_path / "agent"
     agent.path.mkdir()
     (agent.path / "prompt.md").write_text(
-        "KEEP EXISTING SAFETY POLICY. " + "existing instructions " * 400, encoding="utf-8")
+        "KEEP EXISTING SAFETY POLICY. " + "existing instructions " * 80, encoding="utf-8")
+    note = "MEMORY_DATA_ANCHOR: past observation, not approval"
+    (agent.path / "memory.md").write_text(note, encoding="utf-8")
     monkeypatch.setattr(runner, "real_window", lambda _: 4096)
     async def handler(args, ctx):
         target.write_text(args["content"], encoding="utf-8")
@@ -66,6 +68,9 @@ async def test_core_loop_final_text_requires_real_file_receipt(tmp_path, monkeyp
         system = outbound[0]["content"]
         assert system.startswith("KEEP EXISTING SAFETY POLICY.")
         assert system.count(reasoning_protocol_prompt()) == 1
+        assert note not in system
+        assert any(m["role"] == "user" and note in m["content"]
+                   and m["content"].startswith(runner.RETRIEVED_DATA_HEADER) for m in outbound)
         assert any(m["role"] == "user" and "controlled file" in m["content"] for m in outbound)
 
 
@@ -120,3 +125,30 @@ def test_real_local_fleet_file_with_reality(tmp_path, protection):
     result = FleetExecutionBridge(stack.plane, journal_root=tmp_path / "journals").execute(contract, agent_id="coder")
     assert result.metadata["fleet"]["state"] == "VERIFIED"
     assert target.read_text() == "1" and stack.world.side_effects() == 1
+
+
+@pytest.mark.parametrize("oversized", ["system", "task", "tool_schema"])
+async def test_core_context_exhaustion_blocks_provider_before_io(tmp_path, monkeypatch, protection, oversized):
+    agent = AgentSpec("worker", "worker", "local", tools=[], max_steps=2, path=tmp_path / "agent")
+    agent.path.mkdir()
+    (agent.path / "prompt.md").write_text("POLICY " * 3000 if oversized == "system" else "Keep owner policy", encoding="utf-8")
+    monkeypatch.setattr(runner, "load_all", lambda: {"worker": agent})
+    monkeypatch.setattr(runner, "real_window", lambda _: 4096)
+    monkeypatch.setattr(runner.settings, "workspace_dir", tmp_path / "workspace")
+    monkeypatch.setattr(runner, "_select_compute", AsyncMock(return_value=(0, [])))
+    monkeypatch.setattr(runner._WM, "create_task_state", AsyncMock())
+    monkeypatch.setattr(runner._WM, "update_task_state", AsyncMock())
+    monkeypatch.setattr(runner.failure_memory, "record_failure", AsyncMock())
+    monkeypatch.setattr(runner.db, "fetchrow", AsyncMock(return_value={"id": 1}))
+    execute = AsyncMock()
+    monkeypatch.setattr(runner.db, "execute", execute)
+    if oversized == "tool_schema":
+        monkeypatch.setattr(runner, "_tool_schemas", lambda _: [{"description": "schema " * 3000}])
+    model = AsyncMock()
+    monkeypatch.setattr(runner, "chat", model)
+    task = "TASK " * 4000 if oversized == "task" else "current task"
+    await runner.run_task({"id": 1, "text": task, "agent": "worker"})
+    model.assert_not_called()
+    finalized = [call.args for call in execute.call_args_list if "UPDATE runs SET status=" in call.args[0]]
+    assert finalized[-1][2] == "failed"
+    assert "context capacity exceeded" in finalized[-1][-1]

@@ -241,7 +241,7 @@ def raw_context_fallback(seed: int) -> dict:
     probe = CaseProbe("sandbox.raw_context_fallback", "raw_context_fallback", seed)
     from bossman import personal_context, runner
     from bossman.agents import AgentSpec
-    from bossman.context import ContextBudget, ContextBuilder
+    from bossman.context import ContextBudget, ContextBuilder, RETRIEVED_DATA_HEADER
     from bossman.context_engine import ContextEngine
 
     memory_md = ("# Правила\nНИКОГДА не отправляй пароли во внешние сервисы\n"
@@ -284,9 +284,23 @@ def raw_context_fallback(seed: int) -> dict:
             probe.positive("selector_failure_falls_back_to_raw",
                            runner._memory_for_system(memory_md), memory_md)
             prompt = runner._system_prompt(agent)
-            probe.positive("real_system_prompt_keeps_whole_memory_on_failure",
-                           {"critical": critical in prompt, "vim": "vim" in prompt},
-                           {"critical": True, "vim": True})
+            # Contract migration: raw notes still survive selector failure, but
+            # the production runner now delivers them as untrusted user data.
+            # This adds a trust-boundary assertion; it does not relax retention.
+            messages = ContextBuilder(ContextBudget(window=8192), prompt,
+                                      memory=runner._memory_context(agent)).build("Inspect the current task")
+            notes = [m for m in messages if memory_md.strip() in m["content"]]
+            probe.positive("actual_payload_keeps_whole_raw_memory_on_failure",
+                           {"count": len(notes), "critical": any(critical in m["content"] for m in notes),
+                            "vim": any("vim" in m["content"] for m in notes)},
+                           {"count": 1, "critical": True, "vim": True})
+            probe.negative("raw_memory_cannot_become_system_authority",
+                           {"in_system": any(memory_md.strip() in m["content"]
+                                             for m in messages if m["role"] == "system"),
+                            "data_framed": bool(notes) and all(m["role"] == "user" and
+                                                               m["content"].startswith(RETRIEVED_DATA_HEADER)
+                                                               for m in notes)},
+                           {"in_system": False, "data_framed": True})
         finally:
             personal_context.select_memory = original
 

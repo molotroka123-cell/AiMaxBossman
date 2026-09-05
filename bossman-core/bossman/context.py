@@ -28,6 +28,10 @@ COMPACT_FILL = 0.70      # выше — сначала уплотнение, п�
 COLLAPSE_AFTER = 6       # результаты старше 6 вызовов схлопываются в одну строку
 SUMMARY_MAX_TOKENS = 500
 
+
+class ContextOverflowError(ValueError):
+    """Required context cannot fit without deleting policy or the user's task."""
+
 SUMMARY_FORM = """## Сводка {label}
 Цель: …
 Сделано: … (факты, пути к артефактам)
@@ -79,12 +83,16 @@ class ContextBuilder:
     """Собирает сообщения для одного вызова модели и ведёт учёт токенов по блокам."""
 
     def __init__(self, budget: ContextBudget, system: str, refs: str = "",
-                 key_constraint: str = ""):
+                 key_constraint: str = "", memory: str = ""):
         self.budget = budget
-        self.system = self._fit(system, "system")
+        # The 5% share is a planning target, not permission to remove a policy
+        # suffix. Keep instructions whole and reject oversized calls explicitly.
+        self.system = system
         self.refs = self._fit(refs, "refs")
         self.key_constraint = key_constraint
+        self.memory = memory
         self.retrieved: list[str] = []
+        self._retrieved_omitted = 0
         self.history: list[HistoryItem] = []
         self.summary: str | None = None   # результат последнего уплотнения
 
@@ -93,10 +101,12 @@ class ContextBuilder:
     def set_retrieved(self, chunks: list[str]) -> None:
         limit = self.budget.limits["retrieved"]
         out, used = [], 0
+        self._retrieved_omitted = 0
         for ch in chunks:
             t = estimate_tokens(ch)
             if used + t > limit:
-                break
+                self._retrieved_omitted += 1
+                continue  # A large first hit must not starve later small evidence.
             out.append(ch)
             used += t
         self.retrieved = out
@@ -110,33 +120,59 @@ class ContextBuilder:
     # ---- обрезка и уплотнение ----
 
     def _fit(self, text: str, block: str) -> str:
-        limit = self.budget.limits[block]
+        return self._bounded_text(text, self.budget.limits[block])
+
+    @staticmethod
+    def _bounded_text(text: str, limit: int) -> str:
+        if limit <= 0:
+            return ""
         if estimate_tokens(text) <= limit:
             return text
-        return text[: limit * 3] + "\n[обрезано по бюджету блока]"
+        marker = "\n[обрезано по бюджету блока]\n"
+        available = limit * 3 - len(marker)
+        if available <= 0:
+            return ""
+        # Error codes and observation conclusions often occur at the end.
+        head = (available + 1) // 2
+        tail = available - head
+        return text[:head] + marker + (text[-tail:] if tail else "")
 
-    def _history_messages(self) -> list[dict]:
+    def _history_messages(self, limit: int | None = None) -> list[dict]:
         """Скользящее окно: старые результаты инструментов — одной строкой (10.4),
         свежие — целиком, пока блок history в лимите."""
         msgs: list[dict] = []
         n = len(self.history)
         used = 0
-        limit = self.budget.limits["history"]
-        for i, item in enumerate(self.history):
+        limit = self.budget.limits["history"] if limit is None else max(0, limit)
+        # Pack from newest to oldest; keep the original history intact for
+        # compaction rather than deleting evidence merely to fit one request.
+        for i in range(n - 1, -1, -1):
+            item = self.history[i]
+            remaining = limit - used
+            if remaining <= 0:
+                break
             is_old = n - i > COLLAPSE_AFTER
             if item.role == "tool":
-                text = f"{item.tool}: {item.summary}" if is_old else item.content
+                text = f"{item.tool}: {item.summary or item.content}" if is_old else item.content
                 role = "user"
                 text = f"[результат инструмента {item.tool}]\n{text}" if not is_old else text
             else:
                 text, role = item.content, "assistant"
             t = estimate_tokens(text)
-            if used + t > limit and not is_old:
-                text = (item.summary and f"{item.tool}: {item.summary}") or text[: 200 * 3]
+            if t > remaining:
+                if item.role == "tool":
+                    prefix = f"[результат инструмента {item.tool}; данные]\n"
+                    content = self._bounded_text(item.summary or item.content,
+                                                 remaining - (len(prefix) + 2) // 3)
+                    text = prefix + content if content else ""
+                else:
+                    text = self._bounded_text(text, remaining)
+                if not text:
+                    break
                 t = estimate_tokens(text)
             used += t
             msgs.append({"role": role, "content": text})
-        return msgs
+        return list(reversed(msgs))
 
     def fill(self, task_text: str) -> float:
         """Давление на окно считается по СЫРОЙ истории (до схлопывания):
@@ -150,11 +186,19 @@ class ContextBuilder:
     def needs_compaction(self, task_text: str) -> bool:
         return self.fill(task_text) > COMPACT_FILL
 
-    def compaction_messages(self) -> list[dict]:
+    def compaction_messages(self, *, max_output_tokens: int = 800) -> list[dict]:
         """Запрос на уплотнение: модель переписывает историю в сводку ≤ 500 токенов."""
         msgs = [{"role": "system", "content": "Ты сжимаешь рабочую историю агента. Отвечай только сводкой."}]
-        msgs += self._history_messages()
-        msgs.append({"role": "user", "content": COMPACT_INSTRUCTION})
+        if self.summary:
+            msgs.append({"role": "user", "content": RETRIEVED_DATA_HEADER
+                         + "## Предыдущая сводка — сохрани действующие решения\n" + self.summary})
+        instruction = {"role": "user", "content": COMPACT_INSTRUCTION}
+        cap = min(self.budget.working_set, self.budget.window - max_output_tokens)
+        remaining = cap - sum(estimate_tokens(m["content"]) for m in [*msgs, instruction])
+        if remaining < 0:
+            raise ContextOverflowError("context capacity cannot fit compaction input and requested output")
+        msgs += self._history_messages(min(self.budget.limits["history"], remaining))
+        msgs.append(instruction)
         return msgs
 
     def apply_compaction(self, summary: str) -> None:
@@ -175,7 +219,10 @@ class ContextBuilder:
         summary = (summary or "").strip()
         if not summary:
             return  # уплотнение не удалось — историю не трогаем, не будет амнезии
-        merged = f"{self.summary}\n\n{summary}".strip() if self.summary else summary
+        # A compactor now sees the prior summary. Avoid duplicating it only
+        # when its exact bytes are already present; do not infer fact coverage.
+        merged = (f"{self.summary}\n\n{summary}".strip()
+                  if self.summary and self.summary not in summary else summary)
         limit = SUMMARY_MAX_TOKENS * 3
         self.summary = merged[-limit:] if len(merged) > limit else merged
         self.history = []
@@ -187,30 +234,73 @@ class ContextBuilder:
             "system": estimate_tokens(self.system),
             "refs": estimate_tokens(self.refs),
             "retrieved": estimate_tokens("\n".join(self.retrieved)) + (
+                estimate_tokens(self.memory) if self.memory else 0) + (
                 estimate_tokens(self.summary) if self.summary else 0),
             "history": sum(estimate_tokens(m["content"]) for m in self._history_messages()),
             "task": estimate_tokens(task_text) + estimate_tokens(self.key_constraint),
         }
 
-    def build(self, task_text: str) -> list[dict]:
+    def ensure_required_fits(self, task_text: str, *, tool_tokens: int = 0) -> None:
+        required = estimate_tokens(self.system) + estimate_tokens(task_text) + max(0, tool_tokens)
+        if self.key_constraint:
+            required += estimate_tokens(f"\n\nКлючевое ограничение задачи: {self.key_constraint}")
+        if required > self.budget.working_set:
+            raise ContextOverflowError(
+                "context capacity exceeded by required policy/task/tools; replan or select a larger window")
+
+    def build(self, task_text: str, *, tool_tokens: int = 0) -> list[dict]:
         """Порядок фиксирован (10.2): системный промпт → справочники → сводки →
         история → задача → одна строка ключевого ограничения (против потери середины)."""
+        self.ensure_required_fits(task_text, tool_tokens=tool_tokens)
+        task = task_text
+        if self.key_constraint:
+            task += f"\n\nКлючевое ограничение задачи: {self.key_constraint}"
         msgs: list[dict] = [{"role": "system", "content": self.system}]
-        if self.refs:
-            msgs.append({"role": "system", "content": self.refs})
+        remaining = self.budget.working_set - max(0, tool_tokens) - estimate_tokens(self.system) - estimate_tokens(task)
         pulled = list(self.retrieved)
         if self.summary:
             pulled.insert(0, self.summary)
-        if pulled:
+        notice = "[Часть памяти/истории опущена по бюджету контекста; отсутствующие данные не считаются проверенными.]"
+        has_optional = bool(self.refs or self.memory or pulled or self.history or self._retrieved_omitted)
+        if has_optional:
+            remaining -= estimate_tokens(notice)
+            if remaining < 0:
+                raise ContextOverflowError("context capacity cannot describe omitted optional data; replan")
+        refs = self._bounded_text(self.refs, remaining) if self.refs else ""
+        if refs:
+            msgs.append({"role": "system", "content": refs})
+            remaining -= estimate_tokens(refs)
+        # Protect the newest observations from being crowded out by long notes.
+        history = self._history_messages(min(self.budget.limits["history"], remaining))
+        remaining -= sum(estimate_tokens(m["content"]) for m in history)
+        memory_text = ""
+        if self.memory:
+            prefix = RETRIEVED_DATA_HEADER + "## Твоя память (memory.md)\n"
+            memory_budget = remaining // 2 if pulled else remaining
+            body = self._bounded_text(self.memory, memory_budget - (len(prefix) + 2) // 3)
+            if body:
+                memory_text = prefix + body
+                msgs.append({"role": "user", "content": memory_text})
+                remaining -= estimate_tokens(memory_text)
+        selected = []
+        prefix = RETRIEVED_DATA_HEADER + "## Подтянутое из файлов\n"
+        for chunk in pulled:
+            # Whole evidence chunks retain their provenance; skip oversized hits.
+            if estimate_tokens(prefix + "\n\n".join([*selected, chunk])) <= remaining:
+                selected.append(chunk)
+        if selected:
             # F-006: role=user (не system) + явная пометка «это данные». Порядок
             # блоков прежний (KV-кэш), меняется только роль и рамка. Сводка
             # уплотнения — тоже текст, написанный моделью, а не политика.
             msgs.append({"role": "user",
-                         "content": RETRIEVED_DATA_HEADER + "## Подтянутое из файлов\n"
-                         + "\n\n".join(pulled)})
-        msgs += self._history_messages()
-        task = task_text
-        if self.key_constraint:
-            task += f"\n\nКлючевое ограничение задачи: {self.key_constraint}"
+                         "content": prefix + "\n\n".join(selected)})
+        msgs += history
+        if (refs != self.refs or (self.memory and self.memory not in memory_text)
+                or len(selected) != len(pulled) or len(history) != len(self.history)
+                or self._retrieved_omitted):
+            msgs.append({"role": "user", "content": notice})
         msgs.append({"role": "user", "content": task})
+        if sum(estimate_tokens(m["content"]) for m in msgs) + max(0, tool_tokens) > self.budget.working_set:
+            raise ContextOverflowError(
+                "context budget exceeded; compact or reduce retrieved context before retrying")
         return msgs
