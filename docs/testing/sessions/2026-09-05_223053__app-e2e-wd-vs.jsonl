@@ -1,0 +1,12 @@
+{"kind":"session","id":"app-e2e-wd-vs","ts":"2026-09-05_223053","verdict":"PARTIAL","head":"8efe9db","branch":"feat/web-designer-live-panel","vstudio_ref":"origin/codex/video-studio@dfce725","instances":{"A":{"port":8800,"pid":24572,"left_running":true},"B":{"port":8801,"pid":40348,"left_running":true}}}
+{"kind":"step","app":"web-designer","step":"login-form","ok":true,"detail":"session cookie via real form"}
+{"kind":"step","app":"web-designer","step":"open-page","ok":true,"detail":"title matches; emptyState fully rendered (probe screenshot 03-page.png)"}
+{"kind":"step","app":"web-designer","step":"api-projects","ok":true,"detail":"GET /api/web-designer/projects -> 200 empty items"}
+{"kind":"step","app":"web-designer","step":"api-templates","ok":true,"detail":"GET /api/web-designer/templates -> 200, 5 templates"}
+{"kind":"step","app":"web-designer","step":"browser-console","ok":true,"detail":"0 console errors, 0 pageerrors, 0 net failures on covered screens"}
+{"kind":"step","app":"web-designer","step":"full-cycle","ok":false,"detail":"NOT_DONE run1 2/13 (test sync bug: DOM checked before render); rerun harness timeout at login wait under parallel load; rerun after Astra"}
+{"kind":"step","app":"video-studio","step":"login-form","ok":true,"detail":"session cookie via real form"}
+{"kind":"step","app":"video-studio","step":"open-page","ok":true,"detail":"Video Studio page renders; toolbar/tabs/project controls correct incl. disabled states"}
+{"kind":"step","app":"video-studio","step":"browser-console","ok":true,"detail":"0 console errors, 0 pageerrors, 0 net failures"}
+{"kind":"step","app":"video-studio","step":"otio-absent","ok":true,"detail":"server runs without opentimelineio; interchange reports available:false (honest degradation)"}
+{"kind":"step","app":"video-studio","step":"full-cycle","ok":false,"detail":"NOT_RUN e2e_video_studio.py ready (assets: test.mp4/poster.png/test.srt); run after Astra"}
