@@ -175,9 +175,15 @@ class TerminalManager:
             )
         else:
             shell = host_shell()
-            if shell is None:                    # POSIX: как было, /bin/sh -c
+            if shell is None or (os.name == "nt" and shell[-1] == "/c"):
+                # cmd.exe does not use the C argv quoting applied by
+                # create_subprocess_exec(*shell, cmd): inner quotes acquire
+                # literal backslashes and corrupt e.g. python -c "...".
+                # Pass the original authorized command via the native shell
+                # API, which owns cmd.exe command-line transport. POSIX and
+                # the explicit Git sh adapter retain their existing syntax.
                 proc = await asyncio.create_subprocess_shell(
-                    cmd, cwd=str(cwd),
+                    cmd, cwd=str(cwd), executable=shell[0] if shell else None,
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,

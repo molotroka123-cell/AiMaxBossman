@@ -219,13 +219,14 @@ async def _tool_run(args: dict, ctx) -> ToolResult:
         await s.execute(sa.update(term_t).where(term_t.c.id == session.id).values(
             status="finished", exit_code=session.exit_code, finished_at=utcnow()))
         await s.commit()
-    # Ненулевой exit_code — это ДАННЫЕ (красный тест, ошибка линтера), а не сбой
-    # инструмента: иначе Governor/Self-Healing считали бы падающий тест отказом
-    # рантайма. error=True только когда команду не удалось выполнить вообще.
+    # A started process is not a successful command. Keep the process outcome
+    # as structured data, while propagating failure to the engine's receipt
+    # and completion checks (including failed tests and linters).
     return ToolResult(
         content=f"exit_code={session.exit_code}\n{output}",
         one_line=f"terminal.run: exit={session.exit_code}",
         truncated=truncated,
+        error=session.exit_code != 0,
         more=f"terminal.status с session_id={session.id}" if truncated else "",
         data={"session_id": session.id, "exit_code": session.exit_code}, external=True)
 
@@ -252,6 +253,7 @@ async def _tool_status(args: dict, ctx) -> ToolResult:
     tail = "\n".join(st["output_tail"])[-OUTPUT_LIMIT:]
     return ToolResult(content=f"finished={st['finished']} exit_code={st['exit_code']}\n{tail}",
                       one_line=f"terminal.status: {'finished' if st['finished'] else 'running'}",
+                      error=bool(st["finished"] and st["exit_code"] != 0),
                       data=st, external=True)
 
 
