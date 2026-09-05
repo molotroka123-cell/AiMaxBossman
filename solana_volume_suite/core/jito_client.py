@@ -131,56 +131,7 @@ class JitoBundleClient:
         If Jito returns an error or fails, the transaction is DROPPED.
         NEVER route to standard RPC.
         """
-        if not transactions:
-            raise ValueError("Cannot send empty Jito bundle")
-
-        if len(transactions) > MAX_BUNDLE_TRANSACTIONS:
-            raise ValueError(f"Jito bundle exceeds maximum size of {MAX_BUNDLE_TRANSACTIONS} transactions")
-
-        self.total_bundles_sent += 1
-        encoded_txs = [base64.b64encode(bytes(tx)).decode("utf-8") for tx in transactions]
-
-        payload = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "sendBundle",
-            "params": [encoded_txs]
-        }
-
-        should_close = False
-        if client is None:
-            client = httpx.AsyncClient(timeout=self.timeout)
-            should_close = True
-
-        try:
-            resp = await client.post(self.block_engine_url, json=payload)
-            if resp.status_code != 200:
-                self.total_bundles_dropped += 1
-                raise JitoBundleDropException(
-                    f"Jito Block Engine HTTP error {resp.status_code}: {resp.text}. Bundle DROPPED (no public mempool fallback)."
-                )
-
-            data = resp.json()
-            if "error" in data:
-                self.total_bundles_dropped += 1
-                raise JitoBundleDropException(
-                    f"Jito Engine RPC Error: {data['error']}. Bundle DROPPED (no public mempool fallback)."
-                )
-
-            bundle_id = data.get("result", "")
-            self.total_bundles_confirmed += 1
-            return {
-                "status": "CONFIRMED_JITO",
-                "bundle_id": bundle_id,
-                "tx_count": len(transactions),
-                "jito_endpoint": self.block_engine_url
-            }
-
-        except httpx.RequestError as exc:
-            self.total_bundles_dropped += 1
-            raise JitoBundleDropException(
-                f"Network transport error to Jito Block Engine: {exc}. Bundle DROPPED (no public mempool fallback)."
-            )
-        finally:
-            if should_close:
-                await client.aclose()
+        self.total_bundles_dropped += 1
+        raise JitoBundleDropException(
+            "LIVE_EXECUTION_DISABLED: Bundle DROPPED (no public mempool fallback)."
+        )

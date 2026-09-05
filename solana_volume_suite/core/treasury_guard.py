@@ -1,5 +1,5 @@
 import time
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from pydantic import BaseModel, Field
 
 MAX_PRICE_IMPACT_PCT = 1.2  # Maximum 1.2% price impact allowed per transaction

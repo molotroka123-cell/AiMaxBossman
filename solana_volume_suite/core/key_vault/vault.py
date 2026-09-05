@@ -77,8 +77,16 @@ class SecurityKeyVault:
         and saves payload to self.storage_path.
         Returns list of public addresses.
         """
-        if count < 1:
-            raise ValueError("Sub-wallet count must be at least 1")
+        if type(count) is not int or not 1 <= count <= 1000:
+            raise ValueError("Wallet count must be an integer between 1 and 1000")
+        if not isinstance(password, str) or len(password) < 12:
+            raise ValueError("Vault password must contain at least 12 characters")
+        if mode not in {"random", "hd_bip44"}:
+            raise ValueError("Unknown wallet mode")
+        if mode == "hd_bip44":
+            raise ValueError("HD creation disabled pending validated BIP-39 implementation")
+        if os.path.exists(self.storage_path):
+            raise FileExistsError("Refusing to overwrite an existing vault")
 
         salt = os.urandom(16)
         aes_key = self._derive_key(password, salt)
@@ -132,7 +140,8 @@ class SecurityKeyVault:
             "metadata": metadata
         }
 
-        with open(self.storage_path, "w", encoding="utf-8") as f:
+        # Exclusive creation also protects against a concurrent creator.
+        with open(self.storage_path, "x", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
 
         return pubkeys
@@ -168,47 +177,29 @@ class SecurityKeyVault:
             keypairs.append(Keypair.from_bytes(raw_bytes))
         return keypairs
 
-    def get_public_addresses(self) -> List[str]:
+    def get_public_addresses(self, password: Optional[str] = None) -> List[str]:
         """
-        Returns list of public addresses WITHOUT decrypting private keys.
-        Reads directly from unencrypted vault metadata.
+        Derives public addresses from the authenticated encrypted payload.
+        Existing vaults require a password: their plaintext metadata is untrusted.
+        Decryption occurs in memory; private keys are excluded from the result.
         """
         if not os.path.exists(self.storage_path):
             return []
 
-        with open(self.storage_path, "r", encoding="utf-8") as f:
-            payload = json.load(f)
-
-        metadata = payload.get("metadata", {})
-        if "public_addresses" in metadata:
-            return metadata["public_addresses"]
-
-        count = metadata.get("wallet_count", payload.get("count", 0))
-        return [f"WALLET_INDEX_{i}" for i in range(count)]
+        if not password:
+            raise PermissionError("Password required to authenticate vault public addresses")
+        return [str(kp.pubkey()) for kp in self.load_keypairs(password)]
 
     def get_sanitized_public_view(self, password: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Zero-Knowledge Projection:
-        Returns virtual indices, aliases, and public addresses only.
-        RAW SECRET KEYS ARE STRICTLY EXCLUDED.
+        Returns indices, aliases, addresses and roles after password authentication.
+        Private keys are excluded from the result. Unauthenticated metadata is
+        never used as a source of public addresses.
         """
         if not os.path.exists(self.storage_path):
             return []
 
-        if password:
-            keypairs = self.load_keypairs(password)
-            return [
-                {
-                    "wallet_index": idx,
-                    "alias": f"wallet_{idx}",
-                    "pubkey": str(kp.pubkey()),
-                    "role": "market_maker" if idx % 2 == 0 else "momentum_trader"
-                }
-                for idx, kp in enumerate(keypairs)
-            ]
-
-        # Use unencrypted public addresses if password is not provided
-        pubkeys = self.get_public_addresses()
+        pubkeys = self.get_public_addresses(password)
         return [
             {
                 "wallet_index": idx,

@@ -10,4 +10,5 @@ if __name__ == "__main__":
     print("  SOLANA AI VOLUME SUITE: COMMAND CENTER STARTING ")
     print("  URL: http://127.0.0.1:8000                     ")
     print("==================================================")
-    uvicorn.run("dashboard.app:app", host="0.0.0.0", port=8000, reload=False)
+    sys.path.insert(0, os.path.dirname(current_dir))
+    uvicorn.run("solana_volume_suite.dashboard.safety_app:app", host="127.0.0.1", port=8000, reload=False)
