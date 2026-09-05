@@ -6,6 +6,8 @@ from __future__ import annotations
 import os
 import time
 import subprocess
+import shlex
+import sys
 from pathlib import Path
 
 import sqlalchemy as sa
@@ -61,18 +63,20 @@ async def test_github_verifier_queries_remote_state_freshly(env, tmp_path):
     _git(work, "add", "."); _git(work, "commit", "-q", "-m", "c1")
     local_sha = _git(work, "rev-parse", "HEAD")
     branch = _git(work, "rev-parse", "--abbrev-ref", "HEAD")
+    # ExpectedState targets use shell-token syntax, including on Windows.
+    remote_target = shlex.quote(str(remote))
     # LOCAL_COMMIT != REMOTE_PUSH: коммит есть локально, но remote его не знает
-    r = await verify(ExpectedState("github", f"{remote} refs/heads/{branch}", {"sha": local_sha}), svc=env.svc, task={})
+    r = await verify(ExpectedState("github", f"{remote_target} refs/heads/{branch}", {"sha": local_sha}), svc=env.svc, task={})
     assert r.status == "FAILED"
     _git(work, "push", "-q", str(remote), f"HEAD:refs/heads/{branch}")
-    r = await verify(ExpectedState("github", f"{remote} refs/heads/{branch}", {"sha": local_sha}), svc=env.svc, task={})
+    r = await verify(ExpectedState("github", f"{remote_target} refs/heads/{branch}", {"sha": local_sha}), svc=env.svc, task={})
     assert r.status == "VERIFIED" and r.evidence[0].hash == local_sha
-    r = await verify(ExpectedState("github", f"{remote} refs/heads/{branch}", {"sha": "0" * 40}), svc=env.svc, task={})
+    r = await verify(ExpectedState("github", f"{remote_target} refs/heads/{branch}", {"sha": "0" * 40}), svc=env.svc, task={})
     assert r.status == "FAILED"
-    r = await verify(ExpectedState("github", f"{remote} refs/heads/nope", {"exists": False}), svc=env.svc, task={})
+    r = await verify(ExpectedState("github", f"{remote_target} refs/heads/nope", {"exists": False}), svc=env.svc, task={})
     assert r.status == "VERIFIED"
     # remote недоступен → UNVERIFIED, не PASS
-    r = await verify(ExpectedState("github", f"{tmp_path / 'absent.git'} refs/heads/{branch}", {"sha": local_sha}), svc=env.svc, task={})
+    r = await verify(ExpectedState("github", f"{shlex.quote(str(tmp_path / 'absent.git'))} refs/heads/{branch}", {"sha": local_sha}), svc=env.svc, task={})
     assert r.status == "UNVERIFIED"
 
 
@@ -109,7 +113,7 @@ async def test_schedule_verifier_reads_row_not_api_response(env):
 async def test_process_verifier_uses_live_pid(env):
     alive = await verify(ExpectedState("process", str(os.getpid()), {"running": True}), svc=env.svc, task={})
     assert alive.status == "VERIFIED"
-    proc = subprocess.Popen(["python3", "-c", "pass"]); proc.wait()
+    proc = subprocess.Popen([sys.executable, "-c", "pass"]); proc.wait()
     gone = await verify(ExpectedState("process", str(proc.pid), {"running": False}), svc=env.svc, task={})
     assert gone.status == "VERIFIED"
     assert (await verify(ExpectedState("process", "x", {"running": True}), svc=env.svc, task={})).status == "UNVERIFIED"
@@ -140,7 +144,10 @@ def test_observe_pid_disagreeing_sources_are_not_proof(monkeypatch):
     import psutil
     from bcc.v2.verification import observe_pid
     monkeypatch.setattr(psutil, "pid_exists", lambda pid: False)
-    obs = observe_pid(os.getpid())
+    # Explicitly simulate the POSIX signal source; NEVER invoke real signal 0
+    # on Windows, where os.kill would terminate the observed process.
+    monkeypatch.setattr(os, "kill", lambda pid, signal: None)
+    obs = observe_pid(os.getpid(), platform="posix")
     assert "running" not in obs and "disagree" in obs["error"] and obs["sources"]["psutil"] is False
     exp = ExpectedState("process", str(os.getpid()), {"running": True})
     status, reason = _compare(exp, ObservedState("process", exp.target, obs, time.time()))

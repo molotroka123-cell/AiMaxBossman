@@ -175,9 +175,14 @@ class TerminalManager:
             )
         else:
             shell = host_shell()
-            if shell is None:                    # POSIX: как было, /bin/sh -c
+            # cmd.exe does not use CRT argv escaping: passing the complete
+            # command as an exec argument inserts backslashes before quotes.
+            # Python's shell launcher supplies cmd /c with its native quoting.
+            is_cmd = shell is not None and Path(shell[0]).name.lower() in ("cmd", "cmd.exe")
+            if shell is None or is_cmd:
                 proc = await asyncio.create_subprocess_shell(
                     cmd, cwd=str(cwd),
+                    **({"executable": shell[0]} if is_cmd else {}),
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
