@@ -177,9 +177,21 @@ class TaskEngine:
             reason: str | None
             error_type = ""
             try:
+                # V2 freeze exception (TRUTH-003 / FINDING V2-HOOK-CANCEL-01).
+                # НЕ asyncio.wait_for: на Python 3.11 он исполняет хук в
+                # ОТДЕЛЬНОЙ задаче и глотает отмену внешней задачи, если хук
+                # завершился в том же шаге цикла (gh-86296). Ровно так работает
+                # Governor: хук зовёт engine.stop(), тот отменяет текущий run —
+                # и отмена терялась, а следующий за хуком retry-write перебивал
+                # «stopped» на «queued» (бесконечный цикл, который Governor и
+                # должен был прервать). asyncio.timeout исполняет хук в той же
+                # задаче: отмена доставляется на первом же await после хука.
                 coro = fn(*args)
-                res = await (asyncio.wait_for(coro, timeout=timeout)
-                             if timeout is not None else coro)
+                if timeout is not None:
+                    async with asyncio.timeout(timeout):
+                        res = await coro
+                else:
+                    res = await coro
             except asyncio.CancelledError:
                 raise                       # Stop/shutdown — не ошибка хука
             except (asyncio.TimeoutError, TimeoutError):

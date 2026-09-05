@@ -345,3 +345,27 @@ async def test_call_hooks_unit_contract(env):
     assert ei.value.reason.startswith("RuntimeError")
     with pytest.raises(KeyError):
         eng.add_hook("no_such_hook", ok)
+
+
+async def test_hook_stop_cancellation_reaches_the_run(env):
+    """V2-HOOK-CANCEL-01 (TRUTH-003): хук, который останавливает СВОЙ run
+    (Governor → engine.stop → worker.cancel), должен реально его оборвать.
+
+    На Python 3.11 asyncio.wait_for исполнял хук в отдельной задаче и глотал
+    отмену внешней, если хук завершался в том же шаге цикла: retry-write после
+    хука перебивал «stopped» на «queued». Хук здесь отменяет текущую задачу
+    и сразу возвращается — ровно тот случай; отмена обязана дойти до первого
+    await после хука, а не потеряться."""
+    import asyncio
+    engine = env.svc.engine
+    outer = asyncio.current_task()
+
+    async def stopper(*_args):
+        outer.cancel()
+
+    engine.add_hook("on_failure", stopper, critical=False)
+    engine.hook_timeout_s = 5.0
+    with pytest.raises(asyncio.CancelledError):
+        await engine._call_hooks("on_failure", {"id": 1}, 1, "boom")
+        await asyncio.sleep(0)
+    outer.uncancel()          # отмена доставлена и поглощена тестом; фикстуры закрываются штатно
