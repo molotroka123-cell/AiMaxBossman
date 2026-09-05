@@ -894,6 +894,7 @@ function commandBlock({ agents, models }, ctx) {
       const canRun = Boolean(selected);
       if (!text) { toastError(new Error('Команда пустая'), 'Введите команду'); return; }
       send.disabled = true;
+      send.setAttribute('aria-busy', 'true');
       try {
         const res = await api.raw('/api/tasks', {
           method: 'POST',
@@ -914,6 +915,7 @@ function commandBlock({ agents, models }, ctx) {
         toastError(err, 'Команда не принята');
       } finally {
         send.disabled = false;
+        send.removeAttribute('aria-busy');
       }
     },
   },

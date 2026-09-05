@@ -148,6 +148,7 @@ async function publish() {
   const btn = document.getElementById('bcc-testing-publish');
   if (!btn) return;
   btn.disabled = true;
+  btn.setAttribute('aria-busy', 'true');
   const was = btn.textContent;
   btn.textContent = 'Отправляю…';
   say('собираю журнал и чищу секреты…', 0);
@@ -164,6 +165,7 @@ async function publish() {
     say(`ошибка публикации: ${err?.message || err}`, 20000);
   } finally {
     btn.disabled = false;
+    btn.removeAttribute('aria-busy');
     btn.textContent = was;
     refreshCount();
   }

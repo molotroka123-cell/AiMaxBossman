@@ -461,7 +461,13 @@ export function actionButton(label, handler, { cls = 'btn', iconName, title, dis
     e.stopPropagation();
     if (btn.classList.contains('busy')) return;
     btn.classList.add('busy');
-    try { await handler(e); } finally { btn.classList.remove('busy'); }
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    try { await handler(e); } finally {
+      btn.classList.remove('busy');
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+    }
   });
   return btn;
 }

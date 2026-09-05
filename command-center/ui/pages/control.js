@@ -35,7 +35,7 @@ const STATE_HINT = {
   OBSERVED: 'состояние прочитано, проверка не подтвердила ожидание',
   VERIFIED: 'эффект подтверждён свежим чтением; работа ещё не финализирована',
   COMPLETE: 'финализатор закрыл работу: проверки пройдены',
-  BLOCKED: 'нужен ответ владельца',
+  BLOCKED: 'исполнение заблокировано; причина указана рядом',
   FAILED: 'исполнение не удалось',
   STOPPED: 'остановлено',
 };
@@ -44,18 +44,22 @@ function stateChip(row) {
   const tone = STATE_TONE[row.action_state] || 'idle';
   return h('span', {
     class: `badge badge-${tone}`,
+    role: 'status',
     title: STATE_HINT[row.action_state] || '',
   }, row.action_state);
 }
 
 function money(v) {
-  const n = Number(v || 0);
-  return n ? `$${n.toFixed(n < 0.01 ? 6 : 4)}` : '—';
+  if (v === null || v === undefined || v === '') return '—';
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return '—';
+  return `$${n.toFixed(n > 0 && n < 0.01 ? 6 : 4)}`;
 }
 
 function rowNode(r) {
   return h('tr', { class: r.attention ? 'attention' : '' },
-    h('td', h('div.mono.xsmall.dim', `#${r.task_id}`), h('div', r.what)),
+    h('td', h('a.mono.xsmall', { href: `#/tasks?task=${encodeURIComponent(r.task_id)}`,
+      'aria-label': `Открыть задачу ${r.task_id}: ${r.what || ''}` }, `#${r.task_id}`), h('div', r.what)),
     h('td', r.who),
     h('td.mono.xsmall', r.where),
     h('td.mono.xsmall', r.model),
@@ -130,7 +134,7 @@ const ControlPage = {
 
   onEvent(ev) {
     // Перерисовываем только по событиям жизненного цикла — не по каждому логу.
-    return ['task.created', 'task.queued', 'task.finalized', 'task.failed', 'task.stopped',
+    return ['task.created', 'task.queued', 'task.blocked', 'task.finalized', 'task.failed', 'task.stopped',
       'approval.created', 'approval.decided', 'verification.result'].includes(ev.kind);
   },
 };
