@@ -10,7 +10,7 @@
     "duplicate_side_effect_count": 0,
     "privacy_violation_count": 0,
     "permission_bypass_count": 0,
-    "source": "command-center/tests/test_fence_fl01.py, test_feat_organization.py, bossman-core/tests/test_v3_fleet_e2e.py, test_v3_organization_e2e.py, test_v3_evidence_signing.py at last_evidence_sha (deterministic suites; no live benchmark run recorded)"
+    "source": "bossman-core/tests/test_v3_org_benchmark.py (A–E), test_v3_benchmark_overlay.py, test_v3_fleet_e2e.py, command-center/tests/test_fence_fl01.py at last_evidence_sha; deterministic suites, no live run recorded"
   },
   "current_bottleneck": "EH-02/EH-04: улики подписаны (EH-01), fence движка закрывает дубли (FL-01), Organization доступна как продукт (ORG-01/02), но верификаторы пост-состояния есть лишь для 4 семейств и нет единой точки finalize() — Execution Truth не может стать ATTESTED; флот и SLO не подключены к Command Center (control-plane честно показывает enabled=false / NOT_IMPLEMENTED).",
   "next_highest_value_fix": "TZ-01 §2.2–2.3: ActionReceipt + детерминированные верификаторы пост-состояния (terminal/files/apps/github) и единый finalize() с grep-тестом; затем TZ-08 §2.2 гистограммы/SLO и ретеншн событий.",
@@ -177,15 +177,19 @@
       "evidence": [
         "4 workflow (root-ci, Bossman Core CI, Command Center CI, V2 Auto-Repair) зелёные по точному SHA 714bb01/fb201a4",
         "Полный регресс ядра на стабильном HEAD; benchmark-тесты проверяют SHA",
-        "README_SCORECARD_CURRENT проверяется в root-ci (scripts/update_readme_scorecard.py --check)"
+        "README_SCORECARD_CURRENT проверяется в root-ci (scripts/update_readme_scorecard.py --check)",
+        "Пассивный benchmark overlay: 9 hard fail'ов, 5 стресс-бенчмарков над реальными Organization/Fleet/CompoundRunner, мост в scorecard `--from-benchmark` (bossman-core/tests/test_v3_benchmark_overlay.py, test_v3_org_benchmark.py)"
       ],
       "blockers": [
         "TZ-07: windows-job отсутствует, coverage gate, реестр skips",
-        "CI по текущему HEAD ещё не наблюдался (NOT_RUN ≠ PASS)"
+        "CI по текущему HEAD ещё не наблюдался (NOT_RUN ≠ PASS)",
+        "benchmark-report.json ещё не пишется регулярным прогоном (только тестами)"
       ],
       "tests": [
         "tests/test_readme_scorecard.py",
-        ".github/workflows/*.yml"
+        ".github/workflows/*.yml",
+        "bossman-core/tests/test_v3_benchmark_overlay.py",
+        "bossman-core/tests/test_v3_org_benchmark.py"
       ],
       "last_verified_sha": "fb201a4",
       "last_verified_at": "2026-09-05",

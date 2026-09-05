@@ -193,17 +193,53 @@ def current_block(readme: str) -> str:
     return readme[s:e].strip("\n")
 
 
+# --------------------------------------------------------- benchmark bridge
+
+def ingest_benchmark(data: dict, report: dict, *, report_path: str) -> dict:
+    """benchmark-report.json (пассивный overlay) → детерминированные поля scorecard:
+    hard fail'ы понижают связанные оси (apply_hard_fails), счётчики копируются как
+    есть. Оценки осей руками не трогаются — только через hard fail."""
+    agg = dict(report.get("aggregate") or {})
+    hard = [str(h) for h in (agg.get("hard_failures") or [])]
+    data = apply_hard_fails(data, hard)
+    counters = dict(data.get("deterministic_counters") or {})
+    for key in ("false_success_count", "duplicate_side_effect_count", "privacy_violation_count",
+                "permission_bypass_count", "scope_leak_count", "review_bypass_count",
+                "verified_success_count", "mission_count"):
+        if key in agg:
+            counters[key] = agg[key]
+    for key in ("cost_per_verified_success", "tokens_per_verified_success", "gpu_seconds_per_verified_success",
+                "human_interrupts_per_verified_mission", "false_success_rate", "recovery_success_rate",
+                "team_overhead_ratio", "model_escalation_rate", "local_execution_rate", "cloud_avoidance_rate",
+                "token_value_metric"):
+        if key in agg:
+            counters[key] = agg[key]
+    counters["source"] = f"{report_path} (benchmark overlay, git_sha {str(report.get('git_sha', ''))[:12]}, mode {report.get('mode', '?')})"
+    data["deterministic_counters"] = counters
+    data["benchmark_report"] = {"path": report_path, "git_sha": report.get("git_sha", ""), "mode": report.get("mode", ""),
+                                "benchmark_version": report.get("benchmark_version", "")}
+    return data
+
+
 # -------------------------------------------------------------------- main
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--from-benchmark", default=None,
+                    help="benchmark-report.json пассивного overlay: hard fail'ы и счётчики → scorecard JSON (перед рендером)")
     ap.add_argument("--scorecard", default=str(SCORECARD_JSON))
     ap.add_argument("--readme", default=str(README))
     ap.add_argument("--md", default=str(SCORECARD_MD))
     a = ap.parse_args(argv)
     try:
         data = validate(json.loads(Path(a.scorecard).read_text(encoding="utf-8")))
+        if a.from_benchmark:
+            report = json.loads(Path(a.from_benchmark).read_text(encoding="utf-8"))
+            if not isinstance(report, dict) or "aggregate" not in report:
+                raise ScorecardError("benchmark report must be an object with an aggregate")
+            data = validate(ingest_benchmark(data, report, report_path=str(a.from_benchmark)))
+            Path(a.scorecard).write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         head = head_sha()
         block = render(data, head)
         readme = Path(a.readme).read_text(encoding="utf-8")

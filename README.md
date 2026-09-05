@@ -150,7 +150,7 @@ Playwright для браузерной автоматизации.
 | Verifier | ПРОИЗОШЛО ЛИ на самом деле | `bcc.v2.verification`, `bossman_v3/memory` (журнал: finished = чек ∧ проверка) | VERIFIED |
 | Memory | ЧТО должно сохраниться | `bossman_v3/memory`, `organization/memory_scope.py`, `bossman/context_engine` | IMPLEMENTED |
 | Autonomous Operations | КОГДА начинать новую работу | — | НЕ НАЧАТО (отдельная миссия) |
-| Benchmark / CEO Scorecard | КАК измеряем зрелость и регрессии | `docs/benchmark/current-scorecard.json`, `bossman/benchmark` | PARTIAL (overlay не влит) |
+| Benchmark / CEO Scorecard | КАК измеряем зрелость и регрессии | `bossman_v3/benchmark_overlay` (пассивный), `docs/benchmark/current-scorecard.json`, `bossman/benchmark` | IMPLEMENTED (детерминированные стресс-бенчмарки; live-прогон не записан) |
 
 Наличие drop-in ZIP или дизайн-документа не делает слой рабочим: статус выше — только по коду и тестам в репозитории.
 
@@ -170,14 +170,14 @@ README — только проекция, которую перерисовыв�
 | 4 | Organization Layer | 7.0/10 | INTEGRATED | MEDIUM | OrganizationRuntime над V3ExecutionBridge/FleetExecutionBridge; ORG-03..07, MEM-02 закрыты (084ad3a); E2E: родитель не COMPLETE при непроверенном ребёнке, рестарт без дублей (bossman-core/tests/test_v3_organization_e2e.py); ORG-01/02: фича `/api/org/*` за флагами, агент организации → агент V2, задача+run V2 на контракт; PlannerPort/DeterministicPlanner; контракт без шагов → BLOCKED/no_executable_steps (efaa55f, test_v3_organization_planner.py, command-center/tests/test_feat_organization.py) |
 | 5 | Fleet & Resources | 6.5/10 | INTEGRATED | MEDIUM | FleetStore/LeaseManager/WorkQueue CAS-claim, fencing, reclaim (bossman-core/tests/test_v3_fleet_core.py, 20 тестов); E2E #1–#4: размещение→исполнение, смерть узла→resume без дублей, приватность, двойной claim (test_v3_fleet_e2e.py); FL-01: task_runs.fence, условные записи и heartbeat, assert_fence до эффекта в V2 и в V3-адаптере (2487694, test_fence_fl01.py) |
 | 6 | Memory / Context | 6.2/10 | IMPLEMENTED | MEDIUM | TaskJournal + FailureMemory + ContextAssembler с редакцией (bossman_v3/memory); ScopedKnowledge: явное наследование include_parents, экспорт по allowlist (MEM-02, 084ad3a) |
-| 7 | Testing / CI | 7.0/10 | VERIFIED | MEDIUM | 4 workflow (root-ci, Bossman Core CI, Command Center CI, V2 Auto-Repair) зелёные по точному SHA 714bb01/fb201a4; Полный регресс ядра на стабильном HEAD; benchmark-тесты проверяют SHA; README_SCORECARD_CURRENT проверяется в root-ci (scripts/update_readme_scorecard.py --check) |
+| 7 | Testing / CI | 7.0/10 | VERIFIED | MEDIUM | 4 workflow (root-ci, Bossman Core CI, Command Center CI, V2 Auto-Repair) зелёные по точному SHA 714bb01/fb201a4; Полный регресс ядра на стабильном HEAD; benchmark-тесты проверяют SHA; README_SCORECARD_CURRENT проверяется в root-ci (scripts/update_readme_scorecard.py --check); Пассивный benchmark overlay: 9 hard fail'ов, 5 стресс-бенчмарков над реальными Organization/Fleet/CompoundRunner, мост в scorecard `--from-benchmark` (bossman-core/tests/test_v3_benchmark_overlay.py, test_v3_org_benchmark.py) |
 | 8 | Observability / CEO Control | 5.5/10 | PARTIAL | LOW | control_plane снимки организации и флота из durable store (bossman_v3/organization/control_plane.py, fleet/control_plane.py); GET /api/control-plane: organization/queue/treasury/fleet/slo/attention из durable-источников, снимок совпадает после рестарта (5709611, command-center/tests/test_feat_control_plane.py); AST-скан: события и run-лог не несут messages/prompt/api_key/cookie/token (test_no_private_fields_in_events.py) |
 | 9 | Treasury / Cost | 6.5/10 | IMPLEMENTED | MEDIUM | TR-01/02/03: актуальные цены 5 семейств (provisional), токен-оценка по скрипту, потолок in·max(p_in,p_cw)+out·p_out (e724a44, tests/test_fable_budget_pricing.py); ResourceTreasury: INV-3 PartitionViolation, конверты org→dept→mission (test_v3_organization_core.py) |
 | 10 | Mission UX / Command Center | 6.0/10 | IMPLEMENTED | MEDIUM | Command Center UI (command-center/ui) с approvals, задачами, инструментами; command-center/tests зелёные; Компактная навигация + OpenRouter Connect (исправлен appendChild) — ветка claude/v2-ui-sidebar-compact, 1401 passed, НЕ влита; Данные для страницы владельца доступны: `/api/control-plane`, `/api/org/snapshot` (UI-страница — TZ-10, не сделана) |
 
 - **Current bottleneck:** EH-02/EH-04: улики подписаны (EH-01), fence движка закрывает дубли (FL-01), Organization доступна как продукт (ORG-01/02), но верификаторы пост-состояния есть лишь для 4 семейств и нет единой точки finalize() — Execution Truth не может стать ATTESTED; флот и SLO не подключены к Command Center (control-plane честно показывает enabled=false / NOT_IMPLEMENTED).
 - **Next highest-value fix:** TZ-01 §2.2–2.3: ActionReceipt + детерминированные верификаторы пост-состояния (terminal/files/apps/github) и единый finalize() с grep-тестом; затем TZ-08 §2.2 гистограммы/SLO и ретеншн событий.
-- **Last evidence SHA:** `4c8fec2c0ceada7f5085373e067e1f01b289398e` · **Current HEAD SHA:** `4c8fec2c0cea` · **Evidence freshness:** FRESH
+- **Last evidence SHA:** `4c8fec2c0ceada7f5085373e067e1f01b289398e` · **Current HEAD SHA:** `268460015e31` · **Evidence freshness:** PARTIALLY_STALE
 - **Last scorecard update:** 2026-09-05
 - **Benchmark hard failures:** none observed
 - **Live hardware attestation:** PENDING
@@ -208,9 +208,9 @@ all relevant claims against current repository evidence before modifying archite
 
 ## Дорожная карта (по состоянию, без дат)
 
-- **DONE** — V2 action contract и заморозка `ffda281`; V3 ядро (журнал, CompoundRunner, адаптеры); Organization Layer; Fleet OS (локальный транспорт); P0-A/P0-B безопасности; TR-01..03 казначейства.
-- **INTEGRATING** — Live Scorecard и проверка в CI; закрытие ТЗ аудита (TZ-05 fence в движке, TZ-01 подпись улик).
-- **NEXT** — TZ-04 точка входа Organization (HTTP/планировщик), TZ-08 наблюдаемость, benchmark overlay (пассивный), OpenRouter как временный провайдер через конфиг (ключи только в env).
+- **DONE** — V2 action contract и заморозка `ffda281`; V3 ядро (журнал, CompoundRunner, адаптеры); Organization Layer + точка входа `/api/org/*`; Fleet OS (локальный транспорт) + FL-01 fence движка; подписанные улики (EH-01); P0-A/P0-B; TR-01..03; Live Scorecard; пассивный benchmark overlay; `/api/control-plane`; OpenRouter через env.
+- **INTEGRATING** — benchmark-отчёт → scorecard (`--from-benchmark`) в регулярном прогоне; закрытие ТЗ аудита по порядку владельца.
+- **NEXT** — TZ-01 §2.2–2.3 верификаторы пост-состояния и `finalize()`, TZ-08 ретеншн/SLO/span'ы, страница control-plane (TZ-10), TZ-02/07 (скан 2.0, coverage, windows-job).
 - **LATER** — удалённый транспорт флота production-grade, живая аттестация железа, Autonomous Operations (отдельная миссия), TZ-06/03/10.
 
 ## Быстрый старт

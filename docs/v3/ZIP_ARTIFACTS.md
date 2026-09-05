@@ -9,7 +9,7 @@
 | `AiMaxBossman_Organization_Layer_DropIn.zip` (v1) | исходники полностью заменены `bossman_v3/organization`; v2 содержит всё, что было в v1 | **REDUNDANT_AFTER_INTEGRATION** |
 | `AiMaxBossman_Organization_Layer_DropIn_v2.zip` | интегрирован (adoption table в `docs/v3/organization/ARCHITECTURE.md`); уникальный текст `FABLE_10_INNOVATIONS.md` скопирован в docs | **ARCHIVE_CANDIDATE** (источник ТЗ; после архивации в релиз-теге можно удалить) |
 | `AiMaxBossman_Fleet_OS_Complete_Foundation_DropIn.zip` | интегрирован (adoption table в `docs/v3/fleet/ARCHITECTURE.md`); `FLEET_10_INNOVATIONS.md` скопирован | **ARCHIVE_CANDIDATE** |
-| `AiMaxBossman_Benchmark_Overlay_DropIn_v2.zip` | интегрирован в `bossman_v3/benchmark_overlay` (см. коммит бенчмарка) | **ARCHIVE_CANDIDATE** |
+| `AiMaxBossman_Benchmark_Overlay_DropIn_v2.zip` | интегрирован в `bossman_v3/benchmark_overlay` (adoption table: `docs/benchmark/BENCHMARK_OVERLAY.md`; до этого коммита запись была преждевременной — пакета не существовало) | **ARCHIVE_CANDIDATE** |
 | `AiMaxBossman_V3_7Pack.zip` | источник `bossman_v3/*` семи модулей (интегрированы ранее) | ARCHIVE_CANDIDATE |
 | `BOSSMAN_V3_AUTONOMOUS_OPERATOR_EXPANDED_FULL_PACK.zip` | относится к стадии Autonomous Operations — **не начата** по мандату | KEEP_SOURCE_ARTIFACT |
 | `AiMaxBossman_V1_FINAL_ACCEPTANCE_PACK_2026-08-30.zip`, `BOSSMAN_ZIP_LEVEL_3_FINAL_REPACKED.zip`, `BOSSMAN_META_INTELLIGENCE_7_MODULES_PASS3_FINAL.zip` | исторические приёмочные паки | ARCHIVE_CANDIDATE |
