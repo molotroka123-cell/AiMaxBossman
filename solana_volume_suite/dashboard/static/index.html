@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOLANA AI VOLUME SUITE // COMMAND CENTER</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyber: {
+              black: '#070a0f',
+              dark: '#0c121d',
+              card: '#111a2c',
+              border: '#1f2e4a',
+              green: '#00ff88',
+              cyan: '#00e5ff',
+              red: '#ff0055',
+              amber: '#ffaa00',
+              purple: '#b026ff'
+            }
+          },
+          fontFamily: {
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #070a0f;
+      color: #e2e8f0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .neon-text-green { text-shadow: 0 0 8px rgba(0,255,136,0.6); }
+    .neon-text-cyan { text-shadow: 0 0 8px rgba(0,229,255,0.6); }
+    .neon-text-red { text-shadow: 0 0 8px rgba(255,0,85,0.6); }
+    .neon-border-green { box-shadow: 0 0 12px rgba(0,255,136,0.25); }
+    .neon-border-red { box-shadow: 0 0 15px rgba(255,0,85,0.35); }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0c121d; }
+    ::-webkit-scrollbar-thumb { background: #1f2e4a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00e5ff; }
+  </style>
+</head>
+<body class="p-4 md:p-6 min-h-screen">
+
+  <!-- TOP HEADER -->
+  <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-cyber-border pb-4 mb-6">
+    <div>
+      <div class="flex items-center space-x-3">
+        <span class="inline-block w-3 h-3 bg-cyber-green rounded-full animate-ping"></span>
+        <h1 class="text-xl md:text-2xl font-bold tracking-widest text-cyber-cyan neon-text-cyan">
+          SOLANA AI VOLUME SUITE <span class="text-xs text-cyber-green px-2 py-0.5 border border-cyber-green rounded">v3.0 HARDENED</span>
+        </h1>
+      </div>
+      <p class="text-xs text-slate-400 mt-1">Zero-Knowledge Sandbox // Anti-Bubblemaps // Jito-Only Private Mempool</p>
+    </div>
+
+    <!-- Live Status & Stage Switcher -->
+    <div class="flex items-center space-x-4 mt-4 md:mt-0">
+      <div class="text-right">
+        <div class="text-xs text-slate-400">ACTIVE STAGE</div>
+        <div id="stageBadge" class="text-sm font-bold text-cyber-amber px-2 py-0.5 bg-cyber-card border border-cyber-border rounded">
+          STAGE 1: PUMP.FUN
+        </div>
+      </div>
+      <div class="text-right">
+        <div class="text-xs text-slate-400">BOT STATUS</div>
+        <div id="statusBadge" class="text-sm font-bold text-slate-400 px-3 py-0.5 bg-cyber-card border border-cyber-border rounded">
+          STOPPED
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- METRICS CARDS ROW -->
+  <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <!-- 5m Volume -->
+    <div class="bg-cyber-dark p-4 rounded border border-cyber-border">
+      <div class="text-xs text-slate-400">5M ROLLING VOLUME</div>
+      <div id="vol5m" class="text-xl md:text-2xl font-bold text-cyber-green neon-text-green mt-1">$0.00</div>
+      <div class="text-[10px] text-slate-500 mt-1">Target: $25,000 / hr</div>
+    </div>
+    <!-- Total Volume -->
+    <div class="bg-cyber-dark p-4 rounded border border-cyber-border">
+      <div class="text-xs text-slate-400">TOTAL GENERATED VOLUME</div>
+      <div id="volTotal" class="text-xl md:text-2xl font-bold text-cyber-cyan mt-1">$0.00</div>
+      <div class="text-[10px] text-slate-500 mt-1" id="txCount">0 On-Chain Txs</div>
+    </div>
+    <!-- Fee Burn -->
+    <div class="bg-cyber-dark p-4 rounded border border-cyber-border">
+      <div class="text-xs text-slate-400">TOTAL BURNED (FEES + MEV TIPS)</div>
+      <div id="burnTotal" class="text-xl md:text-2xl font-bold text-cyber-red mt-1">$0.00</div>
+      <div class="text-[10px] text-slate-500 mt-1">Circuit Breaker: &lt; $40.00</div>
+    </div>
+    <!-- Efficiency Ratio -->
+    <div class="bg-cyber-dark p-4 rounded border border-cyber-border">
+      <div class="text-xs text-slate-400">EFFICIENCY RATIO</div>
+      <div id="effRatio" class="text-xl md:text-2xl font-bold text-cyber-amber mt-1">0.0x</div>
+      <div class="text-[10px] text-slate-500 mt-1">$ Volume per $1 Fee</div>
+    </div>
+  </section>
+
+  <!-- MAIN INTERFACE SPLIT -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- LEFT COLUMN: CONTROLS & VAULT -->
+    <div class="space-y-6">
+
+      <!-- CONTROL PANEL -->
+      <div class="bg-cyber-dark p-5 rounded border border-cyber-border">
+        <h2 class="text-sm font-bold text-cyber-cyan tracking-wider border-b border-cyber-border pb-2 mb-4 flex items-center justify-between">
+          <span>MISSION CONTROL PANEL</span>
+          <span class="text-xs font-normal text-slate-400">FAIL-CLOSED ENGINE</span>
+        </h2>
+
+        <!-- STAGE TOGGLE -->
+        <div class="mb-4">
+          <label class="block text-xs text-slate-400 mb-1">EXECUTION STAGE</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="btnStagePump" onclick="setStage('BONDING_CURVE')" class="py-2 text-xs font-bold rounded bg-cyber-card border border-cyber-green text-cyber-green">
+              PUMP.FUN (STAGE 1)
+            </button>
+            <button id="btnStageRay" onclick="setStage('RAYDIUM_AMM')" class="py-2 text-xs font-bold rounded bg-cyber-card border border-cyber-border text-slate-400 hover:text-cyber-cyan">
+              RAYDIUM AMM (STAGE 2)
+            </button>
+          </div>
+        </div>
+
+        <!-- TARGET MINT -->
+        <div class="mb-4">
+          <label class="block text-xs text-slate-400 mb-1">TARGET TOKEN MINT ADDRESS</label>
+          <input id="inputMint" type="text" value="DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
+                 class="w-full bg-cyber-black text-xs text-slate-200 border border-cyber-border rounded px-3 py-2 focus:outline-none focus:border-cyber-cyan font-mono" />
+        </div>
+
+        <!-- VAULT MASTER PASSWORD -->
+        <div class="mb-4">
+          <label class="block text-xs text-slate-400 mb-1">VAULT MASTER KEY (AES-256-GCM)</label>
+          <input id="inputPassword" type="password" value="SecretVaultPass123!"
+                 class="w-full bg-cyber-black text-xs text-slate-200 border border-cyber-border rounded px-3 py-2 focus:outline-none focus:border-cyber-cyan font-mono" />
+        </div>
+
+        <!-- WALLET COUNT SLIDER -->
+        <div class="mb-5">
+          <div class="flex justify-between text-xs text-slate-400 mb-1">
+            <span>SUB-WALLET POOL SIZE</span>
+            <span id="sliderVal" class="text-cyber-green font-bold">20 WALLETS</span>
+          </div>
+          <input id="sliderWallets" type="range" min="10" max="50" value="20"
+                 oninput="document.getElementById('sliderVal').innerText = this.value + ' WALLETS'"
+                 class="w-full accent-cyber-green cursor-pointer" />
+        </div>
+
+        <!-- ACTION BUTTONS -->
+        <div class="space-y-2">
+          <button id="btnStart" onclick="startBot()" class="w-full py-2.5 rounded bg-emerald-600 hover:bg-emerald-500 font-bold text-xs tracking-wider text-black neon-border-green transition">
+            [START AI MARKET MAKER]
+          </button>
+          <button id="btnStop" onclick="stopBot()" class="w-full py-2.5 rounded bg-red-700 hover:bg-red-600 font-bold text-xs tracking-wider text-white neon-border-red transition">
+            [KILL SWITCH / EMERGENCY PAUSE]
+          </button>
+          <button id="btnGenVault" onclick="generateVault()" class="w-full py-2 rounded bg-cyber-card hover:bg-cyber-border border border-cyber-border text-xs text-slate-300 transition">
+            RE-GENERATE ENCRYPTED VAULT POOL
+          </button>
+        </div>
+
+        <!-- EMERGENCY SWEEP SECTION -->
+        <div class="mt-6 pt-4 border-t border-cyber-border">
+          <div class="text-xs font-bold text-cyber-amber mb-2">EMERGENCY SOL & TOKEN SWEEP</div>
+          <input id="inputColdDest" type="text" placeholder="Cold Storage Solana Address..."
+                 class="w-full bg-cyber-black text-[11px] text-slate-200 border border-cyber-border rounded px-2.5 py-1.5 focus:outline-none focus:border-cyber-amber font-mono mb-2" />
+          <button onclick="sweepWallets()" class="w-full py-2 rounded bg-amber-600 hover:bg-amber-500 font-bold text-[11px] tracking-wider text-black transition">
+            SWEEP ALL WALLETS TO COLD STORAGE
+          </button>
+        </div>
+      </div>
+
+      <!-- SYSTEM INVARIANTS STATUS -->
+      <div class="bg-cyber-dark p-4 rounded border border-cyber-border text-xs space-y-2">
+        <div class="font-bold text-slate-300 border-b border-cyber-border pb-1">INVARIANT AUDIT MONITOR</div>
+        <div class="flex justify-between"><span class="text-slate-400">Jito-Only Mempool Invariant:</span><span class="text-cyber-green font-bold">100% ENFORCED</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Zero-Knowledge Isolation:</span><span class="text-cyber-green font-bold">ACTIVE (0 Keys in LLM)</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Anti-Clustering Cascade:</span><span class="text-cyber-green font-bold">2-TIER ROUTED</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Sub-Impact Order Slicing:</span><span class="text-cyber-green font-bold">&le; 1.2% CAP</span></div>
+        <div class="flex justify-between"><span class="text-slate-400">Curve Migration Threshold:</span><span class="text-cyber-green font-bold">95.0% HARD STOP</span></div>
+      </div>
+
+    </div>
+
+    <!-- MIDDLE COLUMN: ACTIVE WALLETS TABLE -->
+    <div class="bg-cyber-dark p-5 rounded border border-cyber-border">
+      <div class="flex justify-between items-center border-b border-cyber-border pb-2 mb-3">
+        <h2 class="text-sm font-bold text-cyber-cyan tracking-wider">SUB-WALLET POOL (ANONYMIZED)</h2>
+        <span id="walletCountBadge" class="text-xs text-cyber-green">0 Wallets</span>
+      </div>
+
+      <div class="overflow-y-auto max-h-[560px] pr-1">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="text-slate-500 border-b border-cyber-border">
+              <th class="py-1">IDX</th>
+              <th class="py-1">ADDRESS</th>
+              <th class="py-1 text-right">SOL</th>
+              <th class="py-1 text-right">ROLE</th>
+            </tr>
+          </thead>
+          <tbody id="walletTableBody" class="divide-y divide-cyber-border">
+            <tr><td colspan="4" class="py-4 text-center text-slate-500">Loading sub-wallet pool...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: LIVE TERMINAL EVENT STREAM -->
+    <div class="bg-cyber-dark p-5 rounded border border-cyber-border flex flex-col">
+      <div class="flex justify-between items-center border-b border-cyber-border pb-2 mb-3">
+        <h2 class="text-sm font-bold text-cyber-green tracking-wider flex items-center space-x-2">
+          <span class="w-2 h-2 bg-cyber-green rounded-full"></span>
+          <span>TERMINAL EVENT STREAM</span>
+        </h2>
+        <span class="text-[10px] text-slate-500">POISSON PACED</span>
+      </div>
+
+      <div id="terminalStream" class="flex-1 overflow-y-auto max-h-[560px] space-y-2 text-xs font-mono pr-1">
+        <div class="text-slate-500 text-[11px]">[SYSTEM] Initializing telemetry link...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let currentStage = 'BONDING_CURVE';
+
+    function setStage(stage) {
+      currentStage = stage;
+      document.getElementById('stageBadge').innerText = stage === 'BONDING_CURVE' ? 'STAGE 1: PUMP.FUN' : 'STAGE 2: RAYDIUM';
+      if (stage === 'BONDING_CURVE') {
+        document.getElementById('btnStagePump').className = "py-2 text-xs font-bold rounded bg-cyber-card border border-cyber-green text-cyber-green";
+        document.getElementById('btnStageRay').className = "py-2 text-xs font-bold rounded bg-cyber-card border border-cyber-border text-slate-400 hover:text-cyber-cyan";
+      } else {
+        document.getElementById('btnStageRay').className = "py-2 text-xs font-bold rounded bg-cyber-card border border-cyber-cyan text-cyber-cyan";
+        document.getElementById('btnStagePump').className = "py-2 text-xs font-bold rounded bg-cyber-card border border-cyber-border text-slate-400 hover:text-cyber-green";
+      }
+    }
+
+    async function fetchTelemetry() {
+      try {
+        const res = await fetch('/api/telemetry');
+        const data = await res.json();
+
+        // Update badges
+        const statusBadge = document.getElementById('statusBadge');
+        statusBadge.innerText = data.bot_status;
+        if (data.bot_status === 'RUNNING') {
+          statusBadge.className = 'text-sm font-bold text-black px-3 py-0.5 bg-cyber-green border border-cyber-green rounded neon-border-green';
+        } else if (data.bot_status === 'PAUSED') {
+          statusBadge.className = 'text-sm font-bold text-cyber-amber px-3 py-0.5 bg-cyber-card border border-cyber-amber rounded';
+        } else {
+          statusBadge.className = 'text-sm font-bold text-slate-400 px-3 py-0.5 bg-cyber-card border border-cyber-border rounded';
+        }
+
+        // Metrics
+        document.getElementById('vol5m').innerText = '$' + (data.metrics.volume_5m_usd || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('volTotal').innerText = '$' + (data.metrics.total_volume_usd || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('txCount').innerText = `${data.total_tx_count} On-Chain Txs | Curve: ${data.curve_progress_pct}%`;
+        document.getElementById('burnTotal').innerText = '$' + (data.metrics.total_burn_usd || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('effRatio').innerText = (data.metrics.efficiency_ratio || 0).toFixed(1) + 'x';
+
+        // Event Stream
+        const stream = document.getElementById('terminalStream');
+        if (data.recent_events && data.recent_events.length > 0) {
+          stream.innerHTML = data.recent_events.map(ev => {
+            let color = 'text-slate-400';
+            if (ev.type === 'AI_EXECUTION') color = 'text-cyber-green';
+            else if (ev.type === 'KILL_SWITCH' || ev.type === 'CIRCUIT_BREAKER') color = 'text-cyber-red font-bold';
+            else if (ev.type === 'EMERGENCY_SWEEP') color = 'text-cyber-amber font-bold';
+            else if (ev.type === 'AI_HOLD') color = 'text-slate-500';
+
+            return `
+              <div class="border-b border-cyber-border/40 pb-1">
+                <div class="flex justify-between text-[10px] text-slate-500">
+                  <span>${ev.timestamp}</span>
+                  <span class="text-cyber-cyan font-semibold">${ev.type}</span>
+                </div>
+                <div class="${color} text-[11px] mt-0.5">${ev.message}</div>
+                ${ev.meta && ev.meta.reason ? `<div class="text-[10px] text-slate-500 italic">>> ${ev.meta.reason}</div>` : ''}
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error('Telemetry polling error:', err);
+      }
+    }
+
+    async function fetchWallets() {
+      try {
+        const res = await fetch('/api/vault/wallets');
+        const data = await res.json();
+        document.getElementById('walletCountBadge').innerText = `${data.count || 0} Wallets`;
+        const tbody = document.getElementById('walletTableBody');
+        if (data.wallets && data.wallets.length > 0) {
+          tbody.innerHTML = data.wallets.map(w => `
+            <tr class="hover:bg-cyber-card/50">
+              <td class="py-1.5 text-cyber-cyan">#${w.wallet_index}</td>
+              <td class="py-1.5 font-mono text-slate-300 text-[11px]">${w.pubkey.slice(0,4)}...${w.pubkey.slice(-4)}</td>
+              <td class="py-1.5 text-right text-cyber-green">${(w.sol_balance || 0).toFixed(3)}</td>
+              <td class="py-1.5 text-right text-slate-400 text-[10px]">${w.role}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Wallet fetch error:', err);
+      }
+    }
+
+    async function startBot() {
+      const mint = document.getElementById('inputMint').value.trim();
+      const password = document.getElementById('inputPassword').value.trim();
+      try {
+        const res = await fetch('/api/bot/start', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            stage: currentStage,
+            target_token_mint: mint,
+            password: password,
+            max_loss_usd: 40.0
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          fetchTelemetry();
+          fetchWallets();
+        } else {
+          alert('Error starting bot: ' + data.detail);
+        }
+      } catch (err) {
+        alert('Request failed: ' + err);
+      }
+    }
+
+    async function stopBot() {
+      try {
+        const res = await fetch('/api/bot/stop', {method: 'POST'});
+        await res.json();
+        fetchTelemetry();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function generateVault() {
+      const count = parseInt(document.getElementById('sliderWallets').value);
+      const password = document.getElementById('inputPassword').value.trim();
+      try {
+        const res = await fetch('/api/vault/generate', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({count, password})
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`Vault generated with ${data.count} sub-wallets!`);
+          fetchWallets();
+          fetchTelemetry();
+        } else {
+          alert('Error: ' + data.detail);
+        }
+      } catch (err) {
+        alert('Vault generation failed: ' + err);
+      }
+    }
+
+    async function sweepWallets() {
+      const dest = document.getElementById('inputColdDest').value.trim();
+      const password = document.getElementById('inputPassword').value.trim();
+      if (!dest) {
+        alert('Please enter a valid Solana cold storage recipient address.');
+        return;
+      }
+      if (!confirm(`Are you sure you want to sweep all funds to ${dest}?`)) return;
+      try {
+        const res = await fetch('/api/bot/sweep', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({cold_destination_pubkey: dest, password})
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`Success! Swept ${data.total_swept_sol} SOL from ${data.swept_wallets_count} wallets.`);
+          fetchWallets();
+          fetchTelemetry();
+        } else {
+          alert('Sweep failed: ' + data.detail);
+        }
+      } catch (err) {
+        alert('Sweep request failed: ' + err);
+      }
+    }
+
+    // Auto-refresh loops
+    setInterval(fetchTelemetry, 1500);
+    setInterval(fetchWallets, 4000);
+    window.onload = () => {
+      fetchTelemetry();
+      fetchWallets();
+    };
+  </script>
+</body>
+</html>
