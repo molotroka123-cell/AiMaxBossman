@@ -112,7 +112,7 @@ jobs:
 
       - name: Security reports (including failed scans)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: command-center-security-${{ github.sha }}
           path: astra-security-results/
