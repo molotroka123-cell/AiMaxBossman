@@ -1,0 +1,304 @@
+{
+  "new_ingestion_tests_frozen_red": {
+    "baseline_sha": "c5a73976a152199312fa2d0543fc2fe9dd4d8c03",
+    "test_path": "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_context_engine_audit_regressions.py",
+    "test_sha256": "a9fda581c2377e09c0a2bbf9ccc854501465a4aca5a4036aac307018c7437e91",
+    "command": [
+      "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+      "-c",
+      "import bossman.context_engine,pytest; print(\"IMPORTED_FROM=\"+bossman.context_engine.__file__); raise SystemExit(pytest.main(['C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_context_engine_audit_regressions.py', '-q', '--basetemp', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-memory-context-baseline\\\\frozen-new-ingest-red']))"
+    ],
+    "exit_code": 1,
+    "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-baseline\\frozen-new-ingest-red.log",
+    "summary": "20 failed in 0.46s"
+  },
+  "candidate_sha": "c8a8506d7c9b6eb26f62a5af0b6b74bb43695777",
+  "candidate_source_hashes": {
+    "bossman-core\\bossman\\context_engine\\chunking.py": "a67a3f24cd46d92e22c247c09e41a2e28ee24c5feef5f6fa060d1cab5f01a942",
+    "bossman-core\\bossman\\context_engine\\compact.py": "945e6b5fb9d579387a7a0e8c7750a1553ff5af77c113465ac3dc8552f1b0428d",
+    "bossman-core\\bossman\\context_engine\\compiler.py": "67086b1d99160e1c19621eed33c12fe14ce283d92d01fa5a307238a9af516499",
+    "bossman-core\\bossman\\context_engine\\distill.py": "cf25a7b77920121c1e9dff1e35b8d22e6e58bcf4a1f794fc3359fe245149ccf1",
+    "bossman-core\\bossman\\context_engine\\embeddings.py": "b5df0bcec9b8d1b7d5c9d0c4a2df45fb7eab32866f23d44b51c9af4df35cb9cf",
+    "bossman-core\\bossman\\context_engine\\ingest.py": "16680d4a9f4c8cd43efad3ac952fed86153ca149ff0cd87868ee2e42fe7b06f5",
+    "bossman-core\\bossman\\context_engine\\memory.py": "a56d7898a736f40d161724b2586ade9aa268954582105912117caeb36bedfedb",
+    "bossman-core\\bossman\\context_engine\\models.py": "e426a9cbfdd04010b3776071b4190d0c6e059f6672d7196158f08b2963157f52",
+    "bossman-core\\bossman\\context_engine\\plugins.py": "24901857c4acec47fa35415525a1d653a7625af0f21d41000bc8c07d95ccab5e",
+    "bossman-core\\bossman\\context_engine\\retrieval.py": "9d6e9783658e5f20d4d056cf4989aba89bf8152ba9082671a4cf3850fca2a21d",
+    "bossman-core\\bossman\\context_engine\\service.py": "d8797678d4fe8a68f97fe5fbf73fe283d1247cdd94f90ec65fc495a6ffab6a13",
+    "bossman-core\\bossman\\context_engine\\store.py": "7c85183ad4c01a21a7dd40a305443c3acdc239174767aa34f61b5e911817bcbb",
+    "bossman-core\\bossman\\context_engine\\telemetry.py": "f2798b99c9131402bf605dd2d0fb089146399af4547224cba51c6ef1b8a8fac1",
+    "bossman-core\\bossman\\context_engine\\utils.py": "11f11faa45ec73426e170e1ab90226e11b39424f1a05fd107bfe26b68791b78d",
+    "bossman-core\\bossman\\context_engine\\__init__.py": "f339c12ef9aded9a0273b9f618aaf21b1f3d427e29c8a969ed06d2ed22437e56",
+    "bossman-core\\bossman\\context.py": "1081a684c25aa2e94dbb2f2acfd46742cd185d8d4d13534c7b67435561472ddb",
+    "bossman-core\\bossman\\runner.py": "ea3e0c172092049f031bd07b1cf23cd655bfee0bd179c615a7c4fca5293451a7",
+    "bossman-core\\bossman\\decision_memory.py": "3b704edf0d2ebf9757f9c72e12f9f246459ad32c452b6b8f8159177e45643acc",
+    "bossman-core\\bossman\\benchmark\\sandbox_cases\\context.py": "b6f617071b17aac8ec37b94ad0c60e6a2ee487a99a90d8a99fbf737d7dea808a"
+  },
+  "runs": {
+    "frozen-existing-tests": {
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "-c",
+        "import bossman.context_engine,pytest; print(\"IMPORTED_FROM=\"+bossman.context_engine.__file__); raise SystemExit(pytest.main(['C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-baseline-c5\\\\bossman-core\\\\tests\\\\test_context.py', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-baseline-c5\\\\bossman-core\\\\tests\\\\test_context_engine_integration.py', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-baseline-c5\\\\bossman-core\\\\tests\\\\test_context_engine_reembed_fastpath.py', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-baseline-c5\\\\bossman-core\\\\tests\\\\test_context_engine_stage_2_222.py', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-baseline-c5\\\\bossman-core\\\\tests\\\\test_context_quality_benchmark.py', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-baseline-c5\\\\bossman-core\\\\tests\\\\test_v26_personal_context.py', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-baseline-c5\\\\bossman-core\\\\tests\\\\test_memory_and_state_integrity.py', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-baseline-c5\\\\bossman-core\\\\tests\\\\test_memory_asyncpg_contract.py', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-baseline-c5\\\\bossman-core\\\\tests\\\\test_memory_classes.py', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-baseline-c5\\\\bossman-core\\\\tests\\\\test_pg_memory_gate.py', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-baseline-c5\\\\bossman-core\\\\tests\\\\test_runner_memory_wiring.py', '-q', '--basetemp', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-memory-context-final\\\\frozen-existing-tests']))"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010\\bossman-core",
+      "exit_code": 1,
+      "elapsed_seconds": 3.0,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\frozen-existing-tests.log",
+      "summary": "2 failed, 80 passed, 9 skipped in 2.41s",
+      "stdout": "IMPORTED_FROM=C:\\AiMaxBossman-reality-v010\\bossman-core\\bossman\\context_engine\\__init__.py\n........................................................FF.............. [ 79%]\n..........sssssssss                                                      [100%]\n================================== FAILURES ===================================\n__________________ test_system_prompt_off_keeps_full_memory ___________________\n\ntmp_path = WindowsPath('C:/AiMaxBossman-reality-v010/.audit-work/core-memory-context-final/frozen-existing-tests/test_system_prompt_off_keeps_f0')\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000226A076F090>\n\n    def test_system_prompt_off_keeps_full_memory(tmp_path, monkeypatch):\n        monkeypatch.setattr(settings, \"personal_context_select\", False, raising=False)\n        prompt = runner._system_prompt(_fake_agent(tmp_path))\n>       assert \"## Твоя память (memory.md)\" in prompt\nE       AssertionError: assert '## Твоя память (memory.md)' in 'Ты — тестовый агент.\\n\\n## Доступные инструменты'\n\n..\\.audit-work\\core-baseline-c5\\bossman-core\\tests\\test_v26_personal_context.py:113: AssertionError\n______________ test_system_prompt_on_keeps_critical_drops_trivia ______________\n\ntmp_path = WindowsPath('C:/AiMaxBossman-reality-v010/.audit-work/core-memory-context-final/frozen-existing-tests/test_system_prompt_on_keeps_cr0')\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000226A06AFCD0>\n\n    def test_system_prompt_on_keeps_critical_drops_trivia(tmp_path, monkeypatch):\n        monkeypatch.setattr(settings, \"personal_context_select\", True, raising=False)\n        monkeypatch.setattr(settings, \"context_engine_enabled\", True, raising=False)\n        prompt = runner._system_prompt(_fake_agent(tmp_path))\n>       assert \"## Твоя память (memory.md)\" in prompt\nE       AssertionError: assert '## Твоя память (memory.md)' in 'Ты — тестовый агент.\\n\\n## Доступные инструменты'\n\n..\\.audit-work\\core-baseline-c5\\bossman-core\\tests\\test_v26_personal_context.py:122: AssertionError\n=========================== short test summary info ===========================\nFAILED ..\\.audit-work\\core-baseline-c5\\bossman-core\\tests\\test_v26_personal_context.py::test_system_prompt_off_keeps_full_memory\nFAILED ..\\.audit-work\\core-baseline-c5\\bossman-core\\tests\\test_v26_personal_context.py::test_system_prompt_on_keeps_critical_drops_trivia\n2 failed, 80 passed, 9 skipped in 2.41s\n",
+      "stderr": ""
+    },
+    "current-existing-tests": {
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "-c",
+        "import bossman.context_engine,pytest; print(\"IMPORTED_FROM=\"+bossman.context_engine.__file__); raise SystemExit(pytest.main(['C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_context.py', 'C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_context_engine_integration.py', 'C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_context_engine_reembed_fastpath.py', 'C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_context_engine_stage_2_222.py', 'C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_context_quality_benchmark.py', 'C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_v26_personal_context.py', 'C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_memory_and_state_integrity.py', 'C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_memory_asyncpg_contract.py', 'C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_memory_classes.py', 'C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_pg_memory_gate.py', 'C:\\\\AiMaxBossman-reality-v010\\\\bossman-core\\\\tests\\\\test_runner_memory_wiring.py', '-q', '--basetemp', 'C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-memory-context-final\\\\current-existing-tests']))"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010\\bossman-core",
+      "exit_code": 0,
+      "elapsed_seconds": 2.578,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\current-existing-tests.log",
+      "summary": "82 passed, 9 skipped in 2.00s",
+      "stdout": "IMPORTED_FROM=C:\\AiMaxBossman-reality-v010\\bossman-core\\bossman\\context_engine\\__init__.py\n........................................................................ [ 79%]\n..........sssssssss                                                      [100%]\n82 passed, 9 skipped in 2.00s\n",
+      "stderr": ""
+    },
+    "new-decision-tests": {
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_decision_memory_query_scope.py",
+        "-q",
+        "--basetemp",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\new-decision-tests"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010\\bossman-core",
+      "exit_code": 0,
+      "elapsed_seconds": 0.578,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\new-decision-tests.log",
+      "summary": "3 passed in 0.11s",
+      "stdout": "...                                                                      [100%]\n3 passed in 0.11s\n",
+      "stderr": ""
+    },
+    "new-context-tests": {
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_context_budget_safety.py",
+        "-q",
+        "--basetemp",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\new-context-tests"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010\\bossman-core",
+      "exit_code": 0,
+      "elapsed_seconds": 1.14,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\new-context-tests.log",
+      "summary": "17 passed in 0.62s",
+      "stdout": ".................                                                        [100%]\n17 passed in 0.62s\n",
+      "stderr": ""
+    },
+    "new-ingestion-tests": {
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_context_engine_audit_regressions.py",
+        "-q",
+        "--basetemp",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\new-ingestion-tests"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010\\bossman-core",
+      "exit_code": 0,
+      "elapsed_seconds": 0.797,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\new-ingestion-tests.log",
+      "summary": "20 passed in 0.33s",
+      "stdout": "....................                                                     [100%]\n20 passed in 0.33s\n",
+      "stderr": ""
+    },
+    "additional-regression-guards": {
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_reality_integration.py",
+        "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_fable_budget_hard.py",
+        "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_runner_cybersec_wiring.py",
+        "-q",
+        "--basetemp",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\additional-regression-guards"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010\\bossman-core",
+      "exit_code": 0,
+      "elapsed_seconds": 4.188,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\additional-regression-guards.log",
+      "summary": "26 passed in 3.62s",
+      "stdout": "..........................                                               [100%]\n26 passed in 3.62s\n",
+      "stderr": ""
+    },
+    "candidate-nightly": {
+      "command": [
+        "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+        "-m",
+        "bossman.benchmark",
+        "run",
+        "--tier",
+        "nightly",
+        "--sha",
+        "c8a8506d7c9b6eb26f62a5af0b6b74bb43695777",
+        "--output",
+        "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\nightly"
+      ],
+      "cwd": "C:\\AiMaxBossman-reality-v010",
+      "exit_code": 0,
+      "elapsed_seconds": 47.875,
+      "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\candidate-nightly.log",
+      "summary": "{\"commit_sha\": \"c8a8506d7c9b6eb26f62a5af0b6b74bb43695777\", \"json\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-memory-context-final\\\\nightly\\\\c8a8506d7c9b6eb26f62a5af0b6b74bb43695777\\\\nightly-9994a9e7-c027-45f5-bb44-3b10f83e72f8.json\", \"markdown\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-memory-context-final\\\\nightly\\\\c8a8506d7c9b6eb26f62a5af0b6b74bb43695777\\\\nightly-9994a9e7-c027-45f5-bb44-3b10f83e72f8.md\", \"scores\": {\"LiveCapabilityScore\": {\"ci95\": {\"high\": 0.0, \"low\": 0.0, \"n\": 0}, \"evidence_class\": \"LIVE\", \"n\": 0, \"status\": \"INSUFFICIENT_EVIDENCE\", \"value\": null}, \"PureCodingIQ\": {\"ci95\": {\"high\": 1.0, \"low\": 0.7574992425007574, \"n\": 12}, \"components\": {\"FunctionalSuccess\": 1.0, \"RegressionSafety\": 1.0, \"SecurityCorrectness\": 1.0}, \"formula\": \"weighted geometric mean (BENCHMARK_PURE_CODING_IQ v2)\", \"measured_weight\": 0.7, \"missing_components\": [\"PatchLocality\", \"PatchPrecision\", \"VerifierAgreement\"], \"n\": 12, \"status\": \"INSUFFICIENT_EVIDENCE\", \"value\": 1.0, \"weights\": {\"FunctionalSuccess\": 0.35, \"PatchLocality\": 0.05, \"PatchPrecision\": 0.1, \"RegressionSafety\": 0.2, \"SecurityCorrectness\": 0.15, \"VerifierAgreement\": 0.15}}, \"RealCapabilityScore\": {\"ci95\": {\"high\": 1.0, \"low\": 0.9035781695514236, \"n\": 36}, \"evidence_class\": \"REAL_SANDBOX\", \"n\": 36, \"status\": \"MEASURED\", \"value\": 1.0}, \"RegressionScore\": {\"ci95\": {\"high\": 0.9999999999999999, \"low\": 0.8453561767357979, \"n\": 21}, \"evidence_class\": \"REGRESSION\", \"n\": 21, \"status\": \"MEASURED\", \"value\": 1.0}, \"SystemIQ\": {\"ci95\": {\"high\": 1.0, \"low\": 0.9035781695514236, \"n\": 36}, \"components\": {\"Context\": 1.0, \"Cost\": 1.0, \"Latency\": 1.0, \"Memory\": 1.0, \"Persistence\": 1.0, \"Recovery\": 1.0, \"Routing\": 1.0, \"Safety\": 1.0, \"Verification\": 1.0, \"VerifiedSuccess\": 1.0}, \"formula\": \"weighted geometric mean (BENCHMARK_SYSTEM_IQ v2)\", \"measured_weight\": 1.0, \"missing_components\": [], \"n\": 36, \"status\": \"MEASURED\", \"value\": 1.0, \"weights\": {\"Context\": 0.1, \"Cost\": 0.05, \"Latency\": 0.03, \"Memory\": 0.08, \"Persistence\": 0.07, \"Recovery\": 0.12, \"Routing\": 0.1, \"Safety\": 0.1, \"Verification\": 0.1, \"VerifiedSuccess\": 0.25}}}, \"status\": \"READY\"}",
+      "stdout": "{\"commit_sha\": \"c8a8506d7c9b6eb26f62a5af0b6b74bb43695777\", \"json\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-memory-context-final\\\\nightly\\\\c8a8506d7c9b6eb26f62a5af0b6b74bb43695777\\\\nightly-9994a9e7-c027-45f5-bb44-3b10f83e72f8.json\", \"markdown\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-memory-context-final\\\\nightly\\\\c8a8506d7c9b6eb26f62a5af0b6b74bb43695777\\\\nightly-9994a9e7-c027-45f5-bb44-3b10f83e72f8.md\", \"scores\": {\"LiveCapabilityScore\": {\"ci95\": {\"high\": 0.0, \"low\": 0.0, \"n\": 0}, \"evidence_class\": \"LIVE\", \"n\": 0, \"status\": \"INSUFFICIENT_EVIDENCE\", \"value\": null}, \"PureCodingIQ\": {\"ci95\": {\"high\": 1.0, \"low\": 0.7574992425007574, \"n\": 12}, \"components\": {\"FunctionalSuccess\": 1.0, \"RegressionSafety\": 1.0, \"SecurityCorrectness\": 1.0}, \"formula\": \"weighted geometric mean (BENCHMARK_PURE_CODING_IQ v2)\", \"measured_weight\": 0.7, \"missing_components\": [\"PatchLocality\", \"PatchPrecision\", \"VerifierAgreement\"], \"n\": 12, \"status\": \"INSUFFICIENT_EVIDENCE\", \"value\": 1.0, \"weights\": {\"FunctionalSuccess\": 0.35, \"PatchLocality\": 0.05, \"PatchPrecision\": 0.1, \"RegressionSafety\": 0.2, \"SecurityCorrectness\": 0.15, \"VerifierAgreement\": 0.15}}, \"RealCapabilityScore\": {\"ci95\": {\"high\": 1.0, \"low\": 0.9035781695514236, \"n\": 36}, \"evidence_class\": \"REAL_SANDBOX\", \"n\": 36, \"status\": \"MEASURED\", \"value\": 1.0}, \"RegressionScore\": {\"ci95\": {\"high\": 0.9999999999999999, \"low\": 0.8453561767357979, \"n\": 21}, \"evidence_class\": \"REGRESSION\", \"n\": 21, \"status\": \"MEASURED\", \"value\": 1.0}, \"SystemIQ\": {\"ci95\": {\"high\": 1.0, \"low\": 0.9035781695514236, \"n\": 36}, \"components\": {\"Context\": 1.0, \"Cost\": 1.0, \"Latency\": 1.0, \"Memory\": 1.0, \"Persistence\": 1.0, \"Recovery\": 1.0, \"Routing\": 1.0, \"Safety\": 1.0, \"Verification\": 1.0, \"VerifiedSuccess\": 1.0}, \"formula\": \"weighted geometric mean (BENCHMARK_SYSTEM_IQ v2)\", \"measured_weight\": 1.0, \"missing_components\": [], \"n\": 36, \"status\": \"MEASURED\", \"value\": 1.0, \"weights\": {\"Context\": 0.1, \"Cost\": 0.05, \"Latency\": 0.03, \"Memory\": 0.08, \"Persistence\": 0.07, \"Recovery\": 0.12, \"Routing\": 0.1, \"Safety\": 0.1, \"Verification\": 0.1, \"VerifiedSuccess\": 0.25}}}, \"status\": \"READY\"}\n",
+      "stderr": ""
+    }
+  },
+  "candidate_nightly": {
+    "report": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-final\\nightly\\c8a8506d7c9b6eb26f62a5af0b6b74bb43695777\\nightly-9994a9e7-c027-45f5-bb44-3b10f83e72f8.json",
+    "sha256": "8d28f1e1b79a60f6be394e88570081390c26b56007eeac7aaa7bf572a6f7f7c9",
+    "scores": {
+      "LiveCapabilityScore": {
+        "ci95": {
+          "high": 0.0,
+          "low": 0.0,
+          "n": 0
+        },
+        "evidence_class": "LIVE",
+        "n": 0,
+        "status": "INSUFFICIENT_EVIDENCE",
+        "value": null
+      },
+      "PureCodingIQ": {
+        "ci95": {
+          "high": 1.0,
+          "low": 0.7574992425007574,
+          "n": 12
+        },
+        "components": {
+          "FunctionalSuccess": 1.0,
+          "RegressionSafety": 1.0,
+          "SecurityCorrectness": 1.0
+        },
+        "formula": "weighted geometric mean (BENCHMARK_PURE_CODING_IQ v2)",
+        "measured_weight": 0.7,
+        "missing_components": [
+          "PatchLocality",
+          "PatchPrecision",
+          "VerifierAgreement"
+        ],
+        "n": 12,
+        "status": "INSUFFICIENT_EVIDENCE",
+        "value": 1.0,
+        "weights": {
+          "FunctionalSuccess": 0.35,
+          "PatchLocality": 0.05,
+          "PatchPrecision": 0.1,
+          "RegressionSafety": 0.2,
+          "SecurityCorrectness": 0.15,
+          "VerifierAgreement": 0.15
+        }
+      },
+      "RealCapabilityScore": {
+        "ci95": {
+          "high": 1.0,
+          "low": 0.9035781695514236,
+          "n": 36
+        },
+        "evidence_class": "REAL_SANDBOX",
+        "n": 36,
+        "status": "MEASURED",
+        "value": 1.0
+      },
+      "RegressionScore": {
+        "ci95": {
+          "high": 0.9999999999999999,
+          "low": 0.8453561767357979,
+          "n": 21
+        },
+        "evidence_class": "REGRESSION",
+        "n": 21,
+        "status": "MEASURED",
+        "value": 1.0
+      },
+      "SystemIQ": {
+        "ci95": {
+          "high": 1.0,
+          "low": 0.9035781695514236,
+          "n": 36
+        },
+        "components": {
+          "Context": 1.0,
+          "Cost": 1.0,
+          "Latency": 1.0,
+          "Memory": 1.0,
+          "Persistence": 1.0,
+          "Recovery": 1.0,
+          "Routing": 1.0,
+          "Safety": 1.0,
+          "Verification": 1.0,
+          "VerifiedSuccess": 1.0
+        },
+        "formula": "weighted geometric mean (BENCHMARK_SYSTEM_IQ v2)",
+        "measured_weight": 1.0,
+        "missing_components": [],
+        "n": 36,
+        "status": "MEASURED",
+        "value": 1.0,
+        "weights": {
+          "Context": 0.1,
+          "Cost": 0.05,
+          "Latency": 0.03,
+          "Memory": 0.08,
+          "Persistence": 0.07,
+          "Recovery": 0.12,
+          "Routing": 0.1,
+          "Safety": 0.1,
+          "Verification": 0.1,
+          "VerifiedSuccess": 0.25
+        }
+      }
+    },
+    "release_gate": {
+      "ready": true,
+      "reasons": [],
+      "status": "READY"
+    },
+    "modes": {
+      "LIVE": 0,
+      "MOCK": 2,
+      "REAL_SANDBOX": 36,
+      "SIMULATED": 19
+    }
+  },
+  "scorer_parity": {
+    "baseline": "8eb1cce8c89a5e6b8a17ccfb190266650ff98bc0290758b6b8ac63bfcfcf87b8",
+    "candidate": "8eb1cce8c89a5e6b8a17ccfb190266650ff98bc0290758b6b8ac63bfcfcf87b8",
+    "unchanged": true
+  },
+  "manifest_parity": {
+    "baseline": "f577ec420cd4aa1a275ffc235a8e76a401854c6004222c1a24d4e3f9f29d919b",
+    "candidate": "f577ec420cd4aa1a275ffc235a8e76a401854c6004222c1a24d4e3f9f29d919b",
+    "unchanged": true
+  },
+  "golden_parity": {
+    "baseline": "e2e5a16c248b038c291822ed0091ce1cc831aa3ae429dc3d3d1ec4e24a1c60c9",
+    "candidate": "e2e5a16c248b038c291822ed0091ce1cc831aa3ae429dc3d3d1ec4e24a1c60c9",
+    "unchanged": true
+  },
+  "source_unchanged_during_evaluation": true,
+  "candidate_sha_after": "c8a8506d7c9b6eb26f62a5af0b6b74bb43695777",
+  "status": "PASS_WITH_DOCUMENTED_CONTRACT_MIGRATION_AND_PG_SKIPS",
+  "root_review": {
+    "current_tests_passed": 148,
+    "pg_skipped": 9,
+    "frozen_existing_tests": "80 passed, 2 intentionally incompatible memory-as-system expectations failed, 9 skipped",
+    "benchmark_migration": "Only raw_context_fallback checks the actual memory-as-data payload; scorer, manifest and golden corpus unchanged",
+    "overall_8500_target": "NOT_ESTABLISHED; baseline benchmark already saturated; no live model score"
+  }
+}

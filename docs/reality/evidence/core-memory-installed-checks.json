@@ -1,0 +1,113 @@
+{
+  "status": "PASS",
+  "code_sha": "c8a8506d7c9b6eb26f62a5af0b6b74bb43695777",
+  "wheel_sha256": "d71a1687ae93dcebf8cdf338b51f4c5e4bbd92e409e5d957082360f98e97b412",
+  "build_log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-wheel-build.log",
+  "installed_checks": [
+    {
+      "status": "PASS",
+      "python": "3.11.16 (main, Aug 25 2026, 13:59:19) [MSC v.1944 64 bit (AMD64)]",
+      "isolated": 1,
+      "modules": {
+        "bossman.context": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Lib\\site-packages\\bossman\\context.py",
+          "sha256": "1081a684c25aa2e94dbb2f2acfd46742cd185d8d4d13534c7b67435561472ddb"
+        },
+        "bossman.runner": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Lib\\site-packages\\bossman\\runner.py",
+          "sha256": "ea3e0c172092049f031bd07b1cf23cd655bfee0bd179c615a7c4fca5293451a7"
+        },
+        "bossman.decision_memory": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Lib\\site-packages\\bossman\\decision_memory.py",
+          "sha256": "3b704edf0d2ebf9757f9c72e12f9f246459ad32c452b6b8f8159177e45643acc"
+        },
+        "bossman.context_engine.ingest": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Lib\\site-packages\\bossman\\context_engine\\ingest.py",
+          "sha256": "16680d4a9f4c8cd43efad3ac952fed86153ca149ff0cd87868ee2e42fe7b06f5"
+        },
+        "bossman.context_engine.store": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Lib\\site-packages\\bossman\\context_engine\\store.py",
+          "sha256": "7c85183ad4c01a21a7dd40a305443c3acdc239174767aa34f61b5e911817bcbb"
+        },
+        "bossman.context_engine.memory": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Lib\\site-packages\\bossman\\context_engine\\memory.py",
+          "sha256": "a56d7898a736f40d161724b2586ade9aa268954582105912117caeb36bedfedb"
+        },
+        "bossman.context_engine.plugins": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Lib\\site-packages\\bossman\\context_engine\\plugins.py",
+          "sha256": "24901857c4acec47fa35415525a1d653a7625af0f21d41000bc8c07d95ccab5e"
+        },
+        "bossman.context_engine.retrieval": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Lib\\site-packages\\bossman\\context_engine\\retrieval.py",
+          "sha256": "9d6e9783658e5f20d4d056cf4989aba89bf8152ba9082671a4cf3850fca2a21d"
+        },
+        "bossman.context_engine.embeddings": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final311\\Lib\\site-packages\\bossman\\context_engine\\embeddings.py",
+          "sha256": "b5df0bcec9b8d1b7d5c9d0c4a2df45fb7eab32866f23d44b51c9af4df35cb9cf"
+        }
+      },
+      "smoke": "real installed payload boundary and SQLite source version selection"
+    },
+    {
+      "status": "PASS",
+      "python": "3.12.14 (main, Aug 25 2026, 14:01:42) [MSC v.1944 64 bit (AMD64)]",
+      "isolated": 1,
+      "modules": {
+        "bossman.context": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Lib\\site-packages\\bossman\\context.py",
+          "sha256": "1081a684c25aa2e94dbb2f2acfd46742cd185d8d4d13534c7b67435561472ddb"
+        },
+        "bossman.runner": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Lib\\site-packages\\bossman\\runner.py",
+          "sha256": "ea3e0c172092049f031bd07b1cf23cd655bfee0bd179c615a7c4fca5293451a7"
+        },
+        "bossman.decision_memory": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Lib\\site-packages\\bossman\\decision_memory.py",
+          "sha256": "3b704edf0d2ebf9757f9c72e12f9f246459ad32c452b6b8f8159177e45643acc"
+        },
+        "bossman.context_engine.ingest": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Lib\\site-packages\\bossman\\context_engine\\ingest.py",
+          "sha256": "16680d4a9f4c8cd43efad3ac952fed86153ca149ff0cd87868ee2e42fe7b06f5"
+        },
+        "bossman.context_engine.store": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Lib\\site-packages\\bossman\\context_engine\\store.py",
+          "sha256": "7c85183ad4c01a21a7dd40a305443c3acdc239174767aa34f61b5e911817bcbb"
+        },
+        "bossman.context_engine.memory": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Lib\\site-packages\\bossman\\context_engine\\memory.py",
+          "sha256": "a56d7898a736f40d161724b2586ade9aa268954582105912117caeb36bedfedb"
+        },
+        "bossman.context_engine.plugins": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Lib\\site-packages\\bossman\\context_engine\\plugins.py",
+          "sha256": "24901857c4acec47fa35415525a1d653a7625af0f21d41000bc8c07d95ccab5e"
+        },
+        "bossman.context_engine.retrieval": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Lib\\site-packages\\bossman\\context_engine\\retrieval.py",
+          "sha256": "9d6e9783658e5f20d4d056cf4989aba89bf8152ba9082671a4cf3850fca2a21d"
+        },
+        "bossman.context_engine.embeddings": {
+          "path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\installed-final312\\Lib\\site-packages\\bossman\\context_engine\\embeddings.py",
+          "sha256": "b5df0bcec9b8d1b7d5c9d0c4a2df45fb7eab32866f23d44b51c9af4df35cb9cf"
+        }
+      },
+      "smoke": "real installed payload boundary and SQLite source version selection"
+    }
+  ],
+  "syntax_checked": [
+    "bossman-core/bossman/benchmark/sandbox_cases/context.py",
+    "bossman-core/bossman/context.py",
+    "bossman-core/bossman/context_engine/embeddings.py",
+    "bossman-core/bossman/context_engine/ingest.py",
+    "bossman-core/bossman/context_engine/memory.py",
+    "bossman-core/bossman/context_engine/plugins.py",
+    "bossman-core/bossman/context_engine/retrieval.py",
+    "bossman-core/bossman/context_engine/store.py",
+    "bossman-core/bossman/decision_memory.py",
+    "bossman-core/bossman/runner.py",
+    "bossman-core/tests/test_context_budget_safety.py",
+    "bossman-core/tests/test_context_engine_audit_regressions.py",
+    "bossman-core/tests/test_decision_memory_query_scope.py",
+    "bossman-core/tests/test_reality_integration.py",
+    "bossman-core/tests/test_v26_personal_context.py"
+  ]
+}

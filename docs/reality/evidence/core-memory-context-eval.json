@@ -1,0 +1,776 @@
+{
+  "source_sha": "c5a73976a152199312fa2d0543fc2fe9dd4d8c03",
+  "test_hashes": {
+    "bossman-core\\tests\\test_context.py": "61f417a6f4e94664524944dbaad74f067851b9adf540d6ee14faa9d067cc0f12",
+    "bossman-core\\tests\\test_context_engine_integration.py": "828079853c516baf8dbd7ad2ff779e8412f306f158eedb0521c72ed906b519c0",
+    "bossman-core\\tests\\test_context_engine_reembed_fastpath.py": "178d4f314a19fbbf5580bdd493ca5cae365e6c36cefde8610fa258a01d9261cb",
+    "bossman-core\\tests\\test_context_engine_stage_2_222.py": "a6340e8247673b26781118fd7b39bb384ffe3d122e9df457aba66a22723a01c1",
+    "bossman-core\\tests\\test_context_quality_benchmark.py": "fc7e623ff5b241a329f78d09b6361795ab0f103d11c54cedff22b2167363582f",
+    "bossman-core\\tests\\test_v26_personal_context.py": "4346f167cf4ce1ac918e71538d4c220212445bbdce39a2f3e87b260833cdb1ca",
+    "bossman-core\\tests\\test_memory_and_state_integrity.py": "c6c1974c7f3f7c77e92318ab508781bf5ea0c8f50f9ee6abb650a36a9a6dbfd1",
+    "bossman-core\\tests\\test_memory_asyncpg_contract.py": "cff302ce1eca67588a6fb0d1b9982708662e88e4b40379435033c758e41b9816",
+    "bossman-core\\tests\\test_memory_classes.py": "c7a43bc0402591246de53d5b8148ff9b180a590d90a4d2f4e4c44be1613b66c6",
+    "bossman-core\\tests\\test_pg_memory_gate.py": "3b664633561fa43d64c678918ea81cb663507773f9689893c7dca794ff0108e9",
+    "bossman-core\\tests\\test_runner_memory_wiring.py": "6e48a2ba0785973494c602ab4403ee0847c5b2ee3dde89c520f85e3d14f2cf68"
+  },
+  "source_hashes": {
+    "bossman-core\\bossman\\context_engine\\chunking.py": "a67a3f24cd46d92e22c247c09e41a2e28ee24c5feef5f6fa060d1cab5f01a942",
+    "bossman-core\\bossman\\context_engine\\compact.py": "945e6b5fb9d579387a7a0e8c7750a1553ff5af77c113465ac3dc8552f1b0428d",
+    "bossman-core\\bossman\\context_engine\\compiler.py": "67086b1d99160e1c19621eed33c12fe14ce283d92d01fa5a307238a9af516499",
+    "bossman-core\\bossman\\context_engine\\distill.py": "cf25a7b77920121c1e9dff1e35b8d22e6e58bcf4a1f794fc3359fe245149ccf1",
+    "bossman-core\\bossman\\context_engine\\embeddings.py": "aa7938b1fbd36947acbfbbf91df14131c9fb59dedb41e21aa1689f95c3c326c0",
+    "bossman-core\\bossman\\context_engine\\ingest.py": "23a68509ab3adcc5a919acafb91c5736776f985618134c82a41f5b20a90f62c8",
+    "bossman-core\\bossman\\context_engine\\memory.py": "3ac6c7c2e3f17709844d04ff7d64b6acd754f90eb6207abc0b978c8705195e86",
+    "bossman-core\\bossman\\context_engine\\models.py": "e426a9cbfdd04010b3776071b4190d0c6e059f6672d7196158f08b2963157f52",
+    "bossman-core\\bossman\\context_engine\\plugins.py": "9fcf46a974e365b59fcd37afcd2c7377ac794b7264596e8abd789d87af3e9f74",
+    "bossman-core\\bossman\\context_engine\\retrieval.py": "0934d3b47045f4bef781c56274596e6c63b225c55590104610638e93dacdfe33",
+    "bossman-core\\bossman\\context_engine\\service.py": "d8797678d4fe8a68f97fe5fbf73fe283d1247cdd94f90ec65fc495a6ffab6a13",
+    "bossman-core\\bossman\\context_engine\\store.py": "7148105e74861307dba1da16d3a648406d6de519ebd9b6a59a629ad01716a24e",
+    "bossman-core\\bossman\\context_engine\\telemetry.py": "f2798b99c9131402bf605dd2d0fb089146399af4547224cba51c6ef1b8a8fac1",
+    "bossman-core\\bossman\\context_engine\\utils.py": "11f11faa45ec73426e170e1ab90226e11b39424f1a05fd107bfe26b68791b78d",
+    "bossman-core\\bossman\\context_engine\\__init__.py": "f339c12ef9aded9a0273b9f618aaf21b1f3d427e29c8a969ed06d2ed22437e56",
+    "bossman-core\\bossman\\context.py": "4afce6aad418f64b5c32d365d1a0c80990231704755c7854b43c431c3dd744b9",
+    "bossman-core\\bossman\\personal_context.py": "396f9fab193106845bc2c0e115688513b39abc74944304ad92c0f60cceac4e37"
+  },
+  "cases_hash": "e2e5a16c248b038c291822ed0091ce1cc831aa3ae429dc3d3d1ec4e24a1c60c9",
+  "scorecards": [
+    {
+      "root": "C:\\AiMaxBossman-reality-v010",
+      "last_evidence_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
+      "memory_categories": [
+        {
+          "category": "Memory / Context",
+          "score": 6.2,
+          "status": "IMPLEMENTED",
+          "confidence": "MEDIUM",
+          "evidence": [
+            "TaskJournal + FailureMemory + ContextAssembler с редакцией (bossman_v3/memory)",
+            "ScopedKnowledge: явное наследование include_parents, экспорт по allowlist (MEM-02, 084ad3a)"
+          ],
+          "blockers": [
+            "TZ-06: решётка скоупов по дереву, ScopeToken, эмбеддинги, токен-оценка контекста",
+            "слияние с bossman.context_engine (колонка scope)"
+          ],
+          "tests": [
+            "bossman-core/tests/test_v3_organization_core.py",
+            "bossman-core/tests/test_v3_memory_kernel.py"
+          ],
+          "last_verified_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
+          "last_verified_at": "2026-09-05",
+          "live_attestation": "NOT_REQUIRED",
+          "regression_delta": 0.0
+        }
+      ]
+    },
+    {
+      "root": "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk",
+      "last_evidence_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+      "memory_categories": [
+        {
+          "category": "Memory / Context",
+          "score": 6.5,
+          "status": "IMPLEMENTED",
+          "confidence": "MEDIUM",
+          "evidence": [
+            "TaskJournal + FailureMemory + ContextAssembler с редакцией (bossman_v3/memory)",
+            "ScopedKnowledge: явное наследование include_parents, экспорт по allowlist (MEM-02, 084ad3a)",
+            "Журнал: exclusive writer lock + CAS, устаревший writer не стирает durable intent (test_reaudit_journal_*); scope ownership по хранилищу (ASTRA-009); лимит V3 включает заголовок/сериализацию (ASTRA-010)"
+          ],
+          "blockers": [
+            "TZ-06: решётка скоупов по дереву, ScopeToken, эмбеддинги, токен-оценка контекста",
+            "слияние с bossman.context_engine (колонка scope)"
+          ],
+          "tests": [
+            "bossman-core/tests/test_v3_organization_core.py",
+            "bossman-core/tests/test_v3_memory_kernel.py"
+          ],
+          "last_verified_sha": "ffd7d25ce8f123733b7cb813919efdc762f6941c",
+          "last_verified_at": "2026-09-05",
+          "live_attestation": "NOT_REQUIRED",
+          "regression_delta": 0.3
+        }
+      ]
+    }
+  ],
+  "baseline": {
+    "command": [
+      "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_context.py",
+      "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_context_engine_integration.py",
+      "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_context_engine_reembed_fastpath.py",
+      "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_context_engine_stage_2_222.py",
+      "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_context_quality_benchmark.py",
+      "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_v26_personal_context.py",
+      "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_memory_and_state_integrity.py",
+      "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_memory_asyncpg_contract.py",
+      "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_memory_classes.py",
+      "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_pg_memory_gate.py",
+      "C:\\AiMaxBossman-reality-v010\\bossman-core\\tests\\test_runner_memory_wiring.py",
+      "-q",
+      "--basetemp",
+      "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-baseline\\pytest"
+    ],
+    "pythonpath": "C:\\AiMaxBossman-reality-v010;C:\\AiMaxBossman-reality-v010\\bossman-core",
+    "exit_code": 0,
+    "elapsed_seconds": 2.515,
+    "output": "........................................................................ [ 79%]\n..........sssssssss                                                      [100%]\n82 passed, 9 skipped in 2.02s\n\n",
+    "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-baseline\\baseline.log"
+  },
+  "source_unchanged_during_baseline": true,
+  "frozen_golden_baseline": {
+    "case_count": 25,
+    "scorer": "existing _quality substring mandatory-anchor retention; token heuristic ceil(chars/3)",
+    "backend": "real temporary SQLite ContextEngine with default HashEmbedder, no neural model",
+    "cases": [
+      {
+        "id": "T01",
+        "category": "exact-numeric",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 32,
+        "optimized_tokens_estimate": 87,
+        "anchor_count": 2
+      },
+      {
+        "id": "T02",
+        "category": "exact-numeric",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 28,
+        "optimized_tokens_estimate": 85,
+        "anchor_count": 2
+      },
+      {
+        "id": "T03",
+        "category": "exact-numeric",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 27,
+        "optimized_tokens_estimate": 75,
+        "anchor_count": 2
+      },
+      {
+        "id": "T04",
+        "category": "latest-vs-old",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 47,
+        "optimized_tokens_estimate": 125,
+        "anchor_count": 2
+      },
+      {
+        "id": "T05",
+        "category": "latest-vs-old",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 31,
+        "optimized_tokens_estimate": 106,
+        "anchor_count": 2
+      },
+      {
+        "id": "T06",
+        "category": "latest-vs-old",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 20,
+        "optimized_tokens_estimate": 109,
+        "anchor_count": 1
+      },
+      {
+        "id": "T07",
+        "category": "bilingual",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 31,
+        "optimized_tokens_estimate": 89,
+        "anchor_count": 2
+      },
+      {
+        "id": "T08",
+        "category": "bilingual",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 28,
+        "optimized_tokens_estimate": 87,
+        "anchor_count": 2
+      },
+      {
+        "id": "T09",
+        "category": "code-bug-failed-fix",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 77,
+        "optimized_tokens_estimate": 149,
+        "anchor_count": 2
+      },
+      {
+        "id": "T10",
+        "category": "code-bug-failed-fix",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 65,
+        "optimized_tokens_estimate": 133,
+        "anchor_count": 2
+      },
+      {
+        "id": "T11",
+        "category": "decision-supersession",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 17,
+        "optimized_tokens_estimate": 57,
+        "anchor_count": 2
+      },
+      {
+        "id": "T12",
+        "category": "decision-supersession",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 16,
+        "optimized_tokens_estimate": 57,
+        "anchor_count": 1
+      },
+      {
+        "id": "T13",
+        "category": "conflicting",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 50,
+        "optimized_tokens_estimate": 103,
+        "anchor_count": 1
+      },
+      {
+        "id": "T14",
+        "category": "conflicting",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 32,
+        "optimized_tokens_estimate": 75,
+        "anchor_count": 1
+      },
+      {
+        "id": "T15",
+        "category": "browser-checkpoint",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 39,
+        "optimized_tokens_estimate": 96,
+        "anchor_count": 2
+      },
+      {
+        "id": "T16",
+        "category": "browser-checkpoint",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 21,
+        "optimized_tokens_estimate": 82,
+        "anchor_count": 1
+      },
+      {
+        "id": "T17",
+        "category": "multi-doc",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 50,
+        "optimized_tokens_estimate": 123,
+        "anchor_count": 2
+      },
+      {
+        "id": "T18",
+        "category": "multi-doc",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 32,
+        "optimized_tokens_estimate": 123,
+        "anchor_count": 2
+      },
+      {
+        "id": "T19",
+        "category": "multi-doc",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 28,
+        "optimized_tokens_estimate": 127,
+        "anchor_count": 2
+      },
+      {
+        "id": "T20",
+        "category": "compact",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 119,
+        "optimized_tokens_estimate": 317,
+        "anchor_count": 5
+      },
+      {
+        "id": "T21",
+        "category": "compact",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 82,
+        "optimized_tokens_estimate": 221,
+        "anchor_count": 3
+      },
+      {
+        "id": "T22",
+        "category": "compact",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 55,
+        "optimized_tokens_estimate": 154,
+        "anchor_count": 1
+      },
+      {
+        "id": "T23",
+        "category": "sensitive",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 29,
+        "optimized_tokens_estimate": 18,
+        "anchor_count": 1
+      },
+      {
+        "id": "T24",
+        "category": "sensitive",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 23,
+        "optimized_tokens_estimate": 16,
+        "anchor_count": 1
+      },
+      {
+        "id": "T25",
+        "category": "exact-path",
+        "quality_baseline": 1.0,
+        "quality_optimized": 1.0,
+        "baseline_tokens_estimate": 28,
+        "optimized_tokens_estimate": 91,
+        "anchor_count": 3
+      }
+    ],
+    "total_raw_tokens_estimate": 1007,
+    "total_optimized_tokens_estimate": 2705,
+    "all_mandatory_anchors_retained": true
+  },
+  "frozen_nightly_baseline": {
+    "command": [
+      "C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\.venv-ci311\\Scripts\\python.exe",
+      "-m",
+      "bossman.benchmark",
+      "run",
+      "--tier",
+      "nightly",
+      "--sha",
+      "c5a73976a152199312fa2d0543fc2fe9dd4d8c03",
+      "--output",
+      "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-baseline\\nightly\\results"
+    ],
+    "cwd": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-baseline-c5",
+    "exit_code": 0,
+    "elapsed_seconds": 48.656,
+    "log": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-baseline\\nightly\\run.log",
+    "stdout": "{\"commit_sha\": \"c5a73976a152199312fa2d0543fc2fe9dd4d8c03\", \"json\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-memory-context-baseline\\\\nightly\\\\results\\\\c5a73976a152199312fa2d0543fc2fe9dd4d8c03\\\\nightly-c310a8e4-0fc0-4e49-a332-f504f6003a99.json\", \"markdown\": \"C:\\\\AiMaxBossman-reality-v010\\\\.audit-work\\\\core-memory-context-baseline\\\\nightly\\\\results\\\\c5a73976a152199312fa2d0543fc2fe9dd4d8c03\\\\nightly-c310a8e4-0fc0-4e49-a332-f504f6003a99.md\", \"scores\": {\"LiveCapabilityScore\": {\"ci95\": {\"high\": 0.0, \"low\": 0.0, \"n\": 0}, \"evidence_class\": \"LIVE\", \"n\": 0, \"status\": \"INSUFFICIENT_EVIDENCE\", \"value\": null}, \"PureCodingIQ\": {\"ci95\": {\"high\": 1.0, \"low\": 0.7574992425007574, \"n\": 12}, \"components\": {\"FunctionalSuccess\": 1.0, \"RegressionSafety\": 1.0, \"SecurityCorrectness\": 1.0}, \"formula\": \"weighted geometric mean (BENCHMARK_PURE_CODING_IQ v2)\", \"measured_weight\": 0.7, \"missing_components\": [\"PatchLocality\", \"PatchPrecision\", \"VerifierAgreement\"], \"n\": 12, \"status\": \"INSUFFICIENT_EVIDENCE\", \"value\": 1.0, \"weights\": {\"FunctionalSuccess\": 0.35, \"PatchLocality\": 0.05, \"PatchPrecision\": 0.1, \"RegressionSafety\": 0.2, \"SecurityCorrectness\": 0.15, \"VerifierAgreement\": 0.15}}, \"RealCapabilityScore\": {\"ci95\": {\"high\": 1.0, \"low\": 0.9035781695514236, \"n\": 36}, \"evidence_class\": \"REAL_SANDBOX\", \"n\": 36, \"status\": \"MEASURED\", \"value\": 1.0}, \"RegressionScore\": {\"ci95\": {\"high\": 0.9999999999999999, \"low\": 0.8453561767357979, \"n\": 21}, \"evidence_class\": \"REGRESSION\", \"n\": 21, \"status\": \"MEASURED\", \"value\": 1.0}, \"SystemIQ\": {\"ci95\": {\"high\": 1.0, \"low\": 0.9035781695514236, \"n\": 36}, \"components\": {\"Context\": 1.0, \"Cost\": 1.0, \"Latency\": 1.0, \"Memory\": 1.0, \"Persistence\": 1.0, \"Recovery\": 1.0, \"Routing\": 1.0, \"Safety\": 1.0, \"Verification\": 1.0, \"VerifiedSuccess\": 1.0}, \"formula\": \"weighted geometric mean (BENCHMARK_SYSTEM_IQ v2)\", \"measured_weight\": 1.0, \"missing_components\": [], \"n\": 36, \"status\": \"MEASURED\", \"value\": 1.0, \"weights\": {\"Context\": 0.1, \"Cost\": 0.05, \"Latency\": 0.03, \"Memory\": 0.08, \"Persistence\": 0.07, \"Recovery\": 0.12, \"Routing\": 0.1, \"Safety\": 0.1, \"Verification\": 0.1, \"VerifiedSuccess\": 0.25}}}, \"status\": \"READY\"}\n",
+    "stderr": "",
+    "scorer_hash": "8eb1cce8c89a5e6b8a17ccfb190266650ff98bc0290758b6b8ac63bfcfcf87b8",
+    "manifest_hash": "f577ec420cd4aa1a275ffc235a8e76a401854c6004222c1a24d4e3f9f29d919b",
+    "isolated_runtime_state": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-baseline\\nightly",
+    "paid_calls_authorized": false,
+    "report_path": "C:\\AiMaxBossman-reality-v010\\.audit-work\\core-memory-context-baseline\\nightly\\results\\c5a73976a152199312fa2d0543fc2fe9dd4d8c03\\nightly-c310a8e4-0fc0-4e49-a332-f504f6003a99.json",
+    "scores": {
+      "LiveCapabilityScore": {
+        "ci95": {
+          "high": 0.0,
+          "low": 0.0,
+          "n": 0
+        },
+        "evidence_class": "LIVE",
+        "n": 0,
+        "status": "INSUFFICIENT_EVIDENCE",
+        "value": null
+      },
+      "PureCodingIQ": {
+        "ci95": {
+          "high": 1.0,
+          "low": 0.7574992425007574,
+          "n": 12
+        },
+        "components": {
+          "FunctionalSuccess": 1.0,
+          "RegressionSafety": 1.0,
+          "SecurityCorrectness": 1.0
+        },
+        "formula": "weighted geometric mean (BENCHMARK_PURE_CODING_IQ v2)",
+        "measured_weight": 0.7,
+        "missing_components": [
+          "PatchLocality",
+          "PatchPrecision",
+          "VerifierAgreement"
+        ],
+        "n": 12,
+        "status": "INSUFFICIENT_EVIDENCE",
+        "value": 1.0,
+        "weights": {
+          "FunctionalSuccess": 0.35,
+          "PatchLocality": 0.05,
+          "PatchPrecision": 0.1,
+          "RegressionSafety": 0.2,
+          "SecurityCorrectness": 0.15,
+          "VerifierAgreement": 0.15
+        }
+      },
+      "RealCapabilityScore": {
+        "ci95": {
+          "high": 1.0,
+          "low": 0.9035781695514236,
+          "n": 36
+        },
+        "evidence_class": "REAL_SANDBOX",
+        "n": 36,
+        "status": "MEASURED",
+        "value": 1.0
+      },
+      "RegressionScore": {
+        "ci95": {
+          "high": 0.9999999999999999,
+          "low": 0.8453561767357979,
+          "n": 21
+        },
+        "evidence_class": "REGRESSION",
+        "n": 21,
+        "status": "MEASURED",
+        "value": 1.0
+      },
+      "SystemIQ": {
+        "ci95": {
+          "high": 1.0,
+          "low": 0.9035781695514236,
+          "n": 36
+        },
+        "components": {
+          "Context": 1.0,
+          "Cost": 1.0,
+          "Latency": 1.0,
+          "Memory": 1.0,
+          "Persistence": 1.0,
+          "Recovery": 1.0,
+          "Routing": 1.0,
+          "Safety": 1.0,
+          "Verification": 1.0,
+          "VerifiedSuccess": 1.0
+        },
+        "formula": "weighted geometric mean (BENCHMARK_SYSTEM_IQ v2)",
+        "measured_weight": 1.0,
+        "missing_components": [],
+        "n": 36,
+        "status": "MEASURED",
+        "value": 1.0,
+        "weights": {
+          "Context": 0.1,
+          "Cost": 0.05,
+          "Latency": 0.03,
+          "Memory": 0.08,
+          "Persistence": 0.07,
+          "Recovery": 0.12,
+          "Routing": 0.1,
+          "Safety": 0.1,
+          "Verification": 0.1,
+          "VerifiedSuccess": 0.25
+        }
+      }
+    },
+    "release_gate": {
+      "ready": true,
+      "reasons": [],
+      "status": "READY"
+    },
+    "modes": {
+      "LIVE": 0,
+      "MOCK": 2,
+      "REAL_SANDBOX": 36,
+      "SIMULATED": 19
+    },
+    "cases": [
+      {
+        "attempts": 3,
+        "capability": "local_cognitive_reuse",
+        "case_id": "repair.skill_reuse",
+        "evidence": [
+          "retrieved-shadow-strategy",
+          "self-attempt-before-teacher",
+          "independent-tests",
+          "retrieved-shadow-strategy",
+          "self-attempt-before-teacher",
+          "independent-tests",
+          "retrieved-shadow-strategy",
+          "self-attempt-before-teacher",
+          "independent-tests"
+        ],
+        "evidence_class": "REGRESSION",
+        "mode": "SIMULATED",
+        "p0": true,
+        "passed": true,
+        "reason": "runtime subprocess evidence",
+        "status": "PASS"
+      },
+      {
+        "attempts": 3,
+        "capability": "local_cognitive_reuse",
+        "case_id": "learning.promotion",
+        "evidence": [
+          "verified",
+          "transfer-verified",
+          "shadow-non-live",
+          "promotion-verified",
+          "verified",
+          "transfer-verified",
+          "shadow-non-live",
+          "promotion-verified",
+          "verified",
+          "transfer-verified",
+          "shadow-non-live",
+          "promotion-verified"
+        ],
+        "evidence_class": "REGRESSION",
+        "mode": "SIMULATED",
+        "p0": true,
+        "passed": true,
+        "reason": "runtime subprocess evidence",
+        "status": "PASS"
+      },
+      {
+        "attempts": 2,
+        "capability": "working_state",
+        "case_id": "sandbox.working_state",
+        "evidence": [
+          "task_row_written_exactly",
+          "cost_ledger_accumulated_exactly",
+          "done_flags_from_state",
+          "survives_real_process_restart",
+          "rolls_back_to_previous_version_after_torn_write",
+          "no_silent_reset_when_every_copy_is_lost",
+          "wm_drops_injected_and_control_columns",
+          "wm_rejects_malformed_checkpoint",
+          "wm_refuses_loudly_without_durable_store",
+          "task_row_written_exactly",
+          "cost_ledger_accumulated_exactly",
+          "done_flags_from_state",
+          "survives_real_process_restart",
+          "rolls_back_to_previous_version_after_torn_write",
+          "no_silent_reset_when_every_copy_is_lost",
+          "wm_drops_injected_and_control_columns",
+          "wm_rejects_malformed_checkpoint",
+          "wm_refuses_loudly_without_durable_store"
+        ],
+        "evidence_class": "REAL_SANDBOX",
+        "mode": "REAL_SANDBOX",
+        "p0": true,
+        "passed": true,
+        "reason": "runtime subprocess evidence",
+        "status": "PASS"
+      },
+      {
+        "attempts": 2,
+        "capability": "context_selection",
+        "case_id": "sandbox.context_selection",
+        "evidence": [
+          "all_four_documents_indexed",
+          "relevant_selected_irrelevant_dropped",
+          "restricted_doc_refused_without_permission",
+          "restricted_doc_returned_with_permission",
+          "secret_document_refused_at_ingest",
+          "durable_memory_block_selected_first_with_provenance",
+          "tight_budget_keeps_highest_priority_block",
+          "selection_reaches_builder_as_untrusted_data",
+          "tool_schemas_pruned_to_relevant",
+          "compiler_sections_fit_the_budget",
+          "promote_unknown_memory_refused",
+          "all_four_documents_indexed",
+          "relevant_selected_irrelevant_dropped",
+          "restricted_doc_refused_without_permission",
+          "restricted_doc_returned_with_permission",
+          "secret_document_refused_at_ingest",
+          "durable_memory_block_selected_first_with_provenance",
+          "tight_budget_keeps_highest_priority_block",
+          "selection_reaches_builder_as_untrusted_data",
+          "tool_schemas_pruned_to_relevant",
+          "compiler_sections_fit_the_budget",
+          "promote_unknown_memory_refused"
+        ],
+        "evidence_class": "REAL_SANDBOX",
+        "mode": "REAL_SANDBOX",
+        "p0": true,
+        "passed": true,
+        "reason": "runtime subprocess evidence",
+        "status": "PASS"
+      },
+      {
+        "attempts": 2,
+        "capability": "raw_context_fallback",
+        "case_id": "sandbox.raw_context_fallback",
+        "evidence": [
+          "flag_off_is_byte_identical_raw",
+          "selection_on_keeps_critical_drops_trivia",
+          "retrieved_channel_off_falls_back_to_raw",
+          "selector_failure_falls_back_to_raw",
+          "real_system_prompt_keeps_whole_memory_on_failure",
+          "corrupt_context_db_refused_at_engine_layer",
+          "engine_failure_returns_original_tools_untouched",
+          "engine_failure_yields_no_bogus_handoff",
+          "disabled_engine_refuses_to_fabricate_handoff",
+          "empty_summary_refused_history_preserved",
+          "valid_summary_replaces_history",
+          "flag_off_is_byte_identical_raw",
+          "selection_on_keeps_critical_drops_trivia",
+          "retrieved_channel_off_falls_back_to_raw",
+          "selector_failure_falls_back_to_raw",
+          "real_system_prompt_keeps_whole_memory_on_failure",
+          "corrupt_context_db_refused_at_engine_layer",
+          "engine_failure_returns_original_tools_untouched",
+          "engine_failure_yields_no_bogus_handoff",
+          "disabled_engine_refuses_to_fabricate_handoff",
+          "empty_summary_refused_history_preserved",
+          "valid_summary_replaces_history"
+        ],
+        "evidence_class": "REAL_SANDBOX",
+        "mode": "REAL_SANDBOX",
+        "p0": true,
+        "passed": true,
+        "reason": "runtime subprocess evidence",
+        "status": "PASS"
+      },
+      {
+        "attempts": 2,
+        "capability": "local_cognitive_reuse",
+        "case_id": "sandbox.local_cognitive_reuse",
+        "evidence": [
+          "production_parse_served_from_exec_cache",
+          "reused_artifact_content_hash",
+          "exec_cache_hit_delta",
+          "exec_cache_miss_delta",
+          "reuse_refused_without_recorded_ab",
+          "reuse_refusal_reason_no_ab",
+          "reuse_block_counted",
+          "verified_entry_reused_after_passing_ab",
+          "reuse_carries_provenance",
+          "reuse_hit_counted",
+          "contract_allows_noninferior_beneficial_reuse",
+          "reuse_refused_when_ab_degrades",
+          "refusal_reason_from_reuse_contract",
+          "contract_refuses_degrading_ab",
+          "contract_refuses_thin_evidence",
+          "credentials_never_cached",
+          "live_balance_never_cached",
+          "refused_kinds_left_no_trace",
+          "stale_entry_refused_after_env_drift",
+          "stale_entry_evicted",
+          "unverified_entry_refused",
+          "refusal_caused_by_verification_requirement",
+          "fresh_observation_beats_reused",
+          "reuse_candidate_without_rollback_ref_refused",
+          "recomputed_entry_served_under_new_env",
+          "production_parse_served_from_exec_cache",
+          "reused_artifact_content_hash",
+          "exec_cache_hit_delta",
+          "exec_cache_miss_delta",
+          "reuse_refused_without_recorded_ab",
+          "reuse_refusal_reason_no_ab",
+          "reuse_block_counted",
+          "verified_entry_reused_after_passing_ab",
+          "reuse_carries_provenance",
+          "reuse_hit_counted",
+          "contract_allows_noninferior_beneficial_reuse",
+          "reuse_refused_when_ab_degrades",
+          "refusal_reason_from_reuse_contract",
+          "contract_refuses_degrading_ab",
+          "contract_refuses_thin_evidence",
+          "credentials_never_cached",
+          "live_balance_never_cached",
+          "refused_kinds_left_no_trace",
+          "stale_entry_refused_after_env_drift",
+          "stale_entry_evicted",
+          "unverified_entry_refused",
+          "refusal_caused_by_verification_requirement",
+          "fresh_observation_beats_reused",
+          "reuse_candidate_without_rollback_ref_refused",
+          "recomputed_entry_served_under_new_env"
+        ],
+        "evidence_class": "REAL_SANDBOX",
+        "mode": "REAL_SANDBOX",
+        "p0": true,
+        "passed": true,
+        "reason": "runtime subprocess evidence",
+        "status": "PASS"
+      }
+    ],
+    "report_sha256": "ec3dacb486b179a479770517b818c2942580512de0880cf3ff1f6022971ea2cc"
+  },
+  "assessment": {
+    "requested_baseline_7200_source": "NOT_FOUND in scoped current source/scorecards/benchmark history; user-provided target has no recovered reproducible mapping.",
+    "maturity_scorecard": "Memory / Context is 6.2/10 in this worktree, 6.5/10 in original repository; evidence SHAs differ. These are documented maturity assessments, not computed quality scores.",
+    "executable_benchmark": "Existing frozen nightly SystemIQ=1.0 with Memory=Context=1.0, REAL_SANDBOX n=36 and REGRESSION n=21; LIVE n=0. This baseline already saturates existing synthetic boundary tests.",
+    "cannot_claim": "No substantiated 7200-to-8500 improvement or live memory-quality score; do not rescale this saturated sandbox result into a claim that user target has been achieved.",
+    "measurement_protocol": "Keep scorer, manifest, golden corpus and existing tests frozen. Run same files against immutable baseline and candidate. Add distinct frozen adversarial regression cases before implementation; disclose that their rate is a new diagnostic, not the historical score.",
+    "blocking_environment": "Nine real-Postgres tests skipped because BOSSMAN_TEST_PG_DSN is unavailable. No real PostgreSQL memory persistence or live model context quality proven by baseline.",
+    "known_metric_limitations": [
+      "Golden quality checks mandatory-anchor substrings, not answer correctness or semantic entailment.",
+      "Default HashEmbedder is deterministic local hashing, not a neural semantic model.",
+      "The 25 tiny golden fixtures retain all anchors before changes; metadata overhead makes compiled token estimate2705 versus raw1007. Large-corpus savings are a separate existing passing test.",
+      "SystemIQ includes Memory weight0.08 and Context0.10 and other independent components; improving just memory/context is not proof of overall application quality."
+    ]
+  },
+  "suggested_frozen_regression_cases": [
+    {
+      "id": "1",
+      "case": "Tail numeric/path anchors under4096 real context budget",
+      "security_failure_is_veto": true
+    },
+    {
+      "id": "2",
+      "case": "Relevant older decision beats recent unrelated facts",
+      "security_failure_is_veto": true
+    },
+    {
+      "id": "3",
+      "case": "Superseded decision omitted",
+      "security_failure_is_veto": true
+    },
+    {
+      "id": "4",
+      "case": "Same query cannot cross project boundary",
+      "security_failure_is_veto": true
+    },
+    {
+      "id": "5",
+      "case": "Restricted/private records excluded from unauthorized prompt",
+      "security_failure_is_veto": true
+    },
+    {
+      "id": "6",
+      "case": "Oversized early retrieval block cannot starve later small critical constraint",
+      "security_failure_is_veto": true
+    },
+    {
+      "id": "7",
+      "case": "Corrupt retrieval retains safe raw-memory fallback",
+      "security_failure_is_veto": true
+    },
+    {
+      "id": "8",
+      "case": "Restart/resume restores latest committed task state",
+      "security_failure_is_veto": true
+    },
+    {
+      "id": "9",
+      "case": "Injected retrieved instruction remains data and cannot authorize",
+      "security_failure_is_veto": true
+    },
+    {
+      "id": "10",
+      "case": "Prompt plus reserved output never exceeds actual context window",
+      "security_failure_is_veto": true
+    }
+  ],
+  "status": "BASELINE_MEASURED_TARGET_MAPPING_UNSUBSTANTIATED"
+}
