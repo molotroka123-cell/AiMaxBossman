@@ -48,6 +48,7 @@ class ActionOutcome:
     verification: VerificationResult
     effect_id: str | None
     approval_id: str | None
+    receipt: ExecutionReceipt | None = None      # что исполнение ЗАЯВИЛО (для ActionReceipt)
 
 
 class UniversalComputerAgent:
@@ -98,4 +99,4 @@ class UniversalComputerAgent:
                 "Observation predates execution completion; verification would use stale state."
             )
         verification = self.verifier.verify(action, receipt, observation)
-        return ActionOutcome(action, observation, verification, receipt.effect_id, approval_id)
+        return ActionOutcome(action, observation, verification, receipt.effect_id, approval_id, receipt)

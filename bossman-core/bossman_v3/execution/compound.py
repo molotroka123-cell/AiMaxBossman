@@ -71,6 +71,34 @@ class CompoundRunner:
         self.failure_memory.record({"signature": step.step_id, "approach": step.intent,
                                     "error": reason, "by": self.model})
 
+    def _action_receipt(self, step: PlanStep, outcome, context: Mapping[str, Any] | None) -> dict:
+        """Канонический ActionReceipt (TRUTH-003 §2): заявление исполнителя + независимое
+        наблюдение + fencing_token из контекста (флот/движок). Подпись — на уровне
+        закрытого шага журнала; SIGNED_RECEIPT ≠ VERIFIED_SIDE_EFFECT остаётся в силе."""
+        import bossman._shared  # noqa: F401
+        from bossman_shared.action_receipt import ActionReceipt
+        ctx = dict(context or {})
+        r = outcome.receipt
+        obs = outcome.observation
+        src = str(getattr(obs, "source", "") or "")
+        observation_type = "post_state" if src in ("bcc.v2.verification", "fs", "fake") or str(obs.state.get("status", ""))             else "tool_result_only"
+        if not obs.state:
+            observation_type = "tool_result_only"
+        fence = ctx.get("fence")
+        rec = ActionReceipt.from_v3(
+            task_id=self.journal.task_id, step_id=step.step_id, action_type=step.action.action_type,
+            effect_type=getattr(step.action.side_effect, "value", str(step.action.side_effect)), args=step.action.args,
+            started_at=r.started_at if r else None, finished_at=r.completed_at if r else None,
+            observed_at=obs.observed_at, executor_status="executed",
+            observation_type=observation_type, observation_ref=src,
+            verification_status="VERIFIED" if outcome.verification.passed else "FAILED",
+            verification_reason=outcome.verification.reason or "",
+            idempotency_key=step.action.idempotency_key or f"{self.journal.task_id}/{step.step_id}",
+            fencing_token=int(fence) if fence is not None else None, run_id=str(ctx.get("run_id", "")),
+            executor_metadata={"effect_id": outcome.effect_id, "approval_id": outcome.approval_id,
+                               "model": self.model, "node_id": ctx.get("node_id", "")})
+        return rec.to_dict()
+
     def run(self, plan: Sequence[PlanStep], context: Mapping[str, Any] | None = None) -> CompoundResult:
         done_ids = {s.step_id for s in self.journal.finished()}
         executed: list[str] = []
@@ -116,9 +144,7 @@ class CompoundRunner:
                 continue
 
             self.journal.record(step.step_id, verified=True, by=self.model,
-                                receipt={"effect_id": outcome.effect_id,
-                                         "action_type": step.action.action_type,
-                                         "approval_id": outcome.approval_id})
+                                receipt=self._action_receipt(step, outcome, context))
             executed.append(step.step_id)
 
         remaining_required = [s for s in plan

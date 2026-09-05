@@ -76,6 +76,10 @@ class LocalNodeTransport:
         contract = request.contract
         if request.context_policy == "MINIMIZED":
             contract = _minimized(contract)
+        # TRUTH-003 §12: исполнитель узла узнаёт fence аренды — он попадает в каждый
+        # ActionReceipt шага; флот потом отвергает receipt'ы, записанные под устаревшим fence.
+        contract.metadata["fleet_dispatch"] = {"fence": int(request.fence), "lease_id": request.lease_id,
+                                               "node_id": node_id}
         return rt.execute(contract, agent_id=request.agent_id)
 
     def cancel(self, node_id: str, work_id: str) -> bool:

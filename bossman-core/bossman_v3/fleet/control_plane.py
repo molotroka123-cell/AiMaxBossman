@@ -18,6 +18,8 @@ FleetResumeKernel решает, безопасно ли переносить н�
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 import time
 from pathlib import Path
 from typing import Any
@@ -207,7 +209,8 @@ class FleetExecutionBridge:
             plan = [step_from_dict(s) for s in contract.steps]
             jid = f"{contract.mission_id}__{contract.work_id}"
             jpath = self.journal_root / f"{jid}.json"
-            derived = _journal_evidence(TaskJournal.load(task_id=jid, root=self.journal_root), plan) if jpath.exists() else []
+            derived = _journal_evidence(TaskJournal.load(task_id=jid, root=self.journal_root), plan,
+                                        flight=flight, journal=plane.journal) if jpath.exists() else []
             forged = [e for e in result.evidence if e.verified and e.source not in {d.source for d in derived}]
             if forged:
                 result.metadata["forged_evidence_rejected"] = [e.source for e in forged]
@@ -278,12 +281,47 @@ class FleetExecutionBridge:
                                                                               "lease_id": lease.lease_id}})
 
 
-def _journal_evidence(j: TaskJournal, plan) -> list[Evidence]:
+def _leased_since(flight) -> float | None:
+    """Момент, когда текущий fence полёта вступил в силу (последний переход в LEASED)."""
+    if flight is None:
+        return None
+    for h in reversed(flight.history or []):
+        if h.get("to") == "LEASED":
+            return float(h.get("ts") or 0.0)
+    return None
+
+
+def _stale_fence_receipt(js, flight) -> bool:
+    """TRUTH-003 §12: receipt шага записан под fence НИЖЕ текущего ПОСЛЕ того, как
+    текущий fence был выдан — это зомби-воркер, вернувшийся после переназначения."""
+    if flight is None or not isinstance(js.receipt, dict):
+        return False
+    token = js.receipt.get("fencing_token")
+    if token is None:
+        return False
+    since = _leased_since(flight)
+    if since is None or int(token) >= int(flight.fence):
+        return False
+    try:
+        written = datetime.fromisoformat(str(js.updated_at).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return True                                                  # нечитаемое время — не доверяем
+    return written > since
+
+
+def _journal_evidence(j: TaskJournal, plan, *, flight=None, journal=None) -> list[Evidence]:
     out: list[Evidence] = []
     finished = {s.step_id: s for s in j.finished()}
     for step in plan:
         js = finished.get(step.step_id)
         if js is None:
+            continue
+        if _stale_fence_receipt(js, flight):
+            if journal is not None:
+                journal.emit(FleetEventType.TASK_REJECTED, mission_id=flight.mission_id, work_id=flight.work_id,
+                             node_id=flight.node_id, payload={"reason": "stale fence receipt", "step_id": step.step_id,
+                                                             "receipt_fence": js.receipt.get("fencing_token"),
+                                                             "current_fence": flight.fence})
             continue
         expect = dict(step.action.args).get("expect")
         kind, ref = (str(expect["kind"]), str(expect.get("target", step.step_id))) if isinstance(expect, dict) and expect.get("kind") \

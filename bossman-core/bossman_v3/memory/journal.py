@@ -25,6 +25,10 @@ from typing import Any, Mapping, Sequence
 PENDING, DONE, FAILED = "PENDING", "DONE", "FAILED"
 
 
+class JournalConflict(RuntimeError):
+    """Попытка переписать уже закрытый (подписанный) шаг журнала."""
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -105,6 +109,11 @@ class TaskJournal:
         for i, s in enumerate(self.steps):
             if s.step_id != step_id:
                 continue
+            if s.finished:
+                # TRUTH-003 §12: закрытый шаг не переписывается — ни зомби-воркером,
+                # ни повтором. Существующая подписанная запись остаётся истиной.
+                raise JournalConflict(f"step {step_id!r} of {self.task_id!r} is already finished; "
+                                      f"refusing to overwrite a signed receipt")
             done = receipt is not None and verified
             new = replace(s, receipt=dict(receipt) if receipt else None,
                           verified=bool(verified), by=by, note=note,

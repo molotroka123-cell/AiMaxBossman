@@ -165,7 +165,10 @@ class V3ExecutionBridge:
         fm = self.failure_memory_for(contract.department_id) if self.failure_memory_for else None
         already = {s.step_id for s in journal.finished()}
         t0 = time.monotonic()
-        res = agent_run(agent, journal, plan, model=agent_id, failure_memory=fm)
+        dispatch = dict(contract.metadata.get("fleet_dispatch") or {})
+        res = agent_run(agent, journal, plan, model=agent_id, failure_memory=fm,
+                        context={"fence": dispatch.get("fence"), "node_id": dispatch.get("node_id", ""),
+                                 "lease_id": dispatch.get("lease_id", ""), "run_id": self.journal_id(contract)})
         elapsed = time.monotonic() - t0
 
         evidence = [_evidence_from_step(journal.task_id, step, journal) for step in plan
@@ -187,8 +190,9 @@ class V3ExecutionBridge:
 
 
 def agent_run(agent: UniversalComputerAgent, journal: TaskJournal, plan: list[PlanStep], *,
-              model: str, failure_memory: FailureMemory | None) -> CompoundResult:
-    return CompoundRunner(agent, journal, model=model, failure_memory=failure_memory).run(plan)
+              model: str, failure_memory: FailureMemory | None,
+              context: Mapping[str, Any] | None = None) -> CompoundResult:
+    return CompoundRunner(agent, journal, model=model, failure_memory=failure_memory).run(plan, context)
 
 
 def _evidence_from_step(journal_id: str, step: PlanStep, journal: TaskJournal) -> Evidence:
