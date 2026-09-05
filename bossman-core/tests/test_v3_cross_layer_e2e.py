@@ -18,6 +18,8 @@ import json
 import uuid
 from pathlib import Path
 
+import bossman._shared  # noqa: F401
+from bossman_shared.action_receipt import ActionReceipt
 from bossman_v3.benchmark_overlay import (BenchmarkCollector, BenchmarkScorer, events_from_fleet,
                                           events_from_organization, write_reports)
 from bossman_v3.fleet import FlightState
@@ -64,9 +66,12 @@ def test_cross_layer_positive_chain_to_scorecard_evidence(tmp_path):
     assert f1.state == FlightState.VERIFIED and f1.fence >= 1 and f1.node_id in ("node-1", "node-2")
     assert "PLACED" in [h["to"] for h in f1.history] and "VERIFIED" == f1.history[-1]["to"]
     assert len(s.plane.store.verified_mutations()) == 2 and s.plane.flights.duplicate_preventions == 0
-    # журнал V3: закрытые шаги подписаны
+    # журнал V3: закрытые шаги подписаны; ActionReceipt (v2 E2E): fence, свежее post_state, verified
     j = TaskJournal.load(task_id="m1__w1", root=tmp_path / "stack" / "journals")
     assert all(st.signature_valid("m1__w1") for st in j.finished()) and len(j.finished()) == 1
+    rec = ActionReceipt.from_dict(j.finished()[0].receipt)
+    assert rec.fencing_token == f1.fence and rec.observation_type == "post_state" and rec.verified() and rec.fresh()[0]
+    assert rec.executor_status == "executed" and rec.verification_status == "VERIFIED"
     # бенчмарк (пассивный) → отчёт → scorecard
     report = _benchmark(s, "m1")
     assert report.aggregate["hard_failures"] == [] and report.aggregate["verified_success_count"] == 1
@@ -97,7 +102,11 @@ def test_cross_layer_effect_absent_child_failed_parent_not_complete(tmp_path):
     assert s.org.store.work("w1")["state"] == TaskState.FAILED.value
     assert not (w.root / "need.txt").exists()
     r = s.org.store.result("w1")
-    assert r.success is False and r.verified is False
+    assert r.success is False and r.verified is False and r.executed is True          # EXECUTED, но не VERIFIED
+    # receipt честно говорит: исполнено, пост-состояние other.txt подтверждено, но требуемого эффекта нет
+    j = TaskJournal.load(task_id="m1__w1", root=tmp_path / "stack" / "journals")
+    recs = [ActionReceipt.from_dict(st.receipt) for st in j.finished()]
+    assert recs and all(x.executor_status == "executed" for x in recs)
     report = _benchmark(s, "m1")
     assert report.aggregate["hard_failures"] == [] and report.aggregate["verified_success_count"] == 0
     assert report.aggregate["false_success_count"] == 0                        # false success не зачтён никем
