@@ -1,7 +1,7 @@
 {
   "schema": "bossman.live-scorecard/1",
   "last_update": "2026-09-05",
-  "last_evidence_sha": "4c8fec2c0ceada7f5085373e067e1f01b289398e",
+  "last_evidence_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
   "exact_sha_ci": "NOT_RUN",
   "live_hardware_attestation": "PENDING",
   "benchmark_hard_failures": [],
@@ -12,8 +12,8 @@
     "permission_bypass_count": 0,
     "source": "bossman-core/tests/test_v3_org_benchmark.py (A–E), test_v3_benchmark_overlay.py, test_v3_fleet_e2e.py, command-center/tests/test_fence_fl01.py at last_evidence_sha; deterministic suites, no live run recorded"
   },
-  "current_bottleneck": "EH-02/EH-04: улики подписаны (EH-01), fence движка закрывает дубли (FL-01), Organization доступна как продукт (ORG-01/02), но верификаторы пост-состояния есть лишь для 4 семейств и нет единой точки finalize() — Execution Truth не может стать ATTESTED; флот и SLO не подключены к Command Center (control-plane честно показывает enabled=false / NOT_IMPLEMENTED).",
-  "next_highest_value_fix": "TZ-01 §2.2–2.3: ActionReceipt + детерминированные верификаторы пост-состояния (terminal/files/apps/github) и единый finalize() с grep-тестом; затем TZ-08 §2.2 гистограммы/SLO и ретеншн событий.",
+  "current_bottleneck": "EH-02/EH-04: верификаторы пост-состояния только для 4 семейств и нет единого finalize(); флот/SLO не подключены к Command Center (control-plane честно показывает enabled=false / NOT_IMPLEMENTED); Windows-job и coverage-gate отсутствуют (CI VERIFIED только по Linux).",
+  "next_highest_value_fix": "TZ-01 §2.2–2.3: ActionReceipt + детерминированные верификаторы пост-состояния (terminal/files/apps/github), единый finalize() с grep-тестом; затем TZ-08 §2.1–2.2 (ретеншн, гистограммы/SLO) и TZ-07 windows-job.",
   "categories": [
     {
       "category": "Execution Truth",
@@ -41,14 +41,14 @@
         "bossman-core/tests/test_v3_organization_e2e.py",
         "command-center/tests/test_action_contract.py"
       ],
-      "last_verified_sha": "4c8fec2c0ceada7f5085373e067e1f01b289398e",
+      "last_verified_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.5
     },
     {
       "category": "Security",
-      "score": 8.0,
+      "score": 8.3,
       "status": "VERIFIED",
       "confidence": "HIGH",
       "evidence": [
@@ -57,21 +57,27 @@
         "Fleet: PRIVATE/LOCAL_ONLY — жёсткий гейт планировщика, CredentialBroker выдаёт только гранты (test_v3_fleet_core.py)",
         "Secret scan в каждом CI-прогоне (tools/ci_secret_scan.py)",
         "EH-01: ключ подписи улик 0600 вне модели; fail-closed без ключа (bossman_shared/evidence.py)",
-        "OpenRouter только через env → ключ в vault, не в репозитории/логах/API (3e673d3, test_feat_openrouter_env_bootstrap.py)"
+        "OpenRouter только через env → ключ в vault, не в репозитории/логах/API (3e673d3, test_feat_openrouter_env_bootstrap.py)",
+        "SEC-01 секрет-скан 2.0: 13 семейств паттернов, энтропия, ZIP по содержимому, запрещённые файлы (tests/test_ci_secret_scan.py)",
+        "SEC-03 rate-limit/lockout на /api/login до сравнения токена (command-center/tests/test_login_rate_limit.py)"
       ],
       "blockers": [
-        "TZ-02: scan 2.0 (энтропия), rate-limit шлюза, hash-chain журнала",
+        "SEC-02: TTL сессий 7д/idle 12ч, ротация sid",
+        "SEC-04: pip-audit/bandit как гейт (baseline)",
+        "SEC-06: hash-chain approvals/events",
         "Tailscale-Serve руководство оператора"
       ],
       "tests": [
         "bossman-core/tests/test_gateway_loopback_proxy.py",
         "command-center/tests/test_policy_algebra.py",
-        "bossman-core/tests/test_v3_fleet_core.py"
+        "bossman-core/tests/test_v3_fleet_core.py",
+        "tests/test_ci_secret_scan.py",
+        "command-center/tests/test_login_rate_limit.py"
       ],
-      "last_verified_sha": "4c8fec2c0ceada7f5085373e067e1f01b289398e",
+      "last_verified_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.8
+      "regression_delta": 0.3
     },
     {
       "category": "Tooling / OS Integration",
@@ -80,7 +86,8 @@
       "confidence": "MEDIUM",
       "evidence": [
         "V2 реестр инструментов/decide_effect/approvals заморожен на ffda281 и покрыт command-center/tests/test_v21_*",
-        "V3-порты → живой bcc (bossman-core/tests/test_v3_command_center_adapters.py)"
+        "V3-порты → живой bcc (bossman-core/tests/test_v3_command_center_adapters.py)",
+        "OpenRouter как провайдер из окружения (ключ+модели — данные), тот же tool loop через фейковый провайдер детерминированно (command-center/tests/test_feat_openrouter_agent_flow.py)"
       ],
       "blockers": [
         "TZ-03: CapabilitySpec, выдача инструмента на run, детектор no-progress"
@@ -89,7 +96,7 @@
         "command-center/tests/test_v21_tool_loop.py",
         "bossman-core/tests/test_v3_command_center_adapters.py"
       ],
-      "last_verified_sha": "4c8fec2c0ceada7f5085373e067e1f01b289398e",
+      "last_verified_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.0
@@ -117,7 +124,7 @@
         "bossman-core/tests/test_v3_organization_planner.py",
         "command-center/tests/test_feat_organization.py"
       ],
-      "last_verified_sha": "4c8fec2c0ceada7f5085373e067e1f01b289398e",
+      "last_verified_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.5
@@ -130,7 +137,8 @@
       "evidence": [
         "FleetStore/LeaseManager/WorkQueue CAS-claim, fencing, reclaim (bossman-core/tests/test_v3_fleet_core.py, 20 тестов)",
         "E2E #1–#4: размещение→исполнение, смерть узла→resume без дублей, приватность, двойной claim (test_v3_fleet_e2e.py)",
-        "FL-01: task_runs.fence, условные записи и heartbeat, assert_fence до эффекта в V2 и в V3-адаптере (2487694, test_fence_fl01.py)"
+        "FL-01: task_runs.fence, условные записи и heartbeat, assert_fence до эффекта в V2 и в V3-адаптере (2487694, test_fence_fl01.py)",
+        "10 safety proofs (реестр + истёкшая аренда без власти + размещение не штрафует исполнителя); REMOTE_TRANSPORT_PRODUCTION_READY=NO, NODE_AUTH_PRODUCTION_READY=NO (test_v3_fleet_safety_proofs.py)"
       ],
       "blockers": [
         "RemoteNodeTransport: REMOTE_TRANSPORT_PRODUCTION_READY=NO",
@@ -140,9 +148,10 @@
       "tests": [
         "bossman-core/tests/test_v3_fleet_core.py",
         "bossman-core/tests/test_v3_fleet_e2e.py",
-        "command-center/tests/test_fence_fl01.py"
+        "command-center/tests/test_fence_fl01.py",
+        "bossman-core/tests/test_v3_fleet_safety_proofs.py"
       ],
-      "last_verified_sha": "4c8fec2c0ceada7f5085373e067e1f01b289398e",
+      "last_verified_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
       "last_verified_at": "2026-09-05",
       "live_attestation": "PENDING",
       "regression_delta": 0.5
@@ -164,21 +173,23 @@
         "bossman-core/tests/test_v3_organization_core.py",
         "bossman-core/tests/test_v3_memory_kernel.py"
       ],
-      "last_verified_sha": "4c8fec2c0ceada7f5085373e067e1f01b289398e",
+      "last_verified_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.0
     },
     {
       "category": "Testing / CI",
-      "score": 7.0,
+      "score": 7.3,
       "status": "VERIFIED",
       "confidence": "MEDIUM",
       "evidence": [
         "4 workflow (root-ci, Bossman Core CI, Command Center CI, V2 Auto-Repair) зелёные по точному SHA 714bb01/fb201a4",
         "Полный регресс ядра на стабильном HEAD; benchmark-тесты проверяют SHA",
         "README_SCORECARD_CURRENT проверяется в root-ci (scripts/update_readme_scorecard.py --check)",
-        "Пассивный benchmark overlay: 9 hard fail'ов, 5 стресс-бенчмарков над реальными Organization/Fleet/CompoundRunner, мост в scorecard `--from-benchmark` (bossman-core/tests/test_v3_benchmark_overlay.py, test_v3_org_benchmark.py)"
+        "Пассивный benchmark overlay: 9 hard fail'ов, 5 стресс-бенчмарков над реальными Organization/Fleet/CompoundRunner, мост в scorecard `--from-benchmark` (bossman-core/tests/test_v3_benchmark_overlay.py, test_v3_org_benchmark.py)",
+        "Сквозной E2E миссия→организация→флот→узел→V3→файл→свежее чтение→подписанные улики→VERIFIED→ревью→COMPLETE→benchmark→scorecard (bossman-core/tests/test_v3_cross_layer_e2e.py)",
+        "Реестр 10 доказательств безопасности флота, каждое привязано к существующему тесту (test_v3_fleet_safety_proofs.py)"
       ],
       "blockers": [
         "TZ-07: windows-job отсутствует, coverage gate, реестр skips",
@@ -189,12 +200,14 @@
         "tests/test_readme_scorecard.py",
         ".github/workflows/*.yml",
         "bossman-core/tests/test_v3_benchmark_overlay.py",
-        "bossman-core/tests/test_v3_org_benchmark.py"
+        "bossman-core/tests/test_v3_org_benchmark.py",
+        "bossman-core/tests/test_v3_cross_layer_e2e.py",
+        "bossman-core/tests/test_v3_fleet_safety_proofs.py"
       ],
       "last_verified_sha": "fb201a4",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.0
+      "regression_delta": 0.3
     },
     {
       "category": "Observability / CEO Control",
@@ -219,7 +232,7 @@
         "command-center/tests/test_no_private_fields_in_events.py",
         "bossman-core/tests/test_v3_organization_core.py"
       ],
-      "last_verified_sha": "4c8fec2c0ceada7f5085373e067e1f01b289398e",
+      "last_verified_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.5
@@ -244,7 +257,7 @@
         "command-center/tests/test_fable_hard_cap.py",
         "bossman-core/tests/test_v3_organization_core.py"
       ],
-      "last_verified_sha": "4c8fec2c0ceada7f5085373e067e1f01b289398e",
+      "last_verified_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.5
@@ -267,7 +280,7 @@
         "command-center/tests/test_ux2_pages_sweep.py",
         "command-center/tests/test_command_bar_ui.py"
       ],
-      "last_verified_sha": "4c8fec2c0ceada7f5085373e067e1f01b289398e",
+      "last_verified_sha": "97b3091e10fc829f2967ff57c5b3d2415d412ec0",
       "last_verified_at": "2026-09-05",
       "live_attestation": "NOT_REQUIRED",
       "regression_delta": 0.0

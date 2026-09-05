@@ -40,13 +40,15 @@
 | TZ-01 подпись улик/верификаторы | §2.1 ЗАКРЫТО (EH-01 HMAC, `Evidence.signed`, журнал подписывает шаг); §2.5 ЗАКРЫТО (EH-05 requeue) | `000f331`, `4c8fec2` | §2.2 11 верификаторов пост-состояния + `ActionReceipt`, §2.3 `finalize()` + grep-тест, §2.4 абстенция |
 | TZ-04 организация | §2 ЗАКРЫТО (ORG-01 feature `/api/org/*`, ORG-02 PlannerPort/BLOCKED no_executable_steps); ORG-03..07 ранее | `084ad3a`, `efaa55f` | ORG-08 saga; модельный планировщик (TZ-03 §2.5); HTTP-E2E исполнения через V2 с реальным агентом; §4.3 usd-view (TR-04) |
 | TZ-08 наблюдаемость | §2.5 ЗАКРЫТО (`GET /api/control-plane`), §2.7 AST-тест приватности | `5709611` | §2.1 ретеншн, §2.2 гистограммы/SLO/burn-rate алерт, §2.3 span'ы, §2.4 цепочка INV-5, §2.6 dead-click, §2.7 тест приватности |
-| TZ-02 / TZ-07 | OPEN (P0-A/P0-B из дельта-аудита закрыты: `cbdabf2`, `eb0e969`) | | скан 2.0 (энтропия), rate-limit логина, hash-chain журнала, coverage gate, windows job, реестр skips |
+| TZ-02 / TZ-07 | SEC-01 скан 2.0 и SEC-03 rate-limit ЗАКРЫТЫ; P0-A/P0-B закрыты (`cbdabf2`, `eb0e969`) | `4568e2c`, `97b3091` | SEC-02 TTL/idle/ротация sid, SEC-04 сканы-гейты, SEC-06 hash-chain, coverage gate, windows job, реестр skips |
 | TZ-06 память | MEM-02 явное наследование (`084ad3a`); остальное OPEN | | решётка по дереву (INV-4), ScopeToken, эмбеддинги, токен-оценка |
 | TZ-03 инструменты | OPEN | | CapabilitySpec, выдача инструмента на run, no-progress |
 | TZ-10 UX | OPEN (дизайн-ветка `claude/v2-ui-sidebar-compact` не влита) | | статусы blocked/capability_unavailable, aria, страница control-plane (данные уже есть в `/api/control-plane`) |
 | Live Scorecard | ЗАКРЫТО (README блок, `docs/benchmark/current-scorecard.json`, `scripts/update_readme_scorecard.py --check` в root-ci) | `dd658b7` | обновлять `last_evidence_sha` при материальных изменениях; `exact_sha_ci` ставить PASS только по Actions на этом SHA |
-| Benchmark overlay | НЕ ВЛИТ (ZIP в корне, см. `docs/v3/ZIP_ARTIFACTS.md`) | | пассивный коллектор → скорер → hard-fail gate → `current-scorecard.json` |
-| OpenRouter provider path | ЗАКРЫТО (`BOSSMAN_OPENROUTER_API_KEY` → провайдер с ключом в vault) | `3e673d3` | ротация ключа, UI-подсказка |
+| Benchmark overlay | ВЛИТ (`bossman_v3/benchmark_overlay`, 5 стресс-бенчмарков, `--from-benchmark`) | `663a720` | регулярный прогон, пишущий `benchmark-report.json`; live-режим |
+| OpenRouter provider path | ЗАКРЫТО (`BOSSMAN_OPENROUTER_API_KEY` + `BOSSMAN_OPENROUTER_MODELS` → провайдер и модели из окружения; фейковый провайдер гоняет тот же tool loop; live smoke opt-in) | `3e673d3`, `97b3091` | ротация ключа, выбор модели по capability_probe |
+| Fleet safety proofs 1–10 / cross-layer E2E | ЗАКРЫТО | `869a124`, `4568e2c` | live-режим с реальным узлом |
+| Delta-аудит CLOSURE-002 | `docs/audit/2026-09-05_DELTA_AUDIT_CLOSURE_002.md` | `4568e2c` | обновлять при закрытии находок |
 | Autonomous Operations | НЕ НАЧАТО (отдельная миссия по решению владельца) | | |
 
 ## 5. Известные P0/P1 вне V3 (для владельца)
@@ -56,12 +58,12 @@
 - P1 bcc `approvals.consume` по `(kind, preview)` без срока/скоупа; V3-адаптер привязывает preview к `task#<id>`. Сам V2 не менялся.
 - P1 `bossman.company.runtime` может закрыть задачу DONE по самоотчёту без улик; путь Organization этого не допускает (и теперь требует подписанных улик).
 
-## 6. Итог последней сессии (Fable, 2026-09-05)
+## 6. Итог последней сессии (Fable, 2026-09-05, миссия CLOSURE-002)
 
-- **Коммиты (по порядку):** `e724a44` TR-01/02/03 · `cbdabf2` P0-A · `eb0e969` P0-B · `dd658b7` Live Scorecard · `2487694` FL-01 · `000f331` EH-01 · `efaa55f` ORG-01/02 · `5709611` control-plane+privacy · `3e673d3` OpenRouter env · `4c8fec2` EH-05 · затем этот docs-коммит (FINAL_SHA = HEAD ветки).
-- **Тесты:** command-center полный регресс 1412 passed / 4 skipped (после FL-01 и фичи organization); bossman-core V3-наборы 113+5 passed; root `tests/` scorecard 16 + evidence 4 passed; целевые наборы по каждому ТЗ — в `docs/v3/WORK_LOG_PRODUCTIZATION.md`.
-- **CI по точному SHA:** `dd658b7` и `000f331` — все 4 workflow success. Для `efaa55f..4c8fec2` и docs-коммита — смотреть Actions (на момент записи NOT_RUN; `exact_sha_ci` в scorecard так и стоит).
-- **Не сделано (в порядке ценности):** TZ-01 §2.2–2.3 (верификаторы пост-состояния + `finalize()`), TZ-08 §2.1–2.4/2.6, TZ-02/07 (скан 2.0, rate-limit, hash-chain, coverage, windows-job), TZ-06, TZ-03, TZ-10, benchmark overlay, ORG-08 saga, TR-04..06, слияние дизайн-ветки `claude/v2-ui-sidebar-compact`.
+- **Коммиты (по порядку):** `e724a44` TR-01/02/03 · `cbdabf2` P0-A · `eb0e969` P0-B · `dd658b7` Live Scorecard · `2487694` FL-01 · `000f331` EH-01 · `efaa55f` ORG-01/02 · `5709611` control-plane+privacy · `3e673d3` OpenRouter env · `4c8fec2` EH-05 · `2684600` docs · `663a720` Benchmark Overlay · `869a124` CI-fix + safety proofs · `4568e2c` cross-layer E2E + SEC-01 + delta-аудит · `97b3091` OpenRouter models + SEC-03 · затем этот docs-коммит (FINAL_SHA = HEAD ветки).
+- **Тесты:** command-center полный регресс — см. `docs/v3/WORK_LOG_PRODUCTIZATION.md` (последняя строка docs); bossman-core все `test_v3_*` + gateway + budget зелёные; root `tests/` зелёные; целевые наборы по каждому пункту — в work log.
+- **CI по точному SHA:** `2684600` Command Center был красным (организация импортировала ядро до 503; legacy-гейт без requeue) — исправлено в `869a124`. Для `869a124..97b3091` и docs-коммита смотреть Actions; `exact_sha_ci` в scorecard стоит NOT_RUN до наблюдения.
+- **Не сделано (в порядке ценности):** TZ-01 §2.2–2.3 (верификаторы пост-состояния + `finalize()`), TZ-08 §2.1–2.4/2.6, SEC-02/04/06, TZ-07 (coverage, windows-job, skips), TZ-06, TZ-03 (CapabilitySpec, no-progress), TZ-10 (страница control-plane; дизайн-ветка не влита), ORG-08 saga, TR-04..06, регулярный benchmark-прогон.
 - **Не начато по решению владельца:** Autonomous Operations.
-- **Осторожно:** `bossman-core/tests/conftest.py` держит ключ подписи улик в tmp — не удалять; `Evidence(verified=True)` без `Evidence.signed(...)` теперь отвергается везде; `CommandCenterRuntime.call` из собственного цикла бросает RuntimeError (гоните организацию через `asyncio.to_thread`).
-- **Следующий шаг для Opus:** TZ-01 §2.2 — `ActionReceipt` как расширение `tool_calls` (`receipt_json, verified, verifier, observed_at, sig`) + верификаторы terminal/files/apps/github, подпись `bossman_v3.verifier`; затем §2.3 `finalize()` и grep-тест `test_no_direct_completed_writes`.
+- **Осторожно:** `bossman-core/tests/conftest.py` держит ключ подписи улик в tmp; `Evidence(verified=True)` без `Evidence.signed(...)` отвергается везде; `CommandCenterRuntime.call` из собственного цикла бросает RuntimeError; фича organization отвечает 503 ДО импорта ядра (Command Center CI без bossman-core); гейт с FAIL обязан нести `requeue`; секрет-скан теперь считает энтропию в коде/конфиге — фальшивые токены в тестах помечать `# ci-secret-scan: allow`.
+- **Следующий шаг для Opus:** TZ-01 §2.2 — `ActionReceipt` как расширение `tool_calls` (`receipt_json, verified, verifier, observed_at, sig`) + верификаторы terminal/files/apps/github с подписью `bossman_v3.verifier`; затем §2.3 `finalize()` и grep-тест `test_no_direct_completed_writes`.
