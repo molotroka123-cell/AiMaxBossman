@@ -62,3 +62,5 @@ artifacts/video_factory/
 .bossman-cache/
 build/
 astra-security-results/
+.coverage
+.coverage.*
