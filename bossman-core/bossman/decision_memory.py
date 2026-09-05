@@ -233,13 +233,14 @@ async def query_decisions(
 ) -> list[DecisionRecord]:
     """Query decisions.
 
-    If current_only=True, only return decisions that are not superseded
-    (i.e., currently valid decisions).
+    Scope and subject apply equally to active and historical retrieval.
+    Current decisions must also have reached valid_from and not be superseded.
     """
     async with (await pool()).acquire() as conn:
         if current_only:
             query = """SELECT * FROM decisions
                        WHERE supersedes IS NULL
+                       AND valid_from <= now()
                        AND (scope = $1 OR $1 IS NULL)
                        AND (subject = $2 OR $2 IS NULL)
                        ORDER BY valid_from DESC
@@ -247,9 +248,11 @@ async def query_decisions(
             rows = await conn.fetch(query, scope, subject, limit)
         else:
             query = """SELECT * FROM decisions
+                       WHERE (scope = $1 OR $1 IS NULL)
+                       AND (subject = $2 OR $2 IS NULL)
                        ORDER BY valid_from DESC
-                       LIMIT $1"""
-            rows = await conn.fetch(query, limit)
+                       LIMIT $3"""
+            rows = await conn.fetch(query, scope, subject, limit)
 
     return [
         DecisionRecord(
