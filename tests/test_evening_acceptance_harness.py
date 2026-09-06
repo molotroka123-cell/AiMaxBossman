@@ -68,7 +68,12 @@ def test_a_blocked_check_makes_the_doctor_exit_nonzero(monkeypatch, tmp_path):
     monkeypatch.setattr(doctor, "CHECKS", [
         lambda: doctor.Check("synthetic", doctor.BLOCKED, "искусственный блокер", "почините")])
     assert doctor.main(["--json-out", str(tmp_path / "d.json")]) == 1
-    assert json.loads((tmp_path / "d.json").read_text(encoding="utf-8"))["blocked"] == 1
+    report = json.loads((tmp_path / "d.json").read_text(encoding="utf-8"))
+    # Не точное число: порт на этой машине может быть занят чужим сервером, и
+    # тогда блокеров честно два. Утверждается наличие нашего, а не арифметика.
+    assert report["blocked"] >= 1
+    assert any(c["name"] == "synthetic" and c["status"] == doctor.BLOCKED
+               for c in report["checks"])
 
 
 def test_a_failing_check_does_not_take_the_doctor_down_with_it(monkeypatch):
