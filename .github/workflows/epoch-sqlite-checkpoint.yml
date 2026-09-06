@@ -1,0 +1,79 @@
+name: Deliver tested epoch SQLite fix
+
+on:
+  push:
+    branches: [fix/astra-epoch-residual-20260906]
+    paths: [.github/workflows/epoch-sqlite-checkpoint.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deliver-epoch-sqlite
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python .github/checkpoint/apply_sqlite_lifetime.py
+      - run: python -m pip install -e . -e './bossman-core[dev]'
+      - name: Objective store, admission, recovery and golden regression
+        run: >-
+          python -m pytest tests/test_v5_connection_lifetime.py
+          tests/test_v5_objective_store.py tests/test_v5_recovery.py
+          tests/test_v5_admission.py tests/test_v5_golden_missions.py
+          -q --timeout=30 --junitxml=sqlite-root.xml
+      - name: Fleet and Organization regression
+        working-directory: bossman-core
+        run: >-
+          python -m pytest tests/test_epoch_store_connection_lifetime.py
+          tests/test_v3_fleet_core.py tests/test_v3_organization_core.py
+          tests/test_v3_fleet_e2e.py tests/test_v3_organization_e2e.py
+          -q --timeout=30 --junitxml=../sqlite-core.xml
+      - run: python tools/ci_secret_scan.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sqlite-checkpoint-${{ github.sha }}
+          path: sqlite-*.xml
+          retention-days: 3
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Materialize the identical hash-bound patch and remove delivery scaffolding
+        run: |
+          python .github/checkpoint/apply_sqlite_lifetime.py
+          git add bossman_shared/objective_store.py bossman-core/bossman_v3/fleet/store.py bossman-core/bossman_v3/organization/store.py
+          git rm .github/checkpoint/apply_sqlite_lifetime.py .github/workflows/epoch-sqlite-checkpoint.yml
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(storage): close SQLite handles across objective, Fleet and Organization stores'
+      - name: Fast-forward only the dedicated fix branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          AUTH="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" push origin HEAD:refs/heads/fix/astra-epoch-residual-20260906
+          git rev-parse HEAD
