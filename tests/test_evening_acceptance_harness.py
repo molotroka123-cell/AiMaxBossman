@@ -186,4 +186,12 @@ def test_the_launcher_refuses_to_start_when_the_doctor_blocks():
 
 
 def test_the_shell_launcher_is_syntactically_valid():
-    assert subprocess.run(["bash", "-n", str(REPO / "start-bossman.sh")]).returncode == 0
+    import shutil
+    from pathlib import Path as _P
+    candidates = [shutil.which("bash"), _P(r"C:\Program Files\Git\bin\bash.exe"),
+                  _P(r"C:\Program Files\Git\usr\bin\bash.exe")]
+    bash = next((str(b) for b in candidates if b and _P(b).exists()
+                 and "system32" not in str(b).lower()), None)  # system32\bash.exe — WSL-заглушка без дистрибутива
+    if bash is None:
+        pytest.skip("POSIX-оболочка недоступна — синтаксис start-bossman.sh проверяется на POSIX/CI")
+    assert subprocess.run([bash, "-n", str(REPO / "start-bossman.sh")]).returncode == 0

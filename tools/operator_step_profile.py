@@ -87,7 +87,10 @@ class CostedPlanner:
         self.calls += 1
         await _spend(self.cost_s)
         if self.remaining <= 0:
-            return ComputerAction.make(ActionKind.COMPLETE)
+            # AT-01: COMPLETE обязан нести проверяемое постусловие, как и в
+            # проде; наблюдение профиля всегда содержит "ok row N".
+            return ComputerAction.make(ActionKind.COMPLETE,
+                                       expected=ExpectedState(contains_text="ok"))
         self.remaining -= 1
         return ComputerAction.make(ActionKind.CLICK, expected=ExpectedState(contains_text="ok"),
                                    args={"x": 10, "y": 10 + self.calls,

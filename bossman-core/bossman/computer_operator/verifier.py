@@ -8,7 +8,10 @@ class Verification:
 
 class Verifier:
     def verify(self,a:ComputerAction,after:Observation)->Verification:
-        if a.kind is ActionKind.COMPLETE: return Verification(True,"planner completed")
+        # AT-01: COMPLETE здесь не привилегирован. Заявление планировщика «цель
+        # достигнута» обязано пройти те же проверки постусловия, что и любое
+        # другое действие; без постусловия это «mutating action missing
+        # postcondition», с ложным постусловием — «postcondition failed».
         e=a.expected
         if e.is_empty():
             if a.kind in {ActionKind.WAIT,ActionKind.NOOP,ActionKind.TAKE_SCREENSHOT}:

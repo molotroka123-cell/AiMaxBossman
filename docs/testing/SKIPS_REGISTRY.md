@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 131. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 137. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -112,7 +112,7 @@
 | `bossman-core/tests/test_stage13_ailab_redteam.py:165` | skip | `—` | symlink privilege missing (WinError 1314) | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_stage13_ailab_redteam.py:181` | skip | `—` | symlink privilege missing (WinError 1314) | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_stage13_windows_adapter.py:55` | skipif | `platform.system().lower() != "windows"` | SKIP_HOST: requires Windows — WindowsDesktop.foreground() calls ctypes.windll.user32.GetForegroundWindow(), which does not exist off Windows (the fake pywinauto | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `bossman-core/tests/test_stage13_wiring_notepad.py:355` | skipif | `not _windows_gui()` | SKIP_NO_WINDOWS_GUI: нет Windows с доступным notepad.exe | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_stage13_wiring_notepad.py:359` | skipif | `not _windows_gui()` | SKIP_NO_WINDOWS_GUI: нет Windows с доступным notepad.exe | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_stage9_agent_smoke.py:111` | skipif | `not os.environ.get("BOSSMAN_LIVE_LOCAL_URL")` | BOSSMAN_LIVE_LOCAL_URL не задан — live-local часть пропущена | Bossman Core | живой внешний сервис / owner-authorized live | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_stage9_sandbox_e2e.py:17` | skipif | `not safe_runtime_available()` | SAFE-исполнение процессов POSIX-only (rlimits/unshare); на Windows — fail-closed | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_stage9_sandbox_e2e.py:44` | skip | `—` | unshare доступен — OFFLINE исполняем, негатив неприменим | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -131,9 +131,15 @@
 | `bossman-core/tests/test_v3_command_center_adapters.py:19` | importorskip | `—` | Command Center (bcc) не установлен рядом с ядром | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_v3_organization_command_center.py:18` | importorskip | `—` | Command Center (bcc) не установлен рядом с ядром | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_video_factory.py:30` | skipif | `not ffmpeg_available()` | ffmpeg binary not available | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `tests/test_context_slice.py:107` | skip | `—` | SKIP_HOST: Windows account lacks symlink creation privilege | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_context_slice.py:97` | skip | `—` | f"symlink privilege missing: {exc}" | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_context_slice.py:116` | skip | `—` | SKIP_HOST: Windows account lacks symlink creation privilege | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_evening_acceptance_harness.py:196` | skip | `—` | POSIX-оболочка недоступна — синтаксис start-bossman.sh проверяется на POSIX/CI | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_evidence_signing_shared.py:39` | skip | `—` | POSIX-семантика режима файла 0o600; на Windows права задаёт icacls (см. W8) | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_evidence_signing_shared.py:128` | skip | `—` | на Windows сужение прав честно выполняется через icacls (см. W8) | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_fable_budget_pricing.py:97` | skip | `—` | canonical_budget not exposed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_learning_trace.py:304` | skipif | `sys.platform.startswith("win")` | POSIX flock/fcntl отсутствует на Windows | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:84` | importorskip | `—` | нет пакета fastapi | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:87` | importorskip | `—` | Solana SDK (solders) не установлен — панель безопасности не импортируется | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:109` | importorskip | `—` | нет пакета fastapi | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:110` | importorskip | `—` | Solana SDK (solders) не установлен — панель безопасности не импортируется | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_v5_observers.py:121` | skip | `—` | f"symlink privilege missing: {exc}" | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

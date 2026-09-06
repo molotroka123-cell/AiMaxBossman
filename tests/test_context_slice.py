@@ -91,6 +91,15 @@ def test_fingerprint_changes_on_add_delete_rename_untracked(tmp_path):
     seen["deleted"] = worktree_fingerprint(root)
     _git(root, "mv", "pkg/d.py", "pkg/dd.py")                              # rename
     seen["renamed"] = worktree_fingerprint(root)
+    try:
+        os.symlink("pkg/a.py", root / "link.py")                           # symlink → a
+    except OSError as exc:
+        pytest.skip(f"symlink privilege missing: {exc}")                   # Windows без SeCreateSymbolicLink
+    seen["symlink_a"] = worktree_fingerprint(root)
+    os.unlink(root / "link.py")
+    os.symlink("pkg/b.py", root / "link.py")                               # тот же путь, другая цель
+    seen["symlink_b"] = worktree_fingerprint(root)
+
     values = list(seen.values())
     assert len(set(values)) == len(values), seen
     assert all(len(v) == 40 for v in values)
@@ -212,7 +221,10 @@ def test_failing_test_slice_is_depth_bounded_and_hashed(tmp_path):
     assert "pkg/a.py" in paths and "pkg/b.py" in paths          # depth 1 и 2
     assert "pkg/c.py" not in paths and "unrelated.py" not in paths  # depth 3 и несвязанное — нет
     for f in sl["files"]:
-        assert f["sha256"] == hashlib.sha256((root / f["path"]).read_bytes()).hexdigest()[:16]
+        # контракт sha256: каноническое (LF) содержимое, как в repo_map —
+        # манифест одинаков для CRLF и LF чекатов одного файла
+        canonical = (root / f["path"]).read_text(encoding="utf-8", errors="replace").encode("utf-8")
+        assert f["sha256"] == hashlib.sha256(canonical).hexdigest()[:16]
     deeper = failing_test_slice(root, root / "test_a.py", depth=3)
     assert "pkg/c.py" in [f["path"] for f in deeper["files"]]
     assert sl == failing_test_slice(root, root / "test_a.py", depth=2)     # детерминизм
