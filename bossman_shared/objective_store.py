@@ -34,6 +34,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 import json
+import math
 from pathlib import Path
 import sqlite3
 from typing import Any
@@ -160,6 +161,29 @@ def _dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def _trusted_spec(spec_json: str, spec_digest: str) -> ObjectiveSpec:
+    """Rehydrate the stored spec: structure is revalidated, the chain is not.
+
+    A revision's chain was verified against the trusted predecessor when the row
+    was written, and predecessors are deliberately not retained, so re-running
+    the chain rule on read would make every revised objective unreadable. What
+    is checked instead is that the stored bytes still hash to the stored digest:
+    a tampered spec_json is refused rather than served as canonical.
+    """
+    try:
+        raw = json.loads(spec_json)
+        if type(raw) is not dict:
+            raise ObjectiveValidationError("stored objective is not an object")
+        ObjectiveSpec.from_dict({**raw, "revision": 1, "previous_digest": None})
+    except (ValueError, RecursionError) as exc:
+        raise ObjectiveStoreError(f"stored objective is not readable: {exc}") from exc
+    spec = object.__new__(ObjectiveSpec)
+    object.__setattr__(spec, "_json", spec_json)
+    if spec.digest != spec_digest:
+        raise ObjectiveStoreError("stored objective bytes do not match their recorded digest")
+    return spec
+
+
 def _row_state(row: sqlite3.Row) -> ObjectiveRuntimeState:
     return ObjectiveRuntimeState(
         objective_id=row["objective_id"],
@@ -250,11 +274,11 @@ class ObjectiveStore:
     def get_spec(self, objective_id: str) -> ObjectiveSpec:
         """Return the trusted stored spec, revalidated on the way out."""
         with self._connect() as con:
-            row = con.execute("SELECT spec_json FROM v5_objectives WHERE objective_id=?",
+            row = con.execute("SELECT spec_json,spec_digest FROM v5_objectives WHERE objective_id=?",
                               (objective_id,)).fetchone()
         if row is None:
             raise ObjectiveStoreError(f"unknown objective {objective_id}")
-        return ObjectiveSpec.from_json(row["spec_json"])
+        return _trusted_spec(row["spec_json"], row["spec_digest"])
 
     def list_objectives(self, *, owner_id: str | None = None,
                         lifecycle: str | None = None) -> list[ObjectiveRuntimeState]:
@@ -293,15 +317,15 @@ class ObjectiveStore:
             state = _row_state(row)
             if state.version != expected_version:
                 raise CompareAndSwapError("stale objective state; re-read before deciding")
-            spec = ObjectiveSpec.from_json(row["spec_json"])
+            spec = _trusted_spec(row["spec_json"], row["spec_digest"])
             resolved = transition_lifecycle(spec, state.lifecycle, requested, now=now,
                                             owner_id=owner_id, scope_id=state.scope_id)
             condition = state.condition if resolved == "ACTIVE" else "UNKNOWN"
             evidence = state.last_verified_evidence_ref if resolved == "ACTIVE" else None
-            con.execute(
+            self._swapped(con.execute(
                 "UPDATE v5_objectives SET lifecycle=?,condition=?,last_verified_evidence_ref=?,"
                 "version=version+1 WHERE objective_id=? AND version=?",
-                (resolved, condition, evidence, objective_id, expected_version))
+                (resolved, condition, evidence, objective_id, expected_version)))
             self._log(con, objective_id, "lifecycle", f"{state.lifecycle}->{resolved}")
         return replace(state, lifecycle=resolved, condition=condition,
                        last_verified_evidence_ref=evidence, version=expected_version + 1)
@@ -331,10 +355,10 @@ class ObjectiveStore:
             if unknown:
                 raise ObjectiveStoreError(f"source not declared by objective: {', '.join(unknown)}")
             ordered = tuple(sorted(set(sources)))
-            con.execute(
+            self._swapped(con.execute(
                 "UPDATE v5_objectives SET enrolled_sources=?,version=version+1 "
                 "WHERE objective_id=? AND version=?",
-                (_dumps(list(ordered)), objective_id, expected_version))
+                (_dumps(list(ordered)), objective_id, expected_version)))
             self._log(con, objective_id, "enrollment", ",".join(ordered))
         return replace(state, enrolled_sources=ordered, version=expected_version + 1)
 
@@ -361,7 +385,7 @@ class ObjectiveStore:
                 raise ObjectiveStoreError("revocation is sticky; a revision cannot resurrect")
             if owner_id != state.owner_id:
                 raise ObjectiveStoreError("revision identity mismatch")
-            previous = ObjectiveSpec.from_json(row["spec_json"])
+            previous = _trusted_spec(row["spec_json"], row["spec_digest"])
             try:
                 bound = ObjectiveSpec.from_dict(spec.to_dict(), previous=previous)
             except ObjectiveValidationError as exc:
@@ -371,12 +395,12 @@ class ObjectiveStore:
                 raise ObjectiveStoreError("revision changes objective identity")
             declared = {s["source_ref"] for s in data["sources"]}
             kept = tuple(s for s in state.enrolled_sources if s in declared)
-            con.execute(
+            self._swapped(con.execute(
                 "UPDATE v5_objectives SET spec_json=?,spec_digest=?,revision=?,condition='UNKNOWN',"
                 "last_verified_evidence_ref=NULL,enrolled_sources=?,version=version+1 "
                 "WHERE objective_id=? AND version=?",
                 (bound.to_json(), bound.digest, data["revision"], _dumps(list(kept)),
-                 objective_id, expected_version))
+                 objective_id, expected_version)))
             self._log(con, objective_id, "revised", f"{state.revision}->{data['revision']}")
         return replace(state, spec_digest=bound.digest, revision=data["revision"],
                        condition="UNKNOWN", last_verified_evidence_ref=None,
@@ -393,9 +417,9 @@ class ObjectiveStore:
             raise ObjectiveStoreError("stop state must be boolean")
         with self._connect() as con:
             state = self._cas_read(con, objective_id, expected_version)
-            con.execute("UPDATE v5_objectives SET stopped=?,version=version+1 "
-                        "WHERE objective_id=? AND version=?",
-                        (1 if stopped else 0, objective_id, expected_version))
+            self._swapped(con.execute("UPDATE v5_objectives SET stopped=?,version=version+1 "
+                                      "WHERE objective_id=? AND version=?",
+                                      (1 if stopped else 0, objective_id, expected_version)))
             self._log(con, objective_id, "stop", f"{stopped}:{reason}")
         return replace(state, stopped=stopped, version=expected_version + 1)
 
@@ -406,12 +430,15 @@ class ObjectiveStore:
         """Charge an observation batch against the cumulative quota."""
         if type(count) is not int or count < 0:
             raise ObjectiveStoreError("observation count must be a nonnegative integer")
+        if (type(observed_at) not in (int, float) or not math.isfinite(observed_at)
+                or observed_at < 0):
+            raise ObjectiveStoreError("observation time must be a nonnegative finite number")
         with self._connect() as con:
             state = self._cas_read(con, objective_id, expected_version)
-            con.execute(
+            self._swapped(con.execute(
                 "UPDATE v5_objectives SET observations_used=observations_used+?,"
                 "last_observation_at=?,version=version+1 WHERE objective_id=? AND version=?",
-                (count, observed_at, objective_id, expected_version))
+                (count, float(observed_at), objective_id, expected_version)))
         return replace(state, observations_used=state.observations_used + count,
                        last_observation_at=observed_at, version=expected_version + 1)
 
@@ -429,10 +456,10 @@ class ObjectiveStore:
             raise ObjectiveStoreError("SATISFIED requires a verified evidence reference")
         with self._connect() as con:
             state = self._cas_read(con, objective_id, expected_version)
-            con.execute(
+            self._swapped(con.execute(
                 "UPDATE v5_objectives SET condition=?,last_verified_evidence_ref=?,"
                 "version=version+1 WHERE objective_id=? AND version=?",
-                (condition, evidence_ref, objective_id, expected_version))
+                (condition, evidence_ref, objective_id, expected_version)))
             self._log(con, objective_id, "condition", condition)
         return replace(state, condition=condition, last_verified_evidence_ref=evidence_ref,
                        version=expected_version + 1)
@@ -442,16 +469,17 @@ class ObjectiveStore:
         """Add settled mission usage. Usage only ever grows, across revisions."""
         for name, value in (("missions", missions), ("wall_seconds", wall_seconds),
                             ("cost_usd", cost_usd)):
-            if type(value) not in (int, float) or type(value) is bool or value < 0:
-                raise ObjectiveStoreError(f"{name} must be a nonnegative number")
+            if (type(value) not in (int, float) or type(value) is bool
+                    or not math.isfinite(value) or value < 0):
+                raise ObjectiveStoreError(f"{name} must be a nonnegative finite number")
         with self._connect() as con:
             state = self._cas_read(con, objective_id, expected_version)
-            con.execute(
+            self._swapped(con.execute(
                 "UPDATE v5_objectives SET missions_used=missions_used+?,"
                 "wall_seconds_used=wall_seconds_used+?,cost_usd_used=cost_usd_used+?,"
                 "version=version+1 WHERE objective_id=? AND version=?",
                 (int(missions), float(wall_seconds), float(cost_usd),
-                 objective_id, expected_version))
+                 objective_id, expected_version)))
         return replace(state, missions_used=state.missions_used + int(missions),
                        wall_seconds_used=state.wall_seconds_used + float(wall_seconds),
                        cost_usd_used=state.cost_usd_used + float(cost_usd),
@@ -548,6 +576,17 @@ class ObjectiveStore:
         if state.version != expected_version:
             raise CompareAndSwapError("stale objective state; re-read before deciding")
         return state
+
+    @staticmethod
+    def _swapped(cursor: sqlite3.Cursor) -> None:
+        """A compare-and-swap that matched no row lost its race; never report success.
+
+        The snapshot is read outside the write transaction, so a competing writer
+        can commit in between. The guarded UPDATE is what makes the swap atomic;
+        without this check the loser would silently drop its own mutation.
+        """
+        if cursor.rowcount != 1:
+            raise CompareAndSwapError("stale objective state; re-read before deciding")
 
     @staticmethod
     def _log(con: sqlite3.Connection, objective_id: str, event: str, detail: str = "") -> None:
