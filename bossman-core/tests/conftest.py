@@ -16,6 +16,20 @@ def _evidence_key_in_tmp(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _fresh_evidence_ledger():
+    """AUDIT001-F5-REPLAY: promotion evidence is single-use *per process*.
+
+    The ledger is deliberately process-wide, so without this every test after
+    the first would inherit spent measurements from unrelated tests. Production
+    keeps the accumulated ledger; tests each start from an empty one.
+    """
+    from bossman.learning_guard.evidence_ledger import reset_default_ledger
+    reset_default_ledger()
+    yield
+    reset_default_ledger()
+
+
+@pytest.fixture(autouse=True)
 def _real_workload_telemetry_in_tmp(tmp_path, monkeypatch):
     """Сэмплы реальной нагрузки пишутся автоматически на каждом терминальном
     прогоне CompoundRunner. В тестах корень всегда временный: боевой

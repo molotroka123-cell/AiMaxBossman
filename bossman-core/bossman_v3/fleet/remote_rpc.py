@@ -4,6 +4,11 @@ Experimental, NOT production certification. There is no automatic listener,
 remote enrollment, policy grant, credential import, retry or evidence signing.
 The reference node must access the SAME transactional authority as its controller;
 an independently copied SQLite database is not a distributed lease authority.
+
+PUBLIC work only. PRIVATE and LOCAL_ONLY mean "this never leaves the local
+node", and a peer reached through a socket is not the local node whatever
+trust_class the registry happens to record for it; INTERNAL has no proven
+remote confidentiality contract here either. Refused before any byte is sent.
 """
 from __future__ import annotations
 
@@ -56,8 +61,9 @@ class NodeEndpoint:
         if type(self.port) is not int or not 1 <= self.port <= 65535:
             raise ValueError("invalid node port")
         _secure(self.tls, client=True)
-        if not self.privacy_levels or not self.privacy_levels <= {"public", "private"}:
-            raise ValueError("explicit remote privacy classes required; LOCAL_ONLY is forbidden")
+        if not self.privacy_levels or not self.privacy_levels <= {"public"}:
+            raise ValueError("a network endpoint may carry PUBLIC work only; "
+                             "PRIVATE/LOCAL_ONLY/INTERNAL never leave the local node")
 
 
 def _request_dict(request: NodeExecutionRequest) -> dict:
@@ -90,8 +96,11 @@ def _request(body: dict) -> NodeExecutionRequest:
             raise ValueError("invalid delegation")
     except (TypeError, ValueError, KeyError, AttributeError) as exc:
         raise NodeAuthDenied("invalid delegation contract") from exc
-    if contract.privacy not in ("public", "private"):
-        raise NodeAuthDenied("LOCAL_ONLY cannot be dispatched remotely")
+    if contract.privacy != "public":
+        # PRIVATE/LOCAL_ONLY mean "stays on the local node"; a peer reached over a
+        # socket is not local, whatever trust_class the registry records for it.
+        # INTERNAL has no proven remote confidentiality contract either.
+        raise NodeAuthDenied("only PUBLIC work may be dispatched over the remote transport")
     return NodeExecutionRequest(body["work_id"], body["mission_id"], body["agent_id"],
                                 body["lease_id"], body["fence"], contract, timeout, body["context_policy"])
 
@@ -239,9 +248,11 @@ class RpcNodeClient:
 class RemoteNodeGateway:
     def __init__(self, node_id: str, auth: NodeAuthenticator, transport: LocalNodeTransport, *,
                  controllers: frozenset[str], privacy_levels: frozenset[str] = frozenset({"public"})):
+        # PUBLIC only: see _request(). A node behind a network endpoint is never
+        # the "trusted local" node that PRIVATE/LOCAL_ONLY placement promises.
         if (auth.local_id != node_id or transport.leases is None or not controllers
                 or Path(auth.store.path).resolve() != Path(transport.leases.store.path).resolve()
-                or not privacy_levels or not privacy_levels <= {"public", "private"}):
+                or not privacy_levels or not privacy_levels <= {"public"}):
             raise ValueError("node requires host-provisioned identity, controllers and canonical authority")
         self.node_id, self.auth, self.transport = node_id, auth, transport
         self.controllers, self.privacy_levels = frozenset(controllers), frozenset(privacy_levels)

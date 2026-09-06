@@ -98,3 +98,57 @@ def test_observation_log_counts_and_summary_separate_measured_from_estimated():
     assert s["unknown_cost_requests"] == 1 and s["cache_control_without_usage"] == 1
     log.record(build_observation(provider="p", model="m", route="local", eligible=False, buckets=None))
     assert len(log.items) == 4                                                          # bounded
+
+
+# ---------------------------------------------------------------------------
+# AUDIT-ONLY-001 open item: ObservationLog.record had no idempotency key.
+# Harmless while the log is rebuilt per poll from a bounded window; a durable
+# observation stream would double-count every redelivered event.
+def _obs(**kw):
+    return build_observation(provider="anthropic", model="m", route="direct", eligible=True,
+                             buckets=TokenBuckets(10, 90, 0, 5), **kw)
+
+
+def test_a_redelivered_observation_is_counted_once():
+    log = ObservationLog()
+    first = log.record(_obs(observation_id="req-1"))
+    again = log.record(_obs(observation_id="req-1"))
+    assert again is first
+    assert log.duplicates_dropped == 1
+    assert log.counts["HIT"] == 1 and log.tokens["cache_read"] == 90
+    assert len(log.items) == 1
+
+
+def test_distinct_ids_are_still_counted_separately():
+    log = ObservationLog()
+    log.record(_obs(observation_id="req-1"))
+    log.record(_obs(observation_id="req-2"))
+    assert log.counts["HIT"] == 2 and log.tokens["cache_read"] == 180
+    assert log.duplicates_dropped == 0
+
+
+def test_observations_without_an_id_are_not_silently_merged():
+    """Two genuinely different calls can be field-identical. Without an explicit
+    key the log counts both rather than guessing they are the same event."""
+    log = ObservationLog()
+    log.record(_obs())
+    log.record(_obs())
+    assert log.counts["HIT"] == 2 and log.duplicates_dropped == 0
+
+
+def test_the_dedup_window_is_bounded_by_the_retention_window():
+    log = ObservationLog(capacity=2)
+    log.record(_obs(observation_id="req-1"))
+    log.record(_obs(observation_id="req-2"))
+    log.record(_obs(observation_id="req-3"))        # evicts req-1 from the ring
+    assert set(log._seen) == {"req-2", "req-3"}
+    assert log.record(_obs(observation_id="req-2")) is log.items[0]
+    assert log.duplicates_dropped == 1
+
+
+def test_the_id_is_validated_and_stays_content_free():
+    assert "observation_id" in validate_observation({**_obs().as_dict(), "observation_id": ""})[0]
+    assert validate_observation({**_obs().as_dict(), "observation_id": "x" * 129})
+    assert validate_observation({**_obs().as_dict(), "observation_id": 7})
+    assert validate_observation({**_obs(observation_id="req-1").as_dict()}) == []
+    assert SCHEMA["properties"]["observation_id"]["maxLength"] == 128

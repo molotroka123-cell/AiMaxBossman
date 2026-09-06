@@ -1,5 +1,6 @@
 """Pure V5 foundation tests; no observer, migration or runtime acceptance claim."""
 import copy
+import hashlib
 from dataclasses import FrozenInstanceError
 import json
 
@@ -346,3 +347,68 @@ def test_no_constructor_accepts_execution_authority():
         Evaluation("ACTIVE", "DEVIATED", (), True, admission_allowed=True)
     with pytest.raises(TypeError):
         ProposalProjection("id", "digest", (), 123, admission_allowed=True)
+
+
+# --------------------------------------------------- trusted rehydration
+
+
+def _revision_two(base: dict) -> tuple[ObjectiveSpec, ObjectiveSpec]:
+    first = ObjectiveSpec.from_dict(base)
+    second = ObjectiveSpec.from_dict(
+        {**base, "revision": 2, "previous_digest": first.digest}, previous=first)
+    return first, second
+
+
+def test_from_trusted_json_reads_a_revision_its_predecessor_is_gone():
+    """The rule from_dict enforces at write time would brick a store at read time."""
+    _, second = _revision_two(raw_spec())
+    with pytest.raises(ObjectiveValidationError):
+        ObjectiveSpec.from_json(second.to_json())
+    rehydrated = ObjectiveSpec.from_trusted_json(second.to_json(), digest=second.digest)
+    assert rehydrated.digest == second.digest
+    assert rehydrated.to_dict() == second.to_dict()
+
+
+def test_from_trusted_json_refuses_bytes_that_do_not_match_the_digest():
+    """The recorded digest is what replaces the chain rule, so it must bind."""
+    _, second = _revision_two(raw_spec())
+    other = ObjectiveSpec.from_dict({**raw_spec(), "priority": 7})
+    with pytest.raises(ObjectiveValidationError):
+        ObjectiveSpec.from_trusted_json(second.to_json(), digest=other.digest)
+
+
+def test_from_trusted_json_refuses_tampered_storage():
+    """A store whose bytes were edited is refused, not served as canonical."""
+    first = ObjectiveSpec.from_dict(raw_spec())
+    tampered = first.to_json().replace('"priority":', '"priority":', 1)
+    tampered = json.dumps({**json.loads(tampered), "priority": 99},
+                          sort_keys=True, separators=(",", ":"))
+    with pytest.raises(ObjectiveValidationError):
+        ObjectiveSpec.from_trusted_json(tampered, digest=first.digest)
+
+
+def test_from_trusted_json_still_refuses_structurally_invalid_storage():
+    """Trust covers the chain only; a malformed record is never rehydrated."""
+    broken = {**raw_spec()}
+    broken.pop("predicates")
+    text = json.dumps(broken, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    with pytest.raises(ObjectiveValidationError):
+        ObjectiveSpec.from_trusted_json(text, digest=digest)
+
+
+@pytest.mark.parametrize("digest", [None, "", "zz", "A" * 64, 1, "a" * 63, "a" * 65])
+def test_from_trusted_json_requires_a_recorded_lowercase_digest(digest):
+    first = ObjectiveSpec.from_dict(raw_spec())
+    with pytest.raises(ObjectiveValidationError):
+        ObjectiveSpec.from_trusted_json(first.to_json(), digest=digest)
+
+
+def test_from_trusted_json_refuses_non_text_and_non_object_records():
+    first = ObjectiveSpec.from_dict(raw_spec())
+    with pytest.raises(ObjectiveValidationError):
+        ObjectiveSpec.from_trusted_json(b"{}", digest=first.digest)
+    text = "[]"
+    with pytest.raises(ObjectiveValidationError):
+        ObjectiveSpec.from_trusted_json(
+            text, digest=hashlib.sha256(text.encode("utf-8")).hexdigest())

@@ -28,6 +28,8 @@
     "baseline_is_estimate": {"type": "boolean"},
     "verified_success": {"type": ["boolean", "null"]},
     "environment_fingerprint": {"type": ["string", "null"], "maxLength": 256},
+    "observation_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 128,
+      "description": "Optional opaque idempotency key: the same delivery recorded twice counts once."},
     "security_context_hash": {"type": ["string", "null"], "maxLength": 128}
   }
 }

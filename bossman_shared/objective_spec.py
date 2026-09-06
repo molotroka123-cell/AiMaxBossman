@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 import hashlib
 import json
 import math
+import re
 from typing import Any
 
 from .mission_ir import (
@@ -24,6 +25,7 @@ class ObjectiveValidationError(ValueError):
     """Malformed candidate or observation; structural checks are not policy."""
 
 
+_HEX_DIGEST = re.compile(r"[0-9a-f]{64}")
 LIFECYCLES = frozenset({"DRAFT", "ACTIVE", "PAUSED", "EXPIRED", "REVOKED"})
 _FIELDS = frozenset({
     "schema_version", "owner_id", "scope_id", "objective_id", "revision",
@@ -142,6 +144,47 @@ class ObjectiveSpec:
             return cls.from_dict(raw, previous=previous)
         except (ValueError, RecursionError) as exc:
             raise ObjectiveValidationError("invalid objective JSON") from exc
+
+    @classmethod
+    def from_trusted_json(cls, value: str, *, digest: str) -> ObjectiveSpec:
+        """Rehydrate a spec a durable store already accepted, binding its digest.
+
+        A revision above 1 can only be built with its predecessor in hand, which
+        is the right rule at write time and an impossible one at read time: a
+        store that does not retain every ancestor would find its own revised
+        objectives permanently unreadable. Rather than let each caller reach
+        past the constructor to work around that, the invariant is stated here.
+
+        What is re-run is the structural validation, against the stored bytes
+        with the chain fields normalized away. What replaces the chain rule is
+        the caller's recorded digest: the bytes must still hash to it, so
+        tampered storage is refused instead of served as canonical. This proves
+        the record is the one that was validated; it does not re-derive that the
+        revision chain was ever sound, which is why only a store that verified
+        the chain on write may call it.
+        """
+        if type(digest) is not str or not _HEX_DIGEST.fullmatch(digest):
+            _fail("trusted rehydration requires the recorded lowercase digest")
+        if type(value) is not str or _utf8_size(value) > MAX_BYTES:
+            _fail("invalid or oversized objective JSON")
+        if hashlib.sha256(value.encode("utf-8")).hexdigest() != digest:
+            _fail("stored objective bytes do not match their recorded digest")
+        try:
+            raw = json.loads(value, object_pairs_hook=_unique_object,
+                             parse_constant=lambda _: _fail("nonfinite JSON value"))
+        except (ValueError, RecursionError) as exc:
+            raise ObjectiveValidationError("invalid objective JSON") from exc
+        if type(raw) is not dict:
+            _fail("objective: JSON object required")
+        # The chain fields are the only ones a predecessor could contradict, so
+        # they are normalized out before structural validation and left intact
+        # in the bytes the digest covers.
+        cls.from_dict({**raw, "revision": 1, "previous_digest": None})
+        instance = object.__new__(cls)
+        object.__setattr__(instance, "_json", value)
+        if instance.digest != digest:
+            _fail("stored objective bytes do not match their recorded digest")
+        return instance
 
     @property
     def digest(self) -> str:

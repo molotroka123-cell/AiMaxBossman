@@ -179,13 +179,14 @@ def test_promotion_goes_through_learning_guard_and_rollback_restores(on, tmp_pat
     assert weak.status == "CANDIDATE" and any("rejected episode" in r for r in weak.reasons)
     replays = [{"task_id": f"notes.save-{i}", "ok": True} for i in range(MIN_SHADOW_RUNS)]
     ab = ab_results_from_replays("notes.save", replays, {f"notes.save-{i}": i % 2 == 0 for i in range(MIN_SHADOW_RUNS)})
-    snap = SecuritySnapshot(leaks=0, bypasses=0, containment_rate=1.0)
+    ref = promoter.corpus_ref(cand)          # AUDIT001-F5-PROVENANCE
+    snap = SecuritySnapshot(leaks=0, bypasses=0, containment_rate=1.0, scope_ref=ref)
     # shadow runs below the Learning Guard minimum -> not promoted
     _, few = promoter.promote(skill, cand, ab[:5], security_before=snap, security_after=snap, shadow_runs=5,
                               owner_approved=True, rollback_tested=True)
     assert few.status == "SHADOW" and mem.skills()[0]["skill_state"] == "SHADOW"
     # security regression -> QUARANTINED
-    _, q = promoter.promote(skill, cand, ab, security_before=snap, security_after=SecuritySnapshot(leaks=1),
+    _, q = promoter.promote(skill, cand, ab, security_before=snap, security_after=SecuritySnapshot(leaks=1, scope_ref=ref),
                             shadow_runs=MIN_SHADOW_RUNS, owner_approved=True, rollback_tested=True)
     assert q.status == "QUARANTINED"
     # without owner / rollback test -> not promoted
