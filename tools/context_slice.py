@@ -235,9 +235,11 @@ def failing_test_slice(root: Path, test_file: Path, *, depth: int = 2) -> dict:
         frontier = nxt
     manifest = []
     for p in sorted(seen, key=lambda x: (seen[x], x.as_posix())):
-        text = p.read_text(encoding="utf-8", errors="replace")
+        # sha256 над сырыми байтами файла: текстовое чтение подменяло байты (CRLF→LF, errors="replace")
+        data = p.read_bytes()
+        text = data.decode("utf-8", errors="replace")
         manifest.append({"path": p.relative_to(root).as_posix() if p.is_relative_to(root) else str(p),
-                         "level": seen[p], "sha256": hashlib.sha256(text.encode()).hexdigest()[:16],
+                         "level": seen[p], "sha256": hashlib.sha256(data).hexdigest()[:16],
                          "tokens": _tokens(text), "reason": "failing-test" if seen[p] == 0 else f"import-depth-{seen[p]}"})
     return {"root": str(root), "test": test_file.relative_to(root).as_posix() if test_file.is_relative_to(root) else str(test_file),
             "depth": depth, "files": manifest, "total_tokens": sum(m["tokens"] for m in manifest)}
