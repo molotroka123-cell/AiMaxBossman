@@ -1,0 +1,102 @@
+{
+  "run_id": "acceptance-20260906-01",
+  "tested_code_sha": "a4da0f8737bcb2642f7c35596e500c55285468af",
+  "base_sha": "d1e851bb5e70480c198ffd424fb04ae769a7c24a",
+  "branch": "acceptance/total-local-20260906",
+  "generated": "2026-09-06T21:30:00+02:00",
+  "findings": [
+    {
+      "id": "H-CLUSTER",
+      "severity": "P1",
+      "component": "command-center/bcc/features/apps_control.py",
+      "status": "OPEN_NEEDS_FIX",
+      "platform": "windows",
+      "symptom": "apps_control: приложение с кириллическим выводом получает exit 1 вместо реального кода; статус 'exited' вместо 'not_ready'",
+      "root_cause": "_child_env (apps_control.py:254-263) фильтрует env, но не задаёт PYTHONIOENCODING/PYTHONUTF8; дочерний python пишет лог в locale-кодировке (cp1252) -> UnicodeEncodeError -> exit 1. log_tail при этом читает лог как UTF-8 (apps_control.py:322) - контракт кодировки нарушен.",
+      "minimal_fix": "в _child_env добавить env['PYTHONIOENCODING']='utf-8' и env['PYTHONUTF8']='1'",
+      "repro": "command-center/tests/test_app_that_never_answers_reports_failure_with_log_tail, test_app_that_exits_immediately_reports_exit_code (тесты-фикстуры с кириллицей); автономная репродукция подтверждена",
+      "regression_needed": "pytest tests/test_apps_control*.py -k 'exit_code or never_answers' на Windows"
+    },
+    {
+      "id": "GOLDEN-MISSIONS-SH-DIALECT",
+      "severity": "P2",
+      "component": "command-center/tests/test_golden_missions.py",
+      "status": "OPEN_TEST_DEBT",
+      "platform": "cross-platform",
+      "symptom": "mission_01/02/03/09/11/12 на Windows (без sh.exe в PATH) не завершаются: printf/heredoc-команды падают, review_escalation паркуется в waiting_approval; assert status=='completed' падает",
+      "root_cause": "фикстуры шлют Unix-диалект (test_golden_missions.py:391,438,479,848,938,999); host_shell() (bcc/v2/terminal_control.py:82-87) на Windows без sh честно падает на cmd.exe. Конвейер approval->resume->execute->review исправен (mission_10 deny проходит, tool_calls status=executed).",
+      "minimal_fix": "вариант A: skipif shutil.which('sh') is None; вариант B (лучше): кросс-платформенные python-однострочники в фикстурах",
+      "repro": "pytest tests/test_golden_missions.py::test_mission_01_real_file_create на Windows"
+    },
+    {
+      "id": "FINALIZE-UNCLASSIFIED-STALE-CONTRACT",
+      "severity": "P2",
+      "component": "command-center/tests/test_finalize_unclassified_failure.py, test_mission010_execution_truth.py",
+      "status": "OPEN_TEST_DEBT",
+      "platform": "cross-platform",
+      "symptom": "tool_calls остаётся pending_approval, тест ждёт error/denied",
+      "root_cause": "terminal_run {'command':'python mutate.py'} без mode -> sandbox; право terminal.run AUTO, но effect-хук _run_effect (features/tools_terminal.py:341-346) для команды вне read/build allowlist возвращает ask -> корректная ASK-парковка (engine.py:1117-1140). Тесты кодифицируют политику до харденинга песочницы (c5daa5e).",
+      "minimal_fix": "тестам явно mode='project_host' (как у проходящего соседа) или ожидать waiting_approval как корректный исход ask-политики"
+    },
+    {
+      "id": "CC-VIDEO-READVERIFICATION-WINFILE",
+      "severity": "P2",
+      "component": "command-center/bcc/video_studio/read_verification.py",
+      "status": "OPEN_NEEDS_TRIAGE",
+      "platform": "windows",
+      "symptom": "7 тестов: 'media changed before read verification' (read_verification.py:164), WinError 32 при unlink/replace media под живым handle, 422 вместо 200 при download re-check",
+      "root_cause": "требует разбора: POSIX-семантика 'unlink открытого файла' и identity/tuple-сравнение mtime/size на Windows; возможно, корректная защита ловит штатную последовательность теста",
+      "minimal_fix": "после разбора: либо NTFS-безопасная замена (rename-aside + replace), либо тест-фикстуры с раздельными дескрипторами"
+    },
+    {
+      "id": "HOST-SENSITIVE-PERF-GATES",
+      "severity": "P3",
+      "component": "tests/test_operator_step_profile.py:56, tests/test_v5_human_speed.py::test_objective_cas_under_10ms_and_stale_write_is_denied",
+      "status": "OPEN_DOCUMENTED",
+      "platform": "windows",
+      "symptom": "framework_overhead_per_step_ms 48-50ms против гейта <40ms (Linux-калибровка); CAS p100 <10ms флапает под нагрузкой (23-26ms)",
+      "root_cause": "гейты калиброваны на Linux CI; на Windows-хосте file I/O + Defender + 3.13 медленнее. Подтверждено на pristine d1e851b (49.5ms) - НЕ регрессия приёмки",
+      "minimal_fix": "либо нормировать гейт по базлайну хоста, либо documented host-чувствительность с раздельными порогами; ожидание не ослаблять молча"
+    },
+    {
+      "id": "FIXED-AT01",
+      "severity": "P0",
+      "component": "bossman-core/bossman/computer_operator/{manager,verifier}.py",
+      "status": "FIXED_IN_a4da0f8",
+      "note": "COMPLETE верифицируется постусловием на наблюдении; без постусловия - replan->FAILED; регресс tests/test_operator_at01_at03_regression.py (5 тестов) + обновлённые фикстуры 4 файлов"
+    },
+    {
+      "id": "FIXED-AT03",
+      "severity": "P1",
+      "component": "bossman-core/bossman/computer_operator/manager.py",
+      "status": "FIXED_IN_a4da0f8",
+      "note": "после approval-wait обязательное свежее re-observe + policy re-classify; регресс 2 теста"
+    },
+    {
+      "id": "FIXED-OP-PARK-001",
+      "severity": "P1",
+      "component": "bossman-core/bossman/computer_operator/manager.py",
+      "status": "FIXED_IN_a4da0f8",
+      "note": "парковка после approval сужена до recovery (waiting_approval_id is None); восстановлен контракт c5/c7 (stale-вердикт при owner pause/take_control в окне одобрения); тесты падали на pristine d1e851b"
+    },
+    {
+      "id": "FIXED-CI-SKIPS-001",
+      "severity": "P1",
+      "component": "docs/testing/SKIPS_REGISTRY.md, tools/skips_registry.py",
+      "status": "FIXED_IN_a4da0f8",
+      "note": "реестр рассинхронизирован (root-ci hygiene гейт красный на HEAD); регенерирован 130->136, --check PASS"
+    },
+    {
+      "id": "FIXED-POSIX-HYGIENE",
+      "severity": "P3",
+      "component": "tests/{test_evidence_signing_shared,test_learning_trace,test_v5_observers,test_context_slice,test_evening_acceptance_harness}.py, bossman-core/tests/test_tools.py",
+      "status": "FIXED_IN_a4da0f8",
+      "note": "POSIX-only утверждения и symlink/bash-зависимости без платформенных гейтов ломали Windows-прогон root-набора; гейты добавлены, ожидания не ослаблены; + WSL-заглушка bash.exe исключена"
+    }
+  ],
+  "test_results": {
+    "root": {"passed": 839, "failed": 1, "skipped": 8, "note": "единственный failed = HOST-SENSITIVE-PERF-GATES"},
+    "bossman_core": {"passed": 663, "failed": 0, "skipped": 19, "groups": ["security", "gateway-context", "stage8-14", "rest"]},
+    "command_center": {"passed": 1928, "failed": 39, "skipped": 35, "triage": "см. findings"}
+  }
+}
