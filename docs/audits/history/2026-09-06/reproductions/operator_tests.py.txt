@@ -1,0 +1,72 @@
+"""Real manager with deterministic collaborators; no real desktop or model.
+The desired safety assertions fail on audited HEAD and are not skipped.
+"""
+import asyncio
+from bossman.computer_operator.models import ActionKind, ComputerAction, ExpectedState, TaskState
+from bossman.computer_operator.wiring import FakeAdapter, FakeObserver, FakePlanner, make_manager
+
+
+def complete():
+    return ComputerAction.make(ActionKind.COMPLETE)
+
+
+def click():
+    return ComputerAction.make(ActionKind.CLICK, expected=ExpectedState(contains_text='ok'))
+
+
+def test_complete_without_effect_evidence_must_not_finalize(tmp_path):
+    artifact = tmp_path/'required-output.txt'
+    adapter = FakeAdapter()
+    mgr = make_manager(tmp_path/'task.json', FakePlanner([complete()]), FakeObserver(summary='empty desktop'), adapter=adapter)
+    task = mgr.create_task(f'Create the required output file: {artifact}')
+    state = asyncio.run(mgr.run(task.id))
+    assert not artifact.exists()
+    assert adapter.executed == []
+    assert state != TaskState.COMPLETED, 'model COMPLETE was enough with zero effects and zero verification'
+
+
+def test_restart_recovery_must_preserve_owner_pause(tmp_path):
+    path = tmp_path/'task.json'
+    mgr = make_manager(path, FakePlanner([click(), complete()]), FakeObserver(summary='ok'))
+    task = mgr.create_task('stay paused until the owner explicitly resumes')
+    mgr.pause(task.id)
+    reopened = make_manager(path, FakePlanner([click(), complete()]), FakeObserver(summary='ok'))
+    reopened.recover_all()
+    assert reopened.store.get(task.id).state == TaskState.PAUSED, 'recover_all erased PAUSED without owner resume'
+
+
+def scenario(tmp_path, max_age):
+    world = {'revision': 1}
+    received = []
+
+    class Observer(FakeObserver):
+        async def observe(self, *, generation):
+            self.foreground = {'title': 'Fixture', 'state_revision': world['revision']}
+            return await super().observe(generation=generation)
+
+    class Adapter(FakeAdapter):
+        async def execute(self, a, o):
+            received.append((o.foreground['state_revision'], world['revision']))
+            return await super().execute(a, o)
+
+    def emit(*args, **kwargs):
+        if 'step_verified' in args or 'step_verified' in kwargs.values():
+            world['revision'] += 1   # external UI mutation after verified post-state
+
+    mgr = make_manager(tmp_path/'task.json', FakePlanner([click(), click(), complete()]),
+                       Observer(summary='ok'), adapter=Adapter(), event_emit=emit,
+                       observation_reuse_max_age_s=max_age)
+    task = mgr.create_task('two fixture clicks')
+    asyncio.run(mgr.run(task.id))
+    assert len(received) == 2
+    return received
+
+
+def test_reused_state_must_detect_external_ui_change(tmp_path):
+    received = scenario(tmp_path, .75)
+    assert all(observed == actual for observed, actual in received), f'stale input reached adapter: {received}'
+
+
+def test_reuse_disabled_observes_external_change(tmp_path):
+    received = scenario(tmp_path, 0)
+    assert all(observed == actual for observed, actual in received), received

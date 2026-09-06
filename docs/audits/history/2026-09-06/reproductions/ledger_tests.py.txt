@@ -1,0 +1,66 @@
+"""Audit reproductions against git-blob-verified production module.
+Assertions encode required safety, so three failing cases are confirmed defects.
+No production filesystem, model, credential, or external effect is used.
+"""
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from evidence_ledger import EvidenceLedger, DurableEvidenceLedger
+
+
+def test_unspent_evidence_is_accepted():
+    assert EvidenceLedger().consume('measurement-A', 'candidate-v1') is None
+
+
+def test_normal_replay_to_other_candidate_is_denied():
+    ledger = EvidenceLedger()
+    assert ledger.consume('measurement-A', 'candidate-v1') is None
+    assert ledger.consume('measurement-A', 'candidate-v9') is not None
+
+
+def test_eviction_must_not_reauthorize_spent_evidence():
+    ledger = EvidenceLedger(capacity=2)
+    ledger.consume('measurement-A', 'candidate-v1')
+    ledger.consume('measurement-B', 'candidate-v2')
+    ledger.consume('measurement-C', 'candidate-v3')
+    assert ledger.consume('measurement-A', 'candidate-v9') is not None, 'spent evidence accepted after eviction'
+
+
+def test_corruption_must_not_reauthorize_spent_evidence(tmp_path):
+    path = tmp_path / 'evidence.json'
+    ledger = DurableEvidenceLedger(path)
+    ledger.consume('measurement-A', 'candidate-v1')
+    path.write_text('{incomplete', encoding='utf-8')
+    # A raised fail-closed error would also be acceptable (currently no error).
+    assert DurableEvidenceLedger(path).consume('measurement-A', 'candidate-v9') is not None, 'corrupt ledger accepted spent evidence'
+
+
+def test_independent_writers_must_not_both_consume_one_measurement(tmp_path):
+    path = tmp_path / 'evidence.json'
+    read_barrier = threading.Barrier(2)
+    first_written = threading.Event()
+
+    class ScheduledLedger(DurableEvidenceLedger):
+        def __init__(self, path, first):
+            super().__init__(path)
+            self.first = first
+        def _load(self):
+            result = super()._load()
+            # Deterministically schedule two ordinary read-before-write operations.
+            read_barrier.wait(timeout=5)
+            return result
+        def _store(self, key, consumer):
+            if self.first:
+                try:
+                    return super()._store(key, consumer)
+                finally:
+                    first_written.set()
+            assert first_written.wait(timeout=5)
+            return super()._store(key, consumer)
+
+    first = ScheduledLedger(path, True)
+    second = ScheduledLedger(path, False)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        a = pool.submit(first.consume, 'measurement-A', 'candidate-v1')
+        b = pool.submit(second.consume, 'measurement-A', 'candidate-v9')
+        results = [a.result(timeout=10), b.result(timeout=10)]
+    assert sum(x is None for x in results) == 1, f'both accepted: {results}'

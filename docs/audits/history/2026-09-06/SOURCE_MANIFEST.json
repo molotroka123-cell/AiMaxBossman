@@ -1,0 +1,16 @@
+{
+  "kind": "historical_audit_publication_not_runtime_certification",
+  "saved_standalone_reports_published": 3,
+  "new_dynamic_tests_run_in_this_delta_session": 0,
+  "reproduction_cases_archived": 9,
+  "archives": [
+    {"name":"Bossman_Full_Audit_22e2ea_20260906.zip","sha256":"431804a7ad9d16abb1ce31a9c9dd47de003f1422fd700f13a18be76886807947","publication":"report, findings and reproduction specifications; raw source/logs remain in original attachment"},
+    {"name":"Bossman_Epoch_Residual_Fixes_2026-09-06.zip","sha256":"5fd4a29275dcd6963d4391242fcf176473250121489eea53f1c783bfc39bb354","publication":"RUN_AUDIT report; original patch/evidence archive not blindly applied"},
+    {"name":"Bossman_V4_GLM_Run_Pack_2026-09-06.zip","sha256":"628292e1dc109ec34332301dbfd2f411f9010e3acf68f65036ae7b60c6241e23","publication":"RUN_AUDIT report; original patch/evidence archive not blindly applied"},
+    {"name":"Bossman_Audit_Database_20260906.zip","sha256":"8495b2473ece0bc327ada08f18c74dcc4b96609cfbd1e178bd122aeb50445bf4","publication":"existing reviewed registry remains in docs/audits/AUDIT_REGISTRY.json"},
+    {"name":"latest-unified-audit.zip","sha256":"52bfd22c2c50ea8e7529196c00753b2f89695840fc881bf5e93a376246ebf8eb","github_run_id":34036342242,"github_artifact_id":9990717463,"publication":"already stored on GitHub Actions, not copied into Git"}
+  ],
+  "prior_ci_source":{"sha":"22e2ea304bcc2f4f51b24af41c881f0f9353d827","run_id":34043712461,"job_id":101514904021,"artifact_id":9992597224,"artifact_sha256":"e03b279c87e0b67da8a638828ad2902521050f5717fcec491bd26dc3561009e5","passed":437,"skipped":11},
+  "excluded_from_publication":["raw CI logs","browser/session credentials","full source mirrors","unreviewed screenshots","model prompts","unrelated application patches"],
+  "coverage":"all saved standalone audit reports available in this session; no claim of complete unpublished owner-PC history"
+}

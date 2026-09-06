@@ -1,0 +1,70 @@
+{
+  "audited_sha": "22e2ea304bcc2f4f51b24af41c881f0f9353d827",
+  "findings": [
+    {
+      "id": "AT-01",
+      "severity": "P1",
+      "status": "REPRODUCED_COMPONENT",
+      "path": "bossman-core/bossman/computer_operator/manager.py:133-136",
+      "finding": "Planner COMPLETE finalizes an effectful goal without an effect or verification",
+      "test": "test_complete_without_effect_evidence_must_not_finalize",
+      "history": "pre-existing standalone path; not a claim about all BCC finalizers"
+    },
+    {
+      "id": "AT-02",
+      "severity": "P1",
+      "status": "REPRODUCED_COMPONENT",
+      "path": "bossman-core/bossman/computer_operator/manager.py:230-237",
+      "finding": "recover_all replaces owner PAUSED with RECOVERING without explicit resume",
+      "test": "test_restart_recovery_must_preserve_owner_pause",
+      "history": "pre-existing recovery behavior not closed by new mid-step owner control fix"
+    },
+    {
+      "id": "AT-03",
+      "severity": "P1",
+      "status": "REPRODUCED_COMPONENT",
+      "path": "bossman-core/bossman/computer_operator/manager.py:118,201-218",
+      "finding": "0.75s observation reuse permits external UI mutation to reach adapter with stale input",
+      "test": "test_reused_state_must_detect_external_ui_change",
+      "history": "new PR31 optimization; task generation is not the external UI revision"
+    },
+    {
+      "id": "AT-04a",
+      "severity": "P1",
+      "status": "REPRODUCED_COMPONENT",
+      "path": "bossman-core/bossman/learning_guard/evidence_ledger.py:72-75",
+      "finding": "Spent measurement becomes reusable after capacity eviction",
+      "test": "test_eviction_must_not_reauthorize_spent_evidence"
+    },
+    {
+      "id": "AT-04b",
+      "severity": "P1",
+      "status": "REPRODUCED_COMPONENT",
+      "path": "bossman-core/bossman/learning_guard/evidence_ledger.py:108-117",
+      "finding": "Corrupt durable ledger becomes an empty ledger, accepting spent evidence",
+      "test": "test_corruption_must_not_reauthorize_spent_evidence"
+    },
+    {
+      "id": "AT-04c",
+      "severity": "P1",
+      "status": "REPRODUCED_COMPONENT",
+      "path": "bossman-core/bossman/learning_guard/evidence_ledger.py:77-85,119-123",
+      "finding": "Independent ledger objects can both accept the same measurement; per-instance lock is insufficient",
+      "test": "test_independent_writers_must_not_both_consume_one_measurement",
+      "scope": "Two instances/threads, deterministic interleaving of actual read/write; no multiprocess run claimed"
+    },
+    {
+      "id": "AT-05",
+      "severity": "P1",
+      "status": "CONFIRMED_EXACT_SHA_CI",
+      "finding": "Root test collection imports Core eager HTTP packages without declared FastAPI dependency",
+      "tests": [
+        "tests/test_local_hardware_ab_portability.py",
+        "tests/test_operator_step_profile.py"
+      ],
+      "run_id": 34043712462,
+      "job_id": 101514903956,
+      "exit_code": 2
+    }
+  ]
+}
