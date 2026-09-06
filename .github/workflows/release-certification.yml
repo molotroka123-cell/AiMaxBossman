@@ -1,0 +1,45 @@
+name: Release certification (exact SHA)
+
+# Certifies ONE commit: every required workflow must have a completed, successful
+# run whose head_sha is exactly the requested SHA. Skipped, cancelled, in-progress
+# and other-commit runs never count (tools/exact_sha_certify.py). Run it AFTER the
+# other workflows have finished; a NOT_FINAL result means "come back later", not
+# "green". The job is red when the SHA is not certified — that is the point.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Full 40-hex commit SHA to certify (default: the dispatched ref's SHA)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  certify:
+    name: exact-SHA CI certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Certify the requested SHA against live workflow runs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: >-
+          python tools/exact_sha_certify.py
+          --sha "${{ github.event.inputs.sha || github.sha }}"
+          --fetch --output exact-sha-certification.json
+          --scorecard docs/benchmark/current-scorecard.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exact-sha-certification-${{ github.event.inputs.sha || github.sha }}
+          path: exact-sha-certification.json
+          if-no-files-found: ignore
