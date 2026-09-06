@@ -1,8 +1,5 @@
-"""V3.4 Compound Action Resume — оркестрация цепочки шагов.
+"""V3 execution package."""
+from .compound import CompoundRunner, CompoundResult, PlanStep
+from .telemetry import append_record as append_real_workload_record, journal_record
 
-Один шаг исполняет bossman_v3/computer_agent, durable-состояние держит
-bossman_v3/memory; здесь — только склейка и семантика цепочки.
-"""
-from .compound import CompoundResult, CompoundRunner, PlanStep
-
-__all__ = ["CompoundResult", "CompoundRunner", "PlanStep"]
+__all__ = ["CompoundRunner", "CompoundResult", "PlanStep", "append_real_workload_record", "journal_record"]
