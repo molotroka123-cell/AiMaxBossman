@@ -33,14 +33,15 @@ git fetch origin
 git checkout -b kimi/final-residual-closure-$(date +%Y%m%d) \
   origin/integration/continuity-steward-closure-20260906
 
-# Установка зависимостей
-pip install -e .[dev]                   # корневой пакет
-pip install -e bossman-core[dev]        # Core пакет
-pip install -e bossman-steward[dev]     # V5 Steward (если папка есть)
+# Установка зависимостей (проверено на хосте 2026-09-06)
+pip install -e .                    # bossman-shared: bossman_shared, learning, bossman_schemas
+pip install -e bossman-core         # bossman-core: модули bossman, bossman_v3
+# Каталога bossman-steward в дереве НЕТ — V5 Steward это bossman_shared/objective_*.py,
+# отдельная установка не нужна. Не выполняй `pip install -e bossman-steward` — упадёт.
 
 # Проверь что всё импортируется
-python -c "import bossman; print('root OK')"
-python -c "import bossman_core; print('core OK')"
+python -c "import bossman_shared; print('shared OK')"
+python -c "import bossman; print('core OK')"
 ```
 
 > Если любой import падает — **это P0. Фикси сначала, дальше не иди.**

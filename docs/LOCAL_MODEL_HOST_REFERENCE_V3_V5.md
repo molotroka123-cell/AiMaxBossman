@@ -1,4 +1,10 @@
-# LOCAL MODEL WORKFLOW — V3 / V4 / V5 (loopback, no cloud required)
+# LOCAL MODEL HOST REFERENCE — V3 / V4 / V5 (loopback, no cloud required)
+
+Companion to `docs/LOCAL_MODEL_WORKFLOW_V3_V5.md` (agent playbook: cycles,
+invariants, bug loop). This file is the HOST-VERIFIED counterpart: every
+address, command and model name below was probed on the owner machine
+2026-09-06. Where the two disagree on facts, this file wins; where they
+disagree on procedure, follow the playbook and fix this file.
 
 Base: `kimi/final-residual-closure-20260906` @ `c1e186b` (tracks
 `origin/integration/continuity-steward-closure-20260906`).
