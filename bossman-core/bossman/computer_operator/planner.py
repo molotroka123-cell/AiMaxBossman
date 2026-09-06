@@ -46,10 +46,15 @@ class Planner:
                  "foreground":foreground,"ui_tree":ui_tree,"last_result":last_result[:3000],
                  "remaining_steps":max(0,remaining_steps)}
         system=PLAN_SYSTEM_TEMPLATE.format(kinds=" ".join(await self.allowed_kinds()))
+        # PLANNER-TOKENS-001 (acceptance 20260906): 1200 было недостаточно для
+        # reasoning-моделей (z-ai/glm-5.3-flash через OpenRouter тратит ~1200
+        # токенов на reasoning и упирается в cap до выдачи content — планировщик
+        # получал пустой ответ и исчерпывал replan-бюджет). Cap, а не цель:
+        # не-reasoning модели не меняют поведения.
         msg=await self.chat_fn(model=self.model_alias,messages=[
             {"role":"system","content":system},
             {"role":"user","content":json.dumps(payload,ensure_ascii=False,default=str)}
-        ],max_tokens=1200)
+        ],max_tokens=4000)
         content=str(msg.get("content") or "")
         if not content and msg.get("choices"):
             content=str((msg["choices"][0].get("message") or {}).get("content") or "")
