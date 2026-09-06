@@ -1,0 +1,2 @@
+file 'C:/AiMaxBossman-claude-bossman-control-v03-43igbk/artifacts/higgsfield/videos/seg01.mp4'
+file 'C:/AiMaxBossman-claude-bossman-control-v03-43igbk/artifacts/higgsfield/videos/seg02.mp4'

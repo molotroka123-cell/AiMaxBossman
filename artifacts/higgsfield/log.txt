@@ -47,3 +47,6 @@
 [2026-09-06 14:54:59] generate clicked (scene 2)
 [2026-09-06 14:55:00] job CONFIRMED: HTTP 200 https://fnf-api-gw.higgsfield.ai/fnf/jobs/v2/seedance_2_5
 [2026-09-06 14:57:00] waiting generation... watermark=20260906_123821 elapsed=120s
+[2026-09-06 15:17:15] cdp: 9222 already up
+[2026-09-06 15:17:21] poll: cdn videos on page=1
+[2026-09-06 15:17:21] poll: nothing new
