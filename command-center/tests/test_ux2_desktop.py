@@ -244,6 +244,9 @@ def test_install_windows_uses_powershell_argv(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.setenv("APPDATA", str(tmp_path / "AppData" / "Roaming"))
+    # Рабочий стол на настоящей Windows существует; установщик его больше не
+    # выдумывает сам (W4: mkdir создавал фантомную папку мимо OneDrive-стола).
+    (tmp_path / "Desktop").mkdir()
     spec = desktop_install.build_spec(executable="python.exe", workdir=tmp_path)
     created = desktop_install.install(spec, home=tmp_path, system="Windows",
                                       runner=lambda argv: calls.append(argv) or 0)

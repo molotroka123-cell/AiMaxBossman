@@ -135,7 +135,11 @@ class ComputerOperatorManager:
                     self.loop_guards.pop(t.id,None)
                     self._emit(t,"completed"); return t.state
                 if a.kind is ActionKind.FAIL:return self._fail(t,a.text or "planner failed")
-                d=self.policy.classify(a,mode=t.mode,locked=self.global_locked)
+                # `before` — наблюдение, сделанное НАБЛЮДАТЕЛЕМ, а не моделью:
+                # приложение/заголовок переднего плана политика использует как
+                # улику последствия, чтобы решение «спросить владельца» не
+                # держалось на одном поле планировщика (см. policy).
+                d=self.policy.classify(a,mode=t.mode,locked=self.global_locked,observation=before)
                 if not d.allow:
                     t.replans_used+=1; last=f"policy denied:{d.reason}"; self._save(t)
                     if t.replans_used>t.max_replans:return self._fail(t,"policy/replan budget")
@@ -259,7 +263,18 @@ class ComputerOperatorManager:
         error=str(reason)[:3000]
         # Владелец уже завершил задачу («Стоп») — его решение не переписывается
         # системным FAILED с техническим текстом вроде "approved action stale".
+        # Но САМА причина не теряется: состояние остаётся владельческим, а
+        # системный диагноз пишется рядом. Иначе оператор видит «отменено» и
+        # никогда не узнаёт, что акция вдобавок была протухшей.
         if t.state is TaskState.CANCELLED:
+            for _ in range(_CAS_RETRIES):
+                t.last_error=error;t.pending_action=None
+                try:self._save(t)
+                except OwnerStateChanged:
+                    t=self._req(t.id)
+                    if t.state is not TaskState.CANCELLED:break
+                    continue
+                break
             self.loop_guards.pop(t.id,None);return t.state
         for _ in range(_CAS_RETRIES):
             t.state=state;t.last_error=error;t.pending_action=None

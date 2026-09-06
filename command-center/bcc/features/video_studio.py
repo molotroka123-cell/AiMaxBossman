@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 import sqlalchemy as sa
 from ..video_studio.service import VideoService, jobs, chats, identifier
 from ..video_studio.read_verification import ReadVerificationBusy
+from ..video_studio.descriptor_stream import stream_verified
 from ..db import tasks as tasks_t
 from . import Feature
 
@@ -158,25 +158,29 @@ async def command(body: Command,request: Request):
 async def upload(request: Request, project_id: str,filename: str,expected_revision: int,operation_id: str):
     return await guarded(service(request).upload(request,project_id,filename,expected_revision,operation_id))
 
+# Every media body below is streamed from the descriptor that was fstat-ed and
+# hashed during verification. FileResponse cannot be used here: it re-opens
+# self.path and may emit http.response.pathsend, so the bytes it sends are
+# whatever the NAME means at send time, not what was verified.
 @router.get("/media/{media_id}/file")
 async def media_file(media_id: str,project_id: str,request: Request):
-    path, media = await guarded(service(request).media_file(project_id,media_id))
-    return FileResponse(path,filename=media["name"])
+    handle, media = await guarded(service(request).media_file(project_id,media_id))
+    return stream_verified(handle,request,filename=media["name"])
 
 @router.get("/media/{media_id}/thumbnail")
 async def thumbnail(media_id: str,project_id: str,request: Request):
-    path=await guarded(service(request).prepared_file(project_id,media_id,"thumbnail"))
-    return FileResponse(path,media_type="image/jpeg")
+    handle=await guarded(service(request).prepared_file(project_id,media_id,"thumbnail"))
+    return stream_verified(handle,request,media_type="image/jpeg")
 
 @router.get("/media/{media_id}/proxy")
 async def proxy(media_id: str,project_id: str,request: Request):
-    path=await guarded(service(request).prepared_file(project_id,media_id,"proxy"))
-    return FileResponse(path,media_type="video/mp4")
+    handle=await guarded(service(request).prepared_file(project_id,media_id,"proxy"))
+    return stream_verified(handle,request,media_type="video/mp4")
 
 @router.get("/media/{media_id}/waveform")
 async def waveform(media_id: str,project_id: str,request: Request):
-    path=await guarded(service(request).prepared_file(project_id,media_id,"waveform"))
-    return FileResponse(path,media_type="image/png")
+    handle=await guarded(service(request).prepared_file(project_id,media_id,"waveform"))
+    return stream_verified(handle,request,media_type="image/png")
 
 @router.get("/projects/{project_id}/exports")
 async def project_exports(project_id: str,request: Request):
@@ -306,9 +310,10 @@ async def output(job_id: str,request: Request):
     status=await guarded(video.job(job_id))
     if status["status"] != "completed":
         raise HTTPException(409,"export not independently verified and completed")
-    path=await guarded(video.verified_output(job_id))
-    media_type={".zip":"application/zip",".png":"image/png",".webm":"video/webm",".mov":"video/quicktime",".mkv":"video/x-matroska"}.get(path.suffix,"video/mp4")
-    return FileResponse(path,media_type=media_type,filename="bossman-project.zip" if path.suffix==".zip" else "bossman-video"+path.suffix)
+    handle=await guarded(video.verified_output(job_id))
+    media_type={".zip":"application/zip",".png":"image/png",".webm":"video/webm",".mov":"video/quicktime",".mkv":"video/x-matroska"}.get(handle.suffix,"video/mp4")
+    return stream_verified(handle,request,media_type=media_type,
+        filename="bossman-project.zip" if handle.suffix==".zip" else "bossman-video"+handle.suffix)
 
 @router.post("/chat")
 async def chat(body: Chat,request: Request):

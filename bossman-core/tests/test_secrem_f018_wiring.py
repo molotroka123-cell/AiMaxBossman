@@ -15,6 +15,36 @@ def test_fileintel_and_analysis_tools_are_registered():
         assert name in REGISTRY, f"{name} не зарегистрирован — V2.6 интеграция"
 
 
+def test_registered_fileintel_tools_are_confined_to_the_workdir(tmp_path):
+    """S1: регистрации мало — подключённые в реестр file.parse/artifact.create
+    обязаны держать containment рабочей папки. Вызываем именно ЗАРЕГИСТРИРОВАННЫЕ
+    handler'ы (а не модульные функции), потому что агент дотягивается до них
+    через REGISTRY, а artifact.create идёт с confirm_default=False."""
+    from pathlib import Path
+    from bossman.toolkit import ToolContext
+
+    work = tmp_path / "coder"
+    work.mkdir()
+    sibling = tmp_path / "coder-secrets"      # общий префикс имени с workdir
+    sibling.mkdir()
+    (sibling / "secret.txt").write_text("TOP SECRET", encoding="utf-8")
+    ctx = ToolContext(agent="coder", workdir=work)
+
+    with pytest.raises(PermissionError):
+        asyncio.run(REGISTRY["artifact.create"].handler(
+            {"path": "../coder-secrets/pwned.md", "format": "md", "content": "OWNED"}, ctx))
+    assert not (sibling / "pwned.md").exists()
+
+    with pytest.raises(PermissionError):
+        asyncio.run(REGISTRY["file.parse"].handler(
+            {"path": "../coder-secrets/secret.txt"}, ctx))
+
+    # Внутри рабочей папки инструмент по-прежнему работает.
+    ok = asyncio.run(REGISTRY["artifact.create"].handler(
+        {"path": "report.md", "format": "md", "content": "ok"}, ctx))
+    assert not ok.error and Path(work / "report.md").exists()
+
+
 def test_capabilities_and_secret_broker_marked_non_protective():
     import bossman.capabilities as caps
     import bossman.sandbox.secrets as sec

@@ -6,11 +6,16 @@ file.parse — typed-разбор файла внутри workdir через fil
 артефактов (модуль M); недоступность Postgres НЕ роняет инструмент — файл
 уже записан, регистрация превращается в честное предупреждение.
 
-Containment путей — РОВНО тот же, что у fs.* (files.py): resolve под
-ctx.workdir, любой выход (включая symlink) — PermissionError.
+Containment путей — РОВНО тот же, что у fs.* (files.py), и это буквально
+ОДНА функция: `files._contains` (отношение путей), а не вторая копия правила.
+Раньше здесь стоял `str(p).startswith(str(workdir))`, и сосед с общим префиксом
+имени (`.../coder-secrets` при workdir `.../coder`) считался «внутри»: и запись
+(artifact.create), и чтение (file.parse) уходили за рабочую папку — без
+подтверждения владельца (confirm_default=False). Любой выход (сосед по
+префиксу, абсолютный путь, symlink) — PermissionError.
 
-ВАЖНО: модуль сознательно НЕ импортируется из toolkit/__init__.py —
-подключение делает оркестратор.
+ВАЖНО: модуль подключён в реестр из toolkit/__init__.py (F-018) — то есть
+инструменты доступны каждому агенту, и containment здесь единственная защита.
 """
 from __future__ import annotations
 
@@ -18,13 +23,20 @@ import json
 from pathlib import Path
 
 from . import ToolContext, ToolDef, ToolResult, clip, register
+from .files import _contains
 from .. import artifacts_engine, file_intel
 
 
 def _resolve(ctx: ToolContext, rel: str) -> Path:
-    """Та же дисциплина, что files._resolve: за workdir не выходим."""
+    """Та же дисциплина, что files._resolve: за workdir не выходим.
+
+    Проверка — переиспользованный files._contains (отношение путей), а не
+    сравнение строк: префиксный сосед `.../coder-secrets` не «внутри»
+    `.../coder`. Оба пути уже .resolve()-нуты, поэтому symlink сверяется по
+    реальной цели."""
+    root = ctx.workdir.resolve()
     p = (ctx.workdir / rel).resolve()
-    if not str(p).startswith(str(ctx.workdir.resolve())):
+    if not _contains(root, p):
         raise PermissionError(f"путь вне рабочей папки: {rel}")
     return p
 

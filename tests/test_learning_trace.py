@@ -1,7 +1,9 @@
 """Learning layer — схема, статусы, корпуса, редактирование, retrieval."""
 from __future__ import annotations
 
+import inspect
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -210,3 +212,116 @@ def test_repo_history_records_stay_reachable():
         assert c.get("tombstone") is True
         assert c["case_id"] in current, "замещённая версия без текущей записи"
         assert int(c["version"]) < int(c["superseded_by_version"])
+
+
+# ---------------------------------------------------------------- W7: файловый лок на Windows
+
+def _fake_msvcrt(monkeypatch, calls, fail_times: int = 0):
+    """Подставить модуль msvcrt и записывать (режим, смещение файла) каждого вызова.
+
+    Настоящего msvcrt на Linux нет, поэтому Windows-ветка блокировки иначе
+    вообще не исполняется — и её сломанность видна только у владельца.
+    """
+    import types
+
+    mod = types.ModuleType("msvcrt")
+    mod.LK_LOCK, mod.LK_NBLCK, mod.LK_RLCK, mod.LK_NBRLCK, mod.LK_UNLCK = 1, 2, 3, 4, 0
+    state = {"fails": fail_times}
+
+    def locking(fd, mode, nbytes):
+        calls.append((mode, nbytes, os.lseek(fd, 0, os.SEEK_CUR)))
+        if mode != mod.LK_UNLCK and state["fails"] > 0:
+            state["fails"] -= 1
+            raise OSError(13, "Permission denied")
+
+    mod.locking = locking
+    monkeypatch.setitem(sys.modules, "msvcrt", mod)
+    return mod
+
+
+def test_windows_lock_seeks_to_zero_and_releases(tmp_path, monkeypatch):
+    """msvcrt.locking блокирует байт ОТ ТЕКУЩЕГО смещения, а не от начала файла.
+
+    Лок-файл открыт на дозапись, поэтому без seek(0) каждый процесс запирал свой
+    байт и они друг друга не видели — «блокировка», которая ничего не
+    блокирует. И симметрия: снятие должно быть явным LK_UNLCK, а не «ну файл
+    закроется». Эталон — bossman_shared/fable_budget.py::_CrossProcessFileLock.
+    """
+    from learning.trace import LearningStore
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(parents=True)
+    (data_dir / ".lock").write_bytes(b"x" * 4096)   # конец файла заведомо не 0
+
+    calls: list[tuple] = []
+    store = LearningStore(data_dir, tmp_path / "docs")
+    with pytest.MonkeyPatch.context() as mp:
+        mod = _fake_msvcrt(mp, calls)
+        mp.setattr(os, "name", "nt")
+        with store._locked():
+            pass
+
+    assert [c[0] for c in calls] == [mod.LK_NBLCK, mod.LK_UNLCK], calls
+    assert all(c[2] == 0 for c in calls), f"блокировка не от начала файла: {calls}"
+    assert all(c[1] == 1 for c in calls)
+
+
+def test_windows_lock_retries_instead_of_giving_up(tmp_path, monkeypatch):
+    """LK_LOCK «сам подождёт» 10×1с и БРОСИТ; нужен неблокирующий цикл с ожиданием."""
+    from learning.trace import LearningStore
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(parents=True)
+    calls: list[tuple] = []
+    store = LearningStore(data_dir, tmp_path / "docs")
+    with pytest.MonkeyPatch.context() as mp:
+        mod = _fake_msvcrt(mp, calls, fail_times=2)
+        mp.setattr(os, "name", "nt")
+        with store._locked():
+            pass
+
+    assert [c[0] for c in calls] == [mod.LK_NBLCK, mod.LK_NBLCK, mod.LK_NBLCK, mod.LK_UNLCK]
+
+
+def test_windows_lock_released_when_body_raises(tmp_path, monkeypatch):
+    """Исключение внутри критической секции не должно оставлять файл запертым."""
+    from learning.trace import LearningStore
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(parents=True)
+    calls: list[tuple] = []
+    store = LearningStore(data_dir, tmp_path / "docs")
+    with pytest.MonkeyPatch.context() as mp:
+        mod = _fake_msvcrt(mp, calls)
+        mp.setattr(os, "name", "nt")
+        with pytest.raises(RuntimeError):
+            with store._locked():
+                raise RuntimeError("boom")
+
+    assert calls[-1][0] == mod.LK_UNLCK, f"лок не снят: {calls}"
+
+
+def test_posix_lock_path_unchanged(tmp_path, monkeypatch):
+    """POSIX по-прежнему блокирующий flock(LOCK_EX)/LOCK_UN — поведение не двигаем."""
+    import fcntl
+
+    from learning.trace import LearningStore
+
+    seen: list[int] = []
+    real_flock = fcntl.flock
+
+    def spy(fd, op):
+        seen.append(op)
+        return real_flock(fd, op)
+
+    monkeypatch.setattr(fcntl, "flock", spy)
+    store = LearningStore(tmp_path / "data", tmp_path / "docs")
+    with store._locked():
+        pass
+    assert seen == [fcntl.LOCK_EX, fcntl.LOCK_UN]
+
+
+def test_lock_file_opened_in_binary_mode():
+    """Лок-файл — байты: у него нет текста, и не должно быть зависимости от локали."""
+    src = Path(inspect.getfile(sys.modules["learning.trace"])).read_text(encoding="utf-8")
+    assert 'open(lock_path, "a+b")' in src, "лок-файл открыт в текстовом режиме"

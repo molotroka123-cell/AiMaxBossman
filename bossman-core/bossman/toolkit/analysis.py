@@ -85,7 +85,9 @@ async def run(args: dict, ctx: ToolContext) -> ToolResult:
     log_id = uuid.uuid4().hex[:8]
     log_path = ctx.workdir / "assets" / "logs" / f"analysis-{log_id}.txt"
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_path.write_text(out)
+    # Тот же инвариант, что и в shell.run: лог пишем в utf-8 явно, иначе на
+    # русской Windows дефолтная cp1251 роняет запись вывода интерпретатора.
+    log_path.write_text(out, encoding="utf-8", errors="replace")
     body, cut1 = _head_tail(out)
     body, cut2 = clip(body, 3000)
     body = f"код выхода: {exit_code}\n{body}"

@@ -57,7 +57,9 @@ async def _project(args) -> None:
         if not args.brief:
             sys.exit("нужен путь к brief.md")
         from .projects.planner import plan_project
-        brief = Path(args.brief).read_text()
+        # brief.md владельца — utf-8; без явной кодировки Windows читает его
+        # как cp1251 и в модель уезжает кракозябра вместо задания.
+        brief = Path(args.brief).read_text(encoding="utf-8")
         await db.execute(
             """INSERT INTO projects (slug, title, brief) VALUES ($1,$1,$2)
                ON CONFLICT (slug) DO UPDATE SET brief=excluded.brief, updated_at=now()""",

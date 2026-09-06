@@ -39,7 +39,7 @@ from pathlib import Path
 import sqlite3
 
 from bossman_shared.sqlite_connection import OwnedConnection
-from typing import Any
+from typing import Any, Mapping
 
 from .objective_spec import (
     LIFECYCLES,
@@ -596,14 +596,41 @@ class ObjectiveStore:
                         (_dumps(payload), reservation_id))
             self._log(con, row["objective_id"], "admission_ready", reservation_id)
 
-    def settle_reservation(self, reservation_id: str, state: str) -> None:
-        """Close a reservation as COMMITTED or RELEASED; settlement is final."""
+    @staticmethod
+    def _settled_usage(payload: Mapping[str, Any] | None) -> tuple[float, float, bool]:
+        """Расход, зафиксированный при бронировании. Возвращает (wall, cost, usable).
+
+        Числа лежат ВНУТРИ `estimate` — ровно так их пишет admit. Плоское чтение
+        всегда давало ноль, то есть «бесплатно и мгновенно» для реально
+        потраченного бюджета.
+        """
+        estimate = (dict(payload or {}).get("estimate") or {})
+        out: list[float] = []
+        for key in ("wall_seconds", "cost_usd"):
+            value = estimate.get(key)
+            if (type(value) not in (int, float) or type(value) is bool
+                    or not math.isfinite(value) or value < 0):
+                return 0.0, 0.0, False
+            out.append(float(value))
+        return out[0], out[1], True
+
+    def settle_reservation(self, reservation_id: str, state: str) -> ObjectiveRuntimeState:
+        """Close a reservation as COMMITTED or RELEASED; settlement is final.
+
+        Здесь же расходуется бюджет цели. Раньше `record_mission_usage` не звал
+        никто, кроме восстановления после падения: `claim_admission` сверялся с
+        `missions_used`/`cost_usd_used`, которые никогда не росли, и цель с
+        лимитом в одну миссию допускала сколько угодно. Расход списывается в ТОЙ
+        ЖЕ транзакции, что и закрытие брони: между «эффект зачтён» и «бюджет
+        списан» не должно быть окна, которое переживает падение процесса.
+        """
         if state not in {"COMMITTED", "RELEASED"}:
             raise ObjectiveStoreError("reservation settles as COMMITTED or RELEASED")
         with self._connect() as con:
             con.execute("BEGIN IMMEDIATE")
-            row = con.execute("SELECT objective_id,state FROM v5_reservations WHERE reservation_id=?",
-                              (reservation_id,)).fetchone()
+            row = con.execute(
+                "SELECT objective_id,state,payload FROM v5_reservations WHERE reservation_id=?",
+                (reservation_id,)).fetchone()
             if row is None:
                 raise ObjectiveStoreError(f"unknown reservation {reservation_id}")
             if row["state"] != "RESERVED":
@@ -611,7 +638,24 @@ class ObjectiveStore:
                     f"reservation {reservation_id} already settled as {row['state']}")
             con.execute("UPDATE v5_reservations SET state=? WHERE reservation_id=? AND state='RESERVED'",
                         (state, reservation_id))
+            if state == "COMMITTED":
+                try:
+                    payload = json.loads(row["payload"])
+                except (TypeError, ValueError):
+                    payload = None
+                wall, cost, usable = self._settled_usage(payload)
+                con.execute(
+                    "UPDATE v5_objectives SET missions_used=missions_used+1,"
+                    "wall_seconds_used=wall_seconds_used+?,cost_usd_used=cost_usd_used+?,"
+                    "version=version+1 WHERE objective_id=?",
+                    (wall, cost, row["objective_id"]))
+                if not usable:
+                    # Счётчик миссий всё равно вырос: молча «не потратить» хуже,
+                    # чем потратить неточно. Но след обязан остаться.
+                    self._log(con, row["objective_id"], "usage_estimate_unusable",
+                              f"{reservation_id}: reservation payload carries no usable estimate")
             self._log(con, row["objective_id"], "settled", f"{reservation_id}:{state}")
+        return self.get(row["objective_id"])
 
     def open_reservations(self, objective_id: str) -> list[dict[str, Any]]:
         """Reservations still in flight; a restart must resolve each explicitly.

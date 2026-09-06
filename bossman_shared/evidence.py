@@ -20,7 +20,9 @@ import hmac
 import json
 import os
 import secrets
+import subprocess
 import uuid
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
@@ -45,6 +47,41 @@ def key_path() -> Path:
         return Path(explicit).expanduser()
     base = Path(os.environ.get(ENV_DATA_DIR) or "~/.bossman").expanduser()
     return base / "keys" / "evidence.key"
+
+
+def restrict_to_owner(path: Path) -> None:
+    """Сузить доступ к файлу ключа до владельца. На POSIX всё сделал chmod 0600.
+
+    На Windows `os.chmod` переключает ровно один атрибут — «только чтение» — и
+    НЕ трогает ACL: ключ подписи улик остаётся читаемым для любого процесса
+    сессии пользователя, а значит verified=True может подделать что угодно,
+    запущенное из-под того же логина. Явный owner-only DACL ставит icacls:
+    `/inheritance:r` снимает унаследованные разрешения, `/grant:r <user>:F`
+    оставляет полный доступ только владельцу.
+
+    Best-effort: ключ уже создан и работоспособен, поэтому провал icacls не
+    имеет права ронять старт. Но и молчать нельзя — это ослабление модели
+    доверия, о котором владелец должен узнать: предупреждение, не исключение.
+    """
+    if os.name != "nt":
+        return
+    user = os.environ.get("USERNAME") or ""
+    domain = os.environ.get("USERDOMAIN") or ""
+    principal = f"{domain}\\{user}" if domain and user else (user or "%USERNAME%")
+    argv = ["icacls", str(path), "/inheritance:r", "/grant:r", f"{principal}:F"]
+    try:
+        proc = subprocess.run(  # noqa: S603 — argv, без строки для оболочки
+            argv, capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=30, check=False)
+    except Exception as exc:  # noqa: BLE001 — нет icacls, урезанный образ, таймаут
+        warnings.warn(f"не удалось запустить icacls для {path}: {exc!r}; "
+                      "файл ключа остаётся доступным сессии пользователя",
+                      UserWarning, stacklevel=2)
+        return
+    if proc.returncode != 0:
+        warnings.warn(f"icacls не сузил права {path} (код {proc.returncode}): "
+                      f"{(proc.stderr or proc.stdout or '').strip()[:200]}",
+                      UserWarning, stacklevel=2)
 
 
 def load_or_create_key(path: Path | None = None) -> bytes:
@@ -73,6 +110,7 @@ def load_or_create_key(path: Path | None = None) -> bytes:
         os.chmod(p, 0o600)
     except OSError:
         pass
+    restrict_to_owner(p)  # Windows: chmod ACL не ставит — см. restrict_to_owner
     _cache[str(p)] = key
     return key
 

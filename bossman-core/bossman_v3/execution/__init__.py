@@ -1,5 +1,7 @@
-"""V3 execution package."""
-from .compound import CompoundRunner, CompoundResult, PlanStep
-from .telemetry import append_record as append_real_workload_record, journal_record
+from .compound import CompoundResult, CompoundRunner, PlanStep
+from .telemetry import (TelemetryOutcome, append_record as append_real_workload_record,
+                        journal_record, record_terminal_run, workload_family)
 
-__all__ = ["CompoundRunner", "CompoundResult", "PlanStep", "append_real_workload_record", "journal_record"]
+__all__ = ["CompoundRunner", "CompoundResult", "PlanStep", "TelemetryOutcome",
+           "append_real_workload_record", "journal_record", "record_terminal_run",
+           "workload_family"]

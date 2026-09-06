@@ -5,7 +5,9 @@
 """
 from .assembler import ContextAssembler, ContextPack, estimate_tokens, redact
 from .failure_memory import FailureMemory
-from .journal import DONE, FAILED, PENDING, JournalStep, TaskJournal
+from .journal import (DONE, FAILED, PENDING, JournalIntegrityError, JournalRollbackError,
+                      JournalStep, TaskJournal, read_anchor)
 
-__all__ = ["ContextAssembler", "ContextPack", "FailureMemory", "JournalStep",
-           "TaskJournal", "DONE", "FAILED", "PENDING", "estimate_tokens", "redact"]
+__all__ = ["ContextAssembler", "ContextPack", "FailureMemory", "JournalIntegrityError",
+           "JournalRollbackError", "JournalStep", "TaskJournal", "DONE", "FAILED", "PENDING",
+           "estimate_tokens", "read_anchor", "redact"]

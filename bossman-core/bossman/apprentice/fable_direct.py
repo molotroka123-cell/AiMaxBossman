@@ -36,6 +36,9 @@ API_VERSION = "2023-06-01"
 # ровно тот же объект использует Command Center. Второй экземпляр этой логики
 # означал бы два потолка по три доллара вместо одного.
 from .._shared import AVAILABLE as _shared_available  # noqa: E402,F401 — кладёт корень репозитория в sys.path
+import bossman._shared  # noqa: F401  — repo-root `bossman_shared` on sys.path
+                       # before the first module-level import of it (fresh clone,
+                       # wheel not installed): иначе модуль не импортируется вовсе.
 from bossman_shared.fable_budget import (  # noqa: E402
     FABLE_HARD_CAP_USD,
     PRICE_TABLE,

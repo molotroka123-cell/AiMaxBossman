@@ -30,6 +30,7 @@ from ..computer_agent.agent import (ApprovalDeniedError, PolicyDeniedError,
 from ..contracts import TypedAction, SideEffectClass
 from ..memory.failure_memory import FailureMemory
 from ..memory.journal import TaskJournal, JournalIntegrityError
+from .telemetry import TelemetryOutcome, record_terminal_run
 
 _EXPECTED = (PolicyDeniedError, ApprovalDeniedError, StaleObservationError,
              UnsafeActionError, UnsupportedActionError)
@@ -60,6 +61,9 @@ class CompoundRunner:
         self.journal = journal
         self.model = model
         self.failure_memory = failure_memory
+        # Результат последнего наблюдения. Диагностический, а не управляющий:
+        # ни одна ветка исполнения его не читает.
+        self.last_telemetry: TelemetryOutcome = TelemetryOutcome(False, "not run")
 
     def _guard_passed(self, step: PlanStep) -> bool:
         if not step.guard:
@@ -106,6 +110,30 @@ class CompoundRunner:
         return body
 
     def run(self, plan: Sequence[PlanStep], context: Mapping[str, Any] | None = None) -> CompoundResult:
+        """Терминальная граница исполнения цепочки.
+
+        Здесь и только здесь появляется выборка реальной нагрузки. Наблюдение
+        обязано быть автоматическим — иначе аудит железа опирается на то, что
+        кто-то не забыл записать задачу вручную, то есть ни на что.
+
+        Порядок важен: исход задачи вычислен ДО телеметрии и не зависит от неё.
+        `record_terminal_run` не бросает, но `except Exception` здесь стоит
+        сознательно: даже дефект в самом наблюдателе не имеет права превратить
+        завершённую задачу в упавшую.
+        """
+        result = self._run(plan, context)
+        try:
+            self.last_telemetry = record_terminal_run(
+                self.journal, completed=result.completed, plan=plan,
+                context={**dict(context or {}), "model": self.model,
+                         "executor_type": type(getattr(self.agent, "executor", None)).__name__,
+                         "blocked_at": result.blocked_at or "",
+                         "terminal_reason": result.reason})
+        except Exception as exc:  # noqa: BLE001 — наблюдение не меняет истину
+            self.last_telemetry = TelemetryOutcome(False, "error", error=f"{type(exc).__name__}: {exc}")
+        return result
+
+    def _run(self, plan: Sequence[PlanStep], context: Mapping[str, Any] | None = None) -> CompoundResult:
         from ..organization.bridges import step_to_dict
         try:
             self.journal.bind_plan([step_to_dict(s) for s in plan])

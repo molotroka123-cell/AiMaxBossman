@@ -259,8 +259,11 @@ async def _stage_summary(slug: str, stage: str) -> None:
             {"role": "system", "content": "Сожми журнал этапа в сводку 10–15 строк: цель, сделано (пути), решения, открыто, дальше."},
             {"role": "user", "content": tail},
         ], max_tokens=600)
+        # Сводка модели — русский текст: utf-8 явно (дефолт локали Windows
+        # не кодирует ни кириллицу целиком, ни рамки из чужого вывода).
         (project_dir(slug) / "notes" / f"{stage}.md").write_text(
-            f"## Сводка этапа {stage}\n{msg.get('content') or ''}\n")
+            f"## Сводка этапа {stage}\n{msg.get('content') or ''}\n",
+            encoding="utf-8", errors="replace")
     except Exception:
         journal_append(slug, f"сводка этапа {stage} не составлена (модель недоступна)")
 

@@ -2,6 +2,7 @@
 import asyncio
 import copy
 from pathlib import Path
+import shutil
 from types import SimpleNamespace
 import pytest
 import sqlalchemy as sa
@@ -11,6 +12,9 @@ from bcc.video_studio.media import binary, process
 from bcc.video_studio.service import VideoService, jobs
 from bcc.video_studio.export_receipt import RECEIPT_KEY
 from .test_video_studio_integration import BASE, op, execute_task
+
+needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"),
+                                  reason="real FFmpeg binaries required")
 
 
 async def render_once(env, tmp_path, monkeypatch):
@@ -38,6 +42,7 @@ async def render_once(env, tmp_path, monkeypatch):
     return row, task, run_id
 
 
+@needs_ffmpeg
 async def test_full_decode_only_once_and_never_in_completion_hook(env, tmp_path, monkeypatch):
     original, calls = render.verify_output, []
     async def measured(*args, **kwargs):
@@ -58,6 +63,7 @@ async def test_full_decode_only_once_and_never_in_completion_hook(env, tmp_path,
     assert current['output_url'] and RECEIPT_KEY not in current
 
 
+@needs_ffmpeg
 async def test_durable_receipt_survives_service_restart_not_wrong_run(env, tmp_path, monkeypatch):
     row, task, run_id = await render_once(env, tmp_path, monkeypatch)
     restarted = VideoService(env.svc)
@@ -66,6 +72,7 @@ async def test_durable_receipt_survives_service_restart_not_wrong_run(env, tmp_p
     assert (await restarted.render_gate({**task, 'id':task['id']+1}, run_id, ''))['verdict'] == 'FAIL'
 
 
+@needs_ffmpeg
 @pytest.mark.parametrize('change', ['unsigned', 'verification', 'snapshot', 'options', 'path', 'same-size-bytes'])
 async def test_receipt_is_not_transferable_or_a_mutable_trust_cache(env, tmp_path, monkeypatch, change):
     import os
@@ -109,6 +116,7 @@ async def test_timeout_retains_safe_actionable_diagnostics(env, monkeypatch):
     assert current['output_url'] is None
 
 
+@needs_ffmpeg
 async def test_restored_metadata_cannot_bypass_windows_integrity_recheck(env,tmp_path,monkeypatch):
     from bcc.video_studio import export_receipt
     row,task,run_id=await render_once(env,tmp_path,monkeypatch)

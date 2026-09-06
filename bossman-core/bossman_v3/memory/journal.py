@@ -74,6 +74,125 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# --------------------------------------------------------------- rollback anchor
+#
+# Подпись снапшота ловит МУТАЦИЮ, но не ОТКАТ: снятая вчера валидная копия
+# журнала проверяется так же успешно, как сегодняшняя. Поэтому у каждого
+# журнала есть отдельный монотонный якорь: подписанная запись
+# {task_id, seq, snapshot_sha256}, которая живёт вне самого файла журнала и
+# только растёт. Загрузка сравнивает `anchor_seq` снапшота с якорем и
+# отказывается работать со снапшотом СТАРШЕ якоря — fail-closed, потому что
+# продолжать с устаревшего состояния означает повторить необратимый эффект.
+
+ANCHOR_SCHEMA_VERSION = 1
+ANCHOR_RECORD_TYPE = "task_journal_anchor"
+ENV_ANCHOR_ROOT = "BOSSMAN_JOURNAL_ANCHOR_ROOT"
+
+
+class JournalRollbackError(JournalIntegrityError):
+    """Снапшот старше монотонного якоря: откат валидной истории."""
+
+
+def anchor_root(root: str | Path) -> Path:
+    """Каталог якорей. По умолчанию — `<root>/.anchors`; `BOSSMAN_JOURNAL_ANCHOR_ROOT`
+    выносит его за пределы каталога журналов, чтобы право писать в журналы не
+    давало права переписать якорь."""
+    explicit = os.environ.get(ENV_ANCHOR_ROOT)
+    if explicit:
+        return Path(explicit).expanduser() / hashlib.sha256(
+            str(Path(root).resolve()).encode("utf-8")).hexdigest()[:32]
+    return Path(root) / ".anchors"
+
+
+def anchor_path(root: str | Path, task_id: str) -> Path:
+    safe_task_id(task_id)
+    base = anchor_root(root)
+    base.mkdir(parents=True, exist_ok=True)
+    base = base.resolve()
+    path = base / f"{task_id}.anchor.json"
+    if path.is_symlink() or path.resolve().parent != base:
+        raise JournalIntegrityError("journal anchor path escapes anchor root")
+    return path
+
+
+def read_anchor(root: str | Path, task_id: str) -> dict[str, Any] | None:
+    """Текущий якорь или None. Повреждённый/подделанный якорь — это не «якоря нет»:
+    работать со снапшотом без проверки монотонности в этом случае нельзя."""
+    path = anchor_path(root, task_id)
+    if not path.exists():
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise JournalIntegrityError("journal anchor unreadable; reconciliation required") from exc
+    from bossman_v3 import evidence as _signing
+    if (not isinstance(raw, dict)
+            or raw.get("record_type") != ANCHOR_RECORD_TYPE
+            or type(raw.get("schema_version")) is not int
+            or raw.get("schema_version") != ANCHOR_SCHEMA_VERSION
+            or raw.get("task_id") != task_id
+            or type(raw.get("seq")) is not int or raw["seq"] < 1
+            or not isinstance(raw.get("snapshot_sha256"), str)
+            or raw.get("signer") != _signing.JOURNAL_SIGNER
+            or not _signing.verify_signed(raw)):
+        raise JournalIntegrityError("journal anchor is forged, corrupt or unsigned; reconciliation required")
+    return raw
+
+
+def write_anchor(root: str | Path, task_id: str, *, seq: int, snapshot_sha256: str) -> None:
+    """Якорь пишется ПОСЛЕ снапшота и только вперёд. Обрыв между двумя записями
+    оставляет `snapshot.seq == anchor.seq + 1` — это чинится следующей записью и
+    отличается от отката, где `snapshot.seq < anchor.seq`."""
+    path = anchor_path(root, task_id)
+    payload = {"schema_version": ANCHOR_SCHEMA_VERSION, "record_type": ANCHOR_RECORD_TYPE,
+               "task_id": task_id, "seq": int(seq), "snapshot_sha256": snapshot_sha256,
+               "updated_at": _now()}
+    from bossman_v3 import evidence as _signing
+    payload.update(_signing.sign_fields(payload, signer=_signing.JOURNAL_SIGNER))
+    fd, temp = tempfile.mkstemp(prefix=".anchor-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(payload, stream, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp, path)
+        if os.name == "posix":
+            dfd = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(dfd)
+            finally:
+                os.close(dfd)
+    finally:
+        if os.path.exists(temp):
+            os.unlink(temp)
+
+
+def check_anchor(root: str | Path, task_id: str, *, snapshot_seq: int, snapshot_sha256: str) -> int:
+    """Единственное место, где сформулировано правило монотонности. Возвращает
+    seq якоря (0 — якоря ещё нет)."""
+    anchor = read_anchor(root, task_id)
+    if anchor is None:
+        if snapshot_seq > 1:
+            # Якорь существовал и был удалён: снапшот с seq>1 без якоря — не «наследие».
+            raise JournalRollbackError(
+                "journal anchor missing for an advanced journal; reconciliation required")
+        return 0
+    seq, expected = int(anchor["seq"]), str(anchor["snapshot_sha256"])
+    if snapshot_seq < seq:
+        raise JournalRollbackError(
+            f"journal snapshot seq {snapshot_seq} is older than durable anchor {seq}; "
+            "a valid but stale journal must be reconciled, never replayed")
+    if snapshot_seq == seq and snapshot_sha256 != expected:
+        raise JournalRollbackError(
+            "journal snapshot does not match the durable anchor at the same sequence")
+    if snapshot_seq > seq + 1:
+        raise JournalRollbackError(
+            f"journal snapshot seq {snapshot_seq} skips the durable anchor {seq}; "
+            "the anchor store was replaced or truncated")
+    return seq
+
+
+
 @dataclass(frozen=True)
 class JournalStep:
     step_id: str
@@ -129,6 +248,8 @@ class TaskJournal:
     execution_binding: dict[str, Any] = field(default_factory=dict)
 
     _disk_digest: str | None = field(default=None, repr=False, compare=False)
+    # seq снапшота, лежащего на диске прямо сейчас; 0 — журнал ещё не записан.
+    _anchor_seq: int = field(default=0, repr=False, compare=False)
 
     # ------------------------------------------------------------ lifecycle
 
@@ -136,6 +257,13 @@ class TaskJournal:
     def start(cls, *, task_id: str, plan: Sequence[tuple[str, str]], root: str | Path,
               plan_digest: str = "") -> "TaskJournal":
         task_id = safe_task_id(task_id)
+        # Журнал удалён, а якорь остался — состояние исполнения потеряно, а не
+        # отсутствует. Начать «с нуля» здесь означало бы переиграть уже сделанные
+        # необратимые шаги, поэтому это тоже откат и тоже fail-closed.
+        if read_anchor(root, task_id) is not None:
+            raise JournalRollbackError(
+                f"durable anchor for {task_id!r} already exists; the journal was removed "
+                "or rolled back and must be reconciled before a fresh run")
         j = cls(task_id=task_id,
                 steps=[JournalStep(step_id=sid, intent=intent, task_binding=task_id) for sid, intent in plan],
                 root=Path(root))
@@ -158,13 +286,21 @@ class TaskJournal:
             raise JournalIntegrityError("invalid or legacy unsigned journal snapshot; reconciliation required")
         if raw["task_id"] != task_id:
             raise JournalIntegrityError("journal task identity mismatch")
+        snapshot_seq = raw.get("anchor_seq", 0)
+        if type(snapshot_seq) is not int or snapshot_seq < 0:
+            raise JournalIntegrityError("journal snapshot carries no usable monotonic sequence")
+        snapshot_sha256 = hashlib.sha256(data).hexdigest()
+        # Подпись доказала, что снапшот не переписан. Якорь доказывает, что он
+        # не ПОДМЕНЁН на более старый, тоже подписанный, снапшот того же журнала.
+        check_anchor(root, task_id, snapshot_seq=snapshot_seq, snapshot_sha256=snapshot_sha256)
         j = cls(task_id=raw["task_id"],
                    steps=[JournalStep(**s) for s in raw["steps"]],
                    notes=list(raw.get("notes") or []),
                    created_at=raw.get("created_at", _now()),
                    root=Path(root), plan_digest=raw.get("plan_digest", ""),
                    execution_binding=dict(raw.get("execution_binding") or {}))
-        j._disk_digest = hashlib.sha256(data).hexdigest()
+        j._disk_digest = snapshot_sha256
+        j._anchor_seq = snapshot_seq
         j.validate()
         return j
 
@@ -225,13 +361,20 @@ class TaskJournal:
             current = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
             if current != self._disk_digest:
                 raise JournalIntegrityError("journal changed or already exists; reload before writing")
-            self._save_locked()
-            self._disk_digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            anchor = read_anchor(self.root, self.task_id)
+            seq = max(self._anchor_seq, int(anchor["seq"]) if anchor else 0) + 1
+            self._save_locked(seq=seq)
+            digest_after = hashlib.sha256(path.read_bytes()).hexdigest()
+            # Порядок обязателен: снапшот durable ДО якоря. Обрыв здесь оставляет
+            # снапшот на seq+1 при якоре seq — это чинится, а не читается как откат.
+            write_anchor(self.root, self.task_id, seq=seq, snapshot_sha256=digest_after)
+            self._disk_digest = digest_after
+            self._anchor_seq = seq
         finally:
             os.close(fd)
             lock.unlink()
 
-    def _save_locked(self) -> None:
+    def _save_locked(self, *, seq: int = 1) -> None:
         if self.root is None:
             return
         path = journal_path(self.root, self.task_id)
@@ -239,7 +382,7 @@ class TaskJournal:
         payload = {"task_id": self.task_id, "created_at": self.created_at,
                    "steps": [asdict(s) for s in self.steps], "notes": self.notes,
                    "plan_digest": self.plan_digest, "schema_version": 3,
-                   "record_type": "task_journal_snapshot",
+                   "record_type": "task_journal_snapshot", "anchor_seq": int(seq),
                    "execution_binding": dict(self.execution_binding)}
         from bossman_v3 import evidence as _signing
         payload.update(_signing.sign_fields(payload, signer=_signing.JOURNAL_SIGNER))

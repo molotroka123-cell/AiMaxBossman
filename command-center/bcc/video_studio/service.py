@@ -320,7 +320,7 @@ class VideoService:
             "timeline_verified":True,"note":"Timeline prepared; preview and export remain separate tasks."})
 
     async def verified_output(self, job_id):
-        from .media import digest_file
+        from .read_verification import open_verified
         job=await self.job(job_id)
         if job["status"] != "completed":
             raise RuntimeError("output is not completed")
@@ -329,9 +329,12 @@ class VideoService:
         path=Path(result["path"]).resolve()
         if not path.is_relative_to(self.root / "exports" / job_id) or not path.is_file():
             raise ValueError("output unavailable")
-        if await asyncio.to_thread(digest_file,path) != result.get("sha256"):
-            raise RuntimeError("output changed after independent verification")
-        return path
+        # Descriptor-bound: the artifact is hashed through the descriptor the
+        # download then streams from, so re-pointing the pathname afterwards --
+        # unlink and recreate, rename, symlink swap -- cannot change the bytes
+        # that leave. An in-place rewrite of that same inode still can.
+        return await open_verified(path, result.get("sha256"),
+            "output changed after independent verification")
 
     async def analysis(self,payload):
         import os
@@ -703,11 +706,22 @@ class VideoService:
         return result
 
     async def prepared_file(self,project_id,media_id,kind):
-        _,media=await self.media_file(project_id,media_id)
+        from .read_verification import open_verified
+        handle,media=await self.media_file(project_id,media_id)
+        # Проверка исходника авторизует запрос, но отдаём мы ДРУГОЙ файл.
+        # Производная не адресуется содержимым: containment plus is_file() says
+        # nothing about its bytes, so it is checked against the digest recorded
+        # by prepare, from the descriptor that will actually be served.
+        handle.close()
         name={"thumbnail":"thumb.jpg","proxy":"proxy.mp4","waveform":"wave.png"}[kind]
         path=(self.root/"cache"/media["sha256"] / "v1" / name).resolve()
         if not path.is_relative_to(self.root/"cache"):
             raise PermissionError("cache artifact escaped storage")
         if not path.is_file():
             raise RuntimeError("queue analysis action prepare before requesting this derivative")
-        return path
+        entry=self.media.derived_manifest(media["sha256"]).get(kind)
+        if not isinstance(entry,dict) or entry.get("name")!=name:
+            raise RuntimeError("derivative has no recorded digest; re-run the prepare action")
+        return await open_verified(path,entry.get("sha256"),
+            "prepared derivative does not match the digest recorded when it was created",
+            size=entry.get("bytes"))

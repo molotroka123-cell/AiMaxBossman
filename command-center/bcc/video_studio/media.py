@@ -15,10 +15,12 @@ from pathlib import Path
 import re
 import shutil
 import tempfile
+import threading
 import uuid
 from fractions import Fraction
 
 TICKS = 1_000_000
+DERIVED_MANIFEST = "derived-manifest.json"
 
 
 async def blocking(function, *args):
@@ -160,6 +162,33 @@ def digest_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+if hasattr(os, "pread"):
+    def pread(fd: int, length: int, offset: int) -> bytes:
+        """Positional read: the offset is explicit, never a shared seek pointer."""
+        return os.pread(fd, length, offset)
+else:  # pragma: no cover - Windows has no positional read
+    _seek = threading.Lock()
+
+    def pread(fd: int, length: int, offset: int) -> bytes:
+        """Windows fallback. Descriptors here are owned by one reader and never
+        dup-ed, so a private seek pointer is equivalent to a positional read."""
+        with _seek:
+            os.lseek(fd, offset, os.SEEK_SET)
+            return os.read(fd, length)
+
+
+def digest_descriptor(fd: int) -> str:
+    """Hash the OPEN FILE, not the pathname; the same fd then serves the body."""
+    digest = hashlib.sha256()
+    offset = 0
+    while True:
+        block = pread(fd, 1024 * 1024, offset)
+        if not block:
+            return digest.hexdigest()
+        digest.update(block)
+        offset += len(block)
+
+
 class MediaLibrary:
     def __init__(self, root):
         self.root = Path(root).resolve()
@@ -224,11 +253,38 @@ class MediaLibrary:
         from .read_verification import read_verifier
         return await read_verifier.resolve(self, media)
 
+    def manifest_path(self, source: str) -> Path:
+        if not isinstance(source, str) or not re.fullmatch(r"[0-9a-f]{64}", source):
+            raise ValueError("invalid owned media reference")
+        return self.root / "cache" / source / "v1" / DERIVED_MANIFEST
+
+    def derived_manifest(self, source: str) -> dict:
+        """Recorded digests of the derivatives; the ONLY thing that makes cache
+        bytes checkable. Derivatives are not content-addressed by their name, so
+        a missing or foreign manifest is a refusal, never a permissive default."""
+        try:
+            data = json.loads(self.manifest_path(source).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            raise RuntimeError("derivative integrity record is missing or unreadable; "
+                               "queue analysis action prepare before requesting this derivative") from None
+        if (not isinstance(data, dict) or data.get("source") != source
+                or not isinstance(data.get("artifacts"), dict)):
+            raise RuntimeError("derivative integrity record does not describe this media")
+        return data["artifacts"]
+
+    def record_derived(self, source: str, entries: dict) -> None:
+        cache = self.manifest_path(source).parent
+        temp = cache / (uuid.uuid4().hex + ".manifest")
+        temp.write_text(json.dumps({"version": 1, "source": source, "artifacts": entries},
+                                   sort_keys=True), encoding="utf-8")
+        os.replace(temp, cache / DERIVED_MANIFEST)
+
     async def prepare(self, media):
         path = await blocking(self.resolve, media)
         cache = self.root / "cache" / media["sha256"] / "v1"
         cache.mkdir(parents=True, exist_ok=True)
         artifacts = {}
+        recorded = {}
         ff = [binary("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin", "-y"]
         async def output(key, name, args):
             target = cache / name
@@ -239,6 +295,12 @@ class MediaLibrary:
                     os.replace(temp, target)
                 finally:
                     temp.unlink(missing_ok=True)
+            # Производный файл НЕ адресуется своим содержимым: имя не несёт хеша,
+            # поэтому без записанного дайджеста никто ниже по течению не отличит
+            # наш прокси от произвольных байтов, положенных в каталог кеша.
+            # Record it here -- the only point where the artifact is known to be ours.
+            recorded[key] = {"name": name, "sha256": await blocking(digest_file, target),
+                             "bytes": target.stat().st_size}
             artifacts[key] = target.relative_to(self.root).as_posix()
         if media["has_video"]:
             await output("thumbnail", "thumb.jpg", ["-frames:v", "1", "-vf", "scale=320:-2", "-an"])
@@ -246,6 +308,7 @@ class MediaLibrary:
                 "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "48000", "-ac", "2", "-movflags", "+faststart"])
         if media["has_audio"]:
             await output("waveform", "wave.png", ["-filter_complex", "[0:a]showwavespic=s=1200x160:colors=5b9dff[v]", "-map", "[v]", "-frames:v", "1", "-an"])
+        await blocking(self.record_derived, media["sha256"], recorded)
         return artifacts
 
     @staticmethod
