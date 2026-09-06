@@ -127,8 +127,13 @@ class ComputerOperatorManager:
                       foreground=before.foreground,ui_tree=before.ui_tree,last_result=last,
                       remaining_steps=t.max_steps-t.steps_used)
                 except Exception as e:
-                    t.replans_used+=1; last=f"planner:{type(e).__name__}:{e}"; self._save(t)
-                    if t.replans_used>t.max_replans:return self._fail(t,"planner replan budget")
+                    t.replans_used+=1
+                    last=f"planner:{type(e).__name__}:{str(e)[:200]}"
+                    # OPERATOR-OBSERVABILITY-001: причина ошибки планировщика
+                    # не должна стираться финальным "planner replan budget".
+                    t.last_error=last; self._save(t)
+                    if t.replans_used>t.max_replans:
+                        return self._fail(t,f"planner replan budget; last cause {last}")
                     continue
                 if a.kind is ActionKind.COMPLETE:
                     # AT-01: слово планировщика — не результат. COMPLETE обязан
@@ -159,7 +164,8 @@ class ComputerOperatorManager:
                 # держалось на одном поле планировщика (см. policy).
                 d=self.policy.classify(a,mode=t.mode,locked=self.global_locked,observation=before)
                 if not d.allow:
-                    t.replans_used+=1; last=f"policy denied:{d.reason}"; self._save(t)
+                    t.replans_used+=1; last=f"policy denied:{d.reason}"
+                    t.last_error=last; self._save(t)   # OPERATOR-OBSERVABILITY-001
                     if t.replans_used>t.max_replans:return self._fail(t,"policy/replan budget")
                     continue
                 cur=self._req(t.id)
