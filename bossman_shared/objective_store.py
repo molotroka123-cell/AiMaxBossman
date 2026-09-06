@@ -671,6 +671,56 @@ class ObjectiveStore:
         return [{"reservation_id": r["reservation_id"], "proposal_id": r["proposal_id"],
                  "created_at": r["created_at"], "payload": json.loads(r["payload"])} for r in rows]
 
+    def reservation(self, reservation_id: str) -> dict[str, Any] | None:
+        """Одна бронь по идентификатору, в любом состоянии.
+
+        `open_reservations` фильтрует по RESERVED, поэтому закрыть бронь и
+        одновременно узнать, ЧТО она держала, через него нельзя. Закрытию
+        допуска нужны ключи конфликта из полезной нагрузки.
+        """
+        with self._connect() as con:
+            row = con.execute(
+                "SELECT reservation_id,objective_id,proposal_id,created_at,state,payload "
+                "FROM v5_reservations WHERE reservation_id=?", (reservation_id,)).fetchone()
+        if row is None:
+            return None
+        return {"reservation_id": row["reservation_id"], "objective_id": row["objective_id"],
+                "proposal_id": row["proposal_id"], "created_at": row["created_at"],
+                "state": row["state"], "payload": json.loads(row["payload"])}
+
+    # `v5_reservations` — НЕ журнал допусков: строка заводится до опроса портов,
+    # поэтому отказ тоже оставляет запись. Отличает их единственный факт —
+    # `payload.phase`, который в 'READY' переводит только `complete_admission`.
+    # Оба чтения ниже фильтруют по нему, иначе честность расписания держалась бы
+    # на отказах.
+    _ADMITTED = "json_extract(payload,'$.phase')='READY'"
+
+    def last_admission_at(self, objective_id: str) -> float | None:
+        """Когда цель В ПОСЛЕДНИЙ РАЗ была допущена (не предложена).
+
+        `last_proposal_at` — это последнее ПРЕДЛОЖЕНИЕ: оно пишется и тогда,
+        когда допуска не было, поэтому голодающая цель выглядит через него
+        свежеобслуженной. Справедливость обязана считать по обслуживанию.
+        """
+        with self._connect() as con:
+            row = con.execute(
+                f"SELECT MAX(created_at) AS at FROM v5_reservations "
+                f"WHERE objective_id=? AND {self._ADMITTED}", (objective_id,)).fetchone()
+        return None if row is None or row["at"] is None else float(row["at"])
+
+    def admissions_since(self, objective_id: str, since: float) -> int:
+        """Сколько раз цель была допущена начиная с `since` — окно квоты.
+
+        Лимит `max_missions` в спецификации — пожизненный итог; он не мешает
+        одной цели забрать все допуски одного часа. Окно — отдельный вопрос.
+        """
+        with self._connect() as con:
+            row = con.execute(
+                f"SELECT COUNT(*) AS n FROM v5_reservations "
+                f"WHERE objective_id=? AND created_at>=? AND {self._ADMITTED}",
+                (objective_id, float(since))).fetchone()
+        return int(row["n"]) if row is not None else 0
+
     def journal(self, objective_id: str) -> list[dict[str, Any]]:
         with self._connect() as con:
             rows = con.execute(

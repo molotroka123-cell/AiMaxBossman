@@ -383,6 +383,33 @@ class AdmissionKernel:
         self.treasury = treasury
         self.conflicts = conflicts
 
+    def settle(self, store: ObjectiveStore, reservation_id: str, disposition: str,
+               *, objective_id: str | None = None) -> Any:
+        """Закрыть допуск: снять бронь И ОТПУСТИТЬ ключи конфликта.
+
+        `admit` возвращается на успешном пути, ДЕРЖА ключи, и это правильно:
+        миссия ещё идёт, и никто другой не должен трогать ту же область. Но
+        отпускать их было некому — единственный вызов `conflicts.release` стоит
+        на пути отказа (ниже, в компенсации). Измерено: после того как миссия
+        obj-a завершилась COMMITTED, реестр по-прежнему держит `repo:main` за
+        obj-a, releases==0, и obj-b через 5000 секунд с совершенно свежим
+        предложением получает `conflict_held` — навсегда. Никакая очерёдность
+        это не лечит: `admit` отказывает состарившемуся проигравшему независимо
+        от его ранга. Допуск обязан иметь конец, и вот он.
+
+        Ключи берутся из брони, а не из текущей спецификации: ревизия могла
+        поменять `conflict_keys` уже после допуска, и отпустить надо ровно то,
+        что было захвачено.
+        """
+        reservation = store.reservation(reservation_id)
+        payload = (reservation or {}).get("payload") or {}
+        keys = tuple(payload.get("conflict_keys") or ())
+        owner = objective_id or (reservation or {}).get("objective_id")
+        settled = store.settle_reservation(reservation_id, disposition)
+        if keys and owner:
+            self.conflicts.release(keys, owner)
+        return settled
+
     def admit(self, store: ObjectiveStore, proposal: AdmissionProposal, *,
               now: float) -> AdmissionDecision:
         if type(proposal) is not AdmissionProposal:
@@ -466,6 +493,7 @@ class AdmissionKernel:
             decided_at=now, proposal_digest=content_digest,
             owner_id=state.owner_id, scope_id=state.scope_id, **base)
         payload = {"estimate": estimate.to_dict(), "scopes": list(scopes),
+                   "conflict_keys": list(keys),
                    "phase": "PENDING", "binding": _binding(decision)}
         # Win the durable slot FIRST. A duplicate never calls or releases ports
         # belonging to the winning admission, even across separate processes.
