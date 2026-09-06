@@ -84,3 +84,58 @@ def test_resource_sampler_matches_linux_ollama_process_name():
     src = (ROOT / "tools" / "local_hardware_ab.py").read_text(encoding="utf-8")
     assert '"ollama.exe", "ollama"' in src or '"ollama", "ollama.exe"' in src, \
         "RSS sampler must match the Linux process name 'ollama', not only 'ollama.exe'"
+
+
+# ---------------------------------------------------------------------------
+# A fourth real bug, found on the owner's Windows host: the Gateway resolved
+# OLLAMA_HOST with its own private rule that did not understand the wildcard
+# listen address. `OLLAMA_HOST=0.0.0.0:11435` is the documented way to open
+# Ollama up, and it is also what the client reads. Connecting to 0.0.0.0
+# happens to work on Linux and fails on Windows (WSAEADDRNOTAVAIL), so the
+# local model simply disappeared on the machine this is built for.
+import pytest  # noqa: E402
+
+sys.path.insert(0, str(ROOT / "bossman-core"))
+from bossman.gateway.config import _resolved_ollama_base_url, normalize_ollama_host  # noqa: E402
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("0.0.0.0:11435", "http://127.0.0.1:11435"),
+    ("::", "http://127.0.0.1"),
+    ("[::]:11434", "http://127.0.0.1:11434"),
+    ("http://0.0.0.0:11434", "http://127.0.0.1:11434"),
+    (":11435", "http://127.0.0.1:11435"),                 # port-only, as Ollama accepts
+    ("127.0.0.1:11435", "http://127.0.0.1:11435"),
+    ("http://10.0.0.5:11434/v1", "http://10.0.0.5:11434"),  # /v1 is added by the request path
+    ("[::1]:11434", "http://[::1]:11434"),                # a real IPv6 host is not a wildcard
+    ("  10.0.0.5:11434/ ", "http://10.0.0.5:11434"),
+    ("", ""),
+])
+def test_ollama_host_forms_resolve_to_a_dialable_endpoint(raw, expected):
+    assert normalize_ollama_host(raw) == expected
+
+
+def test_gateway_keeps_a_non_default_configured_backend_url(monkeypatch):
+    monkeypatch.setenv("OLLAMA_HOST", "0.0.0.0:11435")
+    assert _resolved_ollama_base_url("http://gpu-box:9999") == "http://gpu-box:9999"
+
+
+def test_gateway_falls_back_to_its_default_when_ollama_host_is_unusable(monkeypatch):
+    monkeypatch.setenv("OLLAMA_HOST", "   ")
+    assert _resolved_ollama_base_url("http://127.0.0.1:11434") == "http://127.0.0.1:11434"
+
+
+def test_gateway_follows_a_wildcard_ollama_host_to_the_loopback_endpoint(monkeypatch):
+    monkeypatch.setenv("OLLAMA_HOST", "0.0.0.0:11435")
+    assert _resolved_ollama_base_url("http://127.0.0.1:11434") == "http://127.0.0.1:11435"
+
+
+def test_both_ab_arms_and_the_gateway_share_one_rule(monkeypatch, tmp_path):
+    monkeypatch.setenv("OLLAMA_HOST", "0.0.0.0:11435")
+    monkeypatch.delenv("BOSSMAN_AB_OLLAMA_URL", raising=False)
+    ab = _reload()
+    assert ab._ollama_direct_base_url() == "http://127.0.0.1:11435"
+    cfg = tmp_path / "gateway.yaml"
+    ab.write_config(cfg)
+    assert "http://127.0.0.1:11435" in cfg.read_text(encoding="utf-8")
+    assert "0.0.0.0" not in cfg.read_text(encoding="utf-8")
