@@ -140,20 +140,33 @@ async def test_verify_file_sha_mismatch_and_stale_content(env):
 
 
 async def test_verify_db_allowlist_and_fresh_row(env):
+    """The db verifier reads WORLD state (facts). Executor bookkeeping — the task's
+    own row, its runs, its receipts, its approvals — is refused: a run proving
+    its effect by reading its own receipt is TOOL_SUCCESS, not VERIFIED_EFFECT."""
+    import sqlalchemy as sa
+    from bcc.db import facts as facts_t, utcnow
     stack = await make_stack(env.client)
     tid = stack["task"]["id"]
-    ok = await verify(ExpectedState("db", "tasks", {"where": {"id": tid},
-                                                  "equals": {"title": "проверка"}}),
+    async with env.svc.db.session() as s:
+        await s.execute(sa.insert(facts_t).values(subject="f012", predicate="title", object="проверка",
+                                                  statement="f012 title проверка", valid_at=utcnow(),
+                                                  created_at=utcnow()))
+        await s.commit()
+    ok = await verify(ExpectedState("db", "facts", {"where": {"subject": "f012"},
+                                                  "equals": {"object": "проверка"}}),
                       svc=env.svc, task={"id": tid})
     assert ok.status == "VERIFIED"
-    wrong = await verify(ExpectedState("db", "tasks", {"where": {"id": tid},
-                                                     "equals": {"title": "другое"}}),
+    wrong = await verify(ExpectedState("db", "facts", {"where": {"subject": "f012"},
+                                                     "equals": {"object": "другое"}}),
                          svc=env.svc, task={"id": tid})
     assert wrong.status == "FAILED"
     denied = await verify(ExpectedState("db", "settings_kv", {"where": {"key": "x"}}),
                           svc=env.svc, task={"id": tid})
     assert denied.status == "UNVERIFIED"
-    bad_col = await verify(ExpectedState("db", "tasks", {"where": {"nope": 1}}),
+    own_row = await verify(ExpectedState("db", "tasks", {"where": {"id": tid}, "equals": {"title": "проверка"}}),
+                           svc=env.svc, task={"id": tid})
+    assert own_row.status == "UNVERIFIED" and "bookkeeping" in own_row.reason
+    bad_col = await verify(ExpectedState("db", "facts", {"where": {"nope": 1}}),
                            svc=env.svc, task={"id": tid})
     assert bad_col.status == "UNVERIFIED"
 
