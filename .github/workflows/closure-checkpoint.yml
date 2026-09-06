@@ -1,0 +1,64 @@
+name: Continuity Steward checkpoint
+
+on:
+  push:
+    branches:
+      - integration/continuity-steward-closure-20260906
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: continuity-steward-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Record the actual source being tested
+        shell: bash
+        run: |
+          mkdir -p checkpoint-results
+          git rev-parse HEAD | tee checkpoint-results/sha.txt
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git merge-base --is-ancestor 9d3f82ac0d26c5b88b408f0c470a3acfae700f98 HEAD
+          git merge-base --is-ancestor 3f8c7171ff1f5033cdcfff426ca19c22cdbba124 HEAD
+          git archive HEAD | gzip > checkpoint-results/source.tar.gz
+      - name: Install declared component dependencies
+        run: python -m pip install -e . -e "./bossman-core[dev]" -e "./command-center[dev]"
+      - name: Watchdog, SHA evaluator and actual shared V4/V5 contracts
+        run: >-
+          python -m pytest tests/test_pytest_watchdog.py tests/test_exact_sha_certify.py
+          tests/test_epoch4_mission_ir.py tests/test_epoch5_objective_spec.py
+          tests/test_v5_objective_store.py tests/test_v5_admission.py
+          tests/test_v5_observers.py tests/test_v5_recovery.py
+          tests/test_v5_golden_missions.py tests/test_v5_intelligence_preservation.py
+          -q --timeout=120 --junitxml=checkpoint-results/shared.xml
+      - name: Relocated ablation still executes under Core configuration
+        working-directory: bossman-core
+        run: >-
+          python -m pytest tests/test_fable_context_ablation.py
+          -q --timeout=120 --junitxml=../checkpoint-results/core-ablation.xml
+      - name: Preserve partial results without converting a failure into success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: continuity-steward-${{ matrix.python }}-${{ github.sha }}
+          path: checkpoint-results/
+          if-no-files-found: error
+          retention-days: 3
