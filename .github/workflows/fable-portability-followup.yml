@@ -1,0 +1,75 @@
+name: Fable portability follow-up
+on:
+  push:
+    branches: [audit/fable-closure-source-20260906]
+    paths: [.github/workflows/fable-portability-followup.yml]
+permissions:
+  contents: read
+jobs:
+  reproduce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 58c61107ce769ef177666d39717c25fb0a6014b1
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply only two reviewed portability corrections
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p=Path('command-center/bcc/video_studio/render.py');s=p.read_text()
+          old='fps={sequence_fps}:start_time=0:eof_action=pass,tpad=stop_mode=clone:stop_duration={fmt(lookahead)},fps={fps}:start_time=0'
+          assert s.count(old)==1
+          s=s.replace(old,'tpad=stop_mode=clone:stop={math.ceil(sequence_fps/fps)+1},setpts=N/({sequence_fps}*TB),fps={fps}:start_time=0')
+          s=s.replace('        lookahead = 1 / rate(seq["fps"]) + 1 / fps\n','')
+          old_comment='        # overlay can leave frame_rate undefined on a time-based (not frame-\n        # aligned) trim. tpad then rounds stop_duration to ZERO frames. Normalize\n        # that link first, preserving its final frame with eof_action=pass; the\n        # subsequent lookahead/fps/trim still enforces the exact CFR count.\n'
+          assert old_comment in s
+          s=s.replace(old_comment,'        # The sequence is already composed on its CFR clock. Use an explicit\n        # bounded padding COUNT, not stop_duration on an undefined link rate.\n        # Retimestamp every real/padded frame on that clock BEFORE fps; an early\n        # fps filter can discard the real final frame at EOF on FFmpeg 6.\n        # Final integer trim excludes lookahead frames from published output.\n')
+          p.write_text(s)
+          p=Path('bossman-core/bossman_v3/fleet/remote_rpc.py');s=p.read_text()
+          old='self.reply(400, b\'{"error":"invalid_rpc_request"}\')'
+          assert s.count(old)==1
+          s=s.replace(old,'# Do not advertise a response body while deliberately refusing to\n                # drain invalid framing; a TLS reset could truncate that body.\n                self.reply(400, b"")')
+          p.write_text(s)
+          Path('portability-results').mkdir()
+          PY
+          python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
+          sudo apt-get update -q && sudo apt-get install -y -q ffmpeg
+      - name: Actual CFR endpoint pixels, counts and timestamps
+        working-directory: command-center
+        run: python -m pytest tests/test_video_studio_cfr_frames.py -q --junitxml=../portability-results/cfr.xml
+      - name: Actual mutual TLS and current Fleet safety
+        working-directory: bossman-core
+        run: python -m pytest tests/test_fleet_remote_auth.py tests/test_fleet_remote_rpc.py tests/test_v3_fleet_core.py tests/test_v3_fleet_e2e.py tests/test_v3_fleet_safety_proofs.py -q --junitxml=../portability-results/fleet.xml
+      - name: Publish tested file blobs only, never refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json,hashlib,base64,os,urllib.request
+          result={}
+          for name in ['command-center/bcc/video_studio/render.py','bossman-core/bossman_v3/fleet/remote_rpc.py']:
+              b=Path(name).read_bytes();sha=hashlib.sha1(f'blob {len(b)}\0'.encode()+b).hexdigest()
+              req=urllib.request.Request('https://api.github.com/repos/molotroka123-cell/AiMaxBossman/git/blobs',data=json.dumps({'encoding':'base64','content':base64.b64encode(b).decode()}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'})
+              with urllib.request.urlopen(req,timeout=30) as r:data=json.load(r)
+              assert data['sha']==sha
+              result[name]=sha
+              Path('portability-results/'+Path(name).name).write_bytes(b)
+          Path('portability-results/blobs.json').write_text(json.dumps(result,indent=2))
+          print('TESTED_BLOBS='+json.dumps(result))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fable-portability-results
+          path: portability-results/
+          retention-days: 3
+          if-no-files-found: error
