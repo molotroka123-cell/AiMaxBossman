@@ -1,0 +1,155 @@
+name: Materialize reviewed Fable patch
+on:
+  push:
+    branches: [audit/fable-closure-source-20260906]
+    paths: [.github/workflows/fable-materialize-reviewed-patch.yml]
+permissions:
+  contents: write
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate exact reviewed bytes and create unreachable Git objects only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REPO: molotroka123-cell/AiMaxBossman
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64, gzip, hashlib, json, os, pathlib, subprocess, urllib.request
+          BASE = 'beea20fbf5b3b66fa08a8ba936703cd0bc434cf3'
+          BASE_TREE = '50556c2b618c6e3bd79566b8ac23543c02d06c46'
+          PARTS = [
+            'a49882eb5d96c79fa3a891040ca1155eac6a2ce0',
+            '7cc929e08a483b5d894f209860bf98ea5d521842',
+            'c5b731822e1b1081e51cfc138b3f1e4bb28c9b51',
+            '3ab4cecba30ba8417c0d2aa4a28bc26288680b01',
+            '9bb8a232ea11948dfab767dad40dc89d979fc135',
+            'a96ffaacc0f5e89aa59023b64c4e95161b3190a3',
+            '3f8cf7ac304fcc48fc211ebaba016c27c4344937',
+            '0654db40c11bc8043b1244954703375490d7dc41',
+            '5257ee4216f710e65c2109b8e88e63ae282e55ec',
+            '28aff89fa3eb238487b52f31ab152398a489cc5f',
+            '33b4839a4dcd2b035dbfd592a3da518dd7b6f999',
+            '1ef1ea132c58fd476bd39edad0bed53d3d9d0918',
+            'f0a8570e946767ee1407bb9b56774d19e56e1d02',
+            '2ec62946faf78719523b64f33cb811bd66ae630f',
+            '8f0adf1eb0ce8c9f9fe06b4426369beadfd67b01',
+            '92372e13f9a5f4e4b3c7451766faa2a227273df7',
+            'd4f1f98dee1ec48f89e0bfc305cbcd8d070f5306',
+            '576b166753b9263a7c2042d2d18fa622bb322f84',
+          ]
+          EXPECTED = {
+            '.github/workflows/bossman-core-ci.yml': '9591a24f93940d20ed02f30a4d8dc9201c619678',
+            '.github/workflows/command-center-ci.yml': 'bd3a18ff016c3fdee9c23698f808e5e3071987cd',
+            '.github/workflows/unified-candidate-smoke.yml': '99b6978060ef6ed40955f05970b156fd3506c622',
+            'bossman-core/bossman_v3/fleet/control_plane.py': '389cebb8733826a20bacbe54a076bb1db20333e6',
+            'bossman-core/bossman_v3/fleet/leases.py': '9360bdfe8a27cbb2f5bf755b20da67b15e4a5ce1',
+            'bossman-core/bossman_v3/fleet/node_agent.py': 'd440d478d9ac4c1b8946d5462b0e7b47d854eae8',
+            'bossman-core/bossman_v3/fleet/remote_auth.py': '68e98d98996025f01662cdd5b6937b662b86ee99',
+            'bossman-core/bossman_v3/fleet/remote_rpc.py': '06e4718e0ef1b009a6b1ed619b25fc75ac9e2e0a',
+            'bossman-core/bossman_v3/fleet/store.py': 'bc8fc2e6dc3ff997371a509bf4791af6e3e97468',
+            'bossman-core/pyproject.toml': '90c6f8e58d30b67468a248d1e398ccd557e15550',
+            'bossman-core/tests/test_fleet_remote_auth.py': 'ecdae93c858a64430b2ded49e62a347bc4899dac',
+            'bossman-core/tests/test_fleet_remote_rpc.py': '6f9d74737e42bc6d614aec9d22d72faf0ba6948a',
+            'command-center/bcc/video_studio/errors.py': '2d12c4fd6c249353205c0ea8091e4aa8eb5f7973',
+            'command-center/bcc/video_studio/export_receipt.py': '391f7684a7b9cd6f1c70e2c9ba98fb33ea0d1b00',
+            'command-center/bcc/video_studio/render.py': '730c9c3ecb78308d046ed15651d02e592b55d82f',
+            'command-center/bcc/video_studio/service.py': 'bdfc8b106ea3d1d8a8dabc5429226400c404fa7d',
+            'command-center/bcc/web_designer_dom.py': '3903513611c725887449d3941c2b038d2cd3b3e5',
+            'command-center/tests/test_approval_resume_matrix.py': '3906cf1167de55ec37faecb0b863405176c8c1b7',
+            'command-center/tests/test_video_export_receipt.py': '6ac49f1cc96385637a9129ae02e32f66f18dc154',
+            'command-center/tests/test_video_studio_cfr_frames.py': '59820d808ed705cfaf14ab3a1dec35e9edc0bcd0',
+            'command-center/tests/test_web_designer_source_fidelity.py': 'c757e04017a07e19055fbb4cad2dd023c77ea9c4',
+            'command-center/ui/pages/video_studio.js': 'e97ae7f4baa2f0f40d3cab0182df4e856e1ecd49',
+            'docs/fleet/REMOTE_RPC_EXPERIMENTAL.md': 'b08b69e6f7a74eb5966f29e03dfe83869af5e295',
+            'docs/v3/FABLE_MEDIA_FLEET_PATCH_20260906.md': '9d53faf40de05d786a346a4253cbe16ee8567769',
+            'tests/test_media_ci_preflight.py': '7eebc7a77e538de04e8d4f6432b7e751174c6227',
+            'tools/media_ci_preflight.py': 'f6f8db3f8cffe6c77c271449054543436698addb',
+          }
+          API = 'https://api.github.com/repos/' + os.environ['TARGET_REPO']
+          def api(path, data=None):
+              # Intentionally incapable of writing branch refs, PRs or deployments.
+              if data is not None and path not in ('git/blobs', 'git/trees', 'git/commits'):
+                  raise ValueError('unexpected write endpoint')
+              request = urllib.request.Request(API + '/' + path,
+                  data=None if data is None else json.dumps(data).encode(),
+                  headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                           'Accept': 'application/vnd.github+json',
+                           'Content-Type': 'application/json',
+                           'X-GitHub-Api-Version': '2022-11-28'})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+          def blob_sha(data):
+              return hashlib.sha1(('blob %s\0' % len(data)).encode() + data).hexdigest()
+          parts = []
+          for index, sha in enumerate(PARTS):
+              item = api('git/blobs/' + sha)
+              data = bytearray(base64.b64decode(item['content']))
+              assert blob_sha(data) == sha
+              if index == 2:
+                  # One transcription bit-error detected before publication. The
+                  # correction must recover the independently computed source SHA.
+                  data[67] ^= 112
+                  assert blob_sha(data) == '0a7a3b40845cf481a9c4b0f71ebd252247692606'
+              parts.append(bytes(data))
+          compressed = b''.join(parts)
+          assert hashlib.sha256(compressed).hexdigest() == '1afb6272b3c05f33d6acc7b3d23b02af228a7934dac7f3f44a3f16813e6a0380'
+          patch = gzip.decompress(compressed)
+          assert hashlib.sha256(patch).hexdigest() == 'cef8fa0c664f1839b80860d8901f005f956f99539bda5feaa78ab8cf393c7a2f'
+          patch_path = pathlib.Path(os.environ['RUNNER_TEMP']) / 'reviewed.patch'
+          patch_path.write_bytes(patch)
+          work = pathlib.Path(os.environ['RUNNER_TEMP']) / 'reviewed-product'
+          subprocess.run(['git', 'worktree', 'add', '--detach', str(work), BASE], check=True)
+          def git(*args):
+              return subprocess.check_output(['git', '-C', str(work), *args], text=True).strip()
+          assert git('rev-parse', 'HEAD^{tree}') == BASE_TREE
+          subprocess.run(['git', '-C', str(work), 'apply', '--index', '--check', str(patch_path)], check=True)
+          subprocess.run(['git', '-C', str(work), 'apply', '--index', str(patch_path)], check=True)
+          actual_paths = git('diff', '--cached', '--name-only').splitlines()
+          assert set(actual_paths) == set(EXPECTED)
+          subprocess.run(['git', '-C', str(work), 'diff', '--cached', '--check'], check=True)
+          tree_entries = []
+          for path, expected_sha in EXPECTED.items():
+              data = (work / path).read_bytes()
+              assert blob_sha(data) == expected_sha, path
+              result = api('git/blobs', {'encoding': 'base64', 'content': base64.b64encode(data).decode()})
+              assert result['sha'] == expected_sha, path
+              mode = git('ls-files', '-s', '--', path).split()[0]
+              tree_entries.append({'path': path, 'mode': mode, 'type': 'blob', 'sha': expected_sha})
+          local_tree = git('write-tree')
+          tree = api('git/trees', {'base_tree': BASE_TREE, 'tree': tree_entries})
+          assert tree['sha'] == local_tree
+          message = ('fix: preserve media export evidence, source fidelity and authenticated Fleet boundaries\n\n'
+                     'Keep independent FFmpeg verification outside the short completion hook; bind its signed receipt '
+                     'to exact job/task/run/snapshot/artifact, with Windows content rechecks. Correct actual off-grid CFR '
+                     'frame truncation, retain HTML/SVG source tokens, and run real FFmpeg preflight in CI. '
+                     'Add opt-in pinned mutual-TLS RPC over canonical Fleet leases with scoped/revocable credentials, '
+                     'durable replay denial and explicit dispatch intents. Remote Fleet remains EXPERIMENTAL, not '
+                     'production certified. Preserve integrated Astra and Fable history; do not weaken completion or coverage.\n\n'
+                     'Local Linux Python 3.13: media 242 passed/11 optional skips, web 55 passed, Fleet 87 passed '
+                     '(overlapping sets). Root 412 passed/3 environment errors: offline build and missing solders. '
+                     'Supported-version exact-SHA CI, Windows and real sandbox acceptance remain pending. '
+                     'All 26 source blobs and the full resulting Git tree were hash-verified against the reviewed patch. '
+                     'This publication creates Git objects only; moving a branch requires a separate owner-authorized operation.')
+          commit = api('git/commits', {'message': message, 'tree': local_tree, 'parents': [BASE]})
+          output = pathlib.Path('materialized-result'); output.mkdir(exist_ok=True)
+          result = {'commit_sha': commit['sha'], 'tree_sha': local_tree, 'parent_sha': BASE,
+                    'changed_paths': EXPECTED, 'patch_sha256': hashlib.sha256(patch).hexdigest(),
+                    'refs_updated': False, 'product_tests_in_this_job': 'NOT_RUN'}
+          (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
+          print('MATERIALIZED_COMMIT=' + commit['sha'])
+          print('MATERIALIZED_TREE=' + local_tree)
+          print('ALL_26_BLOBS_MATCH_REVIEWED_SOURCE=PASS; REFS_UPDATED=NO')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reviewed-fable-patch-result
+          path: materialized-result/
+          retention-days: 3
+          if-no-files-found: error
