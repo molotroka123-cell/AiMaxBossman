@@ -65,3 +65,11 @@ astra-security-results/
 .coverage
 .coverage.*
 /.audit-work/
+
+# Состояние прогонов на машине владельца: корпус реальных нагрузок, отчёты
+# доктора и вечерней приёмки. Это НАБЛЮДЕНИЯ конкретной машины, а не исходники;
+# в релизные улики они попадают явным копированием, а не автокоммитом.
+/.bossman-state/
+/real_workload_audit.json
+/real_workload_audit.md
+/doctor.json
