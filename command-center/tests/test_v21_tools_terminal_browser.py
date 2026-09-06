@@ -206,10 +206,15 @@ async def test_destructive_command_is_denied_not_asked(env, tmp_path):
     await env.client.patch(f"/api/agents/{stack['agent']['id']}",
                            json={"permissions": {"terminal.run": True}})
 
-    # DENY, а не waiting_approval: такое не одобряется в принципе
-    assert await _run_task(env, stack["task"]["id"], timeout=15) == "completed"
+    # DENY, а не waiting_approval: такое не одобряется в принципе. И не completed:
+    # запрошенный эффект не произошёл, а «понял, так нельзя» — текст модели, не
+    # результат. Без объявленного контракта отказ изменяющего вызова = failed
+    # (bcc/finalize._effect_problem), ответ модели при этом сохраняется.
+    assert await _run_task(env, stack["task"]["id"], timeout=15) == "failed"
     assert (await env.client.get("/api/approvals")).json() == []
     assert "запрещено политикой" in adapter.seen_messages[1][-1]["content"]
+    detail = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()
+    assert "did not succeed" in str(detail.get("error") or "")
 
 
 async def test_git_push_asks_even_with_permission(env, tmp_path):

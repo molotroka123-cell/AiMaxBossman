@@ -1,0 +1,85 @@
+name: Fable media and Fleet acceptance
+
+on:
+  push:
+    branches:
+      - fix/fable-current-media-fleet-20260906
+      - claude/fable-system-hardening-lpqq9r
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fable-media-fleet-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  regression:
+    name: Real media, Web and Fleet (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Record exact source
+        shell: bash
+        run: |
+          mkdir -p acceptance-results
+          git rev-parse HEAD | tee acceptance-results/sha.txt
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git archive HEAD | gzip > acceptance-results/source.tar.gz
+      - name: Install declared dependencies and real media binaries
+        run: |
+          python -m pip install -e . -e "./bossman-core[dev]" -e "./command-center[dev,browser]"
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg
+      - name: Require actual FFmpeg encode, probe and decode
+        id: media-ready
+        shell: bash
+        run: |
+          set -o pipefail
+          python tools/media_ci_preflight.py | tee acceptance-results/ffmpeg.json
+          python -m pytest tests/test_media_ci_preflight.py -q --junitxml=acceptance-results/preflight.xml
+      - name: Fleet authentication, actual TLS RPC and existing safety
+        working-directory: bossman-core
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest tests/test_fleet_remote_auth.py tests/test_fleet_remote_rpc.py tests/test_v3_fleet_core.py tests/test_v3_fleet_e2e.py tests/test_v3_fleet_safety_proofs.py -q --timeout=120 --junitxml=../acceptance-results/fleet.xml | tee ../acceptance-results/fleet.log
+      - name: Video Studio full suite and Web source fidelity
+        if: ${{ !cancelled() && steps.media-ready.outcome == 'success' }}
+        working-directory: command-center
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest tests/test_video_studio_*.py tests/test_video_export_receipt.py tests/test_video_native_finalize_contract.py tests/test_web_designer.py tests/test_web_designer_source_fidelity.py -q --timeout=120 --junitxml=../acceptance-results/media-web.xml | tee ../acceptance-results/media-web.log
+      - name: Fable execution-truth interaction regressions
+        if: ${{ !cancelled() && steps.media-ready.outcome == 'success' }}
+        working-directory: command-center
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest tests/test_fable_approval_revocation.py tests/test_fable_crash_after_effect.py tests/test_fable_evidence_self_reference.py tests/test_finalize_capability_match.py tests/test_finalize_unclassified_failure.py -q --timeout=120 --junitxml=../acceptance-results/fable.xml | tee ../acceptance-results/fable.log
+      - name: Secret patterns and patch whitespace
+        if: ${{ !cancelled() && steps.media-ready.outcome == 'success' }}
+        run: |
+          python tools/ci_secret_scan.py
+          git diff --check
+      - name: Retain actual results including partial failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fable-media-fleet-${{ matrix.python }}-${{ github.sha }}
+          path: acceptance-results/
+          if-no-files-found: error
+          retention-days: 3

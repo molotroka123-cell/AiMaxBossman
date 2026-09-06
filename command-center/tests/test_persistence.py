@@ -55,8 +55,14 @@ async def test_run_survives_restart_and_completes(tmp_path):
         assert run["tokens_out"] == 3
         assert run["checkpoint"]["step"] == 1   # checkpoint дошёл до финального шага
 
-        # лог run'а виден через API
-        events = (await client.get(f"/api/runs/{run['id']}/events")).json()
-        kinds = [e["kind"] for e in events]
+        # лог run'а виден через API. Строка run.completed журналируется ПОСЛЕ
+        # записи статуса (лог не должен объявлять «выполнено» раньше, чем статус
+        # записан), поэтому ждём её, а не читаем сразу после смены статуса.
+        async def logged():
+            events = (await client.get(f"/api/runs/{run['id']}/events")).json()
+            kinds = [e["kind"] for e in events]
+            return kinds if "run.completed" in kinds else None
+
+        kinds = await wait_for(logged, timeout=5)
         assert "run.recovered" in kinds and "run.completed" in kinds
     await svc2.stop()

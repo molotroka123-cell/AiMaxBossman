@@ -61,24 +61,31 @@ class ContextCompiler:
         if "current_diff" in include and current_diff:
             parts.append(f"[CURRENT_DIFF]\n{current_diff[:2000]}")
 
+        # Protected head: invariants, the objective and the tool surface are what
+        # the model must never lose. They go FIRST, and the budget never cuts them.
+        # The old code appended NEXT_ACTION and TOOLS last and then sliced the
+        # tail — the comment said "objective already at the front" while the
+        # objective was the first thing truncated.
+        head: list[str] = ["[INVARIANTS]\nBe deterministic. Prefer typed actions over free text."]
         if "next_action" in include and objective:
-            parts.append(f"[NEXT_ACTION]\n{objective}")
-
+            head.append(f"[NEXT_ACTION]\n{objective}")
         if available_tools:
-            parts.append(f"[TOOLS]\n{', '.join(available_tools)}")
+            head.append(f"[TOOLS]\n{', '.join(available_tools)}")
 
-        # invariants всегда
-        parts.insert(0, "[INVARIANTS]\nBe deterministic. Prefer typed actions over free text.")
-
-        raw = "\n\n".join(parts)
-        # жёсткий бюджет — режем хвост, objective/invariants уже в начале
         from .hierarchical import _estimate_tokens, _hash_text
-        est = _estimate_tokens(raw)
         truncated = False
-        if est > max_tokens:
-            raw = raw[: max_tokens * 4 - 200] + "\n…[truncated by ContextCompiler budget]"
-            est = max_tokens
+        # Budget: drop whole droppable parts from the END (step/task layers and
+        # channels are appended after the stable layers), never slice a part in
+        # the middle, and never touch the head. A dropped part is marked so the
+        # loss is visible in the prompt and in `truncated`.
+        body = list(parts)
+        while body and _estimate_tokens("\n\n".join(head + body)) > max_tokens:
+            body.pop()
             truncated = True
+        if truncated:
+            body.append("…[context parts dropped by ContextCompiler budget; invariants/objective/tools kept]")
+        raw = "\n\n".join(head + body)
+        est = _estimate_tokens(raw)
 
         return CompiledContext(prompt=raw, tokens_est=est, layers=layers,
                                hash=_hash_text(raw), truncated=truncated)

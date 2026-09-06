@@ -118,4 +118,3 @@ async def test_recovery_rechecks_expiry_after_new_heartbeat(env,monkeypatch,max_
     async with original() as session:
         row=(await session.execute(sa.select(runs_t).where(runs_t.c.id==rid))).mappings().one()
     assert row['status']=='leased'
-

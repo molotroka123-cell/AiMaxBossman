@@ -347,6 +347,10 @@ async def run_task(task: dict) -> None:
 
     budget = ContextBudget(window=real_window(agent.model))
     builder = ContextBuilder(budget, _system_prompt(agent))
+    if builder.pruning_report():
+        # The budget removed or exceeded instruction text. Say so: a silently
+        # shortened policy is a context-pollution failure nobody can diagnose.
+        _log.warning("context budget on task %s: %s", task["id"], builder.pruning_report())
     tools = _tool_schemas(agent)
     # V2.6 модуль B: уровень compute (None при выключенном флаге — как раньше).
     compute_level, _compute_reasons = await _select_compute(task)

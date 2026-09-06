@@ -668,7 +668,6 @@ async def render_project(project, root, output_path, options=None, progress=None
         # filter needs a following timestamp to release that REAL final frame.
         # Supply bounded temporal lookahead, then trim by the immutable CFR
         # count; padding never becomes an additional published output frame.
-        lookahead = 1 / rate(seq["fps"]) + 1 / fps
         sequence_fps = rate(seq["fps"])
         range_indices = []
         for endpoint in (round(start*TICKS), round(end*TICKS)):
@@ -682,15 +681,23 @@ async def render_project(project, root, output_path, options=None, progress=None
         # indices when both endpoints identify sequence boundaries.
         trim = (f"trim=start_frame={range_indices[0]}:end_frame={range_indices[1]}"
                 if len(range_indices) == 2 else f"trim=start={fmt(start)}:end={fmt(end)}")
+        # The sequence is already composed on its CFR clock. Use an explicit
+        # bounded padding COUNT, not stop_duration on an undefined link rate.
+        # Retimestamp every real/padded frame on that clock BEFORE fps; an early
+        # fps filter can discard the real final frame at EOF on FFmpeg 6.
+        # Final integer trim excludes lookahead frames from published output.
         # Convert RGB into limited-range BT.709 samples, matching encoder tags.
         # Keep format adjacent to scale to constrain its negotiated output.
-        v=compiler.node([v],f"{trim},setpts=PTS-STARTPTS,scale={width}:{height}:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv420p,setsar=1,tpad=stop_mode=clone:stop_duration={fmt(lookahead)},fps={fps}:start_time=0,trim=end_frame={expected_frames}")
+        v=compiler.node([v],f"{trim},setpts=PTS-STARTPTS,scale={width}:{height}:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv420p,setsar=1,tpad=stop_mode=clone:stop={math.ceil(sequence_fps/fps)+1},setpts=N/({sequence_fps}*TB),fps={fps}:start_time=0,trim=end_frame={expected_frames}")
         a=compiler.node([a],f"atrim=start={fmt(start)}:end={fmt(end)},asetpts=PTS-STARTPTS")
         graph=Path(td)/"graph.txt";graph.write_text(";\n".join(compiler.graph),encoding="utf-8")
         partial=Path(td)/("output"+output_path.suffix)
+        # Output -t quantizes some non-aligned durations down (e.g. 0.69s
+        # at 25fps). Enforce the declared integer count instead; audio remains
+        # independently bounded by atrim, and both streams are verified below.
         argv=[binary("ffmpeg"),"-hide_banner","-loglevel","warning","-nostdin","-y",*compiler.inputs,
             "-filter_complex_script",str(graph),"-filter_complex_threads","2","-map",f"[{v}]","-map",f"[{a}]",
-            "-t",fmt(end-start),"-c:v",codec,"-c:a",audio_codec,"-ar","48000","-ac","2","-color_primaries","bt709","-color_trc","bt709","-colorspace","bt709","-color_range","tv"]
+            "-frames:v",str(expected_frames),"-c:v",codec,"-c:a",audio_codec,"-ar","48000","-ac","2","-color_primaries","bt709","-color_trc","bt709","-colorspace","bt709","-color_range","tv"]
         if codec in {"libx264","libx265"}:
             preset=options.get("preset","veryfast")
             if preset not in {"ultrafast","superfast","veryfast","faster","fast","medium","slow"}:raise ValueError("invalid encoder preset")

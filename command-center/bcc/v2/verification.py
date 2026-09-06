@@ -35,7 +35,14 @@ Status = Literal["VERIFIED", "FAILED", "UNVERIFIED"]
 
 # Таблицы, по которым разрешена детерминированная проверка «строка есть/поле
 # равно» (read-only, allowlist — модель не может указать произвольную таблицу).
-_DB_ALLOWLIST = {"tasks", "task_runs", "facts", "approvals", "tool_calls"}
+# Только состояние МИРА. Учётные таблицы исполнителя — `tasks`, `task_runs`,
+# `tool_calls`, `approvals` — это заявления самого исполнителя (или разрешение
+# на действие), а не пост-состояние: обязательство «моя строка tool_calls имеет
+# status=executed» доказывало бы эффект вызовом инструмента, а «моя задача
+# существует» — самим фактом задачи. TOOL_SUCCESS != VERIFIED_EFFECT,
+# APPROVAL != POST_STATE. Такие цели наблюдения отвергаются как UNVERIFIED.
+_DB_ALLOWLIST = {"facts"}
+_DB_BOOKKEEPING = {"tasks", "task_runs", "tool_calls", "approvals", "task_logs", "settings_kv"}
 KINDS = ("file", "db", "browser", "app", "terminal", "github", "memory", "schedule", "process")
 GIT_LS_REMOTE_TIMEOUT_S = 20.0
 
@@ -140,6 +147,10 @@ async def _observe_file(exp: ExpectedState, *, roots: list[Path]) -> tuple[Obser
 
 async def _observe_db(exp: ExpectedState, *, svc) -> tuple[ObservedState, Evidence]:
     table = exp.target
+    if table in _DB_BOOKKEEPING:
+        return (ObservedState("db", table, {"error": "executor bookkeeping is not post-state"}, time.time()),
+                Evidence("db:query", f"refused bookkeeping table {table}: receipts, runs, tasks and "
+                                     "approvals are the executor's own claims, not world state"))
     if table not in _DB_ALLOWLIST:
         return (ObservedState("db", table, {"error": "table not allowed"}, time.time()),
                 Evidence("db:query", f"refused table {table}"))

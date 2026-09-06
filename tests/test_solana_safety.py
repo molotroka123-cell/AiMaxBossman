@@ -82,6 +82,9 @@ def test_no_jito_network_or_serialization_even_with_live_environment(monkeypatch
 
 def test_control_plane_blocks_execution_and_preserves_unknown():
     pytest.importorskip("fastapi")
+    # the dashboard imports the key vault, which needs the Solana SDK; without it
+    # the test errored on import in any environment that happened to have FastAPI
+    pytest.importorskip("solders", reason="Solana SDK (solders) не установлен — панель безопасности не импортируется")
     from fastapi.testclient import TestClient
     from solana_volume_suite.dashboard.safety_app import app
     with TestClient(app) as client:
@@ -104,6 +107,7 @@ def test_control_plane_blocks_execution_and_preserves_unknown():
 
 def test_legacy_entrypoint_uses_same_safe_app():
     pytest.importorskip("fastapi")
+    pytest.importorskip("solders", reason="Solana SDK (solders) не установлен — панель безопасности не импортируется")
     from solana_volume_suite.dashboard.app import app
     from solana_volume_suite.dashboard.safety_app import app as safe_app
     assert app is safe_app

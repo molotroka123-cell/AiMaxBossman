@@ -56,7 +56,32 @@ class ScorecardError(ValueError):
 
 # ------------------------------------------------------------------ schema
 
-def validate(data: dict) -> dict:
+CERTIFICATION_JSON = ROOT / "docs" / "benchmark" / "exact-sha-certification.json"
+
+
+def load_certification(path: Path = CERTIFICATION_JSON) -> dict | None:
+    try:
+        loaded = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
+def certification_problem(data: dict, cert: dict | None) -> str:
+    """Why `exact_sha_ci=PASS` is not backed by a certification report; "" if it is."""
+    if not cert:
+        return f"no certification report at {CERTIFICATION_JSON.relative_to(ROOT)}"
+    sha = str(data.get("last_evidence_sha") or "").lower()
+    if str(cert.get("verdict")) != "CERTIFIED":
+        return f"report verdict is {cert.get('verdict')!r}, not CERTIFIED"
+    if str(cert.get("sha") or "").lower() != sha:
+        return f"report certifies {str(cert.get('sha'))[:12]}, scorecard evidence is {sha[:12]}"
+    if cert.get("final") is not True:
+        return "report is not final"
+    return ""
+
+
+def validate(data: dict, *, certification: dict | None = None) -> dict:
     if not isinstance(data, dict):
         raise ScorecardError("scorecard must be an object")
     cats = data.get("categories")
@@ -97,6 +122,14 @@ def validate(data: dict) -> dict:
             raise ScorecardError(f"top-level {key} is required")
     if data.get("exact_sha_ci", "UNPROVEN") not in CI_VALUES:
         raise ScorecardError("exact_sha_ci must be one of " + ", ".join(sorted(CI_VALUES)))
+    if data.get("exact_sha_ci") == "PASS":
+        # A PASS is a claim about ONE commit; it must be backed by a certification
+        # report (tools/exact_sha_certify.py) for last_evidence_sha, or it is a
+        # hand-typed string nobody can contradict. OLD_SHA_PASS != CURRENT_SHA_PASS.
+        cert = certification if certification is not None else load_certification()
+        problem = certification_problem(data, cert)
+        if problem:
+            raise ScorecardError("exact_sha_ci=PASS is not certified: " + problem)
     hf = data.get("benchmark_hard_failures", [])
     if not isinstance(hf, list):
         raise ScorecardError("benchmark_hard_failures must be a list")

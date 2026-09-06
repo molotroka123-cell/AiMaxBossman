@@ -296,9 +296,14 @@ async def test_denied_mcp_tool_never_reaches_server(env, mcp, counter):
         "permissions": {"tool_rules": [
             {"tool": "mcp:echo:*", "effect": "deny", "reason": "MCP-запись запрещена"}]}})
 
-    assert await _run_task(env, stack["task"]["id"]) == "completed"
+    # DENY — данные для модели (run продолжается и отвечает), но не completed:
+    # запрошенная запись не произошла, а без контракта отказ изменяющего вызова
+    # завершает задачу как failed (bcc/finalize._effect_problem).
+    assert await _run_task(env, stack["task"]["id"]) == "failed"
     assert calls_of(counter, "write_note") == 0
     assert "запрещено политикой" in adapter.seen_messages[1][-1]["content"]
+    detail = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()
+    assert "did not succeed" in str(detail.get("error") or "")
 
     async with env.svc.db.session() as s:
         row = (await s.execute(sa.select(tool_calls_t))).first()
@@ -336,10 +341,15 @@ async def test_crashed_server_reports_error_to_model_not_run_failure(env, mcp):
     adapter = ToolAdapter([("tool", "mcp_echo_boom", {}),
                            ("text", "инструмент MCP упал, сообщаю")])
     stack = await _stack_with_tools(env, ["mcp:echo:boom"], adapter=adapter)
-    assert await _run_task(env, stack["task"]["id"]) == "completed"
+    # run не падает: ошибка сервера уходит модели данными и она отвечает; сама
+    # задача — failed (эффект не произошёл, самоотчёт не результат), ответ сохранён.
+    assert await _run_task(env, stack["task"]["id"]) == "failed"
+    assert adapter.calls == 2
 
     content = adapter.seen_messages[1][-1]["content"]
     assert "ошибка MCP" in content or "недоступен" in content
+    detail = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()
+    assert "did not succeed" in str(detail.get("error") or "")
 
     async with env.svc.db.session() as s:
         row = (await s.execute(sa.select(tool_calls_t))).first()

@@ -622,7 +622,8 @@ class Editor {
         this.captionsDialog(job.analysis.captions, job.analysis.expected_revision);
       }) : null,
       job.progress !== undefined && Number.isFinite(job.progress) ? h('progress', { max: 1, value: job.progress, 'aria-label': 'Render progress' }) : null,
-      job.error ? h('small.vs-warning', String(job.error)) : null,
+      (job.error_detail || job.error) ? h('small.vs-warning', String(job.error_detail?.message || job.error),
+        job.error_detail?.code ? ` [${job.error_detail.code}]` : '') : null,
       job.output_url ? h('a', { href: job.output_url, download: '' }, `↓ ${this.t('download')}`) : null,
       job.verification ? h('details', h('summary', this.t('verified')), h('pre', JSON.stringify(job.verification, null, 2))) : null,
       !['completed', 'failed', 'cancelled', 'stopped', 'unknown'].includes(job.status) ? this.button(this.t('cancel'), async () => { const result = await api.raw(`${BASE}/exports/${encodeURIComponent(job.job_id)}/cancel`, { method: 'POST' }); this.jobs.set(job.job_id, { ...job, ...result }); this.paint(); }) : null)));

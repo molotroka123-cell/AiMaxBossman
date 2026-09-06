@@ -394,6 +394,10 @@ class ApprovalCreate(BaseModel):
     run_id: int | None = None
 
 
+class ApprovalRevoke(BaseModel):
+    by: str = "owner"
+
+
 # ---------- приложение ----------
 
 def create_app(settings: Settings | None = None, *, start_workers: bool = True,
@@ -881,6 +885,16 @@ def _api_router() -> APIRouter:
     async def decide_approval(approval_id: int, body: ApprovalIn,
                               svc: Services = Depends(services)):
         row = await svc.approvals.decide(approval_id, body.approve, body.by)
+        if row is None:
+            raise ApiError("подтверждение не найдено", status=404)
+        return row
+
+    @router.post("/approvals/{approval_id}/revoke")
+    async def revoke_approval(approval_id: int, body: ApprovalRevoke | None = None,
+                              svc: Services = Depends(services)):
+        """Withdraw an approved-but-not-yet-executed action; effect-time
+        authorization is what counts, not the approval's history."""
+        row = await svc.approvals.revoke(approval_id, (body.by if body else None) or "owner")
         if row is None:
             raise ApiError("подтверждение не найдено", status=404)
         return row

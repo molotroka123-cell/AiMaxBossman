@@ -53,6 +53,27 @@ class Approvals:
         await self.bus.emit("approval.decided", id=approval_id, status=status, by=by)
         return row
 
+    async def revoke(self, approval_id: int, by: str = "owner") -> dict | None:
+        """Withdraw an approval BEFORE its effect: approved -> revoked (CAS).
+
+        Execution Truth §8: authorization must still be valid at effect time. An
+        approval given while the process was down, or given by mistake, could
+        only be undone by racing the worker. A revoked row is not `approved`, so
+        every consumer fails closed: the parked tool call resumes as rejected
+        (`approval.decided` wakes it), `consume()` refuses it, `finalize_override`
+        and the review sweep ignore it. Pending rows are decided, not revoked."""
+        async with self.db.session() as s:
+            res = await s.execute(sa.update(approvals_t).where(
+                approvals_t.c.id == approval_id,
+                approvals_t.c.status == "approved").values(
+                status="revoked", decided_by=by, decided_at=utcnow()))
+            await s.commit()
+            row = await fetch_one(s, approvals_t, approval_id)
+        if res.rowcount and row is not None:
+            await self.bus.emit("approval.revoked", id=approval_id, by=by, approval_kind=row.get("kind"))
+            await self.bus.emit("approval.decided", id=approval_id, status="revoked", by=by)
+        return row
+
     async def consume(self, approval_id, *, kind: str, preview: str) -> bool:
         """F-015: подтверждение — это ЗАПИСЬ в таблице, а не флаг в теле запроса.
 

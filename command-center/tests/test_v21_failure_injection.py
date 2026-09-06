@@ -131,7 +131,14 @@ async def test_mcp_server_crash_is_bounded_and_visible(env, tmp_path, monkeypatc
     stack = await _stack_with_tools(env, ["mcp:echo:boom"], adapter=adapter)
 
     status = await _run_task(env, stack["task"]["id"], timeout=40, until=FINISHED)
-    assert status == "completed"              # падение внешнего сервера ≠ провал задачи
+    # Падение внешнего сервера ≠ падение RUN'а: модель получила ошибку данными и
+    # ответила (adapter вызван дважды). Но задача — failed, не completed: эффект
+    # MCP-вызова не произошёл, «сообщаю честно» — текст, не результат
+    # (bcc/finalize._effect_problem без контракта). Ответ модели сохраняется.
+    assert status == "failed"
+    assert adapter.calls == 2
+    detail = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()
+    assert "did not succeed" in str(detail.get("error") or "")
 
     async with env.svc.db.session() as s:
         row = dict((await s.execute(sa.select(mcp_servers_t))).first()._mapping)

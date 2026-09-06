@@ -34,7 +34,7 @@ from .flight import DistributedFlightRecorder
 from .journal import FleetEventJournal
 from .leases import LeaseConflict, LeaseManager
 from .models import (FleetEventType, FlightState, NodeStatus, Placement, PlacementRequirement, RetryPolicy)
-from .node_agent import LocalNodeTransport, NodeExecutionRequest, NodeTransport, NodeUnavailable
+from .node_agent import LocalNodeTransport, RemoteNodeTransport, NodeExecutionRequest, NodeTransport, NodeUnavailable
 from .privacy import PrivacyRouter
 from .queue import WorkQueue
 from .registry import NodeRegistry
@@ -80,7 +80,7 @@ class FleetControlPlane:
         self.artifacts = ArtifactRegistry(self.store)
         self.resume = FleetResumeKernel()
         self.transport: NodeTransport = transport or LocalNodeTransport()
-        if isinstance(self.transport, LocalNodeTransport):
+        if isinstance(self.transport, (LocalNodeTransport, RemoteNodeTransport)):
             self.transport.leases = self.leases
         self.twin = FleetDigitalTwin(self)
         self.lease_ttl_s = lease_ttl_s

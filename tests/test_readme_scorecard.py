@@ -148,3 +148,20 @@ def test_not_run_cannot_become_pass():
     # UNPROVEN-улика рендерится словом UNPROVEN, а не пустой ячейкой «как будто ок»
     d = _data(); d["categories"][7].update(status="UNPROVEN", evidence=[])
     assert "| UNPROVEN | LOW | UNPROVEN |" in sc.render(sc.validate(d), "abc")
+
+
+# 13. exact_sha_ci=PASS is a claim about one commit and needs its certification report
+def test_exact_sha_pass_requires_matching_certification():
+    d = _data(); d["exact_sha_ci"] = "PASS"
+    sha = d["last_evidence_sha"]
+    with pytest.raises(sc.ScorecardError, match="not certified"):
+        sc.validate(d, certification={})                      # no report
+    with pytest.raises(sc.ScorecardError, match="not CERTIFIED"):
+        sc.validate(d, certification={"verdict": "NOT_CERTIFIED", "sha": sha, "final": True})
+    with pytest.raises(sc.ScorecardError, match="certifies"):  # green on another commit
+        sc.validate(d, certification={"verdict": "CERTIFIED", "sha": "f" * 40, "final": True})
+    with pytest.raises(sc.ScorecardError, match="not final"):
+        sc.validate(d, certification={"verdict": "CERTIFIED", "sha": sha, "final": False})
+    assert sc.validate(d, certification={"verdict": "CERTIFIED", "sha": sha, "final": True})["exact_sha_ci"] == "PASS"
+    d["exact_sha_ci"] = "UNPROVEN"
+    assert sc.validate(d, certification={})["exact_sha_ci"] == "UNPROVEN"   # honest values need no report
