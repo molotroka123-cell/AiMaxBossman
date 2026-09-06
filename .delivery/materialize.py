@@ -1,8 +1,4 @@
-"""Materialize a hash-bound source patch, never execute decoded content as a script.
-
-Delivery branch only. No owner runtime or branch reference is modified. Gzip is
-transport for a plain unified diff, which is exported together with the source.
-"""
+"""Materialize a hash-bound plain source diff; no branch or owner runtime changes."""
 from __future__ import annotations
 import base64
 import gzip
@@ -39,7 +35,7 @@ def validate_paths() -> list[str]:
         raise ValueError('duplicate/unbounded paths')
     for name in paths:
         p = PurePosixPath(name)
-        if p.is_absolute() or '..' in p.parts or p.parts[0] not in {'bossman-core', 'command-center', 'docs'}:
+        if p.is_absolute() or '..' in p.parts or p.parts[0] not in {'bossman-core', 'command-center', 'docs', 'tests'}:
             raise ValueError('path outside declared source scope')
     return paths
 
@@ -58,20 +54,43 @@ def materialize() -> None:
     if len(patch) > 1_000_000 or digest(patch) != MANIFEST['patch_sha256']:
         raise ValueError('plain patch mismatch; nothing applied')
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / 'source.patch').write_bytes(patch)
+    (OUT / 'transport-source.patch').write_bytes(patch)
     git('worktree', 'add', '--detach', str(ROOT), MANIFEST['base_sha'])
     assert git('rev-parse', 'HEAD^{tree}', cwd=ROOT) == MANIFEST['base_tree']
     for row in MANIFEST['files']:
         p = ROOT / row['path']
         assert (blob(p.read_bytes()) if p.exists() else None) == row['before'], row['path']
-    subprocess.run(['git', 'apply', '--check', '--unidiff-zero', str(OUT / 'source.patch')], cwd=ROOT, check=True)
-    subprocess.run(['git', 'apply', '--unidiff-zero', str(OUT / 'source.patch')], cwd=ROOT, check=True)
+    subprocess.run(['git', 'apply', '--check', '--unidiff-zero', str(OUT / 'transport-source.patch')], cwd=ROOT, check=True)
+    subprocess.run(['git', 'apply', '--unidiff-zero', str(OUT / 'transport-source.patch')], cwd=ROOT, check=True)
     for row in MANIFEST['files']:
         p = ROOT / row['path']
         assert p.is_file() and not p.is_symlink() and blob(p.read_bytes()) == row['after'], row['path']
     git('add', '--', *paths, cwd=ROOT)
     tree = git('write-tree', cwd=ROOT)
-    assert tree == MANIFEST['target_tree'], f'unexpected tree {tree}'
+    assert tree == MANIFEST['target_tree'], f'unexpected base candidate tree {tree}'
+    revision = json.loads((HERE / 'revision.json').read_text())
+    assert revision['base_target_tree'] == tree
+    allowed = {'command-center/tests/test_takeover_home_ui.py', 'tests/test_packaging_installed.py'}
+    assert len(revision['overrides']) == 2
+    assert {row['path'] for row in revision['overrides']} == allowed
+    by_path = {row['path']: row for row in MANIFEST['files']}
+    for row in revision['overrides']:
+        p = ROOT / row['path']
+        assert p.is_file() and not p.is_symlink() and blob(p.read_bytes()) == row['before'], row['path']
+        data = row['content'].encode('utf-8')
+        assert blob(data) == row['after'], row['path']
+        p.write_bytes(data)
+        if row['path'] in by_path:
+            by_path[row['path']]['after'] = row['after']
+        else:
+            MANIFEST['files'].append({k:row[k] for k in ('path','before','after')})
+    paths = validate_paths()
+    git('add', '--', *paths, cwd=ROOT)
+    tree = git('write-tree', cwd=ROOT)
+    assert tree == revision['target_tree'], f'unexpected revised tree {tree}'
+    MANIFEST['target_tree'] = tree
+    MANIFEST['validation_revision'] = 'event-bound UI test and isolated wheel install'
+    (OUT/'source.patch').write_bytes(subprocess.check_output(['git','diff','--cached','--binary'],cwd=ROOT))
     for row in MANIFEST['files']:
         target = OUT / 'source' / row['path']
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -85,8 +104,7 @@ def materialize() -> None:
 
 
 def publish_blobs() -> None:
-    # Invoked only by a job depending on all three successful test lanes.
-    # Creates immutable blobs; NEVER pushes refs or deploys a runtime.
+    # Only after all three test lanes pass. No branch updates or deployment.
     import urllib.request
     assert os.environ['GITHUB_REPOSITORY'] == 'molotroka123-cell/AiMaxBossman'
     paths = validate_paths()
