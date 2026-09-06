@@ -1,0 +1,103 @@
+name: Astra three-lane candidate validation
+on:
+  push:
+    branches: [fix/astra-three-lane-20260906]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: astra-three-lane-delivery
+  cancel-in-progress: false
+jobs:
+  validate:
+    name: verified candidate / ${{ matrix.lane }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [core, policy, ui-root]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify and materialize exact code tree (not delivery SHA)
+        run: python .delivery/materialize.py materialize
+      - name: Install declared candidate packages
+        working-directory: ${{ env.CANDIDATE }}
+        run: python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
+      - name: Core owner control, thread drain, recovery and learning safety
+        if: matrix.lane == 'core'
+        working-directory: ${{ env.CANDIDATE }}
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest bossman-core/tests/test_takeover_interrupt_drain.py bossman-core/tests/test_stage13_operator_redteam.py bossman-core/tests/test_stage13_auth_redteam.py bossman-core/tests/test_computer_operator_owner_control.py bossman-core/tests/test_operator_recovery_owner_state.py bossman-core/tests/test_evidence_ledger_hostile.py bossman-core/tests/test_learning_evidence_ledger.py bossman-core/tests/test_computer_operator_recovery.py bossman-core/tests/test_apprentice_learning.py bossman-core/tests/test_pass3_autonomy_trainer.py bossman-core/tests/audit001 bossman-core/tests/test_secrem_s2_operator_consequence.py -q --timeout=60 --junitxml="$RESULTS/tests.xml" | tee "$RESULTS/tests.log"
+      - name: Policy and actual execution-truth interaction
+        if: matrix.lane == 'policy'
+        working-directory: ${{ env.CANDIDATE }}
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest command-center/tests/test_terminal_context_denial.py command-center/tests/test_finalize_unclassified_failure.py command-center/tests/test_secrem_s3_sandbox_default_deny.py command-center/tests/test_policy_algebra.py command-center/tests/test_fable_approval_revocation.py command-center/tests/test_fable_crash_after_effect.py command-center/tests/test_fable_evidence_self_reference.py command-center/tests/test_finalize_capability_match.py command-center/tests/test_action_contract.py -q --timeout=60 --junitxml="$RESULTS/tests.xml" | tee "$RESULTS/tests.log"
+      - name: Install real browser for UI lane
+        if: matrix.lane == 'ui-root'
+        run: python -m playwright install --with-deps chromium
+      - name: Actual Chromium against BCC fixture (not owner/model acceptance)
+        if: matrix.lane == 'ui-root'
+        working-directory: ${{ env.CANDIDATE }}
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest command-center/tests/test_takeover_home_ui.py -q --timeout=120 --junitxml="$RESULTS/ui.xml" | tee "$RESULTS/ui.log"
+      - name: Root full suite
+        if: matrix.lane == 'ui-root' && !cancelled()
+        working-directory: ${{ env.CANDIDATE }}
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m pytest tests -q --timeout=120 --junitxml="$RESULTS/root.xml" | tee "$RESULTS/root.log"
+      - name: Source hygiene
+        working-directory: ${{ env.CANDIDATE }}
+        run: |
+          python tools/skips_registry.py --check
+          python tools/ci_secret_scan.py
+          node --check command-center/ui/pages/home.js
+          node --check command-center/ui/pages/control.js
+          git diff --cached --check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: three-lane-${{ matrix.lane }}-${{ github.sha }}
+          path: ${{ runner.temp }}/bossman-delivery-result/
+          if-no-files-found: warn
+          retention-days: 7
+  immutable-blobs:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Revalidate identical tree; store immutable source blobs only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python .delivery/materialize.py blobs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: three-lane-published-blobs-${{ github.sha }}
+          path: ${{ runner.temp }}/bossman-delivery-result/
+          retention-days: 7
