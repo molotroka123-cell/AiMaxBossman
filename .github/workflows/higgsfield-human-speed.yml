@@ -1,0 +1,60 @@
+name: Higgsfield human-speed component gates
+on:
+  push:
+    branches: [fix/higgsfield-human-speed-20260906]
+  pull_request:
+    paths:
+      - 'tools/higgsfield_*.py'
+      - 'bossman-core/bossman/computer_operator/adapters/playwright_browser.py'
+      - 'bossman-core/tests/test_browser_semantic_fastpath.py'
+      - 'tests/test_higgsfield_control.py'
+      - '.github/workflows/higgsfield-human-speed.yml'
+permissions:
+  contents: read
+jobs:
+  component:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Export exact tracked source for independent local reproduction
+        shell: bash
+        run: |
+          mkdir -p /tmp/higgsfield-source
+          git rev-parse HEAD > /tmp/higgsfield-source/CHECKOUT_SHA.txt
+          git archive --format=tar HEAD bossman-core bossman_shared command-center tools tests pyproject.toml .github .agents docs 2>/dev/null > /tmp/higgsfield-source/source.tar || git archive --format=tar HEAD bossman-core bossman_shared command-center tools tests .github .agents docs > /tmp/higgsfield-source/source.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: higgsfield-exact-source-${{ github.sha }}
+          path: /tmp/higgsfield-source/
+          retention-days: 7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: |
+          python -m pip install -e './bossman-core[dev]' playwright
+          python -m playwright install --with-deps chromium
+      - name: Offline deterministic browser tests (no account or generation)
+        shell: bash
+        run: |
+          export PYTHONPATH="$PWD:$PWD/bossman-core:$PWD/command-center"
+          mkdir -p artifacts/human-speed
+          files=()
+          for f in bossman-core/tests/test_browser_semantic_fastpath.py tests/test_higgsfield_control.py; do
+            if test -f "$f"; then files+=("$f"); fi
+          done
+          if [ ${#files[@]} -eq 0 ]; then
+            echo 'Source-export bootstrap: candidate tests not committed yet.' > artifacts/human-speed/NOT_TESTED.txt
+            exit 0
+          fi
+          python -m pytest "${files[@]}" -q --junitxml=artifacts/human-speed/tests.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: higgsfield-component-tests-${{ github.sha }}
+          path: artifacts/human-speed/
+          if-no-files-found: warn
+          retention-days: 14
