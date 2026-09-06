@@ -23,51 +23,42 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Apply only hash-bound code/test/doc changes
+      - name: Integrate pinned concurrent main; only generated registry may conflict
         shell: python
         run: |
           import hashlib,json,pathlib,subprocess,os,sys
           root=pathlib.Path.cwd()
-          manifest=json.loads((root/'handoffs/takeover_2919b_edits.json').read_text())
-          assert manifest['base_sha']=='2919b8319c8da512c5a54408c35db04bea858f07'
-          subprocess.run(['git','merge-base','--is-ancestor',manifest['base_sha'],'HEAD'],check=True)
-          allowed={'bossman-core/bossman/computer_operator/manager.py','bossman-core/tests/test_computer_operator_owner_control.py','bossman-core/tests/test_stage13_auth_redteam.py','command-center/bcc/engine.py','command-center/bcc/features/tools_terminal.py','command-center/bcc/tools.py','command-center/tests/test_terminal_context_denial.py','command-center/tests/test_v21_tools_terminal_browser.py','docs/audits/TAKEOVER_ADMISSION_CI_20260906.md','docs/testing/SKIPS_REGISTRY.md'}
-          assert len(manifest['files'])==len(allowed)
-          assert {f['path'] for f in manifest['files']}==allowed
-          def digest(b):return hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
-          ready=[]
-          for item in manifest['files']:
-              path=root/item['path']
-              assert path.resolve().is_relative_to(root) and not path.is_symlink()
-              old=path.read_bytes() if path.exists() else None
-              assert (digest(old) if old is not None else None)==item['before'],item['path']
-              lines=(old or b'').decode('utf-8').splitlines(keepends=True)
-              last=0
-              for edit in item['edits']:
-                  assert type(edit['start']) is int and type(edit['end']) is int
-                  assert last<=edit['start']<=edit['end']<=len(lines)
-                  last=edit['end']
-              for edit in reversed(item['edits']):
-                  lines[edit['start']:edit['end']]=[edit['text']]
-              new=''.join(lines).encode('utf-8')
-              assert digest(new)==item['after'],item['path']+' output mismatch'
-              ready.append((path,new))
-          for path,data in ready:
-              path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
-          # The final terminal regression moved an existing skip by one line.
-          # Regenerate from all final tests, preserve the gate and pin its bytes.
-          subprocess.run([sys.executable,'tools/skips_registry.py'],check=True)
+          base='927a35373dd44a6309ad9549e421796806057efd'
+          verified='4085ae6f0af0cb005c64f8f4b87a5ee7310f4978'
+          def git(*args,**kw):return subprocess.run(['git',*args],check=True,**kw)
+          git('merge-base','--is-ancestor',verified,'HEAD')
+          git('fetch','--no-tags','origin',base)
+          git('config','user.name','github-actions[bot]')
+          git('config','user.email','41898282+github-actions[bot]@users.noreply.github.com')
+          result=subprocess.run(['git','merge','--no-commit','--no-ff',base])
+          conflicts=subprocess.check_output(['git','diff','--name-only','--diff-filter=U'],text=True).splitlines()
+          assert result.returncode in (0,1)
+          assert set(conflicts)<={'docs/testing/SKIPS_REGISTRY.md'},conflicts
+          if result.returncode:assert conflicts,'merge failure unrelated to registry'
           registry=root/'docs/testing/SKIPS_REGISTRY.md'
-          expected='bbda2e9dde5686b36e7e0cc1ad8dc3690edc57a6'
-          assert digest(registry.read_bytes())==expected,'unexpected registry change'
-          manifest['registry_final_blob_sha']=expected
-          subprocess.run(['git','diff','--check'],check=True)
-          subprocess.run(['git','config','user.name','github-actions[bot]'],check=True)
-          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'],check=True)
-          subprocess.run(['git','add','--',*sorted(allowed)],check=True)
-          subprocess.run(['git','commit','-m','fix: materialize hash-bound terminal denial and owner-control regressions'],check=True)
+          registry.write_bytes(subprocess.check_output(['git','show',base+':docs/testing/SKIPS_REGISTRY.md']))
+          subprocess.run([sys.executable,'tools/skips_registry.py'],check=True)
+          manifest=json.loads((root/'handoffs/takeover_2919b_edits.json').read_text())
+          def digest(b):return hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          for item in manifest['files']:
+              if item['path']!=str(registry.relative_to(root)):
+                  assert digest((root/item['path']).read_bytes())==item['after'],item['path']
+          git('add','--','docs/testing/SKIPS_REGISTRY.md')
+          git('diff','--check','--cached')
+          git('commit','-m','integration: retain concurrent context fix and regenerated registry')
           out=pathlib.Path(os.environ['RUNNER_TEMP'])/'takeover-results';out.mkdir()
           sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          changed=subprocess.check_output(['git','diff','--name-only',base,'HEAD'],text=True).splitlines()
+          allowed={f['path'] for f in manifest['files']}|{'handoffs/takeover_2919b_edits.json','.github/workflows/takeover-delivery.yml'}
+          assert set(changed)==allowed,changed
+          for item in manifest['files']:
+              item['final_blob_sha']=digest((root/item['path']).read_bytes())
+          manifest.update(integrated_main_sha=base,tested_sha=sha)
           (out/'tested-sha.txt').write_text(sha+'\n')
           (out/'file-manifest.json').write_text(json.dumps(manifest,indent=2))
           with open(os.environ['GITHUB_ENV'],'a') as env:
@@ -99,9 +90,9 @@ jobs:
           command-center/tests/test_v21_tool_loop.py
           command-center/tests/test_v21_tools_terminal_browser.py
           -q --timeout=45 --junitxml=${{ runner.temp }}/takeover-results/cc.xml
-      - name: Registry, secrets, no unreviewed file changes
+      - name: Concurrent context regressions, registry, secrets and clean working tree
         run: |
-          python -m pytest tests/test_skips_registry.py -q --junitxml=${{ runner.temp }}/takeover-results/root-targeted.xml
+          python -m pytest tests/test_context_bytes_checkpoint.py tests/test_context_slice.py tests/test_skips_registry.py -q --timeout=45 --junitxml=${{ runner.temp }}/takeover-results/root-targeted.xml
           python tools/skips_registry.py --check
           python tools/ci_secret_scan.py
           git diff --exit-code
