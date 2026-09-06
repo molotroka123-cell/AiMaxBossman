@@ -117,7 +117,10 @@ def test_file_observer_refuses_to_treat_a_symlink_as_the_named_file(tmp_path):
     outside = tmp_path / "outside.txt"
     outside.write_text("secret", encoding="utf-8")
     link = tmp_path / "link.txt"
-    link.symlink_to(outside)
+    try:
+        link.symlink_to(outside)
+    except OSError as exc:
+        pytest.skip(f"SKIP_HOST: symlink privilege unavailable on this host: {exc}")
     values = FileStateObserver(enrollment(spec), link).observe(now=100.0).values
     assert values["exists"] is False and values["sha256"] is None
 
@@ -145,7 +148,10 @@ def test_directory_observer_refuses_symlink_escape(tmp_path):
     clean = DirectoryStateObserver(enrollment(spec), root).observe(now=100.0)
     outside = tmp_path / "outside.txt"
     outside.write_text("secret", encoding="utf-8")
-    (root / "escape").symlink_to(outside)
+    try:
+        (root / "escape").symlink_to(outside)
+    except OSError as exc:
+        pytest.skip(f"SKIP_HOST: symlink privilege unavailable on this host: {exc}")
     escaped = DirectoryStateObserver(enrollment(spec), root).observe(now=100.0)
     assert escaped.values["escaped_symlinks"] == 1
     assert escaped.values["symlinks_skipped"] == 1

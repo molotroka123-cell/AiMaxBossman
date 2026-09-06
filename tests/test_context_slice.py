@@ -69,7 +69,7 @@ def test_repo_map_rebuilds_on_modified_file_under_same_head(tmp_path):
     assert second["cache"] == "miss" and second["sha"] == head
     assert second["fingerprint"] != first["fingerprint"]
     assert second["files"]["pkg/d.py"]["sha256"] != first["files"]["pkg/d.py"]["sha256"]
-    assert second["files"]["pkg/d.py"]["sha256"] == hashlib.sha256(b"Y = 3\n").hexdigest()[:16]
+    assert second["files"]["pkg/d.py"]["sha256"] == hashlib.sha256((root / "pkg" / "d.py").read_bytes()).hexdigest()[:16]
 
     (root / "pkg" / "d.py").write_text("Y = 2\n", encoding="utf-8")   # откат — прежний отпечаток
     back = repo_map(root, cache_dir=cache)
@@ -91,7 +91,10 @@ def test_fingerprint_changes_on_add_delete_rename_untracked_symlink(tmp_path):
     seen["deleted"] = worktree_fingerprint(root)
     _git(root, "mv", "pkg/d.py", "pkg/dd.py")                              # rename
     seen["renamed"] = worktree_fingerprint(root)
-    os.symlink("pkg/a.py", root / "link.py")                               # symlink → a
+    try:
+        os.symlink("pkg/a.py", root / "link.py")                           # symlink → a
+    except OSError as exc:
+        pytest.skip(f"SKIP_HOST: symlink privilege unavailable on this host: {exc}")
     seen["symlink_a"] = worktree_fingerprint(root)
     os.unlink(root / "link.py")
     os.symlink("pkg/b.py", root / "link.py")                               # тот же путь, другая цель
