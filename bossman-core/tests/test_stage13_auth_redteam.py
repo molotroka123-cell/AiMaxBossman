@@ -808,7 +808,13 @@ async def test_c5_pause_between_approval_and_execution_blocks_action(tmp_path):
     await mgr.run(t.id)
     t2 = mgr.store.get(t.id)
     assert router.executed == []
-    assert t2.state is TaskState.FAILED and "stale" in (t2.last_error or "").lower()
+    # BUG-OPERATOR-CONTROL-001: the block is unchanged — nothing executed and the
+    # stale reason is recorded. What changed is the label: the owner pressed
+    # Pause, so the task stays PAUSED (and resumable) instead of being relabelled
+    # FAILED by the system. An owner command is not a system failure.
+    assert t2.state is TaskState.PAUSED and "stale" in (t2.last_error or "").lower()
+    assert t2.pending_action is None
+    assert mgr.resume(t.id).state is TaskState.RECOVERING
 
 
 async def test_c6_stale_pending_action_id_mismatch_blocks_action(tmp_path):
@@ -852,7 +858,11 @@ async def test_c7_operator_invalidation_between_approval_and_execution(tmp_path,
     await mgr.run(t.id)
     t2 = mgr.store.get(t.id)
     assert router.executed == []
-    assert t2.state is TaskState.FAILED
+    # BUG-OPERATOR-CONTROL-001: the invalidation still blocks the approved action
+    # and still records why. The task now carries the state the OWNER set rather
+    # than a system FAILED: take_control stays resumable, stop stays cancelled.
+    assert t2.state is (TaskState.USER_CONTROL if op == "take_control" else TaskState.CANCELLED)
+    assert t2.pending_action is None
     assert "stale" in (t2.last_error or "").lower()
 
 

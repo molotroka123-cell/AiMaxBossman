@@ -209,3 +209,37 @@ async def test_reuse_cannot_cross_an_owner_intervention(tmp_path):
     assert mgr._reuse((obs, t.generation, _t.monotonic()), t) is obs
     t.generation += 1
     assert mgr._reuse((obs, t.generation - 1, _t.monotonic()), t) is None
+
+
+# ------------------------------------- an owner command is not a system failure
+async def test_an_owner_state_is_not_relabelled_as_a_system_failure(tmp_path):
+    """The loop blocks the step either way; only the recorded verdict changes.
+
+    Before, any block after an owner command wrote FAILED with a technical
+    reason ("stale observation: generation changed"), so Pause and Take control
+    produced a task the owner could not resume.
+    """
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click()]), FakeObserver(summary="ok"),
+                       adapter=FakeAdapter())
+    for command, expected in (("pause", TaskState.PAUSED),
+                              ("take_control", TaskState.USER_CONTROL),
+                              ("stop", TaskState.CANCELLED)):
+        t = mgr.create_task(f"task {command}")
+        getattr(mgr, command)(t.id)
+        assert mgr._fail(mgr.store.get(t.id), "stale observation: generation changed") is expected
+        stored = mgr.store.get(t.id)
+        assert stored.state is expected
+        assert stored.last_error == "stale observation: generation changed"
+        assert stored.pending_action is None
+
+
+async def test_emergency_lock_overrides_even_an_owner_paused_task(tmp_path):
+    """The one command that dominates the others: the big red button still wins."""
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click()]), FakeObserver(summary="ok"),
+                       adapter=FakeAdapter())
+    t = mgr.create_task("paused then locked")
+    mgr.pause(t.id)
+    mgr.emergency_lock()
+    assert mgr.store.get(t.id).state is TaskState.LOCKED
+    assert mgr.control_lease.holder() is None
+

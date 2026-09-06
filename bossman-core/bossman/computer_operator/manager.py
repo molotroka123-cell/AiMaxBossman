@@ -18,6 +18,8 @@ OBSERVATION_REUSE_MAX_AGE_S=0.75
 # Ограниченное число повторов compare-and-set: команда владельца записывается один
 # раз, бесконечно бороться за строку недопустимо.
 _CAS_RETRIES=5
+# Состояния, которые ставит владелец: пауза, перехват управления, стоп.
+_OWNER_SET_STATES=frozenset({TaskState.PAUSED,TaskState.USER_CONTROL,TaskState.CANCELLED})
 
 
 class OwnerStateChanged(RuntimeError):
@@ -257,10 +259,13 @@ class ComputerOperatorManager:
         побеждает: возвращаем сохранённое состояние, а не переписываем его на FAILED.
         """
         error=str(reason)[:3000]
-        # Владелец уже завершил задачу («Стоп») — его решение не переписывается
-        # системным FAILED с техническим текстом вроде "approved action stale".
-        if t.state is TaskState.CANCELLED:
-            self.loop_guards.pop(t.id,None);return t.state
+        # Состояние, которое поставил ВЛАДЕЛЕЦ, не переписывается системным FAILED
+        # с техническим текстом вроде "approved action stale": «я остановил» — не
+        # «оно сломалось», а пауза/перехват обязаны остаться возобновляемыми.
+        # Причина всё равно записывается — владельцу видно, чем кончился шаг.
+        # Экстренная блокировка (LOCKED) — тоже команда владельца и доминирует.
+        if state is TaskState.FAILED and t.state in _OWNER_SET_STATES:
+            return self._record_owner_stop(t,error)
         for _ in range(_CAS_RETRIES):
             t.state=state;t.last_error=error;t.pending_action=None
             try:self._save(t)
@@ -271,6 +276,18 @@ class ComputerOperatorManager:
                 continue
             self.loop_guards.pop(t.id,None)   # задача терминальна -> история не нужна
             self._emit(t,"failed",error=t.last_error);return t.state
+        return self._req(t.id).state
+    def _record_owner_stop(self,t,error):
+        """Сохранить причину остановки шага, НЕ трогая состояние владельца."""
+        for _ in range(_CAS_RETRIES):
+            t.last_error=error; t.pending_action=None
+            try:self._save(t)
+            except OwnerStateChanged:
+                t=self._req(t.id)
+                if t.state not in _OWNER_SET_STATES:break
+                continue
+            self.loop_guards.pop(t.id,None)
+            self._emit(t,"owner_stopped",error=error);return t.state
         return self._req(t.id).state
     def _req(self,i):
         t=self.store.get(i)
