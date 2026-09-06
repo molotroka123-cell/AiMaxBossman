@@ -90,6 +90,13 @@ CREATE TABLE IF NOT EXISTS v5_reservations (
   state TEXT NOT NULL,
   payload TEXT NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS v5_reservation_per_proposal ON v5_reservations(proposal_id);
+CREATE TABLE IF NOT EXISTS v5_spec_history (
+  objective_id TEXT NOT NULL,
+  revision INTEGER NOT NULL,
+  spec_digest TEXT NOT NULL,
+  spec_json TEXT NOT NULL,
+  superseded_at REAL,
+  PRIMARY KEY (objective_id, revision));
 CREATE TABLE IF NOT EXISTS v5_journal (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
   objective_id TEXT NOT NULL,
@@ -359,8 +366,24 @@ class ObjectiveStore:
             self._log(con, objective_id, "enrollment", ",".join(ordered))
         return replace(state, enrolled_sources=ordered, version=expected_version + 1)
 
+    def spec_history(self, objective_id: str) -> list[dict[str, Any]]:
+        """Вытесненные редакции цели, от новой к старой.
+
+        Пусто не означает «ревизий не было»: цель, прожившая апгрейд до этой
+        таблицы, свои прежние тела не сохранила. Журнал (`journal`) в таком
+        случае всё равно помнит сам факт ревизии, и вкладка обязана показывать
+        именно это, а не выдавать отсутствие истории за отсутствие изменений.
+        """
+        with self._connect() as con:
+            rows = con.execute(
+                "SELECT revision,spec_digest,spec_json,superseded_at FROM v5_spec_history "
+                "WHERE objective_id=? ORDER BY revision DESC", (objective_id,)).fetchall()
+        return [{"revision": r["revision"], "spec_digest": r["spec_digest"],
+                 "superseded_at": r["superseded_at"], "spec": json.loads(r["spec_json"])}
+                for r in rows]
+
     def revise(self, objective_id: str, spec: ObjectiveSpec, *, owner_id: str,
-               expected_version: int) -> ObjectiveRuntimeState:
+               expected_version: int, now: float | None = None) -> ObjectiveRuntimeState:
         """Bind a new revision to the trusted stored predecessor.
 
         Cumulative usage is carried forward untouched, and the condition drops
@@ -398,6 +421,14 @@ class ObjectiveStore:
                 "WHERE objective_id=? AND version=?",
                 (bound.to_json(), bound.digest, data["revision"], _dumps(list(kept)),
                  objective_id, expected_version)))
+            # Вкладка «Ревизии» обязана показывать, ЧТО изменилось, а не только
+            # что что-то менялось. До этого `revise` затирал spec_json, и
+            # предыдущая редакция исчезала: журнал помнил «1->2», но не тело.
+            # Записывается ВЫТЕСНЯЕМАЯ редакция; текущая всегда в v5_objectives.
+            con.execute(
+                "INSERT OR IGNORE INTO v5_spec_history(objective_id,revision,spec_digest,"
+                "spec_json,superseded_at) VALUES(?,?,?,?,?)",
+                (objective_id, state.revision, state.spec_digest, row["spec_json"], now))
             self._log(con, objective_id, "revised", f"{state.revision}->{data['revision']}")
         return replace(state, spec_digest=bound.digest, revision=data["revision"],
                        condition="UNKNOWN", last_verified_evidence_ref=None,
