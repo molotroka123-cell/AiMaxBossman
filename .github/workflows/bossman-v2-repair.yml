@@ -20,8 +20,12 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: bossman_test
+        # Без -U проверка запускается от текущего пользователя контейнера (root),
+        # а такой роли в базе нет: в логе сервиса «FATAL: role "root" does not exist»
+        # каждые 10 секунд, healthcheck никогда не зеленеет, и задание падает по
+        # таймауту, ни разу не дойдя до тестов.
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d bossman_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
