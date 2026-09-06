@@ -138,9 +138,9 @@ async def _approval_manager(tmp_path, observer, adapter, wait_hook=None, actions
 
 
 async def test_action_after_approval_executes_on_a_fresh_observation(tmp_path):
-    """AT-03: экран сменился за время одобрения — акция исполняется против
-    свежего наблюдения, а не против снимка до ожидания."""
-    observer = ShiftingObserver(change_on_call=2, summary="old screen")
+    """AT-03: экран НЕ менялся — акция всё равно исполняется против свежего
+    наблюдения, снятого после ожидания, а не против снимка до него."""
+    observer = ShiftingObserver(change_on_call=99, summary="ok")
     adapter = RecordingAdapter()
     mgr, created = await _approval_manager(tmp_path, observer, adapter)
     t = mgr.create_task("pay invoice")
@@ -151,8 +151,104 @@ async def test_action_after_approval_executes_on_a_fresh_observation(tmp_path):
     # исполнение получило СВЕЖЕЕ наблюдение (второе), а не снимок до ожидания
     assert adapter.obs_seen is observer.returned[1]
     assert adapter.obs_seen is not observer.returned[0]
-    assert adapter.obs_seen.summary == "changed screen ok"
     assert len(observer.returned) >= 3        # re-observe + пост-наблюдение
+    assert mgr.stale_boundaries == 0
+
+
+async def test_approval_does_not_travel_to_a_changed_screen(tmp_path):
+    """AT-03, граница эффекта: владелец одобрил ЭТО действие ПРОТИВ ЭТОГО экрана.
+
+    Пока он думал, передний план сменился. Свежего наблюдения мало: клик
+    «оплатить» был нацелен в конкретное окно, и переносить на другое окно уже
+    выданное разрешение нельзя. TTL и generation здесь ничего не сказали бы —
+    задача та же и не прерывалась. Правильный исход — не исполнять, а
+    перепланировать (новое действие получит новое одобрение).
+    """
+    observer = ShiftingObserver(change_on_call=2, summary="old screen")
+    adapter = RecordingAdapter()
+    mgr, created = await _approval_manager(tmp_path, observer, adapter)
+    t = mgr.create_task("pay invoice")
+    rt = asyncio.create_task(mgr.run(t.id))
+    await asyncio.wait_for(created.wait(), 5)
+    state = await asyncio.wait_for(rt, 5)
+    assert adapter.executed == []             # эффекта не произошло вовсе
+    assert state is not TaskState.COMPLETED
+    assert mgr.store.get(t.id).terminal
+    assert mgr.stale_boundaries == 1
+    step = mgr.store.get(t.id).history[0]
+    assert step.verified is None and "not dispatched" in (step.error or "")
+
+
+async def test_ui_change_during_planning_prevents_dispatch(tmp_path):
+    """AT-03, вторая граница: между наблюдением и намерением прошёл вызов модели.
+
+    Попап/смена фокуса за время планирования не меняет ни generation, ни TTL
+    наблюдения, поэтому одних этих признаков недостаточно — экран спрашивают
+    заново прямо перед эффектом.
+    """
+    adapter = FakeAdapter()
+    observer = FakeObserver(summary="ok", foreground={"app": "notepad.exe", "title": "Untitled"},
+                            probes=[{"foreground": {"app": "notepad.exe", "title": "Save as"}}])
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]),
+                       observer, adapter=adapter)
+    t = mgr.create_task("click the button")
+    state = await mgr.run(t.id)
+    assert adapter.executed == []             # по устаревшему экрану не действуем
+    assert state is not TaskState.COMPLETED
+    assert mgr.stale_boundaries == 1
+    assert observer.probe_calls >= 1
+
+
+async def test_unchanged_screen_during_planning_still_dispatches(tmp_path):
+    """Положительный контроль к предыдущему: экран тот же — действие исполняется,
+    и проверка применимости обслуживается дешёвым probe, а не вторым полным
+    наблюдением."""
+    adapter = FakeAdapter()
+    observer = FakeObserver(summary="ok", foreground={"app": "notepad.exe", "title": "Untitled"})
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]),
+                       observer, adapter=adapter)
+    t = mgr.create_task("click the button")
+    assert await mgr.run(t.id) is TaskState.COMPLETED
+    assert [a.kind for a in adapter.executed] == [ActionKind.CLICK]
+    assert mgr.stale_boundaries == 0
+    assert mgr.boundary_probes == 1 and observer.probe_calls == 1
+
+
+# ------------------------------------------------- AT-01, вторая половина улики
+
+async def test_true_postcondition_the_planner_could_already_see_is_not_a_result(tmp_path):
+    """AT-01: постусловие пишет сам планировщик по экрану, который сам и прочитал.
+
+    «создай файл» закрывается фразой «desktop» — и она ПРАВДИВА. Одной проверки
+    постусловия мало: для цели, обещающей внешний результат, нужен хотя бы один
+    подтверждённый изменяющий шаг.
+    """
+    adapter = FakeAdapter()
+    # Планировщик стоит на своём весь бюджет: терминальная причина обязана быть
+    # отказом улики, а не «планировщик кончился».
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([complete(expected=ExpectedState(contains_text="desktop"))
+                                    for _ in range(25)]),
+                       FakeObserver(summary="empty desktop"), adapter=adapter)
+    t = mgr.create_task(r"создай файл C:\tmp\result.txt")
+    state = await mgr.run(t.id)
+    assert state is TaskState.FAILED
+    assert adapter.executed == []
+    assert mgr.completions_refused >= 1
+    assert mgr.store.get(t.id).last_error == "completion evidence budget"
+
+
+async def test_observation_goal_needs_no_effect_evidence(tmp_path):
+    """AT-01, отдельный контроль для целей без внешнего эффекта: наблюдательная
+    цель ничего снаружи не обещала и закрывается одним проверенным постусловием,
+    без единого действия."""
+    adapter = FakeAdapter()
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([complete(expected=ExpectedState(contains_text="ready"))]),
+                       FakeObserver(summary="the pane says ready"), adapter=adapter)
+    t = mgr.create_task("describe what the screen shows right now")
+    assert await mgr.run(t.id) is TaskState.COMPLETED
+    assert adapter.executed == []
 
 
 async def test_action_after_approval_denied_when_policy_no_longer_allows(tmp_path):

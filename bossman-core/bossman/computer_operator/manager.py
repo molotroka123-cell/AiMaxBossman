@@ -1,5 +1,5 @@
 from __future__ import annotations
-import asyncio,threading,time
+import asyncio,hashlib,json,re,threading,time
 from dataclasses import replace
 from .models import ActionKind,ComputerAction,ComputerTask,StepRecord,TaskMode,TaskState
 from ..obs import redact,redact_obj
@@ -18,6 +18,40 @@ OBSERVATION_REUSE_MAX_AGE_S=0.75
 # Ограниченное число повторов compare-and-set: команда владельца записывается один
 # раз, бесконечно бороться за строку недопустимо.
 _CAS_RETRIES=5
+
+# --- AT-01: слово планировщика не является результатом -------------------------
+# Действия, которые снаружи НИЧЕГО не меняют. Verifier штампует их "non-mutating"
+# вообще без постусловия, поэтому их подтверждение не может быть уликой того, что
+# эффектная цель достигнута: скриншот не создаёт файл.
+_NON_EFFECT_KINDS=frozenset({ActionKind.NOOP,ActionKind.WAIT,ActionKind.TAKE_SCREENSHOT,
+                             ActionKind.COMPLETE,ActionKind.FAIL})
+# Цель, которая ОБЕЩАЕТ внешний результат: файл, отправку, запуск, правку, оплату.
+# Владелец ставит задачи по-русски, поэтому русские основы здесь не «на всякий
+# случай», а основной путь. Ошибка в сторону «нужна улика» безопасна: она стоит
+# одного перепланирования, ошибка в другую сторону — ложный COMPLETED.
+_EFFECT_GOAL=re.compile(
+    r"\b(create|write|save|send|upload|download|delete|remove|rename|move|copy|install|"
+    r"uninstall|publish|post|submit|click|type|press|enter|edit|change|update|open|close|"
+    r"launch|start|run|book|buy|pay|transfer|export|import|render|generate|print|replace|"
+    r"insert|append|configure|enable|disable|add|fill|attach|rebuild|deploy)(?:s|es|d|ed|ing)?\b"
+    r"|(созда|напиш|запиш|сохран|отправ|загруз|скача|удал|переименов|перемест|копир|"
+    r"установ|опубликов|нажм|введ|набер|измен|обнов|откр|закр|запуст|экспорт|импорт|"
+    r"сгенерир|вставь|вставит|добав|настрой|включ|выключ|замен|печат|заполн|прикреп|"
+    r"оплат|заплат|куп|перевед|перевес|подпиш|отпис|созвон|брониру)"
+    r"|([A-Za-z]:\\|(?:^|\s)~?/\S)"
+    r"|\.(txt|json|csv|md|py|js|html?|pdf|docx?|xlsx?|pptx?|png|jpe?g|webp|gif|mp4|mov|mkv"
+    r"|wav|mp3|zip)\b",
+    re.IGNORECASE)
+
+
+def goal_requires_external_effect(goal:str)->bool:
+    """Обещает ли формулировка цели внешний результат.
+
+    Задача приходит строкой, поэтому текстовая эвристика — единственный доступный
+    здесь признак. Она вынесена наружу и подменяема (`completion_evidence_required`),
+    чтобы хост мог поставить точный классификатор, не форкая цикл оператора.
+    """
+    return bool(_EFFECT_GOAL.search(goal or ""))
 
 
 class OwnerStateChanged(RuntimeError):
@@ -56,7 +90,8 @@ class ControlLease:
 class ComputerOperatorManager:
     def __init__(self,*,store,planner,observer,action_router,approval_create,approval_wait,event_emit,
                  policy=None,verifier=None,control_lease=None,access_check=None,
-                 observation_reuse_max_age_s=OBSERVATION_REUSE_MAX_AGE_S):
+                 observation_reuse_max_age_s=OBSERVATION_REUSE_MAX_AGE_S,
+                 completion_evidence_required=None,observation_fingerprint=None):
         self.store=store; self.planner=planner; self.observer=observer; self.action_router=action_router
         self.approval_create=approval_create; self.approval_wait=approval_wait; self.event_emit=event_emit
         self.policy=policy or ComputerPolicy(); self.verifier=verifier or Verifier()
@@ -69,7 +104,16 @@ class ComputerOperatorManager:
         self.loop_guards={}   # task_id -> LoopGuard (защита от слепого повтора)
         # 0 (или отрицательное) полностью выключает переиспользование наблюдений.
         self.observation_reuse_max_age_s=max(0.0,float(observation_reuse_max_age_s or 0.0))
+        # AT-01: чем «эффектная» цель отличается от наблюдательной. Подменяемо —
+        # хост с точным классификатором ставит свой, не форкая цикл.
+        self.completion_evidence_required=completion_evidence_required or goal_requires_external_effect
+        # AT-03: из чего считается подпись применимости наблюдения. Подменяемо для
+        # хоста, чей UI-снимок содержит заведомо шумные поля.
+        self.observation_fingerprint=observation_fingerprint
         self.observations_taken=0; self.observations_reused=0   # счётчики для замера, не для гейтов
+        # Стоимость и срабатывания проверки свежести на границе эффекта (AT-03) и
+        # отказы завершения без улики (AT-01). Это измерение, а не гейт.
+        self.boundary_probes=0; self.stale_boundaries=0; self.completions_refused=0
 
     def create_task(self,goal,*,mode=TaskMode.CONTROL,source="local",owner_device_id=None):
         if self.access_check is not None:
@@ -127,27 +171,58 @@ class ComputerOperatorManager:
                       foreground=before.foreground,ui_tree=before.ui_tree,last_result=last,
                       remaining_steps=t.max_steps-t.steps_used)
                 except Exception as e:
-                    t.replans_used+=1; last=f"planner:{type(e).__name__}:{e}"; self._save(t)
-                    if t.replans_used>t.max_replans:return self._fail(t,"planner replan budget")
+                    # OPERATOR-OBSERVABILITY-001 (живой прогон 20260906): причина
+                    # (404 без /v1, 401 по истёкшему ключу, ошибка разбора ответа)
+                    # терялась, и владелец видел только «planner replan budget».
+                    # Настоящая ошибка остаётся в строке задачи и в событии.
+                    t.replans_used+=1; last=f"planner:{type(e).__name__}:{e}"
+                    t.last_error=last[:3000]; self._save(t)
+                    self._emit(t,"planner_error",reason=last[:500])
+                    if t.replans_used>t.max_replans:
+                        return self._fail(t,f"planner replan budget; last planner error: {last}")
                     continue
                 if a.kind is ActionKind.COMPLETE:
                     # AT-01: слово планировщика — не результат. COMPLETE обязан
                     # нести проверяемое постусловие, и верификатор подтверждает
-                    # его на текущем проверенном наблюдении, прежде чем задача
-                    # станет COMPLETED. Голый COMPLETE — replan; после исчерпания
-                    # бюджета — честный FAILED, а не фиктивный успех.
+                    # его на СВЕЖЕМ наблюдении, прежде чем задача станет COMPLETED.
+                    # Голый COMPLETE — replan; после исчерпания бюджета — честный
+                    # FAILED, а не фиктивный успех.
                     if a.expected.is_empty():
-                        t.replans_used+=1
+                        self.completions_refused+=1; t.replans_used+=1
                         last="COMPLETE without verifiable postcondition; provide expected postcondition"
-                        self._save(t)
+                        t.last_error=last; self._save(t)
+                        self._emit(t,"completion_refused",reason=last)
                         if t.replans_used>t.max_replans:
                             return self._fail(t,"unverifiable COMPLETE: no postcondition")
                         continue
-                    cv=self.verifier.verify(a,before)
+                    # Завершение — тоже граница эффекта: оно печатает необратимый
+                    # вердикт. Проверять постусловие по наблюдению, снятому ДО
+                    # вызова модели (а то и переиспользованному), значит верить
+                    # снимку, который планировщик уже прочитал. Смотрим сейчас.
+                    self.observations_taken+=1
+                    verdict_obs=await self.observer.observe(generation=t.generation)
+                    t.last_observation=verdict_obs
+                    cv=self.verifier.verify(a,verdict_obs)
                     if not cv.ok:
-                        t.replans_used+=1; last=f"COMPLETE postcondition failed:{cv.reason}"; self._save(t)
+                        self.completions_refused+=1
+                        t.replans_used+=1; last=f"COMPLETE postcondition failed:{cv.reason}"
+                        t.last_error=last; self._save(t)
+                        self._emit(t,"completion_refused",reason=last)
                         if t.replans_used>t.max_replans:
                             return self._fail(t,f"false COMPLETE: {cv.reason}")
+                        continue
+                    # Постусловие пишет сам планировщик и сверяет его с экраном,
+                    # который сам же прочитал: «создай файл» закрывается фразой
+                    # «desktop», и она правдива. Поэтому для цели, ОБЕЩАЮЩЕЙ
+                    # внешний результат, дополнительно требуется хотя бы один
+                    # подтверждённый ИЗМЕНЯЮЩИЙ шаг: скриншот не создаёт файл.
+                    refusal=self._completion_blocked(t)
+                    if refusal:
+                        self.completions_refused+=1
+                        t.replans_used+=1; last=refusal; t.last_error=refusal; self._save(t)
+                        self._emit(t,"completion_refused",reason=refusal)
+                        if t.replans_used>t.max_replans:
+                            return self._fail(t,"completion evidence budget")
                         continue
                     t.state=TaskState.COMPLETED; t.pending_action=None; self._save(t)
                     self.loop_guards.pop(t.id,None)
@@ -165,6 +240,14 @@ class ComputerOperatorManager:
                 cur=self._req(t.id)
                 if cur.generation!=plan_generation or cur.state in {TaskState.PAUSED,TaskState.USER_CONTROL,TaskState.CANCELLED,TaskState.LOCKED}:
                     return self._fail(cur,"stale observation: generation changed" if cur.generation!=plan_generation else "input state changed before action")
+                # AT-03: между наблюдением и намерением прошёл ВЫЗОВ МОДЕЛИ. Окно
+                # переиспользования и generation — это про нашу собственную задачу,
+                # они ничего не говорят про экран. Спрашиваем сам экран.
+                if not await self._fresh_boundary(t,before,"pre_intent"):
+                    t.replans_used+=1; last="stale observation: UI changed during planning"
+                    reusable=None; self._save(t)
+                    if t.replans_used>t.max_replans:return self._fail(t,"freshness replan budget")
+                    continue
                 t.pending_action=self._sanitize_action(a); step=StepRecord(action=t.pending_action,before_observation_id=before.id); t.history.append(step); self._save(t)
                 approval_used=False
                 if d.requires_approval:
@@ -203,10 +286,26 @@ class ComputerOperatorManager:
                     # одобрялось, устарело за время ожидания владельца: попап,
                     # смена вкладки/фокуса или значения поля не обновляют его.
                     # Перед эффектом — обязательная свежая проверка состояния,
-                    # и policy пересматривается по ней (выданное одобрение
-                    # остаётся у этой акции; повторный запрос не требуется).
+                    # и policy пересматривается по ней.
                     t.state=TaskState.OBSERVING; self._save(t)
-                    before=await self.observer.observe(generation=t.generation); self.observations_taken+=1
+                    fresh=await self.observer.observe(generation=t.generation); self.observations_taken+=1
+                    # Владелец одобрил ЭТО действие ПРОТИВ ЭТОГО экрана. Если экран
+                    # с тех пор изменился, одобрение на него не переносится: клик
+                    # «оплатить» нацелен в конкретное окно, а не в координату. Это
+                    # и есть требование AT-03 «TTL и generation не заменяют
+                    # актуальность цели на границе эффекта» — перепланировать,
+                    # а не исполнять по устаревшему разрешению.
+                    if self._signature(fresh)!=self._signature(before):
+                        self.stale_boundaries+=1
+                        last="approval stale: UI changed while waiting for approval"
+                        self._emit(t,"stale_observation",phase="post_approval")
+                        step.error="not dispatched: "+last; step.finished_at=time.time()
+                        t.last_observation=fresh; t.pending_action=None; t.waiting_approval_id=None
+                        t.replans_used+=1; reusable=None; t.last_error=last; self._save(t)
+                        self._emit(t,"approval_invalidated",reason=last)
+                        if t.replans_used>t.max_replans:return self._fail(t,"freshness replan budget")
+                        continue
+                    before=fresh
                     t.last_observation=before; step.before_observation_id=before.id
                     d2=self.policy.classify(a,mode=t.mode,locked=self.global_locked,observation=before)
                     if not d2.allow:
@@ -266,6 +365,75 @@ class ComputerOperatorManager:
         self.observations_reused+=1
         return obs
 
+    def _signature(self,obs):
+        """Подпись ПРИМЕНИМОСТИ наблюдения: то, по чему действие было нацелено.
+
+        Входят generation, foreground (окно/приложение/url) и ui_tree целиком —
+        включая значения полей, потому что AT-03 требует ловить именно «popup,
+        смену вкладки/фокуса, layout, значение поля или внешнюю модификацию».
+
+        НЕ входят: `summary` (пересказ тех же двух источников; у продового
+        наблюдателя его пишет summarizer — недетерминированный внешний вызов, и
+        его дрожь означала бы ложные перепланирования), а также `id`,
+        `created_at` и `screenshot_ref` — они новые при каждом снимке по
+        построению, и подпись по ним не сравнивалась бы никогда.
+        """
+        if self.observation_fingerprint is not None:return self.observation_fingerprint(obs)
+        payload={"generation":getattr(obs,"generation",None),
+                 "foreground":getattr(obs,"foreground",None),
+                 "ui_tree":getattr(obs,"ui_tree",None)}
+        raw=json.dumps(payload,sort_keys=True,ensure_ascii=True,default=repr)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    async def _probe(self,generation):
+        """Дешёвое повторное чтение экрана для проверки применимости.
+
+        Наблюдатель может отдать `probe()` — структура без скриншота и без вызова
+        summarizer. Иначе честно платим за полное наблюдение и считаем его как
+        полное, чтобы счётчик стоимости не врал.
+        """
+        self.boundary_probes+=1
+        probe=getattr(self.observer,"probe",None)
+        if probe is None:
+            self.observations_taken+=1
+            return await self.observer.observe(generation=generation)
+        return await probe(generation=generation)
+
+    async def _fresh_boundary(self,t,planned,phase):
+        """Тот ли ещё экран, по которому спланировано действие (AT-03).
+
+        True только если авторитетная строка задачи не перехвачена И экран сейчас
+        даёт ту же подпись применимости. При совпадении подписи `planned` остаётся
+        корректным `before` — по определению совпадения.
+        """
+        cur=self._req(t.id)
+        if cur.generation!=t.generation or cur.state in {TaskState.PAUSED,TaskState.USER_CONTROL,
+                                                         TaskState.CANCELLED,TaskState.LOCKED}:
+            return False
+        fresh=await self._probe(cur.generation)
+        if self._signature(fresh)==self._signature(planned):return True
+        self.stale_boundaries+=1
+        self._emit(t,"stale_observation",phase=phase)
+        return False
+
+    def _completion_blocked(self,t):
+        """Причина отказа принять COMPLETE как результат, или None (AT-01).
+
+        Постусловие уже проверено на свежем наблюдении, но пишет его сам
+        планировщик по экрану, который сам же прочитал, — «создай файл» честно
+        закрывается фразой «desktop». Поэтому цель, обещающая внешний результат,
+        дополнительно требует хотя бы один ПОДТВЕРЖДЁННЫЙ ИЗМЕНЯЮЩИЙ шаг.
+        Наблюдательная цель («опиши экран») ничего снаружи не обещала и
+        закрывается одним проверенным постусловием.
+        """
+        if not self.completion_evidence_required(t.goal):return None
+        for step in t.history:
+            if (step.verified is True and step.finished_at is not None
+                    and step.action.kind not in _NON_EFFECT_KINDS):
+                return None
+        return ("completion refused: goal asserts an external effect but no verified "
+                "effect was performed; perform and verify the change before completing")
+
     def pause(self,i): return self._state(i,TaskState.PAUSED,"paused",invalidate=True)
     def take_control(self,i):
         self.loop_guards.pop(i,None)   # оператор вмешался -> прежние подписи не значат ничего
@@ -295,10 +463,18 @@ class ComputerOperatorManager:
                     if t.terminal or t.state in {TaskState.PAUSED,TaskState.USER_CONTROL}:
                         break
                     waiting=t.state is TaskState.WAITING_APPROVAL
+                    # Действие было отправлено, а исход так и не записан: повторять
+                    # его вслепую нельзя, и «просто продолжить» тоже нельзя. Называем
+                    # неопределённость в строке, чтобы владелец видел ПОЧЕМУ задача
+                    # стоит, а не молчаливое RECOVERING без причины.
+                    unknown=(not waiting and (t.pending_action is not None
+                             or (t.history and t.history[-1].finished_at is None)))
                     t.state=TaskState.PAUSED if waiting else TaskState.RECOVERING
                     t.generation+=1; t.pending_action=None; t.waiting_approval_id=None
                     if waiting:
                         t.last_error="restart invalidated approval; explicit resume and fresh approval required"
+                    elif unknown:
+                        t.last_error="reconciliation required: prior effect outcome is unknown"
                     try:self._save(t)
                     except OwnerStateChanged:continue
                     # Older manager variants have no latch; generation still

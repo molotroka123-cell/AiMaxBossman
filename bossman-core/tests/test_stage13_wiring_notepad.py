@@ -303,8 +303,13 @@ async def test_non_allowlisted_app_never_reaches_executor(tmp_path):
     observer = FakeObserver(foreground={"app": "explorer.exe"}, summary="desktop")
     m = _manager(tmp_path, planner, observer, rec)
     t = m.create_task("Запусти powershell")
-    assert await m.run(t.id) is TaskState.COMPLETED   # планировщик перепланировал
-    assert launched == []                              # но запуска не было
+    # Политика отклонила единственное действие, значит цель не достигнута: раньше
+    # цикл принимал следующий COMPLETE планировщика и печатал ложный успех. AT-01
+    # закрывает это — эффектная цель без подтверждённого эффекта не COMPLETED.
+    state = await m.run(t.id)
+    assert state is TaskState.FAILED
+    assert m.store.get(t.id).state is not TaskState.COMPLETED
+    assert launched == []                              # и запуска по-прежнему не было
 
 
 async def test_app_launch_executes_on_fresh_observation(tmp_path):
