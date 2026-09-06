@@ -26,7 +26,7 @@ jobs:
       - name: Apply only hash-bound code/test/doc changes
         shell: python
         run: |
-          import hashlib,json,pathlib,subprocess,os
+          import hashlib,json,pathlib,subprocess,os,sys
           root=pathlib.Path.cwd()
           manifest=json.loads((root/'handoffs/takeover_2919b_edits.json').read_text())
           assert manifest['base_sha']=='2919b8319c8da512c5a54408c35db04bea858f07'
@@ -54,6 +54,13 @@ jobs:
               ready.append((path,new))
           for path,data in ready:
               path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+          # The final terminal regression moved an existing skip by one line.
+          # Regenerate from all final tests, preserve the gate and pin its bytes.
+          subprocess.run([sys.executable,'tools/skips_registry.py'],check=True)
+          registry=root/'docs/testing/SKIPS_REGISTRY.md'
+          expected='bbda2e9dde5686b36e7e0cc1ad8dc3690edc57a6'
+          assert digest(registry.read_bytes())==expected,'unexpected registry change'
+          manifest['registry_final_blob_sha']=expected
           subprocess.run(['git','diff','--check'],check=True)
           subprocess.run(['git','config','user.name','github-actions[bot]'],check=True)
           subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'],check=True)
