@@ -1,0 +1,42 @@
+{
+  "base": "9d3f82ac0d26c5b88b408f0c470a3acfae700f98",
+  "gzip_size": 23044,
+  "patch_size": 82074,
+  "gzip_sha256": "ee39a4918ecf6b331d9fe7591af59d66ba2fbb814df68aed22ecea39e983a49b",
+  "patch_sha256": "af8a8ee94441372d6c0db3ed3ad8ca2e55d43f49b29432fff83395167b702f22",
+  "parts": ["060987468673f57fd8fc601ce114c09fd7e47f3c", "458c813f5491ba59d23a1a8214fce915f2b9cf31", "ca49b3a0283493bb4958fdef5609ec412fc857ac", "2e34041b121d5fd8e604de8b44a18e5bd135d9c2", "b3ab5567e37ae488e89590a60f282070a04a24e8", "2b14a5267e3da3662bd33b4d8779ea60df76188f", "04718f1b3f8151e886c3bb5ac7800d3ce8ebd850", "6b7f24f7d851b7cb8bc946eb5c405c6aaa93bdd6", "dfdc75ae463b1e5a64563d56d3f2eff5176f4c88", "503345f8b8bf2fc6bb8ada48a95c489f0ca96d87", "fcd7c57ec3115f444fe25c38f86d0e83f84a59e3"],
+  "before": {
+    "bossman-core/bossman_v3/adapters/command_center.py": "fa5e80051e2e33368389ac98fc17dac2cd221510",
+    "bossman-core/bossman_v3/computer_agent/agent.py": "ffd7c2590425dd662ab10e69165c6c6dc77c489a",
+    "bossman-core/bossman_v3/data_guardian/guardian.py": "e5bc439c20a5bd797c356e404617de3264dd7f74",
+    "bossman-core/bossman_v3/execution/compound.py": "74f39eb2e4f3f3a2c9b0ad9654dc434f64367df6",
+    "bossman-core/bossman_v3/fleet/control_plane.py": "389cebb8733826a20bacbe54a076bb1db20333e6",
+    "bossman-core/bossman_v3/memory/journal.py": "f45b43ae1b359d5ef5c107d74a129ff654de7856",
+    "bossman-core/bossman_v3/organization/bridges.py": "c26252c7c2fe9ab123fba3c325865d6ffb48f099",
+    "bossman-core/bossman_v3/organization/store.py": "3076a704c659f89d0391ca553a03c1ae69c93752",
+    "bossman-core/bossman_v3/skill_factory/verified_trace.py": "0f044fa74af81afaa4c3d944ec55c4e02d447717",
+    "command-center/bcc/features/organization.py": "1b48f3da1f1d0ef311299cb9693e23f7a3a50715"
+  },
+  "after": {
+    "bossman-core/bossman_v3/adapters/command_center.py": "94b6a4fcc54a30330cac91025b8b18333b049f02",
+    "bossman-core/bossman_v3/computer_agent/agent.py": "3ff4c5ecd2593c9ab02df82adacca9242a527f7a",
+    "bossman-core/bossman_v3/data_guardian/guardian.py": "3abc069fd0a941cab5bc33d09b7588442023496c",
+    "bossman-core/bossman_v3/execution/compound.py": "13561465bc4bf2492bf424d44318db935c6b4259",
+    "bossman-core/bossman_v3/fleet/control_plane.py": "50d286ae9f993146ee48015206a46f4dfc3764d5",
+    "bossman-core/bossman_v3/memory/anchor.py": "83e3ada84dac3ca98df2730c93584a45556e55c1",
+    "bossman-core/bossman_v3/memory/journal.py": "ab3c7e53d7e813b4c59ffc09ada15e85c7b1a2ae",
+    "bossman-core/bossman_v3/organization/bridges.py": "a2aa13650b8e27e3d8e37abbe6fcc948e04a2a22",
+    "bossman-core/bossman_v3/organization/store.py": "a46ef02bb146d52bccb5938ecd5cf2dd662a5b39",
+    "bossman-core/bossman_v3/skill_factory/verified_trace.py": "91df0e095518c2234e031d09a590eb5e2e7eafe1",
+    "bossman-core/bossman_v3/visual_state/dispatch.py": "887a4c3b0e8a95f89ea5248941d39cbf6e285a96",
+    "bossman-core/tests/test_v4_anchor_bridges.py": "fb4e3161fd8d867fe041cf0e4f2251c4d5735744",
+    "bossman-core/tests/test_v4_bcc_authorization.py": "1c5fa021da717daa63145da579ceac383068be7e",
+    "bossman-core/tests/test_v4_context_retention.py": "742cfb033959ec2374d3638f007bd3c53872593f",
+    "bossman-core/tests/test_v4_effect_boundary.py": "46e8118582da249c66f598e20ea1924f310fc0a5",
+    "bossman-core/tests/test_v4_journal_anchor.py": "7e83a3c1d8585f2596f6db9ac6edbef27d771785",
+    "command-center/bcc/features/organization.py": "8ecc515832d47c0970486c332bdf52a923a0d702",
+    "command-center/tests/test_v4_organization_anchor.py": "018d13d9a6208695d87130941c3f1e460a2a38d8",
+    "docs/v4/FABLE_CONTINUITY_HARDENING_20260906.md": "4cfa972fd4d60f08ed13de6c5621ff07db9e069b",
+    "handoffs/V4_FABLE_IMPLEMENTED_20260906.md": "f39e3a09655e98e8fe776e21b7b199144bce8e65"
+  }
+}

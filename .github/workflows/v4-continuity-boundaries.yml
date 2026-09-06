@@ -1,0 +1,89 @@
+name: V4 Continuity boundaries
+
+on:
+  push:
+    branches:
+      - sol/v4-continuity-hardening-20260906
+      - claude/fable-system-hardening-lpqq9r
+      - claude/bossman-control-v03-43igbk
+    paths:
+      - 'bossman-core/bossman_v3/**'
+      - 'bossman-core/tests/**'
+      - 'bossman_shared/**'
+      - 'command-center/bcc/**'
+      - 'command-center/tests/test_v4_organization_anchor.py'
+  pull_request:
+    paths:
+      - 'bossman-core/bossman_v3/**'
+      - 'bossman-core/tests/**'
+      - 'bossman_shared/**'
+      - 'command-center/bcc/**'
+      - 'command-center/tests/test_v4_organization_anchor.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v4-continuity-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  boundaries:
+    name: Portable boundaries (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Record actual checkout (not another SHA)
+        shell: python
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          import json, os, pathlib, subprocess
+          p = pathlib.Path('v4-results'); p.mkdir()
+          sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          assert sha == os.environ['GITHUB_SHA']
+          (p / 'identity.json').write_text(json.dumps({
+            'tested_sha': sha, 'event': os.environ['EVENT_NAME'],
+            'run_id': os.environ['GITHUB_RUN_ID'], 'attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+            'scope': 'portable contracts/integration; not full V4 acceptance'
+          }, indent=2))
+      - name: Install declared dependencies
+        run: python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev]'
+      - name: Journal, dispatch, context and bridge regressions
+        working-directory: bossman-core
+        run: >-
+          python -m pytest tests/test_v4_journal_anchor.py tests/test_v4_effect_boundary.py
+          tests/test_v4_context_retention.py tests/test_v4_bcc_authorization.py
+          tests/test_v4_anchor_bridges.py tests/test_v3_invariants.py
+          tests/test_v3_compound_resume.py tests/test_v3_authenticated_journal.py
+          tests/test_v4_visual_state_guard.py tests/test_v4_reaction_coordinator.py
+          tests/test_v3_command_center_adapters.py
+          -q --timeout=60 --junitxml=../v4-results/core.xml
+      - name: Organization service default-off and opt-in
+        if: ${{ !cancelled() }}
+        working-directory: command-center
+        run: >-
+          python -m pytest tests/test_v4_organization_anchor.py tests/test_feat_organization.py
+          -q --timeout=60 --junitxml=../v4-results/cc.xml
+      - name: Patch whitespace
+        run: git diff --check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v4-boundaries-${{ matrix.os }}-${{ matrix.python }}-${{ github.sha }}
+          path: v4-results/
+          if-no-files-found: error
+          retention-days: 7
