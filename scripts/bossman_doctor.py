@@ -328,6 +328,66 @@ def check_windows_specific() -> Check:
     return Check("windows", PASS, f"Windows {platform.release()}: базовые предпосылки на месте")
 
 
+# Наблюдение и действия оператора на Windows: pywinauto/pywin32 дают UIA-обход и
+# окно переднего плана, pyautogui+Pillow — ввод и скриншот. Без них оператор
+# запускается и «работает», но не видит ничего.
+_WINDOWS_OPERATOR_DEPS = {"pywinauto": "обход UIA и окно переднего плана",
+                          "win32api": "pywin32: разрешение окна и ввод",
+                          "pyautogui": "клик, ввод, прокрутка, скриншот",
+                          "PIL": "Pillow: сохранение скриншота"}
+
+
+def check_computer_operator_deps() -> Check:
+    """Оператор компьютера на Windows: слепой оператор хуже отсутствующего.
+
+    Живой прогон владельца (20260906): наблюдение возвращало ModuleNotFoundError,
+    планировщик выжигал бюджет и задача падала. Диагноз стоил часа; здесь он
+    стоит секунды. На не-Windows проверка неприменима — адаптер туда не идёт.
+    """
+    if os.name != "nt":
+        return Check("computer-operator", PASS,
+                     f"не Windows ({platform.system()}); Windows-адаптер оператора неприменим")
+    missing = {m: why for m, why in _WINDOWS_OPERATOR_DEPS.items() if not _importable(m)}
+    if missing:
+        return Check("computer-operator", BLOCKED,
+                     "управление компьютером не заработает: нет " + ", ".join(
+                         f"{m} ({why})" for m, why in missing.items()),
+                     "python -m pip install -e bossman-core[windows]",
+                     {"missing": sorted(missing)})
+    return Check("computer-operator", PASS,
+                 "наблюдение и ввод на месте: pywinauto, pywin32, pyautogui, Pillow",
+                 facts={"missing": []})
+
+
+def check_gateway_url() -> Check:
+    """Адрес Gateway без версии превращает каждый ход планировщика в 404.
+
+    Живой прогон владельца (20260906, GATEWAY-URL-V1): BOSSMAN_GATEWAY_URL был
+    задан без `/v1`, и 21 перепланирование подряд заканчивалось «planner replan
+    budget» без единого намёка на причину. Клиент теперь нормализует адрес, но
+    владельцу всё равно полезно видеть, ЧТО именно будет использовано.
+    """
+    raw = os.environ.get("BOSSMAN_GATEWAY_URL", "").strip()
+    sys.path[:0] = [str(REPO / "bossman-core")]
+    try:
+        from bossman.gateway.client import DEFAULT_BASE_URL, normalize_base_url
+    except Exception as exc:  # noqa: BLE001
+        return Check("gateway-url", WARN, f"клиент Gateway недоступен: {type(exc).__name__}: {exc}",
+                     "python -m pip install -e bossman-core")
+    if not raw:
+        return Check("gateway-url", PASS,
+                     f"BOSSMAN_GATEWAY_URL не задан; будет использован {DEFAULT_BASE_URL}",
+                     facts={"effective": DEFAULT_BASE_URL, "configured": ""})
+    effective = normalize_base_url(raw)
+    if effective != raw.rstrip("/"):
+        return Check("gateway-url", WARN,
+                     f"BOSSMAN_GATEWAY_URL={raw} без версии; запросы пойдут на {effective}",
+                     f"Задайте BOSSMAN_GATEWAY_URL={effective}, чтобы адрес совпадал с фактическим",
+                     {"configured": raw, "effective": effective})
+    return Check("gateway-url", PASS, f"Gateway: {effective}",
+                 facts={"configured": raw, "effective": effective})
+
+
 def check_telemetry_corpus() -> Check:
     """Куда попадут выборки реальных нагрузок сегодня вечером."""
     sys.path[:0] = [str(REPO / "bossman-core"), str(REPO)]
@@ -354,7 +414,8 @@ def check_telemetry_corpus() -> Check:
 CHECKS: list[Callable[[], Check]] = [
     check_python, check_python_packages, check_bossman_packages, check_node, check_ffmpeg,
     check_state_dir, check_evidence_key, check_journal_anchor, check_browser_runtime,
-    check_model_endpoint, check_hardware, check_windows_specific, check_telemetry_corpus,
+    check_model_endpoint, check_hardware, check_windows_specific, check_computer_operator_deps,
+    check_gateway_url, check_telemetry_corpus,
 ]
 
 

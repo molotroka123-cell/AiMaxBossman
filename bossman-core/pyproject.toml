@@ -21,6 +21,18 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-timeout>=2.2", "jsonschema
 # ЭТАП 3: psutil опционален — без него Gateway работает, но отдаёт меньше
 # метрик процесса/системной памяти в /metrics.
 resource = ["psutil>=5.9"]
+# Управление компьютером на Windows. Живой прогон владельца (20260906,
+# OBSERVER-DEPS-001): ни один из этих пакетов не был объявлен нигде, поэтому на
+# чистой машине наблюдение возвращало ModuleNotFoundError, планировщик выжигал
+# бюджет перепланирований и задача падала — оператор был слеп, а выглядело это
+# как дефект логики. Extra ставится только на Windows: на других платформах эти
+# пакеты не собираются и не нужны.
+windows = [
+    "pywinauto>=0.6.8; sys_platform == 'win32'",
+    "pywin32>=306; sys_platform == 'win32'",
+    "pyautogui>=0.9.54; sys_platform == 'win32'",
+    "pillow>=10.0; sys_platform == 'win32'",
+]
 
 [project.scripts]
 bossman = "bossman.cli:main"
