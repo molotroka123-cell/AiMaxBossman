@@ -80,7 +80,10 @@ def test_scope_must_be_explicit_and_success_non_inferior():
 def test_promotion_goes_through_learning_guard_and_owner():
     shadow = at.evaluate_candidate(_cand(), [_ep(1), _ep(2), _ep(3)], baseline_success=0.5)
     ab = [ABResult(task_id=f"t{i}", task_class="fix", raw_verified=False, guarded_verified=True) for i in range(20)]
-    snap = SecuritySnapshot()
+    # AUDIT001-F5-PROVENANCE: a security snapshot must say which corpus it was
+    # taken on. The producer computes the same fingerprint the gate expects.
+    ref = at.corpus_fingerprint(shadow.scope)
+    snap = SecuritySnapshot(scope_ref=ref)
     rb = RollbackInfo(prev_stage="SHADOW", prev_ref="cfg@v0")
     assert "rollback not tested" in at.promote_candidate(shadow, ab, security_before=snap, security_after=snap,
                                                          shadow_runs=20, owner_approved=True, rollback_tested=False,
@@ -88,7 +91,7 @@ def test_promotion_goes_through_learning_guard_and_owner():
     no_owner = at.promote_candidate(shadow, ab, security_before=snap, security_after=snap, shadow_runs=20,
                                     owner_approved=False, rollback_tested=True, rollback=rb)
     assert no_owner.status == "SHADOW" and any("owner" in r for r in no_owner.reasons)
-    regressed = at.promote_candidate(shadow, ab, security_before=snap, security_after=SecuritySnapshot(leaks=1),
+    regressed = at.promote_candidate(shadow, ab, security_before=snap, security_after=SecuritySnapshot(leaks=1, scope_ref=ref),
                                      shadow_runs=20, owner_approved=True, rollback_tested=True, rollback=rb)
     assert regressed.status == "QUARANTINED"
     promoted = at.promote_candidate(shadow, ab, security_before=snap, security_after=snap, shadow_runs=20,
@@ -97,6 +100,10 @@ def test_promotion_goes_through_learning_guard_and_owner():
     assert at.rollback_candidate(promoted, "drift").status == "ROLLED_BACK"
     assert at.promote_candidate(_cand(), ab, security_before=snap, security_after=snap, shadow_runs=20,
                                 owner_approved=True, rollback_tested=True, rollback=rb).status == "CANDIDATE"
+    unbound = at.promote_candidate(shadow, ab, security_before=SecuritySnapshot(),
+                                   security_after=SecuritySnapshot(), shadow_runs=20,
+                                   owner_approved=True, rollback_tested=True, rollback=rb)
+    assert unbound.status == "SHADOW" and any("not bound to candidate corpus" in r for r in unbound.reasons)
 
 
 def test_shadow_requires_baseline_and_verified_successes():
