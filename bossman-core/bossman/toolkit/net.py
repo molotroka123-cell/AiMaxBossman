@@ -35,6 +35,9 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 
+import bossman._shared  # noqa: F401  — repo-root `bossman_shared` on sys.path
+                       # before the first module-level import of it (fresh clone,
+                       # wheel not installed): иначе модуль не импортируется вовсе.
 from bossman_shared.http_transport import PinnedTransport
 from bossman_v3.memory.assembler import redact, redact_data
 

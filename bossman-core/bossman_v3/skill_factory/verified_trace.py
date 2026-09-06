@@ -21,6 +21,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Mapping
 
+import bossman._shared  # noqa: F401  — repo-root `bossman_shared` on sys.path
+                       # before the first module-level import of it (fresh clone,
+                       # wheel not installed): иначе модуль не импортируется вовсе.
 from bossman_shared.action_receipt import ActionReceipt, request_digest
 from bossman_v3 import evidence
 from bossman_v3.contracts import SideEffectClass, TypedAction
