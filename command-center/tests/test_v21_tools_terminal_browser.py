@@ -180,17 +180,18 @@ async def test_terminal_refuses_cwd_outside_roots(env, tmp_path):
     await env.client.patch(f"/api/agents/{stack['agent']['id']}",
                            json={"permissions": {"terminal.run": True}})
 
-    # project_host is always an ASK boundary, even when the eventual executor
-    # will reject the cwd.  Approval never converts an out-of-roots cwd into
-    # execution: the adapter returns the refusal after the approved resume.
-    assert await _run_task(env, stack["task"]["id"], timeout=15) == "waiting_approval"
-    approval = (await env.client.get("/api/approvals?status=pending")).json()[0]
-    await env.client.post(f"/api/approvals/{approval['id']}",
-                          json={"approve": True, "by": "test"})
+    # Forbidden roots are a hard DENY before ASK. A permitted host command
+    # still needs approval (positive tests above), but an impossible approval
+    # must never be created or consume the owner's time.
     assert await _run_task(env, stack["task"]["id"], timeout=15, until=FINISHED) == "completed"
+    assert (await env.client.get("/api/approvals?status=pending")).json() == []
     tool_msg = adapter.seen_messages[1][-1]["content"]
     assert "вне разрешённых корней" in tool_msg
-    assert "вне разрешённых корней" in adapter.seen_messages[1][-1]["content"]
+    async with env.svc.db.session() as session:
+        rows = (await session.execute(sa.select(tool_calls_t))).mappings().all()
+    assert len(rows) == 1 and rows[0]["status"] == "denied"
+    assert rows[0]["approval_id"] is None
+
 
 
 async def test_destructive_command_is_denied_not_asked(env, tmp_path):

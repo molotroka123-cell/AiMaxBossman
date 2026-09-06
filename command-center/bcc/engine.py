@@ -1094,6 +1094,16 @@ class TaskEngine:
                 continue
 
             effect, reason = decide_effect(spec, call.arguments, agent, policy_rules)
+            if effect != "deny":
+                # A path forbidden by current owner roots must not ask for an
+                # impossible approval. Context cannot lower the existing floor.
+                from .tools import context_denial
+                ctx = ToolContext(svc=self.services, task=task, run_id=run_id, agent=agent,
+                                  step=step, workspace=str(task.get("workspace_path") or ""),
+                                  call_id=str(call.id))
+                blocked = await context_denial(spec, call.arguments, ctx)
+                if blocked:
+                    effect, reason = "deny", blocked
             if effect == "deny":
                 await self._record_tool_call(run_id, task["id"], step, call, spec,
                                              effect="deny", status="denied", preview=reason)

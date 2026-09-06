@@ -162,7 +162,17 @@ class ComputerOperatorManager:
                     cur=self._req(t.id)
                     if cur.generation!=plan_generation or not cur.pending_action or cur.pending_action.id!=a.id:
                         if cur.state in {TaskState.PAUSED,TaskState.USER_CONTROL}:
-                            return cur.state  # recovery/owner parking outranks a stale approval result
+                            # Parking is the owner's result, not a task failure;
+                            # retain why the old approval was unusable as well.
+                            for _ in range(_CAS_RETRIES):
+                                if cur.state not in {TaskState.PAUSED,TaskState.USER_CONTROL}:
+                                    break
+                                cur.last_error="approved action stale; owner control preserved"
+                                try:self._save(cur)
+                                except OwnerStateChanged:
+                                    cur=self._req(t.id); continue
+                                break
+                            return self._req(t.id).state
                         return self._fail(cur,"approved action stale")
                     t=cur
                     step=t.history[-1] if t.history else step
