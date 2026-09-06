@@ -283,3 +283,14 @@ def validate_project(project):
             pending.append((node, True))
             pending.extend((child, False) for child in nested[node])
     return project
+
+
+def frame_ticks(frame, fps):
+    """Absolute sequence frame -> nearest tick, ties upward (no float drift)."""
+    if type(frame) is not int or frame < 0:
+        raise StudioError("Split frame must be a nonnegative integer")
+    frame_rate = rate(fps)
+    if frame_rate > 240:
+        raise StudioError("Sequence FPS exceeds supported frame rate")
+    value = Fraction(frame * TICKS, 1) / frame_rate
+    return ticks((2 * value.numerator + value.denominator) // (2 * value.denominator))

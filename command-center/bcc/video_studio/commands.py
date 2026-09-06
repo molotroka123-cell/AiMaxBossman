@@ -5,7 +5,7 @@ from copy import deepcopy
 from fractions import Fraction
 
 from .model import (Conflict, EditLocked, MissingObject, StudioError, TICKS, clip, clip_duration,
-                    identity, label, new_clip, new_sequence, new_track, number, rate, sequence,
+                    frame_ticks, identity, label, new_clip, new_sequence, new_track, number, rate, sequence,
                     sequence_duration, ticks, track, uid, validate_project)
 
 
@@ -73,7 +73,11 @@ def _split(tr, c, at):
         c["source_out"] = cut
     # Preserve the interpolation at the cut, not two different abrupt states.
     for name, keys in c.get("keyframes", {}).items():
-        cut_value = interpolate(keys, delta)
+        # A key exactly at the cut starts the right half, including a jump
+        # after a hold segment. Interpolating from the preceding hold would
+        # incorrectly copy its old value and turn the new segment into a ramp.
+        exact = next((k for k in keys if k["t"] == delta), None)
+        cut_value = exact["value"] if exact is not None else interpolate(keys, delta)
         c["keyframes"][name] = [k for k in keys if k["t"] < delta] + [{"t": delta, "value": cut_value, "easing": "linear"}]
         right["keyframes"][name] = [{"t": 0, "value": cut_value, "easing": "linear"}] + [dict(k, t=k["t"]-delta) for k in keys if k["t"] > delta]
     tr["clips"].insert(tr["clips"].index(c) + 1, right)
@@ -252,9 +256,53 @@ def apply_command(project, command, actor="human"):
             changed.extend(other["id"] for other in tr["clips"])
         changed.append(c["id"])
     elif kind == "clip.split":
-        _, tr, c = _clip(p, cmd["clip_id"])
-        other = _split(tr, c, ticks(cmd["at"]))
-        changed.extend([c["id"], other["id"]])
+        seq, tr, c = _clip(p, cmd["clip_id"])
+        if ("at" in cmd) == ("frame" in cmd):
+            raise StudioError("Split requires exactly one of at (ticks) or frame (sequence frame)")
+        at = frame_ticks(cmd["frame"], seq["fps"]) if "frame" in cmd else ticks(cmd["at"])
+        if type(cmd.get("with_links", True)) is not bool:
+            raise StudioError("with_links must be boolean")
+        targets = [(tr, c)]
+        if c.get("linked_id"):
+            if not cmd.get("with_links", True):
+                raise StudioError("Unlink the pair explicitly before splitting only one clip")
+            seq2, tr2, partner = _clip(p, c["linked_id"])
+            if partner is c or seq2["id"] != seq["id"] or partner.get("linked_id") != c["id"]:
+                raise StudioError("Split requires a reciprocal linked pair in the same sequence")
+            if not c.get("group_id") or c.get("group_id") != partner.get("group_id"):
+                raise StudioError("Linked pair has inconsistent group identity")
+            # A larger group cannot be silently reassigned to one of the cuts.
+            if any(x.get("group_id") == c["group_id"] and x["id"] not in (c["id"], partner["id"])
+                   for t in seq["tracks"] for x in t["clips"]):
+                raise StudioError("Split the linked pair out of its larger group first")
+            targets.append((tr2, partner))
+        strict = "frame" in cmd or len(targets) == 2
+        if strict:
+            for _, target in targets:
+                if any(k.get("easing", "linear") not in ("linear", "hold")
+                       for keys in target.get("keyframes", {}).values() for k in keys):
+                    raise StudioError("Frame/linked split supports linear or hold keyframes; bake eased curves first")
+        rights = []
+        for owner, target in targets:
+            before, start = clip_duration(target), target["start"]
+            curves = deepcopy(target.get("keyframes", {}))
+            right = _split(owner, target, at)
+            if strict and (clip_duration(target) != at - start or clip_duration(right) != start + before - at):
+                raise StudioError("Split cannot preserve exact tick coverage at this source speed")
+            if strict:
+                # Preserve a held value on the right until its next keyframe.
+                for name, keys in curves.items():
+                    preceding = [k for k in keys if k["t"] <= at - start]
+                    right["keyframes"][name][0]["easing"] = preceding[-1].get("easing", "linear") if preceding else "hold"
+            rights.append(right)
+            changed.extend([target["id"], right["id"]])
+        if len(rights) == 2:
+            group = uid()
+            rights[0].update(group_id=group, linked_id=rights[1]["id"])
+            rights[1].update(group_id=group, linked_id=rights[0]["id"])
+        else:
+            # A split half is an independently selectable/movable object.
+            rights[0].update(group_id=None, linked_id=None)
     elif kind in ("clip.remove", "clip.ripple_delete"):
         _, tr, c = _clip(p, cmd["clip_id"])
         tr["clips"].remove(c)

@@ -70,3 +70,23 @@ test('late model drafts cannot cross projects even when imported clip IDs and re
   assert.equal(proposalBindingMatches(request, { id: 'original', revision: 7 }, 'different', request.draftText), false);
   assert.equal(proposalBindingMatches(request, { id: 'original', revision: 7 }, request.selected, 'edited'), false);
 });
+
+test('frame split uses rational sequence frames and preserves linked editing', async () => {
+  const { frameIndex, frameTicks, splitFrameCommand } = await import('../pages/video_studio_state.js');
+  for (const fps of [{ num: 25, den: 1 }, { num: 24000, den: 1001 }, { num: 30000, den: 1001 }, { num: 60000, den: 1001 }]) {
+    for (const frame of [0, 1, 37, 10000, 1000000]) assert.equal(frameIndex(frameTicks(frame, fps), fps), frame);
+    const p = structuredClone(project); p.sequences[1].fps = fps;
+    const command = splitFrameCommand(p, 'clip', 2500017);
+    assert.equal(command.frame, frameIndex(2500017, fps)); assert.equal(command.with_links, true);
+    assert.equal('at' in command, false); assert.equal(command.clip_id, 'clip');
+  }
+  assert.equal(frameTicks(37, { num: 30000, den: 1001 }), 1234567);
+  assert.equal(frameTicks(37, { num: 24000, den: 1001 }), 1543208);
+  for (const bad of [true, -1, NaN, Infinity, 1.5]) assert.throws(() => frameTicks(bad, { num: 25, den: 1 }));
+  assert.throws(() => frameIndex(0, { num: 25, den: 0 }));
+  const p = structuredClone(project); p.sequences[1].fps = { num: 25, den: 1 };
+  assert.throws(() => splitFrameCommand(p, 'clip', 2000001)); // rounds to boundary
+  assert.throws(() => splitFrameCommand(p, 'missing', 2500000));
+  p.sequences[1].tracks[0].locked = true;
+  assert.throws(() => splitFrameCommand(p, 'clip', 2500000));
+});

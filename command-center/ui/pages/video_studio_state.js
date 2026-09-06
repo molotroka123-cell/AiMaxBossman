@@ -88,3 +88,34 @@ export function proposalBindingMatches(request, project, selected, draftText) {
   return !!request && project?.id === request.projectId && project.revision === request.revision
     && selected === request.selected && draftText === request.draftText;
 }
+
+// Shared sequence-frame commands: exact integer arithmetic matches backend
+// half-up rounding, including 24000/1001 and 30000/1001 sequences.
+function frameRate(fps) {
+  if (!fps || !Number.isSafeInteger(fps.num) || !Number.isSafeInteger(fps.den)
+      || fps.num < 1 || fps.den < 1 || fps.num > 100000 || fps.den > 100000
+      || fps.num / fps.den < .01 || fps.num / fps.den > 240) throw new Error('Invalid sequence FPS');
+  return { num: BigInt(fps.num), den: BigInt(fps.den) };
+}
+const roundRatio = (num, den) => Number((2n * num + den) / (2n * den));
+export function frameIndex(value, fps) {
+  if (!Number.isSafeInteger(value) || value < 0 || value > 7 * 86400 * TIMEBASE) throw new Error('Invalid frame position');
+  const rate = frameRate(fps);
+  return roundRatio(BigInt(value) * rate.num, BigInt(TIMEBASE) * rate.den);
+}
+export function frameTicks(frame, fps) {
+  if (!Number.isSafeInteger(frame) || frame < 0) throw new Error('Invalid frame index');
+  const rate = frameRate(fps);
+  const value = roundRatio(BigInt(frame) * BigInt(TIMEBASE) * rate.den, rate.num);
+  if (!Number.isSafeInteger(value) || value > 7 * 86400 * TIMEBASE) throw new Error('Frame exceeds timeline limit');
+  return value;
+}
+export function splitFrameCommand(project, clipId, playhead) {
+  const sequence = activeSequence(project);
+  const selected = selectedClip(project, clipId);
+  if (!selected || selected.track.locked) throw new Error('Select an unlocked clip');
+  const frame = frameIndex(playhead, sequence.fps);
+  const at = frameTicks(frame, sequence.fps);
+  if (at <= selected.clip.start || at >= selected.clip.start + duration(selected.clip)) throw new Error('Frame must be inside the clip');
+  return { type: 'clip.split', clip_id: clipId, frame, with_links: true };
+}
