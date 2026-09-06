@@ -71,6 +71,12 @@ jobs:
         # объявлена, а не досыпается здесь руками); тут остаётся только браузер.
         run: python -m playwright install --with-deps chromium
 
+      - name: FFmpeg для Video Studio
+        # bcc/video_studio/media.py находит ffmpeg/ffprobe через shutil.which и
+        # честно падает без них; на runner'е их нет, и 20 тестов студии были
+        # красными «ffmpeg is unavailable», а не по делу. Ставим системный пакет.
+        run: sudo apt-get update -q && sudo apt-get install -y -q ffmpeg && ffmpeg -version | head -1
+
       - name: Pytest
         working-directory: command-center
         env:
