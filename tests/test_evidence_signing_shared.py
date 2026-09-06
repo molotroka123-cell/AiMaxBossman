@@ -1,6 +1,8 @@
 """bossman_shared.evidence (EH-01): каноничность, подпись, проверка, ключ 0600."""
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from bossman_shared import evidence as ev
@@ -33,8 +35,10 @@ def test_sign_fields_requires_trusted_signer_and_verifies_as_record():
         ev.sign_fields(body, signer="model:x", key=KEY)
 
 
+@pytest.mark.skipif(os.name == "nt",
+                    reason="права 0600 — POSIX-семантика chmod; на Windows st_mode всегда 0o666, os.chmod управляет только read-only битом")
 def test_key_created_in_env_path_with_0600(tmp_path, monkeypatch):
-    import os, stat
+    import stat
     monkeypatch.setenv(ev.ENV_KEY_FILE, str(tmp_path / "k" / "evidence.key"))
     ev.reset_cache()
     key = ev.load_or_create_key()
