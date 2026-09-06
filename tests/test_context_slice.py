@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,19 @@ from context_slice import (NOGIT, failing_test_slice, head_sha, repo_map,  # noq
 
 ROOT = Path(__file__).resolve().parents[1]
 CC = ROOT / "command-center"
+
+
+def _symlinks_supported() -> bool:
+    """Setup-probe: os.symlink на Windows требует привилегии (WinError 1314)."""
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            os.symlink("t", os.path.join(d, "l"))
+            return True
+    except OSError:
+        return False
+
+
+SYMLINKS = _symlinks_supported()
 
 
 def _mini_repo(tmp_path: Path) -> Path:
@@ -76,6 +90,8 @@ def test_repo_map_rebuilds_on_modified_file_under_same_head(tmp_path):
     assert back["cache"] == "hit" and back["fingerprint"] == first["fingerprint"]
 
 
+@pytest.mark.skipif(not SYMLINKS,
+                    reason="создание symlink требует привилегии ФС (WinError 1314) — различение symlink в отпечатке покрыто на платформах с поддержкой")
 def test_fingerprint_changes_on_add_delete_rename_untracked_symlink(tmp_path):
     root = _git_repo(tmp_path)
     seen = {"clean": worktree_fingerprint(root)}

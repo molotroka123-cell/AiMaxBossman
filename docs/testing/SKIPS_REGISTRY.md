@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 126. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 127. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -125,6 +125,7 @@
 | `bossman-core/tests/test_v3_command_center_adapters.py:19` | importorskip | `—` | Command Center (bcc) не установлен рядом с ядром | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_v3_organization_command_center.py:18` | importorskip | `—` | Command Center (bcc) не установлен рядом с ядром | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_video_factory.py:30` | skipif | `not ffmpeg_available()` | ffmpeg binary not available | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_context_slice.py:93` | skipif | `not SYMLINKS` | создание symlink требует привилегии ФС (WinError 1314) — различение symlink в отпечатке покрыто на платформах с поддержкой | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_fable_budget_pricing.py:97` | skip | `—` | canonical_budget not exposed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:84` | importorskip | `—` | нет пакета fastapi | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:87` | importorskip | `—` | Solana SDK (solders) не установлен — панель безопасности не импортируется | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
