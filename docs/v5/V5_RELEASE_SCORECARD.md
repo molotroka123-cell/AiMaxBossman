@@ -15,11 +15,11 @@ was.
 | N1 — canonical persistence/CAS/migration | `PASS` | `bossman_shared/objective_store.py`, 99 hostile tests, verified no lost update under 8 threads. |
 | N2 — scoped observers, freshness, provenance | `PASS` | `objective_observer.py` / `objective_world_state.py`, 25 tests. Idle model calls are 0 by construction: `should_observe` is deterministic and the value digest excludes time. |
 | N3 — proposal → current authorization → Mission IR | `PASS` | `objective_admission.py` / `objective_mission.py`, 18 tests, emitting real canonical `MissionIR`. |
-| N4 — conflicts, cooldown, quotas, anti-oscillation | `PARTIAL` | Conflict keys, cooldown and quotas are enforced through ports and covered by H06/H07. Fairness and bounded aging across many objectives are `NOT_RUN`. |
-| N5 — measured templates/skills, no privilege expansion | `PARTIAL` | `objective_improvement.py` refuses trust-critical promotion and permission widening structurally. Measured skill promotion is `NOT_RUN`. |
-| N6 — objective workspace and owner control | `PARTIAL` | Read-only inspector plus explicit owner lifecycle/enrollment actions. The creation wizard and the Evidence/Revisions detail tabs are `NOT_RUN`. |
+| N4 — conflicts, cooldown, quotas, anti-oscillation | `PASS` (repo-local) | `objective_fairness.py` (33 tests): quota per window, bounded continuous aging, starvation deadline, deterministic total order. A prior defect is closed with it — a successful admission never released its conflict key, so a second objective was refused `conflict_held` forever; `AdmissionKernel.settle` now ends an admission, with durable release bookkeeping for the gap the DB and an external port cannot share a transaction across. Eight hostile settle cases covered. Fairness under a REAL scheduler loop is still `NOT_RUN`: nothing calls `rank()` in production yet. |
+| N5 — measured templates/skills, no privilege expansion | `PASS` (repo-local) | `objective_promotion.py` (29 root tests + 5 against the canonical durable ledger): deterministic holdout, applicability-version binding checked at authorization, evidence spent exactly once with the refusal surviving a restart, evidence spent LAST so a malformed request does not burn it. Structural refusals still unbuyable. A promotion measured against a REAL model is `NOT_RUN` — the runner exists (`tools/intelligence_preservation_run.py`) but has not been run on the owner's model. |
+| N6 — objective workspace and owner control | `PASS` (repo-local) | Creation wizard with a real server-side approval preview (`POST /objectives/preview` writes nothing), Evidence and Revisions tabs, Pause/Resume/Revoke. 15 backend tests + 7 node tests. `v5_spec_history` keeps superseded specs so Revisions shows WHAT changed. Owner-visible acceptance in a real browser on the owner's machine is `NOT_RUN`. |
 | N7 — H01–H10, security, cost, durability, soak | `PARTIAL` | H01–H10 pass as an in-process suite. 24-hour soak, Windows and real-FFmpeg rows are `NOT_RUN`. |
-| N8 — migration, canary, rollback rehearsal, exact-SHA | `PARTIAL` | Migration step 5 (read-only inspector) is in place and `prepare_rollback` returns the ordering as inspectable data. Canary admission and a live rollback rehearsal are `NOT_RUN`. |
+| N8 — migration, canary, rollback rehearsal, exact-SHA | `PASS` (repo-local) | `objective_canary.py` (18 tests): deterministic cohort bounded at both ends, silence is PENDING not PASS, one unhealthy member fails the whole canary. The rehearsal is real — a live objective admitted through the actual `AdmissionKernel`, an irreversible effect in flight, a revision landing under it, the canary failing, and all four promises asserted across a process restart. A rollback rehearsal on the owner's machine is `NOT_RUN`. |
 
 ## Golden Missions
 
@@ -62,6 +62,19 @@ CORE_RETENTION=NOT_RUN
 INTELLIGENCE_GATE=INSUFFICIENT_EVIDENCE
 ```
 
+The measurer now exists (`tools/intelligence_preservation_run.py`, 220-task
+held-out set, 19 tests). It did not before: the gate had no producer, which is
+why `docs/benchmark/intelligence-preservation-current.json` was missing and the
+CI job failed on the missing file rather than on any measurement.
+
+One number belongs here, because it changes what "measured" costs. `--min-samples 20`
+in CI is a floor, not sufficiency. Measured by running the real gate: a PERFECT
+paired run still answers `INSUFFICIENT_EVIDENCE` at 20, 100 and 150 items per
+metric, and only reaches `PASS` at **189**; with one lost item per metric no
+sample size up to 4000 passes. The shipped set is 20 per metric — an honest
+smoke of all four lanes, and explicitly not a `PASS`. See
+`docs/benchmark/INTELLIGENCE_MEASUREMENT.md`.
+
 The context boundary is implemented and tested (`objective_context.py`, 50
 tests): the slice refuses foreign objectives, unscoped memory and every
 forbidden dump key, and memory can never be read as policy. That is a property
@@ -97,11 +110,21 @@ REMOTE_FLEET=EXPERIMENTAL — unqualified, unchanged by this work
 
 ```
 VERDICT=V5_NOT_COMPLETE
+IMPLEMENTATION_COMPLETE=YES (repo-local, N1-N8)
+LOCAL_ACCEPTANCE_COMPLETE=NO
+RELEASE_CERTIFICATION_COMPLETE=NO
 ```
 
 The V5 runtime spine exists, composes end to end and holds its invariants under
-hostile tests. It is not released and standing autonomy is not activated: N0 has
-not been accepted, the intelligence retention measurement has not been taken,
-and the soak, Windows, egress and Fleet rows have not been run. Nothing in this
-branch turns autonomy on — the objective workspace registers no background tick
-and mounts no admission path.
+hostile tests, and N4/N5/N6/N8 are now implemented rather than partial. It is
+still NOT released and standing autonomy is still off. What separates
+implementation from release is unchanged and is not a formality: N0 has not been
+accepted, no retention figure has been measured on a real model, and the soak,
+Windows, egress and Fleet rows have not been run. Nothing in this branch turns
+autonomy on — the objective workspace registers no background tick and mounts no
+admission path, and the fairness scheduler is a pure function that production
+does not yet call.
+
+`PASS (repo-local)` above means exactly what it says: the property is
+implemented and covered by hostile tests in this repository. It is not a claim
+about the owner's machine, a live model, or a released system.
