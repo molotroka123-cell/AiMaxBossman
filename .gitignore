@@ -64,3 +64,4 @@ build/
 astra-security-results/
 .coverage
 .coverage.*
+/.audit-work/

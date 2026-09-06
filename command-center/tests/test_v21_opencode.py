@@ -237,7 +237,7 @@ async def test_unapproved_path_is_refused_not_asked(env, repo, fake, monkeypatch
     await env.client.patch(f"/api/agents/{stack['agent']['id']}", json=AUTO_RULES)
 
     status = await _run_task(env, stack["task"]["id"], timeout=20, until=FINISHED)
-    assert status == "completed"
+    assert status == "failed"  # refusal is returned as data, never execution success
     refusal = adapter.seen_messages[1][-1]
     assert refusal["role"] == "tool" and "вне одобренных корней" in refusal["content"]
     assert not [p for m, p, _ in fake.requests if m == "POST" and p == "/session"]
@@ -360,7 +360,7 @@ async def test_tool_reports_unavailable_without_inventing_work(env, repo, monkey
     await env.client.patch(f"/api/agents/{stack['agent']['id']}", json=AUTO_RULES)
 
     assert await _run_task(env, stack["task"]["id"], timeout=20,
-                           until=FINISHED) == "completed"
+                           until=FINISHED) == "failed"
     msg = adapter.seen_messages[1][-1]
     assert msg["role"] == "tool" and "OpenCode недоступен" in msg["content"]
     assert await oc_rows(env.svc) == []

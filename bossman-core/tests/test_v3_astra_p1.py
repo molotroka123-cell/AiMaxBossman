@@ -30,7 +30,9 @@ def test_astra_002_unsigned_finished_flags_do_not_skip_work(tmp_path):
     path.write_text(json.dumps(raw), encoding="utf-8")
     # SALVAGE-004: журнал с «закрытыми», но неподписанными шагами не загружается вовсе —
     # подделка блокирует resume (JournalIntegrityError), а не «исполняем заново молча».
-    with pytest.raises(JournalIntegrityError, match="unsigned completion"):
+    # The authenticated snapshot now refuses the forged bytes before individual
+    # completion parsing. Resume remains blocked, not silently replayed.
+    with pytest.raises(JournalIntegrityError, match="unsigned journal snapshot"):
         TaskJournal.load(task_id="chain", root=tmp_path)
     # честный журнал того же плана: подписанные закрытия — единственный способ пропустить шаг
     ex = _Executor()

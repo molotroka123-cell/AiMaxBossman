@@ -1,0 +1,92 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { ticks, seconds, duration, timecode, snapTime, commandEnvelope, filterMedia, activeSequence, selectedClip, exportOptions, captionText, proposalBindingMatches } from '../pages/video_studio_state.js';
+
+test('microsecond times preserve precise fractional source boundaries', () => {
+  assert.equal(ticks('1.000001'), 1000001); assert.equal(seconds(1000001), 1.000001);
+  assert.throws(() => ticks(-1)); assert.throws(() => ticks(Infinity)); assert.throws(() => ticks('not time'));
+});
+test('duration uses rational speed, freeze and individual ramp segments', () => {
+  assert.equal(duration({ source_in: 0, source_out: 3000000, speed: { num: 3, den: 2 } }), 2000000);
+  assert.equal(duration({ freeze: true, freeze_duration: 900000 }), 900000);
+  assert.equal(duration({ speed_ramp: [{ source_in: 0, source_out: 1000000, speed: { num: 1, den: 1 } }, { source_in: 1000000, source_out: 3000000, speed: { num: 2, den: 1 } }] }), 2000000);
+});
+test('timecode respects rational sequence fps rather than assuming 30', () => {
+  assert.equal(timecode(1520000, { num: 25, den: 1 }), '00:00:01:13');
+  assert.equal(timecode(3600000000, { num: 30000, den: 1001 }), '01:00:00:00');
+});
+const clip = { id: 'clip', start: 2000000, source_in: 0, source_out: 1000000, speed: { num: 1, den: 1 } };
+const project = { id: 'project', revision: 7, active_sequence_id: 'second', sequences: [{ id: 'first', tracks: [] }, { id: 'second', tracks: [{ id: 'track', clips: [clip] }] }], markers: [{ t: 4000000 }] };
+test('clip lookup and snap use active sequence and avoid self-snapping', () => {
+  assert.equal(activeSequence(project).id, 'second'); assert.equal(selectedClip(project, 'clip').track.id, 'track');
+  assert.equal(snapTime(3010000, project, null, 0, 20000), 3000000);
+  assert.equal(snapTime(3010000, project, 'clip', 0, 20000), 3010000);
+  assert.equal(snapTime(3990000, project, 'clip', 0, 20000), 4000000);
+});
+test('dry-run and apply retain the same id and source revision', () => {
+  const command = { type: 'clip.split', clip_id: 'clip', at: 2500000 };
+  const dry = commandEnvelope(project, command, 'op', true); const actual = commandEnvelope(project, command, 'op');
+  assert.equal(dry.expected_revision, 7); assert.equal(dry.operation_id, actual.operation_id); assert.equal(dry.dry_run, true); assert.equal(actual.dry_run, false);
+  assert.deepEqual(project.sequences[1].tracks[0].clips[0], clip);
+  assert.throws(() => commandEnvelope({ id: 'p' }, command, 'op'));
+});
+test('media library searches tags, filters folders and sorts metadata without mutation', () => {
+  const media = { a: { id: 'a', name: 'A', folder: 'one', tags: ['speech'], duration_ticks: 10, bytes: 20 }, b: { id: 'b', name: 'B', folder: 'two', tags: [], duration_ticks: 30, bytes: 10 } };
+  assert.deepEqual(filterMedia(media, 'speech').map(m => m.id), ['a']);
+  assert.deepEqual(filterMedia(media, '', 'two').map(m => m.id), ['b']);
+  assert.deepEqual(filterMedia(media, '', '', 'duration').map(m => m.id), ['b', 'a']);
+  assert.deepEqual(Object.keys(media), ['a', 'b']);
+});
+
+test('Reels and square profiles retain backend dimensions unless explicitly overridden', () => {
+  for (const profile of ['reels', 'square']) {
+    const options = exportOptions({ profile, width: '', height: '', crf: '20' });
+    assert.equal(options.profile, profile); assert.equal('width' in options, false); assert.equal('height' in options, false);
+  }
+  assert.equal(exportOptions({ profile: 'reels', width: '720', height: '1280' }).height, 1280);
+  assert.throws(() => exportOptions({ width: '721' }));
+});
+test('export exact FPS and selected range are validated without replacing full export with a range', () => {
+  const options = exportOptions({ fps_num: '30000', fps_den: '1001', range_mode: 'range', range_start: '0.000001', range_end: '1.000001' });
+  assert.deepEqual(options.fps, { num: 30000, den: 1001 }); assert.deepEqual(options.range, { start: 1, end: 1000001 });
+  assert.equal('range' in exportOptions({ range_mode: 'all', range_start: 1, range_end: 0 }), false);
+  assert.throws(() => exportOptions({ range_mode: 'range', range_start: 1, range_end: 0 }));
+  assert.throws(() => exportOptions({ fps_num: '25', fps_den: '0' }));
+});
+
+test('VTT timestamp conversion preserves comma decimals inside caption text', () => {
+  const cues = [{ start: 1234000, end: 2000000, text: 'Цена 1,234. Привет!' }];
+  const vtt = captionText(cues, 'vtt');
+  assert.match(vtt, /00:00:01\.234 --> 00:00:02\.000/); assert.match(vtt, /Цена 1,234/);
+  assert.match(captionText(cues), /00:00:01,234/);
+  assert.throws(() => captionText([{ start: 1, end: 0, text: 'bad' }]));
+});
+
+test('late model drafts cannot cross projects even when imported clip IDs and revisions coincide', () => {
+  const request = { projectId: 'original', revision: 7, selected: 'retained-clip-id', draftText: 'human draft' };
+  assert.equal(proposalBindingMatches(request, { id: 'original', revision: 7 }, request.selected, request.draftText), true);
+  assert.equal(proposalBindingMatches(request, { id: 'copy', revision: 7 }, request.selected, request.draftText), false);
+  assert.equal(proposalBindingMatches(request, { id: 'original', revision: 8 }, request.selected, request.draftText), false);
+  assert.equal(proposalBindingMatches(request, { id: 'original', revision: 7 }, 'different', request.draftText), false);
+  assert.equal(proposalBindingMatches(request, { id: 'original', revision: 7 }, request.selected, 'edited'), false);
+});
+
+test('frame split uses rational sequence frames and preserves linked editing', async () => {
+  const { frameIndex, frameTicks, splitFrameCommand } = await import('../pages/video_studio_state.js');
+  for (const fps of [{ num: 25, den: 1 }, { num: 24000, den: 1001 }, { num: 30000, den: 1001 }, { num: 60000, den: 1001 }]) {
+    for (const frame of [0, 1, 37, 10000, 1000000]) assert.equal(frameIndex(frameTicks(frame, fps), fps), frame);
+    const p = structuredClone(project); p.sequences[1].fps = fps;
+    const command = splitFrameCommand(p, 'clip', 2500017);
+    assert.equal(command.frame, frameIndex(2500017, fps)); assert.equal(command.with_links, true);
+    assert.equal('at' in command, false); assert.equal(command.clip_id, 'clip');
+  }
+  assert.equal(frameTicks(37, { num: 30000, den: 1001 }), 1234567);
+  assert.equal(frameTicks(37, { num: 24000, den: 1001 }), 1543208);
+  for (const bad of [true, -1, NaN, Infinity, 1.5]) assert.throws(() => frameTicks(bad, { num: 25, den: 1 }));
+  assert.throws(() => frameIndex(0, { num: 25, den: 0 }));
+  const p = structuredClone(project); p.sequences[1].fps = { num: 25, den: 1 };
+  assert.throws(() => splitFrameCommand(p, 'clip', 2000001)); // rounds to boundary
+  assert.throws(() => splitFrameCommand(p, 'missing', 2500000));
+  p.sequences[1].tracks[0].locked = true;
+  assert.throws(() => splitFrameCommand(p, 'clip', 2500000));
+});

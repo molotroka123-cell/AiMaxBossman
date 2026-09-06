@@ -1,0 +1,99 @@
+/* Continuity desktop: CSS wallpaper, opaque fallback, no external assets/fonts. */
+:root {
+  --desktop-surface: #151c2c;
+  --desktop-glass: rgba(19, 27, 44, .92);
+  --desktop-wallpaper: radial-gradient(ellipse at 80% 5%, #353171, transparent 65%),
+    radial-gradient(ellipse at 10% 90%, #173d67, transparent 60%), #0b1221;
+}
+[data-theme="light"] {
+  --desktop-surface: #f5f7ff;
+  --desktop-glass: rgba(244, 248, 255, .86);
+  --desktop-wallpaper: radial-gradient(ellipse at 85% 5%, #b1a4f5, transparent 57%),
+    radial-gradient(ellipse at 8% 78%, #93c9ff, transparent 58%),
+    linear-gradient(130deg, #e9e4ff, #c8dfff 48%, #9babf5);
+  --dim: #525f76;
+  --dim-2: #616d83;
+  --bx-ink-3: #59677d;
+  --bx-mint: #08794f;
+  --bx-amber: #946000;
+  --bx-azure: #205ed0;
+  --bx-violet: #7744d4;
+}
+body { background: var(--desktop-wallpaper); background-attachment: fixed; }
+.desktop-skip {
+  position: fixed; top: -80px; left: 20px; z-index: 200;
+  padding: 12px 18px; background: var(--panel); color: var(--fg);
+  border: 2px solid var(--accent); border-radius: 10px;
+}
+.desktop-skip:focus { top: 12px; }
+.desktop-dock { display: none; }
+.brand-mark {
+  background: linear-gradient(145deg, #738bff, #214ecf);
+  border-color: #abc2ff; color: white; box-shadow: 0 3px 12px #3862df40;
+}
+.brand-text i { margin-top: 5px; font-size: 10px; letter-spacing: 0; }
+.nav-item { min-height: 38px; }
+.nav-item.active { box-shadow: inset 3px 0 0 var(--accent); }
+.bx-hero-title { font-weight: 700; font-size: clamp(30px, 3.2vw, 44px); }
+.bx-panel, .bx-app, .bx-command {
+  border-radius: 18px; box-shadow: 0 5px 20px #193c7410;
+}
+[data-theme="light"] .bx-panel,
+[data-theme="light"] .bx-app,
+[data-theme="light"] .bx-command { background-color: rgba(255, 255, 255, .76); }
+:is(button, a, input, textarea, select):focus-visible {
+  outline: 3px solid var(--accent); outline-offset: 3px;
+}
+@media (min-width: 901px) {
+  .shell {
+    margin: 16px 16px 96px; min-height: calc(100dvh - 112px);
+    border: 1px solid var(--line); border-radius: 22px;
+    background: var(--desktop-surface); box-shadow: 0 18px 60px #142c6025;
+  }
+  .sidebar {
+    top: 16px; height: calc(100dvh - 112px); background: transparent;
+    border-radius: 22px 0 0 22px;
+  }
+  .topbar {
+    top: 16px; background: var(--desktop-surface);
+    border-radius: 0 22px 0 0; min-height: 62px;
+  }
+  .view { padding: 24px; }
+  .desktop-dock {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    z-index: 45; padding: 7px; max-width: calc(100vw - 32px);
+    border: 1px solid var(--line); border-radius: 20px;
+    background: var(--desktop-surface); box-shadow: 0 8px 28px #173b6326;
+  }
+  .desktop-dock-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    min-width: 76px; min-height: 54px; padding: 7px 12px;
+    border: 1px solid transparent; border-radius: 13px;
+    font: 11px var(--font); background: transparent; color: var(--fg-2); cursor: pointer;
+  }
+  .desktop-dock-item svg { color: var(--accent); }
+  .desktop-dock-item:hover, .desktop-dock-item.active {
+    background: var(--accent-soft); border-color: var(--accent-line);
+  }
+  .desktop-dock-item.active { box-shadow: inset 0 -3px var(--accent); }
+  body .bx-cmd { bottom: 96px; max-height: calc(100dvh - 125px); overflow-y: auto; }
+  @supports (backdrop-filter: blur(16px)) {
+    .shell, .desktop-dock { background: var(--desktop-glass); backdrop-filter: blur(16px); }
+  }
+}
+@media (max-width: 900px) {
+  .main { background: var(--desktop-surface); }
+  .sidebar { background: var(--desktop-surface); }
+  body .bx-cmd { bottom: calc(80px + env(safe-area-inset-bottom)); max-height: 65dvh; overflow-y: auto; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .shell, .desktop-dock, .topbar { background: var(--desktop-surface); backdrop-filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+@media (forced-colors: active) {
+  .shell, .desktop-dock, .topbar { background: Canvas; backdrop-filter: none; }
+  .desktop-dock-item.active, .nav-item.active { outline: 2px solid Highlight; }
+}
