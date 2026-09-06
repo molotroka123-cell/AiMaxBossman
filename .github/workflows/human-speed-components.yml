@@ -25,7 +25,7 @@ jobs:
     env:
       BOSSMAN_SPEED_RESULTS: ${{ github.workspace }}/speed-results
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
