@@ -52,6 +52,26 @@ COMPACT_INSTRUCTION = (
 )
 
 
+def _split_sections(text: str) -> tuple[str, list[str]]:
+    """Head text, then each `## ` section (heading line included) in order."""
+    head_lines: list[str] = []
+    sections: list[list[str]] = []
+    for line in text.splitlines():
+        if line.startswith("## "):
+            sections.append([line])
+        elif sections:
+            sections[-1].append(line)
+        else:
+            head_lines.append(line)
+    return "\n".join(head_lines).rstrip(), ["\n".join(sec).rstrip() for sec in sections]
+
+
+def _join_sections(head: str, sections: list[str]) -> str:
+    parts = [head] if head else []
+    parts += sections
+    return "\n\n".join(p for p in parts if p)
+
+
 @dataclass
 class HistoryItem:
     role: str            # assistant | tool
@@ -81,6 +101,11 @@ class ContextBuilder:
     def __init__(self, budget: ContextBudget, system: str, refs: str = "",
                  key_constraint: str = ""):
         self.budget = budget
+        # Telemetry of what the budget did to the instruction blocks: which
+        # trailing sections were dropped whole, and by how many tokens a
+        # protected head still exceeds its block limit (borrowed from reserve).
+        self.dropped: dict[str, list[str]] = {}
+        self.over_budget: dict[str, int] = {}
         self.system = self._fit(system, "system")
         self.refs = self._fit(refs, "refs")
         self.key_constraint = key_constraint
@@ -110,10 +135,45 @@ class ContextBuilder:
     # ---- обрезка и уплотнение ----
 
     def _fit(self, text: str, block: str) -> str:
+        """Fit an instruction block to its budget WITHOUT silently cutting text.
+
+        The old rule sliced the block by characters and appended a marker, so a
+        long system prompt lost its tail — typically the constraints and
+        forbidden-effect rules — and a long refs block lost the last project
+        rules, with nothing but a marker to show for it. Pruning must not remove
+        required facts (handoff pack 05): now the block is treated as a head
+        (the agent's role/policy prompt, the first project rule) followed by
+        `## `-sections, and trailing sections are dropped WHOLE, last first
+        (memory.md before the tool list before the prompt). The head itself is
+        never cut: if it alone exceeds the block limit it is kept intact and
+        the overflow is recorded in `over_budget` so the caller can see it
+        and the reserve pays for it. Dropped section headings are recorded in
+        `dropped`, so the loss is observable instead of a marker in the prompt.
+        """
         limit = self.budget.limits[block]
         if estimate_tokens(text) <= limit:
             return text
-        return text[: limit * 3] + "\n[обрезано по бюджету блока]"
+        head, sections = _split_sections(text)
+        kept = list(sections)
+        dropped: list[str] = []
+        while kept and estimate_tokens(_join_sections(head, kept)) > limit:
+            dropped.insert(0, kept.pop().splitlines()[0].strip())
+        fitted = _join_sections(head, kept)
+        if dropped:
+            self.dropped[block] = dropped
+        overflow = estimate_tokens(fitted) - limit
+        if overflow > 0:
+            self.over_budget[block] = overflow
+        return fitted
+
+    def pruning_report(self) -> dict:
+        """What the budget removed or exceeded; empty dict means nothing was lost."""
+        out: dict = {}
+        if self.dropped:
+            out["dropped"] = dict(self.dropped)
+        if self.over_budget:
+            out["over_budget"] = dict(self.over_budget)
+        return out
 
     def _history_messages(self) -> list[dict]:
         """Скользящее окно: старые результаты инструментов — одной строкой (10.4),
