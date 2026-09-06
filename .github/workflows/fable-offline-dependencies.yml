@@ -14,7 +14,8 @@ jobs:
         with:
           python-version: '3.13'
       - name: Fetch dependency wheels for isolated reproduction
-        run: python -m pip download --only-binary=:all: --no-deps -d closure-wheelhouse aiosqlite asyncpg redis pytest-timeout socksio
+        run: |
+          python -m pip download --only-binary=:all: --no-deps -d closure-wheelhouse aiosqlite asyncpg redis pytest-timeout socksio
       - uses: actions/upload-artifact@v4
         with:
           name: closure-wheelhouse
