@@ -35,6 +35,7 @@ they already satisfy and sequences them. It also does not build Mission IR --
 """
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field, replace
 import hashlib
 import json
@@ -124,6 +125,41 @@ class TreasuryPort(Protocol):
         ...
 
 
+# Чем кончилась попытка отпустить ключи конфликта. Это НЕ «успех/неуспех»
+# закрытия допуска: бронь к этому моменту уже закрыта в БД, и разница здесь —
+# между «ключи отпущены», «неизвестно, отпущены ли» и «отпускать было нечего».
+RELEASE_DONE = "RELEASED"
+RELEASE_UNRESOLVED = "UNRESOLVED"
+RELEASE_NOTHING = "NOTHING_TO_RELEASE"
+RELEASE_UNKNOWN_KEYS = "KEYS_NOT_RECORDED"
+
+
+@dataclass(frozen=True, slots=True)
+class Settlement:
+    """Итог закрытия допуска. Состояние БД и состояние порта — РАЗНЫЕ поля.
+
+    Изображать их одним «ok» значило бы обещать атомарность, которой между
+    базой и внешним реестром нет.
+    """
+
+    reservation_id: str
+    disposition: str
+    state: Any
+    objective_id: str
+    conflict_keys: tuple[str, ...]
+    release_status: str
+    detail: str = ""
+
+    @property
+    def released(self) -> bool:
+        return self.release_status == RELEASE_DONE
+
+    @property
+    def needs_cleanup(self) -> bool:
+        """True, пока ключи могут оставаться захваченными."""
+        return self.release_status in {RELEASE_UNRESOLVED, RELEASE_UNKNOWN_KEYS}
+
+
 @runtime_checkable
 class ConflictPort(Protocol):
     """Current holder registry for conflict keys; claims are exclusive."""
@@ -133,6 +169,13 @@ class ConflictPort(Protocol):
         ...
 
     def release(self, conflict_keys: tuple[str, ...], objective_id: str) -> None:
+        """Отпустить ключи, ЕСЛИ они всё ещё за этой целью.
+
+        Обязан быть идемпотентным и обязан быть no-op для ключа, который уже
+        держит кто-то другой: повторяемая уборка вызывает его после падения, и
+        к тому моменту ресурс могла законно взять другая цель. Снимать чужую
+        аренду по старому вызову недопустимо.
+        """
         ...
 
 
@@ -383,32 +426,88 @@ class AdmissionKernel:
         self.treasury = treasury
         self.conflicts = conflicts
 
-    def settle(self, store: ObjectiveStore, reservation_id: str, disposition: str,
-               *, objective_id: str | None = None) -> Any:
+    def settle(self, store: ObjectiveStore, reservation_id: str,
+               disposition: str) -> "Settlement":
         """Закрыть допуск: снять бронь И ОТПУСТИТЬ ключи конфликта.
 
         `admit` возвращается на успешном пути, ДЕРЖА ключи, и это правильно:
-        миссия ещё идёт, и никто другой не должен трогать ту же область. Но
-        отпускать их было некому — единственный вызов `conflicts.release` стоит
-        на пути отказа (ниже, в компенсации). Измерено: после того как миссия
-        obj-a завершилась COMMITTED, реестр по-прежнему держит `repo:main` за
-        obj-a, releases==0, и obj-b через 5000 секунд с совершенно свежим
-        предложением получает `conflict_held` — навсегда. Никакая очерёдность
-        это не лечит: `admit` отказывает состарившемуся проигравшему независимо
-        от его ранга. Допуск обязан иметь конец, и вот он.
+        миссия ещё идёт. Но отпускать их было некому — единственный вызов
+        `conflicts.release` стоял на пути отказа. Измерено: после того как
+        миссия obj-a завершилась COMMITTED, реестр по-прежнему держал
+        `repo:main` за obj-a, releases==0, и obj-b через 5000 секунд со
+        свежим предложением получал `conflict_held` — навсегда. Никакая
+        очерёдность это не лечит: `admit` отказывает состарившемуся
+        проигравшему независимо от ранга.
 
-        Ключи берутся из брони, а не из текущей спецификации: ревизия могла
-        поменять `conflict_keys` уже после допуска, и отпустить надо ровно то,
-        что было захвачено.
+        Владелец и ключи берутся ИЗ ДОЛГОВЕЧНОЙ ЗАПИСИ, а не из аргументов
+        вызывающего: аргумент — заявление, а отпустить чужую аренду по
+        заявлению нельзя. Ключи именно те, что были захвачены: ревизия могла
+        поменять `conflict_keys` уже после допуска.
+
+        Между закрытием брони в БД и вызовом внешнего порта общей транзакции
+        нет. Здесь она и не изображается: исход попытки записывается в бронь,
+        поэтому незавершённый release ВИДЕН (`store.pending_releases`) и
+        повторяем (`resolve_pending_releases`).
         """
         reservation = store.reservation(reservation_id)
-        payload = (reservation or {}).get("payload") or {}
-        keys = tuple(payload.get("conflict_keys") or ())
-        owner = objective_id or (reservation or {}).get("objective_id")
-        settled = store.settle_reservation(reservation_id, disposition)
-        if keys and owner:
+        if reservation is None:
+            raise ObjectiveStoreError(f"unknown reservation {reservation_id}")
+        payload = reservation.get("payload") or {}
+        declared = "conflict_keys" in payload if isinstance(payload, dict) else False
+        keys = tuple(payload.get("conflict_keys") or ()) if isinstance(payload, dict) else ()
+        owner = reservation["objective_id"]
+        state = store.settle_reservation(reservation_id, disposition)
+        status, detail = self._release(store, reservation_id, owner, keys, declared)
+        return Settlement(reservation_id=reservation_id, disposition=disposition, state=state,
+                          objective_id=owner, conflict_keys=keys, release_status=status,
+                          detail=detail)
+
+    def _release(self, store: ObjectiveStore, reservation_id: str, owner: str,
+                 keys: tuple[str, ...], declared: bool) -> tuple[str, str]:
+        """Отпустить ключи и ЗАПИСАТЬ, чем это кончилось."""
+        if not keys:
+            # Броня старого билда не хранит захваченные ключи. Отпускать по ней
+            # нечего, и это не «успех»: если ключ был взят, он остаётся за
+            # владельцем, и сказать об этом надо вслух, а не промолчать.
+            status = RELEASE_NOTHING if declared else RELEASE_UNKNOWN_KEYS
+            detail = "" if declared else "reservation predates recorded conflict keys"
+            with contextlib.suppress(ObjectiveStoreError):
+                store.note_release(reservation_id, status, detail)
+            return status, detail
+        try:
             self.conflicts.release(keys, owner)
-        return settled
+        except Exception as exc:  # noqa: BLE001 — порт внешний, отказ ожидаем
+            detail = f"{type(exc).__name__}: {exc}"[:500]
+            with contextlib.suppress(ObjectiveStoreError):
+                store.note_release(reservation_id, RELEASE_UNRESOLVED, detail)
+            return RELEASE_UNRESOLVED, detail
+        try:
+            store.note_release(reservation_id, RELEASE_DONE)
+        except ObjectiveStoreError as exc:
+            # Ключи отпущены, но след не записан: повторная уборка попробует
+            # ещё раз, а release порта обязан быть идемпотентным (см. контракт
+            # ConflictPort). Молча считать это успехом нельзя.
+            return RELEASE_UNRESOLVED, f"release done, not recorded: {exc}"[:500]
+        return RELEASE_DONE, ""
+
+    def resolve_pending_releases(self, store: ObjectiveStore,
+                                 objective_id: str | None = None) -> tuple["Settlement", ...]:
+        """Повторяемая уборка: доотпустить ключи закрытых броней.
+
+        Нужна ровно для случая «процесс упал между закрытием брони и вызовом
+        порта». Операция идемпотентна: `release` порта обязан быть no-op, если
+        ключ уже не за этим владельцем, поэтому повтор после того, как ресурс
+        успела взять другая цель, чужую аренду не снимает.
+        """
+        out = []
+        for row in store.pending_releases(objective_id):
+            keys = tuple(row["conflict_keys"])
+            status, detail = self._release(store, row["reservation_id"], row["objective_id"],
+                                           keys, True)
+            out.append(Settlement(reservation_id=row["reservation_id"], disposition=row["state"],
+                                  state=None, objective_id=row["objective_id"],
+                                  conflict_keys=keys, release_status=status, detail=detail))
+        return tuple(out)
 
     def admit(self, store: ObjectiveStore, proposal: AdmissionProposal, *,
               now: float) -> AdmissionDecision:

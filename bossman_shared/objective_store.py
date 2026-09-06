@@ -688,6 +688,67 @@ class ObjectiveStore:
             self._log(con, row["objective_id"], "settled", f"{reservation_id}:{state}")
         return self.get(row["objective_id"])
 
+    def note_release(self, reservation_id: str, status: str, detail: str = "") -> None:
+        """Записать в бронь, чем кончилась попытка отпустить ключи конфликта.
+
+        Между закрытием брони в БД и вызовом внешнего порта нет и не может быть
+        общей транзакции. Делать вид, что она есть, — значит терять ключ при
+        падении ровно в этом промежутке. Поэтому исход попытки хранится в самой
+        (уже закрытой) брони: незавершённый release ВИДЕН и повторяем.
+
+        Трогается только служебный ключ `release`; тело допуска не меняется.
+        """
+        with self._connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            row = con.execute("SELECT objective_id,payload FROM v5_reservations "
+                              "WHERE reservation_id=?", (reservation_id,)).fetchone()
+            if row is None:
+                raise ObjectiveStoreError(f"unknown reservation {reservation_id}")
+            try:
+                payload = json.loads(row["payload"])
+            except (TypeError, ValueError):
+                payload = {}
+            if not isinstance(payload, dict):
+                payload = {}
+            payload["release"] = {"status": status, "detail": str(detail)[:500]}
+            con.execute("UPDATE v5_reservations SET payload=? WHERE reservation_id=?",
+                        (_dumps(payload), reservation_id))
+            self._log(con, row["objective_id"], "conflict_release", f"{reservation_id}:{status}")
+
+    def pending_releases(self, objective_id: str | None = None) -> list[dict[str, Any]]:
+        """Закрытые брони, чьи ключи конфликта, возможно, всё ещё держатся.
+
+        Это рабочий список повторяемой уборки, а не отчёт: он должен пустеть.
+        Броня без записанных `conflict_keys` (её завёл старый билд) сюда не
+        попадает — отпускать по ней нечего, и это отдельно видно в `settle`.
+        """
+        sql = ("SELECT reservation_id,objective_id,state,payload FROM v5_reservations "
+               "WHERE state<>'RESERVED'")
+        args: tuple = ()
+        if objective_id is not None:
+            sql += " AND objective_id=?"
+            args = (objective_id,)
+        out = []
+        with self._connect() as con:
+            for row in con.execute(sql + " ORDER BY created_at", args).fetchall():
+                try:
+                    payload = json.loads(row["payload"])
+                except (TypeError, ValueError):
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                keys = payload.get("conflict_keys") or []
+                if not keys:
+                    continue
+                status = ((payload.get("release") or {}).get("status")
+                          if isinstance(payload.get("release"), dict) else None)
+                if status == "RELEASED":
+                    continue
+                out.append({"reservation_id": row["reservation_id"],
+                            "objective_id": row["objective_id"], "state": row["state"],
+                            "conflict_keys": list(keys), "release_status": status})
+        return out
+
     def open_reservations(self, objective_id: str) -> list[dict[str, Any]]:
         """Reservations still in flight; a restart must resolve each explicitly.
 

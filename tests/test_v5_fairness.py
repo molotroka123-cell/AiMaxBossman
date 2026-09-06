@@ -23,6 +23,9 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from bossman_shared.objective_fairness import (COOLDOWN_ACTIVE, NOT_READY, QUOTA_EXHAUSTED,
                                                Candidate, FairnessError, FairnessPolicy,
                                                candidate_from_store, rank, select)
+from bossman_shared.objective_admission import (RELEASE_DONE, RELEASE_UNKNOWN_KEYS,
+                                                RELEASE_UNRESOLVED)
+from bossman_shared.objective_store import ObjectiveStoreError
 from test_v5_admission import (CAPABILITY, EFFECT, NOW, OWNER, AdmissionKernel, CostEstimate,
                                FakeConflicts, FakePolicy, FakeTreasury, ObjectiveSpec,
                                ObjectiveStore, build_proposal, observation, spec_dict)
@@ -327,3 +330,138 @@ def test_serving_an_objective_resets_its_wait():
     served = Candidate("served", priority=1, eligible_since=0.0, last_admitted_at=1000.0)
     row = rank([served], now=1060.0, policy=POLICY)[0]
     assert row.waited_s == pytest.approx(60.0) and not row.starved
+
+
+# ------------------------------------------- враждебные случаи закрытия допуска
+
+def _admitted(tmp_path, name="obj-a", now=NOW, conflicts=None):
+    conflicts = conflicts if conflicts is not None else FakeConflicts()
+    kernel = _kernel(conflicts)
+    store, proposal = _admittable(tmp_path, name, now)
+    decision = kernel.admit(store, proposal, now=now)
+    assert decision.admitted, decision.reason
+    return store, kernel, conflicts, decision
+
+
+def test_the_owner_comes_from_the_record_never_from_the_caller(tmp_path):
+    """Отпустить чужую аренду по аргументу вызывающего нельзя: у `settle` такого
+    аргумента больше нет вовсе, а владелец читается из брони."""
+    import inspect
+    from bossman_shared.objective_admission import AdmissionKernel as Kernel
+    assert "objective_id" not in inspect.signature(Kernel.settle).parameters
+
+    store, kernel, conflicts, decision = _admitted(tmp_path)
+    conflicts.held["repo:other"] = "obj-somebody-else"
+    result = kernel.settle(store, decision.reservation_id, "COMMITTED")
+    assert result.objective_id == "obj-a" and result.released
+    assert conflicts.held == {"repo:other": "obj-somebody-else"}
+
+
+def test_an_unknown_reservation_is_refused_before_anything_is_released(tmp_path):
+    store, kernel, conflicts, _ = _admitted(tmp_path)
+    with pytest.raises(ObjectiveStoreError, match="unknown reservation"):
+        kernel.settle(store, "no-such-reservation", "COMMITTED")
+    assert conflicts.releases == []              # ничего не тронуто
+
+
+def test_a_second_settle_is_refused_and_does_not_release_twice(tmp_path):
+    """Две одновременные попытки: закрытие атомарно, вторая получает отказ и не
+    вызывает порт повторно."""
+    store, kernel, conflicts, decision = _admitted(tmp_path)
+    assert kernel.settle(store, decision.reservation_id, "COMMITTED").released
+    assert len(conflicts.releases) == 1
+    with pytest.raises(ObjectiveStoreError, match="already settled"):
+        kernel.settle(store, decision.reservation_id, "RELEASED")
+    assert len(conflicts.releases) == 1
+
+
+def test_an_unresolved_release_is_visible_and_repeatable(tmp_path):
+    """Падение порта ровно между закрытием брони и отпусканием ключей.
+
+    Общей транзакции у БД и внешнего реестра нет, и вид её здесь не делается:
+    исход записан в бронь, поэтому незавершённый release ВИДЕН и повторяем.
+    """
+    class Flaky(FakeConflicts):
+        def __init__(self):
+            super().__init__()
+            self.fail = True
+
+        def release(self, conflict_keys, objective_id):
+            if self.fail:
+                raise TimeoutError("conflict registry did not answer")
+            return super().release(conflict_keys, objective_id)
+
+    conflicts = Flaky()
+    store, kernel, _, decision = _admitted(tmp_path, conflicts=conflicts)
+    result = kernel.settle(store, decision.reservation_id, "COMMITTED")
+    assert not result.released and result.needs_cleanup
+    assert result.release_status == RELEASE_UNRESOLVED
+    assert "TimeoutError" in result.detail
+    assert conflicts.held == {"repo:main": "obj-a"}          # ключ всё ещё держится
+
+    pending = store.pending_releases("obj-a")
+    assert [p["reservation_id"] for p in pending] == [decision.reservation_id]
+
+    conflicts.fail = False
+    done = kernel.resolve_pending_releases(store, "obj-a")
+    assert [d.release_status for d in done] == [RELEASE_DONE]
+    assert conflicts.held == {}
+    assert store.pending_releases("obj-a") == []             # список обязан пустеть
+
+
+def test_repeatable_cleanup_never_steals_a_lease_taken_since(tmp_path):
+    """Уборка после падения приходит позже, чем ресурс успела законно взять
+    другая цель. Старый вызов не имеет права снять её аренду."""
+    class Flaky(FakeConflicts):
+        fail = True
+
+        def release(self, conflict_keys, objective_id):
+            if type(self).fail:
+                raise TimeoutError("registry down")
+            return super().release(conflict_keys, objective_id)
+
+    Flaky.fail = True
+    conflicts = Flaky()
+    store, kernel, _, decision = _admitted(tmp_path, conflicts=conflicts)
+    assert kernel.settle(store, decision.reservation_id, "COMMITTED").needs_cleanup
+
+    # Пока уборка не прошла, ключ перехватывает другая цель.
+    conflicts.held["repo:main"] = "obj-b"
+    Flaky.fail = False
+    kernel.resolve_pending_releases(store, "obj-a")
+    assert conflicts.held == {"repo:main": "obj-b"}          # чужая аренда цела
+    assert store.pending_releases("obj-a") == []             # но уборка завершена
+
+
+def test_cleanup_is_idempotent(tmp_path):
+    store, kernel, conflicts, decision = _admitted(tmp_path)
+    assert kernel.settle(store, decision.reservation_id, "COMMITTED").released
+    assert kernel.resolve_pending_releases(store, "obj-a") == ()
+    assert kernel.resolve_pending_releases(store, "obj-a") == ()
+    assert len(conflicts.releases) == 1
+
+
+def test_a_legacy_reservation_without_recorded_keys_says_so(tmp_path):
+    """Бронь старого билда не хранит захваченные ключи. Отпускать по ней нечего,
+    и это не «успех»: молчание здесь скрывало бы удержанный ключ."""
+    store, kernel, conflicts, decision = _admitted(tmp_path)
+    with store._connect() as con:
+        con.execute("UPDATE v5_reservations SET payload=? WHERE reservation_id=?",
+                    ('{"phase": "READY"}', decision.reservation_id))
+    result = kernel.settle(store, decision.reservation_id, "COMMITTED")
+    assert result.release_status == RELEASE_UNKNOWN_KEYS
+    assert result.needs_cleanup and not result.released
+    assert "predates" in result.detail
+    assert conflicts.releases == []
+
+
+def test_the_keys_released_are_the_recorded_ones_not_the_current_spec(tmp_path):
+    """Ревизия могла поменять conflict_keys уже ПОСЛЕ допуска: отпускается то,
+    что было захвачено, иначе старый ключ висит, а чужой снимается."""
+    store, kernel, conflicts, decision = _admitted(tmp_path)
+    with store._connect() as con:
+        con.execute("UPDATE v5_objectives SET spec_json=replace(spec_json,"
+                    "'repo:main','repo:renamed') WHERE objective_id='obj-a'")
+    result = kernel.settle(store, decision.reservation_id, "COMMITTED")
+    assert result.conflict_keys == ("repo:main",)
+    assert conflicts.releases == [(("repo:main",), "obj-a")]
