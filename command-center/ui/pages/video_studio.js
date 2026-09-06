@@ -17,6 +17,29 @@ const TEXT = {
   en: { media: 'Media', properties: 'Properties', montage: 'Edit', color: 'Color', audio: 'Audio', vfx: 'VFX', ai: 'AI', import: 'Import', export: 'Export', preview: 'Render preview', project: 'Project', create: 'New project', open: 'Open', rename: 'Rename', duplicate: 'Duplicate', archive: 'Archive', search: 'Search files and tags', all: 'All folders', name: 'Name', duration: 'Duration', size: 'Size', empty: 'Your next edit starts here', emptyHelp: 'Create a project and import sources. Your media stays local.', drop: 'Drop video, audio or images here', noMedia: 'No sources imported yet', addTrack: 'Track', split: 'Split', remove: 'Delete', undo: 'Undo', redo: 'Redo', marker: 'Marker', snap: 'Snap', range: 'Range', refresh: 'Refresh', saved: 'Saved', select: 'Select a timeline clip', apply: 'Apply', dry: 'Review changes', history: 'History', commands: 'Commands', assistant: 'Bossman AI', proposal: 'Proposed changes', explain: 'The agent uses the same commands. Review the plan, then apply it against the current revision.', local: 'Local · source files stay on this device', missing: 'Source unavailable', busy: 'Working', cancel: 'Cancel', reset: 'Reset layout', noPreview: 'No project preview yet', previewHint: 'Select a source or render a preview of this revision.', revisions: 'Versions', title: 'Title', advanced: 'Advanced command', close: 'Close', fullscreen: 'Fullscreen', source: 'Source', output: 'Output', conflict: 'Revision conflict. Nothing was applied; refresh the project and review again.', load: 'Loading…', folder: 'Folder', tags: 'Tags', add: 'Add to timeline', effect: 'Effect', keyframe: 'Keyframe', download: 'Download file', verified: 'Verified', unknown: 'Unknown outcome', bounds: 'Start / end, seconds', inspect: 'Source properties', portable: 'Portable project', timeline: 'Timeline', fit: 'Fit', start: 'Start', selectProject: 'Choose a project', failure: 'Error', lock: 'Lock', agentUndo: 'Undo last operation', changes: 'Changed objects', warning: 'Warnings', current: 'Current revision', compare: 'Compare', unavailable: 'Unavailable', captions: 'Captions' },
 };
 
+/* Почему предпросмотр не играет — словами, а не «исходник недоступен».
+
+   Файл отдавался с 200 и честно раскодировался ffmpeg'ом, а браузер без
+   проприетарных декодеров (сборки Chromium на Linux) отвечал
+   DEMUXER_ERROR_NO_SUPPORTED_STREAMS. Владелец при этом читал «Исходник
+   недоступен» — прямую неправду про присутствующий файл, и починить по такому
+   сообщению было нечего. MediaError.code различает эти случаи; показываем их. */
+export function mediaFailure(el, lang) {
+  const ru = lang === 'ru';
+  const code = el && el.error ? el.error.code : 0;
+  const detail = el && el.error && el.error.message ? ` (${el.error.message})` : '';
+  if (code === 4) {
+    return (ru ? 'Файл получен, но этот браузер не умеет его декодировать. '
+               + 'Откройте в Chrome/Edge или соберите preview в WebM (VP9/Opus).'
+               : 'The file arrived, but this browser cannot decode it. '
+               + 'Open it in Chrome/Edge, or render the preview as WebM (VP9/Opus).') + detail;
+  }
+  if (code === 2) return (ru ? 'Сеть оборвала загрузку файла.' : 'The network interrupted the download.') + detail;
+  if (code === 3) return (ru ? 'Файл повреждён: декодирование прервалось.' : 'The file is corrupt: decoding failed.') + detail;
+  if (code === 1) return ru ? 'Воспроизведение прервано.' : 'Playback was aborted.';
+  return (ru ? 'Исходник недоступен.' : 'Source unavailable.') + detail;
+}
+
 class Editor {
   constructor(ctx, params) {
     this.ctx = ctx; this.params = params; this.lang = readPreference('language', 'ru');
@@ -184,7 +207,7 @@ class Editor {
       const player = h(media && !media.has_video && media.width ? 'img' : 'video', { src: url, controls: true, preload: 'metadata', playsinline: true, 'aria-label': this.t('preview'),
         onLoadedmetadata: e => { if (!media) e.target.currentTime = seconds(this.playhead); },
         onTimeupdate: e => { if (!media) { this.playhead = Math.round(e.target.currentTime * TIMEBASE); this.updatePlayhead(); } },
-        onError: () => { stage.append(h('div.vs-preview-error', this.t('missing'))); } }); stage.append(player);
+        onError: e => { stage.append(h('div.vs-preview-error', mediaFailure(e.target, this.lang))); } }); stage.append(player);
     } else stage.append(h('div.vs-preview-empty', h('div', '▷'), h('strong', this.t('noPreview')), h('p', this.t('previewHint')), this.button(this.t('preview'), () => this.startExport(true), { disabled: !endTime(this.project) })));
     return h('section.vs-preview.vs-panel', h('div.vs-panel-head', h('span', `${media ? this.t('source') : this.t('project')}: ${media?.name || this.project.name}`),
       h('small', media ? '' : this.previewRevision === null ? '' : `r${this.previewRevision}${this.previewRevision !== this.project.revision ? ' · outdated' : ''}`)), stage,

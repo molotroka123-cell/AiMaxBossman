@@ -13,6 +13,7 @@ import socket
 import subprocess
 import sys
 import time
+import uuid
 
 import httpx
 import pytest
@@ -110,6 +111,76 @@ def snapshot(context, url):
     return response.json()
 
 
+PREVIEW_CODECS = {
+    'mp4': ('video/mp4; codecs="avc1.64001E, mp4a.40.2"', 'libx264', 'aac'),
+    'webm': ('video/webm; codecs="vp9, opus"', 'libvpx-vp9', 'libopus'),
+}
+
+
+def playable_container(page):
+    """Контейнер, который ЭТОТ браузер действительно умеет декодировать.
+
+    Не косметика и не обход. Сборки Chromium без проприетарных кодеков (все
+    Linux-сборки, включая ту, на которой идёт браузерный CI) не имеют H.264 и
+    AAC: preview отдавался с 200, честно раскодировался ffmpeg'ом и всё равно
+    получал MediaError code 4 DEMUXER_ERROR_NO_SUPPORTED_STREAMS. Ожидание
+    воспроизведения упиралось в таймаут, и это читалось как дефект монтажа,
+    хотя ни один байт не был плох.
+
+    Поэтому требование «Play -> currentTime растёт -> ended» проверяется на
+    том формате, который здесь физически декодируется, а НЕ ослабляется и не
+    пропускается. Какой это был формат, попадает в evidence — чтобы PASS
+    никогда не читался как «H.264 играет на этой машине».
+    """
+    support = page.evaluate("""specs => {
+        const v = document.createElement('video');
+        return Object.fromEntries(Object.entries(specs).map(([k, s]) => [k, v.canPlayType(s)]));
+    }""", {k: v[0] for k, v in PREVIEW_CODECS.items()})
+    for container in ('mp4', 'webm'):
+        if support.get(container):
+            return container, support
+    raise AssertionError(f'браузер не декодирует ни один поддерживаемый контейнер: {support}')
+
+
+def render_preview(page, context, server, pid, container):
+    """Собрать preview и дождаться проигрываемого элемента в панели.
+
+    mp4 — штатная кнопка панели, путь владельца один в один. webm запрашивается
+    у ТОГО ЖЕ публичного эндпоинта, который дёргает эта кнопка, только с явно
+    названным контейнером и его кодеками; страница затем перезагружается, и UI
+    поднимает preview сам через restoreJobs — воспроизведение дальше проверяется
+    настоящими кнопками транспорта, как и для mp4.
+    """
+    if container == 'mp4':
+        page.locator('.vs-preview-actions').get_by_role(
+            'button', name='Создать preview', exact=True).click()
+        page.locator('.vs-preview video').wait_for(timeout=60000)
+        return
+    _, video_codec, audio_codec = PREVIEW_CODECS[container]
+    project = snapshot(context, server.url + '/api/video-studio/projects/' + pid)
+    # Через клиент самой страницы: тот же эндпоинт, те же заголовки и CSRF, что
+    # у кнопки «Создать preview» — отличается только названный контейнер.
+    queued = page.evaluate('''async (body) => {
+        const { api } = await import('/api.js');
+        return api.raw('/api/video-studio/exports', { method: 'POST', body });
+    }''', {'project_id': pid, 'expected_revision': project['revision'],
+           'operation_id': uuid.uuid4().hex, 'preview': True, 'container': container,
+           'options': {'video_codec': video_codec, 'audio_codec': audio_codec}})
+    job_id = queued['job_id']
+
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        job = snapshot(context, server.url + '/api/video-studio/exports/' + job_id)
+        if job['status'] == 'completed':
+            break
+        assert job['status'] not in ('failed', 'cancelled', 'stopped'), job
+        time.sleep(.5)
+    else:
+        raise AssertionError(f'{container} preview did not finish: {job}')
+    page.reload()
+    page.locator('.vs-preview video').wait_for(timeout=60000)
+
+
 def play_preview_to_end(page):
     """Only real transport buttons change playback; DOM reads verify it."""
     page.wait_for_function("""() => {
@@ -179,8 +250,8 @@ def test_video_ui_import_trim_undo_preview_export_restart(editor_server, tmp_pat
             assert clip()['source_out'] == 2_000_000
             change(page, '/commands', lambda: page.locator('.vs-studio').press('Control+Shift+z'))
             assert clip()['source_out'] == 1_000_000
-            page.locator('.vs-preview-actions').get_by_role('button', name='Создать preview', exact=True).click()
-            page.locator('.vs-preview video').wait_for(timeout=60000)
+            container, codec_support = playable_container(page)
+            render_preview(page, context, server, pid, container)
             expect(page.locator('.vs-job a[download]')).to_have_count(1, timeout=60000)
             playback = [play_preview_to_end(page)]
             page.get_by_role('button', name='Экспорт', exact=True).first.click()
@@ -210,6 +281,10 @@ def test_video_ui_import_trim_undo_preview_export_restart(editor_server, tmp_pat
             page.screenshot(path=str(output / 'video-user-path.png'), full_page=True)
             (output / 'video-result.json').write_text(json.dumps({'status': 'PASS',
                 'kind': 'REAL_BROWSER_TESTER_NOT_LOCAL_MODEL', 'restart': 'FRESH_PROCESS',
+                # Формат, на котором ДЕЙСТВИТЕЛЬНО проверено воспроизведение, и
+                # полный ответ браузера про кодеки: PASS на webm не означает,
+                # что здесь играет H.264, и обратного из него читать нельзя.
+                'played_container': container, 'browser_codec_support': codec_support,
                 'job': job, 'ffprobe': probe, 'playback': playback, 'page_errors': errors}, ensure_ascii=False, indent=2))
         except Exception:
             if page is not None:
