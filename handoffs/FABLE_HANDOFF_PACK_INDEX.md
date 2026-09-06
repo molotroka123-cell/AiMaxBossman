@@ -1,7 +1,15 @@
 # Fable Handoff Pack Index
 
-Archive: `Fable_Handoff_Pack_2026-09-06.zip`
+Start with [FABLE_START_HERE.md](FABLE_START_HERE.md), then read
+[Fable_Handoff_Pack_2026-09-06.zip](Fable_Handoff_Pack_2026-09-06.zip).
 
-Contents: current-state snapshot, execution-truth constitution, V4/V5 system-spine design, intelligence-preservation rules, context/skills rules, Video/Web cross-app requirements, release certification, independent Fable workstream, and mini prompt.
+The 11-entry archive contains a historical state snapshot, execution-truth
+constitution, V4/V5 system-spine proposal, intelligence-preservation rules,
+context/skills guidance, cross-app risks, release certification, Fable's independent
+workstream, mini prompt and manifest. It is not a current runtime attestation.
 
-This ZIP is an explicit owner-requested artifact and is intentionally committed under `handoffs/` despite the general archive quarantine policy.
+Validated archive: 8359 bytes; SHA-256
+`58df52913663690b624b3715daa156a1805a2a8d0ece2e8d4d01040924527d17`.
+
+This ZIP is an explicit owner-requested artifact committed under `handoffs/`.
+The general archive quarantine and runtime code remain unchanged.
