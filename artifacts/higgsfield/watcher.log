@@ -1,0 +1,60 @@
+[2026-09-06 14:12:07] watcher start
+[2026-09-06 14:12:07] page ready
+[2026-09-06 14:12:10] extend tab opened
+[2026-09-06 14:12:40] round ERROR: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("textarea").first
+
+[2026-09-06 14:13:58] watcher start
+[2026-09-06 14:13:59] page ready
+[2026-09-06 14:14:02] extend tab opened
+[2026-09-06 14:14:05] extend picker: 0 video tiles
+[2026-09-06 14:14:05] WARN: no video tiles in extend picker
+[2026-09-06 14:14:35] round ERROR: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("div[contenteditable=true]").first
+    - locator resolved to <div role="textbox" spellcheck="true" contenteditable="true" dat
+[2026-09-06 14:16:08] watcher start
+[2026-09-06 14:16:09] page ready
+[2026-09-06 14:16:19] round ERROR: Locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiting for get_by_text("Extend Video", exact=True).first
+    - locator resolved to <button role="radio" tabindex="0" type="button" data-state="o
+[2026-09-06 14:16:36] watcher start
+[2026-09-06 14:16:37] page ready
+[2026-09-06 14:16:49] round ERROR: Locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiting for get_by_text("Extend Video", exact=True).first
+    - locator resolved to <button role="radio" tabindex="0" type="button" data-state="o
+[2026-09-06 14:18:24] watcher start
+[2026-09-06 14:18:24] page ready
+[2026-09-06 14:18:25] extend tab already active
+[2026-09-06 14:18:25] picker already open
+[2026-09-06 14:18:27] picker: Video Generations tab
+[2026-09-06 14:18:27] extend picker: 18 video tiles
+[2026-09-06 14:18:35] round ERROR: Locator.click: Timeout 8000ms exceeded.
+Call log:
+  - waiting for locator("video").first
+    - locator resolved to <video loop="" playsinline="" preload="none" webkit-playsinline="" disablepictureinpi
+[2026-09-06 14:19:32] watcher start
+[2026-09-06 14:19:33] page ready
+[2026-09-06 14:19:34] extend tab already active
+[2026-09-06 14:19:34] picker already open
+[2026-09-06 14:19:37] picker: Video Generations tab
+[2026-09-06 14:19:37] extend picker: 18 video tiles
+[2026-09-06 14:19:39] extend source video selected (latest)
+[2026-09-06 14:19:45] prompt set: @Image 3 откладывает стакан оглядывается по сторонам ничего не замечает, камера ...
+[2026-09-06 14:19:55] round ERROR: Locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiting for get_by_text("Generate").first
+    - locator resolved to <button type="submit" class="gap-2 transition-transform duration-200 active:s
+[2026-09-06 14:21:02] watcher start
+[2026-09-06 14:21:03] page ready
+[2026-09-06 14:21:04] extend tab already active
+[2026-09-06 14:21:08] picker opened via Add video
+[2026-09-06 14:21:11] picker: Video Generations tab
+[2026-09-06 14:21:11] extend picker: 18 video tiles
+[2026-09-06 14:21:14] extend source video selected (latest)
+[2026-09-06 14:21:19] prompt set: @Image 3 откладывает стакан оглядывается по сторонам ничего не замечает, камера ...
+[2026-09-06 14:21:23] generate clicked, processing=0
+[2026-09-06 14:21:23] round done: {"processing": 0, "scene_idx": 0, "prompt": "@Image 3 откладывает стакан оглядывается по сторонам ничего не замечает, камера из-за дерева: @Image 2 крадётся на цыпочках вдоль кустов, потирает руки и х

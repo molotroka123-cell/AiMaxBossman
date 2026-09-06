@@ -1,0 +1,49 @@
+[2026-09-06 14:10:00] cdp: 9222 already up
+[2026-09-06 14:10:01] login=yes url=https://higgsfield.ai/ai/video
+[2026-09-06 14:10:01] unlimited=true
+[2026-09-06 14:10:01] history videos on page: 18
+[2026-09-06 14:10:01] processing indicators: 0
+[2026-09-06 14:22:03] cdp: 9222 already up
+[2026-09-06 14:22:17] in-page fetch failed: [Errno 2] No such file or directory: 'C:\\AiMaxBossman-claude-bossman-control-v03-43igbk\\artifacts\
+[2026-09-06 14:22:17] poll: download FAILED for https://static.higgsfield.ai/seedance-2.5/video-banner-general.mp4
+[2026-09-06 14:22:50] cdp: 9222 already up
+[2026-09-06 14:22:55] poll: cdn videos on page=0
+[2026-09-06 14:22:55] poll: nothing new
+[2026-09-06 14:24:12] cdp: 9222 already up
+[2026-09-06 14:24:18] poll: cdn videos on page=11
+[2026-09-06 14:24:19] downloaded seg01.mp4 5278KB dur=10.041667 url=https://d8j0ntlcm91z4.cloudfront.net/user_3EzPGHYNELZBuQAaZTLzai1HtiP/hf_20260906_120459_5b291c27-10
+[2026-09-06 14:24:19] total segments=1 approx_total_dur=10.0s
+[2026-09-06 14:26:27] watcher start: target=6 segments
+[2026-09-06 14:26:29] processing finished
+[2026-09-06 14:26:33] downloaded seg02.mp4 4363KB dur=10.041667
+[2026-09-06 14:26:33] processing finished
+[2026-09-06 14:26:37] downloaded seg03.mp4 5142KB dur=10.041667
+[2026-09-06 14:26:37] processing finished
+[2026-09-06 14:26:42] downloaded seg04.mp4 20518KB dur=30.041667
+[2026-09-06 14:26:42] processing finished
+[2026-09-06 14:26:47] downloaded seg05.mp4 5248KB dur=10.05
+[2026-09-06 14:26:47] processing finished
+[2026-09-06 14:26:51] downloaded seg06.mp4 13505KB dur=9.041667
+[2026-09-06 14:26:51] target reached: 6 segments
+[2026-09-06 14:31:41] watcher start: target=6 segments
+[2026-09-06 14:31:42] FATAL: Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0) — watcher остановлен, состояние сохранено
+[2026-09-06 14:32:31] watcher start: target=6 segments
+[2026-09-06 14:32:32] processing finished
+[2026-09-06 14:32:37] download: nothing newer than watermark 20260906_120459
+[2026-09-06 14:32:43] attempt 1: generate clicked (scene 1)
+[2026-09-06 14:33:09] attempt 1: Processing не появился (скрин gen_fail_1.png)
+[2026-09-06 14:33:15] attempt 2: generate clicked (scene 1)
+[2026-09-06 14:33:41] attempt 2: Processing не появился (скрин gen_fail_2.png)
+[2026-09-06 14:33:41] FATAL: Generate не стартовал за 2 попытки — нужен человек — watcher остановлен, состояние сохранено
+[2026-09-06 14:41:42] watcher v2 start: target=6
+[2026-09-06 14:46:44] waiting generation... watermark=20260906_120459 elapsed=300s
+[2026-09-06 14:47:44] new segment detected: hf_20260906_123821_d4f81848-3001-4b52-8988-e2cf6c81e68e.mp4
+[2026-09-06 14:47:44] downloaded seg02.mp4 5995KB dur=10.05 total=2
+[2026-09-06 14:52:44] waiting generation... watermark=20260906_123821 elapsed=300s
+[2026-09-06 14:54:42] watcher v3 start: target=6
+[2026-09-06 14:54:57] keyboard.type не сработал — пробую execCommand insertText
+[2026-09-06 14:54:58] insertText applied=False changed=False
+[2026-09-06 14:54:58] WARN: промт не подтвердился чтением — мог уйти старый (scene 2)
+[2026-09-06 14:54:59] generate clicked (scene 2)
+[2026-09-06 14:55:00] job CONFIRMED: HTTP 200 https://fnf-api-gw.higgsfield.ai/fnf/jobs/v2/seedance_2_5
+[2026-09-06 14:57:00] waiting generation... watermark=20260906_123821 elapsed=120s

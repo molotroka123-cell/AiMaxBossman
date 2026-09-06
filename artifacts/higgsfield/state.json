@@ -1,0 +1,21 @@
+{
+ "segments": [
+  {
+   "idx": 1,
+   "file": "seg01.mp4",
+   "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EzPGHYNELZBuQAaZTLzai1HtiP/hf_20260906_120459_5b291c27-106d-4f6a-b91f-6e4646c2aecb.mp4",
+   "time": "2026-09-06T14:24:19",
+   "kb": 5278,
+   "dur": 10.041667
+  },
+  {
+   "idx": 2,
+   "file": "seg02.mp4",
+   "url": "https://d8j0ntlcm91z4.cloudfront.net/user_3EzPGHYNELZBuQAaZTLzai1HtiP/hf_20260906_123821_d4f81848-3001-4b52-8988-e2cf6c81e68e.mp4",
+   "kb": 5995,
+   "dur": 10.05,
+   "time": "2026-09-06T14:47:44"
+  }
+ ],
+ "next_idx": 3
+}
