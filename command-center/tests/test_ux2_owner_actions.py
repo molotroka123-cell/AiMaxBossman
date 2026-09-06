@@ -15,7 +15,8 @@ import time
 import pytest
 import sqlalchemy as sa
 
-from bcc.db import approvals as approvals_t, task_runs as runs_t, tasks as tasks_t, utcnow
+from bcc.db import (agents as agents_t, approvals as approvals_t, task_runs as runs_t,
+                    tasks as tasks_t, utcnow)
 
 from .browser_support import chromium_available, reason as browser_reason
 from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
@@ -48,11 +49,26 @@ def _wait_row(srv, table, row_id: int, predicate, what: str, timeout: float = 15
     raise AssertionError(f"состояние в базе не изменилось: {what}; последняя строка={last}")
 
 
-def _new_task(srv, title: str, status: str = "draft") -> int:
+def _new_agent(srv, name: str = "исполнитель", enabled: bool = True) -> int:
+    """Включённый исполнитель. Без него задача не допускается до очереди
+    (BLOCKED_CAPABILITY_UNAVAILABLE) — см. test_owner_run_without_executor_*."""
+    async def go():
+        async with srv.svc.db.session() as s:
+            res = await s.execute(sa.insert(agents_t).values(
+                name=name, system_prompt="отвечай коротко", enabled=enabled,
+                max_steps=1, created_at=utcnow()))
+            aid = int(res.inserted_primary_key[0])
+            await s.commit()
+            return aid
+    return _call(srv, go)
+
+
+def _new_task(srv, title: str, status: str = "draft", agent_id: int | None = None) -> int:
     async def go():
         async with srv.svc.db.session() as s:
             res = await s.execute(sa.insert(tasks_t).values(
                 title=title, prompt="проверка владельческих действий", status=status,
+                agent_id=agent_id,
                 priority=5, max_retries=0, created_at=utcnow(), updated_at=utcnow()))
             tid = int(res.inserted_primary_key[0])
             await s.commit()
@@ -72,7 +88,11 @@ def test_owner_actions_mutate_backend_state(live):  # noqa: F811
     from playwright.sync_api import sync_playwright
 
     errors: list[str] = []
-    task_id = _new_task(live, "Действие владельца · запуск")
+    # У задачи ДОЛЖЕН быть включённый исполнитель: иначе движок честно не
+    # допускает её до очереди (BLOCKED_CAPABILITY_UNAVAILABLE) и кнопка не
+    # обязана менять статус на queued. Этот тест — про «кнопка меняет состояние
+    # сервера», а не про допуск; допуск проверяет тест ниже.
+    task_id = _new_task(live, "Действие владельца · запуск", agent_id=_new_agent(live))
 
     with sync_playwright() as pw:
         browser = _launch(pw)
@@ -102,6 +122,71 @@ def test_owner_actions_mutate_backend_state(live):  # noqa: F811
         browser.close()
 
     assert errors == [], errors
+
+
+def test_owner_run_without_executor_is_blocked_and_recoverable(live):  # noqa: F811
+    """Нет исполнителя — нет исполнения, но и не тупик.
+
+    Движок не имитирует запуск задачи, которую некому выполнить: она уходит в
+    `blocked` с кодом BLOCKED_CAPABILITY_UNAVAILABLE, прогон НЕ создаётся, и
+    владелец видит причину. После того как владелец назначил включённого
+    агента, та же кнопка доводит задачу до очереди — отказ обратим.
+    """
+    from playwright.sync_api import sync_playwright
+
+    errors: list[str] = []
+    task_id = _new_task(live, "Действие владельца · без исполнителя")
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.on("pageerror", lambda e: errors.append(str(e)))
+        _login(page, live)
+        page.goto(live.url + "/#/tasks", wait_until="domcontentloaded")
+        page.wait_for_selector(".task-title", timeout=20000)
+
+        _open_task_card(page, "Действие владельца · без исполнителя")
+        page.locator(".task.open .task-body button", has_text="Запустить").first.click()
+
+        blocked = _wait_row(live, tasks_t, task_id, lambda r: r.get("status") == "blocked",
+                            "задача не заблокирована без исполнителя")
+        assert (blocked.get("meta") or {}).get("reason_code") == "BLOCKED_CAPABILITY_UNAVAILABLE"
+        # Фальшивого прогона нет: недопущенная задача не создаёт run.
+        assert _call(live, lambda: _runs_of(live, task_id)) == []
+        # Причина видна владельцу, а не только в базе.
+        reason = str((blocked.get("meta") or {}).get("blocked_reason") or "")
+        assert "Исполнитель" in reason
+        page.wait_for_selector(f".task.open .task-body:has-text('{reason[:30]}')", timeout=10000)
+
+        # --- владелец устраняет причину и повторяет: отказ обратим
+        agent_id = _new_agent(live, "назначенный")
+        _call(live, lambda: _assign_agent(live, task_id, agent_id))
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_selector(".task-title", timeout=20000)
+        _open_task_card(page, "Действие владельца · без исполнителя")
+        page.locator(".task.open .task-body button", has_text="Запустить").first.click()
+        after = _wait_row(live, tasks_t, task_id,
+                          lambda r: r.get("status") in {"queued", "running"},
+                          "задача не встала в очередь после назначения исполнителя")
+        assert (after.get("meta") or {}).get("reason_code") is None
+        assert _call(live, lambda: _runs_of(live, task_id)), "прогон не создан"
+        browser.close()
+
+    # Отказ движка ДОЛЖЕН быть слышен: toastError печатает причину в консоль.
+    # Это ожидаемое сообщение отказа, а не сбой страницы, поэтому из проверки
+    # «посторонних ошибок нет» исключается ровно оно и ничто другое.
+    unexpected = [e for e in errors if "Исполнитель не выбран или недоступен" not in e]
+    assert unexpected == [], unexpected
+    assert any("Исполнитель не выбран или недоступен" in e for e in errors), \
+        "владелец не получил причину отказа"
+
+
+async def _assign_agent(srv, task_id: int, agent_id: int):
+    async with srv.svc.db.session() as s:
+        await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
+            agent_id=agent_id, updated_at=utcnow()))
+        await s.commit()
 
 
 async def _runs_of(srv, task_id: int):

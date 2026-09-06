@@ -27,23 +27,47 @@ async def _call(env, run_id, task_id, *, tool="terminal.run", command="python mu
                                             ("denied", "policy refusal"),
                                             ("executed", "exit_code=1\nSyntaxError"),
                                             ("executed", "still running")])
-async def test_failed_mutation_never_finalizes_even_if_intent_classifier_missed(env, status, preview):
+async def test_failed_mutation_never_finalizes_an_owed_effect(env, tmp_path, status, preview):
+    """A mutation that was refused, errored, exited non-zero or never finished
+    cannot finalize a task that OWES the effect.
+
+    The obligation is declared, which is what makes it enforceable. The
+    finalizer deliberately does not manufacture obligations out of prompt text
+    or out of the bare presence of a tool row: for the families with no wired
+    post-state verifier (apps, openclaw, opencode, plugin, mcp) `verify_all`
+    can never answer VERIFIED, so such a manufactured obligation is not a gate
+    but a permanent dead end — the task parks in `waiting_approval` behind a
+    `review_escalation` that `finalize_override` re-refuses forever. The
+    zero-attempt and failed-attempt cases of a CLASSIFIED action task are held
+    one layer up, by `features/action_contract._gate`, which counts only
+    `executed` calls of the matching non-reading family (see
+    tests/test_action_contract.py::test_family_matrix_rejected_or_errored_call_is_not_evidence).
+    """
     stack = await make_stack(env.client, prompt="Please perform the requested operation")
     tid = stack["task"]["id"]
     run = await env.svc.engine.claim()
+    await _allow_root(env, tmp_path)
+    await _set_meta(env, tid, {"required_effects": [{"kind": "file", "target": str(tmp_path / "owed.txt"),
+                                                    "expect": {"exists": True}}]})
     await _call(env, run, tid, status=status, preview=preview)
     decision = await finalize_task(env.svc.engine, run, tid, answer="I could not do it", usage={})
     assert not decision.ok
     assert await _status(env, tid) != "completed"
 
 
-async def test_successful_mutation_without_postcondition_is_not_proof(env):
+async def test_successful_mutation_without_postcondition_is_not_proof(env, tmp_path):
+    """`exit_code=0` is the executor's claim, never the world's answer: a
+    declared post-state that is absent refuses the finalize even though the
+    mutation reported success."""
     stack = await make_stack(env.client)
     tid = stack["task"]["id"]
     run = await env.svc.engine.claim()
+    await _allow_root(env, tmp_path)
+    await _set_meta(env, tid, {"required_effects": [{"kind": "file", "target": str(tmp_path / "claimed.txt"),
+                                                    "expect": {"exists": True}}]})
     await _call(env, run, tid)
     result = await finalize_task(env.svc.engine, run, tid, answer="done", usage={})
-    assert not result.ok and "post-state" in result.reason
+    assert not result.ok and "not verified" in result.reason
 
 
 async def test_optional_failed_read_probe_does_not_veto_an_answer(env):
@@ -66,8 +90,12 @@ async def test_real_tool_denial_and_honest_model_failure_cannot_complete(env, tm
     stack = await _stack_with_tools(env, ["terminal.run"], adapter=adapter,
                                     prompt="Please perform the requested operation")
     await env.client.patch(f"/api/agents/{stack['agent']['id']}", json={"permissions": {"terminal.run": True}})
-    await _run_once(env)
     tid = stack["task"]["id"]
+    # The task owes the file the denied command would have written; the denial
+    # leaves that obligation unmet, so no honest answer can finalize it.
+    await _set_meta(env, tid, {"required_effects": [{"kind": "file", "target": str(forbidden / "mutate.py"),
+                                                    "expect": {"exists": True}}]})
+    await _run_once(env)
     async with env.svc.db.session() as s:
         rows = (await s.execute(sa.select(tool_calls).where(tool_calls.c.task_id == tid))).mappings().all()
     assert rows and rows[0]["status"] in ("error", "denied")

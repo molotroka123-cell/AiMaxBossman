@@ -94,6 +94,37 @@ def test_key_file_created_private_and_stable(tmp_path):
         ev.sign({"a": 1})
 
 
+def test_key_file_is_written_as_raw_bytes_not_text(tmp_path, monkeypatch):
+    """Ключ переживает запись байт-в-байт, даже если содержит 0x0A.
+
+    Регрессия ASTRA-Windows: файл создавался дескриптором без O_BINARY, и на
+    Windows поток был ТЕКСТОВЫМ — каждый байт 0x0A уезжал на диск как CRLF.
+    Ключ на диске переставал совпадать с ключом в памяти, файл становился
+    длиннее 32 байт, и после перезапуска процесса ни одна подпись больше не
+    проверялась: fail-closed вырождался в тихую потерю всех улик. Ключ
+    задаётся детерминированно — случайный ключ ловил бы этот дефект лишь
+    иногда (вероятность встретить 0x0A ≈ 12%), то есть тест был бы мигающим.
+    """
+    key_file = tmp_path / "keys" / "evidence.key"
+    monkeypatch.setenv(ev.ENV_KEY_FILE, str(key_file))
+    ev.reset_cache()
+    planted = bytes(range(8)) + b"\n\r\n\r" + bytes(range(12, 32))
+    assert len(planted) == ev.KEY_BYTES and b"\n" in planted
+    monkeypatch.setattr(ev.secrets, "token_bytes", lambda n: planted)
+
+    created = ev.load_or_create_key()
+    assert created == planted
+    assert key_file.read_bytes() == planted            # на диске ровно то же
+    assert key_file.stat().st_size == ev.KEY_BYTES     # ни одного лишнего байта
+
+    ev.reset_cache()                                   # «перезапуск процесса»
+    assert ev.load_or_create_key() == planted
+    payload = {"kind": "file", "ref": "/tmp/x"}
+    sig = ev.sign(payload, key=planted)
+    ev.reset_cache()
+    assert ev.verify(payload, sig) is True             # подпись переживает рестарт
+
+
 def test_journal_step_is_signed_only_when_closed(tmp_path):
     j = TaskJournal.start(task_id="t1", plan=[("s1", "write"), ("s2", "check")], root=tmp_path / "j")
     j.record("s1", receipt={"path": "/tmp/x"}, verified=False, by="worker")

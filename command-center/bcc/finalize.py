@@ -65,12 +65,40 @@ def _effectful(row: dict) -> bool:
 
 
 def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) -> str:
+    """What makes the DECLARED obligations of this run unfulfillable.
+
+    Scope is deliberate. The finalizer enforces the obligations a task actually
+    carries (`meta.review.evidence` / `meta.required_effects`); it does not
+    invent new ones from prompt text or from the mere presence of a tool call.
+    Those layers already exist and are not duplicated here:
+
+      * `features/action_contract._gate` vetoes a CLASSIFIED action task unless
+        the run holds a genuinely `executed` call of the matching non-reading
+        tool family — the zero-attempt and failed-attempt cases;
+      * `features/action_router` / `review_gate` attach evidence where a real
+        post-state verifier is wired, and that evidence lands in `expected`.
+
+    Re-deriving obligations here (any effectful row implies a contract; any
+    classified prompt implies a contract) made every family without a wired
+    verifier — apps, openclaw, opencode, plugin, mcp — unfinishable: the task
+    parked in `waiting_approval` behind a `review_escalation` that no owner
+    decision could ever clear, because `finalize_override` re-ran the same
+    impossible check. A refusal the owner cannot resolve is not fail-closed,
+    it is a dead end.
+
+    A DENIED or REJECTED call is not a failed obligation: the effect provably
+    never happened, and the model handled the refusal as data. Whether the task
+    still owes an effect is decided by `verify_all` over `expected`, which reads
+    the world instead of the executor's status.
+    """
+    if not expected:
+        return ""
     # A retry of the exact action may recover a failed attempt. An unrelated
     # successful probe cannot erase a failed mutation. Read-only diagnostic
     # failures are not task failure evidence.
     latest = {}
     for row in rows:
-        if _effectful(row):
+        if _effectful(row) and row.get("status") not in ("denied", "rejected"):
             latest[(row.get("tool"), row.get("args_hash") or repr(row.get("args")))] = row
     for row in latest.values():
         if row.get("status") != "executed" or row.get("error"):
@@ -79,20 +107,28 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) 
             match = re.match(r"exit_code=(-?\d+)\b", str(row.get("result_preview") or ""))
             if match is None or int(match[1]) != 0:
                 return "effectful terminal outcome is failed or still unobserved"
-    if latest and not expected:
-        return "effectful execution has no required post-state verification contract"
-    if not expected and task:
-        from .features.action_contract import classify_all
-        from .features.action_router import classify
-        if classify_all(task.get("prompt") or "") or classify(task.get("prompt") or ""):
-            return "action task has no required post-state verification contract"
+    # What a capability is known to be able to leave behind. The point is to stop
+    # an unrelated capability's success from being credited against somebody
+    # else's obligation — a browser click cannot be the proof that a process is
+    # running. It is NOT a list of capabilities allowed to finish.
+    #
+    # Two corrections, both from real dead ends. `memory.write` writes a markdown
+    # note into the vault, so a `file` obligation over that note is exactly the
+    # right way to check it — mapping memory to {memory, db} refused a run whose
+    # effect had genuinely happened and which `verify_all` could have confirmed
+    # by reading the file. And an UNKNOWN capability is not a known mismatch: mcp,
+    # plugin and openclaw tools can do anything the server behind them does, so
+    # refusing them here parked them behind an escalation `finalize_override`
+    # re-refused forever. Absence of knowledge is not evidence of mismatch; when
+    # we cannot say the capability is wrong, `verify_all` reads the world and
+    # answers instead.
     kinds = {e.kind for e in expected}
-    required_kinds = {"terminal": {"file", "terminal", "github"}, "browser": {"browser"},
-                      "memory": {"memory", "db"}, "apps": {"app", "process"},
-                      "opencode": {"file", "github"}}
+    known_kinds = {"terminal": {"file", "terminal", "github"}, "browser": {"browser", "file"},
+                   "memory": {"memory", "db", "file"}, "apps": {"app", "process", "file"},
+                   "opencode": {"file", "github"}}
     for row in latest.values():
-        supported = required_kinds.get(row.get("source"))
-        if supported is None or not kinds.intersection(supported):
+        supported = known_kinds.get(row.get("source"))
+        if supported is not None and not kinds.intersection(supported):
             return "effectful capability has no matching post-state verifier: " + str(row.get("tool"))
     return ""
 

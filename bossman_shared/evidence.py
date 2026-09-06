@@ -59,7 +59,12 @@ def load_or_create_key(path: Path | None = None) -> bytes:
     else:
         p.parent.mkdir(parents=True, exist_ok=True)
         key = secrets.token_bytes(KEY_BYTES)
-        fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        # O_BINARY: без него Windows открывает дескриптор в текстовом режиме и
+        # переписывает байт 0x0A ключа как CRLF — ключ на диске перестаёт
+        # совпадать с ключом в памяти, и после рестарта ни одна подпись не
+        # проверяется (fail-closed превращается в тихую потерю всех улик).
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+        fd = os.open(str(p), flags, 0o600)
         try:
             os.write(fd, key)
         finally:
