@@ -2,6 +2,13 @@ from __future__ import annotations
 import asyncio,platform
 from ..models import ActionKind
 
+# Верхняя граница снимка UI-дерева. `descendants()` МАТЕРИАЛИЗУЕТ всё поддерево
+# окна, и только потом вызывающий его обрезал: на окне браузера это тысячи
+# межпроцессных COM-обращений ради 500 узлов, которые реально используются.
+MAX_TREE_NODES=500
+MAX_TREE_DEPTH=12
+
+
 class WindowsDesktop:
     name="windows"
     def __init__(self): self.is_windows=platform.system().lower()=="windows"
@@ -26,19 +33,61 @@ class WindowsDesktop:
                 return {"title":w.window_text(),"app":str(getattr(w.element_info,"name","") or ""),"handle":int(w.handle)}
             except Exception as e: return {"title":"","app":"","error":type(e).__name__}
         return await asyncio.to_thread(f)
+    @staticmethod
+    def _element(c):
+        e=c.element_info
+        return {"name":str(getattr(e,"name","") or "")[:300],
+                "control_type":str(getattr(e,"control_type","") or "")[:80],
+                "automation_id":str(getattr(e,"automation_id","") or "")[:200]}
+
+    @classmethod
+    def _walk(cls,w,limit=MAX_TREE_NODES,max_depth=MAX_TREE_DEPTH):
+        """Ограниченный обход в ширину: останавливается НА пределе, а не после него.
+
+        Ширина даёт самые значимые для планирования (верхние) узлы; глубокий
+        хвост, который всё равно отбрасывался срезом, больше не оплачивается.
+        Провайдер без `children()` честно откатывается на `descendants()`.
+        """
+        children=getattr(w,"children",None)
+        if children is None:
+            return [cls._element(c) for c in w.descendants()[:limit]]
+        out=[]; frontier=[(w,0)]
+        while frontier and len(out)<limit:
+            node,depth=frontier.pop(0)
+            if depth>=max_depth: continue
+            try: kids=node.children()
+            except Exception: continue
+            for c in kids:
+                if len(out)>=limit: break
+                out.append(cls._element(c)); frontier.append((c,depth+1))
+        return out
+
     async def ui_tree(self):
         self._req()
         def f():
-            try:
-                w=self._active_window()
-                out=[]
-                for c in w.descendants()[:500]:
-                    e=c.element_info
-                    out.append({"name":str(getattr(e,"name","") or "")[:300],
-                                "control_type":str(getattr(e,"control_type","") or "")[:80],
-                                "automation_id":str(getattr(e,"automation_id","") or "")[:200]})
-                return {"elements":out}
+            try: return {"elements":self._walk(self._active_window())}
             except Exception: return None
+        return await asyncio.to_thread(f)
+
+    async def snapshot(self):
+        """foreground + ui_tree за ОДИН поток и ОДНО разрешение окна.
+
+        Раздельные вызовы разрешали окно переднего плана дважды (GetForegroundWindow
+        + оболочка UIA Desktop — самая дорогая часть наблюдения) и наблюдали в
+        два разных момента времени. Здесь оба фрагмента описывают одно окно.
+        """
+        self._req()
+        def f():
+            try: w=self._active_window()
+            except Exception as e: return {"title":"","app":"","error":type(e).__name__},None
+            try:
+                fg={"title":w.window_text(),"app":str(getattr(w.element_info,"name","") or ""),
+                    "handle":int(w.handle)}
+            except Exception as e:
+                fg={"title":"","app":"","error":type(e).__name__}
+            try: tree={"elements":self._walk(w)}
+            except Exception: tree=None
+            return fg,tree
         return await asyncio.to_thread(f)
     async def supports(self,a,o):
         return self.is_windows and a.kind in {ActionKind.FOCUS,ActionKind.CLICK,ActionKind.DOUBLE_CLICK,

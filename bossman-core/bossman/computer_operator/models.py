@@ -64,6 +64,10 @@ class ComputerTask:
     last_observation:Observation|None=None; last_error:str|None=None
     waiting_approval_id:int|None=None; pending_action:ComputerAction|None=None
     history:list[StepRecord]=field(default_factory=list)
+    # Монотонная ревизия строки задачи. Пишет её ТОЛЬКО store.save (compare-and-set):
+    # владелец нажал «Пауза»/«Стоп», пока цикл держал свою копию — цикл больше не
+    # может затереть команду владельца своим устаревшим снимком (см. store.save).
+    revision:int=0
     @classmethod
     def create(cls,goal:str,**kwargs):
         goal=(goal or "").strip()

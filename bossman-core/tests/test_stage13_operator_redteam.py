@@ -154,12 +154,26 @@ async def test_stop_mid_approval_frees_desktop_and_never_executes(tmp_path):
     mgr.stop(t.id)
     fut.set_result({"status": "approved"})
     state = await asyncio.wait_for(rt, 5)
-    assert state is TaskState.FAILED
+    # BUG-OPERATOR-CONTROL-001: the loop used to overwrite the owner's CANCELLED
+    # with a system FAILED carrying a technical reason. The desktop guarantees are
+    # unchanged (nothing executed, the lease is free); the record now says who
+    # ended the task.
+    assert state is TaskState.CANCELLED
+    assert mgr.store.get(t.id).state is TaskState.CANCELLED
     assert adapter.executed == []
     assert mgr.control_lease.holder() is None
 
 
-async def test_take_control_revokes_lease_and_task_fails_honestly(tmp_path):
+async def test_take_control_revokes_lease_and_hands_the_desktop_back(tmp_path):
+    """BUG-OPERATOR-CONTROL-001.
+
+    The loop held a decoded copy of the task for the whole step, so its next
+    ``_save`` overwrote USER_CONTROL and the task ended FAILED — the owner could
+    never ``resume`` what they had just taken over. The loop now re-reads the
+    authoritative row each iteration, so the owner's command is what survives.
+    Everything the original red-team case guaranteed still holds: the lease is
+    released, the task stops acting, and another task can take the desktop.
+    """
     gate = asyncio.Event()
     adapter = FakeAdapter(gate=gate)
     planner = FakePlanner({"task a": [click()], "task b": [click(), complete()]})
@@ -172,10 +186,34 @@ async def test_take_control_revokes_lease_and_task_fails_honestly(tmp_path):
     assert mgr.control_lease.holder() is None
     gate.set()
     state = await asyncio.wait_for(rt, 5)
-    assert state is TaskState.FAILED
-    assert "lease" in mgr.store.get(ta.id).last_error
+    assert state is TaskState.USER_CONTROL
+    stored = mgr.store.get(ta.id)
+    assert stored.state is TaskState.USER_CONTROL and stored.pending_action is None
+    assert mgr.control_lease.holder() is None
+    assert mgr.resume(ta.id).state is TaskState.RECOVERING      # owner can hand it back
     tb = mgr.create_task("task b")
     assert await mgr.run(tb.id) is TaskState.COMPLETED
+
+
+async def test_lease_lost_to_another_holder_still_fails_the_task_honestly(tmp_path):
+    """The owner-command path above must not soften genuine lease loss.
+
+    Nobody paused or stopped this task: the desktop was simply taken by another
+    holder. That is still a hard failure with the lease reason recorded.
+    """
+    gate = asyncio.Event()
+    adapter = FakeAdapter(gate=gate)
+    planner = FakePlanner({"task a": [click(), click()]})
+    mgr = make_manager(tmp_path / "t.json", planner, FakeObserver(summary="ok"), adapter=adapter)
+    ta = mgr.create_task("task a")
+    rt = asyncio.create_task(mgr.run(ta.id))
+    assert await wait_for(adapter.entered.is_set)
+    mgr.control_lease.revoke()
+    assert mgr.control_lease.acquire("someone-else")
+    gate.set()
+    state = await asyncio.wait_for(rt, 5)
+    assert state is TaskState.FAILED
+    assert "lease" in mgr.store.get(ta.id).last_error
 
 
 def test_lease_ttl_expiry_takeover_and_heartbeat():
