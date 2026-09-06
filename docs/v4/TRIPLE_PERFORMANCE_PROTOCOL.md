@@ -17,5 +17,11 @@ measurements, run the security/quality gates and bind the measured configuration
 Tests use synthetic data, never actual Bossman benchmark results. Current
 threefold system-performance verdict: NOT_MEASURED. Parallel wall-time
 measurement, local resource-vector accounting, authentic evidence ingestion,
-holdout registration and family-level quality acceptance remain separate work.
+and holdout registration remain separate work.
+
+The numerical gate also requires each preregistered family's paired-bootstrap
+95% success-delta lower bound to be at least -0.01, using the same draws as the
+aggregate gate. Gains in one family cannot conceal losses in another. These
+are per-family percentile intervals, not simultaneous confidence guarantees;
+they do not replace independent live quality acceptance.
 The evaluator cannot promote a strategy or certify an epoch.

@@ -89,3 +89,19 @@ def test_extreme_measurements_fail_without_uncaught_arithmetic_error():
     result = evaluate(m, b, c, bootstrap_samples=200)
     assert result["verdict"] == "INSUFFICIENT_EVIDENCE"
     json.dumps(result, allow_nan=False)
+
+
+def test_family_quality_regression_cannot_hide_behind_other_family_gains():
+    m, b, c = datasets()
+    # One family loses every successful result while another gains all of them.
+    # Overall success is unchanged and aggregate throughput/cost targets pass.
+    b = replace(b, records=tuple(replace(r, verified_result=r.family != "family-1")
+                                for r in b.records))
+    c = replace(c, records=tuple(replace(r, verified_result=r.family != "family-0")
+                                for r in c.records))
+    result = evaluate(m, b, c, bootstrap_samples=200)
+    assert result["gates"]["success_noninferior"] is True
+    assert result["verdict"] == "NOT_MET"
+    assert result["gates"]["family_success_noninferior"] is False
+    assert result["per_family"]["family-0"]["success_delta_interval_95"] == [-1.0, -1.0]
+    assert result["per_family"]["family-0"]["success_noninferior"] is False

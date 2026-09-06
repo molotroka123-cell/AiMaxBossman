@@ -153,8 +153,15 @@ def evaluate(manifest: Mapping[str, str], baseline: Dataset, candidate: Dataset,
         report["per_family"] = per_family
         rng = random.Random(seed)
         draws = {key: [] for key in ratios}
+        family_draws = {family: [] for family in counts}
         for _ in range(bootstrap_samples):
-            keys = [rng.choice(group) for group in groups for _ in group]
+            keys = []
+            for group in groups:
+                sampled = [rng.choice(group) for _ in group]
+                keys.extend(sampled)
+                family_draws[manifest[group[0]]].append(
+                    sum(int(c[k].verified_result) - int(b[k].verified_result)
+                        for k in sampled) / len(sampled))
             sample = _ratios(_totals([b[k] for k in keys]), _totals([c[k] for k in keys]))
             for key, value in sample.items():
                 if value is None:
@@ -170,6 +177,14 @@ def evaluate(manifest: Mapping[str, str], baseline: Dataset, candidate: Dataset,
             intervals[key] = [ordered[math.floor(.025 * (len(ordered) - 1))],
                               ordered[math.ceil(.975 * (len(ordered) - 1))]] if ordered else None
         report["intervals_95"] = intervals
+        # Aggregate success can hide a complete failure of one workload family.
+        # Use the same paired draws and retain every preregistered family.
+        for family, values in family_draws.items():
+            ordered = sorted(values)
+            interval = [ordered[math.floor(.025 * (len(ordered) - 1))],
+                        ordered[math.ceil(.975 * (len(ordered) - 1))]]
+            per_family[family]["success_delta_interval_95"] = interval
+            per_family[family]["success_noninferior"] = interval[0] >= -.01
         intervention_ok = (ct["avoidable_interventions"] == 0 if bt["avoidable_interventions"] == 0
                            else intervals["avoidable_interventions"][1] <= 1 / 3)
         report["interventions_zero_baseline_preserved"] = bt["avoidable_interventions"] == ct["avoidable_interventions"] == 0
@@ -177,6 +192,8 @@ def evaluate(manifest: Mapping[str, str], baseline: Dataset, candidate: Dataset,
                  "cost_one_third": intervals["cost_per_verified"][1] <= 1 / 3,
                  "avoidable_interventions": intervention_ok,
                  "success_noninferior": intervals["success_delta"][0] >= -.01,
+                 "family_success_noninferior": all(
+                     item["success_noninferior"] for item in per_family.values()),
                  "reported_unsafe_events_zero": bt["unsafe_events"] == ct["unsafe_events"] == 0}
         report.update(gates=gates, verdict="MET" if all(gates.values()) else "NOT_MET")
         report["reasons"] = [key for key, passed in gates.items() if not passed]
