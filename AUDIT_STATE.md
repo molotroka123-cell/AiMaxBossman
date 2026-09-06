@@ -60,10 +60,20 @@ No paid API call in this session. Fable not re-invoked. Ledger unchanged at $0.0
 
 ## Open
 
-- AUDIT001-F5-REPLAY (P2) — durable single-use evidence ledger.
-- AUDIT001-F5-PROVENANCE (P2) — mandatory provenance on every SecuritySnapshot.
-- `ObservationLog.record` has no idempotency key; harmless today (log is rebuilt per
-  poll from a bounded window) but would double-count if observations become durable.
+Nothing from this audit. The three items below were closed on
+`claude/v4-v5-local-models-optimization-ya3utu`; `tests/audit001` now runs
+**71 passed, 0 xfail** (it was 69 passed with 2 `xfail(strict=True)`).
+
+| item | closed by | evidence |
+|---|---|---|
+| AUDIT001-F5-REPLAY (P2) | `bossman/learning_guard/evidence_ledger.py` — a measurement is single-use, keyed on the evidence alone and consumed by candidate id + version; idempotent for a retry of the same version; `DurableEvidenceLedger` keeps the refusal across restarts and processes (`BOSSMAN_EVIDENCE_LEDGER_PATH`) | `tests/audit001/test_f5_cross_corpus.py::test_ab_evidence_cannot_be_replayed_for_a_newer_candidate_version` (xfail marker removed), `tests/test_learning_evidence_ledger.py` (12) |
+| AUDIT001-F5-PROVENANCE (P2) | `autonomy_trainer.corpus_fingerprint()` always yields a corpus identity and both SecuritySnapshots must carry it; the measurement producers emit it and `SkillPromoter.corpus_ref` gives callers the canonical value | `tests/audit001/test_f5_cross_corpus.py::test_incomparable_security_snapshots_do_not_pass_the_gate` (xfail marker removed) |
+| `ObservationLog.record` idempotency | optional opaque `CacheObservation.observation_id`; a repeat of a recorded id is counted once and the dedup window equals the retention window. An observation without an id is still counted rather than merged by field similarity | `tests/test_cache_observation.py` (5 new) |
+
+`POST_FREEZE_BACKLOG` item "DirectApiBudget multi-reservation bookkeeping" was
+re-checked and is already closed by `269d123`: `_hold_total()` sums
+`worst_case_usd` per RESERVED/RECONCILING record, which is the per-record hold
+map the entry asked for (`bossman-core/tests/test_fable_budget.py`).
 
 READY_FOR_GLM_RED_TEAM = YES — see `RED_TEAM_HANDOFF.md`.
 READY_FOR_PRODUCTION = NO-GO (release tier still lacks LIVE evidence).
