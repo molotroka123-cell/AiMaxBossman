@@ -132,7 +132,7 @@ def extra_ask_reason(command: str) -> str:
     return ""
 
 
-async def _resolve_cwd(ctx, args: dict) -> tuple[Path, list[Path]]:
+async def _resolve_cwd(ctx, args: dict, *, create_scratch: bool = True) -> tuple[Path, list[Path]]:
     """Рабочий каталог вызова: workspace задачи → аргумент → корень по умолчанию.
     Выход за разрешённые корни — забота политики, здесь только вычисление.
 
@@ -142,10 +142,27 @@ async def _resolve_cwd(ctx, args: dict) -> tuple[Path, list[Path]]:
     roots = await _roots(ctx.svc)
     raw = args.get("cwd") or ctx.workspace or (str(roots[0]) if roots else ".")
     if str(raw).strip() == SCRATCH_ALIAS:
-        return scratch.ensure(scratch.for_context(ctx)), roots
+        own = scratch.for_context(ctx)
+        return (scratch.ensure(own) if create_scratch else own.resolve()), roots
     # F-009: резолвим ДО авторизации — symlink/junction/../ и кодированные
     # варианты сравниваются с корнями уже как канонический путь.
     return Path(raw).expanduser().resolve(), roots
+
+
+async def _run_context_deny(args: dict, ctx) -> str | None:
+    """Read current roots before ASK; no mkdir/chmod/process or new authority.
+
+    _tool_run repeats ownership/root checks at the actual effect boundary. A
+    successful preflight is not a capability and cannot survive a later revoke.
+    """
+    cwd, roots = await _resolve_cwd(ctx, args, create_scratch=False)
+    own = scratch.for_context(ctx)
+    blocked = scratch.violation(ctx.svc.settings, own, cwd)
+    if blocked:
+        return blocked
+    if not within(cwd, roots) and not within(cwd, [own]):
+        return "terminal.run: cwd вне разрешённых корней; подтверждение не предоставит доступ"
+    return None
 
 
 def normalize_run_args(args: dict) -> dict:
@@ -364,7 +381,7 @@ SPECS = [
         },
         required=["command"], category="exec", permission="terminal.run", source="terminal",
         default_effect="ask", timeout_seconds=300.0, idempotent=False, external_output=True,
-        effect_hook=_run_effect, normalize_args=normalize_run_args),
+        effect_hook=_run_effect, normalize_args=normalize_run_args, context_deny=_run_context_deny),
     ToolSpec(name="terminal.status",
              description="Состояние и вывод ранее запущенной команды по session_id.",
              handler=_tool_status,

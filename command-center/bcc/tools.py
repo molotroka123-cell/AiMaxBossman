@@ -103,6 +103,9 @@ class ToolSpec:
     # номер; любая перерегистрация (MCP refresh, замена обработчика) даёт новое
     # поколение, и одобрение, выданное прежнему, перестаёт подходить.
     generation: int = 0
+    # Read-only contextual admission: may DENY, never grant or lower ASK.
+    # Used before creating an approval and rechecked at actual execution.
+    context_deny: Callable[[dict, ToolContext], Awaitable[str | None]] | None = None
 
     @property
     def impl_fingerprint(self) -> str:
@@ -111,7 +114,10 @@ class ToolSpec:
         для него identity = (server, tool, schema, description, generation)."""
         h = getattr(self.handler, "__module__", "") + ":" + getattr(
             self.handler, "__qualname__", repr(self.handler))
+        context_identity = (getattr(self.context_deny, "__module__", "") + ":" +
+                            getattr(self.context_deny, "__qualname__", "")) if self.context_deny else None
         blob = json.dumps({"name": self.name, "source": self.source, "handler": h,
+                           **({"context_deny": context_identity} if context_identity else {}),
                            "schema": self.input_schema, "required": list(self.required),
                            "description": self.description, "generation": self.generation},
                           sort_keys=True, ensure_ascii=False, default=str)
@@ -365,9 +371,34 @@ def allowed_tools_for(task: dict, agent: dict) -> list[str]:
 
 # ---------------------------------------------------------------- исполнение
 
+async def context_denial(spec: ToolSpec, args: dict, ctx: ToolContext) -> str | None:
+    """Current contextual policy can only refuse. Unknown/error fails closed.
+
+    This does not approve the tool or replace the handler's effect-time checks.
+    A shallow copy prevents ordinary callback edits to top-level tool arguments.
+    """
+    hook = spec.context_deny
+    if hook is None:
+        return None
+    try:
+        reason = await asyncio.wait_for(hook(dict(args), ctx), timeout=5.0)
+        if reason is None or reason == "":
+            return None
+        if type(reason) is str:
+            return reason[:1000]
+        return "context policy returned an invalid decision; denied"
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        return f"context policy unavailable ({type(exc).__name__}); denied"
+
+
 async def execute_tool(spec: ToolSpec, args: dict, ctx: ToolContext) -> ToolResult:
     """Запуск с таймаутом. Отмена (Hard Cancel) пробрасывается наверх —
     её ловит движок и завершает run как stopped."""
+    denied = await context_denial(spec, args, ctx)
+    if denied:
+        return ToolResult(content=denied, one_line=f"{spec.name}: context denied", error=True)
     try:
         result = await asyncio.wait_for(spec.handler(args, ctx),
                                         timeout=spec.timeout_seconds)

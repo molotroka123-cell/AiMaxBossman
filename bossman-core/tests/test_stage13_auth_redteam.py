@@ -808,7 +808,9 @@ async def test_c5_pause_between_approval_and_execution_blocks_action(tmp_path):
     await mgr.run(t.id)
     t2 = mgr.store.get(t.id)
     assert router.executed == []
-    assert t2.state is TaskState.FAILED and "stale" in (t2.last_error or "").lower()
+    assert t2.state is TaskState.PAUSED and "stale" in (t2.last_error or "").lower()
+    assert not t2.terminal and t2.pending_action is None and t2.steps_used == 0
+    assert mgr.resume(t.id).state is TaskState.RECOVERING
 
 
 async def test_c6_stale_pending_action_id_mismatch_blocks_action(tmp_path):
@@ -833,21 +835,12 @@ async def test_c6_stale_pending_action_id_mismatch_blocks_action(tmp_path):
     assert t2.state is TaskState.FAILED and "stale" in (t2.last_error or "").lower()
 
 
-@pytest.mark.parametrize("op,terminal", [("take_control", "FAILED"), ("stop", "CANCELLED")])
+@pytest.mark.parametrize("op,terminal", [("take_control", "USER_CONTROL"), ("pause", "PAUSED"), ("stop", "CANCELLED")])
 async def test_c7_operator_invalidation_between_approval_and_execution(tmp_path, op, terminal):
-    """Любая операторская инвалидация (take_control/stop — они bump'ают
-    generation и чистят pending) в окне между approve и исполнением блокирует
-    акцию: generation теперь токен инвалидации.
+    """Owner invalidation prevents the approved action without erasing control.
 
-    Терминальная метка при этом РАЗНАЯ, и это не мелочь. «Стоп» — решение
-    владельца, и оно не переписывается системным FAILED с текстом вроде
-    "approved action stale": владелец не должен читать собственную команду как
-    сбой системы. take_control владельческого вердикта по задаче не выносит,
-    поэтому там терминальная метка остаётся системной.
-
-    Что одинаково в обоих случаях и является собственно инвариантом
-    безопасности: акция НЕ ИСПОЛНЕНА, задача терминальна, задача не успешна, и
-    системный диагноз сохранён — владельческий вердикт не стирает причину.
+    Stop is terminal CANCELLED; Pause and Take control remain resumable owner
+    states. All preserve zero effects, no success and the stale diagnosis.
     """
     from bossman.computer_operator.models import TaskState
 
@@ -864,7 +857,10 @@ async def test_c7_operator_invalidation_between_approval_and_execution(tmp_path,
     t2 = mgr.store.get(t.id)
     assert router.executed == []
     assert t2.state is getattr(TaskState, terminal)
-    assert t2.state is not TaskState.COMPLETED and t2.terminal
+    assert t2.state is not TaskState.COMPLETED
+    assert t2.terminal == (op == "stop")
+    assert t2.steps_used == 0
+    assert t2.pending_action is None
     assert "stale" in (t2.last_error or "").lower()
 
 
