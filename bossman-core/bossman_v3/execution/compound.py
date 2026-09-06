@@ -139,10 +139,11 @@ class CompoundRunner:
                 @contextmanager
                 def guarded_effect():
                     with external_guard() if external_guard is not None else nullcontext():
-                        self.journal.begin(step.step_id, by=self.model)
                         yield
                 outcome = self.agent.run(step.action, {**dict(context or {}),
-                                                       "execution_guard": guarded_effect})
+                                                       "execution_guard": guarded_effect,
+                                                       "record_effect_intent": lambda: self.journal.begin(
+                                                           step.step_id, by=self.model)})
             except _EXPECTED as exc:
                 reason = f"{type(exc).__name__}: {exc}"
                 self.journal.fail(step.step_id, error=reason, by=self.model)

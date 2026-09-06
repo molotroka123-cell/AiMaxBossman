@@ -81,8 +81,15 @@ class OrganizationService:
         self.root.mkdir(parents=True, exist_ok=True)
         self.store = OrganizationStore(self.root / "organization.sqlite")
         self.lock = threading.Lock()
+        # Opt-in anchored journals share the canonical organization database.
+        # Legacy histories are not auto-enrolled or reset. Missing/replayed
+        # snapshots require reconciliation before any new external effect.
+        anchor = None
+        if _env_bool("BOSSMAN_V4_JOURNAL_ANCHOR"):
+            from bossman_v3.memory.anchor import SQLiteJournalAnchor
+            anchor = SQLiteJournalAnchor(self.store._connect, namespace="organization")
         bridge = V3ExecutionBridge(agent_factory=self._agent_factory, journal_root=self.root / "journals",
-                                   cost_meter=self._cost_meter)
+                                   cost_meter=self._cost_meter, journal_anchor=anchor)
         # §15: Fleet за флагом BOSSMAN_V3_FLEET — ГДЕ исполняется. Локальный транспорт, один
         # узел = этот хост; удалённый транспорт не production (REMOTE_TRANSPORT_PRODUCTION_READY=NO).
         self.fleet = None
@@ -94,7 +101,7 @@ class OrganizationService:
             self.node_id = f"local-{__import__('platform').node()}"[:60]
             self.fleet.registry.register(_local_node_state(self.node_id, set(REGISTRY.names())), now=time.time())
             transport.attach(self.node_id, bridge)
-            bridge = FleetExecutionBridge(self.fleet, journal_root=self.root / "journals")
+            bridge = FleetExecutionBridge(self.fleet, journal_root=self.root / "journals", journal_anchor=anchor)
         self.runtime = OrganizationRuntime(
             store=self.store, execution=bridge, human_review=_ApprovalsPort(self),
             reporter=_BusReporter(self), planner=DeterministicPlanner(lambda t: REGISTRY.get(t) is not None),

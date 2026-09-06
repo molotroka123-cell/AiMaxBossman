@@ -20,7 +20,9 @@ from typing import Any, Iterator
 from .contracts import DelegationContract
 from .models import AgentProfile, Department, MissionState, Resources, TaskState, WorkResult
 
-SCHEMA = """
+from ..memory.anchor import SCHEMA as JOURNAL_ANCHOR_SCHEMA
+
+SCHEMA = JOURNAL_ANCHOR_SCHEMA + """
 CREATE TABLE IF NOT EXISTS org_departments (
   department_id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS org_agents (

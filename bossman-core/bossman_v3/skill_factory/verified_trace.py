@@ -10,6 +10,8 @@ Future promotion must use existing LearningGuard holdout/security/owner gates.
 """
 from __future__ import annotations
 
+from ..memory.anchor import JournalAnchorPort
+
 import copy
 import hashlib
 import math
@@ -147,7 +149,8 @@ def _read_digest(root: Path, target: object) -> str:
 def candidate_from_journal(*, name: str, journal_root: Path, project_root: Path,
                            current_contract: DelegationContract,
                            current_attempts: Mapping[str, str],
-                           max_age_seconds: float = 300) -> JournalSkill:
+                           max_age_seconds: float = 300,
+                           journal_anchor: JournalAnchorPort | None = None) -> JournalSkill:
     """Return parameterized experimental data, never an executable replay grant.
 
     current_attempts must come from trusted current execution state, not from the
@@ -179,7 +182,7 @@ def candidate_from_journal(*, name: str, journal_root: Path, project_root: Path,
     # A writer left active/ambiguous state: do not mine it as a completed trace.
     if path.with_suffix(".lock").exists():
         raise UntrustedTrace("journal writer requires reconciliation")
-    j = TaskJournal.load(task_id=task_id, root=journal_root)
+    j = TaskJournal.load(task_id=task_id, root=journal_root, anchor=journal_anchor)
     initial_disk_digest = j._disk_digest
     plan = [step_from_dict(raw) for raw in contract.steps]
     manifest = [step_to_dict(step) for step in plan]
@@ -248,7 +251,7 @@ def candidate_from_journal(*, name: str, journal_root: Path, project_root: Path,
                            scopes=(), idempotency_key=None, source="verified_trace.experimental")
         trace.append(TraceStep(template, True))
     # Detect concurrent journal replacement even while independent readback ran.
-    fresh = TaskJournal.load(task_id=task_id, root=journal_root)
+    fresh = TaskJournal.load(task_id=task_id, root=journal_root, anchor=journal_anchor)
     if fresh._disk_digest != initial_disk_digest or path.with_suffix(".lock").exists():
         raise UntrustedTrace("journal changed during candidate extraction")
     if digest(current_contract.to_dict()) != original_contract_state or dict(current_attempts) != attempts:

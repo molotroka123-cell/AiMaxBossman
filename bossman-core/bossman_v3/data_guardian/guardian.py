@@ -1,5 +1,6 @@
 from __future__ import annotations
 import hashlib
+import math
 from dataclasses import replace
 from typing import Iterable
 from .models import ContextItem, GuardianConfig, GuardianReport, RetentionMetrics
@@ -45,7 +46,7 @@ class ContextDataGuardian:
         seen: set[str] = set()
         for item in original:
             h = stable_hash(item)
-            if h in seen and not item.protected and not item.conflict_group:
+            if h in seen and not self._mandatory(item) and not item.conflict_group:
                 continue
             seen.add(h)
             unique.append(item)
@@ -132,12 +133,26 @@ class ContextDataGuardian:
         raw_effective_cost: float,
         filtered_effective_cost: float,
     ) -> RetentionMetrics:
+        # Invalid measurements cannot silently turn into a favourable ratio.
+        values = (raw_verified_success, filtered_verified_success, raw_quality,
+                  filtered_quality, raw_effective_cost, filtered_effective_cost)
+        if any(type(v) not in (int, float) for v in values):
+            raise ValueError("measured finite numeric metrics required")
+        try:
+            valid = all(math.isfinite(v) and v >= 0 for v in values)
+        except OverflowError:
+            valid = False
+        if not valid or any(v > 1 for v in values[:4]):
+            raise ValueError("invalid measured quality/success/cost metrics")
         raw_success = max(0.0, raw_verified_success)
         filtered_success = max(0.0, filtered_verified_success)
-        retention = filtered_success / raw_success if raw_success > 0 else (1.0 if filtered_success == 0 else float("inf"))
+        retention = filtered_success / raw_success if raw_success > 0 else 0.0
+        if not math.isfinite(retention):
+            raise ValueError("unbounded retention ratio; insufficient measured baseline")
         degradation = raw_success - filtered_success
         raw_eff = raw_quality / max(raw_effective_cost, 1e-12)
         filtered_eff = filtered_quality / max(filtered_effective_cost, 1e-12)
         gain = filtered_eff / max(raw_eff, 1e-12)
-        allowed = degradation <= self.config.max_verified_success_degradation
+        allowed = (raw_success > 0 and raw_quality > 0 and raw_effective_cost > 0
+                   and degradation <= self.config.max_verified_success_degradation)
         return RetentionMetrics(retention, gain, degradation, allowed)

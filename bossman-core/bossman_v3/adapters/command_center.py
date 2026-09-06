@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import hashlib
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -102,15 +103,25 @@ class CommandCenterRuntime:
                 self._thread.join(timeout=5)
 
 
-def _preview(action: TypedAction, task_id: int | None = None) -> str:
-    """Стабильное описание действия: по нему одобренная запись находится при
-    повторном прогоне после того, как владелец нажал «одобрить». Идентификатор
-    задачи входит в preview намеренно: одобрение привязано к задаче и не может
-    быть «подобрано» другой задачей с тем же текстом действия (аудит P0-3)."""
+def _preview(action: TypedAction, task_id: int | None = None, *,
+             run_id: int | None = None, agent_id: int | None = None) -> str:
+    """Human preview + FULL canonical identity, never a truncated identity.
+
+    Reuse the existing F-013 normalizer/implementation fingerprint. Expectations,
+    scopes and side-effect class are included even though they are not tool args.
+    A legacy truncated preview deliberately cannot authorize a new action.
+    """
+    from bcc.tools import REGISTRY, approval_digest
+    from ..visual_state.action_state import _action_digest
+    spec = REGISTRY.get(action.action_type)
+    if spec is None:
+        raise ValueError("cannot approve an unregistered tool")
     args = {k: v for k, v in dict(action.args).items() if k != "expect"}
-    body = json.dumps(args, ensure_ascii=False, sort_keys=True)
-    scope = f"task#{task_id} " if task_id is not None else ""
-    return f"v3 {scope}{action.action_type}: {body}"[:500]
+    identity = {"action": _action_digest(action), "run_id": run_id,
+                "tool": approval_digest(spec, args, agent={"id": agent_id}, task={"id": task_id})}
+    fingerprint = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+    summary = json.dumps(args, ensure_ascii=False, sort_keys=True)
+    return f"v4:{fingerprint} task#{task_id} run#{run_id} {action.action_type}: {summary}"[:500]
 
 
 # ------------------------------------------------------------------- policy
@@ -118,16 +129,28 @@ def _preview(action: TypedAction, task_id: int | None = None) -> str:
 class CommandCenterPolicy:
     """AUTO/ASK/DENY — решение V2 (`bcc.tools.decide_effect`), не наше."""
 
-    def __init__(self, agent: Mapping[str, Any]):
+    def __init__(self, agent: Mapping[str, Any], *, rt=None, svc=None):
         self.agent = dict(agent)
+        self.rt, self.svc = rt, svc
+
+    async def _current_agent(self):
+        import sqlalchemy as sa
+        from bcc.db import agents
+        async with self.svc.db.session() as session:
+            row = (await session.execute(sa.select(agents).where(
+                agents.c.id == self.agent.get("id")))).first()
+            return dict(row._mapping) if row is not None else None
 
     def authorize(self, action: TypedAction, context: Mapping[str, Any]) -> PolicyDecision:
         from bcc.tools import REGISTRY, agent_policy_rules, decide_effect
+        current = self.rt.call(self._current_agent()) if self.rt is not None and self.svc is not None else self.agent
+        if current is None or not current.get("enabled", True):
+            return PolicyDecision(False, reason="agent disabled or removed before effect")
         spec = REGISTRY.get(action.action_type)
         if spec is None:
             return PolicyDecision(False, reason=f"инструмент {action.action_type!r} не зарегистрирован")
         args = {k: v for k, v in dict(action.args).items() if k != "expect"}
-        effect, reason = decide_effect(spec, args, self.agent, agent_policy_rules(self.agent))
+        effect, reason = decide_effect(spec, args, current, agent_policy_rules(current))
         if effect == "deny":
             return PolicyDecision(False, reason=reason)
         return PolicyDecision(True, requires_approval=(effect == "ask"), reason=reason)
@@ -138,16 +161,38 @@ class CommandCenterPolicy:
 class CommandCenterApproval:
     """ASK через каноническую очередь V2. Никогда не одобряет сам."""
 
-    def __init__(self, rt: CommandCenterRuntime, svc: Any, *, task_id: int | None = None):
+    def __init__(self, rt: CommandCenterRuntime, svc: Any, *, task_id: int | None = None,
+                 run_id: int | None = None, agent_id: int | None = None):
         self.rt, self.svc, self.task_id = rt, svc, task_id
+        self.run_id, self.agent_id = run_id, agent_id
+
+    def preview(self, action: TypedAction) -> str:
+        return _preview(action, self.task_id, run_id=self.run_id, agent_id=self.agent_id)
+
+    def revalidate(self, action: TypedAction, approval_id: str | None,
+                   context: Mapping[str, Any]) -> bool:
+        """Recheck the consumed grant without consuming it a second time."""
+        async def read():
+            import sqlalchemy as sa
+            from bcc.db import approvals
+            if approval_id is None:
+                return None
+            async with self.svc.db.session() as session:
+                row = (await session.execute(sa.select(approvals).where(
+                    approvals.c.id == int(approval_id)))).first()
+                return dict(row._mapping) if row is not None else None
+        row = self.rt.call(read())
+        return bool(row and row.get("status") == "consumed" and row.get("kind") == APPROVAL_KIND
+                    and row.get("task_id") == self.task_id and row.get("run_id") == self.run_id
+                    and row.get("preview") == self.preview(action))
 
     def request(self, action: TypedAction, policy: PolicyDecision,
                 context: Mapping[str, Any]) -> ApprovalDecision:
-        preview = _preview(action, self.task_id)
+        preview = self.preview(action)
         approved = self.rt.call(self.svc.approvals.list(status="approved", limit=500))
         for row in approved:
             if row.get("kind") == APPROVAL_KIND and row.get("preview") == preview \
-                    and (row.get("task_id") in (None, self.task_id)):
+                    and (row.get("task_id") == self.task_id and row.get("run_id") == self.run_id):
                 ok = self.rt.call(self.svc.approvals.consume(row["id"], kind=APPROVAL_KIND,
                                                              preview=preview))
                 if ok:
@@ -158,7 +203,7 @@ class CommandCenterApproval:
                 return ApprovalDecision(False, approval_id=str(row["id"]),
                                         reason=f"ожидает решения владельца: approval {row['id']}")
         created = self.rt.call(self.svc.approvals.create(
-            kind=APPROVAL_KIND, preview=preview, task_id=self.task_id))
+            kind=APPROVAL_KIND, preview=preview, task_id=self.task_id, run_id=self.run_id))
         aid = (created or {}).get("id")
         return ApprovalDecision(False, approval_id=str(aid) if aid is not None else None,
                                 reason=f"создан запрос на подтверждение: approval {aid}")
@@ -272,8 +317,9 @@ def build_agent(rt: CommandCenterRuntime, svc: Any, *, task: Mapping[str, Any],
                 agent: Mapping[str, Any], run_id: int) -> UniversalComputerAgent:
     """Собрать UniversalComputerAgent, полностью привязанный к живому V2."""
     return UniversalComputerAgent(
-        policy=CommandCenterPolicy(agent),
-        approval=CommandCenterApproval(rt, svc, task_id=task.get("id")),
+        policy=CommandCenterPolicy(agent, rt=rt, svc=svc),
+        approval=CommandCenterApproval(rt, svc, task_id=task.get("id"), run_id=run_id,
+                                       agent_id=agent.get("id")),
         executor=CommandCenterExecutor(rt, svc, task=task, agent=agent, run_id=run_id),
         observer=CommandCenterObserver(rt, svc, task=task),
         verifier=CommandCenterVerifier(),

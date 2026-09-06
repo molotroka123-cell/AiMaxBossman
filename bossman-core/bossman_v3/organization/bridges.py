@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
 
+from ..memory.anchor import JournalAnchorPort
 from ..computer_agent.agent import UniversalComputerAgent
 from ..contracts import SideEffectClass, TypedAction
 from ..execution.compound import CompoundResult, CompoundRunner, PlanStep
@@ -136,9 +137,11 @@ class V3ExecutionBridge:
 
     def __init__(self, *, agent_factory: AgentFactory, journal_root: str | Path,
                  failure_memory_for: Callable[[str], FailureMemory | None] | None = None,
-                 cost_meter: CostMeter | None = None) -> None:
+                 cost_meter: CostMeter | None = None,
+                 journal_anchor: JournalAnchorPort | None = None) -> None:
         self.agent_factory = agent_factory
         self.journal_root = Path(journal_root)
+        self.journal_anchor = journal_anchor
         self.failure_memory_for = failure_memory_for
         self.cost_meter = cost_meter or _default_cost
 
@@ -152,9 +155,9 @@ class V3ExecutionBridge:
         jid = self.journal_id(contract)
         path = journal_path(self.journal_root, jid)
         if path.exists():
-            j = TaskJournal.load(task_id=jid, root=self.journal_root)
+            j = TaskJournal.load(task_id=jid, root=self.journal_root, anchor=self.journal_anchor)
         else:
-            j = TaskJournal.start(task_id=jid, plan=[(p.step_id, p.intent) for p in plan], root=self.journal_root)
+            j = TaskJournal.start(task_id=jid, plan=[(p.step_id, p.intent) for p in plan], root=self.journal_root, anchor=self.journal_anchor)
         j.bind_plan([step_to_dict(p) for p in plan])
         prior = next((n.get("contract_digest") for n in j.notes if "contract_digest" in n), None)
         if prior is not None and prior != contract.digest():

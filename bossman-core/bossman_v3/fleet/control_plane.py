@@ -27,6 +27,7 @@ from typing import Any
 from ..organization.bridges import step_from_dict
 from ..organization.contracts import DelegationContract
 from ..organization.models import Evidence, WorkResult
+from ..memory.anchor import JournalAnchorPort
 from ..memory.journal import TaskJournal
 from .artifacts import ArtifactRegistry
 from .credentials import CredentialBroker
@@ -147,9 +148,11 @@ class FleetExecutionBridge:
     V3-мост (журнал общий на durable-хранилище), флот лишь размещает,
     арендует, диспетчеризует и записывает полёт."""
 
-    def __init__(self, plane: FleetControlPlane, *, journal_root: str | Path | None = None) -> None:
+    def __init__(self, plane: FleetControlPlane, *, journal_root: str | Path | None = None,
+                 journal_anchor: JournalAnchorPort | None = None) -> None:
         self.plane = plane
         self.journal_root = Path(journal_root) if journal_root else None
+        self.journal_anchor = journal_anchor
 
     def execute(self, contract: DelegationContract, *, agent_id: str) -> WorkResult:
         plane = self.plane
@@ -165,7 +168,7 @@ class FleetExecutionBridge:
             plan = [step_from_dict(s) for s in contract.steps]
             jid = f"{contract.mission_id}__{contract.work_id}"
             if (self.journal_root / f"{jid}.json").exists():
-                j = TaskJournal.load(task_id=jid, root=self.journal_root)
+                j = TaskJournal.load(task_id=jid, root=self.journal_root, anchor=self.journal_anchor)
                 lost = any(h["to"] == "NODE_LOST" for h in flight.history)
                 decision = plane.resume.decide(j, plan, lost_in_flight=lost)
                 if not decision.resumable:
@@ -213,7 +216,7 @@ class FleetExecutionBridge:
             plan = [step_from_dict(s) for s in contract.steps]
             jid = f"{contract.mission_id}__{contract.work_id}"
             jpath = self.journal_root / f"{jid}.json"
-            derived = _journal_evidence(TaskJournal.load(task_id=jid, root=self.journal_root), plan,
+            derived = _journal_evidence(TaskJournal.load(task_id=jid, root=self.journal_root, anchor=self.journal_anchor), plan,
                                         flight=flight, journal=plane.journal) if jpath.exists() else []
             forged = [e for e in result.evidence if e.verified and e.source not in {d.source for d in derived}]
             if forged:
@@ -276,7 +279,7 @@ class FleetExecutionBridge:
         if self.journal_root is not None and contract.steps:
             jid = f"{contract.mission_id}__{contract.work_id}"
             if (self.journal_root / f"{jid}.json").exists():
-                j = TaskJournal.load(task_id=jid, root=self.journal_root)
+                j = TaskJournal.load(task_id=jid, root=self.journal_root, anchor=self.journal_anchor)
                 plan = [step_from_dict(s) for s in contract.steps]
                 evidence = _journal_evidence(j, plan)
                 executed = bool(j.finished())

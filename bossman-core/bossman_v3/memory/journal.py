@@ -27,6 +27,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from .anchor import AnchorConflict, JournalAnchorPort
+
 PENDING, DONE, FAILED, STARTED = "PENDING", "DONE", "FAILED", "STARTED"
 
 
@@ -129,21 +131,23 @@ class TaskJournal:
     execution_binding: dict[str, Any] = field(default_factory=dict)
 
     _disk_digest: str | None = field(default=None, repr=False, compare=False)
+    _anchor: JournalAnchorPort | None = field(default=None, repr=False, compare=False)
 
     # ------------------------------------------------------------ lifecycle
 
     @classmethod
     def start(cls, *, task_id: str, plan: Sequence[tuple[str, str]], root: str | Path,
-              plan_digest: str = "") -> "TaskJournal":
+              plan_digest: str = "", anchor: JournalAnchorPort | None = None) -> "TaskJournal":
         task_id = safe_task_id(task_id)
         j = cls(task_id=task_id,
                 steps=[JournalStep(step_id=sid, intent=intent, task_binding=task_id) for sid, intent in plan],
-                root=Path(root))
+                root=Path(root), _anchor=anchor)
         j._save()
         return j
 
     @classmethod
-    def load(cls, *, task_id: str, root: str | Path) -> "TaskJournal":
+    def load(cls, *, task_id: str, root: str | Path,
+             anchor: JournalAnchorPort | None = None) -> "TaskJournal":
         path = journal_path(root, task_id)
         data = path.read_bytes()
         raw = json.loads(data)
@@ -151,11 +155,22 @@ class TaskJournal:
         # Authenticate the entire durable snapshot before trusting any replay
         # decision, including absence of an in-flight attempt (E4-RT-001).
         from bossman_v3 import evidence as _signing
-        if (not isinstance(raw, dict) or type(raw.get("schema_version")) is not int or raw.get("schema_version") != 3
+        if (not isinstance(raw, dict) or type(raw.get("schema_version")) is not int or raw.get("schema_version") not in (3, 4)
                 or raw.get("record_type") != "task_journal_snapshot"
                 or raw.get("signer") != _signing.JOURNAL_SIGNER
                 or not _signing.verify_signed(raw)):
             raise JournalIntegrityError("invalid or legacy unsigned journal snapshot; reconciliation required")
+        if raw["schema_version"] == 4:
+            if anchor is None:
+                raise JournalIntegrityError("anchored journal requires its canonical high-water mark")
+            try:
+                anchor.check(task_id, hashlib.sha256(data).hexdigest())
+            except AnchorConflict as exc:
+                raise JournalIntegrityError(str(exc)) from exc
+        elif anchor is not None:
+            # Never silently enroll a legacy snapshot: it could be a valid old
+            # copy from before a now-unknown irreversible effect.
+            raise JournalIntegrityError("legacy journal requires explicit reconciliation before anchor migration")
         if raw["task_id"] != task_id:
             raise JournalIntegrityError("journal task identity mismatch")
         j = cls(task_id=raw["task_id"],
@@ -163,7 +178,7 @@ class TaskJournal:
                    notes=list(raw.get("notes") or []),
                    created_at=raw.get("created_at", _now()),
                    root=Path(root), plan_digest=raw.get("plan_digest", ""),
-                   execution_binding=dict(raw.get("execution_binding") or {}))
+                   execution_binding=dict(raw.get("execution_binding") or {}), _anchor=anchor)
         j._disk_digest = hashlib.sha256(data).hexdigest()
         j.validate()
         return j
@@ -238,7 +253,7 @@ class TaskJournal:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"task_id": self.task_id, "created_at": self.created_at,
                    "steps": [asdict(s) for s in self.steps], "notes": self.notes,
-                   "plan_digest": self.plan_digest, "schema_version": 3,
+                   "plan_digest": self.plan_digest, "schema_version": 4 if self._anchor is not None else 3,
                    "record_type": "task_journal_snapshot",
                    "execution_binding": dict(self.execution_binding)}
         from bossman_v3 import evidence as _signing
@@ -249,6 +264,15 @@ class TaskJournal:
                 json.dump(payload, stream, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False)
                 stream.flush()
                 os.fsync(stream.fileno())
+            if self._anchor is not None:
+                # Commit the witness BEFORE publishing the snapshot. A crash
+                # between these two writes rejects the old file on restart;
+                # it never silently replays from a formerly valid snapshot.
+                new_digest = hashlib.sha256(Path(temp).read_bytes()).hexdigest()
+                try:
+                    self._anchor.advance(self.task_id, self._disk_digest, new_digest)
+                except AnchorConflict as exc:
+                    raise JournalIntegrityError(str(exc)) from exc
             os.replace(temp, path)
             if os.name == "posix":
                 dfd = os.open(path.parent, os.O_RDONLY)
