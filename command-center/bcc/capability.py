@@ -296,3 +296,28 @@ def surface(registry, *, probes: dict[str, bool] | None = None, agent: dict | No
                   policy_rules=policy_rules, platform=platform, probes=probes)
         items.append({**cap.to_dict(), "executor": cap.source, "grant": g.to_dict()})
     return items
+
+
+def for_tool(registry, tool_name: str, *, absent: str = UNREGISTERED,
+             args: dict | None = None, agent: dict | None = None,
+             policy_rules: list[dict] | None = None, platform: str | None = None,
+             probes: dict[str, bool] | None = None) -> tuple[CapabilitySpec | None, Grant]:
+    """Способность ИМЕНОВАННОГО инструмента и решение о её выдаче — одним вызовом.
+
+    Нужна там, где имя способности приходит извне реестра: шаг плана
+    (`tool_calls.tool`), быстрое действие панели, ссылка из задачи. Разница с
+    `grant()` только в том, что здесь имя ещё нужно разрешить, и разрешение
+    может не удаться — тогда возвращается честный `blocked`, а не пустой успех.
+
+    `absent` выбирает, ЧЕМ объясняется отсутствие: `UNREGISTERED` — инструмент
+    бывает в этой сборке, но в этом процессе не зарегистрирован; `NO_EXECUTOR` —
+    исполнителя нет вовсе, и повтор его не создаст. Оба ключа несут remediation
+    из таблицы выше; выдумывать третий смысл здесь нечем и не нужно.
+    """
+    spec = registry.get(tool_name) if registry is not None else None
+    if spec is None:
+        return None, blocked(tool_name, reason_key=absent)
+    cap = from_tool(spec)
+    return cap, grant(cap, spec=spec, args=dict(args or {}),
+                      agent=dict(agent or {"permissions": []}), policy_rules=policy_rules,
+                      platform=platform, probes=probes)

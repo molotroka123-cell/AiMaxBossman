@@ -1,0 +1,263 @@
+/* ============================================================
+   assistant.css — the assistant column (docs/v3/BOSSMAN_DESIGN_SYSTEM.md).
+
+   TOKEN SCOPING. `--line`, `--accent`, `--ok`, `--warn` already exist in
+   ui/style.css with different values, and redefining them on :root would
+   repaint seventeen pages that never asked for it. So every role token here is
+   prefixed `--bxa-` AND declared on `.bxa`, this component's own subtree root —
+   never on :root. A page that embeds the panel keeps its own palette; the panel
+   keeps the design system's.
+
+   THREE THEMES, and two of them are light. Nothing here may assume a dark
+   ground: every colour is a role token, redeclared per theme, and no raw hex
+   appears below the token blocks.
+
+   THE MARKS. `.bxa-mark` is the one rule the panel exists to keep. A filled
+   check (post-state observed) and a hollow ring (tool reported only) differ in
+   geometry, in fill, and in their accessible name. They are drawn by different
+   SVG in assistant.js and they can never collapse into the same appearance.
+   ============================================================ */
+
+/* ---------- Studio Dark: the default, and the editor theme ---------- */
+.bxa {
+  --bxa-bg-app: #0b0e13;
+  --bxa-bg-panel: #12161d;
+  --bxa-bg-raised: #1a1f28;
+  --bxa-bg-hover: #222834;
+  --bxa-bg-active: #2b3342;
+  --bxa-line: #232a35;
+  --bxa-text: #e6ebf2;
+  --bxa-text-dim: #8b95a5;
+  --bxa-text-faint: #5a6474;
+  --bxa-accent: #3ddad7;
+  --bxa-primary: #2f6fed;
+  --bxa-ok: #3fb950;
+  --bxa-warn: #d29922;
+  --bxa-danger: #f04747;
+  --bxa-on-accent: #06131a;
+  --bxa-shadow: 0 8px 24px rgba(0, 0, 0, .45);
+}
+[data-theme="studio-dark"] .bxa { color-scheme: dark; }
+
+/* ---------- Calm Light: the editorial theme ---------- */
+[data-theme="calm-light"] .bxa {
+  color-scheme: light;
+  --bxa-bg-app: #efece6;
+  --bxa-bg-panel: #f7f5f1;
+  --bxa-bg-raised: #ffffff;
+  --bxa-bg-hover: #f0ede7;
+  --bxa-bg-active: #e6e2d9;
+  --bxa-line: #ddd8ce;
+  --bxa-text: #1d2420;
+  --bxa-text-dim: #6b7169;
+  --bxa-text-faint: #9aa096;
+  --bxa-accent: #2f5d4a;
+  --bxa-primary: #2f5d4a;
+  --bxa-ok: #3f7d55;
+  --bxa-warn: #a8761f;
+  --bxa-danger: #b4453c;
+  --bxa-on-accent: #ffffff;
+  --bxa-shadow: 0 8px 24px rgba(31, 27, 20, .18);
+}
+
+/* ---------- System Light: the platform theme.
+     `[data-theme="light"]` is what this application already sets, so the
+     platform theme answers to both names rather than leaving the existing
+     switch on a dark panel. ---------- */
+[data-theme="light"] .bxa,
+[data-theme="system-light"] .bxa {
+  color-scheme: light;
+  --bxa-bg-app: #f3f4f9;
+  --bxa-bg-panel: #fbfbfe;
+  --bxa-bg-raised: #ffffff;
+  --bxa-bg-hover: #eef0f7;
+  --bxa-bg-active: #e4e7f2;
+  --bxa-line: #dfe2ec;
+  --bxa-text: #1a1d26;
+  --bxa-text-dim: #636879;
+  --bxa-text-faint: #969bab;
+  --bxa-accent: #6b4ee6;
+  --bxa-primary: #6b4ee6;
+  --bxa-ok: #3fa45b;
+  --bxa-warn: #c17a1c;
+  --bxa-danger: #d0453f;
+  --bxa-on-accent: #ffffff;
+  --bxa-shadow: 0 8px 24px rgba(26, 29, 38, .16);
+}
+
+/* ---------- shell ---------- */
+.bxa {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 340px;
+  min-width: 300px;
+  box-sizing: border-box;
+  padding: 12px;
+  background: var(--bxa-bg-panel);
+  border: 1px solid var(--bxa-line);
+  border-radius: 8px;
+  color: var(--bxa-text);
+  font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.bxa * { box-sizing: border-box; }
+.bxa-wide { max-width: none; }
+
+.bxa-title { font-size: 13px; font-weight: 600; margin: 0; }
+.bxa-label {
+  font-size: 11px; font-weight: 500; color: var(--bxa-text-dim);
+  letter-spacing: .02em; margin: 0;
+}
+.bxa-micro { font-size: 10px; color: var(--bxa-text-dim); }
+.bxa-mono {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- head ---------- */
+.bxa-head { display: flex; align-items: flex-start; gap: 8px; }
+.bxa-spark { flex: 0 0 auto; color: var(--bxa-accent); margin-top: 1px; }
+.bxa-head-text { min-width: 0; }
+.bxa-sub { color: var(--bxa-text-dim); font-size: 11px; }
+
+/* ---------- cards ---------- */
+.bxa-card {
+  background: var(--bxa-bg-raised);
+  border: 1px solid var(--bxa-line);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.bxa-request .bxa-request-text {
+  margin-top: 4px; color: var(--bxa-text);
+  overflow-wrap: anywhere; white-space: pre-wrap;
+  max-height: 96px; overflow-y: auto;
+}
+
+.bxa-section { display: flex; flex-direction: column; gap: 8px; }
+.bxa-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+
+/* ---------- plan ---------- */
+.bxa-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.bxa-step {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 6px 6px;
+  border-radius: 4px;
+}
+.bxa-step:hover { background: var(--bxa-bg-hover); }
+.bxa-step-body { min-width: 0; }
+.bxa-step-title { font-weight: 500; overflow-wrap: anywhere; }
+.bxa-step-detail {
+  color: var(--bxa-text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bxa-step-reason { color: var(--bxa-text-dim); font-size: 11px; overflow-wrap: anywhere; }
+.bxa-step[data-mark="failed"] .bxa-step-reason { color: var(--bxa-danger); }
+.bxa-step[data-mark="waiting"] .bxa-step-reason { color: var(--bxa-warn); }
+.bxa-step-time { color: var(--bxa-text-dim); font-size: 10px; padding-top: 1px; }
+.bxa-step-obl {
+  display: inline-block; margin-top: 2px; padding: 0 6px;
+  border-radius: 999px; border: 1px solid var(--bxa-line);
+  color: var(--bxa-text-dim); font-size: 10px;
+}
+
+/* The state marks. Colour is carried by the SVG's own stroke/fill (set in
+   assistant.js from these tokens); this block only reserves the box so that a
+   filled check and a hollow ring never reflow the row differently. */
+.bxa-mark { width: 14px; height: 14px; display: block; margin-top: 2px; }
+.bxa-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.bxa-legend-item { display: flex; align-items: center; gap: 5px; color: var(--bxa-text-dim); font-size: 10px; }
+
+/* ---------- verification banner ---------- */
+.bxa-verdict {
+  display: flex; align-items: flex-start; gap: 6px;
+  border-radius: 6px; padding: 6px 8px;
+  border: 1px solid var(--bxa-line); background: var(--bxa-bg-raised);
+}
+.bxa-verdict[data-status="VERIFIED"] { border-color: var(--bxa-ok); }
+.bxa-verdict[data-status="FAILED"] { border-color: var(--bxa-danger); }
+.bxa-verdict[data-status="UNVERIFIED"] { border-color: var(--bxa-warn); }
+.bxa-verdict-reason { color: var(--bxa-text-dim); }
+
+.bxa-note {
+  color: var(--bxa-text-dim); font-size: 11px;
+  border-left: 2px solid var(--bxa-warn); padding-left: 8px;
+}
+
+/* ---------- quick actions ---------- */
+.bxa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bxa-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 8px; min-height: 32px;
+  background: var(--bxa-bg-raised);
+  border: 1px solid var(--bxa-line);
+  border-radius: 4px;
+  color: var(--bxa-text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.bxa-btn:hover:not(:disabled) { background: var(--bxa-bg-hover); }
+.bxa-btn:active:not(:disabled) { background: var(--bxa-bg-active); }
+.bxa-btn:disabled { color: var(--bxa-text-faint); cursor: not-allowed; }
+.bxa-btn-primary {
+  background: var(--bxa-primary); border-color: var(--bxa-primary); color: #fff;
+  justify-content: center;
+}
+.bxa-btn-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bxa-btn-icon { flex: 0 0 auto; color: var(--bxa-text-dim); }
+.bxa-btn:disabled .bxa-btn-icon { color: var(--bxa-text-faint); }
+
+/* ---------- capability surface ---------- */
+.bxa-caps { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.bxa-cap { border: 1px solid var(--bxa-line); border-radius: 4px; padding: 6px 8px; background: var(--bxa-bg-raised); }
+.bxa-cap-head { display: flex; align-items: baseline; gap: 6px; justify-content: space-between; }
+.bxa-cap-id { overflow-wrap: anywhere; }
+.bxa-cap-exec { color: var(--bxa-text-dim); font-size: 10px; white-space: nowrap; }
+.bxa-cap[data-granted="false"] { border-color: var(--bxa-warn); }
+.bxa-cap-why { color: var(--bxa-warn); font-size: 11px; margin-top: 2px; overflow-wrap: anywhere; }
+.bxa-cap-how { color: var(--bxa-text-dim); font-size: 11px; margin-top: 2px; overflow-wrap: anywhere; }
+.bxa-filter {
+  width: 100%; padding: 5px 8px; border-radius: 4px;
+  border: 1px solid var(--bxa-line); background: var(--bxa-bg-raised); color: var(--bxa-text);
+  font: inherit;
+}
+
+/* ---------- composer ---------- */
+.bxa-composer { display: flex; flex-direction: column; gap: 8px; }
+.bxa-input {
+  width: 100%; min-height: 62px; resize: vertical;
+  padding: 8px; border-radius: 4px;
+  border: 1px solid var(--bxa-line); background: var(--bxa-bg-raised); color: var(--bxa-text);
+  font: inherit;
+}
+.bxa-input::placeholder { color: var(--bxa-text-faint); }
+.bxa-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.bxa-pill {
+  padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--bxa-line); background: var(--bxa-bg-raised);
+  color: var(--bxa-text-dim); font: inherit; font-size: 11px; cursor: pointer;
+}
+.bxa-pill:hover { background: var(--bxa-bg-hover); color: var(--bxa-text); }
+
+/* ---------- the four panel states ---------- */
+.bxa-state { display: flex; flex-direction: column; gap: 6px; padding: 10px; text-align: left; }
+.bxa-state-title { font-weight: 500; }
+.bxa-state-hint { color: var(--bxa-text-dim); }
+.bxa-state[data-state="error"] .bxa-state-title,
+.bxa-state[data-state="offline"] .bxa-state-title { color: var(--bxa-danger); }
+.bxa-skel {
+  height: 12px; border-radius: 4px; background: var(--bxa-bg-hover);
+  animation: bxa-pulse 1.4s ease-in-out infinite;
+}
+@keyframes bxa-pulse { 0%, 100% { opacity: .45; } 50% { opacity: .9; } }
+@media (prefers-reduced-motion: reduce) { .bxa-skel { animation: none; } }
+
+/* ---------- focus, always visible ---------- */
+.bxa :focus-visible {
+  outline: 2px solid var(--bxa-accent);
+  outline-offset: 1px;
+}
