@@ -1,0 +1,25 @@
+{
+  "base_sha": "2919b8319c8da512c5a54408c35db04bea858f07",
+  "base_tree": "f1b106aa5f026f820c72a30e08e71961867c42cc",
+  "target_tree": "be7edea449d6071de8fcd81a5c1de31cf224a6e5",
+  "patch_sha256": "06d8914694a90fc9101e015d62fef5fc2df43dc77f4f05ca95a3009a3f7f95a6",
+  "gzip_sha256": "094d712a4779d73a11ae3ddbb54cd9f701e51690a85d335316d495010bc2568b",
+  "transport_part2_tail_bytes": 10532,
+  "transport_part2_sha256": "42f4f5076b1259675221f295a757fbdce33f91eecd3f3e0fc9be6bb8a9b40ccd",
+  "transport_note": "Part 2 upload duplicated a prefix. Only the exact hash-bound last 10532 ASCII bytes belong to the payload. Decompression/application MUST stop on any hash mismatch. This is patch data, never eval/exec input. Materialized plain patch and source files are retained as CI artifacts.",
+  "files": [
+    {"path":"bossman-core/bossman/computer_operator/manager.py","before":"a23642df880a2a5e5e67f32f8db0ccd506c3f1e2","after":"b921ddb49b8095a4739ae89cd379cfcb590989a2"},
+    {"path":"bossman-core/tests/test_computer_operator_owner_control.py","before":"c72e8540e2f185e5923a927e92db5e3030188db9","after":"176564e2d5ea67657f2fcc39a2fba1569facff79"},
+    {"path":"bossman-core/tests/test_stage13_auth_redteam.py","before":"293a9910e31c99706dc96c40fa18f6c127f0d7d7","after":"a1aad4ca95b660d2bd2434e4486be8924f4b8f3f"},
+    {"path":"bossman-core/tests/test_takeover_interrupt_drain.py","before":null,"after":"36e8fc4b644e6ed8ba21c547c9e81798e05e0a07"},
+    {"path":"command-center/bcc/engine.py","before":"e9ba40acc290b5e3128aff031a8ca695b4a7b028","after":"9701c19eec3412de212d9de527c0e974825f48c1"},
+    {"path":"command-center/bcc/features/tools_terminal.py","before":"71e9909610d910c9f7ab65838753c42fac77ac25","after":"bbf7ef40836d6b45399427fa12a659d8a96c6d65"},
+    {"path":"command-center/bcc/tools.py","before":"824090ddcd906f5c9a59e98d608b8d262b6aff4a","after":"9a2363f32f6cc21f57fcca6959f4359b0a531341"},
+    {"path":"command-center/tests/test_takeover_home_ui.py","before":null,"after":"0257d0108138c786a584ae61a5a23089c6a42096"},
+    {"path":"command-center/tests/test_terminal_context_denial.py","before":null,"after":"f5341f31af091714c54c9cc458703f7c3899a16d"},
+    {"path":"command-center/ui/pages/control.js","before":"79e81daa1381515b914afcf3735a22ed97c98526","after":"3cb1d324d3aa8e4f07e530fa8c6c5dd1d197b4de"},
+    {"path":"command-center/ui/pages/home.js","before":"1846471579c04aaba66ecd18fe86d9c6aaf4a777","after":"85ad1f1163c58b050ebcd9c5a5d1b7ba89da105b"},
+    {"path":"docs/audits/THREE_LANE_PREPARATION_20260906.md","before":null,"after":"e048acc647df1be2f27a7724499be7587f5fc469"},
+    {"path":"docs/testing/SKIPS_REGISTRY.md","before":"6b198c27b60af1b7863edb2f2fc6a03585753edc","after":"b86dd33cc422bf18ec0ea0d738b3e244c7db1899"}
+  ]
+}
