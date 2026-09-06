@@ -28,6 +28,7 @@ from .model import (
     JobState,
     Scene,
     VideoJob,
+    normalize_duration,
 )
 from .providers import SyntheticFFmpegProvider, VideoProvider
 
@@ -90,9 +91,14 @@ class VideoFactory:
     # --- создание / персистентность ----------------------------------------
 
     def create(self, title: str, prompts, *, duration_s: float = 5.0) -> VideoJob:
-        """Создать джобу со сценами `s001..sNNN` и сохранить чекпоинт."""
+        """Создать джобу со сценами `s001..sNNN` и сохранить чекпоинт.
+
+        Длительность нормализуется ЗДЕСЬ, а не только в pydantic-модели роутера:
+        `create`/`create_and_enqueue` — публичный библиотечный вход, и через него
+        раньше проезжали NaN и duration_s=1e6 (бесконечный рендер без таймаута)."""
+        duration_s = normalize_duration(duration_s)
         scenes = [
-            Scene(id=f"s{i + 1:03d}", prompt=str(p), duration_s=float(duration_s))
+            Scene(id=f"s{i + 1:03d}", prompt=str(p), duration_s=duration_s)
             for i, p in enumerate(prompts)
         ]
         job = VideoJob(id=uuid.uuid4().hex, title=str(title), scenes=scenes, state=JobState.PLANNED)
@@ -112,10 +118,22 @@ class VideoFactory:
         d.mkdir(parents=True, exist_ok=True)
         data = job.to_public()
         tmp = d / "job.json.tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-            f.flush()
-            os.fsync(f.fileno())
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                # allow_nan=False: `json.dump` по умолчанию пишет НЕстандартные
+                # литералы NaN/Infinity, и такой чекпоинт не читает ни один
+                # строгий парсер (браузер, jq, Go/Rust-клиент) — durable-истина
+                # становится нечитаемой для всех, кроме Python. Лучше громкий
+                # типизированный отказ, чем битый job.json на диске.
+                json.dump(data, f, ensure_ascii=False, indent=2, allow_nan=False)
+                f.flush()
+                os.fsync(f.fileno())
+        except ValueError as exc:
+            tmp.unlink(missing_ok=True)
+            raise errors.ArtifactRejected(
+                f"video job {job.id}: checkpoint is not valid JSON ({exc})",
+                extra={"job": job.id},
+            ) from exc
         os.replace(tmp, d / "job.json")
         if self.db_mirror:
             self._mirror_db(job)
@@ -164,6 +182,8 @@ class VideoFactory:
         s.status = status
         if output is not None:
             s.output = output
+        if status == SCENE_COMPLETE:
+            s.error = s.error_code = None
         self.save(job)
         events.emit("video.scene", job_id=job.id, scene_id=scene_id, status=status, output=output)
         return s
@@ -226,32 +246,61 @@ class VideoFactory:
         self.save(job)
         events.emit("video.scene", job_id=job.id, scene_id=scene.id, status=SCENE_COMPLETE, output=take_name)
 
+    @staticmethod
+    def _as_typed(exc: Exception) -> errors.BossmanError:
+        """Свести ЛЮБОЙ провал попытки к типизированной доменной ошибке.
+
+        До VF-002 ловились только `VideoProviderFailed`/`VideoInvalidOutput`, а
+        всё остальное (OSError провайдера, TypeError в адаптере, таймаут httpx)
+        улетало мимо цикла попыток: сцена навсегда оставалась `running`, джоба —
+        `running`, а владелец видел ровно ничего. Имя класса исключения — это не
+        причина отказа; наружу обязан уходить машинный код."""
+        if isinstance(exc, errors.BossmanError):
+            return exc
+        return errors.VideoProviderFailed(
+            f"unexpected {type(exc).__name__}: {exc}",
+            extra={"cause": type(exc).__name__},
+        )
+
     async def _run_scene(self, job: VideoJob, scene: Scene) -> None:
         """Сгенерировать сцену с ограниченным числом попыток.
 
         `ResourceExhausted` — это backpressure (отказ в допуске), НЕ провал
-        генерации: он пробрасывается наружу и НЕ съедает попытку. Ошибки
-        провайдера/валидации — съедают попытку и ведут к ретраю (новый take)."""
+        генерации: он пробрасывается наружу и НЕ съедает попытку. Любая другая
+        ошибка (провайдер, валидация, неожиданное исключение) съедает попытку,
+        пишется в сцену вместе с машинным кодом и ведёт к ретраю (новый take)."""
         last: errors.BossmanError | None = None
         while scene.attempts < self.max_attempts:
+            attempts_before = scene.attempts
             try:
                 await self._generate_once(job, scene)
                 return
             except errors.ResourceExhausted:
                 raise  # backpressure — не трогаем попытки, отдаём наверх
-            except (errors.VideoProviderFailed, errors.VideoInvalidOutput) as exc:
-                last = exc
-                scene.error = exc.detail
-                self.save(job)
-                _log.warning("scene %s attempt %d failed: %s", scene.id, scene.attempts, exc.code.value)
+            except Exception as exc:  # noqa: BLE001 — сводим к типизированной причине
+                last = self._as_typed(exc)
+            # Попытка могла упасть ДО инкремента (например, mkdir сцены): без
+            # этого счётчик не рос бы и цикл крутился вечно.
+            if scene.attempts == attempts_before:
+                scene.attempts = attempts_before + 1
+            scene.error = last.detail
+            scene.error_code = last.code.value
+            self.save(job)
+            _log.warning("scene %s attempt %d failed: %s", scene.id, scene.attempts, last.code.value)
         scene.status = SCENE_FAILED
         scene.error = last.detail if last else "attempts exhausted"
+        scene.error_code = (
+            last.code.value if last else errors.ErrorCode.VIDEO_PROVIDER_FAILED.value
+        )
         self.save(job)
-        events.emit("video.scene", job_id=job.id, scene_id=scene.id, status=SCENE_FAILED)
+        events.emit(
+            "video.scene", job_id=job.id, scene_id=scene.id,
+            status=SCENE_FAILED, reason=scene.error_code,
+        )
         if self.halt_on_failure:
             raise errors.VideoProviderFailed(
                 f"scene {scene.id} failed after {scene.attempts} attempts",
-                extra={"scene": scene.id},
+                extra={"scene": scene.id, "reason": scene.error_code},
             )
 
     async def run_job(self, job: VideoJob, *, provider: VideoProvider | None = None) -> VideoJob:
@@ -260,6 +309,7 @@ class VideoFactory:
         if provider is not None:
             self.provider = provider
         job.state = JobState.RUNNING
+        job.error = None
         self.save(job)
         try:
             for scene in job.scenes:
@@ -267,22 +317,47 @@ class VideoFactory:
                     continue  # возобновление: готовую сцену НЕ перегенерируем
                 await self._run_scene(job, scene)
                 if scene.status == SCENE_FAILED and self.halt_on_failure:
-                    job.state = JobState.FAILED
-                    self.save(job)
+                    self._mark_failed(job)
                     return job
         except errors.ResourceExhausted:
             # Backpressure: возвращаем джобу в очередь (на диске QUEUED), проброс.
             job.state = JobState.QUEUED
             self.save(job)
             raise
-        job.state = (
-            JobState.COMPLETE
-            if all(s.status == SCENE_COMPLETE for s in job.scenes)
-            else JobState.FAILED
-        )
-        self.save(job)
-        events.emit("video.job", job_id=job.id, state=job.state.value)
+        except Exception as exc:  # noqa: BLE001
+            # VF-002: раньше любое НЕтипизированное исключение уносило джобу
+            # наружу, оставив на диске state=running/error=null — до перезапуска
+            # процесса (только там работает reconcile) владелец видел вечный
+            # «running». Теперь терминальное состояние фиксируется ДО проброса.
+            typed = self._as_typed(exc)
+            self._mark_failed(job, reason=f"{typed.code.value}: {typed.detail}")
+            raise typed from exc
+        if all(s.status == SCENE_COMPLETE for s in job.scenes):
+            job.state = JobState.COMPLETE
+            job.error = None
+            self.save(job)
+        else:
+            self._mark_failed(job)
+        events.emit("video.job", job_id=job.id, state=job.state.value, error=job.error)
         return job
+
+    def _mark_failed(self, job: VideoJob, *, reason: str | None = None) -> None:
+        """Пометить джобу FAILED и записать ПРИЧИНУ на уровне джобы.
+
+        VF-003: `VideoJob.error` не заполнялся нигде — `GET /video/jobs/{id}`
+        отдавал `state: "failed", error: null`, и владельцу приходилось лезть в
+        сцены (где тоже лежал только человеческий текст без машинного кода)."""
+        job.state = JobState.FAILED
+        if reason is None:
+            broken = [s for s in job.scenes if s.status != SCENE_COMPLETE]
+            if broken:
+                s = broken[0]
+                code = s.error_code or errors.ErrorCode.VIDEO_PROVIDER_FAILED.value
+                reason = f"{code}: scene {s.id}: {s.error or 'unknown'}"
+            else:
+                reason = errors.ErrorCode.INTERNAL.value
+        job.error = reason
+        self.save(job)
 
     # --- опциональное зеркало в Postgres (best-effort, тестам не нужен DB) ---
 

@@ -9,7 +9,10 @@ def test_resource_admission():
     assert not b.admit(s,WorkloadRequest(estimated_ram=400,estimated_disk=10)).allowed
 def test_search_and_provenance():
     e=SearchEngine();e.upsert([SearchDocument("1","Bossman browser context memory","repo","p"),SearchDocument("2","unrelated","repo","p")])
-    h=e.search("browser memory",project="p");assert h and h[0].document.source=="repo"
+    try:
+        h=e.search("browser memory",project="p");assert h and h[0].document.source=="repo"
+    finally:
+        e.close()   # RES-001: движок владеет собственным mkdtemp — без close() он остаётся навсегда
 def test_device_revoke():
     r=DeviceRegistry();did,t=r.enroll("iphone",("chat",));assert r.verify(did,t,"chat");r.revoke(did);assert not r.verify(did,t)
 def test_video_checkpoint(tmp_path):
