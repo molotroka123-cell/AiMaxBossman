@@ -1,0 +1,30 @@
+FABLE — use `handoffs/Bossman_V5_Fable_Implementation_Pack_2026-09-06.zip`
+before spending context on another repo-wide audit.
+
+Fetch current remote HEAD first.
+
+Focus on:
+00_START_HERE.md
+03_IMPLEMENTATION_ORDER.md
+04_SECURITY_AND_TRUST_INVARIANTS.md
+reference_implementation/
+08_GOLDEN_MISSIONS_AND_ACCEPTANCE.md
+06_INTELLIGENCE_PRESERVATION_AND_CONTEXT.md
+
+The reference code is an accelerator, NOT a second runtime.
+Port useful parts into canonical Bossman stores/policy/Treasury/MissionIR/finalizer.
+
+V5 = explicit objective → scoped observation → deterministic deviation → proposal →
+CURRENT authorization + atomic reservation → ordinary V4 Mission IR → verified effect →
+fresh re-observation.
+
+Do not activate standing autonomy before V4/N0 permits it.
+No relevant change = no model call.
+UNKNOWN never means healthy or broken.
+PROPOSAL != AUTHORIZATION.
+MISSION COMPLETION != SUSTAINED OBJECTIVE HEALTH.
+
+Implement code + tests first. Use 5 focused agents with only relevant files.
+Push small coherent commits frequently. Fetch before every push.
+Zero repo-local P0/P1 before closure.
+Real model retention evidence is required; evaluator unit tests alone are not proof.

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "owner_id": "owner-local",
+  "scope_id": "project:fixture",
+  "objective_id": "objective:fixture-build-health",
+  "revision": 1,
+  "previous_digest": null,
+  "predicates": [{"predicate_id":"build-passes","source_ref":"fixture-build","field":"exit_code","value_type":"number","operator":"eq","expected":0}],
+  "sources": [{"source_ref":"fixture-build","source_revision":"v1","max_age_seconds":600}],
+  "expires_at": 1790000000,
+  "priority": 10,
+  "allowed_triggers": ["source_change","scheduled","owner_request"],
+  "permission_refs": ["project-read","project-fix-with-approval"],
+  "conflict_keys": ["project:fixture"],
+  "cooldown_seconds": 120,
+  "limits": {"max_observations":1000,"max_missions":20,"max_wall_seconds":7200,"max_cost_usd":5.0},
+  "stop_conditions": ["owner_stop","repeated_failure"]
+}

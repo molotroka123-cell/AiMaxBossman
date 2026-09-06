@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bossman Steward ObjectiveRuntimeState Reference",
+  "type": "object",
+  "required": ["objective_id","owner_id","scope_id","spec_digest","revision","lifecycle","condition","version"],
+  "properties": {
+    "objective_id":{"type":"string","minLength":1},
+    "owner_id":{"type":"string","minLength":1},
+    "scope_id":{"type":"string","minLength":1},
+    "spec_digest":{"type":"string","minLength":1},
+    "revision":{"type":"integer","minimum":1},
+    "lifecycle":{"enum":["DRAFT","ACTIVE","PAUSED","EXPIRED","REVOKED"]},
+    "condition":{"enum":["SATISFIED","DEVIATED","UNKNOWN"]},
+    "version":{"type":"integer","minimum":0}
+  },
+  "additionalProperties": true
+}
