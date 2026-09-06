@@ -135,7 +135,11 @@ class ComputerOperatorManager:
                     self.loop_guards.pop(t.id,None)
                     self._emit(t,"completed"); return t.state
                 if a.kind is ActionKind.FAIL:return self._fail(t,a.text or "planner failed")
-                d=self.policy.classify(a,mode=t.mode,locked=self.global_locked)
+                # `before` — наблюдение, сделанное НАБЛЮДАТЕЛЕМ, а не моделью:
+                # приложение/заголовок переднего плана политика использует как
+                # улику последствия, чтобы решение «спросить владельца» не
+                # держалось на одном поле планировщика (см. policy).
+                d=self.policy.classify(a,mode=t.mode,locked=self.global_locked,observation=before)
                 if not d.allow:
                     t.replans_used+=1; last=f"policy denied:{d.reason}"; self._save(t)
                     if t.replans_used>t.max_replans:return self._fail(t,"policy/replan budget")
