@@ -106,3 +106,18 @@ async def test_rational_range_keeps_selected_final_source_frame(tmp_path, first,
     end_color = await rgb_frame(output, count - 1)
     assert end_color[2] > 150 and end_color[0] < 60 and end_color[1] < 60, end_color
     assert hashlib.sha256(source.read_bytes()).hexdigest() == source_digest
+
+
+@pytest.mark.parametrize("start,end", [(1100000,1800000),(20000,120000),(10000,700000)])
+async def test_non_aligned_interval_uses_integer_frame_limit(tmp_path,start,end):
+    fps={"num":25,"den":1}
+    p,source,original=await fixture(tmp_path,fps,50)
+    output=tmp_path/"off-grid.mp4"
+    result=await render_project(p,tmp_path,output,{"range":{"start":start,"end":end}})
+    expected=cfr_frame_count(end-start,fps,start_ticks=start)
+    frames=await decoded_frames(output)
+    assert result["verification"]["passed"]
+    assert result["verification"]["decoded_video_frames"]==len(frames)==expected
+    assert [float(f["best_effort_timestamp_time"]) for f in frames]==pytest.approx(
+        [i/25 for i in range(expected)],abs=1e-6)
+    assert hashlib.sha256(source.read_bytes()).hexdigest()==original

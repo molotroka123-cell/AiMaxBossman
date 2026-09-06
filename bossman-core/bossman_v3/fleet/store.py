@@ -15,6 +15,15 @@ from typing import Any
 from .models import CredentialGrant, FlightRecord, Lease, NodeState
 
 SCHEMA = """
+-- RPC replay/revocation metadata share the canonical fleet store; no key bytes.
+CREATE TABLE IF NOT EXISTS fleet_rpc_revoked (
+  peer_id TEXT NOT NULL, key_id TEXT NOT NULL, PRIMARY KEY(peer_id,key_id));
+CREATE TABLE IF NOT EXISTS fleet_rpc_nonces (
+  peer_id TEXT NOT NULL, key_id TEXT NOT NULL, nonce TEXT NOT NULL, expires_at REAL NOT NULL,
+  PRIMARY KEY(peer_id,key_id,nonce));
+CREATE TABLE IF NOT EXISTS fleet_rpc_clock (id INTEGER PRIMARY KEY, value REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS fleet_rpc_dispatches (
+  logical_id TEXT PRIMARY KEY, status TEXT NOT NULL, request_digest TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS fleet_nodes (
   node_id TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_ts REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS fleet_leases (

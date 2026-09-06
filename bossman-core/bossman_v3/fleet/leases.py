@@ -111,7 +111,7 @@ class LeaseManager:
         return True, "valid"
 
     @contextmanager
-    def mutation_guard(self, lease: Lease):
+    def mutation_guard(self, lease: Lease, *, authorization_check=None):
         """Serialize lease replacement against local mutations at the effect boundary."""
         with self.store.connect() as con:
             con.execute("BEGIN IMMEDIATE")
@@ -120,6 +120,8 @@ class LeaseManager:
                 if (row is None or row["fence"] != lease.fence or row["work_id"] != lease.work_id
                         or row["node_id"] != lease.node_id or row["expires_ts"] <= time.time()):
                     raise StaleLease("execution lease is stale; effect refused")
+                if authorization_check is not None:
+                    authorization_check(con)
                 yield
                 con.execute("COMMIT")
             except BaseException:
