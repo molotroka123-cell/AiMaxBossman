@@ -19,41 +19,54 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Materialize plain patch and verify exact source identity
-        shell: bash
+      - name: Preserve concurrent main task-link creation intent, verify exact source
+        shell: python
         run: |
-          test "$(git hash-object command-center/ui/pages/web_designer.js)" = 2402f7e933f152cf131fb47e59a2d455fc5b089a
-          git apply --check .delivery/editor-stability.patch
-          git apply --index .delivery/editor-stability.patch
-          test "$(git hash-object command-center/ui/pages/web_designer.js)" = dcf3fe5dd5df46fded9318aa1e0e3871a206308d
-          mkdir -p proof
-          git rev-parse HEAD > proof/delivery-sha.txt
-          git write-tree > proof/tested-tree.txt
-          cp command-center/ui/pages/web_designer.js proof/web_designer.js
+          import hashlib,pathlib,subprocess
+          path=pathlib.Path('command-center/ui/pages/web_designer.js')
+          data=path.read_bytes()
+          def blob(b):return hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          assert blob(data)=='dcf3fe5dd5df46fded9318aa1e0e3871a206308d'
+          old=b'state.id = Number(res.meta.id);\n        try { localStorage.setItem(LAST_KEY, String(state.id)); }'
+          new=b'state.id = Number(res.meta.id); state.creating = false;\n        try { localStorage.setItem(LAST_KEY, String(state.id)); }'
+          assert data.count(old)==1
+          data=data.replace(old,new)
+          assert blob(data)=='03ee1657205a797914a460fb429a5a4f0d9c4695'
+          path.write_bytes(data)
+          subprocess.run(['git','add','--',str(path)],check=True)
+          output=pathlib.Path('proof');output.mkdir()
+          (output/'web_designer.js').write_bytes(data)
+          for cmd,name in [(['git','rev-parse','HEAD'],'delivery-sha.txt'),(['git','write-tree'],'tested-tree.txt')]:
+              (output/name).write_bytes(subprocess.check_output(cmd))
       - name: Dependencies
         run: |
           python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
           python -m playwright install --with-deps chromium
           sudo apt-get update -q
           sudo apt-get install -y -q ffmpeg
-      - name: Actual JS save races and existing editor backend regressions
+      - name: Save races and complete existing editor backend selection
         working-directory: command-center
         shell: bash
         run: |
           set -o pipefail
           python -m pytest tests/test_web_designer_save.py tests/test_video_studio_*.py tests/test_video_export_receipt.py tests/test_video_native_finalize_contract.py tests/test_web_designer.py tests/test_web_designer_source_fidelity.py -q --timeout=90 --junitxml=../proof/backend.xml | tee ../proof/backend.log
-      - name: Real Chromium editor journeys, source isolation and saved artifacts
+      - name: Both integrated UI suites, real playback, process restart, save conflicts
         if: ${{ !cancelled() }}
         working-directory: command-center
+        env:
+          BCC_REQUIRE_BROWSER: '1'
         shell: bash
         run: |
           set -o pipefail
-          python -m pytest tests/test_editor_stability_ui.py tests/test_web_designer_sandbox_ui.py -q --timeout=180 --junitxml=../proof/ui.xml | tee ../proof/ui.log
-      - name: Hygiene
+          python -m pytest tests/test_editor_stability_ui.py tests/test_editors_user_acceptance.py tests/test_web_designer_sandbox_ui.py tests/test_web_designer_viewport.py -q --timeout=180 --junitxml=../proof/ui.xml | tee ../proof/ui.log
+      - name: No silent UI skips and source hygiene
+        shell: python
         run: |
-          node --check command-center/ui/pages/web_designer.js
-          python tools/ci_secret_scan.py
-          git diff --cached --check
+          import subprocess,xml.etree.ElementTree as ET
+          suites=list(ET.parse('proof/ui.xml').getroot().iter('testsuite'))
+          assert sum(int(s.get('tests','0')) for s in suites)==8
+          for key in ('errors','failures','skipped'):assert sum(int(s.get(key,'0')) for s in suites)==0,key
+          for cmd in [['node','--check','command-center/ui/pages/web_designer.js'],['python','tools/skips_registry.py','--check'],['python','tools/ci_secret_scan.py'],['git','diff','--cached','--check']]:subprocess.run(cmd,check=True)
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -71,19 +84,21 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Store verified immutable source blob; no branch update
+      - name: Store exact validated immutable source; no branch update
         env:
           GH_TOKEN: ${{ github.token }}
         shell: python
         run: |
-          import base64,hashlib,json,os,pathlib,subprocess,urllib.request
-          subprocess.run(['git','apply','--check','.delivery/editor-stability.patch'],check=True)
-          subprocess.run(['git','apply','.delivery/editor-stability.patch'],check=True)
+          import base64,hashlib,json,os,pathlib,urllib.request
           data=pathlib.Path('command-center/ui/pages/web_designer.js').read_bytes()
+          old=b'state.id = Number(res.meta.id);\n        try { localStorage.setItem(LAST_KEY, String(state.id)); }'
+          new=b'state.id = Number(res.meta.id); state.creating = false;\n        try { localStorage.setItem(LAST_KEY, String(state.id)); }'
+          assert data.count(old)==1
+          data=data.replace(old,new)
           digest=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
-          assert digest=='dcf3fe5dd5df46fded9318aa1e0e3871a206308d'
+          assert digest=='03ee1657205a797914a460fb429a5a4f0d9c4695'
           assert os.environ['GITHUB_REPOSITORY']=='molotroka123-cell/AiMaxBossman'
           req=urllib.request.Request('https://api.github.com/repos/molotroka123-cell/AiMaxBossman/git/blobs',data=json.dumps({'encoding':'base64','content':base64.b64encode(data).decode()}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'},method='POST')
-          with urllib.request.urlopen(req,timeout=30) as response: stored=json.load(response)
+          with urllib.request.urlopen(req,timeout=30) as response:stored=json.load(response)
           assert stored['sha']==digest
           print('VALIDATED_WEB_BLOB='+digest)
