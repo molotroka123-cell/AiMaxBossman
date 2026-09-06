@@ -8,13 +8,50 @@ from __future__ import annotations
 import hmac
 import os
 import secrets as _secrets
+import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 TOKEN_FILE = "token"
 HEADER = "X-BCC-Token"
 # Только значение "1" и интерактивный первый запуск разрешают печать токена.
 TOKEN_STDOUT_ENV = "BCC_TOKEN_STDOUT"
+
+
+def _restrict_to_owner(path: Path) -> None:
+    """Сузить доступ к файлу токена до владельца. На POSIX всё сделал 0600.
+
+    На Windows режим из `os.open` не создаёт ACL: он переключает единственный
+    атрибут «только чтение», и токен — весь контроль доступа к Command Center —
+    читается любым процессом сессии пользователя. Явный owner-only DACL ставит
+    icacls: `/inheritance:r` снимает унаследованные разрешения, `/grant:r
+    <user>:F` оставляет доступ только владельцу.
+
+    Близнец bossman_shared/evidence.py::restrict_to_owner; здесь он повторён
+    намеренно — auth стартует раньше всего и не должен тянуть чужой пакет.
+    Best-effort: провал не имеет права уронить старт сервера (токен уже есть),
+    но и молчать нельзя — предупреждение, не исключение.
+    """
+    if os.name != "nt":
+        return
+    user = os.environ.get("USERNAME") or ""
+    domain = os.environ.get("USERDOMAIN") or ""
+    principal = f"{domain}\\{user}" if domain and user else (user or "%USERNAME%")
+    argv = ["icacls", str(path), "/inheritance:r", "/grant:r", f"{principal}:F"]
+    try:
+        proc = subprocess.run(  # noqa: S603 — argv, без строки для оболочки
+            argv, capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=30, check=False)
+    except Exception as exc:  # noqa: BLE001 — нет icacls, урезанный образ, таймаут
+        warnings.warn(f"не удалось запустить icacls для {path}: {exc!r}; "
+                      "файл токена остаётся доступным сессии пользователя",
+                      UserWarning, stacklevel=2)
+        return
+    if proc.returncode != 0:
+        warnings.warn(f"icacls не сузил права {path} (код {proc.returncode}): "
+                      f"{(proc.stderr or proc.stdout or '').strip()[:200]}",
+                      UserWarning, stacklevel=2)
 
 
 class TokenAuth:
@@ -31,11 +68,14 @@ class TokenAuth:
         if self.path.exists():
             value = self.path.read_text(encoding="utf-8").strip()
             if value:
+                # Токен мог быть создан версией без ACL — лечим при старте.
+                _restrict_to_owner(self.path)
                 return value, False
         token = _secrets.token_urlsafe(32)
         fd = os.open(self.path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(token)
+        _restrict_to_owner(self.path)  # Windows: режим os.open ACL не ставит
         return token, True
 
     def announce(self, created: bool = False) -> None:

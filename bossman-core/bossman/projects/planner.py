@@ -52,7 +52,9 @@ async def plan_project(slug: str, brief: str, agent: AgentSpec | None = None) ->
     d.mkdir(parents=True, exist_ok=True)
     for sub in ("notes", "assets", "deliverable"):
         (d / sub).mkdir(exist_ok=True)
-    (d / "brief.md").write_text(brief)
+    # brief — русский текст владельца: кодировка задаётся явно, а не локалью
+    # хоста (на Windows это cp1251 и половина брифа не записывается).
+    (d / "brief.md").write_text(brief, encoding="utf-8")
 
     planner = make_planner_agent(agent)
     msg = await chat(planner, [
