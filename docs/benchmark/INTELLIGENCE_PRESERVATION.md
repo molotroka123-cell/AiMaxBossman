@@ -11,6 +11,29 @@ The gate compares the **same model** on the **same benchmark items** in four lan
 
 Missing lanes, metrics, invalid scores, or too few samples are `INSUFFICIENT_EVIDENCE`, never PASS.
 
+## What makes a payload evidence (gate version 2)
+
+- `model`, `dataset_id` and a 40-hex `evaluated_sha` are required. A lane that
+  declares its own `model`/`dataset_id`/`model_version`/`quantization`/`decoding`
+  must agree with the payload: one model, one configuration, one item set.
+- CI passes `--expect-sha` with the commit under test; a payload measured on
+  another commit is `INSUFFICIENT_EVIDENCE` (`OLD_SHA_PASS != CURRENT_SHA_PASS`).
+- Every metric must report the same `samples` in every lane (paired items).
+- 98% retention is a relative ratio and a non-inferiority claim. The gate reports a
+  conservative lower confidence bound (default 95%) on core retention. A point
+  estimate above the bar with a bound below it is `INSUFFICIENT_EVIDENCE`, not
+  PASS. A genuine paired runner can report per-metric discordance versus the
+  baseline lane, `"paired": {"lost": b, "gained": c}`, which tightens the bound;
+  without it the unpaired bound is used, and 1000 items per metric are not enough
+  to prove a 2% margin. Twenty observations per metric is a smoke-test floor.
+- Each core metric is checked on its own (`CORE_METRIC_REGRESSION`); a regression
+  cannot hide inside the core mean.
+- Secondary metrics (long context, memory retrieval, computer-use planning, task
+  completion) need the sample floor and are reported with their full/raw
+  retention; a drop is a `SECONDARY_REGRESSION` WARNING, never silent.
+- Tool and hallucination rules are point-estimate rules ("must not regress");
+  their intervals are informational.
+
 ## Required metrics
 
 Each lane reports `score` in `[0,1]` and `samples` for:

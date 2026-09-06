@@ -50,6 +50,7 @@ jobs:
           --core-retention-min 0.98
           --tool-retention-min 1.0
           --min-samples 20
+          --expect-sha "${{ github.event.pull_request.head.sha || github.sha }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
