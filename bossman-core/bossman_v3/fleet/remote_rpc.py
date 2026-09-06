@@ -316,7 +316,9 @@ def make_node_server(address: tuple[str, int], tls: ssl.SSLContext, gateway: Rem
                     or self.headers.get("Content-Type") != "application/json"
                     or len(lengths) != 1 or not lengths[0].isdigit()
                     or not 0 < int(lengths[0]) <= MAX_PACKET_BYTES):
-                self.reply(400, b'{"error":"invalid_rpc_request"}')
+                # Do not advertise a response body while deliberately refusing to
+                # drain invalid framing; a TLS reset could truncate that body.
+                self.reply(400, b"")
                 return
             try:
                 raw = self.rfile.read(int(lengths[0]))

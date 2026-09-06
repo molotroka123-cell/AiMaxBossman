@@ -668,7 +668,6 @@ async def render_project(project, root, output_path, options=None, progress=None
         # filter needs a following timestamp to release that REAL final frame.
         # Supply bounded temporal lookahead, then trim by the immutable CFR
         # count; padding never becomes an additional published output frame.
-        lookahead = 1 / rate(seq["fps"]) + 1 / fps
         sequence_fps = rate(seq["fps"])
         range_indices = []
         for endpoint in (round(start*TICKS), round(end*TICKS)):
@@ -682,13 +681,14 @@ async def render_project(project, root, output_path, options=None, progress=None
         # indices when both endpoints identify sequence boundaries.
         trim = (f"trim=start_frame={range_indices[0]}:end_frame={range_indices[1]}"
                 if len(range_indices) == 2 else f"trim=start={fmt(start)}:end={fmt(end)}")
-        # overlay can leave frame_rate undefined on a time-based (not frame-
-        # aligned) trim. tpad then rounds stop_duration to ZERO frames. Normalize
-        # that link first, preserving its final frame with eof_action=pass; the
-        # subsequent lookahead/fps/trim still enforces the exact CFR count.
+        # The sequence is already composed on its CFR clock. Use an explicit
+        # bounded padding COUNT, not stop_duration on an undefined link rate.
+        # Retimestamp every real/padded frame on that clock BEFORE fps; an early
+        # fps filter can discard the real final frame at EOF on FFmpeg 6.
+        # Final integer trim excludes lookahead frames from published output.
         # Convert RGB into limited-range BT.709 samples, matching encoder tags.
         # Keep format adjacent to scale to constrain its negotiated output.
-        v=compiler.node([v],f"{trim},setpts=PTS-STARTPTS,scale={width}:{height}:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv420p,setsar=1,fps={sequence_fps}:start_time=0:eof_action=pass,tpad=stop_mode=clone:stop_duration={fmt(lookahead)},fps={fps}:start_time=0,trim=end_frame={expected_frames}")
+        v=compiler.node([v],f"{trim},setpts=PTS-STARTPTS,scale={width}:{height}:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv420p,setsar=1,tpad=stop_mode=clone:stop={math.ceil(sequence_fps/fps)+1},setpts=N/({sequence_fps}*TB),fps={fps}:start_time=0,trim=end_frame={expected_frames}")
         a=compiler.node([a],f"atrim=start={fmt(start)}:end={fmt(end)},asetpts=PTS-STARTPTS")
         graph=Path(td)/"graph.txt";graph.write_text(";\n".join(compiler.graph),encoding="utf-8")
         partial=Path(td)/("output"+output_path.suffix)
