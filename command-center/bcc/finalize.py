@@ -10,8 +10,10 @@
      (`bcc/v2/verification.verify_all`), а не ответом инструмента/модели;
   4. нет незакрытых approval'ов по вызовам инструментов этого run'а;
   5. свежесть: наблюдение сделано после последнего вызова инструмента run'а.
-Отказ финализации — не «failed» и не «completed»: решение владельцу
+Отказ по объявленному эффекту — не «failed» и не «completed»: решение владельцу
 (waiting_approval + review_escalation), как при упавшем гейте.
+Без объявленного эффекта неуспешный изменяющий вызов завершает задачу как
+failed: отсутствие контракта не делает отказ инструмента успехом задачи.
 
 `finalize_override(svc, task_id, approval)` — решение ЧЕЛОВЕКА по review_escalation,
 помечается override=True; обязательные эффекты всё равно проверяются заново.
@@ -57,7 +59,10 @@ def _effectful(row: dict) -> bool:
         command = str((row.get("args") or {}).get("command") or "")
         # Shell expansions and write-capable git subcommands must not inherit
         # the action classifier's deliberately permissive "read" heuristic.
-        if re.search(r"[>$`]|\bgit\s+(?:config|branch|tag|remote|fetch)\b|--output(?:=|\s)", command):
+        if re.search(r"[>$`]|\bgit\s+(?:config|branch|tag|remote|fetch)\b|--output(?:=|\s)"
+                     r"|(?:^|\s)-(?:delete|exec|execdir|ok|okdir|fprint|fprint0|fprintf|fls)(?:\s|$)"
+                     r"|(?:^|\s)--(?:fix(?:-only)?|pre)(?:=|\s|$)"
+                     r"|\bruff\b[^;&|\n]*\bformat\b|\b(?:black|isort)\b", command):
             return True
         return _looks_like_mutation(command)
     spec = REGISTRY.get(row.get("tool", ""))
@@ -65,7 +70,7 @@ def _effectful(row: dict) -> bool:
 
 
 def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) -> str:
-    """What makes the DECLARED obligations of this run unfulfillable.
+    """Reject unsuccessful effects, then check declared capability obligations.
 
     Scope is deliberate. The finalizer enforces the obligations a task actually
     carries (`meta.review.evidence` / `meta.required_effects`); it does not
@@ -86,19 +91,20 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) 
     impossible check. A refusal the owner cannot resolve is not fail-closed,
     it is a dead end.
 
-    A DENIED or REJECTED call is not a failed obligation: the effect provably
-    never happened, and the model handled the refusal as data. Whether the task
-    still owes an effect is decided by `verify_all` over `expected`, which reads
-    the world instead of the executor's status.
+    Without a declared contract we still reject failed/denied effectful calls:
+    the action classifier can miss a prompt, and model wording is not evidence
+    of success (nor a reliable machine-readable refusal). The engine records
+    such an unsuccessful run as failed, preserving its answer, rather than
+    creating an impossible approval loop. Successful opaque capabilities need
+    no invented verifier. With an explicit contract, denied calls are left to
+    `verify_all`: independently observed post-state may fulfill the obligation.
     """
-    if not expected:
-        return ""
     # A retry of the exact action may recover a failed attempt. An unrelated
     # successful probe cannot erase a failed mutation. Read-only diagnostic
     # failures are not task failure evidence.
     latest = {}
     for row in rows:
-        if _effectful(row) and row.get("status") not in ("denied", "rejected"):
+        if _effectful(row) and not (expected and row.get("status") in ("denied", "rejected")):
             latest[(row.get("tool"), row.get("args_hash") or repr(row.get("args")))] = row
     for row in latest.values():
         if row.get("status") != "executed" or row.get("error"):
@@ -107,6 +113,8 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) 
             match = re.match(r"exit_code=(-?\d+)\b", str(row.get("result_preview") or ""))
             if match is None or int(match[1]) != 0:
                 return "effectful terminal outcome is failed or still unobserved"
+    if not expected:
+        return ""
     # What a capability is known to be able to leave behind. The point is to stop
     # an unrelated capability's success from being credited against somebody
     # else's obligation — a browser click cannot be the proof that a process is
@@ -165,6 +173,8 @@ async def finalize_task(engine, run_id: int, task_id: int, *, answer: str, usage
         return FinalizeDecision(False, "invalid required effects contract", checks)
     problem = _effect_problem(rows, expected, task)
     if problem:
+        if not expected:
+            checks["failure_status"] = "failed"
         return FinalizeDecision(False, problem, checks)
     checks["expectations"] = len(expected)
     if expected:

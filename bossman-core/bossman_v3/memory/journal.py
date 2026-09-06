@@ -147,6 +147,15 @@ class TaskJournal:
         path = journal_path(root, task_id)
         data = path.read_bytes()
         raw = json.loads(data)
+        # Completion signatures alone do not protect STARTED/PENDING state.
+        # Authenticate the entire durable snapshot before trusting any replay
+        # decision, including absence of an in-flight attempt (E4-RT-001).
+        from bossman_v3 import evidence as _signing
+        if (not isinstance(raw, dict) or type(raw.get("schema_version")) is not int or raw.get("schema_version") != 3
+                or raw.get("record_type") != "task_journal_snapshot"
+                or raw.get("signer") != _signing.JOURNAL_SIGNER
+                or not _signing.verify_signed(raw)):
+            raise JournalIntegrityError("invalid or legacy unsigned journal snapshot; reconciliation required")
         if raw["task_id"] != task_id:
             raise JournalIntegrityError("journal task identity mismatch")
         j = cls(task_id=raw["task_id"],
@@ -163,6 +172,8 @@ class TaskJournal:
         if len({s.step_id for s in self.steps}) != len(self.steps):
             raise JournalIntegrityError("duplicate step identifiers")
         for s in self.steps:
+            if s.status == STARTED and not s.in_flight:
+                raise JournalIntegrityError(f"started step lost in-flight intent: {s.step_id}")
             if (s.verified or s.status == DONE) and not s.signature_valid(self.task_id):
                 raise JournalIntegrityError(f"invalid or legacy unsigned completion: {s.step_id}")
 
@@ -227,8 +238,11 @@ class TaskJournal:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"task_id": self.task_id, "created_at": self.created_at,
                    "steps": [asdict(s) for s in self.steps], "notes": self.notes,
-                   "plan_digest": self.plan_digest, "schema_version": 2,
+                   "plan_digest": self.plan_digest, "schema_version": 3,
+                   "record_type": "task_journal_snapshot",
                    "execution_binding": dict(self.execution_binding)}
+        from bossman_v3 import evidence as _signing
+        payload.update(_signing.sign_fields(payload, signer=_signing.JOURNAL_SIGNER))
         fd, temp = tempfile.mkstemp(prefix=".journal-", dir=path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as stream:

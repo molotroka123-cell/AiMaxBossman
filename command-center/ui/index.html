@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="ru" data-theme="dark">
+<html lang="ru" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#0a0c10">
+<meta name="theme-color" content="#e7ecff">
 <title>BOSSMAN Command Center · UI 2.6.1</title>
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
@@ -16,6 +16,8 @@
      переписывает. Старые страницы остаются как были, новая главная и лаунчер
      берут токены отсюда. -->
 <link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="desktop.css">
+<link rel="stylesheet" href="pages/video_studio.css">
 </head>
 <body>
 
@@ -39,6 +41,7 @@
 
 <!-- ============ Оболочка приложения ============ -->
 <div id="shell" class="shell" hidden>
+  <a id="desktop-skip" class="desktop-skip" href="#view">Перейти к содержимому</a>
 
   <aside class="sidebar">
     <div class="brand">
@@ -47,6 +50,7 @@
       </span>
       <span class="brand-text">
         <b>BOSSMAN</b>
+        <i>Continuity · Steward</i>
         <small id="ui-release" title="Обновление интерфейса: выбор исполнителя и понятные состояния">Интерфейс 2.6.1</small>
       </span>
     </div>
@@ -86,6 +90,8 @@
     </div>
     <main class="view" id="view" tabindex="-1"></main>
   </div>
+
+  <nav class="desktop-dock" id="desktop-dock" aria-label="Панель приложений"></nav>
 
   <nav class="mobilenav" id="mobilenav" aria-label="Навигация"></nav>
 </div>

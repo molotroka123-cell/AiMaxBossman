@@ -1,3 +1,4 @@
+import { routeVideoRequest, attachmentInput, attachedFiles } from '../video_chat.js';
 /* ============================================================
    home.js — посадочная страница BOSSMAN.
 
@@ -225,6 +226,11 @@ function buildCommandBar(ctx, agents) {
   async function submit() {
     const text = input.value.trim();
     if (!text) { toast('Опишите задачу', { type: 'warn' }); input.focus(); return; }
+    start.disabled = true;
+    try {
+      if (await routeVideoRequest(text, attachedFiles(), ctx)) return;
+    } catch (e) { toastError(e, 'Не удалось открыть видеопроект'); return; }
+    finally { start.disabled = false; }
     const agent = state.agentId ?? (agents.length === 1 ? pick(agents[0], ['id']) : null);
     if (!agent) {
       toast('Выберите агента', {
@@ -261,7 +267,7 @@ function buildCommandBar(ctx, agents) {
 
   return h('section.bx-command',
     h('div.bx-command-mark', icon('bolt', 22)),
-    h('div.bx-command-mid', input, h('div.bx-modes', modeButtons)),
+    h('div.bx-command-mid', input, attachmentInput(), h('div.bx-modes', modeButtons)),
     start);
 }
 

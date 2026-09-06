@@ -25,6 +25,8 @@ def _install(name="test.echo", *, permission="", default_effect="auto",
     async def default_handler(args, ctx):
         if calls is not None:
             calls.append(args)
+        if name == "terminal.run":
+            return ToolResult(content="exit_code=0\nmock terminal success", one_line="terminal: ok")
         return ToolResult(content=f"эхо: {args.get('text', '')}",
                           one_line=f"{name}: ок")
     spec = ToolSpec(name=name, description="тестовый инструмент",
@@ -144,7 +146,7 @@ async def test_model_calls_tool_and_continues_reasoning(env):
 
 
 async def test_tool_not_granted_is_refused_as_data(env):
-    """Инструмент не выдан агенту → модель получает отказ, run не падает."""
+    """Модель получает отказ; неизвестная capability не становится успехом."""
     seen = []
     _install("test.secret", calls=seen)
     adapter = ToolAdapter([("tool", "test_secret", {"text": "x"}),
@@ -152,7 +154,7 @@ async def test_tool_not_granted_is_refused_as_data(env):
     stack = await _stack_with_tools(env, ["test.echo"], adapter=adapter)  # secret НЕ выдан
 
     status = await _run_task(env, stack["task"]["id"])
-    assert status == "completed"
+    assert status == "failed"
     assert seen == []                            # не выполнялся
     assert "не выдан" in adapter.seen_messages[1][-1]["content"]
 
@@ -174,7 +176,7 @@ async def test_deny_policy_blocks_tool(env):
              "reason": "деструктивная команда"}]}})
 
     status = await _run_task(env, stack["task"]["id"])
-    assert status == "completed"
+    assert status == "failed"  # honest refusal is preserved, not counted as execution
     assert seen == []
     assert "запрещено политикой" in adapter.seen_messages[1][-1]["content"]
 
@@ -246,7 +248,7 @@ async def test_rejected_tool_is_not_executed(env):
     appr = (await env.client.get("/api/approvals")).json()[0]
     await env.client.post(f"/api/approvals/{appr['id']}", json={"approve": False, "by": "тест"})
 
-    assert await _run_task(env, stack["task"]["id"], until=FINISHED) == "completed"
+    assert await _run_task(env, stack["task"]["id"], until=FINISHED) == "failed"
     assert seen == []
     assert "отклонено пользователем" in adapter.seen_messages[1][-1]["content"]
 

@@ -1,0 +1,48 @@
+{
+  "scope": "Video Studio final bounded checkpoint; initial failures and reruns retained",
+  "runs": [
+    {
+      "source": "video-final-suite.xml",
+      "tests": "175",
+      "failures": "5",
+      "errors": "0",
+      "skipped": "1",
+      "time": "192.514",
+      "timestamp": "2026-09-05T22:26:35.073541+02:00",
+      "failed_cases": [
+        "test_actual_chat_upload_edit_preview_export",
+        "test_optional_real_trained_proposal_is_queued_pure_and_reviewable",
+        "test_real_cached_prepare_scopes_probe_and_interchange",
+        "test_portable_roundtrip_and_unexpected_zip_member_denied",
+        "test_queued_tracking_preserves_integer_time_contract"
+      ]
+    },
+    {
+      "source": "video-final-admission-retry-isolated.xml",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "13.327",
+      "timestamp": "2026-09-05T22:37:33.378503+02:00",
+      "failed_cases": []
+    },
+    {
+      "source": "video-release-trained-0609.xml",
+      "tests": "32",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "32.221",
+      "timestamp": "2026-09-06T00:37:46.499803+02:00",
+      "failed_cases": []
+    }
+  ],
+  "ui_state_tests": {
+    "passed": 10
+  },
+  "browser_ai_checks": {
+    "passed": 5,
+    "page_errors": 0
+  }
+}

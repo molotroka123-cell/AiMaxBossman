@@ -117,6 +117,13 @@ class TaskEngine:
         # Services проставляет себя после создания: инструментам нужен доступ к
         # approvals/vault/менеджерам браузера и терминала (V2.1).
         self.services: Any = None
+        self.executors: dict[str, Any] = {}
+
+    def register_executor(self, kind: str, handler: Any) -> None:
+        """Host code only: deterministic jobs share admission, fencing and finalization."""
+        if not kind or not callable(handler):
+            raise ValueError("executor kind and callable required")
+        self.executors[kind] = handler
 
     def add_hook(self, name: str, fn: Any, *, critical: bool | None = None) -> None:
         """Зарегистрировать хук. `critical=None` → по имени: before_run,
@@ -239,7 +246,9 @@ class TaskEngine:
             if task is None:
                 raise ValueError("task not found")
             agent = await fetch_one(s, agents_t, task["agent_id"]) if task["agent_id"] else None
-            reason = self._executor_block_reason(agent)
+            reason = (None if agent is None and task["agent_id"] is None
+                      and task.get("kind") in self.executors
+                      else self._executor_block_reason(agent))
             meta = dict(task.get("meta") or {})
             if reason is None:
                 if meta.get("reason_code") == "BLOCKED_CAPABILITY_UNAVAILABLE":
@@ -274,11 +283,24 @@ class TaskEngine:
                 "reason": meta.get("blocked_reason", "Исполнитель недоступен")}
 
     async def enqueue(self, task_id: int, *, attempt: int = 0,
-                      checkpoint: dict | None = None) -> int | None:
+                      checkpoint: dict | None = None, only_if_draft: bool = False) -> int | None:
         """Создать run в состоянии queued и перевести задачу в queued."""
         if not await self._executor_admission(task_id):
             return None
         async with self.db.session() as s:
+            if only_if_draft:
+                # Repair a durable host job after a crash before its first enqueue.
+                # Serialize the task row so concurrent idempotent retries create one run.
+                if self.db.url.startswith("sqlite"):
+                    await s.execute(sa.text("BEGIN IMMEDIATE"))
+                query=sa.select(tasks_t.c.status).where(tasks_t.c.id==task_id)
+                if not self.db.url.startswith("sqlite"):
+                    query=query.with_for_update()
+                status=(await s.execute(query)).scalar_one()
+                existing=(await s.execute(sa.select(runs_t.c.id).where(runs_t.c.task_id==task_id)
+                    .order_by(runs_t.c.id.desc()).limit(1))).scalar_one_or_none()
+                if status!="draft" or existing is not None:
+                    return int(existing or 0)
             res = await s.execute(sa.insert(runs_t).values(
                 task_id=task_id, attempt=attempt, status="queued", checkpoint=checkpoint))
             run_id = int(res.inserted_primary_key[0])
@@ -575,16 +597,21 @@ class TaskEngine:
                        runs_t.c.worker_lease_until.isnot(None),
                        runs_t.c.worker_lease_until <= now))
             stale = [dict(r._mapping) for r in res.fetchall()]
+        recovered=0
         for run in stale:
             attempt = int(run["attempt"] or 0) + 1
             max_retries = int(run["max_retries"] or 0)
+            still_stale=sa.and_(runs_t.c.status.in_(("leased","running")),
+                runs_t.c.worker_lease_until<=now,
+                sa.func.coalesce(runs_t.c.fence,0)==int(run.get("fence") or 0))
             if attempt <= max_retries:
                 async with self.db.session() as s:
                     # FL-01: новый epoch — прежний держатель (если он ещё жив и
                     # просто «замёрз») больше не может ни писать, ни продлевать аренду.
-                    await s.execute(sa.update(runs_t).where(runs_t.c.id == run["id"]).values(
+                    changed=await s.execute(sa.update(runs_t).where(runs_t.c.id == run["id"],still_stale).values(
                         status="queued", attempt=attempt, worker_lease_until=None,
                         fence=sa.func.coalesce(runs_t.c.fence, 0) + 1))
+                    if not changed.rowcount:continue
                     await s.execute(sa.update(tasks_t).where(tasks_t.c.id == run["task_id"]).values(
                         status="queued", updated_at=utcnow()))
                     await s.commit()
@@ -593,9 +620,14 @@ class TaskEngine:
                 await self.bus.emit("task.queued", task_id=run["task_id"], run_id=run["id"],
                                     attempt=attempt, recovered=True)
             else:
-                await self._fail_now(run["id"], run["task_id"],
-                                     "аренда истекла, попытки исчерпаны")
-        return len(stale)
+                try:
+                    await self._finish(run["id"],run["task_id"],"failed",_expected=still_stale,
+                        fence=int(run.get("fence") or 0)+1,error="аренда истекла, попытки исчерпаны")
+                except FencedOut:
+                    continue
+                await self._log(run["id"],"error","run.failed","аренда истекла, попытки исчерпаны")
+            recovered+=1
+        return recovered
 
     # ---------- выполнение ----------
 
@@ -655,6 +687,12 @@ class TaskEngine:
                 runs_t.c.status.in_(("leased", "running")),
                 self._fence_clause(run_id)).values(
                 worker_lease_until=utcnow() + timedelta(seconds=self.lease_seconds)))
+            if upd.rowcount:
+                from .db import resource_reservations as reservations_t
+                await s.execute(sa.update(reservations_t).where(
+                    reservations_t.c.id.in_(sa.select(runs_t.c.reservation_id).where(runs_t.c.id == run_id)),
+                    reservations_t.c.holder_kind == "video_job", reservations_t.c.status == "held"
+                ).values(expires_at=utcnow() + timedelta(minutes=15)))
             await s.commit()
         return bool(upd.rowcount)
 
@@ -697,8 +735,8 @@ class TaskEngine:
             agent = await fetch_one(s, agents_t, task["agent_id"]) if task and task["agent_id"] else None
         if task is None:
             return
-        if self._executor_block_reason(agent) is not None:
-            await self._executor_admission(task["id"], run_id=run_id)
+        executor = self.executors.get(task.get("kind"))
+        if not await self._executor_admission(task["id"], run_id=run_id):
             return
 
         # before_run: Resource Brain может отложить ({"defer": сек, "reason"}) или
@@ -713,9 +751,10 @@ class TaskEngine:
             if isinstance(res, dict) and res.get("defer"):
                 delay = float(res["defer"])
                 async with self.db.session() as s:
-                    await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                    changed=await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id,self._fence_clause(run_id)).values(
                         status="queued",
                         worker_lease_until=utcnow() + timedelta(seconds=delay)))
+                    if not changed.rowcount:return
                     await s.commit()
                 await self._log(run_id, "warn", "run.deferred",
                                 f"отложено на {delay:.0f} с: {res.get('reason', '')}")
@@ -725,6 +764,23 @@ class TaskEngine:
                 return
 
         await self._start(run_id, task["id"])
+        if executor is not None:
+            try:
+                await self.assert_fence(run_id)
+                try:
+                    answer = await executor(task, run, self)
+                    if not isinstance(answer, str):
+                        raise TypeError("executor must return a verified result string")
+                except (asyncio.CancelledError, FencedOut):
+                    raise
+                except Exception as exc:
+                    await self._fail_now(run_id, task["id"],
+                                         f"executor failed: {type(exc).__name__}")
+                    return
+                await self._complete_run(run_id, task, answer, [], 0, 0, 0, 0.0, "local:deterministic")
+                return
+            finally:
+                await self._release_executor_resources(run_id)
         checkpoint = run.get("checkpoint") or {}
         messages: list[dict] = list(checkpoint.get("messages") or [])
         if not messages:
@@ -846,6 +902,28 @@ class TaskEngine:
                                      f"critical hook on_step failed: {exc.hook}: {exc.reason}")
                 return
 
+        await self._complete_run(run_id, task, answer, messages, step,
+                                 tokens_in, tokens_out, cost, alias)
+
+    async def _release_executor_resources(self, run_id):
+        # A veto may leave a run waiting for review without calling _finish.
+        # Release only our still-owned video's existing ledger reservation.
+        from .db import resource_reservations as reservations_t
+        async with self.db.session() as session:
+            rid=(await session.execute(sa.select(runs_t.c.reservation_id).where(
+                runs_t.c.id==run_id,self._fence_clause(run_id)))).scalar_one_or_none()
+            if not rid:
+                return
+            held=(await session.execute(sa.select(reservations_t.c.id).where(
+                reservations_t.c.id==rid,reservations_t.c.holder_kind=="video_job",
+                reservations_t.c.status=="held"))).scalar_one_or_none()
+        if held:
+            from .features.resources import _release
+            await _release(self.services,held)
+
+    async def _complete_run(self, run_id, task, answer, messages, step,
+                            tokens_in, tokens_out, cost, alias):
+        """One completion path for both model and registered deterministic executors."""
         if await self._check_interrupt(run_id, task["id"], messages, step):
             return
         if not answer:
@@ -858,6 +936,10 @@ class TaskEngine:
             verdicts = await self._call_hooks("gate_completion", task, run_id, answer)
         except CriticalHookFailure as exc:
             await self._escalate_gate_failure(run_id, task, messages, step, exc)
+            return
+        try:
+            await self.assert_fence(run_id)
+        except FencedOut:
             return
         for res in verdicts:
             verdict = normalize_gate_verdict(res.get("verdict")) if isinstance(res, dict) else None
@@ -876,9 +958,10 @@ class TaskEngine:
                 messages.append({"role": "user",
                                  "content": f"Ревью не пройдено. Исправь: {feedback}"})
                 async with self.db.session() as s:
-                    await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                    changed=await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id,self._fence_clause(run_id)).values(
                         status="queued", worker_lease_until=None,
                         checkpoint={"messages": messages, "step": step, "note": "review_fail"}))
+                    if not changed.rowcount:return
                     await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
                         status="queued", updated_at=utcnow()))
                     await s.commit()
@@ -887,10 +970,11 @@ class TaskEngine:
             else:
                 # попытки ревью исчерпаны → человеку (waiting_approval), run ждёт с checkpoint
                 async with self.db.session() as s:
-                    await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                    changed=await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id,self._fence_clause(run_id)).values(
                         status="queued", worker_lease_until=None,
                         checkpoint={"messages": messages, "step": step,
                                     "note": "review_escalated"}))
+                    if not changed.rowcount:return
                     await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
                         status=str(res.get("status") or "waiting_approval"),
                         updated_at=utcnow()))
@@ -907,6 +991,14 @@ class TaskEngine:
                                               "cost_usd": round(cost, 6), "model_alias": alias})
         if not decision.ok:
             await self._log(run_id, "warn", "run.finalize_refused", decision.reason[:500])
+            if decision.checks.get("failure_status") == "failed":
+                # A missed classifier cannot turn a failed effect into success.
+                # Keep the answer (including honest refusals), but do not park
+                # this run behind an approval with no fulfillable obligation.
+                await self._finish(run_id, task["id"], "failed", error=decision.reason,
+                                   result=answer, tokens_in=tokens_in, tokens_out=tokens_out,
+                                   cost_usd=round(cost, 6), model_alias=alias)
+                return
             await self._escalate_gate_failure(run_id, task, messages, step,
                                               CriticalHookFailure("finalize", "bcc.finalize.finalize_task", decision.reason))
             return
@@ -1451,7 +1543,7 @@ class TaskEngine:
 
     async def _finish(self, run_id: int, task_id: int, status: str, *,
                       error: str | None = None, result: str | None = None,
-                      checkpoint: dict | None = None, sync_task: bool = True,
+                      checkpoint: dict | None = None, sync_task: bool = True, _expected=None,
                       **values: Any) -> None:
         run_values: dict[str, Any] = {"status": status, "finished_at": utcnow(), **values}
         if error is not None:
@@ -1462,7 +1554,8 @@ class TaskEngine:
             run_values["checkpoint"] = checkpoint
         async with self.db.session() as s:
             upd = await s.execute(sa.update(runs_t).where(
-                runs_t.c.id == run_id, self._fence_clause(run_id)).values(**run_values))
+                runs_t.c.id == run_id, self._fence_clause(run_id),
+                sa.true() if _expected is None else _expected).values(**run_values))
             if not upd.rowcount:
                 # FL-01: закрыть run может только текущий держатель fence
                 await s.rollback()
@@ -1500,6 +1593,7 @@ class TaskEngine:
         task_id = int(task["id"])
         reason = f"critical hook gate_completion failed: {exc.hook}: {exc.reason}"
         try:
+            await self.assert_fence(run_id)
             await self._log(run_id, "error", "run.gate_failed", reason[:500])
             await self._approvals_create(
                 kind="review_escalation",
@@ -1508,15 +1602,18 @@ class TaskEngine:
                          f"Задача НЕ считается выполненной; нужно решение человека."),
                 task_id=task_id, run_id=run_id)
             async with self.db.session() as s:
-                await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                changed=await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id,self._fence_clause(run_id)).values(
                     status="queued", worker_lease_until=None,
                     checkpoint={"messages": messages, "step": step,
                                 "note": "gate_hook_failed"}))
+                if not changed.rowcount:return
                 await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
                     status="waiting_approval", updated_at=utcnow()))
                 await s.commit()
         except asyncio.CancelledError:
             raise
+        except FencedOut:
+            return
         except Exception as inner:  # noqa: BLE001 — эскалация не удалась → честный failed
             await self.bus.emit("hook.escalation_failed", hook=exc.name, fn=exc.hook,
                                 error=type(inner).__name__)

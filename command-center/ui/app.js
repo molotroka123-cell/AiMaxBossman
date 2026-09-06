@@ -1,3 +1,4 @@
+import { mountVideoTabs } from './video_chat.js';
 /* ============================================================
    app.js — оболочка BOSSMAN Command Center:
    вход по токену, роутер, WS, тема, командная палитра.
@@ -13,6 +14,7 @@ import { FEATURE_PAGES } from './pages/index.js';
 import { mountThinking } from './thinking.js';
 import { mountTestingPeriod } from './testing.js';
 import { mountCommandBar } from './commandbar.js';
+import { desktopPages, preferredTheme } from './desktop.js';
 
 PAGES.push(...FEATURE_PAGES); // V2-страницы встают в общую навигацию
 
@@ -27,6 +29,7 @@ const el = {
   shell: document.getElementById('shell'),
   nav: document.getElementById('nav'),
   mobilenav: document.getElementById('mobilenav'),
+  dock: document.getElementById('desktop-dock'),
   view: document.getElementById('view'),
   title: document.getElementById('page-title'),
   stats: document.getElementById('topbar-stats'),
@@ -92,15 +95,15 @@ window.__bxThinking = thinking;
 /* ---------------- Тема ---------------- */
 
 function getTheme() {
-  try { return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark'; }
-  catch { return 'dark'; }
+  try { return preferredTheme(localStorage.getItem(THEME_KEY)); }
+  catch { return 'light'; }
 }
 
 function setTheme(theme) {
   const value = theme === 'light' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', value);
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', value === 'light' ? '#f4f6f9' : '#0a0c10');
+  if (meta) meta.setAttribute('content', value === 'light' ? '#e7ecff' : '#0a0c10');
   try { localStorage.setItem(THEME_KEY, value); } catch { /* приватный режим */ }
   syncThemeButton();
 }
@@ -129,6 +132,8 @@ const ctx = {
   logout,
   hasSession,
 };
+
+mountVideoTabs(ctx, el.view);
 
 /* ---------------- Навигация ---------------- */
 
@@ -258,6 +263,15 @@ function sectionOf(page) {
 function buildNav() {
   clear(el.nav);
   clear(el.mobilenav);
+  if (el.dock) {
+    clear(el.dock);
+    for (const page of desktopPages(PAGES, DEFAULT_PAGE)) {
+      el.dock.appendChild(h('button', {
+        type: 'button', class: 'desktop-dock-item', dataset: { page: page.id },
+        title: page.title, onClick: () => navigate(page.id),
+      }, icon(page.icon, 21), h('span', page.title)));
+    }
+  }
 
   // Вытесненные посадочные страницы остаются доступны по прямой ссылке, но в
   // меню их нет: две «главных» рядом — это вопрос «а какая настоящая».
@@ -293,7 +307,10 @@ function buildNav() {
 
 function syncNav() {
   for (const node of document.querySelectorAll('[data-page]')) {
-    node.classList.toggle('active', node.dataset.page === currentPage);
+    const active = node.dataset.page === currentPage;
+    node.classList.toggle('active', active);
+    if (active) node.setAttribute('aria-current', 'page');
+    else node.removeAttribute('aria-current');
   }
 }
 
@@ -671,6 +688,12 @@ async function loadTopStats() {
 }
 
 /* ---------------- Прочие обработчики ---------------- */
+
+document.getElementById('desktop-skip')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  el.view.focus();
+  el.view.scrollIntoView({ block: 'start' });
+});
 
 el.themeBtn.addEventListener('click', () => setTheme(getTheme() === 'dark' ? 'light' : 'dark'));
 el.refreshBtn.addEventListener('click', () => refresh());
