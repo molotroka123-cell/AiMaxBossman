@@ -225,10 +225,10 @@ def test_revoke_while_queued_fails_effect_boundary_reauthorization(tmp_path):
     proposal = propose(store, spec)
     decision = kernel().admit(store, proposal, now=NOW + 1)
     assert decision.admitted
-    assert reauthorize_at_effect_boundary(store, decision, proposal, now=NOW + 2)
+    assert reauthorize_at_effect_boundary(store, decision, proposal, now=NOW + 2, policy=kernel().policy)
     store.transition(OBJECTIVE, "REVOKED", now=NOW, owner_id=OWNER,
                      expected_version=state.version)
-    assert not reauthorize_at_effect_boundary(store, decision, proposal, now=NOW + 3)
+    assert not reauthorize_at_effect_boundary(store, decision, proposal, now=NOW + 3, policy=kernel().policy)
 
 
 def test_objective_expiry_between_proposal_and_admission_is_refused(tmp_path):
@@ -267,9 +267,10 @@ def test_duplicate_proposal_identity_yields_one_admitted_intent(tmp_path):
     second = engine.admit(store, proposal, now=NOW + 2)
     assert first.admitted and not second.admitted
     assert second.reason == DUPLICATE_RESERVATION
-    # The replay took a speculative hold; the compensation path gave it back.
-    assert len(treasury.reserved) == 2 and len(treasury.released) == 1
-    assert conflicts.releases == [(("repo:main",), OBJECTIVE)]
+    # The durable claim now precedes ports: replay cannot undo the winner's hold.
+    assert len(treasury.reserved) == 1 and len(treasury.released) == 0
+    assert conflicts.releases == []
+    assert conflicts.held == {"repo:main": OBJECTIVE}
     assert len(store.open_reservations(OBJECTIVE)) == 1
 
 

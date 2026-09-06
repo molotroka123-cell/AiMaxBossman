@@ -15,12 +15,12 @@ Invariants carried:
   and stop state a proposal was born under are worthless at admission.
 * Checks run in a fixed order and fail closed at the first refusal, with a
   machine-readable reason code.
-* Any refusal after a conflict claim or a Treasury reservation releases them.
-  A refused admission leaves no held resource -- the compensation path is
-  explicit and tested, not an assumed `finally`.
-* `ObjectiveStore.reserve_once` is the once-only fence. A replayed admission of
-  the same proposal cannot buy a second reservation, and the replay releases the
-  Treasury hold it speculatively took.
+* A durable PENDING intent precedes external ports. Replays cannot buy a second
+  reservation or release the winner's conflict claim, including across restart.
+* Known refusals compensate acknowledged holds. Lost acknowledgements or failed
+  compensation remain PENDING for recovery; unknown funds are never called free.
+* READY publication rechecks the current objective version and binds the full
+  proposal/effect/verifier payload. A database slot alone is not authority.
 * Unknown cost can never become free: a missing or non-finite estimate is
   refused rather than reserved as zero.
 * APPROVAL != POST_STATE. `reauthorize_at_effect_boundary` is a second,
@@ -35,7 +35,7 @@ they already satisfy and sequences them. It also does not build Mission IR --
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import hashlib
 import json
 import math
@@ -70,6 +70,10 @@ COST_ESTIMATE_UNKNOWN = "cost_estimate_unknown"
 BUDGET_DENIED = "budget_denied"
 DUPLICATE_RESERVATION = "duplicate_reservation"
 ADMITTED = "admitted"
+INVALID_CLOCK = "invalid_admission_clock"
+PROPOSAL_MISMATCH = "proposal_binding_mismatch"
+ADMISSION_STATE_CHANGED = "admission_state_changed"
+ADMISSION_RECOVERY_REQUIRED = "admission_recovery_required"
 
 # A policy port may return one of these directly; anything else degrades to the
 # generic denial so a port can never invent a reason code the kernel honours.
@@ -213,12 +217,77 @@ class AdmissionDecision:
     treasury_scopes: tuple[str, ...] = ()
     decided_at: float = 0.0
     detail: str = ""
+    proposal_digest: str = ""
+    owner_id: str = ""
+    scope_id: str = ""
 
 
 def _digest(value: Any) -> str:
     text = json.dumps(value, sort_keys=True, ensure_ascii=True, allow_nan=False,
                       separators=(",", ":"))
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _valid_time(value: Any) -> bool:
+    try:
+        return type(value) in (int, float) and math.isfinite(value) and value >= 0
+    except OverflowError:
+        return False
+
+
+def proposal_digest(proposal: AdmissionProposal) -> str:
+    """Bind ALL effect/verifier/cost content, not just observation identity."""
+    return _digest(proposal.to_payload())
+
+
+def _intent_id(reservation_id: str, proposal: AdmissionProposal) -> str:
+    return _digest({"reservation_id": reservation_id,
+                    "effects": [dict(e) for e in proposal.expected_effects],
+                    "capabilities": list(proposal.requested_capabilities)})
+
+
+def decision_matches_proposal(decision: AdmissionDecision, proposal: AdmissionProposal) -> bool:
+    try:
+        return (type(decision) is AdmissionDecision and type(proposal) is AdmissionProposal
+                and decision.admitted is True and bool(decision.reservation_id)
+                and decision.objective_id == proposal.objective_id
+                and decision.objective_digest == proposal.objective_digest
+                and decision.objective_revision == proposal.objective_revision
+                and decision.proposal_id == proposal.proposal_id
+                and decision.granted_capabilities == proposal.requested_capabilities
+                and bool(decision.proposal_digest)
+                and decision.proposal_digest == proposal_digest(proposal)
+                and bool(decision.owner_id) and bool(decision.scope_id)
+                and decision.authorized_scope_refs == (
+                    f"scope:{decision.scope_id}", f"objective:{decision.objective_id}")
+                and decision.treasury_scopes == (ORG_SCOPE,
+                    f"scope:{decision.scope_id}", f"objective:{decision.objective_id}")
+                and decision.mission_intent_id == _intent_id(decision.reservation_id, proposal)
+                and _valid_time(decision.decided_at))
+    except (TypeError, ValueError, OverflowError, AttributeError):
+        return False
+
+
+def _binding(decision: AdmissionDecision) -> dict[str, Any]:
+    return {"objective_id": decision.objective_id, "objective_digest": decision.objective_digest,
+            "objective_revision": decision.objective_revision, "proposal_id": decision.proposal_id,
+            "proposal_digest": decision.proposal_digest, "owner_id": decision.owner_id,
+            "scope_id": decision.scope_id, "mission_intent_id": decision.mission_intent_id,
+            "reservation_id": decision.reservation_id,
+            "capabilities": list(decision.granted_capabilities),
+            "scope_refs": list(decision.authorized_scope_refs),
+            "treasury_scopes": list(decision.treasury_scopes), "decided_at": decision.decided_at}
+
+
+def _recorded_matches(store: ObjectiveStore, proposal: AdmissionProposal) -> bool:
+    try:
+        row = store.get_proposal(proposal.proposal_id)
+        return (row["objective_id"] == proposal.objective_id
+                and row["objective_digest"] == proposal.objective_digest
+                and row["objective_revision"] == proposal.objective_revision
+                and _digest(row["payload"]) == proposal_digest(proposal))
+    except (ObjectiveStoreError, TypeError, ValueError, OverflowError, AttributeError):
+        return False
 
 
 def treasury_scopes(state: ObjectiveRuntimeState) -> tuple[str, ...]:
@@ -263,7 +332,7 @@ def build_proposal(store: ObjectiveStore, objective_id: str, observations: list[
         observation_digests=projection.observation_digests,
         trigger=trigger,
         requested_capabilities=tuple(requested_capabilities),
-        expected_effects=tuple(dict(e) for e in expected_effects),
+        expected_effects=tuple(json.loads(json.dumps(list(expected_effects), allow_nan=False))),
         cost_estimate=cost_estimate,
     )
     try:
@@ -318,6 +387,9 @@ class AdmissionKernel:
               now: float) -> AdmissionDecision:
         if type(proposal) is not AdmissionProposal:
             raise AdmissionError("recorded AdmissionProposal required")
+        if (not _valid_time(now) or not _valid_time(proposal.created_at)
+                or now < proposal.created_at):
+            return self._refuse(proposal, now, INVALID_CLOCK)
         try:
             state = store.get(proposal.objective_id)
         except ObjectiveStoreError:
@@ -357,6 +429,13 @@ class AdmissionKernel:
         if now >= spec["expires_at"]:
             return self._refuse(proposal, now, OBJECTIVE_EXPIRED, **base)
 
+        # Cost/binding validation precedes using caller-controlled horizons.
+        estimate = proposal.cost_estimate
+        if type(estimate) is not CostEstimate or not estimate.is_known():
+            return self._refuse(proposal, now, COST_ESTIMATE_UNKNOWN, **base)
+        if not _recorded_matches(store, proposal):
+            return self._refuse(proposal, now, PROPOSAL_MISMATCH, **base)
+
         # 5/6. Proposal horizon, then the freshness of the evidence under it.
         if now >= proposal.valid_until:
             return self._refuse(proposal, now, PROPOSAL_EXPIRED, **base)
@@ -370,91 +449,134 @@ class AdmissionKernel:
                 and now - last < spec["cooldown_seconds"]):
             return self._refuse(proposal, now, COOLDOWN_ACTIVE, **base)
 
-        # 8. Conflict keys and priority come from the stored spec.
-        keys = tuple(spec["conflict_keys"])
-        claimed, why = self.conflicts.claim(keys, state.objective_id, int(spec["priority"]))
-        if not claimed:
-            return self._refuse(proposal, now, CONFLICT_HELD, detail=why, **base)
-
-        # 9. Current grants for the objective's permission_refs AND the
-        # capabilities this proposal actually wants. A capability outside a
-        # current grant is refused before any money moves.
-        allowed, why = self.policy.check_grants(
-            state.owner_id, state.scope_id, tuple(spec["permission_refs"]),
-            proposal.requested_capabilities)
-        if not allowed:
-            self.conflicts.release(keys, state.objective_id)
-            code = why if why in _POLICY_CODES else POLICY_DENIED
-            return self._refuse(proposal, now, code, detail=why, **base)
-
-        # 10. Money last, and atomically. Unknown cost never becomes free.
-        estimate = proposal.cost_estimate
-        if estimate is None or not estimate.is_known():
-            self.conflicts.release(keys, state.objective_id)
-            return self._refuse(proposal, now, COST_ESTIMATE_UNKNOWN, **base)
-        scopes = treasury_scopes(state)
-        reserved, treasury_ref, why = self.treasury.reserve(scopes, estimate)
-        if not reserved:
-            self.conflicts.release(keys, state.objective_id)
-            return self._refuse(proposal, now, BUDGET_DENIED, detail=why, **base)
-
-        # The store is the once-only fence: the reservation id is derived from
-        # the proposal identity, so a replay collides instead of double-spending.
+        # Detach nested effect/verifier mappings from callers and port callbacks.
+        original = proposal
+        content_digest = proposal_digest(proposal)
+        proposal = replace(proposal, expected_effects=tuple(
+            json.loads(json.dumps(list(proposal.expected_effects), allow_nan=False))))
+        keys, scopes = tuple(spec["conflict_keys"]), treasury_scopes(state)
         reservation_id = _digest({"proposal_id": proposal.proposal_id,
                                   "objective_digest": proposal.objective_digest,
                                   "objective_revision": proposal.objective_revision})
-        try:
-            store.reserve_once(reservation_id=reservation_id, objective_id=state.objective_id,
-                               proposal_id=proposal.proposal_id, created_at=now,
-                               payload={"estimate": estimate.to_dict(),
-                                        "treasury_ref": treasury_ref,
-                                        "scopes": list(scopes)})
-        except DuplicateReservation:
-            # Explicit compensation: the speculative Treasury hold and the
-            # conflict claim must not survive a refused admission.
-            self.treasury.release(scopes, estimate)
-            self.conflicts.release(keys, state.objective_id)
-            return self._refuse(proposal, now, DUPLICATE_RESERVATION, **base)
-
-        mission_intent_id = _digest({"reservation_id": reservation_id,
-                                     "effects": [dict(e) for e in proposal.expected_effects],
-                                     "capabilities": list(proposal.requested_capabilities)})
-        return AdmissionDecision(
-            True, ADMITTED, reservation_id=reservation_id, mission_intent_id=mission_intent_id,
+        decision = AdmissionDecision(
+            True, ADMITTED, reservation_id=reservation_id,
+            mission_intent_id=_intent_id(reservation_id, proposal),
             granted_capabilities=proposal.requested_capabilities,
             authorized_scope_refs=authorized_scope_refs(state), treasury_scopes=scopes,
-            decided_at=now, **base)
+            decided_at=now, proposal_digest=content_digest,
+            owner_id=state.owner_id, scope_id=state.scope_id, **base)
+        payload = {"estimate": estimate.to_dict(), "scopes": list(scopes),
+                   "phase": "PENDING", "binding": _binding(decision)}
+        # Win the durable slot FIRST. A duplicate never calls or releases ports
+        # belonging to the winning admission, even across separate processes.
+        try:
+            store.claim_admission(reservation_id=reservation_id, objective_id=state.objective_id,
+                                  proposal_id=proposal.proposal_id, created_at=now,
+                                  expected_version=state.version,
+                                  proposal_payload=proposal.to_payload(), payload=payload)
+        except DuplicateReservation:
+            return self._refuse(proposal, now, DUPLICATE_RESERVATION, **base)
+        except ObjectiveStoreError:
+            return self._refuse(proposal, now, ADMISSION_STATE_CHANGED, **base)
+
+        claimed = reserved = False
+        uncertain = False
+        reason, detail, phase = POLICY_DENIED, "", "claim"
+        try:
+            claimed, detail = self.conflicts.claim(keys, state.objective_id, int(spec["priority"]))
+            if claimed is not True:
+                reason = CONFLICT_HELD
+            else:
+                phase = "policy"
+                allowed, detail = self.policy.check_grants(
+                    state.owner_id, state.scope_id, tuple(spec["permission_refs"]),
+                    proposal.requested_capabilities)
+                if allowed is not True:
+                    reason = detail if detail in _POLICY_CODES else POLICY_DENIED
+                else:
+                    phase = "reserve"
+                    reserved, treasury_ref, detail = self.treasury.reserve(scopes, estimate)
+                    if reserved is not True:
+                        reason = BUDGET_DENIED
+                    else:
+                        phase = "complete"
+                        if (proposal_digest(original) != content_digest
+                                or not _recorded_matches(store, proposal)):
+                            reason = PROPOSAL_MISMATCH
+                        else:
+                            store.complete_admission(
+                                reservation_id, expected_version=state.version,
+                                payload={**payload, "phase": "READY", "treasury_ref": treasury_ref})
+                            return decision
+        except Exception:
+            # A port may have taken a hold then failed to acknowledge it. Do not
+            # invent a refund or retry: retain a PENDING recovery record.
+            uncertain = phase in {"claim", "reserve"}
+            reason = ADMISSION_RECOVERY_REQUIRED if uncertain else ADMISSION_STATE_CHANGED
+            detail = "admission dependency failed"
+
+        for held, release, args in (
+            (reserved, self.treasury.release, (scopes, estimate)),
+            (claimed, self.conflicts.release, (keys, state.objective_id)),
+        ):
+            if held:
+                try:
+                    release(*args)
+                except Exception:
+                    uncertain = True
+        if not uncertain:
+            try:
+                store.settle_reservation(reservation_id, "RELEASED")
+            except ObjectiveStoreError:
+                uncertain = True
+        if uncertain:
+            reason = ADMISSION_RECOVERY_REQUIRED
+        return self._refuse(proposal, now, reason, detail=detail, **base)
 
     @staticmethod
     def _refuse(proposal: AdmissionProposal, now: float, reason: str, *,
                 detail: str = "", **base: Any) -> AdmissionDecision:
         base.setdefault("objective_id", proposal.objective_id)
         base.setdefault("proposal_id", proposal.proposal_id)
-        return AdmissionDecision(False, reason, decided_at=now, detail=detail, **base)
+        return AdmissionDecision(False, reason, decided_at=now if _valid_time(now) else 0.0,
+                                 detail=detail, **base)
 
 
 def reauthorize_at_effect_boundary(store: ObjectiveStore, decision: AdmissionDecision,
-                                   proposal: AdmissionProposal, *, now: float) -> bool:
-    """Second, independent authorization taken immediately before effects.
+                                   proposal: AdmissionProposal, *, now: float,
+                                   policy: PolicyPort | None = None) -> bool:
+    """Fail-closed effect guard using durable binding and CURRENT grants.
 
-    APPROVAL != POST_STATE: an admitted decision is a statement about the world
-    at admission time. A revoke, pause, expiry, stop or revision landing while
-    the work sits queued must make this return False, so zero unauthorized
-    effects follow. The reservation must still be open too -- a settled
-    reservation means someone else already resolved this work.
+    Missing policy is not an implicit allow. This guard does not execute tools;
+    dispatch still needs the canonical executor's fencing/authorization guard.
     """
-    if not decision.admitted or not decision.reservation_id:
+    if (not _valid_time(now) or not decision_matches_proposal(decision, proposal)
+            or now < decision.decided_at or policy is None):
         return False
     try:
         state = store.get(proposal.objective_id)
         spec = store.get_spec(proposal.objective_id).to_dict()
-    except (ObjectiveStoreError, ObjectiveValidationError):
+        if (state.lifecycle != "ACTIVE" or state.stopped or now >= spec["expires_at"]
+                or state.revision != decision.objective_revision
+                or state.spec_digest != decision.objective_digest
+                or state.owner_id != decision.owner_id or state.scope_id != decision.scope_id
+                or now >= proposal.valid_until or now >= proposal.freshness_deadline
+                or not _recorded_matches(store, proposal)):
+            return False
+        records = store.open_reservations(proposal.objective_id)
+        reservation = next((r for r in records if r["reservation_id"] == decision.reservation_id), None)
+        if (reservation is None or reservation["proposal_id"] != proposal.proposal_id
+                or reservation["payload"].get("phase") != "READY"
+                or reservation["payload"].get("binding") != _binding(decision)):
+            return False
+        allowed, _ = policy.check_grants(
+            state.owner_id, state.scope_id, tuple(spec["permission_refs"]),
+            decision.granted_capabilities)
+        # A callback may race lifecycle changes or mutate a nested proposal.
+        current = store.get(proposal.objective_id)
+        return (allowed is True and current == state
+                and decision_matches_proposal(decision, proposal)
+                and reservation in store.open_reservations(proposal.objective_id))
+    except Exception:
+        # Missing/corrupt storage or failed policy is no authority to dispatch.
         return False
-    if state.lifecycle != "ACTIVE" or state.stopped or now >= spec["expires_at"]:
-        return False
-    if state.revision != decision.objective_revision or state.spec_digest != decision.objective_digest:
-        return False
-    if now >= proposal.valid_until:
-        return False
-    open_ids = {r["reservation_id"] for r in store.open_reservations(proposal.objective_id)}
-    return decision.reservation_id in open_ids

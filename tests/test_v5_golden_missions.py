@@ -238,7 +238,7 @@ def test_h01_keeps_a_fixture_repository_buildable_after_an_approved_change(tmp_p
     treasury, conflicts = Treasury(), Conflicts()
     decision = kernel(treasury=treasury, conflicts=conflicts).admit(store, proposal, now=NOW)
     assert decision.admitted, decision.reason
-    assert reauthorize_at_effect_boundary(store, decision, proposal, now=NOW)
+    assert reauthorize_at_effect_boundary(store, decision, proposal, now=NOW, policy=kernel().policy)
 
     mission = to_mission_ir(proposal, decision, owner_id=state.owner_id,
                             project_id=state.scope_id, goal="restore the build artifact")
@@ -352,13 +352,13 @@ def test_h05_revocation_while_queued_produces_zero_unauthorized_effects(tmp_path
     proposal = propose(store, state, records, target=str(artifact))
     decision = kernel().admit(store, proposal, now=NOW)
     assert decision.admitted
-    assert reauthorize_at_effect_boundary(store, decision, proposal, now=NOW)
+    assert reauthorize_at_effect_boundary(store, decision, proposal, now=NOW, policy=kernel().policy)
 
     state = store.get(state.objective_id)
     store.transition(state.objective_id, "REVOKED", now=NOW + 1.0,
                      owner_id=state.owner_id, expected_version=state.version)
 
-    assert not reauthorize_at_effect_boundary(store, decision, proposal, now=NOW + 2.0)
+    assert not reauthorize_at_effect_boundary(store, decision, proposal, now=NOW + 2.0, policy=kernel().policy)
     # Revocation is sticky: nothing brings the objective back.
     with pytest.raises(Exception):
         store.transition(state.objective_id, "ACTIVE", now=NOW + 3.0,
@@ -375,7 +375,7 @@ def test_h05b_expiry_while_queued_also_denies_the_effect(tmp_path):
                        target=str(artifact))
     decision = kernel().admit(store, proposal, now=NOW)
     assert decision.admitted
-    assert not reauthorize_at_effect_boundary(store, decision, proposal, now=NOW + 121.0)
+    assert not reauthorize_at_effect_boundary(store, decision, proposal, now=NOW + 121.0, policy=kernel().policy)
 
 
 def test_h06_duplicate_and_out_of_order_events_admit_at_most_one_intent(tmp_path):
@@ -489,7 +489,7 @@ def test_h10_upgrade_and_rollback_never_replay_work_autonomously(tmp_path):
 
     assert state.condition == "UNKNOWN", "a new digest inherits no old verdict"
     assert state.last_verified_evidence_ref is None
-    assert not reauthorize_at_effect_boundary(store, decision, proposal, now=NOW + 1.0)
+    assert not reauthorize_at_effect_boundary(store, decision, proposal, now=NOW + 1.0, policy=kernel().policy)
 
     # Usage survives the upgrade: a revision cannot buy a fresh budget.
     point = resume_point(store, state.objective_id)

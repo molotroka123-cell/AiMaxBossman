@@ -30,7 +30,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping
 
 from .mission_ir import MissionIR
-from .objective_admission import AdmissionDecision, AdmissionProposal
+from .objective_admission import AdmissionDecision, AdmissionProposal, decision_matches_proposal
 
 DEFAULT_RECOVERY = {"max_attempts_per_effect": 1, "max_attempts_total": 3}
 
@@ -63,8 +63,19 @@ def to_mission_ir(proposal: AdmissionProposal, decision: AdmissionDecision, *,
         raise MissionAdaptationError("recorded proposal and decision required")
     if not decision.admitted or not decision.reservation_id or not decision.mission_intent_id:
         raise NotAdmitted("proposal has no current admission")
-    if decision.proposal_id != proposal.proposal_id:
-        raise MissionAdaptationError("decision does not belong to this proposal")
+    if not decision_matches_proposal(decision, proposal):
+        raise MissionAdaptationError("decision does not bind this exact proposal content")
+    if owner_id != decision.owner_id or project_id != decision.scope_id:
+        raise MissionAdaptationError("mission owner/scope differs from admission")
+    reserved_budget = _budget(proposal)
+    if budget is not None:
+        if set(budget) - set(reserved_budget):
+            raise MissionAdaptationError("unknown budget dimensions")
+        for key, value in budget.items():
+            if (type(value) not in (int, float) or not 0 <= value <= reserved_budget[key]
+                    or (key == "max_tokens" and type(value) is not int)):
+                raise MissionAdaptationError("mission budget exceeds reservation or is malformed")
+        reserved_budget.update(budget)
 
     granted = set(decision.granted_capabilities)
     effects = []
@@ -104,7 +115,7 @@ def to_mission_ir(proposal: AdmissionProposal, decision: AdmissionDecision, *,
         "privacy": privacy,
         "risk": risk,
         "authorized_scope_refs": list(decision.authorized_scope_refs),
-        "budget": dict(budget) if budget is not None else _budget(proposal),
+        "budget": reserved_budget,
         "reservation_refs": [decision.reservation_id],
         "recovery": dict(recovery) if recovery is not None else dict(DEFAULT_RECOVERY),
         "success_conditions": conditions,

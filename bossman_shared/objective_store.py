@@ -524,11 +524,84 @@ class ObjectiveStore:
         except sqlite3.IntegrityError as exc:
             raise DuplicateReservation(reservation_id) from exc
 
+    def get_proposal(self, proposal_id: str) -> dict[str, Any]:
+        """Return detached durable proposal content, never caller-owned metadata."""
+        with self._connect() as con:
+            row = con.execute("SELECT * FROM v5_proposals WHERE proposal_id=?",
+                              (proposal_id,)).fetchone()
+        if row is None:
+            raise ObjectiveStoreError("unknown proposal")
+        result = dict(row)
+        result["payload"] = json.loads(result["payload"])
+        return result
+
+    def claim_admission(self, *, reservation_id: str, objective_id: str,
+                        proposal_id: str, created_at: float, expected_version: int,
+                        proposal_payload: dict[str, Any], payload: dict[str, Any]) -> None:
+        """Durable once-only intent BEFORE any external port is called.
+
+        Serializes competing callers through SQLite, not a process-local lock.
+        An unresolved objective admission blocks another one, including after
+        restart. This is intentionally conservative until reconciliation.
+        """
+        with self._connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            if con.execute("SELECT 1 FROM v5_reservations WHERE proposal_id=? OR reservation_id=?",
+                           (proposal_id, reservation_id)).fetchone():
+                raise DuplicateReservation(reservation_id)
+            state = self._cas_read(con, objective_id, expected_version)
+            if state.lifecycle != "ACTIVE" or state.stopped:
+                raise ObjectiveStoreError("objective_not_active")
+            row = con.execute("SELECT * FROM v5_proposals WHERE proposal_id=?", (proposal_id,)).fetchone()
+            if (row is None or row["objective_id"] != objective_id
+                    or row["objective_revision"] != state.revision
+                    or row["objective_digest"] != state.spec_digest
+                    or row["payload"] != _dumps(proposal_payload)):
+                raise ObjectiveStoreError("proposal_binding_mismatch")
+            if con.execute("SELECT 1 FROM v5_reservations WHERE objective_id=? AND state='RESERVED'",
+                           (objective_id,)).fetchone():
+                raise ObjectiveStoreError("objective_has_unreconciled_admission")
+            spec_row = con.execute("SELECT spec_json,spec_digest FROM v5_objectives WHERE objective_id=?",
+                                   (objective_id,)).fetchone()
+            spec = _trusted_spec(spec_row["spec_json"], spec_row["spec_digest"]).to_dict()
+            limits, estimate = spec["limits"], payload["estimate"]
+            if (created_at >= spec["expires_at"] or created_at >= row["valid_until"]
+                    or state.missions_used + 1 > limits["max_missions"]
+                    or state.cost_usd_used + estimate["cost_usd"] > limits["max_cost_usd"]
+                    or state.wall_seconds_used + estimate["wall_seconds"] > limits["max_wall_seconds"]):
+                raise ObjectiveStoreError("objective_limit_or_expiry")
+            con.execute("INSERT INTO v5_reservations VALUES(?,?,?,?,?,?)",
+                        (reservation_id, objective_id, proposal_id, created_at, "RESERVED", _dumps(payload)))
+            self._log(con, objective_id, "admission_pending", reservation_id)
+
+    def complete_admission(self, reservation_id: str, *, expected_version: int,
+                           payload: dict[str, Any]) -> None:
+        """Publish authority only after ports succeeded and lifecycle still matches."""
+        with self._connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            row = con.execute("SELECT * FROM v5_reservations WHERE reservation_id=?",
+                              (reservation_id,)).fetchone()
+            if row is None or row["state"] != "RESERVED":
+                raise ObjectiveStoreError("admission is not pending")
+            prior = json.loads(row["payload"])
+            state = self._cas_read(con, row["objective_id"], expected_version)
+            if state.lifecycle != "ACTIVE" or state.stopped:
+                raise ObjectiveStoreError("objective_not_active")
+            if (prior.get("phase") != "PENDING" or payload.get("phase") != "READY"
+                    or prior.get("binding") != payload.get("binding")
+                    or prior.get("estimate") != payload.get("estimate")
+                    or prior.get("scopes") != payload.get("scopes")):
+                raise ObjectiveStoreError("admission_binding_changed")
+            con.execute("UPDATE v5_reservations SET payload=? WHERE reservation_id=?",
+                        (_dumps(payload), reservation_id))
+            self._log(con, row["objective_id"], "admission_ready", reservation_id)
+
     def settle_reservation(self, reservation_id: str, state: str) -> None:
         """Close a reservation as COMMITTED or RELEASED; settlement is final."""
         if state not in {"COMMITTED", "RELEASED"}:
             raise ObjectiveStoreError("reservation settles as COMMITTED or RELEASED")
         with self._connect() as con:
+            con.execute("BEGIN IMMEDIATE")
             row = con.execute("SELECT objective_id,state FROM v5_reservations WHERE reservation_id=?",
                               (reservation_id,)).fetchone()
             if row is None:
