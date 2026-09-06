@@ -1,0 +1,44 @@
+name: One-shot sync skip registry
+
+on:
+  push:
+    branches:
+      - integration/continuity-steward-closure-20260906
+    paths:
+      - .github/workflows/one-shot-sync-skips.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-sync-skips-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/continuity-steward-closure-20260906
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Regenerate from current source
+        run: |
+          python tools/skips_registry.py
+          python tools/skips_registry.py --check
+      - name: Commit only generated registry if needed
+        shell: bash
+        run: |
+          if git diff --quiet -- docs/testing/SKIPS_REGISTRY.md; then
+            echo "registry already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/testing/SKIPS_REGISTRY.md
+          git commit -m "chore(ci): sync skip registry with current test tree"
+          git push origin HEAD:integration/continuity-steward-closure-20260906
