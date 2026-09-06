@@ -193,6 +193,15 @@ def journal_record(journal: Any, *, completed: bool, context: Mapping[str, Any] 
         "steps_verified": len(signed),
         "effects_verified": len(signed),
         "verification_summary": f"{len(signed)}/{len(steps)} steps carry a signed verified receipt",
+        # Парная идентичность НАГРУЗКИ, а не прогона: baseline и candidate
+        # сравниваются по одной и той же работе. plan_digest подходит ровно
+        # потому, что покрывает действия, ожидания и политику.
+        "pair_id": _text(ctx.get("pair_id", "") or plan_digest, 128),
+        # Обязательные согласования считаются ОТДЕЛЬНО от лишних вмешательств:
+        # согласование по проекту — не издержка, а требование.
+        "mandatory_approvals": _int(ctx.get("mandatory_approvals", 0), minimum=0),
+        "unsafe_events": _int(ctx.get("unsafe_events", 0), minimum=0),
+        "evidence_ref": f"task_journal:{task_id}@{plan_digest}" if task_id else "",
         "provenance": {
             "source": "task_journal",
             "recorded_by": "bossman_v3.execution.telemetry",

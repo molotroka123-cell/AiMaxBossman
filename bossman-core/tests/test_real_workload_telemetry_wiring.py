@@ -303,3 +303,28 @@ def test_a_tampered_record_cannot_launder_a_failure_into_release_evidence(tmp_pa
     assert report["summary"]["verified_passed"] == 0, (
         "подделанный status не создаёт verified-успех")
     assert report["summary"]["verified_success_rate"] == 0.0
+
+
+# ------------------------------------------- парный протокол Epoch 4
+
+def test_the_record_carries_what_the_paired_protocol_needs(tmp_path):
+    """Выборка обязана быть пригодной для парного сравнения БЕЗ ручной доработки,
+    иначе «реальные нагрузки» и «производительность» снова живут в разных мирах."""
+    _run(tmp_path)
+    row = _corpus(tmp_path)[0]
+    assert row["pair_id"] == row["plan_digest"] != ""
+    assert row["mandatory_approvals"] == 0 and row["unsafe_events"] == 0
+    assert row["evidence_ref"] == f"task_journal:{row['task_id']}@{row['plan_digest']}"
+
+
+def test_mandatory_approvals_are_counted_apart_from_avoidable_interventions(tmp_path):
+    """Согласование по проекту — требование, а не издержка. Смешать их значило бы
+    штрафовать систему за то, что она спросила разрешения."""
+    _run(tmp_path, context={"mandatory_approvals": 2, "human_interventions": 1})
+    row = _corpus(tmp_path)[0]
+    assert (row["mandatory_approvals"], row["human_interventions"]) == (2, 1)
+
+
+def test_an_explicit_pair_id_overrides_the_plan_digest(tmp_path):
+    _run(tmp_path, context={"pair_id": "WF-042"})
+    assert _corpus(tmp_path)[0]["pair_id"] == "WF-042"
