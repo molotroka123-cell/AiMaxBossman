@@ -43,4 +43,13 @@ finished; its job is red when the SHA is not certified, which is the point.
 Exit codes: 0 CERTIFIED, 1 NOT_CERTIFIED or scorecard contradiction,
 2 INSUFFICIENT_EVIDENCE. Tests: `tests/test_exact_sha_certify.py`.
 
+## Scorecard coupling
+
+`scripts/update_readme_scorecard.py` refuses `exact_sha_ci: PASS` unless
+`docs/benchmark/exact-sha-certification.json` exists, is `CERTIFIED`, is
+`final`, and certifies exactly `last_evidence_sha`. Commit the report written
+by `--output` there when claiming PASS; `UNPROVEN`, `FAIL`, `NOT_RUN` and
+`NOT_APPLICABLE` need no report. Root CI runs the scorecard check on every
+commit, so a PASS that outlives its commit fails the build.
+
 `OLD_SHA_PASS != CURRENT_SHA_PASS`. `SKIPPED/CANCELLED != PASS`.
