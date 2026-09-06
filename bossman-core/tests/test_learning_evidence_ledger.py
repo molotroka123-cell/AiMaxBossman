@@ -64,8 +64,10 @@ def test_the_same_consumer_may_retry():
 def test_the_ledger_is_bounded_and_does_not_grow_without_limit():
     ledger = EvidenceLedger(capacity=4)
     for i in range(50):
-        assert ledger.consume(_key(_ab(3, f"corpus-{i}")), "skill@v1") is None
+        result = ledger.consume(_key(_ab(3, f"corpus-{i}")), "skill@v1")
+        assert (result is None) == (i < 4)
     assert len(ledger._records) == 4
+    assert ledger.consume(_key(_ab(3, "corpus-0")), "skill@v9") is not None
 
 
 # ---------------------------------------------------------------------- durable
@@ -88,12 +90,12 @@ def test_a_durable_ledger_writes_atomically_and_leaves_no_partial_file(tmp_path)
     assert len(json.loads(path.read_text(encoding="utf-8"))) == 5
 
 
-def test_a_corrupt_ledger_file_is_not_deleted_and_records_keep_being_written(tmp_path):
+def test_a_corrupt_ledger_file_is_not_deleted_and_new_promotion_is_refused(tmp_path):
     path = tmp_path / "ledger.json"
     path.write_text("{not json", encoding="utf-8")
     ledger = DurableEvidenceLedger(path)
-    assert ledger.consume(_key(), "skill@v1") is None
-    assert json.loads(path.read_text(encoding="utf-8")) != {}
+    assert ledger.consume(_key(), "skill@v1") is not None
+    assert path.read_text(encoding="utf-8") == "{not json"
 
 
 def test_a_second_process_sees_the_spent_measurement(tmp_path):
