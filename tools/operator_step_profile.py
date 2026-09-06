@@ -13,6 +13,11 @@ What it answers:
 * how many observations the loop spends per verified action (2.0 before the
   reuse window, 1.0 with it) — the single largest avoidable item on a Windows
   host, where one observation is a UIA descendant walk plus a full-screen PNG;
+* how many effect-boundary probes it spends (AT-03 re-reads the screen right
+  before acting). A probe is the structural read without the PNG and without
+  the summarizer, so it is reported and costed separately: ``--probe-ms``
+  defaults to ``--observe-ms``, which assumes no saving rather than a flattering
+  one;
 * how much wall time the loop adds on top of the declared costs;
 * p50/p95 per step, with every sample retained.
 
@@ -60,20 +65,44 @@ async def _spend(seconds: float) -> None:
 
 
 class CostedObserver:
-    def __init__(self, cost_s: float):
+    """A desktop whose screen changes BECAUSE AN ACTION WAS TAKEN.
+
+    The screen must actually change between steps — an unchanging state is what
+    LoopGuard stops, and profiling a guarded no-op measures the wrong loop. But
+    it must change only when something acted on it: a screen that mutates on its
+    own between the plan and the dispatch is not a desktop, it is a race, and
+    the effect-boundary check (AT-03) correctly refuses to act on it. So the row
+    advances on ``advance()``, which the adapter calls when it executes.
+    """
+
+    def __init__(self, cost_s: float, probe_cost_s: float | None = None):
         self.cost_s = cost_s
+        # A probe is the structural read WITHOUT the screenshot or the
+        # summarizer, so on a real host it is cheaper than an observation.
+        # Unknown means "assume it costs the same" rather than "assume free".
+        self.probe_cost_s = cost_s if probe_cost_s is None else probe_cost_s
         self.calls = 0
+        self.probes = 0
+        self.row = 0
+
+    def advance(self) -> None:
+        self.row += 1
+
+    def _screen(self, generation: int, summary: str) -> Observation:
+        return Observation(new_id("obs"), time.time(),
+                           {"title": f"Editor - row {self.row}", "app": "editor"},
+                           summary, {"elements": [{"name": f"row-{self.row}"}]},
+                           None, False, generation)
 
     async def observe(self, *, generation: int) -> Observation:
         self.calls += 1
         await _spend(self.cost_s)
-        # The screen must actually change between steps: an unchanging state is
-        # exactly what LoopGuard stops, and profiling a guarded no-op would be
-        # measuring the wrong loop.
-        return Observation(new_id("obs"), time.time(),
-                           {"title": f"Editor - row {self.calls}", "app": "editor"},
-                           f"ok row {self.calls}", {"elements": [{"name": f"row-{self.calls}"}]},
-                           None, False, generation)
+        return self._screen(generation, f"ok row {self.row}")
+
+    async def probe(self, *, generation: int) -> Observation:
+        self.probes += 1
+        await _spend(self.probe_cost_s)
+        return self._screen(generation, "")
 
 
 class CostedPlanner:
@@ -100,8 +129,9 @@ class CostedPlanner:
 class CostedAdapter:
     name = "costed"
 
-    def __init__(self, cost_s: float):
+    def __init__(self, cost_s: float, observer: "CostedObserver | None" = None):
         self.cost_s = cost_s
+        self.observer = observer
         self.executed = 0
 
     async def supports(self, a, o):
@@ -110,6 +140,8 @@ class CostedAdapter:
     async def execute(self, a, o):
         self.executed += 1
         await _spend(self.cost_s)
+        if self.observer is not None:
+            self.observer.advance()          # the screen moved because we moved it
         return self.name
 
 
@@ -119,12 +151,13 @@ def percentile(values: list[float], p: int) -> float:
 
 
 async def profile(*, steps: int, observe_ms: float, plan_ms: float, act_ms: float,
-                  reuse_max_age_s: float) -> dict:
+                  reuse_max_age_s: float, probe_ms: float | None = None) -> dict:
     if type(steps) is not int or steps < 1:
         raise ValueError("steps must be a positive integer")
-    observer = CostedObserver(observe_ms / 1000)
+    probe_ms = observe_ms if probe_ms is None else probe_ms
+    observer = CostedObserver(observe_ms / 1000, probe_ms / 1000)
     planner = CostedPlanner(plan_ms / 1000, steps)
-    adapter = CostedAdapter(act_ms / 1000)
+    adapter = CostedAdapter(act_ms / 1000, observer)
     per_step: list[float] = []
 
     def emit(*a, **kw):
@@ -144,15 +177,25 @@ async def profile(*, steps: int, observe_ms: float, plan_ms: float, act_ms: floa
 
     marks = [started] + per_step
     step_ms = [(marks[i + 1] - marks[i]) * 1000 for i in range(len(marks) - 1)]
-    declared_ms = observer.calls * observe_ms + planner.calls * plan_ms + adapter.executed * act_ms
+    declared_ms = (observer.calls * observe_ms + observer.probes * probe_ms
+                   + planner.calls * plan_ms + adapter.executed * act_ms)
     total_ms = elapsed * 1000
     return {
         "steps": adapter.executed,
         "observations": observer.calls,
         "observations_reused": mgr.observations_reused,
         "observations_per_verified_action": round(observer.calls / adapter.executed, 4),
+        # AT-03 re-reads the screen right before the effect. It is a real cost and
+        # is reported separately rather than folded into the observation count:
+        # a probe skips the PNG and the summarizer, so on the owner's host it is
+        # the cheaper of the two and the difference is the point.
+        "boundary_probes": observer.probes,
+        "boundary_probes_per_verified_action": round(observer.probes / adapter.executed, 4),
+        "stale_boundaries": mgr.stale_boundaries,
+        "completions_refused": mgr.completions_refused,
         "planner_calls": planner.calls,
-        "declared_costs_ms": {"observe": observe_ms, "plan": plan_ms, "act": act_ms},
+        "declared_costs_ms": {"observe": observe_ms, "probe": probe_ms,
+                              "plan": plan_ms, "act": act_ms},
         "declared_total_ms": round(declared_ms, 3),
         "wall_total_ms": round(total_ms, 3),
         "framework_overhead_ms": round(total_ms - declared_ms, 3),
@@ -173,6 +216,9 @@ def main() -> int:
     parser.add_argument("--steps", type=int, default=40)
     parser.add_argument("--observe-ms", type=float, default=0.0,
                         help="measured cost of one observation on the target host")
+    parser.add_argument("--probe-ms", type=float, default=None,
+                        help="measured cost of one effect-boundary probe (structure only, no "
+                             "screenshot); defaults to --observe-ms, i.e. no assumed saving")
     parser.add_argument("--plan-ms", type=float, default=0.0, help="measured planner turn")
     parser.add_argument("--act-ms", type=float, default=0.0, help="measured input dispatch")
     parser.add_argument("--json-out", type=Path)
@@ -181,7 +227,7 @@ def main() -> int:
         parser.error("--steps must be at least 1")
 
     common = dict(steps=args.steps, observe_ms=args.observe_ms, plan_ms=args.plan_ms,
-                  act_ms=args.act_ms)
+                  act_ms=args.act_ms, probe_ms=args.probe_ms)
     report = {
         "with_observation_reuse": asyncio.run(profile(**common, reuse_max_age_s=0.75)),
         "without_observation_reuse": asyncio.run(profile(**common, reuse_max_age_s=0.0)),

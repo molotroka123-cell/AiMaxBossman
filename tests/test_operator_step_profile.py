@@ -31,10 +31,20 @@ def test_a_verified_step_costs_one_observation_not_two():
     that second observation is a UIA descendant walk plus a full-screen PNG."""
     with_reuse = run(steps=12, observe_ms=0, plan_ms=0, act_ms=0, reuse_max_age_s=0.75)
     without = run(steps=12, observe_ms=0, plan_ms=0, act_ms=0, reuse_max_age_s=0.0)
-    # +1 in each: the final turn where the planner reports COMPLETE.
-    assert with_reuse["observations"] == 13
-    assert without["observations"] == 25
+    # +2 in each: the COMPLETE turn's `before`, and the verdict observation
+    # AT-01 takes so the postcondition is checked against a screen the planner
+    # has not already read.
+    assert with_reuse["observations"] == 14
+    assert without["observations"] == 26
     assert with_reuse["observations_reused"] == 12 and without["observations_reused"] == 0
+    # AT-03 re-reads the screen before every dispatched action. That is one
+    # probe per verified step in both arms — the reuse window does not and must
+    # not skip it, because what it saves is a stale `before`, not a stale
+    # authorization to act.
+    for arm in (with_reuse, without):
+        assert arm["boundary_probes"] == 12
+        assert arm["boundary_probes_per_verified_action"] == 1.0
+        assert arm["stale_boundaries"] == 0 and arm["completions_refused"] == 0
 
 
 def test_the_saving_scales_with_the_measured_observation_cost():
