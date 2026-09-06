@@ -48,6 +48,8 @@ class EditorServer:
     def start(self):
         env = dict(os.environ, BCC_DATA_DIR=str(self.data), PYTHONPATH=os.pathsep.join(
             map(str, [ROOT, ROOT / 'bossman-core', ROOT / 'command-center'])))
+        env['BOSSMAN_EVIDENCE_KEY_FILE'] = str(self.data / 'test-evidence.key')
+        env['BOSSMAN_REAL_WORKLOAD_ROOT'] = str(self.data / 'test-telemetry')
         self.process = subprocess.Popen([sys.executable, '-c', SERVE, str(ROOT),
                                          str(self.data), str(self.port)],
                                         env=env, cwd=ROOT, stdout=subprocess.DEVNULL,
@@ -108,6 +110,28 @@ def snapshot(context, url):
     return response.json()
 
 
+def play_preview_to_end(page):
+    """Only real transport buttons change playback; DOM reads verify it."""
+    page.wait_for_function("""() => {
+        const v = document.querySelector('.vs-preview video');
+        return v && v.readyState >= 1 && v.videoWidth > 0 && !v.error;
+    }""", timeout=15000)
+    page.locator('.vs-transport').get_by_role('button', name='│◀', exact=True).click()
+    page.locator('.vs-transport').get_by_role('button', name='▶', exact=True).click()
+    page.wait_for_function("""() => {
+        const v = document.querySelector('.vs-preview video');
+        return v && v.currentTime > .05 && !v.error;
+    }""", timeout=15000)
+    page.wait_for_function("""() => {
+        const v = document.querySelector('.vs-preview video');
+        return v && v.ended && v.currentTime >= .9 && !v.error;
+    }""", timeout=15000)
+    return page.locator('.vs-preview video').evaluate("""v => ({
+        current_time: v.currentTime, duration: v.duration, ended: v.ended,
+        ready_state: v.readyState, width: v.videoWidth, height: v.videoHeight
+    })""")
+
+
 def change(page, suffix, action):
     with page.expect_response(lambda r: r.url.split('?')[0].endswith(suffix)
                               and r.request.method in ('POST', 'PUT'), timeout=30000) as seen:
@@ -158,6 +182,7 @@ def test_video_ui_import_trim_undo_preview_export_restart(editor_server, tmp_pat
             page.locator('.vs-preview-actions').get_by_role('button', name='Создать preview', exact=True).click()
             page.locator('.vs-preview video').wait_for(timeout=60000)
             expect(page.locator('.vs-job a[download]')).to_have_count(1, timeout=60000)
+            playback = [play_preview_to_end(page)]
             page.get_by_role('button', name='Экспорт', exact=True).first.click()
             queued = change(page, '/exports', lambda: page.locator('dialog').get_by_role(
                 'button', name='Применить', exact=True).click())
@@ -180,11 +205,12 @@ def test_video_ui_import_trim_undo_preview_export_restart(editor_server, tmp_pat
             page.locator('.vs-clip').first.wait_for(timeout=15000)
             expect(page.locator('.vs-job a[download]')).to_have_count(2)
             assert snapshot(context, project_url) == before
+            playback.append(play_preview_to_end(page))
             assert errors == [], errors
             page.screenshot(path=str(output / 'video-user-path.png'), full_page=True)
             (output / 'video-result.json').write_text(json.dumps({'status': 'PASS',
                 'kind': 'REAL_BROWSER_TESTER_NOT_LOCAL_MODEL', 'restart': 'FRESH_PROCESS',
-                'job': job, 'ffprobe': probe, 'page_errors': errors}, ensure_ascii=False, indent=2))
+                'job': job, 'ffprobe': probe, 'playback': playback, 'page_errors': errors}, ensure_ascii=False, indent=2))
         except Exception:
             if page is not None:
                 page.screenshot(path=str(output / 'video-failure.png'), full_page=True)
