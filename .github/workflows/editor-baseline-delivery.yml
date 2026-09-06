@@ -1,0 +1,100 @@
+name: Editors real user baseline delivery
+on:
+  push:
+    branches: [fix/editor-user-baseline-20260906]
+    paths: [.github/workflows/editor-baseline-delivery.yml]
+permissions:
+  contents: read
+concurrency:
+  group: editor-baseline-delivery
+  cancel-in-progress: false
+jobs:
+  user-paths:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install real browser and media runtime
+        run: |
+          python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
+          python -m playwright install --with-deps chromium
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg
+          mkdir -p "$RUNNER_TEMP/editor-proof/before" "$RUNNER_TEMP/editor-proof/after"
+          git rev-parse HEAD > "$RUNNER_TEMP/editor-proof/before-sha.txt"
+          echo "PYTHONPATH=$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/bossman-core:$GITHUB_WORKSPACE/command-center" >> "$GITHUB_ENV"
+      - name: Preserve actual baseline failures (not a release PASS)
+        continue-on-error: true
+        env:
+          BCC_REQUIRE_BROWSER: '1'
+          BOSSMAN_EDITOR_EVIDENCE_DIR: ${{ runner.temp }}/editor-proof/before
+        run: >-
+          python -m pytest -c command-center/pyproject.toml
+          command-center/tests/test_editors_user_acceptance.py
+          -q --junitxml=${{ runner.temp }}/editor-proof/before.xml
+      - name: Repair only explicit Web New project state
+        shell: python
+        run: |
+          import hashlib,pathlib,subprocess,os
+          p=pathlib.Path('command-center/ui/pages/web_designer.js')
+          def digest(b):return hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          old=p.read_bytes()
+          assert digest(old)=='2402f7e933f152cf131fb47e59a2d455fc5b089a'
+          text=old.decode()
+          text=text.replace('  dirty: false,               // в редакторе есть несохранённое\n','  dirty: false,               // в редакторе есть несохранённое\n  creating: false,            // explicit New project must not auto-open an old one\n')
+          text=text.replace('state.id = null; state.selected = null;\n          try { localStorage.removeItem','state.id = null; state.selected = null; state.creating = true;\n          try { localStorage.removeItem')
+          text=text.replace('state.id = Number(res.meta.id);','state.id = Number(res.meta.id); state.creating = false;')
+          text=text.replace('    if (params && params.project) state.id = Number(params.project) || null;','    if (params && params.project) { state.id = Number(params.project) || null; state.creating = false; }\n    if (state.creating) return emptyState(ctx, catalog);')
+          assert digest(text.encode())=='6599a6e2b5a3ca79a8e9d618b88afeabd8fcbb05'
+          p.write_bytes(text.encode())
+          subprocess.run(['git','diff','--check'],check=True)
+          subprocess.run(['git','config','user.name','github-actions[bot]'],check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'],check=True)
+          subprocess.run(['git','add','--',str(p)],check=True)
+          subprocess.run(['git','commit','-m','fix(web-designer): keep explicit new-project intent across refresh'],check=True)
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'editor-proof'
+          (out/'tested-sha.txt').write_text(subprocess.check_output(['git','rev-parse','HEAD'],text=True))
+      - name: Require actual UI edits, playback export, downloads, restart and sandbox
+        env:
+          BCC_REQUIRE_BROWSER: '1'
+          BOSSMAN_EDITOR_EVIDENCE_DIR: ${{ runner.temp }}/editor-proof/after
+        run: >-
+          python -m pytest -c command-center/pyproject.toml
+          command-center/tests/test_editors_user_acceptance.py
+          command-center/tests/test_web_designer_sandbox_ui.py
+          command-center/tests/test_web_designer_viewport.py
+          -q --junitxml=${{ runner.temp }}/editor-proof/after.xml
+      - name: No secret leak, stale registry or silent working-tree changes
+        run: |
+          python tools/skips_registry.py --check
+          python tools/ci_secret_scan.py
+          git diff --exit-code
+      - name: Publish only passed isolated branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin HEAD:refs/heads/fix/editor-user-baseline-20260906
+      - name: Retain exact source of this test attempt
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/editor-proof"
+          git archive HEAD | gzip > "$RUNNER_TEMP/editor-proof/source.tar.gz"
+          git rev-parse HEAD > "$RUNNER_TEMP/editor-proof/actual-checkout-sha.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: editors-user-proof-${{ github.sha }}
+          path: ${{ runner.temp }}/editor-proof/
+          if-no-files-found: error
+          retention-days: 7
