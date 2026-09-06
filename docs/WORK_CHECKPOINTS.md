@@ -10,6 +10,7 @@ Date: 2026-09-06. Preserve upstream work; no force pushes or implicit merges.
 | Continuity foundations and reaction coordinator | `astra/epoch4-evolution`, PR #8; code checkpoint `d4b655c21834cd91234e9ba2cd20908d6e91ae10` | 247 root tests; 272 selected Core tests + 1 open-defect strict xfail; 17 CC truth tests; 71 reaction/visual tests; selections overlap. `docs/v4/FOUNDATION_REPORT.md` |
 | Responsive web-design preview | `astra/web-designer-properties`, `dfd72a6fc87ee420d9bad675c6b4bf4caff36d7f`, PR #9 | 16 JS tests; 21 Python passed / 2 Chromium skips. Actual GUI qualification, stale-edit protection and SVG-preserving edits remain open |
 | Linked frame-aligned video editing | `astra/video-frame-edit`, `5a3053319583e04874b3efd35647af8f4adc08cb`, PR #10 | 72 Python passed / 1 then-open export strict xfail; 11 JS passed. `docs/video-studio/FRAME_SPLIT_CHECKPOINT.md` on app branch records editing scope |
+| Exact CFR export endpoints | `astra/video-frame-edit`, `c45cb788fbd9ea79c590878dd1516481bc1ae851`, PR #10 | 53 focused tests passed, zero skips/xfails. Historical 25→24-frame loss fixed; actual first/last content and rational ranges verified. Broader 66 passed / 2 skipped / 1 unchanged color-preview failure reproduced on pristine base. `docs/video-studio/CFR_RENDER_CHECKPOINT.md` |
 
 App PRs target their existing app branches. Foundation PR targets the published
 plan branch. These branches have not been merged into Fable's primary or
