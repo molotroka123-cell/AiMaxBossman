@@ -46,3 +46,14 @@ ARCHIVE_CANDIDATE в GitHub Release assets, удалить из дерева. Н
 рабочая), три dependabot и четырнадцать августовских лент аудита. Удаление
 неслитой ветки теряет работу, поэтому список только назван — чистку веток
 делает владелец.
+
+## Решение владельца (2026-09-06)
+
+Владелец дал явное разрешение удалить `ARCHIVE_CANDIDATE`/`KEEP_SOURCE_ARTIFACT`
+паки из индекса git (не из истории — доступны через `git show <sha>:<файл>`).
+Удалены из рабочего дерева и индекса: все транзитные drop-in/сессионные паки,
+включая `self_learning_orchestrator.zip`, `handoffs/*.zip`, `BOSSMAN_APP_ICON_PACK.zip`,
+`IMG_3955.png`. Оставлены нетронутыми ровно два файла, на которые ссылается код
+(см. выше — «Удалять НЕЛЬЗЯ»): `docs/audits/astra-7b1377a/AIMAXBOSSMAN_ASTRA_FULL_AUDIT_7b1377a.zip`
+(закреплённый хеш в `tools/ci_secret_scan.py`) и `BOSSMAN_SOCIAL_FARM_APP4_TECH_SPEC_V1_1.zip`
+(`apps/social-farm/tests/unit/test_browser_selectors.py:21`).
