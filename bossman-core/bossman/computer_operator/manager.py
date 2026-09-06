@@ -114,6 +114,11 @@ class ComputerOperatorManager:
         # Стоимость и срабатывания проверки свежести на границе эффекта (AT-03) и
         # отказы завершения без улики (AT-01). Это измерение, а не гейт.
         self.boundary_probes=0; self.stale_boundaries=0; self.completions_refused=0
+        # A3-02: кооперативная отмена ввода. `asyncio.to_thread` неотменяем —
+        # отмена корутины роняет ожидание, а поток pyautogui продолжает жать
+        # клавиши. Флаг ставится ДО освобождения аренды, иначе оператор печатает
+        # уже поверх владельца, который аренду только что забрал.
+        self._interrupts={}
 
     def create_task(self,goal,*,mode=TaskMode.CONTROL,source="local",owner_device_id=None):
         if self.access_check is not None:
@@ -127,6 +132,19 @@ class ComputerOperatorManager:
         t=ComputerTask.create(goal,mode=mode,source=source,owner_device_id=owner_device_id)
         self._save(t); self._emit(t,"created"); return t
 
+    def _interrupt_event(self,task_id):
+        return self._interrupts.setdefault(task_id,threading.Event())
+
+    def _signal_interrupt(self,task_id)->None:
+        """Сказать исполняющемуся вводу остановиться (A3-02)."""
+        self._interrupt_event(task_id).set()
+
+    def _clear_interrupt(self,task_id)->None:
+        self._interrupt_event(task_id).clear()
+
+    def interrupted(self,task_id)->bool:
+        return self._interrupt_event(task_id).is_set()
+
     async def run(self,task_id):
         lock=self.locks.setdefault(task_id,asyncio.Lock())
         async with lock:
@@ -136,6 +154,9 @@ class ComputerOperatorManager:
                 if t.state in {TaskState.PAUSED,TaskState.USER_CONTROL,TaskState.WAITING_APPROVAL}:return t.state
                 if not self.control_lease.acquire(task_id):
                     return self._fail(t,f"desktop busy: control lease held by {self.control_lease.holder()}")
+                self._clear_interrupt(task_id)
+                setter=getattr(self.action_router,"set_interrupt",None)
+                if setter is not None:setter(self._interrupt_event(task_id))
                 return await self._run_loop(t)
             except asyncio.CancelledError:
                 raise
@@ -143,6 +164,10 @@ class ComputerOperatorManager:
                 try:return self._fail(self._req(task_id),f"operator crash:{type(e).__name__}:{e}")
                 except Exception:return TaskState.FAILED
             finally:
+                # Порядок обязателен: сначала сказать вводу остановиться, потом
+                # отпускать аренду. Наоборот — окно, в котором владелец уже
+                # получил рабочий стол, а поток всё ещё в него печатает.
+                self._signal_interrupt(task_id)
                 self.control_lease.release(task_id)
 
     async def _run_loop(self,t):
@@ -435,13 +460,18 @@ class ComputerOperatorManager:
         return ("completion refused: goal asserts an external effect but no verified "
                 "effect was performed; perform and verify the change before completing")
 
-    def pause(self,i): return self._state(i,TaskState.PAUSED,"paused",invalidate=True)
+    def pause(self,i):
+        self._signal_interrupt(i)      # A3-02: до записи состояния, а не после
+        return self._state(i,TaskState.PAUSED,"paused",invalidate=True)
     def take_control(self,i):
+        self._signal_interrupt(i)
         self.loop_guards.pop(i,None)   # оператор вмешался -> прежние подписи не значат ничего
         t=self._state(i,TaskState.USER_CONTROL,"user_control",invalidate=True)
         self.control_lease.revoke()
         return t
-    def stop(self,i): return self._state(i,TaskState.CANCELLED,"cancelled",invalidate=True)
+    def stop(self,i):
+        self._signal_interrupt(i)
+        return self._state(i,TaskState.CANCELLED,"cancelled",invalidate=True)
     def resume(self,i):
         t=self._req(i)
         if t.state not in {TaskState.PAUSED,TaskState.USER_CONTROL,TaskState.RECOVERING}:raise RuntimeError("invalid resume")
@@ -491,6 +521,8 @@ class ComputerOperatorManager:
         return out
     def emergency_lock(self):
         self.global_locked=True
+        for task_id in list(self._interrupts)+[t.id for t in self.store.list()]:
+            self._signal_interrupt(task_id)
         self.control_lease.revoke()
         for t in self.store.list():
             if not t.terminal:self._fail(t,"emergency lock",TaskState.LOCKED)

@@ -89,6 +89,19 @@ async def _browser_toolkit_dispatch(action, observation):
     args = {k: v for k, v in (action.args or {}).items() if k != "op"}
     if action.target and "target" not in args:
         args["target"] = action.target
+    # A3-01 (P1, security). Здесь вызывается `tool.handler` НАПРЯМУЮ, минуя
+    # runner, а подтверждение владельца поднимает именно runner по флагу
+    # `confirm_default`. Инструменты browser.confirmed_* объявлены с этим флагом
+    # и внутри пропускают собственные проверки (они и созданы для случая «уже
+    # подтверждено»), поэтому через этот путь необратимое действие уходило БЕЗ
+    # согласия. Замыкал цикл сам toolkit: он советует планировщику «используй
+    # browser.confirmed_click», планировщик повторяет — и стены больше нет.
+    #
+    # Внешняя policy тут не подстраховывает: она поднимает approval по лексикону
+    # улик, а «Enter» на обычном домене в нём отсутствует.
+    if getattr(tool, "confirm_default", False):
+        raise RuntimeError(
+            f"browser op requires owner approval and cannot be dispatched directly: {op!r}")
     ctx = ToolContext(agent="computer-operator",
                       workdir=Path(getattr(settings, "workspace_dir", ".")))
     result = await tool.handler(args, ctx)

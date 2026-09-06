@@ -2,6 +2,10 @@ from __future__ import annotations
 import asyncio,platform
 from ..models import ActionKind
 
+# Между порциями ввода проверяется команда владельца. Меньше — чаще проверки и
+# заметнее пауза в наборе; больше — дольше не реагируем на «Стоп».
+_TYPE_CHUNK=16
+
 # Верхняя граница снимка UI-дерева. `descendants()` МАТЕРИАЛИЗУЕТ всё поддерево
 # окна, и только потом вызывающий его обрезал: на окне браузера это тысячи
 # межпроцессных COM-обращений ради 500 узлов, которые реально используются.
@@ -110,6 +114,73 @@ class WindowsDesktop:
                 return True
             except Exception: return False
         return await asyncio.to_thread(f)
+    def set_interrupt(self,event):
+        self._interrupt=event
+
+    def _interrupted(self):
+        event=getattr(self,"_interrupt",None)
+        return event is not None and event.is_set()
+
+    def _stop_if_interrupted(self,typed,total):
+        """Прервать ввод по команде владельца, назвав, сколько уже введено.
+
+        Владелец нажал «Стоп»/«Пауза»/«Перехват» посреди длинной печати. Раньше
+        это меняло только строку задачи: поток продолжал печатать, чередуясь с
+        ручным вводом владельца, и мог делать это десятки минут. Прерываться
+        можно лишь между порциями, поэтому в ошибке сказано, сколько символов
+        уже ушло, — иначе исход шага остаётся неизвестным.
+        """
+        if self._interrupted():
+            raise RuntimeError(f"owner interrupted typing after {typed} of {total} characters")
+
+    @staticmethod
+    def _typeable(text,pyautogui):
+        """Символы, которые бэкенд pyautogui на Windows физически умеет нажать.
+
+        `pyautogui.write` -> `typewrite` -> `_pyautogui_win._keyDown`, а тот
+        начинается с `if key not in keyboardMapping or keyboardMapping[key] is
+        None: return` — символ, которого нет в раскладочной карте, ПРОПУСКАЕТСЯ
+        МОЛЧА. Для кириллицы это значит, что «Привет, мир» доезжает как «, »:
+        без ошибки, без предупреждения, и верификатор этого не видит, потому что
+        в наблюдение попадают заголовок окна и дерево, а не содержимое поля.
+        Для русскоязычного продукта это основной путь ввода.
+        """
+        mapping=getattr(getattr(pyautogui,"_pyautogui_win",None),"keyboardMapping",None)
+        if not isinstance(mapping,dict):
+            # Не Windows-бэкенд (или другая версия): считаем печатаемым ASCII.
+            return all(ord(ch)<128 for ch in text)
+        return all(mapping.get(ch) is not None for ch in text)
+
+    def _type_via_clipboard(self,text,pyautogui):
+        """Вставить текст через буфер обмена, вернув буфер владельца на место.
+
+        Единственный путь, которым непечатаемый для раскладки текст попадает в
+        поле целиком. Буфер владельца — его вещь: он сохраняется и
+        восстанавливается, иначе задача незаметно уносит то, что он копировал.
+        """
+        import win32clipboard, win32con
+        def _get():
+            win32clipboard.OpenClipboard()
+            try:
+                if win32clipboard.IsClipboardFormatAvailable(win32con.CF_UNICODETEXT):
+                    return win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)
+            finally: win32clipboard.CloseClipboard()
+            return None
+        def _set(value):
+            win32clipboard.OpenClipboard()
+            try:
+                win32clipboard.EmptyClipboard()
+                if value is not None:
+                    win32clipboard.SetClipboardData(win32con.CF_UNICODETEXT,value)
+            finally: win32clipboard.CloseClipboard()
+        try: saved=_get()
+        except Exception: saved=None
+        _set(text)
+        try: pyautogui.hotkey("ctrl","v")
+        finally:
+            try: _set(saved)
+            except Exception: pass
+
     async def _input(self,a):
         def f():
             try: import pyautogui
@@ -117,7 +188,28 @@ class WindowsDesktop:
             pyautogui.FAILSAFE=True
             if a.kind is ActionKind.CLICK: pyautogui.click(*self._xy(a))
             elif a.kind is ActionKind.DOUBLE_CLICK: pyautogui.doubleClick(*self._xy(a))
-            elif a.kind is ActionKind.TYPE: pyautogui.write(a.text or "",interval=min(.2,max(0,float(a.args.get("interval",.01)))))
+            elif a.kind is ActionKind.TYPE:
+                text=a.text or ""
+                interval=min(.2,max(0,float(a.args.get("interval",.01))))
+                if self._typeable(text,pyautogui):
+                    # Порциями, а не одним вызовом: длинный текст с задержкой в
+                    # 0.2 с на символ — это минуты, в течение которых команда
+                    # владельца иначе не имеет никакого эффекта.
+                    self._stop_if_interrupted(0,len(text))
+                    for start in range(0,len(text),_TYPE_CHUNK):
+                        chunk=text[start:start+_TYPE_CHUNK]
+                        pyautogui.write(chunk,interval=interval)
+                        self._stop_if_interrupted(min(start+_TYPE_CHUNK,len(text)),len(text))
+                else:
+                    try:
+                        self._type_via_clipboard(text,pyautogui)
+                    except Exception as e:
+                        # Отказ с названной причиной вместо молчаливой порчи:
+                        # половина введённого текста хуже, чем ненажатая клавиша,
+                        # потому что шаг при этом выглядит выполненным.
+                        raise RuntimeError(
+                            "text contains characters this keyboard layout cannot type and "
+                            f"the clipboard path failed: {type(e).__name__}: {e}") from e
             elif a.kind is ActionKind.HOTKEY:
                 keys=[str(x) for x in a.args.get("keys",[])][:8]
                 if not keys: raise ValueError("keys required")
