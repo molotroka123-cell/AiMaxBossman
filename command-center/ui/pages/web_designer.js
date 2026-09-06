@@ -19,12 +19,13 @@ import { h, toastOk, toastError, confirmDialog, debounce, fmtDateShort } from '.
 import { pageHead, panel, btn, pill, tag, field } from './_ui.js';
 
 const LAST_KEY = 'bd.lastProject';
-const FRAME_W = { desktop: '', tablet: '768px', mobile: '390px' };
+import { VIEWPORT_PRESETS, VIEWPORT_ZOOMS, VIEWPORT_LIMITS, viewportSettings,
+  loadViewport, saveViewport, viewportGeometry } from './web_designer_viewport.js';
 
 const state = {
   projects: [], id: null, meta: null, code: '', versions: [],
   templates: [], palettes: [],
-  selected: null, pick: true, device: 'desktop',
+  selected: null, pick: true,
   generating: false, genNote: null,
   dirty: false,               // в редакторе есть несохранённое
 };
@@ -33,6 +34,9 @@ let frame = null;          // живой iframe превью (обновляет
 let inspectorBox = null;   // контейнер инспектора — перерисовка без сброса страницы
 let editorNode = null;     // textarea кода
 let genNoteNode = null;    // строка прогресса генерации
+let resizePreview = null;
+window.addEventListener('resize', () => { if (resizePreview) resizePreview(); });
+
 let verPill = null;        // пилюля версии в шапке
 
 /* ---------------- сообщения из превью (пикер) ---------------- */
@@ -236,7 +240,15 @@ function styleNode() {
 .bd-code:focus{border-color:var(--bx-azure,#4f8cff)}
 .bd-framewrap{border:1px solid color-mix(in srgb,currentColor 16%,transparent);border-radius:14px;overflow:hidden}
 .bd-framebar{display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent);flex-wrap:wrap}
-.bd-frame{width:100%;height:min(66vh,720px);border:0;background:#fff;display:block;margin:0 auto;transition:width .25s ease}
+.bd-frame{border:0;background:#fff;display:block;transform-origin:top left;max-width:none}
+.bd-viewport-stage{height:min(66vh,720px);min-height:320px;overflow:auto;padding:12px;box-sizing:border-box;background:color-mix(in srgb,currentColor 5%,transparent)}
+.bd-viewport-canvas{position:relative;margin:0 auto}
+.bd-viewport-canvas .bd-frame{position:absolute;left:0;top:0}
+.bd-viewport-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent)}
+.bd-viewport-tools label{display:flex;gap:4px;align-items:center;font-size:12px}
+.bd-viewport-tools select,.bd-viewport-tools input{box-sizing:border-box;max-width:100%;padding:5px 6px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);border-radius:7px;background:transparent;color:inherit;font:inherit;font-size:12px}
+.bd-viewport-tools input{width:76px}
+.bd-viewport-status{padding:6px 10px;font-size:11.5px;color:var(--bx-ink-3,#8b93a7)}
 .bd-row{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
 .bd-row label{font-size:12px;color:var(--bx-ink-3,#8b93a7);min-width:70px}
 .bd-row input[type=number],.bd-row input[type=text]{padding:6px 8px;border-radius:8px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);background:transparent;color:inherit;font:inherit;font-size:12.5px;width:84px}
@@ -334,29 +346,80 @@ function previewPanel(ctx) {
     }
     renderInspector(inspectorBox);
   }, { variant: 'ghost', size: 'sm' });
-  const devSeg = h('div', { style: { display: 'flex', gap: '4px' } },
-    ...Object.keys(FRAME_W).map((d) => {
-      const b = h('button', { type: 'button',
-        class: d === state.device ? 'bd-dev is-on' : 'bd-dev',
-        style: { border: '1px solid color-mix(in srgb, currentColor 22%, transparent)', background: 'transparent',
-          color: 'inherit', borderRadius: '8px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer' } },
-        d === 'desktop' ? 'ПК' : d === 'tablet' ? 'Планшет' : 'Телефон');
-      b.addEventListener('click', () => {
-        state.device = d;
-        frame.style.width = FRAME_W[d] || '100%';
-        [...devSeg.children].forEach((c) => c.classList.remove('is-on'));
-        b.classList.add('is-on');
-      });
-      return b;
-    }));
+  // Scale the iframe visually without changing its CSS viewport or site code.
+  // Settings belong to this project and are deliberately separate from HTML history.
+  let storage = null;
+  try { storage = window.localStorage; } catch { /* sandboxed/private storage */ }
+  const projectId = Number(state.id); // API metadata stores IDs as strings.
+  let viewport = loadViewport(storage, projectId);
+  const previewFrame = frame;
+  const canvas = h('div.bd-viewport-canvas', previewFrame);
+  const stage = h('div.bd-viewport-stage', { 'data-testid': 'bd-viewport-stage' }, canvas);
+  const status = h('div.bd-viewport-status', { role: 'status', 'aria-live': 'polite' });
+  let persistenceNote = '';
+  const preset = h('select', { 'aria-label': 'Размер экрана превью' },
+    VIEWPORT_PRESETS.map((p) => h('option', { value: p.id }, p.label)),
+    h('option', { value: 'custom' }, 'Свой размер'));
+  const dimension = (label, value) => h('input', { type: 'number', min: VIEWPORT_LIMITS.min,
+    max: VIEWPORT_LIMITS.max, step: 1, value, 'aria-label': label });
+  const width = dimension('Ширина превью', viewport.width);
+  const height = dimension('Высота превью', viewport.height);
+  const zoom = h('select', { 'aria-label': 'Масштаб превью' },
+    h('option', { value: 'fit' }, 'Вписать'),
+    VIEWPORT_ZOOMS.map((z) => h('option', { value: String(z) }, `${z * 100}%`)));
+  function syncControls() {
+    width.value = String(viewport.width); height.value = String(viewport.height);
+    zoom.value = String(viewport.zoom);
+    preset.value = (VIEWPORT_PRESETS.find((p) => p.width === viewport.width && p.height === viewport.height) || {}).id || 'custom';
+  }
+  function applyGeometry() {
+    if (!stage.isConnected || stage.clientWidth <= 24 || stage.clientHeight <= 24) return;
+    const g = viewportGeometry(viewport, stage.clientWidth - 24, stage.clientHeight - 24);
+    previewFrame.style.width = `${g.width}px`;
+    previewFrame.style.height = `${g.height}px`;
+    previewFrame.style.transform = `scale(${g.scale})`;
+    canvas.style.width = `${g.renderedWidth}px`;
+    canvas.style.height = `${g.renderedHeight}px`;
+    status.textContent = `${g.width} × ${g.height} CSS px · ${Math.round(g.scale * 100)}% · масштаб меняет только показ${persistenceNote}`;
+  }
+  function accept(next) {
+    viewport = next;
+    persistenceNote = saveViewport(storage, projectId, viewport) ? '' : ' · настройки только на этот сеанс';
+    width.setCustomValidity(''); height.setCustomValidity('');
+    syncControls(); applyGeometry();
+  }
+  preset.addEventListener('change', () => {
+    const selected = VIEWPORT_PRESETS.find((p) => p.id === preset.value);
+    if (selected) accept(viewportSettings(selected.width, selected.height, viewport.zoom));
+    else width.focus();
+  });
+  const applyDimensions = () => {
+    try { accept(viewportSettings(Number(width.value), Number(height.value), viewport.zoom)); }
+    catch (e) { width.setCustomValidity(e.message); width.reportValidity(); }
+  };
+  width.addEventListener('input', () => width.setCustomValidity(''));
+  height.addEventListener('input', () => width.setCustomValidity(''));
+  for (const input of [width, height]) input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); applyDimensions(); }
+  });
+  zoom.addEventListener('change', () => accept(viewportSettings(viewport.width, viewport.height,
+    zoom.value === 'fit' ? 'fit' : Number(zoom.value))));
+  const tools = h('div.bd-viewport-tools', preset,
+    h('label', 'Ш', width), h('label', 'В', height),
+    btn('Применить размер', applyDimensions, { variant: 'ghost', size: 'sm' }),
+    btn('Повернуть', () => accept(viewportSettings(viewport.height, viewport.width, viewport.zoom)),
+      { variant: 'ghost', size: 'sm', title: 'Поменять ширину и высоту' }), zoom);
+  syncControls();
+  resizePreview = applyGeometry;
+  requestAnimationFrame(applyGeometry);
   const openLink = h('a', { href: `/api/web-designer/projects/${state.id}/preview`, target: '_blank',
     rel: 'noopener', style: { fontSize: '12px', color: 'var(--bx-ink-3,#8b93a7)' } }, 'открыть в новой вкладке');
   return h('div.bd-framewrap',
-    h('div.bd-framebar', pickBtn, devSeg,
+    h('div.bd-framebar', pickBtn,
       h('span', { style: { flex: '1', textAlign: 'center', fontSize: '12px', color: 'var(--bx-ink-3,#8b93a7)' } },
         'клик по элементу — выделение и правки справа'),
       openLink, btn('Обновить', () => reloadFrame(), { variant: 'ghost', size: 'sm' })),
-    frame);
+    tools, stage, status);
 }
 
 function inspectorPanel() {
