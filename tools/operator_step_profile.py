@@ -159,8 +159,68 @@ async def profile(*, steps: int, observe_ms: float, plan_ms: float, act_ms: floa
         "max_step_ms": round(max(step_ms), 3),
         "samples_ms": [round(x, 3) for x in step_ms],
         "outliers_removed": 0,
+        "phases": mgr.phase_report(),
         "scope": "framework_only: observation, planning and action costs are declared, not measured here",
         "human_comparison": "NOT_RUN",
+    }
+
+
+class BlockingObserver(CostedObserver):
+    """Holds the observation open so a stop can land inside it."""
+
+    def __init__(self, hold_s: float):
+        super().__init__(0.0)
+        self.hold_s = hold_s
+        self.entered = asyncio.Event()
+
+    async def observe(self, *, generation: int):
+        self.entered.set()
+        await asyncio.sleep(self.hold_s)
+        return await super().observe(generation=generation)
+
+
+async def stop_latency(*, trials: int, hold_s: float) -> dict:
+    """Measure owner-stop acknowledgement and dispatch prevention.
+
+    The stop lands while the loop is inside an observation that would otherwise
+    run for ``hold_s``. What is measured is the time from the owner's stop call
+    to the loop having stopped — not a component microbenchmark: the loop really
+    abandons the read, refuses the dispatch and writes the owner's verdict.
+    """
+    ack_ms: list[float] = []
+    dispatched = 0
+    for _ in range(trials):
+        observer = BlockingObserver(hold_s)
+        adapter = CostedAdapter(0.0)
+        with tempfile.TemporaryDirectory() as tmp:
+            mgr = make_manager(Path(tmp) / "tasks.json", CostedPlanner(0.0, 4), observer,
+                               adapter=adapter, event_emit=lambda *a, **k: None)
+            task = mgr.create_task("stop latency probe")
+            run = asyncio.ensure_future(mgr.run(task.id))
+            deadline = time.perf_counter() + 5
+            while not observer.entered.is_set() and time.perf_counter() < deadline:
+                await asyncio.sleep(0.001)
+            started = time.perf_counter()
+            mgr.stop(task.id)
+            state = await asyncio.wait_for(run, hold_s + 5)
+            ack_ms.append((time.perf_counter() - started) * 1000)
+            dispatched += adapter.executed
+            if state is not TaskState.CANCELLED:
+                raise RuntimeError(f"stop did not cancel the task: {state}")
+    return {
+        "trials": trials,
+        "held_observation_ms": hold_s * 1000,
+        "p50_ack_ms": round(percentile(ack_ms, 50), 3),
+        "p95_ack_ms": round(percentile(ack_ms, 95), 3),
+        "max_ack_ms": round(max(ack_ms), 3),
+        "samples_ms": [round(x, 3) for x in ack_ms],
+        "outliers_removed": 0,
+        "dispatches_after_stop": dispatched,
+        "target_ack_p95_ms": 200.0,
+        "target_dispatch_prevention_p95_ms": 250.0,
+        "ack_within_target": percentile(ack_ms, 95) < 200.0,
+        "dispatch_prevention_within_target": dispatched == 0 and percentile(ack_ms, 95) < 250.0,
+        "scope": "owner stop received -> loop stopped; excludes UI transport and OS input hook",
     }
 
 
@@ -173,6 +233,10 @@ def main() -> int:
     parser.add_argument("--plan-ms", type=float, default=0.0, help="measured planner turn")
     parser.add_argument("--act-ms", type=float, default=0.0, help="measured input dispatch")
     parser.add_argument("--json-out", type=Path)
+    parser.add_argument("--stop-trials", type=int, default=20,
+                        help="owner-stop acknowledgement trials (0 disables)")
+    parser.add_argument("--stop-hold-ms", type=float, default=3000.0,
+                        help="how long the observation the stop interrupts would have taken")
     args = parser.parse_args()
     if args.steps < 1:
         parser.error("--steps must be at least 1")
@@ -183,6 +247,9 @@ def main() -> int:
         "with_observation_reuse": asyncio.run(profile(**common, reuse_max_age_s=0.75)),
         "without_observation_reuse": asyncio.run(profile(**common, reuse_max_age_s=0.0)),
     }
+    if args.stop_trials > 0:
+        report["owner_stop"] = asyncio.run(stop_latency(trials=args.stop_trials,
+                                                        hold_s=args.stop_hold_ms / 1000))
     a, b = report["with_observation_reuse"], report["without_observation_reuse"]
     report["observation_calls_saved"] = b["observations"] - a["observations"]
     report["predicted_wall_saved_ms"] = round(

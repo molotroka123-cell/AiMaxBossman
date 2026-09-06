@@ -290,3 +290,155 @@ def test_a_journal_deleted_underneath_the_store_is_not_served_from_cache(tmp_pat
     assert store.get(t.id) is not None
     path.unlink()
     assert store.get(t.id) is None and store.list() == []
+
+
+# ---------------------------------------- stop acknowledgement and dispatch block
+class SlowObserver(FakeObserver):
+    """An observation that takes as long as a heavy UIA walk on a real window."""
+
+    def __init__(self, *, delay, **kw):
+        super().__init__(**kw)
+        self.delay = delay
+        self.entered = asyncio.Event()
+        self.cancelled = 0
+
+    async def observe(self, *, generation):
+        self.entered.set()
+        try:
+            await asyncio.sleep(self.delay)
+        except asyncio.CancelledError:
+            self.cancelled += 1
+            raise
+        return await super().observe(generation=generation)
+
+
+class SlowPlanner(FakePlanner):
+    """A planner turn that takes as long as real model inference."""
+
+    def __init__(self, actions, *, delay):
+        super().__init__(actions)
+        self.delay = delay
+        self.entered = asyncio.Event()
+        self.cancelled = 0
+
+    async def next_action(self, **kw):
+        self.entered.set()
+        try:
+            await asyncio.sleep(self.delay)
+        except asyncio.CancelledError:
+            self.cancelled += 1
+            raise
+        return await super().next_action(**kw)
+
+
+async def _stop_latency(mgr, task_id, command="stop"):
+    started = asyncio.get_running_loop().time()
+    getattr(mgr, command)(task_id)
+    return started
+
+
+async def test_stop_is_acknowledged_without_waiting_for_the_observation(tmp_path):
+    """Owner-stop acknowledgement used to cost whatever the in-flight read cost.
+
+    A UIA descendant walk on a heavy window and a model turn are seconds, so a
+    Stop pressed at the wrong moment felt like the machine ignoring the owner.
+    The latch is set synchronously by stop() and abandons the read.
+    """
+    observer = SlowObserver(delay=5.0, summary="ok")
+    adapter = FakeAdapter()
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]), observer,
+                       adapter=adapter)
+    t = mgr.create_task("one click")
+    run = asyncio.create_task(mgr.run(t.id))
+    assert await wait_for(observer.entered.is_set)
+    started = await _stop_latency(mgr, t.id)
+    state = await asyncio.wait_for(run, 5)
+    elapsed = asyncio.get_running_loop().time() - started
+    assert state is TaskState.CANCELLED
+    assert observer.cancelled == 1, "the in-flight observation was not abandoned"
+    assert adapter.executed == []
+    # Engineering target for stop acknowledgement is 200 ms p95; the observation
+    # this abandons is 5 s, so a regression to checkpoint-only stop cannot pass.
+    assert elapsed < 0.2, f"stop acknowledged in {elapsed * 1000:.1f} ms"
+
+
+async def test_stop_during_model_planning_prevents_the_dispatch(tmp_path):
+    """No new input is dispatched after the owner's cancellation is observed."""
+    planner = SlowPlanner([click(), complete()], delay=5.0)
+    adapter = FakeAdapter()
+    mgr = make_manager(tmp_path / "t.json", planner, FakeObserver(summary="ok"), adapter=adapter)
+    t = mgr.create_task("one click")
+    run = asyncio.create_task(mgr.run(t.id))
+    assert await wait_for(planner.entered.is_set)
+    started = await _stop_latency(mgr, t.id)
+    state = await asyncio.wait_for(run, 5)
+    elapsed = asyncio.get_running_loop().time() - started
+    assert state is TaskState.CANCELLED
+    assert planner.cancelled == 1
+    assert adapter.executed == [], "an action was dispatched after the owner stopped the task"
+    assert elapsed < 0.25, f"dispatch prevented in {elapsed * 1000:.1f} ms"
+
+
+async def test_pause_is_acknowledged_promptly_and_stays_resumable(tmp_path):
+    observer = SlowObserver(delay=5.0, summary="ok")
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]), observer,
+                       adapter=FakeAdapter())
+    t = mgr.create_task("one click")
+    run = asyncio.create_task(mgr.run(t.id))
+    assert await wait_for(observer.entered.is_set)
+    started = await _stop_latency(mgr, t.id, "pause")
+    state = await asyncio.wait_for(run, 5)
+    assert asyncio.get_running_loop().time() - started < 0.2
+    assert state is TaskState.PAUSED
+    assert mgr.resume(t.id).state is TaskState.RECOVERING
+
+
+async def test_an_interrupt_never_cancels_an_effect_that_is_already_running(tmp_path):
+    """Cancelling a dispatch mid-flight would leave the outcome unknown.
+
+    The effect completes and is still observed and verified; only the NEXT step
+    is stopped. This is the boundary between a fast stop and an honest journal.
+    """
+    gate = asyncio.Event()
+    adapter = FakeAdapter(gate=gate)
+    observer = FakeObserver(summary="ok")
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), click(), complete()]),
+                       observer, adapter=adapter)
+    t = mgr.create_task("two clicks")
+    run = asyncio.create_task(mgr.run(t.id))
+    assert await wait_for(adapter.entered.is_set)
+    mgr.stop(t.id)
+    gate.set()
+    state = await asyncio.wait_for(run, 5)
+    assert state is TaskState.CANCELLED
+    assert len(adapter.executed) == 1, "the in-flight effect was abandoned instead of completed"
+    stored = mgr.store.get(t.id)
+    assert stored.history[0].after_observation_id, "the completed effect was left unobserved"
+    assert len(adapter.executed) == 1                     # and no second dispatch
+
+
+async def test_a_latch_with_no_command_behind_it_does_not_spin(tmp_path):
+    """Defensive: a stale latch must not turn the loop into a busy wait."""
+    observer = FakeObserver(summary="ok")
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]), observer,
+                       adapter=FakeAdapter())
+    t = mgr.create_task("one click")
+    mgr._signal_interrupt(t.id)                            # latched, but nothing was written
+    assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
+    assert mgr.interrupts_observed >= 1
+    assert not mgr._interrupt_pending(t.id)
+
+
+async def test_emergency_lock_interrupts_every_running_task(tmp_path):
+    observer = SlowObserver(delay=5.0, summary="ok")
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]), observer,
+                       adapter=FakeAdapter())
+    t = mgr.create_task("one click")
+    run = asyncio.create_task(mgr.run(t.id))
+    assert await wait_for(observer.entered.is_set)
+    started = asyncio.get_running_loop().time()
+    mgr.emergency_lock()
+    state = await asyncio.wait_for(run, 5)
+    assert asyncio.get_running_loop().time() - started < 0.2
+    assert state is TaskState.LOCKED
+
