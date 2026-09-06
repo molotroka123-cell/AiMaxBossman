@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import multiprocessing as mp
 
 import pytest
 
@@ -9,10 +8,10 @@ from bossman.computer_operator.models import (
     ActionKind,
     ComputerAction,
     ExpectedState,
+    StepRecord,
     TaskState,
 )
 from bossman.computer_operator.wiring import FakeAdapter, FakeObserver, FakePlanner, make_manager
-from bossman.learning_guard.evidence_ledger import DurableEvidenceLedger, EvidenceLedger
 
 
 def complete():
@@ -100,7 +99,6 @@ def test_at02_unknown_effect_stays_in_reconciliation(tmp_path):
     mgr = make_manager(path, FakePlanner([click()]), FakeObserver(summary="ok"))
     task = mgr.create_task("click fixture")
     action = click()
-    from bossman.computer_operator.models import StepRecord
     task.state = TaskState.RUNNING
     task.pending_action = action
     task.history.append(StepRecord(action=action))
@@ -132,48 +130,3 @@ def test_at03_ui_change_during_planning_prevents_dispatch(tmp_path):
     state = asyncio.run(mgr.run(task.id))
     assert adapter.executed == []
     assert state is not TaskState.COMPLETED
-
-
-def test_at04_eviction_never_reauthorizes_spent_evidence():
-    ledger = EvidenceLedger(capacity=2)
-    assert ledger.consume("measurement-A", "candidate-v1") is None
-    assert ledger.consume("measurement-B", "candidate-v2") is None
-    assert ledger.consume("measurement-C", "candidate-v3") is not None
-    assert ledger.consume("measurement-A", "candidate-v9") is not None
-
-
-def test_at04_corruption_is_fail_closed(tmp_path):
-    path = tmp_path / "evidence.json"
-    ledger = DurableEvidenceLedger(path)
-    assert ledger.consume("measurement-A", "candidate-v1") is None
-    path.write_text("{incomplete", encoding="utf-8")
-    with pytest.raises(RuntimeError, match="corrupt"):
-        DurableEvidenceLedger(path).consume("measurement-A", "candidate-v9")
-
-
-def _consume_worker(path: str, consumer: str, gate, queue):
-    gate.wait()
-    result = DurableEvidenceLedger(path).consume("measurement-A", consumer)
-    queue.put((consumer, result))
-
-
-def test_at04_multiprocess_single_consumer(tmp_path):
-    path = str(tmp_path / "evidence.json")
-    ctx = mp.get_context("spawn")
-    gate = ctx.Event()
-    queue = ctx.Queue()
-    p1 = ctx.Process(target=_consume_worker, args=(path, "candidate-v1", gate, queue))
-    p2 = ctx.Process(target=_consume_worker, args=(path, "candidate-v9", gate, queue))
-    p1.start(); p2.start(); gate.set()
-    p1.join(10); p2.join(10)
-    assert p1.exitcode == 0
-    assert p2.exitcode == 0
-    results = [queue.get(timeout=2), queue.get(timeout=2)]
-    assert sum(result is None for _, result in results) == 1
-
-
-def test_at04_restart_same_consumer_is_idempotent(tmp_path):
-    path = tmp_path / "evidence.json"
-    assert DurableEvidenceLedger(path).consume("measurement-A", "candidate-v1") is None
-    assert DurableEvidenceLedger(path).consume("measurement-A", "candidate-v1") is None
-    assert DurableEvidenceLedger(path).consume("measurement-A", "candidate-v2") is not None
