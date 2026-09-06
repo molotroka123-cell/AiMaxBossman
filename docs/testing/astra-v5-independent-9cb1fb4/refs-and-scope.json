@@ -1,0 +1,29 @@
+{
+  "repository": "molotroka123-cell/AiMaxBossman",
+  "tested_sha": "9cb1fb4665060d97839d1dd237f31e2b4b229911",
+  "initial_pr37_head": "9cb1fb4665060d97839d1dd237f31e2b4b229911",
+  "final_observed_pr37_head": "98b9945f63851f06db60ea6c74841343be70dee0",
+  "final_observed_main": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+  "pr37_base_branch": "claude/bossman-control-v03-43igbk",
+  "pr37_base_sha": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+  "pr37_open": true,
+  "pr37_draft": true,
+  "pr37_merged": false,
+  "initial_compare": {
+    "base_to_tested_commits": 32,
+    "files": 88
+  },
+  "drift_compare": {
+    "tested_to_final_commits": 3,
+    "tested_helper_files_changed": false,
+    "note": "New UI/engine/docs changes were read as metadata only; they were not imported into either final test process."
+  },
+  "git_fetch": "FAILED_DNS_EXIT_128",
+  "full_upstream_checkout": false,
+  "local_workspace_kind": "synthetic evidence-only Git worktree, not an upstream commit graph",
+  "github_write_action_available": false,
+  "push_attempted": false,
+  "push_confirmed": false,
+  "live_pc_touched": false,
+  "intermediate_pr37_head": "f38ac74e2e26a07b97a598c733c84b03a53c81f2"
+}

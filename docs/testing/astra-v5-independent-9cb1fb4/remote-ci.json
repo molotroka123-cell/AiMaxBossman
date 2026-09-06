@@ -1,0 +1,79 @@
+{
+  "tested_sha": "9cb1fb4665060d97839d1dd237f31e2b4b229911",
+  "source": "GitHub connector workflow-run/job reads; remote CI not rerun by reviewer",
+  "runs": [
+    {
+      "name": "root-ci",
+      "run_id": 34063384869,
+      "conclusion": "failure",
+      "jobs": [
+        {
+          "job_id": 101567807083,
+          "python": "3.12",
+          "root_suite": "success",
+          "failed_step": "git diff --check"
+        },
+        {
+          "job_id": 101567807160,
+          "python": "3.11",
+          "root_suite": "failure",
+          "failed_step": "Root suite; detailed failure logs not fetched"
+        },
+        {
+          "job_id": 101567807110,
+          "name": "container shared contracts",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Intelligence Preservation",
+      "run_id": 34063384901,
+      "conclusion": "failure",
+      "jobs": [
+        {
+          "job_id": 101567807025,
+          "name": "anti-dumbness gate contract",
+          "conclusion": "success"
+        },
+        {
+          "job_id": 101567807103,
+          "name": "measured intelligence retention",
+          "conclusion": "failure",
+          "failed_step": "Require current same-model evidence"
+        }
+      ]
+    },
+    {
+      "name": "Bossman Core CI",
+      "run_id": 34063384899,
+      "conclusion": "cancelled"
+    },
+    {
+      "name": "Command Center CI",
+      "run_id": 34063384861,
+      "conclusion": "cancelled"
+    },
+    {
+      "name": "ASTRA acceptance",
+      "run_id": 34063384896,
+      "conclusion": "success"
+    },
+    {
+      "name": "Bossman internal benchmark",
+      "run_id": 34063384925,
+      "conclusion": "success"
+    },
+    {
+      "name": "Solana safety gates",
+      "run_id": 34063384877,
+      "conclusion": "success"
+    },
+    {
+      "name": "Editors user safety",
+      "run_id": 34063384906,
+      "conclusion": "success"
+    }
+  ],
+  "qualification": "These remote conclusions are neither all-green exact-SHA certification nor the new local 49-test result."
+}

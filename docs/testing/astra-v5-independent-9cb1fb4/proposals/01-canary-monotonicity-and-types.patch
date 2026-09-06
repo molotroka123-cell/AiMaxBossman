@@ -1,0 +1,10 @@
+--- a/bossman_shared/objective_canary.py
++++ b/bossman_shared/objective_canary.py
+@@ -132,0 +133,7 @@
++        if outcome.healthy is not None and type(outcome.healthy) is not bool:
++            raise CanaryError("healthy must be bool or None")
++        previous = rows.get(outcome.objective_id)
++        # Failure is sticky within one revision/cohort. A later healthy report
++        # cannot erase the failure or manufacture order-dependent eligibility.
++        if previous is not None and previous.healthy is False:
++            continue

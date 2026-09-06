@@ -1,0 +1,56 @@
+[
+  {
+    "run_id": "exploratory-pure-bootstrap-1",
+    "tested_sha": "9cb1fb4665060d97839d1dd237f31e2b4b229911",
+    "exit_code": 1,
+    "pass": null,
+    "fail": null,
+    "skip": null,
+    "evidence_tier": "NOT_RUN",
+    "artifact": "evidence/pure-initial.log",
+    "error": "No module named pytest",
+    "import_origins": null,
+    "started_at": null,
+    "metadata_quality": "pre-extension bootstrap log; timestamps/import origins not captured"
+  },
+  {
+    "run_id": "exploratory-pure-bootstrap-2",
+    "tested_sha": "9cb1fb4665060d97839d1dd237f31e2b4b229911",
+    "exit_code": 1,
+    "pass": null,
+    "fail": null,
+    "skip": null,
+    "evidence_tier": "NOT_RUN",
+    "artifact": "evidence/pure-second.log",
+    "error": "Missing py compatibility shim",
+    "import_origins": null,
+    "started_at": null,
+    "metadata_quality": "pre-extension bootstrap log; timestamps/import origins not captured"
+  },
+  {
+    "run_id": "exploratory-pure-3",
+    "tested_sha": "9cb1fb4665060d97839d1dd237f31e2b4b229911",
+    "exit_code": 1,
+    "pass": 26,
+    "fail": 16,
+    "skip": 0,
+    "evidence_tier": "MOCK",
+    "artifact": "evidence/pure-third.log",
+    "junit": "evidence/pure-third.xml",
+    "import_origins": null,
+    "metadata_quality": "exploratory rerun; final-pure-02 adds in-process provenance"
+  },
+  {
+    "run_id": "exploratory-durable-1",
+    "tested_sha": "9cb1fb4665060d97839d1dd237f31e2b4b229911",
+    "exit_code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0,
+    "evidence_tier": "REAL_COMPONENT",
+    "artifact": "evidence/durable-initial.log",
+    "junit": "evidence/durable-initial.xml",
+    "import_origins": null,
+    "metadata_quality": "child origins captured in fixture proof; final-durable-02 adds full in-process provenance"
+  }
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "id": "IV5-EVID-001",
+    "discovered_sha": "9cb1fb4665060d97839d1dd237f31e2b4b229911",
+    "reproduced_sha": null,
+    "claim_sha": "f38ac74e2e26a07b97a598c733c84b03a53c81f2",
+    "status": "STATIC_ONLY",
+    "severity": "FREEZE_EVIDENCE_GAP",
+    "code": "tests/test_v5_canary_rollback.py:test_a_rollback_rehearsal_with_an_objective_in_flight (approximately lines 180-243)",
+    "claim": "The newer V5 scorecard describes all promises as asserted across a process restart.",
+    "actual": "The function constructs another ObjectiveStore in the same process. prepare_rollback returns data and asserts not rollback.executed. The in-flight item is an admitted reservation; the inspected test does not dispatch an irreversible external effect through a production caller.",
+    "expected": "Separate process lifetimes; crash at explicit boundaries; actual owned fixture effect and independent effect ledger; real activation/fencing/drain/rollback caller, not only rollback plan data.",
+    "minimal_test": "Extend existing test_v5_canary_rollback.py with real subprocess writer/reader PID evidence and a production fixture effect boundary; NOT_RUN in this review.",
+    "proposed_patch": "Do not upgrade evidence labels until that test exists and passes; preserve existing store test as component evidence."
+  }
+]

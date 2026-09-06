@@ -1,0 +1,24 @@
+--- a/bossman_shared/objective_promotion.py
++++ b/bossman_shared/objective_promotion.py
+@@ -38,0 +39 @@
++import math
+@@ -94 +95 @@
+-        if type(self.score) not in (int, float) or self.score != self.score:
++        if type(self.score) not in (int, float) or not math.isfinite(self.score):
+@@ -207,0 +209,3 @@
++    ids = [task.task_id for task in rows]
++    if len(ids) != len(set(ids)):
++        raise PromotionError("duplicate task_id in the task set")
+@@ -209,0 +214,9 @@
++    if not isinstance(split, Split):
++        raise PromotionError("a Split is required")
++    measured_ids, holdout_ids = set(split.measured), set(split.holdout)
++    if len(measured_ids) != len(split.measured) or len(holdout_ids) != len(split.holdout):
++        raise PromotionError("duplicate task_id within a split lane")
++    if measured_ids & holdout_ids:
++        raise PromotionError("measured and holdout lanes must be disjoint")
++    if measured_ids | holdout_ids != set(ids):
++        raise PromotionError("split must partition the declared task set exactly")
+@@ -264,0 +278,2 @@
++    if candidate.current_version != measurement.baseline_version:
++        return refuse("evidence_measured_on_another_baseline")
