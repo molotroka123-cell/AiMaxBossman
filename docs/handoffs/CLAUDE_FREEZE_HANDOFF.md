@@ -7,8 +7,8 @@
 
 ```
 BRANCH=claude/v5-closure-at-reconcile-xdh12f
-HANDOFF_SHA=47d14511ae7be32dc4b9b1cfaea842112d3936fe
-FINAL_REMOTE_SHA=47d14511ae7be32dc4b9b1cfaea842112d3936fe   # local == remote, проверено
+HANDOFF_SHA=7ba3a5b31b12854236fb0bd08f45bfaa001e25cb
+FINAL_REMOTE_SHA=7ba3a5b31b12854236fb0bd08f45bfaa001e25cb   # local == remote, проверено
 PR=https://github.com/molotroka123-cell/AiMaxBossman/pull/37 (draft)
 BASE_BRANCH=claude/bossman-control-v03-43igbk
 BASE_SHA=1bb39bf8dc656cf21a9bd03f85f6751d87d725c7
