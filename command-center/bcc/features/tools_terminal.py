@@ -27,7 +27,8 @@ from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
 from ..v2 import scratch
 from ..v2.tables import terminal_sessions as term_t
-from ..v2.terminal_control import TerminalManager, TerminalPolicy, within
+from ..v2.terminal_control import (TerminalManager, TerminalPolicy,
+                                   normalized_hard_deny, opaque_inline_code, within)
 from . import Feature
 
 ROOTS_KEY = "terminal.roots"
@@ -89,10 +90,20 @@ async def _mode(svc) -> str:
 
 
 def hard_deny_reason(command: str) -> str:
+    """Абсолютный запрет: сначала канонические написания, затем разбор argv.
+
+    HARD_DENY — строковые шаблоны, и как всякий денай-лист по подстроке они
+    ловят ровно то написание, которое кто-то предвидел: `rm -rf /` ловилось,
+    а `rm -fr /`, `rm --recursive --force /` и `dd if=/dev/zero of=/dev/sda` —
+    нет. Такая команда уходила на обычное подтверждение, и «нельзя НИКОГДА»
+    становилось одним кликом на буднично выглядящем предпросмотре.
+    normalized_hard_deny разбирает команду в argv и решает по (программа,
+    флаги, цель), а не по буквам.
+    """
     for pattern, reason in HARD_DENY:
         if pattern.search(command or ""):
             return reason
-    return ""
+    return normalized_hard_deny(command or "")
 
 
 def extra_ask_reason(command: str) -> str:

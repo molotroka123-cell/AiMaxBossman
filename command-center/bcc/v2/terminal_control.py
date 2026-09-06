@@ -19,6 +19,132 @@ DANGEROUS = [
     re.compile(r"(?i)\bgit\s+push\b.*--force"),
     re.compile(r"(?i)\bgit\s+reset\s+--hard\b"),
 ]
+
+# Устройства, запись в которые уничтожает носитель целиком.
+_RAW_DEVICE = re.compile(r"(?i)^/dev/(?:sd[a-z]|nvme\d+n\d+|vd[a-z]|hd[a-z]|mmcblk\d+|xvd[a-z])")
+# Интерпретаторы, у которых код приходит строкой аргумента: содержимое
+# денай-листами не разбирается в принципе.
+_INLINE_CODE = {"python": ("-c",), "python3": ("-c",), "perl": ("-e",), "ruby": ("-e",),
+                "node": ("-e", "--eval"), "php": ("-r",), "sh": ("-c",), "bash": ("-c",),
+                "zsh": ("-c",), "dash": ("-c",)}
+
+
+_ROOT_DESTRUCTION = re.compile(
+    r"""(?ix)
+    (?: rmtree | removedirs ) \s* \( \s* (?P<q>['"]) \s* /+ \s* (?P=q)   # rmtree("/")
+  | \brm\b [^;\n]* (?: -[a-z]*r[a-z]*f | -[a-z]*f[a-z]*r | --recursive | --force )
+    [^;\n]* \s /+ \s* (?: ['"] | $ | ; )                                    # rm -rf / внутри строки
+    """)
+
+
+def _program_name(token: str) -> str:
+    """Имя программы из argv[0] без pathlib.
+
+    Здесь сознательно не используется Path: тесты подменяют pathlib.Path на
+    WindowsPath, чтобы проверить решение политики для Windows, а WindowsPath
+    не создаётся на Linux. Разделители обоих семейств режем вручную.
+    """
+    name = str(token or "").replace("\\", "/").rstrip("/")
+    return name.rsplit("/", 1)[-1].lower()
+
+
+def _inline_code_argument(argv: list[str], program: str) -> str:
+    """Строка кода из `python -c CODE` / `node -e CODE` и подобных."""
+    switches = _INLINE_CODE.get(program)
+    if not switches:
+        return ""
+    for index, token in enumerate(argv[1:], start=1):
+        if token in switches and index + 1 < len(argv):
+            return argv[index + 1]
+    return ""
+
+
+def _argv(command: str) -> list[str]:
+    """Разобрать команду в argv. Неразбираемое — пустой список (решает regex-слой)."""
+    try:
+        return shlex.split(command, comments=False, posix=True)
+    except ValueError:
+        return []
+
+
+def _flags(argv: list[str]) -> set[str]:
+    """Короткие флаги по буквам (`-fr` -> {f, r}) плюс длинные целиком."""
+    out: set[str] = set()
+    for token in argv[1:]:
+        if token == "--":
+            break
+        if token.startswith("--"):
+            out.add(token[2:].split("=", 1)[0].lower())
+        elif token.startswith("-") and len(token) > 1:
+            out.update(ch.lower() for ch in token[1:])
+    return out
+
+
+def _operands(argv: list[str]) -> list[str]:
+    return [t for t in argv[1:] if not t.startswith("-")]
+
+
+def normalized_hard_deny(command: str) -> str:
+    """Причина абсолютного запрета, разобранная по argv, а не по написанию.
+
+    Строковые денай-листы — соревнование в орфографии: `rm -rf /` ловился, а
+    `rm -fr /`, `rm --recursive --force /` и `dd if=/dev/zero of=/dev/sda` —
+    нет, и «нельзя НИКОГДА» превращалось в один обычный клик подтверждения на
+    предпросмотре, который выглядит буднично. Здесь команда разбирается в
+    argv, короткие флаги раскрываются (`-fr` -> `-f -r`), и решение принимается
+    по (программа, набор флагов, цель).
+
+    Возвращает причину или "" — и НЕ претендует на полноту: код внутри
+    `python -c` сюда не попадает и не может (см. `opaque_inline_code`).
+    """
+    argv = _argv(command)
+    if not argv:
+        return ""
+    program = _program_name(argv[0])
+    flags = _flags(argv)
+    operands = _operands(argv)
+    if program == "rm" and {"r", "recursive"} & flags and {"f", "force"} & flags:
+        for target in operands:
+            stripped = target.rstrip("*").rstrip("/") or "/"
+            if stripped == "/" or target in ("/", "/*"):
+                return "удаление корня"
+    inline = _inline_code_argument(argv, program)
+    if inline:
+        # Defence in depth, NOT a boundary. Произвольный код денай-листом не
+        # разбирается (`shutil.rmtree(chr(47))` обойдёт что угодно), поэтому
+        # структурная защита — opaque_inline_code: такой вызов никогда не AUTO
+        # и всегда показывает владельцу полный текст. Здесь ловятся только
+        # безошибочно узнаваемые формы уничтожения корня: дешёвая проверка,
+        # которая не должна создавать ощущение гарантии.
+        if _ROOT_DESTRUCTION.search(inline):
+            return "удаление корня"
+    if program in ("dd", "shred"):
+        for token in argv[1:]:
+            value = token.split("=", 1)[1] if token.startswith("of=") else (
+                token if program == "shred" and not token.startswith("-") else "")
+            if value and _RAW_DEVICE.match(value):
+                return "перезапись блочного устройства"
+    return ""
+
+
+def opaque_inline_code(command: str) -> str:
+    """Однострочник интерпретатора: содержимое непроверяемо, поэтому не AUTO.
+
+    `python -c "import shutil; shutil.rmtree('/')"` невозможно разобрать
+    денай-листом честно. Вместо вида «проверено» такой вызов всегда идёт на
+    подтверждение с полным текстом в предпросмотре.
+    """
+    argv = _argv(command)
+    if not argv:
+        return ""
+    program = _program_name(argv[0])
+    switches = _INLINE_CODE.get(program)
+    if not switches:
+        return ""
+    for token in argv[1:]:
+        if token in switches or (token.startswith("--eval") and "--eval" in switches):
+            return f"однострочный код {program}: содержимое не проверяется денай-листом"
+    return ""
 ASK_PATTERNS = [
     re.compile(r"(?i)\bgit\s+push\b"),
     re.compile(r"(?i)\b(?:npm|pnpm|yarn|pip)\s+install\b"),
@@ -106,8 +232,14 @@ class TerminalPolicy:
     def decision(self, cmd: str, cwd: Path) -> Decision:
         if not within(cwd, self.allowed_roots):
             return "deny"
-        if any(p.search(cmd) for p in DANGEROUS):
+        # Регулярки ловят каноническое написание; normalized_hard_deny ловит
+        # то же действие в другой орфографии (`rm -fr /`, `--recursive --force`,
+        # `dd of=/dev/sda`). Одно без другого — соревнование в написании.
+        if any(p.search(cmd) for p in DANGEROUS) or normalized_hard_deny(cmd):
             return "deny"
+        # Однострочник интерпретатора непроверяем: никогда не AUTO.
+        if opaque_inline_code(cmd):
+            return "ask"
         if self.mode == "system_admin":
             # Admin mode is still approval-gated; never silently auto-elevate.
             return "ask"

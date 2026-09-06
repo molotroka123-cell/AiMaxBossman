@@ -557,6 +557,13 @@ class BrowserManager:
                 browser = await pw.chromium.launch(headless=headless)
                 context = await browser.new_context(viewport={"width": 1440, "height": 900})
                 page = await context.new_page()
+            # Сетевой предохранитель. Проверки на уровне действий говорят, что
+            # МОЖНО ЧИТАТЬ; они не могут отменить уже отправленный запрос. Клик
+            # по ссылке на 169.254.169.254 или на внутренний хост уходит в сеть
+            # сам по себе, и одного этого достаточно: запрос к metadata-сервису
+            # или к чужому эндпоинту — уже эффект, даже если ответ не прочитан.
+            # Поэтому запрещённые адреса режутся до отправки, а не после.
+            await self._install_egress_guard(context)
             self._sessions[session_id] = BrowserRuntimeSession(
                 id=session_id, policy=policy, context=context, page=page,
                 browser=browser, profile_name=profile_name
@@ -616,6 +623,65 @@ class BrowserManager:
                                       + (f" — {why}" if why else ""))
         if decision == "ask" and actor != "human" and not approved:
             raise BrowserApprovalRequired(action)
+
+    async def _install_egress_guard(self, context) -> None:
+        """Резать запросы на запрещённые адреса ДО отправки.
+
+        Тот же `target_refusal`, что у `navigate` и `_after_action`, но на
+        уровне сети: сюда попадают и переходы по ссылке, и подресурсы, и
+        фоновые fetch/XHR со страницы. `about:blank`, data: и blob: пропускаем
+        — это не сетевой выход.
+        """
+        loop = asyncio.get_running_loop()
+
+        async def _route(route, request):
+            url = str(getattr(request, "url", "") or "")
+            if not url or url.startswith(("about:", "data:", "blob:")):
+                await route.continue_()
+                return
+            try:
+                why = await loop.run_in_executor(None, target_refusal, url)
+            except Exception:  # noqa: BLE001 — неизвестный адрес не пропускаем
+                why = "проверка цели не выполнена"
+            if why:
+                await route.abort()
+                return
+            await route.continue_()
+
+        try:
+            await context.route("**/*", _route)
+        except Exception:  # noqa: BLE001 — без маршрутизации остаются проверки действий
+            pass
+
+    async def _after_action(self, sess: BrowserRuntimeSession, action: str) -> None:
+        """Куда страница приехала ПОСЛЕ действия — и можно ли это читать.
+
+        `_guard` проверяет цель только у `navigate`: для остальных действий
+        `url` пуст, и проверяется адрес, на котором страница была ДО клика.
+        Но клик по ссылке, Enter в форме, submit, back и reload уводят страницу
+        куда угодно — на 169.254.169.254, во внутренний хост, на собственный
+        loopback Command Center. Дальше `snapshot`/`status` спокойно отдавали
+        модели заголовок, URL и DOM запрещённой страницы: одобрение на КЛИК
+        превращалось в чтение произвольного origin.
+
+        Поэтому после каждого действия, способного сменить адрес, и перед
+        каждым чтением страницы адрес перепроверяется тем же `target_refusal`,
+        что и `navigate`. Отказ — не только исключение: страница уводится на
+        about:blank, чтобы содержимое нельзя было прочитать следующим вызовом.
+        """
+        landed = str(getattr(sess.page, "url", "") or "")
+        if not landed or landed == "about:blank":
+            return
+        loop = asyncio.get_running_loop()
+        why = await loop.run_in_executor(None, target_refusal, landed)
+        if not why:
+            return
+        try:
+            await sess.page.goto("about:blank")
+        except Exception:  # noqa: BLE001 — уводим страницу best-effort, отказ важнее
+            pass
+        raise BrowserPolicyDenied(action, f"browser action denied: {action} — "
+                                          f"страница ушла на {landed[:120]!r}: {why}")
 
     async def status(self, session_id: int) -> dict[str, Any]:
         sess = self._session(session_id)
@@ -724,6 +790,7 @@ class BrowserManager:
         self._guard(sess, "click", actor=actor, approved=approved)
         loc = await self._target(sess, selector, ref)
         await loc.click(timeout=30000)
+        await self._after_action(sess, "click")
         return await self.status(session_id)
 
     async def type_text(self, session_id: int, selector: str = "", text: str = "", *,
@@ -733,6 +800,7 @@ class BrowserManager:
         self._guard(sess, "type", actor=actor, approved=approved)
         loc = await self._target(sess, selector, ref)
         await loc.fill(text, timeout=30000)
+        await self._after_action(sess, "type")
         return await self.status(session_id)
 
     async def select(self, session_id: int, selector: str = "", value: str = "", *,
@@ -742,6 +810,7 @@ class BrowserManager:
         self._guard(sess, "select", actor=actor, approved=approved)
         loc = await self._target(sess, selector, ref)
         await loc.select_option(value, timeout=30000)
+        await self._after_action(sess, "select")
         return await self.status(session_id)
 
     async def fill_secret(self, session_id: int, selector: str = "", *,
@@ -759,24 +828,28 @@ class BrowserManager:
         if secret:
             sess.secrets.add(secret)
         await loc.fill(secret, timeout=30000)
+        await self._after_action(sess, "type")
         return await self.status(session_id)
 
     async def back(self, session_id: int, *, actor: str = "agent") -> dict[str, Any]:
         sess = self._session(session_id)
         self._guard(sess, "back", actor=actor)
         await sess.page.go_back(wait_until="domcontentloaded", timeout=30000)
+        await self._after_action(sess, "back")
         return await self.status(session_id)
 
     async def reload(self, session_id: int, *, actor: str = "agent") -> dict[str, Any]:
         sess = self._session(session_id)
         self._guard(sess, "reload", actor=actor)
         await sess.page.reload(wait_until="domcontentloaded", timeout=30000)
+        await self._after_action(sess, "reload")
         return await self.status(session_id)
 
     async def screenshot(self, session_id: int, *,
                          actor: str = "agent", approved: bool = False) -> bytes:
         sess = self._session(session_id)
         self._guard(sess, "screenshot", actor=actor, approved=approved)
+        await self._after_action(sess, "screenshot")
         return await sess.page.screenshot(type="png", full_page=False)
 
     async def snapshot(self, session_id: int, *,
@@ -784,6 +857,7 @@ class BrowserManager:
                        max_text: int = 20000, max_interactive: int = 200) -> dict[str, Any]:
         sess = self._session(session_id)
         self._guard(sess, "snapshot", actor=actor, approved=approved)
+        await self._after_action(sess, "snapshot")
         page = sess.page
         # DOM-first snapshot: cheap and deterministic. Vision only receives screenshot when needed.
         sess.generation += 1

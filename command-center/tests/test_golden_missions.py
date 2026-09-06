@@ -174,7 +174,20 @@ async def _run_mission(env, task_id: int, *, timeout: float = 180.0,
                    if a.get("task_id") in (None, task_id)]
         tool_pending = [a for a in pending if a.get("kind") == "tool"]
         if not tool_pending:
-            break
+            # Не «замести»: миссия встала на подтверждении, которого владелец
+            # миссии не даёт (review_escalation / effect_reconciliation). Молча
+            # вернуть waiting_approval — значит спрятать причину за
+            # `assert status == "completed"`; показываем, чего именно ждут.
+            rows = await _tool_rows(env, task_id)
+            raise AssertionError(
+                "миссия ждёт подтверждения, которое она не имеет права дать: "
+                + json.dumps([{"kind": a.get("kind"), "preview": str(a.get("preview"))[:400]}
+                              for a in pending], ensure_ascii=False)
+                + "\nвызовы инструментов: "
+                + json.dumps([{"tool": r["tool"], "status": r["status"],
+                               "args": {k: str(v)[:200] for k, v in (r["args"] or {}).items()},
+                               "preview": str(r["result_preview"])[:600]} for r in rows],
+                             ensure_ascii=False))
         for appr in tool_pending:
             r = await env.client.post(f"/api/approvals/{appr['id']}",
                                       json={"approve": True, "by": OWNER})
@@ -251,10 +264,21 @@ def _one(rows: list[dict], tool: str) -> dict:
 
 
 def _pytest_run(where: Path) -> subprocess.CompletedProcess:
-    """Независимый прогон тестов проекта ОТДЕЛЬНЫМ процессом (не через агента)."""
+    """Независимый прогон тестов проекта ОТДЕЛЬНЫМ процессом (не через агента).
+
+    PYTHONDONTWRITEBYTECODE — не косметика, а условие честности миссии. Эта
+    проба запускается ДО миссии, чтобы показать красный тест; без флага она
+    оставляла в проекте `__pycache__/calc.pyc`, скомпилированный из БАГОВОГО
+    исходника. Правка миссии не меняет размер calc.py и нередко попадает в ту
+    же секунду mtime, а кэш байткода признаётся годным именно по паре
+    (mtime, size) — и прогон тестов ВНУТРИ миссии импортировал старый,
+    несломанный кэш и падал. Проба обязана не оставлять следов в мире, который
+    миссия потом меняет и перечитывает.
+    """
     return subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "."],
                           cwd=str(where), capture_output=True, text=True, timeout=180,
-                          env={**os.environ, "PYTHONPATH": str(where)})
+                          env={**os.environ, "PYTHONPATH": str(where),
+                               "PYTHONDONTWRITEBYTECODE": "1"})
 
 
 def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
