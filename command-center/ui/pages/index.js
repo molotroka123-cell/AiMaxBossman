@@ -32,6 +32,7 @@ import MissionConsolePage from './mission_console.js';
 import WebResearchPage from './web_research.js';
 import ControlPage from './control.js';
 import WebDesignerPage from './web_designer.js';
+import ObjectivesPage from './objectives.js';
 
 export const FEATURE_PAGES = [
   VideoStudioPage, ChatPage,
@@ -58,6 +59,7 @@ export const FEATURE_PAGES = [
   TradingLabPage,
   MissionConsolePage,
   WebResearchPage,
+  ObjectivesPage,
   ControlPage,
   WebDesignerPage,
 ];

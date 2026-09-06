@@ -1,0 +1,70 @@
+name: Human-speed components (not UI attestation)
+
+on:
+  push:
+    branches:
+      - test/astra-human-speed-gates-20260906
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: human-speed-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    name: component measurements (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      BOSSMAN_SPEED_RESULTS: ${{ github.workspace }}/speed-results
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Record exact source and host
+        shell: bash
+        run: |
+          mkdir -p speed-results
+          git rev-parse HEAD | tee speed-results/code-sha.txt
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git rev-parse HEAD^{tree} > speed-results/tree-sha.txt
+          python -c "import json,platform,sqlite3; print(json.dumps({'platform':platform.platform(),'python':platform.python_version(),'sqlite':sqlite3.sqlite_version}))" > speed-results/host.json
+      - name: Install declared test dependencies
+        run: python -m pip install -e . -e "./bossman-core[dev]"
+      - name: Objective CAS, deterministic observation, actual process crash and gate red-team
+        run: python -m pytest -x tests/test_v5_human_speed.py -q --timeout=45 -o junit_family=xunit1 --junitxml=speed-results/human-speed.xml
+      - name: Current objective correctness regressions
+        run: python -m pytest -x tests/test_v5_objective_store.py tests/test_v5_admission.py tests/test_v5_recovery.py tests/test_v5_golden_missions.py -q --timeout=45 --junitxml=speed-results/objective-regression.xml
+      - name: Real local controller plus existing state/reaction regressions
+        working-directory: bossman-core
+        run: python -m pytest -x tests/test_v4_human_reaction.py tests/test_v4_reaction_coordinator.py tests/test_v4_visual_state_guard.py -q --timeout=45 -o junit_family=xunit1 --junitxml=../speed-results/controller.xml
+      - name: Record absent visible-input evidence without manufacturing PASS
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          python tools/human_speed_gate.py --expect-sha "$GITHUB_SHA" > speed-results/visible-input-status.json
+          code=$?
+          set -e
+          cat speed-results/visible-input-status.json
+          test "$code" = 2
+          printf '\nUI_INPUT=INSUFFICIENT_EVIDENCE; HUMAN_COMPARISON=NOT_RUN; N0=NOT_ACTIVATED\n' >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain all actual samples and partial failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: human-speed-${{ matrix.os }}-${{ github.sha }}
+          path: speed-results/
+          if-no-files-found: error
+          retention-days: 7

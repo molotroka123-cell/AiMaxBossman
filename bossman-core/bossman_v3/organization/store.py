@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+
+from bossman_shared.sqlite_connection import OwnedConnection
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -86,9 +88,13 @@ class OrganizationStore:
                 con.execute("ALTER TABLE org_treasury ADD COLUMN parent TEXT NOT NULL DEFAULT ''")
 
     def _connect(self) -> sqlite3.Connection:
-        con = sqlite3.connect(self.path, timeout=30)
-        con.row_factory = sqlite3.Row
-        con.execute("PRAGMA journal_mode=WAL")
+        con = sqlite3.connect(self.path, timeout=30, factory=OwnedConnection)
+        try:
+            con.row_factory = sqlite3.Row
+            con.execute("PRAGMA journal_mode=WAL")
+        except BaseException:
+            con.close()
+            raise
         return con
 
     def _rows(self, sql: str, args: tuple = ()) -> Iterator[sqlite3.Row]:

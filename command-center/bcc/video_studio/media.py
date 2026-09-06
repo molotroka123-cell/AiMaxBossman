@@ -184,9 +184,16 @@ class MediaLibrary:
             info = await probe(temporary)
             digest = await blocking(digest_file, temporary)
             destination = directory / (digest + ext)
-            if destination.exists():
-                if await blocking(digest_file, destination) != digest:
-                    raise ValueError("existing content-addressed media is corrupt")
+            # Content addressing means the destination MUST hold exactly the bytes
+            # hashing to `digest`. If bit rot, a bad restore or a truncated copy
+            # broke that, refusing forever locked the owner out of this media and
+            # of every project referencing it -- with no repair path, because a
+            # re-upload of the very same correct bytes hit the same refusal.
+            # `temporary` was just hashed and provably IS that content, so restore
+            # the invariant instead. This admits no new content: only bytes whose
+            # digest already equals the destination name can ever land here.
+            if destination.exists() and await blocking(digest_file, destination) == digest:
+                pass
             else:
                 os.replace(temporary, destination)
             return {"id": "m_" + digest[:24], "name": str(name or source.name)[:255],
@@ -263,9 +270,21 @@ class MediaLibrary:
         cache=self.root/"cache"/"reverse";cache.mkdir(parents=True,exist_ok=True)
         manifest=cache/(key+".json")
         if manifest.exists():
-            value=json.loads(manifest.read_text(encoding="utf-8"))
-            await blocking(self.resolve,value)
-            return value
+            # A reverse proxy is a deterministic, rebuildable CACHE entry derived
+            # from immutable verified sources. An evicted intermediate or a torn
+            # manifest is a cache MISS to rebuild, never a permanent failure:
+            # propagating here made every later export of the project impossible
+            # and reported "relink required" for a file the owner cannot relink.
+            # Integrity is unchanged -- the rebuilt intermediate is re-probed and
+            # re-hashed by import_file below before it is used.
+            cached=None
+            try:
+                cached=json.loads(manifest.read_text(encoding="utf-8"))
+                await blocking(self.resolve,cached)
+            except (OSError,ValueError):
+                cached=None
+            if cached is not None:
+                return cached
         # 8 bytes/pixel conservatively covers high-depth packed source frames.
         pixels=max(1,int(media["width"])*int(media["height"]))
         frame_budget=max(64*1024**2,pixels*8)

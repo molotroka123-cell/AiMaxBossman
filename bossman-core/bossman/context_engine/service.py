@@ -127,12 +127,31 @@ class ContextEngine:
 _WORD = re.compile(r"[\w]{2,}", re.UNICODE)
 
 
+# F-ABL-3: точное совпадение слов не работает для языка, на котором написан
+# продукт. «Прочитай ФАЙЛ» vs описание «Диапазон строк ФАЙЛА» — разные токены,
+# overlap 0, и нужный fs_read выпадал из выдачи, а его место занимал
+# алфавитно-первый мусор (см. _stems). Стем длиной 4 сшивает словоформы и не
+# требует ни морфологии, ни зависимостей; для коротких слов (<=4) он равен
+# самому слову, так что поведение для англоязычных запросов не меняется.
+_STEM_LEN = 4
+
+
+def _stems(words) -> set[str]:
+    out: set[str] = set()
+    for w in words:
+        w = w.lower()
+        out.add(w)
+        if len(w) > _STEM_LEN:
+            out.add(w[:_STEM_LEN])
+    return out
+
+
 def _schema_terms(schema: dict) -> set[str]:
     fn = schema.get("function", schema)
     text = f"{fn.get('name','')} {fn.get('description','')}"
     params = (fn.get("parameters") or {}).get("properties") or {}
     text += " " + " ".join(params.keys())
-    return {w.lower() for w in _WORD.findall(text)}
+    return _stems(_WORD.findall(text))
 
 
 def prune_tool_schemas(schemas: list[dict], query: str, *, keep_min: int = 6,
@@ -146,19 +165,46 @@ def prune_tool_schemas(schemas: list[dict], query: str, *, keep_min: int = 6,
     """
     if len(schemas) <= keep_min:
         return list(schemas)
-    q = {w.lower() for w in _WORD.findall(query)}
+    q = _stems(_WORD.findall(query))
     scored: list[tuple[float, int, dict]] = []
     for i, s in enumerate(schemas):
-        name = (s.get("function", s) or {}).get("name", "")
         overlap = len(q & _schema_terms(s)) / max(1, len(q)) if q else 0.0
         scored.append((overlap, i, s))
     scored.sort(key=lambda x: (-x[0], x[1]))
     kept: list[tuple[int, dict]] = []
     seen: set[int] = set()
     for score, i, s in scored:
-        name = (s.get("function", s) or {}).get("name", "")
-        if score > 0 or name in always or len(kept) < keep_min:
+        if score > 0:
             kept.append((i, s)); seen.add(i)
+    # F-ABL-4: добор до keep_min — по РАЗНООБРАЗИЮ СЕМЕЙСТВ, а не по индексу.
+    # Раньше добор шёл в исходном (для реестра — алфавитном) порядке: запрос
+    # без лексического сигнала («проанализируй рынок») получал десять
+    # browser_* и НИ ОДНОГО fs_*/git/gmail — целые семейства возможностей
+    # исчезали из-за буквы имени. Круговой обход семейств (префикс до первого
+    # разделителя) даёт при том же числе схем покрытие разных возможностей;
+    # если релевантных схем уже >= keep_min, добор не выполняется вовсе и
+    # поведение прежнее.
+    if len(kept) < keep_min:
+        families: dict[str, list[tuple[int, dict]]] = {}
+        for i, sch in enumerate(schemas):
+            if i in seen:
+                continue
+            nm = (sch.get("function", sch) or {}).get("name", "") or f"#{i}"
+            fam = re.split(r"[._-]", nm, maxsplit=1)[0]
+            families.setdefault(fam, []).append((i, sch))
+        order = list(families)
+        rnd = 0
+        while len(kept) < keep_min and any(len(v) > rnd for v in families.values()):
+            for fam in order:
+                if len(kept) >= keep_min:
+                    break
+                bucket = families[fam]
+                if len(bucket) > rnd:
+                    i, sch = bucket[rnd]
+                    kept.append((i, sch)); seen.add(i)
+            rnd += 1
+    # always-инструменты добавляются ПОВЕРХ пола (как и раньше): они не
+    # расходуют слоты keep_min, иначе безопасный набор вытеснял бы полезный.
     # гарантируем always-инструменты, даже если не попали по score/floor
     for i, s in enumerate(schemas):
         name = (s.get("function", s) or {}).get("name", "")

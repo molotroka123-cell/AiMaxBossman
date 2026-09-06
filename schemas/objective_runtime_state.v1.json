@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bossman.local/schemas/objective_runtime_state.v1.json",
+  "title": "Bossman Steward objective runtime state (V5)",
+  "description": "Durable projection of one standing objective, as persisted by bossman_shared.objective_store. This record is bookkeeping, not authority: it is what admission re-reads to resolve current authority, and it is never itself proof about the world. Lifecycle and condition are independent axes; an ACTIVE objective whose condition is UNKNOWN must produce no effects.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "objective_id", "owner_id", "scope_id", "spec_digest", "revision",
+    "lifecycle", "condition", "enrolled_sources", "observations_used",
+    "missions_used", "wall_seconds_used", "cost_usd_used", "stopped", "version"
+  ],
+  "properties": {
+    "objective_id": {"type": "string", "minLength": 1},
+    "owner_id": {"type": "string", "minLength": 1},
+    "scope_id": {"type": "string", "minLength": 1},
+    "spec_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "revision": {"type": "integer", "minimum": 1},
+    "lifecycle": {"enum": ["DRAFT", "ACTIVE", "PAUSED", "EXPIRED", "REVOKED"]},
+    "condition": {
+      "enum": ["SATISFIED", "DEVIATED", "UNKNOWN"],
+      "description": "UNKNOWN is a real answer, never a placeholder for healthy or broken."
+    },
+    "enrolled_sources": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "description": "Explicit owner enrollment. Empty on import: no account or directory is ever enrolled implicitly, and an unenrolled source cannot affect the condition."
+    },
+    "observations_used": {"type": "integer", "minimum": 0},
+    "missions_used": {"type": "integer", "minimum": 0},
+    "wall_seconds_used": {"type": "number", "minimum": 0},
+    "cost_usd_used": {
+      "type": "number", "minimum": 0,
+      "description": "Cumulative across revisions, including reserved work. Editing the spec must never reset it."
+    },
+    "last_observation_at": {"type": ["number", "null"], "minimum": 0},
+    "last_proposal_at": {"type": ["number", "null"], "minimum": 0},
+    "last_verified_evidence_ref": {
+      "type": ["string", "null"], "minLength": 1,
+      "description": "Required whenever condition is SATISFIED: green is not settable by model text."
+    },
+    "stopped": {
+      "type": "boolean",
+      "description": "Canonical resolution of the owner's stop conditions, not a model's reading of them."
+    },
+    "version": {
+      "type": "integer", "minimum": 0,
+      "description": "Compare-and-swap token. A mutation carrying a stale version is refused, never merged."
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"condition": {"const": "SATISFIED"}}, "required": ["condition"]},
+      "then": {
+        "properties": {"last_verified_evidence_ref": {"type": "string", "minLength": 1}},
+        "required": ["last_verified_evidence_ref"]
+      }
+    }
+  ]
+}

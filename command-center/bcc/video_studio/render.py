@@ -630,9 +630,16 @@ async def render_project(project, root, output_path, options=None, progress=None
                     cache=root/"cache"/"nested";cache.mkdir(parents=True,exist_ok=True)
                     fingerprint=hashlib.sha256(json.dumps({"project":project,"sequence":nested["id"]},sort_keys=True).encode()).hexdigest()
                     metadata_path=cache/(fingerprint+".json")
+                    media_=None
                     if metadata_path.exists():
-                        media_=json.loads(metadata_path.read_text(encoding="utf-8"));await blocking(library.resolve,media_)
-                    else:
+                        # Same rebuildable-cache rule as MediaLibrary.reverse_proxy:
+                        # an evicted intermediate or torn manifest is a cache MISS,
+                        # not a permanent, unrecoverable export failure.
+                        try:
+                            media_=json.loads(metadata_path.read_text(encoding="utf-8"));await blocking(library.resolve,media_)
+                        except (OSError,ValueError):
+                            media_=None
+                    if media_ is None:
                         with tempfile.TemporaryDirectory(prefix="nested-",dir=cache) as td:
                             artifact=Path(td)/"nested.mkv"
                             await render_project(project,root,artifact,{"sequence_id":nested["id"],"video_codec":"ffv1","audio_codec":"pcm_f32le"},progress)

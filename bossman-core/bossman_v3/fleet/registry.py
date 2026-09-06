@@ -11,6 +11,7 @@ node_agent.RemoteTransportUnavailable и REMOTE_TRANSPORT_PRODUCTION_READY=NO.
 """
 from __future__ import annotations
 
+import math
 import time
 from dataclasses import dataclass
 
@@ -53,17 +54,41 @@ class NodeRegistry:
         out = self.store.nodes()
         return [n for n in out if status is None or n.status == status]
 
-    def heartbeat(self, hb: Heartbeat) -> NodeState:
+    @staticmethod
+    def _reported(value: float, *, ceiling: float) -> float:
+        """Self-reported telemetry is a CLAIM, never authority over admission.
+
+        A node that under-reports usage (or reports a negative/NaN value) must not
+        be able to manufacture free memory it does not physically have: the claim
+        is clamped into the host-provisioned envelope [0, ceiling] and a
+        non-finite claim is treated as "fully used" (fail-closed), never as free.
+        """
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            return max(0.0, float(ceiling))
+        return max(0.0, min(float(value), max(0.0, float(ceiling))))
+
+    def heartbeat(self, hb: Heartbeat, *, now: float | None = None) -> NodeState:
         n = self.store.node(hb.node_id)
         if n is None:
             raise KeyError(f"unknown node {hb.node_id!r}: register before heartbeat")
-        n.load = max(0.0, min(1.0, hb.load))
-        n.ram_used_gb, n.gpu_memory_used_gb = hb.ram_used_gb, hb.gpu_memory_used_gb
+        now = time.time() if now is None else now
+        n.load = 0.0 if (isinstance(hb.load, bool) or not isinstance(hb.load, (int, float))
+                         or not math.isfinite(hb.load)) else max(0.0, min(1.0, hb.load))
+        n.ram_used_gb = self._reported(hb.ram_used_gb, ceiling=n.ram_gb)
+        n.gpu_memory_used_gb = self._reported(hb.gpu_memory_used_gb, ceiling=n.gpu_memory_gb)
         if hb.warm_models is not None:
             n.warm_models = set(hb.warm_models)
         if hb.active_work is not None:
-            n.active_work = hb.active_work
-        n.last_heartbeat_ts = hb.timestamp
+            # A negative concurrency claim would defeat max_concurrency admission.
+            claimed = hb.active_work
+            n.active_work = 0 if (isinstance(claimed, bool) or not isinstance(claimed, int)
+                                  or claimed < 0) else claimed
+        # A heartbeat dated in the future would keep a dead node alive forever;
+        # freshness is measured on the HOST clock, not on the node's claim.
+        stamp = hb.timestamp
+        if isinstance(stamp, bool) or not isinstance(stamp, (int, float)) or not math.isfinite(stamp):
+            stamp = now
+        n.last_heartbeat_ts = min(float(stamp), float(now)) if math.isfinite(now) else float(stamp)
         # DRAINING/OFFLINE выставляет оператор/watchdog; heartbeat не «воскрешает»
         # draining-узел и не снимает drain
         if n.status != NodeStatus.DRAINING:

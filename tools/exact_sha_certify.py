@@ -52,6 +52,10 @@ DEFAULT_REQUIRED = (
     "Bossman V2 Auto-Repair",
     "ASTRA acceptance",
     "Solana safety gates",
+    # The only gate that installs real FFmpeg and actually executes the
+    # renderer, the Fleet TLS RPC and the execution-truth regressions. A
+    # release SHA whose media path was never executed is not certified.
+    "Fable media and Fleet acceptance",
 )
 
 CERTIFIED = "CERTIFIED"
