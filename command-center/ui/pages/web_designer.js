@@ -28,6 +28,7 @@ const state = {
   selected: null, pick: true,
   generating: false, genNote: null,
   dirty: false,               // в редакторе есть несохранённое
+  creating: false,            // explicit New project must not auto-open an old one
 };
 
 let frame = null;          // живой iframe превью (обновляется точечно)
@@ -335,7 +336,7 @@ function head(ctx) {
         sel,
         btn('+ Проект', async () => {
           await flushSave();               // debounce мог не догнать — сохраняем принудительно
-          state.id = null; state.selected = null;
+          state.id = null; state.selected = null; state.creating = true;
           try { localStorage.removeItem(LAST_KEY); } catch { /* приватный режим */ }
           ctx.refresh();
         },
@@ -558,7 +559,7 @@ function emptyState(ctx, catalog) {
               const res = await api.raw('/api/web-designer/projects', { method: 'POST',
                 body: { name: name.value.trim() || 'Мой сайт', prompt: prompt.value.trim(),
                   template: chosen, palette: pal.value } });
-              state.id = Number(res.meta.id);
+              state.id = Number(res.meta.id); state.creating = false;
               state.selected = null;
               try { localStorage.setItem(LAST_KEY, String(state.id)); } catch { /* приватный режим */ }
               toastOk('Проект создан');
@@ -593,7 +594,7 @@ const WebDesignerPage = {
       try {
         const res = await api.raw('/api/web-designer/projects', { method: 'POST',
           body: { name: title.replace(/^сайт[:\s]*/i, '') || 'Новый сайт', prompt: title, template: 'auto', palette: 'auto' } });
-        state.id = Number(res.meta.id);
+        state.id = Number(res.meta.id); state.creating = false;
         try { localStorage.setItem(LAST_KEY, String(state.id)); } catch { /* приватный режим */ }
         toastOk('Панель веб-дизайна открыта под эту задачу');
       } catch (e) { toastError(e, 'Не удалось создать проект из задачи'); }
@@ -615,7 +616,8 @@ const WebDesignerPage = {
     /* id проекта — ЧИСЛО везде: сервер отдаёт число, ссылка ?project=N и
        localStorage — строки. Сравнение по значению, иначе «последний проект»
        и deep-link не срабатывают никогда и панель открывает первый попавшийся. */
-    if (params && params.project) state.id = Number(params.project) || null;
+    if (params && params.project) { state.id = Number(params.project) || null; state.creating = false; }
+    if (state.creating) return emptyState(ctx, catalog);
     if (!state.id) {
       try { state.id = Number(localStorage.getItem(LAST_KEY)) || null; } catch { /* приватный режим */ }
     }
