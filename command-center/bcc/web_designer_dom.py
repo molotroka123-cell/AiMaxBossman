@@ -86,6 +86,8 @@ class Node:
     children: list["Node"] = field(default_factory=list)
     parent: "Node | None" = field(default=None, repr=False, compare=False)
     raw_starttag: str = ""                  # дословный открывающий тег
+    # None is a constructed node; empty string is a parsed, omitted end tag.
+    raw_endtag: str | None = None
     tag_case: str = ""                      # написание тега в исходнике
     attr_case: dict[str, str] = field(default_factory=dict)  # нижний регистр → написание
     self_closing: bool = False              # <br/> — отдаётся так же
@@ -107,11 +109,12 @@ def _spellings(raw_starttag: str) -> dict[str, str]:
     важен (`viewBox`, `clipPathUnits`). Разбираем текст тега сами.
     """
     out: dict[str, str] = {}
-    i = raw_starttag.find(" ")
-    if i < 0:
-        i = raw_starttag.find("\t")
-    if i < 0:
+    match = _TAG_NAME_RE.match(raw_starttag)
+    if match is None:
         return out
+    # Start after the tag name, not the first space (which may be inside an
+    # attribute value when attributes begin on a new line).
+    i = match.end()
     n = len(raw_starttag)
     if raw_starttag.endswith(">"):
         n -= 1
@@ -152,6 +155,7 @@ class _TreeBuilder(HTMLParser):
         self.root = Node(kind="element", tag="#root")
         self._stack: list[Node] = [self.root]
         self.unmatched_end_tags: list[str] = []
+        self._raw_endtag = ""
 
     # -- служебное -----------------------------------------------------
 
@@ -175,6 +179,7 @@ class _TreeBuilder(HTMLParser):
             tag=tag.lower(),
             attrs={str(k).lower(): v for k, v in attrs},
             raw_starttag=raw,
+            raw_endtag="",
             tag_case=(match.group(1) if match else tag),
             attr_case=_spellings(raw),
         )
@@ -201,15 +206,31 @@ class _TreeBuilder(HTMLParser):
         node.self_closing = (node.raw_starttag or "").rstrip().endswith("/>")
         self._append(node)
 
+    def parse_endtag(self, i):
+        # HTMLParser reports a lowercased name, not the owner's original closing
+        # token. Capture that token before dispatching handle_endtag.
+        end = self.rawdata.find(">", i + 2)
+        previous = self._raw_endtag
+        self._raw_endtag = self.rawdata[i:end + 1] if end >= 0 else ""
+        try:
+            return super().parse_endtag(i)
+        finally:
+            self._raw_endtag = previous
+
     def handle_endtag(self, tag):
         tag = tag.lower()
-        # ищем свой тег вверх по стеку; незакрытые попутные закрываем
+        raw = self._raw_endtag or f"</{tag}>"
         for i in range(len(self._stack) - 1, 0, -1):
             if self._stack[i].tag == tag:
+                self._stack[i].raw_endtag = raw
+                # Intervening nodes had omitted end tags. Do not invent them.
                 del self._stack[i:]
                 return
         if tag not in VOID_TAGS:
             self.unmatched_end_tags.append(tag)
+        # A tolerant document parse must retain even stray closing tokens.
+        # parse_fragment still rejects unmatched tags before applying an edit.
+        self._append(Node(kind="raw", raw=raw))
 
     def handle_data(self, data):
         self._append_text(data)
@@ -309,6 +330,8 @@ def _start_tag(node: Node, *, bd_ids: bool) -> str:
 def _end_tag(node: Node) -> str:
     if node.self_closing or node.tag in VOID_TAGS:
         return ""
+    if node.raw_endtag is not None:
+        return node.raw_endtag
     return f"</{node.tag_case or node.tag}>"
 
 

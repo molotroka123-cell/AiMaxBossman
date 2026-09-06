@@ -8,9 +8,10 @@ Node Agent на машине: регистрируется, шлёт heartbeat, 
 Транспорт:
   * `LocalNodeTransport` — in-process: несколько логических узлов в одном
     процессе (одна машина, тесты, единственный Ai Max сегодня);
-  * удалённый транспорт НЕ реализован. В репозитории есть device/session
+  * удалённый транспорт по умолчанию ВЫКЛЮЧЕН; experimental mTLS RPC требует явного provision. В репозитории есть device/session
     principals (bossman.remote_client.auth) и WS-аутентификация периметра, но
-    нет подписи запросов, nonce/replay-окна, mTLS и ротации ключей узлов.
+    remote_rpc добавляет mTLS, pairwise подписи и durable replay/revocation;
+    production multi-host authority, enrollment и эксплуатационная аттестация не завершены.
     Поэтому `RemoteNodeTransport` честно поднимает исключение:
     REMOTE_TRANSPORT_PRODUCTION_READY=NO, NODE_AUTH_PRODUCTION_READY=NO.
 """
@@ -73,7 +74,7 @@ class LocalNodeTransport:
     def probe(self, node_id: str) -> bool:
         return node_id in self._runtimes and node_id not in self._down
 
-    def dispatch(self, node_id: str, request: NodeExecutionRequest) -> WorkResult:
+    def dispatch(self, node_id: str, request: NodeExecutionRequest, *, authorization_check=None) -> WorkResult:
         if (self.leases is None or request.work_id != request.contract.work_id
                 or request.mission_id != request.contract.mission_id):
             raise PermissionError("missing lease authority or request identity mismatch")
@@ -85,7 +86,8 @@ class LocalNodeTransport:
         rt = self._runtimes.get(node_id)
         if rt is None or node_id in self._down:
             raise NodeUnavailable(f"node {node_id!r} is not attached to the local transport")
-        contract = request.contract
+        # A per-dispatch clone prevents one node from mutating another request.
+        contract = DelegationContract.from_dict(request.contract.to_dict())
         if request.context_policy == "MINIMIZED":
             contract = _minimized(contract)
         # TRUTH-003 §12: исполнитель узла узнаёт fence аренды — он попадает в каждый
@@ -94,9 +96,9 @@ class LocalNodeTransport:
                                                "node_id": node_id}
         if "execution_guard" in inspect.signature(rt.execute).parameters:
             return rt.execute(contract, agent_id=request.agent_id,
-                              execution_guard=lambda: self.leases.mutation_guard(lease))
+                              execution_guard=lambda: self.leases.mutation_guard(lease, authorization_check=authorization_check))
         # Legacy local bridges have one opaque operation; guard the entire call.
-        with self.leases.mutation_guard(lease):
+        with self.leases.mutation_guard(lease, authorization_check=authorization_check):
             return rt.execute(contract, agent_id=request.agent_id)
 
     def cancel(self, node_id: str, work_id: str) -> bool:
@@ -104,16 +106,29 @@ class LocalNodeTransport:
 
 
 class RemoteNodeTransport:
+    """Disabled by default. Host-provisioned mTLS RPC is experimental, never evidence."""
+    def __init__(self, *, authenticator=None, endpoints=None) -> None:
+        self.leases = None
+        self._rpc = None
+        if (authenticator is None) != (endpoints is None):
+            raise ValueError("both node credentials and endpoints are required")
+        if authenticator is not None:
+            from .remote_rpc import RpcNodeClient
+            self._rpc = RpcNodeClient(authenticator, endpoints)
+
     def dispatch(self, node_id: str, request: NodeExecutionRequest) -> WorkResult:
-        raise RemoteTransportUnavailable(
-            "remote node transport is not implemented: requires authenticated node identity, signed "
-            "requests with replay window, encrypted channel and key rotation (REMOTE_TRANSPORT_PRODUCTION_READY=NO)")
+        if self._rpc is None:
+            raise RemoteTransportUnavailable(
+                "remote node transport is not implemented without explicit host provisioning "
+                "(REMOTE_TRANSPORT_PRODUCTION_READY=NO)")
+        self._rpc.leases = self.leases
+        return self._rpc.dispatch(node_id, request)
 
     def cancel(self, node_id: str, work_id: str) -> bool:
         return False
 
     def probe(self, node_id: str) -> bool:
-        return False
+        return self._rpc is not None and self._rpc.probe(node_id)
 
 
 def _minimized(c: DelegationContract) -> DelegationContract:

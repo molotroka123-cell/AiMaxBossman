@@ -177,6 +177,7 @@ class VideoService:
                                   .order_by(runs_t.c.id.desc()).limit(1))).mappings().first()
         result = dict(row.get("result") or {})
         result.pop("path", None)
+        result.pop("_render_receipt", None)  # host evidence, not a model/UI credential
         return {"job_id":job_id,"task_id":row["task_id"],"project_id":row["project_id"],
             "revision":row["snapshot"]["revision"],"preview":bool((row.get("options") or {}).get("_preview")),"status":task["status"],"progress":row.get("progress"),
             "error":run.get("error") if run else None,
@@ -184,6 +185,28 @@ class VideoService:
             **result}
 
     async def render_executor(self, task, run, engine):
+        from ..engine import FencedOut
+        from .errors import render_failure
+        try:
+            return await self._render_job(task, run, engine)
+        except (asyncio.CancelledError, FencedOut):
+            raise
+        except Exception as exc:
+            # Persist bounded diagnostics before the generic engine failure path.
+            # Never let a zombie executor replace the current owner's result.
+            await engine.assert_fence(run["id"])
+            jid = task["meta"]["video_job_id"]
+            async with self.svc.db.session() as session:
+                progress = (await session.execute(sa.select(jobs.c.progress).where(jobs.c.id == jid))).scalar_one()
+                failure = render_failure(exc, (progress or {}).get("stage", "rendering"))
+                await session.execute(sa.update(jobs).where(jobs.c.id == jid,
+                    jobs.c.task_id == task["id"], sa.exists(sa.select(runs_t.c.id).where(
+                        runs_t.c.id == run["id"], engine._fence_clause(run["id"]))))
+                    .values(result={"error_detail": failure}, progress={"stage":"failed", "details":failure}))
+                await session.commit()
+            raise
+
+    async def _render_job(self, task, run, engine):
         from .render import render_project
         jid = task["meta"]["video_job_id"]
         async with self.svc.db.session() as s:
@@ -199,8 +222,12 @@ class VideoService:
         result = await render_project(row["snapshot"], self.root, outdir / ("output."+row["options"].get("_container","mp4")),
                                       options={k:v for k,v in row["options"].items() if not k.startswith("_")}, progress=progress)
         await engine.assert_fence(run["id"])
-        from .media import digest_file
-        result["sha256"] = await asyncio.to_thread(digest_file,Path(result["path"]))
+        from .export_receipt import certify, RECEIPT_KEY
+        # render_project already independently decoded/probed and hashed the
+        # artifact. Bind that proof to published bytes outside the hook timeout.
+        result["sha256"] = (result.get("verification") or {}).get("sha256")
+        result[RECEIPT_KEY] = await certify(self.root, row, task["id"], run["id"], result)
+        await engine.assert_fence(run["id"])
         async with self.svc.db.session() as s:
             await s.execute(sa.update(jobs).where(jobs.c.id == jid).values(result=result))
             await s.commit()
@@ -209,23 +236,17 @@ class VideoService:
     async def render_gate(self, task, run_id, answer):
         if task.get("kind") != "video_render":
             return {"verdict":"NOT_APPLICABLE"}
-        from .render import verify_output
+        from .export_receipt import validate_for_gate, RenderReceiptInvalid
         jid = task["meta"]["video_job_id"]
         async with self.svc.db.session() as s:
             row = dict((await s.execute(sa.select(jobs).where(jobs.c.id == jid))).mappings().one())
-        result = row.get("result") or {}
-        if not result.get("path"):
-            return {"verdict":"FAIL","requeue":False,"status":"failed","reasons":"missing render artifact"}
-        path = Path(result["path"]).resolve()
-        if not path.is_relative_to(self.root / "exports" / jid / str(run_id)):
-            return {"verdict":"FAIL","requeue":False,"status":"failed","reasons":"artifact ownership mismatch"}
-        from .media import digest_file
-        if await asyncio.to_thread(digest_file,path) != result.get("sha256"):
-            return {"verdict":"FAIL","requeue":False,"status":"failed","reasons":"output changed after render"}
-        actual = await verify_output(path, {**(result.get("profile") or {}), **(result.get("verification") or {})})
-        passed = actual.get("passed") is True
-        return {"verdict":"PASS" if passed else "FAIL", "requeue":False,"status":"failed",
-                "reasons":"independent media verification"}
+        try:
+            await validate_for_gate(self.root, row, task["id"], run_id, row.get("result") or {})
+        except (RenderReceiptInvalid, OSError, TypeError, KeyError, ValueError):
+            return {"verdict":"FAIL", "requeue":False, "status":"failed",
+                    "reasons":"missing, changed or wrong-run render evidence; re-verification required"}
+        return {"verdict":"PASS", "requeue":False,
+                "reasons":"current signed independent media verification"}
 
     async def chat(self, text, operation_id, project_id=None):
         if not editing_intent(text):

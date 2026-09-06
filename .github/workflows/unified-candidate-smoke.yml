@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - integration/bossman-unified-20260906
+      - claude/bossman-closure-engineering-b8h722
+      - fix/fable-media-fleet-20260906
   workflow_dispatch:
 
 permissions:
@@ -39,6 +41,12 @@ jobs:
           git merge-base --is-ancestor dc0d149b91bee6617f5d2d207e99cd744eb24905 HEAD
       - name: Install isolated developer dependencies
         run: python -m pip install -e . -e "./bossman-core[dev]" -e "./command-center[dev]"
+      - name: Require real FFmpeg encode/probe/decode
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python tools/media_ci_preflight.py
+
       - name: Shared desktop contract (not visual acceptance)
         shell: bash
         run: |
@@ -56,6 +64,19 @@ jobs:
           tests/test_finalize_capability_match.py tests/test_finalize_unclassified_failure.py
           tests/test_video_native_finalize_contract.py tests/test_web_designer.py
           -q --timeout=120 --junitxml=../integration-results/cc.xml
+      - name: Real media export and source-fidelity regressions
+        working-directory: command-center
+        run: >-
+          python -m pytest tests/test_video_export_receipt.py tests/test_video_studio_integration.py
+          tests/test_video_studio_read_verification.py tests/test_video_studio_cfr_frames.py
+          tests/test_video_studio_render.py tests/test_web_designer_source_fidelity.py
+          -q --timeout=120 --junitxml=../integration-results/media-web.xml
+      - name: Authenticated Fleet RPC and existing safety proofs
+        working-directory: bossman-core
+        run: >-
+          python -m pytest tests/test_fleet_remote_auth.py tests/test_fleet_remote_rpc.py
+          tests/test_v3_fleet_core.py tests/test_v3_fleet_e2e.py tests/test_v3_fleet_safety_proofs.py
+          -q --timeout=120 --junitxml=../integration-results/fleet.xml
       - name: README projection and whitespace
         run: |
           python scripts/update_readme_scorecard.py --check

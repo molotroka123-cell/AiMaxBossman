@@ -117,6 +117,13 @@ jobs:
           python -m pip install playwright
           python -m playwright install --with-deps chromium
 
+      - name: Require real FFmpeg encode/probe/decode
+        if: matrix.group.name == 'rest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python tools/media_ci_preflight.py
+
       - name: Pytest (${{ matrix.group.name }})
         working-directory: bossman-core
         env:
@@ -153,6 +160,12 @@ jobs:
       # Группы выше делят набор между job'ами, поэтому порог по группе был бы
       # неправдой: он считается по ПОЛНОМУ прогону. Базовый уровень и правила
       # изменения порога — docs/testing/COVERAGE_BASELINE.md.
+      - name: Require real FFmpeg encode/probe/decode
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python tools/media_ci_preflight.py
+
       - name: Full core suite with coverage
         working-directory: bossman-core
         env:

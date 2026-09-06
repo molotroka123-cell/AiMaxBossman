@@ -63,6 +63,12 @@ jobs:
           # Список — подмножество объявленных зависимостей bossman-core/pyproject.toml.
           python -m pip install asyncpg redis
 
+      - name: Require real FFmpeg encode/probe/decode
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python tools/media_ci_preflight.py
+
       - name: Python compile
         run: python -m compileall -q command-center/bcc command-center/tests
 

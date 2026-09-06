@@ -165,6 +165,23 @@ def _tool_texts(messages: list[dict]) -> str:
     return "\n".join(str(m.get("content") or "") for m in messages if m.get("role") == "tool")
 
 
+async def _assert_denied_mutation_truth(env, task_id):
+    # Merge contract correction, not a runtime weakening: the fixture requests
+    # git push and the model still says "готово" after denial. No declared
+    # post-state can rescue it. The canonical finalizer therefore records failed,
+    # retains the answer and never creates an impossible review-approval loop.
+    task, _ = await _task_and_agent(env, task_id)
+    assert not (task.get("meta") or {}).get("required_effects")
+    assert not ((task.get("meta") or {}).get("review") or {}).get("evidence")
+    run = await _run_row(env, task_id)
+    assert run["status"] == "failed" and run["result"] == "готово"
+    assert "effectful" in run["error"]
+    async with env.svc.db.session() as session:
+        reviews = (await session.execute(sa.select(approvals_t).where(
+            approvals_t.c.task_id == task_id, approvals_t.c.kind == "review_escalation"))).all()
+    assert not reviews
+
+
 # ---------------------------------------------------------------- 1, 2
 
 async def test_case01_approved_tool_executes_exactly_once(env):
@@ -180,11 +197,12 @@ async def test_case01_approved_tool_executes_exactly_once(env):
 
 
 async def test_case02_rejected_tool_never_executes(env):
-    """2. Отклонено → эффекта нет, модель получает отказ как данные."""
+    """2. Отклонено → эффекта нет; сообщение «готово» не делает мутацию успехом."""
     calls: list[dict] = []
     stack = await _park(env, calls=calls)
     await _decide_first(env, False)
-    assert await _run_task(env, stack["task"]["id"], until=FINISHED) == "completed"
+    assert await _run_task(env, stack["task"]["id"], until=FINISHED) == "failed"
+    await _assert_denied_mutation_truth(env, stack["task"]["id"])
     assert calls == []
     rows = await _rows(env, stack["task"]["id"])
     assert [r["status"] for r in rows] == ["rejected"]
@@ -310,7 +328,8 @@ async def test_case04_stale_approval_id_cannot_execute(env):
     # (a) одобрение израсходовано другим путём раньше, чем run добрался до resume
     ok = await env.svc.approvals.consume(appr["id"], kind="tool", preview=appr["preview"])
     assert ok, "одобрение не удалось израсходовать — тест не про то"
-    assert await _run_task(env, task_id, until=FINISHED) == "completed"
+    assert await _run_task(env, task_id, until=FINISHED) == "failed"
+    await _assert_denied_mutation_truth(env, task_id)
     assert calls == [], "израсходованное одобрение исполнило эффект"
     assert [r["status"] for r in await _rows(env, task_id)] == ["rejected"]
 
@@ -329,7 +348,7 @@ async def test_case04_stale_approval_id_cannot_execute(env):
                  if a["task_id"] == task2["id"])
     await _write_pending(env, run_id, cp, {**pend, "approval_id": appr["id"]})
     await _decide(env, appr2["id"], False)             # человек отказал
-    assert await _run_task(env, task2["id"], until=FINISHED) in FINISHED
+    assert await _run_task(env, task2["id"], until=FINISHED) == "failed"
     assert calls2 == [], "устаревший approval_id авторизовал отклонённый эффект"
 
 
