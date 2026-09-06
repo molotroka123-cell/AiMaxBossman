@@ -73,7 +73,7 @@ class ComputerOperatorManager:
 
     def create_task(self,goal,*,mode=TaskMode.CONTROL,source="local",owner_device_id=None):
         if self.access_check is not None:
-            # Источник передаётся в gate: не-локальный источник без профиля/сервиса
+            # Источник передаётся в gate: не-локальный источник без профиляса
             # получает fail-CLOSED (Security Hardening V1.1). Совместимо со старыми
             # одно-аргументными колбэками.
             try:
@@ -161,6 +161,8 @@ class ComputerOperatorManager:
                         return self._fail(self._req(t.id),f"desktop busy: control lease held by {self.control_lease.holder()}")
                     cur=self._req(t.id)
                     if cur.generation!=plan_generation or not cur.pending_action or cur.pending_action.id!=a.id:
+                        if cur.state in {TaskState.PAUSED,TaskState.USER_CONTROL}:
+                            return cur.state  # recovery/owner parking outranks a stale approval result
                         return self._fail(cur,"approved action stale")
                     t=cur
                     step=t.history[-1] if t.history else step
@@ -232,12 +234,37 @@ class ComputerOperatorManager:
         t.state=TaskState.RECOVERING; t.generation+=1; t.pending_action=None; t.waiting_approval_id=None
         self._save(t); self._emit(t,"recovering"); return t
     def recover_all(self):
+        """Recover interrupted work without converting owner stops into authority.
+
+        Paused/taken-over tasks remain untouched. A pending approval from the
+        previous process is invalidated and parked; explicit Resume must request
+        a new approval. Reload on CAS conflict so concurrent owner commands win.
+        This does not resolve an ambiguous external effect or certify its result.
+        """
         out=[]
-        for t in self.store.list():
-            if t.terminal:continue
-            t.state=TaskState.RECOVERING; t.generation+=1; t.pending_action=None; t.waiting_approval_id=None
-            self._save(t); out.append(t)
-        self.control_lease.revoke()
+        try:
+            for candidate in self.store.list():
+                for _ in range(_CAS_RETRIES):
+                    t=self._req(candidate.id)
+                    if t.terminal or t.state in {TaskState.PAUSED,TaskState.USER_CONTROL}:
+                        break
+                    waiting=t.state is TaskState.WAITING_APPROVAL
+                    t.state=TaskState.PAUSED if waiting else TaskState.RECOVERING
+                    t.generation+=1; t.pending_action=None; t.waiting_approval_id=None
+                    if waiting:
+                        t.last_error="restart invalidated approval; explicit resume and fresh approval required"
+                    try:self._save(t)
+                    except OwnerStateChanged:continue
+                    # Older manager variants have no latch; generation still
+                    # invalidates their in-flight action/approval snapshot.
+                    update=getattr(self,"_signal_interrupt" if waiting else "_clear_interrupt",None)
+                    if update is not None:update(t.id)
+                    out.append(t)
+                    break
+                else:
+                    raise OwnerStateChanged(f"{candidate.id}: recovery deferred after concurrent updates")
+        finally:
+            self.control_lease.revoke()
         return out
     def emergency_lock(self):
         self.global_locked=True
