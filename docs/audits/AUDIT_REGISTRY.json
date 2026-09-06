@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "repository": "molotroka123-cell/AiMaxBossman",
-  "scope": "Reviewed published checkpoints through 776bc42; non-exhaustive seed. Automatic intake indexes additional sources as UNREVIEWED.",
+  "scope": "Reviewed checkpoints through 0d559bc3500c026834e0f9e0c3be0cdc090422ce. Non-exhaustive seed; automatic sources remain UNREVIEWED.",
   "runtime_authority": false,
   "findings": [
     {"id":"STORE-LIFETIME","root_cause_key":"sqlite-owned-connection","title":"SQLite handles in ObjectiveStore/Fleet/Organization","status":"FIX_PRESENT_NEEDS_RETEST","source":"https://github.com/molotroka123-cell/AiMaxBossman/pull/25","fix_sha":"fb4740d2f8f36fe8b7218f8513dbff11e9008dc7","verified_sha":null,"historical_run":"34033667511","note":"159+72 passed on materialized patch, not certification of later HEAD."},
@@ -16,6 +16,8 @@
     {"id":"SPEED-UI-TRACE","root_cause_key":"human-speed-visible-evidence","title":"Real visible input acknowledgment trace missing","status":"ENVIRONMENT_BLOCKER","source":"https://github.com/molotroka123-cell/AiMaxBossman/pull/27","verified_sha":null,"note":"Controller/CAS and synthetic evaluator fixtures are not UI acceptance."},
     {"id":"SPEED-WHOLE-RECOVERY","root_cause_key":"human-speed-full-recovery","title":"Store reopen does not prove whole-app recovery below 2s","status":"UNTRIAGED","source":"https://github.com/molotroka123-cell/AiMaxBossman/pull/27","verified_sha":null},
     {"id":"V4-REMAINING-DELIVERY","root_cause_key":"v4-continuity-delivery","title":"Action boundary published; remaining prepared V4 patch needs delivery/retest","status":"UNTRIAGED","source":"https://github.com/molotroka123-cell/AiMaxBossman/commit/f925d3d5002af86069d7602bb3a506263a7cc3a6","verified_sha":null,"note":"The two-file commit is not proof the full earlier local ZIP was integrated."},
-    {"id":"SPEED-EXACT-SHA","root_cause_key":"speed-final-sha-certification","title":"Read-only latency workflow and complete exact-SHA evidence","status":"UNTRIAGED","source":"https://github.com/molotroka123-cell/AiMaxBossman/pull/27","verified_sha":null,"note":"Measure current SHA; do not transfer old green runs or absent UI traces."}
+    {"id":"SPEED-EXACT-SHA","root_cause_key":"speed-final-sha-certification","title":"Read-only latency workflow and complete exact-SHA evidence","status":"UNTRIAGED","source":"https://github.com/molotroka123-cell/AiMaxBossman/pull/27","verified_sha":null,"note":"Measure current SHA; do not transfer old green runs or absent UI traces."},
+    {"id":"N0-REPORT-OVERCLAIM","root_cause_key":"skips-mistaken-for-acceptance","title":"Phase4/compact report claims N0 passed and five P1 closed from one fix plus environment skips","status":"REPORTED_OPEN","source":"https://github.com/molotroka123-cell/AiMaxBossman/blob/0d559bc3500c026834e0f9e0c3be0cdc090422ce/artifacts/acceptance/AUDIT_2026-09-06/PHASE4_REPORT.md","observed_sha":"0d559bc3500c026834e0f9e0c3be0cdc090422ce","verified_sha":null,"note":"Report lists 229+2 skipped, 10 passed, 730+4 skipped. Local exit 0 does not prove skipped Windows properties or N0. Correction posted on PR25; source report preserved."},
+    {"id":"SPEED-REPORT-NO-MEASUREMENT","root_cause_key":"absence-of-sleep-is-not-latency","title":"Phase4 labels human-speed tests PASS because sleep/fake timers were absent","status":"REPORTED_OPEN","source":"https://github.com/molotroka123-cell/AiMaxBossman/blob/0d559bc3500c026834e0f9e0c3be0cdc090422ce/artifacts/acceptance/AUDIT_2026-09-06/PHASE4_REPORT.md","observed_sha":"0d559bc3500c026834e0f9e0c3be0cdc090422ce","verified_sha":null,"note":"Require timed raw samples, host/clock/SHA and end-to-end scope. No sleep grep or component microbenchmark certifies user-visible/human-level performance."}
   ]
 }
