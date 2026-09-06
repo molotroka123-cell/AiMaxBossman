@@ -28,10 +28,30 @@ Each replay record is JSON (an array or JSONL is accepted):
 
 `verified=true` means the post-condition was checked, not merely that an agent returned a final message. Examples: a code fix is re-tested, a generated video opens and satisfies the requested constraints, or a browser task has an evidence-backed final state.
 
+## Where the records come from
+
+The corpus is collected automatically. Every terminal `CompoundRunner.run` appends one
+sample derived from the durable TaskJournal to
+`.bossman-state/benchmarks/real_workloads.jsonl` (override the root with
+`BOSSMAN_REAL_WORKLOAD_ROOT` or the `real_workload_telemetry_root` context key).
+
+Three properties are load-bearing:
+
+- **Observational.** The write is best-effort: an unavailable benchmark store is swallowed
+  and the task result stands as measured. Telemetry can never fail a user task.
+- **Failures are recorded too.** Blocked and failed runs produce samples exactly like
+  passing ones, so the corpus cannot be curated into a flattering shape.
+- **Replays do not inflate it.** Samples are de-duplicated by task, plan digest and status,
+  so resuming a chain does not manufacture extra evidence.
+
+Set `disable_real_workload_telemetry` in the run context to opt one run out. Fields the
+journal cannot know — `human_interventions`, `retries`, `concurrency`, `peak_memory_gb`,
+`oom` — are read from the run context and default to a neutral, non-flattering zero.
+
 ## Run
 
 ```bash
-python scripts/real_workload_audit.py runs.jsonl \
+python scripts/real_workload_audit.py .bossman-state/benchmarks/real_workloads.jsonl \
   --sla-p95-s 120 \
   --json-out artifacts/real_workload_audit.json \
   --md-out artifacts/real_workload_audit.md

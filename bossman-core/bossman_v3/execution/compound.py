@@ -30,6 +30,7 @@ from ..computer_agent.agent import (ApprovalDeniedError, PolicyDeniedError,
 from ..contracts import TypedAction, SideEffectClass
 from ..memory.failure_memory import FailureMemory
 from ..memory.journal import TaskJournal, JournalIntegrityError
+from .telemetry import append_record as _append_real_workload_record
 
 _EXPECTED = (PolicyDeniedError, ApprovalDeniedError, StaleObservationError,
              UnsafeActionError, UnsupportedActionError)
@@ -105,7 +106,25 @@ class CompoundRunner:
                     verification_passed=outcome.verification.passed)
         return body
 
+    def _emit_real_workload_sample(self, result: CompoundResult,
+                                   context: Mapping[str, Any] | None) -> None:
+        """Record one real-workload sample for the audit gate.
+
+        Observational only: a benchmark write must never change execution truth,
+        so every failure here is swallowed and the task result stands as measured.
+        """
+        try:
+            _append_real_workload_record(self.journal, completed=result.completed,
+                                         context=dict(context or {}))
+        except Exception:                     # телеметрия не может провалить задачу
+            pass
+
     def run(self, plan: Sequence[PlanStep], context: Mapping[str, Any] | None = None) -> CompoundResult:
+        result = self._run(plan, context)
+        self._emit_real_workload_sample(result, context)
+        return result
+
+    def _run(self, plan: Sequence[PlanStep], context: Mapping[str, Any] | None = None) -> CompoundResult:
         from ..organization.bridges import step_to_dict
         try:
             self.journal.bind_plan([step_to_dict(s) for s in plan])

@@ -65,3 +65,7 @@ astra-security-results/
 .coverage
 .coverage.*
 /.audit-work/
+
+# Автособираемая телеметрия реальной нагрузки: сырые сэмплы прогонов,
+# а не артефакт репозитория (сам .bossman-state остаётся под контролем).
+/.bossman-state/benchmarks/

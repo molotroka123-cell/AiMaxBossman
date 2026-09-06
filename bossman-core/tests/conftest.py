@@ -13,3 +13,11 @@ def _evidence_key_in_tmp(tmp_path, monkeypatch):
     evidence.reset_cache()
     yield
     evidence.reset_cache()
+
+
+@pytest.fixture(autouse=True)
+def _real_workload_telemetry_in_tmp(tmp_path, monkeypatch):
+    """Сэмплы реальной нагрузки пишутся автоматически на каждом терминальном
+    прогоне CompoundRunner. В тестах корень всегда временный: боевой
+    .bossman-state/benchmarks не засоряется синтетическими прогонами."""
+    monkeypatch.setenv("BOSSMAN_REAL_WORKLOAD_ROOT", str(tmp_path / "benchmarks"))
