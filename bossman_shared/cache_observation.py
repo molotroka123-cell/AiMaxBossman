@@ -138,6 +138,11 @@ class CacheObservation:
     verified_success: bool | None = None
     environment_fingerprint: str | None = None
     security_context_hash: str | None = None
+    #  Ключ идемпотентности. Пока лог перестраивается из ограниченного окна на
+    #  каждый опрос, дубликат безвреден; как только наблюдения станут durable,
+    #  повторная доставка одного и того же события ДВАЖДЫ добавит его токены и
+    #  счётчики. Опционален и непрозрачен (hash/uuid), содержимого не несёт.
+    observation_id: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -181,6 +186,9 @@ def validate_observation(d: Mapping[str, Any]) -> list[str]:
         v = d.get(k, 0)
         if not isinstance(v, int) or isinstance(v, bool) or v < 0:
             errs.append(f"{k} must be a non-negative integer")
+    oid = d.get("observation_id")
+    if oid is not None and (not isinstance(oid, str) or not oid.strip() or len(oid) > 128):
+        errs.append("observation_id must be a non-empty string of at most 128 characters")
     for k in d:
         if k in FORBIDDEN_KEYS:
             errs.append(f"forbidden content field {k}")
@@ -199,15 +207,32 @@ class ObservationLog:
         self.items: list[dict[str, Any]] = []
         self.counts: dict[str, int] = {s: 0 for s in STATES}
         self.tokens = {"fresh_input": 0, "cache_read": 0, "cache_write": 0, "output": 0}
+        #  Окно идемпотентности РАВНО окну хранения: наблюдение дедуплицируется
+        #  ровно столько, сколько его запись вообще существует. Наблюдение без
+        #  observation_id не дедуплицируется — молча склеивать разные события по
+        #  «похожести» полей было бы хуже, чем честный повторный счёт.
+        self._seen: dict[str, dict[str, Any]] = {}
+        self.duplicates_dropped = 0
 
     def record(self, obs: CacheObservation | Mapping[str, Any]) -> dict[str, Any]:
         d = obs.as_dict() if isinstance(obs, CacheObservation) else dict(obs)
         errs = validate_observation(d)
         if errs:
             raise ValueError("; ".join(errs))
+        key = d.get("observation_id")
+        if key is not None:
+            first = self._seen.get(key)
+            if first is not None:
+                self.duplicates_dropped += 1
+                return first
         self.items.append(d)
-        if len(self.items) > self.capacity:
-            del self.items[: len(self.items) - self.capacity]
+        if key is not None:
+            self._seen[key] = d
+        while len(self.items) > self.capacity:
+            evicted = self.items.pop(0)
+            evicted_key = evicted.get("observation_id")
+            if evicted_key is not None and self._seen.get(evicted_key) is evicted:
+                del self._seen[evicted_key]
         self.counts[d["state"]] += 1
         self.tokens["fresh_input"] += d["fresh_input_tokens"]
         self.tokens["cache_read"] += d["cache_read_tokens"]
