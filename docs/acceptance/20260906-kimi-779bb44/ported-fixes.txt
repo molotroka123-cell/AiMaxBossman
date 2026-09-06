@@ -1,0 +1,21 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\timur\AppData\Local\Temp\opencode\kimi-wt
+configfile: pyproject.toml
+plugins: asyncio-1.4.0, timeout-2.4.0, anyio-4.13.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 37 items
+
+tests\test_context_slice.py .s........                                   [ 27%]
+tests\test_skips_registry.py ..                                          [ 32%]
+tests\test_v5_observers.py ....s.s..................                     [100%]
+
+============================== warnings summary ===============================
+tests/test_skips_registry.py::test_registry_is_current_and_every_skip_has_a_reason
+tests/test_skips_registry.py::test_registry_rows_carry_owner_env_and_review
+  C:\Users\timur\AppData\Local\Temp\opencode\kimi-wt\bossman-core\tests\test_tools.py:118: SyntaxWarning: "\W" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\W"? A raw string is also an option.
+    for bad in ("../../../etc/passwd", "/etc/passwd", "C:\Windows\win.ini"):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: C:\Users\timur\AppData\Local\Temp\opencode\bossman-acceptance\20260906-kimi-779bb44\junit\ported-fixes.xml -
+================= 34 passed, 3 skipped, 2 warnings in 31.39s ==================

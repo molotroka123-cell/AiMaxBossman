@@ -1,0 +1,10 @@
+﻿
+FILTER=[objective_spec or rehydrat] => 168 passed, 541 deselected in 0.69s
+FILTER=[cas or canonical_persist] => 13 passed, 696 deselected in 0.66s
+FILTER=[observer or enroll] => 30 passed, 2 skipped, 677 deselected in 1.43s
+FILTER=[world_state or freshness] => 3 passed, 706 deselected in 0.49s
+FILTER=[dedup or proposal_dedup] => NO_SUMMARY_LINE
+FILTER=[admission] => 21 passed, 688 deselected in 1.90s
+FILTER=[grant or budget or conflict_key] => 44 passed, 665 deselected in 0.73s
+FILTER=[revoke or expire] => 29 passed, 680 deselected in 0.68s
+FILTER=[fresh_reobserv or post_mission] => 1 passed, 708 deselected in 0.37s

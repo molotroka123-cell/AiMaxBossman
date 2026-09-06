@@ -1,0 +1,9 @@
+﻿
+FILTER=[mission_dag or dependency] => 2 passed, 2490 deselected in 2.25s
+FILTER=[restart or resume] => 1 failed, 55 passed, 1 skipped, 2435 deselected in 24.78s
+FILTER=[effect_time or stale_approval] => NO_SUMMARY_LINE
+FILTER=[reobserve or current_state] => 1 passed, 2491 deselected in 2.09s
+FILTER=[obligation or replanning] => NO_SUMMARY_LINE
+FILTER=[unknown_irreversible or replay_block] => NO_SUMMARY_LINE
+FILTER=[recipe or invalidat] => 14 passed, 2478 deselected in 2.47s
+FILTER=[capability_select or recovery_checkpoint or skill_reuse or finalizer or treasury] => 2 passed, 1 skipped, 2489 deselected in 2.03s

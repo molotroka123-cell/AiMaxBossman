@@ -1,0 +1,134 @@
+﻿...........................F............F............................... [ 18%]
+..........................................F............................. [ 37%]
+.....................................................................s.. [ 55%]
+...s.....s....................................................s.....ss.. [ 74%]
+........................................s............................... [ 93%]
+...........................                                              [100%]
+================================== FAILURES ===================================
+E   AssertionError: waiting_approval
+    assert 'waiting_approval' == 'completed'
+      
+      - completed
+      + waiting_approval
+C:\Users\timur\AppData\Local\Temp\opencode\kimi-wt\command-center\tests\test_golden_missions.py:868: AssertionError: waiting_approval
+E   assert 3 == 0
+---------------------------- Captured stdout call -----------------------------
+[bcc] ╤ä╨░╨╣╨╗ ╤é╨╛╨║╨╡╨╜╨░ ╨┤╨╛╤ü╤é╤â╨┐╨░: C:\Users\timur\AppData\Local\Temp\pytest-of-timur\pytest-597\test_second_window_refused_whi0\token
+C:\Users\timur\AppData\Local\Temp\opencode\kimi-wt\command-center\tests\test_ux2_desktop.py:320: assert 3 == 0
+E   bcc.video_studio.model.StudioError: Clip extends beyond source duration
+C:\Users/timur/AppData/Local/Temp/opencode/kimi-wt/command-center/bcc\video_studio\model.py:236: bcc.video_studio.model.StudioError: Clip extends beyond source duration
+============================== warnings summary ===============================
+tests/test_continuity_desktop_ui.py::test_desktop_navigation_theme_and_mobile
+  C:\Python314\Lib\site-packages\websockets\legacy\__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
+    warnings.warn(  # deprecated in 14.0 - 2024-11-09
+
+tests/test_continuity_desktop_ui.py::test_desktop_navigation_theme_and_mobile
+  C:\Python314\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py:17: DeprecationWarning: websockets.server.WebSocketServerProtocol is deprecated
+    from websockets.server import WebSocketServerProtocol
+
+tests/test_continuity_desktop_ui.py::test_desktop_navigation_theme_and_mobile
+tests/test_continuity_desktop_ui.py::test_desktop_navigation_theme_and_mobile
+tests/test_ux2_desktop.py::test_real_chromium_app_window_renders_command_center
+tests/test_web_designer_sandbox_ui.py::test_picker_still_works_and_frame_is_isolated
+tests/test_web_designer_viewport.py::test_viewport_toolbar_changes_actual_iframe_geometry_without_editing_project
+tests/test_web_designer_viewport.py::test_viewport_toolbar_changes_actual_iframe_geometry_without_editing_project
+  C:\Python314\Lib\site-packages\websockets\legacy\server.py:1178: DeprecationWarning: remove second argument of ws_handler
+    warnings.warn("remove second argument of ws_handler", DeprecationWarning)
+
+tests/test_video_studio_advanced.py::test_long_reverse_disk_proxy_actual_pixels_audio_cache_and_pure_project[False]
+  C:\Python314\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-238 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "C:\Python314\Lib\threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "C:\Python314\Lib\threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_video_studio_read_verification.py::test_twenty_concurrent_gets_share_one_full_hash
+  C:\Python314\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-320 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "C:\Python314\Lib\threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "C:\Python314\Lib\threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 872, in call_soon_threadsafe
+      self._check_closed()
+      ~~~~~~~~~~~~~~~~~~^^
+    File "C:\Python314\Lib\asyncio\base_events.py", line 550, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_golden_missions.py::test_mission_09_video_export - Assertio...
+FAILED tests/test_ux2_desktop.py::test_second_window_refused_while_first_instance_alive
+FAILED tests/test_video_studio_cfr_frames.py::test_rational_range_keeps_selected_final_source_frame[2-4]
+3 failed, 377 passed, 8 skipped, 1563 deselected, 10 warnings in 221.94s (0:03:41)
+C:/Users/timur/AppData/Local/Temp/opencode/bossman-acceptance/20260906-6fcc406/accept-venv/Scripts/python.exe : 
+Exception ignored in atexit callback <function cleanup_numbered_dir at 0x000001465F960040>:
+At line:1 char:104
++ ... kimi-shim'; C:/Users/timur/AppData/Local/Temp/opencode/bossman-accept ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Exception ignor...001465F960040>::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Traceback (most recent call last):
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 374, in cleanup_numbered_dir
+    cleanup_dead_symlinks(root)
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 360, in cleanup_dead_symlinks
+    left_dir.unlink()
+  File "C:\Python314\Lib\pathlib\__init__.py", line 1042, in unlink
+    os.unlink(self)
+PermissionError: [WinError 5] Access is denied: 
+'C:\\Users\\timur\\AppData\\Local\\Temp\\pytest-of-timur\\pytest-current'

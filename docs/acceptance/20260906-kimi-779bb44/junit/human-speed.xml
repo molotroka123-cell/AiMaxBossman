@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="4" time="1.288" timestamp="2026-09-06T15:20:23.560541+02:00" hostname="ASD"><testcase classname="tests.test_v5_human_speed" name="test_objective_store_cas_ops_stay_under_10ms" time="0.777"><failure message="AssertionError: CAS p95 27.27 ms over 10.0 ms (61 ops)&#10;assert 27.27269999741111 &lt; 10.0">tmp_path = WindowsPath('C:/Users/timur/AppData/Local/Temp/pytest-of-timur/pytest-608/test_objective_store_cas_ops_s0')
+
+    def test_objective_store_cas_ops_stay_under_10ms(tmp_path):
+        """CAS-guarded writes (create/transition/enroll) must feel instant."""
+        store = ObjectiveStore(tmp_path / "objectives.sqlite3")
+        spec = ObjectiveSpec.from_dict(_raw_spec())
+        lat: list[float] = []
+        state = None
+        for i in range(REPEATS):
+            t0 = time.perf_counter()
+            state = store.create(ObjectiveSpec.from_dict(_raw_spec(f"obj-{i:03d}")))
+            lat.append(time.perf_counter() - t0)
+        # real CAS path with expected_version on one objective
+        state = store.enroll_sources(state.objective_id, (SOURCE,), owner_id=OWNER,
+                                     expected_version=state.version)
+        t0 = time.perf_counter()
+        state = store.transition(state.objective_id, "ACTIVE", now=100.0,
+                                 owner_id=OWNER, expected_version=state.version)
+        lat.append(time.perf_counter() - t0)
+        p95 = _p95_ms(lat)
+&gt;       assert p95 &lt; CAS_BUDGET_MS, f"CAS p95 {p95:.2f} ms over {CAS_BUDGET_MS} ms ({len(lat)} ops)"
+E       AssertionError: CAS p95 27.27 ms over 10.0 ms (61 ops)
+E       assert 27.27269999741111 &lt; 10.0
+
+tests\test_v5_human_speed.py:84: AssertionError</failure></testcase><testcase classname="tests.test_v5_human_speed" name="test_observation_cycle_is_deterministic_and_under_100ms" time="0.064"><failure message="TypeError: collect() missing 1 required keyword-only argument: 'max_observations'">tmp_path = WindowsPath('C:/Users/timur/AppData/Local/Temp/pytest-of-timur/pytest-608/test_observation_cycle_is_dete0')
+
+    def test_observation_cycle_is_deterministic_and_under_100ms(tmp_path):
+        """Same world twice → identical observation ids; whole cycle &lt; 100 ms."""
+        target = tmp_path / "report.txt"
+        target.write_text("alpha", encoding="utf-8")
+        spec = ObjectiveSpec.from_dict(_raw_spec())
+        store = ObjectiveStore(tmp_path / "objectives.sqlite3")
+        state = store.create(spec)
+        state = store.enroll_sources(state.objective_id, (SOURCE,), owner_id=OWNER,
+                                     expected_version=state.version)
+        observers = [FileStateObserver(_enrollment(spec), target),
+                     DirectoryStateObserver(_enrollment(spec), tmp_path,
+                                            max_entries=50)]
+        t0 = time.perf_counter()
+&gt;       first = collect(observers, state=state, now=100.0)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: collect() missing 1 required keyword-only argument: 'max_observations'
+
+tests\test_v5_human_speed.py:100: TypeError</failure></testcase><testcase classname="tests.test_v5_human_speed" name="test_observer_hot_path_contains_no_sleep_placeholders" time="0.001" /><testcase classname="tests.test_v5_human_speed" name="test_crash_recovery_reaches_known_good_state_under_2s" time="0.374" /></testsuite></testsuites>

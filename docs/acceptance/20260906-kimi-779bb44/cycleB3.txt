@@ -1,0 +1,7 @@
+﻿
+FILTER=[mission_dag or dependency] => 2 passed, 2490 deselected in 3.67s
+FILTER=[restart or resume] => 56 passed, 1 skipped, 2435 deselected in 23.45s
+FILTER=[reobserve or current_state] => 1 passed, 2491 deselected in 3.28s
+FILTER=[recipe or invalidat] => 14 passed, 2478 deselected in 4.11s
+FILTER=[capability_select or recovery_checkpoint or skill_reuse or finalizer or treasury] => 2 passed, 1 skipped, 2489 deselected in 4.25s
+FILTER=[stale_observation or reobserve] => 4 passed, 2488 deselected in 3.79s

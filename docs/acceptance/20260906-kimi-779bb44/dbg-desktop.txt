@@ -1,0 +1,63 @@
+﻿C:/Users/timur/AppData/Local/Temp/opencode/bossman-acceptance/20260906-6fcc406/accept-venv/Scripts/python.exe : Task 
+was destroyed but it is pending!
+At line:1 char:104
++ ... kimi-shim'; C:/Users/timur/AppData/Local/Temp/opencode/bossman-accept ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Task was destroyed but it is pending!:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+task: <Task cancelling name='Task-3' coro=<Connection.run.<locals>.init() done, defined at 
+C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\playwright\_impl\_connection.py:343> wait_for=<Future 
+finished result=None>>
+Future exception was never retrieved
+future: <Future finished exception=TargetClosedError('Target page, context or browser has been closed')>
+playwright._impl._errors.TargetClosedError: Target page, context or browser has been closed
+F                                                                        [100%]
+================================== FAILURES ===================================
+____________ test_second_window_refused_while_first_instance_alive ____________
+
+tmp_path = WindowsPath('C:/Users/timur/AppData/Local/Temp/pytest-of-timur/pytest-600/test_second_window_refused_whi0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000028887C19A70>
+
+    def test_second_window_refused_while_first_instance_alive(tmp_path, monkeypatch):
+        """?????? ???? ?? ??? ?? ??????? Chrome ????? ??????????? (profile lock).
+        ????? ????? + ????? ?????? = ????? ? ???????? ??????????, ??? ??????? Chrome."""
+        from bcc.config import settings
+    
+        _use_temp_data_dir(monkeypatch, tmp_path)
+        (tmp_path / "desktop.lock").write_text(__import__("json").dumps({"pid": 1, "port": 18923}), encoding="utf-8")
+        monkeypatch.setattr(desktop, "identify_server",
+                            lambda url, timeout=2.0: {"app": "bossman-command-center"} if ":18923/" in url else None)
+        calls = []
+        out = io.StringIO()
+        code = desktop.run(["--port", "18924", "--browser", "/bin/true", "--profile", str(tmp_path / "prof")],
+                           launcher=lambda *a, **k: (calls.append(1), 0)[1], out=out)
+>       assert code == 0
+E       assert 3 == 0
+
+tests\test_ux2_desktop.py:320: AssertionError
+---------------------------- Captured stdout call -----------------------------
+[bcc] ╤ä╨░╨╣╨╗ ╤é╨╛╨║╨╡╨╜╨░ ╨┤╨╛╤ü╤é╤â╨┐╨░: C:\Users\timur\AppData\Local\Temp\pytest-of-timur\pytest-600\test_second_window_refused_whi0\token
+============================== warnings summary ===============================
+tests/test_ux2_desktop.py::test_second_window_refused_while_first_instance_alive
+  C:\Python314\Lib\site-packages\websockets\legacy\__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
+    warnings.warn(  # deprecated in 14.0 - 2024-11-09
+
+tests/test_ux2_desktop.py::test_second_window_refused_while_first_instance_alive
+  C:\Python314\Lib\site-packages\uvicorn\protocols\websockets\websockets_impl.py:17: DeprecationWarning: websockets.server.WebSocketServerProtocol is deprecated
+    from websockets.server import WebSocketServerProtocol
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_ux2_desktop.py::test_second_window_refused_while_first_instance_alive
+1 failed, 2 warnings in 32.92s
+Exception ignored in atexit callback <function cleanup_numbered_dir at 0x00000288814CC040>:
+Traceback (most recent call last):
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 374, in cleanup_numbered_dir
+    cleanup_dead_symlinks(root)
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 360, in cleanup_dead_symlinks
+    left_dir.unlink()
+  File "C:\Python314\Lib\pathlib\__init__.py", line 1042, in unlink
+    os.unlink(self)
+PermissionError: [WinError 5] Access is denied: 
+'C:\\Users\\timur\\AppData\\Local\\Temp\\pytest-of-timur\\pytest-current'

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="4" time="0.795" timestamp="2026-09-06T15:21:11.981992+02:00" hostname="ASD"><testcase classname="tests.test_v5_human_speed" name="test_objective_store_cas_ops_stay_under_10ms" time="0.624"><failure message="AssertionError: CAS p95 14.66 ms over 10.0 ms (61 ops)&#10;assert 14.65969999844674 &lt; 10.0">tests\test_v5_human_speed.py:84: in test_objective_store_cas_ops_stay_under_10ms
+    assert p95 &lt; CAS_BUDGET_MS, f"CAS p95 {p95:.2f} ms over {CAS_BUDGET_MS} ms ({len(lat)} ops)"
+E   AssertionError: CAS p95 14.66 ms over 10.0 ms (61 ops)
+E   assert 14.65969999844674 &lt; 10.0</failure></testcase><testcase classname="tests.test_v5_human_speed" name="test_observation_cycle_is_deterministic_and_under_100ms" time="0.048"><failure message="TypeError: 'ObservationBatch' object is not iterable">tests\test_v5_human_speed.py:103: in test_observation_cycle_is_deterministic_and_under_100ms
+    assert [o.observation_id for o in first] == [o.observation_id for o in second]
+                                      ^^^^^
+E   TypeError: 'ObservationBatch' object is not iterable</failure></testcase><testcase classname="tests.test_v5_human_speed" name="test_observer_hot_path_contains_no_sleep_placeholders" time="0.001" /><testcase classname="tests.test_v5_human_speed" name="test_crash_recovery_reaches_known_good_state_under_2s" time="0.059" /></testsuite></testsuites>

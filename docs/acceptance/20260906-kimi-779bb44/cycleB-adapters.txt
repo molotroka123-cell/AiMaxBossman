@@ -1,0 +1,92 @@
+.FFF..                                                                   [100%]
+================================== FAILURES ===================================
+_ test_real_chain_completes_after_owner_approval_with_real_files_and_receipts _
+
+live = <test_v3_command_center_adapters.Live object at 0x000001884E3B9090>
+tmp_path = WindowsPath('C:/Users/timur/AppData/Local/Temp/pytest-of-timur/pytest-577/test_real_chain_completes_afte0')
+
+    def test_real_chain_completes_after_owner_approval_with_real_files_and_receipts(live, tmp_path):
+        j = _journal(tmp_path, live.work)
+        plan = _plan(live.work)
+    
+        # ╨▓╨╗╨░╨┤╨╡╨╗╨╡╤å ╨╛╨┤╨╛╨▒╤Ç╤Å╨╡╤é ╨┐╨╛ ╨╛╨┤╨╜╨╛╨╝╤â ╨┤╨╡╨╣╤ü╤é╨▓╨╕╤Ä ΓÇö ╨║╨░╨║ ╨▓ ╨╜╨░╤ü╤é╨╛╤Å╤ë╨╡╨╝ UI
+        for _ in range(3):
+            res = CompoundRunner(live.agent_(), j).run(plan)
+            if res.completed:
+                break
+>           assert live.approve_all_pending() >= 1
+E           assert 0 >= 1
+E            +  where 0 = approve_all_pending()
+E            +    where approve_all_pending = <test_v3_command_center_adapters.Live object at 0x000001884E3B9090>.approve_all_pending
+
+tests\test_v3_command_center_adapters.py:139: AssertionError
+_________ test_restart_between_steps_resumes_from_the_unfinished_one __________
+
+live = <test_v3_command_center_adapters.Live object at 0x000001884CB751D0>
+tmp_path = WindowsPath('C:/Users/timur/AppData/Local/Temp/pytest-of-timur/pytest-577/test_restart_between_steps_res0')
+
+    def test_restart_between_steps_resumes_from_the_unfinished_one(live, tmp_path):
+        j = _journal(tmp_path, live.work)
+        plan = _plan(live.work)
+    
+        CompoundRunner(live.agent_(), j).run(plan)          # s1 -> ╨╛╨╢╨╕╨┤╨░╨╜╨╕╨╡
+        live.approve_all_pending()
+        CompoundRunner(live.agent_(), j).run(plan)          # s1 ╨╕╤ü╨┐╨╛╨╗╨╜╨╡╨╜, s2 -> ╨╛╨╢╨╕╨┤╨░╨╜╨╕╨╡
+>       assert (live.work / "a.txt").exists()
+E       AssertionError: assert False
+E        +  where False = exists()
+E        +    where exists = (WindowsPath('C:/Users/timur/AppData/Local/Temp/pytest-of-timur/pytest-577/test_restart_between_steps_res0/work') / 'a.txt').exists
+E        +      where WindowsPath('C:/Users/timur/AppData/Local/Temp/pytest-of-timur/pytest-577/test_restart_between_steps_res0/work') = <test_v3_command_center_adapters.Live object at 0x000001884CB751D0>.work
+
+tests\test_v3_command_center_adapters.py:157: AssertionError
+__________ test_tool_ran_but_expected_effect_absent_is_not_completed __________
+
+live = <test_v3_command_center_adapters.Live object at 0x000001884E9842B0>
+tmp_path = WindowsPath('C:/Users/timur/AppData/Local/Temp/pytest-of-timur/pytest-577/test_tool_ran_but_expected_eff0')
+
+    def test_tool_ran_but_expected_effect_absent_is_not_completed(live, tmp_path):
+        """╨ô╤Ç╨░╨╜╨╕╤å╨░ V2, ╨┐╨╡╤Ç╨╡╨╜╨╡╤ü╤æ╨╜╨╜╨░╤Å ╨▓ V3 ╤ç╨╡╤Ç╨╡╨╖ ╨░╨┤╨░╨┐╤é╨╡╤Ç: ╨║╨╛╨╝╨░╨╜╨┤╨░ ╤Ç╨╡╨░╨╗╤î╨╜╨╛ ╨╛╤é╤Ç╨░╨▒╨╛╤é╨░╨╗╨░
+        (exit 0), ╨╜╨╛ ╨╛╨▒╤è╤Å╨▓╨╗╨╡╨╜╨╜╤ï╨╣ ╤ì╤ä╤ä╨╡╨║╤é ╨╜╨╡ ╨╜╨░╤ü╤é╤â╨┐╨╕╨╗ ΓÇö ╤ê╨░╨│ ╨╜╨╡ ╨┐╨╛╨┤╤é╨▓╨╡╤Ç╨╢╨┤╤æ╨╜."""
+        bad = TypedAction(action_type="terminal.run",
+                          args={"command": "python -c \"open('x.txt','w').write('1')\"",
+                                "mode": "project_host", "cwd": str(live.work),
+                                "expect": {"kind": "file", "target": str(live.work / "y.txt"),
+                                           "expect": {"exists": True}}})
+        plan = [PlanStep("s1", "╨╜╨░╨┐╨╕╤ü╨░╤é╤î y.txt", bad)]
+        j = TaskJournal.start(task_id="v3-live", plan=[("s1", "╨╜╨░╨┐╨╕╤ü╨░╤é╤î y.txt")],
+                              root=tmp_path / "journal")
+    
+        CompoundRunner(live.agent_(), j).run(plan)
+        live.approve_all_pending()
+        res = CompoundRunner(live.agent_(), j).run(plan)
+    
+>       assert (live.work / "x.txt").exists()               # ╨╕╨╜╤ü╤é╤Ç╤â╨╝╨╡╨╜╤é ╤Ç╨╡╨░╨╗╤î╨╜╨╛ ╤ü╤Ç╨░╨▒╨╛╤é╨░╨╗
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert False
+E        +  where False = exists()
+E        +    where exists = (WindowsPath('C:/Users/timur/AppData/Local/Temp/pytest-of-timur/pytest-577/test_tool_ran_but_expected_eff0/work') / 'x.txt').exists
+E        +      where WindowsPath('C:/Users/timur/AppData/Local/Temp/pytest-of-timur/pytest-577/test_tool_ran_but_expected_eff0/work') = <test_v3_command_center_adapters.Live object at 0x000001884E9842B0>.work
+
+tests\test_v3_command_center_adapters.py:187: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_v3_command_center_adapters.py::test_real_chain_completes_after_owner_approval_with_real_files_and_receipts
+FAILED tests/test_v3_command_center_adapters.py::test_restart_between_steps_resumes_from_the_unfinished_one
+FAILED tests/test_v3_command_center_adapters.py::test_tool_ran_but_expected_effect_absent_is_not_completed
+3 failed, 3 passed in 9.11s
+C:/Users/timur/AppData/Local/Temp/opencode/bossman-acceptance/20260906-6fcc406/accept-venv/Scripts/python.exe : 
+Exception ignored in atexit callback <function cleanup_numbered_dir at 0x0000018845904040>:
+At line:1 char:32
++ ... NG='utf-8'; C:/Users/timur/AppData/Local/Temp/opencode/bossman-accept ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Exception ignor...0018845904040>::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Traceback (most recent call last):
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 374, in cleanup_numbered_dir
+    cleanup_dead_symlinks(root)
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 360, in cleanup_dead_symlinks
+    left_dir.unlink()
+  File "C:\Python314\Lib\pathlib\__init__.py", line 1042, in unlink
+    os.unlink(self)
+PermissionError: [WinError 5] Access is denied: 
+'C:\\Users\\timur\\AppData\\Local\\Temp\\pytest-of-timur\\pytest-current'

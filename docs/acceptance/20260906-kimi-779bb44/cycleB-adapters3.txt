@@ -1,0 +1,12 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\timur\AppData\Local\Temp\opencode\kimi-wt\bossman-core
+configfile: pyproject.toml
+plugins: asyncio-1.4.0, timeout-2.4.0, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 6 items
+
+tests\test_v3_command_center_adapters.py ......                          [100%]
+
+- generated xml file: C:\Users\timur\AppData\Local\Temp\opencode\bossman-acceptance\20260906-kimi-779bb44\junit\adapters-clean.xml -
+============================== 6 passed in 7.56s ==============================

@@ -1,0 +1,19 @@
+﻿............                                                             [100%]
+12 passed, 697 deselected in 0.97s
+C:/Users/timur/AppData/Local/Temp/opencode/bossman-acceptance/20260906-6fcc406/accept-venv/Scripts/python.exe : 
+Exception ignored in atexit callback <function cleanup_numbered_dir at 0x00000289D1B40040>:
+At line:1 char:104
++ ... kimi-shim'; C:/Users/timur/AppData/Local/Temp/opencode/bossman-accept ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Exception ignor...00289D1B40040>::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Traceback (most recent call last):
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 374, in cleanup_numbered_dir
+    cleanup_dead_symlinks(root)
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 360, in cleanup_dead_symlinks
+    left_dir.unlink()
+  File "C:\Python314\Lib\pathlib\__init__.py", line 1042, in unlink
+    os.unlink(self)
+PermissionError: [WinError 5] Access is denied: 
+'C:\\Users\\timur\\AppData\\Local\\Temp\\pytest-of-timur\\pytest-current'

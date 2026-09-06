@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="3" time="4.710" timestamp="2026-09-06T15:18:39.865236+02:00" hostname="ASD"><testcase classname="tests.test_golden_missions" name="test_mission_01_real_file_create" time="1.721"><failure message="AssertionError: миссия не завершилась: waiting_approval&#10;assert 'waiting_approval' == 'completed'&#10;  &#10;  - completed&#10;  + waiting_approval">E   AssertionError: миссия не завершилась: waiting_approval
+    assert 'waiting_approval' == 'completed'
+      
+      - completed
+      + waiting_approval</failure></testcase><testcase classname="tests.test_golden_missions" name="test_mission_02_real_file_edit" time="0.946"><failure message="AssertionError: waiting_approval&#10;assert 'waiting_approval' == 'completed'&#10;  &#10;  - completed&#10;  + waiting_approval">E   AssertionError: waiting_approval
+    assert 'waiting_approval' == 'completed'
+      
+      - completed
+      + waiting_approval</failure></testcase><testcase classname="tests.test_golden_missions" name="test_mission_03_terminal_command" time="1.022"><failure message="AssertionError: waiting_approval&#10;assert 'waiting_approval' == 'completed'&#10;  &#10;  - completed&#10;  + waiting_approval">E   AssertionError: waiting_approval
+    assert 'waiting_approval' == 'completed'
+      
+      - completed
+      + waiting_approval</failure></testcase></testsuite></testsuites>

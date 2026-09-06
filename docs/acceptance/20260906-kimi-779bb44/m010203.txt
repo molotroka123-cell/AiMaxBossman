@@ -1,0 +1,82 @@
+﻿FFF                                                                      [100%]
+================================== FAILURES ===================================
+E   AssertionError: ╨╝╨╕╤ü╤ü╨╕╤Å ╨╜╨╡ ╨╖╨░╨▓╨╡╤Ç╤ê╨╕╨╗╨░╤ü╤î: waiting_approval
+    assert 'waiting_approval' == 'completed'
+      
+      - completed
+      + waiting_approval
+------------------------------ Captured log call ------------------------------
+ERROR    asyncio:base_events.py:1875 Task was destroyed but it is pending!
+task: <Task cancelling name='Task-3' coro=<Connection.run.<locals>.init() running at C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\playwright\_impl\_connection.py:344> wait_for=<Future finished result=None>>
+ERROR    asyncio:base_events.py:1875 Future exception was never retrieved
+future: <Future finished exception=TargetClosedError('Target page, context or browser has been closed')>
+playwright._impl._errors.TargetClosedError: Target page, context or browser has been closed
+C:\Users\timur\AppData\Local\Temp\opencode\kimi-wt\command-center\tests\test_golden_missions.py:408: AssertionError: ╨╝╨╕╤ü╤ü╨╕╤Å ╨╜╨╡ ╨╖╨░╨▓╨╡╤Ç╤ê╨╕╨╗╨░╤ü╤î: waiting_approval
+E   AssertionError: waiting_approval
+    assert 'waiting_approval' == 'completed'
+      
+      - completed
+      + waiting_approval
+C:\Users\timur\AppData\Local\Temp\opencode\kimi-wt\command-center\tests\test_golden_missions.py:458: AssertionError: waiting_approval
+E   AssertionError: waiting_approval
+    assert 'waiting_approval' == 'completed'
+      
+      - completed
+      + waiting_approval
+------------------------------ Captured log call ------------------------------
+ERROR    sqlalchemy.pool.impl.AsyncAdaptedQueuePool:base.py:1008 Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\pool\base.py", line 986, in _finalize_fairy
+    fairy._reset(
+    ~~~~~~~~~~~~^
+        pool,
+        ^^^^^
+    ...<2 lines>...
+        asyncio_safe=can_manipulate_connection,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\pool\base.py", line 1441, in _reset
+    pool._dialect.do_rollback(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\engine\default.py", line 712, in do_rollback
+    dbapi_connection.rollback()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 338, in rollback
+    self.await_(self._connection.rollback())
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\timur\AppData\Roaming\Python\Python314\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+C:\Users\timur\AppData\Local\Temp\opencode\kimi-wt\command-center\tests\test_golden_missions.py:498: AssertionError: waiting_approval
+=========================== short test summary info ===========================
+FAILED tests/test_golden_missions.py::test_mission_01_real_file_create - Asse...
+FAILED tests/test_golden_missions.py::test_mission_02_real_file_edit - Assert...
+FAILED tests/test_golden_missions.py::test_mission_03_terminal_command - Asse...
+3 failed in 4.71s
+C:/Users/timur/AppData/Local/Temp/opencode/bossman-acceptance/20260906-6fcc406/accept-venv/Scripts/python.exe : 
+Exception ignored in atexit callback <function cleanup_numbered_dir at 0x00000265DE9F0040>:
+At line:1 char:104
++ ... kimi-shim'; C:/Users/timur/AppData/Local/Temp/opencode/bossman-accept ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Exception ignor...00265DE9F0040>::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Traceback (most recent call last):
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 374, in cleanup_numbered_dir
+    cleanup_dead_symlinks(root)
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 360, in cleanup_dead_symlinks
+    left_dir.unlink()
+  File "C:\Python314\Lib\pathlib\__init__.py", line 1042, in unlink
+    os.unlink(self)
+PermissionError: [WinError 5] Access is denied: 
+'C:\\Users\\timur\\AppData\\Local\\Temp\\pytest-of-timur\\pytest-current'

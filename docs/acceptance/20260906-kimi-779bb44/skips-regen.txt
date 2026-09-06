@@ -1,0 +1,1 @@
+﻿registry written: docs\testing\SKIPS_REGISTRY.md entries=127 without_reason=0

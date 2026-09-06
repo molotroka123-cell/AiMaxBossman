@@ -1,0 +1,9 @@
+﻿
+FILTER=[mission_dag or dependency] => NO_SUMMARY_LINE
+FILTER=[restart or resume] => NO_SUMMARY_LINE
+FILTER=[effect_time or stale_approval] => NO_SUMMARY_LINE
+FILTER=[reobserve or current_state] => NO_SUMMARY_LINE
+FILTER=[obligation or replanning] => NO_SUMMARY_LINE
+FILTER=[unknown_irreversible or replay_block] => NO_SUMMARY_LINE
+FILTER=[recipe or invalidat] => NO_SUMMARY_LINE
+FILTER=[capability_select or recovery_checkpoint or skill_reuse or finalizer or treasury] => NO_SUMMARY_LINE

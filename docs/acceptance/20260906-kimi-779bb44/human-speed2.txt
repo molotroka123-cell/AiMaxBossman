@@ -1,0 +1,33 @@
+﻿FF..                                                                     [100%]
+================================== FAILURES ===================================
+________________ test_objective_store_cas_ops_stay_under_10ms _________________
+tests\test_v5_human_speed.py:84: in test_objective_store_cas_ops_stay_under_10ms
+    assert p95 < CAS_BUDGET_MS, f"CAS p95 {p95:.2f} ms over {CAS_BUDGET_MS} ms ({len(lat)} ops)"
+E   AssertionError: CAS p95 14.66 ms over 10.0 ms (61 ops)
+E   assert 14.65969999844674 < 10.0
+___________ test_observation_cycle_is_deterministic_and_under_100ms ___________
+tests\test_v5_human_speed.py:103: in test_observation_cycle_is_deterministic_and_under_100ms
+    assert [o.observation_id for o in first] == [o.observation_id for o in second]
+                                      ^^^^^
+E   TypeError: 'ObservationBatch' object is not iterable
+=========================== short test summary info ===========================
+FAILED tests/test_v5_human_speed.py::test_objective_store_cas_ops_stay_under_10ms
+FAILED tests/test_v5_human_speed.py::test_observation_cycle_is_deterministic_and_under_100ms
+2 failed, 2 passed in 0.83s
+C:/Users/timur/AppData/Local/Temp/opencode/bossman-acceptance/20260906-6fcc406/accept-venv/Scripts/python.exe : 
+Exception ignored in atexit callback <function cleanup_numbered_dir at 0x00000116CEA60040>:
+At line:1 char:104
++ ... kimi-shim'; C:/Users/timur/AppData/Local/Temp/opencode/bossman-accept ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Exception ignor...00116CEA60040>::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Traceback (most recent call last):
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 374, in cleanup_numbered_dir
+    cleanup_dead_symlinks(root)
+  File "C:\Python314\Lib\site-packages\_pytest\pathlib.py", line 360, in cleanup_dead_symlinks
+    left_dir.unlink()
+  File "C:\Python314\Lib\pathlib\__init__.py", line 1042, in unlink
+    os.unlink(self)
+PermissionError: [WinError 5] Access is denied: 
+'C:\\Users\\timur\\AppData\\Local\\Temp\\pytest-of-timur\\pytest-current'
