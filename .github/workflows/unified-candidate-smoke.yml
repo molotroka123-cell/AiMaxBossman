@@ -1,0 +1,70 @@
+name: Unified candidate smoke
+
+on:
+  push:
+    branches:
+      - integration/bossman-unified-20260906
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unified-candidate-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  merge-tripwires:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Record exact checkout and require both source ancestors
+        shell: bash
+        run: |
+          mkdir -p integration-results
+          git rev-parse HEAD | tee integration-results/sha.txt
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git merge-base --is-ancestor b85ab17c3ec46c7ba10ca33270cc6d2b95e83a33 HEAD
+          git merge-base --is-ancestor dc0d149b91bee6617f5d2d207e99cd744eb24905 HEAD
+      - name: Install isolated developer dependencies
+        run: python -m pip install -e . -e "./bossman-core[dev]" -e "./command-center[dev]"
+      - name: Shared desktop contract (not visual acceptance)
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test command-center/tests/js/desktop.test.mjs command-center/tests/js/unified_shell.test.mjs | tee integration-results/desktop.log
+      - name: Pure epoch contracts
+        run: python -m pytest tests/test_epoch4_mission_ir.py tests/test_epoch5_objective_spec.py -q --junitxml=integration-results/epoch.xml
+      - name: Journal and recovery tripwires
+        working-directory: bossman-core
+        run: python -m pytest tests/test_v3_authenticated_journal.py tests/test_epoch4_golden_foundation.py -q --timeout=120 --junitxml=../integration-results/core.xml
+      - name: Approval, finalizer, native effect and web tripwires
+        working-directory: command-center
+        run: >-
+          python -m pytest tests/test_approval_resume_matrix.py
+          tests/test_finalize_capability_match.py tests/test_finalize_unclassified_failure.py
+          tests/test_video_native_finalize_contract.py tests/test_web_designer.py
+          -q --timeout=120 --junitxml=../integration-results/cc.xml
+      - name: README projection and whitespace
+        run: |
+          python scripts/update_readme_scorecard.py --check
+          git diff --check HEAD^ HEAD
+      - name: Retain actual results, including partial failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-smoke-${{ github.sha }}
+          path: integration-results/
+          if-no-files-found: error
+          retention-days: 7

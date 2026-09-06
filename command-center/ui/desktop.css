@@ -97,3 +97,27 @@ body { background: var(--desktop-wallpaper); background-attachment: fixed; }
   .shell, .desktop-dock, .topbar { background: Canvas; backdrop-filter: none; }
   .desktop-dock-item.active, .nav-item.active { outline: 2px solid Highlight; }
 }
+
+/* Unified workspace polish. Layout only: no status, policy or editor overrides. */
+@media (min-width: 901px) {
+  .desktop-dock {
+    box-sizing: border-box;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+    /* Start alignment keeps the first launcher reachable when labels overflow. */
+    justify-content: flex-start;
+  }
+  .desktop-dock-item {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    max-width: 10rem;
+    line-height: 1.35;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .desktop-dock-item svg { flex-shrink: 0; }
+  /* Inset focus remains visible inside the scroll container. */
+  .desktop-dock-item:focus-visible { outline-offset: -3px; }
+}
