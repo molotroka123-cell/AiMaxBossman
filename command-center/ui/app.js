@@ -157,6 +157,10 @@ function navigate(id, params = null) {
     : '';
   const next = `#/${id}${query}`;
   if (location.hash === next) { onRoute(); return; }
+  // Активное состояние навигации — сразу, в том же тике, что и клик. Иначе
+  // между сменой hash и асинхронным hashchange (onRoute → syncNav) есть окно,
+  // в котором URL уже новый, а в доке/меню подсвечена прежняя страница.
+  if (PAGE_BY_ID.has(id)) { currentPage = id; syncNav(); }
   location.hash = next;
 }
 
