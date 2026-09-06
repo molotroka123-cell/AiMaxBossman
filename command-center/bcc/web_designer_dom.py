@@ -296,7 +296,37 @@ def parse_fragment(html: str) -> list[Node]:
             f"фрагмент не сбалансирован: лишний закрывающий тег </{stray}> — "
             "он бы разрушил разметку вокруг элемента")
     wrapper = next((n for n in builder.root.children if n.is_element(_FRAGMENT_WRAP)), None)
-    return list(wrapper.children) if wrapper is not None else []
+    if wrapper is None:
+        return []
+    # A9-01/A9-03. Лишний ЗАКРЫВАЮЩИЙ тег ловился, а НЕЗАКРЫТЫЙ ОТКРЫВАЮЩИЙ —
+    # нет, и это хуже: `serialize` сознательно не изобретает закрывающих тегов,
+    # поэтому элемент уезжал в документ открытым и при следующем разборе
+    # проглатывал всё, что шло за точкой замены. Воспроизведено: замена `p` на
+    # `<div class="x">text` давала `<div class="x">text<p>after</p>` — соседний
+    # абзац оказывался ВНУТРИ div, и пользователю не сообщалось ничего.
+    unclosed = _unclosed_elements(wrapper)
+    if unclosed:
+        raise ValueError(
+            f"фрагмент не сбалансирован: незакрытый тег <{unclosed[0]}> — "
+            "он бы поглотил разметку, идущую следом за элементом")
+    return list(wrapper.children)
+
+
+def _unclosed_elements(node: Node) -> list[str]:
+    """Элементы фрагмента, которые открылись и не закрылись.
+
+    Пустой `raw_endtag` означает, что закрывающего тега в исходнике не было.
+    Пустые элементы (`<br>`, `<img>`) и самозакрытые его и не имеют — они не в
+    счёт.
+    """
+    out: list[str] = []
+    for child in node.children:
+        if not child.tag or child.tag in VOID_TAGS or child.self_closing:
+            continue
+        if not child.raw_endtag:
+            out.append(child.tag)
+        out.extend(_unclosed_elements(child))
+    return out
 
 
 # ---------------------------------------------------------------- сборка
@@ -476,9 +506,39 @@ def resolve_element(root: Node, bd_id: str | None, path: str | None) -> Node | N
 
 # ---------------------------------------------------------------- операции
 
+def _split_declarations(raw: str) -> list[str]:
+    """Разбить style по `;`, НЕ ломая значения, внутри которых он законен.
+
+    Слепой `split(";")` резал `url(data:image/png;base64,...)` пополам:
+    свойство становилось `url(data:image/png`, а `base64,...` превращалось в
+    чужое объявление. Правка любого другого свойства затем пересобирала
+    атрибут из этого мусора — картинка исчезала необратимо, без ошибки.
+    То же с кавычками: `font-family:"a;b"`.
+    """
+    out, current, depth, quote = [], [], 0, ""
+    for ch in raw or "":
+        if quote:
+            current.append(ch)
+            if ch == quote:
+                quote = ""
+            continue
+        if ch in "\"'":
+            quote = ch
+        elif ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        elif ch == ";" and depth == 0:
+            out.append("".join(current)); current = []
+            continue
+        current.append(ch)
+    out.append("".join(current))
+    return out
+
+
 def _parse_style(raw: str) -> dict[str, str]:
     style: dict[str, str] = {}
-    for part in (raw or "").split(";"):
+    for part in _split_declarations(raw):
         if ":" not in part:
             continue
         prop, _, value = part.partition(":")

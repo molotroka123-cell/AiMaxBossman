@@ -57,6 +57,11 @@ MAX_HTML_CHARS = dom.MAX_HTML_CHARS
 MAX_PROJECTS = 100
 MAX_VERSIONS = 50
 AI_MAX_TOKENS = 8192
+# Сколько документа помещается в запрос к модели при правке ВСЕГО документа.
+# Раньше документ просто резался до этой длины, а ответ сохранялся как «полный
+# документ»: всё, что было дальше, исчезало из сайта без единого сообщения.
+# Теперь это ГРАНИЦА ОТКАЗА, а не тихое усечение.
+AI_DOCUMENT_LIMIT = 120_000
 
 _TAG_RE = re.compile(r"<[a-zA-Z!/]")          # «похоже на HTML», а не случайный текст
 _NOTE_RE = re.compile(r"[\r\n\t]+")
@@ -464,7 +469,18 @@ async def ai_edit(pid: int, body: AiEditIn, request: Request):
         system = ("Ты — веб-дизайнер. Тебе дают полный HTML-документ и запрос на правку. "
                   "Верни ТОЛЬКО полный обновлённый HTML-документ, без пояснений "
                   "и без markdown-ограждений.")
-        user = f"Документ:\n{html[:120000]}\n\nЗапрос: {body.prompt}"
+        if len(html) > AI_DOCUMENT_LIMIT:
+            # A9-01. Отказ вместо потери хвоста сайта: модель физически не
+            # увидит документ целиком, а её ответ сохраняется КАК ПОЛНЫЙ
+            # документ, и проверяется при этом только версия и общий предел
+            # длины — не полнота. Правка отдельного элемента остаётся доступной
+            # и на большом документе, поэтому выход есть, и он назван.
+            raise HTTPException(
+                status_code=413,
+                detail=(f"документ длиннее {AI_DOCUMENT_LIMIT} символов — правка всего "
+                        f"документа целиком отбросила бы {len(html) - AI_DOCUMENT_LIMIT} "
+                        "символов. Выберите элемент и поправьте его."))
+        user = f"Документ:\n{html}\n\nЗапрос: {body.prompt}"
 
     from ..providers import ProviderError
     try:
@@ -502,12 +518,15 @@ def _extract_html(text: str, fragment: bool) -> str:
         raw = fence.group(1).strip()
     if fragment:
         return raw
-    match = re.search(r"<!DOCTYPE.*?</html>", raw, re.S | re.I)
-    if match:
-        return match.group(0)
-    match = re.search(r"<html.*?</html>", raw, re.S | re.I)
-    if match:
-        return match.group(0)
+    # A9-02. Раньше здесь стоял нежадный `.*?</html>`, то есть документ резался
+    # по ПЕРВОМУ `</html>` — даже когда тот был строковым литералом внутри
+    # `<script>var s="</html>";</script>` или в JSON-LD. Середина сайта
+    # терялась молча. Настоящий конец документа — ПОСЛЕДНИЙ `</html>`, поэтому
+    # поиск жадный.
+    for pattern in (r"<!DOCTYPE.*</html>", r"<html.*</html>"):
+        match = re.search(pattern, raw, re.S | re.I)
+        if match:
+            return match.group(0)
     if _TAG_RE.search(raw[:500]):
         return raw
     raise HTTPException(status_code=502, detail="модель вернула не HTML — попробуйте переформулировать")
