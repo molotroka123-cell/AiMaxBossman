@@ -102,3 +102,20 @@ test('rotation round trip is exact; invalid container geometry is rejected', () 
     assert.throws(() => viewportGeometry(initial, 720, size));
   }
 });
+
+test('fit width preserves readable tall pages and persists per project', () => {
+  const tall = viewportSettings(1440, 4096, 'width');
+  const storage = new Storage();
+  assert.equal(saveViewport(storage, 7, tall), true);
+  assert.deepEqual(loadViewport(storage, 7), tall);
+  assert.equal(loadViewport(storage, 8).zoom, 'fit');
+  const result = viewportGeometry(loadViewport(storage, 7), 720, 300);
+  assert.equal(result.scale, 0.5);
+  assert.equal(result.renderedWidth, 720);
+  assert.equal(result.renderedHeight, 2048);
+  assert.equal(result.height, 4096);
+  assert.equal(viewportGeometry(tall, 720, 100).scale, result.scale);
+  assert.equal(viewportGeometry(tall, 360, 300).scale, 0.25);
+  assert.equal(viewportGeometry(tall, 2000, 300).scale, 1);
+  assert.equal(viewportGeometry(viewportSettings(1440, 4096, 'fit'), 720, 300).renderedHeight, 300);
+});

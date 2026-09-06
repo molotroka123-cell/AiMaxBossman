@@ -59,13 +59,27 @@ def test_viewport_toolbar_changes_actual_iframe_geometry_without_editing_project
             page.get_by_label("Масштаб превью", exact=True).select_option("0.5")
             geometry = page.locator("iframe.bd-frame").evaluate("el => ({w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height})")
             assert geometry == {"w": 422, "h": 195}
+            page.get_by_label("Высота превью", exact=True).fill("4096")
+            page.get_by_role("button", name="Применить размер", exact=True).click()
+            page.get_by_label("Масштаб превью", exact=True).select_option("width")
+            geometry = page.locator("iframe.bd-frame").evaluate("""el => {
+              const stage = document.querySelector('.bd-viewport-stage');
+              const rect = el.getBoundingClientRect();
+              return {w:rect.width,h:rect.height,available:stage.clientWidth-24,
+                scrolls:stage.scrollHeight > stage.clientHeight};
+            }""")
+            assert geometry["w"] == pytest.approx(min(844, geometry["available"]), abs=1)
+            assert geometry["h"] / geometry["w"] == pytest.approx(4096 / 844)
+            assert geometry["scrolls"]
+            assert frame.locator("body").evaluate("() => window.innerWidth") == 844
             page.get_by_label("Ширина превью", exact=True).fill("0")
             page.get_by_role("button", name="Применить размер", exact=True).click()
             assert frame.locator("body").evaluate("() => window.innerWidth") == 844
             page.reload()
             page.wait_for_selector("iframe.bd-frame")
             page.wait_for_function("() => document.querySelector('iframe.bd-frame').style.width === '844px'")
-            assert page.get_by_label("Масштаб превью", exact=True).input_value() == "0.5"
+            assert page.get_by_label("Масштаб превью", exact=True).input_value() == "width"
+            assert frame.locator("body").evaluate("() => window.innerHeight") == 4096
             final = page.evaluate("async id => (await fetch(`/api/web-designer/projects/${id}`)).json()", pid)
             assert final == initial  # no code, metadata, or version-history mutation
             assert page.get_attribute("iframe.bd-frame", "sandbox") == "allow-scripts"

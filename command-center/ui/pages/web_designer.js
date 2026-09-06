@@ -366,6 +366,7 @@ function previewPanel(ctx) {
   const height = dimension('Высота превью', viewport.height);
   const zoom = h('select', { 'aria-label': 'Масштаб превью' },
     h('option', { value: 'fit' }, 'Вписать'),
+    h('option', { value: 'width' }, 'По ширине'),
     VIEWPORT_ZOOMS.map((z) => h('option', { value: String(z) }, `${z * 100}%`)));
   function syncControls() {
     width.value = String(viewport.width); height.value = String(viewport.height);
@@ -403,7 +404,7 @@ function previewPanel(ctx) {
     if (event.key === 'Enter') { event.preventDefault(); applyDimensions(); }
   });
   zoom.addEventListener('change', () => accept(viewportSettings(viewport.width, viewport.height,
-    zoom.value === 'fit' ? 'fit' : Number(zoom.value))));
+    ['fit', 'width'].includes(zoom.value) ? zoom.value : Number(zoom.value))));
   const tools = h('div.bd-viewport-tools', preset,
     h('label', 'Ш', width), h('label', 'В', height),
     btn('Применить размер', applyDimensions, { variant: 'ghost', size: 'sm' }),

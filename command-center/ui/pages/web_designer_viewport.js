@@ -14,7 +14,7 @@ export function viewportSettings(width = 1440, height = 900, zoom = 'fit') {
       throw new RangeError('Ширина и высота: целые числа от 240 до 4096 пикселей');
     }
   }
-  if (zoom !== 'fit' && !VIEWPORT_ZOOMS.includes(zoom)) {
+  if (zoom !== 'fit' && zoom !== 'width' && !VIEWPORT_ZOOMS.includes(zoom)) {
     throw new RangeError('Выберите доступный масштаб или «Вписать»');
   }
   return Object.freeze({ schemaVersion: 1, width, height, zoom });
@@ -66,6 +66,7 @@ export function viewportGeometry(settings, availableWidth, availableHeight) {
   if (![availableWidth, availableHeight].every((v) => Number.isFinite(v) && v > 0)) {
     throw new RangeError('Viewport container must have positive finite dimensions');
   }
-  const scale = zoom === 'fit' ? Math.min(1, availableWidth / width, availableHeight / height) : zoom;
+  const scale = zoom === 'fit' ? Math.min(1, availableWidth / width, availableHeight / height)
+    : zoom === 'width' ? Math.min(1, availableWidth / width) : zoom;
   return Object.freeze({ width, height, scale, renderedWidth: width * scale, renderedHeight: height * scale });
 }
