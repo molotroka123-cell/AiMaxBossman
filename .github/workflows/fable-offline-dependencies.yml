@@ -1,0 +1,23 @@
+name: Offline closure dependency wheels
+on:
+  push:
+    branches: [audit/fable-closure-source-20260906]
+    paths: [.github/workflows/fable-offline-dependencies.yml]
+permissions:
+  contents: read
+jobs:
+  wheels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Fetch dependency wheels for isolated reproduction
+        run: python -m pip download --only-binary=:all: --no-deps -d closure-wheelhouse aiosqlite asyncpg redis pytest-timeout socksio
+      - uses: actions/upload-artifact@v4
+        with:
+          name: closure-wheelhouse
+          path: closure-wheelhouse/
+          retention-days: 1
+          if-no-files-found: error
