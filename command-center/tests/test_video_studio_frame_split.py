@@ -255,15 +255,13 @@ async def _render_split_fixture(tmp_path):
 @pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="local FFmpeg/ffprobe required")
 async def test_real_linked_split_render_matches_baseline_without_source_mutation(tmp_path):
     baseline_frames, frames = await _render_split_fixture(tmp_path)
-    # Relative edit regression only; the exact 25-frame oracle below remains
-    # open because the unchanged baseline renderer itself emits 24 frames.
+    # Relative edit regression plus the separate exact 25-frame oracle below.
     assert len(frames) == baseline_frames
     assert [float(frame["best_effort_timestamp_time"]) for frame in frames] == pytest.approx([i / 25 for i in range(len(frames))])
 
 
 @pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="local FFmpeg/ffprobe required")
-@pytest.mark.xfail(strict=True, reason="BASE ac2cde8 renderer emits 24/25 frames for both unsplit and split one-second CFR fixture; export qualification remains blocked")
-async def test_open_baseline_exact_export_frame_count(tmp_path):
+async def test_exact_export_frame_count(tmp_path):
     baseline_frames, frames = await _render_split_fixture(tmp_path)
     assert len(frames) == baseline_frames == 25, f"baseline={baseline_frames}, split={len(frames)}, expected=25"
 

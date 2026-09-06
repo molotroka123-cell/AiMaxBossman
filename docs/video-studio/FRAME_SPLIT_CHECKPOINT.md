@@ -50,7 +50,7 @@ API and native tool handler. No paid/model/cloud calls.
   fix and regression are included. Full browser interaction, Windows and GPU
   render qualification were not run for this checkpoint.
 
-## Open baseline export defect — not waived
+## Historical baseline export defect — resolved by the CFR checkpoint
 
 A 1-second CFR source has 25 frames at 25 fps. The existing renderer emits
 **24 frames for the unsplit baseline and 24 for the split result**, despite its
@@ -58,12 +58,15 @@ current duration/decode verifier reporting PASS. `render.py` and `media.py` are
 byte-for-byte unchanged from the base. The unsplit fixture uses unchanged
 clip.add/clip.detach_audio operations; no split code participates in that render.
 
-`test_open_baseline_exact_export_frame_count` retains the exact 25-frame oracle
-as a **strict xfail**, separately from the passing edit/non-regression fixture.
-Do not describe this as full export acceptance. Fix the renderer and strengthen
-its exact-frame verification in a separate checkpoint; remove this expected
-failure only after the oracle passes. The split operation itself introduces no
-frame-count regression in this paired fixture.
+At the initial editing checkpoint, `test_open_baseline_exact_export_frame_count`
+retained the exact 25-frame oracle as a **strict xfail**, separately from the
+passing edit/non-regression fixture. The following CFR checkpoint fixes the
+renderer and replaces that expected failure with normal passing
+`test_exact_export_frame_count`. See `CFR_RENDER_CHECKPOINT.md` for endpoint
+content, rational-range and independently counted frame evidence. Historical
+counts above describe the initial editing checkpoint, not the current renderer.
+Full export acceptance remains open because a separate color-preview baseline
+failure and platform/hardware qualification are outstanding.
 
 Other existing limitations outside this slice: trim source-in/keyframe timeline
 semantics need a dedicated review; nonlinear easing is not losslessly split by

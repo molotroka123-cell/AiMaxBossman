@@ -431,6 +431,36 @@ class Compiler:
 AUDIO_EFFECTS={"volume","audio_fade_in","audio_fade_out","equalizer","compressor","limiter","denoise","loudnorm","ducking"}
 
 
+def cfr_frame_count(duration_ticks, fps, *, start_ticks=0):
+    """Frames whose start belongs to the half-open requested interval.
+
+    Project time is rounded to microseconds. Subtract half a tick before ceil
+    so a rational frame boundary rounded upward is not mistaken for an extra
+    frame. Arbitrary durations otherwise round upward to the containing frame.
+    This is the CFR render policy; stream-copy/VFR does not use this contract.
+    """
+    if type(duration_ticks) is not int or not 0 < duration_ticks <= 86_400 * TICKS:
+        raise ValueError("CFR duration must be positive bounded integer ticks")
+    if type(start_ticks) is not int or not 0 <= start_ticks <= 86_400 * TICKS - duration_ticks:
+        raise ValueError("CFR range start must be bounded integer ticks")
+    fps = rate(fps)
+    if fps > 240:
+        raise ValueError("CFR frame rate exceeds supported limit")
+    # Two independently rounded range endpoints can differ by almost a full
+    # tick. Recognize each boundary separately before subtracting frame IDs.
+    indices = []
+    for endpoint in (start_ticks, start_ticks + duration_ticks):
+        position = Fraction(endpoint, TICKS) * fps
+        index = (2 * position.numerator + position.denominator) // (2 * position.denominator)
+        if abs(Fraction(endpoint) - index * TICKS / fps) > Fraction(1, 2):
+            break
+        indices.append(index)
+    if len(indices) == 2 and indices[1] > indices[0]:
+        return indices[1] - indices[0]
+    span = Fraction(2 * duration_ticks - 1, 2 * TICKS) * fps
+    return max(1, -(-span.numerator // span.denominator))
+
+
 async def verify_output(path, expected=None):
     """Independent metadata and full decode verification; no success from file existence."""
     path=Path(path);expected=expected or {}
@@ -448,10 +478,39 @@ async def verify_output(path, expected=None):
         decoded=True
     except ValueError:
         decoded=False;failures.append("full decode failed")
+    observed_frames = None
+    if "frame_count" in expected:
+        target_frames = expected["frame_count"]
+        if type(target_frames) is not int or not 1 <= target_frames <= 86_400 * 240:
+            raise ValueError("expected frame count must be a bounded positive integer")
+        try:
+            # nb_read_frames is counted from decoded frames; container nb_frames
+            # may be absent or misleading and is never the acceptance oracle.
+            raw, _ = await process([binary("ffprobe"), "-v", "error", *input_args(path),
+                "-select_streams", "v:0", "-count_frames", "-show_entries", "stream=nb_read_frames",
+                "-of", "json"], timeout=3600, max_output=65536)
+            streams = json.loads(raw).get("streams", [])
+            value = streams[0].get("nb_read_frames") if len(streams) == 1 else None
+            if not isinstance(value, str) or not value.isdigit():
+                raise ValueError("decoded frame count unavailable")
+            observed_frames = int(value)
+            if observed_frames != target_frames:
+                failures.append("decoded frame count mismatch")
+        except (ValueError, TypeError, KeyError):
+            failures.append("decoded frame count unavailable")
     sampled=[]
     if decoded and info["has_video"]:
         duration=info["duration_ticks"]/TICKS
-        for when in sorted(set([0, duration*.5, max(0,duration-.12)])):
+        if "frame_count" in expected and "fps" in expected:
+            # Seek halfway before the chosen frame. Exact rational timestamps
+            # round to microseconds in -ss; seeking at a rounded-up timestamp
+            # can skip the final frame, especially in one-frame exports.
+            frame_rate = float(rate(expected["fps"]))
+            indices = sorted({0, expected["frame_count"] // 2, expected["frame_count"] - 1})
+            sample_times = [max(0, (index - .5) / frame_rate) for index in indices]
+        else:
+            sample_times = sorted(set([0, duration*.5, max(0,duration-.12)]))
+        for when in sample_times:
             raw,_=await process([binary("ffmpeg"),"-hide_banner","-loglevel","error","-nostdin","-ss",fmt(when),
                 *input_args(path),"-frames:v","1","-vf","scale=16:16","-pix_fmt","rgb24","-f","rawvideo","pipe:1"],timeout=60)
             if len(raw)!=16*16*3:
@@ -466,7 +525,8 @@ async def verify_output(path, expected=None):
     content_digest=await blocking(digest_file,path)
     if expected.get("sha256") and expected["sha256"]!=content_digest:failures.append("artifact content hash mismatch")
     return {**info,"bytes":path.stat().st_size,"sha256":content_digest,"decoded":decoded,"sample_frames":sampled,
-        "av_start_offset_ticks":offset,"passed":not failures,"failures":failures}
+        "av_start_offset_ticks":offset,"decoded_video_frames":observed_frames,
+        "passed":not failures,"failures":failures}
 
 
 def publish(partial, output_path):
@@ -600,7 +660,27 @@ async def render_project(project, root, output_path, options=None, progress=None
         if options.get("range"):
             start,end=seconds(options["range"]["start"]),seconds(options["range"]["end"])
             if not 0<=start<end<=duration:raise ValueError("export range outside sequence")
-        v=compiler.node([v],f"trim=start={fmt(start)}:end={fmt(end)},setpts=PTS-STARTPTS,scale={width}:{height}:flags=lanczos,setsar=1,fps={fps},format=yuv420p")
+        duration_ticks = round((end-start)*TICKS)
+        expected_frames = cfr_frame_count(duration_ticks, {"num":fps.numerator,"den":fps.denominator}, start_ticks=round(start*TICKS))
+        # Framesync composition can end at the final frame's timestamp. The fps
+        # filter needs a following timestamp to release that REAL final frame.
+        # Supply bounded temporal lookahead, then trim by the immutable CFR
+        # count; padding never becomes an additional published output frame.
+        lookahead = 1 / rate(seq["fps"]) + 1 / fps
+        sequence_fps = rate(seq["fps"])
+        range_indices = []
+        for endpoint in (round(start*TICKS), round(end*TICKS)):
+            position = Fraction(endpoint, TICKS) * sequence_fps
+            index = (2 * position.numerator + position.denominator) // (2 * position.denominator)
+            if abs(Fraction(endpoint) - index * TICKS / sequence_fps) > Fraction(1, 2):
+                break
+            range_indices.append(index)
+        # A frame-aligned start rounded UP to a microsecond must not discard
+        # that intended source frame. Trim composed CFR frames by their integer
+        # indices when both endpoints identify sequence boundaries.
+        trim = (f"trim=start_frame={range_indices[0]}:end_frame={range_indices[1]}"
+                if len(range_indices) == 2 else f"trim=start={fmt(start)}:end={fmt(end)}")
+        v=compiler.node([v],f"{trim},setpts=PTS-STARTPTS,scale={width}:{height}:flags=lanczos,setsar=1,tpad=stop_mode=clone:stop_duration={fmt(lookahead)},fps={fps}:start_time=0,trim=end_frame={expected_frames},format=yuv420p")
         a=compiler.node([a],f"atrim=start={fmt(start)}:end={fmt(end)},asetpts=PTS-STARTPTS")
         graph=Path(td)/"graph.txt";graph.write_text(";\n".join(compiler.graph),encoding="utf-8")
         partial=Path(td)/("output"+output_path.suffix)
@@ -623,7 +703,8 @@ async def render_project(project, root, output_path, options=None, progress=None
         await process(argv,progress=progress,stage="rendering",timeout=24*3600)
         if progress:await progress("verifying",{})
         verification=await verify_output(partial,{"width":width,"height":height,"has_video":True,"has_audio":True,
-            "duration_ticks":round((end-start)*TICKS),"fps":{"num":fps.numerator,"den":fps.denominator}})
+            "duration_ticks":duration_ticks,"fps":{"num":fps.numerator,"den":fps.denominator},
+            "frame_count":expected_frames})
         if not verification["passed"]:raise ValueError("export failed independent verification: "+", ".join(verification["failures"]))
         # Exclusive publication prevents a concurrent export from replacing an artifact.
         publish(partial,output_path)
