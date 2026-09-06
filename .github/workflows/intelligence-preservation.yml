@@ -1,0 +1,52 @@
+name: Intelligence Preservation
+
+on:
+  push:
+    branches:
+      - claude/bossman-control-v03-43igbk
+      - sol/intelligence-preservation-gate
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate-contract:
+    name: anti-dumbness gate contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Verify fail-closed intelligence gate
+        run: python -m pytest -q tests/test_intelligence_preservation_gate.py
+
+  measured-gate:
+    name: measured intelligence retention
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ hashFiles('docs/benchmark/intelligence-preservation-current.json') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Evaluate current measured benchmark
+        run: >-
+          python tools/intelligence_preservation_gate.py
+          docs/benchmark/intelligence-preservation-current.json
+          --output intelligence-preservation-report.json
+          --core-retention-min 0.98
+          --tool-retention-min 1.0
+          --min-samples 20
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: intelligence-preservation-report
+          path: intelligence-preservation-report.json
+          if-no-files-found: error
