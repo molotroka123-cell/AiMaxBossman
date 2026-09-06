@@ -58,6 +58,17 @@ class FencedOut(RuntimeError):
         self.run_id, self.fence = run_id, fence
 
 
+class AmbiguousPriorEffect(RuntimeError):
+    """A prior attempt dispatched this non-idempotent action and died before
+    journaling its outcome. The effect may or may not have happened; only the
+    owner may decide whether it runs again (Execution Truth §7/§9)."""
+
+    def __init__(self, prior: dict):
+        super().__init__(f"{prior.get('tool')}: dispatched by attempt of run {prior.get('run_id')} "
+                         "before a crash; outcome never journaled")
+        self.prior = prior
+
+
 class CriticalHookFailure(Exception):
     """Критичный хук упал/завис/вернул мусор — run не может считаться выполненным."""
 
@@ -764,6 +775,7 @@ class TaskEngine:
                 return
 
         await self._start(run_id, task["id"])
+        await self._mark_interrupted_dispatches(run_id, task["id"])
         if executor is not None:
             try:
                 await self.assert_fence(run_id)
@@ -1093,6 +1105,15 @@ class TaskEngine:
                                     tool=spec.name, reason=reason)
                 continue
 
+            if effect == "ask" and not getattr(spec, "idempotent", True):
+                # One owner decision, not two: if a previous attempt already dispatched
+                # this exact action and crashed before its receipt, the question is not
+                # "may it run" but "did it already happen" — ask that directly.
+                ambiguous = await self._ambiguous_prior(task["id"], run_id, spec.name, call.arguments)
+                if ambiguous is not None:
+                    await self._park_reconciliation(run_id, task, agent, messages, call, spec, step,
+                                                    remaining=calls[index + 1:], prior=ambiguous, usage=usage)
+                    return True
             if effect == "ask":
                 # F-013: одобрение привязывается к digest'у (инструмент + отпечаток
                 # реализации + канонические аргументы + capability + контекст).
@@ -1130,14 +1151,24 @@ class TaskEngine:
                                 f"{spec.name}: нужно подтверждение ({reason})")
                 return True
 
-            await self._run_tool_now(run_id, task, agent, messages, call, spec, step)
+            try:
+                await self._run_tool_now(run_id, task, agent, messages, call, spec, step)
+            except AmbiguousPriorEffect as exc:
+                await self._park_reconciliation(run_id, task, agent, messages, call, spec, step,
+                                                remaining=calls[index + 1:], prior=exc.prior, usage=usage)
+                return True
         return False
 
     async def _run_tool_now(self, run_id: int, task: dict, agent: dict,
                             messages: list[dict], call: Any, spec: Any, step: int,
                             *, approval_id: int | None = None,
-                            approved_by: str | None = None) -> None:
-        """Выполнить инструмент и положить результат в историю как tool-сообщение."""
+                            approved_by: str | None = None,
+                            reconcile_prior: int | None = None) -> None:
+        """Выполнить инструмент и положить результат в историю как tool-сообщение.
+
+        `reconcile_prior` — id строки tool_calls прежней прерванной отправки,
+        повтор которой владелец явно одобрил (approval kind=effect_reconciliation).
+        Без него неоднозначная прежняя отправка поднимает AmbiguousPriorEffect."""
         ctx = ToolContext(svc=self.services, task=task, run_id=run_id, agent=agent,
                           step=step, workspace=str(task.get("workspace_path") or ""),
                           call_id=str(call.id))
@@ -1146,7 +1177,8 @@ class TaskEngine:
         # INV-2 идемпотентность: неидемпотентный шаг с тем же (task, step, args)
         # уже исполнен прежней попыткой (рестарт между эффектом и checkpoint) —
         # исполнитель не вызывается второй раз, модели отдаётся сохранённый исход.
-        if not getattr(spec, "idempotent", True):
+        write_ahead = not getattr(spec, "idempotent", True)
+        if write_ahead:
             prior = await self._prior_effect(task["id"], run_id, step, spec.name, call.arguments)
             if prior is not None:
                 await self._record_tool_call(
@@ -1164,6 +1196,25 @@ class TaskEngine:
                 await self.bus.emit("tool.replayed", task_id=task["id"], run_id=run_id,
                                     tool=spec.name, prior_run_id=prior.get("run_id"))
                 return
+            # Crash Matrix «после эффекта, до журнала»: прежняя попытка отправила
+            # это же действие и умерла, не записав исход. Эффект МОГ произойти.
+            # Повтор — только по явному решению владельца (reconcile_prior), а
+            # не по памяти модели и не по тишине в журнале.
+            ambiguous = await self._ambiguous_prior(task["id"], run_id, spec.name, call.arguments)
+            if ambiguous is not None and (reconcile_prior is None or int(reconcile_prior) != int(ambiguous["id"])):
+                raise AmbiguousPriorEffect(ambiguous)
+            if reconcile_prior is not None:
+                await self._resolve_prior(int(reconcile_prior), run_id, str(call.id),
+                                          note=f"owner {approved_by or 'owner'} decided the effect did not "
+                                               f"happen; re-executed once by run {run_id}/{call.id}")
+            # Write-ahead: строка `started` ложится ДО эффекта. Если процесс умрёт
+            # между эффектом и receipt'ом, следующая попытка увидит незавершённую
+            # отправку, а не пустоту, и не повторит необратимое действие молча.
+            await self._record_tool_call(
+                run_id, task["id"], step, call, spec,
+                effect="auto" if approval_id is None else "ask", status="started",
+                approval_id=approval_id, approved_by=approved_by,
+                preview="dispatched; outcome not yet journaled")
         started = time.monotonic()
         result = await execute_tool(spec, call.arguments, ctx)
         duration = int((time.monotonic() - started) * 1000)
@@ -1207,6 +1258,14 @@ class TaskEngine:
         step = int(pending.get("step") or 0)
 
         already = await self._tool_call_status(run_id, call.id)
+        reconcile_prior = pending.get("reconcile_prior")
+        if already == "interrupted" and status == "approved" and spec is not None:
+            # Одобренный вызов был отправлен прежней попыткой и оборван до receipt'а:
+            # одобрение действия — не одобрение его ДУБЛЯ. Владелец решает заново.
+            prior = await self._tool_call_row(run_id, call.id)
+            await self._park_reconciliation(run_id, task, agent, messages, call, spec, step,
+                                            remaining=remaining, prior=prior or {"id": 0}, usage={})
+            return False
         if already in ("executed", "error", "denied"):
             # повтор после рестарта: результат уже есть — не исполняем второй раз
             await self._log(run_id, "warn", "tool.replay_guard",
@@ -1236,12 +1295,22 @@ class TaskEngine:
             else:
                 await self._mark_tool_call(run_id, call.id, status="approved",
                                            approved_by=str((row or {}).get("decided_by") or ""))
-                await self._run_tool_now(run_id, task, agent, messages, call, spec, step,
-                                         approval_id=int(approval_id) if approval_id else None,
-                                         approved_by=str((row or {}).get("decided_by") or ""))
+                try:
+                    await self._run_tool_now(run_id, task, agent, messages, call, spec, step,
+                                             approval_id=int(approval_id) if approval_id else None,
+                                             approved_by=str((row or {}).get("decided_by") or ""),
+                                             reconcile_prior=reconcile_prior)
+                except AmbiguousPriorEffect as exc:
+                    await self._park_reconciliation(run_id, task, agent, messages, call, spec, step,
+                                                    remaining=remaining, prior=exc.prior, usage={})
+                    return False
         else:
             await self._mark_tool_call(run_id, call.id, status="rejected",
                                        approved_by=str((row or {}).get("decided_by") or ""))
+            if reconcile_prior is not None:
+                await self._resolve_prior(int(reconcile_prior), run_id, str(call.id),
+                                          note=f"owner {(row or {}).get('decided_by') or 'owner'} declined "
+                                               "re-execution after an interrupted dispatch; effect unobserved")
             messages.append(_tool_message(
                 call, f"действие {pending.get('tool')} отклонено пользователем — "
                       f"не выполнять и не повторять"))
@@ -1375,7 +1444,7 @@ class TaskEngine:
         # из измеренной длительности — тогда finished_at - created_at и duration_ms
         # говорят одно и то же, и вопрос «когда этот вызов начался» имеет ответ.
         now = utcnow()
-        done = status not in ("pending_approval",)
+        done = status not in ("pending_approval", "started")
         values["finished_at"] = now if done else None
         values["created_at"] = (now - timedelta(milliseconds=int(duration_ms))
                                 if done and duration_ms is not None else now)
@@ -1391,9 +1460,10 @@ class TaskEngine:
                 await s.execute(sa.update(tool_calls_t).where(sa.and_(
                     tool_calls_t.c.run_id == run_id,
                     tool_calls_t.c.call_id == str(call.id))).values(
-                    status=status, result_preview=preview, truncated=truncated,
+                    status=status, effect=effect, approval_id=approval_id,
+                    result_preview=preview, truncated=truncated,
                     duration_ms=duration_ms, error=error, approved_by=approved_by,
-                    finished_at=utcnow()))
+                    finished_at=values["finished_at"]))
                 await s.commit()
 
     def _action_receipt(self, run_id: int, task_id: int, step: int, call: Any, name: str, spec: Any,
@@ -1446,6 +1516,110 @@ class TaskEngine:
                 tool_calls_t.c.args_hash == args_hash(tool, arguments),
                 tool_calls_t.c.status == "executed")).order_by(
                 tool_calls_t.c.id.desc()).limit(1))).first()
+        return dict(row._mapping) if row is not None else None
+
+    async def _ambiguous_prior(self, task_id: int, run_id: int, tool: str, arguments: dict) -> dict | None:
+        """Прежняя отправка того же действия (инструмент+аргументы) этой задачи,
+        исход которой не записан: `started` (журнал write-ahead без receipt'а) или
+        `interrupted` (помечена при перехвате). Только прежние попытки — другой run
+        или строки до того, как этот воркер взял run. None — неоднозначности нет."""
+        held_since = self._held_since.get(run_id)
+        async with self.db.session() as s:
+            row = (await s.execute(sa.select(tool_calls_t).where(sa.and_(
+                tool_calls_t.c.task_id == task_id,
+                (tool_calls_t.c.run_id != run_id) if held_since is None
+                else sa.or_(tool_calls_t.c.run_id != run_id,
+                            tool_calls_t.c.created_at < held_since),
+                tool_calls_t.c.tool == tool,
+                tool_calls_t.c.args_hash == args_hash(tool, arguments),
+                tool_calls_t.c.status.in_(("started", "interrupted")))).order_by(
+                tool_calls_t.c.id.desc()).limit(1))).first()
+        return dict(row._mapping) if row is not None else None
+
+    async def _mark_interrupted_dispatches(self, run_id: int, task_id: int) -> int:
+        """Перехват/рестарт: отправки прежних попыток без исхода становятся
+        `interrupted` — явное состояние «эффект не наблюдён», а не вечно живая
+        строка `started`. Ничего не повторяется и не удаляется."""
+        held_since = self._held_since.get(run_id)
+        async with self.db.session() as s:
+            res = await s.execute(sa.update(tool_calls_t).where(sa.and_(
+                tool_calls_t.c.task_id == task_id,
+                tool_calls_t.c.status == "started",
+                (tool_calls_t.c.run_id != run_id) if held_since is None
+                else sa.or_(tool_calls_t.c.run_id != run_id,
+                            tool_calls_t.c.created_at < held_since))).values(
+                status="interrupted", finished_at=utcnow(),
+                error="attempt interrupted after dispatch; effect unobserved (no receipt)"))
+            await s.commit()
+        if res.rowcount:
+            await self._log(run_id, "warn", "tool.interrupted",
+                            f"{res.rowcount} dispatch(es) of a previous attempt never journaled an outcome; "
+                            "their effects are unobserved and will not be replayed silently")
+        return int(res.rowcount or 0)
+
+    async def _resolve_prior(self, prior_id: int, run_id: int, call_id: str, *, note: str) -> None:
+        async with self.db.session() as s:
+            await s.execute(sa.update(tool_calls_t).where(sa.and_(
+                tool_calls_t.c.id == prior_id,
+                tool_calls_t.c.status.in_(("started", "interrupted")),
+                sa.not_(sa.and_(tool_calls_t.c.run_id == run_id, tool_calls_t.c.call_id == call_id)))).values(
+                status="reconciled", finished_at=utcnow(), error=note[:500]))
+            await s.commit()
+
+    async def _park_reconciliation(self, run_id: int, task: dict, agent: dict, messages: list[dict],
+                                   call: Any, spec: Any, step: int, *, remaining: list, prior: dict,
+                                   usage: dict) -> None:
+        """Неоднозначный прежний эффект → решение владельца (approval
+        kind=effect_reconciliation). approve = эффекта не было, выполнить ровно один
+        раз; reject = не повторять. Воркер освобождается, состояние — в БД."""
+        from .tools import normalized_args as _norm
+        try:
+            shown_args = _norm(spec, call.arguments)
+        except Exception as exc:  # noqa: BLE001
+            shown_args = {"_normalize_error": str(exc)[:200], **dict(call.arguments)}
+        digest = approval_digest(spec, call.arguments, agent=agent, task=task)
+        prior_id = int(prior.get("id") or 0)
+        appr = await self._approvals_create(
+            kind="effect_reconciliation",
+            preview=_ps_redact_text(
+                f"Действие {spec.name} MAY ALREADY HAVE HAPPENED: a previous attempt (run "
+                f"{prior.get('run_id')}, call {prior.get('call_id')}) dispatched it and crashed before "
+                f"journaling the outcome. Approve = the effect did NOT happen, run it once. "
+                f"Reject = do not run it again.\napproval_digest: {digest[:16]}…\nаргументы: "
+                + json.dumps(_ps_redact(shown_args), ensure_ascii=False, indent=1)[:2000]),
+            task_id=task["id"], run_id=run_id)
+        approval_id = (appr or {}).get("id")
+        if prior_id and prior.get("status") == "started":
+            # The orphaned dispatch becomes explicit the moment it is detected,
+            # not only on the next takeover sweep.
+            async with self.db.session() as s:
+                await s.execute(sa.update(tool_calls_t).where(sa.and_(
+                    tool_calls_t.c.id == prior_id, tool_calls_t.c.status == "started")).values(
+                    status="interrupted", finished_at=utcnow(),
+                    error="attempt interrupted after dispatch; effect unobserved (no receipt)"))
+                await s.commit()
+        await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                     effect="ask", status="pending_approval",
+                                     approval_id=approval_id, preview="ambiguous prior effect: owner decides")
+        await self._park_for_approval(
+            run_id, task["id"], messages, step,
+            pending={"call": _call_dict(call), "tool": spec.name, "approval_id": approval_id,
+                     "args_hash": args_hash(spec.name, call.arguments), "approval_digest": digest,
+                     "reconcile_prior": prior_id,
+                     "remaining": [_call_dict(c) for c in remaining], "step": step},
+            usage=usage)
+        await self._log(run_id, "warn", "tool.ambiguous_effect",
+                        f"{spec.name}: dispatched by a previous attempt without a journaled outcome — "
+                        "not re-executed; owner reconciliation requested")
+        await self.bus.emit("tool.ambiguous_effect", task_id=task["id"], run_id=run_id, tool=spec.name,
+                            prior_run_id=prior.get("run_id"), prior_call_id=prior.get("call_id"),
+                            approval_id=approval_id)
+
+    async def _tool_call_row(self, run_id: int, call_id: str) -> dict | None:
+        async with self.db.session() as s:
+            row = (await s.execute(sa.select(tool_calls_t).where(sa.and_(
+                tool_calls_t.c.run_id == run_id,
+                tool_calls_t.c.call_id == str(call_id))))).first()
         return dict(row._mapping) if row is not None else None
 
     async def _tool_call_status(self, run_id: int, call_id: str) -> str:

@@ -69,6 +69,13 @@ def _effectful(row: dict) -> bool:
     return spec is None or spec.category != "read"
 
 
+# Statuses whose effect is provably absent (denied/rejected) or UNKNOWN because a
+# previous attempt crashed between dispatch and receipt (interrupted/reconciled).
+# With a declared contract, only a fresh observation of the world may settle them;
+# without one they remain "did not succeed": an unobserved effect is not success.
+_WORLD_DECIDES = ("denied", "rejected", "interrupted", "reconciled")
+
+
 def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) -> str:
     """Reject unsuccessful effects, then check declared capability obligations.
 
@@ -104,7 +111,7 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) 
     # failures are not task failure evidence.
     latest = {}
     for row in rows:
-        if _effectful(row) and not (expected and row.get("status") in ("denied", "rejected")):
+        if _effectful(row) and not (expected and row.get("status") in _WORLD_DECIDES):
             latest[(row.get("tool"), row.get("args_hash") or repr(row.get("args")))] = row
     for row in latest.values():
         if row.get("status") != "executed" or row.get("error"):

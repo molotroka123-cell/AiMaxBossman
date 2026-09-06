@@ -336,7 +336,11 @@ def test_write_outside_write_root_is_refused(vault_dir):
 
 
 async def test_tool_refuses_write_outside_and_run_survives(env, vault_dir):
-    """Отказ приходит модели ДАННЫМИ: run не падает, файл не создан."""
+    """Отказ приходит модели ДАННЫМИ: run не падает (модель получает отказ и
+    отвечает), файл не создан. Но задача — не completed: запрошенный эффект
+    (запись) не произошёл, а «ничего не сохранил» — текст модели, не результат.
+    Без объявленного контракта неуспешный изменяющий вызов = failed
+    (bcc/finalize._effect_problem); ответ модели сохраняется."""
     await _configure(env, vault_dir)
     adapter = ToolAdapter([("tool", "memory_write",
                             {"title": "побег", "content": "x",
@@ -345,8 +349,11 @@ async def test_tool_refuses_write_outside_and_run_survives(env, vault_dir):
     stack = await _stack(env, ["memory.*"], adapter=adapter,
                          permissions={"filesystem.write": True}, prompt="сохрани")
 
-    assert await _run_task(env, stack["task"]["id"], until=FINISHED) == "completed"
+    assert await _run_task(env, stack["task"]["id"], until=FINISHED) == "failed"
+    assert adapter.calls == 2, "the run survived the refusal: the model was called again with it"
     assert "отклонён" in adapter.seen_messages[1][-1]["content"]
+    detail = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()
+    assert "did not succeed" in str(detail.get("error") or "")
     assert not (vault_dir.parent / "evil.md").exists()
     assert not (vault_dir / "notes" / "evil.md").exists()
 

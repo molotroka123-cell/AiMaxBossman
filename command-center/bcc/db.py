@@ -369,7 +369,10 @@ tool_calls = sa.Table(
     sa.Column("args", sa.JSON, default=dict),
     sa.Column("args_hash", sa.String(64), default=""),
     sa.Column("effect", sa.String(8), default="auto"),          # auto|ask|deny
-    # pending_approval|approved|rejected|executed|denied|error|timeout
+    # pending_approval|approved|rejected|executed|denied|error|timeout|replayed
+    # started      — write-ahead: неидемпотентное действие отправлено, receipt ещё нет
+    # interrupted  — прежняя попытка умерла между отправкой и receipt'ом: эффект не наблюдён
+    # reconciled   — владелец явно решил судьбу interrupted-отправки (approve/reject)
     sa.Column("status", sa.String(20), default="executed"),
     sa.Column("approval_id", sa.Integer, sa.ForeignKey("approvals.id", ondelete="SET NULL")),
     sa.Column("approved_by", sa.String(120)),
