@@ -37,6 +37,8 @@ import json
 import math
 from pathlib import Path
 import sqlite3
+
+from bossman_shared.sqlite_connection import OwnedConnection
 from typing import Any
 
 from .objective_spec import (
@@ -218,10 +220,14 @@ class ObjectiveStore:
                     "roll the runtime forward rather than downgrading the record")
 
     def _connect(self) -> sqlite3.Connection:
-        con = sqlite3.connect(self.path, timeout=30, isolation_level="IMMEDIATE")
-        con.row_factory = sqlite3.Row
-        con.execute("PRAGMA journal_mode=WAL")
-        con.execute("PRAGMA foreign_keys=ON")
+        con = sqlite3.connect(self.path, timeout=30, isolation_level="IMMEDIATE", factory=OwnedConnection)
+        try:
+            con.row_factory = sqlite3.Row
+            con.execute("PRAGMA journal_mode=WAL")
+            con.execute("PRAGMA foreign_keys=ON")
+        except BaseException:
+            con.close()
+            raise
         return con
 
     # ------------------------------------------------------------ objectives
