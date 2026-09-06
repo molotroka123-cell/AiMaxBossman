@@ -310,7 +310,9 @@ def test_second_window_refused_while_first_instance_alive(tmp_path, monkeypatch)
     from bcc.config import settings
 
     _use_temp_data_dir(monkeypatch, tmp_path)
-    (tmp_path / "desktop.lock").write_text(__import__("json").dumps({"pid": 1, "port": 18923}), encoding="utf-8")
+    # pid владельца обязан быть живым на ЛЮБОЙ ОС: PID 1 (init) существует
+    # только на POSIX; на Windows его нет и замок сочли бы протухшим.
+    (tmp_path / "desktop.lock").write_text(__import__("json").dumps({"pid": os.getpid(), "port": 18923}), encoding="utf-8")
     monkeypatch.setattr(desktop, "identify_server",
                         lambda url, timeout=2.0: {"app": "bossman-command-center"} if ":18923/" in url else None)
     calls = []
