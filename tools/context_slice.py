@@ -30,6 +30,8 @@ import sys
 from pathlib import Path
 
 CACHE_DIR = ".bossman-cache"
+# v1 hashed newline-normalized/replacement-decoded text, not file bytes.
+MAP_SCHEMA = "bossman.repo-map/2"
 SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "venv", ".pytest_cache", CACHE_DIR}
 # Explicit cache key: a git sha (7..40 hex) or a plain label (letters/digits/_/-, ≤64).
 # Anything else (paths, spaces, option-looking strings) is rejected — the key names a
@@ -154,9 +156,16 @@ def _py_files(root: Path):
         yield p
 
 
-def _symbols(path: Path) -> list[str]:
+def _source_snapshot(path: Path) -> tuple[bytes, str]:
+    """One read: bind the digest to bytes, normalize only the analysis text."""
+    raw = path.read_bytes()
+    text = raw.decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
+    return raw, text
+
+
+def _symbols(path: Path, text: str | None = None) -> list[str]:
     try:
-        tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+        tree = ast.parse(text if text is not None else _source_snapshot(path)[1])
     except SyntaxError:
         return []
     out = []
@@ -176,16 +185,22 @@ def repo_map(root: Path, sha: str | None = None, *, cache_dir: Path | None = Non
     cdir = Path(cache_dir) if cache_dir else root / CACHE_DIR
     cache = cdir / f"repo_map-{key}.json"
     if cache.exists():
-        data = json.loads(cache.read_text(encoding="utf-8"))
-        data["cache"] = "hit"
-        return data
+        try:
+            data = json.loads(cache.read_text(encoding="utf-8"))
+        except (ValueError, UnicodeError):
+            data = None  # Derived cache, never an authoritative execution journal.
+        if (isinstance(data, dict) and data.get("schema") == MAP_SCHEMA
+                and data.get("root") == str(root) and data.get("fingerprint") == key):
+            data["cache"] = "hit"
+            return data
+        # Never keep serving a legacy text digest after deploying the byte fix.
     files = {}
     for p in _py_files(root):
         rel = p.relative_to(root).as_posix()
-        text = p.read_text(encoding="utf-8", errors="replace")
-        files[rel] = {"symbols": _symbols(p), "tokens": _tokens(text),
-                      "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]}
-    data = {"sha": head_sha(root), "fingerprint": key, "root": str(root), "files": files,
+        raw, text = _source_snapshot(p)
+        files[rel] = {"symbols": _symbols(p, text), "tokens": _tokens(text),
+                      "sha256": hashlib.sha256(raw).hexdigest()[:16]}
+    data = {"schema": MAP_SCHEMA, "sha": head_sha(root), "fingerprint": key, "root": str(root), "files": files,
             "total_tokens": sum(f["tokens"] for f in files.values()), "cache": "miss"}
     cdir.mkdir(parents=True, exist_ok=True)
     cache.write_text(json.dumps(data, ensure_ascii=False, sort_keys=True), encoding="utf-8")
@@ -235,9 +250,9 @@ def failing_test_slice(root: Path, test_file: Path, *, depth: int = 2) -> dict:
         frontier = nxt
     manifest = []
     for p in sorted(seen, key=lambda x: (seen[x], x.as_posix())):
-        text = p.read_text(encoding="utf-8", errors="replace")
+        raw, text = _source_snapshot(p)
         manifest.append({"path": p.relative_to(root).as_posix() if p.is_relative_to(root) else str(p),
-                         "level": seen[p], "sha256": hashlib.sha256(text.encode()).hexdigest()[:16],
+                         "level": seen[p], "sha256": hashlib.sha256(raw).hexdigest()[:16],
                          "tokens": _tokens(text), "reason": "failing-test" if seen[p] == 0 else f"import-depth-{seen[p]}"})
     return {"root": str(root), "test": test_file.relative_to(root).as_posix() if test_file.is_relative_to(root) else str(test_file),
             "depth": depth, "files": manifest, "total_tokens": sum(m["tokens"] for m in manifest)}
