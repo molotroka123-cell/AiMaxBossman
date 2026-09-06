@@ -5,6 +5,9 @@ runtime or acceptance; a FRESH fact is evidence, never an authorization.
 """
 from __future__ import annotations
 
+import os
+import tempfile
+
 import pytest
 
 from bossman_shared.objective_observer import (
@@ -31,6 +34,19 @@ from bossman_shared.objective_world_state import (
 OWNER = "owner"
 SCOPE = "project"
 SOURCE = "report-file"
+
+
+def _symlinks_supported() -> bool:
+    """Setup-probe: os.symlink на Windows требует привилегии (WinError 1314)."""
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            os.symlink("t", os.path.join(d, "l"))
+            return True
+    except OSError:
+        return False
+
+
+SYMLINKS = _symlinks_supported()
 
 
 def raw_spec(*, expected=True, field="exists", value_type="boolean", operator="eq"):
@@ -112,6 +128,8 @@ def test_observer_requires_an_explicit_enrollment(tmp_path):
         FileStateObserver("not-an-enrollment", tmp_path / "x")  # type: ignore[arg-type]
 
 
+@pytest.mark.skipif(not SYMLINKS,
+                    reason="создание symlink требует привилегии ФС (WinError 1314) — отказ от symlink покрыт на платформах с поддержкой")
 def test_file_observer_refuses_to_treat_a_symlink_as_the_named_file(tmp_path):
     spec = ObjectiveSpec.from_dict(raw_spec())
     outside = tmp_path / "outside.txt"
@@ -137,6 +155,8 @@ def test_directory_observation_is_sorted_bounded_and_deterministic(tmp_path):
     assert bounded.values["entry_count"] == 2 and bounded.values["truncated"] is True
 
 
+@pytest.mark.skipif(not SYMLINKS,
+                    reason="создание symlink требует привилегии ФС (WinError 1314) — отказ от symlink покрыт на платформах с поддержкой")
 def test_directory_observer_refuses_symlink_escape(tmp_path):
     spec = ObjectiveSpec.from_dict(raw_spec())
     root = tmp_path / "tree"
