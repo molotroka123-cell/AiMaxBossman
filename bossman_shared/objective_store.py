@@ -162,26 +162,17 @@ def _dumps(value: Any) -> str:
 
 
 def _trusted_spec(spec_json: str, spec_digest: str) -> ObjectiveSpec:
-    """Rehydrate the stored spec: structure is revalidated, the chain is not.
+    """Rehydrate a spec this store validated on write, via the contract itself.
 
-    A revision's chain was verified against the trusted predecessor when the row
-    was written, and predecessors are deliberately not retained, so re-running
-    the chain rule on read would make every revised objective unreadable. What
-    is checked instead is that the stored bytes still hash to the stored digest:
-    a tampered spec_json is refused rather than served as canonical.
+    The chain rule is not re-run: predecessors are deliberately not retained, so
+    re-running it on read would make every revised objective unreadable. The
+    recorded digest stands in for it, and the contract module owns that rule
+    rather than this one reaching past its constructor.
     """
     try:
-        raw = json.loads(spec_json)
-        if type(raw) is not dict:
-            raise ObjectiveValidationError("stored objective is not an object")
-        ObjectiveSpec.from_dict({**raw, "revision": 1, "previous_digest": None})
-    except (ValueError, RecursionError) as exc:
+        return ObjectiveSpec.from_trusted_json(spec_json, digest=spec_digest)
+    except ObjectiveValidationError as exc:
         raise ObjectiveStoreError(f"stored objective is not readable: {exc}") from exc
-    spec = object.__new__(ObjectiveSpec)
-    object.__setattr__(spec, "_json", spec_json)
-    if spec.digest != spec_digest:
-        raise ObjectiveStoreError("stored objective bytes do not match their recorded digest")
-    return spec
 
 
 def _row_state(row: sqlite3.Row) -> ObjectiveRuntimeState:
