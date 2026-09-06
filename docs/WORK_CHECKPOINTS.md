@@ -20,6 +20,20 @@ local commit IDs because publication uses the canonical remote parents.
 
 ## Continuation rules
 
+Latest owner instruction: pause after publication, resume on 2026-09-06 at
+05:30 Europe/Prague (one-time automation created). Take over remaining V3
+closure from Fable after reading his latest commits, then continue V4/V5 code.
+Do not duplicate already completed fixes or certify unmeasured capabilities.
+
+Additional published app checkpoints:
+- Web width-fit: `d62e92ffba348ab224a5921b8bb15af5b039017f`, PR #9;
+  17 JS contracts and 21 Python tests passed, 2 browser skips.
+- SDR fidelity: `a9a66cee1ae27e8cde48b8de7749936e22e6236b`, PR #10;
+  52 render/CFR tests passed, 2 optional skips; 2 native-pixel tests passed
+  and independently failed the old renderer. This resolves the earlier
+  color-preview blocker for tested SDR paths. Memory/performance and full
+  color management remain unmeasured. See `SDR_COLOR_CHECKPOINT.md`.
+
 1. Read canonical plans and latest checkpoint report on the relevant branch.
 2. Fetch the exact primary and app branches; inspect new diffs before integration.
 3. Fable's last observed primary is `d6b43cea0a1127bba7fa2cdabbd80dfa6da681bc`.
