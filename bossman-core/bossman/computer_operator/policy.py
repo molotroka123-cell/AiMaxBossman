@@ -106,6 +106,21 @@ class ComputerPolicy:
             if rx.search(s):return kind
         return None
     @staticmethod
+    def _coordinate_guess(a:ComputerAction)->bool:
+        """Тычок в координату, порог уверенности к которому обязан применяться.
+
+        Ключ на СТРУКТУРЕ действия, а не на самозаявленном `a.source`: source
+        приходил из вывода модели (planner.parse_action), и модель снимала с себя
+        порог одним словом "planner", продолжая слать CLICK по пиксельным x/y.
+        source=="vision" остаётся вторым признаком: у vision-адаптера цель — это
+        распознанный текст, координат в args может и не быть.
+        """
+        if a.kind not in {ActionKind.CLICK,ActionKind.DOUBLE_CLICK,ActionKind.DRAG,ActionKind.UI_INVOKE}:
+            return False
+        if a.source=="vision":return True
+        args=a.args or {}
+        return isinstance(args.get("x"),int) and isinstance(args.get("y"),int)
+    @staticmethod
     def refs_secret_args(args:dict)->bool:
         for k,v in (args or {}).items():
             blob=f"{k} {v}".lower()
@@ -120,7 +135,7 @@ class ComputerPolicy:
             ActionKind.NOOP,ActionKind.WAIT,ActionKind.TAKE_SCREENSHOT,ActionKind.COMPLETE,ActionKind.FAIL
         }:
             return PolicyDecision(False,reason="observe-only mode")
-        if a.source=="vision" and a.kind in {ActionKind.CLICK,ActionKind.DOUBLE_CLICK,ActionKind.DRAG,ActionKind.UI_INVOKE} and a.confidence<MIN_VISION_CONFIDENCE:
+        if self._coordinate_guess(a) and a.confidence<MIN_VISION_CONFIDENCE:
             return PolicyDecision(False,reason="low vision confidence")
         if a.kind is ActionKind.TYPE and len(a.text or "")>MAX_TYPE_CHARS:
             return PolicyDecision(False,reason="typed text too long")

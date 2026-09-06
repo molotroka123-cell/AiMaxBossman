@@ -332,9 +332,14 @@ def _unclosed_elements(node: Node) -> list[str]:
 # ---------------------------------------------------------------- сборка
 
 def _start_tag(node: Node, *, bd_ids: bool) -> str:
+    # Свой `data-bd-id` владельца маркером не дублируем: у тега оказывалось ДВА
+    # таких атрибута, браузер брал первый, пикер слал значение владельца, а
+    # сервер искал его по нумерации — выделялся не тот элемент, который правится.
+    # Такие узлы адресуются по path, который пикер шлёт всегда.
+    marked = bd_ids and node.bd_id and "data-bd-id" not in node.attrs
     if node.raw_starttag and not node.dirty:
         raw = node.raw_starttag
-        if bd_ids and node.bd_id:
+        if marked:
             marker = f' data-bd-id="{node.bd_id}"'
             if raw.rstrip().endswith("/>"):
                 cut = raw.rstrip()[:-2]
@@ -350,7 +355,7 @@ def _start_tag(node: Node, *, bd_ids: bool) -> str:
             continue
         parts.append(f" {name}" if value is None
                      else f' {name}="{escape(str(value), quote=True)}"')
-    if bd_ids and node.bd_id:
+    if marked:
         parts.append(f' data-bd-id="{node.bd_id}"')
     tag = node.tag_case or node.tag or "div"
     close = "/>" if node.self_closing else ">"
@@ -703,6 +708,12 @@ def _strip_bd_ids(root: Node) -> None:
 PICKER_JS = r"""(function () {
   if (window.__bdPicker) return;
   window.__bdPicker = true;
+  // Одноразовый пропуск ЭТОЙ страницы превью: кадр с sandbox="allow-scripts"
+  // волен увести себя на чужую страницу (meta refresh, location=), и та шлёт
+  // панели свой 'select' от имени пикера — проверено в Chromium. Прочитать
+  // nonce чужой документ не может: origin песочницы непрозрачен, referrer пуст,
+  // parent.location закрыт — а без него панель сообщение не примет.
+  var NONCE = '__BD_NONCE__';
   var ENABLED = true;
   var hoverEl = null, selEl = null;
   var css = document.createElement('style');
@@ -780,7 +791,7 @@ PICKER_JS = r"""(function () {
     if (selEl) selEl.removeAttribute('data-bd-selected');
     selEl = el;
     el.setAttribute('data-bd-selected', '1');
-    parent.postMessage({ source: 'bd-preview', type: 'select', el: describe(el) }, '*');
+    parent.postMessage({ source: 'bd-preview', type: 'select', nonce: NONCE, el: describe(el) }, '*');
   }
   function clearHover() {
     if (hoverEl) { hoverEl.removeAttribute('data-bd-hover'); hoverEl = null; }
@@ -819,17 +830,27 @@ PICKER_JS = r"""(function () {
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   });
-  parent.postMessage({ source: 'bd-preview', type: 'ready' }, '*');
+  parent.postMessage({ source: 'bd-preview', type: 'ready', nonce: NONCE }, '*');
 })();"""
 
 
-def inject_preview(html: str, *, script: str = PICKER_JS) -> str:
+NONCE_RE = re.compile(r"^[A-Za-z0-9_-]{0,64}$")
+
+
+def inject_preview(html: str, *, script: str = PICKER_JS, nonce: str = "") -> str:
     """Код проекта → HTML для iframe: с data-bd-id и скриптом пикера.
 
     Инжект живёт только в ответе сервера; хранимый код не меняется.
+
+    `nonce` — пропуск для сообщений пикера. Он уезжает ВНУТРЬ строкового
+    литерала JS, поэтому набор символов проверяется здесь: кавычка закрыла бы
+    литерал и превратила пропуск в код.
     """
     if len(html) > MAX_HTML_CHARS:
         raise ValueError("документ слишком большой для превью")
+    if not NONCE_RE.match(str(nonce or "")):
+        raise ValueError("недопустимый nonce превью")
+    script = script.replace("__BD_NONCE__", str(nonce or ""))
     root = parse_document(html)
     assign_bd_ids(root)
     script_node = Node(tag="script", tag_case="script")

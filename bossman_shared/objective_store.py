@@ -435,20 +435,35 @@ class ObjectiveStore:
                        enrolled_sources=kept, version=expected_version + 1)
 
     def set_stopped(self, objective_id: str, stopped: bool, *, reason: str,
-                    expected_version: int) -> ObjectiveRuntimeState:
+                    owner_id: str, expected_version: int) -> ObjectiveRuntimeState:
         """Resolve the owner's stop conditions in the canonical record.
 
         Stop state is a fact the service computes, not a model's reading of the
         objective text. Once set it blocks admission until explicitly cleared.
+
+        `owner_id` must be the *authenticated* caller resolved upstream; passing
+        an identifier here does not authenticate anyone. It is required and
+        checked because CLEARING a stop is the one write that hands the machine
+        back to the runtime (A6-03): this method took no identity at all, so any
+        holder of the store — another objective's worker, a lease holder from
+        before the owner pressed Stop, a process that restarted and re-read a
+        stale version — could clear the owner's stop with a plain CAS and no
+        trace of who did it. The check is symmetric on purpose: a foreign writer
+        must not be able to park someone else's objective either.
         """
         if type(stopped) is not bool:
             raise ObjectiveStoreError("stop state must be boolean")
+        if type(owner_id) is not str or not owner_id.strip():
+            raise ObjectiveStoreError("stop requires an authenticated owner identity")
         with self._connect() as con:
             state = self._cas_read(con, objective_id, expected_version)
+            if owner_id != state.owner_id:
+                raise ObjectiveStoreError("stop identity mismatch")
             self._swapped(con.execute("UPDATE v5_objectives SET stopped=?,version=version+1 "
                                       "WHERE objective_id=? AND version=?",
                                       (1 if stopped else 0, objective_id, expected_version)))
-            self._log(con, objective_id, "stop", f"{stopped}:{reason}")
+            # Кто именно снял стоп — часть записи, а не догадка по времени.
+            self._log(con, objective_id, "stop", f"{stopped}:{owner_id}:{reason}")
         return replace(state, stopped=stopped, version=expected_version + 1)
 
     # ------------------------------------------------------- condition/usage

@@ -24,6 +24,7 @@ import re
 import shutil
 import tempfile
 import time
+from html import escape
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
@@ -165,12 +166,17 @@ def _public_meta(meta: dict) -> dict:
 
 
 def _save_code(svc, pdir: Path, html: str, note: str, *,
-               expect_version: int | None = None) -> dict:
+               expect_version: int | None = None, fields: dict | None = None) -> dict:
     """Записать новую текущую версию + снимок в историю. Возвращает версию.
 
     Единственная точка записи кода проекта, поэтому предел размера проверяется
     здесь: в схемах запросов он стоит не на всех путях — ответ модели и откат
     к версии приходят мимо них.
+
+    `fields` — поля meta, которые правка меняет заодно (шаблон, палитра). Они
+    пишутся ТЕМ ЖЕ единственным сохранением: вторая запись «прочитал — изменил —
+    записал» жила после освобождения блокировки, то есть там, где чужая правка
+    уже не ждёт.
 
     `expect_version` — версия, на которой правка была построена. Если код за
     это время уже изменился (вторая вкладка, вторая AI-правка, ответ модели,
@@ -198,6 +204,7 @@ def _save_code(svc, pdir: Path, html: str, note: str, *,
     meta.update({
         "id": pdir.name, "version": version, "updated_at": _now(),
     })
+    meta.update(fields or {})
     versions = list(meta.get("versions") or [])
     versions.append({"version": version, "note": _note(note), "ts": meta["updated_at"],
                      "chars": len(html)})
@@ -316,7 +323,12 @@ async def create_project(body: ProjectIn, request: Request):
     if body.template == "blank":
         blank = ("<!DOCTYPE html>\n<html lang=\"ru\">\n<head>\n<meta charset=\"utf-8\">\n"
                  "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-                 f"<title>{meta['name']}</title>\n</head>\n<body>\n\n</body>\n</html>\n")
+                 # Имя проекта — ввод владельца. Без экранирования
+                 # «Кафе"></title><script>…» становился живым скриптом внутри
+                 # СОХРАНЁННОГО сайта, который потом экспортируют без песочницы.
+                 # Путь генератора это делал (web_designer_gen), blank — нет.
+                 f"<title>{escape(meta['name'], quote=True)}</title>\n"
+                 "</head>\n<body>\n\n</body>\n</html>\n")
         _save_code(svc, pdir, blank, "пустой проект")
         meta = _load_meta(pdir)
     else:
@@ -367,17 +379,10 @@ async def generate_site(pid: int, body: GenerateIn, request: Request):
                           template=body.template, palette=body.palette)
     async with _project_lock(pdir):
         meta = _save_code(svc, pdir, result["steps"][-1],
-                          f"генерация: {result['template']}/{result['palette']}")
-    await _sync_meta_fields(pdir, meta, result)
+                          f"генерация: {result['template']}/{result['palette']}",
+                          fields={"template": result["template"], "palette": result["palette"]})
     return {"ok": True, "meta": meta, "template": result["template"],
             "palette": result["palette"], "steps": result["steps"]}
-
-
-async def _sync_meta_fields(pdir: Path, meta: dict, result: dict) -> None:
-    stored = _load_meta(pdir) or {}
-    stored.update({"template": result["template"], "palette": result["palette"]})
-    _save_meta(pdir, stored)
-    meta.update({"template": result["template"], "palette": result["palette"]})
 
 
 @router.post("/web-designer/projects/{pid}/edit")
@@ -413,15 +418,20 @@ async def edit_project(pid: int, body: EditIn, request: Request):
 
 
 @router.get("/web-designer/projects/{pid}/preview", response_class=HTMLResponse)
-async def preview(pid: int, request: Request):
-    """HTML для iframe: с data-bd-id и пикером. Хранимый код не меняется."""
+async def preview(pid: int, request: Request, nonce: str = ""):
+    """HTML для iframe: с data-bd-id и пикером. Хранимый код не меняется.
+
+    `nonce` панель придумывает сама на каждую загрузку кадра и кладёт в URL.
+    Пикер возвращает его в каждом сообщении, и только по нему панель отличает
+    свой пикер от чужой страницы, на которую кадр мог себя увести.
+    """
     svc = request.app.state.svc
     pdir, _ = _require_project(svc, pid)
     html = _read_code(pdir)
     if not html:
         raise HTTPException(status_code=409, detail="в проекте пока нет кода")
     try:
-        return HTMLResponse(dom.inject_preview(html), headers=PREVIEW_HEADERS)
+        return HTMLResponse(dom.inject_preview(html, nonce=nonce), headers=PREVIEW_HEADERS)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
@@ -499,6 +509,7 @@ async def ai_edit(pid: int, body: AiEditIn, request: Request):
         if found is None:
             raise HTTPException(status_code=404, detail="элемент исчез при правке — повторите")
         try:
+            _require_single_element(new_html)
             dom.op_replace(found, new_html)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=f"модель вернула негодный фрагмент: {exc}")
@@ -508,6 +519,18 @@ async def ai_edit(pid: int, body: AiEditIn, request: Request):
         meta = _save_code(svc, pdir, new_html, f"AI: {_note(body.prompt)}",
                           expect_version=base_version)
     return {"ok": True, "meta": meta, "model": model_row.get("alias") or model_row.get("name")}
+
+
+def _require_single_element(fragment: str) -> None:
+    """Замена элемента — ровно один элемент, и ничего вокруг него.
+
+    Ответ без ```-ограждения приносит прелюдию и постлюдию модели («Вот
+    обновлённая кнопка: … Готово!») соседними узлами, и они уезжали в сайт
+    текстом страницы — правка элемента дописывала в документ болтовню.
+    """
+    nodes = [n for n in dom.parse_fragment(fragment) if n.kind != "text" or n.raw.strip()]
+    if len(nodes) != 1 or nodes[0].kind != "element":
+        raise ValueError("ожидался ровно один элемент без пояснений вокруг него")
 
 
 def _extract_html(text: str, fragment: bool) -> str:

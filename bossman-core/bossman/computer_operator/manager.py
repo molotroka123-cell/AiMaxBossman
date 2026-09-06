@@ -61,6 +61,25 @@ class OwnerStateChanged(RuntimeError):
     продолжать со своим снимком.
     """
 
+# A3-04: ни один шаг рабочего стола не ждёт бесконечно. Зависшее приложение,
+# застрявшее UIA/COM-чтение, не отвечающий браузер или медленная модель держали
+# `await` вечно: цикл не возвращался наверх, авторитетную строку никто не
+# перечитывал, и «Стоп» владельца оставался записанным, но не исполненным.
+# Пороги — потолок ожидания, а не таймер шага; типичный шаг укладывается на
+# порядок быстрее.
+OBSERVE_TIMEOUT_S=45.0
+PLAN_TIMEOUT_S=120.0
+ACT_TIMEOUT_S=60.0
+# Как часто внутри ожидания перечитывается строка владельца. Отзывчивость «Стопа»
+# определяется этим шагом, а НЕ таймаутом фазы.
+OWNER_POLL_S=.25
+
+class StepTimeout(RuntimeError):
+    """Фаза шага не уложилась в свой потолок ожидания (A3-04)."""
+    def __init__(self,phase,seconds):
+        super().__init__(f"{phase} exceeded {seconds:g}s")
+        self.phase=phase; self.seconds=seconds
+
 class ControlLease:
     """Exclusive desktop control lease: single live holder, TTL + heartbeat, revocable."""
     def __init__(self,ttl_s:float=30.0):
@@ -91,7 +110,9 @@ class ComputerOperatorManager:
     def __init__(self,*,store,planner,observer,action_router,approval_create,approval_wait,event_emit,
                  policy=None,verifier=None,control_lease=None,access_check=None,
                  observation_reuse_max_age_s=OBSERVATION_REUSE_MAX_AGE_S,
-                 completion_evidence_required=None,observation_fingerprint=None):
+                 completion_evidence_required=None,observation_fingerprint=None,
+                 observe_timeout_s=OBSERVE_TIMEOUT_S,plan_timeout_s=PLAN_TIMEOUT_S,
+                 act_timeout_s=ACT_TIMEOUT_S):
         self.store=store; self.planner=planner; self.observer=observer; self.action_router=action_router
         self.approval_create=approval_create; self.approval_wait=approval_wait; self.event_emit=event_emit
         self.policy=policy or ComputerPolicy(); self.verifier=verifier or Verifier()
@@ -119,6 +140,17 @@ class ComputerOperatorManager:
         # клавиши. Флаг ставится ДО освобождения аренды, иначе оператор печатает
         # уже поверх владельца, который аренду только что забрал.
         self._interrupts={}
+        # A3-04: потолки ожидания по фазам. 0/None означает «не ограничивать» и
+        # существует только для замеров — в проде это возврат к зависанию.
+        self.observe_timeout_s=self._timeout(observe_timeout_s)
+        self.plan_timeout_s=self._timeout(plan_timeout_s)
+        self.act_timeout_s=self._timeout(act_timeout_s)
+        self.step_timeouts=0; self.unknown_effects_parked=0   # замер, не гейт
+
+    @staticmethod
+    def _timeout(v):
+        v=float(v or 0.0)
+        return v if v>0 else None
 
     def create_task(self,goal,*,mode=TaskMode.CONTROL,source="local",owner_device_id=None):
         if self.access_check is not None:
@@ -187,14 +219,22 @@ class ComputerOperatorManager:
                 before=self._reuse(reusable,t); reusable=None
                 if before is None:
                     t.state=TaskState.OBSERVING; self._save(t)
-                    before=await self.observer.observe(generation=t.generation); self.observations_taken+=1
+                    before=await self._bounded(t,self.observer.observe(generation=t.generation),
+                                               self.observe_timeout_s,"observe",abandon_on_owner=True)
+                    self.observations_taken+=1
                 t.last_observation=before
                 plan_generation=t.generation
                 t.state=TaskState.PLANNING; self._save(t)
                 try:
-                    a=await self.planner.next_action(goal=t.goal,observation_summary=before.summary,
-                      foreground=before.foreground,ui_tree=before.ui_tree,last_result=last,
-                      remaining_steps=t.max_steps-t.steps_used)
+                    a=await self._bounded(t,self.planner.next_action(goal=t.goal,
+                        observation_summary=before.summary,foreground=before.foreground,
+                        ui_tree=before.ui_tree,last_result=last,
+                        remaining_steps=t.max_steps-t.steps_used),
+                      self.plan_timeout_s,"plan",abandon_on_owner=True)
+                except OwnerStateChanged:
+                    # Команда владельца — не ошибка планировщика: её нельзя
+                    # списывать в replan-бюджет. Перечитываем строку сверху.
+                    reusable=None; continue
                 except Exception as e:
                     # OPERATOR-OBSERVABILITY-001 (живой прогон 20260906): причина
                     # (404 без /v1, 401 по истёкшему ключу, ошибка разбора ответа)
@@ -225,7 +265,8 @@ class ComputerOperatorManager:
                     # вызова модели (а то и переиспользованному), значит верить
                     # снимку, который планировщик уже прочитал. Смотрим сейчас.
                     self.observations_taken+=1
-                    verdict_obs=await self.observer.observe(generation=t.generation)
+                    verdict_obs=await self._bounded(t,self.observer.observe(generation=t.generation),
+                                                    self.observe_timeout_s,"observe",abandon_on_owner=True)
                     t.last_observation=verdict_obs
                     cv=self.verifier.verify(a,verdict_obs)
                     if not cv.ok:
@@ -314,7 +355,9 @@ class ComputerOperatorManager:
                     # Перед эффектом — обязательная свежая проверка состояния,
                     # и policy пересматривается по ней.
                     t.state=TaskState.OBSERVING; self._save(t)
-                    fresh=await self.observer.observe(generation=t.generation); self.observations_taken+=1
+                    fresh=await self._bounded(t,self.observer.observe(generation=t.generation),
+                                              self.observe_timeout_s,"observe",abandon_on_owner=True)
+                    self.observations_taken+=1
                     # Владелец одобрил ЭТО действие ПРОТИВ ЭТОГО экрана. Если экран
                     # с тех пор изменился, одобрение на него не переносится: клик
                     # «оплатить» нацелен в конкретное окно, а не в координату. Это
@@ -348,14 +391,42 @@ class ComputerOperatorManager:
                     if t.replans_used>t.max_replans:return self._fail(t,f"loop guard: {gv.reason}")
                     continue
                 t.state=TaskState.RUNNING; self._save(t)
-                try: backend=await self.action_router.execute(a,before)
+                try: backend=await self._bounded(t,self.action_router.execute(a,before),
+                                                 self.act_timeout_s,"act",abandon_on_owner=False)
+                except StepTimeout as exc:
+                    # Ввод отправлен, ответа нет. Повтор здесь удвоил бы уже
+                    # ушедший необратимый эффект, поэтому повтора не будет.
+                    if a.kind in _NON_EFFECT_KINDS:
+                        step.error=str(exc); step.finished_at=time.time(); t.pending_action=None
+                        t.replans_used+=1; last=f"action timed out:{exc}"; self._save(t)
+                        self._emit(t,"step_timeout",phase="act",action=a.kind.value)
+                        if t.replans_used>t.max_replans:return self._fail(t,"action replan budget")
+                        continue
+                    step.error=str(exc); step.finished_at=time.time()
+                    self._emit(t,"step_timeout",phase="act",action=a.kind.value)
+                    return self._park_unknown_effect(
+                        t,f"action {a.kind.value} timed out with unknown outcome: {exc}")
                 except Exception as e:
                     step.error=f"{type(e).__name__}:{e}"; step.finished_at=time.time(); t.pending_action=None
                     t.replans_used+=1; last=f"action failed:{step.error}"; self._save(t)
                     if t.replans_used>t.max_replans:return self._fail(t,"action replan budget")
                     continue
                 t.steps_used+=1; t.state=TaskState.OBSERVING; self._save(t)
-                after=await self.observer.observe(generation=t.generation); self.observations_taken+=1
+                try:
+                    after=await self._bounded(t,self.observer.observe(generation=t.generation),
+                                              self.observe_timeout_s,"observe",abandon_on_owner=False)
+                except StepTimeout as exc:
+                    # Действие ИСПОЛНЕНО, а прочитать результат нечем: подтвердить
+                    # или опровергнуть эффект невозможно. Это тот же неизвестный
+                    # исход, что и таймаут самого действия.
+                    self._emit(t,"step_timeout",phase="post_observe",action=a.kind.value)
+                    if a.kind in _NON_EFFECT_KINDS:
+                        t.replans_used+=1; last=f"post-action observe timed out:{exc}"; self._save(t)
+                        if t.replans_used>t.max_replans:return self._fail(t,"verification budget")
+                        continue
+                    return self._park_unknown_effect(
+                        t,f"{a.kind.value} executed but the screen could not be re-read: {exc}")
+                self.observations_taken+=1
                 t.last_observation=after
                 step.after_observation_id=after.id
                 v=self.verifier.verify(a,after); step.verified=v.ok; step.finished_at=time.time()
@@ -369,11 +440,107 @@ class ComputerOperatorManager:
                 else:
                     t.replans_used+=1; last=f"verify failed:{v.reason}"; self._save(t)
                     if t.replans_used>t.max_replans:return self._fail(t,"verification budget")
+            except StepTimeout as exc:
+                # Дошли сюда только фазы ЧТЕНИЯ (наблюдение до действия, зонд
+                # свежести): ввод не отправлялся, мир не тронут — поэтому это
+                # трата replan-бюджета, а не парковка и не «крах оператора».
+                # Зависание, которое не проходит, упирается в тот же бюджет и
+                # заканчивается честным FAILED с названной фазой.
+                reusable=None
+                t=self._req(t.id)
+                if t.terminal:return t.state
+                t.replans_used+=1; last=f"timeout:{exc}"; t.last_error=last[:3000]
+                try:self._save(t)
+                except OwnerStateChanged:continue
+                self._emit(t,"step_timeout",phase=exc.phase)
+                if t.replans_used>t.max_replans:
+                    return self._fail(t,f"desktop step timeout budget; last: {last}")
+                continue
             except OwnerStateChanged:
                 # Владелец (или восстановление) записал строку, пока шёл шаг.
                 # Перечитываем сверху цикла и подчиняемся тому, что записано.
                 reusable=None
                 continue
+
+    def _owner_intervened(self,t):
+        """Записал ли владелец (или восстановление) что-то, отменяющее этот шаг.
+
+        Читается АВТОРИТЕТНАЯ строка, а не снимок: в этом весь смысл — во время
+        длинного ожидания только строка и меняется.
+        """
+        if self.global_locked:return "operator globally locked"
+        try:cur=self._req(t.id)
+        except KeyError:return "task row disappeared"
+        if cur.generation!=t.generation:return "owner invalidated the step"
+        if cur.terminal:return f"owner ended the task: {cur.state.value}"
+        if cur.state in {TaskState.PAUSED,TaskState.USER_CONTROL}:return f"owner took over: {cur.state.value}"
+        return None
+
+    async def _bounded(self,t,coro,seconds,phase,*,abandon_on_owner):
+        """Ждать фазу шага с потолком и с опросом команды владельца (A3-04).
+
+        Два разных «хватит» намеренно разведены:
+
+        `abandon_on_owner=True` — фаза ЧИТАЕТ экран (наблюдение, зонд, план).
+        Брошенное чтение не оставляет следа в мире, поэтому «Стоп» исполняется в
+        пределах `OWNER_POLL_S`, а не в пределах таймаута.
+
+        `abandon_on_owner=False` — фаза УЖЕ ОТПРАВИЛА ввод. Бросить её досрочно
+        значило бы объявить исход, которого никто не наблюдал, поэтому владельцу
+        отдаётся кооперативный флаг отмены (его читает адаптер), а ожидание
+        продолжается до потолка. Дальше исход всё равно неизвестен — и
+        обрабатывается как неизвестный, а не как повод повторить.
+
+        Честно про предел: `asyncio.to_thread` неотменяем. Снятие обёртки
+        освобождает ЦИКЛ, а не поток. Поэтому на любом исходе, кроме штатного,
+        взводится флаг прерывания: поток может дожить до своего конца, но
+        ВВОДИТЬ он больше ничего не будет.
+        """
+        task=asyncio.ensure_future(coro)
+        deadline=None if seconds is None else time.monotonic()+seconds
+        try:
+            while True:
+                budget=OWNER_POLL_S if deadline is None else min(OWNER_POLL_S,max(0.0,deadline-time.monotonic()))
+                done,_=await asyncio.wait({task},timeout=budget)
+                if done:return task.result()
+                stop=self._owner_intervened(t)
+                if stop is not None:
+                    self._signal_interrupt(t.id)
+                    if abandon_on_owner:raise OwnerStateChanged(f"{t.id}: {stop}")
+                if deadline is not None and time.monotonic()>=deadline:
+                    self.step_timeouts+=1
+                    self._signal_interrupt(t.id)
+                    raise StepTimeout(phase,seconds)
+        finally:
+            if not task.done():
+                task.cancel()
+                # Ждём саму обёртку, а не работу: без этого «Task was destroyed
+                # but it is pending» и незамеченные исключения потока.
+                try:await asyncio.wait({task},timeout=OWNER_POLL_S)
+                except asyncio.CancelledError:raise
+            elif not task.cancelled():
+                task.exception()   # исход прочитан — иначе предупреждение в лог
+
+    def _park_unknown_effect(self,t,reason):
+        """Отправить задачу на сверку: ввод ушёл, исход неизвестен (A3-04/H04).
+
+        НЕ повтор и НЕ FAILED. Повтор дублировал бы уже отправленный необратимый
+        эффект, а FAILED утверждал бы, что эффекта не было. PAUSED с диагнозом
+        оставляет решение владельцу — ровно как парковка необратимого эффекта
+        неизвестного исхода после перезапуска.
+        """
+        self._signal_interrupt(t.id)
+        self.unknown_effects_parked+=1
+        for _ in range(_CAS_RETRIES):
+            t=self._req(t.id)
+            if t.terminal or t.state in {TaskState.PAUSED,TaskState.USER_CONTROL}:
+                return t.state
+            t.state=TaskState.PAUSED; t.last_error=str(reason)[:3000]; t.pending_action=None
+            try:self._save(t)
+            except OwnerStateChanged:continue
+            self._emit(t,"unknown_effect_parked",reason=t.last_error)
+            return t.state
+        return self._req(t.id).state
 
     def _reuse(self,reusable,t):
         """Переиспользовать проверенное наблюдение как `before` следующего шага.
