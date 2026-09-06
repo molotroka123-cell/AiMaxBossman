@@ -1,0 +1,57 @@
+name: Audit intake catalogue
+
+on:
+  push:
+    branches: [audit/unified-intake-20260906]
+  workflow_dispatch:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_run:
+    workflows: ['Human-speed components (not UI attestation)', 'Bossman Core CI', 'Command Center CI', 'root-ci', 'ASTRA acceptance']
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: audit-intake-catalogue
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Collector regressions only; no application or remote-branch code execution
+        run: |
+          python -m pip install pytest
+          python -m pytest -x tests/test_audit_intake.py -q --junitxml=audit-intake-tests.xml
+      - name: Pin all published branch tips locally without checking them out
+        run: git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+      - name: Catalogue current UTC-day history and current branch-tip audits
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          since=$(python -c "from datetime import datetime,timezone; print(datetime.now(timezone.utc).strftime('%Y-%m-%dT00:00:00Z'))")
+          python tools/audit_intake.py --repo . --output audit-output --seed docs/audits/AUDIT_REGISTRY.json --since "$since" --github
+      - name: Retain the single database, JSON export and honest coverage status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            audit-output/
+            audit-intake-tests.xml
+          if-no-files-found: error
+          retention-days: 30
