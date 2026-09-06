@@ -259,7 +259,18 @@ class ComputerOperatorManager:
         error=str(reason)[:3000]
         # Владелец уже завершил задачу («Стоп») — его решение не переписывается
         # системным FAILED с техническим текстом вроде "approved action stale".
+        # Но САМА причина не теряется: состояние остаётся владельческим, а
+        # системный диагноз пишется рядом. Иначе оператор видит «отменено» и
+        # никогда не узнаёт, что акция вдобавок была протухшей.
         if t.state is TaskState.CANCELLED:
+            for _ in range(_CAS_RETRIES):
+                t.last_error=error;t.pending_action=None
+                try:self._save(t)
+                except OwnerStateChanged:
+                    t=self._req(t.id)
+                    if t.state is not TaskState.CANCELLED:break
+                    continue
+                break
             self.loop_guards.pop(t.id,None);return t.state
         for _ in range(_CAS_RETRIES):
             t.state=state;t.last_error=error;t.pending_action=None

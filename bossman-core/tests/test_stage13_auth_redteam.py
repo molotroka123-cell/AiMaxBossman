@@ -833,11 +833,22 @@ async def test_c6_stale_pending_action_id_mismatch_blocks_action(tmp_path):
     assert t2.state is TaskState.FAILED and "stale" in (t2.last_error or "").lower()
 
 
-@pytest.mark.parametrize("op", ["take_control", "stop"])
-async def test_c7_operator_invalidation_between_approval_and_execution(tmp_path, op):
+@pytest.mark.parametrize("op,terminal", [("take_control", "FAILED"), ("stop", "CANCELLED")])
+async def test_c7_operator_invalidation_between_approval_and_execution(tmp_path, op, terminal):
     """Любая операторская инвалидация (take_control/stop — они bump'ают
     generation и чистят pending) в окне между approve и исполнением блокирует
-    акцию: generation теперь токен инвалидации."""
+    акцию: generation теперь токен инвалидации.
+
+    Терминальная метка при этом РАЗНАЯ, и это не мелочь. «Стоп» — решение
+    владельца, и оно не переписывается системным FAILED с текстом вроде
+    "approved action stale": владелец не должен читать собственную команду как
+    сбой системы. take_control владельческого вердикта по задаче не выносит,
+    поэтому там терминальная метка остаётся системной.
+
+    Что одинаково в обоих случаях и является собственно инвариантом
+    безопасности: акция НЕ ИСПОЛНЕНА, задача терминальна, задача не успешна, и
+    системный диагноз сохранён — владельческий вердикт не стирает причину.
+    """
     from bossman.computer_operator.models import TaskState
 
     mgr, router, _ = _manager(tmp_path, [_pay_action()], ({"status": "approved"}, None))
@@ -852,7 +863,8 @@ async def test_c7_operator_invalidation_between_approval_and_execution(tmp_path,
     await mgr.run(t.id)
     t2 = mgr.store.get(t.id)
     assert router.executed == []
-    assert t2.state is TaskState.FAILED
+    assert t2.state is getattr(TaskState, terminal)
+    assert t2.state is not TaskState.COMPLETED and t2.terminal
     assert "stale" in (t2.last_error or "").lower()
 
 
