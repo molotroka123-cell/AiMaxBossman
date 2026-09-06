@@ -640,14 +640,18 @@ def test_the_journal_records_the_objective_history_and_survives_a_restart(db, st
     store.settle_reservation("r-1", "COMMITTED")
 
     entries = ObjectiveStore(db).journal("build")
+    # Бронь здесь создана с пустым payload, поэтому закрытие честно отмечает,
+    # что списывать по ней нечего: счётчик миссий вырос, а стоимость и время —
+    # нет. Молчаливое «потрачено ноль» неотличимо от измеренного нуля.
     assert [e["event"] for e in entries] == ["imported", "lifecycle", "enrollment", "revised",
                                              "condition", "stop", "proposal", "reserved",
-                                             "settled"]
+                                             "usage_estimate_unusable", "settled"]
     detail = {e["event"]: e["detail"] for e in entries}
     assert detail["lifecycle"] == "DRAFT->ACTIVE"
     assert detail["enrollment"] == "local-build"
     assert detail["revised"] == "1->2"
     assert detail["settled"] == "r-1:COMMITTED"
+    assert "no usable estimate" in detail["usage_estimate_unusable"]
     assert all(isinstance(e["at"], (int, float)) for e in entries)
 
 

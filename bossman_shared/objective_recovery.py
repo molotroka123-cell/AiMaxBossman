@@ -216,16 +216,14 @@ def recover(store: ObjectiveStore, objective_id: str, *, now: float,
         disposition, reason, requires_owner = _decide(effect_class, answer)
         if disposition in (COMMITTED, RELEASED):
             try:
-                store.settle_reservation(reservation["reservation_id"], disposition)
+                # Расход списывает сама settle_reservation, в одной транзакции с
+                # закрытием брони. Отдельное начисление здесь считало бы бюджет
+                # дважды — и читало числа не оттуда: они лежат внутри `estimate`,
+                # а плоское чтение всегда давало ноль.
+                settled = store.settle_reservation(reservation["reservation_id"], disposition)
+                version = settled.version
             except ObjectiveStoreError:
                 disposition, reason, requires_owner = PARKED, REASON_SETTLE_CONFLICT, True
-        if disposition == COMMITTED:
-            charged = store.record_mission_usage(
-                objective_id, missions=1,
-                wall_seconds=float(payload.get("wall_seconds") or 0.0),
-                cost_usd=float(payload.get("cost_usd") or 0.0),
-                expected_version=version)
-            version = charged.version
         outcomes.append(ReservationOutcome(
             reservation["reservation_id"], reservation["proposal_id"], effect_class,
             answer if answer in EFFECT_ANSWERS else UNKNOWN, disposition, reason,

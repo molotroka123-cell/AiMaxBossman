@@ -133,7 +133,16 @@ class FleetStore:
             return cur.rowcount == 1
 
     def delete_lease(self, lease_id: str) -> bool:
+        """Аренда и её бронь памяти уходят вместе, в одной транзакции.
+
+        Внешние ключи на этом соединении не включены, поэтому удаление только из
+        `fleet_leases` оставляло строку в `fleet_memory_reservations` навсегда.
+        Учёт от этого не врал (админишн считает LEFT JOIN от аренд), но таблица
+        росла без границы — а осиротевшая строка про память рано или поздно
+        начинает читаться как настоящая бронь."""
         with self.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            con.execute("DELETE FROM fleet_memory_reservations WHERE lease_id=?", (lease_id,))
             return con.execute("DELETE FROM fleet_leases WHERE lease_id=?", (lease_id,)).rowcount == 1
 
     def leases(self, *, node_id: str | None = None, work_id: str | None = None) -> list[Lease]:

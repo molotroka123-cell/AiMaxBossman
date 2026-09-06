@@ -333,3 +333,32 @@ def test_twin_reads_only_durable_truth(tmp_path):
     assert snap["verified_mutations"] == 0 and snap["active_leases"] == []
     again = FleetControlPlane(tmp_path / "f.sqlite")
     assert again.snapshot(now=3.0)["nodes"][0]["node_id"] == "ai-max"
+
+
+def test_releasing_a_lease_also_releases_its_memory_reservation(tmp_path):
+    """Строка про бронь памяти не имеет права пережить свою аренду.
+
+    Внешних ключей на этом соединении нет, поэтому удаление одной таблицы
+    оставляло вторую расти без границы. Учёт при этом не врал — админишн
+    считает LEFT JOIN от аренд, — но осиротевшая бронь памяти рано или поздно
+    начинает читаться как настоящая.
+    """
+    db = tmp_path / "f.sqlite"
+    store = FleetStore(db)
+    store.save_node(_node("n"))
+    lm = LeaseManager(store)
+    lease = lm.acquire(node_id="n", work_id="w1", now=0.0, ttl_seconds=10,
+                       resource_class="gpu", requirement=_req())
+
+    def rows(table: str) -> int:
+        import sqlite3
+        con = sqlite3.connect(db)
+        try:
+            return con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        finally:
+            con.close()
+
+    assert rows("fleet_memory_reservations") == 1
+    assert store.delete_lease(lease.lease_id) is True
+    assert rows("fleet_leases") == 0
+    assert rows("fleet_memory_reservations") == 0, "бронь памяти пережила свою аренду"
