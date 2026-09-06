@@ -568,3 +568,80 @@ async def test_live_file_is_written_atomically(env):
     meta = wd._save_code(env.svc, pdir, "<html><body><p>цел</p></body></html>", "после обрыва")
     assert wd._read_code(pdir) == "<html><body><p>цел</p></body></html>"
     assert meta["version"] >= 2
+
+
+def test_restore_returns_code_to_the_page_it_was_snapshotted_from():
+    """Откат обязан вернуть снимок в СВОЮ страницу.
+
+    Регрессия на разрушительную правку: если версия «Контактов» восстановится
+    на главную, владелец теряет сразу две страницы — ту, которую хотел вернуть,
+    и ту, которую не трогал. Историю мы читаем по записи версии, а не по
+    текущей открытой странице, поэтому проверяем именно разбор записи.
+    """
+    from bcc.features import web_designer as wd
+
+    meta = {"versions": [
+        {"version": 1, "page": "index"},
+        {"version": 2, "page": "contacts"},
+        {"version": 3},                       # проект старше многостраничности
+        {"version": 4, "page": "../../etc"},  # испорченная запись истории
+        "мусор вместо записи",
+    ]}
+    assert wd._revision_page(meta, 2) == "contacts"
+    assert wd._revision_page(meta, 1) == "index"
+    # запись без страницы — единственная страница проекта и есть главная
+    assert wd._revision_page(meta, 3) == wd.HOME_SLUG
+    # испорченный слаг уводит на главную, но НЕ роняет откат: снимок-то есть
+    assert wd._revision_page(meta, 4) == wd.HOME_SLUG
+    # неизвестная версия тоже не исключение, а главная
+    assert wd._revision_page(meta, 99) == wd.HOME_SLUG
+    assert wd._revision_page({}, 1) == wd.HOME_SLUG
+
+
+def test_project_tokens_survive_a_round_trip_and_are_written_whole(tmp_path):
+    """Токены пишутся атомарно и читаются обратно теми же.
+
+    Читатель обязан увидеть либо старый набор целиком, либо новый целиком:
+    половина палитры на диске — это сайт в двух разных цветовых схемах.
+    """
+    from bcc.features import web_designer as wd
+
+    pdir = tmp_path / "p1"
+    pdir.mkdir()
+    tokens = wd.gen.tokens_from_palette("indigo")
+    wd._save_tokens(pdir, tokens)
+    assert wd._load_tokens(pdir) == tokens
+    # временных файлов рядом не осталось
+    assert not list(pdir.glob(".tokens.json.*"))
+    # проект без файла токенов — не ошибка, а проект старше токенов
+    assert wd._load_tokens(tmp_path / "never-written") == wd.gen.default_tokens()
+
+
+def test_editor_stylesheet_exists_and_the_page_actually_loads_it():
+    from pathlib import Path
+
+    """Файл стилей, который никто не подключает, — это не оформление.
+
+    Регрессия на реальный случай: web_designer.css был написан целиком (434
+    строки, все роль-токены дизайн-системы) и не подключён ниоткуда, поэтому
+    редактор рисовался старым оформлением, а файл выглядел рабочим. Проверяем
+    обе половины: файл на месте И страница его инжектит.
+    """
+    ui = Path(__file__).resolve().parents[1] / "ui"
+    css = ui / "web_designer.css"
+    assert css.is_file(), "ui/web_designer.css отсутствует"
+    text = css.read_text(encoding="utf-8")
+
+    page = (ui / "pages" / "web_designer.js").read_text(encoding="utf-8")
+    assert "web_designer.css" in page, "страница не подключает свой файл стилей"
+    assert "ensureWebDesignerCss()" in page, "инжект стилей не вызывается при отрисовке"
+
+    # Роль-токены объявлены В ПОДДЕРЕВЕ редактора, а не в :root: имена --line,
+    # --accent, --ok и --warn уже заняты в ui/style.css другими значениями, и
+    # объявление их глобально перекрасило бы всю оболочку панели.
+    # Комментарии вырезаем: в этом файле «:root» упоминается ИМЕННО в объяснении,
+    # почему токены объявлены не там. Проверять надо селекторы, а не текст.
+    selectors = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    assert ":root" not in selectors, \
+        "роль-токены редактора не должны объявляться на :root — они перекрасят всю панель"
+    assert ".wd-app" in selectors

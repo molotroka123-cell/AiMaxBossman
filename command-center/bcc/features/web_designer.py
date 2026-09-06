@@ -18,16 +18,21 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
+import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import tempfile
 import time
+import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from .. import web_designer_dom as dom
@@ -58,8 +63,66 @@ MAX_PROJECTS = 100
 MAX_VERSIONS = 50
 AI_MAX_TOKENS = 8192
 
+# --- границы Epoch 4 -------------------------------------------------------
+HOME_SLUG = gen.HOME_SLUG
+MAX_PAGES = 40
+MAX_COMPONENTS = 100
+MAX_ASSETS = 200
+MAX_ASSET_BYTES = 8 * 1024 * 1024
+MAX_RESPONSIVE_RULES = 300
+
 _TAG_RE = re.compile(r"<[a-zA-Z!/]")          # «похоже на HTML», а не случайный текст
 _NOTE_RE = re.compile(r"[\r\n\t]+")
+
+# Идентификатор страницы уезжает в ИМЯ ФАЙЛА на диске и в ссылку экспорта.
+# Проверяется он до всякой склейки путей: `../../project.json` в качестве
+# слага — это чтение и перезапись чужого файла, а не страница.
+_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
+# Служебные имена внутри каталога проекта: страница с таким слагом столкнулась
+# бы с настоящим каталогом панели.
+_RESERVED_SLUGS = frozenset({"history", "assets", "export", "pages", "project",
+                             "components", "tokens", "responsive"})
+# Идентификатор ассета — это ХЭШ содержимого, поэтому проверка формы заодно
+# закрывает выход из каталога: `..` шестнадцатеричным не бывает.
+_ASSET_ID_RE = re.compile(r"^[0-9a-f]{24}$")
+_RULE_ID_RE = re.compile(r"^r[0-9]{1,9}$")
+
+# Тип содержимого определяется ПО БАЙТАМ. Имя, пришедшее из браузера, —
+# утверждение загрузившего, а не факт: `evil.html`, названный `logo.png`,
+# отдавался бы как картинка ровно до первого браузера, решившего иначе.
+_MAGIC: tuple[tuple[bytes, int, str, str, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", 0, "image/png", "png", "image"),
+    (b"\xff\xd8\xff", 0, "image/jpeg", "jpg", "image"),
+    (b"GIF87a", 0, "image/gif", "gif", "image"),
+    (b"GIF89a", 0, "image/gif", "gif", "image"),
+    (b"BM", 0, "image/bmp", "bmp", "image"),
+    (b"wOFF", 0, "font/woff", "woff", "font"),
+    (b"wOF2", 0, "font/woff2", "woff2", "font"),
+    (b"OTTO", 0, "font/otf", "otf", "font"),
+    (b"\x00\x01\x00\x00", 0, "font/ttf", "ttf", "font"),
+    (b"true", 0, "font/ttf", "ttf", "font"),
+    (b"ttcf", 0, "font/collection", "ttc", "font"),
+)
+
+ASSET_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Content-Disposition": "inline",
+    "Cache-Control": "no-store",
+}
+
+
+def sniff_asset(data: bytes) -> tuple[str, str, str] | None:
+    """Байты → (content-type, расширение, род). Ничего не узнали — None.
+
+    SVG сюда намеренно не входит: это исполняемый документ, а не картинка, и
+    в экспортированном сайте он выполняется уже вне песочницы превью.
+    """
+    for magic, offset, content_type, ext, kind in _MAGIC:
+        if data[offset:offset + len(magic)] == magic:
+            return content_type, ext, kind
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp", "webp", "image"
+    return None
 
 
 # ---------------------------------------------------------------- хранилище
@@ -131,11 +194,74 @@ def _version_path(pdir: Path, version: int) -> Path:
     return pdir / "history" / f"v{int(version)}.html"
 
 
-def _read_code(pdir: Path) -> str:
+def _check_slug(slug: str) -> str:
+    """Слаг страницы → он же, но только если это действительно слаг."""
+    text = str(slug or "").strip().lower()
+    if not _SLUG_RE.match(text):
+        raise HTTPException(
+            status_code=422,
+            detail=("имя страницы может состоять только из латинских букв в нижнем "
+                    "регистре, цифр и дефиса и начинаться с буквы или цифры"))
+    if text in _RESERVED_SLUGS:
+        raise HTTPException(status_code=422,
+                            detail=f"имя «{text}» занято служебным каталогом проекта")
+    return text
+
+
+def _contained(root: Path, path: Path) -> Path:
+    """Путь обязан лежать ВНУТРИ каталога проекта. Иначе — 422, а не запись.
+
+    Вторая линия обороны после проверки имени: она защищает и от симлинка,
+    подставленного внутрь каталога проекта, и от будущего вызова, который
+    забудет провалидировать имя.
+    """
+    resolved_root = root.resolve()
+    resolved = (path if path.is_absolute() else resolved_root / path)
     try:
-        return _current_path(pdir).read_text(encoding="utf-8")
+        resolved = resolved.resolve()
+    except OSError:                             # битый симлинк — тоже отказ
+        raise HTTPException(status_code=422, detail="недопустимый путь внутри проекта")
+    if resolved != resolved_root and resolved_root not in resolved.parents:
+        raise HTTPException(status_code=422,
+                            detail="путь выходит за пределы каталога проекта")
+    return resolved
+
+
+def _pages_dir(pdir: Path) -> Path:
+    return pdir / "pages"
+
+
+def _page_path(pdir: Path, slug: str) -> Path:
+    """Файл страницы. Домашняя — это `current.html`: код проекта, как и был."""
+    slug = _check_slug(slug)
+    if slug == HOME_SLUG:
+        return _current_path(pdir)
+    return _contained(pdir, _pages_dir(pdir) / f"{slug}.html")
+
+
+def _read_code(pdir: Path, slug: str = HOME_SLUG) -> str:
+    try:
+        return _page_path(pdir, slug).read_text(encoding="utf-8")
     except OSError:
         return ""
+
+
+def _pages_of(meta: dict) -> list[dict]:
+    """Список страниц проекта; у старых проектов он достраивается на лету."""
+    pages = [p for p in (meta.get("pages") or []) if isinstance(p, dict) and p.get("slug")]
+    if not any(p.get("slug") == HOME_SLUG for p in pages):
+        pages.insert(0, {"slug": HOME_SLUG, "title": meta.get("name") or "Главная",
+                         "created_at": meta.get("created_at"),
+                         "updated_at": meta.get("updated_at")})
+    return pages
+
+
+def _require_page(meta: dict, slug: str) -> dict:
+    slug = _check_slug(slug)
+    page = next((p for p in _pages_of(meta) if p.get("slug") == slug), None)
+    if page is None:
+        raise HTTPException(status_code=404, detail=f"страница «{slug}» не найдена")
+    return page
 
 
 def _next_id(svc) -> int:
@@ -151,16 +277,25 @@ def _public_meta(meta: dict) -> dict:
     # id — ЧИСЛО. На диске он лежал строкой, а UI сравнивал его с числом через
     # ===, поэтому «последний проект» и ссылка ?project=N не срабатывали
     # никогда: панель молча открывала первый попавшийся проект.
+    versions = list(meta.get("versions") or [])
+    cursor = int(meta.get("cursor") or meta.get("version") or 0)
+    numbers = [int(v.get("version", 0)) for v in versions]
     return {
         "id": int(meta.get("id") or 0), "name": meta.get("name", ""), "prompt": meta.get("prompt", ""),
         "template": meta.get("template", ""), "palette": meta.get("palette", ""),
         "version": int(meta.get("version", 0)),
         "created_at": meta.get("created_at"), "updated_at": meta.get("updated_at"),
+        "pages": [str(p.get("slug")) for p in _pages_of(meta)],
+        "home": HOME_SLUG,
+        "cursor": cursor,
+        "can_undo": bool(numbers) and cursor in numbers and numbers.index(cursor) > 0,
+        "can_redo": bool(meta.get("redo")),
     }
 
 
 def _save_code(svc, pdir: Path, html: str, note: str, *,
-               expect_version: int | None = None) -> dict:
+               expect_version: int | None = None, page: str = HOME_SLUG,
+               cursor: int | None = None, keep_redo: bool = False) -> dict:
     """Записать новую текущую версию + снимок в историю. Возвращает версию.
 
     Единственная точка записи кода проекта, поэтому предел размера проверяется
@@ -183,20 +318,27 @@ def _save_code(svc, pdir: Path, html: str, note: str, *,
             detail=(f"код изменился за время правки: вы правили версию {int(expect_version)}, "
                     f"сейчас сохранена {current_version}. Обновите превью и повторите — "
                     "чужая правка не затёрта"))
+    target = _page_path(pdir, page)
     version = current_version + 1
     history = pdir / "history"
     history.mkdir(parents=True, exist_ok=True)
     # Снимок сначала, текущий файл — вторым: обрыв между ними оставляет лишний
     # снимок, обратный порядок оставил бы версию без снимка.
     _write_atomic(_version_path(pdir, version), html)
-    _write_atomic(_current_path(pdir), html)
+    _write_atomic(target, html)
     meta.update({
         "id": pdir.name, "version": version, "updated_at": _now(),
     })
     versions = list(meta.get("versions") or [])
     versions.append({"version": version, "note": _note(note), "ts": meta["updated_at"],
-                     "chars": len(html)})
+                     "chars": len(html), "page": _check_slug(page)})
     meta["versions"] = versions[-MAX_VERSIONS:]
+    # Курсор истории — версия, которую владелец СЕЙЧАС видит. Обычная запись
+    # ставит его на новую версию и обнуляет «вперёд»: после новой правки
+    # повторять уже нечего. Отмена и повтор передают курсор сами.
+    meta["cursor"] = int(cursor) if cursor is not None else version
+    if not keep_redo:
+        meta["redo"] = []
     _save_meta(pdir, meta)
     # Держим каталог истории в пределах MAX_VERSIONS снимков. Сортировка ЧИСЛОВАЯ:
     # по именам «v10» идёт раньше «v9», поэтому лексикографический срез удалял
@@ -205,6 +347,54 @@ def _save_code(svc, pdir: Path, html: str, note: str, *,
     for stale in snapshots[:-MAX_VERSIONS]:
         stale.unlink(missing_ok=True)
     return _public_meta(meta)
+
+
+def _save_tokens(pdir: Path, tokens: dict) -> None:
+    """Токены проекта — отдельный файл, а не поле в project.json.
+
+    Их читает и превью, и экспорт, и они переписываются заметно чаще меты;
+    держать их рядом значило бы переписывать меты целиком ради смены одного
+    акцента. Запись атомарная по той же причине, что и всё остальное здесь:
+    читатель обязан увидеть либо старый набор целиком, либо новый целиком, а
+    не половину палитры.
+    """
+    _write_atomic(pdir / "tokens.json",
+                  json.dumps(tokens, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def _load_tokens(pdir: Path) -> dict:
+    """Токены с диска; их отсутствие — не ошибка, а проект старше токенов."""
+    try:
+        raw = json.loads((pdir / "tokens.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return gen.default_tokens()
+    return raw if isinstance(raw, dict) else gen.default_tokens()
+
+
+def _revision_page(meta: dict, version: int) -> str:
+    """Страница, которой принадлежит снимок этой версии.
+
+    Откат обязан вернуть код в ТУ ЖЕ страницу, из которой снимок был снят.
+    Иначе восстановление старой версии «Контактов» легло бы на главную, и
+    владелец потерял бы сразу две страницы: ту, которую хотел вернуть, и ту,
+    которую не трогал. У проектов, созданных до многостраничности, поля `page`
+    в записи версии нет — там единственная страница и есть главная. Неразборчивый
+    слаг тоже уводит на главную, а не роняет откат: снимок существует, и
+    испорченная запись истории не повод отказать владельцу в его коде.
+    """
+    for entry in reversed(list(meta.get("versions") or [])):
+        if not isinstance(entry, dict):
+            continue
+        try:
+            if int(entry.get("version") or 0) != int(version):
+                continue
+        except (TypeError, ValueError):
+            continue
+        try:
+            return _check_slug(str(entry.get("page") or HOME_SLUG))
+        except HTTPException:
+            return HOME_SLUG
+    return HOME_SLUG
 
 
 def _snapshot_number(path: Path) -> int:
@@ -243,6 +433,7 @@ class CodeIn(BaseModel):
     html: str = Field(min_length=1, max_length=MAX_HTML_CHARS)
     note: str = Field(default="", max_length=200)
     base_version: int | None = None            # версия, на которой правка построена
+    page: str = HOME_SLUG
 
 
 class GenerateIn(BaseModel):
@@ -263,6 +454,7 @@ class EditIn(BaseModel):
     html: str | None = Field(default=None, max_length=MAX_HTML_CHARS)
     base_version: int | None = None            # версия, которую видел выбиравший
     replace_children: bool = False             # согласие снести вложенные теги
+    page: str = HOME_SLUG
 
 
 class AiEditIn(BaseModel):
@@ -270,6 +462,7 @@ class AiEditIn(BaseModel):
     bd_id: str | None = None
     path: str | None = None
     base_version: int | None = None
+    page: str = HOME_SLUG
 
 
 # ---------------------------------------------------------------- endpoints
@@ -306,6 +499,9 @@ async def create_project(body: ProjectIn, request: Request):
         "prompt": body.prompt[:4000], "template": body.template,
         "palette": body.palette, "version": 0,
         "created_at": _now(), "updated_at": _now(), "versions": [],
+        "cursor": 0, "redo": [],
+        "pages": [{"slug": HOME_SLUG, "title": " ".join(body.name.split())[:120] or "Главная",
+                   "created_at": _now(), "updated_at": _now()}],
     }
     _save_meta(pdir, meta)
     if body.template == "blank":
@@ -324,6 +520,9 @@ async def create_project(body: ProjectIn, request: Request):
         final = result["steps"][-1]
         _save_code(svc, pdir, final, f"шаблон {result['template']}, палитра {result['palette']}")
         meta = _load_meta(pdir)
+    # Токены проекта заводятся сразу и согласованно с выбранной палитрой:
+    # иначе первое же «поменять акцент» переписывало бы CSS генератора.
+    _save_tokens(pdir, gen.tokens_from_palette((meta or {}).get("palette") or "indigo"))
     return {"meta": _public_meta(meta or {}), "code": _read_code(pdir)}
 
 
@@ -334,23 +533,26 @@ async def templates():
 
 
 @router.get("/web-designer/projects/{pid}")
-async def get_project(pid: int, request: Request):
+async def get_project(pid: int, request: Request, page: str = HOME_SLUG):
     svc = request.app.state.svc
     pdir, meta = _require_project(svc, pid)
-    return {"meta": _public_meta(meta), "code": _read_code(pdir),
+    _require_page(meta, page)
+    return {"meta": _public_meta(meta), "code": _read_code(pdir, page), "page": page,
+            "pages": _pages_of(meta),
             "versions": list(meta.get("versions") or [])[-MAX_VERSIONS:]}
 
 
 @router.put("/web-designer/projects/{pid}/code")
 async def put_code(pid: int, body: CodeIn, request: Request):
     svc = request.app.state.svc
-    pdir, _ = _require_project(svc, pid)
+    pdir, meta_now = _require_project(svc, pid)
+    _require_page(meta_now, body.page)
     if not _TAG_RE.search(body.html[:2000]):
         raise HTTPException(status_code=422, detail="это не похоже на HTML-документ")
     async with _project_lock(pdir):
         meta = _save_code(svc, pdir, body.html, body.note or "правка кода",
-                          expect_version=body.base_version)
-    return {"ok": True, "meta": meta}
+                          expect_version=body.base_version, page=body.page)
+    return {"ok": True, "meta": meta, "page": body.page}
 
 
 @router.post("/web-designer/projects/{pid}/generate")
@@ -380,8 +582,9 @@ async def edit_project(pid: int, body: EditIn, request: Request):
     """Точечная правка выбранного элемента текущего кода."""
     svc = request.app.state.svc
     pdir, meta_now = _require_project(svc, pid)
+    _require_page(meta_now, body.page)
     async with _project_lock(pdir):
-        html = _read_code(pdir)
+        html = _read_code(pdir, body.page)
         if not html:
             raise HTTPException(status_code=409, detail="в проекте пока нет кода")
         # Выделение построено на нумерации ТОЙ версии, которую показывало превью.
@@ -403,16 +606,18 @@ async def edit_project(pid: int, body: EditIn, request: Request):
         note = f"{body.op}: {described.get('tag')}"
         if described.get("text"):
             note += f" «{described['text'][:40]}»"
-        meta = _save_code(svc, pdir, new_html, note, expect_version=body.base_version)
-    return {"ok": True, "meta": meta, "element": described}
+        meta = _save_code(svc, pdir, new_html, note, expect_version=body.base_version,
+                          page=body.page)
+    return {"ok": True, "meta": meta, "element": described, "page": body.page}
 
 
 @router.get("/web-designer/projects/{pid}/preview", response_class=HTMLResponse)
-async def preview(pid: int, request: Request):
+async def preview(pid: int, request: Request, page: str = HOME_SLUG):
     """HTML для iframe: с data-bd-id и пикером. Хранимый код не меняется."""
     svc = request.app.state.svc
-    pdir, _ = _require_project(svc, pid)
-    html = _read_code(pdir)
+    pdir, meta = _require_project(svc, pid)
+    _require_page(meta, page)
+    html = _read_code(pdir, page)
     if not html:
         raise HTTPException(status_code=409, detail="в проекте пока нет кода")
     try:
@@ -425,8 +630,9 @@ async def preview(pid: int, request: Request):
 async def ai_edit(pid: int, body: AiEditIn, request: Request):
     """Правка кода моделью из реестра. Модели нет — честный отказ."""
     svc = request.app.state.svc
-    pdir, _ = _require_project(svc, pid)
-    html = _read_code(pdir)
+    pdir, meta_now = _require_project(svc, pid)
+    _require_page(meta_now, body.page)
+    html = _read_code(pdir, body.page)
     if not html:
         raise HTTPException(status_code=409, detail="в проекте пока нет кода")
     # Версия, на которой строится правка. Ответ модели приходит через секунды,
@@ -490,7 +696,7 @@ async def ai_edit(pid: int, body: AiEditIn, request: Request):
         new_html = dom.serialize(root)
     async with _project_lock(pdir):
         meta = _save_code(svc, pdir, new_html, f"AI: {_note(body.prompt)}",
-                          expect_version=base_version)
+                          expect_version=base_version, page=body.page)
     return {"ok": True, "meta": meta, "model": model_row.get("alias") or model_row.get("name")}
 
 
@@ -528,9 +734,10 @@ async def restore_version(pid: int, version: int, request: Request):
     if not path.is_file():
         raise HTTPException(status_code=404, detail=f"версия {version} не сохранилась")
     html = path.read_text(encoding="utf-8")
+    page = _revision_page(_load_meta(pdir) or {}, version)
     async with _project_lock(pdir):
-        meta = _save_code(svc, pdir, html, f"откат к версии {version}")
-    return {"ok": True, "meta": meta, "code": html}
+        meta = _save_code(svc, pdir, html, f"откат к версии {version}", page=page)
+    return {"ok": True, "meta": meta, "code": html, "page": page}
 
 
 @router.delete("/web-designer/projects/{pid}")

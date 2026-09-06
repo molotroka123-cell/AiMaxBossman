@@ -18,6 +18,24 @@ import { api } from '../api.js';
 import { h, toastOk, toastError, confirmDialog, debounce, fmtDateShort } from '../components.js';
 import { pageHead, panel, btn, pill, tag, field } from './_ui.js';
 
+/* Свой CSS: ui/web_designer.css, инжектится один раз через <link> — тот же
+   приём, что у mobile.js и mission_console.js. Отдельным файлом, а не в
+   style.css, потому что редактор объявляет собственные роль-токены из
+   docs/v3/BOSSMAN_DESIGN_SYSTEM.md, и часть их имён (--line, --accent, --ok,
+   --warn) уже занята в style.css другими значениями. Внутри файла они
+   объявлены на .wd-app/.wd-pop, а не на :root, иначе перекрасили бы всю
+   оболочку панели. */
+const CSS_ID = 'bcc-web-designer-css';
+
+function ensureWebDesignerCss() {
+  if (document.getElementById(CSS_ID)) return;
+  const link = document.createElement('link');
+  link.id = CSS_ID;
+  link.rel = 'stylesheet';
+  link.href = 'web_designer.css';
+  document.head.appendChild(link);
+}
+
 const LAST_KEY = 'bd.lastProject';
 const FRAME_W = { desktop: '', tablet: '768px', mobile: '390px' };
 
@@ -523,6 +541,7 @@ const WebDesignerPage = {
   },
 
   async render(ctx, params) {
+    ensureWebDesignerCss();
     /* deep-link из задачи: #/web_designer?task=<название> — создать проект из задачи */
     if (params && params.task && !state.id) {
       const title = String(params.task).slice(0, 100);

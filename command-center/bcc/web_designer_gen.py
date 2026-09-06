@@ -566,3 +566,185 @@ def generate(prompt: str, name: str = "", template: str = "auto",
         "name": _clean_name(project_name),
         "steps": steps,
     }
+
+
+# ================================================================
+# Epoch 4: дизайн-токены, брейкпоинты, страницы, навигация, экспорт.
+#
+# Общий принцип раздела: оформление применяется ЧЕРЕЗ CSS-переменные и один
+# управляемый блок <style>, а не переписыванием элементов. «Поменять акцентный
+# цвет» обязано трогать один узел документа, а не тысячу — иначе каждая смена
+# темы теряет дословное написание каждого тега владельца.
+# ================================================================
+
+TOKEN_PREFIX = "--bd"
+
+# Группы токенов и их порядок в файле. Порядок фиксирован: сгенерированный CSS
+# обязан быть детерминированным, иначе каждое сохранение даёт новую версию
+# «ни о чём» и история перестаёт что-либо значить.
+TOKEN_GROUPS: tuple[str, ...] = ("color", "font", "text", "space", "radius", "shadow")
+
+DEFAULT_TOKENS: dict[str, dict[str, str]] = {
+    "color": {
+        "bg": "#f6f7fb", "surface": "#ffffff", "ink": "#12141f",
+        "muted": "#5d6478", "accent": "#4f46e5", "accent-2": "#8b5cf6",
+    },
+    "font": {
+        "sans": "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+        "mono": "ui-monospace, SFMono-Regular, Menlo, monospace",
+    },
+    "text": {
+        "xs": "12px", "sm": "14px", "md": "16px",
+        "lg": "20px", "xl": "28px", "2xl": "40px",
+    },
+    "space": {"1": "4px", "2": "8px", "3": "12px", "4": "16px",
+              "5": "24px", "6": "32px", "7": "48px", "8": "64px"},
+    "radius": {"sm": "8px", "md": "14px", "lg": "22px", "pill": "999px"},
+    "shadow": {
+        "sm": "0 1px 2px rgba(15,23,42,.08)",
+        "md": "0 8px 24px rgba(15,23,42,.10)",
+        "lg": "0 24px 60px rgba(15,23,42,.18)",
+    },
+}
+
+# Переменные, на которых уже держатся шаблоны генератора. Мост «токен → старая
+# переменная» и делает токены ПРИМЕНЁННЫМИ: сайт, собранный до появления
+# токенов, перекрашивается целиком, и ни один его элемент не переписан.
+_COLOR_BRIDGE: tuple[tuple[str, str], ...] = (
+    ("bg", "--bg"), ("surface", "--surface"), ("ink", "--ink"),
+    ("muted", "--muted"), ("accent", "--accent"), ("accent-2", "--accent-2"),
+)
+
+BREAKPOINTS: dict[str, int] = {"sm": 480, "md": 768, "lg": 1024, "xl": 1280}
+
+
+def default_tokens() -> dict[str, dict[str, str]]:
+    return {group: dict(values) for group, values in DEFAULT_TOKENS.items()}
+
+
+def tokens_from_palette(palette_id: str) -> dict[str, dict[str, str]]:
+    """Токены проекта, согласованные с выбранной палитрой генератора."""
+    tokens = default_tokens()
+    palette = PALETTES.get(palette_id)
+    if palette:
+        tokens["color"].update({
+            "bg": palette["bg"], "surface": palette["surface"], "ink": palette["ink"],
+            "muted": palette["muted"], "accent": palette["accent"],
+            "accent-2": palette["accent2"],
+        })
+    return tokens
+
+
+def token_var(group: str, name: str) -> str:
+    return f"{TOKEN_PREFIX}-{group}-{name}"
+
+
+def render_tokens_css(tokens: dict[str, dict[str, str]]) -> str:
+    """Документ токенов → CSS с кастомными свойствами. Детерминированно."""
+    lines: list[str] = [":root {"]
+    for group in TOKEN_GROUPS:
+        values = tokens.get(group) or {}
+        for name in sorted(values):
+            lines.append(f"  {token_var(group, name)}: {values[name]};")
+    lines.append("}")
+    colors = tokens.get("color") or {}
+    bridge = [f"  {old}: var({token_var('color', key)});"
+              for key, old in _COLOR_BRIDGE if key in colors]
+    if bridge:
+        lines.extend([":root {", *bridge, "}"])
+    body: list[str] = []
+    if "sans" in (tokens.get("font") or {}):
+        body.append(f"  font-family: var({token_var('font', 'sans')});")
+    if "md" in (tokens.get("text") or {}):
+        body.append(f"  font-size: var({token_var('text', 'md')});")
+    if body:
+        lines.extend(["body {", *body, "}"])
+    return "\n".join(lines) + "\n"
+
+
+def render_responsive_css(rules: list[dict]) -> str:
+    """Правила брейкпоинтов → настоящие медиазапросы.
+
+    Порядок — от широкого к узкому: при `max-width` побеждает последнее
+    подошедшее правило, поэтому телефон обязан идти после планшета.
+    """
+    by_breakpoint: dict[str, list[dict]] = {}
+    for rule in rules:
+        by_breakpoint.setdefault(str(rule.get("breakpoint")), []).append(rule)
+    blocks: list[str] = []
+    for name in sorted(by_breakpoint, key=lambda n: -BREAKPOINTS.get(n, 0)):
+        width = BREAKPOINTS.get(name)
+        if width is None:
+            continue
+        body: list[str] = []
+        for rule in by_breakpoint[name]:
+            props = rule.get("props") or {}
+            if not props:
+                continue
+            decls = " ".join(f"{prop}: {props[prop]};" for prop in sorted(props))
+            body.append(f"  {rule.get('selector')} {{ {decls} }}")
+        if body:
+            blocks.append(f"@media (max-width: {width}px) {{\n" + "\n".join(body) + "\n}")
+    return ("\n".join(blocks) + "\n") if blocks else ""
+
+
+# ---------------------------------------------------------------- страницы и навигация
+
+def blank_page_html(title: str) -> str:
+    """Пустая страница проекта. Имя экранируется — оно ввод владельца."""
+    safe = escape(_clean_name(title), quote=True)
+    return ("<!DOCTYPE html>\n<html lang=\"ru\">\n<head>\n<meta charset=\"utf-8\">\n"
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+            f"<title>{safe}</title>\n</head>\n<body>\n"
+            f"<h1>{safe}</h1>\n</body>\n</html>\n")
+
+
+HOME_SLUG = "index"
+
+
+def page_file_name(slug: str) -> str:
+    """Имя файла страницы в экспорте: домашняя — index.html."""
+    return "index.html" if slug == HOME_SLUG else f"{slug}.html"
+
+
+def render_nav_html(pages: list[dict], current: str) -> str:
+    """Навигация по страницам сайта — обычные ссылки на соседние файлы."""
+    items = []
+    for page in pages:
+        slug = str(page.get("slug") or "")
+        title = escape(str(page.get("title") or slug), quote=True)
+        href = escape(page_file_name(slug), quote=True)
+        mark = ' aria-current="page"' if slug == current else ""
+        items.append(f'<a href="{href}"{mark}>{title}</a>')
+    return ('<nav data-bd-nav class="bd-nav" aria-label="Страницы сайта">'
+            + "".join(items) + "</nav>")
+
+
+# ---------------------------------------------------------------- экспорт
+
+# Имя файла в архиве. Абсолютный путь и `..` в имени члена — классический
+# zip-slip: распаковка кладёт файл ВНЕ каталога назначения. Архив собирается
+# только из имён, прошедших эту проверку.
+_SAFE_MEMBER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,180}$")
+
+
+def is_safe_archive_name(name: str) -> bool:
+    text = str(name or "")
+    if not _SAFE_MEMBER.match(text):
+        return False
+    if text.startswith("/") or text.startswith("\\") or ":" in text:
+        return False
+    parts = text.split("/")
+    return all(part not in ("", ".", "..") for part in parts)
+
+
+def rewrite_asset_urls(html: str, mapping: dict[str, str]) -> str:
+    """Заменить служебные URL ассетов на относительные пути экспорта.
+
+    Замена текстовая и потому не трогает дерево: экспорт обязан отдавать ровно
+    тот документ, который владелец видит в панели, минус адрес панели.
+    """
+    out = html
+    for api_url, relative in sorted(mapping.items(), key=lambda kv: -len(kv[0])):
+        out = out.replace(api_url, relative)
+    return out
