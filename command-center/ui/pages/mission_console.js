@@ -27,7 +27,7 @@
 
 import { api, listOf, pick } from '../api.js';
 import {
-  h, icon, toastOk, toastError,
+  h, icon, toast, toastOk, toastError,
   fmtDuration, fmtClock, fmtTokens, fmtContext, fmtNum, fmtGb, parseTs,
 } from '../components.js';
 import { statusText } from './_ui.js';
@@ -644,8 +644,8 @@ function approvalCard(a, ctx) {
          выглядело бы как только что принятое оператором. */
       const got = row && row.status ? String(row.status) : '';
       if (got && got !== want) {
-        toastError({ message: `Решение уже принято: ${statusText(got).word}`,
-                     hint: row.decided_by ? `решил: ${row.decided_by}` : '' });
+        toast(`Решение уже принято: ${statusText(got).word}`, { type: 'warn',
+          hint: row.decided_by ? `решил: ${row.decided_by}` : '' });
       } else {
         toastOk(approve ? 'Разрешено' : 'Отклонено', 'Решение записано, работа продолжится.');
       }

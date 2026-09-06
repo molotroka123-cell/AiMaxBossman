@@ -215,6 +215,14 @@ def test_composer_marks_the_mock_image_model_as_a_stub(live):
             errors: list[str] = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             _open_images(page, live)
+            # Каталог моделей приходит своим запросом: под нагрузкой список
+            # успевал прочитаться раньше, чем в нём оба варианта.
+            page.wait_for_function("""() => {
+              const sel = document.querySelector('section.images-composer select');
+              if (!sel) return false;
+              const opts = [...sel.options].map((o) => o.textContent);
+              return opts.some((o) => o.includes('Mock')) && opts.some((o) => o.includes('SDXL'));
+            }""", timeout=15000)
             options = page.locator("section.images-composer select").first.locator("option").all_inner_texts()
             mock = [o for o in options if "Mock" in o]
             real = [o for o in options if "SDXL" in o]

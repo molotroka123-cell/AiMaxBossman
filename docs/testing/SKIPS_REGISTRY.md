@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 139. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 140. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -71,6 +71,7 @@
 | `command-center/tests/test_video_studio_integration.py:246` | skip | `—` | FFmpeg unavailable | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_interchange.py:5` | importorskip | `—` | install video-interchange extra | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_language.py:36` | skip | `—` | Optional Marian weights/runtime not configured | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_video_studio_p1_findings.py:15` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | real FFmpeg binaries required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_queued_extensions.py:139` | skipif | `not os.environ.get("VIDEO_TEST_LOCAL_TRANSLATION")` | explicit local translation integration flag required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_read_verification.py:16` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | real FFmpeg binaries required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_render.py:13` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | real FFmpeg binaries required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

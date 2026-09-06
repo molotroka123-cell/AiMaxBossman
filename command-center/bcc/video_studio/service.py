@@ -208,9 +208,15 @@ class VideoService:
 
     async def _render_job(self, task, run, engine):
         from .render import render_project
+        from .model import Conflict
         jid = task["meta"]["video_job_id"]
         async with self.svc.db.session() as s:
             row = dict((await s.execute(sa.select(jobs).where(jobs.c.id == jid))).mappings().one())
+        # Ревизия в export проверяется до INSERT и без _write_lock, так что правка
+        # успевает встать между ними. Без этой сверки готовый файл выдавался бы за
+        # текущий проект, а render_gate подтверждал бы его: гейт привязан к снапшоту.
+        if (await self.store.get(row["project_id"]))["revision"] != row["snapshot"]["revision"]:
+            raise Conflict("project changed after this export was queued")
         outdir = self.root / "exports" / jid / str(run["id"])
         outdir.mkdir(parents=True, exist_ok=True)
         async def progress(stage, details):

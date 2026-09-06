@@ -242,8 +242,8 @@ function approvalRow(a, ctx) {
          выглядело бы как только что принятое владельцем. */
       const got = row && row.status ? String(row.status) : '';
       if (got && got !== want) {
-        toastError({ message: `Решение уже принято: ${statusLabel(got)}`,
-                     hint: row.decided_by ? `решил: ${row.decided_by}` : '' });
+        toast(`Решение уже принято: ${statusLabel(got)}`, { type: 'warn',
+          hint: row.decided_by ? `решил: ${row.decided_by}` : '' });
       } else {
         toastOk(approve ? 'Подтверждено' : 'Отклонено');
       }

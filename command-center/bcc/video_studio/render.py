@@ -6,6 +6,7 @@ come from bounded numeric data; user text lives in generated subtitle files.
 from __future__ import annotations
 
 import asyncio
+import errno
 from fractions import Fraction
 import hashlib
 import json
@@ -531,10 +532,26 @@ async def verify_output(path, expected=None):
         "passed":not failures,"failures":failures}
 
 
+# ReFS (Windows Dev Drive), FAT/exFAT и сетевые шары не умеют жёстких ссылок и
+# сообщают об этом кто во что горазд. EEXIST сюда намеренно не входит: занятое имя
+# означает конкурирующий экспорт и обязано остаться отказом, а не уйти в подмену.
+NO_HARD_LINKS = frozenset({errno.EPERM, errno.EACCES, errno.EINVAL, errno.ENOSYS,
+                           errno.EXDEV, errno.EMLINK, errno.EOPNOTSUPP, errno.ENOTSUP})
+
+
 def publish(partial, output_path):
     with partial.open("rb+") as source:
         os.fsync(source.fileno())
-    os.link(partial,output_path)
+    try:
+        os.link(partial,output_path)
+    except OSError as error:
+        # Иначе экспорт гибнет на самом последнем шаге, уже пройдя полное
+        # независимое декодирование, пробу и хеширование готового файла.
+        if error.errno not in NO_HARD_LINKS:raise
+        # O_EXCL сохраняет ту же исключительность публикации, что и os.link:
+        # os.replace сам по себе молча затирает уже опубликованный артефакт.
+        os.close(os.open(output_path,os.O_CREAT|os.O_EXCL|os.O_WRONLY))
+        os.replace(partial,output_path)
 
 
 async def stream_copy(project, root, output_path, options, progress):
