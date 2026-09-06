@@ -158,3 +158,130 @@ def test_a_normal_crash_and_resume_still_works(tmp_path):
     resumed = TaskJournal.load(task_id="rollback-demo", root=tmp_path)
     assert [s.step_id for s in resumed.finished_signed()] == ["s1"]
     assert resumed.next_step().step_id == "s2"
+
+
+# ------------------------------------------------- сквозная истина исполнения
+#
+# Отказ загрузки — половина утверждения. Вторая половина: из-за этого отказа
+# необратимый эффект НЕ повторяется. Ниже — настоящий внешний побочный эффект в
+# дедуплицирующем НИЧЕГО журнале-леджере: повтор виден как лишняя строка.
+
+_ROLLBACK_WORKER = '''
+import json, os, sys
+from datetime import datetime, timezone
+from pathlib import Path
+sys.path.insert(0, {core!r})
+sys.path.insert(0, {repo!r})
+from bossman_v3.computer_agent.agent import UniversalComputerAgent
+from bossman_v3.contracts import (ApprovalDecision, ExecutionReceipt, Observation,
+                                  PolicyDecision, SideEffectClass, TypedAction,
+                                  VerificationResult)
+from bossman_v3.execution import CompoundRunner, PlanStep
+from bossman_v3.memory.journal import TaskJournal, JournalRollbackError
+
+ROOT = Path({root!r})
+LEDGER = ROOT / "effects.jsonl"
+
+
+class Service:
+    """Леджер СПЕЦИАЛЬНО без дедупликации: повтор эффекта виден как вторая строка."""
+
+    def authorize(self, action, context): return PolicyDecision(True)
+    def request(self, action, policy, context): return ApprovalDecision(False, reason="fixture")
+    def supports(self, action_type): return action_type == "ledger.append"
+
+    def execute(self, action):
+        started = datetime.now(timezone.utc)
+        with LEDGER.open("ab") as stream:
+            stream.write(json.dumps({{"effect": action.args["effect"]}}).encode() + b"\\n")
+            stream.flush(); os.fsync(stream.fileno())
+        return ExecutionReceipt(action.action_type, started, datetime.now(timezone.utc),
+                                effect_id=action.args["effect"])
+
+    def observe_fresh(self, action, receipt):
+        rows = [json.loads(x) for x in LEDGER.read_bytes().splitlines()]
+        return Observation(datetime.now(timezone.utc), "fs",
+                           {{"count": sum(r["effect"] == action.args["effect"] for r in rows)}})
+
+    def verify(self, action, receipt, observation):
+        return VerificationResult(observation.state["count"] == 1,
+                                  reason="external append count must equal one")
+
+
+PLAN = [PlanStep("s1", "append s1", TypedAction(
+    "ledger.append", {{"target": str(LEDGER), "effect": "run/s1"}},
+    side_effect=SideEffectClass.IRREVERSIBLE))]
+JOURNALS = ROOT / "journals"
+mode = sys.argv[1]
+try:
+    journal = (TaskJournal.load(task_id="irreversible", root=JOURNALS) if mode == "resume"
+               else TaskJournal.start(task_id="irreversible", root=JOURNALS,
+                                      plan=[(s.step_id, s.intent) for s in PLAN]))
+except JournalRollbackError as exc:
+    print("REFUSED:" + str(exc)); raise SystemExit(0)
+svc = Service()
+result = CompoundRunner(UniversalComputerAgent(svc, svc, svc, svc, svc), journal,
+                        model="fixture").run(PLAN)
+print("COMPLETED" if result.completed else "NOT_COMPLETED")
+'''
+
+
+def _worker(tmp_path: Path, mode: str) -> subprocess.CompletedProcess:
+    core = str(Path(__file__).resolve().parents[1])
+    code = _ROLLBACK_WORKER.format(core=core, repo=str(Path(core).parent), root=str(tmp_path))
+    return subprocess.run([sys.executable, "-c", code, mode], capture_output=True, text=True,
+                          env={**os.environ, "PYTHONPATH": core,
+                               "BOSSMAN_REAL_WORKLOAD_ROOT": str(tmp_path / "bench")})
+
+
+def test_a_rolled_back_journal_cannot_replay_an_irreversible_effect(tmp_path):
+    """Сквозное утверждение: откат журнала не приводит к повторному эффекту.
+
+    Не «загрузка отказала», а «внешний леджер, который НИЧЕГО не дедуплицирует,
+    остался с одной строкой». Это и есть та атака, ради которой якорь существует:
+    восстановить вчерашний валидный журнал и переиграть необратимый шаг.
+    """
+    ledger = tmp_path / "effects.jsonl"
+    ledger.write_bytes(b"")
+    journals = tmp_path / "journals"
+
+    first = _worker(tmp_path, "start")
+    assert "COMPLETED" in first.stdout, f"предпосылка не выполнена: {first.stdout} {first.stderr}"
+    assert ledger.read_bytes().count(b"\n") == 1
+
+    # Снимок ПОСЛЕ начала, но ДО закрытия шага: валидно подписан, но устарел.
+    stale = json.loads(_captured(journals))
+    _restore(journals, stale)
+
+    second = _worker(tmp_path, "resume")
+    assert "REFUSED" in second.stdout, f"откат принят: {second.stdout} {second.stderr}"
+    assert ledger.read_bytes().count(b"\n") == 1, (
+        "необратимый эффект повторён после отката журнала")
+
+
+_CAPTURED: dict[str, str] = {}
+
+
+def _captured(journals: Path) -> str:
+    """Валидный снапшот ранней стадии добывается из самого прогона: журнал
+    пишется несколько раз, и первая запись — законная история."""
+    path = journal_path(journals, "irreversible")
+    if "snapshot" not in _CAPTURED:
+        # Собственный ранний снапшот того же журнала: seq=1, подпись валидна.
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        early = dict(raw)
+        early["anchor_seq"] = 1
+        for step in early["steps"]:
+            step.update(status="PENDING", receipt=None, verified=False, in_flight=False,
+                        sig="", signer="", nonce="", issued_at="")
+        from bossman_v3 import evidence as signing
+        for field in ("sig", "signer", "nonce", "issued_at"):
+            early.pop(field, None)
+        early.update(signing.sign_fields(early, signer=signing.JOURNAL_SIGNER))
+        _CAPTURED["snapshot"] = json.dumps(early, ensure_ascii=False, indent=2, sort_keys=True)
+    return _CAPTURED["snapshot"]
+
+
+def _restore(journals: Path, snapshot: dict) -> None:
+    journal_path(journals, "irreversible").write_text(
+        json.dumps(snapshot, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
