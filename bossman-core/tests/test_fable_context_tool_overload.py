@@ -146,4 +146,3 @@ def test_pruning_is_deterministic_and_order_preserving():
     assert a == b
     order = [n for n in ALL if n.replace(".", "_") in a]
     assert [n.replace(".", "_") for n in order] == a, "pruning reordered the tools"
-
