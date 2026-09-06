@@ -1,0 +1,114 @@
+name: Takeover admission verified delivery
+on:
+  push:
+    branches: [fix/takeover-admission-ci-20260906]
+    paths: [.github/workflows/takeover-delivery.yml]
+permissions:
+  contents: read
+concurrency:
+  group: takeover-admission-delivery
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply only hash-bound code/test/doc changes
+        shell: python
+        run: |
+          import hashlib,json,pathlib,subprocess,os
+          root=pathlib.Path.cwd()
+          manifest=json.loads((root/'handoffs/takeover_2919b_edits.json').read_text())
+          assert manifest['base_sha']=='2919b8319c8da512c5a54408c35db04bea858f07'
+          subprocess.run(['git','merge-base','--is-ancestor',manifest['base_sha'],'HEAD'],check=True)
+          allowed={'bossman-core/bossman/computer_operator/manager.py','bossman-core/tests/test_computer_operator_owner_control.py','bossman-core/tests/test_stage13_auth_redteam.py','command-center/bcc/engine.py','command-center/bcc/features/tools_terminal.py','command-center/bcc/tools.py','command-center/tests/test_terminal_context_denial.py','command-center/tests/test_v21_tools_terminal_browser.py','docs/audits/TAKEOVER_ADMISSION_CI_20260906.md','docs/testing/SKIPS_REGISTRY.md'}
+          assert len(manifest['files'])==len(allowed)
+          assert {f['path'] for f in manifest['files']}==allowed
+          def digest(b):return hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          ready=[]
+          for item in manifest['files']:
+              path=root/item['path']
+              assert path.resolve().is_relative_to(root) and not path.is_symlink()
+              old=path.read_bytes() if path.exists() else None
+              assert (digest(old) if old is not None else None)==item['before'],item['path']
+              lines=(old or b'').decode('utf-8').splitlines(keepends=True)
+              last=0
+              for edit in item['edits']:
+                  assert type(edit['start']) is int and type(edit['end']) is int
+                  assert last<=edit['start']<=edit['end']<=len(lines)
+                  last=edit['end']
+              for edit in reversed(item['edits']):
+                  lines[edit['start']:edit['end']]=[edit['text']]
+              new=''.join(lines).encode('utf-8')
+              assert digest(new)==item['after'],item['path']+' output mismatch'
+              ready.append((path,new))
+          for path,data in ready:
+              path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+          subprocess.run(['git','diff','--check'],check=True)
+          subprocess.run(['git','config','user.name','github-actions[bot]'],check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'],check=True)
+          subprocess.run(['git','add','--',*sorted(allowed)],check=True)
+          subprocess.run(['git','commit','-m','fix: materialize hash-bound terminal denial and owner-control regressions'],check=True)
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'takeover-results';out.mkdir()
+          sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          (out/'tested-sha.txt').write_text(sha+'\n')
+          (out/'file-manifest.json').write_text(json.dumps(manifest,indent=2))
+          with open(os.environ['GITHUB_ENV'],'a') as env:
+              env.write('PYTHONPATH='+os.pathsep.join(map(str,[root,root/'bossman-core',root/'command-center']))+'\n')
+      - name: Install declared packages without owner secrets
+        run: python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev]'
+      - name: Core owner control and evidence regressions
+        run: >-
+          python -m pytest -c bossman-core/pyproject.toml
+          bossman-core/tests/test_stage13_auth_redteam.py
+          bossman-core/tests/test_computer_operator_owner_control.py
+          bossman-core/tests/test_operator_recovery_owner_state.py
+          bossman-core/tests/test_stage13_operator_redteam.py
+          bossman-core/tests/test_computer_operator_recovery.py
+          bossman-core/tests/test_evidence_ledger_hostile.py
+          bossman-core/tests/test_learning_evidence_ledger.py
+          bossman-core/tests/audit001 -q --timeout=45
+          --junitxml=${{ runner.temp }}/takeover-results/core.xml
+      - name: Terminal path denial, approvals and finalization
+        run: >-
+          python -m pytest -c command-center/pyproject.toml
+          command-center/tests/test_terminal_context_denial.py
+          command-center/tests/test_finalize_unclassified_failure.py
+          command-center/tests/test_secrem_s3_sandbox_default_deny.py
+          command-center/tests/test_policy_algebra.py
+          command-center/tests/test_secrem_f009_terminal.py
+          command-center/tests/test_finalize_gate.py
+          command-center/tests/test_finalize_capability_match.py
+          command-center/tests/test_v21_tool_loop.py
+          command-center/tests/test_v21_tools_terminal_browser.py
+          -q --timeout=45 --junitxml=${{ runner.temp }}/takeover-results/cc.xml
+      - name: Registry, secrets, no unreviewed file changes
+        run: |
+          python -m pytest tests/test_skips_registry.py -q --junitxml=${{ runner.temp }}/takeover-results/root-targeted.xml
+          python tools/skips_registry.py --check
+          python tools/ci_secret_scan.py
+          git diff --exit-code
+      - name: Push only the tested isolated branch (never main)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin HEAD:refs/heads/fix/takeover-admission-ci-20260906
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: takeover-delivery-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/takeover-results/
+          if-no-files-found: warn
+          retention-days: 7
