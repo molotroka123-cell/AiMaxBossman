@@ -1,7 +1,7 @@
 /* Bossman Video Studio. Human and agent share the revision-guarded command API. */
 import { api, listOf } from '../api.js';
 import { h, toastError } from '../components.js';
-import { TIMEBASE, ticks, seconds, duration, activeSequence, selectedClip, endTime, snapTime, timecode, commandEnvelope, filterMedia, exportOptions, captionText, proposalBindingMatches } from './video_studio_state.js';
+import { TIMEBASE, ticks, seconds, duration, activeSequence, selectedClip, endTime, snapTime, timecode, commandEnvelope, filterMedia, exportOptions, captionText, proposalBindingMatches, splitFrameCommand } from './video_studio_state.js';
 
 const BASE = '/api/video-studio';
 const uid = () => crypto.randomUUID();
@@ -237,7 +237,7 @@ class Editor {
       ...Object.entries(clip.keyframes || {}).flatMap(([param, frames]) => frames.map(frame => h('div.vs-effect',
         h('span', `${param} · ${seconds(frame.t)} s · ${frame.value} · ${frame.easing}`),
         this.button('×', () => this.command({ type: 'keyframe.remove', clip_id: clip.id, param, t: frame.t }), { title: this.t('remove') }))))));
-    body.append(h('div.vs-inspector-tools', this.button(this.t('split'), () => this.command({ type: 'clip.split', clip_id: clip.id, at: this.playhead }), { disabled: track.locked }),
+    body.append(h('div.vs-inspector-tools', this.button(this.t('split'), () => this.command(splitFrameCommand(this.project, clip.id, this.playhead)), { disabled: track.locked }),
       this.button(this.t('remove'), () => this.command({ type: 'clip.remove', clip_id: clip.id }), { disabled: track.locked }),
       this.button(this.t('advanced'), () => this.palette({ type: 'clip.transform', clip_id: clip.id, patch: {} }))));
     panel.append(body); return panel;
@@ -336,7 +336,7 @@ class Editor {
       h('div.vs-playhead', { style: { left: `${seconds(this.playhead) * this.zoom}px` } }));
     return h('section.vs-timeline.vs-panel', h('div.vs-timeline-tools',
       this.button('＋', () => this.trackDialog(), { title: this.t('addTrack') }),
-      this.button('✂', () => this.selected && this.command({ type: 'clip.split', clip_id: this.selected, at: this.playhead }), { title: `${this.t('split')} · S`, disabled: !this.selected }),
+      this.button('✂', () => this.selected && this.command(splitFrameCommand(this.project, this.selected, this.playhead)), { title: this.lang === 'ru' ? 'Разрезать по кадру · связанные клипы вместе · S' : 'Split at frame · linked clips together · S', disabled: !this.selected }),
       this.button('⌫', () => this.selected && this.command({ type: 'clip.remove', clip_id: this.selected, ripple: false }), { title: this.t('remove'), disabled: !this.selected }),
       this.button(this.t('snap'), () => { this.snap = !this.snap; this.paint(); }, { class: this.snap ? 'active' : '', 'aria-pressed': this.snap }),
       this.button(`◆ ${this.t('marker')}`, () => this.form(this.t('marker'), [{ key: 'label', label: this.t('name'), value: '' }], f => this.command({ type: 'marker.add', marker: { t: this.playhead, label: f.label } }))),
@@ -644,7 +644,7 @@ class Editor {
     if (mod && event.key.toLowerCase() === 'z') { event.preventDefault(); this.guard(() => this.command({ type: event.shiftKey ? 'history.redo' : 'history.undo' })); }
     else if (mod && event.key.toLowerCase() === 'k') { event.preventDefault(); this.palette(); }
     else if (event.code === 'Space') { event.preventDefault(); this.guard(() => this.togglePlay()); }
-    else if (event.key.toLowerCase() === 's' && this.selected) { event.preventDefault(); this.guard(() => this.command({ type: 'clip.split', clip_id: this.selected, at: this.playhead })); }
+    else if (event.key.toLowerCase() === 's' && this.selected) { event.preventDefault(); this.guard(() => this.command(splitFrameCommand(this.project, this.selected, this.playhead))); }
     else if (event.key === 'Delete' && this.selected) { event.preventDefault(); this.guard(() => this.command({ type: 'clip.remove', clip_id: this.selected, ripple: event.shiftKey })); }
   }
 }
