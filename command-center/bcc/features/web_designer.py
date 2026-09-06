@@ -24,6 +24,7 @@ import re
 import shutil
 import tempfile
 import time
+from html import escape
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
@@ -131,9 +132,25 @@ def _version_path(pdir: Path, version: int) -> Path:
     return pdir / "history" / f"v{int(version)}.html"
 
 
+def _own_file(path: Path) -> Path:
+    """Файл проекта, который панель готова прочитать: свой, а не ссылка наружу.
+
+    Запись безопасна сама по себе (`os.replace` заменяет ссылку файлом, а не
+    пишет сквозь неё), а вот ЧТЕНИЕ по symlink шло куда угодно: подменённый
+    `current.html` или снимок истории отдавал панели содержимое чужого файла,
+    и оно уезжало владельцу в редактор и в следующую сохранённую версию.
+    """
+    if path.is_symlink():
+        raise HTTPException(
+            status_code=409,
+            detail=f"{path.name} — символическая ссылка, а не файл проекта; "
+                   "панель не читает файлы за пределами каталога проекта")
+    return path
+
+
 def _read_code(pdir: Path) -> str:
     try:
-        return _current_path(pdir).read_text(encoding="utf-8")
+        return _own_file(_current_path(pdir)).read_text(encoding="utf-8")
     except OSError:
         return ""
 
@@ -309,9 +326,15 @@ async def create_project(body: ProjectIn, request: Request):
     }
     _save_meta(pdir, meta)
     if body.template == "blank":
+        # Имя проекта — ввод владельца, а здесь оно уезжает ПРЯМО в разметку
+        # сохранённого сайта. Генератор своё имя экранирует (web_designer_gen),
+        # пустой шаблон — не экранировал: «Кафе</title><script>alert(1)</script>»
+        # становился живым скриптом внутри кода проекта и уезжал в экспорт, где
+        # песочницы превью уже нет.
         blank = ("<!DOCTYPE html>\n<html lang=\"ru\">\n<head>\n<meta charset=\"utf-8\">\n"
                  "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-                 f"<title>{meta['name']}</title>\n</head>\n<body>\n\n</body>\n</html>\n")
+                 f"<title>{escape(meta['name'], quote=True)}</title>\n</head>\n"
+                 "<body>\n\n</body>\n</html>\n")
         _save_code(svc, pdir, blank, "пустой проект")
         meta = _load_meta(pdir)
     else:
@@ -474,6 +497,13 @@ async def ai_edit(pid: int, body: AiEditIn, request: Request):
                                     max_tokens=AI_MAX_TOKENS)
     except ProviderError as exc:
         raise HTTPException(status_code=502, detail=f"модель недоступна: {exc}")
+    except PermissionError as exc:
+        # Приватный режим исполнения запрещает облачного провайдера. Запасного
+        # облачного пути тут нет и быть не должно: отказ честный, код не тронут.
+        raise HTTPException(
+            status_code=403,
+            detail=f"приватный режим: облачная модель запрещена ({exc}) — "
+                   "подключите локальную модель")
 
     new_html = _extract_html(result.text, element is not None)
     if element is not None:
@@ -527,7 +557,7 @@ async def restore_version(pid: int, version: int, request: Request):
     path = _version_path(pdir, version)
     if not path.is_file():
         raise HTTPException(status_code=404, detail=f"версия {version} не сохранилась")
-    html = path.read_text(encoding="utf-8")
+    html = _own_file(path).read_text(encoding="utf-8")
     async with _project_lock(pdir):
         meta = _save_code(svc, pdir, html, f"откат к версии {version}")
     return {"ok": True, "meta": meta, "code": html}

@@ -23,6 +23,26 @@ def test_viewport_module_serialization_and_geometry():
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def _settles(frame, expression, expected, *, timeout: float = 10.0):
+    """Значение ВНУТРИ кадра после изменения его размера снаружи.
+
+    Хост меняет `style.width` кадра синхронно, а кадр пересчитывает свой CSS-
+    вьюпорт и медиазапросы уже следующим тиком: сравнение сразу после записи
+    стиля читает старое состояние кадра и делает тест гонкой, а не проверкой.
+    Ожидание не ослабляет проверку — то же самое равенство обязано наступить,
+    и невыполнение по-прежнему валит тест.
+    """
+    import time
+    deadline = time.monotonic() + timeout
+    seen = None
+    while time.monotonic() < deadline:
+        seen = frame.locator("body").evaluate(expression)
+        if seen == expected:
+            return seen
+        time.sleep(0.1)
+    raise AssertionError(f"{expression}: получено {seen!r}, ожидалось {expected!r}")
+
+
 @pytest.mark.timeout(180)
 @pytest.mark.skipif(not chromium_available(), reason=browser_reason())
 def test_viewport_toolbar_changes_actual_iframe_geometry_without_editing_project(live):
@@ -53,11 +73,11 @@ def test_viewport_toolbar_changes_actual_iframe_geometry_without_editing_project
             frame.locator("h1").wait_for()
             page.get_by_label("Размер экрана превью", exact=True).select_option("mobile")
             page.wait_for_function("() => document.querySelector('iframe.bd-frame').style.width === '390px'")
-            assert frame.locator("body").evaluate("el => getComputedStyle(el).backgroundColor") == "rgb(0, 0, 255)"
-            assert frame.locator("body").evaluate("() => window.innerWidth") == 390
+            _settles(frame, "el => getComputedStyle(el).backgroundColor", "rgb(0, 0, 255)")
+            _settles(frame, "() => window.innerWidth", 390)
             page.get_by_role("button", name="Повернуть", exact=True).click()
-            assert frame.locator("body").evaluate("() => window.innerWidth") == 844
-            assert frame.locator("body").evaluate("() => window.innerHeight") == 390
+            _settles(frame, "() => window.innerWidth", 844)
+            _settles(frame, "() => window.innerHeight", 390)
             page.get_by_label("Масштаб превью", exact=True).select_option("0.5")
             geometry = page.locator("iframe.bd-frame").evaluate("el => ({w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height})")
             assert geometry == {"w": 422, "h": 195}
@@ -77,15 +97,15 @@ def test_viewport_toolbar_changes_actual_iframe_geometry_without_editing_project
             assert geometry["w"] == pytest.approx(min(844, geometry["available"]), abs=1)
             assert geometry["h"] / geometry["w"] == pytest.approx(4096 / 844)
             assert geometry["scrolls"]
-            assert frame.locator("body").evaluate("() => window.innerWidth") == 844
+            _settles(frame, "() => window.innerWidth", 844)
             page.get_by_label("Ширина превью", exact=True).fill("0")
             page.get_by_role("button", name="Применить размер", exact=True).click()
-            assert frame.locator("body").evaluate("() => window.innerWidth") == 844
+            _settles(frame, "() => window.innerWidth", 844)
             page.reload()
             page.wait_for_selector("iframe.bd-frame")
             page.wait_for_function("() => document.querySelector('iframe.bd-frame').style.width === '844px'")
             assert page.get_by_label("Масштаб превью", exact=True).input_value() == "width"
-            assert frame.locator("body").evaluate("() => window.innerHeight") == 4096
+            _settles(frame, "() => window.innerHeight", 4096)
             final = page.evaluate("async id => (await fetch(`/api/web-designer/projects/${id}`)).json()", pid)
             assert final == initial  # no code, metadata, or version-history mutation
             assert page.get_attribute("iframe.bd-frame", "sandbox") == "allow-scripts"
