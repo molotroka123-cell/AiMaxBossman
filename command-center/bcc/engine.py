@@ -29,6 +29,11 @@ from .tools import (REGISTRY as TOOLS, ToolContext, agent_policy_rules, allowed_
 
 ACTIVE_RUN_STATUSES = ("queued", "leased", "running")
 
+# Задача в этих статусах снята владельцем: решение по её подтверждению уже
+# ничего не запускает, а вернуло бы её в очередь мёртвой (A7-02).
+STOPPED_TASK_STATUSES = ("stopped", "cancelled")
+STOP_DECIDER = "остановка задачи"
+
 # P0-04: хуки безопасности fail-closed. Критичный хук (ревью/approval/Deep Fix
 # gate, Resource Brain before_run, роутер pick_model) при исключении, таймауте
 # или битом результате НЕ даёт задаче завершиться. Телеметрия (on_step,
@@ -345,6 +350,7 @@ class TaskEngine:
                 runs_t.c.status.in_(("leased", "running"))))
             active_ids = [int(r[0]) for r in res.fetchall()]
             await s.commit()
+        await self._reject_parked_approvals(task_id)
         # Событие — ДО отмены, и это не косметика. Stop зовут в том числе
         # изнутри самого прогона (инструмент, хук, тест через ASGI в одной
         # задаче с worker'ом). Тогда worker.cancel() отменяет ту же задачу,
@@ -1368,6 +1374,17 @@ class TaskEngine:
             if row is None:
                 return
             rec = dict(row._mapping)
+            # Fail-closed: остановленную задачу решение не воскрешает. Иначе
+            # гонка «решение в полёте, пока stop() гасит run» оставляет её
+            # `queued` при stopped-run'е — такую задачу не возьмёт ни один воркер.
+            status = (await s.execute(sa.select(tasks_t.c.status).where(
+                tasks_t.c.id == rec["task_id"]))).scalar_one_or_none()
+            if status in STOPPED_TASK_STATUSES:
+                await s.execute(sa.update(tool_calls_t).where(
+                    tool_calls_t.c.id == rec["id"]).values(
+                    status="rejected", finished_at=utcnow()))
+                await s.commit()
+                return
             await s.execute(sa.update(tasks_t).where(tasks_t.c.id == rec["task_id"]).values(
                 status="queued", updated_at=utcnow()))
             await s.execute(sa.update(runs_t).where(
@@ -1427,6 +1444,45 @@ class TaskEngine:
                             preview=str(kw.get("preview", ""))[:500],
                             task_id=kw.get("task_id"), run_id=kw.get("run_id"))
         return {"id": aid}
+
+    async def _reject_parked_approvals(self, task_id: int) -> None:
+        """Снять подтверждения, припаркованные остановленной задачей.
+
+        Без этого строка остаётся в «Ждут вашего решения» уже мёртвой задачи, а
+        «Разрешить» по ней поднимает задачу обратно в `queued`: run у неё уже
+        stopped, воркер её не возьмёт никогда — зомби в очереди навсегда.
+        Решаем отказом: остановка владельца не может стать разрешением.
+        """
+        async with self.db.session() as s:
+            parked = sa.and_(tool_calls_t.c.task_id == task_id,
+                             tool_calls_t.c.status == "pending_approval")
+            rows = (await s.execute(sa.select(tool_calls_t.c.approval_id)
+                                    .where(parked))).fetchall()
+            if not rows:
+                return
+            await s.execute(sa.update(tool_calls_t).where(parked).values(
+                status="rejected", finished_at=utcnow()))
+            await s.commit()
+        for row in rows:
+            if row[0] is not None:
+                await self._reject_approval(int(row[0]))
+
+    async def _reject_approval(self, approval_id: int) -> None:
+        """Отказ по CAS: уже принятое человеком решение не переписываем."""
+        svc = self.services
+        if svc is not None and getattr(svc, "approvals", None) is not None:
+            await svc.approvals.decide(approval_id, False, by=STOP_DECIDER)
+            return
+        # движок может работать без Services (тесты): решаем строку сами
+        async with self.db.session() as s:
+            res = await s.execute(sa.update(approvals_t).where(
+                sa.and_(approvals_t.c.id == approval_id,
+                        approvals_t.c.status == "pending")).values(
+                status="rejected", decided_by=STOP_DECIDER, decided_at=utcnow()))
+            await s.commit()
+        if res.rowcount:
+            await self.bus.emit("approval.decided", id=approval_id, status="rejected",
+                                by=STOP_DECIDER)
 
     async def _record_tool_call(self, run_id: int, task_id: int, step: int, call: Any,
                                 spec: Any, *, effect: str, status: str,
