@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 123. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 124. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -15,6 +15,7 @@
 | `command-center/tests/test_command_bar_ui.py:22` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_continuity_desktop_ui.py:8` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_fable_hard_cap.py:24` | skipif | `not fable_cap.LEDGER_AVAILABLE` | f"общий журнал потолка недоступен: {fable_cap.LEDGER_PROBLEM}" | Command Center | необязательный пакет / соседний компонент | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_fable_video_chaos.py:38` | skipif | `not shutil.which("ffmpeg")` | local FFmpeg unavailable | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_feat_browser.py:44` | skipif | `not _has_chromium()` | Chromium не предустановлен | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_feat_browser.py:61` | skip | `—` | Playwright недоступен в этом окружении | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_feat_openrouter_smoke.py:13` | skipif | `not os.environ.get("OPENROUTER_API_KEY")` | OPENROUTER_API_KEY не задан — реальный smoke не выполняется | Command Center | живой внешний сервис / owner-authorized live | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

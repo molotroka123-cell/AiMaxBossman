@@ -12,7 +12,8 @@ from typing import Any, Iterable
 
 from bossman.computer_operator.models import ActionKind, ExpectedState, Observation
 from bossman.deep_fix import Evidence, Principal
-from bossman.learning_guard.autonomy_trainer import (AutonomyCandidate, Episode, evaluate_candidate, promote_candidate,
+from bossman.learning_guard.autonomy_trainer import (AutonomyCandidate, Episode, corpus_fingerprint,
+                                                     evaluate_candidate, promote_candidate,
                                                      rollback_candidate)
 from bossman.learning_guard.models import ABResult, RollbackInfo, SecuritySnapshot
 
@@ -272,6 +273,16 @@ class SkillPromoter:
                                  hypothesis=str(skill.get("title", "")), rollback_ref=f"{skill['skill_id']}@v{int(skill.get('version') or 0)}")
         return evaluate_candidate(cand, [episode_to_training(e) for e in episodes], holdout=holdout,
                                   min_samples=min_samples, baseline_success=baseline_success)
+
+    @staticmethod
+    def corpus_ref(cand: AutonomyCandidate) -> str:
+        """Fingerprint both SecuritySnapshots must carry (AUDIT001-F5-PROVENANCE).
+
+        Whoever measures containment/leaks for a promotion computes this from the
+        candidate it measured, so a "before" and an "after" taken on two different
+        corpora can no longer read as an improvement.
+        """
+        return corpus_fingerprint(cand.scope)
 
     def promote(self, skill: dict, cand: AutonomyCandidate, ab: list[ABResult], *, security_before: SecuritySnapshot,
                 security_after: SecuritySnapshot, shadow_runs: int, owner_approved: bool, rollback_tested: bool) -> tuple[dict, AutonomyCandidate]:

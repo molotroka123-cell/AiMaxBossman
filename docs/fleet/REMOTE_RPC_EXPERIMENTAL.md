@@ -34,8 +34,14 @@ a canonical lease and an attached host runtime. RPC cannot register a node, crea
 a lease, grant tools, approve an action or waive a verifier. Key revocation and
 canonical privacy decisions are rechecked under the lease mutation transaction.
 MINIMIZED context is validated before transmission, not redacted after disclosure.
-LOCAL_ONLY is always refused remotely. PUBLIC is the default endpoint/node class;
-PRIVATE also requires explicit endpoint/node clearance and canonical policy.
+PUBLIC work only. PRIVATE and LOCAL_ONLY mean "this never leaves the local
+node", and a peer reached through a socket is not the local node whatever
+trust_class the registry records for it; INTERNAL has no proven remote
+confidentiality contract here either. All three are refused before a byte is
+sent, at the endpoint config, the gateway config and the wire-level request.
+An earlier revision let an endpoint declare clearance for PRIVATE: that was a
+privacy escape (PRIVATE work executed on a remote gateway and wrote its file
+over TLS) and is closed.
 
 An authenticated response is **not** independently verified execution evidence.
 Remote success/reviewer flags do not gain authority; the normal contract and

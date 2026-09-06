@@ -20,6 +20,7 @@ import os
 from dataclasses import dataclass, field, replace
 from typing import Any, Iterable
 
+from .evidence_ledger import default_ledger, evidence_key
 from .holdout import SecretHoldout
 from .models import ABResult, Candidate, PromotionStage, RollbackInfo, SecuritySnapshot
 from .promotion import SecurityRegression, promote
@@ -58,6 +59,27 @@ def scope_fingerprint(scope: dict) -> str:
                      f"environment={scope.get('environment', '')}",
                      f"model_version={scope.get('model_version', '')}", *ident])
     return hashlib.sha256(base.encode("utf-8")).hexdigest()[:16]
+
+
+def corpus_fingerprint(scope: dict) -> str:
+    """Идентичность корпуса, к которой ОБЯЗАНЫ быть привязаны security-срезы.
+
+    ``scope_fingerprint`` возвращает '' для scope, объявленного только по имени —
+    для доказательств A/B это сознательная обратная совместимость. Но для пары
+    SecuritySnapshot этого мало: два среза БЕЗ происхождения нельзя объявить
+    сравнимыми, и «улучшение» между двумя неопознанными измерениями — не
+    улучшение (AUDIT001-F5-PROVENANCE). Здесь идентичность есть ВСЕГДА:
+    неизменяемый отпечаток, если он объявлен, иначе — отпечаток по имени
+    (task_class/environment/model_version), которое promote_candidate и так
+    требует непустым. Производитель измерения вычисляет ту же функцию.
+    """
+    fixed = scope_fingerprint(scope)
+    if fixed:
+        return fixed
+    base = "|".join([f"task_class={scope.get('task_class', '')}",
+                     f"environment={scope.get('environment', '')}",
+                     f"model_version={scope.get('model_version', '')}"])
+    return "name:" + hashlib.sha256(base.encode("utf-8")).hexdigest()[:16]
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,7 +206,7 @@ def evaluate_candidate(cand: AutonomyCandidate, episodes: Iterable[Episode], *,
 def promote_candidate(cand: AutonomyCandidate, ab_results: Iterable[ABResult], *,
                       security_before: SecuritySnapshot, security_after: SecuritySnapshot,
                       shadow_runs: int, owner_approved: bool, rollback_tested: bool,
-                      rollback: RollbackInfo) -> AutonomyCandidate:
+                      rollback: RollbackInfo, evidence_ledger=None) -> AutonomyCandidate:
     """Через Learning Guard: A/B (verified only) → анти-деградационные гейты →
     стадии → promote только владельцем и только с протестированным rollback."""
     if cand.status != "SHADOW":
@@ -213,9 +235,23 @@ def promote_candidate(cand: AutonomyCandidate, ab_results: Iterable[ABResult], *
         if foreign:
             return replace(cand, reasons=(
                 f"A/B evidence corpus {foreign} does not match candidate corpus {want_ref!r}",))
-        if security_before.scope_ref != want_ref or security_after.scope_ref != want_ref:
-            return replace(cand, reasons=(
-                f"security snapshots are not bound to candidate corpus {want_ref!r}",))
+    # --- provenance (AUDIT-ONLY-001 / F5-PROVENANCE): security-срезы БЕЗ
+    # происхождения несравнимы. Раньше проверка включалась только для scope с
+    # неизменяемой идентичностью, поэтому пара «before с корпуса B / after с
+    # корпуса A» читалась как улучшение и пропускала продвижение.
+    corpus_ref = corpus_fingerprint(cand.scope)
+    if security_before.scope_ref != corpus_ref or security_after.scope_ref != corpus_ref:
+        return replace(cand, reasons=(
+            f"security snapshots are not bound to candidate corpus {corpus_ref!r} "
+            f"(before={security_before.scope_ref!r}, after={security_after.scope_ref!r})",))
+    # --- single use (AUDIT-ONLY-001 / F5-REPLAY): одно измерение продвигает одну
+    # версию кандидата. Списываем ПОСЛЕ структурных проверок, чтобы заведомо
+    # негодная попытка не сжигала доказательство.
+    ledger = default_ledger() if evidence_ledger is None else evidence_ledger
+    spent = ledger.consume(evidence_key(ab, security_before, security_after, shadow_runs),
+                           f"{cand.candidate_id}@{cand.rollback_ref}")
+    if spent:
+        return replace(cand, reasons=(spent,))
     lg = Candidate(kind="config", ref=cand.candidate_id, stage=PromotionStage.SHADOW)
     try:
         moved, verdict = guard_promotion(lg, ab, security_before=security_before,

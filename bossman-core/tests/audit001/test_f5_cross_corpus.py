@@ -40,6 +40,7 @@ for p in (str(ROOT), str(CORE)):
 from bossman.learning_guard.autonomy_trainer import (  # noqa: E402
     AutonomyCandidate,
     Episode,
+    corpus_fingerprint,
     evaluate_candidate,
     promote_candidate,
 )
@@ -50,6 +51,7 @@ from bossman.learning_guard.models import (  # noqa: E402
     RollbackInfo,
     SecuritySnapshot,
 )
+from bossman.learning_guard.evidence_ledger import EvidenceLedger  # noqa: E402
 from bossman.learning_guard.promotion import MIN_SHADOW_RUNS  # noqa: E402
 
 CORPUS_A = "notes.save"          # what the candidate was trained on
@@ -59,8 +61,16 @@ ENV_B = "env:chat-9.9"
 MODEL_A = "planner:sim-v1"
 MODEL_B = "planner:sim-v2"
 
-CLEAN = SecuritySnapshot(leaks=0, bypasses=0, containment_rate=1.0)
 ROLLBACK = RollbackInfo(prev_stage="SHADOW", prev_ref="skill@v0", reason="test")
+
+
+def clean(scope_ref: str = "") -> SecuritySnapshot:
+    """A measurement producer. AUDIT001-F5-PROVENANCE closed: a security snapshot
+    now has to say which corpus it was taken on, so the fixtures say it too."""
+    return SecuritySnapshot(leaks=0, bypasses=0, containment_rate=1.0, scope_ref=scope_ref)
+
+
+CLEAN = clean()                      # deliberately unbound: used where that is the point
 
 
 # ------------------------------------------------------------------ builders
@@ -104,10 +114,15 @@ def _ab(task_class: str, n: int = MIN_SHADOW_RUNS) -> list[ABResult]:
                      raw_verified=False, guarded_verified=True) for i in range(n)]
 
 
-def _promote(cand: AutonomyCandidate, ab, *, before=CLEAN, after=CLEAN) -> AutonomyCandidate:
-    return promote_candidate(cand, ab, security_before=before, security_after=after,
+def _promote(cand: AutonomyCandidate, ab, *, before=None, after=None,
+             ledger=None) -> AutonomyCandidate:
+    ref = corpus_fingerprint(cand.scope)
+    return promote_candidate(cand, ab,
+                             security_before=clean(ref) if before is None else before,
+                             security_after=clean(ref) if after is None else after,
                              shadow_runs=MIN_SHADOW_RUNS, owner_approved=True,
-                             rollback_tested=True, rollback=ROLLBACK)
+                             rollback_tested=True, rollback=ROLLBACK,
+                             evidence_ledger=ledger)
 
 
 # ============================================================ PIN: guards that DO exist
@@ -216,32 +231,28 @@ def test_same_corpus_different_policy_version_is_not_interchangeable():
         "evidence with no policy version promoted a candidate pinned to policy@v7")
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "BACKLOG AUDIT001-F5-REPLAY (P2, open): the two candidates differ only by rollback_ref and are "
-    "handed byte-identical evidence, so NO stateless predicate over (candidate, evidence) can "
-    "separate them. Refusing the replay requires a durable single-use evidence ledger, which would "
-    "import cross-process and restart-safety obligations into a currently pure value layer. The "
-    "underlying gap is real - ABResult carries no candidate id/version - and is tracked as its own "
-    "finding rather than forced green here. strict=True: implementing the ledger makes this test "
-    "pass and fails the run until this marker is removed."))
 def test_ab_evidence_cannot_be_replayed_for_a_newer_candidate_version():
     """RED. One A/B run promotes candidate v1 AND, replayed verbatim, candidate v9.
 
     ``ABResult`` carries no candidate id / version, so stale evidence for an older
     candidate version is accepted for a newer one.
     """
+    ledger = EvidenceLedger()                             # this test owns its ledger
     episodes = [_episode(i) for i in range(3)]
     ab = _ab(CORPUS_A)                                    # measured once, against v1
     v1 = _shadow(_candidate(), episodes)
     v1 = AutonomyCandidate(**{**v1.as_dict(), "status": v1.status,
                               "reasons": (), "rollback_ref": "skill_notes_save@v1"})
-    assert _promote(v1, ab).status == "PROMOTED"
+    assert _promote(v1, ab, ledger=ledger).status == "PROMOTED"
     v9 = _shadow(_candidate(), episodes)
     v9 = AutonomyCandidate(**{**v9.as_dict(), "status": v9.status,
                               "reasons": (), "rollback_ref": "skill_notes_save@v9"})
-    out = _promote(v9, ab)                                # same evidence, different version
+    out = _promote(v9, ab, ledger=ledger)                 # same evidence, different version
     assert out.status != "PROMOTED", (
         "A/B evidence measured for candidate v1 was replayed to promote v9")
+    assert any("already spent" in r for r in out.reasons), out.reasons
+    # A retry of the SAME candidate version is not a replay: promotion is idempotent.
+    assert _promote(v1, ab, ledger=ledger).status == "PROMOTED"
 
 
 # ============================================================ RED: security snapshot binding
@@ -257,15 +268,6 @@ def test_security_snapshots_must_be_bound_to_the_candidate_scope():
         f"SecuritySnapshot has no corpus/scope binding: {sorted(fields)}")
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "BACKLOG AUDIT001-F5-PROVENANCE (P2, open): both snapshots here carry NO provenance and the "
-    "candidate declares no corpus identity, so the only rule that could refuse them is 'reject an "
-    "unexplained security improvement between two unidentified measurements' - a gate that would "
-    "block legitimate real improvements in production purely to turn a test green. The principled "
-    "half IS implemented: SecuritySnapshot.scope_ref exists, mismatched refs are refused by "
-    "assert_no_security_regression, and a candidate declaring a corpus identity requires matching "
-    "provenance on both snapshots. Making provenance MANDATORY everywhere must first update every "
-    "measurement producer; until then this stays an executable specification."))
 def test_incomparable_security_snapshots_do_not_pass_the_gate():
     """RED. "before" from corpus B (containment 0.50) vs "after" from corpus A (0.90)
     reads as an IMPROVEMENT, so the security hard gate waves the promotion through."""

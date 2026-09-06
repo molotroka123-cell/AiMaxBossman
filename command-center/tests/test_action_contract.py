@@ -232,7 +232,7 @@ async def _run_once(env):
         await env.svc.engine.execute(run_id)
 
 
-async def _drive_with_approvals(env, task_id, *, ticks: int = 30) -> str | None:
+async def _drive_with_approvals(env, task_id, *, ticks: int = 30, timeout: float = 25.0) -> str | None:
     """Крутит настоящий воркер и одобряет всё, что просит подтверждения.
 
     Нужен там, где путь задачи содержит ASK-границу (project_host у
@@ -244,8 +244,13 @@ async def _drive_with_approvals(env, task_id, *, ticks: int = 30) -> str | None:
     worker = asyncio.create_task(env.svc.engine.worker_loop())
     watcher = asyncio.create_task(env.svc.engine.approval_watcher())
     status = None
+    # Бюджет — по времени, а не по числу тиков: на медленном CI-раннере 30×0.2 с
+    # истекали до финального вердикта, и тест видел промежуточный
+    # waiting_approval вместо итога (падение по таймеру, не по логике).
+    import time as _time
+    deadline = _time.monotonic() + max(timeout, ticks * 0.2)
     try:
-        for _ in range(ticks):
+        while _time.monotonic() < deadline:
             await asyncio.sleep(0.2)
             task = (await env.client.get(f"/api/tasks/{task_id}")).json()["task"]
             status = task["status"]

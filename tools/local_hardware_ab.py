@@ -22,6 +22,9 @@ import psutil
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT / "bossman-core"
+if str(CORE) not in sys.path:
+    sys.path.insert(0, str(CORE))
+from bossman.gateway.config import normalize_ollama_host  # noqa: E402
 # RunPod preflight audit: MODEL had no override — benchmarking anything else
 # meant hand-editing this file. Now overridable per run without a code change.
 MODEL = os.environ.get("BOSSMAN_AB_MODEL", "qwen2.5:7b")
@@ -47,12 +50,12 @@ def _ollama_direct_base_url() -> str:
     explicit = os.environ.get("BOSSMAN_AB_OLLAMA_URL")
     if explicit:
         return explicit.rstrip("/")
-    host = os.environ.get("OLLAMA_HOST")
+    # ОДНО правило разбора OLLAMA_HOST для обеих рук и для самого Gateway:
+    # bossman.gateway.config.normalize_ollama_host. Своя копия правила здесь
+    # уже однажды разъехалась с gateway (0.0.0.0, ":port").
+    host = normalize_ollama_host(os.environ.get("OLLAMA_HOST", ""))
     if host:
-        host = host.replace("0.0.0.0", "127.0.0.1")
-        if not host.startswith("http"):
-            host = f"http://{host}"
-        return host.rstrip("/")
+        return host
     default_port = 11435 if sys.platform == "win32" else 11434
     return f"http://127.0.0.1:{default_port}"
 

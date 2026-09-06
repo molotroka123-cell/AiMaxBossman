@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+
+from bossman_shared.sqlite_connection import OwnedConnection
 import time
 from pathlib import Path
 from typing import Any
@@ -80,10 +82,14 @@ class FleetStore:
                 con.execute("ALTER TABLE fleet_work_queue ADD COLUMN not_before REAL NOT NULL DEFAULT 0")
 
     def connect(self) -> sqlite3.Connection:
-        con = sqlite3.connect(self.path, timeout=30, isolation_level=None)   # autocommit; транзакции — явно
-        con.row_factory = sqlite3.Row
-        con.execute("PRAGMA journal_mode=WAL")
-        con.execute("PRAGMA busy_timeout=30000")
+        con = sqlite3.connect(self.path, timeout=30, isolation_level=None, factory=OwnedConnection)   # autocommit; транзакции — явно
+        try:
+            con.row_factory = sqlite3.Row
+            con.execute("PRAGMA journal_mode=WAL")
+            con.execute("PRAGMA busy_timeout=30000")
+        except BaseException:
+            con.close()
+            raise
         return con
 
     # -------------------------------------------------------------- nodes

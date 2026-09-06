@@ -67,10 +67,11 @@ async def _auto_approve_create(kind,preview,tool=None,payload=None):return 1
 async def _auto_approve_wait(approval_id,timeout_s=None):return {"status":"approved","id":approval_id}
 
 def make_manager(store_path,planner,observer,*,adapter=None,approval_create=None,approval_wait=None,
-                 event_emit=None,control_lease=None,policy=None,verifier=None):
+                 event_emit=None,control_lease=None,policy=None,verifier=None,**kwargs):
+    """``kwargs`` reaches the manager verbatim (e.g. observation_reuse_max_age_s)."""
     return ComputerOperatorManager(store=JsonTaskStore(store_path),planner=planner,observer=observer,
         action_router=ActionRouter([adapter if adapter is not None else FakeAdapter()]),
         approval_create=approval_create or _auto_approve_create,
         approval_wait=approval_wait or _auto_approve_wait,
         event_emit=event_emit or (lambda *a,**k:None),
-        policy=policy,verifier=verifier,control_lease=control_lease)
+        policy=policy,verifier=verifier,control_lease=control_lease,**kwargs)

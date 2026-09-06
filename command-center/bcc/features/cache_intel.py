@@ -27,7 +27,7 @@ OBS_KEYS = {"event_version", "timestamp", "task_id_hash", "session_id_hash", "pr
             "ttl", "cache_control_applied", "prefix_hash", "prefix_tokens", "fresh_input_tokens",
             "cache_read_tokens", "cache_write_tokens", "output_tokens", "state", "miss_reason",
             "actual_cost_usd", "baseline_cost_usd", "baseline_is_estimate", "verified_success",
-            "environment_fingerprint", "security_context_hash"}
+            "environment_fingerprint", "security_context_hash", "observation_id"}
 
 
 def _flag(name: str) -> bool:
