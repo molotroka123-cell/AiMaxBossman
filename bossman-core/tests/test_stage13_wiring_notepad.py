@@ -32,8 +32,11 @@ def launch(target="notepad"):
                                expected=ExpectedState(foreground_app_contains="notepad"))
 
 
-def complete():
-    return ComputerAction.make(ActionKind.COMPLETE)
+def complete(**kw):
+    # AT-01: COMPLETE несёт проверяемое постусловие; по умолчанию — переднее
+    # приложение notepad, конкретные тесты переопределяют своим наблюдением.
+    kw.setdefault("expected", ExpectedState(foreground_app_contains="notepad"))
+    return ComputerAction.make(ActionKind.COMPLETE, **kw)
 
 
 async def _auto_create(kind, preview, tool=None, payload=None):
@@ -295,7 +298,8 @@ async def test_non_allowlisted_app_never_reaches_executor(tmp_path):
     async def rec(exe):
         launched.append(str(exe))
 
-    planner = FakePlanner([launch("powershell"), complete()])
+    planner = FakePlanner([launch("powershell"),
+                           complete(expected=ExpectedState(foreground_app_contains="explorer"))])
     observer = FakeObserver(foreground={"app": "explorer.exe"}, summary="desktop")
     m = _manager(tmp_path, planner, observer, rec)
     t = m.create_task("Запусти powershell")

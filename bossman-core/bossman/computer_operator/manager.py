@@ -131,6 +131,24 @@ class ComputerOperatorManager:
                     if t.replans_used>t.max_replans:return self._fail(t,"planner replan budget")
                     continue
                 if a.kind is ActionKind.COMPLETE:
+                    # AT-01: слово планировщика — не результат. COMPLETE обязан
+                    # нести проверяемое постусловие, и верификатор подтверждает
+                    # его на текущем проверенном наблюдении, прежде чем задача
+                    # станет COMPLETED. Голый COMPLETE — replan; после исчерпания
+                    # бюджета — честный FAILED, а не фиктивный успех.
+                    if a.expected.is_empty():
+                        t.replans_used+=1
+                        last="COMPLETE without verifiable postcondition; provide expected postcondition"
+                        self._save(t)
+                        if t.replans_used>t.max_replans:
+                            return self._fail(t,"unverifiable COMPLETE: no postcondition")
+                        continue
+                    cv=self.verifier.verify(a,before)
+                    if not cv.ok:
+                        t.replans_used+=1; last=f"COMPLETE postcondition failed:{cv.reason}"; self._save(t)
+                        if t.replans_used>t.max_replans:
+                            return self._fail(t,f"false COMPLETE: {cv.reason}")
+                        continue
                     t.state=TaskState.COMPLETED; t.pending_action=None; self._save(t)
                     self.loop_guards.pop(t.id,None)
                     self._emit(t,"completed"); return t.state
@@ -148,6 +166,7 @@ class ComputerOperatorManager:
                 if cur.generation!=plan_generation or cur.state in {TaskState.PAUSED,TaskState.USER_CONTROL,TaskState.CANCELLED,TaskState.LOCKED}:
                     return self._fail(cur,"stale observation: generation changed" if cur.generation!=plan_generation else "input state changed before action")
                 t.pending_action=self._sanitize_action(a); step=StepRecord(action=t.pending_action,before_observation_id=before.id); t.history.append(step); self._save(t)
+                approval_used=False
                 if d.requires_approval:
                     t.state=TaskState.WAITING_APPROVAL
                     aid=await self.approval_create(d.approval_kind or "computer_action",self._preview(t,a,d.reason),
@@ -161,13 +180,40 @@ class ComputerOperatorManager:
                         return self._fail(self._req(t.id),f"desktop busy: control lease held by {self.control_lease.holder()}")
                     cur=self._req(t.id)
                     if cur.generation!=plan_generation or not cur.pending_action or cur.pending_action.id!=a.id:
-                        if cur.state in {TaskState.PAUSED,TaskState.USER_CONTROL}:
-                            return cur.state  # recovery/owner parking outranks a stale approval result
+                        # Recovery-парковка (рестарт инвалидировал одобрение:
+                        # recover_all сбрасывает и waiting_approval_id) старше
+                        # позднего колбэка «approved» — задача остаётся припаркованной
+                        # до явного Resume, а не переворачивается в FAILED за спиной
+                        # владельца. Живая же команда владельца в окне одобрения
+                        # (Пауза/Перехват) ожидание уже потребила: фиксируется
+                        # системный вердикт "approved action stale" (AT-граница
+                        # approve→execute); «Стоп» и так сохраняет своё решение.
+                        parked_by_recovery=(cur.state is TaskState.PAUSED
+                                            and cur.waiting_approval_id is None)
+                        if parked_by_recovery:
+                            return cur.state
                         return self._fail(cur,"approved action stale")
                     t=cur
                     step=t.history[-1] if t.history else step
+                    approval_used=True
                 if t.state in {TaskState.PAUSED,TaskState.USER_CONTROL,TaskState.CANCELLED,TaskState.LOCKED}:
                     return self._fail(t,"input state changed before action")
+                if approval_used:
+                    # AT-03: наблюдение, по которому действие планировалось и
+                    # одобрялось, устарело за время ожидания владельца: попап,
+                    # смена вкладки/фокуса или значения поля не обновляют его.
+                    # Перед эффектом — обязательная свежая проверка состояния,
+                    # и policy пересматривается по ней (выданное одобрение
+                    # остаётся у этой акции; повторный запрос не требуется).
+                    t.state=TaskState.OBSERVING; self._save(t)
+                    before=await self.observer.observe(generation=t.generation); self.observations_taken+=1
+                    t.last_observation=before; step.before_observation_id=before.id
+                    d2=self.policy.classify(a,mode=t.mode,locked=self.global_locked,observation=before)
+                    if not d2.allow:
+                        t.replans_used+=1; last=f"policy denied after re-observe:{d2.reason}"; self._save(t)
+                        if t.replans_used>t.max_replans:
+                            return self._fail(t,"policy/replan budget after re-observe")
+                        continue
                 guard=self.loop_guards.setdefault(t.id,LoopGuard())
                 gv=guard.check(a,before)
                 if gv.tripped:

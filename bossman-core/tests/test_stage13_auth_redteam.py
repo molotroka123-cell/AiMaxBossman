@@ -774,7 +774,9 @@ def _pay_action():
 def _complete_action():
     from bossman.computer_operator.models import ActionKind, ComputerAction, ExpectedState
 
-    return ComputerAction.make(ActionKind.COMPLETE, expected=ExpectedState())
+    # AT-01: COMPLETE подтверждается постусловием на наблюдении "ok paid".
+    return ComputerAction.make(ActionKind.COMPLETE,
+                               expected=ExpectedState(contains_text="ok paid"))
 
 
 async def test_c4_rejected_or_expired_approval_never_executes(tmp_path):

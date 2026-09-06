@@ -35,6 +35,8 @@ def test_sign_fields_requires_trusted_signer_and_verifies_as_record():
 
 def test_key_created_in_env_path_with_0600(tmp_path, monkeypatch):
     import os, stat
+    if os.name != "posix":
+        pytest.skip("POSIX-семантика режима файла 0o600; на Windows права задаёт icacls (см. W8)")
     monkeypatch.setenv(ev.ENV_KEY_FILE, str(tmp_path / "k" / "evidence.key"))
     ev.reset_cache()
     key = ev.load_or_create_key()
@@ -120,7 +122,10 @@ def test_restrict_to_owner_failure_warns_but_never_raises(tmp_path, kw):
 
 
 def test_restrict_to_owner_is_noop_on_posix(tmp_path, monkeypatch):
-    """POSIX-поведение не меняется: никаких внешних процессов."""
+    """POSIX-реализация не вызывает: сужение прав выполняется средствами ОС."""
+    import os
+    if os.name != "posix":
+        pytest.skip("на Windows сужение прав честно выполняется через icacls (см. W8)")
     calls = _spy_icacls(monkeypatch)
     ev.restrict_to_owner(tmp_path / "evidence.key")
     assert calls == []
@@ -140,5 +145,6 @@ def test_key_creation_applies_owner_restriction(tmp_path, monkeypatch):
 
     assert len(key) == 32
     assert seen == [str(tmp_path / "k" / "evidence.key")]
-    # POSIX-права не тронуты
-    assert stat.S_IMODE(os.stat(tmp_path / "k" / "evidence.key").st_mode) == 0o600
+    # POSIX-права не тронуты (проверка POSIX-семантики режима файла)
+    if os.name == "posix":
+        assert stat.S_IMODE(os.stat(tmp_path / "k" / "evidence.key").st_mode) == 0o600
