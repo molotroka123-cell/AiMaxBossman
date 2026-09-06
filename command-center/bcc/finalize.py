@@ -66,7 +66,9 @@ def _effectful(row: dict) -> bool:
             return True
         return _looks_like_mutation(command)
     spec = REGISTRY.get(row.get("tool", ""))
-    return spec is None or spec.category != "read"
+    # A tool that declares itself non-idempotent has, by its own declaration, an
+    # effect worth not repeating; a "read" category label cannot make it harmless.
+    return spec is None or spec.category != "read" or not getattr(spec, "idempotent", True)
 
 
 # Statuses whose effect is provably absent (denied/rejected) or UNKNOWN because a

@@ -261,3 +261,49 @@ async def test_ask_tool_with_interrupted_prior_asks_reconciliation_not_plain_app
     assert [a["kind"] for a in appr] == ["effect_reconciliation"]
     rows = await _rows(env.svc.db, task_id)
     assert {r["call_id"]: r["status"] for r in rows} == {"old": "interrupted", "call_1": "pending_approval"}
+
+
+# ---------------------------------------------------------------- chaos cell:
+# the journal write after the effect fails with a REAL database error (SQLite
+# "database is locked" / disk pressure) instead of a process death. The engine's
+# worker loop swallows the exception, the lease later expires, and recovery
+# retries the attempt — which must not repeat the effect.
+
+async def test_sqlite_lock_after_effect_is_recovered_without_duplicate(env):
+    from sqlalchemy.exc import OperationalError
+    from .test_v21_tool_loop import ToolAdapter, _install, _stack_with_tools
+    calls: list = []
+    spec = _install("mail.send", calls=calls, permission="", default_effect="auto", idempotent=False)
+    adapter = ToolAdapter([("tool", "mail_send", {"text": "hello"}), ("text", "sent")])
+    stack = await _stack_with_tools(env, ["mail.send"], adapter=adapter, max_steps=3)
+    task_id = stack["task"]["id"]
+    a = env.svc.engine
+    original = a._record_tool_call
+    locked = {"n": 0}
+
+    async def locking_record(run_id, tid, step, call, sp, **kw):
+        if kw.get("status") in ("executed", "error") and locked["n"] == 0:
+            locked["n"] += 1
+            raise OperationalError("INSERT INTO tool_calls", {}, Exception("database is locked"))
+        return await original(run_id, tid, step, call, sp, **kw)
+
+    a._record_tool_call = locking_record
+    run_id = await a.claim()
+    with pytest.raises(OperationalError):        # worker_loop catches this, reports worker.error, moves on
+        await a.execute(run_id)
+    a._record_tool_call = original
+    assert calls == [{"text": "hello"}]
+
+    b = await _takeover(env, run_id)             # lease expiry → recover → attempt+1
+    await b.execute(run_id)                      # the scripted model now answers without re-requesting
+    assert calls == [{"text": "hello"}], "duplicate_side_effect_count must be 0 under a DB lock"
+    rows = await _rows(env.svc.db, task_id)
+    async with env.svc.db.session() as s:
+        status = (await s.execute(sa.select(tasks_t.c.status).where(tasks_t.c.id == task_id))).scalar()
+    assert {r["call_id"]: r["status"] for r in rows} == {"call_1": "interrupted"}
+    # An unobserved irreversible effect with no post-state contract is an honest
+    # failure, not a completion — even though the tool carries the default
+    # "read" category: idempotent=False is its own admission of an effect.
+    assert status == "failed"
+    detail = (await env.client.get(f"/api/tasks/{task_id}")).json()
+    assert "did not succeed" in str(detail.get("error") or "")
