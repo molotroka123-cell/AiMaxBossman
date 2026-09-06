@@ -754,3 +754,605 @@ def inject_preview(html: str, *, script: str = PICKER_JS) -> str:
     body = _find_body(root)
     (body if body is not None else root).children.append(script_node)
     return serialize(root, bd_ids=True)
+
+
+# ================================================================
+# Epoch 4: строительные блоки для компонентов, токенов, отзывчивости и линта.
+#
+# Всё, что ниже, обязано соблюдать главный инвариант модуля: узел, которого
+# правка не касалась, отдаётся ДОСЛОВНЫМ исходным тегом. Поэтому ни одна из
+# функций ниже не зовёт `touch()` на чужих узлах — только на тех, которые она
+# действительно переписывает, и только через существующие op_*.
+# ================================================================
+
+# Имя компонента / слота / токена — идентификатор, а не текст. Проверяется до
+# того, как попадёт в разметку или в имя файла: имя — вторая половина той же
+# дыры, что закрыта в `op_set_attrs` (значение экранируется, имя — нет).
+COMPONENT_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,47}$")
+SLOT_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,47}$")
+TOKEN_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,47}$")
+TOKEN_GROUP_RE = re.compile(r"^[a-z][a-z0-9-]{0,23}$")
+# Значение токена уезжает ВНУТРЬ <style> — там нет экранирования, там сырой
+# текст. Скобка или `<` закрывают блок и открывают чужой элемент.
+_UNSAFE_IN_CSS_VALUE = re.compile(r"[<>{}\;]|/\*|\*/|</")
+
+COMPONENT_ATTR = "data-bd-component"
+COMPONENT_VERSION_ATTR = "data-bd-cver"
+SLOT_ATTR = "data-bd-slot"
+
+TOKENS_STYLE_ID = "bd-tokens"
+RESPONSIVE_STYLE_ID = "bd-responsive"
+NAV_ATTR = "data-bd-nav"
+
+
+# ---------------------------------------------------------------- чтение/запись поддерева
+
+def outer_html(node: Node) -> str:
+    """Внешний HTML узла — ровно то, что вернёт сборка на этом поддереве."""
+    return serialize(node)
+
+
+def inner_html(node: Node) -> str:
+    """Внутренний HTML: дети узла, собранные подряд."""
+    return "".join(serialize(child) for child in node.children)
+
+
+def set_inner_html(node: Node, html: str) -> None:
+    """Заменить содержимое узла разобранным фрагментом (сам узел не трогаем)."""
+    nodes = parse_fragment(html)
+    for child in nodes:
+        child.parent = node
+    node.children = nodes
+
+
+def _single_root(html: str, what: str) -> Node:
+    """Фрагмент → ровно один корневой элемент, иначе честная ошибка."""
+    nodes = [n for n in parse_fragment(html) if n.kind != "text" or n.raw.strip()]
+    elements = [n for n in nodes if n.kind == "element"]
+    if len(elements) != 1 or any(n.kind != "element" for n in nodes):
+        raise ValueError(
+            f"{what} должен состоять ровно из одного корневого элемента — "
+            f"сейчас их {len(elements)}; оберните разметку в один тег")
+    return elements[0]
+
+
+def insert_nodes(target: Node, nodes: list[Node], position: str = "append") -> None:
+    """Вставить узлы относительно цели: append | prepend | before | after."""
+    if position in ("append", "prepend"):
+        for node in nodes:
+            node.parent = target
+        if position == "append":
+            target.children.extend(nodes)
+        else:
+            target.children[0:0] = nodes
+        return
+    parent = target.parent
+    if parent is None:
+        raise ValueError("нельзя вставить рядом с элементом без родителя")
+    index = parent.children.index(target)
+    if position == "after":
+        index += 1
+    elif position != "before":
+        raise ValueError(f"неизвестная позиция вставки: {position!r} — "
+                         "доступно: append, prepend, before, after")
+    for node in nodes:
+        node.parent = parent
+    parent.children[index:index] = nodes
+
+
+# ---------------------------------------------------------------- компоненты
+
+def component_instances(root: Node, name: str | None = None) -> list[Node]:
+    """Все экземпляры компонента в документе (по служебному атрибуту)."""
+    out = []
+    for element in walk_elements(root):
+        marker = element.attrs.get(COMPONENT_ATTR)
+        if marker is None:
+            continue
+        if name is None or str(marker) == str(name):
+            out.append(element)
+    return out
+
+
+def collect_slots(instance: Node) -> dict[str, str]:
+    """Содержимое слотов экземпляра: {имя слота: внутренний HTML}.
+
+    Слот — это место, которое владелец правит ПОСЛЕ вставки. При обновлении
+    определения оно обязано пережить пересборку, иначе «обновить компонент»
+    означало бы «стереть текст на всех страницах».
+    """
+    slots: dict[str, str] = {}
+    for element in walk_elements(instance):
+        slot = element.attrs.get(SLOT_ATTR)
+        if slot is None:
+            continue
+        slots.setdefault(str(slot), inner_html(element))
+    root_slot = instance.attrs.get(SLOT_ATTR)
+    if root_slot is not None:
+        slots.setdefault(str(root_slot), inner_html(instance))
+    return slots
+
+
+def render_component(definition_html: str, name: str, version: int,
+                     slots: dict[str, str] | None = None) -> Node:
+    """Определение компонента → узел-экземпляр с проставленными слотами.
+
+    Правило предсказуемости: разметка приходит из ОПРЕДЕЛЕНИЯ целиком, а из
+    старого экземпляра переносится только содержимое слотов. Никаких «умных»
+    слияний: владелец должен уметь сказать, что получится, не запуская код.
+    """
+    if not COMPONENT_NAME_RE.match(str(name or "")):
+        raise ValueError(f"недопустимое имя компонента: {name!r}")
+    node = _single_root(definition_html, "компонент")
+    node.parent = None
+    for slot_name, html in (slots or {}).items():
+        if not SLOT_NAME_RE.match(str(slot_name)):
+            continue
+        for element in [node, *walk_elements(node)]:
+            if str(element.attrs.get(SLOT_ATTR) or "") == str(slot_name):
+                set_inner_html(element, html)
+                break
+    op_set_attrs(node, {COMPONENT_ATTR: str(name),
+                        COMPONENT_VERSION_ATTR: str(int(version))})
+    return node
+
+
+def sync_component(html: str, name: str, definition_html: str, version: int) -> tuple[str, int]:
+    """Пересобрать все экземпляры компонента в документе. → (новый HTML, сколько)."""
+    root = parse_document(html)
+    instances = component_instances(root, name)
+    if not instances:
+        return html, 0
+    for instance in instances:
+        fresh = render_component(definition_html, name, version, collect_slots(instance))
+        keep_id = instance.attrs.get("id")
+        if keep_id is not None:
+            op_set_attrs(fresh, {"id": str(keep_id)})
+        parent = instance.parent
+        if parent is None:
+            continue
+        index = parent.children.index(instance)
+        parent.children[index] = fresh
+        fresh.parent = parent
+        instance.parent = None
+    return serialize(root), len(instances)
+
+
+# ---------------------------------------------------------------- блоки <style> в <head>
+
+def _find_head(root: Node) -> Node | None:
+    return next((n for n in walk_elements(root) if n.tag == "head"), None)
+
+
+def find_by_attr(root: Node, name: str, value: str) -> Node | None:
+    return next((n for n in walk_elements(root)
+                 if str(n.attrs.get(name) or "") == str(value)), None)
+
+
+def _find_managed_style(root: Node, style_id: str) -> Node | None:
+    """Именно `<style id=...>`, а не любой элемент владельца с тем же id."""
+    return next((n for n in walk_elements(root)
+                 if n.is_element("style") and str(n.attrs.get("id") or "") == str(style_id)), None)
+
+
+def set_managed_style(html: str, style_id: str, css: str) -> str:
+    """Записать управляемый панелью блок `<style id=...>` в <head>.
+
+    Токены и брейкпоинты применяются ЧЕРЕЗ ЭТОТ БЛОК, а не переписыванием
+    каждого элемента: иначе «поменять акцентный цвет» означало бы тронуть
+    тысячу узлов и потерять дословное написание каждого из них.
+    """
+    root = parse_document(html)
+    existing = _find_managed_style(root, style_id)
+    if existing is not None:
+        if not css.strip():
+            op_delete(existing)
+            return serialize(root)
+        existing.children = [Node(kind="text", raw=css, parent=existing)]
+        return serialize(root)
+    if not css.strip():
+        return serialize(root)
+    node = Node(tag="style", tag_case="style", attrs={"id": style_id}, dirty=True)
+    node.children.append(Node(kind="text", raw=css, parent=node))
+    host = _find_head(root)
+    if host is None:
+        host = next((n for n in walk_elements(root) if n.tag == "html"), None) or root
+    node.parent = host
+    host.children.append(node)
+    return serialize(root)
+
+
+def get_managed_style(html: str, style_id: str) -> str:
+    root = parse_document(html)
+    node = _find_managed_style(root, style_id)
+    if node is None:
+        return ""
+    return "".join(c.raw for c in node.children if c.kind == "text")
+
+
+# ---------------------------------------------------------------- цвета и контраст
+
+_NAMED_COLORS = {
+    "black": (0, 0, 0), "white": (255, 255, 255), "red": (255, 0, 0),
+    "green": (0, 128, 0), "blue": (0, 0, 255), "gray": (128, 128, 128),
+    "grey": (128, 128, 128), "silver": (192, 192, 192), "yellow": (255, 255, 0),
+    "orange": (255, 165, 0), "purple": (128, 0, 128), "navy": (0, 0, 128),
+    "teal": (0, 128, 128), "olive": (128, 128, 0), "maroon": (128, 0, 0),
+    "lime": (0, 255, 0), "aqua": (0, 255, 255), "fuchsia": (255, 0, 255),
+}
+
+_RGB_RE = re.compile(r"rgba?\(([^)]*)\)", re.I)
+_VAR_RE = re.compile(r"var\(\s*(--[A-Za-z0-9_-]+)\s*(?:,([^)]*))?\)")
+
+
+def parse_color(value: str, variables: dict[str, str] | None = None,
+                _depth: int = 0) -> tuple[int, int, int] | None:
+    """CSS-цвет → (r, g, b). Непонятное — None: линт молчит, а не выдумывает.
+
+    Понимает #rgb/#rrggbb, rgb()/rgba(), базовые имена и `var(--x)` с опорой на
+    словарь переменных документа. Всё остальное (градиенты, color-mix, hsl)
+    честно не разбирается — лучше не сообщить о проблеме, чем сообщить о ней
+    там, где её нет.
+    """
+    text = str(value or "").strip().lower()
+    if not text or _depth > 4:
+        return None
+    match = _VAR_RE.search(text)
+    if match:
+        name = match.group(1)
+        fallback = (match.group(2) or "").strip()
+        resolved = (variables or {}).get(name)
+        return parse_color(resolved or fallback, variables, _depth + 1)
+    if text.startswith("#"):
+        digits = text[1:]
+        if len(digits) == 3 and all(c in "0123456789abcdef" for c in digits):
+            return tuple(int(c * 2, 16) for c in digits)      # type: ignore[return-value]
+        if len(digits) in (6, 8) and all(c in "0123456789abcdef" for c in digits[:6]):
+            return (int(digits[0:2], 16), int(digits[2:4], 16), int(digits[4:6], 16))
+        return None
+    rgb = _RGB_RE.match(text)
+    if rgb:
+        parts = [p.strip() for p in rgb.group(1).replace("/", " ").split(",")]
+        if len(parts) == 1:
+            parts = [p for p in rgb.group(1).replace("/", " ").split() if p]
+        nums = []
+        for part in parts[:3]:
+            try:
+                nums.append(int(round(float(part.rstrip("%")) *
+                                      (2.55 if part.endswith("%") else 1))))
+            except ValueError:
+                return None
+        if len(nums) == 3:
+            return (max(0, min(255, nums[0])), max(0, min(255, nums[1])),
+                    max(0, min(255, nums[2])))
+        return None
+    return _NAMED_COLORS.get(text)
+
+
+def _channel(value: int) -> float:
+    c = value / 255.0
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def relative_luminance(rgb: tuple[int, int, int]) -> float:
+    r, g, b = (_channel(v) for v in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast_ratio(fg: tuple[int, int, int], bg: tuple[int, int, int]) -> float:
+    """Коэффициент контраста по WCAG 2.1 (от 1 до 21)."""
+    a, b = relative_luminance(fg), relative_luminance(bg)
+    lighter, darker = (a, b) if a >= b else (b, a)
+    return round((lighter + 0.05) / (darker + 0.05), 3)
+
+
+# ---------------------------------------------------------------- мини-каскад CSS
+
+_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+_AT_RULE_RE = re.compile(r"@[a-zA-Z-]+")
+
+
+def _strip_at_blocks(css: str) -> str:
+    """Убрать @-правила вместе с их блоками: медиа-запросы каскад не двигают.
+
+    Линт считает контраст «как в самом широком случае». Разбирать вложенные
+    правила медиазапросов честнее было бы, но тогда одна и та же пара цветов
+    давала бы несколько взаимоисключающих вердиктов — а находка обязана быть
+    однозначной, иначе её никто не чинит.
+    """
+    out, i, n = [], 0, len(css)
+    while i < n:
+        match = _AT_RULE_RE.search(css, i)
+        if match is None:
+            out.append(css[i:])
+            break
+        out.append(css[i:match.start()])
+        j = css.find("{", match.start())
+        semi = css.find(";", match.start())
+        if j < 0 or (0 <= semi < j):                 # @import ...; — без блока
+            i = (semi + 1) if semi >= 0 else n
+            continue
+        depth, k = 0, j
+        while k < n:
+            if css[k] == "{":
+                depth += 1
+            elif css[k] == "}":
+                depth -= 1
+                if depth == 0:
+                    k += 1
+                    break
+            k += 1
+        i = k
+    return "".join(out)
+
+
+def _specificity(selector: str) -> int:
+    return (selector.count("#") * 100) + (selector.count(".") * 10) + 1
+
+
+def collect_css_rules(root: Node) -> list[tuple[str, dict[str, str], int, int]]:
+    """`<style>` документа → [(селектор, объявления, специфичность, порядок)].
+
+    Разбираются только простые селекторы (`tag`, `.class`, `#id` и их списки
+    через запятую) — ровно те, что панель и генератор действительно пишут.
+    Сложное молча пропускается: линт не должен выдумывать.
+    """
+    rules: list[tuple[str, dict[str, str], int, int]] = []
+    order = 0
+    for style in walk_elements(root):
+        if not style.is_element("style"):
+            continue
+        css = _strip_at_blocks(_COMMENT_RE.sub("", "".join(
+            c.raw for c in style.children if c.kind == "text")))
+        for chunk in css.split("}"):
+            selector_text, brace, body = chunk.partition("{")
+            if not brace:
+                continue
+            decls = _parse_style(body)
+            if not decls:
+                continue
+            for selector in selector_text.split(","):
+                selector = " ".join(selector.split())
+                if not selector:
+                    continue
+                order += 1
+                rules.append((selector, decls, _specificity(selector), order))
+    return rules
+
+
+def _selector_matches(selector: str, element: Node) -> bool:
+    """Совпадает ли простой (одноуровневый) селектор с элементом."""
+    if " " in selector or ">" in selector or "+" in selector or "~" in selector:
+        return False
+    if ":" in selector:                              # :hover и подобное — не статика
+        return False
+    tag = selector
+    for sep in ("#", "."):
+        if sep in tag:
+            tag = tag.split(sep, 1)[0]
+    tag = tag.strip().lower()
+    if tag and tag not in ("*", element.tag):
+        return False
+    want_id = ""
+    if "#" in selector:
+        want_id = selector.split("#", 1)[1].split(".")[0]
+    if want_id and str(element.attrs.get("id") or "") != want_id:
+        return False
+    classes = set(str(element.attrs.get("class") or "").split())
+    for wanted in re.findall(r"\.([A-Za-z0-9_-]+)", selector):
+        if wanted not in classes:
+            return False
+    return True
+
+
+def css_variables(root: Node) -> dict[str, str]:
+    """Значения `--custom` из правил `:root`/`html`/`body` — для разбора var()."""
+    variables: dict[str, str] = {}
+    for style in walk_elements(root):
+        if not style.is_element("style"):
+            continue
+        css = _strip_at_blocks(_COMMENT_RE.sub("", "".join(
+            c.raw for c in style.children if c.kind == "text")))
+        for chunk in css.split("}"):
+            selector_text, brace, body = chunk.partition("{")
+            if not brace:
+                continue
+            selectors = {" ".join(s.split()) for s in selector_text.split(",")}
+            if not selectors & {":root", "html", "body", "*"}:
+                continue
+            for prop, value in _parse_style(body).items():
+                if prop.startswith("--"):
+                    variables[prop] = value
+    return variables
+
+
+# ---------------------------------------------------------------- линт
+
+DEFAULT_TEXT_COLOR = (0, 0, 0)
+DEFAULT_BACKGROUND = (255, 255, 255)
+CONTRAST_MIN = 4.5
+CONTRAST_MIN_LARGE = 3.0
+
+_HEADINGS = ("h1", "h2", "h3", "h4", "h5", "h6")
+_LABELLED_CONTROLS = ("input", "select", "textarea")
+_UNLABELLED_INPUT_TYPES = frozenset({"hidden", "submit", "button", "reset", "image"})
+
+
+def _text_of(element: Node) -> str:
+    """Весь текст поддерева одной строкой — как его увидит человек."""
+    parts = []
+    stack = [element]
+    while stack:
+        node = stack.pop()
+        if node.kind == "text":
+            parts.append(node.raw)
+        elif node.kind == "element" and node.tag not in ("script", "style"):
+            stack.extend(reversed(node.children))
+    return " ".join("".join(parts).split())
+
+
+def _accessible_name(element: Node, labels_for: set[str], in_label: bool) -> str:
+    for attr in ("aria-label", "title", "alt"):
+        value = str(element.attrs.get(attr) or "").strip()
+        if value:
+            return value
+    if str(element.attrs.get("aria-labelledby") or "").strip():
+        return "aria-labelledby"
+    element_id = str(element.attrs.get("id") or "")
+    if element_id and element_id in labels_for:
+        return f"label[for={element_id}]"
+    if in_label:
+        return "label-wrapper"
+    return ""
+
+
+def _finding(rule: str, severity: str, element: Node | None, message: str, **extra) -> dict:
+    item = {"rule": rule, "severity": severity, "message": message}
+    if element is not None:
+        item["bd_id"] = element.bd_id
+        item["tag"] = element.tag
+        item["id"] = str(element.attrs.get("id") or "")
+        item["text"] = _text_of(element)[:80]
+    item.update(extra)
+    return item
+
+
+def _computed_colors(root: Node) -> dict[int, tuple[tuple[int, int, int] | None,
+                                                    tuple[int, int, int] | None, float]]:
+    """Для каждого элемента: (цвет текста, цвет фона, размер шрифта в px).
+
+    Наследование считается сверху вниз одним проходом: `color` наследуется,
+    фон берётся ближайший непрозрачный сверху — это и есть то, что видит глаз.
+    """
+    variables = css_variables(root)
+    rules = collect_css_rules(root)
+    out: dict[int, tuple] = {}
+    stack: list[tuple[Node, tuple | None, tuple | None, float]] = [
+        (child, None, None, 16.0) for child in reversed(root.children) if child.kind == "element"]
+    while stack:
+        element, color, background, size = stack.pop()
+        decls: dict[str, str] = {}
+        for selector, rule_decls, spec, order in sorted(rules, key=lambda r: (r[2], r[3])):
+            if _selector_matches(selector, element):
+                decls.update(rule_decls)
+        decls.update(_parse_style(str(element.attrs.get("style") or "")))
+        own_color = parse_color(decls.get("color", ""), variables)
+        if own_color is not None:
+            color = own_color
+        own_bg = decls.get("background-color") or decls.get("background") or ""
+        parsed_bg = parse_color(own_bg, variables)
+        if parsed_bg is not None:
+            background = parsed_bg
+        raw_size = str(decls.get("font-size") or "").strip()
+        if raw_size.endswith("px"):
+            try:
+                size = float(raw_size[:-2])
+            except ValueError:
+                pass
+        out[id(element)] = (color, background, size)
+        for child in reversed(element.children):
+            if child.kind == "element":
+                stack.append((child, color, background, size))
+    return out
+
+
+def lint_document(html: str) -> list[dict]:
+    """Семантика и доступность документа → список структурированных находок.
+
+    Правила: `img-alt`, `heading-order`, `heading-missing-h1`,
+    `heading-multiple-h1`, `contrast`, `control-label`, `link-name`,
+    `html-lang`, `document-title`. Каждая находка несёт bd_id того же
+    номера, что и превью, — панель может подсветить проблему на месте.
+    """
+    root = parse_document(html)
+    assign_bd_ids(root)
+    elements = list(walk_elements(root))
+    findings: list[dict] = []
+
+    labels_for = {str(n.attrs.get("for") or "") for n in elements
+                  if n.is_element("label") and n.attrs.get("for")}
+    label_ancestors: set[int] = set()
+    for node in elements:
+        if node.is_element("label"):
+            for inner in walk_elements(node):
+                label_ancestors.add(id(inner))
+
+    html_el = next((n for n in elements if n.tag == "html"), None)
+    if html_el is not None and not str(html_el.attrs.get("lang") or "").strip():
+        findings.append(_finding("html-lang", "warning", html_el,
+                                 "у <html> нет атрибута lang — экранный диктор не знает языка"))
+    title = next((n for n in elements if n.tag == "title"), None)
+    if title is None or not _text_of(title):
+        findings.append(_finding("document-title", "warning", title,
+                                 "у страницы нет непустого <title>"))
+
+    # --- альтернативный текст
+    for element in elements:
+        if element.tag == "img" and "alt" not in element.attrs:
+            findings.append(_finding("img-alt", "error", element,
+                                     "у <img> нет атрибута alt — картинка недоступна без зрения",
+                                     src=str(element.attrs.get("src") or "")[:120]))
+
+    # --- порядок заголовков
+    headings = [n for n in elements if n.tag in _HEADINGS]
+    h1s = [n for n in headings if n.tag == "h1"]
+    if headings and not h1s:
+        findings.append(_finding("heading-missing-h1", "warning", headings[0],
+                                 "на странице нет <h1> — у документа нет главного заголовка"))
+    for extra in h1s[1:]:
+        findings.append(_finding("heading-multiple-h1", "warning", extra,
+                                 "на странице больше одного <h1>"))
+    previous = 0
+    for heading in headings:
+        level = int(heading.tag[1])
+        if previous and level > previous + 1:
+            findings.append(_finding(
+                "heading-order", "error", heading,
+                f"уровень заголовка прыгнул с h{previous} на h{level} — "
+                "пропущенный уровень ломает навигацию по структуре",
+                level=level, previous=previous))
+        previous = level
+
+    # --- подписи элементов управления
+    for element in elements:
+        if element.tag in _LABELLED_CONTROLS:
+            if element.tag == "input" and str(
+                    element.attrs.get("type") or "").lower() in _UNLABELLED_INPUT_TYPES:
+                continue
+            name = _accessible_name(element, labels_for, id(element) in label_ancestors)
+            if not name:
+                hint = ("подпись есть только в placeholder — она исчезает при вводе"
+                        if element.attrs.get("placeholder") else "подписи нет вовсе")
+                findings.append(_finding("control-label", "error", element,
+                                         f"у <{element.tag}> нет доступной подписи: {hint}"))
+        elif element.tag == "button":
+            if not _text_of(element) and not _accessible_name(element, labels_for, False):
+                findings.append(_finding("control-label", "error", element,
+                                         "у <button> нет ни текста, ни aria-label"))
+        elif element.tag == "a" and element.attrs.get("href") is not None:
+            if not _text_of(element) and not _accessible_name(element, labels_for, False):
+                findings.append(_finding("link-name", "error", element,
+                                         "ссылка без текста — её нечем назвать вслух"))
+
+    # --- контраст
+    colors = _computed_colors(root)
+    for element in elements:
+        if element.tag in ("script", "style", "head", "html", "title", "meta", "link"):
+            continue
+        own_text = "".join(c.raw for c in element.children if c.kind == "text").strip()
+        if not own_text:
+            continue
+        color, background, size = colors.get(id(element), (None, None, 16.0))
+        fg = color or DEFAULT_TEXT_COLOR
+        bg = background or DEFAULT_BACKGROUND
+        ratio = contrast_ratio(fg, bg)
+        # «Крупный текст» по WCAG — 24px и выше (жирность мы не считаем: без
+        # неё порог 18.66px дал бы поблажку обычному тексту).
+        minimum = CONTRAST_MIN_LARGE if size >= 24 else CONTRAST_MIN
+        if ratio < minimum:
+            findings.append(_finding(
+                "contrast", "error", element,
+                f"контраст текста {ratio} при минимуме {minimum} — текст плохо читается",
+                ratio=ratio, minimum=minimum,
+                foreground="#%02x%02x%02x" % fg, background="#%02x%02x%02x" % bg))
+    return findings
