@@ -1,0 +1,29 @@
+name: Pinned Fable closure source
+on:
+  push:
+    branches: [audit/fable-closure-source-20260906]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Export only tracked public source at exact input revisions
+        shell: bash
+        run: |
+          mkdir -p closure-source
+          git archive beea20fbf5b3b66fa08a8ba936703cd0bc434cf3 | gzip > closure-source/unified.tar.gz
+          git archive dc0d149b91bee6617f5d2d207e99cd744eb24905 | gzip > closure-source/fable.tar.gz
+          printf '%s\n' 'UNIFIED=beea20fbf5b3b66fa08a8ba936703cd0bc434cf3' 'FABLE=dc0d149b91bee6617f5d2d207e99cd744eb24905' > closure-source/SOURCE.txt
+          sha256sum closure-source/*.tar.gz > closure-source/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinned-closure-source
+          path: closure-source/
+          retention-days: 1
+          if-no-files-found: error
