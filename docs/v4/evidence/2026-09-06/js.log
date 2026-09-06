@@ -1,0 +1,40 @@
+✔ launchers preserve registered routes and do not promise missing applications (3.521414ms)
+✔ fallback landing and shared routes appear once (0.49421ms)
+✔ existing dark preference survives while new and corrupt preferences use light (0.594275ms)
+✔ Video Studio becomes launchable only when the integrated registry provides it (0.389017ms)
+✔ real JSON round trip preserves dimensions, schema and numeric zoom (8.293785ms)
+✔ future, partial, extra and corrupt schema never becomes accepted state (2.913018ms)
+✔ invalid dimension 0 leaves accepted storage intact (1.431269ms)
+✔ invalid dimension -1 leaves accepted storage intact (0.882576ms)
+✔ invalid dimension 239 leaves accepted storage intact (1.491706ms)
+✔ invalid dimension 4097 leaves accepted storage intact (1.020272ms)
+✔ invalid dimension 390.5 leaves accepted storage intact (2.453527ms)
+✔ invalid dimension NaN leaves accepted storage intact (1.852941ms)
+✔ invalid dimension Infinity leaves accepted storage intact (1.427948ms)
+✔ invalid dimension 390 leaves accepted storage intact (5.619674ms)
+✔ invalid dimension true leaves accepted storage intact (1.541236ms)
+✔ invalid dimension null leaves accepted storage intact (0.850503ms)
+✔ invalid zoom and schema cannot rewrite accepted settings (7.055667ms)
+✔ storage errors do not break preview and do not claim persistence (1.158493ms)
+✔ fit scales display only and keeps the real document viewport (0.36794ms)
+✔ rotation round trip is exact; invalid container geometry is rejected (0.912176ms)
+✔ fit width preserves readable tall pages and persists per project (1.951044ms)
+✔ microsecond times preserve precise fractional source boundaries (4.270159ms)
+✔ duration uses rational speed, freeze and individual ramp segments (0.44723ms)
+✔ timecode respects rational sequence fps rather than assuming 30 (0.482503ms)
+✔ clip lookup and snap use active sequence and avoid self-snapping (0.718269ms)
+✔ dry-run and apply retain the same id and source revision (1.293986ms)
+✔ media library searches tags, filters folders and sorts metadata without mutation (1.384709ms)
+✔ Reels and square profiles retain backend dimensions unless explicitly overridden (0.793681ms)
+✔ export exact FPS and selected range are validated without replacing full export with a range (0.778173ms)
+✔ VTT timestamp conversion preserves comma decimals inside caption text (1.534735ms)
+✔ late model drafts cannot cross projects even when imported clip IDs and revisions coincide (1.12299ms)
+✔ frame split uses rational sequence frames and preserves linked editing (2.876271ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 637.681041

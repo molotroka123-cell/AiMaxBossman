@@ -1,0 +1,79 @@
+{
+  "code_sha": "6a8dd84c90414157fb9b306cc8d18a490c67a649",
+  "published_initial_sha": "364248a2c32fbee2ce7c4e9879b2412341695e3c",
+  "v4": "NOT_COMPLETE",
+  "v5": "STARTED_NOT_COMPLETE",
+  "runs": [
+    {
+      "run": "root",
+      "log": "root.log",
+      "sha256": "2f6263fac7865c69cbfaad781f625a491e079d88c97d457f1637290b5a887e3d",
+      "junit": {
+        "tests": 412,
+        "failures": 2,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "run": "core",
+      "log": "core.log",
+      "sha256": "9c54fbc97b9bf2aace4d312aca822354255998288955de95d232c9f5bc7e24a8",
+      "junit": {
+        "tests": 259,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "run": "js",
+      "log": "js.log",
+      "sha256": "441c6e620e791155c153ba7e52a87d4e15b5c4f4e20d5f7d85b4483abaa346a4"
+    },
+    {
+      "run": "cc",
+      "log": "cc.log",
+      "sha256": "f62944d93c92354501d0bd9de605864e9299544e1baef80e6017168fe0d656e8",
+      "status": "INTERRUPTED_NOT_PASS"
+    },
+    {
+      "run": "packaging",
+      "log": "packaging.log",
+      "sha256": "092759e4402f3ed5d6978c7a5e8f03a0e5a7da5eba07e7c6f54c919165e103fb"
+    },
+    {
+      "run": "secrets",
+      "log": "secrets.log",
+      "sha256": "e667fe2c974e6e3c677908e762b53cdc01a80411268e9961aed6d2c6742de02b"
+    },
+    {
+      "run": "final",
+      "log": "final.log",
+      "sha256": "a3a6f28e1683e5e080308abdd010e26c2c35baeb670e05df2e92b2592ef29f5d",
+      "junit": {
+        "tests": 52,
+        "failures": 0,
+        "errors": 11,
+        "skipped": 0
+      }
+    },
+    {
+      "run": "final-cc",
+      "log": "final-cc.log",
+      "sha256": "5ad2f25b05762b77889278609d130ce7e9d17b7e27a4eca5318e7045dd40074c",
+      "junit": {
+        "tests": 32,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "notes": [
+    "root initial packaging error resolved with PYTHONPATH removed; registry regenerated",
+    "mixed final run had async fixture errors under root config; rerun CC separately with its own pyproject.toml",
+    "counts overlap; no aggregate release score",
+    "broad app suite interrupted at owner request; not a pass"
+  ]
+}

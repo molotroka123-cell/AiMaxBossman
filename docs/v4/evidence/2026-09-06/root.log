@@ -1,0 +1,72 @@
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 52%]
+........................................................................ [ 69%]
+......................................................................F. [ 87%]
+............................F.......................                     [100%]
+=================================== FAILURES ===================================
+_____ test_installed_wheels_resolve_shared_contracts_without_the_checkout ______
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-100/test_installed_wheels_resolve_0')
+
+    def test_installed_wheels_resolve_shared_contracts_without_the_checkout(tmp_path):
+        wheels = tmp_path / "wheels"
+        for src in (ROOT, ROOT / "bossman-core"):
+            r = _run([sys.executable, "-m", "pip", "wheel", "--no-deps", "-q", "-w", str(wheels), str(src)])
+            assert r.returncode == 0, r.stderr[-2000:]
+        built = sorted(p.name for p in wheels.glob("*.whl"))
+        assert any(n.startswith("bossman_shared-") for n in built) and any(n.startswith("bossman_core-") for n in built), built
+        venv.EnvBuilder(with_pip=False, clear=True).create(tmp_path / "venv")
+        py = tmp_path / "venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        r = _run([sys.executable, "-m", "pip", "--python", str(py), "install", "-q", "--no-deps", *map(str, wheels.glob("*.whl"))])
+        assert r.returncode == 0, r.stderr[-2000:]
+        probe = ("import bossman_shared.cache_observation as co, learning.trace as lt, bossman_schemas, json, pathlib;"
+                 "import bossman._shared as s; assert s.AVAILABLE, 'bossman._shared degraded';"
+                 "assert lt.SCHEMA_PATH.exists(), lt.SCHEMA_PATH;"
+                 "print(lt.SCHEMA_PATH, pathlib.Path(bossman_schemas.__path__[0]).exists())")
+        env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH",)}
+        r = _run([str(py), "-c", probe], cwd=tmp_path, env=env)
+>       assert r.returncode == 0, (r.stdout[-1000:], r.stderr[-2000:])
+E       AssertionError: ('', 'Traceback (most recent call last):
+E           File "<string>", line 1, in <module>
+E         ModuleNotFoundError: No module named \'bossman_shared\'
+E         ')
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/tmp/pytest-of-root/pytest-100/test_installed_wheels_resolve_0/venv/bin/python', '-c', "import...recent call last):\n  File "<string>", line 1, in <module>\nModuleNotFoundError: No module named \'bossman_shared\'\n').returncode
+
+tests/test_packaging_installed.py:39: AssertionError
+_____________ test_registry_is_current_and_every_skip_has_a_reason _____________
+
+    def test_registry_is_current_and_every_skip_has_a_reason():
+        rows = reg.collect()
+        assert rows, "реестр пуст — сканер не нашёл ни одного skip"
+        assert [r for r in rows if not r["reason"]] == []
+>       assert reg.OUT.read_text(encoding="utf-8") == reg.render(rows), "запустите: python tools/skips_registry.py"
+E       AssertionError: запустите: python tools/skips_registry.py
+E       assert '# Реестр про...ет/пакет) |\n' == '# Реестр про...ет/пакет) |\n'
+E         
+E         Skipping 80 identical leading characters in diff, use -v to show
+E         -  записей: 121. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+E         ?           ^^^
+E         +  записей: 97. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+E         ?           ^^
+E           Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой....
+E         
+E         ...Full output truncated (125 lines hidden), use '-vv' to show
+
+tests/test_skips_registry.py:16: AssertionError
+=============================== warnings summary ===============================
+tests/test_skips_registry.py::test_registry_is_current_and_every_skip_has_a_reason
+tests/test_skips_registry.py::test_registry_rows_carry_owner_env_and_review
+  /workspace/scratch/c457e997c6e2/wt-integration/bossman-core/tests/test_tools.py:118: SyntaxWarning: invalid escape sequence '\W'
+    for bad in ("../../../etc/passwd", "/etc/passwd", "C:\Windows\win.ini"):
+
+tests/test_solana_safety.py::test_control_plane_blocks_execution_and_preserves_unknown
+  /tmp/bossman-epoch4-venv/lib/python3.12/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_packaging_installed.py::test_installed_wheels_resolve_shared_contracts_without_the_checkout
+FAILED tests/test_skips_registry.py::test_registry_is_current_and_every_skip_has_a_reason
+2 failed, 410 passed, 3 warnings in 97.46s (0:01:37)

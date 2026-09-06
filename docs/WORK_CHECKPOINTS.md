@@ -1,5 +1,20 @@
 # Saved work checkpoints
 
+## Latest integrated checkpoint — 2026-09-06
+
+Continue from `astra/continuity-steward-integration-20260906`, based on upstream
+`6464d52`. Initial publication: `364248a`; following commits preserve the native
+effect-oracle tests, regenerated skip registry and full run logs.
+
+Read [integration report](v4/INTEGRATION_2026-09-06.md) and
+[raw-log manifest](v4/evidence/2026-09-06/manifest.json) before resuming.
+All five workstreams are integrated: journal/truth, Steward, desktop, video,
+and responsive web preview. Canonical V4/V5 release gates remain open; do not
+mistake this saved checkpoint for either epoch's completion. The owner's last
+instruction prioritizes publishing and logging all work before further changes.
+
+The older entries below are historical and do not describe current branch state.
+
 Owner instruction: save every completed, tested checkpoint as a commit and
 publish it. Each entry below is a reviewable checkpoint, not an epoch release.
 Date: 2026-09-06. Preserve upstream work; no force pushes or implicit merges.
