@@ -85,7 +85,10 @@ async def run(args: dict, ctx: ToolContext) -> ToolResult:
     log_id = uuid.uuid4().hex[:8]
     log_path = ctx.workdir / "assets" / "logs" / f"analysis-{log_id}.txt"
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_path.write_text(out)
+    # utf-8 явно: лог дочитывается через fs.read, который читает utf-8. Кодировка
+    # локали (ANSI-страница Windows) дала бы либо UnicodeEncodeError, либо
+    # нечитаемый лог — оба исхода тихие и оба на кириллице.
+    log_path.write_text(out, encoding="utf-8")
     body, cut1 = _head_tail(out)
     body, cut2 = clip(body, 3000)
     body = f"код выхода: {exit_code}\n{body}"

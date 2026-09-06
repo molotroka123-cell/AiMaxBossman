@@ -13,18 +13,47 @@ from typing import Literal
 Mode = Literal["sandbox", "project_host", "system_admin"]
 Decision = Literal["auto", "ask", "deny"]
 
+# RT-B2: деструктивные команды раньше опознавались по ОДНОМУ написанию.
+# `rm -rf /` ловилось, а `rm -fr /`, `rm -r -f /`, `rm --recursive --force /` —
+# нет; `git push --force` ловилось, а `git -c core.pager=cat push --force` —
+# нет. В режиме sandbox отсутствие совпадения означало не «ask», а AUTO: cwd
+# монтируется в контейнер RW (`-v cwd:/work`), то есть `rm -fr /` внутри
+# стирал разрешённый корень владельца без единого подтверждения. Опознаём
+# НАМЕРЕНИЕ (рекурсивное удаление корня, форсированная публикация), а не
+# конкретную строку.
+_RM_CMD = re.compile(r"(?i)(?:^|[\s;&|(])rm\b")
+_RM_RECURSIVE_FLAG = re.compile(r"(?i)(?:^|\s)-{1,2}(?:[a-z]*r[a-z]*|recursive)\b")
+_ROOT_TARGET = re.compile(r"(?i)(?:^|\s)(?:--no-preserve-root\b|/\*?(?:\s|$))")
+_GIT_FORCE_PUSH = re.compile(
+    r"(?i)\bgit\b[^\n]*\bpush\b[^\n]*"
+    r"(?:--force(?:-with-lease)?\b|(?:^|\s)-f\b|\s\+[^\s]+)")
+_GIT_PUSH = re.compile(r"(?i)\bgit\b[^\n]*\bpush\b")
+
+
+def destructive_root_delete(cmd: str) -> bool:
+    """Рекурсивное удаление, нацеленное на корень (`/`, `/*`, --no-preserve-root)."""
+    text = str(cmd or "")
+    return bool(_RM_CMD.search(text) and _RM_RECURSIVE_FLAG.search(text)
+                and _ROOT_TARGET.search(text))
+
+
 DANGEROUS = [
-    re.compile(r"(?i)\b(?:format|diskpart|mkfs|fdisk)\b"),
+    re.compile(r"(?i)\b(?:format|diskpart|mkfs(?:\.\w+)?|fdisk)\b"),
     re.compile(r"(?i)\brm\s+-rf\s+/(?:\s|$)"),
-    re.compile(r"(?i)\bgit\s+push\b.*--force"),
-    re.compile(r"(?i)\bgit\s+reset\s+--hard\b"),
+    _GIT_FORCE_PUSH,
+    re.compile(r"(?i)\bgit\b[^\n]*\breset\s+--hard\b"),
 ]
 ASK_PATTERNS = [
-    re.compile(r"(?i)\bgit\s+push\b"),
+    _GIT_PUSH,
     re.compile(r"(?i)\b(?:npm|pnpm|yarn|pip)\s+install\b"),
     re.compile(r"(?i)\bdocker\s+compose\s+(?:up|down|restart)\b"),
     re.compile(r"(?i)\b(?:sudo|runas)\b"),
 ]
+
+
+def dangerous_reason(cmd: str) -> bool:
+    """Единственная точка «это деструктивно»: список написаний + разбор намерения."""
+    return destructive_root_delete(cmd) or any(p.search(cmd or "") for p in DANGEROUS)
 AUTO_PATTERNS = [
     re.compile(r"(?i)^git\s+(?:status|diff|log|show)\b"),
     re.compile(r"(?i)^(?:pytest|python\s+-m\s+pytest)\b"),
@@ -48,6 +77,10 @@ AUTO_PATTERNS_NT = [
 # без approval. Поэтому auto разрешён только для одиночной команды — без
 # конкатенации/подстановки/пайпа.
 _SHELL_CHAIN = re.compile(r"[;&|`\n]|\$\(")
+
+# RT-B37: свой предел длины строки вместо неявного предела asyncio.StreamReader.
+READ_CHUNK_BYTES = 65536
+MAX_LINE_BYTES = 65536
 
 
 def _is_single_command(cmd: str) -> bool:
@@ -106,7 +139,7 @@ class TerminalPolicy:
     def decision(self, cmd: str, cwd: Path) -> Decision:
         if not within(cwd, self.allowed_roots):
             return "deny"
-        if any(p.search(cmd) for p in DANGEROUS):
+        if dangerous_reason(cmd):
             return "deny"
         if self.mode == "system_admin":
             # Admin mode is still approval-gated; never silently auto-elevate.
@@ -202,25 +235,68 @@ class TerminalManager:
         return session
 
     async def _read(self, s: TerminalSession) -> None:
+        """Читатель вывода процесса. Обязан пережить ЛЮБОЙ вывод.
+
+        RT-B37: раньше здесь стоял `StreamReader.readline()`, у которого есть
+        жёсткий предел буфера (64 КиБ по умолчанию). Одна строка длиннее предела
+        и без перевода строки — минифицированный бандл, `base64` без переносов,
+        лог сборки — роняла читателя `ValueError('Separator is not found…')`.
+        Задача-читатель умирала молча: `finished` навсегда оставался False,
+        `exit_code` — None, строка `terminal_sessions` навсегда «running», весь
+        вывод терялся, а инструмент честно ждал таймаут и сообщал «команда всё
+        ещё выполняется». То есть любая команда с длинной строкой была
+        безотказным способом подвесить сессию. Читаем чанками и режем на строки
+        сами: предела на длину строки у процесса нет, у нас он свой и явный.
+        """
         assert s.proc.stdout is not None
         import locale
 
-        while True:
-            line = await s.proc.stdout.readline()
-            if not line:
-                break
+        def decode(raw: bytes) -> str:
             try:
-                text = line.decode("utf-8")
+                return raw.decode("utf-8")
             except UnicodeDecodeError:
                 # Windows-хост: cmd.exe/консольные утилиты пишут в OEM-кодировке
                 # (cp866/cp1251), а не в UTF-8 — иначе кириллица превращается
                 # в mojibake и вывод теряет смысл.
-                text = line.decode(locale.getpreferredencoding(False), errors="replace")
-            s.output.append(text.rstrip("\r\n"))
+                return raw.decode(locale.getpreferredencoding(False), errors="replace")
+
+        def emit(raw: bytes) -> None:
+            s.output.append(decode(raw).rstrip("\r\n"))
             if len(s.output) > 5000:
                 del s.output[:1000]
-        s.exit_code = await s.proc.wait()
-        s.finished = True
+
+        pending = b""
+        try:
+            while True:
+                chunk = await s.proc.stdout.read(READ_CHUNK_BYTES)
+                if not chunk:
+                    break
+                pending += chunk
+                while True:
+                    cut = pending.find(b"\n")
+                    if cut >= 0:
+                        emit(pending[:cut])
+                        pending = pending[cut + 1:]
+                        continue
+                    if len(pending) > MAX_LINE_BYTES:   # строка без конца — режем сами
+                        emit(pending[:MAX_LINE_BYTES])
+                        pending = pending[MAX_LINE_BYTES:]
+                        continue
+                    break
+            if pending:
+                emit(pending)
+        finally:
+            # Что бы ни случилось с чтением, состояние сессии обязано стать
+            # определённым: иначе она навсегда «выполняется».
+            try:
+                s.exit_code = await s.proc.wait()
+            except asyncio.CancelledError:
+                s.exit_code = s.proc.returncode
+                s.finished = True
+                raise                                    # отмену не проглатываем
+            except Exception:                            # noqa: BLE001
+                s.exit_code = s.proc.returncode
+            s.finished = True
 
     def status(self, session_id: str) -> dict:
         s = self.sessions[session_id]

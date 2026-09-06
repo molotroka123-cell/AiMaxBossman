@@ -16,6 +16,8 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import stat
+import sys
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -99,7 +101,33 @@ def hermetic_workspace(bundle: Any, *, acceptance_readonly: dict[str, str] | Non
         written.append(CONTRACT_FILE)
         yield HermeticWorkspace(path=tmp, files=tuple(sorted(written)), level=isolation_level(), env=scrubbed_env())
     finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        destroy_workspace(tmp)
+
+
+def destroy_workspace(tmp: Path) -> None:
+    """Снести временный каталог, включая файлы, помеченные только для чтения.
+
+    `os.chmod(dest, 0o444)` выше делает acceptance-тесты неизменяемыми. На POSIX
+    удаление файла разрешает КАТАЛОГ, поэтому rmtree их сносит. На Windows права
+    на удаление проверяются у самого файла: 0o444 выставляет
+    FILE_ATTRIBUTE_READONLY, и `os.unlink` падает PermissionError [WinError 5].
+    С прежним `ignore_errors=True` это была тихая потеря гарантии, записанной в
+    докстринге модуля («каталог уничтожается после вызова»): временная песочница
+    с содержимым бандла оставалась в %TEMP% навсегда, и никто об этом не узнавал.
+    Обработчик снимает флаг «только чтение» и повторяет удаление; если и это не
+    вышло — по-прежнему не роняем вызывающего, чистка не важнее его результата.
+    """
+    def _retry(func, target, _exc) -> None:
+        try:
+            os.chmod(target, stat.S_IWRITE | stat.S_IREAD)
+            func(target)
+        except OSError:
+            pass
+
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(tmp, onexc=_retry)
+    else:
+        shutil.rmtree(tmp, onerror=lambda f, t, e: _retry(f, t, e))
 
 
 def bwrap_prefix(workspace: Path) -> list[str]:

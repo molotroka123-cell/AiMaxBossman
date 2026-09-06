@@ -109,7 +109,7 @@ class AmdUnifiedProbe:
 
     def _read_int(self, p: Path) -> int | None:
         try:
-            return int(p.read_text().strip())
+            return int(p.read_text(encoding="utf-8").strip())
         except (OSError, ValueError):
             return None
 

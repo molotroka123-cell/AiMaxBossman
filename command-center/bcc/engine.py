@@ -1057,21 +1057,41 @@ class TaskEngine:
         if not getattr(spec, "idempotent", True):
             prior = await self._prior_effect(task["id"], run_id, step, spec.name, call.arguments)
             if prior is not None:
+                unknown = str(prior.get("status") or "") == "dispatched"
                 await self._record_tool_call(
                     run_id, task["id"], step, call, spec,
                     effect="auto" if approval_id is None else "ask", status="replayed",
                     approval_id=approval_id, approved_by=approved_by,
-                    preview=str(prior.get("result_preview") or "")[:500], duration_ms=0)
+                    preview=("исход прежней попытки не записан" if unknown
+                             else str(prior.get("result_preview") or "")[:500]), duration_ms=0)
                 messages.append(_tool_message(
-                    call, "этот шаг уже исполнен прежней попыткой (run "
-                          f"{prior.get('run_id')}); повтор не делаем. Сохранённый результат: "
-                          + str(prior.get("result_preview") or "")))
+                    call, ("этот шаг был отправлен на исполнение прежней попыткой (run "
+                           f"{prior.get('run_id')}), а её исход не записан: эффект мог "
+                           "произойти целиком. Повтор НЕ делаем — проверь фактическое "
+                           "состояние наблюдением") if unknown else
+                          ("этот шаг уже исполнен прежней попыткой (run "
+                           f"{prior.get('run_id')}); повтор не делаем. Сохранённый результат: "
+                           + str(prior.get("result_preview") or ""))))
                 await self._log(run_id, "warn", "tool.replay_guard",
-                                f"{spec.name}: неидемпотентный шаг {step} уже исполнен run'ом "
+                                f"{spec.name}: неидемпотентный шаг {step} уже "
+                                f"{'диспетчнут' if unknown else 'исполнен'} run'ом "
                                 f"{prior.get('run_id')} — эффект не повторяется")
                 await self.bus.emit("tool.replayed", task_id=task["id"], run_id=run_id,
-                                    tool=spec.name, prior_run_id=prior.get("run_id"))
+                                    tool=spec.name, prior_run_id=prior.get("run_id"),
+                                    outcome_unknown=unknown)
                 return
+            # INV-2, вторая половина: строка исхода пишется ПОСЛЕ возврата инструмента,
+            # поэтому падение между эффектом и её коммитом не оставляло следа вообще —
+            # и следующая попытка честно исполняла неидемпотентный эффект во ВТОРОЙ раз
+            # (письмо/команда/деньги). Намерение фиксируется ДО эффекта: строка
+            # `dispatched` — это «эффект отправлен, исход ещё неизвестен». Успех её
+            # перепишет (тот же (run_id, call_id)); падение — оставит, и replay увидит
+            # намерение вместо пустоты.
+            await self._record_tool_call(
+                run_id, task["id"], step, call, spec,
+                effect="auto" if approval_id is None else "ask", status="dispatched",
+                approval_id=approval_id, approved_by=approved_by,
+                preview="эффект отправлен на исполнение; исход ещё не записан")
         started = time.monotonic()
         result = await execute_tool(spec, call.arguments, ctx)
         duration = int((time.monotonic() - started) * 1000)
@@ -1115,32 +1135,49 @@ class TaskEngine:
         step = int(pending.get("step") or 0)
 
         already = await self._tool_call_status(run_id, call.id)
-        if already in ("executed", "error", "denied"):
+        if already in ("executed", "error", "denied", "uncertain"):
             # повтор после рестарта: результат уже есть — не исполняем второй раз
             await self._log(run_id, "warn", "tool.replay_guard",
                             f"{pending.get('tool')}: вызов уже исполнен, повтор не делаем")
             messages.append(_tool_message(call, "результат этого вызова уже получен ранее"))
+        elif already in ("approved", "dispatched"):
+            # INV-2, дыра «краш между эффектом и журналом». Обе отметки ставятся
+            # НЕПОСРЕДСТВЕННО перед диспетчем (approved — здесь, dispatched — в
+            # _run_tool_now), а строка исхода пишется только ПОСЛЕ возврата
+            # инструмента. Значит отметка, дожившая до следующей попытки, читается
+            # как «вызов уже отправлен на исполнение, исход неизвестен»: эффект мог
+            # произойти целиком. Отличить это от «не успел начаться» изнутри нельзя,
+            # поэтому повтора НЕТ (иначе письмо уходит дважды): исход помечается
+            # неизвестным, дальше — наблюдение/человек, а не второй эффект.
+            await self._mark_tool_call(run_id, call.id, status="uncertain",
+                                       approved_by="system:effect_outcome_unknown")
+            messages.append(_tool_message(
+                call, f"действие {pending.get('tool')} было отправлено на исполнение прежней "
+                      f"попыткой, но её исход не записан (падение между эффектом и журналом). "
+                      f"Повторно оно НЕ выполняется: сначала проверь фактическое состояние "
+                      f"наблюдением; для нового исполнения нужно новое одобрение"))
+            await self._log(run_id, "warn", "tool.dispatch_uncertain",
+                            f"{pending.get('tool')}: вызов диспетчнут прежней попыткой, исход "
+                            f"не записан — эффект не повторяется")
+            await self.bus.emit("tool.dispatch_uncertain", task_id=task["id"], run_id=run_id,
+                                tool=str(pending.get("tool") or ""))
         elif status == "approved" and spec is not None:
-            # F-013: одобрение действительно ТОЛЬКО для того же инструмента, той же
-            # реализации (поколение регистрации) и тех же канонических аргументов.
-            # MCP refresh / перерегистрация / подмена аргументов в checkpoint →
-            # digest не совпадает → DENY + нужно новое одобрение. Никогда не
-            # «перерезолвим» одобренное действие в другую реализацию молча.
-            expected = str(pending.get("approval_digest") or "")
-            actual = approval_digest(spec, call.arguments, agent=agent, task=task)
-            args_ok = (not pending.get("args_hash")
-                       or pending.get("args_hash") == args_hash(spec.name, call.arguments))
-            if not expected or expected != actual or not args_ok:
+            # Момент эффекта — момент проверки. Одобрение действительно только если
+            # СЕЙЧАС верны все четыре вещи: тот же токен одобрения (выданный этому
+            # прогону и этому вызову), та же реализация и аргументы (F-013), тот же
+            # инструмент всё ещё выдан агенту, и политика по-прежнему не запрещает.
+            code, why = await self._resume_authorization_error(
+                run_id, task, agent, spec, call, pending, row, policy_rules)
+            if code:
                 await self._mark_tool_call(run_id, call.id, status="rejected",
-                                           approved_by="system:identity_mismatch")
+                                           approved_by=f"system:{code}")
                 messages.append(_tool_message(
-                    call, f"действие {pending.get('tool')} НЕ выполнено: реализация или "
-                          f"аргументы изменились после одобрения (approval identity mismatch) "
+                    call, f"действие {pending.get('tool')} НЕ выполнено: {why} "
                           f"— требуется новое одобрение"))
-                await self._log(run_id, "warn", "tool.approval_identity_mismatch",
-                                f"{pending.get('tool')}: digest {expected[:12]}… != {actual[:12]}…")
+                await self._log(run_id, "warn", f"tool.approval_{code}",
+                                f"{pending.get('tool')}: {why}")
                 await self.bus.emit("tool.denied", task_id=task["id"], run_id=run_id,
-                                    tool=spec.name, reason="approval identity mismatch")
+                                    tool=spec.name, reason=why)
             else:
                 await self._mark_tool_call(run_id, call.id, status="approved",
                                            approved_by=str((row or {}).get("decided_by") or ""))
@@ -1165,6 +1202,57 @@ class TaskEngine:
             if waiting:
                 return False
         return True
+
+    async def _resume_authorization_error(self, run_id: int, task: dict, agent: dict, spec: Any,
+                                          call: Any, pending: dict, row: dict | None,
+                                          policy_rules: list[dict]) -> tuple[str, str]:
+        """Перепроверка авторизации В МОМЕНТ ЭФФЕКТА. ("", "") — исполнять можно.
+
+        Одобрение — это «да» на конкретное действие конкретного прогона, а не
+        вечный пропуск: между ASK и resume проходит произвольное время, за которое
+        владелец мог отозвать инструмент, ужесточить политику или уже израсходовать
+        это одобрение. Ни один из четырёх слоёв не имеет права молчать.
+        """
+        # 1. Токен одобрения привязан к ЭТОМУ вызову: id из checkpoint'а обязан
+        # совпасть с id, записанным в строку tool_calls при ASK, а сама запись
+        # approvals — принадлежать этому прогону и этой задаче. Иначе чужое или
+        # уже сработавшее одобрение авторизует эффект, которого никто не одобрял.
+        approval_id = pending.get("approval_id")
+        recorded = await self._tool_call_record(run_id, call.id)
+        try:
+            aid = int(approval_id)
+        except (TypeError, ValueError):
+            aid = 0
+        bound = (aid and recorded is not None and recorded.get("approval_id") is not None
+                 and int(recorded["approval_id"]) == aid
+                 and row is not None
+                 and int(row.get("task_id") or 0) == int(task["id"])
+                 and int(row.get("run_id") or 0) == int(run_id))
+        if not bound:
+            return ("approval_not_bound",
+                    "предъявленное одобрение выдано не этому вызову (другой прогон, другая "
+                    "задача или уже израсходованный approval_id)")
+
+        # 2. F-013: та же реализация (поколение регистрации) и те же аргументы.
+        expected = str(pending.get("approval_digest") or "")
+        actual = approval_digest(spec, call.arguments, agent=agent, task=task)
+        args_ok = (not pending.get("args_hash")
+                   or pending.get("args_hash") == args_hash(spec.name, call.arguments))
+        if not expected or expected != actual or not args_ok:
+            return ("identity_mismatch",
+                    f"реализация или аргументы изменились после одобрения (approval identity "
+                    f"mismatch: {expected[:12]}… != {actual[:12]}…)")
+
+        # 3. Выдача: инструмент, отозванный у агента, не исполняется по старому «да».
+        granted = {t.name for t in TOOLS.resolve(allowed_tools_for(task, agent))}
+        if spec.name not in granted:
+            return ("tool_revoked", f"инструмент {spec.name} больше не выдан этому агенту")
+
+        # 4. Политика: DENY, появившийся после одобрения, сильнее одобрения.
+        effect_now, reason_now = decide_effect(spec, call.arguments, agent, policy_rules)
+        if effect_now == "deny":
+            return ("policy_denied", f"действие запрещено политикой ({reason_now})")
+        return ("", "")
 
     async def _park_for_approval(self, run_id: int, task_id: int, messages: list[dict],
                                  step: int, pending: dict, usage: dict) -> None:
@@ -1283,7 +1371,9 @@ class TaskEngine:
         # из измеренной длительности — тогда finished_at - created_at и duration_ms
         # говорят одно и то же, и вопрос «когда этот вызов начался» имеет ответ.
         now = utcnow()
-        done = status not in ("pending_approval",)
+        # «Ещё не исход»: строка ожидания решения и строка намерения (эффект
+        # отправлен, исход неизвестен) не имеют времени завершения.
+        done = status not in ("pending_approval", "dispatched")
         values["finished_at"] = now if done else None
         values["created_at"] = (now - timedelta(milliseconds=int(duration_ms))
                                 if done and duration_ms is not None else now)
@@ -1301,7 +1391,9 @@ class TaskEngine:
                     tool_calls_t.c.call_id == str(call.id))).values(
                     status=status, result_preview=preview, truncated=truncated,
                     duration_ms=duration_ms, error=error, approved_by=approved_by,
-                    finished_at=utcnow()))
+                    # то же правило, что и при вставке: у строки намерения
+                    # («эффект отправлен») времени завершения ещё нет
+                    finished_at=values["finished_at"]))
                 await s.commit()
 
     def _action_receipt(self, run_id: int, task_id: int, step: int, call: Any, name: str, spec: Any,
@@ -1352,8 +1444,18 @@ class TaskEngine:
                 tool_calls_t.c.step == step,
                 tool_calls_t.c.tool == tool,
                 tool_calls_t.c.args_hash == args_hash(tool, arguments),
-                tool_calls_t.c.status == "executed")).order_by(
+                # `dispatched` — эффект прежней попытки, исход которого не записан:
+                # для запрета повтора он весит столько же, сколько `executed`.
+                tool_calls_t.c.status.in_(("executed", "dispatched")))).order_by(
                 tool_calls_t.c.id.desc()).limit(1))).first()
+        return dict(row._mapping) if row is not None else None
+
+    async def _tool_call_record(self, run_id: int, call_id: str) -> dict | None:
+        """Строка аудита этого вызова (в ней записан approval_id, выданный при ASK)."""
+        async with self.db.session() as s:
+            row = (await s.execute(sa.select(tool_calls_t).where(sa.and_(
+                tool_calls_t.c.run_id == run_id,
+                tool_calls_t.c.call_id == str(call_id))))).first()
         return dict(row._mapping) if row is not None else None
 
     async def _tool_call_status(self, run_id: int, call_id: str) -> str:

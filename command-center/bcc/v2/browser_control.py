@@ -523,6 +523,26 @@ class BrowserManager:
         except Exception:
             return False
 
+    def profile_path(self, profile_name: str) -> Path:
+        """Каталог персистентного профиля Chromium (cookies, localStorage,
+        сохранённые входы) — строго ВНУТРИ `profiles/`.
+
+        RT-B32: прежняя санитизация меняла только «неразрешённые» символы, а
+        точка разрешена — имя `..` проходило целиком и профиль ложился на
+        уровень выше, в общий каталог данных браузера. Точка нужна в именах
+        профилей, поэтому запрещаем не символ, а сам сегмент-переход, и
+        подтверждаем результат сравнением с корнем."""
+        safe_name = re.sub(r"[^a-zA-Z0-9_.-]+", "-", str(profile_name or ""))[:80]
+        if safe_name.strip(".") == "":          # "", ".", "..", "...", "./.." → нет имени
+            safe_name = "default"
+        root = self.profile_dir.resolve()
+        candidate = (root / safe_name).resolve()
+        if candidate != root and root not in candidate.parents:
+            raise BrowserPolicyDenied("start", f"profile name escapes profile store: {profile_name!r}")
+        if candidate == root:
+            candidate = root / "default"
+        return candidate
+
     async def _playwright(self):
         if self._pw is not None:
             return self._pw
@@ -546,8 +566,7 @@ class BrowserManager:
             pw = await self._playwright()
             browser = None
             if policy.persistent_profile:
-                safe_name = re.sub(r"[^a-zA-Z0-9_.-]+", "-", profile_name)[:80] or "default"
-                user_data = self.profile_dir / safe_name
+                user_data = self.profile_path(profile_name)
                 context = await pw.chromium.launch_persistent_context(
                     str(user_data), headless=headless, viewport={"width": 1440, "height": 900}
                 )

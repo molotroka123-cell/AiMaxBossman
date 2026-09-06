@@ -27,7 +27,8 @@ from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
 from ..v2 import scratch
 from ..v2.tables import terminal_sessions as term_t
-from ..v2.terminal_control import TerminalManager, TerminalPolicy, within
+from ..v2.terminal_control import (TerminalManager, TerminalPolicy,
+                                   destructive_root_delete, within)
 from . import Feature
 
 ROOTS_KEY = "terminal.roots"
@@ -39,9 +40,13 @@ OUTPUT_LIMIT = 8000          # символов вывода в модель з�
 
 # Отдельный от TerminalPolicy слой: то, что нельзя НИКОГДА, даже с подтверждением.
 HARD_DENY = [
-    (re.compile(r"(?i)\bgit\s+push\b.*(?:--force|-f\b)"), "force push"),
-    (re.compile(r"(?i)\bgit\s+reset\s+--hard\b"), "деструктивный reset"),
-    (re.compile(r"(?i)\b(?:mkfs|fdisk|diskpart|format)\b"), "форматирование диска"),
+    # RT-B2: написания перечислять бесполезно — `git -c x=y push --force` и
+    # `rm -fr /` мимо прежних regex'ов уходили в AUTO в режиме sandbox, где cwd
+    # смонтирован RW. Опознаём намерение (см. terminal_control), а не строку.
+    (re.compile(r"(?i)\bgit\b[^\n]*\bpush\b[^\n]*(?:--force(?:-with-lease)?\b|"
+                r"(?:^|\s)-f\b|\s\+[^\s]+)"), "force push"),
+    (re.compile(r"(?i)\bgit\b[^\n]*\breset\s+--hard\b"), "деструктивный reset"),
+    (re.compile(r"(?i)\b(?:mkfs(?:\.\w+)?|fdisk|diskpart|format)\b"), "форматирование диска"),
     (re.compile(r"(?i)\brm\s+-rf\s+/(?:\s|$)"), "удаление корня"),
     (re.compile(r"(?i)(?:/etc/shadow|id_rsa|\.ssh/id_|\.aws/credentials|\.env\b)"),
      "доступ к учётным данным"),
@@ -52,7 +57,7 @@ HARD_DENY = [
 ]
 ASK_EXTRA = [
     (re.compile(r"(?i)\b(?:npm|pnpm|yarn|pip|pip3|poetry|uv)\s+(?:install|add)\b"), "установка пакетов"),
-    (re.compile(r"(?i)\bgit\s+push\b"), "публикация изменений"),
+    (re.compile(r"(?i)\bgit\b[^\n]*\bpush\b"), "публикация изменений"),
     (re.compile(r"(?i)\bdocker\s+compose\s+(?:up|down|restart)\b"), "управление сервисами"),
     (re.compile(r"(?i)\b(?:sudo|runas|su\s+-)\b"), "повышение прав"),
 ]
@@ -89,6 +94,13 @@ async def _mode(svc) -> str:
 
 
 def hard_deny_reason(command: str) -> str:
+    """Причина безусловного отказа, пустая строка — запрета нет.
+
+    Разбор намерения (`destructive_root_delete`) идёт первым: он ловит
+    рекурсивное удаление корня во всех написаниях флагов, а не одну строку.
+    """
+    if destructive_root_delete(command or ""):
+        return "удаление корня"
     for pattern, reason in HARD_DENY:
         if pattern.search(command or ""):
             return reason
@@ -232,12 +244,24 @@ async def _tool_run(args: dict, ctx) -> ToolResult:
 
 def _owned(ctx, mgr: TerminalManager, sid: str) -> str:
     """F-011: сессия по session_id доступна только задаче-владельцу.
-    Пустая строка = ок, иначе текст отказа."""
+    Пустая строка = ок, иначе текст отказа.
+
+    RT-B5: `owner is None` — это НЕ «ничья» сессия, а сессия, заведённая
+    человеком через HTTP-страницу терминала (`bcc/features/terminal.py` не
+    передаёт owner). Раньше такая сессия проходила проверку: агент, узнавший
+    session_id, читал вывод одобренной владельцем команды и писал в её stdin —
+    то есть дописывал команды в уже одобренную (возможно, sudo/system_admin)
+    оболочку мимо очереди подтверждений. Инструменты модели работают ТОЛЬКО со
+    своими сессиями; чужая и владельческая одинаково недоступны.
+    """
     sess = mgr.sessions.get(sid)
     if sess is None:
         return f"сессия {sid} не найдена"
     owner = getattr(sess, "owner", None)
-    if owner is not None and owner != str(ctx.task.get("id")):
+    if owner is None:
+        return (f"сессия {sid} принадлежит владельцу (запущена человеком) — "
+                f"инструменты агента к ней не подключаются")
+    if owner != str(ctx.task.get("id")):
         return f"сессия {sid} принадлежит другой задаче — доступ запрещён"
     return ""
 

@@ -60,10 +60,19 @@ async def _evidence_roots(svc):
     return await _roots(svc)
 
 
-async def _llm_veto(svc, review: dict, answer: str) -> str | None:
+async def _llm_veto(svc, review: dict, answer: str, *, privacy: str = "public") -> str | None:
     """Мнение LLM-ревьюера — только как ВЕТО. Возвращает текст причины, если
     ревьюер сказал FAIL; None — если PASS/недоступен/не задан. «PASS» отсюда
-    ничего не подтверждает: это тот же класс самоотчёта, что и ответ воркера."""
+    ничего не подтверждает: это тот же класс самоотчёта, что и ответ воркера.
+
+    RT-B13: приватность задачи обязана действовать и здесь. Движок ставит
+    `execution_privacy` только вокруг СВОЕГО вызова модели (`_call_model`), а
+    gate_completion вызывается вне этого контекста — то есть ответ воркера по
+    задаче с `meta.privacy="private"` уходил ревьюеру в облако мимо
+    `assert_provider_egress`. Скоуп ставится здесь, на своей стороне границы:
+    у приватной задачи ревьюер обязан быть местным, иначе вето не берётся
+    вовсе (недоступный ревьюер ничего не подтверждает — см. except ниже).
+    """
     reviewer_id = review.get("reviewer_agent_id")
     if not reviewer_id:
         return None
@@ -73,12 +82,17 @@ async def _llm_veto(svc, review: dict, answer: str) -> str | None:
             agents_t.c.id == reviewer_id))).first()
     if agent is None:
         return None
+    from bossman_shared.privacy import execution_privacy
+    level = str(privacy or "public")
+    if level not in ("private", "local_only", "internal", "public"):
+        level = "private"          # непонятная метка приватности — самый строгий режим
     try:
-        adapter, model = await svc.registry.adapter_for(agent._mapping["model_id"])
-        prompt = (f"Ты — ревьюер. Критерии: {criteria}\n\nРезультат кодера:\n{answer}\n\n"
-                  "Ответь первым словом PASS или FAIL, затем причину.")
-        res = await adapter.chat(model["name"], [{"role": "user", "content": prompt}],
-                                 max_tokens=200)
+        with execution_privacy(level):
+            adapter, model = await svc.registry.adapter_for(agent._mapping["model_id"])
+            prompt = (f"Ты — ревьюер. Критерии: {criteria}\n\nРезультат кодера:\n{answer}\n\n"
+                      "Ответь первым словом PASS или FAIL, затем причину.")
+            res = await adapter.chat(model["name"], [{"role": "user", "content": prompt}],
+                                     max_tokens=200)
         text = (res.text or "").strip()
     except Exception as exc:  # noqa: BLE001 — недоступный ревьюер не подтверждает и не ветирует
         return None if not criteria else None
@@ -87,13 +101,14 @@ async def _llm_veto(svc, review: dict, answer: str) -> str | None:
     return None
 
 
-async def _verdict(svc, review: dict, answer: str, *, task: dict) -> tuple[str, str, list]:
+async def _verdict(svc, review: dict, answer: str, *, task: dict,
+                   privacy: str = "public") -> tuple[str, str, list]:
     """→ (VERIFIED | FAILED | UNVERIFIED, feedback, results).
 
     Порядок: вето текста (LLM-ревьюер сказал FAIL) → свежая верификация по
     структурированным ожиданиям. Ни ответ воркера, ни «PASS» ревьюера, ни
     подстрока критерия НЕ участвуют в подтверждении."""
-    veto = await _llm_veto(svc, review, answer)
+    veto = await _llm_veto(svc, review, answer, privacy=privacy)
     if veto:
         return FAILED, f"ревьюер: {veto}", []
     expected = parse_expected(review.get("evidence"))
@@ -132,7 +147,9 @@ async def _gate(svc):
         max_iter = int(review.get("max_review_retries", 2)) + 1
         gate = ReviewGate(max_iterations=max_iter, iteration=int(meta.get("review_attempts", 0)))
         gate.submit_for_review()
-        status, feedback, results = await _verdict(svc, review, answer, task=task)
+        status, feedback, results = await _verdict(
+            svc, review, answer, task=task,
+            privacy=str(meta.get("privacy") or "public"))
         artifacts = _evidence_artifacts(results)
         passed = status == VERIFIED
         if status == UNVERIFIED:

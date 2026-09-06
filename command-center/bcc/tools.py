@@ -188,7 +188,16 @@ class ToolRegistry:
 
     def __init__(self) -> None:
         self._tools: dict[str, ToolSpec] = {}
-        self._generation = 0
+        self._generation = 0                      # сколько регистраций было всего
+        # Поколение считается ПО ИМЕНИ, а не сквозным счётчиком реестра. Сквозной
+        # счётчик делал identity одобрения зависимой от того, сколько посторонних
+        # инструментов зарегистрировалось РАНЬШЕ этого (MCP-discovery, порядок
+        # setup'а фич): после перезапуска процесса тот же самый код получал другой
+        # номер, digest не сходился, и законное одобрение, пережившее рестарт,
+        # отвергалось как «подмена реализации». К порядку чужих регистраций
+        # идентичность действия отношения не имеет; к перерегистрации ИМЕННО
+        # этого имени — имеет, и она по-прежнему даёт новое поколение.
+        self._gen_by_name: dict[str, int] = {}
 
     def register(self, spec: ToolSpec) -> ToolSpec:
         # F-013/F-014: молчаливая подмена реализации под тем же именем из ДРУГОГО
@@ -208,7 +217,10 @@ class ToolRegistry:
                 f"tool name collision: {spec.name!r} already registered from source "
                 f"{existing.source!r}; refusing silent replacement by {spec.source!r}")
         self._generation += 1
-        spec.generation = self._generation
+        # счётчик по имени монотонен и НЕ сбрасывается при unregister: снятый и
+        # заново выданный инструмент — это тоже новая реализация для одобрений.
+        self._gen_by_name[spec.name] = self._gen_by_name.get(spec.name, 0) + 1
+        spec.generation = self._gen_by_name[spec.name]
         self._tools[spec.name] = spec
         return spec
 
