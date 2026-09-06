@@ -1,0 +1,82 @@
+name: Deliver tested V5 admission fix
+
+on:
+  push:
+    branches: [fix/astra-epoch-residual-20260906]
+    paths: [.github/workflows/epoch-admission-checkpoint.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deliver-epoch-admission
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python .github/checkpoint/apply_admission.py
+      - run: python -m pip install -e . -e './bossman-core[dev]'
+      - name: All V5 contracts, concurrency, recovery and golden regressions
+        run: python -m pytest tests/test_v5*.py -q --timeout=30 --junitxml=admission-v5.xml
+      - name: Shared Fleet and Organization connection regression
+        working-directory: bossman-core
+        run: >-
+          python -m pytest tests/test_epoch_store_connection_lifetime.py
+          tests/test_v3_fleet_core.py tests/test_v3_organization_core.py
+          tests/test_v3_fleet_e2e.py tests/test_v3_organization_e2e.py
+          -q --timeout=30 --junitxml=../admission-core.xml
+      - name: Expanded source secret scan and whitespace
+        run: |
+          python tools/ci_secret_scan.py
+          git diff --check
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admission-${{ matrix.python }}-${{ github.sha }}
+          path: admission-*.xml
+          retention-days: 3
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Materialize identical tested sources, remove delivery scaffolding
+        run: |
+          python .github/checkpoint/apply_admission.py
+          git add bossman_shared/objective_admission.py bossman_shared/objective_mission.py bossman_shared/objective_store.py tests/test_v5_admission.py tests/test_v5_golden_missions.py tests/test_v5_admission_binding_regressions.py
+          git rm .github/checkpoint/admission_0.b64 .github/checkpoint/admission_1.b64 .github/checkpoint/admission_2.b64 .github/checkpoint/admission_3.b64 .github/checkpoint/apply_admission.py .github/workflows/epoch-admission-checkpoint.yml
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(v5): bind admitted effects and reserve once before calling external ports'
+      - name: Fast-forward only dedicated residual fix branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          AUTH="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" push origin HEAD:refs/heads/fix/astra-epoch-residual-20260906
+          git rev-parse HEAD
