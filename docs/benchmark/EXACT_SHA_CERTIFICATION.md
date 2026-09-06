@@ -6,9 +6,12 @@ contradict a `PASS`. `tools/exact_sha_certify.py` makes the claim falsifiable.
 
 ## What certifies a commit
 
-A SHA is `CERTIFIED` only when every required workflow (the seven release
-workflows named in `DEFAULT_REQUIRED`) has a **completed, successful** run whose
-`head_sha` is **exactly** that SHA.
+A SHA is `CERTIFIED` only when every required workflow (the six CI workflows
+named in `DEFAULT_REQUIRED`: root-ci, Bossman Core CI, Command Center CI,
+Bossman V2 Auto-Repair, ASTRA acceptance, Solana safety gates) has a
+**completed, successful** run whose `head_sha` is **exactly** that SHA. The
+Intelligence Preservation gate is a separate SHA-bound axis and is not folded
+into CI certification; add it with `--required` when a measured payload exists.
 
 | Observation | Result |
 |---|---|

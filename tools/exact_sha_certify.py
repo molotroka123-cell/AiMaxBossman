@@ -40,13 +40,15 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-# Workflows whose green run on the exact SHA constitutes release CI evidence.
-# Names must match `name:` in .github/workflows/*.yml.
+# Workflows whose green run on the exact SHA constitutes release CI evidence —
+# the six the scorecard's `exact_sha_ci` row is about. Names must match `name:`
+# in .github/workflows/*.yml. The Intelligence Preservation gate is a separate,
+# SHA-bound axis (tools/intelligence_preservation_gate.py --expect-sha) and is
+# not folded into CI certification; pass it via --required to include it.
 DEFAULT_REQUIRED = (
     "root-ci (shared contracts, learning layer, tools)",
     "Bossman Core CI",
     "Command Center CI",
-    "Intelligence Preservation",
     "Bossman V2 Auto-Repair",
     "ASTRA acceptance",
     "Solana safety gates",
