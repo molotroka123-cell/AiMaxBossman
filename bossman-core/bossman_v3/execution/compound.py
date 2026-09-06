@@ -26,7 +26,7 @@ from typing import Any, Mapping, Sequence
 
 from ..computer_agent.agent import (ApprovalDeniedError, PolicyDeniedError,
                                     StaleObservationError, UniversalComputerAgent,
-                                    UnsafeActionError, UnsupportedActionError)
+                                    UnsafeActionError, UnsupportedActionError, snapshot_action)
 from ..contracts import TypedAction, SideEffectClass
 from ..memory.failure_memory import FailureMemory
 from ..memory.journal import TaskJournal, JournalIntegrityError
@@ -80,6 +80,7 @@ class CompoundRunner:
         from bossman_shared.action_receipt import ActionReceipt
         ctx = dict(context or {})
         r = outcome.receipt
+        action = outcome.action     # detached action actually executed, never caller-mutated args
         obs = outcome.observation
         src = str(getattr(obs, "source", "") or "")
         observation_type = "post_state" if src in ("bcc.v2.verification", "fs", "fake") or str(obs.state.get("status", ""))             else "tool_result_only"
@@ -87,29 +88,33 @@ class CompoundRunner:
             observation_type = "tool_result_only"
         fence = ctx.get("fence")
         rec = ActionReceipt.from_v3(
-            task_id=self.journal.task_id, step_id=step.step_id, action_type=step.action.action_type,
-            effect_type=getattr(step.action.side_effect, "value", str(step.action.side_effect)), args=step.action.args,
+            task_id=self.journal.task_id, step_id=step.step_id, action_type=action.action_type,
+            effect_type=getattr(action.side_effect, "value", str(action.side_effect)), args=action.args,
             started_at=r.started_at if r else None, finished_at=r.completed_at if r else None,
             observed_at=obs.observed_at, executor_status="executed",
             observation_type=observation_type, observation_ref=src,
             verification_status="VERIFIED" if outcome.verification.passed else "FAILED",
             verification_reason=outcome.verification.reason or "",
-            idempotency_key=step.action.idempotency_key or f"{self.journal.task_id}/{step.step_id}",
+            idempotency_key=action.idempotency_key or f"{self.journal.task_id}/{step.step_id}",
             fencing_token=int(fence) if fence is not None else None, run_id=str(ctx.get("run_id", "")),
             executor_metadata={"effect_id": outcome.effect_id, "approval_id": outcome.approval_id,
                                "model": self.model, "node_id": ctx.get("node_id", "")})
         body = rec.to_dict()
-        body.update(effect_id=outcome.effect_id, action_type=step.action.action_type,
+        body.update(effect_id=outcome.effect_id, action_type=action.action_type,
                     approval_id=outcome.approval_id,
-                    observed_state=dict(obs.state), expect=dict(step.action.args).get("expect", {}),
+                    observed_state=dict(obs.state), expect=dict(action.args).get("expect", {}),
                     verification_passed=outcome.verification.passed)
         return body
 
     def run(self, plan: Sequence[PlanStep], context: Mapping[str, Any] | None = None) -> CompoundResult:
         from ..organization.bridges import step_to_dict
         try:
+            # Freeze the full sequence before binding the journal. An owner/port
+            # retaining a nested args reference must not change a later step.
+            plan = tuple(PlanStep(s.step_id, s.intent, snapshot_action(s.action),
+                                  s.required, s.guard) for s in plan)
             self.journal.bind_plan([step_to_dict(s) for s in plan])
-        except JournalIntegrityError as exc:
+        except (JournalIntegrityError, UnsafeActionError) as exc:
             return CompoundResult(False, reason=str(exc))
         done_ids = {s.step_id for s in self.journal.finished()}
         executed: list[str] = []
@@ -134,7 +139,7 @@ class CompoundRunner:
             try:
                 before_step = (context or {}).get("before_step")
                 if before_step is not None:
-                    before_step(step.action)
+                    before_step(snapshot_action(step.action))
                 external_guard = (context or {}).get("execution_guard")
                 @contextmanager
                 def guarded_effect():

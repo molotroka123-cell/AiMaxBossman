@@ -369,6 +369,13 @@ async def execute_tool(spec: ToolSpec, args: dict, ctx: ToolContext) -> ToolResu
     """Запуск с таймаутом. Отмена (Hard Cancel) пробрасывается наверх —
     её ловит движок и завершает run как stopped."""
     try:
+        if ctx.task.get("mission_id"):
+            from .mission_continuity import tool_block_reason
+            reason = await tool_block_reason(ctx.svc.db, ctx.task)
+            if reason is not None:
+                return ToolResult(content=f"Mission dispatch refused: {reason}",
+                                  one_line="mission continuity blocked this tool",
+                                  error=True, data={"reason_code": reason})
         result = await asyncio.wait_for(spec.handler(args, ctx),
                                         timeout=spec.timeout_seconds)
     except asyncio.CancelledError:

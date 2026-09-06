@@ -6,6 +6,7 @@
    ============================================================ */
 
 import { api, listOf, pick } from '../api.js';
+import { continuityLabel, missionControls, progressFraction } from '../mission_state.js';
 import {
   h, icon, dot,
   toast, toastOk, toastError, openModal, confirmDialog, actionButton,
@@ -69,7 +70,7 @@ const MissionsPage = {
 function missionCard(m, ctx) {
   const id = pick(m, ['id']);
   const status = String(m.status || 'draft');
-  const progress = Number(m.progress || 0);
+  const progress = progressFraction(m.progress);
   const s = statusText(status);
 
   return tile({
@@ -97,17 +98,17 @@ function missionActions(m, id, ctx) {
     } catch (e) { toastError(e, 'Не удалось выполнить действие'); }
   };
   const btns = [];
-  if (['draft', 'planning', 'queued', 'paused'].includes(status)) {
+  if (missionControls(status).some(a => a === 'start' || a === 'resume')) {
     btns.push(btn(status === 'paused' ? 'Продолжить' : 'Запустить',
       () => call(status === 'paused' ? 'resume' : 'start'),
       { variant: 'primary', size: 'sm', iconName: 'play' }));
   }
-  if (status === 'running') {
+  if (missionControls(status).includes('pause')) {
     btns.push(btn('Пауза', () => call('pause'), { variant: 'secondary', size: 'sm', iconName: 'pause' }));
   }
-  if (['running', 'paused', 'queued'].includes(status)) {
+  if (missionControls(status).includes('stop')) {
     btns.push(btn('Остановить', async () => {
-      const ok = await confirmDialog({ title: 'Остановить миссию?', text: 'Все шаги, которые сейчас идут, будут остановлены.', okText: 'Остановить', danger: true });
+      const ok = await confirmDialog({ title: 'Остановить миссию?', text: 'Новые шаги не запустятся. Уже отправленные внешние действия могут потребовать сверки.', okText: 'Остановить', danger: true });
       if (!ok) return;
       await call('stop');
     }, { variant: 'subtle', size: 'sm', iconName: 'stop' }));
@@ -140,6 +141,7 @@ async function openMissionDetail(ctx, id) {
     const kpiKeys = Object.keys(targets);
 
     const tasks = listOf(mission.tasks, 'tasks');
+    const continuity = new Map((mission.continuity?.children || []).map(c => [c.task_id, c]));
 
     modal.body.appendChild(h('div.stack',
       h('div.row', statusPill(status),
@@ -147,7 +149,7 @@ async function openMissionDetail(ctx, id) {
         h('span.xsmall.dim', `создана ${fmtDateShort(pick(mission, ['created_at']))}`)),
       mission.goal ? h('div.small.dim.wrap-any', mission.goal) : null,
       h('div', { style: { marginTop: '4px' } },
-        meter('Готово', Number(mission.progress || 0) * 100, 100, `${Math.round(Number(mission.progress || 0) * 100)}%`, { accent: 'var(--bx-violet)' })),
+        meter('Готово', progressFraction(mission.progress) * 100, 100, `${Math.round(progressFraction(mission.progress) * 100)}%`, { accent: 'var(--bx-violet)' })),
 
       kpiKeys.length ? panel('Показатели цели', h('div.stack.sm',
         kpiKeys.map((k) => meter(k, Number(current[k] || 0), Number(targets[k] || 1),
@@ -156,7 +158,8 @@ async function openMissionDetail(ctx, id) {
       panel(`Шаги плана · ${tasks.length}`, tasks.length
         ? h('div.mini-list', tasks.map((t) => h('div.mini-row',
           dot(t.status, { live: t.status === 'running' }),
-          h('span.name', pick(t, ['title'], `Шаг #${pick(t, ['id'])}`)),
+          h('div.stack.sm', h('span.name', pick(t, ['title'], `Шаг #${pick(t, ['id'])}`)),
+            h('span.xsmall.dim.wrap-any', continuityLabel(continuity.get(t.id)))),
           h('span.badge', statusText(t.status).word))))
         : h('div.small.dim', 'План пока пуст.'))));
 
@@ -181,12 +184,12 @@ function missionActionsWide(m, id, onDone) {
     } catch (e) { toastError(e, 'Не удалось выполнить действие'); }
   };
   const btns = [];
-  if (['draft', 'planning', 'queued', 'paused'].includes(status)) {
+  if (missionControls(status).some(a => a === 'start' || a === 'resume')) {
     btns.push(actionButton(status === 'paused' ? 'Продолжить' : 'Запустить', () => call(status === 'paused' ? 'resume' : 'start'),
       { cls: 'btn btn-primary', iconName: 'play' }));
   }
-  if (status === 'running') btns.push(actionButton('Пауза', () => call('pause'), { cls: 'btn', iconName: 'pause' }));
-  if (['running', 'paused', 'queued'].includes(status)) {
+  if (missionControls(status).includes('pause')) btns.push(actionButton('Пауза', () => call('pause'), { cls: 'btn', iconName: 'pause' }));
+  if (missionControls(status).includes('stop')) {
     btns.push(actionButton('Остановить', async () => {
       const ok = await confirmDialog({ title: 'Остановить миссию?', okText: 'Остановить', danger: true });
       if (!ok) return;
@@ -201,10 +204,11 @@ function missionActionsWide(m, id, onDone) {
 function openCreateMission(ctx) {
   const titleEl = input({ placeholder: 'Например: изучить конкурентов рынка' });
   const goalEl = textarea({ rows: 4, placeholder: 'Опишите цель обычными словами. Если укажете число («5 конкурентов»), BOSSMAN учтёт его при составлении плана.' });
-  const durationEl = input({ type: 'number', min: '0', placeholder: 'без ограничения', class: 'input mono' });
+  const durationEl = input({ type: 'number', min: '1', max: '10080', placeholder: 'без ограничения', class: 'input mono' });
   const workersEl = input({ type: 'number', min: '1', max: '32', value: '2', class: 'input mono' });
   const budgetEl = input({ type: 'number', min: '0', step: '0.5', value: '0', class: 'input mono' });
 
+  const planEl = textarea({ rows: 6, placeholder: 'Необязательно: {"tasks": [{"node_id": "a", "prompt": "…", "depends_on": []}]}', spellcheck: 'false' });
   const kpiRows = h('div.stack.sm');
   const kpiPairs = [];
   function addKpiRow(key = '', target = '') {
@@ -223,6 +227,8 @@ function openCreateMission(ctx) {
     body: h('div.stack',
       field('Название', titleEl),
       field('Цель', goalEl, 'Свободный текст — по нему строится план из шагов.'),
+      h('details', h('summary', 'Расширенный план и зависимости'),
+        field('План JSON', planEl, 'Только явные шаги, зависимости и проверяемые результаты. Создание не запускает миссию.')),
       h('div.grid.cols-3',
         field('Сколько минут максимум', durationEl, 'Пусто — без ограничения по времени.'),
         field('Помощников одновременно', workersEl),
@@ -242,6 +248,7 @@ function openCreateMission(ctx) {
           if (k && p.targetEl.value !== '') kpi_targets[k] = Number(p.targetEl.value) || 0;
         }
         try {
+          const explicitPlan = planEl.value.trim() ? JSON.parse(planEl.value) : undefined;
           await api.raw('/api/missions', {
             method: 'POST',
             body: {
@@ -251,6 +258,7 @@ function openCreateMission(ctx) {
               max_workers: Number(workersEl.value) || 1,
               cloud_budget_usd: Number(budgetEl.value) || 0,
               kpi_targets,
+              ...(explicitPlan === undefined ? {} : { plan: explicitPlan }),
             },
           });
           handle.close();

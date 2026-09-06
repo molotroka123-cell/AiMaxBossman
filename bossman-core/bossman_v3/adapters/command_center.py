@@ -17,7 +17,7 @@ apps, openclaw, opencode, plugins, mcp): в V2 они все — записи о
   * AUTO/ASK/DENY решает `decide_effect` V2, не этот файл;
   * ASK идёт через каноническую очередь `svc.approvals` и одобряется
     ВЛАДЕЛЬЦЕМ; адаптер никогда не одобряет сам — он лишь находит уже
-    одобренную запись и потребляет её один раз;
+    одобренную запись; потребляет её один раз непосредственно перед действием;
   * инструмент с `ToolResult.error=True` — НЕ исполнение (та же граница, что
     у action_contract: status="executed" против "error");
   * шаг подтверждён только свежей верификацией `bcc/v2/verification`, а не
@@ -33,12 +33,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import hashlib
 import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
-from ..computer_agent.agent import UniversalComputerAgent
+from ..computer_agent.agent import UniversalComputerAgent, _action_binding
 from ..contracts import (ApprovalDecision, ExecutionReceipt, Observation, PolicyDecision,
                          TypedAction, VerificationResult)
 
@@ -102,15 +103,27 @@ class CommandCenterRuntime:
                 self._thread.join(timeout=5)
 
 
-def _preview(action: TypedAction, task_id: int | None = None) -> str:
-    """Стабильное описание действия: по нему одобренная запись находится при
-    повторном прогоне после того, как владелец нажал «одобрить». Идентификатор
-    задачи входит в preview намеренно: одобрение привязано к задаче и не может
-    быть «подобрано» другой задачей с тем же текстом действия (аудит P0-3)."""
-    args = {k: v for k, v in dict(action.args).items() if k != "expect"}
-    body = json.dumps(args, ensure_ascii=False, sort_keys=True)
-    scope = f"task#{task_id} " if task_id is not None else ""
-    return f"v3 {scope}{action.action_type}: {body}"[:500]
+def _preview(action: TypedAction, task_id: int | None = None,
+             run_id: int | None = None, agent_id: int | None = None) -> str:
+    """Readable preview PLUS an untruncated identity of the full intended action.
+
+    Do not authorize by the first 500 characters of a command. Bind expectations,
+    scope, effect type, run, agent and the canonical registry implementation too.
+    Old preview-only approvals intentionally require a new owner decision.
+    """
+    from bcc.tools import REGISTRY, approval_digest
+    from bcc.plugin_security import redact_text
+    spec = REGISTRY.get(action.action_type)
+    implementation = (approval_digest(spec, dict(action.args),
+                                      task={"id": task_id}, agent={"id": agent_id})
+                      if spec is not None else "unregistered")
+    binding = json.dumps({"action": _action_binding(action), "task": task_id,
+                          "run": run_id, "agent": agent_id, "implementation": implementation},
+                         ensure_ascii=False, sort_keys=True)
+    digest = hashlib.sha256(binding.encode("utf-8")).hexdigest()
+    human = redact_text(f"{action.action_type}: " + json.dumps(dict(action.args), ensure_ascii=False,
+                                                              sort_keys=True))[:300]
+    return f"v4 task#{task_id} run#{run_id} {human} [identity:{digest}]"
 
 
 # ------------------------------------------------------------------- policy
@@ -118,8 +131,23 @@ def _preview(action: TypedAction, task_id: int | None = None) -> str:
 class CommandCenterPolicy:
     """AUTO/ASK/DENY — решение V2 (`bcc.tools.decide_effect`), не наше."""
 
-    def __init__(self, agent: Mapping[str, Any]):
+    def __init__(self, agent: Mapping[str, Any], *, rt=None, svc=None, task_id=None):
         self.agent = dict(agent)
+        self.rt, self.svc, self.task_id = rt, svc, task_id
+
+    async def _current_agent(self):
+        import sqlalchemy as sa
+        from bcc.db import agents, tasks
+        async with self.svc.db.session() as session:
+            task = (await session.execute(sa.select(tasks).where(tasks.c.id == self.task_id))).first()
+            row = (await session.execute(sa.select(agents).where(agents.c.id == self.agent.get("id")))).first()
+        if task is None or row is None:
+            return None
+        task, agent = dict(task._mapping), dict(row._mapping)
+        if (task["agent_id"] != agent["id"] or not agent["enabled"]
+                or task["status"] in {"stopped", "cancelled", "failed", "completed", "paused"}):
+            return None
+        return agent
 
     def authorize(self, action: TypedAction, context: Mapping[str, Any]) -> PolicyDecision:
         from bcc.tools import REGISTRY, agent_policy_rules, decide_effect
@@ -127,7 +155,10 @@ class CommandCenterPolicy:
         if spec is None:
             return PolicyDecision(False, reason=f"инструмент {action.action_type!r} не зарегистрирован")
         args = {k: v for k, v in dict(action.args).items() if k != "expect"}
-        effect, reason = decide_effect(spec, args, self.agent, agent_policy_rules(self.agent))
+        agent = self.rt.call(self._current_agent()) if self.rt is not None else self.agent
+        if agent is None:
+            return PolicyDecision(False, reason="agent/task was disabled, reassigned or stopped")
+        effect, reason = decide_effect(spec, args, agent, agent_policy_rules(agent))
         if effect == "deny":
             return PolicyDecision(False, reason=reason)
         return PolicyDecision(True, requires_approval=(effect == "ask"), reason=reason)
@@ -138,27 +169,33 @@ class CommandCenterPolicy:
 class CommandCenterApproval:
     """ASK через каноническую очередь V2. Никогда не одобряет сам."""
 
-    def __init__(self, rt: CommandCenterRuntime, svc: Any, *, task_id: int | None = None):
+    def __init__(self, rt: CommandCenterRuntime, svc: Any, *, task_id: int | None = None,
+                 run_id: int | None = None, agent_id: int | None = None):
         self.rt, self.svc, self.task_id = rt, svc, task_id
+        self.run_id, self.agent_id = run_id, agent_id
+
+    def consume_at_effect(self, action, approval_id, context) -> bool:
+        # Atomic consumption happens AFTER current policy/guard, not while
+        # looking up a proposal. revoke() can still withdraw the approved row.
+        preview = _preview(action, self.task_id, self.run_id, self.agent_id)
+        return self.rt.call(self.svc.approvals.consume(approval_id, kind=APPROVAL_KIND,
+                                                       preview=preview))
 
     def request(self, action: TypedAction, policy: PolicyDecision,
                 context: Mapping[str, Any]) -> ApprovalDecision:
-        preview = _preview(action, self.task_id)
+        preview = _preview(action, self.task_id, self.run_id, self.agent_id)
         approved = self.rt.call(self.svc.approvals.list(status="approved", limit=500))
         for row in approved:
             if row.get("kind") == APPROVAL_KIND and row.get("preview") == preview \
-                    and (row.get("task_id") in (None, self.task_id)):
-                ok = self.rt.call(self.svc.approvals.consume(row["id"], kind=APPROVAL_KIND,
-                                                             preview=preview))
-                if ok:
-                    return ApprovalDecision(True, approval_id=str(row["id"]))
+                    and row.get("task_id") == self.task_id and row.get("run_id") == self.run_id:
+                return ApprovalDecision(True, approval_id=str(row["id"]))
         pending = self.rt.call(self.svc.approvals.list(status="pending", limit=500))
         for row in pending:
             if row.get("kind") == APPROVAL_KIND and row.get("preview") == preview:
                 return ApprovalDecision(False, approval_id=str(row["id"]),
                                         reason=f"ожидает решения владельца: approval {row['id']}")
         created = self.rt.call(self.svc.approvals.create(
-            kind=APPROVAL_KIND, preview=preview, task_id=self.task_id))
+            kind=APPROVAL_KIND, preview=preview, task_id=self.task_id, run_id=self.run_id))
         aid = (created or {}).get("id")
         return ApprovalDecision(False, approval_id=str(aid) if aid is not None else None,
                                 reason=f"создан запрос на подтверждение: approval {aid}")
@@ -272,8 +309,9 @@ def build_agent(rt: CommandCenterRuntime, svc: Any, *, task: Mapping[str, Any],
                 agent: Mapping[str, Any], run_id: int) -> UniversalComputerAgent:
     """Собрать UniversalComputerAgent, полностью привязанный к живому V2."""
     return UniversalComputerAgent(
-        policy=CommandCenterPolicy(agent),
-        approval=CommandCenterApproval(rt, svc, task_id=task.get("id")),
+        policy=CommandCenterPolicy(agent, rt=rt, svc=svc, task_id=task.get("id")),
+        approval=CommandCenterApproval(rt, svc, task_id=task.get("id"), run_id=run_id,
+                                      agent_id=agent.get("id")),
         executor=CommandCenterExecutor(rt, svc, task=task, agent=agent, run_id=run_id),
         observer=CommandCenterObserver(rt, svc, task=task),
         verifier=CommandCenterVerifier(),

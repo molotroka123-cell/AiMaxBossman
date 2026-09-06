@@ -299,11 +299,13 @@ class TaskEngine:
         if not await self._executor_admission(task_id):
             return None
         async with self.db.session() as s:
+            # Serialize admission + run insertion in the existing queue. This
+            # also bounds concurrent mission tickers sharing one SQLite DB.
+            if self.db.url.startswith("sqlite"):
+                await s.execute(sa.text("BEGIN IMMEDIATE"))
             if only_if_draft:
                 # Repair a durable host job after a crash before its first enqueue.
                 # Serialize the task row so concurrent idempotent retries create one run.
-                if self.db.url.startswith("sqlite"):
-                    await s.execute(sa.text("BEGIN IMMEDIATE"))
                 query=sa.select(tasks_t.c.status).where(tasks_t.c.id==task_id)
                 if not self.db.url.startswith("sqlite"):
                     query=query.with_for_update()
@@ -312,6 +314,46 @@ class TaskEngine:
                     .order_by(runs_t.c.id.desc()).limit(1))).scalar_one_or_none()
                 if status!="draft" or existing is not None:
                     return int(existing or 0)
+            current_task = await fetch_one(s, tasks_t, task_id)
+            if current_task and current_task.get("mission_id"):
+                from .db import missions as missions_t
+                from .mission_continuity import ACTIVE, dispatch_state
+                query = sa.select(missions_t).where(missions_t.c.id == current_task["mission_id"])
+                if not self.db.url.startswith("sqlite"):
+                    query = query.with_for_update()
+                parent = (await s.execute(query)).first()
+                children = [dict(r._mapping) for r in (await s.execute(sa.select(tasks_t).where(
+                    tasks_t.c.mission_id == current_task["mission_id"]))).fetchall()]
+                mission = dict(parent._mapping) if parent else None
+                state = dispatch_state(mission, children, task_id) if mission else None
+                reason = state.reason if state else "MISSION_MISSING"
+                if state and state.ready:
+                    existing = (await s.execute(sa.select(runs_t.c.id).where(
+                        runs_t.c.task_id == task_id, runs_t.c.status.in_(ACTIVE_RUN_STATUSES))
+                        .order_by(runs_t.c.id.desc()).limit(1))).scalar_one_or_none()
+                    if existing is not None:
+                        return int(existing)
+                    occupied = sum(t["id"] != task_id and t["status"] in ACTIVE for t in children)
+                    if occupied >= (mission.get("max_workers") or 1):
+                        reason = "MISSION_WORKER_LIMIT"
+                    elif (mission.get("duration_minutes") and mission.get("started_at")
+                          and (utcnow() - mission["started_at"]).total_seconds() >= mission["duration_minutes"] * 60):
+                        reason = "MISSION_DEADLINE_EXPIRED"
+                    else:
+                        reason = "READY"
+                if reason != "READY":
+                    meta = dict(current_task.get("meta") or {})
+                    meta.update(reason_code="MISSION_CONTINUITY_BLOCKED", blocked_reason=reason)
+                    # Keep the child draft/paused so a later eligible dispatch can
+                    # retry. A blocked admission is not a new run or a side effect.
+                    await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(meta=meta))
+                    await s.commit()
+                    return None
+                meta = dict(current_task.get("meta") or {})
+                if meta.get("reason_code") == "MISSION_CONTINUITY_BLOCKED":
+                    meta.pop("reason_code", None)
+                    meta.pop("blocked_reason", None)
+                    await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(meta=meta))
             res = await s.execute(sa.insert(runs_t).values(
                 task_id=task_id, attempt=attempt, status="queued", checkpoint=checkpoint))
             run_id = int(res.inserted_primary_key[0])
