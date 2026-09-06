@@ -19,6 +19,12 @@ backends:
     timeout_seconds: 180
     max_concurrency: 2
     enabled: false
+  # Ключ живёт в .env (OPENROUTER_API_KEY), здесь — только имя переменной.
+  # Этот блок нужен ТОЛЬКО чтобы что-то в нём переопределить: без него бэкенд
+  # openrouter поднимается сам, как только в окружении есть ключ. Оставленный
+  # enabled: false сильнее ключа — Gateway не станет спорить с оператором, а
+  # `bossman doctor` предупредит, что провайдер выключен при заданном ключе.
+  # base_url — БЕЗ /v1: версию Gateway добавляет сам (иначе /api/v1/v1/models).
   openrouter:
     base_url: https://openrouter.ai/api
     kind: openrouter
@@ -63,6 +69,9 @@ aliases:
         model: REPLACE_WITH_CODER_MODEL
         priority: 10
         capabilities: [text, tools, code]
+  # GLM напрямую у Z.ai: бэкенд zai поднимается по ключу ZAI_API_KEY, а модель
+  # адресуется своим id (GLM_MODEL_ID, по умолчанию glm-5.3) — алиас не нужен.
+  # Через OpenRouter та же модель адресуется как openrouter/z-ai/glm-5.3-flash.
   bossman-opus:
     targets:
       - backend: openrouter

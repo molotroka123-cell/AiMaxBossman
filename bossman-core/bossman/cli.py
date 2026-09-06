@@ -5,6 +5,7 @@
   bossman project plan <slug> <brief.md>
   bossman project run <slug>
   bossman project state <slug>
+  bossman models list --provider openrouter|zai   — каталог облачного провайдера
 """
 from __future__ import annotations
 
@@ -31,6 +32,10 @@ def main() -> None:
     pp.add_argument("slug")
     pp.add_argument("brief", nargs="?")
 
+    pm = sub.add_parser("models")
+    pm.add_argument("action", choices=["list"])
+    pm.add_argument("--provider", required=True, choices=["openrouter", "zai"])
+
     args = p.parse_args()
     if args.cmd == "serve":
         from .api import main as serve
@@ -39,6 +44,8 @@ def main() -> None:
         asyncio.run(_task(args))
     elif args.cmd == "project":
         asyncio.run(_project(args))
+    elif args.cmd == "models":
+        sys.exit(asyncio.run(_models(args)))
 
 
 async def _task(args) -> None:
@@ -73,6 +80,33 @@ async def _project(args) -> None:
         from .projects.plan import State
         print(json.dumps(State(args.slug).data, ensure_ascii=False, indent=1))
     await db.close()
+
+
+async def _models(args) -> int:
+    """Каталог провайдера в терминал. Нет ключа — не падение, а внятный отказ.
+
+    Провайдер импортируется здесь, а не в начале модуля: `bossman task` не
+    обязан тянуть за собой ни gateway, ни httpx-клиента облака.
+    """
+    from .gateway.backends import build_backend
+    from .gateway.config import (OPENROUTER_KEY_ENV, ZAI_KEY_ENV, load_env_file,
+                                 openrouter_backend_config, zai_backend_config)
+    load_env_file()                       # ключ владельца лежит в .env
+    factory, key_env = ({"openrouter": (openrouter_backend_config, OPENROUTER_KEY_ENV),
+                         "zai": (zai_backend_config, ZAI_KEY_ENV)})[args.provider]
+    backend = build_backend(factory())
+    try:
+        listing = await backend.list_models()
+    finally:
+        await backend.close()
+    if not listing.ok:
+        print(f"{args.provider}: {listing.reason}", file=sys.stderr)
+        if listing.status == "unavailable":
+            print(f"задайте {key_env} в bossman-core/.env", file=sys.stderr)
+        return 1
+    for model_id in listing.models:
+        print(model_id)
+    return 0
 
 
 if __name__ == "__main__":

@@ -31,7 +31,7 @@ async def test_sync_pins_and_survives_refresh(env, monkeypatch):
     # каталог синхронизирован из fake (2 модели с метаданными)
     synced = await env.client.post(f"/api/openrouter/{prov['id']}/sync")
     assert synced.status_code == 200
-    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()
+    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()["items"]
     ids = {c["remote_id"] for c in catalog}
     assert {"fake/fast", "fake/vision"} <= ids
     fast = next(c for c in catalog if c["remote_id"] == "fake/fast")
@@ -112,7 +112,7 @@ async def test_connect_validates_key_and_syncs(env, monkeypatch):
     body = r.json()
     assert body["ok"] is True and body["models"] >= 2 and body["cached"] is False
     # каталог появился сразу: selector может выбирать без ручного ввода id
-    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()
+    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()["items"]
     assert {"fake/fast", "fake/vision"} <= {c["remote_id"] for c in catalog}
 
 
@@ -174,7 +174,7 @@ async def test_sync_ttl_cache_hit_and_force_refresh(env, monkeypatch):
     forced = (await env.client.post(f"/api/openrouter/{prov['id']}/sync?force=true")).json()
     assert forced["cached"] is False and calls["n"] == 2
     # каталог цел
-    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()
+    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()["items"]
     assert "fake/fast" in {c["remote_id"] for c in catalog}
 
 
@@ -192,7 +192,7 @@ async def test_outage_keeps_cached_catalog(env, monkeypatch):
     body = r.json()["error"]
     assert body["cached_models"] >= 2 and body["last_synced_at"]
     # кэш жив: catalog читается из БД, stale не разметился
-    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()
+    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()["items"]
     assert {"fake/fast", "fake/vision"} <= {c["remote_id"] for c in catalog}
     assert all(c["stale"] is False for c in catalog)
 
@@ -208,7 +208,7 @@ async def test_duplicate_model_ids_deduplicated(env, monkeypatch):
 
     monkeypatch.setattr(openrouter_ext.OpenRouterClient, "list_models", duplicated)
     res = (await env.client.post(f"/api/openrouter/{prov['id']}/sync?force=true")).json()
-    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()
+    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()["items"]
     ids = [c["remote_id"] for c in catalog]
     assert len(ids) == len(set(ids))       # дубль схлопнут по (provider, remote_id)
     assert res["synced"] == len(ids)

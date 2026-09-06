@@ -22,7 +22,7 @@ import asyncio
 import os
 from dataclasses import dataclass, field
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from ..plugin_security import (
     PluginSecurityError,
@@ -31,6 +31,7 @@ from ..plugin_security import (
     safe_get,
 )
 from ..tools import REGISTRY, ToolContext, ToolResult, ToolSpec
+from ..v2 import openrouter_identity
 from . import Feature
 
 router = APIRouter()
@@ -149,12 +150,44 @@ MANIFEST: list[Capability] = [
 ]
 
 
+# Один кред — одно имя, но старые имена продолжают читаться: у владельца уже
+# задана переменная, и молча перестать её видеть — это регресс, а не наведение
+# порядка (audit-11, OR-003).
+_CRED_ALIASES: dict[str, tuple[str, ...]] = {
+    "OPENROUTER_API_KEY": (openrouter_identity.ENV_API_KEY, *openrouter_identity.LEGACY_ENV_API_KEYS),
+}
+
+
 def _cred(ref: str) -> str | None:
-    """Резолв креда из окружения/настроек. None → отсутствует (капабилити inert)."""
+    """Резолв креда из окружения. None → отсутствует (капабилити inert).
+
+    Ключ, введённый владельцем в интерфейсе, лежит зашифрованным в vault, а не в
+    окружении; его подхватывает `resolve_cred` там, где доступен svc. Здесь
+    остаётся окружение — общий путь для всех остальных кредов.
+    """
     if not ref:
         return "n/a"
-    val = os.environ.get(ref)
-    return val or None
+    for name in _CRED_ALIASES.get(ref, (ref,)):
+        val = (os.environ.get(name) or "").strip()
+        if val:
+            return val
+    return None
+
+
+async def resolve_cred(ref: str, svc) -> str | None:
+    """Кред с учётом хранилища: для OpenRouter ключ провайдера — источник правды.
+
+    Владелец, подключивший OpenRouter на странице поставщика, справедливо ждёт,
+    что плагин заработает от того же ключа; раньше плагин смотрел ТОЛЬКО в
+    окружение и отвечал «нет креда» рядом с работающим провайдером.
+    """
+    if ref == "OPENROUTER_API_KEY" and svc is not None:
+        try:
+            found = await openrouter_identity.resolve(svc.db, svc.vault)
+        except Exception:                       # noqa: BLE001 — БД недоступна: остаётся окружение
+            return _cred(ref)
+        return found.key or None
+    return _cred(ref)
 
 
 def _skip_no_cred(cap: Capability) -> ToolResult:
@@ -302,7 +335,7 @@ async def _h_obsidian_write(args, ctx: ToolContext) -> ToolResult:
 
 async def _h_generic_external(cap: Capability):
     async def handler(args, ctx: ToolContext) -> ToolResult:
-        if _cred(cap.credential_ref) is None:
+        if await resolve_cred(cap.credential_ref, getattr(ctx, "svc", None)) is None:
             return _skip_no_cred(cap)
         # Кред есть, но эта среда не выполняет реальные внешние мутации в рамках
         # приёмки: честный отказ вместо необеспеченного PASS. Политика (ASK) и
@@ -366,10 +399,10 @@ async def _run_generic(base, args, ctx):
 
 # ------------------------------------------------------------- non-destructive status API
 
-def _status_rows() -> list[dict]:
+async def _status_rows(svc=None) -> list[dict]:
     rows = []
     for cap in MANIFEST:
-        cred = _cred(cap.credential_ref)
+        cred = await resolve_cred(cap.credential_ref, svc)
         rows.append({
             "plugin": cap.plugin_id,
             "capability": cap.capability,
@@ -387,11 +420,14 @@ def _status_rows() -> list[dict]:
 
 
 @router.get("/plugins")
-async def list_plugins():
+async def list_plugins(request: Request = None):     # noqa: RUF013 — FastAPI подставляет запрос сам
     """Статус адаптеров. Health НЕ дергает внешние сервисы (non-destructive);
-    сырые секреты не отдаются никогда — только configured/missing/n/a."""
+    сырые секреты не отдаются никогда — только configured/missing/n/a.
+    Ключ, введённый в интерфейсе, тоже считается кредом: статус берётся тем же
+    резолвером, что и вызов, иначе страница врёт про «missing»."""
     plugins: dict[str, dict] = {}
-    for row in _status_rows():
+    svc = getattr(getattr(request, "app", None), "state", None)
+    for row in await _status_rows(getattr(svc, "svc", None)):
         p = plugins.setdefault(row["plugin"], {
             "plugin": row["plugin"], "enabled": True, "health": "idle",
             "capabilities": [], "credential": row["credential"]})

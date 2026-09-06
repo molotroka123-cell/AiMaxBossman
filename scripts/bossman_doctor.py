@@ -388,6 +388,81 @@ def check_gateway_url() -> Check:
                  facts={"configured": raw, "effective": effective})
 
 
+def _openrouter_env_conflict() -> str:
+    """Один ключ под разными именами с РАЗНЫМИ значениями — гарантированный сюрприз."""
+    sys.path[:0] = [str(REPO / "command-center")]
+    try:
+        from bcc.v2.openrouter_identity import env_credential
+    except Exception:  # noqa: BLE001 — Command Center может быть не установлен
+        return ""
+    return env_credential().conflict_message or ""
+
+
+def _disabled_cloud_backends() -> list[str]:
+    """Облачные бэкенды, выключенные в yaml. Нет конфигурации — нечего и выключать."""
+    try:
+        from bossman.gateway.config import load_gateway_config
+        path = os.environ.get("BOSSMAN_GATEWAY_CONFIG") or (REPO / "bossman-core" / "config" / "gateway.yaml")
+        cfg = load_gateway_config(path)
+    except Exception:  # noqa: BLE001 — доктор не падает из-за чужого конфига
+        return []
+    return sorted(name for name, b in cfg.backends.items()
+                  if b.cloud and not b.enabled)
+
+
+def check_cloud_providers() -> Check:
+    """Облачные ключи: есть — облако подключится, нет — останутся локальные модели.
+
+    Ключ проверяется по факту наличия, без похода в сеть и без вывода значения:
+    доктор не имеет права ни расходовать чужую квоту, ни печатать секрет. Живой
+    прогон 20260906 (KEY-EXPIRY) показал и обратное: отсутствие ключа обязано
+    быть ВИДНО заранее, а не выясняться посреди задачи.
+    """
+    sys.path[:0] = [str(REPO / "bossman-core")]
+    try:
+        from bossman.gateway.config import (GLM_MODEL_ENV, OPENROUTER_BASE_URL_ENV,
+                                            OPENROUTER_KEY_ENV, ZAI_KEY_ENV,
+                                            glm_model_id, load_env_file)
+    except Exception as exc:  # noqa: BLE001
+        return Check("cloud-providers", WARN,
+                     f"конфигурация Gateway недоступна: {type(exc).__name__}: {exc}",
+                     "python -m pip install -e bossman-core")
+    load_env_file()                       # .env владельца — такой же источник, как окружение
+    present = [env for env in (OPENROUTER_KEY_ENV, ZAI_KEY_ENV) if os.environ.get(env, "").strip()]
+    facts = {"configured": present, "glm_model": glm_model_id(),
+             "openrouter_base_url": os.environ.get(OPENROUTER_BASE_URL_ENV, "") or "(по умолчанию)"}
+    disabled = _disabled_cloud_backends()
+    facts["disabled_in_config"] = disabled
+    conflict = _openrouter_env_conflict()
+    facts["credential_conflict"] = conflict or ""
+    if conflict:
+        # Расхождение имён одной переменной — исходная причина «дал ключ, ничего
+        # не появилось» (audit-11, OR-003). Молчать о нём нельзя, а угадывать,
+        # какое значение владелец имел в виду, — тем более.
+        return Check("cloud-providers", WARN, conflict,
+                     f"Оставьте одно значение; каноническое имя — {OPENROUTER_KEY_ENV}", facts)
+    if present and disabled:
+        # Ключ есть, а бэкенд в yaml выключен: Gateway подчиняется оператору и
+        # молча остаётся без облака. Единственное место, где это видно заранее.
+        return Check("cloud-providers", WARN,
+                     f"ключ задан ({', '.join(present)}), но в конфигурации Gateway "
+                     f"выключены бэкенды: {', '.join(disabled)}",
+                     "Уберите enabled: false у этого бэкенда в config/gateway.yaml "
+                     "(или удалите блок целиком — он поднимется по ключу)",
+                     facts)
+    if not present:
+        return Check("cloud-providers", WARN,
+                     f"облачных ключей нет ({OPENROUTER_KEY_ENV}, {ZAI_KEY_ENV} пусты); "
+                     f"работать можно только на локальных моделях",
+                     f"Задайте {OPENROUTER_KEY_ENV} в bossman-core/.env "
+                     f"и проверьте: bossman models list --provider openrouter",
+                     facts)
+    return Check("cloud-providers", PASS,
+                 f"ключи заданы: {', '.join(present)}; модель GLM у Z.ai: "
+                 f"{glm_model_id()} ({GLM_MODEL_ENV})",
+                 facts=facts)
+
+
 def check_telemetry_corpus() -> Check:
     """Куда попадут выборки реальных нагрузок сегодня вечером."""
     sys.path[:0] = [str(REPO / "bossman-core"), str(REPO)]
@@ -415,7 +490,7 @@ CHECKS: list[Callable[[], Check]] = [
     check_python, check_python_packages, check_bossman_packages, check_node, check_ffmpeg,
     check_state_dir, check_evidence_key, check_journal_anchor, check_browser_runtime,
     check_model_endpoint, check_hardware, check_windows_specific, check_computer_operator_deps,
-    check_gateway_url, check_telemetry_corpus,
+    check_gateway_url, check_cloud_providers, check_telemetry_corpus,
 ]
 
 

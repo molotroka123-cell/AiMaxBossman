@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import time
-from dataclasses import dataclass
-from typing import AsyncIterator
+from dataclasses import dataclass, field
+from typing import Any, AsyncIterator
 
 import httpx
 
-from .config import BackendConfig
+from .config import BackendConfig, openrouter_backend_config, zai_backend_config
 
 
 # 4xx, при которых переключение на следующий таргет оправдано (бэкенд занят/
@@ -97,6 +97,39 @@ class CircuitBreaker:
 
 
 @dataclass(slots=True)
+class ProviderModels:
+    """Ответ на «какие модели доступны» — вместе с причиной, если их нет.
+
+    Пустой список сам по себе не отличает «ключа нет» от «провайдер отказал» и
+    от «моделей правда ноль». Владелец, который вставил ключ и увидел пустоту,
+    ищет проблему вслепую, поэтому reason здесь обязателен для любого исхода,
+    кроме ok."""
+    status: str = "ok"                 # ok | unavailable | error
+    models: list[str] = field(default_factory=list)
+    reason: str | None = None
+    detail: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "ok"
+
+
+def _explain_status(name: str, status: int) -> str:
+    """Отказ провайдера человеческим языком: владельцу нужно РАЗНОЕ действие."""
+    if status == 401:
+        return f"{name}: ключ отклонён (401) — замените ключ"
+    if status == 402:
+        return f"{name}: не хватает средств на счёте (402)"
+    if status == 403:
+        return f"{name}: ключ не допущен к этому запросу (403)"
+    if status == 404:
+        return f"{name}: адрес не найден (404) — проверьте base_url"
+    if status == 429:
+        return f"{name}: ограничение частоты запросов (429)"
+    return f"{name}: HTTP {status}"
+
+
+@dataclass(slots=True)
 class HealthState:
     healthy: bool = True
     checked_at: float = 0.0
@@ -130,6 +163,57 @@ class OpenAIBackend:
     async def close(self) -> None:
         await self.client.aclose()
 
+    def resolve_path(self, path: str) -> str:
+        """Путь запроса под конкретного провайдера.
+
+        Gateway говорит на диалекте OpenAI («/v1/chat/completions»), но версия
+        API у части провайдеров уже входит в base_url. Подмена делается здесь,
+        а не в вызывающем коде: маршрут не обязан знать, как у бэкенда устроен
+        префикс."""
+        prefix = (self.config.api_path_prefix or "").rstrip("/")
+        if prefix == "/v1" or not path.startswith("/v1"):
+            return path
+        return prefix + path[len("/v1"):]
+
+    def unavailable_reason(self) -> str | None:
+        """Почему провайдером нельзя пользоваться прямо сейчас (без сети).
+
+        Отсутствующий ключ — не авария и не пустой список: провайдер просто
+        недоступен, и владельцу нужно назвать переменную, которую он не задал.
+        """
+        if self.config.api_key_env and not self.config.resolved_api_key():
+            return f"{self.config.api_key_env} не задан"
+        return None
+
+    async def list_models(self) -> ProviderModels:
+        """Каталог провайдера: GET <models_path>. Любой отказ — с причиной.
+
+        Ни один исход не роняет вызывающего: нет ключа → unavailable, отказ или
+        обрыв → error с текстом. Ключ в текст не попадает никогда.
+        """
+        reason = self.unavailable_reason()
+        if reason:
+            return ProviderModels("unavailable", [], reason)
+        path = self.resolve_path("/v1/models")
+        # Каталог у облака бывает в мегабайт: короткий health-таймаут ему мал, а
+        # таймаут инференса (минуты) — слишком велик для списка моделей.
+        timeout = min(max(self.config.health_timeout_seconds, 15.0), self.config.timeout_seconds)
+        try:
+            r = await self.client.get(path, headers=self.headers(),
+                                      timeout=httpx.Timeout(timeout))
+        except httpx.HTTPError as exc:
+            return ProviderModels("error", [], f"нет связи с {self.config.name}: {type(exc).__name__}")
+        if r.status_code >= 400:
+            return ProviderModels("error", [], _explain_status(self.config.name, r.status_code),
+                                  {"status_code": r.status_code})
+        try:
+            data = r.json()
+        except ValueError:
+            return ProviderModels("error", [], f"{self.config.name} вернул не JSON")
+        rows = data.get("data") if isinstance(data, dict) else data
+        models = [str(m.get("id")) for m in (rows or []) if isinstance(m, dict) and m.get("id")]
+        return ProviderModels("ok", models, None, {"count": len(models)})
+
     async def probe(self) -> HealthState:
         """Классификация пробы: здоров только 2xx. 401/403 — битые
         креды/конфиг, 429 — перегрузка, остальное и транспорт — больной
@@ -160,6 +244,7 @@ class OpenAIBackend:
         return self.health
 
     async def json_request(self, path: str, payload: dict) -> tuple[dict, httpx.Headers]:
+        path = self.resolve_path(path)
         try:
             r = await self.client.post(path, json=payload, headers=self.headers())
         except httpx.TimeoutException as exc:
@@ -186,6 +271,7 @@ class OpenAIBackend:
         return body, r.headers
 
     async def stream_request(self, path: str, payload: dict) -> AsyncIterator[bytes]:
+        path = self.resolve_path(path)
         try:
             async with self.client.stream("POST", path, json=payload, headers=self.headers()) as r:
                 if r.status_code >= 400:
@@ -206,3 +292,38 @@ class OpenAIBackend:
             raise BackendError(f"{self.config.name} transport error: {exc}") from exc
         else:
             self.breaker.record_success()
+
+
+class OpenRouterBackend(OpenAIBackend):
+    """OpenRouter поверх общего OpenAI-бэкенда.
+
+    Отдельный класс, а не копия: транспорт, автомат и health у OpenRouter ровно
+    те же. Своё здесь только одно — сборка конфигурации из окружения владельца
+    (ключ, адрес, заголовки атрибуции), чтобы «дал ключ → провайдер появился»
+    не требовало правки yaml.
+    """
+
+    @classmethod
+    def from_env(cls, transport: httpx.AsyncBaseTransport | None = None,
+                 **overrides) -> "OpenRouterBackend":
+        return cls(openrouter_backend_config(**overrides), transport)
+
+
+class ZaiBackend(OpenAIBackend):
+    """Z.ai напрямую (GLM). Версия API входит в base_url, поэтому пути к
+    инференсу строятся без `/v1` — этим и отличается от OpenRouter."""
+
+    @classmethod
+    def from_env(cls, transport: httpx.AsyncBaseTransport | None = None,
+                 **overrides) -> "ZaiBackend":
+        return cls(zai_backend_config(**overrides), transport)
+
+
+def build_backend(config: BackendConfig,
+                  transport: httpx.AsyncBaseTransport | None = None) -> OpenAIBackend:
+    """Бэкенд по его конфигурации. Неизвестный вид — обычный OpenAI-совместимый."""
+    if config.kind == "openrouter" or config.name == "openrouter":
+        return OpenRouterBackend(config, transport)
+    if config.kind == "zai" or config.name == "zai":
+        return ZaiBackend(config, transport)
+    return OpenAIBackend(config, transport)

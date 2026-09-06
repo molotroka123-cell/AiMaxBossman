@@ -31,15 +31,17 @@ const OpenRouterPage = {
     const head = pageHead('OpenRouter', 'Каталог облачных моделей OpenRouter: обновить список, закрепить нужные и проверить их возможности.');
     if (err) return h('div.bx-page', head, errorNote(err, () => ctx.refresh()));
 
+    const state = ctx.state.openrouter || (ctx.state.openrouter = {});
+
+    // Пустая установка — самый частый вход владельца. Раньше страница
+    // отправляла его на другую страницу за визардом поставщика, и путь
+    // «пришёл с ключом → получил список моделей» обрывался здесь же.
     if (!providers.length) {
-      return h('div.bx-page', head, blank({
-        iconName: 'models', title: 'Поставщиков моделей нет',
-        hint: 'Добавьте OpenRouter как поставщика на странице «Модели» (адрес https://openrouter.ai/api/v1 и ключ), затем вернитесь сюда.',
-        action: h('button.btn.btn-primary', { type: 'button', onClick: () => ctx.navigate('models') }, 'К моделям'),
-      }));
+      return h('div.bx-page', head, buildKeyPanel(ctx),
+        h('div.xsmall.dim', 'Ключ хранится зашифрованным вместе с остальными поставщиками; '
+          + 'подключение не запускает платных вызовов — только проверка ключа и список моделей.'));
     }
 
-    const state = ctx.state.openrouter || (ctx.state.openrouter = {});
     if (!state.providerId) {
       const guess = providers.find(looksLikeOpenRouter) || providers[0];
       state.providerId = String(pick(guess, ['id']));
@@ -54,9 +56,17 @@ const OpenRouterPage = {
       actionButton('Обновить список', async () => {
         try {
           const r = await api.raw(`/api/openrouter/${encodeURIComponent(state.providerId)}/sync?force=true`, { method: 'POST' });
+          state.catalogError = null;
           toastOk(r.cached ? 'Открыт сохранённый каталог' : `Список обновлён: ${r.synced} моделей`);
           ctx.refresh();
-        } catch (e) { toastError(e, 'OpenRouter недоступен — показан сохранённый каталог'); ctx.refresh(); }
+        } catch (e) {
+          // Причина живёт до следующей попытки: тост исчезает, а пустой список
+          // без объяснения остаётся на экране и выглядит как «моделей нет».
+          state.catalogError = e.message || 'каталог не загрузился';
+          state.catalogHint = e.hint || '';
+          toastError(e, 'Каталог не обновился — показан сохранённый список');
+          ctx.refresh();
+        }
       }, { cls: 'btn btn-primary btn-sm', iconName: 'retry' }));
 
     const catalogPanel = await buildCatalogPanel(state.providerId, ctx);
@@ -68,10 +78,47 @@ const OpenRouterPage = {
   onEvent(ev) { return ev.kind === 'model.created'; },
 };
 
+function buildKeyPanel(ctx) {
+  const state = ctx.state.openrouter || (ctx.state.openrouter = {});
+  const keyEl = input({ placeholder: 'sk-or-… ключ OpenRouter', type: 'password' });
+  const out = h('div.stack.sm', field('API KEY', keyEl),
+    h('div.xsmall.dim', 'Вставьте ключ с openrouter.ai/keys — поставщик будет создан, ключ проверен, каталог загружен.'));
+  if (state.catalogError) out.appendChild(reasonNote(state));
+  // Кнопка называется как на панели поставщика: «Connect» — одно действие, одно
+  // слово на всю страницу. Глагол «Подключить…» здесь ещё и читался бы как
+  // открывашка диалога (общая договорённость страниц UI), которой он не является.
+  const button = actionButton('Connect', async () => {
+    const value = keyEl.value.trim();
+    if (!value) { toastError({ message: 'Вставьте ключ', hint: 'без ключа подключаться нечем' }); return; }
+    button.disabled = true;                 // двойной клик не создаёт второго поставщика
+    try {
+      const r = await api.raw('/api/openrouter/connect', { method: 'POST', body: { api_key: value } });
+      keyEl.value = '';                     // ключ не остаётся в DOM после отправки
+      state.providerId = String(r.provider_id);
+      state.catalogError = r.catalog_error || null;
+      state.catalogHint = r.catalog_hint || '';
+      if (r.catalog_error) toastError({ message: r.catalog_error, hint: r.catalog_hint }, 'Ключ принят, каталог не загрузился');
+      else toastOk(`Подключено: ${r.models} моделей в каталоге`);
+      ctx.refresh();
+    } catch (e) {
+      state.catalogError = e.message || 'Подключение не удалось';
+      state.catalogHint = e.hint || '';
+      toastError(e, 'Подключение не удалось — проверьте ключ');
+      ctx.refresh();
+    } finally { button.disabled = false; }
+  }, { cls: 'btn btn-primary', iconName: 'bolt' });
+  out.appendChild(button);
+  return panel('Подключение OpenRouter', out);
+}
+
 async function buildConnectPanel(providerId, ctx) {
+  const state = ctx.state.openrouter || (ctx.state.openrouter = {});
   let st = null;
   try { st = await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/status`); }
-  catch { st = { has_key: false, catalog_models: 0, last_synced_at: null }; }
+  catch (e) {
+    st = { has_key: false, catalog_models: 0, last_synced_at: null };
+    state.catalogError = state.catalogError || e.message || 'состояние подключения недоступно';
+  }
 
   const out = h('div.stack.sm');
   const when = st.last_synced_at ? new Date(st.last_synced_at).toLocaleString() : null;
@@ -80,12 +127,17 @@ async function buildConnectPanel(providerId, ctx) {
       badge(st.has_key ? 'ключ сохранён' : 'ключа нет', st.has_key ? 'ok' : 'warn'),
       badge(`моделей в каталоге: ${st.catalog_models}`),
       when ? badge(`sync: ${when}`) : null));
+    if (state.catalogError) out.appendChild(reasonNote(state));
     return panel('Подключение', out);
   }
 
   const keyEl = input({ placeholder: 'sk-or-… ключ OpenRouter', type: 'password' });
   const note = h('div.xsmall.dim', when ? `Ключ сохранён, но каталог пуст — последний sync: ${when}` : 'Вставьте ключ и нажмите Connect — каталог загрузится автоматически.');
-  out.append(field('API KEY', keyEl), note,
+  out.append(field('API KEY', keyEl), note);
+  // Пустой список без причины — главная жалоба владельца: ключ принят,
+  // моделей нет, и непонятно, ключ ли виноват, адрес или сеть.
+  if (state.catalogError) out.appendChild(reasonNote(state));
+  out.appendChild(
     actionButton('Connect', async () => {
       try {
         if (keyEl.value.trim()) {
@@ -94,11 +146,24 @@ async function buildConnectPanel(providerId, ctx) {
           });
         }
         const r = await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/connect`, { method: 'POST' });
-        toastOk(`Подключено: ${r.models} моделей в каталоге`);
+        state.catalogError = r.catalog_error || null;
+        state.catalogHint = r.catalog_hint || '';
+        if (r.catalog_error) toastError({ message: r.catalog_error, hint: r.catalog_hint }, 'Ключ принят, каталог не загрузился');
+        else toastOk(`Подключено: ${r.models} моделей в каталоге`);
         ctx.refresh();
-      } catch (e) { toastError(e, 'Connect не удался — проверьте ключ'); }
+      } catch (e) {
+        state.catalogError = e.message || 'Connect не удался';
+        state.catalogHint = e.hint || '';
+        toastError(e, 'Connect не удался — проверьте ключ');
+        ctx.refresh();
+      }
     }, { cls: 'btn btn-primary', iconName: 'bolt' }));
   return panel('Подключение', out);
+}
+
+function reasonNote(state) {
+  return h('div.small', { style: { color: 'var(--err)' } },
+    state.catalogError, state.catalogHint ? h('div.xsmall.dim', state.catalogHint) : null);
 }
 
 const FILTERS = [
@@ -109,19 +174,46 @@ const FILTERS = [
   { id: 'tools', label: 'TOOLS', fn: (m) => (m.supported_parameters || []).includes('tools') },
 ];
 
+const CATALOG_PAGE = 100;      // столько строк за один запрос (ручка режет на 200)
+
 async function buildCatalogPanel(providerId, ctx) {
-  const searchEl = input({ placeholder: 'поиск по названию модели…' });
+  const searchEl = input({ placeholder: 'поиск по всему каталогу (например, glm)…' });
   const tableOut = h('div.small.dim', 'Загрузка каталога…');
+  const countOut = h('div.xsmall.dim');
+  const moreRow = h('div.row.tight');
   const state = ctx.state.openrouter || (ctx.state.openrouter = {});
   if (!state.filter) state.filter = 'all';
-  let lastRows = [];
+  // Каталог OpenRouter — сотни моделей, и «z-ai/…» стоит в самом конце алфавита.
+  // Поэтому страница ведёт СВОЙ счётчик загруженного и никогда не выдаёт часть
+  // за целое: подпись всегда говорит, сколько из скольких сейчас на экране.
+  let rows = [];
+  let total = 0;
+  let hasMore = false;
+  let query = '';
 
   function renderRows() {
     const fn = (FILTERS.find((f) => f.id === state.filter) || FILTERS[0]).fn;
-    const rows = lastRows.filter(fn);
+    const shown = rows.filter(fn);
     tableOut.textContent = '';
-    if (!rows.length) { tableOut.appendChild(h('div.small.dim', lastRows.length ? 'Под фильтр ничего не подошло.' : 'Список пуст — нажмите «Обновить список».')); return; }
-    tableOut.appendChild(h('div.stack.sm', { style: { overflowX: 'auto' } }, rows.map((m) => catalogRow(m, providerId, ctx))));
+    countOut.textContent = '';
+    moreRow.textContent = '';
+    if (!shown.length) {
+      const why = rows.length ? 'Под фильтр ничего не подошло — снимите фильтр или уточните поиск.'
+        : (state.catalogError ? `Список пуст: ${state.catalogError}`
+          : (query ? `По запросу «${query}» ничего не найдено во всём каталоге (${total === 0 ? 'моделей: 0' : `всего ${total}`}).`
+            : 'Список пуст — нажмите «Обновить список».'));
+      tableOut.appendChild(h('div.small.dim', why));
+    } else {
+      tableOut.appendChild(h('div.stack.sm', { style: { overflowX: 'auto' } }, shown.map((m) => catalogRow(m, providerId, ctx))));
+    }
+    const filtered = shown.length !== rows.length ? ` · под фильтр подошло ${shown.length}` : '';
+    countOut.textContent = total
+      ? `показано ${rows.length} из ${total}${query ? ` по запросу «${query}»` : ''}${filtered}`
+      : '';
+    if (hasMore) {
+      moreRow.appendChild(actionButton(`Показать ещё ${Math.min(CATALOG_PAGE, total - rows.length)}`,
+        () => loadCatalog(query, { append: true }), { cls: 'btn btn-sm', iconName: 'plus' }));
+    }
   }
 
   const filterRow = h('div.row.tight', FILTERS.map((f) => {
@@ -130,21 +222,38 @@ async function buildCatalogPanel(providerId, ctx) {
     return b;
   }));
 
-  async function loadCatalog(q) {
-    tableOut.textContent = '';
-    tableOut.appendChild(h('div.small.dim', 'Загрузка…'));
+  async function loadCatalog(q, { append = false } = {}) {
+    // Смена запроса начинает выдачу заново: дозагрузка со старым offset дала бы
+    // строки из другого списка.
+    const offset = append ? rows.length : 0;
+    if (!append) { tableOut.textContent = ''; tableOut.appendChild(h('div.small.dim', 'Загрузка…')); }
     try {
-      const rows = await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/catalog?limit=200${q ? `&q=${encodeURIComponent(q)}` : ''}`);
-      lastRows = rows;
+      const url = `/api/openrouter/${encodeURIComponent(providerId)}/catalog`
+        + `?limit=${CATALOG_PAGE}&offset=${offset}${q ? `&q=${encodeURIComponent(q)}` : ''}`;
+      const page = await api.raw(url);
+      const items = listOf(page, 'items');
+      rows = append ? rows.concat(items) : items;
+      total = typeof page.total === 'number' ? page.total : rows.length;
+      hasMore = Boolean(page.has_more);
+      query = q || '';
       renderRows();
-    } catch (e) { tableOut.textContent = ''; tableOut.appendChild(h('div.small', { style: { color: 'var(--err)' } }, e.message || 'Не удалось загрузить каталог')); }
+    } catch (e) {
+      // Ошибка загрузки — это НЕ «моделей нет»: владелец должен видеть разницу.
+      tableOut.textContent = '';
+      countOut.textContent = '';
+      moreRow.textContent = '';
+      tableOut.appendChild(h('div.small', { style: { color: 'var(--err)' } },
+        e.message || 'Не удалось загрузить каталог',
+        e.hint ? h('div.xsmall.dim', e.hint) : null));
+    }
   }
 
   const debouncedLoad = debounce((q) => loadCatalog(q), 250);
   searchEl.addEventListener('input', () => debouncedLoad(searchEl.value.trim()));
   await loadCatalog('');
 
-  return panel('Каталог моделей OpenRouter', h('div.stack.sm', field('Поиск', searchEl), filterRow, tableOut));
+  return panel('Каталог моделей OpenRouter',
+    h('div.stack.sm', field('Поиск', searchEl), filterRow, countOut, tableOut, moreRow));
 }
 
 function catalogRow(m, providerId, ctx) {

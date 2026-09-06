@@ -14,7 +14,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from .auth import AuthManager, AuthenticatedClient, ensure_alias_allowed
 from .backends import BackendError, CircuitOpenError
-from .config import GatewayConfig, ModelTarget, load_gateway_config
+from .config import (GatewayConfig, ModelTarget, OPENROUTER_KEY_ENV, ZAI_KEY_ENV,
+                     load_gateway_config)
 from .prompt_cache import (
     SSEUsageCollector,
     cache_metadata_rejected,
@@ -436,6 +437,29 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         backend_health = await owned_router.refresh_health(force=False)
         usable = any(v["healthy"] for v in backend_health.values()) if backend_health else False
         return {"status": "ok" if usable else "degraded", "backends": backend_health}
+
+    async def _provider_models(name: str, key_env: str) -> dict:
+        """«Какие модели у этого провайдера» — или почему их нет.
+
+        Ответ на главный вопрос владельца после ввода ключа. Ключ не задан —
+        провайдер недоступен (не ошибка и не пустота без объяснения); ключ
+        отклонён — так и сказано. Значение ключа наружу не выходит.
+        """
+        backend = owned_router.backends.get(name)
+        if backend is None:
+            return {"status": "unavailable", "models": [],
+                    "reason": f"{key_env} не задан — провайдер {name} не подключён"}
+        listing = await backend.list_models()
+        return {"status": listing.status, "models": listing.models,
+                "reason": listing.reason, "count": len(listing.models)}
+
+    @app.get("/health/openrouter")
+    async def openrouter_health():
+        return await _provider_models("openrouter", OPENROUTER_KEY_ENV)
+
+    @app.get("/health/zai")
+    async def zai_health():
+        return await _provider_models("zai", ZAI_KEY_ENV)
 
     @app.get("/metrics")
     async def metric_snapshot(_: AuthenticatedClient = Depends(client)):

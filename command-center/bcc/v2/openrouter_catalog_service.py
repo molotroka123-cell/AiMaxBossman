@@ -8,8 +8,9 @@ import httpx
 import sqlalchemy as sa
 
 from ..db import Database, fetch_one, providers as providers_t, models as models_t, utcnow
+from ..providers import ProviderError
 from ..secrets import Vault
-from .openrouter_ext import OpenRouterClient
+from .openrouter_ext import OpenRouterClient, explain_status
 from .tables import provider_catalog_models
 
 # Не ходить в OpenRouter чаще этого интервала без явного force.
@@ -17,16 +18,21 @@ DEFAULT_TTL_SECONDS = 900
 
 
 class CatalogUnavailable(RuntimeError):
-    """OpenRouter недоступен, но предыдущий каталог в БД цел.
+    """Каталог не обновился, но предыдущий каталог в БД цел.
 
     last_synced_at/cached_count — что останется показывать пользователю:
     sync не трогает таблицу до успешного ответа remote, поэтому кэш жив.
+    message/hint — ПРИЧИНА и действие владельца (отказ ключа, адрес, сеть):
+    пустой список без причины — это дефект, а не состояние.
     """
 
-    def __init__(self, message: str, *, last_synced_at=None, cached_count: int = 0):
+    def __init__(self, message: str, *, last_synced_at=None, cached_count: int = 0,
+                 hint: str = "повторите позже", status_code: int | None = None):
         super().__init__(message)
         self.last_synced_at = last_synced_at
         self.cached_count = cached_count
+        self.hint = hint
+        self.status_code = status_code
 
 
 class OpenRouterCatalogService:
@@ -77,9 +83,24 @@ class OpenRouterCatalogService:
         client = OpenRouterClient(key, base_url=base)
         try:
             cards = await client.list_models()
+        except httpx.HTTPStatusError as exc:
+            # Отказ провайдера — НЕ «недоступен»: истёкший ключ даёт 401, и
+            # владельцу надо обновить ключ, а не ждать сеть (живой прогон
+            # 20260906: KEY-EXPIRY выглядел как отсутствие связи).
+            status = exc.response.status_code
+            detail, hint = explain_status(status)
+            raise CatalogUnavailable(detail, last_synced_at=last_synced,
+                                     cached_count=cached_count, hint=hint,
+                                     status_code=status) from None
+        except ProviderError as exc:
+            # Прокси из окружения не поддержан сборкой (providers.http_client):
+            # причина устранима, поэтому она обязана дойти до владельца целиком.
+            raise CatalogUnavailable(str(exc), last_synced_at=last_synced,
+                                     cached_count=cached_count,
+                                     hint=getattr(exc, "hint", None) or "повторите позже") from None
         except httpx.HTTPError as exc:
             raise CatalogUnavailable(
-                f"OpenRouter недоступен: {type(exc).__name__}",
+                f"нет связи с OpenRouter: {type(exc).__name__}",
                 last_synced_at=last_synced, cached_count=cached_count) from None
 
         now = utcnow()
