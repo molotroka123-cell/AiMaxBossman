@@ -243,3 +243,51 @@ async def test_emergency_lock_overrides_even_an_owner_paused_task(tmp_path):
     assert mgr.store.get(t.id).state is TaskState.LOCKED
     assert mgr.control_lease.holder() is None
 
+
+# --------------------------------------------------- store: bookkeeping cost
+def test_the_store_does_not_reparse_the_whole_journal_on_every_save(tmp_path, monkeypatch):
+    """The loop saves several times per step and the step history grows, so
+    re-reading and re-parsing the journal on every save made bookkeeping
+    quadratic in step count. Reads now come from a cache validated against the
+    file's own stat."""
+    import json as _json
+    store = JsonTaskStore(tmp_path / "t.json")
+    t = ComputerTask.create("goal")
+    store.save(t)
+    loads = []
+    real = _json.loads
+    monkeypatch.setattr("bossman.computer_operator.store.json.loads",
+                        lambda *a, **k: (loads.append(1), real(*a, **k))[1])
+    for _ in range(20):
+        store.save(t)
+        store.get(t.id)
+    assert loads == [], "the journal was re-parsed despite no external change"
+
+
+def test_a_write_by_another_holder_invalidates_the_cache(tmp_path):
+    """The cache is only ever valid for the file state this instance wrote. A
+    second store on the same path is what a restarted process looks like."""
+    path = tmp_path / "t.json"
+    a, b = JsonTaskStore(path), JsonTaskStore(path)
+    t = ComputerTask.create("goal")
+    a.save(t)
+    assert b.get(t.id).state is TaskState.QUEUED       # b caches this file state
+    fresh = a.get(t.id)
+    fresh.state = TaskState.PAUSED
+    a.save(fresh)
+    assert b.get(t.id).state is TaskState.PAUSED, "b served a stale cached row"
+    stale = b.get(t.id)
+    stale.revision -= 1
+    with pytest.raises(StaleTaskWrite):
+        b.save(stale)
+
+
+def test_a_journal_deleted_underneath_the_store_is_not_served_from_cache(tmp_path):
+    path = tmp_path / "t.json"
+    store = JsonTaskStore(path)
+    t = ComputerTask.create("goal")
+    store.save(t)
+    assert store.get(t.id) is not None
+    path.unlink()
+    assert store.get(t.id) is None and store.list() == []
+

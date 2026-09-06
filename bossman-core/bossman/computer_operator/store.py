@@ -27,10 +27,32 @@ class JsonTaskStore:
     """
     def __init__(self,path):
         self.path=Path(path); self.path.parent.mkdir(parents=True,exist_ok=True); self.lock=RLock()
+        # Кэш разобранных строк, действительный ровно для того состояния файла,
+        # которое мы сами и записали. Цикл оператора сохраняет задачу несколько
+        # раз за шаг, а история шагов растёт — перечитывать и заново разбирать
+        # весь журнал на каждое сохранение значит платить квадратично по числу
+        # шагов. Любое изменение файла снаружи (st_mtime_ns/st_size) отменяет кэш.
+        self._cache:dict|None=None; self._stamp:tuple[int,int]|None=None
+    def _stat(self):
+        try:
+            st=self.path.stat(); return (st.st_mtime_ns,st.st_size)
+        except OSError: return None
     def _rows(self):
-        if not self.path.exists(): return {}
-        try: return json.loads(self.path.read_text(encoding="utf-8"))
-        except Exception: return {}
+        stamp=self._stat()
+        if stamp is None:
+            self._cache,self._stamp=None,None; return {}
+        if self._cache is not None and self._stamp==stamp:
+            return self._cache
+        try: rows=json.loads(self.path.read_text(encoding="utf-8"))
+        except Exception: rows={}
+        if type(rows) is not dict: rows={}
+        self._cache,self._stamp=rows,stamp
+        return rows
+    def _write(self,rows):
+        q=self.path.with_suffix(".tmp")
+        q.write_text(json.dumps(rows,ensure_ascii=False),encoding="utf-8")
+        os.replace(q,self.path)
+        self._cache,self._stamp=rows,self._stat()
     def save(self,t):
         with self.lock:
             r=self._rows(); prev=r.get(t.id)
@@ -38,9 +60,8 @@ class JsonTaskStore:
                 stored=int(prev.get("revision") or 0)
                 if stored>int(t.revision or 0): raise StaleTaskWrite(t.id,int(t.revision or 0),stored)
             t.revision=int(t.revision or 0)+1
-            r[t.id]=self._enc(t)
-            q=self.path.with_suffix(".tmp"); q.write_text(json.dumps(r,ensure_ascii=False,indent=1),encoding="utf-8")
-            os.replace(q,self.path)
+            r=dict(r); r[t.id]=self._enc(t)
+            self._write(r)
     def get(self,i):
         with self.lock: x=self._rows().get(i)
         return self._dec(x) if x else None

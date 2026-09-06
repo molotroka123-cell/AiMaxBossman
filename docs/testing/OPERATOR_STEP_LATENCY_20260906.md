@@ -80,16 +80,27 @@ The concurrent capture and the bounded UIA walk reduce the cost of one
 observation itself. That cost is a declared input here, so this table does not
 credit them — they need a measurement on the Windows host to be quantified.
 
-## Known remaining scaling limit
+## Bookkeeping cost, and the part of it that remains
 
-`framework_overhead_per_step_ms` grows with the number of steps in the task:
-3.8 ms at 10 steps, 6.7 ms at 30, 11.0 ms at 60 (declared costs all zero).
-`JsonTaskStore.save` rewrites the whole ledger — including the task's complete
-step history — on every state transition, several times per step, so total
-bookkeeping is quadratic in step count. At the default `max_steps=80` the last
-steps pay roughly 15 ms each of pure bookkeeping. It is small next to a model
-turn and it is not fixed here; it is recorded so it is not rediscovered as a
-mystery.
+`framework_overhead_per_step_ms` grew with the number of steps in the task,
+because `JsonTaskStore` re-read and re-parsed the whole journal — including the
+task's complete step history — on every save, several times per step. Reads now
+come from a cache validated against the file's own `st_mtime_ns`/`st_size`, so
+any write from another holder still invalidates it.
+
+| steps in the task | before | after |
+|---|---|---|
+| 10 | 3.8 ms/step | 2.0 ms/step |
+| 30 | 6.7 ms/step | 3.9 ms/step |
+| 60 | 11.0 ms/step | 6.0 ms/step |
+
+The remaining growth is real and **not** fixed: every save still serialises the
+task's full history, so total bookkeeping is still quadratic in step count. At
+the default `max_steps=80` the last steps pay roughly 8 ms each. Removing it
+means encoding only the history entries that changed, which would make the store
+assume that older step records are never mutated — an assumption the class does
+not currently make, and one that would silently drop a write if it were ever
+false. It is recorded here rather than traded for that risk.
 
 ## Owner control, measured separately
 
