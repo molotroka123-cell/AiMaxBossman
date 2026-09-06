@@ -23,7 +23,7 @@ class Editor {
     this.workspace = readPreference('workspace', 'montage'); this.layout = readPreference('layout', { library: 238, inspector: 266, timeline: 284 });
     this.project = null; this.projects = []; this.selected = null; this.selectedIds = new Set(); this.mediaSelection = null;
     this.playhead = 0; this.zoom = 68; this.snap = true; this.query = ''; this.folder = ''; this.sort = 'name';
-    this.agentOpen = true; this.busy = false; this.error = ''; this.previewUrl = ''; this.previewRevision = null;
+    this.agentOpen = readPreference('assistant', true) !== false; this.busy = false; this.error = ''; this.previewUrl = ''; this.previewRevision = null;
     this.jobs = new Map(); this.root = h('section.vs-studio', { tabindex: '0', 'aria-label': 'Bossman Video Studio', onKeydown: e => this.keyboard(e) });
     this.proposalText = '{\n  "type": "clip.split",\n  "clip_id": "",\n  "at": 1000000\n}';
     this.review = null; this.lastChange = []; this.disposed = false;
@@ -68,7 +68,8 @@ class Editor {
     this.selected = null; this.selectedIds.clear(); this.mediaSelection = null; this.previewUrl = ''; this.review = null; this.playhead = 0; this.timelineOffset = { left: 0, top: 0 };
     this.proposing = false; this.proposalStatus = ''; this.draftRaw = '';
     preference('project', id); this.params.project_id = id; this.jobs.clear(); await this.restoreJobs();
-    history.replaceState(null, '', `#/video-studio?project_id=${encodeURIComponent(id)}`); this.paint();
+    history.replaceState(null, '', `#/video-studio?project_id=${encodeURIComponent(id)}`);
+    window.dispatchEvent(new CustomEvent('bcc:video-open', { detail: { project_id: id } })); this.paint();
   }
   form(title, fields, submit) {
     const dialog = h('dialog.vs-dialog'); const inputs = {};
@@ -120,7 +121,7 @@ class Editor {
       this.button('↶', () => this.command({ type: 'history.undo' }), { title: `${this.t('undo')} · Ctrl+Z`, disabled: !this.project }),
       this.button('↷', () => this.command({ type: 'history.redo' }), { title: `${this.t('redo')} · Ctrl+Shift+Z`, disabled: !this.project }),
       this.button('⌘', () => this.palette(), { title: `${this.t('commands')} · Ctrl+K`, disabled: !this.project }),
-      this.button('✦', () => { this.agentOpen = !this.agentOpen; this.paint(); }, { title: this.t('assistant') }),
+      this.button('✦', () => { this.agentOpen = !this.agentOpen; preference('assistant', this.agentOpen); this.paint(); }, { title: this.t('assistant'), 'aria-pressed': this.agentOpen }),
       this.button(this.lang === 'ru' ? 'EN' : 'RU', () => { this.lang = this.lang === 'ru' ? 'en' : 'ru'; preference('language', this.lang); this.paint(); }),
       this.button(this.t('export'), () => this.exportDialog(false), { class: 'vs-primary', disabled: !this.project }));
   }
@@ -463,8 +464,9 @@ class Editor {
     draw(); document.body.append(dialog); dialog.addEventListener('cancel', () => dialog.remove()); dialog.showModal();
   }
   assistant() {
-    const panel = h('aside.vs-assistant.vs-panel', h('div.vs-panel-head', h('strong', `✦ ${this.t('assistant')}`), this.button('×', () => { this.agentOpen = false; this.paint(); })),
+    const panel = h('aside.vs-assistant.vs-panel', h('div.vs-panel-head', h('strong', `✦ ${this.t('assistant')}`), this.button('×', () => { this.agentOpen = false; preference('assistant', false); this.paint(); })),
       h('p.vs-muted', this.t('explain')),
+      h('a.vs-chat-link', { href: '#/bossman-chat' }, this.lang === 'ru' ? 'История видеозадач и вложения' : 'Video task history and attachments'),
       h('a.vs-chat-link', { href: this.project.links?.task_id ? `#/tasks?id=${encodeURIComponent(this.project.links.task_id)}` : '#/home' }, this.project.links?.task_id ? `↗ Task ${this.project.links.task_id}` : '↗ Bossman Chat'),
       h('label.vs-field', h('span', this.lang === 'ru' ? 'Что изменить в монтаже?' : 'What should change in this edit?'), h('textarea.vs-objective', { rows: 3, maxlength: 2000, value: this.objective || '', placeholder: this.lang === 'ru' ? 'Например: сделай выбранный клип вдвое медленнее' : 'For example: slow the selected clip to half speed', onInput: e => this.objective = e.target.value })),
       h('small.vs-local', `${this.lang === 'ru' ? 'Выбранный клип' : 'Selected clip'}: ${this.selected || '—'}`),
@@ -531,7 +533,7 @@ class Editor {
     const dialog = h('dialog.vs-dialog'); const input = h('textarea.vs-command-json', { rows: 9, spellcheck: false, value: JSON.stringify(initial || examples[0], null, 2) });
     dialog.append(h('div.vs-dialog-head', h('h2', this.t('commands')), this.button('×', () => { dialog.close(); dialog.remove(); })),
       h('div.vs-command-examples', ...examples.map(example => this.button(example.type, () => { input.value = JSON.stringify(example, null, 2); }))), input,
-      this.button(this.t('dry'), () => { this.proposalText = input.value; this.agentOpen = true; dialog.close(); dialog.remove(); return this.reviewProposal(); }));
+      this.button(this.t('dry'), () => { this.proposalText = input.value; this.agentOpen = readPreference('assistant', true) !== false; dialog.close(); dialog.remove(); return this.reviewProposal(); }));
     document.body.append(dialog); dialog.addEventListener('cancel', () => dialog.remove()); dialog.showModal();
   }
   exportDialog(preview) {

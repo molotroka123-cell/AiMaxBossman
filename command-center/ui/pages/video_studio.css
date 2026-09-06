@@ -1,4 +1,4 @@
-/* Scoped professional editor surface. No global component overrides. */
+/* Canonical editor: Fluent chrome around a neutral professional editing surface. */
 .vs-main{position:relative}@media(max-width:1500px){.vs-main>.vs-assistant{top:0!important;right:0!important;max-height:100%!important}}
 .vs-workspace-controls{margin-top:12px;padding-top:10px;border-top:1px solid #30424e}.vs-workspace-controls>.vs-button{margin:3px 3px 3px 0;font-size:10px}.vs-project-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}.vs-caption-row{display:grid;grid-template-columns:80px 80px 1fr 30px;gap:7px;align-items:center;padding:7px 0}.vs-caption-rows{max-height:50vh;overflow:auto}.vs-track-label-spacer{position:sticky;top:0;z-index:4;background:#1a2832}section.vs-studio{height:calc(100vh - 194px)}
 .vs-studio{--vs-library:238px;--vs-inspector:266px;--vs-timeline:284px;--vs-bg:#10171d;--vs-panel:#172027;--vs-edge:#2a3943;--vs-text:#d5e2eb;--vs-muted:#8599a7;--vs-accent:#72e4f4;box-sizing:border-box;color:var(--vs-text);background:var(--vs-bg);height:calc(100vh - 132px);min-height:650px;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--vs-edge);border-radius:8px;font:12px/1.45 Inter,system-ui,sans-serif;outline:none}
@@ -8,3 +8,71 @@
 .vs-source-waveform{padding:4px 9px;border-top:1px solid #2a3943;max-height:74px;flex-shrink:0;color:#8aa3b5;font-size:9px}.vs-source-waveform img{display:block;width:100%;height:48px;object-fit:fill}.vs-mixer-strip{border:1px solid #304857;padding:7px;margin:7px 0;background:#112029}.vs-keyframes .vs-effect{font-size:10px;display:flex;gap:5px;justify-content:space-between}.vs-dialog form{overflow:auto;max-height:77vh;padding-right:5px}
 .vs-scope{margin:9px 0}.vs-scope img{width:100%;height:auto;display:block;background:#000}.vs-scope figcaption{font-size:9px;color:#9eb0c2}.vs-scope pre{font-size:9px;white-space:pre-wrap;overflow-wrap:anywhere}
 .vs-search-tools{padding:9px 0}.vs-search-tools>input{width:100%}.vs-search-tools>.vs-button{margin:4px 3px 4px 0;font-size:10px}
+
+/* One workspace: shared Fluent chrome, dark image/timeline surfaces in both themes. */
+.vs-studio { container: video-studio / inline-size; border-radius: 16px; box-shadow: 0 12px 32px #06122530; }
+.vs-studio .vs-header { flex-wrap: wrap; gap: 7px; padding: 10px 12px; }
+.vs-studio .vs-workspaces { flex-wrap: wrap; }
+.vs-studio .vs-primary { background: #4968e8; border-color: #8096ff; color: #fff; }
+[data-theme="light"] .vs-studio .vs-header { background: linear-gradient(115deg,#f5f7ff,#e5ebff); border-color: #c8d2ea; color: #243451; }
+[data-theme="light"] .vs-header .vs-brand { color: #243451; }
+[data-theme="light"] .vs-header .vs-brand span { color: #536582; }
+[data-theme="light"] .vs-header .vs-button:not(.vs-primary),
+[data-theme="light"] .vs-header select { background: #f9faff; color: #243451; border-color: #bbc8e3; color-scheme: light; }
+[data-theme="light"] .vs-header .vs-button.active { background: #dce5ff; border-color: #647ae1; color: #2948b4; }
+.vs-studio .vs-main > .vs-assistant { position: static; width: auto; max-height: none; min-height: 0; box-shadow: none; border-radius: 0; }
+.vs-studio .vs-inspector, .vs-studio .vs-preview, .vs-studio .vs-library { min-width: 0; min-height: 0; }
+
+@media(max-width:1500px) {
+
+.vs-studio .vs-main { grid-template-columns: minmax(130px,var(--vs-library)) 5px minmax(180px,1fr) 5px minmax(155px,var(--vs-inspector)); grid-template-rows: minmax(0,1fr) minmax(0,1fr); }
+.vs-studio .vs-main > .vs-library { grid-column: 1; grid-row: 1 / 3; }
+.vs-studio .vs-main > .vs-resizer:nth-child(2) { grid-column: 2; grid-row: 1 / 3; }
+.vs-studio .vs-main > .vs-preview { grid-column: 3; grid-row: 1 / 3; }
+.vs-studio .vs-main > .vs-resizer:nth-child(4) { grid-column: 4; grid-row: 1 / 3; }
+.vs-studio .vs-main > .vs-inspector { grid-column: 5; grid-row: 1; }
+.vs-studio .vs-main > .vs-assistant { grid-column: 5; grid-row: 2; border-top: 1px solid var(--vs-edge); }
+.vs-studio.vs-agent-closed .vs-main > .vs-inspector { grid-row: 1 / 3; }
+}
+@container video-studio (max-width:1150px) {
+
+.vs-studio .vs-main { grid-template-columns: minmax(130px,var(--vs-library)) 5px minmax(180px,1fr) 5px minmax(155px,var(--vs-inspector)); grid-template-rows: minmax(0,1fr) minmax(0,1fr); }
+.vs-studio .vs-main > .vs-library { grid-column: 1; grid-row: 1 / 3; }
+.vs-studio .vs-main > .vs-resizer:nth-child(2) { grid-column: 2; grid-row: 1 / 3; }
+.vs-studio .vs-main > .vs-preview { grid-column: 3; grid-row: 1 / 3; }
+.vs-studio .vs-main > .vs-resizer:nth-child(4) { grid-column: 4; grid-row: 1 / 3; }
+.vs-studio .vs-main > .vs-inspector { grid-column: 5; grid-row: 1; }
+.vs-studio .vs-main > .vs-assistant { grid-column: 5; grid-row: 2; border-top: 1px solid var(--vs-edge); }
+.vs-studio.vs-agent-closed .vs-main > .vs-inspector { grid-row: 1 / 3; }
+}
+@media(max-width:760px) {
+
+.vs-studio .vs-main { grid-template-columns: minmax(125px,.7fr) minmax(180px,1fr); grid-template-rows: minmax(250px,1fr) 250px; min-height: 500px; }
+.vs-studio .vs-main > .vs-library { grid-column: 1; grid-row: 1; }
+.vs-studio .vs-main > .vs-preview { grid-column: 2; grid-row: 1; }
+.vs-studio .vs-main > .vs-resizer { display: none; }
+.vs-studio .vs-main > .vs-inspector,
+.vs-studio.vs-agent-closed .vs-main > .vs-inspector { grid-column: 1; grid-row: 2; max-height: none; }
+.vs-studio .vs-main > .vs-assistant { grid-column: 2; grid-row: 2; }
+.vs-studio.vs-agent-closed .vs-main > .vs-inspector { grid-column: 1 / -1; }
+.vs-studio .vs-inspector-body { display: block; }
+.vs-studio .vs-footer { flex-wrap: wrap; }
+}
+@container video-studio (max-width:650px) {
+
+.vs-studio .vs-main { grid-template-columns: minmax(125px,.7fr) minmax(180px,1fr); grid-template-rows: minmax(250px,1fr) 250px; min-height: 500px; }
+.vs-studio .vs-main > .vs-library { grid-column: 1; grid-row: 1; }
+.vs-studio .vs-main > .vs-preview { grid-column: 2; grid-row: 1; }
+.vs-studio .vs-main > .vs-resizer { display: none; }
+.vs-studio .vs-main > .vs-inspector,
+.vs-studio.vs-agent-closed .vs-main > .vs-inspector { grid-column: 1; grid-row: 2; max-height: none; }
+.vs-studio .vs-main > .vs-assistant { grid-column: 2; grid-row: 2; }
+.vs-studio.vs-agent-closed .vs-main > .vs-inspector { grid-column: 1 / -1; }
+.vs-studio .vs-inspector-body { display: block; }
+.vs-studio .vs-footer { flex-wrap: wrap; }
+}
+@container video-studio (max-width:350px) {
+.vs-studio .vs-main { display:flex; flex-direction:column; overflow:auto; }
+.vs-studio .vs-main > .vs-panel { flex:0 0 240px; }
+.vs-studio .vs-main > .vs-preview { order:-1; }
+}

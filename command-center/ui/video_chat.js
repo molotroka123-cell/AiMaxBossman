@@ -6,7 +6,7 @@ export async function routeVideoRequest(text, files, ctx) {
   const key=JSON.stringify([text,files.map(f=>[f.name,f.size,f.lastModified])]);
   if (!state.requestId || state.requestKey!==key) {state.requestId=newId();state.requestKey=key;state.uploaded.clear();}
   const payload={text,operation_id:state.requestId};
-  if(state.lastProject && /^(открой|open)\b/i.test(text.trim())) payload.project_id=state.lastProject;
+  if(state.lastProject && /^(?:открой|open)(?=\s|$)/i.test(text.trim())) payload.project_id=state.lastProject;
   const response = await api.raw('/api/video-studio/chat', {method:'POST', body:payload});
   if (!response.handled) { state.requestId=''; return false; }
   state.lastProject = response.project_id;
@@ -35,7 +35,7 @@ export function attachmentInput() {
   return h('div',input,names,remove);
 }
 export const attachedFiles=()=>state.files;
-export const ChatPage={id:'bossman-chat',title:'Bossman Chat',icon:'terminal',section:'main',nav:'primary',
+export const ChatPage={id:'bossman-chat',title:'История видео и чат',icon:'terminal',section:'main',nav:'more',
   async render(ctx) {
     let records=[];
     try {records=(await api.raw('/api/video-studio/chat')).messages||[];}catch(e){toastError(e);}
@@ -73,12 +73,24 @@ export const ChatPage={id:'bossman-chat',title:'Bossman Chat',icon:'terminal',se
         h('button.bx-btn',{type:'button',onClick:()=>ctx.navigate('video-studio',{project_id:row.project_id})},'Открыть Video Studio')))));
   },onEvent:()=>false};
 
-export function mountVideoTabs(ctx,view) {
-  const bar=h('nav',{'aria-label':'Рабочие вкладки',style:{display:'flex',gap:'8px',padding:'8px 0'}},
-    h('button.bx-btn',{type:'button',onClick:()=>ctx.navigate('bossman-chat')},'Bossman Chat'),
-    h('button.bx-btn',{type:'button',onClick:()=>ctx.navigate('video-studio',state.lastProject?{project_id:state.lastProject}:null)},'Video Studio'));
-  view.parentNode.insertBefore(bar,view);
-  window.addEventListener('bcc:video-open',event=>{state.lastProject=event.detail.project_id;});
-  const remember=()=>{if(location.hash.startsWith('#/video-studio?'))state.lastProject=new URLSearchParams(location.hash.split('?')[1]).get('project_id')||state.lastProject;};
-  window.addEventListener('hashchange',remember);remember();
+// One editor, registered in the shared navigation. Keep project continuity
+// without mounting a second navigation shell above every application.
+export function trackVideoProject(target = window, getHash = () => location.hash) {
+  const remember = () => {
+    const [route, query = ''] = String(getHash()).split('?');
+    if (route !== '#/video-studio') return;
+    const id = new URLSearchParams(query).get('project_id');
+    if (id) state.lastProject = id;
+  };
+  const opened = event => {
+    const id = event.detail?.project_id;
+    if (typeof id === 'string' && id) state.lastProject = id;
+  };
+  target.addEventListener('bcc:video-open', opened);
+  target.addEventListener('hashchange', remember);
+  remember();
+  return () => {
+    target.removeEventListener('bcc:video-open', opened);
+    target.removeEventListener('hashchange', remember);
+  };
 }
