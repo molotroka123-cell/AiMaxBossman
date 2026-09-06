@@ -9,6 +9,10 @@ from typing import Dict, List, Optional, Any
 from abc import ABC, abstractmethod
 
 
+class CircuitOpenError(RuntimeError):
+    """Raised when a backend's circuit breaker is open and the attempt is skipped."""
+
+
 class BaseBackend(ABC):
     """Base class for all LLM backends."""
     
