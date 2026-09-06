@@ -12,6 +12,9 @@ from bcc.video_studio.media import MediaLibrary, binary, process
 from bcc.video_studio.render import verify_output
 from bcc.video_studio.shotcut import export_shotcut
 
+needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"),
+                                  reason="real FFmpeg binaries required")
+
 
 async def fixture_project(tmp_path):
     p=new_project("shotcut","Два кадра & music")
@@ -28,6 +31,7 @@ async def fixture_project(tmp_path):
     return p
 
 
+@needs_ffmpeg
 async def test_native_xml_references_only_verified_owned_media(tmp_path):
     p=await fixture_project(tmp_path);before=deepcopy(p)
     output=export_shotcut(p,tmp_path)
@@ -40,12 +44,14 @@ async def test_native_xml_references_only_verified_owned_media(tmp_path):
     with pytest.raises(ValueError,match="hash mismatch"):export_shotcut(p,tmp_path)
 
 
+@needs_ffmpeg
 async def test_effect_is_rejected_instead_of_silently_lost(tmp_path):
     p=await fixture_project(tmp_path)
     p=apply_command(p,{"type":"clip.reverse","clip_id":"red"})[0]
     with pytest.raises(StudioError,match="rendered master"):export_shotcut(p,tmp_path)
 
 
+@needs_ffmpeg
 async def test_actual_shotcut_mlt_render_has_both_scenes_and_audio(tmp_path):
     melt=os.environ.get("BOSSMAN_VIDEO_MELT") or shutil.which("melt")
     if not melt or not Path(melt).is_file():pytest.skip("install Shotcut portable and configure BOSSMAN_VIDEO_MELT")
@@ -62,6 +68,7 @@ async def test_actual_shotcut_mlt_render_has_both_scenes_and_audio(tmp_path):
         assert raw[dominant]>180 and raw[1]<50, (at,list(raw))
 
 
+@needs_ffmpeg
 async def test_actual_shotcut_multitrack_compositing_and_static_gain(tmp_path):
     melt=os.environ.get("BOSSMAN_VIDEO_MELT") or shutil.which("melt")
     if not melt or not Path(melt).is_file():pytest.skip("Shotcut/MLT executable required")

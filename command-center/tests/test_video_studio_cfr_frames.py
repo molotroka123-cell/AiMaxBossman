@@ -11,6 +11,9 @@ from bcc.video_studio.media import MediaLibrary, binary, process
 from bcc.video_studio.model import TICKS, frame_ticks, new_project
 from bcc.video_studio.render import cfr_frame_count, render_project, verify_output
 
+needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"),
+                                  reason="real FFmpeg binaries required")
+
 
 @pytest.mark.parametrize("fps", [{"num": 25, "den": 1}, {"num": 30, "den": 1},
     {"num": 30000, "den": 1001}, {"num": 24000, "den": 1001}])
@@ -108,6 +111,7 @@ async def test_rational_range_keeps_selected_final_source_frame(tmp_path, first,
     assert hashlib.sha256(source.read_bytes()).hexdigest() == source_digest
 
 
+@needs_ffmpeg
 @pytest.mark.parametrize("start,end", [(1100000,1800000),(20000,120000),(10000,700000)])
 async def test_non_aligned_interval_uses_integer_frame_limit(tmp_path,start,end):
     fps={"num":25,"den":1}

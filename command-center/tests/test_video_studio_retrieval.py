@@ -1,8 +1,12 @@
 from copy import deepcopy
+import shutil
 import pytest
 from bcc.video_studio.model import new_project
 from bcc.video_studio.media import MediaLibrary,binary,process
 from bcc.video_studio.retrieval import search_project,suggest_broll,find_duplicates
+
+needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"),
+                                  reason="real FFmpeg binaries required")
 
 
 def test_search_returns_exact_caption_time_without_visual_claim():
@@ -27,6 +31,7 @@ async def assets(tmp_path):
     return p
 
 
+@needs_ffmpeg
 async def test_broll_only_returns_existing_matching_imported_ids(tmp_path):
     p=await assets(tmp_path)
     out=suggest_broll(p,"Fresh Vibes fruit advertisement")
@@ -34,6 +39,7 @@ async def test_broll_only_returns_existing_matching_imported_ids(tmp_path):
     assert suggest_broll(p,"spaceship")["next_action"]
 
 
+@needs_ffmpeg
 async def test_real_duplicate_sampler_distinguishes_reencoded_red_from_blue(tmp_path):
     p=await assets(tmp_path);before=deepcopy(p)
     out=await find_duplicates(p,tmp_path)

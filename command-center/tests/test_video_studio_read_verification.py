@@ -1,6 +1,8 @@
 """Concurrent GET verification with real media, without trusting stat as content."""
 import asyncio
+import hashlib
 import os
+import shutil
 import threading
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -10,6 +12,9 @@ import pytest
 from bcc.video_studio import media as media_module
 from bcc.video_studio.media import MediaLibrary, binary, process
 from bcc.video_studio.service import VideoService
+
+needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"),
+                                  reason="real FFmpeg binaries required")
 
 
 async def owned_media(tmp_path):
@@ -24,6 +29,7 @@ async def owned_media(tmp_path):
     return library, item, service
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 async def test_twenty_concurrent_gets_share_one_full_hash(tmp_path, monkeypatch):
     library, item, service = await owned_media(tmp_path)
@@ -49,6 +55,7 @@ async def test_twenty_concurrent_gets_share_one_full_hash(tmp_path, monkeypatch)
     assert all(result[0] == library.root / item["relative_path"] for result in results)
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 async def test_sequential_gets_rehash_even_after_same_size_restored_mtime(tmp_path):
     library, item, service = await owned_media(tmp_path)
@@ -64,6 +71,7 @@ async def test_sequential_gets_rehash_even_after_same_size_restored_mtime(tmp_pa
         await VideoService.media_file(service, "p", item["id"])
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 async def test_cancelled_get_does_not_cancel_other_waiter(tmp_path, monkeypatch):
     library, item, service = await owned_media(tmp_path)
@@ -92,6 +100,7 @@ async def test_cancelled_get_does_not_cancel_other_waiter(tmp_path, monkeypatch)
     assert len(calls) == 1
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 async def test_verified_content_changed_during_hash_is_rejected(tmp_path, monkeypatch):
     library, item, service = await owned_media(tmp_path)
@@ -118,6 +127,9 @@ async def test_bounded_pool_rejects_overload_and_releases_capacity(tmp_path):
     paths = [tmp_path / str(index) for index in range(3)]
     for path in paths:
         path.write_bytes(b"test")
+    # Verification is descriptor-bound now, so a stub reference must carry the
+    # digest the file really has; the pool assertions below are unchanged.
+    content = hashlib.sha256(b"test").hexdigest()
 
     def verify(reference):
         threads.append(threading.current_thread().name)
@@ -126,7 +138,7 @@ async def test_bounded_pool_rejects_overload_and_releases_capacity(tmp_path):
         return paths[int(reference["relative_path"])]
 
     library = SimpleNamespace(owned_path=lambda ref: paths[int(ref["relative_path"])], resolve=verify)
-    refs = [{"relative_path": str(index), "sha256": "a" * 64} for index in range(3)]
+    refs = [{"relative_path": str(index), "sha256": content} for index in range(3)]
     first = asyncio.create_task(verifier.resolve(library, refs[0]))
     second = asyncio.create_task(verifier.resolve(library, refs[1]))
     try:
@@ -148,6 +160,7 @@ async def test_bounded_pool_rejects_overload_and_releases_capacity(tmp_path):
     assert all(name.startswith("video-read-hash") for name in threads)
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 async def test_hash_failure_is_not_cached(tmp_path, monkeypatch):
     library, item, service = await owned_media(tmp_path)
@@ -167,6 +180,7 @@ async def test_hash_failure_is_not_cached(tmp_path, monkeypatch):
     assert len(calls) == 2
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 async def test_confinement_and_hash_reference_checked_per_caller(tmp_path):
     library, item, _ = await owned_media(tmp_path)
@@ -184,7 +198,7 @@ async def test_completed_hash_waiting_for_cleanup_is_never_reused(tmp_path):
     verifier = ReadVerifier()
     path = tmp_path / 'file'
     path.write_bytes(b'fresh')
-    reference = {'sha256': 'a' * 64, 'relative_path': 'file'}
+    reference = {'sha256': hashlib.sha256(b'fresh').hexdigest(), 'relative_path': 'file'}
     calls = []
     library = SimpleNamespace(owned_path=lambda ref: path,
                               resolve=lambda ref: calls.append(ref) or path)
@@ -198,6 +212,7 @@ async def test_completed_hash_waiting_for_cleanup_is_never_reused(tmp_path):
         await asyncio.to_thread(verifier._pool.shutdown, wait=True)
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 async def test_reference_mutation_cannot_redirect_admitted_read(tmp_path, monkeypatch):
     library, item, service = await owned_media(tmp_path)
@@ -231,6 +246,7 @@ async def test_busy_http_response_is_retryable_without_exposing_storage():
     assert 'private' not in error.value.detail
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 async def test_authenticated_media_download_rechecks_actual_content(env, tmp_path):
     import uuid
