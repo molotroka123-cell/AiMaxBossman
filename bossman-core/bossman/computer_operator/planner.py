@@ -88,7 +88,6 @@ class Planner:
             url_contains=self._s(x.get("url_contains"),1000),
             absent_text=self._s(x.get("absent_text"),500))
         args=raw.get("args") or {}
-        if isinstance(args,str): args={"raw":args}   # модели иногда шлют строку: сохраняем честно, не теряя данные
         if not isinstance(args,dict): raise ValueError("args must be object")
         c=float(raw.get("confidence",1))
         if not 0<=c<=1: raise ValueError("confidence")

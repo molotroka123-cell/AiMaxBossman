@@ -234,7 +234,8 @@ class ComputerOperatorManager:
                 # держалось на одном поле планировщика (см. policy).
                 d=self.policy.classify(a,mode=t.mode,locked=self.global_locked,observation=before)
                 if not d.allow:
-                    t.replans_used+=1; last=f"policy denied:{d.reason}"; self._save(t)
+                    t.replans_used+=1; last=f"policy denied:{d.reason}"
+                    t.last_error=last; self._save(t)   # OPERATOR-OBSERVABILITY-001
                     if t.replans_used>t.max_replans:return self._fail(t,"policy/replan budget")
                     continue
                 cur=self._req(t.id)
