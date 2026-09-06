@@ -77,3 +77,7 @@ Revert this code checkpoint, retaining sources, accepted project revisions and
 already verified output artifacts. No data migration is required. Reverting
 restores the known final-frame-loss behavior and must not retain the claim that
 CFR output satisfies the exact frame-count oracle.
+
+Follow-up: the actual SDR matrix mismatch and the dimension-dependent color
+sampling oracle are addressed in [SDR_COLOR_CHECKPOINT.md](SDR_COLOR_CHECKPOINT.md).
+The historical CFR results above remain unchanged.

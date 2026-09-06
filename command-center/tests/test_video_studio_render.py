@@ -131,7 +131,9 @@ async def test_process_cancellation_reaps_child():
 
 
 async def rgb(path,time=.3):
-    data,_=await process([binary("ffmpeg"),"-hide_banner","-loglevel","error","-nostdin","-ss",str(time),"-i",str(path),"-frames:v","1","-vf","scale=1:1","-pix_fmt","rgb24","-f","rawvideo","pipe:1"])
+    # Decode the tagged source matrix before extreme downsampling; combining
+    # YUV conversion with scale=1:1 is dimension-dependent in local swscale.
+    data,_=await process([binary("ffmpeg"),"-hide_banner","-loglevel","error","-nostdin","-ss",str(time),"-i",str(path),"-frames:v","1","-vf","format=rgb24,scale=1:1","-pix_fmt","rgb24","-f","rawvideo","pipe:1"])
     assert len(data)==3
     return tuple(data)
 

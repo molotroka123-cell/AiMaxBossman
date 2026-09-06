@@ -343,6 +343,8 @@ class Compiler:
         if not 16<=width<=8192 or not 16<=height<=8192:raise ValueError("sequence dimensions unsupported")
         fps=rate(seq["fps"]);duration=sequence_duration(seq)
         if not 0<duration<=86400:raise ValueError("sequence must have a positive duration up to 24 hours")
+        # Composite in RGB. Overlay defaults to YUV420 and silently chooses a
+        # matrix before the final output conversion, changing SDR colors.
         video=self.node([],f"color=c=black:s={width}x{height}:r={fps.numerator}/{fps.denominator}:d={fmt(duration)},format=rgba")
         audio_tracks={}; ducking={}
         solos={t["kind"] for t in seq["tracks"] if t.get("solo")}
@@ -360,7 +362,7 @@ class Compiler:
                     original,adjusted=self.node([video],"split=2",2)
                     adjusted=self.node([adjusted],f"trim=start={fmt(start)}:end={fmt(start+length)},setpts=PTS-STARTPTS")
                     adjusted=self.node([adjusted],self.video_effects({**clip,"effects":effects},width,height,length)+f",setpts=PTS+{fmt(start)}/TB")
-                    video=self.node([original,adjusted],f"overlay=eof_action=pass:repeatlast=0:enable='gte(t,{fmt(start)})*lt(t,{fmt(start+length)})'")
+                    video=self.node([original,adjusted],f"overlay=format=rgb:eof_action=pass:repeatlast=0:enable='gte(t,{fmt(start)})*lt(t,{fmt(start+length)})'")
                     continue
                 if clip.get("nested_sequence_id"):
                     v,a,_=self.sequence(clip["nested_sequence_id"],(*visiting,sequence_id))
@@ -397,7 +399,7 @@ class Compiler:
                             video=self.node([video,v],f"blend=all_mode={mode}:enable='between(t,{fmt(start)},{fmt(start+length)})':shortest=0:repeatlast=0")
                             v=None
                     if v:
-                        video=self.node([video,v],f"overlay=x='(W-w)/2+({x})':y='(H-h)/2+({y})':eof_action=pass:repeatlast=0:enable='gte(t,{fmt(start)})*lt(t,{fmt(start+length)})'")
+                        video=self.node([video,v],f"overlay=format=rgb:x='(W-w)/2+({x})':y='(H-h)/2+({y})':eof_action=pass:repeatlast=0:enable='gte(t,{fmt(start)})*lt(t,{fmt(start+length)})'")
                 elif v:
                     self.graph.append(f"[{v}]nullsink")
                 if a:
@@ -680,13 +682,15 @@ async def render_project(project, root, output_path, options=None, progress=None
         # indices when both endpoints identify sequence boundaries.
         trim = (f"trim=start_frame={range_indices[0]}:end_frame={range_indices[1]}"
                 if len(range_indices) == 2 else f"trim=start={fmt(start)}:end={fmt(end)}")
-        v=compiler.node([v],f"{trim},setpts=PTS-STARTPTS,scale={width}:{height}:flags=lanczos,setsar=1,tpad=stop_mode=clone:stop_duration={fmt(lookahead)},fps={fps}:start_time=0,trim=end_frame={expected_frames},format=yuv420p")
+        # Convert RGB into limited-range BT.709 samples, matching encoder tags.
+        # Keep format adjacent to scale to constrain its negotiated output.
+        v=compiler.node([v],f"{trim},setpts=PTS-STARTPTS,scale={width}:{height}:flags=lanczos:out_color_matrix=bt709:out_range=tv,format=yuv420p,setsar=1,tpad=stop_mode=clone:stop_duration={fmt(lookahead)},fps={fps}:start_time=0,trim=end_frame={expected_frames}")
         a=compiler.node([a],f"atrim=start={fmt(start)}:end={fmt(end)},asetpts=PTS-STARTPTS")
         graph=Path(td)/"graph.txt";graph.write_text(";\n".join(compiler.graph),encoding="utf-8")
         partial=Path(td)/("output"+output_path.suffix)
         argv=[binary("ffmpeg"),"-hide_banner","-loglevel","warning","-nostdin","-y",*compiler.inputs,
             "-filter_complex_script",str(graph),"-filter_complex_threads","2","-map",f"[{v}]","-map",f"[{a}]",
-            "-t",fmt(end-start),"-c:v",codec,"-c:a",audio_codec,"-ar","48000","-ac","2","-color_primaries","bt709","-color_trc","bt709","-colorspace","bt709"]
+            "-t",fmt(end-start),"-c:v",codec,"-c:a",audio_codec,"-ar","48000","-ac","2","-color_primaries","bt709","-color_trc","bt709","-colorspace","bt709","-color_range","tv"]
         if codec in {"libx264","libx265"}:
             preset=options.get("preset","veryfast")
             if preset not in {"ultrafast","superfast","veryfast","faster","fast","medium","slow"}:raise ValueError("invalid encoder preset")
