@@ -95,8 +95,7 @@ def test_resource_sampler_matches_linux_ollama_process_name():
 # local model simply disappeared on the machine this is built for.
 import pytest  # noqa: E402
 
-sys.path.insert(0, str(ROOT / "bossman-core"))
-from bossman.gateway.config import _resolved_ollama_base_url, normalize_ollama_host  # noqa: E402
+from bossman_shared.ollama_host import normalize_ollama_host  # noqa: E402
 
 
 @pytest.mark.parametrize("raw,expected", [
@@ -115,19 +114,15 @@ def test_ollama_host_forms_resolve_to_a_dialable_endpoint(raw, expected):
     assert normalize_ollama_host(raw) == expected
 
 
-def test_gateway_keeps_a_non_default_configured_backend_url(monkeypatch):
-    monkeypatch.setenv("OLLAMA_HOST", "0.0.0.0:11435")
-    assert _resolved_ollama_base_url("http://gpu-box:9999") == "http://gpu-box:9999"
-
-
-def test_gateway_falls_back_to_its_default_when_ollama_host_is_unusable(monkeypatch):
-    monkeypatch.setenv("OLLAMA_HOST", "   ")
-    assert _resolved_ollama_base_url("http://127.0.0.1:11434") == "http://127.0.0.1:11434"
-
-
-def test_gateway_follows_a_wildcard_ollama_host_to_the_loopback_endpoint(monkeypatch):
-    monkeypatch.setenv("OLLAMA_HOST", "0.0.0.0:11435")
-    assert _resolved_ollama_base_url("http://127.0.0.1:11434") == "http://127.0.0.1:11435"
+def test_the_gateway_reads_ollama_host_through_the_shared_rule():
+    """root-ci deliberately installs no FastAPI/Core dependencies, so the rule
+    lives in bossman_shared and the Gateway imports it. Importing it here must
+    stay free of Core: a regression that moved it back would fail collection."""
+    config = (ROOT / "bossman-core" / "bossman" / "gateway" / "config.py").read_text(encoding="utf-8")
+    assert "from bossman_shared.ollama_host import normalize_ollama_host" in config
+    assert "_WILDCARD_HOSTS" not in config, "the rule was copied back into the Gateway"
+    tool = (ROOT / "tools" / "local_hardware_ab.py").read_text(encoding="utf-8")
+    assert "from bossman_shared.ollama_host import normalize_ollama_host" in tool
 
 
 def test_both_ab_arms_and_the_gateway_share_one_rule(monkeypatch, tmp_path):

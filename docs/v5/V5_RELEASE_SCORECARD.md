@@ -62,6 +62,13 @@ CORE_RETENTION=NOT_RUN
 INTELLIGENCE_GATE=INSUFFICIENT_EVIDENCE
 ```
 
+Diagnosed from the workflow log rather than assumed (run 34043712445,
+job 101514903926): `INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE / Missing
+docs/benchmark/intelligence-preservation-current.json`, exit code 2. The red X
+is **the absence of a measurement**, not a detected regression and not
+infrastructure noise. The gate now says which of the two it is in its job
+summary and prints the command that produces the evidence.
+
 The context boundary is implemented and tested (`objective_context.py`, 50
 tests): the slice refuses foreign objectives, unscoped memory and every
 forbidden dump key, and memory can never be read as policy. That is a property
@@ -86,12 +93,21 @@ UNBOUNDED_RETRIES=0 (bounded_retry is the only retry primitive)
 ```
 ROOT=PASS (root pytest, this branch)
 V5_GOLDEN=PASS (17 tests)
-INTELLIGENCE=PASS (existing gate suite, untouched)
-CORE=NOT_RUN here
-COMMAND_CENTER=NOT_RUN here
+INTELLIGENCE=PASS (existing gate CONTRACT suite; the MEASURED gate is
+              INSUFFICIENT_EVIDENCE — no retention run exists, see below)
+CORE=PASS (2489 passed, 36 skipped, 0 failed — measured 2026-09-06 on
+      claude/v4-v5-local-models-optimization-ya3utu, Linux/py3.11)
+COMMAND_CENTER=PASS_WITH_ENVIRONMENT_GAPS (1790 passed, 126 skipped, 35 failed:
+      31 need a local FFmpeg build, 2 need the optional `mcp` extra, and 2
+      web-designer Playwright cases reproduce identically at 45d9004 and so
+      predate this work. Nothing attributable to this branch.)
 WINDOWS=NOT_RUN
 REMOTE_FLEET=EXPERIMENTAL — unqualified, unchanged by this work
 ```
+
+The two suite rows above were `NOT_RUN` when this scorecard was written; they are
+now measured. `docs/v4/ACCEPTANCE_MATRIX_2026-09-06.md` carries the per-cause
+breakdown and the exact commands.
 
 ## Verdict
 

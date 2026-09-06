@@ -35,22 +35,77 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      # A red X here has two very different meanings and the owner must be able
+      # to tell them apart at a glance: INSUFFICIENT_EVIDENCE means nobody has
+      # measured retention on this commit yet; NO_GO means it WAS measured and
+      # the model got worse. Both stay failures — the gate is fail-closed on
+      # purpose — but the summary says which, and how to produce the evidence.
       - name: Require current same-model evidence
+        id: evidence
         run: |
-          if [ ! -f docs/benchmark/intelligence-preservation-current.json ]; then
+          set +e
+          file=docs/benchmark/intelligence-preservation-current.json
+          if [ ! -f "$file" ]; then
+            {
+              echo '## INTELLIGENCE_PRESERVATION = INSUFFICIENT_EVIDENCE'
+              echo
+              echo 'No measured retention run exists for this commit. This is **not**'
+              echo 'a detected model regression and **not** infrastructure noise: the'
+              echo 'gate refuses to report anything it has not measured.'
+              echo
+              echo "Missing: \`$file\`"
+              echo
+              echo 'To produce it, run the four same-model lanes (raw -> system ->'
+              echo 'context -> full) over one dataset on the evaluated model, write the'
+              echo 'payload documented in docs/benchmark/INTELLIGENCE_PRESERVATION.md'
+              echo 'with `evaluated_sha` set to this commit, and re-run this workflow:'
+              echo
+              echo '```'
+              echo "python tools/intelligence_preservation_gate.py $file \\"
+              echo '  --core-retention-min 0.98 --tool-retention-min 1.0 \\'
+              echo "  --min-samples 20 --expect-sha ${{ github.event.pull_request.head.sha || github.sha }}"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
             echo 'INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE'
-            echo 'Missing docs/benchmark/intelligence-preservation-current.json'
+            echo "Missing $file"
             exit 2
           fi
       - name: Evaluate current measured benchmark
-        run: >-
-          python tools/intelligence_preservation_gate.py
-          docs/benchmark/intelligence-preservation-current.json
-          --output intelligence-preservation-report.json
-          --core-retention-min 0.98
-          --tool-retention-min 1.0
-          --min-samples 20
-          --expect-sha "${{ github.event.pull_request.head.sha || github.sha }}"
+        run: |
+          set +e
+          python tools/intelligence_preservation_gate.py \
+            docs/benchmark/intelligence-preservation-current.json \
+            --output intelligence-preservation-report.json \
+            --core-retention-min 0.98 \
+            --tool-retention-min 1.0 \
+            --min-samples 20 \
+            --expect-sha "${{ github.event.pull_request.head.sha || github.sha }}"
+          code=$?
+          case "$code" in
+            0) status=PASS ;;
+            1) status=NO_GO ;;
+            2) status=INSUFFICIENT_EVIDENCE ;;
+            *) status="GATE_ERROR_$code" ;;
+          esac
+          {
+            echo "## INTELLIGENCE_PRESERVATION = $status"
+            echo
+            if [ "$status" = "NO_GO" ]; then
+              echo 'Measured: Bossman orchestration made the same model worse. This is'
+              echo 'a real quality regression, not a missing artifact.'
+            elif [ "$status" = "INSUFFICIENT_EVIDENCE" ]; then
+              echo 'A payload exists but does not prove non-inferiority (wrong commit,'
+              echo 'unpaired items, too few samples, or a confidence bound below the bar).'
+            fi
+            echo
+            echo '<details><summary>gate report</summary>'
+            echo
+            echo '```json'
+            cat intelligence-preservation-report.json 2>/dev/null || echo '{}'
+            echo '```'
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -15,7 +15,9 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+# This lives in the Core suite, not the root one: the profiler drives the real
+# ComputerOperatorManager, and root-ci deliberately installs no FastAPI.
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from operator_step_profile import profile  # noqa: E402
@@ -125,7 +127,6 @@ def test_the_loop_guard_no_longer_journals_an_intent_it_discards():
     from pathlib import Path as _Path
     import sys as _sys
 
-    _sys.path.insert(0, str(ROOT / "bossman-core"))
     from bossman.computer_operator.models import (ActionKind, ComputerAction, ExpectedState,
                                                   Observation, TaskState, new_id)
     from bossman.computer_operator.wiring import make_manager
@@ -160,4 +161,3 @@ def test_the_loop_guard_no_longer_journals_an_intent_it_discards():
     assert state is TaskState.FAILED and "loop guard" in (stored.last_error or "").lower()
     # Every history entry belongs to an action that was actually dispatched.
     assert len(stored.history) == mgr.phase_calls["dispatch"]
-

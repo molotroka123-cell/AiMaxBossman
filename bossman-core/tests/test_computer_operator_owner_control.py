@@ -441,4 +441,3 @@ async def test_emergency_lock_interrupts_every_running_task(tmp_path):
     state = await asyncio.wait_for(run, 5)
     assert asyncio.get_running_loop().time() - started < 0.2
     assert state is TaskState.LOCKED
-

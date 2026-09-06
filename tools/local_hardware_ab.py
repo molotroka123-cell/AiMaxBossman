@@ -22,9 +22,9 @@ import psutil
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT / "bossman-core"
-if str(CORE) not in sys.path:
-    sys.path.insert(0, str(CORE))
-from bossman.gateway.config import normalize_ollama_host  # noqa: E402
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from bossman_shared.ollama_host import normalize_ollama_host  # noqa: E402
 # RunPod preflight audit: MODEL had no override — benchmarking anything else
 # meant hand-editing this file. Now overridable per run without a code change.
 MODEL = os.environ.get("BOSSMAN_AB_MODEL", "qwen2.5:7b")
