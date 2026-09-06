@@ -5,6 +5,13 @@ on:
     branches:
       - fix/fable-current-media-fleet-20260906
       - claude/fable-system-hardening-lpqq9r
+      # The integration branch too: this is the only gate that installs real
+      # FFmpeg and actually executes the renderer, the Fleet TLS RPC and the
+      # execution-truth regressions. Scoped to the two source branches it
+      # stopped running the moment the work merged, so the integrated result
+      # was never covered by the acceptance that approved it.
+      - claude/bossman-control-v03-43igbk
+  pull_request:
   workflow_dispatch:
 
 permissions:
