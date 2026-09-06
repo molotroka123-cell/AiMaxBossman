@@ -51,7 +51,7 @@ jobs:
           --tool-retention-min 1.0
           --min-samples 20
           --expect-sha "${{ github.event.pull_request.head.sha || github.sha }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: intelligence-preservation-report

@@ -62,7 +62,7 @@ jobs:
           printf '\nUI_INPUT=INSUFFICIENT_EVIDENCE; HUMAN_COMPARISON=NOT_RUN; N0=NOT_ACTIVATED\n' >> "$GITHUB_STEP_SUMMARY"
       - name: Retain all actual samples and partial failures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: human-speed-${{ matrix.os }}-${{ github.sha }}
           path: speed-results/
