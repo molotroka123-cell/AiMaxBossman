@@ -30,12 +30,18 @@ jobs:
     name: measured intelligence retention
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: ${{ hashFiles('docs/benchmark/intelligence-preservation-current.json') != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Require current same-model evidence
+        run: |
+          if [ ! -f docs/benchmark/intelligence-preservation-current.json ]; then
+            echo 'INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE'
+            echo 'Missing docs/benchmark/intelligence-preservation-current.json'
+            exit 2
+          fi
       - name: Evaluate current measured benchmark
         run: >-
           python tools/intelligence_preservation_gate.py
@@ -49,4 +55,4 @@ jobs:
         with:
           name: intelligence-preservation-report
           path: intelligence-preservation-report.json
-          if-no-files-found: error
+          if-no-files-found: ignore
