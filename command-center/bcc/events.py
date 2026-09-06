@@ -12,11 +12,29 @@ from typing import Any
 import sqlalchemy as sa
 
 from .db import Database, events as events_t, rows_dicts, run_events as run_events_t, utcnow
-from .plugin_security import redact
+from .plugin_security import redact, redact_text
 from .trace import get_trace_id
 
 # эти виды не пишем в историю: у них есть свои таблицы и своя частота
 TRANSIENT = {"system.metrics", "run.log"}
+
+
+def _scrub_free_text(value: Any) -> Any:
+    """RT-B29: чистка по ИМЕНАМ ключей ловит `api_key=<...>` только когда секрет
+    лежит в поле с говорящим именем. Секрет, попавший в свободный текст чужого
+    поля (`detail`, `message`, `preview`, вывод инструмента), проходил в таблицу
+    `events` и в WS-ленту как есть. Здесь дочищаем строки теми же паттернами,
+    что и предпросмотр одобрения (`plugin_security.redact_text`) — по классам
+    токенов, а не по имени поля."""
+    if isinstance(value, str):
+        return redact_text(value)
+    if isinstance(value, dict):
+        return {k: _scrub_free_text(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_scrub_free_text(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_scrub_free_text(v) for v in value)
+    return value
 
 
 class EventBus:
@@ -38,7 +56,7 @@ class EventBus:
         # Секреты не попадают ни в таблицу events, ни в WS-ленту: чистка по
         # именам ключей (api_key/token/password/…) на любой глубине payload —
         # ДО персиста и ДО broadcast, чтобы оба пути видели одно и то же.
-        data = redact(data)
+        data = _scrub_free_text(redact(data))
         # Время события считается ОДИН раз. Раньше utcnow() вызывался дважды —
         # отдельно для рассылки и отдельно для записи в историю, — и одно и то
         # же событие приходило с разным временем в живой ленте и в /activity.

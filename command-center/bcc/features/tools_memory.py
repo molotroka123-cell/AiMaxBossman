@@ -189,7 +189,13 @@ async def set_config(request: Request):
     if body.get("memsearch"):
         cfg["memsearch"] = dict(body["memsearch"])
     try:                              # проверяем ДО сохранения — не оставляем битый конфиг
-        build_service(svc, cfg)
+        service = build_service(svc, cfg)
+        # RT-A8: `index_folders: [".."]` раньше принимался, потому что границы
+        # проверяет только `markdown_roots()` — то есть в момент индексации, и
+        # уже как необработанный 500. Индекс наружу vault'а так и не уходил, но
+        # конфиг сохранялся сломанным. Проверяем границы здесь, до записи:
+        # отказ — это 400 с причиной, а не отложенная авария.
+        service.vault.markdown_roots()
     except (MemoryNotConfigured, FileNotFoundError, PermissionError) as exc:
         raise HTTPException(400, {"message": str(exc)})
     await save_config(svc, cfg)

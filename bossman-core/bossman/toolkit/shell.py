@@ -75,7 +75,11 @@ async def run(args: dict, ctx: ToolContext) -> ToolResult:
     log_id = uuid.uuid4().hex[:8]
     log_path = ctx.workdir / "assets" / "logs" / f"{log_id}.txt"
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_path.write_text(out)
+    # encoding обязателен: без него открывается кодировка локали (на Windows —
+    # ANSI-кодовая страница, cp1251/cp1252), и вывод команды с кириллицей либо
+    # роняет инструмент UnicodeEncodeError, либо ложится на диск в кодировке,
+    # которой fs.read (utf-8) прочитать уже не может.
+    log_path.write_text(out, encoding="utf-8")
     body, cut1 = _head_tail(out)
     body, cut2 = clip(body, 3000)
     body = f"код выхода: {code}\n{body}"
@@ -92,7 +96,7 @@ async def tests(args: dict, ctx: ToolContext) -> ToolResult:
     log_id = uuid.uuid4().hex[:8]
     log_path = ctx.workdir / "assets" / "logs" / f"tests-{log_id}.txt"
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_path.write_text(out)
+    log_path.write_text(out, encoding="utf-8")   # см. run(): локаль тут не судья
     failed = re.findall(r"(?m)^(?:FAILED|ERROR) (\S+)", out)
     tail = out.splitlines()[-3:]
     summary = ["итог: " + (" / ".join(tail) if tail else f"код {code}")]

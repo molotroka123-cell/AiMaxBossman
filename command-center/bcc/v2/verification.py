@@ -227,10 +227,25 @@ async def _observe_terminal(exp: ExpectedState, *, svc, roots: list[Path]) -> tu
     return ObservedState("terminal", exp.target, obs, time.time()), Evidence("terminal:session+file", ev_detail)
 
 
+# RT-B26: `exp.target` кладётся на командную строку `git ls-remote` как URL
+# удалённого репозитория. У git есть транспорты, которые ЗАПУСКАЮТ команду,
+# записанную в самом URL (`ext::sh -c …`, а также `fd::`), — то есть цель
+# доказательства становилась бы исполнением кода внутри верификатора. По
+# умолчанию свежий git такие транспорты запрещает, но это его настройка, а не
+# наша граница: `protocol.ext.allow=always` в конфиге владельца (или
+# унаследованный GIT_ALLOW_PROTOCOL) снова открывает её. Переменная окружения
+# сильнее конфига, поэтому список разрешённых транспортов задаём здесь и
+# явно — наблюдение чужого состояния не нуждается ни в чём, кроме сети и файла.
+GIT_ALLOWED_PROTOCOLS = "file:git:http:https:ssh"
+
+
 def _ls_remote(remote: str, ref: str) -> tuple[dict[str, Any], str]:
     try:
         cp = subprocess.run(["git", "ls-remote", "--", remote, ref], capture_output=True, text=True,
-                            timeout=GIT_LS_REMOTE_TIMEOUT_S, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+                            timeout=GIT_LS_REMOTE_TIMEOUT_S,
+                            env={**os.environ, "GIT_TERMINAL_PROMPT": "0",
+                                 "GIT_ALLOW_PROTOCOL": GIT_ALLOWED_PROTOCOLS,
+                                 "GIT_PROTOCOL_FROM_USER": "0"})
     except (subprocess.TimeoutExpired, OSError) as exc:
         return {"error": f"remote unreachable: {type(exc).__name__}"}, "ls-remote failed"
     if cp.returncode != 0:

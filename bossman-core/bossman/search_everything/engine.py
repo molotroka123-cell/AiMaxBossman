@@ -14,6 +14,7 @@ RRF. Вся индексация и поиск идут через context_engin
 """
 from __future__ import annotations
 
+import shutil
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -114,11 +115,14 @@ class SearchEngine:
                  policy: SecretPolicy | None = None,
                  sensitivity_allow: Iterable[str] = DEFAULT_ALLOW) -> None:
         self._owns = engine is None
+        # Каталог, который СОЗДАЛИ МЫ под временный стор. Держим его отдельно от
+        # переданного db_path: удалять чужой путь мы не имеем права.
+        self._tmp_root: Path | None = None
         if engine is None:
             path = db_path
             if path is None:
-                tmp = Path(tempfile.mkdtemp(prefix="bossman_search_"))
-                path = tmp / "context.db"
+                self._tmp_root = Path(tempfile.mkdtemp(prefix="bossman_search_"))
+                path = self._tmp_root / "context.db"
             engine = ContextEngine(path, reranker=SafeReranker(reranker))
         self._engine = engine
         self.policy = policy or SecretPolicy()
@@ -204,9 +208,19 @@ class SearchEngine:
         return [SearchHit(hits[k].document, v, ("rrf",)) for k, v in ordered]
 
     def close(self) -> None:
-        """Закрыть стор только если движок наш (borrowed shared engine не трогаем)."""
+        """Закрыть стор только если движок наш (borrowed shared engine не трогаем).
+
+        RES-001: закрыть соединение мало. Конструктор без `engine`/`db_path`
+        создаёт СВОЙ каталог `mkdtemp(prefix="bossman_search_")` — и раньше
+        никто его не удалял: каждый такой движок навсегда оставлял каталог с
+        SQLite-файлом (замерено: 8 каталогов за 8 повторов одного набора).
+        Удаляем только то, что создали сами; чужой `db_path` не трогаем.
+        """
         if self._owns:
             try:
                 self._engine.close()
             except Exception:  # noqa: BLE001
                 pass
+            if self._tmp_root is not None:
+                shutil.rmtree(self._tmp_root, ignore_errors=True)
+                self._tmp_root = None

@@ -57,7 +57,7 @@ async def _project(args) -> None:
         if not args.brief:
             sys.exit("нужен путь к brief.md")
         from .projects.planner import plan_project
-        brief = Path(args.brief).read_text()
+        brief = Path(args.brief).read_text(encoding="utf-8")   # бриф пишется utf-8, а не в кодировке локали
         await db.execute(
             """INSERT INTO projects (slug, title, brief) VALUES ($1,$1,$2)
                ON CONFLICT (slug) DO UPDATE SET brief=excluded.brief, updated_at=now()""",

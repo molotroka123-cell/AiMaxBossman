@@ -18,13 +18,24 @@ import json
 from pathlib import Path
 
 from . import ToolContext, ToolDef, ToolResult, clip, register
+from .files import _contains
 from .. import artifacts_engine, file_intel
 
 
 def _resolve(ctx: ToolContext, rel: str) -> Path:
-    """Та же дисциплина, что files._resolve: за workdir не выходим."""
+    """Та же дисциплина, что files._resolve: за workdir не выходим.
+
+    Сдерживание считается ОТНОШЕНИЕМ путей (files._contains), а не префиксом
+    строки. `str.startswith` ошибался дважды:
+      * сосед с общим префиксом имени (workdir `…/coder` считал `…/coder-secrets`
+        «внутри») — тот же дефект, который уже вылечен в files.py;
+      * на Windows сравнение путей регистронезависимо, а `startswith` — нет:
+        `C:\\Work\\coder` и `C:\\work\\coder` один каталог, но не одна строка.
+    Импортируем общую функцию, а не копируем её: копия и разошлась с оригиналом.
+    """
+    root = ctx.workdir.resolve()
     p = (ctx.workdir / rel).resolve()
-    if not str(p).startswith(str(ctx.workdir.resolve())):
+    if not _contains(root, p):
         raise PermissionError(f"путь вне рабочей папки: {rel}")
     return p
 

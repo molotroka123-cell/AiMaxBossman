@@ -10,9 +10,70 @@ Postgres опционально и best-effort (см. pipeline._mirror_db).
 """
 from __future__ import annotations
 
+import math
+import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+
+from .. import errors
+
+# --- инвариант длительности --------------------------------------------------
+#
+# До закрытия VF-004/VF-005 длительность не проверялась НИГДЕ, кроме pydantic-а
+# в routes.py (0 < d <= 120). Библиотечный вход (`VideoFactory.create`) и
+# чекпоинт на диске пропускали что угодно, и это давало сразу два дефекта:
+#   * NaN/inf доезжали до `json.dump`, который пишет НЕстандартные литералы
+#     `NaN`/`Infinity` — такой `job.json` не читается ни одним строгим парсером
+#     (браузер, jq, Go/Rust-клиент), то есть чекпоинт становится нечитаемым для
+#     всех, кроме Python;
+#   * NaN у модели превращался в 0.1 с у рендерера (`max(0.1, nan)` → 0.1), а
+#     duration_s=1e6 запускал ffmpeg без верхней границы и без таймаута.
+# Поэтому длительность нормализуется ОДНОЙ функцией на всех входах.
+MIN_SCENE_DURATION_S = 0.1
+_DEFAULT_MAX_SCENE_DURATION_S = 600.0
+
+
+def max_scene_duration_s() -> float:
+    """Верхняя граница длительности сцены (сек). Оператор может поднять её через
+    `BOSSMAN_VIDEO_MAX_SCENE_S`; мусор в переменной — молча дефолт."""
+    raw = os.getenv("BOSSMAN_VIDEO_MAX_SCENE_S", "").strip()
+    if raw:
+        try:
+            v = float(raw)
+        except ValueError:
+            return _DEFAULT_MAX_SCENE_DURATION_S
+        if math.isfinite(v) and v > 0.0:
+            return v
+    return _DEFAULT_MAX_SCENE_DURATION_S
+
+
+def normalize_duration(value, *, field_name: str = "duration_s") -> float:
+    """Вернуть конечную длительность в [MIN, MAX] или бросить типизированную
+    `errors.ArtifactRejected` (422, не retryable).
+
+    Бросаем, а не подчищаем молча: тихая замена NaN на 0.1 — это ровно то
+    расхождение «модель говорит одно, рендерер делает другое», из-за которого
+    владелец видит успешную сцену не той длительности, что заказывал."""
+    try:
+        d = float(value)
+    except (TypeError, ValueError) as exc:
+        raise errors.ArtifactRejected(
+            f"{field_name} is not a number: {value!r}",
+            extra={"field": field_name},
+        ) from exc
+    if not math.isfinite(d):
+        raise errors.ArtifactRejected(
+            f"{field_name} must be finite, got {d!r}",
+            extra={"field": field_name},
+        )
+    cap = max_scene_duration_s()
+    if d < MIN_SCENE_DURATION_S or d > cap:
+        raise errors.ArtifactRejected(
+            f"{field_name}={d} out of range [{MIN_SCENE_DURATION_S}, {cap}]",
+            extra={"field": field_name, "min": MIN_SCENE_DURATION_S, "max": cap},
+        )
+    return d
 
 
 class JobState(str, Enum):
@@ -50,6 +111,10 @@ class Scene:
     attempts: int = 0
     takes: list[str] = field(default_factory=list)   # все произведённые дубли
     error: str | None = None
+    # Машинный код причины (ErrorCode.value). До VF-003 наружу уезжал только
+    # человеческий текст, а типизированный код оставался в логе — владелец не мог
+    # отличить «провайдер упал» от «результат не прошёл валидацию» без грепа логов.
+    error_code: str | None = None
 
     def to_public(self) -> dict:
         return {
@@ -61,6 +126,7 @@ class Scene:
             "attempts": self.attempts,
             "takes": list(self.takes),
             "error": self.error,
+            "error_code": self.error_code,
         }
 
     @classmethod
@@ -74,6 +140,7 @@ class Scene:
             attempts=int(d.get("attempts", 0)),
             takes=list(d.get("takes", []) or []),
             error=d.get("error"),
+            error_code=d.get("error_code"),
         )
 
 
