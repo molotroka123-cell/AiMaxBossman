@@ -290,4 +290,3 @@ def test_a_journal_deleted_underneath_the_store_is_not_served_from_cache(tmp_pat
     assert store.get(t.id) is not None
     path.unlink()
     assert store.get(t.id) is None and store.list() == []
-
