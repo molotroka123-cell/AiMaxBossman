@@ -247,25 +247,21 @@ async def test_a_screen_goal_completes_when_the_attempt_put_it_there(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_an_unextractable_goal_is_the_known_limit_and_is_named_as_such(tmp_path):
-    """Случай отказа парсера — признанный предел, а не закрытая дыра.
+async def test_an_unextractable_effect_fails_closed_until_a_verifier_exists(tmp_path):
+    """Эффект без проверяемого результата не может автоматически стать COMPLETE."""
+    from bossman.computer_operator.obligations import UnverifiableEffect, extract_obligations
 
-    Цель обещает внешний эффект и НЕ называет проверяемого результата
-    («оплати счёт»). Отличить относящуюся мутацию от посторонней здесь нечем.
-    Требовать изменения экрана тоже нельзя: законный эффект бывает невидимым
-    (запись в фоне, вызов API), и такое требование ломало бы рабочие цели ради
-    видимости строгости. Поэтому остаётся прежнее слабое правило, и AT-01 для
-    таких целей — PARTIAL_FILE_OBLIGATION_CLOSED. Тест фиксирует ИМЕННО это,
-    чтобы предел нельзя было потом пересказать как закрытие.
-    """
-    from bossman.computer_operator.obligations import UnknownEffect, extract_obligations
     assert extract_obligations("оплати счёт") == (
-        UnknownEffect(reason="из цели не извлечён проверяемый результат"),)
+        UnverifiableEffect(reason="из цели не извлечён проверяемый результат"),)
 
     observer = screen("invoice open")
     mgr = make_manager(tmp_path / "t.json",
-                       FakePlanner([typed("x", seeing="invoice"), complete_seeing("invoice")]),
+                       FakePlanner([typed("x", seeing="invoice"), complete_seeing("invoice")] +
+                                   [complete_seeing("invoice")] * 30),
                        observer, adapter=ChangesScreen(observer, "invoice paid"))
     t = mgr.create_task("оплати счёт")
-    # Закрывается по слабому правилу — и это ЗАФИКСИРОВАННЫЙ предел.
-    assert await asyncio.wait_for(mgr.run(t.id), timeout=20) is TaskState.COMPLETED
+    state = await asyncio.wait_for(mgr.run(t.id), timeout=20)
+    row = mgr.store.get(t.id)
+    assert state is not TaskState.COMPLETED
+    assert mgr.completions_refused >= 1
+    assert "не извлечён проверяемый результат" in (row.last_error or "")
