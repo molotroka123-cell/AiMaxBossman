@@ -44,12 +44,22 @@ canonical services elsewhere and are adapted, not reimplemented.
 ## Open items
 
 ```
-OPEN_P0=0 (repo-local)
+OPEN_P0=3 (repo-local)
 OPEN_P1=0 (repo-local)
 FALSE_SUCCESS=0 observed
 DUPLICATE_IRREVERSIBLE_EFFECTS=0 observed
 PRIVATE_EGRESS=NOT_RUN
 ```
+
+The three open P0 items, named rather than counted:
+
+| Id | Hole | Why it is P0 |
+|---|---|---|
+| P0-A | `bossman_shared/objective_canary.py` has **zero production importers** | The canary attestation and its seven bindings are exercised only by tests. Nothing on the real broad-activation path calls `authorize_broad_activation`, so N8's guarantee does not hold outside the suite. |
+| P0-B | `objective_store.set_condition` admits `SATISFIED` on any non-empty `evidence_ref` string | The gate is `type(evidence_ref) is str and evidence_ref.strip()`. It never resolves the reference to a real signed evidence record, so a plausible string satisfies a condition. Scaffolding for the resolved check is in the tree; the check itself is not switched over. |
+| P0-C | AT-01 obligations consisting only of `UnknownEffect` are dropped | A step whose only obligation is unnamed is currently allowed to complete. Requiring a screen change here is wrong — a legitimate effect can be invisible (a background write, an API call) — and no other discriminating signal exists yet, so the honest state is "not finished", not "closed". |
+
+Until all three are closed, `FEATURE_FREEZE_READY=NO`.
 
 ## Intelligence preservation
 
@@ -110,14 +120,18 @@ REMOTE_FLEET=EXPERIMENTAL — unqualified, unchanged by this work
 
 ```
 VERDICT=V5_NOT_COMPLETE
-IMPLEMENTATION_COMPLETE=YES (repo-local, N1-N8)
+IMPLEMENTATION_COMPLETE=NO (3 open P0: see "Open items")
 LOCAL_ACCEPTANCE_COMPLETE=NO
 RELEASE_CERTIFICATION_COMPLETE=NO
+FEATURE_FREEZE_READY=NO
 ```
 
 The V5 runtime spine exists, composes end to end and holds its invariants under
 hostile tests, and N4/N5/N6/N8 are now implemented rather than partial. It is
-still NOT released and standing autonomy is still off. What separates
+still NOT released and standing autonomy is still off. Implementation is not
+complete either: this line previously read `IMPLEMENTATION_COMPLETE=YES` with
+`OPEN_P0=0` while three P0 holes were open in the tree, which was wrong and is
+corrected above. What separates
 implementation from release is unchanged and is not a formality: N0 has not been
 accepted, no retention figure has been measured on a real model, and the soak,
 Windows, egress and Fleet rows have not been run. Nothing in this branch turns
