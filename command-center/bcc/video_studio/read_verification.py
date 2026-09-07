@@ -171,7 +171,20 @@ def _tuple(value):
 
 
 def identity(path):
-    return _tuple(path.stat())
+    # On Windows Path.stat() and fstat() for a HANDLE adopted by the CRT can
+    # expose different metadata encodings for the same file. Comparing those two
+    # representations made a freshly opened, unchanged file fail closed. Re-open
+    # the pathname through the same no-reparse/share-delete descriptor boundary so
+    # both sides use the same identity representation; replacement still changes
+    # the file object, and the mandatory content recheck below covers in-place
+    # same-size rewrites whose Windows timestamps are not a reliable change clock.
+    if os.name != "nt":
+        return _tuple(path.stat())
+    fd, info = open_descriptor(path)
+    try:
+        return _tuple(info)
+    finally:
+        os.close(fd)
 
 
 def descriptor_identity(fd):
