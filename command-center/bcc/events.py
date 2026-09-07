@@ -57,6 +57,15 @@ class EventBus:
                 async with self.db.session() as s:
                     await s.execute(sa.insert(events_t).values(kind=kind, ts=now, data=data))
                     await s.commit()
+            except asyncio.CancelledError:
+                # Fenced-out worker diagnostics happen after authority has already
+                # moved to another worker. On Windows/aiosqlite the cancelled old
+                # worker can surface CancelledError while persisting this diagnostic.
+                # That observation must stay best-effort and must never escape as a
+                # failed zombie execution. For every other event cancellation keeps
+                # its normal control-flow semantics.
+                if kind != "run.fenced_out":
+                    raise
             except Exception:  # история не должна ронять основную работу
                 pass
         self.publish(msg)
