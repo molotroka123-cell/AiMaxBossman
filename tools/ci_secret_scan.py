@@ -37,7 +37,15 @@ PATTERNS = [
     ("aws secret", re.compile(r"(?i)aws_secret_access_key\s*[:=]\s*[\"']?[A-Za-z0-9/+=]{40}\b")),
     ("private key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY(?: BLOCK)?-----")),
     ("wallet seed label", re.compile(r"(?i)\b(?:seed phrase|mnemonic)\b\s*[:=]\s*\S+")),
-    ("obvious password", re.compile(r"(?i)\b(?:password|passwd)\b\s*[:=]\s*[\"'][^\"']{8,}[\"']")),
+    # SEC-004: also match typed/annotated assignments (`master_password: str = "..."`),
+    # not just bare `password = "quoted"` — the leaked vault password evaded the
+    # original pattern precisely because of the `: str` annotation in between.
+    ("obvious password", re.compile(
+        r"(?i)(?:password|passwd)\b\s*(?::\s*[A-Za-z_][A-Za-z0-9_.\[\]]*\s*)?=(?!=)\s*"
+        r"[\"'][^\"']{8,}[\"']")),
+    # SEC-004: unquoted `PASSWORD=value` at the start of a line — the shape used by
+    # .env files, where there are no quotes at all.
+    ("unquoted env password", re.compile(r"(?im)^[A-Z][A-Z0-9_]*(?:PASSWORD|PASSWD)\s*=\s*[^\s\"']{8,}$")),
 ]
 # Энтропия — только для кода и конфигурации; документация/UI-ассеты дают ложные
 # срабатывания на base64-картинках и хешах.
@@ -56,7 +64,10 @@ ENTROPY_CONTEXT_SKIP = re.compile(r"(?i)(sha256|sha1|sha512|blake2|md5|commit|di
                                   r"base64,|data:|nonce|uuid|import |lockfile|integrity|checksum|etag|signature|sig=|"
                                   r"\.gguf|/models/|\.safetensors|\.bin\b)")
 # Слова из естественного языка/кода внутри токена — не случайный секрет.
-DICT_HINT = re.compile(r"(?i)(test|fake|example|sample|placeholder|canary|dummy|token|secret|password|key|value|"
+# SEC-004: "secret"/"password"/"key" были удалены отсюда — реальный утёкший пароль
+# "SuperSecretMasterPass123!" содержит "Secret", и это давало self-skip для
+# энтропийного детектора на самом классе значений, которые как раз нужно ловить.
+DICT_HINT = re.compile(r"(?i)(test|fake|example|sample|placeholder|canary|dummy|value|"
                        r"config|default|bossman|claude|openai|anthropic|redacted|xxxx|0000|aaaa)")
 ALLOW_MARK = "ci-secret-scan: allow"
 MAX_BYTES = 2_000_000
@@ -210,8 +221,39 @@ def tracked_files() -> list[Path]:
         return [p for p in ROOT.rglob("*") if p.is_file()]
 
 
+def untracked_env_files() -> list[Path]:
+    """SEC-004: an untracked .env sitting on disk (not yet `git add`ed) previously
+    escaped the scan entirely because it only walked `git ls-files`. Surface real
+    secrets in it before someone force-adds it or ships the working tree as-is."""
+    try:
+        raw = subprocess.check_output(
+            ["git", "-C", str(ROOT), "ls-files", "-z", "--others", "--exclude-standard"],
+            stderr=subprocess.DEVNULL,
+        )
+        candidates = [ROOT / x for x in raw.decode("utf-8", "replace").split("\0") if x]
+    except Exception:
+        return []
+    out = []
+    for p in candidates:
+        rel = p.as_posix()
+        name = p.name.lower()
+        if name == ".env" or (name.startswith(".env.") and not name.endswith((".example", ".sample", ".template"))):
+            out.append(p)
+    return out
+
+
 def main() -> int:
     findings = scan_paths([p for p in tracked_files() if p.is_file()], ROOT)
+    for p in untracked_env_files():
+        if not p.is_file():
+            continue
+        rel = p.relative_to(ROOT).as_posix()
+        try:
+            text = p.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for item in scan_text(text, rel, entropy=True):
+            findings.append(f"{item} (untracked .env on disk)")
     if findings:
         print("Potential secrets detected:", file=sys.stderr)
         for item in findings:
