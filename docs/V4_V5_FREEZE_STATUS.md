@@ -494,3 +494,30 @@ Materializing the pack by hand (`19180f4`) was the only path, and it is done.
 Nothing was classified as runner noise. Both product regressions were
 reproduced on a clean checkout and both are fixed on this line; PR #48 targets
 `claude/v5-closure-at-reconcile-xdh12f`, so it is the vehicle that lands them.
+
+### P0-0 confirmed by CI on `e8671c0`
+
+The diagnosis is no longer local-only. Every suite that is RED on PR #37 at
+`67905ee` is GREEN on the freeze candidate:
+
+| Suite | PR #37 `67905ee` | PR #48 `e8671c0` |
+|---|---|---|
+| `root pytest + hygiene` py3.11 | FAIL | **success** |
+| `root pytest + hygiene` py3.12 | FAIL | **success** |
+| `pytest rest` py3.11 (Core) | FAIL | **success** |
+| `pytest rest` py3.12 (Core) | FAIL | **success** |
+| `покрытие (неснижаемый порог)` | FAIL | **success** |
+| `measured intelligence retention` | FAIL | FAIL — expected evidence blocker |
+
+Also green on `e8671c0`: `pytest security`, `pytest stage8-14`,
+`pytest gateway-context`, `compile + секреты`, `секреты, JS, запрещённые файлы`,
+`Real media, Web and Fleet` (3.11 and 3.12), `browser-user-paths`,
+`ASTRA portable` on ubuntu-latest and windows-latest, `ASTRA runner recovery`,
+`windows paths (py3.12)`, `safety` 3.11/3.12, `deterministic-benchmark`,
+`anti-dumbness gate contract`, `bossman-core container ships bossman-shared`.
+
+The V2 Auto-Repair red followed the same two root causes, both fixed here.
+
+`measured intelligence retention` remains the single genuine red and is not
+touched: its gate is a file-existence check whose only "fix" is committing the
+report that must not be fabricated.
