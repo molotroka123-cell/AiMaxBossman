@@ -173,6 +173,15 @@ jobs:
           python -m pytest -q --timeout=180 --timeout-method=thread
           tests/test_discovery.py tests/test_feat_terminal_map.py tests/test_diag_bundle.py
           tests/test_plugin_security.py tests/test_secrem_browser_policy.py
-          tests/test_policy_algebra.py tests/test_fence_fl01.py tests/test_finalize_gate.py
-          tests/test_no_direct_completed_writes.py tests/test_v2_poststate_verifiers.py
-          tests/test_login_rate_limit.py tests/test_observability_trace.py
+          tests/test_policy_algebra.py tests/test_fence_fl01.py tests/test_fence_event_cancellation.py
+          tests/test_finalize_gate.py tests/test_no_direct_completed_writes.py
+          tests/test_v2_poststate_verifiers.py tests/test_login_rate_limit.py tests/test_observability_trace.py
+      - name: Windows Video Studio descriptor boundary
+        working-directory: command-center
+        env:
+          BCC_DATA_DIR: ${{ runner.temp }}\bcc-video-data
+        run: >-
+          python -m pytest -q --timeout=180 --timeout-method=thread
+          tests/test_video_descriptor_boundary.py::test_verified_media_body_survives_pathname_replacement
+          tests/test_video_descriptor_boundary.py::test_export_download_survives_pathname_replacement_mid_stream
+          tests/test_video_descriptor_boundary.py::test_export_download_serves_verified_bytes_after_pathname_replacement
