@@ -3,7 +3,8 @@ import asyncio,hashlib,inspect,json,re,threading,time
 from dataclasses import replace
 from .models import ActionKind,ComputerAction,ComputerTask,StepRecord,TaskMode,TaskState
 from ..obs import redact,redact_obj
-from .obligations import FileEffect,UnknownEffect,extract_obligations,screen_text,snapshot,unsatisfied
+from .obligations import (FileEffect,ProbeResult,UnknownEffect,
+                          extract_obligations,screen_text,snapshot,unsatisfied)
 from .policy import ComputerPolicy,authorize_computer_control
 from .store import StaleTaskWrite
 from .verifier import Verifier
@@ -43,6 +44,14 @@ _EFFECT_GOAL=re.compile(
     r"|\.(txt|json|csv|md|py|js|html?|pdf|docx?|xlsx?|pptx?|png|jpe?g|webp|gif|mp4|mov|mkv"
     r"|wav|mp3|zip)\b",
     re.IGNORECASE)
+
+
+def _effect_label(effect):
+    """Как назвать невыполненное обязательство владельцу: путь, надпись, действие."""
+    for attr in ("path","text","phrase","reason"):
+        value=getattr(effect,attr,None)
+        if value:return value
+    return "результат"
 
 
 def goal_requires_external_effect(goal:str)->bool:
@@ -113,7 +122,8 @@ class ComputerOperatorManager:
                  observation_reuse_max_age_s=OBSERVATION_REUSE_MAX_AGE_S,
                  completion_evidence_required=None,observation_fingerprint=None,
                  observe_timeout_s=OBSERVE_TIMEOUT_S,plan_timeout_s=PLAN_TIMEOUT_S,
-                 act_timeout_s=ACT_TIMEOUT_S,obligations_of=None,obligation_probe=None):
+                 act_timeout_s=ACT_TIMEOUT_S,obligations_of=None,obligation_probe=None,
+                 receipts_of=None):
         self.store=store; self.planner=planner; self.observer=observer; self.action_router=action_router
         self.approval_create=approval_create; self.approval_wait=approval_wait; self.event_emit=event_emit
         self.policy=policy or ComputerPolicy(); self.verifier=verifier or Verifier()
@@ -135,6 +145,12 @@ class ComputerOperatorManager:
         # выдавать его отсутствие за выполнение обязательств нельзя.
         self.obligations_of=obligations_of or extract_obligations
         self.obligation_probe=obligation_probe
+        # Порт квитанций: единственная улика для эффекта, которого не видно ни в
+        # файловой системе, ни на экране (вызов API, запись в фоне). None —
+        # квитанций нет, и `UnknownEffect` не закрывается ничем. Порт внешний
+        # потому, что квитанцию обязан выдавать ИСПОЛНИТЕЛЬ: слово планировщика
+        # о собственном успехе — это ровно то, что AT-01 и отвергает.
+        self.receipts_of=receipts_of
         self._prestate={}; self._prescreen={}
         # AT-03: из чего считается подпись применимости наблюдения. Подменяемо для
         # хоста, чей UI-снимок содержит заведомо шумные поля.
@@ -636,56 +652,85 @@ class ComputerOperatorManager:
         Постусловие уже проверено на свежем наблюдении, но пишет его сам
         планировщик по экрану, который сам же прочитал, — «создай файл» честно
         закрывается фразой «desktop». Поэтому цель, обещающая внешний результат,
-        дополнительно требует хотя бы один ПОДТВЕРЖДЁННЫЙ ИЗМЕНЯЮЩИЙ шаг.
+        закрывается только ИМЕННЫМИ обязательствами, и каждое — своей
+        привязанной уликой. Прежнее слабое правило («был хотя бы один
+        подтверждённый изменяющий шаг») здесь больше не живёт: именно оно
+        позволяло посторонней мутации закрыть постороннюю цель.
+
+        Fail-closed по построению: обязательство, которое не удалось ни
+        типизировать (`UnknownEffect`), ни прочитать (файловое без порта), ни
+        извлечь (пустой набор, падение разбора), — это НЕ ВЫПОЛНЕНО.
         Наблюдательная цель («опиши экран») ничего снаружи не обещала и
         закрывается одним проверенным постусловием.
         """
         if not self.completion_evidence_required(t.goal):return None
-        # Именные обязательства проверяются ПЕРВЫМИ и по существу: «какая-то
-        # мутация произошла» не закрывает «создай ЭТОТ файл с ЭТИМ текстом».
         obligations=self._obligations(t)
-        # UnknownEffect — честно признанный предел, а не проверка: цель обещает
-        # результат и не называет его, значит отличить относящуюся мутацию от
-        # посторонней НЕЧЕМ. Блокировать всё подряд здесь означало бы, что
-        # оператор не может закрыть ни «оплати счёт», ни «нажми кнопку», то есть
-        # почти ничего. Вместо этого правило УСИЛЕНО против прежнего: мало того,
-        # что нужен подтверждённый изменяющий шаг, — экран обязан отличаться от
-        # того, что был до попытки. AT-01 для таких целей остаётся PARTIAL, и это
-        # записано в отчёте, а не спрятано.
-        if obligations and all(isinstance(e,UnknownEffect) for e in obligations):
-            # Требовать здесь изменения экрана нельзя: законный эффект бывает
-            # невидимым (запись в фоне, вызов API), и такое требование ломало бы
-            # рабочие цели ради видимости строгости. Остаётся прежнее слабое
-            # правило, и AT-01 для таких целей честно остаётся PARTIAL.
-            obligations=()
-        # Файловые обязательства без порта проверять нечем: возвращаемся к
-        # прежнему (слабому) правилу, а не притворяемся, что проверили.
+        if not obligations:
+            # Пустой набор — не «проверять нечего». Цель уже признана обещающей
+            # внешний результат; классификатор, не назвавший ни одного
+            # обязательства, оставил его непроверяемым, а непроверяемое не
+            # закрывается. Раньше отсюда падало в слабое правило, и «ноль
+            # обязательств» читалось как успех.
+            return ("completion refused: the goal asserts an external effect but no obligation "
+                    "was extracted from it [пустой набор обязательств: проверять нечем]")
         if self.obligation_probe is None:
-            obligations=tuple(e for e in obligations if not isinstance(e,FileEffect))
-        if obligations:
-            missing=unsatisfied(obligations,self.obligation_probe or (lambda e:None),
-                                self._prestate.get(t.id),
-                                (self._prescreen.get(t.id,""),screen_text(t.last_observation)))
-            if missing:
-                detail="; ".join(f"{getattr(e,'path',None) or getattr(e,'text',None) or 'результат'}: {why}"
-                                 for e,why in missing)
-                return ("completion refused: the goal's stated results are not confirmed "
-                        f"by an independent post-state read [{detail}]")
-            return None
-        for step in t.history:
-            if (step.verified is True and step.finished_at is not None
-                    and step.action.kind not in _NON_EFFECT_KINDS):
-                return None
-        return ("completion refused: goal asserts an external effect but no verified "
-                "effect was performed; perform and verify the change before completing")
+            # Файловое обязательство без порта чтения диска непроверяемо. Раньше
+            # оно молча снималось и решало слабое правило; теперь отсутствие
+            # способа прочитать мир — причина отказа, а не разрешение.
+            blind=[e for e in obligations if isinstance(e,FileEffect)]
+            if blind:
+                detail="; ".join(f"{e.path}: нечем прочитать (нет порта файловой проверки)" for e in blind)
+                return ("completion refused: the goal's stated results cannot be read back "
+                        f"independently [{detail}]")
+        missing=unsatisfied(obligations,self.obligation_probe or (lambda e:ProbeResult(False)),
+                            self._prestate.get(t.id),
+                            (self._prescreen.get(t.id,""),screen_text(t.last_observation)),
+                            verified_kinds=self._verified_effect_kinds(t),
+                            receipts=self._receipts(t,obligations))
+        if missing:
+            detail="; ".join(f"{_effect_label(e)}: {why}" for e,why in missing)
+            return ("completion refused: the goal's stated results are not confirmed "
+                    f"by an independent post-state read [{detail}]")
+        return None
+
+    def _verified_effect_kinds(self,t):
+        """Роды ПОДТВЕРЖДЁННЫХ изменяющих шагов этой задачи.
+
+        Годятся только как улика для `ActionEffect` того же рода: цель «нажми
+        кнопку» закрывается подтверждённым нажатием и ничем иным. Ни файловое,
+        ни экранное, ни неизвестное обязательство отсюда улики не получают.
+        """
+        return {step.action.kind for step in t.history
+                if step.verified is True and step.finished_at is not None
+                and step.action.kind not in _NON_EFFECT_KINDS}
+
+    def _receipts(self,t,obligations):
+        """Квитанции исполнителя, ПРИВЯЗАННЫЕ к этой задаче.
+
+        Чужая квитанция (другая задача) и квитанция без ссылки на подтверждение
+        отбрасываются здесь же: иначе «улика» снова стала бы словом. Падение
+        порта — это отсутствие квитанций, а не их наличие.
+        """
+        if self.receipts_of is None:return ()
+        try:raw=tuple(self.receipts_of(t,obligations) or ())
+        except Exception as e:
+            self._emit(t,"receipt_port_error",reason=f"{type(e).__name__}:{e}"[:500]); return ()
+        return tuple(r for r in raw if getattr(r,"task_id",None)==t.id
+                     and (getattr(r,"detail","") or "").strip())
 
     def _obligations(self,t):
-        try:return tuple(self.obligations_of(t.goal) or ())
-        except Exception:
+        try:
+            return tuple(self.obligations_of(t.goal) or ())
+        except Exception as e:
             # Извлечение — эвристика над текстом владельца. Её поломка не имеет
-            # права ни закрыть задачу, ни уронить цикл: возвращаем «именных
-            # обязательств нет» и решает прежнее правило.
-            return ()
+            # права ни закрыть задачу, ни уронить цикл. Раньше она возвращала
+            # «обязательств нет», и решение падало на слабое правило — то есть
+            # ошибка разбора становилась путём к успеху. Теперь поломка сама
+            # является обязательством, которое нечем закрыть.
+            # Именно ИСТОРИЧЕСКИЙ UnknownEffect: он тоже обязан доживать до
+            # завершения как незакрываемое обязательство (раньше менеджер
+            # выбрасывал набор из одних UnknownEffect и падал в слабое правило).
+            return (UnknownEffect(reason=f"разбор цели упал: {type(e).__name__}: {e}"[:200]),)
 
     def _bind_attempt(self,t):
         """Снять состояние обещанных результатов ДО попытки (привязка улики).

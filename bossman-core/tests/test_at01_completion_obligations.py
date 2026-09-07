@@ -15,6 +15,10 @@
 
 Плюс два положительных контроля — без них «всё красное» тоже выглядит как PASS.
 
+Хвост файла (P0-3) закрывает последнюю дыру этого слоя: UnknownEffect. Цель,
+чей результат не удалось ни типизировать, ни прочитать, ни даже извлечь,
+теперь fail-closed — НЕ ВЫПОЛНЕНА, чем бы ни закончились соседние шаги.
+
 Проверка исхода читает НАСТОЯЩИЙ диск: tmp_path, реальные файлы, независимо от
 модели и от экрана.
 """
@@ -247,25 +251,238 @@ async def test_a_screen_goal_completes_when_the_attempt_put_it_there(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_an_unextractable_goal_is_the_known_limit_and_is_named_as_such(tmp_path):
-    """Случай отказа парсера — признанный предел, а не закрытая дыра.
+async def test_an_unextractable_effect_fails_closed_until_a_verifier_exists(tmp_path):
+    """Эффект без проверяемого результата не может автоматически стать COMPLETE.
 
-    Цель обещает внешний эффект и НЕ называет проверяемого результата
-    («оплати счёт»). Отличить относящуюся мутацию от посторонней здесь нечем.
-    Требовать изменения экрана тоже нельзя: законный эффект бывает невидимым
-    (запись в фоне, вызов API), и такое требование ломало бы рабочие цели ради
-    видимости строгости. Поэтому остаётся прежнее слабое правило, и AT-01 для
-    таких целей — PARTIAL_FILE_OBLIGATION_CLOSED. Тест фиксирует ИМЕННО это,
-    чтобы предел нельзя было потом пересказать как закрытие.
+    Раньше здесь стоял «признанный предел»: обязательство молча снималось, и
+    завершение решало прежнее слабое правило — любая подтверждённая мутация
+    закрывала любую цель. Теперь fail-closed с обеих сторон: `extract_obligations`
+    отдаёт отдельный маркер `UnverifiableEffect` (PR #37), а менеджер больше не
+    выбрасывает ни его, ни исторический `UnknownEffect` (P0-3). Закрыть такое
+    обязательство можно только привязанной квитанцией исполнителя — см.
+    положительный контроль ниже, чтобы строгость не выродилась в «никогда не
+    завершается».
     """
-    from bossman.computer_operator.obligations import UnknownEffect, extract_obligations
+    from bossman.computer_operator.obligations import UnverifiableEffect, extract_obligations
+
     assert extract_obligations("оплати счёт") == (
-        UnknownEffect(reason="из цели не извлечён проверяемый результат"),)
+        UnverifiableEffect(reason="из цели не извлечён проверяемый результат"),)
 
     observer = screen("invoice open")
     mgr = make_manager(tmp_path / "t.json",
-                       FakePlanner([typed("x", seeing="invoice"), complete_seeing("invoice")]),
+                       FakePlanner([typed("x", seeing="invoice"), complete_seeing("invoice")] +
+                                   [complete_seeing("invoice")] * 30),
                        observer, adapter=ChangesScreen(observer, "invoice paid"))
     t = mgr.create_task("оплати счёт")
-    # Закрывается по слабому правилу — и это ЗАФИКСИРОВАННЫЙ предел.
-    assert await asyncio.wait_for(mgr.run(t.id), timeout=20) is TaskState.COMPLETED
+    state = await asyncio.wait_for(mgr.run(t.id), timeout=20)
+    row = mgr.store.get(t.id)
+    assert state is not TaskState.COMPLETED
+    assert mgr.completions_refused >= 1
+    assert "не извлечён проверяемый результат" in (row.last_error or "")
+    # Экран за попытку ИЗМЕНИЛСЯ («invoice paid») — и этого по-прежнему мало:
+    # изменение экрана не привязано к обещанию, а квитанции нет.
+    assert "квитанции" in (row.last_error or ""), row.last_error
+
+
+# ==================================================================== P0-3
+# AT-01, UnknownEffect: неизвестный, нетипизируемый или непроверяемый результат
+# закрывает задачу как НЕ ВЫПОЛНЕННУЮ, что бы ни было подтверждено рядом.
+# Улика закрывает ТОЛЬКО то обязательство, к которому она привязана.
+
+from bossman.computer_operator.obligations import (  # noqa: E402  (рядом с тестами P0-3)
+    EffectReceipt, FileEffect, UnknownEffect, UnverifiableEffect)
+
+
+def _receipt_port(adapter, detail="POST /payments -> txn_42", task_id=None):
+    """Порт квитанций исполнителя: выдаёт улику ТОЛЬКО после реального эффекта."""
+    def receipts(task, obligations):
+        if not adapter.executed:
+            return ()
+        return [EffectReceipt(key=o.key(), task_id=task_id or task.id, detail=detail)
+                for o in obligations if isinstance(o, (UnknownEffect, UnverifiableEffect))]
+    return receipts
+
+
+@pytest.mark.asyncio
+async def test_p0_3_unknown_effect_is_not_bought_by_an_unrelated_mutation(tmp_path):
+    """1/6: неизвестный эффект + посторонняя подтверждённая мутация -> НЕ ВЫПОЛНЕНО."""
+    class WritesSomethingElse(FakeAdapter):
+        async def execute(self, a, o):
+            if a.kind is ActionKind.TYPE:
+                (tmp_path / "scratch.txt").write_text("я поработал", encoding="utf-8")
+            return await super().execute(a, o)
+
+    adapter = WritesSomethingElse()
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([typed(), complete()] + [complete()] * 30),
+                       FakeObserver(summary="ok"), adapter=adapter,
+                       obligation_probe=file_probe(tmp_path))
+    state, row = await run(mgr, "оплати счёт")
+    assert state is not TaskState.COMPLETED
+    assert "квитанции" in (row.last_error or ""), row.last_error
+    # Мутация действительно была и действительно подтверждена: отказ пришёл от
+    # обязательства, а не от отсутствия шагов.
+    assert (tmp_path / "scratch.txt").is_file()
+    assert any(s.verified for s in row.history)
+
+
+@pytest.mark.asyncio
+async def test_p0_3_zero_extracted_obligations_are_not_success(tmp_path):
+    """2/6: пустой набор обязательств -> НЕ ВЫПОЛНЕНО, даже если эффект реален.
+
+    Подменный классификатор, вернувший «обязательств нет», не имеет права
+    открыть дверь: «проверять нечего» — это «нечем проверить», а не «успех».
+    """
+    class WritesTheRequestedFile(FakeAdapter):
+        async def execute(self, a, o):
+            if a.kind is ActionKind.TYPE:
+                (tmp_path / "report.txt").write_text("Готово", encoding="utf-8")
+            return await super().execute(a, o)
+
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([typed(), complete()] + [complete()] * 30),
+                       FakeObserver(summary="ok"), adapter=WritesTheRequestedFile(),
+                       obligation_probe=file_probe(tmp_path),
+                       obligations_of=lambda goal: ())
+    state, row = await run(mgr, 'создай файл report.txt с текстом "Готово"')
+    assert state is not TaskState.COMPLETED
+    assert "пустой набор обязательств" in (row.last_error or ""), row.last_error
+    assert (tmp_path / "report.txt").is_file(), "эффект был — отказ пришёл именно от пустого набора"
+
+
+@pytest.mark.asyncio
+async def test_p0_3_a_parser_failure_is_not_swallowed_into_success(tmp_path):
+    """3/6: падение разбора цели -> НЕ ВЫПОЛНЕНО (и цикл не падает)."""
+    def explodes(goal):
+        raise RuntimeError("извлечение обязательств сломалось")
+
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([typed(), complete()] + [complete()] * 30),
+                       FakeObserver(summary="ok"), adapter=FakeAdapter(),
+                       obligation_probe=file_probe(tmp_path), obligations_of=explodes)
+    state, row = await run(mgr, 'создай файл report.txt с текстом "Готово"')
+    assert state is not TaskState.COMPLETED
+    assert "разбор цели упал: RuntimeError" in (row.last_error or ""), row.last_error
+
+
+@pytest.mark.asyncio
+async def test_p0_3_an_invisible_effect_with_a_bound_receipt_completes(tmp_path):
+    """4/6: невидимый эффект (API/фон) + НАСТОЯЩАЯ привязанная квитанция -> ВЫПОЛНЕНО.
+
+    Отрицательный контроль к строгости: fail-closed не должен означать «никогда
+    не завершается». И тут же контроль к самой квитанции — чужая (выданная на
+    другую задачу) не закрывает ничего.
+    """
+    adapter = FakeAdapter()
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([typed(), complete()]),
+                       FakeObserver(summary="ok"), adapter=adapter,
+                       receipts_of=_receipt_port(adapter))
+    state, row = await run(mgr, "оплати счёт")
+    assert state is TaskState.COMPLETED, row.last_error
+
+    # Та же цель, тот же эффект, но квитанция выписана на ЧУЖУЮ задачу.
+    other = FakeAdapter()
+    mgr2 = make_manager(tmp_path / "t2.json",
+                        FakePlanner([typed(), complete()] + [complete()] * 30),
+                        FakeObserver(summary="ok"), adapter=other,
+                        receipts_of=_receipt_port(other, task_id="task_someone_else"))
+    state2, row2 = await run(mgr2, "оплати счёт")
+    assert state2 is not TaskState.COMPLETED, "чужая квитанция закрыла обязательство"
+    assert "квитанции" in (row2.last_error or ""), row2.last_error
+
+
+@pytest.mark.asyncio
+async def test_p0_3_a_browser_effect_with_a_verified_target_state_completes(tmp_path):
+    """5/6: эффект в браузере + подтверждённое целевое состояние -> ВЫПОЛНЕНО."""
+    observer = screen("settings page, light theme")
+
+    class Navigates(FakeAdapter):
+        async def execute(self, a, o):
+            if a.kind is ActionKind.BROWSER:
+                observer.summary = "settings page, Dark mode enabled"
+            return await super().execute(a, o)
+
+    navigate = ComputerAction.make(
+        ActionKind.BROWSER, args={"op": "navigate", "url": "https://example.test/settings"},
+        expected=ExpectedState(contains_text="settings"))
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([navigate, complete_seeing("Dark mode")]),
+                       observer, adapter=Navigates())
+    t = mgr.create_task('открой в браузере настройки и включи тёмную тему "Dark mode"')
+    state = await asyncio.wait_for(mgr.run(t.id), timeout=20)
+    assert state is TaskState.COMPLETED, mgr.store.get(t.id).last_error
+
+
+@pytest.mark.asyncio
+async def test_p0_3_one_unknown_obligation_among_verified_ones_still_refuses(tmp_path):
+    """6/6: несколько обязательств, ОДНО осталось неизвестным -> НЕ ВЫПОЛНЕНО.
+
+    Остальные подтверждены по-настоящему (файл создан и прочитан с диска) — и
+    этого не хватает: улика закрывает только своё обязательство.
+    """
+    obligations = (FileEffect(path="report.txt", contains="Готово"),
+                   UnknownEffect(reason="оплата не названа проверяемо"))
+
+    class WritesTheFile(FakeAdapter):
+        async def execute(self, a, o):
+            if a.kind is ActionKind.TYPE:
+                (tmp_path / "report.txt").write_text("Готово", encoding="utf-8")
+            return await super().execute(a, o)
+
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([typed(), complete()] + [complete()] * 30),
+                       FakeObserver(summary="ok"), adapter=WritesTheFile(),
+                       obligation_probe=file_probe(tmp_path),
+                       obligations_of=lambda goal: obligations)
+    state, row = await run(mgr, 'создай отчёт report.txt с текстом "Готово" и оплати счёт')
+    assert state is not TaskState.COMPLETED
+    err = row.last_error or ""
+    assert "оплата не названа проверяемо" in err, err
+    assert "report.txt: " not in err, "выполненное обязательство не должно значиться невыполненным"
+    assert (tmp_path / "report.txt").read_text(encoding="utf-8") == "Готово"
+
+
+@pytest.mark.asyncio
+async def test_p0_3_a_named_file_obligation_without_a_probe_refuses(tmp_path):
+    """C3: без порта чтения диска именное файловое обязательство НЕПРОВЕРЯЕМО.
+
+    Раньше оно молча выбрасывалось, и решение падало на слабое правило: хост,
+    собравший менеджер без `obligation_probe` (или до того, как порт появился),
+    получал AT-01 выключенным без единого события. Непроверяемое — это отказ.
+    Файл здесь ДЕЙСТВИТЕЛЬНО создаётся: отказ приходит от невозможности
+    прочитать мир независимо, а не от отсутствия эффекта.
+    """
+    class WritesTheRequestedFile(FakeAdapter):
+        async def execute(self, a, o):
+            if a.kind is ActionKind.TYPE:
+                (tmp_path / "report.txt").write_text("Готово", encoding="utf-8")
+            return await super().execute(a, o)
+
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([typed(), complete()] + [complete()] * 30),
+                       FakeObserver(summary="ok"), adapter=WritesTheRequestedFile())
+    assert mgr.obligation_probe is None
+    state, row = await run(mgr, 'создай файл report.txt с текстом "Готово"')
+    assert state is not TaskState.COMPLETED
+    assert "нечем прочитать" in (row.last_error or ""), row.last_error
+    assert (tmp_path / "report.txt").is_file()
+
+
+def test_p0_3_a_mere_input_act_never_absorbs_a_stronger_promise():
+    """Контроль к типизации: механика ввода не «съедает» обещание результата.
+
+    `ActionEffect` закрывается подтверждённым шагом того же рода, поэтому цель,
+    обещающая нечто СВЕРХ нажатия, не имеет права им типизироваться: иначе
+    «открой сайт и купи билет» закрывался бы одним открытием сайта.
+    """
+    from bossman.computer_operator.obligations import (ActionEffect, UnverifiableEffect,
+                                                       extract_obligations)
+    for goal in ("открой сайт и купи билет", "оплати счёт", "save the file",
+                 "open the page and pay the invoice", "включи тёмную тему"):
+        assert extract_obligations(goal) == (
+            UnverifiableEffect(reason="из цели не извлечён проверяемый результат"),), goal
+    # А чистая механика ввода типизируется — иначе строгость превратилась бы в
+    # «ничего никогда не закрывается».
+    for goal in ("click the button", "two clicks", "нажать кнопку", "Открой Блокнот"):
+        assert isinstance(extract_obligations(goal)[0], ActionEffect), goal

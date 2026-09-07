@@ -14,6 +14,8 @@ import asyncio
 
 from bossman.computer_operator.models import (ActionKind, ComputerAction, ExpectedState,
                                               TaskMode, TaskState)
+from bossman.computer_operator.obligations import (EffectReceipt, UnknownEffect,
+                                                   UnverifiableEffect)
 from bossman.computer_operator.wiring import FakeAdapter, FakeObserver, FakePlanner, make_manager
 
 
@@ -119,7 +121,8 @@ class RecordingAdapter(FakeAdapter):
         return await super().execute(a, o)
 
 
-async def _approval_manager(tmp_path, observer, adapter, wait_hook=None, actions=None):
+async def _approval_manager(tmp_path, observer, adapter, wait_hook=None, actions=None,
+                            receipts_of=None):
     created = asyncio.Event()
 
     async def create(kind, preview, tool=None, payload=None):
@@ -133,7 +136,8 @@ async def _approval_manager(tmp_path, observer, adapter, wait_hook=None, actions
 
     planner = FakePlanner(actions if actions is not None else [click(args={"semantic": "pay"}), complete()])
     mgr = make_manager(tmp_path / "t.json", planner,
-                       observer, adapter=adapter, approval_create=create, approval_wait=wait)
+                       observer, adapter=adapter, approval_create=create, approval_wait=wait,
+                       receipts_of=receipts_of)
     return mgr, created
 
 
@@ -142,7 +146,21 @@ async def test_action_after_approval_executes_on_a_fresh_observation(tmp_path):
     наблюдения, снятого после ожидания, а не против снимка до него."""
     observer = ShiftingObserver(change_on_call=99, summary="ok")
     adapter = RecordingAdapter()
-    mgr, created = await _approval_manager(tmp_path, observer, adapter)
+
+    def receipts(task, obligations):
+        # AT-01 (P0-3): «оплати счёт» не называет проверяемого результата, и с
+        # тех пор как UnknownEffect fail-closed, одного подтверждённого клика
+        # для завершения мало. Эффект оплаты невидим ни в файловой системе, ни
+        # на экране, поэтому его подтверждает КВИТАНЦИЯ исполнителя — и только
+        # после того, как эффект действительно был исполнен. Здесь она нужна
+        # ровно затем, чтобы этот тест продолжал проверять СВОЁ (AT-03: акция
+        # исполняется против свежего наблюдения), а не отказ AT-01.
+        if not adapter.executed:
+            return ()
+        return [EffectReceipt(key=o.key(), task_id=task.id, detail="POST /payments -> txn_42")
+                for o in obligations if isinstance(o, (UnknownEffect, UnverifiableEffect))]
+
+    mgr, created = await _approval_manager(tmp_path, observer, adapter, receipts_of=receipts)
     t = mgr.create_task("pay invoice")
     rt = asyncio.create_task(mgr.run(t.id))
     await asyncio.wait_for(created.wait(), 5)
