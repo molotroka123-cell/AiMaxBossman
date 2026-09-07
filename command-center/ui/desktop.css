@@ -46,7 +46,13 @@ body { background: var(--desktop-wallpaper); background-attachment: fixed; }
 @media (min-width: 901px) {
   .shell {
     position: relative; isolation: isolate;
-    margin: 16px 16px 96px; min-height: calc(100dvh - 112px);
+    margin: 16px; min-height: calc(100dvh - 32px);
+    /* Второй ряд сетки — док. Он в потоке, а не поверх контента: на странице
+       длиннее окна fixed-док ложился на превью веб-дизайнера (1280×720) и
+       перехватывал клики, на короткой закрывал последнюю панель. В потоке
+       под ним никогда ничего не рисуется, а страница по-прежнему прокручивает
+       окно (window.scrollTo при смене маршрута работает как раньше). */
+    grid-template-rows: minmax(0, 1fr) auto;
     border: 1px solid var(--line); border-radius: var(--radius-2xl);
     background: var(--desktop-surface); box-shadow: 0 18px 60px #142c6025;
   }
@@ -59,9 +65,11 @@ body { background: var(--desktop-wallpaper); background-attachment: fixed; }
     border-radius: inherit; background: var(--desktop-surface); pointer-events: none;
   }
   .sidebar {
-    top: 16px; height: calc(100dvh - 112px); background: transparent;
+    grid-row: 1; top: 16px; height: calc(100dvh - 32px - var(--dock-row, 84px));
+    background: transparent;
     border-radius: var(--radius-2xl) 0 0 var(--radius-2xl);
   }
+  .main { grid-row: 1; }
   .topbar {
     top: 16px; background: var(--desktop-surface);
     border-radius: 0 var(--radius-2xl) 0 0; min-height: 62px;
@@ -69,8 +77,8 @@ body { background: var(--desktop-wallpaper); background-attachment: fixed; }
   .view { padding: var(--space-6); }
   .desktop-dock {
     display: flex; align-items: center; justify-content: center; gap: 6px;
-    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
-    z-index: 45; padding: 7px; max-width: calc(100vw - 32px);
+    grid-row: 2; grid-column: 1 / -1; justify-self: center;
+    margin: 0 16px 14px; padding: 7px; max-width: calc(100vw - 64px);
     border: 1px solid var(--line); border-radius: var(--radius-xl);
     background: var(--desktop-surface); box-shadow: var(--shadow-float);
   }
@@ -85,11 +93,11 @@ body { background: var(--desktop-wallpaper); background-attachment: fixed; }
     background: var(--accent-soft); border-color: var(--accent-line);
   }
   .desktop-dock-item.active { box-shadow: inset 0 -3px var(--accent); }
-  body .bx-cmd { bottom: 96px; max-height: calc(100dvh - 125px); overflow-y: auto; }
+  body .bx-cmd { bottom: 24px; max-height: calc(100dvh - 60px); overflow-y: auto; }
   /* Video Studio считает высоту от окна, а не от оболочки (рамка 16px, шапка
      62px, отступы 24px, полоса дока 96px): при 1440×900 студия была на
      ~110px выше доступного места и таймлайн уходил под док. */
-  .view .vs-studio { height: calc(100dvh - 250px); min-height: 640px; }
+  .view .vs-studio { height: calc(100dvh - 254px); min-height: 640px; }
   @supports (backdrop-filter: blur(16px)) {
     .shell { background: transparent; }
     .shell::before, .desktop-dock { background: var(--desktop-glass); backdrop-filter: blur(16px); }

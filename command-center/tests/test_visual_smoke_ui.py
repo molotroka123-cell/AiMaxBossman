@@ -10,9 +10,11 @@
 * документ не прокручивается по горизонтали:
   `documentElement.scrollWidth <= clientWidth + 1`;
 * основная навигация существует и видима (боковая панель на десктопе);
-* настольный док действительно закреплён у нижнего края ОКНА, а не уехал за
-  экран (регресс: backdrop-filter на .shell делал её containing block для
-  position: fixed — на длинных страницах док оказывался на y ≈ 8000).
+* настольный док стоит в потоке ПОД содержимым, а не поверх него: ни один
+  пиксель `#view` не лежит под доком (регресс в обе стороны: backdrop-filter
+  на .shell делал её containing block для position: fixed — док уезжал на
+  y ≈ 8000 и закрывал последнюю панель; fixed-док, наоборот, ложился на превью
+  веб-дизайнера при 1280×720 и перехватывал клики).
 
 Порог «крупные элементы не уходят за правый край»: любая кнопка/поле внутри
 `#view`, чей правый край дальше ширины окна, — падение.
@@ -50,7 +52,7 @@ JS_STRUCTURE = """() => {
     children: view.childElementCount, skeleton: !!view.querySelector('.skeleton'),
     navVisible: visible(nav) && nav.querySelectorAll('.nav-item').length > 0,
     dockVisible: visible(dock),
-    dockInViewport: dockRect ? (dockRect.top >= 0 && dockRect.bottom <= window.innerHeight + 1) : null,
+    dockBelowView: dockRect ? (dockRect.top >= view.getBoundingClientRect().bottom - 1) : null,
     offRight: offRight.slice(0, 6),
   };
 }"""
@@ -90,8 +92,8 @@ def test_every_route_is_structurally_sound(live, width, height):  # noqa: F811
                     failures.append(f"{rid}@{width}: горизонтальная прокрутка документа {s['scrollWidth']} > {s['clientWidth']}")
                 if not s["navVisible"]:
                     failures.append(f"{rid}@{width}: нет основной навигации (#nav .nav-item)")
-                if not s["dockVisible"] or s["dockInViewport"] is False:
-                    failures.append(f"{rid}@{width}: настольный док не виден в окне")
+                if not s["dockVisible"] or s["dockBelowView"] is False:
+                    failures.append(f"{rid}@{width}: настольный док отсутствует или лежит поверх #view")
                 if s["offRight"]:
                     failures.append(f"{rid}@{width}: элементы за правым краем {s['offRight']}")
         finally:
@@ -101,10 +103,11 @@ def test_every_route_is_structurally_sound(live, width, height):  # noqa: F811
     assert not failures, "\n".join(failures)
 
 
-def test_dock_stays_fixed_when_page_scrolls(live):  # noqa: F811
-    """Отрицательный контроль для регресса containing block: на самой длинной
-    странице (Навыки, десятки карточек) после прокрутки вниз док остаётся
-    у нижнего края окна, а не «ездит» вместе с оболочкой."""
+def test_dock_never_covers_content_and_is_reachable(live):  # noqa: F811
+    """Отрицательный контроль: на самой длинной странице (Навыки) док не лежит
+    ни на одном элементе #view до прокрутки, а после прокрутки в конец
+    страницы он целиком виден в окне — то есть его нельзя потерять и он не
+    перехватывает клики по содержимому."""
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as pw:
@@ -114,13 +117,22 @@ def test_dock_stays_fixed_when_page_scrolls(live):  # noqa: F811
             _login(page, live)
             routes = {r["id"]: r for r in page.evaluate("window.__bxPages")}
             _open_route(page, live, routes["skills"])
-            before = page.evaluate("document.getElementById('desktop-dock').getBoundingClientRect().bottom")
+            probe = """() => {
+              const d = document.getElementById('desktop-dock').getBoundingClientRect();
+              const v = document.getElementById('view').getBoundingClientRect();
+              const cx = d.left + d.width / 2, cy = d.top + d.height / 2;
+              const hit = (cy >= 0 && cy <= innerHeight) ? document.elementFromPoint(cx, cy) : null;
+              return { dockTop: d.top, dockBottom: d.bottom, viewBottom: v.bottom, inner: innerHeight,
+                       hitInDock: hit ? !!hit.closest('#desktop-dock') : null };
+            }"""
+            before = page.evaluate(probe)
+            assert before["dockTop"] >= before["viewBottom"] - 1, before
             page.evaluate("window.scrollTo(0, document.documentElement.scrollHeight)")
             page.wait_for_timeout(150)
-            scrolled = page.evaluate("window.scrollY")
-            after = page.evaluate("document.getElementById('desktop-dock').getBoundingClientRect().bottom")
-            assert scrolled > 200, "страница «Навыки» должна быть длиннее 768px — иначе проверка ничего не проверяет"
-            assert 0 < before <= 768 and 0 < after <= 768, (before, after)
-            assert abs(before - after) < 2, f"док сдвинулся при прокрутке: {before} → {after}"
+            assert page.evaluate("window.scrollY") > 200, "страница «Навыки» должна быть длиннее 768px — иначе проверка ничего не проверяет"
+            after = page.evaluate(probe)
+            assert 0 <= after["dockTop"] and after["dockBottom"] <= after["inner"] + 1, after
+            assert after["hitInDock"] is True, after
+            assert after["dockTop"] >= after["viewBottom"] - 1, after
         finally:
             browser.close()

@@ -23,15 +23,21 @@ design work starts from measured facts rather than impressions.
 2. **Two landing pages** (`home` and `home-v3`), both titled «Главная»; `command`
    (phone console) and `control` (owner console) are both titled «Пульт». Navigation
    needs one landing, one console, distinct titles.
-3. **The desktop dock is app-level navigation** (6 apps). After the containing-block fix
-   it is really fixed; V6 should decide whether the dock and the sidebar «Основное» group
-   duplicate each other (today they do for Главная/Приложения/Video Studio/Веб-дизайн).
+3. **The desktop dock is app-level navigation** (6 apps). It now lives in the flow at the
+   bottom of the shell frame (never over content, reachable by scrolling), because a
+   viewport-fixed dock overlays content on any page taller than the window — at 1280×720
+   it covered the Web Designer preview and swallowed clicks. If V6 wants an always-visible
+   dock it needs an app-frame model: the main column scrolls internally and the dock has
+   its own reserved band — which also requires resetting the inner scroll on route change
+   (today `window.scrollTo(0)` in `app.js`). V6 should also decide whether the dock and the
+   sidebar «Основное» group duplicate each other (today they do for Главная/Приложения/
+   Video Studio/Веб-дизайн).
 4. **Video Studio and the mission console bring their own type/colour scales**
    (`video_studio.css`: 9–12px text, own dark palette; `console2030.css`: 10px labels).
    Both sit below the 11px floor used elsewhere. V6 must either lift them to the shared
    scale or explicitly declare them «dense professional surfaces» with their own floor.
 5. **Height budget on desktop:** shell frame 16px, topbar 62px, testing banner 44px (when
-   recording), view padding 24px, dock band 96px → ~240px of chrome. Full-height tools
+   recording), view padding 24px, dock row 84px → ~240px of chrome. Full-height tools
    (Video Studio, Web Designer editor, terminal output) must size from the shell, not from
    `100vh`. At 1366×768 only ~520px remain — V6 should define a compact desktop mode
    (smaller dock, collapsible testing banner).
