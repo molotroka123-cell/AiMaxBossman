@@ -27,7 +27,8 @@ from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
 from ..v2 import scratch
 from ..v2.tables import terminal_sessions as term_t
-from ..v2.terminal_control import TerminalManager, TerminalPolicy, within
+from ..v2.terminal_control import (TerminalManager, TerminalPolicy, _is_single_command,
+                                   auto_patterns, within)
 from . import Feature
 
 ROOTS_KEY = "terminal.roots"
@@ -56,6 +57,35 @@ ASK_EXTRA = [
     (re.compile(r"(?i)\bdocker\s+compose\s+(?:up|down|restart)\b"), "управление сервисами"),
     (re.compile(r"(?i)\b(?:sudo|runas|su\s+-)\b"), "повышение прав"),
 ]
+
+# Read/build-список песочницы. Он ДОПОЛНЯЕТ AUTO_PATTERNS рантайма
+# (bcc/v2/terminal_control) — те же git status/diff/log/show, pytest, npm
+# test/run — теми читающими и сборочными командами, без которых агент утонул
+# бы в подтверждениях на ровном месте. Всё, чего здесь нет, идёт к владельцу.
+SANDBOX_AUTO_EXTRA = [
+    # `env` в списке нет намеренно: `env rm -rf /work` — это запуск чужой
+    # команды с подменённым окружением, а не чтение. Показать окружение
+    # умеет printenv.
+    re.compile(r"(?i)^(?:ls|pwd|whoami|id|date|uname|printenv|df|du|tree)\b"),
+    re.compile(r"(?i)^(?:cat|head|tail|wc|file|stat|echo|grep|rg|diff)\s"),
+    re.compile(r"(?i)^(?:npm|pnpm|yarn)\s+ci\b"),
+    re.compile(r"(?i)^(?:python|python3|py)\s+-m\s+(?:pytest|unittest|compileall)\b"),
+    re.compile(r"(?i)^(?:ruff|flake8|black|isort|mypy|pylint|eslint|tsc)\b"),
+    re.compile(r"(?i)^make\s+(?:build|test|lint|check)\b"),
+    re.compile(r"(?i)^(?:cargo|go)\s+(?:build|test|vet|fmt)\b"),
+]
+# AUTO_PATTERNS матчатся без конца-якоря, поэтому «начинается с безопасного»
+# ещё не значит «безопасна целиком». Chaining/подстановку ловит
+# _is_single_command рантайма (он же стоит на project_host); перенаправление
+# добавлено здесь: `echo x > /work/db.sqlite` читающей командой не является.
+_SANDBOX_REDIRECT = re.compile(r"[<>]")
+
+
+def sandbox_auto_ok(command: str) -> bool:
+    """True — команда в явном read/build-списке песочницы и идёт AUTO."""
+    if not command or not _is_single_command(command) or _SANDBOX_REDIRECT.search(command):
+        return False
+    return any(p.search(command) for p in (*auto_patterns(), *SANDBOX_AUTO_EXTRA))
 
 
 def _mgr(svc) -> TerminalManager:
@@ -102,7 +132,7 @@ def extra_ask_reason(command: str) -> str:
     return ""
 
 
-async def _resolve_cwd(ctx, args: dict) -> tuple[Path, list[Path]]:
+async def _resolve_cwd(ctx, args: dict, *, create_scratch: bool = True) -> tuple[Path, list[Path]]:
     """Рабочий каталог вызова: workspace задачи → аргумент → корень по умолчанию.
     Выход за разрешённые корни — забота политики, здесь только вычисление.
 
@@ -112,10 +142,27 @@ async def _resolve_cwd(ctx, args: dict) -> tuple[Path, list[Path]]:
     roots = await _roots(ctx.svc)
     raw = args.get("cwd") or ctx.workspace or (str(roots[0]) if roots else ".")
     if str(raw).strip() == SCRATCH_ALIAS:
-        return scratch.ensure(scratch.for_context(ctx)), roots
+        own = scratch.for_context(ctx)
+        return (scratch.ensure(own) if create_scratch else own.resolve()), roots
     # F-009: резолвим ДО авторизации — symlink/junction/../ и кодированные
     # варианты сравниваются с корнями уже как канонический путь.
     return Path(raw).expanduser().resolve(), roots
+
+
+async def _run_context_deny(args: dict, ctx) -> str | None:
+    """Read current roots before ASK; no mkdir/chmod/process or new authority.
+
+    _tool_run repeats ownership/root checks at the actual effect boundary. A
+    successful preflight is not a capability and cannot survive a later revoke.
+    """
+    cwd, roots = await _resolve_cwd(ctx, args, create_scratch=False)
+    own = scratch.for_context(ctx)
+    blocked = scratch.violation(ctx.svc.settings, own, cwd)
+    if blocked:
+        return blocked
+    if not within(cwd, roots) and not within(cwd, [own]):
+        return "terminal.run: cwd вне разрешённых корней; подтверждение не предоставит доступ"
+    return None
 
 
 def normalize_run_args(args: dict) -> dict:
@@ -298,15 +345,22 @@ def _run_effect(args: dict) -> tuple[str, str] | None:
     # A project-host command crosses the container boundary.  A granted
     # capability may enable the tool, but must never turn arbitrary host shell
     # execution into AUTO; only the persisted owner approval may do that.
-    if args.get("mode") == "project_host":
+    mode = str(args.get("mode") or "sandbox")       # нет режима => песочница
+    if mode == "project_host":
         return "ask", "host shell always requires owner approval"
-    if args.get("mode") == "system_admin":
+    if mode == "system_admin":
         return "ask", "режим system_admin"
-    # Читающие команды (git status/diff/log, pytest, npm test, линт, сборка)
-    # ничем не ужесточаются: они идут AUTO, если агенту выдано право
-    # terminal.run. Без права ASK остаётся на всё — это и есть безопасный
-    # дефолт, а не оговорка.
-    return None
+    # Песочница — тоже deny-by-default, а не «всё, что не поймали». Контейнер
+    # монтирует рабочий каталог владельца НА ЗАПИСЬ (`-v {cwd}:/work`), поэтому
+    # `rm -rf /work`, `git clean -xfd`, `find /work -delete`, `dd of=/work/...`
+    # стирали настоящий проект, не совпав ни с HARD_DENY, ни с ASK_EXTRA, и
+    # уходили в auto. Теперь AUTO только для явного read/build-списка.
+    if sandbox_auto_ok(command):
+        # Читающие команды (git status/diff/log, pytest, npm test, линт,
+        # сборка) ничем не ужесточаются: они идут AUTO, если агенту выдано
+        # право terminal.run. Без права ASK остаётся на всё.
+        return None
+    return "ask", "команда песочницы вне read/build-списка"
 
 
 SPECS = [
@@ -327,7 +381,7 @@ SPECS = [
         },
         required=["command"], category="exec", permission="terminal.run", source="terminal",
         default_effect="ask", timeout_seconds=300.0, idempotent=False, external_output=True,
-        effect_hook=_run_effect, normalize_args=normalize_run_args),
+        effect_hook=_run_effect, normalize_args=normalize_run_args, context_deny=_run_context_deny),
     ToolSpec(name="terminal.status",
              description="Состояние и вывод ранее запущенной команды по session_id.",
              handler=_tool_status,

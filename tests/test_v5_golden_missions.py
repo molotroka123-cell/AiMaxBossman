@@ -594,3 +594,131 @@ def test_a_forged_signature_downgrades_a_verified_mission_to_unknown(tmp_path):
         mission_id="m-1", reservation_id="r-1")
     assert result.condition == "UNKNOWN", result.reason
     assert store.get(state.objective_id).condition == "UNKNOWN"
+
+
+# ------------------------------------------------- расход бюджета цели (D1/D2)
+
+
+def test_a_committed_reservation_actually_spends_the_objective_budget(tmp_path):
+    """Лимиты цели должны РАСХОДОВАТЬСЯ, а не только проверяться.
+
+    `claim_admission` сверяется с `missions_used`/`cost_usd_used`/
+    `wall_seconds_used`, но списывать их было некому: `record_mission_usage` не
+    звал никто, кроме восстановления после падения. Счётчики стояли на нуле, и
+    цель с лимитом в одну миссию допускала сколько угодно.
+    """
+    artifact = tmp_path / "build" / "app.bin"
+    artifact.parent.mkdir()
+    store, spec, state = activated(tmp_path)
+    observer = observer_for(state, spec, artifact)
+    records = deviating_batch(store, state, observer)
+    proposal = propose(store, state, records, target=str(artifact))
+    decision = kernel(treasury=Treasury(), conflicts=Conflicts()).admit(store, proposal, now=NOW)
+    assert decision.admitted, decision.reason
+
+    before = store.get(state.objective_id)
+    assert (before.missions_used, before.cost_usd_used, before.wall_seconds_used) == (0, 0.0, 0.0)
+
+    settled = store.settle_reservation(decision.reservation_id, "COMMITTED")
+    estimate = store_reservation_estimate(store, decision.reservation_id)
+    assert settled.missions_used == 1
+    assert settled.cost_usd_used == pytest.approx(estimate["cost_usd"])
+    assert settled.wall_seconds_used == pytest.approx(estimate["wall_seconds"])
+    # Не «ноль как измеренный ноль»: списанное совпадает с зарезервированным.
+    assert estimate["cost_usd"] > 0 and estimate["wall_seconds"] > 0
+
+
+def store_reservation_estimate(store, reservation_id):
+    import json as _json
+    import sqlite3 as _sqlite3
+    con = _sqlite3.connect(store.path)
+    try:
+        row = con.execute("SELECT payload FROM v5_reservations WHERE reservation_id=?",
+                          (reservation_id,)).fetchone()
+    finally:
+        con.close()
+    return _json.loads(row[0])["estimate"]
+
+
+def test_the_mission_limit_actually_stops_admission(tmp_path):
+    """Сквозная проверка: после исчерпания лимита следующая заявка НЕ проходит."""
+    artifact = tmp_path / "build" / "app.bin"
+    artifact.parent.mkdir()
+    store, spec, state = activated(tmp_path)
+    observer = observer_for(state, spec, artifact)
+    admitted = 0
+    for attempt in range(6):
+        state = store.get(state.objective_id)
+        records = deviating_batch(store, state, observer, now=NOW + attempt)
+        proposal = propose(store, state, records, target=str(artifact),
+                           now=NOW + attempt)
+        if proposal is None:
+            break
+        decision = kernel(treasury=Treasury(), conflicts=Conflicts()).admit(
+            store, proposal, now=NOW + attempt)
+        if not decision.admitted:
+            break
+        admitted += 1
+        store.settle_reservation(decision.reservation_id, "COMMITTED")
+    limit = spec_dict()["limits"]["max_missions"]
+    assert admitted <= limit, (
+        f"допущено {admitted} миссий при лимите {limit}: бюджет не расходуется")
+    assert store.get(state.objective_id).missions_used == admitted
+    assert admitted > 0, "предпосылка теста: хотя бы одна миссия должна проходить"
+
+
+def test_recovery_charges_the_reserved_estimate_not_zero(tmp_path):
+    """Восстановление читало стоимость и время ПЛОСКО, а лежат они внутри
+    `estimate`: зачтённый после падения эффект стоил «ноль долларов и ноль
+    секунд»."""
+    artifact = tmp_path / "build" / "app.bin"
+    artifact.parent.mkdir()
+    store, spec, state = activated(tmp_path)
+    observer = observer_for(state, spec, artifact)
+    records = deviating_batch(store, state, observer)
+    proposal = propose(store, state, records, target=str(artifact))
+    decision = kernel(treasury=Treasury(), conflicts=Conflicts()).admit(store, proposal, now=NOW)
+    assert decision.admitted
+    estimate = store_reservation_estimate(store, decision.reservation_id)
+
+    artifact.write_bytes(b"built")            # эффект применён, процесс упал до settle
+    report = recover(store, state.objective_id, now=NOW + 60,
+                     is_effect_applied=lambda reservation: "APPLIED")
+    assert [o.disposition for o in report.outcomes] == ["COMMITTED"]
+    after = store.get(state.objective_id)
+    assert after.missions_used == 1
+    assert after.cost_usd_used == pytest.approx(estimate["cost_usd"])
+    assert after.wall_seconds_used == pytest.approx(estimate["wall_seconds"])
+    assert after.cost_usd_used > 0, "зачтённый эффект не может стоить ноль"
+
+
+def test_a_settled_reservation_is_charged_exactly_once(tmp_path):
+    """Повторное закрытие отвергается, поэтому двойного списания быть не может."""
+    from bossman_shared.objective_store import ObjectiveStoreError
+
+    artifact = tmp_path / "build" / "app.bin"
+    artifact.parent.mkdir()
+    store, spec, state = activated(tmp_path)
+    observer = observer_for(state, spec, artifact)
+    records = deviating_batch(store, state, observer)
+    proposal = propose(store, state, records, target=str(artifact))
+    decision = kernel(treasury=Treasury(), conflicts=Conflicts()).admit(store, proposal, now=NOW)
+    charged = store.settle_reservation(decision.reservation_id, "COMMITTED")
+    with pytest.raises(ObjectiveStoreError):
+        store.settle_reservation(decision.reservation_id, "COMMITTED")
+    again = store.get(state.objective_id)
+    assert (again.missions_used, again.cost_usd_used) == (charged.missions_used,
+                                                          charged.cost_usd_used)
+
+
+def test_a_released_reservation_spends_nothing(tmp_path):
+    """Отпущенная бронь — не выполненная миссия. Списывать по ней нечего."""
+    artifact = tmp_path / "build" / "app.bin"
+    artifact.parent.mkdir()
+    store, spec, state = activated(tmp_path)
+    observer = observer_for(state, spec, artifact)
+    records = deviating_batch(store, state, observer)
+    proposal = propose(store, state, records, target=str(artifact))
+    decision = kernel(treasury=Treasury(), conflicts=Conflicts()).admit(store, proposal, now=NOW)
+    released = store.settle_reservation(decision.reservation_id, "RELEASED")
+    assert (released.missions_used, released.cost_usd_used, released.wall_seconds_used) == (0, 0.0, 0.0)

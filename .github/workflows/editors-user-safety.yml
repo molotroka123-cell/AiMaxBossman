@@ -1,0 +1,86 @@
+name: Editors user safety
+on:
+  push:
+    branches: [claude/bossman-control-v03-43igbk, fix/editor-user-baseline-20260906]
+    paths:
+      - 'command-center/**'
+      - 'bossman-core/**'
+      - 'bossman_shared/**'
+      - '.github/workflows/editors-user-safety.yml'
+  pull_request:
+    paths:
+      - 'command-center/**'
+      - 'bossman-core/**'
+      - 'bossman_shared/**'
+      - '.github/workflows/editors-user-safety.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: editors-user-safety-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  browser-user-paths:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install declared packages, browser and media runtime
+        run: |
+          python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
+          python -m playwright install --with-deps chromium
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg
+      - name: Record actual source and isolated evidence paths
+        shell: python
+        run: |
+          import json,os,pathlib,platform,subprocess
+          root=pathlib.Path.cwd()
+          output=pathlib.Path(os.environ['RUNNER_TEMP'])/'editors-user-proof'
+          output.mkdir()
+          sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          assert sha==os.environ['GITHUB_SHA']
+          (output/'manifest.json').write_text(json.dumps({'tested_sha':sha,
+              'tree':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),
+              'platform':platform.platform(),'python':platform.python_version(),
+              'tier':'REAL_BROWSER_TESTER','owner_windows':'NOT_RUN',
+              'local_model':'NOT_RUN','human_comparison':'NOT_RUN'},indent=2))
+          with open(os.environ['GITHUB_ENV'],'a') as env:
+              env.write('PYTHONPATH='+os.pathsep.join(map(str,[root,root/'bossman-core',root/'command-center']))+'\n')
+      - name: Real UI changes, playing video, verified downloads, fresh-process restart
+        env:
+          BCC_REQUIRE_BROWSER: '1'
+          BOSSMAN_EDITOR_EVIDENCE_DIR: ${{ runner.temp }}/editors-user-proof
+        run: >-
+          python -m pytest -c command-center/pyproject.toml
+          command-center/tests/test_editors_user_acceptance.py
+          command-center/tests/test_web_designer_sandbox_ui.py
+          command-center/tests/test_web_designer_viewport.py
+          -q --junitxml=${{ runner.temp }}/editors-user-proof/results.xml
+      - name: No silently skipped baseline
+        shell: python
+        run: |
+          import os,pathlib,xml.etree.ElementTree as ET
+          root=ET.parse(pathlib.Path(os.environ['RUNNER_TEMP'])/'editors-user-proof/results.xml').getroot()
+          suites=list(root.iter('testsuite'))
+          assert sum(int(s.get('tests','0')) for s in suites)>=5
+          for key in ('failures','errors','skipped'):
+              assert sum(int(s.get(key,'0')) for s in suites)==0,key
+      - name: Registry, secrets and unchanged source
+        run: |
+          python tools/skips_registry.py --check
+          python tools/ci_secret_scan.py
+          git diff --exit-code
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: editors-user-proof-${{ github.sha }}
+          path: ${{ runner.temp }}/editors-user-proof/
+          if-no-files-found: error
+          retention-days: 7

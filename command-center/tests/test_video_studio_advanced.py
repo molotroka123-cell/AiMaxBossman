@@ -1,6 +1,7 @@
 from copy import deepcopy
 from pathlib import Path
 import math
+import shutil
 import random
 import struct
 import wave
@@ -13,7 +14,11 @@ from bcc.video_studio.analysis import (analyse_media,silence_keep_ranges,scene_r
     autoframe,scope_media,hardware_probe,track_object)
 from .test_video_studio_render import fixture_media,document,rgb,tracked_fixture
 
+needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"),
+                                  reason="real FFmpeg binaries required")
 
+
+@needs_ffmpeg
 @pytest.mark.asyncio
 @pytest.mark.parametrize('nested',[False,True])
 async def test_long_reverse_disk_proxy_actual_pixels_audio_cache_and_pure_project(tmp_path,nested):
@@ -51,6 +56,7 @@ async def test_long_reverse_disk_proxy_actual_pixels_audio_cache_and_pure_projec
         assert proxy['metadata']['reverse_recipe']['chunks']>=7 and cache[0].stat().st_mtime_ns==before
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 async def test_measured_scene_silence_drive_only_evidenced_ranges(tmp_path):
     red=await fixture_media(tmp_path,'red');blue=await fixture_media(tmp_path,'blue')
@@ -80,6 +86,7 @@ def audio_fixture(path,silence_prefix=0,constant=False):
         stream.writeframes(struct.pack('<'+'h'*len(samples),*samples))
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 @pytest.mark.skipif(not Path('C:/Python314/python.exe').is_file(),reason='optional local NumPy runtime absent')
 async def test_audio_multicam_correlation_actual_offset_and_ambiguous_refusal(tmp_path):
@@ -104,6 +111,7 @@ def test_autoframe_measured_coordinates_and_interpolation_bounds():
     assert result['evidence']['max_interpolation_error_pixels']==2
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 @pytest.mark.parametrize('kind',['waveform','histogram','vectorscope'])
 async def test_actual_scope_artifact(kind,tmp_path):
@@ -114,12 +122,14 @@ async def test_actual_scope_artifact(kind,tmp_path):
     assert result['source_sha256']==media['sha256']
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 async def test_actual_encoder_probe_and_bad_parameters():
     assert (await hardware_probe(320,180,'libx264'))['available']
     with pytest.raises(ValueError):await hardware_probe(321,180,'libx264')
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 async def test_long_audio_only_reverse_proxy(tmp_path):
     source=tmp_path/'audio.wav'
@@ -131,6 +141,7 @@ async def test_long_audio_only_reverse_proxy(tmp_path):
     assert proxy['metadata']['reverse_recipe']['chunks']==2
 
 
+@needs_ffmpeg
 @pytest.mark.asyncio
 @pytest.mark.skipif(not Path('C:/Python314/python.exe').is_file(),reason='optional local CV runtime absent')
 async def test_actual_tracking_autoframe_render_keeps_moving_subject_centered(tmp_path):

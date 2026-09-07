@@ -311,11 +311,11 @@ def test_cell_during_finalization(tmp_path, monkeypatch):
     armed = {"on": True}
     original = TaskJournal._save_locked
 
-    def die_on_close(self):
+    def die_on_close(self, **kwargs):
         # Die exactly while the CLOSING record is being made durable.
         if armed["on"] and any(s.status == "DONE" for s in self.steps):
             raise Crash("DURING_FINALIZATION")
-        return original(self)
+        return original(self, **kwargs)
 
     monkeypatch.setattr(TaskJournal, "_save_locked", die_on_close)
     _, exc = c.run()

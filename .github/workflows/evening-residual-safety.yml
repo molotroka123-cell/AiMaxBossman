@@ -1,0 +1,69 @@
+name: Evening residual safety (not live acceptance)
+on:
+  push:
+    branches: [claude/bossman-control-v03-43igbk]
+    paths:
+      - 'bossman-core/bossman/learning_guard/evidence_ledger.py'
+      - 'bossman-core/bossman/computer_operator/manager.py'
+      - 'bossman-core/tests/test_evidence_ledger_hostile.py'
+      - 'bossman-core/tests/test_operator_recovery_owner_state.py'
+      - '.github/workflows/evening-residual-safety.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: evening-residual-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  safety:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Record exact source and isolated import paths
+        shell: python
+        run: |
+          import json,os,pathlib,platform,subprocess
+          root=pathlib.Path.cwd()
+          out=root/'safety-results';out.mkdir()
+          sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          assert sha==os.environ['GITHUB_SHA']
+          (out/'manifest.json').write_text(json.dumps({'sha':sha,'platform':platform.platform(),'python':platform.python_version(),'tier':'REAL_COMPONENT','live_ui':'NOT_RUN'}),encoding='utf-8')
+          with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as f:
+              f.write('PYTHONPATH='+os.pathsep.join(map(str,[root,root/'bossman-core',root/'command-center']))+'\n')
+      - name: Install declared packages
+        run: python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev]'
+      - name: Actual processes, durable evidence, owner recovery and affected regressions
+        run: >-
+          python -m pytest
+          bossman-core/tests/test_evidence_ledger_hostile.py
+          bossman-core/tests/test_learning_evidence_ledger.py
+          bossman-core/tests/test_operator_recovery_owner_state.py
+          bossman-core/tests/test_computer_operator_recovery.py
+          bossman-core/tests/test_computer_operator_owner_control.py
+          bossman-core/tests/test_stage13_operator_redteam.py
+          bossman-core/tests/test_apprentice_learning.py
+          bossman-core/tests/test_pass3_autonomy_trainer.py
+          bossman-core/tests/audit001 -q --timeout=45
+          --junitxml=safety-results/results.xml
+      - name: Secret scan and whitespace
+        run: |
+          python tools/ci_secret_scan.py
+          git diff --check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evening-safety-${{ matrix.os }}-${{ github.sha }}
+          path: safety-results/
+          if-no-files-found: error
+          retention-days: 7

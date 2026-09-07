@@ -56,7 +56,8 @@ async def _handler(name,args,ctx):
         media=project["media"].get(args.get("media_id"))
         if not media:
             raise ValueError("media must first be attached using owner upload")
-        await video.media_file(project["id"],media["id"])
+        # Verification only: release the descriptor, no body is served here.
+        (await video.media_file(project["id"],media["id"]))[0].close()
         if name=="media.import":
             value=await video.command({"project_id":project["id"],"expected_revision":args["expected_revision"],
                 "operation_id":args["operation_id"],"command":{"type":"media.import","media":media}},
@@ -73,7 +74,7 @@ async def _handler(name,args,ctx):
             await ctx.svc.engine.stop(value["task_id"])
             value=await video.job(args["job_id"])
         elif name=="output.verify":
-            await video.verified_output(args["job_id"])
+            (await video.verified_output(args["job_id"])).close()
     elif name in ("captions.transcribe","media.analyse"):
         _project(args,ctx)
         value=await video.analysis({**args,"action":"transcribe" if name=="captions.transcribe" else args.get("action","analyse")})

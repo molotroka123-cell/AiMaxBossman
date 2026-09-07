@@ -11,7 +11,9 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import re
+import shutil
 import uuid
 
 from .. import errors, obs
@@ -21,13 +23,38 @@ from . import ToolContext, ToolDef, ToolResult, clip, register
 _log = obs.get_logger("bossman.toolkit.shell")
 
 
+def _host_shell_prefix() -> list[str]:
+    """Чем запускать команду НА ХОСТЕ (режим local). POSIX — как было, `sh -c`.
+
+    На Windows `sh` нет вообще: стоковая система знает cmd.exe, и argv
+    `["sh", "-c", ...]` даёт не «команду без юникс-утилит», а FileNotFoundError
+    на КАЖДЫЙ вызов run/tests. Развилка — та же, что в
+    bcc/v2/terminal_control.py::host_shell: если в PATH есть `sh` (он приходит с
+    Git for Windows и стоит почти у всех, кто работает с git) — берём его, и
+    команды агентов работают как на боевом Linux; нет — честно `%COMSPEC% /c`,
+    а не отказ.
+
+    Выбор интерпретатора не имеет отношения к тому, РАЗРЕШЕНА ли команда:
+    гейты SANDBOX_MODE/BOSSMAN_UNSAFE_LOCAL_EXEC стоят выше и не трогаются.
+    Оговорка про cmd.exe: он не разбирает argv по правилам CRT, поэтому команда
+    с кавычками может доехать искажённой — путь Git-Bash от этого свободен.
+    """
+    if os.name != "nt":
+        return ["sh", "-c"]
+    sh = shutil.which("sh")
+    if sh:
+        return [sh, "-lc"]
+    return [os.environ.get("COMSPEC") or "cmd.exe", "/c"]
+
+
 def _build_command(cmd: str, ctx: ToolContext) -> list[str]:
     """Собрать argv исполнителя либо отказать (fail closed).
 
     docker  → контейнер без сети, смонтирован только workdir; `cmd` попадает
               внутрь ЕДИНСТВЕННЫМ аргументом `sh -lc` контейнера — хостовый
               шелл строку не видит вообще (argv-only дисциплина Этапа 8);
-    local   → хостовый `sh -c`, БЕЗ изоляции: только при BOSSMAN_UNSAFE_LOCAL_EXEC=1;
+    local   → хостовый шелл (`sh -c`; на Windows — Git-Bash `sh -lc` либо
+              `%COMSPEC% /c`), БЕЗ изоляции: только при BOSSMAN_UNSAFE_LOCAL_EXEC=1;
     иное    → PolicyDenied.
     """
     mode = (settings.sandbox_mode or "").strip().lower()
@@ -44,7 +71,7 @@ def _build_command(cmd: str, ctx: ToolContext) -> list[str]:
         # Разработческий режим и он ЗНАЕТ, что он разработческий: пусть это видно
         # в журнале, а не только в .env, о котором через месяц никто не вспомнит.
         _log.warning("exec без изоляции: SANDBOX_MODE=local + BOSSMAN_UNSAFE_LOCAL_EXEC=1")
-        return ["sh", "-c", cmd]
+        return [*_host_shell_prefix(), cmd]
     raise errors.PolicyDenied(
         f"неизвестный SANDBOX_MODE={settings.sandbox_mode!r}: ожидается docker или local")
 
@@ -75,7 +102,10 @@ async def run(args: dict, ctx: ToolContext) -> ToolResult:
     log_id = uuid.uuid4().hex[:8]
     log_path = ctx.workdir / "assets" / "logs" / f"{log_id}.txt"
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_path.write_text(out)
+    # Вывод subprocess'а — не наш текст: utf-8 фиксируем явно (на русской
+    # Windows дефолт cp1251 не кодирует рамки/стрелки pytest'а), а errors=
+    # "replace" спасает от одиночного суррогата в чужом выводе.
+    log_path.write_text(out, encoding="utf-8", errors="replace")
     body, cut1 = _head_tail(out)
     body, cut2 = clip(body, 3000)
     body = f"код выхода: {code}\n{body}"
@@ -92,7 +122,10 @@ async def tests(args: dict, ctx: ToolContext) -> ToolResult:
     log_id = uuid.uuid4().hex[:8]
     log_path = ctx.workdir / "assets" / "logs" / f"tests-{log_id}.txt"
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_path.write_text(out)
+    # Вывод subprocess'а — не наш текст: utf-8 фиксируем явно (на русской
+    # Windows дефолт cp1251 не кодирует рамки/стрелки pytest'а), а errors=
+    # "replace" спасает от одиночного суррогата в чужом выводе.
+    log_path.write_text(out, encoding="utf-8", errors="replace")
     failed = re.findall(r"(?m)^(?:FAILED|ERROR) (\S+)", out)
     tail = out.splitlines()[-3:]
     summary = ["итог: " + (" / ".join(tail) if tail else f"код {code}")]

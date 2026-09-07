@@ -174,13 +174,21 @@ async def test_reuse_off_takes_a_fresh_observation_for_every_step(tmp_path):
     assert mgr.observations_reused == 0
 
 
-async def test_an_expired_observation_is_never_reused(tmp_path):
+async def test_an_expired_observation_is_never_reused(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from bossman.computer_operator import manager as manager_module
     observer = FakeObserver(summary="ok")
-    mgr = _reuse_manager(tmp_path, observer, max_age=1e-9)
-    t = mgr.create_task("two clicks")
-    assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
-    assert len(observer.generations) == 5
-    assert mgr.observations_reused == 0
+    mgr = _reuse_manager(tmp_path, observer, max_age=5.0)
+    task = mgr.create_task("two clicks")
+    obs = await observer.observe(generation=task.generation)
+    # Patch only this module's clock reference; never the asyncio timeout clock.
+    now = [100.0]
+    monkeypatch.setattr(manager_module, "time", SimpleNamespace(monotonic=lambda: now[0]))
+    reusable = (obs, task.generation, now[0])
+    assert mgr._reuse(reusable, task) is obs
+    now[0] += 5.001
+    assert mgr._reuse(reusable, task) is None
+    assert mgr.observations_reused == 1
 
 
 async def test_a_failed_verification_forces_a_fresh_observation(tmp_path):

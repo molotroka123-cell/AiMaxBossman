@@ -27,3 +27,13 @@ def _fresh_evidence_ledger():
     reset_default_ledger()
     yield
     reset_default_ledger()
+
+
+@pytest.fixture(autouse=True)
+def _real_workload_corpus_in_tmp(tmp_path, monkeypatch):
+    """Телеметрия реальных нагрузок пишется автоматически на терминальной границе
+    исполнения. Корпус владельца тесты не трогают: иначе прогон suite превратился
+    бы в «реальные нагрузки» и отравил бы аудит железа выдуманными выборками."""
+    from bossman_v3.execution import telemetry
+    monkeypatch.setenv(telemetry.ENV_ROOT, str(tmp_path / "benchmarks"))
+    yield

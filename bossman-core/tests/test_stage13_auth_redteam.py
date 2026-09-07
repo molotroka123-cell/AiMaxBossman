@@ -813,7 +813,7 @@ async def test_c5_pause_between_approval_and_execution_blocks_action(tmp_path):
     # Pause, so the task stays PAUSED (and resumable) instead of being relabelled
     # FAILED by the system. An owner command is not a system failure.
     assert t2.state is TaskState.PAUSED and "stale" in (t2.last_error or "").lower()
-    assert t2.pending_action is None
+    assert not t2.terminal and t2.pending_action is None and t2.steps_used == 0
     assert mgr.resume(t.id).state is TaskState.RECOVERING
 
 
@@ -839,11 +839,13 @@ async def test_c6_stale_pending_action_id_mismatch_blocks_action(tmp_path):
     assert t2.state is TaskState.FAILED and "stale" in (t2.last_error or "").lower()
 
 
-@pytest.mark.parametrize("op", ["take_control", "stop"])
-async def test_c7_operator_invalidation_between_approval_and_execution(tmp_path, op):
-    """Любая операторская инвалидация (take_control/stop — они bump'ают
-    generation и чистят pending) в окне между approve и исполнением блокирует
-    акцию: generation теперь токен инвалидации."""
+@pytest.mark.parametrize("op,terminal", [("take_control", "USER_CONTROL"), ("pause", "PAUSED"), ("stop", "CANCELLED")])
+async def test_c7_operator_invalidation_between_approval_and_execution(tmp_path, op, terminal):
+    """Owner invalidation prevents the approved action without erasing control.
+
+    Stop is terminal CANCELLED; Pause and Take control remain resumable owner
+    states. All preserve zero effects, no success and the stale diagnosis.
+    """
     from bossman.computer_operator.models import TaskState
 
     mgr, router, _ = _manager(tmp_path, [_pay_action()], ({"status": "approved"}, None))
@@ -860,8 +862,11 @@ async def test_c7_operator_invalidation_between_approval_and_execution(tmp_path,
     assert router.executed == []
     # BUG-OPERATOR-CONTROL-001: the invalidation still blocks the approved action
     # and still records why. The task now carries the state the OWNER set rather
-    # than a system FAILED: take_control stays resumable, stop stays cancelled.
-    assert t2.state is (TaskState.USER_CONTROL if op == "take_control" else TaskState.CANCELLED)
+    # than a system FAILED: take_control and pause stay resumable, stop stays cancelled.
+    assert t2.state is getattr(TaskState, terminal)
+    assert t2.state is not TaskState.COMPLETED
+    assert t2.terminal == (op == "stop")
+    assert t2.steps_used == 0
     assert t2.pending_action is None
     assert "stale" in (t2.last_error or "").lower()
 

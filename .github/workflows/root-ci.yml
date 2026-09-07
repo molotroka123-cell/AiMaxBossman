@@ -21,13 +21,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - name: Install test deps (no secrets, no network services)
         run: |
           python -m pip install --quiet -e .
-          python -m pip install --quiet pytest pytest-timeout psutil httpx
+          # pyyaml: корневой набор проверяет разбор OLLAMA_HOST в bossman.gateway.config,
+          # а тот читает YAML-настройку. Ставится ровно этот пакет, а не весь
+          # bossman-core: задание намеренно остаётся без сервисов и секретов.
+          python -m pip install --quiet pytest pytest-timeout psutil httpx pyyaml
       - name: Root suite (learning layer, shared cache contracts, context slicer, tools)
         run: python -m pytest tests -q --durations=10 --timeout=120 --timeout-method=signal
       - name: README Live Scorecard is current (README_SCORECARD_CURRENT)

@@ -374,12 +374,12 @@ async def test_recover_all_mid_approval_does_not_auto_resume(tmp_path):
     recovered = mgr.recover_all()
     assert [x.id for x in recovered] == [t.id]
     z = mgr.store.get(t.id)
-    assert z.state is TaskState.RECOVERING
+    assert z.state is TaskState.PAUSED
     assert z.pending_action is None and z.waiting_approval_id is None
     assert z.generation == 1
     fut.set_result({"status": "approved"})
     state = await asyncio.wait_for(rt, 5)
-    assert state is TaskState.FAILED
+    assert state is TaskState.PAUSED
     assert adapter.executed == []
     assert mgr.store.get(t.id).steps_used == 0
 

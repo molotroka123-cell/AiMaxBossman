@@ -316,6 +316,50 @@ def render_markdown(case: dict) -> str:
     return "\n".join(lines)
 
 
+# Ожидание чужого лока: столько же, сколько держит бюджетный ledger.
+_LOCK_TIMEOUT_S = 30.0
+
+
+def _acquire_file_lock(fh) -> None:
+    """Advisory-лок на весь файл: fcntl.flock на POSIX, msvcrt.locking на Windows.
+
+    Ветку выбирает os.name, а НЕ `except ImportError`: fcntl импортируется и там,
+    где он не нужен, и Windows-путь так никогда не проверяется. Windows-специфика
+    (эталон — bossman_shared/fable_budget.py::_CrossProcessFileLock):
+      * msvcrt.locking запирает байт ОТ ТЕКУЩЕГО смещения, а файл открыт на
+        дозапись — без seek(0) каждый процесс запирал бы свой байт и «лока» не
+        было бы вовсе;
+      * LK_LOCK ждёт 10×1с и БРОСАЕТ, а не блокирует как flock, поэтому здесь
+        неблокирующий LK_NBLCK в цикле с общим дедлайном.
+    """
+    if os.name != "nt":
+        import fcntl
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+        return
+    import msvcrt
+    deadline = time.monotonic() + _LOCK_TIMEOUT_S
+    while True:
+        try:
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+            return
+        except OSError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.05)
+
+
+def _release_file_lock(fh) -> None:
+    """Снятие — симметрично захвату, тем же смещением и на Windows тоже."""
+    if os.name != "nt":
+        import fcntl
+        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+        return
+    import msvcrt
+    fh.seek(0)
+    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+
+
 class ConflictError(RuntimeError):
     """CAS: ожидаемая версия записи не совпала с текущей."""
 
@@ -362,21 +406,16 @@ class LearningStore:
     def _locked(self):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         lock_path = self.data_dir / ".lock"
-        fh = open(lock_path, "a+")
+        # "a+b": у лок-файла нет содержимого, значит нет и повода зависеть от
+        # кодировки локали хоста.
+        fh = open(lock_path, "a+b")
         try:
+            _acquire_file_lock(fh)
             try:
-                import fcntl
-                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
-            except ImportError:            # Windows: msvcrt
-                import msvcrt
-                msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
-            yield
+                yield
+            finally:
+                _release_file_lock(fh)
         finally:
-            try:
-                import fcntl
-                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
-            except ImportError:
-                pass
             fh.close()
 
     # ------------------------------------------------------------ write

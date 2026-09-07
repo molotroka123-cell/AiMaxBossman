@@ -69,14 +69,14 @@ def test_repo_map_rebuilds_on_modified_file_under_same_head(tmp_path):
     assert second["cache"] == "miss" and second["sha"] == head
     assert second["fingerprint"] != first["fingerprint"]
     assert second["files"]["pkg/d.py"]["sha256"] != first["files"]["pkg/d.py"]["sha256"]
-    assert second["files"]["pkg/d.py"]["sha256"] == hashlib.sha256(b"Y = 3\n").hexdigest()[:16]
+    assert second["files"]["pkg/d.py"]["sha256"] == hashlib.sha256((root / "pkg" / "d.py").read_bytes()).hexdigest()[:16]
 
     (root / "pkg" / "d.py").write_text("Y = 2\n", encoding="utf-8")   # откат — прежний отпечаток
     back = repo_map(root, cache_dir=cache)
     assert back["cache"] == "hit" and back["fingerprint"] == first["fingerprint"]
 
 
-def test_fingerprint_changes_on_add_delete_rename_untracked_symlink(tmp_path):
+def test_fingerprint_changes_on_add_delete_rename_untracked(tmp_path):
     root = _git_repo(tmp_path)
     seen = {"clean": worktree_fingerprint(root)}
     assert worktree_fingerprint(root) == seen["clean"]            # детерминизм
@@ -91,15 +91,27 @@ def test_fingerprint_changes_on_add_delete_rename_untracked_symlink(tmp_path):
     seen["deleted"] = worktree_fingerprint(root)
     _git(root, "mv", "pkg/d.py", "pkg/dd.py")                              # rename
     seen["renamed"] = worktree_fingerprint(root)
-    os.symlink("pkg/a.py", root / "link.py")                               # symlink → a
-    seen["symlink_a"] = worktree_fingerprint(root)
-    os.unlink(root / "link.py")
-    os.symlink("pkg/b.py", root / "link.py")                               # тот же путь, другая цель
-    seen["symlink_b"] = worktree_fingerprint(root)
-
     values = list(seen.values())
-    assert len(set(values)) == len(values), seen                          # все состояния различимы
+    assert len(set(values)) == len(values), seen
     assert all(len(v) == 40 for v in values)
+
+
+def test_fingerprint_changes_on_symlink_retarget(tmp_path):
+    """Only this case needs link privileges; add/edit/delete/rename always run."""
+    root = _git_repo(tmp_path)
+    seen = [worktree_fingerprint(root)]
+    try:
+        os.symlink("pkg/a.py", root / "link.py")
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip("SKIP_HOST: Windows account lacks symlink creation privilege")
+        raise
+    seen.append(worktree_fingerprint(root))
+    os.unlink(root / "link.py")
+    os.symlink("pkg/b.py", root / "link.py")
+    seen.append(worktree_fingerprint(root))
+    assert len(set(seen)) == len(seen)
+    assert all(len(v) == 40 for v in seen)
 
 
 def test_concurrent_edits_to_different_files_are_distinguished(tmp_path):
@@ -110,7 +122,7 @@ def test_concurrent_edits_to_different_files_are_distinguished(tmp_path):
     base = repo_map(root, cache_dir=cache)["fingerprint"]
     (root / "pkg" / "a.py").write_text("def fa():\n    return 1\n", encoding="utf-8")
     fa = worktree_fingerprint(root)
-    (root / "pkg" / "b.py").write_text("def fb():\n    return 2\n", encoding="utf-8")
+    (root / "pkg" / "b.py").write_text("from pkg import c\n\ndef fb():\n    return 2\n", encoding="utf-8")
     fab = repo_map(root, cache_dir=cache)
     (root / "pkg" / "a.py").write_text("from pkg import b\n\ndef fa():\n    return b.fb()\n", encoding="utf-8")
     fb = worktree_fingerprint(root)
@@ -207,7 +219,7 @@ def test_failing_test_slice_is_depth_bounded_and_hashed(tmp_path):
 
 
 def test_real_secrem_test_slice_is_a_small_fraction_of_the_app(tmp_path):
-    """Измерение (не оценка): срез для реального SECREM-теста против всего bcc."""
+    """Измерение (не оценка): срез для реального SECREМ-теста против всего bcc."""
     sl = failing_test_slice(CC, CC / "tests" / "test_secrem_f015_self_assert.py", depth=2)
     full = repo_map(CC, "measure", cache_dir=tmp_path / "bossman-map-test")
     ratio = sl["total_tokens"] / full["total_tokens"]
