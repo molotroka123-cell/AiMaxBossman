@@ -21,8 +21,12 @@ Invariants carried by the schema rather than by caller discipline:
   never reset by a revision: standing work would otherwise buy a fresh budget
   by editing the spec.
 * Condition (SATISFIED/DEVIATED/UNKNOWN) is separate from lifecycle, and
-  SATISFIED is only writable together with a fresh verified evidence reference.
-  Bookkeeping rows are not world-state proof.
+  SATISFIED is only writable together with an evidence reference that RESOLVES
+  to a durable signed record bound to this objective, this condition, this spec
+  digest and revision, a producing run, this applicability and an open freshness
+  window (`bossman_shared.objective_evidence`). A non-empty string is not a
+  reference: `"x"` is non-empty, and that is exactly how green used to be
+  settable by model prose. Bookkeeping rows are not world-state proof.
 * Proposal insertion and reservation are once-only at the database, not in
   Python: a crash between check and write cannot admit the same proposal twice.
 
@@ -37,9 +41,12 @@ import json
 import math
 from pathlib import Path
 import sqlite3
+import time
 
 from bossman_shared.sqlite_connection import OwnedConnection
 from typing import Any, Mapping
+
+from . import objective_evidence as _condition_evidence
 
 from .objective_spec import (
     LIFECYCLES,
@@ -129,6 +136,29 @@ CREATE TABLE IF NOT EXISTS v5_canary_reports (
   at REAL NOT NULL,
   FOREIGN KEY(run_id) REFERENCES v5_canary_runs(run_id));
 CREATE INDEX IF NOT EXISTS v5_canary_reports_run ON v5_canary_reports(run_id);
+-- Долговременные улики условия (P0-2). Добавляется идемпотентным DDL, как и все
+-- остальные таблицы этого файла: существующая база доезжает до новой схемы при
+-- первом открытии, ничего не теряя. Подписанное тело лежит в `record`, а
+-- колонки — его зеркало: расхождение между ними считается порчей.
+CREATE TABLE IF NOT EXISTS v5_condition_evidence (
+  evidence_id TEXT PRIMARY KEY,
+  objective_id TEXT NOT NULL,
+  condition TEXT NOT NULL,
+  spec_digest TEXT NOT NULL,
+  revision INTEGER NOT NULL,
+  owner_id TEXT NOT NULL,
+  scope_id TEXT NOT NULL,
+  lifecycle TEXT NOT NULL,
+  run_id TEXT NOT NULL,
+  minted_at REAL NOT NULL,
+  fresh_until REAL NOT NULL,
+  single_use INTEGER NOT NULL DEFAULT 0,
+  uses INTEGER NOT NULL DEFAULT 0,
+  last_used_at REAL,
+  revoked_at REAL,
+  record TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS v5_condition_evidence_objective
+  ON v5_condition_evidence(objective_id);
 """
 
 
@@ -250,6 +280,34 @@ class ObjectiveStore:
                 raise ObjectiveStoreError(
                     f"objective store written by a newer schema ({row['value']}); "
                     "roll the runtime forward rather than downgrading the record")
+            self._retire_unresolvable_green(con)
+
+    @staticmethod
+    def _retire_unresolvable_green(con: sqlite3.Connection) -> None:
+        """Legacy SATISFIED rows written before the gate drop to UNKNOWN on open.
+
+        A database written by the old build could carry `condition='SATISFIED'`
+        with any string at all in `last_verified_evidence_ref` — that was the
+        defect. Leaving those rows green would mean the fix protects only new
+        writes while the record keeps asserting a green nobody can re-check.
+
+        The test is deliberately clock-free: only a reference that is not even
+        an evidence reference (`oev1:<32 hex>`) is retired. A row whose
+        reference parses was written through the resolver, so its condition
+        stands here and is re-resolved at the next write instead. Idempotent:
+        the second open finds nothing left to retire.
+        """
+        rows = con.execute(
+            "SELECT objective_id,last_verified_evidence_ref FROM v5_objectives "
+            "WHERE condition='SATISFIED'").fetchall()
+        stale = [r["objective_id"] for r in rows
+                 if _condition_evidence.parse_ref(r["last_verified_evidence_ref"]) is None]
+        for objective_id in stale:
+            con.execute(
+                "UPDATE v5_objectives SET condition='UNKNOWN',version=version+1 "
+                "WHERE objective_id=? AND condition='SATISFIED'", (objective_id,))
+            ObjectiveStore._log(con, objective_id, "condition",
+                                "UNKNOWN:legacy_evidence_is_not_resolvable")
 
     def _connect(self) -> sqlite3.Connection:
         con = sqlite3.connect(self.path, timeout=30, isolation_level="IMMEDIATE", factory=OwnedConnection)
@@ -510,26 +568,220 @@ class ObjectiveStore:
         return replace(state, observations_used=state.observations_used + count,
                        last_observation_at=observed_at, version=expected_version + 1)
 
-    def set_condition(self, objective_id: str, condition: str, *,
-                      evidence_ref: str | None, expected_version: int) -> ObjectiveRuntimeState:
-        """Write the objective's health, gated on evidence for SATISFIED.
+    # --------------------------------------------------- condition evidence
 
-        SATISFIED without a verified evidence reference is refused at the store,
-        not merely discouraged upstream: green must never be settable by model
-        prose, and a bookkeeping row is not proof about the world.
+    def record_condition_evidence(
+            self, objective_id: str, *, condition: str, run_id: str,
+            ttl_seconds: float = _condition_evidence.DEFAULT_TTL_SECONDS,
+            single_use: bool = False, observation_digests: tuple[str, ...] = (),
+            detail: str = "", now: float | None = None,
+            signer: str = _condition_evidence.DEFAULT_SIGNER,
+            evidence_key: bytes | None = None) -> str:
+        """Mint one durable, signed, bound evidence record and return its ref.
+
+        The bindings are taken from the objective's CURRENT durable row, never
+        from the minter's claims: a caller cannot mint evidence for a revision,
+        an owner or a lifecycle that is not the one actually recorded. The ref
+        this returns is the only thing `set_condition` will accept for
+        SATISFIED, and it stops being accepted the moment any of those bindings
+        moves underneath it.
+
+        `run_id` names the mission/reservation that produced the observation. If
+        it names a reservation this store knows, that reservation must belong to
+        this objective — a run from a different objective proves nothing here.
         """
         if condition not in CONDITIONS:
             raise ObjectiveStoreError("unsupported condition")
-        if condition == "SATISFIED" and not (type(evidence_ref) is str and evidence_ref.strip()):
-            raise ObjectiveStoreError("SATISFIED requires a verified evidence reference")
+        if (type(ttl_seconds) not in (int, float) or type(ttl_seconds) is bool
+                or not math.isfinite(ttl_seconds) or ttl_seconds <= 0):
+            raise ObjectiveStoreError("evidence freshness window must be a positive number")
+        minted_at = time.time() if now is None else now
+        if (type(minted_at) not in (int, float) or type(minted_at) is bool
+                or not math.isfinite(minted_at)):
+            raise ObjectiveStoreError("evidence mint time must be a finite number")
+        evidence_id = _condition_evidence.new_evidence_id()
+        with self._connect() as con:
+            row = con.execute("SELECT * FROM v5_objectives WHERE objective_id=?",
+                              (objective_id,)).fetchone()
+            if row is None:
+                raise ObjectiveStoreError(f"unknown objective {objective_id}")
+            state = _row_state(row)
+            reservation = con.execute(
+                "SELECT objective_id FROM v5_reservations WHERE reservation_id=?",
+                (run_id,)).fetchone()
+            if reservation is not None and reservation["objective_id"] != objective_id:
+                raise ObjectiveStoreError(
+                    "producing run belongs to a different objective")
+            try:
+                payload = _condition_evidence.binding_payload(
+                    evidence_id=evidence_id, objective_id=state.objective_id,
+                    condition=condition, spec_digest=state.spec_digest,
+                    revision=state.revision, owner_id=state.owner_id,
+                    scope_id=state.scope_id, lifecycle=state.lifecycle, run_id=run_id,
+                    minted_at=float(minted_at), fresh_until=float(minted_at) + float(ttl_seconds),
+                    single_use=single_use, observation_digests=tuple(observation_digests),
+                    detail=detail)
+                record = _condition_evidence.mint_record(payload, signer=signer,
+                                                         key=evidence_key)
+            except (_condition_evidence.ConditionEvidenceError, ValueError) as exc:
+                raise ObjectiveStoreError(f"evidence cannot be minted: {exc}") from exc
+            con.execute(
+                "INSERT INTO v5_condition_evidence(evidence_id,objective_id,condition,"
+                "spec_digest,revision,owner_id,scope_id,lifecycle,run_id,minted_at,fresh_until,"
+                "single_use,uses,last_used_at,revoked_at,record) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0,NULL,NULL,?)",
+                (evidence_id, record["objective_id"], record["condition"],
+                 record["spec_digest"], record["revision"], record["owner_id"],
+                 record["scope_id"], record["lifecycle"], record["run_id"],
+                 record["minted_at"], record["fresh_until"],
+                 1 if record["single_use"] else 0, _dumps(record)))
+            self._log(con, objective_id, "evidence_minted", f"{condition}:{evidence_id[:12]}")
+        return _condition_evidence.make_ref(evidence_id)
+
+    def revoke_condition_evidence(self, evidence_ref: str, *, reason: str = "",
+                                  now: float | None = None) -> None:
+        """Withdraw an evidence record. Revocation is sticky and immediate."""
+        evidence_id = _condition_evidence.parse_ref(evidence_ref)
+        if evidence_id is None:
+            raise ObjectiveStoreError("not an objective evidence reference")
+        at = time.time() if now is None else float(now)
+        with self._connect() as con:
+            row = con.execute("SELECT objective_id FROM v5_condition_evidence WHERE evidence_id=?",
+                              (evidence_id,)).fetchone()
+            if row is None:
+                raise ObjectiveStoreError("unknown evidence reference")
+            con.execute("UPDATE v5_condition_evidence SET revoked_at=COALESCE(revoked_at,?) "
+                        "WHERE evidence_id=?", (at, evidence_id))
+            self._log(con, row["objective_id"], "evidence_revoked",
+                      f"{evidence_id[:12]}:{str(reason)[:200]}")
+
+    def condition_evidence(self, evidence_ref: str) -> dict[str, Any] | None:
+        """The durable evidence row, for auditing. Reading never consumes it."""
+        evidence_id = _condition_evidence.parse_ref(evidence_ref)
+        if evidence_id is None:
+            return None
+        with self._connect() as con:
+            row = con.execute("SELECT * FROM v5_condition_evidence WHERE evidence_id=?",
+                              (evidence_id,)).fetchone()
+        if row is None:
+            return None
+        out = dict(row)
+        try:
+            out["record"] = json.loads(out["record"])
+        except (TypeError, ValueError):
+            out["record"] = None
+        out["single_use"] = bool(out["single_use"])
+        out["evidence_ref"] = _condition_evidence.make_ref(evidence_id)
+        return out
+
+    # Зеркало подписанного тела в колонках. Расходится — значит кто-то правил
+    # базу мимо чеканщика, и это порча, а не «почти та же улика».
+    _EVIDENCE_MIRROR = (("objective_id", str), ("condition", str), ("spec_digest", str),
+                        ("revision", int), ("owner_id", str), ("scope_id", str),
+                        ("lifecycle", str), ("run_id", str), ("minted_at", float),
+                        ("fresh_until", float))
+
+    def _resolve_condition_evidence(self, con: sqlite3.Connection, evidence_ref: Any, *,
+                                    condition: str, state: ObjectiveRuntimeState,
+                                    now: float, evidence_key: bytes | None) -> str:
+        """Resolve, verify, bind and consume one evidence record, or refuse.
+
+        Every exit that is not the last line is a refusal. Ambiguity of any kind
+        — an unparsable ref, an unknown id, a broken signature, a binding that
+        moved, an expired or revoked or spent record — refuses SATISFIED.
+        """
+        def refuse(reason: str) -> None:
+            raise ObjectiveStoreError(
+                f"SATISFIED requires resolvable bound evidence: {reason}")
+
+        evidence_id = _condition_evidence.parse_ref(evidence_ref)
+        if evidence_id is None:
+            refuse(_condition_evidence.MALFORMED_REF)
+        row = con.execute("SELECT * FROM v5_condition_evidence WHERE evidence_id=?",
+                          (evidence_id,)).fetchone()
+        if row is None:
+            refuse(_condition_evidence.UNRESOLVED)
+        if row["revoked_at"] is not None:
+            refuse(_condition_evidence.REVOKED)
+        try:
+            record = json.loads(row["record"])
+        except (TypeError, ValueError):
+            record = None
+        if not isinstance(record, dict):
+            refuse(_condition_evidence.TAMPERED)
+        if not _condition_evidence.verify_record(record, key=evidence_key):
+            refuse(_condition_evidence.TAMPERED)
+        if record.get("evidence_id") != evidence_id:
+            refuse(_condition_evidence.TAMPERED)
+        for column, caster in self._EVIDENCE_MIRROR:
+            try:
+                mirrored = caster(row[column])
+            except (TypeError, ValueError):
+                refuse(_condition_evidence.TAMPERED)
+            if record.get(column) != mirrored:
+                refuse(_condition_evidence.TAMPERED)
+        if bool(row["single_use"]) is not bool(record.get("single_use")):
+            refuse(_condition_evidence.TAMPERED)
+        reason = _condition_evidence.check_bindings(
+            record, objective_id=state.objective_id, condition=condition,
+            spec_digest=state.spec_digest, revision=state.revision,
+            owner_id=state.owner_id, scope_id=state.scope_id,
+            lifecycle=state.lifecycle, now=now)
+        if reason is not None:
+            refuse(reason)
+        reservation = con.execute(
+            "SELECT objective_id FROM v5_reservations WHERE reservation_id=?",
+            (record["run_id"],)).fetchone()
+        if reservation is not None and reservation["objective_id"] != state.objective_id:
+            refuse(_condition_evidence.WRONG_RUN)
+        if bool(row["single_use"]) and int(row["uses"]) >= 1:
+            refuse(_condition_evidence.CONSUMED)
+        con.execute("UPDATE v5_condition_evidence SET uses=uses+1,last_used_at=? "
+                    "WHERE evidence_id=?", (float(now), evidence_id))
+        return _condition_evidence.make_ref(evidence_id)
+
+    def set_condition(self, objective_id: str, condition: str, *,
+                      evidence_ref: str | None, expected_version: int,
+                      now: float | None = None,
+                      evidence_key: bytes | None = None) -> ObjectiveRuntimeState:
+        """Write the objective's health, gated on RESOLVED evidence for SATISFIED.
+
+        SATISFIED is not gated on a non-empty string. `"x"` is a non-empty
+        string, and that is exactly how green became settable by model prose.
+        The reference must RESOLVE to a durable, signed evidence record that is
+        bound to this objective, this condition, this spec digest and revision,
+        a producing run, this applicability (owner/scope/lifecycle) and a
+        freshness window that has not closed — and that has not been revoked or
+        spent. Anything else is refused here, at the record, not upstream.
+
+        Non-SATISFIED conditions are unchanged: they need no evidence, and the
+        reference they carry is bookkeeping the caller already holds.
+        """
+        if condition not in CONDITIONS:
+            raise ObjectiveStoreError("unsupported condition")
+        resolution_time = time.time() if now is None else now
+        if condition == "SATISFIED":
+            # Дешёвый отказ до всякого чтения: пустая строка/не строка — не ссылка.
+            if not (type(evidence_ref) is str and evidence_ref.strip()):
+                raise ObjectiveStoreError("SATISFIED requires a verified evidence reference")
+            if (type(resolution_time) not in (int, float) or type(resolution_time) is bool
+                    or not math.isfinite(resolution_time)):
+                raise ObjectiveStoreError(
+                    "SATISFIED requires resolvable bound evidence: "
+                    f"{_condition_evidence.NO_CLOCK}")
         with self._connect() as con:
             state = self._cas_read(con, objective_id, expected_version)
+            stored_ref = evidence_ref
+            if condition == "SATISFIED":
+                stored_ref = self._resolve_condition_evidence(
+                    con, evidence_ref, condition=condition, state=state,
+                    now=float(resolution_time), evidence_key=evidence_key)
             self._swapped(con.execute(
                 "UPDATE v5_objectives SET condition=?,last_verified_evidence_ref=?,"
                 "version=version+1 WHERE objective_id=? AND version=?",
-                (condition, evidence_ref, objective_id, expected_version)))
+                (condition, stored_ref, objective_id, expected_version)))
             self._log(con, objective_id, "condition", condition)
-        return replace(state, condition=condition, last_verified_evidence_ref=evidence_ref,
+        return replace(state, condition=condition, last_verified_evidence_ref=stored_ref,
                        version=expected_version + 1)
 
     def record_mission_usage(self, objective_id: str, *, missions: int, wall_seconds: float,

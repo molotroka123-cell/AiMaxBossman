@@ -35,8 +35,20 @@ from test_v5_admission import (CAPABILITY, EFFECT, NOW, OBJECTIVE, OWNER, Admiss
                                CostEstimate, FakeConflicts, FakePolicy, FakeTreasury,
                                build_proposal, observation, spec_dict)
 
+from bossman_shared import evidence as _evidence
+
 POPULATION = tuple(f"obj-{i:02d}" for i in range(20))
 DIGEST = "a" * 64
+
+
+@pytest.fixture(autouse=True)
+def _evidence_key(tmp_path, monkeypatch):
+    """Ключ подписи улик — во временном каталоге, а не в домашнем."""
+    monkeypatch.setenv(_evidence.ENV_KEY_FILE, str(tmp_path / "evidence.key"))
+    monkeypatch.setenv(_evidence.ENV_DATA_DIR, str(tmp_path / "data"))
+    _evidence.reset_cache()
+    yield
+    _evidence.reset_cache()
 
 
 # ------------------------------------------------------------ когорта
@@ -212,9 +224,11 @@ def test_a_rollback_rehearsal_with_an_objective_in_flight(tmp_path):
     store, spec, decision = _live_objective(tmp_path)
 
     # Улика последнего подтверждённого состояния — то, из чего резюмируется работа.
-    state = store.set_condition(OBJECTIVE, "SATISFIED", evidence_ref="ev-verified-1",
+    verified_ref = store.record_condition_evidence(OBJECTIVE, condition="SATISFIED",
+                                                   run_id=decision.reservation_id)
+    state = store.set_condition(OBJECTIVE, "SATISFIED", evidence_ref=verified_ref,
                                 expected_version=store.get(OBJECTIVE).version)
-    assert state.last_verified_evidence_ref == "ev-verified-1"
+    assert state.last_verified_evidence_ref == verified_ref
 
     before = resume_point(store, OBJECTIVE)
     assert before.open_reservations == (decision.reservation_id,)

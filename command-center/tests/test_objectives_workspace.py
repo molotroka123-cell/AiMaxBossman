@@ -16,6 +16,17 @@ import pytest
 NOW = 4_000_000_000.0
 
 
+@pytest.fixture(autouse=True)
+def _evidence_key(tmp_path, monkeypatch):
+    """Ключ подписи улик — во временном каталоге, не в домашнем каталоге владельца."""
+    from bossman_shared import evidence as _evidence
+    monkeypatch.setenv(_evidence.ENV_KEY_FILE, str(tmp_path / "evidence.key"))
+    monkeypatch.setenv(_evidence.ENV_DATA_DIR, str(tmp_path / "data"))
+    _evidence.reset_cache()
+    yield
+    _evidence.reset_cache()
+
+
 def spec(objective_id="nightly-build", owner="owner", revision=1, previous_digest=None):
     return {
         "schema_version": 1, "owner_id": owner, "scope_id": "project",
@@ -171,12 +182,16 @@ async def test_the_evidence_tab_reports_a_verified_condition_with_its_reference(
 
     created = (await create(env, owner_id)).json()
     store = ObjectiveStore(_store_path(env.svc))
-    store.set_condition(created["objective_id"], "SATISFIED", evidence_ref="ev-1",
+    # Улика чеканится в хранилище и привязана к цели, условию и редакции:
+    # произвольная строка «ev-1» больше не выставляет зелёный статус.
+    ref = store.record_condition_evidence(created["objective_id"], condition="SATISFIED",
+                                          run_id="run-ui-1")
+    store.set_condition(created["objective_id"], "SATISFIED", evidence_ref=ref,
                         expected_version=created["version"])
 
     body = (await env.client.get(f"/api/objectives/{created['objective_id']}/evidence")).json()
     assert body["condition"] == "SATISFIED"
-    assert body["verified"] is True and body["last_verified_evidence_ref"] == "ev-1"
+    assert body["verified"] is True and body["last_verified_evidence_ref"] == ref
     assert "подтверждённым только при свежем" in body["note"]
 
 

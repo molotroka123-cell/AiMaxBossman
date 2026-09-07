@@ -5,6 +5,7 @@ import threading
 
 import pytest
 
+from bossman_shared import evidence as _evidence
 from bossman_shared.objective_spec import (
     ObjectiveSpec,
     ObjectiveValidationError,
@@ -61,6 +62,22 @@ def build_only(previous):
                                 if s["source_ref"] == "local-build"],
                        predicates=[p for p in previous.to_dict()["predicates"]
                                    if p["source_ref"] == "local-build"])
+
+
+@pytest.fixture(autouse=True)
+def evidence_key(tmp_path, monkeypatch):
+    """Ключ подписи улик живёт и умирает вместе с tmp_path, не в домашнем каталоге."""
+    monkeypatch.setenv(_evidence.ENV_KEY_FILE, str(tmp_path / "evidence.key"))
+    monkeypatch.setenv(_evidence.ENV_DATA_DIR, str(tmp_path / "data"))
+    _evidence.reset_cache()
+    yield
+    _evidence.reset_cache()
+
+
+def mint(store, objective_id="build", *, condition="SATISFIED", run_id="run-1", **kw):
+    """Отчеканить НАСТОЯЩУЮ привязанную улику: SATISFIED строкой больше не купить."""
+    return store.record_condition_evidence(objective_id, condition=condition,
+                                           run_id=run_id, **kw)
 
 
 @pytest.fixture
@@ -120,7 +137,8 @@ def test_every_field_survives_a_restart(db, store, spec):
     state = activate(store)
     state = store.enroll_sources("build", ("local-build",), owner_id="owner",
                                  expected_version=state.version)
-    state = store.set_condition("build", "SATISFIED", evidence_ref="ev-1",
+    ref = mint(store)
+    state = store.set_condition("build", "SATISFIED", evidence_ref=ref,
                                 expected_version=state.version)
     state = store.record_observation("build", observed_at=91.5, count=3,
                                      expected_version=state.version)
@@ -137,7 +155,7 @@ def test_every_field_survives_a_restart(db, store, spec):
     restored = reopened.get("build")
     assert restored == store.get("build")
     assert restored.lifecycle == "ACTIVE" and restored.condition == "SATISFIED"
-    assert restored.last_verified_evidence_ref == "ev-1"
+    assert restored.last_verified_evidence_ref == ref
     assert restored.enrolled_sources == ("local-build",)
     assert (restored.observations_used, restored.last_observation_at) == (3, 91.5)
     assert (restored.missions_used, restored.wall_seconds_used, restored.cost_usd_used) == \
@@ -311,7 +329,7 @@ def test_lifecycle_transitions_require_the_owner_identity(store):
 
 def test_leaving_active_clears_the_condition_and_drops_the_evidence(db, store):
     state = activate(store)
-    state = store.set_condition("build", "SATISFIED", evidence_ref="ev-1",
+    state = store.set_condition("build", "SATISFIED", evidence_ref=mint(store),
                                 expected_version=state.version)
     state = store.transition("build", "PAUSED", now=100, owner_id="owner",
                              expected_version=state.version)
@@ -353,7 +371,7 @@ def test_revision_cannot_buy_a_fresh_budget(store, spec):
 
 def test_revision_drops_the_condition_and_the_stale_evidence(store, spec):
     state = activate(store)
-    state = store.set_condition("build", "SATISFIED", evidence_ref="ev-1",
+    state = store.set_condition("build", "SATISFIED", evidence_ref=mint(store),
                                 expected_version=state.version)
     state = store.revise("build", revision_of(spec, priority=9), owner_id="owner",
                          expected_version=state.version)

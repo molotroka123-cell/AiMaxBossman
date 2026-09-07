@@ -90,8 +90,17 @@ def observation(spec, *, passed=True, observed_at=95.0, obs_id="obs-1"):
 
 
 def signed_evidence(store, batch, *, mission_id="m-1", reservation_id="r-1",
-                    effect_at=EFFECT_AT, ref="ev-1"):
+                    effect_at=EFFECT_AT, ref=None):
+    """Улика reconcile теперь НЕСЁТ разрешаемую ссылку, а не выдуманную строку.
+
+    Раньше здесь стояло `ref="ev-1"`: строка, которую никто не резолвил, и
+    именно она доезжала до `set_condition` как «доказательство». Ссылка
+    чеканится в хранилище и привязана к цели, условию, редакции и прогону.
+    """
     state = store.get("build")
+    if ref is None:
+        ref = store.record_condition_evidence("build", condition="SATISFIED",
+                                              run_id=reservation_id)
     payload = bind_evidence(
         objective_id="build", objective_digest=state.spec_digest,
         objective_revision=state.revision, mission_id=mission_id,
@@ -220,7 +229,8 @@ def test_crash_during_finalization_downgrades_stored_satisfied(tmp_path):
     assert report.condition == "UNKNOWN" and report.blocked
     state = store.get("build")
     # The prior verified reference survives the downgrade: resume needs a fact.
-    assert state.condition == "UNKNOWN" and state.last_verified_evidence_ref == "ev-1"
+    assert state.condition == "UNKNOWN"
+    assert state.last_verified_evidence_ref == record["evidence_ref"]
     assert len(store.open_reservations("build")) == 1
 
 
@@ -229,12 +239,13 @@ def test_crash_during_finalization_downgrades_stored_satisfied(tmp_path):
 def test_verified_fresh_reobservation_sets_satisfied(tmp_path):
     store, spec = make_store(tmp_path)
     batch = [observation(spec)]
+    record = signed_evidence(store, batch)
     result = reconcile_after_mission(
-        store, "build", mission_verified=True, evidence=signed_evidence(store, batch),
+        store, "build", mission_verified=True, evidence=record,
         reobserve=lambda: batch, now=NOW, expected_version=store.get("build").version,
         mission_id="m-1", reservation_id="r-1")
     assert (result.condition, result.reason) == ("SATISFIED", REASON_FRESH)
-    assert result.evidence_refs == ("ev-1",) and result.used_observations
+    assert result.evidence_refs == (record["evidence_ref"],) and result.used_observations
     state = store.get("build")
     assert state.condition == "SATISFIED" and state.observations_used == 1
 
@@ -363,15 +374,16 @@ def test_retry_budget_exhaustion_returns_blocked_not_loop():
 def test_resume_point_after_restart_reports_last_verified_state(tmp_path):
     store, spec = make_store(tmp_path)
     batch = [observation(spec)]
+    record = signed_evidence(store, batch)
     reconcile_after_mission(store, "build", mission_verified=True,
-                            evidence=signed_evidence(store, batch), reobserve=lambda: batch,
+                            evidence=record, reobserve=lambda: batch,
                             now=NOW, expected_version=store.get("build").version)
     open_reservation(store, effect_class=IDEMPOTENT, reservation_id="r-2", proposal_id="p-2")
     # Simulated restart: a second store object over the same durable file.
     restarted = ObjectiveStore(tmp_path / "objectives.db")
     point = resume_point(restarted, "build")
     assert point.has_verified_state and point.condition == "SATISFIED"
-    assert point.last_verified_evidence_ref == "ev-1"
+    assert point.last_verified_evidence_ref == record["evidence_ref"]
     assert point.last_observation_at == 95.0 and point.observations_used == 1
     assert point.open_reservations == ("r-2",)
     assert point.lifecycle == "ACTIVE" and point.version == restarted.get("build").version
