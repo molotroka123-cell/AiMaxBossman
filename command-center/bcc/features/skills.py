@@ -410,6 +410,10 @@ async def _after_skill_run(svc, task_id: int, run_id: int, status: str) -> None:
 
     if m["skill_version_id"]:
         try:
+            # Улика пишется ДО решения: терминальный исход — единственный момент,
+            # когда канареечное здоровье вообще рождается.
+            await evaluation.record_canary_outcome(
+                svc, int(m["skill_version_id"]), int(run_id), str(status))
             await evaluation.refresh_for_version(svc, int(m["skill_version_id"]))
         except Exception as exc:                 # сравнение версий не имеет права
             await svc.bus.emit("skill.evaluation.error",  # уронить сам прогон

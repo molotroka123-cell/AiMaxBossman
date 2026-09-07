@@ -111,7 +111,20 @@ async def _promotable(env, *, candidate_completed=9, candidate_failed=1):
                             failed=candidate_failed)
     row = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
                                    candidate_version_id=cand)
+    # В бою улику пишет хук `after_run` ПОСЛЕ того, как сравнение заведено:
+    # `record_canary_outcome` ищет именно `collecting`-сравнения. Помощник
+    # вставляет прогоны напрямую, минуя движок, поэтому порядок воспроизводится
+    # здесь явно — иначе стенд проверял бы не тот путь, который работает в бою.
+    await _record_outcomes(env, cand, cand_runs,
+                           completed=candidate_completed, failed=candidate_failed)
     return sid, base, cand, cand_runs, row
+
+
+async def _record_outcomes(env, version_id: int, ids: list[int], *,
+                           completed: int, failed: int) -> None:
+    """Тот же переход, что и в бою: терминальный исход -> канареечная улика."""
+    for rid, status in zip(ids, ["completed"] * completed + ["failed"] * failed):
+        await ev.record_canary_outcome(env.svc, version_id, rid, status)
 
 
 def _bound_evidence(plan: CanaryPlan, member: str, *, at: float, key: bytes, **overrides) -> str:

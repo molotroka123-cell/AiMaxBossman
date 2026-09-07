@@ -348,6 +348,50 @@ async def canary_window(svc, version_id: int) -> list[tuple[str, bool]]:
     return [(f"run:{int(r[0])}", str(r[1]) == "completed") for r in rows]
 
 
+async def record_canary_outcome(svc, version_id: int, run_id: int, status: str) -> None:
+    """Записать канареечную улику ОДИН РАЗ — когда член когорты стал терминальным.
+
+    Единственное место, где рождается канареечное здоровье. Решение потом только
+    ЧИТАЕТ эти долговечные отчёты. Молчание не успех: член без исхода не получает
+    отчёта, и дверь на нём закрыта.
+    """
+    if str(status) not in ("completed", "failed"):
+        return
+    healthy = str(status) == "completed"
+    member = f"run:{int(run_id)}"
+    async with svc.db.session() as s:
+        rows = (await s.execute(sa.select(evals_t).where(sa.and_(
+            evals_t.c.status == "collecting",
+            evals_t.c.candidate_version_id == version_id)))).fetchall()
+    for row in rows:
+        ev = dict(row._mapping)
+        cand_row = await _version_row(svc, int(ev["candidate_version_id"]))
+        if cand_row is None:
+            continue
+        try:
+            gate = _gate(svc)
+            window = await canary_window(svc, int(ev["candidate_version_id"]))
+            plan = gate.plan(subject=f"skill:{int(ev['skill_id'])}",
+                             revision=candidate_revision(cand_row),
+                             members=[m for m, _ in window],
+                             started_at=_epoch(ev.get("created_at") or utcnow()) - 1.0,
+                             run_nonce=f"skill-eval:{int(ev['id'])}")
+            if member not in plan.cohort:
+                continue
+            gate.open(plan, candidate=candidate_revision(cand_row))
+            if member in gate.reported_members(plan.run_id):
+                continue
+            at = _epoch(utcnow())
+            if healthy:
+                gate.report_healthy(plan.run_id, member, at=at)
+            else:
+                gate.report_unhealthy(plan.run_id, member, at=at,
+                                      detail="terminal outcome: failed")
+        except (ActivationError, CanaryError, ObjectiveStoreError) as exc:
+            await svc.bus.emit("skill.canary.error", version_id=int(version_id),
+                               run_id=int(run_id), error=str(exc)[:300])
+
+
 async def canary_decision(svc, ev: dict[str, Any], candidate_row: dict[str, Any]
                           ) -> tuple[BroadActivationGate | None, str, ActivationDecision]:
     """Пройти дверь для ЭТОЙ пары (скилл, версия-кандидат).
@@ -383,8 +427,13 @@ async def canary_decision(svc, ev: dict[str, Any], candidate_row: dict[str, Any]
                 return None, "", ActivationDecision(
                     "", False, f"canary_run_mismatch:{recorded}")
             gate.state(plan.run_id)                   # бросит, если строки нет
+        # Прогон заводится (идемпотентно), но отчёты СЮДА не пишутся. Улика
+        # рождается один раз — когда член когорты достиг терминального исхода
+        # (`record_canary_outcome`). Выводить здоровье из общей истории задач в
+        # момент решения нельзя: тогда процесс, потерявший долговечное
+        # состояние, «воскресил» бы успех теми же фактами, и канареечная улика
+        # перестала бы быть властью. Прогон без отчётов — МОЛЧАНИЕ, не успех.
         gate.open(plan, candidate=revision)
-        cohort_reports_from_facts(gate, plan.run_id, dict(window), at=now)
     except (ActivationError, CanaryError, ObjectiveStoreError) as exc:
         return None, "", ActivationDecision(plan.run_id, False,
                                             f"canary_unavailable:{exc}")
@@ -492,7 +541,7 @@ async def refresh_for_version(svc, version_id: int) -> list[dict[str, Any]]:
     return [await refresh(svc, int(r[0])) for r in rows]
 
 
-__all__ = ["MIN_RUNS", "IMPROVE_DELTA", "REGRESS_DELTA", "PROMOTE", "REJECT", "HUMAN_REVIEW",
+__all__ = ["record_canary_outcome", "MIN_RUNS", "IMPROVE_DELTA", "REGRESS_DELTA", "PROMOTE", "REJECT", "HUMAN_REVIEW",
            "CANARY_WINDOW", "PROMOTION_IDENTITY", "version_metrics", "widened_capabilities",
            "decide", "open_evaluation", "refresh", "refresh_for_version",
            "apply_human_decision", "candidate_revision", "canary_window", "canary_decision"]
