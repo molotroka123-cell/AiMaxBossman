@@ -391,9 +391,21 @@ class TaskIn(BaseModel):
     schedule: ScheduleIn | None = None
 
 
+class LeaseIn(BaseModel):
+    """Опциональная ОБЛАСТЬ, на которую распространяется это решение (§7).
+
+    Отсутствие поля = поведение ровно как раньше: одно нажатие — один вызов.
+    Аренда выдаётся только явным решением владельца и только для эффекта,
+    который он видел в предпросмотре; оба предела обязательны и ограничены
+    сверху в bcc.approval_scope."""
+    max_uses: int = 1
+    ttl_seconds: int = 900
+
+
 class ApprovalIn(BaseModel):
     approve: bool
     by: str = "owner"
+    lease: LeaseIn | None = None
 
 
 class ApprovalCreate(BaseModel):
@@ -902,7 +914,36 @@ def _api_router() -> APIRouter:
         row = await svc.approvals.decide(approval_id, body.approve, body.by)
         if row is None:
             raise ApiError("подтверждение не найдено", status=404)
+        lease = None
+        if body.approve and body.lease is not None:
+            # Область берётся из ПАРКОВАННОГО вызова, а не из тела запроса:
+            # клиент не может расширить то, что владелец видел в предпросмотре.
+            lease = await _lease_from_parked_call(svc, row, body.lease, body.by)
+            if lease is None:
+                raise ApiError("аренду можно выдать только по ожидающему вызову "
+                               "инструмента этого подтверждения", status=409)
+        return {**row, "lease": lease}
+
+    @router.get("/approvals/leases")
+    async def list_leases(task_id: int | None = None, active_only: bool = True,
+                          svc: Services = Depends(services)):
+        from . import approval_scope as scope
+        return {"leases": await scope.listing(svc, task_id=task_id, active_only=active_only)}
+
+    @router.post("/approvals/leases/{lease_id}/revoke")
+    async def revoke_lease(lease_id: int, body: ApprovalRevoke | None = None,
+                           svc: Services = Depends(services)):
+        from . import approval_scope as scope
+        row = await scope.revoke(svc, lease_id, (body.by if body else None) or "owner")
+        if row is None:
+            raise ApiError("аренда не найдена", status=404)
         return row
+
+    @router.get("/approvals/metrics")
+    async def approval_metrics(task_id: int, svc: Services = Depends(services)):
+        """approvals_per_successful_mission и что именно сэкономила аренда."""
+        from . import approval_scope as scope
+        return await scope.metrics(svc, task_id)
 
     @router.post("/approvals/{approval_id}/revoke")
     async def revoke_approval(approval_id: int, body: ApprovalRevoke | None = None,
@@ -915,6 +956,37 @@ def _api_router() -> APIRouter:
         return row
 
     return router
+
+
+async def _lease_from_parked_call(svc, approval: dict, want, by: str) -> dict | None:
+    """Derive the lease scope from the tool call this approval is parked on.
+
+    The scope is NEVER taken from the request body. The owner consented to what
+    the preview showed — that exact tool, that exact effect class, that agent,
+    that task — so the scope is recomputed from the parked call's own arguments
+    using the executor's classifier. A client that asked for a wider lease than
+    it was shown gets the narrow one, or none at all."""
+    import sqlalchemy as _sa
+    from . import approval_scope as scope
+    from .db import agents as _agents, tasks as _tasks, tool_calls as _calls
+    async with svc.db.session() as s:
+        row = (await s.execute(_sa.select(_calls).where(
+            _calls.c.approval_id == approval.get("id"),
+            _calls.c.status == "pending_approval").order_by(
+            _calls.c.id.desc()).limit(1))).first()
+        if row is None:
+            return None
+        parked = dict(row._mapping)
+        task = (await s.execute(_sa.select(_tasks.c.id).where(
+            _tasks.c.id == parked.get("task_id")))).first()
+        agent_id = (await s.execute(_sa.select(_tasks.c.agent_id).where(
+            _tasks.c.id == parked.get("task_id")))).scalar()
+    if task is None:
+        return None
+    sc = scope.scope_for(str(parked.get("tool") or ""), parked.get("args") or {},
+                         agent={"id": agent_id}, task={"id": int(task[0])})
+    return await scope.grant(svc, approval=approval, scope=sc,
+                             max_uses=want.max_uses, ttl_seconds=want.ttl_seconds, by=by)
 
 
 def _run_public(run: dict | None) -> dict | None:

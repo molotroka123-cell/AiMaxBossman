@@ -19,6 +19,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from .db import (Database, agents as agents_t, approvals as approvals_t,
                  checkpoints as checkpoints_t, fetch_one, run_events as run_events_t,
                  task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
+from . import approval_scope as _scope
 from .events import EventBus
 from .plugin_security import redact as _ps_redact, redact_text as _ps_redact_text
 from .providers import ChatResult, ProviderError
@@ -1311,13 +1312,81 @@ class TaskEngine:
                 except Exception as exc:  # noqa: BLE001 — нормализация обязана быть чистой
                     shown_args = {"_normalize_error": str(exc)[:200], **dict(call.arguments)}
                 digest = approval_digest(spec, call.arguments, agent=agent, task=task)
+                # §7: спросить владельца — последнее средство, а не первое.
+                # Порядок строго от «ничего не разрешает» к «разрешает явно
+                # выданной областью»: отказ уважается, дубль не задаётся, и
+                # только потом тратится аренда, которую владелец выдал сам.
+                call_hash = args_hash(spec.name, call.arguments)
+                if await _scope.previously_rejected(self.services, args_hash=call_hash, run_id=run_id):
+                    await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                                 effect="deny", status="denied",
+                                                 preview="owner already refused this exact call")
+                    messages.append(_tool_message(
+                        call, f"действие {spec.name} уже отклонено владельцем в этом прогоне — "
+                              f"не повторять и не переспрашивать"))
+                    await self._log(run_id, "warn", "tool.rejected_repeat",
+                                    f"{spec.name}: повтор отклонённого вызова")
+                    await self.bus.emit("approval.repeat_suppressed", task_id=task["id"],
+                                        run_id=run_id, tool=spec.name)
+                    continue
+                lease_scope = _scope.scope_for(spec.name, call.arguments, agent=agent, task=task)
+                lease = await _scope.consume(self.services, lease_scope)
+                if lease is not None:
+                    await self._log(run_id, "info", "tool.lease_used",
+                                    f"{spec.name}: покрыт арендой {lease['id']} "
+                                    f"({lease['used']}/{lease['max_uses']})")
+                    try:
+                        await self._run_tool_now(run_id, task, agent, messages, call, spec, step,
+                                                 approved_by=f"lease:{lease['id']}",
+                                                 lease_id=int(lease["id"]))
+                    except AmbiguousPriorEffect as exc:
+                        await self._park_reconciliation(run_id, task, agent, messages, call, spec,
+                                                        step, remaining=calls[index + 1:],
+                                                        prior=exc.prior, usage=usage)
+                        return True
+                    continue
+                reusable = await _scope.find_reusable(self.services, args_hash=call_hash, run_id=run_id)
+                if reusable is not None:
+                    await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                                 effect="ask", status="pending_approval",
+                                                 approval_id=reusable.get("id"), preview=reason)
+                    await self._park_for_approval(
+                        run_id, task["id"], messages, step,
+                        pending={"call": _call_dict(call), "tool": spec.name,
+                                 "approval_id": reusable.get("id"),
+                                 "args_hash": call_hash,
+                                 "approval_digest": digest,
+                                 "remaining": [_call_dict(c) for c in calls[index + 1:]],
+                                 "step": step},
+                        usage=usage)
+                    await self.bus.emit("approval.deduplicated", task_id=task["id"], run_id=run_id,
+                                        tool=spec.name, approval_id=reusable.get("id"))
+                    return True
+                over, used, budget = await _scope.budget_exceeded(self.services, task)
+                if over:
+                    # Исчерпанный бюджет НЕ выдаёт разрешение — он останавливает
+                    # задачу. Иначе «лимит подтверждений» был бы расширением прав.
+                    await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                                 effect="deny", status="denied",
+                                                 preview=f"approval budget {used}/{budget} spent")
+                    await self.bus.emit("approval.budget_exceeded", task_id=task["id"],
+                                        run_id=run_id, spent=used, budget=budget)
+                    await self._fail_now(run_id, task["id"],
+                                         f"APPROVAL_BUDGET_EXCEEDED: задача запросила {used} "
+                                         f"подтверждений при бюджете {budget}; выполнение "
+                                         f"остановлено вместо продолжения расспросов")
+                    return True
                 appr = await self._approvals_create(
                     kind="tool",
                     preview=_ps_redact_text(
                         f"Агент «{agent.get('name')}» хочет выполнить {spec.name}\n"
                         f"причина политики: {reason}\n"
                         f"approval_digest: {digest[:16]}…\nаргументы: "
-                        + json.dumps(_ps_redact(shown_args), ensure_ascii=False, indent=1)[:2000]),
+                        + json.dumps(_ps_redact(shown_args), ensure_ascii=False, indent=1)[:2000]
+                        # §7: владелец не может согласиться на область, которой не
+                        # видит. Предложение — текст, а не разрешение: без явного
+                        # `lease` в решении ничего не выдаётся.
+                        + _scope.lease_offer(lease_scope)),
                     task_id=task["id"], run_id=run_id)
                 approval_id = (appr or {}).get("id")
                 await self._record_tool_call(run_id, task["id"], step, call, spec,
@@ -1348,7 +1417,8 @@ class TaskEngine:
                             messages: list[dict], call: Any, spec: Any, step: int,
                             *, approval_id: int | None = None,
                             approved_by: str | None = None,
-                            reconcile_prior: int | None = None) -> None:
+                            reconcile_prior: int | None = None,
+                            lease_id: int | None = None) -> None:
         """Выполнить инструмент и положить результат в историю как tool-сообщение.
 
         `reconcile_prior` — id строки tool_calls прежней прерванной отправки,
@@ -1369,7 +1439,7 @@ class TaskEngine:
                 await self._record_tool_call(
                     run_id, task["id"], step, call, spec,
                     effect="auto" if approval_id is None else "ask", status="replayed",
-                    approval_id=approval_id, approved_by=approved_by,
+                    approval_id=approval_id, approved_by=approved_by, lease_id=lease_id,
                     preview=str(prior.get("result_preview") or "")[:500], duration_ms=0)
                 messages.append(_tool_message(
                     call, "этот шаг уже исполнен прежней попыткой (run "
@@ -1398,16 +1468,16 @@ class TaskEngine:
             await self._record_tool_call(
                 run_id, task["id"], step, call, spec,
                 effect="auto" if approval_id is None else "ask", status="started",
-                approval_id=approval_id, approved_by=approved_by,
+                approval_id=approval_id, approved_by=approved_by, lease_id=lease_id,
                 preview="dispatched; outcome not yet journaled")
         started = time.monotonic()
         result = await execute_tool(spec, call.arguments, ctx)
         duration = int((time.monotonic() - started) * 1000)
         await self._record_tool_call(
             run_id, task["id"], step, call, spec,
-            effect="auto" if approval_id is None else "ask",
+            effect="auto" if (approval_id is None and lease_id is None) else "ask",
             status="error" if result.error else "executed",
-            approval_id=approval_id, approved_by=approved_by,
+            approval_id=approval_id, approved_by=approved_by, lease_id=lease_id,
             preview=_ps_redact_text(result.content[:500]), truncated=result.truncated,
             duration_ms=duration,
             error=_ps_redact_text(result.content[:500]) if result.error else None)
@@ -1658,7 +1728,7 @@ class TaskEngine:
                                 approval_id: int | None = None,
                                 approved_by: str | None = None, preview: str = "",
                                 truncated: bool = False, duration_ms: int | None = None,
-                                error: str | None = None) -> None:
+                                error: str | None = None, lease_id: int | None = None) -> None:
         name = spec.name if spec is not None else str(call.name)
         values = {
             "run_id": run_id, "task_id": task_id, "step": step,
@@ -1671,6 +1741,9 @@ class TaskEngine:
             "effect": effect, "status": status, "approval_id": approval_id,
             "approved_by": approved_by, "result_preview": preview,
             "truncated": truncated, "duration_ms": duration_ms, "error": error,
+            # §7: какая аренда полномочия покрыла вызов — иначе «подтверждений
+            # стало меньше» неотличимо от «спрашивать перестали».
+            "lease_id": lease_id,
         }
         # Строка пишется ПОСЛЕ того, как инструмент отработал, поэтому «сейчас» —
         # это момент завершения, а не начала. Раньше оба времени брались двумя

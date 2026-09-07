@@ -148,6 +148,34 @@ approvals = sa.Table(
     sa.Column("created_at", sa.DateTime, default=utcnow),
 )
 
+# Явно выданная владельцем ОБЛАСТЬ полномочия, а не одно нажатие (§7 конвергенции).
+# Один и тот же безопасный эффект спрашивался заново на каждом шаге: 161
+# подтверждение за сессию, ~121 из них — на правку документации. Аренда
+# позволяет владельцу один раз разрешить КЛАСС эффекта в явных границах
+# (инструмент, эффект, режим, агент, задача) с обязательными лимитами: срок,
+# число использований, мгновенный отзыв. Аренды НЕ существует по умолчанию:
+# без явного решения владельца поведение ровно прежнее.
+approval_leases = sa.Table(
+    "approval_leases", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("approval_id", sa.Integer, sa.ForeignKey("approvals.id", ondelete="SET NULL")),
+    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE")),
+    sa.Column("agent_id", sa.Integer, sa.ForeignKey("agents.id", ondelete="CASCADE")),
+    sa.Column("tool", sa.String(160), nullable=False),
+    # "read" | "write" — класс эффекта, посчитанный тем же классификатором,
+    # что и при исполнении. Аренда на чтение НЕ покрывает запись.
+    sa.Column("effect_class", sa.String(16), nullable=False, default="read"),
+    # Дополнительное сужение (для terminal.run — mode). NULL = любой в рамках
+    # остальных границ; владелец видит это в предпросмотре.
+    sa.Column("scope_key", sa.String(200), default=""),
+    sa.Column("max_uses", sa.Integer, nullable=False, default=1),
+    sa.Column("used", sa.Integer, nullable=False, default=0),
+    sa.Column("expires_at", sa.DateTime, nullable=False),
+    sa.Column("status", sa.String(16), default="active"),        # active|revoked|exhausted|expired
+    sa.Column("granted_by", sa.String(120), default="owner"),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
 system_metrics = sa.Table(
     "system_metrics", metadata,
     sa.Column("id", sa.Integer, primary_key=True),
@@ -506,6 +534,9 @@ V2_NEW_COLUMNS: list[tuple[str, str, str]] = [
     ("tool_calls", "observed_at", "DATETIME"),
     ("tool_calls", "receipt_sig", "VARCHAR(64)"),
     ("agents", "workspace", "VARCHAR(500)"),
+    # Какая аренда полномочия покрыла этот вызов (§7): без неё «подтверждений
+    # стало меньше» невозможно отличить от «спрашивать перестали».
+    ("tool_calls", "lease_id", "INTEGER"),
 ]
 
 # Table-объекты выше объявлены ДО этого блока, поэтому колонки добавляем и в metadata —
@@ -681,7 +712,7 @@ async def fetch_one(session: AsyncSession, table: sa.Table, row_id: int) -> dict
 __all__ = [
     "Database", "Engine", "metadata", "utcnow", "row_dict", "rows_dicts", "fetch_one",
     "providers", "models", "agents", "tasks", "task_runs", "schedules", "run_events",
-    "approvals", "system_metrics", "events", "settings_kv",
+    "approvals", "approval_leases", "system_metrics", "events", "settings_kv",
     # V2
     "missions", "kpi_history", "orchestras", "orchestra_members", "skills",
     "skill_versions", "skill_evaluations", "benchmarks", "checkpoints", "session_forks",
