@@ -1,112 +1,90 @@
-# V7 Risks
+# V7 Risks — Perplexity AI
 
-## Auditor Metadata
-
-- **AUDITOR_MODEL**: Perplexity
-- **AUDITOR_PROVIDER**: Perplexity AI
-- **AUDITED_SHA**: bed5e8c9ad2846d9669ac3c0462cfd02c2cd6bd5
-- **DATE**: 2026-09-07
+**AUDITOR:** Perplexity AI Assistant  
+**DATE:** 2026-09-07 21:28 CEST  
 
 ---
 
-## Architectural Risks
+## High Priority Risks
 
-### 1. WSG Becomes a Bottleneck
+### RISK-1: Premature Architectural Redesign
 
-**Risk**: All subsystems query WSG; if it's slow or unavailable, everything breaks.
+**Description:** Starting V7 architectural redesign (Adaptive Reality OS, Reality Compiler 2.0, World State Graph) before closing V4/V5/V6 debts.
 
-**Mitigation**:
-- WSG read replicas for high-throughput queries
-- Local caches with explicit TTL
-- Graceful degradation: subsystems fall back to local state if WSG is down
+**Probability:** HIGH  
+**Impact:** CRITICAL  
+**Mitigation:** Enforce V7.0 debt closure phase before any V7.2+ architectural work.
 
-**Rollback**: Disable WSG integration, revert to existing state systems.
+### RISK-2: Synthetic Evidence
 
-### 2. Strategy Search Adds Latency
+**Description:** Using synthetic/fake data for performance verdicts, Windows acceptance, local model acceptance.
 
-**Risk**: Generating and scoring strategies takes time; owner waits longer for first action.
+**Probability:** MEDIUM  
+**Impact:** HIGH  
+**Mitigation:** Require real evidence (logs, measurements, SHA-bound artifacts).
 
-**Mitigation**:
-- Limit strategy search to multi-step or high-stakes missions
-- Cache strategy templates for common patterns
-- Parallel strategy generation
+### RISK-3: Competing Sources of Truth
 
-**Rollback**: Revert to heuristic-only selection for latency-sensitive missions.
+**Description:** Silent creation of second reality system competing with existing Reality Compiler, memory/context, Fleet.
 
-### 3. Unified Memory Scheduler Breaks Existing Skills
+**Probability:** MEDIUM  
+**Impact:** HIGH  
+**Mitigation:** REUSES/MODIFIES/REPLACES/CONFLICTS_WITH analysis for every P0 proposal.
 
-**Risk**: Skills assume their own memory policies; unified scheduler changes behavior.
+### RISK-4: Test Weakening
 
-**Mitigation**:
-- Gradual rollout per subsystem
-- Compatibility mode for existing skills
-- Explicit skill manifest declaring memory requirements
+**Description:** Lowering thresholds, adding skip/xfail to achieve PASS without real improvement.
 
-**Rollback**: Revert to per-subsystem memory policies.
+**Probability:** MEDIUM  
+**Impact:** MEDIUM  
+**Mitigation:** Skip registry audit, no threshold changes without explicit owner approval.
 
-### 4. Reality Compiler 2.0 Introduces Bugs
+### RISK-5: Owner Runtime Disruption
 
-**Risk**: New effect verification logic has bugs; actions appear verified but aren't.
+**Description:** V7 changes disrupting active owner worktree, runtime, workflows.
 
-**Mitigation**:
-- Parallel run with RC v0.1 for validation
-- Explicit pre/post state snapshots for audit
-- Canary missions for regression testing
-
-**Rollback**: Disable RC 2.0, use v0.1.
-
-### 5. Goal-First UX Overwhelms Owner
-
-**Risk**: Too much information (strategies, counterfactuals, cognitive load) increases cognitive load.
-
-**Mitigation**:
-- Progressive disclosure: show details on demand
-- Default to simple view, advanced view opt-in
-- Owner feedback loop for UX iteration
-
-**Rollback**: Hide new UI components, keep existing dashboard.
+**Probability:** LOW  
+**Impact:** CRITICAL  
+**Mitigation:** Isolate test runtime from active worktree, rollback testing.
 
 ---
 
-## Implementation Risks
+## Medium Priority Risks
 
-### 1. Scope Creep
+### RISK-6: Model Routing Complexity
 
-**Risk**: V7 becomes "everything we ever wanted" instead of focused P0/P1.
+**Description:** Dynamic model routing adds complexity without measured improvement.
 
-**Mitigation**:
-- Strict P0/P1/P2 prioritization
-- V7.0 = P0 only; P1/P2 deferred
-- Explicit "REJECTED" list to prevent backdoor features
+**Probability:** MEDIUM  
+**Impact:** MEDIUM  
+**Mitigation:** Measure before/after with epoch4_performance.py.
 
-### 2. Incompatible with V6 Systems
+### RISK-7: Multi-Node Fleet Overhead
 
-**Risk**: V7 changes break V6 Fleet, skills, or Computer Use.
+**Description:** Multi-node fleet adds operational overhead without proportional value.
 
-**Mitigation**:
-- Backward-compatible APIs
-- Parallel run during migration
-- Extensive canary testing
+**Probability:** MEDIUM  
+**Impact:** MEDIUM  
+**Mitigation:** Start with 2 nodes, measure lease distribution benefit.
 
-### 3. Owner Acceptance Failure
+### RISK-8: Performance Verdict Gaming
 
-**Risk**: Owner rejects V7 changes; system reverts to V6.
+**Description:** Selecting favorable pairs/observations to achieve MET verdict.
 
-**Mitigation**:
-- Owner review at each P0 milestone
-- Rollback plan documented and tested
-- V7 opt-in, not forced migration
+**Probability:** LOW  
+**Impact:** MEDIUM  
+**Mitigation:** Pre-registered manifest, all observed pairs included.
 
 ---
 
-## Evidence Gaps
+## Rollback Plan
 
-- **NOT_RUN**: WSG performance under load
-- **NOT_RUN**: Strategy search success rates
-- **NOT_RUN**: Unified memory scheduler impact on latency
-- **EVIDENCE_GAP**: Owner cognitive load measurements
-- **HYPOTHESIS**: Counterfactual simulation prevents mistakes (not yet tested)
+Every V7 change must have:
+
+1. **Rollback commit** — Revert commit prepared in advance
+2. **Rollback test** — Regular rollback drills
+3. **Rollback evidence** — Logs showing successful rollback
 
 ---
 
-*Independent audit by: Perplexity*
+*Independent risks by: Perplexity AI Assistant*

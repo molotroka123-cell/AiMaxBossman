@@ -1,66 +1,90 @@
-# V7 Priorities
+# V7 Priorities — Perplexity AI
 
-## Auditor Metadata
-
-- **AUDITOR_MODEL**: Perplexity
-- **AUDITOR_PROVIDER**: Perplexity AI
-- **AUDITED_SHA**: bed5e8c9ad2846d9669ac3c0462cfd02c2cd6bd5
-- **DATE**: 2026-09-07
+**AUDITOR:** Perplexity AI Assistant  
+**DATE:** 2026-09-07 21:28 CEST  
 
 ---
 
-## P0 — V7 Must Have (Maximum 5)
+## P0 — V7 Must Have (5 items max)
 
-1. **World State Graph (WSG) v0.1**: Minimal schema for missions, actions, effects, evidence. Queryable via SQL or GraphQL. [REUSES: existing evidence system; MODIFIES: state representation; REPLACES: nothing; CONFLICTS_WITH: none if WSG is additive; MIGRATION: gradual; ROLLBACK: disable WSG queries, fall back to existing state]
+1. **P0-1: Close ISSUE-1..8** — ZIP removal, security PR merge, IMG removal, .bossman-state migration, Solana dedup, monorepo tooling, stale branch cleanup, PR backlog resolution
 
-2. **Strategy Search v0.1**: Generate ≥2 candidate strategies for multi-step missions, score by cost/latency/success-probability, present to owner. [REUSES: existing mission system; MODIFIES: strategy selection; REPLACES: heuristic-only selection; CONFLICTS_WITH: none; MIGRATION: opt-in for complex missions; ROLLBACK: revert to heuristic selection]
+2. **P0-2: AT-01/AT-03 Closure** — Complete all obligations test, external UI freshness test (with evidence, not claims)
 
-3. **Unified Memory Scheduler v0.1**: Single policy for context residency across Fleet, skills, local models. [REUSES: existing context systems; MODIFIES: memory policies; REPLACES: fragmented per-subsystem policies; CONFLICTS_WITH: existing hard-coded context limits; MIGRATION: gradual rollout per subsystem; ROLLBACK: revert to per-subsystem policies]
+3. **P0-3: Windows Acceptance** — Real Windows machine acceptance (encoding, Desktop path, shell, file lock, ACL)
 
-4. **Reality Compiler 2.0 Core**: WSG-integrated effect verification with explicit pre/post state snapshots. [REUSES: RC v0.1; MODIFIES: effect tracking; REPLACES: ad-hoc state deltas; CONFLICTS_WITH: none; MIGRATION: parallel run with RC v0.1; ROLLBACK: disable RC 2.0, use v0.1]
+4. **P0-4: Local Model Acceptance** — Same-model measured evidence (latency, throughput, context utilization, retention)
 
-5. **Goal-First UX v0.1**: Mission timeline view with strategy explainer and cognitive load indicator. [REUSES: existing dashboard; MODIFIES: UI components; REPLACES: fragmented views; CONFLICTS_WITH: none; MIGRATION: new route alongside existing; ROLLBACK: hide new UI, keep existing]
-
----
-
-## P1 — High Value (Maximum 10)
-
-1. Counterfactual simulation for irreversible actions
-2. Explicit state versioning with TTL and freshness tracking
-3. Strategy outcome learning (which strategies succeed/fail under what conditions)
-4. Skill promotion criteria based on verified outcomes
-5. Automated replay from successful traces
-6. Resource contention management under multi-agent load
-7. Privacy fencing at WSG level (what subsystems can see what state)
-8. Budget enforcement at orchestration layer (cost caps per mission)
-9. Recovery planning (pre-computed rollback options with costs)
-10. Observability dashboard for WSG queries and strategy history
+5. **P0-5: Performance Evidence** — >=100 pairs, >=30 observations per family, cost measurement (not null, not zero)
 
 ---
 
-## P2 — Useful Later (Maximum 10)
+## P1 — High Value (10 items max)
 
-1. Full counterfactual simulation UI (interactive "what if" explorer)
-2. Automated strategy generation from mission goals (not just selection)
-3. Cross-mission optimization (global resource allocation)
-4. Predictive latency modeling (estimate before execution)
-5. Owner cognitive load prediction (warn before high-load missions)
-6. Skill marketplace (discover and import skills from other Bossman instances)
-7. Multi-owner collaboration (shared WSG with access control)
-8. External system integration (sync WSG with Jira, GitHub, Notion)
-9. Historical analytics (strategy success rates over time)
-10. Natural language WSG queries ("show me all failed actions this week")
+1. **P1-1: Memory/Context Migration** — Move .bossman-state to SQLite/Redis, unified-memory scheduling
+
+2. **P1-2: Teacher Traces** — Capture and store teacher demonstrations for skill learning
+
+3. **P1-3: Skill Promotion** — Automated skill promotion based on verified outcomes
+
+4. **P1-4: Performance Measurements** — UI_READY, FIRST_USEFUL_RESPONSE, VERIFIED_ACTION latency targets
+
+5. **P1-5: Model Routing** — Dynamic model selection based on task type (reasoning vs coding vs browser)
+
+6. **P1-6: Multi-Node Fleet** — 2+ real nodes, lease distribution proof, memory reservation across nodes
+
+7. **P1-7: Production Canary** — Prospective cohort (>=100 missions), durable evidence (external ledger)
+
+8. **P1-8: V5 Runtime Activation** — Remove flag or document as intentional
+
+9. **P1-9: Cognitive Load Dashboard** — Owner mission visibility, approval queue, error observability
+
+10. **P1-10: Rollback Testing** — Regular rollback drills for all V7 changes
 
 ---
 
-## REJECTED
+## P2 — Useful Later (10 items max)
 
-1. **Complete rewrite of Reality Compiler**: RC v0.1 works; evolve it, don't replace it.
-2. **New approval system**: Existing approval gates are sufficient; integrate with WSG instead.
-3. **Separate learning database**: Learning should use WSG as source of truth — no competing databases.
-4. **Real-time strategy search for all actions**: Too expensive; use only for multi-step or high-stakes missions.
-5. **Full counterfactual simulation in V7.0**: Too complex for initial release; defer to V7.1+.
+1. **P2-1: Adaptive Reality OS** — After V7.0 debt closure
+
+2. **P2-2: Reality Compiler 2.0** — After V7.0 debt closure
+
+3. **P2-3: World State Graph** — After V7.0 debt closure
+
+4. **P2-4: Strategy Search** — After V7.0 debt closure
+
+5. **P2-5: Counterfactual Simulation** — After V7.0 debt closure
+
+6. **P2-6: Dynamic Agent Teams** — After V7.0 debt closure
+
+7. **P2-7: Attention Scheduler** — After V7.0 debt closure
+
+8. **P2-8: Goal-First UX** — After V7.0 debt closure
+
+9. **P2-9: Self-Improving Skills** — After V7.0 debt closure
+
+10. **P2-10: Local Cognitive Fabric** — After V7.0 debt closure
 
 ---
 
-*Independent audit by: Perplexity*
+## REJECTED (Explicitly NOT Recommended)
+
+1. **REJECT-1: Big-bang V7 rewrite** — Replacing working V3/V4/V5/V6 systems without measured improvement
+
+2. **REJECT-2: Synthetic performance data** — Using fake/synthetic data for performance verdicts
+
+3. **REJECT-3: Weakening tests for PASS** — Lowering thresholds, adding skip/xfail without evidence
+
+4. **REJECT-4: Claiming Windows acceptance without real Windows** — Linux simulation is not Windows acceptance
+
+5. **REJECT-5: Claiming local model acceptance without same-model evidence** — Cross-model is not same-model
+
+6. **REJECT-6: Starting V7 features before P0 closure** — Building on unstable foundation
+
+7. **REJECT-7: Multiple competing sources of truth** — Silent creation of second reality system
+
+8. **REJECT-8: Inflated scores without evidence** — Claiming 80+ without measured proof
+
+---
+
+*Independent priorities by: Perplexity AI Assistant*
