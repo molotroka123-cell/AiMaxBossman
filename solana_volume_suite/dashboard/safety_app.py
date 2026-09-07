@@ -30,10 +30,13 @@ except ImportError:
 app = FastAPI(title="Solana AI Volume Suite - Safety Control Plane")
 
 # Global VolumeOrchestratorLoop instance
+# SEC-002: no hardcoded default password. Resolved from VAULT_MASTER_PASSWORD
+# env var by VolumeOrchestratorLoop; test_mode relaxes the fail-closed check so
+# the dashboard can still start (without a real vault) when the env var is
+# unset, e.g. in CI/dev.
 orchestrator = VolumeOrchestratorLoop(
     vault_path=os.path.join(SUITE_ROOT, "wallets_encrypted.json"),
-    master_password="SuperSecretMasterPass123!",
-    test_mode=False
+    test_mode=os.environ.get("VAULT_MASTER_PASSWORD") is None,
 )
 orchestrator_task: Optional[asyncio.Task] = None
 

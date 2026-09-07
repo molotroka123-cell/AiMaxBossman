@@ -24,7 +24,8 @@ def _evidence(path) -> list[dict]:
 
 async def test_flag_off_is_noop(env, monkeypatch):
     monkeypatch.delenv(deep_fix.FLAG, raising=False)
-    target = env.settings.data_dir / "a.txt"; target.write_text("ok", encoding="utf-8")
+    target = (env.settings.data_dir / 'scratch') / "a.txt"
+    target.parent.mkdir(parents=True, exist_ok=True); target.write_text("ok", encoding="utf-8")
     env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("готово")
     stack = await make_stack(env.client)
     await env.client.post("/api/review/enable", json={"task_id": stack["task"]["id"],
@@ -37,7 +38,8 @@ async def test_flag_off_is_noop(env, monkeypatch):
 
 async def test_plan_bound_at_first_run_and_unchanged_plan_completes(env, monkeypatch):
     monkeypatch.setenv(deep_fix.FLAG, "1")
-    target = env.settings.data_dir / "b.txt"; target.write_text("ok", encoding="utf-8")
+    target = (env.settings.data_dir / 'scratch') / "b.txt"
+    target.parent.mkdir(parents=True, exist_ok=True); target.write_text("ok", encoding="utf-8")
     env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("готово")
     stack = await make_stack(env.client)
     await env.client.post("/api/review/enable", json={"task_id": stack["task"]["id"],
@@ -53,8 +55,9 @@ async def test_moved_goalpost_cannot_complete(env, monkeypatch):
     файл c (который есть). Свежее доказательство для c есть, но завершение
     запрещено: план изменился → эскалация человеку."""
     monkeypatch.setenv(deep_fix.FLAG, "1")
-    missing = env.settings.data_dir / "missing.txt"
-    present = env.settings.data_dir / "c.txt"; present.write_text("ok", encoding="utf-8")
+    missing = (env.settings.data_dir / 'scratch') / "missing.txt"
+    present = (env.settings.data_dir / 'scratch') / "c.txt"
+    present.parent.mkdir(parents=True, exist_ok=True); present.write_text("ok", encoding="utf-8")
     env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("готово")
     stack = await make_stack(env.client, max_steps=2)
     tid = stack["task"]["id"]

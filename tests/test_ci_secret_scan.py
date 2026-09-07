@@ -89,6 +89,58 @@ def test_repository_itself_is_clean():
     assert scan.main() == 0
 
 
+def test_sec004_typed_annotated_password_default_is_caught(tmp_path):
+    # SEC-004 regression: the leaked vault password evaded the original
+    # "obvious password" pattern because of the `: str` type annotation between
+    # the identifier and `=`. This must now be caught (bad case rejected)...
+    found = _scan(
+        tmp_path, "svc/orchestrator.py",
+        'def __init__(self, master_password: str = "Sup3rLeakedValue!"):\n',  # ci-secret-scan: allow
+    )
+    assert any("obvious password" in f for f in found), found
+    # ...and the allow-marker still silences a deliberately fake canary on that
+    # same shape (legitimate case still passes).
+    assert _scan(
+        tmp_path, "svc/orchestrator.py",
+        f'def __init__(self, master_password: str = "Sup3rLeakedValue!"):  # {scan.ALLOW_MARK}\n',  # ci-secret-scan: allow
+    ) == []
+    # A non-secret assignment through a variable/function call (no literal
+    # string value) must not be flagged — the pattern requires a quoted literal.
+    assert _scan(
+        tmp_path, "svc/orchestrator.py",
+        "password = os.environ.get('OPENCODE_PASSWORD')\n",
+    ) == []
+    assert _scan(
+        tmp_path, "svc/orchestrator.py",
+        "password = body.get('password')\n",
+    ) == []
+
+
+def test_sec004_unquoted_env_password_is_caught(tmp_path):
+    # Bad case: a real-shaped unquoted .env-style password line is rejected.
+    found = _scan(tmp_path, "deploy/.env.sample", "VAULT_MASTER_PASSWORD=Sup3rLeakedValueNoQuotes\n")
+    assert any("unquoted env password" in f for f in found), found
+    # Legitimate case: an unrelated all-caps env var with a short/non-secret
+    # value, or one explicitly marked, still passes.
+    assert _scan(tmp_path, "deploy/.env.sample", "AI3D_OPENSCAD_BIN=openscad\n") == []
+    assert _scan(
+        tmp_path, "deploy/.env.sample",
+        "VAULT_MASTER_PASSWORD=CHANGE_ME  # " + scan.ALLOW_MARK + "\n",
+    ) == []
+
+
+def test_sec004_dict_hint_no_longer_shields_secret_password_key_words(tmp_path):
+    # SEC-004: DICT_HINT previously included "secret"/"password"/"key", which let
+    # an entropy-detected token evade flagging merely by containing one of those
+    # English words — exactly the shape of "<REDACTED_LEAKED_VAULT_PASSWORD_SEE_SEC-001>". Confirm
+    # a high-entropy token containing "Secret" is now still caught...
+    found = _scan(tmp_path, "svc/config.py", 'X = "zQ9SecretMk3Rp7Wm2Nb8Tf5Cx"\n')  # ci-secret-scan: allow
+    assert any("high-entropy" in f for f in found), found
+    # ...while genuinely fake/test/placeholder-tagged tokens are still exempt
+    # (legitimate case unaffected by the narrower DICT_HINT).
+    assert _scan(tmp_path, "svc/config.py", 'X = "this_is_a_test_placeholder_value"\n') == []
+
+
 def test_astra_sec103_nested_pem_corrupt_and_oversize_zip_are_not_clean(tmp_path):
     import io
     inner=io.BytesIO()
