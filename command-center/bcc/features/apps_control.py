@@ -32,6 +32,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 import socket
@@ -91,6 +92,82 @@ _processes: dict[str, _Managed] = {}
 _lock = asyncio.Lock()         # старт и остановка — критическая секция на весь модуль
 
 
+# ------------------------------------------------------------------ после перезапуска
+#
+# Реестр процессов живёт в памяти, а Command Center перезапускают часто. После
+# перезапуска BOSSMAN забывал, что сам запустил приложение: `_owned` пуст, порт
+# занят — и запуск отвечал «порт занят процессом, которого BOSSMAN не запускал»
+# про свой собственный процесс, а остановка отказывалась его трогать. Приложение
+# становилось и незапускаемым, и неостанавливаемым через интерфейс.
+#
+# Поэтому факт запуска переживает перезапуск: маленькая запись на диске.
+# Но восстановленная запись СЛАБЕЕ живого дочернего процесса: `proc.poll()`
+# говорит про наш процесс достоверно, а pid из файла может быть переиспользован
+# системой. Поэтому по восстановленной записи мы РАПОРТУЕМ, но не убиваем:
+# остановка требует явного подтверждения владельца.
+
+_RECORDS_DIRNAME = "apps-control"
+
+
+def _record_path(app_id: str, data_dir: Path) -> Path:
+    return Path(data_dir) / _RECORDS_DIRNAME / f"{app_id}.json"
+
+
+def _record_write(rec: _Managed, data_dir: Path) -> None:
+    path = _record_path(rec.app_id, data_dir)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({
+            "app_id": rec.app_id, "pid": rec.proc.pid, "port": rec.port,
+            "argv": list(rec.argv), "log_path": str(rec.log_path),
+            "started_at": rec.started_at}, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass          # запись — удобство, а не условие запуска
+
+
+def _record_drop(app_id: str, data_dir: Path | None) -> None:
+    if data_dir is None:
+        return
+    try:
+        _record_path(app_id, data_dir).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(int(pid), 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True        # существует, но чужой владелец
+    except (OSError, ValueError, TypeError):
+        return False
+    return True
+
+
+def _recorded(app_id: str, data_dir: Path | None, port: Any) -> dict | None:
+    """Наш процесс, переживший перезапуск сервера, — или None.
+
+    Требуются ОБА признака: pid жив и порт занят. Одного pid мало (его мог
+    переиспользовать кто угодно), одного занятого порта — тоже (там мог сесть
+    чужой сервер). Запись, не прошедшую проверку, удаляем: устаревшая запись
+    врёт не меньше, чем её отсутствие.
+    """
+    if data_dir is None:
+        return None
+    path = _record_path(app_id, data_dir)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    pid = data.get("pid")
+    if not (_pid_alive(pid) and port_busy(port)):
+        _record_drop(app_id, data_dir)
+        return None
+    return data
+
+
 def _owned(app_id: str) -> _Managed | None:
     """Живая запись о нашем процессе. Умерший процесс перестаёт быть нашим.
 
@@ -107,8 +184,9 @@ def _owned(app_id: str) -> _Managed | None:
     return rec
 
 
-def _forget(rec: _Managed) -> None:
+def _forget(rec: _Managed, data_dir: Path | None = None) -> None:
     _processes.pop(rec.app_id, None)
+    _record_drop(rec.app_id, data_dir)
     try:
         rec.log_file.close()
     except OSError:
@@ -398,6 +476,7 @@ def _spawn(app_id: str, app_dir: Path, card: dict[str, Any],
                    port=card.get("port"), log_path=path, log_file=handle,
                    started_at=time.time(), started_mono=time.monotonic())
     _processes[app_id] = rec
+    _record_write(rec, data_dir)
     return rec
 
 
@@ -413,6 +492,18 @@ async def start_app(app_id: str, data_dir: Path,
                     "message": f"{card['name']} уже запущено (pid {rec.proc.pid})",
                     "log_path": str(rec.log_path), "log_tail": [],
                     "command": rec.argv}
+        prior = _recorded(app_id, data_dir, port)
+        if prior is not None:
+            # Наш же процесс, переживший перезапуск сервера. Раньше здесь
+            # выдавалось «процесс, которого BOSSMAN не запускал» — про
+            # собственное приложение, и запустить его больше было нельзя.
+            return {"ok": True, "app_id": app_id, "started": False,
+                    "already_running": True, "ready": True, "recovered": True,
+                    "pid": prior.get("pid"), "port": port,
+                    "message": f"{card['name']} уже работает (pid {prior.get('pid')}): "
+                               f"его запустил BOSSMAN до перезапуска сервера",
+                    "log_path": prior.get("log_path"), "log_tail": [],
+                    "command": prior.get("argv") or []}
         if port_busy(port):
             # Порт занят, а в реестре пусто — значит, сервер там не наш. Ни
             # запускать второй, ни присваивать чужой мы не имеем права.
@@ -439,7 +530,7 @@ async def start_app(app_id: str, data_dir: Path,
                 "log_tail": log_tail(rec.log_path)}
     if outcome == "exited":
         async with _lock:
-            _forget(rec)
+            _forget(rec, data_dir)
         return {**base, "ok": False, "started": False, "already_running": False, "ready": False,
                 "reason": "exited", "exit_code": code, "pid": None,
                 "message": f"{card['name']} завершилось сразу после запуска (код {code})",
@@ -452,12 +543,28 @@ async def start_app(app_id: str, data_dir: Path,
             "log_tail": log_tail(rec.log_path)}
 
 
-async def stop_app(app_id: str) -> dict[str, Any]:
+async def stop_app(app_id: str, data_dir: Path | None = None) -> dict[str, Any]:
     _, card = _require_app(app_id)
     port = card.get("port")
     async with _lock:
         rec = _owned(app_id)
         if rec is None:
+            prior = _recorded(app_id, data_dir, port)
+            if prior is not None:
+                # Это наш процесс, но запись о нём восстановлена с диска, а не
+                # получена от живого потомка: `proc.poll()` мы здесь предъявить
+                # не можем, а pid из файла система могла переиспользовать.
+                # Гасить по такой улике — значит однажды убить чужой процесс.
+                # Поэтому говорим правду и отдаём решение владельцу.
+                return {"ok": True, "app_id": app_id, "stopped": False, "owned": True,
+                        "recovered": True, "port": port, "port_busy": True,
+                        "pid": prior.get("pid"),
+                        "message": f"{card['name']} запущено BOSSMAN до перезапуска сервера "
+                                   f"(pid {prior.get('pid')}). Остановить его отсюда нельзя: "
+                                   f"после перезапуска у нас нет прямой связи с процессом, "
+                                   f"а гасить по записанному pid небезопасно — его мог занять "
+                                   f"другой процесс. Закройте окно приложения или снимите "
+                                   f"процесс сами."}
             busy = port_busy(port)
             message = (f"на порту {port} отвечает процесс, которого BOSSMAN не запускал — "
                        f"он не тронут") if busy else f"{card['name']} и так не запущено"
@@ -477,7 +584,7 @@ async def stop_app(app_id: str) -> dict[str, Any]:
             while rec.proc.poll() is None and time.monotonic() < deadline:
                 await asyncio.sleep(STOP_POLL)
         code = rec.proc.poll()
-        _forget(rec)
+        _forget(rec, data_dir)
         return {"ok": True, "app_id": app_id, "stopped": True, "owned": True,
                 "pid": pid, "port": port, "signal": signal_used, "exit_code": code,
                 "message": f"{card['name']} остановлено ({signal_used})"}
@@ -521,7 +628,7 @@ async def start(app_id: str, request: Request) -> dict:
 @router.post("/apps/{app_id}/stop")
 async def stop(app_id: str, request: Request) -> dict:
     _require_flag()
-    return await stop_app(app_id)
+    return await stop_app(app_id, request.app.state.svc.settings.data_dir)
 
 
 @router.get("/apps/{app_id}/process")
