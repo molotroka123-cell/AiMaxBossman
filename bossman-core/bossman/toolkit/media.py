@@ -7,6 +7,10 @@ import json
 import re
 
 from . import ToolContext, ToolDef, ToolResult, clip, register
+from .files import _contains, _resolve
+
+# Кадр или короткий клип. Больше — не подпись, а выгрузка.
+VISION_MAX_BYTES = 32 * 1024 * 1024
 
 
 def _path_arg_ok(a: str) -> bool:
@@ -28,6 +32,32 @@ def _path_arg_ok(a: str) -> bool:
     return ".." not in re.split(r"[/\\]+", a)
 
 
+def _looks_like_path(a: str) -> bool:
+    """Аргумент похож на путь: есть разделитель или узнаваемое расширение.
+
+    Фильтры и опции ffmpeg путями не являются и проверке содержания не подлежат;
+    ошибиться в эту сторону безопасно — непроверенный НЕ-путь ничего не открывает.
+    """
+    if not a or a.startswith("-"):
+        return False
+    if "/" in a or "\\" in a:
+        return True
+    return bool(re.search(r"\.[A-Za-z0-9]{2,4}$", a))
+
+
+def _path_contained(ctx: ToolContext, rel: str) -> bool:
+    """Существующий путь проверяется по своей цели, будущий — по родителю."""
+    root = ctx.workdir.resolve()
+    raw = ctx.workdir / rel
+    try:
+        if raw.exists() or raw.is_symlink():
+            return _contains(root, raw.resolve())
+        parent = raw.parent.resolve()
+        return _contains(root, parent) and not raw.is_symlink()
+    except (OSError, RuntimeError):
+        return False
+
+
 async def _run(argv: list[str], timeout: int = 900, cwd=None) -> tuple[int, str]:
     # argv-only, без шелла: аргументы из плана агента не интерпретируются.
     proc = await asyncio.create_subprocess_exec(
@@ -42,10 +72,19 @@ async def probe(args: dict, ctx: ToolContext) -> ToolResult:
     # Тот же барьер путей, что у ffmpeg: без него probe читал абсолютные и «..»
     # пути наружу (Fable5.1 red-team F-003) — оракул существования/метаданных
     # файлов вне рабочей папки. Только внутри workdir.
+    # RT-03: лексическая проверка ловит «..» и абсолютные пути, но НЕ symlink.
+    # `leak.mp4 -> /etc/secret` не содержит «..», не абсолютен и проходил её —
+    # а разрешённая цель уже вне workdir, и именно её получал ffprobe. Реальное
+    # содержание проверяется тем же резолвером, что и fs.*: сравниваются
+    # .resolve()-нутые пути, поэтому и symlink, и junction ловятся по цели.
     if not _path_arg_ok(str(args["path"])):
         return ToolResult("абсолютные пути и «..» запрещены — только внутри рабочей папки",
                           one_line="probe: отказ по пути", error=True)
-    path = (ctx.workdir / args["path"]).resolve()
+    try:
+        path = _resolve(ctx, str(args["path"]))
+    except PermissionError:
+        return ToolResult("путь ведёт за пределы рабочей папки (symlink/junction)",
+                          one_line="probe: отказ по содержанию", error=True)
     code, out = await _run(
         ["ffprobe", "-v", "quiet", "-print_format", "json",
          "-show_format", "-show_streams", str(path)])
@@ -71,6 +110,16 @@ async def ffmpeg(args: dict, ctx: ToolContext) -> ToolResult:
     if any(not _path_arg_ok(a) for a in argv):
         return ToolResult("абсолютные пути и «..» запрещены — только внутри рабочей папки",
                           one_line="ffmpeg: отказ по пути", error=True)
+    # RT-03, вторая половина: лексики мало и здесь. Каждый аргумент, который
+    # похож на путь, обязан РЕАЛЬНО оставаться внутри workdir — и существующий
+    # вход по своей цели, и ещё не созданный выход по своему родителю. Иначе
+    # `out.mp4 -> /outside/x.mp4` писал наружу, не содержа ни «..», ни абсолюта.
+    for a in argv:
+        if not _looks_like_path(a):
+            continue
+        if not _path_contained(ctx, a):
+            return ToolResult("путь ведёт за пределы рабочей папки (symlink/junction)",
+                              one_line="ffmpeg: отказ по содержанию", error=True)
     code, out = await _run(["ffmpeg", "-y", "-hide_banner", "-v", "error", *argv],
                            timeout=int(args.get("timeout", 1800)), cwd=str(ctx.workdir))
     body, cut = clip(out or "готово", 1000)
@@ -82,7 +131,30 @@ async def vision_describe(args: dict, ctx: ToolContext) -> ToolResult:
     """Подпись к кадру/клипу от модели со зрением. Всегда воркер: один клип — один вызов.
     Вызов идёт через петлю (bossman-writer локально / gemini_qa через ask)."""
     from ..llm import vision_caption  # поздний импорт: разрыв цикла toolkit ↔ llm
-    caption = await vision_caption(ctx.agent, args["path"], args.get("question", "Что на изображении?"))
+    # RT-02: раньше сюда уходил СЫРОЙ путь агента, и `vision_caption` делал
+    # `Path(path).read_bytes()` — то есть любой абсолютный путь хоста (или symlink
+    # изнутри workdir наружу) превращался в base64 внутри запроса к модели. Это
+    # канал вывода данных, а не подпись к кадру. Проверка стоит ЗДЕСЬ, а модели
+    # передаются уже проверенные байты: забыть её у другого вызывающего нельзя,
+    # потому что путь до адаптера больше не доходит.
+    if not _path_arg_ok(str(args["path"])):
+        return ToolResult("абсолютные пути и «..» запрещены — только внутри рабочей папки",
+                          one_line="vision: отказ по пути", error=True)
+    try:
+        path = _resolve(ctx, str(args["path"]))
+    except PermissionError:
+        return ToolResult("путь ведёт за пределы рабочей папки (symlink/junction)",
+                          one_line="vision: отказ по содержанию", error=True)
+    if not path.is_file():
+        return ToolResult(f"нет файла: {args['path']}",
+                          one_line=f"vision {args['path']}: нет файла", error=True)
+    size = path.stat().st_size
+    if size > VISION_MAX_BYTES:
+        return ToolResult(f"файл больше предела зрения ({size} Б > {VISION_MAX_BYTES} Б)",
+                          one_line="vision: отказ по размеру", error=True)
+    data = path.read_bytes()
+    caption = await vision_caption(ctx.agent, args.get("question", "Что на изображении?"),
+                                   data=data, source=str(args["path"]))
     body, _ = clip(caption, 300)
     return ToolResult(body, one_line=f"vision {args['path']}: подпись получена")
 

@@ -2,8 +2,9 @@
 
 **Document status:** LIVE certification record. This is the authoritative freeze ledger.
 **Branch under certification:** `claude/v4-v5-freeze-p0-gates-l56exm`
-**FEATURE_FREEZE_READY:** **NO**
-**OPEN_P0:** **3**
+**AUTHORITATIVE STATUS: see §16 at the end of this file.**
+Everything above §16 is a dated working record of how the run
+unfolded; where it disagrees with §16, §16 is correct.
 
 > This document records gate state honestly. A gate is never marked PASS without naming
 > its evidence. Anything not independently verifiable from this repo is marked
@@ -494,3 +495,124 @@ Materializing the pack by hand (`19180f4`) was the only path, and it is done.
 Nothing was classified as runner noise. Both product regressions were
 reproduced on a clean checkout and both are fixed on this line; PR #48 targets
 `claude/v5-closure-at-reconcile-xdh12f`, so it is the vehicle that lands them.
+
+### P0-0 confirmed by CI on `e8671c0`
+
+The diagnosis is no longer local-only. Every suite that is RED on PR #37 at
+`67905ee` is GREEN on the freeze candidate:
+
+| Suite | PR #37 `67905ee` | PR #48 `e8671c0` |
+|---|---|---|
+| `root pytest + hygiene` py3.11 | FAIL | **success** |
+| `root pytest + hygiene` py3.12 | FAIL | **success** |
+| `pytest rest` py3.11 (Core) | FAIL | **success** |
+| `pytest rest` py3.12 (Core) | FAIL | **success** |
+| `покрытие (неснижаемый порог)` | FAIL | **success** |
+| `measured intelligence retention` | FAIL | FAIL — expected evidence blocker |
+
+Also green on `e8671c0`: `pytest security`, `pytest stage8-14`,
+`pytest gateway-context`, `compile + секреты`, `секреты, JS, запрещённые файлы`,
+`Real media, Web and Fleet` (3.11 and 3.12), `browser-user-paths`,
+`ASTRA portable` on ubuntu-latest and windows-latest, `ASTRA runner recovery`,
+`windows paths (py3.12)`, `safety` 3.11/3.12, `deterministic-benchmark`,
+`anti-dumbness gate contract`, `bossman-core container ships bossman-shared`.
+
+The V2 Auto-Repair red followed the same two root causes, both fixed here.
+
+`measured intelligence retention` remains the single genuine red and is not
+touched: its gate is a file-existence check whose only "fix" is committing the
+report that must not be fabricated.
+
+---
+
+# 16. AUTHORITATIVE STATUS (supersedes every earlier section)
+
+Derived from evidence measured on the current source. Earlier sections are a
+dated working record; where they disagree, this section is correct.
+
+**FINAL_SOURCE_SHA (freeze candidate):** see the commit that carries this
+section on `claude/v4-v5-freeze-p0-gates-l56exm` (PR #48).
+
+Two different questions are answered separately, because conflating them is how
+a release gets certified on evidence nobody ran:
+
+| | |
+|---|---|
+| **REPO_CODE_FREEZE_READY** | **NO** — 1 repo-local P0 open (canary authority) |
+| **FULL_RELEASE_ACCEPTANCE** | **NO** — owner-hardware and measured-model evidence not run |
+
+`OPEN_P0 = 1`.
+
+## Repo-local code gates
+
+| Gate | State | Evidence |
+|---|---|---|
+| `SATISFIED` durable evidence gate | **CLOSED** | `5c6ad54`. This repo's own freeze regression `test_arbitrary_nonempty_string_cannot_purchase_satisfied` passes here and FAILS on PR #37 at `67905ee`. ~15 negative controls. |
+| `AT-01` | **CLOSED** | `973ce94` + `333616c`. C1–C4 closed at the manager; six required cases incl. invisible effect completing on a bound receipt, with a foreign-receipt negative control. 119 passed. |
+| `AT-03` | **CLOSED** | No new counterexample. |
+| `LIVE-P0-01`, `LIVE-P1-02..08` | **CLOSED** | `19180f4`. Materialized in source after proving by blob identity they were absent at `67905ee`. 10 + 32 + 66 passed. |
+| Video CFR / codec / preview / repaint / reconnect | **CLOSED** | Harness defect fixed by `51825b2`; not touched this run. |
+| Human-speed contract | **CLOSED** | 10 ms target intact; the one red re-ran green unmodified. |
+| OpenRouter isolation, FULL methodology, CAN-001/003, PROM-001/002/003 | **CLOSED** | Not re-audited, per instruction. |
+| **Canary production authority** | **OPEN — the only repo P0** | See below. |
+| `LIVE-P1-09` immutable run provenance | **OPEN (P1)** | `tasks.agent_id` is `ON DELETE SET NULL` (`db.py:82`); `task_runs` carries no identity beyond `model_alias` (`db.py:104`). Not started. |
+
+## The one open P0, stated precisely
+
+Landed on PR #49 (`52b1c4e`), deliberately **not** on the freeze candidate:
+
+- Generic task history is no longer activation authority. One writer mints
+  evidence at two defined lifecycle points (evaluation open for already-terminal
+  members; `after_run` for later ones). The decision only reads durable reports.
+- A lost durable store can no longer rebuild a PASS. A run without reports is
+  silence.
+- Real hole fixed: `CANARY_WINDOW` took the FIRST five terminal runs, so a
+  candidate that is six completed then four failed was judged on its healthy
+  prefix and promoted at a 40 % failure rate. The window now covers every
+  measured terminal run.
+- Registration bypass stays closed: a replacement version does not mutate
+  `current_version_id` (`test_registering_a_version_no_longer_promotes_it` passes).
+
+Green, unmodified: `test_another_service_identity_cannot_decide_this_run`,
+`test_a_restart_without_the_durable_run_denies`. Caller suite 25 of 29.
+
+Still failing, deliberately, not worked around:
+`test_a_human_approval_does_not_bypass_the_canary`,
+`test_an_unhealthy_cohort_member_denies_promotion`,
+`test_a_silent_cohort_member_denies_promotion`,
+`test_the_real_sequence_canary_restart_activation_failure_rollback_restart`.
+
+All four require a durable attested report to change or vanish after it was
+minted — `_fail_run` flips an already-terminal run, and the silent case makes a
+terminal member non-terminal again. A production run reaches a terminal outcome
+once. Closing them needs either retraction in the attested ledger or a
+decision-time override of stored health; both weaken CAN-001/CAN-003, which are
+closed. Making the cohort cover the whole window was tried and reverted — it
+changes the plan digest and the evidence-binding tests stop matching production
+(measured: 10 failed). **This is an owner decision on canary semantics, not a
+coding gap, so the gate is left honest rather than green.**
+
+## Live gates — none of these are repo-code defects
+
+| Gate | State | Why |
+|---|---|---|
+| `N4` production scheduler | **NOT_RUN** | `objective_fairness.rank()` has no production importer; `STANDING_AUTONOMY_ENABLED = False`. |
+| `N5` real-model promotion | **NOT_RUN** | Runner exists; the caller joining it to `objective_promotion` does not. |
+| `N6` owner workspace | **NOT_RUN** | Backend and UI exist; never exercised by a human on the owner's box. |
+| `N8` real canary/restart/rollback | **NOT_RUN — BLOCKED** | Blocked by the open P0 above: a rehearsal cannot produce an honest PASS while activation authority is unsettled. Not faked. |
+| `INTELLIGENCE_PRESERVATION` | **INSUFFICIENT_EVIDENCE** | Gate is a file-existence check (`Missing docs/benchmark/intelligence-preservation-current.json`, exit 2). No real local model reachable from this environment. Needs ≥189 paired samples per required metric. Never fabricated. |
+| `WINDOWS_ACCEPTANCE` | **NOT_RUN** | No owner Windows host here. CI Windows checks prove portability only. |
+| `LOCAL_MODEL_ACCEPTANCE` | **NOT_RUN** | No local model reachable. |
+| Soak / private egress | **NOT_RUN** | — |
+
+## CI on the freeze candidate
+
+Green: `root pytest + hygiene` 3.11/3.12, `pytest rest` 3.11/3.12, coverage
+floor, security, stage8-14, gateway-context, compile+secrets, secrets/JS,
+Real media/Web/Fleet 3.11/3.12, browser-user-paths, ASTRA portable
+ubuntu+windows, ASTRA runner recovery, windows paths, safety 3.11/3.12,
+deterministic-benchmark, anti-dumbness, container ship.
+
+Red: `measured intelligence retention` only — the evidence blocker above.
+
+The same first five of those are RED on PR #37 at `67905ee`.
