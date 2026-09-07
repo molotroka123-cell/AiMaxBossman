@@ -102,7 +102,18 @@ async def guarded(call):
         if isinstance(exc, MissingObject):
             raise HTTPException(404,{"message":str(exc)[:300],"code":exc.code}) from None
         raise HTTPException(422,{"message":str(exc)[:300]}) from None
-    except (RuntimeError, OSError, sa.exc.IntegrityError):
+    except RuntimeError as exc:
+        # RuntimeError здесь — НАШ собственный текст, а не системный сбой:
+        # `prepared_file` этим сообщает «производная ещё не подготовлена, запусти
+        # prepare». Прежде он схлопывался в «operation conflict or local resource
+        # unavailable» вместе с OSError и IntegrityError, и владелец видел на
+        # превью 409 без единого намёка, что делать. Система знала причину и
+        # выбрасывала её. Текст наш, путей в нём нет — отдаём как есть.
+        raise HTTPException(409,{"message":str(exc)[:300],
+                                 "code":"derivative_not_prepared"}) from None
+    except (OSError, sa.exc.IntegrityError):
+        # А эти сообщения несут пути и детали хранилища, поэтому наружу идёт
+        # общая формулировка: причина остаётся в логах сервера, не в ответе.
         raise HTTPException(409,"operation conflict or local resource unavailable") from None
 
 @router.get("/capabilities")
