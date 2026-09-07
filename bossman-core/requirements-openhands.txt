@@ -1,0 +1,4 @@
+# Separate Python 3.12+ OpenHands sidecar environment.
+# Keep SDK and tools on exactly the same release.
+openhands-sdk==1.23.1
+openhands-tools==1.23.1
