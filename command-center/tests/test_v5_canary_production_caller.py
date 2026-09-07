@@ -564,3 +564,112 @@ async def test_the_real_sequence_canary_restart_activation_failure_rollback_rest
     again = ev._gate(env.svc).authorize(rolled["metrics"]["canary"]["run_id"],
                                         now=ev._epoch(utcnow()))
     assert again.allowed is False and again.reason == "canary_run_not_open"
+
+
+# ---------------------------------------------------- контракт HUMAN_REVIEW
+#
+# Две РАЗНЫЕ ситуации, которые нельзя мерить одной меркой:
+#
+#   «неопределённое качество» — цифры в пределах шума, но канареечная когорта
+#   чиста: ни одного падения, ни одного молчащего члена. Здесь владелец
+#   полномочен: он решает вопрос ВКУСА, беря на себя статистическую
+#   неопределённость.
+#
+#   «известная небезопасность» — в измеренном наборе есть настоящее падение.
+#   Здесь владелец не полномочен: он не может объявить упавший прогон здоровым,
+#   потому что это вопрос ФАКТА, а не воли.
+#
+# Раньше эти два случая жили в одном тесте, и когда политика заморозки закрыла
+# второй, первый исчез вместе с ним — то есть перестало проверяться, что
+# одобрение человека вообще ещё работает. Ниже они разделены явно.
+
+
+async def test_owner_may_approve_a_noisy_candidate_with_a_clean_canary(env):
+    """А. Цифры спорные, канарейка ЧИСТАЯ -> владелец вправе продвинуть.
+
+    Спорность берётся из истории кандидата ДО отсечки, а канареечная когорта —
+    только из проспективных прогонов ПОСЛЕ неё, и они все здоровы. Это и есть
+    случай, ради которого HUMAN_REVIEW существует.
+    """
+    sid, base, cand = await _skill(env)
+    await _runs(env, base, completed=12, failed=8)                  # 0.60
+    # История кандидата ДО отсечки: канареечной властью она не является, но в
+    # долю успеха входит и держит кандидата в полосе шума.
+    await _runs(env, cand, completed=6, failed=10)
+
+    row = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
+                                   candidate_version_id=cand)
+    # Проспективная когорта: чистая целиком.
+    await _runs(env, cand, completed=ev.CANARY_WINDOW, failed=0)
+
+    result = await ev.refresh(env.svc, int(row["id"]))
+    assert result["verdict"] == ev.HUMAN_REVIEW, result["reason"]
+    assert result["applied"] is False
+    assert await _current(env, sid) == base
+
+    # Дверь при вердикте по цифрам ещё не спрашивалась — её спрашивают в момент
+    # решения человека. Поэтому чистоту когорты проверяем у самой двери.
+    cand_row = await ev._version_row(env.svc, cand)
+    _, _, door = await ev.canary_decision(env.svc, dict(row), cand_row)
+    assert door.allowed, door.reason
+
+    decided = await ev.apply_human_decision(env.svc, int(row["id"]),
+                                            approve=True, by="владелец")
+    assert decided["verdict"] == ev.PROMOTE and decided["applied"] is True
+    assert await _current(env, sid) == cand
+
+
+async def test_the_writer_and_the_decision_build_the_same_canary_run(env):
+    """Один план на двоих — и до перезапуска, и после.
+
+    Расхождение здесь было настоящей причиной отказов на здоровых кандидатах:
+    писатель улики строил план из ВСЕХ прогонов версии без отсечки, решение — из
+    прогонов после отсечки с обрезкой до окна. Разные списки членов дают разный
+    `cohort_digest`, а `run_id` выводится из него, поэтому улика уезжала в
+    прогон, которого решение не читает. Этот тест закрепляет тождество.
+    """
+    sid, base, cand, _, row = await _promotable(env)
+    cand_row = await ev._version_row(env.svc, cand)
+
+    writer_plan = ev._cohort_plan(ev._gate(env.svc), dict(row), cand_row)
+    _, decision_run_id, decision = await ev.canary_decision(env.svc, dict(row), cand_row)
+
+    assert decision_run_id == writer_plan.run_id
+    assert decision.allowed, decision.reason
+
+    # ПЕРЕЗАПУСК: новая ручка хранилища и новый объект двери обязаны найти ТОТ ЖЕ
+    # прогон, иначе долговечная улика перестаёт быть долговечной.
+    fresh_plan = ev._cohort_plan(ev._gate(env.svc), dict(row), cand_row)
+    assert fresh_plan.run_id == writer_plan.run_id
+    assert fresh_plan.cohort_digest == writer_plan.cohort_digest
+    assert fresh_plan.cohort == writer_plan.cohort
+
+    stored = ObjectiveStore(ev._canary_store_path(env.svc)).canary_run(writer_plan.run_id)
+    assert stored["cohort_digest"] == writer_plan.cohort_digest
+    assert set(stored["cohort"]) == set(writer_plan.cohort)
+
+
+async def test_a_member_that_finished_early_keeps_its_evidence(env):
+    """Член, завершившийся ДО того, как когорта добралась, улику не теряет.
+
+    Места когорты известны с момента заведения сравнения, поэтому прогон,
+    ставший терминальным третьим, пишет улику сразу и в ТОТ ЖЕ прогон, который
+    потом прочитает решение. Если бы состав определялся только после появления
+    пятого участника, улику первых пришлось бы либо терять, либо дописывать
+    задним числом — а дописывать задним числом здесь нельзя.
+    """
+    sid, base, cand = await _skill(env)
+    await _runs(env, base, completed=5, failed=5)
+    row = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
+                                   candidate_version_id=cand)
+
+    early = await _runs(env, cand, completed=2, failed=0)           # когорта ещё неполна
+    cand_row = await ev._version_row(env.svc, cand)
+    plan = ev._cohort_plan(ev._gate(env.svc), dict(row), cand_row)
+    store = ObjectiveStore(ev._canary_store_path(env.svc))
+    assert len(store.canary_reports(plan.run_id)) == len(early)     # улика уже лежит
+
+    await _runs(env, cand, completed=8, failed=0)                   # когорта добралась
+    result = await ev.refresh(env.svc, int(row["id"]))
+    assert result["verdict"] == ev.PROMOTE and result["applied"] is True
+    assert await _current(env, sid) == cand
