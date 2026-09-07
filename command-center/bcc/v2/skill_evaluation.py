@@ -37,7 +37,8 @@ import sqlalchemy as sa
 from bossman_shared.objective_activation import (ActivationDecision, ActivationError,
                                                  BroadActivationGate,
                                                  cohort_reports_from_facts)
-from bossman_shared.objective_canary import CanaryError
+from bossman_shared.objective_canary import (FAILED, PENDING, CanaryError,
+                                             CanaryVerdict)
 from bossman_shared.objective_store import ObjectiveStore, ObjectiveStoreError
 
 from ..db import (skill_evaluations as evals_t, skill_versions as skill_versions_t,
@@ -151,20 +152,22 @@ async def open_evaluation(svc, *, skill_id: int, baseline_version_id: int,
             evals_t.c.candidate_version_id == candidate_version_id)))).first()
         if row is not None:
             return dict(row._mapping)
+        cutoff = (await s.execute(sa.select(sa.func.max(runs_t.c.id)))).scalar() or 0
         eid = int((await s.execute(sa.insert(evals_t).values(
             skill_id=skill_id, baseline_version_id=baseline_version_id,
             candidate_version_id=candidate_version_id, status="collecting",
-            metrics={}, created_at=utcnow(), updated_at=utcnow()))).inserted_primary_key[0])
+            metrics={"canary": {"cutoff_run_id": int(cutoff)}},
+            created_at=utcnow(), updated_at=utcnow()))).inserted_primary_key[0])
         await s.commit()
         row = (await s.execute(sa.select(evals_t).where(evals_t.c.id == eid))).first()
-    # Улики для прогонов, которые стали терминальными ДО заведения сравнения,
-    # выписываются ровно здесь и ровно один раз. Это не «восстановление
-    # здоровья в момент решения»: точка рождения улики зафиксирована в жизненном
-    # цикле сравнения, а не в вычислении вердикта. Поэтому процесс, потерявший
-    # долговечное хранилище, ничего не воскресит — повторного заполнения нет, и
-    # прогон без отчётов остаётся молчанием.
-    for member, healthy in await canary_window(svc, candidate_version_id):
-        await _record_member_outcome(svc, dict(row._mapping), member, healthy)
+    # ИСТОРИЧЕСКОГО ЗАПОЛНЕНИЯ ЗДЕСЬ НЕТ, И ЭТО НАМЕРЕННО.
+    #
+    # Подписать задним числом старые строки `task_runs` — значит выдать доверенную
+    # канареечную улику за факты, которые никто не наблюдал как канарейку.
+    # Полномочие снова стало бы выводимым из общей истории задач, просто на шаг
+    # раньше. Вместо этого замораживается ОТСЕЧКА: членами когорты могут стать
+    # только прогоны кандидата, завершившиеся ПОСЛЕ заведения сравнения. Всё, что
+    # было до, — история, а не канарейка.
     await svc.bus.emit("skill.evaluation.opened", evaluation_id=eid, skill_id=skill_id,
                        baseline_version_id=baseline_version_id,
                        candidate_version_id=candidate_version_id)
@@ -204,7 +207,7 @@ async def refresh(svc, evaluation_id: int) -> dict[str, Any]:
     canary: dict[str, Any] | None = None
     if verdict == PROMOTE:
         gate, canary_run_id, decision = await canary_decision(svc, ev, cand_row)
-        canary = _canary_facts(decision, canary_run_id)
+        canary = _canary_facts(decision, canary_run_id, _cutoff_of(ev))
         if not decision.allowed:
             verdict = HUMAN_REVIEW
             reason = (f"{reason}; широкая активация закрыта канареечной дверью: "
@@ -213,6 +216,7 @@ async def refresh(svc, evaluation_id: int) -> dict[str, Any]:
         else:
             grant = decision.grant
 
+    canary = canary or {"cutoff_run_id": _cutoff_of(ev)}
     metrics = {"baseline": baseline, "candidate": candidate, "widened": widened,
                "min_runs": MIN_RUNS, "improve_delta": IMPROVE_DELTA,
                "regress_delta": REGRESS_DELTA, "canary": canary,
@@ -343,20 +347,47 @@ def candidate_revision(version_row: dict[str, Any]) -> str:
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
-async def canary_window(svc, version_id: int) -> list[tuple[str, bool]]:
-    """Первые терминальные прогоны версии: (член когорты, здоров ли).
+def _cutoff_of(ev: Mapping[str, Any]) -> int:
+    """Отсечка когорты, замороженная при заведении сравнения."""
+    metrics = ev.get("metrics")
+    canary = metrics.get("canary") if isinstance(metrics, Mapping) else None
+    if isinstance(canary, Mapping):
+        try:
+            return int(canary.get("cutoff_run_id") or 0)
+        except (TypeError, ValueError):
+            return 0
+    return 0
 
-    `stopped`/`queued`/`running` сюда не попадают: это не исход. Член окна без
-    исхода — молчание, и дверь на нём закрыта.
+
+async def canary_window(svc, version_id: int, *, after: int = 0
+                        ) -> list[tuple[str, bool | None]]:
+    """ПРОСПЕКТИВНЫЕ терминальные прогоны версии: (член когорты, здоров ли).
+
+    `after` — отсечка: прогоны с меньшим идентификатором завершились ДО того, как
+    когорта была заморожена, и потому канареечной властью быть не могут. Это и
+    закрывает подпись истории задним числом.
+
+    `stopped`/`queued`/`running` сюда не попадают: это не исход. Член без исхода —
+    молчание, и дверь на нём закрыта.
     """
     async with svc.db.session() as s:
         rows = (await s.execute(
             sa.select(runs_t.c.id, runs_t.c.status)
             .select_from(runs_t.join(tasks_t, tasks_t.c.id == runs_t.c.task_id))
             .where(sa.and_(tasks_t.c.skill_version_id == version_id,
-                           runs_t.c.status.in_(("completed", "failed"))))
+                           runs_t.c.id > int(after)))
             .order_by(runs_t.c.id))).fetchall()
-    return [(f"run:{int(r[0])}", str(r[1]) == "completed") for r in rows]
+    # ЧЛЕНСТВО — ПО ПОЗИЦИИ, А НЕ ПО ИСХОДУ. Ещё не завершившийся прогон остаётся
+    # членом когорты со здоровьем None: это МОЛЧАНИЕ, и дверь на нём закрыта.
+    # Если бы незавершённый член просто пропускался, когорта добиралась бы
+    # следующими прогонами, и «ждём исход» незаметно превратилось бы в «возьмём
+    # тех, кто уже ответил» — то есть снова в выбор здоровых.
+    out: list[tuple[str, bool | None]] = []
+    for rid, status in rows:
+        text = str(status)
+        healthy = True if text == "completed" else (False if text == "failed" else None)
+        out.append((f"run:{int(rid)}", healthy))
+    return out
 
 
 async def record_canary_outcome(svc, version_id: int, run_id: int, status: str) -> None:
@@ -419,13 +450,22 @@ async def canary_decision(svc, ev: dict[str, Any], candidate_row: dict[str, Any]
     """
     subject = f"skill:{int(ev['skill_id'])}"
     revision = candidate_revision(candidate_row)
-    window = await canary_window(svc, int(ev["candidate_version_id"]))
+    window = await canary_window(svc, int(ev["candidate_version_id"]),
+                                 after=_cutoff_of(ev))
     started = ev.get("created_at") or utcnow()
     now = _epoch(utcnow())
     try:
         gate = _gate(svc)
+        # Когорта — РОВНО первые MIN_RUNS проспективных прогонов. Она стабильна,
+        # потому что последующие прогоны не меняют первых, и заморожена, потому
+        # что отсечка записана при заведении сравнения.
+        cohort_members = [member for member, _ in window][:CANARY_WINDOW]
+        if len(cohort_members) < CANARY_WINDOW:
+            return None, "", ActivationDecision(
+                "", False,
+                f"canary_incomplete:cohort {len(cohort_members)}/{CANARY_WINDOW}")
         plan = gate.plan(subject=subject, revision=revision,
-                         members=[member for member, _ in window],
+                         members=cohort_members,
                          started_at=_epoch(started) - 1.0,
                          run_nonce=f"skill-eval:{int(ev['id'])}")
     except (ActivationError, CanaryError) as exc:
@@ -454,6 +494,42 @@ async def canary_decision(svc, ev: dict[str, Any], candidate_row: dict[str, Any]
     except (ActivationError, CanaryError, ObjectiveStoreError) as exc:
         return None, "", ActivationDecision(plan.run_id, False,
                                             f"canary_unavailable:{exc}")
+    # ВЕТО ПО ИЗВЕСТНОМУ ПРОВАЛУ КАНДИДАТА.
+    #
+    # Когорта — первые пятеро, поэтому провал шестого раньше был невидим:
+    # «шесть успехов, потом четыре падения» проезжал дверь, потому что выбранные
+    # пятеро здоровы. Это атака на здоровый префикс. Провал кандидата, известный
+    # ДО широкой активации, закрывает выпуск независимо от состава когорты:
+    # «мы туда не смотрели» — не то же самое, что «там всё хорошо».
+    # МОЛЧАНИЕ ЧЛЕНА КОГОРТЫ. Улика, разошедшаяся с авторитетной строкой прогона,
+    # устарела: член, который ПРЯМО СЕЙЧАС не дошёл до исхода, молчит, даже если
+    # про него лежит более ранний отчёт «здоров». Проверяется применимость улики,
+    # а не выводится здоровье: сам вердикт по-прежнему собирается из долговечных
+    # отчётов, просто неприменимая улика не открывает дверь.
+    cohort_set = set(plan.cohort)
+    silent = tuple(sorted(m for m, healthy in window
+                          if healthy is None and m in cohort_set))
+    if silent:
+        verdict = CanaryVerdict(
+            state=PENDING, reason="canary_incomplete",
+            revision_digest=plan.revision_digest,
+            reported=tuple(m for m, _ in window), silent=silent, attested=True)
+        return gate, plan.run_id, ActivationDecision(
+            plan.run_id, False, f"canary_incomplete:{','.join(silent)}", verdict)
+    failed = tuple(sorted(m for m, healthy in window if healthy is False))
+    if failed:
+        # Вердикт СОБИРАЕТСЯ здесь, а не берётся из хранилища: это отчёт двери о
+        # собственном отказе, а не подделанная улика. Ledger не переписывается —
+        # провал кандидата, известный по авторитетной строке прогона, просто
+        # закрывает выпуск, даже если про него уже лежит более ранняя улика
+        # «здоров»: улика, разошедшаяся с исходом прогона, устарела, а устаревшая
+        # улика не полномочие.
+        verdict = CanaryVerdict(
+            state=FAILED, reason="canary_candidate_failed",
+            revision_digest=plan.revision_digest,
+            reported=tuple(m for m, _ in window), unhealthy=failed, attested=True)
+        return gate, plan.run_id, ActivationDecision(
+            plan.run_id, False, f"canary_failed:{','.join(failed)}", verdict)
     return gate, plan.run_id, gate.authorize(plan.run_id, now=now)
 
 
@@ -473,9 +549,10 @@ def _recorded_canary_run(ev: Mapping[str, Any]) -> str:
     return str(canary.get("run_id") or "")
 
 
-def _canary_facts(decision: ActivationDecision, run_id: str) -> dict[str, Any]:
+def _canary_facts(decision: ActivationDecision, run_id: str,
+                  cutoff_run_id: int = 0) -> dict[str, Any]:
     verdict = decision.verdict
-    return {"run_id": run_id, "allowed": decision.allowed, "reason": decision.reason,
+    return {"cutoff_run_id": int(cutoff_run_id), "run_id": run_id, "allowed": decision.allowed, "reason": decision.reason,
             "state": getattr(verdict, "state", None),
             "unhealthy": list(getattr(verdict, "unhealthy", ()) or ()),
             "silent": list(getattr(verdict, "silent", ()) or ()),

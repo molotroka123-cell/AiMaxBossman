@@ -113,14 +113,19 @@ async def test_not_enough_data_is_collecting_not_a_verdict(env):
 async def test_clear_improvement_promotes_and_switches_current_version(env):
     sid, base, cand = await _skill_with_versions(env)
     await _runs(env, base, completed=5, failed=5)               # 0.50
-    await _runs(env, cand, completed=9, failed=1)               # 0.90
 
+    # Сравнение заводится ДО прогонов кандидата: тут замораживается отсечка
+    # когорты. И кандидат ЧИСТЫЙ — по действующей политике известное падение
+    # кандидата до широкой активации накладывает вето, поэтому «явное улучшение»
+    # с падением внутри больше не продвигается вообще. Смысл теста прежний:
+    # явное улучшение продвигается само.
     row = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
                                    candidate_version_id=cand)
+    await _runs(env, cand, completed=10, failed=0)              # 1.00
     result = await ev.refresh(env.svc, int(row["id"]))
     assert result["verdict"] == ev.PROMOTE and result["applied"] is True
     assert result["decided_by"] == "runtime"
-    assert result["metrics"]["delta_success_rate"] == 0.4
+    assert result["metrics"]["delta_success_rate"] == 0.5
     assert await _current_version(env, sid) == cand
 
     # PROMOTE не трогает ничего, кроме текущей версии: сами версии на месте
@@ -145,10 +150,10 @@ async def test_regression_is_rejected_and_current_version_stays(env):
 async def test_noise_goes_to_human_with_an_approval(env):
     sid, base, cand = await _skill_with_versions(env)
     await _runs(env, base, completed=12, failed=8)              # 0.60
-    await _runs(env, cand, completed=13, failed=7)              # 0.65 — в пределах шума
 
     row = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
                                    candidate_version_id=cand)
+    await _runs(env, cand, completed=13, failed=7)              # 0.65 — в пределах шума
     result = await ev.refresh(env.svc, int(row["id"]))
     assert result["verdict"] == ev.HUMAN_REVIEW and result["applied"] is False
     assert result["approval_id"]
@@ -191,9 +196,9 @@ async def test_widened_permissions_never_auto_promote(env):
 async def test_decided_evaluation_is_not_replayed(env):
     sid, base, cand = await _skill_with_versions(env)
     await _runs(env, base, completed=5, failed=5)
-    await _runs(env, cand, completed=9, failed=1)
     row = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
                                    candidate_version_id=cand)
+    await _runs(env, cand, completed=10, failed=0)
     first = await ev.refresh(env.svc, int(row["id"]))
     assert first["verdict"] == ev.PROMOTE
 

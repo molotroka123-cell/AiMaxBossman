@@ -69,6 +69,12 @@ async def _runs(env, version_id: int, *, completed: int, failed: int) -> list[in
                 task_id=tid, attempt=1, status=status, started_at=started,
                 finished_at=started + timedelta(seconds=2)))).inserted_primary_key[0]))
         await s.commit()
+    # В бою улику пишет хук `after_run` в момент терминального исхода КАЖДОГО
+    # прогона. Помощник вставляет прогоны прямо в базу, минуя движок, поэтому тот
+    # же переход воспроизводится здесь. До заведения сравнения это ничего не
+    # пишет — именно так отсечка и работает.
+    for rid, status in zip(ids, ["completed"] * completed + ["failed"] * failed):
+        await ev.record_canary_outcome(env.svc, version_id, rid, status)
     return ids
 
 
@@ -93,30 +99,37 @@ async def _fail_run(env, run_id: int) -> None:
 async def _plan_for(env, evrow):
     """Тот же план, что построит производственный путь: те же факты — тот же прогон."""
     cand = await ev._version_row(env.svc, int(evrow["candidate_version_id"]))
-    window = await ev.canary_window(env.svc, int(evrow["candidate_version_id"]))
+    # Та же отсечка, что и в бою: членами когорты могут быть только прогоны,
+    # завершившиеся ПОСЛЕ заведения сравнения.
+    window = await ev.canary_window(env.svc, int(evrow["candidate_version_id"]),
+                                    after=ev._cutoff_of(dict(evrow)))
     gate = ev._gate(env.svc)
     plan = gate.plan(subject=f"skill:{int(evrow['skill_id'])}",
                      revision=ev.candidate_revision(cand),
-                     members=[m for m, _ in window],
+                     members=[m for m, _ in window][:ev.CANARY_WINDOW],
                      started_at=ev._epoch(evrow["created_at"] or utcnow()) - 1.0,
                      run_nonce=f"skill-eval:{int(evrow['id'])}")
     return gate, plan, dict(window)
 
 
-async def _promotable(env, *, candidate_completed=9, candidate_failed=1):
-    """Пара версий, у которой ЦИФРЫ дают PROMOTE. Дверь ещё ничего не решала."""
+async def _promotable(env, *, candidate_completed=10, candidate_failed=0):
+    """Пара версий, у которой ЦИФРЫ дают PROMOTE. Дверь ещё ничего не решала.
+
+    Порядок здесь — производственный, и он существенен. Сравнение заводится
+    ПЕРЕД прогонами кандидата: именно в этот момент замораживается отсечка
+    когорты, и только завершившиеся после неё прогоны могут стать канареечной
+    уликой. История, набранная раньше, канарейкой не является.
+
+    Кандидат по умолчанию ЧИСТЫЙ (без падений): политика нулевой терпимости
+    вместе с вето по известному провалу означает, что кандидат с падением не
+    продвигается вообще — поэтому «продвигаемая» пара обязана быть здоровой.
+    """
     sid, base, cand = await _skill(env)
     await _runs(env, base, completed=5, failed=5)                   # 0.50
-    cand_runs = await _runs(env, cand, completed=candidate_completed,
-                            failed=candidate_failed)
     row = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
                                    candidate_version_id=cand)
-    # В бою улику пишет хук `after_run` ПОСЛЕ того, как сравнение заведено:
-    # `record_canary_outcome` ищет именно `collecting`-сравнения. Помощник
-    # вставляет прогоны напрямую, минуя движок, поэтому порядок воспроизводится
-    # здесь явно — иначе стенд проверял бы не тот путь, который работает в бою.
-    await _record_outcomes(env, cand, cand_runs,
-                           completed=candidate_completed, failed=candidate_failed)
+    cand_runs = await _runs(env, cand, completed=candidate_completed,
+                            failed=candidate_failed)
     return sid, base, cand, cand_runs, row
 
 
@@ -274,8 +287,8 @@ async def test_a_silent_cohort_member_denies_promotion(env, monkeypatch):
     sid, base, cand, _, row = await _promotable(env)
     real = ev.canary_window
 
-    async def _with_a_run_in_flight(svc, version_id):
-        window = await real(svc, version_id)
+    async def _with_a_run_in_flight(svc, version_id, **kw):
+        window = await real(svc, version_id, **kw)
         return [(m, (None if i == 0 else h)) for i, (m, h) in enumerate(window)]
 
     monkeypatch.setattr(ev, "canary_window", _with_a_run_in_flight)
@@ -421,10 +434,13 @@ async def test_the_real_sequence_canary_restart_activation_failure_rollback_rest
     """
     sid, base, cand = await _skill(env)
     await _runs(env, base, completed=5, failed=5)                    # v1: 0.50
-    await _runs(env, cand, completed=9, failed=1)                    # v2: 0.90
 
+    # Сравнение заводится ДО прогонов кандидата: здесь замораживается отсечка,
+    # и только завершившиеся после неё прогоны становятся когортой. Кандидат
+    # чист — при нулевой терпимости иначе продвигать нечего.
     first = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
                                      candidate_version_id=cand)
+    await _runs(env, cand, completed=10, failed=0)                   # v2: 1.00
 
     # --- Канарейка: отчёты когорты ложатся в ХРАНИЛИЩЕ до всякой активации.
     gate, plan, _ = await _plan_for(env, first)
@@ -457,9 +473,9 @@ async def test_the_real_sequence_canary_restart_activation_failure_rollback_rest
             permissions={"declared": ["terminal"], "fingerprint": "third"},
             created_at=utcnow()))).inserted_primary_key[0])
         await s.commit()
-    await _runs(env, third, completed=10, failed=0)                  # цифры за продвижение
     second = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=cand,
                                       candidate_version_id=third)
+    await _runs(env, third, completed=10, failed=0)                  # цифры за продвижение
     _, third_plan, _ = await _plan_for(env, second)
     await _fail_run(env, int(third_plan.cohort[0].split(":")[1]))
 
@@ -471,6 +487,9 @@ async def test_the_real_sequence_canary_restart_activation_failure_rollback_rest
     # --- НАСТОЯЩИЙ откат: возврат на v1 идёт через ТУ ЖЕ дверь, а не мимо неё.
     back = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=cand,
                                     candidate_version_id=base)
+    # Откат тоже проходит дверь: прежняя репутация v1 канарейкой не является,
+    # поэтому возврат зарабатывает СВОЮ проспективную здоровую когорту.
+    await _runs(env, base, completed=10, failed=0)
     rolled = await ev.refresh(env.svc, int(back["id"]))
     assert rolled["verdict"] == ev.PROMOTE and rolled["applied"] is True
     assert await _current(env, sid) == base
