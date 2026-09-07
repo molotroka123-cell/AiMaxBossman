@@ -13,7 +13,6 @@ import socket
 import subprocess
 import sys
 import time
-import uuid
 
 import httpx
 import pytest
@@ -112,40 +111,36 @@ def snapshot(context, url):
     return response.json()
 
 
-PREVIEW_CODECS = {
-    'mp4': ('video/mp4; codecs="avc1.64001E, mp4a.40.2"', 'libx264', 'aac'),
-    'webm': ('video/webm; codecs="vp9, opus"', 'libvpx-vp9', 'libopus'),
-}
+BROWSER_CODEC_PROBE = """() => {
+    const v = document.createElement('video');
+    const specs = {
+        'video/mp4': 'video/mp4',
+        'video/mp4 avc1.42E01E': 'video/mp4; codecs="avc1.42E01E"',
+        'video/mp4 avc1.64001E+mp4a.40.2': 'video/mp4; codecs="avc1.64001E, mp4a.40.2"',
+        'video/mp4 mp4a.40.2': 'video/mp4; codecs="mp4a.40.2"',
+        'video/mp4 av01.0.05M.08': 'video/mp4; codecs="av01.0.05M.08"',
+        'video/webm': 'video/webm',
+        'video/webm vp9+opus': 'video/webm; codecs="vp9, opus"',
+    };
+    const out = {user_agent: navigator.userAgent};
+    for (const [key, spec] of Object.entries(specs)) out[key] = v.canPlayType(spec);
+    return out;
+}"""
 
 
-def playable_container(page):
-    """Контейнер, который ЭТОТ браузер действительно умеет декодировать.
+def browser_codec_support(page):
+    """Наблюдение, а не решение.
 
-    Не косметика и не обход. Сборки Chromium без проприетарных кодеков (все
-    Linux-сборки, включая ту, на которой идёт браузерный CI) не имеют H.264 и
-    AAC: preview отдавался с 200, честно раскодировался ffmpeg'ом и всё равно
-    получал MediaError code 4 DEMUXER_ERROR_NO_SUPPORTED_STREAMS. Ожидание
-    воспроизведения упиралось в таймаут, и это читалось как дефект монтажа,
-    хотя ни один байт не был плох.
+    Этот тест НЕ выбирает формат preview. Формат выбирает продукт
+    (`previewFormat` в `video_studio.js`), потому что кнопкой «Создать preview»
+    пользуется владелец, а не тест: зелёный тест, который сам подобрал себе
+    проигрываемый контейнер, закрывал бы путь, оставшийся сломанным у владельца.
 
-    Поэтому требование «Play -> currentTime растёт -> ended» проверяется на
-    том формате, который здесь физически декодируется, а НЕ ослабляется и не
-    пропускается. Какой это был формат, попадает в evidence — чтобы PASS
-    никогда не читался как «H.264 играет на этой машине».
+    Ответы браузера всё равно попадают в evidence — чтобы PASS на WebM никогда
+    не читался как «здесь играет H.264», и чтобы результат одной сборки
+    браузера не выдавался за поведение всех сборок.
     """
-    support = page.evaluate("""specs => {
-        const v = document.createElement('video');
-        return Object.fromEntries(Object.entries(specs).map(([k, s]) => [k, v.canPlayType(s)]));
-    }""", {k: v[0] for k, v in PREVIEW_CODECS.items()})
-    # `canPlayType` отвечает '' | 'maybe' | 'probably'. 'maybe' — это «формат
-    # знаком, про кодеки ничего не обещаю»; строить на нём приёмку значит снова
-    # получить таймаут вместо ответа. Сначала берём то, что браузер обещает
-    # ('probably'), и только если такого нет — довольствуемся 'maybe'.
-    for wanted in ('probably', 'maybe'):
-        for container in ('mp4', 'webm'):
-            if support.get(container) == wanted:
-                return container, support
-    raise AssertionError(f'браузер не декодирует ни один поддерживаемый контейнер: {support}')
+    return page.evaluate(BROWSER_CODEC_PROBE)
 
 
 MEDIA_STATE = """() => {
@@ -188,43 +183,58 @@ def media_wait(page, stage, expression):
         ) from exc
 
 
-def render_preview(page, context, server, pid, container):
-    """Собрать preview и дождаться проигрываемого элемента в панели.
+def render_preview(page, previous_src=None):
+    """Только штатная кнопка владельца: ни API, ни page.evaluate, ни reload.
 
-    mp4 — штатная кнопка панели, путь владельца один в один. webm запрашивается
-    у ТОГО ЖЕ публичного эндпоинта, который дёргает эта кнопка, только с явно
-    названным контейнером и его кодеками; страница затем перезагружается, и UI
-    поднимает preview сам через restoreJobs — воспроизведение дальше проверяется
-    настоящими кнопками транспорта, как и для mp4.
+    Раньше здесь была развилка: mp4 — кнопкой, webm — прямым вызовом
+    `/exports` через `page.evaluate` с последующим `page.reload()`. Она давала
+    зелёный результат на пути, которым владелец не ходит: настоящая кнопка
+    вызывает `startExport(true)`, а тот контейнер не называл и всегда получал
+    mp4. Пока формат подбирал тест, у владельца путь оставался сломанным.
+    Теперь формат подбирает продукт, и трогать здесь нечего, кроме кнопки.
     """
-    if container == 'mp4':
-        page.locator('.vs-preview-actions').get_by_role(
-            'button', name='Создать preview', exact=True).click()
-        page.locator('.vs-preview video').wait_for(timeout=60000)
-        return
-    _, video_codec, audio_codec = PREVIEW_CODECS[container]
-    project = snapshot(context, server.url + '/api/video-studio/projects/' + pid)
-    # Через клиент самой страницы: тот же эндпоинт, те же заголовки и CSRF, что
-    # у кнопки «Создать preview» — отличается только названный контейнер.
-    queued = page.evaluate('''async (body) => {
-        const { api } = await import('/api.js');
-        return api.raw('/api/video-studio/exports', { method: 'POST', body });
-    }''', {'project_id': pid, 'expected_revision': project['revision'],
-           'operation_id': uuid.uuid4().hex, 'preview': True, 'container': container,
-           'options': {'video_codec': video_codec, 'audio_codec': audio_codec}})
-    job_id = queued['job_id']
-
-    deadline = time.monotonic() + 120
-    while time.monotonic() < deadline:
-        job = snapshot(context, server.url + '/api/video-studio/exports/' + job_id)
-        if job['status'] == 'completed':
-            break
-        assert job['status'] not in ('failed', 'cancelled', 'stopped'), job
-        time.sleep(.5)
-    else:
-        raise AssertionError(f'{container} preview did not finish: {job}')
-    page.reload()
+    page.locator('.vs-preview-actions').get_by_role(
+        'button', name='Создать preview', exact=True).click()
     page.locator('.vs-preview video').wait_for(timeout=60000)
+    if previous_src is not None:
+        # Не дать зачесть уже доигравший ПРЕЖНИЙ элемент за новый прогон.
+        page.wait_for_function(
+            """previous => {
+                const v = document.querySelector('.vs-preview video');
+                const src = v && (v.currentSrc || v.src);
+                return Boolean(src) && src !== previous;
+            }""", arg=previous_src, timeout=60000)
+    return page.locator('.vs-preview video').evaluate('v => v.currentSrc || v.src')
+
+
+def played_format(page, context, server, pid, evidence_path):
+    """Какой контейнер/кодек ПРОДУКТ действительно собрал и браузер проиграл.
+
+    Читается из завершённой preview-задачи и перепроверяется независимым
+    ffprobe по тем самым байтам, которые загрузил <video>. Это не пожелание
+    теста, а протокол выбора, сделанного продуктом: PASS на webm нельзя
+    прочитать как «здесь играет H.264», и наоборот.
+    """
+    played = page.locator('.vs-preview video').evaluate('v => v.currentSrc || v.src')
+    jobs = snapshot(context, f'{server.url}/api/video-studio/projects/{pid}/exports')['jobs']
+    previews = [job for job in jobs
+                if job.get('preview') and job['status'] == 'completed' and job.get('output_url')]
+    assert previews, jobs
+    job = next((j for j in previews if played.endswith(j['output_url'])), None)
+    assert job is not None, (played, [j['output_url'] for j in previews])
+    response = context.request.get(server.url + job['output_url'])
+    assert response.status == 200, response.text()
+    evidence_path.write_bytes(response.body())
+    probe = json.loads(subprocess.check_output(
+        ['ffprobe', '-v', 'error', '-show_format', '-show_streams', '-of', 'json',
+         str(evidence_path)], text=True, timeout=20))
+    meta = job['verification']['metadata']
+    return {'played_url': played, 'http_content_type': response.headers.get('content-type'),
+            'job_container': meta['format'], 'job_video_codec': meta['video_codec'],
+            'job_audio_codec': meta['audio_codec'], 'bytes': job['verification']['bytes'],
+            'sha256': job['verification']['sha256'],
+            'ffprobe_container': probe['format']['format_name'],
+            'ffprobe_codecs': {s['codec_type']: s['codec_name'] for s in probe['streams']}}
 
 
 def play_preview_to_end(page):
@@ -296,10 +306,11 @@ def test_video_ui_import_trim_undo_preview_export_restart(editor_server, tmp_pat
             assert clip()['source_out'] == 2_000_000
             change(page, '/commands', lambda: page.locator('.vs-studio').press('Control+Shift+z'))
             assert clip()['source_out'] == 1_000_000
-            container, codec_support = playable_container(page)
-            render_preview(page, context, server, pid, container)
+            codec_support = browser_codec_support(page)
+            preview_src = render_preview(page)
             expect(page.locator('.vs-job a[download]')).to_have_count(1, timeout=60000)
             playback = [play_preview_to_end(page)]
+            formats = [played_format(page, context, server, pid, output / 'played-preview.bin')]
             page.get_by_role('button', name='Экспорт', exact=True).first.click()
             queued = change(page, '/exports', lambda: page.locator('dialog').get_by_role(
                 'button', name='Применить', exact=True).click())
@@ -322,15 +333,27 @@ def test_video_ui_import_trim_undo_preview_export_restart(editor_server, tmp_pat
             page.locator('.vs-clip').first.wait_for(timeout=15000)
             expect(page.locator('.vs-job a[download]')).to_have_count(2)
             assert snapshot(context, project_url) == before
+            # Пережившее перезапуск preview играет тем же транспортом...
             playback.append(play_preview_to_end(page))
+            # ...и ТА ЖЕ кнопка в свежем процессе собирает и играет новое.
+            preview_src = render_preview(page, previous_src=preview_src)
+            expect(page.locator('.vs-job a[download]')).to_have_count(3, timeout=60000)
+            playback.append(play_preview_to_end(page))
+            formats.append(played_format(page, context, server, pid,
+                                         output / 'played-preview-after-restart.bin'))
             assert errors == [], errors
             page.screenshot(path=str(output / 'video-user-path.png'), full_page=True)
             (output / 'video-result.json').write_text(json.dumps({'status': 'PASS',
                 'kind': 'REAL_BROWSER_TESTER_NOT_LOCAL_MODEL', 'restart': 'FRESH_PROCESS',
-                # Формат, на котором ДЕЙСТВИТЕЛЬНО проверено воспроизведение, и
+                # Контейнер/кодеки, которые ПРОДУКТ выбрал сам и которые
+                # действительно проигрались (до и после перезапуска), плюс
                 # полный ответ браузера про кодеки: PASS на webm не означает,
                 # что здесь играет H.264, и обратного из него читать нельзя.
-                'played_container': container, 'browser_codec_support': codec_support,
+                'played_container': formats[0]['ffprobe_container'],
+                'played_video_codec': formats[0]['ffprobe_codecs'].get('video'),
+                'played_audio_codec': formats[0]['ffprobe_codecs'].get('audio'),
+                'preview_formats': formats, 'browser_codec_support': codec_support,
+                'preview_format_chosen_by': 'product (video_studio.js previewFormat)',
                 'job': job, 'ffprobe': probe, 'playback': playback, 'page_errors': errors}, ensure_ascii=False, indent=2))
         except Exception:
             if page is not None:

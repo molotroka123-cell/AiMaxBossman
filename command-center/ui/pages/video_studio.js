@@ -40,6 +40,53 @@ export function mediaFailure(el, lang) {
   return (ru ? 'Исходник недоступен.' : 'Source unavailable.') + detail;
 }
 
+/* Формат preview выбирает ПРОДУКТ, по ответу самого браузера — не тест.
+
+   Измерено на этом хосте, а не предположено. Кнопка «Создать preview» всегда
+   просила контейнер по умолчанию (mp4 + libx264/aac). Chromium без
+   проприетарных декодеров отвечает:
+     canPlayType('video/mp4; codecs="avc1.64001E, mp4a.40.2"') -> ''
+     canPlayType('video/mp4; codecs="avc1.42E01E"')            -> ''
+     canPlayType('video/webm; codecs="vp9, opus"')             -> 'probably'
+   При этом 'video/mp4; codecs="av01.0.05M.08"' даёт 'probably' — значит дело
+   НЕ в контейнере mp4, а именно в отсутствии H.264/AAC. Владелец получал файл
+   с HTTP 200, валидный по ffprobe и целиком декодируемый ffmpeg'ом, и
+   MediaError code 4 DEMUXER_ERROR_NO_SUPPORTED_STREAMS в <video>. Починить
+   это в тесте нельзя: ломается путь владельца, а не путь теста.
+
+   Порядок кандидатов сохраняет прежнее поведение: mp4/H.264/AAC остаётся
+   первым, поэтому браузер с проприетарными декодерами (Chrome/Edge у
+   владельца) получает ровно то же, что и раньше. На WebM уходим только там,
+   где браузер сам сказал, что H.264 не умеет. Вывод не обобщается на «все
+   Linux-сборки»: спрашивается именно тот браузер, который сейчас открыт. */
+export const PREVIEW_FORMATS = [
+  { container: 'mp4', video_codec: 'libx264', audio_codec: 'aac', mime: 'video/mp4; codecs="avc1.64001E, mp4a.40.2"' },
+  { container: 'webm', video_codec: 'libvpx-vp9', audio_codec: 'libopus', mime: 'video/webm; codecs="vp9, opus"' },
+];
+
+/* Список кодировщиков хоста приходит из `ffmpeg -encoders` и разбирается по
+   `\w+`, что ОБРЕЗАЕТ дефисные имена: на этом хосте libvpx-vp9 приезжает как
+   'libvpx' (проверено, не додумано). Поэтому принимаем и точное имя, и его
+   первый сегмент. Отсутствующий или пустой список — это «неизвестно», а не
+   «кодировщика нет»: молча запрещать по незнанию мы не будем, непригодная
+   пара всё равно отвергается сервером до постановки в очередь. */
+export function hasEncoder(encoders, name) {
+  if (!Array.isArray(encoders) || !encoders.length) return true;
+  return encoders.includes(name) || encoders.includes(name.split('-')[0]);
+}
+
+export function previewFormat(canPlayType, encoders) {
+  const buildable = PREVIEW_FORMATS.filter(f => hasEncoder(encoders, f.video_codec) && hasEncoder(encoders, f.audio_codec));
+  // canPlayType отвечает '' | 'maybe' | 'probably'. 'maybe' значит «контейнер
+  // знаком, про кодеки ничего не обещаю» — именно на нём и получался таймаут.
+  // Сначала берём то, что браузер обещает, и только потом 'maybe'.
+  for (const wanted of ['probably', 'maybe']) {
+    const found = buildable.find(f => canPlayType(f.mime) === wanted);
+    if (found) return found;
+  }
+  return null;
+}
+
 class Editor {
   constructor(ctx, params) {
     this.ctx = ctx; this.params = params; this.lang = readPreference('language', 'ru');
@@ -582,8 +629,22 @@ class Editor {
     ], f => this.startExport(preview, exportOptions(f)));
     document.querySelector('dialog.vs-dialog form')?.append(h('p.vs-muted', this.lang === 'ru' ? 'Пустые размеры используют профиль. Аудио: 48 кГц, стерео. Аппаратные кодеки появятся после проверки кодирования на этом устройстве.' : 'Blank dimensions use the profile. Audio: 48 kHz stereo. Hardware codecs require an actual encode probe on this device.'));
   }
+  chooseFormat() {
+    const probe = document.createElement('video');
+    return previewFormat(mime => probe.canPlayType(mime), this.capabilities?.encoders);
+  }
   async startExport(preview, options = {}) {
-    const { container = 'mp4', ...renderOptions } = options;
+    // Кнопка «Создать preview» контейнер не называет — значит его выбирает
+    // продукт, спросив ЭТОТ браузер, что он действительно раскодирует. Явный
+    // выбор из диалога экспорта не трогаем: там контейнер назвал владелец.
+    // Умолчание не изменилось: если браузер не обещает ни одного кандидата,
+    // уходит прежний mp4, а панель называет настоящий MediaError.
+    const chosen = preview && options.container === undefined ? this.chooseFormat() : null;
+    const { container = chosen?.container || 'mp4', ...renderOptions } = options;
+    if (chosen) {
+      if (renderOptions.video_codec === undefined) renderOptions.video_codec = chosen.video_codec;
+      if (renderOptions.audio_codec === undefined) renderOptions.audio_codec = chosen.audio_codec;
+    }
     if (renderOptions.video_codec?.endsWith('_nvenc')) {
       const seq = activeSequence(this.project), defaults = { source: [seq.width, seq.height], youtube: [1920, 1080], reels: [1080, 1920], square: [1080, 1080] }[renderOptions.profile || 'source'];
       const width = renderOptions.width || defaults[0], height = renderOptions.height || defaults[1];
