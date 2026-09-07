@@ -50,6 +50,8 @@ from .objective_spec import (
 
 SCHEMA_VERSION = 1
 CONDITIONS = frozenset({"SATISFIED", "DEVIATED", "UNKNOWN"})
+# Состояния канареечного выпуска. OPEN покидается ровно один раз.
+CANARY_RUN_STATES = frozenset({"OPEN", "ACTIVATED", "ABANDONED"})
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS v5_schema (
@@ -104,6 +106,29 @@ CREATE TABLE IF NOT EXISTS v5_journal (
   event TEXT NOT NULL,
   detail TEXT NOT NULL DEFAULT '');
 CREATE INDEX IF NOT EXISTS v5_journal_objective ON v5_journal(objective_id);
+CREATE TABLE IF NOT EXISTS v5_canary_runs (
+  run_id TEXT PRIMARY KEY,
+  revision_digest TEXT NOT NULL,
+  cohort_digest TEXT NOT NULL,
+  population TEXT NOT NULL,
+  cohort TEXT NOT NULL,
+  candidates TEXT NOT NULL,
+  started_at REAL NOT NULL,
+  process_identity TEXT NOT NULL,
+  owner_id TEXT NOT NULL,
+  state TEXT NOT NULL,
+  decided_at REAL,
+  detail TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS v5_canary_reports (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id TEXT NOT NULL,
+  objective_id TEXT NOT NULL,
+  healthy INTEGER,
+  evidence_ref TEXT NOT NULL DEFAULT '',
+  detail TEXT NOT NULL DEFAULT '',
+  at REAL NOT NULL,
+  FOREIGN KEY(run_id) REFERENCES v5_canary_runs(run_id));
+CREATE INDEX IF NOT EXISTS v5_canary_reports_run ON v5_canary_reports(run_id);
 """
 
 
@@ -834,6 +859,102 @@ class ObjectiveStore:
                 "SELECT at,event,detail FROM v5_journal WHERE objective_id=? ORDER BY seq",
                 (objective_id,)).fetchall()
         return [{"at": r["at"], "event": r["event"], "detail": r["detail"]} for r in rows]
+
+    # ---------------------------------------------------- canary rollout runs
+
+    def open_canary_run(self, *, run_id: str, revision_digest: str, cohort_digest: str,
+                        population: tuple[str, ...], cohort: tuple[str, ...],
+                        candidates: Mapping[str, str], started_at: float,
+                        process_identity: str, owner_id: str) -> dict[str, Any]:
+        """Record one revision rollout BEFORE its cohort is touched.
+
+        The run is durable for the same reason the objective is: a canary whose
+        cohort, run identity and reports live in a process are a canary that a
+        restart erases, and an erased failure is an activation. `candidates`
+        holds the validated spec JSON per objective, so the revision the rest of
+        the park receives is byte-for-byte the one the cohort ran.
+        """
+        if not isinstance(run_id, str) or not run_id:
+            raise ObjectiveStoreError("run_id is required")
+        if not set(cohort) <= set(population):
+            raise ObjectiveStoreError("cohort must be part of the population")
+        if set(candidates) != set(population):
+            raise ObjectiveStoreError("a candidate spec is required for every member")
+        try:
+            with self._connect() as con:
+                con.execute(
+                    "INSERT INTO v5_canary_runs(run_id,revision_digest,cohort_digest,population,"
+                    "cohort,candidates,started_at,process_identity,owner_id,state) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,'OPEN')",
+                    (run_id, revision_digest, cohort_digest, _dumps(list(population)),
+                     _dumps(list(cohort)), _dumps(dict(candidates)), float(started_at),
+                     process_identity, owner_id))
+        except sqlite3.IntegrityError as exc:
+            raise ObjectiveStoreError(f"canary run {run_id} already exists") from exc
+        return self.canary_run(run_id)
+
+    def canary_run(self, run_id: str) -> dict[str, Any]:
+        with self._connect() as con:
+            row = con.execute("SELECT * FROM v5_canary_runs WHERE run_id=?",
+                              (run_id,)).fetchone()
+        if row is None:
+            raise ObjectiveStoreError(f"unknown canary run {run_id}")
+        return {"run_id": row["run_id"], "revision_digest": row["revision_digest"],
+                "cohort_digest": row["cohort_digest"],
+                "population": tuple(json.loads(row["population"])),
+                "cohort": tuple(json.loads(row["cohort"])),
+                "candidates": json.loads(row["candidates"]),
+                "started_at": row["started_at"], "process_identity": row["process_identity"],
+                "owner_id": row["owner_id"], "state": row["state"],
+                "decided_at": row["decided_at"], "detail": row["detail"]}
+
+    def record_canary_report(self, run_id: str, objective_id: str, *, healthy: bool | None,
+                             evidence_ref: str = "", detail: str = "",
+                             at: float) -> None:
+        """Append one cohort report. Append-only: a failure can never be edited away.
+
+        Reports are never replaced, only added, and `canary_reports` returns them
+        in arrival order. That is what makes a failure sticky across requests and
+        across a restart: a later healthy claim lands after the failure instead
+        of overwriting it.
+        """
+        if healthy is not None and type(healthy) is not bool:
+            raise ObjectiveStoreError("healthy must be bool or None")
+        run = self.canary_run(run_id)
+        if run["state"] != "OPEN":
+            raise ObjectiveStoreError(f"canary run {run_id} is {run['state']}")
+        if objective_id not in run["cohort"]:
+            raise ObjectiveStoreError(f"{objective_id} is not in the cohort")
+        with self._connect() as con:
+            con.execute(
+                "INSERT INTO v5_canary_reports(run_id,objective_id,healthy,evidence_ref,detail,at) "
+                "VALUES(?,?,?,?,?,?)",
+                (run_id, objective_id, None if healthy is None else int(healthy),
+                 str(evidence_ref), str(detail), float(at)))
+            self._log(con, objective_id, "canary_report",
+                      f"{run_id[:12]}:{'silent' if healthy is None else str(healthy).lower()}")
+
+    def canary_reports(self, run_id: str) -> list[dict[str, Any]]:
+        with self._connect() as con:
+            rows = con.execute(
+                "SELECT objective_id,healthy,evidence_ref,detail,at FROM v5_canary_reports "
+                "WHERE run_id=? ORDER BY seq", (run_id,)).fetchall()
+        return [{"objective_id": r["objective_id"],
+                 "healthy": None if r["healthy"] is None else bool(r["healthy"]),
+                 "evidence_ref": r["evidence_ref"], "detail": r["detail"], "at": r["at"]}
+                for r in rows]
+
+    def close_canary_run(self, run_id: str, *, state: str, decided_at: float,
+                         detail: str = "") -> dict[str, Any]:
+        """Leave OPEN exactly once. The guarded UPDATE is what stops a double release."""
+        if state not in CANARY_RUN_STATES or state == "OPEN":
+            raise ObjectiveStoreError("unsupported canary run state")
+        with self._connect() as con:
+            self._swapped(con.execute(
+                "UPDATE v5_canary_runs SET state=?,decided_at=?,detail=? "
+                "WHERE run_id=? AND state='OPEN'",
+                (state, float(decided_at), str(detail), run_id)))
+        return self.canary_run(run_id)
 
     # ---------------------------------------------------------------- helpers
 
