@@ -26,6 +26,7 @@ import sqlalchemy as sa
 from ..db import settings_kv, utcnow
 from ..tools import REGISTRY, ToolResult, ToolSpec
 from ..v2 import scratch
+from ..v2.scratch import base_dir as _scratch_base_dir
 from ..v2.tables import terminal_sessions as term_t
 from ..v2.terminal_control import (TerminalManager, TerminalPolicy, _is_single_command,
                                    auto_patterns, within)
@@ -103,7 +104,16 @@ async def _roots(svc) -> list[Path]:
             return [Path(p) for p in json.loads(svc.vault.decrypt(row[0]))]
         except Exception:
             pass
-    return [svc.settings.data_dir]
+    # AP-001: the un-configured default MUST NOT be svc.settings.data_dir — that
+    # directory holds bcc.db and the UI's plaintext auth token. Any agent granted
+    # terminal.run before an owner has configured explicit roots could otherwise
+    # `cat` the token and use it to call the API directly (e.g. self-grant
+    # permissions via PATCH /api/agents) with no approval in the loop at all.
+    # The scratch subdirectory is the one part of data_dir designed to be a safe,
+    # writable, per-agent default — it holds no secrets.
+    default_root = _scratch_base_dir(svc.settings)
+    default_root.mkdir(parents=True, exist_ok=True)
+    return [default_root]
 
 
 async def _mode(svc) -> str:
@@ -140,7 +150,19 @@ async def _resolve_cwd(ctx, args: dict, *, create_scratch: bool = True) -> tuple
     рабочую область, не зная и не угадывая её путь (V2.2 §9).
     """
     roots = await _roots(ctx.svc)
-    raw = args.get("cwd") or ctx.workspace or (str(roots[0]) if roots else ".")
+    default_root = _scratch_base_dir(ctx.svc.settings)
+    # AP-001: when no owner-configured roots exist, the implicit root IS the
+    # scratch base dir — but that base dir itself is off-limits to any single
+    # caller (V2.2 §9 forbids reading/writing a sibling's scratch area, and the
+    # base dir belongs to no one). Falling back to it literally would deny
+    # every call that omits cwd. Route the same no-cwd case through the
+    # SCRATCH_ALIAS resolution instead, exactly as if the caller had asked for
+    # its own scratch area. Owner-configured roots (a real project directory)
+    # are unaffected — this only changes the un-configured default.
+    implicit_scratch_default = (not args.get("cwd") and not ctx.workspace
+                                and roots == [default_root])
+    raw = (SCRATCH_ALIAS if implicit_scratch_default else
+           (args.get("cwd") or ctx.workspace or (str(roots[0]) if roots else ".")))
     if str(raw).strip() == SCRATCH_ALIAS:
         own = scratch.for_context(ctx)
         return (scratch.ensure(own) if create_scratch else own.resolve()), roots
