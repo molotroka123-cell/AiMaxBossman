@@ -23,7 +23,8 @@ import pytest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 from bossman_shared.objective_canary import (FAILED, MIN_COHORT, PASSED, PENDING, CanaryError,
-                                             CanaryOutcome, CanaryPlan, CanaryPolicy,
+                                             CanaryEvidenceLedger, CanaryOutcome, CanaryPlan,
+                                             CanaryPolicy, authorize_broad_activation,
                                              evaluate_canary, may_activate_broadly, plan_canary)
 from bossman_shared.objective_recovery import (IRREVERSIBLE, NOT_APPLIED, PARKED,
                                                REASON_AMBIGUOUS, REASON_IRREVERSIBLE, UNKNOWN,
@@ -87,6 +88,17 @@ def _plan():
     return plan_canary(POPULATION, revision_digest=DIGEST, now=NOW)
 
 
+# Улика здоровья — не строка, а разрешаемая ссылка (IV5-CAN-002). Ключ живёт в
+# тесте: модуль канарейки остаётся чистым и ключей сам не читает.
+CANARY_KEY = b"canary-evidence-key-32-bytes-!!!"
+
+
+def _attested(plan, ledger, *, issued_at=NOW + 1.0):
+    """Настоящие, выпущенные ключом улики для каждого члена когорты."""
+    return [CanaryOutcome(o, True, ledger.issue(plan, o, issued_at=issued_at))
+            for o in plan.cohort]
+
+
 def test_silence_is_never_success():
     """Отсутствие плохих новостей не является хорошей новостью: именно так
     зависший прогон превращался бы в общий выпуск."""
@@ -124,10 +136,27 @@ def test_a_failure_decides_even_before_everyone_reports():
 
 
 def test_a_clear_canary_opens_broad_activation():
-    plan = _plan()
-    verdict = evaluate_canary(plan, [CanaryOutcome(o, True, f"ev-{o}") for o in plan.cohort])
+    """Положительный контроль: выпуск открывают ПРИВЯЗАННЫЕ улики, а не строки.
+
+    Раньше здесь стояло `f"ev-{o}"` — выдуманная строка, которую никто не
+    резолвил, и тест утверждал, что она открывает парк. Он проходил ровно
+    потому, что дефекта IV5-CAN-002 не видел.
+    """
+    plan, ledger = _plan(), CanaryEvidenceLedger(CANARY_KEY)
+    allowed, reason, verdict = authorize_broad_activation(
+        plan, _attested(plan, ledger), resolve=ledger.resolve, now=NOW + 2.0)
     assert verdict.state == PASSED and verdict.reason == "canary_clear"
-    assert may_activate_broadly(verdict) == (True, "canary_passed")
+    assert (allowed, reason) == (True, "canary_passed")
+
+
+def test_the_same_cohort_with_unresolvable_evidence_does_not_open_activation():
+    """Отрицательный контроль к предыдущему тесту: та же когорта, те же
+    `healthy=True`, отличается ТОЛЬКО происхождение улик."""
+    plan, ledger = _plan(), CanaryEvidenceLedger(CANARY_KEY)
+    outcomes = [CanaryOutcome(o, True, f"ev-{o}") for o in plan.cohort]
+    allowed, reason, _ = authorize_broad_activation(
+        plan, outcomes, resolve=ledger.resolve, now=NOW + 2.0)
+    assert (allowed, reason) == (False, "canary_evidence_unattested")
 
 
 def test_a_report_from_outside_the_cohort_is_not_evidence():
@@ -249,9 +278,12 @@ def test_a_passing_canary_still_leaves_the_in_flight_effect_parked(tmp_path):
     """Отрицательный контроль к репетиции: зелёная канарейка открывает выпуск,
     но НЕ разрешает повторить необратимый эффект неизвестного исхода."""
     store, spec, decision = _live_objective(tmp_path)
-    plan = plan_canary((OBJECTIVE,) + POPULATION[:9], revision_digest=DIGEST, now=NOW)
-    verdict = evaluate_canary(plan, [CanaryOutcome(o, True) for o in plan.cohort])
-    assert may_activate_broadly(verdict) == (True, "canary_passed")
+    ledger = CanaryEvidenceLedger(CANARY_KEY)
+    plan = plan_canary((OBJECTIVE,) + POPULATION[:9], revision_digest=DIGEST, now=NOW,
+                       process_identity="rehearsal/pid-1")
+    allowed, reason, _ = authorize_broad_activation(
+        plan, _attested(plan, ledger), resolve=ledger.resolve, now=NOW + 2.0)
+    assert (allowed, reason) == (True, "canary_passed")
 
     report = recover(store, OBJECTIVE, now=NOW + 1.0, is_effect_applied=lambda r: UNKNOWN,
                      expected_version=store.get(OBJECTIVE).version)
