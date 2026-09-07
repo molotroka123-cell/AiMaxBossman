@@ -269,5 +269,3 @@ async def test_an_unextractable_goal_is_the_known_limit_and_is_named_as_such(tmp
     t = mgr.create_task("оплати счёт")
     # Закрывается по слабому правилу — и это ЗАФИКСИРОВАННЫЙ предел.
     assert await asyncio.wait_for(mgr.run(t.id), timeout=20) is TaskState.COMPLETED
-
-
