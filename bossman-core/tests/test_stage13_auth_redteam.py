@@ -710,9 +710,14 @@ async def test_c3_wait_resolves_only_on_decided_status(monkeypatch):
 
 # ---------- computer_operator: approval → execution граница ----------
 
-def _manager(tmp_path, actions, wait_hook):
+def _manager(tmp_path, actions, wait_hook, receipts_of=None):
     """Реальный ComputerOperatorManager на фейках: planner отдаёт actions,
-    approval_wait управляется wait_hook(result_dict, side_effect)."""
+    approval_wait управляется wait_hook(result_dict, side_effect).
+
+    `receipts_of` по умолчанию отсутствует: харнесс не выдаёт улик, поэтому
+    цель без извлекаемого обязательства (AT-01) честно НЕ закрывается. Тест,
+    которому нужно доказать удачное завершение, передаёт настоящий порт
+    квитанций явно."""
     from bossman.computer_operator.manager import ComputerOperatorManager
     from bossman.computer_operator.models import Observation
     from bossman.computer_operator.store import JsonTaskStore
@@ -760,7 +765,7 @@ def _manager(tmp_path, actions, wait_hook):
         store=JsonTaskStore(tmp_path / "tasks.json"),
         planner=_Planner(actions), observer=_Observer(), action_router=_Router(),
         approval_create=approval_create, approval_wait=_Wait(*wait_hook),
-        event_emit=lambda *a, **k: None)
+        event_emit=lambda *a, **k: None, receipts_of=receipts_of)
     return mgr, mgr.action_router, created_ids
 
 
@@ -905,11 +910,31 @@ async def test_c10_positive_control_approved_action_executes(tmp_path):
     """Контроль харнесса: чистый approve → акция исполняется и верифицируется."""
     from bossman.computer_operator.models import TaskState
 
+    from bossman.computer_operator.obligations import (
+        EffectReceipt, UnknownEffect, UnverifiableEffect,
+    )
+
     pay = _pay_action()
+
+    # AT-01: «оплати счёт» — невидимый эффект, из цели проверяемого результата
+    # не извлечь. Одного лишь подтверждённого действия для COMPLETE теперь мало,
+    # иначе любая посторонняя мутация закрывала бы неизвестную цель. Позитивный
+    # контроль поэтому предъявляет НАСТОЯЩУЮ привязанную квитанцию исполнителя —
+    # и только после того, как акция действительно исполнилась.
+    def receipts(task, obligations):
+        if not holder["router"].executed:
+            return ()
+        return [EffectReceipt(key=o.key(), task_id=task.id,
+                              detail="POST /payments -> txn_42")
+                for o in obligations
+                if isinstance(o, (UnknownEffect, UnverifiableEffect))]
+
+    holder = {}
     mgr, router, _ = _manager(tmp_path, [pay, _complete_action()],
-                              ({"status": "approved"}, None))
+                              ({"status": "approved"}, None), receipts_of=receipts)
+    holder["router"] = router
     t = mgr.create_task("pay the invoice")
     await mgr.run(t.id)
     t2 = mgr.store.get(t.id)
     assert router.executed == [pay.id], "одобренная акция не исполнилась"
-    assert t2.state is TaskState.COMPLETED
+    assert t2.state is TaskState.COMPLETED, t2.last_error
