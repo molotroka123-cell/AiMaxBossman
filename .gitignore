@@ -73,3 +73,6 @@ astra-security-results/
 /real_workload_audit.json
 /real_workload_audit.md
 /doctor.json
+
+# Локальная поставка, собираемая tools/build_local_bundle.py
+/dist/
