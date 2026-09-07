@@ -581,4 +581,3 @@ def test_the_identity_is_window_not_content():
     assert ident({"title": "only a title"}) is None
     assert ident({"app": "", "handle": None}) is None
     assert ident(None) is None and ident("not a dict") is None
-
