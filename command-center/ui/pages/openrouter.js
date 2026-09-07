@@ -1,21 +1,82 @@
 /* ============================================================
    openrouter.js — Feature 02/04: OpenRouter как first-class провайдер.
-   Endpoints: POST /api/openrouter/{pid}/sync, GET /api/openrouter/{pid}/catalog,
+   Endpoints: GET  /api/openrouter/provider  (кто здесь OpenRouter),
+   POST /api/openrouter/connect (ключ → провайдер → каталог),
+   POST /api/openrouter/{pid}/sync, GET /api/openrouter/{pid}/catalog,
    POST /api/openrouter/{pid}/pin, POST /api/openrouter/models/{mid}/probe,
    GET /api/openrouter/models/{mid}/capabilities.
+
+   AF-03. Раньше страница выбирала поставщика сама: панель ключа показывалась
+   только на ПУСТОЙ базе, а если в базе был кто угодно другой (например, одна
+   Ollama), выбор падал на `providers[0]`, и ключ OpenRouter уезжал в чужую
+   строку. Наличие строки — не identity. Теперь страница не угадывает: она
+   спрашивает сервер, какой провайдер здесь OpenRouter, и связывается ровно с
+   этим id. Нет такого — показывается Connect, и ключ уходит на ручку без id,
+   которая сама заводит своего поставщика. Чужой ключ и адрес не трогаются.
    ============================================================ */
 
 import { api, listOf, pick } from '../api.js';
 import {
-  h, badge, statusBadge, debounce,
-  toastOk, toastError, actionButton, field, input, select,
+  h, badge, debounce, statusBadge,
+  toastOk, toastError, actionButton, field, input,
   fmtContext, fmtCost,
 } from '../components.js';
 import { panel, pageHead, errorNote, blank } from './_ui.js';
 
-function looksLikeOpenRouter(p) {
-  const s = `${p.name || ''} ${p.base_url || ''}`.toLowerCase();
-  return s.includes('openrouter');
+/* Ручка identity и ручка ключа. Обе — БЕЗ provider_id: промахнуться мимо
+   OpenRouter нечем, потому что подставлять в адрес нечего. */
+export const IDENTITY_ENDPOINT = '/api/openrouter/provider';
+export const KEY_ENDPOINT = '/api/openrouter/connect';
+
+/**
+ * Связка страницы с провайдером. Единственный источник — ответ сервера.
+ *
+ * Никакой эвристики по имени/адресу: подстрока «openrouter» делает своим любой
+ * чужой прокси, а первый элемент списка — вообще случайного поставщика.
+ * Всё, что не является явным «connected + пригодный id», ведёт в Connect,
+ * а не в связку: не удалось определить identity — отказываемся, а не гадаем.
+ */
+export function providerBinding(identity, { error = null } = {}) {
+  const total = Number(identity && identity.providers_total);
+  const others = Number.isFinite(total) && total >= 0 ? total : null;
+  if (error) return { mode: 'connect', providerId: null, reason: 'identity-unavailable', others };
+  if (!identity || typeof identity !== 'object' || Array.isArray(identity)) {
+    return { mode: 'connect', providerId: null, reason: 'identity-unreadable', others };
+  }
+  if (identity.connected !== true) {
+    return { mode: 'connect', providerId: null, reason: 'openrouter-absent', others };
+  }
+  const raw = identity.provider_id;
+  const id = typeof raw === 'number' || typeof raw === 'string' ? Number(raw) : NaN;
+  if (!Number.isInteger(id) || id <= 0) {
+    return { mode: 'connect', providerId: null, reason: 'identity-unusable', others };
+  }
+  return {
+    mode: 'bound',
+    providerId: String(id),
+    reason: 'canonical',
+    others,
+    name: identity.name || 'OpenRouter',
+    baseUrl: identity.base_url || '',
+    hasKey: identity.has_key === true,
+  };
+}
+
+/**
+ * Куда уходит ВВЕДЁННЫЙ ключ. Адрес постоянный и не содержит provider_id:
+ * связку с поставщиком делает сервер по своей канонической identity.
+ * Ключ едет только в теле POST — не в URL, не в localStorage, не в лог.
+ */
+export function connectRequest(apiKey) {
+  const key = String(apiKey == null ? '' : apiKey).trim();
+  if (!key) return { ok: false, reason: 'empty-key' };
+  return { ok: true, method: 'POST', path: KEY_ENDPOINT, body: { api_key: key } };
+}
+
+/** Повторное подключение БЕЗ ключа возможно только у связанного провайдера. */
+export function refreshRequest(binding) {
+  if (!binding || binding.mode !== 'bound' || !binding.providerId) return null;
+  return { method: 'POST', path: `/api/openrouter/${encodeURIComponent(binding.providerId)}/connect` };
 }
 
 const OpenRouterPage = {
@@ -25,37 +86,29 @@ const OpenRouterPage = {
   nav: 'more',
 
   async render(ctx) {
-    let providers = []; let err = null;
-    try { providers = listOf(await api.providers(), 'providers'); } catch (e) { err = e; }
-
-    const head = pageHead('OpenRouter', 'Каталог облачных моделей OpenRouter: обновить список, закрепить нужные и проверить их возможности.');
-    if (err) return h('div.bx-page', head, errorNote(err, () => ctx.refresh()));
-
     const state = ctx.state.openrouter || (ctx.state.openrouter = {});
+    const head = pageHead('OpenRouter', 'Каталог облачных моделей OpenRouter: обновить список, закрепить нужные и проверить их возможности.');
 
-    // Пустая установка — самый частый вход владельца. Раньше страница
-    // отправляла его на другую страницу за визардом поставщика, и путь
-    // «пришёл с ключом → получил список моделей» обрывался здесь же.
-    if (!providers.length) {
-      return h('div.bx-page', head, buildKeyPanel(ctx),
+    let identity = null; let identityError = null;
+    try { identity = await api.raw(IDENTITY_ENDPOINT); } catch (e) { identityError = e; }
+    const binding = providerBinding(identity, { error: identityError });
+    // id живёт ровно столько, сколько его подтверждает сервер: залежавшийся
+    // в состоянии страницы id — это тот же выбор наугад, только отложенный.
+    state.providerId = binding.providerId;
+
+    if (binding.mode !== 'bound') {
+      return h('div.bx-page', head, buildKeyPanel(ctx, binding, identityError),
         h('div.xsmall.dim', 'Ключ хранится зашифрованным вместе с остальными поставщиками; '
           + 'подключение не запускает платных вызовов — только проверка ключа и список моделей.'));
     }
 
-    if (!state.providerId) {
-      const guess = providers.find(looksLikeOpenRouter) || providers[0];
-      state.providerId = String(pick(guess, ['id']));
-    }
-
-    const providerEl = select(providers.map((p) => ({ value: pick(p, ['id']), label: `${pick(p, ['name'], 'провайдер')}${looksLikeOpenRouter(p) ? ' · OpenRouter?' : ''}` })), { value: state.providerId });
-    providerEl.addEventListener('change', () => { state.providerId = providerEl.value; ctx.refresh(); });
-
-    const connectPanel = await buildConnectPanel(state.providerId, ctx);
-
-    const providerRow = h('div.row', field('Поставщик', providerEl), h('div.spacer'),
+    const providerRow = h('div.row',
+      h('div', { style: { flex: '1', minWidth: 0 } },
+        h('div.small', h('b', binding.name), ' · поставщик OpenRouter этой установки'),
+        h('div.xsmall.dim.mono', binding.baseUrl)),
       actionButton('Обновить список', async () => {
         try {
-          const r = await api.raw(`/api/openrouter/${encodeURIComponent(state.providerId)}/sync?force=true`, { method: 'POST' });
+          const r = await api.raw(`/api/openrouter/${encodeURIComponent(binding.providerId)}/sync?force=true`, { method: 'POST' });
           state.catalogError = null;
           toastOk(r.cached ? 'Открыт сохранённый каталог' : `Список обновлён: ${r.synced} моделей`);
           ctx.refresh();
@@ -69,8 +122,9 @@ const OpenRouterPage = {
         }
       }, { cls: 'btn btn-primary btn-sm', iconName: 'retry' }));
 
-    const catalogPanel = await buildCatalogPanel(state.providerId, ctx);
-    const pinnedPanel = await buildPinnedPanel(state.providerId, ctx);
+    const connectPanel = await buildConnectPanel(binding, ctx);
+    const catalogPanel = await buildCatalogPanel(binding.providerId, ctx);
+    const pinnedPanel = await buildPinnedPanel(binding.providerId, ctx);
 
     return h('div.bx-page', head, providerRow, connectPanel, catalogPanel, pinnedPanel);
   },
@@ -78,23 +132,40 @@ const OpenRouterPage = {
   onEvent(ev) { return ev.kind === 'model.created'; },
 };
 
-function buildKeyPanel(ctx) {
+/** Честная строка про то, ПОЧЕМУ страница просит ключ, без выдумывания чисел. */
+function absenceNote(binding, identityError) {
+  if (identityError) {
+    return h('div.small', { style: { color: 'var(--err)' } },
+      'Не удалось узнать, какой поставщик здесь OpenRouter: '
+      + (identityError.message || 'ручка identity недоступна'),
+      h('div.xsmall.dim', 'Пока это неизвестно, страница не связывается ни с одним поставщиком; '
+        + 'Connect заведёт своего и чужих не тронет.'));
+  }
+  if (binding.others === null) return null;
+  if (binding.others === 0) return h('div.xsmall.dim', 'Поставщиков пока нет.');
+  return h('div.xsmall.dim',
+    `Поставщиков в базе: ${binding.others}, OpenRouter среди них нет. `
+    + 'Connect заведёт отдельного поставщика — ключ и адрес остальных не меняются.');
+}
+
+function buildKeyPanel(ctx, binding, identityError) {
   const state = ctx.state.openrouter || (ctx.state.openrouter = {});
   const keyEl = input({ placeholder: 'sk-or-… ключ OpenRouter', type: 'password' });
   const out = h('div.stack.sm', field('API KEY', keyEl),
     h('div.xsmall.dim', 'Вставьте ключ с openrouter.ai/keys — поставщик будет создан, ключ проверен, каталог загружен.'));
+  const why = absenceNote(binding, identityError);
+  if (why) out.appendChild(why);
   if (state.catalogError) out.appendChild(reasonNote(state));
   // Кнопка называется как на панели поставщика: «Connect» — одно действие, одно
   // слово на всю страницу. Глагол «Подключить…» здесь ещё и читался бы как
   // открывашка диалога (общая договорённость страниц UI), которой он не является.
   const button = actionButton('Connect', async () => {
-    const value = keyEl.value.trim();
-    if (!value) { toastError({ message: 'Вставьте ключ', hint: 'без ключа подключаться нечем' }); return; }
+    const req = connectRequest(keyEl.value);
+    if (!req.ok) { toastError({ message: 'Вставьте ключ', hint: 'без ключа подключаться нечем' }); return; }
     button.disabled = true;                 // двойной клик не создаёт второго поставщика
     try {
-      const r = await api.raw('/api/openrouter/connect', { method: 'POST', body: { api_key: value } });
+      const r = await api.raw(req.path, { method: req.method, body: req.body });
       keyEl.value = '';                     // ключ не остаётся в DOM после отправки
-      state.providerId = String(r.provider_id);
       state.catalogError = r.catalog_error || null;
       state.catalogHint = r.catalog_hint || '';
       if (r.catalog_error) toastError({ message: r.catalog_error, hint: r.catalog_hint }, 'Ключ принят, каталог не загрузился');
@@ -111,12 +182,12 @@ function buildKeyPanel(ctx) {
   return panel('Подключение OpenRouter', out);
 }
 
-async function buildConnectPanel(providerId, ctx) {
+async function buildConnectPanel(binding, ctx) {
   const state = ctx.state.openrouter || (ctx.state.openrouter = {});
   let st = null;
-  try { st = await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/status`); }
+  try { st = await api.raw(`/api/openrouter/${encodeURIComponent(binding.providerId)}/status`); }
   catch (e) {
-    st = { has_key: false, catalog_models: 0, last_synced_at: null };
+    st = { has_key: binding.hasKey, catalog_models: 0, last_synced_at: null };
     state.catalogError = state.catalogError || e.message || 'состояние подключения недоступно';
   }
 
@@ -139,13 +210,14 @@ async function buildConnectPanel(providerId, ctx) {
   if (state.catalogError) out.appendChild(reasonNote(state));
   out.appendChild(
     actionButton('Connect', async () => {
+      // Ключ введён — уходит на ручку без id (её identity решает сервер).
+      // Ключа нет — переподключаем ровно связанного провайдера.
+      const typed = connectRequest(keyEl.value);
+      const req = typed.ok ? typed : refreshRequest(binding);
+      if (!req) { toastError({ message: 'Поставщик OpenRouter не определён', hint: 'вставьте ключ' }); return; }
       try {
-        if (keyEl.value.trim()) {
-          await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/key`, {
-            method: 'PATCH', body: { api_key: keyEl.value.trim() },
-          });
-        }
-        const r = await api.raw(`/api/openrouter/${encodeURIComponent(providerId)}/connect`, { method: 'POST' });
+        const r = await api.raw(req.path, { method: req.method, body: req.body });
+        keyEl.value = '';
         state.catalogError = r.catalog_error || null;
         state.catalogHint = r.catalog_hint || '';
         if (r.catalog_error) toastError({ message: r.catalog_error, hint: r.catalog_hint }, 'Ключ принят, каталог не загрузился');

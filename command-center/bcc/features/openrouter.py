@@ -5,12 +5,18 @@ pin в реестр) и capability_probe (chat/tools/structured/vision проб�
 остаётся верхним роутером; каталог ≠ активный реестр; алиасы/история переживают
 refresh. Ключ хранится шифрованным (как у всех провайдеров).
 
-Путь владельца («дал ключ — увидел список моделей») держат три ручки:
+Путь владельца («дал ключ — увидел список моделей») держат четыре ручки:
+GET  /openrouter/provider  говорит, КАКОЙ провайдер здесь OpenRouter,
 POST /openrouter/connect создаёт или обновляет провайдера по одному ключу,
 GET  /openrouter/{id}/catalog отдаёт СТРАНИЦУ с честными счётчиками,
 POST /openrouter/{id}/pin переносит выбранную модель в активный реестр.
-Все три обязаны называть причину отказа: пустой список без причины — дефект,
+Все обязаны называть причину отказа: пустой список без причины — дефект,
 из-за которого владелец искал проблему не там (audit-11, OR-001…OR-003).
+
+Провайдер опознаётся канонической identity (указатель в settings), а не тем,
+что строка с таким id существует: AF-03 — ключ OpenRouter, записанный в
+единственного имеющегося поставщика (Ollama), потому что и страница, и сервер
+считали «строка есть» за «это он».
 """
 from __future__ import annotations
 from bcc.v2.openrouter_ext import catalog_price_values
@@ -47,13 +53,64 @@ def _svc_or_404(request):
     return request.app.state.svc
 
 
-async def _openrouter_provider(svc, provider_id: int) -> dict:
+async def _row(svc, provider_id: int) -> dict:
+    """Строка провайдера по id. Существование — это НЕ identity."""
     async with svc.db.session() as s:
         row = (await s.execute(sa.select(providers_t).where(
             providers_t.c.id == provider_id))).first()
     if row is None:
         raise HTTPException(404, {"message": "провайдер не найден"})
     return dict(row._mapping)
+
+
+def _foreign_refusal(provider_id: int, canonical: dict) -> HTTPException:
+    return HTTPException(409, {
+        "message": f"провайдер {provider_id} — не OpenRouter этой установки",
+        "hint": f"OpenRouter здесь — провайдер {int(canonical['id'])} "
+                f"«{canonical.get('name') or identity.PROVIDER_NAME}»; "
+                "ключ и адрес чужого поставщика не трогаем",
+        "openrouter_provider_id": int(canonical["id"])})
+
+
+async def _openrouter_provider(svc, provider_id: int) -> dict:
+    """Строка провайдера, про которую УЖЕ известно, что она не чужая.
+
+    AF-03: раньше здесь проверялось только существование строки, поэтому любой
+    provider_id из URL становился «провайдером OpenRouter». Если каноническая
+    identity установлена (указатель `openrouter.provider_id`, который ставит
+    только наш connect/bootstrap), то запрос про ДРУГОГО провайдера — отказ, а
+    не работа с чужой строкой. Если identity ещё не установлена, ручка работает
+    с собственным ключом и адресом этой строки и НИЧЕГО в неё не пишет:
+    перепутать поставщиков нечем, потому что ключ OpenRouter сюда попасть не
+    может (см. `_openrouter_provider_for_key_write`).
+    """
+    canonical = await identity.provider_row(svc.db, svc.vault)
+    if canonical is not None and int(canonical["id"]) != int(provider_id):
+        raise _foreign_refusal(provider_id, canonical)
+    return await _row(svc, provider_id)
+
+
+async def _openrouter_provider_for_key_write(svc, provider_id: int) -> dict:
+    """То же, но для ЗАПИСИ ключа OpenRouter — здесь identity обязательна.
+
+    Это то самое место, где владелец терял ключ: панель подставляла первый
+    попавшийся provider_id, сервер проверял только существование строки, и
+    ключ OpenRouter уезжал в чужого поставщика (Ollama). Запись ключа
+    разрешена ровно в одну строку — каноническую. Identity не определена —
+    отказ, а не догадка: создать провайдера OpenRouter умеет
+    POST /api/openrouter/connect, которому id вообще не нужен.
+    """
+    canonical = await identity.provider_row(svc.db, svc.vault)
+    if canonical is None:
+        raise HTTPException(409, {
+            "message": "провайдер OpenRouter в этой установке не заведён",
+            "hint": "нажмите Connect на странице OpenRouter "
+                    "(POST /api/openrouter/connect) — он заведёт своего "
+                    "поставщика; ключ чужому не приписываем",
+            "openrouter_provider_id": None})
+    if int(canonical["id"]) != int(provider_id):
+        raise _foreign_refusal(provider_id, canonical)
+    return await _row(svc, int(canonical["id"]))
 
 
 def _client_for(svc, provider: dict) -> OpenRouterClient:
@@ -120,6 +177,32 @@ def _connect_lock(request: Request) -> asyncio.Lock:
     return lock
 
 
+@router.get("/openrouter/provider")
+async def canonical_provider(request: Request):
+    """КАКОЙ провайдер здесь OpenRouter — единственный ответ для интерфейса.
+
+    Страница больше не выбирает поставщика сама (AF-03: она брала первого из
+    списка, и ключ OpenRouter уезжал в Ollama). Она спрашивает здесь, и связка
+    возможна ровно с тем id, который вернул сервер. Ключ наружу не уходит —
+    только факт его наличия. `providers_total` нужен, чтобы страница называла
+    честное число: «поставщиков N, OpenRouter среди них нет» — это не то же
+    самое, что «база пуста».
+    """
+    svc = _svc_or_404(request)
+    row = await identity.provider_row(svc.db, svc.vault)
+    async with svc.db.session() as s:
+        total = int((await s.execute(
+            sa.select(sa.func.count()).select_from(providers_t))).scalar_one() or 0)
+    if row is None:
+        return {"connected": False, "provider_id": None, "name": None,
+                "base_url": None, "has_key": False, "providers_total": total}
+    return {"connected": True, "provider_id": int(row["id"]),
+            "name": row.get("name") or identity.PROVIDER_NAME,
+            "base_url": row.get("base_url") or DEFAULT_BASE,
+            "has_key": bool(svc.vault.decrypt(row.get("api_key_enc"))),
+            "providers_total": total}
+
+
 @router.post("/openrouter/connect")
 async def connect_with_key(body: ConnectIn, request: Request):
     """Путь владельца целиком: ключ → провайдер → проверка → каталог.
@@ -156,7 +239,7 @@ async def connect_with_key(body: ConnectIn, request: Request):
                 ).values(api_key_enc=svc.vault.encrypt(key), base_url=base_url))
                 await s.commit()
             await svc.bus.emit("openrouter.key_updated", provider_id=provider_id)
-        provider = await _openrouter_provider(svc, provider_id)
+        provider = await _row(svc, provider_id)   # identity разрешена выше
         await _validate_or_raise(svc, provider)
         sync_result, failure = await _sync_catalog(svc, provider_id)
     await svc.bus.emit("openrouter.connected", provider_id=provider_id,
@@ -194,26 +277,36 @@ async def connect(provider_id: int, request: Request):
 
 @router.patch("/openrouter/{provider_id}/key")
 async def set_key(provider_id: int, body: ApiKeyIn, request: Request):
-    """Сохранить/заменить ключ провайдера. Ключ шифруется в vault; наружу и в
-    события идёт только факт обновления, не значение."""
+    """Сохранить/заменить ключ ОДНОГО провайдера — канонического OpenRouter.
+
+    Ключ шифруется в vault; наружу и в события идёт только факт обновления, не
+    значение. Единственная ручка, которая пишет ключ по provider_id, поэтому
+    здесь identity обязательна: чужой id и «identity ещё не установлена» —
+    оба отказ (409), и чужая строка не меняется ни на байт.
+    """
     svc = _svc_or_404(request)
-    await _openrouter_provider(svc, provider_id)          # 404, если нет такого
     key = body.api_key.strip()
     if not key:
         raise HTTPException(422, {"message": "api_key пустой"})
-    async with svc.db.session() as s:
-        await s.execute(sa.update(providers_t).where(
-            providers_t.c.id == provider_id
-        ).values(api_key_enc=svc.vault.encrypt(key)))
-        await s.commit()
-    await svc.bus.emit("openrouter.key_updated", provider_id=provider_id)
-    return {"ok": True}
+    # Замок тот же, что у connect: одновременный клик не может застать
+    # identity «между» проверкой и записью и разложить ключ по двум строкам.
+    async with _connect_lock(request):
+        provider = await _openrouter_provider_for_key_write(svc, provider_id)
+        target = int(provider["id"])
+        async with svc.db.session() as s:
+            await s.execute(sa.update(providers_t).where(
+                providers_t.c.id == target
+            ).values(api_key_enc=svc.vault.encrypt(key)))
+            await s.commit()
+    await svc.bus.emit("openrouter.key_updated", provider_id=target)
+    return {"ok": True, "provider_id": target}
 
 
 @router.get("/openrouter/{provider_id}/status")
 async def status(provider_id: int, request: Request):
     """Состояние для UI: ключ есть/нет, размер каталога, последний успешный sync."""
     svc = _svc_or_404(request)
+    await _openrouter_provider(svc, provider_id)
     try:
         return await OpenRouterCatalogService(svc.db, svc.vault).catalog_status(provider_id)
     except LookupError:
@@ -228,6 +321,7 @@ async def sync_catalog(provider_id: int, request: Request, force: bool = False):
     OpenRouter кэш остаётся нетронутым, наружу 503 с меткой последнего sync.
     """
     svc = _svc_or_404(request)
+    await _openrouter_provider(svc, provider_id)
     service = OpenRouterCatalogService(svc.db, svc.vault)
     try:
         result = await service.sync(provider_id, force=force)
@@ -267,6 +361,11 @@ async def catalog(provider_id: int, request: Request, q: str | None = None,
     не поднят до огромного числа: это лечит один каталог и ломает следующий.
     Поиск (q) фильтрует ВЕСЬ каталог в БД до нарезки страницы, поэтому total
     относится ровно к тому, что владелец сейчас ищет.
+
+    Единственная ручка OpenRouter без проверки identity, и намеренно: она
+    читает строки каталога, привязанные к этому provider_id, не касается ни
+    ключа, ни адреса поставщика и на неизвестный id отвечает честным нулём,
+    а не ошибкой.
     """
     svc = _svc_or_404(request)
     limit = max(1, min(limit, CATALOG_PAGE_MAX))
@@ -299,6 +398,7 @@ async def pin_model(provider_id: int, request: Request):
     """Закрепить модель каталога в активном реестре BOSSMAN (создать models-запись).
     Существующие алиасы/история не трогаются."""
     svc = _svc_or_404(request)
+    await _openrouter_provider(svc, provider_id)
     body = await request.json()
     remote_id = body.get("remote_id")
     alias = body.get("alias") or remote_id

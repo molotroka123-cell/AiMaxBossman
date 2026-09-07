@@ -133,22 +133,51 @@ async def test_connect_invalid_key_clean_error(env, monkeypatch):
 
 
 async def test_set_key_and_reconnect(env, monkeypatch):
+    """Ключ сохранён → connect проходит. Но сохраняется он в СВОЕГО поставщика.
+
+    Раньше этот тест ожидал 200 от `PATCH /api/openrouter/{id}/key` для строки,
+    заведённой обычной ручкой `/api/providers` и ничем не заявленной как
+    OpenRouter (адрес `http://router/v1`, указателя identity нет). Ровно это и
+    был дефект AF-03: сервер проверял существование строки, а не её
+    принадлежность, и тем же путём ключ владельца уезжал в чужого поставщика —
+    в живой установке в Ollama. Старое ожидание было неверным, поэтому оно
+    заменено на правильный контракт, а не ослаблено: запись отказана, чужая
+    строка не изменилась побайтно, а законный путь (Connect без provider_id,
+    который заводит собственного поставщика) по-прежнему доводит до каталога.
+    """
     _patch_openrouter_transport(monkeypatch)
     prov = (await env.client.post("/api/providers", json={
         "name": "openrouter-nokey", "kind": "openai_compat",
         "base_url": "http://router/v1"})).json()
+
+    async def stored(pid):
+        async with env.svc.db.session() as s:
+            row = (await s.execute(sa.select(providers_t).where(
+                providers_t.c.id == pid))).first()
+        return (row._mapping["api_key_enc"], row._mapping["base_url"])
+
+    before = await stored(prov["id"])
     # без ключа connect — 422
     assert (await env.client.post(f"/api/openrouter/{prov['id']}/connect")).status_code == 422
-    # сохранили ключ → connect проходит
+    # identity не установлена → ключ в эту строку не пишется
     r = await env.client.patch(f"/api/openrouter/{prov['id']}/key",
                                json={"api_key": "sk-or-test"})
-    assert r.status_code == 200
-    r = await env.client.post(f"/api/openrouter/{prov['id']}/connect")
+    assert r.status_code == 409, r.text
+    assert "sk-or-test" not in r.text
+    assert await stored(prov["id"]) == before, "отказ обязан не менять чужую строку"
+
+    # законный путь: Connect без provider_id заводит своего поставщика и там
+    # ключ сохраняется — после чего повторный connect по его id проходит
+    made = (await env.client.post("/api/openrouter/connect",
+                                  json={"api_key": "sk-or-test"})).json()
+    assert made["created"] is True and made["provider_id"] != prov["id"]
+    r = await env.client.post(f"/api/openrouter/{made['provider_id']}/connect")
     assert r.status_code == 200 and r.json()["ok"] is True
-    # ключ наружу не отдаётся: маска, не значение
+    assert await stored(prov["id"]) == before, "чужая строка не изменилась и потом"
+
+    # ключ наружу не отдаётся ни у кого: маска, не значение
     provs = (await env.client.get("/api/providers")).json()
-    me = next(p for p in provs if p["id"] == prov["id"])
-    assert "sk-or-test" not in (me.get("api_key_masked") or "")
+    assert all("sk-or-test" not in (p.get("api_key_masked") or "") for p in provs)
 
 
 # ---------- Cache: TTL, force, переживание недоступности ----------
