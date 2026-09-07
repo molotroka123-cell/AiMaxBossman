@@ -14,9 +14,8 @@
   --dim: #525f76;
   --dim-2: #616d83;
   --bx-ink-3: #59677d;
-  --bx-mint: #08794f;
-  --bx-amber: #946000;
-  --bx-azure: #205ed0;
+  /* Статусные цвета светлой темы приходят из style.css (--ok/--warn/--err/--info);
+     здесь только фирменный фиолетовый, затемнённый под светлый фон. */
   --bx-violet: #7744d4;
 }
 body { background: var(--desktop-wallpaper); background-attachment: fixed; }
@@ -36,7 +35,7 @@ body { background: var(--desktop-wallpaper); background-attachment: fixed; }
 .nav-item.active { box-shadow: inset 3px 0 0 var(--accent); }
 .bx-hero-title { font-weight: 700; font-size: clamp(30px, 3.2vw, 44px); }
 .bx-panel, .bx-app, .bx-command {
-  border-radius: 18px; box-shadow: 0 5px 20px #193c7410;
+  border-radius: var(--radius-xl); box-shadow: 0 5px 20px #193c7410;
 }
 [data-theme="light"] .bx-panel,
 [data-theme="light"] .bx-app,
@@ -46,30 +45,47 @@ body { background: var(--desktop-wallpaper); background-attachment: fixed; }
 }
 @media (min-width: 901px) {
   .shell {
-    margin: 16px 16px 96px; min-height: calc(100dvh - 112px);
-    border: 1px solid var(--line); border-radius: 22px;
+    position: relative; isolation: isolate;
+    margin: 16px; min-height: calc(100dvh - 32px);
+    /* Второй ряд сетки — док. Он в потоке, а не поверх контента: на странице
+       длиннее окна fixed-док ложился на превью веб-дизайнера (1280×720) и
+       перехватывал клики, на короткой закрывал последнюю панель. В потоке
+       под ним никогда ничего не рисуется, а страница по-прежнему прокручивает
+       окно (window.scrollTo при смене маршрута работает как раньше). */
+    grid-template-rows: minmax(0, 1fr) auto;
+    border: 1px solid var(--line); border-radius: var(--radius-2xl);
     background: var(--desktop-surface); box-shadow: 0 18px 60px #142c6025;
   }
-  .sidebar {
-    top: 16px; height: calc(100dvh - 112px); background: transparent;
-    border-radius: 22px 0 0 22px;
+  /* Стекло оболочки рисует псевдоэлемент, а не сама .shell: backdrop-filter
+     на .shell делал её containing block для position: fixed, и док «прилипал»
+     к низу оболочки — на страницах длиннее экрана он уезжал за экран
+     (y ≈ 8200 на «Навыках» при 1024×768), на коротких закрывал контент. */
+  .shell::before {
+    content: ''; position: absolute; inset: 0; z-index: -1;
+    border-radius: inherit; background: var(--desktop-surface); pointer-events: none;
   }
+  .sidebar {
+    grid-row: 1; top: 16px; height: calc(100dvh - 32px - var(--dock-row, 84px));
+    background: transparent;
+    border-radius: var(--radius-2xl) 0 0 var(--radius-2xl);
+  }
+  .main { grid-row: 1; }
   .topbar {
     top: 16px; background: var(--desktop-surface);
-    border-radius: 0 22px 0 0; min-height: 62px;
+    border-radius: 0 var(--radius-2xl) 0 0; min-height: 62px;
   }
-  .view { padding: 24px; }
+  .view { padding: var(--space-6); }
   .desktop-dock {
     display: flex; align-items: center; justify-content: center; gap: 6px;
-    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
-    z-index: 45; padding: 7px; max-width: calc(100vw - 32px);
-    border: 1px solid var(--line); border-radius: 20px;
-    background: var(--desktop-surface); box-shadow: 0 8px 28px #173b6326;
+    grid-row: 2; grid-column: 1 / -1; justify-self: center;
+    margin: 0 16px 14px; padding: 7px; max-width: calc(100vw - 64px);
+    border: 1px solid var(--line); border-radius: var(--radius-xl);
+    background: var(--desktop-surface); box-shadow: var(--shadow-float);
   }
   .desktop-dock-item {
     display: flex; flex-direction: column; align-items: center; gap: 4px;
     min-width: 76px; min-height: 54px; padding: 7px 12px;
-    border: 1px solid transparent; border-radius: 13px;
+    border: 1px solid transparent; border-radius: var(--radius);
     font: 11px var(--font); background: transparent; color: var(--fg-2); cursor: pointer;
   }
   .desktop-dock-item svg { color: var(--accent); }
@@ -77,9 +93,14 @@ body { background: var(--desktop-wallpaper); background-attachment: fixed; }
     background: var(--accent-soft); border-color: var(--accent-line);
   }
   .desktop-dock-item.active { box-shadow: inset 0 -3px var(--accent); }
-  body .bx-cmd { bottom: 96px; max-height: calc(100dvh - 125px); overflow-y: auto; }
+  body .bx-cmd { bottom: 24px; max-height: calc(100dvh - 60px); overflow-y: auto; }
+  /* Video Studio считает высоту от окна, а не от оболочки (рамка 16px, шапка
+     62px, отступы 24px, полоса дока 96px): при 1440×900 студия была на
+     ~110px выше доступного места и таймлайн уходил под док. */
+  .view .vs-studio { height: calc(100dvh - 254px); min-height: 640px; }
   @supports (backdrop-filter: blur(16px)) {
-    .shell, .desktop-dock { background: var(--desktop-glass); backdrop-filter: blur(16px); }
+    .shell { background: transparent; }
+    .shell::before, .desktop-dock { background: var(--desktop-glass); backdrop-filter: blur(16px); }
   }
 }
 @media (max-width: 900px) {
@@ -88,12 +109,12 @@ body { background: var(--desktop-wallpaper); background-attachment: fixed; }
   body .bx-cmd { bottom: calc(80px + env(safe-area-inset-bottom)); max-height: 65dvh; overflow-y: auto; }
 }
 @media (prefers-reduced-transparency: reduce) {
-  .shell, .desktop-dock, .topbar { background: var(--desktop-surface); backdrop-filter: none; }
+  .shell, .shell::before, .desktop-dock, .topbar { background: var(--desktop-surface); backdrop-filter: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 @media (forced-colors: active) {
-  .shell, .desktop-dock, .topbar { background: Canvas; backdrop-filter: none; }
+  .shell, .shell::before, .desktop-dock, .topbar { background: Canvas; backdrop-filter: none; }
   .desktop-dock-item.active, .nav-item.active { outline: 2px solid Highlight; }
 }

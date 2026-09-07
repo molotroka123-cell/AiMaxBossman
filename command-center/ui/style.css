@@ -27,12 +27,26 @@
   --info: #52a8ff;
   --idle: #6b7688;
 
-  --radius:    12px;
-  --radius-sm: 9px;
-  --radius-lg: 16px;
+  /* Единая шкала радиусов: theme.css (--bx-r-*) и desktop.css берут значения
+     отсюда, а не держат свои. xs — чипы/kbd, sm — кнопки и поля, base — панели
+     MVP, md — bx-панели, lg — крупные карточки, xl — плитки/док, 2xl — оболочка. */
+  --radius-xs:  6px;
+  --radius-sm:  10px;
+  --radius:     12px;
+  --radius-md:  14px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+  --radius-2xl: 24px;
+
+  /* Шаг сетки (4px): отступы внутри панелей, зазоры сеток. */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-7: 32px; --space-8: 40px;
 
   --shadow:    0 18px 48px -22px rgba(0, 0, 0, .85), 0 2px 8px -4px rgba(0, 0, 0, .6);
   --shadow-sm: 0 6px 18px -12px rgba(0, 0, 0, .8);
+  --shadow-lg: 0 40px 90px -40px rgba(0, 0, 0, .95);
+  /* Тень «парящей» поверхности (док, палитра, модальные окна). */
+  --shadow-float: 0 8px 28px rgba(0, 0, 0, .45);
 
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -59,14 +73,18 @@
   --accent-soft: rgba(31, 111, 234, .10);
   --accent-line: rgba(31, 111, 234, .32);
 
-  --ok:   #12a05c;
-  --warn: #b97f06;
-  --err:  #d93a41;
+  /* Статусные цвета светлой темы — те, что читаются мелким текстом на белом
+     (≥ 4.5:1); theme.css/desktop.css ссылаются на них, а не держат свои. */
+  --ok:   #0e8a52;
+  --warn: #946000;
+  --err:  #d0333b;
   --info: #1f6fea;
   --idle: #98a1b0;
 
   --shadow:    0 16px 40px -24px rgba(16, 24, 40, .35), 0 1px 3px rgba(16, 24, 40, .06);
   --shadow-sm: 0 4px 14px -10px rgba(16, 24, 40, .3);
+  --shadow-lg: 0 30px 70px -40px rgba(16, 24, 40, .45);
+  --shadow-float: 0 8px 28px rgba(23, 59, 99, .15);
 }
 
 * { box-sizing: border-box; }
@@ -189,7 +207,29 @@ a:hover { text-decoration: underline; }
 .brand-text b { font-size: 13.5px; letter-spacing: .09em; font-weight: 650; }
 .brand-text i { font-style: normal; font-size: 11px; color: var(--dim); letter-spacing: .02em; }
 
-.nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; }
+.nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; scroll-timeline: --bx-nav block; }
+
+/* Список страниц длиннее экрана: без подсказки последний пункт просто
+   обрезан и выглядит как дефект. Тень внизу появляется, пока есть куда
+   прокручивать, и гаснет у конца списка (scroll-driven animation; без
+   поддержки — как раньше, без тени). */
+.sidebar { timeline-scope: --bx-nav; }
+.sidebar-foot { position: relative; }
+.sidebar-foot::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: -41px;
+  height: 40px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--bg-side) 92%, transparent));
+  opacity: 0;
+}
+@supports (animation-timeline: scroll()) {
+  .sidebar-foot::before { animation: bx-nav-fade linear both; animation-timeline: --bx-nav; }
+}
+@keyframes bx-nav-fade { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+@media (max-height: 820px) {
+  .nav-item { padding-top: 6px; padding-bottom: 6px; }
+}
 
 .nav-item {
   display: flex; align-items: center; gap: 10px;
@@ -460,6 +500,27 @@ kbd {
   cursor: pointer;
 }
 input[type="datetime-local"], input[type="time"], input[type="number"] { font-family: var(--mono); }
+
+/* Поле выбора файла — общий компонент. Нативная кнопка «Choose Files»
+   выбивалась из любой панели; здесь она становится обычной кнопкой,
+   а имя файла остаётся текстом рядом. */
+input[type="file"] { font: inherit; font-size: 12.5px; color: var(--dim); max-width: 100%; }
+input[type="file"]::file-selector-button {
+  margin-right: 10px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--fg-2);
+  font: inherit; font-size: 12.5px; font-weight: 500;
+  cursor: pointer;
+  transition: background var(--t), border-color var(--t), color var(--t);
+}
+input[type="file"]::file-selector-button:hover { color: var(--fg); border-color: var(--dim-2); background: var(--line-soft); }
+/* Строка вложений: поле + имена файлов + «убрать» в одну линию. */
+.bx-attach { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.bx-attach > small { color: var(--dim); font-size: 12px; overflow-wrap: anywhere; min-width: 0; }
+.bx-attach > small:empty { display: none; }
 
 .check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--fg-2); user-select: none; }
 .check input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }

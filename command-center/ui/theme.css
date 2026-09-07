@@ -21,13 +21,16 @@
   --bx-ink-2:       #aeb8c8;
   --bx-ink-3:       #6f7a8d;
 
-  /* ---------- акценты ---------- */
-  --bx-azure:   #3d8bff;
+  /* ---------- акценты ----------
+     Статусные цвета — общие со style.css (--ok/--warn/--err/--info): одна
+     зелёная «в норме» и одна красная «ошибка» на всех страницах и в обеих
+     темах. Свои здесь только фирменные акценты (violet, ember). */
+  --bx-azure:   var(--accent, #3d8bff);
   --bx-violet:  #a06bff;
   --bx-ember:   #ff7a59;
-  --bx-mint:    #35d29a;
-  --bx-amber:   #f5b93b;
-  --bx-rose:    #ff5c72;
+  --bx-mint:    var(--ok, #35d29a);
+  --bx-amber:   var(--warn, #f5b93b);
+  --bx-rose:    var(--err, #ff5c72);
   /* акцент карточки задаётся из манифеста приложения через --bx-accent */
   --bx-accent:  var(--bx-azure);
 
@@ -53,12 +56,13 @@
   --bx-1: 4px;  --bx-2: 8px;  --bx-3: 12px; --bx-4: 16px;
   --bx-5: 20px; --bx-6: 24px; --bx-7: 32px; --bx-8: 40px; --bx-9: 56px;
 
-  /* ---------- радиусы ---------- */
-  --bx-r-sm: 10px; --bx-r: 14px; --bx-r-lg: 20px; --bx-r-xl: 26px; --bx-r-full: 999px;
+  /* ---------- радиусы (шкала из style.css) ---------- */
+  --bx-r-sm: var(--radius-sm, 10px); --bx-r: var(--radius-md, 14px);
+  --bx-r-lg: var(--radius-xl, 20px); --bx-r-xl: var(--radius-2xl, 24px); --bx-r-full: 999px;
 
   /* ---------- тени и свечения ---------- */
   --bx-shadow:    0 24px 64px -32px rgba(0, 0, 0, .9), 0 2px 10px -6px rgba(0, 0, 0, .7);
-  --bx-shadow-lg: 0 40px 90px -40px rgba(0, 0, 0, .95);
+  --bx-shadow-lg: var(--shadow-lg, 0 40px 90px -40px rgba(0, 0, 0, .95));
   --bx-glow:      0 0 0 1px color-mix(in srgb, var(--bx-accent) 26%, transparent),
                   0 12px 40px -14px color-mix(in srgb, var(--bx-accent) 45%, transparent);
   --bx-inner:     inset 0 1px 0 rgba(255, 255, 255, .05);
@@ -81,7 +85,7 @@
   --bx-ink-2:      #3d4756;
   --bx-ink-3:      #6b7688;
   --bx-shadow:     0 20px 50px -30px rgba(16, 24, 40, .4);
-  --bx-shadow-lg:  0 30px 70px -40px rgba(16, 24, 40, .45);
+  --bx-shadow-lg:  var(--shadow-lg, 0 30px 70px -40px rgba(16, 24, 40, .45));
   --bx-inner:      inset 0 1px 0 rgba(255, 255, 255, .7);
 }
 
@@ -223,6 +227,19 @@
 
 .bx-panel-body { padding: var(--bx-4) var(--bx-5) var(--bx-5); }
 .bx-spacer { flex: 1 1 auto; }
+
+/* ---------------------------------------------------------------- чат (история видео) */
+
+.bx-chat .bx-panel-body { display: flex; flex-direction: column; gap: var(--bx-3); }
+.bx-chat-title { margin: 0 0 var(--bx-1); font-size: var(--bx-h1); font-weight: 750; letter-spacing: -.02em; color: var(--bx-ink); }
+.bx-chat .textarea { min-height: 96px; font-family: var(--bx-font); }
+.bx-chat-send { display: flex; gap: var(--bx-3); align-items: center; flex-wrap: wrap; }
+.bx-chat-send .select { flex: 1 1 260px; width: auto; }
+.bx-chat-status { margin: 0; font-size: 12.5px; color: var(--bx-ink-3); }
+.bx-chat-record { padding: var(--bx-4); margin-top: var(--bx-2); }
+.bx-chat-record p { margin: 0 0 var(--bx-2); }
+.bx-chat-meta { font-size: 12px; color: var(--bx-ink-3); }
+.bx-chat-record pre { max-height: 240px; overflow: auto; font-size: 12px; }
 
 /* ---------------------------------------------------------------- командная строка */
 
@@ -732,7 +749,11 @@
 }
 .bx-tile.is-muted { opacity: .66; }
 
-.bx-tile-head { display: flex; align-items: flex-start; gap: var(--bx-3); }
+/* Заголовку нужна хотя бы полоса в 150px: иначе длинная статусная пилюля
+   («реально работает») сжимала его до 40px и слова ломались по буквам. Когда
+   места нет — пилюля уходит на следующую строку целиком. */
+.bx-tile-head { display: flex; align-items: flex-start; flex-wrap: wrap; gap: var(--bx-3); }
+.bx-tile-head > div { flex: 1 1 150px; }
 .bx-tile-head .bx-spacer { flex: 1 1 auto; }
 
 .bx-tile-icon {
@@ -779,8 +800,8 @@
 
 /* ---------------------------------------------------------------- полоски цифр */
 
-.bx-stats { display: flex; flex-wrap: wrap; gap: var(--bx-2) var(--bx-5); }
-.bx-stat { display: flex; flex-direction: column; gap: 2px; }
+.bx-stats { display: flex; flex-wrap: wrap; gap: var(--bx-2) var(--bx-6); }
+.bx-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .bx-stat-label { font-size: 11px; color: var(--bx-ink-3); text-transform: uppercase; letter-spacing: .06em; }
 .bx-stat-value { font-size: 15px; font-weight: 700; color: var(--bx-ink); font-variant-numeric: tabular-nums; }
 

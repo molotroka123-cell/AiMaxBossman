@@ -53,6 +53,19 @@
   color: var(--dim);
   font-size: 13px;
 }
+/* Вторая строка пустого состояния — это причина сбоя («ConnectError»),
+   а не подпись: она должна выглядеть как ошибка, а не как «нет данных». */
+.cmd-empty > .xsmall {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 6px; padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--err) 32%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--err) 9%, transparent);
+  color: var(--err);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+.cmd-empty > .xsmall::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
 
 /* --- Кнопки: минимум 44px по высоте, широкий тап-таргет --- */
 

@@ -1,0 +1,1915 @@
+{
+ "pages": [
+  {
+   "id": "home",
+   "title": "Главная",
+   "nav": "primary"
+  },
+  {
+   "id": "models",
+   "title": "Модели",
+   "nav": "primary"
+  },
+  {
+   "id": "agents",
+   "title": "Агенты",
+   "nav": "primary"
+  },
+  {
+   "id": "tasks",
+   "title": "Задачи",
+   "nav": "primary"
+  },
+  {
+   "id": "schedules",
+   "title": "Расписания",
+   "nav": "primary"
+  },
+  {
+   "id": "approvals",
+   "title": "Ждут решения",
+   "nav": "primary"
+  },
+  {
+   "id": "system",
+   "title": "Система",
+   "nav": "primary"
+  },
+  {
+   "id": "settings",
+   "title": "Настройки",
+   "nav": "primary"
+  },
+  {
+   "id": "video-studio",
+   "title": "Video Studio",
+   "nav": "primary"
+  },
+  {
+   "id": "bossman-chat",
+   "title": "История видео и чат",
+   "nav": "more"
+  },
+  {
+   "id": "home-v3",
+   "title": "Главная",
+   "nav": "primary"
+  },
+  {
+   "id": "apps",
+   "title": "Приложения",
+   "nav": "primary"
+  },
+  {
+   "id": "overview",
+   "title": "Обзор",
+   "nav": "primary"
+  },
+  {
+   "id": "missions",
+   "title": "Миссии",
+   "nav": "primary"
+  },
+  {
+   "id": "router",
+   "title": "Выбор модели",
+   "nav": "more"
+  },
+  {
+   "id": "governor",
+   "title": "Присмотр",
+   "nav": "more"
+  },
+  {
+   "id": "resources",
+   "title": "Ресурсы",
+   "nav": "primary"
+  },
+  {
+   "id": "skills",
+   "title": "Навыки",
+   "nav": "primary"
+  },
+  {
+   "id": "terminal",
+   "title": "Терминал",
+   "nav": "primary"
+  },
+  {
+   "id": "benchmarks",
+   "title": "Замеры моделей",
+   "nav": "more"
+  },
+  {
+   "id": "browser",
+   "title": "Браузер",
+   "nav": "primary"
+  },
+  {
+   "id": "coding",
+   "title": "Coding-сессии",
+   "nav": "more"
+  },
+  {
+   "id": "agentmap",
+   "title": "Карта агентов",
+   "nav": "more"
+  },
+  {
+   "id": "orchestras",
+   "title": "Команды агентов",
+   "nav": "more"
+  },
+  {
+   "id": "forks",
+   "title": "Развилки",
+   "nav": "more"
+  },
+  {
+   "id": "healing",
+   "title": "Восстановление",
+   "nav": "more"
+  },
+  {
+   "id": "openrouter",
+   "title": "OpenRouter",
+   "nav": "more"
+  },
+  {
+   "id": "command",
+   "title": "Пульт",
+   "nav": "primary"
+  },
+  {
+   "id": "builder",
+   "title": "Конструктор миссий",
+   "nav": "primary"
+  },
+  {
+   "id": "images",
+   "title": "Изображения",
+   "nav": "primary"
+  },
+  {
+   "id": "trading_lab",
+   "title": "Обучение трейдингу",
+   "nav": "more"
+  },
+  {
+   "id": "mission_console",
+   "title": "Операторский канал",
+   "nav": "primary"
+  },
+  {
+   "id": "web_research",
+   "title": "Поиск в интернете",
+   "nav": "more"
+  },
+  {
+   "id": "control",
+   "title": "Пульт",
+   "nav": "primary"
+  },
+  {
+   "id": "web_designer",
+   "title": "Веб-дизайн",
+   "nav": "primary"
+  },
+  {
+   "id": "objectives",
+   "title": "Цели",
+   "nav": "more"
+  }
+ ],
+ "home": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Главная",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Главная",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Главная",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Главная",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "models": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Модели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Модели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Модели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Модели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "agents": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Агенты",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Агенты",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Агенты",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Агенты",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "tasks": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Задачи",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Задачи",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Задачи",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Задачи",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "schedules": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Расписания",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Расписания",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Расписания",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Расписания",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "approvals": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Ждут решения",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Ждут решения",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Ждут решения",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Ждут решения",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "system": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Система",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Система",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Система",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Система",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "settings": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Настройки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Настройки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Настройки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Настройки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "video-studio": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Video Studio",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "SPAN:9"
+   ],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Video Studio",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Video Studio",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Video Studio",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "bossman-chat": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "История видео и чат",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "История видео и чат",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "История видео и чат",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "История видео и чат",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "home-v3": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Главная",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "[object SVGAnimatedString]:8",
+    "[object SVGAnimatedString]:8"
+   ],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Главная",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "[object SVGAnimatedString]:8",
+    "[object SVGAnimatedString]:8"
+   ],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Главная",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "[object SVGAnimatedString]:8",
+    "[object SVGAnimatedString]:8"
+   ],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Главная",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "[object SVGAnimatedString]:8",
+    "[object SVGAnimatedString]:8"
+   ],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "apps": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Приложения",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "[object SVGAnimatedString]:8",
+    "[object SVGAnimatedString]:8"
+   ],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Приложения",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "[object SVGAnimatedString]:8",
+    "[object SVGAnimatedString]:8"
+   ],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Приложения",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "[object SVGAnimatedString]:8",
+    "[object SVGAnimatedString]:8"
+   ],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Приложения",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "[object SVGAnimatedString]:8",
+    "[object SVGAnimatedString]:8"
+   ],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "overview": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Обзор",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Обзор",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Обзор",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Обзор",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "missions": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Миссии",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Миссии",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Миссии",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Миссии",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "router": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Выбор модели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Выбор модели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Выбор модели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Выбор модели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "governor": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Присмотр",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Присмотр",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Присмотр",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Присмотр",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "resources": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Ресурсы",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Ресурсы",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Ресурсы",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Ресурсы",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "skills": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Навыки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Навыки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Навыки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Навыки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "terminal": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Терминал",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Терминал",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Терминал",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Терминал",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "benchmarks": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Замеры моделей",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Замеры моделей",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Замеры моделей",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Замеры моделей",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "browser": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Браузер",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Браузер",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Браузер",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Браузер",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "coding": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Coding-сессии",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Coding-сессии",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Coding-сессии",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Coding-сессии",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "agentmap": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Карта агентов",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Карта агентов",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Карта агентов",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Карта агентов",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "orchestras": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Команды агентов",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Команды агентов",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Команды агентов",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Команды агентов",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "forks": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Развилки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Развилки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Развилки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Развилки",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "healing": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Восстановление",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Восстановление",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Восстановление",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Восстановление",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "openrouter": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "OpenRouter",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "OpenRouter",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "OpenRouter",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "OpenRouter",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "command": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Пульт",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Пульт",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Пульт",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Пульт",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "builder": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Конструктор миссий",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Конструктор миссий",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Конструктор миссий",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Конструктор миссий",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "images": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Изображения",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Изображения",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Изображения",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Изображения",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "trading_lab": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Обучение трейдингу",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Обучение трейдингу",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Обучение трейдингу",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Обучение трейдингу",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [
+    "bx-pill is-err@31",
+    "bx-pill-val@17"
+   ],
+   "errors": []
+  }
+ },
+ "mission_console": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Операторский канал",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10"
+   ],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Операторский канал",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10"
+   ],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Операторский канал",
+   "nav": true,
+   "offscreen": [],
+   "small": [
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10"
+   ],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Операторский канал",
+   "nav": true,
+   "offscreen": [
+    "mc-chip@223-484",
+    "mc-chip@491-767",
+    "mc-chip@774-1046",
+    "mc-chip@1053-1246"
+   ],
+   "small": [
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10",
+    "mc-label:10"
+   ],
+   "wide": [
+    "mc-chip@94",
+    "mc-chip@377",
+    "mc-chip@656",
+    "mc-chip@856"
+   ],
+   "errors": []
+  }
+ },
+ "web_research": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Поиск в интернете",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Поиск в интернете",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Поиск в интернете",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Поиск в интернете",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "control": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Пульт",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Пульт",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Пульт",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Пульт",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "web_designer": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Веб-дизайн",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Веб-дизайн",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Веб-дизайн",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Веб-дизайн",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ },
+ "objectives": {
+  "1920": {
+   "sw": 1920,
+   "cw": 1920,
+   "children": 1,
+   "title": "Цели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1366": {
+   "sw": 1366,
+   "cw": 1366,
+   "children": 1,
+   "title": "Цели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "1024": {
+   "sw": 1024,
+   "cw": 1024,
+   "children": 1,
+   "title": "Цели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  },
+  "390": {
+   "sw": 390,
+   "cw": 390,
+   "children": 1,
+   "title": "Цели",
+   "nav": true,
+   "offscreen": [],
+   "small": [],
+   "wide": [],
+   "errors": []
+  }
+ }
+}
