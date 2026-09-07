@@ -28,6 +28,12 @@ from . import evidence as _ev
 VERIFICATION_STATUSES = ("VERIFIED", "FAILED", "UNVERIFIED")
 EXECUTOR_STATUSES = ("executed", "error", "denied", "rejected", "replayed", "unknown")
 
+# A V3 executor can SAY that its observation is post-state, but provenance is
+# what makes that statement trustworthy. Test-only sources and generic tool
+# results are deliberately absent: otherwise {"status": "ok"} from the tool
+# that just acted can be laundered into independent proof (audit A5-01).
+V3_TRUSTED_POST_STATE_SOURCES = frozenset({"bcc.v2.verification", "fs"})
+
 
 def _iso(dt: datetime | str | None) -> str:
     if dt is None:
@@ -53,6 +59,18 @@ def request_digest(tool: str, args: Mapping[str, Any]) -> str:
     body = json.dumps({"tool": tool, "args": {k: v for k, v in dict(args).items() if k != "expect"}},
                       sort_keys=True, ensure_ascii=False, default=str)
     return hashlib.sha256(body.encode("utf-8")).hexdigest()[:32]
+
+
+def _trusted_v3_observation_type(requested: str, observation_ref: str) -> str:
+    """Downgrade an untrusted V3 post-state claim before it reaches a receipt.
+
+    The producer controls ``requested``; the canonical receipt owns the trust
+    boundary. Other observation kinds are preserved because only ``post_state``
+    can satisfy ``verified()``.
+    """
+    if requested == "post_state" and observation_ref not in V3_TRUSTED_POST_STATE_SOURCES:
+        return "tool_result_only"
+    return requested
 
 
 @dataclass
@@ -139,6 +157,7 @@ class ActionReceipt:
                 observation_ref: str, verification_status: str, verification_reason: str,
                 idempotency_key: str = "", fencing_token: int | None = None, run_id: str = "",
                 executor_metadata: Mapping[str, Any] | None = None) -> "ActionReceipt":
+        observation_type = _trusted_v3_observation_type(str(observation_type), str(observation_ref))
         return cls(task_id=str(task_id), step_id=str(step_id), capability=action_type, tool=action_type,
                    effect_type=str(effect_type), started_at=_iso(started_at), finished_at=_iso(finished_at),
                    run_id=str(run_id), idempotency_key=idempotency_key or f"{task_id}/{step_id}",
