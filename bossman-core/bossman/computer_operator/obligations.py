@@ -91,6 +91,21 @@ class UnknownEffect:
 
 
 @dataclass(frozen=True, slots=True)
+class UnverifiableEffect:
+    """Новый fail-closed маркер для внешнего эффекта без проверяемого результата.
+
+    `manager.py` всё ещё знает исторический `UnknownEffect` как совместимый
+    слабый fallback. Новые задачи не должны попадать в этот путь: если цель
+    обещает внешний эффект, но конкретное обязательство извлечь нельзя,
+    автоматический COMPLETE блокируется до появления проверяемой улики.
+    """
+    reason: str
+
+    def key(self) -> str:
+        return f"unverifiable:{self.reason}"
+
+
+@dataclass(frozen=True, slots=True)
 class ProbeResult:
     """Независимое чтение состояния мира. `exists=False` — цели нет."""
     exists: bool
@@ -140,7 +155,10 @@ def extract_obligations(goal: str) -> tuple[FileEffect, ...]:
     screen = _screen_effect(goal or "")
     if screen is not None:
         return (screen,)
-    return (UnknownEffect(reason="из цели не извлечён проверяемый результат"),)
+    # Критично: НЕ возвращаем UnknownEffect. Manager исторически трактует его
+    # как разрешение откатиться к слабому «была какая-то мутация». Новый тип
+    # остаётся в списке обязательств и потому блокирует ложный COMPLETE.
+    return (UnverifiableEffect(reason="из цели не извлечён проверяемый результат"),)
 
 
 # Обещание, видимое на экране: кавычки вокруг того, что должно там оказаться,
@@ -211,7 +229,7 @@ def unsatisfied(obligations, probe, before: dict[str, ProbeResult] | None,
     missing = []
     before_screen, after_screen = screens or ("", "")
     for effect in obligations:
-        if isinstance(effect, UnknownEffect):
+        if isinstance(effect, (UnknownEffect, UnverifiableEffect)):
             # Нечем закрыть по построению: цель обещает результат и не называет
             # его. Машина не имеет права додумать, что именно проверять.
             missing.append((effect, effect.reason))
