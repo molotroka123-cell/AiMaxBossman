@@ -24,9 +24,21 @@ PROMOTE/REJECT опирался только на человека.
 """
 from __future__ import annotations
 
+import hashlib
+import json
+import os
+from datetime import datetime
+from pathlib import Path
 from typing import Any
+from collections.abc import Mapping
 
 import sqlalchemy as sa
+
+from bossman_shared.objective_activation import (ActivationDecision, ActivationError,
+                                                 BroadActivationGate,
+                                                 cohort_reports_from_facts)
+from bossman_shared.objective_canary import CanaryError
+from bossman_shared.objective_store import ObjectiveStore, ObjectiveStoreError
 
 from ..db import (skill_evaluations as evals_t, skill_versions as skill_versions_t,
                   skills as skills_t, task_runs as runs_t, tasks as tasks_t, utcnow)
@@ -175,9 +187,27 @@ async def refresh(svc, evaluation_id: int) -> dict[str, Any]:
     widened = widened_capabilities(base_row, cand_row)
     status, verdict, reason = decide(baseline, candidate, widened)
 
+    # Цифры — ещё не разрешение. Широкая активация проходит через канареечную
+    # дверь, и отказ двери НЕ превращается в тихий PROMOTE: он опускает вердикт
+    # до человека вместе с машиночитаемой причиной.
+    gate = None
+    grant = None
+    canary_run_id = ""
+    canary: dict[str, Any] | None = None
+    if verdict == PROMOTE:
+        gate, canary_run_id, decision = await canary_decision(svc, ev, cand_row)
+        canary = _canary_facts(decision, canary_run_id)
+        if not decision.allowed:
+            verdict = HUMAN_REVIEW
+            reason = (f"{reason}; широкая активация закрыта канареечной дверью: "
+                      f"{decision.reason}")
+            gate = None
+        else:
+            grant = decision.grant
+
     metrics = {"baseline": baseline, "candidate": candidate, "widened": widened,
                "min_runs": MIN_RUNS, "improve_delta": IMPROVE_DELTA,
-               "regress_delta": REGRESS_DELTA,
+               "regress_delta": REGRESS_DELTA, "canary": canary,
                "delta_success_rate": (
                    round(candidate["success_rate"] - baseline["success_rate"], 4)
                    if baseline["success_rate"] is not None
@@ -200,7 +230,8 @@ async def refresh(svc, evaluation_id: int) -> dict[str, Any]:
         values["approval_id"] = approval_id
 
     if verdict == PROMOTE:
-        await _apply_promotion(svc, ev["skill_id"], ev["candidate_version_id"])
+        await _apply_promotion(svc, ev["skill_id"], ev["candidate_version_id"],
+                               gate=gate, run_id=canary_run_id, grant=grant)
         values["applied"] = True
         values["decided_by"] = "runtime"
         applied = True
@@ -219,13 +250,191 @@ async def refresh(svc, evaluation_id: int) -> dict[str, Any]:
     return dict(row._mapping)
 
 
-async def _apply_promotion(svc, skill_id: int, version_id: int) -> None:
-    """Единственное, что делает PROMOTE. Ровно одно поле, обратимо."""
+# ---------- P0-1: канареечная дверь перед широкой активацией ----------
+#
+# `_apply_promotion` переключает `skills.current_version_id`, а колонки когорты в
+# схеме нет: кандидат достаётся ВСЕМУ парку сразу. Это и есть настоящая широкая
+# активация, и до сих пор она шла мимо `authorize_broad_activation` — гейт был
+# написан, привязан и покрыт тестами, но ни одного производственного вызывающего
+# не имел. Теперь единственный путь к переключению лежит через дверь.
+#
+# Канареечное окно — ПЕРВЫЕ `CANARY_WINDOW` терминальных прогонов кандидата, то
+# есть его первое настоящее соприкосновение с работой. Когорта выбирается из
+# окна детерминированно (`plan_canary`), каждый её член обязан отчитаться
+# ПРИВЯЗАННОЙ уликой, и правила примитива действуют дословно: молчание — не
+# успех, одно падение закрывает выпуск, неразрешимая улика закрывает выпуск.
+
+CANARY_WINDOW = MIN_RUNS
+# Личность СЛУЖБЫ, а не операционного процесса: перезапуск того же деплоя обязан
+# доверять собственным долговечным уликам, а чужая служба — нет.
+PROMOTION_IDENTITY = os.environ.get("BCC_PROMOTION_IDENTITY", "bcc.skill-promotion")
+CANARY_STORE_ENV = "BCC_CANARY_STORE"
+CANARY_KEY_FILE = "v5_canary_evidence.key"
+_EPOCH = datetime(1970, 1, 1)
+
+
+def _epoch(moment: datetime) -> float:
+    """Наивный UTC в секунды. Без часового пояса — значение не «плывёт» между
+    процессами, а улика судится по времени, а не по настроению машины."""
+    return (moment - _EPOCH).total_seconds()
+
+
+def _canary_store_path(svc) -> Path:
+    override = os.environ.get(CANARY_STORE_ENV)
+    if override:
+        return Path(override).expanduser()
+    return Path(svc.settings.data_dir) / "v5_canary.sqlite3"
+
+
+def _evidence_key(svc) -> bytes:
+    """Ключ улик живёт в data_dir рядом с базой и переживает перезапуск.
+
+    Без долговечного ключа улика, выпущенная до перезапуска, после него не
+    разрешится, и служба перестанет доверять собственным фактам. Ключ создаётся
+    один раз, режимом 0600, и никогда не перевыпускается молча.
+    """
+    path = Path(svc.settings.data_dir) / CANARY_KEY_FILE
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            try:
+                os.write(fd, os.urandom(32))
+            finally:
+                os.close(fd)
+        except FileExistsError:
+            pass                                      # другой процесс успел раньше
+    key = path.read_bytes()
+    if len(key) < 16:
+        raise ActivationError("canary evidence key is too short to be trusted")
+    return key
+
+
+def _gate(svc) -> BroadActivationGate:
+    return BroadActivationGate(ObjectiveStore(_canary_store_path(svc)),
+                               evidence_key=_evidence_key(svc),
+                               process_identity=PROMOTION_IDENTITY,
+                               owner_id=str(getattr(svc, "owner_id", None) or "owner"))
+
+
+def candidate_revision(version_row: dict[str, Any]) -> str:
+    """Личность РЕВИЗИИ: содержимое версии, а не её номер.
+
+    Правка строки версии (инструменты, права, отпечаток) меняет ревизию,
+    поэтому улика о прежнем содержимом эту активацию не открывает.
+    """
+    tools, perms = _capabilities(version_row)
+    body = json.dumps({"id": int(version_row["id"]), "version": version_row.get("version"),
+                       "tools": sorted(tools), "permissions": sorted(perms),
+                       "fingerprint": (version_row.get("permissions") or {}).get("fingerprint")
+                       if isinstance(version_row.get("permissions"), dict) else None},
+                      sort_keys=True, ensure_ascii=True, separators=(",", ":"))
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+async def canary_window(svc, version_id: int) -> list[tuple[str, bool]]:
+    """Первые терминальные прогоны версии: (член когорты, здоров ли).
+
+    `stopped`/`queued`/`running` сюда не попадают: это не исход. Член окна без
+    исхода — молчание, и дверь на нём закрыта.
+    """
+    async with svc.db.session() as s:
+        rows = (await s.execute(
+            sa.select(runs_t.c.id, runs_t.c.status)
+            .select_from(runs_t.join(tasks_t, tasks_t.c.id == runs_t.c.task_id))
+            .where(sa.and_(tasks_t.c.skill_version_id == version_id,
+                           runs_t.c.status.in_(("completed", "failed"))))
+            .order_by(runs_t.c.id).limit(CANARY_WINDOW))).fetchall()
+    return [(f"run:{int(r[0])}", str(r[1]) == "completed") for r in rows]
+
+
+async def canary_decision(svc, ev: dict[str, Any], candidate_row: dict[str, Any]
+                          ) -> tuple[BroadActivationGate | None, str, ActivationDecision]:
+    """Пройти дверь для ЭТОЙ пары (скилл, версия-кандидат).
+
+    Прогон детерминирован: он строится из идентификатора сравнения и времени его
+    заведения, поэтому пересчёт находит ТОТ ЖЕ прогон и те же долговечные
+    отчёты, а перезапуск процесса ничего не теряет и ничего не обнуляет.
+    """
+    subject = f"skill:{int(ev['skill_id'])}"
+    revision = candidate_revision(candidate_row)
+    window = await canary_window(svc, int(ev["candidate_version_id"]))
+    started = ev.get("created_at") or utcnow()
+    now = _epoch(utcnow())
+    try:
+        gate = _gate(svc)
+        plan = gate.plan(subject=subject, revision=revision,
+                         members=[member for member, _ in window],
+                         started_at=_epoch(started) - 1.0,
+                         run_nonce=f"skill-eval:{int(ev['id'])}")
+    except (ActivationError, CanaryError) as exc:
+        # Окна нет или оно короче когорты — активация не разрешена. Мало данных
+        # это не «претензий нет», это «не проверено».
+        return None, "", ActivationDecision("", False, f"canary_unavailable:{exc}")
+
+    # Прогон, о котором это сравнение УЖЕ отчиталось. Если он записан, а в
+    # долговечном хранилище его нет, значит состояние потеряно между запусками:
+    # заводить его заново здесь означало бы выдать «проверено» за «перепроверю
+    # по тем же фактам». Дверь на потерянном прогоне закрыта.
+    recorded = _recorded_canary_run(ev)
+    try:
+        if recorded:
+            if recorded != plan.run_id:
+                return None, "", ActivationDecision(
+                    "", False, f"canary_run_mismatch:{recorded}")
+            gate.state(plan.run_id)                   # бросит, если строки нет
+        gate.open(plan, candidate=revision)
+        cohort_reports_from_facts(gate, plan.run_id, dict(window), at=now)
+    except (ActivationError, CanaryError, ObjectiveStoreError) as exc:
+        return None, "", ActivationDecision(plan.run_id, False,
+                                            f"canary_unavailable:{exc}")
+    return gate, plan.run_id, gate.authorize(plan.run_id, now=now)
+
+
+def _recorded_canary_run(ev: Mapping[str, Any]) -> str:
+    """Идентификатор канареечного прогона, записанный прошлым пересчётом.
+
+    Он живёт в метриках сравнения и потому переживает перезапуск процесса
+    вместе с самим сравнением. Его расхождение с долговечным хранилищем —
+    признак потери состояния, а не повод завести прогон заново.
+    """
+    metrics = ev.get("metrics")
+    if not isinstance(metrics, Mapping):
+        return ""
+    canary = metrics.get("canary")
+    if not isinstance(canary, Mapping):
+        return ""
+    return str(canary.get("run_id") or "")
+
+
+def _canary_facts(decision: ActivationDecision, run_id: str) -> dict[str, Any]:
+    verdict = decision.verdict
+    return {"run_id": run_id, "allowed": decision.allowed, "reason": decision.reason,
+            "state": getattr(verdict, "state", None),
+            "unhealthy": list(getattr(verdict, "unhealthy", ()) or ()),
+            "silent": list(getattr(verdict, "silent", ()) or ()),
+            "unattested": [list(pair) for pair in getattr(verdict, "unattested", ()) or ()]}
+
+
+async def _apply_promotion(svc, skill_id: int, version_id: int, *,
+                           gate: BroadActivationGate | None, run_id: str,
+                           grant: Any) -> None:
+    """Единственное, что делает PROMOTE. Ровно одно поле — и только по разрешению.
+
+    Разрешение расходуется ПЕРЕД переключением: закрытая строка прогона без
+    переключения — несостоявшаяся активация, а переключение без закрытой строки
+    было бы активацией, о которой никто не узнает.
+    """
+    if gate is None:
+        raise ActivationError("broad activation requires a canary gate")
+    plan = gate.consume(run_id, grant, now=_epoch(utcnow()),
+                        detail=f"skill:{skill_id} version:{version_id}")
     async with svc.db.session() as s:
         await s.execute(sa.update(skills_t).where(skills_t.c.id == skill_id).values(
             current_version_id=version_id))
         await s.commit()
-    await svc.bus.emit("skill.version.promoted", skill_id=skill_id, version_id=version_id)
+    await svc.bus.emit("skill.version.promoted", skill_id=skill_id, version_id=version_id,
+                       canary_run_id=run_id, cohort=list(plan.cohort))
 
 
 async def apply_human_decision(svc, evaluation_id: int, *, approve: bool,
@@ -245,7 +454,16 @@ async def apply_human_decision(svc, evaluation_id: int, *, approve: bool,
 
     values: dict[str, Any] = {"decided_by": str(by)[:120], "updated_at": utcnow()}
     if approve:
-        await _apply_promotion(svc, ev["skill_id"], ev["candidate_version_id"])
+        # Человек решает СПОРНОЕ, но не отменяет канарейку: одобрение владельца
+        # не делает непроверенного кандидата проверенным. Дверь одна и здесь.
+        cand_row = await _version_row(svc, ev["candidate_version_id"])
+        if cand_row is None:
+            raise KeyError("версия сравнения исчезла")
+        gate, run_id, decision = await canary_decision(svc, ev, cand_row)
+        if not decision.allowed:
+            raise ValueError("канареечная дверь закрыта: " + decision.reason)
+        await _apply_promotion(svc, ev["skill_id"], ev["candidate_version_id"],
+                               gate=gate, run_id=run_id, grant=decision.grant)
         values["applied"] = True
         values["verdict"] = PROMOTE
         values["reason"] = f"{ev['reason']} → одобрено человеком ({by})"
@@ -275,5 +493,6 @@ async def refresh_for_version(svc, version_id: int) -> list[dict[str, Any]]:
 
 
 __all__ = ["MIN_RUNS", "IMPROVE_DELTA", "REGRESS_DELTA", "PROMOTE", "REJECT", "HUMAN_REVIEW",
-           "version_metrics", "widened_capabilities", "decide", "open_evaluation", "refresh",
-           "refresh_for_version", "apply_human_decision"]
+           "CANARY_WINDOW", "PROMOTION_IDENTITY", "version_metrics", "widened_capabilities",
+           "decide", "open_evaluation", "refresh", "refresh_for_version",
+           "apply_human_decision", "candidate_revision", "canary_window", "canary_decision"]
