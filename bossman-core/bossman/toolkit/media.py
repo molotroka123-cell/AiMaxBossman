@@ -32,17 +32,41 @@ def _path_arg_ok(a: str) -> bool:
     return ".." not in re.split(r"[/\\]+", a)
 
 
-def _looks_like_path(a: str) -> bool:
-    """Аргумент похож на путь: есть разделитель или узнаваемое расширение.
+# FFmpeg понимает ПРОТОКОЛЫ, а pathlib — нет. `http://127.0.0.1/x.mp4` Python
+# разрешает в `<workdir>/http:/127.0.0.1/x.mp4` (внутри рабочей папки!), а FFmpeg
+# читает ту же строку как сетевой URL. Поэтому containment по путям на такие
+# операнды не действует вовсе: их надо отклонять ДО запуска, а не «проверять».
+#
+# Это ЛОКАЛЬНЫЙ инструмент рабочей папки. Сеть, устройства, каналы и внутренние
+# псевдо-протоколы ему не нужны, поэтому список разрешённого пуст: любой операнд
+# со схемой отвергается. Если когда-нибудь понадобится протокол — он добавляется
+# сюда явным решением, а не пролезает потому, что регулярка не заметила.
+_ALLOWED_MEDIA_PROTOCOLS: frozenset[str] = frozenset()
 
-    Фильтры и опции ffmpeg путями не являются и проверке содержания не подлежат;
-    ошибиться в эту сторону безопасно — непроверенный НЕ-путь ничего не открывает.
+# `схема:` в начале операнда. Один символ — это диск Windows (C:\...), он ловится
+# отдельно в `_path_arg_ok`; схема FFmpeg — два и более.
+# Схема может нести СВОИ опции до двоеточия — `subfile,,start,0,end,10,:/файл`
+# именно так и выглядит, и без этой ветки она проезжала. Фильтры вида
+# `scale=1280:720`, `[0:v][1:v]concat` и `1280:720` схемой НЕ являются: после
+# имени там `=`/`[`/цифра, а не `,` или `:`.
+_PROTOCOL = re.compile(r"^([A-Za-z][A-Za-z0-9+.-]{1,})(?:,[^:]*)?\s*:")
+
+
+def _protocol_of(a: str) -> str:
+    """Схема операнда, если она есть: 'http', 'file', 'concat', 'pipe', 'data'…"""
+    m = _PROTOCOL.match(a or "")
+    return m.group(1).lower() if m else ""
+
+
+def _looks_like_path(a: str) -> bool:
+    """Операнд, который может оказаться объектом файловой системы.
+
+    Расширение больше НЕ является условием: `input` без расширения — такой же
+    путь, и раньше он не проверялся вовсе. Теперь любой не-опционный операнд,
+    который существует на диске, обязан пройти проверку содержания, даже если он
+    выглядит как слово.
     """
-    if not a or a.startswith("-"):
-        return False
-    if "/" in a or "\\" in a:
-        return True
-    return bool(re.search(r"\.[A-Za-z0-9]{2,4}$", a))
+    return bool(a) and not a.startswith("-")
 
 
 def _path_contained(ctx: ToolContext, rel: str) -> bool:
@@ -77,6 +101,9 @@ async def probe(args: dict, ctx: ToolContext) -> ToolResult:
     # а разрешённая цель уже вне workdir, и именно её получал ffprobe. Реальное
     # содержание проверяется тем же резолвером, что и fs.*: сравниваются
     # .resolve()-нутые пути, поэтому и symlink, и junction ловятся по цели.
+    if _protocol_of(str(args["path"])):
+        return ToolResult("протокол запрещён — только файлы внутри рабочей папки",
+                          one_line="probe: отказ по протоколу", error=True)
     if not _path_arg_ok(str(args["path"])):
         return ToolResult("абсолютные пути и «..» запрещены — только внутри рабочей папки",
                           one_line="probe: отказ по пути", error=True)
@@ -117,6 +144,22 @@ async def ffmpeg(args: dict, ctx: ToolContext) -> ToolResult:
     for a in argv:
         if not _looks_like_path(a):
             continue
+        proto = _protocol_of(a)
+        if proto and proto not in _ALLOWED_MEDIA_PROTOCOLS:
+            return ToolResult(
+                f"протокол '{proto}:' запрещён — инструмент работает только с файлами "
+                "внутри рабочей папки",
+                one_line="ffmpeg: отказ по протоколу", error=True)
+        # Существующий объект файловой системы проверяется всегда, даже без
+        # расширения; несуществующее имя без разделителей — это опция/фильтр
+        # (`copy`, `veryfast`, `30`), и путём не является.
+        raw = ctx.workdir / a
+        try:
+            is_fs_object = raw.exists() or raw.is_symlink()
+        except (OSError, ValueError):
+            is_fs_object = False
+        if not is_fs_object and "/" not in a and "\\" not in a:
+            continue
         if not _path_contained(ctx, a):
             return ToolResult("путь ведёт за пределы рабочей папки (symlink/junction)",
                               one_line="ffmpeg: отказ по содержанию", error=True)
@@ -137,6 +180,9 @@ async def vision_describe(args: dict, ctx: ToolContext) -> ToolResult:
     # канал вывода данных, а не подпись к кадру. Проверка стоит ЗДЕСЬ, а модели
     # передаются уже проверенные байты: забыть её у другого вызывающего нельзя,
     # потому что путь до адаптера больше не доходит.
+    if _protocol_of(str(args["path"])):
+        return ToolResult("протокол запрещён — только файлы внутри рабочей папки",
+                          one_line="vision: отказ по протоколу", error=True)
     if not _path_arg_ok(str(args["path"])):
         return ToolResult("абсолютные пути и «..» запрещены — только внутри рабочей папки",
                           one_line="vision: отказ по пути", error=True)

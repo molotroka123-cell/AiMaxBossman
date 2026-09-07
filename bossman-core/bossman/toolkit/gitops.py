@@ -43,6 +43,27 @@ async def _authorized_root(ctx: ToolContext) -> Path:
     if top != root:
         raise GitAuthorityError(
             f"репозиторий агенту не разрешён: git видит {top}, разрешено {root}")
+    # Совпадения верхнего уровня МАЛО. `.git` может быть не каталогом, а ФАЙЛОМ
+    # («gitdir: /чужой/репозиторий/.git»), и тогда `--show-toplevel` честно
+    # возвращает разрешённую папку, а команды идут по чужим метаданным: `git
+    # branch` показывал ветки чужого репозитория. Поэтому проверяется и то, где
+    # на самом деле лежит база: она обязана быть ВНУТРИ разрешённого корня.
+    #
+    # Побочный эффект намеренный: связанное рабочее дерево (linked worktree)
+    # держит свою базу в `.git/worktrees/...` ГЛАВНОГО репозитория, то есть
+    # снаружи, и потому тоже отклоняется. Явного способа авторизовать внешний
+    # репозиторий у ToolContext пока нет, а fail-closed здесь дешевле, чем
+    # довериться файлу, который мог написать сам агент.
+    code, out = await _exec("git", "rev-parse", "--absolute-git-dir", cwd=root)
+    if code != 0:
+        raise GitAuthorityError("не удалось разрешить каталог репозитория")
+    try:
+        gitdir = Path(out.strip()).resolve()
+    except (OSError, RuntimeError) as exc:
+        raise GitAuthorityError("не удалось разрешить каталог репозитория") from exc
+    if not _contains(root, gitdir):
+        raise GitAuthorityError(
+            f"метаданные репозитория вне разрешённого корня: {gitdir} не внутри {root}")
     return root
 
 
