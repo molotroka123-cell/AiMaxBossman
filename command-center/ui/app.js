@@ -10,7 +10,7 @@ import {
   closeTopModal, hasOpenModal, debounce, fmtGb, fmtClock, fmtDuration,
 } from './components.js';
 import { PAGES, openTaskModal, openAgentModal, openScheduleModal, openModelWizard, stopAllRunning } from './pages.js';
-import { FEATURE_PAGES } from './pages/index.js';
+import { FEATURE_PAGES, preloadFeaturePages } from './pages/index.js';
 import { mountThinking } from './thinking.js';
 import { mountTestingPeriod } from './testing.js';
 import { mountCommandBar } from './commandbar.js';
@@ -86,6 +86,39 @@ let currentParams = {};
 let renderToken = 0;
 let pendingRefresh = false;
 let lastRendered = null;
+
+/* V6 §A: отметки готовности — измеренные точки, а не ощущения.
+   UI_READY — оболочка показана (вход подтверждён, навигация собрана);
+   FIRST_PAGE_RENDERED — первая страница заменила скелет в #view.
+   Читаются через window.__bxTiming(); отсутствующая отметка = null, не 0. */
+const TIMING_MARKS = ['bossman:ui_ready', 'bossman:first_page_rendered'];
+function mark(name) {
+  try {
+    if (typeof performance === 'undefined' || !performance.mark) return;
+    if (performance.getEntriesByName(name).length) return;   /* только первая */
+    performance.mark(name);
+  } catch { /* отметка — наблюдатель, не условие работы */ }
+}
+/* V6 §C: код остальных страниц — DEFERRED_SAFE_AFTER_UI_READY. Грузим его в
+   простое после первой отрисовки, по одному модулю, чтобы переходы были
+   мгновенными, а первый кадр — не ждал 28 модулей. Ровно один раз. */
+let preloadScheduled = false;
+function schedulePreload() {
+  if (preloadScheduled) return;
+  preloadScheduled = true;
+  const run = () => { preloadFeaturePages().catch(() => {}); };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 4000 });
+  else setTimeout(run, 1500);
+}
+window.__bxTiming = () => {
+  const out = {};
+  for (const name of TIMING_MARKS) {
+    let entry = null;
+    try { entry = performance.getEntriesByName(name)[0] || null; } catch { entry = null; }
+    out[name.slice('bossman:'.length)] = entry ? Math.round(entry.startTime) : null;
+  }
+  return out;
+};
 
 const bus = new EventStream();
 /* UX 2.0: панель «Процесс работы» — открывается кнопкой в шапке или Ctrl+. */
@@ -194,6 +227,8 @@ async function renderPage() {
     if (token !== renderToken) return;
     lastRendered = currentPage;
     replace(el.view, node);
+    mark('bossman:first_page_rendered');
+    schedulePreload();
     syncTopStats();
     if (typeof window.scrollTo === 'function') window.scrollTo({ top: 0 });
   } catch (e) {
@@ -639,6 +674,7 @@ async function boot() {
   showShell();
   state.ready = true;
   syncNav();
+  mark('bossman:ui_ready');
   bus.start();
   onRoute();
 
