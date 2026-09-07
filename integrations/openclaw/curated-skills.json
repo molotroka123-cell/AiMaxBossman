@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "source": {
+    "repository": "VoltAgent/awesome-openclaw-skills",
+    "commit": "37ad08c1b8e243d5f501c6fcaf7ac0b507bd83a1",
+    "license": "MIT",
+    "security_status": "curated_not_audited",
+    "note": "Metadata shortlist only. No third-party skill code is vendored or auto-installed."
+  },
+  "policy": {
+    "auto_install": false,
+    "default_network": "deny",
+    "write_actions": "ask",
+    "secret_access": "deny",
+    "promotion_requires": [
+      "manual_source_review",
+      "provenance_pin",
+      "hostile_tests",
+      "owner_approval",
+      "rollback_plan"
+    ]
+  },
+  "skills": [
+    {
+      "rank": 1,
+      "slug": "azhua-skill-vetter",
+      "registry_url": "https://clawskills.sh/skills/fatfingererr-azhua-skill-vetter",
+      "category": "security",
+      "fit_score": 9.8,
+      "mode": "candidate",
+      "why": "Security-first vetting before any community skill is admitted.",
+      "bossman_mapping": ["Skill Factory", "Learning Guard", "Reality Compiler admission"],
+      "risk": "medium",
+      "required_gates": ["manual_source_review", "provenance_pin", "no_secret_access", "negative_tests"]
+    },
+    {
+      "rank": 2,
+      "slug": "arc-trust-verifier",
+      "registry_url": "https://clawskills.sh/skills/trypto1019-arc-trust-verifier",
+      "category": "security",
+      "fit_score": 9.7,
+      "mode": "candidate",
+      "why": "Provenance and trust scoring fit Bossman's evidence-bound promotion model.",
+      "bossman_mapping": ["Evidence ledger", "Skill promotion", "Audit intake"],
+      "risk": "medium",
+      "required_gates": ["manual_source_review", "provenance_pin", "trust_score_not_authority", "negative_tests"]
+    },
+    {
+      "rank": 3,
+      "slug": "playwright-mcp",
+      "registry_url": "https://clawskills.sh/skills/spiceman161-playwright-mcp",
+      "category": "browser",
+      "fit_score": 9.6,
+      "mode": "candidate",
+      "why": "Playwright MCP is directly relevant to browser control, web testing and Web Designer acceptance.",
+      "bossman_mapping": ["Browser tools", "Computer Operator", "Web Designer"],
+      "risk": "high",
+      "required_gates": ["manual_source_review", "provenance_pin", "sandboxed_browser", "domain_allowlist", "write_approval", "negative_tests"]
+    },
+    {
+      "rank": 4,
+      "slug": "agent-team-orchestration",
+      "registry_url": "https://clawskills.sh/skills/arminnaimi-agent-team-orchestration",
+      "category": "multi_agent",
+      "fit_score": 9.4,
+      "mode": "reference",
+      "why": "Useful patterns for roles, task lifecycle, handoffs and review without replacing Bossman's Fleet/Organization substrate.",
+      "bossman_mapping": ["Fleet", "Organization", "Mission lifecycle"],
+      "risk": "medium",
+      "required_gates": ["manual_source_review", "provenance_pin", "no_parallel_authority_model", "negative_tests"]
+    },
+    {
+      "rank": 5,
+      "slug": "agentgate",
+      "registry_url": "https://clawskills.sh/skills/monteslu-agentgate",
+      "category": "security",
+      "fit_score": 9.3,
+      "mode": "reference",
+      "why": "Human-in-the-loop write approval is highly aligned, but overlaps Bossman's existing approval boundary.",
+      "bossman_mapping": ["Approvals", "Permission boundary", "Personal data access"],
+      "risk": "high",
+      "required_gates": ["manual_source_review", "provenance_pin", "owner_approval_binding", "no_permission_widening", "negative_tests"]
+    },
+    {
+      "rank": 6,
+      "slug": "arc-skill-gitops",
+      "registry_url": "https://clawskills.sh/skills/trypto1019-arc-skill-gitops",
+      "category": "gitops",
+      "fit_score": 9.2,
+      "mode": "candidate",
+      "why": "Versioned deployment and rollback patterns fit Bossman's skill promotion and freeze discipline.",
+      "bossman_mapping": ["Skill Factory", "Rollback", "Release evidence"],
+      "risk": "high",
+      "required_gates": ["manual_source_review", "provenance_pin", "isolated_branch_only", "no_force_push", "rollback_test", "negative_tests"]
+    },
+    {
+      "rank": 7,
+      "slug": "config-validator",
+      "registry_url": "https://clawskills.sh/skills/autogame-17-config-validator",
+      "category": "configuration",
+      "fit_score": 9.0,
+      "mode": "candidate",
+      "why": "Configuration validation is a cheap reliability win for local model, gateway and tool setup.",
+      "bossman_mapping": ["doctor", "Gateway config", "Owner startup"],
+      "risk": "low",
+      "required_gates": ["manual_source_review", "provenance_pin", "read_only_default", "negative_tests"]
+    },
+    {
+      "rank": 8,
+      "slug": "academic-deep-research",
+      "registry_url": "https://clawskills.sh/skills/kesslerio-academic-deep-research",
+      "category": "research",
+      "fit_score": 8.9,
+      "mode": "candidate",
+      "why": "Rigorous research workflow can strengthen Bossman's research-to-build path and source discipline.",
+      "bossman_mapping": ["Research agent", "Reality Compiler", "Evidence collection"],
+      "risk": "medium",
+      "required_gates": ["manual_source_review", "provenance_pin", "citation_required", "network_allowlist", "negative_tests"]
+    },
+    {
+      "rank": 9,
+      "slug": "arxiv-search-collector",
+      "registry_url": "https://clawskills.sh/skills/xukp20-arxiv-search-collector",
+      "category": "research",
+      "fit_score": 8.7,
+      "mode": "candidate",
+      "why": "Structured arXiv collection is useful for model, agent and systems research with reproducible paper sets.",
+      "bossman_mapping": ["Research agent", "Model monitoring", "Knowledge ingestion"],
+      "risk": "low",
+      "required_gates": ["manual_source_review", "provenance_pin", "read_only_network", "citation_required", "negative_tests"]
+    },
+    {
+      "rank": 10,
+      "slug": "agent-commons",
+      "registry_url": "https://clawskills.sh/skills/zanblayde-agent-commons",
+      "category": "reasoning",
+      "fit_score": 8.5,
+      "mode": "reference",
+      "why": "Challenge/consult patterns are useful for independent review, but Bossman should keep its own evidence and decision authority.",
+      "bossman_mapping": ["Hard Reasoning", "Independent audit", "Multi-model review"],
+      "risk": "medium",
+      "required_gates": ["manual_source_review", "provenance_pin", "no_self_certification", "negative_tests"]
+    },
+    {
+      "rank": 11,
+      "slug": "arc-security-audit",
+      "registry_url": "https://clawskills.sh/skills/trypto1019-arc-security-audit",
+      "category": "security",
+      "fit_score": 8.4,
+      "mode": "reference",
+      "why": "Full-stack skill auditing is useful as a second opinion, not as a replacement for Bossman's canonical security gates.",
+      "bossman_mapping": ["ASTRA", "Audit intake", "Security scorecard"],
+      "risk": "medium",
+      "required_gates": ["manual_source_review", "provenance_pin", "read_only_audit", "no_gate_override", "negative_tests"]
+    },
+    {
+      "rank": 12,
+      "slug": "alex-session-wrap-up",
+      "registry_url": "https://clawskills.sh/skills/xbillwatsonx-alex-session-wrap-up",
+      "category": "developer_workflow",
+      "fit_score": 8.2,
+      "mode": "reference",
+      "why": "End-of-session commit/learning patterns are useful, but automatic commits must stay behind Bossman's owner and repository controls.",
+      "bossman_mapping": ["Handoffs", "Memory curator", "Git workflow"],
+      "risk": "high",
+      "required_gates": ["manual_source_review", "provenance_pin", "isolated_branch_only", "owner_approval_for_push", "negative_tests"]
+    }
+  ]
+}
