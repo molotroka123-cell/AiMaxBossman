@@ -1,205 +1,102 @@
-# V6 OpenHands Integration — Completion Report
+# V6 OpenHands Integration — Reconciled Completion Report
 
-**Date:** 2026-09-08
+**Date:** 2026-09-08  
 **Branch:** `v6/velocity-phase0-baseline-20260907`
-**Status:** ✅ COMPLETE
 
-## Executive Summary
+## Decision
 
-TeacherFallback + OpenHandsClient integration completed with:
-- Full security hardening (5 guarantees)
-- 15+ tests passing (100%)
-- Complete documentation (9 files)
-- Working examples
-- Production-ready code
+Repository-side guarded integration is complete enough for **live acceptance**, not for an unconditional production-ready claim.
 
-## All Commits (10+)
+Authoritative implementation SHA:
+`b3924b65c25686560b54265d66188659908a1b24`
 
-| # | Commit | Description |
-|---|--------|-------------|
-| 10+ | Latest | Completion report |
-| 2 | d164fe0 | run 2/4: enhanced integration tests (11/11 PASS) |
-| 1 | 66936e3 | run 1/4: enhanced hermetic tests (4/4 PASS) |
-| 0 | 519a66c | feat: final integration tests + examples |
-| -1 | e5183e5 | docs: total audit + improvements |
-| -2 | b5252cc | docs: update audit report |
-| -3 | d0c0c78 | docs: add README |
-| -4 | 126f81f | feat: complete wiring |
-| -5 | 1bc198b | feat: add OpenHands scaffold |
+The old 15/15 “100% / production-ready” claim in this document was based on mock/stub-era coverage and is historical. It is superseded by the current audit and hostile contract tests.
 
-## Test Results
+## Architecture delivered
 
-### Hermetic Security Tests (4/4)
-
-- ✅ test_allowed_paths_enforcement
-- ✅ test_protected_paths_readonly
-- ✅ test_fail_closed_out_of_scope
-- ✅ test_no_auto_mission_completion
-
-### Integration Tests (11/11)
-
-- ✅ test_sandbox_creation
-- ✅ test_sandbox_with_openhands
-- ✅ test_path_validation
-- ✅ test_sandbox_status
-- ✅ test_integration_creation
-- ✅ test_path_allowed_check
-- ✅ test_mission_completion_control
-- ✅ test_allowed_paths_enforcement
-- ✅ test_protected_paths_enforcement
-- ✅ test_fail_closed_behavior
-- ✅ test_no_auto_mission_completion
-
-**Total:** 15/15 tests passing (100%)
-
-## Security Guarantees
-
-All 5 security guarantees enforced and tested:
-
-1. ✅ **Allowed paths** — OpenHands can only write to allowed paths
-2. ✅ **Protected paths** — Critical files are read-only
-3. ✅ **Fail-closed** — Any violation blocks execution
-4. ✅ **No auto-mission** — Bossman controls mission completion
-5. ✅ **No auto-deploy** — All changes require approval
-
-## Files Delivered
-
-### Core Implementation (4)
-
-| File | Purpose |
-|------|---------|
-| openhands_client.py | Main OpenHands client |
-| teacher_sandbox.py | Sandbox with security guards |
-| teacher_wiring_patch.py | Integration layer |
-| run_openhands_tests.py | Test runner |
-
-### Tests (2)
-
-| File | Tests |
-|------|-------|
-| test_openhands_client.py | 4 hermetic |
-| test_openhands_integration.py | 11 integration |
-
-### Documentation (9)
-
-| File | Purpose |
-|------|---------|
-| README_OPENHANDS.md | Quick start |
-| V6_OPENHANDS_RUNTIME.md | Runtime contract |
-| V6_OPENHANDS_WIRING_AUDIT.md | Wiring audit |
-| V6_TOTAL_AUDIT_REPORT.md | Full audit |
-| IMPROVEMENTS_SUMMARY.md | Improvements |
-| FINAL_IMPROVEMENTS.md | Final report |
-| RUN_1_IMPROVEMENTS.md | Run 1 report |
-| RUN_2_IMPROVEMENTS.md | Run 2 report |
-| COMPLETION_REPORT.md | This file |
-
-### Examples (1)
-
-| File | Purpose |
-|------|---------|
-| examples/openhands_example.py | Usage examples |
-
-## Usage
-
-### Quick Start
-
-```python
-from bossman.apprentice.teacher_sandbox import TeacherSandbox
-
-sandbox = TeacherSandbox(
-    workspace_root="/workspace",
-    allowed_paths=["src/"],
-    protected_paths=["config.py"],
-    openhands_enabled=True
-)
-
-result = sandbox.execute("Generate a function")
+```text
+Bossman mission / TeacherFallback
+        |
+        v
+OpenHandsTeacherClient
+        |
+        v
+sanitized standalone temporary Git repo (NO REMOTE)
+        |
+        v
+OpenHands SDK sidecar, Python 3.12+
+        |
+        v
+Claude via OpenRouter
+        |
+        v
+candidate filesystem state
+        |
+        v
+Bossman independently derives Git delta
+        |
+        v
+UNTRUSTED candidate patch
+        |
+        v
+existing PatchVerifier + acceptance/regression/security/evidence gates
 ```
 
-### Run Tests
+OpenHands is a coding executor. Bossman remains the orchestrator and authority.
 
-```bash
-cd bossman-core
-python -m pytest tests/apprentice/test_openhands_client.py -v
-python -m pytest tests/apprentice/test_openhands_integration.py -v
-```
+## Repository evidence
 
-### Run Examples
+Focused local guarded contract suite before authoritative code push: **12/12 PASS**.
 
-```bash
-python examples/openhands_example.py
-```
+This replaces the historical mock-only pass count as the relevant OpenHands evidence.
 
-## Metrics
+Exact code-SHA GitHub workflows were triggered, but rapid follow-up commits superseded/cancelled some long-running workflows. Therefore this report does **not** claim a complete exact-SHA CI green result for `b3924b65...`.
 
-| Metric | Value |
-|--------|-------|
-| Total commits | 10+ |
-| Files added | 17+ |
-| Total tests | 15 |
-| Tests passing | 15 (100%) |
-| Lines of code | ~1500 |
-| Documentation files | 9 |
+## Security posture
 
-## Architecture
+Implemented:
 
-```
-Bossman (Python 3.11)
-    |
-    +-- TeacherFallback
-    |     |
-    |     +-- OpenHandsClient
-    |     |     |
-    |     |     +-- PathGuards (allowed_paths, protected_paths)
-    |     |     +-- Workspace isolation
-    |     |     +-- Fail-closed security
-    |
-    +-- Sidecar Process (Python 3.12+)
-          |
-          +-- OpenHands runtime
-          +-- LLM integration (OpenRouter/Claude)
-```
+1. explicit allowlist/protected paths;
+2. sanitized ProblemBundle only;
+3. standalone temporary Git repo with no remote;
+4. clean-state prerequisite;
+5. independent Git evidence;
+6. deny agent HEAD/config/remote manipulation;
+7. deny deletion/binary candidate patches;
+8. feature flag OFF by default;
+9. OpenRouter-only production builder;
+10. credential removed from process environment before terminal tools execute;
+11. no OpenHands push/deploy/self-approval/mission-completion authority;
+12. existing hermetic teacher sandbox and independent PatchVerifier preserved.
 
-## Next Steps
+Important limitation: local OpenHands SDK execution is still process-level, not an OS/container security boundary. For stronger isolation, migrate execution to OpenHands Agent Server/container workspace while keeping Bossman's verification model unchanged.
 
-### Immediate
+## Runtime dependencies
 
-1. ✅ All tests passing
-2. ✅ Documentation complete
-3. ⏳ Configure OpenRouter API key (owner action)
-4. ⏳ Execute live OpenHands run (owner action)
+Use the modern SDK packages from `bossman-core/requirements-openhands.txt` in a separate Python 3.12+ environment.
 
-### Future Enhancements
+Do not follow historical instructions to install `openhands-ai` or to replace `run_openhands_agent()` manually; those instructions are superseded.
 
-1. Full regression suite
-2. Performance benchmarks
-3. Multi-model support
-4. Distributed execution
+## Remaining acceptance
 
-## Links
+`LIVE_OPENHANDS_OPENROUTER = NOT_RUN`
 
-- **Branch:** https://github.com/molotroka123-cell/AiMaxBossman/tree/v6/velocity-phase0-baseline-20260907
-- **Latest Commit:** See GitHub
-- **Main Audit:** V6_TOTAL_AUDIT_REPORT.md
+Required to close it:
 
-## Conclusion
+1. install the pinned OpenHands sidecar environment on the owner machine/container;
+2. provide `OPENROUTER_API_KEY` without committing/logging it;
+3. choose an explicit `openrouter/anthropic/...` Claude model;
+4. enable `BOSSMAN_OPENHANDS_CODE_FALLBACK=1` for the test only;
+5. execute a disposable coding task;
+6. verify actual file effect, independent diff, PatchVerifier decision, provider/model identity, cost/latency if available, and absence of unauthorized effects;
+7. keep the feature flag OFF by default until live acceptance and benchmark evidence are satisfactory.
 
-**Status:** ✅ COMPLETE
+## Final status
 
-All objectives achieved:
-- Code written and tested
-- Security guarantees enforced
-- Documentation complete
-- Examples provided
-- Production-ready
+- `REPO_OPENHANDS_READY = YES`
+- `GUARDED_CONTRACT_TESTS = PASS (12/12 focused)`
+- `LIVE_OPENHANDS_OPENROUTER = NOT_RUN`
+- `PRODUCTION_OS_ISOLATION = PARTIAL / process-level local SDK`
+- `PRIMARY_CODER_SWITCH = NOT_YET; benchmark first`
 
-**Security Posture:** HARDENED 🔒
-**Test Coverage:** 100% ✅
-**Documentation:** Complete 📚
-
----
-
-**Delivered by:** AI Assistant
-**Date:** 2026-09-08
-**Branch:** v6/velocity-phase0-baseline-20260907
+This is the canonical interpretation of “complete” for the current branch.

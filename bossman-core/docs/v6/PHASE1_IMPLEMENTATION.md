@@ -1,80 +1,61 @@
-# Phase 1: Real Sidecar Protocol and OpenHandsClient
+# Phase 1: Guarded OpenHands Sidecar + Client
 
-**Date:** 2026-09-08
-**Status:** COMPLETE
+**Date:** 2026-09-08  
+**Authoritative implementation:** `b3924b65c25686560b54265d66188659908a1b24`  
+**Status:** REPOSITORY IMPLEMENTED / LIVE PROVIDER NOT_RUN
 
-## What Was Built
+## Current implementation
 
-### 1. OpenHands Sidecar Script
+The historical Phase-1 sidecar stub has been superseded.
 
-**File:** `scripts/openhands_sidecar.py`
+Bossman now ships a real OpenHands SDK sidecar using the public SDK shape:
 
-Real sidecar implementation with:
-- `bossman.openhands.v1` protocol
-- JSON request/response format
-- Secret redaction in logs
-- Structured error handling
-- Timeout support
-- Model configuration
+`LLM -> Agent -> Conversation`
 
-### 2. OpenHandsClient Implementation
+with `TerminalTool`, `FileEditorTool`, and `TaskTrackerTool`.
 
-**File:** `bossman/apprentice/openhands_client.py`
+The Bossman client communicates with the sidecar over a one-request/one-response JSON-stdio protocol (`bossman.openhands.v1`). Bossman independently derives the post-run Git delta; sidecar self-report is not trusted as evidence.
 
-Real client with:
-- Sidecar process execution
-- Path security validation
-- Fail-closed on violations
-- Independent evidence derivation
-- Timeout handling
-- Error categorization
+## Trust boundary
 
-### 3. Key Security Properties
+OpenHands is an **untrusted coding worker**, not Bossman's orchestrator.
 
-1. **Path validation** - Handles `..`, absolute paths, mixed separators
-2. **Fail-closed** - Any violation blocks execution
-3. **Independent evidence** - Bossman derives Git evidence, doesn't trust sidecar claims
-4. **Secret redaction** - Logs don't leak credentials
-5. **Timeout enforcement** - Sidecar can't run indefinitely
+- feature flag defaults OFF;
+- only an explicit sanitized ProblemBundle is materialised for the worker;
+- the owner checkout is not passed to OpenHands;
+- the disposable OpenHands repository has no remote;
+- dirty state, HEAD rewrite/commit/reset, Git config modification, and remote creation fail closed;
+- allowed/protected path policy is enforced after execution from independently derived Git state;
+- OpenHands cannot complete a mission, approve its own patch, push, or deploy;
+- the existing `TeacherFallback` + `PatchVerifier` remains authoritative;
+- the OpenRouter credential is removed from the sidecar process environment before terminal tools execute;
+- raw model reasoning is not persisted as learning evidence.
 
-## Current Limitations
+## Runtime
 
-### STUB Implementation
+Bossman may remain Python 3.11+. OpenHands runs in a separate Python 3.12+ environment.
 
-The `run_openhands_agent()` function in the sidecar is currently a STUB:
+Install the pinned compatible sidecar stack from:
 
-```python
-def run_openhands_agent(...):
-    return {
-        'success': True,
-        'changed_files': [],
-        'error': None,
-        'stub': True
-    }
+`bossman-core/requirements-openhands.txt`
+
+Configure:
+
+```bash
+BOSSMAN_OPENHANDS_CODE_FALLBACK=1
+BOSSMAN_OPENHANDS_COMMAND="python3.12 scripts/openhands_sidecar.py"
+BOSSMAN_OPENHANDS_MODEL="openrouter/anthropic/<claude-model>"
+OPENROUTER_API_KEY="..."
 ```
 
-**To enable real OpenHands:**
-1. Install `openhands-ai` package
-2. Configure provider credentials (OpenRouter API key)
-3. Implement actual agent execution
-4. Capture real file changes
+## Evidence
 
-## Next Steps (Phase 2)
+Focused isolated contract evidence before the authoritative code push: **12/12 PASS**.
 
-1. Create isolated worktree infrastructure
-2. Implement real OpenHands agent execution
-3. Add comprehensive path security tests
-4. Build hermetic E2E test
-5. Restore old Teacher sandbox functionality
+This included real subprocess boundaries and temporary Git repositories, scope/protected-path denial, dirty/remote refusal, environment leakage protection, contract tamper denial, prevention of hidden changes via agent Git commit/reset, SDK-shape execution via an offline fake SDK, feature-flag wiring, OpenRouter credential filtering, and preservation of the pre-existing hermetic teacher sandbox.
 
-## Files Changed
+## Remaining external acceptance
 
-| File | Status | Purpose |
-|------|--------|---------|
-| `scripts/openhands_sidecar.py` | NEW | Sidecar protocol |
-| `bossman/apprentice/openhands_client.py` | UPDATED | Real client |
-| `docs/v6/PHASE1_IMPLEMENTATION.md` | NEW | This doc |
+`LIVE_OPENHANDS_OPENROUTER = NOT_RUN`
 
----
-
-**Status:** Phase 1 complete, Phase 2 pending
+A real Claude/OpenRouter call still requires the owner's provider credential and an installed Python 3.12+ OpenHands environment. Do not report live acceptance until that run is executed and its post-state is verified.

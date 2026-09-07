@@ -1,59 +1,39 @@
-# Phase 2: Isolated Worktree Infrastructure
+# Phase 2: Git Worktree Utility
 
-**Date:** 2026-09-08
-**Status:** COMPLETE
+**Date:** 2026-09-08  
+**Status:** IMPLEMENTED AS UTILITY — NOT THE OPENHANDS SECURITY BOUNDARY
 
-## What Was Built
+`bossman/apprentice/isolated_worktree.py` creates disposable Git worktrees and can derive file-change evidence. It is useful for trusted/local engineering workflows and for keeping ordinary edits away from the primary checkout.
 
-### 1. IsolatedWorktree Manager
+## Important security correction
 
-**File:** `bossman/apprentice/isolated_worktree.py`
+A Git worktree is **not** a sufficient sandbox for an untrusted coding agent:
 
-Manages disposable Git worktrees for OpenHands execution:
+- it exposes the full repository tree rather than Bossman's sanitized ProblemBundle;
+- linked worktrees share Git administrative state with the source repository;
+- repository configuration/ref operations therefore have a larger blast radius than a standalone sanitized repository;
+- it is filesystem isolation only in the narrow sense of a separate checkout, not OS/container isolation.
 
-```python
-with IsolatedWorktree('/path/to/repo') as worktree:
-    evidence = worktree.derive_evidence()
-# Automatically cleaned up
+Therefore production OpenHands wiring MUST NOT pass the owner checkout or a linked `IsolatedWorktree` directly to the untrusted OpenHands process.
+
+The authoritative OpenHands path is instead:
+
+```text
+ProblemBundle
+  -> sanitized temporary standalone Git repository (no remote)
+  -> OpenHands sidecar
+  -> Bossman independently derives Git changes
+  -> untrusted candidate patch
+  -> existing PatchVerifier on verifier worktree
 ```
 
-**Security properties:**
-- OpenHands never edits owner's primary checkout
-- Pre-existing changes don't contaminate evidence
-- Worktree destroyed after task (unless `keep_after=True`)
-- Records pre-run and post-run HEAD
+This is implemented by `OpenHandsTeacherClient` at code SHA `b3924b65c25686560b54265d66188659908a1b24`.
 
-### 2. Evidence Derivation
+## What IsolatedWorktree is still good for
 
-`derive_evidence()` returns:
-- modified_files: files changed from HEAD
-- added_files: new tracked files
-- deleted_files: removed files
-- untracked_files: new untracked files
-- patches: diff content for each modified file
-- head_before: SHA before task
-- head_after: SHA after task
+- trusted local test/check workflows;
+- disposable developer checkouts;
+- evidence experiments where the process is already trusted;
+- future verifier-side staging when combined with the existing policy layer.
 
-### 3. Hermetic Tests
-
-**File:** `tests/apprentice/test_worktree_isolation.py`
-
-Tests:
-- Worktree creation
-- Isolation from source repo
-- Evidence derivation
-- Cleanup
-- keep_after flag
-
-## Files Changed
-
-| File | Status | Purpose |
-|------|--------|---------|
-| `bossman/apprentice/isolated_worktree.py` | NEW | Worktree manager |
-| `tests/apprentice/test_worktree_isolation.py` | NEW | Hermetic tests |
-| `docs/v6/PHASE2_WORKTREE.md` | NEW | This doc |
-
----
-
-**Status:** Phase 2 complete
-**Next:** Phase 3 - Full integration and adversarial tests
+Do not describe this module alone as preventing an untrusted process from reaching source-repository Git metadata. For stronger runtime isolation of OpenHands itself, use an OpenHands Agent Server / container workspace while retaining Bossman's sanitized-bundle and PatchVerifier authority model.

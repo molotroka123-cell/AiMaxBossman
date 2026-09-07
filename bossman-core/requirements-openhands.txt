@@ -1,4 +1,6 @@
 # Separate Python 3.12+ OpenHands sidecar environment.
-# Keep SDK and tools on exactly the same release.
-openhands-sdk==1.23.1
-openhands-tools==1.23.1
+# Keep SDK and tools on the same known-compatible released stack.
+# OpenHands' current application repo defaults to 1.44.1; do not mix package
+# minors without re-running the sidecar contract and live-provider acceptance.
+openhands-sdk==1.44.1
+openhands-tools==1.44.1
