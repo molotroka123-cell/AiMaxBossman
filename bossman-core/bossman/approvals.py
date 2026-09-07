@@ -39,6 +39,11 @@ async def wait(approval_id: int, timeout_s: int = 24 * 3600) -> dict:
         if row and row["status"] != "pending":
             return row
         await asyncio.sleep(2)
+    # Гонка на границе таймаута: decide() мог записать решение ровно перед этим
+    # UPDATE. Тогда строка уже не pending, UPDATE ничего не меняет, и возвращать
+    # литерал "expired" нельзя — это стёрло бы настоящее решение владельца из
+    # ответа исполнителю. Возвращаем факт из строки, а не из намерения.
     await db.execute("UPDATE approvals SET status='expired' WHERE id=$1 AND status='pending'",
                      approval_id)
-    return {"id": approval_id, "status": "expired"}
+    row = await db.fetchrow("SELECT * FROM approvals WHERE id=$1", approval_id)
+    return row or {"id": approval_id, "status": "expired"}

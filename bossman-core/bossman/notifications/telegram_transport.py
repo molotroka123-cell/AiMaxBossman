@@ -14,7 +14,9 @@ def _egress_guard_text(text:str)->str:
     Все telegram-отправки идут через send(), поэтому проверка секретов/
     эксфильтрации живёт здесь, а не в каждом вызывающем. OFF по умолчанию →
     текст без изменений. DENY/HOLD → безопасная заглушка вместо содержимого
-    (egress fail-closed для sensitive-канала). Сбой guard'а не роняет отправку.
+    (egress fail-closed для sensitive-канала). Сбой guard'а не роняет отправку,
+    но и НЕ отключает скрининг: непроверенный текст уходит только через
+    канонический redact, иначе сломанный guard = молчаливое отключение защиты.
     """
     try:
         from ..cybersec import guards
@@ -22,10 +24,13 @@ def _egress_guard_text(text:str)->str:
         if v.decision is guards.EgressDecision.ALLOW:return text
         return f"[BOSSMAN: сообщение задержано egress-guard ({v.decision.value})]"
     except Exception:
-        return text
+        from ..obs import redact
+        return redact(text)
 
 class TelegramTransportError(RuntimeError):pass
 
+# Второй аргумент — АКТОР решения (tg:user:<uid>@chat:<id>), а не просто чат:
+# именно он уходит в approvals.decided_by.
 ActionHandler=Callable[[dict,str],Awaitable[None]]
 
 class TelegramTransport:
@@ -75,23 +80,28 @@ class TelegramTransport:
         data=str(cb.get("data") or "")
         if not data.startswith("b:") or len(data)>64:
             raise CallbackRejected("unsupported callback")
-        msg=cb.get("message") or {};chat=str((msg.get("chat") or {}).get("id") or "")
+        msg=cb.get("message") or {};chat_obj=msg.get("chat") or {};chat=str(chat_obj.get("id") or "")
         if not chat or chat!=str(self._chat()):
             raise CallbackRejected("telegram chat denied")
+        uid=str((cb.get("from") or {}).get("id") or "")
         allowed=os.environ.get("TELEGRAM_ALLOWED_USER_IDS","").strip()
         if allowed:
             allowed_ids={x.strip() for x in allowed.split(",") if x.strip()}
-            uid=str((cb.get("from") or {}).get("id") or "")
             if uid not in allowed_ids:raise CallbackRejected("telegram user denied")
+        elif str(chat_obj.get("type") or "private") in {"group","supergroup","channel"}:
+            # В групповом чате «привязанный chat_id» не является личностью: без
+            # allowlist кнопку жмёт любой участник, и в аудите остался бы только чат.
+            raise CallbackRejected("group chat requires TELEGRAM_ALLOWED_USER_IDS")
         action=self.store.consume_callback(data[2:],chat)
-        await self._action_handler(action,chat)
+        # Личность решившего фиксируется до пользователя, а не до чата.
+        await self._action_handler(action,f"tg:user:{uid}@chat:{chat}" if uid else f"tg:chat:{chat}")
         cbid=cb.get("id")
         if cbid:
             try:await self._post("answerCallbackQuery",{"callback_query_id":cbid,"text":"BOSSMAN: принято"})
             except TelegramTransportError:pass
         return {"ok":True}
 
-    async def _default_action(self,action:dict,chat_id:str)->None:
+    async def _default_action(self,action:dict,actor:str)->None:
         if action["target_type"]!="approval":
             raise CallbackRejected("unsupported telegram action target")
         if action["action"] not in {ActionKind.APPROVE.value,ActionKind.DENY.value}:
@@ -102,5 +112,5 @@ class TelegramTransport:
             raise CallbackRejected("approval service unavailable") from exc
         row=await approvals.decide(int(action["target_id"]),
                                    action["action"]==ActionKind.APPROVE.value,
-                                   f"tg:chat:{chat_id}")
+                                   actor)
         if not row:raise CallbackRejected("approval already decided or absent")

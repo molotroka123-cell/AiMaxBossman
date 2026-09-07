@@ -6,11 +6,35 @@ from ..models import ActionKind
 # заметнее пауза в наборе; больше — дольше не реагируем на «Стоп».
 _TYPE_CHUNK=16
 
+# Больше восьми клавиш ни одна реальная комбинация не занимает; всё сверх этого
+# — ошибка планирования, а не повод выполнить первые восемь.
+MAX_HOTKEY_KEYS=8
+
 # Верхняя граница снимка UI-дерева. `descendants()` МАТЕРИАЛИЗУЕТ всё поддерево
 # окна, и только потом вызывающий его обрезал: на окне браузера это тысячи
 # межпроцессных COM-обращений ради 500 узлов, которые реально используются.
 MAX_TREE_NODES=500
 MAX_TREE_DEPTH=12
+
+
+class FailSafeAbort(RuntimeError):
+    """Ввод оборван защитой pyautogui (курсор доведён до угла экрана).
+
+    Повторять такое действие бессмысленно: пока курсор в углу, следующая же
+    порция ввода оборвётся там же, а replan сжигает бюджет на одну и ту же
+    координату. Ошибка названа отдельным типом и несёт, сколько символов уже
+    ушло, — иначе исход шага остаётся неизвестным (A3-05).
+    """
+
+
+class UiaTargetError(RuntimeError):
+    """UIA-путь не смог выполнить FOCUS/UI_INVOKE, и причина названа.
+
+    Раньше любой отказ UIA молча проваливался в `_input`, где для FOCUS и
+    UI_INVOKE нет ветки, и шаг заканчивался «unsupported input»: настоящая
+    причина (элемента нет, COM-ошибка, нет pywinauto) в историю не попадала
+    вовсе (A3-07).
+    """
 
 
 class WindowsDesktop:
@@ -98,21 +122,24 @@ class WindowsDesktop:
           ActionKind.TYPE,ActionKind.HOTKEY,ActionKind.SCROLL,ActionKind.DRAG,ActionKind.UI_INVOKE}
     async def execute(self,a,o):
         self._req()
-        if a.kind in {ActionKind.FOCUS,ActionKind.UI_INVOKE} and a.target and await self._uia(a): return
+        if a.kind in {ActionKind.FOCUS,ActionKind.UI_INVOKE} and a.target:
+            ok,reason=await self._uia(a)
+            if ok: return
+            raise UiaTargetError(f"uia target {a.target!r} failed: {reason}")
         await self._input(a)
     async def _uia(self,a):
         def f():
             try:
                 w=self._active_window()
                 cands=w.descendants(title=a.target)
-                if not cands: return False
+                if not cands: return False,"element not found"
                 c=cands[0]
                 if a.kind is ActionKind.FOCUS: c.set_focus()
                 else:
                     try: c.invoke()
                     except Exception: c.click_input()
-                return True
-            except Exception: return False
+                return True,""
+            except Exception as e: return False,f"{type(e).__name__}: {e}"
         return await asyncio.to_thread(f)
     def set_interrupt(self,event):
         self._interrupt=event
@@ -186,6 +213,7 @@ class WindowsDesktop:
             try: import pyautogui
             except ImportError as e: raise RuntimeError("pyautogui missing") from e
             pyautogui.FAILSAFE=True
+            failsafe=getattr(pyautogui,"FailSafeException",None) or ()
             if a.kind is ActionKind.CLICK: pyautogui.click(*self._xy(a))
             elif a.kind is ActionKind.DOUBLE_CLICK: pyautogui.doubleClick(*self._xy(a))
             elif a.kind is ActionKind.TYPE:
@@ -198,7 +226,14 @@ class WindowsDesktop:
                     self._stop_if_interrupted(0,len(text))
                     for start in range(0,len(text),_TYPE_CHUNK):
                         chunk=text[start:start+_TYPE_CHUNK]
-                        pyautogui.write(chunk,interval=interval)
+                        try: pyautogui.write(chunk,interval=interval)
+                        except failsafe as e:
+                            # typewrite проверяет угол МЕЖДУ символами: обрыв
+                            # приходится на середину строки, и повторять шаг
+                            # нельзя, пока курсор не уведён от угла.
+                            raise FailSafeAbort(
+                                f"pyautogui failsafe aborted typing after {start} of "
+                                f"{len(text)} characters") from e
                         self._stop_if_interrupted(min(start+_TYPE_CHUNK,len(text)),len(text))
                 else:
                     try:
@@ -211,16 +246,44 @@ class WindowsDesktop:
                             "text contains characters this keyboard layout cannot type and "
                             f"the clipboard path failed: {type(e).__name__}: {e}") from e
             elif a.kind is ActionKind.HOTKEY:
-                keys=[str(x) for x in a.args.get("keys",[])][:8]
+                keys=[str(x) for x in a.args.get("keys",[])]
                 if not keys: raise ValueError("keys required")
+                # Тихий срез до 8 выполнял ДРУГОЙ хоткей, чем просили, и шаг при
+                # этом выглядел выполненным (A3-06).
+                if len(keys)>MAX_HOTKEY_KEYS: raise ValueError(
+                    f"hotkey takes at most {MAX_HOTKEY_KEYS} keys, got {len(keys)}")
                 pyautogui.hotkey(*keys)
             elif a.kind is ActionKind.SCROLL: pyautogui.scroll(int(a.args.get("clicks",0)))
             elif a.kind is ActionKind.DRAG: pyautogui.dragTo(*self._xy(a),duration=min(5,max(0,float(a.args.get("duration",.5)))))
             else: raise RuntimeError("unsupported input")
         await asyncio.to_thread(f)
     @staticmethod
-    def _xy(a):
+    def _virtual_screen():
+        """Прямоугольник ВСЕХ мониторов (SM_*VIRTUALSCREEN) или None.
+
+        На мульти-мониторе отрицательные X легитимны (монитор слева), поэтому
+        проверять координаты произвольными константами нечем: без геометрии
+        x=90000 проходил как «в пределах», и клик уходил в непредсказуемое окно.
+        """
+        try:
+            import ctypes
+            u=ctypes.windll.user32
+            x,y=u.GetSystemMetrics(76),u.GetSystemMetrics(77)
+            w,h=u.GetSystemMetrics(78),u.GetSystemMetrics(79)
+        except Exception: return None
+        if w<=0 or h<=0: return None
+        return x,y,x+w-1,y+h-1
+
+    @classmethod
+    def _xy(cls,a):
         x,y=a.args.get("x"),a.args.get("y")
         if not isinstance(x,int) or not isinstance(y,int): raise ValueError("integer x/y required")
         if not (-10000<=x<=100000 and -10000<=y<=100000): raise ValueError("coordinate bounds")
+        box=cls._virtual_screen()
+        if box is None: return x,y
+        x0,y0,x1,y1=box
+        # Отказ, а не clamp: клик по краю — это клик по ДРУГОМУ элементу, и шаг
+        # снова выглядит выполненным.
+        if not (x0<=x<=x1 and y0<=y<=y1): raise ValueError(
+            f"coordinate ({x},{y}) is outside the virtual screen ({x0},{y0})-({x1},{y1})")
         return x,y

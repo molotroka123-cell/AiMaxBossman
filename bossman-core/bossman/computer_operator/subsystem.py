@@ -20,7 +20,10 @@ from .adapters.vision import VisionInputAdapter
 from .adapters.windows import WindowsDesktop
 from .capabilities import CapabilityRegistry
 from .manager import ComputerOperatorManager
+from .models import TaskState
+from .obligations import file_probe
 from .observer import Observer
+from .policy import authorize_computer_control
 from .planner import Planner
 from .store import JsonTaskStore
 
@@ -110,6 +113,58 @@ async def _browser_toolkit_dispatch(action, observation):
     return result
 
 
+class AuthorizedComputerOperatorManager(ComputerOperatorManager):
+    """A2-03/A2-04: разрешение спрашивается НА ГРАНИЦЕ ЭФФЕКТА, а не только при
+    создании задачи.
+
+    Базовый менеджер зовёт `access_check` ровно один раз — в `create_task`.
+    Между созданием строки и отправкой ввода в рабочий стол проходит план
+    модели, ожидание подтверждения владельца, пауза, перезапуск процесса с
+    `recover_all`, «Продолжить» из UI. Всё это ВХОДЫ, на которых согласия уже
+    может не быть: тумблер `computer_control` выключен, профиль выключен или
+    удалён, профильный gate вообще не поднят. Проверка при создании таким
+    входом не является — задача продолжала действовать по разрешению, которого
+    больше нет.
+
+    Точек две, и обе обязательны:
+    * `run()` — вход в исполнение по УЖЕ существующей строке (resume/recovery),
+      который раньше не проверялся вовсе;
+    * `_save()` при переходе в RUNNING — последняя запись перед
+      `action_router.execute`, то есть сама граница эффекта. Разрешение,
+      снятое во время планирования или ожидания подтверждения, останавливает
+      действие ДО адаптера.
+
+    Проверяется `source` и `owner_device_id` САМОЙ строки задачи: понизить
+    источник на границе (выдать удалённый вход за локальный) нельзя, потому
+    что здесь он не передаётся заново, а читается из журнала. Ошибка источника
+    авторизации — отказ (см. `authorize_computer_control`).
+    """
+
+    def _authorize_effect(self, t) -> None:
+        try:
+            authorize_computer_control(self.access_check, t.owner_device_id, t.source)
+        except PermissionError as exc:
+            raise PermissionError(f"computer control denied at effect boundary: {exc}") from exc
+
+    async def run(self, task_id):
+        try:
+            t = self._req(task_id)
+        except KeyError:
+            return await super().run(task_id)
+        try:
+            self._authorize_effect(t)
+        except PermissionError as exc:
+            # Отказ владельца — это не падение оператора: строка получает
+            # честную причину, а рабочего стола действие не касается.
+            return self._fail(t, str(exc))
+        return await super().run(task_id)
+
+    def _save(self, t):
+        if t.state is TaskState.RUNNING:
+            self._authorize_effect(t)
+        return super()._save(t)
+
+
 def _supported_kinds_provider(registry: CapabilityRegistry):
     """Ленивый поставщик поддержанных ActionKind для планировщика (V2.6, D4).
 
@@ -140,7 +195,7 @@ def build_manager(*, store_path=None, launcher=None, browser_dispatch=None) -> C
         VisionInputAdapter(desktop),
         desktop,
     ]
-    return ComputerOperatorManager(
+    return AuthorizedComputerOperatorManager(
         store=JsonTaskStore(store_path or default_store_path()),
         # V2.6, D4: планировщику предлагаются только виды с реальным backend'ом
         # на этом хосте (CapabilityRegistry опрашивает те же адаптеры роутера).
@@ -152,7 +207,12 @@ def build_manager(*, store_path=None, launcher=None, browser_dispatch=None) -> C
         event_emit=events.emit,
         # Профильный gate: устройство с выключенным тумблером computer_control
         # НЕ создаёт desktop-задачу (no-op, если profiles-сервис не поднят).
-        access_check=_profile_access_check)
+        access_check=_profile_access_check,
+        # AT-01: исход именных обязательств цели читается с НАСТОЯЩЕГО диска,
+        # независимо от модели и от экрана. Без этого порта слой обязательств
+        # существовал бы только в тестах, а прод закрывался бы по-старому —
+        # «была какая-то подтверждённая мутация».
+        obligation_probe=file_probe(Path.home()))
 
 
 MANAGER = build_manager()

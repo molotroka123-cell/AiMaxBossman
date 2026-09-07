@@ -1,4 +1,5 @@
 from __future__ import annotations
+import inspect
 import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -161,3 +162,57 @@ class ComputerPolicy:
             if u.scheme not in {"http","https"}:
                 return PolicyDecision(False,reason="unsupported URL scheme")
         return PolicyDecision(True)
+
+
+# ---------------------------------------------------------------- A2-03 / A2-04
+# Каноническая авторизация управления компьютером НА ГРАНИЦЕ ЭФФЕКТА.
+#
+# `access_check` исторически звался ровно один раз — в create_task. Между
+# созданием строки и отправкой ввода проходит план модели, ожидание
+# подтверждения, пауза, перезапуск процесса. Разрешение, истинное при создании,
+# к моменту эффекта может быть уже снято, и «проверено при создании» не
+# означает «разрешено сейчас». Отказ обязан случиться ДО адаптера.
+def authorize_computer_control(access_check,owner_device_id,source="local")->None:
+    """Спросить текущее разрешение. Бросает PermissionError, если его нет.
+
+    Fail-CLOSED: любая НЕОЖИДАННАЯ ошибка источника авторизации — это отказ, а
+    не разрешение. Иначе достаточно уронить профильный gate, чтобы получить
+    рабочий стол. `access_check is None` — гейт не сконфигурирован вовсе
+    (как и раньше в manager.create_task): поведение не меняем.
+    Совместимость со старыми одно-аргументными колбэками сохранена, но
+    повторная попытка делается ТОЛЬКО если сам вызов не принял второй аргумент.
+    """
+    if access_check is None:return
+    try:
+        _invoke_gate(access_check,owner_device_id,source)
+    except PermissionError:
+        raise
+    except Exception as exc:  # noqa: BLE001 — неизвестный источник = отказ
+        raise PermissionError(
+            f"computer control authorization unavailable ({type(exc).__name__}: {exc})") from exc
+
+
+def _invoke_gate(access_check,owner_device_id,source):
+    """Позвать гейт в той форме, которую он объявляет своей подписью.
+
+    A2-04: раньше форма выяснялась через `except TypeError` — и он ловил ЛЮБОЙ
+    TypeError, включая поднятый ВНУТРИ гейта на боевом пути. Проверка тогда
+    переспрашивалась БЕЗ источника, а источник по умолчанию "local": внутренняя
+    ошибка сервиса профилей молча повышала удалённый вход до локального.
+    Одноаргументный повтор допустим ТОЛЬКО когда вызов не вошёл в тело функции —
+    у такого TypeError нет следующего кадра трассировки.
+    """
+    try:
+        takes_source=len(inspect.signature(access_check).parameters)>=2
+    except (TypeError,ValueError):
+        takes_source=None
+    if takes_source is True:
+        access_check(owner_device_id,source);return
+    if takes_source is False:
+        access_check(owner_device_id);return
+    try:
+        access_check(owner_device_id,source)
+    except TypeError as exc:
+        if exc.__traceback__ is not None and exc.__traceback__.tb_next is not None:
+            raise
+        access_check(owner_device_id)

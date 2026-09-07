@@ -264,8 +264,10 @@ async def _call_tool(agent: AgentSpec, run_id: int, task_id: int,
             pass
         await db.execute("UPDATE tasks SET status='waiting_approval' WHERE id=$1", task_id)
         events.emit("task.updated", id=task_id, status="waiting_approval")
+        # payload оседает в БД и уходит наружу через GET /approvals: сюда идут
+        # только вычищенные аргументы, сырой Bearer/API-key не хранится (V2.6 D3).
         approval_id = await approvals.create("action", preview, task_id=task_id,
-                                             run_id=run_id, tool=tool.name, payload=args)
+                                             run_id=run_id, tool=tool.name, payload=safe_args)
         decision = await approvals.wait(approval_id)
         await db.execute("UPDATE tasks SET status='running' WHERE id=$1", task_id)
         events.emit("task.updated", id=task_id, status="running")

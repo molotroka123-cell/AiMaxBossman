@@ -17,6 +17,22 @@ from ...apprentice.models import PlanStep
 _ROLES = ("button", "link", "textbox", "checkbox", "combobox", "menuitem", "tab", "option")
 _MAX_ELEMENTS = 60
 
+# Имена полей, значение которых не должно попадать ни в контекст модели, ни в
+# журнал задачи. Пароль в Chromium AX — обычный textbox, поэтому одной проверки
+# роли мало (A3-11).
+_SECRET_NAME_PARTS = ("pass", "пароль", "token", "токен", "secret", "секрет", "otp", "cvv", "pin")
+
+
+def _is_secret_field(el: Any, label: str) -> bool:
+    """Поле, содержимое которого читать нельзя: по type=password или по имени."""
+    try:
+        if (el.get_attribute("type") or "").lower() == "password":
+            return True
+    except Exception:  # noqa: BLE001 — элемент мог исчезнуть между пробами
+        return True
+    low = label.lower()
+    return any(part in low for part in _SECRET_NAME_PARTS)
+
 
 class PlaywrightBrowserObserver:
     """Observe the live page: foreground identity + semantic element tree."""
@@ -33,6 +49,7 @@ class PlaywrightBrowserObserver:
         self._gen += 1
         self._t += 1.0
         elements: list[dict] = []
+        has_values = False
         for role in _ROLES:
             try:
                 loc = self.page.get_by_role(role)
@@ -50,10 +67,11 @@ class PlaywrightBrowserObserver:
                         continue
                     label = " ".join(str(label).split())
                     entry = {"role": role, "name": label[:120], "enabled": el.is_enabled(), "text": label[:120]}
-                    if role == "textbox":
+                    if role == "textbox" and not _is_secret_field(el, label):
                         try:
                             entry["value"] = el.input_value()[:200]        # real widget state part of the observation
                             entry["text"] = f"{label[:120]}={entry['value']}"
+                            has_values = has_values or bool(entry["value"])
                         except Exception:  # noqa: BLE001 — non-valued inputs
                             pass
                     elements.append(entry)
@@ -63,7 +81,7 @@ class PlaywrightBrowserObserver:
         self._identity = (title, url)
         return Observation(id=f"obs_{next(self._ids)}", created_at=self._t, generation=self._gen,
                            foreground={"app": "Chromium", "title": title, "url": url, "tab_id": "0"},
-                           summary=title, ui_tree={"elements": elements}, sensitive=False)
+                           summary=title, ui_tree={"elements": elements}, sensitive=has_values)
 
     def is_current(self, obs: Observation) -> bool:
         return self._identity == (self.page.title(), self.page.url)
@@ -83,9 +101,26 @@ class PlaywrightBrowserActuator:
         role = (t.role or "").lower()
         if role not in _ROLES:
             raise RuntimeError(f"unsupported semantic role {t.role!r}")
-        loc = self.page.get_by_role(role, name=t.name or None, exact=False)
-        if loc.count() == 0:
+        name = t.name or None
+        # Playwright по умолчанию матчит имя ПОДСТРОКОЙ: цель «Save» брала первый
+        # попавшийся «Save and exit». Сначала точное совпадение, и только если
+        # такого нет — подстрока, но уже без молчаливого выбора первого (A3-12).
+        loc = self.page.get_by_role(role, name=name, exact=True) if name else \
+            self.page.get_by_role(role, name=None, exact=False)
+        count = loc.count()
+        if name and count == 0:
+            loc = self.page.get_by_role(role, name=name, exact=False)
+            count = loc.count()
+        if count == 0:
             raise RuntimeError(f"semantic target {t.label()} not found on the live page")
+        if count > 1:
+            names = []
+            for i in range(min(count, 5)):
+                try: names.append(str(loc.nth(i).text_content() or "").strip()[:60])
+                except Exception: names.append("?")  # noqa: BLE001 — элемент исчез между пробами
+            raise RuntimeError(
+                f"semantic target {t.label()} is ambiguous: {count} matches ({', '.join(names)}); "
+                "name it exactly")
         return loc.first
 
     def act(self, step: PlanStep, obs: Any, *, action_id: str = "", side_effect_id: str = "") -> Any:

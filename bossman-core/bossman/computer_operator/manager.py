@@ -1,9 +1,10 @@
 from __future__ import annotations
-import asyncio,hashlib,json,re,threading,time
+import asyncio,hashlib,inspect,json,re,threading,time
 from dataclasses import replace
 from .models import ActionKind,ComputerAction,ComputerTask,StepRecord,TaskMode,TaskState
 from ..obs import redact,redact_obj
-from .policy import ComputerPolicy
+from .obligations import extract_obligations,snapshot,unsatisfied
+from .policy import ComputerPolicy,authorize_computer_control
 from .store import StaleTaskWrite
 from .verifier import Verifier
 from .loop_guard import LoopGuard
@@ -112,7 +113,7 @@ class ComputerOperatorManager:
                  observation_reuse_max_age_s=OBSERVATION_REUSE_MAX_AGE_S,
                  completion_evidence_required=None,observation_fingerprint=None,
                  observe_timeout_s=OBSERVE_TIMEOUT_S,plan_timeout_s=PLAN_TIMEOUT_S,
-                 act_timeout_s=ACT_TIMEOUT_S):
+                 act_timeout_s=ACT_TIMEOUT_S,obligations_of=None,obligation_probe=None):
         self.store=store; self.planner=planner; self.observer=observer; self.action_router=action_router
         self.approval_create=approval_create; self.approval_wait=approval_wait; self.event_emit=event_emit
         self.policy=policy or ComputerPolicy(); self.verifier=verifier or Verifier()
@@ -128,6 +129,13 @@ class ComputerOperatorManager:
         # AT-01: чем «эффектная» цель отличается от наблюдательной. Подменяемо —
         # хост с точным классификатором ставит свой, не форкая цикл.
         self.completion_evidence_required=completion_evidence_required or goal_requires_external_effect
+        # AT-01: ИМЕННЫЕ обязательства цели и независимое чтение их исхода.
+        # `obligation_probe=None` оставляет прежнее (более слабое) правило «хотя
+        # бы один подтверждённый изменяющий шаг»: без порта читать мир нечем, и
+        # выдавать его отсутствие за выполнение обязательств нельзя.
+        self.obligations_of=obligations_of or extract_obligations
+        self.obligation_probe=obligation_probe
+        self._prestate={}
         # AT-03: из чего считается подпись применимости наблюдения. Подменяемо для
         # хоста, чей UI-снимок содержит заведомо шумные поля.
         self.observation_fingerprint=observation_fingerprint
@@ -154,15 +162,23 @@ class ComputerOperatorManager:
 
     def create_task(self,goal,*,mode=TaskMode.CONTROL,source="local",owner_device_id=None):
         if self.access_check is not None:
-            # Источник передаётся в gate: не-локальный источник без профиляса
+            # Источник передаётся в gate: не-локальный источник без профиля
             # получает fail-CLOSED (Security Hardening V1.1). Совместимо со старыми
-            # одно-аргументными колбэками.
-            try:
-                self.access_check(owner_device_id,source)
-            except TypeError:
-                self.access_check(owner_device_id)   # бросает PermissionError, если запрещено
+            # одно-аргументными колбэками — но совместимость больше не покупается
+            # понижением источника (A2-04).
+            self._gate(owner_device_id,source)
         t=ComputerTask.create(goal,mode=mode,source=source,owner_device_id=owner_device_id)
         self._save(t); self._emit(t,"created"); return t
+
+    def _gate(self,owner_device_id,source):
+        """Спросить профильный гейт, разрешено ли управление компьютером.
+
+        Одна реализация на весь оператор — `policy.authorize_computer_control`:
+        та же форма вызова и тот же fail-CLOSED, что и на границе эффекта. Две
+        копии этой логики уже разошлись однажды (A2-04), и разойтись второй раз
+        им нечего.
+        """
+        authorize_computer_control(self.access_check,owner_device_id,source)
 
     def _interrupt_event(self,task_id):
         return self._interrupts.setdefault(task_id,threading.Event())
@@ -187,6 +203,7 @@ class ComputerOperatorManager:
                 if not self.control_lease.acquire(task_id):
                     return self._fail(t,f"desktop busy: control lease held by {self.control_lease.holder()}")
                 self._clear_interrupt(task_id)
+                self._bind_attempt(t)
                 setter=getattr(self.action_router,"set_interrupt",None)
                 if setter is not None:setter(self._interrupt_event(task_id))
                 return await self._run_loop(t)
@@ -288,7 +305,10 @@ class ComputerOperatorManager:
                         t.replans_used+=1; last=refusal; t.last_error=refusal; self._save(t)
                         self._emit(t,"completion_refused",reason=refusal)
                         if t.replans_used>t.max_replans:
-                            return self._fail(t,"completion evidence budget")
+                            # Причина отказа обязана дожить до владельца: раньше
+                            # исчерпание бюджета затирало её словами про бюджет,
+                            # и «почему не закрылось» приходилось угадывать.
+                            return self._fail(t,f"completion evidence budget; last refusal: {refusal}")
                         continue
                     t.state=TaskState.COMPLETED; t.pending_action=None; self._save(t)
                     self.loop_guards.pop(t.id,None)
@@ -620,12 +640,45 @@ class ComputerOperatorManager:
         закрывается одним проверенным постусловием.
         """
         if not self.completion_evidence_required(t.goal):return None
+        # Именные обязательства проверяются ПЕРВЫМИ и по существу: «какая-то
+        # мутация произошла» не закрывает «создай ЭТОТ файл с ЭТИМ текстом».
+        obligations=self._obligations(t)
+        if obligations and self.obligation_probe is not None:
+            missing=unsatisfied(obligations,self.obligation_probe,self._prestate.get(t.id))
+            if missing:
+                detail="; ".join(f"{e.path}: {why}" for e,why in missing)
+                return ("completion refused: the goal's stated results are not confirmed "
+                        f"by an independent post-state read [{detail}]")
+            return None
         for step in t.history:
             if (step.verified is True and step.finished_at is not None
                     and step.action.kind not in _NON_EFFECT_KINDS):
                 return None
         return ("completion refused: goal asserts an external effect but no verified "
                 "effect was performed; perform and verify the change before completing")
+
+    def _obligations(self,t):
+        try:return tuple(self.obligations_of(t.goal) or ())
+        except Exception:
+            # Извлечение — эвристика над текстом владельца. Её поломка не имеет
+            # права ни закрыть задачу, ни уронить цикл: возвращаем «именных
+            # обязательств нет» и решает прежнее правило.
+            return ()
+
+    def _bind_attempt(self,t):
+        """Снять состояние обещанных результатов ДО попытки (привязка улики).
+
+        Файл, лежавший там до начала и не изменившийся, доказывает прошлое.
+        Снимок делается один раз на попытку и переживает перезапуск процесса
+        не больше, чем сама попытка: после restart он снимается заново, и это
+        строже, а не мягче — уже созданный в прошлой попытке файл станет
+        «существовал до начала», и завершение потребует свежего подтверждения.
+        """
+        if self.obligation_probe is None or t.id in self._prestate:return
+        obligations=self._obligations(t)
+        if not obligations:return
+        try:self._prestate[t.id]=snapshot(obligations,self.obligation_probe)
+        except Exception:self._prestate[t.id]={}
 
     def pause(self,i):
         self._signal_interrupt(i)      # A3-02: до записи состояния, а не после
