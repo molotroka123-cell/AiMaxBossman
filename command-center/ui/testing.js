@@ -270,8 +270,22 @@ function watchFetch() {
       const res = await original.call(this, input, init);
       const ms = Math.round(performance.now() - started);
       if (!res.ok && !String(url).includes('/api/testing/')) {
+        // ПРИЧИНА, А НЕ ТОЛЬКО КОД. Раньше в журнал попадали method/path/status/ms,
+        // и сессия из 5777 записей не могла ответить, ПОЧЕМУ отказ: восемь 502 от
+        // OpenRouter выглядели одинаково, хотя сервер каждый раз присылал
+        // разборчивое объяснение в теле. Читаем клон, чтобы не отобрать тело у
+        // вызывающего, берём короткий фрагмент и не тащим сюда ничего, кроме
+        // message/hint/detail — тело ответа может содержать данные владельца.
+        let reason = '';
+        try {
+          const body = await res.clone().json();
+          const d = body && typeof body.detail === 'object' ? body.detail : body;
+          reason = [d && d.message, d && d.hint].filter(Boolean).join(' — ')
+                   || (typeof (body && body.detail) === 'string' ? body.detail : '');
+        } catch { /* не JSON или тело недоступно — отказ всё равно записываем */ }
         push('ui.refused', { method, path: String(url).slice(0, 200),
-                             status: res.status, ms, page: location.hash || '#' });
+                             status: res.status, ms, page: location.hash || '#',
+                             ...(reason ? { reason: String(reason).slice(0, 300) } : {}) });
       }
       return res;
     } catch (err) {
