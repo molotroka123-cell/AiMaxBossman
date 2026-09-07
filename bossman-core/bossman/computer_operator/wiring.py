@@ -34,7 +34,12 @@ class FakeObserver:
     def __init__(self,observations=None,summary="fake screen",foreground=None,ui_tree=None,sensitive=False):
         self.observations=list(observations) if observations is not None else None
         self.summary=summary; self.foreground=dict(foreground or {})
-        self.ui_tree=ui_tree; self.sensitive=sensitive; self.generations=[]
+        self.ui_tree=ui_tree; self.sensitive=sensitive; self.generations=[]; self.identity_calls=0
+    async def identity(self):
+        """Дешёвая проба идентичности — как у настоящего Observer."""
+        self.identity_calls+=1
+        await asyncio.sleep(0)
+        return dict(self.foreground)
     async def observe(self,*,generation):
         self.generations.append(generation)
         await asyncio.sleep(0)

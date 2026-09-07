@@ -85,6 +85,7 @@ class ComputerOperatorManager:
         # 0 (или отрицательное) полностью выключает переиспользование наблюдений.
         self.observation_reuse_max_age_s=max(0.0,float(observation_reuse_max_age_s or 0.0))
         self.observations_taken=0; self.observations_reused=0   # счётчики для замера, не для гейтов
+        self.reuse_rejected_by_identity=0
         # Защёлка «владелец вмешался», по одной на задачу. Ставится СИНХРОННО в
         # команде владельца, до и независимо от записи в журнал, поэтому
         # подтверждение стопа не ждёт ни наблюдения, ни модели, ни диска.
@@ -94,7 +95,7 @@ class ComputerOperatorManager:
         # Монотонные суммы по фазам шага. Это ИЗМЕРЕНИЕ, а не гейт: по ним видно,
         # что именно стоит времени — наблюдение, модель, допуск, диспатч,
         # верификация или запись журнала.
-        self.phase_seconds={k:0.0 for k in ("observe","plan","admit","dispatch","verify","persist")}
+        self.phase_seconds={k:0.0 for k in ("observe","identity","plan","admit","dispatch","verify","persist")}
         self.phase_calls={k:0 for k in self.phase_seconds}
 
     def create_task(self,goal,*,mode=TaskMode.CONTROL,source="local",owner_device_id=None):
@@ -142,7 +143,7 @@ class ComputerOperatorManager:
                 self.control_lease.heartbeat(t.id)
                 if self.control_lease.holder()!=t.id:return self._fail(t,"desktop control lease lost")
                 if t.steps_used>=t.max_steps:return self._fail(t,"max steps exceeded")
-                before=self._reuse(reusable,t); reusable=None
+                before=await self._reusable(reusable,t); reusable=None
                 if before is None:
                     t.state=TaskState.OBSERVING; self._save(t)
                     with self._phase("observe"):
@@ -348,19 +349,54 @@ class ComputerOperatorManager:
             with contextlib.suppress(asyncio.CancelledError):
                 await waiter
 
-    def _reuse(self,reusable,t):
+    # Идентичность ОКНА/ДОКУМЕНТА, а не содержимого. `title` сюда не входит
+    # сознательно: заголовок меняется вместе с содержимым, а изменение
+    # содержимого — это ровно то, что верификатор уже подтвердил. Модалка,
+    # уход фокуса в другое приложение и навигация меняют handle/app/url/tab_id.
+    _IDENTITY_KEYS=("app","handle","url","tab_id")
+
+    @classmethod
+    def _identity(cls,foreground)->dict|None:
+        """Непустая внешняя идентичность или None, если её нечем доказать."""
+        if type(foreground) is not dict:return None
+        ident={k:foreground[k] for k in cls._IDENTITY_KEYS
+               if foreground.get(k) not in (None,"")}
+        return ident or None
+
+    async def _reusable(self,reusable,t):
         """Переиспользовать проверенное наблюдение как `before` следующего шага.
 
         Возвращает None (значит: наблюдать заново), если окно выключено,
-        наблюдение старше окна, сменилась generation задачи или наблюдение
-        принадлежит другой generation. Никакого «доверия по умолчанию»:
-        отказ верификации, approval, loop guard и ошибка действия вообще не
-        кладут наблюдение в `reusable`.
+        наблюдение старше окна, сменилась generation задачи, наблюдение
+        принадлежит другой generation — или если ВНЕШНЯЯ идентичность окна
+        изменилась либо недоказуема (AT-03). Возраст и generation ничего не
+        знают о модалке поверх окна, ушедшем фокусе и навигации, поэтому перед
+        переиспользованием делается дешёвая проба идентичности: она стоит один
+        `foreground()`, без обхода дерева и без PNG.
+
+        Fail-closed: наблюдатель без `identity()`, упавшая проба и пустая
+        идентичность переиспользования НЕ дают. Отказ верификации, approval,
+        loop guard и ошибка действия вообще не кладут наблюдение в `reusable`.
         """
         if not reusable or self.observation_reuse_max_age_s<=0:return None
         obs,generation,taken_at=reusable
         if generation!=t.generation or getattr(obs,"generation",generation)!=t.generation:return None
         if (time.monotonic()-taken_at)>self.observation_reuse_max_age_s:return None
+        cached=self._identity(getattr(obs,"foreground",None))
+        if cached is None:
+            self.reuse_rejected_by_identity+=1;return None
+        probe=getattr(self.observer,"identity",None)
+        if probe is None:
+            self.reuse_rejected_by_identity+=1;return None
+        try:
+            with self._phase("identity"):
+                current=self._identity(await self._read_or_interrupt(t.id,probe()))
+        except OwnerInterrupted:
+            raise
+        except Exception:
+            self.reuse_rejected_by_identity+=1;return None
+        if current is None or current!=cached:
+            self.reuse_rejected_by_identity+=1;return None
         self.observations_reused+=1
         return obs
 

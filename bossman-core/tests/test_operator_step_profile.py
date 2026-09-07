@@ -102,10 +102,14 @@ def test_the_report_breaks_the_step_down_by_phase():
     monotonic timestamps so a bottleneck can be named instead of guessed."""
     report = run(steps=10, observe_ms=0, plan_ms=0, act_ms=0, reuse_max_age_s=0.75)
     phases = report["phases"]
-    assert set(phases["total_ms"]) == {"observe", "plan", "admit", "dispatch", "verify", "persist"}
+    assert set(phases["total_ms"]) == {"observe", "identity", "plan", "admit",
+                                       "dispatch", "verify", "persist"}
     assert phases["calls"]["dispatch"] == 10
     assert phases["calls"]["observe"] == 11          # 10 post-effect + 1 initial
     assert phases["calls"]["verify"] == 10
+    # One cheap identity probe per reused observation — that probe is what makes
+    # skipping a full observation safe at all (AT-03).
+    assert phases["calls"]["identity"] == report["observations_reused"] == 10
     assert all(v >= 0 for v in phases["total_ms"].values())
     assert phases["mean_ms"]["persist"] is not None
 

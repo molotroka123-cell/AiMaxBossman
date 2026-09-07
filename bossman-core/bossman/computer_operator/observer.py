@@ -28,6 +28,21 @@ class Observer:
         fg=await self.structured.foreground()
         tree=await self.structured.ui_tree()
         return fg,tree
+    async def identity(self):
+        """Дешёвая проба ВНЕШНЕЙ идентичности окна/документа.
+
+        Только `foreground()`: без обхода UI-дерева и без PNG — то есть без той
+        части, из-за которой наблюдение и стоит дорого. Нужна, чтобы решить,
+        можно ли переиспользовать прошлое наблюдение: срок и generation задачи
+        ничего не знают о том, что поверх окна появилась модалка, фокус ушёл в
+        другое приложение или страница навигировалась (AT-03).
+        """
+        snapshot=getattr(self.structured,"snapshot",None)
+        if snapshot is not None and getattr(self.structured,"foreground",None) is None:
+            fg,_=await snapshot()
+            return fg
+        return await self.structured.foreground()
+
     async def observe(self,*,generation:int):
         (fg,tree),(ref,sensitive)=await asyncio.gather(self._structured(),self.screenshot.capture())
         if self.summarizer:

@@ -63,6 +63,19 @@ class CostedObserver:
     def __init__(self, cost_s: float):
         self.cost_s = cost_s
         self.calls = 0
+        self.identity_calls = 0
+
+    #: Window/document identity. Stable across the run, as a real editor window
+    #: is: what changes between steps is the CONTENT, which is what the verifier
+    #: already confirms. Without this the reuse window is refused outright
+    #: (AT-03 fail-closed), and the profile would silently measure the
+    #: no-reuse path.
+    IDENTITY = {"app": "editor", "handle": 4242}
+
+    async def identity(self):
+        self.identity_calls += 1
+        await _spend(0)
+        return dict(self.IDENTITY)
 
     async def observe(self, *, generation: int) -> Observation:
         self.calls += 1
@@ -71,7 +84,7 @@ class CostedObserver:
         # exactly what LoopGuard stops, and profiling a guarded no-op would be
         # measuring the wrong loop.
         return Observation(new_id("obs"), time.time(),
-                           {"title": f"Editor - row {self.calls}", "app": "editor"},
+                           {**self.IDENTITY, "title": f"Editor - row {self.calls}"},
                            f"ok row {self.calls}", {"elements": [{"name": f"row-{self.calls}"}]},
                            None, False, generation)
 
@@ -147,6 +160,8 @@ async def profile(*, steps: int, observe_ms: float, plan_ms: float, act_ms: floa
         "steps": adapter.executed,
         "observations": observer.calls,
         "observations_reused": mgr.observations_reused,
+        "reuse_rejected_by_identity": mgr.reuse_rejected_by_identity,
+        "identity_probes": observer.identity_calls,
         "observations_per_verified_action": round(observer.calls / adapter.executed, 4),
         "planner_calls": planner.calls,
         "declared_costs_ms": {"observe": observe_ms, "plan": plan_ms, "act": act_ms},

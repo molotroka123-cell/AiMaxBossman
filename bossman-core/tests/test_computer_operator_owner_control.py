@@ -27,6 +27,10 @@ from bossman.computer_operator.models import (ActionKind, ComputerAction, Comput
 from bossman.computer_operator.store import JsonTaskStore, StaleTaskWrite
 from bossman.computer_operator.wiring import FakeAdapter, FakeObserver, FakePlanner, make_manager
 
+# A real host answers the identity probe with the foreground window. An empty
+# foreground proves nothing about the screen, so reuse refuses it (AT-03).
+DESK = {"app": "editor", "handle": 4242, "title": "Untitled"}
+
 
 def click(**kw):
     return ComputerAction.make(ActionKind.CLICK, expected=ExpectedState(contains_text="ok"), **kw)
@@ -97,7 +101,7 @@ async def test_pause_during_the_post_action_observation_stops_the_desktop(tmp_pa
     Before the fix the loop's next ``_save`` restored OBSERVING over PAUSED and
     the second click was executed anyway.
     """
-    observer = GatedObserver(block_on_call=2, summary="ok")
+    observer = GatedObserver(block_on_call=2, summary="ok", foreground=DESK)
     adapter = FakeAdapter()
     mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), click(), complete()]),
                        observer, adapter=adapter)
@@ -113,7 +117,7 @@ async def test_pause_during_the_post_action_observation_stops_the_desktop(tmp_pa
 
 
 async def test_stop_during_the_post_action_observation_is_final(tmp_path):
-    observer = GatedObserver(block_on_call=2, summary="ok")
+    observer = GatedObserver(block_on_call=2, summary="ok", foreground=DESK)
     adapter = FakeAdapter()
     mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), click(), complete()]),
                        observer, adapter=adapter)
@@ -130,7 +134,7 @@ async def test_stop_during_the_post_action_observation_is_final(tmp_path):
 
 
 async def test_a_paused_task_resumes_and_reobserves_under_a_new_generation(tmp_path):
-    observer = GatedObserver(block_on_call=2, summary="ok")
+    observer = GatedObserver(block_on_call=2, summary="ok", foreground=DESK)
     mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), click(), complete()]),
                        observer, adapter=FakeAdapter())
     t = mgr.create_task("two clicks")
@@ -155,7 +159,7 @@ def _reuse_manager(tmp_path, observer, *, max_age):
 
 
 async def test_verified_observation_is_reused_as_the_next_step_before(tmp_path):
-    observer = FakeObserver(summary="ok")
+    observer = FakeObserver(summary="ok", foreground=DESK)
     mgr = _reuse_manager(tmp_path, observer, max_age=5.0)
     t = mgr.create_task("two clicks")
     assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
@@ -166,7 +170,7 @@ async def test_verified_observation_is_reused_as_the_next_step_before(tmp_path):
 
 
 async def test_reuse_off_takes_a_fresh_observation_for_every_step(tmp_path):
-    observer = FakeObserver(summary="ok")
+    observer = FakeObserver(summary="ok", foreground=DESK)
     mgr = _reuse_manager(tmp_path, observer, max_age=0)
     t = mgr.create_task("two clicks")
     assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
@@ -177,24 +181,27 @@ async def test_reuse_off_takes_a_fresh_observation_for_every_step(tmp_path):
 async def test_an_expired_observation_is_never_reused(tmp_path, monkeypatch):
     from types import SimpleNamespace
     from bossman.computer_operator import manager as manager_module
-    observer = FakeObserver(summary="ok")
+    observer = FakeObserver(summary="ok", foreground=DESK)
     mgr = _reuse_manager(tmp_path, observer, max_age=5.0)
     task = mgr.create_task("two clicks")
     obs = await observer.observe(generation=task.generation)
     # Patch only this module's clock reference; never the asyncio timeout clock.
+    # perf_counter is here because the reuse path is phase-instrumented; monotonic
+    # is the one the freshness window actually reads.
     now = [100.0]
-    monkeypatch.setattr(manager_module, "time", SimpleNamespace(monotonic=lambda: now[0]))
+    monkeypatch.setattr(manager_module, "time",
+                        SimpleNamespace(monotonic=lambda: now[0], perf_counter=lambda: now[0]))
     reusable = (obs, task.generation, now[0])
-    assert mgr._reuse(reusable, task) is obs
+    assert await mgr._reusable(reusable, task) is obs
     now[0] += 5.001
-    assert mgr._reuse(reusable, task) is None
+    assert await mgr._reusable(reusable, task) is None
     assert mgr.observations_reused == 1
 
 
 async def test_a_failed_verification_forces_a_fresh_observation(tmp_path):
     """An unverified post-state is not evidence of anything; the next turn must
     look again rather than plan against an unconfirmed screen."""
-    observer = FakeObserver(summary="not what was expected")
+    observer = FakeObserver(summary="not what was expected", foreground=DESK)
     mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]),
                        observer, adapter=FakeAdapter(), observation_reuse_max_age_s=5.0)
     t = mgr.create_task("one click")
@@ -206,7 +213,7 @@ async def test_a_failed_verification_forces_a_fresh_observation(tmp_path):
 async def test_reuse_cannot_cross_an_owner_intervention(tmp_path):
     """Generation is the interruption boundary: an observation captured before
     the owner touched the desktop can never become the next step's ``before``."""
-    observer = FakeObserver(summary="ok")
+    observer = FakeObserver(summary="ok", foreground=DESK)
     mgr = ComputerOperatorManager(
         store=JsonTaskStore(tmp_path / "t.json"), planner=FakePlanner([]), observer=observer,
         action_router=None, approval_create=None, approval_wait=None, event_emit=lambda *a, **k: None,
@@ -214,9 +221,9 @@ async def test_reuse_cannot_cross_an_owner_intervention(tmp_path):
     t = mgr.create_task("x")
     obs = await observer.observe(generation=t.generation)
     import time as _t
-    assert mgr._reuse((obs, t.generation, _t.monotonic()), t) is obs
+    assert await mgr._reusable((obs, t.generation, _t.monotonic()), t) is obs
     t.generation += 1
-    assert mgr._reuse((obs, t.generation - 1, _t.monotonic()), t) is None
+    assert await mgr._reusable((obs, t.generation - 1, _t.monotonic()), t) is None
 
 
 # ------------------------------------- an owner command is not a system failure
@@ -227,7 +234,7 @@ async def test_an_owner_state_is_not_relabelled_as_a_system_failure(tmp_path):
     reason ("stale observation: generation changed"), so Pause and Take control
     produced a task the owner could not resume.
     """
-    mgr = make_manager(tmp_path / "t.json", FakePlanner([click()]), FakeObserver(summary="ok"),
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click()]), FakeObserver(summary="ok", foreground=DESK),
                        adapter=FakeAdapter())
     for command, expected in (("pause", TaskState.PAUSED),
                               ("take_control", TaskState.USER_CONTROL),
@@ -243,7 +250,7 @@ async def test_an_owner_state_is_not_relabelled_as_a_system_failure(tmp_path):
 
 async def test_emergency_lock_overrides_even_an_owner_paused_task(tmp_path):
     """The one command that dominates the others: the big red button still wins."""
-    mgr = make_manager(tmp_path / "t.json", FakePlanner([click()]), FakeObserver(summary="ok"),
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click()]), FakeObserver(summary="ok", foreground=DESK),
                        adapter=FakeAdapter())
     t = mgr.create_task("paused then locked")
     mgr.pause(t.id)
@@ -352,7 +359,7 @@ async def test_stop_is_acknowledged_without_waiting_for_the_observation(tmp_path
     Stop pressed at the wrong moment felt like the machine ignoring the owner.
     The latch is set synchronously by stop() and abandons the read.
     """
-    observer = SlowObserver(delay=5.0, summary="ok")
+    observer = SlowObserver(delay=5.0, summary="ok", foreground=DESK)
     adapter = FakeAdapter()
     mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]), observer,
                        adapter=adapter)
@@ -374,7 +381,7 @@ async def test_stop_during_model_planning_prevents_the_dispatch(tmp_path):
     """No new input is dispatched after the owner's cancellation is observed."""
     planner = SlowPlanner([click(), complete()], delay=5.0)
     adapter = FakeAdapter()
-    mgr = make_manager(tmp_path / "t.json", planner, FakeObserver(summary="ok"), adapter=adapter)
+    mgr = make_manager(tmp_path / "t.json", planner, FakeObserver(summary="ok", foreground=DESK), adapter=adapter)
     t = mgr.create_task("one click")
     run = asyncio.create_task(mgr.run(t.id))
     assert await wait_for(planner.entered.is_set)
@@ -388,7 +395,7 @@ async def test_stop_during_model_planning_prevents_the_dispatch(tmp_path):
 
 
 async def test_pause_is_acknowledged_promptly_and_stays_resumable(tmp_path):
-    observer = SlowObserver(delay=5.0, summary="ok")
+    observer = SlowObserver(delay=5.0, summary="ok", foreground=DESK)
     mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]), observer,
                        adapter=FakeAdapter())
     t = mgr.create_task("one click")
@@ -409,7 +416,7 @@ async def test_an_interrupt_never_cancels_an_effect_that_is_already_running(tmp_
     """
     gate = asyncio.Event()
     adapter = FakeAdapter(gate=gate)
-    observer = FakeObserver(summary="ok")
+    observer = FakeObserver(summary="ok", foreground=DESK)
     mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), click(), complete()]),
                        observer, adapter=adapter)
     t = mgr.create_task("two clicks")
@@ -427,7 +434,7 @@ async def test_an_interrupt_never_cancels_an_effect_that_is_already_running(tmp_
 
 async def test_a_latch_with_no_command_behind_it_does_not_spin(tmp_path):
     """Defensive: a stale latch must not turn the loop into a busy wait."""
-    observer = FakeObserver(summary="ok")
+    observer = FakeObserver(summary="ok", foreground=DESK)
     mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]), observer,
                        adapter=FakeAdapter())
     t = mgr.create_task("one click")
@@ -438,7 +445,7 @@ async def test_a_latch_with_no_command_behind_it_does_not_spin(tmp_path):
 
 
 async def test_emergency_lock_interrupts_every_running_task(tmp_path):
-    observer = SlowObserver(delay=5.0, summary="ok")
+    observer = SlowObserver(delay=5.0, summary="ok", foreground=DESK)
     mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]), observer,
                        adapter=FakeAdapter())
     t = mgr.create_task("one click")
@@ -449,3 +456,129 @@ async def test_emergency_lock_interrupts_every_running_task(tmp_path):
     state = await asyncio.wait_for(run, 5)
     assert asyncio.get_running_loop().time() - started < 0.2
     assert state is TaskState.LOCKED
+
+
+# ------------------------------------- AT-03: reuse must prove the screen is the same
+class ShiftingObserver(FakeObserver):
+    """The window under the agent keeps changing without the task's generation
+    moving. A modal opening, focus going to another application and a page
+    navigating are all invisible to the task's own generation counter and to a
+    freshness window measured in milliseconds.
+
+    ``observe`` stamps the identity current at that moment; ``identity`` first
+    advances it — the screen moved between the verified action and the next
+    step — then reports it.
+    """
+
+    def __init__(self, *, identities, **kw):
+        super().__init__(**kw)
+        self.identities = list(identities)
+        self.index = 0
+
+    def _current(self):
+        # Cycles, so the screen never settles: every reuse attempt spans a change.
+        return dict(self.identities[self.index % len(self.identities)])
+
+    async def identity(self):
+        self.identity_calls += 1
+        self.index += 1
+        await asyncio.sleep(0)
+        return self._current()
+
+    async def observe(self, *, generation):
+        obs = await super().observe(generation=generation)
+        obs.foreground = self._current()
+        return obs
+
+
+async def test_reuse_is_refused_when_a_modal_took_the_foreground(tmp_path):
+    """AT-03. Age and generation say the observation is fine; the screen says
+    otherwise. Before this, the next step planned against the window the modal
+    is now covering."""
+    editor = {"app": "editor", "handle": 4242, "title": "Untitled"}
+    modal = {"app": "editor", "handle": 9999, "title": "Save changes?"}
+    observer = ShiftingObserver(identities=[editor, modal], summary="ok")
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), click(), complete()]),
+                       observer, adapter=FakeAdapter(), observation_reuse_max_age_s=5.0)
+    t = mgr.create_task("two clicks")
+    assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
+    assert mgr.observations_reused == 0
+    assert mgr.reuse_rejected_by_identity >= 1
+
+
+async def test_reuse_is_refused_when_the_browser_navigated(tmp_path):
+    same_window = {"app": "Chromium", "tab_id": "0"}
+    observer = ShiftingObserver(summary="ok", identities=[
+        {**same_window, "url": "https://example.test/a"},
+        {**same_window, "url": "https://example.test/b"},
+    ])
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), click(), complete()]),
+                       observer, adapter=FakeAdapter(), observation_reuse_max_age_s=5.0)
+    t = mgr.create_task("two clicks")
+    assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
+    assert mgr.observations_reused == 0 and mgr.reuse_rejected_by_identity >= 1
+
+
+async def test_an_unchanged_window_still_reuses_and_the_probe_is_cheap(tmp_path):
+    """The saving survives the check: one cheap foreground probe per reuse, and
+    no UI-tree walk or screenshot for the observation it replaces."""
+    observer = FakeObserver(summary="ok", foreground=DESK)
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), click(), complete()]),
+                       observer, adapter=FakeAdapter(), observation_reuse_max_age_s=5.0)
+    t = mgr.create_task("two clicks")
+    assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
+    assert mgr.observations_reused == 2 and mgr.reuse_rejected_by_identity == 0
+    assert len(observer.generations) == 3          # full observations
+    assert observer.identity_calls == 2            # one cheap probe per reuse
+
+
+async def test_reuse_is_refused_when_identity_cannot_be_proved(tmp_path):
+    """Fail closed. A foreground with no window identity — which is what the
+    Windows provider returns when it could not resolve the window — is not
+    evidence that the screen is unchanged."""
+    observer = FakeObserver(summary="ok", foreground={"title": "only a title"})
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), click(), complete()]),
+                       observer, adapter=FakeAdapter(), observation_reuse_max_age_s=5.0)
+    t = mgr.create_task("two clicks")
+    assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
+    assert mgr.observations_reused == 0 and mgr.reuse_rejected_by_identity >= 1
+
+
+async def test_reuse_is_refused_when_the_observer_cannot_answer_the_probe(tmp_path):
+    class NoProbe(FakeObserver):
+        identity = None
+
+    observer = NoProbe(summary="ok", foreground=DESK)
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), click(), complete()]),
+                       observer, adapter=FakeAdapter(), observation_reuse_max_age_s=5.0)
+    t = mgr.create_task("two clicks")
+    assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
+    assert mgr.observations_reused == 0 and mgr.reuse_rejected_by_identity >= 1
+
+
+async def test_a_failing_probe_refuses_reuse_rather_than_raising(tmp_path):
+    class BrokenProbe(FakeObserver):
+        async def identity(self):
+            raise RuntimeError("UIA call failed")
+
+    observer = BrokenProbe(summary="ok", foreground=DESK)
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), click(), complete()]),
+                       observer, adapter=FakeAdapter(), observation_reuse_max_age_s=5.0)
+    t = mgr.create_task("two clicks")
+    assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
+    assert mgr.observations_reused == 0 and mgr.reuse_rejected_by_identity >= 1
+
+
+def test_the_identity_is_window_not_content():
+    """Title is content; the verifier already confirmed the content change. The
+    window/document identity is what must not have moved underneath us."""
+    ident = ComputerOperatorManager._identity
+    assert ident({"app": "editor", "handle": 1, "title": "a"}) == {"app": "editor", "handle": 1}
+    assert ident({"app": "editor", "handle": 1, "title": "a"}) == ident(
+        {"app": "editor", "handle": 1, "title": "b"})
+    assert ident({"app": "Chromium", "tab_id": "0", "url": "u"}) == {
+        "app": "Chromium", "url": "u", "tab_id": "0"}
+    assert ident({"title": "only a title"}) is None
+    assert ident({"app": "", "handle": None}) is None
+    assert ident(None) is None and ident("not a dict") is None
+

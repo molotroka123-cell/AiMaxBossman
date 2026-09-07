@@ -26,7 +26,7 @@ EXACT_SHA_CI = PENDING (see the final SHA's runs)
 | ASTRA acceptance | PASS | — | — |
 | Solana safety gates | PASS | — | — |
 | Fable media and Fleet acceptance | PASS | — | — |
-| Command Center CI | FAIL | Not yet diagnosed from its log; locally the CC suite is 1790 passed / 126 skipped with 35 failures whose causes are: 31 × `ffmpeg is unavailable` (absent in the container; pass once installed), 2 × absent `mcp` optional extra (pass once installed), 2 × web-designer Playwright which **reproduce identically at 45d9004**, i.e. predate this work. | 33/35 environment, 2 pre-existing |
+| Command Center CI | FAIL | Locally the CC suite is 1790 passed / 126 skipped with 35 failures: 31 × `ffmpeg is unavailable` (absent in the container; pass once installed), 2 × absent `mcp` optional extra, 2 × web-designer Playwright which reproduce identically at `45d9004` and so predate this work. In CI, `pytest (py3.11)` and `(py3.12)` both passed on the push run and `pytest (py3.11)` failed on the pull_request run with a connection-pool drain check. **Corrected:** those two runs are *not* the same tree — a `pull_request` run checks out a synthetic merge commit, not the head — so that pair does not by itself establish a flake. The root-ci py3.11/py3.12 comparison does, because both jobs are in the same push run on the same commit. | environment + one unproven CI-only failure |
 
 ## Local suite results on this branch
 
@@ -46,7 +46,7 @@ EXACT_SHA_CI = PENDING (see the final SHA's runs)
 | Owner interruption stops dispatch | `computer_operator/manager.py` interrupt latch + effect-boundary refusal | `test_computer_operator_owner_control.py` (21 cases); falsified against the pre-fix loop: 3 lost-command cases and 5 stop-latency cases fail | — |
 | Owner command survives a concurrent write | `JsonTaskStore.save` compare-and-set on `ComputerTask.revision` | same file; pre-fix the task reaches COMPLETED after Pause | — |
 | Effect outcome durable across an owner stop | `_persist_effect_outcome` merges onto the authoritative row | `test_an_interrupt_never_cancels_an_effect_that_is_already_running` | — |
-| Fresh observation before action, staleness rejected | existing generation/`plan_generation` checks + bounded reuse window | `test_stage13_operator_redteam.py`, `test_computer_operator_owner_control.py` | Windows semantic identity (window/frame/overlay) is unverified on real hardware |
+| Fresh observation before action, staleness rejected | generation/`plan_generation` checks + a reuse window that must also prove the **external** window/document identity is unchanged (AT-03): one cheap `foreground()` probe, fail-closed on an unprovable, unanswerable or failing probe | `test_computer_operator_owner_control.py` — modal takes the foreground, browser navigates, identity unprovable, no probe, probe raises; falsified: 6 cases fail without the check | The probe proves window/document identity, not that no in-window content moved; real-hardware verification is still `NOT_RUN` |
 | Serialized desktop input | `ControlLease` (single holder, TTL, heartbeat, revoke) | `test_lease_ttl_expiry_takeover_and_heartbeat`, `test_lease_lost_to_another_holder_still_fails_the_task_honestly` | — |
 | Real supported Windows adapter | `adapters/windows.py` with `snapshot()`, bounded BFS walk | `test_computer_observation_pipeline.py` (bounded walk, fallback, single window resolution) | **NOT_RUN on Windows**: `_active_window()` needs a real UIA host |
 | Per-phase latency instrumentation | `manager.phase_seconds` / `phase_report()`, `tools/operator_step_profile.py` | `bossman-core/tests/test_operator_step_profile.py` | — |
@@ -71,9 +71,13 @@ because their true cost belongs to the owner's host and model.
 |---|---|---|
 | Stop acknowledgement p95 ≤ 200 ms | p50 0.32 ms, p95 0.46 ms, max 0.47 ms over 20 trials, with the stop landing inside an observation that would have run 3000 ms | PASS |
 | No dispatch after cancellation, prevention p95 ≤ 250 ms | 0 dispatches after stop; same latency as above | PASS |
-| Ready-action dispatch overhead p95 ≤ 150 ms (excl. inference and app response) | framework overhead 2.2 ms/step at 12 steps, 5.3 ms/step at 60 | PASS |
+| Ready-action dispatch overhead p95 ≤ 150 ms (excl. inference and app response) | **p95 per step 8.6 / 8.9 / 9.0 ms** over three 60-step runs, declared costs zero (p50 5.0–5.5 ms, max 9.2–9.5 ms). **Corrected:** an earlier revision of this row quoted `framework_overhead_per_step_ms` — 2.2 and 5.3 ms — which is a **mean**, and a mean must not be scored against a p95 target. At 12 steps the p95 is 36 ms because one cold first step dominates a short sample, so the 60-step runs are the honest figure and three of them are shown rather than the best one | PASS on the corrected statistic |
 | Simple observe→act→verify p50 ≤ 1 s / p95 ≤ 2 s with no new reasoning | not measurable here: it is dominated by the host's observation cost, which this container cannot produce | NOT_RUN on target hardware |
 | UI feedback p95 ≤ 100 ms | out of scope for this path (no UI transport measured) | NOT_RUN |
+
+These figures now include the AT-03 identity probe — one cheap `foreground()`
+call per reused observation, which is what buys the right to skip a full
+observation at all.
 
 Phase breakdown at zero declared costs named the framework's own bottleneck: the
 journal. 5.3 writes/step → 4.3, and `JsonTaskStore` no longer re-parses the whole
