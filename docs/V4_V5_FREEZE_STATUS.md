@@ -521,3 +521,61 @@ The V2 Auto-Repair red followed the same two root causes, both fixed here.
 `measured intelligence retention` remains the single genuine red and is not
 touched: its gate is a file-existence check whose only "fix" is committing the
 report that must not be fabricated.
+
+---
+
+## 16. Independent sandbox re-verification — `8983f32` (this session)
+
+A fresh CLI sandbox (no browser runtime, no GPU, no Windows, no network to
+PyPI beyond the configured proxy) checked out `origin/claude/v4-v5-freeze-p0-gates-l56exm`
+at `8983f32372cf6eeec2858ba854f40bd224886281` (PR #48's current head) independently
+of any prior report and ran the actual suites rather than trusting the ledger's
+numbers on faith.
+
+| Suite | Result |
+|---|---|
+| root `tests/` | **1124 passed, 10 skipped** (148.94s) |
+| `command-center/tests/` (excluding two files that fail to import without Playwright) | **1948 passed, 74 failed, 163 skipped** |
+
+All 74 `command-center` failures were individually classed, not assumed: every
+one either imports `playwright.sync_api` directly, is guarded by
+`chromium_available()`/`browser_support.py`, or fails at runtime with
+`браузер недоступен: Playwright не установлен` (confirmed by re-running
+`test_v23_secret_canary_e2e.py::test_canary_never_reaches_any_persisted_or_model_visible_surface`
+in isolation and reading the traceback). No non-browser regression was found
+in this pass. This matches the ledger's own §9/§13 statement that browser-env
+tests are expected NOT_RUN outside a real Chromium runtime, not a new finding.
+
+`command-center/tests/test_editors_user_acceptance.py` and
+`test_video_studio_playback_stall.py` were excluded from collection for the
+same reason (`ModuleNotFoundError: No module named 'playwright'` at import
+time) — consistent with §6's note that CI, not this sandbox, is authoritative
+for the browser-driven suites.
+
+**This re-verification changes no gate.** `OPEN_P0` remains **1**
+(`CANARY_PRODUCTION_CALLER`), for the exact reason recorded in §14: the canary
+window (`MIN_RUNS = 5`, first-five-in-id-order) is not representative, fixing
+it collides with `evaluate_canary`'s zero-tolerance rule against the existing
+positive control, and resolving that collision is an owner decision on canary
+semantics, not a mechanical fix. `command-center/tests/test_v5_canary_production_caller.py`
+was not re-run to a different result in this session; the three named hostile
+tests are still deliberately left failing and unmodified on the *separate,
+unmerged* `claude/v4-v5-p0-1-canary-production-caller` branch (PR #49), which
+this ledger's §14 already records as **not merged into the freeze candidate**.
+
+An even further WIP attempt exists on PR #49 at commit `11b0c4f` ("canary
+authority — evidence is written at terminal state, never rebuilt"). It is
+explicitly self-described by its own commit message as **NOT LANDED, not
+safe yet**: it closes two of the three hostile tests but regresses four
+previously-passing tests in `command-center/tests/test_v22_skill_learning.py`,
+including the one that drives the real production `after_run` hook. It is
+correctly left unmerged. Landing it as-is would trade one open gate for a new
+regression, which this freeze forbids.
+
+**Conclusion: `FEATURE_FREEZE_READY` stays `NO`.  `OPEN_P0 = 1`.** Per this
+program's own exit rule (§11) and this task's instruction, Phase B (Epoch 6 /
+V6 performance work) is **not started** in this session. Widening scope to
+"fix" the canary window without an owner decision on semantics would either
+reopen the promotion hole (representative sampling under zero-tolerance) or
+guess at a policy change outside this task's authority — both forbidden by
+§14 and by the instruction to stop and report rather than guess.
