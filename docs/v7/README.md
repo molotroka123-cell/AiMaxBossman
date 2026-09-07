@@ -1,8 +1,27 @@
 # AiMaxBossman V7 — Adaptive Reality OS
 
-Status: **DESIGN + MULTI-MODEL AUDIT INTAKE**  
+Status: **DESIGN + MULTI-MODEL AUDIT INTAKE ONLY**  
 Base: `v6/velocity-phase0-baseline-20260907` @ `5f75dc55ff0376ef7774526cbed88b50efd638ff`  
 V7 branch: `v7/adaptive-reality-os-audit-20260907`
+
+> ## ⛔ MANDATORY V6 FREEZE BARRIER — EVERY MODEL/AGENT MUST READ
+>
+> **DO NOT START V7 PRODUCTION IMPLEMENTATION YET.**
+>
+> Claude/Fable is currently finishing the V6 freeze. Before writing any V7 production code, every model/agent must re-fetch the active V6 branch and independently verify:
+>
+> - exact current V6 source SHA + tree SHA;
+> - `OPEN_REPO_P0 = 0`;
+> - `OPEN_REPO_P1 = 0`;
+> - no reproducible exact-SHA CI regression remains;
+> - current V6 freeze report points to the actual tested code SHA;
+> - V6 verdict is `PASS` or `REPO_COMPLETE_EXTERNAL_VALIDATION_PENDING`.
+>
+> Owner Windows/local-model/real-provider/real-media evidence may remain explicitly external. Missing external evidence must **not** be restamped as PASS.
+>
+> Until this barrier is satisfied, V7 work is limited to **audit, architecture, specifications, hostile-test design and migration planning**.
+>
+> No model may treat this README's historical base SHA as proof that V6 is frozen. Repository truth at execution time wins.
 
 ## Why V7 exists
 
@@ -59,16 +78,26 @@ V7 inherits and must not weaken:
 
 V7 adds autonomy **above** these boundaries, never by bypassing them.
 
-## Documentation map
+## Documentation map — mandatory reading order
 
-- `ARCHITECTURE.md` — proposed runtime architecture and contracts.
-- `SOL_AUDIT.md` — independent GPT-5.6 Sol architecture audit and critique.
-- `FABLE5_CORRECTION_PROMPT.md` — narrow V6 completion prompt before implementation starts.
-- `INDEPENDENT_MODEL_AUDIT_PROMPT.md` — prompt for another frontier model to add its own signed audit/vision in this branch.
-- `MASTER_MULTI_MODEL_AUDIT.md` — synthesis contract for reconciling all model audits without erasing disagreement.
+Every model working on V7 must read in this order:
+
+1. `README.md` — this freeze barrier and V7 thesis.
+2. `IMPLEMENTATION_TZ.md` — full phased implementation specification and release gates.
+3. `ARCHITECTURE.md` — proposed runtime contracts.
+4. `SOL_AUDIT.md` — GPT-5.6 Sol independent architecture audit and critique.
+5. `MASTER_MULTI_MODEL_AUDIT.md` — convergence rules; disagreements must not be erased.
+6. `INDEPENDENT_MODEL_AUDIT_PROMPT.md` — mandatory protocol for every additional frontier-model audit.
+7. `FABLE5_CORRECTION_PROMPT.md` — narrow V6 completion handoff; not a V7 implementation prompt.
+
+## Multi-model audit rule
+
+No additional model may overwrite another model's audit. Each independent model must publish under:
+
+`docs/v7/audits/<MODEL_SLUG>_AUDIT.md`
+
+with its exact model identity and inspected SHA. After enough independent views exist, they are reconciled into `MASTER_MULTI_MODEL_AUDIT.md` with explicit consensus, disagreements, rejected ideas and evidence requirements.
 
 ## Entry gate
 
-Do **not** start broad V7 implementation until V6 is at least `REPO_COMPLETE_EXTERNAL_VALIDATION_PENDING` with no known repository-fixable P0/P1 and no unresolved exact-SHA CI regression.
-
-Owner-machine Windows/local-model evidence may remain external, but V7 design must preserve those evidence gaps rather than restamping them as passes.
+Broad V7 implementation begins only after the Mandatory V6 Freeze Barrier at the top of this document is satisfied and the owner explicitly starts implementation.
