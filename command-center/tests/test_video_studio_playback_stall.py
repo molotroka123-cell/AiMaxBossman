@@ -101,6 +101,15 @@ new MutationObserver(records => {
 READY = """() => { const v = document.querySelector('.vs-preview video');
                    return v && v.readyState >= 1 && v.videoWidth > 0 && !v.error; }"""
 
+# Источник в панели — отрендеренное превью, а не файл библиотеки. Продукт
+# отдаёт их по разным адресам, и различать их надо по адресу, а не по времени.
+RENDERED = r"""() => { const v = document.querySelector('.vs-preview video');
+                       return v && /\/exports\/[^/]+\/file/.test(v.currentSrc || v.src); }"""
+
+
+SRC = """() => { const v = document.querySelector('.vs-preview video');
+                 return v && (v.currentSrc || v.src); }"""
+
 
 def fixture_clip(tmp_path, seconds_long=4):
     """Настоящий файл, а не заглушка: превью длиннее секунды — окно шире."""
@@ -127,9 +136,21 @@ def open_project_with_clip(page, server, fixture):
 
 
 def render_preview(page):
+    """Дождаться ИМЕННО отрендеренного превью, а не любого <video> в панели.
+
+    Панель показывает исходник библиотеки тем же самым `.vs-preview video`,
+    и он удовлетворяет READY ещё до того, как задача рендера завершилась.
+    Ждать «появился video с readyState>=1» здесь мало: на медленном раннере
+    стенд успевал взяться за исходник, а подмена на готовый рендер прилетала
+    уже посреди измерения и выбрасывала игравший узел — то есть стенд мерил
+    не то, что собирался. Условие ниже — строго сильнее и различает эти два
+    источника по URL продукта: исходник это `/media/<id>/…`, отрендеренное
+    превью — `/exports/<job>/file`.
+    """
     page.locator('.vs-preview-actions').get_by_role(
         'button', name='Создать preview', exact=True).click()
     page.locator('.vs-preview video').wait_for(timeout=120000)
+    page.wait_for_function(RENDERED, timeout=120000)
     page.wait_for_function(READY, timeout=30000)
 
 
@@ -137,6 +158,46 @@ def dump(page, tmp_path, name):
     trace = page.evaluate('() => window.__vsTrace')
     (tmp_path / name).write_text(json.dumps(trace, indent=1), encoding='utf-8')
     return trace
+
+
+@pytest.mark.timeout(300)
+def test_the_stand_waits_for_the_render_and_not_for_any_video(editor_server, tmp_path):
+    """Негативный контроль к самому стенду, а не к продукту.
+
+    До нажатия «Создать preview» в панели уже стоит <video> с ИСХОДНИКОМ из
+    библиотеки. Прежнее условие готовности (`READY`) на нём истинно, поэтому
+    ожидание «появился video и он готов» могло вернуть управление ещё на
+    исходнике: измерение начиналось не на том элементе, а подмена на готовый
+    рендер прилетала уже посреди него и выбрасывала игравший узел. Ровно это
+    и наблюдалось на медленном раннере.
+
+    `RENDERED` на исходнике ЛОЖНО и становится истинным только на
+    `/exports/<job>/file`. Здесь это измеряется, а не предполагается.
+
+    Измерено на этой машине: до рендера src панели —
+    `/api/video-studio/media/<id>/file?...`, после — `/api/video-studio/
+    exports/<job>/file`. Готовность (`READY`) намеренно НЕ проверяется: на
+    одном хосте исходник успевает стать готовым, на другом нет, и именно эта
+    разница делала прежнее ожидание недетерминированным. Различение по адресу
+    от скорости хоста не зависит.
+    """
+    server = editor_server
+    fixture = fixture_clip(tmp_path, 2)
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_context(viewport={'width': 1720, 'height': 1100}).new_page()
+            open_project_with_clip(page, server, fixture)
+            page.locator('.vs-preview video').wait_for(timeout=30000)
+            before = page.evaluate(SRC)
+            assert '/media/' in before and '/exports/' not in before, before
+            assert page.evaluate(RENDERED) is False, before
+            render_preview(page)
+            after = page.evaluate(SRC)
+            assert '/exports/' in after and after != before, (before, after)
+            assert page.evaluate(RENDERED) is True, after
+        finally:
+            browser.close()
 
 
 @pytest.mark.timeout(300)
