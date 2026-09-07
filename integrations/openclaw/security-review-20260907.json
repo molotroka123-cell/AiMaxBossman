@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-09-07",
+  "policy_note": "Registry scanner signals are advisory. Eligible skills must still pass `openclaw skills verify --json` at the pinned version immediately before installation. Bossman never uses risk-bypass or force-install flags.",
+  "skills": [
+    {
+      "slug": "playwright-mcp",
+      "install_ref": "@spiceman161/playwright-mcp",
+      "version": "1.0.0",
+      "admission": "eligible",
+      "security_signals": {
+        "virustotal": "benign",
+        "openclaw": "benign"
+      },
+      "registry_url": "https://clawskills.sh/skills/spiceman161-playwright-mcp",
+      "dependency_upstream": "https://github.com/microsoft/playwright-mcp",
+      "review_note": "Best current runtime candidate. The OpenClaw skill wraps Playwright MCP. Runtime verification remains mandatory and browser writes stay behind Bossman policy/owner approval.",
+      "bossman_constraints": [
+        "workspace_install_only",
+        "domain_allowlist",
+        "browser_write_requires_owner_approval",
+        "no_secret_env_forwarding",
+        "post_state_verification"
+      ]
+    },
+    {
+      "slug": "azhua-skill-vetter",
+      "install_ref": "@fatfingererr/azhua-skill-vetter",
+      "version": "1.0.0",
+      "admission": "hold",
+      "security_signals": {
+        "virustotal": "suspicious",
+        "openclaw": "benign"
+      },
+      "registry_url": "https://clawskills.sh/skills/fatfingererr-azhua-skill-vetter",
+      "review_note": "Useful vetting checklist, but conflicting scanner signals mean Bossman treats it as reference material rather than executable authority.",
+      "bossman_constraints": ["reference_protocol_only", "never_self_certifies_install"]
+    },
+    {
+      "slug": "arc-trust-verifier",
+      "install_ref": "@trypto1019/arc-trust-verifier",
+      "version": "1.1.0",
+      "admission": "reject",
+      "security_signals": {
+        "virustotal": "suspicious",
+        "openclaw": "suspicious"
+      },
+      "registry_url": "https://clawskills.sh/skills/trypto1019-arc-trust-verifier",
+      "review_note": "Rejected from executable candidates because both surfaced security signals are Suspicious. Its provenance ideas may be studied manually only.",
+      "bossman_constraints": ["do_not_install"]
+    },
+    {
+      "slug": "agent-team-orchestration",
+      "install_ref": "@arminnaimi/agent-team-orchestration",
+      "version": "1.0.0",
+      "admission": "reference",
+      "security_signals": {
+        "manual_architecture_review": "benign"
+      },
+      "registry_url": "https://clawhub.ai/arminnaimi/skills/agent-team-orchestration",
+      "review_note": "Role/handoff/checkpoint patterns are valuable, but direct installation would create a parallel authority model next to Bossman Fleet/Organization.",
+      "bossman_constraints": ["adapt_patterns_only", "bossman_fleet_remains_authoritative"]
+    },
+    {
+      "slug": "agentgate",
+      "install_ref": "@monteslu/agentgate",
+      "version": "1.0.4",
+      "admission": "external",
+      "security_signals": {
+        "manual_source_review": "benign"
+      },
+      "registry_url": "https://clawskills.sh/skills/monteslu-agentgate",
+      "dependency_upstream": "https://github.com/monteslu/agentgate",
+      "review_note": "Potential optional external credential gateway on a separate machine. It must not replace Bossman's approval/evidence boundary or enable AgentGate bypass mode.",
+      "bossman_constraints": ["separate_machine_if_used", "no_bypass_mode", "bossman_approval_remains_authoritative"]
+    },
+    {
+      "slug": "arc-skill-gitops",
+      "install_ref": "@trypto1019/arc-skill-gitops",
+      "version": "1.0.0",
+      "admission": "hold",
+      "security_signals": {
+        "virustotal": "benign",
+        "openclaw": "benign"
+      },
+      "registry_url": "https://clawskills.sh/skills/trypto1019-arc-skill-gitops",
+      "review_note": "Scanner signals are benign, but the current listing has no meaningful adoption evidence and the skill performs git writes/rollback. Hold pending full scripts review and hostile git tests.",
+      "bossman_constraints": ["isolated_branch_only", "no_force_push", "hostile_git_tests_required"]
+    }
+  ]
+}
