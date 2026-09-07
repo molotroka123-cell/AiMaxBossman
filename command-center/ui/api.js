@@ -21,10 +21,12 @@ export function getCsrf() {
 
 export function setCsrf(value) {
   try { localStorage.setItem(CSRF_KEY, value || ''); } catch { /* приватный режим */ }
+  sessionBoundary();
 }
 
 export function clearCsrf() {
   try { localStorage.removeItem(CSRF_KEY); } catch { /* приватный режим */ }
+  sessionBoundary();
 }
 
 /** Есть ли похожая на живую сессия (окончательно решает сервер — 401). */
@@ -97,14 +99,27 @@ function notifyUnauthorized() {
    сеть заново. Изменяющие методы сюда не попадают никогда. */
 const inflight = new Map();
 
+/* Граница сессии. Склейка законна только внутри ОДНОЙ сессии: GET, начатый до
+   выхода (или до входа, или до 401), нельзя отдать вызову, сделанному после —
+   иначе после logout `api.system()` получает 200 старой сессии вместо 401.
+   Замечено CI (py3.12, test_policy_403_keeps_session_but_401_requires_login):
+   `api.system()` оболочки ещё летел, когда тест вышел и спросил снова. */
+let sessionGen = 0;
+function sessionBoundary() {
+  sessionGen += 1;
+  inflight.clear();
+}
+export function sessionGeneration() { return sessionGen; }
+
 async function request(method, path, body, opts = {}) {
   if (method !== 'GET' || opts.signal) return rawRequest(method, path, body, opts);
-  const existing = inflight.get(path);
+  const key = `${sessionGen}:${path}`;
+  const existing = inflight.get(key);
   if (existing) return existing;
   const p = rawRequest(method, path, body, opts).finally(() => {
-    if (inflight.get(path) === p) inflight.delete(path);
+    if (inflight.get(key) === p) inflight.delete(key);
   });
-  inflight.set(path, p);
+  inflight.set(key, p);
   return p;
 }
 
@@ -140,7 +155,7 @@ async function rawRequest(method, path, body, { signal } = {}) {
   if (!res.ok) {
     const e = data && typeof data === 'object' ? (data.error || data.detail || null) : null;
     const code = (e && typeof e === 'object' && typeof e.code === 'string') ? e.code : '';
-    if (res.status === 401) notifyUnauthorized();
+    if (res.status === 401) { sessionBoundary(); notifyUnauthorized(); }
     if (res.status === 403 && code === 'csrf') { clearCsrf(); notifyUnauthorized(); }
     const message = (e && typeof e === 'object' && e.message)
       || (typeof e === 'string' ? e : '')
