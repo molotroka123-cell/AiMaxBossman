@@ -40,10 +40,38 @@ def binary(name: str) -> str:
     return value
 
 
+# V6 §G: owner-interactive work outranks media work. Every FFmpeg child runs
+# below normal CPU priority so a long export competes with the control plane
+# for spare cycles, not for the owner's next click. Windows takes the class at
+# spawn; POSIX lowers the niceness right after spawn (setting it in a fork
+# hook is not thread-safe, and this process runs threads). Correctness is
+# untouched: the child does the same work, only later when the CPU is busy.
+CHILD_NICE = 10
+WINDOWS = os.name == "nt"
+
+
+def child_priority_kwargs() -> dict:
+    if WINDOWS:
+        import subprocess
+        return {"creationflags": getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0x4000)}
+    return {}
+
+
+def lower_child_priority(pid: int) -> bool:
+    if WINDOWS or not hasattr(os, "setpriority"):
+        return False
+    try:
+        os.setpriority(os.PRIO_PROCESS, pid, CHILD_NICE)
+        return True
+    except (OSError, ProcessLookupError):
+        return False    # the child already exited or the host forbids it; work proceeds unchanged
+
+
 async def process(argv, *, progress=None, diagnostic=None, stage="render", timeout=3600, max_output=8_388_608, binary_output=False):
     """Bound captures, propagate failure, and terminate AND reap on cancellation."""
     proc = await asyncio.create_subprocess_exec(*map(str, argv), stdin=asyncio.subprocess.DEVNULL,
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, **child_priority_kwargs())
+    lower_child_priority(proc.pid)
     tail = deque(maxlen=32)
     result = bytearray()
 
