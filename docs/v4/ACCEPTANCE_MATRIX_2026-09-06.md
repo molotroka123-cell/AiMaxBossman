@@ -33,7 +33,7 @@ EXACT_SHA_CI = PENDING (see the final SHA's runs)
 | Suite | Command | Result |
 |---|---|---|
 | root | `python -m pytest tests -q` | see final run in the PR body |
-| root under root-ci's dependency set | `tests/test_root_dependency_boundary.py` (blocks fastapi/yaml/pydantic/sqlalchemy/…) | 796 collected, 0 import errors |
+| root under root-ci's dependency set | `tests/test_root_dependency_boundary.py` (blocks fastapi/pydantic/sqlalchemy/asyncpg/playwright/… — not `yaml`, which root-ci installs) | 853 collected, 0 import errors; the second case pins root-ci's install line, so widening it is a decision and not drift |
 | bossman-core | `PYTHONPATH=.. python -m pytest tests -q` (in `bossman-core/`) | **2489 passed, 36 skipped, 0 failed** |
 | `bossman-core/tests/audit001` | `python -m pytest tests/audit001 -q` | **71 passed, 0 xfail** (was 69 + 2 strict xfail) |
 | command-center | `python -m pytest tests -q -c pyproject.toml` | 1790 passed, 126 skipped, 35 failed → 33 environment, 2 pre-existing (table above) |

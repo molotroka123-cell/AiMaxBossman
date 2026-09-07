@@ -5,13 +5,14 @@ pytest-timeout, psutil and httpx. That is deliberate: the root suite covers the
 shared contracts, the learning layer and the tools, and it must stay runnable
 without FastAPI, SQLAlchemy, a database driver or a browser.
 
-It is very easy to break by accident — `bossman.gateway.__init__` imports the
-Gateway app and `bossman.computer_operator.__init__` imports its FastAPI
-routes, so a root test that reaches for one symbol inside either package drags
-the whole web stack in and root-ci fails at collection with
-`ModuleNotFoundError: No module named 'fastapi'`. That is exactly how it broke
-at 22e2ea30. This test reproduces the workflow's dependency set and fails here
-instead of in CI.
+It is very easy to break by accident. At 22e2ea30 root-ci failed at collection
+with `ModuleNotFoundError: No module named 'fastapi'` because
+`bossman.gateway.__init__` imported the Gateway app and
+`bossman.computer_operator.__init__` imported its FastAPI routes, so reading one
+pure model or setting dragged the whole web stack in. Those two packages now
+export the heavy names lazily (PEP 562, f97b8c1), but nothing stops the next
+root test from importing a genuinely heavy module. This test reproduces the
+workflow's dependency set and fails here instead of in CI.
 """
 from __future__ import annotations
 
@@ -28,10 +29,10 @@ GUARD_ENV = "BOSSMAN_ROOT_DEPENDENCY_BOUNDARY_CHILD"
 
 # The packages root-ci does NOT install. Blocking them reproduces the runner.
 ABSENT_IN_ROOT_CI = (
-    "fastapi", "starlette", "pydantic", "pydantic_core", "yaml", "sqlalchemy",
+    "fastapi", "starlette", "pydantic", "pydantic_core", "sqlalchemy",
     "aiosqlite", "asyncpg", "redis", "playwright", "greenlet", "cryptography",
     "jsonschema", "uvicorn", "mcp",
-)
+)   # pyyaml IS installed by root-ci (f97b8c1), so `yaml` is not blocked here.
 
 CHILD = textwrap.dedent(
     """
@@ -71,4 +72,8 @@ def test_the_workflow_still_declares_the_narrow_dependency_set():
     workflow = (ROOT / ".github" / "workflows" / "root-ci.yml").read_text(encoding="utf-8")
     install = [line.strip() for line in workflow.splitlines() if "pip install" in line]
     assert install == ["python -m pip install --quiet -e .",
-                       "python -m pip install --quiet pytest pytest-timeout psutil httpx"], install
+                       "python -m pip install --quiet pytest pytest-timeout psutil httpx pyyaml"], install
+    # Anything named here must also be absent from ABSENT_IN_ROOT_CI, or the
+    # sibling test would block a package the runner really has.
+    installed = install[-1].split("--quiet", 1)[1].split()
+    assert not ({"yaml" if n == "pyyaml" else n for n in installed} & set(ABSENT_IN_ROOT_CI))
