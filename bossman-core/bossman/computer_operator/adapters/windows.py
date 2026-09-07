@@ -42,6 +42,40 @@ class WindowsDesktop:
     def __init__(self): self.is_windows=platform.system().lower()=="windows"
     def _req(self):
         if not self.is_windows: raise RuntimeError("Windows backend requires Windows")
+
+    @staticmethod
+    def preflight():
+        """DO-001/DO-017: cheap, side-effect-free dependency check.
+
+        Live owner run (20260906, OBSERVER-DEPS-001): nothing declared the
+        pywinauto/pyautogui dependency the desktop backend actually needs, so a
+        clean install discovered the gap only deep inside the observe/act loop —
+        `ModuleNotFoundError`/"pyautogui missing" surfaced as an ordinary step
+        failure, the manager spent its replan budget retrying the same
+        unavailable backend, and the task died with the uninformative
+        "planner replan budget" after 21 burned LLM calls.
+
+        Returns None when the backend is usable, or a human-readable reason
+        string when it is not. Never raises — callers (manager.run()) use the
+        return value to fail BEFORE entering the replan loop, spending zero LLM
+        calls on a dependency gap the model cannot fix by retrying.
+        """
+        if platform.system().lower() != "windows":
+            # Not a dependency gap; the existing per-call `_req()` guard already
+            # gives a clear, correct reason for this host. Preflight is
+            # specifically about extras that a *supported* Windows host is
+            # missing, not about platform support at all.
+            return None
+        missing = []
+        for mod in ("pywinauto", "pyautogui"):
+            try:
+                __import__(mod)
+            except ImportError:
+                missing.append(mod)
+        if missing:
+            return (f"desktop backend dependencies missing: {', '.join(missing)} — "
+                    f"install with `pip install bossman-core[windows]` (DO-001)")
+        return None
     @staticmethod
     def _active_window():
         # pywinauto 0.6.x lacks an "active window" helper; resolve the OS

@@ -212,7 +212,10 @@ def build_manager(*, store_path=None, launcher=None, browser_dispatch=None) -> C
         # независимо от модели и от экрана. Без этого порта слой обязательств
         # существовал бы только в тестах, а прод закрывался бы по-старому —
         # «была какая-то подтверждённая мутация».
-        obligation_probe=file_probe(Path.home()))
+        obligation_probe=file_probe(Path.home()),
+        # DO-001/DO-017: fail fast, before any replan/LLM call, when the
+        # desktop backend's own dependencies (pywinauto/pyautogui) are missing.
+        backend_preflight=WindowsDesktop.preflight)
 
 
 MANAGER = build_manager()
