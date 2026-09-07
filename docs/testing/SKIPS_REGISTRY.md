@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 140. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 143. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -28,6 +28,7 @@
 | `command-center/tests/test_golden_missions.py:830` | skipif | `not _ffmpeg_available()` | нет пути рендера видео: bossman-core video_factory или ffmpeg недоступны в этой среде | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_mission_console.py:42` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_openrouter_connect_ui.py:9` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_openrouter_provider_isolation.py:754` | skip | `—` | Node недоступен: контракты страницы не исполнялись | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_control_ui.py:15` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_plugins_adapter.py:208` | skip | `—` | f"SKIP_HOST: symlink privilege unavailable on this host: {exc}" | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_secrem_f009_terminal.py:113` | skip | `—` | NOT_TESTED_ON_THIS_HOST: docker daemon unavailable — F-009 container mount proof deferred to RunPod/owner host | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -64,6 +65,7 @@
 | `command-center/tests/test_video_studio_cfr_frames.py:71` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | real local FFmpeg/ffprobe required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_cfr_frames.py:95` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | real local FFmpeg/ffprobe required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_color.py:11` | skipif | `not shutil.which('ffmpeg') or not shutil.which('ffprobe')` | real FFmpeg binaries required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_video_studio_container_choice.py:44` | skip | `—` | Node unavailable: production JS preview-format contracts were not executed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_frame_split.py:255` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | local FFmpeg/ffprobe required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_frame_split.py:263` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | local FFmpeg/ffprobe required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_integration.py:85` | skipif | `not shutil.which("ffmpeg")` | local FFmpeg unavailable | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -140,6 +142,8 @@
 | `tests/test_evidence_signing_shared.py:39` | skip | `—` | POSIX-семантика режима файла 0o600; на Windows права задаёт icacls (см. W8) | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evidence_signing_shared.py:128` | skip | `—` | на Windows сужение прав честно выполняется через icacls (см. W8) | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_fable_budget_pricing.py:97` | skip | `—` | canonical_budget not exposed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_intelligence_preservation_runner.py:106` | skip | `—` | f"bossman-core (production-петля) недоступен, необязательный "
+                    f"пакет не установлен: {exc}" | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_learning_trace.py:304` | skipif | `sys.platform.startswith("win")` | POSIX flock/fcntl отсутствует на Windows | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:84` | importorskip | `—` | нет пакета fastapi | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:87` | importorskip | `—` | Solana SDK (solders) не установлен — панель безопасности не импортируется | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
