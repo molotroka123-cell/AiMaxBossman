@@ -186,10 +186,22 @@ let rage = { key: '', count: 0, at: 0 };
 
 /* Только СТРУКТУРА экрана, без текста. Живые счётчики и часы тикают сами по
    себе: если считать их изменением, мёртвый клик никогда не будет найден. */
+/* Поверхности, на которых интерфейс отвечает на клик. `#view` — не единственная:
+   модалки и уведомления живут ВНЕ его (index.html: #modal-root и #toast-root —
+   соседи оболочки, а не потомки #view). Пока отпечаток снимался только с #view,
+   мастер, который честно перерисовал модалку, и кнопка, честно показавшая
+   уведомление, попадали в журнал как мёртвые клики. Инструмент, выдумывающий
+   поломки, дороже отсутствующего: по такому отчёту чинят работающий код. */
+const RESPONSE_ROOTS = ['view', 'modal-root', 'toast-root'];
+
+function responseRoots() {
+  return RESPONSE_ROOTS.map((id) => document.getElementById(id)).filter(Boolean);
+}
+
 function viewFingerprint() {
-  const view = document.getElementById('view');
-  if (!view) return '0|0';
-  return `${view.childElementCount}|${view.querySelectorAll('*').length}`;
+  const parts = responseRoots().map(
+    (el) => `${el.childElementCount}|${el.querySelectorAll('*').length}`);
+  return parts.length ? parts.join('#') : '0|0';
 }
 
 function watchDeadClick(element, target) {
@@ -200,8 +212,9 @@ function watchDeadClick(element, target) {
   // and thinking pane live outside #view; their busy/hidden changes count too.
   let mutated = false;
   const observer = new MutationObserver(() => { mutated = true; });
-  const view = document.getElementById('view');
-  if (view) observer.observe(view, { subtree: true, childList: true, characterData: true, attributes: true });
+  for (const root of responseRoots()) {
+    observer.observe(root, { subtree: true, childList: true, characterData: true, attributes: true });
+  }
   const control = target?.closest?.('button, a, [role="button"], input[type="submit"], .btn, .nav-item, [data-page]');
   if (control) {
     observer.observe(control, { subtree: true, childList: true, characterData: true, attributes: true });
@@ -221,7 +234,7 @@ function watchDeadClick(element, target) {
       // Не «наверное не сработало», а перечисление того, что проверяли.
       push('ui.dead_click', { element, page: location.hash || '#',
                               waited_ms: DEAD_MS,
-                              checked: 'запрос, адрес, изменения экрана и элемента, фокус, модальное окно' });
+                              checked: 'запрос, адрес, изменения экрана, модалки, уведомления и элемента, фокус' });
     }
   }, DEAD_MS);
 }
