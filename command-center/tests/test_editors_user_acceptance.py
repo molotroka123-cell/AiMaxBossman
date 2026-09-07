@@ -18,6 +18,7 @@ import uuid
 import httpx
 import pytest
 from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import TimeoutError as PWTimeout
 
 from .test_ux2_thinking_pane import _launch
 
@@ -136,10 +137,55 @@ def playable_container(page):
         const v = document.createElement('video');
         return Object.fromEntries(Object.entries(specs).map(([k, s]) => [k, v.canPlayType(s)]));
     }""", {k: v[0] for k, v in PREVIEW_CODECS.items()})
-    for container in ('mp4', 'webm'):
-        if support.get(container):
-            return container, support
+    # `canPlayType` отвечает '' | 'maybe' | 'probably'. 'maybe' — это «формат
+    # знаком, про кодеки ничего не обещаю»; строить на нём приёмку значит снова
+    # получить таймаут вместо ответа. Сначала берём то, что браузер обещает
+    # ('probably'), и только если такого нет — довольствуемся 'maybe'.
+    for wanted in ('probably', 'maybe'):
+        for container in ('mp4', 'webm'):
+            if support.get(container) == wanted:
+                return container, support
     raise AssertionError(f'браузер не декодирует ни один поддерживаемый контейнер: {support}')
+
+
+MEDIA_STATE = """() => {
+    const v = document.querySelector('.vs-preview video');
+    if (!v) return {element: null};
+    const codes = {1: 'ABORTED', 2: 'NETWORK', 3: 'DECODE', 4: 'SRC_NOT_SUPPORTED'};
+    return {src: v.currentSrc || v.src, ready_state: v.readyState, network_state: v.networkState,
+            paused: v.paused, ended: v.ended, current_time: v.currentTime, duration: v.duration,
+            seeking: v.seeking, width: v.videoWidth, height: v.videoHeight,
+            error: v.error ? {code: v.error.code, name: codes[v.error.code] || '?',
+                              message: v.error.message} : null};
+}"""
+
+
+def media_wait(page, stage, expression):
+    """Ждать состояние проигрывателя, а при неудаче сказать ЧТО именно не так.
+
+    Голый `TimeoutError: 15000ms exceeded` не отличает «не начал играть» от
+    «браузер не умеет этот поток» и от «файл не отдался»: по такому отчёту
+    чинить нечего, и первая же мысль — поднять таймаут, то есть спрятать
+    причину. Здесь в сообщение уходит настоящее состояние медиа-элемента:
+    readyState, networkState, MediaError с расшифровкой кода, реальный URL и
+    HTTP-статус этого URL.
+    """
+    try:
+        page.wait_for_function(expression, timeout=15000)
+    except PWTimeout as exc:
+        state = page.evaluate(MEDIA_STATE)
+        src = (state or {}).get('src')
+        if src:
+            try:
+                probe = page.request.get(src)
+                state['http'] = {'status': probe.status,
+                                 'content_type': probe.headers.get('content-type'),
+                                 'bytes': len(probe.body())}
+            except Exception as probe_error:  # noqa: BLE001 — диагностика, не приёмка
+                state['http'] = f'unreadable: {probe_error}'
+        raise AssertionError(
+            f'preview playback stalled at [{stage}]: {json.dumps(state, ensure_ascii=False)}'
+        ) from exc
 
 
 def render_preview(page, context, server, pid, container):
@@ -183,20 +229,20 @@ def render_preview(page, context, server, pid, container):
 
 def play_preview_to_end(page):
     """Only real transport buttons change playback; DOM reads verify it."""
-    page.wait_for_function("""() => {
+    media_wait(page, 'metadata', """() => {
         const v = document.querySelector('.vs-preview video');
         return v && v.readyState >= 1 && v.videoWidth > 0 && !v.error;
-    }""", timeout=15000)
+    }""")
     page.locator('.vs-transport').get_by_role('button', name='│◀', exact=True).click()
     page.locator('.vs-transport').get_by_role('button', name='▶', exact=True).click()
-    page.wait_for_function("""() => {
+    media_wait(page, 'playback started', """() => {
         const v = document.querySelector('.vs-preview video');
         return v && v.currentTime > .05 && !v.error;
-    }""", timeout=15000)
-    page.wait_for_function("""() => {
+    }""")
+    media_wait(page, 'played to end', """() => {
         const v = document.querySelector('.vs-preview video');
         return v && v.ended && v.currentTime >= .9 && !v.error;
-    }""", timeout=15000)
+    }""")
     return page.locator('.vs-preview video').evaluate("""v => ({
         current_time: v.currentTime, duration: v.duration, ended: v.ended,
         ready_state: v.readyState, width: v.videoWidth, height: v.videoHeight

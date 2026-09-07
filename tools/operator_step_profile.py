@@ -42,13 +42,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE = ROOT / "bossman-core"
-for path in (str(ROOT), str(CORE)):
+for path in (str(ROOT), str(CORE), str(Path(__file__).resolve().parent)):
     if path not in sys.path:
         sys.path.insert(0, path)
 
 from bossman.computer_operator.models import (ActionKind, ComputerAction,  # noqa: E402
                                               ExpectedState, Observation, TaskState, new_id)
 from bossman.computer_operator.wiring import make_manager  # noqa: E402
+from human_speed_gate import StorageFloor  # noqa: E402
 
 
 async def _spend(seconds: float) -> None:
@@ -168,9 +169,28 @@ async def profile(*, steps: int, observe_ms: float, plan_ms: float, act_ms: floa
         mgr = make_manager(Path(tmp) / "tasks.json", planner, observer, adapter=adapter,
                            event_emit=emit, observation_reuse_max_age_s=reuse_max_age_s)
         task = mgr.create_task("profile the operator step")
+        # Пол этого хоста для того же класса работы, что делает шаг: шаг оператора
+        # упирается в долговечную запись строки задачи. Снимается ЧЕРЕДУЯСЬ с
+        # прогоном (внутри `emit`), иначе срыв планировщика попадёт в одно
+        # распределение и не попадёт в другое, и нормировка перестанет что-либо
+        # значить именно тогда, когда она нужна.
+        floor = StorageFloor(tmp)
+        inner_emit = emit
+
+        def emit_and_tick(*a, **kw):
+            inner_emit(*a, **kw)
+            if kw.get("event") == "step_verified":
+                floor.tick()
+
+        mgr.event_emit = emit_and_tick
         started = time.perf_counter()
         state = await mgr.run(task.id)
         elapsed = time.perf_counter() - started
+        # Пол не входит в измеряемое время шага: его тики стоят между шагами и
+        # вычитаются из общей стены вместе с объявленными стоимостями.
+        floor_total_ms = sum(floor.samples)
+        floor_p50 = floor.at(50)
+        floor.close()
 
     if state is not TaskState.COMPLETED or adapter.executed != steps:
         raise RuntimeError(f"profile run did not complete cleanly: {state} after {adapter.executed} actions")
@@ -179,7 +199,7 @@ async def profile(*, steps: int, observe_ms: float, plan_ms: float, act_ms: floa
     step_ms = [(marks[i + 1] - marks[i]) * 1000 for i in range(len(marks) - 1)]
     declared_ms = (observer.calls * observe_ms + observer.probes * probe_ms
                    + planner.calls * plan_ms + adapter.executed * act_ms)
-    total_ms = elapsed * 1000
+    total_ms = elapsed * 1000 - floor_total_ms
     return {
         "steps": adapter.executed,
         "observations": observer.calls,
@@ -205,6 +225,18 @@ async def profile(*, steps: int, observe_ms: float, plan_ms: float, act_ms: floa
         "max_step_ms": round(max(step_ms), 3),
         "samples_ms": [round(x, 3) for x in step_ms],
         "outliers_removed": 0,
+        # Абсолютное число ничего не говорит без хоста, на котором оно снято:
+        # 5 мс на рабочей станции владельца и 124 мс на общем раннере CI — это
+        # одна и та же программа. `host_storage_floor_ms` — цена самой дешёвой
+        # долговечной записи ЗДЕСЬ И СЕЙЧАС, снятая чередуясь с прогоном;
+        # `framework_overhead_in_floors` — во сколько таких записей обходится
+        # шаг. Регрессия структуры (например, пересериализация истории на каждом
+        # переходе состояния) двигает ИМЕННО это отношение, а шум планировщика
+        # двигает оба числа вместе.
+        "host_storage_floor_ms": round(floor_p50, 4),
+        "framework_overhead_in_floors": (
+            round((total_ms - declared_ms) / adapter.executed / floor_p50, 3)
+            if floor_p50 > 0 else None),
         "scope": "framework_only: observation, planning and action costs are declared, not measured here",
         "human_comparison": "NOT_RUN",
     }

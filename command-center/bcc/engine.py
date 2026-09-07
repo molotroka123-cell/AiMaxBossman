@@ -735,13 +735,52 @@ class TaskEngine:
         if int(cur or 0) != fence:
             raise FencedOut(run_id, fence)
 
+    # Сколько раз выход зомби готов проглотить ЧУЖУЮ отмену, дожидаясь своей
+    # диагностики. Отмена приходит не одна: владельца отменяет heartbeat, и на
+    # Windows вторая доставка успевает попасть внутрь записи в БД.
+    _DIAGNOSTIC_CANCELS = 5
+
     async def _fenced_out_exit(self, run_id: int, why: str) -> None:
-        """Выход зомби-воркера: только журнал и событие, никаких записей в run."""
+        """Выход зомби-воркера: только журнал и событие, никаких записей в run.
+
+        Диагностика пишется в ОТДЕЛЬНОЙ задаче, а не здесь. Причина конкретная:
+        мы находимся внутри `except asyncio.CancelledError` — у этой задачи
+        отмена уже в пути, и каждое следующее `await` может получить её снова.
+        `contextlib.suppress(Exception)` от этого не спасал ВООБЩЕ:
+        `CancelledError` наследуется от `BaseException`, а не от `Exception`,
+        поэтому она пролетала сквозь подавление и уходила наружу из `execute()`
+        — ровно то, что валило `windows paths` на записи `run.fenced_out`
+        в aiosqlite.
+
+        Своя задача отмены владельца не наследует, поэтому запись действительно
+        доходит; наше ожидание её при этом может быть отменено ещё раз, и тогда
+        мы ждём снова — ограниченное число раз, чтобы отсутствие отмены нельзя
+        было спутать с зависанием.
+        """
+        async def diagnose() -> None:
+            with contextlib.suppress(Exception):
+                await self._log(run_id, "warn", "run.fenced_out", why[:500])
+            with contextlib.suppress(Exception):
+                await self.bus.emit("run.fenced_out", run_id=run_id,
+                                    fence=self._fences.get(run_id), reason=why[:200])
+
+        writer = asyncio.create_task(diagnose())
+        for _ in range(self._DIAGNOSTIC_CANCELS):
+            try:
+                await asyncio.wait({writer})
+                return
+            except asyncio.CancelledError:
+                continue          # наша отмена — не повод бросить диагностику
+        # Бюджет исчерпан: задачу не бросаем (она допишет сама), но и висеть
+        # здесь не имеем права. Молча это не проходит.
         with contextlib.suppress(Exception):
-            await self._log(run_id, "warn", "run.fenced_out", why[:500])
-        with contextlib.suppress(Exception):
-            await self.bus.emit("run.fenced_out", run_id=run_id, fence=self._fences.get(run_id),
-                                reason=why[:200])
+            self._log_sync_hint(run_id)
+
+    @staticmethod
+    def _log_sync_hint(run_id: int) -> None:
+        import logging
+        logging.getLogger(__name__).warning(
+            "run %s: fenced-out diagnostics still pending after repeated cancellation", run_id)
 
     async def _run(self, run_id: int) -> None:
         async with self.db.session() as s:
