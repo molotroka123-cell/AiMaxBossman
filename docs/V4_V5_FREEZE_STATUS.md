@@ -18,7 +18,7 @@ Three distinct SHAs exist in this program. They are **never** interchangeable an
 
 | Field | Value | Meaning |
 |---|---|---|
-| `FINAL_SOURCE_SHA` | `83a2a77be66a7fe80d201279b9b8c92e5ffd8926` | The **real source head** being certified. PR #37, branch `claude/v5-closure-at-reconcile-xdh12f`. This is the only SHA that exact-source certification may reference. |
+| `FINAL_SOURCE_SHA` | `333616c` (freeze candidate, branch `claude/v4-v5-freeze-p0-gates-l56exm`) | The **real source head** being certified. Descends from `83a2a77` (PR #37 head at the time this run started). This is the only SHA that exact-source certification may reference. |
 | `TESTED_PR_MERGE_SHA` | `7de858ddb9bd18e349f0f02593591ce5501c1a72` | GitHub's **synthetic merge commit** — a throwaway merge of the PR head with its base, created by GitHub for CI. **Not the source.** |
 | `TESTED_SHA` | Per-run value | Whatever a given CI run **actually checked out**. Must be captured verbatim from that run, not inferred. |
 
@@ -233,3 +233,129 @@ These are settled. Do not re-run, re-litigate, or reopen without a reproduced co
 PR merge checkout.**
 
 Until then: `FEATURE_FREEZE_READY = NO`.
+
+---
+
+## 12. Measured run — freeze candidate `333616c`
+
+Every number below was observed locally on the stated SHA. Nothing is estimated.
+
+### SHAs for this run
+
+| Field | Value |
+|---|---|
+| `FINAL_SOURCE_SHA` | `333616c` (branch `claude/v4-v5-freeze-p0-gates-l56exm`) |
+| Base source head at start | `83a2a77be66a7fe80d201279b9b8c92e5ffd8926` |
+| Upstream PR #37 head, later in the run | `3b210209100b8fa9b6a255c8e5f09cbc504008c5` |
+| `TESTED_PR_MERGE_SHA` (PR #48, synthetic) | `7de858ddb9bd18e349f0f02593591ce5501c1a72` — absent from the clone |
+
+### Baselines on clean `83a2a77` (separate worktree)
+
+| Suite | Result |
+|---|---|
+| root `tests/` | 1077 passed, 10 skipped |
+| V5 objective/canary subset | 215 passed |
+| `bossman-core` AT-01 file | 12 passed |
+| `bossman-core` operator set (4 files) | 98 passed, 1 skipped |
+
+### Measured on the freeze candidate `333616c`
+
+| Suite | Result |
+|---|---|
+| root `tests/` | **1131 passed, 2 skipped** |
+| `bossman-core` full `tests/` | **2781 passed, 41 skipped** |
+| operator set + AT-01 + upstream freeze test | **119 passed, 1 skipped** |
+
+### Upstream regression found and fixed
+
+Upstream `3b21020` ("fail closed unverifiable AT-01 effects") introduces
+`UnverifiableEffect` so the extraction fallback routes *around* the broken drop
+at `manager.py:660`, leaving that branch — and the unrelated-mutation rule at
+`manager.py:675-678`, the no-probe drop at `:663-664` and the bare-`except`
+swallow at `:682-687` — open. Reproduced on a clean checkout of `3b21020`:
+
+```
+9 failed, 89 passed, 1 skipped
+```
+
+all nine reading `TaskState.FAILED is TaskState.COMPLETED`, including
+`test_c10_positive_control_approved_action_executes`. The same four files on
+the freeze candidate: **119 passed, 1 skipped**. Upstream's `UnverifiableEffect`
+and its new test file are kept; the manager is closed as well as routed around.
+
+### CI reds on PR #48 at `bbfc4bb`, adjudicated
+
+| Check | Verdict |
+|---|---|
+| `pytest rest (py3.11)` — 9 operator failures | **Not this PR's.** `bbfc4bb` is docs-only (2 files, +592). PR #48's base is `claude/v5-closure-at-reconcile-xdh12f` @ `3b21020`, so the synthetic merge carried upstream's regression. Fixed on this branch. |
+| `root pytest + hygiene (py3.11)` — `test_objective_cas_under_10ms_and_stale_write_is_denied` | **Not this PR's; runner noise.** `FAIL / excess_spread_across_the_distribution`, `p50 1.389 ms`, `over_limit 2`, `stalls [26.60, 18.59]` against `max_isolated_stalls 1`. Docs-only diff cannot cause it, and the same test passes locally on the candidate. The 10 ms target is NOT relaxed, no sample filtered, no retry/skip/xfail added. |
+| `measured intelligence retention` | **Expected fail-closed.** No current same-model measured evidence exists. Not made green. |
+
+### Gate movement this run
+
+| Gate | Was | Now | Evidence |
+|---|---|---|---|
+| `SATISFIED_EVIDENCE_GATE` | IN_PROGRESS | **PASS** | `5c6ad54`. Resolver binds objective, condition, spec digest + revision, applicability, producing run, freshness, single-use. ~15 negative controls; reproduced the pre-fix defect on a database written by `83a2a77` and verified the retirement path. |
+| `AT-01` | IN_PROGRESS | **PASS** | `973ce94` + `333616c`. C1-C4 closed at the manager; six required cases present, including an invisible effect completing on a real bound receipt with a foreign-receipt negative control. |
+| `CANARY_PRODUCTION_CALLER` | IN_PROGRESS | **FAIL_CLOSED (open)** | Parked on `claude/v4-v5-p0-1-canary-production-caller`. Registration bypass closed; gate wired over the durable canary tables; 13 passed / 3 failed. The three failures are left failing and unmodified. |
+
+`OPEN_P0` is therefore **1**, and `FEATURE_FREEZE_READY` remains **NO**.
+
+### P0-1 remaining work, stated exactly
+
+`canary_decision` re-derives cohort reports from Command Center `task_runs`
+facts on every call, so a durable canary run that is lost gets silently rebuilt
+from the same facts and decided healthy — a restart inherits success instead of
+finding silence. Reports must be written when a run reaches a terminal state
+and only read at the decision point. The positive control promotes on a single
+`refresh` with no prior pass, so relocating that write is a design decision, not
+a mechanical fix. Still failing, deliberately:
+
+- `test_another_service_identity_cannot_decide_this_run`
+- `test_a_human_approval_does_not_bypass_the_canary`
+- `test_a_restart_without_the_durable_run_denies`
+
+`tests/test_v5_canary_production_caller.py` additionally targets an
+objective-fleet rollout (`activate_broadly`, `apply_broad_revision`, `rollback`,
+`revision_digest`) that does not exist in production; `ObjectiveStore.revise` is
+test-only. That surface was deliberately not invented.
+
+### Still NOT_RUN / INSUFFICIENT_EVIDENCE
+
+`N4`, `N5`, `N6`, `N8`, `WINDOWS_ACCEPTANCE`, `LOCAL_MODEL_ACCEPTANCE`,
+`CANARY_ROLLBACK`, `INTELLIGENCE_PRESERVATION`, soak, real same-model
+retention. No owner-machine acceptance artifact exists anywhere in the tree;
+the Windows checks that pass in CI are portability evidence only.
+
+### CI outcome on the freeze candidate `5b461d3` (PR #48)
+
+All 23 reported checks **succeeded**; `ASTRA real sandbox` skipped honestly (no
+KVM/hardware on a standard runner, the fixture declines rather than pretends).
+Green includes both `root pytest + hygiene` matrices, both `pytest` matrices,
+`pytest rest`, `pytest security`, `pytest stage8-14`, `pytest gateway-context`,
+`покрытие (неснижаемый порог)`, `compile + секреты`, `секреты, JS,
+запрещённые файлы`, `windows paths (py3.12)`, `safety` 3.11/3.12,
+`ASTRA portable` on ubuntu and windows, `ASTRA runner recovery`, and
+`bossman-core container ships bossman-shared`.
+
+**The human-speed red is now proven to have been runner noise, not a defect.**
+`root pytest + hygiene (py3.11)` carried
+`test_objective_cas_under_10ms_and_stale_write_is_denied` failing at `bbfc4bb`
+with `excess_spread_across_the_distribution` (`stalls [26.60, 18.59]` against
+`max_isolated_stalls 1`). It passes here with **no change to the contract**: the
+10 ms target stands, no sample was filtered, and no retry, skip or xfail was
+added. The LATENCY_CONTRACT invariants were never touched, so this is a
+re-observation of the same gate, not a weakened one.
+
+`measured intelligence retention` did **not** report on this head. It is not
+claimed as passing. Its gate is a file-existence check —
+`INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE / Missing
+docs/benchmark/intelligence-preservation-current.json`, exit 2 — so the only
+way to make it green is to commit that report, which is exactly the
+fabrication this ledger forbids. It stays FAIL_CLOSED until a real same-model
+measurement is run.
+
+SHA discipline for this run, recorded from CI's own checkout line: PR #49's job
+checked out `refs/remotes/pull/49/merge` = `43bef94`, logged as
+"Merge 9c38a3e into 5b461d3". `SOURCE_HEAD=9c38a3e`, `TESTED_SHA=43bef94`
+(synthetic). Only the former may back an exact-source claim.
