@@ -15,7 +15,7 @@
 
 - **Current bottleneck:** Полный зелёный набор всех шести workflow по ОДНОМУ SHA ещё не наблюдался: на 38c836b root-ci, V2 Auto-Repair, ASTRA acceptance (включая windows-latest) и Solana safety — PASS, а Core CI и Command Center CI отменены более новым пушем (отменён ≠ пройден). Branch protection выключена (ASTRA-CI-101, действие владельца); аттестация железа и реальный sandbox NOT_RUN; live-приёмка OpenRouter не проводилась (0.00 USD).
 - **Next highest-value fix:** Включить branch protection (tools/astra_branch_protection.py --apply) и сделать четыре обязательные проверки required; затем Windows ACL ключей и live-приёмка на дешёвой модели по конфигурации; затем поднять покрытие Command Center по фичам с наименьшим покрытием.
-- **Last evidence SHA:** `e26553e56cc3097fd3139a48e3fac8fa3db3ab75` · **Current HEAD SHA:** `e26553e56cc3` · **Evidence freshness:** FRESH
+- **Last evidence SHA:** `e26553e56cc3097fd3139a48e3fac8fa3db3ab75` · **Current HEAD SHA:** `6c70d43f9804` · **Evidence freshness:** PARTIALLY_STALE
 - **Last scorecard update:** 2026-09-05
 - **Benchmark hard failures:** none observed
 - **Live hardware attestation:** PENDING
