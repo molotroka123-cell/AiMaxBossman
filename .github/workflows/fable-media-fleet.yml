@@ -50,6 +50,12 @@ jobs:
           python -m pip install -e . -e "./bossman-core[dev]" -e "./command-center[dev,browser]"
           sudo apt-get update -q
           sudo apt-get install -y -q ffmpeg
+          # `tests/test_video_studio_*.py` is a glob, and the playback-stall
+          # regressions it now matches drive a real browser. The `browser`
+          # extra installs the Playwright library, not the browser binary;
+          # without this the four of them fail on a missing executable and
+          # say nothing about the product.
+          python -m playwright install --with-deps chromium
       - name: Require actual FFmpeg encode, probe and decode
         id: media-ready
         shell: bash
