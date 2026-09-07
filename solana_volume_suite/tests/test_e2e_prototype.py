@@ -27,7 +27,7 @@ async def test_orchestrator_loop_three_iterations(tmp_path):
     vault_file = str(tmp_path / "temp_vault.json")
     loop = VolumeOrchestratorLoop(
         vault_path=vault_file,
-        master_password="SuperSecretTestPass123!",
+        master_password="SuperSecretTestPass123!",  # ci-secret-scan: allow -- synthetic test fixture password
         test_mode=True
     )
     loop.initialize_vault_pool(count=10)

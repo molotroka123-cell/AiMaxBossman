@@ -450,3 +450,92 @@ async def test_live_notepad_actually_launches(tmp_path):
                 await asyncio.wait_for(p.wait(), timeout=10)
             except Exception:
                 pass
+
+
+# ---------- E: DO-001/DO-017 — backend preflight, before the replan loop ----------
+
+async def test_do001_missing_backend_fails_fast_with_zero_planner_calls(tmp_path):
+    """DO-001/DO-017 regression (bad case).
+
+    Live owner run (OBSERVER-DEPS-001, 20260906): pywinauto/pyautogui were not
+    declared anywhere, so a clean install discovered the gap only deep inside
+    the observe/act loop — the manager burned its entire replan budget (21 LLM
+    calls) retrying the same unavailable backend before finally failing with
+    the uninformative "planner replan budget".
+
+    With backend_preflight wired, a missing-dependency backend must fail on the
+    very first call to run(), before the planner is ever invoked at all.
+    """
+    planner = FakePlanner([launch("notepad"), complete()])
+    observer = FakeObserver(foreground={"app": "notepad.exe", "title": "Untitled - Notepad"})
+    m = ComputerOperatorManager(
+        store=JsonTaskStore(tmp_path / "tasks.json"),
+        planner=planner, observer=observer,
+        action_router=ActionRouter([AppLaunchAdapter(launcher=lambda exe: None, resolver=_fake_resolver)]),
+        approval_create=_auto_create, approval_wait=_auto_wait,
+        event_emit=lambda *a, **k: None,
+        backend_preflight=lambda: "desktop backend dependencies missing: pywinauto, pyautogui")
+    t = m.create_task("Открой Блокнот")
+    state = await m.run(t.id)
+    assert state is TaskState.FAILED
+    done = m.store.get(t.id)
+    assert "desktop backend unavailable" in done.last_error
+    assert "pywinauto" in done.last_error
+    assert done.replans_used == 0, "a dependency gap must not spend replan budget"
+    assert planner.calls == [], "the planner must never be called when the backend cannot run at all"
+    assert done.steps_used == 0
+
+
+async def test_do001_available_backend_still_runs_normally(tmp_path):
+    """DO-001/DO-017 regression (legitimate case): a preflight that reports the
+    backend as usable (returns None) must not change behavior at all — the
+    existing happy path (plan -> observe -> policy -> router -> executor ->
+    observe) still runs exactly as before."""
+    launched = []
+
+    async def rec(exe):
+        launched.append(str(exe))
+
+    planner = FakePlanner([launch("notepad"), complete()])
+    observer = FakeObserver(
+        observations=[{"foreground": {"app": "explorer.exe", "title": "Desktop"},
+                       "summary": "desktop"}],
+        foreground={"app": "notepad.exe", "title": "Untitled - Notepad"},
+        summary="notepad is open")
+    m = ComputerOperatorManager(
+        store=JsonTaskStore(tmp_path / "tasks.json"),
+        planner=planner, observer=observer,
+        action_router=ActionRouter([AppLaunchAdapter(launcher=rec, resolver=_fake_resolver)]),
+        approval_create=_auto_create, approval_wait=_auto_wait,
+        event_emit=lambda *a, **k: None,
+        backend_preflight=lambda: None)
+    t = m.create_task("Открой Блокнот")
+    assert await m.run(t.id) is TaskState.COMPLETED
+    assert len(launched) == 1 and "notepad" in launched[0].lower()
+
+
+def test_do001_windows_desktop_preflight_reports_missing_extras_without_raising():
+    """Unit-level: WindowsDesktop.preflight() itself never raises, and correctly
+    distinguishes 'not Windows at all' (not a preflight concern; existing _req()
+    already gives the right error) from a genuinely missing extra on Windows."""
+    from bossman.computer_operator.adapters.windows import WindowsDesktop
+    import builtins
+
+    desktop = WindowsDesktop()
+    if not desktop.is_windows:
+        assert WindowsDesktop.preflight() is None
+        return
+
+    real_import = builtins.__import__
+
+    def blocked(name, *a, **kw):
+        if name in ("pywinauto", "pyautogui"):
+            raise ImportError(f"No module named {name!r}")
+        return real_import(name, *a, **kw)
+
+    builtins.__import__ = blocked
+    try:
+        reason = WindowsDesktop.preflight()
+    finally:
+        builtins.__import__ = real_import
+    assert reason is not None and "pywinauto" in reason and "pyautogui" in reason

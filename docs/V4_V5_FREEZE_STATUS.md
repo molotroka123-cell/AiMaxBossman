@@ -616,3 +616,129 @@ deterministic-benchmark, anti-dumbness, container ship.
 Red: `measured intelligence retention` only — the evidence blocker above.
 
 The same first five of those are RED on PR #37 at `67905ee`.
+
+---
+
+## 17. Independent sandbox re-verification — `8983f32` (merged-in session, port from `claude/bossman-v4v5-freeze-v6-perf-t25pvx`)
+
+A fresh CLI sandbox (no browser runtime, no GPU, no Windows, no network to
+PyPI beyond the configured proxy) checked out `origin/claude/v4-v5-freeze-p0-gates-l56exm`
+at `8983f32372cf6eeec2858ba854f40bd224886281` (PR #48's current head) independently
+of any prior report and ran the actual suites rather than trusting the ledger's
+numbers on faith.
+
+| Suite | Result |
+|---|---|
+| root `tests/` | **1124 passed, 10 skipped** (148.94s) |
+| `command-center/tests/` (excluding two files that fail to import without Playwright) | **1948 passed, 74 failed, 163 skipped** |
+
+All 74 `command-center` failures were individually classed, not assumed: every
+one either imports `playwright.sync_api` directly, is guarded by
+`chromium_available()`/`browser_support.py`, or fails at runtime with
+`браузер недоступен: Playwright не установлен` (confirmed by re-running
+`test_v23_secret_canary_e2e.py::test_canary_never_reaches_any_persisted_or_model_visible_surface`
+in isolation and reading the traceback). No non-browser regression was found
+in this pass. This matches the ledger's own §9/§13 statement that browser-env
+tests are expected NOT_RUN outside a real Chromium runtime, not a new finding.
+
+`command-center/tests/test_editors_user_acceptance.py` and
+`test_video_studio_playback_stall.py` were excluded from collection for the
+same reason (`ModuleNotFoundError: No module named 'playwright'` at import
+time) — consistent with §6's note that CI, not this sandbox, is authoritative
+for the browser-driven suites.
+
+**This re-verification changes no gate.** `OPEN_P0` remains **1**
+(`CANARY_PRODUCTION_CALLER`), for the exact reason recorded in §14: the canary
+window (`MIN_RUNS = 5`, first-five-in-id-order) is not representative, fixing
+it collides with `evaluate_canary`'s zero-tolerance rule against the existing
+positive control, and resolving that collision is an owner decision on canary
+semantics, not a mechanical fix. `command-center/tests/test_v5_canary_production_caller.py`
+was not re-run to a different result in this session; the three named hostile
+tests are still deliberately left failing and unmodified on the *separate,
+unmerged* `claude/v4-v5-p0-1-canary-production-caller` branch (PR #49), which
+this ledger's §14 already records as **not merged into the freeze candidate**.
+
+An even further WIP attempt exists on PR #49 at commit `11b0c4f` ("canary
+authority — evidence is written at terminal state, never rebuilt"). It is
+explicitly self-described by its own commit message as **NOT LANDED, not
+safe yet**: it closes two of the three hostile tests but regresses four
+previously-passing tests in `command-center/tests/test_v22_skill_learning.py`,
+including the one that drives the real production `after_run` hook. It is
+correctly left unmerged. Landing it as-is would trade one open gate for a new
+regression, which this freeze forbids.
+
+**Conclusion: `FEATURE_FREEZE_READY` stays `NO`.  `OPEN_P0 = 1`.** Per this
+program's own exit rule (§11) and this task's instruction, Phase B (Epoch 6 /
+V6 performance work) is **not started** in this session. Widening scope to
+"fix" the canary window without an owner decision on semantics would either
+reopen the promotion hole (representative sampling under zero-tolerance) or
+guess at a policy change outside this task's authority — both forbidden by
+§14 and by the instruction to stop and report rather than guess.
+
+---
+
+## 18. Post-freeze security/hygiene work landed on `claude/bossman-v4v5-freeze-v6-perf-t25pvx` (ported in with this merge)
+
+Since §17 above, the following commits landed on that branch and are now part
+of this line via merge into `v6/velocity-phase0-baseline-20260907`:
+
+- `41adf12` — SEC-002/003/004: removed a leaked plaintext credential default
+  from `solana_volume_suite` (fails closed without an explicit env credential
+  now), deleted two committed telemetry logs containing key/user_id/spend
+  data, and strengthened `tools/ci_secret_scan.py` (typed literal password
+  assignment, unquoted `PASSWORD=`, untracked `.env` scanning, narrowed
+  `DICT_HINT` self-skip) with paired positive/negative regression tests.
+- `ee5d46a` — AP-001: `terminal.run`'s unconfigured default root no longer
+  resolves to the whole `data_dir` (which holds `bcc.db` and a plaintext UI
+  token); it now defaults to the caller's per-agent scratch directory.
+  Root-selection regression tests added. **Not yet closed to the stricter
+  bar**: an end-to-end hostile exfiltration negative control (fake token file
+  outside scratch; prove `../`/absolute-path/symlink/mount cannot reach it,
+  and stdout/stderr never contain it) has not been added yet.
+- `dc97223` — DO-001/DO-017: desktop-operator backend preflight now runs
+  before the replan loop, failing fast instead of burning LLM calls on
+  `ModuleNotFoundError` from missing `pywinauto`/`pyautogui`.
+- `a604b3c` — redacted the leaked credential value from the two remaining
+  current-tracked docs that still quoted it, and fixed the repo's own
+  secret-scan CI (removed 6 oversized raw session-log JSONLs from the
+  scanned tree — each already had a sanitized `.md` report; added SHA-256 +
+  size provenance rather than deleting silently). No scanner limit was
+  raised and no exception/allowlist was added.
+
+**Still open, explicitly not closed by the above:**
+
+- **SEC-001** — whether the leaked credential was ever real/used and whether
+  it has been rotated/revoked is **owner/external knowledge**, not
+  determinable from this sandbox. `SEC_001_ROTATION_STATUS =
+  EXTERNAL_OWNER_ACTION_REQUIRED`. Rewriting git history to strip the value
+  (BFG or equivalent) was explicitly out of scope for this work and was not
+  done — it requires explicit owner authorization given it rewrites shared
+  history.
+- **CANARY_PRODUCTION_CALLER** — unchanged from §16/§17: still the one open
+  repo-local P0, still an owner decision on canary window semantics, not a
+  coding gap. PR #49's WIP attempt (`11b0c4f`) remains correctly unmerged.
+- **Findings-registry reconciliation** — `docs/acceptance/BACKLOG_110_FIXES_20260907.md`
+  still lists SEC-002/003/004 and AP-001 as open even though code fixes now
+  exist on this line; this was not reconciled before the branch was merged
+  here. Treat those backlog rows as stale pending an explicit pass to move
+  them to `VERIFIED_FIXED`.
+
+**`OPEN_P0` after this merge remains `1`** (canary authority), with the
+above security work verified fixed on this line's tests but the credential
+history question and hostile AP-001 negative control still open.
+
+### Correction note (this pass)
+
+An earlier attempt to land this merge (commits `d5c9ce0`/`e49987a`/`cc46bd4`
+on this branch) was corrupted by a `git stash`/checkout/`stash pop` sequence
+run mid-merge to test an unrelated hypothesis — it silently reverted most of
+the auto-merged content (everything except this file and `manager.py`'s
+`__init__`, and even those two were only partially preserved) back to the
+pre-merge tree before the commit was made, while the commit message claimed
+the full merge had landed. This was caught by diffing the pushed commit
+against `claude/bossman-v4v5-freeze-v6-perf-t25pvx` afterward — 45 of 56
+expected file changes had not actually landed. This pass reconstructs the
+merge file-by-file against `a604b3c` (verified with an exact diff before
+staging) and lands it as a corrective commit. No shared history was
+rewritten; the broken intermediate commits remain in the log with this
+correction on top.
