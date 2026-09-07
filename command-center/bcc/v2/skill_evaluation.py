@@ -38,6 +38,7 @@ from bossman_shared.objective_activation import (ActivationDecision, ActivationE
                                                  BroadActivationGate,
                                                  cohort_reports_from_facts)
 from bossman_shared.objective_canary import (FAILED, PENDING, CanaryError,
+                                             CanaryPlan, CanaryPolicy,
                                              CanaryVerdict)
 from bossman_shared.objective_store import ObjectiveStore, ObjectiveStoreError
 
@@ -390,39 +391,83 @@ async def canary_window(svc, version_id: int, *, after: int = 0
     return out
 
 
+# МЕСТА В КОГОРТЕ, А НЕ ИМЕНА ПРОГОНОВ.
+#
+# Когорта обязана быть заморожена ДО того, как её члены отчитаются. Если бы
+# членство звалось `run:<id>`, состав был бы известен только после того, как
+# нужные прогоны уже завершились: писатель на третьем прогоне и решение на
+# пятом строили бы РАЗНЫЕ планы, а значит и разные `run_id`, и отчёты писателя
+# оказывались бы уликой чужого прогона. Места же известны в момент заведения
+# сравнения, поэтому `run_id` неизменен с самого начала: каждый прогон
+# отчитывается о СВОЁМ месте в свой терминальный момент, а место без отчёта —
+# это молчание, которое ничем нельзя добрать задним числом.
+CANARY_SLOTS = tuple(f"slot:{i}" for i in range(1, CANARY_WINDOW + 1))
+
+
+def _slot_of(position: int) -> str:
+    """Место когорты по позиции прогона после отсечки (1-based)."""
+    return f"slot:{int(position)}"
+
+
+def _cohort_plan(gate: BroadActivationGate, ev: Mapping[str, Any],
+                 cand_row: Mapping[str, Any]) -> CanaryPlan:
+    """ОДИН план для писателя и для решения.
+
+    Он не зависит от того, какие прогоны уже случились: население — места,
+    а не прогоны. Поэтому писатель и решение всегда находят один и тот же
+    долговечный прогон.
+    """
+    # КОГОРТА — ВЕСЬ ИЗМЕРЕННЫЙ НАБОР, а не выборка из него. Доля по умолчанию
+    # взяла бы три места из пяти, и молчание двух оставшихся было бы невидимо:
+    # «мы туда не смотрели» превратилось бы в «претензий нет». При нулевом
+    # допуске отвечать обязаны все места окна.
+    return gate.plan(subject=f"skill:{int(ev['skill_id'])}",
+                     revision=candidate_revision(cand_row),
+                     members=list(CANARY_SLOTS),
+                     started_at=_epoch(ev.get("created_at") or utcnow()) - 1.0,
+                     policy=CanaryPolicy(min_cohort=CANARY_WINDOW,
+                                         max_cohort=CANARY_WINDOW),
+                     run_nonce=f"skill-eval:{int(ev['id'])}")
+
+
 async def record_canary_outcome(svc, version_id: int, run_id: int, status: str) -> None:
     """Записать канареечную улику ОДИН РАЗ — когда член когорты стал терминальным.
 
     Единственное место, где рождается канареечное здоровье. Решение потом только
-    ЧИТАЕТ эти долговечные отчёты. Молчание не успех: член без исхода не получает
-    отчёта, и дверь на нём закрыта.
+    ЧИТАЕТ эти долговечные отчёты. Молчание не успех: место без исхода не
+    получает отчёта, и дверь на нём закрыта.
     """
     if str(status) not in ("completed", "failed"):
         return
     healthy = str(status) == "completed"
-    member = f"run:{int(run_id)}"
     async with svc.db.session() as s:
         rows = (await s.execute(sa.select(evals_t).where(sa.and_(
             evals_t.c.status == "collecting",
             evals_t.c.candidate_version_id == version_id)))).fetchall()
     for row in rows:
-        await _record_member_outcome(svc, dict(row._mapping), member, healthy)
+        await _record_member_outcome(svc, dict(row._mapping), int(run_id), healthy)
 
 
-async def _record_member_outcome(svc, ev: dict[str, Any], member: str,
+async def _record_member_outcome(svc, ev: dict[str, Any], run_id: int,
                                  healthy: bool) -> None:
-    """Единственный писатель канареечной улики. Идемпотентен по члену когорты."""
+    """Единственный писатель канареечной улики. Идемпотентен по месту когорты."""
     cand_row = await _version_row(svc, int(ev["candidate_version_id"]))
     if cand_row is None:
         return
+    member = ""
     try:
+        window = await canary_window(svc, int(ev["candidate_version_id"]),
+                                     after=_cutoff_of(ev))
+        names = [m for m, _ in window]
+        try:
+            position = names.index(f"run:{int(run_id)}") + 1
+        except ValueError:
+            return                                    # прогон до отсечки — не член
+        if position > CANARY_WINDOW:
+            return                                    # за пределами когорты
+        member = _slot_of(position)
         gate = _gate(svc)
-        window = await canary_window(svc, int(ev["candidate_version_id"]))
-        plan = gate.plan(subject=f"skill:{int(ev['skill_id'])}",
-                         revision=candidate_revision(cand_row),
-                         members=[m for m, _ in window],
-                         started_at=_epoch(ev.get("created_at") or utcnow()) - 1.0,
-                         run_nonce=f"skill-eval:{int(ev['id'])}")
+        plan = _cohort_plan(gate, ev, cand_row)
         if member not in plan.cohort:
             return
         gate.open(plan, candidate=candidate_revision(cand_row))
@@ -430,14 +475,15 @@ async def _record_member_outcome(svc, ev: dict[str, Any], member: str,
             return                                    # ровно один раз
         at = _epoch(utcnow())
         if healthy:
-            gate.report_healthy(plan.run_id, member, at=at)
+            gate.report_healthy(plan.run_id, member, at=at,
+                                detail=f"terminal outcome: completed (run:{int(run_id)})")
         else:
             gate.report_unhealthy(plan.run_id, member, at=at,
-                                  detail="terminal outcome: failed")
+                                  detail=f"terminal outcome: failed (run:{int(run_id)})")
     except (ActivationError, CanaryError, ObjectiveStoreError) as exc:
         await svc.bus.emit("skill.canary.error",
                            evaluation_id=int(ev.get("id") or 0),
-                           member=member, error=str(exc)[:300])
+                           member=member or f"run:{int(run_id)}", error=str(exc)[:300])
 
 
 async def canary_decision(svc, ev: dict[str, Any], candidate_row: dict[str, Any]
@@ -454,20 +500,16 @@ async def canary_decision(svc, ev: dict[str, Any], candidate_row: dict[str, Any]
                                  after=_cutoff_of(ev))
     started = ev.get("created_at") or utcnow()
     now = _epoch(utcnow())
+    # Места когорты — РОВНО первые MIN_RUNS проспективных позиций после отсечки.
+    # Позиция занята прогоном по порядку идентификаторов; незанятое место —
+    # молчание. Именно поэтому население плана — места, а не прогоны: состав
+    # заморожен при заведении сравнения, до того как хоть кто-то отчитался,
+    # и писатель улики строит ТОТ ЖЕ план, что и это решение.
+    occupied = [(_slot_of(i + 1), healthy)
+                for i, (_member, healthy) in enumerate(window[:CANARY_WINDOW])]
     try:
         gate = _gate(svc)
-        # Когорта — РОВНО первые MIN_RUNS проспективных прогонов. Она стабильна,
-        # потому что последующие прогоны не меняют первых, и заморожена, потому
-        # что отсечка записана при заведении сравнения.
-        cohort_members = [member for member, _ in window][:CANARY_WINDOW]
-        if len(cohort_members) < CANARY_WINDOW:
-            return None, "", ActivationDecision(
-                "", False,
-                f"canary_incomplete:cohort {len(cohort_members)}/{CANARY_WINDOW}")
-        plan = gate.plan(subject=subject, revision=revision,
-                         members=cohort_members,
-                         started_at=_epoch(started) - 1.0,
-                         run_nonce=f"skill-eval:{int(ev['id'])}")
+        plan = _cohort_plan(gate, ev, candidate_row)
     except (ActivationError, CanaryError) as exc:
         # Окна нет или оно короче когорты — активация не разрешена. Мало данных
         # это не «претензий нет», это «не проверено».
@@ -507,13 +549,22 @@ async def canary_decision(svc, ev: dict[str, Any], candidate_row: dict[str, Any]
     # а не выводится здоровье: сам вердикт по-прежнему собирается из долговечных
     # отчётов, просто неприменимая улика не открывает дверь.
     cohort_set = set(plan.cohort)
-    silent = tuple(sorted(m for m, healthy in window
-                          if healthy is None and m in cohort_set))
+    # ПОЛНЫЙ ИЗМЕРЕННЫЙ НАБОР + НУЛЕВОЙ ДОПУСК (политика владельца на заморозку).
+    #
+    # Молчит не только незанятое место когорты: молчит ЛЮБОЙ прогон измеренного
+    # набора, не дошедший до исхода. Ограничивать проверку когортой значило бы
+    # мерить продвижение по первым пятерым и не смотреть на остальных, а «мы туда
+    # не смотрели» — не то же самое, что «там всё хорошо». Статистически
+    # выборочная канарейка может вернуться после заморозки; здесь отвечают все.
+    seen = dict(occupied)
+    silent = tuple(sorted(
+        set(m for m in cohort_set if seen.get(m) is None)
+        | set(m for m, healthy in window if healthy is None)))
     if silent:
         verdict = CanaryVerdict(
             state=PENDING, reason="canary_incomplete",
             revision_digest=plan.revision_digest,
-            reported=tuple(m for m, _ in window), silent=silent, attested=True)
+            reported=tuple(m for m, _ in occupied), silent=silent, attested=True)
         return gate, plan.run_id, ActivationDecision(
             plan.run_id, False, f"canary_incomplete:{','.join(silent)}", verdict)
     failed = tuple(sorted(m for m, healthy in window if healthy is False))
@@ -527,7 +578,7 @@ async def canary_decision(svc, ev: dict[str, Any], candidate_row: dict[str, Any]
         verdict = CanaryVerdict(
             state=FAILED, reason="canary_candidate_failed",
             revision_digest=plan.revision_digest,
-            reported=tuple(m for m, _ in window), unhealthy=failed, attested=True)
+            reported=tuple(m for m, _ in occupied), unhealthy=failed, attested=True)
         return gate, plan.run_id, ActivationDecision(
             plan.run_id, False, f"canary_failed:{','.join(failed)}", verdict)
     return gate, plan.run_id, gate.authorize(plan.run_id, now=now)
@@ -604,12 +655,28 @@ async def apply_human_decision(svc, evaluation_id: int, *, approve: bool,
             raise KeyError("версия сравнения исчезла")
         gate, run_id, decision = await canary_decision(svc, ev, cand_row)
         if not decision.allowed:
-            raise ValueError("канареечная дверь закрыта: " + decision.reason)
-        await _apply_promotion(svc, ev["skill_id"], ev["candidate_version_id"],
-                               gate=gate, run_id=run_id, grant=decision.grant)
-        values["applied"] = True
-        values["verdict"] = PROMOTE
-        values["reason"] = f"{ev['reason']} → одобрено человеком ({by})"
+            # ОДОБРЕНИЕ ЧЕЛОВЕКА НЕ ДЕЛАЕТ НЕПРОВЕРЕННОГО ПРОВЕРЕННЫМ.
+            #
+            # Человек полномочен в спорном измерении — «цифры в пределах шума,
+            # брать ли». Он не полномочен объявить здоровым член когорты,
+            # который упал, промолчал или не оставил улики: это вопрос факта, а
+            # не воли. Поэтому отказ двери здесь — не исключение, оборвавшее
+            # вызов, а ЗАПИСАННЫЙ исход: решение человека фиксируется, продвижение
+            # не происходит, и причина отказа остаётся в сравнении, чтобы
+            # владелец видел основание, а не только слово «нет».
+            values["verdict"] = HUMAN_REVIEW
+            values["applied"] = False
+            values["reason"] = (f"{ev['reason']} → одобрено человеком ({by}), но широкая "
+                                f"активация закрыта канареечной дверью: {decision.reason}")
+            metrics = dict(ev.get("metrics") or {})
+            metrics["canary"] = _canary_facts(decision, run_id, _cutoff_of(ev))
+            values["metrics"] = metrics
+        else:
+            await _apply_promotion(svc, ev["skill_id"], ev["candidate_version_id"],
+                                   gate=gate, run_id=run_id, grant=decision.grant)
+            values["applied"] = True
+            values["verdict"] = PROMOTE
+            values["reason"] = f"{ev['reason']} → одобрено человеком ({by})"
     else:
         values["verdict"] = REJECT
         values["reason"] = f"{ev['reason']} → отклонено человеком ({by})"

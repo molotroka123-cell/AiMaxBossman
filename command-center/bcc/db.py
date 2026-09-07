@@ -570,6 +570,44 @@ class Database:
         async with self.engine.begin() as conn:
             await conn.run_sync(metadata.create_all)
         await self._migrate()
+        await self._install_terminal_run_guard()
+
+    async def _install_terminal_run_guard(self) -> None:
+        """ТЕРМИНАЛЬНЫЙ ПРОГОН НЕИЗМЕНЯЕМ. Запрет живёт в БАЗЕ, а не в вызовах.
+
+        `task_runs.status` пишется примерно из двадцати мест движка, планировщика,
+        ресурсов и организации. Караулить каждое означало бы, что инвариант
+        держится ровно до следующего нового места записи, — а его обязаны
+        соблюдать ВСЕ границы, включая те, которых ещё нет. Поэтому запрет
+        поставлен там, где мимо него нельзя пройти.
+
+        Что запрещено: у прогона, уже дошедшего до `completed` или `failed`,
+        сменить `status` на другой. Это закрывает разом
+        completed→failed, failed→completed, completed→running, failed→running
+        и любой их вариант, включая прямую правку строки в базе.
+
+        Что разрешено и почему: запись того же самого статуса (идемпотентный
+        повтор финализации — это не переход) и правка ЛЮБЫХ других колонок
+        терминального прогона (улики, ссылки, брони дописываются после исхода).
+        Повторная попытка — это НОВЫЙ прогон с новым `attempt`, а не воскрешение
+        старого, поэтому легальные пути ничего здесь не теряют.
+        """
+        if not self.url.startswith("sqlite"):
+            # Триггер написан на диалекте SQLite. Молча «установить» его на
+            # другом движке значило бы объявить инвариант там, где его нет.
+            log.warning("terminal-run guard NOT installed: non-sqlite backend %r", self.url)
+            return
+        statement = """
+        CREATE TRIGGER IF NOT EXISTS runs_terminal_status_is_immutable
+        BEFORE UPDATE OF status ON task_runs
+        FOR EACH ROW
+        WHEN OLD.status IN ('completed', 'failed') AND NEW.status <> OLD.status
+        BEGIN
+            SELECT RAISE(ABORT, 'terminal run status is immutable');
+        END;
+        """
+        async with self.engine.begin() as conn:
+            await conn.execute(sa.text(statement))
 
     async def _migrate(self) -> None:
         """Идемпотентные ALTER для новых V2-колонок: create_all не расширяет

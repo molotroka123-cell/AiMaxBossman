@@ -96,19 +96,46 @@ async def _fail_run(env, run_id: int) -> None:
         await s.commit()
 
 
+def _run_at(plan, window, member: str) -> str:
+    """Прогон, занимающий место `member` когорты. Места нумеруются с единицы."""
+    names = list(window)
+    position = int(member.split(":")[1])
+    return names[position - 1]
+
+
+async def _running_run(env, version_id: int) -> int:
+    """Прогон кандидата, который ЕЩЁ ИДЁТ: член набора без терминального исхода.
+
+    Он не получает улики, потому что улику пишет только терминальный переход.
+    Это и есть молчание в его честном виде — не отозванная улика и не
+    испорченная запись, а член, который просто ещё не ответил.
+    """
+    started = utcnow()
+    async with env.svc.db.session() as s:
+        tid = int((await s.execute(sa.insert(tasks_t).values(
+            title=f"идущий прогон {version_id}", prompt="x", status="running",
+            skill_version_id=version_id, meta={"skill": "website-audit"},
+            created_at=started, updated_at=started))).inserted_primary_key[0])
+        rid = int((await s.execute(sa.insert(runs_t).values(
+            task_id=tid, attempt=1, status="running",
+            started_at=started))).inserted_primary_key[0])
+        await s.commit()
+    return rid
+
+
 async def _plan_for(env, evrow):
-    """Тот же план, что построит производственный путь: те же факты — тот же прогон."""
+    """Тот же план, что построит производственный путь: те же факты — тот же прогон.
+
+    План берётся у САМОГО производственного кода, а не воспроизводится здесь по
+    памяти. Собственная копия построения плана однажды уже разошлась с боевой
+    (писатель улики и решение строили разные когорты и потому разные прогоны),
+    и стенд этого не видел, потому что повторял ошибку вместе с ней.
+    """
     cand = await ev._version_row(env.svc, int(evrow["candidate_version_id"]))
-    # Та же отсечка, что и в бою: членами когорты могут быть только прогоны,
-    # завершившиеся ПОСЛЕ заведения сравнения.
     window = await ev.canary_window(env.svc, int(evrow["candidate_version_id"]),
                                     after=ev._cutoff_of(dict(evrow)))
     gate = ev._gate(env.svc)
-    plan = gate.plan(subject=f"skill:{int(evrow['skill_id'])}",
-                     revision=ev.candidate_revision(cand),
-                     members=[m for m, _ in window][:ev.CANARY_WINDOW],
-                     started_at=ev._epoch(evrow["created_at"] or utcnow()) - 1.0,
-                     run_nonce=f"skill-eval:{int(evrow['id'])}")
+    plan = ev._cohort_plan(gate, dict(evrow), cand)
     return gate, plan, dict(window)
 
 
@@ -282,29 +309,33 @@ async def test_another_service_identity_cannot_decide_this_run(env, monkeypatch)
         plan.run_id)["state"] == OPEN
 
 
-async def test_a_silent_cohort_member_denies_promotion(env, monkeypatch):
-    """Молчание — не успех. В бою это член когорты, чей прогон ещё не завершился."""
+async def test_a_silent_cohort_member_denies_promotion(env):
+    """Молчание — не успех: член измеренного набора без терминального исхода.
+
+    Прогон здесь по-настоящему не закончен, а не подменён патчем окна: он
+    заведён со статусом `running` и потому не оставил улики. Прежняя редакция
+    подменяла `canary_window`, то есть проверяла реакцию на выдуманное окно, а
+    не на реально молчащего члена.
+    """
     sid, base, cand, _, row = await _promotable(env)
-    real = ev.canary_window
-
-    async def _with_a_run_in_flight(svc, version_id, **kw):
-        window = await real(svc, version_id, **kw)
-        return [(m, (None if i == 0 else h)) for i, (m, h) in enumerate(window)]
-
-    monkeypatch.setattr(ev, "canary_window", _with_a_run_in_flight)
+    silent_run = await _running_run(env, cand)
     result = await _denied(env, sid, base, row, expect="canary_incomplete")
     assert result["metrics"]["canary"]["state"] == "PENDING"
-    assert result["metrics"]["canary"]["silent"]
+    assert f"run:{silent_run}" in result["metrics"]["canary"]["silent"]
 
 
 async def test_an_unhealthy_cohort_member_denies_promotion(env):
-    """Одного падения в когорте достаточно, хотя ЦИФРЫ дают PROMOTE."""
-    sid, base, cand, cand_runs, row = await _promotable(env, candidate_completed=10,
-                                                        candidate_failed=0)
-    _, plan, _ = await _plan_for(env, row)
-    broken = int(plan.cohort[0].split(":")[1])
-    await _fail_run(env, broken)                 # состав окна тот же, исход другой
-    after, _, _ = await _plan_for(env, row)
+    """Одного НАСТОЯЩЕГО падения в измеренном наборе достаточно.
+
+    Прогон падает сам, обычным путём, и его улика пишется один раз на
+    терминальном переходе. Терминальный исход неизменяем: доводить прогон до
+    `completed` и потом править строку на `failed` — это подделка исхода, а не
+    канареечный отказ, и такой стенд проверял бы реакцию на испорченную запись
+    вместо реакции на реальный провал.
+    """
+    sid, base, cand, cand_runs, row = await _promotable(env, candidate_completed=9,
+                                                        candidate_failed=1)
+    broken = int(cand_runs[-1])                  # последний прогон завершился падением
     result = await _denied(env, sid, base, row, expect="canary_failed")
     assert result["metrics"]["canary"]["state"] == "FAILED"
     assert result["metrics"]["canary"]["unhealthy"] == [f"run:{broken}"]
@@ -375,20 +406,29 @@ async def test_applying_without_a_grant_is_refused(env):
 
 
 async def test_a_human_approval_does_not_bypass_the_canary(env):
-    """Одобрение владельца решает СПОРНОЕ, но не делает непроверенное проверенным."""
+    """Одобрение владельца решает СПОРНОЕ, но не делает непроверенное проверенным.
+
+    Провал здесь НАСТОЯЩИЙ: четыре прогона кандидата завершились неудачей сами,
+    по обычному пути. Прежняя редакция доводила прогон до `completed`, а потом
+    правила его строку на `failed` прямо в базе — это подделка терминального
+    исхода, а не канареечный отказ, и она проверяла реакцию на испорченную
+    запись вместо реакции на реальный провал.
+    """
     sid, base, cand, _, _ = await _promotable(env, candidate_completed=6, candidate_failed=4)
-    async with env.svc.db.session() as s:                       # шум: 0.50 -> 0.60
-        pass
     row = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
                                    candidate_version_id=cand)
     result = await ev.refresh(env.svc, int(row["id"]))
     assert result["verdict"] == ev.HUMAN_REVIEW and result["applied"] is False
 
-    _, plan, _ = await _plan_for(env, row)
-    broken = int(plan.cohort[0].split(":")[1])
-    await _fail_run(env, broken)
-    with pytest.raises(ValueError, match="канареечная дверь закрыта"):
-        await ev.apply_human_decision(env.svc, int(row["id"]), approve=True, by="владелец")
+    # Человек одобряет. Отказ двери — записанный исход, а не исключение: владелец
+    # обязан увидеть ОСНОВАНИЕ отказа, а не только то, что вызов не прошёл.
+    decided = await ev.apply_human_decision(env.svc, int(row["id"]), approve=True, by="владелец")
+    assert decided["applied"] is False
+    assert decided["verdict"] == ev.HUMAN_REVIEW
+    assert "канареечной дверью" in decided["reason"]
+    assert decided["decided_by"] == "владелец"
+    assert decided["metrics"]["canary"]["allowed"] is False
+    # И главное: версия не переключилась.
     assert await _current(env, sid) == base
 
 
@@ -442,13 +482,20 @@ async def test_the_real_sequence_canary_restart_activation_failure_rollback_rest
                                      candidate_version_id=cand)
     await _runs(env, cand, completed=10, failed=0)                   # v2: 1.00
 
-    # --- Канарейка: отчёты когорты ложатся в ХРАНИЛИЩЕ до всякой активации.
-    gate, plan, _ = await _plan_for(env, first)
-    gate.open(plan, candidate="x")
-    for member in plan.cohort:
-        gate.report_healthy(plan.run_id, member, at=plan.started_at + 1.0)
-    assert gate.state(plan.run_id) == OPEN
-    del gate
+    # --- Канарейка: улики уже в ХРАНИЛИЩЕ, и положил их туда НЕ этот стенд.
+    #
+    # Каждый прогон выше записал свой исход на терминальном переходе — тем же
+    # путём, что и в бою. Раньше здесь докладывали здоровье вручную через
+    # `gate.report_healthy`; это чеканка улики стендом, то есть ровно то, чего
+    # дверь и обязана не принимать на веру. Теперь стенд только ПРОВЕРЯЕТ, что
+    # улика появилась сама.
+    _, plan, _ = await _plan_for(env, first)
+    store_before = ObjectiveStore(ev._canary_store_path(env.svc))
+    assert store_before.canary_run(plan.run_id)["state"] == OPEN
+    reported_before = {r["objective_id"] for r in store_before.canary_reports(plan.run_id)}
+    assert set(plan.cohort) <= reported_before
+    assert all(r["healthy"] for r in store_before.canary_reports(plan.run_id))
+    del store_before
 
     # --- ПЕРЕЗАПУСК: новая ручка стора и новая дверь видят те же улики.
     fresh = BroadActivationGate(ObjectiveStore(ev._canary_store_path(env.svc)),
@@ -475,13 +522,24 @@ async def test_the_real_sequence_canary_restart_activation_failure_rollback_rest
         await s.commit()
     second = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=cand,
                                       candidate_version_id=third)
-    await _runs(env, third, completed=10, failed=0)                  # цифры за продвижение
+    # Падение НАСТОЯЩЕЕ: один прогон третьей версии завершается неудачей сам.
+    # Прежняя редакция доводила прогон до `completed` и потом правила строку в
+    # базе — теперь такой переход отвергается на уровне БД
+    # (см. tests/test_v5_terminal_run_immutability.py), и это правильно:
+    # подделанный исход не должен был проходить и раньше.
+    # Падение попадает В КОГОРТУ (третьим прогоном), а не в хвост измеренного
+    # набора: тогда на терминальном переходе пишется НАСТОЯЩАЯ улика «нездоров»,
+    # и отказ опирается на долговечный отчёт, а не только на вето по строке
+    # прогона. Оба механизма обязаны работать, но именно этот оставляет след.
+    early = await _runs(env, third, completed=2, failed=1)
+    broken_run = int(early[-1])
+    await _runs(env, third, completed=7, failed=0)                   # цифры за продвижение
     _, third_plan, _ = await _plan_for(env, second)
-    await _fail_run(env, int(third_plan.cohort[0].split(":")[1]))
 
     denied = await ev.refresh(env.svc, int(second["id"]))
     assert denied["verdict"] == ev.HUMAN_REVIEW and denied["applied"] is False
     assert "canary_failed" in denied["reason"]
+    assert denied["metrics"]["canary"]["unhealthy"] == [f"run:{broken_run}"]
     assert await _current(env, sid) == cand                          # парк не тронут
 
     # --- НАСТОЯЩИЙ откат: возврат на v1 идёт через ТУ ЖЕ дверь, а не мимо неё.

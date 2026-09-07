@@ -165,11 +165,19 @@ async def test_noise_goes_to_human_with_an_approval(env):
     assert appr._mapping["kind"] == "skill_promotion"
     assert appr._mapping["status"] == "pending"
 
-    # применить спорного кандидата может только человек
+    # Спорного кандидата применяет только человек — и только если канареечная
+    # дверь открыта. Здесь она закрыта: в измеренном наборе кандидата семь
+    # упавших прогонов, а политика заморозки — полный измеренный набор с нулевым
+    # допуском. Одобрение владельца полномочно в спорном ИЗМЕРЕНИИ («цифры в
+    # пределах шума, брать ли»), но не объявляет упавший прогон здоровым: это
+    # вопрос факта, а не воли.
     decided = await ev.apply_human_decision(env.svc, int(row["id"]), approve=True, by="владелец")
-    assert decided["verdict"] == ev.PROMOTE and decided["applied"] is True
     assert decided["decided_by"] == "владелец"
-    assert await _current_version(env, sid) == cand
+    assert decided["applied"] is False
+    assert decided["verdict"] == ev.HUMAN_REVIEW
+    assert "канареечной дверью" in decided["reason"]
+    # Ключевое: версия НЕ переключилась, несмотря на одобрение человека.
+    assert await _current_version(env, sid) == base
 
 
 async def test_widened_permissions_never_auto_promote(env):
