@@ -133,3 +133,18 @@ def test_the_cli_emits_valid_json_with_both_arms(tmp_path):
     assert report["observation_calls_saved"] == 6
     assert report["with_observation_reuse"]["steps"] == 6
     assert report["without_observation_reuse"]["observations_reused"] == 0
+
+
+def test_phase_timing_is_measured_per_phase_and_never_below_the_declared_cost():
+    """V6 §A: the manager measures each phase's wall time itself. A declared 20 ms
+    observation cannot show up as less than 20 ms; phases that never ran are
+    absent, not zero."""
+    r = run(steps=6, observe_ms=20, plan_ms=10, act_ms=5, reuse_max_age_s=0.0)
+    pt = r["phase_timing"]
+    assert set(pt) >= {"observe", "plan", "act"}, pt
+    assert pt["observe"]["count"] == r["observations"] - r["boundary_probes"] or pt["observe"]["count"] >= 6
+    assert pt["observe"]["total_ms"] >= pt["observe"]["count"] * 20 * 0.95
+    assert pt["plan"]["total_ms"] >= pt["plan"]["count"] * 10 * 0.95
+    assert pt["act"]["count"] == r["steps"] and pt["act"]["total_ms"] >= r["steps"] * 5 * 0.95
+    for row in pt.values():
+        assert row["max_ms"] >= row["mean_ms"] and row["timeouts"] == 0 and row["errors"] == 0

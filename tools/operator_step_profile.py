@@ -217,6 +217,10 @@ async def profile(*, steps: int, observe_ms: float, plan_ms: float, act_ms: floa
         "declared_costs_ms": {"observe": observe_ms, "probe": probe_ms,
                               "plan": plan_ms, "act": act_ms},
         "declared_total_ms": round(declared_ms, 3),
+        # V6 §A: measured wall time per loop phase (observe/plan/act/...), taken
+        # by the manager itself. Includes the declared cost, so a declared
+        # 20 ms observation shows up as >= 20 ms here — never less.
+        "phase_timing": mgr.phase_timing_report(),
         "wall_total_ms": round(total_ms, 3),
         "framework_overhead_ms": round(total_ms - declared_ms, 3),
         "framework_overhead_per_step_ms": round((total_ms - declared_ms) / adapter.executed, 4),

@@ -170,6 +170,10 @@ class ComputerOperatorManager:
         self.plan_timeout_s=self._timeout(plan_timeout_s)
         self.act_timeout_s=self._timeout(act_timeout_s)
         self.step_timeouts=0; self.unknown_effects_parked=0   # замер, не гейт
+        # V6 §A: сколько стоит каждая фаза шага (observe/plan/act/…) по стенным
+        # часам — измерено в _bounded, а не объявлено. Замер, не гейт: ничего
+        # здесь не меняет решений цикла.
+        self.phase_timing={}   # phase -> {"count","total_ms","max_ms","timeouts","errors"}
 
     @staticmethod
     def _timeout(v):
@@ -535,6 +539,7 @@ class ComputerOperatorManager:
         """
         task=asyncio.ensure_future(coro)
         deadline=None if seconds is None else time.monotonic()+seconds
+        started=time.monotonic(); outcome="ok"
         try:
             while True:
                 budget=OWNER_POLL_S if deadline is None else min(OWNER_POLL_S,max(0.0,deadline-time.monotonic()))
@@ -547,8 +552,15 @@ class ComputerOperatorManager:
                 if deadline is not None and time.monotonic()>=deadline:
                     self.step_timeouts+=1
                     self._signal_interrupt(t.id)
+                    outcome="timeout"
                     raise StepTimeout(phase,seconds)
+        except StepTimeout:
+            raise
+        except BaseException:
+            outcome="error"
+            raise
         finally:
+            self._record_phase(phase,(time.monotonic()-started)*1000,outcome)
             if not task.done():
                 task.cancel()
                 # Ждём саму обёртку, а не работу: без этого «Task was destroyed
@@ -557,6 +569,21 @@ class ComputerOperatorManager:
                 except asyncio.CancelledError:raise
             elif not task.cancelled():
                 task.exception()   # исход прочитан — иначе предупреждение в лог
+
+    def _record_phase(self,phase,ms,outcome):
+        row=self.phase_timing.setdefault(phase,{"count":0,"total_ms":0.0,"max_ms":0.0,"timeouts":0,"errors":0})
+        row["count"]+=1; row["total_ms"]+=ms; row["max_ms"]=max(row["max_ms"],ms)
+        if outcome=="timeout":row["timeouts"]+=1
+        elif outcome=="error":row["errors"]+=1
+
+    def phase_timing_report(self):
+        """Копия для отчётов: count, total_ms, max_ms, mean_ms по фазам. Нет фазы —
+        нет строки; нули не выдумываются."""
+        out={}
+        for phase,row in self.phase_timing.items():
+            out[phase]={**{k:(round(v,3) if isinstance(v,float) else v) for k,v in row.items()},
+                        "mean_ms":round(row["total_ms"]/row["count"],3) if row["count"] else None}
+        return out
 
     def _park_unknown_effect(self,t,reason):
         """Отправить задачу на сверку: ввод ушёл, исход неизвестен (A3-04/H04).
