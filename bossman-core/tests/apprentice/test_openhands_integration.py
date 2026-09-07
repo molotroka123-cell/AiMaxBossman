@@ -1,228 +1,50 @@
-"""
-Integration tests for TeacherFallback + OpenHandsClient wiring.
+from __future__ import annotations
 
-These tests verify the full integration between TeacherFallback,
-TeacherSandbox, and OpenHandsClient with improved coverage.
-"""
-
-import pytest
+import sys
 from pathlib import Path
 
-
-class TestTeacherSandboxIntegration:
-    """Test TeacherSandbox integration with OpenHandsClient."""
-    
-    def test_sandbox_creation(self):
-        """Test that sandbox can be created with OpenHands enabled."""
-        from bossman.apprentice.teacher_sandbox import TeacherSandbox
-        
-        sandbox = TeacherSandbox(
-            workspace_root="/tmp/test_workspace",
-            allowed_paths=["/tmp/test_workspace/src"],
-            protected_paths=["/tmp/test_workspace/config.py"],
-            openhands_enabled=False
-        )
-        
-        assert sandbox.workspace_root == Path("/tmp/test_workspace").resolve()
-        assert len(sandbox.allowed_paths) == 1
-        assert len(sandbox.protected_paths) == 1
-        assert sandbox.openhands_enabled == False
-        assert sandbox.openhands_client is None
-    
-    def test_sandbox_with_openhands(self):
-        """Test sandbox initialization with OpenHands enabled."""
-        from bossman.apprentice.teacher_sandbox import TeacherSandbox
-        
-        sandbox = TeacherSandbox(
-            workspace_root="/tmp/test_workspace",
-            allowed_paths=["/tmp/test_workspace/src"],
-            protected_paths=["/tmp/test_workspace/config.py"],
-            openhands_enabled=False
-        )
-        
-        result = sandbox.execute("test task")
-        assert result["status"] == "fallback"
-        assert result["task"] == "test task"
-    
-    def test_path_validation(self):
-        """Test path validation logic."""
-        from bossman.apprentice.teacher_sandbox import TeacherSandbox
-        
-        sandbox = TeacherSandbox(
-            workspace_root="/tmp/test",
-            allowed_paths=["/tmp/test/src", "/tmp/test/docs"],
-            protected_paths=["/tmp/test/config.py"],
-            openhands_enabled=False
-        )
-        
-        # Allowed paths
-        assert sandbox.is_path_allowed("/tmp/test/src/main.py") == True
-        assert sandbox.is_path_allowed("/tmp/test/docs/readme.md") == True
-        
-        # Protected paths
-        assert sandbox.is_path_allowed("/tmp/test/config.py") == False
-        
-        # Out of scope
-        assert sandbox.is_path_allowed("/tmp/other/file.py") == False
-        assert sandbox.is_path_allowed("/etc/passwd") == False
-    
-    def test_sandbox_status(self):
-        """Test sandbox status reporting."""
-        from bossman.apprentice.teacher_sandbox import TeacherSandbox
-        
-        sandbox = TeacherSandbox(
-            workspace_root="/tmp/test",
-            allowed_paths=["/tmp/test/src"],
-            protected_paths=["/tmp/test/config.py"],
-            openhands_enabled=False
-        )
-        
-        status = sandbox.get_status()
-        
-        assert "workspace_root" in status
-        assert "allowed_paths" in status
-        assert "protected_paths" in status
-        assert "openhands_enabled" in status
-        assert "openhands_client" in status
-        assert status["allowed_paths"] == 1
-        assert status["protected_paths"] == 1
-        assert status["openhands_enabled"] == False
+from bossman.apprentice import flags
+from bossman.apprentice.openhands_teacher_client import OpenHandsTeacherClient
+from bossman.apprentice.teacher import FallbackReason
+from bossman.apprentice.teacher_sandbox import hermetic_workspace, scrubbed_env
+from bossman.apprentice.teacher_wiring_patch import OpenHandsFallback, build_openhands_fallback, openrouter_provider_env
 
 
-class TestTeacherWiringPatch:
-    """Test TeacherOpenHandsIntegration wiring."""
-    
-    def test_integration_creation(self):
-        """Test that integration layer can be created."""
-        from bossman.apprentice.teacher_wiring_patch import TeacherOpenHandsIntegration
-        
-        class MockClient:
-            def execute_task(self, **kwargs):
-                return {"files": {"test.py": "content"}}
-        
-        integration = TeacherOpenHandsIntegration(
-            openhands_client=MockClient(),
-            allowed_paths=["/src"],
-            protected_paths=["/config.py"]
-        )
-        
-        assert integration.allowed_paths == ["/src"]
-        assert integration.protected_paths == ["/config.py"]
-        assert integration._mission_complete_override == False
-    
-    def test_path_allowed_check(self):
-        """Test path allowed checking in integration."""
-        from bossman.apprentice.teacher_wiring_patch import TeacherOpenHandsIntegration
-        
-        class MockClient:
-            pass
-        
-        integration = TeacherOpenHandsIntegration(
-            openhands_client=MockClient(),
-            allowed_paths=["/src", "/docs"],
-            protected_paths=["/config.py", "/.env"]
-        )
-        
-        # Allowed
-        assert integration._is_path_allowed("/src/main.py") == True
-        assert integration._is_path_allowed("/docs/readme.md") == True
-        
-        # Protected
-        assert integration._is_path_allowed("/config.py") == False
-        assert integration._is_path_allowed("/.env") == False
-        
-        # Out of scope
-        assert integration._is_path_allowed("/other/file.py") == False
-    
-    def test_mission_completion_control(self):
-        """Test that mission completion is controlled by Bossman."""
-        from bossman.apprentice.teacher_wiring_patch import TeacherOpenHandsIntegration
-        
-        class MockClient:
-            pass
-        
-        integration = TeacherOpenHandsIntegration(
-            openhands_client=MockClient(),
-            allowed_paths=["/src"],
-            protected_paths=[]
-        )
-        
-        # OpenHands cannot complete mission by itself
-        assert integration.can_complete_mission() == False
-        
-        # Request completion returns False (Bossman decides)
-        result = integration.request_mission_completion()
-        assert result == False
+def test_openhands_feature_flag_is_independent_and_off_by_default(monkeypatch):
+    fallback = OpenHandsFallback.__new__(OpenHandsFallback)
+    task = type("Task", (), {"owner_requested_fallback": False})()
+    monkeypatch.delenv(flags.OPENHANDS_CODE_FALLBACK, raising=False)
+    assert "off" in fallback.allowed(FallbackReason.ATTEMPTS_EXHAUSTED, task)
+    monkeypatch.setenv(flags.OPENHANDS_CODE_FALLBACK, "1")
+    assert fallback.allowed(FallbackReason.ATTEMPTS_EXHAUSTED, task) == ""
 
 
-class TestSecurityGuarantees:
-    """Test all security guarantees are enforced."""
-    
-    def test_allowed_paths_enforcement(self):
-        """Verify allowed paths are enforced."""
-        from bossman.apprentice.teacher_sandbox import TeacherSandbox
-        
-        sandbox = TeacherSandbox(
-            workspace_root="/tmp/test",
-            allowed_paths=["/tmp/test/src"],
-            protected_paths=[],
-            openhands_enabled=False
-        )
-        
-        # Can write to allowed
-        assert sandbox.is_path_allowed("/tmp/test/src/file.py") == True
-        
-        # Cannot write outside
-        assert sandbox.is_path_allowed("/tmp/test/other/file.py") == False
-    
-    def test_protected_paths_enforcement(self):
-        """Verify protected paths are read-only."""
-        from bossman.apprentice.teacher_sandbox import TeacherSandbox
-        
-        sandbox = TeacherSandbox(
-            workspace_root="/tmp/test",
-            allowed_paths=["/tmp/test/src"],
-            protected_paths=["/tmp/test/config.py"],
-            openhands_enabled=False
-        )
-        
-        # Protected even if in allowed tree
-        assert sandbox.is_path_allowed("/tmp/test/config.py") == False
-    
-    def test_fail_closed_behavior(self):
-        """Verify fail-closed on security violations."""
-        from bossman.apprentice.teacher_wiring_patch import TeacherOpenHandsIntegration
-        
-        class MockClient:
-            def execute_task(self, **kwargs):
-                return {"files": {"/etc/passwd": "malicious"}}
-        
-        integration = TeacherOpenHandsIntegration(
-            openhands_client=MockClient(),
-            allowed_paths=["/src"],
-            protected_paths=[]
-        )
-        
-        # Should raise on security violation
-        with pytest.raises(ValueError, match="Fail-closed"):
-            integration.execute_code_task("malicious task")
-    
-    def test_no_auto_mission_completion(self):
-        """Verify OpenHands cannot auto-complete missions."""
-        from bossman.apprentice.teacher_wiring_patch import TeacherOpenHandsIntegration
-        
-        class MockClient:
-            pass
-        
-        integration = TeacherOpenHandsIntegration(
-            openhands_client=MockClient(),
-            allowed_paths=[],
-            protected_paths=[]
-        )
-        
-        # OpenHands cannot decide mission completion
-        assert integration.request_mission_completion() == False
+def test_openrouter_provider_env_filters_unrelated_secrets():
+    out = openrouter_provider_env({
+        "OPENROUTER_API_KEY":"k", "OPENROUTER_BASE_URL":"https://example.invalid",
+        "AWS_SECRET_ACCESS_KEY":"must-not-cross", "OPENAI_API_KEY":"must-not-cross"})
+    assert out == {"OPENROUTER_API_KEY":"k", "OPENROUTER_BASE_URL":"https://example.invalid"}
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+def test_builder_requires_openrouter_and_constructs_teacher_adapter():
+    fallback = build_openhands_fallback(
+        workspace=object(), verifier=object(), teacher=object(), command=[sys.executable, "-c", "pass"],
+        model="openrouter/anthropic/test", provider_env={"OPENROUTER_API_KEY":"k", "AWS_SECRET_ACCESS_KEY":"no"})
+    assert isinstance(fallback.client, OpenHandsTeacherClient)
+    assert fallback.client.client.env == {"OPENROUTER_API_KEY":"k"}
+
+
+def test_existing_hermetic_teacher_sandbox_is_preserved(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "must-not-cross")
+    bundle = {"files":{"src/a.py":"VALUE = 1\n"},"constraints":["no push"],"failing_test":"assert VALUE == 2"}
+    with hermetic_workspace(bundle) as hw:
+        path = hw.path
+        assert path.exists() and not (path / ".git").exists() and not (path / ".env").exists()
+        assert "OPENROUTER_API_KEY" not in hw.env
+        assert (path / "src/a.py").read_text(encoding="utf-8") == "VALUE = 1\n"
+    assert not path.exists()
+
+
+def test_scrubbed_env_removes_bossman_and_provider_credentials():
+    env = scrubbed_env({"PATH":"/bin", "BOSSMAN_SECRET":"x", "OPENROUTER_API_KEY":"y", "AWS_SECRET_ACCESS_KEY":"z"})
+    assert env == {"PATH":"/bin"}
