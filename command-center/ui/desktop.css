@@ -86,6 +86,10 @@ body { background: var(--desktop-wallpaper); background-attachment: fixed; }
   }
   .desktop-dock-item.active { box-shadow: inset 0 -3px var(--accent); }
   body .bx-cmd { bottom: 96px; max-height: calc(100dvh - 125px); overflow-y: auto; }
+  /* Video Studio считает высоту от окна, а не от оболочки (рамка 16px, шапка
+     62px, отступы 24px, полоса дока 96px): при 1440×900 студия была на
+     ~110px выше доступного места и таймлайн уходил под док. */
+  .view .vs-studio { height: calc(100dvh - 250px); min-height: 640px; }
   @supports (backdrop-filter: blur(16px)) {
     .shell { background: transparent; }
     .shell::before, .desktop-dock { background: var(--desktop-glass); backdrop-filter: blur(16px); }
