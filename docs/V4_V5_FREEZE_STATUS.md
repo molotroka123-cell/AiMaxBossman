@@ -1,9 +1,12 @@
 # V4/V5 Feature Freeze — Certification Status
 
 **Document status:** LIVE certification record. This is the authoritative freeze ledger.
-**Branch under certification:** `claude/v4-v5-freeze-p0-gates-l56exm`
-**FEATURE_FREEZE_READY:** **NO**
-**OPEN_P0:** **3**
+**Branch under certification:** `claude/bossman-v4v5-freeze-v6-perf-t25pvx` (live line) + canary port `claude/v4-v5-canary-port-live-20260907`
+**FEATURE_FREEZE_READY:** **NO** — §11 condition 1 (all P0 closed) is now met on the integrated head; condition 2 (live/evidence gates actually run) is not.
+**OPEN_P0:** **0** (repo-local, exact SHA `2ededc88`; see §17)
+
+> Reading order: **§17 is the current state.** §3 and the header counts of earlier
+> sections (OPEN_P0 = 3, later 1) are preserved as history and are superseded by §17.
 
 > This document records gate state honestly. A gate is never marked PASS without naming
 > its evidence. Anything not independently verifiable from this repo is marked
@@ -77,9 +80,9 @@ and that no branch points at.
 
 ---
 
-## 3. The Three Open P0s
+## 3. The Three Open P0s — HISTORICAL (superseded by §17)
 
-All three are **IN_PROGRESS on this branch**. None is closed.
+At the time of writing all three were **IN_PROGRESS on this branch**. Current state: §17.
 
 1. **Canary production caller** — `CANARY_PRODUCTION_CALLER`
 2. **Real resolver evidence for `SATISFIED`** — `SATISFIED_EVIDENCE_GATE`
@@ -579,3 +582,114 @@ V6 performance work) is **not started** in this session. Widening scope to
 reopen the promotion hole (representative sampling under zero-tolerance) or
 guess at a policy change outside this task's authority — both forbidden by
 §14 and by the instruction to stop and report rather than guess.
+
+---
+
+## 17. Canary P0 closed on the live line — `2ededc88` (this session)
+
+**What this session did.** The live verification line
+`claude/bossman-v4v5-freeze-v6-perf-t25pvx` was observed at `d772d5b3` and moved to
+`a604b3c7` (another agent's security/CI commits) while this work ran. Neither head carried
+the canary production-caller closure: `test_v5_canary_production_caller.py`,
+`test_v5_terminal_run_immutability.py`, the `runs_terminal_status_is_immutable` trigger
+and the canonical `_cohort_plan` were absent (`git diff --stat 196a55ea d772d5b3` on the
+five canary files = 1 316 deletions). PR #49 (`1efb5471`) and the freeze candidate
+(`196a55ea`) carry byte-identical canary code. It was ported **by path, not by merge**
+onto the live line (`f2043e90`/`330ef092` → merged with `a604b3c7` as `2ededc88`, tree
+`c3818e3b`), preserving every newer SATISFIED / AT-01 / security / CI fix of the live line
+(no file overlap: `comm -12` of both diffs against merge-base `8983f32` is empty).
+
+**What the port guarantees (all tested on the integrated head):**
+
+- one canonical cohort plan shared by writer and decision (`writer_plan.run_id ==
+  decision_plan.run_id`, permanent regression);
+- full measured cohort policy (`CanaryPolicy(min_cohort=max_cohort=CANARY_WINDOW)`),
+  positional slots fixed at evaluation open;
+- zero-tolerance factual health: a failed member, or a silent/unattested slot over the
+  full window, denies;
+- human approval may resolve a statistically-noisy candidate with a clean canary and
+  can never turn a failed/silent member healthy (two separate tests);
+- terminal `completed`/`failed` runs immutable at the DB boundary (SQLite trigger);
+- decision reads durable reports; early-terminal enrolled members keep evidence;
+- rollback after a failed canary is exercised end to end (N8 sequence);
+- no second signer/ledger was introduced as an authorization source.
+
+**Hostile + positive controls on `2ededc88` / `1f73bc18` (identical `command-center/`):**
+
+| # | Control | Test | Result |
+|---|---|---|---|
+| 1 | later healthy report cannot erase an earlier failure | `test_an_unhealthy_cohort_member_denies_promotion`, `test_evidence_from_a_previous_run_denies_promotion` | PASS |
+| 2 | report permutations are failure-monotone | `test_stale_evidence_denies_promotion` + Astra helper probe `test_canary_verdict_is_failure_monotone_under_all_report_permutations` (bossman_shared) | PASS |
+| 3 | health accepts only exact bool/None | Astra helper probe `test_canary_health_requires_boolean_not_truthy_or_falsey_surrogate` ×4 | PASS |
+| 4 | empty/nonexistent/foreign-revision evidence cannot establish success | `test_forged_evidence_denies_promotion`, `test_evidence_for_another_revision_denies_promotion` (production path) | PASS |
+| 5 | wrong objective/revision/cohort/run/service/attempt evidence denied | `test_evidence_for_another_member…`, `…another_revision…`, `…previous_run…`, `…another_process…` | PASS |
+| 6 | silent cohort member denied | `test_a_silent_cohort_member_denies_promotion` | PASS |
+| 7 | restart without the durable canary run denied | `test_a_restart_without_the_durable_run_denies`, `…without_the_evidence_key_denies` | PASS |
+| 8 | another service identity cannot decide the run | `test_another_service_identity_cannot_decide_this_run` | PASS |
+| 9 | human approval cannot bypass factual canary failure | `test_a_human_approval_does_not_bypass_the_canary` | PASS |
+| 10 | duplicate/reordered reports cannot change the verdict | Astra probe `test_canary_identical_healthy_replay_is_idempotent_control` + `test_the_writer_and_the_decision_build_the_same_canary_run` | PASS |
+| 11 | terminal completed/failed run cannot be rewritten | `test_v5_terminal_run_immutability.py` (5 tests, 10 cases) | PASS |
+| 12 | positive control still promotes a genuinely healthy candidate | `test_the_promotion_path_now_goes_through_the_canary_door`, `test_owner_may_approve_a_noisy_candidate_with_a_clean_canary` | PASS |
+| 13 | N8: terminal evidence → restart → activation → in-cohort failure → deny → rollback → restart → previous revision authoritative | `test_the_real_sequence_canary_restart_activation_failure_rollback_restart` | PASS |
+
+Focused suites: `test_v5_canary_production_caller` + `test_v5_terminal_run_immutability` +
+`test_v22_skill_learning` + `test_v23_secret_canary_e2e` = **45 passed** on `330ef092`;
+with `test_feat_missions` + `test_apps_control` = **78 passed** on `2ededc88`.
+
+**Astra PR #42 probes re-run on the integrated head (probes, not patches; kept out of the tree):**
+
+- `tests/test_v5_independent_verification.py`: 39 passed, **3 failed** — all three are
+  `test_canary_unattested_or_foreign_evidence_does_not_establish_success[…]` against the
+  *generic helper* `bossman_shared.objective_canary.evaluate_canary`, which does not
+  resolve evidence references (CAN-001-class helper finding, already classed DO-NOT-REDO).
+  The production path resolves them: controls 4/5 above pass. Not a P0.
+- `bossman-core/tests/test_v5_independent_at01.py`: 4 passed, **1 failed**
+  (`test_at01_exact_requested_file_positive_control` → FAILED instead of COMPLETED, reason
+  `fake planner exhausted`). Cause: the probe (pinned to `9cb1fb4`) wires no
+  `obligation_probe`; on the current head a file obligation without a disk-reading port is
+  fail-closed by design (`_completion_blocked`), and production wiring passes
+  `file_probe(Path.home())` (`subsystem.py`). Re-running the identical scenario with
+  `obligation_probe=file_probe(tmp)` → **COMPLETED**, file content verified. Not a
+  counterexample; AT-01 stays PASS / CLOSED_DO_NOT_REDO.
+- `bossman-core/tests/test_v5_independent_durability.py`: passed.
+
+**Regression on the integrated head (Phase 2):**
+
+| Suite | TESTED_SHA | Result |
+|---|---|---|
+| root `tests/` | `2ededc88` | **1135 passed, 2 skipped** |
+| bossman-core AT-01/AT-03/promotion/durability/owner-auth/stage13 | `2ededc88` | **92 passed, 1 skipped** (+57 passed incl. Astra probes on `330ef092`) |
+| command-center lifecycle/fencing/provider/objectives/recovery + canary | `330ef092` | **107 passed** |
+| command-center full | `1f73bc18` (same `command-center/` tree as `2ededc88`) | **2076 passed, 9 failed, 142 skipped** — the 9 are the known sandbox-only browser failures (6 × ffmpeg encoder absent, 3 × pointer input to the opaque-origin web-designer iframe); Command Center CI with system ffmpeg is the authority for them |
+| `tools/ci_secret_scan.py` | `2ededc88` | PASS (was red on `d772d5b3`/`1f73bc18` because of six > 2 MB session logs; fixed on the live line by `a604b3c7`) |
+| GitHub CI | `2ededc88` | root-ci **success**, ASTRA **success**, Solana **success**; Command Center CI and Bossman Core CI were still running at commit time — read run 34143763354 / 34143763303 before quoting them |
+
+`SOURCE_SHA = 2ededc88402ae565a8ade8787ab1eddf4646d5a2` (tree `c3818e3b…`).
+`TESTED_SHA` per suite as listed; the merge commit itself is integration evidence, and the
+root/core suites were run on that exact checkout.
+
+**Gate outcome.** `CANARY_PRODUCTION_CALLER = CLOSED (repo-local, exact SHA)`.
+`OPEN_P0 = 0` (repo-local). Together with §12–§16 (`SATISFIED_EVIDENCE_GATE = PASS`,
+`AT-01 = PASS`, `AT-03 = CLOSED_DO_NOT_REDO`, `VIDEO_CFR/PLAYBACK = CLOSED_DO_NOT_REDO`)
+this satisfies **§11 condition 1**. **§11 condition 2 is still unmet**:
+`INTELLIGENCE_PRESERVATION`, `N4/N5/N6/N8` (owner-machine), `WINDOWS_ACCEPTANCE`,
+`LOCAL_MODEL_ACCEPTANCE`, soak — all `NOT_RUN`. Therefore `FEATURE_FREEZE_READY = NO`,
+and the reason is evidence, not code.
+
+**Owner-session fixes carried onto this line (Phase 4, no file overlap with the live
+line's own commits):** reconnect button answers every press (`449a3c49`), dead-click
+detector watches `#modal-root`/`#toast-root` (`ab74bbe8`), blocked mission reaches a
+terminal outcome and persists `meta.finish_reason` (`47d62e84`), `ui.refused` records the
+server cause + Python 3.14 in the CI matrix (`f9b0fecf`), Video Studio 409 keeps its reason
+(`4ac2d494`), apps survive a Command Center restart (`71bde5b2`). The provider wizard was
+**not** touched: 26 of 37 apparent dead clicks were detector artefacts.
+Trading-lab `500 ModuleNotFoundError: bossman_v3` from the owner's session: **not
+reproduced** here (all four `/api/trading-lab/*` routes answer 200; the built
+`bossman_core` wheel and a fresh editable install both ship `bossman_v3`) → EVIDENCE_GAP,
+most likely a stale editable install on the owner's machine: a PEP 660 editable install of
+`bossman-core` registers a fixed package→path mapping in
+`__editable___bossman_core_*_finder.py` at install time, so a package added to the repo
+after that install (`bossman_v3`) is invisible until `pip install -e bossman-core` is re-run
+(the start scripts do run it, but with `--quiet`, so a failed refresh is silent). Python 3.14.3 vs OpenRouter: CI run 34137665700 is fully green on 3.14 →
+the correlation is **not** the cause; the on-screen error text is still needed.
+

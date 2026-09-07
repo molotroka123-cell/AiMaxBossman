@@ -9,13 +9,14 @@
       "id": "H-CLUSTER",
       "severity": "P1",
       "component": "command-center/bcc/features/apps_control.py",
-      "status": "OPEN_NEEDS_FIX",
+      "status": "FIXED_IN_6cc9523e",
       "platform": "windows",
       "symptom": "apps_control: приложение с кириллическим выводом получает exit 1 вместо реального кода; статус 'exited' вместо 'not_ready'",
       "root_cause": "_child_env (apps_control.py:254-263) фильтрует env, но не задаёт PYTHONIOENCODING/PYTHONUTF8; дочерний python пишет лог в locale-кодировке (cp1252) -> UnicodeEncodeError -> exit 1. log_tail при этом читает лог как UTF-8 (apps_control.py:322) - контракт кодировки нарушен.",
       "minimal_fix": "в _child_env добавить env['PYTHONIOENCODING']='utf-8' и env['PYTHONUTF8']='1'",
       "repro": "command-center/tests/test_app_that_never_answers_reports_failure_with_log_tail, test_app_that_exits_immediately_reports_exit_code (тесты-фикстуры с кириллицей); автономная репродукция подтверждена",
-      "regression_needed": "pytest tests/test_apps_control*.py -k 'exit_code or never_answers' на Windows"
+      "regression_needed": "pytest tests/test_apps_control*.py -k 'exit_code or never_answers' на Windows",
+      "note_20260907": "fix present on the live line; Linux regression test_apps_control_child_encoding.py passes; Windows re-run on the owner machine = EVIDENCE_GAP"
     },
     {
       "id": "GOLDEN-MISSIONS-SH-DIALECT",
@@ -46,7 +47,8 @@
       "platform": "windows",
       "symptom": "7 тестов: 'media changed before read verification' (read_verification.py:164), WinError 32 при unlink/replace media под живым handle, 422 вместо 200 при download re-check",
       "root_cause": "требует разбора: POSIX-семантика 'unlink открытого файла' и identity/tuple-сравнение mtime/size на Windows; возможно, корректная защита ловит штатную последовательность теста",
-      "minimal_fix": "после разбора: либо NTFS-безопасная замена (rename-aside + replace), либо тест-фикстуры с раздельными дескрипторами"
+      "minimal_fix": "после разбора: либо NTFS-безопасная замена (rename-aside + replace), либо тест-фикстуры с раздельными дескрипторами",
+      "note_20260907": "needs a Windows host (NT open-file semantics); not reproducible on Linux; EVIDENCE_GAP"
     },
     {
       "id": "HOST-SENSITIVE-PERF-GATES",
@@ -95,8 +97,33 @@
     }
   ],
   "test_results": {
-    "root": {"passed": 839, "failed": 1, "skipped": 8, "note": "единственный failed = HOST-SENSITIVE-PERF-GATES"},
-    "bossman_core": {"passed": 663, "failed": 0, "skipped": 19, "groups": ["security", "gateway-context", "stage8-14", "rest"]},
-    "command_center": {"passed": 1928, "failed": 39, "skipped": 35, "triage": "см. findings"}
+    "root": {
+      "passed": 839,
+      "failed": 1,
+      "skipped": 8,
+      "note": "единственный failed = HOST-SENSITIVE-PERF-GATES"
+    },
+    "bossman_core": {
+      "passed": 663,
+      "failed": 0,
+      "skipped": 19,
+      "groups": [
+        "security",
+        "gateway-context",
+        "stage8-14",
+        "rest"
+      ]
+    },
+    "command_center": {
+      "passed": 1928,
+      "failed": 39,
+      "skipped": 35,
+      "triage": "см. findings"
+    }
+  },
+  "freeze_ledger_20260907": {
+    "canary_p0": "CLOSED repo-local at 2ededc88",
+    "open_p0": 0,
+    "source": "docs/V4_V5_FREEZE_STATUS.md §17"
   }
 }

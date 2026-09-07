@@ -44,14 +44,16 @@ canonical services elsewhere and are adapted, not reimplemented.
 ## Open items
 
 ```
-OPEN_P0=3 (repo-local)
+OPEN_P0=0 (repo-local, exact SHA 2ededc88 — see docs/V4_V5_FREEZE_STATUS.md §17)
 OPEN_P1=0 (repo-local)
 FALSE_SUCCESS=0 observed
 DUPLICATE_IRREVERSIBLE_EFFECTS=0 observed
 PRIVATE_EGRESS=NOT_RUN
 ```
 
-The three open P0 items, named rather than counted:
+Historical: the three P0 items as they were named when this scorecard was written
+(P0-A closed by the canary production caller port `f2043e90`; P0-B closed by the
+SATISFIED evidence resolver; P0-C closed by AT-01 — all recorded in the freeze ledger):
 
 | Id | Hole | Why it is P0 |
 |---|---|---|
@@ -59,7 +61,9 @@ The three open P0 items, named rather than counted:
 | P0-B | `objective_store.set_condition` admits `SATISFIED` on any non-empty `evidence_ref` string | The gate is `type(evidence_ref) is str and evidence_ref.strip()`. It never resolves the reference to a real signed evidence record, so a plausible string satisfies a condition. Scaffolding for the resolved check is in the tree; the check itself is not switched over. |
 | P0-C | AT-01 obligations consisting only of `UnknownEffect` are dropped | A step whose only obligation is unnamed is currently allowed to complete. Requiring a screen change here is wrong — a legitimate effect can be invisible (a background write, an API call) — and no other discriminating signal exists yet, so the honest state is "not finished", not "closed". |
 
-Until all three are closed, `FEATURE_FREEZE_READY=NO`.
+All three are closed repo-locally. `FEATURE_FREEZE_READY=NO` remains because the
+live/evidence gates (N0, N4–N8 on the owner's machine, Windows, local model, soak, real
+retention) have not been run — see "Verdict".
 
 ## Intelligence preservation
 
@@ -120,7 +124,7 @@ REMOTE_FLEET=EXPERIMENTAL — unqualified, unchanged by this work
 
 ```
 VERDICT=V5_NOT_COMPLETE
-IMPLEMENTATION_COMPLETE=NO (3 open P0: see "Open items")
+IMPLEMENTATION_COMPLETE=YES_REPO_LOCAL (OPEN_P0=0 at 2ededc88; release evidence NOT_RUN)
 LOCAL_ACCEPTANCE_COMPLETE=NO
 RELEASE_CERTIFICATION_COMPLETE=NO
 FEATURE_FREEZE_READY=NO
