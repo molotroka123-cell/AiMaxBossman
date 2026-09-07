@@ -326,3 +326,36 @@ test-only. That surface was deliberately not invented.
 `CANARY_ROLLBACK`, `INTELLIGENCE_PRESERVATION`, soak, real same-model
 retention. No owner-machine acceptance artifact exists anywhere in the tree;
 the Windows checks that pass in CI are portability evidence only.
+
+### CI outcome on the freeze candidate `5b461d3` (PR #48)
+
+All 23 reported checks **succeeded**; `ASTRA real sandbox` skipped honestly (no
+KVM/hardware on a standard runner, the fixture declines rather than pretends).
+Green includes both `root pytest + hygiene` matrices, both `pytest` matrices,
+`pytest rest`, `pytest security`, `pytest stage8-14`, `pytest gateway-context`,
+`покрытие (неснижаемый порог)`, `compile + секреты`, `секреты, JS,
+запрещённые файлы`, `windows paths (py3.12)`, `safety` 3.11/3.12,
+`ASTRA portable` on ubuntu and windows, `ASTRA runner recovery`, and
+`bossman-core container ships bossman-shared`.
+
+**The human-speed red is now proven to have been runner noise, not a defect.**
+`root pytest + hygiene (py3.11)` carried
+`test_objective_cas_under_10ms_and_stale_write_is_denied` failing at `bbfc4bb`
+with `excess_spread_across_the_distribution` (`stalls [26.60, 18.59]` against
+`max_isolated_stalls 1`). It passes here with **no change to the contract**: the
+10 ms target stands, no sample was filtered, and no retry, skip or xfail was
+added. The LATENCY_CONTRACT invariants were never touched, so this is a
+re-observation of the same gate, not a weakened one.
+
+`measured intelligence retention` did **not** report on this head. It is not
+claimed as passing. Its gate is a file-existence check —
+`INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE / Missing
+docs/benchmark/intelligence-preservation-current.json`, exit 2 — so the only
+way to make it green is to commit that report, which is exactly the
+fabrication this ledger forbids. It stays FAIL_CLOSED until a real same-model
+measurement is run.
+
+SHA discipline for this run, recorded from CI's own checkout line: PR #49's job
+checked out `refs/remotes/pull/49/merge` = `43bef94`, logged as
+"Merge 9c38a3e into 5b461d3". `SOURCE_HEAD=9c38a3e`, `TESTED_SHA=43bef94`
+(synthetic). Only the former may back an exact-source claim.
