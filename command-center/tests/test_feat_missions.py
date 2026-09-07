@@ -110,3 +110,72 @@ async def test_kpi_rejects_foreign_task(env):
 async def test_kpi_missing_mission_404(env):
     r = await env.client.post("/api/missions/99999/kpi", json={"key": "x", "delta": 1})
     assert r.status_code == 404
+
+
+async def test_a_fully_blocked_mission_stops_instead_of_claiming_to_run(env):
+    """Заблокированная миссия обязана прийти к исходу, а не «выполняться» вечно.
+
+    `blocked` не попадал ни в active, ни в done, ни в failed, поэтому миссия, все
+    задачи которой упёрлись в недоступного исполнителя, оставалась `running`:
+    интерфейс показывал «выполняется» и тикающий таймер, хотя не стартовал ни
+    один прогон. Владелец видел работу там, где её не было.
+    """
+    from bcc.features.missions import _tick
+
+    m = (await env.client.post("/api/missions", json={
+        "title": "Миссия без исполнителя", "goal": "Создать 3 тестовых research задачи",
+        "duration_minutes": 30, "max_workers": 2})).json()
+    async with env.svc.db.session() as s:
+        await s.execute(sa.update(missions_t).where(missions_t.c.id == m["id"]).values(
+            status="running"))
+        await s.execute(sa.update(tasks_t).where(tasks_t.c.mission_id == m["id"]).values(
+            status="blocked",
+            meta={"reason_code": "BLOCKED_CAPABILITY_UNAVAILABLE",
+                  "blocked_reason": "Исполнитель не выбран или недоступен."}))
+        await s.commit()
+
+    await _tick(env.svc)
+
+    async with env.svc.db.session() as s:
+        after = (await s.execute(sa.select(missions_t)
+                                 .where(missions_t.c.id == m["id"]))).first()._mapping
+    assert after["status"] != "running", "миссия всё ещё выдаёт себя за выполняющуюся"
+    assert after["status"] == "failed"
+    # Причина названа И СОХРАНЕНА: она должна пережить перезагрузку страницы,
+    # а не жить только в шине событий, которую владелец мог не слушать.
+    assert "заблокированы" in str((after["meta"] or {}).get("finish_reason", ""))
+    assert "Исполнитель" in str((after["meta"] or {}).get("finish_reason", ""))
+
+
+async def test_a_mission_with_work_left_is_not_stopped_by_the_blocked_rule(env):
+    """Негативный контроль: пока есть что двигать, миссия не останавливается.
+
+    Правило обязано ловить тупик, а не любое присутствие заблокированной задачи:
+    иначе одна упавшая в блок задача убивала бы миссию, у которой остальные
+    прекрасно идут.
+    """
+    from bcc.features.missions import _tick
+
+    env.svc.registry.adapter_factory = lambda mo, p: FakeAdapter("ок")
+    m = (await env.client.post("/api/missions", json={
+        "title": "Смешанная миссия", "goal": "Создать 3 тестовых research задачи",
+        "duration_minutes": 30, "max_workers": 2})).json()
+    async with env.svc.db.session() as s:
+        rows = (await s.execute(sa.select(tasks_t.c.id)
+                                .where(tasks_t.c.mission_id == m["id"])
+                                .order_by(tasks_t.c.id))).fetchall()
+        ids = [int(r[0]) for r in rows]
+        await s.execute(sa.update(missions_t).where(missions_t.c.id == m["id"]).values(
+            status="running"))
+        await s.execute(sa.update(tasks_t).where(tasks_t.c.id == ids[0]).values(
+            status="blocked", meta={"blocked_reason": "нет исполнителя"}))
+        await s.execute(sa.update(tasks_t).where(tasks_t.c.id == ids[1]).values(
+            status="running"))
+        await s.commit()
+
+    await _tick(env.svc)
+
+    async with env.svc.db.session() as s:
+        after = (await s.execute(sa.select(missions_t)
+                                 .where(missions_t.c.id == m["id"]))).first()._mapping
+    assert after["status"] == "running", "миссия остановлена, хотя работа ещё шла"
