@@ -158,7 +158,6 @@ def test_a_metric_with_no_tasks_is_a_refusal_not_a_zero():
 
 
 # --------------------------------------------- сквозная проверка через гейт
-
 def test_a_perfect_run_produces_a_payload_the_real_gate_accepts_structurally():
     """Файл обязан быть тем самым, который читает гейт, а не похожим на него."""
     tasks = load_tasks(TASKS)
@@ -188,7 +187,6 @@ def test_a_perfect_run_produces_a_payload_the_real_gate_accepts_structurally():
     # Идеальный прогон во всех полосах: ни одна полоса ничего не потеряла.
     for lane in ("system", "context", "full"):
         assert payload["modes"][lane]["reasoning_accuracy"]["paired"]["lost"] == 0
-    
 
 
 def test_a_lane_that_loses_core_ability_is_not_a_pass():

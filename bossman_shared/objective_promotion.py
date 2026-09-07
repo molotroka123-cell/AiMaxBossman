@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Protocol, runtime_checkable
 
@@ -91,7 +92,7 @@ class Outcome:
     def __post_init__(self) -> None:
         if type(self.passed) is not bool:
             raise PromotionError("passed must be a boolean")
-        if type(self.score) not in (int, float) or self.score != self.score:
+        if type(self.score) not in (int, float) or not math.isfinite(self.score):
             raise PromotionError("score must be a finite number")
 
 
@@ -203,11 +204,23 @@ def measure(tasks: Iterable[Task], *, candidate_id: str, candidate_version: str,
     rows = list(tasks)
     if not rows:
         raise PromotionError("an empty task set measures nothing")
+    ids = [task.task_id for task in rows]
+    if len(ids) != len(set(ids)):
+        raise PromotionError("duplicate task_id in the task set")
     if candidate_version == baseline_version:
         raise PromotionError("candidate and baseline are the same version")
     split = split or split_tasks(rows, material=f"{candidate_id}:{applicability_version}",
                                  holdout_fraction=holdout_fraction)
+    if not isinstance(split, Split):
+        raise PromotionError("a Split is required")
     known = {t.task_id: t for t in rows}
+    measured_ids, holdout_ids = set(split.measured), set(split.holdout)
+    if len(measured_ids) != len(split.measured) or len(holdout_ids) != len(split.holdout):
+        raise PromotionError("duplicate task_id within a split lane")
+    if measured_ids & holdout_ids:
+        raise PromotionError("measured and holdout lanes must be disjoint")
+    if measured_ids | holdout_ids != set(ids):
+        raise PromotionError("split must partition the declared task set exactly")
     for task_id in split.measured + split.holdout:
         if task_id not in known:
             raise PromotionError(f"split names a task outside the set: {task_id}")
@@ -264,6 +277,8 @@ def authorize(measurement: MeasuredPromotion, candidate: CandidateImprovement, *
 
     if candidate.candidate_version != measurement.candidate_version:
         return refuse("evidence_measured_on_another_version")
+    if candidate.current_version != measurement.baseline_version:
+        return refuse("evidence_measured_on_another_baseline")
     # Применимость проверяется ЗДЕСЬ, а не при измерении: между ними проходит
     # время, и версия могла смениться под уже снятыми числами.
     if applicability_version != measurement.applicability_version:

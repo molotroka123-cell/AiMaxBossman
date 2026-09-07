@@ -130,6 +130,13 @@ def evaluate_canary(plan: CanaryPlan, outcomes: Iterable[CanaryOutcome]) -> Cana
         if outcome.objective_id not in plan.cohort:
             # Отчёт не от члена когорты — не улика об этой ревизии.
             raise CanaryError(f"{outcome.objective_id} is not in the cohort")
+        if outcome.healthy is not None and type(outcome.healthy) is not bool:
+            raise CanaryError("healthy must be bool or None")
+        previous = rows.get(outcome.objective_id)
+        # Failure is sticky within one revision/cohort. A later healthy report
+        # cannot erase the failure or manufacture order-dependent eligibility.
+        if previous is not None and previous.healthy is False:
+            continue
         rows[outcome.objective_id] = outcome
     unhealthy = tuple(sorted(o for o, r in rows.items() if r.healthy is False))
     silent = tuple(sorted(o for o in plan.cohort if rows.get(o) is None
