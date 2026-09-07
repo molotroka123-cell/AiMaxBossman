@@ -446,3 +446,62 @@ def test_trim_log_keeps_the_file_bounded_in_place(tmp_path, monkeypatch):
     assert path.stat().st_size <= 4096
     assert path.stat().st_ino == inode
     assert "хвост" in path.read_text(encoding="utf-8")
+
+
+# ------------------------------------------------- переживание перезапуска сервера
+
+async def test_a_restart_does_not_turn_our_own_app_into_a_foreign_process(
+        env, apps_root, flag_on):
+    """После перезапуска Command Center приложение остаётся НАШИМ.
+
+    Реестр процессов жил только в памяти, поэтому перезапуск сервера стирал
+    факт запуска: `_owned` пуст, порт занят — и запуск отвечал «порт занят
+    процессом, которого BOSSMAN не запускал» про собственное приложение,
+    а остановка отказывалась его трогать. Приложение становилось и
+    незапускаемым, и неостанавливаемым через интерфейс.
+    """
+    make_app(apps_root, "fake-app")
+    started = (await env.client.post("/api/apps/fake-app/start")).json()
+    assert started["started"] is True
+    pid = started["pid"]
+
+    # Перезапуск сервера: процесс жив и слушает порт, память — чистая.
+    ctl._processes.clear()
+
+    again = (await env.client.post("/api/apps/fake-app/start")).json()
+    assert again["already_running"] is True and again["started"] is False
+    assert again.get("recovered") is True
+    assert again["pid"] == pid
+    assert "до перезапуска сервера" in again["message"]
+
+    # И остановка больше не называет наш процесс чужим — но и не гасит его по
+    # записанному pid: живой связи с процессом после перезапуска нет.
+    stopped = (await env.client.post("/api/apps/fake-app/stop")).json()
+    assert stopped["owned"] is True and stopped["stopped"] is False
+    assert "не запускал" not in stopped["message"]
+
+
+async def test_a_genuinely_foreign_process_is_still_not_claimed(
+        env, apps_root, flag_on, tmp_path):
+    """Негативный контроль: чужой сервер на порту по-прежнему не присваивается.
+
+    Восстановление обязано опираться на НАШУ запись, а не на «порт занят —
+    значит наше». Иначе правка превратила бы отказ трогать чужой процесс в
+    молчаливое присвоение.
+    """
+    make_app(apps_root, "fake-app")
+    card = ctl._require_app("fake-app")[1]
+    port = card["port"]
+
+    # Чужой процесс занимает порт; записи о запуске у нас нет.
+    import socket as _socket
+    foreign = _socket.socket()
+    foreign.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+    foreign.bind(("127.0.0.1", port))
+    foreign.listen(8)
+    try:
+        res = await env.client.post("/api/apps/fake-app/start")
+        assert res.status_code == 409
+        assert "не запускал" in json.dumps(res.json(), ensure_ascii=False)
+    finally:
+        foreign.close()
