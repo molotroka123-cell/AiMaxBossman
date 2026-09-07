@@ -39,7 +39,7 @@ from .login_guard import LoginRateLimiter
 from .config import Settings, settings as default_settings
 from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
                  rows_dicts, settings_kv, task_runs as runs_t, tasks as tasks_t, utcnow)
-from .lifecycle import sleep_or_stop
+from .lifecycle import StartupTrace, sleep_or_stop
 from .engine import TaskEngine, TaskStateConflict
 from .events import EventBus
 from .metrics import MetricsSampler
@@ -116,6 +116,9 @@ class Services:
         self.start_workers = start_workers
         self._tasks: list[asyncio.Task] = []
         self.started_at = utcnow()
+        # V6 §A: фазы старта — измеренные, а не предполагаемые. Заполняется в
+        # start(); до него `ready` = False, чтобы «нет данных» не читалось как «0 мс».
+        self.startup = StartupTrace()
 
     def _wire_v2_managers(self) -> None:
         """Опциональные рантаймы пака. Отсутствие Playwright/MCP НЕ ломает старт
@@ -149,11 +152,16 @@ class Services:
         # выходящие. Поэтому снимаем его здесь, а не полагаемся на то, что
         # так никто не делает.
         self._stopping.clear()
-        await self.db.create_all()
+        trace = self.startup = StartupTrace()   # повторный start() после stop() — новая трасса
+        trace.begin()
+        async with trace.phase("db.create_all"):
+            await self.db.create_all()
         for feature in self.features:        # хуки engine и подписки — до старта worker'а
             if feature.setup:
-                await feature.setup(self)
-        await self.engine.recover()          # crash recovery при старте процесса
+                async with trace.phase(f"feature.setup:{feature.name}"):
+                    await feature.setup(self)
+        async with trace.phase("engine.recover"):
+            await self.engine.recover()      # crash recovery при старте процесса
         if self.start_workers:
             # Именно += : фичи регистрируют свои подписки в _tasks во время
             # setup() выше (missions, benchlab, failure_to_case). Присваивание
@@ -178,6 +186,7 @@ class Services:
             # нельзя: подписки фич флага не смотрят, и остановка каждый раз
             # упиралась бы в полный предел ожидания вместо миллисекунд.
             self._graceful.update(graceful)
+        trace.finish()
 
     async def _feature_tick(self, feature: Any) -> None:
         """Фоновая петля фичи (Governor, Healing, истечение резервов…):
@@ -604,7 +613,8 @@ def _api_router() -> APIRouter:
                                   .group_by(runs_t.c.status))
             queue = {str(r[0]): int(r[1]) for r in res.fetchall()}
         return {"metrics": now, "history": history, "queue": queue,
-                "health": await _health(svc), "started_at": svc.started_at}
+                "health": await _health(svc), "started_at": svc.started_at,
+                "startup": svc.startup.to_dict()}
 
     @router.get("/activity")
     async def activity(limit: int = 50, svc: Services = Depends(services)):
