@@ -81,13 +81,36 @@ def _fable_ledger_off_the_real_machine(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-async def env(tmp_path):
-    """Приложение без фоновых циклов: тесты сами дёргают engine/scheduler."""
+async def env(tmp_path, request):
+    """Приложение без фоновых worker-циклов; тесты сами дёргают engine/scheduler.
+
+    Golden Missions моделируют полноценную owner-сессию с несколькими последовательными
+    approvals. Production Services держит ``approval_watcher`` живым всё время работы,
+    а исторический тестовый harness создавал watcher только внутри ``_drain`` и отменял
+    его ровно перед POST решения владельца. Событие ``approval.decided`` поэтому могло
+    потеряться, после чего тест зависел от 60-секундного recovery sweep. На более
+    медленном Python/runner это оставляло составную миссию в ``waiting_approval``.
+
+    Для Golden Missions держим тот же watcher на всём lifetime env. Worker-циклы всё
+    ещё не запускаются автоматически; approval/review policy не меняется, а
+    ``review_escalation`` по-прежнему никогда не auto-approved.
+    """
     settings = make_settings(tmp_path)
     app, svc = await start_app(settings, start_workers=False)
-    async with client_for(app, svc) as client:
-        yield SimpleEnv(app=app, svc=svc, client=client, settings=settings)
-    await svc.stop()
+    persistent_approval_watcher = None
+    node_path = getattr(request.node, "path", None) or getattr(request.node, "fspath", None)
+    if node_path is not None and Path(str(node_path)).name == "test_golden_missions.py":
+        persistent_approval_watcher = asyncio.create_task(svc.engine.approval_watcher())
+        # Дать подписчику зарегистрировать очередь до первого owner decision.
+        await asyncio.sleep(0)
+    try:
+        async with client_for(app, svc) as client:
+            yield SimpleEnv(app=app, svc=svc, client=client, settings=settings)
+    finally:
+        if persistent_approval_watcher is not None:
+            persistent_approval_watcher.cancel()
+            await asyncio.gather(persistent_approval_watcher, return_exceptions=True)
+        await svc.stop()
 
 
 class SimpleEnv:
