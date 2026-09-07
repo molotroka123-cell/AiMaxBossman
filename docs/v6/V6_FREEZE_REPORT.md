@@ -4,10 +4,11 @@
 
 ## CURRENT SOURCE TRUTH
 
-Latest code/test HEAD (this pass, 2026-09-07 18:01 UTC):
+Latest code/test HEAD (this pass, 2026-09-07 18:13 UTC):
 
-- **CODE_TEST_HEAD:** `c42532669ac7d946fe78dda228037d9fc8167d97`
-- **TREE:** `efc72027f87c0f852fc894f36d6e0653cf3407db`
+- **CODE_TEST_HEAD:** `5f75dc55ff0376ef7774526cbed88b50efd638ff`
+- **TREE:** `9938708f70beb90bb340b0ca4f413910c400124a`
+- previous code/test HEAD of this pass: `c42532669ac7d946fe78dda228037d9fc8167d97` (tree `efc72027…`)
 - previous code/test HEAD: `413a97a1ce2936f9543fea5d8f0b529256fc1de2` (tree `919e2ada…`); Fable report head before follow-up: `d458e63ee4c0b5b577f61df22ae8b7dd8d7e5e71`
 
 `c4253266` = `413a97a1` + docs/README/scorecard refresh (`547a4842`…`b14e7f5c`, no production code) +
@@ -17,15 +18,61 @@ MEDIUM/HIGH confidence and `tests/test_readme_scorecard.py` sets confidence expl
 canonical scorecard's confidence, which the refresh moved from LOW to MEDIUM; the fix is a
 strictly stronger validator plus a negative control — nothing loosened).
 
-### Exact-HEAD CI on `c4253266`
+`5f75dc55` = `c4253266` + docs (`90880dcd`) + `fix(resources)`: memory that was never measured is
+reported as `measured:false` with nulls and refused for admission, instead of the former
+128 000 MB fallback (visual-sweep finding F3).
+
+### Exact-HEAD CI on `5f75dc55`
 
 | Workflow | Result |
 |---|---|
-| root-ci (py3.11 + py3.12, README scorecard, skips registry, compileall, secret scan, whitespace) | **PASS** (run 34149935882) |
-| Bossman Core CI | **PASS** (run 34149935775) |
-| Solana safety gates | **PASS** (run 34149935803) |
-| ASTRA acceptance | **PASS** (run 34149935732) |
-| Command Center CI (py3.11 / 3.12 / 3.14 hard lane, Windows paths, secrets/JS) | CC_CI_C425 |
+| root-ci (py3.11 + py3.12, README scorecard, skips registry, compileall, secret scan, whitespace) | **PASS** (run 34150754883) |
+| Bossman Core CI | **PASS** (run 34150754794) |
+| Solana safety gates | **PASS** (run 34150754762) |
+| ASTRA acceptance | **PASS** (run 34150754727) |
+| Command Center CI (py3.11 / 3.12 / 3.14 hard lane, Windows paths, secrets/JS) | **FAIL on one lane** (run 34150754745): py3.11, py3.12, Windows paths, secrets/JS green; **py3.14: 1 failed / 2226 passed** — `test_golden_missions.py::test_mission_12_multi_step_mixed_mission` ended in `waiting_approval` |
+
+**Root cause of the py3.14 red (reproduced, not flake-labelled).** Locally the same test failed
+1 in ~6 runs on 3.11 too. The mission's `review_escalation` said the truth: the agent's
+pytest step exited 1 *after* the fix was written. The harness pre-check (`_pytest_run`,
+"the test must fail before the mission") had compiled `calc.py` into `__pycache__`; the fix
+rewrites the file with the same size in the same mtime second (`return a - b` →
+`return a + b`), so Python trusted the stale pyc. Confirmed deterministically outside the
+suite: 7 of 8 same-second same-size rewrites keep the old behaviour. Fixed in `bed5e8c9`
+(pre-check runs with `-B` / `PYTHONDONTWRITEBYTECODE=1`; no production code, gate,
+approval or timeout changed): mission 12 × 15 → 15 passed; whole golden suite 12 passed.
+
+### Exact-HEAD CI on `bed5e8c9` (harness fix only; identical production tree)
+
+| Workflow | Result |
+|---|---|
+| root-ci | **FAIL — registry only** (run 34153187474): `SKIPS_REGISTRY_CURRENT` red because the harness docstring moved two `pytestmark` line numbers; all tests green. Regenerated in `d7e62e38` (`--check` PASS, `test_skips_registry` 2 passed). |
+| Bossman Core CI | **PASS** (run 34153187457) |
+| Solana safety gates | **PASS** (run 34153187468) |
+| ASTRA acceptance | **PASS** (run 34153187446) |
+| Command Center CI (run 34153187471) | secrets/JS **PASS**, py3.11 **PASS** (2 227 tests, 20 min), Windows paths **PASS**; py3.14 **PASS** (the lane that was red on 5f75dc55); py3.12 **FAIL: 1 / 2 226** — `test_browser_navigation_ui.py::test_policy_403_keeps_session_but_401_requires_login` got 200 after logout |
+
+**Root cause of the py3.12 red (reproduced by reading the code path, fixed, tested).** `api.js`
+coalesced identical in-flight GETs by path only; the shell's own `/api/system` was still in
+flight when the test logged out and asked again, so the post-logout call received a promise
+made under the previous session (an observation crossing an authentication boundary — the
+same class the V6 single-flight rule forbids). Fixed in `dd2306aa`: a session generation bumped on
+login/logout/401 keys the map and drops in-flight entries; two browser tests (legitimate
+coalescing within a session; a GET started before logout is never reused after it).
+
+### Exact-HEAD CI on `dd2306aa` (api.js fix + registry regen)
+
+| Workflow | Result |
+|---|---|
+| root-ci | CI_ROOT_FINAL |
+| Bossman Core CI | CI_CORE_FINAL |
+| Solana safety gates | CI_SOL_FINAL |
+| ASTRA acceptance | CI_ASTRA_FINAL |
+| Command Center CI | CI_CC_FINAL |
+
+On `c4253266`: root-ci PASS (34149935882), Core PASS (34149935775), Solana PASS, ASTRA PASS;
+Command Center CI was **cancelled by the next push** (concurrency), so its verdict is taken
+from `5f75dc55` above. Local full command-center suite on `5f75dc55`: **2093 passed, 9 failed (the known sandbox-only browser set: 6 × no ffmpeg encoder, 3 × pointer input to the opaque-origin web-designer iframe), 142 skipped**, 15:38.
 
 Earlier heads on this branch: `47a49ffa` all green incl. Command Center CI 3.11/3.12/3.14 + Windows paths; `ae3dc3fa` (3.14 hard gate) Command Center CI green; `2ededc88` (canary port line) root-ci/ASTRA/Solana green.
 
@@ -111,6 +158,22 @@ testing-period recorder on, fake instant model) — full write-up in
 | long-session stability | 30 s session with 20 s idle over an open WebSocket: state stayed «live-обновления»; hours-long stability NOT_RUN |
 
 Compared with `6cbb17ce84db` (37 raw dead clicks → 11 real candidates, 71 refusals, 20 HTTP ≥ 500): this run recorded 0 / 0 / 1 (the deliberate provider-down control).
+
+### Visual QA sweep (parallel lane, PR #57, branch `ux/vision-full-page-pass-20260907`)
+
+36 routes × 5 viewports in real Chromium, 550 screenshots, P0 = 1 found/fixed (desktop dock
+off-screen on tall pages), P1 = 8 found / 7 fixed, presentation-only changes (+6.9 KB CSS,
++144 B JS, no new dependencies), `tests/test_visual_smoke_ui.py` added. The PR is a draft
+against this branch; merging it is the owner's call. Functional findings it handed over:
+
+| Finding | Disposition |
+|---|---|
+| F1 «По расписанию…» on `#/tasks` calls `start(false)` | **not a bug** — `start(false)` opens the schedule modal with the prompt preset |
+| F2 «Выйти» in settings has no confirmation | P2 UX, unchanged |
+| F3 Overview/Resources showed «0.0 / 125.0 ГБ» from a 128 000 MB fallback | **fixed in `5f75dc55`** |
+| F4 two «Главная» landings (`home`, `home-v3`) | by design — the older landing is reachable by direct link only (`SUPERSEDED` in `app.js`) |
+| F5 app-card «Открыть» at 40 % accent reads as disabled | P2 visual, in PR #57 scope |
+| F6 internal token «EMPTY» in Browser empty-state copy | P2 copy, unchanged |
 
 ### Owner-session paths that still need explicit real re-test
 
