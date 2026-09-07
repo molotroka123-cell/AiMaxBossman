@@ -86,15 +86,26 @@ function facts(body) {
   const t = body.treasury || {};
   const fleet = body.fleet || {};
   const lat = body.latency || {};
-  const line = (k, v, title) => h('div.row.tight', h('span.dim.small', k), h('div.spacer'),
+  const line = (k, v, title, extra) => h('div.row.tight', h('span.dim.small', k), h('div.spacer'),
+    extra || null,
     h('span.mono.small', { title: title || '' }, v));
+  // Флот включён — значит работа может уехать на чужой узел. Пилюля стоит на той
+  // же строке, потому что «узлов 3» само по себе читается как готовая функция.
+  const fleetPill = fleet.enabled && fleet.experimental !== false
+    ? h('span.badge.badge-warn', { 'data-fleet': 'experimental', title: fleet.experimental_reason
+        || 'флот не сертифицирован для распределённого production' }, 'ЭКСПЕРИМЕНТ')
+    : null;
   return h('div.stack',
     line('очередь', Object.entries(body.queue || {}).map(([k, v]) => `${k}:${v}`).join(' · ') || '—'),
     line('расход за час', money(t.burn_rate_usd_per_h)),
     line('остаток бюджета', t.fable && t.fable.status === 'OK' ? money(t.fable.remaining_usd) : (t.fable && t.fable.status) || '—'),
     line('флот', fleet.enabled
       ? `узлов ${(fleet.nodes || []).length} · очередь ${fleet.queue_depth ?? '—'}`
-      : 'выключен'),
+      : 'выключен', fleet.enabled ? (fleet.experimental_reason || '') : '', fleetPill),
+    fleet.enabled
+      ? h('div.xsmall.dim', fleet.experimental_reason
+        || 'флот не сертифицирован для распределённого production')
+      : null,
     line('удалённый транспорт', fleet.enabled ? (fleet.remote_transport_production_ready ? 'ДА' : 'НЕТ (не production)') : '—'),
     line('исполнение p95', lat.execution_ms ? `${lat.execution_ms.p95 ?? '—'} мс` : '—'),
     line('проверка p95', lat.verification_ms ? `${lat.verification_ms.p95 ?? '—'} мс` : '—'));
@@ -102,7 +113,9 @@ function facts(body) {
 
 const ControlPage = {
   id: 'control',
-  title: 'Пульт',
+  // Название совпадает с заголовком самой страницы. Двух «Пультов» в сайдбаре
+  // и в палитре команд быть не должно: id=command — это мобильный пульт.
+  title: 'Пульт владельца',
   icon: 'home',
   nav: 'primary',
 

@@ -83,6 +83,10 @@ const state = {
 
 let currentPage = DEFAULT_PAGE;
 let currentParams = {};
+// Неизвестный маршрут из адресной строки. Раньше он молча показывал главную,
+// оставляя в адресе чужой хеш: владелец видел не ту страницу, о которой просил,
+// и ничего об этом не знал.
+let currentUnknown = '';
 let renderToken = 0;
 let pendingRefresh = false;
 let lastRendered = null;
@@ -140,7 +144,8 @@ trackVideoProject();
 function parseHash() {
   const raw = String(location.hash || '').replace(/^#\/?/, '');
   const [path, query] = raw.split('?');
-  const id = PAGE_BY_ID.has(path) ? path : DEFAULT_PAGE;
+  const known = PAGE_BY_ID.has(path);
+  const id = known ? path : DEFAULT_PAGE;
   const params = {};
   if (query) {
     for (const part of query.split('&')) {
@@ -148,7 +153,8 @@ function parseHash() {
       if (k) params[decodeURIComponent(k)] = decodeURIComponent(v || '');
     }
   }
-  return { id, params };
+  // Пустой путь — это «#/», обычная главная. Непустой и незнакомый — ошибка.
+  return { id, params, unknown: known || !path ? '' : path };
 }
 
 function navigate(id, params = null) {
@@ -165,18 +171,23 @@ function navigate(id, params = null) {
 }
 
 function onRoute() {
-  const { id, params } = parseHash();
-  currentPage = id;
+  const { id, params, unknown } = parseHash();
+  currentUnknown = unknown;
+  // Ни одна страница не «текущая», пока адрес указывает в никуда: подсветка в
+  // доке обязана молчать вместе с содержимым.
+  currentPage = unknown ? '' : id;
   currentParams = params;
   setMenu(false);
   syncNav();
-  const page = PAGE_BY_ID.get(id);
-  el.title.textContent = page ? page.title : 'Command Center';
-  document.title = page ? `${page.title} · BOSSMAN` : 'BOSSMAN Command Center';
+  const page = PAGE_BY_ID.get(currentPage);
+  el.title.textContent = unknown ? 'Страница не найдена' : (page ? page.title : 'Command Center');
+  document.title = unknown ? 'Страница не найдена · BOSSMAN'
+    : (page ? `${page.title} · BOSSMAN` : 'BOSSMAN Command Center');
   renderPage();
 }
 
 async function renderPage() {
+  if (currentUnknown) { renderNotFound(currentUnknown); return; }
   const page = PAGE_BY_ID.get(currentPage);
   if (!page) return;
   const token = ++renderToken;
@@ -206,6 +217,20 @@ async function renderPage() {
       action: h('button.btn.btn-primary', { type: 'button', onClick: () => refresh() }, 'Повторить'),
     })));
   }
+}
+
+/** Честный тупик вместо тихой подмены страницы. */
+function renderNotFound(path) {
+  renderToken += 1;
+  lastRendered = null;
+  replace(el.view, h('section.panel', empty({
+    iconName: 'info',
+    title: `Страница «${path}» не найдена`,
+    hint: 'Такой страницы в Command Center нет — проверьте ссылку. '
+      + 'Полный список открывается по кнопке палитры команд.',
+    action: h('button.btn.btn-primary', { type: 'button', onClick: () => navigate(DEFAULT_PAGE) },
+      'На главную'),
+  })));
 }
 
 function refresh() {
@@ -703,7 +728,8 @@ el.themeBtn.addEventListener('click', () => setTheme(getTheme() === 'dark' ? 'li
 el.refreshBtn.addEventListener('click', () => refresh());
 if (el.staleNow) el.staleNow.addEventListener('click', () => { bus.reconnectNow(); syncConn(bus.state); });
 window.__bxConn = { bus, label: connLabel };
-window.__bxPages = PAGES.map((p) => ({ id: p.id, title: p.title, nav: p.nav || 'primary' }));
+window.__bxPages = PAGES.map((p) => ({ id: p.id, title: p.title, icon: p.icon,
+  nav: p.nav || 'primary', superseded: SUPERSEDED.has(p.id) }));
 el.menuBtn.addEventListener('click', () => setMenu(!el.shell.classList.contains('menu-open')));
 el.scrim.addEventListener('click', () => { if (el.shell.classList.contains('menu-open')) setMenu(false); });
 el.paletteBtn.addEventListener('click', () => openPalette());

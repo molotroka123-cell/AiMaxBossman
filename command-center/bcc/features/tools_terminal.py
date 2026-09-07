@@ -70,6 +70,14 @@ SANDBOX_AUTO_EXTRA = [
     re.compile(r"(?i)^(?:cat|head|tail|wc|file|stat|echo|grep|rg|diff)\s"),
     re.compile(r"(?i)^(?:npm|pnpm|yarn)\s+ci\b"),
     re.compile(r"(?i)^(?:python|python3|py)\s+-m\s+(?:pytest|unittest|compileall)\b"),
+    # Запуск скрипта САМОГО проекта относительным путём (`python mutate.py`).
+    # Это ровно тот класс, который здесь и на хосте уже идёт auto: `pytest`
+    # исполняет conftest.py, `npm run build` — скрипты package.json,
+    # `make build` — Makefile. Абсолютный путь, выход через `..` и `python -c`
+    # сюда НЕ попадают. Авторизацию каталога делает `_tool_run`
+    # (`within(cwd, roots)`) — и делает её ОТКАЗОМ, а не вопросом владельцу,
+    # поэтому эта команда обязана дойти до обработчика, а не встать на approval.
+    re.compile(r"(?i)^(?:python|python3|py)\s+\w[\w.-]*(?:/[\w.-]+)*\.py(?:\s|$)"),
     re.compile(r"(?i)^(?:ruff|flake8|black|isort|mypy|pylint|eslint|tsc)\b"),
     re.compile(r"(?i)^make\s+(?:build|test|lint|check)\b"),
     re.compile(r"(?i)^(?:cargo|go)\s+(?:build|test|vet|fmt)\b"),

@@ -85,6 +85,37 @@ def test_auto_prefix_cannot_smuggle_a_chained_or_redirected_command():
         assert _effect(command) != "auto", command
 
 
+# -------------------------------- запуск скрипта проекта: auto, но узко
+
+def test_project_script_run_stays_auto_so_the_path_check_can_refuse_it():
+    """`python mutate.py` обязан ДОЙТИ до обработчика.
+
+    Авторизация каталога (`within(cwd, roots)`) живёт в `_tool_run`, то есть
+    ПОСЛЕ гейта. Если гейт отправит команду на approval, каталог вне корней
+    владельца превратится из отказа в вопрос — владельца учат прокликивать то,
+    что политика всё равно отвергнет. Класс «запусти код проекта» и так идёт
+    auto (`pytest` → conftest.py, `npm run build` → package.json, `make build`)."""
+    assert _effect("python mutate.py") == "auto"
+    assert _effect("python3 tools/build.py --fast") == "auto"
+
+
+def test_project_script_pattern_does_not_reopen_arbitrary_execution():
+    """Узко: только относительный путь к .py внутри рабочего каталога."""
+    for command in ('python -c "import shutil; shutil.rmtree(\'/work\')"',
+                    "python /etc/evil.py",
+                    "python ../evil.py",
+                    "python -m evil",
+                    "python mutate.py; rm -rf /work",
+                    "python mutate.py > /work/db.sqlite"):
+        assert _effect(command) != "auto", command
+
+
+def test_the_reproduced_destructive_set_is_unaffected_by_the_script_pattern():
+    """Ни одна из воспроизведённых команд S3 не проходит через новый шаблон."""
+    for command in DESTRUCTIVE:
+        assert _effect(command) != "auto", command
+
+
 # ------------------------------------------------ прежние гарантии не ослабли
 
 def test_host_modes_still_always_ask():
@@ -100,3 +131,13 @@ def test_hard_deny_and_ask_extra_still_win():
 
 def test_enabling_network_in_the_sandbox_still_asks():
     assert _run_effect({"command": "pytest", "mode": "sandbox", "network": True})[0] == "ask"
+
+
+def test_the_hook_touches_only_terminal_run():
+    """S3 меняет политику ОДНОГО инструмента: status/stdin/kill не задеты."""
+    by_name = {s.name: s for s in SPECS}
+    assert by_name["terminal.run"].effect_hook is _run_effect
+    for name, expected in (("terminal.status", "auto"), ("terminal.stdin", "ask"),
+                           ("terminal.kill", "auto")):
+        assert by_name[name].effect_hook is None, name
+        assert by_name[name].default_effect == expected, name

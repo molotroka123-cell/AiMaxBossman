@@ -480,13 +480,16 @@ def process_info(app_id: str, data_dir: Path) -> dict[str, Any]:
     port = card.get("port")
     rec = _owned(app_id)
     path = rec.log_path if rec else log_path_for(data_dir, app_id)
+    # `problem` — та же причина, по которой /apps/{id}/start ответит 409. Без неё
+    # UI рисовал живую кнопку «Запустить», которая гарантированно откажет.
+    command = command_for(app_id)
     return {"app_id": app_id, "enabled": enabled(), "owned": rec is not None,
             "running": rec is not None, "pid": rec.proc.pid if rec else None,
             "started_at": rec.started_at if rec else None,
             "uptime_seconds": round(time.monotonic() - rec.started_mono, 1) if rec else None,
             "port": port, "port_busy": port_busy(port),
-            "command": rec.argv if rec else command_for(app_id)["argv"],
-            "manual_command": command_for(app_id)["manual"],
+            "command": rec.argv if rec else command["argv"],
+            "manual_command": command["manual"], "problem": command["problem"],
             "log_path": str(path), "log_tail": log_tail(path)}
 
 

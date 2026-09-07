@@ -35,6 +35,12 @@ from .browser_support import chromium_available, reason as browser_reason
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
+# MCP — необязательный extra (`pip install -e '.[mcp]'`). Без него сервер честно
+# отвечает 503 «MCP SDK не установлен», и утверждение «должно быть 200» ниже
+# проверяло бы наличие пакета, а не поведение системы. Пропуск ЗДЕСЬ, на импорте,
+# ничего не ослабляет: когда extra стоит, тест идёт целиком и требует 200.
+pytest.importorskip("mcp", reason="нужен extra `mcp`: сквозной сценарий поднимает настоящий MCP-сервер")
+
 PAGE = """<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <title>Калькулятор</title></head><body>
 <h1>Проверка калькулятора</h1>

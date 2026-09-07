@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { h, toastError, toastOk } from './components.js';
+import { codeBlock } from './pages/_ui.js';
 const state = { text: '', files: [], requestId: '', lastProject: '', requestKey:'', uploaded:new Set(),agentId:'' };
 const newId = () => crypto.randomUUID();
 export async function routeVideoRequest(text, files, ctx) {
@@ -69,7 +70,11 @@ export const ChatPage={id:'bossman-chat',title:'История видео и ч�
     });
     return h('section.bx-panel',h('div.bx-panel-body',h('h2','Bossman Chat'),input,files,agentSelect,send,status,
       ...records.map(row=>h('article.bx-panel',h('p',row.text),h('p',`Задача #${row.task_id} · ${resultById.get(row.task_id)?.task?.status||'сохранена'}`),
-        resultById.get(row.task_id)?.result?h('pre',String(resultById.get(row.task_id).result)):null,
+        // .bx-panel режет по горизонтали (overflow:hidden), а голый <pre> не
+        // переносит строк: длинный однострочный результат становился
+        // недостижим. codeBlock — тот же .bx-code, что и на других страницах:
+        // перенос по словам плюс собственная прокрутка.
+        resultById.get(row.task_id)?.result?codeBlock(String(resultById.get(row.task_id).result)):null,
         h('button.bx-btn',{type:'button',onClick:()=>ctx.navigate('video-studio',{project_id:row.project_id})},'Открыть Video Studio')))));
   },onEvent:()=>false};
 

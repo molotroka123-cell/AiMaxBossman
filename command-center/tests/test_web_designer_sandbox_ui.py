@@ -10,6 +10,7 @@ import pytest
 
 from .browser_support import chromium_available, reason as browser_reason
 from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
+from .test_web_designer_viewport import click_in_scaled_frame
 
 pytestmark = [pytest.mark.timeout(180),
               pytest.mark.skipif(not chromium_available(), reason=browser_reason())]
@@ -66,7 +67,11 @@ def test_picker_still_works_and_frame_is_isolated(live):
 
             # и при этом функция панели жива: выделение включено по умолчанию,
             # клик по элементу в песочнице доносится до инспектора через postMessage
-            frame.locator("h1").first.click()
+            # Превью масштабировано («вписать» даёт ~44%), а Playwright считает
+            # координаты клика по НЕтрансформированному внутреннему
+            # прямоугольнику кадра — его click промахивается мимо заголовка.
+            # Кликаем по настоящей экранной точке.
+            click_in_scaled_frame(page, "h1")
             page.wait_for_selector("text=Инспектор", timeout=10000)
             page.wait_for_function(
                 "() => /\\bh1\\b/.test(document.querySelector('#view').innerText)",

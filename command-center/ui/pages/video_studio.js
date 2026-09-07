@@ -111,7 +111,7 @@ class Editor {
     const scroll = this.root.querySelector('.vs-timeline-scroll'); if (scroll) { scroll.scrollLeft = scrollLeft; scroll.scrollTop = scrollTop; }
   }
   header() {
-    return h('header.vs-header', h('a.vs-brand', { href: '#/home' }, 'BOSSMAN', h('span', '/ VIDEO STUDIO')),
+    return h('header.vs-header', h('a.vs-brand', { href: '#/home-v3' }, 'BOSSMAN', h('span', '/ VIDEO STUDIO')),
       h('select.vs-project-select', { 'aria-label': this.t('selectProject'), onChange: e => this.guard(() => this.open(e.target.value)) },
         h('option', { value: '', selected: !this.project, disabled: true }, this.t('selectProject')),
         ...this.projects.map(p => h('option', { value: p.id, selected: p.id === this.project?.id }, p.name))),
@@ -142,7 +142,17 @@ class Editor {
     const folders = [...new Set(Object.values(this.project.media).map(m => m.folder).filter(Boolean))];
     return h('aside.vs-library.vs-panel', { onDragover: e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); } }, onDragleave: e => e.currentTarget.classList.remove('drag-over'), onDrop: e => { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); if (e.dataTransfer.files.length) this.guard(() => this.importFiles(e.dataTransfer.files)); } },
       h('div.vs-panel-head', h('strong', this.t('media')), h('label.vs-button', this.t('import'), h('input', { type: 'file', multiple: true, hidden: true, accept: 'video/*,audio/*,image/*', onChange: e => this.guard(() => this.importFiles(e.target.files)) }))),
-      h('input.vs-search', { type: 'search', placeholder: this.t('search'), value: this.query, onInput: e => { this.query = e.target.value; const pos = e.target.selectionStart; this.paint(); const input = this.root.querySelector('.vs-search'); input.focus(); if (input.type === 'text') input.setSelectionRange(pos, pos); } }),
+      // Поиск перерисовывает ТОЛЬКО библиотеку: полный paint() на каждой букве
+      // сбрасывал таймлайн и фокус. Каретка возвращается на своё место —
+      // прежняя проверка `input.type === 'text'` не срабатывала никогда, потому
+      // что поле объявлено как search, и курсор прыгал в конец на каждый ввод.
+      h('input.vs-search', { type: 'search', placeholder: this.t('search'), value: this.query, onInput: e => {
+        this.query = e.target.value; const pos = e.target.selectionStart;
+        const panel = this.root.querySelector('.vs-library'); if (!panel) { this.paint(); return; }
+        const next = this.library(); panel.replaceWith(next);
+        const input = next.querySelector('.vs-search'); input.focus();
+        try { input.setSelectionRange(pos, pos); } catch { /* поле без выделяемого текста */ }
+      } }),
       h('div.vs-library-filters', h('select', { 'aria-label': this.t('folder'), onChange: e => { this.folder = e.target.value; this.paint(); } }, h('option', { value: '' }, this.t('all')), ...folders.map(f => h('option', { value: f, selected: f === this.folder }, f))),
         h('select', { 'aria-label': 'Sort', onChange: e => { this.sort = e.target.value; this.paint(); } }, ...['name', 'duration', 'size'].map(k => h('option', { value: k, selected: this.sort === k }, this.t(k))))),
       h('div.vs-media-grid', ...media.map(m => h('article.vs-media-card', { tabindex: '0', draggable: true, class: this.mediaSelection === m.id ? 'selected' : '',
@@ -467,7 +477,10 @@ class Editor {
     const panel = h('aside.vs-assistant.vs-panel', h('div.vs-panel-head', h('strong', `✦ ${this.t('assistant')}`), this.button('×', () => { this.agentOpen = false; preference('assistant', false); this.paint(); })),
       h('p.vs-muted', this.t('explain')),
       h('a.vs-chat-link', { href: '#/bossman-chat' }, this.lang === 'ru' ? 'История видеозадач и вложения' : 'Video task history and attachments'),
-      h('a.vs-chat-link', { href: this.project.links?.task_id ? `#/tasks?id=${encodeURIComponent(this.project.links.task_id)}` : '#/home' }, this.project.links?.task_id ? `↗ Task ${this.project.links.task_id}` : '↗ Bossman Chat'),
+      // TasksPage.enter читает params.task (не id), а #/home вытеснена страницей
+      // home-v3 и скрыта из навигации: подпись «Bossman Chat» обязана вести в
+      // Bossman Chat.
+      h('a.vs-chat-link', { href: this.project.links?.task_id ? `#/tasks?task=${encodeURIComponent(this.project.links.task_id)}` : '#/bossman-chat' }, this.project.links?.task_id ? `↗ Task ${this.project.links.task_id}` : '↗ Bossman Chat'),
       h('label.vs-field', h('span', this.lang === 'ru' ? 'Что изменить в монтаже?' : 'What should change in this edit?'), h('textarea.vs-objective', { rows: 3, maxlength: 2000, value: this.objective || '', placeholder: this.lang === 'ru' ? 'Например: сделай выбранный клип вдвое медленнее' : 'For example: slow the selected clip to half speed', onInput: e => this.objective = e.target.value })),
       h('small.vs-local', `${this.lang === 'ru' ? 'Выбранный клип' : 'Selected clip'}: ${this.selected || '—'}`),
       this.button(this.lang === 'ru' ? 'Предложить монтаж · локальная модель' : 'Draft edit · local model', () => this.requestProposal(), { disabled: this.proposing || !this.selected }),
@@ -567,7 +580,10 @@ class Editor {
       if (![...this.jobs.values()].some(job => job.action === 'hardware_probe' && job.analysis?.available && job.analysis.codec === renderOptions.video_codec && job.analysis.width === width && job.analysis.height === height)) throw new Error(this.lang === 'ru' ? 'Сначала проверьте аппаратный кодек с этими размерами кадра.' : 'Probe this hardware codec with these dimensions first.');
     }
     const job = await api.raw(`${BASE}/exports`, { method: 'POST', body: { project_id: this.project.id, expected_revision: this.project.revision, operation_id: uid(), preview, container, options: renderOptions } });
-    this.jobs.set(job.job_id, { ...job, preview }); this.paint(); this.pollJob(job.job_id);
+    // Настройки экспорта сервер обратно не отдаёт (GET /exports/{id} их не
+    // содержит). Держим их у задания — только так «Повторить» повторяет ТО ЖЕ
+    // САМОЕ, а не открывает диалог заново с чистого листа.
+    this.jobs.set(job.job_id, { ...job, preview, request: { preview, options } }); this.paint(); this.pollJob(job.job_id);
   }
   hardwareDialog() {
     const mediaId = this.mediaSelection || selectedClip(this.project, this.selected)?.clip.media_id || Object.keys(this.project.media)[0];
@@ -625,6 +641,11 @@ class Editor {
       (job.error_detail || job.error) ? h('small.vs-warning', String(job.error_detail?.message || job.error),
         job.error_detail?.code ? ` [${job.error_detail.code}]` : '') : null,
       job.output_url ? h('a', { href: job.output_url, download: '' }, `↓ ${this.t('download')}`) : null,
+      // Повтор — это тот же POST /api/video-studio/exports с теми же настройками
+      // (отдельного маршрута «retry» на сервере нет). Кнопка появляется только
+      // когда настройки известны: после перезагрузки страницы задания приходят
+      // из истории без них, и рисовать кнопку, которой нечего послать, нельзя.
+      job.status === 'failed' && job.request ? this.button(this.lang === 'ru' ? '↻ Повторить' : '↻ Retry', () => this.startExport(job.request.preview, job.request.options), { title: this.lang === 'ru' ? 'Повторить экспорт с теми же настройками' : 'Run the export again with the same settings' }) : null,
       job.verification ? h('details', h('summary', this.t('verified')), h('pre', JSON.stringify(job.verification, null, 2))) : null,
       !['completed', 'failed', 'cancelled', 'stopped', 'unknown'].includes(job.status) ? this.button(this.t('cancel'), async () => { const result = await api.raw(`${BASE}/exports/${encodeURIComponent(job.job_id)}/cancel`, { method: 'POST' }); this.jobs.set(job.job_id, { ...job, ...result }); this.paint(); }) : null)));
   }

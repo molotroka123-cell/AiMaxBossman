@@ -39,15 +39,48 @@ const HEALTH_NAME = {
 const RAW_LOG_KINDS = new Set(['run.log', 'ws.open', 'ws.closed', 'ws.connecting',
   'ws.idle', 'system.metrics']);
 
+/* Единственный режим, который доходит до сервера: POST /api/tasks знает про
+   run_now и больше ни про что. Прежние чипы «Умно / Авто / С агентами» меняли
+   ровно этот флаг — две подписи на одно действие, а «С агентами» не делал
+   ничего вообще. Переключатель, который ничего не переключает, — это ложь,
+   поэтому здесь остался один и назван тем, что он делает. */
 const MODES = [
-  { id: 'smart', label: 'Умно', hint: 'BOSSMAN сам выберет модель и путь' },
-  { id: 'auto', label: 'Авто', hint: 'запустить сразу, без уточнений' },
-  { id: 'agents', label: 'С агентами', hint: 'раздать работу нескольким агентам' },
+  { id: 'run_now', label: 'Сразу в очередь',
+    hint: 'выключить — задача останется черновиком и будет ждать запуска вручную' },
 ];
 
-const state = { modes: new Set(['smart']), agentId: null };
+const state = { modes: new Set(['run_now']), agentId: null };
 
 /* ---------------------------------------------------------------- мелочи */
+
+/** Причина отказа в человеческом виде — для честных пустых состояний. */
+function why(res) {
+  if (!res || res.status !== 'rejected') return '';
+  const e = res.reason || {};
+  return e.message || 'сервер не ответил';
+}
+
+/** Источники, которые не ответили: [метка, результат] → [{label, why}].
+
+    Пустой список и «данные не пришли» выглядят на экране одинаково, но значат
+    противоположное. Не различить их — значит показать сбой как хорошую новость. */
+function failuresOf(sources) {
+  return sources
+    .filter(([, res]) => res && res.status === 'rejected')
+    .map(([label, res]) => ({ label, why: why(res) }));
+}
+
+/** Честная замена спокойному пустому состоянию. */
+function failureNote(failures, ctx) {
+  return h('div.bx-fail', { 'data-failed': String(failures.length), role: 'status' },
+    h('span.bx-fail-icon', icon('info', 16)),
+    h('div', { style: { minWidth: 0 } },
+      h('div.bx-fail-title', 'Данные не получены — тишина здесь ничего не значит'),
+      failures.map((f) => h('div.bx-fail-line', `${f.label}: ${f.why}`))),
+    h('div.bx-spacer'),
+    h('button.bx-btn.bx-btn-subtle.bx-btn-sm',
+      { type: 'button', onClick: () => ctx.refresh() }, icon('retry', 14), h('span', 'Повторить')));
+}
 
 function greeting() {
   const hour = new Date().getHours();
@@ -123,12 +156,27 @@ const HomePage = {
     ctx.setBadge('approvals', approvals.length);
 
     const everythingFailed = systemR.status === 'rejected' && appsR.status === 'rejected';
+    // Блок «Нужно ваше внимание» молчит либо потому, что всё спокойно, либо
+    // потому, что источники не ответили. Это разные вещи, и различает их
+    // только список отказов.
+    const attentionFailures = failuresOf([
+      ['очередь подтверждений', approvalsR],
+      ['упавшие задачи', failedTasksR],
+      ['миссии', missionsR],
+      ['состояние системы', systemR],
+      ['модели', modelsR],
+    ]);
+    const nowFailures = failuresOf([
+      ['живые задачи', liveTasksR],
+      ['миссии', missionsR],
+    ]);
 
     return h('div.bx-home',
       everythingFailed ? errorBanner(systemR.reason, ctx) : null,
       buildHero({ sys, apps, agents, graph, online: systemR.status === 'fulfilled' }),
-      buildAttention({ approvals, failedTasks, missions, sys, models, liveTasks }, ctx),
-      buildNow({ liveTasks, missions, activity }, ctx),
+      buildAttention({ approvals, failedTasks, missions, sys, models, liveTasks,
+                       failures: attentionFailures }, ctx),
+      buildNow({ liveTasks, missions, activity, failures: nowFailures }, ctx),
       buildCommandBar(ctx, agents),
       buildApps(apps, appsR, ctx),
       h('div.bx-row',
@@ -206,6 +254,29 @@ function buildCommandBar(ctx, agents) {
     input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
   });
 
+  // Агент задаёт модель и системный промпт — без него задачу создавать некому.
+  // Раньше state.agentId не присваивался НИГДЕ, поэтому при двух и более агентах
+  // главная кнопка страницы всегда отбивала владельца на «Агенты».
+  const agentPicker = h('select.bx-mode-select', {
+    'aria-label': 'Агент', 'data-role': 'home-agent',
+    title: 'Агент задаёт модель и системный промпт',
+  },
+    h('option', { value: '' }, agents.length ? '— выберите агента —' : 'агентов ещё нет'),
+    agents.map((a) => h('option', { value: String(pick(a, ['id'])) },
+      pick(a, ['name'], 'без имени'))));
+  const known = new Set(agents.map((a) => String(pick(a, ['id']))));
+  if (state.agentId !== null && known.has(String(state.agentId))) {
+    agentPicker.value = String(state.agentId);
+  } else if (agents.length === 1) {
+    // Выбирать не из чего — выбор уже сделан.
+    state.agentId = String(pick(agents[0], ['id']));
+    agentPicker.value = state.agentId;
+  } else {
+    state.agentId = null;
+  }
+  agentPicker.disabled = !agents.length;
+  agentPicker.addEventListener('change', () => { state.agentId = agentPicker.value || null; });
+
   const modeButtons = MODES.map((mode) => {
     const btn = h('button.bx-mode', {
       type: 'button', title: mode.hint,
@@ -231,14 +302,18 @@ function buildCommandBar(ctx, agents) {
       if (await routeVideoRequest(text, attachedFiles(), ctx)) return;
     } catch (e) { toastError(e, 'Не удалось открыть видеопроект'); return; }
     finally { start.disabled = false; }
-    const agent = state.agentId ?? (agents.length === 1 ? pick(agents[0], ['id']) : null);
+    const agent = state.agentId;
     if (!agent) {
-      toast('Выберите агента', {
-        type: 'warn',
-        hint: agents.length ? 'Агент задаёт модель и системный промпт.'
-          : 'Сначала создайте агента на странице «Агенты».',
-      });
-      ctx.navigate('agents');
+      if (!agents.length) {
+        toast('Сначала создайте агента', {
+          type: 'warn', hint: 'Агент задаёт модель и системный промпт.',
+        });
+        ctx.navigate('agents');
+        return;
+      }
+      // Выбор есть прямо здесь — уводить со страницы незачем.
+      toast('Выберите агента', { type: 'warn', hint: 'Агент задаёт модель и системный промпт.' });
+      agentPicker.focus();
       return;
     }
     start.classList.add('is-loading');
@@ -246,12 +321,13 @@ function buildCommandBar(ctx, agents) {
       const first = text.split('\n')[0].trim();
       await api.createTask({
         title: first.length > 80 ? `${first.slice(0, 77)}…` : first || 'Задача',
-        prompt: text, agent_id: agent, priority: 5,
-        run_now: state.modes.has('auto') || state.modes.has('smart'),
+        prompt: text, agent_id: Number(agent), priority: 5,
+        run_now: state.modes.has('run_now'),
       });
       input.value = '';
       input.style.height = 'auto';
-      toastOk('Задача поставлена в очередь');
+      toastOk(state.modes.has('run_now') ? 'Задача поставлена в очередь'
+        : 'Задача сохранена черновиком — запустите её на странице «Задачи»');
       ctx.refresh();
     } catch (e) {
       toastError(e, 'Не удалось создать задачу');
@@ -267,7 +343,8 @@ function buildCommandBar(ctx, agents) {
 
   return h('section.bx-command',
     h('div.bx-command-mark', icon('bolt', 22)),
-    h('div.bx-command-mid', input, attachmentInput(), h('div.bx-modes', modeButtons)),
+    h('div.bx-command-mid', input, attachmentInput(),
+      h('div.bx-modes', agentPicker, modeButtons)),
     start);
 }
 
@@ -523,11 +600,16 @@ export function collectAttention({ approvals = [], failedTasks = [], missions = 
   }
 
   if (failedTasks.length) {
+    // На главной нужна ПРИЧИНА, а не заголовок: заголовок владелец и так писал
+    // сам. И открывается та самая задача, а не общий список из ста строк.
+    const first = failedTasks[0] || {};
+    const error = (first.last_run && first.last_run.error) || '';
+    const failedId = pick(first, ['id'], null);
     items.push({
       kind: 'task-failed', severity: 'block', page: 'tasks', count: failedTasks.length,
       title: failedTasks.length === 1 ? 'Задача завершилась ошибкой' : `${failedTasks.length} задач с ошибкой`,
-      note: pick(failedTasks[0], ['title'], '')
-        || (failedTasks[0] && failedTasks[0].last_run && failedTasks[0].last_run.error) || 'откройте задачи',
+      note: error || pick(first, ['title'], '') || 'откройте задачи',
+      params: failedId === null || failedId === undefined ? null : { task: String(failedId) },
     });
   }
 
@@ -568,16 +650,27 @@ export function collectAttention({ approvals = [], failedTasks = [], missions = 
 
 function buildAttention(data, ctx) {
   const items = collectAttention(data);
-  if (!items.length) {
-    return h('section.bx-panel.bx-attn.is-calm', { id: 'attention' },
+  const failures = data.failures || [];
+  // «Ничего не ждёт вашего решения» имеет право появиться ТОЛЬКО когда мы
+  // действительно спросили и действительно получили ответ.
+  if (!items.length && !failures.length) {
+    return h('section.bx-panel.bx-attn.is-calm', { id: 'attention', 'data-failed': '0' },
       h('div.bx-panel-body.bx-attn-calm',
         icon('check', 16),
         h('span', 'Ничего не ждёт вашего решения.')));
   }
-  return h('section.bx-panel.bx-attn', { id: 'attention', 'data-count': String(items.length) },
+  if (!items.length) {
+    return h('section.bx-panel.bx-attn', { id: 'attention', 'data-count': '0',
+                                           'data-failed': String(failures.length) },
+      h('div.bx-panel-head', h('h2', 'Нужно ваше внимание'), h('div.bx-spacer')),
+      h('div.bx-panel-body', failureNote(failures, ctx)));
+  }
+  return h('section.bx-panel.bx-attn', { id: 'attention', 'data-count': String(items.length),
+                                         'data-failed': String(failures.length) },
     h('div.bx-panel-head', h('h2', 'Нужно ваше внимание'), h('div.bx-spacer'),
       h('span.bx-attn-total', String(items.length))),
-    h('div.bx-panel-body.bx-attn-list', items.map((i) => attentionRow(i, ctx))));
+    h('div.bx-panel-body.bx-attn-list', items.map((i) => attentionRow(i, ctx)),
+      failures.length ? failureNote(failures, ctx) : null));
 }
 
 /* ---------------------------------------------------------------- A3. «Сейчас в работе»
@@ -611,16 +704,19 @@ function nowFacts(task, activity) {
   };
 }
 
-function buildNow({ liveTasks = [], missions = [], activity = [] }, ctx) {
+function buildNow({ liveTasks = [], missions = [], activity = [], failures = [] }, ctx) {
   const rank = { running: 0, waiting_approval: 1, paused: 2, queued: 3 };
   const task = [...liveTasks].sort((a, b) =>
     (rank[String(pick(a, ['status'], ''))] ?? 9) - (rank[String(pick(b, ['status'], ''))] ?? 9))[0];
   const mission = missions.find((m) => ['running', 'planning'].includes(String(pick(m, ['status'], ''))));
 
   if (!task && !mission) {
-    return h('section.bx-panel.bx-now', { id: 'now-card' },
+    // Не спутать «ничего не идёт» с «мы не знаем, что идёт».
+    return h('section.bx-panel.bx-now', { id: 'now-card', 'data-failed': String(failures.length) },
       h('div.bx-panel-head', h('h2', 'Сейчас в работе'), h('div.bx-spacer')),
-      h('div.bx-panel-body', h('div.bx-empty', h('div', 'Сейчас ничего не выполняется.'))));
+      h('div.bx-panel-body', failures.length
+        ? failureNote(failures, ctx)
+        : h('div.bx-empty', h('div', 'Сейчас ничего не выполняется.'))));
   }
 
   const status = String(pick(task || mission, ['status'], 'running'));

@@ -116,13 +116,25 @@ async def _attention(svc, org: dict[str, Any] | None) -> list[dict[str, Any]]:
     return out
 
 
+# Флот НЕ сертифицирован для распределённого production: удалённый транспорт и
+# аутентификация узлов не доведены (см. remote_transport_production_ready /
+# node_auth_production_ready). Признак едет вместе со сводкой, чтобы владелец
+# видел его в UI, а не только в этом файле.
+FLEET_EXPERIMENTAL_NOTE = ("флот не сертифицирован для распределённого production: "
+                           "удалённый транспорт и аутентификация узлов не доведены")
+
+
 async def _fleet(org_service) -> dict[str, Any]:
     """§15: durable-сводка флота, когда фича organization включена с BOSSMAN_V3_FLEET."""
     if org_service is None or getattr(org_service, "fleet", None) is None:
         return {"enabled": False, "nodes": [], "active_leases": [], "queue_depth": 0, "blocked_work": [],
                 "reason": "fleet is off (BOSSMAN_V3_ENABLED + BOSSMAN_V3_ORGANIZATION + BOSSMAN_V3_FLEET)",
+                "experimental": True, "experimental_reason": FLEET_EXPERIMENTAL_NOTE,
                 "remote_transport_production_ready": False, "node_auth_production_ready": False}
-    return await asyncio.to_thread(org_service.fleet_summary)
+    summary = await asyncio.to_thread(org_service.fleet_summary)
+    summary["experimental"] = True
+    summary["experimental_reason"] = FLEET_EXPERIMENTAL_NOTE
+    return summary
 
 
 

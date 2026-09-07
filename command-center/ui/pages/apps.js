@@ -166,7 +166,7 @@ function cardWithControl(app, ctx) {
   const card = appCard(app, ctx);
   const actions = card.querySelector('.bx-app-actions');
   if (actions) {
-    actions.appendChild(controlButton(app, ctx, {
+    const btn = controlButton(app, ctx, {
       size: 'lg',
       // Хвост журнала в карточку не помещается — за подробностями открываем
       // само приложение, там для них есть место.
@@ -177,7 +177,19 @@ function cardWithControl(app, ctx) {
         });
         ctx.navigate('apps', { open: app.id });
       },
-    }));
+    });
+    actions.appendChild(btn);
+    // У приложения может не быть точки входа — тогда POST /apps/{id}/start
+    // отвечает 409. Живая кнопка, которая гарантированно откажет, врёт: гасим
+    // её по той же причине, которую называет сервер.
+    if (!isRunning(app)) {
+      processInfo(app.id).then((info) => {
+        if (!info || !info.problem) return;
+        btn.disabled = true;
+        btn.dataset.problem = info.problem;
+        btn.title = `Нельзя запустить: ${info.problem}`;
+      }).catch(() => { /* состояние процесса неизвестно — кнопку не трогаем */ });
+    }
   }
   return card;
 }
@@ -286,16 +298,35 @@ function notRunning(app, ctx) {
         details)));
 
   processInfo(app.id).then((info) => {
+    // Плейсхолдер `<модуль приложения>` — не команда: её нельзя набрать. Если
+    // сервер не смог определить модуль, он говорит почему, и мы печатаем причину.
     cmd.textContent = info.manual_command
+      || info.problem
       || `cd apps/${app.id} && python -m <модуль приложения> serve`;
-    if (info.enabled === false) {
-      // Кнопка, которая гарантированно откажет, хуже честной надписи.
+    // Кнопка, которая гарантированно откажет, хуже честной надписи. Причин
+    // отказа две, и они независимы: выключенное управление приложениями и
+    // отсутствие точки запуска у самого приложения. Показываем обе — владелец
+    // иначе снимет одну преграду и упрётся во вторую без объяснения.
+    if (info.problem) {
+      // Тот же отказ, которым ответит POST /apps/{id}/start (409). Показываем
+      // его ДО клика, а не тостом после.
       startBtn.disabled = true;
-      startBtn.title = 'Управление приложениями выключено';
+      startBtn.title = info.problem;
+      details.appendChild(h('div', {
+        'data-role': 'start-problem',
+        style: { marginTop: '12px', color: 'var(--bx-rose)', fontWeight: 600 },
+      }, `BOSSMAN не может запустить это приложение: ${info.problem}`));
+      details.appendChild(h('div', { style: { marginTop: '6px' } },
+        'Приложению нужна точка запуска: [project.scripts] в pyproject.toml '
+        + 'или пакет с __main__.py.'));
+    }
+    if (info.enabled === false) {
+      startBtn.disabled = true;
+      startBtn.title = info.problem || 'Управление приложениями выключено';
       details.appendChild(h('div', { style: { marginTop: '12px' } },
         'Запуск из дашборда выключен. Чтобы разрешить его, поставьте '
         + 'BOSSMAN_APPS_CONTROL_ENABLED=1 и перезапустите Command Center.'));
-    } else if (info.log_tail && info.log_tail.length) {
+    } else if (!info.problem && info.log_tail && info.log_tail.length) {
       details.appendChild(logBlock('Последние строки прошлого запуска:', info.log_tail));
     }
   }).catch(() => {

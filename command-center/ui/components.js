@@ -126,6 +126,17 @@ export const ICONS = {
   sun:       S('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19"/>'),
   chevron:   S('<path d="m9 6 6 6-6 6"/>'),
   empty:     S('<path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5v-7z"/><path d="M4 8.5 12 13l8-4.5M12 13v7"/>'),
+  /* Страницы просили эти имена и получали ⓘ: Video Studio и Web Designer
+     выглядели в доке одинаково. Свой глиф — часть того, чтобы страницу можно
+     было отличить, не читая подпись. */
+  film:      S('<rect x="3" y="5" width="18" height="14" rx="2.2"/><path d="M8 5v14M16 5v14M3 12h18"/>'),
+  builder:   S('<rect x="3" y="4" width="18" height="16" rx="2.2"/><path d="M3 9h18M9 9v11"/>'),
+  browser:   S('<circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2"/><path d="M12 3.4c2.5 2.6 3.9 5.5 3.9 8.6s-1.4 6-3.9 8.6c-2.5-2.6-3.9-5.5-3.9-8.6S9.5 6 12 3.4z"/>'),
+  target:    S('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r=".9"/>'),
+  terminal:  S('<rect x="3" y="4.5" width="18" height="15" rx="2.2"/><path d="m7.4 10 2.6 2.2-2.6 2.2M12.6 15h4"/>'),
+  apps:      S('<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>'),
+  plugins:   S('<path d="M9 3v4.5M15 3v4.5"/><rect x="5.5" y="7.5" width="13" height="6.5" rx="2"/><path d="M12 14v3.2a3.4 3.4 0 0 0 3.4 3.4h1.1"/>'),
+  history:   S('<path d="M3.6 12a8.4 8.4 0 1 0 2.6-6.1"/><path d="M3.6 5.4v5.2h5.2"/><path d="M12 8v4.3l3 1.7"/>'),
 };
 
 export function icon(name, size = 17) {
