@@ -292,8 +292,26 @@ async def _persist_skill_version(svc, con, description: str = "") -> int:
             permissions={"declared": con.permissions, "fingerprint": con.fingerprint,
                          "label": con.version},
             created_at=utcnow()))).inserted_primary_key[0])
-        await s.execute(sa.update(skills_t).where(skills_t.c.id == sid).values(
-            current_version_id=vid))
+        # P0-1: РЕГИСТРАЦИЯ ОТПЕЧАТКА — НЕ ПРОДВИЖЕНИЕ.
+        #
+        # Раньше здесь стояло безусловное `current_version_id=vid`, и это был
+        # обход канареечной двери в чистом виде: новая версия становилась
+        # текущей ДЛЯ ВСЕГО ПАРКА просто потому, что её файл появился, — без
+        # измерения, без проверки расширения прав (`widened_capabilities`), без
+        # события `skill.version.promoted` и без строки в `skill_evaluations`.
+        # То есть достигалось ровно то состояние, которое сторожит
+        # `_apply_promotion`, минуя сторожа.
+        #
+        # Теперь текущая версия проставляется ТОЛЬКО когда её нет вовсе: у
+        # скилла, у которого ещё ни одной текущей версии, канареечить нечего —
+        # нет ни baseline, ни парка, который что-то потеряет. Смена уже
+        # существующей текущей версии проходит через
+        # `bcc.v2.skill_evaluation` и его дверь, и никак иначе.
+        current = (await s.execute(sa.select(skills_t.c.current_version_id)
+                                   .where(skills_t.c.id == sid))).first()
+        if current is None or current[0] is None:
+            await s.execute(sa.update(skills_t).where(skills_t.c.id == sid).values(
+                current_version_id=vid))
         await s.commit()
     return vid
 
@@ -392,6 +410,10 @@ async def _after_skill_run(svc, task_id: int, run_id: int, status: str) -> None:
 
     if m["skill_version_id"]:
         try:
+            # Улика пишется ДО решения: терминальный исход — единственный момент,
+            # когда канареечное здоровье вообще рождается.
+            await evaluation.record_canary_outcome(
+                svc, int(m["skill_version_id"]), int(run_id), str(status))
             await evaluation.refresh_for_version(svc, int(m["skill_version_id"]))
         except Exception as exc:                 # сравнение версий не имеет права
             await svc.bus.emit("skill.evaluation.error",  # уронить сам прогон
