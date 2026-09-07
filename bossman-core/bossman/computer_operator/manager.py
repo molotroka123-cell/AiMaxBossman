@@ -3,7 +3,7 @@ import asyncio,hashlib,inspect,json,re,threading,time
 from dataclasses import replace
 from .models import ActionKind,ComputerAction,ComputerTask,StepRecord,TaskMode,TaskState
 from ..obs import redact,redact_obj
-from .obligations import extract_obligations,snapshot,unsatisfied
+from .obligations import FileEffect,UnknownEffect,extract_obligations,screen_text,snapshot,unsatisfied
 from .policy import ComputerPolicy,authorize_computer_control
 from .store import StaleTaskWrite
 from .verifier import Verifier
@@ -135,7 +135,7 @@ class ComputerOperatorManager:
         # выдавать его отсутствие за выполнение обязательств нельзя.
         self.obligations_of=obligations_of or extract_obligations
         self.obligation_probe=obligation_probe
-        self._prestate={}
+        self._prestate={}; self._prescreen={}
         # AT-03: из чего считается подпись применимости наблюдения. Подменяемо для
         # хоста, чей UI-снимок содержит заведомо шумные поля.
         self.observation_fingerprint=observation_fingerprint
@@ -240,6 +240,7 @@ class ComputerOperatorManager:
                                                self.observe_timeout_s,"observe",abandon_on_owner=True)
                     self.observations_taken+=1
                 t.last_observation=before
+                self._bind_attempt(t)
                 plan_generation=t.generation
                 t.state=TaskState.PLANNING; self._save(t)
                 try:
@@ -643,10 +644,31 @@ class ComputerOperatorManager:
         # Именные обязательства проверяются ПЕРВЫМИ и по существу: «какая-то
         # мутация произошла» не закрывает «создай ЭТОТ файл с ЭТИМ текстом».
         obligations=self._obligations(t)
-        if obligations and self.obligation_probe is not None:
-            missing=unsatisfied(obligations,self.obligation_probe,self._prestate.get(t.id))
+        # UnknownEffect — честно признанный предел, а не проверка: цель обещает
+        # результат и не называет его, значит отличить относящуюся мутацию от
+        # посторонней НЕЧЕМ. Блокировать всё подряд здесь означало бы, что
+        # оператор не может закрыть ни «оплати счёт», ни «нажми кнопку», то есть
+        # почти ничего. Вместо этого правило УСИЛЕНО против прежнего: мало того,
+        # что нужен подтверждённый изменяющий шаг, — экран обязан отличаться от
+        # того, что был до попытки. AT-01 для таких целей остаётся PARTIAL, и это
+        # записано в отчёте, а не спрятано.
+        if obligations and all(isinstance(e,UnknownEffect) for e in obligations):
+            # Требовать здесь изменения экрана нельзя: законный эффект бывает
+            # невидимым (запись в фоне, вызов API), и такое требование ломало бы
+            # рабочие цели ради видимости строгости. Остаётся прежнее слабое
+            # правило, и AT-01 для таких целей честно остаётся PARTIAL.
+            obligations=()
+        # Файловые обязательства без порта проверять нечем: возвращаемся к
+        # прежнему (слабому) правилу, а не притворяемся, что проверили.
+        if self.obligation_probe is None:
+            obligations=tuple(e for e in obligations if not isinstance(e,FileEffect))
+        if obligations:
+            missing=unsatisfied(obligations,self.obligation_probe or (lambda e:None),
+                                self._prestate.get(t.id),
+                                (self._prescreen.get(t.id,""),screen_text(t.last_observation)))
             if missing:
-                detail="; ".join(f"{e.path}: {why}" for e,why in missing)
+                detail="; ".join(f"{getattr(e,'path',None) or getattr(e,'text',None) or 'результат'}: {why}"
+                                 for e,why in missing)
                 return ("completion refused: the goal's stated results are not confirmed "
                         f"by an independent post-state read [{detail}]")
             return None
@@ -674,7 +696,12 @@ class ComputerOperatorManager:
         строже, а не мягче — уже созданный в прошлой попытке файл станет
         «существовал до начала», и завершение потребует свежего подтверждения.
         """
-        if self.obligation_probe is None or t.id in self._prestate:return
+        # Экран «до» снимается по ПЕРВОМУ наблюдению попытки: на входе в run()
+        # его ещё нет, и пустая строка означала бы «до было пусто», то есть
+        # любое непустое «после» считалось бы изменением.
+        if t.last_observation is None or t.id in self._prescreen:return
+        self._prescreen[t.id]=screen_text(t.last_observation)
+        if self.obligation_probe is None:return
         obligations=self._obligations(t)
         if not obligations:return
         try:self._prestate[t.id]=snapshot(obligations,self.obligation_probe)

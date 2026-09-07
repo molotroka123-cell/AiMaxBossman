@@ -35,9 +35,9 @@ def complete():
     return ComputerAction.make(ActionKind.COMPLETE, expected=ExpectedState(contains_text="ok"))
 
 
-def typed(text="что-то"):
+def typed(text="что-то", seeing="ok"):
     return ComputerAction.make(ActionKind.TYPE, text=text,
-                               expected=ExpectedState(contains_text="ok"))
+                               expected=ExpectedState(contains_text=seeing))
 
 
 def operator(tmp_path, goal, actions, *, root=None):
@@ -177,3 +177,97 @@ async def test_positive_3_an_updated_pre_existing_file_counts(tmp_path):
                        obligation_probe=file_probe(tmp_path))
     state, row = await run(mgr, 'создай файл report.txt с текстом "Готово"')
     assert state is TaskState.COMPLETED, row.last_error
+
+
+# ---------------- AT-01 за пределами файловых обязательств ----------------
+#
+# Слой понимал только пути. Цель «включи тёмную тему» не давала ни одного
+# обязательства, и решение падало обратно на слабое правило: любая
+# подтверждённая мутация закрывала любую цель.
+
+def screen(text):
+    return FakeObserver(summary=text)
+
+
+def complete_seeing(text):
+    """COMPLETE с постусловием, которое ДЕЙСТВИТЕЛЬНО есть на экране."""
+    return ComputerAction.make(ActionKind.COMPLETE, expected=ExpectedState(contains_text=text))
+
+
+class ChangesScreen(FakeAdapter):
+    """Адаптер, который МЕНЯЕТ экран наблюдателя на заданный."""
+
+    def __init__(self, observer, after, **kw):
+        super().__init__(**kw)
+        self.observer = observer
+        self.after = after
+
+    async def execute(self, a, o):
+        if a.kind is ActionKind.TYPE:
+            self.observer.summary = self.after
+        return await super().execute(a, o)
+
+
+@pytest.mark.asyncio
+async def test_a_screen_goal_is_refused_when_the_screen_never_showed_it(tmp_path):
+    """Негативный не-файловый случай: обещано «Dark», на экране его нет."""
+    observer = screen("light theme ok")
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([typed("x", seeing="light"), complete_seeing("light")] + [complete_seeing("light")] * 30),
+                       observer, adapter=ChangesScreen(observer, "still light ok"))
+    t = mgr.create_task('включи тёмную тему "Dark"')
+    state = await asyncio.wait_for(mgr.run(t.id), timeout=20)
+    assert state is not TaskState.COMPLETED
+    assert "Dark" in (mgr.store.get(t.id).last_error or "")
+
+
+@pytest.mark.asyncio
+async def test_a_screen_goal_is_refused_when_it_was_already_there(tmp_path):
+    """Улика попытки: обещанное было на экране ДО начала — это не результат."""
+    observer = screen("Dark theme already ok")
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([typed("x", seeing="Dark"), complete_seeing("Dark")] + [complete_seeing("Dark")] * 30),
+                       observer, adapter=ChangesScreen(observer, "Dark theme already ok too"))
+    t = mgr.create_task('включи тёмную тему "Dark"')
+    state = await asyncio.wait_for(mgr.run(t.id), timeout=20)
+    assert state is not TaskState.COMPLETED
+    assert "до попытки" in (mgr.store.get(t.id).last_error or "")
+
+
+@pytest.mark.asyncio
+async def test_a_screen_goal_completes_when_the_attempt_put_it_there(tmp_path):
+    """Положительный контроль: экран изменился и показывает обещанное."""
+    observer = screen("light theme ok")
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([typed("x", seeing="theme"), complete_seeing("Dark")]),
+                       observer, adapter=ChangesScreen(observer, "Dark theme ok"))
+    t = mgr.create_task('включи тёмную тему "Dark"')
+    state = await asyncio.wait_for(mgr.run(t.id), timeout=20)
+    assert state is TaskState.COMPLETED, mgr.store.get(t.id).last_error
+
+
+@pytest.mark.asyncio
+async def test_an_unextractable_goal_is_the_known_limit_and_is_named_as_such(tmp_path):
+    """Случай отказа парсера — признанный предел, а не закрытая дыра.
+
+    Цель обещает внешний эффект и НЕ называет проверяемого результата
+    («оплати счёт»). Отличить относящуюся мутацию от посторонней здесь нечем.
+    Требовать изменения экрана тоже нельзя: законный эффект бывает невидимым
+    (запись в фоне, вызов API), и такое требование ломало бы рабочие цели ради
+    видимости строгости. Поэтому остаётся прежнее слабое правило, и AT-01 для
+    таких целей — PARTIAL_FILE_OBLIGATION_CLOSED. Тест фиксирует ИМЕННО это,
+    чтобы предел нельзя было потом пересказать как закрытие.
+    """
+    from bossman.computer_operator.obligations import UnknownEffect, extract_obligations
+    assert extract_obligations("оплати счёт") == (
+        UnknownEffect(reason="из цели не извлечён проверяемый результат"),)
+
+    observer = screen("invoice open")
+    mgr = make_manager(tmp_path / "t.json",
+                       FakePlanner([typed("x", seeing="invoice"), complete_seeing("invoice")]),
+                       observer, adapter=ChangesScreen(observer, "invoice paid"))
+    t = mgr.create_task("оплати счёт")
+    # Закрывается по слабому правилу — и это ЗАФИКСИРОВАННЫЙ предел.
+    assert await asyncio.wait_for(mgr.run(t.id), timeout=20) is TaskState.COMPLETED
+
+

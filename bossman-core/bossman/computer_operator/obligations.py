@@ -22,6 +22,7 @@ import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 # Путь с расширением: Windows (C:\dir\file.txt, \\server\share\f.doc) и POSIX.
 # Кавычки любые, включая типографские — владелец пишет цель как говорит.
@@ -44,12 +45,49 @@ _CONTENT = re.compile(
 
 @dataclass(frozen=True, slots=True)
 class FileEffect:
-    """Именованный внешний результат, который цель обещает."""
+    """Именованный внешний результат В ФАЙЛОВОЙ СИСТЕМЕ."""
     path: str
     contains: str | None = None
 
     def key(self) -> str:
         return self.path
+
+
+@dataclass(frozen=True, slots=True)
+class ScreenEffect:
+    """Обещанный результат, который виден на ЭКРАНЕ, а не в файловой системе.
+
+    «Включи тёмную тему», «поставь галочку», «открой вкладку настроек» — внешний
+    эффект без единого пути. Раньше такие цели не давали ни одного файлового
+    обязательства, и решение падало обратно на слабое правило «была какая-то
+    подтверждённая мутация»: открыл блокнот, что-то напечатал — цель закрыта.
+
+    Улика здесь другой природы и слабее файловой: экран читает тот же
+    наблюдатель, которым пользуется планировщик. Поэтому она НЕ засчитывается
+    сама по себе — она лишь требует, чтобы экран ПОСЛЕ попытки отличался от
+    экрана ДО неё и содержал обещанное. Совпадение «до» и «после» означает, что
+    ничего не изменилось, чем бы планировщик это ни называл.
+    """
+    text: str
+
+    def key(self) -> str:
+        return f"screen:{self.text.lower()}"
+
+
+@dataclass(frozen=True, slots=True)
+class UnknownEffect:
+    """Цель обещает внешний результат, но КАКОЙ именно — извлечь не удалось.
+
+    Это самый опасный случай и раньше он был самым тихим: пустой список
+    обязательств означал «проверять нечего», и завершение решалось слабым
+    правилом. Теперь отсутствие извлечённого обязательства — само по себе
+    обязательство, которое нечем закрыть: цель, обещающая эффект, но не
+    называющая его проверяемо, не может быть закрыта машиной.
+    """
+    reason: str
+
+    def key(self) -> str:
+        return f"unknown:{self.reason}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +118,7 @@ def extract_obligations(goal: str) -> tuple[FileEffect, ...]:
         # Требуемое содержимое из цели вырезается: путь ищется по остатку,
         # иначе «с текстом "см. report.txt"» породил бы фантомное обязательство.
         text = text[: match.start()] + " " + text[match.end() :]
-    seen: dict[str, FileEffect] = {}
+    seen: dict[str, Any] = {}
     for raw in _PATH.findall(text):
         path = raw.strip("".join(_QUOTES) + ".,;:!?)")
         if not path or path.endswith((".", "/", "\\")):
@@ -94,7 +132,34 @@ def extract_obligations(goal: str) -> tuple[FileEffect, ...]:
             continue
         effect = FileEffect(path=path, contains=contains)
         seen.setdefault(effect.key(), effect)
-    return tuple(seen.values())
+    if seen:
+        return tuple(seen.values())
+    # Файлового обязательства не извлеклось. Это НЕ означает «проверять нечего»:
+    # цель уже признана обещающей внешний результат, значит результат есть, и
+    # вопрос лишь в том, назвали ли его проверяемо.
+    screen = _screen_effect(goal or "")
+    if screen is not None:
+        return (screen,)
+    return (UnknownEffect(reason="из цели не извлечён проверяемый результат"),)
+
+
+# Обещание, видимое на экране: кавычки вокруг того, что должно там оказаться,
+# либо явный «переключи/включи/поставь ...». Намеренно узко: широкая эвристика
+# здесь означала бы придуманное обязательство, а не найденное.
+_SCREEN = re.compile(
+    r"(?:выбер[иь]|включ[иь]|выключ[иь]|переключ[иь]|поставь|отмет[ьи]|введ[иь]|"
+    r"select|enable|disable|toggle|check|set)\b[^" + _QUOTES + r"]{0,40}"
+    r"([" + _QUOTES + r"])(.+?)\1",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _screen_effect(goal: str):
+    match = _SCREEN.search(goal)
+    if match is None:
+        return None
+    wanted = match.group(2).strip()
+    return ScreenEffect(text=wanted) if wanted else None
 
 
 def file_probe(root: str | Path | None = None):
@@ -122,7 +187,20 @@ def file_probe(root: str | Path | None = None):
     return probe
 
 
-def unsatisfied(obligations, probe, before: dict[str, ProbeResult] | None):
+def screen_text(observation) -> str:
+    """Текст экрана для проверки экранных обязательств: сводка плюс дерево UI."""
+    if observation is None:
+        return ""
+    tree = getattr(observation, "ui_tree", None)
+    blob = getattr(observation, "summary", "") or ""
+    if tree is not None:
+        import json as _json
+        blob = f"{blob}\n{_json.dumps(tree, ensure_ascii=False, default=str)}"
+    return blob.lower()
+
+
+def unsatisfied(obligations, probe, before: dict[str, ProbeResult] | None,
+                screens: tuple[str, str] | None = None):
     """Обязательства, у которых НЕТ улики этой попытки. Пусто — все закрыты.
 
     Улика обязана быть тройной:
@@ -131,7 +209,22 @@ def unsatisfied(obligations, probe, before: dict[str, ProbeResult] | None):
     * он отличается от состояния ДО попытки — иначе доказано прошлое.
     """
     missing = []
+    before_screen, after_screen = screens or ("", "")
     for effect in obligations:
+        if isinstance(effect, UnknownEffect):
+            # Нечем закрыть по построению: цель обещает результат и не называет
+            # его. Машина не имеет права додумать, что именно проверять.
+            missing.append((effect, effect.reason))
+            continue
+        if isinstance(effect, ScreenEffect):
+            wanted = effect.text.lower()
+            if wanted not in after_screen:
+                missing.append((effect, "на экране этого нет"))
+            elif before_screen == after_screen:
+                missing.append((effect, "экран не изменился за попытку"))
+            elif wanted in before_screen:
+                missing.append((effect, "было на экране до попытки"))
+            continue
         after = probe(effect)
         if not after.exists:
             missing.append((effect, "не создан"))
@@ -148,4 +241,5 @@ def unsatisfied(obligations, probe, before: dict[str, ProbeResult] | None):
 
 def snapshot(obligations, probe) -> dict[str, ProbeResult]:
     """Состояние обещанных результатов ДО попытки — привязка улики к попытке."""
-    return {effect.key(): probe(effect) for effect in obligations}
+    return {effect.key(): probe(effect) for effect in obligations
+            if isinstance(effect, FileEffect)}
