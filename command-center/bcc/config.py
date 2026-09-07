@@ -26,7 +26,13 @@ class Settings:
     host: str = field(default_factory=lambda: _env("BCC_HOST", "127.0.0.1"))
     port: int = field(default_factory=lambda: int(_env("BCC_PORT", "8800")))
     # статика UI (её делает отдельный агент); монтируется, если каталог существует
-    ui_dir: Path = field(default_factory=lambda: ROOT / "ui")
+    # BCC_UI_DIR: где лежит интерфейс. Значение по умолчанию верно только для
+    # запуска ИЗ ИСХОДНИКА: установленный колесом `bcc` живёт в site-packages,
+    # рядом с ним каталога `ui` нет, и `api.py` тогда просто НЕ монтирует
+    # статику — сервер поднимается, а интерфейса нет, без единой ошибки.
+    # Поставка передаёт сюда свой каталог явно.
+    ui_dir: Path = field(
+        default_factory=lambda: Path(_env("BCC_UI_DIR", str(ROOT / "ui"))).expanduser())
     # V2.1 фаза N: браузер ходит по HttpOnly-cookie-сессии. Заголовок X-BCC-Token
     # остаётся для CLI/скриптов и переходного периода — выключается
     # BCC_LEGACY_TOKEN=0, когда всё перееxало на сессии.
