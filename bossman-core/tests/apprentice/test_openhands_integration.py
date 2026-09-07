@@ -2,7 +2,7 @@
 Integration tests for TeacherFallback + OpenHandsClient wiring.
 
 These tests verify the full integration between TeacherFallback,
-TeacherSandbox, and OpenHandsClient.
+TeacherSandbox, and OpenHandsClient with improved coverage.
 """
 
 import pytest
@@ -55,9 +55,14 @@ class TestTeacherSandboxIntegration:
             openhands_enabled=False
         )
         
+        # Allowed paths
         assert sandbox.is_path_allowed("/tmp/test/src/main.py") == True
         assert sandbox.is_path_allowed("/tmp/test/docs/readme.md") == True
+        
+        # Protected paths
         assert sandbox.is_path_allowed("/tmp/test/config.py") == False
+        
+        # Out of scope
         assert sandbox.is_path_allowed("/tmp/other/file.py") == False
         assert sandbox.is_path_allowed("/etc/passwd") == False
     
@@ -118,10 +123,15 @@ class TestTeacherWiringPatch:
             protected_paths=["/config.py", "/.env"]
         )
         
+        # Allowed
         assert integration._is_path_allowed("/src/main.py") == True
         assert integration._is_path_allowed("/docs/readme.md") == True
+        
+        # Protected
         assert integration._is_path_allowed("/config.py") == False
         assert integration._is_path_allowed("/.env") == False
+        
+        # Out of scope
         assert integration._is_path_allowed("/other/file.py") == False
     
     def test_mission_completion_control(self):
@@ -137,7 +147,10 @@ class TestTeacherWiringPatch:
             protected_paths=[]
         )
         
+        # OpenHands cannot complete mission by itself
         assert integration.can_complete_mission() == False
+        
+        # Request completion returns False (Bossman decides)
         result = integration.request_mission_completion()
         assert result == False
 
@@ -156,7 +169,10 @@ class TestSecurityGuarantees:
             openhands_enabled=False
         )
         
+        # Can write to allowed
         assert sandbox.is_path_allowed("/tmp/test/src/file.py") == True
+        
+        # Cannot write outside
         assert sandbox.is_path_allowed("/tmp/test/other/file.py") == False
     
     def test_protected_paths_enforcement(self):
@@ -170,6 +186,7 @@ class TestSecurityGuarantees:
             openhands_enabled=False
         )
         
+        # Protected even if in allowed tree
         assert sandbox.is_path_allowed("/tmp/test/config.py") == False
     
     def test_fail_closed_behavior(self):
@@ -186,6 +203,7 @@ class TestSecurityGuarantees:
             protected_paths=[]
         )
         
+        # Should raise on security violation
         with pytest.raises(ValueError, match="Fail-closed"):
             integration.execute_code_task("malicious task")
     
@@ -202,6 +220,7 @@ class TestSecurityGuarantees:
             protected_paths=[]
         )
         
+        # OpenHands cannot decide mission completion
         assert integration.request_mission_completion() == False
 
 
