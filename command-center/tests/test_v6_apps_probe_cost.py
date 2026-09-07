@@ -102,3 +102,49 @@ async def test_probe_without_a_client_still_works(apps_root):
     described = [apps_mod._describe_cached(p) for p in apps_mod._manifest_files()]
     live = await apps_mod._probe(described[0])
     assert live["status"] == "STOPPED" and "не отвечает" in live["detail"]
+
+
+@pytest.mark.anyio
+async def test_concurrent_callers_share_one_probe_and_errors_reach_everyone(apps_root, monkeypatch):
+    """§5 single-flight: N одновременных collect() — один опрос; ошибка — всем;
+    следующий вызов после ошибки идёт заново."""
+    probes = 0
+    real = apps_mod._probe_client
+
+    def counting():
+        nonlocal probes
+        probes += 1
+        return real()
+
+    monkeypatch.setattr(apps_mod, "_probe_client", counting)
+    results = await asyncio.gather(*(apps_mod.collect(force=True) for _ in range(8)))
+    assert probes == 1
+    assert all(r is results[0] for r in results)
+
+    def broken():
+        nonlocal probes
+        probes += 1
+        raise RuntimeError("probe exploded")
+
+    monkeypatch.setattr(apps_mod, "_probe_client", broken)
+    outcomes = await asyncio.gather(*(apps_mod.collect(force=True) for _ in range(4)),
+                                    return_exceptions=True)
+    assert probes == 2
+    assert all(isinstance(o, RuntimeError) for o in outcomes), outcomes
+
+    monkeypatch.setattr(apps_mod, "_probe_client", counting)
+    fresh = await apps_mod.collect(force=True)
+    assert probes == 3 and [a["id"] for a in fresh] == ["app0", "app1", "app2", "app3"]
+
+
+@pytest.mark.anyio
+async def test_a_cancelled_waiter_does_not_kill_the_shared_probe(apps_root):
+    first = asyncio.ensure_future(apps_mod.collect(force=True))
+    await asyncio.sleep(0)
+    second = asyncio.ensure_future(apps_mod.collect(force=True))
+    await asyncio.sleep(0)
+    second.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await second
+    apps = await first
+    assert [a["id"] for a in apps] == ["app0", "app1", "app2", "app3"]

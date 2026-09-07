@@ -207,11 +207,27 @@ def _describe_cached(path: Path) -> dict[str, Any] | None:
     return _described[key]
 
 
+# V6 §5 single-flight: главная и «Приложения» открываются одновременно и обе
+# зовут /api/apps при пустом или истёкшем кэше — раньше это были два полных
+# опроса. Второй вызывающий ждёт результат первого: он свежее того, что он
+# получил бы сам, и ничего не пересекает (опрос без побочных эффектов).
+# Ошибка опроса доходит до всех ожидающих, и следующий вызов идёт заново.
+_inflight: asyncio.Task | None = None
+
+
 async def collect(force: bool = False) -> list[dict[str, Any]]:
+    global _inflight
     now = time.monotonic()
     if not force and _cache["apps"] and now - float(_cache["at"]) < CACHE_TTL:
         return _cache["apps"]
+    loop = asyncio.get_running_loop()
+    if _inflight is None or _inflight.done() or _inflight.get_loop() is not loop:
+        _inflight = loop.create_task(_collect_fresh())
+    return await asyncio.shield(_inflight)
 
+
+async def _collect_fresh() -> list[dict[str, Any]]:
+    now = time.monotonic()
     described = [d for d in (_describe_cached(p) for p in _manifest_files()) if d]
     if described:
         async with _probe_client() as client:
