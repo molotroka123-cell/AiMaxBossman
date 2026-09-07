@@ -442,3 +442,55 @@ or make promotion nondeterministic.
 `OPEN_P0` stays **1**. P0-A work remains on
 `claude/v4-v5-p0-1-canary-production-caller` (PR #49) and is deliberately NOT
 merged into the freeze candidate, so the candidate carries no failing test.
+
+---
+
+## 15. P0-0 — diagnosis of PR #37's red CI at `67905ee`
+
+Every failure below was read from its job log and reproduced, not inferred.
+
+### Source truth first
+
+`67905ee` is still PR #37's head — **no successor commit exists**. The sandbox
+hardening is therefore NOT in source there, proven by blob identity rather than
+by the workflow's presence:
+
+| File | `67905ee` | `0ad86d1` (pre-patch) | |
+|---|---|---|---|
+| `command-center/bcc/engine.py` | `0bd2495f` | `0bd2495f` | UNCHANGED |
+| `command-center/bcc/api.py` | `fa35f67a` | `fa35f67a` | UNCHANGED |
+| `command-center/bcc/providers.py` | `54269fc4` | `54269fc4` | UNCHANGED |
+
+`command-center/tests/test_sandbox_user_run_regressions.py` is absent at
+`67905ee`. A workflow carrying patches is not the patches being in source.
+
+### Why the one-shot workflow could never apply itself
+
+The `apply` job **failed**, and not on the patch step. It applied the pack, then
+its push was rejected by a repository ruleset:
+
+```
+remote:   Found 1 violation:
+remote:   e45806a6cab8f811192bf39229097751f628a591
+ ! [remote rejected] HEAD -> claude/v5-closure-at-reconcile-xdh12f
+   (push declined due to repository rule violations)
+```
+
+So the mechanism is structurally incapable of producing the successor commit.
+Materializing the pack by hand (`19180f4`) was the only path, and it is done.
+
+### Classification of every red
+
+| Check | Exact failure | Class | Status on `a6510db` |
+|---|---|---|---|
+| `root pytest + hygiene` py3.11 **and** py3.12 | `test_v5_satisfied_evidence_gate_freeze.py::test_arbitrary_nonempty_string_cannot_purchase_satisfied` — `DID NOT RAISE ObjectiveStoreError`; 1 failed, 1077 passed, 10 skipped | **PRODUCT_REGRESSION** — upstream's own P0-2 freeze test failing because the SATISFIED resolver is not in source at `67905ee` | **FIXED** — 1 passed |
+| `pytest rest` py3.11 **and** py3.12 (Bossman Core) | 9 × `AssertionError: TaskState.FAILED is TaskState.COMPLETED` across `test_operator_at01_at03_regression`, `test_computer_operator_owner_control`, `test_stage13_wiring_notepad`, `test_stage13_auth_redteam::test_c10_positive_control_approved_action_executes`; 9 failed, 2286 passed | **PRODUCT_REGRESSION** — upstream's partial AT-01 fix (`3b84887`) routes around `manager.py:660` instead of closing it, leaving no way for a legitimately invisible effect to complete | **FIXED** — 98 passed, 1 skipped |
+| `покрытие (неснижаемый порог)` | Same Core suite; the coverage job runs the failing tests | **PRODUCT_REGRESSION**, same root cause as the row above | **FIXED** (follows Core) |
+| `repair-and-test` (V2 Auto-Repair) | Runs the same suites on `8fa9f69 = Merge 67905ee into ddea211`; `pull-request-operation = none` | **PRODUCT_REGRESSION**, same two root causes | **FIXED** (follows root + Core) |
+| `apply` (one-shot sandbox workflow) | Push rejected by repository ruleset, above | **ENVIRONMENT** — cannot self-apply by design of the ruleset | Superseded by `19180f4` |
+| `measured intelligence retention` | `INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE` / `Missing docs/benchmark/intelligence-preservation-current.json`, exit 2 | **EXPECTED_EVIDENCE_BLOCKER** | Unchanged — not fabricated |
+| Command Center CI | **cancelled** | Not a PASS and not counted as one | Green locally except browser-env tests |
+
+Nothing was classified as runner noise. Both product regressions were
+reproduced on a clean checkout and both are fixed on this line; PR #48 targets
+`claude/v5-closure-at-reconcile-xdh12f`, so it is the vehicle that lands them.
