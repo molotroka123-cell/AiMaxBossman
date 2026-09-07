@@ -10,10 +10,16 @@ from __future__ import annotations
 import asyncio
 import subprocess
 
-# Шаг опроса завершения процесса. Ожидание в потоке (`to_thread(Popen.wait)`)
-# отменить нельзя: отмена роняла только await, а поток жил до выхода GUI-
-# приложения — по потоку на каждую отмену (A3-09).
+# Опрос завершения процесса вместо ожидания в потоке. Ожидание в потоке
+# (`to_thread(Popen.wait)`) отменить нельзя: отмена роняла только await, а поток
+# жил до выхода GUI-приложения — по потоку на каждую отмену (A3-09).
+#
+# Шаг опроса РАСТЁТ. Постоянные 50 мс означали бы 20 опросов в секунду всё то
+# время, пока владелец держит окно открытым, — вместо одного спящего потока это
+# уже не экономия, а другая цена. Первые опросы частые (короткоживущий процесс
+# завершается сразу), дальше интервал удваивается до потолка.
 _WAIT_POLL_S = 0.05
+_WAIT_POLL_MAX_S = 1.0
 
 from ..applist import canonical_app, resolve_executable
 from ..models import ActionKind
@@ -46,11 +52,13 @@ class _SyncProcess:
         self._proc.kill()
 
     async def wait(self):
+        delay = _WAIT_POLL_S
         while True:
             code = self._proc.poll()
             if code is not None:
                 return code
-            await asyncio.sleep(_WAIT_POLL_S)
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, _WAIT_POLL_MAX_S)
 
 
 def _popen(argv: list[str]) -> subprocess.Popen:

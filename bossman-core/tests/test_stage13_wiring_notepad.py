@@ -241,8 +241,27 @@ async def test_spawn_falls_back_when_loop_cannot_do_subprocesses(monkeypatch, tm
 
 
 class _DummyPopen:
+    """Процесс, который РЕАЛЬНО завершается: сначала «ещё работает», потом код.
+
+    Прежний макет отвечал `poll() -> None` всегда и `wait() -> 0`, то есть
+    «процесс не завершился» и «процесс завершился нулём» одновременно. Для
+    настоящего Popen так не бывает, и противоречие было невидимо, пока
+    `_SyncProcess.wait` звал `wait()`. Как только ожидание стало опросом (чтобы
+    не оставлять поток на каждую отмену), макет заставил цикл крутиться вечно —
+    и уронил `pytest rest` по таймауту. Чинится макет, а не проверка: она
+    по-прежнему требует, чтобы `wait()` вернул код завершения.
+    """
+
     pid = 4242
-    def poll(self): return None
+
+    def __init__(self, exits_after: int = 1):
+        self._polls = 0
+        self._exits_after = exits_after
+
+    def poll(self):
+        self._polls += 1
+        return 0 if self._polls > self._exits_after else None
+
     def wait(self): return 0
     def terminate(self): pass
     def kill(self): pass
@@ -253,6 +272,37 @@ def test_sync_process_wrapper_exposes_async_process_interface():
     p = _SyncProcess(_DummyPopen())
     assert p.pid == 4242 and p.returncode is None
     p.terminate(); p.kill()
+
+
+async def test_waiting_for_a_long_lived_process_backs_off_instead_of_spinning():
+    """Опрос вместо потока не должен стать опросом 20 раз в секунду навсегда.
+
+    Владелец держит окно открытым часами; постоянный интервал 50 мс — это уже не
+    экономия на потоке, а другая цена, которую платят всё это время. Интервал
+    обязан расти, а ожидание — заканчиваться, как только процесс вышел.
+    """
+    from bossman.computer_operator.adapters import app_launch
+
+    slept: list[float] = []
+
+    async def record(delay):
+        slept.append(delay)
+
+    proc = app_launch._SyncProcess(_DummyPopen(exits_after=8))
+    original = app_launch.asyncio.sleep
+    app_launch.asyncio.sleep = record
+    try:
+        assert await proc.wait() == 0
+    finally:
+        app_launch.asyncio.sleep = original
+
+    assert slept, "процесс, который ещё работает, обязан был подождать"
+    assert slept[0] == app_launch._WAIT_POLL_S
+    # `sorted(slept) == slept` тут НЕ проверка: постоянный интервал тоже
+    # отсортирован. Проверяется именно рост, и притом кратный.
+    assert slept[-1] > slept[0] * 2, f"интервал опроса не растёт: {slept}"
+    assert slept == sorted(slept), f"интервал опроса скачет: {slept}"
+    assert max(slept) <= app_launch._WAIT_POLL_MAX_S, slept
 
 
 # ---------- D: сквозной путь до executor'а ----------

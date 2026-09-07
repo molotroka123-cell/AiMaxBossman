@@ -235,7 +235,11 @@ async def test_true_postcondition_the_planner_could_already_see_is_not_a_result(
     assert state is TaskState.FAILED
     assert adapter.executed == []
     assert mgr.completions_refused >= 1
-    assert mgr.store.get(t.id).last_error == "completion evidence budget"
+    # Причина отказа обязана дожить до владельца: исчерпание бюджета раньше
+    # затирало её собой, и «почему не закрылось» приходилось угадывать.
+    failure = mgr.store.get(t.id).last_error
+    assert failure.startswith("completion evidence budget")
+    assert "completion refused" in failure, failure
 
 
 async def test_observation_goal_needs_no_effect_evidence(tmp_path):
