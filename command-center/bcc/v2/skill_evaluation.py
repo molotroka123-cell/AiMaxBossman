@@ -157,6 +157,14 @@ async def open_evaluation(svc, *, skill_id: int, baseline_version_id: int,
             metrics={}, created_at=utcnow(), updated_at=utcnow()))).inserted_primary_key[0])
         await s.commit()
         row = (await s.execute(sa.select(evals_t).where(evals_t.c.id == eid))).first()
+    # Улики для прогонов, которые стали терминальными ДО заведения сравнения,
+    # выписываются ровно здесь и ровно один раз. Это не «восстановление
+    # здоровья в момент решения»: точка рождения улики зафиксирована в жизненном
+    # цикле сравнения, а не в вычислении вердикта. Поэтому процесс, потерявший
+    # долговечное хранилище, ничего не воскресит — повторного заполнения нет, и
+    # прогон без отчётов остаётся молчанием.
+    for member, healthy in await canary_window(svc, candidate_version_id):
+        await _record_member_outcome(svc, dict(row._mapping), member, healthy)
     await svc.bus.emit("skill.evaluation.opened", evaluation_id=eid, skill_id=skill_id,
                        baseline_version_id=baseline_version_id,
                        candidate_version_id=candidate_version_id)
@@ -258,8 +266,11 @@ async def refresh(svc, evaluation_id: int) -> dict[str, Any]:
 # написан, привязан и покрыт тестами, но ни одного производственного вызывающего
 # не имел. Теперь единственный путь к переключению лежит через дверь.
 #
-# Канареечное окно — ПЕРВЫЕ `CANARY_WINDOW` терминальных прогонов кандидата, то
-# есть его первое настоящее соприкосновение с работой. Когорта выбирается из
+# Канареечное окно — ВСЕ терминальные прогоны кандидата. Раньше брались первые
+# `CANARY_WINDOW`, и это была дыра: кандидат «шесть успехов, потом четыре
+# падения» судился по здоровому префиксу, все члены когорты отчитывались
+# здоровыми, и версия с 40% падений уезжала на весь парк. Деградация после
+# первых прогонов обязана быть видна двери. Когорта выбирается из
 # окна детерминированно (`plan_canary`), каждый её член обязан отчитаться
 # ПРИВЯЗАННОЙ уликой, и правила примитива действуют дословно: молчание — не
 # успех, одно падение закрывает выпуск, неразрешимая улика закрывает выпуск.
@@ -344,7 +355,7 @@ async def canary_window(svc, version_id: int) -> list[tuple[str, bool]]:
             .select_from(runs_t.join(tasks_t, tasks_t.c.id == runs_t.c.task_id))
             .where(sa.and_(tasks_t.c.skill_version_id == version_id,
                            runs_t.c.status.in_(("completed", "failed"))))
-            .order_by(runs_t.c.id).limit(CANARY_WINDOW))).fetchall()
+            .order_by(runs_t.c.id))).fetchall()
     return [(f"run:{int(r[0])}", str(r[1]) == "completed") for r in rows]
 
 
@@ -364,32 +375,38 @@ async def record_canary_outcome(svc, version_id: int, run_id: int, status: str) 
             evals_t.c.status == "collecting",
             evals_t.c.candidate_version_id == version_id)))).fetchall()
     for row in rows:
-        ev = dict(row._mapping)
-        cand_row = await _version_row(svc, int(ev["candidate_version_id"]))
-        if cand_row is None:
-            continue
-        try:
-            gate = _gate(svc)
-            window = await canary_window(svc, int(ev["candidate_version_id"]))
-            plan = gate.plan(subject=f"skill:{int(ev['skill_id'])}",
-                             revision=candidate_revision(cand_row),
-                             members=[m for m, _ in window],
-                             started_at=_epoch(ev.get("created_at") or utcnow()) - 1.0,
-                             run_nonce=f"skill-eval:{int(ev['id'])}")
-            if member not in plan.cohort:
-                continue
-            gate.open(plan, candidate=candidate_revision(cand_row))
-            if member in gate.reported_members(plan.run_id):
-                continue
-            at = _epoch(utcnow())
-            if healthy:
-                gate.report_healthy(plan.run_id, member, at=at)
-            else:
-                gate.report_unhealthy(plan.run_id, member, at=at,
-                                      detail="terminal outcome: failed")
-        except (ActivationError, CanaryError, ObjectiveStoreError) as exc:
-            await svc.bus.emit("skill.canary.error", version_id=int(version_id),
-                               run_id=int(run_id), error=str(exc)[:300])
+        await _record_member_outcome(svc, dict(row._mapping), member, healthy)
+
+
+async def _record_member_outcome(svc, ev: dict[str, Any], member: str,
+                                 healthy: bool) -> None:
+    """Единственный писатель канареечной улики. Идемпотентен по члену когорты."""
+    cand_row = await _version_row(svc, int(ev["candidate_version_id"]))
+    if cand_row is None:
+        return
+    try:
+        gate = _gate(svc)
+        window = await canary_window(svc, int(ev["candidate_version_id"]))
+        plan = gate.plan(subject=f"skill:{int(ev['skill_id'])}",
+                         revision=candidate_revision(cand_row),
+                         members=[m for m, _ in window],
+                         started_at=_epoch(ev.get("created_at") or utcnow()) - 1.0,
+                         run_nonce=f"skill-eval:{int(ev['id'])}")
+        if member not in plan.cohort:
+            return
+        gate.open(plan, candidate=candidate_revision(cand_row))
+        if member in gate.reported_members(plan.run_id):
+            return                                    # ровно один раз
+        at = _epoch(utcnow())
+        if healthy:
+            gate.report_healthy(plan.run_id, member, at=at)
+        else:
+            gate.report_unhealthy(plan.run_id, member, at=at,
+                                  detail="terminal outcome: failed")
+    except (ActivationError, CanaryError, ObjectiveStoreError) as exc:
+        await svc.bus.emit("skill.canary.error",
+                           evaluation_id=int(ev.get("id") or 0),
+                           member=member, error=str(exc)[:300])
 
 
 async def canary_decision(svc, ev: dict[str, Any], candidate_row: dict[str, Any]

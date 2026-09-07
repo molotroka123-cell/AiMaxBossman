@@ -51,16 +51,24 @@ async def _skill_with_versions(env, *, candidate_tools=None, candidate_perms=Non
 async def _runs(env, version_id: int, *, completed: int, failed: int) -> None:
     """Готовая история запусков версии: одна задача — один run."""
     started = utcnow()
+    made: list[tuple[int, str]] = []
     async with env.svc.db.session() as s:
         for i, status in enumerate(["completed"] * completed + ["failed"] * failed):
             tid = int((await s.execute(sa.insert(tasks_t).values(
                 title=f"прогон {version_id}-{i}", prompt="x", status=status,
                 skill_version_id=version_id, meta={"skill": "website-audit"},
                 created_at=started, updated_at=started))).inserted_primary_key[0])
-            await s.execute(sa.insert(runs_t).values(
+            rid = int((await s.execute(sa.insert(runs_t).values(
                 task_id=tid, attempt=1, status=status, started_at=started,
-                finished_at=started + timedelta(seconds=2)))
+                finished_at=started + timedelta(seconds=2)))).inserted_primary_key[0])
+            made.append((rid, status))
         await s.commit()
+    # В бою КАЖДЫЙ прогон, дойдя до терминального исхода, пишет канареечную улику
+    # через хук `after_run`. Помощник вставляет прогоны прямо в базу, минуя
+    # движок, поэтому тот же переход воспроизводится здесь явно — иначе стенд
+    # проверял бы историю задач, а не ту улику, которой открывается дверь.
+    for rid, status in made:
+        await ev.record_canary_outcome(env.svc, version_id, rid, status)
 
 
 async def _current_version(env, skill_id: int) -> int:
