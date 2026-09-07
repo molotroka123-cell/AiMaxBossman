@@ -132,7 +132,7 @@ def test_sec004_unquoted_env_password_is_caught(tmp_path):
 def test_sec004_dict_hint_no_longer_shields_secret_password_key_words(tmp_path):
     # SEC-004: DICT_HINT previously included "secret"/"password"/"key", which let
     # an entropy-detected token evade flagging merely by containing one of those
-    # English words — exactly the shape of "SuperSecretMasterPass123!". Confirm
+    # English words — exactly the shape of "<REDACTED_LEAKED_VAULT_PASSWORD_SEE_SEC-001>". Confirm
     # a high-entropy token containing "Secret" is now still caught...
     found = _scan(tmp_path, "svc/config.py", 'X = "zQ9SecretMk3Rp7Wm2Nb8Tf5Cx"\n')  # ci-secret-scan: allow
     assert any("high-entropy" in f for f in found), found

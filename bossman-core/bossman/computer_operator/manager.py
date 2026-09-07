@@ -123,7 +123,7 @@ class ComputerOperatorManager:
                  completion_evidence_required=None,observation_fingerprint=None,
                  observe_timeout_s=OBSERVE_TIMEOUT_S,plan_timeout_s=PLAN_TIMEOUT_S,
                  act_timeout_s=ACT_TIMEOUT_S,obligations_of=None,obligation_probe=None,
-                 receipts_of=None):
+                 receipts_of=None,backend_preflight=None):
         self.store=store; self.planner=planner; self.observer=observer; self.action_router=action_router
         self.approval_create=approval_create; self.approval_wait=approval_wait; self.event_emit=event_emit
         self.policy=policy or ComputerPolicy(); self.verifier=verifier or Verifier()
@@ -170,6 +170,11 @@ class ComputerOperatorManager:
         self.plan_timeout_s=self._timeout(plan_timeout_s)
         self.act_timeout_s=self._timeout(act_timeout_s)
         self.step_timeouts=0; self.unknown_effects_parked=0   # замер, не гейт
+        # DO-001/DO-017: опциональный дешёвый чек бэкенда ДО цикла replan.
+        # None (по умолчанию) — прежнее поведение: ничего не проверяем здесь,
+        # существующие тесты/wiring без реального рабочего стола не затронуты.
+        # Прод-wiring (subsystem.build_manager) передаёт WindowsDesktop.preflight.
+        self.backend_preflight=backend_preflight
 
     @staticmethod
     def _timeout(v):
@@ -218,6 +223,17 @@ class ComputerOperatorManager:
                 if t.state in {TaskState.PAUSED,TaskState.USER_CONTROL,TaskState.WAITING_APPROVAL}:return t.state
                 if not self.control_lease.acquire(task_id):
                     return self._fail(t,f"desktop busy: control lease held by {self.control_lease.holder()}")
+                # DO-001/DO-017: fail BEFORE the planner ever runs when the
+                # desktop backend itself is not usable (missing extras). A
+                # dependency gap cannot be fixed by replanning, so spending
+                # replan budget (and LLM calls) discovering it one action at a
+                # time is pure waste and hides the real, fixable cause behind
+                # "planner replan budget".
+                if self.backend_preflight is not None:
+                    try:reason=self.backend_preflight()
+                    except Exception as e:reason=f"preflight check itself failed: {type(e).__name__}: {e}"
+                    if reason:
+                        return self._fail(t,f"desktop backend unavailable: {reason}")  # lease released in finally
                 self._clear_interrupt(task_id)
                 self._bind_attempt(t)
                 setter=getattr(self.action_router,"set_interrupt",None)

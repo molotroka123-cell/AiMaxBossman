@@ -65,7 +65,7 @@ ENTROPY_CONTEXT_SKIP = re.compile(r"(?i)(sha256|sha1|sha512|blake2|md5|commit|di
                                   r"\.gguf|/models/|\.safetensors|\.bin\b)")
 # Слова из естественного языка/кода внутри токена — не случайный секрет.
 # SEC-004: "secret"/"password"/"key" были удалены отсюда — реальный утёкший пароль
-# "SuperSecretMasterPass123!" содержит "Secret", и это давало self-skip для
+# "<REDACTED_LEAKED_VAULT_PASSWORD_SEE_SEC-001>" содержит "Secret", и это давало self-skip для
 # энтропийного детектора на самом классе значений, которые как раз нужно ловить.
 DICT_HINT = re.compile(r"(?i)(test|fake|example|sample|placeholder|canary|dummy|value|"
                        r"config|default|bossman|claude|openai|anthropic|redacted|xxxx|0000|aaaa)")
