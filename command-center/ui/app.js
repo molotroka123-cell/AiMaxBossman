@@ -701,7 +701,22 @@ document.getElementById('desktop-skip')?.addEventListener('click', (event) => {
 
 el.themeBtn.addEventListener('click', () => setTheme(getTheme() === 'dark' ? 'light' : 'dark'));
 el.refreshBtn.addEventListener('click', () => refresh());
-if (el.staleNow) el.staleNow.addEventListener('click', () => { bus.reconnectNow(); syncConn(bus.state); });
+if (el.staleNow) el.staleNow.addEventListener('click', () => {
+  /* Кнопка восстановления связи обязана ОТВЕТИТЬ на каждое нажатие.
+     Шина, остановленная выходом из сессии, молча игнорировала нажатие: владелец
+     жал единственную кнопку возврата и не видел ни-че-го. Если шина стоит, но
+     оболочка на экране — значит сессия жива и её надо просто запустить; если
+     запустить нельзя, это говорится словами, а не молчанием. */
+  let started = bus.reconnectNow();
+  if (!started && !el.shell.hidden) {
+    bus.start();
+    started = !bus.stopped;
+  }
+  el.staleRetry.textContent = started
+    ? 'Подключаемся…'
+    : 'Не удалось начать переподключение — войдите заново.';
+  syncConn(bus.state);
+});
 window.__bxConn = { bus, label: connLabel };
 window.__bxPages = PAGES.map((p) => ({ id: p.id, title: p.title, nav: p.nav || 'primary' }));
 el.menuBtn.addEventListener('click', () => setMenu(!el.shell.classList.contains('menu-open')));
