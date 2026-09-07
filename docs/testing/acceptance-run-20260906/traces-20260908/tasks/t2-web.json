@@ -1,0 +1,9 @@
+{
+    "title":  "Example Domain",
+    "facts":  [
+                  "The page title (HTML title tag) is Example Domain.",
+                  "The main heading (h1) of the page is Example Domain.",
+                  "The body paragraph states: This domain is for use in documentation examples without needing permission. Avoid use in operations."
+              ],
+    "source_url":  "https://example.com/"
+}
