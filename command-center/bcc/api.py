@@ -40,7 +40,7 @@ from .config import Settings, settings as default_settings
 from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
                  rows_dicts, settings_kv, task_runs as runs_t, tasks as tasks_t, utcnow)
 from .lifecycle import sleep_or_stop
-from .engine import TaskEngine
+from .engine import TaskEngine, TaskStateConflict
 from .events import EventBus
 from .metrics import MetricsSampler
 from .providers import ADAPTERS, ProviderError
@@ -471,6 +471,14 @@ def _install_testing_period_log(app: FastAPI) -> None:
 def _install_error_handlers(app: FastAPI) -> None:
     """Единый формат ошибок для UI: {error: {message, hint?}}."""
 
+    @app.exception_handler(TaskStateConflict)
+    async def _task_state_conflict(_r: Request, exc: TaskStateConflict):
+        return JSONResponse({"error": {
+            "message": f"действие недоступно в состоянии {exc.status}",
+            "code": "TASK_STATE_CONFLICT",
+            "hint": f"task {exc.task_id}: {exc.action}",
+        }}, status_code=409)
+
     @app.exception_handler(ApiError)
     async def _api_error(_r: Request, exc: ApiError):
         body: dict[str, Any] = {"message": exc.message}
@@ -796,7 +804,7 @@ def _api_router() -> APIRouter:
             res = await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task_id)
                                   .order_by(runs_t.c.id))
             runs = [_run_public(r) for r in rows_dicts(res.fetchall())]
-        done = [r for r in runs if r["result"]]
+        done = [r for r in runs if r["status"] == "completed" and r["result"]]
         return {"task": task, "runs": runs, "result": done[-1]["result"] if done else None,
                 "error": ((task.get("meta") or {}).get("blocked_reason")
                           if task["status"] == "blocked" else runs[-1]["error"] if runs else None)}
@@ -808,10 +816,7 @@ def _api_router() -> APIRouter:
         if task is None:
             raise ApiError("задача не найдена", status=404)
         if action == "run":
-            if await svc.engine.active_run(task_id):
-                raise ApiError("задача уже в очереди или выполняется",
-                               hint="сначала остановите её")
-            run_id = await svc.engine.enqueue(task_id)
+            run_id = await svc.engine.enqueue(task_id, only_if_idle=True)
             return await svc.engine.admission_result(task_id, run_id)
         if action == "stop":
             return await svc.engine.stop(task_id)

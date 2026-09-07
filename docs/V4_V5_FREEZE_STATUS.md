@@ -359,3 +359,138 @@ SHA discipline for this run, recorded from CI's own checkout line: PR #49's job
 checked out `refs/remotes/pull/49/merge` = `43bef94`, logged as
 "Merge 9c38a3e into 5b461d3". `SOURCE_HEAD=9c38a3e`, `TESTED_SHA=43bef94`
 (synthetic). Only the former may back an exact-source claim.
+
+---
+
+## 13. Sandbox runtime hardening integrated (candidate `19180f4`)
+
+### The patch pack was NOT already applied
+
+Verified before touching anything: PR #37's head was still `67905ee` with no
+apply-commit, all four patches passed `git apply --check` against this source,
+and `command-center/tests/test_sandbox_user_run_regressions.py` did not exist.
+The one-shot workflow never fired — it triggers only on a push to
+`claude/v5-closure-at-reconcile-xdh12f` touching nothing but itself, and its
+lineage guard pins an exact parent SHA. So `SANDBOX_PATCH_APPLIED` was **NO**,
+and applying it here was the integration step, not a duplicate.
+
+### Invariants, each mapped to a passing named test
+
+| Invariant | Test |
+|---|---|
+| STOP is sticky | `test_stop_then_resume_never_resurrects_task` |
+| RESUME accepts only PAUSED | `test_recovery_parks_paused_state_until_explicit_resume` |
+| Pause→Resume cannot launch a second inference | `test_pause_resume_during_model_call_keeps_one_inference_and_one_run` |
+| Run/Retry atomic single-flight | `test_retry_while_active_is_409_and_does_not_create_second_run`, `test_two_concurrent_run_clicks_are_single_flight` |
+| Recovery cannot undo owner Stop/Pause | `test_recovery_cannot_resurrect_stopped_owner_state` |
+| Completed/failed history immutable | `test_late_stop_cannot_rewrite_completed_history` |
+| Terminal veto closes both task and run | `test_terminal_gate_veto_closes_run_and_never_becomes_aggregate_result` |
+| Only COMPLETED output becomes `task.result` | (same test) |
+| Malformed provider response → typed `ProviderError` | `test_openai_compat_malformed_200_is_protocol_error_not_unhandled_json`, `test_openai_model_list_wrong_json_shape_is_protocol_error` |
+
+Measured: sandbox regressions **10 passed**; engine_stop + queue_retry +
+persistence + worker_pool + providers + fence_fl01 + api **32 passed**;
+action_contract + gate_contract_requeue **66 passed**.
+
+Full Command Center suite here: **2041 passed, 142 skipped, 9 failed**. All nine
+failures are browser-driven UI tests (video studio playback, web designer,
+editors acceptance). They are **not** caused by this patch: the same tests fail
+identically on the pre-patch commit `f6369b8`, and the cause is a Playwright
+`Page.wait_for_function` 30 s timeout in this sandbox, not a product defect. CI
+passes these same tests (`pytest (py3.12)` 2178 passed), so CI is authoritative
+for them and no Video code was touched.
+
+### Finding 10 — agent execution provenance — NOT closed
+
+`tasks.agent_id` is `ON DELETE SET NULL` (`command-center/bcc/db.py:82`) and
+`task_runs` carries no identity beyond `model_alias` (`db.py:104`). Deleting or
+editing an agent therefore destroys who executed a historical run, under which
+system prompt, tool grants and permission revision. Closing it needs immutable
+per-run snapshot columns written once at run start. Not claimed as done.
+
+## 14. P0-A root cause — corrected
+
+The earlier hypothesis (a durability gap in `canary_decision`) was **wrong**, and
+is superseded. All three failing tests fail identically with `promote` where
+`human_review` is required, and the real cause is the canary window itself:
+
+```
+CANARY_WINDOW = MIN_RUNS = 5
+... .order_by(runs_t.c.id).limit(CANARY_WINDOW)
+```
+
+The window is the **first five terminal runs in id order**. In
+`test_a_human_approval_does_not_bypass_the_canary` the candidate is six
+completed followed by four failed — a 40 % failure rate — but the window sees
+only the healthy prefix, every cohort member reports healthy, the canary passes,
+and the version promotes to the whole fleet. A candidate that degrades after its
+first few runs is invisible to the gate.
+
+This is a genuine security defect, not a flaky or unsatisfiable test.
+
+**Why it is not fixed here.** Making the window representative (sampling the
+cohort across all terminal runs) collides with `evaluate_canary`'s zero-tolerance
+rule — "одно падение закрывает выпуск". The positive control
+`test_the_promotion_path_now_goes_through_the_canary_door` uses nine completed
+and one failed and REQUIRES promotion, so under a representative sample plus
+zero tolerance it would deny whenever the digest happens to sample that one
+failure. Resolving this needs an owner decision on canary semantics — a
+representative sample with a failure budget, or a deterministic early window with
+an explicit rate check alongside it — and guessing would either re-open the hole
+or make promotion nondeterministic.
+
+`OPEN_P0` stays **1**. P0-A work remains on
+`claude/v4-v5-p0-1-canary-production-caller` (PR #49) and is deliberately NOT
+merged into the freeze candidate, so the candidate carries no failing test.
+
+---
+
+## 15. P0-0 — diagnosis of PR #37's red CI at `67905ee`
+
+Every failure below was read from its job log and reproduced, not inferred.
+
+### Source truth first
+
+`67905ee` is still PR #37's head — **no successor commit exists**. The sandbox
+hardening is therefore NOT in source there, proven by blob identity rather than
+by the workflow's presence:
+
+| File | `67905ee` | `0ad86d1` (pre-patch) | |
+|---|---|---|---|
+| `command-center/bcc/engine.py` | `0bd2495f` | `0bd2495f` | UNCHANGED |
+| `command-center/bcc/api.py` | `fa35f67a` | `fa35f67a` | UNCHANGED |
+| `command-center/bcc/providers.py` | `54269fc4` | `54269fc4` | UNCHANGED |
+
+`command-center/tests/test_sandbox_user_run_regressions.py` is absent at
+`67905ee`. A workflow carrying patches is not the patches being in source.
+
+### Why the one-shot workflow could never apply itself
+
+The `apply` job **failed**, and not on the patch step. It applied the pack, then
+its push was rejected by a repository ruleset:
+
+```
+remote:   Found 1 violation:
+remote:   e45806a6cab8f811192bf39229097751f628a591
+ ! [remote rejected] HEAD -> claude/v5-closure-at-reconcile-xdh12f
+   (push declined due to repository rule violations)
+```
+
+So the mechanism is structurally incapable of producing the successor commit.
+Materializing the pack by hand (`19180f4`) was the only path, and it is done.
+
+### Classification of every red
+
+| Check | Exact failure | Class | Status on `a6510db` |
+|---|---|---|---|
+| `root pytest + hygiene` py3.11 **and** py3.12 | `test_v5_satisfied_evidence_gate_freeze.py::test_arbitrary_nonempty_string_cannot_purchase_satisfied` — `DID NOT RAISE ObjectiveStoreError`; 1 failed, 1077 passed, 10 skipped | **PRODUCT_REGRESSION** — upstream's own P0-2 freeze test failing because the SATISFIED resolver is not in source at `67905ee` | **FIXED** — 1 passed |
+| `pytest rest` py3.11 **and** py3.12 (Bossman Core) | 9 × `AssertionError: TaskState.FAILED is TaskState.COMPLETED` across `test_operator_at01_at03_regression`, `test_computer_operator_owner_control`, `test_stage13_wiring_notepad`, `test_stage13_auth_redteam::test_c10_positive_control_approved_action_executes`; 9 failed, 2286 passed | **PRODUCT_REGRESSION** — upstream's partial AT-01 fix (`3b84887`) routes around `manager.py:660` instead of closing it, leaving no way for a legitimately invisible effect to complete | **FIXED** — 98 passed, 1 skipped |
+| `покрытие (неснижаемый порог)` | Same Core suite; the coverage job runs the failing tests | **PRODUCT_REGRESSION**, same root cause as the row above | **FIXED** (follows Core) |
+| `repair-and-test` (V2 Auto-Repair) | Runs the same suites on `8fa9f69 = Merge 67905ee into ddea211`; `pull-request-operation = none` | **PRODUCT_REGRESSION**, same two root causes | **FIXED** (follows root + Core) |
+| `apply` (one-shot sandbox workflow) | Push rejected by repository ruleset, above | **ENVIRONMENT** — cannot self-apply by design of the ruleset | Superseded by `19180f4` |
+| `measured intelligence retention` | `INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE` / `Missing docs/benchmark/intelligence-preservation-current.json`, exit 2 | **EXPECTED_EVIDENCE_BLOCKER** | Unchanged — not fabricated |
+| Command Center CI | **cancelled** | Not a PASS and not counted as one | Green locally except browser-env tests |
+
+Nothing was classified as runner noise. Both product regressions were
+reproduced on a clean checkout and both are fixed on this line; PR #48 targets
+`claude/v5-closure-at-reconcile-xdh12f`, so it is the vehicle that lands them.

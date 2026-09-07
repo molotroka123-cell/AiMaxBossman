@@ -1,0 +1,227 @@
+"""Regressions reproduced by the 2026-09-07 unprivileged sandbox user-run."""
+from __future__ import annotations
+
+import asyncio
+from datetime import timedelta
+
+import httpx
+import sqlalchemy as sa
+
+from bcc.db import task_runs as runs_t, tasks as tasks_t, utcnow
+from bcc.providers import OpenAICompatAdapter, ProviderError
+
+from .conftest import FakeAdapter, client_for, make_settings, start_app, wait_for
+from .helpers import make_stack
+
+FAST = {"poll_interval": 0.02, "recover_every": 5.0, "retry_base_delay": 0.01}
+
+
+async def _task(client, task_id):
+    return (await client.get(f"/api/tasks/{task_id}")).json()
+
+
+async def test_terminal_gate_veto_closes_run_and_never_becomes_aggregate_result(tmp_path):
+    fake = FakeAdapter("model answer that must not be accepted")
+    app, svc = await start_app(make_settings(tmp_path), start_workers=True,
+                               adapter_factory=lambda m, p: fake, engine_options=FAST)
+
+    async def terminal_gate(task, run_id, answer):
+        return {"verdict": "FAIL", "requeue": False, "status": "failed",
+                "feedback": "sandbox terminal veto"}
+    svc.engine.add_hook("gate_completion", terminal_gate)
+
+    async with client_for(app, svc) as client:
+        ids = await make_stack(client, max_retries=0, prompt="answer a harmless question")
+        tid = ids["task"]["id"]
+
+        async def failed():
+            data = await _task(client, tid)
+            return data if data["task"]["status"] == "failed" else None
+
+        data = await wait_for(failed, timeout=10)
+        run = data["runs"][-1]
+        assert run["status"] == "failed"
+        assert run["finished_at"] is not None
+        assert run["result"] == "model answer that must not be accepted"
+        assert data["result"] is None  # failed forensic answer is not task success
+    await svc.stop()
+
+
+async def test_pause_resume_during_model_call_keeps_one_inference_and_one_run(tmp_path):
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def hold(call, messages):
+        entered.set()
+        await release.wait()
+
+    fake = FakeAdapter("ok", on_chat=hold)
+    app, svc = await start_app(make_settings(tmp_path), start_workers=True,
+                               adapter_factory=lambda m, p: fake, engine_options=FAST)
+    async with client_for(app, svc) as client:
+        ids = await make_stack(client, max_retries=0)
+        tid = ids["task"]["id"]
+        await asyncio.wait_for(entered.wait(), 5)
+        assert (await client.post(f"/api/tasks/{tid}/pause")).status_code == 200
+        resumed = await client.post(f"/api/tasks/{tid}/resume")
+        assert resumed.status_code == 200
+        assert resumed.json()["status"] == "running"
+        await asyncio.sleep(0.12)
+        assert fake.calls == 1
+        assert len((await _task(client, tid))["runs"]) == 1
+        release.set()
+
+        async def completed():
+            data = await _task(client, tid)
+            return data if data["task"]["status"] == "completed" else None
+        await wait_for(completed, timeout=10)
+        assert fake.calls == 1
+    await svc.stop()
+
+
+async def test_retry_while_active_is_409_and_does_not_create_second_run(tmp_path):
+    entered, release = asyncio.Event(), asyncio.Event()
+    async def hold(call, messages):
+        entered.set(); await release.wait()
+    fake = FakeAdapter("ok", on_chat=hold)
+    app, svc = await start_app(make_settings(tmp_path), start_workers=True,
+                               adapter_factory=lambda m, p: fake, engine_options=FAST)
+    async with client_for(app, svc) as client:
+        ids = await make_stack(client, max_retries=0)
+        tid = ids["task"]["id"]
+        await asyncio.wait_for(entered.wait(), 5)
+        response = await client.post(f"/api/tasks/{tid}/retry")
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "TASK_STATE_CONFLICT"
+        assert len((await _task(client, tid))["runs"]) == 1
+        release.set()
+    await svc.stop()
+
+
+async def test_two_concurrent_run_clicks_are_single_flight(tmp_path):
+    fake = FakeAdapter("ok")
+    app, svc = await start_app(make_settings(tmp_path), start_workers=False,
+                               adapter_factory=lambda m, p: fake, engine_options=FAST)
+    async with client_for(app, svc) as client:
+        ids = await make_stack(client, max_retries=0)
+        # make_stack enqueued its task; create a second draft with the same agent.
+        draft = (await client.post("/api/tasks", json={
+            "title": "double click", "prompt": "hello", "agent_id": ids["agent"]["id"],
+            "run_now": False, "max_retries": 0})).json()["task"]
+        tid = draft["id"]
+        first, second = await asyncio.gather(
+            client.post(f"/api/tasks/{tid}/run"), client.post(f"/api/tasks/{tid}/run"))
+        assert sorted([first.status_code, second.status_code]) == [200, 409]
+        assert len((await _task(client, tid))["runs"]) == 1
+    await svc.stop()
+
+
+async def test_stop_then_resume_never_resurrects_task(tmp_path):
+    entered, release = asyncio.Event(), asyncio.Event()
+    async def hold(call, messages):
+        entered.set(); await release.wait()
+    fake = FakeAdapter("ok", on_chat=hold)
+    app, svc = await start_app(make_settings(tmp_path), start_workers=True,
+                               adapter_factory=lambda m, p: fake, engine_options=FAST)
+    async with client_for(app, svc) as client:
+        ids = await make_stack(client, max_retries=0)
+        tid = ids["task"]["id"]
+        await asyncio.wait_for(entered.wait(), 5)
+        assert (await client.post(f"/api/tasks/{tid}/stop")).status_code == 200
+
+        async def stopped():
+            data = await _task(client, tid)
+            return data if data["task"]["status"] == "stopped" and data["runs"][-1]["status"] == "stopped" else None
+        data = await wait_for(stopped, timeout=10)
+        count = len(data["runs"])
+        resumed = await client.post(f"/api/tasks/{tid}/resume")
+        assert resumed.status_code == 409
+        after = await _task(client, tid)
+        assert after["task"]["status"] == "stopped"
+        assert len(after["runs"]) == count
+        release.set()
+    await svc.stop()
+
+
+async def test_late_stop_cannot_rewrite_completed_history(tmp_path):
+    fake = FakeAdapter("done")
+    app, svc = await start_app(make_settings(tmp_path), start_workers=True,
+                               adapter_factory=lambda m, p: fake, engine_options=FAST)
+    async with client_for(app, svc) as client:
+        ids = await make_stack(client, max_retries=0)
+        tid = ids["task"]["id"]
+        async def completed():
+            data = await _task(client, tid)
+            return data if data["task"]["status"] == "completed" else None
+        await wait_for(completed, timeout=10)
+        stopped = await client.post(f"/api/tasks/{tid}/stop")
+        assert stopped.status_code == 409
+        data = await _task(client, tid)
+        assert data["task"]["status"] == "completed"
+        assert data["runs"][-1]["status"] == "completed"
+    await svc.stop()
+
+
+async def test_recovery_cannot_resurrect_stopped_owner_state(tmp_path):
+    app, svc = await start_app(make_settings(tmp_path), start_workers=False, engine_options=FAST)
+    async with client_for(app, svc) as client:
+        ids = await make_stack(client, max_retries=2)
+        tid = ids["task"]["id"]
+        data = await _task(client, tid)
+        rid = data["runs"][-1]["id"]
+        async with svc.db.session() as s:
+            await s.execute(sa.update(tasks_t).where(tasks_t.c.id == tid).values(status="stopped"))
+            await s.execute(sa.update(runs_t).where(runs_t.c.id == rid).values(
+                status="running", fence=7, worker_lease_until=utcnow()-timedelta(seconds=5)))
+            await s.commit()
+        assert await svc.engine.recover() == 1
+        data = await _task(client, tid)
+        assert data["task"]["status"] == "stopped"
+        assert data["runs"][-1]["status"] == "stopped"
+    await svc.stop()
+
+
+async def test_recovery_parks_paused_state_until_explicit_resume(tmp_path):
+    app, svc = await start_app(make_settings(tmp_path), start_workers=False, engine_options=FAST)
+    async with client_for(app, svc) as client:
+        ids = await make_stack(client, max_retries=2)
+        tid = ids["task"]["id"]
+        data = await _task(client, tid)
+        rid = data["runs"][-1]["id"]
+        async with svc.db.session() as s:
+            await s.execute(sa.update(tasks_t).where(tasks_t.c.id == tid).values(status="paused"))
+            await s.execute(sa.update(runs_t).where(runs_t.c.id == rid).values(
+                status="running", fence=3, worker_lease_until=utcnow()-timedelta(seconds=5),
+                checkpoint={"messages": [{"role": "user", "content": "x"}], "step": 0}))
+            await s.commit()
+        assert await svc.engine.recover() == 1
+        data = await _task(client, tid)
+        assert data["task"]["status"] == "paused"
+        assert data["runs"][-1]["status"] == "queued"
+        assert data["runs"][-1]["checkpoint"]["messages"] == 1
+    await svc.stop()
+
+
+async def test_openai_compat_malformed_200_is_protocol_error_not_unhandled_json():
+    adapter = OpenAICompatAdapter(
+        base_url="http://local/v1",
+        transport=httpx.MockTransport(lambda req: httpx.Response(
+            200, text="<html>proxy error</html>", headers={"content-type": "text/html"})))
+    try:
+        await adapter.chat("m", [{"role": "user", "content": "x"}])
+    except ProviderError as exc:
+        assert exc.kind == "protocol"
+        assert "невалидный JSON" in str(exc)
+    else:
+        raise AssertionError("malformed 200 must fail as ProviderError")
+
+
+async def test_openai_model_list_wrong_json_shape_is_protocol_error():
+    adapter = OpenAICompatAdapter(
+        base_url="http://local/v1",
+        transport=httpx.MockTransport(lambda req: httpx.Response(200, json={"data": "not-a-list"})))
+    try:
+        await adapter.list_models()
+    except ProviderError as exc:
+        assert exc.kind == "protocol"
+    else:
+        raise AssertionError("wrong models shape must fail closed")
