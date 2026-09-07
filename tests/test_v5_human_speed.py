@@ -91,6 +91,11 @@ def record(name, samples, result, record_property, floor_samples=None):
             "tier": "LOCAL_COMPONENT", "python": sys.version.split()[0],
             "platform": sys.platform, "n0_activation_authorized": False}
     record_property(name, json.dumps(data, allow_nan=False))
+    # Вердикт печатается ВСЕГДА и целиком. В CI виден только текст ассерта, а
+    # pytest укорачивает его многоточием — то есть до лога не доходили ровно
+    # те числа, по которым и отличают срыв планировщика от регрессии. Сырые
+    # замеры остаются в record_property, здесь только сам вердикт.
+    print("LATENCY_CONTRACT " + json.dumps({"name": name, **result}, allow_nan=False))
     folder = os.getenv("BOSSMAN_SPEED_RESULTS")
     if folder:
         path = Path(folder)
