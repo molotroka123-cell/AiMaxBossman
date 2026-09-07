@@ -359,3 +359,86 @@ SHA discipline for this run, recorded from CI's own checkout line: PR #49's job
 checked out `refs/remotes/pull/49/merge` = `43bef94`, logged as
 "Merge 9c38a3e into 5b461d3". `SOURCE_HEAD=9c38a3e`, `TESTED_SHA=43bef94`
 (synthetic). Only the former may back an exact-source claim.
+
+---
+
+## 13. Sandbox runtime hardening integrated (candidate `19180f4`)
+
+### The patch pack was NOT already applied
+
+Verified before touching anything: PR #37's head was still `67905ee` with no
+apply-commit, all four patches passed `git apply --check` against this source,
+and `command-center/tests/test_sandbox_user_run_regressions.py` did not exist.
+The one-shot workflow never fired — it triggers only on a push to
+`claude/v5-closure-at-reconcile-xdh12f` touching nothing but itself, and its
+lineage guard pins an exact parent SHA. So `SANDBOX_PATCH_APPLIED` was **NO**,
+and applying it here was the integration step, not a duplicate.
+
+### Invariants, each mapped to a passing named test
+
+| Invariant | Test |
+|---|---|
+| STOP is sticky | `test_stop_then_resume_never_resurrects_task` |
+| RESUME accepts only PAUSED | `test_recovery_parks_paused_state_until_explicit_resume` |
+| Pause→Resume cannot launch a second inference | `test_pause_resume_during_model_call_keeps_one_inference_and_one_run` |
+| Run/Retry atomic single-flight | `test_retry_while_active_is_409_and_does_not_create_second_run`, `test_two_concurrent_run_clicks_are_single_flight` |
+| Recovery cannot undo owner Stop/Pause | `test_recovery_cannot_resurrect_stopped_owner_state` |
+| Completed/failed history immutable | `test_late_stop_cannot_rewrite_completed_history` |
+| Terminal veto closes both task and run | `test_terminal_gate_veto_closes_run_and_never_becomes_aggregate_result` |
+| Only COMPLETED output becomes `task.result` | (same test) |
+| Malformed provider response → typed `ProviderError` | `test_openai_compat_malformed_200_is_protocol_error_not_unhandled_json`, `test_openai_model_list_wrong_json_shape_is_protocol_error` |
+
+Measured: sandbox regressions **10 passed**; engine_stop + queue_retry +
+persistence + worker_pool + providers + fence_fl01 + api **32 passed**;
+action_contract + gate_contract_requeue **66 passed**.
+
+Full Command Center suite here: **2041 passed, 142 skipped, 9 failed**. All nine
+failures are browser-driven UI tests (video studio playback, web designer,
+editors acceptance). They are **not** caused by this patch: the same tests fail
+identically on the pre-patch commit `f6369b8`, and the cause is a Playwright
+`Page.wait_for_function` 30 s timeout in this sandbox, not a product defect. CI
+passes these same tests (`pytest (py3.12)` 2178 passed), so CI is authoritative
+for them and no Video code was touched.
+
+### Finding 10 — agent execution provenance — NOT closed
+
+`tasks.agent_id` is `ON DELETE SET NULL` (`command-center/bcc/db.py:82`) and
+`task_runs` carries no identity beyond `model_alias` (`db.py:104`). Deleting or
+editing an agent therefore destroys who executed a historical run, under which
+system prompt, tool grants and permission revision. Closing it needs immutable
+per-run snapshot columns written once at run start. Not claimed as done.
+
+## 14. P0-A root cause — corrected
+
+The earlier hypothesis (a durability gap in `canary_decision`) was **wrong**, and
+is superseded. All three failing tests fail identically with `promote` where
+`human_review` is required, and the real cause is the canary window itself:
+
+```
+CANARY_WINDOW = MIN_RUNS = 5
+... .order_by(runs_t.c.id).limit(CANARY_WINDOW)
+```
+
+The window is the **first five terminal runs in id order**. In
+`test_a_human_approval_does_not_bypass_the_canary` the candidate is six
+completed followed by four failed — a 40 % failure rate — but the window sees
+only the healthy prefix, every cohort member reports healthy, the canary passes,
+and the version promotes to the whole fleet. A candidate that degrades after its
+first few runs is invisible to the gate.
+
+This is a genuine security defect, not a flaky or unsatisfiable test.
+
+**Why it is not fixed here.** Making the window representative (sampling the
+cohort across all terminal runs) collides with `evaluate_canary`'s zero-tolerance
+rule — "одно падение закрывает выпуск". The positive control
+`test_the_promotion_path_now_goes_through_the_canary_door` uses nine completed
+and one failed and REQUIRES promotion, so under a representative sample plus
+zero tolerance it would deny whenever the digest happens to sample that one
+failure. Resolving this needs an owner decision on canary semantics — a
+representative sample with a failure budget, or a deterministic early window with
+an explicit rate check alongside it — and guessing would either re-open the hole
+or make promotion nondeterministic.
+
+`OPEN_P0` stays **1**. P0-A work remains on
+`claude/v4-v5-p0-1-canary-production-caller` (PR #49) and is deliberately NOT
+merged into the freeze candidate, so the candidate carries no failing test.
