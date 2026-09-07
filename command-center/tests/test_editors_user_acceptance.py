@@ -143,6 +143,67 @@ def browser_codec_support(page):
     return page.evaluate(BROWSER_CODEC_PROBE)
 
 
+# Дневник самого проигрывателя: события, вызовы play/pause/load и подмены
+# <video> в документе. Нужен ровно для одного: если превью снова встанет, в
+# отчёте будет видно ЧТО его остановило (кто и когда вызвал pause, отклонился
+# ли промис play, или узел просто выбросили перерисовкой) — а не только то,
+# что оно стоит. Диагностика обязана быть немой: любой её собственный сбой
+# гасится, иначе она сама станет ошибкой страницы.
+PLAYBACK_TRACE = r"""
+try {
+  window.__vsTrace = [];
+  const t0 = performance.now();
+  let seq = 0;
+  const idOf = el => { if (!el.__vsId) el.__vsId = ++seq; return el.__vsId; };
+  const log = (kind, detail) => {
+    try {
+      if (window.__vsTrace.length < 400) {
+        window.__vsTrace.push({ t: Number((performance.now() - t0).toFixed(1)), kind, ...detail });
+      }
+    } catch (ignored) { /* дневник молчит, а не падает */ }
+  };
+  const where = () => (new Error().stack || '').split('\n').slice(3, 5).map(s => s.trim()).join(' <- ');
+  const snap = el => ({ id: idOf(el), ct: el.currentTime, paused: el.paused,
+                        rs: el.readyState, connected: el.isConnected });
+  for (const name of ['loadstart', 'loadedmetadata', 'play', 'playing', 'pause', 'waiting',
+                      'stalled', 'emptied', 'abort', 'ended', 'seeking', 'seeked', 'error',
+                      'timeupdate']) {
+    document.addEventListener(name, e => {
+      if (e.target instanceof HTMLMediaElement) log('event:' + name, snap(e.target));
+    }, true);
+  }
+  const proto = HTMLMediaElement.prototype;
+  for (const method of ['play', 'pause', 'load']) {
+    const original = proto[method];
+    proto[method] = function (...args) {
+      log('call:' + method, { ...snap(this), from: where() });
+      const result = original.apply(this, args);
+      if (method === 'play' && result && result.catch) {
+        result.then(() => log('play:resolved', snap(this)),
+                    err => log('play:rejected', { ...snap(this), error: String(err) }));
+      }
+      return result;
+    };
+  }
+  const currentTime = Object.getOwnPropertyDescriptor(proto, 'currentTime');
+  Object.defineProperty(proto, 'currentTime', { ...currentTime, set(value) {
+    log('set:currentTime', { id: idOf(this), to: value, from: where() });
+    currentTime.set.call(this, value);
+  } });
+  new MutationObserver(records => {
+    for (const record of records) {
+      for (const [key, nodes] of [['removed', record.removedNodes], ['added', record.addedNodes]]) {
+        for (const node of nodes) {
+          const found = node instanceof HTMLMediaElement ? [node]
+              : (node.querySelectorAll ? node.querySelectorAll('video') : []);
+          for (const v of found) log('dom:' + key, snap(v));
+        }
+      }
+    }
+  }).observe(document, { childList: true, subtree: true });
+} catch (ignored) { /* без дневника тест всё равно идёт */ }
+"""
+
 MEDIA_STATE = """() => {
     const v = document.querySelector('.vs-preview video');
     if (!v) return {element: null};
@@ -164,6 +225,11 @@ def media_wait(page, stage, expression):
     причину. Здесь в сообщение уходит настоящее состояние медиа-элемента:
     readyState, networkState, MediaError с расшифровкой кода, реальный URL и
     HTTP-статус этого URL.
+
+    Одного состояния мало: «paused: true, ended: false, error: null» говорит,
+    что кто-то остановил рабочий поток, но не говорит кто. Поэтому туда же
+    уходит хвост дневника проигрывателя (`PLAYBACK_TRACE`): вызовы play/pause,
+    судьба промиса play() и подмены самого <video> в документе.
     """
     try:
         page.wait_for_function(expression, timeout=15000)
@@ -178,6 +244,10 @@ def media_wait(page, stage, expression):
                                  'bytes': len(probe.body())}
             except Exception as probe_error:  # noqa: BLE001 — диагностика, не приёмка
                 state['http'] = f'unreadable: {probe_error}'
+        try:
+            state['trace'] = page.evaluate('() => (window.__vsTrace || []).slice(-40)')
+        except Exception as trace_error:  # noqa: BLE001 — диагностика, не приёмка
+            state['trace'] = f'unreadable: {trace_error}'
         raise AssertionError(
             f'preview playback stalled at [{stage}]: {json.dumps(state, ensure_ascii=False)}'
         ) from exc
@@ -238,7 +308,18 @@ def played_format(page, context, server, pid, evidence_path):
 
 
 def play_preview_to_end(page):
-    """Only real transport buttons change playback; DOM reads verify it."""
+    """Only real transport buttons change playback; DOM reads verify it.
+
+    Посреди воспроизведения страница перерисовывается — тоже настоящей
+    кнопкой владельца. `paint()` в студии зовёт не только он: его зовут
+    завершение задачи рендера, событие сервера через `refresh()`, любой
+    перехваченный сбой и переключение раскладки/языка/пространства. Пока
+    <video> строился заново на каждый `paint()`, такая перерисовка молча
+    обрывала воспроизведение: узел выбрасывался играющим, новый вставал на
+    playhead и оставался на паузе — «paused: true, ended: false, error: null».
+    Совпадёт ли это по времени само, зависит от везения, поэтому здесь
+    перерисовка вызывается явно и всегда.
+    """
     media_wait(page, 'metadata', """() => {
         const v = document.querySelector('.vs-preview video');
         return v && v.readyState >= 1 && v.videoWidth > 0 && !v.error;
@@ -249,6 +330,7 @@ def play_preview_to_end(page):
         const v = document.querySelector('.vs-preview video');
         return v && v.currentTime > .05 && !v.error;
     }""")
+    page.get_by_role('button', name='Сбросить раскладку', exact=True).click()
     media_wait(page, 'played to end', """() => {
         const v = document.querySelector('.vs-preview video');
         return v && v.ended && v.currentTime >= .9 && !v.error;
@@ -284,6 +366,7 @@ def test_video_ui_import_trim_undo_preview_export_restart(editor_server, tmp_pat
         try:
             context = browser.new_context(viewport={'width': 1720, 'height': 1100}, accept_downloads=True)
             page = context.new_page()
+            page.add_init_script(PLAYBACK_TRACE)
             errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))
             login(page, server)
@@ -354,6 +437,10 @@ def test_video_ui_import_trim_undo_preview_export_restart(editor_server, tmp_pat
                 'played_audio_codec': formats[0]['ffprobe_codecs'].get('audio'),
                 'preview_formats': formats, 'browser_codec_support': codec_support,
                 'preview_format_chosen_by': 'product (video_studio.js previewFormat)',
+                # Каждый прогон проигрывания пережил перерисовку страницы
+                # («Сбросить раскладку» в подвале → `paint()`): PASS означает
+                # «доиграло, несмотря на перерисовку», а не «повезло со временем».
+                'repaint_during_playback': 'Сбросить раскладку (Editor.paint)',
                 'job': job, 'ffprobe': probe, 'playback': playback, 'page_errors': errors}, ensure_ascii=False, indent=2))
         except Exception:
             if page is not None:

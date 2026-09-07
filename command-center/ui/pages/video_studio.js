@@ -93,7 +93,7 @@ class Editor {
     this.workspace = readPreference('workspace', 'montage'); this.layout = readPreference('layout', { library: 238, inspector: 266, timeline: 284 });
     this.project = null; this.projects = []; this.selected = null; this.selectedIds = new Set(); this.mediaSelection = null;
     this.playhead = 0; this.zoom = 68; this.snap = true; this.query = ''; this.folder = ''; this.sort = 'name';
-    this.agentOpen = readPreference('assistant', true) !== false; this.busy = false; this.error = ''; this.previewUrl = ''; this.previewRevision = null;
+    this.agentOpen = readPreference('assistant', true) !== false; this.busy = false; this.error = ''; this.previewUrl = ''; this.previewRevision = null; this.playerNode = null; this.playerFailure = '';
     this.jobs = new Map(); this.root = h('section.vs-studio', { tabindex: '0', 'aria-label': 'Bossman Video Studio', onKeydown: e => this.keyboard(e) });
     this.proposalText = '{\n  "type": "clip.split",\n  "clip_id": "",\n  "at": 1000000\n}';
     this.review = null; this.lastChange = []; this.disposed = false;
@@ -251,11 +251,9 @@ class Editor {
     const url = media ? `${BASE}/media/${encodeURIComponent(media.id)}/${this.sourceProxy && media.has_video ? 'proxy' : 'file'}?project_id=${encodeURIComponent(this.project.id)}&source=${encodeURIComponent(media.sha256)}` : this.previewUrl;
     const stage = h('div.vs-preview-stage');
     if (url) {
-      const player = h(media && !media.has_video && media.width ? 'img' : 'video', { src: url, controls: true, preload: 'metadata', playsinline: true, 'aria-label': this.t('preview'),
-        onLoadedmetadata: e => { if (!media) e.target.currentTime = seconds(this.playhead); },
-        onTimeupdate: e => { if (!media) { this.playhead = Math.round(e.target.currentTime * TIMEBASE); this.updatePlayhead(); } },
-        onError: e => { stage.append(h('div.vs-preview-error', mediaFailure(e.target, this.lang))); } }); stage.append(player);
-    } else stage.append(h('div.vs-preview-empty', h('div', '▷'), h('strong', this.t('noPreview')), h('p', this.t('previewHint')), this.button(this.t('preview'), () => this.startExport(true), { disabled: !endTime(this.project) })));
+      stage.append(this.player(url, media && !media.has_video && media.width ? 'img' : 'video', !media));
+      if (this.playerFailure) stage.append(h('div.vs-preview-error', this.playerFailure));
+    } else { this.playerNode = null; this.playerFailure = ''; stage.append(h('div.vs-preview-empty', h('div', '▷'), h('strong', this.t('noPreview')), h('p', this.t('previewHint')), this.button(this.t('preview'), () => this.startExport(true), { disabled: !endTime(this.project) }))); }
     return h('section.vs-preview.vs-panel', h('div.vs-panel-head', h('span', `${media ? this.t('source') : this.t('project')}: ${media?.name || this.project.name}`),
       h('small', media ? '' : this.previewRevision === null ? '' : `r${this.previewRevision}${this.previewRevision !== this.project.revision ? ' · outdated' : ''}`)), stage,
       h('div.vs-transport', h('span.vs-timecode', timecode(this.playhead, activeSequence(this.project).fps)),
@@ -267,6 +265,49 @@ class Editor {
         media.has_video ? this.button(this.sourceProxy ? 'Proxy ✓' : 'Proxy', () => { this.sourceProxy = !this.sourceProxy; this.paint(); }, { 'aria-pressed': !!this.sourceProxy }) : null) : null,
       media?.has_audio ? h('div.vs-source-waveform', h('small', this.lang === 'ru' ? 'Аудиоволна исходника · весь файл' : 'Source waveform · whole file'), h('img', { src: `${BASE}/media/${encodeURIComponent(media.id)}/waveform?project_id=${encodeURIComponent(this.project.id)}&source=${encodeURIComponent(media.sha256)}`, alt: this.lang === 'ru' ? 'Аудиоволна исходника' : 'Source waveform', onError: e => e.target.replaceWith(h('small', this.lang === 'ru' ? 'Сначала подготовьте аудиоволну.' : 'Prepare the waveform first.')) })) : null,
       this.jobList());
+  }
+  /* Проигрыватель ПЕРЕЖИВАЕТ перерисовку страницы: он не строится заново.
+
+     `h()` создаёт новый узел на каждый вызов, а `preview()` вызывается из
+     каждого `paint()` — и `paint()` зовёт не только владелец: его зовут
+     завершение задачи рендера (`pollJob`), событие сервера через `refresh()`,
+     любой перехваченный сбой в `guard()`, переключение рабочего пространства,
+     языка и раскладки. Пока <video> пересоздавался, ЛЮБАЯ такая перерисовка
+     посреди воспроизведения молча его обрывала.
+
+     Измерено трассировкой на живой странице, а не предположено: play() был
+     вызван один раз и его промис РАЗРЕШИЛСЯ, pause() не вызывался ни разу,
+     currentTime посреди игры никто не двигал, а src нового узла совпадал со
+     старым. В журнале ровно одно событие: на 0.5 c появился новый <video>,
+     построенный `Editor.preview`, старый выброшен. Дальше новый узел грузится
+     с нуля и стоит на паузе, а `onLoadedmetadata` возвращает его на playhead —
+     снаружи это «встало на 0.08 c: paused, ended:false, seeking:false,
+     error:null, readyState:4», то самое состояние из отчёта приёмки. Ни к
+     кодекам, ни к транспорту, ни к байтам это отношения не имеет.
+
+     Узел с тем же источником переиспользуется. Изъятие и вставка внутри
+     одного `paint()` синхронны, а internal pause steps спецификация выполняет
+     только после stable state — к этому моменту элемент снова в документе,
+     и воспроизведение не прерывается. Смена источника (другой previewUrl,
+     выбранный исходник, прокси) по-прежнему даёт новый элемент. */
+  player(url, tag, isProject) {
+    const kept = this.playerNode;
+    if (kept && kept.localName === tag && kept.getAttribute('src') === url) {
+      kept.setAttribute('aria-label', this.t('preview'));
+      return kept;
+    }
+    this.playerFailure = '';
+    this.playerNode = h(tag, { src: url, controls: true, preload: 'metadata', playsinline: true, 'aria-label': this.t('preview'),
+      onLoadedmetadata: e => { if (isProject) e.target.currentTime = seconds(this.playhead); },
+      onTimeupdate: e => { if (isProject) { this.playhead = Math.round(e.target.currentTime * TIMEBASE); this.updatePlayhead(); } },
+      onError: e => {
+        // Сбой источника переживает перерисовку так же, как сам элемент:
+        // раньше сообщение держал только тот stage, который его получил.
+        this.playerFailure = mediaFailure(e.target, this.lang);
+        const stage = e.target.parentElement;
+        if (stage && !stage.querySelector('.vs-preview-error')) stage.append(h('div.vs-preview-error', this.playerFailure));
+      } });
+    return this.playerNode;
   }
   togglePlay() { const player = this.root.querySelector('.vs-preview video'); if (player) { if (player.paused) return player.play(); player.pause(); } }
   seek(time) { this.playhead = Math.round(Math.max(0, time)); const player = this.root.querySelector('.vs-preview video'); if (player && !this.mediaSelection) player.currentTime = seconds(this.playhead); this.updatePlayhead(); }

@@ -1,0 +1,245 @@
+"""Превью не должно останавливаться от того, что страница перерисовалась.
+
+Отдельный от приёмки стенд: приёмка проходит путь владельца целиком, а здесь
+нужен УЗКИЙ замер — включить воспроизведение и посмотреть, что со звеном
+делает сама страница. Инструментация живёт в тесте (init script), продукт под
+неё не переписан: перехватываются настоящие события медиа-элемента, настоящие
+вызовы play/pause/load, присвоения src/currentTime и появление/исчезновение
+самого <video> в документе.
+
+Что этот стенд измерил на живой странице (не предположил):
+  call:play        — ровно один, промис РАЗРЕШИЛСЯ (play:resolved);
+  call:pause       — ни одного;
+  set:currentTime  — посреди игры только из onLoadedmetadata НОВОГО узла;
+  dom:removed id=4 ct=0.436 paused=false  ← игравший элемент выброшен,
+  dom:added   id=5 ct=0     paused=true   ← на его место построен новый,
+  и новый узел встаёт на playhead (0.475881) и остаётся на паузе:
+  paused=true, ended=false, seeking=false, readyState=4, error=null.
+Это ровно то состояние, которое приёмка показывает как «preview playback
+stalled»: ни кодеки, ни транспорт, ни байты к нему отношения не имеют.
+"""
+from __future__ import annotations
+
+import json
+import re
+import subprocess
+
+import pytest
+from playwright.sync_api import sync_playwright
+
+from .test_editors_user_acceptance import editor_server  # noqa: F401 — фикстура
+from .test_editors_user_acceptance import login
+from .test_ux2_thinking_pane import _launch
+
+# Полный след: события медиа-элемента, вызовы play/pause/load, присвоения src и
+# currentTime и появление/исчезновение <video> в документе. Каждая запись
+# помечена id элемента — подмену узла видно, а не додумывают.
+TRACE = r"""
+window.__vsTrace = [];
+const t0 = performance.now();
+let seq = 0;
+const idOf = el => { if (!el.__vsId) el.__vsId = ++seq; return el.__vsId; };
+const at = () => Number((performance.now() - t0).toFixed(1));
+const where = () => (new Error().stack || '').split('\n').slice(3, 6)
+    .map(s => s.trim()).join(' <- ');
+const log = (kind, detail) => { window.__vsTrace.push({ t: at(), kind, ...detail }); };
+const snap = el => ({ id: idOf(el), ct: el.currentTime, paused: el.paused,
+                      rs: el.readyState, ns: el.networkState,
+                      connected: el.isConnected, src: (el.currentSrc || el.src).slice(-24) });
+
+for (const name of ['loadstart', 'loadedmetadata', 'loadeddata', 'canplay', 'canplaythrough',
+                    'play', 'playing', 'pause', 'waiting', 'stalled', 'suspend', 'emptied',
+                    'abort', 'ended', 'seeking', 'seeked', 'error', 'ratechange',
+                    'durationchange', 'timeupdate']) {
+  document.addEventListener(name, e => {
+    if (e.target instanceof HTMLMediaElement) log('event:' + name, snap(e.target));
+  }, true);
+}
+
+const proto = HTMLMediaElement.prototype;
+for (const method of ['play', 'pause', 'load']) {
+  const original = proto[method];
+  proto[method] = function (...args) {
+    log('call:' + method, { ...snap(this), from: where() });
+    const result = original.apply(this, args);
+    if (method === 'play' && result && result.catch) {
+      result.then(() => log('play:resolved', snap(this)),
+                  err => log('play:rejected', { ...snap(this), error: String(err) }));
+    }
+    return result;
+  };
+}
+for (const prop of ['src', 'currentTime']) {
+  const desc = Object.getOwnPropertyDescriptor(proto, prop);
+  Object.defineProperty(proto, prop, { ...desc, set(value) {
+    log('set:' + prop, { id: idOf(this), to: String(value).slice(-24),
+                         was: String(desc.get.call(this)).slice(-24), from: where() });
+    desc.set.call(this, value);
+  } });
+}
+const attribute = Element.prototype.setAttribute;
+Element.prototype.setAttribute = function (name, value) {
+  if (this instanceof HTMLMediaElement && name === 'src') {
+    log('attr:src', { id: idOf(this), to: String(value).slice(-24), from: where() });
+  }
+  return attribute.call(this, name, value);
+};
+
+new MutationObserver(records => {
+  for (const record of records) {
+    for (const [key, nodes] of [['removed', record.removedNodes], ['added', record.addedNodes]]) {
+      for (const node of nodes) {
+        const found = node instanceof HTMLMediaElement ? [node]
+            : (node.querySelectorAll ? node.querySelectorAll('video') : []);
+        for (const v of found) log('dom:' + key, snap(v));
+      }
+    }
+  }
+}).observe(document, { childList: true, subtree: true });
+"""
+
+READY = """() => { const v = document.querySelector('.vs-preview video');
+                   return v && v.readyState >= 1 && v.videoWidth > 0 && !v.error; }"""
+
+
+def fixture_clip(tmp_path, seconds_long=4):
+    """Настоящий файл, а не заглушка: превью длиннее секунды — окно шире."""
+    path = tmp_path / f'stand-{seconds_long}s.mp4'
+    subprocess.run(['ffmpeg', '-v', 'error', '-nostdin', '-y', '-f', 'lavfi', '-i',
+                    f'color=green:size=320x180:rate=30:duration={seconds_long}', '-f', 'lavfi',
+                    '-i', f'sine=frequency=440:sample_rate=48000:duration={seconds_long}',
+                    '-c:v', 'libx264', '-threads', '1', '-pix_fmt', 'yuv420p', '-c:a', 'aac',
+                    '-shortest', str(path)], check=True, timeout=60)
+    return path
+
+
+def open_project_with_clip(page, server, fixture):
+    login(page, server)
+    page.goto(server.url + '/#/video-studio')
+    page.get_by_role('button', name='＋ Новый проект', exact=True).click()
+    page.get_by_label('Название', exact=True).fill('Playback stall stand')
+    page.get_by_role('button', name='Применить', exact=True).click()
+    page.locator('.vs-library input[type=file]').set_input_files(fixture)
+    page.locator('.vs-media-card').first.wait_for(timeout=30000)
+    page.locator('.vs-media-card').first.dblclick()
+    page.locator('.vs-clip').first.wait_for(timeout=30000)
+    return re.search(r'project_id=([^&]+)', page.url).group(1)
+
+
+def render_preview(page):
+    page.locator('.vs-preview-actions').get_by_role(
+        'button', name='Создать preview', exact=True).click()
+    page.locator('.vs-preview video').wait_for(timeout=120000)
+    page.wait_for_function(READY, timeout=30000)
+
+
+def dump(page, tmp_path, name):
+    trace = page.evaluate('() => window.__vsTrace')
+    (tmp_path / name).write_text(json.dumps(trace, indent=1), encoding='utf-8')
+    return trace
+
+
+@pytest.mark.timeout(300)
+def test_preview_keeps_playing_through_a_repaint(editor_server, tmp_path):
+    """Перерисовка страницы посреди воспроизведения не должна его обрывать.
+
+    `paint()` зовёт не только владелец: его зовут завершение задачи рендера
+    (`pollJob`), событие сервера через `refresh()`, перехваченный сбой в
+    `guard()`, переключение раскладки, языка и рабочего пространства. Здесь
+    перерисовка вызывается НАСТОЯЩЕЙ кнопкой владельца («Сбросить раскладку»
+    в подвале) — тем же самым `paint()`.
+
+    Тест не считается пройденным вхолостую: отдельно проверяется, что панель
+    превью действительно была перестроена (старая секция отсоединена), а
+    <video> при этом остался ТЕМ ЖЕ узлом и доиграл до конца.
+    """
+    server = editor_server
+    fixture = fixture_clip(tmp_path, 4)
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            context = browser.new_context(viewport={'width': 1720, 'height': 1100})
+            page = context.new_page()
+            page.add_init_script(TRACE)
+            errors = []
+            page.on('pageerror', lambda e: errors.append(str(e)))
+            open_project_with_clip(page, server, fixture)
+            render_preview(page)
+
+            page.locator('.vs-transport').get_by_role('button', name='│◀', exact=True).click()
+            page.locator('.vs-transport').get_by_role('button', name='▶', exact=True).click()
+            page.wait_for_function(
+                """() => { const v = document.querySelector('.vs-preview video');
+                           return v && v.currentTime > .3 && !v.error; }""", timeout=30000)
+            playing = page.query_selector('.vs-preview video')
+            panel = page.query_selector('.vs-preview')
+
+            page.get_by_role('button', name='Сбросить раскладку', exact=True).click()
+
+            # Перерисовка была настоящей: прежняя секция превью отсоединена.
+            assert panel.evaluate('el => el.isConnected') is False
+            survived = page.query_selector('.vs-preview video')
+            assert page.evaluate('([a, b]) => a === b', [playing, survived]) is True, \
+                dump(page, tmp_path, 'trace-repaint.json')
+            try:
+                page.wait_for_function(
+                    """() => { const v = document.querySelector('.vs-preview video');
+                               return v && v.ended && v.currentTime >= 3 && !v.error; }""",
+                    timeout=25000)
+            finally:
+                trace = dump(page, tmp_path, 'trace-repaint.json')
+            # Ни pause(), ни отклонённого промиса play(): элемент просто играл.
+            assert [r for r in trace if r['kind'] == 'call:play']
+            assert not [r for r in trace if r['kind'] in ('call:pause', 'play:rejected')], trace
+            assert errors == [], errors
+        finally:
+            browser.close()
+
+
+@pytest.mark.timeout(300)
+def test_preview_element_is_rebuilt_when_the_source_actually_changes(editor_server, tmp_path):
+    """Обратный контроль к переиспользованию узла.
+
+    Узел сохраняется только при ТОМ ЖЕ источнике. Если бы он сохранялся всегда,
+    выбор исходника в библиотеке показывал бы владельцу прежнее превью — то
+    есть чужое видео под правильной подписью. Здесь проверяется, что при смене
+    источника элемент действительно новый и src действительно другой.
+    """
+    server = editor_server
+    fixture = fixture_clip(tmp_path, 2)
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            context = browser.new_context(viewport={'width': 1720, 'height': 1100})
+            page = context.new_page()
+            page.add_init_script(TRACE)
+            errors = []
+            page.on('pageerror', lambda e: errors.append(str(e)))
+            open_project_with_clip(page, server, fixture)
+            render_preview(page)
+
+            preview_node = page.query_selector('.vs-preview video')
+            preview_src = preview_node.evaluate('v => v.currentSrc || v.src')
+
+            page.locator('.vs-media-card').first.click()
+            page.wait_for_function(
+                """previous => { const v = document.querySelector('.vs-preview video');
+                                 return v && (v.currentSrc || v.src) !== previous; }""",
+                arg=preview_src, timeout=30000)
+            source_node = page.query_selector('.vs-preview video')
+            source_src = source_node.evaluate('v => v.currentSrc || v.src')
+            assert page.evaluate('([a, b]) => a === b', [preview_node, source_node]) is False
+            assert '/media/' in source_src and source_src != preview_src
+
+            page.locator('.vs-clip').first.click()
+            page.wait_for_function(
+                """previous => { const v = document.querySelector('.vs-preview video');
+                                 return v && (v.currentSrc || v.src) !== previous; }""",
+                arg=source_src, timeout=30000)
+            back = page.query_selector('.vs-preview video')
+            assert back.evaluate('v => v.currentSrc || v.src') == preview_src
+            assert page.evaluate('([a, b]) => a === b', [source_node, back]) is False
+            dump(page, tmp_path, 'trace-source-switch.json')
+            assert errors == [], errors
+        finally:
+            browser.close()
