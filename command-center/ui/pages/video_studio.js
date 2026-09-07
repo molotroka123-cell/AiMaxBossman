@@ -779,7 +779,30 @@ class Editor {
 
 export const VideoStudioPage = {
   id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary',
-  async render(ctx, params = {}) { if (editor) { editor.disposed = true; clearTimeout(editor.leaseTimer); clearTimeout(editor.timelineTimer); } editor = new Editor(ctx, params); return editor.load(); },
+  /* Повторный render() приходит не только от навигации.
+
+     Оболочка зовёт `renderPage()` при открытии вебсокета и при восстановлении
+     связи (`app.js`, `ws.open` / `onConnRestored`) — то есть по событию сети,
+     в произвольный момент. Приёмка перезапускает сервер посреди сценария,
+     значит связь рвётся и восстанавливается ровно там, где владелец смотрит
+     превью. Пока каждый такой вызов строил НОВЫЙ Editor, студия собиралась с
+     нуля: новый <video> вместо игравшего (воспроизведение обрывалось молча,
+     ровно тем же «paused: true, ended: false, error: null»), а заодно
+     терялись выделение, прокрутка и раскладка.
+
+     Измерено кнопкой «Обновить» самой оболочки: она идёт тем же путём, и
+     превью на ней умирало. Поэтому живой редактор того же проекта
+     переиспользуется — `load()` всё равно перечитывает проекты, возможности
+     и сам проект, так что «данные обновлены» остаётся правдой. Уход на другую
+     страницу (узел отсоединён) и смена проекта по-прежнему строят студию
+     заново. */
+  async render(ctx, params = {}) {
+    const live = editor && !editor.disposed && editor.root.isConnected
+      && (params.project_id || null) === (editor.params?.project_id || null);
+    if (live) { editor.ctx = ctx; editor.params = params; return editor.load(); }
+    if (editor) { editor.disposed = true; clearTimeout(editor.leaseTimer); clearTimeout(editor.timelineTimer); }
+    editor = new Editor(ctx, params); return editor.load();
+  },
   onEvent(event) { if (String(event.kind || '').startsWith('video.') && editor?.root.isConnected) editor.guard(() => editor.refresh()); return false; },
 };
 export default VideoStudioPage;

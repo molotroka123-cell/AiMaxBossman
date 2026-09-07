@@ -243,3 +243,88 @@ def test_preview_element_is_rebuilt_when_the_source_actually_changes(editor_serv
             assert errors == [], errors
         finally:
             browser.close()
+
+
+
+@pytest.mark.timeout(300)
+def test_preview_keeps_playing_through_a_shell_rerender(editor_server, tmp_path):
+    """Второй путь к тому же дефекту, и он срабатывает САМ.
+
+    Оболочка зовёт `renderPage()` не только при навигации: на открытии
+    вебсокета и на восстановлении связи (`app.js`: `ws.open`,
+    `onConnRestored`). Приёмка перезапускает сервер посреди сценария — связь
+    рвётся и восстанавливается там, где владелец смотрит превью. Пока каждый
+    такой вызов строил новый `Editor`, студия собиралась с нуля вместе с новым
+    <video>, и воспроизведение обрывалось молча: измерено кнопкой «Обновить»
+    самой оболочки, которая идёт ровно этим путём.
+    """
+    server = editor_server
+    fixture = fixture_clip(tmp_path, 4)
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            context = browser.new_context(viewport={'width': 1720, 'height': 1100})
+            page = context.new_page()
+            page.add_init_script(TRACE)
+            errors = []
+            page.on('pageerror', lambda e: errors.append(str(e)))
+            open_project_with_clip(page, server, fixture)
+            render_preview(page)
+
+            page.locator('.vs-transport').get_by_role('button', name='│◀', exact=True).click()
+            page.locator('.vs-transport').get_by_role('button', name='▶', exact=True).click()
+            page.wait_for_function(
+                """() => { const v = document.querySelector('.vs-preview video');
+                           return v && v.currentTime > .3 && !v.error; }""", timeout=30000)
+            playing = page.query_selector('.vs-preview video')
+
+            page.locator('#refresh-btn').click()
+
+            try:
+                page.wait_for_function(
+                    """() => { const v = document.querySelector('.vs-preview video');
+                               return v && v.ended && v.currentTime >= 3 && !v.error; }""",
+                    timeout=25000)
+            finally:
+                dump(page, tmp_path, 'trace-shell-rerender.json')
+            survived = page.query_selector('.vs-preview video')
+            assert page.evaluate('([a, b]) => a === b', [playing, survived]) is True
+            assert errors == [], errors
+        finally:
+            browser.close()
+
+
+@pytest.mark.timeout(300)
+def test_leaving_the_page_still_builds_a_fresh_studio(editor_server, tmp_path):
+    """Обратный контроль к переиспользованию редактора.
+
+    Живой редактор переиспользуется только пока его узел в документе и проект
+    тот же. Если бы он переиспользовался всегда, уход на другую страницу и
+    возврат показывали бы владельцу мёртвый снимок вместо перечитанной студии.
+    """
+    server = editor_server
+    fixture = fixture_clip(tmp_path, 2)
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            context = browser.new_context(viewport={'width': 1720, 'height': 1100})
+            page = context.new_page()
+            page.add_init_script(TRACE)
+            errors = []
+            page.on('pageerror', lambda e: errors.append(str(e)))
+            open_project_with_clip(page, server, fixture)
+            render_preview(page)
+            before = page.query_selector('.vs-studio')
+
+            page.goto(server.url + '/#/tasks')
+            page.wait_for_function("() => !document.querySelector('.vs-studio')", timeout=15000)
+            page.goto(server.url + '/#/video-studio')
+            page.locator('.vs-clip').first.wait_for(timeout=30000)
+
+            after = page.query_selector('.vs-studio')
+            assert page.evaluate('([a, b]) => a === b', [before, after]) is False
+            assert before.evaluate('el => el.isConnected') is False
+            page.wait_for_function(READY, timeout=30000)
+            assert errors == [], errors
+        finally:
+            browser.close()
