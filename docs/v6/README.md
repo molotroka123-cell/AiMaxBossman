@@ -17,6 +17,7 @@ Epoch 6 не является новой пачкой функций. Это э�
 7. [ROLLBACK_RISK_AND_SAFETY.md](ROLLBACK_RISK_AND_SAFETY.md) — что запрещено ускорять ценой корректности, rollback и kill criteria.
 8. [MULTI_MODEL_AUDIT_SYNTHESIS.md](MULTI_MODEL_AUDIT_SYNTHESIS.md) — как объединять Astra/Perplexity/Grok/другие аудиты без превращения прогнозов в факты.
 9. [OPUS_IMPLEMENTATION_HANDOFF.md](OPUS_IMPLEMENTATION_HANDOFF.md) — готовый handoff единому интегратору после freeze.
+10. [DESIGN_REFRESH_WORKSTREAM.md](DESIGN_REFRESH_WORKSTREAM.md) — Workstream J: обновление дизайна как вторая половина задачи об отзывчивости.
 
 ## Исходные документы, которые Epoch 6 собирает в единую систему
 
@@ -32,9 +33,14 @@ Epoch 6 не является новой пачкой функций. Это э�
 
 **V4/V5 доказывают, что Bossman делает работу правильно; Epoch 6 доказывает, что тот же самый правильный Bossman делает её быстрее и экономнее.**
 
+Воспринимаемая скорость — часть той же задачи, поэтому в Epoch 6 входит и
+обновление дизайна (Workstream J): интерфейс, который честно показывает состояние,
+прогресс и контроль владельца. Дизайн подчиняется тем же принципам, что и
+производительность, и не имеет права выглядеть увереннее системы.
+
 ## Текущий статус
 
-- Implementation: **0%**.
+- Implementation: **0%** (включая Workstream J — дизайн: 0%).
 - Performance baseline frozen candidate: **NOT_RUN**.
 - Exact Bossman idle RAM/VRAM footprint: **UNKNOWN** до измерения process tree на frozen SHA.
 - Wide optimization changes before freeze: **BLOCKED BY POLICY OF THIS PLAN**.

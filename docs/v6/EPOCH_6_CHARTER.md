@@ -18,11 +18,17 @@
 - prompt/tool/skill context efficiency;
 - process-tree RAM, GPU memory and unified-memory accounting;
 - concurrency/soak and p95/p99 tail latency.
+- обновление дизайна и визуальной системы как часть воспринимаемой отзывчивости
+  (Workstream J, см. `DESIGN_REFRESH_WORKSTREAM.md`): состояния интерфейса,
+  прогресс/ожидание, видимость owner control, читаемость доказательств,
+  иконки, доступность — БЕЗ смены фреймворка и без новых возможностей.
 
 ## Out of scope
 
 - новые пользовательские приложения;
-- новый UI framework;
+- новый UI framework и переписывание фронтенда (обновление дизайна в Workstream J
+  делается внутри существующего стека);
+- «упрощение» интерфейса, скрывающее отказ, деградацию или незавершённость;
 - новые архитектурные эпохи возможностей;
 - ослабление approvals, postcondition verification, evidence, journal durability или fencing;
 - замена реального benchmark synthetic-only цифрами;

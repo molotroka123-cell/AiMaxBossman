@@ -88,6 +88,29 @@ Owner interaction и preview получают более высокий priority
 - model residency cost учитывается при routing;
 - missed event recovery через periodic reconciliation.
 
+## Workstream J — Design refresh (воспринимаемая отзывчивость)
+
+Полное описание — `DESIGN_REFRESH_WORKSTREAM.md`. Здесь только место в системе.
+
+Workstream J — единственный, который оптимизирует не машину, а восприятие. Он
+нужен потому, что интерфейс без honest-состояний ощущается медленным и
+непредсказуемым даже после того, как backend ускорен: молчащий экран
+неотличим от зависшего, а невидимый Stop равносилен отсутствующему.
+
+Зависимости:
+
+- от **Workstream B** (Command Center rendering/polling) — J не имеет права
+  ухудшить frame/interaction latency; метрики берутся оттуда же;
+- от **Workstream D** (Computer Use) — прогресс и owner control рисуются по
+  реальным состояниям задачи, а не по таймеру;
+- от **Workstream F** (Video Studio) — анимации и превью не конкурируют за
+  ресурсы с экспортом.
+
+Жёсткое ограничение: J не меняет фреймворк, не добавляет возможностей и не
+ослабляет ни один существующий UX/owner-control тест. Приоритет внутри J —
+сначала честность состояний и видимость контроля, только потом визуальная
+консистентность.
+
 ## Already optimized / do not duplicate blindly
 
 - GatewayClient уже использует reusable `httpx.AsyncClient` на рассмотренной линии;

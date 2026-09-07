@@ -25,7 +25,31 @@ A candidate can be called `EPOCH6_VERIFIED` only if:
 9. same-model held-out quality/verified-success does not regress;
 10. CI and owner evidence use the candidate actually being released.
 
+## Design acceptance gates (Workstream J)
+
+Дополняют performance gates, не заменяют их. Изменение дизайна принимается, только если:
+
+1. ни один существующий UX / owner-control / editors тест не ослаблен, не
+   помечен skip/xfail и не удалён;
+2. каждое новое состояние (loading / empty / partial / error / denied / stopped /
+   paused / offline / degraded) имеет тест, что оно ПОКАЗЫВАЕТСЯ, когда система
+   действительно в нём находится;
+3. Stop / Pause / Take Control достижимы и отзывчивы ПОД НАГРУЗКОЙ, а не только
+   на спокойном экране; human-speed контракт не смягчается;
+4. нет регрессии frame/interaction latency по метрикам Workstream B;
+5. `prefers-reduced-motion` уважается, анимация не конкурирует с model runtime и
+   экспортом видео;
+6. контраст, фокус и размеры целей нажатия ИЗМЕРЕНЫ, а не заявлены.
+
 ## Hard fail conditions
+
+Дизайн-специфичные (Workstream J):
+
+- результат показан как готовый БЕЗ верификации — «зелёная галочка» без улики;
+- Stop/Pause стал менее доступен или менее отзывчив, чем до изменения;
+- отказ (deny/blocked) показан без причины;
+- долгая операция не показывает ни прогресса, ни возможности отмены;
+- «улучшение» потребовало ослабить существующий тест.
 
 Immediate `NO-GO` if any optimization:
 
