@@ -1,120 +1,235 @@
-# V6 Freeze Report — velocity phase 0/1 (Fable 5 completion pass)
+# V6 Freeze Report — velocity phase 0/1 + post-Fable closure handoff
 
 **Branch:** `v6/velocity-phase0-baseline-20260907`
-**Exact tested HEAD:** `ae3dc3fac70cab3856f15ca5730346762bd21a7e (code HEAD; the report commit itself follows it)`
-**Exact tree SHA:** `24c194957c468e903dc6a672f474d49bb5ca8233`
-**Base of this pass:** `d9d0caf1` (V4/V5 freeze `196a55ea` + seven owner-session fixes)
-**Generated:** 2026-09-07, Linux sandbox (Python 3.11.15, Chromium 141.0.7390.37 headless, 4 logical CPU, no GPU, no local model runtime, Playwright FFmpeg build without libx264/aac)
 
-## FREEZE_DECISION
+## CURRENT SOURCE TRUTH
 
-**REPO_COMPLETE_EXTERNAL_VALIDATION_PENDING**
+Latest code/test HEAD (this pass, 2026-09-07 18:01 UTC):
 
-Everything GitHub/this sandbox can prove is done and green (see §CI). What still needs the owner's machine: Windows path/launcher behaviour of the new code, the local model runtime (residency/reload — never observed here), a sustained video export under interactive load, and the owner-session items marked EVIDENCE_GAP below. No fake PASS: the decision is not PASS because those validations have not been run, not because anything known is red.
+- **CODE_TEST_HEAD:** `c42532669ac7d946fe78dda228037d9fc8167d97`
+- **TREE:** `efc72027f87c0f852fc894f36d6e0653cf3407db`
+- previous code/test HEAD: `413a97a1ce2936f9543fea5d8f0b529256fc1de2` (tree `919e2ada…`); Fable report head before follow-up: `d458e63ee4c0b5b577f61df22ae8b7dd8d7e5e71`
 
-## Commits in this pass (oldest first)
+`c4253266` = `413a97a1` + docs/README/scorecard refresh (`547a4842`…`b14e7f5c`, no production code) +
+one repository fix: `scripts/update_readme_scorecard.py` now refuses an UNPROVEN axis with
+MEDIUM/HIGH confidence and `tests/test_readme_scorecard.py` sets confidence explicitly
+(root-ci had gone red on `80aaa1cf`/`b445429f`/`b14e7f5c` because the test inherited the
+canonical scorecard's confidence, which the refresh moved from LOW to MEDIUM; the fix is a
+strictly stronger validator plus a negative control — nothing loosened).
+
+### Exact-HEAD CI on `c4253266`
+
+| Workflow | Result |
+|---|---|
+| root-ci (py3.11 + py3.12, README scorecard, skips registry, compileall, secret scan, whitespace) | **PASS** (run 34149935882) |
+| Bossman Core CI | **PASS** (run 34149935775) |
+| Solana safety gates | **PASS** (run 34149935803) |
+| ASTRA acceptance | **PASS** (run 34149935732) |
+| Command Center CI (py3.11 / 3.12 / 3.14 hard lane, Windows paths, secrets/JS) | CC_CI_C425 |
+
+Earlier heads on this branch: `47a49ffa` all green incl. Command Center CI 3.11/3.12/3.14 + Windows paths; `ae3dc3fa` (3.14 hard gate) Command Center CI green; `2ededc88` (canary port line) root-ci/ASTRA/Solana green.
+
+The documentation commits that follow the code/test HEAD do not change production behavior. Do not confuse a report/prompt commit SHA with the tested code SHA.
+
+### Post-Fable follow-up commits
+
+| SHA | Change | Classification |
+|---|---|---|
+| `8315b267a9a288d20a69cdbadd6c39b9a15ca16e` | Trading Lab wiring test now verifies the V6 lazy registry/dynamic import instead of demanding the removed eager import | stale test contract fixed; production behavior unchanged |
+| `cf7bc81ceaeb852b1376ca2e21f7d781701432c1` | Golden Mission env keeps `approval_watcher` alive across sequential owner decisions | harness lifecycle correction |
+| `413a97a1ce2936f9543fea5d8f0b529256fc1de2` | Golden Missions use exactly one persistent approval watcher; duplicate temporary watcher removed | harness made production-like; approval policy unchanged |
+
+These follow-up commits do **not** weaken approvals, review escalation, effect verification, freshness, authorization, canary, rollback, budgets or privacy routing.
+
+## CI HISTORY NOTE
+
+On `413a97a1` Solana and ASTRA were green; root-ci went red on the three documentation
+commits that followed (`test_readme_scorecard::test_not_run_cannot_become_pass`) and is green
+again on `c4253266` — see the exact-HEAD table above. A running job is never quoted as PASS.
+
+## FREEZE DECISION
+
+**REPO_COMPLETE_EXTERNAL_VALIDATION_PENDING** on `c4253266` — root / Core / Solana / ASTRA green on the exact HEAD; Command Center CI: see table (the verdict is withdrawn to BLOCKED if that lane finishes red with a reproducible product failure).
+
+`OPEN_REPO_P0 = 0`, `OPEN_REPO_P1 = 0` (see "Current known repository debt"). What remains is owner-machine evidence, not repository work.
+
+Repository-visible V6 phase 0/1 work is substantially complete. The remaining high-value validation is primarily the owner's real Windows/local-model/runtime path and a second Dashboard acceptance session. If current CI exposes a reproducible repository bug, status becomes `BLOCKED` until fixed.
+
+---
+
+## V6 implementation completed in the Fable pass
 
 | SHA | What | Evidence class |
 |---|---|---|
-| `298202dd` | `Services.start` phase trace (`StartupTrace`) exposed at `/api/system.startup`; ready=false/total_ms=null until finished; immutable after finish; fresh trace per restart | MEASURED (4 tests) |
-| `76ee3209` | Lazy `FEATURE_PAGES` registry (`import()` on first render, idle preload, `onEvent` false until loaded); `bossman:ui_ready` / `bossman:first_page_rendered` marks; `window.__bxTiming()` | MEASURED before/after (3 Playwright tests) |
-| `ce31846e` | One `httpx.AsyncClient` + one SSL context per launcher probe; manifests cached by (path, mtime, size) | MEASURED before/after (3 tests) |
-| `12c97187` | §5 single-flight for `apps.collect` (N callers → one probe; errors to all; cancel-safe; loop-safe) | TESTED (2 concurrency tests) |
-| `c3f0a6b5` | OPEN_FINDINGS: H-CLUSTER → FIXED_IN_6cc9523e; Windows-only items → EVIDENCE_GAP | docs |
-| `b4518594` | Computer Use per-phase wall-time (`phase_timing` in the operator manager; in `tools/operator_step_profile.py`) | TESTED (1 test; measurement, not gate) |
-| `3de81f02` | FFmpeg children below normal CPU priority (Windows class at spawn; POSIX renice after spawn; failure never breaks export) | CODE_EVIDENCED + 4 tests; interactive-p95-under-export **NOT_MEASURED** |
-| `c837acf8` | Skips registry regenerated (root-ci gate was red on c3f0a6b5) | CI hygiene |
-| `ae3dc3fa` | Python 3.14 becomes a hard CI gate: run 34137665700 (`ca9a4a7a`) pytest(py3.14) fully green → `continue-on-error` removed | CI (measured once, green) |
+| `298202dd` | `Services.start` phase trace (`StartupTrace`) exposed at `/api/system.startup`; ready=false/total_ms=null until finished; fresh trace per restart | MEASURED + tests |
+| `76ee3209` | Lazy `FEATURE_PAGES`, dynamic `import()` on first render, idle preload, `bossman:ui_ready` / first-page marks | MEASURED before/after + browser tests |
+| `ce31846e` | Shared `httpx.AsyncClient`/SSL context per launcher probe; manifest caching | MEASURED |
+| `12c97187` | single-flight/coalescing for `apps.collect` | concurrency-tested |
+| `b4518594` | Computer Use per-phase wall timing | TESTED |
+| `3de81f02` | FFmpeg children below normal interactive priority | CODE_EVIDENCED + tests |
+| `ae3dc3fa` | Python 3.14 promoted to a hard Command Center CI lane after a prior full green run | CI evidence |
 
-## Owner-session bugs (session 6cbb17ce84db / log 7df8cab43cad) — status on this HEAD
+Follow-up harness commits are listed in CURRENT SOURCE TRUTH above.
 
-Carried in from `d9d0caf1` (already on the branch, re-verified here by the suites listed in §Tests):
+---
 
-| Item | Status | Proof |
+## Owner session `6cbb17ce84db`
+
+Initial published session evidence included approximately 5777 recorded events, 37 raw dead-click detections and 33 recorded errors.
+
+**Important:** the raw dead-click count is not the number of real bugs. The corrected detector/analysis proved that visible changes outside the original observation surface (publish button state, modal/toast/focus/ancestor changes) could be incorrectly recorded as dead clicks. Current work must use the corrected analysis rather than resurrecting every historical raw row.
+
+### Carried fixes / closures on the V6 line
+
+| Owner symptom | Current status |
+|---|---|
+| stale-data reconnect button was mute | FIXED; must give an attempt or explicit refusal |
+| mission displayed `running` forever while all tasks were blocked | FIXED; blocked-only mission terminates honestly |
+| Apps returned old 409 after Command Center restart because owned process state was only in memory | FIXED with durable launch evidence and conservative recovered-process semantics |
+| Video unavailable reason flattened / opaque | diagnostics improved; REAL Video Studio workflow still needs owner re-test |
+| OpenRouter model-name/provider UX | fixes carried; real configured provider still requires owner/runtime evidence |
+| Web Designer / Video provider path | fixes carried; real AI-edit/provider flow still requires owner re-test |
+| Trading Lab 500 / missing old module | current feature lazy-imports `bossman.trading_learning`; no-core build returns `DEAD_OR_UNWIRED` rather than crashing |
+| Dashboard slow everywhere | root-caused and materially improved by lazy pages + app-probe cache/single-flight |
+| H-CLUSTER Windows child encoding | code fix present; owner Windows proof remains EVIDENCE_GAP |
+
+### Sandbox re-test of the owner-session paths on `c4253266` (2026-09-07)
+
+A scripted acceptance session on the real Command Center (real Chromium, workers on,
+testing-period recorder on, fake instant model) — full write-up in
+`docs/testing/sessions/2026-09-07__sandbox-acceptance-v6__7cc925717624.md`:
+
+| Owner-session path | Sandbox result on `c4253266` |
+|---|---|
+| stuck tasks / missions | 4/4 tasks reached `completed` (two of them concurrent); blocked-mission terminal outcome unit-tested |
+| Web Designer AI edit + provider failure | edit 200 and persisted; provider down → 502 «модель недоступна…», code unchanged — no silent success |
+| Video Studio persistence / derivatives | project create 200, reload 200; missing-media thumbnail → 422 with a message, never 500; real thumbnail/waveform/export **NOT_RUN** (no encoder here) |
+| Apps / restart | unit-tested recovery (`test_apps_control.py`); not exercised live (would spawn the owner's apps) |
+| Trading Lab | all four routes 200; owner's `ModuleNotFoundError: bossman_v3` not reproduced — wheel and a fresh editable install both ship `bossman_v3` → EVIDENCE_GAP (stale editable finder on the owner host is the only mechanism found) |
+| OpenRouter / provider routing | Python 3.14 cleared by CI (run 34137665700 fully green); real provider path NOT_RUN — on-screen error text still needed (now captured by `ui.refused.reason`) |
+| dashboard load | 15 navigations, 0 dead clicks, 0 refusals, 0 JS errors, 0 console errors; `Services.start` 187 ms |
+| long-session stability | 30 s session with 20 s idle over an open WebSocket: state stayed «live-обновления»; hours-long stability NOT_RUN |
+
+Compared with `6cbb17ce84db` (37 raw dead clicks → 11 real candidates, 71 refusals, 20 HTTP ≥ 500): this run recorded 0 / 0 / 1 (the deliberate provider-down control).
+
+### Owner-session paths that still need explicit real re-test
+
+1. **Video Studio real path:** import → thumbnail/waveform → Play → two timeline edits → export → decode/probe → reopen project. Specifically re-test the historical 409 family without reopening closed CFR harness findings unless a new repro exists.
+2. **Web Designer AI edit:** reproduce/close provider `502`, prove successful edit persists, prove provider failure cannot become silent success.
+3. **Configured provider / local model:** real provider/model/runtime, latency/retry/fallback reason; private local-only work must not silently fall back to cloud.
+4. **Owner Windows desktop app launch:** actual visible window in owner session, not PID/port-only evidence.
+5. **Long-session stability:** 4–5 sequential Dashboard tasks in one session; watch memory growth, duplicate subscribers, zombie runs, stuck approvals, queue starvation and stale context.
+6. **CC-VIDEO-READVERIFICATION-WINFILE:** Windows/NT open-file semantics require real triage if reproduced.
+7. **H-CLUSTER:** get actual Windows evidence if owner host is available.
+
+---
+
+## Performance evidence retained from the Fable pass
+
+Same-scenario measured results reported during the V6 pass:
+
+| Metric | Before | After |
 |---|---|---|
-| Apps "409 / won't open" after server restart (in-memory `_processes` lost, 14 restarts in log) | FIXED (`4a397c2f`) | `test_apps_control.py` restart tests |
-| Video "no reason for unavailable preview" (409 reasons flattened) | FIXED (`8cd55a2d`) | video studio tests |
-| OpenRouter model-name search while typing in the add-model wizard | FIXED (`d9d0caf1`) | `-k "openrouter or models"` |
-| Missions stuck "blocked" forever | FIXED (`1a328ed9`) | `test_feat_missions.py` blocked-mission tests |
-| Web designer / video "no model connects" | FIXED (`a857ef34`, `e7c38d6e`) | see commit messages |
-| Dashboard "loads very slowly everywhere" | ROOT-CAUSED + FIXED in this pass (see §Performance): (1) 28 eager page modules on the critical path; (2) `/api/apps` froze the event loop ~200 ms per probe, stalling every concurrent dashboard request | measured before/after |
-| H-CLUSTER (Windows child encoding, P1) | FIXED_IN_6cc9523e; Windows re-run **EVIDENCE_GAP** | `test_apps_control_child_encoding.py` (Linux) |
-| "История видео и чат — redesign", "never stop, fall back to cloud when local model is slow" | **NOT DONE — awaiting owner decisions** (design direction; privacy rule for cloud fallback: private-marked work never leaves the machine) | — |
-| Owner's Python 3.14.3 (8/8 OpenRouter failures on 3.14 in the log) | CI matrix runs 3.14 as `continue-on-error`; owner-side fix = run on 3.11/3.12 | session.env correlation |
+| JS modules on critical path to first render | 42 / 788 KiB | **14 / 290 KiB** |
+| `ui_ready` samples | 401, 411, 409 ms | **287, 244, 281 ms** in the primary after set; later sets similar |
+| `first_page_rendered` p50 | ~600 ms | ~460 ms; noisy tail retained |
+| launcher probe event-loop stall, 9 manifests | **~202 ms** | **~18 ms cold / ~5 ms warm** |
+| `apps.collect()` cold | ~245 ms | ~113 ms |
+| Home burst requests during old frozen loop | ~290–320 ms each | ~89–147 ms each in measured after run |
+| idle live server process-tree RSS | — | ~127.2 MB HWM in recorded sandbox sample |
 
-## EVIDENCE_GAPS
+No GPU/local-model performance claim is made from these numbers.
 
-- Windows behaviour of: `child_priority_kwargs()` (BELOW_NORMAL_PRIORITY_CLASS), apps child encoding fix, CC-VIDEO-READVERIFICATION-WINFILE (P2, needs NT open-file semantics).
-- Local model residency/reloads (§D): **NOT_RUN** — no Ollama/LM Studio/llama.cpp runtime in the sandbox; the code base has no model-load path of its own (models are HTTP providers), so single-flight model load / reload counters were **not implemented** because nothing here could measure them. `tools/v6_baseline.py` reports `model_runtime: NOT_RUN`, `gpu: NOT_RUN`.
-- Interactive p95 during a long video export (§G): NOT_MEASURED (Playwright's FFmpeg lacks libx264/aac; system ffmpeg absent).
-- FIRST_USEFUL_RESPONSE (chat TTFR) and VERIFIED_ACTION end-to-end on the owner's host: NOT_RUN here (no model). The measurement hooks now exist: `/api/system.startup`, `window.__bxTiming()`, operator `phase_timing`.
-- Intelligence preservation artefact `docs/benchmark/intelligence-preservation-current.json`: INSUFFICIENT_EVIDENCE — never existed on any branch; nothing was stamped.
+### Still NOT MEASURED / external
 
-## Performance — before/after (same tree, same harness, every sample listed, none discarded)
+- real local-model residency/reload rate;
+- real GPU/unified-memory behavior on owner target hardware;
+- owner-host `FIRST_USEFUL_RESPONSE` with the configured model;
+- owner-host `VERIFIED_ACTION` end-to-end;
+- interactive p95 while a sustained real Video Studio export runs;
+- valid same-model intelligence-retention artifact.
 
-Harness: live uvicorn server + real Chromium login (`scratchpad/measure_live.py`, loopback). "Before" = `d9d0caf1`, "after" = `ce31846e`+.
+Missing data stays `NOT_RUN` / `INSUFFICIENT_EVIDENCE`.
 
-| Metric | Before (3 samples) | After (3 samples) |
-|---|---|---|
-| JS modules on the critical path to first render | 42 / 788 KiB | **14 / 290 KiB** |
-| `ui_ready` (nav start → shell shown, incl. scripted login) | 401, 411, 409 ms | **287, 244, 281 ms** (later runs 326/240/285, 270/254/261) |
-| `first_page_rendered` | 900, 603, 554 ms | 733, 437, 479 ms (later runs 759/390/460, 550/460/553) |
-| Event-loop stall during launcher probe (`apps.collect`, 9 manifests) | **202 ms** | **18 ms** cold / 5 ms warm |
-| `apps.collect()` cold | 245 ms | 113 ms (remaining = 9 refused loopback connects, awaited) |
-| Home-page burst of 10 API calls (waterfall) | each ~290–320 ms (all waiting on the frozen loop) | each 89–147 ms |
-| Bytes over the whole session | 908 KiB | 914 KiB (deferred, not removed — by design) |
-| Idle API traffic on Home, visible, 30 s | — | 4 requests (2× testing/status, 1 testing/log, 1 system) — polling is not a problem (§E: no change) |
-| `Services.start` (fresh DB, 3 runs) | — | 139–204 ms total; `db.create_all` 126–192 ms; all 30 feature setups < 12 ms combined |
+---
 
-`first_page_rendered` is noisy (one ~740 ms outlier in every 3-sample set, both before and after); p50 moved from ~600 → ~460 ms. No claim beyond that.
+## Safety invariants
 
-## Resource usage (sandbox, `tools/v6_baseline.py`, exact SHA `c3f0a6b5`, 10 s idle, live server in-process)
+V6 performance work and the post-Fable harness corrections must preserve:
 
-process-tree RSS median 127.2 MB, p95 127.2 MB, HWM 127.2 MB; CPU median 0.0 %, p95 1.0 % (one-core scale); GPU: NOT_RUN; model runtime: NOT_RUN. No values invented, no RSS-as-VRAM inference.
+- owner approvals and anti-replay identity;
+- fresh effect-boundary verification;
+- post-state verification;
+- sandbox/root containment;
+- fencing and lease ownership;
+- terminal status truth;
+- recovery/journal invariants;
+- budgets/cost enforcement;
+- privacy routing;
+- secret scanning;
+- canary/rollback contracts inherited from V4/V5.
 
-## Tests and CI
+No threshold, skip or xfail may be weakened merely to obtain green CI.
 
-| Suite | Head | Result |
-|---|---|---|
-| command-center full (`pytest tests`, Linux sandbox, no system ffmpeg) | `ce31846e` (detached worktree) | **2084 passed, 9 failed (all 9 = sandbox environment, see below), 142 skipped**, 14:56 |
-| command-center full, same sandbox, before this pass (freeze worktrees) | `196a55ea`-line | 2070 passed, same 9 failed, 142 skipped — the 9 are pre-existing and environmental |
-| browser/UI suites (18 files incl. `test_v6_lazy_pages.py`) | `76ee3209`+ | 105 passed, same 9 env failures, 1 skipped |
-| apps/probe/single-flight (`test_v6_apps_probe_cost.py`, `test_apps_control.py`, golden missions, live-owner smoke) | `12c97187` | 46 passed, 1 skipped; 34 passed |
-| startup trace + api + lifecycle + lane4 | `298202dd` | 24 passed |
-| bossman-core operator/computer (`-k "operator or computer"`) | `b4518594` | 208 passed, 1 skipped |
-| root `tests/test_operator_step_profile.py` | `b4518594` | 8 passed |
-| media child priority + video render/receipt | `3de81f02` | 5 passed, 44 skipped (ffmpeg absent) |
-| root suite (`pytest tests`) | `ce31846e` | 1137 passed, 1 failed = stale skips registry → fixed in `c837acf8` (`tools/skips_registry.py --check` PASS, `test_skips_registry.py` 2 passed) |
+---
 
-CI on GitHub (branch `v6/velocity-phase0-baseline-20260907`): `47a49ffa` all workflows green incl. Command Center CI (3.11/3.12/3.14, Windows paths); `d9d0caf1` green except Command Center CI still running at report time; `c3f0a6b5` root-ci **red** (stale skips registry, fixed by `c837acf8`), others green/running; `ae3dc3fa` (this HEAD) triggered, result pending — read it before calling anything final. Python 3.14 on PR #56 `ca9a4a7a` (run 34137665700): pytest fully green → 3.14 is now a hard gate.
+## Current known repository debt / external gaps
 
-Browser tests that fail **only in this sandbox** (all pass in Command Center CI on the same code, e.g. run 34138046899 on `47a49ffa`):
-- 6 × `test_editors_user_acceptance` / `test_video_studio_playback_stall`: `ffmpeg` absent (`FileNotFoundError`); with Playwright's FFmpeg on PATH they fail on `libx264`/`aac` (exit 234) — encoder unavailable here, not a code defect.
-- 3 × web-designer picker tests: real pointer input does not reach the `sandbox="allow-scripts"` (opaque-origin) iframe in this container's headless Chromium 141; a synthetic `click` inside the frame produces the expected `select` message, so the bridge itself works. Environment, not code.
+### P0
 
-## Safety invariants (checked, not weakened)
+- **0 known repository-fixable P0 at this handoff**, subject to final exact-SHA CI.
 
-- No test skipped/xfailed/weakened; no threshold changed; the skips registry was regenerated to list new environment gates, not to hide anything.
-- Lazy pages: `onEvent` for an unloaded page returns `false`; a failed `import()` clears the pending promise so "Повторить" retries honestly; manifest ≡ module is enforced by a test in real Chromium.
-- Single-flight is applied only to a side-effect-free, always-fresh probe; errors propagate to every waiter; a cancelled waiter cannot cancel the shared work; a task from a dead event loop is never awaited.
-- Startup trace is immutable after finish; a missing measurement is `null`, never `0`.
-- Computer Use: phase timing is recorded around the existing `_bounded` wrapper; no observation reuse, freshness boundary, approval, or timeout semantics changed (208 operator/computer tests pass).
-- FFmpeg priority: identical argv, identical outputs; only scheduler class; failure to renice is ignored, never fatal.
-- No force push, no merge of default/main, no branch deleted.
+### P1
 
-## OPEN_P0 / OPEN_P1 / OPEN_P2
+- **0 known repository-fixable P1 proven from current GitHub evidence**, subject to final exact-SHA CI and real owner-session re-test.
+- Owner Windows/local-model/provider failures discovered only on the real machine remain external-validation candidates until reproduced on current HEAD.
 
-- **OPEN_P0:** 0 known repository-fixable.
-- **OPEN_P1:** 0 known repository-fixable. Owner-decision items (chat/history redesign, cloud-fallback privacy rule) are not repository-fixable without the owner's answer.
-- **OPEN_P2:** CC-VIDEO-READVERIFICATION-WINFILE (Windows-only triage), GOLDEN-MISSIONS-SH-DIALECT and FINALIZE-UNCLASSIFIED-STALE-CONTRACT (test debt, unchanged), HOST-SENSITIVE-PERF-GATES (P3, documented).
+### P2 / test & platform debt
 
-## External validation still required
+- `GOLDEN-MISSIONS-SH-DIALECT`: prefer portable Python fixture commands over skipping meaningful Windows missions.
+- `FINALIZE-UNCLASSIFIED-STALE-CONTRACT`: reconcile stale test expectation with current hardened ASK policy; do not loosen production policy to satisfy old tests.
+- `CC-VIDEO-READVERIFICATION-WINFILE`: Windows-only triage if reproducible.
+- `HOST-SENSITIVE-PERF-GATES`: document/calibrate by valid host baseline rather than silently weakening targets.
 
-1. Owner Windows PC: start the app on this HEAD, open `/api/system` → `startup.phases`; open the dashboard and read `window.__bxTiming()` in DevTools; report both.
-2. Local model runtime attached: run a chat and a 5-step safe Computer Use mission; `tools/operator_step_profile.py` and the operator's `phase_timing` give observe/plan/act split.
-3. A real video export while clicking around: confirm the UI stays responsive (§G change).
-4. Python 3.11 or 3.12 on the owner's machine (3.14 remains `continue-on-error` in CI).
+---
 
-## Rollback
+## Required next acceptance
 
-Every change is an ordinary commit on the branch; `git revert <sha>` of any row in the commits table restores the previous behaviour independently. The lazy registry (`76ee3209`) can be reverted alone — `app.js` only needs `FEATURE_PAGES` (and `preloadFeaturePages`, which the revert removes together with its call). No schema/DB migration was introduced in this pass.
+After final exact-SHA repository CI is clean, perform a second real Dashboard run on the owner environment if available:
+
+1. medium research/file task;
+2. repo/code task;
+3. browser/computer-use task;
+4. multi-agent synthesis task;
+5. real Video Studio media task.
+
+Keep the same session alive across tasks. Record prompt, model/provider, agents, tools, approvals, retries, errors, latency, resources, postconditions and artifacts. Compare against session `6cbb17ce84db` using corrected telemetry.
+
+Windows path CI is not owner Windows acceptance. A fake/local test adapter is not local-model acceptance. A green unit test is not a real Video Studio owner flow.
+
+---
+
+## Final state contract
+
+Final report must distinguish:
+
+- `TESTED_CODE_SHA`
+- `TREE_SHA`
+- report/docs commit
+- CI exact-SHA result
+- `WINDOWS_OWNER_ACCEPTANCE`
+- `LOCAL_MODEL_ACCEPTANCE`
+- `VIDEO_STUDIO_REAL_FLOW`
+- `WEB_DESIGNER_REAL_FLOW`
+- `LONG_SESSION_STABILITY`
+- `INTELLIGENCE_RETENTION`
+- repository P0/P1/P2
+- external evidence gaps
+
+Allowed final verdicts:
+
+- `PASS`
+- `BLOCKED`
+- `REPO_COMPLETE_EXTERNAL_VALIDATION_PENDING`
+
+No fake PASS and no transfer of evidence from a different SHA.

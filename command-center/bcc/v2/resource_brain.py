@@ -19,6 +19,9 @@ class ResourceSnapshot:
     used_system_mb: int
     reserve_floor_mb: int = 16_000
     reservations: list[Reservation] = field(default_factory=list)
+    # V6: False = ни одного замера памяти нет; числа выше тогда нули, а не
+    # выдуманный объём. Планирование по такому снимку обязано отказывать.
+    measured: bool = True
 
     @property
     def reserved_mb(self) -> int:

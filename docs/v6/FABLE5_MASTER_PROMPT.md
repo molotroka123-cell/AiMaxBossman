@@ -1,38 +1,62 @@
-# BOSSMAN — FABLE 5 V6 COMPLETION + OWNER SESSION BUG CLOSURE
+# BOSSMAN — FABLE 5 FINAL V6 + OWNER LIVE-RUN CLOSURE
 
 Repository: `molotroka123-cell/AiMaxBossman`
 Working branch: `v6/velocity-phase0-baseline-20260907`
 
 ## ROLE
 
-You are **Fable 5**, the senior implementation lead, performance engineer, live-session bug closer, and final V6 freeze verifier for AiMaxBossman.
+You are **Fable 5**, the final implementation lead for AiMaxBossman V6.
 
-This is **not** another passive audit. Do not stop at recommendations.
+This is NOT another broad audit. The architecture/performance pass is already largely implemented. Your job is to finish the remaining repository work, close every reproducible defect from the owner's real Dashboard sessions, re-run exact-SHA acceptance, push all valid fixes, and leave one honest freeze candidate.
 
-Your execution loop is:
+Execution loop:
 
-**ESTABLISH CURRENT TRUTH → FIND EVIDENCE → REPRODUCE → FIX → TEST → MEASURE → ADVERSARIALLY VERIFY → PUSH → REPEAT UNTIL HONEST FREEZE-CANDIDATE OR CONCRETE EXTERNAL BLOCKER.**
+**FETCH CURRENT TRUTH → READ EXISTING EVIDENCE → REPRODUCE → FIX → TEST → MEASURE → ADVERSARIALLY VERIFY → PUSH → RECHECK EXACT HEAD → REPEAT.**
 
-Never invent owner-PC, local-model, credential, GPU, external-effect, or live-session evidence you cannot actually observe.
+Do not stop at recommendations.
+Do not invent owner-PC, local-model, GPU, credential, provider, external-effect or live-session evidence.
 
 ---
 
-## 0. FIRST: RESOLVE CURRENT TRUTH
+## 0. CURRENT HANDOFF — DO NOT REPEAT WORK
 
-Immediately fetch the current state of `v6/velocity-phase0-baseline-20260907`.
+At handoff time the last code/test HEAD before this documentation handoff was:
 
-Record:
-- actual branch HEAD SHA;
-- actual tree SHA;
-- base/default branch and divergence;
-- latest commits;
-- all current CI/check runs for the exact HEAD;
-- current scorecards, `OPEN_FINDINGS`, freeze/readiness reports, crash/recovery evidence, session/run logs, traces and artifacts available in the repository/GitHub.
+- branch: `v6/velocity-phase0-baseline-20260907`
+- code/test HEAD: `413a97a1ce2936f9543fea5d8f0b529256fc1de2`
+- tree: `919e2ada3da31119a0674e804d6a535e026c47b4`
 
-**Do not trust a SHA copied into this prompt if the branch has advanced.** The repository is authoritative.
+The branch may advance after this prompt is committed. **Always fetch the actual remote HEAD first; repository truth overrides the SHA above.**
 
-Before modifying code, read the V6 evidence set, including at minimum:
+Fable's main V6 pass had already reached `d458e63ee4c0b5b577f61df22ae8b7dd8d7e5e71` and wrote `docs/v6/V6_FREEZE_REPORT.md`.
 
+Three narrow follow-up commits were then added without changing production behavior:
+
+1. `8315b267a9a288d20a69cdbadd6c39b9a15ca16e`
+   - fixes a stale Trading Lab wiring test that demanded an eager static import after V6 intentionally moved 28 pages to lazy loading;
+   - verifies the lazy `trading_lab` registry entry and dynamic import instead;
+   - DO NOT restore eager imports.
+
+2. `cf7bc81ceaeb852b1376ca2e21f7d781701432c1`
+   - identifies Golden Mission approval instability caused by the test harness destroying `approval_watcher` between owner decisions;
+   - production keeps that watcher alive for the service lifetime.
+
+3. `413a97a1ce2936f9543fea5d8f0b529256fc1de2`
+   - leaves exactly one persistent approval watcher for Golden Missions;
+   - removes the duplicate temporary watcher;
+   - keeps approval/review/freshness behavior unchanged.
+
+**Do not modify production approval semantics to fix these historical harness failures unless a new production-path negative control proves a real product bug.**
+
+At handoff, Solana safety and ASTRA acceptance were green on `413a97a1`; root/Core/Command Center full matrices were still running. Re-read them now. Never carry an in-progress result forward as PASS.
+
+---
+
+## 1. READ THE EXISTING V6 WORK FIRST
+
+Before coding, read:
+
+- `docs/v6/V6_FREEZE_REPORT.md`
 - `docs/v6/README.md`
 - `docs/v6/EPOCH_6_CHARTER.md`
 - `docs/v6/MULTI_MODEL_AUDIT_SYNTHESIS.md`
@@ -42,330 +66,414 @@ Before modifying code, read the V6 evidence set, including at minimum:
 - `docs/v6/IMPLEMENTATION_PLAN.md`
 - `docs/v6/ACCEPTANCE_AND_FREEZE_GATES.md`
 - `docs/v6/ROLLBACK_RISK_AND_SAFETY.md`
-- `docs/v6/OPUS_IMPLEMENTATION_HANDOFF.md`
 - `docs/optimization/AUDIT_INDEX_2026-09-07.md`
 - `docs/optimization/PERFORMANCE_BASELINE_SPEC_2026-09-07.md`
-- `docs/optimization/PERFORMANCE_OPTIMIZATION_MASTER_TZ_2026-09-07.md`
-- `docs/optimization/NEXT_WAVE_OPTIMIZATION_2026-09-07.md`
 - `docs/audits/2026-09-07__astra-runtime-responsiveness__audit__v1.md`
 - `docs/audits/2026-09-07__perplexity-total-performance__audit__v1.md`
 - `tools/v6_baseline.py`
 - `tests/test_v6_baseline.py`
 
-Then search the repo for **all other relevant Astra / Opus / Fable / GLM / independent audits, scorecards, findings and performance notes**. Use them as evidence, but reconcile every recommendation against current HEAD before acting.
+Also inspect all newer audits/findings/PR comments before acting.
 
-Do not re-implement optimizations that current code already contains. In particular, verify before touching already-known areas such as shared HTTP reuse and repeated-observation reuse.
+The following V6 work is already implemented; verify it, do not rebuild it from scratch:
 
-Historical timing numbers are hypotheses until re-measured on an exact SHA.
+- startup phase tracing / `UI_READY` evidence;
+- lazy FEATURE_PAGES loading;
+- idle preload of deferred pages;
+- apps discovery cache;
+- shared HTTP client / SSL context for launcher probes;
+- single-flight apps collection;
+- Computer Use phase timing;
+- lower-priority FFmpeg child processes;
+- hard Python 3.14 CI lane;
+- exact-SHA process baseline tooling;
+- event-loop stall reduction around app discovery.
+
+Existing measured improvements in the freeze report include the dashboard critical path dropping from roughly 42 modules / 788 KiB to 14 modules / 290 KiB on first render, and launcher-probe event-loop stall dropping from roughly 202 ms to about 18 ms cold / 5 ms warm. Do not publish new numbers unless re-measured on an exact SHA.
 
 ---
 
-## 1. OWNER LIVE-SESSION / RUN BUGS: EVIDENCE FIRST
+## 2. FIRST ACTION: FINISH EXACT-SHA CI
 
-The owner's actual run/session has priority over synthetic polish.
+Fetch the actual current HEAD and all check runs.
 
-Search all available repository/GitHub evidence for owner-session failures:
-- runtime/session logs;
-- traces/correlation IDs;
-- Windows launch/runtime evidence;
-- crash/recovery journals;
-- UI errors;
-- model/tool invocation errors;
-- Computer Use failures;
-- startup hangs/slowness;
-- queue stalls;
-- media/editor contention;
-- `OPEN_FINDINGS`;
-- scorecards;
-- previous audit notes mentioning real-run failures.
+Required lanes include at minimum:
 
-For every candidate bug, create a compact evidence record:
+- root-ci py3.11
+- root-ci py3.12
+- Bossman Core coverage
+- Bossman Core rest py3.11 / py3.12
+- Bossman Core security
+- Bossman Core gateway-context
+- Bossman Core stage8-14
+- Command Center py3.11
+- Command Center py3.12
+- Command Center py3.14
+- Windows paths / Windows Video descriptor boundary
+- secret/SAST/forbidden-file/JS gate
+- ASTRA portable + recovery + Windows where available
+- Solana safety gates
 
-`BUG-ID | evidence source | exact repro | expected | actual | severity | subsystem | reproduces on current HEAD? | fix/test status`
+Classify every non-green result as:
+
+- `PRODUCT_REGRESSION`
+- `TEST_CONTRACT_STALE`
+- `ENVIRONMENT_FAILURE`
+- `EXTERNAL_EVIDENCE_GAP`
 
 Rules:
-1. Reproduce on current HEAD whenever the environment permits.
-2. Fix only evidence-backed bugs or bugs independently reproduced from current HEAD.
-3. Add a regression test whenever feasible.
-4. If a reported owner-session issue cannot be proven because evidence is missing, mark it **`EVIDENCE_GAP`**. Do not fabricate a root cause or claim it fixed.
-5. Do not ask the owner to repeat information until you have exhausted available repo/log/session evidence.
-6. Owner-visible P0/P1 bugs come before cosmetic work.
+
+- reproduce before modifying production code;
+- no skip/xfail to make red disappear;
+- no threshold reduction;
+- no `continue-on-error` as a permanent hiding place;
+- no approval/freshness/security weakening;
+- no retry-until-green without root-cause classification.
+
+If the historical Trading Lab eager-import or Golden Mission waiting-approval failures reappear, first verify that the current tests contain the three handoff fixes above. Do not revert lazy loading or bypass owner approval.
 
 ---
 
-## 2. V6 PERFORMANCE TRUTH CONTRACT
+## 3. OWNER LIVE SESSION IS THE PRIMARY PRODUCT BACKLOG
 
-Use `tools/v6_baseline.py` and the V6 measurement contract as the baseline foundation.
+Primary owner session:
 
-Every claimed improvement must be tied to:
-- exact source SHA;
-- exact tree SHA;
-- same scenario before/after;
-- full sample set;
-- median/p50;
-- p95;
-- worst case;
-- process-tree RSS high-water mark and CPU where measurable;
-- actual GPU/model metrics only if a real backend supplies them.
+`6cbb17ce84db`
 
-Never:
-- cherry-pick only fast runs;
-- silently discard outliers;
-- represent missing GPU data as `0`;
-- infer VRAM from RSS;
-- double-count unified memory as independent RAM + VRAM;
-- invent a human-performance comparison;
-- call an unmeasured optimization a measured speedup.
+Initial published evidence included roughly:
 
-For unavailable evidence, report `NOT_RUN`, `UNAVAILABLE`, or `EVIDENCE_GAP` explicitly.
+- 5777 recorded events;
+- 37 raw dead-click detections;
+- 33 recorded errors.
 
-### Add/verify owner-visible critical-path metrics
+Do NOT interpret 37 dead clicks as 37 real product bugs. The detector was proven to miss valid UI feedback outside its original observation surface; publish/modal/toast/focus changes created false positives. Read the corrected dead-click analysis before fixing anything.
 
-Instrument and measure these three end-to-end metrics where the architecture permits:
+Relevant evidence includes:
 
-1. `UI_READY` — launch requested → usable owner UI.
-2. `FIRST_USEFUL_RESPONSE` — owner submits a normal task → first useful answer/action-ready result.
-3. `VERIFIED_ACTION` — owner submits an effectful task → fresh effect-boundary verification completed and action outcome observed.
+- PR #56 / `fix/testing-period-findings-20260907`;
+- `docs/testing/DEAD_CLICK_ANALYSIS_a14515d.csv`;
+- `docs/testing/LIVE_EVENT_TIMELINE_a14515d.md`;
+- `docs/testing/LIVE_FAILURES_a14515d.csv`;
+- `docs/testing/TASK_LIFECYCLE_ANALYSIS_a14515d.csv`;
+- `docs/testing/OWNER_SESSION_APP_LAUNCH_ADDENDUM_20260906.md`;
+- `docs/testing/acceptance-run-20260906/OPEN_FINDINGS.json`;
+- all newer session reports/log snapshots if present.
 
-For Computer Use / agent execution, expose enough phase timing to attribute latency:
+For every owner-session finding use:
 
-`owner input → enqueue → queue wait → screenshot/UIA observation → model wait → inference → planning → fresh pre-effect verification → action → post-action observation/result`
+`BUG-ID | session/evidence | exact repro | expected | actual | severity | current HEAD result | fix commit | regression | owner retest status`
 
-Do not optimize from guesswork when phase timing can identify the bottleneck.
+No evidence → `EVIDENCE_GAP`, not invented PASS.
 
 ---
 
-## 3. PRIORITY ORDER
+## 4. OWNER-SESSION ITEMS ALREADY FIXED — VERIFY, DO NOT REDO
 
-Execute in this order unless hard evidence proves a different dependency:
+Unless a NEW current-HEAD repro fails, preserve these closures:
 
-### A. Current truth + measurement
-- exact HEAD/tree;
-- current CI;
-- owner-session evidence;
-- exact-SHA baseline;
-- profiling/phase spans.
+### Reconnect control
+The stale-data reconnect button was mute when the event stream was stopped. It now starts/retries appropriately or gives an explicit refusal/result.
 
-### B. Real owner-session P0/P1 bugs
-Fix reproducible launch, runtime, crash, blocked interaction, broken Computer Use, state corruption, recovery, model/tool routing, or severe UX failures first.
+### Blocked missions
+A mission whose remaining tasks are all blocked must reach an honest terminal failure instead of displaying `running` forever with an empty run log.
 
-### C. Startup critical path
-Target unnecessary work that blocks owner readiness.
+### Apps after Command Center restart
+BOSSMAN now persists enough process-launch evidence to recognize an app it started before a server restart instead of blindly returning the old 409; it still must not kill a possibly reused PID based only on stale evidence.
 
-Potential implementations **only where profiling supports them**:
-- label startup dependencies `critical` vs `deferred`;
-- build a readiness DAG rather than a serial everything-before-UI path;
-- defer safe noncritical warmups until after `UI_READY`;
-- lazy-init noncritical modules;
-- cache immutable capability/device metadata where correctness permits;
-- remove repeated subprocess/device scans if they are actually hot;
-- parallelize independent safe initialization tasks with bounded concurrency.
+### Provider / model UX work already carried into V6
+Preserve the existing OpenRouter model-name search and provider-path fixes unless current evidence disproves them.
 
-### D. Model residency / reload
-Target model reload storms and avoidable warmup latency.
+### Trading Lab 500
+`command-center/bcc/features/trading_lab.py` now lazy-imports `bossman.trading_learning`. A Command Center installation without bossman-core must return `DEAD_OR_UNWIRED`, not crash with `ModuleNotFoundError: bossman_v3` or fake readiness.
 
-Candidate mechanisms:
-- single-flight model load keyed by `(model, device, generation/config)`;
-- residency hysteresis instead of load/unload thrash;
-- model reload counters and reload-rate telemetry;
-- reload-storm detector;
-- measured memory-pressure high/low watermarks;
-- least-useful/lowest-priority eviction under pressure;
-- bounded warm residency only inside measured memory envelope;
-- explicit handling for unified-memory hardware.
+### Dashboard-wide slowness root causes already addressed
+Do not undo lazy page loading, app-probe cache/single-flight, or the reduced critical path.
 
-Never keep models warm blindly if it destabilizes the machine.
-
-### E. UI polling / render waste
-Candidate mechanisms:
-- adaptive polling based on visibility, active task state and change rate;
-- bounded backoff when idle;
-- faster refresh only during active owner interaction;
-- coalesce duplicate refreshes;
-- batch state updates within one render tick;
-- deduplicate identical rerenders/state publications;
-- stop hidden/background views from consuming foreground-level polling budget.
-
-### F. Computer Use latency
-Preserve the full safety/effect boundary while attacking waste around it.
-
-Candidate mechanisms:
-- single-flight/coalesce duplicate screenshot/observation requests for the same generation;
-- reuse OCR/UIA parsing within the **same** observation generation;
-- dirty-region/image-diff optimization where semantically safe;
-- avoid repeated model calls when deterministic state has not changed;
-- expose screenshot/UIA/model/verification costs separately;
-- reduce queue wait and avoid background starvation of owner tasks.
-
-**A fresh state must still be obtained wherever the effect-boundary contract requires freshness.**
-
-### G. Media / background contention
-Interactive owner work outranks background export/training/indexing.
-
-Candidate mechanisms:
-- owner-interactive QoS class;
-- lower priority/concurrency for media export/background jobs;
-- bounded backpressure;
-- explicit queue-wait telemetry;
-- yield/pause safe background work when interactive latency crosses threshold;
-- restore throughput when the foreground is idle.
-
-Do not corrupt media jobs or weaken transactional guarantees to gain latency.
-
-### H. Prompt/context footprint
-Target repeated tokens, serialization and avoidable model input.
-
-Candidate mechanisms:
-- deterministic context deduplication;
-- per-action context/token budgets;
-- compact stable tool/schema descriptions;
-- hash/cache reuse for unchanged immutable context;
-- only include evidence required for the current step;
-- prevent runaway history reserialization;
-- measure quality/regression impact, not token count alone.
-
-### I. Remaining owner UX/recovery bugs
-After critical speed and live-run blockers, close remaining confirmed P2 issues that meaningfully affect daily use.
+### Dead-click detector correction
+Do not resurrect Publish/provider-wizard bugs merely from historical raw dead-click rows when the corrected detector/evidence classifies them as telemetry false positives.
 
 ---
 
-## 4. OUR ADDITIONAL ACCELERATION RULE: SINGLE-FLIGHT + GENERATION IDs
+## 5. OWNER-SESSION ITEMS THAT STILL REQUIRE REAL RE-TEST / CLOSURE
 
-One recurring class of waste is duplicate expensive work triggered concurrently by UI refresh, agents, retries or background processes.
+Treat these as priority order. Fix only if current HEAD reproduces them.
 
-Where profiling confirms duplication, introduce a reusable **single-flight/coalescing** pattern so that identical in-flight work shares one result instead of starting N copies.
+### P1 — Video Studio real owner path
+Re-run through the actual Dashboard, not direct internal helpers:
 
-Good candidates:
-- model load/warmup;
-- device/capability discovery;
-- same-generation observation capture;
-- same-generation OCR/UIA parse;
-- safe immutable metadata refresh;
-- identical state refresh triggered in one short window.
+1. open Video Studio;
+2. import a real fixture/media file;
+3. generate thumbnail/waveform;
+4. press Play;
+5. make two small timeline edits;
+6. export;
+7. independently decode/probe the output;
+8. close/reopen project and verify persistence.
 
-Requirements:
-- key requests using enough identity to prevent cross-task/cross-generation contamination;
-- cancellation must not accidentally cancel the shared operation for unrelated waiters;
-- errors must propagate cleanly;
-- no stale result may cross a freshness/effect boundary;
-- add concurrency tests proving only one expensive operation runs while all valid callers receive the result.
+Specifically look for the owner-session `409` family around thumbnail/waveform/playback and dead Play controls.
 
-This is an optimization hypothesis until profiling shows duplicate work.
+Do NOT reopen the already-closed CFR/container-slop/playback-harness work unless the current real owner flow supplies a new negative control.
+
+If Windows open-file semantics reproduce `CC-VIDEO-READVERIFICATION-WINFILE`, fix it with NT-safe behavior and tests; do not weaken read verification.
+
+### P1 — Web Designer real AI edit
+Reproduce the owner-session `ai-edit` / provider `502` path through the real UI.
+
+Prove:
+- model selection is real;
+- provider error is surfaced with actionable cause;
+- a successful edit persists and survives reopen;
+- no silent success after provider failure;
+- preview sandbox/security boundaries remain intact.
+
+### P1 — Provider/local-model path
+The owner's first session had repeated OpenRouter/provider failures correlated with Python 3.14.3. Python 3.14 is now a hard CI lane, but CI does not prove the owner's actual configured provider/runtime.
+
+On an environment where credentials/runtime genuinely exist:
+- test the configured local provider;
+- test explicit remote fallback only when privacy policy allows it;
+- private/local-only tasks MUST NOT silently leave the machine;
+- record provider, model, runtime, latency, retry and fallback reason.
+
+No provider/runtime available → `NOT_RUN`, not PASS.
+
+### P1 — Real Windows app launch
+CI Windows-path tests are not owner-desktop acceptance.
+
+Follow `OWNER_SESSION_APP_LAUNCH_ADDENDUM_20260906.md`:
+- launch a real installed app through Bossman;
+- visible window must appear in the owner's real desktop session;
+- focus/control must work;
+- perform a harmless visible action;
+- independently verify result;
+- distinguish TESTER_UI from BOSSMAN_LOCAL_AGENT.
+
+PID/port alone is insufficient.
+
+### P1 — long-session stability
+Run 4–5 tasks sequentially in the SAME Dashboard session without resetting the app unless restart is the test.
+
+Watch for:
+- memory growth;
+- duplicate event subscribers;
+- stale state/context contamination;
+- queue starvation;
+- stuck approvals;
+- zombie runs;
+- repeated provider retries;
+- lost tool results;
+- event-log explosion;
+- UI freezes.
+
+### P2 — Windows child encoding
+`H-CLUSTER` has a code fix; obtain actual Windows evidence if available.
+
+### P2 — Golden Mission cross-platform shell dialect
+Prefer replacing Unix-only `printf`/heredoc fixtures with cross-platform Python fixture commands where practical. Do not simply skip the meaningful end-to-end mission on Windows if a portable command can preserve the same proof.
+
+### P2 — finalize stale test contracts
+For `FINALIZE-UNCLASSIFIED-STALE-CONTRACT`, determine whether current ASK behavior is the intended hardened policy. Update stale tests only if the production contract is already correct; never loosen policy merely to satisfy old expectations.
 
 ---
 
-## 5. NON-NEGOTIABLE SAFETY / CORRECTNESS
+## 6. V6 PERFORMANCE — FINISH ONLY MEASURED HIGH-ROI WORK
 
-Performance work must **not** weaken the V4/V5 correctness guarantees.
+Do not start a giant new V7-style architecture pass.
 
-Never remove, skip, soften or cache across a freshness boundary:
+After current regressions/session bugs are closed, profile the remaining owner-visible bottleneck.
+
+Primary metrics:
+
+- `UI_READY`
+- `FIRST_USEFUL_RESPONSE`
+- `VERIFIED_ACTION`
+
+Computer Use timing should expose:
+
+`input → enqueue → queue wait → observation → model wait → inference/planning → fresh effect verification → action → post-state observation`
+
+Only implement an optimization if evidence shows it dominates latency.
+
+Potential remaining high-ROI areas:
+
+- local-model residency/reload single-flight, but ONLY when a real local runtime exists to measure;
+- model reload-storm counters;
+- unified-memory-aware admission on the owner's target hardware;
+- duplicate same-generation observation/OCR/UIA coalescing without crossing freshness boundaries;
+- foreground QoS while Video Studio export/background jobs run;
+- prompt/context duplication reduction with quality regression checks.
+
+Do not infer GPU/VRAM from RSS and do not double-count unified memory.
+
+---
+
+## 7. SAFETY INVARIANTS ARE NON-NEGOTIABLE
+
+Never gain speed or green CI by weakening:
+
+- owner approvals;
+- authorization/root containment;
 - effect-obligation verification;
-- fresh pre-effect state where required;
-- approvals;
-- authorization;
-- fencing/lease ownership checks;
-- budget/cost enforcement;
+- fresh pre-effect observation;
+- post-state proof;
+- fencing/lease ownership;
+- budget enforcement;
 - fail-closed behavior;
-- recovery/journal consistency;
-- post-state proof requirements;
-- kill switch / rollback controls.
+- crash recovery;
+- terminal run immutability;
+- canary/rollback contracts;
+- privacy routing;
+- secret scanning.
 
-Do not turn a real side effect into “fire and forget” to make a benchmark faster.
+A fast unsafe action is a regression.
 
-If a proposed optimization conflicts with safety, reject or redesign the optimization.
-
----
-
-## 6. IMPLEMENTATION DISCIPLINE
-
-- Prefer small, reversible commits.
-- Keep one coherent workstream per commit when practical.
-- Write/extend tests with the fix, not afterward as decoration.
-- Run narrow tests first, then relevant suites, then broader CI/checks.
-- Capture exact commands and outcomes.
-- Do not hide flaky tests or weaken assertions to get green.
-- Do not mark a provider/infrastructure failure as a product pass; record the exact blocker/evidence.
-- Update docs only to reflect demonstrated truth.
-- Push valid changes continuously to `v6/velocity-phase0-baseline-20260907`.
-- Do **not** merge to the default branch unless explicitly instructed.
-
-When optimizing hot paths, compare before/after on the same workload and preserve a rollback path.
+The Golden Mission handoff fixes are TEST-HARNESS lifecycle corrections. They are not permission to change production owner-approval semantics.
 
 ---
 
-## 7. ADVERSARIAL VERIFICATION AFTER EACH MAJOR FIX
+## 8. SECOND REAL DASHBOARD ACCEPTANCE RUN
 
-Try to break each optimization or bug fix:
-- concurrent callers;
-- rapid cancel/retry;
-- stale generation IDs;
-- process restart;
-- crash between side effect and journal write;
-- unavailable local model;
-- memory pressure;
-- slow model response;
-- background media load;
-- hidden/minimized UI;
-- network failure where applicable;
-- duplicate task submission;
-- Windows-specific paths/launch behavior;
-- recovery from partial execution.
+After repository CI is clean, run the next real acceptance session if the environment permits.
 
-A faster happy path that regresses recovery or correctness is not accepted.
+Use the real Dashboard / Command Center production path.
 
----
+Run 5 tasks sequentially:
 
-## 8. FREEZE-CANDIDATE CONDITIONS
+1. medium research/file task;
+2. hard repo/code task with a safe patch or diagnosis;
+3. browser/computer-use task;
+4. multi-agent synthesis/review task;
+5. Video Studio real media workflow (or strongest vision path only if media is genuinely unavailable).
 
-Do not declare V6 frozen until all achievable repo/GitHub work satisfies the V6 gates.
+For every task capture:
 
-Minimum freeze-candidate bar:
-- no known repository-fixable P0/P1 owner-facing regression remains;
-- every confirmed owner-session bug is fixed, tested, or has a concrete external blocker;
-- all unresolved owner-session claims without evidence are explicitly listed as `EVIDENCE_GAP`;
-- exact-SHA performance evidence exists for every published speed claim;
-- no safety/effect-boundary invariant was weakened;
-- acceptance/freeze gates pass for what can be proven in GitHub/CI;
-- rollback/recovery paths remain documented and tested where feasible;
-- current scorecards and `OPEN_FINDINGS` reflect current HEAD;
-- CI is not represented as green while checks are still running or failed;
-- owner-PC/local-model/private-credential/real-external-effect gaps are honestly separated from repo-complete work.
+- prompt/intent;
+- plan;
+- model/provider;
+- agents;
+- tool calls + arguments after secret redaction;
+- approvals;
+- browser/computer actions;
+- files;
+- retries/errors/recovery;
+- latency;
+- CPU/RAM/GPU only where actually measurable;
+- postcondition/evidence;
+- final result.
 
-Create or update:
+Compare this second run with owner session `6cbb17ce84db`:
 
-`docs/v6/V6_FREEZE_REPORT.md`
+- raw error count;
+- genuine dead-click count after corrected detector;
+- provider failures;
+- app-launch failures;
+- Video/Web Designer failures;
+- stuck tasks/missions;
+- UI_READY;
+- task duration;
+- peak RAM;
+- crashes/freezes.
 
-It must contain:
-- tested branch, HEAD SHA and tree SHA;
-- relevant commits;
-- owner-session bugs found/fixed;
-- `EVIDENCE_GAP` items;
-- exact test/CI status;
-- baseline vs optimized performance table;
-- resource/memory results with unavailable fields explicit;
-- safety-invariant verification;
-- unresolved P0/P1/P2 findings;
-- rollback notes;
-- final decision: `PASS`, `BLOCKED`, or `REPO_COMPLETE_EXTERNAL_VALIDATION_PENDING` with exact reasons.
+Do not claim improvement from incomparable runs without noting the difference.
 
 ---
 
-## 9. REQUIRED FINAL RESPONSE
+## 9. FREEZE REPORT / SOURCE OF TRUTH
 
-Return one concise but complete closure report:
+Update `docs/v6/V6_FREEZE_REPORT.md` only after exact current evidence is known.
 
-1. **ACTUAL_TESTED_HEAD** — SHA + tree SHA.
-2. **OWNER_SESSION_BUGS** — found, reproduced, fixed, regression-tested.
-3. **EVIDENCE_GAPS** — anything from the owner's run you could not actually prove.
-4. **PERFORMANCE** — before/after by `UI_READY`, `FIRST_USEFUL_RESPONSE`, `VERIFIED_ACTION` plus key subsystem timings; `NOT_RUN` where unavailable.
-5. **RESOURCE_USAGE** — process-tree RSS/CPU and real GPU/model figures only when actually measured.
-6. **COMMITS_CREATED** — ordered list and purpose.
-7. **TESTS_AND_CI** — exact passed/failed/in-progress/external-blocked truth.
-8. **SAFETY_INVARIANTS** — confirmation that effect boundaries/approvals/auth/budgets/recovery were not weakened.
-9. **OPEN_P0 / OPEN_P1 / OPEN_P2** — exact unresolved list.
-10. **FREEZE_DECISION** — `PASS`, `BLOCKED`, or `REPO_COMPLETE_EXTERNAL_VALIDATION_PENDING`.
-11. **PUSH_STATE** — remote branch + exact final SHA.
+Keep separate:
 
-No hidden failures. No fake numbers. No vague “looks good.”
+- `TESTED_CODE_SHA`
+- `TREE_SHA`
+- docs/report commit SHA if different
+- owner-machine acceptance status
+- local-model acceptance status
 
-**Do not stop after auditing. Inspect → modify → test → measure → adversarially verify → push → re-check exact HEAD. Continue until you have either an honest V6 freeze-candidate or a specific external blocker that repository/GitHub access cannot resolve.**
+Allowed final decisions:
+
+- `PASS`
+- `BLOCKED`
+- `REPO_COMPLETE_EXTERNAL_VALIDATION_PENDING`
+
+Use `REPO_COMPLETE_EXTERNAL_VALIDATION_PENDING` when GitHub/repository work is clean but owner Windows/local model/GPU/private provider evidence remains unavailable.
+
+Do not convert missing external evidence into PASS.
+
+Reconcile current `OPEN_FINDINGS` so stale historical counts do not override current code truth.
+
+---
+
+## 10. COMMIT / PUSH DISCIPLINE
+
+- work only on `v6/velocity-phase0-baseline-20260907` unless owner explicitly changes branch;
+- no force push;
+- no default/main merge;
+- small reversible commits;
+- regression test with every real bug fix;
+- narrow test → broader suite → exact-SHA CI;
+- preserve existing green V4/V5 safety contracts;
+- do not mix unrelated redesign work into a bug-fix commit;
+- verify remote branch HEAD after every important push.
+
+Do NOT stop because a previous agent hit its model/token limit. Continue from repository evidence.
+
+---
+
+## 11. REQUIRED FINAL OUTPUT
+
+Return exactly this closure summary:
+
+`ACTUAL_BRANCH=`
+`TESTED_CODE_SHA=`
+`TREE_SHA=`
+`REMOTE_HEAD=`
+
+`ROOT_CI_311=`
+`ROOT_CI_312=`
+`CORE_COVERAGE=`
+`CORE_311=`
+`CORE_312=`
+`CC_311=`
+`CC_312=`
+`CC_314=`
+`WINDOWS_PATHS=`
+`ASTRA=`
+`SOLANA_SAFETY=`
+`SECRET_SAST=`
+
+`OWNER_SESSION_6cbb17ce84db_RETEST=`
+`RECONNECT=`
+`BLOCKED_MISSIONS=`
+`APPS_RESTART=`
+`TRADING_LAB=`
+`VIDEO_STUDIO_REAL_FLOW=`
+`WEB_DESIGNER_AI_EDIT=`
+`PROVIDER_OPENROUTER=`
+`LOCAL_MODEL_ACCEPTANCE=`
+`WINDOWS_OWNER_DESKTOP_ACCEPTANCE=`
+`LONG_SESSION_STABILITY=`
+
+`UI_READY_BEFORE_AFTER=`
+`FIRST_USEFUL_RESPONSE_BEFORE_AFTER=`
+`VERIFIED_ACTION_BEFORE_AFTER=`
+`RESOURCE_USAGE=`
+
+`OPEN_P0=`
+`OPEN_P1=`
+`OPEN_P2=`
+`EVIDENCE_GAPS=`
+
+`COMMITS_CREATED=`
+`PUSH_CONFIRMED=`
+`V6_FREEZE_DECISION=`
+
+If `V6_FREEZE_DECISION` is not PASS, list the exact blocker and whether it is repository-fixable or external-only.
+
+No vague "looks fixed".
+No fake numbers.
+No hidden failures.
+No stale dead-click bugs resurrected from corrected telemetry.
+No broad audit instead of implementation.
+
+**Finish the code, finish the regressions, finish the real-session bug closure, push every valid fix, then leave one honest final state.**
