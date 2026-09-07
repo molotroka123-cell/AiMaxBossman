@@ -4,11 +4,30 @@
 
 ## CURRENT SOURCE TRUTH
 
-The last code/test HEAD before the final documentation handoff is:
+Latest code/test HEAD (this pass, 2026-09-07 18:01 UTC):
 
-- **CODE_TEST_HEAD:** `413a97a1ce2936f9543fea5d8f0b529256fc1de2`
-- **TREE:** `919e2ada3da31119a0674e804d6a535e026c47b4`
-- **Fable report head before follow-up:** `d458e63ee4c0b5b577f61df22ae8b7dd8d7e5e71`
+- **CODE_TEST_HEAD:** `c42532669ac7d946fe78dda228037d9fc8167d97`
+- **TREE:** `efc72027f87c0f852fc894f36d6e0653cf3407db`
+- previous code/test HEAD: `413a97a1ce2936f9543fea5d8f0b529256fc1de2` (tree `919e2ada…`); Fable report head before follow-up: `d458e63ee4c0b5b577f61df22ae8b7dd8d7e5e71`
+
+`c4253266` = `413a97a1` + docs/README/scorecard refresh (`547a4842`…`b14e7f5c`, no production code) +
+one repository fix: `scripts/update_readme_scorecard.py` now refuses an UNPROVEN axis with
+MEDIUM/HIGH confidence and `tests/test_readme_scorecard.py` sets confidence explicitly
+(root-ci had gone red on `80aaa1cf`/`b445429f`/`b14e7f5c` because the test inherited the
+canonical scorecard's confidence, which the refresh moved from LOW to MEDIUM; the fix is a
+strictly stronger validator plus a negative control — nothing loosened).
+
+### Exact-HEAD CI on `c4253266`
+
+| Workflow | Result |
+|---|---|
+| root-ci (py3.11 + py3.12, README scorecard, skips registry, compileall, secret scan, whitespace) | **PASS** (run 34149935882) |
+| Bossman Core CI | **PASS** (run 34149935775) |
+| Solana safety gates | **PASS** (run 34149935803) |
+| ASTRA acceptance | **PASS** (run 34149935732) |
+| Command Center CI (py3.11 / 3.12 / 3.14 hard lane, Windows paths, secrets/JS) | CC_CI_C425 |
+
+Earlier heads on this branch: `47a49ffa` all green incl. Command Center CI 3.11/3.12/3.14 + Windows paths; `ae3dc3fa` (3.14 hard gate) Command Center CI green; `2ededc88` (canary port line) root-ci/ASTRA/Solana green.
 
 The documentation commits that follow the code/test HEAD do not change production behavior. Do not confuse a report/prompt commit SHA with the tested code SHA.
 
@@ -22,21 +41,17 @@ The documentation commits that follow the code/test HEAD do not change productio
 
 These follow-up commits do **not** weaken approvals, review escalation, effect verification, freshness, authorization, canary, rollback, budgets or privacy routing.
 
-## CURRENT CI AT HANDOFF
+## CI HISTORY NOTE
 
-On `413a97a1`:
-
-- **Solana safety:** PASS.
-- **ASTRA acceptance:** PASS.
-- root-ci / Bossman Core / Command Center full matrices were still running when this documentation handoff was prepared.
-
-Therefore the full exact-SHA CI verdict is **PENDING until those jobs finish**. A running job is not a PASS.
-
-The final agent must re-read the current branch HEAD and CI before changing this status.
+On `413a97a1` Solana and ASTRA were green; root-ci went red on the three documentation
+commits that followed (`test_readme_scorecard::test_not_run_cannot_become_pass`) and is green
+again on `c4253266` — see the exact-HEAD table above. A running job is never quoted as PASS.
 
 ## FREEZE DECISION
 
-**REPO_COMPLETE_EXTERNAL_VALIDATION_PENDING — conditional on final exact-SHA CI remaining free of a reproducible product regression.**
+**REPO_COMPLETE_EXTERNAL_VALIDATION_PENDING** on `c4253266` — root / Core / Solana / ASTRA green on the exact HEAD; Command Center CI: see table (the verdict is withdrawn to BLOCKED if that lane finishes red with a reproducible product failure).
+
+`OPEN_REPO_P0 = 0`, `OPEN_REPO_P1 = 0` (see "Current known repository debt"). What remains is owner-machine evidence, not repository work.
 
 Repository-visible V6 phase 0/1 work is substantially complete. The remaining high-value validation is primarily the owner's real Windows/local-model/runtime path and a second Dashboard acceptance session. If current CI exposes a reproducible repository bug, status becomes `BLOCKED` until fixed.
 
@@ -77,6 +92,25 @@ Initial published session evidence included approximately 5777 recorded events, 
 | Trading Lab 500 / missing old module | current feature lazy-imports `bossman.trading_learning`; no-core build returns `DEAD_OR_UNWIRED` rather than crashing |
 | Dashboard slow everywhere | root-caused and materially improved by lazy pages + app-probe cache/single-flight |
 | H-CLUSTER Windows child encoding | code fix present; owner Windows proof remains EVIDENCE_GAP |
+
+### Sandbox re-test of the owner-session paths on `c4253266` (2026-09-07)
+
+A scripted acceptance session on the real Command Center (real Chromium, workers on,
+testing-period recorder on, fake instant model) — full write-up in
+`docs/testing/sessions/2026-09-07__sandbox-acceptance-v6__7cc925717624.md`:
+
+| Owner-session path | Sandbox result on `c4253266` |
+|---|---|
+| stuck tasks / missions | 4/4 tasks reached `completed` (two of them concurrent); blocked-mission terminal outcome unit-tested |
+| Web Designer AI edit + provider failure | edit 200 and persisted; provider down → 502 «модель недоступна…», code unchanged — no silent success |
+| Video Studio persistence / derivatives | project create 200, reload 200; missing-media thumbnail → 422 with a message, never 500; real thumbnail/waveform/export **NOT_RUN** (no encoder here) |
+| Apps / restart | unit-tested recovery (`test_apps_control.py`); not exercised live (would spawn the owner's apps) |
+| Trading Lab | all four routes 200; owner's `ModuleNotFoundError: bossman_v3` not reproduced — wheel and a fresh editable install both ship `bossman_v3` → EVIDENCE_GAP (stale editable finder on the owner host is the only mechanism found) |
+| OpenRouter / provider routing | Python 3.14 cleared by CI (run 34137665700 fully green); real provider path NOT_RUN — on-screen error text still needed (now captured by `ui.refused.reason`) |
+| dashboard load | 15 navigations, 0 dead clicks, 0 refusals, 0 JS errors, 0 console errors; `Services.start` 187 ms |
+| long-session stability | 30 s session with 20 s idle over an open WebSocket: state stayed «live-обновления»; hours-long stability NOT_RUN |
+
+Compared with `6cbb17ce84db` (37 raw dead clicks → 11 real candidates, 71 refusals, 20 HTTP ≥ 500): this run recorded 0 / 0 / 1 (the deliberate provider-down control).
 
 ### Owner-session paths that still need explicit real re-test
 
