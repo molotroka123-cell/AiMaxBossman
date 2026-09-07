@@ -31,8 +31,8 @@ export function attachmentInput() {
       'aria-label':'Прикрепить медиа'});
   const names=h('small',state.files.map(file=>file.name).join(' · '));
   input.addEventListener('change',()=>{state.files=Array.from(input.files||[]);state.requestId='';names.textContent=state.files.map(file=>file.name).join(' · ');});
-  const remove=h('button.bx-btn',{type:'button',onClick:()=>{state.files=[];state.requestId='';input.value='';names.textContent='';}},'Убрать вложения');
-  return h('div',input,names,remove);
+  const remove=h('button.bx-btn.bx-btn-subtle.bx-btn-sm',{type:'button',onClick:()=>{state.files=[];state.requestId='';input.value='';names.textContent='';}},'Убрать вложения');
+  return h('div.bx-attach',input,names,remove);
 }
 export const attachedFiles=()=>state.files;
 export const ChatPage={id:'bossman-chat',title:'История видео и чат',icon:'terminal',section:'main',nav:'more',
@@ -41,17 +41,17 @@ export const ChatPage={id:'bossman-chat',title:'История видео и ч�
     try {records=(await api.raw('/api/video-studio/chat')).messages||[];}catch(e){toastError(e);}
     let agents=[];
     try {const result=await api.agents();agents=(Array.isArray(result)?result:result.agents||[]).filter(a=>a.enabled!==false);}catch(e){toastError(e);}
-    const agentSelect=h('select',{'aria-label':'Агент для обычного вопроса'},
+    const agentSelect=h('select.select',{'aria-label':'Агент для обычного вопроса'},
       h('option',{value:''},'Выберите агента для обычных вопросов'),
       ...agents.map(a=>h('option',{value:String(a.id),selected:String(a.id)===state.agentId},a.name||`Агент ${a.id}`)));
     agentSelect.addEventListener('change',()=>{state.agentId=agentSelect.value;});
     const taskResults=await Promise.allSettled(records.slice(0,20).map(row=>api.task(row.task_id)));
     const resultById=new Map(records.slice(0,20).map((row,i)=>[row.task_id,taskResults[i].status==='fulfilled'?taskResults[i].value:null]));
-    const input=h('textarea',{rows:4,placeholder:'Склей эти два видео',value:state.text,
+    const input=h('textarea.textarea',{rows:4,placeholder:'Склей эти два видео',value:state.text,
       'aria-label':'Задание для Video Studio'});
     input.addEventListener('input',()=>{state.text=input.value;state.requestId='';});
     const files=attachmentInput();
-    const status=h('p',{role:'status'},'Файлы остаются локально. Теоретические вопросы не создают проект.');
+    const status=h('p.bx-chat-status',{role:'status'},'Файлы остаются локально. Теоретические вопросы не создают проект.');
     const send=h('button.bx-btn.bx-btn-primary',{type:'button'},'Отправить');
     send.addEventListener('click',async()=>{
       send.disabled=true;
@@ -67,8 +67,9 @@ export const ChatPage={id:'bossman-chat',title:'История видео и ч�
       } catch(e){toastError(e);status.textContent=e.message;}
       finally{send.disabled=false;}
     });
-    return h('section.bx-panel',h('div.bx-panel-body',h('h2','Bossman Chat'),input,files,agentSelect,send,status,
-      ...records.map(row=>h('article.bx-panel',h('p',row.text),h('p',`Задача #${row.task_id} · ${resultById.get(row.task_id)?.task?.status||'сохранена'}`),
+    return h('section.bx-panel.bx-chat',h('div.bx-panel-body',h('h2.bx-chat-title','Bossman Chat'),input,files,
+      h('div.bx-chat-send',agentSelect,send),status,
+      ...records.map(row=>h('article.bx-panel.bx-chat-record',h('p',row.text),h('p.bx-chat-meta',`Задача #${row.task_id} · ${resultById.get(row.task_id)?.task?.status||'сохранена'}`),
         resultById.get(row.task_id)?.result?h('pre',String(resultById.get(row.task_id).result)):null,
         h('button.bx-btn',{type:'button',onClick:()=>ctx.navigate('video-studio',{project_id:row.project_id})},'Открыть Video Studio')))));
   },onEvent:()=>false};
