@@ -142,3 +142,76 @@ async def test_the_unwired_payload_is_a_constant_not_a_guess(core_missing):
     payload = trading_lab.status_payload()
     assert payload == dict(trading_lab.UNWIRED)
     assert payload is not trading_lab.UNWIRED, "callers must not mutate the constant"
+
+
+# ------------------------------------------- отсутствие ≠ поломка
+
+@pytest.fixture
+def core_raises(monkeypatch):
+    """Ядро НА МЕСТЕ, но его вызов падает.
+
+    Это противоположный случай к `core_missing`, и различить их обязательно.
+    Импорт удался — значит модуль подключён; упавший вызов означает поломку
+    ядра, а не отсутствие сборки. Выдать её за «не подключено» значило бы
+    спрятать настоящий дефект за конфигурационным объяснением: владелец
+    пошёл бы ставить bossman-core, который у него и так стоит.
+    """
+    class Exploding:
+        def __getattr__(self, name):
+            def boom(*args, **kwargs):
+                raise RuntimeError("ядро торгового модуля сломалось внутри")
+            return boom
+
+    monkeypatch.setattr(trading_lab.importlib, "import_module",
+                        lambda dotted: Exploding())
+    return Exploding
+
+
+async def test_a_broken_core_is_not_reported_as_an_unwired_one(client, core_raises):
+    """Ошибка ВНУТРИ доступного вызова обязана остаться ошибкой."""
+    import httpx
+    for route in ROUTES:
+        try:
+            response = await client.get(route)
+        except RuntimeError as exploded:
+            assert "сломалось внутри" in str(exploded)
+            continue
+        assert response.status_code >= 500, (
+            f"{route}: поломка ядра ответила {response.status_code}")
+        body = response.text
+        assert "DEAD_OR_UNWIRED" not in body, (
+            f"{route}: поломка выдана за отсутствие сборки")
+
+
+def test_the_payload_of_a_broken_core_is_never_the_unwired_constant(core_raises):
+    """Прямая проверка того же на уровне функции, без HTTP."""
+    with pytest.raises(RuntimeError, match="сломалось внутри"):
+        trading_lab.status_payload()
+
+
+def test_the_shallow_guard_that_failed_the_owner_is_gone():
+    """`_core()` проверял импорт пакета `bossman` и считал ядро на месте.
+
+    Ровно этот guard и пропустил `No module named 'bossman_v3'`: верхний
+    импорт удавался, глубокий падал. Функция осталась в модуле неиспользуемой
+    после починки — то есть готовой к тому, чтобы кто-нибудь снова ею
+    воспользовался. Её здесь больше нет.
+    """
+    assert not hasattr(trading_lab, "_core"), (
+        "неиспользуемый мелкий guard вернулся в модуль")
+
+
+async def test_a_missing_symbol_is_unwired_not_an_attribute_error(client, monkeypatch):
+    """Модуль импортировался, но нужного имени в нём нет.
+
+    Так выглядит несовпадение версий ядра и витрины. Это состояние
+    конфигурации, а не поломка вызова, и отвечать на него надо UNWIRED.
+    """
+    class Empty:
+        pass
+
+    monkeypatch.setattr(trading_lab.importlib, "import_module", lambda dotted: Empty())
+    for route in ROUTES:
+        response = await client.get(route)
+        assert response.status_code == 200, route
+        assert response.json().get("evidence_class") == "DEAD_OR_UNWIRED", route

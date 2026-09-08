@@ -7,13 +7,19 @@ from typing import Any, AsyncIterator
 
 import httpx
 
-from .config import BackendConfig, openrouter_backend_config, zai_backend_config
+from .config import (ANTHROPIC_VERSION, BackendConfig, anthropic_backend_config,
+                     openrouter_backend_config, zai_backend_config)
 
 
 # 4xx, при которых переключение на следующий таргет оправдано (бэкенд занят/
 # таймаут), в отличие от 400/401/403/404/422 — ошибок самого запроса/политики,
 # которые дал бы любой таргет.
 _FAILOVER_4XX = {408, 425, 429}
+
+# Anthropic требует max_tokens в каждом запросе. Значение по умолчанию названо
+# здесь, а не подставлено молча в транспорте: молчаливый лимит обрезает ответ,
+# и владелец ищет причину в модели.
+ANTHROPIC_DEFAULT_MAX_TOKENS = 4096
 
 
 class BackendError(RuntimeError):
@@ -319,6 +325,108 @@ class ZaiBackend(OpenAIBackend):
         return cls(zai_backend_config(**overrides), transport)
 
 
+class AnthropicBackend(OpenAIBackend):
+    """Anthropic — единственный провайдер набора не на диалекте OpenAI.
+
+    Наследование здесь не ради экономии строк. Транспорт, семафор, автомат
+    защиты, классификация отказов и health обязаны быть теми же самыми: девять
+    провайдеров с девятью копиями этой машинерии — это девять мест, где однажды
+    забудут про автомат, и заметит это владелец, а не тест.
+
+    Своего у Anthropic ровно три вещи, и все три — форма запроса: ключ идёт в
+    `x-api-key`, а не в `Authorization`; инференс живёт на `/v1/messages`;
+    системное сообщение — отдельное поле, а не роль в списке.
+
+    Каталог моделей читается у провайдера по-настоящему. В main он был зашит
+    списком из трёх строк — то есть «доступные модели» показывались и там, где
+    ключа нет и связи нет. Это не каталог, это надпись.
+    """
+
+    def headers(self) -> dict[str, str]:
+        headers = {"content-type": "application/json",
+                   "anthropic-version": ANTHROPIC_VERSION,
+                   **self.config.extra_headers}
+        key = self.config.resolved_api_key()
+        if key:
+            # Anthropic не принимает Bearer: ключ идёт своим заголовком.
+            headers["x-api-key"] = key
+        return headers
+
+    @staticmethod
+    def to_anthropic_payload(payload: dict) -> dict:
+        """Запрос в диалекте OpenAI → запрос Anthropic.
+
+        `max_tokens` у Anthropic обязателен. Значение по умолчанию берётся
+        явно и называется, а не подставляется молча где-то в транспорте.
+        """
+        body = dict(payload)
+        messages = list(body.pop("messages", None) or [])
+        system_parts = [str(m.get("content") or "") for m in messages
+                        if m.get("role") == "system"]
+        body["messages"] = [{"role": m.get("role"), "content": m.get("content")}
+                            for m in messages if m.get("role") != "system"]
+        existing_system = body.get("system")
+        if existing_system:
+            system_parts.insert(0, str(existing_system))
+        if system_parts:
+            body["system"] = "\n\n".join(part for part in system_parts if part)
+        elif "system" in body:
+            body.pop("system")
+        if not body.get("max_tokens"):
+            body["max_tokens"] = ANTHROPIC_DEFAULT_MAX_TOKENS
+        body.pop("stream_options", None)
+        return body
+
+    @staticmethod
+    def to_openai_response(data: dict) -> dict:
+        """Ответ Anthropic → форма, на которой говорит остальной шлюз."""
+        blocks = data.get("content") or []
+        text = "".join(str(b.get("text") or "") for b in blocks
+                       if isinstance(b, dict) and b.get("type", "text") == "text")
+        usage = data.get("usage") or {}
+        return {
+            "id": data.get("id"),
+            "object": "chat.completion",
+            "model": data.get("model"),
+            "choices": [{
+                "index": 0,
+                "message": {"role": "assistant", "content": text},
+                "finish_reason": data.get("stop_reason"),
+            }],
+            "usage": {
+                "prompt_tokens": usage.get("input_tokens"),
+                "completion_tokens": usage.get("output_tokens"),
+                "total_tokens": (
+                    (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
+                    if usage else None),
+            },
+        }
+
+    def resolve_path(self, path: str) -> str:
+        """`/v1/chat/completions` у Anthropic называется `/v1/messages`."""
+        if path.endswith("/chat/completions"):
+            return "/v1/messages"
+        return super().resolve_path(path)
+
+    async def json_request(self, path: str, payload: dict) -> tuple[dict, httpx.Headers]:
+        if path.endswith("/chat/completions"):
+            body, headers = await super().json_request(
+                path, self.to_anthropic_payload(payload))
+            return self.to_openai_response(body), headers
+        return await super().json_request(path, payload)
+
+    async def stream_request(self, path: str, payload: dict) -> AsyncIterator[bytes]:
+        if path.endswith("/chat/completions"):
+            payload = self.to_anthropic_payload(payload)
+        async for chunk in super().stream_request(path, payload):
+            yield chunk
+
+    @classmethod
+    def from_env(cls, transport: httpx.AsyncBaseTransport | None = None,
+                 **overrides) -> "AnthropicBackend":
+        return cls(anthropic_backend_config(**overrides), transport)
+
+
 def build_backend(config: BackendConfig,
                   transport: httpx.AsyncBaseTransport | None = None) -> OpenAIBackend:
     """Бэкенд по его конфигурации. Неизвестный вид — обычный OpenAI-совместимый."""
@@ -326,4 +434,6 @@ def build_backend(config: BackendConfig,
         return OpenRouterBackend(config, transport)
     if config.kind == "zai" or config.name == "zai":
         return ZaiBackend(config, transport)
+    if config.kind == "anthropic" or config.name == "anthropic":
+        return AnthropicBackend(config, transport)
     return OpenAIBackend(config, transport)
