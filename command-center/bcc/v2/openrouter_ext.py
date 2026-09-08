@@ -230,10 +230,20 @@ class OpenRouterClient:
         r.raise_for_status()
         return r.json()
 
-    async def stream_raw(self, model: str, messages: list[dict[str, Any]], *,
-                         max_tokens: int = 32, temperature: float | None = 0,
-                         max_chunks: int = 32) -> list[str]:
-        """SSE-стрим → список текстовых дельт. Пустой список = стрим не работает."""
+    async def stream_outcome(self, model: str, messages: list[dict[str, Any]], *,
+                             max_tokens: int = 32, temperature: float | None = 0,
+                             max_chunks: int = 32,
+                             first_byte_timeout: float | None = None,
+                             total_timeout: float | None = None):
+        """SSE-стрим → StreamOutcome (см. bcc/streaming).
+
+        Разбор кадров вынесен в один канонический модуль: прежний читатель
+        принимал ровно `choices[0].delta.content`, поэтому рассуждающая модель
+        (GLM 5.3 кладёт текст в `delta.reasoning`) давала «0 chunks» и
+        записывалась как «не умеет стримить». Здесь остаётся только транспорт:
+        таймауты, заголовки и один проход по строкам."""
+        from ..streaming import (DEFAULT_FIRST_BYTE_TIMEOUT, DEFAULT_TOTAL_TIMEOUT,
+                                 outcome_from_exception, read_stream)
         from bossman_shared.privacy import assert_provider_egress
         assert_provider_egress("openrouter", self.base_url)
         payload: dict[str, Any] = {
@@ -242,31 +252,40 @@ class OpenRouterClient:
         }
         if temperature is not None:
             payload["temperature"] = temperature
-        deltas: list[str] = []
-        async with self._client(120) as client:
-            async with client.stream("POST", f"{self.base_url}/chat/completions",
-                                     headers=self._headers(), json=payload) as r:
-                r.raise_for_status()
-                async for line in r.aiter_lines():
-                    line = line.strip()
-                    if not line.startswith("data:"):
-                        continue
-                    body = line[5:].strip()
-                    if body in ("", "[DONE]"):
-                        if body == "[DONE]":
-                            break
-                        continue
-                    try:
-                        chunk = json.loads(body)
-                    except json.JSONDecodeError:
-                        continue
-                    choice = (chunk.get("choices") or [{}])[0]
-                    piece = (choice.get("delta") or {}).get("content")
-                    if piece:
-                        deltas.append(str(piece))
-                    if len(deltas) >= max_chunks:
-                        break
-        return deltas
+        first = DEFAULT_FIRST_BYTE_TIMEOUT if first_byte_timeout is None else first_byte_timeout
+        total = DEFAULT_TOTAL_TIMEOUT if total_timeout is None else total_timeout
+        # `read` — это и есть бюджет «первого байта»: провайдер, который принял
+        # соединение и замолчал, обязан оборваться раньше общего таймаута.
+        timeout = httpx.Timeout(total, connect=min(30.0, total), read=first)
+        try:
+            # Тот же помощник, что и у остальных вызовов: он решает вопрос
+            # прокси и не теряет transport, подставленный тестом.
+            async with http_client(self.base_url, timeout=timeout,
+                                   transport=self.transport) as client:
+                async with client.stream("POST", f"{self.base_url}/chat/completions",
+                                         headers=self._headers(), json=payload) as r:
+                    if r.status_code >= 400:
+                        # Тело ошибки читаем целиком: 429/402/5xx — про
+                        # провайдера, а не про способность модели стримить.
+                        body = (await r.aread()).decode("utf-8", "replace")[:300]
+                        from ..streaming import PROVIDER_FAILED, StreamOutcome
+                        return StreamOutcome(status=PROVIDER_FAILED,
+                                             error=f"HTTP {r.status_code}: {body}",
+                                             detail="provider refused the stream")
+                    return await read_stream(r.aiter_lines(), max_chunks=max_chunks)
+        except Exception as exc:  # noqa: BLE001 — транспорт классифицируется, а не глотается
+            return outcome_from_exception(exc)
+
+    async def stream_raw(self, model: str, messages: list[dict[str, Any]], *,
+                         max_tokens: int = 32, temperature: float | None = 0,
+                         max_chunks: int = 32) -> list[str]:
+        """Обратно совместимая обёртка: список текстовых дельт.
+
+        Пустой список по-прежнему значит «полезного текста не пришло», но теперь
+        это решает канонический разбор, а не одна ветка `delta.content`."""
+        outcome = await self.stream_outcome(model, messages, max_tokens=max_tokens,
+                                            temperature=temperature, max_chunks=max_chunks)
+        return list(outcome.deltas)
 
     async def probe_chat(self, model: str) -> tuple[bool, str]:
         try:

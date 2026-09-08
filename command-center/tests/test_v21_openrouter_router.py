@@ -279,7 +279,10 @@ async def test_streaming_probe_collects_sse_chunks():
     client = OpenRouterClient("sk", base_url="http://openrouter.test/api/v1",
                               transport=fake.transport)
     res = await probe_streaming(client, "vendor/tools-ok")
-    assert res.ok is True and "2 chunks" in res.detail
+    # B4: деталь пробы теперь несёт классификацию, а не только счётчик кусков —
+    # роутеру нужно отличать «умеет стримить» от «провайдеру плохо».
+    assert res.ok is True and "stream_supported" in res.detail
+    assert "2 delta(s)" in res.detail
     assert fake.chat_payloads[-1]["stream"] is True
 
 
