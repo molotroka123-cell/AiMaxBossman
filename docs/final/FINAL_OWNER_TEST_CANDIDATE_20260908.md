@@ -8,7 +8,7 @@
 | | |
 |---|---|
 | Ветка поставки | `night/v7-convergence-20260908` (PR58 → `main`) |
-| **FINAL_CODE_SHA** | `22ae555bc317c45abc925f70566fea90cd495692` — на нём идут все три набора (см. ниже) |
+| **FINAL_CODE_SHA** | `22ae555bc317c45abc925f70566fea90cd495692` — последний коммит с кодом; `29e9645` и этот коммит — только документ |
 | PR59 | `feature/ai-streamer-higgsfield-browser-20260908`, целится в ветку поставки |
 | GitHub default | `claude/bossman-control-v03-43igbk` (содержит `da67a63`) |
 
@@ -60,9 +60,9 @@ reconciliation (теперь и из состояния consumed).
 
 | Набор | Результат |
 |---|---|
-| Command Center | прогон на `22ae555` идёт на момент записи; на `d415db4` было 2729 / 17 / 0 |
-| root | прогон на `22ae555` идёт; на `d415db4` было 1178 / 2 / 0 |
-| Bossman Core | прогон на `22ae555` идёт; на `d415db4` было 3020 / 31 / 0 |
+| Command Center | **2744 passed, 17 skipped, 2 warnings in 1375.57s, 0 failed** на `29e9645` |
+| root | **1178 passed, 2 skipped, 0 failed** на `22ae555` (root не содержит SHA-привязанных проверок; дельта до `29e9645` — один .md, 0 не-doc файлов) |
+| Bossman Core | **3022 passed, 31 skipped, 0 failed** на `29e9645` (+2 — новые отказы nightly-гейта; 0 ShaMismatch) |
 | `test_benchmark_runtime` + `test_benchmark_truth` | 10 passed, 0 ShaMismatch |
 | Секретный скан | PASS |
 | Пробелы (командой CI, всё содержимое против пустого дерева) | PASS |
