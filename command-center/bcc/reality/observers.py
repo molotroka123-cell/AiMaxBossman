@@ -96,9 +96,24 @@ def observe_git(repo: Path | str | None) -> Observation:
 
 # --------------------------------------------------------------- process
 
+#: `cpu_percent(interval=None)` считает загрузку С МОМЕНТА ПРОШЛОГО вызова и
+#: возвращается мгновенно; `interval=0.1` честно спит эту десятую долю секунды.
+#: Сто миллисекунд на наблюдение, которое дёргается на каждом открытии экрана,
+#: — это сто миллисекунд, за которые не измеряется ничего нового.
+_CPU_PRIMED = False
+
+
 def observe_process() -> Observation:
     """Host CPU and memory. Reported only if actually measured — an invented
-    memory headroom is the defect the resource work already closed once."""
+    memory headroom is the defect the resource work already closed once.
+
+    Загрузка процессора считается без сна. У этого есть цена, и она заплачена
+    честно: ПЕРВЫЙ вызов после запуска процесса не с чем сравнивать, поэтому
+    `cpu_percent` в нём отсутствует, а не равен нулю. Ноль означал бы
+    «простаивает» — ровно тот тип выдуманного показания, который этот модуль и
+    существует, чтобы не выдавать. Память измеряется всегда и в обоих случаях.
+    """
+    global _CPU_PRIMED
     key = "process.host"
     try:
         import psutil  # type: ignore
@@ -106,10 +121,17 @@ def observe_process() -> Observation:
         return _unavailable("process", key, "psutil не установлен — измерить нечем")
     try:
         memory = psutil.virtual_memory()
-        value = {"cpu_percent": psutil.cpu_percent(interval=0.1),
-                 "ram_total_mb": round(memory.total / 1024 / 1024),
+        cpu = psutil.cpu_percent(interval=None)
+        value = {"ram_total_mb": round(memory.total / 1024 / 1024),
                  "ram_available_mb": round(memory.available / 1024 / 1024),
                  "ram_percent": memory.percent}
+        if _CPU_PRIMED:
+            value["cpu_percent"] = cpu
+        else:
+            # Счётчик только что заведён: сравнивать не с чем.
+            _CPU_PRIMED = True
+            value["cpu_percent_reason"] = ("первое наблюдение после запуска: "
+                                           "счётчик загрузки ещё не с чем сравнить")
     except Exception as exc:  # noqa: BLE001 — недоступный счётчик не выдумывается
         return _unavailable("process", key, f"{type(exc).__name__}")
     return Observation("process", key, True, value, max_age_seconds=VALIDITY["process"])
