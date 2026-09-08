@@ -134,7 +134,7 @@ class Services:
         (CLAUDE_START_HERE §browser optional): менеджеры создаются лениво, а импорт
         тяжёлых зависимостей происходит только при первом реальном использовании."""
         from pathlib import Path
-        repo_root = self.settings.ui_dir.parent.parent   # <repo>
+        repo_root = self.settings.skills_workspace
         self.skills = None
         self.terminal = None
         self.browser = None

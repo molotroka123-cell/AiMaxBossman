@@ -1,0 +1,2 @@
+recursive-include ui *.html *.js *.css *.svg *.png *.ico *.json
+prune ui/tests

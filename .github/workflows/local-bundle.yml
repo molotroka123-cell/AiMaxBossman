@@ -1,0 +1,39 @@
+# Скачиваемая локальная поставка: только то, что нужно для запуска.
+#
+# Артефакт собирается на Linux и на Windows отдельно, потому что «собралось у
+# меня» не означает «поставится у владельца»: изоляция сборки, пути и точки
+# входа ведут себя по-разному. Каждый прогон СТАВИТ собранное в чистое
+# окружение и проверяет импорты и команды — артефакт, который никто не пробовал
+# установить, поставкой не считается.
+name: Local bundle
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    tags: ['v*']
+    branches: ['claude/bossman-final-audit-closure-aucx9x', 'release/**']
+permissions:
+  contents: read
+jobs:
+  bundle:
+    name: local bundle (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Build and verify the bundle
+        run: python tools/build_local_bundle.py --out dist/bossman-local
+      - name: Show what is being shipped
+        run: python -c "import json;m=json.load(open('dist/bossman-local/MANIFEST.json'));print(json.dumps(m,indent=2,ensure_ascii=False))"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bossman-local-${{ matrix.os }}-${{ github.sha }}
+          path: dist/bossman-local
+          if-no-files-found: error

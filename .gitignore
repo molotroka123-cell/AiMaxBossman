@@ -89,3 +89,6 @@ astra-security-results/
 /doctor.json
 .venv-conv/
 .venv-oh/
+
+# Локальная поставка, собираемая tools/build_local_bundle.py
+/dist/
