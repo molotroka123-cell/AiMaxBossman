@@ -185,3 +185,24 @@ Uses real disposable child processes and HTTP API. Duplicate starts report alrea
 - Next verification ideas: rerun F1 with a hostile index plus an ordinary allowed-file control; drive F6 with alternating real adapter failures through claim/execute; test F2 with a paced loopback stream; rerun cleanup twice on Windows and verify residual bytes. None is counted as completed here.
 - Coverage limit remains material: selected suites were interrupted twice; Video/Web post-state, full browser/desktop runtime and live providers were not certified. This is a narrow breaker audit, not a whole-repository or release-completeness verdict.
 - Decision summaries above are the reviewable rationale requested by the owner. Raw commands and observed results are in the supplied tests/logs; no speculative findings were added to fill the report.
+
+## Owner-machine UI attempt (subsequent request)
+
+Owner explicitly requested interaction with the already-open BOSSMAN using GLM 5.3 or the loaded local model. This overrides the testing skill's default preference for an isolated UI instance.
+UI_RUNTIME_AUDIT = NOT_RUN (browser-control connection unavailable).
+Read-only `Get-Process` observed Microsoft Edge PID 27012 with window title `Конструктор миссий · BOSSMAN and 6 more pages - Profile 1 - Microsoft Edge`.
+Exact control attempts and responses:
+
+```text
+await cua.getState();
+=> {"apps":[],"browsers":[]}
+await cua.createBrowserTab('edge', 'http://127.0.0.1:8800', {sessionName:'BOSSMAN audit'});
+=> Browser is not available: edge
+await cua.createBrowserTab('iab', 'http://127.0.0.1:8800', {visible:true});
+=> Browser is not available: iab
+```
+
+The URL uses the repository's configured default port; no successful browser navigation or live-server/source-SHA identification occurred.
+No task submitted, model invoked, owner approval changed, or editor action performed. No API-only activity is substituted for the requested visible interaction.
+This is a tool-access blocker, not a repository finding; severity counts are unchanged. Resume requires connecting the running Edge session to browser control.
+Provider credentials supplied by the owner are excluded from all audit artifacts and were not used.
