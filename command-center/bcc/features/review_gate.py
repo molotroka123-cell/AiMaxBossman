@@ -165,25 +165,70 @@ async def _gate(svc):
 
 async def _tick(svc):
     """Human review settles reviewer judgement; finalize_override still requires
-    fresh verification of every declared effect before completion."""
+    fresh verification of every declared effect before completion.
+
+    P0 (INV-RD-1, bcc/review_escalation): a decided escalation must always
+    produce a *decision*. Two deadlock paths lived here:
+
+      * a REJECTED escalation was selected by nobody, so the owner's "no" left
+        the task parked behind a row that would never be looked at again;
+      * an APPROVED escalation was renamed to `…_done` BEFORE `finalize_override`
+        ran, so an override refusal burned the only live decision object and
+        left `waiting_approval` with zero pending approvals — unrecoverable
+        except through `/stop` (four occurrences in the 202-event corpus).
+
+    Now: rejection fails the task honestly, and the rename happens only after
+    the override's answer is known — refusal is recorded with its reason and
+    handed to the bounded escalation state machine, which re-asks while the
+    budget allows and otherwise fails with that reason. `finalize_override`
+    itself is unchanged: fresh evidence is still mandatory."""
+    from ..db import approvals as appr_t
+    from ..review_escalation import (reconcile, record_refusal, settle_rejection)
     async with svc.db.session() as s:
-        from ..db import approvals as appr_t
         rows = (await s.execute(sa.select(appr_t).where(
-            appr_t.c.kind == "review_escalation", appr_t.c.status == "approved"))).fetchall()
+            appr_t.c.kind == "review_escalation",
+            appr_t.c.status.in_(("approved", "rejected"))))).fetchall()
     for r in rows:
         a = dict(r._mapping)
         task_id = a["task_id"]
+        if a.get("status") == "rejected":
+            await settle_rejection(svc, int(a["id"]), task_id)
+            continue
         async with svc.db.session() as s:
             t = (await s.execute(sa.select(tasks_t.c.status).where(
                 tasks_t.c.id == task_id))).first()
-            # погасим approval, чтобы не срабатывать повторно; сама запись completed —
-            # только через каноническую точку (EH-04), как решение человека (override)
-            await s.execute(sa.update(appr_t).where(appr_t.c.id == a["id"]).values(
-                kind="review_escalation_done"))
-            await s.commit()
-        if t and t._mapping["status"] not in ("completed", "cancelled"):
-            from ..finalize import finalize_override
-            await finalize_override(svc, task_id, approval=a)
+        status = t._mapping["status"] if t else None
+        if status in ("completed", "cancelled"):
+            async with svc.db.session() as s:
+                await s.execute(sa.update(appr_t).where(appr_t.c.id == a["id"]).values(
+                    kind="review_escalation_done"))
+                await s.commit()
+            continue
+        # Сама запись completed — только через каноническую точку (EH-04), как
+        # решение человека (override).
+        from ..finalize import finalize_override
+        ok = await finalize_override(svc, task_id, approval=a)
+        if ok:
+            async with svc.db.session() as s:
+                await s.execute(sa.update(appr_t).where(appr_t.c.id == a["id"]).values(
+                    kind="review_escalation_done"))
+                await s.commit()
+        else:
+            await record_refusal(svc, int(a["id"]), task_id,
+                                 await _refusal_reason(svc, task_id, a.get("run_id")))
+    # Свип INV-RD-1: любой другой путь, оставивший задачу без действующего решения.
+    await reconcile(svc)
+
+
+async def _refusal_reason(svc, task_id: int, run_id) -> str:
+    """Why `finalize_override` said no. It emits `task.finalize_refused` with the
+    reason but returns a bare bool, so re-derive the same answer here rather than
+    guessing — the owner's next question must name the real blocker."""
+    from ..finalize import finalize_decision_reason
+    try:
+        return await finalize_decision_reason(svc, task_id, run_id)
+    except Exception as exc:  # noqa: BLE001 — диагностика не должна ломать свип
+        return f"finalize refused ({type(exc).__name__})"
 
 
 @router.post("/review/enable")
@@ -205,6 +250,23 @@ async def enable_review(request: Request):
     return {"ok": True, "review": meta["review"],
             "note": ("без evidence задача не завершится автоматически: "
                      "UNVERIFIED → эскалация человеку (F-012)")}
+
+
+@router.get("/review/deadlocks")
+async def review_deadlocks(request: Request):
+    """INV-RD-1 report: tasks parked in `waiting_approval` and how many of them
+    have no live decision object. `deadlocked` is the ReviewDeadlockRate
+    numerator and must be 0 — owner-visible rather than buried in logs."""
+    from ..review_escalation import audit
+    return await audit(request.app.state.svc)
+
+
+@router.post("/review/reconcile")
+async def review_reconcile(request: Request):
+    """Run the deadlock sweep now instead of waiting for the 10s tick. Only ever
+    re-asks the owner or fails a task with its reason — never completes."""
+    from ..review_escalation import reconcile
+    return {"acted": await reconcile(request.app.state.svc)}
 
 
 @router.get("/review/status")

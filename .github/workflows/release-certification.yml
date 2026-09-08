@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Certify the requested SHA against live workflow runs
@@ -37,7 +37,7 @@ jobs:
           --sha "${{ github.event.inputs.sha || github.sha }}"
           --fetch --output exact-sha-certification.json
           --scorecard docs/benchmark/current-scorecard.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: exact-sha-certification-${{ github.event.inputs.sha || github.sha }}

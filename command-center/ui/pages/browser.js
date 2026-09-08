@@ -18,6 +18,7 @@ const BrowserPage = {
   title: 'Браузер',
   icon: 'search',
   nav: 'primary',
+  section: 'studio',
 
   async render(ctx) {
     let sessions = []; let err = null; let rt = null;

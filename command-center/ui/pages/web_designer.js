@@ -15,7 +15,7 @@
    ============================================================ */
 
 import { api } from '../api.js';
-import { h, toastOk, toastError, confirmDialog, debounce, fmtDateShort } from '../components.js';
+import { h, toastOk, toastError, confirmDialog, fmtDateShort } from '../components.js';
 import { pageHead, panel, btn, pill, tag, field } from './_ui.js';
 
 const LAST_KEY = 'bd.lastProject';
@@ -42,13 +42,24 @@ let verPill = null;        // пилюля версии в шапке
 
 /* ---------------- сообщения из превью (пикер) ---------------- */
 
+/* Сообщение пикера принимается, только если оно пришло ИЗ САМОГО кадра И несёт
+   одноразовый пропуск той страницы превью, которую панель туда открыла. Одной
+   проверки окна мало: кадр с sandbox="allow-scripts" волен увести СЕБЯ на чужую
+   страницу (meta refresh, location=), и та шлёт панели свой 'select' от имени
+   пикера — инспектор показывает ложный элемент и подводит владельца к правке
+   или удалению. Прочитать пропуск чужой странице нечем: он лежит в URL превью,
+   а у песочницы непрозрачный origin — referrer пуст, parent.location закрыт.
+   Origin сообщения не проверяется намеренно: у песочницы он 'null'. */
+export function acceptsPickerMessage(ev, frame, nonce) {
+  if (!ev || !frame || ev.source !== frame.contentWindow) return false;
+  const d = ev.data;
+  if (!d || d.source !== 'bd-preview') return false;
+  return Boolean(nonce) && d.nonce === nonce;
+}
+
 window.addEventListener('message', (ev) => {
-  // Сообщение принимается только от САМОГО кадра превью. Поле source в теле —
-  // это данные, а не удостоверение: любое окно может прислать 'bd-preview'.
-  // Origin здесь не проверяется намеренно — у песочницы он 'null' по построению.
-  if (!frame || ev.source !== frame.contentWindow) return;
-  const d = ev && ev.data;
-  if (!d || d.source !== 'bd-preview') return;
+  if (!acceptsPickerMessage(ev, frame, previewNonce)) return;
+  const d = ev.data;
   if (d.type === 'ready' && frame && frame.contentWindow) {
     frame.contentWindow.postMessage({ source: 'bd-host', type: 'pick', enabled: state.pick }, '*');
     if (state.selected && state.selected.bd_id) {
@@ -62,7 +73,15 @@ window.addEventListener('message', (ev) => {
 
 /* ---------------- утилиты ---------------- */
 
-const previewUrl = () => `/api/web-designer/projects/${state.id}/preview?t=${Date.now()}`;
+/* Пропуск одноразовый: каждая загрузка кадра получает свой, поэтому страница,
+   на которую кадр ушёл после первой загрузки, остаётся без действительного. */
+let previewNonce = '';
+const newNonce = () => (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '')
+  : String(Date.now()) + String(Math.random()).slice(2));
+const previewUrl = () => {
+  previewNonce = newNonce();
+  return `/api/web-designer/projects/${state.id}/preview?t=${Date.now()}&nonce=${previewNonce}`;
+};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function rgbToHex(value) {
@@ -104,30 +123,45 @@ function reloadFrame() {
    не затирается последним пришедшим. */
 const baseVersion = () => (state.meta && Number(state.meta.version)) || 0;
 
-const saveCode = debounce(async () => {
-  try {
-    const res = await api.raw(`/api/web-designer/projects/${state.id}/code`,
-      { method: 'PUT', body: { html: editorNode ? editorNode.value : state.code,
-        note: 'правка кода', base_version: baseVersion() } });
-    if (res && res.ok) { state.meta = res.meta; state.dirty = false; reloadFrame(); }
-  } catch (e) { toastError(e, 'Не удалось сохранить код'); }
-}, 900);
+/* Отложенное и немедленное сохранение — ОДИН путь. Их было два, и отложенный,
+   доживший до применённой правки, отправлял старый текст редактора с уже новой
+   версией: сервер принимал запись, и правка исчезала без единой ошибки. */
+const SAVE_DELAY_MS = 900;
+let saveTimer = null;
 
-/* Немедленное сохранение: при смене проекта, Ctrl+S — debounce не успел бы. */
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { saveTimer = null; flushSave(); }, SAVE_DELAY_MS);
+}
+
+/* Немедленное сохранение: смена проекта, Ctrl+S и ЛЮБАЯ правка через сервер —
+   иначе взведённый автосейв откатит её, как только сработает. */
 async function flushSave(toast) {
+  clearTimeout(saveTimer);
+  saveTimer = null;
   if (!state.dirty || !editorNode || !state.id) return;
+  const sent = editorNode.value;
   try {
     const res = await api.raw(`/api/web-designer/projects/${state.id}/code`,
-      { method: 'PUT', body: { html: editorNode.value, note: 'правка кода',
+      { method: 'PUT', body: { html: sent, note: 'правка кода',
         base_version: baseVersion() } });
     if (res && res.ok) {
       state.meta = res.meta;
-      state.code = editorNode.value;
-      state.dirty = false;
+      state.code = sent;
+      /* сохранён ТОТ текст, что ушёл: пока шёл запрос, владелец мог печатать
+         дальше — снимать признак несохранённого с нового набора нельзя */
+      state.dirty = editorNode.value !== sent;
       reloadFrame();
       if (toast) toastOk('Код сохранён');
     }
-  } catch (e) { toastError(e, 'Не удалось сохранить код'); }
+  } catch (e) {
+    /* Отказ 409 «код изменился» оставлял meta устаревшей навсегда: каждое
+       следующее нажатие клавиши повторяло тот же base_version и получало тот
+       же отказ — владелец не мог сохранить НИЧЕГО до перезагрузки страницы.
+       Набранное при этом не трогаем: reloadState бережёт его по dirty. */
+    try { await reloadState(); } catch { /* сети нет — версия останется прежней */ }
+    toastError(e, 'Не удалось сохранить код');
+  }
 }
 
 /* Операции, после которых нумерация элементов в документе СДВИГАЕТСЯ: тот же
@@ -137,6 +171,7 @@ async function flushSave(toast) {
 const SHIFTS_IDS = new Set(['delete', 'replace']);
 
 async function sendEdit(payload, okMsg) {
+  await flushSave();               // взведённый автосейв откатил бы эту правку
   const sel = state.selected;
   const body = Object.assign({
     base_version: baseVersion(),
@@ -168,6 +203,7 @@ async function runGenerate(prompt, tpl, pal) {
   state.generating = true;
   setGenNote('Собираем структуру…');
   try {
+    await flushSave();                 // иначе автосейв откатит сгенерированный сайт
     const res = await api.raw(`/api/web-designer/projects/${state.id}/generate`,
       { method: 'POST', body: { prompt, template: tpl || 'auto', palette: pal || 'auto' } });
     const steps = res.steps || [];
@@ -258,6 +294,7 @@ function renderInspector(box) {
     children.push(h('div.bd-row', h('label', 'AI-правка'), aiPrompt,
       btn('Спросить модель', async () => {
         if (!aiPrompt.value.trim()) return toastError(new Error('Опишите правку'));
+        await flushSave();           // иначе автосейв откатит ответ модели
         try {
           const res = await api.raw(`/api/web-designer/projects/${state.id}/ai-edit`,
             { method: 'POST', body: { prompt: aiPrompt.value, bd_id: sel.bd_id, path: sel.path,
@@ -368,14 +405,14 @@ function head(ctx) {
 }
 
 function editorPanel() {
-  editorNode = h('textarea.bd-code', { spellcheck: 'false',
-    onInput: () => { state.dirty = true; saveCode(); },
+  attachEditor(h('textarea.bd-code', { spellcheck: 'false',
+    onInput: () => { state.dirty = true; scheduleSave(); },
     onKeyDown: (e) => {
       if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 's') {
         e.preventDefault();
         flushSave(true);
       }
-    } }, state.code);
+    } }, state.code));
   return panel('Код сайта', editorNode, {
     aside: h('span.bd-mini', 'автосохранение · Ctrl+S — сохранить сейчас'),
   });
@@ -492,6 +529,7 @@ function versionsPanel(ctx) {
       btn('Вернуть', async () => {
         const yes = await confirmDialog({ title: `Вернуть v${v.version}?`, text: 'Текущий код сохранится в истории — ничего не потеряется.', okText: 'Вернуть' });
         if (!yes) return;
+        await flushSave();           // иначе автосейв вернёт код, от которого откатились
         try {
           await api.raw(`/api/web-designer/projects/${state.id}/versions/${v.version}/restore`, { method: 'POST' });
           toastOk(`Версия v${v.version} возвращена`);
@@ -579,7 +617,7 @@ const WebDesignerPage = {
   title: 'Веб-дизайн',
   icon: 'builder',
   nav: 'primary',
-  section: 'main',
+  section: 'studio',
 
   onEvent() {
     /* свою перерисовку страница не просит: редактор и выделение живут
@@ -637,3 +675,13 @@ const WebDesignerPage = {
 };
 
 export default WebDesignerPage;
+
+/* Открыто для ui/tests/web_designer_autosave.test.mjs. Автосохранение —
+   единственное место страницы, где две правки владельца расходятся во времени,
+   и проверять его надо без браузера; на поведение панели экспорт не влияет. */
+export { state as autosaveState, flushSave, scheduleSave, sendEdit, SAVE_DELAY_MS };
+
+export function attachEditor(node) {
+  editorNode = node;
+  return node;
+}

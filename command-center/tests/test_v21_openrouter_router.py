@@ -137,7 +137,7 @@ async def test_catalog_sync_persists_remote_metadata(env, monkeypatch):
     synced = (await env.client.post(f"/api/openrouter/{prov['id']}/sync")).json()
     assert synced["synced"] == 4 and synced["stale"] == 0
 
-    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()
+    catalog = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()["items"]
     by_id = {c["remote_id"]: c for c in catalog}
     assert set(by_id) == {"vendor/tools-ok", "vendor/tools-liar",
                           "vendor/vision", "vendor/plain"}
@@ -184,10 +184,10 @@ async def test_alias_and_probe_history_survive_refresh(env, monkeypatch):
         f"/api/openrouter/models/{pinned['model_id']}/capabilities")).json()
     assert {c["capability"] for c in after} == {c["capability"] for c in before}
     # каталог по умолчанию скрывает stale, с include_stale — показывает
-    fresh = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()
+    fresh = (await env.client.get(f"/api/openrouter/{prov['id']}/catalog")).json()["items"]
     assert "vendor/plain" not in {c["remote_id"] for c in fresh}
     withstale = (await env.client.get(
-        f"/api/openrouter/{prov['id']}/catalog?include_stale=true")).json()
+        f"/api/openrouter/{prov['id']}/catalog?include_stale=true")).json()["items"]
     assert "vendor/plain" in {c["remote_id"] for c in withstale}
 
 
@@ -279,7 +279,10 @@ async def test_streaming_probe_collects_sse_chunks():
     client = OpenRouterClient("sk", base_url="http://openrouter.test/api/v1",
                               transport=fake.transport)
     res = await probe_streaming(client, "vendor/tools-ok")
-    assert res.ok is True and "2 chunks" in res.detail
+    # B4: деталь пробы теперь несёт классификацию, а не только счётчик кусков —
+    # роутеру нужно отличать «умеет стримить» от «провайдеру плохо».
+    assert res.ok is True and "stream_supported" in res.detail
+    assert "2 delta(s)" in res.detail
     assert fake.chat_payloads[-1]["stream"] is True
 
 

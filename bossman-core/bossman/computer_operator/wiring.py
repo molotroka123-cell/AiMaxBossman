@@ -31,22 +31,38 @@ class FakePlanner:
         return item
 
 class FakeObserver:
-    def __init__(self,observations=None,summary="fake screen",foreground=None,ui_tree=None,sensitive=False):
+    def __init__(self,observations=None,summary="fake screen",foreground=None,ui_tree=None,sensitive=False,
+                 probes=None):
         self.observations=list(observations) if observations is not None else None
         self.summary=summary; self.foreground=dict(foreground or {})
         self.ui_tree=ui_tree; self.sensitive=sensitive; self.generations=[]
+        # Очередь для `probe()` (проверка применимости на границе эффекта, AT-03).
+        # Пустая очередь означает «экран сам по себе не менялся»: у фейкового
+        # рабочего стола нет собственной жизни, он меняется только когда это
+        # написал тест или когда выполнилось действие.
+        self.probes=list(probes) if probes is not None else None
+        self.probe_calls=0; self.last=None
+    def _build(self,item,generation):
+        if isinstance(item,Exception):raise item
+        if isinstance(item,Observation):return item
+        return Observation(new_id("obs"),time.time(),item.get("foreground",self.foreground),
+            item.get("summary",self.summary),item.get("ui_tree",self.ui_tree),
+            item.get("screenshot_ref"),bool(item.get("sensitive",self.sensitive)),generation)
     async def observe(self,*,generation):
         self.generations.append(generation)
         await asyncio.sleep(0)
         if self.observations:
-            item=self.observations.pop(0)
-            if isinstance(item,Exception):raise item
-            if isinstance(item,Observation):return item
-            if isinstance(item,dict):
-                return Observation(new_id("obs"),time.time(),item.get("foreground",self.foreground),
-                    item.get("summary",self.summary),item.get("ui_tree",self.ui_tree),
-                    item.get("screenshot_ref"),bool(item.get("sensitive",self.sensitive)),generation)
-        return Observation(new_id("obs"),time.time(),dict(self.foreground),self.summary,self.ui_tree,None,self.sensitive,generation)
+            self.last=self._build(self.observations.pop(0),generation); return self.last
+        self.last=Observation(new_id("obs"),time.time(),dict(self.foreground),self.summary,
+                              self.ui_tree,None,self.sensitive,generation)
+        return self.last
+    async def probe(self,*,generation):
+        self.probe_calls+=1
+        await asyncio.sleep(0)
+        if self.probes:return self._build(self.probes.pop(0),generation)
+        if self.last is not None and self.last.generation==generation:return self.last
+        return Observation(new_id("obs"),time.time(),dict(self.foreground),"",self.ui_tree,
+                           None,self.sensitive,generation)
 
 class FakeAdapter:
     name="fake"

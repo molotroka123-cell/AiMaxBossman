@@ -32,6 +32,21 @@ def identifier(value):
         raise ValueError("invalid identifier")
     return value
 
+# WebM принимает только VP8/VP9/AV1 и Vorbis/Opus. Пара «webm + libx264» из
+# диалога экспорта уходила в очередь и падала внутри ffmpeg: владелец получал
+# сломанную задачу вместо отказа с внятной причиной. Проверяем ДО постановки.
+_CONTAINER_VIDEO={"webm":{"libvpx-vp9","av1_nvenc"}}
+_CONTAINER_AUDIO={"webm":{"libopus"}}
+
+def _check_container_codecs(container,options):
+    video=options.get("video_codec","libx264");audio=options.get("audio_codec","aac")
+    allowed_v=_CONTAINER_VIDEO.get(container)
+    if allowed_v is not None and video not in allowed_v:
+        raise ValueError(f"{container} container does not accept video codec {video}")
+    allowed_a=_CONTAINER_AUDIO.get(container)
+    if allowed_a is not None and audio not in allowed_a:
+        raise ValueError(f"{container} container does not accept audio codec {audio}")
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
@@ -149,7 +164,15 @@ class VideoService:
         container=payload.get("container","mp4")
         if container not in ("mp4","mov","mkv","webm"):
             raise ValueError("unsupported export container")
-        options["_container"]="mp4" if payload.get("preview") else container
+        # Preview forced mp4 and silently DISCARDED the container the request had
+        # already validated. On a browser without the proprietary H.264/AAC
+        # decoders (Chromium builds on Linux, and the browser CI runs on) that
+        # made every preview unplayable: the file is served 200 and decodes under
+        # ffmpeg, and the <video> element still answers
+        # DEMUXER_ERROR_NO_SUPPORTED_STREAMS. Default is unchanged — a request
+        # that names no container still gets mp4.
+        options["_container"]=container
+        _check_container_codecs(container,options)
         if payload.get("preview"):
             options.update(width=320,height=180)
         # The host issues paths, kind, retry policy and authority; requests cannot set them.
@@ -208,9 +231,15 @@ class VideoService:
 
     async def _render_job(self, task, run, engine):
         from .render import render_project
+        from .model import Conflict
         jid = task["meta"]["video_job_id"]
         async with self.svc.db.session() as s:
             row = dict((await s.execute(sa.select(jobs).where(jobs.c.id == jid))).mappings().one())
+        # Ревизия в export проверяется до INSERT и без _write_lock, так что правка
+        # успевает встать между ними. Без этой сверки готовый файл выдавался бы за
+        # текущий проект, а render_gate подтверждал бы его: гейт привязан к снапшоту.
+        if (await self.store.get(row["project_id"]))["revision"] != row["snapshot"]["revision"]:
+            raise Conflict("project changed after this export was queued")
         outdir = self.root / "exports" / jid / str(run["id"])
         outdir.mkdir(parents=True, exist_ok=True)
         async def progress(stage, details):

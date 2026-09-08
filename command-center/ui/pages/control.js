@@ -92,9 +92,17 @@ function facts(body) {
     line('очередь', Object.entries(body.queue || {}).map(([k, v]) => `${k}:${v}`).join(' · ') || '—'),
     line('расход за час', money(t.burn_rate_usd_per_h)),
     line('остаток бюджета', t.fable && t.fable.status === 'OK' ? money(t.fable.remaining_usd) : (t.fable && t.fable.status) || '—'),
-    line('флот', fleet.enabled
-      ? `узлов ${(fleet.nodes || []).length} · очередь ${fleet.queue_depth ?? '—'}`
-      : 'выключен'),
+    /* Флот — V3 за тремя env-флагами, и его транспорт/аутентификация узлов
+       сервер честно объявляет непромышленными. Без пометки строка «узлов N»
+       читается наравне с бюджетом и p95, то есть как штатный факт системы. */
+    line('флот', [
+      fleet.enabled
+        ? `узлов ${(fleet.nodes || []).length} · очередь ${fleet.queue_depth ?? '—'}`
+        : 'выключен',
+      fleet.enabled && !fleet.remote_transport_production_ready
+        ? h('span.badge.badge-warn', { style: { marginLeft: '6px' } }, 'эксперимент')
+        : null,
+    ]),
     line('удалённый транспорт', fleet.enabled ? (fleet.remote_transport_production_ready ? 'ДА' : 'НЕТ (не production)') : '—'),
     line('исполнение p95', lat.execution_ms ? `${lat.execution_ms.p95 ?? '—'} мс` : '—'),
     line('проверка p95', lat.verification_ms ? `${lat.verification_ms.p95 ?? '—'} мс` : '—'));
@@ -105,6 +113,7 @@ const ControlPage = {
   title: 'Пульт',
   icon: 'home',
   nav: 'primary',
+  section: 'work',
 
   async render(ctx) {
     let body;

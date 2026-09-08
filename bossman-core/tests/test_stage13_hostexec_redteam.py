@@ -214,9 +214,25 @@ def anyio_backend():
     return "asyncio"
 
 
+def _init_repo(root) -> None:
+    """RT-01: git-инструмент теперь требует РАЗРЕШЁННЫЙ корень репозитория.
+
+    Раньше `tmp_path` мог быть не репозиторием вовсе, и проверка argv шла всё
+    равно. После починки полномочия инструмент честно отказывает на не-репозитории,
+    поэтому стенд заводит настоящий репозиторий — свойство, которое проверяет
+    этот тест (ни одна чужая dash-опция не доходит до git argv), не меняется.
+    """
+    import subprocess
+    for argv in (("git", "init", "-q", "-b", "main"),
+                 ("git", "config", "user.email", "redteam@example.invalid"),
+                 ("git", "config", "user.name", "redteam")):
+        subprocess.run(argv, cwd=str(root), check=True, capture_output=True)
+
+
 @pytest.mark.anyio
 async def test_gitops_extra_args_cannot_inject_options(tmp_path, monkeypatch):
     captured: dict = {}
+    _init_repo(tmp_path)
 
     async def spy(ctx, *argv):
         captured["argv"] = tuple(argv)

@@ -73,11 +73,14 @@ async def test_variant_dotdot_and_symlink_escape_resolved_before_authz(env, tmp_
 
 
 async def test_inside_root_project_host_runs_and_session_owned_by_task(env):
-    root = env.settings.data_dir
-    root.mkdir(parents=True, exist_ok=True)
+    # AP-001: the un-configured default root is the scratch subdirectory, not
+    # settings.data_dir itself (data_dir holds bcc.db and the UI auth token —
+    # it must never be an implicit allowed root; see tools_terminal._roots()).
+    # Within scratch, a caller may only use its OWN owner directory (cwd="scratch"
+    # resolves to it), matching V2.2 §9's per-agent isolation.
     stack = await make_stack(env.client)          # реальные task/agent — FK terminal_sessions
     tid = stack["task"]["id"]
-    res = await tt._tool_run({"command": "echo secrem-ok", "cwd": str(root),
+    res = await tt._tool_run({"command": "echo secrem-ok", "cwd": "scratch",
                               "mode": "project_host", "timeout": 20},
                              _ctx(env, task_id=tid, agent=stack["agent"]))
     assert res.error is False, res.content
@@ -103,6 +106,49 @@ async def test_manager_start_enforces_roots_before_policy(tmp_path):
     with pytest.raises(PermissionError, match="outside allowed roots"):
         await mgr.start("echo x", tmp_path, pol, approved=True)
     assert mgr.sessions == {}
+
+
+async def test_ap001_default_roots_exclude_data_dir_but_include_scratch(env):
+    """AP-001 regression.
+
+    Before the fix, `_roots()` fell back to [settings.data_dir] whenever the
+    owner had not configured `terminal.roots` — the SAME directory that holds
+    bcc.db and the UI's plaintext auth token. An agent granted terminal.run with
+    no owner-configured roots could `cat` that token and call the API directly
+    (e.g. PATCH /api/agents to self-grant permissions) with no approval gate at
+    all. Bad case: the default root must never be data_dir itself.
+    """
+    roots = await tt._roots(env.svc)
+    assert env.settings.data_dir not in roots, roots
+    assert not any(str(r) == str(env.settings.data_dir) for r in roots), roots
+    # Legitimate case: the default is still usable — it resolves to a real,
+    # writable subdirectory of data_dir (scratch), not "nowhere at all".
+    assert len(roots) == 1
+    assert roots[0].is_relative_to(env.settings.data_dir)
+    assert roots[0].name == "scratch"
+    roots[0].mkdir(parents=True, exist_ok=True)
+    assert roots[0].is_dir()
+
+
+async def test_ap001_owner_configured_roots_still_take_priority(env):
+    """Legitimate case: once an owner explicitly configures terminal.roots (the
+    intended way to grant a real project directory), that configuration is used
+    as-is — AP-001 only changes the un-configured fallback, not the override
+    path owners rely on."""
+    import json as _json
+
+    import sqlalchemy as sa
+    from bcc.db import settings_kv
+
+    configured = "/some/owner/configured/project/root"
+    async with env.svc.db.session() as s:
+        await s.execute(sa.insert(settings_kv).values(
+            key=tt.ROOTS_KEY,
+            value_enc=env.svc.vault.encrypt(_json.dumps([configured])),
+        ))
+        await s.commit()
+    roots = await tt._roots(env.svc)
+    assert [str(r) for r in roots] == [configured]
 
 
 def test_docker_runtime_proof_marker():

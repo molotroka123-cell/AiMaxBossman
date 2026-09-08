@@ -213,22 +213,14 @@ async def finalize_task(engine, run_id: int, task_id: int, *, answer: str, usage
     return FinalizeDecision(True, "finalized", checks)
 
 
-async def finalize_override(svc, task_id: int, *, approval: dict) -> bool:
-    """Human review can waive reviewer judgement, never required world evidence."""
-    from .db import approvals as approvals_t
-    async with svc.db.session() as s:
-        task = await fetch_one(s, tasks_t, task_id)
-        authorized = await fetch_one(s, approvals_t, approval.get("id"))
-        latest_run = (await s.execute(sa.select(runs_t.c.id).where(
-            runs_t.c.task_id == task_id).order_by(runs_t.c.id.desc()).limit(1))).scalar()
-        if (not task or task["status"] != "waiting_approval" or not authorized
-                or authorized["task_id"] != task_id or authorized["status"] != "approved"
-                or authorized["kind"] not in (REVIEW_KIND, "review_escalation_done")
-                or authorized["run_id"] != approval.get("run_id")
-                or latest_run != authorized["run_id"]):
-            return False
-        rows = [dict(r._mapping) for r in (await s.execute(sa.select(tool_calls_t).where(
-            tool_calls_t.c.run_id == authorized["run_id"]).order_by(tool_calls_t.c.id))).fetchall()]
+async def _override_reason(svc, task: dict, rows: list[dict]) -> str:
+    """Why a human override may NOT finalize this task — "" if nothing blocks it.
+
+    Shared by `finalize_override` (which acts on it) and
+    `finalize_decision_reason` (which only reports it, so the owner's next
+    escalation question can name the real blocker instead of repeating the
+    first ask). Keeping one implementation is the point: a diagnostic that
+    disagreed with the gate would be worse than none."""
     try:
         expected = _required_expectations(task)
         reason = _effect_problem(rows, expected, task)
@@ -246,6 +238,47 @@ async def finalize_override(svc, task_id: int, *, approval: dict) -> bool:
                     reason = "STALE_EVIDENCE_REJECTED"
     except Exception as exc:  # observation unavailable is not approval evidence
         reason = "required effect verification unavailable: " + type(exc).__name__
+    return reason or ""
+
+
+async def _run_tool_rows(svc, run_id) -> list[dict]:
+    if run_id is None:
+        return []
+    async with svc.db.session() as s:
+        return [dict(r._mapping) for r in (await s.execute(sa.select(tool_calls_t).where(
+            tool_calls_t.c.run_id == run_id).order_by(tool_calls_t.c.id))).fetchall()]
+
+
+async def finalize_decision_reason(svc, task_id: int, run_id=None) -> str:
+    """Report-only twin of `_override_reason`: never writes, never finalizes.
+
+    Used by the review-escalation state machine to explain a refusal. Returns
+    "" when nothing blocks finalization (which itself is worth reporting — it
+    means the refusal came from a precondition, not from the evidence)."""
+    async with svc.db.session() as s:
+        task = await fetch_one(s, tasks_t, task_id)
+    if not task:
+        return "task not found"
+    return await _override_reason(svc, task, await _run_tool_rows(svc, run_id))
+
+
+async def finalize_override(svc, task_id: int, *, approval: dict) -> bool:
+    """Human review can waive reviewer judgement, never required world evidence."""
+    from .db import approvals as approvals_t
+    async with svc.db.session() as s:
+        task = await fetch_one(s, tasks_t, task_id)
+        authorized = await fetch_one(s, approvals_t, approval.get("id"))
+        latest_run = (await s.execute(sa.select(runs_t.c.id).where(
+            runs_t.c.task_id == task_id).order_by(runs_t.c.id.desc()).limit(1))).scalar()
+        if (not task or task["status"] != "waiting_approval" or not authorized
+                or authorized["task_id"] != task_id or authorized["status"] != "approved"
+                or authorized["kind"] not in (REVIEW_KIND, "review_escalation_done")
+                or authorized["run_id"] != approval.get("run_id")
+                or latest_run != authorized["run_id"]):
+            return False
+        rows = [dict(r._mapping) for r in (await s.execute(sa.select(tool_calls_t).where(
+            tool_calls_t.c.run_id == authorized["run_id"]).order_by(tool_calls_t.c.id))).fetchall()]
+    reason = await _override_reason(svc, task, rows)
     if reason:
         await svc.bus.emit("task.finalize_refused", task_id=task_id, run_id=authorized["run_id"],
                            reason=reason, override=True)

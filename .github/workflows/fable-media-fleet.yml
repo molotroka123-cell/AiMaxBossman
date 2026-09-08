@@ -35,7 +35,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - name: Record exact source
@@ -50,6 +50,12 @@ jobs:
           python -m pip install -e . -e "./bossman-core[dev]" -e "./command-center[dev,browser]"
           sudo apt-get update -q
           sudo apt-get install -y -q ffmpeg
+          # `tests/test_video_studio_*.py` is a glob, and the playback-stall
+          # regressions it now matches drive a real browser. The `browser`
+          # extra installs the Playwright library, not the browser binary;
+          # without this the four of them fail on a missing executable and
+          # say nothing about the product.
+          python -m playwright install --with-deps chromium
       - name: Require actual FFmpeg encode, probe and decode
         id: media-ready
         shell: bash
@@ -84,7 +90,7 @@ jobs:
           git diff --check
       - name: Retain actual results including partial failures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fable-media-fleet-${{ matrix.python }}-${{ github.sha }}
           path: acceptance-results/

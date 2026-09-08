@@ -17,13 +17,83 @@ const TEXT = {
   en: { media: 'Media', properties: 'Properties', montage: 'Edit', color: 'Color', audio: 'Audio', vfx: 'VFX', ai: 'AI', import: 'Import', export: 'Export', preview: 'Render preview', project: 'Project', create: 'New project', open: 'Open', rename: 'Rename', duplicate: 'Duplicate', archive: 'Archive', search: 'Search files and tags', all: 'All folders', name: 'Name', duration: 'Duration', size: 'Size', empty: 'Your next edit starts here', emptyHelp: 'Create a project and import sources. Your media stays local.', drop: 'Drop video, audio or images here', noMedia: 'No sources imported yet', addTrack: 'Track', split: 'Split', remove: 'Delete', undo: 'Undo', redo: 'Redo', marker: 'Marker', snap: 'Snap', range: 'Range', refresh: 'Refresh', saved: 'Saved', select: 'Select a timeline clip', apply: 'Apply', dry: 'Review changes', history: 'History', commands: 'Commands', assistant: 'Bossman AI', proposal: 'Proposed changes', explain: 'The agent uses the same commands. Review the plan, then apply it against the current revision.', local: 'Local · source files stay on this device', missing: 'Source unavailable', busy: 'Working', cancel: 'Cancel', reset: 'Reset layout', noPreview: 'No project preview yet', previewHint: 'Select a source or render a preview of this revision.', revisions: 'Versions', title: 'Title', advanced: 'Advanced command', close: 'Close', fullscreen: 'Fullscreen', source: 'Source', output: 'Output', conflict: 'Revision conflict. Nothing was applied; refresh the project and review again.', load: 'Loading…', folder: 'Folder', tags: 'Tags', add: 'Add to timeline', effect: 'Effect', keyframe: 'Keyframe', download: 'Download file', verified: 'Verified', unknown: 'Unknown outcome', bounds: 'Start / end, seconds', inspect: 'Source properties', portable: 'Portable project', timeline: 'Timeline', fit: 'Fit', start: 'Start', selectProject: 'Choose a project', failure: 'Error', lock: 'Lock', agentUndo: 'Undo last operation', changes: 'Changed objects', warning: 'Warnings', current: 'Current revision', compare: 'Compare', unavailable: 'Unavailable', captions: 'Captions' },
 };
 
+/* Почему предпросмотр не играет — словами, а не «исходник недоступен».
+
+   Файл отдавался с 200 и честно раскодировался ffmpeg'ом, а браузер без
+   проприетарных декодеров (сборки Chromium на Linux) отвечал
+   DEMUXER_ERROR_NO_SUPPORTED_STREAMS. Владелец при этом читал «Исходник
+   недоступен» — прямую неправду про присутствующий файл, и починить по такому
+   сообщению было нечего. MediaError.code различает эти случаи; показываем их. */
+export function mediaFailure(el, lang) {
+  const ru = lang === 'ru';
+  const code = el && el.error ? el.error.code : 0;
+  const detail = el && el.error && el.error.message ? ` (${el.error.message})` : '';
+  if (code === 4) {
+    return (ru ? 'Файл получен, но этот браузер не умеет его декодировать. '
+               + 'Откройте в Chrome/Edge или соберите preview в WebM (VP9/Opus).'
+               : 'The file arrived, but this browser cannot decode it. '
+               + 'Open it in Chrome/Edge, or render the preview as WebM (VP9/Opus).') + detail;
+  }
+  if (code === 2) return (ru ? 'Сеть оборвала загрузку файла.' : 'The network interrupted the download.') + detail;
+  if (code === 3) return (ru ? 'Файл повреждён: декодирование прервалось.' : 'The file is corrupt: decoding failed.') + detail;
+  if (code === 1) return ru ? 'Воспроизведение прервано.' : 'Playback was aborted.';
+  return (ru ? 'Исходник недоступен.' : 'Source unavailable.') + detail;
+}
+
+/* Формат preview выбирает ПРОДУКТ, по ответу самого браузера — не тест.
+
+   Измерено на этом хосте, а не предположено. Кнопка «Создать preview» всегда
+   просила контейнер по умолчанию (mp4 + libx264/aac). Chromium без
+   проприетарных декодеров отвечает:
+     canPlayType('video/mp4; codecs="avc1.64001E, mp4a.40.2"') -> ''
+     canPlayType('video/mp4; codecs="avc1.42E01E"')            -> ''
+     canPlayType('video/webm; codecs="vp9, opus"')             -> 'probably'
+   При этом 'video/mp4; codecs="av01.0.05M.08"' даёт 'probably' — значит дело
+   НЕ в контейнере mp4, а именно в отсутствии H.264/AAC. Владелец получал файл
+   с HTTP 200, валидный по ffprobe и целиком декодируемый ffmpeg'ом, и
+   MediaError code 4 DEMUXER_ERROR_NO_SUPPORTED_STREAMS в <video>. Починить
+   это в тесте нельзя: ломается путь владельца, а не путь теста.
+
+   Порядок кандидатов сохраняет прежнее поведение: mp4/H.264/AAC остаётся
+   первым, поэтому браузер с проприетарными декодерами (Chrome/Edge у
+   владельца) получает ровно то же, что и раньше. На WebM уходим только там,
+   где браузер сам сказал, что H.264 не умеет. Вывод не обобщается на «все
+   Linux-сборки»: спрашивается именно тот браузер, который сейчас открыт. */
+export const PREVIEW_FORMATS = [
+  { container: 'mp4', video_codec: 'libx264', audio_codec: 'aac', mime: 'video/mp4; codecs="avc1.64001E, mp4a.40.2"' },
+  { container: 'webm', video_codec: 'libvpx-vp9', audio_codec: 'libopus', mime: 'video/webm; codecs="vp9, opus"' },
+];
+
+/* Список кодировщиков хоста приходит из `ffmpeg -encoders` и разбирается по
+   `\w+`, что ОБРЕЗАЕТ дефисные имена: на этом хосте libvpx-vp9 приезжает как
+   'libvpx' (проверено, не додумано). Поэтому принимаем и точное имя, и его
+   первый сегмент. Отсутствующий или пустой список — это «неизвестно», а не
+   «кодировщика нет»: молча запрещать по незнанию мы не будем, непригодная
+   пара всё равно отвергается сервером до постановки в очередь. */
+export function hasEncoder(encoders, name) {
+  if (!Array.isArray(encoders) || !encoders.length) return true;
+  return encoders.includes(name) || encoders.includes(name.split('-')[0]);
+}
+
+export function previewFormat(canPlayType, encoders) {
+  const buildable = PREVIEW_FORMATS.filter(f => hasEncoder(encoders, f.video_codec) && hasEncoder(encoders, f.audio_codec));
+  // canPlayType отвечает '' | 'maybe' | 'probably'. 'maybe' значит «контейнер
+  // знаком, про кодеки ничего не обещаю» — именно на нём и получался таймаут.
+  // Сначала берём то, что браузер обещает, и только потом 'maybe'.
+  for (const wanted of ['probably', 'maybe']) {
+    const found = buildable.find(f => canPlayType(f.mime) === wanted);
+    if (found) return found;
+  }
+  return null;
+}
+
 class Editor {
   constructor(ctx, params) {
     this.ctx = ctx; this.params = params; this.lang = readPreference('language', 'ru');
     this.workspace = readPreference('workspace', 'montage'); this.layout = readPreference('layout', { library: 238, inspector: 266, timeline: 284 });
     this.project = null; this.projects = []; this.selected = null; this.selectedIds = new Set(); this.mediaSelection = null;
     this.playhead = 0; this.zoom = 68; this.snap = true; this.query = ''; this.folder = ''; this.sort = 'name';
-    this.agentOpen = readPreference('assistant', true) !== false; this.busy = false; this.error = ''; this.previewUrl = ''; this.previewRevision = null;
+    this.agentOpen = readPreference('assistant', true) !== false; this.busy = false; this.error = ''; this.previewUrl = ''; this.previewRevision = null; this.playerNode = null; this.playerFailure = '';
     this.jobs = new Map(); this.root = h('section.vs-studio', { tabindex: '0', 'aria-label': 'Bossman Video Studio', onKeydown: e => this.keyboard(e) });
     this.proposalText = '{\n  "type": "clip.split",\n  "clip_id": "",\n  "at": 1000000\n}';
     this.review = null; this.lastChange = []; this.disposed = false;
@@ -181,11 +251,9 @@ class Editor {
     const url = media ? `${BASE}/media/${encodeURIComponent(media.id)}/${this.sourceProxy && media.has_video ? 'proxy' : 'file'}?project_id=${encodeURIComponent(this.project.id)}&source=${encodeURIComponent(media.sha256)}` : this.previewUrl;
     const stage = h('div.vs-preview-stage');
     if (url) {
-      const player = h(media && !media.has_video && media.width ? 'img' : 'video', { src: url, controls: true, preload: 'metadata', playsinline: true, 'aria-label': this.t('preview'),
-        onLoadedmetadata: e => { if (!media) e.target.currentTime = seconds(this.playhead); },
-        onTimeupdate: e => { if (!media) { this.playhead = Math.round(e.target.currentTime * TIMEBASE); this.updatePlayhead(); } },
-        onError: () => { stage.append(h('div.vs-preview-error', this.t('missing'))); } }); stage.append(player);
-    } else stage.append(h('div.vs-preview-empty', h('div', '▷'), h('strong', this.t('noPreview')), h('p', this.t('previewHint')), this.button(this.t('preview'), () => this.startExport(true), { disabled: !endTime(this.project) })));
+      stage.append(this.player(url, media && !media.has_video && media.width ? 'img' : 'video', !media));
+      if (this.playerFailure) stage.append(h('div.vs-preview-error', this.playerFailure));
+    } else { this.playerNode = null; this.playerFailure = ''; stage.append(h('div.vs-preview-empty', h('div', '▷'), h('strong', this.t('noPreview')), h('p', this.t('previewHint')), this.button(this.t('preview'), () => this.startExport(true), { disabled: !endTime(this.project) }))); }
     return h('section.vs-preview.vs-panel', h('div.vs-panel-head', h('span', `${media ? this.t('source') : this.t('project')}: ${media?.name || this.project.name}`),
       h('small', media ? '' : this.previewRevision === null ? '' : `r${this.previewRevision}${this.previewRevision !== this.project.revision ? ' · outdated' : ''}`)), stage,
       h('div.vs-transport', h('span.vs-timecode', timecode(this.playhead, activeSequence(this.project).fps)),
@@ -197,6 +265,49 @@ class Editor {
         media.has_video ? this.button(this.sourceProxy ? 'Proxy ✓' : 'Proxy', () => { this.sourceProxy = !this.sourceProxy; this.paint(); }, { 'aria-pressed': !!this.sourceProxy }) : null) : null,
       media?.has_audio ? h('div.vs-source-waveform', h('small', this.lang === 'ru' ? 'Аудиоволна исходника · весь файл' : 'Source waveform · whole file'), h('img', { src: `${BASE}/media/${encodeURIComponent(media.id)}/waveform?project_id=${encodeURIComponent(this.project.id)}&source=${encodeURIComponent(media.sha256)}`, alt: this.lang === 'ru' ? 'Аудиоволна исходника' : 'Source waveform', onError: e => e.target.replaceWith(h('small', this.lang === 'ru' ? 'Сначала подготовьте аудиоволну.' : 'Prepare the waveform first.')) })) : null,
       this.jobList());
+  }
+  /* Проигрыватель ПЕРЕЖИВАЕТ перерисовку страницы: он не строится заново.
+
+     `h()` создаёт новый узел на каждый вызов, а `preview()` вызывается из
+     каждого `paint()` — и `paint()` зовёт не только владелец: его зовут
+     завершение задачи рендера (`pollJob`), событие сервера через `refresh()`,
+     любой перехваченный сбой в `guard()`, переключение рабочего пространства,
+     языка и раскладки. Пока <video> пересоздавался, ЛЮБАЯ такая перерисовка
+     посреди воспроизведения молча его обрывала.
+
+     Измерено трассировкой на живой странице, а не предположено: play() был
+     вызван один раз и его промис РАЗРЕШИЛСЯ, pause() не вызывался ни разу,
+     currentTime посреди игры никто не двигал, а src нового узла совпадал со
+     старым. В журнале ровно одно событие: на 0.5 c появился новый <video>,
+     построенный `Editor.preview`, старый выброшен. Дальше новый узел грузится
+     с нуля и стоит на паузе, а `onLoadedmetadata` возвращает его на playhead —
+     снаружи это «встало на 0.08 c: paused, ended:false, seeking:false,
+     error:null, readyState:4», то самое состояние из отчёта приёмки. Ни к
+     кодекам, ни к транспорту, ни к байтам это отношения не имеет.
+
+     Узел с тем же источником переиспользуется. Изъятие и вставка внутри
+     одного `paint()` синхронны, а internal pause steps спецификация выполняет
+     только после stable state — к этому моменту элемент снова в документе,
+     и воспроизведение не прерывается. Смена источника (другой previewUrl,
+     выбранный исходник, прокси) по-прежнему даёт новый элемент. */
+  player(url, tag, isProject) {
+    const kept = this.playerNode;
+    if (kept && kept.localName === tag && kept.getAttribute('src') === url) {
+      kept.setAttribute('aria-label', this.t('preview'));
+      return kept;
+    }
+    this.playerFailure = '';
+    this.playerNode = h(tag, { src: url, controls: true, preload: 'metadata', playsinline: true, 'aria-label': this.t('preview'),
+      onLoadedmetadata: e => { if (isProject) e.target.currentTime = seconds(this.playhead); },
+      onTimeupdate: e => { if (isProject) { this.playhead = Math.round(e.target.currentTime * TIMEBASE); this.updatePlayhead(); } },
+      onError: e => {
+        // Сбой источника переживает перерисовку так же, как сам элемент:
+        // раньше сообщение держал только тот stage, который его получил.
+        this.playerFailure = mediaFailure(e.target, this.lang);
+        const stage = e.target.parentElement;
+        if (stage && !stage.querySelector('.vs-preview-error')) stage.append(h('div.vs-preview-error', this.playerFailure));
+      } });
+    return this.playerNode;
   }
   togglePlay() { const player = this.root.querySelector('.vs-preview video'); if (player) { if (player.paused) return player.play(); player.pause(); } }
   seek(time) { this.playhead = Math.round(Math.max(0, time)); const player = this.root.querySelector('.vs-preview video'); if (player && !this.mediaSelection) player.currentTime = seconds(this.playhead); this.updatePlayhead(); }
@@ -559,8 +670,22 @@ class Editor {
     ], f => this.startExport(preview, exportOptions(f)));
     document.querySelector('dialog.vs-dialog form')?.append(h('p.vs-muted', this.lang === 'ru' ? 'Пустые размеры используют профиль. Аудио: 48 кГц, стерео. Аппаратные кодеки появятся после проверки кодирования на этом устройстве.' : 'Blank dimensions use the profile. Audio: 48 kHz stereo. Hardware codecs require an actual encode probe on this device.'));
   }
+  chooseFormat() {
+    const probe = document.createElement('video');
+    return previewFormat(mime => probe.canPlayType(mime), this.capabilities?.encoders);
+  }
   async startExport(preview, options = {}) {
-    const { container = 'mp4', ...renderOptions } = options;
+    // Кнопка «Создать preview» контейнер не называет — значит его выбирает
+    // продукт, спросив ЭТОТ браузер, что он действительно раскодирует. Явный
+    // выбор из диалога экспорта не трогаем: там контейнер назвал владелец.
+    // Умолчание не изменилось: если браузер не обещает ни одного кандидата,
+    // уходит прежний mp4, а панель называет настоящий MediaError.
+    const chosen = preview && options.container === undefined ? this.chooseFormat() : null;
+    const { container = chosen?.container || 'mp4', ...renderOptions } = options;
+    if (chosen) {
+      if (renderOptions.video_codec === undefined) renderOptions.video_codec = chosen.video_codec;
+      if (renderOptions.audio_codec === undefined) renderOptions.audio_codec = chosen.audio_codec;
+    }
     if (renderOptions.video_codec?.endsWith('_nvenc')) {
       const seq = activeSequence(this.project), defaults = { source: [seq.width, seq.height], youtube: [1920, 1080], reels: [1080, 1920], square: [1080, 1080] }[renderOptions.profile || 'source'];
       const width = renderOptions.width || defaults[0], height = renderOptions.height || defaults[1];
@@ -653,8 +778,31 @@ class Editor {
 }
 
 export const VideoStudioPage = {
-  id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary',
-  async render(ctx, params = {}) { if (editor) { editor.disposed = true; clearTimeout(editor.leaseTimer); clearTimeout(editor.timelineTimer); } editor = new Editor(ctx, params); return editor.load(); },
+  id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary', section: 'studio',
+  /* Повторный render() приходит не только от навигации.
+
+     Оболочка зовёт `renderPage()` при открытии вебсокета и при восстановлении
+     связи (`app.js`, `ws.open` / `onConnRestored`) — то есть по событию сети,
+     в произвольный момент. Приёмка перезапускает сервер посреди сценария,
+     значит связь рвётся и восстанавливается ровно там, где владелец смотрит
+     превью. Пока каждый такой вызов строил НОВЫЙ Editor, студия собиралась с
+     нуля: новый <video> вместо игравшего (воспроизведение обрывалось молча,
+     ровно тем же «paused: true, ended: false, error: null»), а заодно
+     терялись выделение, прокрутка и раскладка.
+
+     Измерено кнопкой «Обновить» самой оболочки: она идёт тем же путём, и
+     превью на ней умирало. Поэтому живой редактор того же проекта
+     переиспользуется — `load()` всё равно перечитывает проекты, возможности
+     и сам проект, так что «данные обновлены» остаётся правдой. Уход на другую
+     страницу (узел отсоединён) и смена проекта по-прежнему строят студию
+     заново. */
+  async render(ctx, params = {}) {
+    const live = editor && !editor.disposed && editor.root.isConnected
+      && (params.project_id || null) === (editor.params?.project_id || null);
+    if (live) { editor.ctx = ctx; editor.params = params; return editor.load(); }
+    if (editor) { editor.disposed = true; clearTimeout(editor.leaseTimer); clearTimeout(editor.timelineTimer); }
+    editor = new Editor(ctx, params); return editor.load();
+  },
   onEvent(event) { if (String(event.kind || '').startsWith('video.') && editor?.root.isConnected) editor.guard(() => editor.refresh()); return false; },
 };
 export default VideoStudioPage;

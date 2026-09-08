@@ -301,6 +301,7 @@ def test_windows_lock_released_when_body_raises(tmp_path, monkeypatch):
     assert calls[-1][0] == mod.LK_UNLCK, f"лок не снят: {calls}"
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="POSIX flock/fcntl отсутствует на Windows")
 def test_posix_lock_path_unchanged(tmp_path, monkeypatch):
     """POSIX по-прежнему блокирующий flock(LOCK_EX)/LOCK_UN — поведение не двигаем."""
     import fcntl

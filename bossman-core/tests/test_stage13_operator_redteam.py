@@ -22,8 +22,10 @@ def typ(text, **kw):
     return ComputerAction.make(ActionKind.TYPE, expected=ExpectedState(contains_text="ok"), text=text, **kw)
 
 
-def complete():
-    return ComputerAction.make(ActionKind.COMPLETE)
+def complete(**kw):
+    # AT-01: COMPLETE несёт проверяемое постусловие (фейковый экран "ok").
+    kw.setdefault("expected", ExpectedState(contains_text="ok"))
+    return ComputerAction.make(ActionKind.COMPLETE, **kw)
 
 
 def approval_hooks(status="approved", record=None, gate_fut=None, created_event=None):

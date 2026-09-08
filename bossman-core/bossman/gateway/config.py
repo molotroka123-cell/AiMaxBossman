@@ -10,6 +10,104 @@ import yaml
 
 _DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
 
+# Секреты провайдеров живут ТОЛЬКО в окружении/.env: в gateway.yaml лежит имя
+# переменной, а не значение, поэтому конфиг можно коммитить и показывать.
+OPENROUTER_KEY_ENV = "OPENROUTER_API_KEY"
+OPENROUTER_BASE_URL_ENV = "OPENROUTER_BASE_URL"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api"
+ZAI_KEY_ENV = "ZAI_API_KEY"
+ZAI_BASE_URL_ENV = "ZAI_BASE_URL"
+ZAI_BASE_URL = "https://api.z.ai/api/coding/paas/v4"
+GLM_MODEL_ENV = "GLM_MODEL_ID"
+GLM_MODEL = "glm-5.3"
+
+# Остальные провайдеры, пришедшие из main. Все, кроме Anthropic, говорят на
+# диалекте OpenAI, поэтому им не нужно ни строчки кода бэкенда — только адрес
+# и имя переменной с ключом. Это и есть причина, по которой их набор
+# расширяется конфигурацией, а не девятью классами: девять почти одинаковых
+# классов означали бы девять мест, где однажды забудут про автомат защиты.
+OPENAI_KEY_ENV = "OPENAI_API_KEY"
+OPENAI_BASE_URL_ENV = "OPENAI_BASE_URL"
+OPENAI_BASE_URL = "https://api.openai.com"
+ANTHROPIC_KEY_ENV = "ANTHROPIC_API_KEY"
+ANTHROPIC_BASE_URL_ENV = "ANTHROPIC_BASE_URL"
+ANTHROPIC_BASE_URL = "https://api.anthropic.com"
+ANTHROPIC_VERSION = "2023-06-01"
+# У Google есть собственная OpenAI-совместимая поверхность. Через неё модели
+# Gemini доступны без отдельного адаптера — и, что важнее, под тем же
+# автоматом защиты, теми же таймаутами и той же честной диагностикой.
+GOOGLE_KEY_ENV = "GOOGLE_API_KEY"
+GOOGLE_BASE_URL_ENV = "GOOGLE_BASE_URL"
+GOOGLE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+GROQ_KEY_ENV = "GROQ_API_KEY"
+GROQ_BASE_URL_ENV = "GROQ_BASE_URL"
+GROQ_BASE_URL = "https://api.groq.com/openai"
+MISTRAL_KEY_ENV = "MISTRAL_API_KEY"
+MISTRAL_BASE_URL_ENV = "MISTRAL_BASE_URL"
+MISTRAL_BASE_URL = "https://api.mistral.ai"
+TOGETHER_KEY_ENV = "TOGETHER_API_KEY"
+TOGETHER_BASE_URL_ENV = "TOGETHER_BASE_URL"
+TOGETHER_BASE_URL = "https://api.together.xyz"
+ENV_FILE_ENV = "BOSSMAN_ENV_FILE"
+_CORE_ROOT = Path(__file__).resolve().parents[2]
+
+
+def parse_env_file(text: str) -> dict[str, str]:
+    """`KEY=VALUE` построчно. Ничего, кроме присваиваний, файл не значит.
+
+    Свой разбор, а не библиотека: зависимость ради двадцати строк — плохой
+    обмен, а формат .env здесь ровно такой, каким его пишет владелец в
+    .env.example. Комментарии, пустые строки и `export ` игнорируются;
+    окружающие кавычки снимаются.
+    """
+    out: dict[str, str] = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if key.startswith("export "):
+            key = key[len("export "):].strip()
+        if not key:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        out[key] = value
+    return out
+
+
+def load_env_file(path: str | Path | None = None, *, override: bool = False) -> dict[str, str]:
+    """Подтянуть .env в окружение процесса. Уже заданная переменная сильнее файла.
+
+    Настоящее окружение (compose, systemd, терминал владельца) — источник
+    истины: файл только заполняет пропуски, иначе .env с машины разработчика
+    молча перебивал бы боевые значения. Отсутствующий или нечитаемый файл —
+    обычное состояние, а не ошибка: провайдер просто останется недоступным.
+    """
+    target = Path(path or os.getenv(ENV_FILE_ENV) or (_CORE_ROOT / ".env"))
+    try:
+        values = parse_env_file(target.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError):
+        return {}
+    for key, value in values.items():
+        if override or key not in os.environ:
+            os.environ[key] = value
+    return values
+
+
+def _strip_version(url: str) -> str:
+    """База бэкенда без хвостового `/v1`: версия живёт в пути запроса.
+
+    Gateway строит `/v1/chat/completions` сам, а владелец копирует адрес из
+    документации OpenRouter, где он указан вместе с `/v1`. Без нормализации
+    получалось `/api/v1/v1/models` — 404 на каждом запросе и «провайдер
+    недоступен» при исправном ключе.
+    """
+    url = (url or "").strip().rstrip("/")
+    return url[:-3].rstrip("/") if url.endswith("/v1") else url
+
 
 # Адреса, на которых Ollama СЛУШАЕТ, но по которым к ней нельзя ПОДКЛЮЧИТЬСЯ.
 # `OLLAMA_HOST=0.0.0.0:11434` — документированный способ открыть Ollama наружу,
@@ -82,6 +180,11 @@ class BackendConfig:
     prompt_cache_ttl: str = "5m"
     session_affinity_enabled: bool = True
     health_path: str = "/v1/models"
+    # Куда лечь пути, которые Gateway строит по-OpenAI («/v1/chat/completions»).
+    # Значение по умолчанию оставляет их как есть; провайдер, у которого версия
+    # уже входит в base_url (Z.ai: .../paas/v4), объявляет "" и получает
+    # «/chat/completions» вместо несуществующего «/v4/v1/chat/completions».
+    api_path_prefix: str = "/v1"
     extra_headers: dict[str, str] = field(default_factory=dict)
     # Облачность объявляется явно, а не угадывается по имени: это источник
     # истины для облачной политики. Backend без флага считается локальным —
@@ -100,6 +203,175 @@ class BackendConfig:
         if self.api_key_env:
             return os.getenv(self.api_key_env) or self.api_key
         return self.api_key
+
+
+def openrouter_backend_config(**overrides: Any) -> BackendConfig:
+    """Бэкенд OpenRouter из окружения. Ключ — только через имя переменной.
+
+    Заголовки HTTP-Referer/X-Title — требование самого OpenRouter к атрибуции
+    трафика; без них запросы обслуживаются, но обезличены в кабинете владельца.
+    """
+    base = _strip_version(os.getenv(OPENROUTER_BASE_URL_ENV, "") or OPENROUTER_BASE_URL)
+    cfg = dict(
+        name="openrouter", base_url=base, kind="openrouter", cloud=True,
+        api_key_env=OPENROUTER_KEY_ENV, health_path="/v1/models",
+        max_concurrency=4, timeout_seconds=180.0,
+        extra_headers={"HTTP-Referer": "https://bossman.local",
+                       "X-Title": "BOSSMAN"},
+    )
+    cfg.update(overrides)
+    return BackendConfig(**cfg)
+
+
+def zai_backend_config(**overrides: Any) -> BackendConfig:
+    """Бэкенд Z.ai (GLM напрямую). Версия API входит в base_url, поэтому
+    api_path_prefix пуст: пути строятся от `/chat/completions`."""
+    base = (os.getenv(ZAI_BASE_URL_ENV, "") or ZAI_BASE_URL).rstrip("/")
+    cfg = dict(
+        name="zai", base_url=base, kind="openai", cloud=True,
+        api_key_env=ZAI_KEY_ENV, health_path="/models", api_path_prefix="",
+        max_concurrency=2, timeout_seconds=180.0,
+    )
+    cfg.update(overrides)
+    return BackendConfig(**cfg)
+
+
+def glm_model_id() -> str:
+    """Идентификатор модели GLM у Z.ai — конфигурация, а не константа кода."""
+    return (os.getenv(GLM_MODEL_ENV, "") or GLM_MODEL).strip() or GLM_MODEL
+
+
+def _openai_dialect_config(name: str, *, base_url_env: str, base_url: str,
+                           key_env: str, cloud: bool = True,
+                           **overrides: Any) -> BackendConfig:
+    """Конфигурация провайдера, говорящего на диалекте OpenAI.
+
+    Одна функция вместо девяти классов: разница между Groq, Mistral, Together,
+    OpenAI и Gemini-через-совместимый-адрес — это адрес и имя переменной с
+    ключом, и ничего больше. Всё остальное — автомат защиты, семафор,
+    классификация отказов, health, потоковая передача — у них общее, и общим
+    оно и должно остаться: девять копий значат девять мест, где однажды
+    забудут про автомат.
+    """
+    cfg = dict(
+        name=name, base_url=(os.getenv(base_url_env, "") or base_url).rstrip("/"),
+        kind="openai", cloud=cloud, api_key_env=key_env,
+        health_path="/v1/models", max_concurrency=2, timeout_seconds=180.0,
+    )
+    cfg.update(overrides)
+    return BackendConfig(**cfg)
+
+
+def openai_backend_config(**overrides: Any) -> BackendConfig:
+    return _openai_dialect_config("openai", base_url_env=OPENAI_BASE_URL_ENV,
+                                  base_url=OPENAI_BASE_URL,
+                                  key_env=OPENAI_KEY_ENV, **overrides)
+
+
+def google_backend_config(**overrides: Any) -> BackendConfig:
+    """Gemini через OpenAI-совместимую поверхность Google.
+
+    Версия входит в base_url, поэтому пути строятся без `/v1`.
+    """
+    return _openai_dialect_config("google", base_url_env=GOOGLE_BASE_URL_ENV,
+                                  base_url=GOOGLE_BASE_URL,
+                                  key_env=GOOGLE_KEY_ENV,
+                                  health_path="/models", api_path_prefix="",
+                                  **overrides)
+
+
+def groq_backend_config(**overrides: Any) -> BackendConfig:
+    return _openai_dialect_config("groq", base_url_env=GROQ_BASE_URL_ENV,
+                                  base_url=GROQ_BASE_URL, key_env=GROQ_KEY_ENV,
+                                  **overrides)
+
+
+def mistral_backend_config(**overrides: Any) -> BackendConfig:
+    return _openai_dialect_config("mistral", base_url_env=MISTRAL_BASE_URL_ENV,
+                                  base_url=MISTRAL_BASE_URL,
+                                  key_env=MISTRAL_KEY_ENV, **overrides)
+
+
+def together_backend_config(**overrides: Any) -> BackendConfig:
+    return _openai_dialect_config("together", base_url_env=TOGETHER_BASE_URL_ENV,
+                                  base_url=TOGETHER_BASE_URL,
+                                  key_env=TOGETHER_KEY_ENV, **overrides)
+
+
+def anthropic_backend_config(**overrides: Any) -> BackendConfig:
+    """Anthropic — единственный из набора, кто говорит НЕ на диалекте OpenAI.
+
+    Ему и достаётся единственный отдельный класс бэкенда: другой заголовок
+    ключа, другой путь инференса, системное сообщение отдельным полем.
+    """
+    cfg = dict(
+        name="anthropic",
+        base_url=(os.getenv(ANTHROPIC_BASE_URL_ENV, "") or ANTHROPIC_BASE_URL).rstrip("/"),
+        kind="anthropic", cloud=True, api_key_env=ANTHROPIC_KEY_ENV,
+        health_path="/v1/models", max_concurrency=2, timeout_seconds=180.0,
+        extra_headers={"anthropic-version": ANTHROPIC_VERSION},
+    )
+    cfg.update(overrides)
+    return BackendConfig(**cfg)
+
+
+def ollama_backend_config(**overrides: Any) -> BackendConfig:
+    """Локальная Ollama. Ключа нет и не требуется — и облаком она не является."""
+    base = _resolved_ollama_base_url(os.getenv("OLLAMA_HOST", "") or "http://127.0.0.1:11434")
+    cfg = dict(
+        name="ollama", base_url=base.rstrip("/"), kind="openai", cloud=False,
+        api_key_env=None, health_path="/v1/models",
+        max_concurrency=1, timeout_seconds=300.0,
+    )
+    cfg.update(overrides)
+    return BackendConfig(**cfg)
+
+
+# Провайдеры, которые появляются сами, как только владелец дал ключ:
+# (имя бэкенда, переменная ключа, фабрика конфигурации).
+#
+# Ollama здесь без переменной ключа: локальная модель не требует ключа, и
+# требовать его значило бы прятать локальный путь за облачным условием.
+ENV_BACKENDS = (
+    ("openrouter", OPENROUTER_KEY_ENV, openrouter_backend_config),
+    ("zai", ZAI_KEY_ENV, zai_backend_config),
+    ("openai", OPENAI_KEY_ENV, openai_backend_config),
+    ("anthropic", ANTHROPIC_KEY_ENV, anthropic_backend_config),
+    ("google", GOOGLE_KEY_ENV, google_backend_config),
+    ("groq", GROQ_KEY_ENV, groq_backend_config),
+    ("mistral", MISTRAL_KEY_ENV, mistral_backend_config),
+    ("together", TOGETHER_KEY_ENV, together_backend_config),
+)
+
+# Все провайдеры, которых умеет собрать шлюз, включая локального.
+PROVIDER_CONFIGS: dict[str, Any] = {
+    "openrouter": openrouter_backend_config,
+    "zai": zai_backend_config,
+    "openai": openai_backend_config,
+    "anthropic": anthropic_backend_config,
+    "google": google_backend_config,
+    "groq": groq_backend_config,
+    "mistral": mistral_backend_config,
+    "together": together_backend_config,
+    "ollama": ollama_backend_config,
+}
+
+AVAILABLE_PROVIDERS: tuple[str, ...] = tuple(PROVIDER_CONFIGS)
+
+
+def load_provider_config(provider: str, **overrides: Any) -> BackendConfig:
+    """Конфигурация одного провайдера по имени.
+
+    Отдаёт `BackendConfig`, а не словарь: словарь не знает, что ключ читается
+    из окружения, и вызывающий начинает носить ключ в руках. Здесь ключ
+    остаётся именем переменной до самого запроса.
+    """
+    factory = PROVIDER_CONFIGS.get(str(provider).strip().lower())
+    if factory is None:
+        raise ValueError(
+            f"неизвестный провайдер {provider!r}; известны: "
+            f"{', '.join(AVAILABLE_PROVIDERS)}")
+    return factory(**overrides)
 
 
 @dataclass(slots=True)
@@ -169,6 +441,7 @@ def _set(value: Any) -> set[str]:
 
 
 def load_gateway_config(path: str | Path | None = None) -> GatewayConfig:
+    load_env_file()                       # ключи владельца лежат в .env, не в yaml
     path = Path(path or os.getenv("BOSSMAN_GATEWAY_CONFIG", "config/gateway.yaml"))
     raw: dict[str, Any] = {}
     if path.exists():
@@ -180,6 +453,14 @@ def load_gateway_config(path: str | Path | None = None) -> GatewayConfig:
         if name == "ollama" and "base_url" in cfg:
             cfg["base_url"] = _resolved_ollama_base_url(str(cfg["base_url"]))
         backends[name] = BackendConfig(name=name, **cfg)
+
+    # Владелец дал ключ — провайдер появился. Иначе подключение облака требовало
+    # ещё и правки yaml, о которой в интерфейсе не сказано нигде: ключ принят,
+    # моделей нет, причина не названа. Явную запись из yaml (в том числе
+    # enabled: false) это не трогает — там решение уже принято оператором.
+    for name, key_env, factory in ENV_BACKENDS:
+        if name not in backends and os.getenv(key_env):
+            backends[name] = factory()
 
     aliases: dict[str, AliasConfig] = {}
     for name, cfg in (raw.get("aliases") or {}).items():

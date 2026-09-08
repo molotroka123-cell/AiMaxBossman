@@ -32,8 +32,11 @@ def click(**kw):
     return ComputerAction.make(ActionKind.CLICK, expected=ExpectedState(contains_text="ok"), **kw)
 
 
-def complete():
-    return ComputerAction.make(ActionKind.COMPLETE)
+def complete(**kw):
+    # AT-01: COMPLETE обязан нести проверяемое постусловие; фейковые тесты
+    # подтверждают его тем же наблюдением "ok", что и остальные действия.
+    kw.setdefault("expected", ExpectedState(contains_text="ok"))
+    return ComputerAction.make(ActionKind.COMPLETE, **kw)
 
 
 async def wait_for(cond, timeout_s=5.0, step=0.005):
@@ -159,10 +162,16 @@ async def test_verified_observation_is_reused_as_the_next_step_before(tmp_path):
     mgr = _reuse_manager(tmp_path, observer, max_age=5.0)
     t = mgr.create_task("two clicks")
     assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
-    # 1 initial + 1 after each of the two clicks. Without reuse the loop takes a
-    # fresh "before" for step 2 and for the COMPLETE turn as well: 5 observations.
-    assert len(observer.generations) == 3
-    assert mgr.observations_taken == 3 and mgr.observations_reused == 2
+    # 1 initial + 1 after each of the two clicks + 1 verdict observation for the
+    # COMPLETE turn (AT-01 checks the postcondition against a screen the planner
+    # has not already read). Without reuse the loop also takes a fresh "before"
+    # for step 2 and for the COMPLETE turn: 6 observations.
+    assert len(observer.generations) == 4
+    assert mgr.observations_taken == 4 and mgr.observations_reused == 2
+    # The effect-boundary applicability check (AT-03) runs on every dispatched
+    # step and is served by the cheap probe, not by a second full observation.
+    assert mgr.boundary_probes == 2 and observer.probe_calls == 2
+    assert mgr.stale_boundaries == 0
 
 
 async def test_reuse_off_takes_a_fresh_observation_for_every_step(tmp_path):
@@ -170,7 +179,8 @@ async def test_reuse_off_takes_a_fresh_observation_for_every_step(tmp_path):
     mgr = _reuse_manager(tmp_path, observer, max_age=0)
     t = mgr.create_task("two clicks")
     assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
-    assert len(observer.generations) == 5
+    # 3 "before" + 2 "after" + 1 COMPLETE verdict observation.
+    assert len(observer.generations) == 6
     assert mgr.observations_reused == 0
 
 
@@ -193,14 +203,24 @@ async def test_an_expired_observation_is_never_reused(tmp_path, monkeypatch):
 
 async def test_a_failed_verification_forces_a_fresh_observation(tmp_path):
     """An unverified post-state is not evidence of anything; the next turn must
-    look again rather than plan against an unconfirmed screen."""
+    look again rather than plan against an unconfirmed screen.
+
+    It is also not evidence that the goal was reached: the click was dispatched
+    but never confirmed, so AT-01 refuses to close an effect goal on it even
+    though the COMPLETE postcondition itself is true of the screen.
+    """
     observer = FakeObserver(summary="not what was expected")
-    mgr = make_manager(tmp_path / "t.json", FakePlanner([click(), complete()]),
-                       observer, adapter=FakeAdapter(), observation_reuse_max_age_s=5.0)
+    mgr = make_manager(tmp_path / "t.json", FakePlanner([
+        click(),
+        complete(expected=ExpectedState(contains_text="not what was expected")),
+    ]), observer, adapter=FakeAdapter(), observation_reuse_max_age_s=5.0)
     t = mgr.create_task("one click")
-    assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.COMPLETED
-    assert mgr.observations_reused == 0
-    assert len(observer.generations) == 3        # before, after (failed), fresh before
+    assert await asyncio.wait_for(mgr.run(t.id), 5) is TaskState.FAILED
+    assert mgr.observations_reused == 0           # a failed post-state is never reused
+    assert mgr.completions_refused == 1
+    assert mgr.store.get(t.id).history[0].verified is False
+    # before, after (failed), fresh before, COMPLETE verdict, fresh before again
+    assert len(observer.generations) == 5
 
 
 async def test_reuse_cannot_cross_an_owner_intervention(tmp_path):

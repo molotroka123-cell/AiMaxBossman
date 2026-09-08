@@ -6,6 +6,14 @@ _staging/
 # Правило намеренно привязано к корню (`/`), а не к любому уровню: ассеты
 # приложений и тестовые фикстуры-архивы должны оставаться под контролем версий.
 /*.zip
+# Кроме одного: пакет спецификации Social Farm — не транспортный архив, а
+# ВХОД двух наборов проверок. `test_browser_selectors.py` и
+# `test_browser_states.py` читают из него схему selector-pack. Измерено, а не
+# предположено: со спекой 43 passed, без неё 3 failed, 39 passed, 1 skipped.
+# Он выглядит ровно как корневой ZIP-мусор и попадает под правило выше —
+# отсюда явное исключение, чтобы следующая чистка не удалила вход тестов,
+# приняв его за хвост.
+!/BOSSMAN_SOCIAL_FARM_APP4_TECH_SPEC_V1_1.zip
 /*.tar
 /*.tar.gz
 /*.tgz
@@ -57,6 +65,12 @@ artifacts/video_factory/
 !/data/
 /data/*
 !/data/learning/
+# Trader Apprentice corpus is evidence the local model reads, not runtime
+# state: the rule set, the September casebook and their manifest belong in
+# review like any other reviewed artefact. Tracked by an explicit exception
+# rather than by force-adding past the rule above, so the next person can
+# see it was meant.
+!/data/trading/
 
 # deterministic repo-map cache (tools/context_slice.py)
 .bossman-cache/
@@ -73,3 +87,5 @@ astra-security-results/
 /real_workload_audit.json
 /real_workload_audit.md
 /doctor.json
+.venv-conv/
+.venv-oh/

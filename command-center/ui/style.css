@@ -162,6 +162,11 @@ a:hover { text-decoration: underline; }
 /* --- Sidebar --- */
 
 .sidebar {
+  /* Акриловая подложка: полупрозрачный слой поверх фона плюс размытие. Даёт
+     ту самую глубину «AI-OS», ради которой это и делалось, и при этом остаётся
+     СЛОЕМ, а не картинкой — под ним видно, что приложение продолжается.
+     `--bg-side` остаётся запасным цветом: браузер без backdrop-filter получит
+     непрозрачную панель, а не полупрозрачную кашу поверх текста. */
   background: var(--bg-side);
   border-right: 1px solid var(--line);
   display: flex;
@@ -171,6 +176,34 @@ a:hover { text-decoration: underline; }
   height: 100dvh;
   z-index: 40;
 }
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .sidebar {
+    background: color-mix(in srgb, var(--bg-side) 72%, transparent);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+    backdrop-filter: blur(22px) saturate(140%);
+  }
+}
+
+/* Заголовок пространства. Раньше разделов было два и они обходились без
+   стиля; с шестью безымянная строка между пунктами перестаёт читаться как
+   заголовок и начинает читаться как забытый пункт меню. */
+.nav-section {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 14px 10px 6px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--dim);
+  opacity: .72;
+  background: linear-gradient(to bottom,
+              color-mix(in srgb, var(--bg-side) 92%, transparent) 62%, transparent);
+  pointer-events: none;
+}
+.nav-section:first-child { padding-top: 6px; }
 
 .brand {
   display: flex; align-items: center; gap: 10px;

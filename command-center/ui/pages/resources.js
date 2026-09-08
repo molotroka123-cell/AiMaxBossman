@@ -25,6 +25,7 @@ const ResourcesPage = {
   title: 'Ресурсы',
   icon: 'system',
   nav: 'primary',
+  section: 'system',
 
   async render(ctx) {
     let data = null; let err = null;

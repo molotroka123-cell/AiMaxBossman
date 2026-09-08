@@ -158,9 +158,29 @@ async def _tick(svc):
                 continue
         # запуск новых до лимита воркеров
         free = max(0, (m["max_workers"] or 1) - len(active))
-        drafts = [t for t in tasks if t["status"] == "draft"][:free]
-        for t in drafts:
+        waiting = [t for t in tasks if t["status"] == "draft"]
+        for t in waiting[:free]:
             await svc.engine.enqueue(t["id"])
+
+        # ЗАБЛОКИРОВАННАЯ МИССИЯ НЕ «ВЫПОЛНЯЕТСЯ».
+        #
+        # `blocked` не попадал ни в active, ни в done, ни в failed, поэтому
+        # миссия, все задачи которой упёрлись в недоступного исполнителя, не
+        # завершалась, не двигалась и оставалась `running` — а интерфейс честно
+        # показывал этот статус словом «выполняется» и тикающим таймером. Владелец
+        # видел работу там, где не стартовал ни один прогон и журнал был пуст.
+        # Двигаться миссии больше нечем: активных нет, черновиков нет, значит это
+        # исход, а не ожидание, и он обязан быть назван.
+        blocked = [t for t in tasks if t["status"] == "blocked"]
+        if blocked and not active and not waiting:
+            why = next((str((t.get("meta") or {}).get("blocked_reason") or "").strip()
+                        for t in blocked
+                        if (t.get("meta") or {}).get("blocked_reason")), "")
+            await _finish_mission(svc, m["id"], "failed",
+                                  f"задачи миссии заблокированы ({len(blocked)} из {len(tasks)})"
+                                  + (f": {why}" if why else ""))
+            continue
+
         progress = len(done) / len(tasks)
         if abs(progress - (m["progress"] or 0.0)) > 1e-9:
             await _set_progress(svc, m["id"], progress)
@@ -177,9 +197,20 @@ async def _set_progress(svc, mission_id: int, progress: float) -> None:
 
 
 async def _finish_mission(svc, mission_id: int, status: str, reason: str) -> None:
+    """Завершить миссию, СОХРАНИВ основание.
+
+    Причина раньше уходила только в шину событий: тот, кто в этот момент не
+    слушал, больше её не получал никогда. Владелец, открывший страницу позже,
+    видел «провалено» без единого слова о том, почему. Основание — часть исхода,
+    а не уведомление о нём, поэтому оно ложится в `meta` и переживает перезагрузку.
+    """
     async with svc.db.session() as s:
+        row = (await s.execute(sa.select(missions_t.c.meta)
+                               .where(missions_t.c.id == mission_id))).first()
+        meta = dict((row[0] if row else None) or {})
+        meta["finish_reason"] = str(reason)[:500]
         await s.execute(sa.update(missions_t).where(missions_t.c.id == mission_id).values(
-            status=status, finished_at=utcnow(), updated_at=utcnow()))
+            status=status, meta=meta, finished_at=utcnow(), updated_at=utcnow()))
         await s.commit()
     await svc.bus.emit(f"mission.{'completed' if status == 'completed' else 'failed'}",
                        mission_id=mission_id, reason=reason)

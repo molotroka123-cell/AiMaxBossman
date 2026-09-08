@@ -12,7 +12,7 @@ MODULE 1 (bcc/features/action_router.py): запрос «Открой прило
 
 Здесь — тонкая обёртка вокруг УЖЕ ГОТОВЫХ start_app/stop_app/process_info:
 вторая реализация не создаётся, повторяются все существующие ограничения
-apps_control.py (флаг BOSSMAN_APPS_CONTROL_ENABLED, только известные
+apps_control.py (политика владельца apps.control_enabled, только известные
 манифесты, свой процесс — свой pid). Инструмент, который порождает процесс
 (`apps.start`) — ASK по умолчанию: цена ошибки здесь не «некрасивая
 карточка», а чужой процесс в системе владельца (тот же принцип, что уже
@@ -29,11 +29,15 @@ async def _start(args, ctx):
     app_id = str(args.get("app_id") or "").strip()
     if not app_id:
         return ToolResult(content="нужен app_id", one_line="apps.start: нет app_id", error=True)
-    if not _apps.enabled():
+    current = await _apps.policy(ctx.svc)
+    if not current["enabled"]:
+        # Инструмент повторяет ПОЛИТИКУ, а не переменную окружения: владелец мог
+        # включить управление через API, и модель обязана видеть то же решение,
+        # что и HTTP-ручка, иначе одна из них врёт.
         return ToolResult(
-            content=(f"управление приложениями выключено (нужен "
-                     f"{_apps.FLAG}=1 и перезапуск Command Center) — действие не выполнено"),
-            one_line="apps.start: выключено", error=True)
+            content=("управление приложениями выключено политикой владельца — "
+                     "действие не выполнено. " + str(current["hint"])),
+            one_line="apps.start: выключено политикой", error=True)
     try:
         res = await _apps.start_app(app_id, ctx.svc.settings.data_dir)
     except Exception as exc:  # noqa: BLE001 — HTTPException (не найдено, порт занят, и т.п.)
@@ -49,11 +53,15 @@ async def _stop(args, ctx):
     app_id = str(args.get("app_id") or "").strip()
     if not app_id:
         return ToolResult(content="нужен app_id", one_line="apps.stop: нет app_id", error=True)
-    if not _apps.enabled():
+    current = await _apps.policy(ctx.svc)
+    if not current["enabled"]:
+        # Инструмент повторяет ПОЛИТИКУ, а не переменную окружения: владелец мог
+        # включить управление через API, и модель обязана видеть то же решение,
+        # что и HTTP-ручка, иначе одна из них врёт.
         return ToolResult(
-            content=(f"управление приложениями выключено (нужен "
-                     f"{_apps.FLAG}=1 и перезапуск Command Center) — действие не выполнено"),
-            one_line="apps.stop: выключено", error=True)
+            content=("управление приложениями выключено политикой владельца — "
+                     "действие не выполнено. " + str(current["hint"])),
+            one_line="apps.stop: выключено политикой", error=True)
     try:
         res = await _apps.stop_app(app_id)
     except Exception as exc:  # noqa: BLE001 — HTTPException (не найдено), и т.п.

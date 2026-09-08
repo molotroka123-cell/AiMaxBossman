@@ -31,7 +31,7 @@ const AppsPage = {
   title: 'Приложения',
   icon: 'empty',
   nav: 'primary',
-  section: 'main',
+  section: 'apps',
 
   async render(ctx, params) {
     let data;

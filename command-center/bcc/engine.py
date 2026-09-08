@@ -17,8 +17,11 @@ import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
 
 from .db import (Database, agents as agents_t, approvals as approvals_t,
-                 checkpoints as checkpoints_t, fetch_one, run_events as run_events_t,
+                 checkpoints as checkpoints_t, fetch_one, models as models_t,
+                 run_events as run_events_t,
                  task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
+from . import approval_scope as _scope
+from . import mission_budget as _budget
 from .events import EventBus
 from .plugin_security import redact as _ps_redact, redact_text as _ps_redact_text
 from .providers import ChatResult, ProviderError
@@ -28,6 +31,12 @@ from .tools import (REGISTRY as TOOLS, ToolContext, agent_policy_rules, allowed_
                     args_hash, decide_effect, execute_tool)
 
 ACTIVE_RUN_STATUSES = ("queued", "leased", "running")
+TERMINAL_TASK_STATUSES = ("completed", "failed", "stopped", "cancelled")
+
+# Задача в этих статусах снята владельцем: решение по её подтверждению уже
+# ничего не запускает, а вернуло бы её в очередь мёртвой (A7-02).
+STOPPED_TASK_STATUSES = ("stopped", "cancelled")
+STOP_DECIDER = "остановка задачи"
 
 # P0-04: хуки безопасности fail-closed. Критичный хук (ревью/approval/Deep Fix
 # gate, Resource Brain before_run, роутер pick_model) при исключении, таймауте
@@ -67,6 +76,14 @@ class AmbiguousPriorEffect(RuntimeError):
         super().__init__(f"{prior.get('tool')}: dispatched by attempt of run {prior.get('run_id')} "
                          "before a crash; outcome never journaled")
         self.prior = prior
+
+
+class TaskStateConflict(RuntimeError):
+    """Owner/API lifecycle request conflicts with the persisted task state."""
+
+    def __init__(self, task_id: int, action: str, status: str):
+        self.task_id, self.action, self.status = int(task_id), str(action), str(status)
+        super().__init__(f"task {task_id}: cannot {action} while status={status}")
 
 
 class CriticalHookFailure(Exception):
@@ -294,24 +311,32 @@ class TaskEngine:
                 "reason": meta.get("blocked_reason", "Исполнитель недоступен")}
 
     async def enqueue(self, task_id: int, *, attempt: int = 0,
-                      checkpoint: dict | None = None, only_if_draft: bool = False) -> int | None:
-        """Создать run в состоянии queued и перевести задачу в queued."""
+                      checkpoint: dict | None = None, only_if_draft: bool = False,
+                      only_if_idle: bool = False) -> int | None:
+        """Создать queued-run. `only_if_idle` is an atomic single-flight gate.
+
+        API-side `active_run() -> enqueue()` was a TOCTOU: two clicks/clients could
+        both observe no run and create two attempts.  The gate therefore lives
+        beside the INSERT under the same task-row/SQLite write lock.
+        """
         if not await self._executor_admission(task_id):
             return None
         async with self.db.session() as s:
-            if only_if_draft:
-                # Repair a durable host job after a crash before its first enqueue.
-                # Serialize the task row so concurrent idempotent retries create one run.
+            if only_if_draft or only_if_idle:
                 if self.db.url.startswith("sqlite"):
                     await s.execute(sa.text("BEGIN IMMEDIATE"))
                 query=sa.select(tasks_t.c.status).where(tasks_t.c.id==task_id)
                 if not self.db.url.startswith("sqlite"):
                     query=query.with_for_update()
                 status=(await s.execute(query)).scalar_one()
-                existing=(await s.execute(sa.select(runs_t.c.id).where(runs_t.c.task_id==task_id)
+                existing=(await s.execute(sa.select(runs_t.c.id).where(
+                    runs_t.c.task_id==task_id,
+                    runs_t.c.status.in_(ACTIVE_RUN_STATUSES) if only_if_idle else sa.true())
                     .order_by(runs_t.c.id.desc()).limit(1))).scalar_one_or_none()
-                if status!="draft" or existing is not None:
+                if only_if_draft and (status!="draft" or existing is not None):
                     return int(existing or 0)
+                if only_if_idle and existing is not None:
+                    raise TaskStateConflict(task_id, "start another run", status)
             res = await s.execute(sa.insert(runs_t).values(
                 task_id=task_id, attempt=attempt, status="queued", checkpoint=checkpoint))
             run_id = int(res.inserted_primary_key[0])
@@ -332,11 +357,29 @@ class TaskEngine:
     # ---------- управление задачей ----------
 
     async def stop(self, task_id: int) -> dict:
-        """Stop — жёсткий: флаг в БД + hard cancel активного run'а (обрывает
-        и уже начатый HTTP-inference, не дожидаясь конца генерации)."""
-        await self._set_task_status(task_id, "stopped")
+        """Hard Stop is sticky; historical terminal outcomes are immutable."""
         async with self.db.session() as s:
-            # ещё не начатые run'ы гасим сразу — ждать нечего
+            if self.db.url.startswith("sqlite"):
+                await s.execute(sa.text("BEGIN IMMEDIATE"))
+            query = sa.select(tasks_t.c.status).where(tasks_t.c.id == task_id)
+            if not self.db.url.startswith("sqlite"):
+                query = query.with_for_update()
+            current = (await s.execute(query)).scalar_one_or_none()
+            if current is None:
+                raise ValueError("task not found")
+            current = str(current)
+            if current in ("stopped", "cancelled"):
+                await s.commit()
+                return {"ok": True, "status": "stopped"}
+            if current in ("completed", "failed"):
+                await s.rollback()
+                raise TaskStateConflict(task_id, "stop", current)
+            changed = await s.execute(sa.update(tasks_t).where(
+                tasks_t.c.id == task_id, tasks_t.c.status == current).values(
+                status="stopped", updated_at=utcnow()))
+            if not changed.rowcount:
+                await s.rollback()
+                raise TaskStateConflict(task_id, "stop", await self._task_status(task_id))
             await s.execute(sa.update(runs_t).where(
                 runs_t.c.task_id == task_id, runs_t.c.status == "queued").values(
                 status="stopped", finished_at=utcnow()))
@@ -345,17 +388,7 @@ class TaskEngine:
                 runs_t.c.status.in_(("leased", "running"))))
             active_ids = [int(r[0]) for r in res.fetchall()]
             await s.commit()
-        # Событие — ДО отмены, и это не косметика. Stop зовут в том числе
-        # изнутри самого прогона (инструмент, хук, тест через ASGI в одной
-        # задаче с worker'ом). Тогда worker.cancel() отменяет ту же задачу,
-        # которая сейчас исполняет stop(), и следующий же await обрывается —
-        # вместе с записью события в БД, посреди работы драйвера. Соединение
-        # после такого обрыва не возвращается в пул никаким close(): его
-        # состояние уже неизвестно SQLAlchemy. Поэтому свою работу stop()
-        # доводит до конца первым, а отмену выдаёт последней — после неё
-        # здесь не остаётся ни одного await.
-        # finally: упавшая запись события не имеет права отменить саму
-        # остановку — иначе прогон продолжит работать из-за сбоя журнала.
+        await self._reject_parked_approvals(task_id)
         try:
             await self.bus.emit("task.stopped", task_id=task_id)
         finally:
@@ -367,34 +400,90 @@ class TaskEngine:
         return {"ok": True, "status": "stopped"}
 
     async def pause(self, task_id: int) -> dict:
-        await self._set_task_status(task_id, "paused")
+        async with self.db.session() as s:
+            if self.db.url.startswith("sqlite"):
+                await s.execute(sa.text("BEGIN IMMEDIATE"))
+            query = sa.select(tasks_t.c.status).where(tasks_t.c.id == task_id)
+            if not self.db.url.startswith("sqlite"):
+                query = query.with_for_update()
+            current = (await s.execute(query)).scalar_one_or_none()
+            if current is None:
+                raise ValueError("task not found")
+            current = str(current)
+            if current == "paused":
+                await s.commit()
+                return {"ok": True, "status": "paused"}
+            if current not in ("queued", "running", "waiting_approval"):
+                await s.rollback()
+                raise TaskStateConflict(task_id, "pause", current)
+            await s.execute(sa.update(tasks_t).where(
+                tasks_t.c.id == task_id, tasks_t.c.status == current).values(
+                status="paused", updated_at=utcnow()))
+            await s.commit()
         await self.bus.emit("task.paused", task_id=task_id)
         return {"ok": True, "status": "paused"}
 
     async def resume(self, task_id: int) -> dict:
-        """Снять паузу: run с checkpoint снова становится доступен worker'у."""
-        run = await self.active_run(task_id)
-        if not await self._executor_admission(task_id, run_id=run["id"] if run else None):
+        """Resume only an owner-paused task and never create parallel inference."""
+        candidate = await self.active_run(task_id)
+        if not await self._executor_admission(task_id, run_id=candidate["id"] if candidate else None):
             return await self.admission_result(task_id, None)
-        if run is None:
-            last = await self.last_run(task_id)
-            checkpoint = (last or {}).get("checkpoint")
-            attempt = int((last or {}).get("attempt") or 0)
-            run_id = await self.enqueue(task_id, attempt=attempt, checkpoint=checkpoint)
-            if run_id is None:
-                return await self.admission_result(task_id, None)
-        else:
-            async with self.db.session() as s:
-                await s.execute(sa.update(runs_t).where(runs_t.c.id == run["id"]).values(
-                    status="queued", worker_lease_until=None))
+        async with self.db.session() as s:
+            if self.db.url.startswith("sqlite"):
+                await s.execute(sa.text("BEGIN IMMEDIATE"))
+            query = sa.select(tasks_t.c.status).where(tasks_t.c.id == task_id)
+            if not self.db.url.startswith("sqlite"):
+                query = query.with_for_update()
+            current = (await s.execute(query)).scalar_one_or_none()
+            if current is None:
+                raise ValueError("task not found")
+            current = str(current)
+            if current != "paused":
+                await s.rollback()
+                raise TaskStateConflict(task_id, "resume", current)
+            row = (await s.execute(sa.select(runs_t).where(
+                runs_t.c.task_id == task_id,
+                runs_t.c.status.in_(ACTIVE_RUN_STATUSES)).order_by(
+                runs_t.c.id.desc()).limit(1))).first()
+            run = dict(row._mapping) if row else None
+            if run is not None and run["status"] in ("leased", "running"):
+                await s.execute(sa.update(tasks_t).where(
+                    tasks_t.c.id == task_id, tasks_t.c.status == "paused").values(
+                    status="running", updated_at=utcnow()))
                 await s.commit()
-            await self._set_task_status(task_id, "queued")
-        await self.bus.emit("task.queued", task_id=task_id, resumed=True)
-        return {"ok": True, "status": "queued"}
+                run_id, result_status = int(run["id"]), "running"
+            elif run is not None:
+                await s.execute(sa.update(runs_t).where(
+                    runs_t.c.id == run["id"], runs_t.c.status == "queued").values(
+                    worker_lease_until=None))
+                await s.execute(sa.update(tasks_t).where(
+                    tasks_t.c.id == task_id, tasks_t.c.status == "paused").values(
+                    status="queued", updated_at=utcnow()))
+                await s.commit()
+                run_id, result_status = int(run["id"]), "queued"
+            else:
+                last_row = (await s.execute(sa.select(runs_t).where(
+                    runs_t.c.task_id == task_id).order_by(runs_t.c.id.desc()).limit(1))).first()
+                last = dict(last_row._mapping) if last_row else {}
+                inserted = await s.execute(sa.insert(runs_t).values(
+                    task_id=task_id, attempt=int(last.get("attempt") or 0), status="queued",
+                    checkpoint=last.get("checkpoint")))
+                run_id = int(inserted.inserted_primary_key[0])
+                await s.execute(sa.update(tasks_t).where(
+                    tasks_t.c.id == task_id, tasks_t.c.status == "paused").values(
+                    status="queued", updated_at=utcnow()))
+                await s.commit()
+                result_status = "queued"
+        if result_status == "running":
+            await self.bus.emit("task.progress", task_id=task_id, run_id=run_id,
+                                resumed=True, status="running")
+        else:
+            await self.bus.emit("task.queued", task_id=task_id, run_id=run_id, resumed=True)
+        return {"ok": True, "status": result_status, "run_id": run_id}
 
     async def retry(self, task_id: int) -> dict:
-        """Ручной перезапуск: новая попытка с нуля (счётчик attempt сбрасывается)."""
-        run_id = await self.enqueue(task_id, attempt=0)
+        """Explicit new attempt, but never alongside an existing active run."""
+        run_id = await self.enqueue(task_id, attempt=0, only_if_idle=True)
         return await self.admission_result(task_id, run_id)
 
     async def last_run(self, task_id: int) -> dict | None:
@@ -602,7 +691,7 @@ class TaskEngine:
         now = utcnow()
         async with self.db.session() as s:
             res = await s.execute(
-                sa.select(runs_t, tasks_t.c.max_retries)
+                sa.select(runs_t, tasks_t.c.max_retries, tasks_t.c.status.label("task_status"))
                 .join(tasks_t, tasks_t.c.id == runs_t.c.task_id)
                 .where(runs_t.c.status.in_(("leased", "running")),
                        runs_t.c.worker_lease_until.isnot(None),
@@ -610,6 +699,50 @@ class TaskEngine:
             stale = [dict(r._mapping) for r in res.fetchall()]
         recovered=0
         for run in stale:
+            parent_status = str(run.get("task_status") or "")
+            # Owner state outranks lease recovery. A crash in the short window
+            # after Stop/Pause was previously enough to resurrect the task.
+            if parent_status in STOPPED_TASK_STATUSES:
+                async with self.db.session() as s:
+                    changed = await s.execute(sa.update(runs_t).where(
+                        runs_t.c.id == run["id"],
+                        runs_t.c.status.in_(("leased", "running")),
+                        sa.func.coalesce(runs_t.c.fence, 0) == int(run.get("fence") or 0)).values(
+                        status="stopped", finished_at=now, worker_lease_until=None,
+                        fence=sa.func.coalesce(runs_t.c.fence, 0) + 1))
+                    await s.commit()
+                if changed.rowcount:
+                    await self._log(run["id"], "warn", "run.recovered_stopped",
+                                    "lease expired after owner Stop; task was not resurrected")
+                    recovered += 1
+                continue
+            if parent_status == "paused":
+                async with self.db.session() as s:
+                    changed = await s.execute(sa.update(runs_t).where(
+                        runs_t.c.id == run["id"],
+                        runs_t.c.status.in_(("leased", "running")),
+                        sa.func.coalesce(runs_t.c.fence, 0) == int(run.get("fence") or 0)).values(
+                        status="queued", worker_lease_until=None,
+                        fence=sa.func.coalesce(runs_t.c.fence, 0) + 1))
+                    await s.commit()
+                if changed.rowcount:
+                    await self._log(run["id"], "warn", "run.recovered_paused",
+                                    "lease expired while paused; checkpoint remains parked")
+                    recovered += 1
+                continue
+            if parent_status in ("completed", "failed"):
+                async with self.db.session() as s:
+                    changed = await s.execute(sa.update(runs_t).where(
+                        runs_t.c.id == run["id"],
+                        runs_t.c.status.in_(("leased", "running")),
+                        sa.func.coalesce(runs_t.c.fence, 0) == int(run.get("fence") or 0)).values(
+                        status="failed", finished_at=now, worker_lease_until=None,
+                        error=f"parent task already terminal: {parent_status}",
+                        fence=sa.func.coalesce(runs_t.c.fence, 0) + 1))
+                    await s.commit()
+                if changed.rowcount:
+                    recovered += 1
+                continue
             attempt = int(run["attempt"] or 0) + 1
             max_retries = int(run["max_retries"] or 0)
             still_stale=sa.and_(runs_t.c.status.in_(("leased","running")),
@@ -729,13 +862,52 @@ class TaskEngine:
         if int(cur or 0) != fence:
             raise FencedOut(run_id, fence)
 
+    # Сколько раз выход зомби готов проглотить ЧУЖУЮ отмену, дожидаясь своей
+    # диагностики. Отмена приходит не одна: владельца отменяет heartbeat, и на
+    # Windows вторая доставка успевает попасть внутрь записи в БД.
+    _DIAGNOSTIC_CANCELS = 5
+
     async def _fenced_out_exit(self, run_id: int, why: str) -> None:
-        """Выход зомби-воркера: только журнал и событие, никаких записей в run."""
+        """Выход зомби-воркера: только журнал и событие, никаких записей в run.
+
+        Диагностика пишется в ОТДЕЛЬНОЙ задаче, а не здесь. Причина конкретная:
+        мы находимся внутри `except asyncio.CancelledError` — у этой задачи
+        отмена уже в пути, и каждое следующее `await` может получить её снова.
+        `contextlib.suppress(Exception)` от этого не спасал ВООБЩЕ:
+        `CancelledError` наследуется от `BaseException`, а не от `Exception`,
+        поэтому она пролетала сквозь подавление и уходила наружу из `execute()`
+        — ровно то, что валило `windows paths` на записи `run.fenced_out`
+        в aiosqlite.
+
+        Своя задача отмены владельца не наследует, поэтому запись действительно
+        доходит; наше ожидание её при этом может быть отменено ещё раз, и тогда
+        мы ждём снова — ограниченное число раз, чтобы отсутствие отмены нельзя
+        было спутать с зависанием.
+        """
+        async def diagnose() -> None:
+            with contextlib.suppress(Exception):
+                await self._log(run_id, "warn", "run.fenced_out", why[:500])
+            with contextlib.suppress(Exception):
+                await self.bus.emit("run.fenced_out", run_id=run_id,
+                                    fence=self._fences.get(run_id), reason=why[:200])
+
+        writer = asyncio.create_task(diagnose())
+        for _ in range(self._DIAGNOSTIC_CANCELS):
+            try:
+                await asyncio.wait({writer})
+                return
+            except asyncio.CancelledError:
+                continue          # наша отмена — не повод бросить диагностику
+        # Бюджет исчерпан: задачу не бросаем (она допишет сама), но и висеть
+        # здесь не имеем права. Молча это не проходит.
         with contextlib.suppress(Exception):
-            await self._log(run_id, "warn", "run.fenced_out", why[:500])
-        with contextlib.suppress(Exception):
-            await self.bus.emit("run.fenced_out", run_id=run_id, fence=self._fences.get(run_id),
-                                reason=why[:200])
+            self._log_sync_hint(run_id)
+
+    @staticmethod
+    def _log_sync_hint(run_id: int) -> None:
+        import logging
+        logging.getLogger(__name__).warning(
+            "run %s: fenced-out diagnostics still pending after repeated cancellation", run_id)
 
     async def _run(self, run_id: int) -> None:
         async with self.db.session() as s:
@@ -806,6 +978,20 @@ class TaskEngine:
         cost = float(run.get("cost_usd") or 0.0)
         answer = ""
         alias = run.get("model_alias") or ""
+        # §8: потолки прогона. Считаются один раз из task.meta — владелец задаёт
+        # их на задачу, а не глобальной константой: сложная миссия законно
+        # дороже правки документации.
+        limits = _budget.Limits.for_task(task)
+        # Ступень лестницы восстановления, выбранная прошлым сбоем: она живёт в
+        # checkpoint'е, поэтому переживает рестарт вместе с остальным состоянием.
+        recovery_model = checkpoint.get("recovery_model_id")
+        recovery_model = int(recovery_model) if isinstance(recovery_model, int) else None
+        recovery_degrade = checkpoint.get("recovery_degrade")
+        if isinstance(recovery_degrade, dict) and recovery_degrade.get("tools") is False:
+            # Упрощённый путь: без инструментов. Это СУЖЕНИЕ возможностей, а не
+            # расширение прав — модель, которая не справилась с tool-calling,
+            # получает более простую задачу, а не больше доступа.
+            tool_schemas = None
 
         # V2.1: инструменты, выданные этому run'у. Пусто — поведение как в V2
         # (один вызов модели, без tools в payload).
@@ -833,9 +1019,13 @@ class TaskEngine:
                 break
             try:
                 result, model = await self._call_model(task, agent, messages, run_id,
-                                                       tools=tool_schemas)
+                                                       tools=tool_schemas,
+                                                       model_override=recovery_model)
             except ProviderError as exc:
-                await self._handle_failure(run_id, task, str(exc), messages, step)
+                # `kind` carries what the adapter knew about the failure; the
+                # text alone cannot always tell a network blip from a refusal.
+                await self._handle_failure(run_id, task, str(exc), messages, step,
+                                           kind=getattr(exc, "kind", None))
                 return
             except LookupError as exc:
                 await self._fail_now(run_id, task["id"], str(exc))
@@ -850,6 +1040,12 @@ class TaskEngine:
             tokens_in += result.tokens_in
             tokens_out += result.tokens_out
             cost += _cost(model, result)
+            breach = _budget.check_spend(limits, tokens_in=tokens_in,
+                                         tokens_out=tokens_out, cost_usd=cost)
+            if breach is not None:
+                await self._budget_stop(run_id, task, messages, step, breach,
+                                        tokens_in, tokens_out, cost, alias)
+                return
             if result.cache_read_tokens or result.cache_write_tokens:
                 # Prompt cache: только измерение провайдера (никаких «ожидаемых» экономий)
                 await self._log(run_id, "info", "model.prompt_cache",
@@ -879,6 +1075,11 @@ class TaskEngine:
                            "cost_usd": round(cost, 6), "model_alias": alias})
                 if waiting:
                     return                  # ждём человека: состояние в БД
+                breach = await _budget.check_identical_calls(self.services, limits, run_id)
+                if breach is not None:
+                    await self._budget_stop(run_id, task, messages, step, breach,
+                                            tokens_in, tokens_out, cost, alias)
+                    return
                 await self._save_checkpoint(run_id, messages, step, note="tools",
                                             tokens_in=tokens_in, tokens_out=tokens_out,
                                             cost_usd=round(cost, 6), model_alias=alias)
@@ -895,6 +1096,11 @@ class TaskEngine:
 
             answer = result.text
             messages.append({"role": "assistant", "content": answer})
+            breach = _budget.check_stalled_context(limits, messages)
+            if breach is not None:
+                await self._budget_stop(run_id, task, messages, step, breach,
+                                        tokens_in, tokens_out, cost, alias)
+                return
             await self._save_checkpoint(run_id, messages, step, note="answer",
                                         tokens_in=tokens_in, tokens_out=tokens_out,
                                         cost_usd=round(cost, 6), model_alias=alias)
@@ -980,19 +1186,25 @@ class TaskEngine:
                 await self.bus.emit("task.queued", task_id=task["id"], run_id=run_id,
                                     review_retry=True)
             else:
-                # попытки ревью исчерпаны → человеку (waiting_approval), run ждёт с checkpoint
-                async with self.db.session() as s:
-                    changed=await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id,self._fence_clause(run_id)).values(
-                        status="queued", worker_lease_until=None,
-                        checkpoint={"messages": messages, "step": step,
-                                    "note": "review_escalated"}))
-                    if not changed.rowcount:return
-                    await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
-                        status=str(res.get("status") or "waiting_approval"),
-                        updated_at=utcnow()))
-                    await s.commit()
-                await self.bus.emit("task.progress", task_id=task["id"], run_id=run_id,
-                                    waiting_approval=True)
+                target_status = str(res.get("status") or "waiting_approval")
+                if target_status in ("failed", "stopped"):
+                    # Terminal gate veto must close BOTH projections. Previously
+                    # task=failed was paired with run=queued forever.
+                    await self._finish(run_id, task["id"], target_status, error=feedback,
+                                       result=answer, tokens_in=tokens_in, tokens_out=tokens_out,
+                                       cost_usd=round(cost, 6), model_alias=alias)
+                else:
+                    async with self.db.session() as s:
+                        changed=await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id,self._fence_clause(run_id)).values(
+                            status="queued", worker_lease_until=None,
+                            checkpoint={"messages": messages, "step": step,
+                                        "note": "review_escalated"}))
+                        if not changed.rowcount:return
+                        await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
+                            status=target_status, updated_at=utcnow()))
+                        await s.commit()
+                    await self.bus.emit("task.progress", task_id=task["id"], run_id=run_id,
+                                        waiting_approval=(target_status == "waiting_approval"))
             return
         # EH-04: единственная точка финализации — bcc.lifecycle.finalize_task. Она
         # перепроверяет fence, объявленные эффекты свежим наблюдением и открытые
@@ -1017,20 +1229,35 @@ class TaskEngine:
         await self._log(run_id, "info", "run.completed", "задача выполнена")
 
     async def _call_model(self, task: dict, agent: dict, messages: list[dict],
-                          run_id: int, *, tools: list[dict] | None = None) -> tuple[ChatResult, dict]:
+                          run_id: int, *, tools: list[dict] | None = None,
+                          model_override: int | None = None) -> tuple[ChatResult, dict]:
         from bossman_shared.privacy import execution_privacy
         with execution_privacy((task.get("meta") or {}).get("privacy", "public")):
-            return await self._call_model_scoped(task, agent, messages, run_id, tools=tools)
+            return await self._call_model_scoped(task, agent, messages, run_id, tools=tools,
+                                                 model_override=model_override)
 
     async def _call_model_scoped(self, task: dict, agent: dict, messages: list[dict],
-                          run_id: int, *, tools: list[dict] | None = None
-                          ) -> tuple[ChatResult, dict]:
+                          run_id: int, *, tools: list[dict] | None = None,
+                          model_override: int | None = None) -> tuple[ChatResult, dict]:
         """Вызов модели: сначала pick_model-хук (Smart Router) может перекрыть выбор;
         при ошибке маршрута — модель агента; при её ошибке — fallback_model.
         `tools` — схемы ТОЛЬКО выданных этому run'у инструментов."""
         kw: dict[str, Any] = {"max_tokens": agent.get("max_tokens")}
         if tools:
             kw["tools"] = tools
+        if model_override is not None:
+            # Ступень «другая модель» лестницы восстановления. Действует только
+            # на этот прогон и не переписывает конфигурацию агента: владелец её
+            # задал, и молча менять её лестница не имеет права. Полномочия при
+            # этом те же — меняется исполнитель, а не то, что ему позволено.
+            try:
+                adapter, model = await self.registry.adapter_for(int(model_override))
+                result = await adapter.chat(model["name"], messages, **kw)
+                return result, model
+            except (ProviderError, LookupError) as exc:
+                await self._log(run_id, "warn", "recovery.alternate_failed",
+                                f"альтернативная модель {model_override} недоступна ({exc}) — "
+                                f"возвращаемся к модели агента")
         picked = next((r for r in await self._call_hooks("pick_model", task, agent) if r), None)
         if picked is not None:
             model_id = int(picked["model_id"] if isinstance(picked, dict) else picked)
@@ -1136,13 +1363,81 @@ class TaskEngine:
                 except Exception as exc:  # noqa: BLE001 — нормализация обязана быть чистой
                     shown_args = {"_normalize_error": str(exc)[:200], **dict(call.arguments)}
                 digest = approval_digest(spec, call.arguments, agent=agent, task=task)
+                # §7: спросить владельца — последнее средство, а не первое.
+                # Порядок строго от «ничего не разрешает» к «разрешает явно
+                # выданной областью»: отказ уважается, дубль не задаётся, и
+                # только потом тратится аренда, которую владелец выдал сам.
+                call_hash = args_hash(spec.name, call.arguments)
+                if await _scope.previously_rejected(self.services, args_hash=call_hash, run_id=run_id):
+                    await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                                 effect="deny", status="denied",
+                                                 preview="owner already refused this exact call")
+                    messages.append(_tool_message(
+                        call, f"действие {spec.name} уже отклонено владельцем в этом прогоне — "
+                              f"не повторять и не переспрашивать"))
+                    await self._log(run_id, "warn", "tool.rejected_repeat",
+                                    f"{spec.name}: повтор отклонённого вызова")
+                    await self.bus.emit("approval.repeat_suppressed", task_id=task["id"],
+                                        run_id=run_id, tool=spec.name)
+                    continue
+                lease_scope = _scope.scope_for(spec.name, call.arguments, agent=agent, task=task)
+                lease = await _scope.consume(self.services, lease_scope)
+                if lease is not None:
+                    await self._log(run_id, "info", "tool.lease_used",
+                                    f"{spec.name}: покрыт арендой {lease['id']} "
+                                    f"({lease['used']}/{lease['max_uses']})")
+                    try:
+                        await self._run_tool_now(run_id, task, agent, messages, call, spec, step,
+                                                 approved_by=f"lease:{lease['id']}",
+                                                 lease_id=int(lease["id"]))
+                    except AmbiguousPriorEffect as exc:
+                        await self._park_reconciliation(run_id, task, agent, messages, call, spec,
+                                                        step, remaining=calls[index + 1:],
+                                                        prior=exc.prior, usage=usage)
+                        return True
+                    continue
+                reusable = await _scope.find_reusable(self.services, args_hash=call_hash, run_id=run_id)
+                if reusable is not None:
+                    await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                                 effect="ask", status="pending_approval",
+                                                 approval_id=reusable.get("id"), preview=reason)
+                    await self._park_for_approval(
+                        run_id, task["id"], messages, step,
+                        pending={"call": _call_dict(call), "tool": spec.name,
+                                 "approval_id": reusable.get("id"),
+                                 "args_hash": call_hash,
+                                 "approval_digest": digest,
+                                 "remaining": [_call_dict(c) for c in calls[index + 1:]],
+                                 "step": step},
+                        usage=usage)
+                    await self.bus.emit("approval.deduplicated", task_id=task["id"], run_id=run_id,
+                                        tool=spec.name, approval_id=reusable.get("id"))
+                    return True
+                over, used, budget = await _scope.budget_exceeded(self.services, task)
+                if over:
+                    # Исчерпанный бюджет НЕ выдаёт разрешение — он останавливает
+                    # задачу. Иначе «лимит подтверждений» был бы расширением прав.
+                    await self._record_tool_call(run_id, task["id"], step, call, spec,
+                                                 effect="deny", status="denied",
+                                                 preview=f"approval budget {used}/{budget} spent")
+                    await self.bus.emit("approval.budget_exceeded", task_id=task["id"],
+                                        run_id=run_id, spent=used, budget=budget)
+                    await self._fail_now(run_id, task["id"],
+                                         f"APPROVAL_BUDGET_EXCEEDED: задача запросила {used} "
+                                         f"подтверждений при бюджете {budget}; выполнение "
+                                         f"остановлено вместо продолжения расспросов")
+                    return True
                 appr = await self._approvals_create(
                     kind="tool",
                     preview=_ps_redact_text(
                         f"Агент «{agent.get('name')}» хочет выполнить {spec.name}\n"
                         f"причина политики: {reason}\n"
                         f"approval_digest: {digest[:16]}…\nаргументы: "
-                        + json.dumps(_ps_redact(shown_args), ensure_ascii=False, indent=1)[:2000]),
+                        + json.dumps(_ps_redact(shown_args), ensure_ascii=False, indent=1)[:2000]
+                        # §7: владелец не может согласиться на область, которой не
+                        # видит. Предложение — текст, а не разрешение: без явного
+                        # `lease` в решении ничего не выдаётся.
+                        + _scope.lease_offer(lease_scope)),
                     task_id=task["id"], run_id=run_id)
                 approval_id = (appr or {}).get("id")
                 await self._record_tool_call(run_id, task["id"], step, call, spec,
@@ -1169,11 +1464,40 @@ class TaskEngine:
                 return True
         return False
 
+    async def _authorization_at_effect_time(self, task: dict, agent: dict, call: Any,
+                                            spec: Any, policy_rules: list[dict],
+                                            approval_id: Any) -> tuple[str, str] | None:
+        """Что должно быть верно В МОМЕНТ ЭФФЕКТА, а не в момент одобрения.
+
+        `agent` и `policy_rules` здесь — текущие (run перечитывает агента из базы
+        на старте), так что снятый инструмент и добавленный DENY видны. Порядок
+        важен: сначала бесплатные проверки, и только потом — атомарный CAS
+        одобрения, чтобы не «тратить» одобрение на вызов, который всё равно
+        отклонит политика. Возвращает (код, причина) или None."""
+        # 1. Инструмент всё ещё выдан этому агенту/задаче.
+        allowed = {t.name for t in TOOLS.resolve(allowed_tools_for(task, agent))}
+        if spec.name not in allowed:
+            return ("tool_withdrawn",
+                    f"инструмент {spec.name} снят с агента после одобрения")
+        # 2. Текущая политика не говорит DENY. ASK здесь не препятствие — его и
+        #    закрывало одобрение; препятствие только DENY, который снять нельзя.
+        effect, why = decide_effect(spec, call.arguments, agent, policy_rules)
+        if effect == "deny":
+            return ("policy_deny_at_resume",
+                    f"политика запрещает {spec.name} на момент исполнения ({why})")
+        # 3. Атомарная граница: approved → consumed. Проигравший здесь отзыв
+        #    уже не может отменить эффект — и не обещает этого.
+        if approval_id is not None and not await self.services.approvals.accept_for_execution(approval_id):
+            return ("revoked_before_dispatch",
+                    f"одобрение {approval_id} отозвано или уже использовано до dispatch")
+        return None
+
     async def _run_tool_now(self, run_id: int, task: dict, agent: dict,
                             messages: list[dict], call: Any, spec: Any, step: int,
                             *, approval_id: int | None = None,
                             approved_by: str | None = None,
-                            reconcile_prior: int | None = None) -> None:
+                            reconcile_prior: int | None = None,
+                            lease_id: int | None = None) -> None:
         """Выполнить инструмент и положить результат в историю как tool-сообщение.
 
         `reconcile_prior` — id строки tool_calls прежней прерванной отправки,
@@ -1194,7 +1518,7 @@ class TaskEngine:
                 await self._record_tool_call(
                     run_id, task["id"], step, call, spec,
                     effect="auto" if approval_id is None else "ask", status="replayed",
-                    approval_id=approval_id, approved_by=approved_by,
+                    approval_id=approval_id, approved_by=approved_by, lease_id=lease_id,
                     preview=str(prior.get("result_preview") or "")[:500], duration_ms=0)
                 messages.append(_tool_message(
                     call, "этот шаг уже исполнен прежней попыткой (run "
@@ -1223,16 +1547,16 @@ class TaskEngine:
             await self._record_tool_call(
                 run_id, task["id"], step, call, spec,
                 effect="auto" if approval_id is None else "ask", status="started",
-                approval_id=approval_id, approved_by=approved_by,
+                approval_id=approval_id, approved_by=approved_by, lease_id=lease_id,
                 preview="dispatched; outcome not yet journaled")
         started = time.monotonic()
         result = await execute_tool(spec, call.arguments, ctx)
         duration = int((time.monotonic() - started) * 1000)
         await self._record_tool_call(
             run_id, task["id"], step, call, spec,
-            effect="auto" if approval_id is None else "ask",
+            effect="auto" if (approval_id is None and lease_id is None) else "ask",
             status="error" if result.error else "executed",
-            approval_id=approval_id, approved_by=approved_by,
+            approval_id=approval_id, approved_by=approved_by, lease_id=lease_id,
             preview=_ps_redact_text(result.content[:500]), truncated=result.truncated,
             duration_ms=duration,
             error=_ps_redact_text(result.content[:500]) if result.error else None)
@@ -1269,7 +1593,10 @@ class TaskEngine:
 
         already = await self._tool_call_status(run_id, call.id)
         reconcile_prior = pending.get("reconcile_prior")
-        if already == "interrupted" and status == "approved" and spec is not None:
+        # `consumed` — одобрение уже ПРИНЯТО К ИСПОЛНЕНИЮ (CAS перед dispatch).
+        # Прерванный после этого вызов — ровно тот случай, где владелец решает,
+        # произошёл ли эффект: одобрение было, dispatch был, receipt'а нет.
+        if already == "interrupted" and status in ("approved", "consumed") and spec is not None:
             # Одобренный вызов был отправлен прежней попыткой и оборван до receipt'а:
             # одобрение действия — не одобрение его ДУБЛЯ. Владелец решает заново.
             prior = await self._tool_call_row(run_id, call.id)
@@ -1302,6 +1629,19 @@ class TaskEngine:
                                 f"{pending.get('tool')}: digest {expected[:12]}… != {actual[:12]}…")
                 await self.bus.emit("tool.denied", task_id=task["id"], run_id=run_id,
                                     tool=spec.name, reason="approval identity mismatch")
+            elif (blocked := await self._authorization_at_effect_time(
+                    task, agent, call, spec, policy_rules, approval_id)) is not None:
+                # Execution Truth §8: одобрение — не бессрочный токен. Права,
+                # правила и сам факт одобрения проверяются В МОМЕНТ ЭФФЕКТА.
+                code, why = blocked
+                await self._mark_tool_call(run_id, call.id, status="rejected",
+                                           approved_by=f"system:{code}")
+                messages.append(_tool_message(
+                    call, f"действие {pending.get('tool')} НЕ выполнено: {why} — "
+                          f"не выполнять и не повторять без нового решения владельца"))
+                await self._log(run_id, "warn", f"tool.{code}", f"{spec.name}: {why}")
+                await self.bus.emit("tool.denied", task_id=task["id"], run_id=run_id,
+                                    tool=spec.name, reason=code)
             else:
                 await self._mark_tool_call(run_id, call.id, status="approved",
                                            approved_by=str((row or {}).get("decided_by") or ""))
@@ -1368,6 +1708,17 @@ class TaskEngine:
             if row is None:
                 return
             rec = dict(row._mapping)
+            # Fail-closed: остановленную задачу решение не воскрешает. Иначе
+            # гонка «решение в полёте, пока stop() гасит run» оставляет её
+            # `queued` при stopped-run'е — такую задачу не возьмёт ни один воркер.
+            status = (await s.execute(sa.select(tasks_t.c.status).where(
+                tasks_t.c.id == rec["task_id"]))).scalar_one_or_none()
+            if status in STOPPED_TASK_STATUSES:
+                await s.execute(sa.update(tool_calls_t).where(
+                    tool_calls_t.c.id == rec["id"]).values(
+                    status="rejected", finished_at=utcnow()))
+                await s.commit()
+                return
             await s.execute(sa.update(tasks_t).where(tasks_t.c.id == rec["task_id"]).values(
                 status="queued", updated_at=utcnow()))
             await s.execute(sa.update(runs_t).where(
@@ -1428,12 +1779,51 @@ class TaskEngine:
                             task_id=kw.get("task_id"), run_id=kw.get("run_id"))
         return {"id": aid}
 
+    async def _reject_parked_approvals(self, task_id: int) -> None:
+        """Снять подтверждения, припаркованные остановленной задачей.
+
+        Без этого строка остаётся в «Ждут вашего решения» уже мёртвой задачи, а
+        «Разрешить» по ней поднимает задачу обратно в `queued`: run у неё уже
+        stopped, воркер её не возьмёт никогда — зомби в очереди навсегда.
+        Решаем отказом: остановка владельца не может стать разрешением.
+        """
+        async with self.db.session() as s:
+            parked = sa.and_(tool_calls_t.c.task_id == task_id,
+                             tool_calls_t.c.status == "pending_approval")
+            rows = (await s.execute(sa.select(tool_calls_t.c.approval_id)
+                                    .where(parked))).fetchall()
+            if not rows:
+                return
+            await s.execute(sa.update(tool_calls_t).where(parked).values(
+                status="rejected", finished_at=utcnow()))
+            await s.commit()
+        for row in rows:
+            if row[0] is not None:
+                await self._reject_approval(int(row[0]))
+
+    async def _reject_approval(self, approval_id: int) -> None:
+        """Отказ по CAS: уже принятое человеком решение не переписываем."""
+        svc = self.services
+        if svc is not None and getattr(svc, "approvals", None) is not None:
+            await svc.approvals.decide(approval_id, False, by=STOP_DECIDER)
+            return
+        # движок может работать без Services (тесты): решаем строку сами
+        async with self.db.session() as s:
+            res = await s.execute(sa.update(approvals_t).where(
+                sa.and_(approvals_t.c.id == approval_id,
+                        approvals_t.c.status == "pending")).values(
+                status="rejected", decided_by=STOP_DECIDER, decided_at=utcnow()))
+            await s.commit()
+        if res.rowcount:
+            await self.bus.emit("approval.decided", id=approval_id, status="rejected",
+                                by=STOP_DECIDER)
+
     async def _record_tool_call(self, run_id: int, task_id: int, step: int, call: Any,
                                 spec: Any, *, effect: str, status: str,
                                 approval_id: int | None = None,
                                 approved_by: str | None = None, preview: str = "",
                                 truncated: bool = False, duration_ms: int | None = None,
-                                error: str | None = None) -> None:
+                                error: str | None = None, lease_id: int | None = None) -> None:
         name = spec.name if spec is not None else str(call.name)
         values = {
             "run_id": run_id, "task_id": task_id, "step": step,
@@ -1446,6 +1836,9 @@ class TaskEngine:
             "effect": effect, "status": status, "approval_id": approval_id,
             "approved_by": approved_by, "result_preview": preview,
             "truncated": truncated, "duration_ms": duration_ms, "error": error,
+            # §7: какая аренда полномочия покрыла вызов — иначе «подтверждений
+            # стало меньше» неотличимо от «спрашивать перестали».
+            "lease_id": lease_id,
         }
         # Строка пишется ПОСЛЕ того, как инструмент отработал, поэтому «сейчас» —
         # это момент завершения, а не начала. Раньше оба времени брались двумя
@@ -1640,32 +2033,109 @@ class TaskEngine:
         return str(row[0]) if row else ""
 
     async def _handle_failure(self, run_id: int, task: dict, error: str,
-                              messages: list[dict], step: int) -> None:
-        """Ошибка провайдера: retry с экспоненциальной паузой, потом — failed."""
+                              messages: list[dict], step: int,
+                              *, kind: str | None = None) -> None:
+        """Сбой провайдера: СМЕНА СТРАТЕГИИ, а не повтор того же запроса.
+
+        Прежде здесь был только retry с экспоненциальной паузой: тот же
+        маршрут, та же модель, те же сообщения. Для разового сетевого сбоя это
+        верно, а для всего остального — нет. Приёмочный прогон показал цену:
+        просроченный ключ провайдера сжёг все попытки, потому что ожидание не
+        чинит отвергнутый ключ.
+
+        Лестница (bcc/reality/recovery) выбирает следующий шаг по КЛАССУ сбоя и
+        тратит каждую ступень не больше одного раза, поэтому задача приходит к
+        терминальному состоянию за ограниченное число шагов. Ни одна ступень не
+        расширяет полномочия: смена модели меняет КАК делается запрос, а не что
+        ему позволено — те же права, та же область подтверждений, те же гейты
+        доказательств."""
+        from .reality import recovery as _recovery
         async with self.db.session() as s:
             run = await fetch_one(s, runs_t, run_id)
         attempt = int((run or {}).get("attempt") or 0)
         max_retries = int(task.get("max_retries") or 0)
         await self._log(run_id, "error", "run.error", error)
         await self._call_hooks_soft("on_failure", task, run_id, error)
-        if attempt < max_retries:
-            delay = min(self.retry_base_delay * (2 ** attempt), self.retry_max_delay)
-            # пауза хранится в БД (queued + «не раньше»), а не в sleep — переживает рестарт
-            async with self.db.session() as s:
-                await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
-                    status="queued", attempt=attempt + 1, error=error,
-                    checkpoint={"messages": messages, "step": step, "note": "retry"},
-                    worker_lease_until=utcnow() + timedelta(seconds=delay)))
-                await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
-                    status="queued", updated_at=utcnow()))
-                await s.commit()
-            await self._log(run_id, "warn", "run.retry",
-                            f"попытка {attempt + 1}/{max_retries} через {delay:.0f} с")
-            await self.bus.emit("task.queued", task_id=task["id"], run_id=run_id,
-                                attempt=attempt + 1, retry=True)
+
+        checkpoint = (run or {}).get("checkpoint") or {}
+        failure_class = _recovery.classify_failure(error, kind=kind)
+        ladder = _recovery.Ladder.from_dict(checkpoint.get("recovery_ladder"), failure_class)
+        agent = await self._agent_of(task)
+        rung = _recovery.next_rung(
+            ladder,
+            current_model_id=self._current_model_id(run, agent),
+            fallback_model_id=(agent or {}).get("fallback_model_id"),
+            healthy_models=await self._healthy_models(),
+            retries_left=max(0, max_retries - attempt))
+        await self.bus.emit("recovery.rung_selected", task_id=task["id"], run_id=run_id,
+                            failure_class=failure_class, **rung.to_dict())
+
+        if rung.terminal:
+            # Эскалация владельцу — настоящий ответ, а не провал лестницы:
+            # отдать проблему человеку лучше, чем перебирать пути, которые не
+            # могут сработать.
+            await self._log(run_id, "error", "run.recovery_exhausted", rung.reason[:500])
+            await self._finish(run_id, task["id"], "failed",
+                               error=f"{error} | {rung.reason}",
+                               checkpoint={"messages": messages, "step": step,
+                                           "note": "recovery_exhausted",
+                                           "recovery_ladder": rung.ladder.to_dict()})
             return
-        await self._finish(run_id, task["id"], "failed", error=error,
-                           checkpoint={"messages": messages, "step": step, "note": "failed"})
+
+        note = {"messages": messages, "step": step, "note": f"recovery:{rung.name}",
+                "recovery_ladder": rung.ladder.to_dict()}
+        if rung.model_id is not None:
+            # Модель на этот прогон, а не смена модели агента: владелец настроил
+            # агента, и лестница не переписывает его конфигурацию молча.
+            note["recovery_model_id"] = int(rung.model_id)
+        if rung.degrade:
+            note["recovery_degrade"] = dict(rung.degrade)
+        delay = (min(self.retry_base_delay * (2 ** attempt), self.retry_max_delay)
+                 if rung.name == _recovery.RETRY_SAME else 0.0)
+        async with self.db.session() as s:
+            await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                status="queued", attempt=attempt + 1, error=error, checkpoint=note,
+                worker_lease_until=(utcnow() + timedelta(seconds=delay)) if delay else None))
+            await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
+                status="queued", updated_at=utcnow()))
+            await s.commit()
+        # `run.retry` остаётся прежним именем события для ступени «тот же
+        # маршрут»: это ровно то поведение, которое было, и у него есть
+        # потребители (UI, тесты). Смена стратегии — новое событие.
+        log_kind = "run.retry" if rung.name == _recovery.RETRY_SAME else "run.recovery"
+        message = (f"попытка {attempt + 1}/{max_retries} через {delay:.0f} с"
+                   if rung.name == _recovery.RETRY_SAME
+                   else f"{failure_class}: ступень {rung.name} — {rung.reason}")
+        await self._log(run_id, "warn", log_kind, message)
+        await self.bus.emit("task.queued", task_id=task["id"], run_id=run_id,
+                            attempt=attempt + 1, retry=True, recovery_rung=rung.name)
+
+    async def _agent_of(self, task: dict) -> dict | None:
+        agent_id = task.get("agent_id")
+        if not agent_id:
+            return None
+        async with self.db.session() as s:
+            return await fetch_one(s, agents_t, int(agent_id))
+
+    def _current_model_id(self, run: dict | None, agent: dict | None) -> int | None:
+        route = (run or {}).get("route")
+        if isinstance(route, dict) and route.get("model_id") is not None:
+            return int(route["model_id"])
+        model_id = (agent or {}).get("model_id")
+        return int(model_id) if model_id is not None else None
+
+    async def _healthy_models(self) -> list[tuple[int, Any]]:
+        """Измеренное здоровье моделей для выбора альтернативы (B5).
+
+        Телеметрия не имеет права ронять восстановление: если здоровье не
+        читается, лестница просто не увидит альтернатив и пойдёт дальше."""
+        try:
+            from . import model_health as mh
+            async with self.db.session() as s:
+                rows = (await s.execute(sa.select(models_t.c.id, models_t.c.health))).fetchall()
+            return [(int(r[0]), mh.HealthRecord.from_dict(r[1])) for r in rows]
+        except Exception:  # noqa: BLE001
+            return []
 
     async def _check_interrupt(self, run_id: int, task_id: int, messages: list[dict],
                                step: int) -> bool:
@@ -1806,6 +2276,26 @@ class TaskEngine:
             return
         await self.bus.emit("task.progress", task_id=task_id, run_id=run_id,
                             waiting_approval=True, gate_hook_failed=exc.hook)
+
+    async def _budget_stop(self, run_id: int, task: dict, messages: list[dict], step: int,
+                           breach: Any, tokens_in: int, tokens_out: int,
+                           cost: float, alias: str) -> None:
+        """§8: потолок сработал — прогон закрывается ОТКАЗОМ с названной причиной.
+
+        Ни обрезки контекста, ни понижения модели, ни «частичного успеха»: бюджет,
+        который тихо выдаёт худший ответ, неотличим от бага. Транскрипт
+        сохраняется в checkpoint — владелец должен видеть, на чём остановились,
+        чтобы спорить с потолком уликами, а не поднимать его рефлекторно."""
+        await self._log(run_id, "error", "run.budget_stop", str(breach)[:500])
+        await self.bus.emit("run.budget_exceeded", task_id=task["id"], run_id=run_id,
+                            code=breach.code, detail=breach.detail[:300],
+                            tokens_in=tokens_in, tokens_out=tokens_out,
+                            cost_usd=round(cost, 6), step=step)
+        await self._finish(run_id, task["id"], "failed", error=str(breach),
+                           checkpoint={"messages": messages, "step": step,
+                                       "note": f"budget:{breach.code}"},
+                           tokens_in=tokens_in, tokens_out=tokens_out,
+                           cost_usd=round(cost, 6), model_alias=alias)
 
     async def _fail_now(self, run_id: int, task_id: int, error: str) -> None:
         """Провал без ретраев (нет агента/модели, попытки исчерпаны) — с записью в лог run'а."""

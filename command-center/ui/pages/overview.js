@@ -36,6 +36,7 @@ const OverviewPage = {
   title: 'Обзор',
   icon: 'home',
   nav: 'primary',
+  section: 'system',
 
   async render(ctx) {
     const [missionsR, agentsR, modelsR, approvalsR, systemR, resourcesR, mapR, activityR] = await Promise.allSettled([
@@ -52,9 +53,13 @@ const OverviewPage = {
     const graph = mapR.status === 'fulfilled' ? mapR.value : { nodes: [] };
     const activity = activityR.status === 'fulfilled' ? listOf(activityR.value, 'events', 'activity') : [];
 
+    const approvalsFailed = approvalsR.status === 'rejected';
+
     ctx.state.models = models;
     ctx.state.agents = agents;
-    ctx.setBadge('approvals', approvals.length);
+    // Ноль по оборванной ручке гасит признак ожидающих решений так же, как
+    // настоящая пустая очередь: считаем только по факту ответа.
+    if (!approvalsFailed) ctx.setBadge('approvals', approvals.length);
 
     const activeMissions = missions.filter((m) => m.status === 'running');
     const onlineModels = models.filter((m) => String(m.status) === 'online').length;
@@ -72,7 +77,7 @@ const OverviewPage = {
     const quick = buildQuickCommand(ctx, agents);
 
     const activeMissionCard = buildActiveMissionCard(missions, ctx);
-    const needsYouCard = buildNeedsYouCard(approvals, ctx);
+    const needsYouCard = buildNeedsYouCard(approvals, ctx, approvalsFailed ? approvalsR.reason : null);
     const agentsCard = buildAgentsCard(agents, graph, ctx);
     const computeCard = buildComputeCard(sys, resources, ctx);
 
@@ -136,13 +141,23 @@ function buildActiveMissionCard(missions, ctx) {
           icon('plus', 12), h('span', 'Новая миссия'))));
 }
 
-function buildNeedsYouCard(approvals, ctx) {
+function buildNeedsYouCard(approvals, ctx, err) {
+  /* Отказ ручки нельзя показывать спокойным нулём: «ничего не ждёт решения»
+     выглядит одинаково и при пустой очереди, и когда очередь просто не
+     доехала — владелец перестаёт искать решения, которые его ждут. */
+  const body = err
+    ? h('div.panel-body',
+      h('div.big-num.warn', '—'),
+      h('div.small.dim', { style: { marginTop: '2px' } }, 'не загрузилось'),
+      h('div.xsmall.dim', err.message || 'сервер не ответил'),
+      h('button.btn.btn-sm', { type: 'button', style: { marginTop: '8px' }, onClick: () => ctx.refresh() }, 'Повторить'))
+    : h('div.panel-body',
+      h('div', { class: 'big-num' + (approvals.length ? ' warn' : '') }, String(approvals.length)),
+      h('div.small.dim', { style: { marginTop: '2px' } }, approvals.length ? 'ждут вашего решения' : 'ничего не ждёт решения'));
   return h('section.panel',
     h('div.panel-head', h('h2', 'Needs You'), h('div.spacer'),
       h('button.btn.btn-ghost.btn-sm', { type: 'button', onClick: () => ctx.navigate('approvals') }, 'Очередь')),
-    h('div.panel-body',
-      h('div', { class: 'big-num' + (approvals.length ? ' warn' : '') }, String(approvals.length)),
-      h('div.small.dim', { style: { marginTop: '2px' } }, approvals.length ? 'ждут вашего решения' : 'ничего не ждёт решения')));
+    body);
 }
 
 function buildAgentsCard(agents, graph, ctx) {

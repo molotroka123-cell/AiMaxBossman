@@ -161,6 +161,29 @@ _TERMINAL_FILE_RE = re.compile(
 
 _FILENAME_RE = re.compile(r"\b[\w][\w./-]{0,80}\.[a-zA-Z0-9]{1,8}\b")
 
+# A hostname is not a path. `https://example.com` matched the filename regex as
+# `example.com`, so a task that merely *mentions* a URL was given a file
+# obligation for a file nobody ever promised. Review then failed forever
+# (`file:example.com: файл отсутствует при свежем чтении`), escalated, and the
+# task deadlocked in `waiting_approval` — two of the four deadlocks in the
+# 202-event acceptance corpus (T2 run4) came from exactly this.
+#
+# The fix is a span exclusion rather than an extension blacklist: a real file
+# may legitimately be called `notes.com`, but a filename occurring INSIDE a URL
+# or an email address is never a local post-state. Nothing is invented and
+# nothing legitimate is dropped.
+_URLISH_RE = re.compile(
+    r"""(?:
+          [a-zA-Z][a-zA-Z0-9+.-]*://[^\s<>"'«»]+      # scheme://host/path
+        | \bwww\.[^\s<>"'«»]+                          # bare www host
+        | \b[\w.+-]+@[\w-]+\.[A-Za-z]{2,24}\b          # email address
+    )""",
+    re.VERBOSE)
+
+
+def _urlish_spans(text: str) -> list[tuple[int, int]]:
+    return [m.span() for m in _URLISH_RE.finditer(text or "")]
+
 
 def _terminal_evidence(prompt: str) -> ExpectedState | None:
     """Явное имя файла в тексте задачи (закрытый, детерминированный вывод —
@@ -173,10 +196,15 @@ def _terminal_evidence(prompt: str) -> ExpectedState | None:
     tool_names = set(REGISTRY.names()) | {
         "terminal.run", "terminal.stdin", "terminal.kill",
     }
-    for match in _FILENAME_RE.finditer(prompt or ""):
+    text = prompt or ""
+    urlish = _urlish_spans(text)
+    for match in _FILENAME_RE.finditer(text):
         target = match.group(0)
         if target in tool_names:
             continue
+        start, end = match.span()
+        if any(s <= start and end <= e for s, e in urlish):
+            continue                      # part of a URL/email, not a filesystem outcome
         return ExpectedState(kind="file", target=target, expect={"exists": True})
     return None
 

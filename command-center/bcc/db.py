@@ -148,6 +148,34 @@ approvals = sa.Table(
     sa.Column("created_at", sa.DateTime, default=utcnow),
 )
 
+# Явно выданная владельцем ОБЛАСТЬ полномочия, а не одно нажатие (§7 конвергенции).
+# Один и тот же безопасный эффект спрашивался заново на каждом шаге: 161
+# подтверждение за сессию, ~121 из них — на правку документации. Аренда
+# позволяет владельцу один раз разрешить КЛАСС эффекта в явных границах
+# (инструмент, эффект, режим, агент, задача) с обязательными лимитами: срок,
+# число использований, мгновенный отзыв. Аренды НЕ существует по умолчанию:
+# без явного решения владельца поведение ровно прежнее.
+approval_leases = sa.Table(
+    "approval_leases", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("approval_id", sa.Integer, sa.ForeignKey("approvals.id", ondelete="SET NULL")),
+    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE")),
+    sa.Column("agent_id", sa.Integer, sa.ForeignKey("agents.id", ondelete="CASCADE")),
+    sa.Column("tool", sa.String(160), nullable=False),
+    # "read" | "write" — класс эффекта, посчитанный тем же классификатором,
+    # что и при исполнении. Аренда на чтение НЕ покрывает запись.
+    sa.Column("effect_class", sa.String(16), nullable=False, default="read"),
+    # Дополнительное сужение (для terminal.run — mode). NULL = любой в рамках
+    # остальных границ; владелец видит это в предпросмотре.
+    sa.Column("scope_key", sa.String(200), default=""),
+    sa.Column("max_uses", sa.Integer, nullable=False, default=1),
+    sa.Column("used", sa.Integer, nullable=False, default=0),
+    sa.Column("expires_at", sa.DateTime, nullable=False),
+    sa.Column("status", sa.String(16), default="active"),        # active|revoked|exhausted|expired
+    sa.Column("granted_by", sa.String(120), default="owner"),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
 system_metrics = sa.Table(
     "system_metrics", metadata,
     sa.Column("id", sa.Integer, primary_key=True),
@@ -506,6 +534,13 @@ V2_NEW_COLUMNS: list[tuple[str, str, str]] = [
     ("tool_calls", "observed_at", "DATETIME"),
     ("tool_calls", "receipt_sig", "VARCHAR(64)"),
     ("agents", "workspace", "VARCHAR(500)"),
+    # Какая аренда полномочия покрыла этот вызов (§7): без неё «подтверждений
+    # стало меньше» невозможно отличить от «спрашивать перестали».
+    ("tool_calls", "lease_id", "INTEGER"),
+    # B5: измеренное здоровье модели (bcc/model_health). Отдельно от `status`,
+    # потому что `status` смешивал доступность эндпоинта провайдера и умение
+    # модели вообще что-то ответить, и молчащая модель считалась online.
+    ("models", "health", "JSON"),
 ]
 
 # Table-объекты выше объявлены ДО этого блока, поэтому колонки добавляем и в metadata —
@@ -570,6 +605,44 @@ class Database:
         async with self.engine.begin() as conn:
             await conn.run_sync(metadata.create_all)
         await self._migrate()
+        await self._install_terminal_run_guard()
+
+    async def _install_terminal_run_guard(self) -> None:
+        """ТЕРМИНАЛЬНЫЙ ПРОГОН НЕИЗМЕНЯЕМ. Запрет живёт в БАЗЕ, а не в вызовах.
+
+        `task_runs.status` пишется примерно из двадцати мест движка, планировщика,
+        ресурсов и организации. Караулить каждое означало бы, что инвариант
+        держится ровно до следующего нового места записи, — а его обязаны
+        соблюдать ВСЕ границы, включая те, которых ещё нет. Поэтому запрет
+        поставлен там, где мимо него нельзя пройти.
+
+        Что запрещено: у прогона, уже дошедшего до `completed` или `failed`,
+        сменить `status` на другой. Это закрывает разом
+        completed→failed, failed→completed, completed→running, failed→running
+        и любой их вариант, включая прямую правку строки в базе.
+
+        Что разрешено и почему: запись того же самого статуса (идемпотентный
+        повтор финализации — это не переход) и правка ЛЮБЫХ других колонок
+        терминального прогона (улики, ссылки, брони дописываются после исхода).
+        Повторная попытка — это НОВЫЙ прогон с новым `attempt`, а не воскрешение
+        старого, поэтому легальные пути ничего здесь не теряют.
+        """
+        if not self.url.startswith("sqlite"):
+            # Триггер написан на диалекте SQLite. Молча «установить» его на
+            # другом движке значило бы объявить инвариант там, где его нет.
+            log.warning("terminal-run guard NOT installed: non-sqlite backend %r", self.url)
+            return
+        statement = """
+        CREATE TRIGGER IF NOT EXISTS runs_terminal_status_is_immutable
+        BEFORE UPDATE OF status ON task_runs
+        FOR EACH ROW
+        WHEN OLD.status IN ('completed', 'failed') AND NEW.status <> OLD.status
+        BEGIN
+            SELECT RAISE(ABORT, 'terminal run status is immutable');
+        END;
+        """
+        async with self.engine.begin() as conn:
+            await conn.execute(sa.text(statement))
 
     async def _migrate(self) -> None:
         """Идемпотентные ALTER для новых V2-колонок: create_all не расширяет
@@ -643,7 +716,7 @@ async def fetch_one(session: AsyncSession, table: sa.Table, row_id: int) -> dict
 __all__ = [
     "Database", "Engine", "metadata", "utcnow", "row_dict", "rows_dicts", "fetch_one",
     "providers", "models", "agents", "tasks", "task_runs", "schedules", "run_events",
-    "approvals", "system_metrics", "events", "settings_kv",
+    "approvals", "approval_leases", "system_metrics", "events", "settings_kv",
     # V2
     "missions", "kpi_history", "orchestras", "orchestra_members", "skills",
     "skill_versions", "skill_evaluations", "benchmarks", "checkpoints", "session_forks",

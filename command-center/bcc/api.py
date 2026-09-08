@@ -39,8 +39,8 @@ from .login_guard import LoginRateLimiter
 from .config import Settings, settings as default_settings
 from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
                  rows_dicts, settings_kv, task_runs as runs_t, tasks as tasks_t, utcnow)
-from .lifecycle import sleep_or_stop
-from .engine import TaskEngine
+from .lifecycle import StartupTrace, sleep_or_stop
+from .engine import TaskEngine, TaskStateConflict
 from .events import EventBus
 from .metrics import MetricsSampler
 from .providers import ADAPTERS, ProviderError
@@ -113,9 +113,21 @@ class Services:
         self.login_guard = LoginRateLimiter()          # SEC-03: rate-limit/lockout на /api/login
         self._wire_v2_managers()             # skills / terminal / browser (пак)
         self.features = load_features()      # V2: модули bcc/features/* (контракты §8)
+        # Здоровье фоновых петель фич. INV-RD-1 держится свипом, который живёт
+        # в тике review_gate; пока этого словаря не было, умерший или каждый раз
+        # падающий тик не отличался снаружи от работающего, и «задача не может
+        # ждать вечно» становилось обещанием без наблюдателя. Ключи заводятся
+        # ЗАРАНЕЕ: фича, у которой тика ещё не было, обязана быть видна как
+        # «starting», а не отсутствовать.
+        self.feature_ticks: dict[str, dict[str, Any]] = {
+            f.name: {"at": 0.0, "error": None, "every": float(f.tick_seconds)}
+            for f in self.features if f.tick and f.tick_seconds > 0}
         self.start_workers = start_workers
         self._tasks: list[asyncio.Task] = []
         self.started_at = utcnow()
+        # V6 §A: фазы старта — измеренные, а не предполагаемые. Заполняется в
+        # start(); до него `ready` = False, чтобы «нет данных» не читалось как «0 мс».
+        self.startup = StartupTrace()
 
     def _wire_v2_managers(self) -> None:
         """Опциональные рантаймы пака. Отсутствие Playwright/MCP НЕ ломает старт
@@ -149,11 +161,16 @@ class Services:
         # выходящие. Поэтому снимаем его здесь, а не полагаемся на то, что
         # так никто не делает.
         self._stopping.clear()
-        await self.db.create_all()
+        trace = self.startup = StartupTrace()   # повторный start() после stop() — новая трасса
+        trace.begin()
+        async with trace.phase("db.create_all"):
+            await self.db.create_all()
         for feature in self.features:        # хуки engine и подписки — до старта worker'а
             if feature.setup:
-                await feature.setup(self)
-        await self.engine.recover()          # crash recovery при старте процесса
+                async with trace.phase(f"feature.setup:{feature.name}"):
+                    await feature.setup(self)
+        async with trace.phase("engine.recover"):
+            await self.engine.recover()      # crash recovery при старте процесса
         if self.start_workers:
             # Именно += : фичи регистрируют свои подписки в _tasks во время
             # setup() выше (missions, benchlab, failure_to_case). Присваивание
@@ -178,16 +195,23 @@ class Services:
             # нельзя: подписки фич флага не смотрят, и остановка каждый раз
             # упиралась бы в полный предел ожидания вместо миллисекунд.
             self._graceful.update(graceful)
+        trace.finish()
 
     async def _feature_tick(self, feature: Any) -> None:
         """Фоновая петля фичи (Governor, Healing, истечение резервов…):
         ошибка одного тика логируется и не убивает петлю."""
+        state = self.feature_ticks.setdefault(
+            feature.name, {"at": 0.0, "error": None, "every": float(feature.tick_seconds)})
         while not self._stopping.is_set():
             try:
                 await feature.tick(self)
+                # Отметка ставится только за УСПЕШНЫЙ тик: петля, которая
+                # крутится и каждый раз падает, не тикала.
+                state["at"], state["error"] = time.monotonic(), None
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                state["error"] = f"{type(exc).__name__}: {exc}"
                 await self.bus.emit("worker.error",
                                     message=f"tick {feature.name}: {type(exc).__name__}: {exc}")
             if await sleep_or_stop(self._stopping, feature.tick_seconds):
@@ -382,9 +406,21 @@ class TaskIn(BaseModel):
     schedule: ScheduleIn | None = None
 
 
+class LeaseIn(BaseModel):
+    """Опциональная ОБЛАСТЬ, на которую распространяется это решение (§7).
+
+    Отсутствие поля = поведение ровно как раньше: одно нажатие — один вызов.
+    Аренда выдаётся только явным решением владельца и только для эффекта,
+    который он видел в предпросмотре; оба предела обязательны и ограничены
+    сверху в bcc.approval_scope."""
+    max_uses: int = 1
+    ttl_seconds: int = 900
+
+
 class ApprovalIn(BaseModel):
     approve: bool
     by: str = "owner"
+    lease: LeaseIn | None = None
 
 
 class ApprovalCreate(BaseModel):
@@ -470,6 +506,14 @@ def _install_testing_period_log(app: FastAPI) -> None:
 
 def _install_error_handlers(app: FastAPI) -> None:
     """Единый формат ошибок для UI: {error: {message, hint?}}."""
+
+    @app.exception_handler(TaskStateConflict)
+    async def _task_state_conflict(_r: Request, exc: TaskStateConflict):
+        return JSONResponse({"error": {
+            "message": f"действие недоступно в состоянии {exc.status}",
+            "code": "TASK_STATE_CONFLICT",
+            "hint": f"task {exc.task_id}: {exc.action}",
+        }}, status_code=409)
 
     @app.exception_handler(ApiError)
     async def _api_error(_r: Request, exc: ApiError):
@@ -596,7 +640,8 @@ def _api_router() -> APIRouter:
                                   .group_by(runs_t.c.status))
             queue = {str(r[0]): int(r[1]) for r in res.fetchall()}
         return {"metrics": now, "history": history, "queue": queue,
-                "health": await _health(svc), "started_at": svc.started_at}
+                "health": await _health(svc), "started_at": svc.started_at,
+                "startup": svc.startup.to_dict()}
 
     @router.get("/activity")
     async def activity(limit: int = 50, svc: Services = Depends(services)):
@@ -796,7 +841,7 @@ def _api_router() -> APIRouter:
             res = await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task_id)
                                   .order_by(runs_t.c.id))
             runs = [_run_public(r) for r in rows_dicts(res.fetchall())]
-        done = [r for r in runs if r["result"]]
+        done = [r for r in runs if r["status"] == "completed" and r["result"]]
         return {"task": task, "runs": runs, "result": done[-1]["result"] if done else None,
                 "error": ((task.get("meta") or {}).get("blocked_reason")
                           if task["status"] == "blocked" else runs[-1]["error"] if runs else None)}
@@ -808,10 +853,7 @@ def _api_router() -> APIRouter:
         if task is None:
             raise ApiError("задача не найдена", status=404)
         if action == "run":
-            if await svc.engine.active_run(task_id):
-                raise ApiError("задача уже в очереди или выполняется",
-                               hint="сначала остановите её")
-            run_id = await svc.engine.enqueue(task_id)
+            run_id = await svc.engine.enqueue(task_id, only_if_idle=True)
             return await svc.engine.admission_result(task_id, run_id)
         if action == "stop":
             return await svc.engine.stop(task_id)
@@ -887,7 +929,44 @@ def _api_router() -> APIRouter:
         row = await svc.approvals.decide(approval_id, body.approve, body.by)
         if row is None:
             raise ApiError("подтверждение не найдено", status=404)
+        lease = None
+        if body.approve and body.lease is not None:
+            # Область берётся из ПАРКОВАННОГО вызова, а не из тела запроса:
+            # клиент не может расширить то, что владелец видел в предпросмотре.
+            lease = await _lease_from_parked_call(svc, row, body.lease, body.by)
+            if lease is None:
+                raise ApiError("аренду можно выдать только по ожидающему вызову "
+                               "инструмента этого подтверждения", status=409)
+        return {**row, "lease": lease}
+
+    @router.get("/approvals/leases")
+    async def list_leases(task_id: int | None = None, active_only: bool = True,
+                          svc: Services = Depends(services)):
+        from . import approval_scope as scope
+        return {"leases": await scope.listing(svc, task_id=task_id, active_only=active_only)}
+
+    @router.post("/approvals/leases/{lease_id}/revoke")
+    async def revoke_lease(lease_id: int, body: ApprovalRevoke | None = None,
+                           svc: Services = Depends(services)):
+        from . import approval_scope as scope
+        row = await scope.revoke(svc, lease_id, (body.by if body else None) or "owner")
+        if row is None:
+            raise ApiError("аренда не найдена", status=404)
         return row
+
+    @router.get("/tasks/{task_id}/efficiency")
+    async def task_efficiency(task_id: int, svc: Services = Depends(services)):
+        """§8-метрики прогона: tokens_per_verified_effect, approvals, review
+        cycles, replans, стоимость. Считаются из фактических записей, не из
+        отчёта модели."""
+        from . import mission_budget
+        return await mission_budget.run_metrics(svc, task_id)
+
+    @router.get("/approvals/metrics")
+    async def approval_metrics(task_id: int, svc: Services = Depends(services)):
+        """approvals_per_successful_mission и что именно сэкономила аренда."""
+        from . import approval_scope as scope
+        return await scope.metrics(svc, task_id)
 
     @router.post("/approvals/{approval_id}/revoke")
     async def revoke_approval(approval_id: int, body: ApprovalRevoke | None = None,
@@ -900,6 +979,37 @@ def _api_router() -> APIRouter:
         return row
 
     return router
+
+
+async def _lease_from_parked_call(svc, approval: dict, want, by: str) -> dict | None:
+    """Derive the lease scope from the tool call this approval is parked on.
+
+    The scope is NEVER taken from the request body. The owner consented to what
+    the preview showed — that exact tool, that exact effect class, that agent,
+    that task — so the scope is recomputed from the parked call's own arguments
+    using the executor's classifier. A client that asked for a wider lease than
+    it was shown gets the narrow one, or none at all."""
+    import sqlalchemy as _sa
+    from . import approval_scope as scope
+    from .db import agents as _agents, tasks as _tasks, tool_calls as _calls
+    async with svc.db.session() as s:
+        row = (await s.execute(_sa.select(_calls).where(
+            _calls.c.approval_id == approval.get("id"),
+            _calls.c.status == "pending_approval").order_by(
+            _calls.c.id.desc()).limit(1))).first()
+        if row is None:
+            return None
+        parked = dict(row._mapping)
+        task = (await s.execute(_sa.select(_tasks.c.id).where(
+            _tasks.c.id == parked.get("task_id")))).first()
+        agent_id = (await s.execute(_sa.select(_tasks.c.agent_id).where(
+            _tasks.c.id == parked.get("task_id")))).scalar()
+    if task is None:
+        return None
+    sc = scope.scope_for(str(parked.get("tool") or ""), parked.get("args") or {},
+                         agent={"id": agent_id}, task={"id": int(task[0])})
+    return await scope.grant(svc, approval=approval, scope=sc,
+                             max_uses=want.max_uses, ttl_seconds=want.ttl_seconds, by=by)
 
 
 def _run_public(run: dict | None) -> dict | None:
@@ -927,6 +1037,14 @@ async def _health(svc: Services) -> dict:
                                        svc.start_workers)
     health["metrics"] = _loop_health(svc.metrics.last_tick, svc.metrics.interval * 3,
                                      svc.start_workers)
+    # Петли фич — на том же экране и по тем же правилам. Свип INV-RD-1 живёт
+    # в тике review_gate: если он умер, задача снова может ждать вечно, и
+    # узнать об этом надо здесь, а не по жалобе владельца.
+    for name, state in sorted(getattr(svc, "feature_ticks", {}).items()):
+        entry = _loop_health(state["at"], max(state["every"] * 3, 10.0), svc.start_workers)
+        if state.get("error") and svc.start_workers:
+            entry = {"status": "error", "detail": state["error"][:200]}
+        health[f"tick:{name}"] = entry
     # P1 no-fake-green: подсистемы с внешними зависимостями не должны выглядеть
     # зелёными, когда они недоступны. Пустой health или unknown не превращается в ok.
     try:

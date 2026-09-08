@@ -115,6 +115,6 @@ async def test_media_probe_refuses_escape_paths(tmp_path):
     """F-003: probe не валидировал путь (в отличие от ffmpeg)."""
     from bossman.toolkit.media import probe
     ctx = ToolContext(agent="coder", workdir=tmp_path)
-    for bad in ("../../../etc/passwd", "/etc/passwd", "C:\Windows\win.ini"):
+    for bad in ("../../../etc/passwd", "/etc/passwd", r"C:\Windows\win.ini"):
         res = await probe({"path": bad}, ctx)
         assert res.error and "отказ" in res.one_line

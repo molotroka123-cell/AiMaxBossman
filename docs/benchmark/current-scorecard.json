@@ -1,19 +1,12 @@
 {
   "schema": "bossman.live-scorecard/1",
-  "last_update": "2026-09-05",
-  "last_evidence_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
+  "last_update": "2026-09-07",
+  "last_evidence_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
   "exact_sha_ci": "UNPROVEN",
   "live_hardware_attestation": "PENDING",
   "benchmark_hard_failures": [],
-  "deterministic_counters": {
-    "false_success_count": 0,
-    "duplicate_side_effect_count": 0,
-    "privacy_violation_count": 0,
-    "permission_bypass_count": 0,
-    "source": "bossman-core/tests/test_v3_org_benchmark.py (A–E), test_v3_benchmark_overlay.py, test_v3_fleet_e2e.py, command-center/tests/test_fence_fl01.py at last_evidence_sha; deterministic suites, no live run recorded ; SALVAGE-004: bossman-core/tests/test_astra_remediation.py (ASTRA-004/005, F003/F004, O005), test_v3_astra_p1.py, test_v3_fence_receipts.py at ffd7d25"
-  },
-  "current_bottleneck": "Полный зелёный набор всех шести workflow по ОДНОМУ SHA ещё не наблюдался: на 38c836b root-ci, V2 Auto-Repair, ASTRA acceptance (включая windows-latest) и Solana safety — PASS, а Core CI и Command Center CI отменены более новым пушем (отменён ≠ пройден). Branch protection выключена (ASTRA-CI-101, действие владельца); аттестация железа и реальный sandbox NOT_RUN; live-приёмка OpenRouter не проводилась (0.00 USD).",
-  "next_highest_value_fix": "Включить branch protection (tools/astra_branch_protection.py --apply) и сделать четыре обязательные проверки required; затем Windows ACL ключей и live-приёмка на дешёвой модели по конфигурации; затем поднять покрытие Command Center по фичам с наименьшим покрытием.",
+  "current_bottleneck": "V6 phase 0/1 is repository-complete pending external validation: Core/ASTRA/Solana/Windows/security evidence is green on the current code candidate, but an uninterrupted full Command Center exact-SHA matrix plus owner Windows/local-model/Video/Web Designer/long-session acceptance is still missing.",
+  "next_highest_value_fix": "Finish one uninterrupted exact-SHA CI certification, then run the second owner Dashboard acceptance on Windows with the configured model/provider and close only reproduced Video Studio, Web Designer and long-session findings.",
   "categories": [
     {
       "category": "Execution Truth",
@@ -21,31 +14,15 @@
       "status": "VERIFIED",
       "confidence": "HIGH",
       "evidence": [
-        "EH-01: улика verified=True доверяется только с HMAC-подписью доверенного signer'а; журнал подписывает закрытый шаг (000f331, bossman-core/tests/test_v3_evidence_signing.py)",
-        "FL-01: fence движка — зомби-воркер не пишет receipt/статус, внешний эффект не повторяется (2487694, command-center/tests/test_fence_fl01.py)",
-        "TaskJournal: finished = receipt ∧ verified (bossman-core/tests/test_v3_memory_kernel.py, test_v3_invariants.py, test_v3_compound_resume.py)",
-        "FleetExecutionBridge отбрасывает поддельные verified-улики, пересобирая их из журнала (test_v3_fleet_e2e.py::forged evidence, 084ad3a)",
-        "PLACED→VERIFIED запрещён в LEGAL_TRANSITIONS (test_v3_fleet_core.py)",
-        "V2 action contract тесты (command-center/tests/test_action_contract.py)",
-        "EH-05: FAIL гейта без явного requeue = сбой гейта (4c8fec2, command-center/tests/test_gate_contract_requeue.py)",
-        "ActionReceipt (fence/observation/freshness) + канонический bcc/finalize.py — единственная запись completed (TRUTH-003, d6260ad/db5defb, test_finalize_gate.py, test_no_direct_completed_writes.py)",
-        "ASTRA-001..005: completion obligations Core, bind_plan/execution_binding журнала, durable intent до эффекта, crash после необратимого эффекта → без повторa (2077bbf, test_astra_remediation.py)",
-        "Post-state verifiers terminal/github/memory/schedule/process; observe_pid: расхождение источников → UNVERIFIED (test_v2_poststate_verifiers.py)"
+        "AT-01 effect obligations and fresh post-state verification are closed with regression coverage",
+        "Fencing, anti-replay and recovery invariants remain in force; V6 performance work did not weaken effect-boundary semantics"
       ],
-      "blockers": [
-        "Live-прогон не записан: значения счётчиков в живой среде UNPROVEN"
-      ],
-      "tests": [
-        "bossman-core/tests/test_v3_evidence_signing.py",
-        "command-center/tests/test_fence_fl01.py",
-        "bossman-core/tests/test_v3_fleet_e2e.py",
-        "bossman-core/tests/test_v3_organization_e2e.py",
-        "command-center/tests/test_action_contract.py"
-      ],
-      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
-      "last_verified_at": "2026-09-05",
+      "blockers": ["Owner-host VERIFIED_ACTION end-to-end is still NOT_RUN"],
+      "tests": ["bossman-core/tests/test_operator_at01_at03_regression.py", "command-center/tests/test_golden_missions.py"],
+      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
+      "last_verified_at": "2026-09-07",
       "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.3
+      "regression_delta": 0.0
     },
     {
       "category": "Security",
@@ -53,32 +30,15 @@
       "status": "VERIFIED",
       "confidence": "HIGH",
       "evidence": [
-        "P0-A gateway loopback fail-closed при proxy-заголовках (cbdabf2, bossman-core/tests/test_gateway_loopback_proxy.py)",
-        "P0-B монотонная алгебра политики DENY⊗X=DENY, hook-ASK⊗AUTO=ASK (eb0e969, command-center/tests/test_policy_algebra.py)",
-        "Fleet: PRIVATE/LOCAL_ONLY — жёсткий гейт планировщика, CredentialBroker выдаёт только гранты (test_v3_fleet_core.py)",
-        "Secret scan в каждом CI-прогоне (tools/ci_secret_scan.py)",
-        "EH-01: ключ подписи улик 0600 вне модели; fail-closed без ключа (bossman_shared/evidence.py)",
-        "OpenRouter только через env → ключ в vault, не в репозитории/логах/API (3e673d3, test_feat_openrouter_env_bootstrap.py)",
-        "SEC-01 секрет-скан 2.0: 13 семейств паттернов, энтропия, ZIP по содержимому, запрещённые файлы (tests/test_ci_secret_scan.py)",
-        "SEC-03 rate-limit/lockout на /api/login до сравнения токена (command-center/tests/test_login_rate_limit.py)",
-        "SEC-101/102: pinned HTTP transport, CGNAT запрещён, DNS вне event loop, поток ≤2 МБ (test_astra_remediation.py)",
-        "SEC-103: рекурсивный fail-closed ZIP-скан; SAST/SCA gate блокирует CI (tools/astra_security_gate.py, ffd7d25)",
-        "CSRF 403 несёт code=csrf → повторный вход, политика не ослаблена (d114e30, test_browser_navigation_ui.py)"
+        "Secret scan and blocking SAST/SCA completed successfully on the V6 code candidate",
+        "Approvals, authorization, privacy routing, freshness and fail-closed behavior were explicitly preserved through V6"
       ],
-      "blockers": [
-        "Branch protection не включена (ASTRA-CI-101); Windows ACL ключей NOT_RUN"
-      ],
-      "tests": [
-        "bossman-core/tests/test_gateway_loopback_proxy.py",
-        "command-center/tests/test_policy_algebra.py",
-        "bossman-core/tests/test_v3_fleet_core.py",
-        "tests/test_ci_secret_scan.py",
-        "command-center/tests/test_login_rate_limit.py"
-      ],
-      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
-      "last_verified_at": "2026-09-05",
+      "blockers": ["Owner credential/provider runtime and Windows host attestation remain external validation"],
+      "tests": ["tests/test_ci_secret_scan.py", "command-center/tests/test_policy_algebra.py"],
+      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
+      "last_verified_at": "2026-09-07",
       "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.2
+      "regression_delta": 0.0
     },
     {
       "category": "Tooling / OS Integration",
@@ -86,22 +46,15 @@
       "status": "INTEGRATED",
       "confidence": "MEDIUM",
       "evidence": [
-        "V2 реестр инструментов/decide_effect/approvals заморожен на ffda281 и покрыт command-center/tests/test_v21_*",
-        "V3-порты → живой bcc (bossman-core/tests/test_v3_command_center_adapters.py)",
-        "OpenRouter как провайдер из окружения (ключ+модели — данные), тот же tool loop через фейковый провайдер детерминированно (command-center/tests/test_feat_openrouter_agent_flow.py)",
-        "CapabilitySpec как узкий адаптер над ToolSpec: манифест /api/capabilities, правило выдачи capability ∧ policy ∧ runtime, неизмеренная предпосылка = отказ, инструмент без верификатора помечен provable=False (command-center/tests/test_capability_manifest.py)"
+        "Windows-path CI is green on the current V6 code candidate",
+        "Owner-session reconnect, app restart recovery, provider UX and Trading Lab crash paths have repository fixes"
       ],
-      "blockers": [
-        "TZ-03: CapabilitySpec, выдача инструмента на run, детектор no-progress"
-      ],
-      "tests": [
-        "command-center/tests/test_v21_tool_loop.py",
-        "bossman-core/tests/test_v3_command_center_adapters.py"
-      ],
-      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
-      "last_verified_at": "2026-09-05",
-      "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.5
+      "blockers": ["Real visible-window owner Windows acceptance and configured local-model/provider acceptance are still pending"],
+      "tests": ["command-center/tests/test_apps_control.py", "command-center/tests/test_testing_period.py"],
+      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
+      "last_verified_at": "2026-09-07",
+      "live_attestation": "PENDING",
+      "regression_delta": 0.0
     },
     {
       "category": "Organization Layer",
@@ -109,28 +62,15 @@
       "status": "INTEGRATED",
       "confidence": "MEDIUM",
       "evidence": [
-        "OrganizationRuntime над V3ExecutionBridge/FleetExecutionBridge; ORG-03..07, MEM-02 закрыты (084ad3a)",
-        "E2E: родитель не COMPLETE при непроверенном ребёнке, рестарт без дублей (bossman-core/tests/test_v3_organization_e2e.py)",
-        "ORG-01/02: фича `/api/org/*` за флагами, агент организации → агент V2, задача+run V2 на контракт; PlannerPort/DeterministicPlanner; контракт без шагов → BLOCKED/no_executable_steps (efaa55f, test_v3_organization_planner.py, command-center/tests/test_feat_organization.py)",
-        "O001–O007 закрыты: private→нет cloud даже в fallback, атомарный intake, невалидные ресурсы, veto риск-ревьюера, атомарный бюджет, владение scope (2077bbf, test_astra_remediation.py)"
+        "Mission/task orchestration remains durable and blocked-only missions now terminate honestly instead of appearing to run forever",
+        "Organization/Fleet execution contracts and verified-child completion rules remain covered"
       ],
-      "blockers": [
-        "ORG-08: saga-компенсации",
-        "модельный планировщик (TZ-03 §2.5)",
-        "HTTP-E2E исполнения через V2 с реальным агентом",
-        "usd как view над fable_budget (TR-04)"
-      ],
-      "tests": [
-        "bossman-core/tests/test_v3_organization_core.py",
-        "bossman-core/tests/test_v3_organization_e2e.py",
-        "bossman-core/tests/test_v3_organization_company_bridge.py",
-        "bossman-core/tests/test_v3_organization_planner.py",
-        "command-center/tests/test_feat_organization.py"
-      ],
-      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
-      "last_verified_at": "2026-09-05",
-      "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.3
+      "blockers": ["Owner live N4/N5/N6/N8 acceptance is not fully evidenced on the current host"],
+      "tests": ["command-center/tests/test_feat_missions.py", "bossman-core/tests/test_v3_organization_e2e.py"],
+      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
+      "last_verified_at": "2026-09-07",
+      "live_attestation": "PENDING",
+      "regression_delta": 0.0
     },
     {
       "category": "Fleet & Resources",
@@ -138,25 +78,15 @@
       "status": "INTEGRATED",
       "confidence": "MEDIUM",
       "evidence": [
-        "FleetStore/LeaseManager/WorkQueue CAS-claim, fencing, reclaim (bossman-core/tests/test_v3_fleet_core.py, 20 тестов)",
-        "E2E #1–#4: размещение→исполнение, смерть узла→resume без дублей, приватность, двойной claim (test_v3_fleet_e2e.py)",
-        "FL-01: task_runs.fence, условные записи и heartbeat, assert_fence до эффекта в V2 и в V3-адаптере (2487694, test_fence_fl01.py)",
-        "10 safety proofs (реестр + истёкшая аренда без власти + размещение не штрафует исполнителя); REMOTE_TRANSPORT_PRODUCTION_READY=NO, NODE_AUTH_PRODUCTION_READY=NO (test_v3_fleet_safety_proofs.py)",
-        "F001–F006: shared/exclusive аренды, guard до мутации, claim_fence на ACK/COMPLETE, backoff/WAIT_HUMAN в SQLite, единый пул RAM+GPU, MINIMIZED-гейт (2077bbf, test_astra_remediation.py, test_v3_fleet_e2e.py)"
+        "Lease/fence/queue safety contracts remain covered and V6 does not bypass the canonical execution path",
+        "Interactive work is protected from background FFmpeg contention by lowered child-process priority"
       ],
-      "blockers": [
-        "Fake 128GB topology test ≠ аттестация железа"
-      ],
-      "tests": [
-        "bossman-core/tests/test_v3_fleet_core.py",
-        "bossman-core/tests/test_v3_fleet_e2e.py",
-        "command-center/tests/test_fence_fl01.py",
-        "bossman-core/tests/test_v3_fleet_safety_proofs.py"
-      ],
-      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
-      "last_verified_at": "2026-09-05",
+      "blockers": ["Remote production transport and owner-host rollback/resource acceptance remain external"],
+      "tests": ["bossman-core/tests/test_v3_fleet_e2e.py", "command-center/tests/test_fence_fl01.py"],
+      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
+      "last_verified_at": "2026-09-07",
       "live_attestation": "PENDING",
-      "regression_delta": 0.5
+      "regression_delta": 0.0
     },
     {
       "category": "Memory / Context",
@@ -164,22 +94,15 @@
       "status": "IMPLEMENTED",
       "confidence": "MEDIUM",
       "evidence": [
-        "TaskJournal + FailureMemory + ContextAssembler с редакцией (bossman_v3/memory)",
-        "ScopedKnowledge: явное наследование include_parents, экспорт по allowlist (MEM-02, 084ad3a)",
-        "Журнал: exclusive writer lock + CAS, устаревший writer не стирает durable intent (test_reaudit_journal_*); scope ownership по хранилищу (ASTRA-009); лимит V3 включает заголовок/сериализацию (ASTRA-010)"
+        "Durable task/recovery memory and scoped context contracts remain intact",
+        "Long-session testing now explicitly watches stale context, zombie runs, duplicate subscribers and memory growth"
       ],
-      "blockers": [
-        "TZ-06: решётка скоупов по дереву, ScopeToken, эмбеддинги, токен-оценка контекста",
-        "слияние с bossman.context_engine (колонка scope)"
-      ],
-      "tests": [
-        "bossman-core/tests/test_v3_organization_core.py",
-        "bossman-core/tests/test_v3_memory_kernel.py"
-      ],
-      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
-      "last_verified_at": "2026-09-05",
-      "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.3
+      "blockers": ["Same-model intelligence-retention artifact is still INSUFFICIENT_EVIDENCE; owner long-session re-test pending"],
+      "tests": ["bossman-core/tests/test_v3_memory_kernel.py", "tests/test_context_slice.py"],
+      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
+      "last_verified_at": "2026-09-07",
+      "live_attestation": "PENDING",
+      "regression_delta": 0.0
     },
     {
       "category": "Testing / CI",
@@ -187,56 +110,31 @@
       "status": "VERIFIED",
       "confidence": "MEDIUM",
       "evidence": [
-        "4 workflow (root-ci, Bossman Core CI, Command Center CI, V2 Auto-Repair) зелёные по точному SHA 714bb01/fb201a4",
-        "Полный регресс ядра на стабильном HEAD; benchmark-тесты проверяют SHA",
-        "README_SCORECARD_CURRENT проверяется в root-ci (scripts/update_readme_scorecard.py --check)",
-        "Пассивный benchmark overlay: 9 hard fail'ов, 5 стресс-бенчмарков над реальными Organization/Fleet/CompoundRunner, мост в scorecard `--from-benchmark` (bossman-core/tests/test_v3_benchmark_overlay.py, test_v3_org_benchmark.py)",
-        "Сквозной E2E миссия→организация→флот→узел→V3→файл→свежее чтение→подписанные улики→VERIFIED→ревью→COMPLETE→benchmark→scorecard (bossman-core/tests/test_v3_cross_layer_e2e.py)",
-        "Реестр 10 доказательств безопасности флота, каждое привязано к существующему тесту (test_v3_fleet_safety_proofs.py)",
-        "Windows portable job (astra-acceptance) + windows-paths job; skips registry 89/0 без причины (d7b3519); полный регресс на интегрированном дереве: Core 2047, CC 1471, root 152; VERIFY.py 5/5 PASS",
-        "Exact-SHA CI на 38c836b: root-ci PASS, V2 Auto-Repair PASS, ASTRA acceptance PASS (включая windows-latest portable), Solana safety PASS; Core/CC CI на том же SHA отменены более новым пушем (concurrency), не падением",
-        "Неснижаемый порог покрытия из измерения: bossman_v3 89% → gate 85% (проверено локально 88.89%), bcc 76% → gate 72% (docs/testing/COVERAGE_BASELINE.md)"
+        "Bossman Core full coverage/rest/security/gateway/stage8-14 jobs are green on 413a97a1",
+        "ASTRA acceptance, Solana safety, Windows paths and secret/SAST gates are green; Python 3.14 is a hard Command Center lane"
       ],
-      "blockers": [
-        "Core CI и Command Center CI по одному SHA подряд отменяются пушами: полный зелёный набор всех шести workflow по ОДНОМУ SHA ещё не наблюдался"
-      ],
-      "tests": [
-        "tests/test_readme_scorecard.py",
-        ".github/workflows/*.yml",
-        "bossman-core/tests/test_v3_benchmark_overlay.py",
-        "bossman-core/tests/test_v3_org_benchmark.py",
-        "bossman-core/tests/test_v3_cross_layer_e2e.py",
-        "bossman-core/tests/test_v3_fleet_safety_proofs.py"
-      ],
-      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
-      "last_verified_at": "2026-09-05",
+      "blockers": ["Full Command Center 3.11/3.12/3.14 exact-SHA run was cancelled by later documentation pushes, so exact_sha_ci remains UNPROVEN"],
+      "tests": [".github/workflows/bossman-core-ci.yml", ".github/workflows/command-center-ci.yml"],
+      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
+      "last_verified_at": "2026-09-07",
       "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.5
+      "regression_delta": 0.0
     },
     {
       "category": "Observability / CEO Control",
       "score": 7.0,
       "status": "PARTIAL",
-      "confidence": "LOW",
+      "confidence": "MEDIUM",
       "evidence": [
-        "control_plane снимки организации и флота из durable store (bossman_v3/organization/control_plane.py, fleet/control_plane.py)",
-        "GET /api/control-plane: organization/queue/treasury/fleet/slo/attention из durable-источников, снимок совпадает после рестарта (5709611, command-center/tests/test_feat_control_plane.py)",
-        "AST-скан: события и run-лог не несут messages/prompt/api_key/cookie/token (test_no_private_fields_in_events.py)",
-        "trace_id на весь цикл, ретеншн событий, latency-метрики, Fleet в /api/control-plane (f42bcff, 57f4f31, test_observability_trace.py)",
-        "Пульт владельца: /api/control-plane → owner_view (КТО/ГДЕ/МОДЕЛЬ/ЧТО/СОСТОЯНИЕ/ПОЧЕМУ/ЦЕНА/ВНИМАНИЕ) и ui/pages/control.js; зелёный COMPLETE только после task.finalized (command-center/tests/test_owner_control_view.py, test_owner_control_ui.py — Playwright, выполнены)"
+        "V6 adds Services.start phase tracing, UI_READY/first-page timing and Computer Use phase_timing",
+        "Testing-period evidence from owner session 6cbb17ce84db is retained with corrected dead-click classification"
       ],
-      "blockers": [
-        "SLO по маршрутам не реализован (slo.status = NOT_IMPLEMENTED)"
-      ],
-      "tests": [
-        "command-center/tests/test_feat_control_plane.py",
-        "command-center/tests/test_no_private_fields_in_events.py",
-        "bossman-core/tests/test_v3_organization_core.py"
-      ],
-      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
-      "last_verified_at": "2026-09-05",
-      "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 1.0
+      "blockers": ["Owner-host FIRST_USEFUL_RESPONSE and VERIFIED_ACTION distributions are still NOT_MEASURED"],
+      "tests": ["tests/test_operator_step_profile.py", "command-center/tests/test_testing_period.py"],
+      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
+      "last_verified_at": "2026-09-07",
+      "live_attestation": "PENDING",
+      "regression_delta": 0.0
     },
     {
       "category": "Treasury / Cost",
@@ -244,25 +142,15 @@
       "status": "IMPLEMENTED",
       "confidence": "MEDIUM",
       "evidence": [
-        "TR-01/02/03: актуальные цены 5 семейств (provisional), токен-оценка по скрипту, потолок in·max(p_in,p_cw)+out·p_out (e724a44, tests/test_fable_budget_pricing.py)",
-        "ResourceTreasury: INV-3 PartitionViolation, конверты org→dept→mission (test_v3_organization_core.py)",
-        "PROD-002: неизвестная цена остаётся null до inference, старый нуль ≠ free; O005/O006 атомарный резерв/списание (test_astra_remediation_cc.py)"
+        "Budget/cost gates remain unchanged and fail-closed during V6 performance work",
+        "Unknown pricing is not treated as free and Fable hard-cap accounting remains isolated from tests"
       ],
-      "blockers": [
-        "TR-04: usd как view над ledger",
-        "TR-05: локальный GPU",
-        "TR-06: burn-rate",
-        "цены provisional (AS_OF 2026-09-05)"
-      ],
-      "tests": [
-        "tests/test_fable_budget_pricing.py",
-        "command-center/tests/test_fable_hard_cap.py",
-        "bossman-core/tests/test_v3_organization_core.py"
-      ],
-      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
-      "last_verified_at": "2026-09-05",
-      "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.3
+      "blockers": ["Real configured provider/local-model cost-per-verified-result acceptance is pending"],
+      "tests": ["tests/test_fable_budget_pricing.py", "command-center/tests/conftest.py"],
+      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
+      "last_verified_at": "2026-09-07",
+      "live_attestation": "PENDING",
+      "regression_delta": 0.0
     },
     {
       "category": "Mission UX / Command Center",
@@ -270,23 +158,15 @@
       "status": "IMPLEMENTED",
       "confidence": "MEDIUM",
       "evidence": [
-        "Command Center UI (command-center/ui) с approvals, задачами, инструментами; command-center/tests зелёные",
-        "Компактная навигация + OpenRouter Connect (исправлен appendChild) — ветка claude/v2-ui-sidebar-compact, 1401 passed, НЕ влита",
-        "Данные для страницы владельца доступны: `/api/control-plane`, `/api/org/snapshot` (UI-страница — TZ-10, не сделана)",
-        "PROD-004 фильтрация миссии до LIMIT + пагинация; CSRF-403 → форма входа вместо мёртвой кнопки (d114e30); журнал тестового периода 51307af16b90: 8 ошибок разобраны",
-        "Страница «Пульт» в реестре UI; цвет = уровень доказанности, промпты на экран не выводятся"
+        "V6 lazy pages reduced first-render modules from 42/788 KiB to 14/290 KiB in the measured harness",
+        "Owner-session reconnect, blocked mission, app restart and provider/trading error paths received targeted fixes"
       ],
-      "blockers": [
-        "Покрытие Command Center 76%: часть UI-фич без тестов"
-      ],
-      "tests": [
-        "command-center/tests/test_ux2_pages_sweep.py",
-        "command-center/tests/test_command_bar_ui.py"
-      ],
-      "last_verified_sha": "e26553e56cc3097fd3139a48e3fac8fa3db3ab75",
-      "last_verified_at": "2026-09-05",
-      "live_attestation": "NOT_REQUIRED",
-      "regression_delta": 0.6
+      "blockers": ["Real Video Studio, Web Designer AI-edit and 4–5 task long-session owner acceptance must be re-run"],
+      "tests": ["command-center/tests/test_v6_lazy_pages.py", "command-center/tests/test_ux2_pages_sweep.py"],
+      "last_verified_sha": "413a97a1ce2936f9543fea5d8f0b529256fc1de2",
+      "last_verified_at": "2026-09-07",
+      "live_attestation": "PENDING",
+      "regression_delta": 0.0
     }
   ]
 }

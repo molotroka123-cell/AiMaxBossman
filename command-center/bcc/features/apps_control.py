@@ -32,6 +32,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 import socket
@@ -68,8 +69,130 @@ ENV_KEEP = ("PATH", "HOME", "LANG", "LC_ALL", "TZ", "TMPDIR", "TEMP", "TMP",
             "SYSTEMROOT", "COMSPEC", "USERPROFILE", "APPDATA", "LOCALAPPDATA")
 
 
+# Ключ владельца в settings: постоянное решение, переживающее перезапуск и
+# не требующее ритуала с переменной окружения (находка B3 cloud-QA: все девять
+# приложений отвечали 409, пока владелец не выставил FLAG=1 и не перезапустил
+# Command Center — а узнать это было неоткуда).
+SETTING_KEY = "apps.control_enabled"
+# Пин развёртывания: "on"/"off" закрепляют политику так, что API её не меняет.
+# Нужен для закрытых установок, где решение принимает не тот, у кого есть UI.
+LOCK_ENV = "BOSSMAN_APPS_CONTROL_LOCK"
+
+_TRUE = ("1", "true", "yes", "on")
+_FALSE = ("0", "false", "no", "off")
+
+
+def _env_flag() -> bool | None:
+    """Прежняя переменная окружения — теперь ЗНАЧЕНИЕ ПО УМОЛЧАНИЮ, а не
+    единственный способ. None = владелец её не трогал."""
+    raw = os.environ.get(FLAG, "").strip().lower()
+    if raw in _TRUE:
+        return True
+    if raw in _FALSE:
+        return False
+    return None
+
+
+def _env_lock() -> bool | None:
+    raw = os.environ.get(LOCK_ENV, "").strip().lower()
+    if raw in _TRUE:
+        return True
+    if raw in _FALSE:
+        return False
+    return None
+
+
 def enabled() -> bool:
-    return os.environ.get(FLAG, "").strip().lower() in ("1", "true", "yes")
+    """Синхронный ответ БЕЗ базы: только окружение.
+
+    Оставлен для путей, у которых нет `svc` (и как безопасный запас, если
+    настройка не читается). Он НЕ видит постоянного решения владельца, поэтому
+    все ручки и инструменты ходят через `is_enabled(svc)`."""
+    lock = _env_lock()
+    if lock is not None:
+        return lock
+    return bool(_env_flag())
+
+
+async def _stored(svc) -> bool | None:
+    """Постоянное решение владельца или None, если он его не принимал."""
+    import sqlalchemy as sa
+    from ..db import settings_kv
+    try:
+        async with svc.db.session() as s:
+            row = (await s.execute(sa.select(settings_kv.c.value_enc)
+                                   .where(settings_kv.c.key == SETTING_KEY))).first()
+        if row is None or row[0] is None:
+            return None
+        raw = svc.vault.decrypt(row[0])
+    except Exception:  # noqa: BLE001 — нечитаемая настройка не открывает доступ
+        return None
+    value = str(raw).strip().lower()
+    if value in _TRUE:
+        return True
+    if value in _FALSE:
+        return False
+    return None
+
+
+async def policy(svc) -> dict[str, Any]:
+    """Действующая политика и ОТКУДА она взялась — целиком, для владельца.
+
+    Порядок разрешения (первое найденное побеждает):
+      1. пин развёртывания `BOSSMAN_APPS_CONTROL_LOCK` — API его не меняет;
+      2. постоянное решение владельца в settings — действует СРАЗУ, без
+         перезапуска (в этом и была суть находки B3);
+      3. прежняя переменная окружения `BOSSMAN_APPS_CONTROL_ENABLED`;
+      4. выключено. Умолчание остаётся закрытым осознанно: этот модуль —
+         единственное место, где ядро порождает процесс на машине владельца,
+         и «по умолчанию можно» здесь означало бы «можно у всех, кто не знал».
+    """
+    lock = _env_lock()
+    if lock is not None:
+        return {"enabled": lock, "source": "deployment_lock", "locked": True,
+                "can_change": False,
+                "hint": f"политика закреплена переменной {LOCK_ENV}; "
+                        f"через API её не изменить"}
+    stored = await _stored(svc)
+    if stored is not None:
+        return {"enabled": stored, "source": "owner_setting", "locked": False,
+                "can_change": True,
+                "hint": ("управление включено владельцем; действует сразу, "
+                         "перезапуск не нужен") if stored else
+                        ("управление выключено владельцем; включить — "
+                         "PUT /api/apps/control/policy {\"enabled\": true}")}
+    env = _env_flag()
+    if env is not None:
+        return {"enabled": env, "source": "environment", "locked": False,
+                "can_change": True,
+                "hint": f"значение по умолчанию взято из {FLAG}; решение владельца "
+                        f"через API переопределит его без перезапуска"}
+    return {"enabled": False, "source": "default", "locked": False, "can_change": True,
+            "hint": "управление приложениями по умолчанию выключено; включить — "
+                    "PUT /api/apps/control/policy {\"enabled\": true} "
+                    "(действует сразу, перезапуск не нужен)"}
+
+
+async def is_enabled(svc) -> bool:
+    return bool((await policy(svc))["enabled"])
+
+
+async def set_policy(svc, *, want: bool, by: str = "owner") -> dict[str, Any]:
+    """Записать постоянное решение владельца. Пин развёртывания сильнее."""
+    import sqlalchemy as sa
+    from ..db import settings_kv
+    current = await policy(svc)
+    if current["locked"]:
+        raise HTTPException(403, {"code": "APPS_CONTROL_LOCKED",
+                                  "message": "политика закреплена развёртыванием",
+                                  "hint": current["hint"]})
+    enc = svc.vault.encrypt("1" if want else "0")
+    async with svc.db.session() as s:
+        await s.execute(sa.delete(settings_kv).where(settings_kv.c.key == SETTING_KEY))
+        await s.execute(sa.insert(settings_kv).values(key=SETTING_KEY, value_enc=enc))
+        await s.commit()
+    await svc.bus.emit("apps.control_policy_changed", enabled=want, by=by)
+    return await policy(svc)
 
 
 # ------------------------------------------------------------------ реестр процессов
@@ -91,6 +214,82 @@ _processes: dict[str, _Managed] = {}
 _lock = asyncio.Lock()         # старт и остановка — критическая секция на весь модуль
 
 
+# ------------------------------------------------------------------ после перезапуска
+#
+# Реестр процессов живёт в памяти, а Command Center перезапускают часто. После
+# перезапуска BOSSMAN забывал, что сам запустил приложение: `_owned` пуст, порт
+# занят — и запуск отвечал «порт занят процессом, которого BOSSMAN не запускал»
+# про свой собственный процесс, а остановка отказывалась его трогать. Приложение
+# становилось и незапускаемым, и неостанавливаемым через интерфейс.
+#
+# Поэтому факт запуска переживает перезапуск: маленькая запись на диске.
+# Но восстановленная запись СЛАБЕЕ живого дочернего процесса: `proc.poll()`
+# говорит про наш процесс достоверно, а pid из файла может быть переиспользован
+# системой. Поэтому по восстановленной записи мы РАПОРТУЕМ, но не убиваем:
+# остановка требует явного подтверждения владельца.
+
+_RECORDS_DIRNAME = "apps-control"
+
+
+def _record_path(app_id: str, data_dir: Path) -> Path:
+    return Path(data_dir) / _RECORDS_DIRNAME / f"{app_id}.json"
+
+
+def _record_write(rec: _Managed, data_dir: Path) -> None:
+    path = _record_path(rec.app_id, data_dir)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({
+            "app_id": rec.app_id, "pid": rec.proc.pid, "port": rec.port,
+            "argv": list(rec.argv), "log_path": str(rec.log_path),
+            "started_at": rec.started_at}, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass          # запись — удобство, а не условие запуска
+
+
+def _record_drop(app_id: str, data_dir: Path | None) -> None:
+    if data_dir is None:
+        return
+    try:
+        _record_path(app_id, data_dir).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(int(pid), 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True        # существует, но чужой владелец
+    except (OSError, ValueError, TypeError):
+        return False
+    return True
+
+
+def _recorded(app_id: str, data_dir: Path | None, port: Any) -> dict | None:
+    """Наш процесс, переживший перезапуск сервера, — или None.
+
+    Требуются ОБА признака: pid жив и порт занят. Одного pid мало (его мог
+    переиспользовать кто угодно), одного занятого порта — тоже (там мог сесть
+    чужой сервер). Запись, не прошедшую проверку, удаляем: устаревшая запись
+    врёт не меньше, чем её отсутствие.
+    """
+    if data_dir is None:
+        return None
+    path = _record_path(app_id, data_dir)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    pid = data.get("pid")
+    if not (_pid_alive(pid) and port_busy(port)):
+        _record_drop(app_id, data_dir)
+        return None
+    return data
+
+
 def _owned(app_id: str) -> _Managed | None:
     """Живая запись о нашем процессе. Умерший процесс перестаёт быть нашим.
 
@@ -107,8 +306,9 @@ def _owned(app_id: str) -> _Managed | None:
     return rec
 
 
-def _forget(rec: _Managed) -> None:
+def _forget(rec: _Managed, data_dir: Path | None = None) -> None:
     _processes.pop(rec.app_id, None)
+    _record_drop(rec.app_id, data_dir)
     try:
         rec.log_file.close()
     except OSError:
@@ -231,6 +431,42 @@ def _entry_module(app_dir: Path, raw: dict[str, Any]) -> str | None:
     return None
 
 
+def _module_importable(app_dir: Path, module: str) -> str:
+    """Проверить, что объявленный модуль запуска существует. Пустая строка — да.
+
+    Объявление в `pyproject.toml` — это намерение, а не факт. У `social-farm`
+    строка `social-farm = "social_farm.main:main"` стояла на месте, а
+    `main.py` не существовал: кнопка «Запустить» порождала процесс, который
+    умирал с `ModuleNotFoundError` через доли секунды. Владелец видел
+    приложение, которое «не открывается», и никакой причины.
+
+    Проверка идёт в отдельном процессе с тем же PYTHONPATH, что и запуск.
+    В этом же процессе её делать нельзя: импорт чужого приложения выполнит его
+    код прямо внутри Command Center.
+    """
+    env = {k: v for k, v in os.environ.items() if k in ENV_KEEP}
+    src = app_dir / "src"
+    if src.is_dir():
+        env["PYTHONPATH"] = str(src)
+    try:
+        probe = subprocess.run(
+            [sys.executable, "-c",
+             "import importlib.util,sys;"
+             "sys.exit(0 if importlib.util.find_spec(sys.argv[1]) else 3)",
+             module],
+            cwd=str(app_dir), env=env, capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"не удалось проверить модуль запуска {module}: {type(exc).__name__}"
+    if probe.returncode == 0:
+        return ""
+    if probe.returncode == 3:
+        return (f"модуль запуска {module} объявлен, но не существует — "
+                f"процесс умрёт сразу после старта")
+    detail = (probe.stderr or probe.stdout or "").strip().splitlines()
+    return (f"модуль запуска {module} не импортируется: "
+            f"{detail[-1] if detail else f'код {probe.returncode}'}")
+
+
 def command_for(app_id: str) -> dict[str, Any]:
     """Как именно мы запустим приложение. Отдаётся и в UI — как запасной путь,
     если владелец хочет сделать это руками."""
@@ -238,17 +474,30 @@ def command_for(app_id: str) -> dict[str, Any]:
     raw = apps_feature._load(app_dir / "app.manifest.yaml") or {}
     module = _entry_module(app_dir, raw)
     if not module:
+        # Разные причины требуют разных действий владельца, и «нет точки
+        # входа» у приложения, которого просто нет на диске, отправляет его
+        # искать pyproject там, где нет ни строчки кода.
+        has_code = any(app_dir.glob("*.py")) or any(
+            root.is_dir() and any(root.rglob("*.py"))
+            for root in (app_dir / "src", app_dir / app_id.replace("-", "_")))
+        problem = ("приложение объявлено манифестом, но его кода нет в этом "
+                   "репозитории — запускать нечего"
+                   if not has_code else
+                   "не удалось определить модуль запуска: в pyproject.toml "
+                   "приложения нет [project.scripts], а пакета с __main__.py нет")
         return {"module": "", "argv": [], "cwd": str(app_dir), "manual": "",
-                "problem": "не удалось определить модуль запуска: в pyproject.toml "
-                           "приложения нет [project.scripts], а пакета с __main__.py нет"}
+                "problem": problem}
     # sys.executable — тот же интерпретатор, что и у ядра: приложение не должно
     # зависеть от того, что окажется словом `python` в PATH службы.
     argv = [sys.executable, "-m", module, "serve"]
     # В подсказке человеку — `python`, а не абсолютный путь: её набирают руками.
     prefix = "PYTHONPATH=src " if (app_dir / "src").is_dir() else ""
     manual = f"cd apps/{app_id} && {prefix}python -m {module} serve"
+    # Несуществующий модуль называется ЗДЕСЬ, до нажатия кнопки. Иначе
+    # владелец получает «приложение не открывается» без единой причины.
+    problem = _module_importable(app_dir, module)
     return {"module": module, "argv": argv, "cwd": str(app_dir), "manual": manual,
-            "problem": ""}
+            "problem": problem}
 
 
 def _child_env(app_dir: Path, port: int | None) -> dict[str, str]:
@@ -256,6 +505,14 @@ def _child_env(app_dir: Path, port: int | None) -> dict[str, str]:
     # Без этого вывод приложения застревает в буфере, и хвост журнала оказывается
     # пустым ровно тогда, когда он нужен — когда приложение не поднялось.
     env["PYTHONUNBUFFERED"] = "1"
+    # Живой прогон владельца (Windows, 20260906, H-CLUSTER): приложение с
+    # кириллическим выводом падало с UnicodeEncodeError и отдавало exit 1 —
+    # ядро показывало «завершилось с ошибкой» вместо «не поднялось». Причина не
+    # в приложении: мы фильтруем env, дочерний python не наследует ничего про
+    # кодировку и берёт локаль хоста (cp1252), а журнал мы читаем как UTF-8.
+    # Кодировка дочернего процесса — часть контракта запуска, а не его дело.
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
     env["PYTHONPATH"] = os.pathsep.join(str(r) for r in _package_roots(app_dir))
     if port:
         env["APP_PORT"] = str(port)
@@ -390,6 +647,7 @@ def _spawn(app_id: str, app_dir: Path, card: dict[str, Any],
                    port=card.get("port"), log_path=path, log_file=handle,
                    started_at=time.time(), started_mono=time.monotonic())
     _processes[app_id] = rec
+    _record_write(rec, data_dir)
     return rec
 
 
@@ -405,6 +663,18 @@ async def start_app(app_id: str, data_dir: Path,
                     "message": f"{card['name']} уже запущено (pid {rec.proc.pid})",
                     "log_path": str(rec.log_path), "log_tail": [],
                     "command": rec.argv}
+        prior = _recorded(app_id, data_dir, port)
+        if prior is not None:
+            # Наш же процесс, переживший перезапуск сервера. Раньше здесь
+            # выдавалось «процесс, которого BOSSMAN не запускал» — про
+            # собственное приложение, и запустить его больше было нельзя.
+            return {"ok": True, "app_id": app_id, "started": False,
+                    "already_running": True, "ready": True, "recovered": True,
+                    "pid": prior.get("pid"), "port": port,
+                    "message": f"{card['name']} уже работает (pid {prior.get('pid')}): "
+                               f"его запустил BOSSMAN до перезапуска сервера",
+                    "log_path": prior.get("log_path"), "log_tail": [],
+                    "command": prior.get("argv") or []}
         if port_busy(port):
             # Порт занят, а в реестре пусто — значит, сервер там не наш. Ни
             # запускать второй, ни присваивать чужой мы не имеем права.
@@ -431,7 +701,7 @@ async def start_app(app_id: str, data_dir: Path,
                 "log_tail": log_tail(rec.log_path)}
     if outcome == "exited":
         async with _lock:
-            _forget(rec)
+            _forget(rec, data_dir)
         return {**base, "ok": False, "started": False, "already_running": False, "ready": False,
                 "reason": "exited", "exit_code": code, "pid": None,
                 "message": f"{card['name']} завершилось сразу после запуска (код {code})",
@@ -444,12 +714,28 @@ async def start_app(app_id: str, data_dir: Path,
             "log_tail": log_tail(rec.log_path)}
 
 
-async def stop_app(app_id: str) -> dict[str, Any]:
+async def stop_app(app_id: str, data_dir: Path | None = None) -> dict[str, Any]:
     _, card = _require_app(app_id)
     port = card.get("port")
     async with _lock:
         rec = _owned(app_id)
         if rec is None:
+            prior = _recorded(app_id, data_dir, port)
+            if prior is not None:
+                # Это наш процесс, но запись о нём восстановлена с диска, а не
+                # получена от живого потомка: `proc.poll()` мы здесь предъявить
+                # не можем, а pid из файла система могла переиспользовать.
+                # Гасить по такой улике — значит однажды убить чужой процесс.
+                # Поэтому говорим правду и отдаём решение владельцу.
+                return {"ok": True, "app_id": app_id, "stopped": False, "owned": True,
+                        "recovered": True, "port": port, "port_busy": True,
+                        "pid": prior.get("pid"),
+                        "message": f"{card['name']} запущено BOSSMAN до перезапуска сервера "
+                                   f"(pid {prior.get('pid')}). Остановить его отсюда нельзя: "
+                                   f"после перезапуска у нас нет прямой связи с процессом, "
+                                   f"а гасить по записанному pid небезопасно — его мог занять "
+                                   f"другой процесс. Закройте окно приложения или снимите "
+                                   f"процесс сами."}
             busy = port_busy(port)
             message = (f"на порту {port} отвечает процесс, которого BOSSMAN не запускал — "
                        f"он не тронут") if busy else f"{card['name']} и так не запущено"
@@ -469,7 +755,7 @@ async def stop_app(app_id: str) -> dict[str, Any]:
             while rec.proc.poll() is None and time.monotonic() < deadline:
                 await asyncio.sleep(STOP_POLL)
         code = rec.proc.poll()
-        _forget(rec)
+        _forget(rec, data_dir)
         return {"ok": True, "app_id": app_id, "stopped": True, "owned": True,
                 "pid": pid, "port": port, "signal": signal_used, "exit_code": code,
                 "message": f"{card['name']} остановлено ({signal_used})"}
@@ -495,33 +781,70 @@ def process_info(app_id: str, data_dir: Path) -> dict[str, Any]:
 router = APIRouter(tags=["apps"])
 
 
-def _require_flag() -> None:
-    if not enabled():
-        raise HTTPException(409, {
-            "message": "управление приложениями выключено",
-            "hint": f"чтобы BOSSMAN мог запускать приложения, установите {FLAG}=1 "
-                    f"и перезапустите Command Center"})
+async def _require_enabled(svc) -> None:
+    """Отказ ПОЛИТИКИ, а не конфликт состояния.
+
+    Прежде это был 409 — тот же код, что у «порт занят чужим процессом» и «в
+    манифесте нет console script». Cloud-QA прогон увидел девять одинаковых
+    409 на девяти приложениях и не мог отличить «владелец не разрешал» от
+    «что-то сломалось». Теперь политика отвечает 403 с машиночитаемым `code`,
+    а 409 остаётся тем, чем и был: конфликтом реального состояния."""
+    current = await policy(svc)
+    if not current["enabled"]:
+        raise HTTPException(403, {
+            "code": "APPS_CONTROL_DISABLED",
+            "message": "управление приложениями выключено политикой владельца",
+            "policy": current,
+            "hint": current["hint"]})
+
+
+@router.get("/apps/control/policy")
+async def get_control_policy(request: Request) -> dict:
+    """Действующая политика и её источник. Читается всегда — владелец должен
+    видеть, ПОЧЕМУ кнопка не работает, не заглядывая в переменные окружения."""
+    return await policy(request.app.state.svc)
+
+
+@router.put("/apps/control/policy")
+async def put_control_policy(request: Request) -> dict:
+    """Постоянное решение владельца: действует сразу, переживает перезапуск.
+
+    Это и есть закрытие B3 — управление приложениями перестаёт зависеть от
+    незадокументированного ритуала «выставить переменную и перезапустить»."""
+    svc = request.app.state.svc
+    body = await request.json()
+    if not isinstance(body, dict) or not isinstance(body.get("enabled"), bool):
+        raise HTTPException(422, {"code": "APPS_CONTROL_BAD_REQUEST",
+                                  "message": "нужно {\"enabled\": true|false}"})
+    return await set_policy(svc, want=body["enabled"], by=str(body.get("by") or "owner"))
 
 
 @router.post("/apps/{app_id}/start")
 async def start(app_id: str, request: Request) -> dict:
-    _require_flag()
     svc = request.app.state.svc
+    await _require_enabled(svc)
     return await start_app(app_id, svc.settings.data_dir)
 
 
 @router.post("/apps/{app_id}/stop")
 async def stop(app_id: str, request: Request) -> dict:
-    _require_flag()
-    return await stop_app(app_id)
+    svc = request.app.state.svc
+    await _require_enabled(svc)
+    return await stop_app(app_id, svc.settings.data_dir)
 
 
 @router.get("/apps/{app_id}/process")
 async def process(app_id: str, request: Request) -> dict:
-    """Чтение состояния флага не требует: «выключено» — тоже ответ, и человек
+    """Чтение состояния политики не требует: «выключено» — тоже ответ, и человек
     должен видеть его до того, как нажмёт кнопку."""
     svc = request.app.state.svc
-    return process_info(app_id, svc.settings.data_dir)
+    info = process_info(app_id, svc.settings.data_dir)
+    current = await policy(svc)
+    # `enabled` из process_info видит только окружение; действующая политика
+    # знает и о решении владельца — наружу уходит именно она.
+    info["enabled"] = current["enabled"]
+    info["control_policy"] = current
+    return info
 
 
 async def _tick(svc) -> None:

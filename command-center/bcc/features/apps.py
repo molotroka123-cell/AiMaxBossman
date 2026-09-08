@@ -37,6 +37,24 @@ CACHE_TTL = 10.0             # чтобы открытая главная не �
 
 _cache: dict[str, Any] = {"at": 0.0, "apps": []}
 
+# V6 §C (измерено): httpx.AsyncClient строит SSL-контекст при КАЖДОМ создании —
+# ~22 мс синхронного CPU в цикле событий. Девять карточек × клиент на каждую =
+# ~200 мс, на которые замирали ВСЕ запросы дашборда (первая отрисовка ждала
+# именно этого). Контекст строится один раз на процесс, клиент — один на опрос.
+_ssl_context: Any = None
+
+# Разобранные манифесты по (путь, mtime, размер): yaml-разбор девяти файлов —
+# ещё ~30–40 мс синхронно в цикле каждые CACHE_TTL секунд. Файл изменился —
+# ключ изменился — разбираем заново; ничего не устаревает молча.
+_described: dict[tuple[str, int, int], dict[str, Any] | None] = {}
+
+
+def _ssl() -> Any:
+    global _ssl_context
+    if _ssl_context is None:
+        _ssl_context = httpx.create_ssl_context()
+    return _ssl_context
+
 
 # ------------------------------------------------------------------ манифесты
 
@@ -102,7 +120,7 @@ def _describe(path: Path) -> dict[str, Any] | None:
 
 # ------------------------------------------------------------------ живое состояние
 
-async def _probe(app: dict[str, Any]) -> dict[str, Any]:
+async def _probe(app: dict[str, Any], client: httpx.AsyncClient | None = None) -> dict[str, Any]:
     """Спросить приложение, как оно себя чувствует. Молчание — это ответ.
 
     Локальный адрес никогда не идёт через прокси: переменные окружения с
@@ -117,24 +135,30 @@ async def _probe(app: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {"reachable": False, "status": "STOPPED", "detail": "",
                            "health": {}, "metrics": {}}
     try:
-        async with httpx.AsyncClient(timeout=PROBE_TIMEOUT, trust_env=False) as client:
-            health = await client.get(base + (app.get("health_path") or "/health"))
-            out["reachable"] = health.status_code < 500
-            out["status"] = "LIVE" if health.status_code < 400 else "DEGRADED"
+        if client is None:
+            async with _probe_client() as own:
+                return await _probe(app, own)
+        health = await client.get(base + (app.get("health_path") or "/health"))
+        out["reachable"] = health.status_code < 500
+        out["status"] = "LIVE" if health.status_code < 400 else "DEGRADED"
+        try:
+            out["health"] = health.json()
+        except ValueError:
+            out["health"] = {}
+        if app.get("metrics_path"):
             try:
-                out["health"] = health.json()
-            except ValueError:
-                out["health"] = {}
-            if app.get("metrics_path"):
-                try:
-                    metrics = await client.get(base + app["metrics_path"])
-                    if metrics.status_code < 400:
-                        out["metrics"] = metrics.json()
-                except (httpx.HTTPError, ValueError):
-                    pass          # метрики необязательны, здоровье важнее
+                metrics = await client.get(base + app["metrics_path"])
+                if metrics.status_code < 400:
+                    out["metrics"] = metrics.json()
+            except (httpx.HTTPError, ValueError):
+                pass          # метрики необязательны, здоровье важнее
     except httpx.HTTPError as exc:
         out["detail"] = f"{type(exc).__name__}: приложение не отвечает на {base}"
     return out
+
+
+def _probe_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(timeout=PROBE_TIMEOUT, trust_env=False, verify=_ssl())
 
 
 def _dig(payload: Any, path: str) -> Any:
@@ -172,14 +196,42 @@ def _resolve_facts(app: dict[str, Any], live: dict[str, Any]) -> list[dict[str, 
     return facts
 
 
+def _describe_cached(path: Path) -> dict[str, Any] | None:
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    key = (str(path), st.st_mtime_ns, st.st_size)
+    if key not in _described:
+        _described[key] = _describe(path)
+    return _described[key]
+
+
+# V6 §5 single-flight: главная и «Приложения» открываются одновременно и обе
+# зовут /api/apps при пустом или истёкшем кэше — раньше это были два полных
+# опроса. Второй вызывающий ждёт результат первого: он свежее того, что он
+# получил бы сам, и ничего не пересекает (опрос без побочных эффектов).
+# Ошибка опроса доходит до всех ожидающих, и следующий вызов идёт заново.
+_inflight: asyncio.Task | None = None
+
+
 async def collect(force: bool = False) -> list[dict[str, Any]]:
+    global _inflight
     now = time.monotonic()
     if not force and _cache["apps"] and now - float(_cache["at"]) < CACHE_TTL:
         return _cache["apps"]
+    loop = asyncio.get_running_loop()
+    if _inflight is None or _inflight.done() or _inflight.get_loop() is not loop:
+        _inflight = loop.create_task(_collect_fresh())
+    return await asyncio.shield(_inflight)
 
-    described = [d for d in (_describe(p) for p in _manifest_files()) if d]
+
+async def _collect_fresh() -> list[dict[str, Any]]:
+    now = time.monotonic()
+    described = [d for d in (_describe_cached(p) for p in _manifest_files()) if d]
     if described:
-        probes = await asyncio.gather(*(_probe(a) for a in described))
+        async with _probe_client() as client:
+            probes = await asyncio.gather(*(_probe(a, client) for a in described))
     else:
         probes = []
     result = []

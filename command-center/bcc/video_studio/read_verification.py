@@ -7,23 +7,24 @@ WHAT THIS BOUNDARY DOES AND DOES NOT GUARANTEE
 ----------------------------------------------
 Verification is DESCRIPTOR-bound, not pathname-bound. Every caller opens its own
 read-only descriptor BEFORE admission and streams the HTTP body from it -- the
-pathname is never re-opened at send time. An open descriptor pins the inode, so
+pathname is never re-opened at send time. An open descriptor pins the file object;
 unlink+recreate, rename or a symlink swap of the pathname after the check cannot
-substitute the bytes that are served.
+substitute the bytes that are served. On Windows the descriptor is opened with
+FILE_SHARE_DELETE so rename/unlink has the same descriptor-bound semantics rather
+than failing with a sharing violation.
 
 The shared hash runs on the worker's OWN descriptor rather than the caller's, so
 that a cancelled caller closing its fd cannot break verification for the others.
-Precisely: the worker proves "the inode with this (dev, ino, size, mtime, ctime)
-hashes to the reference digest", and each caller's fstat -- taken before and
-after -- proves its held descriptor is that same inode, unchanged. Same dev+ino
-is the same inode; it is not a second hash of the caller's own descriptor.
+Precisely: the worker proves "the file object with this (dev, ino, size, mtime,
+ctime) hashes to the reference digest", and each caller's fstat -- taken before
+and after -- proves its held descriptor is that same object, unchanged.
 
-It does NOT stop a privileged writer from rewriting that same inode in place
+It does NOT stop a privileged writer from rewriting that same file object in place
 while the body streams; stat identity is the only signal for that, and it is a
-change detector, not protection. os.O_NOFOLLOW does not exist on Windows, so the
-open itself is racy against a junction/symlink swap there, and Windows st_ctime
-is creation time rather than a change clock -- REQUIRES_CONTENT_RECHECK below
-turns the caller's post-verification check into a real content hash there.
+change detector, not protection. Windows st_ctime is creation time rather than a
+change clock -- REQUIRES_CONTENT_RECHECK below turns the caller's post-verification
+check into a real content hash there. Windows opens also refuse a reparse point at
+the descriptor boundary instead of following one through a pathname race.
 """
 from __future__ import annotations
 
@@ -88,9 +89,73 @@ class VerifiedRead(type(Path())):
             os.close(fd)
 
 
+def _windows_shared_delete_fd(path):  # pragma: no cover - exercised on Windows CI
+    """Open one read descriptor without blocking rename/delete on Windows.
+
+    CRT ``os.open`` omits FILE_SHARE_DELETE, which made a verified download hold
+    the pathname hostage (WinError 32) and violated the descriptor-bound contract.
+    CreateFileW gives the exact share contract. FILE_FLAG_OPEN_REPARSE_POINT plus
+    an attribute check is the Windows analogue of O_NOFOLLOW: we refuse a reparse
+    object rather than silently following it.
+    """
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    GENERIC_READ = 0x80000000
+    FILE_SHARE_READ = 0x00000001
+    FILE_SHARE_WRITE = 0x00000002
+    FILE_SHARE_DELETE = 0x00000004
+    OPEN_EXISTING = 3
+    FILE_ATTRIBUTE_NORMAL = 0x00000080
+    FILE_ATTRIBUTE_REPARSE_POINT = 0x00000400
+    FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000
+    FILE_FLAG_SEQUENTIAL_SCAN = 0x08000000
+    FILE_ATTRIBUTE_TAG_INFO_CLASS = 9
+    INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+
+    class FILE_ATTRIBUTE_TAG_INFO(ctypes.Structure):
+        _fields_ = [("FileAttributes", wintypes.DWORD), ("ReparseTag", wintypes.DWORD)]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create = kernel32.CreateFileW
+    create.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                       wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    create.restype = wintypes.HANDLE
+    close = kernel32.CloseHandle
+    close.argtypes = [wintypes.HANDLE]
+    close.restype = wintypes.BOOL
+    get_info = kernel32.GetFileInformationByHandleEx
+    get_info.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD]
+    get_info.restype = wintypes.BOOL
+
+    handle = create(
+        os.fspath(path), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        None, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_SEQUENTIAL_SCAN,
+        None,
+    )
+    if handle == INVALID_HANDLE_VALUE:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        tag = FILE_ATTRIBUTE_TAG_INFO()
+        if not get_info(handle, FILE_ATTRIBUTE_TAG_INFO_CLASS, ctypes.byref(tag), ctypes.sizeof(tag)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        if tag.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT:
+            raise ValueError("verified read refuses a Windows reparse point")
+        # Ownership transfers to the CRT descriptor. os.close(fd) closes HANDLE.
+        fd = msvcrt.open_osfhandle(int(handle), os.O_RDONLY | getattr(os, "O_BINARY", 0))
+        handle = None
+        return fd
+    finally:
+        if handle is not None:
+            close(handle)
+
+
 def open_descriptor(path):
     """One open; fstat, hash and body all come from THIS descriptor afterwards."""
-    fd = os.open(path, OPEN_FLAGS)
+    fd = _windows_shared_delete_fd(path) if os.name == "nt" else os.open(path, OPEN_FLAGS)
     try:
         info = os.fstat(fd)
         if not stat_module.S_ISREG(info.st_mode):
@@ -106,11 +171,24 @@ def _tuple(value):
 
 
 def identity(path):
-    return _tuple(path.stat())
+    # On Windows Path.stat() and fstat() for a HANDLE adopted by the CRT can
+    # expose different metadata encodings for the same file. Comparing those two
+    # representations made a freshly opened, unchanged file fail closed. Re-open
+    # the pathname through the same no-reparse/share-delete descriptor boundary so
+    # both sides use the same identity representation; replacement still changes
+    # the file object, and the mandatory content recheck below covers in-place
+    # same-size rewrites whose Windows timestamps are not a reliable change clock.
+    if os.name != "nt":
+        return _tuple(path.stat())
+    fd, info = open_descriptor(path)
+    try:
+        return _tuple(info)
+    finally:
+        os.close(fd)
 
 
 def descriptor_identity(fd):
-    """Identity of the inode actually held open, not of whatever the name means."""
+    """Identity of the file object actually held open, not of whatever the name means."""
     return _tuple(os.fstat(fd))
 
 
@@ -170,7 +248,7 @@ class ReadVerifier:
                 resolved = library.resolve(reference)
                 if resolved != path or identity(path) != before:
                     raise ValueError("media changed during read verification")
-                # Shared, bounded and descriptor-bound: hash the inode itself.
+                # Shared, bounded and descriptor-bound: hash the file object itself.
                 # Its own descriptor, not the caller's -- a caller may be
                 # cancelled and close its fd while this worker is still reading.
                 worker, _ = open_descriptor(path)

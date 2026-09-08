@@ -23,6 +23,18 @@ def owned(t,p):
     if not t or (not p.has_scope(SCOPE_ADMIN) and t.owner_device_id!=p.device_id):raise HTTPException(404)
     return t
 
+def access(t,p):
+    """Профильный тумблер computer_control перед ВОЗВРАТОМ задачи к управлению.
+
+    Гейт стоял только в create_task, поэтому выключенный тумблер (или выключенный
+    профиль) не действовал на уже созданную задачу: resume/take-control возвращали
+    ей рабочий стол в обход профиля. Источник — тот же, что и при создании, чтобы
+    не-локальный запрос не превратился в «локального хозяина».
+    """
+    check=getattr(MANAGER,"access_check",None)
+    if check is not None:check(t.owner_device_id,f"core:{p.device_id}")
+    return t
+
 @router.post("/tasks")
 async def create(body:CreateIn,p=Depends(require_scope(SCOPE_CHAT))):
     t=MANAGER.create_task(body.goal,mode=body.mode,source=f"core:{p.device_id}",owner_device_id=p.device_id)
@@ -40,10 +52,10 @@ async def pause(i:str,p=Depends(require_scope(SCOPE_CHAT))):owned(MANAGER.store.
 
 @router.post("/tasks/{i}/resume")
 async def resume(i:str,p=Depends(require_scope(SCOPE_CHAT))):
-    owned(MANAGER.store.get(i),p);t=MANAGER.resume(i);asyncio.create_task(MANAGER.run(i));return view(t)
+    access(owned(MANAGER.store.get(i),p),p);t=MANAGER.resume(i);asyncio.create_task(MANAGER.run(i));return view(t)
 
 @router.post("/tasks/{i}/take-control")
-async def take(i:str,p=Depends(require_scope(SCOPE_CHAT))):owned(MANAGER.store.get(i),p);return view(MANAGER.take_control(i))
+async def take(i:str,p=Depends(require_scope(SCOPE_CHAT))):access(owned(MANAGER.store.get(i),p),p);return view(MANAGER.take_control(i))
 
 @router.post("/tasks/{i}/stop")
 async def stop(i:str,p=Depends(require_scope(SCOPE_CHAT))):owned(MANAGER.store.get(i),p);return view(MANAGER.stop(i))

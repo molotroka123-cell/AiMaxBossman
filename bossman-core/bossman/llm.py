@@ -214,12 +214,21 @@ async def gateway_metrics() -> dict | None:
     return await _gateway_client().metrics()
 
 
-async def vision_caption(agent_name: str, path: str, question: str) -> str:
+async def vision_caption(agent_name: str, question: str, *, data: bytes,
+                         source: str = "") -> str:
     """Подпись к кадру локальной моделью со зрением (bossman-writer).
-    Файл не попадает в контекст главной петли — только эта подпись."""
+
+    Принимает ПРОВЕРЕННЫЕ БАЙТЫ, а не путь. Раньше сигнатура брала произвольный
+    путь и сама его читала, поэтому containment можно было забыть у любого
+    вызывающего — и `vision.describe` его забыл (RT-02). Теперь читать файл
+    здесь нечем: рабочую папку проверяет тот, у кого есть ToolContext, а сюда
+    доходит только уже разрешённое содержимое. `source` — путь ОТНОСИТЕЛЬНО
+    рабочей папки, для журнала; абсолютные пути хоста в запрос не уезжают.
+    """
     import base64
-    from pathlib import Path
-    data = base64.b64encode(Path(path).read_bytes()).decode()
+    if not isinstance(data, (bytes, bytearray)) or not data:
+        raise ValueError("vision_caption требует непустые проверенные байты")
+    data = base64.b64encode(bytes(data)).decode()
     messages = [{"role": "user", "content": [
         {"type": "text", "text": question + " Ответь не длиннее 300 токенов."},
         {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{data}"}},

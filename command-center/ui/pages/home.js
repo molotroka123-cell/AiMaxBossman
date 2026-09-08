@@ -20,7 +20,7 @@ import { routeVideoRequest, attachmentInput, attachedFiles } from '../video_chat
    ============================================================ */
 
 import { api, listOf, pick } from '../api.js';
-import { h, icon, toast, toastOk, toastError, fmtGb, fmtRelative } from '../components.js';
+import { h, icon, select, toast, toastOk, toastError, fmtGb, fmtRelative } from '../components.js';
 import { errorBanner } from './_shared.js';
 import { statusText } from './_ui.js';
 import { appCard, appIcon } from './appcards.js';
@@ -34,7 +34,21 @@ const HEALTH_NAME = {
   event_bus: 'Обмен событиями', events: 'Обмен событиями',
   metrics: 'Сбор показателей', models: 'Модели',
   disk: 'Диск', memory: 'Память',
+  // Фоновые петли фич приходят как tick:<имя>. Сырой ключ в панели здоровья —
+  // это ровно тот «инженерный пульт», от которого уходит §11, поэтому у
+  // известных петель есть человеческое имя, а у неизвестной остаётся ключ:
+  // подписать её выдумкой было бы хуже, чем показать как есть.
+  'tick:review_gate': 'Свип зависших согласований',
+  'tick:governor': 'Губернатор бюджета', 'tick:healing': 'Самовосстановление',
+  'tick:apps_control': 'Управление приложениями', 'tick:qa_relay': 'Мост QA',
 };
+
+/** Человеческое имя подсистемы; для незнакомой петли — «Фоновая петля: <имя>». */
+function healthLabel(name) {
+  if (HEALTH_NAME[name]) return HEALTH_NAME[name];
+  return String(name).startsWith('tick:')
+    ? `Фоновая петля: ${String(name).slice(5)}` : name;
+}
 
 const RAW_LOG_KINDS = new Set(['run.log', 'ws.open', 'ws.closed', 'ws.connecting',
   'ws.idle', 'system.metrics']);
@@ -45,7 +59,10 @@ const MODES = [
   { id: 'agents', label: 'С агентами', hint: 'раздать работу нескольким агентам' },
 ];
 
-const state = { modes: new Set(['smart']), agentId: null };
+/* `draft` живёт здесь, а не в DOM: страница пересоздаётся на каждом refresh и
+   при возврате с другой страницы, а вместе с ней исчезала бы и набранная
+   вручную формулировка поручения. */
+const state = { modes: new Set(['smart']), agentId: null, draft: '' };
 
 /* ---------------------------------------------------------------- мелочи */
 
@@ -197,14 +214,39 @@ function cpuPill(sys) {
 function buildCommandBar(ctx, agents) {
   const input = h('textarea.bx-command-input', {
     rows: 1, placeholder: 'Что должен сделать BOSSMAN?', spellcheck: 'false',
+    value: state.draft,
   });
+
+  const grow = () => {
+    input.style.height = 'auto';
+    input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
+  };
 
   // Поле растёт под текст: командная строка на одну строку выглядит как
   // поиск, а не как поручение.
-  input.addEventListener('input', () => {
-    input.style.height = 'auto';
-    input.style.height = `${Math.min(input.scrollHeight, 132)}px`;
-  });
+  input.addEventListener('input', () => { state.draft = input.value; grow(); });
+  if (state.draft) requestAnimationFrame(grow);
+
+  const ids = agents.map((a) => String(pick(a, ['id'])));
+  // Выбранный агент мог исчезнуть, пока страница была закрыта: молча слать
+  // задачу несуществующему — хуже, чем спросить заново.
+  if (state.agentId !== null && !ids.includes(String(state.agentId))) state.agentId = null;
+
+  // Пикер нужен ровно там, где есть из чего выбирать: при одном агенте он
+  // лишний, при нуле — пустой. Без него ЗАПУСТИТЬ с двумя агентами не имел
+  // ни одного исхода, кроме ухода со страницы.
+  const agentPicker = agents.length > 1
+    ? select([{ value: '', label: '— выберите агента —' },
+      ...agents.map((a) => ({ value: pick(a, ['id']), label: pick(a, ['name'], 'без имени') }))],
+    { value: state.agentId === null ? '' : String(state.agentId),
+      'aria-label': 'Агент', style: { width: 'auto', maxWidth: '260px' } })
+    : null;
+  if (agentPicker) {
+    agentPicker.addEventListener('change', () => {
+      // Число, а не строка из <option>: agent_id уходит в JSON задачи как есть.
+      state.agentId = agentPicker.value ? Number(agentPicker.value) : null;
+    });
+  }
 
   const modeButtons = MODES.map((mode) => {
     const btn = h('button.bx-mode', {
@@ -233,10 +275,17 @@ function buildCommandBar(ctx, agents) {
     finally { start.disabled = false; }
     const agent = state.agentId ?? (agents.length === 1 ? pick(agents[0], ['id']) : null);
     if (!agent) {
-      toast('Выберите агента', {
-        type: 'warn',
-        hint: agents.length ? 'Агент задаёт модель и системный промпт.'
-          : 'Сначала создайте агента на странице «Агенты».',
+      // Уводить со страницы, когда выбор есть прямо здесь, нельзя: вместе с
+      // ней уходит и набранный текст.
+      if (agentPicker) {
+        toast('Выберите агента', {
+          type: 'warn', hint: 'Агент задаёт модель и системный промпт.',
+        });
+        agentPicker.focus();
+        return;
+      }
+      toast('Сначала создайте агента', {
+        type: 'warn', hint: 'Поручение сохранено — оно вернётся сюда после создания агента.',
       });
       ctx.navigate('agents');
       return;
@@ -249,6 +298,7 @@ function buildCommandBar(ctx, agents) {
         prompt: text, agent_id: agent, priority: 5,
         run_now: state.modes.has('auto') || state.modes.has('smart'),
       });
+      state.draft = '';
       input.value = '';
       input.style.height = 'auto';
       toastOk('Задача поставлена в очередь');
@@ -267,7 +317,8 @@ function buildCommandBar(ctx, agents) {
 
   return h('section.bx-command',
     h('div.bx-command-mark', icon('bolt', 22)),
-    h('div.bx-command-mid', input, attachmentInput(), h('div.bx-modes', modeButtons)),
+    h('div.bx-command-mid', input, attachmentInput(),
+      h('div.bx-modes', agentPicker, modeButtons)),
     start);
 }
 
@@ -399,7 +450,7 @@ function buildHealth(sys, models, ctx) {
     items.length
       ? items.slice(0, 4).map((c) => {
         const st = statusText(c.status);
-        return line(HEALTH_NAME[c.name] || c.name, null, null,
+        return line(healthLabel(c.name), null, null,
           pill(st.word, { tone: st.tone }));
       })
       : h('div.bx-empty', { style: { marginTop: '8px' } },
@@ -546,7 +597,7 @@ export function collectAttention({ approvals = [], failedTasks = [], missions = 
     if (['error', 'fail', 'failed', 'down', 'critical'].includes(String(status).toLowerCase())) {
       items.push({
         kind: 'health', severity: 'block', page: 'system', count: 1,
-        title: `Сбой: ${HEALTH_NAME[name] || name}`,
+        title: `Сбой: ${healthLabel(name)}`,
         note: typeof value === 'object' && value && value.detail ? String(value.detail) : 'подсистема не отвечает',
       });
     }

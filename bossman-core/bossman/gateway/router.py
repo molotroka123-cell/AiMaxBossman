@@ -4,8 +4,8 @@ import asyncio
 import time
 from dataclasses import dataclass
 
-from .backends import CircuitOpenError, OpenAIBackend
-from .config import GatewayConfig, ModelTarget
+from .backends import CircuitOpenError, OpenAIBackend, build_backend
+from .config import GatewayConfig, ModelTarget, glm_model_id
 
 
 class RouteNotFound(RuntimeError):
@@ -21,6 +21,23 @@ class CloudPolicyDenied(RuntimeError):
     pass
 
 
+# Прямая адресация провайдера идентификатором модели, без алиаса в yaml.
+# Владелец называет модель так, как она называется у провайдера, и это и есть
+# маршрут: «openrouter/<id>» — через OpenRouter, «glm-5.3» (GLM_MODEL_ID) —
+# напрямую в Z.ai. Алиасы остаются главнее: их правила писал оператор.
+DIRECT_BACKEND_PREFIXES = {"openrouter/": "openrouter"}
+
+
+def direct_target(alias: str) -> tuple[str, str] | None:
+    """(бэкенд, id модели у провайдера) для прямой адресации, иначе None."""
+    for prefix, backend in DIRECT_BACKEND_PREFIXES.items():
+        if alias.startswith(prefix) and len(alias) > len(prefix):
+            return backend, alias[len(prefix):]
+    if alias == glm_model_id():
+        return "zai", alias
+    return None
+
+
 @dataclass(slots=True)
 class Route:
     alias: str
@@ -34,7 +51,7 @@ class Route:
 class ModelRouter:
     def __init__(self, config: GatewayConfig, backends: dict[str, OpenAIBackend] | None = None):
         self.config = config
-        self.backends = backends or {name: OpenAIBackend(cfg) for name, cfg in config.backends.items() if cfg.enabled}
+        self.backends = backends or {name: build_backend(cfg) for name, cfg in config.backends.items() if cfg.enabled}
 
     async def close(self) -> None:
         await asyncio.gather(*(b.close() for b in self.backends.values()), return_exceptions=True)
@@ -65,6 +82,9 @@ class ModelRouter:
         """
         cfg = self.config.aliases.get(alias)
         if not cfg:
+            direct = self._direct_route(alias, cloud_allowed)
+            if direct is not None:
+                return direct
             raise RouteNotFound(f"Unknown model alias: {alias}")
         required = set(required_capabilities or ()) | cfg.required_capabilities
         candidates = []
@@ -99,6 +119,32 @@ class ModelRouter:
             raise RouteNotFound(f"No configured target for alias '{alias}' with capabilities {sorted(required)}")
         # healthy targets first; unchecked targets are optimistically usable
         return sorted(candidates, key=lambda r: (r.backend.health.checked_at > 0 and not r.backend.health.healthy, r.target.priority))
+
+    def _direct_route(self, alias: str, cloud_allowed: bool) -> list[Route] | None:
+        """Маршрут по идентификатору модели провайдера, если такой провайдер поднят.
+
+        Возможности цели не проверяются: владелец назвал КОНКРЕТНУЮ модель, и
+        подменять её на другую по несовпадению объявленных capability было бы
+        решением за него. Облачная политика, наоборот, действует как обычно —
+        прямая адресация не обходной путь для запрета облака.
+        """
+        target = direct_target(alias)
+        if target is None:
+            return None
+        backend_name, model = target
+        backend = self.backends.get(backend_name)
+        if backend is None:
+            return None
+        is_cloud = bool(getattr(backend.config, "cloud", False))
+        if is_cloud and not cloud_allowed:
+            raise CloudPolicyDenied(
+                f"модель '{alias}' обслуживается только облаком ({backend_name}), "
+                f"а облачная политика это запрещает — данные не отправлены")
+        if not backend.breaker.allow_attempt():
+            raise CircuitOpenError(
+                f"бэкенд '{backend_name}' разомкнут автоматом — отказ сразу")
+        t = ModelTarget(backend_name, model, 100, set())
+        return [Route(alias, backend_name, model, t, backend, is_cloud)]
 
     def list_models(self) -> list[dict]:
         out = []
