@@ -1,0 +1,47 @@
+ASTRA owner-machine visible UI evidence, 2026-09-08 18:58-19:04 UTC
+Source: browser-control AX observations; unrelated task titles and credentials omitted.
+Live loaded SHA UNKNOWN; workspace disk SHA 1531b1609f4aa5c7f993edef43fc59423b724472.
+Edge tab 191076045, http://127.0.0.1:8800, UI 2.6.1, PID 36892.
+
+Models > z-ai/glm-5.3 > Probe:
+Observed: test passed; latency 9833 ms; output 3.3 words/sec.
+
+A1 exact Task Composer input; agent glm53-route-test:
+ASTRA UI A1. Вычисли 17*23. Ответь строго JSON: {"product":391,"marker":"ASTRA_UI_20260908_A1"}. Не используй инструменты и не изменяй файлы.
+run #33, local UI timestamps:
+20:59:45 [run.started]
+20:59:47 step 1/3 z-ai/glm-5.3 (107 tokens)
+20:59:47 review_fail: requires TERMINAL_FILE_ACTION (terminal.kill, terminal.run, terminal.stdin)
+20:59:48 [run.started]
+20:59:54 step 2/3 z-ai/glm-5.3 (300 tokens)
+20:59:54 review_fail: action_contract/no_verified_action
+Observed status error; 1 live execution, no unauthorized tool effect established.
+
+A2 exact input; same agent:
+ASTRA UI A2. Вычисли 17*23. Ответь только числом.
+AX excerpt from expanded task:
+664 text run #34
+665 text 21:00:32
+666 text [run.started] выполнение начато
+667 text 21:00:33
+668 text [run.step] шаг 1/3: ответ модели z-ai/glm-5.3 (65 токенов)
+669 text 21:00:34
+670 text [run.completed] задача выполнена
+Answer not visible in inspected log, correctness unverified.
+
+Web Designer > New project ASTRA_UI_WEB_20260908 (project 2).
+Saved via Ctrl+S:
+<!doctype html><html><head><title>ASTRA WEB proof</title></head><body><h1>ASTRA_WEB_SAVED_20260908</h1></body></html>
+Reload: version 2; saved code and rendered heading persisted.
+Select heading; inspector text = ASTRA_WEB_EDITED_20260908; Apply.
+Observed editor and iframe EDITED; inspector field reverted to SAVED.
+Apply again without editing: editor and iframe reverted to SAVED.
+Sequence observed once; SHA-unattested UI evidence, excluded from counted findings.
+
+Night production SHA 45027d3e9aef554407a0a9ff07fb8678d1b849f3, audit HEAD 561756242cde4eab3ce6e529083e91a190b47175.
+F7 exact command (PYTHONPATH=command-center;bossman-core;root, PYTHONDONTWRITEBYTECODE=1):
+python -c "from bcc.features.action_contract import classify_all; [print(i+1,[c.name for c in classify_all('Calculate 17*23. Do not use tools or write any file.')],[c.name for c in classify_all('Calculate 17*23.')]) for i in range(2)]"
+Raw output:
+1 ['TERMINAL_FILE_ACTION'] []
+2 ['TERMINAL_FILE_ACTION'] []
+Exit code 0. Expected [] for both prompts; observed wrong required action 2/2.

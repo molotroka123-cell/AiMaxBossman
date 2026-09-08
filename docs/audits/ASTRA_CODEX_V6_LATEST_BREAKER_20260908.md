@@ -6,7 +6,7 @@ P0_COUNT = 0
 P1_COUNT = 1
 OTHER_REPRODUCIBLE_REGRESSIONS = 1
 FALSE_PASS_EVIDENCE = F1, F3, F5
-UNRESOLVED_REPO_FIXABLE = 6
+UNRESOLVED_REPO_FIXABLE = 7
 FREEZE_VERDICT = BLOCKED
 
 No real P0 reproduced. One P1 reproduced twice. No production files modified.
@@ -15,7 +15,7 @@ Initial pass started 2026-09-08 18:19 UTC and stopped early on owner's instructi
 Owner authorized a final continuation; finalized at 18:40 UTC following another instruction to push available evidence.
 Tested production tree remains exactly the HEAD above; `git ls-remote origin refs/heads/night/v7-convergence-20260908` reconfirmed it at finalization.
 Independent worktree initially `C:/astra-breaker-20260908`, later moved to `<original-workspace>/artifacts/astra_codex_breaker_20260908/checkout` after access restrictions changed. Original dirty checkout files untouched.
-Environment: Windows, Python 3.14.3, pytest 9.0.2. No live provider credentials used.
+Environment: Windows, Python 3.14.3, pytest 9.0.2. Initial isolated tests used no live provider credentials.
 Skills used: differential-review and proof-before-done. Variant-analysis was read after F1; expansion was not performed before the owner's stop instruction.
 
 ## Exact reproduction commands
@@ -130,7 +130,7 @@ NOT_RUN to completion: provider timeout plus fallback integration; Video/Web mis
 Initial harness attempt failed because the audit temp parent directory did not exist; rerun created it. No production defect counted for that setup error.
 
 Freeze is BLOCKED by F1. No full-repository certification, live-provider PASS, or stale external evidence is claimed.
-Publication includes only this report, two reproducers and six small raw logs; temporary fixture repositories are excluded from the commit.
+Publication includes only this report, two reproducers and minimal evidence logs; temporary fixture repositories are excluded from the commit.
 
 ## Final continuation: two more reproduced defects
 
@@ -175,7 +175,7 @@ Uses real disposable child processes and HTTP API. Duplicate starts report alrea
 
 ## Auditor's conclusions and decision record
 
-- Freeze remains BLOCKED by the twice-reproduced protected-file evidence bypass F1. Five further P2 defects remain unfixed; no P0 demonstrated.
+- Freeze remains BLOCKED by the twice-reproduced protected-file evidence bypass F1. Six further P2 defects remain unfixed; no P0 demonstrated.
 - Strongest evidence: F1 executes an actual sidecar and inspects protected bytes afterward; F5 crosses the actual HTTP route; F6 persists every transition in SQLite. These are not source-only suspicions.
 - Rejected inference: a green parser suite proves complete responses. R3 is green while F3 returns `ok=True` for a malformed partial response; the suite and attack have different assertions.
 - Rejected inference: pure memory-generator tests prove the HTTP boundary. F5 demonstrates the route changes the input before validation.
@@ -186,30 +186,38 @@ Uses real disposable child processes and HTTP API. Duplicate starts report alrea
 - Coverage limit remains material: selected suites were interrupted twice; Video/Web post-state, full browser/desktop runtime and live providers were not certified. This is a narrow breaker audit, not a whole-repository or release-completeness verdict.
 - Decision summaries above are the reviewable rationale requested by the owner. Raw commands and observed results are in the supplied tests/logs; no speculative findings were added to fill the report.
 
-## Owner-machine UI attempt (subsequent request)
+## Owner-machine UI continuation and final checks
 
-Owner explicitly requested interaction with the already-open BOSSMAN using GLM 5.3 or the loaded local model. This overrides the testing skill's default preference for an isolated UI instance.
-UI_RUNTIME_AUDIT = NOT_RUN (browser-control connection unavailable).
-Read-only `Get-Process` observed Microsoft Edge PID 27012 with window title `Конструктор миссий · BOSSMAN and 6 more pages - Profile 1 - Microsoft Edge`.
-Exact control attempts and responses:
+Browser control connected to the owner's existing Edge tab at 18:58 UTC; the earlier access blocker was resolved. UI actions finished around 19:04 UTC.
+Live process PID 36892 was launched from the original workspace, not the audited worktree. Disk HEAD was `1531b1609f4aa5c7f993edef43fc59423b724472`; loaded-module SHA is UNKNOWN. Live observations are not asserted to run night HEAD.
+Hardware observed: Windows 11, 15.6 GiB RAM, RTX 4060 Laptop GPU; UI showed approximately 14.1/15.6 GiB used.
+GLM 5.3 probe through Models returned success, latency 9833 ms. Existing configured credentials were used; the key supplied in chat was not used or recorded.
+Evidence: `A/runtime-ui.log`; only audit-created tasks/project were manipulated. No production code changed.
+Skills: webapp-testing and computer-use guided visible UI checks; owner explicitly requested the existing session instead of an isolated UI.
 
-```text
-await cua.getState();
-=> {"apps":[],"browsers":[]}
-await cua.createBrowserTab('edge', 'http://127.0.0.1:8800', {sessionName:'BOSSMAN audit'});
-=> Browser is not available: edge
-await cua.createBrowserTab('iab', 'http://127.0.0.1:8800', {visible:true});
-=> Browser is not available: iab
-```
+### F7 — P2: negated tool request is classified as required terminal action
 
-The URL uses the repository's configured default port; no successful browser navigation or live-server/source-SHA identification occurred.
-No task submitted, model invoked, owner approval changed, or editor action performed. No API-only activity is substituted for the requested visible interaction.
-This is a tool-access blocker, not a repository finding; severity counts are unchanged. Resume requires connecting the running Edge session to browser control.
-Provider credentials supplied by the owner are excluded from all audit artifacts and were not used.
+- Exact tested code SHA: `45027d3e9aef554407a0a9ff07fb8678d1b849f3`, with audit-only commits through `561756242cde4eab3ce6e529083e91a190b47175`.
+- Exact command, with PYTHONPATH from R1: `python -c "from bcc.features.action_contract import classify_all; [print(i+1,[c.name for c in classify_all('Calculate 17*23. Do not use tools or write any file.')],[c.name for c in classify_all('Calculate 17*23.')]) for i in range(2)]"`
+- Expected: both arithmetic-only requests produce no required action contract.
+- Actual: each negative-instruction request returns `['TERMINAL_FILE_ACTION']`; each positive control returns `[]`.
+- Reproducibility: 2/2 on audited tree. Repository-fixable: YES. Baseline regression not established.
+- Boundary: `command-center/bcc/features/action_contract.py`, terminal-action regex/classify_all; negation is ignored.
+- Additional live observation, separately SHA-unattested: A1 arithmetic JSON request with Russian prohibition on tools/files failed run #33 with `action_contract/no_verified_action`, after two GLM responses (107 and 300 tokens). Review demanded terminal.kill/run/stdin.
+- Positive UI control A2 completed run #34 after one 65-token model step. Its answer content was not displayed in the inspected task log; mathematical correctness is NOT certified.
+- No unauthorized tool effect demonstrated. Severity remains P2, not authority-bypass P1.
 
-Follow-up after owner requested the current GitHub version:
-- `git ls-remote origin refs/heads/night/v7-convergence-20260908 refs/heads/main`: night remains `45027d3e9aef554407a0a9ff07fb8678d1b849f3`; main is `799fc3dd8e4327811be9d8f3e33cc43ce8168977`.
-- Read-only process/socket inspection: Bossman Python process PID 36892 listens on `127.0.0.1:8800`; launch interpreter references the original workspace `.venv`.
-- `Invoke-WebRequest http://127.0.0.1:8800/ -UseBasicParsing -TimeoutSec 10`: HTTP 200; HTML title `BOSSMAN Command Center · UI 2.6.1`.
-- Original workspace `git rev-parse HEAD` now returns `2903b5b9cf8eb65b4c9b1b5e792445cfc7567f28`; this is not proof of the running process's loaded source SHA.
-- Repeated `cua.getState()` still returns empty apps/browsers. UI interaction remains NOT_RUN; neither a live-model test nor latest-source runtime equivalence is claimed.
+### Unattested UI observation: Web Designer repeated Apply reverts text
+
+- Not included in SHA-qualified findings/counts: running application source SHA is unknown.
+- Exact steps: create audit project `ASTRA_UI_WEB_20260908`; save HTML heading `ASTRA_WEB_SAVED_20260908`; reload; click heading; set inspector text to `ASTRA_WEB_EDITED_20260908`; Apply; Apply again without editing.
+- Expected: second Apply retains EDITED, since inspector should reflect the applied value.
+- Actual: first Apply updates editor/iframe to EDITED but inspector resets to SAVED; second Apply reverts editor/iframe to SAVED. One complete observed sequence; source attribution unverified.
+- Save/reload before this attack preserved the code and iframe heading (PASS). No general Web Designer success claim; project 2 retained for owner inspection.
+
+### Completed selected checks, same audited production SHA
+
+Command R5: `python -m pytest -c command-center/pyproject.toml -o addopts='' -p no:cacheprovider --timeout=20 --basetemp=artifacts/astra_codex_breaker_20260908/agent-check-tmp command-center/tests/test_authorization_at_effect_time.py command-center/tests/test_video_native_finalize_contract.py command-center/tests/test_trading_lab_unwired.py -q --tb=short`
+Result: 41 passed, 1 warning in 32.37 seconds; `A/agent-check.log`. Warning: aiosqlite thread raised Event loop closed; not promoted to a finding from one occurrence.
+These completed checks supplement, but do not convert, earlier interrupted suites to PASS.
+Final verdict: P0=0, P1=1, six further P2 findings; freeze BLOCKED. Live UI observation above is additional, explicitly source-unattested evidence.
