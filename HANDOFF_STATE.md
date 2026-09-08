@@ -1,35 +1,29 @@
-# HANDOFF_STATE — AiMaxBossman V2 Freeze Pass
+# HANDOFF_STATE — AiMaxBossman SECURITY FREEZE 2026-09-07
 
-**BRANCH:** `claude/bossman-control-v03-43igbk`
-**START_SHA:** `66cc604f2f9ae5c36a7a1f01af6d685e140f0e93`
-**FINAL_SHA:** `9e6937ee570da27063425cc4e75a1e9e75162310`
+**FREEZE_SHA:** `9703bd64722371e374d2fa0b42edfaee2d4d5d0a`
+**FREEZE_DATE:** `2026-09-07`
+**BRANCH:** `main`
 **REMOTE:** `https://github.com/molotroka123-cell/AiMaxBossman`
 
-## Обновлено
+## Что заморожен
 
-* `2026-09-04` — V2 stability+freeze pass. Два коммита поверх `66cc604`:
-  * `ae166dd` — test(fable): изолировать cross-package budget probe (исправляет `ModuleNotFoundError: No module named 'bossman'` в `test_both_paths_share_one_ledger` при Command Center CI)
-  * `9e6937e` — test(openclaw): доказать dedup survive real runtime restart (сейчас test использует реальный `stop()`→новый `Services`→`start()` с той же SQLite)
+- ✅ `.github/CODEOWNERS` — обязательное ревью `@molotroka123-cell` на все папки
+- ✅ `.github/branch-protection.md` — инструкция для включения через GitHub UI
+- ✅ `.gitignore` — уже закрывает `*.zip`, `*.png`, `.env`, `secret.key`, `*wallets_encrypted*`
+- ✅ `solana_volume_suite/.env.example` — уже присутствует
+- ✅ Рабочий код `apps/`, `bossman-core/`, `command-center/` — НЕ ТРОНУТ
 
-## Принятые решения
+## После фриза (backlog)
 
-1. V2 code frozen. Только P0/P1 fixes.
-2. Коммиты `ae166dd` и `9e6937e` — только тесты, production-код не менялся.
-3. Command Center CI ранее красный только из-за `test_both_paths_share_one_ledger`.
+| # | Задача | Приоритет |
+|---|---|---|
+| 1 | Включить Branch Ruleset через UI (см. `.github/branch-protection.md`) | P0 |
+| 2 | Включить Secret scanning в Settings → Security | P0 |
+| 3 | Удалить ZIP из git-истории: `git filter-repo --path *.zip --invert-paths` (локально) | P1 |
+| 4 | Добавить `detect-secrets` pre-commit hook | P1 |
+| 5 | Закрыть V3-V5 цели согласно роадмапу | P2 |
 
-## Актуальное состояние CI
+## Предыдущая сессия
 
-* **root-ci** — PASS на `66cc604` (exact SHA)
-* **Bossman V2 Auto-Repair** — PASS на `66cc604`
-* **Command Center CI** — был FAIL на `66cc604` (py3.11+py3.12); фикс `ae166dd` в `9e6937e`
-* **Bossman Core CI** — был CANCELLED (concurrency) на `66cc604`
-
-## Оставшиеся блокеры (не code)
-
-* **Release benchmark**: `NO-GO` — `LiveCapabilityScore = INSUFFICIENT_EVIDENCE`, `PureCodingIQ = INSUFFICIENT_EVIDENCE`. Причина: в `release` tier manifest только 2 REAL_SANDBOX cases (`sandbox.durable_restart`, `sandbox.workspace_patch_rollback`); `verifier` и `universal_computer_apprentice` capability покрыты только SIMULATED. Для GO нужен LIVE evidence или добавление REAL_SANDBOX cases для этих capabilities.
-* **Branch protection**: не настроена (GitHub API 404) — owner policy, не код.
-
-## Следующий шаг
-
-1. Владелец решает, добавлять ли REAL_SANDBOX cases для `verifier`/`universal_computer_apprentice` в release tier, или закрывать freeze с `FREEZE_READY=NO` и заявлять owner-machine blocker.
-2. Либо: запустить дашборд на текущем SHA (`9e6937e`) и проверить UI acceptance.
+Предыдущий снепшот HANDOFF: V2 Freeze Pass (см. git history).
+FINAL_SHA V2: `9e6937ee570da27063425cc4e75a1e9e75162310`

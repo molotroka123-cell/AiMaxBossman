@@ -53,15 +53,6 @@ def _load(dotted: str, symbol: str) -> Any | None:
     return getattr(module, symbol, None)
 
 
-def _core() -> Any | None:
-    """Ядро торгового модуля или None. Импорт внутри функции — намеренно."""
-    try:
-        from bossman import trading_learning        # noqa: WPS433
-        return trading_learning
-    except Exception:  # noqa: BLE001
-        return None
-
-
 def status_payload() -> dict:
     pipeline_status = _load("bossman.trading_learning.routes", "pipeline_status")
     if pipeline_status is None:

@@ -1,0 +1,14 @@
+# CODEOWNERS — все изменения требуют ревью владельца
+# Документация: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Глобальное правило: любой файл → обязательное ревью
+* @molotroka123-cell
+
+# Критичные зоны — двойная защита
+/.github/          @molotroka123-cell
+/bossman-core/     @molotroka123-cell
+/bossman-infra/    @molotroka123-cell
+/solana_volume_suite/ @molotroka123-cell
+/apps/             @molotroka123-cell
+/command-center/   @molotroka123-cell
+/scripts/          @molotroka123-cell

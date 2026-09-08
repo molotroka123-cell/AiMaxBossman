@@ -1,12 +1,13 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 149. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 153. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
 |---|---|---|---|---|---|---|
 | `command-center/tests/test_action_router.py:204` | skipif | `not _has_chromium()` | Chromium не предустановлен | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_action_router.py:239` | skipif | `not _has_chromium()` | Chromium не предустановлен | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_apps_launchable.py:45` | skip | `—` | f"{app_id}: {command['problem'][:60]}" | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_browser_navigation_ui.py:8` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_cc_ux_p1_findings.py:167` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_cc_ux_p2_findings.py:19` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -30,6 +31,8 @@
 | `command-center/tests/test_openrouter_connect_ui.py:9` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_openrouter_provider_isolation.py:754` | skip | `—` | Node недоступен: контракты страницы не исполнялись | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_control_ui.py:15` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_owner_path_latency.py:80` | skip | `—` | first.reason | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_owner_path_latency.py:97` | skip | `—` | first.reason | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_plugins_adapter.py:208` | skip | `—` | f"SKIP_HOST: symlink privilege unavailable on this host: {exc}" | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_secrem_f009_terminal.py:159` | skip | `—` | NOT_TESTED_ON_THIS_HOST: docker daemon unavailable — F-009 container mount proof deferred to RunPod/owner host | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:43` | skipif | `_app_missing()` | f"приложения {APP} нет среди манифестов" | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -96,6 +99,7 @@
 | `command-center/tests/test_windows_terminal_quoting.py:13` | skipif | `os.name != "nt"` | requires native Windows cmd.exe | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_live_sdk.py:61` | skipif | `SDK_PYTHON is None` | openhands-sdk runtime not installed (set BOSSMAN_OPENHANDS_PYTHON) | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_live_sdk.py:264` | skip | `—` | openhands-sdk runtime not installed; live SDK E2E NOT_RUN | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/apprentice/test_worktree_client_acceptance.py:259` | skip | `—` | файловая система не даёт создать символическую ссылку | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_ai_lab_containment.py:73` | skip | `—` | symlink not permitted on this fs | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_apprentice_live_safety.py:74` | skip | `—` | symlink creation unavailable on this Windows account | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_browser_approvals_p1.py:58` | skipif | `not chromium_available()` | reason() | Bossman Core | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
