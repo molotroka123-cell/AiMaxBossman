@@ -129,8 +129,10 @@ async def test_before_run_attaches_browser_tools_when_agent_has_none(env):
             dbm.tasks.c.id == stack["task"]["id"]))).first()
     meta = row._mapping["meta"]
     assert set(action_router.BROWSER_TOOLS) <= set(meta["allowed_tools"])
+    # "включи <song>" is a content goal: the front page (or a challenge page)
+    # also contains "youtube.com", so the derived expectation is the watch URL.
     assert meta["review"]["evidence"] == [
-        {"kind": "browser", "target": "session", "expect": {"url_contains": "youtube.com"}}]
+        {"kind": "browser", "target": "session", "expect": {"url_contains": "youtube.com/watch"}}]
     assert meta["action_router"]["capability"] == "BROWSER_ACTION"
 
 

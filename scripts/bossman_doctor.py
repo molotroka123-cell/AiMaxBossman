@@ -280,6 +280,25 @@ def check_model_endpoint() -> Check:
                      {"endpoint": url})
 
 
+def check_openhands() -> Check:
+    """OpenHands (Coding → задача агенту) — WARN, не BLOCKED: приёмка без него
+    возможна, но страница Coding честно скажет, что агент недоступен.
+
+    Аудит владельца 2026-09-08 (F4): до OpenHands из интерфейса было не
+    дотянуться, и никто не говорил почему. Здесь называются обе предпосылки:
+    рантайм bossman-core импортируется и команда сайдкара настроена."""
+    facts: dict[str, Any] = {"runtime": _importable("bossman.apprentice.openhands_client"),
+                             "command_env": "BOSSMAN_OPENHANDS_COMMAND",
+                             "command_set": bool(os.environ.get("BOSSMAN_OPENHANDS_COMMAND", "").strip())}
+    if not facts["runtime"]:
+        return Check("openhands", WARN, "рантайм OpenHands (bossman.apprentice) не импортируется",
+                     "pip install -e ./bossman-core рядом с Command Center", facts)
+    if not facts["command_set"]:
+        return Check("openhands", WARN, "команда сайдкара OpenHands не настроена — Coding покажет «агент недоступен»",
+                     "задайте BOSSMAN_OPENHANDS_COMMAND (путь к сайдкару) и перезапустите Bossman", facts)
+    return Check("openhands", PASS, "рантайм OpenHands и команда сайдкара на месте", facts=facts)
+
+
 def check_hardware() -> Check:
     """Наблюдение, не рекомендация. Решение про железо принимает real_workload_audit
     по РЕАЛЬНЫМ задачам, а не этот снимок."""
@@ -489,7 +508,7 @@ def check_telemetry_corpus() -> Check:
 CHECKS: list[Callable[[], Check]] = [
     check_python, check_python_packages, check_bossman_packages, check_node, check_ffmpeg,
     check_state_dir, check_evidence_key, check_journal_anchor, check_browser_runtime,
-    check_model_endpoint, check_hardware, check_windows_specific, check_computer_operator_deps,
+    check_model_endpoint, check_openhands, check_hardware, check_windows_specific, check_computer_operator_deps,
     check_gateway_url, check_cloud_providers, check_telemetry_corpus,
 ]
 

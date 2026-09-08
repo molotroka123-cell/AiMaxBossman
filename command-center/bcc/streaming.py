@@ -59,6 +59,30 @@ DEGRADED = "stream_degraded"
 FAILED = "stream_failed"
 PROVIDER_FAILED = "provider_failed"
 
+# --- completion: did THIS response arrive whole? -------------------------------
+#
+# `status` says what the stream tells the router about the MODEL (does it
+# stream?). `completion` says what it tells the caller about THIS ANSWER, and
+# the two were conflated: Astra/Codex F3 (2026-09-08) — HTTP 200, one content
+# delta, then `{broken-json`, EOF, no finish_reason, no [DONE] — came back as
+# `stream_degraded`, `ok=True`. A truncated, corrupted answer advertised as
+# usable. The protocol defines a successful terminal state (a finish_reason
+# and/or the `[DONE]` sentinel); anything short of it is not "complete".
+COMPLETE = "complete"            # terminal state observed, no corrupt frames
+CAPPED = "capped"                # the CALLER stopped reading at max_chunks
+PARTIAL = "partial"              # content, then EOF before any terminal marker
+MALFORMED = "malformed"          # a data frame was not JSON: content may be missing
+TIMEOUT = "timeout"              # transport timed out (first byte or total)
+SILENT = "silent"                # 2xx, frames, nothing usable in them
+RATE_LIMITED = "rate_limited"    # 429 / quota / credit — a provider condition
+PROVIDER_ERROR = "provider_error"  # every other provider/transport failure
+
+#: Completions after which `text` may be handed on as the model's answer.
+USABLE_COMPLETIONS = frozenset({COMPLETE, CAPPED})
+
+_RATE_LIMIT_MARKERS = ("429", "rate limit", "rate_limit", "quota", "too many requests",
+                       "insufficient", "credit", "402")
+
 
 @dataclass(slots=True)
 class StreamOutcome:
@@ -70,6 +94,10 @@ class StreamOutcome:
     error: str = ""
     frames: int = 0                 # data frames seen, including empty ones
     detail: str = ""
+    completion: str = ""            # one of the completion constants above
+    terminated: bool = False        # finish_reason or [DONE] observed
+    malformed_frames: int = 0       # data payloads that were not JSON
+    capped: bool = False            # stopped by the caller's max_chunks
 
     @property
     def text(self) -> str:
@@ -77,9 +105,10 @@ class StreamOutcome:
 
     @property
     def ok(self) -> bool:
-        """Did the caller get a usable answer? `degraded` counts: the content
-        arrived, just not incrementally."""
-        return self.status in (SUPPORTED, DEGRADED)
+        """Did the caller get a usable, WHOLE answer? `degraded` counts (the
+        content arrived, just not incrementally); a partial or corrupted
+        response does not, whatever its `status` says about the model."""
+        return self.status in (SUPPORTED, DEGRADED) and self.completion in USABLE_COMPLETIONS
 
 
 def _content_text(value: Any) -> str:
@@ -134,84 +163,164 @@ def iter_sse_events(lines: Iterable[str]) -> Iterable[str]:
     lines are skipped (keepalives, `: OPENROUTER PROCESSING`), several `data:`
     lines in one event are joined with a newline, and a blank line ends the
     event. A `[DONE]` payload terminates the stream.
+
+    The `[DONE]` sentinel IS yielded (as the literal payload "[DONE]") and then
+    the iterator stops: the folder needs to see it to know the stream ended the
+    way the protocol says a stream ends, rather than at an EOF.
     """
-    buffer: list[str] = []
-    for raw in lines:
+    for payload in _SseLines().feed_all(lines):
+        yield payload
+        if payload.strip() == DONE:
+            return
+
+
+DONE = "[DONE]"
+
+
+class _SseLines:
+    """Line -> event-payload state machine, shared by the sync and async readers."""
+
+    def __init__(self) -> None:
+        self.buffer: list[str] = []
+
+    def feed(self, raw: Any) -> str | None:
+        """One wire line in; a complete event payload out, or None."""
         line = raw.rstrip("\r\n") if isinstance(raw, str) else ""
         if line.startswith(":"):
-            continue                                  # comment / keepalive
+            return None                               # comment / keepalive
         if line.strip() == "":
-            if buffer:
-                payload = "\n".join(buffer)
-                buffer = []
-                if payload.strip() == "[DONE]":
-                    return
-                yield payload
-            continue
+            if self.buffer:
+                payload = "\n".join(self.buffer)
+                self.buffer = []
+                return payload
+            return None
         if line.startswith("data:"):
-            buffer.append(line[5:].lstrip())
-            continue
+            self.buffer.append(line[5:].lstrip())
         # Any other SSE field (event:, id:, retry:) carries no chat payload.
-    if buffer:
-        payload = "\n".join(buffer)
-        if payload.strip() != "[DONE]":
-            yield payload
+        return None
+
+    def flush(self) -> str | None:
+        if not self.buffer:
+            return None
+        payload = "\n".join(self.buffer)
+        self.buffer = []
+        return payload
+
+    def feed_all(self, lines: Iterable[str]) -> Iterable[str]:
+        for raw in lines:
+            payload = self.feed(raw)
+            if payload is not None:
+                yield payload
+        tail = self.flush()
+        if tail is not None:
+            yield tail
 
 
-def parse_frames(payloads: Iterable[str], *, max_chunks: int = 0) -> StreamOutcome:
-    """Fold SSE data payloads into one outcome. Pure and synchronous, so the
-    provider variants can be tested from recorded fixtures without a network."""
-    outcome = StreamOutcome(status=FAILED)
-    message_text = ""
-    for payload in payloads:
+class _Folder:
+    """Fold event payloads into a StreamOutcome ONE AT A TIME.
+
+    `feed` returns True when the caller must stop reading: the cap is reached
+    (Astra/Codex F2 — `max_chunks` used to be applied after the whole upstream
+    stream had been buffered, so a cap of 2 still consumed 100 frames), the
+    protocol terminated, or the provider reported an error."""
+
+    def __init__(self, max_chunks: int = 0) -> None:
+        self.outcome = StreamOutcome(status=FAILED)
+        self.message_text = ""
+        self.max_chunks = max(0, int(max_chunks))
+
+    def feed(self, payload: str) -> bool:
+        out = self.outcome
         body = payload.strip()
-        if not body or body == "[DONE]":
-            continue
+        if not body:
+            return False
+        if body == DONE:
+            out.terminated = True
+            return True
         try:
             chunk = json.loads(body)
         except json.JSONDecodeError:
-            outcome.detail = outcome.detail or f"non-JSON frame: {body[:80]}"
-            continue
+            out.malformed_frames += 1
+            out.detail = out.detail or f"non-JSON frame: {body[:80]}"
+            return False
         if not isinstance(chunk, dict):
-            continue
-        outcome.frames += 1
+            out.malformed_frames += 1
+            out.detail = out.detail or f"non-object frame: {body[:80]}"
+            return False
+        out.frames += 1
         error = frame_error(chunk)
         if error:
             # A provider error ends the stream and is NOT evidence about the
             # model's streaming capability.
-            outcome.status = PROVIDER_FAILED
-            outcome.error = error
-            return outcome
+            out.status = PROVIDER_FAILED
+            out.error = error
+            return True
         usage = chunk.get("usage")
         if isinstance(usage, dict) and usage:
             # Read once. A streamed run that folded usage from every frame
             # would bill the same tokens repeatedly against the budget.
-            outcome.usage = dict(usage)
+            out.usage = dict(usage)
         choices = chunk.get("choices")
         if not isinstance(choices, list) or not choices:
-            continue
+            return False
         choice = choices[0] if isinstance(choices[0], dict) else {}
         if choice.get("finish_reason"):
-            outcome.finish_reason = str(choice["finish_reason"])
+            out.finish_reason = str(choice["finish_reason"])
+            out.terminated = True
         delta = choice.get("delta")
         if isinstance(delta, dict):
             text = _delta_text(delta)
             if text:
-                outcome.deltas.append(text)
+                out.deltas.append(text)
             if delta.get("tool_calls"):
-                outcome.tool_call_frames += 1
+                out.tool_call_frames += 1
         message = choice.get("message")
         if isinstance(message, dict):
             # Non-delta body: the provider answered in one piece.
-            message_text = message_text or _content_text(message.get("content"))
+            self.message_text = self.message_text or _content_text(message.get("content"))
             if message.get("tool_calls"):
-                outcome.tool_call_frames += 1
-        if max_chunks and len(outcome.deltas) >= max_chunks:
+                out.tool_call_frames += 1
+        if self.max_chunks and len(out.deltas) >= self.max_chunks:
+            out.capped = True
+            return True
+        return False
+
+    def finish(self) -> StreamOutcome:
+        return _classify(self.outcome, self.message_text)
+
+
+def parse_frames(payloads: Iterable[str], *, max_chunks: int = 0) -> StreamOutcome:
+    """Fold SSE data payloads into one outcome. Pure and synchronous, so the
+    provider variants can be tested from recorded fixtures without a network.
+    Stops consuming `payloads` at the cap or at the terminal marker."""
+    folder = _Folder(max_chunks)
+    for payload in payloads:
+        if folder.feed(payload):
             break
-    return _classify(outcome, message_text)
+    return folder.finish()
+
+
+def _completion(outcome: StreamOutcome, message_text: str) -> str:
+    if outcome.status == PROVIDER_FAILED:
+        text = (outcome.error or "").lower()
+        return RATE_LIMITED if any(m in text for m in _RATE_LIMIT_MARKERS) else PROVIDER_ERROR
+    if not (outcome.deltas or outcome.tool_call_frames or message_text):
+        return SILENT
+    if outcome.capped:
+        return CAPPED
+    if outcome.malformed_frames:
+        return MALFORMED
+    if outcome.terminated:
+        return COMPLETE
+    if message_text and not outcome.deltas:
+        # A non-delta message body is one whole JSON object: complete by shape,
+        # even when the provider sent no finish_reason around it.
+        return COMPLETE
+    return PARTIAL
 
 
 def _classify(outcome: StreamOutcome, message_text: str) -> StreamOutcome:
+    outcome.completion = _completion(outcome, message_text)
     if outcome.status == PROVIDER_FAILED:
         return outcome
     incremental = len(outcome.deltas) > 1 or outcome.tool_call_frames > 1
@@ -222,6 +331,8 @@ def _classify(outcome: StreamOutcome, message_text: str) -> StreamOutcome:
         outcome.status = SUPPORTED if incremental else DEGRADED
         outcome.detail = outcome.detail or (
             f"{len(outcome.deltas)} delta(s), {outcome.tool_call_frames} tool frame(s)")
+        if outcome.completion not in USABLE_COMPLETIONS:
+            outcome.detail = f"{outcome.completion}: {outcome.detail}"
         return outcome
     if message_text:
         outcome.status = DEGRADED
@@ -236,34 +347,36 @@ def _classify(outcome: StreamOutcome, message_text: str) -> StreamOutcome:
 
 
 async def read_stream(lines: AsyncIterator[str], *, max_chunks: int = 0) -> StreamOutcome:
-    """Async twin of `parse_frames` over a live line iterator."""
-    collected: list[str] = []
-    buffer: list[str] = []
+    """Async twin of `parse_frames` over a LIVE line iterator.
+
+    Folds each event as it arrives and stops pulling from `lines` the moment
+    the cap, the terminal marker or a provider error is reached — so
+    `max_chunks` bounds what is read from the provider, not merely what is
+    returned (F2)."""
+    sse = _SseLines()
+    folder = _Folder(max_chunks)
+    stopped = False
     async for raw in lines:
-        line = raw.rstrip("\r\n") if isinstance(raw, str) else ""
-        if line.startswith(":"):
-            continue
-        if line.strip() == "":
-            if buffer:
-                payload = "\n".join(buffer)
-                buffer = []
-                if payload.strip() == "[DONE]":
-                    break
-                collected.append(payload)
-            continue
-        if line.startswith("data:"):
-            buffer.append(line[5:].lstrip())
-    if buffer:
-        payload = "\n".join(buffer)
-        if payload.strip() != "[DONE]":
-            collected.append(payload)
-    return parse_frames(collected, max_chunks=max_chunks)
+        payload = sse.feed(raw)
+        if payload is not None and folder.feed(payload):
+            stopped = True
+            break
+    if not stopped:
+        tail = sse.flush()
+        if tail is not None:
+            folder.feed(tail)
+    return folder.finish()
 
 
 def outcome_from_exception(exc: BaseException) -> StreamOutcome:
     """Transport-level failure. Always `provider_failed`: a refused connection,
     a 500 or a timeout says nothing about whether the model can stream, and
-    recording it as a model property is how a healthy model gets blacklisted."""
+    recording it as a model property is how a healthy model gets blacklisted.
+    The completion distinguishes a TIMEOUT (nothing arrived in time) from the
+    other transport errors so the caller can act on the difference."""
+    name = type(exc).__name__
+    is_timeout = "timeout" in name.lower() or "timed out" in str(exc).lower()
     return StreamOutcome(status=PROVIDER_FAILED,
-                         error=f"{type(exc).__name__}: {exc}"[:300],
-                         detail="transport failure before or during the stream")
+                         error=f"{name}: {exc}"[:300],
+                         detail="transport failure before or during the stream",
+                         completion=TIMEOUT if is_timeout else PROVIDER_ERROR)
