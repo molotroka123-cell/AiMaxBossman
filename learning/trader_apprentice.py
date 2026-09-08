@@ -12,6 +12,9 @@ Core design rules learned from the September 2026 BTC sessions:
   being added while price is falling.
 * CVD can show aggression, but price response decides whether that aggression is
   effective.  Falling CVD with price holding can be absorption.
+* Rising CVD while price still falls can expose buyer inefficiency/passive
+  selling; if OI falls too, this is buyer failure during deleveraging rather
+  than fresh bearish leverage expansion.
 * A level touch is not acceptance.  Prefer reclaim + hold/retest.
 * Never compare absolute CVD/OI values across different providers/settings.
 * Never mix CME chart levels with a spot/perp execution price without tagging
@@ -43,6 +46,7 @@ class Regime(str, Enum):
     RECOVERY_WITHOUT_LEVERAGE = "RECOVERY_WITHOUT_LEVERAGE"
     SHORT_COVERING_OR_ABSORPTION = "SHORT_COVERING_OR_ABSORPTION"
     SELL_ABSORPTION_CANDIDATE = "SELL_ABSORPTION_CANDIDATE"
+    BUYER_FAILURE_WITH_DELEVERAGING = "BUYER_FAILURE_WITH_DELEVERAGING"
     BUYER_FAILURE_CANDIDATE = "BUYER_FAILURE_CANDIDATE"
     NEUTRAL_BALANCE = "NEUTRAL_BALANCE"
 
@@ -216,6 +220,11 @@ def classify_regime(
     if p in (Direction.UP, Direction.FLAT) and c is Direction.DOWN and o in (Direction.DOWN, Direction.FLAT):
         reasons.append("CVD sells are not producing lower price: possible passive buyer/absorption")
         return p, c, o, Regime.SELL_ABSORPTION_CANDIDATE, Stance.WATCH, reasons
+
+    if p is Direction.DOWN and c is Direction.UP and o is Direction.DOWN:
+        reasons.append("Aggressive buy flow improves, but price still falls while OI contracts")
+        reasons.append("This suggests buyer inefficiency/passive selling during deleveraging; it is not fresh bearish leverage expansion, but it is not a long confirmation")
+        return p, c, o, Regime.BUYER_FAILURE_WITH_DELEVERAGING, Stance.WATCH, reasons
 
     if p is Direction.DOWN and c in (Direction.UP, Direction.FLAT) and o in (Direction.UP, Direction.FLAT):
         reasons.append("Buy aggression fails to lift price: possible hidden seller/buyer failure")
