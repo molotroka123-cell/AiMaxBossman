@@ -1,0 +1,51 @@
+{
+  "corpus": "bossman-trader-apprentice-btc-orderflow",
+  "version": "1.0.0",
+  "updated_at": "2026-09-08",
+  "load_order": [
+    "docs/trading/LOCAL_MODEL_SYSTEM_PROMPT.md",
+    "docs/trading/BTC_ORDERFLOW_PLAYBOOK.md",
+    "data/trading/btc_orderflow_rules_v1.json",
+    "data/trading/btc_casebook_2026_09.jsonl"
+  ],
+  "deterministic_engine": "learning/trader_apprentice.py",
+  "tests": "tests/test_trader_apprentice.py",
+  "retrieval_hints": [
+    "btc",
+    "trading",
+    "trader apprentice",
+    "coinwise",
+    "k1m6a",
+    "cvd",
+    "open interest",
+    "oi",
+    "liquidations",
+    "dval",
+    "dpoc",
+    "dvah",
+    "dopen",
+    "deleveraging",
+    "absorption",
+    "reclaim",
+    "sweep",
+    "short covering",
+    "leverage expansion"
+  ],
+  "runtime_policy": {
+    "analysis_only": true,
+    "autonomous_order_execution": false,
+    "missing_metrics": "UNKNOWN",
+    "require_source_and_instrument_tags": true,
+    "require_same_series_for_cvd_oi_delta": true,
+    "separate_cme_and_execution_market_prices": true,
+    "never_invent_live_values": true
+  },
+  "recommended_runtime_sequence": [
+    "Extract current screenshot/live observation into a structured Snapshot.",
+    "Load the previous compatible Snapshot from the same series.",
+    "Run learning.trader_apprentice.analyze(previous, current, levels).",
+    "Retrieve the playbook/rules for explanation and scenario construction.",
+    "Return market-state matrix, regime, evidence, levels, trigger/invalidation, missing data and confidence.",
+    "Do not place an order without a separate explicit execution authorization layer."
+  ]
+}
