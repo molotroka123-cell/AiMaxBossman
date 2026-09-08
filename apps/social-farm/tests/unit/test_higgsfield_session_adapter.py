@@ -287,3 +287,21 @@ async def test_an_unobserved_submission_leaves_a_record_saying_so(tmp_path):
     record = adapter.session.audit.by_action("generation.submit")[-1]
     assert record.result == "not_observed"
     assert record.error_class == "SUBMISSION_NOT_OBSERVED"
+
+
+async def test_a_session_opened_on_some_other_page_still_reaches_ready(tmp_path):
+    """В живом браузере владельца открыто что угодно.
+
+    Личность читается на той странице, которая открыта в момент запуска. Если
+    адаптер не приведёт сессию на страницу генератора сам, работа получит
+    «войдите» при полностью действующем входе.
+    """
+    page = kit.ready_page()
+    elsewhere = FixtureDom(page)
+    page.url = "https://fixture.higgsfield.local/settings/billing"
+    adapter = kit.adapter(elsewhere, tmp_path / "q")
+    assert adapter.session.landing_url == kit.GENERATION_URL
+
+    observed = await adapter.prepare(request(tmp_path))
+    assert observed.state is BrowserGenerationState.READY
+    assert kit.GENERATION_URL in elsewhere.navigations
