@@ -44,6 +44,14 @@ def test_price_up_cvd_up_oi_up_is_long_candidate():
     assert result.stance is Stance.LONG_CANDIDATE
 
 
+def test_price_down_cvd_up_oi_down_is_buyer_failure_with_deleveraging():
+    prev = Snapshot(price=78_775, cvd=61.78, open_interest=18.78)
+    cur = Snapshot(price=78_450, cvd=61.91, open_interest=18.50)
+    result = analyze(prev, cur)
+    assert result.regime is Regime.BUYER_FAILURE_WITH_DELEVERAGING
+    assert result.stance is Stance.WATCH
+
+
 def test_level_context_reports_reclaim():
     prev = Snapshot(price=78_500, cvd=61.1, open_interest=18.6)
     cur = Snapshot(price=78_600, cvd=61.3, open_interest=18.7)
