@@ -305,3 +305,54 @@ async def test_different_repos_are_different_flights(svc, monkeypatch):
     monkeypatch.setattr(observers, "observe_all", recorded)
     await asyncio.gather(world.refresh(svc, repo="a"), world.refresh(svc, repo="b"))
     assert sorted(x for x in seen if x) == ["a", "b"]
+
+
+# ------------------------------------------------------ the owner's surface
+
+@pytest.fixture
+async def client(tmp_path):
+    """A real client against the real router, on its own database."""
+    import httpx
+    from bcc.api import create_app
+    from bcc.auth import HEADER
+    from bcc.config import Settings
+    settings = Settings(data_dir=tmp_path / "http",
+                        database_url=f"sqlite+aiosqlite:///{tmp_path / 'http' / 'w.db'}",
+                        ui_dir=tmp_path / "no-ui-http")
+    app = create_app(settings, announce_token=False, start_workers=False)
+    service = app.state.svc
+    await service.start()
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                     base_url="http://w",
+                                     headers={HEADER: service.auth.token}) as http:
+            yield http
+    finally:
+        await service.stop()
+
+
+async def test_the_endpoint_answers_what_do_you_believe_right_now(client):
+    """The charter's first UX question, over real HTTP through the real route."""
+    body = (await client.get("/api/reality/world")).json()
+    assert body["scope_id"] == world.AMBIENT_SCOPE
+    assert body["fresh"] >= 1 and body["last_pass"]["ingested"] >= 1
+    assert body["contested"] == []
+    for row in body["facts"]:
+        assert (row["status"] == "FRESH") == ("value" in row), row
+
+
+async def test_inspecting_without_observing_is_possible(client):
+    """`refresh=false` is how a fact is watched ageing out, instead of being
+    renewed by the very request that came to check on it."""
+    first = (await client.get("/api/reality/world")).json()
+    again = (await client.get("/api/reality/world?refresh=false")).json()
+    assert "last_pass" not in again
+    assert {f["key"] for f in again["facts"]} == {f["key"] for f in first["facts"]}
+
+
+async def test_the_endpoint_refuses_to_be_written_to(client):
+    """A world state anyone can post to is a belief store, not evidence."""
+    for method in ("POST", "PUT", "PATCH", "DELETE"):
+        response = await client.request(method, "/api/reality/world",
+                                        json={"key": "build_green", "value": True})
+        assert response.status_code in (404, 405), (method, response.status_code)
