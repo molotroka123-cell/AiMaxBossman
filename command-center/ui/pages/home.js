@@ -34,7 +34,21 @@ const HEALTH_NAME = {
   event_bus: 'Обмен событиями', events: 'Обмен событиями',
   metrics: 'Сбор показателей', models: 'Модели',
   disk: 'Диск', memory: 'Память',
+  // Фоновые петли фич приходят как tick:<имя>. Сырой ключ в панели здоровья —
+  // это ровно тот «инженерный пульт», от которого уходит §11, поэтому у
+  // известных петель есть человеческое имя, а у неизвестной остаётся ключ:
+  // подписать её выдумкой было бы хуже, чем показать как есть.
+  'tick:review_gate': 'Свип зависших согласований',
+  'tick:governor': 'Губернатор бюджета', 'tick:healing': 'Самовосстановление',
+  'tick:apps_control': 'Управление приложениями', 'tick:qa_relay': 'Мост QA',
 };
+
+/** Человеческое имя подсистемы; для незнакомой петли — «Фоновая петля: <имя>». */
+function healthLabel(name) {
+  if (HEALTH_NAME[name]) return HEALTH_NAME[name];
+  return String(name).startsWith('tick:')
+    ? `Фоновая петля: ${String(name).slice(5)}` : name;
+}
 
 const RAW_LOG_KINDS = new Set(['run.log', 'ws.open', 'ws.closed', 'ws.connecting',
   'ws.idle', 'system.metrics']);
@@ -436,7 +450,7 @@ function buildHealth(sys, models, ctx) {
     items.length
       ? items.slice(0, 4).map((c) => {
         const st = statusText(c.status);
-        return line(HEALTH_NAME[c.name] || c.name, null, null,
+        return line(healthLabel(c.name), null, null,
           pill(st.word, { tone: st.tone }));
       })
       : h('div.bx-empty', { style: { marginTop: '8px' } },
@@ -583,7 +597,7 @@ export function collectAttention({ approvals = [], failedTasks = [], missions = 
     if (['error', 'fail', 'failed', 'down', 'critical'].includes(String(status).toLowerCase())) {
       items.push({
         kind: 'health', severity: 'block', page: 'system', count: 1,
-        title: `Сбой: ${HEALTH_NAME[name] || name}`,
+        title: `Сбой: ${healthLabel(name)}`,
         note: typeof value === 'object' && value && value.detail ? String(value.detail) : 'подсистема не отвечает',
       });
     }
