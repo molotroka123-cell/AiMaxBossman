@@ -176,7 +176,7 @@ def test_deterministic_path_is_never_memory_gated():
 
 def test_the_refusal_travels_in_the_serialised_terms():
     """A router whose reasoning cannot be read is a router nobody can review."""
-    terms = by_id(gen(memory=st.MemoryReading(42 * GB), 
+    terms = by_id(gen(memory=st.MemoryReading(42 * GB),
                       model_memory_mb={"large_model": 70 * GB}))["large-model-tools"].terms()
     assert terms["available"] is False and terms["unavailable_reason"]
 
