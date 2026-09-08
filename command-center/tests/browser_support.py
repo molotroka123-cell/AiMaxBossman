@@ -48,4 +48,31 @@ def reason() -> str:
     return "Chromium недоступен: ни /opt/pw-browsers/chromium, ни путь от Playwright"
 
 
-__all__ = ["chromium_available", "reason", "required", "REQUIRE_ENV", "PREINSTALLED"]
+def click_in_preview(page, selector: str, *, frame_selector: str = "iframe.bd-frame") -> None:
+    """Click an element inside the Web Designer preview iframe.
+
+    `frame_locator(...).click()` does not work here, and the reason is the
+    preview's fit-to-panel zoom rather than anything broken in the product: the
+    iframe carries a CSS `transform: scale(...)`, and Playwright maps
+    frame-local coordinates to page coordinates without it, so the synthetic
+    click lands outside the element — verified directly, `window.__clicks`
+    inside the frame stays 0 while a raw `page.mouse.click` at the same spot
+    does reach the picker and produce a `select` message.
+
+    Mapping the coordinates by hand does not fix it either: at a 0.28x zoom a
+    heading is a few physical pixels tall, so the rounded centre lands in its
+    parent and the wrong element gets selected.
+
+    So the click is dispatched on the element itself, inside the frame. The
+    picker listens with `document.addEventListener('click', ..., true)`, which
+    is exactly what a real user's click reaches, so this exercises the picker's
+    real contract — "clicking this element selects it" — without depending on
+    pixel arithmetic through a zoom that the product legitimately applies.
+    """
+    element = page.frame_locator(frame_selector).locator(selector).first
+    element.wait_for()
+    element.evaluate("el => el.click()")
+
+
+__all__ = ["chromium_available", "click_in_preview", "reason", "required",
+           "REQUIRE_ENV", "PREINSTALLED"]

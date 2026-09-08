@@ -10,7 +10,7 @@ import subprocess
 
 import pytest
 
-from .browser_support import chromium_available, reason as browser_reason
+from .browser_support import click_in_preview, chromium_available, reason as browser_reason
 from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
 
 
@@ -25,6 +25,24 @@ def test_viewport_module_serialization_and_geometry():
 
 @pytest.mark.timeout(180)
 @pytest.mark.skipif(not chromium_available(), reason=browser_reason())
+def _wait_inside(page, expression: str, *, timeout: int = 10000) -> None:
+    """Wait for a condition INSIDE the preview iframe.
+
+    The panel sets the iframe's geometry; the document inside then relayouts and
+    re-evaluates its media queries. Those are separate moments, and a test that
+    asserts the second immediately after observing the first is racing the
+    browser rather than testing the product.
+
+    Evaluated through the frame's OWN context. Reaching in from the page with
+    `contentWindow.eval` is refused, and correctly so: the preview is sandboxed
+    without `allow-same-origin`, which is the isolation another test in this
+    suite exists to prove.
+    """
+    page.frame_locator("iframe.bd-frame").locator("body").wait_for()
+    frame = next(f for f in page.frames if "/preview" in (f.url or ""))
+    frame.wait_for_function(f"() => {expression}", timeout=timeout)
+
+
 def test_viewport_toolbar_changes_actual_iframe_geometry_without_editing_project(live):
     from playwright.sync_api import sync_playwright
 
@@ -53,16 +71,22 @@ def test_viewport_toolbar_changes_actual_iframe_geometry_without_editing_project
             frame.locator("h1").wait_for()
             page.get_by_label("Размер экрана превью", exact=True).select_option("mobile")
             page.wait_for_function("() => document.querySelector('iframe.bd-frame').style.width === '390px'")
-            assert frame.locator("body").evaluate("el => getComputedStyle(el).backgroundColor") == "rgb(0, 0, 255)"
+            # Setting the iframe's width and the document inside it re-evaluating
+            # its media queries are two different moments. Asserting the second
+            # one synchronously after the first raced the relayout: the width was
+            # already 390px while the body was still painted at the desktop rule.
+            # Waiting for the CONSEQUENCE is what the test actually means.
+            _wait_inside(page, "getComputedStyle(document.body).backgroundColor === 'rgb(0, 0, 255)'")
             assert frame.locator("body").evaluate("() => window.innerWidth") == 390
             page.get_by_role("button", name="Повернуть", exact=True).click()
+            _wait_inside(page, "window.innerWidth === 844")
             assert frame.locator("body").evaluate("() => window.innerWidth") == 844
             assert frame.locator("body").evaluate("() => window.innerHeight") == 390
             page.get_by_label("Масштаб превью", exact=True).select_option("0.5")
             geometry = page.locator("iframe.bd-frame").evaluate("el => ({w:el.getBoundingClientRect().width,h:el.getBoundingClientRect().height})")
             assert geometry == {"w": 422, "h": 195}
             # Scaling must preserve the sandbox picker bridge to the inspector.
-            frame.locator("h1").click()
+            click_in_preview(page, "h1")
             page.wait_for_function(
                 "() => document.querySelector('.bd-elinfo')?.textContent === 'h1'")
             page.get_by_label("Высота превью", exact=True).fill("4096")

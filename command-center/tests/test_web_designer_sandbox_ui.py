@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from .browser_support import chromium_available, reason as browser_reason
+from .browser_support import click_in_preview, chromium_available, reason as browser_reason
 from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
 
 pytestmark = [pytest.mark.timeout(180),
@@ -66,7 +66,7 @@ def test_picker_still_works_and_frame_is_isolated(live):
 
             # и при этом функция панели жива: выделение включено по умолчанию,
             # клик по элементу в песочнице доносится до инспектора через postMessage
-            frame.locator("h1").first.click()
+            click_in_preview(page, "h1")
             page.wait_for_selector("text=Инспектор", timeout=10000)
             page.wait_for_function(
                 "() => /\\bh1\\b/.test(document.querySelector('#view').innerText)",

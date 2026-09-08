@@ -17,6 +17,8 @@ import time
 import httpx
 import pytest
 from playwright.sync_api import expect, sync_playwright
+
+from .browser_support import click_in_preview
 from playwright.sync_api import TimeoutError as PWTimeout
 
 from .test_ux2_thinking_pane import _launch
@@ -473,12 +475,12 @@ def test_web_ui_edit_download_restart_and_create_second_project(editor_server, t
             change(page, '/code', lambda: page.locator('textarea.bd-code').fill(html))
             frame = page.frame_locator('iframe.bd-frame')
             expect(frame.locator('h1')).to_have_text('Before')
-            frame.locator('h1').click()
+            click_in_preview(page, 'h1')
             row = page.locator('.bd-row').filter(has=page.locator('label').filter(has_text=re.compile(r'^Текст$')))
             row.locator('input[type=text]').fill('Verified Web heading')
             change(page, '/edit', lambda: row.get_by_role('button', name='Применить', exact=True).click())
             expect(frame.locator('h1')).to_have_text('Verified Web heading')
-            frame.locator('h1').click()
+            click_in_preview(page, 'h1')
             font = page.locator('.bd-row').filter(has=page.locator('label').filter(has_text=re.compile(r'^Кегль$'))).locator('input[type=number]').first
             change(page, '/edit', lambda: (font.fill('28'), font.press('Tab')))
             page.get_by_label('Размер экрана превью', exact=True).select_option('mobile')
