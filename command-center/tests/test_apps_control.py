@@ -161,30 +161,39 @@ def _spawn_dump(app_dir: Path, timeout: float = 5.0) -> dict:
 
 # ------------------------------------------------------------------ флаг
 
-async def test_start_refused_while_flag_off_and_nothing_is_spawned(env, apps_root, monkeypatch):
-    """С выключенным флагом запуск отклонён, процесс не порождён, порт свободен."""
+async def test_start_refused_while_policy_off_and_nothing_is_spawned(env, apps_root, monkeypatch):
+    """С выключенной политикой запуск отклонён, процесс не порождён, порт свободен.
+
+    Код изменён с 409 на 403 намеренно (находка B3): 409 отвечали и «порт занят
+    чужим процессом», и «в манифесте нет console script», поэтому cloud-QA
+    видел девять одинаковых 409 и не мог отличить отказ политики от поломки.
+    403 + машиночитаемый `code` разделяют эти случаи; 409 остаётся конфликтом
+    реального состояния."""
     monkeypatch.delenv(ctl.FLAG, raising=False)
     _, port = make_app(apps_root, "fake-app")
 
     res = await env.client.post("/api/apps/fake-app/start")
 
-    assert res.status_code == 409
-    assert ctl.FLAG in res.json()["error"]["hint"]
+    assert res.status_code == 403
+    body = res.json()["error"]
+    assert body["code"] == "APPS_CONTROL_DISABLED"
+    assert "PUT /api/apps/control/policy" in body["hint"]   # путь включения назван
     assert ctl._processes == {}
     assert ctl.port_busy(port) is False
 
 
-async def test_stop_refused_while_flag_off(env, apps_root, monkeypatch):
+async def test_stop_refused_while_policy_off(env, apps_root, monkeypatch):
     """Гасить процессы без разрешения владельца тоже нельзя."""
     monkeypatch.delenv(ctl.FLAG, raising=False)
     make_app(apps_root, "fake-app")
 
     res = await env.client.post("/api/apps/fake-app/stop")
 
-    assert res.status_code == 409
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "APPS_CONTROL_DISABLED"
 
 
-async def test_process_endpoint_answers_honestly_while_flag_off(env, apps_root, monkeypatch):
+async def test_process_endpoint_answers_honestly_while_policy_off(env, apps_root, monkeypatch):
     """Чтение состояния доступно всегда: человек должен видеть «выключено» до нажатия."""
     monkeypatch.delenv(ctl.FLAG, raising=False)
     make_app(apps_root, "fake-app")
@@ -505,3 +514,178 @@ async def test_a_genuinely_foreign_process_is_still_not_claimed(
         assert "не запускал" in json.dumps(res.json(), ensure_ascii=False)
     finally:
         foreign.close()
+
+
+# ------------------------------------------------------------------ B3: политика без ритуала
+# Находка B3 из cloud-QA: все девять приложений отвечали 409 на start/stop,
+# потому что BOSSMAN_APPS_CONTROL_ENABLED != 1. Узнать это из API было нельзя,
+# а изменить — только правкой окружения и перезапуском Command Center.
+# Ниже — контракт, который это закрывает, вместе с негативными контролями:
+# умолчание остаётся закрытым, и включение остаётся ЯВНЫМ решением владельца.
+
+async def test_policy_is_readable_and_says_why_it_is_off(env, apps_root, monkeypatch):
+    monkeypatch.delenv(ctl.FLAG, raising=False)
+    monkeypatch.delenv(ctl.LOCK_ENV, raising=False)
+    res = await env.client.get("/api/apps/control/policy")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["enabled"] is False and body["source"] == "default"
+    assert body["can_change"] is True and body["locked"] is False
+    assert "перезапуск не нужен" in body["hint"]
+
+
+async def test_owner_can_enable_control_without_a_restart(env, apps_root, monkeypatch):
+    """The whole point of B3: no environment variable, no restart."""
+    monkeypatch.delenv(ctl.FLAG, raising=False)
+    monkeypatch.delenv(ctl.LOCK_ENV, raising=False)
+    _, port = make_app(apps_root, "fake-app")
+
+    assert (await env.client.post("/api/apps/fake-app/start")).status_code == 403
+
+    res = await env.client.put("/api/apps/control/policy", json={"enabled": True})
+    assert res.status_code == 200 and res.json()["enabled"] is True
+    assert res.json()["source"] == "owner_setting"
+
+    started = await env.client.post("/api/apps/fake-app/start")
+    assert started.status_code == 200 and started.json()["ok"] is True
+    assert (await env.client.post("/api/apps/fake-app/stop")).status_code == 200
+
+
+async def test_owner_can_disable_control_again(env, apps_root, monkeypatch):
+    monkeypatch.setenv(ctl.FLAG, "1")            # даже при включённом окружении
+    make_app(apps_root, "fake-app")
+    await env.client.put("/api/apps/control/policy", json={"enabled": False})
+    res = await env.client.post("/api/apps/fake-app/start")
+    assert res.status_code == 403
+    assert ctl._processes == {}
+
+
+async def test_the_owner_decision_survives_a_restart(env, apps_root, monkeypatch, tmp_path):
+    """Настройка живёт в БД, а не в памяти процесса: перезапуск Command Center
+    её не теряет — иначе «включил один раз» снова стало бы ритуалом."""
+    monkeypatch.delenv(ctl.FLAG, raising=False)
+    monkeypatch.delenv(ctl.LOCK_ENV, raising=False)
+    await env.client.put("/api/apps/control/policy", json={"enabled": True})
+
+    from .conftest import start_app as _start_app        # свежий процесс на той же БД
+    app2, svc2 = await _start_app(env.svc.settings)
+    try:
+        assert await ctl.is_enabled(svc2) is True
+    finally:
+        await svc2.stop()
+
+
+async def test_a_deployment_lock_cannot_be_overridden_through_the_api(env, apps_root, monkeypatch):
+    """Негативный контроль: закрытая установка остаётся закрытой. Владелец UI
+    и владелец машины — не всегда одно лицо."""
+    monkeypatch.setenv(ctl.LOCK_ENV, "off")
+    make_app(apps_root, "fake-app")
+
+    policy = (await env.client.get("/api/apps/control/policy")).json()
+    assert policy["enabled"] is False and policy["locked"] is True
+    assert policy["can_change"] is False
+
+    res = await env.client.put("/api/apps/control/policy", json={"enabled": True})
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "APPS_CONTROL_LOCKED"
+    assert (await env.client.post("/api/apps/fake-app/start")).status_code == 403
+    assert ctl._processes == {}
+
+
+async def test_a_deployment_lock_on_wins_over_a_stored_off(env, apps_root, monkeypatch):
+    monkeypatch.delenv(ctl.FLAG, raising=False)
+    await env.client.put("/api/apps/control/policy", json={"enabled": False})
+    monkeypatch.setenv(ctl.LOCK_ENV, "on")
+    policy = (await env.client.get("/api/apps/control/policy")).json()
+    assert policy["enabled"] is True and policy["source"] == "deployment_lock"
+
+
+async def test_a_malformed_policy_request_changes_nothing(env, apps_root, monkeypatch):
+    monkeypatch.delenv(ctl.FLAG, raising=False)
+    monkeypatch.delenv(ctl.LOCK_ENV, raising=False)
+    for body in ({}, {"enabled": "yes"}, {"enabled": 1}, {"other": True}):
+        res = await env.client.put("/api/apps/control/policy", json=body)
+        assert res.status_code == 422, body
+    assert await ctl.is_enabled(env.svc) is False
+
+
+async def test_an_unreadable_setting_does_not_open_the_door(env, apps_root, monkeypatch):
+    """Fail-closed: повреждённая настройка = выключено, а не «включено по
+    умолчанию, раз прочитать не смогли»."""
+    import sqlalchemy as sa
+    from bcc.db import settings_kv
+    monkeypatch.delenv(ctl.FLAG, raising=False)
+    monkeypatch.delenv(ctl.LOCK_ENV, raising=False)
+    async with env.svc.db.session() as s:
+        await s.execute(sa.insert(settings_kv).values(key=ctl.SETTING_KEY, value_enc="не-шифртекст"))
+        await s.commit()
+    assert await ctl.is_enabled(env.svc) is False
+
+
+async def test_enabling_control_does_not_start_anything_by_itself(env, apps_root, monkeypatch):
+    """Разрешение — это разрешение, а не запуск: включение политики не имеет
+    права породить ни одного процесса."""
+    monkeypatch.delenv(ctl.FLAG, raising=False)
+    monkeypatch.delenv(ctl.LOCK_ENV, raising=False)
+    _, port = make_app(apps_root, "fake-app")
+    await env.client.put("/api/apps/control/policy", json={"enabled": True})
+    assert ctl._processes == {}
+    assert ctl.port_busy(port) is False
+
+
+async def test_repeated_start_is_idempotent_and_says_so(env, apps_root, monkeypatch):
+    monkeypatch.delenv(ctl.FLAG, raising=False)
+    monkeypatch.delenv(ctl.LOCK_ENV, raising=False)
+    make_app(apps_root, "fake-app")
+    await env.client.put("/api/apps/control/policy", json={"enabled": True})
+
+    first = (await env.client.post("/api/apps/fake-app/start")).json()
+    assert first["started"] is True
+    second = (await env.client.post("/api/apps/fake-app/start")).json()
+    assert second["ok"] is True and second["already_running"] is True
+    assert second["started"] is False
+    assert len(ctl._processes) == 1                 # ровно один процесс, не два
+
+
+async def test_unknown_app_is_a_404_not_a_policy_refusal(env, apps_root, monkeypatch):
+    """Разделение, которого не хватало: «нет такого приложения» — не то же
+    самое, что «нельзя»."""
+    monkeypatch.delenv(ctl.FLAG, raising=False)
+    monkeypatch.delenv(ctl.LOCK_ENV, raising=False)
+    make_app(apps_root, "fake-app")
+    await env.client.put("/api/apps/control/policy", json={"enabled": True})
+    res = await env.client.post("/api/apps/no-such-app/start")
+    assert res.status_code == 404
+
+
+async def test_process_endpoint_reports_the_effective_policy(env, apps_root, monkeypatch):
+    """UI показывает действующую политику, а не переменную окружения: иначе
+    владелец включил бы управление и продолжал видеть «выключено»."""
+    monkeypatch.delenv(ctl.FLAG, raising=False)
+    monkeypatch.delenv(ctl.LOCK_ENV, raising=False)
+    make_app(apps_root, "fake-app")
+    before = (await env.client.get("/api/apps/fake-app/process")).json()
+    assert before["enabled"] is False
+    await env.client.put("/api/apps/control/policy", json={"enabled": True})
+    after = (await env.client.get("/api/apps/fake-app/process")).json()
+    assert after["enabled"] is True
+    assert after["control_policy"]["source"] == "owner_setting"
+
+
+async def test_the_apps_tool_sees_the_same_policy_as_the_endpoint(env, apps_root, monkeypatch):
+    """Инструмент модели и HTTP-ручка обязаны отвечать одно и то же: иначе одна
+    из них врёт владельцу."""
+    from bcc.features import tools_apps
+    monkeypatch.delenv(ctl.FLAG, raising=False)
+    monkeypatch.delenv(ctl.LOCK_ENV, raising=False)
+    make_app(apps_root, "fake-app")
+
+    class _Ctx:
+        svc = env.svc
+
+    off = await tools_apps._start({"app_id": "fake-app"}, _Ctx())
+    assert off.error is True and "выключено" in off.content
+
+    await env.client.put("/api/apps/control/policy", json={"enabled": True})
+    on = await tools_apps._start({"app_id": "fake-app"}, _Ctx())
+    assert on.error is not True
