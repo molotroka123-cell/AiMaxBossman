@@ -9,6 +9,8 @@ machinery.
 """
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException, Request
 
 from .. import qa_relay  # noqa: F401  — keeps feature import order stable
@@ -64,13 +66,37 @@ async def world_state(request: Request, refresh: bool = True, repo: str | None =
     return body
 
 
+def memory_reading(svc, *, now: float | None = None) -> strategy.MemoryReading:
+    """Free memory from the world state, or an explicit non-measurement.
+
+    Read through the projection rather than sampling directly, so freshness is
+    honoured: a STALE reading is not a smaller number, it is the absence of a
+    current one, and a path that needs memory must not be sized against it.
+    """
+    read = world.projection(svc).read(world.AMBIENT_SCOPE, "process.host",
+                                      now=time.time() if now is None else now)
+    if read.status != "FRESH" or read.fact is None:
+        return strategy.MemoryReading(None, f"process.host {read.status.lower()}")
+    value = read.fact.value
+    available = value.get("ram_available_mb") if isinstance(value, dict) else None
+    if not isinstance(available, (int, float)) or isinstance(available, bool):
+        return strategy.MemoryReading(None, "process.host has no ram_available_mb")
+    return strategy.MemoryReading(float(available), "observer:process")
+
+
 @router.get("/reality/strategies")
 async def strategies(request: Request, deterministic: bool = False,
-                     unknown_facts: int = 0):
+                     unknown_facts: int = 0,
+                     small_model_mb: float = 0.0, large_model_mb: float = 0.0):
     """The shadow router's ranking, with every utility term kept separately.
 
     Advisory by construction: `shadow_only` is in the response, and nothing in
-    this codebase routes from it."""
+    this codebase routes from it.
+
+    `small_model_mb` / `large_model_mb` declare what a path would need
+    resident. Declared, a path is checked against the measured free memory and
+    refused when it does not fit — or when nothing measured it, because an
+    unmeasured budget cannot be shown to hold a 70 GB model."""
     from .. import model_health as mh
     svc = request.app.state.svc
     import sqlalchemy as sa
@@ -86,11 +112,17 @@ async def strategies(request: Request, deterministic: bool = False,
         # healthier than its healthiest member, and not worse than its worst.
         if bucket not in health or record.rank_key() < health[bucket].rank_key():
             health[bucket] = record
+    memory = memory_reading(svc)
     candidates = strategy.generate_strategies(
         deterministic_available=bool(deterministic), model_health=health,
-        unknown_facts=max(0, int(unknown_facts)))
+        unknown_facts=max(0, int(unknown_facts)), memory=memory,
+        model_memory_mb={"small_model": max(0.0, float(small_model_mb)),
+                         "large_model": max(0.0, float(large_model_mb))})
     decision = strategy.shadow_route(candidates, permissions=[])
-    return decision.to_dict()
+    body = decision.to_dict()
+    body["memory"] = {"available_mb": memory.available_mb, "source": memory.source,
+                      "measured": memory.measured}
+    return body
 
 
 @router.get("/reality/shadow")
