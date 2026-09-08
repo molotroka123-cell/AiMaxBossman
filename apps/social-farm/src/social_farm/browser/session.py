@@ -233,6 +233,23 @@ class AccountBrowserSession:
         self.audit.write(record)
         return record
 
+    def audit_event(self, **fields: Any) -> BrowserAuditRecord:
+        """Записать в аудит сессии событие, случившееся НЕ внутри `act`.
+
+        Порождение медиа состоит не только из нажатий: между ними есть
+        отправка, ожидание провайдера, скачивание и проверка файла. Без этой
+        двери такие события пришлось бы писать мимо сессии — то есть мимо её
+        редактора, — и в журнале осталась бы половина работы.
+
+        Редакция здесь та же самая и по той же причине: запись собирается
+        через `_write_audit`, а не в обход него.
+        """
+        fields.setdefault("account_id", self.account_id)
+        fields.setdefault("at", _utc_now())
+        fields.setdefault("selector_pack_version", self.pack_version)
+        fields.setdefault("state_after", self._state.value)
+        return self._write_audit(**fields)
+
     def describe(self) -> dict[str, Any]:
         """Строка `browser_session.schema.json` для этой сессии."""
         return self._out({
@@ -363,6 +380,53 @@ class AccountBrowserSession:
         self._transition(BrowserState.READY)
         return self._state
 
+    async def check_for_challenge(self) -> Challenge:
+        """Перечитать страницу на предмет проверки человека и увести к нему.
+
+        Нужна там, где страница меняется без нашего действия: провайдер
+        показал капчу посреди ожидания генерации. `snapshot()` такую проверку
+        только ЗАМЕЧАЕТ; здесь она ещё и меняет состояние сессии, иначе
+        следующее действие пошло бы в READY поверх капчи.
+
+        Дорога до `TAKEOVER_REQUIRED` идёт по автомату из спецификации, а не
+        напрямую: READY → BUSY → TAKEOVER_REQUIRED. Прямого ребра нет, и
+        добавлять его сюда было бы правкой автомата ради удобства.
+        """
+        challenge = await self._refresh_challenge()
+        if not challenge.present:
+            return challenge
+        if self._state is BrowserState.AUTHENTICATED:
+            self._transition(BrowserState.READY)
+        if self._state is BrowserState.READY:
+            self._transition(BrowserState.BUSY)
+        if self._state is BrowserState.BUSY:
+            self.require_takeover(challenge.describe(), challenge.kind)
+        return challenge
+
+    async def visit(self, url: str) -> Challenge:
+        """Перейти по адресу внутри сессии, а не мимо неё.
+
+        Переход мимо сессии — это страница, о которой сессия ничего не знает:
+        она осталась в READY, а на экране уже капча. Поэтому после перехода
+        страница перечитывается тем же способом, что и везде.
+        """
+        if self._state not in {BrowserState.READY, BrowserState.AUTHENTICATED}:
+            raise RuntimeError(
+                f"переход возможен только из READY/AUTHENTICATED, "
+                f"сейчас {self._state.value}")
+        url_before = await self.dom.current_url()
+        await self.dom.navigate(url)
+        challenge = await self.check_for_challenge()
+        self.audit_event(
+            action="session.visit",
+            result="requires_takeover" if challenge.present else "ok",
+            url_before=url_before, url_after=await self.dom.current_url(),
+            state_before=BrowserState.READY.value,
+            error_class=(ErrorClass.BROWSER_REQUIRES_TAKEOVER.value
+                         if challenge.present else ""),
+            detail=challenge.describe() if challenge.present else "")
+        return challenge
+
     def cooldown(self, reason: str) -> None:
         """Повторные предупреждения площадки. Ждём, а не подстраиваемся под них."""
         self._transition(BrowserState.COOLDOWN)
@@ -464,7 +528,24 @@ class AccountBrowserSession:
         потом нажать.
         """
         action = self.pack().require(action_name)
-        strategy, found = await self._locate(action, ordinal)
+        try:
+            strategy, found = await self._locate(action, ordinal)
+        except BrokenUi as broken:
+            # Дрейф интерфейса обнаруживается ЧАЩЕ ВСЕГО здесь, на поиске цели,
+            # а не на постусловии после нажатия. Пока этот отказ не доходил до
+            # реестра возможностей, понижение в `BROKEN_UI_VERSION` по пропавшей
+            # цели не срабатывало вообще: счётчик увеличивали только те пути,
+            # где до нажатия уже дошло.
+            self.ledger.record_failure(action.action,
+                                       selector_pack_version=self.pack_version,
+                                       kind=broken.kind)
+            self._write_audit(
+                account_id=self.account_id, action=action.action,
+                result="broken_ui", at=_utc_now(),
+                selector_pack_version=self.pack_version,
+                state_before=self._state.value, error_class=broken.kind.value,
+                detail=self.redactor.text(str(broken)))
+            raise
         index = ordinal or 0
         descriptor = TargetDescriptor.from_dict(found[index])
         return ResolvedTarget(

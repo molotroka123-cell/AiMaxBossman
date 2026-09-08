@@ -60,6 +60,13 @@ CAPABILITY_SAFETY: dict[str, SafetyClass] = {
     "content.draft": SafetyClass.REVERSIBLE_WRITE,
     "content.schedule": SafetyClass.REVERSIBLE_WRITE,
     "content.unschedule": SafetyClass.REVERSIBLE_WRITE,
+    # порождение медиа у внешнего генератора. Наружу ничего не уходит: файл
+    # приходит в рабочую область владельца, и удалить его можно. Но квота и
+    # деньги владельца тратятся по-настоящему, поэтому не READ — дефолт ASK.
+    "media.generate.read": SafetyClass.READ,
+    "media.generate.request": SafetyClass.REVERSIBLE_WRITE,
+    "media.generate.submit": SafetyClass.REVERSIBLE_WRITE,
+    "media.generate.collect": SafetyClass.REVERSIBLE_WRITE,
     # публикация наружу
     "media.publish.image": SafetyClass.PUBLIC_PUBLISH,
     "media.publish.carousel": SafetyClass.PUBLIC_PUBLISH,

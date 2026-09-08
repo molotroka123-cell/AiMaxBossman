@@ -145,6 +145,13 @@ _ALLOWED_TRANSITIONS: dict[BrowserGenerationState, frozenset[BrowserGenerationSt
         BrowserGenerationState.NEEDS_OWNER_AUTH,
         BrowserGenerationState.HUMAN_CHALLENGE,
         BrowserGenerationState.POLICY_BLOCKED,
+        # Дрейф интерфейса и ограничение частоты обнаруживаются ДО отправки —
+        # именно там, где их и надо обнаруживать. Без этих двух рёбер оба
+        # честных исхода превращались в `FAILED`, а `FAILED` работник пробует
+        # заново: попытки уходили в тот же изменившийся интерфейс и в тот же
+        # лимит. Это ровно тот слепой повтор, которого контракт не допускает.
+        BrowserGenerationState.RATE_LIMITED,
+        BrowserGenerationState.UI_CHANGED,
     }),
     BrowserGenerationState.READY: frozenset({BrowserGenerationState.SUBMITTING, BrowserGenerationState.UI_CHANGED}),
     BrowserGenerationState.SUBMITTING: frozenset({
@@ -159,6 +166,12 @@ _ALLOWED_TRANSITIONS: dict[BrowserGenerationState, frozenset[BrowserGenerationSt
         BrowserGenerationState.TIMEOUT,
         BrowserGenerationState.FAILED,
         BrowserGenerationState.HUMAN_CHALLENGE,
+        # Оба состояния работник уже умел получать от наблюдения, но перехода
+        # для них не было — и попытка их записать падала исключением прямо
+        # посреди ожидания. Страница провайдера вправе сказать «интерфейс
+        # другой» или «этого нет в вашем плане» и после отправки тоже.
+        BrowserGenerationState.POLICY_BLOCKED,
+        BrowserGenerationState.UI_CHANGED,
     }),
     BrowserGenerationState.OUTPUT_READY: frozenset({BrowserGenerationState.COLLECTING}),
     BrowserGenerationState.COLLECTING: frozenset({BrowserGenerationState.VERIFYING, BrowserGenerationState.FAILED}),

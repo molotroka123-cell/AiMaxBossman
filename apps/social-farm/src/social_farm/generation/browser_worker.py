@@ -24,6 +24,23 @@ from .higgsfield_browser_contracts import (
 from .job_store import GenerationJobRecord, GenerationJobStore
 
 
+class AdapterRefusal(RuntimeError):
+    """Отказ адаптера, который НЕЛЬЗЯ повторять внутри той же работы.
+
+    Обычная ошибка адаптера — «не получилось, попробуй ещё». Этот класс — про
+    другое: «повторять запрещено, потому что повтор опаснее неудачи». Так
+    выглядит неподтверждённая отправка (работа могла уйти провайдеру, и вторая
+    попытка потратила бы квоту владельца дважды) и повторная отправка того же
+    идентификатора.
+
+    Отдельный тип нужен именно затем, чтобы работник различал эти два случая
+    механически, а не по тексту сообщения.
+    """
+
+    state: "BrowserGenerationState" = None  # type: ignore[assignment]
+    owner_action_required: bool = False
+
+
 class BrowserGenerationAdapter(Protocol):
     provider_name: str
 
@@ -97,6 +114,11 @@ class BrowserGenerationWorker:
                 BrowserGenerationState.NEEDS_OWNER_AUTH,
                 BrowserGenerationState.HUMAN_CHALLENGE,
                 BrowserGenerationState.POLICY_BLOCKED,
+                # Ограничение частоты и сменившийся интерфейс — тоже конечные
+                # исходы подготовки. Повторять их внутри той же работы значит
+                # долбиться в лимит и в пропавшую кнопку.
+                BrowserGenerationState.RATE_LIMITED,
+                BrowserGenerationState.UI_CHANGED,
             }:
                 self._set_state(
                     record,
@@ -117,6 +139,14 @@ class BrowserGenerationWorker:
             self._set_state(record, BrowserGenerationState.SUBMITTING)
             try:
                 receipt = await self.adapter.submit(request)
+            except AdapterRefusal as refusal:
+                # Повтора нет по решению адаптера, а не по исчерпанию попыток.
+                state = refusal.state or BrowserGenerationState.FAILED
+                self._set_state(record, state, safe_message=str(refusal)[:300],
+                                owner_action_required=refusal.owner_action_required,
+                                error_class=type(refusal).__name__)
+                return BrowserGenerationObservation(
+                    request.job_id, record.state, time.time(), record.safe_message)
             except Exception as exc:
                 self._set_state(record, BrowserGenerationState.FAILED, safe_message=str(exc)[:300], error_class=type(exc).__name__)
                 if attempt < request.max_attempts:
@@ -205,4 +235,5 @@ class BrowserGenerationWorker:
         )
 
 
-__all__ = ["BrowserGenerationAdapter", "BrowserGenerationWorker", "BrowserWorkerConfig"]
+__all__ = ["AdapterRefusal", "BrowserGenerationAdapter", "BrowserGenerationWorker",
+           "BrowserWorkerConfig"]
