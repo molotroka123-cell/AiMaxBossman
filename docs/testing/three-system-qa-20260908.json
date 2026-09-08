@@ -1,15 +1,15 @@
 {
   "run": "three_system_qa",
-  "at": "2026-09-08T03:04:54Z",
-  "wall_seconds": 1.24,
+  "at": "2026-09-08T04:23:56Z",
+  "wall_seconds": 1.23,
   "transport": "in-process ASGI over the real relay contract",
   "systems": [
     {
       "system": "video_studio.smoke",
-      "job_id": "26d5aab127f3cbe2",
+      "job_id": "ebcf128d4af1fa3e",
       "http_status": 200,
       "status": "ok",
-      "duration_ms": 128,
+      "duration_ms": 127,
       "evidence": {
         "system": "video_studio",
         "capabilities": {
@@ -30,7 +30,7 @@
     },
     {
       "system": "web_designer.smoke",
-      "job_id": "333ba9afc289728a",
+      "job_id": "9a64c0f14b6d5542",
       "http_status": 200,
       "status": "ok",
       "duration_ms": 7,
@@ -52,10 +52,10 @@
     },
     {
       "system": "apps.smoke",
-      "job_id": "669e717c17cab988",
+      "job_id": "e63adf864984a067",
       "http_status": 200,
       "status": "ok",
-      "duration_ms": 86,
+      "duration_ms": 90,
       "evidence": {
         "system": "apps",
         "app_count": 9,
@@ -79,10 +79,10 @@
     },
     {
       "system": "health.smoke",
-      "job_id": "debff7a79b788e08",
+      "job_id": "e4abac24ec8afe94",
       "http_status": 200,
       "status": "ok",
-      "duration_ms": 12,
+      "duration_ms": 11,
       "evidence": {
         "system": "health",
         "waiting_approval": 0,
