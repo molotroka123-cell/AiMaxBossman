@@ -58,8 +58,9 @@ Full suites on the frozen code:
 |---|---|---|
 | bossman-core full (`tests/`, `BOSSMAN_RUN_REAL_SANDBOX=0`) | started on `69df482`, docs commit `413d160` landed mid-run | 3021 passed, 57 skipped, **7 failed — all `ShaMismatch: requested 69df482 but the executing checkout is 413d160`** (the benchmark integrity check refusing a moved HEAD, i.e. the guard working); the same 7 tests re-run on `413d160`: 11/11 passed |
 | bossman-core full re-run on `413d160` | in progress at the time of writing | not claimed |
-| Command Center full (CI-equivalent: `--cov=bcc --cov-fail-under=72`, `BCC_REQUIRE_BROWSER=1`) | started on `69df482` | in progress at the time of writing (≈40 %, 0 failures so far); not claimed |
-| Root full + hygiene re-run on `413d160` | in progress at the time of writing | not claimed |
+| Command Center full (CI-equivalent: `--cov=bcc --cov-fail-under=72`, `BCC_REQUIRE_BROWSER=1`) | started on `69df482` | **2860 passed, 16 skipped, 1 failed**, coverage 78.85 % (gate 72 %); the failure was `test_ux2_desktop::test_tests_never_write_into_the_owner_data_dir` — test-order pollution from the NEW `test_coding_tasks` (it pinned `tempfile.tempdir`); fixed by restoring it via monkeypatch (also in the new cleanup tests, whose `never_deletes_outside` case had passed only through that pollution and now pins the sandbox parent explicitly) |
+| bossman-core full re-run on `413d160` | HEAD moved again (`4001b7a`) mid-run | 3020 passed, 57 skipped, 8 failed — all `ShaMismatch`, same guard as above; CI on the final head is the authoritative Core result |
+| Root full + hygiene re-run on `413d160` | stable | **1178 passed, 2 skipped**; `README_SCORECARD_CURRENT=PASS`, `SKIPS_REGISTRY_CURRENT=PASS` (157 entries, 0 without reason), secret scan PASS, whitespace hygiene exit 0 |
 
 ## 4. CI on the pushed head `413d160` (exact SHA; the follow-up commit re-runs everything)
 

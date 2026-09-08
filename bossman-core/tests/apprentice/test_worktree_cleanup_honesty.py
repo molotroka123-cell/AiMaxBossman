@@ -35,7 +35,7 @@ def source_repo(tmp_path):
 def test_cleanup_reports_removal_and_leaves_no_parent_behind(source_repo, monkeypatch, tmp_path):
     monkeypatch.setenv("TMPDIR", str(tmp_path)); monkeypatch.setenv("TEMP", str(tmp_path)); monkeypatch.setenv("TMP", str(tmp_path))
     import tempfile
-    tempfile.tempdir = None
+    monkeypatch.setattr(tempfile, "tempdir", None)   # restored on teardown (test_ux2_desktop reads gettempdir)
     wt = IsolatedWorktree(str(source_repo))
     root = wt.create()
     parent = root.parent
@@ -51,7 +51,7 @@ def test_readonly_files_do_not_defeat_cleanup(source_repo, monkeypatch, tmp_path
     version of the same obstacle."""
     monkeypatch.setenv("TMPDIR", str(tmp_path)); monkeypatch.setenv("TEMP", str(tmp_path)); monkeypatch.setenv("TMP", str(tmp_path))
     import tempfile
-    tempfile.tempdir = None
+    monkeypatch.setattr(tempfile, "tempdir", None)   # restored on teardown (test_ux2_desktop reads gettempdir)
     wt = IsolatedWorktree(str(source_repo))
     root = wt.create()
     locked = root / "locked"
@@ -71,7 +71,7 @@ def test_readonly_files_do_not_defeat_cleanup(source_repo, monkeypatch, tmp_path
 def test_a_failing_deletion_is_reported_not_swallowed(source_repo, monkeypatch, tmp_path):
     monkeypatch.setenv("TMPDIR", str(tmp_path)); monkeypatch.setenv("TEMP", str(tmp_path)); monkeypatch.setenv("TMP", str(tmp_path))
     import tempfile
-    tempfile.tempdir = None
+    monkeypatch.setattr(tempfile, "tempdir", None)   # restored on teardown (test_ux2_desktop reads gettempdir)
     wt = IsolatedWorktree(str(source_repo))
     root = wt.create()
     calls = {"n": 0}
@@ -98,7 +98,7 @@ def test_a_failing_deletion_is_reported_not_swallowed(source_repo, monkeypatch, 
 def test_a_transient_lock_is_retried_and_then_succeeds(source_repo, monkeypatch, tmp_path):
     monkeypatch.setenv("TMPDIR", str(tmp_path)); monkeypatch.setenv("TEMP", str(tmp_path)); monkeypatch.setenv("TMP", str(tmp_path))
     import tempfile
-    tempfile.tempdir = None
+    monkeypatch.setattr(tempfile, "tempdir", None)   # restored on teardown (test_ux2_desktop reads gettempdir)
     wt = IsolatedWorktree(str(source_repo))
     root = wt.create()
     real = shutil.rmtree
@@ -116,12 +116,17 @@ def test_a_transient_lock_is_retried_and_then_succeeds(source_repo, monkeypatch,
     assert wt.cleanup() is True and not root.exists() and calls["n"] == 2
 
 
-def test_cleanup_never_deletes_outside_the_sandbox_root(source_repo, tmp_path):
+def test_cleanup_never_deletes_outside_the_sandbox_root(source_repo, tmp_path, monkeypatch):
+    # pytest's tmp_path lives under the system temp dir, so the sandbox root is
+    # pinned to a sibling directory and the victim sits OUTSIDE it.
+    sandboxes = tmp_path / "sandboxes"
+    sandboxes.mkdir()
+    monkeypatch.setattr(IsolatedWorktree, "_sandbox_parent", staticmethod(lambda: sandboxes.resolve()))
     wt = IsolatedWorktree(str(source_repo))
     victim = tmp_path / "victim"
     victim.mkdir()
     (victim / "data.txt").write_text("keep", encoding="utf-8")
-    wt.root = victim                                # a path outside tempfile.gettempdir()
+    wt.root = victim                                # a path outside the sandbox parent
     assert wt.cleanup() is False
     assert victim.exists() and (victim / "data.txt").read_text() == "keep"
     assert "outside the sandbox root" in wt.cleanup_state()["error"]
@@ -137,7 +142,7 @@ def test_cleanup_never_deletes_the_source_repository(source_repo):
 def test_keep_after_is_reported_as_kept_on_purpose(source_repo, monkeypatch, tmp_path):
     monkeypatch.setenv("TMPDIR", str(tmp_path)); monkeypatch.setenv("TEMP", str(tmp_path)); monkeypatch.setenv("TMP", str(tmp_path))
     import tempfile
-    tempfile.tempdir = None
+    monkeypatch.setattr(tempfile, "tempdir", None)   # restored on teardown (test_ux2_desktop reads gettempdir)
     wt = IsolatedWorktree(str(source_repo), keep_after=True)
     root = wt.create()
     try:

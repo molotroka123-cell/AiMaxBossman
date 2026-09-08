@@ -96,7 +96,7 @@ async def test_the_whole_owner_path_completes_with_real_evidence(env, repo, monk
         "pathlib.Path('app/main.py').write_text(\"print('v2')\\n\"); "
         "pathlib.Path('app/new.py').write_text('x = 1\\n')"))
     monkeypatch.setenv("TMPDIR", str(tmp_path))
-    import tempfile; tempfile.tempdir = None
+    import tempfile; monkeypatch.setattr(tempfile, "tempdir", None)   # restored on teardown: gettempdir() must not stay pinned for later tests
     await _allow(env, repo.parent)
     ready = (await env.client.get("/api/coding-tasks/readiness")).json()
     assert ready["available"] is True
@@ -124,7 +124,7 @@ async def test_the_whole_owner_path_completes_with_real_evidence(env, repo, monk
 async def test_a_protected_file_edit_is_blocked_not_completed(env, repo, monkeypatch, tmp_path):
     monkeypatch.setenv(ct.COMMAND_ENV, sidecar("pathlib.Path('SECRETS.md').write_text('leak')"))
     monkeypatch.setenv("TMPDIR", str(tmp_path))
-    import tempfile; tempfile.tempdir = None
+    import tempfile; monkeypatch.setattr(tempfile, "tempdir", None)   # restored on teardown: gettempdir() must not stay pinned for later tests
     await _allow(env, repo.parent)
     res = await env.client.post("/api/coding-tasks", json={
         "instruction": "x", "source_repo": str(repo), "allowed_paths": ["app"], "protected_paths": ["SECRETS.md"]})
@@ -139,7 +139,7 @@ async def test_a_sidecar_that_reports_failure_is_failed(env, repo, monkeypatch, 
             "print(json.dumps({'schema':'bossman.openhands.v1','status':'failed'}))")
     monkeypatch.setenv(ct.COMMAND_ENV, " ".join(_q(x) for x in [sys.executable, "-c", code]))
     monkeypatch.setenv("TMPDIR", str(tmp_path))
-    import tempfile; tempfile.tempdir = None
+    import tempfile; monkeypatch.setattr(tempfile, "tempdir", None)   # restored on teardown: gettempdir() must not stay pinned for later tests
     await _allow(env, repo.parent)
     res = await env.client.post("/api/coding-tasks", json={
         "instruction": "x", "source_repo": str(repo), "allowed_paths": ["app"]})
