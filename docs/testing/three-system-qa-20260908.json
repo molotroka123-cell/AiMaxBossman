@@ -1,0 +1,106 @@
+{
+  "run": "three_system_qa",
+  "at": "2026-09-08T01:57:06Z",
+  "wall_seconds": 1.24,
+  "transport": "in-process ASGI over the real relay contract",
+  "systems": [
+    {
+      "system": "video_studio.smoke",
+      "job_id": "e0914fb00ca07f0a",
+      "http_status": 200,
+      "status": "ok",
+      "duration_ms": 132,
+      "evidence": {
+        "system": "video_studio",
+        "capabilities": {
+          "ffmpeg": "/usr/bin/ffmpeg",
+          "ffprobe": "/usr/bin/ffprobe",
+          "hardware_status": "requires profile-specific actual encode probe",
+          "cloud": false,
+          "asr": "BLOCKED: configure and validate a local whisper.cpp model",
+          "generation": "BLOCKED: no verified generation provider connected",
+          "asr_model_configured": false,
+          "tracking": "requires host-configured OpenCV runtime; translation features only"
+        },
+        "project_count": 0,
+        "project_names": []
+      },
+      "detail": "",
+      "manual_interventions": 0
+    },
+    {
+      "system": "web_designer.smoke",
+      "job_id": "7239036ff9dfa9a0",
+      "http_status": 200,
+      "status": "ok",
+      "duration_ms": 7,
+      "evidence": {
+        "system": "web_designer",
+        "template_count": 6,
+        "templates": [
+          "landing",
+          "portfolio",
+          "cafe",
+          "shop",
+          "blog",
+          "agency"
+        ],
+        "project_count": 0
+      },
+      "detail": "",
+      "manual_interventions": 0
+    },
+    {
+      "system": "apps.smoke",
+      "job_id": "7ee6e56cdc904999",
+      "http_status": 200,
+      "status": "ok",
+      "duration_ms": 88,
+      "evidence": {
+        "system": "apps",
+        "app_count": 9,
+        "app_ids": [
+          "ai-webcam-vision",
+          "ai-3d-maker",
+          "social-farm",
+          "solana-volume-suite",
+          "bossman-accountant",
+          "exam-trainer-ai",
+          "file-commander-mini",
+          "pc-autopilot-mini",
+          "travel-architect"
+        ],
+        "live": 0,
+        "control_enabled": false,
+        "control_source": "default"
+      },
+      "detail": "",
+      "manual_interventions": 0
+    },
+    {
+      "system": "health.smoke",
+      "job_id": "0b7a69f6ed73cc3f",
+      "http_status": 200,
+      "status": "ok",
+      "duration_ms": 11,
+      "evidence": {
+        "system": "health",
+        "waiting_approval": 0,
+        "deadlocked": 0,
+        "database": true
+      },
+      "detail": "",
+      "manual_interventions": 0
+    }
+  ],
+  "negative_controls": {
+    "replayed_job": "rejected_replay",
+    "forged_signature": "rejected_signature",
+    "unlisted_capability": "rejected_capability",
+    "after_owner_kill_switch": "rejected_disabled"
+  },
+  "negative_controls_pass": true,
+  "manual_interventions_total": 0,
+  "audit_entries": 8,
+  "verdict": "PASS"
+}

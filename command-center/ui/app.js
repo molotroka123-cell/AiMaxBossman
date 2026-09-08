@@ -62,14 +62,46 @@ const LANDING = ['home-v3', 'overview', 'home'];
 const DEFAULT_PAGE = LANDING.find((id) => PAGE_BY_ID.has(id)) || 'home';
 const SUPERSEDED = new Set(LANDING.slice(LANDING.indexOf(DEFAULT_PAGE) + 1));
 
-// Сайдбар устроен от человека, а не от устройства системы: сверху то, чем
-// пользуются, ниже — техническая часть. Страница объявляет свой раздел полем
-// `section`; всё, что его не объявило, считается системным.
+// Сайдбар устроен от человека, а не от устройства системы. Раньше разделов
+// было два — «Основное» (пять страниц) и «Система», куда падало всё
+// остальное: два десятка пунктов одним списком, в котором Video Studio стоял
+// рядом с «Развилками». Найти там нужное можно было только по памяти.
+//
+// Теперь шесть названных пространств, и каждая страница объявляет своё явно
+// (`section` в pages/index.js). Ни одна страница не спрятана и не удалена:
+// маршруты те же, командная палитра видит всё, меняется только то, ГДЕ пункт
+// стоит и рядом с чем.
 const SECTIONS = [
-  { id: 'main', label: 'Основное' },
+  { id: 'main', label: 'Главное' },
+  { id: 'work', label: 'Работа' },
+  { id: 'studio', label: 'Мастерские' },
+  { id: 'apps', label: 'Приложения' },
+  { id: 'brains', label: 'Агенты и модели' },
   { id: 'system', label: 'Система' },
 ];
+// Порядок внутри разделов — по частоте, а не по времени написания страницы.
+// Страница, не перечисленная здесь, идёт после перечисленных.
 const MAIN_ORDER = ['home-v3', 'apps', 'missions', 'agents', 'approvals'];
+const SECTION_ORDER = {
+  work: ['mission_console', 'missions', 'builder', 'objectives', 'control'],
+  studio: ['video-studio', 'web_designer', 'browser', 'coding', 'terminal',
+           'images', 'web_research', 'trading_lab', 'bossman-chat'],
+  brains: ['agentmap', 'orchestras', 'skills', 'router', 'openrouter', 'benchmarks'],
+  system: ['resources', 'governor', 'healing', 'forks', 'overview'],
+};
+// Нижняя панель телефона: пять настоящих страниц, до которых чаще всего
+// дотягиваются пальцем. Раньше она бралась из раздела «Основное», и после
+// перекладки разделов там осталась бы одна кнопка.
+const MOBILE_ORDER = ['home-v3', 'mission_console', 'apps', 'video-studio', 'web_designer'];
+
+// Один и тот же смысл под одним именем. `command` (mobile.js) и `control`
+// (control.js) оба назывались «Пульт»: в меню это два одинаковых пункта, и
+// вопрос «какой из них настоящий» решался нажатием. `command` — телефонный
+// режим, у него уже есть своя нижняя панель, поэтому в боковом меню остаётся
+// только владельческий пульт. Маршрут `#/command` продолжает работать.
+const NAV_DUPLICATES = new Map([
+  ['command', 'дублирует «Пульт владельца»; открывается по #/command и на телефоне'],
+]);
 
 /* ---------------- Состояние ---------------- */
 
@@ -314,7 +346,7 @@ function buildNav() {
 
   // Вытесненные посадочные страницы остаются доступны по прямой ссылке, но в
   // меню их нет: две «главных» рядом — это вопрос «а какая настоящая».
-  const visible = PAGES.filter((p) => !SUPERSEDED.has(p.id));
+  const visible = PAGES.filter((p) => !SUPERSEDED.has(p.id) && !NAV_DUPLICATES.has(p.id));
 
   const buckets = new Map(SECTIONS.map((s) => [s.id, []]));
   for (const page of visible) {
@@ -322,14 +354,16 @@ function buildNav() {
     bucket.push(page);
   }
 
-  // Порядок основного раздела задан явно: он отражает частоту использования,
-  // а не порядок, в котором страницы когда-то написали.
-  const main = buckets.get('main');
-  main.sort((a, b) => {
-    const ia = MAIN_ORDER.indexOf(a.id);
-    const ib = MAIN_ORDER.indexOf(b.id);
-    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-  });
+  // Порядок внутри каждого раздела задан явно: он отражает частоту
+  // использования, а не порядок, в котором страницы когда-то написали.
+  for (const [id, pages] of buckets) {
+    const order = id === 'main' ? MAIN_ORDER : (SECTION_ORDER[id] || []);
+    pages.sort((a, b) => {
+      const ia = order.indexOf(a.id);
+      const ib = order.indexOf(b.id);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+  }
 
   for (const section of SECTIONS) {
     const pages = buckets.get(section.id) || [];
@@ -338,10 +372,14 @@ function buildNav() {
     for (const page of pages) el.nav.appendChild(navButton(page));
   }
 
-  // Нижняя панель телефона — только основной раздел: системные страницы там
-  // не помещаются и на телефоне почти не нужны. Они остаются в боковом меню
-  // и в командной палитре.
-  for (const page of main.slice(0, 5)) el.mobilenav.appendChild(mnavButton(page));
+  // Нижняя панель телефона — пять названных страниц: системные там не
+  // помещаются и на телефоне почти не нужны. Они остаются в боковом меню и в
+  // командной палитре, поэтому ничего не теряется.
+  const byId = new Map(visible.map((p) => [p.id, p]));
+  const phone = MOBILE_ORDER.map((id) => byId.get(id)).filter(Boolean);
+  for (const page of (phone.length ? phone : visible).slice(0, 5)) {
+    el.mobilenav.appendChild(mnavButton(page));
+  }
 }
 
 function syncNav() {
@@ -754,7 +792,12 @@ if (el.staleNow) el.staleNow.addEventListener('click', () => {
   syncConn(bus.state);
 });
 window.__bxConn = { bus, label: connLabel };
-window.__bxPages = PAGES.map((p) => ({ id: p.id, title: p.title, nav: p.nav || 'primary' }));
+// Тестам и палитре нужен ПОЛНЫЙ список: консолидация меню не имеет права
+// уменьшать множество доступных маршрутов, и это должно быть проверяемо.
+window.__bxPages = PAGES.map((p) => ({ id: p.id, title: p.title, nav: p.nav || 'primary',
+                                       section: sectionOf(p),
+                                       inSidebar: !SUPERSEDED.has(p.id) && !NAV_DUPLICATES.has(p.id) }));
+window.__bxSections = SECTIONS.map((s) => s.id);
 el.menuBtn.addEventListener('click', () => setMenu(!el.shell.classList.contains('menu-open')));
 el.scrim.addEventListener('click', () => { if (el.shell.classList.contains('menu-open')) setMenu(false); });
 el.paletteBtn.addEventListener('click', () => openPalette());
