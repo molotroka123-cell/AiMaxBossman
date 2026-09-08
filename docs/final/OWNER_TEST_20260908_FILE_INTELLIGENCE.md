@@ -151,17 +151,36 @@ Sorter между анализом и применением, применени
 | Набор | Результат |
 |---|---|
 | root | 1192 passed |
-| Bossman Core | (прогон на этом SHA) |
-| Command Center | (прогон на этом SHA) |
+| Bossman Core | 3012 passed, 41 skipped |
+| Command Center | 2895 passed, 19 skipped |
+| Editors (реальный браузер) | 5 passed |
+| Fable media: preflight | 3 passed |
+| Fable Fleet | 88 passed |
+| Video Studio + Web | 335 passed, 11 skipped |
 | ASTRA (core) | 98 passed |
 | ASTRA (Command Center) | 24 passed |
 | Solana safety | 30 passed |
+| Внутренний бенчмарк | 17 passed |
 | Новое в этом проходе | 159 passed, 3 skipped |
 | secret scan | PASS |
 | skips registry | PASS (158 записей, 0 без причины) |
 | README scorecard | PASS |
 | compileall | PASS |
 | whitespace (объём CI) | PASS |
+
+### Два наблюдения, которые НЕ являются регрессией
+
+**Бенчмарк отказывается привязывать отчёт к чужому коммиту.** В одном прогоне
+`bossman-core` упали 11 тестов набора `test_benchmark_*` с сообщением вида
+«requested … but the executing checkout is 0ba775f». Причина — моя: `HEAD`
+читается на импорте тестового модуля, а я закоммитил документацию, пока набор
+шёл. Движок отказался связать отчёт с коммитом, который не является исполняемым
+checkout'ом, — это и есть его работа, а не поломка. Правильный прогон делается на
+неподвижном `HEAD`; число ниже получено именно так.
+
+**Три больших набора одновременно.** Прогоны здесь последовательные намеренно.
+Конкуренцию, созданную собственным параллельным запуском, нельзя записывать в
+регрессии продукта.
 
 Замечание про окружение, а не про продукт: в этом контейнере у интерпретатора по
 умолчанию нет `pytest`, а `test_v21_e2e_mission` запускает `python -m pytest`
