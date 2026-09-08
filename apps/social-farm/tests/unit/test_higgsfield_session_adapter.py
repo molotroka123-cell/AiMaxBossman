@@ -305,3 +305,68 @@ async def test_a_session_opened_on_some_other_page_still_reaches_ready(tmp_path)
     observed = await adapter.prepare(request(tmp_path))
     assert observed.state is BrowserGenerationState.READY
     assert kit.GENERATION_URL in elsewhere.navigations
+
+
+# ----------------------------------------- проверка человека посреди работы
+
+async def test_a_captcha_between_ready_and_the_click_calls_the_owner(tmp_path):
+    """Провайдер вправе показать капчу ровно между «страница готова» и
+    нажатием. Такая работа не «провалилась» — дальше просто не автоматика."""
+    from social_farm.generation.higgsfield_adapter import OwnerNeeded
+
+    dom = kit.on(kit.ready_page(), on_click=kit.submitting())
+    adapter = kit.adapter(dom, tmp_path / "q")
+    task = request(tmp_path)
+    assert (await adapter.prepare(task)).state is BrowserGenerationState.READY
+
+    dom.page.markup = dom.page.markup.replace(
+        "</body>", '<div class="g-recaptcha"></div></body>')
+    with pytest.raises(OwnerNeeded) as called:
+        await adapter.submit(task)
+    assert called.value.owner_action_required
+    assert called.value.state is BrowserGenerationState.HUMAN_CHALLENGE
+    assert dom.clicks == [], "по капче не нажимают"
+
+
+async def test_a_control_that_vanishes_mid_submit_is_drift_not_a_failure(tmp_path):
+    from social_farm.generation.higgsfield_adapter import SurfaceChanged
+
+    dom = kit.on(kit.ready_page(), on_click=kit.submitting())
+    adapter = kit.adapter(dom, tmp_path / "q")
+    task = request(tmp_path)
+    await adapter.prepare(task)
+
+    dom.page.elements = [element for element in dom.page.elements
+                         if element.attributes.get("data-testid") != "generate-submit"]
+    with pytest.raises(SurfaceChanged) as drifted:
+        await adapter.submit(task)
+    assert drifted.value.state is BrowserGenerationState.UI_CHANGED
+
+
+async def test_the_worker_records_a_mid_submit_challenge_as_owner_action(tmp_path):
+    """Работник обязан сохранить состояние, а не свести его к «не получилось»."""
+    from social_farm.generation.browser_worker import BrowserGenerationWorker
+    from social_farm.generation.job_store import GenerationJobStore
+
+    dom = kit.on(kit.ready_page(), on_click=kit.submitting())
+    adapter = kit.adapter(dom, tmp_path / "q")
+    store = GenerationJobStore(tmp_path / "jobs.json")
+    worker = BrowserGenerationWorker(adapter=adapter, store=store, owner="w")
+
+    task = request(tmp_path, max_attempts=3)
+    original_prepare = adapter.prepare
+
+    async def prepare_then_poison(req):
+        observed = await original_prepare(req)
+        dom.page.markup = dom.page.markup.replace(
+            "</body>", '<div class="g-recaptcha"></div></body>')
+        return observed
+
+    adapter.prepare = prepare_then_poison
+    result = await worker.run(task)
+
+    assert result.state is BrowserGenerationState.HUMAN_CHALLENGE
+    assert result.owner_action_required
+    record = store.get(task.job_id)
+    assert record is not None and record.attempt == 1, \
+        "попытки не тратятся на проверку, которую автоматика не проходит"

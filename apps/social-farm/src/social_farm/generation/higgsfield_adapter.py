@@ -29,6 +29,7 @@
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -39,7 +40,7 @@ import time
 from ..browser.capabilities import FailureKind
 from ..browser.session import AccountBrowserSession, BrokenUi, IdentityMismatch
 from ..browser.states import BrowserState
-from ..domain.errors import ProviderError
+from ..domain.errors import ErrorClass, ProviderError
 from .browser_worker import AdapterRefusal, DownloadFailed
 from .higgsfield_browser_contracts import (
     BrowserGenerationObservation,
@@ -85,6 +86,25 @@ class DuplicateSubmission(AdapterRefusal):
     """Эта работа уже отправлялась через этот адаптер."""
 
     state = BrowserGenerationState.FAILED
+
+
+class OwnerNeeded(AdapterRefusal):
+    """Посреди работы появилась проверка, которую проходит человек.
+
+    Отдельный тип, потому что иначе она становится обычной неудачей: работник
+    отметит `FAILED`, потратит следующую попытку — и уйдёт ею в ту же самую
+    капчу, никого не позвав. Проверка человека не «не получилось», она
+    «дальше не автоматика».
+    """
+
+    state = BrowserGenerationState.HUMAN_CHALLENGE
+    owner_action_required = True
+
+
+class SurfaceChanged(AdapterRefusal):
+    """Цель пропала посреди работы: интерфейс сменился, повторять нечего."""
+
+    state = BrowserGenerationState.UI_CHANGED
 
 
 class InvalidGeneratedMedia(RuntimeError):
@@ -389,17 +409,19 @@ class HiggsfieldBrowserAdapter:
 
         before = await self._surface()
 
-        await self.session.fill_text(ACTION_PROMPT, request.prompt)
-        if request.aspect_ratio:
-            await self._fill_optional(ACTION_ASPECT, request.aspect_ratio)
-        if request.media_kind is MediaKind.VIDEO and request.duration_seconds:
-            await self._fill_optional(ACTION_DURATION, str(request.duration_seconds))
-        if request.preset:
-            await self._fill_optional(ACTION_PRESET, request.preset)
+        with self._owner_or_drift("submit"):
+            await self.session.fill_text(ACTION_PROMPT, request.prompt)
+            if request.aspect_ratio:
+                await self._fill_optional(ACTION_ASPECT, request.aspect_ratio)
+            if request.media_kind is MediaKind.VIDEO and request.duration_seconds:
+                await self._fill_optional(ACTION_DURATION,
+                                          str(request.duration_seconds))
+            if request.preset:
+                await self._fill_optional(ACTION_PRESET, request.preset)
 
-        target = await self.session.plan(ACTION_SUBMIT)
-        await self.session.act(target, operation="click",
-                               idempotency_key=request.job_id)
+            target = await self.session.plan(ACTION_SUBMIT)
+            await self.session.act(target, operation="click",
+                                   idempotency_key=request.job_id)
 
         after = await self._surface()
         signals = self._submission_signals(before, after)
@@ -434,6 +456,29 @@ class HiggsfieldBrowserAdapter:
                     url_before=before.url, url_after=after.url,
                     detail=f"отправка подтверждена признаками: {sorted(signals)}")
         return receipt
+
+    @contextmanager
+    def _owner_or_drift(self, stage: str):
+        """Перевести отказы сессии в состояния работы, а не терять их.
+
+        Сессия говорит на своём языке: `ProviderError` про передачу человеку,
+        `BrokenUi` про пропавшую цель. Без перевода оба доезжают до работника
+        безымянным исключением, он отмечает `FAILED` и тратит следующую
+        попытку — на капчу, которая никуда не делась, или на кнопку, которой
+        больше нет.
+        """
+        try:
+            yield
+        except ProviderError as refusal:
+            self._audit(f"generation.{stage}", "requires_takeover",
+                        error_class=ErrorClass.BROWSER_REQUIRES_TAKEOVER.value,
+                        detail=refusal.safe_detail)
+            raise OwnerNeeded(refusal.safe_detail
+                              or "нужен владелец в браузере") from refusal
+        except BrokenUi as broken:
+            self._audit(f"generation.{stage}", "ui_changed",
+                        error_class=broken.kind.value, detail=str(broken))
+            raise SurfaceChanged(str(broken)) from broken
 
     async def _fill_optional(self, action_name: str, value: str) -> None:
         """Заполнить необязательное поле, если оно есть в этом интерфейсе.
@@ -530,9 +575,10 @@ class HiggsfieldBrowserAdapter:
         quarantine = self._quarantine()
         before = {path.resolve() for path in quarantine.glob("*") if path.is_file()}
 
-        target = await self.session.plan(ACTION_DOWNLOAD)
-        await self.session.act(target, operation="click",
-                               idempotency_key=f"{request.job_id}:download")
+        with self._owner_or_drift("collect"):
+            target = await self.session.plan(ACTION_DOWNLOAD)
+            await self.session.act(target, operation="click",
+                                   idempotency_key=f"{request.job_id}:download")
 
         arrived = await self._wait_for_download(quarantine, before)
         if arrived is None:
@@ -633,4 +679,5 @@ class HiggsfieldBrowserAdapter:
 
 __all__ = ["REQUIRED_SUBMISSION_SIGNALS", "DownloadFailed", "DuplicateSubmission",
            "HiggsfieldAdapterConfig", "HiggsfieldBrowserAdapter",
-           "InvalidGeneratedMedia", "SubmissionNotObserved"]
+           "InvalidGeneratedMedia", "OwnerNeeded", "SubmissionNotObserved",
+           "SurfaceChanged"]

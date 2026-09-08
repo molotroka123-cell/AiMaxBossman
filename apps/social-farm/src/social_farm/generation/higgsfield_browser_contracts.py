@@ -159,6 +159,12 @@ _ALLOWED_TRANSITIONS: dict[BrowserGenerationState, frozenset[BrowserGenerationSt
         BrowserGenerationState.RATE_LIMITED,
         BrowserGenerationState.UI_CHANGED,
         BrowserGenerationState.FAILED,
+        # Проверка человека появляется когда угодно, в том числе между
+        # «страница готова» и нажатием: провайдер вправе показать капчу ровно
+        # в этот момент. Без этих двух рёбер она становилась `FAILED` —
+        # владельца никто не звал, а попытки уходили в ту же капчу.
+        BrowserGenerationState.HUMAN_CHALLENGE,
+        BrowserGenerationState.NEEDS_OWNER_AUTH,
     }),
     BrowserGenerationState.WAITING_PROVIDER: frozenset({
         BrowserGenerationState.OUTPUT_READY,
@@ -174,7 +180,15 @@ _ALLOWED_TRANSITIONS: dict[BrowserGenerationState, frozenset[BrowserGenerationSt
         BrowserGenerationState.UI_CHANGED,
     }),
     BrowserGenerationState.OUTPUT_READY: frozenset({BrowserGenerationState.COLLECTING}),
-    BrowserGenerationState.COLLECTING: frozenset({BrowserGenerationState.VERIFYING, BrowserGenerationState.FAILED}),
+    BrowserGenerationState.COLLECTING: frozenset({
+        BrowserGenerationState.VERIFYING,
+        BrowserGenerationState.FAILED,
+        # И на скачивании тоже: результат готов, а страница просит подтвердить,
+        # что вы человек. Файл при этом никуда не делся, и звать надо владельца,
+        # а не считать работу проваленной.
+        BrowserGenerationState.HUMAN_CHALLENGE,
+        BrowserGenerationState.NEEDS_OWNER_AUTH,
+    }),
     BrowserGenerationState.VERIFYING: frozenset({BrowserGenerationState.COMPLETE, BrowserGenerationState.FAILED}),
 }
 

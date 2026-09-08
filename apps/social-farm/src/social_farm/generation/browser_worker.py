@@ -350,6 +350,10 @@ class BrowserGenerationWorker:
             self._set_state(record, BrowserGenerationState.COLLECTING)
             try:
                 artifact_path = await self.adapter.collect(request, receipt)
+            except AdapterRefusal as refusal:
+                # Повторять запрещено решением адаптера: капчу вторым нажатием
+                # не проходят, а пропавшую кнопку вторым поиском не находят.
+                return self._collection_failed(record, refusal)
             except Exception as exc:                                # noqa: BLE001
                 last_error = exc
                 if attempt < self.config.download_attempts and self._retryable(exc):
@@ -384,7 +388,13 @@ class BrowserGenerationWorker:
 
     def _collection_failed(self, record: GenerationJobRecord, exc: Exception
                            ) -> BrowserGenerationObservation:
-        self._set_state(record, BrowserGenerationState.FAILED,
+        # Отказ, у которого есть своё состояние, сохраняет его. Иначе проверка
+        # человека, случившаяся на скачивании, стала бы обычной неудачей —
+        # владельца никто бы не позвал, а файл так и остался бы у провайдера.
+        state = BrowserGenerationState.FAILED
+        if isinstance(exc, AdapterRefusal) and exc.state:
+            state = exc.state
+        self._set_state(record, state,
                         safe_message=str(exc)[:300],
                         owner_action_required=bool(
                             getattr(exc, "owner_action_required", False)),

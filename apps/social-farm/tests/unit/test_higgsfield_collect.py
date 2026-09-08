@@ -291,3 +291,43 @@ async def test_a_quarantine_on_another_filesystem_still_promotes(tmp_path, monke
     assert accepted.is_file()
     assert accepted.parent == (tmp_path / "approved").resolve()
     assert accepted.suffix == ".png"
+
+
+async def test_a_challenge_on_the_download_calls_the_owner_not_a_failure(tmp_path):
+    """Результат готов, а страница просит подтвердить, что вы человек.
+
+    Файл при этом никуда не делся. Отметить работу проваленной значило бы
+    потерять и повод позвать владельца, и след, по которому файл потом искать.
+
+    Проверка появляется ПОСЛЕ наблюдения готовности и ДО нажатия на скачивание —
+    именно в тот промежуток, где её легче всего не заметить.
+    """
+    from social_farm.generation.higgsfield_adapter import OwnerNeeded
+    from social_farm.generation.higgsfield_browser_contracts import (
+        BrowserGenerationState)
+
+    space = kit.workspace(tmp_path / "contexts")
+    quarantine = space.prepare()
+    dom = kit.on(kit.ready_page(),
+                 on_click=kit.both(kit.submitting(then_ready=True),
+                                   kit.downloading(quarantine,
+                                                   payload=make_png(400, 400))))
+    adapter = kit.adapter(dom, quarantine, space=space)
+    task = request(tmp_path, MediaKind.IMAGE)
+    await adapter.prepare(task)
+    receipt = await adapter.submit(task)
+    observed = await adapter.poll(task, receipt)
+    assert observed.state is BrowserGenerationState.OUTPUT_READY
+
+    dom.page.markup = dom.page.markup.replace(
+        "</body>", '<div class="cf-turnstile"></div></body>')
+    clicks_before = len(dom.clicks)
+
+    with pytest.raises(OwnerNeeded) as called:
+        await adapter.collect(task, receipt)
+    assert called.value.state is BrowserGenerationState.HUMAN_CHALLENGE
+    assert called.value.owner_action_required
+    assert len(dom.clicks) == clicks_before, "по капче не нажимают"
+    approved = tmp_path / "approved"
+    assert not approved.exists() or list(approved.glob("*")) == [], \
+        "в рабочую область ничего не попало"
