@@ -57,6 +57,12 @@ artifacts/video_factory/
 !/data/
 /data/*
 !/data/learning/
+# Trader Apprentice corpus is evidence the local model reads, not runtime
+# state: the rule set, the September casebook and their manifest belong in
+# review like any other reviewed artefact. Tracked by an explicit exception
+# rather than by force-adding past the rule above, so the next person can
+# see it was meant.
+!/data/trading/
 
 # deterministic repo-map cache (tools/context_slice.py)
 .bossman-cache/
