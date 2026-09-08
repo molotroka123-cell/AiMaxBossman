@@ -113,6 +113,15 @@ class Services:
         self.login_guard = LoginRateLimiter()          # SEC-03: rate-limit/lockout на /api/login
         self._wire_v2_managers()             # skills / terminal / browser (пак)
         self.features = load_features()      # V2: модули bcc/features/* (контракты §8)
+        # Здоровье фоновых петель фич. INV-RD-1 держится свипом, который живёт
+        # в тике review_gate; пока этого словаря не было, умерший или каждый раз
+        # падающий тик не отличался снаружи от работающего, и «задача не может
+        # ждать вечно» становилось обещанием без наблюдателя. Ключи заводятся
+        # ЗАРАНЕЕ: фича, у которой тика ещё не было, обязана быть видна как
+        # «starting», а не отсутствовать.
+        self.feature_ticks: dict[str, dict[str, Any]] = {
+            f.name: {"at": 0.0, "error": None, "every": float(f.tick_seconds)}
+            for f in self.features if f.tick and f.tick_seconds > 0}
         self.start_workers = start_workers
         self._tasks: list[asyncio.Task] = []
         self.started_at = utcnow()
@@ -191,12 +200,18 @@ class Services:
     async def _feature_tick(self, feature: Any) -> None:
         """Фоновая петля фичи (Governor, Healing, истечение резервов…):
         ошибка одного тика логируется и не убивает петлю."""
+        state = self.feature_ticks.setdefault(
+            feature.name, {"at": 0.0, "error": None, "every": float(feature.tick_seconds)})
         while not self._stopping.is_set():
             try:
                 await feature.tick(self)
+                # Отметка ставится только за УСПЕШНЫЙ тик: петля, которая
+                # крутится и каждый раз падает, не тикала.
+                state["at"], state["error"] = time.monotonic(), None
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                state["error"] = f"{type(exc).__name__}: {exc}"
                 await self.bus.emit("worker.error",
                                     message=f"tick {feature.name}: {type(exc).__name__}: {exc}")
             if await sleep_or_stop(self._stopping, feature.tick_seconds):
@@ -1022,6 +1037,14 @@ async def _health(svc: Services) -> dict:
                                        svc.start_workers)
     health["metrics"] = _loop_health(svc.metrics.last_tick, svc.metrics.interval * 3,
                                      svc.start_workers)
+    # Петли фич — на том же экране и по тем же правилам. Свип INV-RD-1 живёт
+    # в тике review_gate: если он умер, задача снова может ждать вечно, и
+    # узнать об этом надо здесь, а не по жалобе владельца.
+    for name, state in sorted(getattr(svc, "feature_ticks", {}).items()):
+        entry = _loop_health(state["at"], max(state["every"] * 3, 10.0), svc.start_workers)
+        if state.get("error") and svc.start_workers:
+            entry = {"status": "error", "detail": state["error"][:200]}
+        health[f"tick:{name}"] = entry
     # P1 no-fake-green: подсистемы с внешними зависимостями не должны выглядеть
     # зелёными, когда они недоступны. Пустой health или unknown не превращается в ok.
     try:
