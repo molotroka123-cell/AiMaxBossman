@@ -17,7 +17,8 @@ import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
 
 from .db import (Database, agents as agents_t, approvals as approvals_t,
-                 checkpoints as checkpoints_t, fetch_one, run_events as run_events_t,
+                 checkpoints as checkpoints_t, fetch_one, models as models_t,
+                 run_events as run_events_t,
                  task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
 from . import approval_scope as _scope
 from . import mission_budget as _budget
@@ -981,6 +982,16 @@ class TaskEngine:
         # их на задачу, а не глобальной константой: сложная миссия законно
         # дороже правки документации.
         limits = _budget.Limits.for_task(task)
+        # Ступень лестницы восстановления, выбранная прошлым сбоем: она живёт в
+        # checkpoint'е, поэтому переживает рестарт вместе с остальным состоянием.
+        recovery_model = checkpoint.get("recovery_model_id")
+        recovery_model = int(recovery_model) if isinstance(recovery_model, int) else None
+        recovery_degrade = checkpoint.get("recovery_degrade")
+        if isinstance(recovery_degrade, dict) and recovery_degrade.get("tools") is False:
+            # Упрощённый путь: без инструментов. Это СУЖЕНИЕ возможностей, а не
+            # расширение прав — модель, которая не справилась с tool-calling,
+            # получает более простую задачу, а не больше доступа.
+            tool_schemas = None
 
         # V2.1: инструменты, выданные этому run'у. Пусто — поведение как в V2
         # (один вызов модели, без tools в payload).
@@ -1008,9 +1019,13 @@ class TaskEngine:
                 break
             try:
                 result, model = await self._call_model(task, agent, messages, run_id,
-                                                       tools=tool_schemas)
+                                                       tools=tool_schemas,
+                                                       model_override=recovery_model)
             except ProviderError as exc:
-                await self._handle_failure(run_id, task, str(exc), messages, step)
+                # `kind` carries what the adapter knew about the failure; the
+                # text alone cannot always tell a network blip from a refusal.
+                await self._handle_failure(run_id, task, str(exc), messages, step,
+                                           kind=getattr(exc, "kind", None))
                 return
             except LookupError as exc:
                 await self._fail_now(run_id, task["id"], str(exc))
@@ -1214,20 +1229,35 @@ class TaskEngine:
         await self._log(run_id, "info", "run.completed", "задача выполнена")
 
     async def _call_model(self, task: dict, agent: dict, messages: list[dict],
-                          run_id: int, *, tools: list[dict] | None = None) -> tuple[ChatResult, dict]:
+                          run_id: int, *, tools: list[dict] | None = None,
+                          model_override: int | None = None) -> tuple[ChatResult, dict]:
         from bossman_shared.privacy import execution_privacy
         with execution_privacy((task.get("meta") or {}).get("privacy", "public")):
-            return await self._call_model_scoped(task, agent, messages, run_id, tools=tools)
+            return await self._call_model_scoped(task, agent, messages, run_id, tools=tools,
+                                                 model_override=model_override)
 
     async def _call_model_scoped(self, task: dict, agent: dict, messages: list[dict],
-                          run_id: int, *, tools: list[dict] | None = None
-                          ) -> tuple[ChatResult, dict]:
+                          run_id: int, *, tools: list[dict] | None = None,
+                          model_override: int | None = None) -> tuple[ChatResult, dict]:
         """Вызов модели: сначала pick_model-хук (Smart Router) может перекрыть выбор;
         при ошибке маршрута — модель агента; при её ошибке — fallback_model.
         `tools` — схемы ТОЛЬКО выданных этому run'у инструментов."""
         kw: dict[str, Any] = {"max_tokens": agent.get("max_tokens")}
         if tools:
             kw["tools"] = tools
+        if model_override is not None:
+            # Ступень «другая модель» лестницы восстановления. Действует только
+            # на этот прогон и не переписывает конфигурацию агента: владелец её
+            # задал, и молча менять её лестница не имеет права. Полномочия при
+            # этом те же — меняется исполнитель, а не то, что ему позволено.
+            try:
+                adapter, model = await self.registry.adapter_for(int(model_override))
+                result = await adapter.chat(model["name"], messages, **kw)
+                return result, model
+            except (ProviderError, LookupError) as exc:
+                await self._log(run_id, "warn", "recovery.alternate_failed",
+                                f"альтернативная модель {model_override} недоступна ({exc}) — "
+                                f"возвращаемся к модели агента")
         picked = next((r for r in await self._call_hooks("pick_model", task, agent) if r), None)
         if picked is not None:
             model_id = int(picked["model_id"] if isinstance(picked, dict) else picked)
@@ -1959,32 +1989,109 @@ class TaskEngine:
         return str(row[0]) if row else ""
 
     async def _handle_failure(self, run_id: int, task: dict, error: str,
-                              messages: list[dict], step: int) -> None:
-        """Ошибка провайдера: retry с экспоненциальной паузой, потом — failed."""
+                              messages: list[dict], step: int,
+                              *, kind: str | None = None) -> None:
+        """Сбой провайдера: СМЕНА СТРАТЕГИИ, а не повтор того же запроса.
+
+        Прежде здесь был только retry с экспоненциальной паузой: тот же
+        маршрут, та же модель, те же сообщения. Для разового сетевого сбоя это
+        верно, а для всего остального — нет. Приёмочный прогон показал цену:
+        просроченный ключ провайдера сжёг все попытки, потому что ожидание не
+        чинит отвергнутый ключ.
+
+        Лестница (bcc/reality/recovery) выбирает следующий шаг по КЛАССУ сбоя и
+        тратит каждую ступень не больше одного раза, поэтому задача приходит к
+        терминальному состоянию за ограниченное число шагов. Ни одна ступень не
+        расширяет полномочия: смена модели меняет КАК делается запрос, а не что
+        ему позволено — те же права, та же область подтверждений, те же гейты
+        доказательств."""
+        from .reality import recovery as _recovery
         async with self.db.session() as s:
             run = await fetch_one(s, runs_t, run_id)
         attempt = int((run or {}).get("attempt") or 0)
         max_retries = int(task.get("max_retries") or 0)
         await self._log(run_id, "error", "run.error", error)
         await self._call_hooks_soft("on_failure", task, run_id, error)
-        if attempt < max_retries:
-            delay = min(self.retry_base_delay * (2 ** attempt), self.retry_max_delay)
-            # пауза хранится в БД (queued + «не раньше»), а не в sleep — переживает рестарт
-            async with self.db.session() as s:
-                await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
-                    status="queued", attempt=attempt + 1, error=error,
-                    checkpoint={"messages": messages, "step": step, "note": "retry"},
-                    worker_lease_until=utcnow() + timedelta(seconds=delay)))
-                await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
-                    status="queued", updated_at=utcnow()))
-                await s.commit()
-            await self._log(run_id, "warn", "run.retry",
-                            f"попытка {attempt + 1}/{max_retries} через {delay:.0f} с")
-            await self.bus.emit("task.queued", task_id=task["id"], run_id=run_id,
-                                attempt=attempt + 1, retry=True)
+
+        checkpoint = (run or {}).get("checkpoint") or {}
+        failure_class = _recovery.classify_failure(error, kind=kind)
+        ladder = _recovery.Ladder.from_dict(checkpoint.get("recovery_ladder"), failure_class)
+        agent = await self._agent_of(task)
+        rung = _recovery.next_rung(
+            ladder,
+            current_model_id=self._current_model_id(run, agent),
+            fallback_model_id=(agent or {}).get("fallback_model_id"),
+            healthy_models=await self._healthy_models(),
+            retries_left=max(0, max_retries - attempt))
+        await self.bus.emit("recovery.rung_selected", task_id=task["id"], run_id=run_id,
+                            failure_class=failure_class, **rung.to_dict())
+
+        if rung.terminal:
+            # Эскалация владельцу — настоящий ответ, а не провал лестницы:
+            # отдать проблему человеку лучше, чем перебирать пути, которые не
+            # могут сработать.
+            await self._log(run_id, "error", "run.recovery_exhausted", rung.reason[:500])
+            await self._finish(run_id, task["id"], "failed",
+                               error=f"{error} | {rung.reason}",
+                               checkpoint={"messages": messages, "step": step,
+                                           "note": "recovery_exhausted",
+                                           "recovery_ladder": rung.ladder.to_dict()})
             return
-        await self._finish(run_id, task["id"], "failed", error=error,
-                           checkpoint={"messages": messages, "step": step, "note": "failed"})
+
+        note = {"messages": messages, "step": step, "note": f"recovery:{rung.name}",
+                "recovery_ladder": rung.ladder.to_dict()}
+        if rung.model_id is not None:
+            # Модель на этот прогон, а не смена модели агента: владелец настроил
+            # агента, и лестница не переписывает его конфигурацию молча.
+            note["recovery_model_id"] = int(rung.model_id)
+        if rung.degrade:
+            note["recovery_degrade"] = dict(rung.degrade)
+        delay = (min(self.retry_base_delay * (2 ** attempt), self.retry_max_delay)
+                 if rung.name == _recovery.RETRY_SAME else 0.0)
+        async with self.db.session() as s:
+            await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
+                status="queued", attempt=attempt + 1, error=error, checkpoint=note,
+                worker_lease_until=(utcnow() + timedelta(seconds=delay)) if delay else None))
+            await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
+                status="queued", updated_at=utcnow()))
+            await s.commit()
+        # `run.retry` остаётся прежним именем события для ступени «тот же
+        # маршрут»: это ровно то поведение, которое было, и у него есть
+        # потребители (UI, тесты). Смена стратегии — новое событие.
+        log_kind = "run.retry" if rung.name == _recovery.RETRY_SAME else "run.recovery"
+        message = (f"попытка {attempt + 1}/{max_retries} через {delay:.0f} с"
+                   if rung.name == _recovery.RETRY_SAME
+                   else f"{failure_class}: ступень {rung.name} — {rung.reason}")
+        await self._log(run_id, "warn", log_kind, message)
+        await self.bus.emit("task.queued", task_id=task["id"], run_id=run_id,
+                            attempt=attempt + 1, retry=True, recovery_rung=rung.name)
+
+    async def _agent_of(self, task: dict) -> dict | None:
+        agent_id = task.get("agent_id")
+        if not agent_id:
+            return None
+        async with self.db.session() as s:
+            return await fetch_one(s, agents_t, int(agent_id))
+
+    def _current_model_id(self, run: dict | None, agent: dict | None) -> int | None:
+        route = (run or {}).get("route")
+        if isinstance(route, dict) and route.get("model_id") is not None:
+            return int(route["model_id"])
+        model_id = (agent or {}).get("model_id")
+        return int(model_id) if model_id is not None else None
+
+    async def _healthy_models(self) -> list[tuple[int, Any]]:
+        """Измеренное здоровье моделей для выбора альтернативы (B5).
+
+        Телеметрия не имеет права ронять восстановление: если здоровье не
+        читается, лестница просто не увидит альтернатив и пойдёт дальше."""
+        try:
+            from . import model_health as mh
+            async with self.db.session() as s:
+                rows = (await s.execute(sa.select(models_t.c.id, models_t.c.health))).fetchall()
+            return [(int(r[0]), mh.HealthRecord.from_dict(r[1])) for r in rows]
+        except Exception:  # noqa: BLE001
+            return []
 
     async def _check_interrupt(self, run_id: int, task_id: int, messages: list[dict],
                                step: int) -> bool:
