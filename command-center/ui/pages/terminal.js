@@ -27,6 +27,7 @@ const TerminalPage = {
   title: 'Терминал',
   icon: 'chevron',
   nav: 'primary',
+  section: 'studio',
 
   async render(ctx) {
     const [rootsR, sessionsR] = await Promise.allSettled([api.raw('/api/terminal/roots'), api.raw('/api/terminal/sessions')]);

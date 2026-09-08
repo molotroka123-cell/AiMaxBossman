@@ -62,6 +62,7 @@ const MobilePage = {
   title: 'Пульт',
   icon: 'bolt',
   nav: 'primary',
+  section: 'system',
 
   async render(ctx) {
     ensureMobileCss();

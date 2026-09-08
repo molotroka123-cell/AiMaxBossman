@@ -34,6 +34,7 @@ const ImagesPage = {
   title: 'Изображения',
   icon: 'models',
   nav: 'primary',
+  section: 'studio',
 
   async render(ctx) {
     ensureStyles();

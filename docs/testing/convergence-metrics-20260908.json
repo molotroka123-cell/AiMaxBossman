@@ -1,0 +1,96 @@
+{
+  "run": "convergence_metrics",
+  "at": "2026-09-08T02:20:47Z",
+  "wall_seconds": 1.12,
+  "note": "каждое число получено прогоном, а не записано в отчёт по факту слияния кода",
+  "benchmarks": [
+    {
+      "benchmark": "doc_edit/read_modify_verify",
+      "completed": true,
+      "corpus_baseline": {
+        "approvals": 60,
+        "tokens": 1295189,
+        "cost_usd": 4.043307,
+        "verdict": "PARTIAL (deadlocked)"
+      },
+      "approvals_asked": 2,
+      "approvals_explained": [
+        {
+          "effect_class": "read",
+          "used": 1,
+          "of": 20
+        },
+        {
+          "effect_class": "write",
+          "used": 0,
+          "of": 20
+        }
+      ],
+      "tokens_total": 1840,
+      "model_cost_usd": 0.0,
+      "final_status": "completed",
+      "target_approvals": "0-1",
+      "target_tokens": "< 100000",
+      "approvals_pass": false,
+      "tokens_pass": true,
+      "pass": false
+    },
+    {
+      "benchmark": "doc_edit/single_write",
+      "completed": true,
+      "corpus_baseline": {
+        "approvals": 60,
+        "tokens": 1295189,
+        "cost_usd": 4.043307,
+        "verdict": "PARTIAL (deadlocked)"
+      },
+      "approvals_asked": 1,
+      "approvals_explained": [
+        {
+          "effect_class": "write",
+          "used": 0,
+          "of": 20
+        }
+      ],
+      "tokens_total": 920,
+      "model_cost_usd": 0.0,
+      "final_status": "completed",
+      "target_approvals": "0-1",
+      "target_tokens": "< 100000",
+      "approvals_pass": true,
+      "tokens_pass": true,
+      "pass": true
+    },
+    {
+      "benchmark": "review_deadlock",
+      "corpus_baseline": {
+        "deadlocks": 4,
+        "escape": "/stop only"
+      },
+      "reproduced": 4,
+      "deadlocked_after_sweep": 0,
+      "actions": [
+        "reopened",
+        "reopened",
+        "reopened",
+        "reopened"
+      ],
+      "review_deadlock_rate": 0.0,
+      "pass": true
+    },
+    {
+      "benchmark": "recovery_on_expired_key",
+      "corpus_baseline": {
+        "behaviour": "retries exhausted before key replacement",
+        "owner_action": "manual key replacement"
+      },
+      "provider_calls": 1,
+      "retry_budget": 5,
+      "attempts_used": 0,
+      "final_status": "failed",
+      "escalated_to_owner": true,
+      "pass": true
+    }
+  ],
+  "verdict": "FAIL"
+}

@@ -275,7 +275,7 @@ const MissionConsolePage = {
   nav: 'primary',
   // Это рабочий экран владельца, а не системная утилита: место ему в
   // «Основном», рядом с миссиями (см. sectionOf в ui/app.js).
-  section: 'main',
+  section: 'work',
 
   async render(ctx) {
     await ensureCss();

@@ -18,6 +18,7 @@ const BenchmarksPage = {
   title: 'Замеры моделей',
   icon: 'bolt',
   nav: 'more',
+  section: 'brains',
 
   async render(ctx) {
     const [benchR, modelsR, recR] = await Promise.allSettled([

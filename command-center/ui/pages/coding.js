@@ -19,6 +19,7 @@ const CodingPage = {
   title: 'Coding-сессии',
   icon: 'edit',
   nav: 'more',
+  section: 'studio',
 
   async render(ctx) {
     let sessions = []; let err = null;

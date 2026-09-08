@@ -15,6 +15,7 @@ const GovernorPage = {
   title: 'Присмотр',
   icon: 'info',
   nav: 'more',
+  section: 'system',
 
   async render(ctx) {
     const [rulesR, interR] = await Promise.allSettled([

@@ -84,6 +84,7 @@ const OpenRouterPage = {
   title: 'OpenRouter',
   icon: 'models',
   nav: 'more',
+  section: 'brains',
 
   async render(ctx) {
     const state = ctx.state.openrouter || (ctx.state.openrouter = {});

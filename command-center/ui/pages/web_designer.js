@@ -617,7 +617,7 @@ const WebDesignerPage = {
   title: 'Веб-дизайн',
   icon: 'builder',
   nav: 'primary',
-  section: 'main',
+  section: 'studio',
 
   onEvent() {
     /* свою перерисовку страница не просит: редактор и выделение живут

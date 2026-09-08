@@ -36,6 +36,7 @@ const OverviewPage = {
   title: 'Обзор',
   icon: 'home',
   nav: 'primary',
+  section: 'system',
 
   async render(ctx) {
     const [missionsR, agentsR, modelsR, approvalsR, systemR, resourcesR, mapR, activityR] = await Promise.allSettled([

@@ -113,6 +113,7 @@ const ControlPage = {
   title: 'Пульт',
   icon: 'home',
   nav: 'primary',
+  section: 'work',
 
   async render(ctx) {
     let body;

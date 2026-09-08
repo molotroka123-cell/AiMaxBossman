@@ -34,6 +34,7 @@ const ObjectivesPage = {
   title: 'Цели',
   icon: 'target',
   nav: 'more',
+  section: 'work',
 
   async render(ctx) {
     const [statusR, listR] = await Promise.allSettled([

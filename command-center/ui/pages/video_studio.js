@@ -778,7 +778,7 @@ class Editor {
 }
 
 export const VideoStudioPage = {
-  id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary',
+  id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary', section: 'studio',
   /* Повторный render() приходит не только от навигации.
 
      Оболочка зовёт `renderPage()` при открытии вебсокета и при восстановлении

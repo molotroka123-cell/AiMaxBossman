@@ -35,7 +35,7 @@ export function attachmentInput() {
   return h('div',input,names,remove);
 }
 export const attachedFiles=()=>state.files;
-export const ChatPage={id:'bossman-chat',title:'История видео и чат',icon:'terminal',section:'main',nav:'more',
+export const ChatPage={id:'bossman-chat',title:'История видео и чат',icon:'terminal',section:'studio',nav:'more',
   async render(ctx) {
     let records=[];
     try {records=(await api.raw('/api/video-studio/chat')).messages||[];}catch(e){toastError(e);}
