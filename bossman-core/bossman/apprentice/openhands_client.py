@@ -95,7 +95,7 @@ def _untracked_files(workspace: Path) -> tuple[str, ...]:
 def _blob_sha(path: Path) -> str:
     """Git's blob id for a working-tree path (symlinks hash their target)."""
     data = os.readlink(path).encode("utf-8", "surrogateescape") if path.is_symlink() else path.read_bytes()
-    h = hashlib.sha1()
+    h = hashlib.sha1(usedforsecurity=False)  # git blob id, not a security hash
     h.update(b"blob %d\0" % len(data))
     h.update(data)
     return h.hexdigest()
