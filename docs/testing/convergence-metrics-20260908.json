@@ -1,18 +1,25 @@
 {
   "run": "convergence_metrics",
-  "at": "2026-09-08T04:23:03Z",
-  "wall_seconds": 1.14,
+  "at": "2026-09-08T14:33:49Z",
+  "wall_seconds": 1.02,
   "note": "каждое число получено прогоном, а не записано в отчёт по факту слияния кода",
+  "evidence_class": "synthetic_contract",
+  "evidence_note": "scripted adapter, constant token counts, fake terminal that performs one constructed write: contract checks of the loop, not measured model usage and not an A/B against the corpus",
   "benchmarks": [
     {
       "benchmark": "doc_edit/read_modify_verify",
+      "kind": "synthetic_contract",
       "completed": true,
+      "result_verified": true,
+      "success": true,
       "corpus_baseline": {
         "approvals": 60,
         "tokens": 1295189,
         "cost_usd": 4.043307,
         "verdict": "PARTIAL (deadlocked)"
       },
+      "comparable_ab": false,
+      "tokens_note": "scripted constants of the fake adapter (400 in / 60 out per call), counted per model call: a loop-shape metric, not measured model usage",
       "approvals_asked": 2,
       "approvals_explained": [
         {
@@ -43,13 +50,18 @@
     },
     {
       "benchmark": "doc_edit/single_write",
+      "kind": "synthetic_contract",
       "completed": true,
+      "result_verified": true,
+      "success": true,
       "corpus_baseline": {
         "approvals": 60,
         "tokens": 1295189,
         "cost_usd": 4.043307,
         "verdict": "PARTIAL (deadlocked)"
       },
+      "comparable_ab": false,
+      "tokens_note": "scripted constants of the fake adapter (400 in / 60 out per call), counted per model call: a loop-shape metric, not measured model usage",
       "approvals_asked": 1,
       "approvals_explained": [
         {
@@ -74,6 +86,7 @@
     },
     {
       "benchmark": "review_deadlock",
+      "kind": "synthetic_contract",
       "corpus_baseline": {
         "deadlocks": 4,
         "escape": "/stop only"
@@ -91,6 +104,9 @@
     },
     {
       "benchmark": "recovery_on_expired_key",
+      "kind": "safety_outcome",
+      "success": false,
+      "safety_outcome_pass": true,
       "corpus_baseline": {
         "behaviour": "retries exhausted before key replacement",
         "owner_action": "manual key replacement"
@@ -103,5 +119,14 @@
       "pass": true
     }
   ],
+  "verdict_basis": {
+    "task_success": [
+      "doc_edit/read_modify_verify",
+      "doc_edit/single_write"
+    ],
+    "safety_outcomes": [
+      "recovery_on_expired_key"
+    ]
+  },
   "verdict": "PASS"
 }

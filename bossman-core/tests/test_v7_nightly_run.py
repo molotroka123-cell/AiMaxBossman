@@ -155,6 +155,23 @@ def _metrics(root, **overrides):
     _write(root, "convergence-metrics-20260908.json", {"benchmarks": benchmarks})
 
 
+def test_the_token_gate_refuses_a_failed_run_however_small_its_number(tmp_path):
+    """Аудит §7: PASS принимал status=failed. Число у неоконченной работы — не результат."""
+    _metrics(tmp_path, **{"doc_edit/single_write": {"completed": False, "tokens_total": 5}})
+    status, detail = nr._verify_tokens(tmp_path)
+    assert status == nr.FAIL
+
+
+def test_the_token_gate_refuses_a_completed_run_whose_document_was_not_verified(tmp_path):
+    """Новое свидетельство несёт `success`; completed без документа на диске — не успех."""
+    _metrics(tmp_path, **{"doc_edit/single_write": {"completed": True, "success": False}})
+    assert nr._verify_tokens(tmp_path)[0] == nr.FAIL
+    _metrics(tmp_path, **{"doc_edit/single_write": {"completed": True, "success": True}})
+    status, detail = nr._verify_tokens(tmp_path)
+    assert status == nr.PASS
+    assert "не A/B" in detail and "синтетический" in detail
+
+
 def test_a_zero_deadlock_rate_passes(tmp_path):
     _metrics(tmp_path)
     assert nr._verify_deadlock_rate(tmp_path)[0] == nr.PASS
