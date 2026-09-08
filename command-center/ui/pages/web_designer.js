@@ -26,6 +26,8 @@ const state = {
   projects: [], id: null, meta: null, code: '', versions: [],
   templates: [], palettes: [],
   selected: null, pick: true,
+  models: [], defaultModel: '',        // реестр моделей для AI-правки и серверный «авто»
+  modelId: (() => { try { const v = localStorage.getItem('bd.model'); return v ? Number(v) : null; } catch (e) { return null; } })(),
   generating: false, genNote: null,
   dirty: false,               // в редакторе есть несохранённое
   creating: false,            // explicit New project must not auto-open an old one
@@ -63,13 +65,47 @@ window.addEventListener('message', (ev) => {
   if (d.type === 'ready' && frame && frame.contentWindow) {
     frame.contentWindow.postMessage({ source: 'bd-host', type: 'pick', enabled: state.pick }, '*');
     if (state.selected && state.selected.bd_id) {
+      /* Свежее описание того же элемента, а не подсветка старого: после
+         правки кадр перезагружен, а state.selected ещё помнит ПРЕЖНИЙ текст и
+         стили. Инспектор, отрисованный по старому описанию, подставлял в поле
+         «Текст» сохранённое до правки значение, и второе «Применить»
+         откатывало первую правку (наблюдение Astra/Codex на машине владельца,
+         2026-09-08). Кадр ответит 'select' с актуальным describe(). */
+      frame.contentWindow.postMessage({ source: 'bd-host', type: 'reselect', bd_id: state.selected.bd_id }, '*');
       frame.contentWindow.postMessage({ source: 'bd-host', type: 'flash', bd_id: state.selected.bd_id }, '*');
     }
   } else if (d.type === 'select') {
     state.selected = d.el || null;
     if (inspectorBox) renderInspector(inspectorBox);
+  } else if (d.type === 'lost') {
+    /* элемент исчез из кода (удалён/заменён) — выделение больше ничему не соответствует */
+    if (state.selected && state.selected.bd_id === d.bd_id) {
+      state.selected = null;
+      if (inspectorBox) renderInspector(inspectorBox);
+    }
   }
 });
+
+/* Оптимистичное обновление описания выделенного элемента сразу после
+   принятой правки: до ответа кадра ('reselect' → 'select') инспектор уже
+   показывает применённое значение, а не сохранённое до неё. Источник истины
+   — код проекта; это лишь то, что инспектор показывает в промежутке. */
+const STYLE_KEYS = { color: 'color', background: 'backgroundColor', 'background-color': 'backgroundColor',
+  'font-size': 'fontSize', padding: 'padding', 'border-radius': 'borderRadius' };
+export function applyEditLocally(selected, payload) {
+  if (!selected || !payload) return selected;
+  const next = Object.assign({}, selected, { styles: Object.assign({}, selected.styles || {}) });
+  if (payload.op === 'text' && typeof payload.text === 'string') {
+    next.text = payload.text.trim().replace(/\s+/g, ' ').slice(0, 200);
+    if (payload.replace_children) next.children = 0;
+  } else if (payload.op === 'style' && payload.props) {
+    for (const [k, v] of Object.entries(payload.props)) {
+      const key = STYLE_KEYS[k] || k;
+      next.styles[key] = v;
+    }
+  }
+  return next;
+}
 
 /* ---------------- утилиты ---------------- */
 
@@ -102,11 +138,22 @@ function setGenNote(text) {
 
 /* ---------------- данные ---------------- */
 
+async function reloadModels() {
+  try {
+    const res = await api.raw('/api/web-designer/models');
+    state.models = res.items || [];
+    const def = state.models.find((m) => m.default);
+    state.defaultModel = def ? (def.alias || def.name) : '';
+    if (state.modelId && !state.models.some((m) => Number(m.id) === Number(state.modelId))) state.modelId = null;
+  } catch (e) { state.models = state.models || []; }
+}
+
 async function reloadState() {
   const full = await api.raw(`/api/web-designer/projects/${state.id}`);
   state.meta = full.meta;
   state.code = full.code;
   state.versions = full.versions || [];
+  await reloadModels();
   /* несохранённый набор владельца не затираем: раньше достаточно было
      кликнуть мимо редактора, чтобы следующий reloadState стёр правку */
   if (editorNode && !state.dirty && document.activeElement !== editorNode) {
@@ -183,6 +230,7 @@ async function sendEdit(payload, okMsg) {
     toastOk(okMsg || 'Правка применена');
     state.meta = res.meta;
     if (SHIFTS_IDS.has(payload.op)) state.selected = null;
+    else state.selected = applyEditLocally(state.selected, payload);
     await reloadState();
     reloadFrame();
     if (inspectorBox) renderInspector(inspectorBox);
@@ -288,6 +336,26 @@ function renderInspector(box) {
         await sendEdit({ op: 'replace', bd_id: sel.bd_id, path: sel.path, html: htmlArea.value }, 'Элемент заменён');
       }, { size: 'sm' })));
 
+    /* Выбор модели для AI-правки. Раньше бэкенд брал models[0] — первую строку
+       реестра, и владелец не мог выбрать GLM/Claude по построению (аудит
+       владельца 2026-09-08, F3a). Список — канонический реестр моделей с их
+       здоровьем; «авто» — выбор по здоровью на сервере. */
+    const modelSel = h('select', { 'aria-label': 'Модель для AI-правки', style: { maxWidth: '100%' } },
+      h('option', { value: '' }, `авто (по здоровью${state.defaultModel ? `: ${state.defaultModel}` : ''})`),
+      ...(state.models || []).map((m) => h('option', {
+        value: String(m.id), selected: String(state.modelId || '') === String(m.id),
+        disabled: m.health && m.health.status && !['healthy', 'unmeasured'].includes(m.health.status) ? true : undefined,
+      }, `${m.alias || m.name}${m.health && m.health.status ? ` · ${m.health.status}` : ''}`)));
+    modelSel.addEventListener('change', () => {
+      state.modelId = modelSel.value ? Number(modelSel.value) : null;
+      try { localStorage.setItem('bd.model', modelSel.value); } catch (e) { /* без памяти выбора */ }
+    });
+    children.push(h('div.bd-row', h('label', 'Модель'), modelSel));
+    if (!(state.models || []).length) {
+      children.push(h('div', { style: { fontSize: '11.5px', color: 'var(--bx-ink-3,#8b93a7)', marginTop: '-4px' } },
+        'В реестре нет моделей — AI-правка недоступна, пока не добавлена модель.'));
+    }
+
     const aiPrompt = h('textarea', { rows: '2', placeholder: 'Например: сделай кнопку заметнее и добавь тень',
       style: { width: '100%', boxSizing: 'border-box', background: 'transparent', color: 'inherit',
         border: '1px solid color-mix(in srgb, currentColor 22%, transparent)', borderRadius: '10px', padding: '8px', font: 'inherit', fontSize: '12.5px' } });
@@ -298,8 +366,8 @@ function renderInspector(box) {
         try {
           const res = await api.raw(`/api/web-designer/projects/${state.id}/ai-edit`,
             { method: 'POST', body: { prompt: aiPrompt.value, bd_id: sel.bd_id, path: sel.path,
-              base_version: baseVersion() } });
-          toastOk(`Модель ${res.model || ''} внесла правку`);
+              base_version: baseVersion(), model_id: state.modelId || null } });
+          toastOk(`Модель ${res.model || ''} внесла правку${res.chosen_by === 'health_rank' ? ' (выбрана по здоровью)' : ''}`);
           await reloadState();
           reloadFrame();
         } catch (e) { toastError(e, 'AI-правка не удалась'); }
