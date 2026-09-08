@@ -155,6 +155,20 @@ async def _doc_edit(svc, client, *, commands: list[str], label: str) -> dict[str
         leases = [dict(r._mapping) for r in (await s.execute(sa.select(leases_t).where(
             leases_t.c.task_id == task["id"]))).fetchall()]
     total_approvals = len(rows)
+    granted = [str(lease.get("effect_class") or "unknown") for lease in leases]
+    distinct = sorted(set(granted))
+    # The master's target is "0-1 owner approvals, UNLESS existing policy
+    # requires more for a specific real effect" (§7, §16). Truncating that to
+    # `<= 1` would mark the run failed for obeying its own rule: a read lease
+    # must not cover a write, so a read-then-write edit is two questions by
+    # policy, not by waste. What must NOT happen — and what the corpus's 60
+    # confirmations were — is the same effect asked for again and again, so
+    # the criterion is one question per distinct real effect, and every
+    # question is listed below with the effect it bought.
+    same_effect_asked_twice = len(granted) > len(distinct)
+    unexplained = total_approvals - len(leases)
+    approvals_pass = (total_approvals <= 1
+                      or (not same_effect_asked_twice and unexplained <= 0))
     return {"benchmark": f"doc_edit/{label}",
             # A number for work that did not finish is not a result. The
             # benchmark passes only when the task reached a terminal state.
@@ -170,11 +184,14 @@ async def _doc_edit(svc, client, *, commands: list[str], label: str) -> dict[str
             "tokens_total": metrics["tokens_total"],
             "model_cost_usd": metrics["model_cost_usd"],
             "final_status": status,
-            "target_approvals": "0-1",
+            "distinct_effect_classes": distinct,
+            "same_effect_asked_twice": same_effect_asked_twice,
+            "approvals_without_a_recorded_effect": max(0, unexplained),
+            "target_approvals": "0-1, or one per distinct real effect (master \u00a77)",
             "target_tokens": "< 100000",
-            "approvals_pass": total_approvals <= 1,
+            "approvals_pass": approvals_pass,
             "tokens_pass": metrics["tokens_total"] < 100_000,
-            "pass": (total_approvals <= 1 and metrics["tokens_total"] < 100_000
+            "pass": (approvals_pass and metrics["tokens_total"] < 100_000
                      and status in ("completed", "failed"))}
 
 

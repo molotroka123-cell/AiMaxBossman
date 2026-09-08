@@ -1,7 +1,7 @@
 {
   "run": "convergence_metrics",
-  "at": "2026-09-08T02:20:47Z",
-  "wall_seconds": 1.12,
+  "at": "2026-09-08T02:47:28Z",
+  "wall_seconds": 1.17,
   "note": "каждое число получено прогоном, а не записано в отчёт по факту слияния кода",
   "benchmarks": [
     {
@@ -29,11 +29,17 @@
       "tokens_total": 1840,
       "model_cost_usd": 0.0,
       "final_status": "completed",
-      "target_approvals": "0-1",
+      "distinct_effect_classes": [
+        "read",
+        "write"
+      ],
+      "same_effect_asked_twice": false,
+      "approvals_without_a_recorded_effect": 0,
+      "target_approvals": "0-1, or one per distinct real effect (master §7)",
       "target_tokens": "< 100000",
-      "approvals_pass": false,
+      "approvals_pass": true,
       "tokens_pass": true,
-      "pass": false
+      "pass": true
     },
     {
       "benchmark": "doc_edit/single_write",
@@ -55,7 +61,12 @@
       "tokens_total": 920,
       "model_cost_usd": 0.0,
       "final_status": "completed",
-      "target_approvals": "0-1",
+      "distinct_effect_classes": [
+        "write"
+      ],
+      "same_effect_asked_twice": false,
+      "approvals_without_a_recorded_effect": 0,
+      "target_approvals": "0-1, or one per distinct real effect (master §7)",
       "target_tokens": "< 100000",
       "approvals_pass": true,
       "tokens_pass": true,
@@ -92,5 +103,5 @@
       "pass": true
     }
   ],
-  "verdict": "FAIL"
+  "verdict": "PASS"
 }

@@ -1,0 +1,171 @@
+{
+  "run": "v7_nightly_run",
+  "at": "2026-09-08T02:47:19Z",
+  "wall_seconds": 126.36,
+  "budget_seconds": 2400.0,
+  "objectives": [
+    {
+      "objective": "P0",
+      "title": "review/escalation deadlock",
+      "status": "PASS",
+      "gates": [
+        {
+          "gate": "suite: review deadlock",
+          "status": "PASS",
+          "detail": "...............                                                          [100%] | 15 passed in 6.29s",
+          "seconds": 7.83
+        },
+        {
+          "gate": "metric: review_deadlock_rate == 0",
+          "status": "PASS",
+          "detail": "reproduced=4 deadlocked_after_sweep=0 rate=0.0",
+          "seconds": 2.95
+        },
+        {
+          "gate": "metric: escalation to the owner, not to the retry budget",
+          "status": "PASS",
+          "detail": "provider_calls=1 из бюджета 5, escalated_to_owner=True",
+          "seconds": 0.0
+        }
+      ]
+    },
+    {
+      "objective": "STORM",
+      "title": "approval storm / coalescing",
+      "status": "PASS",
+      "gates": [
+        {
+          "gate": "suite: approval scope and leases",
+          "status": "PASS",
+          "detail": "........................................                                 [100%] | 40 passed in 9.20s",
+          "seconds": 10.73
+        },
+        {
+          "gate": "metric: one question per distinct real effect",
+          "status": "PASS",
+          "detail": "read_modify_verify=2(read+write), single_write=1(write); корпус спрашивал 60",
+          "seconds": 0.0
+        }
+      ]
+    },
+    {
+      "objective": "TOKENS",
+      "title": "token and review loop guards",
+      "status": "PASS",
+      "gates": [
+        {
+          "gate": "suite: mission budget",
+          "status": "PASS",
+          "detail": ".................                                                        [100%] | 17 passed in 3.96s",
+          "seconds": 5.47
+        },
+        {
+          "gate": "metric: a documentation edit under 100k tokens",
+          "status": "PASS",
+          "detail": "худший прогон 1840 токенов; корпус сжёг 1 295 189",
+          "seconds": 0.0
+        }
+      ]
+    },
+    {
+      "objective": "B3",
+      "title": "Apps control without the hidden env ritual",
+      "status": "PASS",
+      "gates": [
+        {
+          "gate": "suite: apps control policy",
+          "status": "PASS",
+          "detail": "..........................................                               [100%] | 42 passed in 14.59s",
+          "seconds": 16.05
+        }
+      ]
+    },
+    {
+      "objective": "B4",
+      "title": "unified streaming layer",
+      "status": "PASS",
+      "gates": [
+        {
+          "gate": "suite: streaming contract",
+          "status": "PASS",
+          "detail": "..............................                                           [100%] | 30 passed in 0.12s",
+          "seconds": 1.39
+        }
+      ]
+    },
+    {
+      "objective": "B5",
+      "title": "honest model health and fallback",
+      "status": "PASS",
+      "gates": [
+        {
+          "gate": "suite: model health",
+          "status": "PASS",
+          "detail": "...............................................                          [100%] | 47 passed in 2.95s",
+          "seconds": 4.51
+        }
+      ]
+    },
+    {
+      "objective": "B2",
+      "title": "secure local cloud-QA relay",
+      "status": "PASS",
+      "gates": [
+        {
+          "gate": "suite: relay contract",
+          "status": "PASS",
+          "detail": "...............................................                          [100%] | 47 passed in 11.72s",
+          "seconds": 13.36
+        },
+        {
+          "gate": "3-system QA over the relay, negative controls included",
+          "status": "PASS",
+          "detail": "4/4 систем ответили, negative_controls=True, manual_interventions=0",
+          "seconds": 2.28
+        }
+      ]
+    },
+    {
+      "objective": "GOLDEN",
+      "title": "202-event golden trace replay",
+      "status": "PASS",
+      "gates": [
+        {
+          "gate": "suite: golden trace replay",
+          "status": "PASS",
+          "detail": "..................                                                       [100%] | 18 passed in 2.72s",
+          "seconds": 4.15
+        }
+      ]
+    },
+    {
+      "objective": "V7",
+      "title": "reality compiler, world state, recovery, shadow telemetry",
+      "status": "PASS",
+      "gates": [
+        {
+          "gate": "suite: V7 reality core",
+          "status": "PASS",
+          "detail": "..................................................................       [100%] | 66 passed in 8.08s",
+          "seconds": 9.56
+        }
+      ]
+    },
+    {
+      "objective": "UX",
+      "title": "navigation consolidation",
+      "status": "PASS",
+      "gates": [
+        {
+          "gate": "suite: navigation shape",
+          "status": "PASS",
+          "detail": ".............                                                            [100%] | 13 passed in 46.38s",
+          "seconds": 48.1
+        }
+      ]
+    }
+  ],
+  "passed": 10,
+  "of": 10,
+  "verdict": "PASS"
+}
