@@ -4,9 +4,12 @@ BASE_BRANCH=`night/v7-convergence-20260908`
 BASE_SHA=`45027d3e9aef554407a0a9ff07fb8678d1b849f3`
 FIX_BRANCH=`claude/bossman-final-audit-closure-aucx9x` (also pushed as `freeze/final-audit-closure-20260908`)
 PR=#61 (draft, base `night/v7-convergence-20260908`)
-FINAL_CODE_SHA = the commit carrying this report (its code differs from `69df482` by exactly one line:
-`hashlib.sha1(usedforsecurity=False)` in `openhands_client.py`, added because the Core CI security gate
-(bandit, severity high) flagged B324 on the git-blob hash; nothing else changed).
+FINAL_CODE_SHA=`cbb2991` — code = `69df482` plus two CI-driven one-function fixes:
+`hashlib.sha1(usedforsecurity=False)` in `openhands_client.py` (Core CI bandit B324, severity high, on the
+git-blob hash — `4001b7a`) and the sandbox cleanup making the read-only PARENT directory writable before
+retrying (Core CI `pytest rest (py3.11)` on a non-root runner: `test_readonly_files_do_not_defeat_cleanup`
+failed with `PermissionError`; root locally deleted regardless — `cbb2991`). The authoritative exact-SHA
+result is the CI run on `cbb2991` in PR #61; the numbers below were measured on the trees named.
 
 The owner asked for the logs to be written down now, with little budget left. This report therefore
 records what was MEASURED at the moment of writing and names what was still running. Numbers from
