@@ -221,12 +221,25 @@ def test_a_sandbox_edit_outside_the_declared_scope_is_refused(source_repo, tmp_p
 
 
 def test_the_sandbox_may_not_commit_or_move_its_own_head(source_repo, tmp_path):
-    body = ("subprocess.run(['git','-C',str(w),'commit','--allow-empty','-m','x'],"
-            "capture_output=True)\n")
+    """Личность коммитера задана в самой команде — и это часть контроля.
+
+    Клон-песочница не наследует `user.email`/`user.name` источника, а боковая
+    программа запускается с урезанным окружением. На машине, где у git есть
+    глобальная личность, коммит проходил и контроль работал; на голом раннере
+    он падал с «Please tell me who you are», HEAD оставался на месте, отказа
+    не было — и негативный контроль оказывался пустым. Пустой контроль хуже
+    отсутствующего: он выглядит доказательством.
+    """
+    body = ("subprocess.run(['git','-C',str(w),"
+            "'-c','user.email=sandbox@example.invalid','-c','user.name=Sandbox',"
+            "'commit','--allow-empty','-m','x'],capture_output=True)\n")
     with IsolatedWorktree(str(source_repo)) as sandbox:
+        head_before = _git(Path(sandbox.root), "rev-parse", "HEAD")
         with pytest.raises(OpenHandsError, match="HEAD"):
             OpenHandsClient([sys.executable, str(_sidecar(tmp_path, body))]).run(
                 OpenHandsRequest("коммит", sandbox.root, ("src",)))
+        # Отказ вызван сдвигом HEAD, а не тем, что песочница ничего не смогла.
+        assert _git(Path(sandbox.root), "rev-parse", "HEAD") != head_before
 
 
 def test_the_sandbox_may_not_add_a_remote_during_the_run(source_repo, tmp_path):
