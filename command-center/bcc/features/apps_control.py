@@ -431,6 +431,42 @@ def _entry_module(app_dir: Path, raw: dict[str, Any]) -> str | None:
     return None
 
 
+def _module_importable(app_dir: Path, module: str) -> str:
+    """Проверить, что объявленный модуль запуска существует. Пустая строка — да.
+
+    Объявление в `pyproject.toml` — это намерение, а не факт. У `social-farm`
+    строка `social-farm = "social_farm.main:main"` стояла на месте, а
+    `main.py` не существовал: кнопка «Запустить» порождала процесс, который
+    умирал с `ModuleNotFoundError` через доли секунды. Владелец видел
+    приложение, которое «не открывается», и никакой причины.
+
+    Проверка идёт в отдельном процессе с тем же PYTHONPATH, что и запуск.
+    В этом же процессе её делать нельзя: импорт чужого приложения выполнит его
+    код прямо внутри Command Center.
+    """
+    env = {k: v for k, v in os.environ.items() if k in ENV_KEEP}
+    src = app_dir / "src"
+    if src.is_dir():
+        env["PYTHONPATH"] = str(src)
+    try:
+        probe = subprocess.run(
+            [sys.executable, "-c",
+             "import importlib.util,sys;"
+             "sys.exit(0 if importlib.util.find_spec(sys.argv[1]) else 3)",
+             module],
+            cwd=str(app_dir), env=env, capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"не удалось проверить модуль запуска {module}: {type(exc).__name__}"
+    if probe.returncode == 0:
+        return ""
+    if probe.returncode == 3:
+        return (f"модуль запуска {module} объявлен, но не существует — "
+                f"процесс умрёт сразу после старта")
+    detail = (probe.stderr or probe.stdout or "").strip().splitlines()
+    return (f"модуль запуска {module} не импортируется: "
+            f"{detail[-1] if detail else f'код {probe.returncode}'}")
+
+
 def command_for(app_id: str) -> dict[str, Any]:
     """Как именно мы запустим приложение. Отдаётся и в UI — как запасной путь,
     если владелец хочет сделать это руками."""
@@ -438,17 +474,30 @@ def command_for(app_id: str) -> dict[str, Any]:
     raw = apps_feature._load(app_dir / "app.manifest.yaml") or {}
     module = _entry_module(app_dir, raw)
     if not module:
+        # Разные причины требуют разных действий владельца, и «нет точки
+        # входа» у приложения, которого просто нет на диске, отправляет его
+        # искать pyproject там, где нет ни строчки кода.
+        has_code = any(app_dir.glob("*.py")) or any(
+            root.is_dir() and any(root.rglob("*.py"))
+            for root in (app_dir / "src", app_dir / app_id.replace("-", "_")))
+        problem = ("приложение объявлено манифестом, но его кода нет в этом "
+                   "репозитории — запускать нечего"
+                   if not has_code else
+                   "не удалось определить модуль запуска: в pyproject.toml "
+                   "приложения нет [project.scripts], а пакета с __main__.py нет")
         return {"module": "", "argv": [], "cwd": str(app_dir), "manual": "",
-                "problem": "не удалось определить модуль запуска: в pyproject.toml "
-                           "приложения нет [project.scripts], а пакета с __main__.py нет"}
+                "problem": problem}
     # sys.executable — тот же интерпретатор, что и у ядра: приложение не должно
     # зависеть от того, что окажется словом `python` в PATH службы.
     argv = [sys.executable, "-m", module, "serve"]
     # В подсказке человеку — `python`, а не абсолютный путь: её набирают руками.
     prefix = "PYTHONPATH=src " if (app_dir / "src").is_dir() else ""
     manual = f"cd apps/{app_id} && {prefix}python -m {module} serve"
+    # Несуществующий модуль называется ЗДЕСЬ, до нажатия кнопки. Иначе
+    # владелец получает «приложение не открывается» без единой причины.
+    problem = _module_importable(app_dir, module)
     return {"module": module, "argv": argv, "cwd": str(app_dir), "manual": manual,
-            "problem": ""}
+            "problem": problem}
 
 
 def _child_env(app_dir: Path, port: int | None) -> dict[str, str]:
