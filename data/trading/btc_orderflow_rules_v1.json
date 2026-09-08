@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "updated_at": "2026-09-08",
+  "version": "1.1.0",
+  "updated_at": "2026-09-09",
   "purpose": "Machine-readable BTC orderflow knowledge for Bossman Trader Apprentice. Analysis only; no autonomous execution.",
   "required_observation_fields": [
     "timestamp",
@@ -69,6 +69,20 @@
         "Materially worse for a long thesis than simple deleveraging.",
         "Do not claim new shorts with certainty from OI alone; call it bearish leverage-expansion/short-build risk.",
         "Require a new reclaim/absorption setup before considering another long."
+      ]
+    },
+    {
+      "price": "DOWN",
+      "cvd": "UP",
+      "oi": "DOWN",
+      "regime": "BUYER_FAILURE_WITH_DELEVERAGING",
+      "interpretation": "Aggressive buy flow improves but price still falls while OI contracts: buying is being absorbed by passive selling while leverage exits.",
+      "default_stance": "WATCH",
+      "long_add": false,
+      "notes": [
+        "Less dangerous than bearish leverage expansion because OI is contracting rather than expanding.",
+        "Not bullish confirmation: positive CVD that cannot lift price is buyer inefficiency.",
+        "Require price reclaim/acceptance before treating CVD improvement as a long signal."
       ]
     },
     {
@@ -159,6 +173,7 @@
     "forbidden_add_conditions": [
       "Price breaks support without reclaim.",
       "Price DOWN + CVD DOWN + OI UP persists.",
+      "Price DOWN + CVD UP + OI DOWN is not a long signal unless price itself reclaims/accepts the structural level.",
       "Live values are stale, hidden or from incompatible sources.",
       "Only one isolated screenshot exists and there is no sequence context."
     ]
@@ -218,6 +233,20 @@
     "early_trigger": "Reclaim/hold above dPOC 78565.",
     "higher_quality_trigger": "Reclaim dVAH 78710 and preferably dOpen 78795, then successful retest with CVD stable/up and non-explosive OI growth.",
     "warning": "Back below dVAL 78430 with CVD lower and OI continuing to expand cancels the long candidate."
+  },
+  "learned_pattern_2026_09_09": {
+    "state": "Price DOWN + CVD UP + OI DOWN",
+    "name": "BUYER_FAILURE_WITH_DELEVERAGING",
+    "example": {
+      "previous_execution_price_approx": 78775,
+      "latest_execution_price_approx": 78450,
+      "previous_cvd_billion": 61.78,
+      "latest_cvd_billion": 61.91,
+      "previous_oi_billion": 18.78,
+      "latest_oi_billion": 18.50
+    },
+    "interpretation": "CVD improvement failed to produce higher price while OI contracted. This points to passive seller absorption/buyer inefficiency during deleveraging rather than fresh bearish leverage expansion.",
+    "long_rule": "Do not treat CVD improvement alone as bullish; require dVAL hold plus dPOC/upper-value reclaim and acceptance."
   },
   "output_contract": [
     "market_state_matrix",
