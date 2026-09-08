@@ -5,14 +5,16 @@ TESTED_HEAD_SHA = 45027d3e9aef554407a0a9ff07fb8678d1b849f3
 P0_COUNT = 0
 P1_COUNT = 1
 OTHER_REPRODUCIBLE_REGRESSIONS = 1
-FALSE_PASS_EVIDENCE = F1, F3
-UNRESOLVED_REPO_FIXABLE = 4
+FALSE_PASS_EVIDENCE = F1, F3, F5
+UNRESOLVED_REPO_FIXABLE = 6
 FREEZE_VERDICT = BLOCKED
 
 No real P0 reproduced. One P1 reproduced twice. No production files modified.
 Scope: fetched V6 baseline and night/V7 convergence branches, inspected their diff/history and selected changed boundaries only.
-Started 2026-09-08 18:19 UTC; stopped early on owner's instruction to finish and push quickly.
-Independent worktree: `C:/astra-breaker-20260908`; original dirty checkout untouched.
+Initial pass started 2026-09-08 18:19 UTC and stopped early on owner's instruction to push quickly.
+Owner authorized a final continuation; finalized at 18:40 UTC following another instruction to push available evidence.
+Tested production tree remains exactly the HEAD above; `git ls-remote origin refs/heads/night/v7-convergence-20260908` reconfirmed it at finalization.
+Independent worktree initially `C:/astra-breaker-20260908`, later moved to `<original-workspace>/artifacts/astra_codex_breaker_20260908/checkout` after access restrictions changed. Original dirty checkout files untouched.
 Environment: Windows, Python 3.14.3, pytest 9.0.2. No live provider credentials used.
 Skills used: differential-review and proof-before-done. Variant-analysis was read after F1; expansion was not performed before the owner's stop instruction.
 
@@ -128,4 +130,58 @@ NOT_RUN to completion: provider timeout plus fallback integration; Video/Web mis
 Initial harness attempt failed because the audit temp parent directory did not exist; rerun created it. No production defect counted for that setup error.
 
 Freeze is BLOCKED by F1. No full-repository certification, live-provider PASS, or stale external evidence is claimed.
-Publication includes only this report, one reproducer and four small raw logs; temporary fixture repositories are excluded from the commit.
+Publication includes only this report, two reproducers and six small raw logs; temporary fixture repositories are excluded from the commit.
+
+## Final continuation: two more reproduced defects
+
+Command R4, from the same tested checkout with the environment in R1:
+
+```powershell
+python -m pytest -o addopts='' -o asyncio_mode=auto -p no:cacheprovider --timeout=30 artifacts/astra_codex_breaker_20260908/test_final_boundaries.py -vs --tb=short --basetemp=artifacts/astra_codex_breaker_20260908/final-attack-tmp
+```
+
+Result: 4 failed, 1 passed in 11.12 seconds; exact outputs in `A/final-attack.log`.
+The extra incomplete suite log `A/final-suite.log` records progress to 37%, no final summary. It is not PASS evidence.
+
+### F5 — P2: HTTP route neutralizes invalid memory requirements
+
+- SHA tested: `45027d3e9aef554407a0a9ff07fb8678d1b849f3` (audit commits add no production differences).
+- Exact tests: R4, `test_invalid_memory_requirement_not_admitted[nan]` and `[-1024]`.
+- Boundary: `command-center/bcc/features/reality.py:strategies` calls the hardened strategy generator after applying `max(0.0, float(value))`.
+- Input: real authenticated ASGI GET `/api/reality/strategies?large_model_mb=nan`, then the same request with `-1024`; no memory observation exists.
+- Expected: reject invalid requirement or exclude the large-model candidate.
+- Actual: both return HTTP 200, `memory.measured=False`, `available_mb=None`, and `large-model-tools` in ranked candidates.
+- Reproducibility: 1/1 per input, 2/2 variants. Repository-fixable: YES.
+- Severity limit: this endpoint is advisory; no model allocation or execution observed. Not P1.
+- False-PASS evidence: final-candidate resource claim includes NaN/negative fail-closed coverage, but route-level coercion defeats the generator's validation. Existing pure-generator checks do not cover this input path.
+- Narrow remediation direction: validate before coercion; preserve invalid inputs as rejection rather than zero memory cost.
+
+### F6 — P2: alternating failure classes replenish recovery rungs
+
+- SHA tested: `45027d3e9aef554407a0a9ff07fb8678d1b849f3` (same production tree).
+- Exact tests: R4, `test_alternating_failure_classes_eventually_stop[1]` and `[2]`.
+- Boundary: real `engine._handle_failure` and SQLite checkpoint updates; `recovery.Ladder.from_dict` discards spent state when the failure class changes.
+- Input: create task through API with `max_retries=0`, claim its run, invoke the production failure handler 12 times alternating `unsupported tool use` and `empty response no content`.
+- Expected: spent degraded route stays spent across changing provider errors; recovery terminates after finite alternatives are exhausted.
+- Actual: all 12 transitions remain `queued`; attempt increases to 12; checkpoint alternates capability/silent with `spent=['degraded_path']` on every transition.
+- Reproducibility: 2/2 separate service/database instances, 24 observed transitions. Repository-fixable: YES.
+- Severity limit: provider calls and full worker execution were not exercised by this reproducer. No infinite mission, token bill, or bypass of all other engine guards claimed; classify P2, not P1.
+- Narrow remediation direction: retain a cross-class recovery-attempt ceiling or preserve spent path identities across error-class changes.
+
+### Additional completed negative control
+
+R4 `test_apps_repeated_enable_start_stop_disable`: PASS, 1/1 test containing two full cycles of enable twice, start twice, stop twice, disable twice, then refused start.
+Uses real disposable child processes and HTTP API. Duplicate starts report already-running; disabled control refuses another start. Fixtures terminate their processes.
+
+## Auditor's conclusions and decision record
+
+- Freeze remains BLOCKED by the twice-reproduced protected-file evidence bypass F1. Five further P2 defects remain unfixed; no P0 demonstrated.
+- Strongest evidence: F1 executes an actual sidecar and inspects protected bytes afterward; F5 crosses the actual HTTP route; F6 persists every transition in SQLite. These are not source-only suspicions.
+- Rejected inference: a green parser suite proves complete responses. R3 is green while F3 returns `ok=True` for a malformed partial response; the suite and attack have different assertions.
+- Rejected inference: pure memory-generator tests prove the HTTP boundary. F5 demonstrates the route changes the input before validation.
+- Rejected inference: F6 alone proves a runaway worker or monetary loss. Full worker execution remains unverified, so that stronger claim is deliberately omitted.
+- Rejected inference: OpenHands scope validation is OS containment. Existing source explicitly disclaims that. F1 instead breaks the evidence boundary the client actually promises.
+- First fix priority: F1, independent evidence admission. Next: F6 recovery boundedness, F2 consumption cap, F5 route validation, F3 incomplete-response status, F4 Windows cleanup. These are proposals only; no fixes applied.
+- Next verification ideas: rerun F1 with a hostile index plus an ordinary allowed-file control; drive F6 with alternating real adapter failures through claim/execute; test F2 with a paced loopback stream; rerun cleanup twice on Windows and verify residual bytes. None is counted as completed here.
+- Coverage limit remains material: selected suites were interrupted twice; Video/Web post-state, full browser/desktop runtime and live providers were not certified. This is a narrow breaker audit, not a whole-repository or release-completeness verdict.
+- Decision summaries above are the reviewable rationale requested by the owner. Raw commands and observed results are in the supplied tests/logs; no speculative findings were added to fill the report.
