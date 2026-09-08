@@ -64,7 +64,27 @@ class IsolatedWorktree:
                 return result.stdout.strip().replace('refs/remotes/origin/', '')
         except Exception as e:
             logger.warning(f"Failed to get default branch: {e}")
-        
+
+        # No `origin` remote — an isolated sandbox checkout usually has none.
+        # Falling straight to the literal 'main' was wrong: on a repository
+        # whose branch is 'master' (still git's default in many installs)
+        # BOTH worktree attempts referenced a branch that does not exist and
+        # the whole feature failed with "fatal: invalid reference: main".
+        # The honest fallback is the branch this repository is actually on.
+        try:
+            current = subprocess.run(
+                ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                cwd=str(self.source_repo),
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            branch = current.stdout.strip()
+            if current.returncode == 0 and branch and branch != 'HEAD':
+                return branch
+        except Exception as e:
+            logger.warning(f"Failed to read the current branch: {e}")
+
         return 'main'
     
     def create(self) -> Path:
@@ -74,33 +94,33 @@ class IsolatedWorktree:
         worktree_path = Path(temp_dir) / 'worktree'
         
         try:
-            cmd = [
-                'git', 'worktree', 'add',
-                str(worktree_path),
-                '-b', f'openhands_task_{datetime.now().strftime("%Y%m%d_%H%M%S")}',
-                f'origin/{self.base_branch}'
-            ]
-            
-            result = subprocess.run(
-                cmd,
-                cwd=str(self.source_repo),
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-            
-            if result.returncode != 0:
-                cmd = ['git', 'worktree', 'add', str(worktree_path), self.base_branch]
+            # Every attempt creates a NEW disposable branch. The old fallback
+            # dropped `-b` and checked out the base branch directly, which git
+            # refuses whenever the source repository already has it checked out
+            # ("fatal: 'master' is already used by worktree at ...") — i.e. in
+            # the normal case. Bases are tried from most to least specific:
+            # the remote-tracking ref, the local branch, then plain HEAD, which
+            # exists in every repository including a detached one.
+            branch = f'openhands_task_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+            bases = [f'origin/{self.base_branch}', self.base_branch, 'HEAD']
+            result = None
+            for base in bases:
                 result = subprocess.run(
-                    cmd,
+                    ['git', 'worktree', 'add', str(worktree_path), '-b', branch, base],
                     cwd=str(self.source_repo),
                     capture_output=True,
                     text=True,
                     timeout=60
                 )
-                
-                if result.returncode != 0:
-                    raise RuntimeError(f"Failed to create worktree: {result.stderr}")
+                if result.returncode == 0:
+                    break
+                # A partially created branch would make the next base fail for
+                # the wrong reason ("branch already exists").
+                subprocess.run(['git', 'branch', '-D', branch], cwd=str(self.source_repo),
+                               capture_output=True, text=True, timeout=30)
+            if result is None or result.returncode != 0:
+                raise RuntimeError(
+                    f"Failed to create worktree: {result.stderr if result else 'no attempt made'}")
             
             self.root = worktree_path
             logger.info(f"Worktree created at {worktree_path}")

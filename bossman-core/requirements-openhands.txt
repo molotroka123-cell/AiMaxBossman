@@ -1,4 +1,9 @@
 # Separate Python 3.12+ OpenHands sidecar environment.
-# Keep SDK and tools on exactly the same release.
-openhands-sdk==1.23.1
-openhands-tools==1.23.1
+# Keep SDK and tools on the same known-compatible released stack.
+# 1.44.1 is what the convergence run actually installed and exercised end to
+# end (bossman-core/tests/apprentice/test_openhands_live_sdk.py): real SDK,
+# real Agent/Conversation, real file_editor and terminal dispatch against a
+# real git worktree. Do not mix package minors without re-running that suite —
+# it is what caught the visualizer writing the system prompt to stdout.
+openhands-sdk==1.44.1
+openhands-tools==1.44.1

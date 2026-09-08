@@ -74,3 +74,4 @@ astra-security-results/
 /real_workload_audit.md
 /doctor.json
 .venv-conv/
+.venv-oh/

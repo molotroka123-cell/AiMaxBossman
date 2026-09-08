@@ -68,11 +68,37 @@ def _git(workspace: Path, *args: str) -> str:
     return proc.stdout
 
 
+def _untracked_files(workspace: Path) -> tuple[str, ...]:
+    return tuple(sorted(
+        line.strip().replace("\\", "/")
+        for line in _git(workspace, "ls-files", "--others", "--exclude-standard").splitlines()
+        if line.strip()))
+
+
 def _changed_files(workspace: Path) -> tuple[str, ...]:
     names: set[str] = set()
     for args in (("diff", "--name-only", "HEAD"), ("ls-files", "--others", "--exclude-standard")):
         names.update(line.strip().replace("\\", "/") for line in _git(workspace, *args).splitlines() if line.strip())
     return tuple(sorted(names))
+
+
+def _evidence_diff(workspace: Path) -> str:
+    """The diff a reviewer actually reads, INCLUDING files the agent created.
+
+    `git diff HEAD` shows tracked changes only, so a run whose entire output was
+    new files produced `changed_files=('NOTES.md',)` next to an empty diff — the
+    file list said work happened and the evidence showed none. For a coding
+    worker whose main product is new files that is the evidence gap that
+    matters most.
+
+    `--intent-to-add` registers the new paths in the sandbox INDEX so they
+    appear in the diff. It touches neither the working tree nor HEAD, and the
+    caller re-checks both afterwards; the worktree is disposable by
+    construction."""
+    untracked = _untracked_files(workspace)
+    if untracked:
+        _git(workspace, "add", "--intent-to-add", "--", *untracked)
+    return _git(workspace, "diff", "--binary", "HEAD")
 
 
 def _normalize_repo_path(path: str) -> str:
@@ -175,7 +201,7 @@ class OpenHandsClient:
             raise OpenHandsError("OpenHands may not add git remotes")
         changed = _changed_files(workspace)
         _validate_scope(changed, request.allowed_paths, request.protected_paths)
-        diff = _git(workspace, "diff", "--binary", "HEAD")
+        diff = _evidence_diff(workspace)
         if proc.returncode and response.get("status") != "failed":
             raise OpenHandsError(f"OpenHands sidecar exited {proc.returncode} without failed status")
         return OpenHandsResult(str(response["status"]), changed, diff, response)

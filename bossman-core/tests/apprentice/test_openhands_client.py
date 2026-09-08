@@ -107,7 +107,7 @@ def test_shipped_sidecar_matches_current_sdk_contract_without_network(tmp_path: 
     (pkg / "openhands/__init__.py").write_text(""); (pkg / "openhands/sdk/__init__.py").write_text(
         "import os\nfrom pathlib import Path\nclass LLM:\n def __init__(self,model,api_key=None,base_url=None): assert api_key=='test-key'\n"
         "class Tool:\n def __init__(self,name): self.name=name\nclass Agent:\n def __init__(self,llm,tools=None): pass\n"
-        "class Conversation:\n def __init__(self,agent,workspace): self.w=Path(workspace)\n def send_message(self,msg): pass\n"
+        "class Conversation:\n def __init__(self,agent,workspace,visualizer=None,max_iteration_per_run=None): self.w=Path(workspace)\n def send_message(self,msg): pass\n"
         " def run(self): assert 'OPENROUTER_API_KEY' not in os.environ; (self.w/'src/a.py').write_text('VALUE = 9\\n')\n")
     tools = pkg / "openhands/tools"; tools.mkdir(); (tools / "__init__.py").write_text("")
     for mod, cls, name in (("file_editor","FileEditorTool","file_editor"),("task_tracker","TaskTrackerTool","task_tracker"),("terminal","TerminalTool","terminal")):

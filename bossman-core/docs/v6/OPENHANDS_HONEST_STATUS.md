@@ -1,5 +1,14 @@
 # OpenHands Integration — Honest Status Report
 
+> **SUPERSEDED 2026-09-08 by `OPENHANDS_STATUS_20260908.md` (same directory).**
+> This report was written before `openhands-sdk` had ever been installed.
+> Running the real package contradicted three of its claims: the sidecar DID
+> leak model reasoning to stdout, git evidence DID drop every newly created
+> file, and `test_worktree_isolation.py` was 0/5 rather than 5/5 on any
+> repository whose default branch is `master`. All three are fixed; the
+> superseding report explains each. Kept unedited as the record of what was
+> believed at the time.
+
 **Date:** 2026-09-08  
 **Branch:** v6/velocity-phase0-baseline-20260907  
 
