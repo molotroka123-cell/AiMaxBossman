@@ -1,1 +1,0 @@
-This temporary file exists only to establish a contents-API commit while restoring the Social Farm specification fixture. It will be removed in the same cleanup sequence.
