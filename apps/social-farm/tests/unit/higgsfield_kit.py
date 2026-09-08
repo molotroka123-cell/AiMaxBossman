@@ -20,7 +20,9 @@ from social_farm.browser import (AccountBrowserSession, BrowserConfig, FixtureDo
                                  FixtureElement, FixturePage, SelectorRegistry)
 from social_farm.generation.higgsfield_adapter import (HiggsfieldAdapterConfig,
                                                        HiggsfieldBrowserAdapter)
+from social_farm.browser.isolation import AccountContextRoot
 from social_farm.generation.higgsfield_selectors import PROVIDER, pack_document
+from social_farm.generation.workspace import GenerationWorkspace
 
 GENERATION_URL = "https://fixture.higgsfield.local/create"
 ACCOUNT_ID = "owner-studio"
@@ -197,6 +199,41 @@ def make_ready(page: FixturePage) -> None:
 
 # ------------------------------------------------------------------- сборка
 
+def downloading(quarantine: Path, *, payload: bytes | None = None,
+                name: str = "higgsfield-result.mp4",
+                arrives: bool = True) -> Any:
+    """Крючок: что кладёт браузер в карантин при нажатии «Download».
+
+    Имя файла нарочно `.mp4` во всех случаях, включая те, где внутри лежит не
+    видео. Именно так и приходит страница ошибки: под правильным именем.
+    """
+
+    def on_click(page: FixturePage, element: FixtureElement) -> None:
+        if element.attributes.get("data-testid") != "result-download":
+            return
+        if not arrives:
+            return
+        quarantine.mkdir(parents=True, exist_ok=True)
+        (quarantine / name).write_bytes(payload if payload is not None else b"")
+
+    return on_click
+
+
+def both(*hooks: Any) -> Any:
+    """Соединить несколько крючков в один: страница умеет и то и другое."""
+
+    def on_click(page: FixturePage, element: FixtureElement) -> None:
+        for hook in hooks:
+            hook(page, element)
+
+    return on_click
+
+
+def workspace(root: Path, account_id: str = ACCOUNT_ID) -> GenerationWorkspace:
+    return GenerationWorkspace(
+        context_root=AccountContextRoot(root=root), account_id=account_id)
+
+
 def registry() -> SelectorRegistry:
     reg = SelectorRegistry()
     reg.register_document(pack_document())
@@ -214,12 +251,14 @@ def session(dom: FixtureDom, *, identity: str = IDENTITY,
 def adapter(dom: FixtureDom, quarantine: Path, *,
             identity: str = IDENTITY,
             config: HiggsfieldAdapterConfig | None = None,
+            space: GenerationWorkspace | None = None,
             **kwargs: Any) -> HiggsfieldBrowserAdapter:
     return HiggsfieldBrowserAdapter(
         session=session(dom, identity=identity, **kwargs),
         config=config or HiggsfieldAdapterConfig(
             generation_url=GENERATION_URL, quarantine_dir=quarantine,
-            download_timeout_s=1.0, download_poll_s=0.01))
+            download_timeout_s=1.0, download_poll_s=0.01),
+        workspace=space)
 
 
 def on(page: FixturePage, **hooks: Any) -> FixtureDom:
@@ -231,7 +270,7 @@ def on(page: FixturePage, **hooks: Any) -> FixtureDom:
 
 __all__ = [
     "ACCOUNT_ID", "GENERATION_URL", "IDENTITY", "OTHER_IDENTITY", "adapter",
-    "auth_page", "challenge_page", "drifted_page", "failed_page", "make_ready",
-    "on", "quota_page", "rate_limited_page", "ready_page", "registry", "session",
-    "submitting",
+    "auth_page", "both", "challenge_page", "downloading", "drifted_page",
+    "failed_page", "make_ready", "on", "quota_page", "rate_limited_page",
+    "ready_page", "registry", "session", "submitting", "workspace",
 ]

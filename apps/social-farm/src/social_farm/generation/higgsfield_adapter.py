@@ -47,6 +47,8 @@ from .higgsfield_browser_contracts import (
     MediaKind,
     SubmissionReceipt,
 )
+from .media_gate import MediaRejection, MediaVerdict, inspect_generated_media
+from .workspace import GenerationWorkspace
 from .higgsfield_selectors import (
     ACTION_ASPECT,
     ACTION_DOWNLOAD,
@@ -84,6 +86,27 @@ class DuplicateSubmission(AdapterRefusal):
     state = BrowserGenerationState.FAILED
 
 
+class DownloadFailed(RuntimeError):
+    """Кнопку нажали, файл не приехал. Повторить работу можно."""
+
+
+class InvalidGeneratedMedia(RuntimeError):
+    """Файл приехал, но это не то, что просили. Повторить работу можно.
+
+    Отдельный тип, потому что действие разное: битую генерацию имеет смысл
+    переделать, а `UNMEASURED` — это отсутствие ffmpeg на машине, и переделывать
+    там нечего, пока владелец его не поставит.
+    """
+
+    def __init__(self, verdict: MediaVerdict) -> None:
+        super().__init__(verdict.reason)
+        self.verdict = verdict
+
+    @property
+    def owner_action_required(self) -> bool:
+        return self.verdict.owner_action_required
+
+
 @dataclass(frozen=True, slots=True)
 class HiggsfieldAdapterConfig:
     """Адрес генератора, каталог карантина и словарь признаков страницы.
@@ -95,6 +118,7 @@ class HiggsfieldAdapterConfig:
 
     generation_url: str
     quarantine_dir: Path
+    min_artifact_bytes: int = 1024
     auth_text: tuple[str, ...] = (
         "sign in", "log in", "log into", "continue with google", "create an account",
         "войти", "зарегистрироваться",
@@ -122,6 +146,8 @@ class HiggsfieldAdapterConfig:
             raise ValueError("адрес страницы генерации обязателен")
         if self.download_timeout_s <= 0 or self.download_poll_s <= 0:
             raise ValueError("сроки скачивания должны быть положительными")
+        if self.min_artifact_bytes < 1:
+            raise ValueError("порог размера должен быть положительным")
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,13 +178,22 @@ class HiggsfieldBrowserAdapter:
     provider_name = "higgsfield-browser"
 
     def __init__(self, *, session: AccountBrowserSession,
-                 config: HiggsfieldAdapterConfig) -> None:
+                 config: HiggsfieldAdapterConfig,
+                 workspace: GenerationWorkspace | None = None) -> None:
         if session.provider != PROVIDER:
             raise ValueError(
                 f"сессия обслуживает провайдера {session.provider!r}, а адаптер — "
                 f"{PROVIDER!r}: пакет селекторов был бы взят чужой")
+        if workspace is not None and workspace.account_id != session.account_id:
+            # Карантин другого аккаунта — это чужой скачанный файл, подобранный
+            # как свой. Проверка стоит здесь, а не в вызывающем коде, потому что
+            # вызывающих будет много, а изоляция должна быть одна.
+            raise ValueError(
+                f"карантин принадлежит аккаунту {workspace.account_id!r}, а сессия "
+                f"обслуживает {session.account_id!r}")
         self.session = session
         self.config = config
+        self.workspace = workspace
         self._submitted: dict[str, SubmissionReceipt] = {}
 
     # ------------------------------------------------------------------ служебное
@@ -479,35 +514,104 @@ class HiggsfieldBrowserAdapter:
 
     async def collect(self, request: BrowserGenerationRequest,
                       receipt: SubmissionReceipt) -> Path:
-        """Скачать результат в карантин и вернуть путь к нему."""
-        quarantine = Path(self.config.quarantine_dir)
-        quarantine.mkdir(parents=True, exist_ok=True)
+        """Скачать результат в карантин, ИЗМЕРИТЬ его и только потом принять.
+
+        Три шага, и порядок между ними не переставляется. Пока файл лежит в
+        карантине, он не результат работы: `output_workspace` — это уже
+        свидетельство, на которое будут ссылаться сборка ролика и отчёт
+        владельцу, и HTML-страница ошибки, попавшая туда под именем `.mp4`,
+        обнаружится не здесь, а в момент, когда ролик надо отдавать.
+        """
+        quarantine = self._quarantine()
         before = {path.resolve() for path in quarantine.glob("*") if path.is_file()}
 
         target = await self.session.plan(ACTION_DOWNLOAD)
         await self.session.act(target, operation="click",
                                idempotency_key=f"{request.job_id}:download")
 
+        arrived = await self._wait_for_download(quarantine, before)
+        if arrived is None:
+            self._audit("generation.collect", "download_failed",
+                        idempotency_key=f"{request.job_id}:download",
+                        error_class="DOWNLOAD_FAILED",
+                        detail=f"за {self.config.download_timeout_s:.0f} с в "
+                               f"карантине не появился файл")
+            raise DownloadFailed(
+                "скачанный файл не появился в карантине браузера")
+
+        verdict = inspect_generated_media(
+            arrived, media_kind=request.media_kind,
+            min_bytes=self.config.min_artifact_bytes)
+        if not verdict.accepted:
+            self._reject(arrived, request, verdict)
+            raise InvalidGeneratedMedia(verdict)
+
+        accepted = self._promote(arrived, request, verdict)
+        self._audit("generation.collect", "ok",
+                    idempotency_key=f"{request.job_id}:download",
+                    target_identity=target.descriptor.semantic_identity(),
+                    detail=f"принято в рабочую область: {accepted.name}; "
+                           f"{verdict.reason}")
+        return accepted
+
+    def _quarantine(self) -> Path:
+        """Каталог карантина. Из рабочей области аккаунта, если она задана."""
+        if self.workspace is not None:
+            return self.workspace.prepare()
+        quarantine = Path(self.config.quarantine_dir)
+        quarantine.mkdir(parents=True, exist_ok=True)
+        return quarantine
+
+    async def _wait_for_download(self, quarantine: Path,
+                                 before: set[Path]) -> Path | None:
         deadline = time.monotonic() + self.config.download_timeout_s
         while True:
             arrived = self._new_files(quarantine, before)
             if arrived:
-                path = arrived[0]
-                self._audit("generation.collect", "ok",
-                            idempotency_key=f"{request.job_id}:download",
-                            target_identity=target.descriptor.semantic_identity(),
-                            detail=f"файл получен в карантин: {path.name}")
-                return path
+                return arrived[0]
             if time.monotonic() >= deadline:
-                break
+                return None
             await asyncio.sleep(self.config.download_poll_s)
 
-        self._audit("generation.collect", "download_failed",
+    def _promote(self, source: Path, request: BrowserGenerationRequest,
+                 verdict: MediaVerdict) -> Path:
+        """Перенести принятый файл под именем, собранным НАМИ.
+
+        Имя провайдера в путь не попадает: расширение берётся из измерения, а
+        основа — из идентификатора работы. Так файл в рабочей области всегда
+        сопоставим с записью о работе, а `scene.mp4`, оказавшийся картинкой,
+        не выглядит видео.
+        """
+        name = f"{request.job_id}{verdict.extension}"
+        if self.workspace is not None:
+            return self.workspace.promote(source, workspace=request.output_workspace,
+                                          name=name)
+        destination = Path(request.output_workspace).resolve()
+        destination.mkdir(parents=True, exist_ok=True)
+        moved = destination / name
+        source.replace(moved)
+        return moved
+
+    def _reject(self, source: Path, request: BrowserGenerationRequest,
+                verdict: MediaVerdict) -> None:
+        """Убрать непринятый файл и записать, почему."""
+        reason = f"{request.job_id}: {verdict.reason}"
+        if self.workspace is not None:
+            self.workspace.reject(source, reason=reason)
+        else:
+            rejected = source.parent / "rejected"
+            rejected.mkdir(parents=True, exist_ok=True)
+            source.replace(rejected / source.name)
+        self.session.ledger.record_failure(
+            ACTION_DOWNLOAD, selector_pack_version=self.session.pack_version,
+            kind=(FailureKind.TRANSIENT
+                  if verdict.rejection is MediaRejection.UNMEASURED
+                  else FailureKind.POSTCONDITION_FAILED))
+        self._audit("generation.collect", "rejected_media",
                     idempotency_key=f"{request.job_id}:download",
-                    error_class="DOWNLOAD_FAILED",
-                    detail=f"за {self.config.download_timeout_s:.0f} с в карантине "
-                           f"не появился файл")
-        raise RuntimeError("скачанный файл не появился в карантине браузера")
+                    error_class=(verdict.rejection.value if verdict.rejection
+                                 else "OUTPUT_INVALID"),
+                    detail=verdict.reason)
 
     @staticmethod
     def _new_files(directory: Path, before: set[Path]) -> list[Path]:
@@ -520,6 +624,6 @@ class HiggsfieldBrowserAdapter:
         return candidates
 
 
-__all__ = ["REQUIRED_SUBMISSION_SIGNALS", "DuplicateSubmission",
+__all__ = ["REQUIRED_SUBMISSION_SIGNALS", "DownloadFailed", "DuplicateSubmission",
            "HiggsfieldAdapterConfig", "HiggsfieldBrowserAdapter",
-           "SubmissionNotObserved"]
+           "InvalidGeneratedMedia", "SubmissionNotObserved"]
