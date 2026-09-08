@@ -196,6 +196,14 @@ def latency_contract(samples_ms: list[float], *, limit_ms: float,
         "p50_ms": _nearest_rank(ordered, 50), "p95_ms": _nearest_rank(ordered, 95),
         "body_ms": ordered[body_rank - 1], "body_rank": body_rank,
         "over_limit": len(stalls), "stalls_ms": stalls[:10],
+        # Сколько раз за порог вышел САМ ПОЛ — то есть самая дешёвая
+        # долговечная запись этого хоста, которой заведомо не за что быть
+        # медленной. Ни на один вердикт это число не влияет и ни в одну ветку
+        # ниже не входит; оно отвечает на вопрос, который иначе приходится
+        # решать спором: «хост срывался, или это код?». Пол над порогом —
+        # измеренный ответ «хост», записанный рядом с вердиктом, а не
+        # восстановленный потом из чужих логов.
+        "floor_over_limit": sum(1 for x in floor_samples_ms if x >= limit_ms),
         "n_floor": len(floor_ordered),
         "floor_p50_ms": _nearest_rank(floor_ordered, 50),
         "floor_body_ms": floor_ordered[body_rank - 1], "floor_max_ms": floor_ordered[-1]}

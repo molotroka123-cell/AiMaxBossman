@@ -237,7 +237,8 @@ def test_every_verdict_reports_the_basis_and_the_numbers_behind_it():
 
     for result in verdicts[:4]:
         for key in ("n", "n_floor", "p50_ms", "p95_ms", "body_ms", "body_rank",
-                    "max_ms", "value_ms", "over_limit", "stalls_ms", "floor_p50_ms",
+                    "max_ms", "value_ms", "over_limit", "floor_over_limit",
+                    "stalls_ms", "floor_p50_ms",
                     "floor_body_ms", "floor_max_ms", "p50_ratio", "allowed_p50_ms",
                     "allowed_body_ms", "allowed_max_ms", "limit_ms", "floor_multiple",
                     "max_isolated_stalls", "outliers_removed"):
@@ -287,3 +288,46 @@ def test_the_storage_floor_measures_the_same_class_of_work(tmp_path):
     fresh.mkdir()
     with pytest.raises(ValueError, match="never sampled"):
         StorageFloor(fresh).at(100)
+
+
+def test_the_floor_s_own_stalls_are_counted_and_change_no_verdict():
+    """«Хост срывался, или это код?» — вопрос, который в красном CI решается
+    спором, потому что число, которое на него отвечает, не записано.
+
+    Пол — самая дешёвая долговечная запись этого хоста; ей не за что быть
+    медленной. Пол над порогом означает, что срывался планировщик. Число
+    публикуется рядом с вердиктом и НЕ участвует ни в одной ветке решения:
+    вердикты ниже совпадают до последнего поля с теми, что были до него.
+    """
+    quiet_floor = [0.4] * 100
+    stalling_floor = [0.4] * 97 + [15.3, 17.1, 11.2]
+    healthy = [1.5] * 100
+
+    assert latency_contract(healthy, limit_ms=LIMIT, floor_samples_ms=quiet_floor
+                            )["floor_over_limit"] == 0
+    stalled = latency_contract(healthy, limit_ms=LIMIT, floor_samples_ms=stalling_floor)
+    assert stalled["floor_over_limit"] == 3
+
+    # Тот же вердикт, то же основание, те же числа — новая колонка ничего не
+    # решает. Иначе это было бы послаблением, а не свидетельством.
+    quiet = latency_contract(healthy, limit_ms=LIMIT, floor_samples_ms=quiet_floor)
+    assert stalled["status"] == quiet["status"] == PASS
+    assert stalled["basis"] == quiet["basis"] == "absolute_p100"
+    assert {k: v for k, v in stalled.items() if k not in
+            ("floor_over_limit", "floor_p50_ms", "floor_body_ms", "floor_max_ms",
+             "p50_ratio", "allowed_p50_ms", "allowed_body_ms", "allowed_max_ms")} == \
+           {k: v for k, v in quiet.items() if k not in
+            ("floor_over_limit", "floor_p50_ms", "floor_body_ms", "floor_max_ms",
+             "p50_ratio", "allowed_p50_ms", "allowed_body_ms", "allowed_max_ms")}
+
+
+def test_a_stalling_floor_does_not_rescue_a_distribution_that_spread():
+    """Прямая проверка, что новая колонка не превратилась в четвёртое
+    основание для PASS: наблюдение CI (два срыва при поле, который сам вышел
+    за порог) как было FAIL, так и осталось."""
+    samples = [2.16] * 98 + [11.97, 23.35]
+    floor = [0.73] * 99 + [17.09]
+    result = latency_contract(samples, limit_ms=LIMIT, floor_samples_ms=floor)
+    assert result["floor_over_limit"] == 1 and result["over_limit"] == 2
+    assert result["status"] == FAIL and result["basis"] is None
+    assert result["reason"] == "excess_spread_across_the_distribution"
