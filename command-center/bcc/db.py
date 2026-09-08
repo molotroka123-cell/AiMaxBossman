@@ -526,6 +526,12 @@ V2_NEW_COLUMNS: list[tuple[str, str, str]] = [
     # claim и при каждом возврате в очередь recover'ом. Запись сайд-эффекта и
     # закрытие run условны по fence: зомби-воркер с устаревшим fence не пишет.
     ("task_runs", "fence", "INTEGER DEFAULT 0"),
+    # §26: неизменяемая личность исполнителя, снятая на СТАРТЕ прогона.
+    # Без неё историю писала таблица `agents`, которая меняется и удаляется:
+    # правка агента переписывала прошлое, удаление — стирала его. NULL здесь
+    # означает «прогон старше этой колонки», и читается он как NOT_CAPTURED,
+    # а не как «прав не было».
+    ("task_runs", "provenance", "JSON"),
     # TRUTH-003 §2: ActionReceipt на каждый вызов инструмента (заявление исполнителя);
     # verified/verifier/observed_at заполняет только верификатор пост-состояния.
     ("tool_calls", "receipt_json", "JSON"),
@@ -606,6 +612,7 @@ class Database:
             await conn.run_sync(metadata.create_all)
         await self._migrate()
         await self._install_terminal_run_guard()
+        await self._install_provenance_guard()
 
     async def _install_terminal_run_guard(self) -> None:
         """ТЕРМИНАЛЬНЫЙ ПРОГОН НЕИЗМЕНЯЕМ. Запрет живёт в БАЗЕ, а не в вызовах.
@@ -639,6 +646,38 @@ class Database:
         WHEN OLD.status IN ('completed', 'failed') AND NEW.status <> OLD.status
         BEGIN
             SELECT RAISE(ABORT, 'terminal run status is immutable');
+        END;
+        """
+        async with self.engine.begin() as conn:
+            await conn.execute(sa.text(statement))
+
+    async def _install_provenance_guard(self) -> None:
+        """ПРОВЕНАНС ПРОГОНА НЕИЗМЕНЯЕМ. Запрет живёт в БАЗЕ.
+
+        Снятая на старте личность исполнителя — это улика. Улика, которую можно
+        переписать после исхода, уликой не является: именно поэтому запрет стоит
+        не в вызове, который её пишет, а на границе, мимо которой не пройти —
+        включая прямую правку строки в базе.
+
+        Что запрещено: у прогона, чей провенанс уже записан, сменить его на
+        другой. Это закрывает и «подправить задним числом», и «дозаполнить
+        сегодняшней конфигурацией агента».
+
+        Что разрешено и почему: ПЕРВАЯ запись (NULL → значение) — это и есть
+        снятие; идемпотентный повтор того же значения — не изменение (рестарт,
+        снявший ту же личность, не должен падать); правка любых других колонок
+        прогона не затрагивается.
+        """
+        if not self.url.startswith("sqlite"):
+            log.warning("provenance guard NOT installed: non-sqlite backend %r", self.url)
+            return
+        statement = """
+        CREATE TRIGGER IF NOT EXISTS runs_provenance_is_immutable
+        BEFORE UPDATE OF provenance ON task_runs
+        FOR EACH ROW
+        WHEN OLD.provenance IS NOT NULL AND NEW.provenance IS NOT OLD.provenance
+        BEGIN
+            SELECT RAISE(ABORT, 'run provenance is immutable');
         END;
         """
         async with self.engine.begin() as conn:

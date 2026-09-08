@@ -16,6 +16,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
 
+from . import run_provenance
 from .db import (Database, agents as agents_t, approvals as approvals_t,
                  checkpoints as checkpoints_t, fetch_one, models as models_t,
                  run_events as run_events_t,
@@ -947,6 +948,10 @@ class TaskEngine:
                 return
 
         await self._start(run_id, task["id"])
+        # §26: личность исполнителя снимается ЗДЕСЬ — после того как задача,
+        # прогон и агент уже разрешены, и до того как что-либо выполнено. Это
+        # единственная точка входа в выполнение, поэтому одного места хватает.
+        await self._capture_provenance(run_id, task, run, agent)
         await self._mark_interrupted_dispatches(run_id, task["id"])
         if executor is not None:
             try:
@@ -2159,6 +2164,38 @@ class TaskEngine:
         return False
 
     # ---------- служебное ----------
+
+    async def _capture_provenance(self, run_id: int, task: dict, run: dict,
+                                 agent: dict | None) -> None:
+        """Записать неизменяемую личность исполнителя. Пишется РОВНО один раз.
+
+        Условие `provenance IS NULL` в UPDATE — не оптимизация, а тот же
+        инвариант, что и в триггере, выраженный там, где он ещё дёшев: рестарт,
+        поднявший тот же прогон, повторно личность не переписывает.
+
+        Сбой снятия провенанса НЕ валит прогон. Провенанс — это улика о работе,
+        а не разрешение на неё; уронить задачу владельца из-за того, что не
+        удалось записать справку о ней, было бы обменом не в ту сторону. Но и
+        молчать нельзя: пропуск виден в журнале прогона.
+        """
+        try:
+            model = fallback = None
+            if agent:
+                async with self.db.session() as s:
+                    if agent.get("model_id"):
+                        model = await fetch_one(s, models_t, int(agent["model_id"]))
+                    if agent.get("fallback_model_id"):
+                        fallback = await fetch_one(s, models_t, int(agent["fallback_model_id"]))
+            record = run_provenance.build(
+                task=task, run=run, agent=agent, model=model, fallback_model=fallback)
+            async with self.db.session() as s:
+                await s.execute(sa.update(runs_t).where(
+                    runs_t.c.id == run_id, runs_t.c.provenance.is_(None)).values(
+                    provenance=record))
+                await s.commit()
+        except Exception as exc:
+            await self._log(run_id, "warn", "run.provenance_not_captured",
+                            f"провенанс не снят: {type(exc).__name__}: {exc}")
 
     async def _start(self, run_id: int, task_id: int) -> None:
         async with self.db.session() as s:

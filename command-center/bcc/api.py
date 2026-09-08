@@ -37,6 +37,7 @@ from .v2.verification import KINDS as VERIFICATION_KINDS
 from .sessions import COOKIE_NAME, CSRF_HEADER, SAFE_METHODS, SessionStore, cookie_kwargs
 from .login_guard import LoginRateLimiter
 from .config import Settings, settings as default_settings
+from . import run_provenance
 from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
                  rows_dicts, settings_kv, task_runs as runs_t, tasks as tasks_t, utcnow)
 from .lifecycle import StartupTrace, sleep_or_stop
@@ -1020,6 +1021,10 @@ def _run_public(run: dict | None) -> dict | None:
     checkpoint = out.pop("checkpoint", None) or {}
     out["checkpoint"] = {"step": checkpoint.get("step", 0), "note": checkpoint.get("note", ""),
                          "messages": len(checkpoint.get("messages") or [])}
+    # §26: провенанс отдаётся через describe(), чтобы исторический прогон
+    # отвечал явным NOT_CAPTURED, а не пустотой, которую читатель примет за
+    # «прав не было».
+    out["provenance"] = run_provenance.describe(out.pop("provenance", None))
     return out
 
 
