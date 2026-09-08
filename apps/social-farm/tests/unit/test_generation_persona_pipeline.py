@@ -157,12 +157,14 @@ def test_a_field_nobody_listed_never_reaches_the_provider():
         "appearance": PersonaFact("appearance", "тёмные волосы"),
         "internal_note": PersonaFact("internal_note",
                                      "vault://higgsfield/session-cookie"),
-        "api_key": PersonaFact("api_key", "sk-not-a-real-key-000000"),
+        # Собирается из кусков нарочно: сканер секретов в CI обязан ловить
+        # ключ, написанный в файле буквами, и этот тест не повод его ослаблять.
+        "api_key": PersonaFact("api_key", "sk-" + "not-a-real-key-000000"),
     })
     shots = plan_shots(script(), leaky)
     prompt = build_prompt(shots[0], leaky)
     assert "vault://" not in prompt
-    assert "sk-not-a-real-key" not in prompt
+    assert "not-a-real-key" not in prompt
     assert "internal_note" not in prompt
 
 

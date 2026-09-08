@@ -78,8 +78,11 @@ async def test_a_packet_with_a_secret_shape_is_refused_not_cleaned():
 
 
 def test_the_secret_scan_recognises_the_usual_shapes():
-    assert scan_for_secrets("sk-abcdefghijklmnopqrst")
-    assert scan_for_secrets("ghp_abcdefghijklmnopqrstuv")
+    # Образцы собираются из кусков: сканер секретов в CI обязан срабатывать на
+    # ключ, написанный буквами, и проверка нашего сканера — не повод учить его
+    # сканер пропускать этот файл.
+    assert scan_for_secrets("sk-" + "abcdefghijklmnopqrst")
+    assert scan_for_secrets("ghp_" + "abcdefghijklmnopqrstuv")
     assert scan_for_secrets("vault://x/y")
     assert scan_for_secrets("eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0")
     assert not scan_for_secrets("кнопка Generate не найдена")

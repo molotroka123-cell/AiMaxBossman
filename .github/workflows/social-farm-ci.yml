@@ -1,0 +1,76 @@
+name: Social Farm CI
+
+# До этого рабочего процесса `apps/social-farm` не проверялся в CI вообще: ни
+# одного задания, которое запускало бы его тесты, компилировало его исходники
+# или следило за пробелами в них. Пятьсот с лишним проверок, включая весь
+# браузерный резерв и порождение медиа, существовали только на машине того, кто
+# их запускал руками. Регрессия туда попадала молча и зелёным.
+#
+# Chromium и ffmpeg ставятся не для полноты, а по той же причине, что и в
+# Command Center CI: без них браузерные и медийные проверки тихо пропускаются, и
+# зелёный сигнал получается по неполному набору — то есть означает меньше, чем
+# выглядит.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: social-farm-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pytest (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install Social Farm
+        run: python -m pip install --quiet -e "./apps/social-farm[dev,browser]"
+
+      - name: Chromium for the browser fallback tests
+        run: python -m playwright install --with-deps chromium
+
+      - name: ffmpeg for the media probe tests
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Unit suite
+        working-directory: apps/social-farm
+        run: >-
+          python -m pytest -q --durations=15 --timeout=300
+          --timeout-method=signal tests
+
+  checks:
+    name: compile + пробелы
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Compile
+        run: python -m compileall -q apps/social-farm/src apps/social-farm/tests
+
+      - name: git diff --check (whitespace hygiene)
+        run: >-
+          git diff --check $(git hash-object -t tree /dev/null) HEAD --
+          apps/social-farm/src apps/social-farm/tests docs/ai_streamer
+          .github/workflows/social-farm-ci.yml
