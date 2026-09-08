@@ -14,7 +14,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SUITES = {"command-center/tests": "Command Center", "bossman-core/tests": "Bossman Core", "tests": "root (shared/tools)"}
+SUITES = {"command-center/tests": "Command Center", "bossman-core/tests": "Bossman Core",
+          "apps/social-farm/tests": "Social Farm", "tests": "root (shared/tools)"}
 OUT = ROOT / "docs" / "testing" / "SKIPS_REGISTRY.md"
 ENV_HINTS = (
     ("chromium|browser|playwright", "Chromium/Playwright на хосте"),

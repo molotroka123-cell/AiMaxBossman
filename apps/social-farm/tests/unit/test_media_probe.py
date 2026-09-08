@@ -158,18 +158,30 @@ def test_real_ffprobe_agrees_with_the_header_prober(tmp_path):
 
 
 @needs_ffprobe
-def test_ffprobe_alone_does_not_notice_a_truncated_image(tmp_path):
+def test_ffprobe_alone_cannot_be_trusted_with_a_truncated_image(tmp_path):
     """Найдено настоящим ffprobe, а не предположено.
 
     С `-show_format -show_streams` ffprobe читает заголовок и не декодирует
-    данные: у обрезанного PNG есть IHDR, и этого ему достаточно. Тест
-    фиксирует ограничение инструмента, чтобы никто не «починил» его удалением
-    структурной проверки как лишней.
+    данные. На части версий обрезанного PNG ему достаточно IHDR, и он честно
+    отдаёт 600×600 у файла, у которого нет половины IDAT; на других (проверено
+    на ffprobe 6.1) он отдаёт 0×0, и обрыв ловит уже наша проверка нулевого
+    кадра.
+
+    Тест фиксирует не одно из этих поведений, а вывод из обоих: **на мнение
+    ffprobe о целостности полагаться нельзя**. Один исход из двух здесь
+    означал бы, что тест проверяет версию ffmpeg в среде, а не наш код, и
+    краснел бы при обновлении системного пакета. Что бы ffprobe ни ответил,
+    структурная проверка остаётся обязательной — её и держит соседний тест.
     """
     target = tmp_path / "broken.png"
     target.write_bytes(truncate(make_png(600, 600, noisy=True), keep=0.3))
-    result = probe_with_ffprobe(target)          # не бросает — и это правда о ffprobe
+    try:
+        result = probe_with_ffprobe(target)
+    except CorruptMedia:
+        return                      # эта версия обрыв заметила — тоже правда
+    # А эта не заметила: разбор прошёл, размеры «правильные», файл битый.
     assert result.width == 600
+    assert result.height == 600
 
 
 @needs_ffprobe
