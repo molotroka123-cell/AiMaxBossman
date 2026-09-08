@@ -60,6 +60,24 @@ class Band:
 
 
 @dataclass(frozen=True, slots=True)
+class MemoryReading:
+    """Measured free memory, or the explicit absence of a measurement.
+
+    `available_mb is None` means nobody measured — which is NOT the same as
+    zero and NOT the same as plenty. The V6 resource defect this mirrors was
+    exactly that conflation: before the first sample the system planned against
+    a fictional 128 GB. Here an unmeasured budget makes memory-hungry paths
+    unofferable rather than free.
+    """
+    available_mb: float | None = None
+    source: str = "unmeasured"
+
+    @property
+    def measured(self) -> bool:
+        return self.available_mb is not None
+
+
+@dataclass(frozen=True, slots=True)
 class Strategy:
     """One way of getting the work done, with its measured costs."""
     strategy_id: str
@@ -72,7 +90,15 @@ class Strategy:
     resource_pressure: float = 0.0
     uncertainty_penalty: float = 0.0
     required_permissions: tuple[str, ...] = ()
+    #: Non-empty when this path cannot run at all. It is still returned rather
+    #: than dropped, so "why was that not considered" has an answer; the router
+    #: filters it out before ranking, exactly like a permission it lacks.
+    unavailable_reason: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def available(self) -> bool:
+        return not self.unavailable_reason
 
     @property
     def utility(self) -> float:
@@ -94,6 +120,8 @@ class Strategy:
                 "resource_pressure": self.resource_pressure,
                 "uncertainty_penalty": self.uncertainty_penalty,
                 "utility": round(self.utility, 4),
+                "available": self.available,
+                "unavailable_reason": self.unavailable_reason,
                 "required_permissions": list(self.required_permissions)}
 
 
@@ -112,9 +140,46 @@ class ShadowDecision:
                 "reason": self.reason, "shadow_only": self.shadow_only}
 
 
+#: Fraction of measured free memory a path may claim before it is refused.
+#: Not a hardware fact — a headroom policy, so the machine keeps room to answer
+#: the owner while a model is resident.
+MEMORY_HEADROOM = 0.85
+
+#: How much utility a path loses for the memory it occupies, at full headroom.
+MEMORY_PRESSURE_WEIGHT = 25.0
+
+
+def _memory_verdict(reading: "MemoryReading | None", needs_mb: float) -> tuple[float, str]:
+    """Resource pressure for a path that needs `needs_mb`, and why if refused.
+
+    Three outcomes, and the middle one is the point:
+
+      * no declared requirement — nothing to weigh, no pressure;
+      * requirement declared but memory NOT measured — refused. An unmeasured
+        budget cannot be shown to fit, and treating unknown as roomy is how a
+        planner ends up scheduling a 70 GB model onto a machine nobody sampled;
+      * measured — refused when it does not fit inside the headroom, otherwise
+        charged in proportion to the headroom it consumes.
+    """
+    if needs_mb <= 0:
+        return 0.0, ""
+    if reading is None or not reading.measured:
+        return 0.0, (f"нужно {needs_mb:.0f} МБ, а свободная память не измерена "
+                     f"({reading.source if reading else 'нет показания'}) — "
+                     f"неизмеренное не считается достаточным")
+    budget = float(reading.available_mb) * MEMORY_HEADROOM
+    if needs_mb > budget:
+        return 0.0, (f"нужно {needs_mb:.0f} МБ, доступно {reading.available_mb:.0f} МБ "
+                     f"(с запасом {budget:.0f} МБ) — не помещается")
+    return MEMORY_PRESSURE_WEIGHT * (needs_mb / budget), ""
+
+
 def generate_strategies(*, deterministic_available: bool,
                         model_health: Mapping[str, mh.HealthRecord] | None = None,
-                        unknown_facts: int = 0) -> tuple[Strategy, ...]:
+                        unknown_facts: int = 0,
+                        memory: "MemoryReading | None" = None,
+                        model_memory_mb: Mapping[str, float] | None = None
+                        ) -> tuple[Strategy, ...]:
     """Candidate paths for a piece of work.
 
     Deterministic execution is offered only when something can actually do the
@@ -126,20 +191,28 @@ def generate_strategies(*, deterministic_available: bool,
     equally, because acting on an unknown world is riskier regardless of which
     model acts."""
     health = dict(model_health or {})
+    needs = dict(model_memory_mb or {})
     penalty = min(20.0, max(0, int(unknown_facts)) * 1.5)
     candidates: list[Strategy] = []
+
+    def resources(path: str) -> tuple[float, str]:
+        return _memory_verdict(memory, float(needs.get(path, 0.0)))
     if deterministic_available:
         # No model call, so no model-health band applies: this path's success
         # depends on code that either exists or does not.
         candidates.append(Strategy(
             "deterministic-tool", "tool", Band("high", 0, "deterministic"),
             latency_cost=5, risk_penalty=5, uncertainty_penalty=penalty))
+    small_pressure, small_reason = resources("small_model")
     candidates.append(Strategy(
         "small-model-tools", "small_model", Band.from_health(health.get("small")),
-        latency_cost=8, money_cost=1, risk_penalty=8, uncertainty_penalty=penalty))
+        latency_cost=8, money_cost=1, risk_penalty=8, uncertainty_penalty=penalty,
+        resource_pressure=small_pressure, unavailable_reason=small_reason))
+    large_pressure, large_reason = resources("large_model")
     candidates.append(Strategy(
         "large-model-tools", "large_model", Band.from_health(health.get("large")),
-        latency_cost=18, money_cost=6, risk_penalty=7, uncertainty_penalty=penalty))
+        latency_cost=18, money_cost=6, risk_penalty=7, uncertainty_penalty=penalty,
+        resource_pressure=large_pressure, unavailable_reason=large_reason))
     candidates.append(Strategy(
         "human-escalation", "human", Band("high", 0, "owner"),
         latency_cost=35, risk_penalty=2, uncertainty_penalty=0,
@@ -157,9 +230,13 @@ def shadow_route(strategies: Sequence[Strategy], *,
     allowed = set(permissions)
     blocked = set(blocked_paths)
     eligible = [s for s in strategies
-                if set(s.required_permissions).issubset(allowed) and s.path not in blocked]
+                if s.available
+                and set(s.required_permissions).issubset(allowed) and s.path not in blocked]
     if not eligible:
-        return ShadowDecision(None, (), "нет кандидатов, разрешённых политикой")
+        refused = "; ".join(f"{s.strategy_id}: {s.unavailable_reason}"
+                            for s in strategies if not s.available)
+        return ShadowDecision(None, (), "нет кандидатов, разрешённых политикой"
+                              + (f" или ресурсами ({refused})" if refused else ""))
     ranked = tuple(sorted(eligible, key=lambda s: (-s.utility, s.strategy_id)))
     top = ranked[0]
     if top.success_band.label == "unknown":

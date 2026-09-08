@@ -88,49 +88,81 @@ class IsolatedWorktree:
         return 'main'
 
     def create(self) -> Path:
-        logger.info(f"Creating isolated worktree from {self.source_repo}@{self.base_branch}")
+        """Build the sandbox as a standalone CLONE, not a linked worktree.
+
+        `git worktree add` was the original mechanism and it produced a sandbox
+        that could not be used, measured twice:
+
+          * the worktree shares the source repository's config, so it came out
+            with `origin` attached and with a `.git` FILE instead of a
+            directory. `OpenHandsClient.run()` refuses both — it rejects any
+            workspace with a remote ("must not have git remotes") and it reads
+            `.git/config` as a path under a directory. The isolation this class
+            exists to provide therefore could not be handed to the client it
+            exists to serve.
+          * `git worktree add -b` creates the disposable branch IN THE SOURCE
+            repository, and `cleanup()` never deleted it. Every run left an
+            `openhands_task_*` branch behind in the owner's repository.
+            Isolation that permanently mutates what it isolates from is not
+            isolation.
+
+        A local clone costs one copy of the object store and owes the source
+        nothing afterwards: no branch, no worktree registration, no shared
+        config. Removing its remote is what makes "the agent cannot push" a
+        structural fact rather than a policy.
+        """
+        logger.info(f"Cloning isolated sandbox from {self.source_repo}@{self.base_branch}")
 
         temp_dir = tempfile.mkdtemp(prefix='openhands_worktree_')
         worktree_path = Path(temp_dir) / 'worktree'
 
         try:
-            # Every attempt creates a NEW disposable branch. The old fallback
-            # dropped `-b` and checked out the base branch directly, which git
-            # refuses whenever the source repository already has it checked out
-            # ("fatal: 'master' is already used by worktree at ...") — i.e. in
-            # the normal case. Bases are tried from most to least specific:
-            # the remote-tracking ref, the local branch, then plain HEAD, which
-            # exists in every repository including a detached one.
-            branch = f'openhands_task_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
-            bases = [f'origin/{self.base_branch}', self.base_branch, 'HEAD']
-            result = None
-            for base in bases:
-                result = subprocess.run(
-                    ['git', 'worktree', 'add', str(worktree_path), '-b', branch, base],
-                    cwd=str(self.source_repo),
-                    capture_output=True,
-                    text=True,
-                    timeout=60
-                )
-                if result.returncode == 0:
+            result = subprocess.run(
+                ['git', 'clone', '--local', str(self.source_repo), str(worktree_path)],
+                capture_output=True, text=True, timeout=300)
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to clone sandbox: {result.stderr}")
+
+            # A disposable branch, created INSIDE the clone. Bases from most to
+            # least specific; plain HEAD exists in every repository, including a
+            # detached one, so the last attempt cannot fail for lack of a ref.
+            branch = f'openhands_task_{datetime.now().strftime("%Y%m%d_%H%M%S_%f")}'
+            checkout = None
+            for base in (f'origin/{self.base_branch}', self.base_branch, 'HEAD'):
+                checkout = subprocess.run(
+                    ['git', 'checkout', '-q', '-b', branch, base],
+                    cwd=str(worktree_path), capture_output=True, text=True, timeout=60)
+                if checkout.returncode == 0:
                     break
-                # A partially created branch would make the next base fail for
-                # the wrong reason ("branch already exists").
-                subprocess.run(['git', 'branch', '-D', branch], cwd=str(self.source_repo),
+                subprocess.run(['git', 'branch', '-D', branch], cwd=str(worktree_path),
                                capture_output=True, text=True, timeout=30)
-            if result is None or result.returncode != 0:
+            if checkout is None or checkout.returncode != 0:
                 raise RuntimeError(
-                    f"Failed to create worktree: {result.stderr if result else 'no attempt made'}")
+                    f"Failed to check out a sandbox branch: "
+                    f"{checkout.stderr if checkout else 'no attempt made'}")
+
+            # Last, so the remote-tracking refs above were still resolvable.
+            # After this the sandbox has nowhere to push and nothing to fetch.
+            remove = subprocess.run(['git', 'remote', 'remove', 'origin'],
+                                    cwd=str(worktree_path), capture_output=True,
+                                    text=True, timeout=30)
+            if remove.returncode != 0:
+                raise RuntimeError(f"Failed to detach the sandbox remote: {remove.stderr}")
+            remaining = subprocess.run(['git', 'remote'], cwd=str(worktree_path),
+                                       capture_output=True, text=True, timeout=30)
+            if remaining.stdout.strip():
+                raise RuntimeError(
+                    f"sandbox still has remotes: {remaining.stdout.strip()!r}")
 
             self.root = worktree_path
-            logger.info(f"Worktree created at {worktree_path}")
+            logger.info(f"Sandbox created at {worktree_path}")
 
             self.pre_run_state = self._record_state()
 
             return worktree_path
 
         except Exception as e:
-            logger.error(f"Failed to create worktree: {e}")
+            logger.error(f"Failed to create sandbox: {e}")
             if worktree_path.exists():
                 self._cleanup(worktree_path)
             raise
@@ -257,17 +289,14 @@ class IsolatedWorktree:
             logger.warning(f"Failed to cleanup {path}: {e}")
 
     def cleanup(self):
-        if self.root and not self.keep_after:
-            try:
-                subprocess.run(
-                    ['git', 'worktree', 'remove', '-f', str(self.root)],
-                    cwd=str(self.source_repo),
-                    capture_output=True,
-                    timeout=30
-                )
-            except Exception:
-                pass
+        """Delete the sandbox. Nothing has to be unregistered in the source.
 
+        The old implementation called `git worktree remove` in the SOURCE
+        repository, which is both unnecessary for a clone and a reminder of why
+        the clone is safer: a linked worktree left state in the source that the
+        cleanup had to reach back and undo, and the branch it created was never
+        undone at all."""
+        if self.root and not self.keep_after:
             self._cleanup(self.root)
             self.root = None
 
