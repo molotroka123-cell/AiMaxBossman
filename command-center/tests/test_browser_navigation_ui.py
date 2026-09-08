@@ -70,7 +70,16 @@ def test_policy_403_keeps_session_but_401_requires_login(live):
               try { await api.system(); }
               catch (e) { return {status: e.status, isAuth: e.isAuth, events}; }
             }""")
-            assert result == {"status": 401, "isAuth": True, "events": 1}
+            assert result["status"] == 401 and result["isAuth"] is True
+            # `>= 1`, not `== 1`. The shell polls top stats every 30 seconds; on
+            # a slow runner that poll can land inside this window, get its own
+            # 401 from the session just invalidated, and dispatch its own event
+            # (observed in CI as events=2). The property under test is that a
+            # real session invalidation triggers authentication handling — how
+            # many other requests the page happened to have in flight is not
+            # part of it. The count that IS security-relevant is asserted
+            # exactly, above: a policy 403 must produce zero.
+            assert result["events"] >= 1
             page.locator("#login-submit").wait_for(state="visible")
         finally:
             browser.close()
