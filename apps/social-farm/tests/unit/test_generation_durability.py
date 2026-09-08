@@ -329,3 +329,66 @@ async def test_invalid_media_is_not_downloaded_again(tmp_path):
     assert isinstance(result, BrowserGenerationObservation)
     assert result.state is BrowserGenerationState.FAILED
     assert clicks["count"] == 1, "не-медиа вторым скачиванием медиа не станет"
+
+
+# ------------------------------------------------------------------ сроки
+
+async def test_a_provider_that_never_finishes_hits_the_polling_ceiling(tmp_path):
+    """Работа, которая ждёт вечно, — это полоса, которая больше ничего не делает."""
+    space = kit.workspace(tmp_path / "contexts")
+    quarantine = space.prepare()
+    dom = kit.on(kit.ready_page(), on_click=kit.submitting())   # результат не появится
+    adapter = kit.adapter(dom, quarantine, space=space)
+    store = GenerationJobStore(tmp_path / "jobs.json")
+    worker = BrowserGenerationWorker(
+        adapter=adapter, store=store,
+        config=BrowserWorkerConfig(poll_interval_s=0.001, max_poll_interval_s=0.002,
+                                   max_poll_seconds=0.05, min_artifact_bytes=100),
+        owner="w")
+
+    result = await worker.run(task(tmp_path))
+    assert isinstance(result, BrowserGenerationObservation)
+    assert result.state is BrowserGenerationState.TIMEOUT
+
+    record = store.get(result.job_id)
+    assert record is not None and record.state is BrowserGenerationState.TIMEOUT
+    assert record.submitted, "отправка была; срок истёк уже после неё"
+
+
+async def test_a_job_past_its_deadline_stops_even_if_the_provider_is_alive(tmp_path):
+    """Срок работы принадлежит работе, а не провайдеру."""
+    space = kit.workspace(tmp_path / "contexts")
+    quarantine = space.prepare()
+    dom = kit.on(kit.ready_page(), on_click=kit.submitting())
+    adapter = kit.adapter(dom, quarantine, space=space)
+    store = GenerationJobStore(tmp_path / "jobs.json")
+    worker = BrowserGenerationWorker(
+        adapter=adapter, store=store,
+        config=BrowserWorkerConfig(poll_interval_s=0.001, max_poll_interval_s=0.002,
+                                   max_poll_seconds=30.0, min_artifact_bytes=100),
+        owner="w")
+
+    result = await worker.run(task(tmp_path, deadline_epoch_s=time.time() + 0.05))
+    assert isinstance(result, BrowserGenerationObservation)
+    assert result.state is BrowserGenerationState.TIMEOUT
+    assert "deadline" in result.safe_message
+
+
+async def test_a_timed_out_job_is_terminal_and_is_not_resubmitted(tmp_path):
+    space = kit.workspace(tmp_path / "contexts")
+    quarantine = space.prepare()
+    dom = kit.on(kit.ready_page(), on_click=kit.submitting())
+    adapter = kit.adapter(dom, quarantine, space=space)
+    store = GenerationJobStore(tmp_path / "jobs.json")
+    config = BrowserWorkerConfig(poll_interval_s=0.001, max_poll_interval_s=0.002,
+                                 max_poll_seconds=0.05, min_artifact_bytes=100)
+    request = task(tmp_path)
+    await BrowserGenerationWorker(adapter=adapter, store=store, config=config,
+                                  owner="w").run(request)
+    clicks_after_first = len(dom.clicks)
+
+    again = await BrowserGenerationWorker(adapter=adapter, store=store,
+                                          config=config, owner="w2").run(request)
+    assert again.state is BrowserGenerationState.TIMEOUT
+    assert len(dom.clicks) == clicks_after_first, \
+        "истёкшая работа не отправляется заново сама по себе"
