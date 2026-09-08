@@ -8,7 +8,7 @@
 | | |
 |---|---|
 | Ветка поставки | `night/v7-convergence-20260908` (PR58 → `main`) |
-| **FINAL_CODE_SHA** | `d415db401ad75f81536340f39137b2c4ef1a1e52` — на нём измерены все три набора |
+| **FINAL_CODE_SHA** | `22ae555bc317c45abc925f70566fea90cd495692` — на нём идут все три набора (см. ниже) |
 | PR59 | `feature/ai-streamer-higgsfield-browser-20260908`, целится в ветку поставки |
 | GitHub default | `claude/bossman-control-v03-43igbk` (содержит `da67a63`) |
 
@@ -29,6 +29,30 @@ default на 214 коммитов, default опережает её на 18 (ли
 | `d884a7f` (PR59) | Задание `social-farm pytest` выходило с кодом 4 на разборе аргументов: `pytest-timeout` не был в `[dev]`, ни одна из 529 проверок не запускалась | Лог CI |
 | `9e18426` (PR59) | Реестр пропусков не покрывал `apps/social-farm/tests` — двадцать пропусков вне учёта у пакета, про который зелёная галочка теперь что-то утверждает | Аудит области реестра |
 
+## Закрытие по независимому аудиту (FINAL CLOSURE), на текущем кандидате
+
+Каждая строка аудита — гипотеза. Каждая воспроизведена на ТЕКУЩЕМ коде до
+правки, а не принята с чужого SHA; где не воспроизводится — так и написано.
+
+| § | Утверждение аудита | На кандидате | Что сделано |
+|---|---|---|---|
+| 4 | `default_effect=deny` + выданное право → AUTO | **воспроизведено** | `e1b9029`: блок прав не выполняется для default=deny |
+| 4 | совпавшее DENY-правило перекрыто последующим общим AUTO | **воспроизведено** | `e1b9029`: DENY, принятый правилом, поднимает пол; 181 проверка по всем потребителям, включая tool-loop; мутации бьют по одному |
+| 3 | dispatch после approve, когда затем добавлен DENY через API | **воспроизведено** — эффект выполнялся | `718f0df`: `decide_effect` в момент эффекта |
+| 3 | dispatch после approve, когда инструмент снят с агента | **воспроизведено** | `718f0df`: `allowed_tools_for` в момент эффекта |
+| 3 | отзыв в окне между чтением approved и dispatch | **воспроизведено** (гонка с Event-барьерами, effect_count был 1) | `718f0df`: `Approvals.accept_for_execution` — CAS approved→consumed, атомарная граница «принято к исполнению»; effect_count = 0 |
+| 3 | expiry при возобновлении | **проверено, дефекта нет**: аренда расходуется CAS-ом `approval_scope.consume` — `status='active' AND expires_at > now() AND used < max_uses` в момент использования (engine.py:1384); просроченная/исчерпанная аренда не даёт эффекта; путь припаркованного одобрения аренду не использует | без изменений |
+| 5 | остальные production-записи `completed` | **проверено, дефекта нет**: единственный писатель — `finalize.py` (гейт-вердикты → fence → run∈task → нет открытых approvals → `verify_all` со STALE_EVIDENCE_REJECTED; override снимает только суждение ревьюера, не world evidence) | без изменений |
+| 7 | `_Scripted` задаёт токены константой; терминал не создаёт документ; PASS принимает `failed` | **воспроизведено** все три | `22ae555`: успех = completed + документ на диске; `failed` не PASS; safety outcome отдельно; синтетика названа синтетикой; свидетельство перегенерировано прогоном |
+| 7 | «1,3 млн → 920 как измеренная экономия A/B» | **в трёх производных документах** | `22ae555`: снято; 1 295 189 — историческая провенанс, `comparable_ab: false` |
+| 6 | Trader Apprentice float; реестр пропусков; OpenHands identity | закрыто ранее | `d415db4`, `4613ed9`/`e12ea8d`, `ef04ced` |
+
+Что НЕ ослаблено и закреплено контролями: право по-прежнему снимает ASK у
+default=ask; правило владельца по-прежнему снимает ASK от невыданного права;
+неизменённое одобрение исполняется ровно один раз и становится consumed;
+takeover после падения «после эффекта, до receipt» по-прежнему паркуется на
+reconciliation (теперь и из состояния consumed).
+
 ## Свидетельства на FINAL_SHA
 
 Прогоны на `6eddb63`, последовательно, а не параллельно: трёхсторонний параллельный
@@ -36,15 +60,18 @@ default на 214 коммитов, default опережает её на 18 (ли
 
 | Набор | Результат |
 |---|---|
-| Command Center | **2729 passed, 17 skipped, 0 failed** (25:08) |
-| root | **1178 passed, 2 skipped, 0 failed** (4:15) |
-| Bossman Core | **3020 passed, 31 skipped, 0 failed** (8:54) |
+| Command Center | прогон на `22ae555` идёт на момент записи; на `d415db4` было 2729 / 17 / 0 |
+| root | прогон на `22ae555` идёт; на `d415db4` было 1178 / 2 / 0 |
+| Bossman Core | прогон на `22ae555` идёт; на `d415db4` было 3020 / 31 / 0 |
 | `test_benchmark_runtime` + `test_benchmark_truth` | 10 passed, 0 ShaMismatch |
 | Секретный скан | PASS |
 | Пробелы (командой CI, всё содержимое против пустого дерева) | PASS |
 | Реестр пропусков | PASS, 153 записи на линии поставки (173 на PR59, где добавлен Social Farm), 0 без причины |
 | OpenHands (`tests/apprentice`) | 80 проверок; `test_worktree_client_acceptance` зелёный и с git-identity, и с `HOME` без неё |
 | Точечно: `test_browser_help_lookup` | 52/52 |
+| Точечно: `test_policy_algebra` + все потребители `decide_effect` | 181 |
+| Точечно: `test_authorization_at_effect_time` + crash-after-effect + approvals/tool-loop | 203/204 (1 skip) |
+| Точечно: `test_convergence_metrics_truth` + `test_v7_nightly_run` | 7 + 55 |
 | Точечно: `test_v7_resource_aware_strategy` | 16/16 |
 | Точечно: `test_v7_resource_pressure_edges` | 16 тестов границ, NaN/inf, CONTESTED, рестарта |
 
@@ -61,7 +88,7 @@ default на 214 коммитов, default опережает её на 18 (ли
 ## Поля
 
 ```
-FINAL_CODE_SHA         = d415db401ad75f81536340f39137b2c4ef1a1e52
+FINAL_CODE_SHA         = 22ae555bc317c45abc925f70566fea90cd495692
 TRADER_APPRENTICE      = PASS (repo-local; движок, корпус, casebook, манифест и API перенесены, 15/15)
 AI_STREAMER_PR59       = PARTIAL (код в PR59, синхронизирован с линией поставки; живой Higgsfield не проверялся)
 OPENHANDS              = PARTIAL (изоляция и структура песочницы доказаны; живой SDK NOT_RUN — рантайм не установлен)
