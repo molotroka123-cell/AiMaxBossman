@@ -182,3 +182,79 @@ def test_the_tool_surface_exposes_no_raw_argument_channel():
         fields = set(model.model_fields)
         assert not (fields & {"args", "argv", "flags", "command", "extra",
                               "options", "raw", "cli"}), (model, fields)
+
+
+# ------------------------------------------------- утечка маршрутов (регресс)
+
+async def test_the_module_router_does_not_grow_across_app_starts(off, tmp_path):
+    """Регресс на утечку, которая утроила время набора Command Center.
+
+    Предыдущая версия довешивала маршруты в `setup()` замыканием на svc, и каждый
+    старт приложения добавлял к ОБЩЕМУ модульному роутеру ещё шесть. В
+    продакшене старт один и утечка невидима; в тестовом процессе стартов сотни,
+    `include_router` копировал всё накопленное, запросы перебирали всё
+    скопированное, и набор перестал укладываться в 30-минутный предел CI.
+
+    Проверяется НАБЛЮДЕНИЕМ: число маршрутов до серии стартов равно числу после.
+    """
+    from bcc.features import file_intelligence as feature_module
+
+    before = len(feature_module.router.routes)
+    assert before == feature_module.ROUTE_COUNT
+    for index in range(4):
+        settings = make_settings(tmp_path / f"app{index}")
+        app, svc = await start_app(settings, start_workers=False)
+        try:
+            assert len(feature_module.router.routes) == before, (
+                f"после старта #{index + 1} маршрутов стало "
+                f"{len(feature_module.router.routes)}, было {before}")
+        finally:
+            await svc.stop()
+    assert len(feature_module.router.routes) == before
+
+
+def test_every_endpoint_is_reachable_in_a_fresh_process():
+    """Маршруты объявлены на импорте, а не в setup(): первое приложение ПЕРВОГО
+    процесса обязано видеть все семь. Проверяется в дочернем интерпретаторе,
+    потому что в родительском роутер уже мог быть затронут другими тестами —
+    и тест прошёл бы по неправильной причине.
+    """
+    import json
+    import subprocess
+    import sys
+
+    script = r'''
+import asyncio, json, sys, tempfile
+sys.path.insert(0, "tests")
+from pathlib import Path
+from tests.conftest import client_for, make_settings, start_app
+
+async def main():
+    with tempfile.TemporaryDirectory() as td:
+        app, svc = await start_app(make_settings(Path(td)), start_workers=False)
+        try:
+            async with client_for(app, svc) as c:
+                codes = {}
+                codes["status"] = (await c.get("/api/file-intelligence/status")).status_code
+                codes["jobs"] = (await c.get("/api/file-intelligence/jobs")).status_code
+                codes["job"] = (await c.get("/api/file-intelligence/jobs/x")).status_code
+                codes["analyze"] = (await c.post("/api/file-intelligence/analyze",
+                    json={"task_class": "file.categorize", "targets": []})).status_code
+                codes["apply"] = (await c.post("/api/file-intelligence/apply",
+                    json={"job_id": "x", "selected": []})).status_code
+                codes["cancel"] = (await c.post("/api/file-intelligence/jobs/x/cancel")).status_code
+                codes["reconcile"] = (await c.post("/api/file-intelligence/jobs/x/reconcile")).status_code
+                print(json.dumps(codes))
+        finally:
+            await svc.stop()
+asyncio.run(main())
+'''
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True,
+                            text=True, timeout=120,
+                            cwd=str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+    assert result.returncode == 0, result.stderr[-1500:]
+    codes = json.loads(result.stdout.strip().splitlines()[-1])
+    assert len(codes) == 7
+    # 404 означало бы «маршрута нет»; всё остальное — маршрут существует и
+    # ответил (в т.ч. названным отказом FEATURE_DISABLED при выключенном флаге).
+    assert all(code != 404 for code in codes.values()), codes

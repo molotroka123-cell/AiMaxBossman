@@ -10,16 +10,26 @@ ScopePolicy, argv собирается списком. «Дать инструм
 и разбирает неоднозначный исход отдельно (§22).
 
 Фича по умолчанию ВЫКЛЮЧЕНА (§31). Выключенная — не поднимает ни одной петли,
-не запускает моделей и отвечает 404-подобным отказом; её отсутствие ничего не
+не запускает моделей и отвечает названным отказом; её отсутствие ничего не
 ломает, и её поломка не имеет права уронить старт Command Center (§30/§31).
+
+Маршруты объявлены НА УРОВНЕ МОДУЛЯ и берут Services из `request.app.state.svc`
+— тот же контракт, что у остальных фич (см. governor.py). Предыдущая версия
+довешивала их в `setup()` замыканием на svc; так каждый старт приложения
+добавлял к общему модульному роутеру ещё шесть маршрутов. В продакшене старт
+один, и это незаметно; в тестовом процессе стартов сотни, и роутер рос без
+предела — каждое `include_router` копировало всё накопленное, а каждый запрос
+перебирал всё скопированное. Набор Command Center вырос с 18 до 58 минут и
+перестал укладываться в 30-минутный предел CI.
 """
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from .. import file_intelligence as fi
@@ -47,7 +57,6 @@ def _service(svc: Any) -> FileIntelligenceService:
     existing = getattr(svc, "_file_intelligence", None)
     if existing is not None:
         return existing
-    import os
     roots = [r for r in os.environ.get(ROOTS_ENV, "").split(os.pathsep) if r.strip()]
     data_dir = Path(getattr(svc.settings, "data_dir", ".")).resolve()
     policy = ScopePolicy(
@@ -91,8 +100,12 @@ class ApplyRequest(BaseModel):
     remote_approved: bool = False
 
 
+# ------------------------------------------------------------------ маршруты
+# Все объявлены здесь, один раз, при импорте модуля. `include_router` копирует
+# ровно этот набор — и копирует его один раз на приложение.
+
 @router.get("/status")
-async def status(svc: Any = Depends(lambda: None)) -> dict[str, Any]:
+async def status() -> dict[str, Any]:
     """Доктор (§18) — работает даже при выключенной фиче, чтобы владелец мог
     увидеть, ЧТО именно не готово, прежде чем включать."""
     found = fi_discovery.discover(probe=fi.enabled())
@@ -109,77 +122,84 @@ async def status(svc: Any = Depends(lambda: None)) -> dict[str, Any]:
     }
 
 
-def attach(svc: Any) -> None:
-    """Довесить эндпоинты, которым нужен Services. Вызывается из setup()."""
+@router.post("/analyze")
+async def analyze(body: AnalyzeRequest, request: Request) -> dict[str, Any]:
+    try:
+        _require_enabled()
+        operation = fi.operation_for(body.task_class)
+        job = await _service(request.app.state.svc).analyze(
+            body.targets, operation=operation,
+            remote_approved=body.remote_approved)
+    except Denied as denied:
+        return _fail(denied)
+    return {"ok": job.state != JobState.DENIED.value, "job": job.as_dict()}
 
-    @router.post("/analyze")
-    async def analyze(body: AnalyzeRequest) -> dict[str, Any]:
-        try:
-            _require_enabled()
-            operation = fi.operation_for(body.task_class)
-            job = await _service(svc).analyze(
-                body.targets, operation=operation,
-                remote_approved=body.remote_approved)
-        except Denied as denied:
-            return _fail(denied)
-        return {"ok": job.state != JobState.DENIED.value, "job": job.as_dict()}
 
-    @router.get("/jobs/{job_id}")
-    async def get_job(job_id: str) -> dict[str, Any]:
-        try:
-            _require_enabled()
-        except Denied as denied:
-            return _fail(denied)
-        job = _service(svc).load(job_id)
-        if job is None:
-            return {"ok": False, "refused": Refusal.PATH_DOES_NOT_EXIST.value}
-        return {"ok": True, "job": job.as_dict()}
+@router.get("/jobs/{job_id}")
+async def get_job(job_id: str, request: Request) -> dict[str, Any]:
+    try:
+        _require_enabled()
+    except Denied as denied:
+        return _fail(denied)
+    job = _service(request.app.state.svc).load(job_id)
+    if job is None:
+        return {"ok": False, "refused": Refusal.PATH_DOES_NOT_EXIST.value}
+    return {"ok": True, "job": job.as_dict()}
 
-    @router.get("/jobs")
-    async def list_jobs() -> dict[str, Any]:
-        try:
-            _require_enabled()
-        except Denied as denied:
-            return _fail(denied)
-        return {"ok": True, "jobs": [j.as_dict() for j in _service(svc).list_jobs()]}
 
-    @router.post("/apply")
-    async def apply(body: ApplyRequest) -> dict[str, Any]:
-        try:
-            _require_enabled()
-            job = await _service(svc).apply(
-                body.job_id, body.selected, remote_approved=body.remote_approved)
-        except Denied as denied:
-            return _fail(denied)
-        return {"ok": job.state == JobState.VERIFIED.value, "job": job.as_dict()}
+@router.get("/jobs")
+async def list_jobs(request: Request) -> dict[str, Any]:
+    try:
+        _require_enabled()
+    except Denied as denied:
+        return _fail(denied)
+    return {"ok": True,
+            "jobs": [j.as_dict() for j in _service(request.app.state.svc).list_jobs()]}
 
-    @router.post("/jobs/{job_id}/cancel")
-    async def cancel(job_id: str) -> dict[str, Any]:
-        try:
-            _require_enabled()
-        except Denied as denied:
-            return _fail(denied)
-        job = _service(svc).stop(job_id)
-        return {"ok": job is not None, "job": job.as_dict() if job else None}
 
-    @router.post("/jobs/{job_id}/reconcile")
-    async def reconcile(job_id: str) -> dict[str, Any]:
-        try:
-            _require_enabled()
-            job = _service(svc).reconcile(job_id)
-        except Denied as denied:
-            return _fail(denied)
-        return {"ok": job.state == JobState.VERIFIED.value, "job": job.as_dict()}
+@router.post("/apply")
+async def apply(body: ApplyRequest, request: Request) -> dict[str, Any]:
+    try:
+        _require_enabled()
+        job = await _service(request.app.state.svc).apply(
+            body.job_id, body.selected, remote_approved=body.remote_approved)
+    except Denied as denied:
+        return _fail(denied)
+    return {"ok": job.state == JobState.VERIFIED.value, "job": job.as_dict()}
+
+
+@router.post("/jobs/{job_id}/cancel")
+async def cancel(job_id: str, request: Request) -> dict[str, Any]:
+    try:
+        _require_enabled()
+    except Denied as denied:
+        return _fail(denied)
+    job = _service(request.app.state.svc).stop(job_id)
+    return {"ok": job is not None, "job": job.as_dict() if job else None}
+
+
+@router.post("/jobs/{job_id}/reconcile")
+async def reconcile(job_id: str, request: Request) -> dict[str, Any]:
+    try:
+        _require_enabled()
+        job = _service(request.app.state.svc).reconcile(job_id)
+    except Denied as denied:
+        return _fail(denied)
+    return {"ok": job.state == JobState.VERIFIED.value, "job": job.as_dict()}
+
+
+#: Ровно столько маршрутов объявляет этот модуль. Тест сверяет число до и после
+#: серии стартов приложения: любое расхождение — снова утечка.
+ROUTE_COUNT = len(router.routes)
 
 
 async def setup(svc: Any) -> None:
-    """Старт фичи. Выключенная — не делает НИЧЕГО.
+    """Старт фичи. Выключенная — не делает НИЧЕГО, и маршрутов не трогает.
 
     Ошибка здесь ловится и записывается: File Intelligence не имеет права
     уронить старт Command Center (§31).
     """
     try:
-        attach(svc)
         if not fi.enabled():
             log.info("file_intelligence is off (%s=0); no runtime was created",
                      fi.FLAG_ENV)
