@@ -206,3 +206,10 @@ The URL uses the repository's configured default port; no successful browser nav
 No task submitted, model invoked, owner approval changed, or editor action performed. No API-only activity is substituted for the requested visible interaction.
 This is a tool-access blocker, not a repository finding; severity counts are unchanged. Resume requires connecting the running Edge session to browser control.
 Provider credentials supplied by the owner are excluded from all audit artifacts and were not used.
+
+Follow-up after owner requested the current GitHub version:
+- `git ls-remote origin refs/heads/night/v7-convergence-20260908 refs/heads/main`: night remains `45027d3e9aef554407a0a9ff07fb8678d1b849f3`; main is `799fc3dd8e4327811be9d8f3e33cc43ce8168977`.
+- Read-only process/socket inspection: Bossman Python process PID 36892 listens on `127.0.0.1:8800`; launch interpreter references the original workspace `.venv`.
+- `Invoke-WebRequest http://127.0.0.1:8800/ -UseBasicParsing -TimeoutSec 10`: HTTP 200; HTML title `BOSSMAN Command Center · UI 2.6.1`.
+- Original workspace `git rev-parse HEAD` now returns `2903b5b9cf8eb65b4c9b1b5e792445cfc7567f28`; this is not proof of the running process's loaded source SHA.
+- Repeated `cua.getState()` still returns empty apps/browsers. UI interaction remains NOT_RUN; neither a live-model test nor latest-source runtime equivalence is claimed.
