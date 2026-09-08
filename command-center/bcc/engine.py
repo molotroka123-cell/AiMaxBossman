@@ -20,6 +20,7 @@ from .db import (Database, agents as agents_t, approvals as approvals_t,
                  checkpoints as checkpoints_t, fetch_one, run_events as run_events_t,
                  task_runs as runs_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow)
 from . import approval_scope as _scope
+from . import mission_budget as _budget
 from .events import EventBus
 from .plugin_security import redact as _ps_redact, redact_text as _ps_redact_text
 from .providers import ChatResult, ProviderError
@@ -976,6 +977,10 @@ class TaskEngine:
         cost = float(run.get("cost_usd") or 0.0)
         answer = ""
         alias = run.get("model_alias") or ""
+        # §8: потолки прогона. Считаются один раз из task.meta — владелец задаёт
+        # их на задачу, а не глобальной константой: сложная миссия законно
+        # дороже правки документации.
+        limits = _budget.Limits.for_task(task)
 
         # V2.1: инструменты, выданные этому run'у. Пусто — поведение как в V2
         # (один вызов модели, без tools в payload).
@@ -1020,6 +1025,12 @@ class TaskEngine:
             tokens_in += result.tokens_in
             tokens_out += result.tokens_out
             cost += _cost(model, result)
+            breach = _budget.check_spend(limits, tokens_in=tokens_in,
+                                         tokens_out=tokens_out, cost_usd=cost)
+            if breach is not None:
+                await self._budget_stop(run_id, task, messages, step, breach,
+                                        tokens_in, tokens_out, cost, alias)
+                return
             if result.cache_read_tokens or result.cache_write_tokens:
                 # Prompt cache: только измерение провайдера (никаких «ожидаемых» экономий)
                 await self._log(run_id, "info", "model.prompt_cache",
@@ -1049,6 +1060,11 @@ class TaskEngine:
                            "cost_usd": round(cost, 6), "model_alias": alias})
                 if waiting:
                     return                  # ждём человека: состояние в БД
+                breach = await _budget.check_identical_calls(self.services, limits, run_id)
+                if breach is not None:
+                    await self._budget_stop(run_id, task, messages, step, breach,
+                                            tokens_in, tokens_out, cost, alias)
+                    return
                 await self._save_checkpoint(run_id, messages, step, note="tools",
                                             tokens_in=tokens_in, tokens_out=tokens_out,
                                             cost_usd=round(cost, 6), model_alias=alias)
@@ -1065,6 +1081,11 @@ class TaskEngine:
 
             answer = result.text
             messages.append({"role": "assistant", "content": answer})
+            breach = _budget.check_stalled_context(limits, messages)
+            if breach is not None:
+                await self._budget_stop(run_id, task, messages, step, breach,
+                                        tokens_in, tokens_out, cost, alias)
+                return
             await self._save_checkpoint(run_id, messages, step, note="answer",
                                         tokens_in=tokens_in, tokens_out=tokens_out,
                                         cost_usd=round(cost, 6), model_alias=alias)
@@ -2104,6 +2125,26 @@ class TaskEngine:
             return
         await self.bus.emit("task.progress", task_id=task_id, run_id=run_id,
                             waiting_approval=True, gate_hook_failed=exc.hook)
+
+    async def _budget_stop(self, run_id: int, task: dict, messages: list[dict], step: int,
+                           breach: Any, tokens_in: int, tokens_out: int,
+                           cost: float, alias: str) -> None:
+        """§8: потолок сработал — прогон закрывается ОТКАЗОМ с названной причиной.
+
+        Ни обрезки контекста, ни понижения модели, ни «частичного успеха»: бюджет,
+        который тихо выдаёт худший ответ, неотличим от бага. Транскрипт
+        сохраняется в checkpoint — владелец должен видеть, на чём остановились,
+        чтобы спорить с потолком уликами, а не поднимать его рефлекторно."""
+        await self._log(run_id, "error", "run.budget_stop", str(breach)[:500])
+        await self.bus.emit("run.budget_exceeded", task_id=task["id"], run_id=run_id,
+                            code=breach.code, detail=breach.detail[:300],
+                            tokens_in=tokens_in, tokens_out=tokens_out,
+                            cost_usd=round(cost, 6), step=step)
+        await self._finish(run_id, task["id"], "failed", error=str(breach),
+                           checkpoint={"messages": messages, "step": step,
+                                       "note": f"budget:{breach.code}"},
+                           tokens_in=tokens_in, tokens_out=tokens_out,
+                           cost_usd=round(cost, 6), model_alias=alias)
 
     async def _fail_now(self, run_id: int, task_id: int, error: str) -> None:
         """Провал без ретраев (нет агента/модели, попытки исчерпаны) — с записью в лог run'а."""

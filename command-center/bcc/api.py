@@ -939,6 +939,14 @@ def _api_router() -> APIRouter:
             raise ApiError("аренда не найдена", status=404)
         return row
 
+    @router.get("/tasks/{task_id}/efficiency")
+    async def task_efficiency(task_id: int, svc: Services = Depends(services)):
+        """§8-метрики прогона: tokens_per_verified_effect, approvals, review
+        cycles, replans, стоимость. Считаются из фактических записей, не из
+        отчёта модели."""
+        from . import mission_budget
+        return await mission_budget.run_metrics(svc, task_id)
+
     @router.get("/approvals/metrics")
     async def approval_metrics(task_id: int, svc: Services = Depends(services)):
         """approvals_per_successful_mission и что именно сэкономила аренда."""
