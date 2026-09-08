@@ -330,12 +330,16 @@ class IsolatedWorktree:
             return True
 
         def _make_writable(func, target, exc_info):
-            # Windows: read-only attribute blocks unlink/rmdir; clear and retry once.
-            try:
-                os.chmod(target, stat.S_IWRITE | stat.S_IREAD | stat.S_IEXEC)
-                func(target)
-            except OSError:
-                raise
+            # Windows: the read-only attribute on the entry blocks unlink/rmdir.
+            # POSIX: a read-only PARENT directory blocks unlinking its entries
+            # (a non-root CI runner failed exactly here while root deleted
+            # regardless). Make both writable, then retry the one operation.
+            for candidate in (os.path.dirname(str(target)), str(target)):
+                try:
+                    os.chmod(candidate, stat.S_IRWXU)
+                except OSError:
+                    pass
+            func(target)
 
         last_error = ""
         for attempt in range(self.CLEANUP_ATTEMPTS):
