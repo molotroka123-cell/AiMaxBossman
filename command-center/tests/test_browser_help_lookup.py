@@ -73,7 +73,13 @@ def test_every_forbidden_intent_pattern_actually_catches_something():
                "антидетект": "antidetect browser",
                "ограничение частоты": "rate limit reached",
                "второй фактор": "enter the otp",
-               "учётные данные": "login credentials"}
+               "учётные данные": "login credentials",
+               "проверка человека (en)": "verify you are human",
+               "проверка человека (ru)": "я не робот",
+               "тариф (en)": "upgrade your plan to continue",
+               "тариф (ru)": "обновите тариф",
+               "обход (ru)": "обойти проверку",
+               "учётные данные (ru)": "пароль от аккаунта"}
     for pattern, what in FORBIDDEN_INTENT:
         assert any(pattern.search(text) for text in samples.values()), what
 
@@ -164,6 +170,57 @@ async def test_the_route_shows_the_query_before_it_goes_anywhere(tmp_path):
             assert "human_challenge" in policy.json()["owner_only"]
     finally:
         await svc.stop()
+
+
+# --------------------------------------------- контроль, названный по-русски
+# и по-человечески
+
+#: Подписи, которые провайдер ставит на СВОИ контроли доступа, не употребляя ни
+#: одного из «технических» слов. Каждая найдена прогоном по живой ручке: до
+#: правки все они собирались в запрос вида «higgsfield ... how to fix», то есть
+#: «как починить проверку, что вы человек» — ровно тот поиск, которого модуль
+#: обещал не делать. Слова «captcha» в них нет, и в этом всё дело.
+HUMAN_CHECK_LABELS = (
+    "verify you are human", "Verify that you are human", "human verification",
+    "are you a robot", "I am not a robot",
+    "я не робот", "Подтвердите, что вы человек", "проверка на робота",
+)
+
+#: План и квота — решение владельца, а не поломка страницы. Единственное, что
+#: можно найти по такой подписи, — как продолжить, не заплатив.
+PLAN_WALL_LABELS = (
+    "Upgrade your plan to continue", "Plan limit reached", "Quota exceeded",
+    "Out of credits", "Обновите тариф", "Квота исчерпана",
+)
+
+#: Уже запрещённые категории, написанные кириллицей. Контроль, названный на
+#: другом языке, остаётся тем же контролем.
+RUSSIAN_CONTROL_LABELS = ("Обойти проверку", "Пароль", "Войти", "Капча")
+
+
+@pytest.mark.parametrize("label", HUMAN_CHECK_LABELS + PLAN_WALL_LABELS
+                         + RUSSIAN_CONTROL_LABELS)
+def test_a_control_named_in_plain_words_is_still_a_control(label):
+    plan = plan_lookup(BrowserTrouble(kind="target_missing", provider="higgsfield",
+                                      target_name=label))
+    assert plan.search is False, plan.query
+    assert plan.query == ""
+    assert plan.owner_action_required is True
+    assert plan.refusal
+
+
+#: Обратная сторона той же правки: обычные подписи обязаны искаться. Запрет,
+#: который заодно глушит настоящие поломки, — не строгость, а поломка гейта.
+@pytest.mark.parametrize("label", [
+    "Кнопка «Генерировать»", "Generate", "Download", "Создать видео",
+    "Upload image", "Настройки проекта", "Render", "Экспорт",
+])
+def test_an_ordinary_control_name_still_reaches_a_query(label):
+    plan = plan_lookup(BrowserTrouble(kind="target_missing", provider="higgsfield",
+                                      target_name=label))
+    assert plan.search is True, plan.refusal
+    assert "how to fix" in plan.query
+    assert plan.advisory_only is True
 
 
 pytestmark = pytest.mark.anyio
