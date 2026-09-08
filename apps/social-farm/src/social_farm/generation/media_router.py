@@ -54,10 +54,16 @@ class RoutingDecision:
     rejected: tuple[str, ...]
 
 
-def choose_generation_route(
+def rank_generation_routes(
     context: RoutingContext,
     candidates: Iterable[RouteCandidate],
-) -> RoutingDecision:
+) -> tuple[list[tuple[float, RouteCandidate]], list[str]]:
+    """Отранжировать пригодные пути и назвать, почему отвергнуты остальные.
+
+    Вынесено из `choose_generation_route` без единого изменения правил: выбор
+    одного пути и построение цепочки запасных — это один и тот же расчёт, и
+    два его экземпляра рано или поздно разошлись бы. Здесь он один.
+    """
     scored: list[tuple[float, RouteCandidate]] = []
     rejected: list[str] = []
 
@@ -120,6 +126,16 @@ def choose_generation_route(
         }[candidate.route]
         scored.append((score + tie_bonus, candidate))
 
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return scored, rejected
+
+
+def choose_generation_route(
+    context: RoutingContext,
+    candidates: Iterable[RouteCandidate],
+) -> RoutingDecision:
+    scored, rejected = rank_generation_routes(context, candidates)
+
     if not scored:
         return RoutingDecision(
             selected=GenerationRoute.DEFER,
@@ -128,7 +144,7 @@ def choose_generation_route(
             rejected=tuple(rejected),
         )
 
-    score, selected = max(scored, key=lambda item: item[0])
+    score, selected = scored[0]
     return RoutingDecision(
         selected=selected.route,
         score=score,
@@ -147,4 +163,5 @@ __all__ = [
     "RoutingContext",
     "RoutingDecision",
     "choose_generation_route",
+    "rank_generation_routes",
 ]

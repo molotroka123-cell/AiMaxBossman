@@ -14,7 +14,8 @@ import time
 from fastapi import APIRouter, HTTPException, Request
 
 from .. import qa_relay  # noqa: F401  — keeps feature import order stable
-from ..reality import compiler, observers, strategy, telemetry, world
+from ..reality import (compiler, media_routing, observers, strategy,
+                       telemetry, world)
 from . import Feature
 
 router = APIRouter(tags=["reality"])
@@ -123,6 +124,31 @@ async def strategies(request: Request, deterministic: bool = False,
     body["memory"] = {"available_mb": memory.available_mb, "source": memory.source,
                       "measured": memory.measured}
     return body
+
+
+@router.get("/reality/generation-media-observations")
+async def generation_media_observations(
+        request: Request, refresh: bool = True,
+        browser: str = media_routing.UNKNOWN,
+        local_generator: str = media_routing.UNKNOWN,
+        buffer: str | None = None):
+    """What the media generator may know about this machine before it routes.
+
+    Observations only. No route is chosen here and none could be: the ranking
+    rules live in the generator service, in one copy, and a second copy in the
+    control plane is exactly the duplicate truth store the architecture asks
+    not to build.
+
+    A value appears only under a FRESH fact. STALE and MISSING are published as
+    "not measured" rather than as a smaller number, because the consumer closes
+    a route on an unmeasured fact — which is how an unmeasured memory budget
+    stops being able to authorise loading a 70 GB model."""
+    svc = request.app.state.svc
+    if refresh:
+        await world.refresh(svc)
+    return media_routing.observations(svc, browser=browser,
+                                      local_generator=local_generator,
+                                      buffer=buffer)
 
 
 @router.get("/reality/shadow")
