@@ -16,6 +16,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
 
+from . import run_provenance
 from .db import (Database, agents as agents_t, approvals as approvals_t,
                  checkpoints as checkpoints_t, fetch_one, models as models_t,
                  run_events as run_events_t,
@@ -120,6 +121,7 @@ class TaskEngine:
         self.retry_base_delay = retry_base_delay
         self.retry_max_delay = retry_max_delay
         self.last_tick: float = 0.0          # для health в /api/system
+        self.last_error: str | None = None
         # Worker Pool: до N run'ов параллельно (env BCC_WORKERS, default 3).
         # Resource Brain через before_run решает, сколько РЕАЛЬНО позволить.
         import os
@@ -525,9 +527,11 @@ class TaskEngine:
                             self._active.pop(rid, None)
                             self._cancelling.discard(rid)
                     if len(self._active) >= self.workers:
+                        self.last_error = None
                         await asyncio.sleep(self.poll_interval / 2)
                         continue
                     run_id = await self.claim()
+                    self.last_error = None
                     if run_id is None:
                         await asyncio.sleep(self.poll_interval)
                         continue
@@ -536,6 +540,7 @@ class TaskEngine:
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:  # worker не должен умирать от одной задачи
+                    self.last_error = f"{type(exc).__name__}: {exc}"[:200]
                     await self.bus.emit("worker.error", message=f"{type(exc).__name__}: {exc}")
                     await asyncio.sleep(self.poll_interval)
         finally:
@@ -947,6 +952,12 @@ class TaskEngine:
                 return
 
         await self._start(run_id, task["id"])
+        # §26: личность исполнителя снимается ЗДЕСЬ — после того как задача,
+        # прогон и агент уже разрешены, и до того как что-либо выполнено. Это
+        # единственная точка входа в выполнение, поэтому одного места хватает.
+        if not await self._capture_provenance(run_id, task, run, agent):
+            await self._fail_now(run_id, task["id"], "provenance_capture_failed: execution did not start")
+            return
         await self._mark_interrupted_dispatches(run_id, task["id"])
         if executor is not None:
             try:
@@ -2215,6 +2226,48 @@ class TaskEngine:
         return False
 
     # ---------- служебное ----------
+
+    async def _capture_provenance(self, run_id: int, task: dict, run: dict,
+                                 agent: dict | None) -> bool:
+        """Capture configuration once, under the current worker's fencing token.
+
+        Capturing an existing record is an idempotent read. A failed new capture
+        stops execution before dispatch; exception bodies may contain secrets.
+        """
+        try:
+            async with self.db.session() as s:
+                current = await fetch_one(s, runs_t, run_id)
+                fence = self.fence_of(run_id)
+                if current is None or (fence is not None and int(current.get("fence") or 0) != fence):
+                    raise FencedOut(run_id, fence)
+                if current.get("provenance") is not None:
+                    return True
+                if current["status"] != "running" or current["task_id"] != task["id"]:
+                    raise ValueError("provenance requires the active matching run")
+                model = fallback = None
+                if agent:
+                    if agent.get("model_id"):
+                        model = await fetch_one(s, models_t, int(agent["model_id"]))
+                    if agent.get("fallback_model_id"):
+                        fallback = await fetch_one(s, models_t, int(agent["fallback_model_id"]))
+                record = run_provenance.build(
+                    task=task, run={**current, "previous_started_at": run.get("started_at")},
+                    agent=agent, model=model, fallback_model=fallback)
+                updated = await s.execute(sa.update(runs_t).where(
+                    runs_t.c.id == run_id, self._fence_clause(run_id),
+                    runs_t.c.status == "running", runs_t.c.provenance.is_(None)).values(
+                    provenance=record))
+                if not updated.rowcount:
+                    await s.rollback()
+                    raise FencedOut(run_id, fence)
+                await s.commit()
+            return True
+        except FencedOut:
+            raise
+        except Exception as exc:
+            await self._log(run_id, "error", "run.provenance_not_captured",
+                            f"provenance capture failed: {type(exc).__name__}")
+            return False
 
     async def _start(self, run_id: int, task_id: int) -> None:
         async with self.db.session() as s:

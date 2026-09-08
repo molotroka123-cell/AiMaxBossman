@@ -37,6 +37,11 @@ class BuildWithUI(build_py):
             metadata = manifest.parent / "pyproject.toml"
             if metadata.is_file():
                 shutil.copyfile(metadata, destination / metadata.name)
+            if manifest.parent.name == "file-commander-mini":
+                app_ui = manifest.parent / "src" / "file_commander_mini" / "ui.html"
+                if not app_ui.is_file():
+                    raise RuntimeError("File Commander UI is missing from the release")
+                shutil.copyfile(app_ui, destination / "ui.html")
         if not (target / "index.html").is_file():
             raise RuntimeError("Command Center UI is missing: cannot build a usable wheel")
 

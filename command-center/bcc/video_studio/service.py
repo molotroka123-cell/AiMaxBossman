@@ -60,6 +60,11 @@ def editing_intent(text):
     topic = r"(видео|ролик|ролика|роликов|ролики|субтитр|музык|reels|video|clip|caption|subtitle|fresh vibes|проект)"
     return bool(re.search(action, text) and re.search(topic, text))
 
+
+class VideoEditNotReady(ValueError):
+    """Controlled owner guidance, with no workspace paths or model output."""
+
+
 class VideoService:
     def __init__(self, svc):
         from .media import MediaLibrary
@@ -305,17 +310,33 @@ class VideoService:
         await self.svc.bus.emit("video.project.open",project_id=pid,task_id=tid)
         return {"handled":True,"project_id":pid,"task_id":tid,"text":text}
 
-    async def edit_executor(self, task, run, engine):
+    def _edit_plan(self, task, project):
+        """Build the existing native edit plan without changing project state.
+
+        The chat checks this before enqueueing, and the worker checks again:
+        importing/undoing media between admission and execution changes readiness.
+        """
         from .model import sequence, clip_duration
-        pid=task["meta"]["video_project_id"]
-        project=await self.store.get(pid)
         text=task["prompt"].lower()
+        unsupported = re.search(
+            r"субтитр|caption|subtitle|\b(?:замени|добавь|убери|обрежь|удали|переведи|"
+            r"replace|add|remove|trim|delete|translate)\b", text)
+        # Opening/stitching the timeline must not complete an additional effect
+        # that this deterministic executor never performs (music, subtitles...).
+        if unsupported:
+            raise VideoEditNotReady(
+                "VIDEO_COMMAND_REQUIRED: Эта правка требует явных команд таймлайна "
+                "или обученного видеоагента. Откройте проект в Video Studio; "
+                "автомонтаж не выполнил бы весь запрос, задача не запущена.")
         if re.search(r"^(открой|open)\b",text):
-            return json.dumps({"project_id":pid,"revision":project["revision"],"opened":True})
+            return None
         vertical=bool(re.search(r"reels|вертикаль",text))
         stitch=bool(re.search(r"склей|смонтир|merge|stitch|edit.*video",text))
         if not (vertical or stitch):
-            raise ValueError("this request requires an assigned video skill or supported explicit timeline commands")
+            raise VideoEditNotReady(
+                "VIDEO_COMMAND_REQUIRED: Автомонтаж выполняет склейку и подготовку Reels. "
+                "Для этой правки откройте проект в Video Studio и примените явные команды "
+                "таймлайна или назначьте обученного видеоагента; задача не запущена.")
         seq=sequence(project)
         operations=[]
         if vertical:
@@ -336,8 +357,32 @@ class VideoService:
                 "id":"chat-"+str(task["id"])+"-"+media["id"],"media_id":media["id"],
                 "start":cursor,"source_in":0,"source_out":duration}})
             cursor+=duration
-        if not operations:
-            raise ValueError("attach media before editing; existing montage was preserved")
+        if not operations or not any(t["clips"] for t in seq["tracks"]) and not any(
+                op["type"] == "clip.add" for op in operations):
+            raise VideoEditNotReady(
+                "VIDEO_MEDIA_REQUIRED: Прикрепите новое видео или аудио перед запуском "
+                "монтажа. Существующий проект сохранён, задача не запущена.")
+        return operations
+
+    async def check_edit_ready(self, task):
+        project=await self.store.get(task["meta"]["video_project_id"])
+        self._edit_plan(task,project)
+
+    async def edit_admission(self, task, run):
+        if task.get("kind") != "video_edit":
+            return None
+        try:
+            await self.check_edit_ready(task)
+        except VideoEditNotReady as exc:
+            return {"fail":str(exc)}
+        return None
+
+    async def edit_executor(self, task, run, engine):
+        pid=task["meta"]["video_project_id"]
+        project=await self.store.get(pid)
+        operations=self._edit_plan(task,project)
+        if operations is None:
+            return json.dumps({"project_id":pid,"revision":project["revision"],"opened":True})
         await engine.assert_fence(run["id"])
         result=await self.command({"project_id":pid,"expected_revision":project["revision"],
             "operation_id":"chat-edit-"+str(task["id"]),

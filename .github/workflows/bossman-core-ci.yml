@@ -1,4 +1,6 @@
 name: Bossman Core CI
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 # Отдельный gate ядра: раньше CI гонял только Command Center, а bossman-core не
 # проверялся автоматически вовсе. Набор ядра разбит на предсказуемые группы,
@@ -97,6 +99,7 @@ jobs:
         # benchmark commits in isolated worktrees (run_isolated / ShaMismatch
         # integrity refuses unknown SHAs instead of relabelling them).
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Python ${{ matrix.python }}
@@ -151,6 +154,7 @@ jobs:
         # честно падает с ShaMismatch («unknown commit 8a13f1d3») вместо того,
         # чтобы переименовать неизвестный SHA во что-то знакомое.
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
@@ -189,6 +193,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Python 3.12
         uses: actions/setup-python@v7
@@ -213,7 +219,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: bossman-core-security-${{ github.sha }}
+          name: bossman-core-security-${{ github.event.pull_request.head.sha || github.sha }}
           path: astra-security-results/
           if-no-files-found: error
           retention-days: 30

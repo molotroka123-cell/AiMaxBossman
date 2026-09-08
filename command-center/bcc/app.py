@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import socket
+import sys
 from typing import Sequence
 
 import uvicorn
@@ -56,6 +57,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> None:
     """Запуск сервера. ``--help`` и ``--version`` больше не поднимают сервер."""
+    # Windows redirected streams can use an ANSI codepage. Preserve that
+    # encoding and make Unicode help/paths printable without aborting startup.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
     args = build_parser().parse_args(list(argv) if argv is not None else None)
     if args.version:
         print(f"bcc {__version__}", flush=True)

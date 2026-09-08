@@ -19,7 +19,14 @@ export async function routeVideoRequest(text, files, ctx) {
     const uploaded=await api.raw(`/api/video-studio/media?${params}`,{method:'POST',body:file});
     project=uploaded.project;state.uploaded.add(i);
   }
-  await api.raw(`/api/video-studio/chat/${response.task_id}/run`,{method:'POST'});
+  try {
+    await api.raw(`/api/video-studio/chat/${response.task_id}/run`,{method:'POST'});
+  } catch (error) {
+    // The draft/project survived admission refusal. Expose a direct way to
+    // attach media or make explicit edits, without retrying the rejected task.
+    error.videoProjectId=response.project_id;
+    throw error;
+  }
   state.text='';state.files=[];state.requestId='';
   window.dispatchEvent(new CustomEvent('bcc:video-open',{detail:response}));
   ctx.navigate('video-studio',{project_id:response.project_id});
@@ -52,9 +59,11 @@ export const ChatPage={id:'bossman-chat',title:'История видео и ч�
     input.addEventListener('input',()=>{state.text=input.value;state.requestId='';});
     const files=attachmentInput();
     const status=h('p',{role:'status'},'Файлы остаются локально. Теоретические вопросы не создают проект.');
+    const recovery=h('div');
     const send=h('button.bx-btn.bx-btn-primary',{type:'button'},'Отправить');
     send.addEventListener('click',async()=>{
       send.disabled=true;
+      recovery.replaceChildren();
       try {
         if(!await routeVideoRequest(input.value.trim(),state.files,ctx)) {
           if(!state.agentId) {status.textContent='Выберите существующего агента для ответа на обычный вопрос.';return;}
@@ -64,11 +73,16 @@ export const ChatPage={id:'bossman-chat',title:'История видео и ч�
           await api.createTask({title:text.split('\n')[0].slice(0,100),prompt:text,agent_id:Number(state.agentId),priority:5,run_now:true});
           state.text='';input.value='';toastOk('Вопрос отправлен выбранному агенту');ctx.navigate('tasks');
         }
-      } catch(e){toastError(e);status.textContent=e.message;}
+      } catch(e){
+        toastError(e);status.textContent=e.message;
+        if(e.videoProjectId) recovery.append(h('button.bx-btn',{type:'button',
+          onClick:()=>ctx.navigate('video-studio',{project_id:e.videoProjectId})},'Открыть сохранённый проект'));
+      }
       finally{send.disabled=false;}
     });
-    return h('section.bx-panel',h('div.bx-panel-body',h('h2','Bossman Chat'),input,files,agentSelect,send,status,
+    return h('section.bx-panel',h('div.bx-panel-body',h('h2','Bossman Chat'),input,files,agentSelect,send,status,recovery,
       ...records.map(row=>h('article.bx-panel',h('p',row.text),h('p',`Задача #${row.task_id} · ${resultById.get(row.task_id)?.task?.status||'сохранена'}`),
+        resultById.get(row.task_id)?.error?h('p',{role:'alert'},String(resultById.get(row.task_id).error)):null,
         resultById.get(row.task_id)?.result?h('pre',String(resultById.get(row.task_id).result)):null,
         h('button.bx-btn',{type:'button',onClick:()=>ctx.navigate('video-studio',{project_id:row.project_id})},'Открыть Video Studio')))));
   },onEvent:()=>false};

@@ -1,7 +1,9 @@
 name: Evening residual safety (not live acceptance)
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 on:
   push:
-    branches: [claude/bossman-control-v03-43igbk]
+    branches: [claude/bossman-control-v03-43igbk, claude/bossman-final-audit-closure-aucx9x, 'release/**']
     paths:
       - 'bossman-core/bossman/learning_guard/evidence_ledger.py'
       - 'bossman-core/bossman/computer_operator/manager.py'
@@ -25,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -37,7 +39,7 @@ jobs:
           root=pathlib.Path.cwd()
           out=root/'safety-results';out.mkdir()
           sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          assert sha==os.environ['GITHUB_SHA']
+          assert sha==os.environ['BOSSMAN_ACCEPTANCE_SHA']
           (out/'manifest.json').write_text(json.dumps({'sha':sha,'platform':platform.platform(),'python':platform.python_version(),'tier':'REAL_COMPONENT','live_ui':'NOT_RUN'}),encoding='utf-8')
           with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as f:
               f.write('PYTHONPATH='+os.pathsep.join(map(str,[root,root/'bossman-core',root/'command-center']))+'\n')
@@ -63,7 +65,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: evening-safety-${{ matrix.os }}-${{ github.sha }}
+          name: evening-safety-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: safety-results/
           if-no-files-found: error
           retention-days: 7

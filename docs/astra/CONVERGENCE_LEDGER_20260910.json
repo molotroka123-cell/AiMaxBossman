@@ -384,8 +384,8 @@
       "branch": "claude/bossman-control-v03-43igbk",
       "sha": "d05318bbb1592638a7b0271d054a0cd1ec8ba995",
       "subject": "chore(deps): bump actions/setup-python from 5 to 7",
-      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
-      "decision": "Defer unrelated setup-python major upgrade; keep the recovery toolchain until exact-SHA CI proves a needed change.",
+      "classification": "DUPLICATE",
+      "decision": "Already preserved in floor by patch-equivalent b41232b492913e05497c1e3596e83cb49be058ff (setup-python v7); git cherry reports equivalent patch. Do not apply twice.",
       "changed_paths": [
         ".github/workflows/astra-acceptance.yml",
         ".github/workflows/bossman-benchmark.yml",
@@ -399,24 +399,26 @@
         ".github/workflows/release-certification.yml",
         ".github/workflows/root-ci.yml",
         ".github/workflows/solana-safety-ci.yml"
-      ]
+      ],
+      "patch_equivalent_floor_commit": "b41232b492913e05497c1e3596e83cb49be058ff"
     },
     {
       "branch": "claude/bossman-control-v03-43igbk",
       "sha": "ac245c738c261bd616b3d2ef1ebfac670c1e31eb",
       "subject": "chore(deps): bump peter-evans/create-pull-request from 5 to 8",
-      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
-      "decision": "Defer auto-PR action major upgrade; unrelated to installing and running the product.",
+      "classification": "DUPLICATE",
+      "decision": "Already preserved in floor by patch-equivalent e2d8028fd24c996c75b22ff30aa37f43f93fd7d9 (create-pull-request v8); git cherry reports equivalent patch. Do not apply twice.",
       "changed_paths": [
         ".github/workflows/bossman-v2-repair.yml"
-      ]
+      ],
+      "patch_equivalent_floor_commit": "e2d8028fd24c996c75b22ff30aa37f43f93fd7d9"
     },
     {
       "branch": "claude/bossman-control-v03-43igbk",
       "sha": "fca0eafd9b8d2366b7d040af8a57c3fefeeb03b5",
       "subject": "chore(deps): bump actions/upload-artifact from 4 to 7",
-      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
-      "decision": "Defer upload-artifact major upgrade; no application fix in this commit.",
+      "classification": "DUPLICATE",
+      "decision": "Already preserved in floor by patch-equivalent e7a6d908795650ec6d537f9a3ef1a185f255f538 (upload-artifact v7); git cherry reports equivalent patch. Do not apply twice.",
       "changed_paths": [
         ".github/workflows/astra-acceptance.yml",
         ".github/workflows/bossman-benchmark.yml",
@@ -427,27 +429,30 @@
         ".github/workflows/human-speed-components.yml",
         ".github/workflows/intelligence-preservation.yml",
         ".github/workflows/release-certification.yml"
-      ]
+      ],
+      "patch_equivalent_floor_commit": "e7a6d908795650ec6d537f9a3ef1a185f255f538"
     },
     {
       "branch": "claude/bossman-control-v03-43igbk",
       "sha": "29b26563b56582a7dc0ad8fb9aba99f6eabbd479",
       "subject": "docs(audit): record safe PR maintenance, merge #5 and preserve unresolved work",
       "classification": "DOC_ONLY",
-      "decision": "Historical PR triage; preserve as reference, no runtime evidence transferred.",
+      "decision": "Already preserved in floor by patch-equivalent 6595c006d0acbf56913263c8b9a0b6b98cff111e (historical PR triage); git cherry reports equivalent patch. Do not apply twice.",
       "changed_paths": [
         "docs/audits/PR_MERGE_TRIAGE_20260907.md"
-      ]
+      ],
+      "patch_equivalent_floor_commit": "6595c006d0acbf56913263c8b9a0b6b98cff111e"
     },
     {
       "branch": "claude/bossman-control-v03-43igbk",
       "sha": "8567ffac27b7c4b2929b850d9a0d181330dbbcd7",
       "subject": "chore(audit): full repo audit issues backlog",
       "classification": "DOC_ONLY",
-      "decision": "Historical audit backlog; review claims against the convergence tree.",
+      "decision": "Already preserved in floor by patch-equivalent 2e6cd3f648e5ccedde901967dadbcb4e17bfc44c (historical audit backlog); git cherry reports equivalent patch. Do not apply twice.",
       "changed_paths": [
         "AUDIT_ISSUES_BACKLOG.md"
-      ]
+      ],
+      "patch_equivalent_floor_commit": "2e6cd3f648e5ccedde901967dadbcb4e17bfc44c"
     },
     {
       "branch": "claude/bossman-control-v03-43igbk",
@@ -1412,5 +1417,6 @@
       "decision": "Ancestry merge from night convergence, which PR61 already inherits through 45027d3; do not replay an ancestry merge as feature work.",
       "changed_paths": []
     }
-  ]
+  ],
+  "patch_equivalence_verified": "git cherry 45027d3 a676296; equivalent subjects resolved with git log 45027d3"
 }

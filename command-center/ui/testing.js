@@ -94,7 +94,9 @@ function styles() {
   .bcc-testing-btn:hover{background:rgba(0,0,0,.24)}
   .bcc-testing-btn[disabled]{opacity:.55;cursor:progress}
   .bcc-testing-msg{font-weight:600;max-width:46ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  @media (max-width:640px){.bcc-testing-count,.bcc-testing-msg{display:none}}`;
+  @media (max-width:640px){.bcc-testing-count{display:none}.bcc-testing-bar{flex-wrap:wrap}
+    .bcc-testing-msg{max-width:100%;white-space:normal;flex-basis:100%;order:1}
+    .bcc-testing-msg:empty{display:none}}`;
   document.head.appendChild(css);
 }
 

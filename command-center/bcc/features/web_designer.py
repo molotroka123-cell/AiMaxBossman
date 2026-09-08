@@ -22,10 +22,12 @@ import json
 import os
 import re
 import shutil
+import stat
 import tempfile
 import time
 from html import escape
 from pathlib import Path
+from weakref import WeakValueDictionary
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -71,11 +73,36 @@ _NOTE_RE = re.compile(r"[\r\n\t]+")
 # ---------------------------------------------------------------- хранилище
 
 def _root(svc) -> Path:
-    return Path(svc.settings.data_dir) / "web_designer"
+    root = Path(svc.settings.data_dir) / "web_designer"
+    _safe_path(root)
+    return root
+
+
+def _safe_path(path: Path) -> None:
+    """Refuse symlinks and Windows junction/reparse components before I/O."""
+    for part in (path, *path.parents):
+        try:
+            info = part.lstat()
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise HTTPException(status_code=403, detail="Путь проекта недоступен; доступ запрещён") from exc
+        if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
+            raise HTTPException(status_code=403,
+                                detail="Путь проекта содержит ссылку или junction; доступ запрещён")
+
+
+def _safe_project(pdir: Path) -> None:
+    for path in (pdir, pdir / "project.json", pdir / "current.html", pdir / "history"):
+        _safe_path(path)
 
 
 def _pdir(svc, pid: int) -> Path:
-    return _root(svc) / str(int(pid))
+    if int(pid) < 1:
+        raise HTTPException(status_code=404, detail="проект не найден")
+    pdir = _root(svc) / str(int(pid))
+    _safe_project(pdir)
+    return pdir
 
 
 def _write_atomic(path: Path, text: str) -> None:
@@ -86,7 +113,9 @@ def _write_atomic(path: Path, text: str) -> None:
     своего. os.replace на одной файловой системе атомарен, поэтому читатель
     видит либо старую версию целиком, либо новую целиком.
     """
+    _safe_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    _safe_path(path)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -99,25 +128,83 @@ def _write_atomic(path: Path, text: str) -> None:
         raise
 
 
-_LOCKS: dict[str, asyncio.Lock] = {}
+_LOCKS: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
 
 
-def _project_lock(pdir: Path) -> asyncio.Lock:
-    """Одна правка проекта за раз внутри процесса.
+class _ProjectLock:
+    """One read/modify/write transaction across tasks AND BCC processes.
 
-    Блокировка снимает гонку «прочитал → подумал → записал» между двумя
-    правками панели. Межпроцессную гонку она не закрывает — для неё есть
-    сверка версии в `_save_code`, и именно она, а не блокировка, отвечает за
-    то, что чужая запись не будет затёрта молча.
+    Reuse the canonical POSIX/Windows advisory-lock utility. Its bounded wait
+    runs off the event loop. Cancellation waits for acquisition cleanup, so a
+    cancelled request cannot leave a late-acquired OS lock behind.
     """
-    key = str(pdir)
-    lock = _LOCKS.get(key)
-    if lock is None:
-        lock = _LOCKS[key] = asyncio.Lock()
-    return lock
+
+    def __init__(self, pdir: Path) -> None:
+        from bossman_shared.fable_budget import _CrossProcessFileLock
+        key = str(pdir.absolute())
+        self.local = _LOCKS.get(key)
+        if self.local is None:
+            self.local = asyncio.Lock()
+            _LOCKS[key] = self.local
+        # Outside the project: deleting a project must not unlink a held lock
+        # inode and let another process acquire a different lock with its name.
+        self.shared = _CrossProcessFileLock(pdir.parent / ".locks" / pdir.name)
+        self.held = False
+
+    def locked(self) -> bool:
+        return self.local.locked()
+
+    def _acquire(self) -> None:
+        _safe_path(self.shared.path)
+        try:
+            self.shared.__enter__()
+            self.held = True
+        except BaseException:
+            # The existing lock utility leaves its handle open on timeout.
+            if self.shared._handle is not None:
+                self.shared._handle.close()
+                self.shared._handle = None
+            raise
+
+    def _release(self) -> None:
+        if self.held:
+            self.held = False
+            self.shared.__exit__(None, None, None)
+
+    async def __aenter__(self):
+        from bossman_shared.fable_budget import BudgetExhausted
+        await self.local.acquire()
+        pending = asyncio.create_task(asyncio.to_thread(self._acquire))
+        try:
+            await asyncio.shield(pending)
+        except asyncio.CancelledError:
+            try:
+                await pending
+            finally:
+                self._release()
+                self.local.release()
+            raise
+        except (BudgetExhausted, OSError) as exc:
+            self.local.release()
+            raise HTTPException(status_code=409, detail="Проект занят другим процессом; запись не выполнена") from exc
+        except BaseException:
+            self.local.release()
+            raise
+        return self
+
+    async def __aexit__(self, *args):
+        try:
+            self._release()
+        finally:
+            self.local.release()
+
+
+def _project_lock(pdir: Path) -> _ProjectLock:
+    return _ProjectLock(pdir)
 
 
 def _load_meta(pdir: Path) -> dict | None:
+    _safe_project(pdir)
     try:
         raw = json.loads((pdir / "project.json").read_text(encoding="utf-8"))
         return raw if isinstance(raw, dict) else None
@@ -130,18 +217,28 @@ def _save_meta(pdir: Path, meta: dict) -> None:
 
 
 def _current_path(pdir: Path) -> Path:
-    return pdir / "current.html"
+    path = pdir / "current.html"
+    _safe_path(path)
+    return path
 
 
 def _version_path(pdir: Path, version: int) -> Path:
-    return pdir / "history" / f"v{int(version)}.html"
+    path = pdir / "history" / f"v{int(version)}.html"
+    _safe_path(path)
+    return path
 
 
-def _read_code(pdir: Path) -> str:
-    try:
-        return _current_path(pdir).read_text(encoding="utf-8")
-    except OSError:
+def _read_code(pdir: Path, meta: dict | None = None) -> str:
+    # project.json is the commit record, installed only after its history file.
+    # current.html can already contain an uncommitted write after a crash.
+    meta = _load_meta(pdir) if meta is None else meta
+    version = int((meta or {}).get("version", 0))
+    if version == 0:
         return ""
+    try:
+        return _version_path(pdir, version).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise HTTPException(status_code=409, detail="Сохранённая версия проекта недоступна; код не подтверждён") from exc
 
 
 def _next_id(svc) -> int:
@@ -262,6 +359,7 @@ class GenerateIn(BaseModel):
     name: str = Field(default="", max_length=120)
     template: str = "auto"
     palette: str = "auto"
+    base_version: int | None = None
 
 
 class EditIn(BaseModel):
@@ -324,7 +422,12 @@ async def list_projects(request: Request):
     for pdir in _root(svc).iterdir():
         if not pdir.is_dir() or not pdir.name.isdigit():
             continue
-        meta = _load_meta(pdir)
+        try:
+            meta = _load_meta(pdir)
+        except HTTPException as exc:
+            if exc.status_code != 403:
+                raise
+            continue  # unsafe entries are not read or exposed in the list
         if meta:
             items.append(_public_meta(meta))
     items.sort(key=lambda m: (m.get("updated_at") or 0), reverse=True)
@@ -335,43 +438,45 @@ async def list_projects(request: Request):
 async def create_project(body: ProjectIn, request: Request):
     svc = request.app.state.svc
     await _ensure_dir_layout(svc)
-    existing = sum(1 for d in _root(svc).iterdir() if d.is_dir() and d.name.isdigit())
-    if existing >= MAX_PROJECTS:
-        # Раньше предел применялся только к списку: проекты продолжали копиться
-        # на диске, а лишние просто не показывались. Отказ честнее молчания.
-        raise HTTPException(status_code=409,
-                            detail=f"достигнут предел в {MAX_PROJECTS} проектов — удалите ненужные")
-    pid = _next_id(svc)
-    pdir = _pdir(svc, pid)
-    meta = {
-        "id": str(pid), "name": " ".join(body.name.split())[:120],
-        "prompt": body.prompt[:4000], "template": body.template,
-        "palette": body.palette, "version": 0,
-        "created_at": _now(), "updated_at": _now(), "versions": [],
-    }
-    _save_meta(pdir, meta)
-    if body.template == "blank":
-        blank = ("<!DOCTYPE html>\n<html lang=\"ru\">\n<head>\n<meta charset=\"utf-8\">\n"
-                 "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
-                 # Имя проекта — ввод владельца. Без экранирования
-                 # «Кафе"></title><script>…» становился живым скриптом внутри
-                 # СОХРАНЁННОГО сайта, который потом экспортируют без песочницы.
-                 # Путь генератора это делал (web_designer_gen), blank — нет.
-                 f"<title>{escape(meta['name'], quote=True)}</title>\n"
-                 "</head>\n<body>\n\n</body>\n</html>\n")
-        _save_code(svc, pdir, blank, "пустой проект")
-        meta = _load_meta(pdir)
-    else:
-        result = gen.generate(body.prompt or body.name, name=body.name,
-                              template=body.template, palette=body.palette)
-        meta["template"] = result["template"]
-        meta["palette"] = result["palette"]
-        meta["name"] = result["name"] if body.prompt else meta["name"]
-        _save_meta(pdir, meta)
-        final = result["steps"][-1]
-        _save_code(svc, pdir, final, f"шаблон {result['template']}, палитра {result['palette']}")
-        meta = _load_meta(pdir)
-    return {"meta": _public_meta(meta or {}), "code": _read_code(pdir)}
+    async with _project_lock(_root(svc) / "_catalog"):
+        existing = sum(1 for d in _root(svc).iterdir() if d.is_dir() and d.name.isdigit())
+        if existing >= MAX_PROJECTS:
+            # Раньше предел применялся только к списку: проекты продолжали копиться
+            # на диске, а лишние просто не показывались. Отказ честнее молчания.
+            raise HTTPException(status_code=409,
+                                detail=f"достигнут предел в {MAX_PROJECTS} проектов — удалите ненужные")
+        pid = _next_id(svc)
+        pdir = _pdir(svc, pid)
+        async with _project_lock(pdir):
+            meta = {
+                "id": str(pid), "name": " ".join(body.name.split())[:120],
+                "prompt": body.prompt[:4000], "template": body.template,
+                "palette": body.palette, "version": 0,
+                "created_at": _now(), "updated_at": _now(), "versions": [],
+            }
+            _save_meta(pdir, meta)
+            if body.template == "blank":
+                blank = ("<!DOCTYPE html>\n<html lang=\"ru\">\n<head>\n<meta charset=\"utf-8\">\n"
+                         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+                         # Имя проекта — ввод владельца. Без экранирования
+                         # «Кафе"></title><script>…» становился живым скриптом внутри
+                         # СОХРАНЁННОГО сайта, который потом экспортируют без песочницы.
+                         # Путь генератора это делал (web_designer_gen), blank — нет.
+                         f"<title>{escape(meta['name'], quote=True)}</title>\n"
+                         "</head>\n<body>\n\n</body>\n</html>\n")
+                _save_code(svc, pdir, blank, "пустой проект")
+                meta = _load_meta(pdir)
+            else:
+                result = gen.generate(body.prompt or body.name, name=body.name,
+                                      template=body.template, palette=body.palette)
+                meta["template"] = result["template"]
+                meta["palette"] = result["palette"]
+                meta["name"] = result["name"] if body.prompt else meta["name"]
+                _save_meta(pdir, meta)
+                final = result["steps"][-1]
+                _save_code(svc, pdir, final, f"шаблон {result['template']}, палитра {result['palette']}")
+                meta = _load_meta(pdir)
+            return {"meta": _public_meta(meta or {}), "code": _read_code(pdir)}
 
 
 @router.get("/web-designer/templates")
@@ -384,7 +489,7 @@ async def templates():
 async def get_project(pid: int, request: Request):
     svc = request.app.state.svc
     pdir, meta = _require_project(svc, pid)
-    return {"meta": _public_meta(meta), "code": _read_code(pdir),
+    return {"meta": _public_meta(meta), "code": _read_code(pdir, meta),
             "versions": list(meta.get("versions") or [])[-MAX_VERSIONS:]}
 
 
@@ -395,6 +500,7 @@ async def put_code(pid: int, body: CodeIn, request: Request):
     if not _TAG_RE.search(body.html[:2000]):
         raise HTTPException(status_code=422, detail="это не похоже на HTML-документ")
     async with _project_lock(pdir):
+        _require_project(svc, pid)
         meta = _save_code(svc, pdir, body.html, body.note or "правка кода",
                           expect_version=body.base_version)
     return {"ok": True, "meta": meta}
@@ -405,11 +511,14 @@ async def generate_site(pid: int, body: GenerateIn, request: Request):
     """Собрать сайт по описанию. Хранится только финал; steps — для анимации в UI."""
     svc = request.app.state.svc
     pdir, meta = _require_project(svc, pid)
+    base_version = body.base_version if body.base_version is not None else int(meta.get("version", 0))
     result = gen.generate(body.prompt or meta.get("prompt", ""), name=body.name or meta.get("name", ""),
                           template=body.template, palette=body.palette)
     async with _project_lock(pdir):
+        _require_project(svc, pid)
         meta = _save_code(svc, pdir, result["steps"][-1],
                           f"генерация: {result['template']}/{result['palette']}",
+                          expect_version=base_version,
                           fields={"template": result["template"], "palette": result["palette"]})
     return {"ok": True, "meta": meta, "template": result["template"],
             "palette": result["palette"], "steps": result["steps"]}
@@ -421,6 +530,7 @@ async def edit_project(pid: int, body: EditIn, request: Request):
     svc = request.app.state.svc
     pdir, meta_now = _require_project(svc, pid)
     async with _project_lock(pdir):
+        _require_project(svc, pid)
         html = _read_code(pdir)
         if not html:
             raise HTTPException(status_code=409, detail="в проекте пока нет кода")
@@ -470,15 +580,15 @@ async def preview(pid: int, request: Request, nonce: str = ""):
 async def ai_edit(pid: int, body: AiEditIn, request: Request):
     """Правка кода моделью из реестра. Модели нет — честный отказ."""
     svc = request.app.state.svc
-    pdir, _ = _require_project(svc, pid)
-    html = _read_code(pdir)
+    pdir, base_meta = _require_project(svc, pid)
+    html = _read_code(pdir, base_meta)
     if not html:
         raise HTTPException(status_code=409, detail="в проекте пока нет кода")
     # Версия, на которой строится правка. Ответ модели приходит через секунды,
     # и раньше он записывался поверх всего, что владелец успел сделать за это
     # время: чтение до await, запись после, без сверки. Теперь база правки
     # зафиксирована и проверяется при записи.
-    base_version = int((_load_meta(pdir) or {}).get("version", 0))
+    base_version = int(base_meta.get("version", 0))
     if body.base_version is not None and int(body.base_version) != base_version:
         raise HTTPException(
             status_code=409,
@@ -553,6 +663,7 @@ async def ai_edit(pid: int, body: AiEditIn, request: Request):
         dom._strip_bd_ids(root)
         new_html = dom.serialize(root)
     async with _project_lock(pdir):
+        _require_project(svc, pid)
         meta = _save_code(svc, pdir, new_html, f"AI: {_note(body.prompt)}",
                           expect_version=base_version)
     return {"ok": True, "meta": meta, "model": model_row.get("alias") or model_row.get("name"),
@@ -609,6 +720,7 @@ async def restore_version(pid: int, version: int, request: Request):
         raise HTTPException(status_code=404, detail=f"версия {version} не сохранилась")
     html = path.read_text(encoding="utf-8")
     async with _project_lock(pdir):
+        _require_project(svc, pid)
         meta = _save_code(svc, pdir, html, f"откат к версии {version}")
     return {"ok": True, "meta": meta, "code": html}
 
@@ -617,5 +729,14 @@ async def restore_version(pid: int, version: int, request: Request):
 async def delete_project(pid: int, request: Request):
     svc = request.app.state.svc
     pdir, _ = _require_project(svc, pid)
-    shutil.rmtree(pdir, ignore_errors=True)
+    async with _project_lock(pdir):
+        _require_project(svc, pid)
+        try:
+            shutil.rmtree(pdir)
+        except OSError as exc:
+            raise HTTPException(status_code=409,
+                                detail="Проект не удалён: файл занят или нет прав. "
+                                       "Закройте файлы проекта и проверьте доступ.") from exc
+        if pdir.exists():
+            raise HTTPException(status_code=409, detail="Удаление проекта не подтверждено")
     return {"ok": True}

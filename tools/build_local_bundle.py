@@ -81,7 +81,7 @@ def build_wheels(wheels: Path) -> list[Path]:
     return built
 
 
-def verify(wheels: Path, verifier: Path) -> dict:
+def verify(wheels: Path, verifier: Path, source_sha: str) -> dict:
     # The cwd and the harness copy are outside the repository. PYTHONPATH and
     # UI overrides must not accidentally make an incomplete wheel look good.
     with tempfile.TemporaryDirectory(prefix="bossman-clean-install-") as temporary:
@@ -99,7 +99,7 @@ def verify(wheels: Path, verifier: Path) -> dict:
         shutil.copyfile(verifier, installed_script)
         result_path = work / "acceptance.json"
         _run([str(python), str(installed_script), "--workdir", str(work / "acceptance"),
-              "--out", str(result_path)], cwd=work, env=env)
+              "--out", str(result_path), "--expected-sha", source_sha], cwd=work, env=env)
         result = json.loads(result_path.read_text(encoding="utf-8"))
         result["dependency_versions"] = json.loads(_run(
             [str(python), "-m", "pip", "list", "--format=json"], cwd=work, env=env).stdout)
@@ -127,11 +127,21 @@ for item in manifest["files"]:
     if not path.is_relative_to(root) or hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]:
         raise SystemExit(f"Artifact checksum/path verification failed: {item['path']}")
 env_dir = root / ".venv"
+if env_dir.is_symlink():
+    raise SystemExit("Refusing to modify a symlinked .venv")
 venv.EnvBuilder(with_pip=True).create(env_dir)
 python = env_dir / ("Scripts" if os.name == "nt" else "bin") / "python"
 subprocess.run([str(python), "-m", "pip", "install", *map(str, sorted((root / "wheels").glob("*.whl")))], check=True)
+# Project versions are intentionally unchanged between RCs: pip otherwise
+# silently keeps an older same-version install. Replace only our local wheels,
+# without needlessly reinstalling their already-resolved external dependencies.
+subprocess.run([str(python), "-m", "pip", "install", "--no-index", "--no-deps", "--force-reinstall",
+                *map(str, sorted((root / "wheels").glob("*.whl")))], check=True)
 subprocess.run([str(python), "-m", "pip", "check"], check=True)
-subprocess.run([str(python), str(root / "verify_installed_product.py"), "--out", str(root / "installed-acceptance.json")], check=True)
+verification_env = dict(os.environ)
+for key in ("PYTHONPATH", "BCC_UI_DIR", "BCC_DATA_DIR", "DATABASE_URL"):
+    verification_env.pop(key, None)
+subprocess.run([str(python), str(root / "verify_installed_product.py"), "--out", str(root / "installed-acceptance.json"), "--expected-sha", manifest["source_sha"]], check=True, env=verification_env)
 print("Installed source SHA:", manifest["source_sha"])
 print("Start:", python, "-m bcc")
 print("Open: http://127.0.0.1:8800")
@@ -203,7 +213,7 @@ def main() -> int:
     checks = {"status": "NOT_RUN"}
     if not args.skip_verify:
         print("  installing and booting in a clean environment", flush=True)
-        checks = verify(wheels, verifier)
+        checks = verify(wheels, verifier, sha)
     when = datetime.now(timezone.utc).isoformat()
     (out / "README.md").write_text(README.format(sha=sha, when=when, status=checks["status"]), encoding="utf-8")
     # Detect code changing while the build was running; never stamp a moving

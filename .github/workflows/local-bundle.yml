@@ -6,6 +6,8 @@
 # окружение и проверяет импорты и команды — артефакт, который никто не пробовал
 # установить, поставкой не считается.
 name: Local bundle
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 on:
   workflow_dispatch:
   pull_request:
@@ -25,6 +27,8 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -32,8 +36,40 @@ jobs:
         run: python tools/build_local_bundle.py --out dist/bossman-local
       - name: Show what is being shipped
         run: python -c "import json;m=json.load(open('dist/bossman-local/MANIFEST.json'));print(json.dumps(m,indent=2,ensure_ascii=False))"
+      - name: Install the shipped product for real browser acceptance
+        if: runner.os == 'Linux'
+        run: |
+          python dist/bossman-local/install.py
+          python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
+          python -m playwright install --with-deps chromium
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg
+      - name: Installed UI, real media, safe recovery and process restart
+        if: runner.os == 'Linux'
+        env:
+          BCC_REQUIRE_BROWSER: '1'
+          BCC_ACCEPTANCE_PYTHON: ${{ github.workspace }}/dist/bossman-local/.venv/bin/python
+          BCC_ACCEPTANCE_SOURCE_SHA: ${{ env.BOSSMAN_ACCEPTANCE_SHA }}
+          BOSSMAN_EDITOR_EVIDENCE_DIR: ${{ runner.temp }}/installed-owner-proof
+        run: |
+          mkdir -p "$BOSSMAN_EDITOR_EVIDENCE_DIR"
+          python -m pytest -c command-center/pyproject.toml \
+            command-center/tests/test_editors_user_acceptance.py \
+            command-center/tests/test_web_designer_recovery_ui.py \
+            command-center/tests/test_apps_files_browser_owner.py \
+            command-center/tests/test_apps_files_http_owner.py \
+            -q --junitxml="$BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml"
+          python tools/require_acceptance_results.py "$BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml" --minimum-tests 13
+      - uses: actions/upload-artifact@v7
+        if: always() && runner.os == 'Linux'
+        with:
+          name: installed-owner-proof-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
+          path: ${{ runner.temp }}/installed-owner-proof
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v7
         with:
-          name: bossman-local-${{ matrix.os }}-${{ github.sha }}
-          path: dist/bossman-local
+          name: bossman-local-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            dist/bossman-local
+            !dist/bossman-local/.venv
           if-no-files-found: error

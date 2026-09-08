@@ -179,7 +179,15 @@ def _srv_client(srv) -> httpx.Client:
 
 def _agents(srv, names: list[str]) -> list[int]:
     with _srv_client(srv) as api:
-        return [api.post("/api/agents", json={"name": n}).json()["id"] for n in names]
+        # MF-031: executable owner submissions now validate model configuration.
+        # These are UI selection tests (workers off), not model-backed acceptance.
+        provider = api.post("/api/providers", json={
+            "name": "UI selection fixture", "kind": "openai_compat",
+            "base_url": "http://127.0.0.1:1/v1"}).json()
+        model = api.post("/api/models", json={
+            "provider_id": provider["id"], "name": "ui-selection-fixture"}).json()
+        return [api.post("/api/agents", json={"name": n, "model_id": model["id"]}).json()["id"]
+                for n in names]
 
 
 def _home(pw, srv, errors: list[str]):

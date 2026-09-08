@@ -37,6 +37,7 @@ from .v2.verification import KINDS as VERIFICATION_KINDS
 from .sessions import COOKIE_NAME, CSRF_HEADER, SAFE_METHODS, SessionStore, cookie_kwargs
 from .login_guard import LoginRateLimiter
 from .config import Settings, settings as default_settings
+from . import run_provenance
 from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
                  rows_dicts, settings_kv, task_runs as runs_t, tasks as tasks_t, utcnow)
 from .lifecycle import StartupTrace, sleep_or_stop
@@ -455,6 +456,7 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
     app.state.svc = svc
     _install_error_handlers(app)
     _install_testing_period_log(app)
+    app.include_router(_health_router())
     app.include_router(_public_router())
     app.include_router(_api_router())
     for feature in svc.features:             # V2-фичи: под /api и токен-auth
@@ -626,10 +628,35 @@ def _public_router() -> APIRouter:
     return router
 
 
+def _health_router() -> APIRouter:
+    router = APIRouter()
+
+    @router.get("/health/live")
+    async def liveness():
+        return {"app": APP_IDENTITY, "alive": True, "status": "ALIVE"}
+
+    @router.get("/health")
+    @router.get("/healthz")
+    async def readiness(svc: Services = Depends(services)):
+        from .health import snapshot
+        state = snapshot(svc, await _health(svc), public=True)
+        return JSONResponse({"app": APP_IDENTITY, **state},
+                            status_code=200 if state["ready"] else 503)
+
+    return router
+
+
 def _api_router() -> APIRouter:
     router = APIRouter(prefix="/api", dependencies=[Depends(require_token)])
 
     # ---------- система ----------
+
+    @router.get("/health")
+    async def health(svc: Services = Depends(services)):
+        from .health import snapshot
+        state = snapshot(svc, await _health(svc), public=False)
+        return JSONResponse({"app": APP_IDENTITY, **state},
+                            status_code=200 if state["ready"] else 503)
 
     @router.get("/system")
     async def system(svc: Services = Depends(services)):
@@ -805,21 +832,41 @@ def _api_router() -> APIRouter:
 
     @router.post("/tasks")
     async def create_task(body: TaskIn, svc: Services = Depends(services)):
+        from .task_admission import ExecutorUnavailable, select_executor
+        agent_id = body.agent_id
         template = {"title": body.title, "prompt": body.prompt, "agent_id": body.agent_id,
                     "priority": body.priority, "max_retries": body.max_retries}
+        if body.schedule is not None and body.schedule.task_template:
+            template = {**template, **body.schedule.task_template}
+            agent_id = template.get("agent_id")
+            if not isinstance(template.get("prompt"), str) or (
+                    agent_id is not None and type(agent_id) is not int):
+                raise ApiError("неверный шаблон расписания: нужны текст prompt и числовой agent_id", status=422)
         async with svc.db.session() as s:
+            if body.run_now or body.schedule is not None:
+                # Keep selection and task insertion in the same write snapshot.
+                # Runtime admission still re-reads the agent before dispatch.
+                if svc.db.url.startswith("sqlite"):
+                    await s.execute(sa.text("BEGIN IMMEDIATE"))
+                try:
+                    chosen = await select_executor(s, prompt=template["prompt"], agent_id=agent_id)
+                except ExecutorUnavailable as exc:
+                    raise ApiError(str(exc), status=409, code="BLOCKED_CAPABILITY_UNAVAILABLE",
+                                   hint=exc.hint) from None
+                agent_id = chosen["id"]
+                template["agent_id"] = agent_id
             res = await s.execute(sa.insert(tasks_t).values(
-                title=body.title or body.prompt[:80], prompt=body.prompt, agent_id=body.agent_id,
+                title=body.title or body.prompt[:80], prompt=body.prompt, agent_id=agent_id,
                 priority=body.priority, max_retries=body.max_retries, status="draft",
                 created_at=utcnow(), updated_at=utcnow()))
             task_id = int(res.inserted_primary_key[0])
             await s.commit()
-        await svc.bus.emit("task.created", task_id=task_id, title=body.title, agent_id=body.agent_id)
+        await svc.bus.emit("task.created", task_id=task_id, title=body.title, agent_id=agent_id)
 
         schedule = None
         if body.schedule is not None:
             values = body.schedule.model_dump()
-            values["task_template"] = values.get("task_template") or template
+            values["task_template"] = template
             schedule = await svc.scheduler.create(**values)
             async with svc.db.session() as s:
                 await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
@@ -1020,6 +1067,10 @@ def _run_public(run: dict | None) -> dict | None:
     checkpoint = out.pop("checkpoint", None) or {}
     out["checkpoint"] = {"step": checkpoint.get("step", 0), "note": checkpoint.get("note", ""),
                          "messages": len(checkpoint.get("messages") or [])}
+    # §26: провенанс отдаётся через describe(), чтобы исторический прогон
+    # отвечал явным NOT_CAPTURED, а не пустотой, которую читатель примет за
+    # «прав не было».
+    out["provenance"] = run_provenance.describe(out.pop("provenance", None))
     return out
 
 
@@ -1027,7 +1078,8 @@ async def _health(svc: Services) -> dict:
     """Здоровье компонентов для экрана System."""
     health: dict[str, dict] = {}
     try:
-        await svc.db.ping()
+        async with asyncio.timeout(2.0):
+            await svc.db.ping()
         health["db"] = {"status": "ok", "detail": svc.db.url.split("://")[0]}
     except Exception as exc:
         health["db"] = {"status": "error", "detail": f"{type(exc).__name__}: {exc}"}
@@ -1037,6 +1089,10 @@ async def _health(svc: Services) -> dict:
                                        svc.start_workers)
     health["metrics"] = _loop_health(svc.metrics.last_tick, svc.metrics.interval * 3,
                                      svc.start_workers)
+    for name, loop in (("queue_worker", svc.engine), ("scheduler", svc.scheduler),
+                       ("metrics", svc.metrics)):
+        if svc.start_workers and loop.last_error:
+            health[name] = {"status": "error", "detail": loop.last_error}
     # Петли фич — на том же экране и по тем же правилам. Свип INV-RD-1 живёт
     # в тике review_gate: если он умер, задача снова может ждать вечно, и
     # узнать об этом надо здесь, а не по жалобе владельца.
@@ -1045,6 +1101,16 @@ async def _health(svc: Services) -> dict:
         if state.get("error") and svc.start_workers:
             entry = {"status": "error", "detail": state["error"][:200]}
         health[f"tick:{name}"] = entry
+    if svc.start_workers:
+        names = {"bcc-worker": "queue_worker", "bcc-scheduler": "scheduler",
+                 "bcc-metrics": "metrics"}
+        names.update({f"bcc-{name}": f"tick:{name}" for name in svc.feature_ticks})
+        for task in svc._tasks:
+            component = names.get(task.get_name())
+            if component and task.done():
+                health[component] = {"status": "error", "detail": "фоновый цикл завершился"}
+        if svc.engine.workers < 1:
+            health["queue_worker"] = {"status": "error", "detail": "число исполнителей меньше 1"}
     # P1 no-fake-green: подсистемы с внешними зависимостями не должны выглядеть
     # зелёными, когда они недоступны. Пустой health или unknown не превращается в ok.
     try:
@@ -1052,24 +1118,25 @@ async def _health(svc: Services) -> dict:
         if browser is None:
             from .v2.browser_control import BrowserManager
             browser = svc.browser = BrowserManager(svc.settings.data_dir / "browser")
-        health["browser"] = ({"status": "ok", "detail": "playwright доступен"}
-                             if browser.available else
-                             {"status": "offline", "detail": "playwright/chromium не установлен"})
+        if not browser.available:
+            health["browser"] = {"status": "offline", "detail": "Playwright не установлен"}
+        else:
+            # Importing the Python adapter does not prove Chromium is installed
+            # or running. An actual connected context is positive evidence.
+            sessions = list(getattr(browser, "_sessions", {}).values())
+            connected = any(not session.page.is_closed() and (
+                session.browser is None or session.browser.is_connected()) for session in sessions)
+            health["browser"] = ({"status": "ok", "detail": "есть живой контекст Chromium"}
+                                 if connected else {"status": "unknown",
+                                 "detail": "Playwright установлен; живой контекст Chromium ещё не проверен"})
     except Exception as exc:                                  # честное unknown, не ok
         health["browser"] = {"status": "unknown", "detail": f"{type(exc).__name__}"}
     try:
-        async with svc.db.session() as s:
-            rows = (await s.execute(sa.select(dbm.models.c.status))).fetchall()
-        statuses = [str(r.status or "unknown").lower() for r in rows]
-        if not statuses:
-            health["models"] = {"status": "empty", "detail": "ни одной модели не настроено"}
-        else:
-            bad = [x for x in statuses if x in ("offline", "error")]
-            health["models"] = (
-                {"status": "degraded", "detail": f"{len(bad)} из {len(statuses)} моделей недоступны"}
-                if bad else {"status": "ok", "detail": f"моделей: {len(statuses)}"})
+        from .health import model_components
+        health.update(await model_components(svc))
     except Exception as exc:
         health["models"] = {"status": "unknown", "detail": f"{type(exc).__name__}"}
+        health["providers"] = {"status": "unknown", "detail": f"{type(exc).__name__}"}
     return health
 
 

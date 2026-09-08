@@ -28,6 +28,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 import sqlalchemy as sa
 
@@ -133,6 +134,9 @@ def parse_expected(raw: Any) -> list[ExpectedState]:
 
 async def _observe_file(exp: ExpectedState, *, roots: list[Path]) -> tuple[ObservedState, Evidence]:
     p = Path(exp.target).expanduser()
+    if not roots:
+        return (ObservedState("file", str(p), {"error": "no authorized file roots"}, time.time()),
+                Evidence("file:reopen", "refused: no authorized roots"))
     if not p.is_absolute():
         p = (roots[0] / p) if roots else p
     p = p.resolve()
@@ -203,7 +207,8 @@ async def _observe_browser(exp: ExpectedState, *, svc, task: dict) -> tuple[Obse
                # reviewer did not: one observation, two consumers.
                "challenge": challenge,
                "challenge_provider": str((captcha or {}).get("provider") or "") if challenge else "",
-               "takeover": bool(getattr(snap, "takeover", False) or snap_d.get("takeover"))}
+               "takeover": bool(getattr(snap, "takeover", False) or snap_d.get("takeover")),
+               "paused": bool(getattr(snap, "paused", False) or snap_d.get("paused"))}
         return (ObservedState("browser", exp.target, obs, time.time()),
                 Evidence("browser:snapshot", f"title={obs['title'][:60]!r} url={obs['url'][:80]}"
                          + (f" challenge={obs['challenge_provider'] or 'yes'}" if challenge else "")))
@@ -370,6 +375,37 @@ async def _observe_process(exp: ExpectedState) -> tuple[ObservedState, Evidence]
 
 # ------------------------------------------------------------- compare
 
+def _browser_url_matches(actual: str, expected: str) -> bool:
+    """Compare a domain goal as a host/path, never as attacker-controlled text.
+
+    Legacy path-only goals (e.g. /submit) remain path comparisons. A domain in
+    a query, fragment, user-info field or lookalike hostname proves no visit.
+    """
+    try:
+        observed = urlsplit(actual)
+        if observed.scheme not in ("http", "https") or not observed.hostname:
+            return False
+        if observed.username is not None or observed.password is not None:
+            return False
+        if expected.startswith("/") and not expected.startswith("//"):
+            path = urlsplit(expected).path
+            return observed.path == path or observed.path.startswith(path.rstrip("/") + "/")
+        wanted = urlsplit(expected if "://" in expected else "//" + expected)
+        host = (wanted.hostname or "").rstrip(".").lower()
+        actual_host = observed.hostname.rstrip(".").lower()
+        if not host or not (actual_host == host or actual_host.endswith("." + host)):
+            return False
+        if wanted.scheme and wanted.scheme != observed.scheme:
+            return False
+        if wanted.port is not None and wanted.port != observed.port:
+            return False
+        if wanted.path and not (observed.path == wanted.path or
+                                observed.path.startswith(wanted.path.rstrip("/") + "/")):
+            return False
+        return not wanted.query or wanted.query == observed.query
+    except (TypeError, ValueError):
+        return False
+
 def _compare(exp: ExpectedState, obs: ObservedState) -> tuple[Status, str]:
     o = obs.observed
     if "error" in o:
@@ -399,6 +435,8 @@ def _compare(exp: ExpectedState, obs: ObservedState) -> tuple[Status, str]:
                 return "FAILED", f"поле {k}: ожидалось {v!r}, наблюдается {row.get(k)!r}"
         return "VERIFIED", "свежий запрос подтвердил ожидаемую строку"
     if exp.kind == "browser":
+        if o.get("takeover") or o.get("paused"):
+            return "BLOCKED", "браузер под управлением владельца или приостановлен; верните управление через Resume"
         if o.get("challenge"):
             # A challenge page on the target domain is not the target. The URL
             # and title of such a page are the challenge's, not the goal's, so
@@ -408,8 +446,13 @@ def _compare(exp: ExpectedState, obs: ObservedState) -> tuple[Status, str]:
                                f"пройдите проверку и нажмите Resume")
         if e.get("title_contains") and str(e["title_contains"]) not in (o.get("title") or ""):
             return "FAILED", "заголовок страницы не содержит ожидаемого"
-        if e.get("url_contains") and str(e["url_contains"]) not in (o.get("url") or ""):
-            return "FAILED", "URL страницы не содержит ожидаемого"
+        if e.get("url_contains") and not _browser_url_matches(str(o.get("url") or ""), str(e["url_contains"])):
+            return "FAILED", "домен или путь страницы не совпадает с ожидаемым"
+        if "://" in exp.target:
+            target = urlsplit(exp.target)
+            origin = f"{target.scheme}://{target.netloc}"
+            if not _browser_url_matches(str(o.get("url") or ""), origin):
+                return "FAILED", "страница относится к другому целевому сайту"
         if not (e.get("title_contains") or e.get("url_contains")):
             return "UNVERIFIED", "ожидание браузера не задаёт проверяемого свойства"
         return "VERIFIED", "свежий снимок страницы совпал с ожиданием"

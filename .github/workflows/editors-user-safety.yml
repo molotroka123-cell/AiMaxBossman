@@ -1,7 +1,9 @@
 name: Editors user safety
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 on:
   push:
-    branches: [claude/bossman-control-v03-43igbk, fix/editor-user-baseline-20260906]
+    branches: [claude/bossman-control-v03-43igbk, fix/editor-user-baseline-20260906, claude/bossman-final-audit-closure-aucx9x, 'release/**']
     paths:
       - 'command-center/**'
       - 'bossman-core/**'
@@ -26,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -45,7 +47,7 @@ jobs:
           output=pathlib.Path(os.environ['RUNNER_TEMP'])/'editors-user-proof'
           output.mkdir()
           sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          assert sha==os.environ['GITHUB_SHA']
+          assert sha==os.environ['BOSSMAN_ACCEPTANCE_SHA']
           (output/'manifest.json').write_text(json.dumps({'tested_sha':sha,
               'tree':subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip(),
               'platform':platform.platform(),'python':platform.python_version(),
@@ -60,6 +62,7 @@ jobs:
         run: >-
           python -m pytest -c command-center/pyproject.toml
           command-center/tests/test_editors_user_acceptance.py
+          command-center/tests/test_web_designer_recovery_ui.py
           command-center/tests/test_web_designer_sandbox_ui.py
           command-center/tests/test_web_designer_viewport.py
           -q --junitxml=${{ runner.temp }}/editors-user-proof/results.xml
@@ -80,7 +83,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: editors-user-proof-${{ github.sha }}
+          name: editors-user-proof-${{ github.event.pull_request.head.sha || github.sha }}
           path: ${{ runner.temp }}/editors-user-proof/
           if-no-files-found: error
           retention-days: 7

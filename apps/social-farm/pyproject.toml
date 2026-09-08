@@ -41,3 +41,6 @@ markers = [
   "real_api: обращается к настоящему Instagram Graph API; нужен рабочий аккаунт",
   "real_browser: поднимает настоящий браузер",
 ]
+
+[tool.setuptools.package-data]
+social_farm = ["**/*.json"]

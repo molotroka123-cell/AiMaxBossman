@@ -105,11 +105,11 @@ the final exact-SHA closure report.
 
 | Commit | Classification | Decision |
 |---|---|---|
-| `d05318bbb1592638a7b0271d054a0cd1ec8ba995` | EXPERIMENTAL_NOT_FOR_RELEASE | Defer unrelated setup-python major upgrade; keep the recovery toolchain until exact-SHA CI proves a needed change. |
-| `ac245c738c261bd616b3d2ef1ebfac670c1e31eb` | EXPERIMENTAL_NOT_FOR_RELEASE | Defer auto-PR action major upgrade; unrelated to installing and running the product. |
-| `fca0eafd9b8d2366b7d040af8a57c3fefeeb03b5` | EXPERIMENTAL_NOT_FOR_RELEASE | Defer upload-artifact major upgrade; no application fix in this commit. |
-| `29b26563b56582a7dc0ad8fb9aba99f6eabbd479` | DOC_ONLY | Historical PR triage; preserve as reference, no runtime evidence transferred. |
-| `8567ffac27b7c4b2929b850d9a0d181330dbbcd7` | DOC_ONLY | Historical audit backlog; review claims against the convergence tree. |
+| `d05318bbb1592638a7b0271d054a0cd1ec8ba995` | DUPLICATE | Already preserved in floor by patch-equivalent b41232b492913e05497c1e3596e83cb49be058ff (setup-python v7); git cherry reports equivalent patch. Do not apply twice. |
+| `ac245c738c261bd616b3d2ef1ebfac670c1e31eb` | DUPLICATE | Already preserved in floor by patch-equivalent e2d8028fd24c996c75b22ff30aa37f43f93fd7d9 (create-pull-request v8); git cherry reports equivalent patch. Do not apply twice. |
+| `fca0eafd9b8d2366b7d040af8a57c3fefeeb03b5` | DUPLICATE | Already preserved in floor by patch-equivalent e7a6d908795650ec6d537f9a3ef1a185f255f538 (upload-artifact v7); git cherry reports equivalent patch. Do not apply twice. |
+| `29b26563b56582a7dc0ad8fb9aba99f6eabbd479` | DOC_ONLY | Already preserved in floor by patch-equivalent 6595c006d0acbf56913263c8b9a0b6b98cff111e (historical PR triage); git cherry reports equivalent patch. Do not apply twice. |
+| `8567ffac27b7c4b2929b850d9a0d181330dbbcd7` | DOC_ONLY | Already preserved in floor by patch-equivalent 2e6cd3f648e5ccedde901967dadbcb4e17bfc44c (historical audit backlog); git cherry reports equivalent patch. Do not apply twice. |
 | `7638558a9251d0a28868504fafb33b520eca4258` | DOC_ONLY | Local model candidate matrix; no measured local model acceptance. |
 | `b57b4ce981458581600adc2ee6836abca58be6fb` | DOC_ONLY | Local model orchestration training specification, not release implementation. |
 | `d5187cdf94510b5db9ab02f56cc14015af240844` | DOC_ONLY | Historical hardware audit; not evidence of available owner hardware. |

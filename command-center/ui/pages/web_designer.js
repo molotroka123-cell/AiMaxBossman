@@ -31,6 +31,9 @@ const state = {
   generating: false, genNote: null,
   dirty: false,               // в редакторе есть несохранённое
   creating: false,            // explicit New project must not auto-open an old one
+  saveConflict: false,
+  mutating: false,
+  recovery: null,
 };
 
 let frame = null;          // живой iframe превью (обновляется точечно)
@@ -38,6 +41,7 @@ let inspectorBox = null;   // контейнер инспектора — пер
 let editorNode = null;     // textarea кода
 let genNoteNode = null;    // строка прогресса генерации
 let resizePreview = null;
+let recoveryNode = null;
 window.addEventListener('resize', () => { if (resizePreview) resizePreview(); });
 
 let verPill = null;        // пилюля версии в шапке
@@ -149,16 +153,122 @@ async function reloadModels() {
 }
 
 async function reloadState() {
-  const full = await api.raw(`/api/web-designer/projects/${state.id}`);
+  const pid = state.id;
+  const full = await api.raw(`/api/web-designer/projects/${pid}`);
+  if (state.id !== pid) return;
   state.meta = full.meta;
   state.code = full.code;
   state.versions = full.versions || [];
+  if (verPill && verPill.children[1]) verPill.children[1].textContent = `v${baseVersion()}`;
   await reloadModels();
   /* несохранённый набор владельца не затираем: раньше достаточно было
      кликнуть мимо редактора, чтобы следующий reloadState стёр правку */
   if (editorNode && !state.dirty && document.activeElement !== editorNode) {
     editorNode.value = state.code;
   }
+}
+
+/* A failed refresh must never hide the original failed action. Keep the draft
+   and the error on screen until the owner can recover. Only compare-and-swap
+   writes get a retry; model calls, policy refusals and stale targets do not. */
+function renderRecovery() {
+  if (!recoveryNode) return;
+  const r = state.recovery;
+  recoveryNode.hidden = !r;
+  if (!r) { recoveryNode.replaceChildren(); return; }
+  const act = (label, fn) => btn(label, async (ev) => {
+    const button = ev.currentTarget;
+    if (button.disabled) return;
+    button.disabled = true;
+    try { await fn(); } finally { button.disabled = false; }
+  }, { size: 'sm' });
+  const actions = [act('Обновить состояние', async () => {
+    await refreshRecovery(r);
+    renderRecovery();
+  })];
+  if (r.canRetry) actions.push(act('Повторить безопасно', async () => {
+    if (state.id !== r.pid || baseVersion() !== r.version || state.code !== r.code) return;
+    await r.retry();
+  }));
+  if (state.saveConflict && r.fresh && state.dirty) {
+    const version = baseVersion();
+    actions.push(act(`Сохранить мой код поверх v${version}`, async () => {
+      const yes = await confirmDialog({ title: 'Заменить сохранённый код?',
+        text: `Ваш черновик заменит v${version}. Сначала сравните его с сохранённым кодом ниже. Предыдущая версия останется в истории.`,
+        danger: true, okText: 'Сохранить мой код' });
+      if (!yes || baseVersion() !== version || state.id !== r.pid) return;
+      state.saveConflict = false;
+      await flushSave(true);
+    }));
+  }
+  recoveryNode.replaceChildren(
+    h('strong', `${r.label}${r.error.status ? ` · HTTP ${r.error.status}` : ''}`),
+    h('p', r.error.message || 'Ответ сервера не получен'),
+    h('p', r.guidance), h('p', { role: 'status' }, r.note || 'Обновляем состояние…'),
+    h('div.bd-row', actions),
+    ...(state.saveConflict && r.fresh ? [h('details',
+      h('summary', `Сравнить: сохранённый код v${baseVersion()} (ваш черновик остаётся в редакторе)`),
+      h('textarea', { readOnly: true, rows: 6, 'aria-label': 'Сохранённый код для сравнения',
+        style: { width: '100%' } }, state.code))] : []));
+}
+
+function recoveryPanel() {
+  recoveryNode = h('section.bd-recovery', { role: 'alert', hidden: true,
+    'data-testid': 'bd-recovery' });
+  renderRecovery();
+  return recoveryNode;
+}
+
+function clearRecovery() {
+  state.recovery = null;
+  renderRecovery();
+}
+
+async function refreshRecovery(r) {
+  r.canRetry = false;
+  r.fresh = false;
+  if (state.id !== r.pid) return;
+  try {
+    if (!r.pid) {
+      state.projects = (await api.raw('/api/web-designer/projects')).items || [];
+      r.note = `Список обновлён: ${state.projects.length} проектов. Проверьте список перед повторным созданием.`;
+      return;
+    }
+    await reloadState();
+    r.fresh = true;
+    r.note = `Сохранённое состояние обновлено: v${baseVersion()}. Ваш черновик сохранён в редакторе.`;
+    // Read-back plus the ORIGINAL version guard is necessary. A changed
+    // version, even with identical HTML, may be a committed first request.
+    r.canRetry = Boolean(r.retry && baseVersion() === r.version && state.code === r.code);
+    reloadFrame();
+  } catch (error) {
+    r.note = `Состояние обновить не удалось: ${error.message || 'нет связи'}. Действие не повторено.`;
+  }
+}
+
+async function operationError(error, label, { retry = null, version = baseVersion(), code = state.code,
+  model = false } = {}) {
+  const status = Number(error.status || 0);
+  if ([404, 409].includes(status)) {
+    state.selected = null;
+    if (inspectorBox) renderInspector(inspectorBox);
+  }
+  let guidance = 'Проверьте данные и сохранённое состояние перед новым действием.';
+  if (status === 409) guidance = state.saveConflict
+    ? 'Код изменён в другой вкладке. Автосохранение приостановлено: сравните версии и явно выберите замену.'
+    : 'Обновите состояние и заново выберите элемент. Если нет модели, добавьте её в реестре.';
+  if (status === 404) guidance = 'Проект, элемент или модель больше не доступны. Обновите состояние и выберите существующий объект. Черновик можно скачать кнопкой «Скачать HTML».';
+  if (status === 413) guidance = 'Превышен допустимый размер. Уменьшите код или выберите отдельный элемент. Повтор без исправления не поможет.';
+  if (status === 401 || status === 403) guidance = 'Действие запрещено: проверьте вход и разрешения. Повтор не обходит отказ политики.';
+  if (model && (status === 0 || status >= 500)) guidance = 'Ответ модели не подтверждён. Запрос не повторён: повторное обращение может снова списать средства. Проверьте провайдера и сохранённое состояние.';
+  const transient = [0, 502, 503, 504].includes(status);
+  const r = { error, label, guidance, pid: state.id, version, code,
+    retry: transient && !model ? retry : null, canRetry: false, fresh: false };
+  state.recovery = r;
+  renderRecovery();
+  await refreshRecovery(r);
+  renderRecovery();
+  toastError(error, label);
 }
 
 function reloadFrame() {
@@ -175,6 +285,7 @@ const baseVersion = () => (state.meta && Number(state.meta.version)) || 0;
    версией: сервер принимал запись, и правка исчезала без единой ошибки. */
 const SAVE_DELAY_MS = 900;
 let saveTimer = null;
+let savePromise = null;
 
 function scheduleSave() {
   clearTimeout(saveTimer);
@@ -186,28 +297,48 @@ function scheduleSave() {
 async function flushSave(toast) {
   clearTimeout(saveTimer);
   saveTimer = null;
-  if (!state.dirty || !editorNode || !state.id) return;
+  if (savePromise) return savePromise;
+  if (!state.dirty || !editorNode || !state.id) return true;
+  if (state.saveConflict) return false;
+  savePromise = saveCode(toast).finally(() => { savePromise = null; });
+  return savePromise;
+}
+
+async function saveCode(toast) {
   const sent = editorNode.value;
+  const version = baseVersion();
+  const code = state.code;
   try {
     const res = await api.raw(`/api/web-designer/projects/${state.id}/code`,
       { method: 'PUT', body: { html: sent, note: 'правка кода',
-        base_version: baseVersion() } });
+        base_version: version } });
     if (res && res.ok) {
       state.meta = res.meta;
       state.code = sent;
       /* сохранён ТОТ текст, что ушёл: пока шёл запрос, владелец мог печатать
          дальше — снимать признак несохранённого с нового набора нельзя */
       state.dirty = editorNode.value !== sent;
+      if (state.dirty) scheduleSave();
       reloadFrame();
+      clearRecovery();
       if (toast) toastOk('Код сохранён');
+      return !state.dirty;
     }
+    throw new Error('Сервер не подтвердил сохранение кода');
   } catch (e) {
     /* Отказ 409 «код изменился» оставлял meta устаревшей навсегда: каждое
        следующее нажатие клавиши повторяло тот же base_version и получало тот
        же отказ — владелец не мог сохранить НИЧЕГО до перезагрузки страницы.
        Набранное при этом не трогаем: reloadState бережёт его по dirty. */
-    try { await reloadState(); } catch { /* сети нет — версия останется прежней */ }
-    toastError(e, 'Не удалось сохранить код');
+    state.saveConflict = e.status === 409;
+    await operationError(e, 'Код не сохранён', { version, code, retry: () => flushSave(true) });
+    if ([0, 502, 503, 504].includes(Number(e.status || 0))
+      && state.recovery.fresh && state.code === sent) {
+      state.dirty = editorNode.value !== sent;
+      state.recovery.note = 'Проверка сервера: отправленный код уже сохранён. Повторная запись не нужна.';
+      renderRecovery();
+    }
+    return false;
   }
 }
 
@@ -218,12 +349,16 @@ async function flushSave(toast) {
 const SHIFTS_IDS = new Set(['delete', 'replace']);
 
 async function sendEdit(payload, okMsg) {
-  await flushSave();               // взведённый автосейв откатил бы эту правку
+  if (state.mutating) return;
+  state.mutating = true;
+  try {
+  if (!await flushSave()) return;
   const sel = state.selected;
   const body = Object.assign({
     base_version: baseVersion(),
     tag: sel && sel.tag ? sel.tag : undefined,
   }, payload);
+  const version = baseVersion(), code = state.code;
   try {
     const res = await api.raw(`/api/web-designer/projects/${state.id}/edit`,
       { method: 'POST', body });
@@ -232,28 +367,32 @@ async function sendEdit(payload, okMsg) {
     if (SHIFTS_IDS.has(payload.op)) state.selected = null;
     else state.selected = applyEditLocally(state.selected, payload);
     await reloadState();
+    clearRecovery();
     reloadFrame();
     if (inspectorBox) renderInspector(inspectorBox);
   } catch (e) {
     /* устаревшее выделение — сбрасываем, чтобы следующий клик не повторил ошибку */
     state.selected = null;
     if (inspectorBox) renderInspector(inspectorBox);
-    await reloadState();
-    reloadFrame();
-    toastError(e, 'Правка не прошла');
+    // Never replay an element operation against refreshed element IDs. The
+    // owner reselects the live target; saving code has the safe retry path.
+    await operationError(e, 'Правка не прошла', { version, code });
   }
+  } finally { state.mutating = false; }
 }
 
 /* ---------------- генерация «как стрим» ---------------- */
 
 async function runGenerate(prompt, tpl, pal) {
-  if (state.generating) return;
+  if (state.generating || state.mutating) return;
   state.generating = true;
+  state.mutating = true;
   setGenNote('Собираем структуру…');
   try {
-    await flushSave();                 // иначе автосейв откатит сгенерированный сайт
+    if (!await flushSave()) return;
     const res = await api.raw(`/api/web-designer/projects/${state.id}/generate`,
-      { method: 'POST', body: { prompt, template: tpl || 'auto', palette: pal || 'auto' } });
+      { method: 'POST', body: { prompt, template: tpl || 'auto', palette: pal || 'auto',
+        base_version: baseVersion() } });
     const steps = res.steps || [];
     for (let i = 0; i < steps.length; i++) {
       setGenNote(`Генерируем: блок ${i + 1} из ${steps.length} — сайт растёт вживую`);
@@ -261,12 +400,18 @@ async function runGenerate(prompt, tpl, pal) {
       await sleep(i === steps.length - 1 ? 100 : 320);
     }
     if (frame) frame.removeAttribute('srcdoc');
+    state.selected = null;
     await reloadState();
+    clearRecovery();
     reloadFrame();
     toastOk(`Сайт собран: шаблон ${res.template}, палитра ${res.palette}`);
-  } catch (e) { toastError(e, 'Генерация не удалась'); }
-  state.generating = false;
-  setGenNote(null);
+  } catch (e) { await operationError(e, 'Генерация не удалась'); }
+  finally {
+    if (frame) frame.removeAttribute('srcdoc');
+    state.generating = false;
+    state.mutating = false;
+    setGenNote(null);
+  }
 }
 
 /* ---------------- инспектор выбранного элемента ---------------- */
@@ -362,15 +507,20 @@ function renderInspector(box) {
     children.push(h('div.bd-row', h('label', 'AI-правка'), aiPrompt,
       btn('Спросить модель', async () => {
         if (!aiPrompt.value.trim()) return toastError(new Error('Опишите правку'));
-        await flushSave();           // иначе автосейв откатит ответ модели
+        if (state.mutating) return;
+        state.mutating = true;
         try {
+          if (!await flushSave()) return;
           const res = await api.raw(`/api/web-designer/projects/${state.id}/ai-edit`,
             { method: 'POST', body: { prompt: aiPrompt.value, bd_id: sel.bd_id, path: sel.path,
               base_version: baseVersion(), model_id: state.modelId || null } });
           toastOk(`Модель ${res.model || ''} внесла правку${res.chosen_by === 'health_rank' ? ' (выбрана по здоровью)' : ''}`);
+          state.selected = null;
           await reloadState();
+          clearRecovery();
           reloadFrame();
-        } catch (e) { toastError(e, 'AI-правка не удалась'); }
+        } catch (e) { await operationError(e, 'AI-правка не удалась', { model: true }); }
+        finally { state.mutating = false; }
       }, { variant: 'primary', size: 'sm' })));
 
     children.push(h('div.bd-row',
@@ -420,6 +570,8 @@ function styleNode() {
 .bd-mini{font-size:12px;color:var(--bx-ink-3,#8b93a7)}
 .bd-dev{border:1px solid color-mix(in srgb,currentColor 22%,transparent);background:transparent;color:inherit;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer}
 .bd-dev.is-on{border-color:var(--bx-azure,#4f8cff);color:var(--bx-azure,#4f8cff)}
+.bd-recovery{margin-top:14px;padding:14px;border:1px solid var(--bx-danger,#bc4343);border-radius:12px}
+.bd-recovery p{margin:8px 0;font-size:13px}
 `);
 }
 
@@ -427,7 +579,8 @@ function head(ctx) {
   const opts = state.projects.map((p) => h('option', { value: String(p.id), selected: Number(p.id) === Number(state.id) },
     `${p.name} · v${p.version}`));
   const sel = h('select', { style: { maxWidth: '220px' }, onChange: async () => {
-    await flushSave();                 // не теряем правки при смене проекта
+    if (state.mutating || !await flushSave()) { sel.value = String(state.id); return; }
+    clearRecovery(); state.saveConflict = false;
     state.id = Number(sel.value); state.selected = null;
     try { localStorage.setItem(LAST_KEY, String(state.id)); } catch { /* приватный режим */ }
     ctx.refresh();
@@ -440,7 +593,8 @@ function head(ctx) {
       actions: [
         sel,
         btn('+ Проект', async () => {
-          await flushSave();               // debounce мог не догнать — сохраняем принудительно
+          if (state.mutating || !await flushSave()) return;
+          clearRecovery(); state.saveConflict = false;
           state.id = null; state.selected = null; state.creating = true;
           try { localStorage.removeItem(LAST_KEY); } catch { /* приватный режим */ }
           ctx.refresh();
@@ -595,16 +749,22 @@ function versionsPanel(ctx) {
       h('span.spacer'),
       h('span.bd-mini', `${v.chars || ''} симв.`),
       btn('Вернуть', async () => {
+        if (state.mutating) return;
         const yes = await confirmDialog({ title: `Вернуть v${v.version}?`, text: 'Текущий код сохранится в истории — ничего не потеряется.', okText: 'Вернуть' });
         if (!yes) return;
-        await flushSave();           // иначе автосейв вернёт код, от которого откатились
+        if (state.mutating) return;
+        state.mutating = true;
         try {
+          if (!await flushSave()) return;
           await api.raw(`/api/web-designer/projects/${state.id}/versions/${v.version}/restore`, { method: 'POST' });
           toastOk(`Версия v${v.version} возвращена`);
+          state.selected = null;
           await reloadState();
+          clearRecovery();
           reloadFrame();
           ctx.refresh();
-        } catch (e) { toastError(e, 'Откат не удался'); }
+        } catch (e) { await operationError(e, 'Откат не удался'); }
+        finally { state.mutating = false; }
       }, { variant: 'ghost', size: 'sm' })));
   return panel('История версий', rows.length
     ? h('div', rows)
@@ -656,6 +816,7 @@ function emptyState(ctx, catalog) {
 
   return h('div.bx-page', styleNode(),
     pageHead('Веб-дизайн', 'Создайте проект — и панель откроется: код, живое превью и точечные правки в одном экране.'),
+    recoveryPanel(),
     panel('Новый сайт',
       h('div', { style: { display: 'grid', gap: '12px', maxWidth: '720px' } },
         name, prompt,
@@ -670,7 +831,7 @@ function emptyState(ctx, catalog) {
               try { localStorage.setItem(LAST_KEY, String(state.id)); } catch { /* приватный режим */ }
               toastOk('Проект создан');
               ctx.refresh();
-            } catch (e) { toastError(e, 'Не удалось создать проект'); }
+            } catch (e) { await operationError(e, 'Не удалось создать проект'); }
           }, { variant: 'primary' }))),
       { icon: 'builder' }),
     panel('Или выберите заготовку',
@@ -736,6 +897,7 @@ const WebDesignerPage = {
 
     return h('div.bx-page', styleNode(),
       head(ctx),
+      recoveryPanel(),
       generateBar(),
       h('div.bd-grid', editorPanel(), previewPanel(ctx), inspectorPanel()),
       versionsPanel(ctx));

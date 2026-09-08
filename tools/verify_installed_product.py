@@ -22,16 +22,31 @@ import urllib.error
 import urllib.request
 
 
-def verify(work: Path) -> dict:
+def verify(work: Path, expected_sha: str | None = None) -> dict:
     work.mkdir(parents=True, exist_ok=True)
     prefix = Path(sys.prefix).resolve()
     imports = {}
-    for name in ("bossman_shared", "bossman", "bcc"):
+    for name in ("bossman_shared", "bossman", "bcc", "ai_3d_maker", "ai_webcam_vision",
+                 "bossman_accountant", "exam_trainer_ai", "file_commander_mini",
+                 "pc_autopilot_mini", "social_farm", "travel_architect"):
         module = importlib.import_module(name)
         path = Path(module.__file__).resolve()
         if not path.is_relative_to(prefix):
             raise AssertionError(f"{name} was imported outside clean environment: {path}")
         imports[name] = str(path)
+    from ai_3d_maker.config import DEFAULT_PROFILE, DEFAULT_MATERIALS
+    from ai_3d_maker.profile import PrinterProfile, load_material_defaults
+    assert DEFAULT_PROFILE.is_relative_to(prefix) and DEFAULT_MATERIALS.is_relative_to(prefix)
+    printer = PrinterProfile.load(DEFAULT_PROFILE)
+    assert printer.model and load_material_defaults(DEFAULT_MATERIALS)
+    from social_farm.media.profiles import load_bundle
+    media_profile = Path(imports["social_farm"]).parent / "media" / "profiles" / "instagram.v1.json"
+    assert load_bundle(media_profile).provider == "instagram"
+    source = json.loads((Path(imports["bcc"]).parent / "_build.json").read_text(encoding="utf-8"))
+    source_sha = source.get("source_sha")
+    assert isinstance(source_sha, str) and len(source_sha) == 40, source
+    if expected_sha:
+        assert source_sha == expected_sha, (source_sha, expected_sha)
     from bcc.config import Settings
     defaults = Settings()
     assert defaults.ui_dir.is_relative_to(prefix), defaults.ui_dir
@@ -41,8 +56,13 @@ def verify(work: Path) -> dict:
     for entry in ("bossman", "bossman-gateway", "bcc", "bcc-desktop", "bcc-open"):
         path = bindir / (entry + (".exe" if os.name == "nt" else ""))
         assert path.is_file(), path
-        subprocess.run([str(path), "--help"], cwd=work, check=True,
-                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        result = subprocess.run([str(path), "--help"], cwd=work,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        if result.returncode:
+            # Keep the actual installed CLI failure. CalledProcessError alone
+            # hid a Windows console encoding crash behind a bare exit code.
+            detail = (result.stderr or result.stdout).decode("utf-8", "replace")
+            raise AssertionError(f"Installed {entry} --help exited {result.returncode}:\n{detail[-6000:]}")
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -118,7 +138,8 @@ def verify(work: Path) -> dict:
         while True:
             system = request("/api/system")
             health = system["health"]
-            required = ("db", "queue_worker", "scheduler", "metrics")
+            required = ("db", "queue_worker", "scheduler", "metrics",
+                        *(name for name in health if name.startswith("tick:")))
             if all(health[name]["status"] == "ok" for name in required):
                 break
             assert time.monotonic() < deadline, health
@@ -148,22 +169,23 @@ def verify(work: Path) -> dict:
         request(f"/api/agents/{agent_id}", method="DELETE")
     finally:
         stop(process, log)
-    return {"status": "PASS", "python": sys.version.split()[0], "platform": sys.platform,
+    return {"status": "PASS", "source_sha": source_sha, "python": sys.version.split()[0], "platform": sys.platform,
         "imports": imports, "ui_dir": str(defaults.ui_dir), "assets_served": len(assets),
         "health": health, "restart_persistence": "PASS", "auth": "PASS",
-        "live_model_execution": "OWNER_LIVE_REQUIRED"}
+        "app_package_resources": "PASS", "live_model_execution": "OWNER_LIVE_REQUIRED"}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workdir", type=Path)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--expected-sha")
     args = parser.parse_args()
     if args.workdir:
-        result = verify(args.workdir.resolve())
+        result = verify(args.workdir.resolve(), args.expected_sha)
     else:
         with tempfile.TemporaryDirectory(prefix="bossman-installed-") as work:
-            result = verify(Path(work))
+            result = verify(Path(work), args.expected_sha)
     text = json.dumps(result, indent=2, ensure_ascii=False)
     if args.out:
         args.out.write_text(text + "\n", encoding="utf-8")
