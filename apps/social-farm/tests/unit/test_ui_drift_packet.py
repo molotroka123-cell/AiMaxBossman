@@ -107,3 +107,16 @@ async def test_the_surface_is_bounded():
     report = await build_drift_report(session, failing_action=ACTION_SUBMIT,
                                       limit=10)
     assert len(report.surface) == 10
+
+
+async def test_a_disabled_selector_pack_still_produces_a_report():
+    """Пакет отключают ровно тогда, когда этот отчёт и нужен.
+
+    Падение здесь означало бы: чем хуже дела, тем меньше о них известно.
+    """
+    dom, session = await drifted_session()
+    session.registry.disable(session.provider, session.pack_version)
+    report = await build_drift_report(session, failing_action=ACTION_SUBMIT)
+    assert report.expected_strategies == ()
+    assert report.surface, "поверхность всё равно описана"
+    assert report.failing_action == ACTION_SUBMIT

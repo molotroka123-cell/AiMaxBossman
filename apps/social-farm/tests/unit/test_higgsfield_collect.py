@@ -254,3 +254,40 @@ async def test_a_challenge_stops_the_chain_before_anything_is_typed(tmp_path):
     record = store.get(result.job_id)
     assert record is not None and record.attempt == 1, \
         "попытки не тратятся на то, что автоматика не проходит"
+
+
+async def test_a_quarantine_on_another_filesystem_still_promotes(tmp_path, monkeypatch):
+    """`replace` не переживает переход между файловыми системами, а карантин
+    браузера и рабочая область владельца вполне могут лежать на разных.
+
+    Проверяется путь БЕЗ рабочей области аккаунта — тот, где перенос делался
+    `Path.replace` и на разных дисках падал бы. Отказ `os.rename` изображает
+    именно эту границу; `shutil.move` обязан её пережить копированием.
+    """
+    import os
+    import shutil as shutil_module
+
+    quarantine = tmp_path / "downloads"
+    quarantine.mkdir()
+    dom = kit.on(kit.ready_page(),
+                 on_click=kit.both(kit.submitting(then_ready=True),
+                                   kit.downloading(quarantine,
+                                                   payload=make_png(600, 600),
+                                                   name="result.mp4")))
+    adapter = kit.adapter(dom, quarantine)               # рабочей области нет
+    task = request(tmp_path, MediaKind.IMAGE)
+    await adapter.prepare(task)
+    receipt = await adapter.submit(task)
+
+    def refuse_cross_device(src, dst, *args, **kwargs):
+        raise OSError(18, "Invalid cross-device link")
+
+    # Оба имени: `Path.replace` зовёт `os.replace`, `shutil.move` — `os.rename`.
+    # Отказать надо обоим, иначе проверка молча пройдёт мимо того, что чинили.
+    monkeypatch.setattr(os, "rename", refuse_cross_device)
+    monkeypatch.setattr(os, "replace", refuse_cross_device)
+    accepted = await adapter.collect(task, receipt)
+
+    assert accepted.is_file()
+    assert accepted.parent == (tmp_path / "approved").resolve()
+    assert accepted.suffix == ".png"

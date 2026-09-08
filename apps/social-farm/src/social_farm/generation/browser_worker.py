@@ -44,6 +44,15 @@ from .job_store import (DEFAULT_LEASE_SECONDS, GenerationJobRecord,
                         GenerationJobStore)
 
 
+class DownloadFailed(RuntimeError):
+    """Кнопку нажали, файл не приехал.
+
+    Живёт здесь, а не в адаптере конкретного провайдера, потому что решение
+    «это можно повторить» принимает работник, и принимать его по имени класса
+    из чужого модуля означало бы сверять типы строками.
+    """
+
+
 class ArtifactEscapedWorkspace(RuntimeError):
     """Файл оказался вне утверждённой рабочей области.
 
@@ -371,7 +380,7 @@ class BrowserGenerationWorker:
         Сорванная загрузка может пройти со второго раза: файл у провайдера тот
         же. Файл, который не является медиа, вторым скачиванием медиа не станет.
         """
-        return type(exc).__name__ == "DownloadFailed"
+        return isinstance(exc, DownloadFailed)
 
     def _collection_failed(self, record: GenerationJobRecord, exc: Exception
                            ) -> BrowserGenerationObservation:
@@ -413,4 +422,4 @@ class BrowserGenerationWorker:
 
 
 __all__ = ["AdapterRefusal", "ArtifactEscapedWorkspace", "BrowserGenerationAdapter",
-           "BrowserGenerationWorker", "BrowserWorkerConfig"]
+           "BrowserGenerationWorker", "BrowserWorkerConfig", "DownloadFailed"]

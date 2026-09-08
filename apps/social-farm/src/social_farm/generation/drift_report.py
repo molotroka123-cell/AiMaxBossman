@@ -28,6 +28,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
+from ..browser.selectors import SelectorPackError
 from ..browser.session import AccountBrowserSession
 from .higgsfield_selectors import PACK_VERSION, PROVIDER
 
@@ -149,7 +150,13 @@ async def build_drift_report(session: AccountBrowserSession, *,
                              now: float | None = None) -> UiDriftReport:
     """Собрать пакет из снимка страницы. Вычитанием, а не добавлением."""
     snapshot = await session.snapshot()
-    action = session.pack().get(failing_action)
+    try:
+        action = session.pack().get(failing_action)
+    except SelectorPackError:
+        # Пакет уже отключён после поломки — а пакет отключают ровно тогда,
+        # когда этот отчёт и нужен. Падать здесь означало бы: чем хуже дела,
+        # тем меньше о них известно.
+        action = None
     expected = tuple((strategy.kind, strategy.value)
                      for strategy in (action.strategies if action else ()))
 

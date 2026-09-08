@@ -262,7 +262,6 @@ def build_candidates(observations: GenerationObservations,
     memory_mb = observations.free_memory_mb.fresh_value(now)
     if memory_mb is None:
         unmeasured.append("free_memory_mb")
-    safe_gb = ((memory_mb * MEMORY_HEADROOM) / MB_PER_GB) if memory_mb is not None else 0.0
 
     local_ok = (observations.local_generator is Health.HEALTHY
                 and memory_mb is not None)

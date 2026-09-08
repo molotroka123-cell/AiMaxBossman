@@ -33,13 +33,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 import asyncio
+import shutil
 import time
 
 from ..browser.capabilities import FailureKind
 from ..browser.session import AccountBrowserSession, BrokenUi, IdentityMismatch
 from ..browser.states import BrowserState
 from ..domain.errors import ProviderError
-from .browser_worker import AdapterRefusal
+from .browser_worker import AdapterRefusal, DownloadFailed
 from .higgsfield_browser_contracts import (
     BrowserGenerationObservation,
     BrowserGenerationRequest,
@@ -84,10 +85,6 @@ class DuplicateSubmission(AdapterRefusal):
     """Эта работа уже отправлялась через этот адаптер."""
 
     state = BrowserGenerationState.FAILED
-
-
-class DownloadFailed(RuntimeError):
-    """Кнопку нажали, файл не приехал. Повторить работу можно."""
 
 
 class InvalidGeneratedMedia(RuntimeError):
@@ -589,7 +586,9 @@ class HiggsfieldBrowserAdapter:
         destination = Path(request.output_workspace).resolve()
         destination.mkdir(parents=True, exist_ok=True)
         moved = destination / name
-        source.replace(moved)
+        # `replace` не переживает переход между файловыми системами, а карантин
+        # браузера и рабочая область владельца вполне могут лежать на разных.
+        shutil.move(str(source), str(moved))
         return moved
 
     def _reject(self, source: Path, request: BrowserGenerationRequest,
@@ -601,7 +600,7 @@ class HiggsfieldBrowserAdapter:
         else:
             rejected = source.parent / "rejected"
             rejected.mkdir(parents=True, exist_ok=True)
-            source.replace(rejected / source.name)
+            shutil.move(str(source), str(rejected / source.name))
         self.session.ledger.record_failure(
             ACTION_DOWNLOAD, selector_pack_version=self.session.pack_version,
             kind=(FailureKind.TRANSIENT
