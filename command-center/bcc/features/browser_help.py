@@ -76,6 +76,31 @@ FORBIDDEN_INTENT: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(?i)\brate ?limit|throttl"), "ограничение частоты"),
     (re.compile(r"(?i)\b2fa|otp|one[- ]time code|verification code\b"), "второй фактор"),
     (re.compile(r"(?i)\bpassword|login|sign[- ]?in credentials\b"), "учётные данные"),
+    # Те же контроли доступа, названные человеческими словами. Подпись кнопки
+    # пишет провайдер, и «Solve the captcha» ловится строкой выше — а «verify
+    # you are human» до сих пор проходило и уходило в поисковую строку как
+    # «higgsfield ... verify you are human how to fix». Это и есть поиск
+    # способа пройти проверку человека, только без слова «captcha» в нём.
+    (re.compile(r"(?i)(?:verify|prove|confirm)[^.,;]{0,24}\bhuman\b"
+                r"|human[- ]verification|are you a robot|not a robot"),
+     "проверка человека"),
+    (re.compile(r"(?i)я не робот|подтвердите[^.,;]{0,24}человек"
+                r"|провер\w* на робота|провер\w* человек"),
+     "проверка человека"),
+    # План и квота — решение владельца, а не поломка. «Upgrade your plan to
+    # continue» тоже проходило: у него нет ни одного запрещённого слова, и при
+    # этом искать по нему можно ровно одно — как продолжить без оплаты.
+    (re.compile(r"(?i)upgrade (?:your )?(?:plan|subscription)|plan limit"
+                r"|quota exceeded|out of credits|insufficient credits"
+                r"|subscription required|paywall|\bupgrade to (?:pro|premium)\b"),
+     "ограничение тарифа"),
+    (re.compile(r"(?i)обнов\w* тариф|лимит тариф\w*|квота исчерпана"
+                r"|недостаточно кредитов|оформите подписку"),
+     "ограничение тарифа"),
+    # Русские написания уже запрещённых категорий: контроль, названный на
+    # другом языке, остаётся тем же контролем.
+    (re.compile(r"(?i)\bкапч\w*|\bобойти\b|\bобход\b"), "обход контроля"),
+    (re.compile(r"(?i)\bпароль\w*|\bвойти\b|\bвход в аккаунт\b"), "учётные данные"),
 )
 
 #: Сколько слов имени цели берём. Имя приходит со страницы: это подпись кнопки,
