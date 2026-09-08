@@ -62,7 +62,7 @@
         {
           "gate": "metric: a documentation edit under 100k tokens",
           "status": "PASS",
-          "detail": "худший прогон 1840 токенов; корпус сжёг 1 295 189",
+          "detail": "худший синтетический прогон (synthetic_contract) 1840 токенов-констант; корпус 1 295 189 — историческая провенанс, не A/B",
           "seconds": 0.0
         }
       ]

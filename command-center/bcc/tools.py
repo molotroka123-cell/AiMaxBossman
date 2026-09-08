@@ -275,8 +275,12 @@ def decide_effect(spec: ToolSpec, args: dict, agent: dict,
     effect: Effect = spec.default_effect
     reason = f"по умолчанию для {spec.name}"
 
-    # право агента снимает ASK у опасных инструментов
-    if spec.permission:
+    # право агента снимает ASK у опасных инструментов — именно ASK, не DENY.
+    # Инструмент, объявивший default_effect="deny", закрыт по замыслу автора
+    # спецификации, и выданное право его не открывает: право отвечает на вопрос
+    # «можно ли этому агенту без подтверждения», а не «можно ли вообще».
+    # (Аудит: до этой правки default=deny + право давали AUTO.)
+    if spec.permission and spec.default_effect != "deny":
         if agent_allowed(agent, spec.permission):
             effect, reason = "auto", f"агенту выдано право {spec.permission}"
         elif is_dangerous(spec.permission):
@@ -315,6 +319,12 @@ def decide_effect(spec: ToolSpec, args: dict, agent: dict,
                 continue
             effect = wanted
             reason = str(rule.get("reason") or f"правило политики {pat_tool}/{pat_res}")
+            # DENY, принятый правилом, — тоже пол: следующее по списку общее
+            # правило (`*`/`*` → auto) его не снимает. Порядок правил решает
+            # между AUTO и ASK, но не отменяет отказ. (Аудит: до этой правки
+            # `rm *` → deny, затем `*` → auto давало AUTO.)
+            if effect == "deny":
+                floor = "deny"
 
     if effect not in ("auto", "ask", "deny"):
         effect, reason = "ask", f"неизвестный эффект в политике: {effect}"

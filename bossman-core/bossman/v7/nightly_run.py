@@ -206,8 +206,15 @@ def _verify_tokens(root: Path) -> tuple[str, str]:
     rows = [_benchmark(root, f"doc_edit/{shape}")
             for shape in ("read_modify_verify", "single_write")]
     worst = max(r["tokens_total"] for r in rows)
-    ok = all(r["tokens_pass"] and r["completed"] for r in rows)
-    return PASS if ok else FAIL, f"худший прогон {worst} токенов; корпус сжёг 1 295 189"
+    # `success` = completed + the document verified on disk (newer evidence);
+    # older evidence files carry only `completed`. A failed run is never a pass.
+    ok = all(r["tokens_pass"] and r.get("success", r["completed"]) for r in rows)
+    kind = rows[0].get("kind", "synthetic_contract")
+    # The token figure is a loop-shape count from a scripted adapter, not
+    # measured model usage; the corpus figure is provenance, not an A/B baseline.
+    return (PASS if ok else FAIL,
+            f"худший синтетический прогон ({kind}) {worst} токенов-констант; "
+            f"корпус 1 295 189 — историческая провенанс, не A/B")
 
 
 def _verify_recovery(root: Path) -> tuple[str, str]:

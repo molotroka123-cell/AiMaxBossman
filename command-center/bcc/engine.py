@@ -1464,6 +1464,34 @@ class TaskEngine:
                 return True
         return False
 
+    async def _authorization_at_effect_time(self, task: dict, agent: dict, call: Any,
+                                            spec: Any, policy_rules: list[dict],
+                                            approval_id: Any) -> tuple[str, str] | None:
+        """Что должно быть верно В МОМЕНТ ЭФФЕКТА, а не в момент одобрения.
+
+        `agent` и `policy_rules` здесь — текущие (run перечитывает агента из базы
+        на старте), так что снятый инструмент и добавленный DENY видны. Порядок
+        важен: сначала бесплатные проверки, и только потом — атомарный CAS
+        одобрения, чтобы не «тратить» одобрение на вызов, который всё равно
+        отклонит политика. Возвращает (код, причина) или None."""
+        # 1. Инструмент всё ещё выдан этому агенту/задаче.
+        allowed = {t.name for t in TOOLS.resolve(allowed_tools_for(task, agent))}
+        if spec.name not in allowed:
+            return ("tool_withdrawn",
+                    f"инструмент {spec.name} снят с агента после одобрения")
+        # 2. Текущая политика не говорит DENY. ASK здесь не препятствие — его и
+        #    закрывало одобрение; препятствие только DENY, который снять нельзя.
+        effect, why = decide_effect(spec, call.arguments, agent, policy_rules)
+        if effect == "deny":
+            return ("policy_deny_at_resume",
+                    f"политика запрещает {spec.name} на момент исполнения ({why})")
+        # 3. Атомарная граница: approved → consumed. Проигравший здесь отзыв
+        #    уже не может отменить эффект — и не обещает этого.
+        if approval_id is not None and not await self.services.approvals.accept_for_execution(approval_id):
+            return ("revoked_before_dispatch",
+                    f"одобрение {approval_id} отозвано или уже использовано до dispatch")
+        return None
+
     async def _run_tool_now(self, run_id: int, task: dict, agent: dict,
                             messages: list[dict], call: Any, spec: Any, step: int,
                             *, approval_id: int | None = None,
@@ -1565,7 +1593,10 @@ class TaskEngine:
 
         already = await self._tool_call_status(run_id, call.id)
         reconcile_prior = pending.get("reconcile_prior")
-        if already == "interrupted" and status == "approved" and spec is not None:
+        # `consumed` — одобрение уже ПРИНЯТО К ИСПОЛНЕНИЮ (CAS перед dispatch).
+        # Прерванный после этого вызов — ровно тот случай, где владелец решает,
+        # произошёл ли эффект: одобрение было, dispatch был, receipt'а нет.
+        if already == "interrupted" and status in ("approved", "consumed") and spec is not None:
             # Одобренный вызов был отправлен прежней попыткой и оборван до receipt'а:
             # одобрение действия — не одобрение его ДУБЛЯ. Владелец решает заново.
             prior = await self._tool_call_row(run_id, call.id)
@@ -1598,6 +1629,19 @@ class TaskEngine:
                                 f"{pending.get('tool')}: digest {expected[:12]}… != {actual[:12]}…")
                 await self.bus.emit("tool.denied", task_id=task["id"], run_id=run_id,
                                     tool=spec.name, reason="approval identity mismatch")
+            elif (blocked := await self._authorization_at_effect_time(
+                    task, agent, call, spec, policy_rules, approval_id)) is not None:
+                # Execution Truth §8: одобрение — не бессрочный токен. Права,
+                # правила и сам факт одобрения проверяются В МОМЕНТ ЭФФЕКТА.
+                code, why = blocked
+                await self._mark_tool_call(run_id, call.id, status="rejected",
+                                           approved_by=f"system:{code}")
+                messages.append(_tool_message(
+                    call, f"действие {pending.get('tool')} НЕ выполнено: {why} — "
+                          f"не выполнять и не повторять без нового решения владельца"))
+                await self._log(run_id, "warn", f"tool.{code}", f"{spec.name}: {why}")
+                await self.bus.emit("tool.denied", task_id=task["id"], run_id=run_id,
+                                    tool=spec.name, reason=code)
             else:
                 await self._mark_tool_call(run_id, call.id, status="approved",
                                            approved_by=str((row or {}).get("decided_by") or ""))

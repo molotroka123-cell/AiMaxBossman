@@ -17,6 +17,19 @@ Three benchmarks, each mirroring a pathology the acceptance corpus recorded:
                     whether the run escalates to the owner or burns its retry
                     budget re-sending a rejected credential.
 
+What these runs ARE, so the numbers are not read as something else: synthetic
+contract runs. The model adapter is scripted, its token counts are constants
+(`_Scripted(tokens=(400, 60))` per call), and the terminal is a fake that
+performs the one write the script itself constructs. `tokens_total` therefore
+measures the SHAPE of the loop — how many calls it took — not model usage, and
+it is not an A/B against the corpus's 1 295 189: that figure is kept as
+historical provenance only (`corpus_baseline`, `comparable_ab: false`).
+
+Success is `completed` plus a verified real result on disk. A run that ended
+`failed` is not a pass with a good number attached; it is a failed run. A run
+that was correctly BLOCKED (the expired-key recovery) is a safety outcome and
+is labelled as one — it is not "task success".
+
 Run: python -m scripts.convergence_metrics [--out metrics.json]
 """
 from __future__ import annotations
@@ -84,7 +97,56 @@ class _Scripted:
         return ["scripted"]
 
 
-async def _doc_edit(svc, client, *, commands: list[str], label: str) -> dict[str, Any]:
+NOTES = Path("docs") / "NOTES.md"
+NOTES_FIXED = "fixed\n"
+
+
+def fake_terminal(workdir: Path, command: str):
+    """A terminal stand-in that produces the document it claims to.
+
+    The audit's objection to the previous stand-in was exact: it answered
+    `exit_code=0` to every command and wrote nothing, so a "completed" doc
+    edit had no document behind it. This one performs the single write the
+    script constructs and reads it back honestly — `cat` of a missing file
+    is a missing file, not a success."""
+    from bcc.tools import ToolResult
+    target = workdir / NOTES
+    if "open('docs/NOTES.md','w').write(" in command:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(NOTES_FIXED, encoding="utf-8")
+        return ToolResult(content="exit_code=0", one_line="terminal: wrote docs/NOTES.md")
+    if command.strip().startswith("cat docs/NOTES.md"):
+        if not target.exists():
+            return ToolResult(content="cat: docs/NOTES.md: No such file or directory\nexit_code=1",
+                              one_line="terminal: no such file", error=True)
+        return ToolResult(content=target.read_text(encoding="utf-8") + "exit_code=0",
+                          one_line="terminal: cat")
+    return ToolResult(content=f"unsupported in synthetic run: {command[:60]}\nexit_code=127",
+                      one_line="terminal: unsupported", error=True)
+
+
+def result_verified(workdir: Path) -> bool:
+    """The real result, observed on disk — not inferred from a status."""
+    target = workdir / NOTES
+    return target.exists() and target.read_text(encoding="utf-8") == NOTES_FIXED
+
+
+def doc_edit_verdict(*, final_status: str, approvals_pass: bool, tokens_total: int,
+                     verified: bool) -> dict[str, Any]:
+    """The pass criterion, kept pure so it can be tested without the harness.
+
+    `completed` is the task's status and nothing else. `success` additionally
+    requires the verified result. `failed` is never a pass."""
+    completed = final_status == "completed"
+    success = completed and verified
+    tokens_pass = tokens_total < 100_000
+    return {"completed": completed, "result_verified": verified, "success": success,
+            "tokens_pass": tokens_pass,
+            "pass": bool(approvals_pass and tokens_pass and success)}
+
+
+async def _doc_edit(svc, client, *, commands: list[str], label: str,
+                    workdir: Path) -> dict[str, Any]:
     """The T3 benchmark: how much does a documentation correction cost now?
 
     Run in two shapes on purpose, because the honest answer differs and picking
@@ -102,10 +164,10 @@ async def _doc_edit(svc, client, *, commands: list[str], label: str) -> dict[str
     from bcc import mission_budget as mb
     from bcc.db import (approval_leases as leases_t, approvals as approvals_t,
                         task_runs as runs_t)
-    from bcc.tools import REGISTRY, ToolResult, ToolSpec
+    from bcc.tools import REGISTRY, ToolSpec
 
     async def handler(args, ctx):
-        return ToolResult(content="exit_code=0", one_line="terminal: ok")
+        return fake_terminal(workdir, str(args.get("command", "")))
 
     REGISTRY.register(ToolSpec(name="terminal.run", description="terminal",
                                handler=handler, input_schema={"command": {"type": "string"}},
@@ -169,12 +231,24 @@ async def _doc_edit(svc, client, *, commands: list[str], label: str) -> dict[str
     unexplained = total_approvals - len(leases)
     approvals_pass = (total_approvals <= 1
                       or (not same_effect_asked_twice and unexplained <= 0))
+    verdict = doc_edit_verdict(final_status=status, approvals_pass=approvals_pass,
+                               tokens_total=metrics["tokens_total"],
+                               verified=result_verified(workdir))
     return {"benchmark": f"doc_edit/{label}",
-            # A number for work that did not finish is not a result. The
-            # benchmark passes only when the task reached a terminal state.
-            "completed": status in ("completed", "failed"),
+            "kind": "synthetic_contract",
+            # `completed` is the task's status; `success` also needs the
+            # document on disk. A run that ended `failed` is a failed run.
+            "completed": verdict["completed"],
+            "result_verified": verdict["result_verified"],
+            "success": verdict["success"],
+            # Historical provenance, not a baseline this run is compared to:
+            # the tokens here are scripted constants, the corpus's were real.
             "corpus_baseline": {"approvals": 60, "tokens": 1_295_189, "cost_usd": 4.043307,
                                 "verdict": "PARTIAL (deadlocked)"},
+            "comparable_ab": False,
+            "tokens_note": ("scripted constants of the fake adapter (400 in / 60 out per "
+                            "call), counted per model call: a loop-shape metric, not "
+                            "measured model usage"),
             "approvals_asked": total_approvals,
             # Each question explained, so "2" is a fact with a reason rather
             # than a number to argue about.
@@ -190,9 +264,8 @@ async def _doc_edit(svc, client, *, commands: list[str], label: str) -> dict[str
             "target_approvals": "0-1, or one per distinct real effect (master \u00a77)",
             "target_tokens": "< 100000",
             "approvals_pass": approvals_pass,
-            "tokens_pass": metrics["tokens_total"] < 100_000,
-            "pass": (approvals_pass and metrics["tokens_total"] < 100_000
-                     and status in ("completed", "failed"))}
+            "tokens_pass": verdict["tokens_pass"],
+            "pass": verdict["pass"]}
 
 
 async def _deadlock_rate(svc, client) -> dict[str, Any]:
@@ -225,6 +298,7 @@ async def _deadlock_rate(svc, client) -> dict[str, Any]:
     acted = await resc.reconcile(svc)
     after = await resc.audit(svc)
     return {"benchmark": "review_deadlock",
+            "kind": "synthetic_contract",
             "corpus_baseline": {"deadlocks": 4, "escape": "/stop only"},
             "reproduced": before["deadlocked"],
             "deadlocked_after_sweep": after["deadlocked"],
@@ -275,7 +349,14 @@ async def _recovery(svc, client) -> dict[str, Any]:
         row = (await s.execute(sa.select(runs_t.c.status, runs_t.c.attempt, runs_t.c.error)
                                .where(runs_t.c.task_id == task["id"]))).first()
     error = str(row._mapping["error"] or "")
+    blocked_correctly = row._mapping["status"] == "failed" and "владелец" in error
     return {"benchmark": "recovery_on_expired_key",
+            # A correctly BLOCKED task is a safety outcome. It is counted as
+            # such — never as task success: the task did not do its work,
+            # and that was the right result.
+            "kind": "safety_outcome",
+            "success": False,
+            "safety_outcome_pass": blocked_correctly,
             "corpus_baseline": {"behaviour": "retries exhausted before key replacement",
                                 "owner_action": "manual key replacement"},
             "provider_calls": Expired.calls,
@@ -283,7 +364,7 @@ async def _recovery(svc, client) -> dict[str, Any]:
             "attempts_used": int(row._mapping["attempt"] or 0),
             "final_status": row._mapping["status"],
             "escalated_to_owner": "владелец" in error,
-            "pass": row._mapping["status"] == "failed" and "владелец" in error}
+            "pass": blocked_correctly}
 
 
 async def _run(out: Path) -> int:
@@ -292,8 +373,10 @@ async def _run(out: Path) -> int:
     try:
         write = "python - <<'PY'\nopen('docs/NOTES.md','w').write('fixed\\n')\nPY"
         results = [await _doc_edit(svc, client, label="read_modify_verify",
-                                   commands=["cat docs/NOTES.md", write, "cat docs/NOTES.md"]),
-                   await _doc_edit(svc, client, label="single_write", commands=[write]),
+                                   commands=["cat docs/NOTES.md", write, "cat docs/NOTES.md"],
+                                   workdir=Path(workdir)),
+                   await _doc_edit(svc, client, label="single_write", commands=[write],
+                                   workdir=Path(workdir)),
                    await _deadlock_rate(svc, client),
                    await _recovery(svc, client)]
     finally:
@@ -305,8 +388,16 @@ async def _run(out: Path) -> int:
         "wall_seconds": round(time.time() - started, 2),
         "note": ("каждое число получено прогоном, а не записано в отчёт "
                  "по факту слияния кода"),
+        "evidence_class": "synthetic_contract",
+        "evidence_note": ("scripted adapter, constant token counts, fake terminal that "
+                          "performs one constructed write: contract checks of the loop, "
+                          "not measured model usage and not an A/B against the corpus"),
         "benchmarks": results,
-        "verdict": "PASS" if all(r.get("pass", r.get("approvals_pass")) for r in results) else "FAIL",
+        "verdict_basis": {
+            "task_success": [r["benchmark"] for r in results if r.get("success") is True],
+            "safety_outcomes": [r["benchmark"] for r in results if r.get("kind") == "safety_outcome"],
+        },
+        "verdict": "PASS" if all(r["pass"] for r in results) else "FAIL",
     }
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

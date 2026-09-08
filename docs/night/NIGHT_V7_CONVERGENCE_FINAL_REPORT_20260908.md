@@ -47,7 +47,9 @@ UX_CONSOLIDATION = PASS
 FUNCTIONAL_UI_REGRESSION = PASS
 
 APPROVALS_DOC_EDIT = 2 (read -> write -> verify) / 1 (single write); corpus 60
-TOKENS_DOC_EDIT = 1840 / 920; corpus 1295189
+TOKENS_DOC_EDIT = 1840 / 920 — synthetic contract run: scripted adapter, constant token
+  counts (400 in / 60 out per call), a loop-shape metric and NOT measured model usage;
+  corpus 1295189 is historical provenance, not an A/B baseline (audit §7)
 REVIEW_DEADLOCK_RATE = 0.0 (4 reproduced, 0 survive the sweep)
 MANUAL_INTERVENTIONS_3_SYSTEM_QA = 0
 
