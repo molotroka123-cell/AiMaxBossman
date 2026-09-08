@@ -127,6 +127,40 @@ Track at minimum:
 
 `success_rate`, `tool_accuracy`, `schema_valid_rate`, `autonomous_completion`, `verification_pass_rate`, `time_to_done`, `peak_memory_gb`, `retries`, `tokens`, `energy_estimate`.
 
+## Trader Apprentice integration
+
+For BTC/crypto order-flow analysis tasks, route to a **Trader Apprentice** capability rather than a generic chat model.
+
+The Trader Apprentice must load the corpus declared in:
+
+`data/trading/manifest.json`
+
+Canonical sources:
+
+- `docs/trading/LOCAL_MODEL_SYSTEM_PROMPT.md`
+- `docs/trading/BTC_ORDERFLOW_PLAYBOOK.md`
+- `data/trading/btc_orderflow_rules_v1.json`
+- `data/trading/btc_casebook_2026_09.jsonl`
+- deterministic helper: `learning/trader_apprentice.py`
+
+Recommended pipeline:
+
+`vision/data extractor -> typed Snapshot -> same-series previous Snapshot -> deterministic trader_apprentice.analyze() -> retrieval from trading corpus -> concise scenario output -> verifier if execution consequence is material`
+
+Required Trader Apprentice invariants:
+
+- never invent missing live CVD/OI/liquidation values;
+- never compare incompatible CVD/OI series as if they are identical;
+- tag source, instrument and timestamp on every market observation;
+- keep CME/reference-chart levels separate from execution-market prices;
+- compute weighted position average from actual size weights;
+- treat `Price DOWN + CVD DOWN + OI UP` as a risk-off warning, not an averaging signal;
+- treat `Price DOWN + CVD DOWN + OI DOWN` as deleveraging/watch, not automatic reversal;
+- a level touch is not acceptance; prefer reclaim + hold/retest;
+- analysis is allowed; autonomous order execution stays behind a separate permission/effect gate.
+
+The local model should use the deterministic engine for repeatable classification and the LLM only for extraction, context synthesis, scenario explanation and uncertainty handling.
+
 ## Acceptance target
 
 The orchestration layer is ready when, on a fixed local regression suite:
@@ -138,6 +172,15 @@ The orchestration layer is ready when, on a fixed local regression suite:
 - model routing is reproducible and logged;
 - a model can be replaced without changing mission logic;
 - image/video workloads coexist without destabilizing the core agent runtime.
+
+For Trader Apprentice specifically:
+
+- all fixture snapshots produce deterministic Price/CVD/OI classifications;
+- missing CVD/OI produces UNKNOWN rather than hallucinated values;
+- CME-vs-execution-market mismatch is surfaced explicitly;
+- weighted-average math is exact for staged entries;
+- historical September fixtures reproduce the intended deleveraging -> recovery -> bearish leverage-expansion regime transition;
+- local model output always separates observed facts from inference.
 
 ## Important architecture rule
 
