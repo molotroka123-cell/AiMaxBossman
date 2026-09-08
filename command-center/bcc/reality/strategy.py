@@ -149,29 +149,65 @@ MEMORY_HEADROOM = 0.85
 MEMORY_PRESSURE_WEIGHT = 25.0
 
 
+def _finite(value: Any) -> float | None:
+    """A real number, or None. NaN and infinity are not measurements.
+
+    They arrive from arithmetic that already went wrong — a division by a zero
+    sample count, a parsed field that was empty, a subtraction of two unknowns.
+    Letting them through is worse than letting a wrong number through, because
+    NaN compares False against everything: `needs > budget` is False, so the
+    path is judged to FIT and is offered. A quantity nobody can order is not a
+    quantity, and here it closes the path rather than opening it.
+    """
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number != number or number in (float("inf"), float("-inf")):
+        return None
+    return number
+
+
 def _memory_verdict(reading: "MemoryReading | None", needs_mb: float) -> tuple[float, str]:
     """Resource pressure for a path that needs `needs_mb`, and why if refused.
 
-    Three outcomes, and the middle one is the point:
+    Four outcomes, and the middle two are the point:
 
       * no declared requirement — nothing to weigh, no pressure;
+      * a requirement that is not a real number (NaN, infinity, negative) —
+        refused. NaN compares False against every bound, so an unguarded
+        comparison decides such a path FITS;
       * requirement declared but memory NOT measured — refused. An unmeasured
         budget cannot be shown to fit, and treating unknown as roomy is how a
         planner ends up scheduling a 70 GB model onto a machine nobody sampled;
       * measured — refused when it does not fit inside the headroom, otherwise
         charged in proportion to the headroom it consumes.
     """
-    if needs_mb <= 0:
+    need = _finite(needs_mb)
+    if need is None:
+        return 0.0, (f"объявленная потребность {needs_mb!r} не является числом — "
+                     f"путь не предлагается: сравнить её с бюджетом нельзя")
+    if need < 0:
+        return 0.0, (f"объявленная потребность {need:.0f} МБ отрицательна — "
+                     f"это ошибка вызывающего, а не свободная память")
+    if need == 0:
         return 0.0, ""
     if reading is None or not reading.measured:
-        return 0.0, (f"нужно {needs_mb:.0f} МБ, а свободная память не измерена "
+        return 0.0, (f"нужно {need:.0f} МБ, а свободная память не измерена "
                      f"({reading.source if reading else 'нет показания'}) — "
                      f"неизмеренное не считается достаточным")
-    budget = float(reading.available_mb) * MEMORY_HEADROOM
-    if needs_mb > budget:
-        return 0.0, (f"нужно {needs_mb:.0f} МБ, доступно {reading.available_mb:.0f} МБ "
+    available = _finite(reading.available_mb)
+    if available is None or available < 0:
+        return 0.0, (f"показание свободной памяти ({reading.available_mb!r}) не "
+                     f"является числом — измерением это не считается")
+    budget = available * MEMORY_HEADROOM
+    if need > budget:
+        return 0.0, (f"нужно {need:.0f} МБ, доступно {available:.0f} МБ "
                      f"(с запасом {budget:.0f} МБ) — не помещается")
-    return MEMORY_PRESSURE_WEIGHT * (needs_mb / budget), ""
+    if budget <= 0:
+        return 0.0, (f"нужно {need:.0f} МБ, а свободной памяти {available:.0f} МБ — "
+                     f"не помещается")
+    return MEMORY_PRESSURE_WEIGHT * (need / budget), ""
 
 
 def generate_strategies(*, deterministic_available: bool,
