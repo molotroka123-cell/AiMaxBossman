@@ -22,6 +22,7 @@ it deliberately does not do:
 """
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
 
@@ -54,13 +55,51 @@ def projection(svc) -> WorldStateProjection:
 
 async def refresh(svc, *, repo: str | None = None, scope_id: str = AMBIENT_SCOPE,
                   now: float | None = None) -> dict[str, Any]:
-    """One observation pass, ingested. Unavailable readings contribute nothing.
+    """One observation pass, ingested — shared with any pass already in flight.
 
-    An adapter that could not measure leaves the key alone rather than writing a
-    null: the previous fact then ages out on its own schedule and the read turns
-    STALE, which is the truth. Overwriting it with "we could not look" would
-    destroy the last thing anyone actually measured.
+    Unavailable readings contribute nothing. An adapter that could not measure
+    leaves the key alone rather than writing a null: the previous fact then ages
+    out on its own schedule and the read turns STALE, which is the truth.
+    Overwriting it with "we could not look" would destroy the last thing anyone
+    actually measured.
+
+    Single-flight, per the charter's generation-aware rule: the tick and an HTTP
+    request arriving together used to shell out to git twice and sample the host
+    twice for one answer. Callers that join an in-flight pass are told so, with
+    when it started, because a shared reading is as old as the pass — not as old
+    as the request that received it.
     """
+    key = (scope_id, repo, "explicit-clock" if now is not None else "wall-clock")
+    inflight: dict[Any, asyncio.Task] = _inflight(svc)
+    task = inflight.get(key)
+    if task is None or task.done():
+        # A finished task is never reused: sharing a completed pass would be a
+        # cache, and this is a single-flight, which shares only work in progress.
+        task = asyncio.ensure_future(_observe_and_ingest(svc, repo, scope_id, now))
+        inflight[key] = task
+        joined = False
+    else:
+        joined = True
+    try:
+        # Shielded so one caller going away — a cancelled request, a stopped
+        # tick — does not cancel the pass the other callers are waiting on.
+        result = await asyncio.shield(task)
+    finally:
+        if inflight.get(key) is task and task.done():
+            del inflight[key]
+    return {**result, "shared": joined}
+
+
+def _inflight(svc) -> dict[Any, asyncio.Task]:
+    existing = getattr(svc, "_world_inflight", None)
+    if existing is None:
+        existing = {}
+        svc._world_inflight = existing
+    return existing
+
+
+async def _observe_and_ingest(svc, repo: str | None, scope_id: str,
+                              now: float | None) -> dict[str, Any]:
     moment = time.time() if now is None else now
     readings = await observers.observe_all(svc, repo=repo)
     world = projection(svc)
@@ -79,7 +118,7 @@ async def refresh(svc, *, repo: str | None = None, scope_id: str = AMBIENT_SCOPE
                          provenance_ref=f"bcc.reality.observers.{obs.source}")
         if world.ingest(fact, now=moment):
             ingested += 1
-    return {"scope_id": scope_id, "observed": len(readings),
+    return {"scope_id": scope_id, "observed": len(readings), "started_at": moment,
             "available": sum(1 for o in readings if o.available), "ingested": ingested,
             "unavailable": [{"key": o.key, "source": o.source, "reason": o.reason}
                             for o in readings if not o.available]}

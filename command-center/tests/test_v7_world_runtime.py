@@ -13,6 +13,7 @@ turns into one confident answer.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 
 import pytest
@@ -197,3 +198,110 @@ async def test_the_refresh_tick_is_registered_and_slower_than_the_facts_it_holds
     assert feature.FEATURE.tick is not None and feature.FEATURE.tick_seconds > 0
     assert feature.TICK_SECONDS > min(observers.VALIDITY.values())
     assert "reality" in svc.feature_ticks
+
+
+# ------------------------------------------------- one pass, many callers
+
+async def test_concurrent_callers_share_one_observation_pass(svc, monkeypatch):
+    """The charter's generation-aware single-flight rule, on the case this run
+    created: the 60s tick and an HTTP request arriving together used to shell
+    out to git twice and sample the host twice to answer one question."""
+    passes = {"n": 0}
+    real = observers.observe_all
+
+    async def counted(service, *, repo=None):
+        passes["n"] += 1
+        await asyncio.sleep(0.05)
+        return await real(service, repo=repo)
+
+    monkeypatch.setattr(observers, "observe_all", counted)
+    results = await asyncio.gather(*(world.refresh(svc) for _ in range(5)))
+    assert passes["n"] == 1, f"{passes['n']} passes for 5 concurrent callers"
+    assert sum(1 for r in results if r["shared"]) == 4
+    assert len({r["started_at"] for r in results}) == 1
+
+
+async def test_a_joined_caller_is_told_the_reading_is_not_its_own(svc, monkeypatch):
+    """A shared reading is as old as the pass, not as old as the request that
+    received it. Saying so is the difference between sharing work and lying
+    about freshness."""
+    real = observers.observe_all
+
+    async def slow(service, *, repo=None):
+        await asyncio.sleep(0.05)
+        return await real(service, repo=repo)
+
+    monkeypatch.setattr(observers, "observe_all", slow)
+    first, second = await asyncio.gather(world.refresh(svc), world.refresh(svc))
+    assert first["shared"] is False and second["shared"] is True
+    assert second["started_at"] == first["started_at"]
+
+
+async def test_a_finished_pass_is_never_reused(svc, monkeypatch):
+    """Single-flight shares work in progress. Sharing a completed pass would be
+    a cache, and a cache is how a stale reading gets served as a fresh one."""
+    passes = {"n": 0}
+    real = observers.observe_all
+
+    async def counted(service, *, repo=None):
+        passes["n"] += 1
+        return await real(service, repo=repo)
+
+    monkeypatch.setattr(observers, "observe_all", counted)
+    await world.refresh(svc)
+    await world.refresh(svc)
+    assert passes["n"] == 2
+    assert (await world.refresh(svc))["shared"] is False
+
+
+async def test_a_caller_going_away_does_not_cancel_the_pass_others_await(svc, monkeypatch):
+    """A cancelled request or a stopped tick must not take down the pass the
+    remaining callers are waiting on."""
+    real = observers.observe_all
+
+    async def slow(service, *, repo=None):
+        await asyncio.sleep(0.1)
+        return await real(service, repo=repo)
+
+    monkeypatch.setattr(observers, "observe_all", slow)
+    leaving = asyncio.ensure_future(world.refresh(svc))
+    await asyncio.sleep(0.01)
+    staying = asyncio.ensure_future(world.refresh(svc))
+    await asyncio.sleep(0.01)
+    leaving.cancel()
+    result = await staying
+    assert result["available"] >= 1 and result["shared"] is True
+
+
+async def test_a_failed_pass_is_not_remembered_as_a_failure(svc, monkeypatch):
+    """The next caller starts a fresh pass. Caching the exception would turn one
+    bad git invocation into a permanently blind projection."""
+    calls = {"n": 0}
+    real = observers.observe_all
+
+    async def flaky(service, *, repo=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("git went away")
+        return await real(service, repo=repo)
+
+    monkeypatch.setattr(observers, "observe_all", flaky)
+    with pytest.raises(RuntimeError):
+        await world.refresh(svc)
+    assert (await world.refresh(svc))["available"] >= 1
+
+
+async def test_different_repos_are_different_flights(svc, monkeypatch):
+    """A key that ignored the repo would hand one repository's worktree reading
+    to a caller asking about another."""
+    seen = []
+    real = observers.observe_all
+
+    async def recorded(service, *, repo=None):
+        seen.append(repo)
+        await asyncio.sleep(0.05)
+        return await real(service, repo=repo)
+
+    monkeypatch.setattr(observers, "observe_all", recorded)
+    await asyncio.gather(world.refresh(svc, repo="a"), world.refresh(svc, repo="b"))
+    assert sorted(x for x in seen if x) == ["a", "b"]
