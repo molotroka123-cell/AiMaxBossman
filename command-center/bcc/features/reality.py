@@ -12,7 +12,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 
 from .. import qa_relay  # noqa: F401  — keeps feature import order stable
-from ..reality import compiler, observers, strategy, telemetry
+from ..reality import compiler, observers, strategy, telemetry, world
 from . import Feature
 
 router = APIRouter(tags=["reality"])
@@ -43,6 +43,25 @@ async def observe(request: Request, repo: str | None = None):
     return {"observations": [o.to_dict() for o in readings],
             "available": sum(1 for o in readings if o.available),
             "unavailable": sum(1 for o in readings if not o.available)}
+
+
+@router.get("/reality/world")
+async def world_state(request: Request, refresh: bool = True, repo: str | None = None):
+    """What the system currently believes, and how fresh each belief is.
+
+    A value is present only under a FRESH status: STALE, MISSING and CONTESTED
+    carry none, so nothing downstream can read a value the projection refused to
+    vouch for. `refresh=false` inspects the graph without observing, which is how
+    you watch a fact age out rather than being renewed under you.
+
+    Read-only by construction. There is no route that writes a fact: a world
+    state anyone can post to is a belief store, and beliefs are not evidence."""
+    svc = request.app.state.svc
+    pass_result = await world.refresh(svc, repo=repo) if refresh else None
+    body = world.belief(svc)
+    if pass_result is not None:
+        body["last_pass"] = pass_result
+    return body
 
 
 @router.get("/reality/strategies")
@@ -82,4 +101,20 @@ async def shadow(request: Request, limit: int = 100):
             "history": await telemetry.history(svc, limit=limit)}
 
 
-FEATURE = Feature(name="reality", router=router)
+async def _tick(svc) -> None:
+    """Keep the graph populated between requests.
+
+    Without this the projection is empty until someone asks, every read is
+    instantaneous, and freshness is a property nothing ever exercises. The pass
+    is deterministic and cheap — a git command, a psutil sample and three
+    queries — and an adapter that fails contributes nothing rather than
+    poisoning the graph."""
+    await world.refresh(svc)
+
+
+#: Slower than the observations' own validity windows on purpose: the graph
+#: should be able to go STALE. A refresh that always beat every expiry would
+#: mean the freshness machinery never actually reports anything.
+TICK_SECONDS = 60.0
+
+FEATURE = Feature(name="reality", router=router, tick=_tick, tick_seconds=TICK_SECONDS)
