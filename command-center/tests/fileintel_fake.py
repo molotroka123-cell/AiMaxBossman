@@ -181,12 +181,20 @@ def make_executable(tmp_path: Path, name: str = "aifilesorter") -> Path:
 
 
 def fake_discovery(executable: Path):
-    from bcc.file_intelligence.discovery import Discovery, pinned_sha
+    """Discovery в том виде, в каком его вернул бы настоящий поиск.
+
+    `binary_sha256` заполняется НАСТОЯЩИМ дайджестом файла, потому что так
+    делает `discovery.discover()`. Фейк, оставляющий его пустым, отличался бы от
+    продукта ровно в том месте, где продукт проверяет подмену бинаря, — и тесты
+    молча перестали бы проверять эту границу.
+    """
+    from bcc.file_intelligence.discovery import Discovery, _sha256_of, pinned_sha
     from bcc.file_intelligence.models import BinaryStatus, VERSION_UNVERIFIED
     return Discovery(
         status=BinaryStatus.AVAILABLE,
         resolved_executable=str(executable),
         binary_version=VERSION_UNVERIFIED,
+        binary_sha256=_sha256_of(executable),
         pinned_upstream_sha_expected=pinned_sha(),
         protocol_version=1,
         version_verified=False,

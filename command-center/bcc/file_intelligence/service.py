@@ -137,6 +137,33 @@ class FileIntelligenceService:
         jobs = [self.load(p.stem) for p in sorted(self.jobs_dir.glob("*.json"))]
         return [j for j in jobs if j is not None]
 
+    def _assert_binary_unchanged(self) -> None:
+        """Полномочие ВРЕМЕНИ ЭФФЕКТА, применённое к самому бинарю.
+
+        Между обнаружением и запуском файл по тому же пути мог стать другим
+        файлом. Проверка пути отвечает на вопрос «где исполняемый файл», а не
+        «тот ли это исполняемый файл»: подменённый бинарь лежит ровно там, где
+        лежал одобренный. Поэтому перед применением sha256 пересчитывается и
+        сверяется с записанным на обнаружении.
+
+        Отсутствие записанного дайджеста не считается совпадением — сверять
+        нечего, и это тоже отказ.
+        """
+        found = self.discovery()
+        recorded = found.binary_sha256
+        path = Path(found.resolved_executable)
+        if not recorded or not path.is_file():
+            raise Denied(Refusal.BINARY_NOT_INSTALLED,
+                         "the sidecar executable is no longer present or was never "
+                         "fingerprinted", executable=str(path))
+        from .discovery import _sha256_of
+        current = _sha256_of(path)
+        if current != recorded:
+            raise Denied(Refusal.PROTOCOL_FAILED,
+                         "the sidecar executable changed after it was discovered; "
+                         "re-run discovery and re-approve before applying",
+                         executable=str(path))
+
     # ------------------------------------------------------------------ preflight
 
     def preflight(self, targets: Sequence[str], *, operation: Operation,
@@ -369,6 +396,10 @@ class FileIntelligenceService:
         # применяется ПРОИЗВОДНЫЙ план — тот же документ, из которого убраны
         # невыбранные записи. Дайджест выше по-прежнему привязывает решение
         # владельца к тому, что ему показали.
+        # Бинарь проверяется здесь, в последний момент перед запуском, а не на
+        # preflight: между ними он мог стать другим файлом по тому же пути.
+        self._assert_binary_unchanged()
+
         approved_file = work / "approved.json"
         document = json.loads(raw)
         keep = {e.file_path for e in entries if e.selected}

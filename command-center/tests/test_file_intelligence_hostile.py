@@ -312,3 +312,104 @@ async def test_every_denial_happens_before_the_sidecar_is_launched(sandbox, tmp_
         assert job.state == JobState.DENIED.value, target
         assert job.refusal is not None
     assert sidecar.calls == [], "процесс запускался при отказе области"
+
+
+# ------------------------------------------- сайдкар меняется или не отвечает
+
+async def test_a_sidecar_that_never_answers_is_a_timeout_not_a_wait_forever(tmp_path):
+    """Процесс, который не отвечает, — это исход работы, а не повод ждать вечно.
+
+    Проверяется НАСТОЯЩИЙ запускатель процессов, а не фейк: предмет здесь —
+    поведение `_subprocess_runner`, и подменять его тем, что мы хотим доказать,
+    означало бы проверить собственную заглушку.
+    """
+    from bcc.file_intelligence.service import _subprocess_runner
+
+    with pytest.raises(Denied) as denied:
+        await _subprocess_runner(["/bin/sh", "-c", "sleep 30"], timeout=0.5)
+    assert denied.value.refusal is Refusal.TIMEOUT
+
+    # Негативный контроль: быстрый процесс проходит, а не «тоже таймаутит».
+    result = await _subprocess_runner(["/bin/sh", "-c", "echo ok"], timeout=10)
+    assert result["returncode"] == 0 and "ok" in result["stdout"]
+
+
+async def test_the_process_is_not_left_running_after_a_timeout(tmp_path):
+    """Таймаут обязан убить процесс, а не просто перестать его ждать.
+
+    Брошенный процесс сортировщика продолжал бы двигать файлы владельца уже
+    после того, как Bossman объявил работу неудавшейся.
+    """
+    from bcc.file_intelligence.service import _subprocess_runner
+
+    marker = tmp_path / "still-alive.txt"
+    script = f"sleep 1.5; echo alive > {marker}"
+    with pytest.raises(Denied):
+        await _subprocess_runner(["/bin/sh", "-c", script], timeout=0.3)
+    await __import__("asyncio").sleep(2.5)
+    assert not marker.exists(), "процесс пережил таймаут и продолжил работать"
+
+
+async def test_a_binary_swapped_after_discovery_is_refused_before_apply(sandbox,
+                                                                        tmp_path):
+    """Подменённый бинарь лежит ровно там, где лежал одобренный.
+
+    Проверка пути отвечает на вопрос «где исполняемый файл», а не «тот ли это
+    исполняемый файл». Поэтому перед применением дайджест пересчитывается: между
+    обнаружением и запуском файл по тому же пути мог стать другим файлом.
+    """
+    from bcc.file_intelligence.service import FileIntelligenceService
+    from bcc.file_intelligence.discovery import _sha256_of
+
+    root = sandbox.root
+    files = sorted(root.glob("*.pdf"))
+    executable = fake.make_executable(tmp_path)
+    plan = fake.review_plan(
+        [fake.plan_entry(str(f), category="Documents") for f in files],
+        paths=[str(root)])
+    sidecar = fake.FakeSidecar(plan=plan, effect=fake.move_effect)
+
+    found = fake.fake_discovery(executable)
+    found.binary_sha256 = _sha256_of(executable)          # снято на обнаружении
+    service = FileIntelligenceService(
+        state_dir=sandbox.tmp / "svc2", policy=sandbox.policy,
+        discovery=found, config_path=fake.local_config(tmp_path), runner=sidecar)
+
+    job = await service.analyze([str(root)])
+    assert job.state == JobState.REVIEW_REQUIRED.value, job.detail
+
+    # тот же путь, другой файл
+    executable.write_text("#!/bin/sh\necho pwned\nexit 0\n", encoding="utf-8")
+    executable.chmod(0o755)
+    assert _sha256_of(executable) != found.binary_sha256
+
+    with pytest.raises(Denied) as denied:
+        await service.apply(job.job_id, [str(files[0])])
+    assert denied.value.refusal is Refusal.PROTOCOL_FAILED
+    assert "changed after it was discovered" in denied.value.detail
+    assert all(f.exists() for f in files), "файлы двинулись подменённым бинарём"
+    assert len(sidecar.calls) == 1, "применение не должно было запуститься"
+
+
+async def test_an_unchanged_binary_still_applies(sandbox, tmp_path):
+    """Негативный контроль: сверка дайджеста не должна ломать обычный путь."""
+    from bcc.file_intelligence.service import FileIntelligenceService
+    from bcc.file_intelligence.discovery import _sha256_of
+
+    root = sandbox.root
+    files = sorted(root.glob("*.pdf"))
+    executable = fake.make_executable(tmp_path)
+    plan = fake.review_plan(
+        [fake.plan_entry(str(f), category="Documents") for f in files],
+        paths=[str(root)])
+    sidecar = fake.FakeSidecar(plan=plan, effect=fake.move_effect)
+    found = fake.fake_discovery(executable)
+    found.binary_sha256 = _sha256_of(executable)
+    service = FileIntelligenceService(
+        state_dir=sandbox.tmp / "svc3", policy=sandbox.policy,
+        discovery=found, config_path=fake.local_config(tmp_path), runner=sidecar)
+
+    job = await service.analyze([str(root)])
+    applied = await service.apply(job.job_id, [str(files[0])])
+    assert applied.state == JobState.VERIFIED.value, applied.detail
+    assert applied.receipt["effect_count"] == 1
