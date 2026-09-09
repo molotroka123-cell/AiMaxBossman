@@ -90,10 +90,14 @@ def test_apps_files_owner_browser_restart_and_persistence(tmp_path, monkeypatch)
                 server.restart()
                 page.goto(server.url + "/#/apps?open=file-commander-mini")
                 expect(page.get_by_role("button", name="Разрешить запуск приложений", exact=True)).to_be_visible()
-                # Disabled policy renders the catalogue with one Start per
-                # app. Assert the same File Commander control, unambiguously.
-                expect(page.get_by_title("Запустить File Commander Mini на этой машине",
+                # Disabled policy: the app view's Start control is disabled and
+                # its title says why (the UI swaps the launch title for the
+                # reason). No control anywhere still offers a launch that the
+                # server would refuse.
+                expect(page.get_by_title("Управление приложениями выключено",
                                          exact=True)).to_be_disabled()
+                expect(page.get_by_title("Запустить File Commander Mini на этой машине",
+                                         exact=True)).to_have_count(0)
                 assert not errors, errors
             finally:
                 browser.close()
