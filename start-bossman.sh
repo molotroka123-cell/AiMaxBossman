@@ -55,8 +55,21 @@ fi
 [ "$DOCTOR_ONLY" -eq 0 ] || exit 0
 
 if [ "$EVENING" -eq 1 ]; then
-  step "Вечерняя приёмка владельца"
-  exec "$VENV_PY" scripts/evening_acceptance.py run
+  # Точка входа одна — обёртка по ТОЧНОМУ SHA: канонная ветка, чистое дерево,
+  # совпадение с живым origin, доктор, самопроверка обоих харнессов и каталог
+  # улик этого SHA. Отката на evening_acceptance.py нет: улики, не привязанные
+  # к коммиту, неотличимы от улик другого дерева.
+  if [ ! -f scripts/evening_owner_run.py ]; then
+    echo "    Не найден scripts/evening_owner_run.py." >&2
+    echo "    Отката на старый харнесс НЕТ: улики без точного SHA недействительны." >&2
+    exit 1
+  fi
+  step "Вечерняя приёмка владельца (точный SHA)"
+  echo "    ветка:     $(git branch --show-current)"
+  echo "    SHA:       $(git rev-parse HEAD)"
+  echo "    платформа: $(uname -srm)"
+  echo "    runtime:   $("$VENV_PY" -c 'import platform;print(platform.python_version())')"
+  exec "$VENV_PY" scripts/evening_owner_run.py run
 fi
 
 step "Открываю BOSSMAN Command Center"

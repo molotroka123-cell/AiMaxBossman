@@ -195,3 +195,54 @@ def test_the_shell_launcher_is_syntactically_valid():
     if bash is None:
         pytest.skip("POSIX-оболочка недоступна — синтаксис start-bossman.sh проверяется на POSIX/CI")
     assert subprocess.run([bash, "-n", str(REPO / "start-bossman.sh")]).returncode == 0
+
+
+# ------------------------------------------- вечерняя приёмка: точный SHA
+
+def test_both_launchers_run_the_exact_sha_owner_entrypoint():
+    """Вечерний тест владельца обязан идти через обёртку по точному SHA.
+
+    evening_acceptance.py собирает улики без привязки к коммиту: по ним нельзя
+    отличить прогон на этом дереве от прогона на другом. Обёртка проверяет
+    ветку, чистое дерево, совпадение с живым origin и раскладывает улики по
+    каталогу SHA.
+    """
+    for script in ("start-bossman.ps1", "start-bossman.sh"):
+        body = (REPO / script).read_text(encoding="utf-8")
+        evening = body[body.index("EveningTest" if script.endswith(".ps1") else 'EVENING" -eq 1'):]
+        assert "evening_owner_run.py" in evening, f"{script}: вечерний путь не вызывает обёртку"
+        assert "evening_acceptance.py run" not in evening, (
+            f"{script}: остался прямой запуск старого харнесса — это тихий откат"
+        )
+
+
+def test_the_evening_path_has_no_silent_fallback():
+    """Нет обёртки — честный отказ, а не тихий запуск старого харнесса."""
+    ps1 = (REPO / "start-bossman.ps1").read_text(encoding="utf-8")
+    sh = (REPO / "start-bossman.sh").read_text(encoding="utf-8")
+    assert "Test-Path $OwnerRun" in ps1 and "exit 1" in ps1
+    assert "! -f scripts/evening_owner_run.py" in sh
+
+
+def test_doctor_only_and_normal_start_are_unchanged():
+    """Правка вечернего пути не имеет права трогать обычный запуск."""
+    ps1 = (REPO / "start-bossman.ps1").read_text(encoding="utf-8")
+    assert "if ($DoctorOnly) { exit 0 }" in ps1
+    assert '$LaunchArgs = @("-m", "bcc.desktop")' in ps1
+    sh = (REPO / "start-bossman.sh").read_text(encoding="utf-8")
+    assert '[ "$DOCTOR_ONLY" -eq 0 ] || exit 0' in sh
+    assert "ARGS=(-m bcc.desktop)" in sh
+
+
+def test_the_powershell_launcher_is_syntactically_valid():
+    import shutil
+    pwsh = shutil.which("pwsh") or shutil.which("powershell")
+    if pwsh is None:
+        pytest.skip("PowerShell недоступен — синтаксис start-bossman.ps1 проверяется на Windows/CI")
+    script = (
+        "$e=$null;"
+        f"[void][System.Management.Automation.Language.Parser]::ParseFile('{REPO / 'start-bossman.ps1'}',"
+        "[ref]$null,[ref]$e);"
+        "if($e -and $e.Count){$e|%{Write-Error $_.Message};exit 1};exit 0"
+    )
+    assert subprocess.run([pwsh, "-NoProfile", "-Command", script]).returncode == 0
