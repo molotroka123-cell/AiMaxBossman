@@ -59,6 +59,8 @@ export const FEATURE_PAGES = [
     () => import('./router.js'), (m) => m.default),
   lazyPage({ id: 'governor', title: 'Присмотр', icon: 'info', nav: 'more', section: 'system' },
     () => import('./governor.js'), (m) => m.default),
+  lazyPage({ id: 'file-intelligence', title: 'File Intelligence', icon: 'folder', nav: 'more', section: 'work' },
+    () => import('./file_intelligence.js'), (m) => m.default),
   lazyPage({ id: 'resources', title: 'Ресурсы', icon: 'system', nav: 'primary', section: 'system' },
     () => import('./resources.js'), (m) => m.default),
   lazyPage({ id: 'skills', title: 'Навыки', icon: 'edit', nav: 'primary', section: 'brains' },

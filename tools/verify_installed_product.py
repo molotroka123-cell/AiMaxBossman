@@ -152,6 +152,15 @@ def verify(work: Path, expected_sha: str | None = None) -> dict:
                 break
             assert time.monotonic() < deadline, health
             time.sleep(0.1)
+        # File Intelligence is off by default and must stay off in a clean
+        # install. Its doctor answers anyway, and it must name the pinned
+        # integration: the manifest travels in the wheel, not in a checkout the
+        # installed product does not have.
+        file_intelligence = request("/api/file-intelligence/status")
+        assert file_intelligence["enabled"] is False, file_intelligence
+        assert re.fullmatch(r"[0-9a-f]{40}", file_intelligence["pinned_upstream_sha"] or ""), \
+            f"installed build reports no pinned integration: {file_intelligence}"
+        assert file_intelligence["binary"]["status"] == "NOT_INSTALLED", file_intelligence
         assets = [p for p in defaults.ui_dir.rglob("*") if p.is_file()]
         for asset in assets:
             served = request("/" + asset.relative_to(defaults.ui_dir).as_posix())
@@ -180,7 +189,12 @@ def verify(work: Path, expected_sha: str | None = None) -> dict:
     return {"status": "PASS", "source_sha": source_sha, "python": sys.version.split()[0], "platform": sys.platform,
         "imports": imports, "ui_dir": str(defaults.ui_dir), "assets_served": len(assets),
         "health": health, "restart_persistence": "PASS", "auth": "PASS",
-        "app_package_resources": "PASS", "live_model_execution": "OWNER_LIVE_REQUIRED"}
+        "app_package_resources": "PASS",
+        "file_intelligence": {"enabled": file_intelligence["enabled"],
+                              "pinned_upstream_sha": file_intelligence["pinned_upstream_sha"],
+                              "binary": file_intelligence["binary"]["status"],
+                              "real_binary": "OWNER_LIVE_REQUIRED"},
+        "live_model_execution": "OWNER_LIVE_REQUIRED"}
 
 
 def main():

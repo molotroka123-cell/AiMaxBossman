@@ -48,6 +48,22 @@ class BuildWithUI(build_py):
                 shutil.copyfile(app_ui, destination / "ui.html")
         if not (target / "index.html").is_file():
             raise RuntimeError("Command Center UI is missing: cannot build a usable wheel")
+        # File Intelligence reads the pinned upstream identity of the external
+        # AI File Sorter sidecar from integration.json. The checkout resolves it
+        # relative to the repository; an installed wheel has no repository, and
+        # a soft "manifest not found" silently reported an EMPTY pin — the
+        # installed product dropped a declared identity the source build has.
+        # The manifest travels with the code, like the UI does.
+        integration = Path(__file__).parent.parent / "integrations" / "ai-file-sorter"
+        packaged = Path(self.build_lib) / "bcc" / "_integrations" / "ai-file-sorter"
+        packaged.mkdir(parents=True, exist_ok=True)
+        for name in ("integration.json", "NOTICE.md"):
+            source_file = integration / name
+            if not source_file.is_file():
+                raise RuntimeError(
+                    f"AI File Sorter integration {name} is missing: a wheel whose "
+                    "File Intelligence cannot name its pinned integration is not usable")
+            shutil.copyfile(source_file, packaged / name)
 
 
 setup(cmdclass={"build_py": BuildWithUI})

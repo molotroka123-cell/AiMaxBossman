@@ -3,10 +3,12 @@ bossman-core wheels, installs them into a fresh venv (no deps) and imports them
 from a directory that is NOT the repository, so no checkout path can leak in."""
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
 import venv
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -42,3 +44,33 @@ def test_installed_wheels_resolve_shared_contracts_without_the_checkout(tmp_path
     r = _run([str(py), "-c", probe], cwd=tmp_path, env=env)
     assert r.returncode == 0, (r.stdout[-1000:], r.stderr[-2000:])
     assert "site-packages" in r.stdout and str(ROOT) not in r.stdout
+
+
+def test_command_center_wheel_carries_the_file_intelligence_pin(tmp_path):
+    """The installed product must name the same pinned integration as the checkout.
+
+    File Intelligence reads the pinned upstream identity of the external AI File
+    Sorter sidecar from integration.json. The checkout resolved it relative to the
+    repository; a wheel has no repository, the read failed softly to {}, and the
+    installed Bossman answered /file-intelligence/status with an EMPTY
+    pinned_upstream_sha. Losing a declared identity only in the build the owner
+    actually runs is the failure this test exists for.
+    """
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "PYTHONHOME")}
+    wheels = tmp_path / "wheels"
+    r = _run([sys.executable, "-m", "pip", "wheel", "--no-deps", "-q", "-w", str(wheels),
+              str(ROOT / "command-center")], env=env)
+    assert r.returncode == 0, r.stderr[-2000:]
+    built = [p for p in wheels.glob("bossman_command_center-*.whl")]
+    assert built, sorted(p.name for p in wheels.glob("*.whl"))
+    with zipfile.ZipFile(built[0]) as wheel:
+        names = set(wheel.namelist())
+        packaged = "bcc/_integrations/ai-file-sorter/integration.json"
+        assert packaged in names, sorted(n for n in names if "_integrations" in n)
+        assert "bcc/_integrations/ai-file-sorter/NOTICE.md" in names, sorted(names)
+        shipped = json.loads(wheel.read(packaged))
+    checkout = json.loads(
+        (ROOT / "integrations" / "ai-file-sorter" / "integration.json").read_text(encoding="utf-8"))
+    assert shipped == checkout, "the wheel ships a different manifest than the checkout"
+    # The pin is what the packaging exists to carry: an empty one is the defect.
+    assert shipped["pinned_sha"], shipped

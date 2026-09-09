@@ -1,0 +1,59 @@
+{
+  "$comment": [
+    "Manifest for the AI File Sorter integration. This file is the ONLY place",
+    "the pinned upstream identity is written; code reads it rather than",
+    "repeating the SHA. Verified against the upstream remote on 2026-09-08:",
+    "`git ls-remote https://github.com/hyperfield/ai-file-sorter main` returned",
+    "the pinned_sha below.",
+    "",
+    "A pinned manifest does NOT make a running binary pinned. What the binary on",
+    "the owner's machine was built from is a separate question, answered at",
+    "runtime by discovery.py, which reports VERSION_UNVERIFIED when the binary",
+    "cannot prove its source identity."
+  ],
+  "name": "ai-file-sorter",
+  "upstream_repo": "https://github.com/hyperfield/ai-file-sorter",
+  "pinned_sha": "4dc374df69b5e63d5354e121097d92e25bbd32da",
+  "license": "AGPL-3.0-or-later",
+  "integration_mode": "external_sidecar",
+  "expected_binary": "aifilesorter",
+  "supported_contract_version": 1,
+  "local_only_default": true,
+  "auto_apply_allowed": false,
+
+  "protocol": {
+    "$comment": "Read from upstream app/lib/HeadlessAnalysisCommand.cpp and HeadlessStatusJson.cpp at the pinned SHA, not from the README.",
+    "status_schema_version": 1,
+    "review_plan_schema_version": 1,
+    "review_plan_kind": "aifs.headlessReviewPlan",
+    "analyze_flags": ["--headless", "--operation", "--path", "--review-only",
+                      "--review-file", "--status-file", "--job-id"],
+    "apply_flags": ["--headless-apply", "--review-file", "--status-file", "--job-id"],
+    "known_statuses": ["running", "review_required", "completed", "failed"],
+    "operations": ["categorize", "rename", "categorize-and-rename"],
+    "forbidden_flags": [
+      "--auto-apply", "--headless-auto-apply",
+      "--apply-without-review", "--headless-apply-without-review"
+    ],
+    "headless_undo": "UNAVAILABLE"
+  },
+
+  "settings": {
+    "$comment": "Upstream persists the model choice in its own INI (section 'Settings', key 'LLMChoice'). Bossman classifies that value itself; it does not reuse upstream's is_remote_choice(), which counts the 'Custom' endpoint as local.",
+    "ini_section": "Settings",
+    "llm_choice_key": "LLMChoice",
+    "local_values": ["Local_3b", "Local_3b_legacy", "Local_4b_Gemma",
+                     "Local_7b", "Local_7b_Gemma"],
+    "remote_values": ["Remote", "Remote_OpenAI", "Remote_Gemini", "Remote_Custom"],
+    "unknown_values": ["Unset", "Custom"]
+  },
+
+  "boundaries": {
+    "vendored_source": false,
+    "process_boundary": "subprocess, typed argv, no shell string",
+    "bossman_authorizes": true,
+    "sidecar_authorizes": false,
+    "bootstrap_is_owner_initiated": true,
+    "auto_update": false
+  }
+}
