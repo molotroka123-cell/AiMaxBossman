@@ -39,7 +39,7 @@ async def _start(args, ctx):
                      "действие не выполнено. " + str(current["hint"])),
             one_line="apps.start: выключено политикой", error=True)
     try:
-        res = await _apps.start_app(app_id, ctx.svc.settings.data_dir)
+        res = await _apps.start_app(app_id, ctx.svc.settings.data_dir, svc=ctx.svc)
     except Exception as exc:  # noqa: BLE001 — HTTPException (не найдено, порт занят, и т.п.)
         detail = getattr(exc, "detail", None)
         msg = detail.get("message") if isinstance(detail, dict) else str(exc)
@@ -63,7 +63,7 @@ async def _stop(args, ctx):
                      "действие не выполнено. " + str(current["hint"])),
             one_line="apps.stop: выключено политикой", error=True)
     try:
-        res = await _apps.stop_app(app_id)
+        res = await _apps.stop_app(app_id, ctx.svc.settings.data_dir, svc=ctx.svc)
     except Exception as exc:  # noqa: BLE001 — HTTPException (не найдено), и т.п.
         detail = getattr(exc, "detail", None)
         msg = detail.get("message") if isinstance(detail, dict) else str(exc)
@@ -79,6 +79,9 @@ async def _status(args, ctx):
         return ToolResult(content="нужен app_id", one_line="apps.status: нет app_id", error=True)
     try:
         res = _apps.process_info(app_id, ctx.svc.settings.data_dir)
+        current = await _apps.policy(ctx.svc)
+        res["enabled"] = current["enabled"]
+        res["control_policy"] = current
     except Exception as exc:  # noqa: BLE001 — HTTPException (не найдено)
         detail = getattr(exc, "detail", None)
         msg = detail.get("message") if isinstance(detail, dict) else str(exc)
@@ -91,7 +94,7 @@ async def _status(args, ctx):
 SPECS = [
     ToolSpec(name="apps.start",
              description="Запустить известное приложение (по app_id из каталога apps) как "
-                         "процесс. Требует BOSSMAN_APPS_CONTROL_ENABLED=1 у владельца.",
+                         "процесс. Требует разрешения в политике приложений владельца.",
              handler=_start, input_schema={"app_id": {"type": "string"}}, required=["app_id"],
              category="exec", source="apps", default_effect="ask", idempotent=False,
              timeout_seconds=60.0, external_output=True,

@@ -1,6 +1,6 @@
 
 from __future__ import annotations
-import json, os, sqlite3, threading, uuid
+import json, os, sqlite3, threading, uuid, time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -41,8 +41,21 @@ class SQLiteStore:
               namespace TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL,
               updated_at TEXT NOT NULL, PRIMARY KEY(namespace,key)
             );
+            CREATE TABLE IF NOT EXISTS auth_nonces(nonce TEXT PRIMARY KEY, expires REAL NOT NULL);
             """)
         return self
+
+    def consume_nonce(self, nonce: str, timestamp: int) -> bool:
+        """Durable replay denial, including process restart, with bounded TTL."""
+        with self.connect() as c:
+            c.execute("DELETE FROM auth_nonces WHERE expires < ?", (time.time(),))
+            if c.execute("SELECT COUNT(*) FROM auth_nonces").fetchone()[0] >= 10000:
+                return False  # fail closed under a signed request flood
+            try:
+                c.execute("INSERT INTO auth_nonces(nonce,expires) VALUES(?,?)", (nonce, timestamp + 31))
+            except sqlite3.IntegrityError:
+                return False
+        return True
 
     def audit(self, event: str, subject: str | None = None, data: dict | None = None):
         with self.connect() as c:

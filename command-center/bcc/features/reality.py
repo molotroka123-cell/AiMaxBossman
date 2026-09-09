@@ -9,6 +9,8 @@ machinery.
 """
 from __future__ import annotations
 
+import math
+from typing import Any
 import time
 
 from fastapi import APIRouter, HTTPException, Request
@@ -84,10 +86,30 @@ def memory_reading(svc, *, now: float | None = None) -> strategy.MemoryReading:
     return strategy.MemoryReading(float(available), "observer:process")
 
 
+def memory_requirement(name: str, value: Any) -> float:
+    """A declared model memory requirement, validated AT THE ROUTE.
+
+    Astra/Codex F5 (2026-09-08): the route applied `max(0.0, float(value))`
+    before the generator's own validation, so `large_model_mb=nan` and `-1024`
+    both became 0.0 — "declares nothing" — and the large-model path was
+    admitted with no memory measured at all. Invalid requirement != no
+    requirement: NaN, ±inf and negatives are refused (422); zero keeps its
+    meaning of "this path declares no resident memory"."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail=f"{name}: not a number")
+    if math.isnan(number) or math.isinf(number):
+        raise HTTPException(status_code=422, detail=f"{name}: must be a finite number of megabytes")
+    if number < 0:
+        raise HTTPException(status_code=422, detail=f"{name}: a memory requirement cannot be negative")
+    return number
+
+
 @router.get("/reality/strategies")
 async def strategies(request: Request, deterministic: bool = False,
                      unknown_facts: int = 0,
-                     small_model_mb: float = 0.0, large_model_mb: float = 0.0):
+                     small_model_mb: str = "0", large_model_mb: str = "0"):
     """The shadow router's ranking, with every utility term kept separately.
 
     Advisory by construction: `shadow_only` is in the response, and nothing in
@@ -98,6 +120,11 @@ async def strategies(request: Request, deterministic: bool = False,
     refused when it does not fit — or when nothing measured it, because an
     unmeasured budget cannot be shown to hold a 70 GB model."""
     from .. import model_health as mh
+    # Validate before anything else runs: an invalid requirement is a client
+    # error, not a zero. (Typed as str so FastAPI's float coercion does not
+    # turn "nan"/"inf" into values before this code sees them.)
+    small_req = memory_requirement("small_model_mb", small_model_mb)
+    large_req = memory_requirement("large_model_mb", large_model_mb)
     svc = request.app.state.svc
     import sqlalchemy as sa
     from ..db import models as models_t
@@ -116,8 +143,7 @@ async def strategies(request: Request, deterministic: bool = False,
     candidates = strategy.generate_strategies(
         deterministic_available=bool(deterministic), model_health=health,
         unknown_facts=max(0, int(unknown_facts)), memory=memory,
-        model_memory_mb={"small_model": max(0.0, float(small_model_mb)),
-                         "large_model": max(0.0, float(large_model_mb))})
+        model_memory_mb={"small_model": small_req, "large_model": large_req})
     decision = strategy.shadow_route(candidates, permissions=[])
     body = decision.to_dict()
     body["memory"] = {"available_mb": memory.available_mb, "source": memory.source,

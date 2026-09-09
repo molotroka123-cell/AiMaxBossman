@@ -1,0 +1,279 @@
+#!/usr/bin/env python3
+"""Build wheels, install them into a clean venv and boot the installed product.
+
+Third-party dependencies require the configured package index. Bossman itself is
+installed only from the newly built local wheels. No source import/UI override
+is allowed in acceptance. Existing output directories are never deleted.
+"""
+from __future__ import annotations
+
+import argparse
+from contextlib import contextmanager
+from datetime import datetime, timezone
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
+import venv
+
+ROOT = Path(__file__).resolve().parent.parent
+PROJECTS = (
+    ("bossman-shared", ROOT),
+    ("bossman-core", ROOT / "bossman-core"),
+    ("bossman-command-center", ROOT / "command-center"),
+    *((p.parent.name, p.parent) for p in sorted((ROOT / "apps").glob("*/pyproject.toml"))),
+)
+
+
+def _run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=600, **kwargs)
+    if result.returncode:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise RuntimeError(f"Command failed ({result.returncode}): {' '.join(cmd)}\n{detail[-6000:]}")
+    return result
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _source_sha() -> str:
+    sha = _run(["git", "-C", str(ROOT), "rev-parse", "HEAD"]).stdout.strip()
+    if len(sha) != 40 or any(c not in "0123456789abcdef" for c in sha):
+        raise RuntimeError("Cannot bind this build to an exact source commit")
+    return sha
+
+
+def _source_dirty() -> bool:
+    spec = importlib.util.spec_from_file_location("build_source_identity", ROOT / "tools" / "build_source_identity.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.source_identity(ROOT).get("source_dirty") is not False
+
+
+@contextmanager
+def clean_source_snapshot(source_sha: str):
+    """Build exact candidates from fresh HEAD files, never stale build/lib."""
+    with tempfile.TemporaryDirectory(prefix="bossman-source-snapshot-") as temporary:
+        snapshot = Path(temporary) / "source"
+        _run(["git", "-C", str(ROOT), "-c", "core.autocrlf=false", "worktree", "add",
+              "--detach", str(snapshot), source_sha])
+        try:
+            yield snapshot
+        finally:
+            # Only the disposable worktree created above is removed.
+            _run(["git", "-C", str(ROOT), "worktree", "remove", "--force", str(snapshot)])
+
+
+def prepare_output(path: Path) -> Path:
+    # A misspelled --out must never remove a checkout or owner's data. Requiring
+    # a new/empty destination is simpler and stronger than guessing ownership.
+    if path.is_symlink():
+        raise ValueError("Output must not be a symlink")
+    out = path.resolve()
+    if out.exists() and (not out.is_dir() or any(out.iterdir())):
+        raise ValueError(f"Output is not an empty directory; choose a new --out: {out}")
+    out.mkdir(parents=True, exist_ok=True)
+    return out
+
+
+def build_wheels(wheels: Path, source_root: Path | None = None) -> list[Path]:
+    source_root = source_root or ROOT
+    wheels.mkdir(parents=True, exist_ok=True)
+    for name, project in PROJECTS:
+        print(f"  building {name}", flush=True)
+        project = source_root / project.relative_to(ROOT)
+        _run([sys.executable, "-m", "pip", "wheel", "--no-deps",
+              "--wheel-dir", str(wheels), str(project)], cwd=source_root)
+    built = sorted(wheels.glob("*.whl"))
+    if len(built) != len(PROJECTS):
+        raise RuntimeError(f"Expected {len(PROJECTS)} wheels, produced {len(built)}")
+    return built
+
+
+def verify(wheels: Path, verifier: Path, source_sha: str) -> dict:
+    # The cwd and the harness copy are outside the repository. PYTHONPATH and
+    # UI overrides must not accidentally make an incomplete wheel look good.
+    with tempfile.TemporaryDirectory(prefix="bossman-clean-install-") as temporary:
+        work = Path(temporary)
+        env_dir = work / "venv"
+        venv.EnvBuilder(with_pip=True).create(env_dir)
+        python = env_dir / ("Scripts" if sys.platform == "win32" else "bin") / "python"
+        env = dict(os.environ)
+        for key in ("PYTHONPATH", "BCC_UI_DIR", "BCC_DATA_DIR", "DATABASE_URL"):
+            env.pop(key, None)
+        _run([str(python), "-m", "pip", "install", *map(str, sorted(wheels.glob("*.whl")))],
+             cwd=work, env=env)
+        _run([str(python), "-m", "pip", "check"], cwd=work, env=env)
+        installed_script = work / "verify_installed_product.py"
+        shutil.copyfile(verifier, installed_script)
+        result_path = work / "acceptance.json"
+        _run([str(python), str(installed_script), "--workdir", str(work / "acceptance"),
+              "--out", str(result_path), "--expected-sha", source_sha], cwd=work, env=env)
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+        result["dependency_versions"] = json.loads(_run(
+            [str(python), "-m", "pip", "list", "--format=json"], cwd=work, env=env).stdout)
+        return result
+
+
+INSTALLER = r'''#!/usr/bin/env python3
+"""Install the exact verified local wheels, then check the installed server."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import venv
+
+root = Path(__file__).resolve().parent
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--start", action="store_true", help="launch BCC after installation/acceptance")
+args = parser.parse_args()
+manifest = json.loads((root / "MANIFEST.json").read_text(encoding="utf-8"))
+for item in manifest["files"]:
+    path = (root / item["path"]).resolve()
+    if not path.is_relative_to(root) or hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]:
+        raise SystemExit(f"Artifact checksum/path verification failed: {item['path']}")
+env_dir = root / ".venv"
+if env_dir.is_symlink():
+    raise SystemExit("Refusing to modify a symlinked .venv")
+venv.EnvBuilder(with_pip=True).create(env_dir)
+python = env_dir / ("Scripts" if os.name == "nt" else "bin") / "python"
+subprocess.run([str(python), "-m", "pip", "install", *map(str, sorted((root / "wheels").glob("*.whl")))], check=True)
+# Project versions are intentionally unchanged between RCs: pip otherwise
+# silently keeps an older same-version install. Replace only our local wheels,
+# without needlessly reinstalling their already-resolved external dependencies.
+subprocess.run([str(python), "-m", "pip", "install", "--no-index", "--no-deps", "--force-reinstall",
+                *map(str, sorted((root / "wheels").glob("*.whl")))], check=True)
+subprocess.run([str(python), "-m", "pip", "check"], check=True)
+verification_env = dict(os.environ)
+for key in ("PYTHONPATH", "BCC_UI_DIR", "BCC_DATA_DIR", "DATABASE_URL"):
+    verification_env.pop(key, None)
+subprocess.run([str(python), str(root / "verify_installed_product.py"), "--out", str(root / "installed-acceptance.json"), "--expected-sha", manifest["source_sha"]], check=True, env=verification_env)
+print("Installed source SHA:", manifest["source_sha"])
+print("Start:", python, "-m bcc")
+print("Open: http://127.0.0.1:8800")
+if args.start:
+    raise SystemExit(subprocess.call([str(python), "-m", "bcc"]))
+'''
+
+README = """# Bossman local candidate
+
+Source SHA: `{sha}`. Built: {when}. Installed acceptance: **{status}**.
+
+Requires Python 3.11+ and internet access once to install third-party dependencies.
+No repository checkout is needed. Unzip the whole directory, then run:
+
+    python3 install.py --start
+
+On Windows with Python 3.12, run `py -3.12 install.py --start`.
+Open <http://127.0.0.1:8800>. The server prints the location of the access-token
+file; enter that token in the login screen. The token itself is not printed to
+logs. Data stays in the user's platform data directory across upgrades:
+Linux `$XDG_DATA_HOME/bossman/command-center` (default `~/.local/share/...`),
+Windows `%LOCALAPPDATA%/Bossman/CommandCenter`, macOS
+`~/Library/Application Support/Bossman/CommandCenter`.
+`BCC_DATA_DIR` overrides this location. `BCC_UI_DIR` is optional; the wheel
+contains its own UI.
+
+Subsequent starts (no reinstallation):
+
+    .venv/bin/python -m bcc
+
+Windows:
+
+    .venv\\Scripts\\python.exe -m bcc
+
+Stop with Ctrl+C. The standalone `bossman serve` service additionally needs its
+configured PostgreSQL/Redis services; the Command Center starts its own SQLite
+DB, queue worker and scheduler.
+
+The build checks actual HTTP responses, all static assets, login/session/CSRF,
+DB/background loops, process restart and persistence, using only installed
+wheels. `MANIFEST.json` contains exact source identity, measured acceptance,
+dependency versions and file hashes. This is not evidence of a model-backed
+agent run. Configure a local/provider model in the UI for live execution.
+The bundle installs the Python Playwright package. Its Chromium binary is a
+separate download: on Ubuntu/Debian use
+`.venv/bin/python -m playwright install --with-deps chromium`; on Windows use
+`.venv\\Scripts\\python.exe -m playwright install chromium`.
+Video import/export requires **both** `ffmpeg` and `ffprobe` on PATH; check
+`ffmpeg -version` and `ffprobe -version` in the same terminal used to start BCC.
+These OS prerequisites and optional apps' paid accounts/models are not included.
+
+After configuring an enabled agent and real model/provider in BCC, run the
+installed genuine model/task/restart acceptance (replace DATA_DIR with the
+configured data directory shown above):
+
+    .venv/bin/python -I -m bcc.owner_acceptance --data-dir DATA_DIR --output owner-acceptance.json
+
+On Windows use `.venv\\Scripts\\python.exe` in place of `.venv/bin/python`.
+This makes a real provider call in private isolated data. It reads the selected
+owner configuration and does not run owner tasks/schedules. Exit 0 is PASS,
+1 is FAIL and 2 means OWNER_REQUIRED; it does not certify browser UI or the
+separate same-model Intelligence Preservation measurement.
+
+`verify_installed_product.py` reruns deterministic installed boot acceptance.
+Clean candidates are built from a fresh Git snapshot and attest
+`source_dirty=false` inside the wheel. Dirty/legacy/unmeasured wheel identity
+is refused by acceptance; `--allow-dirty` is diagnostic and never verified.
+Owner hardware, credentials and Windows results are never inferred from Linux.
+"""
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--out", type=Path, default=ROOT / "dist" / "bossman-local")
+    parser.add_argument("--skip-verify", action="store_true", help="diagnostic artifact; NOT verified")
+    parser.add_argument("--allow-dirty", action="store_true", help="diagnostic artifact; NOT exact-SHA evidence")
+    args = parser.parse_args()
+    sha, dirty = _source_sha(), _source_dirty()
+    if dirty and not args.allow_dirty:
+        raise SystemExit("Source tree is dirty. Commit changes before producing exact-SHA evidence.")
+    out = prepare_output(args.out)
+    print(f"source {sha} -> {out}", flush=True)
+    wheels = out / "wheels"
+    if dirty:
+        build_wheels(wheels)  # diagnostic source; never exact-SHA acceptance
+    else:
+        with clean_source_snapshot(sha) as snapshot:
+            build_wheels(wheels, snapshot)
+    verifier = out / "verify_installed_product.py"
+    shutil.copyfile(ROOT / "tools" / "verify_installed_product.py", verifier)
+    (out / "install.py").write_text(INSTALLER, encoding="utf-8")
+    checks = {"status": "NOT_RUN"}
+    if dirty:
+        checks = {"status": "DIRTY_SOURCE_NOT_VERIFIED"}
+    elif not args.skip_verify:
+        print("  installing and booting in a clean environment", flush=True)
+        checks = verify(wheels, verifier, sha)
+    when = datetime.now(timezone.utc).isoformat()
+    (out / "README.md").write_text(README.format(sha=sha, when=when, status=checks["status"]), encoding="utf-8")
+    # Detect code changing while the build was running; never stamp a moving
+    # workspace with an old commit and call it final acceptance.
+    changed = _source_sha() != sha or _source_dirty()
+    if changed and not args.allow_dirty:
+        raise RuntimeError("Source changed during build; artifact is not exact-SHA evidence")
+    files = [{"path": p.relative_to(out).as_posix(), "bytes": p.stat().st_size,
+              "sha256": _sha256(p)} for p in sorted(out.rglob("*")) if p.is_file()]
+    manifest = {"source_sha": sha, "source_dirty": dirty or changed,
+                "built_at": when, "checks": checks, "files": files}
+    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"{len(files)} artifacts; installed acceptance: {checks['status']}", flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

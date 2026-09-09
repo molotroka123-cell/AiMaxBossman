@@ -964,3 +964,38 @@ pre.block {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ---------------------------------------------------------------- File Intelligence
+   §20: минимальная поверхность, язык интерфейса — общий. Ни одной анимации
+   прогресса: полоска, которая едет, пока система ничего не знает о ходе работы,
+   утверждает прогресс без улики. */
+.fi-form { display: grid; gap: .75rem; max-width: 42rem; }
+.fi-privacy-state { margin-bottom: .5rem; }
+.fi-state { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; }
+.fi-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+.fi-scroll { overflow-x: auto; }
+.fi-table { width: 100%; border-collapse: collapse; font-size: .92em; }
+.fi-table th, .fi-table td { text-align: left; padding: .4rem .6rem;
+  border-bottom: 1px solid var(--line, rgba(128,128,128,.25)); vertical-align: top; }
+.fi-table th { font-weight: 600; white-space: nowrap; }
+/* Путь ломается по любому символу: длинный путь не должен растягивать страницу. */
+.fi-path { word-break: break-all; font-family: var(--mono, ui-monospace, monospace);
+  font-size: .9em; }
+.fi-kv { display: grid; grid-template-columns: auto 1fr; gap: .25rem .75rem; margin: .5rem 0; }
+.fi-kv dt { font-weight: 600; }
+.fi-kv dd { margin: 0; word-break: break-all; }
+
+/* ---------------------------------------------------------------- build identity
+   SHA работающей сборки в оболочке. Недоказанный источник подсвечен: пустое или
+   бледное поле здесь читалось бы как «наверное, всё в порядке», а это ровно та
+   ошибка, из-за которой брейкер однажды гоняли не по тому чекауту. */
+.build-sha { font-family: var(--mono, ui-monospace, monospace); opacity: .75;
+  letter-spacing: .01em; }
+.build-sha.is-unknown { color: var(--warn, #c07a00); opacity: 1; font-weight: 600; }
+
+/* ---------------------------------------------------------------- MF-031: кто выполнит
+   Строка под полем поручения. Скрыта, пока ответа нет: «наверное, кто-нибудь
+   выполнит» дороже пустоты. Недоступный исполнитель подсвечен — это причина, по
+   которой кнопка откажет, и владелец должен увидеть её до нажатия, а не после. */
+.bx-exec { margin: 6px 0 0; font-size: 12.5px; opacity: .8; }
+.bx-exec.is-blocked { color: var(--warn, #c07a00); opacity: 1; font-weight: 600; }

@@ -13,6 +13,7 @@ import socket
 import subprocess
 import sys
 import time
+import uuid
 
 import httpx
 import pytest
@@ -24,13 +25,31 @@ from playwright.sync_api import TimeoutError as PWTimeout
 from .test_ux2_thinking_pane import _launch
 
 ROOT = Path(__file__).resolve().parents[2]
-SERVE = '''import os,sys,pathlib
+SERVE = '''import os,sys,pathlib,json
+import bcc,bossman_shared
 from bcc.api import create_app
 from bcc.config import Settings
 from bossman_shared import fable_budget
 root,data,port=pathlib.Path(sys.argv[1]),pathlib.Path(sys.argv[2]),int(sys.argv[3])
+mode,expected_sha=sys.argv[4],sys.argv[5]
+runtime_settings=Settings(data_dir=data) if mode=='installed' else Settings(data_dir=data,ui_dir=root/'command-center'/'ui')
+proof={'mode':mode,'python':sys.executable,'prefix':sys.prefix,'bcc':bcc.__file__,
+       'bossman_shared':bossman_shared.__file__,'ui_dir':str(runtime_settings.ui_dir)}
+if mode=='installed':
+    from importlib.resources import files
+    prefix=pathlib.Path(sys.prefix).resolve()
+    for imported in (bcc,bossman_shared):
+        location=pathlib.Path(imported.__file__).resolve()
+        assert location.is_relative_to(prefix),(imported.__name__,str(location))
+        assert not any(location.is_relative_to(root/part) for part in ('command-center','bossman-core','bossman_shared'))
+    assert runtime_settings.ui_dir.resolve().is_relative_to(pathlib.Path(bcc.__file__).resolve().parent)
+    build=json.loads(files('bcc').joinpath('_build.json').read_text())
+    assert build['source_sha']==expected_sha,build
+    assert build.get('source_dirty') is False,build
+    proof['source_sha']=build['source_sha']
+(data/'acceptance-runtime.json').write_text(json.dumps(proof,indent=2))
 fable_budget.LEDGER_PATH=data/'test-budget.json'
-app=create_app(Settings(data_dir=data,ui_dir=root/'command-center'/'ui'),announce_token=False,start_workers=True)
+app=create_app(runtime_settings,announce_token=False,start_workers=True)
 fd=os.open(data/'test-login-token',os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
 with os.fdopen(fd,'w') as f:f.write(app.state.svc.auth.token)
 import uvicorn
@@ -47,20 +66,33 @@ class EditorServer:
             self.port = sock.getsockname()[1]
         self.url = f'http://127.0.0.1:{self.port}'
         self.process = None
+        self.log_handle = None
 
     def start(self):
         env = dict(os.environ, BCC_DATA_DIR=str(self.data), PYTHONPATH=os.pathsep.join(
             map(str, [ROOT, ROOT / 'bossman-core', ROOT / 'command-center'])))
         env['BOSSMAN_EVIDENCE_KEY_FILE'] = str(self.data / 'test-evidence.key')
         env['BOSSMAN_REAL_WORKLOAD_ROOT'] = str(self.data / 'test-telemetry')
-        self.process = subprocess.Popen([sys.executable, '-c', SERVE, str(ROOT),
-                                         str(self.data), str(self.port)],
-                                        env=env, cwd=ROOT, stdout=subprocess.DEVNULL,
-                                        stderr=subprocess.DEVNULL)
+        executable = os.environ.get('BCC_ACCEPTANCE_PYTHON', sys.executable)
+        mode = 'installed' if os.environ.get('BCC_ACCEPTANCE_PYTHON') else 'source'
+        expected_sha = os.environ.get('BCC_ACCEPTANCE_SOURCE_SHA', '')
+        if mode == 'installed':
+            assert Path(executable).is_absolute() and Path(executable).is_file(), executable
+            assert re.fullmatch(r'[0-9a-f]{40}', expected_sha), 'BCC_ACCEPTANCE_SOURCE_SHA required'
+            assert not env.get('BCC_UI_DIR'), 'Installed acceptance must use the packaged UI'
+            env.pop('PYTHONPATH', None)
+            env.pop('PYTHONHOME', None)
+        self.log_handle = (self.data / 'acceptance-server.log').open('a')
+        self.process = subprocess.Popen([executable, *(['-I'] if mode == 'installed' else []),
+                                         '-c', SERVE, str(ROOT), str(self.data), str(self.port),
+                                         mode, expected_sha],
+                                        env=env, cwd=self.data if mode == 'installed' else ROOT,
+                                        stdout=self.log_handle, stderr=subprocess.STDOUT)
         until = time.monotonic() + 25
         with httpx.Client(trust_env=False, timeout=1) as client:
             while time.monotonic() < until:
-                assert self.process.poll() is None, 'Disposable BCC server exited'
+                assert self.process.poll() is None, ('Disposable BCC server exited: ' +
+                    (self.data / 'acceptance-server.log').read_text()[-12000:])
                 try:
                     if client.get(self.url + '/').status_code == 200:
                         return self
@@ -77,6 +109,9 @@ class EditorServer:
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 self.process.wait(timeout=5)
+        if self.log_handle is not None:
+            self.log_handle.close()
+            self.log_handle = None
 
     def restart(self):
         before = self.process.pid
@@ -353,6 +388,152 @@ def change(page, suffix, action):
 
 
 @pytest.mark.timeout(180)
+def test_video_http_native_edit_preview_export_restart(editor_server, tmp_path):
+    """Real installed-capable HTTP/worker/media evidence; never browser playback proof."""
+    import hashlib
+    server = editor_server
+    output = evidence_dir(tmp_path)
+    fixture = tmp_path / 'http-video-with-audio.mp4'
+    subprocess.run(['ffmpeg', '-v', 'error', '-nostdin', '-y', '-f', 'lavfi', '-i',
+                    'color=red:size=160x90:rate=30:duration=2', '-f', 'lavfi', '-i',
+                    'sine=frequency=440:sample_rate=48000:duration=2', '-c:v', 'libx264',
+                    '-threads', '1', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', str(fixture)],
+                   check=True, timeout=20)
+    with httpx.Client(base_url=server.url, trust_env=False, timeout=30) as client:
+        def request(method, path, *, status=200, **kwargs):
+            response = client.request(method, path, **kwargs)
+            assert response.status_code == status, (path, response.status_code, response.text[:2000])
+            return response
+
+        def poll_task(task_id):
+            until = time.monotonic() + 60
+            while time.monotonic() < until:
+                state = request('GET', f'/api/tasks/{task_id}').json()
+                status = state['task']['status']
+                if status == 'completed':
+                    return state
+                assert status not in ('failed', 'stopped', 'cancelled', 'blocked', 'waiting_approval'), state
+                time.sleep(.1)
+            raise AssertionError(f'Native video task did not finish: {state}')
+
+        request('GET', '/api/video-studio/projects', status=401)
+        auth = request('POST', '/api/login', json={
+            'token': (server.data / 'test-login-token').read_text(), 'label': 'isolated-video-acceptance'}).json()
+        client.headers['X-BCC-CSRF'] = auth['csrf']
+        for asset in ('/', '/api.js', '/pages/video_studio.js', '/pages/video_studio_state.js',
+                      '/pages/video_studio.css'):
+            assert request('GET', asset).content
+        request('POST', '/api/video-studio/commands', status=422, json={})
+        chat_body = {'text': 'Склей эти два видео', 'operation_id': uuid.uuid4().hex}
+        chat = request('POST', '/api/video-studio/chat', json=chat_body).json()
+        pid, task_id = chat['project_id'], chat['task_id']
+        project_path = '/api/video-studio/projects/' + pid
+        run_path = f'/api/video-studio/chat/{task_id}/run'
+        refused = request('POST', run_path, status=422).json()
+        assert 'VIDEO_MEDIA_REQUIRED' in refused['error']['message'], refused
+        assert request('GET', f'/api/tasks/{task_id}').json()['runs'] == []
+        assert request('POST', '/api/video-studio/chat', json=chat_body).json() == chat
+        request('POST', '/api/video-studio/media', params={
+            'project_id': pid, 'filename': fixture.name, 'expected_revision': 0,
+            'operation_id': uuid.uuid4().hex}, content=fixture.read_bytes())
+        request('POST', run_path)
+        request('POST', run_path)
+        native = poll_task(task_id)
+        assert len(native['runs']) == 1, native
+
+        def project():
+            return request('GET', project_path).json()
+
+        def clip():
+            return project()['sequences'][0]['tracks'][0]['clips'][0]
+
+        def command(command):
+            body = {'project_id': pid, 'expected_revision': project()['revision'],
+                    'operation_id': uuid.uuid4().hex, 'command': command}
+            first = request('POST', '/api/video-studio/commands', json=body).json()
+            assert request('POST', '/api/video-studio/commands', json=body).json() == first
+            return first
+
+        assert clip()['source_out'] == 2_000_000
+        command({'type': 'clip.trim', 'clip_id': clip()['id'], 'source_out': 1_000_000})
+        assert clip()['source_out'] == 1_000_000
+        command({'type': 'history.undo'})
+        assert clip()['source_out'] == 2_000_000
+        command({'type': 'history.redo'})
+        assert clip()['source_out'] == 1_000_000
+        before = project()
+        request('POST', '/api/video-studio/commands', status=403, json={
+            'project_id': pid, 'expected_revision': before['revision'], 'operation_id': uuid.uuid4().hex,
+            'command': {'type': 'media.import', 'media': {'relative_path': '../../denied'}}})
+        assert project() == before
+        artifacts = []
+        for preview in (True, False):
+            body = {'project_id': pid, 'expected_revision': before['revision'],
+                    'operation_id': uuid.uuid4().hex, 'preview': preview,
+                    'options': {'width': 160, 'height': 90}}
+            job = request('POST', '/api/video-studio/exports', json=body).json()
+            poll_task(job['task_id'])
+            completed = request('GET', '/api/video-studio/exports/' + job['job_id']).json()
+            assert completed['verification']['decoded'] and completed['output_url'], completed
+            downloaded = request('GET', completed['output_url']).content
+            target = output / ('http-preview.mp4' if preview else 'http-export.mp4')
+            target.write_bytes(downloaded)
+            checksum = hashlib.sha256(downloaded).hexdigest()
+            assert checksum == completed['verification']['sha256'], completed
+            probe = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-show_format',
+                '-show_streams', '-of', 'json', str(target)], text=True, timeout=20))
+            assert abs(float(probe['format']['duration']) - 1) <= .08, probe
+            assert {'audio', 'video'} <= {s['codec_type'] for s in probe['streams']}, probe
+            subprocess.run(['ffmpeg', '-v', 'error', '-xerror', '-nostdin', '-i', str(target),
+                            '-f', 'null', '-'], check=True, timeout=30)
+            replay = request('POST', '/api/video-studio/exports', json=body).json()
+            assert replay['job_id'] == job['job_id']
+            artifacts.append({'preview': preview, 'job_id': job['job_id'],
+                              'url': completed['output_url'], 'sha256': checksum, 'ffprobe': probe})
+        server.restart()
+        assert project() == before  # Same authenticated session, new process, same DB.
+        assert request('GET', f'/api/tasks/{task_id}').json()['task']['status'] == 'completed'
+        for artifact in artifacts:
+            content = request('GET', artifact['url']).content
+            assert hashlib.sha256(content).hexdigest() == artifact['sha256']
+        assert len(request('GET', project_path + '/exports').json()['jobs']) == 2
+        (output / 'video-http-result.json').write_text(json.dumps({
+            'status': 'PASS', 'kind': 'REAL_HTTP_WORKER_FFMPEG_NOT_BROWSER_PLAYBACK',
+            'browser_playback': 'NOT_RUN', 'local_model': 'NOT_RUN',
+            'restart': 'FRESH_PROCESS', 'project_id': pid, 'native_task_id': task_id,
+            'runtime': json.loads((server.data / 'acceptance-runtime.json').read_text()),
+            'artifacts': artifacts}, ensure_ascii=False, indent=2))
+
+
+@pytest.mark.timeout(120)
+def test_video_chat_ui_refusal_preserves_draft_with_actionable_feedback(editor_server):
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page(viewport={'width': 1440, 'height': 1000})
+            login(page, editor_server)
+            page.goto(editor_server.url + '/#/bossman-chat')
+            page.get_by_label('Задание для Video Studio').fill('Склей эти два видео')
+            with page.expect_response(lambda r: '/api/video-studio/chat/' in r.url
+                                      and r.url.endswith('/run')) as seen:
+                page.get_by_role('button', name='Отправить', exact=True).click()
+            assert seen.value.status == 422, seen.value.text()
+            expect(page.get_by_text(re.compile('VIDEO_MEDIA_REQUIRED')).first).to_be_visible()
+            expect(page.get_by_label('Задание для Video Studio')).to_have_value('Склей эти два видео')
+            history = snapshot(page.context, editor_server.url + '/api/video-studio/chat')['messages']
+            assert len(history) == 1
+            state = snapshot(page.context, editor_server.url + f"/api/tasks/{history[0]['task_id']}")
+            assert state['task']['status'] == 'draft' and state['runs'] == []
+            page.get_by_role('button', name='Открыть сохранённый проект', exact=True).click()
+            page.locator('.vs-library input[type=file]').wait_for(state='attached')
+            assert history[0]['project_id'] in page.url
+            after = snapshot(page.context, editor_server.url + f"/api/tasks/{history[0]['task_id']}")
+            assert after['task']['status'] == 'draft' and after['runs'] == []
+        finally:
+            browser.close()
+
+
+@pytest.mark.timeout(180)
 def test_video_ui_import_trim_undo_preview_export_restart(editor_server, tmp_path):
     server = editor_server
     output = evidence_dir(tmp_path)
@@ -430,6 +611,7 @@ def test_video_ui_import_trim_undo_preview_export_restart(editor_server, tmp_pat
             page.screenshot(path=str(output / 'video-user-path.png'), full_page=True)
             (output / 'video-result.json').write_text(json.dumps({'status': 'PASS',
                 'kind': 'REAL_BROWSER_TESTER_NOT_LOCAL_MODEL', 'restart': 'FRESH_PROCESS',
+                'runtime': json.loads((server.data / 'acceptance-runtime.json').read_text()),
                 # Контейнер/кодеки, которые ПРОДУКТ выбрал сам и которые
                 # действительно проигрались (до и после перезапуска), плюс
                 # полный ответ браузера про кодеки: PASS на webm не означает,

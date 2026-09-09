@@ -7,18 +7,17 @@ from .conftest import FakeAdapter
 from .helpers import make_stack
 
 
-async def test_owner_command_without_agent_is_blocked_before_run(env):
+async def test_owner_command_without_agent_is_refused_before_task_creation(env):
     response = await env.client.post('/api/tasks', json={
         'title': 'Доложи состояние миссии', 'prompt': 'Доложи состояние миссии',
         'run_now': True,
     })
-    assert response.status_code == 200
-    task = response.json()['task']
-    assert task['status'] == 'blocked'
-    assert task['meta']['reason_code'] == 'BLOCKED_CAPABILITY_UNAVAILABLE'
-    data = (await env.client.get(f"/api/tasks/{task['id']}")).json()
-    assert data['runs'] == []
-    assert data['error']
+    # MF-031 moves the same fail-closed refusal BEFORE creating a dead task.
+    # Runtime rejection remains covered below (draft/retry and removed agent).
+    assert response.status_code == 409
+    assert response.json()['error']['code'] == 'BLOCKED_CAPABILITY_UNAVAILABLE'
+    assert response.json()['error']['hint']
+    assert (await env.client.get('/api/tasks')).json() == []
     assert await env.svc.engine.claim() is None
 
 

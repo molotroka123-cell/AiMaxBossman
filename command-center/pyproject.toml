@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "BOSSMAN AI Command Center — управление моделями, агентами, задачами и расписаниями"
 requires-python = ">=3.11"
 dependencies = [
+    "bossman-shared==0.1.0",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
     # [socks]: рантайм читает ALL_PROXY/HTTPS_PROXY из окружения для удалённых

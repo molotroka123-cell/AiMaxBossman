@@ -46,13 +46,16 @@ function owner(text, { version, dirty = true }) {
   state.meta = { id: 1, version };
   state.code = '<p>сервер</p>';
   state.dirty = dirty;
+  state.saveConflict = false;
+  state.recovery = null;
+  state.mutating = false;
   state.selected = { tag: 'p', bd_id: 'bd-1' };
   return editor;
 }
 
 const puts = (server) => server.calls.filter((c) => c.method === 'PUT');
 
-test('после 409 автосохранение снова работает, а не отказывает вечно', async () => {
+test('после 409 версия обновлена, но чужой код не затирается без выбора владельца', async () => {
   const server = fakeServer(4);                 // вторая вкладка сохранила v4
   const editor = owner('<p>владелец печатает</p>', { version: 3 });
 
@@ -67,11 +70,12 @@ test('после 409 автосохранение снова работает, �
 
   editor.value = '<p>владелец печатает ещё</p>';
   state.dirty = true;
-  await flushSave();
-  assert.equal(puts(server).length, 2);
-  assert.equal(puts(server)[1].body.base_version, 4);
-  assert.equal(server.code, '<p>владелец печатает ещё</p>');
-  assert.equal(state.dirty, false);
+  assert.equal(await flushSave(), false);
+  assert.equal(puts(server).length, 1, 'новый набор не даёт согласия затереть чужую версию');
+  assert.equal(server.code, '<p>сервер</p>');
+  assert.equal(editor.value, '<p>владелец печатает ещё</p>');
+  assert.equal(state.saveConflict, true);
+  // Explicit owner replacement is exercised through the real-browser suite.
 });
 
 test('положительный контроль: обычное сохранение проходит с первого раза', async () => {
@@ -99,7 +103,7 @@ test('отложенный автосейв не откатывает приме
   await sendEdit({ op: 'style', bd_id: 'bd-1', props: { color: '#fff' } }, 'ok');
   // Набранное уходит ПЕРЕД правкой, правка ложится сверху: обе целы.
   assert.deepEqual(server.calls.map((c) => `${c.method} ${c.path.split('/').pop()}`),
-                   ['PUT code', 'POST edit', 'GET 1']);
+                   ['PUT code', 'POST edit', 'GET 1', 'GET models']);
   assert.equal(server.version, 7);
   assert.equal(server.code, '<p>набрано в редакторе</p><!--правка-->');
 
@@ -129,6 +133,104 @@ test('набор во время запроса не считается сохр
   await flying;
   assert.equal(server.code, '<p>первое</p>');
   assert.equal(state.dirty, true, 'новый набор остаётся несохранённым');
+  await new Promise((r) => setTimeout(r, SAVE_DELAY_MS + 200));
+  assert.equal(server.code, '<p>первое и второе</p>', 'новый набор тоже сохранён без следующего нажатия');
+});
+
+test('ошибка сохранения не разрешает зависимую правку элемента', async () => {
+  const server = fakeServer(4);
+  const editor = owner('<p>мой черновик</p>', { version: 3 });
+  await sendEdit({ op: 'text', bd_id: 'bd-1', text: 'ошибочная правка' });
+  assert.equal(server.calls.filter((c) => c.method === 'POST').length, 0);
+  assert.equal(server.code, '<p>сервер</p>');
+  assert.equal(editor.value, '<p>мой черновик</p>');
+});
+
+test('повторяемая запись привязана к неизменённой версии и создаёт одну правку', async () => {
+  const server = fakeServer(4);
+  owner('<p>мой черновик</p>', { version: 4 });
+  const raw = api.raw;
+  let fail = true;
+  api.raw = async (path, opts = {}) => {
+    if (opts.method === 'PUT' && fail) {
+      fail = false;
+      throw Object.assign(new Error('шлюз временно недоступен'), { status: 502 });
+    }
+    return raw(path, opts);
+  };
+  assert.equal(await flushSave(), false);
+  assert.equal(state.recovery.canRetry, true);
+  assert.equal(state.recovery.version, 4);
+  await state.recovery.retry();
+  assert.equal(puts(server).length, 1);
+  assert.equal(server.version, 5);
+  assert.equal(state.dirty, false);
+});
+
+test('потерянный ответ после записи подтверждается чтением без второй записи', async () => {
+  const server = fakeServer(4);
+  owner('<p>мой черновик</p>', { version: 4 });
+  const raw = api.raw;
+  api.raw = async (path, opts = {}) => {
+    const res = await raw(path, opts);
+    if (opts.method === 'PUT') throw Object.assign(new Error('ответ потерян'), { status: 502 });
+    return res;
+  };
+  assert.equal(await flushSave(), false);
+  assert.equal(state.dirty, false, 'Bossman перечитал фактический код после неизвестного исхода');
+  assert.equal(state.recovery.canRetry, false);
+  await flushSave();
+  assert.equal(puts(server).length, 1);
+  assert.equal(server.version, 5);
+});
+
+for (const status of [403, 404, 413]) {
+  test(`HTTP ${status} сохраняет причину и не предлагает повтор`, async () => {
+    const server = fakeServer(4);
+    const editor = owner('<p>мой черновик</p>', { version: 4 });
+    const raw = api.raw;
+    api.raw = async (path, opts = {}) => {
+      if (opts.method === 'PUT') throw Object.assign(new Error(`точная причина ${status}`), { status });
+      return raw(path, opts);
+    };
+    assert.equal(await flushSave(), false);
+    assert.equal(state.recovery.error.message, `точная причина ${status}`);
+    assert.equal(state.recovery.canRetry, false);
+    assert.equal(state.recovery.fresh, true);
+    assert.equal(editor.value, '<p>мой черновик</p>');
+    assert.equal(server.code, '<p>сервер</p>');
+  });
+}
+
+test('ошибка GET восстановления не скрывает исходный отказ политики', async () => {
+  owner('<p>мой черновик</p>', { version: 4 });
+  api.raw = async (path, opts = {}) => {
+    throw Object.assign(new Error(opts.method === 'PUT' ? 'DENY' : 'нет связи'),
+      { status: opts.method === 'PUT' ? 403 : 502 });
+  };
+  assert.equal(await flushSave(), false);
+  assert.equal(state.recovery.error.message, 'DENY');
+  assert.equal(state.recovery.fresh, false);
+  assert.match(state.recovery.note, /нет связи/);
+  assert.equal(state.recovery.canRetry, false);
+});
+
+test('одновременные сохранения объединяются до отправки второго запроса', async () => {
+  const server = fakeServer(4);
+  owner('<p>мой черновик</p>', { version: 4 });
+  const raw = api.raw;
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  api.raw = async (path, opts = {}) => {
+    if (opts.method === 'PUT') await gate;
+    return raw(path, opts);
+  };
+  const first = flushSave();
+  const second = flushSave();
+  release();
+  await Promise.all([first, second]);
+  assert.equal(puts(server).length, 1);
+  assert.equal(server.version, 5);
 });
 
 

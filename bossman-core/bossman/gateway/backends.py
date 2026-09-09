@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import time
+from contextlib import aclosing
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator
 
 import httpx
 
+from . import anthropic_protocol
 from .config import (ANTHROPIC_VERSION, BackendConfig, anthropic_backend_config,
                      openrouter_backend_config, zai_backend_config)
 
@@ -21,11 +23,20 @@ _FAILOVER_4XX = {408, 425, 429}
 # и владелец ищет причину в модели.
 ANTHROPIC_DEFAULT_MAX_TOKENS = 4096
 
+# A read timeout alone permits an upstream to send heartbeats forever. Bound
+# total wall time by the configured request timeout and wire volume by 32 MiB.
+# Content is still streamed; this is not a 32 MiB accumulation buffer.
+MAX_STREAM_BYTES = 32 * 1024 * 1024
+
 
 class BackendError(RuntimeError):
-    def __init__(self, message: str, *, status_code: int | None = None):
+    def __init__(self, message: str, *, status_code: int | None = None,
+                 response_started: bool = False):
         super().__init__(message)
         self.status_code = status_code
+        # A successful upstream HTTP response may already be billable even if
+        # its payload is corrupt. The budget must not refund that attempt.
+        self.response_started = response_started
 
     @property
     def failover(self) -> bool:
@@ -272,32 +283,77 @@ class OpenAIBackend:
         except ValueError as exc:
             # битый JSON = нездоровый бэкенд → failover (status_code=None)
             self.breaker.record_failure("invalid JSON")
-            raise BackendError(f"{self.config.name} returned invalid JSON") from exc
+            raise BackendError(f"{self.config.name} returned invalid JSON", response_started=True) from exc
+        try:
+            body = self.normalize_response(path, body)
+        except anthropic_protocol.ProtocolError as exc:
+            self.breaker.record_failure("invalid provider response")
+            raise BackendError(f"{self.config.name}: {exc}", response_started=True) from exc
         self.breaker.record_success()
         return body, r.headers
 
+    def normalize_response(self, path: str, body: dict) -> dict:
+        return body
+
+    def stream_eof(self) -> None:
+        self.breaker.record_success()
+
     async def stream_request(self, path: str, payload: dict) -> AsyncIterator[bytes]:
         path = self.resolve_path(path)
+        deadline = asyncio.get_running_loop().time() + self.config.timeout_seconds
+        response = None
         try:
-            async with self.client.stream("POST", path, json=payload, headers=self.headers()) as r:
-                if r.status_code >= 400:
-                    body = (await r.aread())[:1000]
-                    err = BackendError(f"{self.config.name} returned HTTP {r.status_code}: {body.decode(errors='replace')}",
-                                       status_code=r.status_code)
-                    if err.failover:
-                        self.breaker.record_failure(f"HTTP {r.status_code}")
-                    raise err
-                async for chunk in r.aiter_raw():
-                    if chunk:
-                        yield chunk
-        except httpx.TimeoutException as exc:
+            request = self.client.build_request("POST", path, json=payload, headers=self.headers())
+            # Do not hold an asyncio.timeout context across a yield: its timer
+            # would cancel the consumer while it works on an already-read chunk.
+            response = await asyncio.wait_for(self.client.send(request, stream=True),
+                                              timeout=self.config.timeout_seconds)
+            raw = response.aiter_raw().__aiter__()
+            total, error_body = 0, b""
+            preloaded_error = response.status_code >= 400 and response.is_stream_consumed
+            if preloaded_error:
+                error_body = response.content[:1000]
+            while True:
+                if preloaded_error:
+                    break
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    raise TimeoutError("total stream deadline")
+                try:
+                    chunk = await asyncio.wait_for(anext(raw), timeout=remaining)
+                except StopAsyncIteration:
+                    break
+                if response.status_code >= 400:
+                    error_body += chunk[:1000 - len(error_body)]
+                    if len(error_body) >= 1000:
+                        break
+                    continue
+                total += len(chunk)
+                if total > MAX_STREAM_BYTES:
+                    self.breaker.record_failure("stream size limit")
+                    raise BackendError(f"{self.config.name} stream exceeds size limit", response_started=True)
+                if chunk:
+                    yield chunk
+            if response.status_code >= 400:
+                err = BackendError(
+                    f"{self.config.name} returned HTTP {response.status_code}: "
+                    f"{error_body.decode(errors='replace')}", status_code=response.status_code)
+                if err.failover:
+                    self.breaker.record_failure(f"HTTP {response.status_code}")
+                raise err
+        except (httpx.TimeoutException, TimeoutError) as exc:
             self.breaker.record_failure(type(exc).__name__)
-            raise BackendError(f"{self.config.name} timed out: {exc}") from exc
+            raise BackendError(f"{self.config.name} timed out: {exc}",
+                               response_started=response is not None and response.status_code < 400) from exc
         except httpx.HTTPError as exc:
             self.breaker.record_failure(type(exc).__name__)
-            raise BackendError(f"{self.config.name} transport error: {exc}") from exc
+            raise BackendError(f"{self.config.name} transport error: {exc}",
+                               response_started=response is not None and response.status_code < 400) from exc
         else:
-            self.breaker.record_success()
+            self.stream_eof()
+        finally:
+            if response is not None:
+                await response.aclose()
 
 
 class OpenRouterBackend(OpenAIBackend):
@@ -359,48 +415,12 @@ class AnthropicBackend(OpenAIBackend):
         `max_tokens` у Anthropic обязателен. Значение по умолчанию берётся
         явно и называется, а не подставляется молча где-то в транспорте.
         """
-        body = dict(payload)
-        messages = list(body.pop("messages", None) or [])
-        system_parts = [str(m.get("content") or "") for m in messages
-                        if m.get("role") == "system"]
-        body["messages"] = [{"role": m.get("role"), "content": m.get("content")}
-                            for m in messages if m.get("role") != "system"]
-        existing_system = body.get("system")
-        if existing_system:
-            system_parts.insert(0, str(existing_system))
-        if system_parts:
-            body["system"] = "\n\n".join(part for part in system_parts if part)
-        elif "system" in body:
-            body.pop("system")
-        if not body.get("max_tokens"):
-            body["max_tokens"] = ANTHROPIC_DEFAULT_MAX_TOKENS
-        body.pop("stream_options", None)
-        return body
+        return anthropic_protocol.request(payload, ANTHROPIC_DEFAULT_MAX_TOKENS)
 
     @staticmethod
     def to_openai_response(data: dict) -> dict:
         """Ответ Anthropic → форма, на которой говорит остальной шлюз."""
-        blocks = data.get("content") or []
-        text = "".join(str(b.get("text") or "") for b in blocks
-                       if isinstance(b, dict) and b.get("type", "text") == "text")
-        usage = data.get("usage") or {}
-        return {
-            "id": data.get("id"),
-            "object": "chat.completion",
-            "model": data.get("model"),
-            "choices": [{
-                "index": 0,
-                "message": {"role": "assistant", "content": text},
-                "finish_reason": data.get("stop_reason"),
-            }],
-            "usage": {
-                "prompt_tokens": usage.get("input_tokens"),
-                "completion_tokens": usage.get("output_tokens"),
-                "total_tokens": (
-                    (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
-                    if usage else None),
-            },
-        }
+        return anthropic_protocol.response(data)
 
     def resolve_path(self, path: str) -> str:
         """`/v1/chat/completions` у Anthropic называется `/v1/messages`."""
@@ -410,16 +430,50 @@ class AnthropicBackend(OpenAIBackend):
 
     async def json_request(self, path: str, payload: dict) -> tuple[dict, httpx.Headers]:
         if path.endswith("/chat/completions"):
-            body, headers = await super().json_request(
-                path, self.to_anthropic_payload(payload))
-            return self.to_openai_response(body), headers
+            try:
+                payload = self.to_anthropic_payload(payload)
+            except anthropic_protocol.ProtocolError as exc:
+                raise BackendError(str(exc), status_code=400) from exc
         return await super().json_request(path, payload)
 
+    def normalize_response(self, path: str, body: dict) -> dict:
+        # Validation must precede record_success; otherwise every malformed
+        # native response resets the breaker just before recording its failure.
+        return self.to_openai_response(body) if path == "/v1/messages" else body
+
+    def stream_eof(self) -> None:
+        # Native EOF proves nothing. Only the translator's message_stop can
+        # close the breaker and issue an OpenAI finish event.
+        return None
+
     async def stream_request(self, path: str, payload: dict) -> AsyncIterator[bytes]:
-        if path.endswith("/chat/completions"):
+        if not path.endswith("/chat/completions"):
+            async with aclosing(super().stream_request(path, payload)) as upstream:
+                async for chunk in upstream:
+                    yield chunk
+            return
+        try:
             payload = self.to_anthropic_payload(payload)
-        async for chunk in super().stream_request(path, payload):
-            yield chunk
+        except anthropic_protocol.ProtocolError as exc:
+            raise BackendError(str(exc), status_code=400) from exc
+        parser = anthropic_protocol.Stream()
+        try:
+            async with aclosing(super().stream_request(path, payload)) as upstream:
+                async for chunk in upstream:
+                    for normalized in parser.feed(chunk):
+                        if parser.done:
+                            # Close immediately, including when the provider
+                            # keeps writing after message_stop or the consumer
+                            # stops reading as soon as it sees the finish frame.
+                            await upstream.aclose()
+                            self.breaker.record_success()
+                        yield normalized
+                    if parser.done:
+                        return
+                parser.finish()
+        except anthropic_protocol.ProtocolError as exc:
+            self.breaker.record_failure("invalid Anthropic stream")
+            raise BackendError(f"{self.config.name}: {exc}", response_started=True) from exc
 
     @classmethod
     def from_env(cls, transport: httpx.AsyncBaseTransport | None = None,

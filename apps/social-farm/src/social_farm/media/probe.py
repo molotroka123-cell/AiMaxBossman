@@ -22,6 +22,7 @@ EOI, GIF до терминатора, WebP сверяется с длиной и
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import struct
 import subprocess
@@ -162,7 +163,8 @@ def probe_with_ffprobe(path: str | Path) -> ProbeResult:
     # кодом 0 и отдаёт width=0, height=0. Нулевой кадр — это не кадр, и
     # пропустить его дальше значит опубликовать пустоту. Проверено на
     # настоящем ffprobe, а не предположено.
-    if asset_type in (AssetType.IMAGE, AssetType.VIDEO) and not (width and height):
+    if asset_type in (AssetType.IMAGE, AssetType.VIDEO) and (
+            width is None or height is None or width <= 0 or height <= 0):
         raise CorruptMedia(
             f"ffprobe вернул нулевые размеры ({width}×{height}): файл повреждён")
 
@@ -180,7 +182,8 @@ def _duration_ms(value: object) -> int | None:
         seconds = float(str(value))
     except (TypeError, ValueError):
         return None
-    return int(round(seconds * 1000)) if seconds > 0 else None
+    milliseconds = seconds * 1000
+    return int(round(milliseconds)) if seconds > 0 and math.isfinite(milliseconds) else None
 
 
 def _int_or_none(value: object) -> int | None:

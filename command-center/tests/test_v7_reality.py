@@ -331,12 +331,16 @@ def test_every_other_rung_is_spent_exactly_once():
     assert len(seen) == len(set(seen)), f"a rung repeated: {seen}"
 
 
-def test_a_different_failure_gets_a_fresh_ladder():
-    """Inheriting rungs spent on an unrelated problem would strand the run with
-    nothing left to try."""
+def test_a_different_failure_keeps_the_spent_rungs():
+    """Astra/Codex F6 (2026-09-08): a fresh ladder per failure class let a
+    provider alternating two error labels re-earn the degraded path forever.
+    The class selects which rungs are RELEVANT; it never un-spends one. A run
+    that runs out of rungs goes to the owner — that is the bounded answer."""
     spent = recovery.Ladder(recovery.TRANSIENT, ("alternate_model",))
-    fresh = recovery.Ladder.from_dict(spent.to_dict(), recovery.THROTTLED)
-    assert fresh.spent == ()
+    other = recovery.Ladder.from_dict(spent.to_dict(), recovery.THROTTLED)
+    assert other.spent == ("alternate_model",)
+    assert other.failure_class == recovery.THROTTLED and other.transitions == 1
+    assert other.classes == (recovery.TRANSIENT, recovery.THROTTLED)
     same = recovery.Ladder.from_dict(spent.to_dict(), recovery.TRANSIENT)
     assert same.spent == ("alternate_model",)
 

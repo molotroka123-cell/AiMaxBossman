@@ -34,6 +34,22 @@ from .v2.verification import parse_expected, verify_all
 
 REVIEW_KIND = "review_escalation"
 
+#: `tasks.meta.reason_code` for a task parked because the browser shows a human
+#: challenge (kept equal to review_gate.CHALLENGE_REASON_CODE; duplicated as a
+#: literal so this module does not import the feature package).
+CHALLENGE_REASON_CODE = "WAITING_FOR_OWNER_CHALLENGE"
+
+# The model telling the owner to solve a challenge and press Resume. Owner audit
+# 2026-09-08, task 45 (run 32): this exact prose was the `result` of a task
+# recorded as completed. The regex is only ever used to REFUSE completion of a
+# browser task, never to admit one, so a false match costs one owner decision
+# and a miss costs nothing that the verifier does not already catch.
+_CHALLENGE_EXCUSE_RE = re.compile(
+    r"(?iu)(captcha|recaptcha|hcaptcha|капч\w*|verify (that )?you('re| are) (a )?human|"
+    r"(вы|ты)\s+не\s+робот|подтвердит\w*,?\s+что\s+(вы|ты)\s+(не\s+робот|человек)|"
+    r"(press|click|нажми\w*|нажать)\s+[«\"']?resume|cloudflare\s+challenge|"
+    r"проверк\w*\s+(безопасности|человека)|human\s+verification)")
+
 
 @dataclass
 class FinalizeDecision:
@@ -150,6 +166,66 @@ def _effect_problem(rows: list[dict], expected: list, task: dict | None = None) 
     return ""
 
 
+def _executed_effect(rows: list[dict]) -> bool:
+    """At least one effectful tool call this run actually executed."""
+    return any(r.get("status") == "executed" and _effectful(r) for r in rows)
+
+
+def _browser_task(task: dict, rows: list[dict], expected: list, session_id: int | None) -> bool:
+    """Is the browser part of what this task does? Any one signal suffices: a
+    browser tool row, a browser expectation, a live browser session bound to
+    the task, or the action router having granted browser tools for it."""
+    if session_id is not None:
+        return True
+    if any(str(r.get("source") or "") == "browser" or str(r.get("tool") or "").startswith("browser.")
+           for r in rows):
+        return True
+    if any(getattr(e, "kind", "") == "browser" for e in expected):
+        return True
+    meta = task.get("meta") or {}
+    router = meta.get("action_router") if isinstance(meta.get("action_router"), dict) else {}
+    if router.get("capability") == "BROWSER_ACTION":
+        return True
+    return any(str(t).startswith("browser.") for t in (meta.get("allowed_tools") or []))
+
+
+async def _task_browser_session(svc, task: dict) -> int | None:
+    try:
+        from .v2.tables import browser_sessions as bs_t
+        async with svc.db.session() as s:
+            row = (await s.execute(sa.select(bs_t.c.id).where(sa.and_(
+                bs_t.c.task_id == task.get("id"), bs_t.c.status == "running"))
+                .order_by(bs_t.c.id.desc()).limit(1))).first()
+        return int(row._mapping["id"]) if row is not None else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+async def _live_browser_challenge(svc, session_id: int | None) -> str:
+    """Live challenge/owner hold, empty if observed clear, error if unobserved.
+
+    Independent of declared expectations: a browser task without a derivable
+    domain has no `review.evidence`, and without this check "complete the
+    CAPTCHA" plus one executed `browser.open` finalized as completed."""
+    if session_id is None:
+        raise RuntimeError("no live browser session bound to this task")
+    try:
+        from .features.browser import _mgr as _bmgr
+        snap = await _bmgr(svc).snapshot(int(session_id), actor="verifier", approved=True)
+        captcha = getattr(snap, "captcha", None) or (snap if isinstance(snap, dict) else {}).get("captcha") or {}
+        if isinstance(captcha, dict) and captcha.get("present"):
+            return str(captcha.get("provider") or "проверка человека")
+        data = snap if isinstance(snap, dict) else {}
+        if (getattr(snap, "takeover", False) or data.get("takeover") or
+                getattr(snap, "paused", False) or data.get("paused")):
+            return "браузер под управлением владельца или приостановлен"
+        if not (getattr(snap, "url", "") or data.get("url")):
+            raise RuntimeError("browser snapshot has no observed URL")
+    except Exception as exc:  # observation failure must never become 'no challenge'
+        raise RuntimeError("browser observation unavailable: " + type(exc).__name__) from exc
+    return ""
+
+
 async def finalize_task(engine, run_id: int, task_id: int, *, answer: str, usage: dict[str, Any],
                         verdicts: list[Any] | None = None) -> FinalizeDecision:
     svc = engine.services
@@ -186,6 +262,33 @@ async def finalize_task(engine, run_id: int, task_id: int, *, answer: str, usage
             checks["failure_status"] = "failed"
         return FinalizeDecision(False, problem, checks)
     checks["expectations"] = len(expected)
+
+    # A human challenge is a STATE, never a success. Checked before the declared
+    # expectations so a browser task with no derivable domain (hence no
+    # `review.evidence`) is caught too. The owner clears the page and presses
+    # Resume; the run continues from its checkpoint and is judged again.
+    session_id = await _task_browser_session(svc, task)
+    if _browser_task(task, rows, expected, session_id):
+        try:
+            provider = await _live_browser_challenge(svc, session_id)
+        except RuntimeError:
+            checks["verification"] = "UNVERIFIED"
+            checks["failure_status"] = "failed"
+            return FinalizeDecision(False, "BROWSER_OBSERVATION_UNAVAILABLE: не удалось заново проверить "
+                                           "страницу; восстановите браузер и повторите задачу", checks)
+        if provider:
+            checks["failure_status"] = "paused"
+            checks["reason_code"] = CHALLENGE_REASON_CODE
+            return FinalizeDecision(False, f"BROWSER_CHALLENGE: на странице проверка человека ({provider}) — "
+                                           "цель не достигнута; пройдите проверку и нажмите Resume", checks)
+        if _CHALLENGE_EXCUSE_RE.search(str(answer or "")):
+            # No live challenge observed, but the model's own result is an
+            # instruction to the owner to solve one. That text is not the goal.
+            checks["failure_status"] = "paused"
+            checks["reason_code"] = CHALLENGE_REASON_CODE
+            return FinalizeDecision(False, "BROWSER_CHALLENGE: ответ модели — просьба к владельцу пройти "
+                                           "проверку на странице, а не достигнутая цель", checks)
+
     if expected:
         import time as _time
         t_verify = _time.monotonic()
@@ -205,10 +308,45 @@ async def finalize_task(engine, run_id: int, task_id: int, *, answer: str, usage
         if last_effect is not None and observed and min(observed) < last_effect.replace(tzinfo=timezone.utc).timestamp():
             checks["fresh"] = False
             return FinalizeDecision(False, "STALE_EVIDENCE_REJECTED: observation predates the last tool effect", checks)
+        if status == "BLOCKED":
+            checks["failure_status"] = "paused"
+            checks["reason_code"] = CHALLENGE_REASON_CODE
+            return FinalizeDecision(False, f"BROWSER_CHALLENGE: {reason}", checks)
         if status != "VERIFIED":
             return FinalizeDecision(False, f"required effects not verified: {reason}", checks)
+    elif not str(answer or "").strip() and not _executed_effect(rows):
+        # Nothing was delivered: no text, no declared-and-verified effect, no
+        # executed effectful tool call. Owner audit 2026-09-08, tasks 22 and 44:
+        # `result=""` recorded as completed and billed. This is deliberately
+        # NOT a global "answer must be non-empty" rule — an effect task whose
+        # declared effect verified above completes with an empty answer, and a
+        # run whose effectful tool executed keeps its existing contract; only
+        # the empty-handed run is refused.
+        checks["failure_status"] = "failed"
+        return FinalizeDecision(False, "EMPTY_RESULT: модель не вернула ни текста, ни проверенного "
+                                       "эффекта — пустой ответ не является результатом", checks)
 
-    await engine._finish(run_id, task_id, "completed", result=answer, **usage)
+    # The verifier awaited real I/O. Its result belongs to the exact obligation
+    # and run read above, not a changed owner objective, newer attempt or paused
+    # task. `_finish` applies this predicate with the fence in the same DB
+    # transaction as both terminal writes; a stale observation writes nothing.
+    meta_clause = (sa.or_(tasks_t.c.meta.is_(None), tasks_t.c.meta == sa.JSON.NULL)
+                   if task.get("meta") is None else tasks_t.c.meta == task["meta"])
+    current_task = sa.exists(sa.select(tasks_t.c.id).where(
+        tasks_t.c.id == task_id, tasks_t.c.status == task["status"],
+        tasks_t.c.status.in_(("queued", "running")),
+        tasks_t.c.prompt == task.get("prompt"), tasks_t.c.agent_id == task.get("agent_id"),
+        tasks_t.c.kind == task.get("kind"), meta_clause))
+    latest_run = sa.select(sa.func.max(runs_t.c.id)).where(
+        runs_t.c.task_id == task_id).correlate(None).scalar_subquery()
+    latest_call = sa.select(sa.func.max(tool_calls_t.c.id)).where(
+        tool_calls_t.c.run_id == run_id).correlate(None).scalar_subquery()
+    same_calls = latest_call == rows[-1]["id"] if rows else latest_call.is_(None)
+    observed_contract = sa.and_(current_task, latest_run == run_id, same_calls,
+        runs_t.c.task_id == task_id, runs_t.c.status == run["status"],
+        runs_t.c.status.in_(("queued", "leased", "running")))
+    await engine._finish(run_id, task_id, "completed", result=answer,
+                         _expected=observed_contract, **usage)
     await engine.bus.emit("task.finalized", task_id=task_id, run_id=run_id, checks=checks, override=False)
     return FinalizeDecision(True, "finalized", checks)
 
@@ -224,6 +362,11 @@ async def _override_reason(svc, task: dict, rows: list[dict]) -> str:
     try:
         expected = _required_expectations(task)
         reason = _effect_problem(rows, expected, task)
+        session_id = await _task_browser_session(svc, task)
+        if _browser_task(task, rows, expected, session_id):
+            challenge = await _live_browser_challenge(svc, session_id)
+            if challenge:
+                return "BROWSER_CHALLENGE: " + challenge
         if any(r["status"] in ("pending_approval", "approved") for r in rows):
             reason = "tool call still waiting for approval"
         if expected and not reason:
@@ -284,15 +427,32 @@ async def finalize_override(svc, task_id: int, *, approval: dict) -> bool:
                            reason=reason, override=True)
         return False
     async with svc.db.session() as s:
-        t = (await s.execute(sa.select(tasks_t.c.status).where(tasks_t.c.id == task_id))).first()
-        if not t or t._mapping["status"] in ("completed", "cancelled"):
+        # Observation awaits external state. The owner can revoke, change the
+        # obligation, or start another run while it waits. Consume approval and
+        # finalize under one transaction, conditional on the exact current task
+        # and latest run; the earlier authorization read grants no authority.
+        meta_clause = (sa.or_(tasks_t.c.meta.is_(None), tasks_t.c.meta == sa.JSON.NULL)
+                       if task.get("meta") is None else tasks_t.c.meta == task["meta"])
+        task_clause = sa.and_(tasks_t.c.id == task_id, tasks_t.c.status == "waiting_approval",
+                              tasks_t.c.prompt == task.get("prompt"),
+                              tasks_t.c.agent_id == task.get("agent_id"), meta_clause)
+        current_task = sa.exists(sa.select(tasks_t.c.id).where(task_clause))
+        latest = sa.select(sa.func.max(runs_t.c.id)).where(runs_t.c.task_id == task_id).scalar_subquery()
+        consumed = await s.execute(sa.update(approvals_t).where(
+            approvals_t.c.id == authorized["id"], approvals_t.c.status == "approved",
+            approvals_t.c.task_id == task_id, approvals_t.c.run_id == authorized["run_id"],
+            approvals_t.c.kind.in_((REVIEW_KIND, "review_escalation_done")),
+            latest == authorized["run_id"], current_task,
+        ).values(status="consumed"))
+        if consumed.rowcount != 1:
+            await s.rollback()
             return False
-        result = await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id,
-                                                        tasks_t.c.status == "waiting_approval").values(
+        result = await s.execute(sa.update(tasks_t).where(task_clause).values(
             status="completed", updated_at=utcnow()))
-        await s.commit()
         if result.rowcount != 1:
+            await s.rollback()
             return False
+        await s.commit()
     await svc.bus.emit("task.finalized", task_id=task_id, run_id=approval.get("run_id"), override=True,
                        approval_id=approval.get("id"), decided_by=approval.get("decided_by"))
     await svc.bus.emit("task.completed", task_id=task_id, run_id=approval.get("run_id"), override=True)

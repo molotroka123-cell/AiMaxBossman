@@ -4,8 +4,10 @@ from file_commander_mini.api import build_app
 def test_rules_summary(tmp_path,monkeypatch):
     monkeypatch.setenv("BOSSMAN_APPS_DATA",str(tmp_path/"data"))
     monkeypatch.setenv("FILE_COMMANDER_ROOTS",str(tmp_path))
+    token = "file-commander-test-authorization-0001"
+    monkeypatch.setenv("BOSSMAN_APP_TOKEN",token)
     (tmp_path/"x.pdf").write_text("x")
-    c=TestClient(build_app())
+    c=TestClient(build_app(),headers={"X-Bossman-App-Token":token})
     c.post("/api/rules",json={"name":"pdf","match_ext":[".pdf"],"target_dir":"PDF"})
     p=c.post("/api/files/rule-plan",json={"root":str(tmp_path)}).json()
     assert p["count"]==1

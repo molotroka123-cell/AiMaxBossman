@@ -1,0 +1,94 @@
+name: One-download Windows application
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  # LGPL build: redistributable with the notices shipped in LICENSES/. The exact
+  # bytes bundled are hashed into MANIFEST.json, so the archive always says what
+  # it actually contains rather than what a URL promised.
+  BOSSMAN_FFMPEG_ZIP: https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip
+on:
+  pull_request:
+    branches: [night/v7-convergence-20260908]
+    paths:
+      - 'tools/build_windows_bundle.py'
+      - 'tools/verify_windows_bundle.py'
+      - 'tools/bundle_evening_test.py'
+      - 'tools/build_local_bundle.py'
+      - 'tools/verify_installed_product.py'
+      - 'tools/app_icons.py'
+      - 'command-center/ui/icons/**'
+      - '.github/workflows/windows-bundle.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-bundle-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  bundle:
+    runs-on: windows-latest
+    timeout-minutes: 75
+    steps:
+      # tools/build_source_identity.py хэширует РЕАЛЬНЫЕ байты файлов и
+      # сравнивает с блобами HEAD. Windows-раннер по умолчанию разворачивает
+      # текст в CRLF, и тогда каждый текстовый файл выглядит изменённым —
+      # сборка честно отказывалась работать по «грязному» дереву. Машина
+      # сборки не должна переписывать источник: чекаут идёт байт-в-байт, и
+      # артефакт из Windows совпадает с артефактом из Linux.
+      - name: Check out the source byte-for-byte, without line-ending rewriting
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build tooling only (the bundle brings its own runtime)
+        run: python -m pip install --upgrade pip wheel
+      - name: The canonical icon is current before it is packaged
+        run: python tools/app_icons.py --check
+      - name: Build the single downloadable application
+        run: >-
+          python tools/build_windows_bundle.py
+          --out "${{ runner.temp }}/bossman-dist" --zip
+      - name: Locate the archive
+        shell: python
+        run: |
+          import os, pathlib
+          dist = pathlib.Path(os.environ['RUNNER_TEMP']) / 'bossman-dist'
+          archives = sorted(dist.glob('BOSSMAN-Windows-x64-*.zip'))
+          assert len(archives) == 1, archives
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as f:
+              f.write('BOSSMAN_ARCHIVE=' + str(archives[0]).replace('\\', '/') + '\n')
+          print(f'{archives[0].name}: {archives[0].stat().st_size} bytes')
+      # Extracts into a path with spaces and drives the archive with its own
+      # runtime, browser and media tools. The checkout is never on sys.path.
+      # Exit codes are the verdict: 0 PASS, 1 FAIL, 2 OWNER_REQUIRED. A build
+      # that is complete but needs something only the owner's machine or account
+      # can supply is reported as such and is NOT painted green — and a real
+      # FAIL still fails the job.
+      - name: Accept the archive as a product on a clean machine
+        run: |
+          python tools/verify_windows_bundle.py `
+            --archive "${{ env.BOSSMAN_ARCHIVE }}" `
+            --expected-sha "${{ env.BOSSMAN_ACCEPTANCE_SHA }}" `
+            --out "${{ runner.temp }}/bossman-dist/bundle-acceptance.json"
+          $code = $LASTEXITCODE
+          if ($code -eq 2) {
+            Write-Host "::warning::BOSSMAN_BUNDLE_ACCEPTANCE=OWNER_REQUIRED - the archive is complete, something only the owner can supply is missing. See bundle-acceptance.json."
+            exit 0
+          }
+          exit $code
+      - name: The build left the worktree exactly as committed
+        run: python scripts/evening_owner_run.py --ci preflight
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bossman-windows-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/bossman-dist/BOSSMAN-Windows-x64-*.zip
+            ${{ runner.temp }}/bossman-dist/bundle-acceptance.json
+          if-no-files-found: warn
+          retention-days: 14

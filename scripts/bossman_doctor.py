@@ -59,6 +59,31 @@ def _run(cmd: list[str], timeout: float = 6.0) -> tuple[int, str]:
 # --------------------------------------------------------------------- checks
 
 
+
+def check_build_identity() -> Check:
+    """Какой код сейчас запустится. Первая строка приёмки, а не косметика.
+
+    Владельческая сессия по неизвестному SHA даёт улики, которые не к чему
+    привязать: они выглядят доказательством и им нельзя пользоваться. Поэтому
+    недоказанный источник — WARN с названной причиной, а не тихий пропуск.
+    Стартовать при этом можно: доктор говорит правду, а не запрещает работать.
+    """
+    try:
+        from bcc.build_identity import UNKNOWN, source_identity
+    except Exception as exc:                        # pragma: no cover - защитный
+        return Check("build-identity", WARN, f"личность сборки не читается: {exc}",
+                     remedy="Проверьте установку command-center.")
+    found = source_identity(fresh=True)
+    if found["source_identity"] == UNKNOWN:
+        return Check("build-identity", WARN,
+                     f"SOURCE_IDENTITY_UNKNOWN — {found.get('detail') or 'источник не доказан'}",
+                     remedy="Запускайте из чистого git-чекаута или из установленной "
+                            "сборки: иначе улики приёмки не привязать к коммиту.",
+                     facts=found)
+    origin = "установленная сборка" if found["source"] == "installed_build" else "рабочий чекаут"
+    return Check("build-identity", PASS, f"{found['build_sha']} ({origin})", facts=found)
+
+
 def check_python() -> Check:
     v = sys.version_info
     if (v.major, v.minor) < MIN_PYTHON:
@@ -280,6 +305,25 @@ def check_model_endpoint() -> Check:
                      {"endpoint": url})
 
 
+def check_openhands() -> Check:
+    """OpenHands (Coding → задача агенту) — WARN, не BLOCKED: приёмка без него
+    возможна, но страница Coding честно скажет, что агент недоступен.
+
+    Аудит владельца 2026-09-08 (F4): до OpenHands из интерфейса было не
+    дотянуться, и никто не говорил почему. Здесь называются обе предпосылки:
+    рантайм bossman-core импортируется и команда сайдкара настроена."""
+    facts: dict[str, Any] = {"runtime": _importable("bossman.apprentice.openhands_client"),
+                             "command_env": "BOSSMAN_OPENHANDS_COMMAND",
+                             "command_set": bool(os.environ.get("BOSSMAN_OPENHANDS_COMMAND", "").strip())}
+    if not facts["runtime"]:
+        return Check("openhands", WARN, "рантайм OpenHands (bossman.apprentice) не импортируется",
+                     "pip install -e ./bossman-core рядом с Command Center", facts)
+    if not facts["command_set"]:
+        return Check("openhands", WARN, "команда сайдкара OpenHands не настроена — Coding покажет «агент недоступен»",
+                     "задайте BOSSMAN_OPENHANDS_COMMAND (путь к сайдкару) и перезапустите Bossman", facts)
+    return Check("openhands", PASS, "рантайм OpenHands и команда сайдкара на месте", facts=facts)
+
+
 def check_hardware() -> Check:
     """Наблюдение, не рекомендация. Решение про железо принимает real_workload_audit
     по РЕАЛЬНЫМ задачам, а не этот снимок."""
@@ -487,9 +531,10 @@ def check_telemetry_corpus() -> Check:
 
 
 CHECKS: list[Callable[[], Check]] = [
+    check_build_identity,
     check_python, check_python_packages, check_bossman_packages, check_node, check_ffmpeg,
     check_state_dir, check_evidence_key, check_journal_anchor, check_browser_runtime,
-    check_model_endpoint, check_hardware, check_windows_specific, check_computer_operator_deps,
+    check_model_endpoint, check_openhands, check_hardware, check_windows_specific, check_computer_operator_deps,
     check_gateway_url, check_cloud_providers, check_telemetry_corpus,
 ]
 

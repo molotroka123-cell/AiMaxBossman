@@ -1,8 +1,30 @@
 name: Evening residual safety (not live acceptance)
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 on:
-  push:
-    branches: [claude/bossman-control-v03-43igbk]
+  pull_request:
+    branches: [night/v7-convergence-20260908]
     paths:
+      - 'scripts/evening_owner_run.py'
+      - 'scripts/evening_acceptance.py'
+      - 'scripts/owner_breaker.py'
+      - 'scripts/bossman_doctor.py'
+      - 'tests/test_owner_breaker_harness.py'
+      - 'tests/test_evening_owner_run_preflight.py'
+      - 'bossman-core/bossman/learning_guard/evidence_ledger.py'
+      - 'bossman-core/bossman/computer_operator/manager.py'
+      - 'bossman-core/tests/test_evidence_ledger_hostile.py'
+      - 'bossman-core/tests/test_operator_recovery_owner_state.py'
+      - '.github/workflows/evening-residual-safety.yml'
+  push:
+    branches: ['release/**']
+    paths:
+      - 'scripts/evening_owner_run.py'
+      - 'scripts/evening_acceptance.py'
+      - 'scripts/owner_breaker.py'
+      - 'scripts/bossman_doctor.py'
+      - 'tests/test_owner_breaker_harness.py'
+      - 'tests/test_evening_owner_run_preflight.py'
       - 'bossman-core/bossman/learning_guard/evidence_ledger.py'
       - 'bossman-core/bossman/computer_operator/manager.py'
       - 'bossman-core/tests/test_evidence_ledger_hostile.py'
@@ -25,45 +47,80 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Record exact source and isolated import paths
+      # Этот шаг НИЧЕГО не пишет в рабочее дерево — только GITHUB_ENV. Раньше он
+      # создавал safety-results/ прямо в checkout, и следующий шаг честно падал:
+      # exact-SHA преflight требует чистого дерева, а CI сам его и пачкал
+      # (OWNER-PREFLIGHT-WORKFLOW-ORDER-01). Улики теперь живут вне репозитория.
+      - name: Isolated import paths and an evidence root outside the worktree
         shell: python
         run: |
-          import json,os,pathlib,platform,subprocess
-          root=pathlib.Path.cwd()
-          out=root/'safety-results';out.mkdir()
-          sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
-          assert sha==os.environ['GITHUB_SHA']
-          (out/'manifest.json').write_text(json.dumps({'sha':sha,'platform':platform.platform(),'python':platform.python_version(),'tier':'REAL_COMPONENT','live_ui':'NOT_RUN'}),encoding='utf-8')
-          with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as f:
-              f.write('PYTHONPATH='+os.pathsep.join(map(str,[root,root/'bossman-core',root/'command-center']))+'\n')
+          import os, pathlib, subprocess
+          root = pathlib.Path.cwd()
+          sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          expected = os.environ['BOSSMAN_ACCEPTANCE_SHA']
+          assert sha == expected, f'checkout {sha} is not the requested {expected}'
+          evidence = pathlib.Path(os.environ['RUNNER_TEMP']) / 'bossman-evening-safety' / sha
+          evidence.mkdir(parents=True, exist_ok=True)
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as f:
+              f.write('PYTHONPATH=' + os.pathsep.join(
+                  map(str, [root, root / 'bossman-core', root / 'command-center'])) + '\n')
+              f.write('EVIDENCE_DIR=' + str(evidence).replace('\\', '/') + '\n')
+      - name: Verify exact-SHA owner-run harness on the pristine worktree
+        run: python scripts/evening_owner_run.py --ci preflight
+      - name: Record exact source and machine outside the worktree
+        shell: python
+        run: |
+          import json, os, pathlib, platform, subprocess
+          sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          out = pathlib.Path(os.environ['EVIDENCE_DIR'])
+          (out / 'manifest.json').write_text(json.dumps({
+              'sha': sha, 'platform': platform.platform(),
+              'python': platform.python_version(),
+              'tier': 'REAL_COMPONENT', 'live_ui': 'NOT_RUN',
+              'evidence_outside_worktree': True,
+          }, indent=2) + '\n', encoding='utf-8')
       - name: Install declared packages
         run: python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev]'
+      - name: A dirty checkout must still be refused (negative control)
+        run: python -m pytest tests/test_evening_owner_run_preflight.py -q --timeout=60
+      - name: Owner breaker harness (root suite)
+        run: >-
+          python -m pytest tests/test_owner_breaker_harness.py -q --timeout=45
+          --junitxml=${{ env.EVIDENCE_DIR }}/results-root.xml
+      # Запускается ИЗ bossman-core: asyncio_mode=auto объявлен в его
+      # pyproject, и из корня репозитория этот конфиг не подхватывается —
+      # асинхронные тесты просто отказывались стартовать (23 failed).
       - name: Actual processes, durable evidence, owner recovery and affected regressions
+        working-directory: bossman-core
         run: >-
           python -m pytest
-          bossman-core/tests/test_evidence_ledger_hostile.py
-          bossman-core/tests/test_learning_evidence_ledger.py
-          bossman-core/tests/test_operator_recovery_owner_state.py
-          bossman-core/tests/test_computer_operator_recovery.py
-          bossman-core/tests/test_computer_operator_owner_control.py
-          bossman-core/tests/test_stage13_operator_redteam.py
-          bossman-core/tests/test_apprentice_learning.py
-          bossman-core/tests/test_pass3_autonomy_trainer.py
-          bossman-core/tests/audit001 -q --timeout=45
-          --junitxml=safety-results/results.xml
+          tests/test_evidence_ledger_hostile.py
+          tests/test_learning_evidence_ledger.py
+          tests/test_operator_recovery_owner_state.py
+          tests/test_computer_operator_recovery.py
+          tests/test_computer_operator_owner_control.py
+          tests/test_stage13_operator_redteam.py
+          tests/test_apprentice_learning.py
+          tests/test_pass3_autonomy_trainer.py
+          tests/audit001 -q --timeout=45
+          --junitxml=${{ env.EVIDENCE_DIR }}/results-core.xml
       - name: Secret scan and whitespace
         run: |
           python tools/ci_secret_scan.py
           git diff --check
+      # Установка и наборы прогнаны — и дерево обязано остаться ровно тем, что
+      # было в коммите. Проверяем ТЕМ ЖЕ гейтом, а не ослабленной копией.
+      - name: The certification path left the worktree exactly as committed
+        run: python scripts/evening_owner_run.py --ci preflight
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: evening-safety-${{ matrix.os }}-${{ github.sha }}
-          path: safety-results/
+          name: evening-safety-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
           retention-days: 7
