@@ -188,6 +188,14 @@ jobs:
           python-version: "3.12"
       - name: Install
         run: python -m pip install -e . -e ./bossman-core[dev]
+      - name: Chromium для браузерных тестов
+        # Тот же шаг, что у партиций: этот job гоняет ВЕСЬ tests/, включая
+        # tests/test_browser_support_helper.py::test_available_on_this_host,
+        # который требует настоящий Chromium раскладки Playwright. Без шага
+        # job падал на одном этом тесте при 3165 зелёных (run 34296484520).
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
       # Группы выше делят набор между job'ами, поэтому порог по группе был бы
       # неправдой: он считается по ПОЛНОМУ прогону. Базовый уровень и правила
       # изменения порога — docs/testing/COVERAGE_BASELINE.md.
