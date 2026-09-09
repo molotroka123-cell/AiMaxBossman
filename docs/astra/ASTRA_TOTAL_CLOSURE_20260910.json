@@ -1,26 +1,33 @@
 {
   "schema_version": 1,
-  "document_status": "DRAFT_PENDING_FREEZE",
-  "final_sha": null,
-  "final_tree": null,
-  "branch": "claude/bossman-final-audit-closure-aucx9x",
-  "pr": 61,
+  "document_status": "FROZEN_ON_FINAL_SHA",
+  "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+  "final_tree": "0fb1b25615772c024268767dc63f44cfb7870f09",
+  "branch": "claude/bossman-final-completion-kymr05",
+  "pr": 62,
   "draft_source_snapshot": "a037302c0f72ff9e64cb59ca7aa7cc094aa0ed34",
   "later_parent_commit_receipts": [
     "522e595d4bb75b8da7cf18c07a756f33c67faa97",
     "ff28a677fc5770681e4f9eb254744df4987e558e"
   ],
   "last_published_checkpoint": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
-  "release_verdict": "NO_GO",
-  "final_ci_status": "PENDING_FINAL_SHA",
-  "final_live_status": "PENDING_FINAL_SHA",
+  "release_verdict": "GO_FOR_OWNER_ACCEPTANCE",
+  "final_ci_status": "PASS_EXCEPT_INTELLIGENCE_PRESERVATION; COMMAND_CENTER_PYTEST_MATRIX_IN_PROGRESS_AT_HANDOFF",
+  "final_live_status": "OWNER_LIVE_REQUIRED",
   "counts": {
     "historical_mf_findings": 33,
     "newly_registered_findings_this_run": 73,
     "all_registered_findings": 109,
     "canonical_commits_after_pr61_in_draft_snapshot": 14,
     "unique_input_commits_classified": 90,
-    "open_final_severity_counts": null
+    "open_final_severity_counts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0
+    },
+    "pass_on_final_sha": 104,
+    "owner_live_required": 4,
+    "external_evidence_required": 1
   },
   "input_graph": [
     {
@@ -96,8 +103,8 @@
         "`command-center/tests/test_p0_completion_truth.py` (empty/whitespace/prose-claims-document, conversational positive control)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-002",
@@ -113,8 +120,8 @@
         "`test_p0_completion_truth.py` (challenge → paused, Resume continues once, stale Resume, consumed Resume, takeover→resume, no-domain challenge, deeper goal positive control)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-003",
@@ -130,8 +137,8 @@
         "`bossman-core/tests/apprentice/test_openhands_evidence_independence.py` (assume-unchanged, skip-worktree, info/exclude, new/edited .gitignore, deletion, rename, symlink ×2, untracked protected/out-of-scope, traversal forms, positive controls, no push/merge/deploy fields)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-004",
@@ -147,8 +154,8 @@
         "`command-center/tests/test_streaming_honesty.py::test_max_chunks_bounds_upstream_consumption_not_just_the_return_value` (+ sync parser, DONE stop, error-frame stop)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-005",
@@ -164,8 +171,8 @@
         "`test_streaming_honesty.py` (completion classes COMPLETE/CAPPED/PARTIAL/MALFORMED/TIMEOUT/SILENT/RATE_LIMITED/PROVIDER_ERROR; GLM reasoning fixtures; OpenRouter comments; client end-to-end matrix)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-006",
@@ -181,8 +188,8 @@
         "`bossman-core/tests/apprentice/test_worktree_cleanup_honesty.py` (reported removal, read-only tree, simulated PermissionError ×3 then truth, transient lock retry, never outside sandbox root, never the source repo, keep_after)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-007",
@@ -198,8 +205,8 @@
         "`command-center/tests/test_v7_reality_route_validation.py` (nan/inf/-inf/negative/null/abc/1e999 → 422; zero keeps meaning; oversized unmeasured refused; stale refused; fresh sufficient admits)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-008",
@@ -215,8 +222,8 @@
         "`command-center/tests/test_v7_recovery_bounded.py` (same error, alternating two, rotating 3/5/7, owner retry budget, fallback once, restart round-trip, legacy checkpoint, authority-free rungs, production handler ×3 corpora, stopped task not requeued, paused stays paused) + `test_v7_reality.py::test_a_different_failure_keeps_the_spent_rungs`"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-009",
@@ -232,8 +239,8 @@
         "`command-center/tests/test_action_contract_negation.py` (14 prohibitions EN/RU, positive controls, 8 mixed sentences, other capabilities, span-local removal, new-document obligation)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-010",
@@ -249,8 +256,8 @@
         "`command-center/tests/test_web_designer_apply_idempotent_ui.py` (select → edit → apply → apply, reload, reselect)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-011",
@@ -266,8 +273,8 @@
         "`command-center/tests/test_web_designer_model_choice.py` (registry+health listing with default, owner choice reaches adapter, unknown → 404, health-rank default not first row, no models → 409)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-012",
@@ -283,8 +290,8 @@
         "existing `test_web_designer_p1/p2_findings.py`"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-013",
@@ -300,8 +307,8 @@
         "`command-center/tests/test_coding_tasks.py` (readiness reasons, full owner path with real sandbox/evidence, protected edit → blocked, sidecar failure → failed, roots refusal, empty allowlist, API exposes no push/merge/deploy/apply)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-014",
@@ -317,8 +324,8 @@
         "`command-center/tests/test_apps_owner_path_regression.py` (two full enable/start/start/stop/stop/disable/disable cycles, refused start names the policy) + `test_apps_control.py`"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-015",
@@ -351,8 +358,8 @@
         "`bossman-core/tests` AT-01/AT-03 in the Core suite"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-017",
@@ -368,8 +375,8 @@
         "`command-center/tests/test_authorization_at_effect_time.py`, `test_fable_approval_revocation.py` — green on FIX_SHA"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-018",
@@ -385,8 +392,8 @@
         "`command-center/tests/test_policy_algebra.py` — green on FIX_SHA"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-019",
@@ -402,8 +409,8 @@
         "root suite green on FIX_SHA"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-020",
@@ -419,8 +426,8 @@
         "root suite: 1177 passed on FIX_SHA tree (registry regenerated for the new tests)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-021",
@@ -453,8 +460,8 @@
         "`test_p0_review_deadlock.py` green on FIX_SHA"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-023",
@@ -470,8 +477,8 @@
         "`test_approval_scope.py`, `test_mission_budget.py` green on FIX_SHA"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-024",
@@ -487,8 +494,8 @@
         "`test_trading_lab_unwired.py` green on FIX_SHA"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-025",
@@ -504,8 +511,8 @@
         "`test_v6_resources_unmeasured.py`, `test_v7_resource_pressure_edges.py`, `test_v7_reality_route_validation.py`"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-026",
@@ -521,8 +528,8 @@
         "24 `test_video_*` files, 399 passed with real ffmpeg on this host (11 skips registered)"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-027",
@@ -572,8 +579,8 @@
         "root `tests/test_trader_apprentice.py` in the 1177-passed root run"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-030",
@@ -606,8 +613,8 @@
         "`test_executor_admission.py`"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-032",
@@ -623,8 +630,8 @@
         "—"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "MF-033",
@@ -640,8 +647,8 @@
         "—"
       ],
       "source_document": "docs/final_closure/MASTER_FINDINGS.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-FLEET-01",
@@ -657,8 +664,8 @@
         "`test_stale_heartbeat_refuses_placement_without_separate_watchdog_call` rejects stale then accepts a new valid heartbeat."
       ],
       "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-FLEET-02",
@@ -674,8 +681,8 @@
         "`test_expired_reacquisition_does_not_accumulate_memory_reservations` requires one lease and one reservation."
       ],
       "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-FLEET-03",
@@ -691,8 +698,8 @@
         "Five `test_release_requires_complete_persisted_lease_identity` negative controls; original capability still works."
       ],
       "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-FLEET-04",
@@ -708,8 +715,8 @@
         "Parametrized invalid-heartbeat/raw-observation controls; positive valid recovery."
       ],
       "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-FLEET-05",
@@ -725,8 +732,8 @@
         "Dead-letter/restart, completed-ID reuse and racing worker controls reject old claims and preserve exactly one owner."
       ],
       "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-FLEET-06",
@@ -742,8 +749,8 @@
         "`test_waiting_for_database_lock_cannot_revive_an_expired_lease` uses a real contending transaction and requires refusal."
       ],
       "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "AF-001",
@@ -759,8 +766,8 @@
         "`test_wheel_catalogue_and_manual_command_do_not_need_checkout`; final packaged gate required."
       ],
       "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "AF-002",
@@ -776,8 +783,8 @@
         "`test_owner_safety.py`: real allowed/denied files, secret paths, repository, traversal and hardlink controls."
       ],
       "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "AF-003",
@@ -793,8 +800,8 @@
         "Real rogue localhost HTTP server: no bearer observed, no upstream HTML request, unsigned response => 502, exactly one request, no retry. Signed replay/changed-field negative controls."
       ],
       "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "AF-004",
@@ -810,8 +817,8 @@
         "Actual first move followed by injected late error restores originals; actual child `os._exit(71)` after a file effect leaves a recoverable APPLYING journal; repeated Apply is idempotent."
       ],
       "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "AF-005",
@@ -827,8 +834,8 @@
         "Same-size/restored-mtime replacement refused before mutation; replaced post-effect evidence cannot produce repeated success."
       ],
       "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "AF-006",
@@ -844,8 +851,8 @@
         "Actual HTTP HTML/resource check PASS; real-browser gate exists but Chromium unavailable here. No browser PASS claimed."
       ],
       "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "AF-007",
@@ -861,8 +868,8 @@
         "Standard-host CI required. Current execution sandbox exposes virtual PIDs beside unrelated host `/proc`; recovery deliberately refuses."
       ],
       "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "AF-008",
@@ -878,8 +885,8 @@
         "Before fix a real child started (HTTP 200); regression now 403 and no process."
       ],
       "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "AF-009",
@@ -895,8 +902,8 @@
         "Before fix a real child started despite a newly saved DENY; regression now 403 and no process."
       ],
       "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "AF-010",
@@ -912,8 +919,8 @@
         "Real parent-directory/symlink swap creates nothing outside scope; lost directory receipt remains UNKNOWN and refuses further Apply."
       ],
       "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "AF-011",
@@ -929,8 +936,8 @@
         "404, empty JSON, unhealthy and NOT_CONFIGURED negative controls."
       ],
       "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "OH-NEW-01",
@@ -946,8 +953,8 @@
         "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
       ],
       "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "OH-NEW-02",
@@ -963,8 +970,8 @@
         "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
       ],
       "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "OH-NEW-03",
@@ -980,8 +987,8 @@
         "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
       ],
       "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "OH-NEW-04",
@@ -997,8 +1004,8 @@
         "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
       ],
       "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "OH-NEW-05",
@@ -1014,8 +1021,8 @@
         "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
       ],
       "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "OH-NEW-06",
@@ -1031,8 +1038,8 @@
         "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
       ],
       "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "OH-NEW-07",
@@ -1048,8 +1055,8 @@
         "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
       ],
       "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "PR60-IDENTITY",
@@ -1065,8 +1072,8 @@
         "tests/test_trader_apprentice.py"
       ],
       "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-PR60-IDENTITY-BYPASS",
@@ -1082,8 +1089,8 @@
         "tests/test_trader_apprentice.py"
       ],
       "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "PR60-PROVENANCE",
@@ -1099,8 +1106,8 @@
         "command-center/tests/test_run_provenance.py; command-center/tests/test_stop_grace_lifecycle.py"
       ],
       "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-PR60-PROVENANCE-FENCE",
@@ -1116,8 +1123,8 @@
         "command-center/tests/test_run_provenance.py; command-center/tests/test_stop_grace_lifecycle.py"
       ],
       "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-PR60-PROVENANCE-IDENTITY",
@@ -1133,8 +1140,8 @@
         "tests/test_trader_apprentice.py"
       ],
       "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-PR60-PROVENANCE-BACKFILL",
@@ -1150,8 +1157,8 @@
         "command-center/tests/test_run_provenance.py; command-center/tests/test_stop_grace_lifecycle.py"
       ],
       "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-PR60-MISSION-LIFECYCLE",
@@ -1167,8 +1174,8 @@
         "command-center/tests/test_run_provenance.py; command-center/tests/test_stop_grace_lifecycle.py"
       ],
       "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "VIDEO-TRUTH-01",
@@ -1184,8 +1191,8 @@
         "command-center/tests/test_video_studio_owner_recovery.py; command-center/tests/test_editors_user_acceptance.py"
       ],
       "source_document": "docs/astra/VIDEO_OWNER_RECOVERY_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "VIDEO-RACE-01",
@@ -1201,8 +1208,8 @@
         "command-center/tests/test_video_studio_owner_recovery.py; command-center/tests/test_editors_user_acceptance.py"
       ],
       "source_document": "docs/astra/VIDEO_OWNER_RECOVERY_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "VIDEO-RACE-02",
@@ -1218,8 +1225,8 @@
         "command-center/tests/test_video_studio_owner_recovery.py; command-center/tests/test_editors_user_acceptance.py"
       ],
       "source_document": "docs/astra/VIDEO_OWNER_RECOVERY_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-HEALTH-01",
@@ -1235,8 +1242,8 @@
         "command-center/tests/test_release_health.py; command-center/tests/test_release_owner_feedback_ui.py"
       ],
       "source_document": "docs/astra/OWNER_ADMISSION_HEALTH_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-HEALTH-02",
@@ -1252,8 +1259,8 @@
         "command-center/tests/test_release_health.py; command-center/tests/test_release_owner_feedback_ui.py"
       ],
       "source_document": "docs/astra/OWNER_ADMISSION_HEALTH_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-HEALTH-03",
@@ -1269,8 +1276,8 @@
         "command-center/tests/test_release_health.py; command-center/tests/test_release_owner_feedback_ui.py"
       ],
       "source_document": "docs/astra/OWNER_ADMISSION_HEALTH_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-UI-01",
@@ -1286,8 +1293,8 @@
         "command-center/tests/test_release_health.py; command-center/tests/test_release_owner_feedback_ui.py"
       ],
       "source_document": "docs/astra/OWNER_ADMISSION_HEALTH_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "WD-R01",
@@ -1303,8 +1310,8 @@
         "Node `ошибка сохранения не разрешает зависимую правку элемента`; browser conflict/generation case"
       ],
       "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "WD-R02",
@@ -1320,8 +1327,8 @@
         "Node 409 case; browser conflict/comparison case"
       ],
       "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "WD-R03",
@@ -1337,8 +1344,8 @@
         "Node concurrent-save, in-flight typing and lost-response cases"
       ],
       "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "WD-R04",
@@ -1354,8 +1361,8 @@
         "`test_web_designer_release_regressions.py` generation cases"
       ],
       "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "WD-R05",
@@ -1371,8 +1378,8 @@
         "`test_a_locked_project_is_not_reported_as_deleted`"
       ],
       "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "WD-R06",
@@ -1388,8 +1395,8 @@
         "command-center/tests/test_web_designer_storage_boundaries.py"
       ],
       "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "WD-R07",
@@ -1405,8 +1412,8 @@
         "command-center/tests/test_web_designer_storage_boundaries.py"
       ],
       "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "WD-R08",
@@ -1422,8 +1429,8 @@
         "command-center/tests/test_web_designer_storage_boundaries.py"
       ],
       "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "WD-R09",
@@ -1439,8 +1446,8 @@
         "command-center/tests/test_web_designer_storage_boundaries.py"
       ],
       "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-FLEET-07",
@@ -1456,8 +1463,8 @@
         "bossman-core/tests/test_astra_fleet_closure.py"
       ],
       "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-PKG-01",
@@ -1473,8 +1480,8 @@
         "tests/test_packaging_installed.py; command-center/tests/test_installed_layout.py; tools/verify_installed_product.py"
       ],
       "source_document": "git commit 4264fd6acdaecbde64d798a8eb1f0958dbdc9445",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-PKG-02",
@@ -1490,8 +1497,8 @@
         "tests/test_local_bundle_safety.py"
       ],
       "source_document": "git commit 4264fd6acdaecbde64d798a8eb1f0958dbdc9445",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-PKG-03",
@@ -1507,8 +1514,8 @@
         "tools/build_local_bundle.py; generated install.py acceptance"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-PKG-04",
@@ -1524,8 +1531,8 @@
         "apps/ai-3d-maker/tests/test_installed_config.py; tools/verify_installed_product.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-WIN-CLI-01",
@@ -1541,8 +1548,8 @@
         "bossman-core/tests/test_gateway_cli_portability.py; command-center/tests/test_bcc_cli_portability.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-TRUTH-01",
@@ -1558,8 +1565,8 @@
         "command-center/tests/test_astra_poststate_boundaries.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-TRUTH-02",
@@ -1575,8 +1582,8 @@
         "command-center/tests/test_astra_poststate_boundaries.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-TRUTH-03",
@@ -1592,8 +1599,8 @@
         "command-center/tests/test_astra_poststate_boundaries.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-TRUTH-04",
@@ -1609,8 +1616,8 @@
         "command-center/tests/test_finalize_poststate_races.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-TRUTH-05",
@@ -1626,8 +1633,8 @@
         "command-center/tests/test_astra_poststate_boundaries.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-GW-01",
@@ -1643,8 +1650,8 @@
         "bossman-core/tests/test_gateway_anthropic_contract.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-GW-02",
@@ -1660,8 +1667,8 @@
         "bossman-core/tests/test_gateway_anthropic_contract.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-GW-03",
@@ -1677,8 +1684,8 @@
         "bossman-core/tests/test_gateway_anthropic_contract.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-GW-04",
@@ -1694,8 +1701,8 @@
         "bossman-core/tests/test_gateway_anthropic_contract.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-GW-05",
@@ -1711,8 +1718,8 @@
         "bossman-core/tests/test_gateway_anthropic_contract.py"
       ],
       "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-DB-01",
@@ -1728,8 +1735,8 @@
         "command-center/tests/test_v5_terminal_run_immutability.py; command-center/tests/test_run_provenance_postgres.py"
       ],
       "source_document": "docs/astra/POSTGRES_RUN_CONTRACTS_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-DB-02",
@@ -1745,8 +1752,8 @@
         "command-center/tests/test_v5_terminal_run_immutability.py"
       ],
       "source_document": "docs/astra/POSTGRES_RUN_CONTRACTS_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-DB-03",
@@ -1762,8 +1769,8 @@
         "command-center/tests/test_v5_terminal_run_immutability.py"
       ],
       "source_document": "docs/astra/POSTGRES_RUN_CONTRACTS_20260910.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-CI-01",
@@ -1779,8 +1786,8 @@
         "tests/test_installed_verifier_encoding.py"
       ],
       "source_document": "git commit c0324303100a9e27f851c605021ce87a423adc94",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-CI-02",
@@ -1796,8 +1803,8 @@
         "bossman-core/tests/test_browser_support_helper.py"
       ],
       "source_document": "git commit 6944807b5ec23b795e4c944c813a1eb45d6c1a9c",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-WIN-PID-01",
@@ -1813,8 +1820,8 @@
         "bossman-core/tests/test_browser_pid_portability.py; command-center/tests/test_apps_pid_portability.py"
       ],
       "source_document": "git commit 53ccbb2d914d5f279149c254641676c47d699ed9",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-PERF-01",
@@ -1830,8 +1837,8 @@
         "tests/test_skips_registry.py"
       ],
       "source_document": "git commit f3663cb661220d5eeb111916172b9987c2cb34fe",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-PERF-02",
@@ -1847,8 +1854,8 @@
         "bossman-core/bossman/computer_operator/store.py; existing computer_operator suite"
       ],
       "source_document": "git commit f3663cb661220d5eeb111916172b9987c2cb34fe",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-IP-01",
@@ -1864,8 +1871,8 @@
         "tests/test_intelligence_measurement_metadata.py; bossman-core/tests/test_intelligence_measurement_full_lane.py"
       ],
       "source_document": "docs/benchmark/INTELLIGENCE_MEASUREMENT.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-IP-02",
@@ -1881,8 +1888,8 @@
         "tests/test_intelligence_measurement_metadata.py"
       ],
       "source_document": "docs/benchmark/INTELLIGENCE_MEASUREMENT.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-IP-03",
@@ -1898,8 +1905,8 @@
         "tests/test_intelligence_measurement_metadata.py; docs/benchmark/INTELLIGENCE_MEASUREMENT.md"
       ],
       "source_document": "docs/benchmark/INTELLIGENCE_MEASUREMENT.md",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
     },
     {
       "id": "ASTRA-OWNER-EVIDENCE-01",
@@ -1915,8 +1922,8 @@
         "command-center/tests/test_owner_acceptance_harness.py"
       ],
       "source_document": "parent receipt 522e595; final installed build pending",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null,
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
       "integration_note": "Parent descendant commit received after the initial a037302 draft snapshot; final evidence still pending."
     },
     {
@@ -1933,8 +1940,8 @@
         "command-center/tests/test_startup_failure_cleanup.py"
       ],
       "source_document": "parent receipt ff28a67; final installed build pending",
-      "final_status": "IMPLEMENTED_PENDING_FINAL_SHA",
-      "final_evidence_sha": null,
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
       "integration_note": "Parent descendant commit received after the initial a037302 draft snapshot; final evidence still pending."
     }
   ],
@@ -2349,107 +2356,114 @@
     {
       "workflow": "root-ci.yml",
       "scope": "Python3.11/3.12; container; compile; secret/whitespace/inventory",
-      "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668055"
     },
     {
       "workflow": "bossman-core-ci.yml",
       "scope": "Python3.11/3.12 × security/gateway-context/stage8-14/rest; coverage; compile; Windows workspace/PID",
-      "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668068"
     },
     {
       "workflow": "command-center-ci.yml",
       "scope": "Python3.11/3.12/3.14; Windows paths; Chromium; JS/Node; SAST/dependency gate",
-      "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "final_sha": "93f120ee06477e58db1dc34e865e686eea5a67e8",
+      "status": "IN_PROGRESS_AT_HANDOFF",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34320723167",
+      "note": "On 93f120e the Windows-paths and secrets/JS/forbidden-files jobs are green; the three pytest matrix jobs (3.11/3.12/3.14) were still running at handoff. The run on e5ba10e was cancelled by the docs push under the workflow's per-ref concurrency group. e5ba10e..93f120e touches only docs/, so runtime code is identical between them. Local evidence on the same tree: full suite 3214 passed / 23 skipped / 2 sandbox-blocked, both blocked cases explained with passing controls in docs/final/FINAL_COMPLETION_20260909.md §5a. NOT counted as PASS."
     },
     {
       "workflow": "editors-user-safety.yml",
       "scope": "Real Chromium editor owner paths",
-      "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318667936"
     },
     {
       "workflow": "fable-media-fleet.yml",
       "scope": "Python3.11/3.12; real media/Fleet/execution truth",
-      "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668158"
     },
     {
       "workflow": "astra-acceptance.yml",
       "scope": "Portable Linux/Windows, recovery; real sandbox only when actually run",
-      "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668044"
     },
     {
       "workflow": "solana-safety-ci.yml",
       "scope": "Python3.11/3.12 safety",
-      "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34317397660"
     },
     {
       "workflow": "bossman-benchmark.yml",
       "scope": "Deterministic internal benchmark; not live intelligence",
-      "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318667931"
     },
     {
       "workflow": "local-bundle.yml",
       "scope": "Linux and Windows build/install; Linux installed Web/Video/Apps/Files browser acceptance",
-      "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668378",
+      "note": "Linux and Windows both green: build, install, startup, cleanup."
     },
     {
       "workflow": "postgres-contracts.yml",
       "scope": "PostgreSQL16, Python3.11/3.12/3.14; required non-skipped live guard cases",
-      "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668048"
     },
     {
       "workflow": "intelligence-preservation.yml",
       "scope": "Contract plus genuine current same-model measurement",
-      "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "FAIL",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668001",
+      "note": "INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE; docs/benchmark/intelligence-preservation-current.json absent. Red on the base line too (PR61 head 5c19eea). The file may only come from a genuine same-model comparison; no credentials exist here and it was NOT fabricated."
     },
     {
       "workflow": "evening-residual-safety.yml",
       "scope": "Configured process/evidence/recovery jobs",
       "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "status": "DID_NOT_RUN",
+      "run_url": null,
+      "note": "Push-triggered on other branches AND path-filtered to evidence_ledger.py / computer_operator/manager.py and their two tests. This diff touches none of them. Those tests run inside Bossman Core CI, which is PASS."
     },
     {
       "workflow": "human-speed-components.yml",
       "scope": "Configured component measurements; no visible-input attestation inferred",
       "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "status": "DID_NOT_RUN",
+      "run_url": null,
+      "note": "Branch-pinned plus workflow_dispatch; dispatch returned 403 for this integration. tools/human_speed_gate.py and tests/test_v5_human_speed.py are untouched by this diff and pass inside the root suite."
     },
     {
       "workflow": "closure-checkpoint.yml",
       "scope": "Python3.11/3.12 continuity and source contracts",
       "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "status": "DID_NOT_RUN",
+      "run_url": null,
+      "note": "Pinned to the retired branch integration/continuity-steward-closure-20260906."
     },
     {
       "workflow": "release-certification.yml",
       "scope": "Exact-SHA aggregation; no missing required job accepted",
       "final_sha": null,
-      "status": "PENDING_FINAL_SHA",
-      "run_url": null
+      "status": "DID_NOT_RUN",
+      "run_url": null,
+      "note": "workflow_dispatch only; dispatch returned 403 for this integration. The owner can certify the frozen SHA by dispatching it with sha=e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9."
     }
   ],
   "checkpoint_packaging": {
@@ -2751,24 +2765,24 @@
   },
   "remaining_blockers": [
     {
-      "type": "REPOSITORY_VALIDATION_PENDING",
-      "detail": "Freeze/publish one final code SHA, rebuild artifacts and rerun every required gate; current red jobs have not been closed by final-SHA reruns."
-    },
-    {
-      "type": "REPOSITORY_VALIDATION_PENDING",
-      "detail": "Final post-convergence forensic/security/visible-control sweep and artifact certification remain incomplete."
-    },
-    {
       "type": "OWNER_LIVE_REQUIRED",
-      "detail": "Genuine model-backed core owner execution, authenticated OpenRouter/GLM/OpenHands, browser human takeover and physical owner hardware."
+      "detail": "Genuine model-backed core owner execution, authenticated OpenRouter/GLM/OpenHands, browser human takeover, and physical owner hardware (Ryzen AI Max+ 395 / Radeon 8060S / 128 GB)."
+    },
+    {
+      "type": "OWNER_WINDOWS_REQUIRED",
+      "detail": "Hosted Windows proves build, install, Unicode/space paths, startup and cleanup. Browser and UI behaviour on real Windows is not proven by a hosted runner and is not claimed."
     },
     {
       "type": "EXTERNAL_EVIDENCE_REQUIRED",
-      "detail": "Intelligence requires genuine same-model measurement and an independently reviewed sufficient corpus. Model credentials alone cannot close the bundled-corpus power problem."
+      "detail": "Intelligence retention requires a genuine same-model baseline/current comparison and an independently reviewed corpus. No credentials exist in the build environment; intelligence-preservation-current.json was NOT fabricated and no threshold was lowered."
+    },
+    {
+      "type": "OWNER_CANARY_ROLLBACK_REQUIRED",
+      "detail": "Repository canary/rollback rehearsal passes (N8, 70 tests on the final SHA). Production deployment infrastructure is a separate requirement."
     },
     {
       "type": "OPTIONAL_EXCLUDED",
-      "detail": "PR59 Higgsfield expansion and PR60 File Intelligence sidecar are not in this candidate; no live or integration PASS is claimed."
+      "detail": "PR59 (AI Streamer / Higgsfield) is not in this candidate; no live or integration PASS is claimed for it. PR60's File Intelligence IS now integrated — see the file_intelligence block."
     }
   ],
   "owner_commands": {
@@ -2784,5 +2798,27 @@
     "installed_ui": "BCC_REQUIRE_BROWSER=1 BCC_ACCEPTANCE_PYTHON=ABSOLUTE_INSTALLED_VENV_PYTHON BCC_ACCEPTANCE_SOURCE_SHA=FINAL_SHA_40_HEX PYTHONPATH=.:bossman-core:command-center python -m pytest -c command-center/pyproject.toml command-center/tests/test_editors_user_acceptance.py command-center/tests/test_web_designer_recovery_ui.py command-center/tests/test_apps_files_browser_owner.py command-center/tests/test_apps_files_http_owner.py -q --timeout=120"
   },
   "release_tag": null,
-  "release_created": false
+  "release_created": false,
+  "release_verdict_note": "No repository-fixable P0/P1 remains open on the final SHA. Every remaining item needs the owner's machine, the owner's credentials, real deployment infrastructure or a genuine same-model intelligence comparison. This is not a claim that live owner acceptance passed.",
+  "file_intelligence": {
+    "integrated": true,
+    "source": "semantic port of the PR60 File Intelligence line onto the PR61 closure base",
+    "merged_wholesale": false,
+    "upstream": "hyperfield/ai-file-sorter",
+    "pinned_sha": "4dc374df69b5e63d5354e121097d92e25bbd32da",
+    "license": "AGPL-3.0-or-later",
+    "vendored_source": false,
+    "enabled_by_default": false,
+    "hosted_tests": "130 passed, 1 skipped (NTFS junction/reparse, Windows owner-level)",
+    "installed_product_pin": "4dc374df69b5e63d5354e121097d92e25bbd32da",
+    "real_binary_status": "OWNER_LIVE_REQUIRED"
+  },
+  "final_evidence_basis": {
+    "code_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+    "docs_sha": "93f120ee06477e58db1dc34e865e686eea5a67e8",
+    "docs_only_delta": "e5ba10e..93f120e changes only docs/; runtime code is identical",
+    "what_PASS_means_here": "Each promoted finding is proven by suites executed on the frozen tree: ten hosted workflows green on e5ba10e, plus exact-tree local runs of the Command Center suites (File Intelligence 130/1, OpenHands hostile 103/10, gateway 169, provenance+terminal+completion-truth+negation 115/6, Apps+STOP_GRACE 103/1, Web Designer 117, Video 343/11, root py3.11 1257/2, root py3.12 1249/10, UI node 42). It does NOT mean the hosted command-center-ci.yml pytest matrix reported on the final SHA: that run was still in progress at handoff and is recorded as IN_PROGRESS_AT_HANDOFF, not PASS.",
+    "known_local_deviations": "Two Command Center tests fail in the build sandbox and nowhere else. Both reproduce on the untouched base 5c19eea, and PR61's CI on that same base is 3078 passed / 0 failed. Mechanisms and passing controls: docs/final/FINAL_COMPLETION_20260909.md section 5a.",
+    "owner_next_step": "Dispatch release-certification.yml with sha=e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9 to certify the frozen SHA against live workflow runs; this integration lacks dispatch permission (403)."
+  }
 }
