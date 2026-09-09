@@ -163,19 +163,21 @@ The local model should use the deterministic engine for repeatable classificatio
 
 ## URL-only YouTube Teacher routing
 
-For a trading-learning request that contains a public `youtube.com` or `youtu.be` URL, **do not ask the owner for a transcript, download, screenshots or timestamps**. Route the URL automatically to:
+For a trading-learning request that contains a public `youtube.com` or `youtu.be` URL, **do not ask the owner for a transcript, download, screenshots or timestamps**. The URL is the complete owner input.
 
-`tools/youtube_trader_ingest.py <URL>`
+Route automatically to:
 
-The tool performs the full first-pass ingest:
+`python tools/youtube_trader_ingest_auto.py <URL>`
 
-`URL -> YouTube metadata/captions/video -> sampled frames -> local multimodal extraction -> typed observations -> deterministic Trader Apprentice classification -> in-video future outcomes -> UNVERIFIED teacher cases`
+Pipeline:
 
-The router should expose only the minimum capabilities needed for this job: network access allowlisted to ordinary public YouTube endpoints, process execution for `yt-dlp`/`ffmpeg`, the configured local multimodal model, and the trading learning store.
+`URL -> public YouTube metadata -> YouTube captions OR local ASR fallback -> video frames -> local multimodal extraction -> typed observations -> deterministic Trader Apprentice classification -> in-video future outcomes -> UNVERIFIED teacher cases`
+
+The router should expose only the minimum capabilities needed for this job: network access allowlisted to ordinary public YouTube endpoints, process execution for `yt-dlp`/`ffmpeg`, the configured local multimodal model, optional local ASR, and the trading learning store.
 
 YouTube is an untrusted teacher. Transcript statements and video commentary are **claims**, not canonical truth. Raw YouTube episodes go to `data/trading/youtube_inbox/<video_id>/candidate_cases.jsonl` with `learning_status=UNVERIFIED`. Promote lessons only after independent outcome/verification gates.
 
-If YouTube captions are present, use them automatically. If captions are absent, frame analysis still proceeds; a configured local ASR/transcription capability may be added as a fallback without asking the owner for manual transcription. Never fabricate missing speech.
+If YouTube captions are absent, the wrapper automatically tries the configured local `/audio/transcriptions` model. If ASR is unavailable too, visual parsing continues and speech is explicitly missing; Bossman must not ask the owner to transcribe the video manually and must not fabricate dialogue.
 
 See `docs/trading/YOUTUBE_TEACHER_INGEST.md` for the owner UX and trust model.
 
@@ -200,6 +202,7 @@ For Trader Apprentice specifically:
 - historical September fixtures reproduce the intended deleveraging -> recovery -> bearish leverage-expansion regime transition;
 - local model output always separates observed facts from inference;
 - a valid YouTube trading URL can be ingested with the URL as the only owner-provided input;
+- videos without captions automatically attempt local ASR before degrading to visual-only parsing;
 - raw teacher claims remain unverified until an independent promotion gate passes.
 
 ## Important architecture rule
