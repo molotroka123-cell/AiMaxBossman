@@ -28,7 +28,9 @@ jobs:
   test:
     name: pytest (py${{ matrix.python }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Full Command Center runs on the closure tree now take ~21-30 minutes.
+    # 30m repeatedly killed otherwise-green py3.12/3.14 jobs at the runner cap.
+    timeout-minutes: 45
     # Python 3.14 прочитан: run 34137665700 (ca9a4a7a) — Pytest на 3.14 зелёный
     # на полном наборе. С этого момента 3.14 — такой же гейт, как 3.11 и 3.12;
     # continue-on-error снят, чтобы он не превратился в способ не смотреть.
