@@ -16,6 +16,7 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
 
+from . import run_provenance
 from .db import (Database, agents as agents_t, approvals as approvals_t,
                  checkpoints as checkpoints_t, fetch_one, models as models_t,
                  run_events as run_events_t,
@@ -947,6 +948,10 @@ class TaskEngine:
                 return
 
         await self._start(run_id, task["id"])
+        # §26: личность исполнителя снимается ЗДЕСЬ — после того как задача,
+        # прогон и агент уже разрешены, и до того как что-либо выполнено. Это
+        # единственная точка входа в выполнение, поэтому одного места хватает.
+        await self._capture_provenance(run_id, task, run, agent)
         await self._mark_interrupted_dispatches(run_id, task["id"])
         if executor is not None:
             try:
@@ -1123,6 +1128,36 @@ class TaskEngine:
         await self._complete_run(run_id, task, answer, messages, step,
                                  tokens_in, tokens_out, cost, alias)
 
+    async def _park_for_owner(self, run_id: int, task: dict, messages: list[dict], step: int,
+                              *, reason: str, instruction: str,
+                              reason_code: str = "WAITING_FOR_OWNER_CHALLENGE") -> None:
+        """The run needs the OWNER, not a retry and not a verdict: a human
+        challenge (CAPTCHA, anti-bot, login wall) stands between the agent and
+        the goal. Park exactly like an owner pause — run queued without a lease,
+        checkpoint kept, task `paused` — and name the reason in `tasks.meta` so
+        the UI shows what to do. Resume (task or browser session) re-queues the
+        same run; the gate then judges the goal again. Never `completed`."""
+        transcript = list(messages)
+        if instruction:
+            transcript.append({"role": "user", "content": instruction})
+        async with self.db.session() as s:
+            row = await fetch_one(s, tasks_t, int(task["id"]))
+            meta = dict((row or {}).get("meta") or {})
+            meta.update(reason_code=reason_code, blocked_reason=f"Нужно действие владельца: {reason}"[:500])
+            changed = await s.execute(sa.update(runs_t).where(
+                runs_t.c.id == run_id, self._fence_clause(run_id)).values(
+                status="queued", worker_lease_until=None,
+                checkpoint={"messages": transcript, "step": step, "note": "waiting_for_owner"}))
+            if not changed.rowcount:
+                return
+            await s.execute(sa.update(tasks_t).where(
+                tasks_t.c.id == task["id"], tasks_t.c.status.notin_(("stopped", "completed"))).values(
+                status="paused", meta=meta, updated_at=utcnow()))
+            await s.commit()
+        await self._log(run_id, "warn", "run.waiting_for_owner", reason[:500])
+        await self.bus.emit("task.paused", task_id=task["id"], run_id=run_id, step=step,
+                            waiting_for_owner=True, code=reason_code, reason=reason[:300])
+
     async def _release_executor_resources(self, run_id):
         # A veto may leave a run waiting for review without calling _finish.
         # Release only our still-owned video's existing ledger reservation.
@@ -1193,6 +1228,13 @@ class TaskEngine:
                     await self._finish(run_id, task["id"], target_status, error=feedback,
                                        result=answer, tokens_in=tokens_in, tokens_out=tokens_out,
                                        cost_usd=round(cost, 6), model_alias=alias)
+                elif target_status == "paused":
+                    # A human challenge on the page: the owner acts, then Resume
+                    # continues THIS run from its checkpoint with the gate's
+                    # instruction as the next user turn, and the gate judges again.
+                    await self._park_for_owner(run_id, task, messages, step,
+                                               reason=str(res.get("reasons") or feedback),
+                                               instruction=feedback)
                 else:
                     async with self.db.session() as s:
                         changed=await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id,self._fence_clause(run_id)).values(
@@ -1215,6 +1257,14 @@ class TaskEngine:
                                               "cost_usd": round(cost, 6), "model_alias": alias})
         if not decision.ok:
             await self._log(run_id, "warn", "run.finalize_refused", decision.reason[:500])
+            if decision.checks.get("failure_status") == "paused":
+                await self._park_for_owner(
+                    run_id, task, messages, step, reason=decision.reason,
+                    instruction=("Владелец прошёл проверку на странице и нажал Resume. Продолжи "
+                                 "задачу до её настоящей цели и не считай её выполненной, пока "
+                                 "цель не достигнута."),
+                    reason_code=str(decision.checks.get("reason_code") or "WAITING_FOR_OWNER"))
+                return
             if decision.checks.get("failure_status") == "failed":
                 # A missed classifier cannot turn a failed effect into success.
                 # Keep the answer (including honest refusals), but do not park
@@ -2066,7 +2116,7 @@ class TaskEngine:
             current_model_id=self._current_model_id(run, agent),
             fallback_model_id=(agent or {}).get("fallback_model_id"),
             healthy_models=await self._healthy_models(),
-            retries_left=max(0, max_retries - attempt))
+            retries_left=max(0, max_retries - attempt), max_retries=max_retries)
         await self.bus.emit("recovery.rung_selected", task_id=task["id"], run_id=run_id,
                             failure_class=failure_class, **rung.to_dict())
 
@@ -2092,12 +2142,23 @@ class TaskEngine:
             note["recovery_degrade"] = dict(rung.degrade)
         delay = (min(self.retry_base_delay * (2 ** attempt), self.retry_max_delay)
                  if rung.name == _recovery.RETRY_SAME else 0.0)
+        # Owner intervention wins over recovery: a task the owner stopped while
+        # the failing call was in flight is not re-queued behind their back, and
+        # a paused one keeps its pause (the run waits without a lease).
+        owner_status = await self._task_status(task["id"])
+        if owner_status in ("stopped", "cancelled"):
+            await self._log(run_id, "warn", "run.stopped", "остановлена владельцем во время сбоя")
+            await self._finish(run_id, task["id"], "stopped",
+                               checkpoint={"messages": messages, "step": step, "note": "stopped"},
+                               sync_task=False)
+            return
         async with self.db.session() as s:
             await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(
                 status="queued", attempt=attempt + 1, error=error, checkpoint=note,
                 worker_lease_until=(utcnow() + timedelta(seconds=delay)) if delay else None))
-            await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
-                status="queued", updated_at=utcnow()))
+            if owner_status != "paused":
+                await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
+                    status="queued", updated_at=utcnow()))
             await s.commit()
         # `run.retry` остаётся прежним именем события для ступени «тот же
         # маршрут»: это ровно то поведение, которое было, и у него есть
@@ -2159,6 +2220,38 @@ class TaskEngine:
         return False
 
     # ---------- служебное ----------
+
+    async def _capture_provenance(self, run_id: int, task: dict, run: dict,
+                                 agent: dict | None) -> None:
+        """Записать неизменяемую личность исполнителя. Пишется РОВНО один раз.
+
+        Условие `provenance IS NULL` в UPDATE — не оптимизация, а тот же
+        инвариант, что и в триггере, выраженный там, где он ещё дёшев: рестарт,
+        поднявший тот же прогон, повторно личность не переписывает.
+
+        Сбой снятия провенанса НЕ валит прогон. Провенанс — это улика о работе,
+        а не разрешение на неё; уронить задачу владельца из-за того, что не
+        удалось записать справку о ней, было бы обменом не в ту сторону. Но и
+        молчать нельзя: пропуск виден в журнале прогона.
+        """
+        try:
+            model = fallback = None
+            if agent:
+                async with self.db.session() as s:
+                    if agent.get("model_id"):
+                        model = await fetch_one(s, models_t, int(agent["model_id"]))
+                    if agent.get("fallback_model_id"):
+                        fallback = await fetch_one(s, models_t, int(agent["fallback_model_id"]))
+            record = run_provenance.build(
+                task=task, run=run, agent=agent, model=model, fallback_model=fallback)
+            async with self.db.session() as s:
+                await s.execute(sa.update(runs_t).where(
+                    runs_t.c.id == run_id, runs_t.c.provenance.is_(None)).values(
+                    provenance=record))
+                await s.commit()
+        except Exception as exc:
+            await self._log(run_id, "warn", "run.provenance_not_captured",
+                            f"провенанс не снят: {type(exc).__name__}: {exc}")
 
     async def _start(self, run_id: int, task_id: int) -> None:
         async with self.db.session() as s:

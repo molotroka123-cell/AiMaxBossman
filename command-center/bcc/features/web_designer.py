@@ -282,6 +282,36 @@ class AiEditIn(BaseModel):
     bd_id: str | None = None
     path: str | None = None
     base_version: int | None = None
+    model_id: int | None = None                # выбор владельца; None — по здоровью
+
+
+def _rank_models(models: list[dict]) -> list[dict]:
+    """Registry models, healthiest first — the same ranking the router uses.
+
+    Owner audit 2026-09-08, F3a: `model = models[0]` meant "the first row ever
+    inserted", whatever its health, and no way to choose. The default is now
+    the canonical health rank; the owner's explicit `model_id` wins over it."""
+    from .. import model_health as mh
+    def key(row: dict):
+        return mh.HealthRecord.from_dict(row.get("health")).rank_key()
+    return sorted(models, key=key)
+
+
+@router.get("/web-designer/models")
+async def ai_models(request: Request):
+    """Models the AI edit may use, with health and the server's default marked."""
+    from .. import model_health as mh
+    svc = request.app.state.svc
+    models = _rank_models(await svc.registry.list_models())
+    items = []
+    for i, row in enumerate(models):
+        rec = mh.HealthRecord.from_dict(row.get("health"))
+        items.append({"id": row["id"], "alias": row.get("alias") or row.get("name"), "name": row.get("name"),
+                      "kind": row.get("kind"), "provider_id": row.get("provider_id"),
+                      "health": {"status": rec.status, "detail": rec.detail},
+                      "default": i == 0})
+    return {"items": items, "default_model_id": models[0]["id"] if models else None,
+            "chosen_by": "health_rank"}
 
 
 # ---------------------------------------------------------------- endpoints
@@ -458,7 +488,14 @@ async def ai_edit(pid: int, body: AiEditIn, request: Request):
         raise HTTPException(
             status_code=409,
             detail="нет настроенной модели — добавьте модель в реестре, тогда AI-правка станет доступна")
-    model = models[0]
+    if body.model_id is not None:
+        model = next((m for m in models if int(m["id"]) == int(body.model_id)), None)
+        if model is None:
+            raise HTTPException(status_code=404, detail=f"модель {body.model_id} не найдена в реестре")
+        chosen_by = "owner"
+    else:
+        model = _rank_models(models)[0]
+        chosen_by = "health_rank"
     adapter, model_row = await svc.registry.adapter_for(int(model["id"]))
 
     element = None
@@ -518,7 +555,8 @@ async def ai_edit(pid: int, body: AiEditIn, request: Request):
     async with _project_lock(pdir):
         meta = _save_code(svc, pdir, new_html, f"AI: {_note(body.prompt)}",
                           expect_version=base_version)
-    return {"ok": True, "meta": meta, "model": model_row.get("alias") or model_row.get("name")}
+    return {"ok": True, "meta": meta, "model": model_row.get("alias") or model_row.get("name"),
+            "model_id": int(model_row["id"]), "chosen_by": chosen_by}
 
 
 def _require_single_element(fragment: str) -> None:

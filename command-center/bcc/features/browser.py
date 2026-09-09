@@ -18,7 +18,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
-from ..db import utcnow
+from ..db import fetch_one, tasks as tasks_t, utcnow
 from ..v2.browser_control import (BrowserApprovalRequired, BrowserManager, BrowserPolicy,
                                   BrowserPolicyDenied, BrowserTakeoverActive, BrowserUnavailable)
 from ..v2.tables import browser_sessions as bs_t
@@ -209,9 +209,43 @@ async def takeover(session_id: int, request: Request):
 
 @router.post("/browser/sessions/{session_id}/resume")
 async def resume(session_id: int, request: Request):
+    """Resume the session — and the task parked behind it, once.
+
+    Owner audit 2026-09-08, task 45: the owner pressed Resume "into the void" —
+    the browser session resumed, the task stayed where it was. A task parked
+    under WAITING_FOR_OWNER_CHALLENGE for this session's task_id is re-queued
+    here so the run continues from its checkpoint and is judged again. One
+    shot: a second Resume finds no paused task and reports `task_resumed=False`;
+    a task the owner stopped meanwhile is not resurrected (engine.resume
+    refuses anything but `paused`)."""
     svc = request.app.state.svc
     res = await _mgr(svc).resume(session_id)
     await _record(svc, session_id, takeover=False, paused=False)
+    res = dict(res) if isinstance(res, dict) else {"id": session_id}
+    res["task_resumed"] = False
+    res["task_id"] = None
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(bs_t.c.task_id).where(bs_t.c.id == session_id))).first()
+        task_id = int(row._mapping["task_id"]) if row and row._mapping["task_id"] is not None else None
+        task = await fetch_one(s, tasks_t, task_id) if task_id is not None else None
+    if task is not None:
+        res["task_id"] = task_id
+        meta = task.get("meta") or {}
+        if task.get("status") == "paused" and meta.get("reason_code") == "WAITING_FOR_OWNER_CHALLENGE":
+            try:
+                out = await svc.engine.resume(task_id)
+            except Exception:  # noqa: BLE001 — a stale/consumed Resume is reported, not raised
+                out = {"ok": False}
+            res["task_resumed"] = bool(out.get("ok")) and out.get("status") in ("queued", "running")
+            if res["task_resumed"]:
+                meta = dict(meta)
+                meta.pop("reason_code", None)
+                meta.pop("blocked_reason", None)
+                async with svc.db.session() as s:
+                    await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
+                        meta=meta, updated_at=utcnow()))
+                    await s.commit()
+                await svc.bus.emit("task.owner_resumed", task_id=task_id, session_id=session_id)
     return res
 
 

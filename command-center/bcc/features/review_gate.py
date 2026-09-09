@@ -36,7 +36,11 @@ from . import Feature
 router = APIRouter()
 
 # Статусы вердикта (совпадают с bcc/v2/verification.Status)
-VERIFIED, FAILED, UNVERIFIED = "VERIFIED", "FAILED", "UNVERIFIED"
+VERIFIED, FAILED, UNVERIFIED, BLOCKED = "VERIFIED", "FAILED", "UNVERIFIED", "BLOCKED"
+#: `tasks.meta.reason_code` while a task waits for the owner to clear a human
+#: challenge in the browser. Read by the task API/UI and by the browser Resume
+#: route, which resumes exactly the task parked under this code — once.
+CHALLENGE_REASON_CODE = "WAITING_FOR_OWNER_CHALLENGE"
 
 
 async def _task_meta(svc, task_id: int) -> dict:
@@ -140,6 +144,15 @@ async def _gate(svc):
             # бессмыслен: новых ДОКАЗАТЕЛЬСТВ он не породит, только новый текст.
             gate.status = "waiting_approval"
             gate_status = "waiting_approval"
+        elif status == BLOCKED:
+            # Проверка человека на странице (капча, анти-бот, вход). Это не
+            # провал модели и не её успех — состояние, которое снимает только
+            # владелец. Задача уходит на паузу с названной причиной; Resume
+            # (задачи или браузерной сессии) возвращает её в очередь, и гейт
+            # проверит цель ЗАНОВО. Аудит владельца 2026-09-08, task 45:
+            # раньше здесь было VERIFIED по url_contains и completed.
+            gate.status = "waiting_approval"
+            gate_status = "paused"
         else:
             gate_status = gate.review_result(passed, feedback)
         meta["review_attempts"] = gate.iteration
@@ -153,6 +166,18 @@ async def _gate(svc):
             return {"verdict": "PASS", "reasons": feedback}
         if gate_status == "fix":
             return {"verdict": "FAIL", "feedback": feedback, "requeue": True}
+        if gate_status == "paused":
+            meta = await _task_meta(svc, task["id"])
+            meta.update(reason_code=CHALLENGE_REASON_CODE,
+                        blocked_reason=f"Нужно действие владельца: {feedback}")
+            await _set_meta(svc, task["id"], meta)
+            await svc.bus.emit("task.waiting_for_owner", task_id=task["id"], run_id=run_id,
+                               code=CHALLENGE_REASON_CODE, reason=feedback[:300])
+            return {"verdict": "FAIL", "requeue": False, "status": "paused",
+                    "reasons": f"{status}: {feedback}",
+                    "feedback": ("Владелец прошёл проверку на странице и нажал Resume. Продолжи "
+                                 "задачу до её настоящей цели и не считай её выполненной, пока "
+                                 "цель не достигнута.")}
         # waiting_approval — эскалация: лимит исчерпан ИЛИ верификация невозможна
         head = ("Верификация невозможна (UNVERIFIED) — нужна независимая проверка человеком."
                 if status == UNVERIFIED else f"Ревью не пройдено {gate.iteration} раз.")

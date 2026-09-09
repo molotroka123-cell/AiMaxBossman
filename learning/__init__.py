@@ -9,14 +9,17 @@ from .trace import (FORBIDDEN_FIELDS, STATUSES, LearningStore, ValidationError, 
 from .trader_apprentice import (
     Analysis,
     Direction,
+    Incompatibility,
     LevelMap,
     Regime,
+    SeriesId,
     Snapshot,
     Stance,
     accepted_above,
     analyze,
     classify_regime,
     long_return_pct,
+    series_compatibility,
     sweep_and_reclaim,
     weighted_average_entry,
 )
@@ -24,7 +27,8 @@ from .trader_apprentice import (
 __all__ = [
     "FORBIDDEN_FIELDS", "STATUSES", "LearningStore", "ValidationError", "case_id",
     "redact_text", "validate",
-    "Analysis", "Direction", "LevelMap", "Regime", "Snapshot", "Stance",
+    "Analysis", "Direction", "Incompatibility", "LevelMap", "Regime", "SeriesId",
+    "Snapshot", "Stance",
     "accepted_above", "analyze", "classify_regime", "long_return_pct",
     "sweep_and_reclaim", "weighted_average_entry",
 ]

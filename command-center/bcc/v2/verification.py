@@ -31,7 +31,12 @@ from typing import Any, Literal
 
 import sqlalchemy as sa
 
-Status = Literal["VERIFIED", "FAILED", "UNVERIFIED"]
+# BLOCKED: the observation itself is fine, but the page is a human challenge
+# (CAPTCHA, anti-bot, login wall). Neither "the goal was reached" nor "the goal
+# failed" — the owner has to act. Owner audit 2026-09-08, task 45: a challenge
+# page on the right domain was VERIFIED by `url_contains`, and the model's
+# "complete the CAPTCHA and press Resume" became `completed`.
+Status = Literal["VERIFIED", "FAILED", "UNVERIFIED", "BLOCKED"]
 
 # Таблицы, по которым разрешена детерминированная проверка «строка есть/поле
 # равно» (read-only, allowlist — модель не может указать произвольную таблицу).
@@ -188,10 +193,20 @@ async def _observe_browser(exp: ExpectedState, *, svc, task: dict) -> tuple[Obse
             return (ObservedState("browser", exp.target, {"error": "no live session"}, time.time()),
                     Evidence("browser:snapshot", "no session for task"))
         snap = await _bmgr(svc).snapshot(int(row._mapping["id"]), actor="verifier", approved=True)
-        obs = {"title": str(getattr(snap, "title", "") or (snap or {}).get("title", "")),
-               "url": str(getattr(snap, "url", "") or (snap or {}).get("url", ""))}
+        snap_d = snap if isinstance(snap, dict) else {}
+        captcha = getattr(snap, "captcha", None) or snap_d.get("captcha") or {}
+        challenge = bool(isinstance(captcha, dict) and captcha.get("present"))
+        obs = {"title": str(getattr(snap, "title", "") or snap_d.get("title", "")),
+               "url": str(getattr(snap, "url", "") or snap_d.get("url", "")),
+               # The verifier reads the challenge state from the same snapshot the
+               # agent reads, so a CAPTCHA the agent saw cannot be a page the
+               # reviewer did not: one observation, two consumers.
+               "challenge": challenge,
+               "challenge_provider": str((captcha or {}).get("provider") or "") if challenge else "",
+               "takeover": bool(getattr(snap, "takeover", False) or snap_d.get("takeover"))}
         return (ObservedState("browser", exp.target, obs, time.time()),
-                Evidence("browser:snapshot", f"title={obs['title'][:60]!r} url={obs['url'][:80]}"))
+                Evidence("browser:snapshot", f"title={obs['title'][:60]!r} url={obs['url'][:80]}"
+                         + (f" challenge={obs['challenge_provider'] or 'yes'}" if challenge else "")))
     except Exception as exc:  # noqa: BLE001 — наблюдение недоступно → UNVERIFIED, не PASS
         return (ObservedState("browser", exp.target, {"error": str(exc)[:200]}, time.time()),
                 Evidence("browser:snapshot", f"observe failed: {exc}"))
@@ -384,6 +399,13 @@ def _compare(exp: ExpectedState, obs: ObservedState) -> tuple[Status, str]:
                 return "FAILED", f"поле {k}: ожидалось {v!r}, наблюдается {row.get(k)!r}"
         return "VERIFIED", "свежий запрос подтвердил ожидаемую строку"
     if exp.kind == "browser":
+        if o.get("challenge"):
+            # A challenge page on the target domain is not the target. The URL
+            # and title of such a page are the challenge's, not the goal's, so
+            # they are not compared at all: the answer is "the owner must act".
+            provider = o.get("challenge_provider") or "проверка человека"
+            return "BLOCKED", (f"на странице проверка человека ({provider}) — цель не достигнута; "
+                               f"пройдите проверку и нажмите Resume")
         if e.get("title_contains") and str(e["title_contains"]) not in (o.get("title") or ""):
             return "FAILED", "заголовок страницы не содержит ожидаемого"
         if e.get("url_contains") and str(e["url_contains"]) not in (o.get("url") or ""):
@@ -484,7 +506,8 @@ async def verify(expected: ExpectedState, *, svc, task: dict,
 
 async def verify_all(expected: list[ExpectedState], *, svc, task: dict,
                      roots: list[Path] | None = None) -> tuple[Status, str, list[VerificationResult]]:
-    """Агрегат: любой FAILED → FAILED; иначе любой UNVERIFIED → UNVERIFIED;
+    """Агрегат: любой FAILED → FAILED; иначе любой BLOCKED → BLOCKED (владелец
+    должен пройти проверку человека); иначе любой UNVERIFIED → UNVERIFIED;
     иначе (все VERIFIED, список непустой) → VERIFIED. Пустой список — UNVERIFIED:
     отсутствие ожиданий не есть доказательство."""
     if not expected:
@@ -493,6 +516,9 @@ async def verify_all(expected: list[ExpectedState], *, svc, task: dict,
     if any(r.status == "FAILED" for r in results):
         r = next(r for r in results if r.status == "FAILED")
         return "FAILED", f"{r.expected.kind}:{r.expected.target}: {r.reason}", results
+    if any(r.status == "BLOCKED" for r in results):
+        r = next(r for r in results if r.status == "BLOCKED")
+        return "BLOCKED", f"{r.expected.kind}:{r.expected.target}: {r.reason}", results
     if any(r.status == "UNVERIFIED" for r in results):
         r = next(r for r in results if r.status == "UNVERIFIED")
         return "UNVERIFIED", f"{r.expected.kind}:{r.expected.target}: {r.reason}", results
