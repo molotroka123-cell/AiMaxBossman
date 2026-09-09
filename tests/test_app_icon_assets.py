@@ -115,7 +115,7 @@ def test_both_svg_surfaces_wrap_the_same_canonical_raster(derived: dict[str, byt
     for target, blob in expected.items():
         path = REPO / target
         assert path.exists(), f"{target.as_posix()} is missing"
-        assert path.read_bytes() == blob, (
+        assert app_icons.same_svg(path.read_bytes(), blob), (
             f"{target.as_posix()} is a second, different drawing; "
             "run python tools/app_icons.py --write"
         )
@@ -143,3 +143,32 @@ def test_the_desktop_launcher_uses_the_canonical_assets() -> None:
     assert 'ICON_WINDOWS = ICON_DIR / "bossman.ico"' in source
     assert 'ICON_PNG = ICON_DIR / "icon-512.png"' in source
     assert (ICONS / "bossman.ico").exists() and (ICONS / "icon-512.png").exists()
+
+
+def test_the_svg_check_tolerates_repacking_but_not_a_different_drawing(
+    derived: dict[str, bytes]
+) -> None:
+    """The looser SVG comparison must stay a comparison.
+
+    windows-latest rejected both SVG surfaces for a file that drew the identical
+    image, because deflate packs differently there. Accepting a repack is
+    correct; accepting a different picture, or edited markup, would turn the
+    check into decoration.
+    """
+    import zlib
+    canonical = app_icons.derive_svgs(derived)[app_icons.SVG_TARGETS[0]]
+    width, height, rgba = app_icons.decode_png(derived["icon-256.png"])
+
+    original_compress = zlib.compress
+    try:  # same pixels, deliberately different compression
+        zlib.compress = lambda data, level=6: original_compress(data, 1)
+        repacked = app_icons.svg_wrapper(app_icons.encode_png(width, height, rgba))
+    finally:
+        zlib.compress = original_compress
+    assert repacked != canonical, "the repack must really differ, or this proves nothing"
+    assert app_icons.same_svg(repacked, canonical)
+
+    assert not app_icons.same_svg(app_icons.svg_wrapper(derived["icon-128.png"]), canonical)
+    assert not app_icons.same_svg(
+        canonical.replace(b'aria-label="BOSSMAN"', b'aria-label="OTHER"'), canonical)
+    assert not app_icons.same_svg(b"<svg/>", canonical)

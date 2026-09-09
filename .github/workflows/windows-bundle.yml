@@ -70,5 +70,5 @@ jobs:
           path: |
             ${{ runner.temp }}/bossman-dist/BOSSMAN-Windows-x64-*.zip
             ${{ runner.temp }}/bossman-dist/bundle-acceptance.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14

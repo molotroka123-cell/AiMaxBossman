@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import struct
 import sys
 import zlib
@@ -295,6 +296,31 @@ def ico_entries(blob: bytes) -> list[tuple[int, bytearray]]:
     return entries
 
 
+def _svg_parts(blob: bytes) -> tuple[bytes, bytearray]:
+    """Markup with the data URI removed, and the pixels that URI decodes to."""
+    marker = b"base64,"
+    start = blob.index(marker) + len(marker)
+    end = blob.index(b'"', start)
+    return blob[:start] + blob[end:], decode_png(base64.b64decode(blob[start:end]))[2]
+
+
+def same_svg(committed: bytes, expected: bytes) -> bool:
+    """Same markup and same drawn pixels.
+
+    The SVG embeds a COMPRESSED PNG, so a byte comparison inherits the same
+    zlib-build dependence as the rasters and fails on a different runner for a
+    file that draws the identical image — which is exactly what happened on
+    windows-latest. Compare what it draws, and require the markup around it to
+    be untouched so this cannot become a hole.
+    """
+    try:
+        committed_markup, committed_pixels = _svg_parts(committed)
+    except (ValueError, IndexError, binascii.Error):
+        return False
+    expected_markup, expected_pixels = _svg_parts(expected)
+    return committed_markup == expected_markup and committed_pixels == expected_pixels
+
+
 def same_pixels(committed: bytes, expected: bytes, *, ico: bool) -> bool:
     """Compare what the asset DRAWS, not how zlib happened to pack it.
 
@@ -377,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
         path = REPO / target
         if not path.exists():
             stale.append(f"{target.as_posix()}: missing")
-        elif path.read_bytes() != blob:
+        elif not same_svg(path.read_bytes(), blob):
             stale.append(f"{target.as_posix()}: is not the canonical master")
     if stale:
         print("APP_ICONS_CURRENT=FAIL", file=sys.stderr)
