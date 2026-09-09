@@ -161,6 +161,24 @@ Required Trader Apprentice invariants:
 
 The local model should use the deterministic engine for repeatable classification and the LLM only for extraction, context synthesis, scenario explanation and uncertainty handling.
 
+## URL-only YouTube Teacher routing
+
+For a trading-learning request that contains a public `youtube.com` or `youtu.be` URL, **do not ask the owner for a transcript, download, screenshots or timestamps**. Route the URL automatically to:
+
+`tools/youtube_trader_ingest.py <URL>`
+
+The tool performs the full first-pass ingest:
+
+`URL -> YouTube metadata/captions/video -> sampled frames -> local multimodal extraction -> typed observations -> deterministic Trader Apprentice classification -> in-video future outcomes -> UNVERIFIED teacher cases`
+
+The router should expose only the minimum capabilities needed for this job: network access allowlisted to ordinary public YouTube endpoints, process execution for `yt-dlp`/`ffmpeg`, the configured local multimodal model, and the trading learning store.
+
+YouTube is an untrusted teacher. Transcript statements and video commentary are **claims**, not canonical truth. Raw YouTube episodes go to `data/trading/youtube_inbox/<video_id>/candidate_cases.jsonl` with `learning_status=UNVERIFIED`. Promote lessons only after independent outcome/verification gates.
+
+If YouTube captions are present, use them automatically. If captions are absent, frame analysis still proceeds; a configured local ASR/transcription capability may be added as a fallback without asking the owner for manual transcription. Never fabricate missing speech.
+
+See `docs/trading/YOUTUBE_TEACHER_INGEST.md` for the owner UX and trust model.
+
 ## Acceptance target
 
 The orchestration layer is ready when, on a fixed local regression suite:
@@ -180,7 +198,9 @@ For Trader Apprentice specifically:
 - CME-vs-execution-market mismatch is surfaced explicitly;
 - weighted-average math is exact for staged entries;
 - historical September fixtures reproduce the intended deleveraging -> recovery -> bearish leverage-expansion regime transition;
-- local model output always separates observed facts from inference.
+- local model output always separates observed facts from inference;
+- a valid YouTube trading URL can be ingested with the URL as the only owner-provided input;
+- raw teacher claims remain unverified until an independent promotion gate passes.
 
 ## Important architecture rule
 
