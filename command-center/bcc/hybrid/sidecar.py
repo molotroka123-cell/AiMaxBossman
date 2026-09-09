@@ -2,6 +2,11 @@
 Centralized sidecar process lifecycle abstraction for Bossman Hybrid OSS.
 Provides bounded restarts, heartbeat verification, graceful shutdown,
 orphan cleanup, and circular buffer log capture.
+
+External sidecars are capability mechanics, not trusted children of Bossman.
+By default they receive only a small allowlist of non-secret OS environment
+variables plus values explicitly declared in SidecarConfig.env. This prevents
+ambient Bossman/provider credentials from leaking across the process boundary.
 """
 
 from __future__ import annotations
@@ -22,6 +27,31 @@ from .capabilities import (
 )
 
 logger = logging.getLogger("bcc.hybrid.sidecar")
+
+
+# Deliberately small. Provider credentials, PYTHONPATH, loader injection
+# variables, and Bossman-specific environment values are not inherited.
+_SAFE_INHERITED_ENV_KEYS = frozenset(
+    {
+        "PATH",
+        "PATHEXT",
+        "SYSTEMROOT",
+        "WINDIR",
+        "COMSPEC",
+        "SYSTEMDRIVE",
+        "TEMP",
+        "TMP",
+        "TMPDIR",
+        "HOME",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "APPDATA",
+        "LANG",
+        "LANGUAGE",
+        "TERM",
+    }
+)
+_SAFE_INHERITED_ENV_PREFIXES = ("LC_",)
 
 
 class SidecarStatus(str, Enum):
@@ -45,6 +75,9 @@ class SidecarConfig:
     restart_window_s: float = 60.0
     log_buffer_size: int = 1000
     readiness_probe: Optional[Callable[[], bool]] = None
+    # Escape hatch for a deliberately trusted sidecar only. Keep False for
+    # third-party OSS integrations such as Windows-MCP / AI File Sorter.
+    inherit_parent_env: bool = False
 
 
 class SidecarProcessManager:
@@ -73,6 +106,25 @@ class SidecarProcessManager:
             return self._process.pid
         return None
 
+    def _build_process_env(self) -> Dict[str, str]:
+        """Build the child environment without ambient secret inheritance."""
+        if self.config.inherit_parent_env:
+            child_env = dict(os.environ)
+        else:
+            child_env: Dict[str, str] = {}
+            for key, value in os.environ.items():
+                normalized = key.upper()
+                if (
+                    normalized in _SAFE_INHERITED_ENV_KEYS
+                    or normalized.startswith(_SAFE_INHERITED_ENV_PREFIXES)
+                ):
+                    child_env[key] = value
+
+        # Explicit configuration is authoritative and intentional. Popen gets
+        # an argv list and env mapping directly; no shell command is created.
+        child_env.update({str(key): str(value) for key, value in self.config.env.items()})
+        return child_env
+
     def start(self) -> bool:
         """Start sidecar process with readiness verification."""
         with self._status_lock:
@@ -91,14 +143,13 @@ class SidecarProcessManager:
             logger.error("Sidecar '%s' exceeded max restarts within window", self.config.name)
             return False
 
-        merged_env = os.environ.copy()
-        merged_env.update(self.config.env)
+        process_env = self._build_process_env()
 
         try:
             self._process = subprocess.Popen(
                 self.config.command,
                 cwd=self.config.working_dir,
-                env=merged_env,
+                env=process_env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
