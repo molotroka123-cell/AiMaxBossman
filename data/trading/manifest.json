@@ -1,13 +1,20 @@
 {
   "corpus": "bossman-trader-apprentice-btc-orderflow",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "updated_at": "2026-09-09",
   "load_order": [
     "docs/trading/LOCAL_MODEL_SYSTEM_PROMPT.md",
     "docs/trading/BTC_ORDERFLOW_PLAYBOOK.md",
     "data/trading/btc_orderflow_rules_v1.json",
-    "data/trading/btc_casebook_2026_09.jsonl"
+    "data/trading/btc_casebook_2026_09.jsonl",
+    "data/trading/cases/**/*.json"
   ],
+  "case_store": {
+    "legacy_casebook": "data/trading/btc_casebook_2026_09.jsonl",
+    "live_case_directory": "data/trading/cases/",
+    "write_policy": "one immutable JSON file per new observed market episode",
+    "reason": "append-friendly and conflict-safe while preserving full timestamped evidence"
+  },
   "deterministic_engine": "learning/trader_apprentice.py",
   "youtube_teacher": {
     "tool": "tools/youtube_trader_ingest_auto.py",
@@ -77,6 +84,7 @@
     "Load the previous compatible Snapshot from the same source/instrument series.",
     "Run learning.trader_apprentice.analyze(previous, current, levels).",
     "Attach future in-video price outcomes when later observations exist.",
+    "Store each new live user-supplied market episode as an immutable JSON case under data/trading/cases/YYYY-MM-DD/.",
     "Store raw YouTube teacher episodes as UNVERIFIED and never auto-promote commentary to canonical truth.",
     "Retrieve the verified playbook/rules for explanation and scenario construction.",
     "Do not place an order without a separate explicit execution authorization layer."
