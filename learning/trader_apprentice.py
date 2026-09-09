@@ -15,6 +15,9 @@ Core design rules learned from the September 2026 BTC sessions:
 * Rising CVD while price still falls can expose buyer inefficiency/passive
   selling; if OI falls too, this is buyer failure during deleveraging rather
   than fresh bearish leverage expansion.
+* Price rising while CVD falls and OI rises is leveraged sell absorption: new
+  leverage enters while aggressive sellers fail to push price down. This can be
+  squeeze fuel, but OI alone never proves those new positions are shorts.
 * A level touch is not acceptance.  Prefer reclaim + hold/retest.
 * Never compare absolute CVD/OI values across different providers/settings.
 * Never mix CME chart levels with a spot/perp execution price without tagging
@@ -43,6 +46,7 @@ class Regime(str, Enum):
     DELEVERAGING_SELL_OFF = "DELEVERAGING_SELL_OFF"
     BEARISH_LEVERAGE_EXPANSION = "BEARISH_LEVERAGE_EXPANSION"
     BULLISH_LEVERAGE_EXPANSION = "BULLISH_LEVERAGE_EXPANSION"
+    LEVERAGED_SELL_ABSORPTION = "LEVERAGED_SELL_ABSORPTION"
     RECOVERY_WITHOUT_LEVERAGE = "RECOVERY_WITHOUT_LEVERAGE"
     SHORT_COVERING_OR_ABSORPTION = "SHORT_COVERING_OR_ABSORPTION"
     SELL_ABSORPTION_CANDIDATE = "SELL_ABSORPTION_CANDIDATE"
@@ -195,7 +199,6 @@ def classify_regime(
         reasons.append("CVD or OI is missing; do not infer the unavailable metric")
         return p, c, o, Regime.UNKNOWN, Stance.NO_TRADE, reasons
 
-    # The primary matrix used in the user's September 2026 sessions.
     if p is Direction.DOWN and c is Direction.DOWN and o is Direction.DOWN:
         reasons.append("Sell aggression is accompanied by falling OI: position closure/deleveraging dominates")
         return p, c, o, Regime.DELEVERAGING_SELL_OFF, Stance.WATCH, reasons
@@ -208,6 +211,11 @@ def classify_regime(
     if p is Direction.UP and c is Direction.UP and o is Direction.UP:
         reasons.append("Price, aggressive buying and open positions expand together")
         return p, c, o, Regime.BULLISH_LEVERAGE_EXPANSION, Stance.LONG_CANDIDATE, reasons
+
+    if p is Direction.UP and c is Direction.DOWN and o is Direction.UP:
+        reasons.append("Price rises despite aggressive net selling while OI expands: sell aggression is being absorbed as new leverage enters")
+        reasons.append("This can create squeeze fuel, but OI alone does not prove the new leverage is short")
+        return p, c, o, Regime.LEVERAGED_SELL_ABSORPTION, Stance.LONG_CANDIDATE, reasons
 
     if p is Direction.UP and c is Direction.UP and o is Direction.DOWN:
         reasons.append("Price and CVD recover while OI falls: healthy recovery/covering, but not yet a strong new leverage trend")
@@ -262,10 +270,14 @@ def analyze(
         if lost:
             reasons.append("Lost levels: " + ", ".join(lost))
 
-    # Confidence is about classification quality, not probability of profit.
     known = sum(x is not Direction.UNKNOWN for x in (p, c, o))
     confidence = 0.45 + 0.15 * known
-    if regime in (Regime.BEARISH_LEVERAGE_EXPANSION, Regime.BULLISH_LEVERAGE_EXPANSION, Regime.DELEVERAGING_SELL_OFF):
+    if regime in (
+        Regime.BEARISH_LEVERAGE_EXPANSION,
+        Regime.BULLISH_LEVERAGE_EXPANSION,
+        Regime.LEVERAGED_SELL_ABSORPTION,
+        Regime.DELEVERAGING_SELL_OFF,
+    ):
         confidence += 0.08
     if levels is not None:
         confidence += 0.03
