@@ -3,7 +3,7 @@
 
 This wrapper exists so evidence from different commits cannot be mixed by
 accident. It verifies the shared convergence branch, requires a clean checkout,
-optionally refreshes the remote branch, pins both interactive harnesses to
+checks the live remote branch head, pins both interactive harnesses to
 SHA-specific state directories, records a machine manifest, and only then
 starts the live checks.
 
@@ -80,10 +80,16 @@ def _exact_identity(*, ci: bool, require_remote: bool) -> dict[str, Any]:
             )
         if require_remote:
             try:
-                _git("fetch", "--quiet", "origin", CANONICAL_BRANCH)
-                remote_head = _git("rev-parse", f"origin/{CANONICAL_BRANCH}").stdout.strip()
+                remote = _git(
+                    "ls-remote", "--heads", "origin", f"refs/heads/{CANONICAL_BRANCH}"
+                ).stdout.strip().split()
             except (OSError, subprocess.SubprocessError) as exc:
-                raise PreflightError(f"cannot refresh origin/{CANONICAL_BRANCH}: {exc}") from exc
+                raise PreflightError(f"cannot query origin/{CANONICAL_BRANCH}: {exc}") from exc
+            if len(remote) != 2 or remote[1] != f"refs/heads/{CANONICAL_BRANCH}":
+                raise PreflightError(f"origin/{CANONICAL_BRANCH} could not be resolved exactly")
+            remote_head = remote[0]
+            if not _SHA_RE.fullmatch(remote_head):
+                raise PreflightError(f"invalid remote SHA: {remote_head!r}")
             if remote_head != head:
                 raise PreflightError(
                     "local checkout is not the current shared-branch HEAD: "
