@@ -2,9 +2,27 @@ name: Evening residual safety (not live acceptance)
 env:
   BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 on:
-  push:
-    branches: [claude/bossman-control-v03-43igbk, claude/bossman-final-audit-closure-aucx9x, 'release/**']
+  pull_request:
+    branches: [night/v7-convergence-20260908]
     paths:
+      - 'scripts/evening_owner_run.py'
+      - 'scripts/evening_acceptance.py'
+      - 'scripts/owner_breaker.py'
+      - 'scripts/bossman_doctor.py'
+      - 'tests/test_owner_breaker_harness.py'
+      - 'bossman-core/bossman/learning_guard/evidence_ledger.py'
+      - 'bossman-core/bossman/computer_operator/manager.py'
+      - 'bossman-core/tests/test_evidence_ledger_hostile.py'
+      - 'bossman-core/tests/test_operator_recovery_owner_state.py'
+      - '.github/workflows/evening-residual-safety.yml'
+  push:
+    branches: ['release/**']
+    paths:
+      - 'scripts/evening_owner_run.py'
+      - 'scripts/evening_acceptance.py'
+      - 'scripts/owner_breaker.py'
+      - 'scripts/bossman_doctor.py'
+      - 'tests/test_owner_breaker_harness.py'
       - 'bossman-core/bossman/learning_guard/evidence_ledger.py'
       - 'bossman-core/bossman/computer_operator/manager.py'
       - 'bossman-core/tests/test_evidence_ledger_hostile.py'
@@ -43,11 +61,14 @@ jobs:
           (out/'manifest.json').write_text(json.dumps({'sha':sha,'platform':platform.platform(),'python':platform.python_version(),'tier':'REAL_COMPONENT','live_ui':'NOT_RUN'}),encoding='utf-8')
           with open(os.environ['GITHUB_ENV'],'a',encoding='utf-8') as f:
               f.write('PYTHONPATH='+os.pathsep.join(map(str,[root,root/'bossman-core',root/'command-center']))+'\n')
+      - name: Verify exact-SHA owner-run harness before install mutates the workspace
+        run: python scripts/evening_owner_run.py --ci preflight
       - name: Install declared packages
         run: python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev]'
       - name: Actual processes, durable evidence, owner recovery and affected regressions
         run: >-
           python -m pytest
+          tests/test_owner_breaker_harness.py
           bossman-core/tests/test_evidence_ledger_hostile.py
           bossman-core/tests/test_learning_evidence_ledger.py
           bossman-core/tests/test_operator_recovery_owner_state.py
