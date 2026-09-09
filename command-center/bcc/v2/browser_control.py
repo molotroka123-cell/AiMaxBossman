@@ -26,6 +26,8 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlparse
 
+from ..browser_runtime import INSTALL_HINT, PREINSTALLED_CHROMIUM, chromium_executable
+
 Decision = Literal["auto", "ask", "deny"]
 
 READ_ACTIONS = {"snapshot", "screenshot", "read_dom"}
@@ -514,14 +516,14 @@ class BrowserManager:
         self._pw: Any = None
         self._sessions: dict[int, BrowserRuntimeSession] = {}
         self._lock = asyncio.Lock()
+        self.preinstalled_executable = PREINSTALLED_CHROMIUM
 
     @property
     def available(self) -> bool:
-        try:
-            import playwright.async_api  # noqa: F401
-            return True
-        except Exception:
-            return False
+        return self.executable_path() is not None
+
+    def executable_path(self, *, headless: bool = True) -> str | None:
+        return chromium_executable(preinstalled=self.preinstalled_executable, headless=headless)
 
     async def _playwright(self):
         if self._pw is not None:
@@ -543,18 +545,22 @@ class BrowserManager:
         async with self._lock:
             if session_id in self._sessions:
                 return await self.status(session_id)
+            executable = self.executable_path(headless=headless)
+            if executable is None:
+                raise BrowserUnavailable(INSTALL_HINT)
             pw = await self._playwright()
             browser = None
             if policy.persistent_profile:
                 safe_name = re.sub(r"[^a-zA-Z0-9_.-]+", "-", profile_name)[:80] or "default"
                 user_data = self.profile_dir / safe_name
                 context = await pw.chromium.launch_persistent_context(
-                    str(user_data), headless=headless, viewport={"width": 1440, "height": 900}
+                    str(user_data), headless=headless, executable_path=executable,
+                    viewport={"width": 1440, "height": 900}
                 )
                 pages = context.pages
                 page = pages[0] if pages else await context.new_page()
             else:
-                browser = await pw.chromium.launch(headless=headless)
+                browser = await pw.chromium.launch(headless=headless, executable_path=executable)
                 context = await browser.new_context(viewport={"width": 1440, "height": 900})
                 page = await context.new_page()
             self._sessions[session_id] = BrowserRuntimeSession(

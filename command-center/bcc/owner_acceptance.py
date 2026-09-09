@@ -54,7 +54,9 @@ def installed_identity() -> dict:
     sha = data.get('source_sha', '')
     if not isinstance(sha, str) or re.fullmatch(r'[0-9a-f]{40}', sha) is None:
         raise OwnerRequired('Installed artifact must attest one full source SHA.')
-    return {'source_sha': sha, 'version': distribution.version,
+    if data.get('source_dirty') is not False:
+        raise OwnerRequired('Install a release wheel with measured clean source identity.')
+    return {'source_sha': sha, 'source_dirty': False, 'version': distribution.version,
             'build_manifest_sha256': hashlib.sha256(manifest.read_bytes()).hexdigest()}
 
 

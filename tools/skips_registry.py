@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """TRUTH-003 §16 — реестр пропусков тестов: каждый skip/skipif/importorskip в
-command-center/tests, bossman-core/tests, tests — с причиной, владельцем (каталог),
+Command Center, Core, root and shipped-app suites — с причиной, владельцем (каталог),
 зависимостью от окружения и условием пересмотра. Невидимого числа «46 skips» больше нет.
 
     python tools/skips_registry.py            # перегенерировать docs/testing/SKIPS_REGISTRY.md
@@ -14,7 +14,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SUITES = {"command-center/tests": "Command Center", "bossman-core/tests": "Bossman Core", "tests": "root (shared/tools)"}
+SUITES = {"command-center/tests": "Command Center", "bossman-core/tests": "Bossman Core",
+          "tests": "root (shared/tools)", "apps/social-farm/tests": "Social Farm",
+          "apps/file-commander-mini/tests": "File Commander"}
 OUT = ROOT / "docs" / "testing" / "SKIPS_REGISTRY.md"
 ENV_HINTS = (
     ("chromium|browser|playwright", "Chromium/Playwright на хосте"),
@@ -70,8 +72,13 @@ def collect() -> list[dict]:
                     continue
                 fn = node.func
                 name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
+                # get_source_segment rescans the whole source to locate a span.
+                # Calling it for every ordinary call made this scanner quadratic
+                # in large test files (two root-CI scans cost 120 seconds).
+                if name not in ("skip", "skipif", "importorskip"):
+                    continue
                 chain = ast.get_source_segment(src, fn) or ""
-                if name not in ("skip", "skipif", "importorskip") or "pytest" not in chain and "mark" not in chain:
+                if "pytest" not in chain and "mark" not in chain:
                     continue
                 cond = _text(node.args[0], src) if name == "skipif" and node.args else ""
                 reason = _reason(node, src)

@@ -45,6 +45,7 @@ if mode=='installed':
     assert runtime_settings.ui_dir.resolve().is_relative_to(pathlib.Path(bcc.__file__).resolve().parent)
     build=json.loads(files('bcc').joinpath('_build.json').read_text())
     assert build['source_sha']==expected_sha,build
+    assert build.get('source_dirty') is False,build
     proof['source_sha']=build['source_sha']
 (data/'acceptance-runtime.json').write_text(json.dumps(proof,indent=2))
 fable_budget.LEDGER_PATH=data/'test-budget.json'

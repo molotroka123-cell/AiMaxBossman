@@ -25,6 +25,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  windows-workspace:
+    name: Windows workspace and PID contracts (py${{ matrix.python }})
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install declared Core test dependencies
+        run: python -m pip install -e . -e './bossman-core[dev]'
+      - name: Real workspace evidence and process query boundaries
+        working-directory: bossman-core
+        run: >-
+          python -m pytest -q --timeout=90 --timeout-method=thread
+          tests/test_browser_pid_portability.py tests/test_gateway_cli_portability.py
+          tests/apprentice/test_openhands_client.py
+          tests/apprentice/test_openhands_evidence_independence.py
+          tests/apprentice/test_openhands_path_boundary.py
+          tests/apprentice/test_openhands_release_evidence.py
+
   core:
     name: pytest ${{ matrix.group.name }} (py${{ matrix.python }})
     runs-on: ubuntu-latest

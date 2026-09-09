@@ -14,7 +14,11 @@ import os
 from pathlib import Path
 import re
 import shlex
+import shutil
 import subprocess
+import stat
+import tempfile
+from types import MappingProxyType
 from typing import Mapping, Sequence
 
 
@@ -39,6 +43,133 @@ class OpenHandsResult:
     changed_files: tuple[str, ...]
     diff: str
     sidecar: Mapping[str, object]
+    files: Mapping[str, "FileEvidence"] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class FileEvidence:
+    """Host-read immutable bytes and Git-relevant type/mode, never a sidecar claim."""
+    mode: str
+    data: bytes
+    permissions: int = 0
+
+
+_MAX_FILE_BYTES = 8 * 1024 * 1024
+_MAX_SNAPSHOT_BYTES = 32 * 1024 * 1024
+_MAX_SNAPSHOT_FILES = 10000
+
+
+def _read_entry(workspace: Path, path: Path) -> FileEvidence:
+    relative = path.relative_to(workspace)
+    directory_fd = None
+    descriptor = None
+    try:
+        if os.name != "nt":
+            flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+            directory_fd = os.open(workspace, flags)
+            for part in relative.parts[:-1]:
+                child = os.open(part, flags, dir_fd=directory_fd)
+                os.close(directory_fd)
+                directory_fd = child
+            name = relative.name
+            before = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            if stat.S_ISLNK(before.st_mode):
+                return FileEvidence("120000", os.readlink(name, dir_fd=directory_fd).encode("utf-8", "surrogateescape"), stat.S_IMODE(before.st_mode))
+            if not stat.S_ISREG(before.st_mode):
+                raise OpenHandsError(f"non-regular workspace entry: {relative}")
+            descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory_fd)
+        else:
+            before = path.lstat()
+            if stat.S_ISLNK(before.st_mode):
+                return FileEvidence("120000", os.readlink(path).encode("utf-8", "surrogateescape"), stat.S_IMODE(before.st_mode))
+            if not stat.S_ISREG(before.st_mode):
+                raise OpenHandsError(f"non-regular workspace entry: {relative}")
+            descriptor = os.open(path, os.O_RDONLY | os.O_BINARY)
+            # Resolve the opened HANDLE before reading, not a pathname which
+            # can have been redirected through a junction after enumeration.
+            import ctypes
+            from ctypes import wintypes
+            import msvcrt
+            final_path = ctypes.WinDLL("kernel32", use_last_error=True).GetFinalPathNameByHandleW
+            final_path.argtypes = [wintypes.HANDLE, wintypes.LPWSTR, wintypes.DWORD, wintypes.DWORD]
+            final_path.restype = wintypes.DWORD
+            buffer = ctypes.create_unicode_buffer(32768)
+            count = final_path(msvcrt.get_osfhandle(descriptor), buffer, len(buffer), 0)
+            if not count or count >= len(buffer):
+                raise OpenHandsError("cannot verify opened workspace handle")
+            actual = buffer.value
+            if actual.startswith("\\\\?\\UNC\\"):
+                actual = "\\\\" + actual[8:]
+            elif actual.startswith("\\\\?\\"):
+                actual = actual[4:]
+            if not Path(actual).resolve().is_relative_to(workspace.resolve()):
+                raise OpenHandsError(f"opened path outside workspace: {relative}")
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+            raise OpenHandsError(f"workspace entry changed during observation: {relative}")
+        if opened.st_size > _MAX_FILE_BYTES:
+            raise OpenHandsError(f"workspace evidence file exceeds bounded read: {relative}")
+        data = bytearray()
+        while len(data) <= _MAX_FILE_BYTES:
+            chunk = os.read(descriptor, min(256 * 1024, _MAX_FILE_BYTES + 1 - len(data)))
+            if not chunk:
+                break
+            data.extend(chunk)
+        after = os.fstat(descriptor)
+        identity = lambda item: (item.st_dev, item.st_ino, item.st_mode, item.st_size,
+                                 item.st_mtime_ns, item.st_ctime_ns)
+        if len(data) > _MAX_FILE_BYTES or identity(opened) != identity(after):
+            raise OpenHandsError(f"workspace evidence changed or exceeded limit: {relative}")
+        mode = "100755" if os.name != "nt" and opened.st_mode & 0o111 else "100644"
+        return FileEvidence(mode, bytes(data), stat.S_IMODE(opened.st_mode))
+    except OSError as exc:
+        raise OpenHandsError(f"cannot independently read workspace entry: {relative}") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if directory_fd is not None:
+            os.close(directory_fd)
+
+
+def _snapshot(workspace: Path) -> dict[str, FileEvidence]:
+    output = {}
+    total = 0
+    for name, path in _worktree_files(workspace).items():
+        entry = _read_entry(workspace, path)
+        total += len(entry.data)
+        if total > _MAX_SNAPSHOT_BYTES:
+            raise OpenHandsError("workspace evidence exceeds bounded snapshot size")
+        output[name] = entry
+    return output
+
+
+def _snapshot_diff(before: Mapping[str, FileEvidence], after: Mapping[str, FileEvidence], changed: Sequence[str]) -> str:
+    """Render the reviewed diff from immutable host bytes, in a separate tree."""
+    if not changed:
+        return ""
+    with tempfile.TemporaryDirectory(prefix="bossman-reviewed-diff-") as directory:
+        root = Path(directory)
+        for label, entries in (("a", before), ("b", after)):
+            (root / label).mkdir()
+            for name in changed:
+                entry = entries.get(name)
+                if entry is None:
+                    continue
+                destination = root / label / _normalize_repo_path(name)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                if entry.mode == "120000":
+                    os.symlink(entry.data.decode("utf-8", "surrogateescape"), destination)
+                else:
+                    destination.write_bytes(entry.data)
+                    if os.name != "nt":
+                        destination.chmod(0o755 if entry.mode == "100755" else 0o644)
+        environment = dict(_minimal_process_env(), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+        result = subprocess.run(["git", "-c", "core.autocrlf=false", "diff", "--no-index", "--binary",
+                                 "--no-ext-diff", "--no-textconv", "--src-prefix=", "--dst-prefix=", "a", "b"],
+                                cwd=root, env=environment, capture_output=True, timeout=30)
+        if result.returncode not in (0, 1):
+            raise OpenHandsError("cannot render independently captured workspace diff")
+        return result.stdout.decode("utf-8", "replace")
 
 
 _SYSTEM_ENV_KEYS = (
@@ -52,6 +183,22 @@ _DRIVE = re.compile(r"^[A-Za-z]:")
 def _minimal_process_env() -> dict[str, str]:
     """Keep only OS/runtime variables. Provider credentials are explicit input."""
     return {key: os.environ[key] for key in _SYSTEM_ENV_KEYS if os.environ.get(key)}
+
+
+def _command_digest(path: Path) -> str:
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as stream:
+            before = os.fstat(stream.fileno())
+            for chunk in iter(lambda: stream.read(256 * 1024), b""):
+                digest.update(chunk)
+            after = os.fstat(stream.fileno())
+        if (before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
+                after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+            raise OpenHandsError("sidecar command identity changed during measurement")
+    except OSError as exc:
+        raise OpenHandsError("sidecar command identity is unavailable") from exc
+    return digest.hexdigest()
 
 
 def _git(workspace: Path, *args: str) -> str:
@@ -92,19 +239,22 @@ def _untracked_files(workspace: Path) -> tuple[str, ...]:
 # the git-derived view is only allowed to ADD paths, never to hide one.
 # ----------------------------------------------------------------------------
 
-def _blob_sha(path: Path) -> str:
-    """Git's blob id for a working-tree path (symlinks hash their target)."""
-    data = os.readlink(path).encode("utf-8", "surrogateescape") if path.is_symlink() else path.read_bytes()
+def _blob_digest(data: bytes) -> str:
     h = hashlib.sha1(usedforsecurity=False)  # git blob id, not a security hash
     h.update(b"blob %d\0" % len(data))
     h.update(data)
     return h.hexdigest()
 
 
-def _head_tree(workspace: Path) -> dict[str, str]:
-    """path -> blob sha at HEAD. Submodule (gitlink) entries are kept with their
+def _blob_sha(path: Path, *, workspace: Path | None = None) -> str:
+    """Git's blob id for a working-tree path (symlinks hash their target)."""
+    return _blob_digest(_read_entry(workspace or path.parent, path).data)
+
+
+def _head_tree(workspace: Path) -> dict[str, tuple[str, str]]:
+    """path -> (mode, blob sha) at HEAD. Submodule entries retain their
     commit id so a replaced submodule directory still reads as a change."""
-    out: dict[str, str] = {}
+    out: dict[str, tuple[str, str]] = {}
     raw = _git(workspace, "ls-tree", "-r", "-z", "HEAD")
     for entry in raw.split("\0"):
         if not entry:
@@ -112,7 +262,7 @@ def _head_tree(workspace: Path) -> dict[str, str]:
         meta, _, path = entry.partition("\t")
         parts = meta.split()
         if len(parts) >= 3 and path:
-            out[path.replace("\\", "/")] = parts[2]
+            out[path.replace("\\", "/")] = (parts[0], parts[2])
     return out
 
 
@@ -129,6 +279,8 @@ def _worktree_files(workspace: Path) -> dict[str, Path]:
         kept = []
         for d in dirnames:
             full = Path(dirpath) / d
+            if getattr(full, "is_junction", lambda: False)():
+                raise OpenHandsError("workspace contains a directory junction")
             if full.is_symlink():
                 filenames.append(d)
             elif rel_dir == Path(".") and d == ".git":
@@ -140,6 +292,8 @@ def _worktree_files(workspace: Path) -> dict[str, Path]:
             full = Path(dirpath) / name
             rel = (rel_dir / name).as_posix() if rel_dir != Path(".") else name
             files[rel] = full
+            if len(files) > _MAX_SNAPSHOT_FILES:
+                raise OpenHandsError("workspace evidence exceeds bounded file count")
     return files
 
 
@@ -189,12 +343,18 @@ def _worktree_delta(workspace: Path, *, exclude_before: bytes | None = None) -> 
     modified: list[str] = []
     untracked: list[str] = []
     for rel, full in tree.items():
-        sha = head.get(rel)
-        if sha is None:
+        baseline = head.get(rel)
+        if baseline is None:
             untracked.append(rel)
             continue
         try:
-            if _blob_sha(full) != sha:
+            entry = _read_entry(workspace, full)
+            actual_mode = entry.mode
+            expected_mode, sha = baseline
+            # Windows has no POSIX executable bit; type still must agree.
+            modes_agree = actual_mode == expected_mode or (os.name == "nt" and
+                            actual_mode.startswith("100") and expected_mode.startswith("100"))
+            if _blob_digest(entry.data) != sha or not modes_agree:
                 modified.append(rel)
         except OSError:
             modified.append(rel)              # unreadable now, readable at commit: changed
@@ -234,7 +394,7 @@ def _changed_files(workspace: Path, *, exclude_before: bytes | None = None) -> t
     if hidden:
         raise OpenHandsError("evidence mismatch: git hides changes present in the working tree: "
                              + ", ".join(hidden))
-    return delta.changed
+    return tuple(sorted(set(delta.changed) | git_view))
 
 
 def _evidence_diff(workspace: Path, untracked: Sequence[str] = ()) -> str:
@@ -252,7 +412,7 @@ def _evidence_diff(workspace: Path, untracked: Sequence[str] = ()) -> str:
     construction."""
     if untracked:
         _git(workspace, "add", "--intent-to-add", "--", *untracked)
-    return _git(workspace, "diff", "--binary", "HEAD")
+    return _git(workspace, "diff", "--binary", "--no-ext-diff", "--no-textconv", "HEAD")
 
 
 def _normalize_repo_path(path: str) -> str:
@@ -293,7 +453,26 @@ class OpenHandsClient:
             raw = tuple(shlex.split(configured, posix=os.name != "nt"))
         if not raw:
             raise OpenHandsError("OpenHands disabled: set BOSSMAN_OPENHANDS_COMMAND or pass command=")
-        self.command = raw
+        command = list(raw)
+        self._command_identity: dict[Path, str] = {}
+        executable = shutil.which(command[0])
+        if executable:
+            command[0] = str(Path(executable).resolve())
+        for index, arg in enumerate(command):
+            # Only actual command files are pinned; -c source and -m module
+            # names are arguments, not filenames to resolve or execute.
+            if index and not arg.lower().endswith((".py", ".pyw", ".exe", ".cmd", ".bat")):
+                continue
+            path = Path(arg)
+            try:
+                is_file = path.is_file()
+            except OSError:
+                is_file = False
+            if is_file:
+                path = path.resolve()
+                self._command_identity[path] = _command_digest(path)
+                command[index] = str(path)
+        self.command = tuple(command)
         self.env = {str(k): str(v) for k, v in dict(env or {}).items()}
 
     def run(self, request: OpenHandsRequest) -> OpenHandsResult:
@@ -311,6 +490,9 @@ class OpenHandsClient:
             raise OpenHandsError("OpenHands workspace must not have git remotes")
         head_before = _git(workspace, "rev-parse", "HEAD").strip()
         config_before = (workspace / ".git" / "config").read_bytes()
+        before_files = _snapshot(workspace)
+        if _changed_files(workspace, exclude_before=exclude_before):
+            raise OpenHandsError("workspace changed before sidecar dispatch")
 
         payload = {
             "schema": "bossman.openhands.v1",
@@ -323,6 +505,9 @@ class OpenHandsClient:
         }
         env = _minimal_process_env()
         env.update(self.env)
+        for path, expected_digest in self._command_identity.items():
+            if _command_digest(path) != expected_digest:
+                raise OpenHandsError("sidecar command identity changed before dispatch")
         try:
             proc = subprocess.run(
                 list(self.command),
@@ -345,7 +530,7 @@ class OpenHandsClient:
             response = json.loads(proc.stdout or "{}")
         except json.JSONDecodeError as exc:
             raise OpenHandsError("OpenHands sidecar returned invalid JSON") from exc
-        if response.get("schema") != "bossman.openhands.v1" or response.get("status") not in {"completed", "failed"}:
+        if not isinstance(response, dict) or response.get("schema") != "bossman.openhands.v1" or response.get("status") not in {"completed", "failed"}:
             raise OpenHandsError("OpenHands sidecar returned an invalid response contract")
 
         head_after = _git(workspace, "rev-parse", "HEAD").strip()
@@ -359,8 +544,22 @@ class OpenHandsClient:
         # the sidecar's index flags and ignore rules cannot hide a change from it.
         changed = _changed_files(workspace, exclude_before=exclude_before)
         _validate_scope(changed, request.allowed_paths, request.protected_paths)
+        captured = _snapshot(workspace)
+        permission_changes = [name for name in before_files.keys() & captured.keys()
+                              if before_files[name].mode.startswith("100") and captured[name].mode.startswith("100")
+                              and (before_files[name].permissions ^ captured[name].permissions) & ~0o111]
+        if permission_changes:
+            _validate_scope(permission_changes, request.allowed_paths, request.protected_paths)
+            raise OpenHandsError("non-Git permission mutation is not representable in the reviewed patch: "
+                                 + ", ".join(sorted(permission_changes)))
         untracked = _worktree_delta(workspace, exclude_before=exclude_before).untracked
-        diff = _evidence_diff(workspace, untracked)
+        _evidence_diff(workspace, untracked)
+        if _snapshot(workspace) != captured or _changed_files(workspace, exclude_before=exclude_before) != changed:
+            raise OpenHandsError("workspace changed while deriving independent evidence")
+        if _git(workspace, "rev-parse", "HEAD").strip() != head_before or (workspace / ".git" / "config").read_bytes() != config_before:
+            raise OpenHandsError("repository identity changed while deriving independent evidence")
+        diff = _snapshot_diff(before_files, captured, changed)
         if proc.returncode and response.get("status") != "failed":
             raise OpenHandsError(f"OpenHands sidecar exited {proc.returncode} without failed status")
-        return OpenHandsResult(str(response["status"]), changed, diff, response)
+        return OpenHandsResult(str(response["status"]), changed, diff, response,
+                               MappingProxyType({name: captured[name] for name in changed if name in captured}))

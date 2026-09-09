@@ -61,3 +61,19 @@ copied into the shareable report.
 
 Harness integrity tests use isolated SQLite fixtures only; those tests are not
 evidence that a real owner model has run. Intelligence Preservation is untouched.
+
+## Fable authorization fixture after MF-031
+
+The first integrated Fable CI attempt exposed an obsolete setup in
+`test_revoked_approval_cannot_be_consumed_or_used_for_override`: POST `/api/tasks`
+with prompt `p` and no configured agent previously created an unusable task. MF-031
+correctly refuses that request before insertion, so indexing `response["task"]`
+failed before any revoked-approval assertion ran.
+
+The test now uses the existing `make_stack` provider/model/agent fixture, retaining
+prompt `p`. Runtime admission and every authorization assertion are unchanged:
+the revoked terminal approval cannot be consumed, revoked review escalation
+cannot authorize `finalize_override`, and the task remains `waiting_approval`.
+The positive/negative revocation controls and effect-time/finalize suites remain
+mandatory. This is a setup correction to reach the original safety boundary;
+creating an executor-less task is not the assertion this test is meant to prove.

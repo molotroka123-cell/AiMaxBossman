@@ -116,3 +116,44 @@ def test_provider_error_details_never_leak_to_acceptance_report(tmp_path, monkey
     assert 'secret' not in text and 'Authorization' not in text
     assert json.loads(text)['status'] == 'FAIL'
     assert json.loads(text)['provider_host'] == 'example.com'
+
+
+@pytest.mark.parametrize('dirty', [True, None, 'false', 0, 1, 'missing'])
+def test_installed_identity_refuses_unmeasured_or_dirty_source(tmp_path, monkeypatch, dirty):
+    module = tmp_path / 'bcc' / 'owner_acceptance.py'
+    module.parent.mkdir()
+    module.write_text('')
+    manifest = {'source_sha': 'a' * 40}
+    if dirty != 'missing':
+        manifest['source_dirty'] = dirty
+    module.with_name('_build.json').write_text(json.dumps(manifest))
+    class Distribution:
+        version = '0.1'
+        def read_text(self, name):
+            return None
+        def locate_file(self, name):
+            return tmp_path / name
+    monkeypatch.setattr(owner, '__file__', str(module))
+    monkeypatch.setattr(owner.importlib.metadata, 'distribution', lambda name: Distribution())
+    with pytest.raises(owner.OwnerRequired, match='clean source'):
+        owner.installed_identity()
+
+
+def test_clean_installed_identity_reports_exact_source(tmp_path, monkeypatch):
+    module = tmp_path / 'bcc' / 'owner_acceptance.py'
+    module.parent.mkdir()
+    module.write_text('')
+    module.with_name('_build.json').write_text(json.dumps({
+        'source_sha': 'b' * 40, 'source_dirty': False}))
+    class Distribution:
+        version = '0.1'
+        def read_text(self, name):
+            return None
+        def locate_file(self, name):
+            return tmp_path / name
+    monkeypatch.setattr(owner, '__file__', str(module))
+    monkeypatch.setattr(owner.importlib.metadata, 'distribution', lambda name: Distribution())
+    result = owner.installed_identity()
+    assert result['source_sha'] == 'b' * 40
+    assert result['source_dirty'] is False
+    assert len(result['build_manifest_sha256']) == 64

@@ -244,7 +244,7 @@ function appView(app, ctx) {
       }))
     : notRunning(app, ctx);
 
-  return h('div.bx-appview', head, body);
+  return h('div.bx-appview', { dataset: { appId: app.id } }, head, body);
 }
 
 function codeBlock(text) {

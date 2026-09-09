@@ -8,8 +8,10 @@ is allowed in acceptance. Existing output directories are never deleted.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -53,8 +55,24 @@ def _source_sha() -> str:
 
 
 def _source_dirty() -> bool:
-    return bool(_run(["git", "-C", str(ROOT), "status", "--porcelain",
-                      "--untracked-files=normal"]).stdout.strip())
+    spec = importlib.util.spec_from_file_location("build_source_identity", ROOT / "tools" / "build_source_identity.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.source_identity(ROOT).get("source_dirty") is not False
+
+
+@contextmanager
+def clean_source_snapshot(source_sha: str):
+    """Build exact candidates from fresh HEAD files, never stale build/lib."""
+    with tempfile.TemporaryDirectory(prefix="bossman-source-snapshot-") as temporary:
+        snapshot = Path(temporary) / "source"
+        _run(["git", "-C", str(ROOT), "-c", "core.autocrlf=false", "worktree", "add",
+              "--detach", str(snapshot), source_sha])
+        try:
+            yield snapshot
+        finally:
+            # Only the disposable worktree created above is removed.
+            _run(["git", "-C", str(ROOT), "worktree", "remove", "--force", str(snapshot)])
 
 
 def prepare_output(path: Path) -> Path:
@@ -69,12 +87,14 @@ def prepare_output(path: Path) -> Path:
     return out
 
 
-def build_wheels(wheels: Path) -> list[Path]:
+def build_wheels(wheels: Path, source_root: Path | None = None) -> list[Path]:
+    source_root = source_root or ROOT
     wheels.mkdir(parents=True, exist_ok=True)
     for name, project in PROJECTS:
         print(f"  building {name}", flush=True)
+        project = source_root / project.relative_to(ROOT)
         _run([sys.executable, "-m", "pip", "wheel", "--no-deps",
-              "--wheel-dir", str(wheels), str(project)], cwd=ROOT)
+              "--wheel-dir", str(wheels), str(project)], cwd=source_root)
     built = sorted(wheels.glob("*.whl"))
     if len(built) != len(PROJECTS):
         raise RuntimeError(f"Expected {len(PROJECTS)} wheels, produced {len(built)}")
@@ -156,9 +176,9 @@ Source SHA: `{sha}`. Built: {when}. Installed acceptance: **{status}**.
 Requires Python 3.11+ and internet access once to install third-party dependencies.
 No repository checkout is needed. Unzip the whole directory, then run:
 
-    python install.py --start
+    python3 install.py --start
 
-On Windows, `py install.py --start` also selects the installed Python.
+On Windows with Python 3.12, run `py -3.12 install.py --start`.
 Open <http://127.0.0.1:8800>. The server prints the location of the access-token
 file; enter that token in the login screen. The token itself is not printed to
 logs. Data stays in the user's platform data directory across upgrades:
@@ -185,11 +205,30 @@ DB/background loops, process restart and persistence, using only installed
 wheels. `MANIFEST.json` contains exact source identity, measured acceptance,
 dependency versions and file hashes. This is not evidence of a model-backed
 agent run. Configure a local/provider model in the UI for live execution.
-Browser actions need a Playwright browser (`.venv/bin/python -m playwright install chromium`;
-use `.venv\\Scripts\\python.exe` on Windows). Video import/export requires FFmpeg
-and ffprobe on PATH. Optional apps' paid accounts/models are not included.
+The bundle installs the Python Playwright package. Its Chromium binary is a
+separate download: on Ubuntu/Debian use
+`.venv/bin/python -m playwright install --with-deps chromium`; on Windows use
+`.venv\\Scripts\\python.exe -m playwright install chromium`.
+Video import/export requires **both** `ffmpeg` and `ffprobe` on PATH; check
+`ffmpeg -version` and `ffprobe -version` in the same terminal used to start BCC.
+These OS prerequisites and optional apps' paid accounts/models are not included.
+
+After configuring an enabled agent and real model/provider in BCC, run the
+installed genuine model/task/restart acceptance (replace DATA_DIR with the
+configured data directory shown above):
+
+    .venv/bin/python -I -m bcc.owner_acceptance --data-dir DATA_DIR --output owner-acceptance.json
+
+On Windows use `.venv\\Scripts\\python.exe` in place of `.venv/bin/python`.
+This makes a real provider call in private isolated data. It reads the selected
+owner configuration and does not run owner tasks/schedules. Exit 0 is PASS,
+1 is FAIL and 2 means OWNER_REQUIRED; it does not certify browser UI or the
+separate same-model Intelligence Preservation measurement.
 
 `verify_installed_product.py` reruns deterministic installed boot acceptance.
+Clean candidates are built from a fresh Git snapshot and attest
+`source_dirty=false` inside the wheel. Dirty/legacy/unmeasured wheel identity
+is refused by acceptance; `--allow-dirty` is diagnostic and never verified.
 Owner hardware, credentials and Windows results are never inferred from Linux.
 """
 
@@ -206,12 +245,18 @@ def main() -> int:
     out = prepare_output(args.out)
     print(f"source {sha} -> {out}", flush=True)
     wheels = out / "wheels"
-    build_wheels(wheels)
+    if dirty:
+        build_wheels(wheels)  # diagnostic source; never exact-SHA acceptance
+    else:
+        with clean_source_snapshot(sha) as snapshot:
+            build_wheels(wheels, snapshot)
     verifier = out / "verify_installed_product.py"
     shutil.copyfile(ROOT / "tools" / "verify_installed_product.py", verifier)
     (out / "install.py").write_text(INSTALLER, encoding="utf-8")
     checks = {"status": "NOT_RUN"}
-    if not args.skip_verify:
+    if dirty:
+        checks = {"status": "DIRTY_SOURCE_NOT_VERIFIED"}
+    elif not args.skip_verify:
         print("  installing and booting in a clean environment", flush=True)
         checks = verify(wheels, verifier, sha)
     when = datetime.now(timezone.utc).isoformat()

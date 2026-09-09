@@ -293,3 +293,44 @@ def test_mutating_any_request_binding_refuses_before_file_access(files, change):
     if change == "nonce": headers["X-Bossman-App-Nonce"] = "b"*64
     result = TestClient(build_app()).request(method, path, content=payload, headers=headers)
     assert result.status_code == 401
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX no-follow directory handles; Windows junctions have a host gate")
+def test_directory_creation_does_not_follow_a_parent_replaced_after_validation(files, monkeypatch):
+    from file_commander_mini.safety import mkdir_no_follow
+    root, eng = files
+    outside = root.parent / "outside"
+    outside.mkdir()
+    saved = root.parent / "saved-workspace"
+    original = eng.policy.allowed
+    def swap_after_validation(path):
+        result = original(path)
+        root.rename(saved)
+        root.symlink_to(outside, target_is_directory=True)
+        return result
+    monkeypatch.setattr(eng.policy, "allowed", swap_after_validation)
+    try:
+        with pytest.raises(OSError): mkdir_no_follow(root / "not-approved", eng.policy)
+        assert not (outside / "not-approved").exists()
+    finally:
+        root.unlink()
+        saved.rename(root)
+
+
+def test_directory_effect_without_receipt_remains_unknown(files, monkeypatch):
+    from file_commander_mini import domain
+    root, eng = files
+    source = root / "report.pdf"
+    source.write_text("preserve")
+    plan = eng.organize_plan(str(root))
+    original = domain.mkdir_no_follow
+    def lose_receipt(*args):
+        original(*args)
+        raise OSError("simulated interruption after mkdir before receipt")
+    monkeypatch.setattr(domain, "mkdir_no_follow", lose_receipt)
+    with pytest.raises(ValueError, match="UNKNOWN"):
+        eng.apply(plan["operations"], True)
+    assert eng.s.kv_list("batches")[0]["value"]["status"] == "UNKNOWN"
+    assert source.read_text() == "preserve"
+    with pytest.raises(ValueError, match="RECOVERY_REQUIRED"):
+        eng.apply(plan["operations"], True)

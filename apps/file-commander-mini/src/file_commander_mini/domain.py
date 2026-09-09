@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import hashlib, os, uuid, json, re
 import threading
-from .safety import FilePolicy, identity, require_identity, move_no_replace
+from .safety import FilePolicy, identity, require_identity, move_no_replace, mkdir_no_follow, rmdir_verified
 
 _MUTATION_LOCK = threading.RLock()
 
@@ -139,8 +139,10 @@ class FileCommander:
                 while not parent.exists(): missing.append(parent); parent=parent.parent
                 for directory in reversed(missing):
                     self.allowed(directory)
-                    directory.mkdir()
-                    record['created_dirs'].append(str(directory))
+                    intent={'path':str(directory),'identity':None}
+                    record['created_dirs'].append(intent)
+                    self.s.kv_put("batches",batch,record)
+                    intent['identity']=mkdir_no_follow(directory,self.policy)
                     self.s.kv_put("batches",batch,record)
                 move_no_replace(src,dst,op["source_identity"],self.policy)
                 # Fresh Bossman-side state, not the move function's claim.
@@ -171,9 +173,12 @@ class FileCommander:
                     dst.unlink(); continue
                 raise ValueError("both source and destination are missing")
             except (OSError,ValueError) as exc: errors.append(str(exc))
-        for name in reversed(record.get('created_dirs',[])):
-            try: self.allowed(Path(name)).rmdir()
+        for directory in reversed(record.get('created_dirs',[])):
+            name=directory['path'] if isinstance(directory,dict) else directory
+            expected=directory.get('identity') if isinstance(directory,dict) else None
+            try: rmdir_verified(Path(name),expected,self.policy)
             except FileNotFoundError: pass
+            except ValueError as exc: errors.append(str(exc))
             except OSError as exc:
                 if Path(name).exists() and any(Path(name).iterdir()): continue
                 errors.append(str(exc))

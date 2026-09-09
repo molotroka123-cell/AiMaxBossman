@@ -282,15 +282,14 @@ def _record_drop(app_id: str, data_dir: Path | None) -> None:
 
 
 def _pid_alive(pid: int) -> bool:
+    # Windows os.kill(pid, 0) sends CTRL_C_EVENT; it is not a harmless
+    # existence probe and can interrupt BCC's shared console during recovery.
+    if type(pid) is not int or pid <= 0:
+        return False
     try:
-        os.kill(int(pid), 0)
-    except ProcessLookupError:
+        return psutil.pid_exists(pid)
+    except (OSError, psutil.Error):
         return False
-    except PermissionError:
-        return True        # существует, но чужой владелец
-    except (OSError, ValueError, TypeError):
-        return False
-    return True
 
 
 def _recorded(app_id: str, data_dir: Path | None, port: Any) -> dict | None:

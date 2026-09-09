@@ -169,6 +169,9 @@ jobs:
       - name: Web Designer save and recovery contracts
         run: node --test command-center/ui/tests/web_designer_autosave.test.mjs
 
+      - name: Running app frame retention contracts
+        run: node --test command-center/ui/tests/app_view.test.mjs
+
   windows-paths:
     # TRUTH-003 §16 / TL-01: только пути, где платформа реально ветвится (discovery, terminal
     # control, desktop, права ФС) и новые execution-truth контракты, зависящие от путей
@@ -202,6 +205,8 @@ jobs:
           tests/test_apps_control.py tests/test_apps_release_runtime.py
           tests/test_astra_poststate_boundaries.py
           tests/test_bcc_cli_portability.py
+          tests/test_apps_pid_portability.py
+          tests/test_browser_installed_readiness.py
       - name: Windows Video Studio descriptor boundary
         working-directory: command-center
         env:

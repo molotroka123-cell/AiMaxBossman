@@ -71,6 +71,17 @@ def test_informational_prompt_is_not_classified_as_action():
     assert action_router.classify("Explain what this function does") is None
 
 
+def test_browser_goal_requires_the_exact_fixture_path_not_a_lookalike():
+    from bcc.v2.verification import _browser_url_matches
+    actual = "http://127.0.0.1:4411/watch.html"
+    assert _browser_url_matches(actual, "127.0.0.1:4411/watch.html")
+    assert not _browser_url_matches(actual, "127.0.0.1:4411/watch")
+    assert not _browser_url_matches("http://127.0.0.1:4412/watch.html",
+                                    "127.0.0.1:4411/watch.html")
+    assert not _browser_url_matches("http://127.0.0.1:4411/elsewhere?next=/watch.html",
+                                    "127.0.0.1:4411/watch.html")
+
+
 # ----------------------------------------------------------- helpers (engine)
 
 async def _run_once(env):
@@ -251,11 +262,13 @@ async def test_real_tool_calls_with_matching_verification_complete(
     # проде, просто указывает на тестовую watch-страницу.
     monkeypatch.setattr(action_router, "_KNOWN_DOMAINS",
                         ((__import__("re").compile(r"(?iu)смотритест"),
-                          f"127.0.0.1:{port}/watch"),))
+                          f"127.0.0.1:{port}/watch.html"),))
 
     prompt = "Открой в браузере смотритест и включи ролик"
     assert action_router.classify(prompt) == action_router.CAPABILITY_BROWSER
-    assert action_router.target_domain(prompt) == f"127.0.0.1:{port}/watch"
+    assert action_router.target_domain(prompt) == f"127.0.0.1:{port}/watch.html"
+    # Security matching is host/path aware: /watch.html is not /watch or a
+    # descendant. The local fixture must declare the page it actually serves.
 
     adapter = ToolAdapter([
         ("tool", "browser_open", {"url": f"http://127.0.0.1:{port}/p1.html"}),
@@ -270,5 +283,7 @@ async def test_real_tool_calls_with_matching_verification_complete(
 
     await _run_once(env)
 
-    task = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["task"]
-    assert task["status"] == "completed"
+    data = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()
+    assert data["task"]["status"] == "completed", data
+    history = data["task"]["meta"]["review_history"]
+    assert history[-1]["status"] == "VERIFIED", history

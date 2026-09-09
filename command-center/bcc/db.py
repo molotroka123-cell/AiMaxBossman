@@ -634,21 +634,44 @@ class Database:
         Повторная попытка — это НОВЫЙ прогон с новым `attempt`, а не воскрешение
         старого, поэтому легальные пути ничего здесь не теряют.
         """
-        if not self.url.startswith("sqlite"):
-            # Триггер написан на диалекте SQLite. Молча «установить» его на
-            # другом движке значило бы объявить инвариант там, где его нет.
-            log.warning("terminal-run guard NOT installed: non-sqlite backend %r", self.url)
+        if self.engine.dialect.name == "postgresql":
+            statements = (
+                """CREATE OR REPLACE FUNCTION bcc_guard_terminal_run_status()
+                RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF OLD.status IN ('completed', 'failed')
+                       AND NEW.status IS DISTINCT FROM OLD.status THEN
+                        RAISE EXCEPTION 'terminal run status is immutable';
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$""",
+                "DROP TRIGGER IF EXISTS runs_terminal_status_is_immutable ON task_runs",
+                """CREATE TRIGGER runs_terminal_status_is_immutable
+                BEFORE UPDATE OF status ON task_runs FOR EACH ROW
+                EXECUTE FUNCTION bcc_guard_terminal_run_status()""",
+            )
+            async with self.engine.begin() as conn:
+                for statement in statements:
+                    await conn.execute(sa.text(statement))
             return
+        if self.engine.dialect.name != "sqlite":
+            # Never print the URL: it can contain the owner's database password.
+            raise RuntimeError("terminal-run guard requires a supported SQLite or PostgreSQL backend")
         statement = """
         CREATE TRIGGER IF NOT EXISTS runs_terminal_status_is_immutable
         BEFORE UPDATE OF status ON task_runs
         FOR EACH ROW
-        WHEN OLD.status IN ('completed', 'failed') AND NEW.status <> OLD.status
+        WHEN OLD.status IN ('completed', 'failed') AND NEW.status IS NOT OLD.status
         BEGIN
             SELECT RAISE(ABORT, 'terminal run status is immutable');
         END;
         """
         async with self.engine.begin() as conn:
+            # SQLite's legacy driver does not BEGIN for DDL automatically. Hold
+            # a real transaction so failure cannot leave the old guard dropped.
+            await conn.execute(sa.text("BEGIN IMMEDIATE"))
+            await conn.execute(sa.text("DROP TRIGGER IF EXISTS runs_terminal_status_is_immutable"))
             await conn.execute(sa.text(statement))
 
     async def _install_provenance_guard(self) -> None:

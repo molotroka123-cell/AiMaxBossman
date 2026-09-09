@@ -213,6 +213,8 @@ def test_the_sidecar_cannot_mark_the_mission_complete_by_itself():
     permissions — the contract accepts exactly two statuses and nothing
     about authority."""
     fields = {f.name for f in oc.OpenHandsResult.__dataclass_fields__.values()}
-    assert fields == {"status", "changed_files", "diff", "sidecar"}
+    # `files` carries independently observed immutable bytes for the teacher;
+    # it grants no mission/approval authority and never comes from sidecar JSON.
+    assert fields == {"status", "changed_files", "diff", "sidecar", "files"}
     for forbidden in ("push", "merge", "deploy", "permissions", "authority", "approve"):
         assert forbidden not in fields

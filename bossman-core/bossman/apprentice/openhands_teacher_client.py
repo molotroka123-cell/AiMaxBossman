@@ -130,11 +130,12 @@ class OpenHandsTeacherClient:
 
             patch: dict[str, str] = {}
             for path in result.changed_files:
-                file_path = root / _safe_relative(path)
-                if not file_path.exists() or not file_path.is_file():
+                _safe_relative(path)
+                entry = result.files.get(path)
+                if entry is None or entry.mode != "100644":
                     raise OpenHandsError(f"OpenHands deletion/non-file change is not admissible: {path}")
                 try:
-                    patch[path] = file_path.read_text(encoding="utf-8")
+                    patch[path] = entry.data.decode("utf-8")
                 except UnicodeDecodeError as exc:
                     raise OpenHandsError(f"binary/non-UTF8 OpenHands change is not admissible: {path}") from exc
 

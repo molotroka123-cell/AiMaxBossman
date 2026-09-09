@@ -17,6 +17,18 @@ from .test_ux2_thinking_pane import _launch
 pytestmark = [pytest.mark.timeout(120), pytest.mark.skipif(not chromium_available(), reason=browser_reason())]
 
 
+def _refresh_launcher(page):
+    header = page.locator(".bx-appview-head").element_handle()
+    assert header is not None
+    try:
+        page.locator("#refresh-btn").click()
+        # Wait for the actual rerender, not just response headers while the
+        # old document is still visible and could satisfy an early assertion.
+        page.wait_for_function("header => !header.isConnected", arg=header)
+    finally:
+        header.dispose()
+
+
 def test_apps_files_owner_browser_restart_and_persistence(tmp_path, monkeypatch):
     workspace = tmp_path / "owner-workspace"
     workspace.mkdir()
@@ -61,7 +73,13 @@ def test_apps_files_owner_browser_restart_and_persistence(tmp_path, monkeypatch)
                 assert source.read_bytes() == b"File Commander owner acceptance; real file bytes"
                 assert not target.exists()
                 frame.locator("#root").fill(str(workspace.parent))
+                # The shell follows this same render path on ws.open/reconnect.
+                # An ordinary refresh must not unload the active app iframe.
+                _refresh_launcher(page)
+                expect(frame.locator("#root")).to_have_value(str(workspace.parent))
                 frame.locator("#scan").click()
+                expect(frame.locator("#status")).to_contain_text("outside FILE_COMMANDER_ROOTS")
+                _refresh_launcher(page)
                 expect(frame.locator("#status")).to_contain_text("outside FILE_COMMANDER_ROOTS")
                 assert source.exists()
                 page.get_by_role("button", name="Остановить", exact=True).click()
@@ -72,7 +90,10 @@ def test_apps_files_owner_browser_restart_and_persistence(tmp_path, monkeypatch)
                 server.restart()
                 page.goto(server.url + "/#/apps?open=file-commander-mini")
                 expect(page.get_by_role("button", name="Разрешить запуск приложений", exact=True)).to_be_visible()
-                expect(page.get_by_role("button", name="Запустить", exact=True)).to_be_disabled()
+                # Disabled policy renders the catalogue with one Start per
+                # app. Assert the same File Commander control, unambiguously.
+                expect(page.get_by_title("Запустить File Commander Mini на этой машине",
+                                         exact=True)).to_be_disabled()
                 assert not errors, errors
             finally:
                 browser.close()

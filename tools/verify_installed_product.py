@@ -13,6 +13,7 @@ import importlib
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
@@ -20,6 +21,17 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+
+
+def verified_source(manifest: Path, expected_sha: str | None = None) -> str:
+    source = json.loads(manifest.read_text(encoding="utf-8"))
+    assert isinstance(source, dict), "Installed source attestation must be an object"
+    source_sha = source.get("source_sha")
+    assert isinstance(source_sha, str) and re.fullmatch(r"[0-9a-f]{40}", source_sha), source
+    assert source.get("source_dirty") is False, "Installed source is dirty or unmeasured"
+    if expected_sha:
+        assert source_sha == expected_sha, (source_sha, expected_sha)
+    return source_sha
 
 
 def verify(work: Path, expected_sha: str | None = None) -> dict:
@@ -42,11 +54,7 @@ def verify(work: Path, expected_sha: str | None = None) -> dict:
     from social_farm.media.profiles import load_bundle
     media_profile = Path(imports["social_farm"]).parent / "media" / "profiles" / "instagram.v1.json"
     assert load_bundle(media_profile).provider == "instagram"
-    source = json.loads((Path(imports["bcc"]).parent / "_build.json").read_text(encoding="utf-8"))
-    source_sha = source.get("source_sha")
-    assert isinstance(source_sha, str) and len(source_sha) == 40, source
-    if expected_sha:
-        assert source_sha == expected_sha, (source_sha, expected_sha)
+    source_sha = verified_source(Path(imports["bcc"]).parent / "_build.json", expected_sha)
     from bcc.config import Settings
     defaults = Settings()
     assert defaults.ui_dir.is_relative_to(prefix), defaults.ui_dir
@@ -189,7 +197,9 @@ def main():
     text = json.dumps(result, indent=2, ensure_ascii=False)
     if args.out:
         args.out.write_text(text + "\n", encoding="utf-8")
-    print(text)
+    # Windows redirected stdout commonly uses cp1252. Keep the persisted
+    # evidence UTF-8 while making the same JSON safe for any ASCII console.
+    print(json.dumps(result, indent=2, ensure_ascii=True))
 
 
 if __name__ == "__main__":

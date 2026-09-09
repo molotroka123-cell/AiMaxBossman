@@ -10,14 +10,13 @@ Chromium предустановлен: launch с executable_path из PLAYWRIGHT
 """
 from __future__ import annotations
 
-import os
 import uuid
-from pathlib import Path
 
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
+from ..browser_runtime import INSTALL_HINT, PREINSTALLED_CHROMIUM
 from ..db import fetch_one, tasks as tasks_t, utcnow
 from ..v2.browser_control import (BrowserApprovalRequired, BrowserManager, BrowserPolicy,
                                   BrowserPolicyDenied, BrowserTakeoverActive, BrowserUnavailable)
@@ -25,7 +24,7 @@ from ..v2.tables import browser_sessions as bs_t
 from . import Feature
 
 router = APIRouter()
-CHROMIUM = "/opt/pw-browsers/chromium"      # предустановлен в этом окружении
+CHROMIUM = PREINSTALLED_CHROMIUM
 
 
 def _mgr(svc) -> BrowserManager:
@@ -37,29 +36,8 @@ def _mgr(svc) -> BrowserManager:
 
 
 def _patch_executable(mgr: BrowserManager) -> None:
-    """launch без загрузки браузера: используем предустановленный Chromium."""
-    if getattr(mgr, "_exec_patched", False):
-        return
-    if not Path(CHROMIUM).exists():
-        mgr._exec_patched = True
-        return
-    orig_start = mgr.start
-
-    async def start(session_id, policy, *, profile_name="default", headless=True):
-        # monkeypatch chromium.launch чтобы подставить executable_path
-        pw = await mgr._playwright()
-        real_launch = pw.chromium.launch
-
-        async def launch(**kw):
-            kw.setdefault("executable_path", CHROMIUM)
-            return await real_launch(**kw)
-        pw.chromium.launch = launch
-        try:
-            return await orig_start(session_id, policy, profile_name=profile_name, headless=headless)
-        finally:
-            pw.chromium.launch = real_launch
-    mgr.start = start
-    mgr._exec_patched = True
+    """Compatibility hook; path selection now belongs to the manager itself."""
+    mgr.preinstalled_executable = CHROMIUM
 
 
 async def _record(svc, session_id: int, **values) -> None:
@@ -72,7 +50,10 @@ async def _record(svc, session_id: int, **values) -> None:
 async def browser_health(request: Request):
     """Честное состояние рантайма браузера: available/false, а не «пусто = зелёный»."""
     mgr = _mgr(request.app.state.svc)
-    return {"available": bool(mgr.available),
+    available = bool(mgr.available)
+    return {"available": available,
+            "detail": "Chromium установлен; доступность запуска проверяется при создании сессии"
+                      if available else INSTALL_HINT,
             "active_sessions": len(getattr(mgr, "_sessions", {}) or {})}
 
 

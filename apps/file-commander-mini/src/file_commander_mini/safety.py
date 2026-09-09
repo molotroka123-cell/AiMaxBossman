@@ -107,6 +107,25 @@ def require_identity(path: Path, expected: dict) -> None:
         raise ValueError("source changed since preview; refresh the plan")
 
 
+def mkdir_no_follow(path: Path, policy: FilePolicy) -> dict:
+    policy.allowed(path)
+    with _parent(path) as parent:
+        name = path.name if parent is not None else path
+        os.mkdir(name, dir_fd=parent)
+        info = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        return {"device": info.st_dev, "inode": info.st_ino}
+
+
+def rmdir_verified(path: Path, expected: dict, policy: FilePolicy) -> None:
+    policy.allowed(path)
+    with _parent(path) as parent:
+        name = path.name if parent is not None else path
+        info = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if not stat.S_ISDIR(info.st_mode) or expected != {"device": info.st_dev, "inode": info.st_ino}:
+            raise ValueError("created directory identity is unverified; owner recovery required")
+        os.rmdir(name, dir_fd=parent)
+
+
 def move_no_replace(src: Path, dst: Path, expected: dict, policy: FilePolicy) -> None:
     """Atomic destination creation; never shutil.move's implicit overwrite/copy.
 

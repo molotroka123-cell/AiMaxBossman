@@ -1,8 +1,8 @@
 """Include the same reviewed UI in editable-source and wheel installations."""
 from pathlib import Path
+import importlib.util
 import shutil
 import json
-import subprocess
 
 from setuptools import setup
 from setuptools.command.build_py import build_py
@@ -10,13 +10,17 @@ from setuptools.command.build_py import build_py
 
 class BuildWithUI(build_py):
     def run(self):
-        super().run()
         repository = Path(__file__).resolve().parent.parent
-        revision = subprocess.run(["git", "-C", str(repository), "rev-parse", "HEAD"],
-                                  capture_output=True, text=True, timeout=15)
-        source_sha = revision.stdout.strip() if revision.returncode == 0 else None
+        identity = {"source_sha": None, "source_dirty": None}
+        helper = repository / "tools" / "build_source_identity.py"
+        if helper.is_file():
+            spec = importlib.util.spec_from_file_location("build_source_identity", helper)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            identity = module.source_identity(repository)
+        super().run()
         (Path(self.build_lib) / "bcc" / "_build.json").write_text(
-            json.dumps({"source_sha": source_sha}) + "\n", encoding="utf-8")
+            json.dumps(identity) + "\n", encoding="utf-8")
         source = Path(__file__).parent / "ui"
         target = Path(self.build_lib) / "bcc" / "_ui"
         if target.exists():

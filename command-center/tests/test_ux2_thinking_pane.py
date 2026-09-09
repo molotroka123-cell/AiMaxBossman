@@ -17,19 +17,15 @@ import pytest
 from bcc.app import create_app
 from bcc.config import Settings
 
-from .browser_support import chromium_available, reason as browser_reason
-
-try:
-    from bcc.features.browser import CHROMIUM as _CHROMIUM
-except Exception:  # noqa: BLE001
-    _CHROMIUM = ""
+from .browser_support import chromium_available, chromium_path, reason as browser_reason
 
 
 def _launch(pw):
-    """Тот же предустановленный Chromium, что использует рантайм (без скачивания)."""
-    if _CHROMIUM and Path(_CHROMIUM).exists():
-        return pw.chromium.launch(executable_path=_CHROMIUM)
-    return pw.chromium.launch()
+    """Launch the same measured Chromium as the runtime; no hidden fallback."""
+    executable = chromium_path()
+    if executable is None:
+        raise RuntimeError(browser_reason())
+    return pw.chromium.launch(executable_path=executable)
 
 UI_DIR = Path(__file__).resolve().parents[1] / "ui"
 pytestmark = [pytest.mark.timeout(180), pytest.mark.skipif(not chromium_available(), reason=browser_reason())]

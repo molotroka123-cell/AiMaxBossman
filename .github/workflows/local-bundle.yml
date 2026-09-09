@@ -8,6 +8,11 @@
 name: Local bundle
 env:
   BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  # Attest exact Git blob bytes on Windows too; do not silently normalize
+  # binary inputs or inherit a runner's global autocrlf checkout conversion.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: core.autocrlf
+  GIT_CONFIG_VALUE_0: 'false'
 on:
   workflow_dispatch:
   pull_request:
@@ -35,7 +40,7 @@ jobs:
       - name: Build and verify the bundle
         run: python tools/build_local_bundle.py --out dist/bossman-local
       - name: Show what is being shipped
-        run: python -c "import json;m=json.load(open('dist/bossman-local/MANIFEST.json'));print(json.dumps(m,indent=2,ensure_ascii=False))"
+        run: python -c "import json;m=json.load(open('dist/bossman-local/MANIFEST.json',encoding='utf-8'));print(json.dumps(m,indent=2,ensure_ascii=True))"
       - name: Install the shipped product for real browser acceptance
         if: runner.os == 'Linux'
         run: |

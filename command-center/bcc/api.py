@@ -64,12 +64,10 @@ class ApiError(Exception):
 
 async def _capability_probes(svc) -> dict[str, bool]:
     """Измеренные предпосылки рантайма. Неизвестное НЕ считается выполненным."""
-    from .features.browser import CHROMIUM
+    from .features.browser import _mgr
     chromium = False
     try:
-        import importlib.util
-        if importlib.util.find_spec("playwright") is not None:
-            chromium = os.path.exists(CHROMIUM) or bool(os.environ.get("PLAYWRIGHT_BROWSERS_PATH"))
+        chromium = bool(_mgr(svc).available)
     except Exception:                       # noqa: BLE001 — проба не должна ронять ответ
         chromium = False
     roots = False
@@ -446,8 +444,8 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        await svc.start()
         try:
+            await svc.start()
             yield
         finally:
             await svc.stop()
@@ -1119,7 +1117,8 @@ async def _health(svc: Services) -> dict:
             from .v2.browser_control import BrowserManager
             browser = svc.browser = BrowserManager(svc.settings.data_dir / "browser")
         if not browser.available:
-            health["browser"] = {"status": "offline", "detail": "Playwright не установлен"}
+            from .browser_runtime import INSTALL_HINT
+            health["browser"] = {"status": "offline", "detail": INSTALL_HINT}
         else:
             # Importing the Python adapter does not prove Chromium is installed
             # or running. An actual connected context is positive evidence.
@@ -1128,7 +1127,7 @@ async def _health(svc: Services) -> dict:
                 session.browser is None or session.browser.is_connected()) for session in sessions)
             health["browser"] = ({"status": "ok", "detail": "есть живой контекст Chromium"}
                                  if connected else {"status": "unknown",
-                                 "detail": "Playwright установлен; живой контекст Chromium ещё не проверен"})
+                                 "detail": "Chromium установлен; живой контекст ещё не проверен"})
     except Exception as exc:                                  # честное unknown, не ok
         health["browser"] = {"status": "unknown", "detail": f"{type(exc).__name__}"}
     try:
