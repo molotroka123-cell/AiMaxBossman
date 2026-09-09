@@ -28,6 +28,16 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 75
     steps:
+      # tools/build_source_identity.py хэширует РЕАЛЬНЫЕ байты файлов и
+      # сравнивает с блобами HEAD. Windows-раннер по умолчанию разворачивает
+      # текст в CRLF, и тогда каждый текстовый файл выглядит изменённым —
+      # сборка честно отказывалась работать по «грязному» дереву. Машина
+      # сборки не должна переписывать источник: чекаут идёт байт-в-байт, и
+      # артефакт из Windows совпадает с артефактом из Linux.
+      - name: Check out the source byte-for-byte, without line-ending rewriting
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
