@@ -40,6 +40,10 @@ def _project(page, live):
     editor.fill(BASE)
     editor.press('Control+s')
     _wait_code(page, pid, lambda code: code == BASE)
+    # The save reloads the preview. A click in the not-yet-reloaded document
+    # selects an element the fresh frame then reports as lost (CI race on
+    # 942d13b), so wait until the preview shows the saved code.
+    page.frame_locator('iframe.bd-frame').locator('h1', has_text='MF012 BASE').wait_for()
     return pid
 
 
