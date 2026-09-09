@@ -32,6 +32,8 @@ explicitly-authorized step.
 """
 from __future__ import annotations
 
+from fractions import Fraction
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Iterable, Optional
@@ -159,12 +161,21 @@ def direction(current: Optional[float], previous: Optional[float], *, epsilon: f
 
 
 def weighted_average_entry(entries: Iterable[tuple[float, float]]) -> float:
-    """Weighted average entry from (price, size_weight) tuples."""
-    rows = [(float(price), float(weight)) for price, weight in entries if float(weight) > 0]
+    """Weighted average entry from (price, size_weight) tuples.
+
+    Считается точной рациональной арифметикой, а не накоплением в double.
+    Три равные доли по 0.15 давали 79350.00000000001 вместо 79350: 0.15 в
+    двоичном виде не представима, и её погрешность не сокращалась. Владелец
+    видел среднюю цену входа с мусорным хвостом, а любое точное сравнение
+    ниже по течению ломалось. В Fraction общий множитель веса сокращается
+    ровно, и результат совпадает с посчитанным на бумаге.
+    """
+    rows = [(Fraction(float(price)), Fraction(float(weight)))
+            for price, weight in entries if float(weight) > 0]
     total = sum(weight for _, weight in rows)
     if total <= 0:
         raise ValueError("total entry weight must be positive")
-    return sum(price * weight for price, weight in rows) / total
+    return float(sum(price * weight for price, weight in rows) / total)
 
 
 def long_return_pct(mark: float, average_entry: float) -> float:
