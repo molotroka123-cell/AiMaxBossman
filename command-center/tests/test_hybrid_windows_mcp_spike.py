@@ -1,4 +1,3 @@
-
 import time
 
 import pytest
@@ -10,6 +9,7 @@ from bcc.hybrid.capabilities import (
     MalformedResponseError,
     Observation,
     OperationCancelledError,
+    OperationTimeoutError,
     PolicyRevokedError,
     RuntimeIdentity,
     StateVerificationFailedError,
@@ -18,9 +18,18 @@ from bcc.hybrid.adapters.windows_mcp import LegacyDesktopAdapter, WindowsMcpAdap
 
 
 class FakeMcpClient:
-    def __init__(self, healthy=True, should_corrupt_response=False):
+    def __init__(
+        self,
+        healthy=True,
+        should_corrupt_response=False,
+        *,
+        close_value=True,
+        state_delay_s=0.0,
+    ):
         self.is_healthy = healthy
         self.should_corrupt_response = should_corrupt_response
+        self.close_value = close_value
+        self.state_delay_s = state_delay_s
         self.pid = 9999
         self.calls = []
 
@@ -30,13 +39,15 @@ class FakeMcpClient:
             return "MALFORMED_NON_DICT"
 
         if tool_name == "get_window_state":
+            if self.state_delay_s:
+                time.sleep(self.state_delay_s)
             return {"title": "Notepad", "fingerprint": "fp_notepad_v1", "active": True}
         if tool_name == "click":
             return {"status": "ok", "clicked": True, "target": args["target"]}
         if tool_name == "launch_app":
             return {"status": "ok", "pid": 12345}
         if tool_name == "close_app":
-            return {"closed": True}
+            return {"closed": self.close_value}
         return {"status": "ok"}
 
 
@@ -83,12 +94,12 @@ class RecordingLegacyAdapter(DesktopRuntime):
         return True
 
 
-def _corr(name, *, fingerprint=None, cancelled=False):
+def _corr(name, *, fingerprint=None, cancelled=False, deadline_s=10.0):
     return EffectCorrelation(
         correlation_id=name,
         task_id="task-spike",
         run_id="run-spike",
-        deadline_epoch_s=time.time() + 10.0,
+        deadline_epoch_s=time.time() + deadline_s,
         expected_target_fingerprint=fingerprint,
         cancellation_token=(lambda: True) if cancelled else None,
     )
@@ -135,6 +146,17 @@ def test_windows_mcp_spike_in_flight_cancellation():
 
     with pytest.raises(OperationCancelledError):
         adapter.click_element({"role": "button"}, corr)
+
+
+def test_windows_mcp_rechecks_deadline_after_target_observation():
+    client = FakeMcpClient(state_delay_s=0.08)
+    adapter = WindowsMcpAdapter(client=client, enabled=True)
+    corr = _corr("spike-deadline-race", deadline_s=0.05)
+
+    with pytest.raises(OperationTimeoutError, match="prior to effect commit"):
+        adapter.click_element({"role": "button"}, corr)
+
+    assert [name for name, _ in client.calls] == ["get_window_state"]
 
 
 def test_windows_mcp_spike_malformed_response():
@@ -199,6 +221,25 @@ def test_windows_mcp_disabled_uses_explicitly_injected_legacy_runtime():
     assert legacy.calls == [("click_element", {"role": "button"})]
 
 
+def test_windows_mcp_fallback_honors_independent_poststate_verifier():
+    legacy = RecordingLegacyAdapter()
+    adapter = WindowsMcpAdapter(
+        client=None,
+        enabled=False,
+        legacy_fallback=legacy,
+    )
+    corr = _corr("spike-fallback-proof")
+
+    obs = adapter.click_element(
+        {"role": "button", "name": "Save"},
+        corr,
+        post_state_verifier=lambda payload: payload.get("clicked") is True,
+    )
+
+    assert obs.verified_by_bossman is True
+    assert obs.raw_data["backend"] == "legacy-real"
+
+
 def test_windows_mcp_unhealthy_client_never_receives_effect_and_uses_real_fallback():
     client = FakeMcpClient(healthy=False)
     legacy = RecordingLegacyAdapter()
@@ -224,3 +265,28 @@ def test_windows_mcp_unhealthy_client_without_real_fallback_blocks():
     with pytest.raises(BackendUnavailableError):
         adapter.launch_app("notepad.exe", [], corr)
     assert client.calls == []
+
+
+def test_windows_mcp_rejects_non_boolean_close_claim():
+    client = FakeMcpClient(close_value="false")
+    adapter = WindowsMcpAdapter(client=client, enabled=True)
+
+    with pytest.raises(MalformedResponseError, match="closed='false'"):
+        adapter.close_app(12345, _corr("spike-close-type"))
+
+
+def test_windows_mcp_propagates_correlation_id_to_all_sidecar_calls():
+    client = FakeMcpClient()
+    adapter = WindowsMcpAdapter(client=client, enabled=True)
+    corr = _corr("corr-all-ops")
+
+    adapter.launch_app("notepad.exe", [], corr)
+    adapter.get_window_state({"title": "Notepad"}, corr)
+    adapter.close_app(12345, corr)
+
+    assert [name for name, _ in client.calls] == [
+        "launch_app",
+        "get_window_state",
+        "close_app",
+    ]
+    assert all(args["correlation_id"] == "corr-all-ops" for _, args in client.calls)

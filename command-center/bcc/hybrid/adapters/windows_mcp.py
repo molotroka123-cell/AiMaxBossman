@@ -151,19 +151,15 @@ class WindowsMcpAdapter(DesktopRuntime):
             )
             return self.legacy_fallback.launch_app(executable, args, correlation)
 
-        try:
-            result = self.client.call_tool(
-                "launch_app",
-                {"executable": executable, "args": list(args)},
-            )
-        except Exception as exc:
-            raise MalformedResponseError(f"Windows-MCP launch_app failed: {exc}") from exc
-
-        if not isinstance(result, dict) or "status" not in result:
-            raise MalformedResponseError(
-                f"Invalid launch_app response schema from Windows-MCP: {result}"
-            )
-        return result
+        return self._call_tool_dict(
+            "launch_app",
+            {
+                "executable": executable,
+                "args": list(args),
+                "correlation_id": correlation.correlation_id,
+            },
+            required_keys=("status",),
+        )
 
     def click_element(
         self,
@@ -178,7 +174,14 @@ class WindowsMcpAdapter(DesktopRuntime):
                 "Windows-MCP %s; delegating click_element to configured legacy runtime",
                 self._fallback_reason(),
             )
-            return self.legacy_fallback.click_element(target_spec, correlation)
+            observation = self.legacy_fallback.click_element(target_spec, correlation)
+            if post_state_verifier is not None:
+                return self._verify_observation(
+                    observation,
+                    correlation=correlation,
+                    post_state_verifier=post_state_verifier,
+                )
+            return observation
 
         # 1. Target identity check immediately before click.
         current_state = self.get_window_state(target_spec, correlation)
@@ -191,29 +194,28 @@ class WindowsMcpAdapter(DesktopRuntime):
                     f"({observed_fingerprint}). Aborting click to prevent misclick."
                 )
 
-        # 2. In-flight cancellation check at the effect boundary.
+        # 2. Cancellation AND deadline are checked again after the state read,
+        # immediately before effect dispatch. Observation itself can take long
+        # enough for either owner revocation or the deadline to change truth.
         if correlation.is_cancelled():
             raise OperationCancelledError(
                 f"Operation {correlation.correlation_id} cancelled prior to effect commit"
             )
-
-        # 3. Dispatch mechanics to Windows-MCP.
-        try:
-            response = self.client.call_tool(
-                "click",
-                {
-                    "target": target_spec,
-                    "correlation_id": correlation.correlation_id,
-                },
+        if correlation.is_expired():
+            raise OperationTimeoutError(
+                f"Operation {correlation.correlation_id} expired prior to effect commit"
             )
-        except Exception as exc:
-            logger.error("Windows-MCP call failed: %s", exc)
-            raise MalformedResponseError(f"Windows-MCP engine error: {exc}") from exc
 
-        if not isinstance(response, dict) or "status" not in response:
-            raise MalformedResponseError(
-                f"Invalid response schema from Windows-MCP: {response}"
-            )
+        # 3. Dispatch mechanics to Windows-MCP. External success remains only an
+        # unverified observation until Bossman's verifier upgrades it below.
+        response = self._call_tool_dict(
+            "click",
+            {
+                "target": target_spec,
+                "correlation_id": correlation.correlation_id,
+            },
+            required_keys=("status",),
+        )
 
         observation = Observation(
             correlation_id=correlation.correlation_id,
@@ -225,21 +227,10 @@ class WindowsMcpAdapter(DesktopRuntime):
 
         # 4. Only Bossman's independent verifier may upgrade the observation.
         if post_state_verifier is not None:
-            candidate = EvidenceNormalizer.normalize_observation(
+            observation = self._verify_observation(
                 observation,
-                evidence_type="ui_click",
-            )
-            verified_candidate = EvidenceNormalizer.verify_candidate_against_bossman_truth(
-                candidate=candidate,
                 correlation=correlation,
                 post_state_verifier=post_state_verifier,
-            )
-            observation = Observation(
-                correlation_id=observation.correlation_id,
-                raw_data=observation.raw_data,
-                observed_at_iso=observation.observed_at_iso,
-                source_runtime=observation.source_runtime,
-                verified_by_bossman=verified_candidate.verified_by_bossman,
             )
 
         return observation
@@ -253,17 +244,13 @@ class WindowsMcpAdapter(DesktopRuntime):
         if not self._mcp_available():
             return self.legacy_fallback.get_window_state(target_spec, correlation)
 
-        try:
-            response = self.client.call_tool("get_window_state", {"target": target_spec})
-        except Exception as exc:
-            raise MalformedResponseError(
-                f"Windows-MCP get_window_state failed: {exc}"
-            ) from exc
-
-        if not isinstance(response, dict):
-            raise MalformedResponseError(
-                f"Invalid get_window_state response schema from Windows-MCP: {response}"
-            )
+        response = self._call_tool_dict(
+            "get_window_state",
+            {
+                "target": target_spec,
+                "correlation_id": correlation.correlation_id,
+            },
+        )
 
         return Observation(
             correlation_id=correlation.correlation_id,
@@ -278,18 +265,76 @@ class WindowsMcpAdapter(DesktopRuntime):
         if not self._mcp_available():
             return self.legacy_fallback.close_app(pid, correlation)
 
-        try:
-            response = self.client.call_tool("close_app", {"pid": pid})
-        except Exception as exc:
-            raise MalformedResponseError(f"Windows-MCP close_app failed: {exc}") from exc
-
-        if not isinstance(response, dict) or "closed" not in response:
+        response = self._call_tool_dict(
+            "close_app",
+            {"pid": pid, "correlation_id": correlation.correlation_id},
+            required_keys=("closed",),
+        )
+        closed = response["closed"]
+        if not isinstance(closed, bool):
             raise MalformedResponseError(
-                f"Invalid close_app response schema from Windows-MCP: {response}"
+                f"Invalid close_app response schema from Windows-MCP: closed={closed!r}"
             )
-        return bool(response["closed"])
+        return closed
 
-    def _pre_flight_checks(self, correlation: EffectCorrelation) -> None:
+    def _call_tool_dict(
+        self,
+        tool_name: str,
+        args: Dict[str, Any],
+        *,
+        required_keys: tuple[str, ...] = (),
+    ) -> Dict[str, Any]:
+        """Call a sidecar tool without allowing schema/type errors to leak as success."""
+        if self.client is None:
+            raise BackendUnavailableError("Windows-MCP client is unavailable.")
+
+        try:
+            response = self.client.call_tool(tool_name, args)
+        except Exception as exc:
+            logger.error("Windows-MCP %s call failed: %s", tool_name, exc)
+            raise MalformedResponseError(
+                f"Windows-MCP {tool_name} engine error: {exc}"
+            ) from exc
+
+        if not isinstance(response, dict):
+            raise MalformedResponseError(
+                f"Invalid {tool_name} response schema from Windows-MCP: {response!r}"
+            )
+
+        missing = [key for key in required_keys if key not in response]
+        if missing:
+            raise MalformedResponseError(
+                f"Invalid {tool_name} response schema from Windows-MCP: "
+                f"missing keys {missing!r}"
+            )
+        return response
+
+    @staticmethod
+    def _verify_observation(
+        observation: Observation,
+        *,
+        correlation: EffectCorrelation,
+        post_state_verifier: Callable[[Dict[str, Any]], bool],
+    ) -> Observation:
+        candidate = EvidenceNormalizer.normalize_observation(
+            observation,
+            evidence_type="ui_click",
+        )
+        verified_candidate = EvidenceNormalizer.verify_candidate_against_bossman_truth(
+            candidate=candidate,
+            correlation=correlation,
+            post_state_verifier=post_state_verifier,
+        )
+        return Observation(
+            correlation_id=observation.correlation_id,
+            raw_data=observation.raw_data,
+            observed_at_iso=observation.observed_at_iso,
+            source_runtime=observation.source_runtime,
+            verified_by_bossman=verified_candidate.verified_by_bossman,
+        )
+
+    @staticmethod
+    def _pre_flight_checks(correlation: EffectCorrelation) -> None:
         if correlation.is_cancelled():
             raise OperationCancelledError(
                 f"Operation {correlation.correlation_id} was cancelled before invocation"
