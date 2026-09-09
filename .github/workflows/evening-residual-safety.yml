@@ -88,20 +88,27 @@ jobs:
         run: python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev]'
       - name: A dirty checkout must still be refused (negative control)
         run: python -m pytest tests/test_evening_owner_run_preflight.py -q --timeout=60
+      - name: Owner breaker harness (root suite)
+        run: >-
+          python -m pytest tests/test_owner_breaker_harness.py -q --timeout=45
+          --junitxml=${{ env.EVIDENCE_DIR }}/results-root.xml
+      # Запускается ИЗ bossman-core: asyncio_mode=auto объявлен в его
+      # pyproject, и из корня репозитория этот конфиг не подхватывается —
+      # асинхронные тесты просто отказывались стартовать (23 failed).
       - name: Actual processes, durable evidence, owner recovery and affected regressions
+        working-directory: bossman-core
         run: >-
           python -m pytest
-          tests/test_owner_breaker_harness.py
-          bossman-core/tests/test_evidence_ledger_hostile.py
-          bossman-core/tests/test_learning_evidence_ledger.py
-          bossman-core/tests/test_operator_recovery_owner_state.py
-          bossman-core/tests/test_computer_operator_recovery.py
-          bossman-core/tests/test_computer_operator_owner_control.py
-          bossman-core/tests/test_stage13_operator_redteam.py
-          bossman-core/tests/test_apprentice_learning.py
-          bossman-core/tests/test_pass3_autonomy_trainer.py
-          bossman-core/tests/audit001 -q --timeout=45
-          --junitxml=${{ env.EVIDENCE_DIR }}/results.xml
+          tests/test_evidence_ledger_hostile.py
+          tests/test_learning_evidence_ledger.py
+          tests/test_operator_recovery_owner_state.py
+          tests/test_computer_operator_recovery.py
+          tests/test_computer_operator_owner_control.py
+          tests/test_stage13_operator_redteam.py
+          tests/test_apprentice_learning.py
+          tests/test_pass3_autonomy_trainer.py
+          tests/audit001 -q --timeout=45
+          --junitxml=${{ env.EVIDENCE_DIR }}/results-core.xml
       - name: Secret scan and whitespace
         run: |
           python tools/ci_secret_scan.py
