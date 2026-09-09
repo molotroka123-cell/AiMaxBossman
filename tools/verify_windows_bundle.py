@@ -29,6 +29,19 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 
 
+def _console_utf8() -> None:
+    """This script relays Russian output from the bundle to the console.
+
+    The Windows runner console is cp1252, so the relay itself died with
+    UnicodeEncodeError and hid the very failure it was printing.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def _run(args: list[str], *, env: dict | None = None, cwd: Path | None = None,
          timeout: int = 900) -> subprocess.CompletedProcess:
     return subprocess.run(args, capture_output=True, text=True, encoding="utf-8",
@@ -151,6 +164,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expected-sha", required=True)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
+    _console_utf8()
 
     problems: list[str] = []
     details: dict = {"archive": args.archive.name,
