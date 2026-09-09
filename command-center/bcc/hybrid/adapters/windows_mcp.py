@@ -101,17 +101,19 @@ class WindowsMcpAdapter(DesktopRuntime):
         self.legacy_fallback = legacy_fallback or LegacyDesktopAdapter()
         self.enabled = enabled
 
+    def _client_is_healthy(self) -> bool:
+        """Only an explicit boolean True may activate an optional sidecar."""
+        return self.client is not None and getattr(self.client, "is_healthy", None) is True
+
     def _mcp_available(self) -> bool:
-        if not self.enabled or self.client is None:
-            return False
-        return bool(getattr(self.client, "is_healthy", True))
+        return self.enabled and self._client_is_healthy()
 
     def _fallback_reason(self) -> str:
         if not self.enabled:
             return "disabled"
         if self.client is None:
             return "client_missing"
-        if not bool(getattr(self.client, "is_healthy", True)):
+        if not self._client_is_healthy():
             return "client_unhealthy"
         return "unavailable"
 
@@ -159,6 +161,7 @@ class WindowsMcpAdapter(DesktopRuntime):
                 "correlation_id": correlation.correlation_id,
             },
             required_keys=("status",),
+            expected_status="ok",
         )
 
     def click_element(
@@ -215,6 +218,7 @@ class WindowsMcpAdapter(DesktopRuntime):
                 "correlation_id": correlation.correlation_id,
             },
             required_keys=("status",),
+            expected_status="ok",
         )
 
         observation = Observation(
@@ -283,6 +287,7 @@ class WindowsMcpAdapter(DesktopRuntime):
         args: Dict[str, Any],
         *,
         required_keys: tuple[str, ...] = (),
+        expected_status: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Call a sidecar tool without allowing schema/type errors to leak as success."""
         if self.client is None:
@@ -306,6 +311,12 @@ class WindowsMcpAdapter(DesktopRuntime):
             raise MalformedResponseError(
                 f"Invalid {tool_name} response schema from Windows-MCP: "
                 f"missing keys {missing!r}"
+            )
+
+        if expected_status is not None and response.get("status") != expected_status:
+            raise MalformedResponseError(
+                f"Windows-MCP {tool_name} did not return status={expected_status!r}: "
+                f"{response!r}"
             )
         return response
 
