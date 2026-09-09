@@ -1,21 +1,25 @@
 """
 Capability adapter registry for Bossman Hybrid OSS.
-Default MUST remain legacy proven implementation until explicit acceptance.
-Feature flags support safe fallback and instantaneous rollback.
+
+The default remains the proven legacy implementation until explicit acceptance.
+Feature flags can select an optional backend, but selection is health-gated and
+must fail closed rather than returning a backend already reporting unhealthy.
 """
 
 from __future__ import annotations
-import os
+
 import logging
+import os
 from enum import Enum
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict
+
 from .capabilities import (
-    DesktopRuntime,
-    BrowserRuntime,
-    WebEditorRuntime,
-    VideoCompositionRuntime,
-    LocalModelRuntime,
     BackendUnavailableError,
+    BrowserRuntime,
+    DesktopRuntime,
+    LocalModelRuntime,
+    VideoCompositionRuntime,
+    WebEditorRuntime,
 )
 
 logger = logging.getLogger("bcc.hybrid.registry")
@@ -39,7 +43,7 @@ class BackendType(str, Enum):
 
 
 class AdapterRegistry:
-    """Registry managing capability backends with guaranteed fallback to legacy."""
+    """Registry managing capability backends with health-gated legacy fallback."""
 
     def __init__(self) -> None:
         self._desktop_adapters: Dict[str, DesktopRuntime] = {}
@@ -63,50 +67,95 @@ class AdapterRegistry:
     def register_local_model(self, backend: str, adapter: LocalModelRuntime) -> None:
         self._local_model_adapters[backend.lower()] = adapter
 
+    @staticmethod
+    def _adapter_is_healthy(adapter: Any) -> bool:
+        """Treat missing, malformed, or throwing health identity as unhealthy."""
+        try:
+            identity = adapter.get_runtime_identity()
+        except Exception as exc:  # noqa: BLE001 - third-party adapter boundary
+            logger.warning("Adapter health probe raised %s: %s", type(exc).__name__, exc)
+            return False
+        return getattr(identity, "is_healthy", False) is True
+
+    def _resolve_runtime(
+        self,
+        adapters: Dict[str, Any],
+        *,
+        target: str,
+        capability: str,
+    ) -> Any:
+        legacy_key = BackendType.LEGACY.value
+        selected = adapters.get(target)
+
+        if selected is not None and self._adapter_is_healthy(selected):
+            return selected
+
+        if selected is None:
+            logger.warning(
+                "%s backend '%s' not registered; attempting healthy legacy fallback",
+                capability,
+                target,
+            )
+        else:
+            logger.warning(
+                "%s backend '%s' is unhealthy; attempting healthy legacy fallback",
+                capability,
+                target,
+            )
+
+        # If the requested backend itself is legacy, there is no second backend
+        # to silently fall through to. The unhealthy state must remain visible.
+        legacy = adapters.get(legacy_key)
+        if legacy is not None and self._adapter_is_healthy(legacy):
+            return legacy
+
+        if legacy is None:
+            raise BackendUnavailableError(
+                f"No healthy {capability} runtime available: legacy adapter is not registered"
+            )
+        raise BackendUnavailableError(
+            f"No healthy {capability} runtime available: legacy adapter is unhealthy"
+        )
+
     def get_desktop_runtime(self) -> DesktopRuntime:
-        target = os.getenv("BCC_DESKTOP_BACKEND", BackendType.LEGACY.value).lower()
-        if target in self._desktop_adapters:
-            return self._desktop_adapters[target]
-        logger.warning("Desktop backend '%s' not registered, falling back to legacy", target)
-        if BackendType.LEGACY.value in self._desktop_adapters:
-            return self._desktop_adapters[BackendType.LEGACY.value]
-        raise BackendUnavailableError("No desktop runtime adapter registered, including legacy")
+        target = os.getenv("BCC_DESKTOP_BACKEND", BackendType.LEGACY.value).strip().lower()
+        return self._resolve_runtime(
+            self._desktop_adapters,
+            target=target,
+            capability="desktop",
+        )
 
     def get_browser_runtime(self) -> BrowserRuntime:
-        target = os.getenv("BCC_BROWSER_BACKEND", BackendType.LEGACY.value).lower()
-        if target in self._browser_adapters:
-            return self._browser_adapters[target]
-        logger.warning("Browser backend '%s' not registered, falling back to legacy", target)
-        if BackendType.LEGACY.value in self._browser_adapters:
-            return self._browser_adapters[BackendType.LEGACY.value]
-        raise BackendUnavailableError("No browser runtime adapter registered, including legacy")
+        target = os.getenv("BCC_BROWSER_BACKEND", BackendType.LEGACY.value).strip().lower()
+        return self._resolve_runtime(
+            self._browser_adapters,
+            target=target,
+            capability="browser",
+        )
 
     def get_web_editor_runtime(self) -> WebEditorRuntime:
-        target = os.getenv("BCC_WEB_EDITOR_BACKEND", BackendType.LEGACY.value).lower()
-        if target in self._web_editor_adapters:
-            return self._web_editor_adapters[target]
-        logger.warning("Web editor backend '%s' not registered, falling back to legacy", target)
-        if BackendType.LEGACY.value in self._web_editor_adapters:
-            return self._web_editor_adapters[BackendType.LEGACY.value]
-        raise BackendUnavailableError("No web editor runtime adapter registered, including legacy")
+        target = os.getenv("BCC_WEB_EDITOR_BACKEND", BackendType.LEGACY.value).strip().lower()
+        return self._resolve_runtime(
+            self._web_editor_adapters,
+            target=target,
+            capability="web editor",
+        )
 
     def get_video_runtime(self) -> VideoCompositionRuntime:
-        target = os.getenv("BCC_VIDEO_BACKEND", BackendType.LEGACY.value).lower()
-        if target in self._video_adapters:
-            return self._video_adapters[target]
-        logger.warning("Video backend '%s' not registered, falling back to legacy", target)
-        if BackendType.LEGACY.value in self._video_adapters:
-            return self._video_adapters[BackendType.LEGACY.value]
-        raise BackendUnavailableError("No video runtime adapter registered, including legacy")
+        target = os.getenv("BCC_VIDEO_BACKEND", BackendType.LEGACY.value).strip().lower()
+        return self._resolve_runtime(
+            self._video_adapters,
+            target=target,
+            capability="video",
+        )
 
     def get_local_model_runtime(self) -> LocalModelRuntime:
-        target = os.getenv("BCC_LOCAL_MODEL_BACKEND", BackendType.LEGACY.value).lower()
-        if target in self._local_model_adapters:
-            return self._local_model_adapters[target]
-        logger.warning("Local model backend '%s' not registered, falling back to legacy", target)
-        if BackendType.LEGACY.value in self._local_model_adapters:
-            return self._local_model_adapters[BackendType.LEGACY.value]
-        raise BackendUnavailableError("No local model runtime adapter registered, including legacy")
+        target = os.getenv("BCC_LOCAL_MODEL_BACKEND", BackendType.LEGACY.value).strip().lower()
+        return self._resolve_runtime(
+            self._local_model_adapters,
+            target=target,
+            capability="local model",
+        )
 
 
 # Global singleton instance
