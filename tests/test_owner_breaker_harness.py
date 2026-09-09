@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -39,11 +40,27 @@ def test_self_check_passes_on_the_shipped_corpus(breaker, capsys):
     assert "исправен" in capsys.readouterr().out
 
 
-def test_the_breaker_sequence_is_b1_through_b10(breaker):
-    assert [c.ident for c in breaker.BREAKER] == [f"B{n}" for n in range(1, 11)]
+def test_the_breaker_sequence_is_b1_through_b12(breaker):
+    assert [c.ident for c in breaker.BREAKER] == [f"B{n}" for n in range(1, 13)]
     titles = " ".join(c.title.lower() for c in breaker.BREAKER)
-    for required in ("эффект", "captcha", "apply", "openhands", "video"):
+    for required in ("json", "браузер", "файл", "openhands", "video", "fallback",
+                     "подтверждение", "перезапуск"):
         assert required in titles, required
+
+
+def test_every_step_records_the_evidence_fields(breaker):
+    """§5: шаг без пост-состояния — это отчёт о клике, а не о результате."""
+    fields = dict(breaker.FIELDS)
+    for required in ("task_id", "run_id", "model", "status", "effect_evidence",
+                     "approvals", "retries", "http_errors", "dead_clicks",
+                     "console_errors", "tokens_cost", "resource_telemetry"):
+        assert required in fields, required
+
+
+def test_the_run_is_bound_to_a_build_sha(breaker):
+    """Улика без SHA не привязывается к коммиту, а значит не улика."""
+    assert breaker.BUILD_SHA
+    assert re.fullmatch(r"[0-9a-f]{40}(-DIRTY)?|SOURCE_IDENTITY_UNKNOWN", breaker.BUILD_SHA)
 
 
 def test_every_item_says_who_can_prove_it(breaker):
@@ -56,34 +73,34 @@ def test_every_item_says_who_can_prove_it(breaker):
 
 
 def test_hosted_pass_does_not_close_an_owner_live_item(breaker, capsys):
-    """Главная граница. B4 доказан на раннере политикой браузера, но живую
-    CAPTCHA раннер не проходит; HOSTED_PASS обязан оставить его в списке
-    невыполненного, а не убрать оттуда."""
+    """Главная граница. B3 доказан на раннере политикой браузера, но живой сайт
+    и живую проверку «вы человек» раннер не проходит; HOSTED_PASS обязан
+    оставить пункт в списке невыполненного, а не убрать оттуда."""
     state = breaker.load_state()
-    state["results"]["B4"] = {"ident": "B4", "title": "t", "verdict": breaker.HOSTED_PASS,
+    state["results"]["B3"] = {"ident": "B3", "title": "t", "verdict": breaker.HOSTED_PASS,
                              "blocks_release": True}
     breaker.save_state(state)
     gates = breaker._gates(breaker.load_state())
-    assert "B4" in gates["owner_live_outstanding"]
+    assert "B3" in gates["owner_live_outstanding"]
     assert gates["breaker_verdict"] != "OWNER_LIVE_COMPLETE"
 
     # Негативный контроль: тот же пункт с настоящей владельческой уликой уходит.
     state = breaker.load_state()
-    state["results"]["B4"]["verdict"] = breaker.OWNER_LIVE_PASS
+    state["results"]["B3"]["verdict"] = breaker.OWNER_LIVE_PASS
     breaker.save_state(state)
-    assert "B4" not in breaker._gates(breaker.load_state())["owner_live_outstanding"]
+    assert "B3" not in breaker._gates(breaker.load_state())["owner_live_outstanding"]
 
 
 def test_an_item_hosting_fully_covers_needs_no_owner_verdict(breaker):
-    """Обратная сторона той же границы: B5 (маршрутизация отрицания) раннер
-    доказывает целиком, и он не обязан ждать вечера владельца."""
-    b5 = next(c for c in breaker.BREAKER if c.ident == "B5")
-    assert b5.hosted and not b5.owner_live
+    """Обратная сторона той же границы: B4 (создание файла) раннер доказывает
+    целиком, и он не обязан ждать вечера владельца."""
+    b4 = next(c for c in breaker.BREAKER if c.ident == "B4")
+    assert b4.hosted and not b4.owner_live
     state = breaker.load_state()
-    state["results"]["B5"] = {"ident": "B5", "title": "t", "verdict": breaker.HOSTED_PASS,
+    state["results"]["B4"] = {"ident": "B4", "title": "t", "verdict": breaker.HOSTED_PASS,
                               "blocks_release": True}
     breaker.save_state(state)
-    assert "B5" not in breaker._gates(breaker.load_state())["owner_live_outstanding"]
+    assert "B4" not in breaker._gates(breaker.load_state())["owner_live_outstanding"]
 
 
 def test_a_blocking_failure_is_never_reported_as_incomplete(breaker):
