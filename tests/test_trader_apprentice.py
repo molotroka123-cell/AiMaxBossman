@@ -60,6 +60,22 @@ def test_price_down_cvd_up_oi_down_is_buyer_failure_with_deleveraging():
     assert result.stance is Stance.WATCH
 
 
+def test_failed_breakout_long_flush_overrides_endpoint_matrix():
+    prev = Snapshot(price=79_400, cvd=57.02, open_interest=18.67)
+    cur = Snapshot(
+        price=79_350,
+        high=79_950,
+        cvd=57.02,
+        open_interest=18.43,
+        long_liquidations=850.31,
+        short_liquidations=-4.25,
+    )
+    levels = LevelMap(dval=79_130, dopen=79_275, dpoc=79_405, dvah=79_660)
+    result = analyze(prev, cur, levels)
+    assert result.regime is Regime.FAILED_BREAKOUT_LONG_FLUSH
+    assert result.stance is Stance.RISK_OFF
+
+
 def test_level_context_reports_reclaim():
     prev = Snapshot(price=78_500, cvd=61.1, open_interest=18.6)
     cur = Snapshot(price=78_600, cvd=61.3, open_interest=18.7)
