@@ -1,5 +1,7 @@
 # Final audit closure — report (2026-09-08, evening)
 
+> **2026-09-09:** for owner testing this report is superseded by the unified PR60 + PR61 candidate — `docs/final/UNIFIED_FREEZE_20260909.md`, code `92e89e0` (this closure through `c7e75cc` merged with PR60). The B1–B10 order in `OWNER_BREAKER_SETUP.md` stands unchanged.
+
 BASE_BRANCH=`night/v7-convergence-20260908`
 BASE_SHA=`45027d3e9aef554407a0a9ff07fb8678d1b849f3`
 FIX_BRANCH=`claude/bossman-final-audit-closure-aucx9x` (also pushed as `freeze/final-audit-closure-20260908`)
