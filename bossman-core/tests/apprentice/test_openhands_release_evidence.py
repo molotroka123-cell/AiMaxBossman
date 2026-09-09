@@ -58,10 +58,19 @@ def test_teacher_does_not_reread_a_replaced_path_after_validation(tmp_path):
             os.utime(target, ns=(before.st_atime_ns, before.st_mtime_ns))
             return result
 
-    client = ReplaceAfterValidated(sidecar("pathlib.Path('src/a.py').write_text('VALUE = 2\\n')"))
+    client = ReplaceAfterValidated(sidecar("pathlib.Path('src/a.py').write_bytes(b'VALUE = 2\\n')"))
     result = OpenHandsTeacherClient(client).run({"files": {"src/a.py": "VALUE = 1\n"},
         "allowed_paths": ["src"], "acceptance_tests": []})
     assert result["patch"] == {"src/a.py": "VALUE = 2\n"}
+
+
+def test_teacher_patch_is_the_exact_bytes_the_teacher_wrote(tmp_path):
+    """CRLF written by the teacher stays CRLF in the patch: the patch is bound to the
+    observed bytes, not to a text-mode re-reading (Windows text mode would hide this)."""
+    client = oc.OpenHandsClient(sidecar("pathlib.Path('src/a.py').write_bytes(b'VALUE = 2\\r\\n')"))
+    result = OpenHandsTeacherClient(client).run({"files": {"src/a.py": "VALUE = 1\n"},
+        "allowed_paths": ["src"], "acceptance_tests": []})
+    assert result["patch"] == {"src/a.py": "VALUE = 2\r\n"}
 
 
 @pytest.mark.skipif(os.name == "nt", reason="symlink creation requires Windows privileges")
