@@ -1,6 +1,6 @@
 """Trader Apprentice — deterministic BTC order-flow interpretation helpers.
 
-This module does NOT place orders.  It converts a sequence of already-observed
+This module does NOT place orders. It converts a sequence of already-observed
 market snapshots (price, CVD, OI, liquidations and profile levels) into an
 explicit, auditable regime description that a local model can use as evidence.
 
@@ -11,20 +11,23 @@ Core design rules learned from the September 2026 BTC sessions:
   OI during a selloff is a materially worse warning because new leverage is
   being added while price is falling.
 * CVD can show aggression, but price response decides whether that aggression is
-  effective.  Falling CVD with price holding can be absorption.
+  effective. Falling CVD with price holding can be absorption.
 * Rising CVD while price still falls can expose buyer inefficiency/passive
   selling; if OI falls too, this is buyer failure during deleveraging rather
   than fresh bearish leverage expansion.
 * Price rising while CVD falls and OI rises is leveraged sell absorption: new
   leverage enters while aggressive sellers fail to push price down. This can be
   squeeze fuel, but OI alone never proves those new positions are shorts.
-* A level touch is not acceptance.  Prefer reclaim + hold/retest.
+* Path matters: a breakout above value that rejects back below POC while OI
+  collapses and long liquidations dominate is a failed-breakout long flush even
+  when endpoint-only Price/CVD/OI deltas look neutral.
+* A level touch is not acceptance. Prefer reclaim + hold/retest.
 * Never compare absolute CVD/OI values across different providers/settings.
 * Never mix CME chart levels with a spot/perp execution price without tagging
   instrument/source and accounting for the basis/spread.
 * Missing live values remain UNKNOWN; they are never invented.
 
-The output is analysis-only.  Any execution/risk action remains a separate,
+The output is analysis-only. Any execution/risk action remains a separate,
 explicitly-authorized step.
 """
 from __future__ import annotations
@@ -47,6 +50,7 @@ class Regime(str, Enum):
     BEARISH_LEVERAGE_EXPANSION = "BEARISH_LEVERAGE_EXPANSION"
     BULLISH_LEVERAGE_EXPANSION = "BULLISH_LEVERAGE_EXPANSION"
     LEVERAGED_SELL_ABSORPTION = "LEVERAGED_SELL_ABSORPTION"
+    FAILED_BREAKOUT_LONG_FLUSH = "FAILED_BREAKOUT_LONG_FLUSH"
     RECOVERY_WITHOUT_LEVERAGE = "RECOVERY_WITHOUT_LEVERAGE"
     SHORT_COVERING_OR_ABSORPTION = "SHORT_COVERING_OR_ABSORPTION"
     SELL_ABSORPTION_CANDIDATE = "SELL_ABSORPTION_CANDIDATE"
@@ -71,6 +75,8 @@ class Snapshot:
     short_liquidations: Optional[float] = None
     buy_volume: Optional[float] = None
     sell_volume: Optional[float] = None
+    high: Optional[float] = None
+    low: Optional[float] = None
     source: str = "unknown"
     instrument: str = "unknown"
     timestamp: str = ""
@@ -242,6 +248,33 @@ def classify_regime(
     return p, c, o, Regime.NEUTRAL_BALANCE, Stance.WATCH, reasons
 
 
+def _failed_breakout_long_flush(
+    previous: Snapshot,
+    current: Snapshot,
+    levels: LevelMap,
+    oi_direction: Direction,
+    cvd_direction: Direction,
+) -> bool:
+    """Path-aware overlay for a breakout that traps/flushes late longs.
+
+    Requires a same-instrument observed high above dVAH, a latest price back
+    below dPOC, contracting OI, no positive CVD confirmation, and dominant long
+    liquidations. This deliberately does not infer the direction of every new
+    position; it identifies the failed breakout path itself.
+    """
+    if current.high is None or levels.dvah is None or levels.dpoc is None:
+        return False
+    if not (current.high > levels.dvah and current.price < levels.dpoc):
+        return False
+    if oi_direction is not Direction.DOWN:
+        return False
+    if cvd_direction not in (Direction.FLAT, Direction.DOWN):
+        return False
+    if current.long_liquidations is None or current.short_liquidations is None:
+        return False
+    return abs(current.long_liquidations) >= 3.0 * max(abs(current.short_liquidations), 1e-12)
+
+
 def analyze(
     previous: Snapshot,
     current: Snapshot,
@@ -269,6 +302,11 @@ def analyze(
             reasons.append("Reclaimed levels: " + ", ".join(reclaimed))
         if lost:
             reasons.append("Lost levels: " + ", ".join(lost))
+        if _failed_breakout_long_flush(previous, current, levels, o, c):
+            regime = Regime.FAILED_BREAKOUT_LONG_FLUSH
+            stance = Stance.RISK_OFF
+            reasons.append("Path overlay: price traded above dVAH but rejected below dPOC while OI contracted and long liquidations dominated")
+            reasons.append("This is consistent with a failed breakout/late-long flush; require dPOC then dVAH reclaim before restoring the long candidate")
 
     known = sum(x is not Direction.UNKNOWN for x in (p, c, o))
     confidence = 0.45 + 0.15 * known
@@ -276,6 +314,7 @@ def analyze(
         Regime.BEARISH_LEVERAGE_EXPANSION,
         Regime.BULLISH_LEVERAGE_EXPANSION,
         Regime.LEVERAGED_SELL_ABSORPTION,
+        Regime.FAILED_BREAKOUT_LONG_FLUSH,
         Regime.DELEVERAGING_SELL_OFF,
     ):
         confidence += 0.08
