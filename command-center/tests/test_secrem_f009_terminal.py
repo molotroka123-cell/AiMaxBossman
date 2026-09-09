@@ -285,7 +285,12 @@ async def test_ap001_an_absolute_read_from_an_allowed_cwd_needs_the_container(
         res = await tt._tool_run(
             {"command": f"cat {secret}", "cwd": "scratch",
              "mode": "sandbox", "timeout": 20}, ctx)
-        assert res.error is True, "outside file must be inaccessible"
+        # terminal.run's contract (tools_terminal._tool_run): a non-zero exit is
+        # DATA, error=True only when the command could not run at all. The
+        # containment proof is therefore the failed `cat` inside a usable
+        # container plus the absent token — not the tool-level error flag.
+        assert res.error is False, res.content
+        assert res.data.get("exit_code") not in (0, None), "outside file must be inaccessible"
         assert _clean(res.content), "an absolute read exfiltrated the token"
         assert _clean(getattr(res, "detail", ""))
     finally:
