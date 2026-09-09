@@ -36,6 +36,9 @@ class LeaseManager:
             con.execute("BEGIN IMMEDIATE")
             try:
                 # истёкшие аренды на этом узле/классе снимаются перед проверкой
+                con.execute("DELETE FROM fleet_memory_reservations WHERE lease_id IN "
+                            "(SELECT lease_id FROM fleet_leases WHERE node_id=? AND resource_class=? AND expires_ts<=?)",
+                            (node_id, resource_class, now))
                 con.execute("DELETE FROM fleet_leases WHERE node_id=? AND resource_class=? AND expires_ts<=?",
                             (node_id, resource_class, now))
                 live = con.execute("SELECT * FROM fleet_leases WHERE node_id=? AND resource_class=?",
@@ -48,6 +51,9 @@ class LeaseManager:
                         raise LeaseConflict("node unavailable")
                     from .scheduler import FleetScheduler
                     from dataclasses import replace
+                    rejected = FleetScheduler().reject_reasons(node, requirement)
+                    if rejected:
+                        raise LeaseConflict("atomic admission rejected: " + ";".join(rejected))
                     reservations = con.execute(
                         "SELECT COALESCE(SUM(r.host_gb),0),COALESCE(SUM(r.gpu_gb),0),COUNT(*) "
                         "FROM fleet_leases l LEFT JOIN fleet_memory_reservations r ON l.lease_id=r.lease_id "
@@ -78,22 +84,29 @@ class LeaseManager:
                 raise
 
     def renew(self, lease: Lease, *, now: float, ttl_seconds: float) -> Lease:
+        started = time.monotonic()
         if not math.isfinite(now) or not math.isfinite(ttl_seconds) or ttl_seconds <= 0:
             raise ValueError("invalid renewal time or TTL")
         if not lease.alive(now):
             raise StaleLease("expired capability cannot be renewed")
         with self.store.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            # Waiting for SQLite's writer lock may consume the original lease.
+            # The caller's pre-wait timestamp cannot revive expired authority.
+            observed_now = now + max(0.0, time.monotonic() - started)
+            if not lease.alive(observed_now) or now + ttl_seconds <= observed_now:
+                raise StaleLease("lease or renewal expired while waiting for the store")
             changed = con.execute(
                 "UPDATE fleet_leases SET expires_ts=? WHERE lease_id=? AND node_id=? "
                 "AND work_id=? AND fence=? AND expires_ts>?",
-                (now + ttl_seconds, lease.lease_id, lease.node_id, lease.work_id, lease.fence, now)).rowcount
+                (now + ttl_seconds, lease.lease_id, lease.node_id, lease.work_id, lease.fence, observed_now)).rowcount
             if changed != 1:
                 raise StaleLease("expired, reclaimed or mismatched lease")
         return Lease(lease.lease_id, lease.node_id, lease.work_id, lease.resource_class, lease.exclusive,
                      lease.acquired_ts, now + ttl_seconds, lease.fence)
 
     def release(self, lease: Lease) -> bool:
-        return self.store.delete_lease(lease.lease_id)
+        return self.store.delete_lease(lease.lease_id, expected=lease)
 
     def valid(self, lease: Lease, *, now: float) -> tuple[bool, str]:
         """Check this persisted lease capability; concurrent shared leases remain valid."""
@@ -118,7 +131,8 @@ class LeaseManager:
             try:
                 row = con.execute("SELECT * FROM fleet_leases WHERE lease_id=?", (lease.lease_id,)).fetchone()
                 if (row is None or row["fence"] != lease.fence or row["work_id"] != lease.work_id
-                        or row["node_id"] != lease.node_id or row["expires_ts"] <= time.time()):
+                        or row["node_id"] != lease.node_id or row["resource_class"] != lease.resource_class
+                        or bool(row["exclusive"]) != lease.exclusive or row["expires_ts"] <= time.time()):
                     raise StaleLease("execution lease is stale; effect refused")
                 if authorization_check is not None:
                     authorization_check(con)

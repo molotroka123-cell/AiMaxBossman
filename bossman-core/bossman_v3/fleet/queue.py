@@ -150,9 +150,9 @@ class WorkQueue:
                     return False
                 body = json.loads(item["payload"])
                 changed = con.execute(
-                    "INSERT OR IGNORE INTO fleet_work_queue(work_id,mission_id,priority,requirement,payload,enqueued_ts) "
-                    "VALUES(?,?,?,?,?,?)", (work_id, item["mission_id"], 5,
-                                           json.dumps(body.get("requirement", {})), item["payload"], time.time())).rowcount
+                    "INSERT OR IGNORE INTO fleet_work_queue(work_id,mission_id,priority,requirement,payload,enqueued_ts,attempts) "
+                    "VALUES(?,?,?,?,?,?,?)", (work_id, item["mission_id"], 5,
+                                           json.dumps(body.get("requirement", {})), item["payload"], time.time(), item["attempts"])).rowcount
                 if not changed:
                     con.execute("ROLLBACK")
                     return False

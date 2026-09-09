@@ -6,15 +6,16 @@
 пропускались, ХОТЯ Chromium был установлен: CI был зелёным по неполному набору,
 и заметить это по строке «N passed» было нельзя.
 
-Спрашиваем то же, что спрашивает рантайм (`bcc/v2/browser_control.py` зовёт
-`pw.chromium.launch()` и полагается на разрешение пути самим Playwright), а не
-угадываем каталог.
+Используем тот же поиск исполняемого файла, что и рантайм. Discovery не запускает
+sync_playwright: импорт pytest-модуля может происходить внутри asyncio loop, а
+поднятый ради проверки драйвер оставлял незавершённую Connection.init.
 """
 from __future__ import annotations
 
 import os
-from functools import lru_cache
 from pathlib import Path
+
+from bcc.browser_runtime import chromium_executable
 
 PREINSTALLED = Path("/opt/pw-browsers/chromium")
 # CI ставит Playwright и Chromium намеренно и обязана их ПРОГНАТЬ. Без этого
@@ -27,21 +28,12 @@ def required() -> bool:
     return os.environ.get(REQUIRE_ENV, "").strip().lower() in ("1", "true", "yes")
 
 
-@lru_cache(maxsize=1)
+def chromium_path() -> str | None:
+    return chromium_executable(preinstalled=str(PREINSTALLED))
+
+
 def chromium_available() -> bool:
-    if PREINSTALLED.exists():
-        return True
-    try:
-        from playwright.sync_api import sync_playwright
-    except Exception:
-        return False
-    try:
-        # Вызывается на импорте модуля теста, когда цикла событий ещё нет.
-        with sync_playwright() as pw:
-            path = pw.chromium.executable_path
-    except Exception:
-        return False
-    return bool(path) and Path(path).exists()
+    return chromium_path() is not None
 
 
 def reason() -> str:
@@ -74,5 +66,5 @@ def click_in_preview(page, selector: str, *, frame_selector: str = "iframe.bd-fr
     element.evaluate("el => el.click()")
 
 
-__all__ = ["chromium_available", "click_in_preview", "reason", "required",
+__all__ = ["chromium_available", "chromium_path", "click_in_preview", "reason", "required",
            "REQUIRE_ENV", "PREINSTALLED"]

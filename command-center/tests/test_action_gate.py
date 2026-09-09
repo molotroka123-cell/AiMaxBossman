@@ -10,8 +10,8 @@ TEST1..TEST4 — из требований патча:
   TEST1 — текстовый отказ не завершает action-задачу.
   TEST2 — информационная задача с валидным текстовым ответом завершается как
           обычно (страховка от гиперкоррекции: не ловим ЛЮБОЙ ответ модели).
-  TEST3 — подтверждённое действие (детерминированный харнесс: строка в
-          tool_calls) завершается успешно.
+  TEST3 — строка tool_calls передаёт решение независимому верификатору;
+          сама по себе она не подтверждает эффект и не завершает задачу.
   TEST4 — NOT_APPLICABLE другого гейта не означает «действие подтверждено»:
           evaluation_not_applicable != side_effect_verified.
 TEST5 (стухшая браузерная сессия) — в tests/test_feat_browser.py, рядом с
@@ -80,23 +80,14 @@ async def test2_informational_answer_still_completes_normally(env):
     assert task["status"] == "completed"
 
 
-async def test3_verified_action_via_deterministic_harness_completes(env):
-    """Детерминированный харнесс имитирует РЕАЛЬНЫЙ вызов инструмента (строка
-    в tool_calls, как её оставляет настоящий tool loop) до того, как гейт
-    читает `answer`. Даже если модель ЗАТЕМ подмешала отказную фразу в текст,
-    наличие вызова инструмента — сильнее: гейт обязан вернуть NOT_APPLICABLE
-    и не мешать завершению.
-
-    Промпт намеренно БЕЗ распознаваемого домена («браузер», а не «YouTube»):
-    bcc/features/action_router.py (BCC-V2-UNIVERSAL-ACTION-EXECUTION-P1-001)
-    для задач с выводимым доменом (например «YouTube» → youtube.com)
-    автоматически прикрепляет meta.review.evidence (kind=browser,
-    url_contains=домен) — а этот тест проверяет ИМЕННО узкий, независимый
-    от review_gate инвариант action_gate («хоть один вызов инструмента —
-    не наш случай»), не полный конвейер verified-evidence, поэтому не должен
-    внезапно требовать реальной браузерной сессии, наблюдение за которой
-    здесь не имитируется. Полный конвейер (реальный Chromium, автоматическое
-    evidence по домену) проверяется в tests/test_action_router.py."""
+async def test3_dispatch_row_defers_to_independent_verification(env):
+    """The narrow action gate must defer after a dispatch record, but this
+    record cannot replace a live browser observation. The historical test
+    asserted COMPLETED from precisely that self-reported record. Keep its
+    NOT_APPLICABLE contract and prove the independent finalizer rejects it.
+    Actual positive completion remains covered by real Chromium in
+    test_action_router.test_real_tool_calls_with_matching_verification_complete.
+    """
     env.svc.registry.adapter_factory = lambda m, p: FakeAdapter(REAL_REFUSAL)
     stack = await make_stack(env.client, prompt="Открой браузер и покажи страницу")
 
@@ -107,10 +98,15 @@ async def test3_verified_action_via_deterministic_harness_completes(env):
             run_id=run_id, task_id=stack["task"]["id"], tool="browser.open",
             status="executed"))
         await s.commit()
+    from bcc.features.action_gate import _gate
+    gate = await _gate(env.svc)
+    verdict = await gate(stack["task"], run_id, REAL_REFUSAL)
+    assert verdict["verdict"] == "NOT_APPLICABLE"
     await env.svc.engine.execute(run_id)
 
-    task = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["task"]
-    assert task["status"] == "completed"
+    data = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()
+    assert data["task"]["status"] == "failed", data
+    assert "BROWSER_OBSERVATION_UNAVAILABLE" in data["runs"][-1]["error"], data
 
 
 async def test4_not_applicable_verdict_does_not_certify_side_effect(env):

@@ -15,6 +15,7 @@ import { mountThinking } from './thinking.js';
 import { mountTestingPeriod } from './testing.js';
 import { mountCommandBar } from './commandbar.js';
 import { desktopPages, preferredTheme } from './desktop.js';
+import { retainAppFrame } from './app_view.js';
 
 PAGES.push(...FEATURE_PAGES); // V2-страницы встают в общую навигацию
 
@@ -258,7 +259,9 @@ async function renderPage() {
     const node = await page.render(ctx, currentParams);
     if (token !== renderToken) return;
     lastRendered = currentPage;
-    replace(el.view, node);
+    // ws.open/reconnect refreshes launcher state without unloading a running
+    // app. Otherwise its selected folder, preview and policy error disappear.
+    if (!retainAppFrame(el.view, node)) replace(el.view, node);
     mark('bossman:first_page_rendered');
     schedulePreload();
     syncTopStats();

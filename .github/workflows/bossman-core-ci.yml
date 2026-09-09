@@ -1,4 +1,6 @@
 name: Bossman Core CI
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 # Отдельный gate ядра: раньше CI гонял только Command Center, а bossman-core не
 # проверялся автоматически вовсе. Набор ядра разбит на предсказуемые группы,
@@ -23,6 +25,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  windows-workspace:
+    name: Windows workspace and PID contracts (py${{ matrix.python }})
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install declared Core test dependencies
+        run: python -m pip install -e . -e './bossman-core[dev]'
+      - name: Real workspace evidence and process query boundaries
+        working-directory: bossman-core
+        run: >-
+          python -m pytest -q --timeout=90 --timeout-method=thread
+          tests/test_browser_pid_portability.py tests/test_gateway_cli_portability.py
+          tests/apprentice/test_openhands_client.py
+          tests/apprentice/test_openhands_evidence_independence.py
+          tests/apprentice/test_openhands_path_boundary.py
+          tests/apprentice/test_openhands_release_evidence.py
+
   core:
     name: pytest ${{ matrix.group.name }} (py${{ matrix.python }})
     runs-on: ubuntu-latest
@@ -97,6 +126,7 @@ jobs:
         # benchmark commits in isolated worktrees (run_isolated / ShaMismatch
         # integrity refuses unknown SHAs instead of relabelling them).
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Python ${{ matrix.python }}
@@ -151,12 +181,21 @@ jobs:
         # честно падает с ShaMismatch («unknown commit 8a13f1d3») вместо того,
         # чтобы переименовать неизвестный SHA во что-то знакомое.
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install
         run: python -m pip install -e . -e ./bossman-core[dev]
+      - name: Chromium для браузерных тестов
+        # Тот же шаг, что у партиций: этот job гоняет ВЕСЬ tests/, включая
+        # tests/test_browser_support_helper.py::test_available_on_this_host,
+        # который требует настоящий Chromium раскладки Playwright. Без шага
+        # job падал на одном этом тесте при 3165 зелёных (run 34296484520).
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
       # Группы выше делят набор между job'ами, поэтому порог по группе был бы
       # неправдой: он считается по ПОЛНОМУ прогону. Базовый уровень и правила
       # изменения порога — docs/testing/COVERAGE_BASELINE.md.
@@ -189,6 +228,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Python 3.12
         uses: actions/setup-python@v7
@@ -213,7 +254,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: bossman-core-security-${{ github.sha }}
+          name: bossman-core-security-${{ github.event.pull_request.head.sha || github.sha }}
           path: astra-security-results/
           if-no-files-found: error
           retention-days: 30

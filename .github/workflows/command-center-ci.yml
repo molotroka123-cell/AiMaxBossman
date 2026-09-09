@@ -1,4 +1,6 @@
 name: Command Center CI
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 # V2.2 §13/§14. Раньше было два workflow (`tests.yml` и этот), и оба гоняли
 # один и тот же pytest: двойной расход минут и два независимых зелёных/красных
@@ -45,6 +47,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Python ${{ matrix.python }}
         uses: actions/setup-python@v7
@@ -119,6 +123,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Python 3.12
         uses: actions/setup-python@v7
@@ -140,7 +146,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: command-center-security-${{ github.sha }}
+          name: command-center-security-${{ github.event.pull_request.head.sha || github.sha }}
           path: astra-security-results/
           if-no-files-found: error
           retention-days: 30
@@ -160,6 +166,12 @@ jobs:
             node --check "$file"
           done < <(find command-center/ui -name '*.js' -print0)
 
+      - name: Web Designer save and recovery contracts
+        run: node --test command-center/ui/tests/web_designer_autosave.test.mjs
+
+      - name: Running app frame retention contracts
+        run: node --test command-center/ui/tests/app_view.test.mjs
+
   windows-paths:
     # TRUTH-003 §16 / TL-01: только пути, где платформа реально ветвится (discovery, terminal
     # control, desktop, права ФС) и новые execution-truth контракты, зависящие от путей
@@ -169,6 +181,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -187,6 +201,12 @@ jobs:
           tests/test_policy_algebra.py tests/test_fence_fl01.py tests/test_fence_event_cancellation.py
           tests/test_finalize_gate.py tests/test_no_direct_completed_writes.py
           tests/test_v2_poststate_verifiers.py tests/test_login_rate_limit.py tests/test_observability_trace.py
+          tests/test_web_designer_storage_boundaries.py
+          tests/test_apps_control.py tests/test_apps_release_runtime.py
+          tests/test_astra_poststate_boundaries.py
+          tests/test_bcc_cli_portability.py
+          tests/test_apps_pid_portability.py
+          tests/test_browser_installed_readiness.py
       - name: Windows Video Studio descriptor boundary
         working-directory: command-center
         env:

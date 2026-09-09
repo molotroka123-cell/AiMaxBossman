@@ -46,12 +46,13 @@ prompt-smoke: он не доказывает, что обвязка сохран
 
 Честность встроена, а не декларируется:
 
-  * ничего не выдумывается. Модель вызывается по-настоящему; при отсутствии
-    ответа задача считается проваленной, а не пропускается;
+  * ничего не выдумывается. Модель вызывается по-настоящему; отсутствие
+    завершённого ответа останавливает прогон без публикации измерения;
   * `evaluated_sha` берётся из git и обязан совпасть с проверяемым коммитом —
     вердикт по старому SHA не является вердиктом по новому;
-  * если задач меньше порога, файл всё равно пишется, но гейт ответит
-    INSUFFICIENT_EVIDENCE. Это правильный ответ, а не дефект;
+  * недостаточная статистическая ёмкость набора обнаруживается ДО обращений
+    к модели. Малый диагностический прогон требует --allow-insufficient-samples;
+    этот флаг не меняет гейт и не превращает недостаточную выборку в PASS;
   * оценка каждого пункта — детерминированная проверка (точное совпадение,
     разбор JSON, имя инструмента), а не мнение второй модели;
   * temperature=0 и seed фиксируют СЭМПЛЕР, а не среду. Драйвер, сборка
@@ -61,30 +62,29 @@ prompt-smoke: он не доказывает, что обвязка сохран
 Запуск на машине владельца (модель уже поднята локально):
 
     python tools/intelligence_preservation_run.py \\
-        --model qwen2.5-coder:14b \\
-        --endpoint http://127.0.0.1:11435 \\
-        --out docs/benchmark/intelligence-preservation-current.json
-
-Затем:
-
-    python tools/intelligence_preservation_gate.py \\
-        docs/benchmark/intelligence-preservation-current.json \\
-        --expect-sha $(git rev-parse HEAD)
+        --model EXACT_SAME_LOCAL_MODEL_ID \\
+        --endpoint http://127.0.0.1:11434 \\
+        --tasks OWNER_REVIEWED_CORPUS.json --sha FINAL_SHA_40_HEX \\
+        --out ../bossman-owner-evidence/intelligence-current.json \\
+        --gate-report ../bossman-owner-evidence/intelligence-report.json
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
 import hashlib
+import http.client
 import inspect
 import json
+import os
 import re
 import subprocess
 import sys
 import tempfile
-import urllib.error
+import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
 
@@ -98,6 +98,10 @@ if _CORE.is_dir() and str(_CORE) not in sys.path:
 
 MODES = ("raw", "system", "context", "full")
 BASELINE = "raw"
+TEMPERATURE = 0.0
+SEED = 7
+MODEL_TIMEOUT_SECONDS = 120.0
+MAX_MODEL_RESPONSE_BYTES = 8 * 1024 * 1024
 
 # Метрики, которых требует гейт. Каждая задача набора объявляет, какую из них
 # она измеряет; метрика без задач честно получает 0 задач, и гейт это увидит.
@@ -295,7 +299,11 @@ class Lane(Protocol):
 
 
 def _sha(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _json_sha(value: Any) -> str:
+    return _sha(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
 
 
 @dataclass
@@ -359,7 +367,8 @@ class ProductionFullLane:
 
     def __init__(self, *, agent_name: str = FULL_LANE_AGENT, workdir: Path | None = None,
                  max_steps: int = FULL_LANE_MAX_STEPS, context_engine: bool = False,
-                 agents_dir: Path | None = None):
+                 agents_dir: Path | None = None,
+                 corpus_source: str = "docs/benchmark/intelligence_tasks.json"):
         p = _production()
         self._p = p
         self.agents_dir = agents_dir or (ROOT / "bossman-core" / "agents")
@@ -370,6 +379,7 @@ class ProductionFullLane:
         self.agent = p["load_agent"](agent_path)
         self.max_steps = max(2, int(max_steps))
         self.context_engine = bool(context_engine)
+        self.corpus_source = corpus_source
         self._workdir_is_temp = workdir is None
         self.workdir = Path(workdir) if workdir else Path(
             tempfile.mkdtemp(prefix="bossman-intel-full-"))
@@ -422,12 +432,14 @@ class ProductionFullLane:
             "system_prompt_builder": "bossman.runner._system_prompt",
             "tool_schema_builder": "bossman.runner._tool_schemas",
             "tool_schema_count": len(self.tool_schemas),
+            "tool_schema_sha256": _json_sha(self.tool_schemas),
             "tool_registry_sha256": self._registry_fingerprint(),
             "tool_registry_size": len(self._p["REGISTRY"]),
             "context_mechanism": "bossman.context.ContextBuilder",
             "context_window": self.window,
             "context_block_limits": dict(budget.limits),
             "context_engine": "on" if self.context_engine else "off",
+            "corpus_source": self.corpus_source,
             "executable_tools": list(BENCH_EXECUTABLE_TOOLS),
             "max_steps": self.max_steps,
             "sandbox_workdir": str(self.workdir),
@@ -486,7 +498,7 @@ class ProductionFullLane:
             # Настоящий механизм: контекст входит блоком `retrieved` с provenance
             # и рамкой «это ДАННЫЕ», а не склейкой в текст задачи.
             builder.set_retrieved([
-                f"источник: docs/benchmark/intelligence_tasks.json#{task.task_id}\n"
+                f"источник: {self.corpus_source}#{task.task_id}\n"
                 f"{task.context}"])
         ctx = p["ToolContext"](agent=self.agent.name, run_id=None, workdir=self.workdir,
                                journal=self.journal, notes_dir=self.workdir)
@@ -716,41 +728,102 @@ def score(task: Task, answer: str, run: LaneRun | None = None) -> bool:
 
 
 # --------------------------------------------------------------- клиент
+def _ollama_json(endpoint: str, path: str, *, payload: dict | None = None,
+                 timeout: float = MODEL_TIMEOUT_SECONDS) -> dict:
+    request = urllib.request.Request(
+        endpoint.rstrip("/") + path,
+        data=json.dumps(payload).encode() if payload is not None else None,
+        headers={"content-type": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            body = response.read(MAX_MODEL_RESPONSE_BYTES + 1)
+        if len(body) > MAX_MODEL_RESPONSE_BYTES:
+            raise RunnerError("local model response exceeded the measurement byte limit")
+        data = json.loads(body.decode("utf-8"))
+    except (OSError, ValueError, http.client.HTTPException) as exc:
+        # Do not echo endpoint credentials, provider bodies, or prompts into CI logs.
+        raise RunnerError(f"local model request failed: {type(exc).__name__}") from exc
+    if not isinstance(data, dict) or data.get("error"):
+        raise RunnerError("local model returned an invalid/error response")
+    return data
+
+
+def _model_name(model: str) -> str:
+    return model if ":" in model.rsplit("/", 1)[-1] else model + ":latest"
+
+
+def ollama_identity(endpoint: str, model: str) -> dict[str, Any]:
+    """Read installed model identity without loading, pulling, or generating.
+
+    A tag is mutable. Its observed digest is captured before and after the run;
+    an unavailable revision stays UNKNOWN, never an invented revision number.
+    """
+    if not model.strip():
+        raise RunnerError("no model selected; no measurement can be made")
+    models = _ollama_json(endpoint, "/api/tags").get("models")
+    if not isinstance(models, list):
+        raise RunnerError("local model inventory is unavailable")
+    matches = [m for m in models if isinstance(m, dict) and
+               _model_name(str(m.get("model") or m.get("name") or "")) == _model_name(model)]
+    if len(matches) != 1:
+        raise RunnerError("selected model is absent or ambiguous in the local inventory; no measurement")
+    entry = matches[0]
+    digest = entry.get("digest")
+    if digest and not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", str(digest)):
+        raise RunnerError("local inventory returned an invalid model revision digest")
+    details = entry.get("details") if isinstance(entry.get("details"), dict) else {}
+    return {"provider": "ollama", "model": str(entry.get("model") or entry["name"]),
+            "model_version": "sha256:" + str(digest).removeprefix("sha256:") if digest else None,
+            "revision_status": "OBSERVED" if digest else "UNKNOWN",
+            "provider_revision": None, "provider_revision_status": "UNKNOWN",
+            "quantization": details.get("quantization_level") or None,
+            "format": details.get("format") or None,
+            "parameter_size": details.get("parameter_size") or None}
+
+
 def ollama_client(endpoint: str, model: str, *, timeout: float = 120.0,
-                  temperature: float = 0.0) -> ModelCall:
+                  temperature: float = TEMPERATURE,
+                  request_digests: list[str] | None = None) -> ModelCall:
     """Клиент к локальной модели.
 
     temperature=0 и seed фиксируют сэмплер. Средой они не управляют: сборка
     сервера, драйвер, квантизация и батчинг могут менять результат, и seed
     этого не обещает. Повторяемость доказывается повторным прогоном.
     """
-    url = endpoint.rstrip("/") + "/api/chat"
-
     def call(messages: list[dict[str, str]], tools: list[dict] | None = None) -> ModelReply:
         payload: dict[str, Any] = {"model": model, "messages": messages, "stream": False,
-                                   "options": {"temperature": temperature, "seed": 7}}
+                                   "options": {"temperature": temperature, "seed": SEED}}
         if tools:
             payload["tools"] = tools
-        body = json.dumps(payload).encode()
-        request = urllib.request.Request(url, data=body,
-                                         headers={"content-type": "application/json"})
-        try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                data = json.loads(response.read().decode("utf-8", "replace"))
-        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
-            raise RunnerError(f"local model call failed: {type(exc).__name__}: {exc}") from exc
-        return normalize_reply(data.get("message") or {})
+        if request_digests is not None:
+            request_digests.append(_json_sha(payload))
+        data = _ollama_json(endpoint, "/api/chat", payload=payload, timeout=timeout)
+        if _model_name(str(data.get("model") or "")) != _model_name(model):
+            raise RunnerError("response model identity does not match the measured model")
+        if data.get("done") is not True or not isinstance(data.get("message"), dict):
+            raise RunnerError("local model did not return a completed measurement response")
+        reply = normalize_reply(data["message"])
+        if not reply.content.strip() and not reply.tool_calls:
+            raise RunnerError("local model returned no answer; no measurement can be published")
+        return reply
 
     return call
 
 
-def load_tasks(path: Path) -> list[Task]:
-    raw = json.loads(path.read_text(encoding="utf-8"))
+def load_tasks(path: Path, *, source: bytes | None = None) -> list[Task]:
+    raw = json.loads(source if source is not None else path.read_bytes())
     tasks = [Task(task_id=t["task_id"], metric=t["metric"], prompt=t["prompt"],
                   expect=t["expect"], context=t.get("context", "")) for t in raw["tasks"]]
     seen = {t.task_id for t in tasks}
     if len(seen) != len(tasks):
         raise RunnerError("duplicate task_id in the task set")
+    items: dict[tuple[str, str], str] = {}
+    for task in tasks:
+        key = (" ".join(task.prompt.split()), " ".join(task.context.split()))
+        if key in items:
+            raise RunnerError(f"duplicate normalized prompt/context: {items[key]} and {task.task_id}; "
+                              "renaming an item does not add independent evidence")
+        items[key] = task.task_id
     unknown = sorted({t.metric for t in tasks} - set(REQUIRED_METRICS))
     if unknown:
         raise RunnerError(f"task set names metrics the gate does not know: {unknown}")
@@ -759,11 +832,77 @@ def load_tasks(path: Path) -> list[Task]:
 
 def head_sha() -> str:
     out = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
-                         text=True, check=False)
+                         text=True, check=False, timeout=30)
     sha = (out.stdout or "").strip()
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise RunnerError("cannot resolve HEAD: retention is measured on a commit")
     return sha
+
+
+def verify_source(expected_sha: str | None = None) -> dict[str, Any]:
+    """Bind to HEAD and re-read tracked files independently of the mutable index.
+
+    hash-object reads physical files, including assume-unchanged/skip-worktree
+    paths. Git's normal text normalization keeps Windows CRLF checkouts valid.
+    No staging, index refresh, or repository mutation is performed.
+    """
+    sha = head_sha()
+    if expected_sha is not None and expected_sha != sha:
+        raise RunnerError("requested --sha is not the current HEAD; no measurement")
+    tree = subprocess.run(["git", "ls-tree", "-rz", "--full-tree", "HEAD"], cwd=ROOT,
+                          capture_output=True, check=True, timeout=30).stdout
+    paths, expected = [], []
+    for entry in tree.split(b"\0"):
+        if not entry:
+            continue
+        meta, path_bytes = entry.split(b"\t", 1)
+        mode, kind, digest = meta.split()
+        path = os.fsdecode(path_bytes)
+        if kind != b"blob":
+            raise RunnerError("unverified submodule in the source tree; no measurement")
+        if mode == b"120000":
+            # hash-object follows symlinks; compare the tracked link text itself.
+            try:
+                target = os.fsencode(os.readlink(ROOT / path))
+            except OSError as exc:
+                raise RunnerError("tracked source symlink changed; no measurement") from exc
+            actual = hashlib.sha1(b"blob " + str(len(target)).encode() + b"\0" + target).hexdigest()
+            if actual != digest.decode():
+                raise RunnerError("tracked source symlink changed; no measurement")
+            continue
+        paths.append(path)
+        expected.append(digest.decode())
+    names = "".join(json.dumps(p, ensure_ascii=False) + "\n" for p in paths)
+    read = subprocess.run(["git", "hash-object", "--stdin-paths"], cwd=ROOT,
+                          input=names, text=True, encoding="utf-8", capture_output=True,
+                          check=False, timeout=30)
+    if read.returncode or read.stdout.splitlines() != expected:
+        raise RunnerError("tracked workspace differs from HEAD; no measurement")
+    return {"evaluated_sha": sha, "tracked_files_verified": len(expected),
+            "verification": "HEAD tree versus independently read working files, before and after"}
+
+
+def capacity_check(tasks: list[Task], *, allow_insufficient: bool = False) -> dict[str, int]:
+    from intelligence_preservation_gate import CORE_METRICS, GateConfig, wilson
+
+    counts = {name: sum(t.metric == name for t in tasks) for name in REQUIRED_METRICS}
+    if not all(counts.values()):
+        raise RunnerError("task set has unmeasured required metrics; no model requests were made")
+    cfg = GateConfig()
+    # This is capacity arithmetic, not a model result: the best possible paired
+    # core bound at these sample counts, with every item correct and zero loss.
+    best_bound = sum(1.0 - wilson(0, counts[m], 1.959963984540054)[1]
+                     for m in CORE_METRICS) / len(CORE_METRICS)
+    if (min(counts.values()) < cfg.min_samples_per_metric or
+            best_bound < cfg.core_retention_min) and not allow_insufficient:
+        raise RunnerError(
+            f"corpus has only {min(counts.values())} items in its smallest metric; "
+            f"best possible paired core bound is {best_bound:.6f} < required "
+            f"{cfg.core_retention_min} or the sample floor is unmet. With equal counts, "
+            f"even perfect core metrics need {SUFFICIENT_SAMPLES_PER_METRIC} each. "
+            "Supply an independently reviewed larger corpus; "
+            "no model requests were made. --allow-insufficient-samples is diagnostic only")
+    return counts
 
 
 def measure(tasks: list[Task], call: Callable[..., Any], *, lanes: Mapping[str, Lane] | None = None,
@@ -862,9 +1001,10 @@ def build_payload(lanes: dict[str, dict[str, LaneMetric]], *, model: str, datase
         "samples_per_metric": counts,
         "smallest_metric_samples": min(counts.values()) if counts else 0,
         "measured_samples_for_a_pass_verdict": SUFFICIENT_SAMPLES_PER_METRIC,
-        "note": ("a perfect paired run answers INSUFFICIENT_EVIDENCE below "
-                 f"{SUFFICIENT_SAMPLES_PER_METRIC} items per metric; this is the gate's "
-                 "confidence bound, not a defect"),
+        "note": ("with equal sample counts, a perfect paired core run needs "
+                 f"{SUFFICIENT_SAMPLES_PER_METRIC} items per core metric for the confidence bound; "
+                 "all other metrics still need the unchanged sample floor. Counts alone "
+                 "do not establish item independence or a PASS"),
     }
     if traces:
         payload["traces"] = dict(traces)
@@ -893,34 +1033,55 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--full-max-steps", type=int, default=FULL_LANE_MAX_STEPS)
     parser.add_argument("--context-engine", action="store_true",
                         help="включить production context_engine (пишет в его БД)")
+    parser.add_argument("--allow-insufficient-samples", action="store_true",
+                        help="diagnostic measurement only; the release gate remains unchanged")
+    parser.add_argument("--preflight-only", action="store_true",
+                        help="verify corpus/source/model availability without generating")
+    parser.add_argument("--gate-report", type=Path,
+                        help="evaluate the genuine result with the unchanged gate and return its exit code")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
+    try:
+        return _run(args)
+    except (RunnerError, OSError, ValueError, subprocess.SubprocessError) as exc:
+        print(json.dumps({"gate": "INTELLIGENCE_PRESERVATION", "status": "INSUFFICIENT_EVIDENCE",
+                          "error": str(exc)}, ensure_ascii=True), file=sys.stderr)
+        return 2
 
-    tasks = load_tasks(args.tasks)
-    per_metric: dict[str, int] = {}
-    for task in tasks:
-        per_metric[task.metric] = per_metric.get(task.metric, 0) + 1
-    smallest = min(per_metric.values()) if per_metric else 0
-    if smallest < SUFFICIENT_SAMPLES_PER_METRIC:
-        # Предупреждение ДО прогона, а не разочарование после.
-        print(
-            f"ВНИМАНИЕ: самая бедная метрика даёт {smallest} задач; для вердикта PASS "
-            f"гейту нужно не меньше {SUFFICIENT_SAMPLES_PER_METRIC} на метрику даже при "
-            "безупречном прогоне. Этот прогон измерит полосы честно, но ответом гейта "
-            "будет INSUFFICIENT_EVIDENCE, а не PASS.", file=sys.stderr)
-    dataset_id = args.dataset_id or json.loads(
-        args.tasks.read_text(encoding="utf-8")).get("dataset_id") or args.tasks.stem
-    sha = args.sha or head_sha()
+
+def _run(args: argparse.Namespace) -> int:
+    outputs = [args.out.resolve()] + ([args.gate_report.resolve()] if args.gate_report else [])
+    if len(set(outputs)) != len(outputs) or args.tasks.resolve() in outputs:
+        raise RunnerError("corpus, measurement, and gate report must have distinct paths")
+    started = datetime.now(timezone.utc).isoformat()
+    corpus_bytes = args.tasks.read_bytes()
+    tasks = load_tasks(args.tasks, source=corpus_bytes)
+    per_metric = capacity_check(tasks, allow_insufficient=args.allow_insufficient_samples)
+    smallest = min(per_metric.values())
+    if args.allow_insufficient_samples:
+        print("DIAGNOSTIC_ONLY: insufficient samples explicitly allowed for measurement; "
+              "the release gate and its confidence bound remain unchanged", file=sys.stderr)
+    dataset_id = args.dataset_id or json.loads(corpus_bytes).get("dataset_id") or args.tasks.stem
+    source = verify_source(args.sha)
+    sha = source["evaluated_sha"]
+    observed_model = ollama_identity(args.endpoint, args.model)
+    if args.quantization and observed_model["quantization"] and args.quantization != observed_model["quantization"]:
+        raise RunnerError("declared quantization disagrees with the selected model inventory")
+    if args.preflight_only:
+        print("PREFLIGHT_ONLY: source/corpus/model checked; no model generation or measurement performed")
+        return 0
 
     full = ProductionFullLane(agent_name=args.agent, workdir=args.full_workdir,
                               max_steps=args.full_max_steps,
-                              context_engine=args.context_engine)
+                              context_engine=args.context_engine,
+                              corpus_source="sha256:" + hashlib.sha256(corpus_bytes).hexdigest())
     # Самопроверка ДО многочасового прогона: полоса FULL обязана быть полосой
     # выполнения. Деградировавшую полосу измерять бессмысленно.
     assert_full_lane(full)
     full.reset_stats()          # счётчики описывают измерение, а не пробу
     lanes = build_lanes(full=full)
-    call = ollama_client(args.endpoint, args.model)
+    request_digests: list[str] = []
+    call = ollama_client(args.endpoint, observed_model["model"], request_digests=request_digests)
 
     done = {"n": 0}
     total = len(tasks) * len(MODES)
@@ -933,22 +1094,62 @@ def main(argv: list[str] | None = None) -> int:
 
     traces: dict[str, dict[str, dict]] = {}
     measured = measure(tasks, call, lanes=lanes, on_progress=progress, traces=traces)
-    extra = {"decoding": "greedy(temperature=0,seed=7)",
+    if verify_source(sha) != source:
+        raise RunnerError("source identity changed during measurement")
+    if args.tasks.read_bytes() != corpus_bytes:
+        raise RunnerError("corpus changed during measurement; no result published")
+    if ollama_identity(args.endpoint, args.model) != observed_model:
+        raise RunnerError("model revision/configuration changed during measurement; no result published")
+    endpoint = urllib.parse.urlsplit(args.endpoint)
+    extra = {"provider": observed_model["provider"],
+             "model_version": observed_model["model_version"],
+             "model_identity": observed_model,
+             "source": source,
+             "started_at": started, "finished_at": datetime.now(timezone.utc).isoformat(),
+             "corpus": {"file_sha256": hashlib.sha256(corpus_bytes).hexdigest(),
+                        "tasks_sha256": _json_sha([asdict(t) for t in tasks]),
+                        "tasks": [asdict(t) for t in tasks],
+                        "independence_status": "REQUIRES_CORPUS_REVIEW; exact duplicates refused"},
+             "configuration": {"temperature": TEMPERATURE, "seed": SEED,
+                               "model_timeout_seconds": MODEL_TIMEOUT_SECONDS,
+                               "endpoint_origin": urllib.parse.urlunsplit(
+                                   (endpoint.scheme, endpoint.netloc.rsplit("@", 1)[-1], "", "", "")),
+                               "endpoint_sha256": _sha(args.endpoint),
+                               "stream": False, "lane_order": list(MODES),
+                               "task_order": [t.task_id for t in tasks]},
+             "prompt_templates": {"system": SYSTEM_PROMPT, "full_system": full.system_prompt},
+             "request_sha256": request_digests,
+             "diagnostic_only": args.allow_insufficient_samples,
+             "decoding": "greedy(temperature=0,seed=7)",
              "determinism_note": ("a fixed seed pins the sampler, not the environment "
                                   "(server build, driver, quantization, batching); "
                                   "repeatability must be shown by a repeat run")}
-    if args.quantization:
-        extra["quantization"] = args.quantization
+    extra["quantization"] = observed_model["quantization"] or args.quantization or None
+    extra["quantization_source"] = "model_inventory" if observed_model["quantization"] else "owner_declared_or_unknown"
     if args.hardware:
         extra["hardware"] = args.hardware
     identity = {mode: lanes[mode].identity() for mode in MODES}
     identity["full"]["observed"] = dict(full.stats)
-    payload = build_payload(measured, model=args.model, dataset_id=dataset_id,
+    payload = build_payload(measured, model=observed_model["model"], dataset_id=dataset_id,
                             evaluated_sha=sha, extra=extra, lane_identity=identity,
                             traces={"full": traces.get("full", {})})
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
-                        encoding="utf-8")
+    # Publish only a complete payload; interruption must not leave a half JSON.
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=args.out.parent,
+                                     prefix=".intelligence-", suffix=".tmp", delete=False) as output:
+        pending = Path(output.name)
+        try:
+            output.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+            output.flush()
+            os.fsync(output.fileno())
+        except BaseException:
+            output.close()
+            pending.unlink(missing_ok=True)
+            raise
+    try:
+        pending.replace(args.out)
+    finally:
+        pending.unlink(missing_ok=True)
     print(f"written: {args.out}", file=sys.stderr)
     print(f"tasks={len(tasks)} per lane x {len(MODES)} lanes; smallest metric has "
           f"{smallest} items (PASS needs {SUFFICIENT_SAMPLES_PER_METRIC})", file=sys.stderr)
@@ -964,8 +1165,15 @@ def main(argv: list[str] | None = None) -> int:
               "инструментов — нет. Проверьте, что модель поддерживает tools в "
               "/api/chat, и не выдавайте этот прогон за проверку инструментов.",
               file=sys.stderr)
+    if args.gate_report:
+        from intelligence_preservation_gate import main as gate_main
+        args.gate_report.parent.mkdir(parents=True, exist_ok=True)
+        return gate_main([str(args.out), "--output", str(args.gate_report), "--expect-sha", sha])
     return 0
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
     raise SystemExit(main())

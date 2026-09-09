@@ -526,6 +526,12 @@ V2_NEW_COLUMNS: list[tuple[str, str, str]] = [
     # claim и при каждом возврате в очередь recover'ом. Запись сайд-эффекта и
     # закрытие run условны по fence: зомби-воркер с устаревшим fence не пишет.
     ("task_runs", "fence", "INTEGER DEFAULT 0"),
+    # §26: неизменяемая личность исполнителя, снятая на СТАРТЕ прогона.
+    # Без неё историю писала таблица `agents`, которая меняется и удаляется:
+    # правка агента переписывала прошлое, удаление — стирала его. NULL здесь
+    # означает «прогон старше этой колонки», и читается он как NOT_CAPTURED,
+    # а не как «прав не было».
+    ("task_runs", "provenance", "JSON"),
     # TRUTH-003 §2: ActionReceipt на каждый вызов инструмента (заявление исполнителя);
     # verified/verifier/observed_at заполняет только верификатор пост-состояния.
     ("tool_calls", "receipt_json", "JSON"),
@@ -606,6 +612,7 @@ class Database:
             await conn.run_sync(metadata.create_all)
         await self._migrate()
         await self._install_terminal_run_guard()
+        await self._install_provenance_guard()
 
     async def _install_terminal_run_guard(self) -> None:
         """ТЕРМИНАЛЬНЫЙ ПРОГОН НЕИЗМЕНЯЕМ. Запрет живёт в БАЗЕ, а не в вызовах.
@@ -627,22 +634,114 @@ class Database:
         Повторная попытка — это НОВЫЙ прогон с новым `attempt`, а не воскрешение
         старого, поэтому легальные пути ничего здесь не теряют.
         """
-        if not self.url.startswith("sqlite"):
-            # Триггер написан на диалекте SQLite. Молча «установить» его на
-            # другом движке значило бы объявить инвариант там, где его нет.
-            log.warning("terminal-run guard NOT installed: non-sqlite backend %r", self.url)
+        if self.engine.dialect.name == "postgresql":
+            statements = (
+                """CREATE OR REPLACE FUNCTION bcc_guard_terminal_run_status()
+                RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF OLD.status IN ('completed', 'failed')
+                       AND NEW.status IS DISTINCT FROM OLD.status THEN
+                        RAISE EXCEPTION 'terminal run status is immutable';
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$""",
+                "DROP TRIGGER IF EXISTS runs_terminal_status_is_immutable ON task_runs",
+                """CREATE TRIGGER runs_terminal_status_is_immutable
+                BEFORE UPDATE OF status ON task_runs FOR EACH ROW
+                EXECUTE FUNCTION bcc_guard_terminal_run_status()""",
+            )
+            async with self.engine.begin() as conn:
+                for statement in statements:
+                    await conn.execute(sa.text(statement))
             return
+        if self.engine.dialect.name != "sqlite":
+            # Never print the URL: it can contain the owner's database password.
+            raise RuntimeError("terminal-run guard requires a supported SQLite or PostgreSQL backend")
         statement = """
         CREATE TRIGGER IF NOT EXISTS runs_terminal_status_is_immutable
         BEFORE UPDATE OF status ON task_runs
         FOR EACH ROW
-        WHEN OLD.status IN ('completed', 'failed') AND NEW.status <> OLD.status
+        WHEN OLD.status IN ('completed', 'failed') AND NEW.status IS NOT OLD.status
         BEGIN
             SELECT RAISE(ABORT, 'terminal run status is immutable');
         END;
         """
         async with self.engine.begin() as conn:
+            # SQLite's legacy driver does not BEGIN for DDL automatically. Hold
+            # a real transaction so failure cannot leave the old guard dropped.
+            await conn.execute(sa.text("BEGIN IMMEDIATE"))
+            await conn.execute(sa.text("DROP TRIGGER IF EXISTS runs_terminal_status_is_immutable"))
             await conn.execute(sa.text(statement))
+
+    async def _install_provenance_guard(self) -> None:
+        """ПРОВЕНАНС ПРОГОНА НЕИЗМЕНЯЕМ. Запрет живёт в БАЗЕ.
+
+        Снятая на старте личность исполнителя — это улика. Улика, которую можно
+        переписать после исхода, уликой не является: именно поэтому запрет стоит
+        не в вызове, который её пишет, а на границе, мимо которой не пройти —
+        включая прямую правку строки в базе.
+
+        Что запрещено: у прогона, чей провенанс уже записан, сменить его на
+        другой. Это закрывает и «подправить задним числом», и «дозаполнить
+        сегодняшней конфигурацией агента».
+
+        Что разрешено и почему: ПЕРВАЯ запись (NULL → значение) — это и есть
+        снятие; идемпотентный повтор того же значения — не изменение (рестарт,
+        снявший ту же личность, не должен падать); правка любых других колонок
+        прогона не затрагивается.
+        """
+        if self.engine.dialect.name == "postgresql":
+            statements = (
+                """CREATE OR REPLACE FUNCTION bcc_guard_run_provenance()
+                RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF OLD.provenance IS NOT NULL
+                       AND NEW.provenance::text IS DISTINCT FROM OLD.provenance::text THEN
+                        RAISE EXCEPTION 'run provenance is immutable';
+                    END IF;
+                    IF OLD.provenance IS NULL AND NEW.provenance IS NOT NULL
+                       AND OLD.status IN ('completed', 'failed', 'stopped') THEN
+                        RAISE EXCEPTION 'run provenance backfill is prohibited';
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$""",
+                "DROP TRIGGER IF EXISTS runs_provenance_is_immutable ON task_runs",
+                """CREATE TRIGGER runs_provenance_is_immutable
+                BEFORE UPDATE OF provenance ON task_runs FOR EACH ROW
+                EXECUTE FUNCTION bcc_guard_run_provenance()""",
+            )
+            async with self.engine.begin() as conn:
+                for statement in statements:
+                    await conn.execute(sa.text(statement))
+            return
+        if self.engine.dialect.name != "sqlite":
+            raise RuntimeError("provenance guard requires a supported SQLite or PostgreSQL backend")
+        statement = """
+        CREATE TRIGGER IF NOT EXISTS runs_provenance_is_immutable
+        BEFORE UPDATE OF provenance ON task_runs
+        FOR EACH ROW
+        WHEN OLD.provenance IS NOT NULL AND NEW.provenance IS NOT OLD.provenance
+        BEGIN
+            SELECT RAISE(ABORT, 'run provenance is immutable');
+        END;
+        """
+        async with self.engine.begin() as conn:
+            await conn.execute(sa.text(statement))
+
+        backfill = """
+        CREATE TRIGGER IF NOT EXISTS runs_provenance_no_terminal_backfill
+        BEFORE UPDATE OF provenance ON task_runs
+        FOR EACH ROW
+        WHEN OLD.provenance IS NULL AND NEW.provenance IS NOT NULL
+             AND OLD.status IN ('completed', 'failed', 'stopped')
+        BEGIN
+            SELECT RAISE(ABORT, 'run provenance backfill is prohibited');
+        END;
+        """
+        async with self.engine.begin() as conn:
+            await conn.execute(sa.text(backfill))
 
     async def _migrate(self) -> None:
         """Идемпотентные ALTER для новых V2-колонок: create_all не расширяет

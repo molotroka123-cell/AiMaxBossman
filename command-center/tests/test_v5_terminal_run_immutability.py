@@ -129,3 +129,40 @@ async def test_a_retry_is_a_new_run_rather_than_a_revived_one(env):
         await s.commit()
     assert await _status(env, first) == "failed"
     assert await _status(env, second) == "queued"
+
+
+@pytest.mark.parametrize("status", ["completed", "failed"])
+async def test_null_cannot_erase_terminal_outcome(env, status):
+    rid = await _run(env, status)
+    with pytest.raises(sa.exc.IntegrityError, match="terminal run status is immutable"):
+        await _force(env, rid, None)
+    assert await _status(env, rid) == status
+
+
+async def test_unsupported_guard_backend_refuses_without_logging_url(caplog):
+    from types import SimpleNamespace
+    from bcc.db import Database
+    database = object.__new__(Database)
+    database.url = "other://owner:DB-CREDENTIAL-CANARY@host/database"
+    database.engine = SimpleNamespace(dialect=SimpleNamespace(name="unsupported"))
+    with pytest.raises(RuntimeError, match="supported SQLite or PostgreSQL") as caught:
+        await database._install_terminal_run_guard()
+    assert "DB-CREDENTIAL-CANARY" not in caplog.text
+    assert "DB-CREDENTIAL-CANARY" not in str(caught.value)
+
+
+async def test_sqlite_guard_upgrade_rolls_back_if_recreation_fails(env):
+    rid = await _run(env, "completed")
+    def fail_create(conn, cursor, statement, parameters, context, executemany):
+        if "CREATE TRIGGER IF NOT EXISTS runs_terminal_status_is_immutable" in statement:
+            raise RuntimeError("simulated guard installation failure")
+    engine = env.svc.db.engine.sync_engine
+    sa.event.listen(engine, "before_cursor_execute", fail_create)
+    try:
+        with pytest.raises(RuntimeError, match="installation failure"):
+            await env.svc.db._install_terminal_run_guard()
+    finally:
+        sa.event.remove(engine, "before_cursor_execute", fail_create)
+    with pytest.raises(sa.exc.IntegrityError, match="terminal run status is immutable"):
+        await _force(env, rid, "running")
+    assert await _status(env, rid) == "completed"

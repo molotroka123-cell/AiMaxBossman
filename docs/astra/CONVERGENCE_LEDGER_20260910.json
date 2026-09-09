@@ -1,0 +1,1422 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-09-08T22:59:15.897515+00:00",
+  "recovery_floor": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+  "canonical_branch": "claude/bossman-final-audit-closure-aucx9x",
+  "canonical_input_sha": "c7e75cc3c0a636d61f6fc8fb3e476a210d1320d3",
+  "status": "INPUT_DISPOSITION_NOT_FINAL_ACCEPTANCE",
+  "input_graph": {
+    "claude/bossman-control-v03-43igbk": {
+      "sha": "a6762965c5806d5c44462ee1a516dabf6307fe81",
+      "merge_base": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+      "unique_vs_floor": [
+        "d05318bbb1592638a7b0271d054a0cd1ec8ba995\tchore(deps): bump actions/setup-python from 5 to 7",
+        "ac245c738c261bd616b3d2ef1ebfac670c1e31eb\tchore(deps): bump peter-evans/create-pull-request from 5 to 8",
+        "fca0eafd9b8d2366b7d040af8a57c3fefeeb03b5\tchore(deps): bump actions/upload-artifact from 4 to 7",
+        "29b26563b56582a7dc0ad8fb9aba99f6eabbd479\tdocs(audit): record safe PR maintenance, merge #5 and preserve unresolved work",
+        "8567ffac27b7c4b2929b850d9a0d181330dbbcd7\tchore(audit): full repo audit issues backlog",
+        "7638558a9251d0a28868504fafb33b520eca4258\tdocs(models): add Strix Halo local model candidate matrix",
+        "b57b4ce981458581600adc2ee6836abca58be6fb\tdocs(models): add local model orchestration training spec",
+        "d5187cdf94510b5db9ab02f56cc14015af240844\tdocs(audit): Perplexity AI Max Pro 128GB hardware audit and Llama 3.1 70B analysis",
+        "ddea21112f89c978df50aae8948c5955d7dada2e\tdocs(audit): Perplexity total performance audit and local model intelligence analysis",
+        "8abb7a6ecdc6abe6f51ef068508d5d76fecfe23f\tfeat(trading): add deterministic BTC orderflow analysis engine",
+        "48816bc54bab89343fcf0a78ea8e89dd6aafccf0\ttest(trading): cover orderflow matrix and position math",
+        "10469c524760a711023cfa9de09d7875a997fcb9\tdocs(trading): add BTC orderflow playbook from learned cases",
+        "72da311865440839f0d8be0b373567ba0b635eea\tdata(trading): add machine-readable BTC orderflow rule corpus",
+        "55ad9c7993808e3b4c3ef638e021a26a4df497c4\tdocs(trading): add local Trader Apprentice system prompt",
+        "8767801c39cbe4ddd481a82dc71e247d9d454a71\tdata(trading): add September BTC learned casebook",
+        "079ca94dddef4d49069cb0a977c264aeae5f2743\tdata(trading): add Trader Apprentice ingest manifest",
+        "2e69e024e01f693d52958361f98a85c4316ad4fa\tfeat(trading): expose Trader Apprentice analysis API",
+        "da67a63251ab2ffb5d20a624772d2cb9a0427365\tdocs(local-model): wire Trader Apprentice corpus into orchestration",
+        "c592df930b450b29d97acf409a06a1ae2acdf5c6\tchore(repo): remove legacy root ZIP drops and stray image",
+        "6e5d8b57a9327a8f916c16c42f9eb2549f016642\tchore(repo): remove tracked local runtime cache",
+        "94717d52f05233b1449eab806f714b473c8cf838\ttemp",
+        "4fb5015f66d85947fe65ebedfa8b292903aff776\ttemp2",
+        "be7242a3c1652a27fdd027cfb484fe808c2196c3\ttemp3",
+        "2a7d3a2dd7eca278322a34afa9ca3c69a4ee3c1d\tchore(repo): restore Social Farm specification fixture",
+        "392421ce095f00e9133721f911f929ea7f3b3c2f\tdata(trading): log 18:48 sweep and CVD recovery",
+        "0b98cf9697e7fa9b1f397693cb37fbc0ccb87e1e\tdata(trading): log Sep 9 buyer-failure deleveraging state",
+        "b9e00294963b0af9ab7d2a250272caf0c95d7254\tfeat(trading): classify buyer failure during deleveraging",
+        "7885ad7f9adf93d92fa33d12f6296d5b40ed36c6\ttest(trading): cover buyer failure with deleveraging",
+        "a6762965c5806d5c44462ee1a516dabf6307fe81\tdata(trading): learn buyer-failure deleveraging regime"
+      ],
+      "changed_paths": [
+        "D\t.bossman-state/context-cache.json",
+        "M\t.github/workflows/astra-acceptance.yml",
+        "M\t.github/workflows/bossman-benchmark.yml",
+        "M\t.github/workflows/bossman-core-ci.yml",
+        "M\t.github/workflows/bossman-v2-repair.yml",
+        "M\t.github/workflows/closure-checkpoint.yml",
+        "M\t.github/workflows/command-center-ci.yml",
+        "M\t.github/workflows/fable-media-fleet.yml",
+        "M\t.github/workflows/human-speed-components.yml",
+        "M\t.github/workflows/intelligence-preservation.yml",
+        "M\t.github/workflows/release-certification.yml",
+        "M\t.github/workflows/root-ci.yml",
+        "M\t.github/workflows/solana-safety-ci.yml",
+        "A\tAUDIT_ISSUES_BACKLOG.md",
+        "D\tAiMaxBossman_ASTRA_Fixes_35390ec(1).zip",
+        "D\tAiMaxBossman_ASTRA_Fixes_35390ec.zip",
+        "D\tAiMaxBossman_Benchmark_Overlay_DropIn_v2.zip",
+        "D\tAiMaxBossman_Fleet_OS_Complete_Foundation_DropIn.zip",
+        "D\tAiMaxBossman_Organization_Layer_DropIn.zip",
+        "D\tAiMaxBossman_Organization_Layer_DropIn_v2.zip",
+        "D\tAiMaxBossman_V1_FINAL_ACCEPTANCE_PACK_2026-08-30.zip",
+        "D\tAiMaxBossman_V3_7Pack.zip",
+        "D\tBOSSMAN_5_APPS_V1_FINAL_CODE_PACK.zip",
+        "D\tBOSSMAN_APP_ICON_PACK.zip",
+        "D\tBOSSMAN_FABLE_NEXT_SESSION_PACK.zip",
+        "D\tBOSSMAN_FABLE_NEXT_SESSION_PACK_V2.zip",
+        "D\tBOSSMAN_META_INTELLIGENCE_7_MODULES_PASS3_FINAL.zip",
+        "D\tBOSSMAN_PROMPT_CACHE_OPUS5_DROPIN.zip",
+        "D\tBOSSMAN_UX_2_PROMPT_PACK_REBUILT.zip",
+        "D\tBOSSMAN_V3_AUTONOMOUS_OPERATOR_EXPANDED_FULL_PACK.zip",
+        "D\tBOSSMAN_ZIP_LEVEL_3_FINAL_REPACKED.zip",
+        "D\tBossman_CyberSec_Training_Engine_V1.zip",
+        "D\tIMG_3955.png",
+        "A\tLOCAL_MODEL_ORCHESTRATION_TZ.md",
+        "A\tLOCAL_MODEL_STRIX_HALO_2026-09-07.md",
+        "A\tdata/trading/btc_casebook_2026_09.jsonl",
+        "A\tdata/trading/btc_orderflow_rules_v1.json",
+        "A\tdata/trading/manifest.json",
+        "A\tdocs/audits/PR_MERGE_TRIAGE_20260907.md",
+        "A\tdocs/audits/TOTAL_PERFORMANCE_AUDIT_PERPLEXITY_2026_09_07.md",
+        "A\tdocs/hardware/AI_MAX_PRO_128GB_AUDIT.md",
+        "A\tdocs/trading/BTC_ORDERFLOW_PLAYBOOK.md",
+        "A\tdocs/trading/LOCAL_MODEL_SYSTEM_PROMPT.md",
+        "M\tlearning/__init__.py",
+        "A\tlearning/trader_apprentice.py",
+        "D\tself_learning_orchestrator.zip",
+        "A\ttests/test_trader_apprentice.py"
+      ],
+      "pairwise_merge_bases": {
+        "claude/bossman-control-v03-43igbk": "a6762965c5806d5c44462ee1a516dabf6307fe81",
+        "main": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "night/v7-convergence-20260908": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "claude/bossman-final-audit-closure-aucx9x": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "claude/bossman-final-integration-pass-04nffa": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "build/local-bundle-20260907": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "feature/ai-streamer-higgsfield-browser-20260908": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7"
+      }
+    },
+    "main": {
+      "sha": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+      "merge_base": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+      "unique_vs_floor": [],
+      "changed_paths": [],
+      "pairwise_merge_bases": {
+        "claude/bossman-control-v03-43igbk": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "main": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+        "night/v7-convergence-20260908": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+        "claude/bossman-final-audit-closure-aucx9x": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+        "claude/bossman-final-integration-pass-04nffa": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+        "build/local-bundle-20260907": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "feature/ai-streamer-higgsfield-browser-20260908": "799fc3dd8e4327811be9d8f3e33cc43ce8168977"
+      }
+    },
+    "night/v7-convergence-20260908": {
+      "sha": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+      "merge_base": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+      "unique_vs_floor": [],
+      "changed_paths": [],
+      "pairwise_merge_bases": {
+        "claude/bossman-control-v03-43igbk": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "main": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+        "night/v7-convergence-20260908": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+        "claude/bossman-final-audit-closure-aucx9x": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+        "claude/bossman-final-integration-pass-04nffa": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+        "build/local-bundle-20260907": "7b67b95c6f154298063c63cfe611d8ff91e35a14",
+        "feature/ai-streamer-higgsfield-browser-20260908": "45027d3e9aef554407a0a9ff07fb8678d1b849f3"
+      }
+    },
+    "claude/bossman-final-audit-closure-aucx9x": {
+      "sha": "c7e75cc3c0a636d61f6fc8fb3e476a210d1320d3",
+      "merge_base": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+      "unique_vs_floor": [
+        "69df482c6ab94f04b17715d9e2ceb4a695d20590\tfix(closure): сводное закрытие аудитов 2026-09-08 — истина завершения, улики OpenHands, бюджет восстановления",
+        "413d160ec33272efe561f03916116c949934df81\tdocs(final_closure): реестр находок, кластеризация сессии владельца, вечерняя настройка брейкера",
+        "4001b7ac9e1be9981a06f1f6909ec26a86472196\tfix(openhands): sha1 блоба помечен usedforsecurity=False; docs(final_closure): итоговый отчёт с точными SHA",
+        "cbb29919750b5bde168d389934632f4b0b455472\tfix(worktree): cleanup снимает read-only и с родительского каталога — POSIX без root",
+        "8c794dad0ab29d624f4efffa817d41e8301ff56a\tdocs(final_closure): FINAL_CODE_SHA=cbb2991 и два CI-фикса названы в отчёте",
+        "c7e75cc3c0a636d61f6fc8fb3e476a210d1320d3\ttest(closure): новые тесты не пиннят tempfile.tempdir; контейнмент cleanup проверяется явно; числа CC/root в отчёте"
+      ],
+      "changed_paths": [
+        "M\tbossman-core/bossman/apprentice/isolated_worktree.py",
+        "M\tbossman-core/bossman/apprentice/openhands_client.py",
+        "A\tbossman-core/tests/apprentice/test_openhands_evidence_independence.py",
+        "A\tbossman-core/tests/apprentice/test_worktree_cleanup_honesty.py",
+        "M\tcommand-center/bcc/engine.py",
+        "M\tcommand-center/bcc/features/action_contract.py",
+        "M\tcommand-center/bcc/features/action_router.py",
+        "M\tcommand-center/bcc/features/browser.py",
+        "A\tcommand-center/bcc/features/coding_tasks.py",
+        "M\tcommand-center/bcc/features/reality.py",
+        "M\tcommand-center/bcc/features/review_gate.py",
+        "M\tcommand-center/bcc/features/web_designer.py",
+        "M\tcommand-center/bcc/finalize.py",
+        "M\tcommand-center/bcc/reality/recovery.py",
+        "M\tcommand-center/bcc/streaming.py",
+        "M\tcommand-center/bcc/v2/verification.py",
+        "M\tcommand-center/bcc/web_designer_dom.py",
+        "A\tcommand-center/tests/test_action_contract_negation.py",
+        "M\tcommand-center/tests/test_action_router.py",
+        "A\tcommand-center/tests/test_apps_owner_path_regression.py",
+        "A\tcommand-center/tests/test_coding_tasks.py",
+        "A\tcommand-center/tests/test_p0_completion_truth.py",
+        "M\tcommand-center/tests/test_streaming_contract.py",
+        "A\tcommand-center/tests/test_streaming_honesty.py",
+        "M\tcommand-center/tests/test_v7_reality.py",
+        "A\tcommand-center/tests/test_v7_reality_route_validation.py",
+        "A\tcommand-center/tests/test_v7_recovery_bounded.py",
+        "A\tcommand-center/tests/test_web_designer_apply_idempotent_ui.py",
+        "A\tcommand-center/tests/test_web_designer_model_choice.py",
+        "M\tcommand-center/ui/pages/coding.js",
+        "M\tcommand-center/ui/pages/web_designer.js",
+        "A\tdocs/final_closure/FINAL_CLOSURE_REPORT.md",
+        "A\tdocs/final_closure/MASTER_FINDINGS.md",
+        "A\tdocs/final_closure/OWNER_BREAKER_SETUP.md",
+        "A\tdocs/final_closure/OWNER_SESSION_CLUSTERING.md",
+        "M\tdocs/testing/SKIPS_REGISTRY.md",
+        "M\tscripts/bossman_doctor.py"
+      ],
+      "pairwise_merge_bases": {
+        "claude/bossman-control-v03-43igbk": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "main": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+        "night/v7-convergence-20260908": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+        "claude/bossman-final-audit-closure-aucx9x": "c7e75cc3c0a636d61f6fc8fb3e476a210d1320d3",
+        "claude/bossman-final-integration-pass-04nffa": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+        "build/local-bundle-20260907": "7b67b95c6f154298063c63cfe611d8ff91e35a14",
+        "feature/ai-streamer-higgsfield-browser-20260908": "45027d3e9aef554407a0a9ff07fb8678d1b849f3"
+      }
+    },
+    "claude/bossman-final-integration-pass-04nffa": {
+      "sha": "e5ccd54c8fea94940f2ebced41bcb583076ac264",
+      "merge_base": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+      "unique_vs_floor": [
+        "355a582d3274ef29da345a177f0380c3b8fd4cdd\tfix(trader): enforce metric-series identity before comparing CVD/OI",
+        "9fcf9ab5cbcea46574202a52fa3ca69de294a3f8\tfix(audit): persist immutable executor provenance on every run",
+        "7aec22b87adf55b93d5828c12f61be8aa8b99483\tfeat(file-intelligence): governed AI File Sorter sidecar, off by default",
+        "0b5aab2afdfbb0c081c65c127ca0ac2631e7472a\ttest(file-intelligence): hostile, restart and verification suite",
+        "cf020daa1ec72af90ae069b4118544ff7fe6a12d\ttest(security,lifecycle): AP-001 exfiltration proof; STOP_GRACE reproduction",
+        "99803d3de1d74f46e868d1ce4647240b5091b859\tdocs(final): owner-test candidate and AI File Sorter integration guide",
+        "1a4fe111fc1d19b18c3ecece35e95df51b2064c5\tdocs(final): measured suite results and the real cost of the disabled feature",
+        "9bea81a9bc01e9f0cbc5c0a9994a5a189ce72c1e\tfix(files): verify the sidecar binary at effect time; cover timeout and swap",
+        "0ba775f3ff3d77b09cccc518f6f484bd080021b1\tdocs(release): re-point the owner-test candidate at the new frozen SHA",
+        "76b95858fa83773658b7fd6fb66194872ee12f20\tdocs(release): full sequential suite results on the frozen candidate",
+        "a1e633cb3c961302a74bac63da51be16fd08c53b\tfix(files): declare File Intelligence routes once, not on every setup()",
+        "e5ccd54c8fea94940f2ebced41bcb583076ac264\tdocs(release): freeze the owner-test candidate at a1e633c with CI-proven numbers"
+      ],
+      "changed_paths": [
+        "M\tcommand-center/bcc/api.py",
+        "M\tcommand-center/bcc/db.py",
+        "M\tcommand-center/bcc/engine.py",
+        "A\tcommand-center/bcc/features/file_intelligence.py",
+        "A\tcommand-center/bcc/file_intelligence/__init__.py",
+        "A\tcommand-center/bcc/file_intelligence/discovery.py",
+        "A\tcommand-center/bcc/file_intelligence/models.py",
+        "A\tcommand-center/bcc/file_intelligence/privacy.py",
+        "A\tcommand-center/bcc/file_intelligence/protocol.py",
+        "A\tcommand-center/bcc/file_intelligence/runtime_lock.py",
+        "A\tcommand-center/bcc/file_intelligence/scope.py",
+        "A\tcommand-center/bcc/file_intelligence/service.py",
+        "A\tcommand-center/bcc/file_intelligence/verify.py",
+        "A\tcommand-center/bcc/run_provenance.py",
+        "A\tcommand-center/tests/fileintel_fake.py",
+        "A\tcommand-center/tests/test_file_intelligence_contract.py",
+        "A\tcommand-center/tests/test_file_intelligence_feature.py",
+        "A\tcommand-center/tests/test_file_intelligence_hostile.py",
+        "A\tcommand-center/tests/test_file_intelligence_recovery.py",
+        "A\tcommand-center/tests/test_run_provenance.py",
+        "M\tcommand-center/tests/test_secrem_f009_terminal.py",
+        "A\tcommand-center/tests/test_stop_grace_lifecycle.py",
+        "A\tcommand-center/ui/pages/file_intelligence.js",
+        "M\tcommand-center/ui/pages/index.js",
+        "M\tcommand-center/ui/style.css",
+        "A\tdocs/final/OWNER_TEST_20260908_FILE_INTELLIGENCE.md",
+        "M\tdocs/testing/SKIPS_REGISTRY.md",
+        "A\tintegrations/ai-file-sorter/NOTICE.md",
+        "A\tintegrations/ai-file-sorter/README.md",
+        "A\tintegrations/ai-file-sorter/integration.json",
+        "M\tlearning/__init__.py",
+        "M\tlearning/trader_apprentice.py",
+        "M\ttests/test_trader_apprentice.py"
+      ],
+      "pairwise_merge_bases": {
+        "claude/bossman-control-v03-43igbk": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "main": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+        "night/v7-convergence-20260908": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+        "claude/bossman-final-audit-closure-aucx9x": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+        "claude/bossman-final-integration-pass-04nffa": "e5ccd54c8fea94940f2ebced41bcb583076ac264",
+        "build/local-bundle-20260907": "7b67b95c6f154298063c63cfe611d8ff91e35a14",
+        "feature/ai-streamer-higgsfield-browser-20260908": "45027d3e9aef554407a0a9ff07fb8678d1b849f3"
+      }
+    },
+    "build/local-bundle-20260907": {
+      "sha": "210cc525fd0d571facffaebf60a4456eb2cf267b",
+      "merge_base": "7b67b95c6f154298063c63cfe611d8ff91e35a14",
+      "unique_vs_floor": [
+        "210cc525fd0d571facffaebf60a4456eb2cf267b\tbuild: a downloadable local bundle, and the packaging defect it exposed"
+      ],
+      "changed_paths": [
+        "A\t.github/workflows/local-bundle.yml",
+        "M\t.gitignore",
+        "M\tcommand-center/bcc/config.py",
+        "A\ttools/build_local_bundle.py"
+      ],
+      "pairwise_merge_bases": {
+        "claude/bossman-control-v03-43igbk": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "main": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "night/v7-convergence-20260908": "7b67b95c6f154298063c63cfe611d8ff91e35a14",
+        "claude/bossman-final-audit-closure-aucx9x": "7b67b95c6f154298063c63cfe611d8ff91e35a14",
+        "claude/bossman-final-integration-pass-04nffa": "7b67b95c6f154298063c63cfe611d8ff91e35a14",
+        "build/local-bundle-20260907": "210cc525fd0d571facffaebf60a4456eb2cf267b",
+        "feature/ai-streamer-higgsfield-browser-20260908": "7b67b95c6f154298063c63cfe611d8ff91e35a14"
+      }
+    },
+    "feature/ai-streamer-higgsfield-browser-20260908": {
+      "sha": "128324713c140c908a7ad502ed5621e5ea22a6a6",
+      "merge_base": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+      "unique_vs_floor": [
+        "5e8a39d63b87e4fd073119776f4f210d93877975\tdocs(ai-streamer): add autonomous media studio architecture",
+        "aea7a2a83cde016dc2c5ae9bab5ad331c8f06bcb\tdocs(ai-streamer): add skills and workflow catalog",
+        "dc464131a40247dd1d0a750aa49daea7370c4b2e\tdocs(ai-streamer): define Higgsfield browser worker contract",
+        "5499908236e3f3ed71f42dc2faed9e21a05b8efd\tdocs(ai-streamer): add OpenHands media engineer skill",
+        "ce849f4bcd13d365b24b56e65fa3b035559d6362\tfeat(social-farm): add browser generation job contracts",
+        "5d7f77a65dc4e18552b79bd90f86c010b891e0cb\ttest(social-farm): cover browser generation fail-closed contracts",
+        "63bd277d6c5cb4114968ac0d2878a43be57ce7d1\tdocs(ai-streamer): add Bossman mission and acceptance pack",
+        "6eaeb621d9bd11385c7592752d8232721d2c4d51\tfeat(ai-streamer): add durable browser generation job store",
+        "134f2f620ce2a3d9fc8862a28af086ebb795ad52\tfeat(ai-streamer): add browser generation worker orchestration",
+        "85cad480ba66d29b2380d1f636c76742f993097c\tfeat(ai-streamer): add resource-aware media generation router",
+        "01f079b341570be99859619ab673a9adcab5e156\ttest(ai-streamer): cover durable generation job store",
+        "2d104e74aca7e732ec5b4c46495311009f6e541b\ttest(ai-streamer): cover resource-aware media routing",
+        "8937b93993e7d6f0a3e192a76bf79fbb035d5771\ttest(ai-streamer): cover browser worker success and challenge paths",
+        "8d9a45685fbb4e81a834ebd2bc3b6c7c7eff4352\tfeat(ai-streamer): add rolling 24/7 content buffer planner",
+        "4a9c58b87fb91d266c94dfe44fde3c3e3266f034\ttest(ai-streamer): cover rolling content buffer health",
+        "d3d157a1ca837fbbc72ff732c11b9bd4a138898a\tfeat(ai-streamer): wire configurable Higgsfield browser adapter",
+        "43aaf9171d16626a921b05e14d87f927b92094dd\tMerge commit '3d88149' into feature/ai-streamer-higgsfield-browser-20260908",
+        "3582d99257f2d9bffc2261fc4bb929efaa4fbbad\tfeat(ai-streamer): the Higgsfield adapter goes through the session, not past it",
+        "e0463b698c898ee6f68f0941e541fe97c0e1af17\tfeat(ai-streamer): a downloaded file becomes a result only after it is measured",
+        "ed420c1d772a4e1413f89d6eca3521c486ca5236\tfeat(ai-streamer): a restart must not generate the same clip a second time",
+        "142b815d716a0d962e35b59c59d5ce3f9687f5a7\tfeat(ai-streamer): the router stops believing numbers nobody measured",
+        "80738753543d9e84df1b6930259bd4a6fe6f69ba\tfeat(ai-streamer): the host stays the same host, and the prompt carries only the canon",
+        "24f0426ab346467030e8cfb34c71ea0268fce45b\tfeat(ai-streamer): the repair worker can fix selectors and cannot disable them",
+        "8a07616e0cb959afce676394c28791861d0e794a\tfeat(ai-streamer): six unattended hours, on a clock the test suite can actually run",
+        "ad1e0aaa4cde71826b855e19cf87852cf4c87448\ttest(ai-streamer): pin the timeout fixtures, and map the pack onto what exists",
+        "f5468559430af964dcfad5ef89e7e390d3f64737\tci(social-farm): the service this PR is built on had no CI at all",
+        "2fe7c6c7054e2c0febb29dc333100d5f0b321154\tfix(ai-streamer): four things an adversarial read of this branch found",
+        "fbb2da7396fb4e7ac3eb35285f77e5403599c016\tci(social-farm): name the jobs so they are not read as Command Center's",
+        "a3f5a8a22a895ea59b5109f4e10aad92d7e07970\tfix(ai-streamer): land on the generator page before reading whose account this is",
+        "4f4fd1cf6c9ca9387dda924978279cf8dde9ac04\tfix(ai-streamer): a CAPTCHA during submit or download was becoming an ordinary failure",
+        "d13e905edd4005dddacc327654a51f22a9359607\tstyle(v7): strip the trailing space that turned root CI red",
+        "d884a7f5ecbac6fdac4ece9e50c6bb49d8d6d809\tci(social-farm): задание падало раньше, чем доходило до тестов",
+        "ab273e8ff0874d7671625bed2982f43bd423de73\tMerge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+        "df09cceb798896a1b7cb2135967fbce313f8bdd1\tMerge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+        "9e18426454de5e61d3afd4e27b4dba50a2288aab\tchore(tests): двадцать пропусков Social Farm были вне реестра",
+        "8db8e08a16e8e1c5f2497d16816c1c8464ce8200\tMerge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+        "4cd1d16b3ec0a20512c63f04227968b1cc5ae0ff\tMerge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+        "21397767ea071d0d434335057ce87c215282c412\tMerge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+        "406d71ba232b0a7696daef7467bb11c5475614d5\tMerge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+        "9e22269ab21cc75323686aae8b95deb67bfd54eb\tMerge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+        "0b5c674b8995f0a88d9935d93b5c0ae59ffa4525\tMerge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+        "128324713c140c908a7ad502ed5621e5ea22a6a6\tMerge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908"
+      ],
+      "changed_paths": [
+        "A\t.github/workflows/social-farm-ci.yml",
+        "M\tapps/social-farm/pyproject.toml",
+        "M\tapps/social-farm/src/social_farm/browser/session.py",
+        "M\tapps/social-farm/src/social_farm/domain/safety.py",
+        "A\tapps/social-farm/src/social_farm/generation/browser_worker.py",
+        "A\tapps/social-farm/src/social_farm/generation/content_buffer.py",
+        "A\tapps/social-farm/src/social_farm/generation/drift_report.py",
+        "A\tapps/social-farm/src/social_farm/generation/higgsfield_adapter.py",
+        "A\tapps/social-farm/src/social_farm/generation/higgsfield_browser_contracts.py",
+        "A\tapps/social-farm/src/social_farm/generation/higgsfield_selectors.py",
+        "A\tapps/social-farm/src/social_farm/generation/job_store.py",
+        "A\tapps/social-farm/src/social_farm/generation/media_gate.py",
+        "A\tapps/social-farm/src/social_farm/generation/media_router.py",
+        "A\tapps/social-farm/src/social_farm/generation/persona.py",
+        "A\tapps/social-farm/src/social_farm/generation/pipeline.py",
+        "A\tapps/social-farm/src/social_farm/generation/route_inputs.py",
+        "A\tapps/social-farm/src/social_farm/generation/segment_qa.py",
+        "A\tapps/social-farm/src/social_farm/generation/soak.py",
+        "A\tapps/social-farm/src/social_farm/generation/workspace.py",
+        "A\tapps/social-farm/tests/unit/higgsfield_kit.py",
+        "A\tapps/social-farm/tests/unit/test_browser_generation_worker.py",
+        "A\tapps/social-farm/tests/unit/test_content_buffer.py",
+        "A\tapps/social-farm/tests/unit/test_generation_durability.py",
+        "A\tapps/social-farm/tests/unit/test_generation_job_store.py",
+        "A\tapps/social-farm/tests/unit/test_generation_persona_pipeline.py",
+        "A\tapps/social-farm/tests/unit/test_generation_route_inputs.py",
+        "A\tapps/social-farm/tests/unit/test_generation_soak.py",
+        "A\tapps/social-farm/tests/unit/test_higgsfield_browser_contracts.py",
+        "A\tapps/social-farm/tests/unit/test_higgsfield_collect.py",
+        "A\tapps/social-farm/tests/unit/test_higgsfield_session_adapter.py",
+        "M\tapps/social-farm/tests/unit/test_media_probe.py",
+        "A\tapps/social-farm/tests/unit/test_media_router.py",
+        "A\tapps/social-farm/tests/unit/test_ui_drift_packet.py",
+        "A\tbossman-core/bossman/apprentice/selector_repair.py",
+        "A\tbossman-core/tests/test_ui_drift_repair.py",
+        "M\tcommand-center/bcc/features/reality.py",
+        "A\tcommand-center/bcc/reality/media_routing.py",
+        "A\tcommand-center/tests/test_v7_generation_observations.py",
+        "A\tdocs/ai_streamer/AI_STREAMER_MASTER_ARCHITECTURE.md",
+        "A\tdocs/ai_streamer/BOSSMAN_MISSION_PACK.md",
+        "A\tdocs/ai_streamer/HIGGSFIELD_BROWSER_WORKER.md",
+        "A\tdocs/ai_streamer/IMPLEMENTATION_MAP_20260908.md",
+        "A\tdocs/ai_streamer/OPENHANDS_MEDIA_ENGINEER_SKILL.md",
+        "A\tdocs/ai_streamer/SKILLS_AND_WORKFLOWS_CATALOG.md",
+        "M\tdocs/testing/SKIPS_REGISTRY.md",
+        "M\ttools/skips_registry.py"
+      ],
+      "pairwise_merge_bases": {
+        "claude/bossman-control-v03-43igbk": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+        "main": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+        "night/v7-convergence-20260908": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+        "claude/bossman-final-audit-closure-aucx9x": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+        "claude/bossman-final-integration-pass-04nffa": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+        "build/local-bundle-20260907": "7b67b95c6f154298063c63cfe611d8ff91e35a14",
+        "feature/ai-streamer-higgsfield-browser-20260908": "128324713c140c908a7ad502ed5621e5ea22a6a6"
+      }
+    }
+  },
+  "commits": [
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "d05318bbb1592638a7b0271d054a0cd1ec8ba995",
+      "subject": "chore(deps): bump actions/setup-python from 5 to 7",
+      "classification": "DUPLICATE",
+      "decision": "Already preserved in floor by patch-equivalent b41232b492913e05497c1e3596e83cb49be058ff (setup-python v7); git cherry reports equivalent patch. Do not apply twice.",
+      "changed_paths": [
+        ".github/workflows/astra-acceptance.yml",
+        ".github/workflows/bossman-benchmark.yml",
+        ".github/workflows/bossman-core-ci.yml",
+        ".github/workflows/bossman-v2-repair.yml",
+        ".github/workflows/closure-checkpoint.yml",
+        ".github/workflows/command-center-ci.yml",
+        ".github/workflows/fable-media-fleet.yml",
+        ".github/workflows/human-speed-components.yml",
+        ".github/workflows/intelligence-preservation.yml",
+        ".github/workflows/release-certification.yml",
+        ".github/workflows/root-ci.yml",
+        ".github/workflows/solana-safety-ci.yml"
+      ],
+      "patch_equivalent_floor_commit": "b41232b492913e05497c1e3596e83cb49be058ff"
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "ac245c738c261bd616b3d2ef1ebfac670c1e31eb",
+      "subject": "chore(deps): bump peter-evans/create-pull-request from 5 to 8",
+      "classification": "DUPLICATE",
+      "decision": "Already preserved in floor by patch-equivalent e2d8028fd24c996c75b22ff30aa37f43f93fd7d9 (create-pull-request v8); git cherry reports equivalent patch. Do not apply twice.",
+      "changed_paths": [
+        ".github/workflows/bossman-v2-repair.yml"
+      ],
+      "patch_equivalent_floor_commit": "e2d8028fd24c996c75b22ff30aa37f43f93fd7d9"
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "fca0eafd9b8d2366b7d040af8a57c3fefeeb03b5",
+      "subject": "chore(deps): bump actions/upload-artifact from 4 to 7",
+      "classification": "DUPLICATE",
+      "decision": "Already preserved in floor by patch-equivalent e7a6d908795650ec6d537f9a3ef1a185f255f538 (upload-artifact v7); git cherry reports equivalent patch. Do not apply twice.",
+      "changed_paths": [
+        ".github/workflows/astra-acceptance.yml",
+        ".github/workflows/bossman-benchmark.yml",
+        ".github/workflows/bossman-core-ci.yml",
+        ".github/workflows/closure-checkpoint.yml",
+        ".github/workflows/command-center-ci.yml",
+        ".github/workflows/fable-media-fleet.yml",
+        ".github/workflows/human-speed-components.yml",
+        ".github/workflows/intelligence-preservation.yml",
+        ".github/workflows/release-certification.yml"
+      ],
+      "patch_equivalent_floor_commit": "e7a6d908795650ec6d537f9a3ef1a185f255f538"
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "29b26563b56582a7dc0ad8fb9aba99f6eabbd479",
+      "subject": "docs(audit): record safe PR maintenance, merge #5 and preserve unresolved work",
+      "classification": "DOC_ONLY",
+      "decision": "Already preserved in floor by patch-equivalent 6595c006d0acbf56913263c8b9a0b6b98cff111e (historical PR triage); git cherry reports equivalent patch. Do not apply twice.",
+      "changed_paths": [
+        "docs/audits/PR_MERGE_TRIAGE_20260907.md"
+      ],
+      "patch_equivalent_floor_commit": "6595c006d0acbf56913263c8b9a0b6b98cff111e"
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "8567ffac27b7c4b2929b850d9a0d181330dbbcd7",
+      "subject": "chore(audit): full repo audit issues backlog",
+      "classification": "DOC_ONLY",
+      "decision": "Already preserved in floor by patch-equivalent 2e6cd3f648e5ccedde901967dadbcb4e17bfc44c (historical audit backlog); git cherry reports equivalent patch. Do not apply twice.",
+      "changed_paths": [
+        "AUDIT_ISSUES_BACKLOG.md"
+      ],
+      "patch_equivalent_floor_commit": "2e6cd3f648e5ccedde901967dadbcb4e17bfc44c"
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "7638558a9251d0a28868504fafb33b520eca4258",
+      "subject": "docs(models): add Strix Halo local model candidate matrix",
+      "classification": "DOC_ONLY",
+      "decision": "Local model candidate matrix; no measured local model acceptance.",
+      "changed_paths": [
+        "LOCAL_MODEL_STRIX_HALO_2026-09-07.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "b57b4ce981458581600adc2ee6836abca58be6fb",
+      "subject": "docs(models): add local model orchestration training spec",
+      "classification": "DOC_ONLY",
+      "decision": "Local model orchestration training specification, not release implementation.",
+      "changed_paths": [
+        "LOCAL_MODEL_ORCHESTRATION_TZ.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "d5187cdf94510b5db9ab02f56cc14015af240844",
+      "subject": "docs(audit): Perplexity AI Max Pro 128GB hardware audit and Llama 3.1 70B analysis",
+      "classification": "DOC_ONLY",
+      "decision": "Historical hardware audit; not evidence of available owner hardware.",
+      "changed_paths": [
+        "docs/hardware/AI_MAX_PRO_128GB_AUDIT.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "ddea21112f89c978df50aae8948c5955d7dada2e",
+      "subject": "docs(audit): Perplexity total performance audit and local model intelligence analysis",
+      "classification": "DOC_ONLY",
+      "decision": "Historical performance/intelligence audit; no new runtime implementation.",
+      "changed_paths": [
+        "docs/audits/TOTAL_PERFORMANCE_AUDIT_PERPLEXITY_2026_09_07.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "8abb7a6ecdc6abe6f51ef068508d5d76fecfe23f",
+      "subject": "feat(trading): add deterministic BTC orderflow analysis engine",
+      "classification": "SUPERSEDED",
+      "decision": "Trader implementation ported by d415db401ad75f81536340f39137b2c4ef1a1e52 with stronger Decimal contract.",
+      "changed_paths": [
+        "learning/trader_apprentice.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "48816bc54bab89343fcf0a78ea8e89dd6aafccf0",
+      "subject": "test(trading): cover orderflow matrix and position math",
+      "classification": "SUPERSEDED",
+      "decision": "Original Trader tests preserved and strengthened by d415db4; do not replace the stronger suite.",
+      "changed_paths": [
+        "tests/test_trader_apprentice.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "10469c524760a711023cfa9de09d7875a997fcb9",
+      "subject": "docs(trading): add BTC orderflow playbook from learned cases",
+      "classification": "DUPLICATE",
+      "decision": "Trader playbook already ported by d415db4.",
+      "changed_paths": [
+        "docs/trading/BTC_ORDERFLOW_PLAYBOOK.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "72da311865440839f0d8be0b373567ba0b635eea",
+      "subject": "data(trading): add machine-readable BTC orderflow rule corpus",
+      "classification": "DUPLICATE",
+      "decision": "Trading rule corpus already ported by d415db4.",
+      "changed_paths": [
+        "data/trading/btc_orderflow_rules_v1.json"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "55ad9c7993808e3b4c3ef638e021a26a4df497c4",
+      "subject": "docs(trading): add local Trader Apprentice system prompt",
+      "classification": "DUPLICATE",
+      "decision": "Local Trader system prompt already ported by d415db4.",
+      "changed_paths": [
+        "docs/trading/LOCAL_MODEL_SYSTEM_PROMPT.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "8767801c39cbe4ddd481a82dc71e247d9d454a71",
+      "subject": "data(trading): add September BTC learned casebook",
+      "classification": "DUPLICATE",
+      "decision": "Original September casebook already ported by d415db4.",
+      "changed_paths": [
+        "data/trading/btc_casebook_2026_09.jsonl"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "079ca94dddef4d49069cb0a977c264aeae5f2743",
+      "subject": "data(trading): add Trader Apprentice ingest manifest",
+      "classification": "DUPLICATE",
+      "decision": "Trader ingest manifest already ported by d415db4.",
+      "changed_paths": [
+        "data/trading/manifest.json"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "2e69e024e01f693d52958361f98a85c4316ad4fa",
+      "subject": "feat(trading): expose Trader Apprentice analysis API",
+      "classification": "DUPLICATE",
+      "decision": "Analysis API re-exports already ported by d415db4.",
+      "changed_paths": [
+        "learning/__init__.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "da67a63251ab2ffb5d20a624772d2cb9a0427365",
+      "subject": "docs(local-model): wire Trader Apprentice corpus into orchestration",
+      "classification": "DOC_ONLY",
+      "decision": "Training-TZ cross-reference; retain reference without claiming a trained model.",
+      "changed_paths": [
+        "LOCAL_MODEL_ORCHESTRATION_TZ.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "c592df930b450b29d97acf409a06a1ae2acdf5c6",
+      "subject": "chore(repo): remove legacy root ZIP drops and stray image",
+      "classification": "SUPERSEDED",
+      "decision": "Archive cleanup mostly already in floor; this commit also deletes the required Social Farm fixture restored by 2a7d3a2. Do not apply wholesale.",
+      "changed_paths": [
+        "AiMaxBossman_ASTRA_Fixes_35390ec(1).zip",
+        "AiMaxBossman_ASTRA_Fixes_35390ec.zip",
+        "AiMaxBossman_Benchmark_Overlay_DropIn_v2.zip",
+        "AiMaxBossman_Fleet_OS_Complete_Foundation_DropIn.zip",
+        "AiMaxBossman_Organization_Layer_DropIn.zip",
+        "AiMaxBossman_Organization_Layer_DropIn_v2.zip",
+        "AiMaxBossman_V1_FINAL_ACCEPTANCE_PACK_2026-08-30.zip",
+        "AiMaxBossman_V3_7Pack.zip",
+        "BOSSMAN_5_APPS_V1_FINAL_CODE_PACK.zip",
+        "BOSSMAN_APP_ICON_PACK.zip",
+        "BOSSMAN_FABLE_NEXT_SESSION_PACK.zip",
+        "BOSSMAN_FABLE_NEXT_SESSION_PACK_V2.zip",
+        "BOSSMAN_META_INTELLIGENCE_7_MODULES_PASS3_FINAL.zip",
+        "BOSSMAN_PROMPT_CACHE_OPUS5_DROPIN.zip",
+        "BOSSMAN_SOCIAL_FARM_APP4_TECH_SPEC_V1_1.zip",
+        "BOSSMAN_UX_2_PROMPT_PACK_REBUILT.zip",
+        "BOSSMAN_V3_AUTONOMOUS_OPERATOR_EXPANDED_FULL_PACK.zip",
+        "BOSSMAN_ZIP_LEVEL_3_FINAL_REPACKED.zip",
+        "Bossman_CyberSec_Training_Engine_V1.zip",
+        "IMG_3955.png",
+        "self_learning_orchestrator.zip"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "6e5d8b57a9327a8f916c16c42f9eb2549f016642",
+      "subject": "chore(repo): remove tracked local runtime cache",
+      "classification": "DUPLICATE",
+      "decision": "The removed tracked runtime cache is already absent in floor (git cat-file checked).",
+      "changed_paths": [
+        ".bossman-state/context-cache.json"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "94717d52f05233b1449eab806f714b473c8cf838",
+      "subject": "temp",
+      "classification": "SUPERSEDED",
+      "decision": "Temporary placeholder removed again by 2a7d3a2; absent in floor.",
+      "changed_paths": [
+        "RESTORE_FIXTURE_PLACEHOLDER"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "4fb5015f66d85947fe65ebedfa8b292903aff776",
+      "subject": "temp2",
+      "classification": "SUPERSEDED",
+      "decision": "Temporary fixture note removed again by 2a7d3a2; absent in floor.",
+      "changed_paths": [
+        "TEMP_README_FIXTURE_NOTE.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "be7242a3c1652a27fdd027cfb484fe808c2196c3",
+      "subject": "temp3",
+      "classification": "SUPERSEDED",
+      "decision": "Temporary DO_NOT_USE file removed again by 2a7d3a2; absent in floor.",
+      "changed_paths": [
+        "DO_NOT_USE"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "2a7d3a2dd7eca278322a34afa9ca3c69a4ee3c1d",
+      "subject": "chore(repo): restore Social Farm specification fixture",
+      "classification": "DUPLICATE",
+      "decision": "Floor already contains the Social Farm fixture and no temporary placeholders.",
+      "changed_paths": [
+        "BOSSMAN_SOCIAL_FARM_APP4_TECH_SPEC_V1_1.zip",
+        "DO_NOT_USE",
+        "RESTORE_FIXTURE_PLACEHOLDER",
+        "TEMP_README_FIXTURE_NOTE.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "392421ce095f00e9133721f911f929ea7f3b3c2f",
+      "subject": "data(trading): log 18:48 sweep and CVD recovery",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Additional trading observations only; explicitly excluded by no-new-Trader emergency priority.",
+      "changed_paths": [
+        "data/trading/btc_casebook_2026_09.jsonl"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "0b98cf9697e7fa9b1f397693cb37fbc0ccb87e1e",
+      "subject": "data(trading): log Sep 9 buyer-failure deleveraging state",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Additional trading observations only; explicitly excluded by emergency priority.",
+      "changed_paths": [
+        "data/trading/btc_casebook_2026_09.jsonl"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "b9e00294963b0af9ab7d2a250272caf0c95d7254",
+      "subject": "feat(trading): classify buyer failure during deleveraging",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "New buyer-failure trading regime, not a fix needed to boot or use core workflows.",
+      "changed_paths": [
+        "learning/trader_apprentice.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "7885ad7f9adf93d92fa33d12f6296d5b40ed36c6",
+      "subject": "test(trading): cover buyer failure with deleveraging",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Tests for the deferred buyer-failure trading regime; preserve on source ref.",
+      "changed_paths": [
+        "tests/test_trader_apprentice.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-control-v03-43igbk",
+      "sha": "a6762965c5806d5c44462ee1a516dabf6307fe81",
+      "subject": "data(trading): learn buyer-failure deleveraging regime",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Rule/corpus addition for the deferred trading regime.",
+      "changed_paths": [
+        "data/trading/btc_orderflow_rules_v1.json"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-audit-closure-aucx9x",
+      "sha": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "subject": "fix(closure): сводное закрытие аудитов 2026-09-08 — истина завершения, улики OpenHands, бюджет восстановления",
+      "classification": "REQUIRED",
+      "decision": "Already in PR61: completion truth, challenge pause/resume, independent OpenHands evidence, bounded stream/recovery, model picker and repeat-Apply fixes.",
+      "changed_paths": [
+        "bossman-core/bossman/apprentice/isolated_worktree.py",
+        "bossman-core/bossman/apprentice/openhands_client.py",
+        "bossman-core/tests/apprentice/test_openhands_evidence_independence.py",
+        "bossman-core/tests/apprentice/test_worktree_cleanup_honesty.py",
+        "command-center/bcc/engine.py",
+        "command-center/bcc/features/action_contract.py",
+        "command-center/bcc/features/action_router.py",
+        "command-center/bcc/features/browser.py",
+        "command-center/bcc/features/coding_tasks.py",
+        "command-center/bcc/features/reality.py",
+        "command-center/bcc/features/review_gate.py",
+        "command-center/bcc/features/web_designer.py",
+        "command-center/bcc/finalize.py",
+        "command-center/bcc/reality/recovery.py",
+        "command-center/bcc/streaming.py",
+        "command-center/bcc/v2/verification.py",
+        "command-center/bcc/web_designer_dom.py",
+        "command-center/tests/test_action_contract_negation.py",
+        "command-center/tests/test_action_router.py",
+        "command-center/tests/test_apps_owner_path_regression.py",
+        "command-center/tests/test_coding_tasks.py",
+        "command-center/tests/test_p0_completion_truth.py",
+        "command-center/tests/test_streaming_contract.py",
+        "command-center/tests/test_streaming_honesty.py",
+        "command-center/tests/test_v7_reality.py",
+        "command-center/tests/test_v7_reality_route_validation.py",
+        "command-center/tests/test_v7_recovery_bounded.py",
+        "command-center/tests/test_web_designer_apply_idempotent_ui.py",
+        "command-center/tests/test_web_designer_model_choice.py",
+        "command-center/ui/pages/coding.js",
+        "command-center/ui/pages/web_designer.js",
+        "docs/testing/SKIPS_REGISTRY.md",
+        "scripts/bossman_doctor.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-audit-closure-aucx9x",
+      "sha": "413d160ec33272efe561f03916116c949934df81",
+      "subject": "docs(final_closure): реестр находок, кластеризация сессии владельца, вечерняя настройка брейкера",
+      "classification": "DOC_ONLY",
+      "decision": "Already in PR61: historical finding registry and owner-session clustering; claims remain bound to stated older SHAs.",
+      "changed_paths": [
+        "docs/final_closure/MASTER_FINDINGS.md",
+        "docs/final_closure/OWNER_BREAKER_SETUP.md",
+        "docs/final_closure/OWNER_SESSION_CLUSTERING.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-audit-closure-aucx9x",
+      "sha": "4001b7ac9e1be9981a06f1f6909ec26a86472196",
+      "subject": "fix(openhands): sha1 блоба помечен usedforsecurity=False; docs(final_closure): итоговый отчёт с точными SHA",
+      "classification": "REQUIRED",
+      "decision": "Already in PR61: SHA1 explicitly non-security for Git blob identity, preserving independent evidence and Bandit gate.",
+      "changed_paths": [
+        "bossman-core/bossman/apprentice/openhands_client.py",
+        "docs/final_closure/FINAL_CLOSURE_REPORT.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-audit-closure-aucx9x",
+      "sha": "cbb29919750b5bde168d389934632f4b0b455472",
+      "subject": "fix(worktree): cleanup снимает read-only и с родительского каталога — POSIX без root",
+      "classification": "REQUIRED",
+      "decision": "Already in PR61: cleanup removes POSIX read-only parent mode so sandbox deletion actually completes.",
+      "changed_paths": [
+        "bossman-core/bossman/apprentice/isolated_worktree.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-audit-closure-aucx9x",
+      "sha": "8c794dad0ab29d624f4efffa817d41e8301ff56a",
+      "subject": "docs(final_closure): FINAL_CODE_SHA=cbb2991 и два CI-фикса названы в отчёте",
+      "classification": "DOC_ONLY",
+      "decision": "Already in PR61: report points to then-current cbb2991, not current release evidence.",
+      "changed_paths": [
+        "docs/final_closure/FINAL_CLOSURE_REPORT.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-audit-closure-aucx9x",
+      "sha": "c7e75cc3c0a636d61f6fc8fb3e476a210d1320d3",
+      "subject": "test(closure): новые тесты не пиннят tempfile.tempdir; контейнмент cleanup проверяется явно; числа CC/root в отчёте",
+      "classification": "REQUIRED",
+      "decision": "Already in PR61: restore tempfile isolation in new tests; make cleanup containment explicit; contains test changes despite earlier docs-only claims.",
+      "changed_paths": [
+        "bossman-core/tests/apprentice/test_worktree_cleanup_honesty.py",
+        "command-center/tests/test_coding_tasks.py",
+        "docs/final_closure/FINAL_CLOSURE_REPORT.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "355a582d3274ef29da345a177f0380c3b8fd4cdd",
+      "subject": "fix(trader): enforce metric-series identity before comparing CVD/OI",
+      "classification": "REQUIRED",
+      "decision": "Selectively integrate series-identity correctness for the Trader module already shipped in floor; not a new trading feature.",
+      "changed_paths": [
+        "learning/__init__.py",
+        "learning/trader_apprentice.py",
+        "tests/test_trader_apprentice.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "9fcf9ab5cbcea46574202a52fa3ca69de294a3f8",
+      "subject": "fix(audit): persist immutable executor provenance on every run",
+      "classification": "REQUIRED",
+      "decision": "Selectively integrate immutable run provenance; re-evaluate code-SHA discovery and capture failure behavior for installed package.",
+      "changed_paths": [
+        "command-center/bcc/api.py",
+        "command-center/bcc/db.py",
+        "command-center/bcc/engine.py",
+        "command-center/bcc/run_provenance.py",
+        "command-center/tests/test_run_provenance.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "7aec22b87adf55b93d5828c12f61be8aa8b99483",
+      "subject": "feat(file-intelligence): governed AI File Sorter sidecar, off by default",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Optional File Intelligence is deferred until boot/core flows work. If integrated later, must carry all following security and route-leak fixes.",
+      "changed_paths": [
+        "command-center/bcc/features/file_intelligence.py",
+        "command-center/bcc/file_intelligence/__init__.py",
+        "command-center/bcc/file_intelligence/discovery.py",
+        "command-center/bcc/file_intelligence/models.py",
+        "command-center/bcc/file_intelligence/privacy.py",
+        "command-center/bcc/file_intelligence/protocol.py",
+        "command-center/bcc/file_intelligence/runtime_lock.py",
+        "command-center/bcc/file_intelligence/scope.py",
+        "command-center/bcc/file_intelligence/service.py",
+        "command-center/bcc/file_intelligence/verify.py",
+        "command-center/ui/pages/file_intelligence.js",
+        "command-center/ui/pages/index.js",
+        "command-center/ui/style.css",
+        "integrations/ai-file-sorter/NOTICE.md",
+        "integrations/ai-file-sorter/integration.json"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "0b5aab2afdfbb0c081c65c127ca0ac2631e7472a",
+      "subject": "test(file-intelligence): hostile, restart and verification suite",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Contract tests belong to deferred File Intelligence; fake sidecar does not prove real AI File Sorter.",
+      "changed_paths": [
+        "command-center/tests/fileintel_fake.py",
+        "command-center/tests/test_file_intelligence_contract.py",
+        "command-center/tests/test_file_intelligence_feature.py",
+        "command-center/tests/test_file_intelligence_hostile.py",
+        "command-center/tests/test_file_intelligence_recovery.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "cf020daa1ec72af90ae069b4118544ff7fe6a12d",
+      "subject": "test(security,lifecycle): AP-001 exfiltration proof; STOP_GRACE reproduction",
+      "classification": "REQUIRED",
+      "decision": "Independent AP-001 no-secret-output and STOP_GRACE lifecycle regressions are valid for core release without File Intelligence.",
+      "changed_paths": [
+        "command-center/tests/test_secrem_f009_terminal.py",
+        "command-center/tests/test_stop_grace_lifecycle.py",
+        "docs/testing/SKIPS_REGISTRY.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "99803d3de1d74f46e868d1ce4647240b5091b859",
+      "subject": "docs(final): owner-test candidate and AI File Sorter integration guide",
+      "classification": "DOC_ONLY",
+      "decision": "Historical File Intelligence owner guide; live acceptance table was empty.",
+      "changed_paths": [
+        "docs/final/OWNER_TEST_20260908_FILE_INTELLIGENCE.md",
+        "integrations/ai-file-sorter/README.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "1a4fe111fc1d19b18c3ecece35e95df51b2064c5",
+      "subject": "docs(final): measured suite results and the real cost of the disabled feature",
+      "classification": "DOC_ONLY",
+      "decision": "Historic suite counts/performance measurements; not transferable to PR61 or final release SHA.",
+      "changed_paths": [
+        "docs/final/OWNER_TEST_20260908_FILE_INTELLIGENCE.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "9bea81a9bc01e9f0cbc5c0a9994a5a189ce72c1e",
+      "subject": "fix(files): verify the sidecar binary at effect time; cover timeout and swap",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Required safety companion IF File Intelligence is integrated: hash sidecar before effect and kill process on timeout.",
+      "changed_paths": [
+        "command-center/bcc/file_intelligence/service.py",
+        "command-center/tests/fileintel_fake.py",
+        "command-center/tests/test_file_intelligence_hostile.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "0ba775f3ff3d77b09cccc518f6f484bd080021b1",
+      "subject": "docs(release): re-point the owner-test candidate at the new frozen SHA",
+      "classification": "DOC_ONLY",
+      "decision": "Historical owner candidate pointer; not release acceptance.",
+      "changed_paths": [
+        "docs/final/OWNER_TEST_20260908_FILE_INTELLIGENCE.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "76b95858fa83773658b7fd6fb66194872ee12f20",
+      "subject": "docs(release): full sequential suite results on the frozen candidate",
+      "classification": "DOC_ONLY",
+      "decision": "Historical sequential suite results; never combine these with PR61 suites.",
+      "changed_paths": [
+        "docs/final/OWNER_TEST_20260908_FILE_INTELLIGENCE.md"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "a1e633cb3c961302a74bac63da51be16fd08c53b",
+      "subject": "fix(files): declare File Intelligence routes once, not on every setup()",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Required companion IF File Intelligence is integrated: register routes once and resolve service from app.state; repeated-setup regression.",
+      "changed_paths": [
+        "command-center/bcc/features/file_intelligence.py",
+        "command-center/tests/test_file_intelligence_feature.py"
+      ]
+    },
+    {
+      "branch": "claude/bossman-final-integration-pass-04nffa",
+      "sha": "e5ccd54c8fea94940f2ebced41bcb583076ac264",
+      "subject": "docs(release): freeze the owner-test candidate at a1e633c with CI-proven numbers",
+      "classification": "DOC_ONLY",
+      "decision": "Frozen a1e633c report is source-history evidence only.",
+      "changed_paths": [
+        "docs/final/OWNER_TEST_20260908_FILE_INTELLIGENCE.md"
+      ]
+    },
+    {
+      "branch": "build/local-bundle-20260907",
+      "sha": "210cc525fd0d571facffaebf60a4456eb2cf267b",
+      "subject": "build: a downloadable local bundle, and the packaging defect it exposed",
+      "classification": "REQUIRED",
+      "decision": "Selectively integrate UI location/bundle intent and strengthen clean-install proof. Original builder is not a complete installed-product acceptance.",
+      "changed_paths": [
+        ".github/workflows/local-bundle.yml",
+        ".gitignore",
+        "command-center/bcc/config.py",
+        "tools/build_local_bundle.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "5e8a39d63b87e4fd073119776f4f210d93877975",
+      "subject": "docs(ai-streamer): add autonomous media studio architecture",
+      "classification": "DOC_ONLY",
+      "decision": "Optional AI Streamer architecture, deferred under emergency order.",
+      "changed_paths": [
+        "docs/ai_streamer/AI_STREAMER_MASTER_ARCHITECTURE.md"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "aea7a2a83cde016dc2c5ae9bab5ad331c8f06bcb",
+      "subject": "docs(ai-streamer): add skills and workflow catalog",
+      "classification": "DOC_ONLY",
+      "decision": "Optional workflow catalog; no executable acceptance.",
+      "changed_paths": [
+        "docs/ai_streamer/SKILLS_AND_WORKFLOWS_CATALOG.md"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "dc464131a40247dd1d0a750aa49daea7370c4b2e",
+      "subject": "docs(ai-streamer): define Higgsfield browser worker contract",
+      "classification": "DOC_ONLY",
+      "decision": "Higgsfield browser contract; does not establish live selectors/account access.",
+      "changed_paths": [
+        "docs/ai_streamer/HIGGSFIELD_BROWSER_WORKER.md"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "5499908236e3f3ed71f42dc2faed9e21a05b8efd",
+      "subject": "docs(ai-streamer): add OpenHands media engineer skill",
+      "classification": "DOC_ONLY",
+      "decision": "Optional OpenHands media engineer design; no permission to expand features.",
+      "changed_paths": [
+        "docs/ai_streamer/OPENHANDS_MEDIA_ENGINEER_SKILL.md"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "ce849f4bcd13d365b24b56e65fa3b035559d6362",
+      "subject": "feat(social-farm): add browser generation job contracts",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Deferred standalone browser-generation job contracts.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/higgsfield_browser_contracts.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "5d7f77a65dc4e18552b79bd90f86c010b891e0cb",
+      "subject": "test(social-farm): cover browser generation fail-closed contracts",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Fixture-only tests for deferred browser-generation contracts.",
+      "changed_paths": [
+        "apps/social-farm/tests/unit/test_higgsfield_browser_contracts.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "63bd277d6c5cb4114968ac0d2878a43be57ce7d1",
+      "subject": "docs(ai-streamer): add Bossman mission and acceptance pack",
+      "classification": "DOC_ONLY",
+      "decision": "Optional mission/acceptance specification; no completed live run.",
+      "changed_paths": [
+        "docs/ai_streamer/BOSSMAN_MISSION_PACK.md"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "6eaeb621d9bd11385c7592752d8232721d2c4d51",
+      "subject": "feat(ai-streamer): add durable browser generation job store",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Deferred generation job store; no existing core boot dependency.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/job_store.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "134f2f620ce2a3d9fc8862a28af086ebb795ad52",
+      "subject": "feat(ai-streamer): add browser generation worker orchestration",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Deferred generation-worker orchestration.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/browser_worker.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "85cad480ba66d29b2380d1f636c76742f993097c",
+      "subject": "feat(ai-streamer): add resource-aware media generation router",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Deferred media-generation resource router.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/media_router.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "01f079b341570be99859619ab673a9adcab5e156",
+      "subject": "test(ai-streamer): cover durable generation job store",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Tests for deferred generation job store.",
+      "changed_paths": [
+        "apps/social-farm/tests/unit/test_generation_job_store.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "2d104e74aca7e732ec5b4c46495311009f6e541b",
+      "subject": "test(ai-streamer): cover resource-aware media routing",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Tests for deferred resource-aware media router.",
+      "changed_paths": [
+        "apps/social-farm/tests/unit/test_media_router.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "8937b93993e7d6f0a3e192a76bf79fbb035d5771",
+      "subject": "test(ai-streamer): cover browser worker success and challenge paths",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Fixture success/challenge tests for deferred worker.",
+      "changed_paths": [
+        "apps/social-farm/tests/unit/test_browser_generation_worker.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "8d9a45685fbb4e81a834ebd2bc3b6c7c7eff4352",
+      "subject": "feat(ai-streamer): add rolling 24/7 content buffer planner",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "New rolling content buffer is optional expansion, not release closure.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/content_buffer.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "4a9c58b87fb91d266c94dfe44fde3c3e3266f034",
+      "subject": "test(ai-streamer): cover rolling content buffer health",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Tests for deferred content buffer.",
+      "changed_paths": [
+        "apps/social-farm/tests/unit/test_content_buffer.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "d3d157a1ca837fbbc72ff732c11b9bd4a138898a",
+      "subject": "feat(ai-streamer): wire configurable Higgsfield browser adapter",
+      "classification": "SUPERSEDED",
+      "decision": "Initial direct Higgsfield adapter is superseded by session-mediated 3582d99; neither is admitted yet.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/higgsfield_adapter.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "43aaf9171d16626a921b05e14d87f927b92094dd",
+      "subject": "Merge commit '3d88149' into feature/ai-streamer-higgsfield-browser-20260908",
+      "classification": "DUPLICATE",
+      "decision": "Ancestry merge from night convergence, which PR61 already inherits through 45027d3; do not replay an ancestry merge as feature work.",
+      "changed_paths": []
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "3582d99257f2d9bffc2261fc4bb929efaa4fbbad",
+      "subject": "feat(ai-streamer): the Higgsfield adapter goes through the session, not past it",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Session-mediated adapter, selector pack and challenge boundary; must replace initial adapter if optional subsystem is admitted.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/browser/session.py",
+        "apps/social-farm/src/social_farm/domain/safety.py",
+        "apps/social-farm/src/social_farm/generation/browser_worker.py",
+        "apps/social-farm/src/social_farm/generation/higgsfield_adapter.py",
+        "apps/social-farm/src/social_farm/generation/higgsfield_browser_contracts.py",
+        "apps/social-farm/src/social_farm/generation/higgsfield_selectors.py",
+        "apps/social-farm/tests/unit/higgsfield_kit.py",
+        "apps/social-farm/tests/unit/test_higgsfield_session_adapter.py",
+        "apps/social-farm/tests/unit/test_media_probe.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "e0463b698c898ee6f68f0941e541fe97c0e1af17",
+      "subject": "feat(ai-streamer): a downloaded file becomes a result only after it is measured",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Quarantine/media-probe gates required with deferred adapter; real local fixtures are not Higgsfield downloads.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/higgsfield_adapter.py",
+        "apps/social-farm/src/social_farm/generation/media_gate.py",
+        "apps/social-farm/src/social_farm/generation/workspace.py",
+        "apps/social-farm/tests/unit/higgsfield_kit.py",
+        "apps/social-farm/tests/unit/test_higgsfield_collect.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "ed420c1d772a4e1413f89d6eca3521c486ca5236",
+      "subject": "feat(ai-streamer): a restart must not generate the same clip a second time",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Submission journal/lease/resume controls required with deferred worker; UNKNOWN must never be re-submitted.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/browser_worker.py",
+        "apps/social-farm/src/social_farm/generation/job_store.py",
+        "apps/social-farm/tests/unit/test_generation_durability.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "142b815d716a0d962e35b59c59d5ce3f9687f5a7",
+      "subject": "feat(ai-streamer): the router stops believing numbers nobody measured",
+      "classification": "CONFLICTING_IMPLEMENTATION",
+      "decision": "Extends bcc/features/reality.py also changed by PR61 invalid-input fix; preserve PR61 validation if optional observations are later added.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/media_router.py",
+        "apps/social-farm/src/social_farm/generation/route_inputs.py",
+        "apps/social-farm/tests/unit/test_generation_route_inputs.py",
+        "command-center/bcc/features/reality.py",
+        "command-center/bcc/reality/media_routing.py",
+        "command-center/tests/test_v7_generation_observations.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "80738753543d9e84df1b6930259bd4a6fe6f69ba",
+      "subject": "feat(ai-streamer): the host stays the same host, and the prompt carries only the canon",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Persona canon, prompt pipeline and segment QA are optional new media subsystem.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/persona.py",
+        "apps/social-farm/src/social_farm/generation/pipeline.py",
+        "apps/social-farm/src/social_farm/generation/segment_qa.py",
+        "apps/social-farm/tests/unit/test_generation_persona_pipeline.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "24f0426ab346467030e8cfb34c71ea0268fce45b",
+      "subject": "feat(ai-streamer): the repair worker can fix selectors and cannot disable them",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Optional drift packet/selector-repair mission; independent OpenHands evidence from PR61 must remain authoritative.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/drift_report.py",
+        "apps/social-farm/tests/unit/test_ui_drift_packet.py",
+        "bossman-core/bossman/apprentice/selector_repair.py",
+        "bossman-core/tests/test_ui_drift_repair.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "8a07616e0cb959afce676394c28791861d0e794a",
+      "subject": "feat(ai-streamer): six unattended hours, on a clock the test suite can actually run",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Optional virtual-clock six-hour soak; no six-hour real-time evidence.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/soak.py",
+        "apps/social-farm/tests/unit/test_generation_soak.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "ad1e0aaa4cde71826b855e19cf87852cf4c87448",
+      "subject": "test(ai-streamer): pin the timeout fixtures, and map the pack onto what exists",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Fixture timing correction plus implementation map; not live acceptance.",
+      "changed_paths": [
+        "apps/social-farm/tests/unit/test_generation_durability.py",
+        "docs/ai_streamer/IMPLEMENTATION_MAP_20260908.md"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "f5468559430af964dcfad5ef89e7e390d3f64737",
+      "subject": "ci(social-farm): the service this PR is built on had no CI at all",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Social Farm workflow and fixture fixes belong to deferred optional subsystem.",
+      "changed_paths": [
+        ".github/workflows/social-farm-ci.yml",
+        "apps/social-farm/tests/unit/test_generation_persona_pipeline.py",
+        "apps/social-farm/tests/unit/test_ui_drift_packet.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "2fe7c6c7054e2c0febb29dc333100d5f0b321154",
+      "subject": "fix(ai-streamer): four things an adversarial read of this branch found",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Security/boundedness corrections required if deferred worker/adapter is later admitted.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/browser_worker.py",
+        "apps/social-farm/src/social_farm/generation/drift_report.py",
+        "apps/social-farm/src/social_farm/generation/higgsfield_adapter.py",
+        "apps/social-farm/src/social_farm/generation/route_inputs.py",
+        "apps/social-farm/tests/unit/test_higgsfield_collect.py",
+        "apps/social-farm/tests/unit/test_ui_drift_packet.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "fbb2da7396fb4e7ac3eb35285f77e5403599c016",
+      "subject": "ci(social-farm): name the jobs so they are not read as Command Center's",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Optional Social Farm workflow naming; no core runtime effect.",
+      "changed_paths": [
+        ".github/workflows/social-farm-ci.yml"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "a3f5a8a22a895ea59b5109f4e10aad92d7e07970",
+      "subject": "fix(ai-streamer): land on the generator page before reading whose account this is",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Navigate before account identification; required with optional adapter, selectors still unverified live.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/higgsfield_adapter.py",
+        "apps/social-farm/tests/unit/test_higgsfield_session_adapter.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "4f4fd1cf6c9ca9387dda924978279cf8dde9ac04",
+      "subject": "fix(ai-streamer): a CAPTCHA during submit or download was becoming an ordinary failure",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "CAPTCHA during submit/download becomes human challenge; required with optional adapter.",
+      "changed_paths": [
+        "apps/social-farm/src/social_farm/generation/browser_worker.py",
+        "apps/social-farm/src/social_farm/generation/higgsfield_adapter.py",
+        "apps/social-farm/src/social_farm/generation/higgsfield_browser_contracts.py",
+        "apps/social-farm/tests/unit/test_higgsfield_collect.py",
+        "apps/social-farm/tests/unit/test_higgsfield_session_adapter.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "d13e905edd4005dddacc327654a51f22a9359607",
+      "subject": "style(v7): strip the trailing space that turned root CI red",
+      "classification": "DUPLICATE",
+      "decision": "Resource-test trailing whitespace also removed by floor 7d7b8e7; no behavior to integrate.",
+      "changed_paths": [
+        "command-center/tests/test_v7_resource_aware_strategy.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "d884a7f5ecbac6fdac4ece9e50c6bb49d8d6d809",
+      "subject": "ci(social-farm): задание падало раньше, чем доходило до тестов",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Social Farm Python testpath packaging adjustment; apply only with optional workflow and verify separately.",
+      "changed_paths": [
+        "apps/social-farm/pyproject.toml"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "ab273e8ff0874d7671625bed2982f43bd423de73",
+      "subject": "Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+      "classification": "DUPLICATE",
+      "decision": "Ancestry merge from night convergence, which PR61 already inherits through 45027d3; do not replay an ancestry merge as feature work.",
+      "changed_paths": []
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "df09cceb798896a1b7cb2135967fbce313f8bdd1",
+      "subject": "Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+      "classification": "DUPLICATE",
+      "decision": "Ancestry merge from night convergence, which PR61 already inherits through 45027d3; do not replay an ancestry merge as feature work.",
+      "changed_paths": []
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "9e18426454de5e61d3afd4e27b4dba50a2288aab",
+      "subject": "chore(tests): двадцать пропусков Social Farm были вне реестра",
+      "classification": "EXPERIMENTAL_NOT_FOR_RELEASE",
+      "decision": "Extends skip registry scanner to Social Farm; regenerate only when corresponding optional suite is included.",
+      "changed_paths": [
+        "docs/testing/SKIPS_REGISTRY.md",
+        "tools/skips_registry.py"
+      ]
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "8db8e08a16e8e1c5f2497d16816c1c8464ce8200",
+      "subject": "Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+      "classification": "DUPLICATE",
+      "decision": "Ancestry merge from night convergence, which PR61 already inherits through 45027d3; do not replay an ancestry merge as feature work.",
+      "changed_paths": []
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "4cd1d16b3ec0a20512c63f04227968b1cc5ae0ff",
+      "subject": "Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+      "classification": "DUPLICATE",
+      "decision": "Ancestry merge from night convergence, which PR61 already inherits through 45027d3; do not replay an ancestry merge as feature work.",
+      "changed_paths": []
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "21397767ea071d0d434335057ce87c215282c412",
+      "subject": "Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+      "classification": "DUPLICATE",
+      "decision": "Ancestry merge from night convergence, which PR61 already inherits through 45027d3; do not replay an ancestry merge as feature work.",
+      "changed_paths": []
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "406d71ba232b0a7696daef7467bb11c5475614d5",
+      "subject": "Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+      "classification": "DUPLICATE",
+      "decision": "Ancestry merge from night convergence, which PR61 already inherits through 45027d3; do not replay an ancestry merge as feature work.",
+      "changed_paths": []
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "9e22269ab21cc75323686aae8b95deb67bfd54eb",
+      "subject": "Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+      "classification": "DUPLICATE",
+      "decision": "Ancestry merge from night convergence, which PR61 already inherits through 45027d3; do not replay an ancestry merge as feature work.",
+      "changed_paths": []
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "0b5c674b8995f0a88d9935d93b5c0ae59ffa4525",
+      "subject": "Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+      "classification": "DUPLICATE",
+      "decision": "Ancestry merge from night convergence, which PR61 already inherits through 45027d3; do not replay an ancestry merge as feature work.",
+      "changed_paths": []
+    },
+    {
+      "branch": "feature/ai-streamer-higgsfield-browser-20260908",
+      "sha": "128324713c140c908a7ad502ed5621e5ea22a6a6",
+      "subject": "Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908",
+      "classification": "DUPLICATE",
+      "decision": "Ancestry merge from night convergence, which PR61 already inherits through 45027d3; do not replay an ancestry merge as feature work.",
+      "changed_paths": []
+    }
+  ],
+  "patch_equivalence_verified": "git cherry 45027d3 a676296; equivalent subjects resolved with git log 45027d3"
+}

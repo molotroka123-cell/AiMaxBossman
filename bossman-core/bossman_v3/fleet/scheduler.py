@@ -32,9 +32,19 @@ class FleetScheduler:
 
     def reject_reasons(self, node: NodeState, req: PlacementRequirement) -> list[str]:
         r: list[str] = []
-        for value in (req.min_ram_gb, req.min_gpu_memory_gb, node.ram_free_gb, node.gpu_free_gb):
-            if not math.isfinite(value) or value < 0:
+        # Validate raw values before clamping or subtraction can hide bad data.
+        for value in (req.min_ram_gb, req.min_gpu_memory_gb, node.ram_gb, node.ram_used_gb,
+                      node.gpu_memory_gb, node.gpu_memory_used_gb):
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or value < 0):
                 return ["insufficient_memory:invalid resource measurement or demand"]
+        for value in (node.load, req.max_load):
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or not 0 <= value <= 1):
+                return ["overloaded:invalid load measurement or limit"]
+        for value in (node.active_work, node.max_concurrency):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                return ["at_max_concurrency:invalid concurrency measurement"]
         if node.unified_memory:
             free = min(node.ram_free_gb, (node.gpu_free_gb if node.gpu_memory_gb > 0 else node.ram_free_gb))
             demand = req.min_ram_gb + req.min_gpu_memory_gb

@@ -1,0 +1,95 @@
+name: Shipped app contracts
+on:
+  pull_request:
+  push:
+    branches: ['claude/bossman-final-audit-closure-aucx9x', 'release/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+jobs:
+  social-farm:
+    name: Existing Social Farm media and browser (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BOSSMAN_ACCEPTANCE_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Record exact source
+        run: |
+          mkdir -p app-acceptance
+          git rev-parse HEAD | tee app-acceptance/sha.txt
+          test "$(git rev-parse HEAD)" = "$BOSSMAN_ACCEPTANCE_SHA"
+      - name: Install declared component and real browser/media tools
+        run: |
+          python -m pip install -e './apps/social-farm[all,dev]' pytest-timeout
+          python -m playwright install --with-deps chromium
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg
+          python tools/media_ci_preflight.py > app-acceptance/ffmpeg.json
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as runtime:
+              binary = runtime.chromium.executable_path
+          assert Path(binary).is_file(), binary
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as target:
+              target.write('SF_BROWSER_CHROMIUM_PATH=' + binary + '\n')
+          PY
+      - name: Baseline policies, state, media and isolation
+        working-directory: apps/social-farm
+        run: python -m pytest tests -m 'not real_browser' -q -rs --timeout=90 --junitxml=../../app-acceptance/social-farm.xml
+      - name: Real Chromium local-page controls, no skipped acceptance
+        working-directory: apps/social-farm
+        run: |
+          python -m pytest tests/unit/test_browser_real_chromium.py -q --timeout=90 --junitxml=../../app-acceptance/browser.xml
+          python ../../tools/require_acceptance_results.py ../../app-acceptance/browser.xml --minimum-tests 10
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: existing-social-farm-${{ matrix.python }}-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
+          path: app-acceptance/
+          if-no-files-found: error
+  file-commander:
+    name: File Commander (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BOSSMAN_ACCEPTANCE_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Record exact source
+        shell: bash
+        run: |
+          mkdir -p app-acceptance
+          git rev-parse HEAD | tee app-acceptance/sha.txt
+          test "$(git rev-parse HEAD)" = "$BOSSMAN_ACCEPTANCE_SHA"
+      - run: python -m pip install -e './apps/file-commander-mini[dev]' pytest-timeout
+      - name: File effects, policy, receipt and restart contracts
+        working-directory: apps/file-commander-mini
+        run: python -m pytest tests -q -rs --timeout=90 --junitxml=../../app-acceptance/files.xml
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: file-commander-${{ matrix.os }}-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
+          path: app-acceptance/
+          if-no-files-found: error
