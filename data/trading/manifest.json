@@ -1,6 +1,6 @@
 {
   "corpus": "bossman-trader-apprentice-btc-orderflow",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "updated_at": "2026-09-09",
   "load_order": [
     "docs/trading/LOCAL_MODEL_SYSTEM_PROMPT.md",
@@ -30,7 +30,8 @@
   },
   "tests": [
     "tests/test_trader_apprentice.py",
-    "tests/test_youtube_trader_ingest.py"
+    "tests/test_youtube_trader_ingest.py",
+    "tests/test_youtube_trader_ingest_auto.py"
   ],
   "retrieval_hints": [
     "btc",
