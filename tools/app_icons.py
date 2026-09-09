@@ -318,7 +318,11 @@ def same_svg(committed: bytes, expected: bytes) -> bool:
     except (ValueError, IndexError, binascii.Error):
         return False
     expected_markup, expected_pixels = _svg_parts(expected)
-    return committed_markup == expected_markup and committed_pixels == expected_pixels
+    # .gitattributes keeps these files byte-identical, but an existing clone may
+    # already hold a CRLF copy. Line endings are not a drawing.
+    normalise = lambda markup: markup.replace(b"\r\n", b"\n")
+    return (normalise(committed_markup) == normalise(expected_markup)
+            and committed_pixels == expected_pixels)
 
 
 def same_pixels(committed: bytes, expected: bytes, *, ico: bool) -> bool:

@@ -172,3 +172,19 @@ def test_the_svg_check_tolerates_repacking_but_not_a_different_drawing(
     assert not app_icons.same_svg(
         canonical.replace(b'aria-label="BOSSMAN"', b'aria-label="OTHER"'), canonical)
     assert not app_icons.same_svg(b"<svg/>", canonical)
+
+
+def test_generated_assets_are_protected_from_line_ending_rewriting() -> None:
+    """A CRLF checkout must not be able to change a generated asset.
+
+    windows-latest rewrote icon.svg on checkout and the canonical-icon gate
+    failed on a file that drew the identical image.
+    """
+    attributes = (REPO / ".gitattributes").read_text(encoding="utf-8")
+    assert "command-center/ui/icons/** binary" in attributes
+    for target in app_icons.SVG_TARGETS:
+        assert f"{target.as_posix()} -text" in attributes, target
+
+    # And the comparison itself survives a clone that already has CRLF.
+    canonical = (REPO / app_icons.SVG_TARGETS[0]).read_bytes()
+    assert app_icons.same_svg(canonical.replace(b"\n", b"\r\n"), canonical)
