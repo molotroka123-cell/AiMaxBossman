@@ -728,6 +728,10 @@ async function boot() {
      осталась бы пустой. При выключенном флаге она сама себя прячет. */
   mountCommandBar();
 
+  /* Какой код работает. Владелец обязан видеть это ДО первой задачи: брейкер
+     по неизвестному SHA — улика, которую не к чему привязать. */
+  showBuildIdentity();
+
   /* стартовые данные для верхней строки и бейджа */
   refreshApprovals();
   loadCounts();
@@ -736,6 +740,36 @@ async function boot() {
 }
 
 let statsTimer = null;
+
+/* MF-032 / build identity: SHA работающей сборки в оболочке.
+   Три состояния, и ни одно из них не молчит:
+     PASS                     → короткий SHA, полный в подсказке;
+     SOURCE_IDENTITY_UNKNOWN  → так и написано, с причиной в подсказке;
+     сервер не ответил        → «сборка неизвестна», а не пустое место.
+   Пустой элемент читался бы как «наверное, всё в порядке» — а это ровно та
+   ошибка, из-за которой брейкер гоняли не по тому чекауту. */
+async function showBuildIdentity() {
+  const el = document.getElementById('build-sha');
+  if (!el) return;
+  const set = (text, title, unknown) => {
+    el.textContent = text;
+    el.title = title;
+    el.classList.toggle('is-unknown', Boolean(unknown));
+  };
+  try {
+    const d = await api.identity();
+    const sha = d && typeof d.build_sha === 'string' ? d.build_sha : '';
+    if (d && d.source_identity === 'PASS' && sha) {
+      const source = d.source === 'installed_build' ? 'установленная сборка' : 'рабочий чекаут';
+      set(`сборка ${sha.slice(0, 12)}`, `${sha}\n${source}`, false);
+    } else {
+      const detail = (d && d.detail) || 'источник не доказан';
+      set('SOURCE_IDENTITY_UNKNOWN', `Код не назвал свой SHA: ${detail}`, true);
+    }
+  } catch (err) {
+    set('сборка неизвестна', `Не удалось прочитать /api/identity: ${err && err.message ? err.message : err}`, true);
+  }
+}
 
 async function loadCounts() {
   const [modelsR, agentsR] = await Promise.allSettled([api.models(), api.agents()]);

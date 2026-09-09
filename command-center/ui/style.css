@@ -984,3 +984,18 @@ pre.block {
 .fi-kv { display: grid; grid-template-columns: auto 1fr; gap: .25rem .75rem; margin: .5rem 0; }
 .fi-kv dt { font-weight: 600; }
 .fi-kv dd { margin: 0; word-break: break-all; }
+
+/* ---------------------------------------------------------------- build identity
+   SHA работающей сборки в оболочке. Недоказанный источник подсвечен: пустое или
+   бледное поле здесь читалось бы как «наверное, всё в порядке», а это ровно та
+   ошибка, из-за которой брейкер однажды гоняли не по тому чекауту. */
+.build-sha { font-family: var(--mono, ui-monospace, monospace); opacity: .75;
+  letter-spacing: .01em; }
+.build-sha.is-unknown { color: var(--warn, #c07a00); opacity: 1; font-weight: 600; }
+
+/* ---------------------------------------------------------------- MF-031: кто выполнит
+   Строка под полем поручения. Скрыта, пока ответа нет: «наверное, кто-нибудь
+   выполнит» дороже пустоты. Недоступный исполнитель подсвечен — это причина, по
+   которой кнопка откажет, и владелец должен увидеть её до нажатия, а не после. */
+.bx-exec { margin: 6px 0 0; font-size: 12.5px; opacity: .8; }
+.bx-exec.is-blocked { color: var(--warn, #c07a00); opacity: 1; font-weight: 600; }

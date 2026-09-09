@@ -566,8 +566,14 @@ def _public_router() -> APIRouter:
         """Кто слушает этот порт. Нужен настольному лаунчеру: прежде чем
         переиспользовать «уже запущенный сервер», он обязан убедиться, что это
         именно Command Center, а не чужое приложение. Секретов здесь нет —
-        только имя приложения, версия и время старта."""
-        return {"app": APP_IDENTITY, "version": __version__, "started_at": svc.started_at}
+        только имя приложения, версия, время старта и SHA работающего исходника.
+
+        SHA здесь обязателен: владелец не должен гонять брейкер по одному
+        чекауту, думая, что запущен другой. Недоказанный источник называется
+        SOURCE_IDENTITY_UNKNOWN, а не подставляется догадкой."""
+        from .build_identity import source_identity
+        return {"app": APP_IDENTITY, "version": __version__,
+                "started_at": svc.started_at, **source_identity()}
 
     @router.post("/login")
     async def login(body: LoginIn, request: Request, response: Response,
@@ -631,14 +637,19 @@ def _health_router() -> APIRouter:
 
     @router.get("/health/live")
     async def liveness():
-        return {"app": APP_IDENTITY, "alive": True, "status": "ALIVE"}
+        from .build_identity import source_identity
+        return {"app": APP_IDENTITY, "alive": True, "status": "ALIVE",
+                **source_identity()}
 
     @router.get("/health")
     @router.get("/healthz")
     async def readiness(svc: Services = Depends(services)):
+        from .build_identity import source_identity
         from .health import snapshot
         state = snapshot(svc, await _health(svc), public=True)
-        return JSONResponse({"app": APP_IDENTITY, **state},
+        # Та же личность источника, что у /api/identity. Здоровье без имени
+        # кода — это «что-то живо», а не «живо ИМЕННО это».
+        return JSONResponse({"app": APP_IDENTITY, **source_identity(), **state},
                             status_code=200 if state["ready"] else 503)
 
     return router
@@ -651,9 +662,10 @@ def _api_router() -> APIRouter:
 
     @router.get("/health")
     async def health(svc: Services = Depends(services)):
+        from .build_identity import source_identity
         from .health import snapshot
         state = snapshot(svc, await _health(svc), public=False)
-        return JSONResponse({"app": APP_IDENTITY, **state},
+        return JSONResponse({"app": APP_IDENTITY, **source_identity(), **state},
                             status_code=200 if state["ready"] else 503)
 
     @router.get("/system")
@@ -827,6 +839,46 @@ def _api_router() -> APIRouter:
                                       .order_by(runs_t.c.id.desc()).limit(1))
                 task["last_run"] = _run_public(dbm.row_dict(run.first()))
         return rows
+
+    @router.post("/tasks/preflight")
+    async def preflight_task(body: TaskIn, svc: Services = Depends(services)):
+        """MF-031 — кто выполнит задачу, ДО того как её создали. Ничего не пишет.
+
+        Приём и так закрыт наглухо: задача без исполнителя не создаётся, а
+        отказ назван. Но узнать об этом можно было только после отправки, и в
+        журнале владельца остались тринадцать заблокированных задач подряд —
+        каждая была новой попыткой угадать, чего не хватает.
+
+        Здесь тот же самый `select_executor`, тот же алгебраический DENY и тот
+        же ранжир по здоровью модели, что и в создании. Разные ответы у
+        предпросмотра и создания были бы хуже отсутствия предпросмотра, поэтому
+        путь ровно один.
+
+        Права не выдаются и не проверяются на будущее: `ok=true` означает «этот
+        исполнитель подходит СЕЙЧАС», а не разрешение. Перед самим запуском
+        движок перечитывает агента заново.
+        """
+        from .task_admission import ExecutorUnavailable, select_executor
+        prompt = body.prompt if isinstance(body.prompt, str) else ""
+        mode = "explicit" if body.agent_id is not None else "auto"
+        async with svc.db.session() as s:
+            try:
+                chosen = await select_executor(s, prompt=prompt, agent_id=body.agent_id)
+            except ExecutorUnavailable as exc:
+                return {"ok": False, "mode": mode, "agent": None, "model": None,
+                        "reason": str(exc), "hint": exc.hint,
+                        "code": "BLOCKED_CAPABILITY_UNAVAILABLE"}
+            model = None
+            model_id = chosen.get("model_id")
+            if model_id is not None:
+                row = await fetch_one(s, dbm.models, model_id)
+                if row:
+                    from .model_health import HealthRecord
+                    model = {"id": row["id"], "name": row.get("name"),
+                             "health": HealthRecord.from_dict(row.get("health")).status}
+        return {"ok": True, "mode": mode,
+                "agent": {"id": int(chosen["id"]), "name": chosen.get("name")},
+                "model": model, "reason": None, "hint": None, "code": None}
 
     @router.post("/tasks")
     async def create_task(body: TaskIn, svc: Services = Depends(services)):
