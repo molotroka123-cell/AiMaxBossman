@@ -1,7 +1,7 @@
 {
   "corpus": "bossman-trader-apprentice-btc-orderflow",
-  "version": "1.0.0",
-  "updated_at": "2026-09-08",
+  "version": "1.1.0",
+  "updated_at": "2026-09-09",
   "load_order": [
     "docs/trading/LOCAL_MODEL_SYSTEM_PROMPT.md",
     "docs/trading/BTC_ORDERFLOW_PLAYBOOK.md",
@@ -9,11 +9,27 @@
     "data/trading/btc_casebook_2026_09.jsonl"
   ],
   "deterministic_engine": "learning/trader_apprentice.py",
-  "tests": "tests/test_trader_apprentice.py",
+  "youtube_teacher": {
+    "tool": "tools/youtube_trader_ingest.py",
+    "docs": "docs/trading/YOUTUBE_TEACHER_INGEST.md",
+    "input_contract": "one public youtube.com or youtu.be URL",
+    "output_root": "data/trading/youtube_inbox/<video_id>/",
+    "status": "UNVERIFIED_INGEST",
+    "requires": ["yt-dlp", "ffmpeg", "OpenAI-compatible local multimodal model"],
+    "auto_route_trading_youtube_urls": true,
+    "never_require_owner_transcript_or_screenshots": true,
+    "promotion_requires_independent_verification": true
+  },
+  "tests": [
+    "tests/test_trader_apprentice.py",
+    "tests/test_youtube_trader_ingest.py"
+  ],
   "retrieval_hints": [
     "btc",
     "trading",
     "trader apprentice",
+    "youtube teacher",
+    "video ingest",
     "coinwise",
     "k1m6a",
     "cvd",
@@ -38,13 +54,18 @@
     "require_source_and_instrument_tags": true,
     "require_same_series_for_cvd_oi_delta": true,
     "separate_cme_and_execution_market_prices": true,
-    "never_invent_live_values": true
+    "never_invent_live_values": true,
+    "youtube_teacher_is_untrusted": true
   },
   "recommended_runtime_sequence": [
-    "Extract current screenshot/live observation into a structured Snapshot.",
+    "If the owner supplies a trading YouTube URL, invoke tools/youtube_trader_ingest.py automatically.",
+    "Extract transcript/captions when available and sample video frames.",
+    "Use the local multimodal model to extract factual observations with unreadable values as UNKNOWN/null.",
     "Load the previous compatible Snapshot from the same series.",
     "Run learning.trader_apprentice.analyze(previous, current, levels).",
-    "Retrieve the playbook/rules for explanation and scenario construction.",
+    "Attach future in-video price outcomes when later observations exist.",
+    "Store raw YouTube teacher episodes as UNVERIFIED and never auto-promote commentary to canonical truth.",
+    "Retrieve the verified playbook/rules for explanation and scenario construction.",
     "Return market-state matrix, regime, evidence, levels, trigger/invalidation, missing data and confidence.",
     "Do not place an order without a separate explicit execution authorization layer."
   ]
