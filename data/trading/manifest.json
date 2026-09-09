@@ -1,6 +1,6 @@
 {
   "corpus": "bossman-trader-apprentice-btc-orderflow",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "updated_at": "2026-09-09",
   "load_order": [
     "docs/trading/LOCAL_MODEL_SYSTEM_PROMPT.md",
@@ -10,12 +10,20 @@
   ],
   "deterministic_engine": "learning/trader_apprentice.py",
   "youtube_teacher": {
-    "tool": "tools/youtube_trader_ingest.py",
+    "tool": "tools/youtube_trader_ingest_auto.py",
+    "visual_core": "tools/youtube_trader_ingest.py",
     "docs": "docs/trading/YOUTUBE_TEACHER_INGEST.md",
     "input_contract": "one public youtube.com or youtu.be URL",
     "output_root": "data/trading/youtube_inbox/<video_id>/",
     "status": "UNVERIFIED_INGEST",
-    "requires": ["yt-dlp", "ffmpeg", "OpenAI-compatible local multimodal model"],
+    "requires": [
+      "yt-dlp",
+      "ffmpeg",
+      "OpenAI-compatible local multimodal model"
+    ],
+    "optional_when_youtube_captions_missing": [
+      "OpenAI-compatible local audio/transcriptions model"
+    ],
     "auto_route_trading_youtube_urls": true,
     "never_require_owner_transcript_or_screenshots": true,
     "promotion_requires_independent_verification": true
@@ -30,6 +38,8 @@
     "trader apprentice",
     "youtube teacher",
     "video ingest",
+    "youtube url",
+    "local asr",
     "coinwise",
     "k1m6a",
     "cvd",
@@ -55,18 +65,19 @@
     "require_same_series_for_cvd_oi_delta": true,
     "separate_cme_and_execution_market_prices": true,
     "never_invent_live_values": true,
-    "youtube_teacher_is_untrusted": true
+    "youtube_teacher_is_untrusted": true,
+    "raw_teacher_claims_are_not_training_truth": true
   },
   "recommended_runtime_sequence": [
-    "If the owner supplies a trading YouTube URL, invoke tools/youtube_trader_ingest.py automatically.",
-    "Extract transcript/captions when available and sample video frames.",
+    "If the owner supplies a trading YouTube URL, invoke tools/youtube_trader_ingest_auto.py automatically.",
+    "Fetch YouTube captions automatically; if absent, attempt configured local ASR; if ASR is unavailable, continue with visual parsing and mark speech missing.",
+    "Sample the video into timestamped frames.",
     "Use the local multimodal model to extract factual observations with unreadable values as UNKNOWN/null.",
-    "Load the previous compatible Snapshot from the same series.",
+    "Load the previous compatible Snapshot from the same source/instrument series.",
     "Run learning.trader_apprentice.analyze(previous, current, levels).",
     "Attach future in-video price outcomes when later observations exist.",
     "Store raw YouTube teacher episodes as UNVERIFIED and never auto-promote commentary to canonical truth.",
     "Retrieve the verified playbook/rules for explanation and scenario construction.",
-    "Return market-state matrix, regime, evidence, levels, trigger/invalidation, missing data and confidence.",
     "Do not place an order without a separate explicit execution authorization layer."
   ]
 }
