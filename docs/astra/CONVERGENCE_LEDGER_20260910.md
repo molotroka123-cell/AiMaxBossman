@@ -223,3 +223,49 @@ not merge branches, run full release CI, install the final product, or certify a
 live provider. The new gateway defect is reproduced with actual conversion methods
 and synthetic protocol data; no model/provider call was made. Release readiness
 is deliberately not claimed.
+
+---
+
+## Ledger update — 2026-09-09: File Intelligence admitted
+
+The disposition above deferred PR #60's File Intelligence and stated that
+"optional admission requires a later explicit ledger update and its full
+companion fixes/tests." This is that update.
+
+| | |
+|---|---|
+| Canonical branch | `claude/bossman-final-completion-kymr05` (PR #62) |
+| Base | `5c19eea58691599cf06764b020a4ea8ca51c0285` — runtime identical to the PR61 freeze `910ca901ddcd84c13d65f9246dfec394088c29bf` |
+| **FINAL_CODE_SHA** | `e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9` |
+| Final tree | `0fb1b25615772c024268767dc63f44cfb7870f09` |
+
+**PR #60 was ported, not merged.** `git diff --stat 5c19eea..df8fea50` is 205
+files, 6 348 insertions against **16 965 deletions**; those deletions are PR61
+closure work absent from PR60's older cutoff. Merging would have removed more
+than it added.
+
+Admitted from PR #60 — the File Intelligence line only:
+`command-center/bcc/file_intelligence/` (8 modules), `bcc/features/file_intelligence.py`,
+`ui/pages/file_intelligence.js` with its styles and one nav entry,
+`integrations/ai-file-sorter/` (manifest, NOTICE, README), four test suites and
+`tests/fileintel_fake.py`. Both later hardening commits are present and were
+verified in the ported code: effect-time binary identity re-check (`9bea81a`) and
+single route declaration with a `ROUTE_COUNT` assertion (`a1e633c`).
+
+Refused from PR #60, each compared rather than assumed — in every case the PR61
+base carried the stricter contract:
+
+| Area | Why the base won |
+|---|---|
+| Trader | base keeps `_ordered_history()` and isinstance-checked `SeriesId`; PR60's copy removed both |
+| `run_provenance` | base carries 303 lines PR60 lacks, including the PostgreSQL provenance suite |
+| STOP_GRACE | base asserts full row equality **and** `claim() is None` after restart |
+| AP-001 | base proves containment with a failed `cat` and an absent token, not an `error` flag |
+
+Companion fix required by the admission and delivered with it: the integration
+manifest now travels inside the wheel (`bcc/_integrations/ai-file-sorter/`).
+Before it, an installed Bossman reported an empty `pinned_upstream_sha` — the
+sidecar's declared identity existed only in the source checkout.
+
+PR #59 (AI Streamer / Higgsfield) remains excluded; no live or integration PASS
+is claimed for it.

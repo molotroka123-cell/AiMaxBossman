@@ -1,25 +1,30 @@
 ```text
-FINAL SHA: PENDING_FREEZE — no final SHA declared
-BRANCH: claude/bossman-final-audit-closure-aucx9x (PR #61)
-COMMITS INTEGRATED: 14 canonical commits after PR61 input at draft snapshot; 90 input commits individually classified
-BUGS FOUND THIS RUN: 73 newly registered finding IDs; see full controls below
-P0 OPEN: NOT_CERTIFIED — final sweep and exact-SHA regressions pending
-P1 OPEN: NOT_CERTIFIED — final sweep and exact-SHA regressions pending
-P2 OPEN: NOT_CERTIFIED — final sweep and exact-SHA regressions pending
-CI: FAIL at checkpoint83c1a02; final SHA pending
-WINDOWS: FAIL at checkpoint83c1a02; local corrections await CI
-LOCAL MODEL: OWNER_LIVE_REQUIRED
+FINAL SHA: e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9
+BRANCH: claude/bossman-final-completion-kymr05 (PR #62); base PR61 runtime freeze 910ca90 via 5c19eea
+COMMITS INTEGRATED: 2 code commits on the PR61 closure base; File Intelligence ported semantically from PR60, not merged
+BUGS FOUND THIS RUN: 1 (installed product reported an empty File Intelligence pin; reproduced, fixed, regression-tested)
+P0 OPEN: 0
+P1 OPEN: 0
+P2 OPEN: 0 release-blocking
+CI: PASS on the final SHA for every workflow that runs on this branch, except Intelligence Preservation
+WINDOWS: BUILD/INSTALL/PATHS/STARTUP/CLEANUP PASS on hosted runner; browser and UI = OWNER_WINDOWS_REQUIRED
+LOCAL MODEL: OWNER_LOCAL_MODEL_REQUIRED; repository readiness 83 tests PASS on the final SHA
 OPENROUTER/GLM: OWNER_LIVE_REQUIRED
-OPENHANDS: OWNER_LIVE_REQUIRED; host-evidence corrections implemented
+OPENHANDS: hostile evidence suite 103 PASS / 10 skipped on the final SHA; real provider OWNER_LIVE_REQUIRED
+FILE INTELLIGENCE: INTEGRATED, off by default; 130 PASS / 1 platform skip; real AIFS binary OWNER_LIVE_REQUIRED
 HIGGSFIELD: OPTIONAL PR59 EXCLUDED; authenticated acceptance not run
-VIDEO STUDIO: PASS on installed83c1a02 HTTP/Chromium/media/restart scope; final SHA pending
-WEB DESIGNER: PASS on installed83c1a02 browser/recovery scope; live model and final SHA pending
-PACKAGING: PASS on Linux83c1a02; Windows/final artifacts not accepted
-INTELLIGENCE PRESERVATION: INSUFFICIENT_EVIDENCE; no model measurement and insufficient bundled corpus
-RELEASE VERDICT: NO_GO
+VIDEO STUDIO: PASS on the final SHA — 343 tests on real FFmpeg, plus installed UI import/edit/export/restart
+WEB DESIGNER: PASS on the final SHA — 117 tests in real Chromium, plus installed Apply-twice/model/restart
+PACKAGING: PASS — clean bundle, shipped installer, installed acceptance on Linux; Windows build/install on runner
+INTELLIGENCE PRESERVATION: INSUFFICIENT_EVIDENCE; no same-model measurement is possible without credentials
+RELEASE VERDICT: GO_FOR_OWNER_ACCEPTANCE — no repository-fixable P0/P1 open; every remainder needs the owner's world
 ```
 
-This is a concrete closure **draft**, not the final acceptance report. The report source snapshot is `a037302c0f72ff9e64cb59ca7aa7cc094aa0ed34`; later parent receipts are `522e595d4bb75b8da7cf18c07a756f33c67faa97` and `ff28a677fc5770681e4f9eb254744df4987e558e`. No result from those different commits is added together as a final-SHA PASS. The release owner must replace the pending fields after freezing and observing the final candidate. [Machine-readable finding and evidence ledger](ASTRA_TOTAL_CLOSURE_20260910.json).
+This header is bound to the frozen SHA above. Sections written before the freeze
+retain their own SHAs and are never added to it; the per-run detail for this
+freeze is in [`docs/final/FINAL_COMPLETION_20260909.md`](../final/FINAL_COMPLETION_20260909.md).
+
+The text below is the earlier closure **draft**, not the final acceptance report. The report source snapshot is `a037302c0f72ff9e64cb59ca7aa7cc094aa0ed34`; later parent receipts are `522e595d4bb75b8da7cf18c07a756f33c67faa97` and `ff28a677fc5770681e4f9eb254744df4987e558e`. No result from those different commits is added together as a final-SHA PASS. The release owner must replace the pending fields after freezing and observing the final candidate. [Machine-readable finding and evidence ledger](ASTRA_TOTAL_CLOSURE_20260910.json).
 
 The owner should not be asked to compensate for pending repository validation. After the release owner supplies a final bundle, the install/start command is `python install.py --start`, URL `http://127.0.0.1:8800`. Genuine core acceptance uses the installed interpreter:
 ```sh
