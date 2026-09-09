@@ -44,6 +44,14 @@ def test_price_up_cvd_up_oi_up_is_long_candidate():
     assert result.stance is Stance.LONG_CANDIDATE
 
 
+def test_price_up_cvd_down_oi_up_is_leveraged_sell_absorption():
+    prev = Snapshot(price=78_450, cvd=61.91, open_interest=18.50)
+    cur = Snapshot(price=79_400, cvd=57.02, open_interest=18.67)
+    result = analyze(prev, cur)
+    assert result.regime is Regime.LEVERAGED_SELL_ABSORPTION
+    assert result.stance is Stance.LONG_CANDIDATE
+
+
 def test_price_down_cvd_up_oi_down_is_buyer_failure_with_deleveraging():
     prev = Snapshot(price=78_775, cvd=61.78, open_interest=18.78)
     cur = Snapshot(price=78_450, cvd=61.91, open_interest=18.50)
