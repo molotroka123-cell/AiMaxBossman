@@ -337,11 +337,37 @@ class WorktreeDelta:
     ignore_rules_touched: bool
 
 
+def _filtered_blob_ids(workspace: Path, rels: Sequence[str]) -> dict[str, str]:
+    """Blob ids for regular tracked files THE WAY GIT COMPUTES THEM — through
+    the clean filter (`core.autocrlf`, `.gitattributes` eol/text). Raw bytes
+    are not what a blob is: on Windows (`autocrlf=true`) every checkout holds
+    CRLF while the blob holds LF, and hashing raw bytes reported an untouched
+    workspace as fully modified (Core CI Windows job, 31 failures). The filter
+    configuration is not sidecar-controlled: `.git/config` is compared before
+    and after the run, and `.gitattributes` is a tracked file whose edit is
+    itself a change. Any failure returns {} and the caller falls back to raw
+    hashing, which can only over-report, never hide."""
+    if not rels:
+        return {}
+    proc = subprocess.run(
+        ["git", "-C", str(workspace), "hash-object", "--stdin-paths"],
+        input="\n".join(rels) + "\n", text=True, encoding="utf-8", errors="replace",
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if proc.returncode:
+        return {}
+    ids = proc.stdout.split()
+    if len(ids) != len(rels):
+        return {}
+    return dict(zip(rels, ids))
+
+
 def _worktree_delta(workspace: Path, *, exclude_before: bytes | None = None) -> WorktreeDelta:
     head = _head_tree(workspace)
     tree = _worktree_files(workspace)
     modified: list[str] = []
     untracked: list[str] = []
+    regular = [rel for rel, full in tree.items() if rel in head and not full.is_symlink()]
+    filtered = _filtered_blob_ids(workspace, regular)
     for rel, full in tree.items():
         baseline = head.get(rel)
         if baseline is None:
@@ -354,7 +380,12 @@ def _worktree_delta(workspace: Path, *, exclude_before: bytes | None = None) -> 
             # Windows has no POSIX executable bit; type still must agree.
             modes_agree = actual_mode == expected_mode or (os.name == "nt" and
                             actual_mode.startswith("100") and expected_mode.startswith("100"))
-            if _blob_digest(entry.data) != sha or not modes_agree:
+            # Symlinks hash their target verbatim; regular files go through
+            # git's clean filter so line-ending conversion is not a "change".
+            digest = filtered.get(rel) if not full.is_symlink() else None
+            if digest is None:
+                digest = _blob_digest(entry.data)
+            if digest != sha or not modes_agree:
                 modified.append(rel)
         except OSError:
             modified.append(rel)              # unreadable now, readable at commit: changed

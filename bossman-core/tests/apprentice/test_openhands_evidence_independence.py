@@ -218,3 +218,35 @@ def test_the_sidecar_cannot_mark_the_mission_complete_by_itself():
     assert fields == {"status", "changed_files", "diff", "sidecar", "files"}
     for forbidden in ("push", "merge", "deploy", "permissions", "authority", "approve"):
         assert forbidden not in fields
+
+
+# ------------------------------------------ line-ending normalisation (Windows)
+
+def test_a_crlf_checkout_under_autocrlf_is_not_a_change(tmp_path):
+    """Core CI's Windows job: with `core.autocrlf=true` git checks files out with
+    CRLF while the blob holds LF. Hashing the raw working-tree bytes then
+    reported every tracked file as modified and refused an UNTOUCHED workspace
+    as "evidence mismatch". The scan must hash through git's clean filter, the
+    way git itself decides what a blob is."""
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "config", "user.email", "a@b")
+    git(tmp_path, "config", "user.name", "n")
+    git(tmp_path, "config", "core.autocrlf", "true")
+    # The Windows shape exactly: files are WRITTEN with CRLF (text mode on
+    # Windows), `git add` under autocrlf stores LF blobs, the index stat
+    # matches the CRLF working tree, and git reports the tree clean.
+    (tmp_path / "allowed").mkdir()
+    (tmp_path / "allowed" / "keep.txt").write_bytes(b"one\r\ntwo\r\n")
+    (tmp_path / "protected.txt").write_bytes(b"owner\r\nbaseline\r\n")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "lf blobs from crlf files")
+    assert git(tmp_path, "status", "--porcelain") == ""          # git: clean
+    assert "i/lf" in git(tmp_path, "ls-files", "--eol", "protected.txt")   # blob is LF
+    assert (tmp_path / "protected.txt").read_bytes() == b"owner\r\nbaseline\r\n"  # tree is CRLF
+    delta = oc._worktree_delta(tmp_path)
+    assert delta.changed == (), delta                             # so must we
+    result = run(tmp_path, "pass")
+    assert result.status == "completed" and result.changed_files == ()
+    # and a real change through the same normalisation is still seen
+    (tmp_path / "protected.txt").write_bytes(b"owner\r\nchanged\r\n")
+    assert oc._worktree_delta(tmp_path).changed == ("protected.txt",)
