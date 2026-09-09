@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 194. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 195. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -179,6 +179,7 @@
 | `tests/test_solana_safety.py:109` | importorskip | `—` | нет пакета fastapi | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:110` | importorskip | `—` | Solana SDK (solders) не установлен — панель безопасности не импортируется | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_v5_observers.py:121` | skip | `—` | f"symlink privilege missing: {exc}" | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_windows_bundle_contract.py:95` | skip | `—` | this host IS Windows; the refusal path is for Linux/macOS builders | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `apps/social-farm/tests/unit/test_app_entrypoint.py:19` | importorskip | `—` | HTTP-поверхность ставится как [api] | Social Farm | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `apps/social-farm/tests/unit/test_browser_isolation.py:25` | skipif | `not POSIX` | NOT RUN: права каталогов проверяются только на POSIX | Social Farm | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `apps/social-farm/tests/unit/test_browser_isolation.py:170` | skipif | `sys.platform == "win32"` | NOT RUN: spawn на Windows не проверен | Social Farm | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
