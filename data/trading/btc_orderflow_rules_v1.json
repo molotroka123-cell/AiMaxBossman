@@ -1,22 +1,24 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "updated_at": "2026-09-09",
   "purpose": "Machine-readable BTC orderflow knowledge for Bossman Trader Apprentice. Analysis only; no autonomous execution.",
   "required_observation_fields": ["timestamp", "source", "instrument", "price", "cvd", "open_interest"],
-  "optional_observation_fields": ["long_liquidations", "short_liquidations", "buy_volume", "sell_volume", "dVAL", "dPOC", "dVAH", "dOpen", "pDayLow", "pDayHigh", "weekOpen", "monthOpen", "weekEq", "yearEq", "settlementD", "settlementW"],
+  "optional_observation_fields": ["high", "low", "long_liquidations", "short_liquidations", "buy_volume", "sell_volume", "dVAL", "dPOC", "dVAH", "dOpen", "pDayLow", "pDayHigh", "weekOpen", "monthOpen", "weekEq", "yearEq", "settlementD", "settlementW"],
   "data_integrity_rules": [
     "Never invent missing CVD, OI or liquidation values.",
     "Do not reuse stale CVD/OI values as if they are current.",
     "Compare CVD/OI deltas only when source, instrument and aggregation/settings are compatible.",
     "Do not compare CoinGlass aggregate OI directly with Coinwise/K1m6a OI as if they are the same series.",
-    "Tag CME chart levels separately from spot/perpetual execution-market prices.",
-    "A single wick/touch is not acceptance; require multiple observations or retest evidence."
+    "Tag CME/reference chart levels separately from spot/perpetual execution-market prices.",
+    "A single wick/touch is not acceptance; require multiple observations or retest evidence.",
+    "Endpoint deltas can miss failed-breakout paths; preserve observed high/low and liquidation context when visible."
   ],
   "metric_semantics": {
     "price": "Outcome variable: whether aggressive flow is actually moving the market.",
     "cvd": "Aggressive buy minus sell flow proxy. Direction alone is insufficient; compare with price response.",
     "open_interest": "Total open derivative contracts. Rising means more open leverage/contracts; falling means net closure/liquidation. It does not directly identify longs versus shorts.",
-    "liquidations": "Forced closure signal. Useful for diagnosing flushes but not a standalone reversal signal."
+    "liquidations": "Forced closure signal. Useful for diagnosing flushes but not a standalone reversal signal.",
+    "high_low_path": "Observed excursion inside the analysis window. Needed for detecting breakout failures that endpoint-only deltas can hide."
   },
   "regime_matrix": [
     {"price":"DOWN","cvd":"DOWN","oi":"DOWN","regime":"DELEVERAGING_SELL_OFF","interpretation":"Sell aggression plus falling OI: position closure/deleveraging dominates.","default_stance":"WATCH","long_add":false,"notes":["Less bearish than a falling market with OI expansion.","Do not short the liquidation low automatically.","Wait for absorption, stabilization or reclaim before considering a long."]},
@@ -28,6 +30,22 @@
     {"price":"UP","cvd":"FLAT_OR_DOWN","oi":"DOWN","regime":"SHORT_COVERING_OR_ABSORPTION","interpretation":"Price rises without CVD confirmation while OI falls.","default_stance":"WATCH","long_add":false,"notes":["Can be a relief bounce/short covering move.","Do not chase resistance without reclaim and renewed demand."]},
     {"price":"FLAT_OR_UP","cvd":"DOWN","oi":"FLAT_OR_DOWN","regime":"SELL_ABSORPTION_CANDIDATE","interpretation":"Aggressive sellers fail to make lower price; possible passive buyer/absorption.","default_stance":"WATCH","long_add":"AFTER_SWEEP_RECLAIM_OR_LEVEL_CONFIRMATION"},
     {"price":"DOWN","cvd":"FLAT_OR_UP","oi":"FLAT_OR_UP","regime":"BUYER_FAILURE_CANDIDATE","interpretation":"Aggressive buying fails to lift price; possible hidden seller.","default_stance":"RISK_OFF","long_add":false}
+  ],
+  "path_overlays": [
+    {
+      "name": "FAILED_BREAKOUT_LONG_FLUSH",
+      "conditions": [
+        "Observed window high trades above dVAH/upper value resistance.",
+        "Latest reference-chart price rejects back below dPOC.",
+        "Open interest contracts materially versus the previous compatible observation.",
+        "CVD is flat or down rather than positively confirming the breakout.",
+        "Long liquidations materially dominate short liquidations."
+      ],
+      "interpretation": "A leverage-driven breakout attempt failed and late longs were flushed. Endpoint-only Price/CVD/OI deltas can miss this path because the window may finish near where it started.",
+      "default_stance": "RISK_OFF",
+      "long_add": false,
+      "restore_long_candidate": "Reclaim dPOC first, then dVAH/upper value, and prove acceptance/retest with non-deteriorating flow."
+    }
   ],
   "level_definitions": {
     "dVAL":"Daily value area low; lower boundary of accepted daily value.",
@@ -50,7 +68,7 @@
   "long_entry_logic": {
     "confirmed_reclaim":["Important level reclaimed.","Level held/retested from above.","CVD stable or rising, OR price demonstrates strong absorption despite falling CVD.","OI behavior not deteriorating into price-down/CVD-down/OI-up."],
     "sweep_absorption":["Support/liquidity level swept.","Price stops making lower lows or immediately reclaims.","CVD can remain weak only if selling fails to push price lower.","OI must not expand aggressively during continuing downside."],
-    "forbidden_add_conditions":["Price breaks support without reclaim.","Price DOWN + CVD DOWN + OI UP persists.","Price DOWN + CVD UP + OI DOWN is not a long signal unless price itself reclaims/accepts the structural level.","Live values are stale, hidden or from incompatible sources.","Only one isolated screenshot exists and there is no sequence context."]
+    "forbidden_add_conditions":["Price breaks support without reclaim.","Price DOWN + CVD DOWN + OI UP persists.","Price DOWN + CVD UP + OI DOWN is not a long signal unless price itself reclaims/accepts the structural level.","FAILED_BREAKOUT_LONG_FLUSH is active until dPOC and then dVAH are reclaimed/accepted.","Live values are stale, hidden or from incompatible sources.","Only one isolated screenshot exists and there is no sequence context."]
   },
   "position_math": {
     "weighted_average_entry":"sum(entry_price_i * size_i) / sum(size_i)",
@@ -73,7 +91,8 @@
   },
   "learned_patterns_2026_09_09": [
     {"state":"Price DOWN + CVD UP + OI DOWN","name":"BUYER_FAILURE_WITH_DELEVERAGING","example":{"previous_execution_price_approx":78775,"latest_execution_price_approx":78450,"previous_cvd_billion":61.78,"latest_cvd_billion":61.91,"previous_oi_billion":18.78,"latest_oi_billion":18.50},"interpretation":"CVD improvement failed to produce higher price while OI contracted. This points to passive seller absorption/buyer inefficiency during deleveraging rather than fresh bearish leverage expansion.","long_rule":"Do not treat CVD improvement alone as bullish; require dVAL hold plus dPOC/upper-value reclaim and acceptance."},
-    {"state":"Price UP + CVD DOWN + OI UP","name":"LEVERAGED_SELL_ABSORPTION","example":{"previous_execution_price_approx":78450,"latest_execution_price_approx":79400,"previous_cvd_billion":61.91,"latest_cvd_billion":57.02,"previous_oi_billion":18.50,"latest_oi_billion":18.67},"interpretation":"Price advanced strongly despite large aggressive net selling while OI increased. Seller aggression is being absorbed as leverage grows; this can become squeeze fuel, but side attribution is not proven by OI.","long_rule":"Treat as a long candidate only after structural confirmation. Prefer acceptance above dVAH/upper zone or a clean retest of reclaimed dPOC/dOpen rather than chasing resistance."}
+    {"state":"Price UP + CVD DOWN + OI UP","name":"LEVERAGED_SELL_ABSORPTION","example":{"previous_execution_price_approx":78450,"latest_execution_price_approx":79400,"previous_cvd_billion":61.91,"latest_cvd_billion":57.02,"previous_oi_billion":18.50,"latest_oi_billion":18.67},"interpretation":"Price advanced strongly despite large aggressive net selling while OI increased. Seller aggression is being absorbed as leverage grows; this can become squeeze fuel, but side attribution is not proven by OI.","long_rule":"Treat as a long candidate only after structural confirmation. Prefer acceptance above dVAH/upper zone or a clean retest of reclaimed dPOC/dOpen rather than chasing resistance."},
+    {"state":"intrawindow breakout above dVAH -> rejection below dPOC + CVD flat + OI DOWN + long liquidations dominant","name":"FAILED_BREAKOUT_LONG_FLUSH","example":{"reference_high_approx":79950,"reference_latest_approx":79350,"dVAH":79660,"dPOC":79405,"cvd_billion":57.02,"previous_oi_billion":18.67,"latest_oi_billion":18.43,"long_liquidations_thousand":850.31,"short_liquidations_thousand":4.25},"interpretation":"Upper-value breakout failed and late longs were flushed as leverage contracted. This invalidates the prior long-candidate state until value is reclaimed again.","long_rule":"No chase/add. Reclaim dPOC first, then dVAH, then require acceptance/retest."}
   ],
   "output_contract":["market_state_matrix","regime","exact_observed_values_and_deltas","nearest_levels","long_trigger_confirmation_invalidation","bear_or_risk_trigger_confirmation_invalidation","position_math_if_position_exists","missing_data","classification_confidence"]
 }
