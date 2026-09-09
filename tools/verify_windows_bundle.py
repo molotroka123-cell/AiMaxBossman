@@ -185,11 +185,19 @@ def main(argv: list[str] | None = None) -> int:
         evening = _run([str(home / "runtime" / ("python.exe" if os.name == "nt" else "bin/python")),
                         str(home / "app-support" / "bundle_evening_test.py")],
                        env=env, cwd=home, timeout=1800)
-        details["evening_stdout"] = (evening.stdout or "")[-4000:]
+        details["evening_stdout"] = (evening.stdout or "")[-8000:]
         details["evening_returncode"] = evening.returncode
         if evening.returncode == 1:
             problems.append("bundled evening acceptance reported FAIL")
-            details["evening_stderr"] = (evening.stderr or "")[-2000:]
+            details["evening_stderr"] = (evening.stderr or "")[-4000:]
+        if evening.returncode:
+            # Print it: the JSON report travels in the artifact, but whoever is
+            # reading a red build is reading the log, and "reported FAIL" with
+            # no reason costs a whole build to re-learn.
+            print("--- bundled evening acceptance output ---")
+            print((evening.stdout or "")[-6000:])
+            print("--- stderr ---")
+            print((evening.stderr or "")[-3000:])
     finally:
         shutil.rmtree(parent, ignore_errors=True)
 
