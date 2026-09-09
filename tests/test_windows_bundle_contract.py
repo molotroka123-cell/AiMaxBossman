@@ -74,7 +74,7 @@ def test_the_launchers_use_only_what_is_beside_them(name: str) -> None:
 def test_the_environment_points_at_the_bundled_prerequisites() -> None:
     env = bundle.launcher_files()["app-support/_env.cmd"]
     assert 'set "PLAYWRIGHT_BROWSERS_PATH=%BOSSMAN_HOME%browser"' in env
-    assert 'set "PATH=%BOSSMAN_HOME%media;%PATH%"' in env, (
+    assert "%BOSSMAN_HOME%media;%PATH%" in env, (
         "the bundled ffmpeg/ffprobe must win over anything on the machine"
     )
     assert 'set "PYTHONUTF8=1"' in env
@@ -94,3 +94,38 @@ def test_the_builder_refuses_to_pretend_on_a_non_windows_host() -> None:
     if os.name == "nt":
         pytest.skip("this host IS Windows; the refusal path is for Linux/macOS builders")
     assert bundle.main(["--out", "/tmp/does-not-matter"]) == 2
+
+
+def test_the_bundle_writes_console_entry_points_that_survive_relocation() -> None:
+    """pip --target leaves wrappers bound to the BUILD machine's interpreter.
+
+    The archive's acceptance failed on a missing ``runtime\\Scripts\\bossman.exe``:
+    the commands the product declares were simply not there. The shims the
+    builder writes instead must resolve the runtime beside themselves, so the
+    owner may unzip anywhere, including a path with spaces.
+    """
+    shim = bundle.console_shim("bcc.cli:main")
+    assert '"%~dp0..\\python.exe"' in shim, "the shim must not hard-code a build path"
+    assert "from bcc.cli import main as obj" in shim
+    assert "sys.exit(obj())" in shim
+    assert "%*" in shim, "arguments must reach the command"
+    assert shim.endswith("exit /b %ERRORLEVEL%\r\n"), "the exit code must be the command's"
+
+    # Dotted entry points are a real spelling in the wild and must not be
+    # silently turned into a call on the wrong object.
+    assert "sys.exit(obj.run())" in bundle.console_shim("bossman.cli:app.run")
+
+
+def test_console_entry_points_are_collected_from_what_is_installed(tmp_path) -> None:
+    site = tmp_path / "site-packages"
+    (site / "demo-1.0.dist-info").mkdir(parents=True)
+    (site / "demo-1.0.dist-info" / "entry_points.txt").write_text(
+        "[console_scripts]\nbossman = bossman.cli:main\n\n[gui_scripts]\nx = y:z\n",
+        encoding="utf-8")
+    found = bundle.console_scripts(site)
+    assert found == {"bossman": "bossman.cli:main"}, found
+
+
+def test_the_bundled_commands_are_on_the_launcher_path() -> None:
+    env = bundle.launcher_files()["app-support/_env.cmd"]
+    assert 'set "PATH=%BOSSMAN_HOME%runtime\\Scripts;%BOSSMAN_HOME%media;%PATH%"' in env

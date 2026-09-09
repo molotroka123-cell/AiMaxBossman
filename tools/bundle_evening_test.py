@@ -58,19 +58,25 @@ def _run(args: list[str], **kwargs) -> subprocess.CompletedProcess:
                           errors="replace", timeout=kwargs.pop("timeout", 900), **kwargs)
 
 
-def _doctor(python: Path, evidence: Path) -> tuple[str, int]:
+def _doctor(python: Path, evidence: Path) -> tuple[str, list[dict]]:
+    """Returns the state and the checks that are actually blocking.
+
+    Naming them matters: "BLOCKED (1)" tells the owner nothing, and the reader
+    of a red build cannot tell a missing credential from a broken archive.
+    """
     script = SUPPORT / "bossman_doctor.py"
     if not script.exists():
-        return "NOT_SHIPPED", 0
+        return "NOT_SHIPPED", []
     done = _run([str(python), str(script), "--json"])
     report_path = evidence / "doctor.json"
     report_path.write_text(done.stdout or "{}", encoding="utf-8")
     try:
         report = json.loads(done.stdout)
     except json.JSONDecodeError:
-        return "UNREADABLE", 0
-    blocked = int(report.get("blocked") or 0)
-    return ("BLOCKED" if blocked else "OK"), blocked
+        return "UNREADABLE", []
+    blocking = [check for check in report.get("checks", [])
+                if check.get("status") == "BLOCKED"]
+    return ("BLOCKED" if blocking else "OK"), blocking
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -106,10 +112,15 @@ def main(argv: list[str] | None = None) -> int:
               f"{', '.join(item['component'] for item in required)}")
     print("-" * 66, flush=True)
 
-    doctor_state, blocked = ("SKIPPED", 0)
+    doctor_state, blocking = ("SKIPPED", [])
     if not args.skip_doctor:
-        doctor_state, blocked = _doctor(python, evidence)
-    print(f"  доктор:      {doctor_state}" + (f" ({blocked} BLOCKED)" if blocked else ""))
+        doctor_state, blocking = _doctor(python, evidence)
+    print(f"  доктор:      {doctor_state}"
+          + (f" ({len(blocking)} BLOCKED)" if blocking else ""))
+    for check in blocking:
+        print(f"     BLOCKED  {check.get('name')}: {check.get('detail')}")
+        if check.get("remedy"):
+            print(f"              {check['remedy']}")
 
     verifier = SUPPORT / "verify_installed_product.py"
     if not verifier.exists():
@@ -133,13 +144,15 @@ def main(argv: list[str] | None = None) -> int:
     verdict = "PASS"
     if done.returncode or acceptance != "PASS":
         verdict = "FAIL"
-    elif blocked or required:
+    elif blocking or required:
         verdict = "OWNER_REQUIRED"
 
     (evidence / "OWNER_EVENING_RESULT.json").write_text(json.dumps({
         "recorded_at": datetime.now(timezone.utc).isoformat(),
         "source_sha": sha, "artifact": manifest.get("artifact"),
         "platform": platform.platform(), "doctor": doctor_state,
+        "doctor_blocked": [{"name": c.get("name"), "detail": c.get("detail")}
+                           for c in blocking],
         "installed_acceptance": acceptance, "required_downloads": required,
         "verdict": verdict,
     }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

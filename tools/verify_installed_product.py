@@ -62,9 +62,18 @@ def verify(work: Path, expected_sha: str | None = None) -> dict:
     assert not defaults.data_dir.is_relative_to(prefix), defaults.data_dir
     bindir = prefix / ("Scripts" if os.name == "nt" else "bin")
     for entry in ("bossman", "bossman-gateway", "bcc", "bcc-desktop", "bcc-open"):
-        path = bindir / (entry + (".exe" if os.name == "nt" else ""))
-        assert path.is_file(), path
-        result = subprocess.run([str(path), "--help"], cwd=work,
+        # A venv installation writes .exe wrappers; the downloadable archive
+        # installs into an embeddable runtime and writes .cmd shims that resolve
+        # the interpreter beside them. Either way the command must EXIST and RUN
+        # here — only the wrapper format differs, never the requirement.
+        suffixes = (".exe", ".cmd") if os.name == "nt" else ("",)
+        candidates = [bindir / (entry + suffix) for suffix in suffixes]
+        path = next((p for p in candidates if p.is_file()), None)
+        assert path is not None, candidates
+        argv = [str(path), "--help"]
+        if path.suffix == ".cmd":
+            argv = [os.environ.get("COMSPEC", "cmd.exe"), "/c", *argv]
+        result = subprocess.run(argv, cwd=work,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
         if result.returncode:
             # Keep the actual installed CLI failure. CalledProcessError alone
