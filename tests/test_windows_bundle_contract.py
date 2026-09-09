@@ -129,3 +129,23 @@ def test_console_entry_points_are_collected_from_what_is_installed(tmp_path) -> 
 def test_the_bundled_commands_are_on_the_launcher_path() -> None:
     env = bundle.launcher_files()["app-support/_env.cmd"]
     assert 'set "PATH=%BOSSMAN_HOME%runtime\\Scripts;%BOSSMAN_HOME%media;%PATH%"' in env
+
+
+def test_the_windows_automation_packages_are_part_of_the_build(tmp_path) -> None:
+    """The archive installs them; the owner is never sent to run pip.
+
+    A complete archive still reported the doctor's ``computer-operator`` check
+    BLOCKED, because pywinauto/pywin32/pyautogui/Pillow live in the ``windows``
+    extra of bossman-core and a bare wheel install leaves them out.
+    """
+    wheels = [tmp_path / "bossman_core-1.0-py3-none-any.whl",
+              tmp_path / "bossman_shared-1.0-py3-none-any.whl"]
+    requested = bundle.pip_requirements(wheels)
+    assert requested[0].endswith("bossman_core-1.0-py3-none-any.whl[windows]")
+    assert requested[1].endswith("bossman_shared-1.0-py3-none-any.whl"), (
+        "only the distribution that declares the extra may carry it"
+    )
+
+    extras = (REPO / "bossman-core" / "pyproject.toml").read_text(encoding="utf-8")
+    for package in ("pywinauto", "pywin32", "pyautogui", "pillow"):
+        assert package in extras, f"{package} is no longer in the windows extra"

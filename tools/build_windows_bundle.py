@@ -193,6 +193,22 @@ def install_runtime(runtime: Path, work: Path) -> dict:
     return {"python_version": version, "embeddable_sha256": sha256_file(archive)}
 
 
+def pip_requirements(wheels: list[Path]) -> list[str]:
+    """The wheels to install, with the extras the shipped product needs.
+
+    The bundled doctor reported ``computer-operator`` BLOCKED on a complete
+    archive: the Windows automation packages live in the ``windows`` extra of
+    bossman-core, and installing the bare wheel leaves them out. The archive
+    promises the owner has nothing left to install, so the extra is part of the
+    build — not a line in a README telling them to run pip.
+    """
+    requirements = []
+    for wheel in wheels:
+        extras = "[windows]" if wheel.name.startswith(("bossman_core-", "bossman-core-")) else ""
+        requirements.append(f"{wheel}{extras}")
+    return requirements
+
+
 def console_shim(spec: str) -> str:
     """A relocatable ``Scripts`` entry point for the EMBEDDED runtime.
 
@@ -231,7 +247,7 @@ def install_packages(runtime: Path, wheels: Path) -> dict:
     if not built:
         raise RuntimeError("no Bossman wheels to install")
     run([sys.executable, "-m", "pip", "install", "--upgrade",
-         "--target", str(site_packages), *map(str, built)])
+         "--target", str(site_packages), *pip_requirements(built)])
     listing = run([sys.executable, "-m", "pip", "list", "--path", str(site_packages),
                    "--format=json"]).stdout
 
