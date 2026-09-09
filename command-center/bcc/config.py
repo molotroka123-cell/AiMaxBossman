@@ -14,8 +14,37 @@ def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default)
 
 
+def _installed() -> bool:
+    """Продукт установлен (колесо), а не запущен из чекаута."""
+    return not (ROOT / "pyproject.toml").is_file()
+
+
+def _default_data_dir() -> Path:
+    """Данные владельца НИКОГДА не пишутся внутрь установленного пакета.
+
+    В чекауте это по-прежнему <repo>/command-center/data. У установленного
+    продукта ROOT — это site-packages: туда нельзя писать БД, ключ и токен
+    (каталог бывает только для чтения, а переустановка стирала бы данные).
+    """
+    if _installed():
+        base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_DATA_HOME")
+        root = Path(base) if base else Path.home() / ".local" / "share"
+        return root / "Bossman" / "command-center"
+    return ROOT / "data"
+
+
 def _data_dir() -> Path:
-    return Path(_env("BCC_DATA_DIR", str(ROOT / "data"))).expanduser()
+    return Path(_env("BCC_DATA_DIR", str(_default_data_dir()))).expanduser()
+
+
+def _default_ui_dir() -> Path:
+    """Интерфейс: сначала упакованный в колесо, потом каталог чекаута.
+
+    Установленный продукт отдавал 404 на `/`, потому что ui/ лежит вне пакета
+    и в колесо не попадал. Сборка кладёт его в bcc/ui (см. setup.py).
+    """
+    packaged = PKG_DIR / "ui"
+    return packaged if packaged.is_dir() else ROOT / "ui"
 
 
 @dataclass
@@ -26,7 +55,7 @@ class Settings:
     host: str = field(default_factory=lambda: _env("BCC_HOST", "127.0.0.1"))
     port: int = field(default_factory=lambda: int(_env("BCC_PORT", "8800")))
     # статика UI (её делает отдельный агент); монтируется, если каталог существует
-    ui_dir: Path = field(default_factory=lambda: ROOT / "ui")
+    ui_dir: Path = field(default_factory=_default_ui_dir)
     # V2.1 фаза N: браузер ходит по HttpOnly-cookie-сессии. Заголовок X-BCC-Token
     # остаётся для CLI/скриптов и переходного периода — выключается
     # BCC_LEGACY_TOKEN=0, когда всё перееxало на сессии.
