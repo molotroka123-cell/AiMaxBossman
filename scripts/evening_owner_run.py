@@ -114,6 +114,10 @@ def _environment(identity: dict[str, Any]) -> tuple[dict[str, str], Path]:
     env["BOSSMAN_ACCEPTANCE_ROOT"] = str(evening)
     env["BOSSMAN_BREAKER_ROOT"] = str(breaker)
     env["BOSSMAN_ACCEPTANCE_SHA"] = identity["sha"]
+    # Дети печатают по-русски. На Windows-консоли в cp1252 это падало на первой
+    # же строке, до всякого вердикта. Не переопределяем то, что задал владелец.
+    env.setdefault("PYTHONUTF8", "1")
+    env.setdefault("PYTHONIOENCODING", "utf-8")
     return env, base
 
 
@@ -250,7 +254,23 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0 if rc1 == rc2 == 0 else 1
 
 
+def _console_utf8() -> None:
+    """Windows consoles default to a legacy code page (cp1252 on the runners).
+
+    Every line these harnesses print is Russian, so the first print crashed the
+    owner-facing verify with UnicodeEncodeError before it could report anything.
+    The launchers happened to export PYTHONUTF8, which hid it; a direct run and
+    CI did not. Output encoding is not a verdict — make it robust here.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):  # already replaced or not a text stream
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _console_utf8()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "--ci", action="store_true",

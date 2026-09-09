@@ -246,3 +246,21 @@ def test_the_powershell_launcher_is_syntactically_valid():
         "if($e -and $e.Count){$e|%{Write-Error $_.Message};exit 1};exit 0"
     )
     assert subprocess.run([pwsh, "-NoProfile", "-Command", script]).returncode == 0
+
+
+@pytest.mark.parametrize("script", ["evening_acceptance.py", "owner_breaker.py",
+                                    "evening_owner_run.py"])
+def test_the_harness_prints_on_a_legacy_windows_console(script):
+    """Русский вывод не должен убивать проверку на консоли в cp1252.
+
+    На windows-latest первый же print падал с UnicodeEncodeError, и владелец
+    видел не вердикт, а трейсбек. Лаунчеры экспортировали PYTHONUTF8 и этим
+    маскировали дефект; прямой запуск и CI — нет.
+    """
+    argv = ["--ci", "preflight"] if script == "evening_owner_run.py" else ["verify"]
+    done = subprocess.run(
+        [sys.executable, str(REPO / "scripts" / script), *argv],
+        cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace",
+        env={**os.environ, "PYTHONIOENCODING": "cp1252"}, timeout=180,
+    )
+    assert "UnicodeEncodeError" not in (done.stdout + done.stderr), done.stderr[-400:]
