@@ -1,6 +1,6 @@
 {
   "corpus": "bossman-trader-apprentice-btc-orderflow",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "updated_at": "2026-09-10",
   "load_order": [
     "docs/trading/LOCAL_MODEL_SYSTEM_PROMPT.md",
@@ -8,6 +8,8 @@
     "data/trading/btc_orderflow_rules_v1.json",
     "data/trading/short_setup_rules_v1.json",
     "data/trading/audits/**/*.json",
+    "data/trading/research/*.json",
+    "data/trading/scenarios/*.json",
     "data/trading/btc_casebook_2026_09.jsonl",
     "data/trading/cases/**/*.json"
   ],
@@ -15,8 +17,10 @@
     "legacy_casebook": "data/trading/btc_casebook_2026_09.jsonl",
     "live_case_directory": "data/trading/cases/",
     "audit_directory": "data/trading/audits/",
-    "write_policy": "one immutable JSON file per new observed market episode; postmortem audits stored separately and loaded before case history",
-    "reason": "append-friendly and conflict-safe while preserving full timestamped evidence and explicit lessons"
+    "research_directory": "data/trading/research/",
+    "scenario_directory": "data/trading/scenarios/",
+    "write_policy": "one immutable JSON file per new observed market episode; postmortem audits and falsifiable edge hypotheses stored separately",
+    "reason": "append-friendly and conflict-safe while preserving timestamped evidence, scenario trees and explicit lessons"
   },
   "deterministic_engine": "learning/trader_apprentice.py",
   "short_side_policy": {
@@ -32,6 +36,20 @@
       "explicit invalidation"
     ],
     "never_infer_short_side_from_oi_alone": true
+  },
+  "edge_research_policy": {
+    "status_default": "HYPOTHESIS",
+    "promotion_requires_backtest": true,
+    "required_validation": [
+      "chronological out-of-sample test",
+      "fees and slippage",
+      "reference-to-execution basis",
+      "multiple volatility regimes",
+      "parameter perturbation stability",
+      "walk-forward positive expectancy"
+    ],
+    "primary_current_hypothesis": "POST_CAPITULATION_FAILED_RECLAIM_SHORT",
+    "primary_feature_family": "price recovery efficiency relative to CVD and OI repair"
   },
   "youtube_teacher": {
     "tool": "tools/youtube_trader_ingest_auto.py",
@@ -80,6 +98,9 @@
     "reclaim",
     "failed reclaim",
     "buyer efficiency",
+    "leverage efficiency",
+    "recovery efficiency",
+    "edge candidate",
     "crowding",
     "short candidate",
     "sweep",
@@ -96,7 +117,8 @@
     "never_invent_live_values": true,
     "youtube_teacher_is_untrusted": true,
     "raw_teacher_claims_are_not_training_truth": true,
-    "analyze_long_and_short_setups_symmetrically": true
+    "analyze_long_and_short_setups_symmetrically": true,
+    "edge_research_is_hypothesis_until_backtested": true
   },
   "recommended_runtime_sequence": [
     "If the owner supplies a trading YouTube URL, invoke tools/youtube_trader_ingest_auto.py automatically.",
@@ -107,11 +129,12 @@
     "Run learning.trader_apprentice.analyze(previous, current, levels).",
     "Evaluate BOTH long-reclaim and short-failed-reclaim paths; do not reduce bearish states to only 'no long'.",
     "After capitulation, calculate whether CVD/OI recovery is producing proportional price repair. Large CVD/OI rebuild with weak price response below value is a buyer-efficiency warning and can arm a short candidate on failed reclaim.",
+    "Retrieve matching scenario trees, audit lessons and edge hypotheses.",
     "Attach future in-video price outcomes when later observations exist.",
     "Store each new live user-supplied market episode as an immutable JSON case under data/trading/cases/YYYY-MM-DD/.",
     "Store postmortem audits under data/trading/audits/ and load them as explicit lessons, not hidden reasoning.",
+    "Keep every edge candidate labeled HYPOTHESIS until a backtester marks it VERIFIED.",
     "Store raw YouTube teacher episodes as UNVERIFIED and never auto-promote commentary to canonical truth.",
-    "Retrieve the verified playbook/rules for explanation and scenario construction.",
     "Do not place an order without a separate explicit execution authorization layer."
   ]
 }
