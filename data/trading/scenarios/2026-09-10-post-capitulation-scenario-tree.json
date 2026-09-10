@@ -1,0 +1,75 @@
+{
+  "scenario_id": "btc-2026-09-10-post-capitulation-scenario-tree",
+  "date": "2026-09-10",
+  "market": "BTC",
+  "source_context": "Derived from the latest K1m6a/Coinwise post-capitulation sequence already stored in the live casebook.",
+  "reference_state": {
+    "reference_price_approx": 77225,
+    "cvd_billion": 46.94,
+    "open_interest_billion": 18.66,
+    "location": "below dVAL after capitulation",
+    "key_levels": {
+      "dVAL_approx": 77460,
+      "dPOC_approx": 78145,
+      "dOpen_approx": 78550,
+      "dVAH_approx": 78660,
+      "capitulation_low_zone": [76750, 77000]
+    }
+  },
+  "decision_tree": [
+    {
+      "name": "A_BULLISH_RECLAIM",
+      "conditions": [
+        "Price reclaims ~77.46k dVAL and holds/retests above it.",
+        "CVD stays stable/up or at least stops making new lows.",
+        "OI may rise, but rising OI must continue to produce higher price rather than stall below value."
+      ],
+      "interpretation": "Post-capitulation recovery is converting from a reflex bounce into structural repair.",
+      "action_bias": "LONG_CANDIDATE",
+      "staging": [
+        "First small tranche only after dVAL acceptance.",
+        "Higher-quality add only after dPOC ~78.145k reclaim/hold.",
+        "Further confirmation above ~78.55-78.66k dOpen/dVAH."
+      ],
+      "invalidation": "Back below dVAL with CVD rolling over and OI elevated/rising."
+    },
+    {
+      "name": "B_FAILED_RECLAIM_SHORT",
+      "conditions": [
+        "Price bounces into ~77.4-77.7k / dVAL but cannot accept above.",
+        "A lower high or clear rejection forms.",
+        "CVD stops recovering or turns down.",
+        "OI stays elevated or rises while price weakens."
+      ],
+      "interpretation": "Buyer effort and re-leveraging failed to repair broken value; fresh leverage is vulnerable below resistance.",
+      "action_bias": "SHORT_CANDIDATE_ON_REJECTION",
+      "preferred_entry_logic": "Short the failed repair/retest, not the liquidation low.",
+      "invalidation": "Acceptance above dVAL and especially dPOC with positive price response."
+    },
+    {
+      "name": "C_BEARISH_CONTINUATION_BREAKDOWN",
+      "conditions": [
+        "Price loses the post-flush local support / returns through ~77.0k toward ~76.75k.",
+        "CVD makes new lows.",
+        "OI turns UP or remains elevated instead of collapsing with price."
+      ],
+      "interpretation": "Transition from forced deleveraging into bearish leverage expansion after old longs have already been cleaned.",
+      "action_bias": "SHORT_CONTINUATION_CANDIDATE",
+      "warning": "If OI is collapsing violently again, avoid chasing the low; that is another liquidation leg rather than clean fresh short build.",
+      "invalidation": "Rapid reclaim of the lost local support with CVD stabilization."
+    },
+    {
+      "name": "D_RANGE_ABSORPTION",
+      "conditions": [
+        "Price stays roughly between the capitulation area and dVAL.",
+        "CVD oscillates without decisive new lows/highs.",
+        "OI rebuilds but price remains trapped."
+      ],
+      "interpretation": "Leverage is rebuilding inside balance; direction is not yet resolved.",
+      "action_bias": "NO_TRADE_WAIT",
+      "confirmation_needed": "Trade only the eventual dVAL reclaim/acceptance or failed-reclaim rejection with flow confirmation."
+    }
+  ],
+  "meta_rule": "After capitulation, location and price-efficiency dominate the raw Price/CVD/OI matrix. Price UP + CVD UP + OI UP below broken value is only an early recovery candidate; if buyer effort and OI rebuild cannot reclaim value, the same data can become fuel for a failed-reclaim short.",
+  "execution_note": "All listed levels are reference-chart values. Convert to the actual execution venue using current basis before placing orders."
+}
