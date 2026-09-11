@@ -1,0 +1,34 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "type": "decision_plan",
+  "market": "BTC",
+  "source": "latest user-supplied Coinwise/K1m6a screenshots",
+  "observed": {
+    "reference_price_area_approx": [77100, 77200],
+    "cvd_billion": 58.93,
+    "open_interest_billion": 17.79,
+    "dopen": 77215,
+    "dpoc": 77350,
+    "dval": 76820,
+    "dvah": 78180
+  },
+  "state": "PRICE_BELOW_DOPEN_DPOC_WITH_FALLING_CVD_AND_FALLING_OI",
+  "interpretation": "The market is still deleveraging rather than showing fresh bearish leverage expansion, but bullish flow has not translated into sufficient price repair. CVD remains elevated in absolute terms while price is below dOpen/dPOC, so buyer inefficiency remains a warning. Long entry requires price confirmation, not flow alone.",
+  "entry_plan": {
+    "preferred_trigger": "Reclaim 77,215 and especially 77,350, then hold/retest for 5-15 minutes with CVD stabilizing or rising and OI flat/down.",
+    "aggressive_entry": "Small starter only after reclaim of dOpen 77,215 if CVD stops making lows and price does not immediately lose the level.",
+    "safer_entry": "Wait for acceptance above dPOC 77,350 and a successful retest from above.",
+    "strong_confirmation": "Acceptance above dVAH around 78,180 materially improves continuation odds toward the prior impulse area.",
+    "invalidation": "Loss/acceptance below dVAL 76,820 while CVD falls and OI starts rising means fresh bearish leverage expansion; cancel remaining long adds."
+  },
+  "probability_estimates": {
+    "note": "Subjective conditional estimates from the observed case, not statistically backtested probabilities.",
+    "current_unconfirmed_long_success_to_78180_pct_range": [40, 50],
+    "after_dopen_and_dpoc_reclaim_hold_pct_range": [60, 65],
+    "after_dvah_acceptance_pct_range": [65, 70],
+    "after_dval_loss_with_cvd_down_oi_up_pct_range": [20, 35]
+  },
+  "risk_rule": "After giving back prior profit in CASE-002, do not use flow-only justification for averaging. Price structure must confirm before increasing exposure.",
+  "not_a_new_case": true
+}
