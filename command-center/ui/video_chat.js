@@ -62,6 +62,15 @@ export const ChatPage={id:'bossman-chat',title:'История видео и ч�
     const recovery=h('div');
     const send=h('button.bx-btn.bx-btn-primary',{type:'button'},'Отправить');
     send.addEventListener('click',async()=>{
+      /* Пустое задание отказывается ЗДЕСЬ, а не на сервере. Раньше пустая
+         строка уходила в routeVideoRequest, и владелец получал обратно
+         разработческое «неверный запрос: text — String should have at least 1
+         character». Соседний экран (Операторский канал) на то же действие
+         отвечает по-человечески и никуда не ходит; здесь теперь так же. */
+      if(!input.value.trim() && !state.files.length){
+        status.textContent='Задание пустое: напишите, что сделать, или приложите файл.';
+        input.focus();return;
+      }
       send.disabled=true;
       recovery.replaceChildren();
       try {

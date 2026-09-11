@@ -290,14 +290,60 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                                          "после повторной отрисовки элемент не найден"))
                     continue
 
+                # Кнопка может быть ВЫКЛЮЧЕНА, пока страница дочитывает данные,
+                # и включиться через долю секунды. Нажатие в это окно даёт
+                # «TimeoutError — element is not enabled», и в отчёте это
+                # выглядит как сломанная кнопка. Владелец в такой ситуации
+                # просто ждёт; развёртка обязана вести себя так же.
+                if not target.is_enabled():
+                    try:
+                        page.wait_for_timeout(1200)
+                        target = _find(page, ctl) or target
+                    except Exception:                      # noqa: BLE001
+                        pass
+                    if not target.is_enabled():
+                        verdict = "disabled_reason" if ctl["reason"] else "disabled_silent"
+                        results.append(Click(pid, label, ctl["cls"], verdict,
+                                             ctl["reason"] or "выключена и после ожидания"))
+                        continue
+
                 console.clear(); requests.clear(); failures.clear()
                 before_dom = _dom_fingerprint(page)
                 before_url = page.url
                 try:
                     target.click(timeout=5000)
                 except Exception as exc:                  # noqa: BLE001
+                    # Журнал вызова Playwright называет ПРИЧИНУ («intercepts
+                    # pointer events», «element is not stable», «outside of the
+                    # viewport»). Без неё в отчёте остаётся голое
+                    # «TimeoutError», по которому чинить нечего: именно так
+                    # BL-027 полдня выглядел как «кнопка не нажимается».
+                    log = str(exc).split("Call log:")[-1]
+                    why = [ln.strip(" -\t") for ln in log.splitlines()
+                           if ln.strip() and "waiting for" not in ln
+                           and "retrying" not in ln and "attempting" not in ln
+                           and not ln.strip().startswith("- waiting ")]
+                    # Если журнал вызова причины не назвал, спросим у страницы
+                    # САМИ: кто лежит в точке клика и где вообще элемент. Ровно
+                    # эти два числа и опознали BL-027.
+                    seen = ""
+                    try:
+                        seen = page.evaluate(
+                            """(name) => { const b=[...document.querySelectorAll('#view button')]
+                            .find(x=>(x.innerText||'').trim().startsWith(name));
+                            if(!b) return 'элемента уже нет';
+                            const r=b.getBoundingClientRect();
+                            const e=document.elementFromPoint(r.left+r.width/2, r.top+r.height/2);
+                            return `в точке клика: ${e?e.tagName+'.'+(e.className||''):'ничего'};`
+                                 + ` y=${Math.round(r.top)} при окне ${window.innerHeight}`
+                                 + `; видим=${r.width>0&&r.height>0}`; }""",
+                            label.split("\n")[0][:20])
+                    except Exception:                      # noqa: BLE001
+                        pass
                     results.append(Click(pid, label, ctl["cls"], "error",
-                                         f"клик не прошёл: {type(exc).__name__}"))
+                                         f"клик не прошёл: {type(exc).__name__}"
+                                         + (f" — {why[-1][:120]}" if why else "")
+                                         + (f" | {seen}" if seen else "")))
                     continue
                 page.wait_for_timeout(SETTLE_MS)
 

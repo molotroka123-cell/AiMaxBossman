@@ -15,6 +15,7 @@ from typing import Any, Dict
 
 from .capabilities import (
     BackendUnavailableError,
+    BackendVersionMismatchError,
     BrowserRuntime,
     ContextStoreRuntime,
     DesktopRuntime,
@@ -59,24 +60,85 @@ class AdapterRegistry:
         self._video_adapters: Dict[str, VideoCompositionRuntime] = {}
         self._local_model_adapters: Dict[str, LocalModelRuntime] = {}
         self._context_store_adapters: Dict[str, ContextStoreRuntime] = {}
+        # Закреплённая версия бэкенда: (возможность, бэкенд) -> ожидаемая строка.
+        # Пусто по умолчанию — пин это осознанное действие того, кто
+        # РЕГИСТРИРУЕТ адаптер, а не догадка реестра.
+        self._pinned_versions: Dict[tuple, str] = {}
 
-    def register_desktop(self, backend: str, adapter: DesktopRuntime) -> None:
+    def pin_version(self, capability: str, backend: str, version: str) -> None:
+        """Закрепить версию бэкенда (обычно — точный SHA из sources.lock.json).
+
+        Раздел 18 требует записывать точный SHA каждого внешнего проекта, а
+        раздел 22 — отрабатывать отказ «неверная версия». Без этой связки
+        закрепление остаётся утверждением в документе: рантайм не проверял
+        НИКОГДА, что запущено именно то, что разбиралось по лицензии.
+        """
+        if not version or not version.strip():
+            raise ValueError("пустая закреплённая версия ничего не закрепляет")
+        self._pinned_versions[(capability, backend.lower())] = version.strip()
+
+    def register_desktop(self, backend: str, adapter: DesktopRuntime, *,
+                         pinned_version: str | None = None) -> None:
         self._desktop_adapters[backend.lower()] = adapter
+        if pinned_version:
+            self.pin_version(CapabilityName.DESKTOP.value, backend, pinned_version)
 
-    def register_browser(self, backend: str, adapter: BrowserRuntime) -> None:
+    def register_browser(self, backend: str, adapter: BrowserRuntime, *,
+                         pinned_version: str | None = None) -> None:
         self._browser_adapters[backend.lower()] = adapter
+        if pinned_version:
+            self.pin_version(CapabilityName.BROWSER.value, backend, pinned_version)
 
-    def register_web_editor(self, backend: str, adapter: WebEditorRuntime) -> None:
+    def register_web_editor(self, backend: str, adapter: WebEditorRuntime, *,
+                            pinned_version: str | None = None) -> None:
         self._web_editor_adapters[backend.lower()] = adapter
+        if pinned_version:
+            self.pin_version(CapabilityName.WEB_EDITOR.value, backend, pinned_version)
 
-    def register_video(self, backend: str, adapter: VideoCompositionRuntime) -> None:
+    def register_video(self, backend: str, adapter: VideoCompositionRuntime, *,
+                       pinned_version: str | None = None) -> None:
         self._video_adapters[backend.lower()] = adapter
+        if pinned_version:
+            self.pin_version(CapabilityName.VIDEO.value, backend, pinned_version)
 
-    def register_local_model(self, backend: str, adapter: LocalModelRuntime) -> None:
+    def register_local_model(self, backend: str, adapter: LocalModelRuntime, *,
+                             pinned_version: str | None = None) -> None:
         self._local_model_adapters[backend.lower()] = adapter
+        if pinned_version:
+            self.pin_version(CapabilityName.LOCAL_MODEL.value, backend, pinned_version)
 
-    def register_context_store(self, backend: str, adapter: ContextStoreRuntime) -> None:
+    def register_context_store(self, backend: str, adapter: ContextStoreRuntime, *,
+                               pinned_version: str | None = None) -> None:
         self._context_store_adapters[backend.lower()] = adapter
+        if pinned_version:
+            self.pin_version(CapabilityName.CONTEXT_STORE.value, backend, pinned_version)
+
+    def _version_matches_pin(self, adapter: Any, *, capability: str, backend: str) -> bool:
+        """Совпадает ли объявленная адаптером версия с закреплённой.
+
+        Незакреплённый бэкенд считается совпадающим: пин необязателен. А вот
+        закреплённый, который НЕ МОЖЕТ назвать свою версию, совпадающим не
+        считается — «версия неизвестна» это не «версия та самая».
+        """
+        expected = self._pinned_versions.get((capability, backend.lower()))
+        if expected is None:
+            return True
+        try:
+            actual = getattr(adapter.get_runtime_identity(), "version", None)
+        except Exception as exc:  # noqa: BLE001 - граница стороннего адаптера
+            logger.warning("Version probe raised %s: %s", type(exc).__name__, exc)
+            return False
+        if not isinstance(actual, str) or not actual.strip():
+            logger.warning(
+                "%s backend '%s' is pinned to %s but declares no version",
+                capability, backend, expected)
+            return False
+        if actual.strip() != expected:
+            logger.warning(
+                "%s backend '%s' is pinned to %s but is running %s",
+                capability, backend, expected, actual.strip())
+            return False
+        return True
 
     @staticmethod
     def _adapter_is_healthy(adapter: Any) -> bool:
@@ -99,8 +161,32 @@ class AdapterRegistry:
         legacy_key = fallback
         selected = adapters.get(target)
 
+        # Порядок важен: сначала здоровье, потом версия. Больной бэкенд не
+        # обязан уметь называть версию, и сообщать о «несовпадении версии» там,
+        # где на самом деле мёртв процесс, значит увести читателя не туда.
         if selected is not None and self._adapter_is_healthy(selected):
-            return selected
+            if self._version_matches_pin(selected, capability=capability, backend=target):
+                return selected
+            # Несовпадение версии — это утверждение о ПРОИСХОЖДЕНИИ, а не
+            # временная неисправность: запущено не то, что разбиралось по
+            # лицензии и поведению (раздел 18). Поэтому такой бэкенд не
+            # используется. Продукт при этом не ломается: ниже тот же откат на
+            # проверенную реализацию, что и для больного бэкенда.
+            if target == legacy_key:
+                raise BackendVersionMismatchError(
+                    f"{capability} backend '{target}' does not match its pinned version; "
+                    f"there is no second backend to fall back to")
+            logger.warning(
+                "%s backend '%s' rejected on version pin; attempting legacy fallback",
+                capability, target)
+            fallback_adapter = adapters.get(legacy_key)
+            if fallback_adapter is not None and self._adapter_is_healthy(fallback_adapter) \
+                    and self._version_matches_pin(fallback_adapter, capability=capability,
+                                                  backend=legacy_key):
+                return fallback_adapter
+            raise BackendVersionMismatchError(
+                f"{capability} backend '{target}' does not match its pinned version "
+                f"and no healthy {legacy_key} fallback is available")
 
         if selected is None:
             logger.warning(
@@ -118,7 +204,9 @@ class AdapterRegistry:
         # If the requested backend itself is legacy, there is no second backend
         # to silently fall through to. The unhealthy state must remain visible.
         fallback_adapter = adapters.get(legacy_key)
-        if fallback_adapter is not None and self._adapter_is_healthy(fallback_adapter):
+        if fallback_adapter is not None and self._adapter_is_healthy(fallback_adapter) \
+                and self._version_matches_pin(fallback_adapter, capability=capability,
+                                              backend=legacy_key):
             return fallback_adapter
 
         # Имя запасного бэкенда называется, а не подразумевается: у контекст-стора

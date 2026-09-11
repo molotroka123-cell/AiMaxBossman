@@ -31,10 +31,12 @@
     "objectives"
   ],
   "counts": {
-    "opens_feature": 1,
-    "disabled_reason": 7,
-    "error": 100,
-    "no_controls": 5
+    "opens_feature": 78,
+    "disabled_reason": 8,
+    "real_effect": 16,
+    "no_controls": 5,
+    "error": 2,
+    "vanished": 6
   },
   "clicks": [
     {
@@ -59,8 +61,8 @@
       "page": "video-studio",
       "label": "Монтаж",
       "selector": "vs-button active",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -68,8 +70,8 @@
       "page": "video-studio",
       "label": "Цвет",
       "selector": "vs-button",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -77,8 +79,8 @@
       "page": "video-studio",
       "label": "Звук",
       "selector": "vs-button",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -86,8 +88,8 @@
       "page": "video-studio",
       "label": "VFX",
       "selector": "vs-button",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -95,8 +97,8 @@
       "page": "video-studio",
       "label": "ИИ",
       "selector": "vs-button",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -131,8 +133,8 @@
       "page": "video-studio",
       "label": "✦",
       "selector": "vs-button",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -140,8 +142,8 @@
       "page": "video-studio",
       "label": "EN",
       "selector": "vs-button",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -158,8 +160,8 @@
       "page": "video-studio",
       "label": "＋ Новый проект",
       "selector": "vs-button vs-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "disabled_reason",
+      "detail": "＋ Новый проект",
       "requests": [],
       "console": []
     },
@@ -167,8 +169,8 @@
       "page": "bossman-chat",
       "label": "Убрать вложения",
       "selector": "bx-btn",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -176,8 +178,8 @@
       "page": "bossman-chat",
       "label": "Отправить",
       "selector": "bx-btn bx-btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -185,8 +187,8 @@
       "page": "home-v3",
       "label": "Убрать вложения",
       "selector": "bx-btn",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -194,8 +196,8 @@
       "page": "home-v3",
       "label": "Умно",
       "selector": "bx-mode",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -203,8 +205,8 @@
       "page": "home-v3",
       "label": "Авто",
       "selector": "bx-mode",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -212,8 +214,8 @@
       "page": "home-v3",
       "label": "С агентами",
       "selector": "bx-mode",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -221,8 +223,8 @@
       "page": "home-v3",
       "label": "ЗАПУСТИТЬ\nCtrl↵",
       "selector": "bx-btn bx-btn-primary bx-btn-xl",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -230,8 +232,8 @@
       "page": "home-v3",
       "label": "Все приложения",
       "selector": "bx-btn bx-btn-ghost bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -239,8 +241,8 @@
       "page": "home-v3",
       "label": "Открыть",
       "selector": "bx-btn bx-btn-primary bx-btn-lg",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -248,8 +250,8 @@
       "page": "home-v3",
       "label": "Живой вид",
       "selector": "bx-btn bx-btn-secondary bx-btn-lg",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -257,8 +259,8 @@
       "page": "home-v3",
       "label": "Новая модель",
       "selector": "bx-btn bx-btn-secondary bx-btn-lg",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -266,8 +268,8 @@
       "page": "home-v3",
       "label": "Open Command Center",
       "selector": "bx-btn bx-btn-primary bx-btn-lg",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -275,8 +277,8 @@
       "page": "home-v3",
       "label": "Open",
       "selector": "bx-btn bx-btn-primary bx-btn-lg",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -284,8 +286,8 @@
       "page": "home-v3",
       "label": "Миссии",
       "selector": "bx-btn bx-btn-ghost bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -293,8 +295,8 @@
       "page": "home-v3",
       "label": "Все",
       "selector": "bx-btn bx-btn-ghost bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -302,8 +304,8 @@
       "page": "home-v3",
       "label": "Создать агента",
       "selector": "bx-btn bx-btn-subtle bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -311,8 +313,8 @@
       "page": "home-v3",
       "label": "Ресурсы",
       "selector": "bx-btn bx-btn-ghost bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -320,8 +322,8 @@
       "page": "home-v3",
       "label": "Подробно",
       "selector": "bx-btn bx-btn-ghost bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -329,8 +331,8 @@
       "page": "apps",
       "label": "Проверить состояние",
       "selector": "bx-btn bx-btn-subtle bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -338,17 +340,19 @@
       "page": "apps",
       "label": "Разрешить запуск приложений",
       "selector": "bx-btn bx-btn-secondary bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "PUT http://127.0.0.1:33737/api/apps/control/policy",
+      "requests": [
+        "PUT http://127.0.0.1:33737/api/apps/control/policy"
+      ],
       "console": []
     },
     {
       "page": "apps",
       "label": "Открыть",
       "selector": "bx-btn bx-btn-primary bx-btn-lg",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -356,8 +360,8 @@
       "page": "apps",
       "label": "Живой вид",
       "selector": "bx-btn bx-btn-secondary bx-btn-lg",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -365,17 +369,19 @@
       "page": "apps",
       "label": "Запустить",
       "selector": "bx-btn bx-btn-primary bx-btn-lg",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/apps/ai-webcam-vision/start",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/apps/ai-webcam-vision/start"
+      ],
       "console": []
     },
     {
       "page": "apps",
       "label": "Новая модель",
       "selector": "bx-btn bx-btn-secondary bx-btn-lg",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -383,8 +389,8 @@
       "page": "apps",
       "label": "Open Command Center",
       "selector": "bx-btn bx-btn-primary bx-btn-lg",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -392,8 +398,8 @@
       "page": "apps",
       "label": "Open",
       "selector": "bx-btn bx-btn-primary bx-btn-lg",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -401,8 +407,8 @@
       "page": "overview",
       "label": "START",
       "selector": "btn btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -410,8 +416,8 @@
       "page": "overview",
       "label": "Все миссии",
       "selector": "btn btn-ghost btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -419,8 +425,8 @@
       "page": "overview",
       "label": "Новая миссия",
       "selector": "btn btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -428,8 +434,8 @@
       "page": "overview",
       "label": "Очередь",
       "selector": "btn btn-ghost btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -437,8 +443,8 @@
       "page": "overview",
       "label": "Все агенты",
       "selector": "btn btn-ghost btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -446,8 +452,8 @@
       "page": "overview",
       "label": "Ресурсы",
       "selector": "btn btn-ghost btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -455,8 +461,8 @@
       "page": "missions",
       "label": "Новая миссия",
       "selector": "bx-btn bx-btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -464,8 +470,8 @@
       "page": "missions",
       "label": "Создать первую миссию",
       "selector": "bx-btn bx-btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -473,17 +479,19 @@
       "page": "router",
       "label": "Проверить",
       "selector": "btn btn-primary btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/router/preview",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/router/preview"
+      ],
       "console": []
     },
     {
       "page": "router",
       "label": "Показать",
       "selector": "btn btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -491,18 +499,22 @@
       "page": "router",
       "label": "Сохранить",
       "selector": "btn btn-primary btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "PATCH http://127.0.0.1:33737/api/router/rules",
+      "requests": [
+        "PATCH http://127.0.0.1:33737/api/router/rules"
+      ],
       "console": []
     },
     {
       "page": "governor",
       "label": "Сохранить",
       "selector": "btn btn-primary btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "PATCH http://127.0.0.1:33737/api/governor/rules",
+      "requests": [
+        "PATCH http://127.0.0.1:33737/api/governor/rules"
+      ],
       "console": []
     },
     {
@@ -518,44 +530,52 @@
       "page": "resources",
       "label": "Поровну",
       "selector": "is-on",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/resources/policy",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/resources/policy"
+      ],
       "console": []
     },
     {
       "page": "resources",
       "label": "На скорость",
       "selector": "",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/resources/policy",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/resources/policy"
+      ],
       "console": []
     },
     {
       "page": "resources",
       "label": "Экономно",
       "selector": "",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/resources/policy",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/resources/policy"
+      ],
       "console": []
     },
     {
       "page": "resources",
       "label": "Сохранить",
       "selector": "bx-btn bx-btn-primary bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/resources/policy",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/resources/policy"
+      ],
       "console": []
     },
     {
       "page": "skills",
       "label": "Загрузить",
       "selector": "btn",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -563,8 +583,8 @@
       "page": "skills",
       "label": "Новый навык",
       "selector": "btn btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -572,8 +592,8 @@
       "page": "skills",
       "label": "Запустить",
       "selector": "bx-btn bx-btn-primary bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -581,8 +601,8 @@
       "page": "skills",
       "label": "Копия",
       "selector": "bx-btn bx-btn-secondary bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -590,8 +610,8 @@
       "page": "skills",
       "label": "Скачать",
       "selector": "bx-btn bx-btn-secondary bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -599,8 +619,8 @@
       "page": "skills",
       "label": "Назначить",
       "selector": "bx-btn bx-btn-secondary bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -608,8 +628,8 @@
       "page": "skills",
       "label": "Добавить сервер",
       "selector": "btn btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -617,8 +637,8 @@
       "page": "terminal",
       "label": "Песочница",
       "selector": "on",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -626,8 +646,8 @@
       "page": "terminal",
       "label": "В проекте",
       "selector": "",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -635,8 +655,8 @@
       "page": "terminal",
       "label": "С правами системы",
       "selector": "",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -644,8 +664,8 @@
       "page": "terminal",
       "label": "Проверить",
       "selector": "btn btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -653,8 +673,8 @@
       "page": "terminal",
       "label": "Запустить",
       "selector": "btn btn-sm btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -662,8 +682,8 @@
       "page": "terminal",
       "label": "Убрать папку",
       "selector": "btn btn-sm btn-ghost",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -671,8 +691,8 @@
       "page": "terminal",
       "label": "Ещё папка",
       "selector": "btn btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -680,17 +700,19 @@
       "page": "terminal",
       "label": "Сохранить",
       "selector": "btn btn-primary btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/terminal/roots",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/terminal/roots"
+      ],
       "console": []
     },
     {
       "page": "benchmarks",
       "label": "Запустить замер",
       "selector": "btn btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -698,17 +720,19 @@
       "page": "browser",
       "label": "Новое окно",
       "selector": "btn btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/browser/sessions",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/browser/sessions"
+      ],
       "console": []
     },
     {
       "page": "coding",
       "label": "Обновить",
       "selector": "btn",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -716,8 +740,8 @@
       "page": "coding",
       "label": "Новая сессия",
       "selector": "btn",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -743,8 +767,8 @@
       "page": "orchestras",
       "label": "Разобрать",
       "selector": "btn btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -770,9 +794,11 @@
       "page": "healing",
       "label": "Сохранить",
       "selector": "btn btn-primary btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "PATCH http://127.0.0.1:33737/api/healing/rules",
+      "requests": [
+        "PATCH http://127.0.0.1:33737/api/healing/rules"
+      ],
       "console": []
     },
     {
@@ -780,25 +806,49 @@
       "label": "Connect",
       "selector": "btn btn-primary",
       "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "detail": "{message: Вставьте ключ, hint: без ключа подключаться нечем}",
       "requests": [],
-      "console": []
+      "console": [
+        "{message: Вставьте ключ, hint: без ключа подключаться нечем}"
+      ]
     },
     {
       "page": "command",
       "label": "Открыть миссии",
       "selector": "cmd-btn cmd-btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
+      "console": []
+    },
+    {
+      "page": "command",
+      "label": "Взять управление",
+      "selector": "cmd-btn",
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/browser/sessions/1/takeover",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/browser/sessions/1/takeover"
+      ],
+      "console": []
+    },
+    {
+      "page": "command",
+      "label": "Закрыть",
+      "selector": "cmd-btn cmd-btn-danger",
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/browser/sessions/1/stop",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/browser/sessions/1/stop"
+      ],
       "console": []
     },
     {
       "page": "command",
       "label": "START",
       "selector": "cmd-btn cmd-btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -806,8 +856,8 @@
       "page": "builder",
       "label": "К миссиям",
       "selector": "btn btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -815,8 +865,8 @@
       "page": "images",
       "label": "Библиотека",
       "selector": "images-tab active",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -824,8 +874,8 @@
       "page": "images",
       "label": "Генерации",
       "selector": "images-tab",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -833,8 +883,8 @@
       "page": "images",
       "label": "Шаблоны",
       "selector": "images-tab",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -842,8 +892,8 @@
       "page": "images",
       "label": "Очередь",
       "selector": "images-tab",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -851,17 +901,19 @@
       "page": "images",
       "label": "Запустить",
       "selector": "btn btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/images/jobs",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/images/jobs"
+      ],
       "console": []
     },
     {
       "page": "images",
       "label": "Новая коллекция",
       "selector": "btn btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -869,8 +921,8 @@
       "page": "images",
       "label": "Все изображения\n0",
       "selector": "images-collection-row active",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -878,8 +930,8 @@
       "page": "images",
       "label": "Избранное\n0",
       "selector": "images-collection-row",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -887,8 +939,8 @@
       "page": "images",
       "label": "Все",
       "selector": "btn btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -906,16 +958,18 @@
       "label": "Отправить",
       "selector": "mc-btn is-primary",
       "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "detail": "Error: Команда пустая\n    at HTMLFormElement.onSubmit (http://127.0.0.1:33737/pages/mission_console.js:928:31)",
       "requests": [],
-      "console": []
+      "console": [
+        "Error: Команда пустая\n    at HTMLFormElement.onSubmit (http://127.0.0.1:33737/pages/mission_console.js:928:31)"
+      ]
     },
     {
       "page": "mission_console",
       "label": "Доложи состояние миссии",
       "selector": "mc-chip",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -923,8 +977,8 @@
       "page": "mission_console",
       "label": "Продолжи план со следующего шага",
       "selector": "mc-chip",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -932,8 +986,8 @@
       "page": "mission_console",
       "label": "Проверь источники последнего вывода",
       "selector": "mc-chip",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -941,8 +995,8 @@
       "page": "mission_console",
       "label": "Собери короткий отчёт по сделанному",
       "selector": "mc-chip",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -950,8 +1004,8 @@
       "page": "mission_console",
       "label": "Останови текущую задачу",
       "selector": "mc-chip",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -968,8 +1022,8 @@
       "page": "control",
       "label": "Обновить",
       "selector": "btn btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -977,17 +1031,19 @@
       "page": "web_designer",
       "label": "Открыть проект",
       "selector": "bx-btn bx-btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
-      "requests": [],
+      "verdict": "real_effect",
+      "detail": "POST http://127.0.0.1:33737/api/web-designer/projects",
+      "requests": [
+        "POST http://127.0.0.1:33737/api/web-designer/projects"
+      ],
       "console": []
     },
     {
       "page": "web_designer",
       "label": "Лендинг\nГерой-блок, преимущества, цифры и форма связи",
       "selector": "bd-tpl is-on",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "vanished",
+      "detail": "после повторной отрисовки элемент не найден",
       "requests": [],
       "console": []
     },
@@ -995,8 +1051,8 @@
       "page": "web_designer",
       "label": "Портфолио\nСетка работ, навыки, обо мне и контакты",
       "selector": "bd-tpl",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "vanished",
+      "detail": "после повторной отрисовки элемент не найден",
       "requests": [],
       "console": []
     },
@@ -1004,8 +1060,8 @@
       "page": "web_designer",
       "label": "Кафе / ресторан\nМеню с ценами, галерея, отзывы и часы работы",
       "selector": "bd-tpl",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "vanished",
+      "detail": "после повторной отрисовки элемент не найден",
       "requests": [],
       "console": []
     },
@@ -1013,8 +1069,8 @@
       "page": "web_designer",
       "label": "Магазин\nВитрина товаров с ценами, доставка и подписка",
       "selector": "bd-tpl",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "vanished",
+      "detail": "после повторной отрисовки элемент не найден",
       "requests": [],
       "console": []
     },
@@ -1022,8 +1078,8 @@
       "page": "web_designer",
       "label": "Блог\nСписок статей, рубрики и подписка на рассылку",
       "selector": "bd-tpl",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "vanished",
+      "detail": "после повторной отрисовки элемент не найден",
       "requests": [],
       "console": []
     },
@@ -1031,8 +1087,8 @@
       "page": "web_designer",
       "label": "Агентство / студия\nУслуги, кейсы, команда и процесс работы",
       "selector": "bd-tpl",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "vanished",
+      "detail": "после повторной отрисовки элемент не найден",
       "requests": [],
       "console": []
     },
@@ -1040,8 +1096,8 @@
       "page": "objectives",
       "label": "Новая цель",
       "selector": "bx-btn bx-btn-primary bx-btn-sm",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     },
@@ -1049,8 +1105,8 @@
       "page": "objectives",
       "label": "Новая цель",
       "selector": "bx-btn bx-btn-primary",
-      "verdict": "error",
-      "detail": "клик не прошёл: TimeoutError",
+      "verdict": "opens_feature",
+      "detail": "диалог",
       "requests": [],
       "console": []
     }
