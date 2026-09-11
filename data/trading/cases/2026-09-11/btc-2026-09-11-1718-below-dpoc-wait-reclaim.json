@@ -1,0 +1,22 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "17:18 ET",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise screenshot",
+  "observed": {
+    "reference_price": 77013.44,
+    "cvd_billion": 56.17,
+    "open_interest_billion_approx": 17.9,
+    "dPOC": 77337.25,
+    "dVAL": 76740.50,
+    "dOpen": 76641.80
+  },
+  "state": "BELOW_DPOC_INSIDE_VALUE_NO_LONG_CONFIRMATION",
+  "interpretation": "Price remains below dPOC despite prior seller-aggression absorption thesis. CVD is still depressed and OI is not showing a clear fresh bullish expansion. The setup is not a confirmed long until price reclaims dPOC and holds/retests above it. dVAL/dOpen are lower reaction zones, not blind limit-buy signals.",
+  "management": {
+    "preferred_long_trigger": "Reclaim 77337 and hold/retest above; stronger if CVD stabilizes or turns up without sharp OI crowding.",
+    "aggressive_reaction_zone": "76740 dVAL to 76642 dOpen only after sweep/reclaim evidence; do not average blindly.",
+    "invalidation_warning": "Acceptance below dOpen with CVD down and OI rising would indicate bearish leverage expansion and invalidate the long thesis."
+  }
+}
