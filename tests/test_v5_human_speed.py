@@ -305,7 +305,45 @@ def record_cas(name, measured, record_property):
            floor_cpu_samples=measured["floor_cpu_samples_ms"], orders=measured["orders"])
 
 
-def test_a_real_4ms_cpu_regression_is_rejected_on_slow_storage(tmp_path, record_property):
+#: Кратность, объявленная в `latency_contract`, ПОВТОРЁННАЯ здесь нарочно.
+#: Прочитать её из самого вердикта было бы удобнее и бесполезнее: тогда
+#: расширение допуска в гейте расширило бы вместе с ним и этот контроль, и
+#: ослабление правила осталось бы зелёным. Константа означает, что поднятая
+#: кратность обязана провалить именно этот тест.
+DECLARED_FLOOR_MULTIPLE = 8.0
+
+
+def _regression_burden_for_this_host(tmp_path, record_property):
+    """Сколько ЛИШНЕГО процессорного времени на ЭТОМ хосте — уже регрессия.
+
+    Константа в 4 мс была снята на другой машине и здесь премису не выполняет:
+    измерено дважды подряд в этом контейнере, пол процессора у самой дешёвой
+    долговечной записи 0.639–0.659 мс, так что +4 мс дают отношение 7.50–7.66
+    при допуске 8.0. Тест падал не потому, что гейт пропускал регрессию, а
+    потому, что 4 мс на таком полу регрессией ещё НЕ ЯВЛЯЮТСЯ: и абсолютный
+    порог (max 5.2 мс < 10 мс), и кратность соблюдены, то есть обе объявленные
+    границы держатся.
+
+    Поэтому величина берётся из замера, а не из памяти: сначала снимается
+    спокойный прогон этого хоста, затем выбирается нагрузка, которая ОБЯЗАНА
+    выйти за объявленную кратность. Смысл теста не сдвинут — сдвинута только
+    точка, в которой на этом железе начинается непропорциональность.
+    """
+    quiet = measured_cas_run(tmp_path / "calibration", ObjectiveStore(
+        tmp_path / "calibration" / "cas.db"))
+    cpu = quiet["result"]["thread_cpu"]
+    floor_p50, baseline_p50 = cpu["floor_p50_ms"], cpu["p50_ms"]
+    record_property("cas_cpu_floor_p50_ms", floor_p50)
+    record_property("cas_cpu_baseline_p50_ms", baseline_p50)
+    # Запас в 1.5 кратности — не «чтобы прошло», а чтобы вердикт не решался
+    # дрожанием планировщика на границе. Он ЗАВЫШАЕТ нагрузку, то есть делает
+    # отвергаемый случай хуже, а не мягче.
+    needed = (DECLARED_FLOOR_MULTIPLE + 1.5) * floor_p50 - baseline_p50
+    # На хостах, где прежние 4 мс премису выполняли, ничего не меняется.
+    return max(4.0, round(needed, 3))
+
+
+def test_a_real_cpu_regression_is_rejected_on_slow_storage(tmp_path, record_property):
     """A disk stall cannot buy permission for extra CPU work.
 
     The former wall-p50<10 assertion was disproved by Windows CI: wall p50
@@ -313,16 +351,45 @@ def test_a_real_4ms_cpu_regression_is_rejected_on_slow_storage(tmp_path, record_
     contract is now required together with the unchanged CPU contract. The
     pure gate suite still proves rejection below the absolute wall threshold.
     """
-    store = BurdenedStore(tmp_path / "cas.db", burden_ms=4.0)
+    burden = _regression_burden_for_this_host(tmp_path, record_property)
+    record_property("cas_cpu_injected_burden_ms", burden)
+    store = BurdenedStore(tmp_path / "cas.db", burden_ms=burden)
     measured = measured_cas_run(tmp_path, store)
     result = measured["result"]
-    record_cas("objective_cas_regression_4ms_cpu", measured, record_property)
+    record_cas("objective_cas_regression_cpu", measured, record_property)
     assert result["status"] == FAIL, result
     cpu = result["thread_cpu"]
     assert cpu["status"] == FAIL, result
     assert cpu["reason"] == "operation_disproportionate_to_its_own_host_floor", result
     assert cpu["p50_ratio"] > cpu["floor_multiple"], result
-    assert cpu["p50_ms"] >= 4.0, "the injected work must be real CPU, not scheduler delay"
+    # Кратность в гейте не должна быть тише объявленной: если её подняли,
+    # подобранная выше нагрузка уже не обязана её перешагнуть, и тест обязан
+    # сказать об этом здесь, а не пройти.
+    assert cpu["floor_multiple"] <= DECLARED_FLOOR_MULTIPLE, result
+    assert cpu["p50_ms"] >= burden, "the injected work must be real CPU, not scheduler delay"
+
+
+def test_a_cpu_cost_inside_the_declared_allowance_is_not_called_a_regression(
+        tmp_path, record_property):
+    """Обратная сторона той же правки: допуск обязан остаться допуском.
+
+    Если бы предыдущий тест чинили подгонкой порога, эта проверка бы упала.
+    Нагрузка, УМЕЩАЮЩАЯСЯ и в абсолютный порог, и в объявленную кратность,
+    обязана оставаться зелёной — иначе «регрессией» объявляется любая работа,
+    и вердикт перестаёт что-либо значить.
+    """
+    quiet = measured_cas_run(tmp_path / "calibration", ObjectiveStore(
+        tmp_path / "calibration" / "cas.db"))
+    cpu = quiet["result"]["thread_cpu"]
+    room = (DECLARED_FLOOR_MULTIPLE * cpu["floor_p50_ms"] - cpu["p50_ms"]) / 2
+    if room <= 0.2:
+        pytest.skip("на этом хосте под объявленной кратностью нет запаса для замера")
+    store = BurdenedStore(tmp_path / "cas.db", burden_ms=round(room, 3))
+    measured = measured_cas_run(tmp_path, store)
+    inside = measured["result"]["thread_cpu"]
+    record_cas("objective_cas_inside_allowance", measured, record_property)
+    assert inside["p50_ms"] > cpu["p50_ms"], "нагрузка обязана быть настоящей"
+    assert inside["status"] == PASS, measured["result"]
 
 
 def test_a_gross_regression_fails_on_every_basis(tmp_path, record_property):
