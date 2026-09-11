@@ -4,6 +4,33 @@
   "note": "Точки, о которых известно ЧТО ИМЕННО на них проверено. Не список зелёных галочек.",
   "entries": [
     {
+      "sha": "3d2c6923b5d0411d1d5c2610b65334bb5d21d1f6",
+      "branch": "claude/bossman-control-v03-43igbk",
+      "role": "вершина после починки реестра пропусков",
+      "proven": [
+        "CLEAN_INSTALL=PASS, 13 владельческих проверок на установленном продукте",
+        "корневой набор 898 passed, 2 skipped",
+        "реестр пропусков совпадает с кодом (131 запись, 0 без причины)"
+      ],
+      "not_proven": [
+        "замер удержания интеллекта",
+        "живой Windows",
+        "целевое железо"
+      ]
+    },
+    {
+      "sha": "4dea03ab058e496bb08d268eed03426d6986e117",
+      "branch": "claude/bossman-control-v03-43igbk",
+      "role": "превью Video Studio в поддерживаемом кодеке; тесты пикера кликают настоящей мышью",
+      "proven": [
+        "«Editors user safety» в CI: 5 passed за 46.40 с при BCC_REQUIRE_BROWSER=1 — настоящий браузер",
+        "Bossman Core CI, ASTRA, Solana, Fable media/Fleet, V2 Auto-Repair — зелено"
+      ],
+      "not_proven": [
+        "root-ci и Editors user safety на этом SHA падали ТОЛЬКО на устаревшем реестре пропусков (починено в 3d2c6923)"
+      ]
+    },
+    {
       "sha": "9a3874770df8d9dac476992be9f08bd9daf3049b",
       "branch": "claude/bossman-control-v03-43igbk",
       "role": "текущая интеграционная вершина этого прогона",
