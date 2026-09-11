@@ -77,7 +77,7 @@
 | Проверка | Результат |
 |---|---|
 | корневой набор, py3.11 и py3.12 (локально) | **1373 passed, 11 skipped** на каждой |
-| Command Center, полный, настоящий Chromium и настоящий FFmpeg | **3305 passed, 26 skipped** (разбор трёх падений того прогона — в `CURRENT_STATE.md`, BL-017) |
+| Command Center, полный, настоящий Chromium и настоящий FFmpeg | **3319 passed, 22 skipped, 0 failed** |
 | bossman-core | **3206 passed, 41 skipped, 0 failed** |
 | чистая установка | **`CLEAN_INSTALL=PASS`, 13 владельческих проверок** |
 | доктор | 15 PASS, 4 WARN (нет локальной модели, сайдкара OpenHands, облачных ключей), 0 BLOCKED |
