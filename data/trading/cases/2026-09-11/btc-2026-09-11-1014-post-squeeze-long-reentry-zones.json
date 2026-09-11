@@ -1,0 +1,43 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "10:14 ET",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots plus live reference/heatmap views",
+  "observed": {
+    "reference_price_area_approx": [79000, 79250],
+    "cvd_billion": 59.89,
+    "open_interest_billion": 18.42,
+    "short_liquidations_million_approx": 14.38,
+    "long_liquidations_million_approx": 1.46
+  },
+  "reference_levels_visible": {
+    "dVAL": 76820,
+    "dOpen": 77215,
+    "dPOC": 77350,
+    "dVAH": 78220,
+    "warning": "Reference-chart levels are not exact execution prices; recalculate basis before orders."
+  },
+  "state": "POST_SQUEEZE_EXTENSION_AFTER_ACCEPTED_RECLAIM",
+  "interpretation": "CVD remains very strong while OI is below the 09:54 leverage-rebuild reading, and short liquidations remain dominant. This is still bullish payout/short-covering, but the edge location is no longer the current high. Preferred new long locations are pullback/retest zones where previously broken value becomes support, or a new consolidation-breakout with renewed acceptance.",
+  "long_reentry_plan": {
+    "do_not_chase": "Avoid adding aggressively into the vertical squeeze near current highs.",
+    "zone_1_aggressive": {
+      "reference_zone": [78150, 78350],
+      "anchor": "dVAH ~78,220 plus prior breakout/acceptance area",
+      "requirements": ["price holds/reclaims the zone after pullback", "CVD remains firm or recovers quickly", "OI stays flat/down or rebuilds only with positive price response"]
+    },
+    "zone_2_primary": {
+      "reference_zone": [77200, 77450],
+      "anchor": "dOpen ~77,215 + dPOC ~77,350",
+      "requirements": ["deep pullback does not become acceptance below dPOC", "CVD stops deteriorating", "no Price DOWN + CVD DOWN + OI UP bearish expansion"]
+    },
+    "continuation_entry": {
+      "trigger": "consolidation above the post-squeeze high followed by hold/retest rather than a single wick",
+      "requirements": ["CVD remains supportive", "OI does not spike without proportional price progress"]
+    }
+  },
+  "invalidation": "Acceptance below dPOC/dOpen with CVD rolling over and OI expanding on downside materially weakens the current long-reentry thesis.",
+  "lesson": "After a short-squeeze payout, the better long is usually the first successful retest of reclaimed value, not the top of the squeeze. Distinguish momentum confirmation from entry location."
+}
