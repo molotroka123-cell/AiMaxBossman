@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-11",
+  "note": "Точки, о которых известно ЧТО ИМЕННО на них проверено. Не список зелёных галочек.",
+  "entries": [
+    {
+      "sha": "9a3874770df8d9dac476992be9f08bd9daf3049b",
+      "branch": "claude/bossman-control-v03-43igbk",
+      "role": "текущая интеграционная вершина этого прогона",
+      "proven": [
+        "чистая установка и загрузка продукта (13 проверок)",
+        "колесо несёт интерфейс на обоих путях сборки",
+        "контракт латентности с контролями"
+      ],
+      "not_proven": [
+        "замер удержания интеллекта",
+        "живой Windows",
+        "целевое железо"
+      ]
+    },
+    {
+      "sha": "ef5abca89ad6e5a50025daaa04d416f7480c6080",
+      "branch": "claude/bossman-control-v03-43igbk",
+      "role": "вершина до этого прогона",
+      "proven": [
+        "Bossman Core CI",
+        "ASTRA",
+        "Solana",
+        "Fable media/Fleet"
+      ],
+      "not_proven": [
+        "Command Center py3.11 и py3.12",
+        "root-ci py3.11",
+        "гейт интеллекта"
+      ]
+    },
+    {
+      "sha": "aa9cbaabcf5c3203bb08a06bae5ae7f3c168d1b0",
+      "branch": "claude/bossman-control-v03-43igbk",
+      "role": "починка установки: интерфейс в колесе, данные вне site-packages",
+      "proven": [
+        "CLEAN_INSTALL=PASS, 13 проверок владельческих сценариев"
+      ],
+      "not_proven": []
+    },
+    {
+      "sha": "5b673262dbee69c1f460253ba874111fad95cbfb",
+      "branch": "claude/bossman-final-completion-kymr05",
+      "role": "продуктовая линия PR #62: File Intelligence, гибридные порты, один скачиваемый архив",
+      "proven": [
+        "приёмка одного скачиваемого Windows-архива BOSSMAN_BUNDLE_ACCEPTANCE=PASS",
+        "Command Center 3.11/3.12/3.14",
+        "вечерняя безопасность на обеих ОС"
+      ],
+      "not_proven": [
+        "гейт интеллекта (намеренно fail-closed)"
+      ]
+    },
+    {
+      "sha": "910ca901ddcd84c13d65f9246dfec394088c29bf",
+      "branch": "freeze/final-audit-closure-20260908",
+      "role": "исторический рантайм-фриз, точка отката",
+      "proven": [
+        "закрытие аудита на момент 2026-09-08"
+      ],
+      "not_proven": [
+        "всё, что сделано после"
+      ]
+    }
+  ]
+}
