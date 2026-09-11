@@ -1,5 +1,7 @@
 import sys
 """Feature 10 — Skill Library + MCP Hub."""
+import pytest
+
 from bcc.v2.mcp_hub import MCPServerSpec, namespaced_tool
 
 from .conftest import FakeAdapter
@@ -20,6 +22,35 @@ output_schema:
 1. открыть homepage
 2. проверить CTA
 """
+
+
+@pytest.fixture(autouse=True)
+def skills_live_in_a_temporary_library(env, tmp_path, request):
+    """Тесты скиллов НЕ пишут в библиотеку скиллов репозитория.
+
+    В чекауте `Settings.skills_workspace` — это корень репозитория, и так и
+    задумано: скиллы владельца версионируются вместе с проектом. Но тесты,
+    создающие и клонирующие скиллы, писали при этом в НАСТОЯЩИЙ
+    `.agents/skills/` и ничего за собой не убирали. `BCC_DATA_DIR` тут не
+    помогает: `skills_workspace` смотрит на маркеры чекаута, а не на каталог
+    данных.
+
+    Последствие было ровно такое, какое бывает у неизолированного набора: на
+    чистом дереве он зелёный, а на ВТОРОМ прогоне подряд краснеет двумя
+    тестами — клон и импорт натыкаются на оставшиеся от прошлого прогона
+    `website-audit-2` и `website-audit-3`. Набор, зелёный только один раз,
+    прячет регрессии; и заодно он мусорил в рабочем дереве разработчика.
+
+    `test_discover_bundled_skills` наводится на настоящий репозиторий
+    ЯВНО — ему тут подменять нечего, и он исключён.
+    """
+    if "discover" in request.node.name:
+        return
+    from bcc.v2.skill_library import SkillLibrary, default_skill_roots
+    workspace = tmp_path / "skills-workspace"
+    (workspace / ".agents" / "skills").mkdir(parents=True)
+    env.svc.skills = SkillLibrary(default_skill_roots(workspace),
+                                  workspace / ".agents" / "skills")
 
 
 def test_mcp_namespacing():
