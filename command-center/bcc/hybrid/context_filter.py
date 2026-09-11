@@ -139,11 +139,18 @@ def scrub_for_memory(body: str, *, source: str = "") -> FilterResult:
             cleaned, hits = pattern.subn(_MARK.format(kind=kind), cleaned)
             found.extend([kind] * hits)
 
-    if found and not cleaned.replace(_MARK.format(kind=found[0]), "").strip():
-        # После вычистки не осталось ничего, кроме меток: запись была секретом,
-        # а не текстом, содержавшим секрет.
-        raise SecretMaterialRefused(
-            "refusing to remember a record that is nothing but secret material")
+    if found:
+        # Снимаются метки ВСЕХ найденных видов, а не первого. Запись из двух
+        # секретов разного вида оставляла после снятия одной метки вторую,
+        # строка выходила непустой, и отказ не срабатывал — то есть проверка
+        # «тут нет ничего, кроме секретов» молча не работала ровно на том
+        # случае, ради которого написана.
+        residue = cleaned
+        for kind in set(found):
+            residue = residue.replace(_MARK.format(kind=kind), "")
+        if not residue.strip():
+            raise SecretMaterialRefused(
+                "refusing to remember a record that is nothing but secret material")
 
     # Порядок стабилен и дубликаты схлопнуты: provenance читают люди.
     ordered = tuple(sorted(set(found)))

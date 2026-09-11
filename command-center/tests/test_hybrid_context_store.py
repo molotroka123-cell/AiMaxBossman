@@ -425,3 +425,71 @@ def test_the_shadow_store_cannot_be_made_authoritative():
     assert identity.metadata["authoritative"] is False
     assert identity.metadata["mode"] == "shadow"
     assert "is_authoritative" not in OpenContextShadowStore.__init__.__code__.co_varnames
+
+
+# ----------------------------------------- находки собственного разбора правки
+
+async def test_forgetting_one_decision_does_not_take_a_similarly_named_one(db):
+    """Подчёркивание в имени решения — это буква, а не джокер LIKE.
+
+    История версий удаляется по шаблону `<ключ>#v%`. Без экранирования `_` в
+    `video_preview_codec` совпало бы с любым символом, и «забудь одно решение»
+    унесло бы историю соседнего. Имена с подчёркиванием — норма, так что это
+    не теоретический случай.
+    """
+    planner = ContextStorePlanner(BossmanNativeContextStore(db))
+    for key in ("video_preview_codec", "videoXpreviewYcodec"):
+        for version in (1, 2):
+            await planner.remember(build_record(
+                namespace=BOSSMAN, key=key, body=f"{key} v{version}", version=version,
+                source="docs/decisions.md"), correlation())
+
+    async def rows_for(key: str) -> int:
+        """Сколько строк осталось у решения, ВКЛЮЧАЯ вытесненные версии."""
+        import sqlalchemy as sa
+        from bcc.db import decisions as dec_t
+        row_key = BossmanNativeContextStore._row_key(BOSSMAN, key)
+        async with db.session() as session:
+            found = (await session.execute(
+                sa.select(sa.func.count()).select_from(dec_t).where(
+                    sa.or_(dec_t.c.key == row_key,
+                           dec_t.c.key.like(row_key.replace("_", r"\_") + "#v%",
+                                            escape="\\"))))).scalar()
+        return int(found)
+
+    assert await rows_for("video_preview_codec") == 2
+    assert await rows_for("videoXpreviewYcodec") == 2
+
+    assert await planner.forget(BOSSMAN, "video_preview_codec", correlation()) is True
+
+    survivors = await planner.recall(BOSSMAN, "video preview codec", limit=10,
+                                     correlation=correlation())
+    assert [c.record.key for c in survivors] == ["videoXpreviewYcodec"]
+    assert survivors[0].record.version == 2
+    # Считать только ТЕКУЩИЕ записи мало: незаэкранированный шаблон уносит
+    # ИСТОРИЮ соседа, оставляя его текущую версию на месте. Поэтому проверяется
+    # число строк, а не то, что вернул recall.
+    assert await rows_for("video_preview_codec") == 0
+    assert await rows_for("videoXpreviewYcodec") == 2, (
+        "незаэкранированный LIKE удалил историю версий соседнего решения")
+
+
+def test_a_record_made_of_two_different_secrets_is_also_refused():
+    """Отказ снимает метки ВСЕХ найденных видов, а не только первого.
+
+    Запись из двух секретов разного вида оставляла после снятия одной метки
+    вторую, строка выходила непустой, и проверка «тут нет ничего, кроме
+    секретов» молча не срабатывала ровно на том случае, ради которого написана.
+    """
+    github = dict(CANARIES)["github_token"]
+    aws = dict(CANARIES)["aws_access_key_id"]
+    with pytest.raises(SecretMaterialRefused):
+        scrub_for_memory(f"{aws} {github}", source="paste.txt")
+
+    # Обратный контроль: те же два секрета ВНУТРИ настоящего текста —
+    # редактируются, а не отвергаются. Иначе отказ съел бы полезную память.
+    kept = scrub_for_memory(
+        f"decision: rotate {aws} and {github} before the release",
+        source="docs/decisions.md")
+    assert set(kept.redactions) == {"aws_access_key_id", "github_token"}
+    assert "rotate" in kept.body and "before the release" in kept.body

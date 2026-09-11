@@ -290,13 +290,18 @@ class BossmanNativeContextStore(ContextStoreRuntime):
                              correlation: EffectCorrelation) -> bool:
         _check_correlation(correlation)
         row_key = self._row_key(namespace, key)
+        # `_` и `%` в LIKE — джокеры, а в ключе решения это обычные символы.
+        # Без экранирования «забудь video_preview_codec» удалило бы заодно
+        # историю «videoXpreviewYcodec», если бы такая существовала: одна
+        # подчёркнутая буква в имени решения превращала запрос в маску.
+        prefix = row_key.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         async with self.db.session() as s:
             # Удаляется решение целиком, вместе с историей версий: «забудь это»
             # не должно оставлять предыдущую версию видимой.
             result = await s.execute(sa.delete(dec_t).where(
                 sa.and_(dec_t.c.namespace == namespace.key(),
                         sa.or_(dec_t.c.key == row_key,
-                               dec_t.c.key.like(f"{row_key}#v%")))))
+                               dec_t.c.key.like(f"{prefix}#v%", escape="\\")))))
             await s.commit()
         return bool(result.rowcount)
 
