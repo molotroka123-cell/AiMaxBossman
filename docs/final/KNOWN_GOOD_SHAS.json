@@ -4,6 +4,29 @@
   "note": "Точки, о которых известно ЧТО ИМЕННО на них проверено. Не список зелёных галочек.",
   "entries": [
     {
+      "sha": "04f5938f69a3918a95c3172836bdfcf3c370358a",
+      "branch": "claude/bossman-control-v03-43igbk",
+      "role": "ЗАМОРОЗКА РАНТАЙМА этого прогона: последний SHA, где менялся код",
+      "proven": [
+        "Command Center CI — зелено целиком: pytest py3.11, pytest py3.12, windows paths (py3.12) на windows-latest, секреты/SAST/JS",
+        "Editors user safety — зелено: настоящий браузер, шаг «No silently skipped baseline» пройден",
+        "root-ci — зелено",
+        "Bossman Core CI — зелено",
+        "ASTRA acceptance — зелено",
+        "Solana safety gates — зелено",
+        "Fable media и Fleet — зелено",
+        "Bossman V2 Auto-Repair — зелено",
+        "локально: полный набор Command Center 2002 passed / 16 skipped, корневой 898 passed / 2 skipped",
+        "CLEAN_INSTALL=PASS, 13 владельческих проверок на установленном продукте"
+      ],
+      "not_proven": [
+        "Intelligence Preservation — красный НАМЕРЕННО: нет доступа к модели, файл замера синтезировать запрещено",
+        "живой запуск на Windows (проверены пути и обёртки, не сам запуск)",
+        "локальная модель",
+        "целевое железо"
+      ]
+    },
+    {
       "sha": "3d2c6923b5d0411d1d5c2610b65334bb5d21d1f6",
       "branch": "claude/bossman-control-v03-43igbk",
       "role": "вершина после починки реестра пропусков",
