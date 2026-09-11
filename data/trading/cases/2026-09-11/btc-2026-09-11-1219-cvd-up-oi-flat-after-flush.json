@@ -1,0 +1,37 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "12:19 ET",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshot plus MEXC execution screenshot",
+  "observed": {
+    "mexc_last_price": 77528.7,
+    "mexc_fair_price": 77539.9,
+    "reference_price_approx": 77745,
+    "cvd_billion": 59.35,
+    "open_interest_billion": 17.92,
+    "long_liquidations_thousand_approx": 647.22,
+    "short_liquidations_thousand_approx": 402.78
+  },
+  "comparison_to_1155": {
+    "prior_cvd_billion": 58.09,
+    "prior_oi_billion": 17.93,
+    "cvd_change_billion": 1.26,
+    "oi_change_billion": -0.01,
+    "state": "Price roughly stable/slightly up + CVD UP + OI FLAT/slightly DOWN"
+  },
+  "interpretation": "Aggressive buying improved materially while open interest stayed essentially flat/slightly lower. This is healthier than a leverage-driven bounce because the recovery is not being powered by a rapid fresh OI build. It supports the idea that the earlier flush removed leverage and buyers are now absorbing supply. However, if CVD continues to rise while price stops advancing or loses structure, that becomes buyer-inefficiency/passive-seller absorption rather than bullish confirmation.",
+  "owner_execution_state": {
+    "limit_ladder_confirmed_placed": [77240, 77000, 76600],
+    "weights_of_planned_add": [0.30, 0.30, 0.40],
+    "note": "These are execution-venue prices from the prior plan, not new recommendations in this file."
+  },
+  "watch_conditions": {
+    "bullish": "CVD remains firm/up while price holds or reclaims 77.5-77.7k MEXC and OI stays controlled.",
+    "healthy_pullback": "Price dips into the ladder while OI stays flat/down and CVD stabilizes rather than making a fresh sharp low.",
+    "cancel_or_reassess": "Price falls, CVD falls, and OI turns UP materially; that would signal fresh bearish leverage expansion rather than simple deleveraging.",
+    "buyer_inefficiency_warning": "CVD keeps rising but price cannot progress or loses reclaimed structure."
+  },
+  "lesson": "After a leverage flush, CVD recovery with flat/down OI is constructive because buying effort is appearing without immediate leverage crowding. But the price response remains the final judge: rising CVD without price progress is not bullish by itself."
+}
