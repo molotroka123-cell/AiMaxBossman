@@ -187,6 +187,106 @@ class VideoCompositionRuntime(ABC):
         pass
 
 
+@dataclass(frozen=True)
+class ContextNamespace:
+    """Which project a context record belongs to, stated rather than inferred.
+
+    A context store that answers "what do we know" without answering "about
+    what" is the mechanism by which one repository's decisions leak into
+    another's answers. The namespace is therefore part of the record's
+    identity, not a filter applied afterwards, and it is normalised once here
+    so that "Bossman", "bossman " and "BOSSMAN" cannot become three projects.
+    """
+
+    project: str
+    repository: str = ""
+
+    def key(self) -> str:
+        return f"{self.project.strip().casefold()}::{self.repository.strip().casefold()}"
+
+    def __post_init__(self) -> None:
+        if not self.project.strip():
+            raise ValueError("a context namespace must name a project")
+
+
+@dataclass(frozen=True)
+class ContextProvenance:
+    """Where a record came from, kept with the record and never reconstructed.
+
+    `origin_sha` is the code identity the record was learned at. A record whose
+    origin cannot be named is still storable, but it is marked, so a retrieval
+    filter can refuse to feed unattributable text to a model.
+    """
+
+    source: str
+    recorded_at_iso: str
+    author: str = ""
+    origin_sha: str = ""
+    redactions: tuple[str, ...] = ()
+
+    def is_attributable(self) -> bool:
+        return bool(self.source.strip())
+
+
+@dataclass(frozen=True)
+class ContextRecord:
+    namespace: ContextNamespace
+    key: str
+    body: str
+    version: int
+    provenance: ContextProvenance
+    reason: str = ""
+    record_kind: str = "decision"
+
+
+@dataclass(frozen=True)
+class ContextCandidate:
+    """A retrieval result. NOT evidence, and never a completion proof.
+
+    Deliberately a different type from `EvidenceCandidate`: a remembered
+    sentence is a thing a model may read, not a thing that proves the world
+    changed.
+    """
+
+    record: ContextRecord
+    score: float
+    source_runtime: RuntimeIdentity
+    is_authoritative: bool = False
+
+
+class ContextStoreRuntime(ABC):
+    """Interface for persistent project/context storage mechanics.
+
+    Bossman's own store stays authoritative. An external store is a SECOND
+    opinion: it may add candidates and it may be wrong, absent or stale, and
+    none of those may change what Bossman believes or whether a task completes.
+    """
+
+    @abstractmethod
+    def get_runtime_identity(self) -> RuntimeIdentity:
+        pass
+
+    @abstractmethod
+    async def write_context(self, record: ContextRecord,
+                            correlation: EffectCorrelation) -> Observation:
+        pass
+
+    @abstractmethod
+    async def retrieve_candidates(self, namespace: ContextNamespace, query: str, *,
+                                  limit: int,
+                                  correlation: EffectCorrelation) -> List[ContextCandidate]:
+        pass
+
+    @abstractmethod
+    async def delete_context(self, namespace: ContextNamespace, key: str,
+                             correlation: EffectCorrelation) -> bool:
+        pass
+
+    @abstractmethod
+    async def health_probe(self, correlation: EffectCorrelation) -> Dict[str, Any]:
+        pass
+
+
 class LocalModelRuntime(ABC):
     """Interface for local model serving and admission mechanics."""
 

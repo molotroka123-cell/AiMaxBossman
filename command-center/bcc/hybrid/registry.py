@@ -16,6 +16,7 @@ from typing import Any, Dict
 from .capabilities import (
     BackendUnavailableError,
     BrowserRuntime,
+    ContextStoreRuntime,
     DesktopRuntime,
     LocalModelRuntime,
     VideoCompositionRuntime,
@@ -31,6 +32,7 @@ class CapabilityName(str, Enum):
     WEB_EDITOR = "web_editor"
     VIDEO = "video"
     LOCAL_MODEL = "local_model"
+    CONTEXT_STORE = "context_store"
 
 
 class BackendType(str, Enum):
@@ -40,6 +42,11 @@ class BackendType(str, Enum):
     GRAPESJS = "grapesjs"
     WEAVE = "weave"
     LOCALAI = "localai"
+    # Родная память — ОТДЕЛЬНОЕ имя бэкенда, а не LEGACY: для контекст-стора
+    # "legacy" означало бы «прежняя реализация того же механизма», а здесь
+    # родное хранилище не прежнее, оно авторитетное и остаётся таким.
+    BOSSMAN_NATIVE = "bossman_native"
+    OPENCONTEXT = "opencontext"
 
 
 class AdapterRegistry:
@@ -51,6 +58,7 @@ class AdapterRegistry:
         self._web_editor_adapters: Dict[str, WebEditorRuntime] = {}
         self._video_adapters: Dict[str, VideoCompositionRuntime] = {}
         self._local_model_adapters: Dict[str, LocalModelRuntime] = {}
+        self._context_store_adapters: Dict[str, ContextStoreRuntime] = {}
 
     def register_desktop(self, backend: str, adapter: DesktopRuntime) -> None:
         self._desktop_adapters[backend.lower()] = adapter
@@ -66,6 +74,9 @@ class AdapterRegistry:
 
     def register_local_model(self, backend: str, adapter: LocalModelRuntime) -> None:
         self._local_model_adapters[backend.lower()] = adapter
+
+    def register_context_store(self, backend: str, adapter: ContextStoreRuntime) -> None:
+        self._context_store_adapters[backend.lower()] = adapter
 
     @staticmethod
     def _adapter_is_healthy(adapter: Any) -> bool:
@@ -83,8 +94,9 @@ class AdapterRegistry:
         *,
         target: str,
         capability: str,
+        fallback: str = BackendType.LEGACY.value,
     ) -> Any:
-        legacy_key = BackendType.LEGACY.value
+        legacy_key = fallback
         selected = adapters.get(target)
 
         if selected is not None and self._adapter_is_healthy(selected):
@@ -105,16 +117,20 @@ class AdapterRegistry:
 
         # If the requested backend itself is legacy, there is no second backend
         # to silently fall through to. The unhealthy state must remain visible.
-        legacy = adapters.get(legacy_key)
-        if legacy is not None and self._adapter_is_healthy(legacy):
-            return legacy
+        fallback_adapter = adapters.get(legacy_key)
+        if fallback_adapter is not None and self._adapter_is_healthy(fallback_adapter):
+            return fallback_adapter
 
-        if legacy is None:
+        # Имя запасного бэкенда называется, а не подразумевается: у контекст-стора
+        # запасной — `bossman_native`, и сообщение «legacy adapter is unhealthy»
+        # отправило бы читателя искать несуществующий legacy-адаптер.
+        if fallback_adapter is None:
             raise BackendUnavailableError(
-                f"No healthy {capability} runtime available: legacy adapter is not registered"
+                f"No healthy {capability} runtime available: "
+                f"{legacy_key} adapter is not registered"
             )
         raise BackendUnavailableError(
-            f"No healthy {capability} runtime available: legacy adapter is unhealthy"
+            f"No healthy {capability} runtime available: {legacy_key} adapter is unhealthy"
         )
 
     def get_desktop_runtime(self) -> DesktopRuntime:
@@ -155,6 +171,24 @@ class AdapterRegistry:
             self._local_model_adapters,
             target=target,
             capability="local model",
+        )
+
+    def get_context_store_runtime(self) -> ContextStoreRuntime:
+        """Авторитетный контекст-стор. По умолчанию и по замыслу — родной.
+
+        Переменная окружения здесь НЕ выбирает OpenContext: селектор
+        существует, чтобы будущий бэкенд можно было подключить после
+        длительной проверки эквивалентности (§7), а fallback ведёт в
+        `bossman_native`, а не в `legacy`, — у памяти проекта нет «прежней
+        реализации», у неё есть авторитетный владелец.
+        """
+        target = os.getenv("BCC_CONTEXT_STORE_BACKEND",
+                           BackendType.BOSSMAN_NATIVE.value).strip().lower()
+        return self._resolve_runtime(
+            self._context_store_adapters,
+            target=target,
+            capability="context store",
+            fallback=BackendType.BOSSMAN_NATIVE.value,
         )
 
 

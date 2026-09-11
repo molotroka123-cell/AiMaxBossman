@@ -9,6 +9,11 @@ from .capabilities import (
     WebEditorRuntime,
     VideoCompositionRuntime,
     LocalModelRuntime,
+    ContextStoreRuntime,
+    ContextNamespace,
+    ContextProvenance,
+    ContextRecord,
+    ContextCandidate,
     RuntimeIdentity,
     EffectCorrelation,
     Observation,
@@ -25,6 +30,16 @@ from .capabilities import (
 from .registry import AdapterRegistry, CapabilityName, BackendType
 from .sidecar import SidecarProcessManager, SidecarConfig, SidecarStatus
 from .evidence import EvidenceNormalizer
+from .context_filter import FilterResult, SecretMaterialRefused, scrub_for_memory
+from .context_store import (
+    BossmanNativeContextStore,
+    ContextStorePlanner,
+    OpenContextShadowStore,
+    OpenContextTransport,
+    StaleContextWrite,
+    build_record,
+    make_planner,
+)
 
 __all__ = [
     "DesktopRuntime",
@@ -32,6 +47,11 @@ __all__ = [
     "WebEditorRuntime",
     "VideoCompositionRuntime",
     "LocalModelRuntime",
+    "ContextStoreRuntime",
+    "ContextNamespace",
+    "ContextProvenance",
+    "ContextRecord",
+    "ContextCandidate",
     "RuntimeIdentity",
     "EffectCorrelation",
     "Observation",
@@ -51,4 +71,14 @@ __all__ = [
     "SidecarConfig",
     "SidecarStatus",
     "EvidenceNormalizer",
+    "BossmanNativeContextStore",
+    "ContextStorePlanner",
+    "OpenContextShadowStore",
+    "OpenContextTransport",
+    "StaleContextWrite",
+    "build_record",
+    "make_planner",
+    "FilterResult",
+    "SecretMaterialRefused",
+    "scrub_for_memory",
 ]
