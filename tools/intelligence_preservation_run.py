@@ -443,6 +443,19 @@ class ProductionFullLane:
             "executable_tools": list(BENCH_EXECUTABLE_TOOLS),
             "max_steps": self.max_steps,
             "sandbox_workdir": str(self.workdir),
+            # Что полоса ДЕЙСТВИТЕЛЬНО сделала, а не чем она себя объявляет.
+            # Гейт требует этот блок (`lanes.full.observed.executed >= 1`) именно
+            # потому, что «kind: production_execution_loop» — это самоописание, а
+            # счётчик исполненных инструментов — наблюдение. Без него полоса,
+            # объявившая себя исполняющей и не исполнившая ничего, проходила бы
+            # наравне с настоящей.
+            #
+            # Учёт уже вёлся в `self.stats`, но наружу не отдавался: гейт просил
+            # поле, которого производитель не умел выдавать, то есть был
+            # НЕВЫПОЛНИМ. Это ловилось только там, где установлено bossman-core;
+            # в тонком наборе root CI фикстура полосы пропускается, и падение
+            # было невидимым.
+            "observed": dict(self.stats),
             "not_covered": [
                 "postgres/redis task queue", "owner approvals (waiting_approval)",
                 "telegram notifications", "write/exec/send tools",

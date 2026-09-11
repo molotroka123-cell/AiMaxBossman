@@ -20,6 +20,8 @@ command-center/bcc/hybrid/context_filter.py    что нельзя класть 
 command-center/bcc/hybrid/context_store.py     ContextStoreRuntime: родная
                                                память + теневое зеркало
 command-center/bcc/hybrid/adapters/windows_mcp.py
+command-center/bcc/video_studio/storyboard.py  раздел 10: рецепты кадров и
+                                               раскадровка (своё, не вендоринг)
 command-center/bcc/file_intelligence/          governed-анализ файлов
 integrations/ai-file-sorter/                   манифест и NOTICE внешнего сайдкара
 bossman-core/bossman/apprentice/openhands_*    кодовый бэкенд
@@ -63,6 +65,16 @@ docs/hybrid/sources.lock.json                  точные SHA, лицензи�
 | `LocalModelRuntime` | `legacy`, `localai` | `legacy` | `BCC_LOCAL_MODEL_BACKEND` |
 | `ContextStoreRuntime` | `bossman_native`, `opencontext` | `bossman_native` | `BCC_CONTEXT_STORE_BACKEND` |
 
+С этого прогона у реестра есть ещё и **закрепление версии**. `register_*(...,
+pinned_version=SHA)` или `pin_version(capability, backend, SHA)` связывает
+бэкенд с точным SHA из `docs/hybrid/sources.lock.json`, и при разрешении
+бэкенд с другой версией НЕ используется. До этого класс
+`BackendVersionMismatchError` был объявлен, экспортирован и не возбуждался
+нигде — то есть закрепление SHA оставалось утверждением в документе (BL-028).
+Порядок проверок: сначала здоровье, потом версия; «версия неизвестна» считается
+несовпадением; несовпадение у необязательного бэкенда даёт откат на проверенную
+реализацию, у самой проверенной — отказ.
+
 У контекст-стора запасной бэкенд — `bossman_native`, а не `legacy`, и это не
 опечатка: у памяти проекта нет «прежней реализации», у неё есть авторитетный
 владелец. Сообщения об отказе называют запасной бэкенд по имени, чтобы читатель
@@ -74,7 +86,7 @@ docs/hybrid/sources.lock.json                  точные SHA, лицензи�
 |---|---|---|
 | `CodingRuntime` | не выделен | OpenHands уже подключён своим путём (`bossman-core/bossman/apprentice/openhands_*`) и покрыт семью наборами тестов. Раздел 5 запрещает заводить второй комплект ради симметрии имён |
 | `FileIntelligenceRuntime` | не выделен | родная File Intelligence и внешний сайдкар уже разделены манифестом `integrations/ai-file-sorter/integration.json`; порт добавил бы третий слой без нового свойства |
-| `VideoStoryRuntime` | не выделен | video-shotcraft принят как REFERENCE_ONLY (знание, не код) — порту нечего было бы подключать |
+| `VideoStoryRuntime` | **не выделен, но СПОСОБНОСТЬ сделана** | video-shotcraft принят как REFERENCE_ONLY, поэтому подключать за портом нечего — чужого кода здесь нет. Но раздел 10 требовал не порт, а способность («Create VideoStoryRuntime **or** integrate equivalent capabilities into existing Video Studio planning»), и она написана своя: `bcc/video_studio/storyboard.py` — рецепты кадров, раскадровка, притягивание склеек к ритму, компиляция в СУЩЕСТВУЮЩИЙ словарь команд. Ни процессов, ни сети: стоимость в покое ноль |
 | `VisionIdentityRuntime` | **не выделен намеренно** | у SDK распознавания лиц НЕТ лицензии (BL-012). Порт под проект, который нельзя распространять, — это приглашение его подключить |
 
 ## Решения по кандидатам

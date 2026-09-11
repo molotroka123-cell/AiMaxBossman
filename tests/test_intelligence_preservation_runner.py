@@ -470,8 +470,14 @@ def test_a_lane_that_loses_core_ability_is_not_a_pass(production_lanes):
         return perfect(messages, tools)
 
     result = measure(tasks, call, lanes=production_lanes)
+    # Блок `lanes` обязателен: гейт отказывается судить улику, которая не
+    # говорит, КАК она получена (AF-04). Раньше здесь его не было, и тест
+    # проверял арифметику на payload, который НИ ОДИН настоящий раннер не
+    # производит. Теперь отрицательный контроль проходит через ту же дверь,
+    # что и боевая улика, — то есть проверяет больше, а не меньше.
     payload = build_payload(result, model="m", dataset_id="bossman-retention-v1",
-                            evaluated_sha=SHA)
+                            evaluated_sha=SHA,
+                            lane_identity={m: production_lanes[m].identity() for m in MODES})
     report = evaluate(payload, GateConfig(expect_sha=SHA, min_samples_per_metric=20))
     assert report["status"] != "PASS", report["status"]
     assert payload["modes"]["full"]["reasoning_accuracy"]["paired"]["lost"] > 0
