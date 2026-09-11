@@ -71,6 +71,38 @@ A measured same-model run must be written to:
 
 The CI gate intentionally fails if this file is missing. Contract tests passing are not evidence that intelligence was preserved.
 
+### How the file is produced
+
+    python scripts/intelligence_retention_run.py \
+        --items docs/benchmark/retention-items-v1.json \
+        --model <the model the owner actually runs> \
+        --base-url http://127.0.0.1:8080/v1 \
+        --layer system=<Bossman system policy> \
+        --layer context=<compiled context> \
+        --layer tools=<tool surface> \
+        --out docs/benchmark/intelligence-preservation-current.json
+
+Until 2026-09-11 no such tool existed: the gate answered
+`INSUFFICIENT_EVIDENCE` not because intelligence had degraded but because the
+measurement could not be taken at all. The runner refuses rather than invents:
+
+* missing or indistinguishable lane layers abort with `FAKE_LANES` — identical
+  lanes would "prove" 100% retention while measuring nothing;
+* a metric with no observation in some lane aborts: a partial run is not a run;
+* an unreachable model aborts instead of returning a guess;
+* grading is deterministic and declared by the item, never judged by another
+  model, so a third party can recompute the verdict.
+
+### Why the gate is still red in CI
+
+The measurement needs the SAME model the owner runs, over the same items, in
+four lanes, with roughly a thousand paired items per metric to clear the 2%
+non-inferiority margin. The build environment has no model credentials and no
+local weights, so the run cannot happen there, and no runner output may be
+synthesised. `INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE` is the honest
+state until the owner executes the runner against a real model — the new local
+machine is the intended place for it.
+
 ## Diagnosis
 
 - `SYSTEM_CORE_REGRESSION` — system/policy instruction collision
