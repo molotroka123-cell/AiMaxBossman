@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "updated_at": "2026-09-11",
   "purpose": "Canonical numbering for real trading cases. Raw screenshots/events remain immutable evidence and must not be mistaken for separate numbered trades.",
   "numbering_rule": "Increment CASE-N only when a distinct actual position/thesis begins after the prior actual position is closed or explicitly reset. News events, screenshots, CVD/OI observations, audits and scenario branches are evidence within a case, not new numbered cases.",
@@ -28,7 +28,11 @@
       "position_activation": "2026-09-11 approximately 08:34-08:53 ET",
       "average_entry_observed": 77613.3,
       "size_btc_observed": 0.0191,
-      "note": "CASE-002 includes the full Sep 8-11 lead-in, including Sep 9 divergences, Sep 10 capitulation/failed-reclaim research, Sep 11 CPI and the eventual long. It does not begin at CPI."
+      "latest_observation": "2026-09-11 09:54 ET",
+      "latest_btc_execution_last": 78726.1,
+      "latest_cvd_billion": 57.98,
+      "latest_open_interest_billion": 18.56,
+      "note": "CASE-002 includes the full Sep 8-11 lead-in: Sep 9 divergences/failed breakout, Sep 10 capitulation and edge discovery, Sep 11 CPI shock/reclaim and current bullish continuation. It does not begin at CPI."
     }
   ],
   "next_case_number": 3,
