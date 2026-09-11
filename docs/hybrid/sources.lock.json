@@ -1,0 +1,104 @@
+{
+  "type": "bossman.third_party_sources_lock",
+  "schema": 1,
+  "updated": "2026-09-11",
+  "branch": "claude/bossman-control-v03-43igbk",
+  "note": "Реестр КАНДИДАТОВ и решений по ним. Решения по первым пяти приняты на ветке claude/bossman-final-completion-kymr05 (docs/hybrid/THIRD_PARTY_DECISIONS.md) и здесь НЕ пересматриваются — они воспроизведены, чтобы реестр был полным. Строка попадает сюда, только когда у неё есть решение и причина; присланная владельцем ссылка сама по себе основанием для внедрения не является.",
+  "candidates": [
+    {
+      "name": "Windows-MCP",
+      "upstream": "https://github.com/CursorTouch/Windows-MCP",
+      "commit_sha": "UNPINNED — закрепить перед любым внедрением кода",
+      "license": "MIT",
+      "decision": "ADOPT_AS_OPTIONAL_BACKEND",
+      "decided_on_branch": "claude/bossman-final-completion-kymr05",
+      "telemetry": "исходящей телеметрии не обнаружено; работает как локальный сайдкар",
+      "network": "локальный IPC",
+      "reason": "механика Windows UI полезна, но движок не проверяет цель в момент эффекта: окно может сменить фокус между планированием и кликом. Допускается только за портом DesktopRuntime, с отпечатком цели до эффекта и независимой проверкой пост-состояния",
+      "reversible": "да — бэкенд снимается в AdapterRegistry, продукт откатывается на legacy"
+    },
+    {
+      "name": "browser-use",
+      "upstream": "https://github.com/browser-use/browser-use",
+      "commit_sha": "UNPINNED",
+      "license": "MIT",
+      "decision": "REFERENCE_ONLY",
+      "decided_on_branch": "claude/bossman-final-completion-kymr05",
+      "telemetry": "требует проверки при любом пересмотре решения",
+      "reason": "автономный внутренний цикл скрывает бюджет повторов от губернатора и объявляет успех, когда эффект на странице заблокирован капчей или мутацией DOM. Родной browser runtime уже умеет передачу владельцу и ограждение доменов",
+      "reversible": "н/д — код не внедряется"
+    },
+    {
+      "name": "GrapesJS",
+      "upstream": "https://github.com/GrapesJS/grapesjs",
+      "commit_sha": "UNPINNED",
+      "license": "BSD-3-Clause",
+      "decision": "ADOPT_AS_OPTIONAL_BACKEND",
+      "decided_on_branch": "claude/bossman-final-completion-kymr05",
+      "telemetry": "нет",
+      "reason": "зрелая механика визуального редактирования как необязательная канва Web Designer. Правки идут типизированными кадрами операций, а не innerHTML; схема проекта, сохранение и экспорт остаются за Bossman",
+      "reversible": "да — канва переключаемая, родной редактор остаётся"
+    },
+    {
+      "name": "Weave",
+      "upstream": "https://github.com/wandb/weave",
+      "commit_sha": "UNPINNED",
+      "license": "Apache-2.0",
+      "decision": "REFERENCE_ONLY",
+      "decided_on_branch": "claude/bossman-final-completion-kymr05",
+      "telemetry": "требует проверки при любом пересмотре решения",
+      "reason": "родной конвейер FFmpeg детерминирован и покрыт тестами; выигрыша в рендере нет, накладные расходы на IPC и упаковку есть",
+      "reversible": "н/д — код не внедряется"
+    },
+    {
+      "name": "LocalAI",
+      "upstream": "https://github.com/mudler/LocalAI",
+      "commit_sha": "UNPINNED",
+      "license": "MIT",
+      "decision": "REJECT",
+      "decided_on_branch": "claude/bossman-final-completion-kymr05",
+      "telemetry": "нет данных",
+      "reason": "управляет жизненным циклом моделей непрозрачно для губернатора ресурсов Bossman. На целевом железе с ЕДИНОЙ памятью 128 ГБ это прямой конфликт: занятое моделью вычитается из общей памяти, и авторитет над бюджетом обязан остаться у Bossman",
+      "reversible": "н/д — отклонён"
+    },
+    {
+      "name": "OpenContext",
+      "upstream": "прислан владельцем в задании (раздел 7)",
+      "commit_sha": "НЕ ЗАКРЕПЛЁН",
+      "license": "НЕ ПРОВЕРЕНА",
+      "decision": "PENDING_PREFLIGHT",
+      "reason": "интереса не лишён: контекст и память — узкое место продукта. Но до решения требуется порт ContextStoreRuntime в режиме SHADOW (родная память авторитетна, OpenContext получает копии и отвечает как дополнительный источник кандидатов), изоляция пространств имён по проекту, атрибуция источника и обнаружение устаревания",
+      "hard_limits": "никаких ключей, токенов и паролей в открытом виде; никакого слепого приёма .env и приватных секретов; биометрия по умолчанию не хранится",
+      "reversible": "обязано быть: SHADOW снимается флагом, родная память не деградирует"
+    },
+    {
+      "name": "ai-file-sorter",
+      "upstream": "прислан владельцем в задании (раздел 8)",
+      "commit_sha": "НЕ ЗАКРЕПЛЁН",
+      "license": "НЕ ПРОВЕРЕНА — требует явного юридического преflight до вендоринга",
+      "decision": "PENDING_LEGAL_PREFLIGHT",
+      "reason": "на продуктовой линии уже есть родная File Intelligence (kymr05, command-center/bcc/file_intelligence/). Второй комплект писать запрещено разделом 6. До ясности с лицензией — только OPTIONAL_EXTERNAL_BACKEND или REFERENCE_ONLY, без внесения кода в ядро",
+      "hard_limits": "никаких массовых переименований без детерминированной карты отката",
+      "reversible": "обязано быть: карта отката на каждое переименование"
+    },
+    {
+      "name": "Open-Source-Face-Recognition-SDK",
+      "upstream": "прислан владельцем в задании (раздел 9)",
+      "commit_sha": "НЕ ЗАКРЕПЛЁН",
+      "license": "НЕ ПРОВЕРЕНА",
+      "decision": "PENDING_LEGAL_PREFLIGHT",
+      "reason": "встраивание запрещено до точной проверки лицензии. Без явно совместимой лицензии — REFERENCE_ONLY или REJECT",
+      "hard_limits": "выключено по умолчанию; никакого фонового сканирования камеры; никакой незаметной постоянной слежки; обработка локальная; выгрузка в облако только по отдельному разрешению; биометрические шаблоны по умолчанию не хранятся",
+      "reversible": "обязано быть: подсистема не требуется для загрузки продукта"
+    },
+    {
+      "name": "video-shotcraft",
+      "upstream": "прислан владельцем в задании (раздел 13)",
+      "commit_sha": "НЕ ЗАКРЕПЛЁН",
+      "license": "НЕ ПРОВЕРЕНА",
+      "decision": "PENDING_PREFLIGHT",
+      "reason": "полезен как слой знаний и рецептов кадров, а не как постоянно живущий сервис: раздел 16 запрещает лишние демоны",
+      "reversible": "обязано быть"
+    }
+  ]
+}
