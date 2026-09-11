@@ -1,0 +1,38 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "13:23 ET",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "observed": {
+    "reference_price_approx": 77795,
+    "cvd_billion": 59.61,
+    "open_interest_billion": 17.90,
+    "reference_levels": {
+      "dVAL": 76800,
+      "dOpen": 77215,
+      "dPOC": 77440,
+      "dVAH": 78375
+    }
+  },
+  "comparison_to_prior_snapshot": {
+    "prior_cvd_billion": 59.13,
+    "prior_oi_billion": 17.94,
+    "cvd_change_billion": 0.48,
+    "oi_change_billion": -0.04,
+    "price_direction": "UP_OR_HOLDING_HIGHER",
+    "state": "Price UP/HOLD + CVD UP + OI DOWN"
+  },
+  "regime": "CONSTRUCTIVE_DELEVERAGED_BID_ABOVE_DPOC",
+  "interpretation": "Price is holding above dOpen and dPOC while CVD improves and OI contracts slightly. This is constructive because aggressive buy flow is improving without a fresh leverage build. It can represent spot-led demand and/or short covering. It is healthier than Price UP + CVD UP + OI UP crowding, but it is not a reason to chase because the next major reference resistance is dVAH around 78.375k.",
+  "management": {
+    "bias": "BULLISH_WHILE_ABOVE_DPOC_DOPEN",
+    "key_hold_zone_reference": [77215, 77440],
+    "next_resistance_reference": 78375,
+    "warning": "If price loses dPOC/dOpen while CVD rolls over and OI starts rising, regime flips toward bearish leverage expansion.",
+    "limit_order_note": "Keep previously planned execution-venue limits only if current basis remains compatible; do not move them upward just because CVD improved. Recalculate reference-to-execution basis before changing orders.",
+    "not_a_new_case": true
+  },
+  "lesson": "Price holding above reclaimed value with CVD rising and OI falling is a high-quality continuation state because demand/covering is lifting price while leverage is being cleaned. Signal quality is better than a leveraged chase, but structural resistance still matters."
+}
