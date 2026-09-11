@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 131. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 132. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -55,6 +55,7 @@
 | `command-center/tests/test_v23_secret_canary_e2e.py:187` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_v26_mcp_sdk_path.py:95` | skip | `—` | пакет mcp не установлен в этом окружении | Command Center | необязательный пакет / соседний компонент | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_export_receipt.py:16` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | real FFmpeg binaries required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_video_preview_speed_contract.py:25` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | нужны настоящие двоичные файлы FFmpeg | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_advanced.py:17` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | real FFmpeg binaries required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_advanced.py:91` | skipif | `not Path('C:/Python314/python.exe').is_file()` | optional local NumPy runtime absent | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_advanced.py:146` | skipif | `not Path('C:/Python314/python.exe').is_file()` | optional local CV runtime absent | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
