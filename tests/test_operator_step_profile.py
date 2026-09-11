@@ -53,8 +53,14 @@ def test_the_framework_adds_a_bounded_amount_on_top_of_the_declared_costs():
     store writes, policy, verifier and loop guard. A regression that made the
     loop, say, re-serialise history per state transition would show up here."""
     report = run(steps=20, observe_ms=0, plan_ms=0, act_ms=0, reuse_max_age_s=0.75)
-    assert report["framework_overhead_per_step_ms"] < 40, report["framework_overhead_per_step_ms"]
-    assert report["p95_step_ms"] < 60, report["p95_step_ms"]
+    # Печатается ВСЁ распределение, а не одно число: по «p95 = 71.3» нельзя
+    # понять, поехал ли каркас или у раннера был один тяжёлый шаг из двадцати.
+    why = (f"накладные={report['framework_overhead_per_step_ms']} мс "
+           f"p50={report.get('p50_step_ms')} p95={report['p95_step_ms']} "
+           f"max={report.get('max_step_ms')} шагов={report.get('steps')} "
+           f"замеры={report.get('samples_ms')}")
+    assert report["framework_overhead_per_step_ms"] < 40, why
+    assert report["p95_step_ms"] < 60, why
 
 
 def test_every_sample_is_retained_and_none_are_trimmed():

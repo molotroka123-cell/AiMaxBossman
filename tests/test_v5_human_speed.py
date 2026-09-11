@@ -78,8 +78,19 @@ def test_objective_cas_under_10ms_and_stale_write_is_denied(tmp_path, record_pro
     result = latency_summary(samples, limit_ms=10.0, percentile=100,
                              max_isolated_stalls=1)
     record("objective_cas", samples, result, record_property)
-    assert result["status"] == PASS, result
-    assert result["body_ms"] < 5.0, result   # операция обязана быть быстрой сама по себе
+    # Сообщение собирается вручную и коротко НЕ ради красоты: pytest обрезает
+    # длинный dict многоточием, и в логе CI от отчёта гейта оставалось только
+    # `value_ms`. По одному p100 нельзя отличить «продукт замедлился» от
+    # «у раннера дважды сорвалось хранилище», а перезапустить прогон можно не
+    # всегда. Поэтому причина отказа печатается прямо в строке отказа.
+    why = (f"{result['status']} причина={result.get('reason')} "
+           f"p{result['percentile']}={result['value_ms']:.3f} мс "
+           f"тело p{result.get('body_percentile')}={result.get('body_ms')} мс "
+           f"срывов={len(result.get('stalls_ms') or [])} "
+           f"прощается={result.get('max_isolated_stalls')} "
+           f"срывы={result.get('stalls_ms')}")
+    assert result["status"] == PASS, why
+    assert result["body_ms"] < 5.0, why   # операция обязана быть быстрой сама по себе
 
 
 def test_observation_cycle_deterministic_without_sleep(tmp_path, monkeypatch, record_property):
