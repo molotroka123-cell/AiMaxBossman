@@ -1,0 +1,41 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "11:55 ET",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "observed": {
+    "reference_price_approx": 77680,
+    "cvd_billion": 58.09,
+    "open_interest_billion": 17.93,
+    "long_liquidations_million_approx": 9.95,
+    "short_liquidations_thousand_approx": 61.22
+  },
+  "comparison_to_1009": {
+    "prior_reference_price_area_approx": [78980, 79060],
+    "prior_cvd_billion": 59.89,
+    "prior_oi_billion": 18.42,
+    "price_direction": "DOWN",
+    "cvd_change_billion": -1.80,
+    "oi_change_billion": -0.49,
+    "state": "Price DOWN + CVD DOWN + OI DOWN"
+  },
+  "reference_levels_visible": {
+    "dVAL_approx": 76680,
+    "dOpen_approx": 77215,
+    "dPOC_approx": 77305,
+    "dVAH_approx": 78220,
+    "note": "Reference-chart levels only; execution venue basis must be recalculated before orders."
+  },
+  "regime": "POST_SQUEEZE_LONG_FLUSH_DELEVERAGING",
+  "interpretation": "The 79k squeeze payout reversed into a large long flush. Price, CVD and OI all fell while long liquidations dominated, indicating deleveraging/forced long closure rather than confirmed fresh bearish leverage expansion. This creates a better long location than chasing the squeeze high, but it is not an automatic market-buy signal because CVD also weakened and buyers have not yet re-established control.",
+  "management": {
+    "for_existing_case_002_long": "Treat as a potential add/reload setup, not a new numbered case.",
+    "aggressive_add_zone": "Reference 77.20-77.35k around dOpen/dPOC, only after hold/reclaim or a successful retest with CVD stabilizing and OI no longer accelerating downward.",
+    "safer_confirmation": "Reclaim/acceptance above roughly 77.65-77.75k after the flush, then stronger confirmation above dVAH near 78.22k.",
+    "invalidation": "Acceptance below dOpen 77.215k weakens the setup; loss of dVAL ~76.68k is stronger invalidation. Price DOWN + CVD DOWN + OI UP would flip the regime back toward bearish leverage expansion.",
+    "do_not": "Do not chase with a full-size market long immediately after the liquidation candle."
+  },
+  "lesson": "After a squeeze, Price DOWN + CVD DOWN + OI DOWN with dominant long liquidations is deleveraging. It can create a better reload zone, but the edge is in post-flush stabilization/reclaim, not in blindly catching the liquidation candle."
+}
