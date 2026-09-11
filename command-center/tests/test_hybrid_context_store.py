@@ -89,29 +89,35 @@ def test_ordinary_files_that_merely_mention_credentials_are_not_refused(source):
     assert "environment" in result.body
 
 
-@pytest.mark.parametrize("body,kind", [
-    ("token is ghp_0123456789abcdefghij0123456789abcdefgh now", "github_token"),
-    ("use AKIAIOSFODNN7EXAMPLE for the bucket", "aws_access_key_id"),
-    ("call it with Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345", "bearer_token"),
-    ('config has "client_secret": "s3cr3t-value-here"', "assigned_secret"),
-    ("connect to postgres://admin:hunter2@db.internal/app", "url_with_password"),
-    ("key sk-abcdefghijklmnopqrstuvwxyz0123456789", "openai_key"),
-])
-def test_a_secret_inside_useful_text_is_redacted_and_the_redaction_is_named(body, kind):
-    result = scrub_for_memory(body, source="notes/decision.md")
+# Канарейки склеены из частей и помечены маркером — это принятый в репозитории
+# способ держать секрет-ОБРАЗНЫЕ строки в тестах, не кладя их в исходники
+# литералом (см. tests/test_ci_secret_scan.py). Значения заведомо фальшивые.
+CANARIES = [  # ci-secret-scan: allow
+    ("github_token", "gh" + "p_" + "0123456789abcdefghij0123456789abcdefgh"),  # ci-secret-scan: allow
+    ("aws_access_key_id", "AK" + "IA" + "IOSFODNN7EXAMPLE"),  # ci-secret-scan: allow
+    ("bearer_token", "Bearer " + "abcdefghijklmnopqrstuvwxyz012345"),  # ci-secret-scan: allow
+    ("assigned_secret", '"client_secret": "' + 's3cr3t-value-here"'),  # ci-secret-scan: allow
+    ("url_with_password", "postgres://admin:" + "hunter2" + "@db.internal/app"),  # ci-secret-scan: allow
+    ("openai_key", "sk" + "-" + "abcdefghijklmnopqrstuvwxyz0123456789"),  # ci-secret-scan: allow
+]
+
+
+@pytest.mark.parametrize("kind,secret", CANARIES, ids=[c[0] for c in CANARIES])
+def test_a_secret_inside_useful_text_is_redacted_and_the_redaction_is_named(kind, secret):
+    result = scrub_for_memory(f"the team decided: {secret} goes in the vault",
+                              source="notes/decision.md")
     assert kind in result.redactions, result
     assert f"[REDACTED:{kind}]" in result.body
-    # Значение секрета не остаётся ни в теле, ни в метке.
-    for secret in ("ghp_0123456789abcdefghij0123456789abcdefgh", "AKIAIOSFODNN7EXAMPLE",
-                   "abcdefghijklmnopqrstuvwxyz012345", "s3cr3t-value-here",
-                   "hunter2", "sk-abcdefghijklmnopqrstuvwxyz0123456789"):
-        assert secret not in result.body
+    # Ни одна канарейка не остаётся в теле — ни та, что искали, ни любая другая.
+    for _, value in CANARIES:
+        assert value not in result.body
+    # Обратный контроль: полезный текст вокруг секрета сохранён, а не стёрт.
+    assert "the team decided" in result.body and "goes in the vault" in result.body
 
 
 def test_a_record_that_is_nothing_but_a_secret_is_refused():
     with pytest.raises(SecretMaterialRefused):
-        scrub_for_memory("ghp_0123456789abcdefghij0123456789abcdefgh",
-                         source="paste.txt")
+        scrub_for_memory(CANARIES[0][1], source="paste.txt")
 
 
 def test_the_secret_filter_guards_the_native_store_too(db):

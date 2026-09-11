@@ -510,7 +510,18 @@ def _flawless_payload(samples: int) -> dict:
                 item["paired"] = {"lost": 0, "gained": 0}
             block[name] = item
         modes[mode] = block
-    return {"model": "m", "dataset_id": "d", "evaluated_sha": SHA, "modes": modes}
+    # Полосы объявлены так же, как их объявляет настоящий раннер: гейт теперь
+    # требует, чтобы полоса FULL ДЕЙСТВИТЕЛЬНО исполняла обвязку, а не
+    # описывала её. Здесь измеряется достаточность выборки, поэтому блок должен
+    # быть настоящим, иначе этот тест молча проверял бы отказ по другой причине.
+    lanes = {mode: {"lane": mode, "kind": "prompt_ablation", "executes_tools": False}
+             for mode in MODES if mode != "full"}
+    lanes["full"] = {"lane": "full", "kind": "production_execution_loop",
+                     "executes_tools": True,
+                     "observed": {"model_turns": 2 * samples, "executed": samples,
+                                  "declined": 0, "items_with_executed_tool_call": samples}}
+    return {"model": "m", "dataset_id": "d", "evaluated_sha": SHA,
+            "lanes": lanes, "modes": modes}
 
 
 @pytest.mark.parametrize("samples,expected", [

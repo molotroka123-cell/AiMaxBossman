@@ -33,9 +33,22 @@ INSUFFICIENT_EVIDENCE не потому, что интеллект деград�
     python scripts/intelligence_retention_run.py \
         --items docs/benchmark/retention-items-v1.json \
         --model <имя модели> --base-url http://127.0.0.1:8080/v1 \
-        --out docs/benchmark/intelligence-preservation-current.json
+        --out /tmp/retention-diagnostic.json
 
 Коды выхода: 0 — нагрузка записана, 2 — замер невозможен (названа причина).
+
+ЧЕМ ЭТОТ РАННЕР НЕ ЯВЛЯЕТСЯ (дописано при сведении двух веток). Его полоса
+`full` дописывает слой инструментов к задаче ТЕКСТОМ и зовёт модель один раз.
+Ни один инструмент не исполняется, значит вопрос «сохраняет ли ОБВЯЗКА Bossman
+качество модели» здесь не задан — обвязки в замере нет (AF-04). Как
+диагностика четырёх текстовых абляций он полезен; как доказательство для
+релизного гейта — нет, и гейт его отклонит по `lanes.full.executes_tools`.
+
+Файл для гейта производит `tools/intelligence_preservation_run.py`: там полоса
+`full` — настоящая многошаговая петля с production-промптом, настоящими
+схемами инструментов, настоящим `ContextBuilder` и реально исполняемыми
+инструментами. Два раннера существуют потому, что две ветки развивались, не
+видя друг друга; они НЕ взаимозаменяемы.
 """
 from __future__ import annotations
 
@@ -236,7 +249,33 @@ def to_payload(outcomes, *, model: str, dataset_id: str, sha: str) -> dict:
                     }
             block[metric] = entry
         modes[lane] = block
-    return {"model": model, "dataset_id": dataset_id, "evaluated_sha": sha, "modes": modes}
+    # Полосы объявляются ЧЕСТНО, и это не формальность.
+    #
+    # Полоса `full` здесь — текстовая абляция: слой инструментов дописывается
+    # к задаче строкой (`build_envelope`), модель зовут ОДИН раз, ни один
+    # инструмент не исполняется. Это законный диагностический замер и
+    # совершенно негодное доказательство того, что ОБВЯЗКА Bossman сохраняет
+    # качество модели: обвязки в нём нет (AF-04).
+    #
+    # Настоящую полосу исполнения делает `tools/intelligence_preservation_run.py`:
+    # production-`_system_prompt`, настоящие JSON-схемы `ToolDef.schema()`,
+    # настоящий `ContextBuilder` и многошаговая петля, где инструмент реально
+    # исполняется и его вывод возвращается модели.
+    #
+    # Оба раннера пишут ОДИН И ТОТ ЖЕ файл, который читает релизный гейт, —
+    # они появились на двух разошедшихся ветках, каждая из которых не видела
+    # второй. Поэтому этот раннер обязан назвать себя тем, что он есть: гейт
+    # проверяет `lanes.full.executes_tools` и отказывает, а не выдаёт зелёный
+    # вердикт по замеру, который его вопроса не задавал.
+    lanes: dict[str, Any] = {
+        lane: {"lane": lane, "kind": "prompt_ablation", "executes_tools": False}
+        for lane in LANES
+    }
+    lanes["full"]["note"] = (
+        "текстовая абляция слоя инструментов, а не исполнение обвязки; для "
+        "релизного гейта используйте tools/intelligence_preservation_run.py")
+    return {"model": model, "dataset_id": dataset_id, "evaluated_sha": sha,
+            "lanes": lanes, "modes": modes}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -289,9 +328,11 @@ def main(argv: list[str] | None = None) -> int:
         args.audit.write_text(json.dumps(
             {lane: {m: outcomes[lane][m] for m in outcomes[lane]} for lane in LANES},
             indent=2) + "\n", encoding="utf-8")
-    print(f"INTELLIGENCE_RETENTION=MEASURED → {args.out}")
-    print("теперь прогоните гейт: python tools/intelligence_preservation_gate.py "
-          f"{args.out} --expect-sha {payload['evaluated_sha']}")
+    print(f"INTELLIGENCE_RETENTION=MEASURED(DIAGNOSTIC) → {args.out}")
+    print("ВНИМАНИЕ: полоса full здесь — текстовая абляция, инструменты не "
+          "исполняются. Релизный гейт такой замер ОТКЛОНИТ, и это правильно.")
+    print("Для гейта снимите замер настоящей обвязкой: "
+          "python tools/intelligence_preservation_run.py --help")
     return 0
 
 

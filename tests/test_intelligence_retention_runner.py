@@ -98,3 +98,46 @@ def test_an_unreachable_model_is_refused_not_guessed() -> None:
     with pytest.raises(runner.Unmeasurable) as exc:
         runner.ask("http://127.0.0.1:1/v1", "m", None, {"messages": []}, timeout=2)
     assert "модель недоступна" in str(exc.value)
+
+
+# ------------------------------------------------ два раннера, один файл гейта
+
+def test_this_runners_payload_cannot_close_the_release_gate() -> None:
+    """Оба раннера пишут один и тот же файл; закрыть гейт может только один.
+
+    Этот появился на ветке, которая не видела `tools/intelligence_preservation_run.py`,
+    и его полоса `full` — текстовая абляция: инструменты дописываются к задаче
+    строкой и не исполняются. Такой замер не отвечает на вопрос гейта («не
+    теряет ли ОБВЯЗКА качество модели») и обязан быть отклонён, иначе
+    fail-closed гейт закрывается доказательством, которого он не просил.
+
+    Проверка сквозная: payload действительно строится этим раннером и
+    действительно отдаётся настоящему гейту.
+    """
+    from tools.intelligence_preservation_gate import evaluate
+
+    outcomes = {lane: {metric: [True] * 200 for metric in runner.METRICS}
+                for lane in runner.LANES}
+    payload = runner.to_payload(outcomes, model="m", dataset_id="d", sha="d" * 40)
+    assert payload["lanes"]["full"]["executes_tools"] is False
+    with pytest.raises(ValueError, match="did not run the harness"):
+        evaluate(payload)
+
+
+def test_the_same_numbers_from_a_real_harness_are_accepted() -> None:
+    """Обратный контроль: отклоняется СПОСОБ ЗАМЕРА, а не сами числа.
+
+    Без этой половины предыдущий тест был бы зелёным и в том случае, если бы
+    гейт просто перестал принимать что-либо.
+    """
+    from tools.intelligence_preservation_gate import evaluate
+
+    outcomes = {lane: {metric: [True] * 200 for metric in runner.METRICS}
+                for lane in runner.LANES}
+    payload = runner.to_payload(outcomes, model="m", dataset_id="d", sha="d" * 40)
+    payload["lanes"]["full"] = {"lane": "full", "kind": "production_execution_loop",
+                                "executes_tools": True,
+                                "observed": {"executed": 200, "model_turns": 400,
+                                             "declined": 0,
+                                             "items_with_executed_tool_call": 200}}
+    assert evaluate(payload)["status"] == "PASS"
