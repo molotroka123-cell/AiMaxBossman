@@ -1,0 +1,34 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "19:12 ET",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise screenshots",
+  "observed": {
+    "reference_price": 77202.82,
+    "cvd_billion": 56.66,
+    "open_interest_billion": 17.72,
+    "long_liquidations_thousand": 43.64,
+    "short_liquidations": 155,
+    "dPOC": 77336.75,
+    "dVAL": 76748.50,
+    "dOpen": 76641.80
+  },
+  "comparison": {
+    "prior_cvd_billion": 56.47,
+    "prior_oi_billion": 17.77,
+    "cvd_direction": "SLIGHT_UP",
+    "oi_direction": "DOWN",
+    "price_relative_to_dPOC": "BELOW"
+  },
+  "regime": "CVD_STABILIZATION_WITH_CONTINUED_DELEVERAGING_BELOW_DPOC",
+  "interpretation": "CVD has stabilized/rebounded slightly while OI continues to contract, which removes some bearish leverage pressure. However price remains below dPOC, so structure has not confirmed a long. Flow is improving but price confirmation is still missing.",
+  "action_logic": {
+    "no_chase": true,
+    "preferred_long_trigger": "Reclaim dPOC near 77.337k, then hold/retest above it while CVD does not roll over and OI stays stable/down.",
+    "aggressive_support_watch": "dVAL 76.749k to dOpen 76.642k only after sweep/reclaim or visible absorption; not a blind bid zone.",
+    "invalidation": "Acceptance below dOpen with CVD down and OI rising would indicate fresh bearish leverage and invalidate the long candidate."
+  },
+  "lesson": "Flow improvement below a structural level is only a candidate. The edge becomes actionable only when price response confirms the flow by reclaiming/holding structure."
+}
