@@ -1,0 +1,40 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "13:23 ET",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "observed": {
+    "reference_price_approx": 77675,
+    "cvd_billion": 59.52,
+    "open_interest_billion": 17.87,
+    "long_liquidations_thousand": 104.32,
+    "short_liquidations_thousand": 260.24,
+    "liquidations_delta_moving_average_thousand": 948.07
+  },
+  "comparison_to_prior": {
+    "prior_cvd_billion": 59.61,
+    "prior_oi_billion": 17.90,
+    "cvd_change_billion": -0.09,
+    "oi_change_billion": -0.03,
+    "state": "Price slightly DOWN/holding + CVD slightly DOWN + OI DOWN"
+  },
+  "reference_levels": {
+    "dVAL": 76800,
+    "dOpen": 77215,
+    "dPOC": 77440,
+    "dVAH": 78325
+  },
+  "regime": "MILD_DELEVERAGING_PULLBACK_ABOVE_VALUE_CORE",
+  "interpretation": "The latest pullback is accompanied by a small CVD fade and a small OI decline, not OI expansion. That means leverage is still being cleaned rather than fresh bearish leverage aggressively entering. Price remains above dPOC 77,440 and dOpen 77,215 on the reference chart, so the long structure is still intact. This is not a fresh long trigger by itself; it is a management/limit-order context event.",
+  "management": {
+    "keep_existing_limit_ladder": true,
+    "first_reference_support": 77440,
+    "second_reference_support": 77215,
+    "deeper_reference_support": 76800,
+    "bearish_flip_condition": "Price accepts below dPOC/dOpen while CVD declines and OI begins to rise. That would change the regime to bearish leverage expansion and remaining limits should be reassessed.",
+    "bullish_confirmation": "Price holds/reclaims dPOC after a test with CVD stabilizing/up and OI flat/down, then dVAH 78,325 becomes the next structural objective."
+  },
+  "lesson": "A small Price/CVD pullback with OI still falling is usually deleveraging, not fresh directional bearish leverage. Preserve the distinction between pullback quality and actual invalidation."
+}
