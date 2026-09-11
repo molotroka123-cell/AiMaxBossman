@@ -1,0 +1,25 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "type": "owner_reported_outcome_and_risk_management_lesson",
+  "market": "BTC",
+  "owner_report": "The user reports that the profit from the earlier rise was fully given back.",
+  "exact_realized_pnl": "UNKNOWN",
+  "position_status": "NOT_CONFIRMED",
+  "interpretation": "The main failure was not necessarily directional prediction; the larger issue was profit protection and entry/management discipline after the squeeze payout. The analysis continued to search for fresh long entries after the original long edge had already paid, while the market transitioned into lower-efficiency buyer response and repeated deleveraging. This allowed previously captured edge to be converted back into risk.",
+  "root_causes": [
+    "Signal-generation phase and payoff phase were not separated strictly enough in position management.",
+    "After a strong favorable excursion, no hard profit-protection rule was enforced before considering additional entries.",
+    "Constructive CVD/OI states were sometimes promoted too quickly from 'candidate' to 'entry' without requiring renewed price acceptance.",
+    "The strategy optimized for finding the next entry instead of first protecting accumulated PnL from the existing move."
+  ],
+  "policy_changes": [
+    "After a squeeze/impulse payout, freeze new adds until either a confirmed structural retest occurs or a fresh case is opened after reset.",
+    "Once a trade reaches a meaningful favorable excursion, define a non-negotiable giveback limit for open PnL before looking for new adds.",
+    "CVD/OI can only authorize an entry when price response confirms the thesis; flow without price acceptance remains informational only.",
+    "When buyer efficiency deteriorates after a large run, stop averaging into weakness and switch to protect-or-reset mode.",
+    "No revenge trade after a full profit giveback; next action requires a new setup with explicit invalidation."
+  ],
+  "lesson": "The edge was found earlier and paid. The failure was converting a profitable move back into risk by continuing to trade the same idea after the payoff phase. Future local-model behavior must prioritize PnL protection and case reset over constant re-entry.",
+  "next_required_data": "Owner confirmation of whether the position is still open, partially open, or fully closed, plus current exposure if any."
+}
