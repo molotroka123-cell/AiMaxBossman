@@ -170,6 +170,15 @@ async def test_missing_dependency_denies_even_valid_binary(env, installed_metada
 async def test_repeated_probes_do_not_create_drivers_or_sessions(env, installed_metadata, monkeypatch):
     import subprocess
     import asyncio
+    # `env` builds its BrowserManager BEFORE `installed_metadata` neutralises the
+    # preinstalled path, and the manager copies that constant into
+    # `preinstalled_executable` at construction. On a host where
+    # /opt/pw-browsers/chromium really exists — the development container, and
+    # any machine with the browsers preinstalled — the manager therefore kept
+    # answering the real path and this test failed on setup rather than on its
+    # subject. Point the existing manager at the fixture's absent path, the same
+    # substitution the fixture already makes for the two module constants.
+    monkeypatch.setattr(env.svc.browser, "preinstalled_executable", feature.CHROMIUM)
     binary = _binary(Path(os.environ["PLAYWRIGHT_BROWSERS_PATH"]) / "chromium-1234" / "chrome-linux64" / "chrome")
     def no_child(*args, **kwargs):
         raise AssertionError("health probe started a subprocess")
