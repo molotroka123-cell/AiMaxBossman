@@ -1,0 +1,70 @@
+{
+  "case_number_global": 2,
+  "session_case_number_today": 1,
+  "date": "2026-09-11",
+  "status": "CLOSED_FOR_LEARNING",
+  "market": "BTC",
+  "secondary_confirmation_market": "ETH",
+  "purpose": "Close the first trading-learning case of the day as the second numbered case in the GitHub journal, consolidating the CPI flush -> dVAL reclaim -> continuation outcome into one episode.",
+  "source_files": [
+    "data/trading/cases/2026-09-11/btc-2026-09-11-0834-post-cpi-wick-recovery-execution-chart.json",
+    "data/trading/cases/2026-09-11/btc-2026-09-11-0834-post-cpi-dval-reclaim-cvd-surge.json"
+  ],
+  "start_state": {
+    "time_local_approx": "08:34-04:00",
+    "execution_price_btc_approx": 76980,
+    "reference_cvd_billion": 51.84,
+    "reference_oi_billion": 18.33,
+    "reference_dval": 77065,
+    "regime": "POST_CPI_STRUCTURAL_RECLAIM_WITH_NON_LEVERAGED_BUY_AGGRESSION",
+    "thesis": "CPI wick was bought back, CVD surged while OI stayed almost flat, and dVAL reclaim created an early long candidate. The key test was whether reclaimed value would hold; failure would have flipped the setup back into the failed-reclaim short edge."
+  },
+  "end_state": {
+    "time_local": "08:53-04:00",
+    "btc_execution_last": 77994.8,
+    "btc_execution_high": 78111.7,
+    "btc_24h_low": 76030,
+    "btc_15m_ma50": 77061.3,
+    "btc_15m_ma100": 77076.9,
+    "btc_15m_ma200": 77739.9,
+    "btc_sar": 76030,
+    "btc_volume_current": 2121,
+    "btc_volume_ma5": 2341,
+    "btc_volume_ma10": 1462,
+    "observed_position_overlay": {
+      "displayed_reference_line_approx": 77613.3,
+      "displayed_size_btc": 0.0191,
+      "displayed_pnl_usdt": 7.3764,
+      "note": "Recorded from screenshot as observed UI state. This file closes the learning case; it does not independently assert exchange-side position closure."
+    },
+    "eth_confirmation": {
+      "last_price": 2512.4,
+      "high_24h": 2514.47,
+      "low_24h": 2403.91,
+      "change_displayed_pct": 2.91,
+      "ma50_15m": 2461.26,
+      "ma100_15m": 2454.66,
+      "ma200_15m": 2465.94,
+      "interpretation": "ETH confirmed broad risk-on follow-through by impulsively reclaiming and extending above its 15m moving-average cluster."
+    }
+  },
+  "outcome": {
+    "btc_change_from_0834_execution_snapshot_points": 1014.8,
+    "btc_change_from_0834_execution_snapshot_pct_approx": 1.318,
+    "btc_max_extension_to_78111_7_from_76980_pct_approx": 1.470,
+    "structural_result": "VALIDATED_LONG_RECLAIM_PATH",
+    "failed_reclaim_short_result": "INVALIDATED_ON_ACCEPTANCE_AND_CONTINUATION",
+    "summary": "The market did not merely bounce after the CPI liquidation wick. It accepted the reclaimed structure and accelerated through the execution MA200 area, while ETH confirmed the broader risk-on response. The earlier long thesis based on strong CVD recovery with almost flat OI was validated by subsequent price acceptance."
+  },
+  "lessons": [
+    "After a macro liquidation wick, CVD surge + flat OI is higher-quality recovery evidence than price up + OI up, because the move is less dependent on fresh leverage.",
+    "A dVAL reclaim is only a candidate until price accepts above it. Once acceptance is followed by dPOC/dVAH/MA resistance repair, the failed-reclaim short hypothesis must be cancelled rather than held emotionally.",
+    "Cross-asset beta confirmation matters: ETH strongly extending above its own 15m MA cluster increased confidence that the move was broad risk-on rather than a BTC-only microstructure bounce.",
+    "Case numbering should be session-level, not screenshot-level. Individual screenshots remain evidence events inside the case; this file is the closed learning episode."
+  ],
+  "next_case_policy": {
+    "next_case_number_global": 3,
+    "next_session_case_number_today": 2,
+    "rule": "Do not carry the closed case thesis into the next setup automatically. Start the next case from the new market state and new levels."
+  }
+}
