@@ -1,26 +1,32 @@
 {
   "corpus": "bossman-trader-apprentice-btc-orderflow",
-  "version": "1.3.1",
-  "updated_at": "2026-09-10",
+  "version": "1.4.0",
+  "updated_at": "2026-09-11",
   "load_order": [
     "docs/trading/LOCAL_MODEL_SYSTEM_PROMPT.md",
     "docs/trading/BTC_ORDERFLOW_PLAYBOOK.md",
+    "data/trading/case_registry.json",
+    "data/trading/canonical_cases/*.json",
     "data/trading/btc_orderflow_rules_v1.json",
     "data/trading/short_setup_rules_v1.json",
     "data/trading/audits/**/*.json",
     "data/trading/research/*.json",
     "data/trading/scenarios/*.json",
+    "data/trading/macro/*.json",
     "data/trading/btc_casebook_2026_09.jsonl",
     "data/trading/cases/**/*.json"
   ],
   "case_store": {
+    "case_registry": "data/trading/case_registry.json",
+    "canonical_case_directory": "data/trading/canonical_cases/",
     "legacy_casebook": "data/trading/btc_casebook_2026_09.jsonl",
     "live_case_directory": "data/trading/cases/",
     "audit_directory": "data/trading/audits/",
     "research_directory": "data/trading/research/",
     "scenario_directory": "data/trading/scenarios/",
-    "write_policy": "one immutable JSON file per new observed market episode; postmortem audits and falsifiable edge hypotheses stored separately",
-    "reason": "append-friendly and conflict-safe while preserving timestamped evidence, scenario trees and explicit lessons"
+    "macro_directory": "data/trading/macro/",
+    "write_policy": "raw observations are immutable evidence; numbered actual trades are summarized in canonical_cases and indexed by case_registry",
+    "case_numbering_policy": "news events, screenshots, regime changes and audits do not increment CASE-N; only a distinct actual position after prior closure/reset does"
   },
   "deterministic_engine": "learning/trader_apprentice.py",
   "short_side_policy": {
@@ -58,14 +64,8 @@
     "input_contract": "one public youtube.com or youtu.be URL",
     "output_root": "data/trading/youtube_inbox/<video_id>/",
     "status": "UNVERIFIED_INGEST",
-    "requires": [
-      "yt-dlp",
-      "ffmpeg",
-      "OpenAI-compatible local multimodal model"
-    ],
-    "optional_when_youtube_captions_missing": [
-      "OpenAI-compatible local audio/transcriptions model"
-    ],
+    "requires": ["yt-dlp", "ffmpeg", "OpenAI-compatible local multimodal model"],
+    "optional_when_youtube_captions_missing": ["OpenAI-compatible local audio/transcriptions model"],
     "auto_route_trading_youtube_urls": true,
     "never_require_owner_transcript_or_screenshots": true,
     "promotion_requires_independent_verification": true
@@ -76,36 +76,12 @@
     "tests/test_youtube_trader_ingest_auto.py"
   ],
   "retrieval_hints": [
-    "btc",
-    "trading",
-    "trader apprentice",
-    "youtube teacher",
-    "video ingest",
-    "youtube url",
-    "local asr",
-    "coinwise",
-    "k1m6a",
-    "cvd",
-    "open interest",
-    "oi",
-    "liquidations",
-    "dval",
-    "dpoc",
-    "dvah",
-    "dopen",
-    "deleveraging",
-    "absorption",
-    "reclaim",
-    "failed reclaim",
-    "buyer efficiency",
-    "leverage efficiency",
-    "recovery efficiency",
-    "edge candidate",
-    "crowding",
-    "short candidate",
-    "sweep",
-    "short covering",
-    "leverage expansion"
+    "btc", "trading", "trader apprentice", "case registry", "canonical case", "case 1", "case 2",
+    "youtube teacher", "video ingest", "youtube url", "local asr", "coinwise", "k1m6a", "cvd",
+    "open interest", "oi", "liquidations", "dval", "dpoc", "dvah", "dopen", "deleveraging",
+    "absorption", "reclaim", "failed reclaim", "buyer efficiency", "leverage efficiency",
+    "recovery efficiency", "edge candidate", "crowding", "short candidate", "sweep",
+    "short covering", "leverage expansion"
   ],
   "runtime_policy": {
     "analysis_only": true,
@@ -118,23 +94,21 @@
     "youtube_teacher_is_untrusted": true,
     "raw_teacher_claims_are_not_training_truth": true,
     "analyze_long_and_short_setups_symmetrically": true,
-    "edge_research_is_hypothesis_until_backtested": true
+    "edge_research_is_hypothesis_until_backtested": true,
+    "canonical_case_registry_overrides_screenshot_level_numbering": true
   },
   "recommended_runtime_sequence": [
+    "Load case_registry and canonical case summaries before raw event evidence.",
+    "Attach a new screenshot/event to the currently open canonical case unless a distinct new actual position starts after explicit closure/reset.",
     "If the owner supplies a trading YouTube URL, invoke tools/youtube_trader_ingest_auto.py automatically.",
     "Fetch YouTube captions automatically; if absent, attempt configured local ASR; if ASR is unavailable, continue with visual parsing and mark speech missing.",
-    "Sample the video into timestamped frames.",
     "Use the local multimodal model to extract factual observations with unreadable values as UNKNOWN/null.",
     "Load the previous compatible Snapshot from the same source/instrument series.",
     "Run learning.trader_apprentice.analyze(previous, current, levels).",
-    "Evaluate BOTH long-reclaim and short-failed-reclaim paths; do not reduce bearish states to only 'no long'.",
-    "After capitulation, calculate whether CVD/OI recovery is producing proportional price repair. Large CVD/OI rebuild with weak price response below value is a buyer-efficiency warning and can arm a short candidate on failed reclaim.",
+    "Evaluate BOTH long-reclaim and short-failed-reclaim paths; do not reduce bearish states to only no-long.",
+    "After capitulation, calculate whether CVD/OI recovery is producing proportional price repair.",
     "Retrieve matching scenario trees, audit lessons and edge hypotheses.",
-    "Attach future in-video price outcomes when later observations exist.",
-    "Store each new live user-supplied market episode as an immutable JSON case under data/trading/cases/YYYY-MM-DD/.",
-    "Store postmortem audits under data/trading/audits/ and load them as explicit lessons, not hidden reasoning.",
-    "Keep every edge candidate labeled HYPOTHESIS until a backtester marks it VERIFIED.",
-    "Store raw YouTube teacher episodes as UNVERIFIED and never auto-promote commentary to canonical truth.",
+    "Store each new raw observation as immutable evidence and update the open canonical case summary separately.",
     "Do not place an order without a separate explicit execution authorization layer."
   ]
 }
