@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import os
+import time
 from functools import lru_cache
 from pathlib import Path
 
@@ -67,12 +68,26 @@ __all__ = ["chromium_available", "reason", "required", "REQUIRE_ENV", "PREINSTAL
 # документ кадра с ПРАВИЛЬНЫМИ координатами (клик в 40,40 при 0.5 приходит как
 # 79,80). Поэтому здесь считается экранная точка и выполняется настоящий клик —
 # это и есть то, что делает владелец, а не обход проверки.
-def preview_frame(page):
-    """Гостевой frame превью Веб-дизайнера (не FrameLocator, а Frame)."""
-    for frame in page.frames:
-        if "/preview" in (frame.url or ""):
+def preview_frame(page, *, timeout: float = 15000):
+    """Гостевой frame превью Веб-дизайнера (не FrameLocator, а Frame).
+
+    Ищется ПО ЭЛЕМЕНТУ, а не по URL. Поиск по подстроке `/preview` в
+    `frame.url` выглядит очевидным и ломается: пока кадр не зафиксировал
+    переход, его url — пустая строка, и тест падает с «кадра нет», хотя кадр
+    есть. Так и случилось в CI: `['http://.../#/web_designer?project=1', '']`.
+    """
+    deadline = time.monotonic() + timeout / 1000
+    handle = page.wait_for_selector("iframe.bd-frame", timeout=timeout)
+    while True:
+        frame = handle.content_frame()
+        # Пустой url означает «переход ещё не зафиксирован», а не «не тот
+        # кадр»: ждём именно этого, а не пересматриваем список кадров.
+        if frame is not None and frame.url:
             return frame
-    raise AssertionError(f"кадр превью не найден среди {[f.url for f in page.frames]}")
+        assert time.monotonic() < deadline, (
+            f"кадр превью не ожил за {timeout:.0f} мс; "
+            f"кадры страницы: {[f.url for f in page.frames]}")
+        page.wait_for_timeout(100)
 
 
 def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15000):
