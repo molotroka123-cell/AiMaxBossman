@@ -14,6 +14,7 @@
 """
 from __future__ import annotations
 
+import importlib.util
 import shutil
 import subprocess
 import sys
@@ -41,11 +42,31 @@ def _pristine_component(tmp_path: Path) -> Path:
     return target
 
 
+def _build_flags() -> list[str]:
+    """Изоляция сборки отключается ТОЛЬКО если бэкенд уже есть рядом.
+
+    `--no-build-isolation` требует, чтобы `setuptools.build_meta` импортировался
+    в том же интерпретаторе, который вызывает pip. На Python 3.12 setuptools
+    больше не ставится автоматически, и джоб падал с `BackendUnavailable` — не
+    потому, что колесо неправильное, а потому, что тест нарушал контракт
+    build-system. Когда бэкенда нет, pip поднимает изолированное окружение по
+    объявленному в pyproject `requires`, то есть ровно так, как соберёт
+    владелец.
+    """
+    try:
+        found = importlib.util.find_spec("setuptools.build_meta") is not None
+    except ModuleNotFoundError:
+        # Отсутствует сам пакет setuptools: find_spec на подмодуле не вернёт
+        # None, а бросит исключение. Именно этот случай и есть py3.12.
+        found = False
+    return ["--no-build-isolation"] if found else []
+
+
 def test_the_wheel_carries_the_interface(tmp_path: Path) -> None:
     source = _pristine_component(tmp_path)
     out = tmp_path / "wheels"
     done = subprocess.run(
-        [sys.executable, "-m", "pip", "wheel", "--no-deps", "--no-build-isolation",
+        [sys.executable, "-m", "pip", "wheel", "--no-deps", *_build_flags(),
          "--no-cache-dir", "--wheel-dir", str(out), str(source)],
         capture_output=True, text=True, timeout=900)
     assert done.returncode == 0, done.stderr[-4000:]
