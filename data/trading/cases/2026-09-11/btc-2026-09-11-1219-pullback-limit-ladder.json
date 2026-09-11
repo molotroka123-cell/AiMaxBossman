@@ -1,0 +1,45 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "12:19 ET",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise reference screenshots plus MEXC BTCUSDT execution screenshot",
+  "observed": {
+    "mexc_last": 77528.7,
+    "mexc_fair_price": 77539.9,
+    "mexc_15m_ma50": 77472.7,
+    "mexc_15m_ma100": 77234.5,
+    "mexc_15m_ma200": 77674.2,
+    "mexc_high_24h": 79856.7,
+    "mexc_low_24h": 76030,
+    "reference_price_approx": 77745,
+    "cvd_billion": 59.35,
+    "open_interest_billion": 17.92
+  },
+  "reference_levels": {
+    "dVAL": 76800,
+    "dOpen": 77215,
+    "dPOC": 77440,
+    "dVAH": 78525
+  },
+  "basis": {
+    "approx_reference_minus_execution": 216,
+    "translated_execution_levels": {
+      "dVAL": 76584,
+      "dOpen": 76999,
+      "dPOC": 77224,
+      "dVAH": 78309
+    },
+    "warning": "Basis is dynamic; recalculate if execution and reference diverge materially before fills."
+  },
+  "state": "Post-squeeze pullback with CVD still elevated and OI heavily cleaned versus earlier highs",
+  "interpretation": "The first high-quality passive long area is the translated dPOC / execution MA100 confluence around 77.22-77.25k. The next support is translated dOpen around 77.00k. A deeper final bid can sit near translated dVAL around 76.58-76.62k, but only while the pullback remains deleveraging/repair rather than flipping to Price DOWN + CVD DOWN + OI UP bearish leverage expansion.",
+  "suggested_limit_ladder_execution": [
+    {"price": 77240, "share_of_planned_add": 0.30, "reason": "translated dPOC ~77.224k plus MEXC MA100 ~77.2345k"},
+    {"price": 77000, "share_of_planned_add": 0.30, "reason": "translated dOpen ~76.999k and round-number structure"},
+    {"price": 76600, "share_of_planned_add": 0.40, "reason": "translated dVAL ~76.584k / deeper value support"}
+  ],
+  "risk_rule": "Cancel or reassess unfilled lower bids if price accepts below roughly 76.55-76.60k while CVD is making fresh lows and OI starts expanding; that would indicate bearish leverage expansion rather than a healthy pullback.",
+  "lesson": "After a squeeze payout, do not chase highs. Translate reference value levels into execution prices using current basis and concentrate passive bids at structural confluence, especially dPOC+MA100, then dOpen, then dVAL."
+}
