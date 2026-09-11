@@ -52,6 +52,10 @@
         <b>BOSSMAN</b>
         <i>Continuity · Steward</i>
         <small id="ui-release" title="Обновление интерфейса: выбор исполнителя и понятные состояния">Интерфейс 2.6.1</small>
+        <!-- Какой код сейчас работает. Заполняется из /api/identity; пока ответа
+             нет — «сборка…», а недоказанный источник показывается как
+             SOURCE_IDENTITY_UNKNOWN, а не прячется. -->
+        <small id="build-sha" class="build-sha" title="SHA работающей сборки">сборка…</small>
       </span>
     </div>
     <nav id="nav" class="nav" aria-label="Основная навигация"></nav>
@@ -91,10 +95,16 @@
     <main class="view" id="view" tabindex="-1"></main>
   </div>
 
-  <nav class="desktop-dock" id="desktop-dock" aria-label="Панель приложений"></nav>
-
   <nav class="mobilenav" id="mobilenav" aria-label="Навигация"></nav>
 </div>
+
+<!-- Панель приложений живёт СНАРУЖИ .shell намеренно (BL-027).
+     У .shell под @supports стоит backdrop-filter, а элемент с backdrop-filter
+     становится содержащим блоком для потомков с position: fixed. Пока панель
+     лежала внутри, её «fixed; bottom: 14px» отсчитывался не от окна, а от низа
+     .shell: на длинной странице панель уезжала за нижний край экрана и
+     появлялась только в самом низу документа — поверх последних кнопок. -->
+<nav class="desktop-dock" id="desktop-dock" aria-label="Панель приложений"></nav>
 
 <div class="scrim" id="scrim" hidden></div>
 <div id="modal-root"></div>

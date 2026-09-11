@@ -777,6 +777,9 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
 def main() -> None:
     from .config import settings
 
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
     argv = list(sys.argv[1:])
     # `bcc-open` — тот же лаунчер, но веб-версия в системном браузере
     # (без --app-окна Chromium).

@@ -1,4 +1,6 @@
 name: ASTRA acceptance
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 on:
   push:
   pull_request:
@@ -23,6 +25,8 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -41,7 +45,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: astra-portable-${{ matrix.os }}-${{ github.sha }}
+          name: astra-portable-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: astra-*.xml
           if-no-files-found: error
   runner:
@@ -50,6 +54,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -58,7 +64,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: astra-runner-${{ github.sha }}
+          name: astra-runner-${{ github.event.pull_request.head.sha || github.sha }}
           path: astra-acceptance-results/
           if-no-files-found: error
   sandbox:
@@ -68,6 +74,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -76,6 +84,6 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: astra-sandbox-${{ github.sha }}
+          name: astra-sandbox-${{ github.event.pull_request.head.sha || github.sha }}
           path: astra-acceptance-results/
           if-no-files-found: error

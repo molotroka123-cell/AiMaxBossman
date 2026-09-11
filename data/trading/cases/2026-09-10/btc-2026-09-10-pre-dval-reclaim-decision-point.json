@@ -1,0 +1,50 @@
+{
+  "case_id": "btc-2026-09-10-pre-dval-reclaim-decision-point",
+  "date": "2026-09-10",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshot",
+  "instrument_note": "Reference chart and execution tape remain separate; exact reference levels are not execution-order prices without basis validation.",
+  "observed": {
+    "reference_chart_price_approx": 77375,
+    "execution_tape_approx": [77220, 77245],
+    "cvd_billion": 47.40,
+    "open_interest_billion": 18.67
+  },
+  "chart_levels": {
+    "dVAL": 77430,
+    "dPOC_approx": 78145,
+    "dOpen_approx": 78550,
+    "dVAH_approx": 78660,
+    "capitulation_low_zone": [76750, 77000]
+  },
+  "comparison_to_prior_post_capitulation_bounce": {
+    "prior_reference_price_approx": 77225,
+    "prior_cvd_billion": 46.94,
+    "prior_oi_billion": 18.66,
+    "price_change_approx": 150,
+    "cvd_change_billion": 0.46,
+    "oi_change_billion": 0.01,
+    "price_direction": "UP",
+    "cvd_direction": "UP",
+    "oi_direction": "FLAT_TO_SLIGHTLY_UP"
+  },
+  "state": "Price UP + CVD UP + OI FLAT/SLIGHTLY UP while approaching broken dVAL from below",
+  "regime": "PRE_DVAL_RECLAIM_DECISION_POINT",
+  "interpretation": "The post-capitulation rebound is still improving: price and CVD continue higher while OI is nearly flat rather than aggressively re-expanding. The market is now only about ~55 reference points below dVAL, so the next information-rich event is not another generic Price/CVD/OI print but whether dVAL is accepted or rejected. This is a symmetric decision point for both the reclaim-long and failed-reclaim-short hypotheses.",
+  "long_scenario": {
+    "status": "ARMED_ON_ACCEPTANCE",
+    "trigger": "Reclaim dVAL ~77,430 and remain above it for multiple observations or complete a successful retest from above.",
+    "confirmation": "CVD stays stable/up and price continues to respond positively; OI may rise moderately only if price also advances.",
+    "next_reference": "dPOC ~78,145",
+    "invalidation": "Quick rejection back below dVAL with CVD stalling/rolling over and OI remaining elevated/rising."
+  },
+  "short_scenario": {
+    "status": "ARMED_ON_FAILED_RECLAIM",
+    "trigger": "Touch/brief trade into ~77,430-77,500 followed by rejection and failure to accept above dVAL.",
+    "confirmation": "Lower high/rollover, CVD stops improving or turns down, and OI stays elevated/rises while price weakens.",
+    "invalidation": "Clean dVAL acceptance and continuation toward dPOC with positive price response."
+  },
+  "edge_note": "This is the highest-value observation point for testing the two leading edge hypotheses: POST_CAPITULATION_RECLAIM_LONG vs POST_CAPITULATION_FAILED_RECLAIM_SHORT. The edge is in how price responds at broken value after the flush, not in raw CVD/OI direction alone.",
+  "lesson": "When price, CVD and OI improve into a known broken value boundary, stop extrapolating the bounce. Treat the boundary as a decision experiment: acceptance validates repair, rejection validates failed-repair. This creates a clearer asymmetric setup and avoids mid-range entries."
+}

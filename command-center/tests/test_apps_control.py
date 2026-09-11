@@ -473,21 +473,33 @@ async def test_a_restart_does_not_turn_our_own_app_into_a_foreign_process(
     started = (await env.client.post("/api/apps/fake-app/start")).json()
     assert started["started"] is True
     pid = started["pid"]
+    original = ctl._processes["fake-app"]
 
     # Перезапуск сервера: процесс жив и слушает порт, память — чистая.
     ctl._processes.clear()
 
-    again = (await env.client.post("/api/apps/fake-app/start")).json()
-    assert again["already_running"] is True and again["started"] is False
-    assert again.get("recovered") is True
-    assert again["pid"] == pid
-    assert "до перезапуска сервера" in again["message"]
+    try:
+        response = await env.client.post("/api/apps/fake-app/start")
+        assert response.status_code == 200, response.text
+        again = response.json()
+        assert again["already_running"] is True and again["started"] is False
+        assert again.get("recovered") is True
+        assert again["pid"] == pid
+        assert "до перезапуска сервера" in again["message"]
 
-    # И остановка больше не называет наш процесс чужим — но и не гасит его по
-    # записанному pid: живой связи с процессом после перезапуска нет.
-    stopped = (await env.client.post("/api/apps/fake-app/stop")).json()
-    assert stopped["owned"] is True and stopped["stopped"] is False
-    assert "не запускал" not in stopped["message"]
+        # Creation time, executable and argv now independently bind the restored
+        # process. Stop must work after restart without signalling a reused PID.
+        stopped = (await env.client.post("/api/apps/fake-app/stop")).json()
+        assert stopped["owned"] is True and stopped["stopped"] is True
+        assert ctl.port_busy(stopped["port"]) is False
+        assert "не запускал" not in stopped["message"]
+    finally:
+        # Retain the original child handle so a failed recovery test cannot
+        # itself leak a process after deliberately clearing the registry.
+        if original.proc.poll() is None:
+            original.proc.terminate()
+        original.proc.wait(timeout=5)
+        original.log_file.close()
 
 
 async def test_a_genuinely_foreign_process_is_still_not_claimed(

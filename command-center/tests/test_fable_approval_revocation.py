@@ -11,6 +11,7 @@ import sqlalchemy as sa
 
 from bcc.db import approvals as approvals_t, tasks as tasks_t, tool_calls as tool_calls_t
 
+from .helpers import make_stack
 from .test_v21_tool_loop import FINISHED, ToolAdapter, _install, _run_task, _stack_with_tools
 
 
@@ -66,7 +67,10 @@ async def test_revoked_approval_cannot_be_consumed_or_used_for_override(env):
     assert (await _rows(env, approvals_t, id=appr["id"]))[0]["status"] == "revoked"
 
     from bcc.finalize import finalize_override
-    task = (await env.client.post("/api/tasks", json={"title": "t", "prompt": "p"})).json()["task"]
+    # MF-031 rejects runnable tasks without a usable executor before creation.
+    # Supply a real registry fixture; this test attacks revoked authorization,
+    # not the now-refused agentless creation path. Every refusal assertion stays.
+    task = (await make_stack(env.client, prompt="p"))["task"]
     async with env.svc.db.session() as s:
         await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(status="waiting_approval"))
         await s.commit()

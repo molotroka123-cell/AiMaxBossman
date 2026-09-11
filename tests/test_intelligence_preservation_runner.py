@@ -470,8 +470,14 @@ def test_a_lane_that_loses_core_ability_is_not_a_pass(production_lanes):
         return perfect(messages, tools)
 
     result = measure(tasks, call, lanes=production_lanes)
+    # Блок `lanes` обязателен: гейт отказывается судить улику, которая не
+    # говорит, КАК она получена (AF-04). Раньше здесь его не было, и тест
+    # проверял арифметику на payload, который НИ ОДИН настоящий раннер не
+    # производит. Теперь отрицательный контроль проходит через ту же дверь,
+    # что и боевая улика, — то есть проверяет больше, а не меньше.
     payload = build_payload(result, model="m", dataset_id="bossman-retention-v1",
-                            evaluated_sha=SHA)
+                            evaluated_sha=SHA,
+                            lane_identity={m: production_lanes[m].identity() for m in MODES})
     report = evaluate(payload, GateConfig(expect_sha=SHA, min_samples_per_metric=20))
     assert report["status"] != "PASS", report["status"]
     assert payload["modes"]["full"]["reasoning_accuracy"]["paired"]["lost"] > 0
@@ -510,7 +516,18 @@ def _flawless_payload(samples: int) -> dict:
                 item["paired"] = {"lost": 0, "gained": 0}
             block[name] = item
         modes[mode] = block
-    return {"model": "m", "dataset_id": "d", "evaluated_sha": SHA, "modes": modes}
+    # Полосы объявлены так же, как их объявляет настоящий раннер: гейт теперь
+    # требует, чтобы полоса FULL ДЕЙСТВИТЕЛЬНО исполняла обвязку, а не
+    # описывала её. Здесь измеряется достаточность выборки, поэтому блок должен
+    # быть настоящим, иначе этот тест молча проверял бы отказ по другой причине.
+    lanes = {mode: {"lane": mode, "kind": "prompt_ablation", "executes_tools": False}
+             for mode in MODES if mode != "full"}
+    lanes["full"] = {"lane": "full", "kind": "production_execution_loop",
+                     "executes_tools": True,
+                     "observed": {"model_turns": 2 * samples, "executed": samples,
+                                  "declined": 0, "items_with_executed_tool_call": samples}}
+    return {"model": "m", "dataset_id": "d", "evaluated_sha": SHA,
+            "lanes": lanes, "modes": modes}
 
 
 @pytest.mark.parametrize("samples,expected", [

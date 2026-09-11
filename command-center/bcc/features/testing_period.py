@@ -49,6 +49,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
+from starlette.requests import ClientDisconnect
 
 from ..config import ROOT
 from ..plugin_security import redact_text
@@ -412,7 +413,20 @@ async def ingest(request: Request):
     """Пачка событий из браузера: клики, переходы, ошибки JS, неудачные запросы."""
     if not enabled():
         raise HTTPException(409, {"message": "режим тестового периода выключен"})
-    body = await request.json()
+    # BL-025. Маячок телеметрии отправляется в том числе на УХОДЕ со страницы,
+    # поэтому обрыв соединения здесь — штатное поведение браузера, а не сбой.
+    # Голый `await request.json()` превращал каждую такую перезагрузку в
+    # необработанный ClientDisconnect и полный traceback в журнале сервера —
+    # ровно там, где владелец потом ищет настоящие ошибки. Испорченное тело
+    # ловится тем же блоком: раньше клиент получал 500 вместо 400.
+    try:
+        body = await request.json()
+    except ClientDisconnect:
+        # Отвечать некому: соединения уже нет. Важно не притвориться, что
+        # события записаны — их не было.
+        return {"accepted": 0, "dropped": 0, "disconnected": True}
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(400, {"message": "тело запроса не разбирается как JSON"})
     events = body.get("events") if isinstance(body, dict) else None
     if not isinstance(events, list):
         raise HTTPException(400, {"message": "ожидается {\"events\": [...]}"})

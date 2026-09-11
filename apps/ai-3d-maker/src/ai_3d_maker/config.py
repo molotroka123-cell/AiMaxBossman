@@ -3,14 +3,34 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 APP_ROOT = PACKAGE_ROOT.parents[1]
 
-DEFAULT_PROFILE = APP_ROOT / "profiles" / "elegoo_neptune_3_plus.json"
-DEFAULT_MATERIALS = APP_ROOT / "profiles" / "material_defaults.json"
+PROFILES_ROOT = PACKAGE_ROOT / "_profiles"
+if not PROFILES_ROOT.is_dir():
+    PROFILES_ROOT = APP_ROOT / "profiles"
+DEFAULT_PROFILE = PROFILES_ROOT / "elegoo_neptune_3_plus.json"
+DEFAULT_MATERIALS = PROFILES_ROOT / "material_defaults.json"
+
+
+def _data_dir() -> Path:
+    explicit = os.getenv("AI3D_DATA_DIR")
+    if explicit:
+        return Path(explicit).expanduser()
+    shared = os.getenv("BOSSMAN_APPS_DATA")
+    if shared:
+        return Path(shared).expanduser() / "ai-3d-maker"
+    if (APP_ROOT / "pyproject.toml").is_file():
+        return APP_ROOT / "data"
+    if sys.platform == "win32":
+        return Path(os.getenv("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "Bossman" / "Apps" / "ai-3d-maker"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "Bossman" / "Apps" / "ai-3d-maker"
+    return Path(os.getenv("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "bossman" / "apps" / "ai-3d-maker"
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -44,7 +64,7 @@ def _env_float(name: str, default: float) -> float:
 class Settings:
     printer_profile: Path = field(default_factory=lambda: Path(os.getenv("AI3D_PRINTER_PROFILE") or DEFAULT_PROFILE))
     material_profile: Path = field(default_factory=lambda: Path(os.getenv("AI3D_MATERIAL_PROFILE") or DEFAULT_MATERIALS))
-    data_dir: Path = field(default_factory=lambda: Path(os.getenv("AI3D_DATA_DIR") or (APP_ROOT / "data")))
+    data_dir: Path = field(default_factory=_data_dir)
     openscad_bin: str = field(default_factory=lambda: os.getenv("AI3D_OPENSCAD_BIN", "openscad"))
     curaengine_bin: str = field(default_factory=lambda: os.getenv("AI3D_CURAENGINE_BIN", "CuraEngine"))
     cura_definition: str = field(default_factory=lambda: os.getenv("AI3D_CURA_DEFINITION", ""))

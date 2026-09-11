@@ -6,15 +6,17 @@
 пропускались, ХОТЯ Chromium был установлен: CI был зелёным по неполному набору,
 и заметить это по строке «N passed» было нельзя.
 
-Спрашиваем то же, что спрашивает рантайм (`bcc/v2/browser_control.py` зовёт
-`pw.chromium.launch()` и полагается на разрешение пути самим Playwright), а не
-угадываем каталог.
+Используем тот же поиск исполняемого файла, что и рантайм. Discovery не запускает
+sync_playwright: импорт pytest-модуля может происходить внутри asyncio loop, а
+поднятый ради проверки драйвер оставлял незавершённую Connection.init.
 """
 from __future__ import annotations
 
 import os
-from functools import lru_cache
+import time
 from pathlib import Path
+
+from bcc.browser_runtime import chromium_executable
 
 PREINSTALLED = Path("/opt/pw-browsers/chromium")
 # CI ставит Playwright и Chromium намеренно и обязана их ПРОГНАТЬ. Без этого
@@ -27,52 +29,119 @@ def required() -> bool:
     return os.environ.get(REQUIRE_ENV, "").strip().lower() in ("1", "true", "yes")
 
 
-@lru_cache(maxsize=1)
+def chromium_path() -> str | None:
+    return chromium_executable(preinstalled=str(PREINSTALLED))
+
+
 def chromium_available() -> bool:
-    if PREINSTALLED.exists():
-        return True
-    try:
-        from playwright.sync_api import sync_playwright
-    except Exception:
-        return False
-    try:
-        # Вызывается на импорте модуля теста, когда цикла событий ещё нет.
-        with sync_playwright() as pw:
-            path = pw.chromium.executable_path
-    except Exception:
-        return False
-    return bool(path) and Path(path).exists()
+    return chromium_path() is not None
 
 
 def reason() -> str:
     return "Chromium недоступен: ни /opt/pw-browsers/chromium, ни путь от Playwright"
 
 
-def click_in_preview(page, selector: str, *, frame_selector: str = "iframe.bd-frame") -> None:
-    """Click an element inside the Web Designer preview iframe.
+# ---------------------------------------------------------------------------
+# Клик по элементу ВНУТРИ превью Веб-дизайнера
+# ---------------------------------------------------------------------------
+# `frame_locator(...).click()` Playwright не годится для этого кадра, и это не
+# свойство продукта, а ограничение инструмента. Кадр превью:
+#   * загружен по URL и помечен sandbox="allow-scripts" — источник непрозрачный,
+#     поэтому Chromium уводит кадр в ОТДЕЛЬНЫЙ процесс (OOPIF);
+#   * показывается уменьшенным: масштаб задан CSS-трансформом.
+# В такой связке Playwright считает точку клика сам и промахивается: при 0.5 он
+# сообщает «section.hero intercepts pointer events» для точки, которая должна
+# лежать в h1, а при 0.28 в документ кадра не приходит НИ ОДНОГО события.
+# Проверено отдельно, что ни песочница, ни трансформ, ни OOPIF сами по себе
+# доставку не ломают: настоящий клик мышью в ту же точку экрана приходит в
+# документ кадра с ПРАВИЛЬНЫМИ координатами (клик в 40,40 при 0.5 приходит как
+# 79,80). Поэтому здесь считается экранная точка и выполняется настоящий клик —
+# это и есть то, что делает владелец, а не обход проверки.
+def preview_frame(page, *, timeout: float = 15000):
+    """Гостевой frame превью Веб-дизайнера (не FrameLocator, а Frame).
 
-    `frame_locator(...).click()` does not work here, and the reason is the
-    preview's fit-to-panel zoom rather than anything broken in the product: the
-    iframe carries a CSS `transform: scale(...)`, and Playwright maps
-    frame-local coordinates to page coordinates without it, so the synthetic
-    click lands outside the element — verified directly, `window.__clicks`
-    inside the frame stays 0 while a raw `page.mouse.click` at the same spot
-    does reach the picker and produce a `select` message.
-
-    Mapping the coordinates by hand does not fix it either: at a 0.28x zoom a
-    heading is a few physical pixels tall, so the rounded centre lands in its
-    parent and the wrong element gets selected.
-
-    So the click is dispatched on the element itself, inside the frame. The
-    picker listens with `document.addEventListener('click', ..., true)`, which
-    is exactly what a real user's click reaches, so this exercises the picker's
-    real contract — "clicking this element selects it" — without depending on
-    pixel arithmetic through a zoom that the product legitimately applies.
+    Ищется ПО ЭЛЕМЕНТУ, а не по URL. Поиск по подстроке `/preview` в
+    `frame.url` выглядит очевидным и ломается: пока кадр не зафиксировал
+    переход, его url — пустая строка, и тест падает с «кадра нет», хотя кадр
+    есть. Так и случилось в CI: `['http://.../#/web_designer?project=1', '']`.
     """
-    element = page.frame_locator(frame_selector).locator(selector).first
-    element.wait_for()
-    element.evaluate("el => el.click()")
+    deadline = time.monotonic() + timeout / 1000
+    handle = page.wait_for_selector("iframe.bd-frame", timeout=timeout)
+    while True:
+        frame = handle.content_frame()
+        # Пустой url означает «переход ещё не зафиксирован», а не «не тот
+        # кадр»: ждём именно этого, а не пересматриваем список кадров.
+        if frame is not None and frame.url:
+            return frame
+        assert time.monotonic() < deadline, (
+            f"кадр превью не ожил за {timeout:.0f} мс; "
+            f"кадры страницы: {[f.url for f in page.frames]}")
+        page.wait_for_timeout(100)
 
 
-__all__ = ["chromium_available", "click_in_preview", "reason", "required",
+def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15000):
+    """Настоящий клик мышью по элементу внутри превью.
+
+    Возвращает описание точки — чтобы упавший тест показывал, куда он попал.
+    """
+    guest = preview_frame(page)
+    guest.wait_for_selector(selector, timeout=timeout)
+    for _ in range(4):
+        box = guest.evaluate(
+            """([selector, index]) => {
+              const el = document.querySelectorAll(selector)[index];
+              if (!el) return null;
+              el.scrollIntoView({block: 'center'});
+              const r = el.getBoundingClientRect();
+              return {x: r.x + r.width / 2, y: r.y + r.height / 2};
+            }""",
+            [selector, index])
+        assert box, f"в превью нет элемента {selector}[{index}]"
+        page.evaluate("() => document.querySelector('iframe.bd-frame').scrollIntoView({block: 'center'})")
+        spot = page.evaluate(
+            """box => {
+              const f = document.querySelector('iframe.bd-frame');
+              const r = f.getBoundingClientRect();
+              const scale = f.offsetWidth ? r.width / f.offsetWidth : 1;
+              return {x: r.x + box.x * scale, y: r.y + box.y * scale,
+                      vw: window.innerWidth, vh: window.innerHeight, scale};
+            }""", box)
+        # Точка обязана лежать в видимой области окна: событие мыши за её
+        # границей до кадра не доходит, и тест молча «кликает» в пустоту.
+        if 0 <= spot["x"] <= spot["vw"] and 0 <= spot["y"] <= spot["vh"]:
+            # Наведение ПЕРЕД нажатием — не косметика. Кадр живёт в отдельном
+            # процессе, и первое событие по новой раскладке Chromium разрешает
+            # асинхронно: само это событие теряется, следующее приходит уже
+            # правильно. Владелец подводит указатель к элементу заранее и этого
+            # не замечает; тест, который бьёт мышью без наведения, ловит ровно
+            # тот единственный потерянный клик.
+            page.mouse.move(spot["x"], spot["y"])
+            page.wait_for_timeout(150)
+            page.mouse.click(spot["x"], spot["y"])
+            return spot
+        page.evaluate("spot => window.scrollBy(0, spot.y - spot.vh / 2)", spot)
+    raise AssertionError(f"точку элемента {selector}[{index}] не удалось вывести в окно: {spot}")
+
+
+def wait_for_preview_viewport(page, width: int, height: int | None = None, *, timeout: float = 10000):
+    """Дождаться, пока ОКНО КАДРА действительно стало нужного размера.
+
+    Ждать `iframe.style.width` нельзя: это значение хоста, оно меняется
+    мгновенно, а кадр живёт в другом процессе и пересчитывает свою раскладку
+    позже — замер сразу после установки стиля читает СТАРЫЙ макет (медиазапрос
+    ещё не сработал). Разница измерена: сразу после установки 390px окно кадра
+    всё ещё 1440×900, через ~250 мс — 390×844.
+    """
+    guest = preview_frame(page)
+    expected = [width] if height is None else [width, height]
+    guest.wait_for_function(
+        """expected => expected.length === 1
+             ? window.innerWidth === expected[0]
+             : window.innerWidth === expected[0] && window.innerHeight === expected[1]""",
+        arg=expected, timeout=timeout)
+    return guest
+
+
+__all__ = ["chromium_available", "chromium_path", "click_in_preview",
+           "preview_frame", "wait_for_preview_viewport", "reason", "required",
            "REQUIRE_ENV", "PREINSTALLED"]

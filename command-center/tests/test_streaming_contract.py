@@ -116,13 +116,15 @@ def test_multiline_data_fields_are_joined_before_parsing():
     cut = payload.index('"choices"')                  # a real token boundary
     lines = [f"data: {payload[:cut]}", f"data: {payload[cut:]}", "", "data: [DONE]", ""]
     events = list(iter_sse_events(lines))
-    assert len(events) == 1 and "\n" in events[0]
+    # The terminal `[DONE]` is yielded as the last payload (F3: the folder needs
+    # to see it to know the stream ended the way the protocol says it ends).
+    assert len(events) == 2 and "\n" in events[0] and events[1] == "[DONE]"
     assert parse_frames(events).text == "multi"
 
 
 def test_done_terminates_and_later_frames_are_ignored():
     lines = ["data: [DONE]", "", "data: " + json.dumps(delta(content="late")), ""]
-    assert list(iter_sse_events(lines)) == []
+    assert list(iter_sse_events(lines)) == ["[DONE]"]          # the sentinel, then nothing after it
 
 
 def test_a_stream_with_no_trailing_blank_line_still_yields_its_last_frame():

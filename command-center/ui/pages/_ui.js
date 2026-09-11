@@ -198,8 +198,17 @@ export function btn(label, onClick, { variant = 'secondary', iconName, size = ''
       if (el.classList.contains('is-loading')) return;
       const r = onClick(e);
       if (r && typeof r.then === 'function') {
+        /* MF-032: клик, начавший асинхронную работу, обязан быть виден.
+           Визуально это уже работало — `.bx-btn.is-loading` в theme.css гасит
+           подпись и крутит спиннер. Чего не было — сигнала для тех, кто кнопку
+           не видит: скринридер не получал ничего, и «идёт работа» существовало
+           только для глаз. `aria-busy` закрывает именно это. */
         el.classList.add('is-loading');
-        try { await r; } finally { el.classList.remove('is-loading'); }
+        el.setAttribute('aria-busy', 'true');
+        try { await r; } finally {
+          el.classList.remove('is-loading');
+          el.removeAttribute('aria-busy');
+        }
       }
     });
   }

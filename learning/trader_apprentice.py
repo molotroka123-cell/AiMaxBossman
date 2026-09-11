@@ -14,9 +14,18 @@ Core design rules learned from the September 2026 BTC sessions:
   effective.  Falling CVD with price holding can be absorption.
 * A level touch is not acceptance.  Prefer reclaim + hold/retest.
 * Never compare absolute CVD/OI values across different providers/settings.
+  This rule is now ENFORCED, not merely documented: every metric carries an
+  immutable series identity, and two snapshots whose identities do not prove
+  they describe the SAME series are never classified.  A CVD printed in
+  contracts by one venue and in USD by another is not a smaller number, it is
+  a different measurement, and subtracting one from the other produces a
+  direction that never existed.
 * Never mix CME chart levels with a spot/perp execution price without tagging
   instrument/source and accounting for the basis/spread.
-* Missing live values remain UNKNOWN; they are never invented.
+* Missing live values remain UNKNOWN; they are never invented.  A MISSING
+  identity is likewise never assumed to match: two snapshots that both say
+  "unknown" are the dangerous case, not the safe one, because that is exactly
+  how two different providers collide.
 
 The output is analysis-only.  Any execution/risk action remains a separate,
 explicitly-authorized step.
@@ -24,9 +33,10 @@ explicitly-authorized step.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from enum import Enum
-from typing import Iterable, Optional
+from typing import ClassVar, Iterable, Optional
 
 
 class Direction(str, Enum):
@@ -41,9 +51,12 @@ class Regime(str, Enum):
     DELEVERAGING_SELL_OFF = "DELEVERAGING_SELL_OFF"
     BEARISH_LEVERAGE_EXPANSION = "BEARISH_LEVERAGE_EXPANSION"
     BULLISH_LEVERAGE_EXPANSION = "BULLISH_LEVERAGE_EXPANSION"
+    LEVERAGED_SELL_ABSORPTION = "LEVERAGED_SELL_ABSORPTION"
+    FAILED_BREAKOUT_LONG_FLUSH = "FAILED_BREAKOUT_LONG_FLUSH"
     RECOVERY_WITHOUT_LEVERAGE = "RECOVERY_WITHOUT_LEVERAGE"
     SHORT_COVERING_OR_ABSORPTION = "SHORT_COVERING_OR_ABSORPTION"
     SELL_ABSORPTION_CANDIDATE = "SELL_ABSORPTION_CANDIDATE"
+    BUYER_FAILURE_WITH_DELEVERAGING = "BUYER_FAILURE_WITH_DELEVERAGING"
     BUYER_FAILURE_CANDIDATE = "BUYER_FAILURE_CANDIDATE"
     NEUTRAL_BALANCE = "NEUTRAL_BALANCE"
 
@@ -55,6 +68,96 @@ class Stance(str, Enum):
     RISK_OFF = "RISK_OFF"
 
 
+#: Strings a feed uses to say "I do not know".  They are placeholders, not
+#: identities: treating two of them as equal is what lets a Binance perp CVD be
+#: compared against a CME futures CVD because both rows happened to default.
+UNKNOWN_TOKENS = frozenset({"", "unknown", "none", "null", "n/a", "na", "-", "?"})
+
+
+def _stated(value: Optional[str]) -> bool:
+    """True when a field actually names something rather than shrugging."""
+    return isinstance(value, str) and value.strip().lower() not in UNKNOWN_TOKENS
+
+
+class Incompatibility(str, Enum):
+    """Why two snapshots may not be compared.  Each value is a refusal reason,
+    reported to the caller instead of a fabricated direction."""
+    SOURCE_MISMATCH = "SOURCE_MISMATCH"
+    INSTRUMENT_MISMATCH = "INSTRUMENT_MISMATCH"
+    CVD_SERIES_MISMATCH = "CVD_SERIES_MISMATCH"
+    OI_SERIES_MISMATCH = "OI_SERIES_MISMATCH"
+    IDENTITY_MISSING = "IDENTITY_MISSING"
+    TIMESTAMP_NOT_ADVANCING = "TIMESTAMP_NOT_ADVANCING"
+
+
+@dataclass(frozen=True)
+class SeriesId:
+    """Immutable identity of ONE metric series.
+
+    Two CVD readings are comparable only when every field below matches.  The
+    fields are not decoration: `normalization` separates contracts from USD,
+    `aggregation` separates a 1m bar from a tick print, `market` separates spot
+    from perp from CME, and `version` separates a provider's v1 formula from the
+    v2 that replaced it.  A change in any one of them makes the difference
+    between two numbers meaningless.
+
+    `version` may legitimately be empty (an unversioned feed is a real thing) but
+    still participates in equality.  The rest must be stated.
+    """
+    provider: str = ""
+    instrument: str = ""
+    market: str = ""
+    aggregation: str = ""
+    normalization: str = ""
+    version: str = ""
+
+    #: Fields that must actually name something for the identity to be usable.
+    REQUIRED: ClassVar[tuple[str, ...]] = (
+        "provider", "instrument", "market", "aggregation", "normalization")
+
+    def is_complete(self) -> bool:
+        return all(_stated(getattr(self, name)) for name in self.REQUIRED)
+
+    def missing_fields(self) -> tuple[str, ...]:
+        return tuple(name for name in self.REQUIRED if not _stated(getattr(self, name)))
+
+    def key(self) -> tuple[str, ...]:
+        """Comparison key.  Case- and whitespace-insensitive, because
+        "Binance" and "binance " are the same venue and a spurious mismatch is
+        as wrong as a spurious match."""
+        return tuple(
+            str(getattr(self, name)).strip().lower()
+            for name in ("provider", "instrument", "market",
+                         "aggregation", "normalization", "version")
+        )
+
+    @property
+    def series_id(self) -> str:
+        """Stable flat identifier, for logs and receipts."""
+        return "|".join(self.key())
+
+
+def _parse_ts(value: str) -> Optional[float]:
+    """ISO-8601 timestamp to epoch seconds, or None when it does not parse.
+
+    An unparseable timestamp is NOT treated as zero: it is missing identity, and
+    the caller refuses.  Naive timestamps are read as UTC rather than as local
+    time, so the same recording classified on two machines cannot disagree.
+    """
+    if not value or not str(value).strip():
+        return None
+    text = str(value).strip()
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.timestamp()
+
+
 @dataclass(frozen=True)
 class Snapshot:
     price: float
@@ -64,9 +167,16 @@ class Snapshot:
     short_liquidations: Optional[float] = None
     buy_volume: Optional[float] = None
     sell_volume: Optional[float] = None
+    high: Optional[float] = None
+    low: Optional[float] = None
     source: str = "unknown"
     instrument: str = "unknown"
     timestamp: str = ""
+    #: Identity of the CVD series this row's `cvd` was read from.  Required
+    #: whenever `cvd` is present and is to be compared with another snapshot.
+    cvd_series: Optional[SeriesId] = None
+    #: Identity of the open-interest series behind `open_interest`.
+    oi_series: Optional[SeriesId] = None
 
 
 @dataclass(frozen=True)
@@ -198,6 +308,80 @@ def _level_context(previous_price: float, current_price: float, levels: LevelMap
     )
 
 
+def series_compatibility(
+    previous: Snapshot,
+    current: Snapshot,
+) -> tuple[Optional[Incompatibility], list[str]]:
+    """Prove two snapshots describe the SAME series before anything subtracts them.
+
+    Returns `(None, [])` when the pair is comparable, otherwise the first
+    incompatibility found and human-readable reasons.  Nothing here guesses: a
+    field that does not name a series is a refusal, never a wildcard.
+
+    The checks are ordered so the reported reason is the most specific one that
+    applies — a caller who fixes the named problem makes progress rather than
+    discovering the next hidden one.
+    """
+    reasons: list[str] = []
+
+    # 1. The row-level identity must be stated at all.
+    for label, row in (("previous", previous), ("current", current)):
+        if not _stated(row.source):
+            reasons.append(f"{label} snapshot does not state its source")
+        if not _stated(row.instrument):
+            reasons.append(f"{label} snapshot does not state its instrument")
+    if reasons:
+        return Incompatibility.IDENTITY_MISSING, reasons
+
+    # 2. Same venue, same instrument.
+    if previous.source.strip().lower() != current.source.strip().lower():
+        return Incompatibility.SOURCE_MISMATCH, [
+            f"source differs: {previous.source!r} vs {current.source!r}; "
+            "absolute values from two providers are not a series"]
+    if previous.instrument.strip().lower() != current.instrument.strip().lower():
+        return Incompatibility.INSTRUMENT_MISMATCH, [
+            f"instrument differs: {previous.instrument!r} vs {current.instrument!r}; "
+            "a spot price and a perp price are not one instrument"]
+
+    # 3. Per-metric series identity, checked only for metrics actually present.
+    #    A metric that is absent is already UNKNOWN downstream and needs no
+    #    identity; a metric that is PRESENT may never be compared without one.
+    for metric, prev_value, cur_value, prev_id, cur_id, mismatch in (
+        ("CVD", previous.cvd, current.cvd,
+         previous.cvd_series, current.cvd_series, Incompatibility.CVD_SERIES_MISMATCH),
+        ("OI", previous.open_interest, current.open_interest,
+         previous.oi_series, current.oi_series, Incompatibility.OI_SERIES_MISMATCH),
+    ):
+        if prev_value is None or cur_value is None:
+            continue
+        if not isinstance(prev_id, SeriesId) or not isinstance(cur_id, SeriesId):
+            return Incompatibility.IDENTITY_MISSING, [
+                f"{metric} is present on both snapshots but its series identity is "
+                "missing; two unidentified series are not proven to be one series"]
+        for label, ident in (("previous", prev_id), ("current", cur_id)):
+            if not ident.is_complete():
+                return Incompatibility.IDENTITY_MISSING, [
+                    f"{label} {metric} series identity is incomplete: missing "
+                    + ", ".join(ident.missing_fields())]
+        if prev_id.key() != cur_id.key():
+            return mismatch, [
+                f"{metric} series differs: {prev_id.series_id!r} vs {cur_id.series_id!r}"]
+
+    # 4. Time must advance.  Equal timestamps are not a zero-length step, they
+    #    are the same observation compared with itself or two rows whose order
+    #    is unknown; either way the direction is not evidence.
+    prev_ts, cur_ts = _parse_ts(previous.timestamp), _parse_ts(current.timestamp)
+    if prev_ts is None or cur_ts is None:
+        return Incompatibility.IDENTITY_MISSING, [
+            "snapshot timestamps are missing or unparseable; ordering cannot be proven"]
+    if prev_ts >= cur_ts:
+        return Incompatibility.TIMESTAMP_NOT_ADVANCING, [
+            f"previous timestamp {previous.timestamp!r} is not before "
+            f"{current.timestamp!r}; a direction needs a forward step"]
+
+    return None, []
+
+
 def classify_regime(
     previous: Snapshot,
     current: Snapshot,
@@ -206,6 +390,19 @@ def classify_regime(
     cvd_epsilon: float = 0.0008,
     oi_epsilon: float = 0.0008,
 ) -> tuple[Direction, Direction, Direction, Regime, Stance, list[str]]:
+    # Compatibility is proven BEFORE any subtraction.  Returning UNKNOWN for all
+    # three directions (not just the regime) is deliberate: if the series are not
+    # the same series, then "price fell" is as unfounded as "CVD fell", and a
+    # caller reading only `price_direction` must not be handed a number that the
+    # gate already refused to stand behind.
+    incompatibility, why = series_compatibility(previous, current)
+    if incompatibility is not None:
+        reasons = [f"INCOMPATIBLE_SERIES: {incompatibility.value}", *why,
+                   "Refusing to compare: values from different or unproven series "
+                   "are not a direction"]
+        return (Direction.UNKNOWN, Direction.UNKNOWN, Direction.UNKNOWN,
+                Regime.UNKNOWN, Stance.NO_TRADE, reasons)
+
     p = direction(current.price, previous.price, epsilon=price_epsilon)
     c = direction(current.cvd, previous.cvd, epsilon=cvd_epsilon)
     o = direction(current.open_interest, previous.open_interest, epsilon=oi_epsilon)
@@ -229,6 +426,11 @@ def classify_regime(
         reasons.append("Price, aggressive buying and open positions expand together")
         return p, c, o, Regime.BULLISH_LEVERAGE_EXPANSION, Stance.LONG_CANDIDATE, reasons
 
+    if p is Direction.UP and c is Direction.DOWN and o is Direction.UP:
+        reasons.append("Price rises despite aggressive net selling while OI expands: sell aggression is being absorbed as new leverage enters")
+        reasons.append("This can create squeeze fuel, but OI alone does not prove the new leverage is short")
+        return p, c, o, Regime.LEVERAGED_SELL_ABSORPTION, Stance.LONG_CANDIDATE, reasons
+
     if p is Direction.UP and c is Direction.UP and o is Direction.DOWN:
         reasons.append("Price and CVD recover while OI falls: healthy recovery/covering, but not yet a strong new leverage trend")
         return p, c, o, Regime.RECOVERY_WITHOUT_LEVERAGE, Stance.WATCH, reasons
@@ -241,12 +443,44 @@ def classify_regime(
         reasons.append("CVD sells are not producing lower price: possible passive buyer/absorption")
         return p, c, o, Regime.SELL_ABSORPTION_CANDIDATE, Stance.WATCH, reasons
 
+    if p is Direction.DOWN and c is Direction.UP and o is Direction.DOWN:
+        reasons.append("Aggressive buy flow improves, but price still falls while OI contracts")
+        reasons.append("This suggests buyer inefficiency/passive selling during deleveraging; it is not fresh bearish leverage expansion, but it is not a long confirmation")
+        return p, c, o, Regime.BUYER_FAILURE_WITH_DELEVERAGING, Stance.WATCH, reasons
+
     if p is Direction.DOWN and c in (Direction.UP, Direction.FLAT) and o in (Direction.UP, Direction.FLAT):
         reasons.append("Buy aggression fails to lift price: possible hidden seller/buyer failure")
         return p, c, o, Regime.BUYER_FAILURE_CANDIDATE, Stance.RISK_OFF, reasons
 
     reasons.append("No high-conviction matrix pattern; treat as balance/noise")
     return p, c, o, Regime.NEUTRAL_BALANCE, Stance.WATCH, reasons
+
+
+def _failed_breakout_long_flush(
+    previous: Snapshot,
+    current: Snapshot,
+    levels: LevelMap,
+    oi_direction: Direction,
+    cvd_direction: Direction,
+) -> bool:
+    """Path-aware overlay for a breakout that traps/flushes late longs.
+
+    Requires a same-instrument observed high above dVAH, a latest price back
+    below dPOC, contracting OI, no positive CVD confirmation, and dominant long
+    liquidations. This deliberately does not infer the direction of every new
+    position; it identifies the failed breakout path itself.
+    """
+    if current.high is None or levels.dvah is None or levels.dpoc is None:
+        return False
+    if not (current.high > levels.dvah and current.price < levels.dpoc):
+        return False
+    if oi_direction is not Direction.DOWN:
+        return False
+    if cvd_direction not in (Direction.FLAT, Direction.DOWN):
+        return False
+    if current.long_liquidations is None or current.short_liquidations is None:
+        return False
+    return abs(current.long_liquidations) >= 3.0 * max(abs(current.short_liquidations), 1e-12)
 
 
 def analyze(
@@ -270,17 +504,28 @@ def analyze(
     resistances: tuple[tuple[str, float], ...] = ()
     reclaimed: tuple[str, ...] = ()
     lost: tuple[str, ...] = ()
-    if levels is not None:
+    if levels is not None and series_compatibility(previous, current)[0] is None:
         supports, resistances, reclaimed, lost = _level_context(previous.price, current.price, levels)
         if reclaimed:
             reasons.append("Reclaimed levels: " + ", ".join(reclaimed))
         if lost:
             reasons.append("Lost levels: " + ", ".join(lost))
+        if _failed_breakout_long_flush(previous, current, levels, o, c):
+            regime = Regime.FAILED_BREAKOUT_LONG_FLUSH
+            stance = Stance.RISK_OFF
+            reasons.append("Path overlay: price traded above dVAH but rejected below dPOC while OI contracted and long liquidations dominated")
+            reasons.append("This is consistent with a failed breakout/late-long flush; require dPOC then dVAH reclaim before restoring the long candidate")
 
     # Confidence is about classification quality, not probability of profit.
     known = sum(x is not Direction.UNKNOWN for x in (p, c, o))
     confidence = 0.45 + 0.15 * known
-    if regime in (Regime.BEARISH_LEVERAGE_EXPANSION, Regime.BULLISH_LEVERAGE_EXPANSION, Regime.DELEVERAGING_SELL_OFF):
+    if regime in (
+        Regime.BEARISH_LEVERAGE_EXPANSION,
+        Regime.BULLISH_LEVERAGE_EXPANSION,
+        Regime.LEVERAGED_SELL_ABSORPTION,
+        Regime.FAILED_BREAKOUT_LONG_FLUSH,
+        Regime.DELEVERAGING_SELL_OFF,
+    ):
         confidence += 0.08
     if levels is not None:
         confidence += 0.03
@@ -310,7 +555,8 @@ def accepted_above(history: Iterable[Snapshot], level: float, *, observations: i
     if observations <= 0 or len(rows) < observations:
         return False
     threshold = level * (1.0 + buffer_bps / 10_000.0)
-    return all(row.price >= threshold for row in rows[-observations:])
+    window = rows[-observations:]
+    return _ordered_history(window) and all(row.price >= threshold for row in window)
 
 
 def sweep_and_reclaim(history: Iterable[Snapshot], level: float, *, lookback: int = 4) -> bool:
@@ -318,4 +564,13 @@ def sweep_and_reclaim(history: Iterable[Snapshot], level: float, *, lookback: in
     rows = list(history)[-max(2, lookback):]
     if len(rows) < 2:
         return False
-    return any(row.price < level for row in rows[:-1]) and rows[-1].price > level
+    return (_ordered_history(rows) and any(row.price < level for row in rows[:-1])
+            and rows[-1].price > level)
+
+
+def _ordered_history(rows: list[Snapshot]) -> bool:
+    """A history claim cannot combine different or unordered observations."""
+    return (all(_stated(row.source) and _stated(row.instrument)
+                and _parse_ts(row.timestamp) is not None for row in rows)
+            and all(series_compatibility(previous, current)[0] is None
+                    for previous, current in zip(rows, rows[1:])))

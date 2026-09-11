@@ -58,7 +58,11 @@ body { background: var(--desktop-wallpaper); background-attachment: fixed; }
     top: 16px; background: var(--desktop-surface);
     border-radius: 0 22px 0 0; min-height: 62px;
   }
-  .view { padding: 24px; }
+  /* Нижний отступ — не украшение: панель приложений висит поверх содержимого
+     (fixed, bottom 14px, высота ~70px). Без запаса последний орган управления
+     длинной страницы оказывается ПОД панелью, и нажать его нельзя — так и был
+     найден BL-027 на кнопке START страницы «Пульт». */
+  .view { padding: 24px; padding-bottom: 108px; }
   .desktop-dock {
     display: flex; align-items: center; justify-content: center; gap: 6px;
     position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);

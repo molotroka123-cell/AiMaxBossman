@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -28,10 +29,19 @@ import httpx
 import yaml
 from fastapi import APIRouter, HTTPException, Request
 
-from ..config import ROOT
+from ..config import PKG_DIR, ROOT
 from . import Feature
 
-APPS_DIR = ROOT.parent / "apps"
+def apps_directory() -> Path:
+    """An explicit deployment, source checkout, or the wheel's catalogue."""
+    override = os.environ.get("BCC_APPS_DIR", "").strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    source = ROOT.parent / "apps"
+    return source if source.is_dir() else PKG_DIR / "_apps"
+
+
+APPS_DIR = apps_directory()
 PROBE_TIMEOUT = 1.2          # приложение на этой же машине отвечает мгновенно
 CACHE_TTL = 10.0             # чтобы открытая главная не долбила соседей опросами
 
@@ -113,7 +123,7 @@ def _describe(path: Path) -> dict[str, Any] | None:
         "permissions": raw.get("permissions") if isinstance(raw.get("permissions"),
                                                             dict) else {},
         "providers": raw.get("providers") if isinstance(raw.get("providers"), dict) else {},
-        "manifest_path": str(path.relative_to(ROOT.parent)),
+        "manifest_path": str(Path("apps") / path.relative_to(APPS_DIR)),
         "route": f"app/{raw['id']}",
     }
 
@@ -139,12 +149,20 @@ async def _probe(app: dict[str, Any], client: httpx.AsyncClient | None = None) -
             async with _probe_client() as own:
                 return await _probe(app, own)
         health = await client.get(base + (app.get("health_path") or "/health"))
-        out["reachable"] = health.status_code < 500
-        out["status"] = "LIVE" if health.status_code < 400 else "DEGRADED"
+        out["reachable"] = True  # reachability is not readiness
+        out["status"] = "DEGRADED"
         try:
             out["health"] = health.json()
         except ValueError:
             out["health"] = {}
+        payload = out["health"] if isinstance(out["health"], dict) else {}
+        reported = str(payload.get("status") or "").upper()
+        if health.status_code == 200 and reported in {"OK", "HEALTHY", "LIVE", "READY"}:
+            out["status"] = "LIVE"
+        elif reported in {"NOT_CONFIGURED", "UNHEALTHY", "DEGRADED"}:
+            out["status"] = reported
+        else:
+            out["detail"] = f"health HTTP {health.status_code}: no healthy readiness response"
         if app.get("metrics_path"):
             try:
                 metrics = await client.get(base + app["metrics_path"])
@@ -242,6 +260,9 @@ async def _collect_fresh() -> list[dict[str, Any]]:
         card["detail"] = live.get("detail", "")
         card["facts"] = _resolve_facts(app, live)
         card["base_url"] = f"http://127.0.0.1:{app['port']}" if app.get("port") else ""
+        if app["id"] == "file-commander-mini":
+            # Same-origin session authentication. Never expose the child token.
+            card["view_url"] = "/api/apps/file-commander-mini/view/"
         result.append(card)
     result.sort(key=lambda a: (a["order"], a["name"]))
     _cache.update({"at": now, "apps": result})

@@ -240,10 +240,14 @@ async def _on_events(svc):
                 try:
                     await _apply_kpi(svc, row._mapping["mission_id"], key,
                                      float(meta.get("kpi_delta", 1)), source_task_id=task_id)
-                except HTTPException:
-                    pass
-    except Exception:
-        return
+                except (HTTPException, TypeError, ValueError, OverflowError) as exc:
+                    # An invalid task payload must not end the subscription for
+                    # all later tasks. Expose the refusal without echoing data.
+                    await svc.bus.emit("worker.error", component="missions",
+                                       task_id=task_id,
+                                       message=f"KPI update rejected: {type(exc).__name__}")
+    finally:
+        svc.bus.unsubscribe(q)
 
 
 async def _setup(svc):

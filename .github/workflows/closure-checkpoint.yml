@@ -1,4 +1,6 @@
 name: Continuity Steward checkpoint
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 on:
   push:
@@ -24,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v7
@@ -35,7 +37,7 @@ jobs:
         run: |
           mkdir -p checkpoint-results
           git rev-parse HEAD | tee checkpoint-results/sha.txt
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$BOSSMAN_ACCEPTANCE_SHA"
           git merge-base --is-ancestor 9d3f82ac0d26c5b88b408f0c470a3acfae700f98 HEAD
           git merge-base --is-ancestor 3f8c7171ff1f5033cdcfff426ca19c22cdbba124 HEAD
           git archive HEAD | gzip > checkpoint-results/source.tar.gz
@@ -58,7 +60,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: continuity-steward-${{ matrix.python }}-${{ github.sha }}
+          name: continuity-steward-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: checkpoint-results/
           if-no-files-found: error
           retention-days: 3

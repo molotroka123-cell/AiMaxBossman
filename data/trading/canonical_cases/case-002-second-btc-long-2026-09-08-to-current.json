@@ -1,0 +1,139 @@
+{
+  "canonical_case_id": "CASE-002",
+  "title": "Second BTC trade: post-CASE-001 learning chain into CPI reclaim long",
+  "market": "BTC",
+  "secondary_confirmation_market": "ETH",
+  "case_type": "ACTUAL_POSITION_WITH_MULTI_DAY_LEAD_IN",
+  "status": "OPEN_AT_LAST_OBSERVATION",
+  "lead_in_start": "2026-09-08 after CASE-001 exit",
+  "position_activation_window": "2026-09-11 approximately 08:34-08:53 ET",
+  "latest_observation": "2026-09-11 08:53 ET",
+  "scope_rule": "CASE-002 does NOT begin at CPI. Its context begins immediately after CASE-001 was closed and includes the full Sep 8-11 order-flow learning sequence that produced the eventual second trade.",
+  "position": {
+    "direction": "LONG",
+    "average_entry_observed": 77613.3,
+    "size_btc_observed": 0.0191,
+    "entry_proof": "At 08:53 the execution screenshot displayed a 77,613.3 position line, size 0.0191 BTC and PNL +7.3764 USDT. Using fair price 77,999.5, (77,999.5 - 77,613.3) * 0.0191 = 7.3764, confirming 77,613.3 as the displayed average entry.",
+    "latest_last_price": 77994.8,
+    "latest_fair_price": 77999.5,
+    "latest_high": 78111.7,
+    "latest_displayed_pnl_usdt": 7.3764,
+    "current_unlevered_move_from_entry_pct_approx": 0.492,
+    "max_observed_move_from_entry_to_78111_7_pct_approx": 0.642,
+    "closure": "NOT_CONFIRMED; screenshot still showed an open position and a Close action. Do not mark the exchange position closed until owner confirms."
+  },
+  "lead_in_timeline": [
+    {
+      "date": "2026-09-08",
+      "phase": "RESET_AFTER_CASE_001",
+      "evidence_ids": ["btc-2026-09-08-level-reversal-candidate", "btc-2026-09-08-1848-sweep-recovery"],
+      "summary": "After the first trade was closed around breakeven, analysis reset. A reversal candidate appeared near dVAL/dPOC after bearish leverage expansion, followed by a downside sweep and CVD recovery while OI stopped expanding. This taught sweep -> stabilization -> reclaim rather than blind bottom fishing."
+    },
+    {
+      "date": "2026-09-09",
+      "phase": "DIVERGENCES_AND_FAILED_BREAKOUT",
+      "legacy_evidence_ids": [
+        "btc-2026-09-09-0043-buyer-failure-deleveraging",
+        "btc-2026-09-09-1009-leveraged-sell-absorption",
+        "btc-2026-09-09-1152-failed-breakout-long-flush"
+      ],
+      "raw_case_files": [
+        "data/trading/cases/2026-09-09/btc-2026-09-09-1808-deleveraging-breakdown.json",
+        "data/trading/cases/2026-09-09/btc-2026-09-09-2240-deleveraging-continuation.json",
+        "data/trading/cases/2026-09-09/btc-2026-09-09-2340-buyer-failure-after-deleveraging.json"
+      ],
+      "summary": "The sequence exposed several distinct regimes: Price DOWN + CVD UP + OI DOWN buyer inefficiency; Price UP + CVD DOWN + OI UP leveraged sell absorption; then a breakout above value that failed back below dPOC with OI collapse and long liquidations. Path dependence became mandatory: endpoint matrices alone miss traps."
+    },
+    {
+      "date": "2026-09-10",
+      "phase": "CAPITULATION_EDGE_DISCOVERY",
+      "raw_case_files": [
+        "data/trading/cases/2026-09-10/btc-2026-09-10-0846-leveraged-sell-absorption-below-value.json",
+        "data/trading/cases/2026-09-10/btc-2026-09-10-1259-capitulation-releveraging-long-flush.json",
+        "data/trading/cases/2026-09-10/btc-2026-09-10-1442-capitulation-deleveraging-flush.json",
+        "data/trading/cases/2026-09-10/btc-2026-09-10-1556-fragile-releveraging-below-value.json",
+        "data/trading/cases/2026-09-10/btc-2026-09-10-post-capitulation-bullish-rebuild.json",
+        "data/trading/cases/2026-09-10/btc-2026-09-10-pre-dval-reclaim-decision-point.json",
+        "data/trading/cases/2026-09-10/btc-2026-09-10-decision-point-dval-test.json",
+        "data/trading/cases/2026-09-10/btc-2026-09-10-failed-dval-reclaim-short-confirmation.json",
+        "data/trading/cases/2026-09-10/btc-2026-09-10-post-1556-bullish-rebuild-below-dval.json",
+        "data/trading/cases/2026-09-10/btc-2026-09-10-secondary-capitulation-flush.json"
+      ],
+      "audit_and_research": [
+        "data/trading/audits/2026-09-10-missed-short-postmortem.json",
+        "data/trading/research/edge_candidates_v1.json",
+        "data/trading/research/recovery_efficiency_edge_v2.json",
+        "data/trading/scenarios/2026-09-10-post-capitulation-scenario-tree.json"
+      ],
+      "summary": "Large long-liquidation waves taught that liquidation size is not a bottom signal. The strongest new hypothesis became recovery efficiency: if CVD and OI repair strongly but price cannot reclaim broken value, buyer effort is inefficient and a failed-reclaim short can be armed. The missed short was audited and long/short analysis was made symmetric."
+    },
+    {
+      "date": "2026-09-11 pre-CPI",
+      "phase": "FAILED_RECLAIM_PAYOFF_AND_DELEVERAGING",
+      "raw_case_files": [
+        "data/trading/cases/2026-09-11/btc-2026-09-11-0746-post-failed-reclaim-deleveraging.json"
+      ],
+      "summary": "The prior failed-reclaim short edge paid off, then OI collapsed with price, showing deleveraging rather than a clean new short build. This reinforced the rule: the edge is at the failed repair, not after the move is already paid."
+    },
+    {
+      "date": "2026-09-11 08:30 ET",
+      "phase": "MACRO_CPI_SHOCK",
+      "macro_file": "data/trading/macro/2026-09-11-us-cpi-0830-et.json",
+      "summary": "Headline CPI matched expectations while core CPI MoM was slightly hotter. BTC wicked to 76,030 on the execution chart, creating a macro liquidation event. The correct question became whether bad news would be absorbed or turn into fresh bearish leverage expansion."
+    },
+    {
+      "date": "2026-09-11 08:34 ET",
+      "phase": "POST_CPI_RECLAIM",
+      "raw_case_files": [
+        "data/trading/cases/2026-09-11/btc-2026-09-11-0834-post-cpi-wick-recovery-execution-chart.json",
+        "data/trading/cases/2026-09-11/btc-2026-09-11-0834-post-cpi-dval-reclaim-cvd-surge.json"
+      ],
+      "observed": {
+        "execution_price_approx": 76980,
+        "reference_cvd_billion": 51.84,
+        "reference_oi_billion": 18.33,
+        "reference_dval": 77065
+      },
+      "summary": "Price recovered from the CPI wick and reclaimed dVAL. CVD surged while OI stayed almost flat, a healthier recovery than prior leveraged bounces because aggressive demand was not accompanied by a large fresh leverage build."
+    },
+    {
+      "date": "2026-09-11 approximately 08:34-08:53 ET",
+      "phase": "CASE_002_TRADE_ACTIVATION",
+      "summary": "The second actual BTC long became visible on the execution screenshot at an average entry of 77,613.3 and size 0.0191 BTC after the reclaim sequence."
+    },
+    {
+      "date": "2026-09-11 08:53 ET",
+      "phase": "LATEST_CASE_002_SNAPSHOT",
+      "btc": {
+        "last": 77994.8,
+        "fair_price": 77999.5,
+        "high_24h": 78111.7,
+        "low_24h": 76030,
+        "ma50_15m": 77061.3,
+        "ma100_15m": 77076.9,
+        "ma200_15m": 77739.9,
+        "sar": 76030,
+        "displayed_pnl_usdt": 7.3764
+      },
+      "eth_confirmation": {
+        "last": 2512.4,
+        "change_displayed_pct": 2.91,
+        "high_24h": 2514.47,
+        "ma50_15m": 2461.26,
+        "ma100_15m": 2454.66,
+        "ma200_15m": 2465.94,
+        "interpretation": "ETH impulsively reclaimed and extended above its 15m MA cluster, confirming broad risk-on follow-through rather than a BTC-only microstructure bounce."
+      },
+      "current_interpretation": "The long reclaim path is validated so far, but the actual CASE-002 position remains open until explicit closure is confirmed."
+    }
+  ],
+  "case_002_core_lessons_so_far": [
+    "Do not begin this case at CPI; the setup was built from multiple days of post-CASE-001 observations, audits and failed-reclaim research.",
+    "After capitulation, compare price repair with CVD and OI repair. Strong effort with weak structural repair is a short-edge candidate; efficient structural reclaim is a long-edge candidate.",
+    "CVD surge + nearly flat OI + structural reclaim is higher-quality long recovery evidence than price rising mainly on rapid leverage expansion.",
+    "The short edge and long edge are mirror images: failed repair below value versus accepted reclaim above value.",
+    "Cross-asset confirmation from ETH can increase confidence that a BTC move is broad risk-on rather than isolated flow noise.",
+    "Raw screenshots are evidence events. Canonical CASE-002 is the entire continuous learning/trade episode, not one screenshot or one news event."
+  ],
+  "next_update_rule": "Append future CASE-002 observations until the owner confirms the second position is closed. Only then finalize outcome and open CASE-003."
+}
