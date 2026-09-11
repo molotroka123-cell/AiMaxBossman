@@ -7,8 +7,8 @@
   "status": "OPEN_AT_LAST_OBSERVATION",
   "lead_in_start": "2026-09-08 after CASE-001 exit",
   "position_activation_window": "2026-09-11 approximately 08:34-08:53 ET",
-  "latest_observation": "2026-09-11 09:54 ET",
-  "scope_rule": "CASE-002 does NOT begin at CPI. It starts immediately after CASE-001 closed and includes the entire Sep 8-11 learning/setup chain: sweep/reclaim work, divergences, failed breakout, deleveraging, capitulation, missed-short audit, edge research, CPI shock, reclaim, and the current continuation.",
+  "latest_observation": "2026-09-11 10:09 ET",
+  "scope_rule": "CASE-002 does NOT begin at CPI. It starts immediately after CASE-001 closed and includes the entire Sep 8-11 learning/setup chain: sweep/reclaim work, divergences, failed breakout, deleveraging, capitulation, missed-short audit, edge research, CPI shock, reclaim, continuation, and squeeze payout.",
   "source_groups": {
     "legacy_casebook": "data/trading/btc_casebook_2026_09.jsonl",
     "sep09_raw": "data/trading/cases/2026-09-09/*.json",
@@ -112,7 +112,23 @@
         "ma100_15m": 2458.18,
         "ma200_15m": 2466.70
       },
-      "summary": "The recovery evolved from CVD surge + flat OI into Price UP + CVD UP + OI UP. BTC advanced above its 15m MA200 and ETH accelerated strongly. This confirms participation, but renewed OI growth now introduces a crowding test: if CVD/OI continue rising without proportional BTC price progress, buyer efficiency deteriorates and failed-continuation risk rises."
+      "summary": "The recovery evolved from CVD surge + flat OI into Price UP + CVD UP + OI UP. BTC advanced above its 15m MA200 and ETH accelerated strongly. This confirmed participation but introduced a crowding test."
+    },
+    {
+      "date": "2026-09-11 10:09 ET",
+      "phase": "SHORT_SQUEEZE_PAYOUT",
+      "raw_event": "data/trading/cases/2026-09-11/btc-2026-09-11-1009-short-squeeze-continuation.json",
+      "observed": {
+        "reference_price_area_approx": [78980, 79060],
+        "cvd_billion": 59.89,
+        "open_interest_billion": 18.42,
+        "cvd_change_from_0954_billion": 1.91,
+        "oi_change_from_0954_billion": -0.14,
+        "long_liquidations_million_approx": 1.46,
+        "short_liquidations_million_approx": 14.14
+      },
+      "state": "Price UP + CVD UP + OI DOWN",
+      "summary": "The continuation shifted from leverage rebuild into squeeze payout. Price and CVD rose while OI contracted and short liquidations dominated. This validates the bullish direction but indicates that part of the move is being powered by forced short closure rather than fresh leveraged long demand. The edge was generated earlier at the reclaim; this is a poorer place to chase/add."
     }
   ],
   "case_002_core_lessons_so_far": [
@@ -120,15 +136,19 @@
     "After capitulation, compare price repair with CVD and OI repair. Strong effort with weak structural repair can be a short edge; efficient structural reclaim can be a long edge.",
     "CVD surge + nearly flat OI + structural reclaim is high-quality recovery evidence because it is less dependent on fresh leverage.",
     "OI growth is not automatically bad. It becomes dangerous when leverage growth stops producing proportional price progress.",
+    "Price UP + CVD UP + OI DOWN after a reclaim often means short-squeeze payout. It validates direction but is usually a worse add location than the original reclaim.",
+    "Separate signal generation from payoff. Reclaim/acceptance created the edge; later forced short liquidations are evidence that the edge is paying, not necessarily a new entry signal.",
     "The short edge and long edge are mirror images: failed repair below value versus accepted reclaim above value.",
     "Cross-asset ETH strength is useful confirmation of broad risk appetite, but it never replaces BTC structure and flow.",
     "Raw screenshots are evidence events; canonical case numbering is based on actual position/thesis boundaries."
   ],
   "current_management_state": {
-    "bias": "BULLISH_CONTINUATION_BUT_MONITOR_CROWDING",
-    "near_term_execution_resistance": [78769.5, 79000],
-    "structural_fallback": "Execution 15m MA200 near 77.72k; loss would materially weaken the post-CPI impulse.",
-    "crowding_warning": "If BTC stalls near resistance while CVD and OI keep rising, buyer/leverage efficiency worsens and a failed-continuation short scenario should be armed.",
+    "bias": "BULLISH_CASE_VALIDATED_BUT_SQUEEZE_EXTENDED",
+    "management_preference": "HOLD/PROTECT rather than chase/add into the squeeze payout.",
+    "squeeze_read": "CVD rising while OI falls and short liquidations dominate means the move is partly short covering/deleveraging.",
+    "bullish_followthrough": "Best continuation is price acceptance above the breakout/pDay-high area while CVD stays firm and OI stabilizes rather than instantly re-expanding.",
+    "retrace_warning": "If price fades after the squeeze and CVD rolls over, a reflex retrace becomes more likely even if OI is already lower.",
+    "crowding_warning": "If OI rebuilds quickly after the squeeze while price no longer advances proportionally, buyer/leverage efficiency worsens and a failed-continuation setup can reappear.",
     "closure_rule": "Do not create CASE-003 until the owner explicitly confirms CASE-002 closed/reset."
   }
 }
