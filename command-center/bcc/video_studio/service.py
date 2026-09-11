@@ -149,9 +149,20 @@ class VideoService:
         container=payload.get("container","mp4")
         if container not in ("mp4","mov","mkv","webm"):
             raise ValueError("unsupported export container")
-        options["_container"]="mp4" if payload.get("preview") else container
         if payload.get("preview"):
-            options.update(width=320,height=180)
+            # Превью смотрят во ВСТРОЕННОМ браузере Bossman, а это Chromium из
+            # Playwright — сборка без проприетарных кодеков: canPlayType для
+            # 'video/mp4; codecs="avc1.42E01E"' возвращает пустую строку, и
+            # элемент <video> кончает ошибкой MEDIA_ERR_SRC_NOT_SUPPORTED.
+            # Превью в mp4/H.264 у владельца просто не проигрывалось, хотя
+            # экспорт был корректным. Превью идёт в webm/VP9/Opus — то, что
+            # поставляемый браузер умеет. Экспорт не меняется: контейнер и
+            # кодек выбирает владелец.
+            options["_container"]="webm"
+            options.update(width=320,height=180,video_codec="libvpx-vp9",
+                           audio_codec="libopus")
+        else:
+            options["_container"]=container
         # The host issues paths, kind, retry policy and authority; requests cannot set them.
         async with self.svc.db.session() as s:
             res = await s.execute(sa.insert(tasks_t).values(title="Video preview" if payload.get("preview") else "Video export",
