@@ -1,0 +1,57 @@
+{
+  "case_id": "btc-2026-09-09-1808-deleveraging-breakdown",
+  "date": "2026-09-09",
+  "time_local": "18:08+02:00",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "instrument_note": "Reference chart and execution tape remain separate. Structural chart levels are not exact order prices on the execution venue.",
+  "observed": {
+    "reference_chart_price_approx": 78850,
+    "reference_intrawindow_low_approx": 78450,
+    "execution_tape_approx": [78660, 78740],
+    "cvd_billion": 53.98,
+    "open_interest_billion": 18.43,
+    "long_liquidations": 392,
+    "short_liquidations_thousand": 15.62,
+    "liquidations_delta_moving_average_thousand": -274.98,
+    "buy_volume_million": 39.9
+  },
+  "chart_levels": {
+    "dVAL": 78900,
+    "dOpen": 79275,
+    "dPOC": 79375,
+    "dVAH": 79680,
+    "settlement_reference": 78540,
+    "year_eq_approx": 78000,
+    "ntPOC_upper": 80185
+  },
+  "comparison_to_1407": {
+    "prior_reference_chart_price_approx": 79350,
+    "prior_cvd_billion": 57.02,
+    "prior_oi_billion": 18.56,
+    "price_change_approx": -500,
+    "cvd_change_billion": -3.04,
+    "oi_change_billion": -0.13,
+    "price_direction": "DOWN",
+    "cvd_direction": "DOWN",
+    "oi_direction": "DOWN"
+  },
+  "state": "Price DOWN + CVD DOWN + OI DOWN",
+  "regime": "DELEVERAGING_SELL_OFF",
+  "path_note": "The prior leverage-rebuild balance resolved lower. Price lost dOpen/dPOC and traded below dVAL, while CVD sold off sharply and OI contracted rather than expanded. A deep intrawindow flush toward ~78.45k was followed by a partial rebound, but the latest reference price remained around/below dVAL.",
+  "interpretation": "This is bearish price action but still looks primarily like deleveraging/position closure rather than fresh bearish leverage expansion. The sharp CVD decline is effective because price broke value, but falling OI means open leverage is being removed. The partial rebound from the intrawindow low is not yet a long signal because price has not reclaimed dVAL, dOpen or dPOC.",
+  "long_scenario": {
+    "status": "WATCH_NO_ENTRY",
+    "first_trigger": "Reclaim dVAL ~78,900 and hold above it after the flush.",
+    "stronger_trigger": "Reclaim dOpen ~79,275 and then dPOC ~79,375 with CVD stabilizing or recovering.",
+    "higher_quality_trigger": "Return to upper value/dVAH ~79,680 with acceptance/retest; avoid chasing a single rebound candle.",
+    "reason": "Price/CVD/OI is still a deleveraging sell-off and value has not been repaired. Falling OI alone is not bullish."
+  },
+  "risk_scenario": {
+    "warning": "Failure to reclaim dVAL ~78,900 keeps the breakdown active.",
+    "stronger_warning": "If price resumes falling while CVD falls and OI turns back UP, the regime changes from deleveraging to bearish leverage expansion.",
+    "lower_reference_areas": [78540, 78000]
+  },
+  "lesson": "After a post-flush leverage rebuild, a balance can resolve lower through Price DOWN + CVD DOWN + OI DOWN. This is a value breakdown driven by deleveraging, not proof of fresh short build. Do not catch the first bounce: require dVAL reclaim first, then dOpen/dPOC. The most important regime-change alert is OI turning upward again while price and CVD continue lower."
+}

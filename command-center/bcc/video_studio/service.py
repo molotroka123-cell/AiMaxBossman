@@ -169,17 +169,45 @@ class VideoService:
         container=payload.get("container","mp4")
         if container not in ("mp4","mov","mkv","webm"):
             raise ValueError("unsupported export container")
-        # Preview forced mp4 and silently DISCARDED the container the request had
-        # already validated. On a browser without the proprietary H.264/AAC
-        # decoders (Chromium builds on Linux, and the browser CI runs on) that
-        # made every preview unplayable: the file is served 200 and decodes under
-        # ffmpeg, and the <video> element still answers
-        # DEMUXER_ERROR_NO_SUPPORTED_STREAMS. Default is unchanged — a request
-        # that names no container still gets mp4.
-        options["_container"]=container
-        _check_container_codecs(container,options)
+        # Both lines fixed the same defect: a preview the shipped browser cannot
+        # decode. The control line's answer is kept because it needs nothing
+        # from the caller — the owner clicks Preview and it plays — and it
+        # carries the measured encode speed-up. What is kept from this line is
+        # the pre-queue codec/container check below: choosing the preview codec
+        # here and validating it are different jobs, and the export path (where
+        # the owner really can name "webm + libx264") still needs the check.
         if payload.get("preview"):
-            options.update(width=320,height=180)
+            # Превью смотрят во ВСТРОЕННОМ браузере Bossman, а это Chromium из
+            # Playwright — сборка без проприетарных кодеков: canPlayType для
+            # 'video/mp4; codecs="avc1.42E01E"' возвращает пустую строку, и
+            # элемент <video> кончает ошибкой MEDIA_ERR_SRC_NOT_SUPPORTED.
+            # Превью в mp4/H.264 у владельца просто не проигрывалось, хотя
+            # экспорт был корректным. Превью идёт в webm/VP9/Opus — то, что
+            # поставляемый браузер умеет. Экспорт не меняется: контейнер и
+            # кодек выбирает владелец.
+            options["_container"]="webm"
+            # Превью смотрят, а не хранят, поэтому кодировать его в режиме
+            # «максимальное качество любой ценой» незачем. Замер ВНУТРИ
+            # настоящего конвейера рендера (4 прогона, 6 секунд, 320x180),
+            # медиана времени кодирования:
+            #     по умолчанию      1.45 с
+            #     good/cpu-used 5   1.59 с  — не быстрее: узкое место не
+            #                                кодировщик, а граф фильтров
+            #     realtime/cpu-used 8  0.45 с — в 3.2 раза быстрее
+            # Из-за этой разницы приёмка редакторов и мигала: превью не
+            # успевало стать проигрываемым за отведённые 15 секунд под
+            # нагрузкой. Измерено на этой машине, по 5 прогонов:
+            # без настройки — 3 прошло / 2 упало, с realtime — 5 / 0.
+            # Поэтому чинится скорость превью, а не ожидание в тесте.
+            options.update(width=320,height=180,video_codec="libvpx-vp9",
+                           audio_codec="libopus",deadline="realtime",cpu_used=8)
+        else:
+            options["_container"]=container
+        # A container that cannot carry the requested codecs is refused HERE, not
+        # inside ffmpeg after the job is queued: "webm + libx264" from the export
+        # dialog used to reach the worker and leave the owner a broken task
+        # instead of a refusal with a reason.
+        _check_container_codecs(options["_container"],options)
         # The host issues paths, kind, retry policy and authority; requests cannot set them.
         async with self.svc.db.session() as s:
             res = await s.execute(sa.insert(tasks_t).values(title="Video preview" if payload.get("preview") else "Video export",

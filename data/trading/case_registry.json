@@ -1,0 +1,45 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-09-11",
+  "purpose": "Canonical numbering for real trading cases. Raw screenshots/events remain immutable evidence and must not be mistaken for separate numbered trades.",
+  "numbering_rule": "Increment CASE-N only when a distinct actual position/thesis begins after the prior actual position is closed or explicitly reset. News events, screenshots, CVD/OI observations, audits and scenario branches are evidence within a case, not new numbered cases.",
+  "cases": [
+    {
+      "case_number": 1,
+      "id": "CASE-001",
+      "file": "data/trading/canonical_cases/case-001-first-btc-long-2026-09-03-to-09-08.json",
+      "market": "BTC",
+      "direction": "LONG",
+      "status": "CLOSED",
+      "position_start": "2026-09-04",
+      "position_end": "2026-09-08",
+      "average_entry": 79350,
+      "position_weight": 0.45,
+      "outcome": "closed around breakeven"
+    },
+    {
+      "case_number": 2,
+      "id": "CASE-002",
+      "file": "data/trading/canonical_cases/case-002-second-btc-long-2026-09-08-to-current.json",
+      "market": "BTC",
+      "direction": "LONG",
+      "status": "OPEN_AT_LAST_OBSERVATION",
+      "lead_in_start": "2026-09-08 after CASE-001 exit",
+      "position_activation": "2026-09-11 approximately 08:34-08:53 ET",
+      "average_entry_observed": 77613.3,
+      "size_btc_observed": 0.0191,
+      "note": "CASE-002 includes the full Sep 8-11 lead-in, including Sep 9 divergences, Sep 10 capitulation/failed-reclaim research, Sep 11 CPI and the eventual long. It does not begin at CPI."
+    }
+  ],
+  "next_case_number": 3,
+  "next_case_gate": "Do not create CASE-003 until CASE-002 is explicitly confirmed closed/reset by the owner.",
+  "evidence_policy": {
+    "legacy_casebook": "data/trading/btc_casebook_2026_09.jsonl",
+    "raw_events": "data/trading/cases/YYYY-MM-DD/*.json",
+    "audits": "data/trading/audits/*.json",
+    "research": "data/trading/research/*.json",
+    "scenarios": "data/trading/scenarios/*.json",
+    "macro": "data/trading/macro/*.json",
+    "canonical_cases": "data/trading/canonical_cases/*.json"
+  }
+}

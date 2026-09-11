@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 195. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 196. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -74,6 +74,7 @@
 | `command-center/tests/test_v6_lazy_pages.py:21` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_v6_media_child_priority.py:82` | skipif | `os.name == "nt" or not hasattr(os, "setpriority")` | POSIX only | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_export_receipt.py:16` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | real FFmpeg binaries required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_video_preview_speed_contract.py:25` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | нужны настоящие двоичные файлы FFmpeg | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_advanced.py:17` | skipif | `not shutil.which("ffmpeg") or not shutil.which("ffprobe")` | real FFmpeg binaries required | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_advanced.py:91` | skipif | `not Path('C:/Python314/python.exe').is_file()` | optional local NumPy runtime absent | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_video_studio_advanced.py:146` | skipif | `not Path('C:/Python314/python.exe').is_file()` | optional local CV runtime absent | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -105,8 +106,8 @@
 | `command-center/tests/test_web_designer_apply_idempotent_ui.py:22` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_web_designer_recovery_ui.py:19` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_web_designer_sandbox_ui.py:15` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `command-center/tests/test_web_designer_viewport.py:27` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `command-center/tests/test_web_designer_viewport.py:20` | skip | `—` | Node unavailable: production JS viewport contracts were not executed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_web_designer_viewport.py:28` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_web_designer_viewport.py:21` | skip | `—` | Node unavailable: production JS viewport contracts were not executed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_windows_terminal_quoting.py:13` | skipif | `os.name != "nt"` | requires native Windows cmd.exe | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_evidence_independence.py:132` | skip | `—` | symlink creation needs privileges on Windows | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/apprentice/test_openhands_evidence_independence.py:141` | skip | `—` | symlink creation needs privileges on Windows | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

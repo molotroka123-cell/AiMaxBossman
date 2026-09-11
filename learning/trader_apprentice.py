@@ -51,9 +51,12 @@ class Regime(str, Enum):
     DELEVERAGING_SELL_OFF = "DELEVERAGING_SELL_OFF"
     BEARISH_LEVERAGE_EXPANSION = "BEARISH_LEVERAGE_EXPANSION"
     BULLISH_LEVERAGE_EXPANSION = "BULLISH_LEVERAGE_EXPANSION"
+    LEVERAGED_SELL_ABSORPTION = "LEVERAGED_SELL_ABSORPTION"
+    FAILED_BREAKOUT_LONG_FLUSH = "FAILED_BREAKOUT_LONG_FLUSH"
     RECOVERY_WITHOUT_LEVERAGE = "RECOVERY_WITHOUT_LEVERAGE"
     SHORT_COVERING_OR_ABSORPTION = "SHORT_COVERING_OR_ABSORPTION"
     SELL_ABSORPTION_CANDIDATE = "SELL_ABSORPTION_CANDIDATE"
+    BUYER_FAILURE_WITH_DELEVERAGING = "BUYER_FAILURE_WITH_DELEVERAGING"
     BUYER_FAILURE_CANDIDATE = "BUYER_FAILURE_CANDIDATE"
     NEUTRAL_BALANCE = "NEUTRAL_BALANCE"
 
@@ -164,6 +167,8 @@ class Snapshot:
     short_liquidations: Optional[float] = None
     buy_volume: Optional[float] = None
     sell_volume: Optional[float] = None
+    high: Optional[float] = None
+    low: Optional[float] = None
     source: str = "unknown"
     instrument: str = "unknown"
     timestamp: str = ""
@@ -421,6 +426,11 @@ def classify_regime(
         reasons.append("Price, aggressive buying and open positions expand together")
         return p, c, o, Regime.BULLISH_LEVERAGE_EXPANSION, Stance.LONG_CANDIDATE, reasons
 
+    if p is Direction.UP and c is Direction.DOWN and o is Direction.UP:
+        reasons.append("Price rises despite aggressive net selling while OI expands: sell aggression is being absorbed as new leverage enters")
+        reasons.append("This can create squeeze fuel, but OI alone does not prove the new leverage is short")
+        return p, c, o, Regime.LEVERAGED_SELL_ABSORPTION, Stance.LONG_CANDIDATE, reasons
+
     if p is Direction.UP and c is Direction.UP and o is Direction.DOWN:
         reasons.append("Price and CVD recover while OI falls: healthy recovery/covering, but not yet a strong new leverage trend")
         return p, c, o, Regime.RECOVERY_WITHOUT_LEVERAGE, Stance.WATCH, reasons
@@ -433,12 +443,44 @@ def classify_regime(
         reasons.append("CVD sells are not producing lower price: possible passive buyer/absorption")
         return p, c, o, Regime.SELL_ABSORPTION_CANDIDATE, Stance.WATCH, reasons
 
+    if p is Direction.DOWN and c is Direction.UP and o is Direction.DOWN:
+        reasons.append("Aggressive buy flow improves, but price still falls while OI contracts")
+        reasons.append("This suggests buyer inefficiency/passive selling during deleveraging; it is not fresh bearish leverage expansion, but it is not a long confirmation")
+        return p, c, o, Regime.BUYER_FAILURE_WITH_DELEVERAGING, Stance.WATCH, reasons
+
     if p is Direction.DOWN and c in (Direction.UP, Direction.FLAT) and o in (Direction.UP, Direction.FLAT):
         reasons.append("Buy aggression fails to lift price: possible hidden seller/buyer failure")
         return p, c, o, Regime.BUYER_FAILURE_CANDIDATE, Stance.RISK_OFF, reasons
 
     reasons.append("No high-conviction matrix pattern; treat as balance/noise")
     return p, c, o, Regime.NEUTRAL_BALANCE, Stance.WATCH, reasons
+
+
+def _failed_breakout_long_flush(
+    previous: Snapshot,
+    current: Snapshot,
+    levels: LevelMap,
+    oi_direction: Direction,
+    cvd_direction: Direction,
+) -> bool:
+    """Path-aware overlay for a breakout that traps/flushes late longs.
+
+    Requires a same-instrument observed high above dVAH, a latest price back
+    below dPOC, contracting OI, no positive CVD confirmation, and dominant long
+    liquidations. This deliberately does not infer the direction of every new
+    position; it identifies the failed breakout path itself.
+    """
+    if current.high is None or levels.dvah is None or levels.dpoc is None:
+        return False
+    if not (current.high > levels.dvah and current.price < levels.dpoc):
+        return False
+    if oi_direction is not Direction.DOWN:
+        return False
+    if cvd_direction not in (Direction.FLAT, Direction.DOWN):
+        return False
+    if current.long_liquidations is None or current.short_liquidations is None:
+        return False
+    return abs(current.long_liquidations) >= 3.0 * max(abs(current.short_liquidations), 1e-12)
 
 
 def analyze(
@@ -468,11 +510,22 @@ def analyze(
             reasons.append("Reclaimed levels: " + ", ".join(reclaimed))
         if lost:
             reasons.append("Lost levels: " + ", ".join(lost))
+        if _failed_breakout_long_flush(previous, current, levels, o, c):
+            regime = Regime.FAILED_BREAKOUT_LONG_FLUSH
+            stance = Stance.RISK_OFF
+            reasons.append("Path overlay: price traded above dVAH but rejected below dPOC while OI contracted and long liquidations dominated")
+            reasons.append("This is consistent with a failed breakout/late-long flush; require dPOC then dVAH reclaim before restoring the long candidate")
 
     # Confidence is about classification quality, not probability of profit.
     known = sum(x is not Direction.UNKNOWN for x in (p, c, o))
     confidence = 0.45 + 0.15 * known
-    if regime in (Regime.BEARISH_LEVERAGE_EXPANSION, Regime.BULLISH_LEVERAGE_EXPANSION, Regime.DELEVERAGING_SELL_OFF):
+    if regime in (
+        Regime.BEARISH_LEVERAGE_EXPANSION,
+        Regime.BULLISH_LEVERAGE_EXPANSION,
+        Regime.LEVERAGED_SELL_ABSORPTION,
+        Regime.FAILED_BREAKOUT_LONG_FLUSH,
+        Regime.DELEVERAGING_SELL_OFF,
+    ):
         confidence += 0.08
     if levels is not None:
         confidence += 0.03

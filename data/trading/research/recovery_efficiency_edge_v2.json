@@ -1,0 +1,99 @@
+{
+  "research_id": "btc-recovery-efficiency-edge-v2",
+  "date": "2026-09-10",
+  "status": "HYPOTHESIS_NOT_VERIFIED",
+  "purpose": "Search for a repeatable edge in how efficiently price responds to post-capitulation CVD and OI recovery.",
+  "core_idea": "After a large long-liquidation flush, do not ask only whether CVD and OI recover. Measure whether that buyer effort and leverage rebuild actually repair price structure. Strong effort with weak price repair below broken value is a candidate short edge; efficient price repair with structural reclaim is a candidate long edge.",
+  "seed_live_example": {
+    "flush": {
+      "reference_price": 76800,
+      "cvd_billion": 43.93,
+      "oi_billion": 18.28,
+      "long_liquidations_million": 32.96,
+      "short_liquidations_million": 0.25275,
+      "liquidation_imbalance_long_to_short": 130.41
+    },
+    "post_flush_bounce": {
+      "reference_price": 77085,
+      "cvd_billion": 46.68,
+      "oi_billion": 18.61,
+      "broken_dval_reference": 77685
+    },
+    "derived": {
+      "price_repair_bps": 37.11,
+      "cvd_repair_pct": 6.26,
+      "oi_rebuild_pct": 1.81,
+      "distance_still_below_dval_bps": 77.84,
+      "fraction_of_flush_to_dval_gap_closed": 0.322
+    },
+    "interpretation": "CVD and OI repaired strongly, but price closed only about 32.2% of the distance from the flush low to broken dVAL and remained ~77.8 bps below dVAL. This is a concrete example of low recovery efficiency / buyer inefficiency below value."
+  },
+  "edge_hypotheses": [
+    {
+      "name": "CROWDED_BOUNCE_FAILED_RECLAIM_SHORT",
+      "priority": 1,
+      "setup": "Large liquidation flush -> CVD repair -> OI rebuild -> weak price repair below dVAL/dPOC -> failed reclaim/rejection.",
+      "signal_logic": [
+        "Long-liquidation imbalance is extreme or OI has visibly flushed.",
+        "CVD recovers materially from its flush low.",
+        "OI rebuilds materially from its flush low.",
+        "Price repair is small relative to CVD/OI repair.",
+        "Price remains below broken dVAL/dPOC.",
+        "Reclaim attempt fails or lower high forms."
+      ],
+      "confirmation": "CVD stalls/rolls over and price weakens while OI remains elevated/rises, or OI flushes only after the rejection has already trapped the bounce.",
+      "invalidation": "Acceptance above dVAL and especially dPOC with positive price response to flow.",
+      "why_edge_may_exist": "Crowded post-flush buyers supply fresh vulnerable leverage while passive sellers absorb their aggression. The trade is taken on failed structural repair, not on the liquidation low."
+    },
+    {
+      "name": "EFFICIENT_RECLAIM_LONG",
+      "priority": 2,
+      "setup": "Large liquidation flush -> CVD stabilizes/recovers -> OI stabilizes or rebuilds -> price repair is efficient -> dVAL reclaim and acceptance.",
+      "signal_logic": [
+        "Price stops making lows.",
+        "CVD stops accelerating lower or turns up.",
+        "OI no longer expands bearishly during downside.",
+        "Price repair is at least proportionate to the flow/leverage repair.",
+        "dVAL reclaim is accepted; stronger after dPOC reclaim."
+      ],
+      "invalidation": "Loss of reclaimed value with CVD down and OI rising.",
+      "why_edge_may_exist": "It waits for proof that forced selling has exhausted and that buyer effort is converting into actual structural repair."
+    }
+  ],
+  "features": {
+    "price_repair_bps": "10000 * (price_t - flush_low_price) / flush_low_price",
+    "cvd_repair_pct": "100 * (cvd_t - flush_low_cvd) / abs(flush_low_cvd)",
+    "oi_rebuild_pct": "100 * (oi_t - flush_low_oi) / flush_low_oi",
+    "structural_repair_fraction": "(price_t - flush_low_price) / max(dVAL - flush_low_price, epsilon)",
+    "distance_to_dval_bps": "10000 * (price_t - dVAL) / price_t",
+    "liquidation_imbalance": "long_liquidations / max(short_liquidations, epsilon)",
+    "failed_reclaim_count": "Count of dVAL/dPOC reclaim attempts that fail acceptance in the lookback window",
+    "price_response_to_cvd": "price_repair_bps divided by a normalized CVD repair scale",
+    "price_response_to_oi": "price_repair_bps divided by abs(oi_rebuild_pct)"
+  },
+  "seed_thresholds_to_test_not_trade_rules": {
+    "note": "These are search-grid seeds from one live sequence, not production thresholds.",
+    "liquidation_imbalance_min_grid": [5, 10, 20, 50, 100],
+    "oi_rebuild_pct_grid": [0.5, 1.0, 1.5, 2.0, 3.0],
+    "structural_repair_fraction_max_grid": [0.25, 0.35, 0.5, 0.65],
+    "distance_below_dval_bps_grid": [10, 25, 50, 75, 100],
+    "failed_reclaim_count_grid": [1, 2, 3]
+  },
+  "backtest_requirements": {
+    "horizons_minutes": [5, 15, 30, 60, 240],
+    "outputs": ["forward_return_bps", "MFE_bps", "MAE_bps", "win_rate", "expectancy_after_costs", "time_to_invalidation"],
+    "must_include": ["fees", "slippage", "funding_if_held", "reference_to_execution_basis"],
+    "validation": "chronological walk-forward with untouched out-of-sample periods",
+    "promotion_gate": "No edge may be labeled VERIFIED until positive expectancy survives costs, multiple volatility regimes, parameter perturbation and a meaningful sample size."
+  },
+  "model_behavior": {
+    "required_output_fields": ["EDGE_CANDIDATE", "EFFICIENCY_STATE", "STRUCTURAL_LOCATION", "TRIGGER", "INVALIDATION", "EDGE_STATUS"],
+    "edge_status_default": "HYPOTHESIS",
+    "never_do": [
+      "Never call an anecdote a proven edge.",
+      "Never use OI direction alone to infer long or short side.",
+      "Never use future bars to label a real-time trigger.",
+      "Never short the capitulation candle only because liquidations are large."
+    ]
+  }
+}

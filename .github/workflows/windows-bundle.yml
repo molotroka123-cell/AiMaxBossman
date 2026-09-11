@@ -42,7 +42,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Build tooling only (the bundle brings its own runtime)
@@ -83,7 +83,7 @@ jobs:
           exit $code
       - name: The build left the worktree exactly as committed
         run: python scripts/evening_owner_run.py --ci preflight
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: bossman-windows-${{ github.event.pull_request.head.sha || github.sha }}

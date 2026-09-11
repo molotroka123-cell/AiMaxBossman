@@ -49,7 +49,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       # Этот шаг НИЧЕГО не пишет в рабочее дерево — только GITHUB_ENV. Раньше он
@@ -117,7 +117,7 @@ jobs:
       # было в коммите. Проверяем ТЕМ ЖЕ гейтом, а не ослабленной копией.
       - name: The certification path left the worktree exactly as committed
         run: python scripts/evening_owner_run.py --ci preflight
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: evening-safety-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}

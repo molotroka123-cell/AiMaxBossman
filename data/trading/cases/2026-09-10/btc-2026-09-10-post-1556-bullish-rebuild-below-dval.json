@@ -1,0 +1,50 @@
+{
+  "case_id": "btc-2026-09-10-post-1556-bullish-rebuild-below-dval",
+  "date": "2026-09-10",
+  "time_local": "AFTER_15:56+02:00",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshot",
+  "instrument_note": "Reference chart and execution tape remain separate; exact reference levels are not direct execution prices without basis validation.",
+  "observed": {
+    "reference_chart_price_approx": 77225,
+    "execution_tape_approx": [77100, 77155],
+    "cvd_billion": 46.94,
+    "open_interest_billion": 18.66,
+    "long_liquidations_thousand": 167.89,
+    "short_liquidations_thousand": 386.48
+  },
+  "chart_levels": {
+    "dVAL_approx": 77460,
+    "dPOC_approx": 78145,
+    "dOpen_approx": 78550,
+    "dVAH_approx": 78720,
+    "year_eq_approx": 78000
+  },
+  "comparison_to_1556": {
+    "prior_reference_price_approx": 77085,
+    "prior_cvd_billion": 46.68,
+    "prior_oi_billion": 18.61,
+    "price_change_approx": 140,
+    "cvd_change_billion": 0.26,
+    "oi_change_billion": 0.05,
+    "price_direction": "UP",
+    "cvd_direction": "UP",
+    "oi_direction": "UP"
+  },
+  "state": "Price UP + CVD UP + OI UP, still below dVAL",
+  "regime": "POST_CAPITULATION_BULLISH_REBUILD_BELOW_VALUE",
+  "interpretation": "The post-capitulation recovery continues: price, CVD and OI all improved versus the prior 15:56 snapshot. Short liquidations now exceed long liquidations, so part of the bounce may include short covering, but OI is also rising, meaning the move is not explained by covering alone. The key limitation is location: price remains below dVAL ~77.46k, so structural repair is not yet confirmed.",
+  "long_scenario": {
+    "status": "EARLY_LONG_CANDIDATE_NOT_CONFIRMED",
+    "first_trigger": "Reclaim dVAL ~77.46k and hold/retest above it with CVD stable/up.",
+    "stronger_trigger": "Reclaim dPOC ~78.145k and hold; this would convert the bounce into a higher-quality structural recovery.",
+    "higher_quality_trigger": "Reclaim dOpen/dVAH ~78.55-78.72k with positive price response and no bearish OI divergence."
+  },
+  "short_scenario": {
+    "status": "ARMED_ON_FAILED_RECLAIM",
+    "preferred_trigger": "A push into ~77.4-77.5k that fails to accept above dVAL, followed by price rollover and CVD stalling/turning down while OI remains elevated or rises.",
+    "invalidation": "Clean acceptance above dVAL and especially dPOC with continued Price UP + CVD UP."
+  },
+  "lesson": "After a capitulation flush, Price UP + CVD UP + OI UP below value is constructive but still fragile. Do not promote to a full long until broken value is reclaimed. The same dVAL becomes a two-sided decision point: acceptance above supports the long thesis; rejection with elevated OI creates a short-on-failed-reclaim candidate. Short liquidations dominating during the bounce can help price recover, but rising OI means new positions are also entering, so covering alone is not the explanation."
+}

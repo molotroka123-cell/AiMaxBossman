@@ -85,7 +85,7 @@ jobs:
           PY
       - name: Retain exact-SHA contract evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: postgres-contracts-${{ env.EXPECTED_SOURCE_SHA }}-py${{ matrix.python }}
           path: |

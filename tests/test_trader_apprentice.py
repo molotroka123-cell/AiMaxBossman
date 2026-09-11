@@ -79,6 +79,60 @@ def test_price_up_cvd_up_oi_up_is_long_candidate():
     assert result.stance is Stance.LONG_CANDIDATE
 
 
+# --------------------------------------------------------------- ported matrix rows
+# These three regimes were classified on the control line while this line was
+# hardening series identity.  They are re-stated here through `snap`/`pair` so
+# they carry identity: the control-line versions would now be refused by the
+# compatibility gate before the matrix was ever consulted, which would have
+# silently deleted the rows rather than kept them.
+
+def test_price_up_cvd_down_oi_up_is_leveraged_sell_absorption():
+    prev, cur = pair((78_450, 61.91, 18.50), (79_400, 57.02, 18.67))
+    result = analyze(prev, cur)
+    assert result.regime is Regime.LEVERAGED_SELL_ABSORPTION
+    assert result.stance is Stance.LONG_CANDIDATE
+
+
+def test_price_down_cvd_up_oi_down_is_buyer_failure_with_deleveraging():
+    prev, cur = pair((78_775, 61.78, 18.78), (78_450, 61.91, 18.50))
+    result = analyze(prev, cur)
+    assert result.regime is Regime.BUYER_FAILURE_WITH_DELEVERAGING
+    assert result.stance is Stance.WATCH
+
+
+def test_failed_breakout_long_flush_overrides_endpoint_matrix():
+    prev = snap(79_400, 57.02, 18.67, ts="2026-09-08T12:00:00Z")
+    cur = snap(
+        79_350, 57.02, 18.43,
+        ts="2026-09-08T12:01:00Z",
+        high=79_950,
+        long_liquidations=850.31,
+        short_liquidations=-4.25,
+    )
+    levels = LevelMap(dval=79_130, dopen=79_275, dpoc=79_405, dvah=79_660)
+    result = analyze(prev, cur, levels)
+    assert result.regime is Regime.FAILED_BREAKOUT_LONG_FLUSH
+    assert result.stance is Stance.RISK_OFF
+
+
+def test_failed_breakout_overlay_cannot_fire_across_incompatible_series():
+    """Negative control: the overlay must not outrank the compatibility gate."""
+    prev = snap(79_400, 57.02, 18.67, ts="2026-09-08T12:00:00Z")
+    cur = snap(
+        79_350, 57.02, 18.43,
+        ts="2026-09-08T12:01:00Z",
+        instrument="ETHUSDT",
+        high=79_950,
+        long_liquidations=850.31,
+        short_liquidations=-4.25,
+    )
+    levels = LevelMap(dval=79_130, dopen=79_275, dpoc=79_405, dvah=79_660)
+    result = analyze(prev, cur, levels)
+    assert result.regime is Regime.UNKNOWN
+    assert result.stance is Stance.NO_TRADE
+    assert result.reclaimed_levels == ()
+
+
 def test_level_context_reports_reclaim():
     prev, cur = pair((78_500, 61.1, 18.6), (78_600, 61.3, 18.7))
     levels = LevelMap(dval=78_430, dpoc=78_565, dvah=78_710, dopen=78_795)
