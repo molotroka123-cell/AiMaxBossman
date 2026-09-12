@@ -1,0 +1,32 @@
+{
+  "case_id": "CASE-002",
+  "timestamp_local": "2026-09-12 13:09 ET",
+  "market": "BTC",
+  "source": "Coinwise/K1m6a screenshot supplied by owner",
+  "observed": {
+    "reference_price": 77389.0,
+    "cvd_billion": 56.39,
+    "open_interest_billion": 17.84,
+    "dPOC": 77336.75,
+    "dVAL": 76748.50,
+    "dOpen": 76641.88
+  },
+  "comparison_to_previous_snapshot": {
+    "previous_price": 77202.82,
+    "previous_cvd_billion": 56.66,
+    "previous_open_interest_billion": 17.72,
+    "price_change": 186.18,
+    "cvd_change_billion": -0.27,
+    "oi_change_billion": 0.12
+  },
+  "state": "PRICE_UP_CVD_DOWN_OI_UP_AT_DPOC_RECLAIM",
+  "interpretation": "Price rose back above dPOC while CVD fell and OI increased. This is consistent with aggressive sell flow/new short participation being absorbed by passive demand, but OI direction alone cannot prove position side. The structural reclaim is the key difference versus prior false starts.",
+  "trade_logic": {
+    "long_candidate": true,
+    "preferred_trigger": "Hold/retest above 77.34k dPOC for 5-15 minutes with no fresh price breakdown; stronger if CVD stabilizes and OI stops accelerating.",
+    "starter_size_guidance": "Only small starter exposure until retest confirms; do not chase a single reclaim candle.",
+    "invalidation": "Acceptance back below 77.34k, then loss of ~77.20k with CVD falling and OI rising would negate the absorption thesis and suggest fresh bearish leverage expansion.",
+    "next_upside_tests": [77600, 77900, 78000]
+  },
+  "lesson": "Flow divergence becomes actionable only when price structure confirms it. This snapshot is materially better than prior CVD/OI-only long candidates because dPOC has actually been reclaimed."
+}
