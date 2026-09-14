@@ -1,0 +1,75 @@
+{
+  "case_id": "btc-2026-09-11-0954-bull-continuation-cvd-oi-rebuild",
+  "date": "2026-09-11",
+  "time_local": "09:54-04:00",
+  "canonical_case": "CASE-002",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "secondary_confirmation_market": "ETH",
+  "source": "MEXC execution screenshots plus K1m6a/Coinwise-style reference screenshot",
+  "instrument_note": "Execution venue and Coinwise/reference chart have a material dynamic basis. Keep exact prices and reference levels separate.",
+  "btc_execution": {
+    "last": 78726.1,
+    "fair_price": 78729.7,
+    "high_24h": 78769.5,
+    "low_24h": 76030,
+    "change_displayed_pct": 1.94,
+    "ma50_15m": 77151.0,
+    "ma100_15m": 77098.8,
+    "ma200_15m": 77718.3,
+    "sar_15m": 76191.6,
+    "volume_current": 2353,
+    "volume_ma5": 1981,
+    "volume_ma10": 1996
+  },
+  "eth_execution": {
+    "last": 2599.86,
+    "high_24h": 2603.92,
+    "low_24h": 2403.91,
+    "change_displayed_pct": 6.53,
+    "ma50_15m": 2467.51,
+    "ma100_15m": 2458.18,
+    "ma200_15m": 2466.70,
+    "sar_15m": 2441.67,
+    "volume_current": 69271,
+    "volume_ma5": 37994,
+    "volume_ma10": 32685
+  },
+  "coinwise_reference": {
+    "cvd_billion": 57.98,
+    "open_interest_billion": 18.56,
+    "visible_levels": {
+      "dVAL": 76820,
+      "dPOC": 77350,
+      "dOpen_or_settlement_cluster_approx": 77215
+    },
+    "note": "Only clearly readable values are stored; hidden/obscured levels are UNKNOWN."
+  },
+  "comparison_to_0834_same_reference_series": {
+    "prior_cvd_billion": 51.84,
+    "prior_oi_billion": 18.33,
+    "cvd_change_billion": 6.14,
+    "oi_change_billion": 0.23,
+    "cvd_direction": "UP_STRONGLY",
+    "oi_direction": "UP"
+  },
+  "comparison_to_0853_execution": {
+    "prior_btc_last": 77994.8,
+    "btc_change_points": 731.3,
+    "btc_change_pct_approx": 0.9376,
+    "prior_eth_last": 2512.4,
+    "eth_change_points": 87.46,
+    "eth_change_pct_approx": 3.481
+  },
+  "state": "BTC price UP strongly + CVD UP strongly + OI UP; ETH confirms broad risk-on expansion",
+  "regime": "BULL_CONTINUATION_WITH_LEVERAGE_REBUILD",
+  "interpretation": "The post-CPI reclaim progressed from non-leveraged buy aggression into a broader risk-on continuation. BTC moved decisively above its 15m MA200 while CVD continued to expand and OI rebuilt. ETH materially outperformed and extended to a new local/24h high, strengthening cross-asset confirmation. This is stronger bullish evidence than the 08:34 snapshot, but the renewed OI build introduces crowding risk: continued OI/CVD growth must keep producing higher price or the setup can transition into buyer inefficiency / failed continuation.",
+  "management_logic": {
+    "bullish_condition": "Price continues to accept above the breakout/MA200 area while CVD remains firm and OI growth produces proportional price progress.",
+    "warning": "If BTC stalls near the 78.77k/79k execution resistance area while CVD and OI continue rising, buyer/leverage efficiency deteriorates and late-long crowding risk increases.",
+    "stronger_warning": "Price rolls over while OI remains elevated/rises and CVD turns down; arm failed-continuation short analysis rather than automatically adding longs.",
+    "structural_fallback": "A loss of the execution 15m MA200 area near 77.72k would materially weaken the current impulsive recovery structure.",
+    "position_status": "UNKNOWN_FROM_THIS_SCREENSHOT; no position overlay is visible. Do not mark CASE-002 closed without owner confirmation."
+  },
+  "lesson": "A high-quality reclaim can evolve: CVD surge + flat OI first showed genuine demand; later Price UP + CVD UP + OI UP confirmed participation. The edge is not to fear all OI growth, but to continuously test whether new leverage remains price-efficient. Cross-asset ETH strength is useful confirmation but not a substitute for BTC structure."
+}
