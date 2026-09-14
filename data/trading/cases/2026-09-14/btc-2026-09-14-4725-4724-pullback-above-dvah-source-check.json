@@ -1,0 +1,107 @@
+{
+  "canonical_case_id": "CASE-002",
+  "event_type": "SCREENSHOT_OBSERVATION_AND_CONDITIONAL_ANALYSIS",
+  "received_date": "2026-09-14",
+  "capture_timestamp": null,
+  "source": "User-supplied Coinwise/K1m6a screenshots, visually inspected; not an independently verified live feed",
+  "source_images": [
+    {"name": "IMG_4725.jpeg", "role": "price_and_levels", "sha256": "1c4c1f62f83c64eaaa9560b1a880aeb88c506c966c27af439b97e74044a49a30"},
+    {"name": "IMG_4724.jpeg", "role": "cvd_oi_liquidations", "sha256": "a5edd4366e5e467efa6db81e587fe3376258d3949bdfcf82d52b53e6d8124e1b"}
+  ],
+  "observed": {
+    "market_context": "BTC",
+    "chart_price": 78945,
+    "chart_quote_currency_label": "USD",
+    "chart_min_tick_displayed": 5,
+    "exact_exchange_contract": null,
+    "chart_timeframe": null,
+    "bar_closed": null,
+    "tape_time_labels": ["18:08", "18:09", "18:10"],
+    "tape_time_zone_and_date": null,
+    "recent_tape_prices_approx": [78770, 78780],
+    "tape_exchange_identity": null,
+    "cvd_billion_displayed": 62.67,
+    "open_interest_billion_displayed": 18.26,
+    "long_liquidations_displayed": "77.08K",
+    "short_liquidations_displayed": "-8.56K",
+    "liquidations_delta_moving_average_displayed": "1.28M",
+    "liquidations_interval": null,
+    "levels": {
+      "dvah": 78645,
+      "dpoc": 77815,
+      "dopen": 77730,
+      "dval": 77520
+    },
+    "approximate_zones_from_chart": {
+      "previous_week_equilibrium": [78380, 78420],
+      "year_equilibrium": [77980, 78020],
+      "settlement_daily": [79100, 79200],
+      "prior_peak_area": [79550, 79750]
+    },
+    "other_profile_price_marker": 77915,
+    "chart_price_minus_dvah": 300,
+    "price_path": "Strong visible advance, local high near 79600-79700, then a pullback to 78945. Displayed price remains above current dVAH 78645. Latest candles alone do not confirm that the pullback has ended.",
+    "cvd_path": "CVD rose across the visible advance and is near its recent high, with a small flattening or downtick at the right edge. No large renewed collapse is evident on this image.",
+    "oi_path": "OI rose across much of the advance and is now declining from a local peak above 18.4B to the displayed 18.26B."
+  },
+  "data_quality": {
+    "prior_event": "data/trading/cases/2026-09-14/btc-2026-09-14-78871-dvah-retest-after-squeeze.json",
+    "same_chart_and_indicator_series_as_prior_verified": false,
+    "cross_snapshot_price_delta": null,
+    "cross_snapshot_cvd_delta": null,
+    "cross_snapshot_oi_delta": null,
+    "cvd_anchor_and_aggregation": null,
+    "source_change_warning": "The previous price frame displayed Min Tick 0.01; the new frame displays Min Tick 5 and USD, with different profile levels. This is a source/contract comparability flag, not conclusive identification of CME. Do not interpret the dVAH change from 78871 to 78645 as a time-series level shift without checking the instrument.",
+    "price_source_warning": "Main chart price 78945 differs materially from tape transactions near 78770-78780. The tape is not a verified MEXC execution quote. Do not estimate a fixed basis or place an execution order from this difference.",
+    "current_execution_quote": null,
+    "synchronized_basis": null,
+    "liquidations_note": "Right-edge labels are readings for an unspecified interval, not day totals. The negative short-liquidation sign is chart direction. The moving average is not additional liquidation volume.",
+    "no_trade_direction_from_oi_alone": true,
+    "not_verified_training_ground_truth": true
+  },
+  "assessment": {
+    "status": "UNTESTED_SCENARIO",
+    "broader_structure": "PRICE_ABOVE_CURRENT_DVAH_AFTER_RALLY",
+    "latest_leg": "PRICE_PULLBACK_CVD_NEAR_HIGH_OI_DECLINING",
+    "interpretation": "The local pullback is consistent with position reduction while cumulative buying pressure has not fully reversed. It is not proof of a finished long liquidation flush, spot-led demand, absent new shorts, or a safe dip. OI is net outstanding exposure and does not identify initiators; dollar valuation can also affect dollar-denominated OI.",
+    "new_long_trigger_confirmed": false,
+    "short_trigger_confirmed": false,
+    "statistical_edge_proven": false,
+    "win_probability": null
+  },
+  "conditional_scenarios": {
+    "long_candidate": {
+      "reference_watch_zone": [78645, 78700],
+      "trigger": "A test or brief sweep of the current chart's dVAH followed by reclaim, a held retest and price starting to form a higher local low; CVD must stabilize or improve on that test. This is not a blind limit buy.",
+      "first_upper_reference_zone": [79100, 79200],
+      "next_upper_reference_zone": [79550, 79650],
+      "invalidation": "Break of the confirmed retest low or acceptance back below dVAH cancels this particular long setup irrespective of the OI sign. The exact executable stop and position quantity require execution-market data and an explicit risk budget.",
+      "current_action": "Do not chase the market solely because CVD is high. No new entry trigger is established by this screenshot."
+    },
+    "failed_dvah_support": {
+      "trigger": "Loss of 78645 followed by a rejected reclaim, rather than a single wick below it.",
+      "next_lower_reference_zones": [[78380, 78420], [77915, 78020]],
+      "interpretation": "The pullback is deepening. Do not preserve a failed short-term long by moving its stop down to the distant dPOC or dVAL. A short would be a separate failed-reclaim hypothesis, not an automatic signal or a chase entry."
+    }
+  },
+  "case_and_execution": {
+    "case_number_changed": false,
+    "case_registry_unchanged": true,
+    "owner_current_position": "UNKNOWN: no fresh fill, quantity, average or stop confirmation",
+    "orders_placed": false,
+    "limit_fills_inferred": false,
+    "personal_account_data_published": false
+  },
+  "learning_summary": [
+    "Separate the whole advance from the local pullback; CVD level is not the current bar's buying volume.",
+    "Cross-check the instrument and tick size before reusing levels or calculating CVD/OI changes across screenshots.",
+    "A lower OI reading does not itself establish a bullish edge or show that all new shorts are absent.",
+    "Keep dVAH support and any entry confirmation conditional; an attractive location alone is not a completed setup.",
+    "Keep win probability null without a calibrated sample, a target, a stop and a horizon.",
+    "An invalidated trade must not wait for a specific OI combination before risk is reduced."
+  ],
+  "methodology_sources_checked": [
+    {"url": "https://www.cmegroup.com/education/lessons/open-interest", "scope": "General OI definition; not the source of screenshot market readings"},
+    {"url": "https://www.tradingview.com/support/solutions/43000725058-cumulative-volume-delta/", "scope": "Example of CVD anchor and calculation dependence; does not establish Coinwise's calculation settings"}
+  ]
+}
