@@ -77,9 +77,41 @@ def test_reports_unavailable_without_any_source(monkeypatch):
     _fresh()
 
 
-def test_available_on_this_host():
+def test_the_helper_finds_the_browser_that_is_actually_installed():
+    """Регресс: хелпер обязан НАЙТИ браузер, который на диске есть.
+
+    Прежняя редакция утверждала `chromium_available() is True` с пометкой
+    «контейнер разработки» — то есть проверяла не хелпер, а предположение о
+    хосте. В контейнере, где колесо `playwright` новее предустановленных
+    браузеров (здесь: реестр драйвера объявляет ревизию 1234, а на диске
+    лежит chromium-1194), хелпер ПРАВИЛЬНО отвечает «нет»: подставлять чужую
+    ревизию вместо целевой он не имеет права, это записано в его же
+    docstring. Тест при этом падал и сообщал «продукт сломан» там, где
+    сломана была установка браузеров.
+
+    Поэтому предпосылка теперь проверяется, а не предполагается: если
+    браузера объявленной ревизии на диске нет — честный пропуск с причиной,
+    видный в реестре пропусков. Если есть — хелпер ОБЯЗАН его найти, и вот
+    это уже утверждение о хелпере, которое может покраснеть.
+    """
     _fresh()
-    assert browser_support.chromium_available() is True   # контейнер разработки
+    package, revision = browser_support._playwright_registry()
+    if revision is None:
+        pytest.skip("playwright не установлен — искать нечего")
+    roots = browser_support._browser_roots()
+    installed = [str(Path(root) / f"chromium-{revision}" / rel)
+                 for root in roots for rel in browser_support._EXE_RELATIVE
+                 if (Path(root) / f"chromium-{revision}" / rel).is_file()]
+    if not installed:
+        present = sorted({d.name for root in roots if Path(root).is_dir()
+                          for d in Path(root).iterdir() if d.name.startswith("chromium")})
+        pytest.skip(f"браузер ревизии {revision} не установлен; на диске: "
+                    f"{present or 'ничего'} — это состояние установки, а не дефект хелпера")
+    found = browser_support.chromium_path()
+    assert found is not None, (
+        f"хелпер не нашёл установленный браузер: {installed}")
+    assert Path(found).is_file(), found
+    assert browser_support.chromium_available() is True
 
 
 @pytest.fixture

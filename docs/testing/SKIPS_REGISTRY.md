@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 200. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 202. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -123,6 +123,9 @@
 | `bossman-core/tests/test_apprentice_live_safety.py:74` | skip | `—` | symlink creation unavailable on this Windows account | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_browser_approvals_p1.py:58` | skipif | `not chromium_available()` | reason() | Bossman Core | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_browser_emulator_e2e.py:16` | skipif | `not chromium_available()` | reason() | Bossman Core | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_browser_support_helper.py:100` | skip | `—` | playwright не установлен — искать нечего | Bossman Core | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_browser_support_helper.py:108` | skip | `—` | f"браузер ревизии {revision} не установлен; на диске: "
+                    f"{present or 'ничего'} — это состояние установки, а не дефект хелпера" | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_e2e_real_gui.py:70` | skip | `—` | real browser acceptance requires BOSSMAN_GUI_LIVE=1 (owner-authorized) | Bossman Core | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_e2e_real_gui.py:137` | skip | `—` | Higgsfield real attempt requires BOSSMAN_HIGGSFIELD_LIVE=1 (owner-authorized) | Bossman Core | живой внешний сервис / owner-authorized live | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_e2e_real_gui.py:164` | skip | `—` | evidence["verdict"] | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
