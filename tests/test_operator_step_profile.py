@@ -89,9 +89,17 @@ def test_the_framework_adds_a_bounded_amount_on_top_of_the_declared_costs():
     замер здесь не прячется и не «нормируется» задним числом."""
     report = run(steps=20, observe_ms=0, plan_ms=0, act_ms=0, reuse_max_age_s=0.75)
     floors = report["framework_overhead_in_floors"]
+    # Объединение двух реализаций одной гарантии. На этой линии печатались
+    # накладные, пол хоста, число полов и p95; на линии управления (коммит
+    # 755d7bb7) — p50, max, число шагов и сами замеры. Ни одна не надмножество
+    # другой, а нужны обе половины: по «p95 = 71.3» нельзя отличить «каркас
+    # поехал» от «один тяжёлый шаг из двадцати», а без пола хоста нельзя
+    # отличить регрессию от медленного раннера.
     raw = (f"overhead={report['framework_overhead_per_step_ms']}ms "
            f"floor={report['host_storage_floor_ms']}ms floors={floors} "
-           f"p95={report['p95_step_ms']}ms")
+           f"p50={report.get('p50_step_ms')}ms p95={report['p95_step_ms']}ms "
+           f"max={report.get('max_step_ms')}ms шагов={report.get('steps')} "
+           f"замеры={report.get('samples_ms')}")
     assert floors is not None, f"пол хоста не измерен: {raw}"
     assert floors < MAX_FLOORS_PER_STEP, raw
     assert report["framework_overhead_per_step_ms"] < BROKEN_STEP_MS, raw

@@ -73,6 +73,75 @@ from tools.human_speed_gate import (FAIL, PASS, INSUFFICIENT,
 from tools.objective_cas_profile import measure_cas
 
 
+# --------------------------------------------------------------------------
+# Причина отказа, а не одно число
+# --------------------------------------------------------------------------
+# Перенесено с линии управления (коммит 755d7bb7, ветка
+# claude/bossman-control-v03-43igbk). Там гарантия была реализована для
+# `latency_summary`; здесь та же гарантия реализована для `latency_contract`,
+# потому что на этой линии гейт другой — строками из чужой ветки её не
+# перенести.
+#
+# Дефект, который она закрывает, не наш и не их: `assert ..., result` отдаёт
+# pytest ВЛОЖЕННЫЙ словарь, а pytest обрезает длинное представление
+# многоточием. В логе CI от отчёта гейта оставалось одно число. По нему
+# «продукт замедлился» и «у раннера дважды сорвалось хранилище» выглядят
+# одинаково — а перезапустить прогон в CI можно не всегда (там были 403 на
+# rerun-failed-jobs и workflow_dispatch).
+#
+# Пороги НЕ тронуты ни на одной из сторон: подгонка табло — ровно то, против
+# чего этот гейт написан.
+
+
+def _clock_why(name: str, clock: dict) -> str:
+    """Одна строка про одни часы: чем кончилось и на каком основании."""
+    if not isinstance(clock, dict):
+        return f"{name}=<нет отчёта>"
+    parts = [f"{name}:{clock.get('status')}"]
+    if clock.get("basis"):
+        parts.append(f"основание={clock['basis']}")
+    if clock.get("reason"):
+        parts.append(f"причина={clock['reason']}")
+    if clock.get("value_ms") is not None:
+        parts.append(f"p{clock.get('percentile')}={clock['value_ms']:.3f}мс")
+    if clock.get("body_ms") is not None:
+        parts.append(f"тело={clock['body_ms']:.3f}мс")
+    if clock.get("floor_p50_ms") is not None:
+        parts.append(f"пол_p50={clock['floor_p50_ms']:.3f}мс")
+    if clock.get("p50_ratio") is not None:
+        parts.append(f"отношение={clock['p50_ratio']:.2f}"
+                     f"/{clock.get('floor_multiple')}")
+    stalls = clock.get("stalls_ms") or []
+    if stalls or clock.get("over_limit"):
+        # Сами значения срывов — главная улика различия «мы медленные» и
+        # «хост дёрнулся»: их обрезаем по количеству, но не прячем.
+        shown = ", ".join(f"{x:.1f}" for x in stalls[:5])
+        more = "…" if len(stalls) > 5 else ""
+        parts.append(f"срывов={len(stalls)}/прощается="
+                     f"{clock.get('max_isolated_stalls')} [{shown}{more}]")
+    return " ".join(parts)
+
+
+def why(result: dict) -> str:
+    """Причина отказа контракта латентности ОДНОЙ строкой.
+
+    Нужна именно строка: словарь pytest обрежет, и разбирать отказ будет не по
+    чему.
+    """
+    if not isinstance(result, dict):
+        return f"<нет отчёта: {result!r}>"
+    nested = [n for n in ("wall", "thread_cpu") if n in result]
+    if not nested:
+        # Плоский отчёт одних часов (`latency_summary` или один
+        # `latency_contract`) — у него те же поля, просто без обёртки.
+        return _clock_why("замер", result)
+    head = [f"{result.get('status')}"]
+    if result.get("reason"):
+        head.append(f"причина={result['reason']}")
+    head.extend(_clock_why(n, result[n]) for n in nested)
+    return " | ".join(head)
+
+
 def spec():
     return ObjectiveSpec.from_dict({
         "schema_version": 1, "owner_id": "speed-owner", "scope_id": "local-fixture",
@@ -130,9 +199,9 @@ def test_objective_cas_under_10ms_and_stale_write_is_denied(tmp_path, record_pro
     record_cas("objective_cas", measured, record_property)
     # Each original 8x / 10ms / one-isolated-stall contract must pass. No clock
     # replaces another and no median/max/outlier is relabelled or discarded.
-    assert result["status"] == PASS, result
+    assert result["status"] == PASS, why(result)
     for clock in (result["wall"], result["thread_cpu"]):
-        assert clock["basis"] in ("absolute_p100", "host_floor", "isolated_stall"), result
+        assert clock["basis"] in ("absolute_p100", "host_floor", "isolated_stall"), why(result)
 
 
 def test_observation_cycle_deterministic_without_sleep(tmp_path, monkeypatch, record_property):
@@ -194,7 +263,7 @@ print(json.dumps(asdict(ObjectiveStore(sys.argv[1]).get('speed-check'))))
     result = latency_summary(samples, limit_ms=2000, minimum=5, percentile=100)
     result["scope"] = "process_restart_and_store_rollback_only"
     record("store_crash_recovery", samples, result, record_property)
-    assert result["status"] == PASS, result
+    assert result["status"] == PASS, why(result)
 
 
 @pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1, True, 10**400])
@@ -357,15 +426,15 @@ def test_a_real_cpu_regression_is_rejected_on_slow_storage(tmp_path, record_prop
     measured = measured_cas_run(tmp_path, store)
     result = measured["result"]
     record_cas("objective_cas_regression_cpu", measured, record_property)
-    assert result["status"] == FAIL, result
+    assert result["status"] == FAIL, why(result)
     cpu = result["thread_cpu"]
-    assert cpu["status"] == FAIL, result
-    assert cpu["reason"] == "operation_disproportionate_to_its_own_host_floor", result
-    assert cpu["p50_ratio"] > cpu["floor_multiple"], result
+    assert cpu["status"] == FAIL, why(result)
+    assert cpu["reason"] == "operation_disproportionate_to_its_own_host_floor", why(result)
+    assert cpu["p50_ratio"] > cpu["floor_multiple"], why(result)
     # Кратность в гейте не должна быть тише объявленной: если её подняли,
     # подобранная выше нагрузка уже не обязана её перешагнуть, и тест обязан
     # сказать об этом здесь, а не пройти.
-    assert cpu["floor_multiple"] <= DECLARED_FLOOR_MULTIPLE, result
+    assert cpu["floor_multiple"] <= DECLARED_FLOOR_MULTIPLE, why(result)
     assert cpu["p50_ms"] >= burden, "the injected work must be real CPU, not scheduler delay"
 
 
@@ -389,7 +458,7 @@ def test_a_cpu_cost_inside_the_declared_allowance_is_not_called_a_regression(
     inside = measured["result"]["thread_cpu"]
     record_cas("objective_cas_inside_allowance", measured, record_property)
     assert inside["p50_ms"] > cpu["p50_ms"], "нагрузка обязана быть настоящей"
-    assert inside["status"] == PASS, measured["result"]
+    assert inside["status"] == PASS, why(measured["result"])
 
 
 def test_a_gross_regression_fails_on_every_basis(tmp_path, record_property):
@@ -403,13 +472,13 @@ def test_a_gross_regression_fails_on_every_basis(tmp_path, record_property):
     measured = measured_cas_run(tmp_path, store)
     result = measured["result"]
     record_cas("objective_cas_regression_gross", measured, record_property)
-    assert result["status"] == FAIL, result
+    assert result["status"] == FAIL, why(result)
     for clock in (result["wall"], result["thread_cpu"]):
-        assert clock["body_ms"] >= clock["limit_ms"], result
-        assert clock["over_limit"] > clock["max_isolated_stalls"], result
+        assert clock["body_ms"] >= clock["limit_ms"], why(result)
+        assert clock["over_limit"] > clock["max_isolated_stalls"], why(result)
     cpu = result["thread_cpu"]
-    assert cpu["status"] == FAIL and cpu["basis"] is None, result
-    assert cpu["p50_ratio"] > cpu["floor_multiple"], result
+    assert cpu["status"] == FAIL and cpu["basis"] is None, why(result)
+    assert cpu["p50_ratio"] > cpu["floor_multiple"], why(result)
 
 
 def test_one_injected_stall_on_a_healthy_run_is_not_called_a_db_defect(
@@ -438,21 +507,21 @@ def test_one_injected_stall_on_a_healthy_run_is_not_called_a_db_defect(
     assert result["max_ms"] >= 25.0 and result["stalls_ms"][0] == result["max_ms"]
     assert result["over_limit"] >= 1
     if result["over_limit"] == 1:
-        assert result["status"] == PASS, result
-        assert result["body_ms"] < result["limit_ms"], result
+        assert result["status"] == PASS, why(result)
+        assert result["body_ms"] < result["limit_ms"], why(result)
         # Основание называется по тому, ЧТО именно подтвердило измерение.
         # Если пол хоста сам не покрывает этот максимум, оправдание может быть
         # только одно — одиночный срыв. Если покрывает (а на шумной машине пол
         # тоже запинается: измерено floor_max до 3.6 мс при медиане 0.2 мс),
         # то это тем более не дефект БД, и основание — `host_floor`.
         if result["max_ms"] >= result["allowed_max_ms"]:
-            assert result["basis"] == "isolated_stall", result
+            assert result["basis"] == "isolated_stall", why(result)
         else:
-            assert result["basis"] == "host_floor", result
+            assert result["basis"] == "host_floor", why(result)
     else:
-        assert result["status"] == FAIL or result["basis"] == "host_floor", result
+        assert result["status"] == FAIL or result["basis"] == "host_floor", why(result)
     cpu = combined["thread_cpu"]
-    assert cpu["max_ms"] >= 25.0 and cpu["over_limit"] >= 1, cpu
+    assert cpu["max_ms"] >= 25.0 and cpu["over_limit"] >= 1, why(cpu)
     assert combined["status"] == (PASS if result["status"] == cpu["status"] == PASS else FAIL)
 
 
