@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 198. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 200. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -160,6 +160,8 @@
 | `bossman-core/tests/test_trading_pipeline_benchmark.py:102` | skip | `—` | ASR engine present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_trading_pipeline_benchmark.py:109` | skip | `—` | OCR engine present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_v26_artifacts_engine.py:21` | skipif | `not DSN` | SKIP_HOST: no BOSSMAN_TEST_PG_DSN (real PostgreSQL) available | Bossman Core | реальный PostgreSQL | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_v26_file_intel.py:223` | importorskip | `—` | разбор PDF ставится extra `documents` | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_v26_file_intel.py:309` | importorskip | `—` | нет пакета openpyxl | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_v26_flight_recorder.py:19` | skipif | `not DSN` | SKIP_HOST: no BOSSMAN_TEST_PG_DSN (real PostgreSQL) available | Bossman Core | реальный PostgreSQL | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_v26_select_compute_pg.py:16` | skipif | `not DSN` | SKIP_HOST: no BOSSMAN_TEST_PG_DSN (real PostgreSQL) available | Bossman Core | реальный PostgreSQL | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_v3_command_center_adapters.py:19` | importorskip | `—` | Command Center (bcc) не установлен рядом с ядром | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

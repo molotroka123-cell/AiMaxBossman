@@ -92,3 +92,7 @@ astra-security-results/
 
 # Локальная поставка, собираемая tools/build_local_bundle.py
 /dist/
+
+# Рабочий каталог Playwright MCP (снимки страниц и логи консоли приёмочного
+# прогона). Улики живут в docs/final/mcp_acceptance.json, а не здесь.
+/.playwright-mcp/

@@ -163,3 +163,96 @@ and fallback fields.
   reason; the independent reason also stands on its own — the native FFmpeg pipeline
   is deterministic and covered, and §14 permits switching a production path only when
   the new backend is at least as reliable as the old one.
+
+---
+
+## MCP Connectors (§25, decided 2026-09-14)
+
+These five were evaluated as *connectors* — external processes Bossman speaks MCP
+to — rather than as libraries to vendor. The gate was a purpose-built acceptance
+lane (`tools/mcp_acceptance.py`, 16 probe modes, its own minimal stdio client, no
+third-party dependency), and every row below cites a measurement rather than a
+README. Evidence: `docs/final/mcp_acceptance.json`,
+`docs/final/connector_benchmarks.json`. Full reasoning:
+`docs/final/CONNECTOR_INTEGRATION_REPORT.md`.
+
+| Connector | Exact SHA | License | Decision | Default? | Idle cost | Acceptance result |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| markitdown-mcp | `eb31b5c9453628def5e6758a27a8e3a87b4ab101` | MIT (LICENSE read at the SHA) | **ADOPT_AS_OPTIONAL_BACKEND** (off, task-scoped, allowlisted paths, URL converters disabled) | No | 171 MiB, 1 process, 10 ms CPU / 30 s | 15 PASS, 1 NOT_RUN |
+| playwright-mcp | `e73d72e01f162054a3d0a6b0fe8d4affffb095ee` | Apache-2.0 (LICENSE read at the SHA) | **REFERENCE_ONLY** | No | 913 MiB, 11 processes with a page open | 15 PASS, 1 NOT_RUN |
+| github-mcp-server | `7d13a7ad6f2a17f351a6d77ce280c85ae1821f4d` | MIT (LICENSE read at the SHA) | **NOT_ACCEPTED_PENDING_CREDENTIALED_RUN** | No | 0 — does not start without credentials | 1 NOT_RUN (clean fail-closed) |
+| context7 | `b653c3a07d7936bdc4c23fc1c88903120e0ece77` | MIT (LICENSE read at the SHA) | **REJECT_AS_RUNTIME_CONNECTOR** | No | not measured — never started | none run |
+| MCP Inspector | `795b1bb30ac845b7baa7cb3df8ec0b693882ca1d` | MIT **declared in package.json; no licence file exists at this SHA** | **DEV_TOOL_ONLY** | No | 0 in production by construction | not applicable |
+
+**Connectors enabled by default: zero. Idle production cost added by this
+section: zero.**
+
+### Why each, in one paragraph
+
+**markitdown-mcp — the only adoption, and the boundary is narrow.** §24 wants a
+demonstrated improvement, so one was measured. On a corpus written by *other
+people's* writers (openpyxl, python-pptx, PIL; the PDF and DOCX assembled to the
+file-format spec) MarkItDown recovered 19 of 19 planted strings against the native
+`parse_file`'s 17 of 19. The entire difference is two markers inside an `.epub`,
+which the native path sees as an ordinary zip. On everything both handle the native
+path is faster, and the honest number is not the headline one: the totals are 73 ms
+vs 137 ms, but 57 of the native 73 are a one-time `pypdf` import inside the process
+rather than work on files — excluding it, ~16 ms vs ~126 ms. And that comparison
+was library-to-library, charging MarkItDown nothing for the subprocess and stdio
+round trip it costs in its connector form. The native path also carries provenance
+— `sha256`, `ref=page=1`, `ref=A1` — that MarkItDown does not emit at all. Hence the rule:
+MarkItDown is consulted **only** where the native path raised `ParseUnavailable` or
+returned a container listing for something that is not a container — epub, `.msg`,
+legacy `.xls`, audio. A third discrepancy, PDF, turned out to be **our** defect
+(BL-036: `pypdf` was imported but declared in no dependency or extra anywhere), not
+a win for external code, and is fixed by declaring the `documents` extra. The
+YouTube / Wikipedia / Bing / RSS converters are disabled: they are precisely the
+"arbitrary URL fetching" §7 forbids by default, and they would turn reading a file
+into an outbound request. Output is an OBSERVATION, tagged as external data,
+granting no authority (§18).
+
+**playwright-mcp — healthy, and still declined.** It passed 15 of 16 probes,
+declares its own protocol version instead of echoing ours, survives garbage on the
+wire and restarts after SIGKILL. The refusal is not about quality: no capability
+beyond the native browser runtime was demonstrated, and the price was measured —
+913 MiB across 11 processes with one page open, a second language runtime, and a
+second browser channel (it would not start until given `--executable-path` and
+`--no-sandbox`). `bcc/browser_runtime.py` already does owner takeover on a
+challenge, domain fencing and bounded retries. One measured detail is worth
+keeping for §6: navigating to a 200 and to a 404 both come back with **no**
+`isError` and no JSON-RPC error, so the two are indistinguishable from the result
+envelope; the 404 status is present but only as prose in the body, and on the
+successful reply no such line exists at all. The connector is not lying — but a
+machine that trusts `isError` concludes the navigation succeeded. That is the
+measured basis for re-reading page state ourselves.
+
+**github-mcp-server — nothing to accept yet, and that is what is recorded.** It
+was deliberately started **without** credentials: §5 forbids keeping GitHub
+authentication in project memory and asks for dedicated minimum-privilege
+credentials, and this session's token is neither, nor reproducible for the owner.
+Exactly one thing was measured, and it is a good one — the server **fails closed**:
+no half-start, no empty tool list, no pretending, just `authentication required:
+set GITHUB_PERSONAL_ACCESS_TOKEN…`. The lane recorded `NOT_RUN` rather than `FAIL`,
+because a policy refusal is not a defect. But `NOT_RUN` is not an acceptance either:
+one probe out of sixteen, and no capability tested. Unblocking condition is named —
+a dedicated GitHub App scoped to read the needed repositories, `--read-only`,
+narrowed toolsets, and a re-run of the lane.
+
+**context7 — not measured, therefore not adopted.** No probe was run. Under §24
+that alone settles it, and inventing technical reasons after the fact instead of
+measuring would be fitting the report to a conclusion. The reason it would not be
+a default even after acceptance is also named: every lookup tells a third party
+which library the product is studying, and retrieved documentation is DATA that
+grants no authority (§18).
+
+**MCP Inspector — a developer's tool, and only that.** §9 is verbatim: it must not
+ship as an always-running production process, zero idle production cost. It does
+not ship at all — the acceptance lane is our own client, so Inspector is not needed
+even for debugging in production. A supply-chain note, checked rather than assumed:
+**no licence file exists at the pinned SHA.** `LICENSE`, `LICENSE.md`,
+`LICENSE.txt`, `COPYING`, `license` and `LICENCE` all return 404 while the control
+request for `package.json` at the same SHA returns 200 — so the 404s are an absent
+file, not a network failure. MIT is declared by the `license` field in
+`package.json`, which npm treats as sufficient; for a tool that is never
+distributed with the product that is enough, and the fact is recorded so the
+decision is not revisited from memory.
