@@ -79,13 +79,37 @@ def preview_frame(page, *, timeout: float = 15000):
         page.wait_for_timeout(100)
 
 
-def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15000):
-    """Настоящий клик мышью по элементу внутри превью.
+def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15000,
+                     expect_selection: bool = True, settle_ms: float = 2000):
+    """Настоящий клик мышью по элементу внутри превью — С ПРОВЕРКОЙ ЭФФЕКТА.
 
     Возвращает описание точки — чтобы упавший тест показывал, куда он попал.
+
+    Прежняя редакция возвращалась сразу после `mouse.click()`, то есть
+    отчитывалась об ОТПРАВКЕ события, а не о том, что оно что-то изменило.
+    Это ровно то, что раздел 2 задания запрещает делать с чужими движками
+    («успех транспорта — не успех операции»), только совершал это наш
+    собственный стенд. Измерено: клик сразу после появления h1 в кадре иногда
+    не выбирает ничего — хост ещё не подписан на сообщение кадра, — и тогда
+    инспектор пуст, а тест падает на ожидании строки, сообщая «строки нет»
+    вместо «выбор не состоялся». С паузой перед кликом выбор срабатывал 10 раз
+    из 10; без неё — не всегда.
+
+    Поэтому: клик повторяется, пока не появится хотя бы одна строка инспектора
+    (`div.bd-row`), и только это считается состоявшимся кликом. Ожидание —
+    по СОБЫТИЮ, а не «поспать подольше»: как только выбор произошёл, функция
+    возвращается немедленно.
+
+    `expect_selection=False` — для случаев, когда клик НЕ должен ничего
+    выбирать; тогда проверять нечего, и это приходится сказать явно.
     """
+
+    def _selected() -> bool:
+        return bool(page.evaluate(
+            "() => document.querySelectorAll('div.bd-row').length > 0"))
     guest = preview_frame(page)
     guest.wait_for_selector(selector, timeout=timeout)
+    missed = 0
     for _ in range(4):
         box = guest.evaluate(
             """([selector, index]) => {
@@ -118,8 +142,21 @@ def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15
             page.mouse.move(spot["x"], spot["y"])
             page.wait_for_timeout(150)
             page.mouse.click(spot["x"], spot["y"])
-            return spot
+            if not expect_selection:
+                return spot
+            deadline = time.monotonic() + settle_ms / 1000.0
+            while time.monotonic() < deadline:
+                if _selected():
+                    return spot
+                page.wait_for_timeout(100)
+            missed += 1
+            continue
         page.evaluate("spot => window.scrollBy(0, spot.y - spot.vh / 2)", spot)
+    if missed:
+        raise AssertionError(
+            f"клик по {selector}[{index}] отправлен {missed} раз(а) и ни разу не выбрал "
+            f"элемент: инспектор пуст. Последняя точка: {spot}. Это НЕ «строки нет» — "
+            f"это «выбор не состоялся»")
     raise AssertionError(f"точку элемента {selector}[{index}] не удалось вывести в окно: {spot}")
 
 
