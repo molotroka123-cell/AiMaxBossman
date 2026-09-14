@@ -1,0 +1,94 @@
+{
+  "canonical_case_id": "CASE-002",
+  "event_type": "SCREENSHOT_OBSERVATION_AND_SCENARIO_UPDATE",
+  "received_date": "2026-09-14",
+  "timestamp_local": null,
+  "capture_timestamp": null,
+  "source": "Two user-supplied Coinwise/K1m6a screenshots, read visually; not an independently verified live feed",
+  "market": "BTC",
+  "source_images": [
+    {"name": "IMG_4723.png", "role": "price_and_levels", "sha256": "7690cde98bc2709b580cf8ab473ac362a06fe00b23492dba1bbe1b70b108ba97"},
+    {"name": "IMG_4722.png", "role": "cvd_oi_liquidations", "sha256": "7474caf1af7c46e2f8e66641d45cab6c583b0e4a06d34443743fc1d3deac36d8"}
+  ],
+  "observed": {
+    "chart_price": 78857.42,
+    "cvd_billion_displayed": 57.28,
+    "open_interest_billion_displayed": 18.30,
+    "long_liquidations_displayed": "1.67M",
+    "short_liquidations_displayed": "-8.56K",
+    "liquidations_interval": null,
+    "levels": {
+      "dvah": 78871.00,
+      "dpoc": 77707.50,
+      "dval": 77376.00
+    },
+    "approximate_chart_zones": {
+      "month_open": [78550, 78600],
+      "previous_week_equilibrium": [78200, 78250],
+      "day_equilibrium": [77950, 78000],
+      "visible_upper_trading_area": [79200, 79400]
+    },
+    "chart_price_minus_dvah": -13.58,
+    "full_swing_high": null,
+    "price_path_visual": "Substantial rally followed by a pullback to dVAH; the latest displayed price is slightly below dVAH, not a confirmed hold above it.",
+    "cvd_path_visual": "Rose through the visible rally and declined on the last few bars.",
+    "oi_path_visual": "Recovered during the visible advance, then declined from a local peak to 18.3B.",
+    "liquidations_path_visual": "A conspicuous earlier negative short-liquidation bar precedes the latest positive long-liquidation bar. The earlier bar's exact amount is not readable and is not inferred."
+  },
+  "data_quality": {
+    "exact_exchange_and_contract": "UNKNOWN: instrument header is cropped",
+    "chart_timeframe": "UNKNOWN",
+    "latest_bar_closed": "NOT_CONFIRMED",
+    "current_mexc_price": null,
+    "synchronized_reference_to_execution_basis": null,
+    "cvd_aggregation_settings_and_anchor": "UNKNOWN",
+    "cross_snapshot_cvd_delta": null,
+    "cross_snapshot_oi_delta": null,
+    "comparison_note": "Do not subtract an earlier session's CVD reading from this one without verifying the same feed, instrument, settings, accumulation anchor and timestamps. Use the visible within-chart path here.",
+    "oi_note": "Aggregate OI does not identify which side initiated positions or their leverage multiples. USD-denominated OI may also change with valuation. Net OI decline does not rule out simultaneous new openings.",
+    "liquidation_note": "Right-edge values are displayed readings for an unspecified interval, not established session totals; minus sign is display direction, not negative economic liquidations.",
+    "not_training_ground_truth": true
+  },
+  "assessment": {
+    "status": "HYPOTHESIS_NOT_BACKTESTED",
+    "broader_structure": "UPWARD_REPAIR_VISIBLE",
+    "latest_leg": "PRICE_DOWN_CVD_DOWN_OI_DOWN_AT_DVAH_TEST",
+    "interpretation": "The visible advance was accompanied by improving CVD and included short-liquidation activity. The latest pullback, declining OI and long-liquidation reading are consistent with some position reduction or long liquidation, but do not establish a safe dip or identify the only cause. The dVAH retest remains unresolved.",
+    "long_entry_confirmed": false,
+    "win_probability": null,
+    "probability_note": "Earlier conversational percentages such as 60-70% were not calibrated on an out-of-sample sample and must not be used as measured probabilities or risk-sizing inputs."
+  },
+  "conditional_scenarios": {
+    "long_candidate": {
+      "trigger": "Reclaim and hold the current chart's 78871 area (approximately 78870-78900), then a successful retest and a higher local low while CVD stabilizes or improves.",
+      "upper_reference_area": [79200, 79400],
+      "invalidation": "A failed retest and break of the new local retest low cancels this specific entry setup regardless of whether OI is rising or falling.",
+      "execution_gate": "No executable MEXC limit or stop derived from this reference chart without matching symbol, fresh execution quotes and risk parameters."
+    },
+    "failed_reclaim": {
+      "trigger": "Price stays below 78871 and a bounce into it fails, with renewed selling pressure.",
+      "lower_reference_zones": [[78550, 78600], [78200, 78250]],
+      "action": "No blind averaging. A short is only a separate failed-reclaim candidate with defined invalidation and adequate reward relative to risk, not an instruction to chase the low."
+    }
+  },
+  "risk_and_case_handling": {
+    "case_number_changed": false,
+    "position_state": "UNKNOWN_CURRENT: screenshots do not show current owner fills, remaining quantity, average, liquidation level or stop",
+    "case_registry_state": "Preserved; no closure or new position inferred",
+    "orders_placed": false,
+    "limit_order_fills_inferred": false,
+    "guidance": "Do not increase size to recover prior lost profit. Protect existing gains with a preplanned stop and profit-taking plan; do not widen a stop to the distant old dVAL to preserve a failed entry thesis."
+  },
+  "learning_summary": [
+    "A rally working out does not prove the prior entry suggestion had a statistically demonstrated edge.",
+    "Separate the whole rally from the most recent pullback; their OI/CVD directions can differ.",
+    "Price being 13.58 below dVAH is a test, not proof of decisive breakdown or acceptance above it.",
+    "Price invalidation is sufficient to cancel an entry; do not wait for a particular OI pattern to honor a stop.",
+    "Hypotheses, observations, fills and realized results must be separate fields."
+  ],
+  "methodology_sources": [
+    {"url": "https://www.cmegroup.com/education/lessons/open-interest", "scope": "General OI definition; not a source of this snapshot's prices or metrics"},
+    {"url": "https://www.cmegroup.com/education/glossary", "scope": "Each open futures transaction has buyer and seller; OI counts one side"},
+    {"url": "https://www.tradingview.com/support/solutions/43000725058-cumulative-volume-delta/", "scope": "Example of CVD anchor and calculation dependence; Coinwise-specific settings not verified"}
+  ]
+}
