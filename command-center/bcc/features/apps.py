@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import os
 import time
 from pathlib import Path
@@ -68,18 +69,57 @@ def _ssl() -> Any:
 
 # ------------------------------------------------------------------ манифесты
 
+# Разобранные манифесты: путь → ((mtime_ns, size), данные).
+#
+# Манифесты — СТАТИЧЕСКАЯ конфигурация, но `task_exchange.process()` зовёт
+# `known_apps()` на каждом тике (раз в 2 с), и каждый такой обход перечитывал и
+# заново РАЗБИРАЛ все манифесты с диска. Измерено на простаивающем сервере:
+# обходов 1.00/с, и ни один из них не был вызван изменением файла. Профиль
+# показывал массу времени в yaml.scanner (876 815 вызовов `peek` за 33 с) —
+# продукт, которым никто не пользуется, разбирал одну и ту же конфигурацию
+# бесконечно. Раздел 7 задания требует прямо обратного: «никакого опроса
+# вхолостую».
+#
+# Ключ — (mtime_ns, size), а не TTL: изменённый манифест подхватывается
+# СЛЕДУЮЩИМ же тиком, потому что у него меняется штамп. Задержки здесь не
+# появляется ни на шаг — в отличие от «сделать тик пореже», которое купило бы
+# покой за счёт отзывчивости.
+_MANIFEST_CACHE: dict[Path, tuple[tuple[int, int], dict[str, Any] | None]] = {}
+
+
 def _manifest_files() -> list[Path]:
     if not APPS_DIR.is_dir():
+        _MANIFEST_CACHE.clear()
         return []
-    return sorted(APPS_DIR.glob("*/app.manifest.yaml"))
+    found = sorted(APPS_DIR.glob("*/app.manifest.yaml"))
+    # Кэш живёт ровно текущим набором приложений: удалённое приложение уходит и
+    # отсюда, поэтому словарь не растёт от смены каталога (в тестах — от смены
+    # временного APPS_DIR).
+    for stale in set(_MANIFEST_CACHE) - set(found):
+        _MANIFEST_CACHE.pop(stale, None)
+    return found
 
 
 def _load(path: Path) -> dict[str, Any] | None:
+    """Разобранный манифест. Повторный разбор — только если файл изменился."""
+    try:
+        stat = path.stat()
+    except OSError:
+        _MANIFEST_CACHE.pop(path, None)
+        return None
+    stamp = (stat.st_mtime_ns, stat.st_size)
+    hit = _MANIFEST_CACHE.get(path)
+    if hit is not None and hit[0] == stamp:
+        # Копия, а не та же ссылка: вызывающий код читает манифест как обычный
+        # dict, и правка у одного не имеет права стать правкой для всех.
+        return copy.deepcopy(hit[1])
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError):
-        return None
-    return data if isinstance(data, dict) else None
+        data = None
+    value = data if isinstance(data, dict) else None
+    _MANIFEST_CACHE[path] = (stamp, value)
+    return copy.deepcopy(value)
 
 
 def _http_calls(raw: dict[str, Any]) -> dict[str, str]:
