@@ -221,30 +221,36 @@ def tracked_files() -> list[Path]:
         return [p for p in ROOT.rglob("*") if p.is_file()]
 
 
-def untracked_env_files() -> list[Path]:
-    """SEC-004: an untracked .env sitting on disk (not yet `git add`ed) previously
-    escaped the scan entirely because it only walked `git ls-files`. Surface real
-    secrets in it before someone force-adds it or ships the working tree as-is."""
+def untracked_files() -> list[Path]:
+    """Непрослеженные файлы на диске — тоже часть дерева, и ключ в них настоящий.
+
+    SEC-004 закрыл случай `.env`, который лежит рядом и ещё не добавлен в git:
+    до этого он не сканировался вовсе, потому что обход шёл только по
+    `git ls-files`. Но ограничение осталось на ИМЕНИ файла, и этого мало.
+
+    Найдено обратным контролем: настоящий ключ провайдера, положенный во
+    временный `tools/*.py`, сканер не увидел и ответил PASS. В CI такой файл до
+    коммита не доживёт, зато локальный прогон — ровно тот момент, когда PASS
+    читают как «в дереве чисто», а потом делают `git add -A`. Ложное «чисто»
+    выдаётся именно тогда, когда оно дороже всего.
+
+    Поэтому берутся ВСЕ непрослеженные файлы, а не только `.env`.
+    `--exclude-standard` отсекает игнорируемое (venv, кэши, сборки), так что шум
+    ограничен тем, что человек и правда собирается добавить.
+    """
     try:
         raw = subprocess.check_output(
             ["git", "-C", str(ROOT), "ls-files", "-z", "--others", "--exclude-standard"],
             stderr=subprocess.DEVNULL,
         )
-        candidates = [ROOT / x for x in raw.decode("utf-8", "replace").split("\0") if x]
     except Exception:
         return []
-    out = []
-    for p in candidates:
-        rel = p.as_posix()
-        name = p.name.lower()
-        if name == ".env" or (name.startswith(".env.") and not name.endswith((".example", ".sample", ".template"))):
-            out.append(p)
-    return out
+    return [ROOT / x for x in raw.decode("utf-8", "replace").split("\0") if x]
 
 
 def main() -> int:
     findings = scan_paths([p for p in tracked_files() if p.is_file()], ROOT)
-    for p in untracked_env_files():
+    for p in untracked_files():
         if not p.is_file():
             continue
         rel = p.relative_to(ROOT).as_posix()
@@ -253,7 +259,7 @@ def main() -> int:
         except OSError:
             continue
         for item in scan_text(text, rel, entropy=True):
-            findings.append(f"{item} (untracked .env on disk)")
+            findings.append(f"{item} (непрослеженный файл на диске)")
     if findings:
         print("Potential secrets detected:", file=sys.stderr)
         for item in findings:

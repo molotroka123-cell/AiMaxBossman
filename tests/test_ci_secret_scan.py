@@ -156,3 +156,50 @@ def test_astra_sec103_nested_pem_corrupt_and_oversize_zip_are_not_clean(tmp_path
     with zipfile.ZipFile(big, "w", compression=zipfile.ZIP_DEFLATED) as z:
         z.writestr("large.txt", b"x" * 2_000_001)
     assert scan.scan_paths([big], tmp_path)
+
+
+def test_an_untracked_file_that_is_not_env_is_scanned_too(tmp_path, monkeypatch):
+    """Ложное «в дереве чисто» опаснее всего ровно перед `git add -A`.
+
+    Прежде непрослеженные файлы сканировались только если назывались `.env*`.
+    Найдено обратным контролем: настоящий ключ провайдера, положенный во
+    временный `tools/*.py`, сканер не увидел и ответил PASS — а следующим шагом
+    такой файл добавляют в индекс. В CI до коммита он бы не дожил, но именно
+    локальный прогон читают как «проверено, можно коммитить».
+
+    Здесь проверяется обе стороны: непрослеженный `.py` с канарейкой ловится,
+    а `.env` не перестал ловиться от расширения охвата.
+    """
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    monkeypatch.setattr(scan, "ROOT", tmp_path)
+
+    fake_or = "sk-or-v1-" + "0f1e2d3c4b5a69788796a5b4c3d2e1f0" * 2   # ci-secret-scan: allow
+    fake_oa = "sk-" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4"                  # ci-secret-scan: allow
+    (tmp_path / "notes.py").write_text(f'KEY = "{fake_or}"\n', encoding="utf-8")
+    (tmp_path / ".env").write_text(f"OPENAI_API_KEY={fake_oa}\n", encoding="utf-8")
+
+    found = {p.name for p in scan.untracked_files()}
+    assert "notes.py" in found, "непрослеженный .py не попал в охват сканера"
+    assert ".env" in found, "расширение охвата потеряло прежнее покрытие .env"
+
+
+def test_ignored_paths_stay_out_of_the_untracked_sweep(tmp_path, monkeypatch):
+    """Обратный контроль: расширение охвата не должно тащить venv и кэши.
+
+    Без него тест выше был бы зелёным и у сборщика, который просто вернул ВСЁ
+    подряд, — а такой сканер тонет в шуме и его перестают читать.
+    """
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    monkeypatch.setattr(scan, "ROOT", tmp_path)
+    (tmp_path / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    (tmp_path / ".venv").mkdir()
+    (tmp_path / ".venv" / "leftover.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "real.py").write_text("y = 2\n", encoding="utf-8")
+
+    found = {p.name for p in scan.untracked_files()}
+    assert "real.py" in found
+    assert "leftover.py" not in found, "игнорируемое дерево попало в охват — это шум"
