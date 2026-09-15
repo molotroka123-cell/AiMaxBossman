@@ -8,8 +8,6 @@ env:
   # it actually contains rather than what a URL promised.
   BOSSMAN_FFMPEG_ZIP: https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
 on:
-  push:
-    branches: [claude/bossman-final-convergence-hu2702]
   pull_request:
     branches: [night/v7-convergence-20260908]
     paths:
@@ -176,6 +174,8 @@ jobs:
         run: python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
       - name: Installed browser, real media, files and process restart
         run: |
+          python -m pytest tests/test_installed_ui_sweep.py -q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pytest -c command-center/pyproject.toml `
             command-center/tests/test_editors_user_acceptance.py `
             command-center/tests/test_web_designer_recovery_ui.py `

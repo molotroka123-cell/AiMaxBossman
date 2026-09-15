@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import errno
 from fractions import Fraction
+from functools import lru_cache
 import hashlib
 import json
 import math
@@ -17,6 +18,24 @@ import re
 import tempfile
 
 from .media import MediaLibrary, TICKS, binary, blocking, digest_file, input_args, probe, process
+
+
+@lru_cache(maxsize=8)
+def filter_graph_option(ffmpeg: str, mtime_ns: int, size: int) -> str:
+    """Keep large graphs in files on both legacy and current FFmpeg builds.
+
+    Current FFmpeg removed -filter_complex_script; FFmpeg 6 does not accept
+    its replacement -/filter_complex. Probe the installed binary once, and
+    invalidate the choice when it is replaced. Inline graphs would exceed the
+    Windows command-line limit for ordinary multi-clip projects.
+    """
+    import subprocess
+    result = subprocess.run([ffmpeg, "-hide_banner", "-h", "full"],
+                            capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=30, check=True)
+    return ("-filter_complex_script" if re.search(r"(?m)^-filter_complex_script\s", result.stdout)
+            else "-/filter_complex")
+
 
 EFFECT_PARAMETERS = {
     "eq":{"brightness","contrast","saturation","gamma"}, "color":{"brightness","contrast","saturation","gamma"},
@@ -719,8 +738,11 @@ async def render_project(project, root, output_path, options=None, progress=None
         # Output -t quantizes some non-aligned durations down (e.g. 0.69s
         # at 25fps). Enforce the declared integer count instead; audio remains
         # independently bounded by atrim, and both streams are verified below.
-        argv=[binary("ffmpeg"),"-hide_banner","-loglevel","warning","-nostdin","-y",*compiler.inputs,
-            "-filter_complex_script",str(graph),"-filter_complex_threads","2","-map",f"[{v}]","-map",f"[{a}]",
+        ffmpeg = binary("ffmpeg")
+        stat = Path(ffmpeg).stat()
+        graph_option = await blocking(filter_graph_option, ffmpeg, stat.st_mtime_ns, stat.st_size)
+        argv=[ffmpeg,"-hide_banner","-loglevel","warning","-nostdin","-y",*compiler.inputs,
+            graph_option,str(graph),"-filter_complex_threads","2","-map",f"[{v}]","-map",f"[{a}]",
             "-frames:v",str(expected_frames),"-c:v",codec,"-c:a",audio_codec,"-ar","48000","-ac","2","-color_primaries","bt709","-color_trc","bt709","-colorspace","bt709","-color_range","tv"]
         if codec in {"libx264","libx265"}:
             preset=options.get("preset","veryfast")

@@ -19,6 +19,56 @@ import tempfile
 from types import SimpleNamespace
 
 
+def stop_owned_process_tree(process, stop_parent) -> None:
+    """Stop only descendants of this sweep's app, before deleting its data.
+
+    Managed apps intentionally survive a BCC restart. They must not survive
+    disposal of this isolated test installation, especially on Windows where
+    an active child keeps its working directory locked.
+    """
+    import psutil
+    try:
+        parent = psutil.Process(process.pid)
+        # Some managed execution environments remap Popen PIDs. Never touch a
+        # process tree unless its command line matches the child we launched.
+        if (parent.cmdline()[1:] != list(process.args)[1:]
+                or not os.path.samefile(parent.exe(), process.args[0])):
+            raise RuntimeError('Cannot verify the sweep process identity for cleanup')
+        children = parent.children(recursive=True)
+    except psutil.NoSuchProcess:
+        children = []
+    stop_parent(process)
+    for child in reversed(children):
+        try:
+            child.terminate()
+        except psutil.NoSuchProcess:
+            pass
+    _, alive = psutil.wait_procs(children, timeout=5)
+    for child in alive:
+        try:
+            child.kill()
+        except psutil.NoSuchProcess:
+            pass
+    _, alive = psutil.wait_procs(alive, timeout=5)
+    alive = [child for child in alive if child.status() != psutil.STATUS_ZOMBIE]
+    if alive:
+        raise RuntimeError('Sweep child processes did not stop; private data retained')
+
+
+def write_report(output, sha, identity, pages, clicks):
+    counts = {}
+    for click in clicks:
+        counts[click.verdict] = counts.get(click.verdict, 0) + 1
+    review = any(counts.get(name, 0) for name in ('dead', 'error', 'disabled_silent', 'vanished'))
+    report = {'status': 'REVIEW_REQUIRED' if review else 'PASS', 'source_sha': sha,
+              'identity': identity, 'pages': pages, 'counts': counts,
+              'scope': 'Visible button classes in fresh empty app; nested dialogs, owner accounts and model work need separate scenarios.',
+              'clicks': [asdict(click) for click in clicks]}
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, ensure_ascii=True, indent=2), encoding='utf-8')
+    print(json.dumps({'status': report['status'], 'pages': len(pages), 'counts': counts}))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path, required=True)
@@ -54,25 +104,32 @@ def main() -> int:
             raise RuntimeError('Packaged UI page registry is empty')
         with (data / 'private-server.log').open('w', encoding='utf-8') as log:
             process = launch(data, port, log)
+            client = None
             try:
                 client, _ = connect(process, data, port)
-                client.close()
                 app = SimpleNamespace(url=f'http://127.0.0.1:{port}',
                     svc=SimpleNamespace(auth=SimpleNamespace(token=(data / TOKEN_FILE).read_text().strip())))
                 clicks = module.sweep(app, pages, headed=False)
+                # Preserve observations even if process/data cleanup fails.
+                # The failed CI job still prevents a successful freeze.
+                write_report(args.output, args.expected_sha, identity, pages, clicks)
             finally:
-                stop(process)
-    counts = {}
-    for click in clicks:
-        counts[click.verdict] = counts.get(click.verdict, 0) + 1
-    review = any(counts.get(name, 0) for name in ('dead', 'error', 'disabled_silent', 'vanished'))
-    report = {'status': 'REVIEW_REQUIRED' if review else 'PASS', 'source_sha': args.expected_sha,
-              'identity': identity, 'pages': pages, 'counts': counts,
-              'scope': 'Visible button classes in fresh empty app; nested dialogs, owner accounts and model work need separate scenarios.',
-              'clicks': [asdict(click) for click in clicks]}
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, ensure_ascii=True, indent=2), encoding='utf-8')
-    print(json.dumps({'status': report['status'], 'pages': len(pages), 'counts': counts}))
+                try:
+                    if client is not None:
+                        # The app manager knows its detached children too.
+                        # Restore permission only in this disposable sandbox,
+                        # because the sweep may have toggled it off.
+                        client.put('/api/apps/control/policy', json={'enabled': True}).raise_for_status()
+                        response = client.get('/api/apps')
+                        response.raise_for_status()
+                        for app in response.json()['apps']:
+                            client.post('/api/apps/' + app['id'] + '/stop').raise_for_status()
+                except Exception as error:
+                    print('App API cleanup needs scoped process fallback: ' + type(error).__name__)
+                finally:
+                    if client is not None:
+                        client.close()
+                    stop_owned_process_tree(process, stop)
     # Review findings remain visible in the freeze manifest; they are not
     # automatically called product defects or hidden behind a green assertion.
     return 0
