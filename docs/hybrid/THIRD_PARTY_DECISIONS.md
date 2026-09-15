@@ -296,6 +296,15 @@ so its idle cost is zero and §7's rule about daemons does not apply to it at
 all. `pip` stays a working path and is exercised by the same acceptance script —
 that is the rollback.
 
+**Where uv must not go, stated so the gap is not mistaken for unfinished work.**
+`scripts/verify_clean_install.py` deliberately keeps installing with `pip`, and
+its installer must not be swapped. That script exists to prove **the owner** can
+install the product, and the owner installs with pip; replacing the installer
+would produce a green acceptance for a path nobody walks. uv does not always
+resolve identically to pip, so "passed under uv" is not "will pass under pip".
+uv's place is the developer and CI loop, where speed matters and reproducing the
+owner's exact path does not.
+
 ### watchfiles — the premise was withdrawn, not the project
 
 It was proposed for exactly one named number: *"3.0 % of one core on polling the
