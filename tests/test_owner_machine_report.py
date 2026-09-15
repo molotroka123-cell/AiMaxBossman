@@ -231,3 +231,43 @@ def test_every_stage_states_what_it_does_not_prove():
 def test_the_seven_stages_are_never_collapsed_into_one_number(name):
     built = report.build_report()
     assert name in [s["stage"] for s in built["stages"]]
+
+
+# --- достижимость в раскладке архива ---------------------------------------
+
+def test_the_report_finds_its_neighbour_in_the_flat_archive_layout(tmp_path):
+    """BL-036 и BL-050 — один и тот же класс: инструмент работает в клоне и не
+    работает там, где его запускает адресат. Здесь это проверено буквально.
+
+    В архиве все вспомогательные файлы лежат ПЛОСКО в `app-support`, launcher
+    зовёт их по абсолютному пути, и текущий каталог у владельца — любой. Стадия
+    железа опирается на соседний `target_hardware_acceptance.py`; если импорт
+    там не сойдётся, она молча ответит «не измерено», и владелец не узнает про
+    свою машину ничего.
+    """
+    import shutil
+    import subprocess
+
+    sys.path.insert(0, str(ROOT / "tools"))
+    import build_windows_bundle as bundle  # noqa: E402
+
+    support = tmp_path / "app-support"
+    support.mkdir()
+    for origin, name in bundle.SUPPORT_SCRIPTS:
+        shutil.copyfile(origin, support / name)
+    assert (support / "owner_machine_report.py").is_file()
+    assert (support / "target_hardware_acceptance.py").is_file(), (
+        "определитель железа не едет в архив — стадия железа станет слепой")
+
+    # Изолированный режим и ЧУЖОЙ текущий каталог: -I убирает каталог скрипта
+    # из пути поиска, а владелец запускает launcher откуда угодно.
+    proc = subprocess.run([sys.executable, "-I", str(support / "owner_machine_report.py")],
+                          cwd=str(tmp_path), capture_output=True, text=True, timeout=120)
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert "BOSSMAN_OWNER_MACHINE=" in proc.stdout
+    assert "определитель железа недоступен" not in proc.stdout, (
+        "в плоской раскладке архива отчёт не нашёл соседний определитель железа:\n"
+        + proc.stdout[:1500])
+    # Стадия железа обязана СКАЗАТЬ что-то о машине, а не промолчать.
+    hardware = [line for line in proc.stdout.splitlines() if " hardware " in line]
+    assert hardware and "NOT_MEASURED" not in hardware[0], hardware
