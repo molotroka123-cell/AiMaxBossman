@@ -77,6 +77,12 @@ KILLS_HARNESS = re.compile(
 SETTLE_MS = 700          # сколько ждать последствий нажатия
 PAGE_SETTLE_MS = 900     # сколько ждать первой отрисовки страницы
 APP_START_ROUTE = re.compile(r'/api/apps/[^/?#]+/start(?:\?[^#]*)?$')
+APP_REFRESH_ROUTE = re.compile(r'/api/apps\?refresh=true(?:&[^#]*)?$')
+
+
+def _tracked_request(method, url):
+    return method in ('POST', 'PUT', 'PATCH', 'DELETE') or (
+        method == 'GET' and bool(APP_REFRESH_ROUTE.search(url)))
 
 
 def _app_start_problem(payload):
@@ -228,7 +234,25 @@ def _fresh_page(page, app: "LiveApp", pid: str) -> None:
         page.click("#login-submit")
         page.wait_for_selector("#shell:not([hidden])", timeout=20000)
         page.goto(f"{app.url}/#/{pid}", wait_until="domcontentloaded")
+    _wait_rendered(page, pid)
     page.wait_for_timeout(PAGE_SETTLE_MS)
+
+
+def _wait_rendered(page, pid):
+    # renderPage replaces its skeleton only after awaited page.render().
+    # DOMContentLoaded alone happens before lazy imports and API responses.
+    page.wait_for_function("""pid => {
+      const view = document.querySelector('#view');
+      if (!view || !view.childElementCount || view.querySelector('.skeleton')) return false;
+      if (pid !== 'apps') return true;
+      return !!view.querySelector('.bx-apps-grid') ||
+        view.innerText.includes('Приложений пока нет') ||
+        view.innerText.includes('Список приложений не загрузился');
+    }""", arg=pid, timeout=20000)
+    if pid == 'apps':
+        error = page.locator('#view').get_by_text('Список приложений не загрузился', exact=True)
+        if error.count() and error.first.is_visible():
+            raise RuntimeError('Application registry failed to load')
 
 
 def _dom_fingerprint(page) -> str:
@@ -340,13 +364,13 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                 if r.method in ("POST", "PUT", "PATCH", "DELETE") else None)
         failures: list[str] = []
         page.on("response", lambda r: failures.append(f"{r.status} {r.url}")
-                if r.status >= 500 or (r.status >= 400 and r.request.method in ("POST", "PUT", "PATCH", "DELETE")) else None)
+                if r.status >= 500 or (r.status >= 400 and _tracked_request(r.request.method, r.url)) else None)
         page.on("response", lambda r: responses.append(f"{r.status} {r.request.method} {r.url}")
                 if 200 <= r.status < 300 and r.request.method in ("POST", "PUT", "PATCH", "DELETE") else None)
         page.on('response', lambda r: read_responses.append(f'{r.status} GET {r.url}')
                 if r.request.method == 'GET' and 200 <= r.status < 300 else None)
         page.on('request', lambda r: pending.add(f'{r.method} {r.url}')
-                if r.method in ('POST', 'PUT', 'PATCH', 'DELETE') else None)
+                if _tracked_request(r.method, r.url) else None)
         page.on('response', lambda r: pending.discard(f'{r.request.method} {r.url}'))
         def verify_app_start(response):
             if response.request.method == 'POST' and APP_START_ROUTE.search(response.url) and response.ok:
@@ -494,6 +518,11 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                 if any(APP_START_ROUTE.search(request) for request in pending):
                     from bcc.features.apps_control import READY_TIMEOUT
                     timeout = READY_TIMEOUT + 5
+                elif any(APP_REFRESH_ROUTE.search(request) for request in pending):
+                    # Registry probes run concurrently; each can perform
+                    # health and optional metrics sequentially.
+                    from bcc.features.apps import PROBE_TIMEOUT
+                    timeout = 2 * PROBE_TIMEOUT + 5
                 deadline = time.monotonic() + timeout
                 while pending and time.monotonic() < deadline:
                     page.wait_for_timeout(100)

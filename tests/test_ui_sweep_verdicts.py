@@ -65,3 +65,10 @@ def test_refresh_and_explicit_initial_state_do_not_claim_changes():
 ])
 def test_app_start_2xx_requires_actual_readiness_without_leaking_logs(payload, expected):
     assert sweep._app_start_problem(payload) == expected
+
+
+def test_explicit_registry_refresh_is_awaited_without_tracking_background_gets():
+    assert sweep._tracked_request('GET', 'http://127.0.0.1:123/api/apps?refresh=true')
+    assert not sweep._tracked_request('GET', 'http://127.0.0.1:123/api/apps')
+    assert not sweep._tracked_request('GET', 'http://127.0.0.1:123/api/tasks')
+    assert sweep._tracked_request('POST', 'http://127.0.0.1:123/api/tasks')
