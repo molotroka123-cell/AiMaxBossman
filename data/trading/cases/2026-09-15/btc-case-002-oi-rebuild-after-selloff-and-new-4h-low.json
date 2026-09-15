@@ -1,0 +1,109 @@
+{
+  "canonical_case_id": "CASE-002",
+  "event_type": "MULTI_SNAPSHOT_SEQUENCE_AUDIT",
+  "received_date": "2026-09-15",
+  "source": "User-supplied MEXC and Coinwise/K1m6a screenshots; visually inspected; not an independently synchronized market feed",
+  "source_images": [
+    {"name": "IMG_4756.png", "role": "MEXC_4h_09_59", "sha256": "5ed90b011303f600c9df08c595470f54026ee8da7b2cb5614cbaf06a8e3b8039"},
+    {"name": "IMG_4753.png", "role": "MEXC_4h_09_23", "sha256": "8cd31460fef3d9bdb6852c85ed0b7362b158f4f22082aba83e68f2e6eaca0329"},
+    {"name": "IMG_4752(1).jpeg", "role": "Coinwise_price_levels_07_11", "sha256": "e03cdbd029d8a47a29688e7174408596f5751f7bf50348429420b535f7501b2b"},
+    {"name": "IMG_4751(1).png", "role": "Coinwise_cvd_oi_liquidations_07_11", "sha256": "d247241bfdc4b9d76bbda31fdf39e62e02278e26a3a54b9bf3ebc57597e70aa9"}
+  ],
+  "observed": {
+    "mexc_09_23": {
+      "price": 76916.0,
+      "fair_price": 76915.9,
+      "24h_high": 79569.0,
+      "24h_low": 76667.3,
+      "timeframe": "4h",
+      "ma50": 77824.0,
+      "ma100": 78376.4,
+      "ma200": 75226.7,
+      "sar_display": 78667.3
+    },
+    "mexc_09_59": {
+      "price": 76484.8,
+      "fair_price": 76483.0,
+      "24h_high": 79569.0,
+      "24h_low": 76087.4,
+      "timeframe": "4h",
+      "ma50": 77815.4,
+      "ma100": 78372.1,
+      "ma200": 75224.6,
+      "sar_display": 79569.0
+    },
+    "mexc_sequence": {
+      "price_change_09_23_to_09_59": -431.2,
+      "price_change_percent_approx": -0.5606,
+      "new_24h_low_printed": true,
+      "price_below_ma50": true,
+      "price_below_ma100": true,
+      "price_above_ma200": true
+    },
+    "coinwise_07_11": {
+      "chart_price": 76925.0,
+      "cvd_billion_displayed": 58.13,
+      "open_interest_billion_displayed": 18.22,
+      "long_liquidations_displayed": "4.57K",
+      "short_liquidations_displayed": "-24.51K",
+      "liquidations_delta_moving_average_displayed": "-595.92K",
+      "levels": {
+        "dPOC": 76935,
+        "dVAL": 76700,
+        "tZone": 76480,
+        "dIVAH": 77320,
+        "dOpen": 77590,
+        "nPOC": 77895
+      },
+      "cvd_path": "Mostly flat to mildly recovering after an earlier decline; no large new upside expansion at the right edge.",
+      "oi_path": "OI first declined into a trough, then turned upward and rebuilt toward 18.22B while price was already in the lower consolidation area. The visible OI upswing is post-selloff/late-stage, not evidence that OI rose throughout the main waterfall."
+    }
+  },
+  "sequence_finding": {
+    "question": "Did OI begin rising during the main decline or only after price was already lower?",
+    "answer": "On the supplied Coinwise frame, the visible OI rise begins after the major OI decline has already occurred and while price is consolidating near the lower value area. Therefore the correct label is POST_SELLOFF_OI_REBUILD, not OI_RISING_THROUGHOUT_SELLOFF.",
+    "direction_inference": "UNRESOLVED",
+    "reason": "Rising OI alone cannot identify whether the newly added exposure is net-new longs, net-new shorts, or a two-sided leverage rebuild. CVD is not showing a strong contemporaneous upside expansion, and later MEXC screenshots print a lower price/new 24h low."
+  },
+  "assessment": {
+    "status": "NO_CONFIRMED_LONG_TRIGGER",
+    "4h_structure": "SHORT_TERM_BEARISH_BELOW_MA50_AND_MA100_BUT_ABOVE_MA200",
+    "important_learning": "The post-selloff OI rebuild was not bullish confirmation. Without price reclaim/hold and contemporaneous CVD improvement, it should be treated as leverage rebuilding near lows and a possible volatility/compression warning.",
+    "statistical_edge_proven": false,
+    "win_probability": null
+  },
+  "conditional_plan": {
+    "aggressive_long_candidate": {
+      "execution_market": "MEXC BTCUSDT perpetual only after checking a fresh synchronized quote",
+      "location": "around the printed 24h-low region 76087 and the prior visible 76030 low",
+      "required_trigger": "Sweep/test followed by reclaim and a higher local low; no blind limit entry based on location alone.",
+      "first_reclaim_reference": [76650, 76700],
+      "stronger_reclaim_reference": [76900, 77000],
+      "invalidated_if": "Price accepts below the confirmed sweep/retest low rather than quickly reclaiming it."
+    },
+    "downside_if_support_fails": {
+      "next_major_4h_reference": 75224.6,
+      "note": "MA200 is a structural reference, not an automatic buy order or permission to widen an existing stop."
+    },
+    "short_candidate": {
+      "required_trigger": "A rebound into a reclaimed-lost area that fails, with price rolling over and CVD weakening; do not chase an already extended red candle.",
+      "current_trigger_confirmed": false
+    }
+  },
+  "data_quality": {
+    "coinwise_and_mexc_synchronized": false,
+    "coinwise_time_zone_verified": false,
+    "same_contract_verified": false,
+    "basis_known": false,
+    "warning": "Do not translate Coinwise levels one-for-one into MEXC orders. Use Coinwise for structure/order-flow context and MEXC for execution only after synchronized confirmation.",
+    "liquidation_interval_known": false,
+    "not_verified_training_ground_truth": true
+  },
+  "learning_summary": [
+    "Classify OI by timing, not just sign: during the impulse, after the impulse, or during the reclaim.",
+    "Post-selloff OI rising + flat CVD + no price reclaim is leverage rebuild, not a long signal.",
+    "If price later makes a new low after OI rebuild, mark the earlier OI rise as failed bullish confirmation rather than retrofitting it into a successful signal.",
+    "A long edge requires location plus reaction plus confirmation; location alone is insufficient.",
+    "Keep execution-market levels separate from analytical-feed levels until basis and timestamps are synchronized."
+  ]
+}
