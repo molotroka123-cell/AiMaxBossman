@@ -72,7 +72,7 @@ export default {
       return control;
     };
     const saveMemory = async backend => {
-      if (!memoryRoot.value.trim()) throw new Error('Укажите папку с заметками.');
+      if (!memoryRoot.value.trim()) { memoryMessage.textContent = 'Укажите папку с заметками.'; return; }
       memoryConfig = await api.raw('/api/memory/config', { method: 'POST', body: {
         ...memoryConfig, root: memoryRoot.value.trim(), backend,
         qdrant: backend === 'qdrant' ? { endpoint: embeddingUrl.value.trim(), model: embeddingModel.value.trim(),
@@ -93,11 +93,15 @@ export default {
         h('div.row', memoryAction('Включить Qdrant', () => saveMemory('qdrant')),
           memoryAction('Использовать обычный поиск', () => saveMemory('sqlite')),
           memoryAction('Обновить индекс', async () => {
+            if (!memoryRoot.value.trim()) {
+              memoryMessage.textContent = 'Сначала укажите папку с заметками и сохраните настройки.';
+              return;
+            }
             const result = await api.raw('/api/memory/index', { method: 'POST', body: {} });
             memoryMessage.textContent = result.result?.error || 'Индекс обновлён.';
           })),
         field('Запрос', query), memoryAction('Найти в заметках', async () => {
-          if (!query.value.trim()) throw new Error('Введите запрос.');
+          if (!query.value.trim()) { memoryMessage.textContent = 'Введите запрос.'; return; }
           memoryOutput.value = '';
           const result = await api.raw('/api/memory/search', { method: 'POST', body: { query: query.value.trim() } });
           memoryOutput.value = result.items.map(item => `${item.source}\n${item.content}`).join('\n\n');
