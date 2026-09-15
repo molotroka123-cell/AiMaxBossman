@@ -270,7 +270,7 @@ def _known_state(target, pid):
           result.empty_attachments = 'file input has 0 files; attachment names empty';
       }
       return result;
-    }""", pid)
+    }""", pid, timeout=1000)
 
 
 def _classify(*, failures, console, page_errors, requests, responses,
@@ -476,7 +476,7 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                 after_dom = _dom_fingerprint(page)
                 after_url = page.url
                 try:
-                    after_state = _known_state(target, pid)
+                    after_state = _known_state(target, pid) if initial_state else {}
                 except Exception:
                     after_state = {}
                 verdict, detail = _classify(failures=failures, console=console,
