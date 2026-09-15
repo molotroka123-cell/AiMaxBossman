@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 226. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 227. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -47,6 +47,7 @@
 | `command-center/tests/test_oss_docling.py:179` | importorskip | `—` | нет пакета docling.document_converter | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_oss_docling.py:182` | importorskip | `—` | нет пакета openpyxl | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_oss_docling.py:186` | importorskip | `—` | нет пакета pptx | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_memory_refusals.py:40` | skipif | `not chromium_available()` | reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_oss_qdrant.py:41` | importorskip | `—` | нет пакета qdrant_client | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_oss_qdrant.py:111` | importorskip | `—` | нет пакета qdrant_client | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_oss_qdrant.py:164` | importorskip | `—` | нет пакета qdrant_client | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -200,7 +201,7 @@
 | `tests/test_evidence_signing_shared.py:39` | skip | `—` | POSIX-семантика режима файла 0o600; на Windows права задаёт icacls (см. W8) | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evidence_signing_shared.py:128` | skip | `—` | на Windows сужение прав честно выполняется через icacls (см. W8) | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_fable_budget_pricing.py:97` | skip | `—` | canonical_budget not exposed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `tests/test_installed_ui_sweep.py:30` | skip | `—` | Managed execution remaps Popen PIDs; native process-tree test required | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_installed_ui_sweep.py:31` | skip | `—` | Managed execution remaps Popen PIDs; native process-tree test required | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_intelligence_preservation_runner.py:106` | skip | `—` | f"bossman-core (production-петля) недоступен, необязательный "
                     f"пакет не установлен: {exc}" | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_learning_trace.py:304` | skipif | `sys.platform.startswith("win")` | POSIX flock/fcntl отсутствует на Windows | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
