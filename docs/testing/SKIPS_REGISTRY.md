@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 208. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 221. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -39,6 +39,17 @@
 | `command-center/tests/test_mission_console.py:42` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_openrouter_connect_ui.py:9` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_openrouter_provider_isolation.py:754` | skip | `—` | Node недоступен: контракты страницы не исполнялись | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_docling.py:135` | importorskip | `—` | нет пакета docling.document_converter | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_docling.py:136` | importorskip | `—` | нет пакета docx | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_docling.py:153` | importorskip | `—` | нет пакета docling.document_converter | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_docling.py:179` | importorskip | `—` | нет пакета docling.document_converter | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_docling.py:182` | importorskip | `—` | нет пакета openpyxl | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_docling.py:186` | importorskip | `—` | нет пакета pptx | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_qdrant.py:41` | importorskip | `—` | нет пакета qdrant_client | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_qdrant.py:111` | importorskip | `—` | нет пакета qdrant_client | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_ui.py:7` | skipif | `not chromium_available()` | reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_ui.py:11` | importorskip | `—` | нет пакета docling | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_whisper.py:146` | importorskip | `—` | нет пакета faster_whisper | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_control_ui.py:15` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_path_latency.py:80` | skip | `—` | first.reason | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_path_latency.py:97` | skip | `—` | first.reason | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -167,6 +178,8 @@
 | `bossman-core/tests/test_trading_pipeline_benchmark.py:91` | skip | `—` | ffmpeg present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_trading_pipeline_benchmark.py:102` | skip | `—` | ASR engine present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_trading_pipeline_benchmark.py:109` | skip | `—` | OCR engine present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_uitars_grounding.py:41` | importorskip | `—` | UI-TARS image tests require the optional Pillow runtime | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_uitars_grounding.py:63` | importorskip | `—` | нет пакета PIL.Image | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_v26_artifacts_engine.py:21` | skipif | `not DSN` | SKIP_HOST: no BOSSMAN_TEST_PG_DSN (real PostgreSQL) available | Bossman Core | реальный PostgreSQL | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_v26_file_intel.py:223` | importorskip | `—` | разбор PDF ставится extra `documents` | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_v26_file_intel.py:309` | importorskip | `—` | нет пакета openpyxl | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
