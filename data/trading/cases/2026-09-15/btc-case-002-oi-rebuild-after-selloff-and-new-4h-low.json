@@ -7,7 +7,9 @@
     {"name": "IMG_4756.png", "role": "MEXC_4h_09_59", "sha256": "5ed90b011303f600c9df08c595470f54026ee8da7b2cb5614cbaf06a8e3b8039"},
     {"name": "IMG_4753.png", "role": "MEXC_4h_09_23", "sha256": "8cd31460fef3d9bdb6852c85ed0b7362b158f4f22082aba83e68f2e6eaca0329"},
     {"name": "IMG_4752(1).jpeg", "role": "Coinwise_price_levels_07_11", "sha256": "e03cdbd029d8a47a29688e7174408596f5751f7bf50348429420b535f7501b2b"},
-    {"name": "IMG_4751(1).png", "role": "Coinwise_cvd_oi_liquidations_07_11", "sha256": "d247241bfdc4b9d76bbda31fdf39e62e02278e26a3a54b9bf3ebc57597e70aa9"}
+    {"name": "IMG_4751(1).png", "role": "Coinwise_cvd_oi_liquidations_07_11", "sha256": "d247241bfdc4b9d76bbda31fdf39e62e02278e26a3a54b9bf3ebc57597e70aa9"},
+    {"name": "IMG_4768.jpeg", "role": "Coinwise_later_price_reclaim", "sha256": "0b29bab02f1c4f3977ab6cd055fe39a1d157e31b569be0a9e248d81e507ca6e4"},
+    {"name": "IMG_4767.jpeg", "role": "Coinwise_later_cvd_oi_liquidations", "sha256": "de1a9a22b0c6c69116cc1dcf22e4582a4eeb1a3b4de462e3c89157593d3c6010"}
   ],
   "observed": {
     "mexc_09_23": {
@@ -57,36 +59,57 @@
       },
       "cvd_path": "Mostly flat to mildly recovering after an earlier decline; no large new upside expansion at the right edge.",
       "oi_path": "OI first declined into a trough, then turned upward and rebuilt toward 18.22B while price was already in the lower consolidation area. The visible OI upswing is post-selloff/late-stage, not evidence that OI rose throughout the main waterfall."
+    },
+    "coinwise_later_reclaim": {
+      "chart_price_displayed_approx": 77020,
+      "cvd_billion_displayed": 57.81,
+      "open_interest_billion_displayed": 18.29,
+      "long_liquidations_displayed": "768",
+      "short_liquidations_displayed": "-8.62M",
+      "liquidations_delta_moving_average_displayed": "-1.18M",
+      "buy_volume_displayed": "335.96M",
+      "levels": {
+        "dVAL": 76230,
+        "dPOC": 76885,
+        "dIVAH": 77205,
+        "dOpen": 77500,
+        "ntPOC": 77895
+      },
+      "price_path": "Visible downside sweep below the prior lower area followed by a sharp reclaim toward 77k.",
+      "oi_path": "OI rebuilt after the selloff but curls lower at the right edge while price rebounds.",
+      "cvd_path": "CVD fell during the selloff and then bounced, but remained below the earlier 58.13B snapshot.",
+      "liquidation_interpretation": "The very large displayed short-liquidation burst coincides with the rebound, so a meaningful part of the immediate upside move is consistent with short covering/squeeze rather than clean evidence of fresh directional longs."
     }
   },
   "sequence_finding": {
     "question": "Did OI begin rising during the main decline or only after price was already lower?",
-    "answer": "On the supplied Coinwise frame, the visible OI rise begins after the major OI decline has already occurred and while price is consolidating near the lower value area. Therefore the correct label is POST_SELLOFF_OI_REBUILD, not OI_RISING_THROUGHOUT_SELLOFF.",
-    "direction_inference": "UNRESOLVED",
-    "reason": "Rising OI alone cannot identify whether the newly added exposure is net-new longs, net-new shorts, or a two-sided leverage rebuild. CVD is not showing a strong contemporaneous upside expansion, and later MEXC screenshots print a lower price/new 24h low."
+    "answer": "On the supplied Coinwise sequence, the visible OI rise begins after the major OI decline has already occurred and while price is already in the lower value area. Later, price sweeps lower and then reclaims while a large short-liquidation burst appears. The correct label remains POST_SELLOFF_OI_REBUILD followed by SWEEP_RECLAIM_WITH_SHORT_SQUEEZE_COMPONENT.",
+    "direction_inference": "CONDITIONAL_BULLISH_RECLAIM_NOT_YET_CLEAN_TREND_CONFIRMATION",
+    "reason": "The reclaim is real price evidence, but OI is not expanding cleanly with it and the displayed -8.62M short-liquidation burst means the rebound may be powered substantially by forced short covering. Fresh-long continuation must be proven by holding reclaimed value and then accepting above higher value references."
   },
   "assessment": {
-    "status": "NO_CONFIRMED_LONG_TRIGGER",
-    "4h_structure": "SHORT_TERM_BEARISH_BELOW_MA50_AND_MA100_BUT_ABOVE_MA200",
-    "important_learning": "The post-selloff OI rebuild was not bullish confirmation. Without price reclaim/hold and contemporaneous CVD improvement, it should be treated as leverage rebuilding near lows and a possible volatility/compression warning.",
+    "status": "RECLAIM_OBSERVED_BUT_DO_NOT_CHASE_SHORT_SQUEEZE",
+    "4h_structure": "SHORT_TERM_BEARISH_BELOW_MA50_AND_MA100_BUT_ABOVE_MA200_AT_LAST_MEXC_SNAPSHOT",
+    "important_learning": "Post-selloff OI rebuild alone was not bullish. The later sweep/reclaim improved the long case, but the simultaneous large short-liquidation burst means the first rebound should be classified as squeeze-assisted until price holds reclaimed value and follow-through appears without relying on forced covering.",
     "statistical_edge_proven": false,
     "win_probability": null
   },
   "conditional_plan": {
-    "aggressive_long_candidate": {
+    "long_candidate": {
       "execution_market": "MEXC BTCUSDT perpetual only after checking a fresh synchronized quote",
-      "location": "around the printed 24h-low region 76087 and the prior visible 76030 low",
-      "required_trigger": "Sweep/test followed by reclaim and a higher local low; no blind limit entry based on location alone.",
-      "first_reclaim_reference": [76650, 76700],
-      "stronger_reclaim_reference": [76900, 77000],
-      "invalidated_if": "Price accepts below the confirmed sweep/retest low rather than quickly reclaiming it."
+      "preferred_retest_area_from_coinwise_context": [76850, 76900],
+      "first_acceptance_reference": 77205,
+      "next_references_if_accepted": [77500, 77895],
+      "required_trigger": "Hold/reclaim the dPOC-area context, avoid immediate loss of the reclaimed zone, and preferably show price follow-through with CVD stabilizing or improving. A breakout above dIVAH should be retested rather than chased.",
+      "invalidated_if": "Price loses the reclaimed lower-value area and accepts back below it; a renewed loss of the sweep structure reopens the lower-tail scenario."
     },
-    "downside_if_support_fails": {
-      "next_major_4h_reference": 75224.6,
-      "note": "MA200 is a structural reference, not an automatic buy order or permission to widen an existing stop."
+    "downside_if_reclaim_fails": {
+      "coinwise_context_references": [76230, 76000],
+      "next_major_4h_reference_from_mexc": 75224.6,
+      "note": "These are structural references, not automatic buy orders or permission to widen an existing stop."
     },
     "short_candidate": {
-      "required_trigger": "A rebound into a reclaimed-lost area that fails, with price rolling over and CVD weakening; do not chase an already extended red candle.",
+      "required_trigger": "Failure at 77205/77500 or another reclaimed-lost area with price rolling over and CVD weakening; do not short solely because the squeeze already happened.",
       "current_trigger_confirmed": false
     }
   },
@@ -102,7 +125,9 @@
   "learning_summary": [
     "Classify OI by timing, not just sign: during the impulse, after the impulse, or during the reclaim.",
     "Post-selloff OI rising + flat CVD + no price reclaim is leverage rebuild, not a long signal.",
-    "If price later makes a new low after OI rebuild, mark the earlier OI rise as failed bullish confirmation rather than retrofitting it into a successful signal.",
+    "A later sweep and reclaim can upgrade the long hypothesis, but a large short-liquidation burst means the first rebound may be squeeze-driven rather than fresh-long driven.",
+    "If price rises while OI curls lower and short liquidations spike, label the move SHORT_COVERING_DOMINANT_OR_MIXED until follow-through proves otherwise.",
+    "Do not chase the first squeeze candle. Prefer a hold/retest of reclaimed value or acceptance above dIVAH with confirmation.",
     "A long edge requires location plus reaction plus confirmation; location alone is insufficient.",
     "Keep execution-market levels separate from analytical-feed levels until basis and timestamps are synchronized."
   ]
