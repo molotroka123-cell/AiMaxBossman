@@ -1,0 +1,105 @@
+{
+  "canonical_case_id": "CASE-002",
+  "event_type": "SCREENSHOT_OBSERVATION_AND_CONDITIONAL_ANALYSIS",
+  "received_date": "2026-09-14",
+  "capture_timestamp": null,
+  "source": "User-supplied Coinwise/K1m6a screenshots, visually inspected; not an independently verified live feed",
+  "source_images": [
+    {"name": "IMG_4750.jpeg", "role": "price_and_levels", "sha256": "43af9637d95318318f20e6075cef7e56b8893bb3c7616664d630160dea5e0ca0"},
+    {"name": "IMG_4749.jpeg", "role": "cvd_oi_liquidations", "sha256": "46c9175198b8500ee67403e1eae8bc124b3b69470a0449e9a184e994c87e14eb"}
+  ],
+  "observed": {
+    "market_context": "BTC",
+    "chart_price": 78100,
+    "quote_label": "USD",
+    "chart_min_tick": 5,
+    "exact_contract_and_exchange": null,
+    "timeframe": null,
+    "latest_bar_closed": null,
+    "cvd_billion_displayed": 61.23,
+    "oi_billion_displayed": 17.96,
+    "long_liquidations_displayed": "147.72K",
+    "short_liquidations_displayed": "-1.65K",
+    "liquidations_delta_moving_average_displayed": "962.68K",
+    "liquidation_interval": null,
+    "levels": {"dvah": 78855, "dpoc": 77815, "dopen": 77730, "dval": 77520},
+    "profile_price_marker": 77915,
+    "approximate_reference_zones": {
+      "previous_week_equilibrium": [78380, 78420],
+      "year_equilibrium": [77980, 78020]
+    },
+    "recent_tape_prices_approx": [77990, 78005],
+    "price_path": "Successive declining right-edge candles continue below the previously watched 78400 area toward 78100. No completed reversal base or held reclaim is visible.",
+    "cvd_path": "The earlier advance in CVD has flattened, with a small retreat from its local peak. No distinct new reversal-confirming surge is evident at the right edge.",
+    "oi_path": "OI declines along consecutive right-edge bars from its local peak above 18.4B to 17.96B."
+  },
+  "previous_event": {
+    "file": "data/trading/cases/2026-09-14/btc-2026-09-14-4746-4745-pullback-below-prior-watch-zone.json",
+    "prior_labels": {"chart_price": 78410, "cvd_billion": 61.23, "oi_billion": 18.04},
+    "displayed_label_arithmetic_only": {"price_difference": -310, "cvd_billion_difference_at_display_precision": 0, "oi_billion_difference": -0.08},
+    "same_series_verified": false,
+    "comparison_limit": "Tick size, price-profile labels and visual paths match, but exact contract, timestamps, indicator sources, settings and CVD anchor remain unverified. Label arithmetic is not a measured money flow, new-position count or perfectly synchronized interval comparison. Identical rounded CVD readings do not prove zero intervening delta.",
+    "verified_flow_delta": null,
+    "prior_78400_watch_zone_status": "CURRENT_PRICE_BELOW_ZONE",
+    "prior_stronger_long_repair_gate": [78600, 78650],
+    "prior_long_repair_gate_observed_now": false,
+    "intervening_retest_or_fill": "UNKNOWN"
+  },
+  "assessment": {
+    "status": "HYPOTHESIS_NOT_BACKTESTED",
+    "local_state": "CONTINUED_PRICE_DECLINE_CVD_NEAR_PREVIOUS_DISPLAY_OI_DOWN",
+    "interpretation": "The pullback continues despite declining OI and a relatively flat displayed CVD. This is compatible with net position reduction, not proof of a completed long flush, strong absorption or an imminent bottom. Net OI cannot identify the initiating side; USD valuation changes may affect a dollar-denominated OI series. Flat aggregate CVD does not prove an absence of sellers.",
+    "new_long_confirmed": false,
+    "new_short_confirmed": false,
+    "statistical_edge_proven": false,
+    "win_probability": null,
+    "default_action": "WAIT_FOR_PRICE_CONFIRMATION; no blind market long or averaging ladder justified by this screenshot"
+  },
+  "conditional_scenarios": {
+    "lower_zone_observation": {
+      "first_zone": [77915, 78020],
+      "next_zone": [77730, 77815],
+      "further_reference_level": 77520,
+      "status": "OBSERVATION_ZONES_NOT_BUY_ORDERS",
+      "requirements": "Observe whether price stops making local lows, forms a base or sweep/reclaim, and improves on a retest while CVD stabilizes. A touch alone is not confirmation."
+    },
+    "long_repair": {
+      "early_repair_observation": "Return above approximately 78400 and hold a retest would show initial structural repair, not automatically trigger an entry.",
+      "preserved_stronger_confirmation": "The prior 78600-78650 reclaim plus held retest remains the stronger repair gate. Do not lower this gate merely because price fell further.",
+      "invalidation": "Any separately confirmed entry must have a predefined retest-low invalidation honored regardless of the OI direction.",
+      "status": "NOT_CONFIRMED"
+    },
+    "short_failed_recovery": {
+      "candidate_areas": [[78380, 78420], [78600, 78650]],
+      "trigger": "A later rebound into a broken area fails, price forms a local lower high and CVD weakens over the same interval.",
+      "status": "NOT_CONFIRMED",
+      "risk_gate": "Do not chase the current extended downswing toward nearby lower reference levels. Require an explicit stop and sufficient reward relative to risk after fees and slippage."
+    }
+  },
+  "quality_risk_and_privacy": {
+    "mexc_execution_quote": null,
+    "synchronized_reference_execution_basis": null,
+    "source_price_warning": "Main chart 78100 differs from tape near 78000. The tape is not a verified MEXC quote; do not transfer reference levels to executable orders using an assumed fixed offset.",
+    "liquidation_warning": "Right-edge labels refer to an unknown interval, not cumulative session totals. A smaller later long-liquidation label does not establish that liquidation pressure ended. Minus is plotting direction. Do not add the moving average to liquidation volume.",
+    "position_state": "UNKNOWN_CURRENT",
+    "order_fills_inferred": false,
+    "orders_placed": false,
+    "case_number_changed": false,
+    "case_registry_unchanged": true,
+    "raw_images_published": false,
+    "personal_account_data_published": false
+  },
+  "learning_summary": [
+    "Falling OI did not prevent the visible continuation lower; never label it automatically constructive for longs.",
+    "An unchanged rounded CVD reading is not proof of absent selling or buy-side absorption.",
+    "Watch zones, triggered entries and executed positions must remain separate.",
+    "Preserve prior triggers and invalidation; do not move the goalposts to each lower support.",
+    "Price-based risk limits must not require a simultaneous OI increase.",
+    "A profitable later bounce would not retrospectively validate an unconfirmed entry."
+  ],
+  "methodology_sources_checked": [
+    {"url": "https://www.cmegroup.com/trading/about-volume.html", "scope": "OI counts outstanding contracts; each has a buyer and seller, counted once. Not a source of screenshot readings."},
+    {"url": "https://www.cmegroup.com/education/lessons/open-interest", "scope": "General OI definition, not Coinwise aggregation verification."},
+    {"url": "https://www.tradingview.com/support/solutions/43000725058-cumulative-volume-delta/", "scope": "CVD accumulation and anchor dependence; does not identify Coinwise settings."}
+  ]
+}
