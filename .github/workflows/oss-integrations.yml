@@ -4,7 +4,19 @@ on:
   push:
     branches: [claude/bossman-final-convergence-hu2702]
     paths:
-      - 'command-center/**'
+      - 'command-center/bcc/**'
+      - 'command-center/ui/**'
+      - 'command-center/pyproject.toml'
+      - 'command-center/tests/test_oss_*.py'
+      - 'command-center/tests/test_llamacpp_catalog.py'
+      - 'command-center/tests/test_searxng_setup.py'
+      - 'command-center/tests/test_web_research_net.py'
+      - 'command-center/tests/test_feat_images.py'
+      - 'command-center/tests/test_v6_lazy_pages.py'
+      - 'command-center/tests/test_web_designer_grapesjs_ui.py'
+      - 'command-center/tests/test_ux2_thinking_pane.py'
+      - 'command-center/tests/conftest.py'
+      - 'command-center/tests/browser_support.py'
       - 'bossman-core/bossman/computer_operator/**'
       - 'bossman-core/tests/**uitars**'
       - 'config/oss/**'
@@ -16,7 +28,9 @@ permissions:
 
 concurrency:
   group: oss-integrations-${{ github.ref }}
-  cancel-in-progress: false
+  # This repair gate follows changed runtime code; unrelated owner-test commits
+  # must not replace its pending run. Full product/freeze workflows stay separate.
+  cancel-in-progress: true
 
 jobs:
   upstream-contracts:
