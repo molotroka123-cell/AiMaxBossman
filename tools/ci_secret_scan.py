@@ -248,6 +248,32 @@ def untracked_files() -> list[Path]:
     return [ROOT / x for x in raw.decode("utf-8", "replace").split("\0") if x]
 
 
+def _entropy_applies(path: Path) -> bool:
+    """Считать ли энтропию для НЕпрослеженного файла.
+
+    Прослеженные файлы давно проходят энтропию только по расширению
+    (`scan_paths`), а непрослеженные шли с `entropy=True` принудительно. Это
+    было верно, пока сюда попадали ТОЛЬКО `.env`: у файла с именем `.env`
+    расширения нет, и по суффиксу он бы не прошёл.
+
+    Когда обход расширили на все непрослеженные файлы, принуждение поехало и на
+    двоичные. Найдено настоящим отказом CI: сборка кладёт в рабочий каталог
+    `acceptance-results/source.tar.gz`, и сканер сообщил
+    `high-entropy token (H=4.11, len=27)`. Сжатый поток высокоэнтропиен ПО
+    ОПРЕДЕЛЕНИЮ — ложные срабатывания на нём гарантированы, а гарантированно
+    шумящий сканер перестают читать, и тогда он не ловит уже ничего.
+
+    Поэтому правило одно на оба обхода: энтропия — для кода и конфигурации,
+    плюс отдельно `.env`-подобные имена, ради которых принуждение и вводилось.
+    Шаблоны провайдеров при этом работают по-прежнему на ЛЮБОМ файле: настоящий
+    ключ ловится и там, где энтропию считать бессмысленно.
+    """
+    name = path.name.lower()
+    if name == ".env" or name.startswith(".env."):
+        return True
+    return path.suffix.lower() in ENTROPY_SUFFIX
+
+
 def main() -> int:
     findings = scan_paths([p for p in tracked_files() if p.is_file()], ROOT)
     for p in untracked_files():
@@ -258,7 +284,7 @@ def main() -> int:
             text = p.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
-        for item in scan_text(text, rel, entropy=True):
+        for item in scan_text(text, rel, entropy=_entropy_applies(p)):
             findings.append(f"{item} (непрослеженный файл на диске)")
     if findings:
         print("Potential secrets detected:", file=sys.stderr)

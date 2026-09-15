@@ -203,3 +203,84 @@ def test_ignored_paths_stay_out_of_the_untracked_sweep(tmp_path, monkeypatch):
     found = {p.name for p in scan.untracked_files()}
     assert "real.py" in found
     assert "leftover.py" not in found, "игнорируемое дерево попало в охват — это шум"
+
+
+def test_a_build_artifact_is_not_entropy_scanned(tmp_path):
+    """Сжатый поток высокоэнтропиен ПО ОПРЕДЕЛЕНИЮ.
+
+    Найдено настоящим отказом CI, а не рассуждением: расширение обхода на все
+    непрослеженные файлы потащило в энтропийную проверку
+    `acceptance-results/source.tar.gz`, который сборка кладёт в рабочий каталог,
+    и сканер сообщил `high-entropy token (H=4.11, len=27)`.
+
+    Срабатывание при этом ВЕРОЯТНОСТНОЕ: попадётся ли в сжатом потоке подряд
+    24+ символа из алфавита токена, зависит от содержимого. Архив этого же
+    дерева шума не даёт. Сканер, который краснеет по жребию, хуже краснеющего
+    всегда: его перестают читать, и тогда он не ловит уже ничего. Поэтому тест
+    не полагается на удачу сжатия, а кладёт высокоэнтропийную строку в файл
+    двоичного вида явно.
+    """
+    blob = tmp_path / "acceptance-results-source.tar.gz"
+    noise = "Q7xK2mPz9Lw4Rt6Yv1Nb8Hs3Jd5Fg0Ac"   # ci-secret-scan: allow — канарейка
+    blob.write_text(f"binary junk {noise} more junk\n", encoding="utf-8")
+    text = blob.read_text(encoding="utf-8")
+
+    assert scan._entropy_applies(blob) is False, "архив не должен идти в энтропийную проверку"
+    assert scan.scan_text(text, "acceptance-results/source.tar.gz",
+                          entropy=scan._entropy_applies(blob)) == []
+    # Обратный контроль: при принудительной энтропии — ровно тот шум, что уронил
+    # CI. Без него тест был бы зелёным и на сломанном правиле.
+    forced = scan.scan_text(text, "acceptance-results/source.tar.gz", entropy=True)
+    assert any("high-entropy" in item for item in forced), forced
+
+
+def test_entropy_still_applies_to_env_files_and_to_code(tmp_path):
+    """Расширение охвата не должно было отнять то, ради чего его вводили."""
+    assert scan._entropy_applies(tmp_path / ".env") is True
+    assert scan._entropy_applies(tmp_path / ".env.local") is True
+    assert scan._entropy_applies(tmp_path / "settings.py") is True
+    assert scan._entropy_applies(tmp_path / "compose.yaml") is True
+    assert scan._entropy_applies(tmp_path / "evidence.mp4") is False
+    assert scan._entropy_applies(tmp_path / "bundle.zip") is False
+    assert scan._entropy_applies(tmp_path / "report.json") is False
+
+
+def test_provider_patterns_still_run_on_files_entropy_skips(tmp_path):
+    """Отказ от энтропии на двоичных НЕ отключает поиск настоящих ключей.
+
+    Иначе починка шума превратилась бы в дыру: ключ, попавший в архив или в
+    медиафайл, перестал бы находиться вовсе."""
+    fake = "sk-or-v1-" + "0f1e2d3c4b5a69788796a5b4c3d2e1f0" * 2   # ci-secret-scan: allow
+    found = scan.scan_text(f"junk\x00{fake}\x00junk", "acceptance-results/blob.bin",
+                           entropy=False)
+    assert any("openrouter key" in item for item in found), found
+
+
+def test_main_itself_does_not_choke_on_an_untracked_build_artifact(tmp_path, monkeypatch, capsys):
+    """Сквозь `main()`, а не мимо него.
+
+    Первая редакция этих тестов звала `scan_text`/`_entropy_applies` напрямую и
+    мутацию «вернуть entropy=True в main()» пережила зелёной: правило
+    проверялось, а его ПОДКЛЮЧЕНИЕ — нет. Тест, который не может провалиться на
+    самом дефекте, ничего не защищает.
+
+    Здесь собирается ровно та ситуация из CI: git-дерево, в рабочем каталоге
+    непрослеженный артефакт сборки, и `main()` обязан ответить 0. Рядом —
+    обратный контроль: настоящий ключ в таком же непрослеженном файле обязан
+    дать 2, иначе «тихо» означало бы «слепо».
+    """
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    monkeypatch.setattr(scan, "ROOT", tmp_path)
+    art = tmp_path / "acceptance-results"
+    art.mkdir()
+    noise = "Q7xK2mPz9Lw4Rt6Yv1Nb8Hs3Jd5Fg0Ac"   # ci-secret-scan: allow — канарейка
+    (art / "source.tar.gz").write_text(f"junk {noise} junk\n", encoding="utf-8")
+
+    assert scan.main() == 0, capsys.readouterr().err
+
+    fake = "sk-or-v1-" + "0f1e2d3c4b5a69788796a5b4c3d2e1f0" * 2   # ci-secret-scan: allow
+    (art / "leaked.py").write_text(f'K = "{fake}"\n', encoding="utf-8")
+    assert scan.main() == 2, "непрослеженный файл с настоящим ключом обязан ронять сканер"
+    assert "openrouter key" in capsys.readouterr().err
