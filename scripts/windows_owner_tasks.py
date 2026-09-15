@@ -58,8 +58,27 @@ CONTRACTED = ("db", "queue_worker", "scheduler", "metrics")
 
 def _unhealthy(health: dict) -> dict:
     need = [*CONTRACTED, *(k for k in health if k.startswith("tick:"))]
-    return {k: health[k]["status"] for k in need
-            if isinstance(health.get(k), dict) and health[k]["status"] != "ok"}
+    statuses = {k: health[k].get("status", "missing")
+                if isinstance(health.get(k), dict) else "missing" for k in need}
+    return {k: status for k, status in statuses.items() if status != "ok"}
+
+
+def _wait_healthy(c: Client, timeout: float = 40.0) -> dict:
+    """HTTP readiness precedes the first background tick, including on restart.
+
+    Poll for actual ok statuses; starting, missing and error never count as ok.
+    The same bounded readiness contract applies before and after owner tasks.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        health = c("/api/system")["health"]
+        bad = _unhealthy(health)
+        if not bad:
+            return health
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise AssertionError(f"обещанные подсистемы не поднялись за {timeout:g} с: {bad}")
+        time.sleep(min(0.5, remaining))
 
 
 class _Tee:
@@ -213,18 +232,12 @@ def task_light(run: Run, c: Client, state: dict) -> None:
     run.step("слабая", "агент создаётся и читается независимо", agent)
 
     def health() -> str:
-        deadline = time.monotonic() + 40
-        while True:
-            health = c("/api/system")["health"]
-            bad = _unhealthy(health)
-            if not bad:
-                other = {k: v.get("status") for k, v in health.items()
-                         if isinstance(v, dict) and k not in CONTRACTED
-                         and not k.startswith("tick:")}
-                return (f"обещанные подсистемы ok; остальное — наблюдение: "
-                        f"{json.dumps(other, ensure_ascii=False)}")
-            assert time.monotonic() < deadline, f"не поднялось: {bad}"
-            time.sleep(0.5)
+        observed = _wait_healthy(c)
+        other = {k: v.get("status") for k, v in observed.items()
+                 if isinstance(v, dict) and k not in CONTRACTED
+                 and not k.startswith("tick:")}
+        return (f"обещанные подсистемы ok; остальное — наблюдение: "
+                f"{json.dumps(other, ensure_ascii=False)}")
     run.step("слабая", "фоновые циклы здоровы", health)
 
 
@@ -394,8 +407,7 @@ def task_hard(run: Run, python: Path, work: Path, state: dict, minutes: float) -
             assert any(a["id"] == state["agent"] for a in c2("/api/agents")), "агент пропал"
             assert 'id="marker"' in c2(f"/api/web-designer/projects/{state['pid']}")["code"], (
                 "правка сайта потеряна")
-            bad = _unhealthy(c2("/api/system")["health"])
-            assert not bad, f"обещанные подсистемы не в порядке после прогона: {bad}"
+            _wait_healthy(c2)
             return (f"агент и правка сайта на месте, обещанные подсистемы ok после "
                     f"{len(confirmed)} команд и жёсткого убийства")
         finally:

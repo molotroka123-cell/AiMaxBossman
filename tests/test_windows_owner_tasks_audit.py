@@ -104,3 +104,70 @@ def test_only_the_run_own_files_are_audited(tmp_path: Path, noise: str) -> None:
     done, markers = _clean(tmp_path)
     (done / noise).write_text("посторонний\n", encoding="utf-8")
     assert audit_markers(done, markers, markers)["лишние"] == []
+
+
+class _Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
+def _health_client(monkeypatch, snapshots):
+    import windows_owner_tasks as owner
+    clock = _Clock()
+    monkeypatch.setattr(owner.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(owner.time, "sleep", clock.sleep)
+    calls = []
+
+    def client(path):
+        assert path == "/api/system"
+        index = min(len(calls), len(snapshots) - 1)
+        calls.append(path)
+        return {"health": snapshots[index]}
+
+    return owner, clock, client, calls
+
+
+def test_restart_waits_for_real_background_tick(monkeypatch):
+    from windows_owner_tasks import CONTRACTED
+    ready = {key: {"status": "ok"} for key in CONTRACTED}
+    ready["tick:reality"] = {"status": "ok"}
+    starting = dict(ready, **{"tick:reality": {"status": "starting"}})
+    owner, clock, client, calls = _health_client(monkeypatch, [starting, starting, ready])
+    assert owner._wait_healthy(client, timeout=2) == ready
+    assert len(calls) == 3 and clock.now == 1
+
+
+@pytest.mark.parametrize("status", ["starting", "error", "stale", "stopped"])
+def test_permanently_unhealthy_tick_still_fails_at_deadline(monkeypatch, status):
+    from windows_owner_tasks import CONTRACTED
+    snapshot = {key: {"status": "ok"} for key in CONTRACTED}
+    snapshot["tick:reality"] = {"status": status}
+    owner, clock, client, calls = _health_client(monkeypatch, [snapshot])
+    with pytest.raises(AssertionError, match="tick:reality"):
+        owner._wait_healthy(client, timeout=1.2)
+    assert clock.now == 1.2 and len(calls) == 4
+
+
+@pytest.mark.parametrize("missing", ["db", "queue_worker", "scheduler", "metrics"])
+def test_missing_promised_subsystem_is_not_readiness(monkeypatch, missing):
+    from windows_owner_tasks import CONTRACTED
+    snapshot = {key: {"status": "ok"} for key in CONTRACTED if key != missing}
+    owner, clock, client, calls = _health_client(monkeypatch, [snapshot])
+    with pytest.raises(AssertionError, match=missing):
+        owner._wait_healthy(client, timeout=0.5)
+    assert clock.now == 0.5
+
+
+def test_external_model_absence_does_not_block_background_readiness(monkeypatch):
+    from windows_owner_tasks import CONTRACTED
+    ready = {key: {"status": "ok"} for key in CONTRACTED}
+    ready.update(models={"status": "empty"}, browser={"status": "unknown"})
+    owner, clock, client, calls = _health_client(monkeypatch, [ready])
+    assert owner._wait_healthy(client) == ready
+    assert len(calls) == 1 and clock.now == 0
