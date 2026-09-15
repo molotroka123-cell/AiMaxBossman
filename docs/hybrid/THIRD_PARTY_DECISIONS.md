@@ -256,3 +256,82 @@ file, not a network failure. MIT is declared by the `license` field in
 `package.json`, which npm treats as sufficient; for a tool that is never
 distributed with the product that is enough, and the fact is recorded so the
 decision is not revisited from memory.
+
+---
+
+## Low-overhead candidates (§6 of the next-run brief, decided 2026-09-15)
+
+Five projects were proposed on the grounds of being cheap: small at rest, no
+separate daemon, tied to something already measured in this repository. §24
+still applies to every one of them — **a proposal without a number is not a
+reason** — so the question asked of each was not "is it good?" but "what does
+it improve, measured against what?"
+
+| Project | Exact SHA | License | Decision | Measured? |
+| :--- | :--- | :--- | :--- | :--- |
+| uv | `643950ce49e45b7ec0ffe5baffa319d92ea00a96` | Apache-2.0 OR MIT (both files read at the SHA) | **ADOPT_AS_BUILD_TOOL** | **yes — 11.4× cold, 115× warm** |
+| watchfiles | `42257e82089c3ef880aba8a2f2fc1662a663d61e` | MIT | **REFERENCE_ONLY** | premise withdrawn before measuring |
+| fastembed | `0dab99c23e659e630f642b42c5888af87befb6e2` | Apache-2.0 | **REJECT** | yes, previously — verdict stands |
+| sqlite-vec | `04d28bd21773981e2d266bbf6aa4efbd011eb4f6` | Apache-2.0 OR MIT (both files read at the SHA) | **DEFERRED** | nothing to measure against |
+| faster-whisper | `ed9a06cd89a93e47838f564998a6c09b655d7f43` | MIT | **DEFERRED** | nothing to measure against |
+
+**Runtime dependencies added: zero.** The single adoption never runs in the
+product.
+
+### uv — the only one with a number
+
+The nine runtime dependencies of Command Center, installed into a clean
+environment by each tool in turn:
+
+| | pip | uv | |
+|---|---:|---:|---|
+| cold tool cache | 12.5 s | **1.1 s** | 11.4× |
+| warm cache | 11.5 s | **0.1 s** | 115× |
+| packages installed | 32 | 32 | identical outcome |
+
+Both phases are reported because the first run of either tool warms its own
+cache, and quoting only the warm figure would flatter uv. It is adopted strictly
+as a **build tool**: absent from the runtime, absent from every dependency list,
+so its idle cost is zero and §7's rule about daemons does not apply to it at
+all. `pip` stays a working path and is exercised by the same acceptance script —
+that is the rollback.
+
+### watchfiles — the premise was withdrawn, not the project
+
+It was proposed for exactly one named number: *"3.0 % of one core on polling the
+queue once a second."* That number was re-measured and turned out to describe a
+different place. An idle Command Center burned **~4.5 % of a core**, and not on
+the queue poll: `task_exchange` re-read nine `app.manifest.yaml` files at **nine
+parses per second**. Closed with a `(mtime_ns, size)` cache — **no new
+dependency** — down to **~1.2 %** (BL-037).
+
+So the justification for adopting it no longer exists. The remaining ~1.2 %
+must first be measured and attributed before anyone adds a Rust dependency;
+adopting on the strength of a withdrawn premise would be adoption by link
+rather than by measurement, which §24 forbids.
+
+### fastembed — already measured, verdict unchanged
+
+Not a new decision. `docs/research/qdrant.md` and `docs/research/lancedb.md`
+already measured it and recorded **"не устанавливать"**: `qdrant-client[fastembed]`
+downloads ONNX models from the network on first use — a hidden network trip and
+a hidden memory cost. An encoder, if one ever appears, must be explicit and
+ours. No new evidence was offered to reopen it.
+
+### sqlite-vec and faster-whisper — deferred, and the condition is named
+
+Neither is refused on merit; both are **unmeasurable today**, which is a
+different thing and is recorded as such.
+
+- **sqlite-vec:** the product has no vector search at all, so there is no
+  baseline for the before/after §24 demands. It is cheap on its face — an
+  extension to the SQLite already in use, not one new process — which is
+  precisely why it stays in the register rather than being discarded. Unblocked
+  by the owner's decision on dense embeddings, still open per `qdrant.md`.
+- **faster-whisper:** the question is not the library — `transcribe` already
+  exists in `bcc/video_studio/analysis.py`. The question is that it carries a
+  **local model**, i.e. resident memory on a 128 GB unified bus — exactly the
+  budget §7 leaves to Bossman's governor and exactly what must not be reserved
+  without a decision. Until the owner names a model and a ceiling, there is
+  nothing to benchmark, and integrating it would spend that memory on their
+  behalf.
