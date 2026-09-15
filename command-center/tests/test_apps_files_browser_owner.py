@@ -1,10 +1,13 @@
 """Real BCC browser + real File Commander child + independently read files.
 
-No service/model mocks. A second BCC process uses the same data directory;
-managed child identity and exact file history must survive that restart.
+No service/model mocks; only the post-mutation history read is interrupted.
+A second BCC process uses the same data directory; managed child identity
+and exact file history must survive that restart.
 """
 from pathlib import Path
 import re
+import json
+import sqlite3
 
 import httpx
 import pytest
@@ -58,18 +61,41 @@ def test_apps_files_owner_browser_restart_and_persistence(tmp_path, monkeypatch)
                 frame.locator("#organize").click()
                 expect(frame.locator("#moves tr")).to_have_count(1)
                 assert source.exists(), "preview mutated source"
+                # A confirmed move must remain recoverable in the displayed
+                # history even if the following read is interrupted by restart.
+                history_url = "**/view/api/files/batches"
+                page.route(history_url, lambda route: route.abort("connectionreset"))
                 frame.locator("#apply").click()
                 expect(frame.locator("#status")).to_contain_text("APPLIED")
+                database = server.data / "app-data/file-commander-mini/app.db"
+                with sqlite3.connect(database) as connection:
+                    batch = json.loads(connection.execute(
+                        "SELECT value FROM kv WHERE namespace='batches'"
+                    ).fetchone()[0])
+                assert batch["status"] == "APPLIED"
+                expect(frame.locator("#history")).to_contain_text("APPLIED")
+                expect(frame.locator("#history")).to_contain_text(batch["batch_id"])
+                page.unroute(history_url)
                 target = workspace / "Documents/PDF/owner report.pdf"
                 assert target.read_bytes() == b"File Commander owner acceptance; real file bytes"
                 assert not source.exists()
                 # Restart BCC with the File Commander process still running.
                 server.restart()
-                page.goto(server.url + "/#/apps?open=file-commander-mini")
+                page.reload()
                 frame = page.frame_locator('iframe[title="File Commander Mini"]')
                 expect(frame.locator("#history")).to_contain_text("APPLIED")
+                # Read through the restarted BCC independently of the freshly
+                # loaded iframe, distinguishing durable history from DOM state.
+                response = context.request.get(server.url + "/api/apps/file-commander-mini/view/api/files/batches")
+                assert response.status == 200, response.text()
+                assert any(item["batch_id"] == batch["batch_id"] and item["status"] == "APPLIED"
+                           for item in response.json()["batches"])
+                page.route(history_url, lambda route: route.abort("connectionreset"))
                 frame.get_by_role("button", name="Restore original names", exact=True).click()
                 expect(frame.locator("#status")).to_contain_text("ROLLED_BACK")
+                expect(frame.locator("#history")).to_contain_text("ROLLED_BACK")
+                expect(frame.get_by_role("button", name="Restore original names", exact=True)).to_have_count(0)
+                page.unroute(history_url)
                 assert source.read_bytes() == b"File Commander owner acceptance; real file bytes"
                 assert not target.exists()
                 frame.locator("#root").fill(str(workspace.parent))
