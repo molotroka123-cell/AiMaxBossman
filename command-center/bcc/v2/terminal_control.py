@@ -232,19 +232,23 @@ class TerminalManager:
         s.exit_code = await s.proc.wait()
         s.finished = True
 
-    def retire_finished(self, keep: int = RETAIN_FINISHED) -> list[dict]:
+    def retire_finished(self, keep: int = RETAIN_FINISHED, *, remove: bool = True) -> list[dict]:
         """Выселить самые старые ЗАВЕРШЁННЫЕ сессии, вернув их итоговый статус.
 
         Живая сессия не выселяется НИКОГДА, сколько бы их ни накопилось:
         выбросить запись работающего процесса — значит потерять над ним
         контроль, а это хуже любой экономии памяти. Словарь упорядочен по
         времени создания, поэтому уходят именно самые старые.
+
+        remove=False выбирает кандидатов без удаления: HTTP-слой сначала
+        сохраняет итог в БД, и только после успешного commit освобождает память.
         """
         finished = [sid for sid, s in self.sessions.items() if s.finished]
         retired: list[dict] = []
         for sid in finished[:max(0, len(finished) - max(0, keep))]:
             retired.append(self.status(sid))
-            self.sessions.pop(sid, None)
+            if remove:
+                self.sessions.pop(sid, None)
         return retired
 
     def status(self, session_id: str) -> dict:

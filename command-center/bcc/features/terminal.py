@@ -57,7 +57,9 @@ async def _retire_finished(svc, mgr: TerminalManager) -> None:
     «сессия не найдена (возможно, после рестарта)» — тем же, что и после
     перезапуска продукта.
     """
-    retired = mgr.retire_finished()
+    # Не теряем единственную копию финального статуса при ошибке БД:
+    # неудачный commit оставляет кандидатов доступными для повторной записи.
+    retired = mgr.retire_finished(remove=False)
     if not retired:
         return
     async with svc.db.session() as s:
@@ -65,6 +67,8 @@ async def _retire_finished(svc, mgr: TerminalManager) -> None:
             await s.execute(sa.update(term_t).where(term_t.c.id == st["id"]).values(
                 status="finished", exit_code=st["exit_code"], finished_at=utcnow()))
         await s.commit()
+    for st in retired:
+        mgr.sessions.pop(st["id"], None)
 
 
 @router.get("/terminal/roots")

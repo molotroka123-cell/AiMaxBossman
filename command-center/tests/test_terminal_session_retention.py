@@ -84,6 +84,56 @@ def test_nothing_is_evicted_while_the_run_is_short() -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("failure_at", ["open", "write", "commit"])
+async def test_database_failure_keeps_final_status_for_retry(failure_at) -> None:
+    """Нельзя выселить единственную копию статуса до долговечной записи."""
+    from types import SimpleNamespace
+    from bcc.features.terminal import _retire_finished
+
+    mgr = _manager(RETAIN_FINISHED + 1)
+
+    class Database:
+        failure = failure_at
+        commits = 0
+
+        def session(self):
+            return self
+
+        async def __aenter__(self):
+            if self.failure == "open":
+                raise OSError("database unavailable")
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def execute(self, statement):
+            if self.failure == "write":
+                raise OSError("database unavailable")
+            assert "fin-00000" in mgr.sessions, "удалено ещё до записи"
+
+        async def commit(self):
+            if self.failure == "commit":
+                raise OSError("database unavailable")
+            assert "fin-00000" in mgr.sessions, "удалено ещё до commit"
+            self.commits += 1
+
+    db = Database()
+    svc = SimpleNamespace(db=db)
+    with pytest.raises(OSError, match="database unavailable"):
+        await _retire_finished(svc, mgr)
+    assert len(mgr.sessions) == RETAIN_FINISHED + 1
+    assert mgr.status("fin-00000")["exit_code"] == 0
+    assert db.commits == 0
+
+    db.failure = None
+    await _retire_finished(svc, mgr)
+    assert len(mgr.sessions) == RETAIN_FINISHED
+    assert "fin-00000" not in mgr.sessions
+    assert db.commits == 1
+
+
+@pytest.mark.anyio
 async def test_a_real_long_run_stops_growing_and_the_database_keeps_the_history(env) -> None:
     """Через HTTP, как это делает владелец: много команд подряд.
 
