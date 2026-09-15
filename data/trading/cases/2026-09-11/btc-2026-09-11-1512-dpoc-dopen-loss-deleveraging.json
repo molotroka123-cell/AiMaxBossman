@@ -1,0 +1,35 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local_approx": "15:12 ET",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise screenshot",
+  "observed": {
+    "reference_price_area_approx": [77100, 77200],
+    "cvd_billion": 58.93,
+    "open_interest_billion": 17.79,
+    "dPOC": 77350,
+    "dOpen": 77215,
+    "dVAL": 76820,
+    "dVAH": 78180
+  },
+  "comparison_to_prior_snapshot": {
+    "prior_cvd_billion": 59.52,
+    "prior_oi_billion": 17.87,
+    "cvd_change_billion": -0.59,
+    "oi_change_billion": -0.08,
+    "price_direction": "DOWN",
+    "state": "Price DOWN + CVD DOWN + OI DOWN"
+  },
+  "regime": "DELEVERAGING_WITH_STRUCTURAL_WEAKNESS",
+  "interpretation": "The decline is still primarily deleveraging/position closure because OI is falling with price and CVD. This is not the fresh-bearish-leverage signature (Price DOWN + CVD DOWN + OI UP). However, structure has weakened because price is trading below/around dOpen and below dPOC. Flow alone is not enough to justify averaging down.",
+  "management": {
+    "existing_small_long": "Can be treated as exploratory only while price is below dPOC/dOpen.",
+    "resting_lower_limits": "Pause/cancel blind averaging orders until price response confirms support. Re-arm only after a sweep/stabilization/reclaim sequence or clear absorption with price acceptance.",
+    "bullish_rearm": "Reclaim dOpen 77215 and preferably dPOC 77350, then hold/retest while CVD stabilizes or rises and OI does not expand bearishly.",
+    "bearish_transition": "If price continues lower, CVD falls, and OI turns UP, classify as fresh bearish leverage expansion and invalidate the long-add thesis.",
+    "deep_support_reference": "dVAL 76820 is the next major value reference but is not a blind buy level."
+  },
+  "lesson": "Price response dominates. Falling OI makes the selloff less bearish than fresh short expansion, but a structurally failed reclaim means no automatic long. Do not confuse deleveraging with a confirmed bottom."
+}

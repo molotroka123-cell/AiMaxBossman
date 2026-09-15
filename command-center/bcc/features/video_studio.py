@@ -102,7 +102,18 @@ async def guarded(call):
         if isinstance(exc, MissingObject):
             raise HTTPException(404,{"message":str(exc)[:300],"code":exc.code}) from None
         raise HTTPException(422,{"message":str(exc)[:300]}) from None
-    except (RuntimeError, OSError, sa.exc.IntegrityError):
+    except RuntimeError as exc:
+        # RuntimeError здесь — НАШ собственный текст, а не системный сбой:
+        # `prepared_file` этим сообщает «производная ещё не подготовлена, запусти
+        # prepare». Прежде он схлопывался в «operation conflict or local resource
+        # unavailable» вместе с OSError и IntegrityError, и владелец видел на
+        # превью 409 без единого намёка, что делать. Система знала причину и
+        # выбрасывала её. Текст наш, путей в нём нет — отдаём как есть.
+        raise HTTPException(409,{"message":str(exc)[:300],
+                                 "code":"derivative_not_prepared"}) from None
+    except (OSError, sa.exc.IntegrityError):
+        # А эти сообщения несут пути и детали хранилища, поэтому наружу идёт
+        # общая формулировка: причина остаётся в логах сервера, не в ответе.
         raise HTTPException(409,"operation conflict or local resource unavailable") from None
 
 @router.get("/capabilities")
@@ -333,7 +344,16 @@ async def chat_run(task_id: int,request: Request):
     if not row or row["kind"] != "video_edit":
         raise HTTPException(404,"video task not found")
     if row["status"] == "draft":
-        await svc.engine.enqueue(task_id)
+        # Refuse predictable native failures while the owner can still attach
+        # media/revise the draft, instead of queueing a generic ValueError.
+        await guarded(service(request).check_edit_ready(row))
+        # The draft read and preflight above are not a lock: a second click or
+        # owner stop may happen meanwhile. Recheck beside the run INSERT.
+        queued = await svc.engine.enqueue(task_id,only_if_draft=True)
+        if not queued:
+            raise HTTPException(409,"Video task state changed; refresh the task before starting it.")
+    elif row["status"] in ("stopped","cancelled","failed","paused"):
+        raise HTTPException(409,"Video task is stopped or paused; use its task controls to continue.")
     return {"task_id":task_id,"project_id":row["meta"]["video_project_id"]}
 
 async def bind_skill(svc):
@@ -358,6 +378,7 @@ async def setup(svc):
     svc.video_studio=VideoService(svc)
     svc.engine.register_executor("video_render",svc.video_studio.render_executor)
     svc.engine.register_executor("video_edit",svc.video_studio.edit_executor)
+    svc.engine.add_hook("before_run",svc.video_studio.edit_admission)
     svc.engine.register_executor("video_analysis",svc.video_studio.analysis_executor)
     svc.engine.add_hook("gate_completion",svc.video_studio.analysis_gate)
     svc.engine.register_executor("video_package",svc.video_studio.package_executor)

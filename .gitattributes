@@ -1,0 +1,7 @@
+# Сгенерированные ассеты приложения обязаны быть побайтово одинаковыми на всех
+# платформах. Git не должен их переписывать: чекаут на Windows с autocrlf
+# превращал LF в CRLF внутри icon.svg, и проверка канонной иконки падала на
+# файле, который рисует ту же картинку.
+command-center/ui/icons/** binary
+command-center/ui/icon.svg -text
+bossman-core/ui/icon.svg -text

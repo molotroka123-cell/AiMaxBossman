@@ -1,0 +1,64 @@
+{
+  "case_id": "btc-2026-09-11-0834-post-cpi-dval-reclaim-cvd-surge",
+  "date": "2026-09-11",
+  "time_local_approx": "08:34-04:00",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshot plus immediately preceding BTCUSDT execution screenshot",
+  "instrument_note": "Reference chart and execution venue differ by basis. Store both separately and do not use reference levels as exact execution orders without basis adjustment.",
+  "observed": {
+    "reference_chart_price_approx": 77150,
+    "execution_price_approx": [76980, 77005],
+    "cvd_billion": 51.84,
+    "open_interest_billion": 18.33,
+    "long_liquidations_million": 16.04,
+    "short_liquidations_million": 1.58,
+    "buy_volume_million": 860.09
+  },
+  "comparison_to_previous_same_series": {
+    "prior_reference_chart_price_approx": 76965,
+    "prior_cvd_billion": 47.28,
+    "prior_oi_billion": 18.32,
+    "price_change_approx": 185,
+    "cvd_change_billion": 4.56,
+    "oi_change_billion": 0.01,
+    "price_direction": "UP",
+    "cvd_direction": "UP_STRONGLY",
+    "oi_direction": "FLAT"
+  },
+  "chart_levels": {
+    "dVAL": 77065,
+    "dPOC": 77365,
+    "dVAH": 77505,
+    "dOpen_or_settlement_cluster_approx": 77215,
+    "pDayLow_pWeekLow_zone_approx": [76450, 76650],
+    "cpi_wick_low_reference_approx": 76050
+  },
+  "state": "Price UP + CVD UP strongly + OI FLAT with first post-CPI reclaim of dVAL",
+  "regime": "POST_CPI_STRUCTURAL_RECLAIM_WITH_NON_LEVERAGED_BUY_AGGRESSION",
+  "interpretation": "This is materially healthier than the prior post-capitulation re-leveraging bounces. Aggressive buy flow surged while OI stayed almost unchanged, so the rebound is not being driven by a large new leverage build. Price also moved back above dVAL on the reference series after the CPI liquidation wick. The main caution is efficiency: CVD repaired much more strongly than price, so the reclaim still has to hold; if price cannot stay above dVAL despite the CVD surge, that becomes buyer-inefficiency and failed-reclaim evidence for a short setup.",
+  "basis_note": {
+    "reference_price_approx": 77150,
+    "execution_price_approx": 76990,
+    "basis_approx_points": 160,
+    "translated_execution_levels_rough": {
+      "dVAL": 76905,
+      "dPOC": 77205,
+      "dVAH": 77345
+    },
+    "warning": "Basis is dynamic; recalculate before execution."
+  },
+  "long_scenario": {
+    "status": "EARLY_LONG_CANDIDATE_AFTER_DVAL_RECLAIM",
+    "trigger": "Hold/retest above dVAL ~77.065k reference (~76.90-76.95k execution at current observed basis) while CVD remains firm and OI does not expand pathologically.",
+    "add_confirmation": "Reclaim/accept above dPOC ~77.365k reference, then dVAH ~77.505k.",
+    "invalidation": "Lose dVAL again with CVD rolling over; stronger invalidation if price falls while OI begins to expand."
+  },
+  "short_scenario": {
+    "status": "ARM_ONLY_IF_RECLAIM_FAILS",
+    "trigger": "Price falls back below dVAL after this strong CVD recovery, forms a lower high/rejection, and CVD stalls/turns down while OI remains flat/up.",
+    "interpretation": "That would convert the current bullish-looking flow into buyer inefficiency and recreate the failed-reclaim short edge.",
+    "avoid": "Do not short solely because CVD is high; the current structural reclaim must fail first."
+  },
+  "lesson": "Post-news recovery quality is higher when price and CVD recover without a simultaneous OI surge. However, a large CVD improvement that cannot hold reclaimed value is especially informative: the same data can flip from long confirmation to buyer-inefficiency short evidence. Track both structural acceptance and flow efficiency."
+}

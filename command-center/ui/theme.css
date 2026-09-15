@@ -992,3 +992,40 @@ body.bx-think-open .main{padding-right:min(400px,100vw)}
   background:color-mix(in srgb, var(--bx-rose) 10%, transparent)}
 .bx-btn-danger:hover:not(:disabled){border-color:color-mix(in srgb, var(--bx-rose) 60%, transparent);
   background:color-mix(in srgb, var(--bx-rose) 16%, transparent)}
+
+/* ------------------------------------------------------------------ objectives
+   Страница целей использовала .bx-grid, .bx-muted и .bx-note с самого начала, но
+   ни одна из трёх нигде не была объявлена: заметки и приглушённый текст на ней
+   рендерились без стилей, а сетка карточек — колонкой. Классы объявляются здесь,
+   рядом с остальными bx-*, а не переименовываются в разметке: у страницы теперь
+   есть мастер и вкладки, и переписывать её разметку ради имени класса — лишний
+   риск на живом экране владельца. */
+.bx-grid {
+  display: grid;
+  gap: var(--bx-gap);
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+.bx-muted {
+  color: var(--bx-ink-3);
+}
+.bx-muted.sm,
+.bx-note {
+  font-size: var(--bx-caption);
+}
+.bx-note {
+  border-radius: var(--bx-r);
+  border: 1px solid var(--bx-hairline);
+  background: rgba(255, 255, 255, .028);
+  color: var(--bx-ink-2);
+  padding: var(--bx-3) var(--bx-4);
+  line-height: 1.5;
+}
+.bx-note b { color: var(--bx-ink); font-weight: 600; }
+.bx-note.is-warn {
+  border-color: color-mix(in srgb, var(--bx-amber) 45%, transparent);
+  background: color-mix(in srgb, var(--bx-amber) 10%, transparent);
+}
+.bx-note.is-err {
+  border-color: color-mix(in srgb, var(--bx-rose) 45%, transparent);
+  background: color-mix(in srgb, var(--bx-rose) 10%, transparent);
+}

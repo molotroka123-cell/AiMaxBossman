@@ -158,18 +158,39 @@ def test_real_ffprobe_agrees_with_the_header_prober(tmp_path):
 
 
 @needs_ffprobe
-def test_ffprobe_alone_does_not_notice_a_truncated_image(tmp_path):
-    """Найдено настоящим ffprobe, а не предположено.
+def test_truncated_image_is_refused_regardless_of_ffprobe_version(tmp_path, record_property):
+    """Real ffprobe versions differ in how early they reject truncation.
 
-    С `-show_format -show_streams` ffprobe читает заголовок и не декодирует
-    данные: у обрезанного PNG есть IHDR, и этого ему достаточно. Тест
-    фиксирует ограничение инструмента, чтобы никто не «починил» его удалением
-    структурной проверки как лишней.
+    Some report the intact IHDR dimensions; others report zero dimensions or
+    fail. The product must refuse this input in all cases. Requiring the tool
+    to accept corruption was a wrong assertion about an external executable.
     """
     target = tmp_path / "broken.png"
     target.write_bytes(truncate(make_png(600, 600, noisy=True), keep=0.3))
-    result = probe_with_ffprobe(target)          # не бросает — и это правда о ffprobe
-    assert result.width == 600
+    try:
+        result = probe_with_ffprobe(target)
+    except CorruptMedia:
+        record_property('ffprobe_truncation', 'refused')
+    else:
+        assert (result.width, result.height) == (600, 600)
+        record_property('ffprobe_truncation', 'header_only')
+    with pytest.raises(CorruptMedia):
+        probe(target)
+
+
+def test_structural_validation_survives_a_header_only_external_probe(tmp_path, monkeypatch):
+    """Deterministic negative control for versions that report only IHDR."""
+    import importlib
+    module = importlib.import_module('social_farm.media.probe')
+    target = tmp_path / 'broken.png'
+    target.write_bytes(truncate(make_png(600, 600, noisy=True), keep=0.3))
+    valid = tmp_path / 'valid.png'
+    valid.write_bytes(make_png(600, 600))
+    header_only = probe_image_header(valid)
+    monkeypatch.setattr(module, 'ffprobe_available', lambda: True)
+    monkeypatch.setattr(module, 'probe_with_ffprobe', lambda path: header_only)
+    with pytest.raises(CorruptMedia):
+        probe(target)
 
 
 @needs_ffprobe

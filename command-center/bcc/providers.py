@@ -83,6 +83,24 @@ def _parse_tool_arguments(raw: Any) -> tuple[dict[str, Any], str]:
     return parsed, text
 
 
+def _response_object(resp: httpx.Response, *, what: str) -> dict[str, Any]:
+    """Decode a provider response into an object or fail as a provider error.
+
+    A HTTP 200 body that is HTML/truncated JSON is a protocol failure, not an
+    unhandled Python exception. Letting JSONDecodeError escape left the run
+    `running` until lease recovery and hid the actual provider cause.
+    """
+    try:
+        data = resp.json()
+    except (ValueError, json.JSONDecodeError):
+        raise ProviderError(f"{what}: сервер вернул невалидный JSON", kind="protocol",
+                            hint="проверьте совместимость endpoint и формат ответа") from None
+    if not isinstance(data, dict):
+        raise ProviderError(f"{what}: ожидался JSON-объект, получен {type(data).__name__}",
+                            kind="protocol")
+    return data
+
+
 @dataclass
 class Health:
     status: str = "unknown"          # ok | offline | error
@@ -228,7 +246,7 @@ class OpenAICompatAdapter(_BaseAdapter):
         resp = await self._request("POST", f"{self.base_url}/chat/completions",
                                    timeout=kw.get("timeout", CHAT_TIMEOUT),
                                    headers=self._headers(), json=payload)
-        data = resp.json()
+        data = _response_object(resp, what="chat/completions")
         choices = data.get("choices") or []
         if not choices:
             raise ProviderError("модель вернула пустой ответ (нет choices)")
@@ -258,8 +276,10 @@ class OpenAICompatAdapter(_BaseAdapter):
     async def list_models(self) -> list[str]:
         resp = await self._request("GET", f"{self.base_url}/models", timeout=HEALTH_TIMEOUT,
                                    headers=self._headers())
-        data = resp.json().get("data") or []
-        return [str(m.get("id")) for m in data if m.get("id")]
+        data = _response_object(resp, what="models").get("data") or []
+        if not isinstance(data, list):
+            raise ProviderError("models: поле data должно быть списком", kind="protocol")
+        return [str(m.get("id")) for m in data if isinstance(m, dict) and m.get("id")]
 
 
 class AnthropicAdapter(_BaseAdapter):
@@ -323,7 +343,7 @@ class AnthropicAdapter(_BaseAdapter):
         resp = await self._request("POST", f"{self.base_url}/v1/messages",
                                    timeout=kw.get("timeout", CHAT_TIMEOUT),
                                    headers=self._headers(), json=payload)
-        data = resp.json()
+        data = _response_object(resp, what="Anthropic messages")
         blocks = data.get("content") or []
         text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
         calls = [ToolCall(id=str(b.get("id") or f"call_{i}"),
@@ -359,8 +379,10 @@ class AnthropicAdapter(_BaseAdapter):
     async def list_models(self) -> list[str]:
         resp = await self._request("GET", f"{self.base_url}/v1/models", timeout=HEALTH_TIMEOUT,
                                    headers=self._headers())
-        data = resp.json().get("data") or []
-        return [str(m.get("id")) for m in data if m.get("id")]
+        data = _response_object(resp, what="Anthropic models").get("data") or []
+        if not isinstance(data, list):
+            raise ProviderError("Anthropic models: поле data должно быть списком", kind="protocol")
+        return [str(m.get("id")) for m in data if isinstance(m, dict) and m.get("id")]
 
 
 def _to_anthropic_messages(messages: list[dict]) -> list[dict]:

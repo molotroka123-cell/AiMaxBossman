@@ -110,6 +110,10 @@ def validate(data: dict, *, certification: dict | None = None) -> dict:
             raise ScorecardError(f"{name}: unknown live_attestation")
         if status == "ATTESTED" and c.get("live_attestation") == "PENDING":
             raise ScorecardError(f"{name}: ATTESTED with live attestation PENDING is a contradiction")
+        if status == "UNPROVEN" and c.get("confidence") != "LOW":
+            # Недоказанная ось не может нести среднюю или высокую уверенность:
+            # это та же подмена, что и «NOT_RUN → PASS», только в соседней колонке.
+            raise ScorecardError(f"{name}: UNPROVEN requires confidence LOW, got {c.get('confidence')!r}")
         for key in ("evidence", "blockers", "tests"):
             if not isinstance(c.get(key, []), list) or not all(isinstance(x, str) for x in c.get(key, [])):
                 raise ScorecardError(f"{name}: {key} must be a list of strings")

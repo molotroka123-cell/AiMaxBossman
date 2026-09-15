@@ -797,3 +797,36 @@ async def test_hooks_are_idempotent_no_duplicate_tool_calls_or_meta(env):
             dbm.tasks.c.id == task["id"]))).first()._mapping["meta"].get(ac.META_KEY)
     assert calls == []  # the gate itself never inserts a tool_calls row
     assert attempts == 1  # bumped exactly once, by the 1st (retryable) call only
+
+
+# --- P0 root cause: a hostname is not a file obligation --------------------
+# T2 in the 202-event acceptance corpus was asked to read https://example.com.
+# `_terminal_evidence` matched `example.com` with the filename regex and
+# manufactured a `file:example.com` obligation. Review failed it twice
+# ("файл отсутствует при свежем чтении"), escalated, and the task deadlocked in
+# waiting_approval. The obligation was never promised by anyone.
+
+@pytest.mark.parametrize("prompt", [
+    "Open https://example.com and record the title.",
+    "Fetch http://example.com/index and summarise it.",
+    "Check www.example.com for the h1 text.",
+    "Email the result to owner@example.com.",
+])
+def test_a_hostname_in_a_url_is_never_a_file_obligation(prompt):
+    assert ac._terminal_evidence(prompt) is None
+
+
+def test_a_real_filename_next_to_a_url_still_wins():
+    """Negative control: the exclusion must be a span check, not a blanket
+    'prompt contains a URL' bail-out, or every web task would lose its real
+    file obligation."""
+    evidence = ac._terminal_evidence(
+        "Read https://example.com and save the facts to reports/t2-web.json.")
+    assert evidence is not None and evidence.target == "reports/t2-web.json"
+
+
+def test_a_local_file_that_looks_like_a_host_is_still_an_obligation():
+    """A file really named `notes.com` is a filesystem outcome; only a name
+    inside a URL/email span is excluded."""
+    evidence = ac._terminal_evidence("Use terminal.run to create notes.com.")
+    assert evidence is not None and evidence.target == "notes.com"

@@ -28,6 +28,7 @@ class Scheduler:
         self.engine = engine
         self.tick_seconds = tick_seconds
         self.last_tick: float = 0.0        # для health в /api/system
+        self.last_error: str | None = None
         # Ставится Services.stop(): петля выходит сама, не будучи
         # оборванной посреди запроса к базе (см. bcc/lifecycle.py).
         self.stop_event: asyncio.Event | None = None
@@ -73,9 +74,11 @@ class Scheduler:
             self.last_tick = time.monotonic()
             try:
                 await self.tick_once()
+                self.last_error = None
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                self.last_error = f"{type(exc).__name__}: {exc}"[:200]
                 await self.bus.emit("scheduler.error", message=f"{type(exc).__name__}: {exc}")
             if await sleep_or_stop(self.stop_event, self.tick_seconds):
                 return

@@ -148,6 +148,34 @@ approvals = sa.Table(
     sa.Column("created_at", sa.DateTime, default=utcnow),
 )
 
+# Явно выданная владельцем ОБЛАСТЬ полномочия, а не одно нажатие (§7 конвергенции).
+# Один и тот же безопасный эффект спрашивался заново на каждом шаге: 161
+# подтверждение за сессию, ~121 из них — на правку документации. Аренда
+# позволяет владельцу один раз разрешить КЛАСС эффекта в явных границах
+# (инструмент, эффект, режим, агент, задача) с обязательными лимитами: срок,
+# число использований, мгновенный отзыв. Аренды НЕ существует по умолчанию:
+# без явного решения владельца поведение ровно прежнее.
+approval_leases = sa.Table(
+    "approval_leases", metadata,
+    sa.Column("id", sa.Integer, primary_key=True),
+    sa.Column("approval_id", sa.Integer, sa.ForeignKey("approvals.id", ondelete="SET NULL")),
+    sa.Column("task_id", sa.Integer, sa.ForeignKey("tasks.id", ondelete="CASCADE")),
+    sa.Column("agent_id", sa.Integer, sa.ForeignKey("agents.id", ondelete="CASCADE")),
+    sa.Column("tool", sa.String(160), nullable=False),
+    # "read" | "write" — класс эффекта, посчитанный тем же классификатором,
+    # что и при исполнении. Аренда на чтение НЕ покрывает запись.
+    sa.Column("effect_class", sa.String(16), nullable=False, default="read"),
+    # Дополнительное сужение (для terminal.run — mode). NULL = любой в рамках
+    # остальных границ; владелец видит это в предпросмотре.
+    sa.Column("scope_key", sa.String(200), default=""),
+    sa.Column("max_uses", sa.Integer, nullable=False, default=1),
+    sa.Column("used", sa.Integer, nullable=False, default=0),
+    sa.Column("expires_at", sa.DateTime, nullable=False),
+    sa.Column("status", sa.String(16), default="active"),        # active|revoked|exhausted|expired
+    sa.Column("granted_by", sa.String(120), default="owner"),
+    sa.Column("created_at", sa.DateTime, default=utcnow),
+)
+
 system_metrics = sa.Table(
     "system_metrics", metadata,
     sa.Column("id", sa.Integer, primary_key=True),
@@ -498,6 +526,12 @@ V2_NEW_COLUMNS: list[tuple[str, str, str]] = [
     # claim и при каждом возврате в очередь recover'ом. Запись сайд-эффекта и
     # закрытие run условны по fence: зомби-воркер с устаревшим fence не пишет.
     ("task_runs", "fence", "INTEGER DEFAULT 0"),
+    # §26: неизменяемая личность исполнителя, снятая на СТАРТЕ прогона.
+    # Без неё историю писала таблица `agents`, которая меняется и удаляется:
+    # правка агента переписывала прошлое, удаление — стирала его. NULL здесь
+    # означает «прогон старше этой колонки», и читается он как NOT_CAPTURED,
+    # а не как «прав не было».
+    ("task_runs", "provenance", "JSON"),
     # TRUTH-003 §2: ActionReceipt на каждый вызов инструмента (заявление исполнителя);
     # verified/verifier/observed_at заполняет только верификатор пост-состояния.
     ("tool_calls", "receipt_json", "JSON"),
@@ -506,6 +540,24 @@ V2_NEW_COLUMNS: list[tuple[str, str, str]] = [
     ("tool_calls", "observed_at", "DATETIME"),
     ("tool_calls", "receipt_sig", "VARCHAR(64)"),
     ("agents", "workspace", "VARCHAR(500)"),
+    # Какая аренда полномочия покрыла этот вызов (§7): без неё «подтверждений
+    # стало меньше» невозможно отличить от «спрашивать перестали».
+    ("tool_calls", "lease_id", "INTEGER"),
+    # B5: измеренное здоровье модели (bcc/model_health). Отдельно от `status`,
+    # потому что `status` смешивал доступность эндпоинта провайдера и умение
+    # модели вообще что-то ответить, и молчащая модель считалась online.
+    ("models", "health", "JSON"),
+    # ContextStoreRuntime (bcc/hybrid/context_store.py). Родная память проекта
+    # остаётся ОДНА — это та же таблица decisions, а не второе хранилище рядом.
+    # `scope` для пространства имён переиспользовать нельзя: это свободный
+    # текст ("Bossman V1"), и проект, назвавшийся так же, увидел бы чужие
+    # решения. `namespace` хранит нормализованный ключ проекта/репозитория.
+    ("decisions", "namespace", "VARCHAR(200) DEFAULT ''"),
+    # Происхождение записи — откуда она, кем и на каком SHA выучена, и что из
+    # неё вырезал фильтр секретов. Без этой колонки «что мы решили» невозможно
+    # отличить от «что кто-то когда-то написал».
+    ("decisions", "provenance", "JSON"),
+    ("decisions", "record_kind", "VARCHAR(32) DEFAULT 'decision'"),
 ]
 
 # Table-объекты выше объявлены ДО этого блока, поэтому колонки добавляем и в metadata —
@@ -570,6 +622,137 @@ class Database:
         async with self.engine.begin() as conn:
             await conn.run_sync(metadata.create_all)
         await self._migrate()
+        await self._install_terminal_run_guard()
+        await self._install_provenance_guard()
+
+    async def _install_terminal_run_guard(self) -> None:
+        """ТЕРМИНАЛЬНЫЙ ПРОГОН НЕИЗМЕНЯЕМ. Запрет живёт в БАЗЕ, а не в вызовах.
+
+        `task_runs.status` пишется примерно из двадцати мест движка, планировщика,
+        ресурсов и организации. Караулить каждое означало бы, что инвариант
+        держится ровно до следующего нового места записи, — а его обязаны
+        соблюдать ВСЕ границы, включая те, которых ещё нет. Поэтому запрет
+        поставлен там, где мимо него нельзя пройти.
+
+        Что запрещено: у прогона, уже дошедшего до `completed` или `failed`,
+        сменить `status` на другой. Это закрывает разом
+        completed→failed, failed→completed, completed→running, failed→running
+        и любой их вариант, включая прямую правку строки в базе.
+
+        Что разрешено и почему: запись того же самого статуса (идемпотентный
+        повтор финализации — это не переход) и правка ЛЮБЫХ других колонок
+        терминального прогона (улики, ссылки, брони дописываются после исхода).
+        Повторная попытка — это НОВЫЙ прогон с новым `attempt`, а не воскрешение
+        старого, поэтому легальные пути ничего здесь не теряют.
+        """
+        if self.engine.dialect.name == "postgresql":
+            statements = (
+                """CREATE OR REPLACE FUNCTION bcc_guard_terminal_run_status()
+                RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF OLD.status IN ('completed', 'failed')
+                       AND NEW.status IS DISTINCT FROM OLD.status THEN
+                        RAISE EXCEPTION 'terminal run status is immutable';
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$""",
+                "DROP TRIGGER IF EXISTS runs_terminal_status_is_immutable ON task_runs",
+                """CREATE TRIGGER runs_terminal_status_is_immutable
+                BEFORE UPDATE OF status ON task_runs FOR EACH ROW
+                EXECUTE FUNCTION bcc_guard_terminal_run_status()""",
+            )
+            async with self.engine.begin() as conn:
+                for statement in statements:
+                    await conn.execute(sa.text(statement))
+            return
+        if self.engine.dialect.name != "sqlite":
+            # Never print the URL: it can contain the owner's database password.
+            raise RuntimeError("terminal-run guard requires a supported SQLite or PostgreSQL backend")
+        statement = """
+        CREATE TRIGGER IF NOT EXISTS runs_terminal_status_is_immutable
+        BEFORE UPDATE OF status ON task_runs
+        FOR EACH ROW
+        WHEN OLD.status IN ('completed', 'failed') AND NEW.status IS NOT OLD.status
+        BEGIN
+            SELECT RAISE(ABORT, 'terminal run status is immutable');
+        END;
+        """
+        async with self.engine.begin() as conn:
+            # SQLite's legacy driver does not BEGIN for DDL automatically. Hold
+            # a real transaction so failure cannot leave the old guard dropped.
+            await conn.execute(sa.text("BEGIN IMMEDIATE"))
+            await conn.execute(sa.text("DROP TRIGGER IF EXISTS runs_terminal_status_is_immutable"))
+            await conn.execute(sa.text(statement))
+
+    async def _install_provenance_guard(self) -> None:
+        """ПРОВЕНАНС ПРОГОНА НЕИЗМЕНЯЕМ. Запрет живёт в БАЗЕ.
+
+        Снятая на старте личность исполнителя — это улика. Улика, которую можно
+        переписать после исхода, уликой не является: именно поэтому запрет стоит
+        не в вызове, который её пишет, а на границе, мимо которой не пройти —
+        включая прямую правку строки в базе.
+
+        Что запрещено: у прогона, чей провенанс уже записан, сменить его на
+        другой. Это закрывает и «подправить задним числом», и «дозаполнить
+        сегодняшней конфигурацией агента».
+
+        Что разрешено и почему: ПЕРВАЯ запись (NULL → значение) — это и есть
+        снятие; идемпотентный повтор того же значения — не изменение (рестарт,
+        снявший ту же личность, не должен падать); правка любых других колонок
+        прогона не затрагивается.
+        """
+        if self.engine.dialect.name == "postgresql":
+            statements = (
+                """CREATE OR REPLACE FUNCTION bcc_guard_run_provenance()
+                RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    IF OLD.provenance IS NOT NULL
+                       AND NEW.provenance::text IS DISTINCT FROM OLD.provenance::text THEN
+                        RAISE EXCEPTION 'run provenance is immutable';
+                    END IF;
+                    IF OLD.provenance IS NULL AND NEW.provenance IS NOT NULL
+                       AND OLD.status IN ('completed', 'failed', 'stopped') THEN
+                        RAISE EXCEPTION 'run provenance backfill is prohibited';
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$""",
+                "DROP TRIGGER IF EXISTS runs_provenance_is_immutable ON task_runs",
+                """CREATE TRIGGER runs_provenance_is_immutable
+                BEFORE UPDATE OF provenance ON task_runs FOR EACH ROW
+                EXECUTE FUNCTION bcc_guard_run_provenance()""",
+            )
+            async with self.engine.begin() as conn:
+                for statement in statements:
+                    await conn.execute(sa.text(statement))
+            return
+        if self.engine.dialect.name != "sqlite":
+            raise RuntimeError("provenance guard requires a supported SQLite or PostgreSQL backend")
+        statement = """
+        CREATE TRIGGER IF NOT EXISTS runs_provenance_is_immutable
+        BEFORE UPDATE OF provenance ON task_runs
+        FOR EACH ROW
+        WHEN OLD.provenance IS NOT NULL AND NEW.provenance IS NOT OLD.provenance
+        BEGIN
+            SELECT RAISE(ABORT, 'run provenance is immutable');
+        END;
+        """
+        async with self.engine.begin() as conn:
+            await conn.execute(sa.text(statement))
+
+        backfill = """
+        CREATE TRIGGER IF NOT EXISTS runs_provenance_no_terminal_backfill
+        BEFORE UPDATE OF provenance ON task_runs
+        FOR EACH ROW
+        WHEN OLD.provenance IS NULL AND NEW.provenance IS NOT NULL
+             AND OLD.status IN ('completed', 'failed', 'stopped')
+        BEGIN
+            SELECT RAISE(ABORT, 'run provenance backfill is prohibited');
+        END;
+        """
+        async with self.engine.begin() as conn:
+            await conn.execute(sa.text(backfill))
 
     async def _migrate(self) -> None:
         """Идемпотентные ALTER для новых V2-колонок: create_all не расширяет
@@ -643,7 +826,7 @@ async def fetch_one(session: AsyncSession, table: sa.Table, row_id: int) -> dict
 __all__ = [
     "Database", "Engine", "metadata", "utcnow", "row_dict", "rows_dicts", "fetch_one",
     "providers", "models", "agents", "tasks", "task_runs", "schedules", "run_events",
-    "approvals", "system_metrics", "events", "settings_kv",
+    "approvals", "approval_leases", "system_metrics", "events", "settings_kv",
     # V2
     "missions", "kpi_history", "orchestras", "orchestra_members", "skills",
     "skill_versions", "skill_evaluations", "benchmarks", "checkpoints", "session_forks",

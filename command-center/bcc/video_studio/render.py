@@ -6,6 +6,7 @@ come from bounded numeric data; user text lives in generated subtitle files.
 from __future__ import annotations
 
 import asyncio
+import errno
 from fractions import Fraction
 import hashlib
 import json
@@ -531,10 +532,26 @@ async def verify_output(path, expected=None):
         "passed":not failures,"failures":failures}
 
 
+# ReFS (Windows Dev Drive), FAT/exFAT и сетевые шары не умеют жёстких ссылок и
+# сообщают об этом кто во что горазд. EEXIST сюда намеренно не входит: занятое имя
+# означает конкурирующий экспорт и обязано остаться отказом, а не уйти в подмену.
+NO_HARD_LINKS = frozenset({errno.EPERM, errno.EACCES, errno.EINVAL, errno.ENOSYS,
+                           errno.EXDEV, errno.EMLINK, errno.EOPNOTSUPP, errno.ENOTSUP})
+
+
 def publish(partial, output_path):
     with partial.open("rb+") as source:
         os.fsync(source.fileno())
-    os.link(partial,output_path)
+    try:
+        os.link(partial,output_path)
+    except OSError as error:
+        # Иначе экспорт гибнет на самом последнем шаге, уже пройдя полное
+        # независимое декодирование, пробу и хеширование готового файла.
+        if error.errno not in NO_HARD_LINKS:raise
+        # O_EXCL сохраняет ту же исключительность публикации, что и os.link:
+        # os.replace сам по себе молча затирает уже опубликованный артефакт.
+        os.close(os.open(output_path,os.O_CREAT|os.O_EXCL|os.O_WRONLY))
+        os.replace(partial,output_path)
 
 
 async def stream_copy(project, root, output_path, options, progress):
@@ -589,7 +606,7 @@ async def stream_copy(project, root, output_path, options, progress):
 
 async def render_project(project, root, output_path, options=None, progress=None):
     options=dict(options or {})
-    allowed={"width","height","fps","video_codec","audio_codec","crf","bitrate","audio_bitrate","range","sequence_id","preset","profile","mode"}
+    allowed={"width","height","fps","video_codec","audio_codec","crf","bitrate","audio_bitrate","range","sequence_id","preset","profile","mode","deadline","cpu_used"}
     if set(options)-allowed:raise ValueError("unsupported export option: "+",".join(sorted(set(options)-allowed)))
     seq=next(s for s in project["sequences"] if s["id"]==options.get("sequence_id",project["active_sequence_id"]))
     profiles={"source":(seq["width"],seq["height"]),"youtube":(1920,1080),"reels":(1080,1920),"square":(1080,1080)}
@@ -709,6 +726,24 @@ async def render_project(project, root, output_path, options=None, progress=None
             preset=options.get("preset","veryfast")
             if preset not in {"ultrafast","superfast","veryfast","faster","fast","medium","slow"}:raise ValueError("invalid encoder preset")
             argv += ["-preset",preset,"-crf",fmt(number(options.get("crf",20),minimum=0,maximum=51))]
+        elif codec=="libvpx-vp9":
+            # libvpx-vp9 по умолчанию кодирует в ОДИН поток и с deadline=good,
+            # cpu-used=0 — это режим «максимальное качество любой ценой».
+            # Замерено на 320x180, 150 кадров: по умолчанию 2.53 с, с
+            # -row-mt 1 -threads 4 -deadline realtime -cpu-used 8 — 0.46 с,
+            # в 5.5 раза быстрее. Для превью, которое владелец ждёт на экране,
+            # разница между этими режимами и есть разница между «показалось» и
+            # «не дождался». Управление рулём качества остаётся у вызывающего:
+            # экспорт по умолчанию кодирует как раньше по качеству (good) и
+            # выигрывает только на распараллеливании.
+            deadline=options.get("deadline","good")
+            if deadline not in {"good","realtime","best"}:raise ValueError("invalid vp9 deadline")
+            # У libvpx-vp9 допустимый потолок cpu-used зависит от режима:
+            # в realtime это 8, в good/best — 5. Больший потолок молча
+            # обрезается кодировщиком, поэтому проверяем сами.
+            cpu_used=number(options.get("cpu_used",0 if deadline=="best" else 2),
+                            minimum=0,maximum=8 if deadline=="realtime" else 5)
+            argv += ["-row-mt","1","-deadline",deadline,"-cpu-used",fmt(cpu_used)]
         elif codec.endswith("nvenc"):
             argv += ["-preset","p4","-cq",fmt(number(options.get("crf",20),minimum=0,maximum=51))]
         for key,flag in [("bitrate","-b:v"),("audio_bitrate","-b:a")]:

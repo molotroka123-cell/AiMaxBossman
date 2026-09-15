@@ -1,0 +1,43 @@
+{
+  "case_id": "btc-2026-09-11-0834-post-cpi-wick-recovery-execution-chart",
+  "date": "2026-09-11",
+  "time_local": "08:34-04:00",
+  "type": "observed_chat_case",
+  "market": "BTCUSDT perpetual",
+  "source": "user execution-venue screenshot",
+  "timeframe": "15m",
+  "observed": {
+    "last_price": 76980.0,
+    "fair_price": 76972.3,
+    "change_pct": -0.32,
+    "high_24h": 77914.8,
+    "low_24h": 76030.0,
+    "volume_24h_btc": 54804.0,
+    "volume_24h_usdt_billion": 4.222,
+    "ma50": 77026.2,
+    "ma100": 77069.4,
+    "ma200": 77741.5,
+    "sar": 77371.5,
+    "visible_local_high": 77468.0,
+    "visible_flush_low": 76030.0,
+    "current_cvd": null,
+    "current_open_interest": null
+  },
+  "state": "Large downside wick to 76.03k followed by rapid recovery back toward 77k, but price remains below 15m MA50/MA100, SAR and far below MA200.",
+  "interpretation": "The execution venue confirms a strong rejection of the 76.03k flush low, but the recovery has not yet repaired the short-term structure. The first decision zone is the MA50/MA100 cluster around 77.03-77.07k. A reclaim and hold would improve the long case; rejection there would favor another rotation lower. The chart alone cannot classify the Price/CVD/OI regime because current CVD and OI are unavailable and must remain UNKNOWN rather than inferred from stale Coinwise frames.",
+  "long_scenario": {
+    "early_trigger": "Reclaim and hold 77.03-77.07k (MA50/MA100 cluster) on the execution venue.",
+    "confirmation_1": "Break and hold above SAR ~77.37k.",
+    "confirmation_2": "Reclaim the visible local high ~77.47k; stronger repair toward MA200 ~77.74k.",
+    "invalidation": "Failure back below ~76.8k after testing the MA50/MA100 cluster; stronger invalidation on a renewed break of the 76.03k flush low.",
+    "flow_requirement": "Prefer current CVD stable/up and OI not expanding bearishly during any pullback."
+  },
+  "short_scenario": {
+    "preferred_trigger": "Rejection from 77.03-77.07k MA50/MA100 cluster or SAR ~77.37k, followed by lower high and loss of ~76.8k.",
+    "targets_reference": [76500, 76030],
+    "continuation": "A clean loss of 76.03k becomes materially more bearish if accompanied by CVD down and OI flat/up rather than another pure OI-collapse liquidation wick.",
+    "invalidation": "Acceptance above ~77.37-77.47k with improving flow."
+  },
+  "macro_context": "The frame follows the CPI release discussed in chat. Headline CPI matched expectations while Core CPI MoM was modestly hotter than expected. The observed 76.03k wick and fast rebound should be treated as the market's immediate reaction, not as proof of a durable bottom.",
+  "lesson": "Execution-venue structure can be cleaner than the reference chart for actual trade levels. After a macro liquidation wick, separate reaction from confirmation: reclaim of MA/value resistance is needed before calling the rebound durable, and current CVD/OI must be refreshed before assigning an orderflow regime."
+}

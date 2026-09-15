@@ -34,6 +34,11 @@ from . import Feature
 router = APIRouter()
 PROVIDER = MockImageProvider()
 
+# Единственный алиас, который здесь реально исполняется. Один список на два
+# места (каталог моделей и очередь) — иначе каталог обещает то, что очередь
+# сразу же роняет, а владелец жмёт «Повторить» на заведомо обречённый job.
+EXECUTABLE_ALIASES = frozenset({"mock-image"})
+
 
 # ---------- request models ----------
 
@@ -167,6 +172,7 @@ async def image_models(request: Request):
         "name": "BOSSMAN Mock Image",
         "provider": "local",
         "status": "ok",
+        "executable": True,
         "caps": {"image_generation": True, "mock": True},
     }]
     async with svc.db.session() as s:
@@ -174,11 +180,13 @@ async def image_models(request: Request):
     for m in rows:
         caps = dict(m.get("caps") or {})
         if any(caps.get(k) for k in ("image_generation", "image", "images", "text_to_image")):
+            alias = m.get("alias") or m.get("name")
             out.append({
-                "alias": m.get("alias") or m.get("name"),
+                "alias": alias,
                 "name": m.get("name") or m.get("alias"),
                 "provider_id": m.get("provider_id"),
                 "status": m.get("status"),
+                "executable": alias in EXECUTABLE_ALIASES,
                 "caps": caps,
             })
     return out
@@ -519,7 +527,7 @@ async def process_one(svc) -> int | None:
     # First pass provider policy:
     # only the deterministic mock provider is executable here.
     # Real image providers are added later behind the same contract.
-    if job.get("model_alias") != "mock-image":
+    if job.get("model_alias") not in EXECUTABLE_ALIASES:
         await _fail_job(svc, job_id,
                         f"реальный image provider для «{job.get('model_alias')}» ещё не подключён")
         return job_id

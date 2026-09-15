@@ -34,6 +34,7 @@ const ImagesPage = {
   title: 'Изображения',
   icon: 'models',
   nav: 'primary',
+  section: 'studio',
 
   async render(ctx) {
     ensureStyles();
@@ -81,9 +82,9 @@ const ImagesPage = {
       composer(models, collections, ctx),
       h('div.images-workspace',
         librarySidebar(collections, assets, storage, ctx),
-        mainContent(assets, jobs, ctx),
+        mainContent(assets, jobs, models, ctx),
         inspector(selected, collections, ctx),
-        recentJobs(jobs, ctx),
+        recentJobs(jobs, models, ctx),
       ),
     );
   },
@@ -133,7 +134,7 @@ function composer(models, collections, ctx) {
 
   const model = withValue(h('select.input', {
     onChange: (e) => { composerState.model_alias = e.target.value; },
-  }, models.map((m) => h('option', { value: m.alias }, m.name || m.alias))),
+  }, models.map((m) => h('option', { value: m.alias }, modelLabel(m)))),
   composerState.model_alias);
 
   const ratio = withValue(h('select.input', {
@@ -169,6 +170,24 @@ function composer(models, collections, ctx) {
           h('div.xsmall.dim', `${composerState.width}×${composerState.height} · ${composerState.steps} шагов`),
         ),
       )));
+}
+
+/* Заглушка обязана называться заглушкой: mock-провайдер отдаёт синтетический
+   SVG, и без пометки владелец принимает его за работу настоящей модели.
+   executable=false — вторая половина честности: такой job упадёт в очереди. */
+function modelLabel(m) {
+  const caps = m && typeof m.caps === 'object' ? m.caps : {};
+  const name = m.name || m.alias;
+  if (caps.mock) return `${name} · заглушка`;
+  return m.executable === false ? `${name} · провайдер не подключён` : name;
+}
+
+/* Исполним ли алиас, знает только сервер (/api/images/models). Незнакомый
+   алиас считаем исполнимым: прятать «Повторить» из-за неполного каталога
+   хуже, чем показать кнопку. */
+function executableAlias(models, alias) {
+  const m = (models || []).find((x) => x.alias === alias);
+  return !m || m.executable !== false;
 }
 
 function field(label, node) {
@@ -209,9 +228,9 @@ function collectionRow(name, count, active, onClick) {
   }, h('span', name), h('span.xsmall.dim', String(count)));
 }
 
-function mainContent(assets, jobs, ctx) {
-  if (activeTab === 'generations') return generationsTable(jobs, ctx);
-  if (activeTab === 'queue') return generationsTable(jobs.filter((j) => ['queued', 'running'].includes(j.status)), ctx);
+function mainContent(assets, jobs, models, ctx) {
+  if (activeTab === 'generations') return generationsTable(jobs, models, ctx);
+  if (activeTab === 'queue') return generationsTable(jobs.filter((j) => ['queued', 'running'].includes(j.status)), models, ctx);
   if (activeTab === 'templates') return templatesPanel();
   if (!assets.length) {
     return emptyPanel({
@@ -298,16 +317,32 @@ function detail(label, value) {
   return h('div.images-detail', h('div.xsmall.dim', label), h('div.xsmall', String(value ?? '—')));
 }
 
-function recentJobs(jobs, ctx) {
+function recentJobs(jobs, models, ctx) {
   return h('section.panel.images-recent',
     h('div.panel-head', h('h2', 'Последние генерации'), h('div.spacer'),
       h('button.btn.btn-sm', { type: 'button', onClick: () => { activeTab = 'generations'; ctx.refresh(); } }, 'Все')),
     h('div.panel-body.tight',
-      jobs.length ? h('div.stack.tight', jobs.slice(0, 8).map((j) => jobMini(j, ctx)))
+      jobs.length ? h('div.stack.tight', jobs.slice(0, 8).map((j) => jobMini(j, models, ctx)))
         : h('div.small.dim', 'Запусков пока нет')));
 }
 
-function jobMini(job, ctx) {
+/* Причина падения приходит в job.error и раньше нигде не показывалась: владелец
+   видел «ошибка» и жал «Повторить», пока не надоест. Повтор алиаса, который
+   сервер не умеет исполнять (executable=false), обречён — вместо кнопки
+   показываем, чего не хватает. */
+function jobError(job) {
+  const text = String(job.error || '').trim();
+  return text ? h('div.xsmall', { style: { color: 'var(--err)' } }, text) : null;
+}
+
+function retryControl(job, models, ctx) {
+  if (!executableAlias(models, job.model_alias)) {
+    return h('div.xsmall.dim', 'повтор не поможет: провайдер не подключён');
+  }
+  return h('button.btn.btn-sm', { type: 'button', onClick: () => retryJob(job.id, ctx) }, 'Повторить');
+}
+
+function jobMini(job, models, ctx) {
   return h('div.images-job-mini',
     h('div.row.tight',
       statusBadge(job.status || 'queued', { live: job.status === 'running' }),
@@ -320,25 +355,25 @@ function jobMini(job, ctx) {
       h('span', job.aspect_ratio),
       h('span', '·'),
       h('span', `${Math.round((job.progress || 0) * 100)}%`)),
-    ['failed', 'cancelled'].includes(job.status)
-      ? h('button.btn.btn-sm', { type: 'button', onClick: () => retryJob(job.id, ctx) }, 'Повторить')
-      : null);
+    jobError(job),
+    ['failed', 'cancelled'].includes(job.status) ? retryControl(job, models, ctx) : null);
 }
 
-function generationsTable(jobs, ctx) {
+function generationsTable(jobs, models, ctx) {
   return h('section.panel.images-library',
     h('div.panel-head', h('h2', activeTab === 'queue' ? 'Очередь' : 'Генерации')),
     h('div.panel-body',
       jobs.length ? h('div.stack.tight', jobs.map((j) => h('div.images-job-row',
         h('div', { style: { minWidth: 0 } },
           h('div.small.truncate', { style: { fontWeight: '700' } }, j.prompt),
-          h('div.xsmall.dim', `${j.model_alias} · ${j.aspect_ratio} · #${j.id}`)),
+          h('div.xsmall.dim', `${j.model_alias} · ${j.aspect_ratio} · #${j.id}`),
+          jobError(j)),
         h('div.spacer'),
         statusBadge(j.status, { live: j.status === 'running' }),
         h('div.xsmall.dim', `${Math.round((j.progress || 0) * 100)}%`),
         j.status === 'queued' || j.status === 'running'
           ? h('button.btn.btn-sm.btn-danger', { type: 'button', onClick: () => cancelJob(j.id, ctx) }, 'Стоп')
-          : h('button.btn.btn-sm', { type: 'button', onClick: () => retryJob(j.id, ctx) }, 'Повторить'),
+          : retryControl(j, models, ctx),
       ))) : ui.blank({ iconName: 'empty', title: 'Задач нет',
         hint: 'Запустите генерацию — она появится здесь со своим состоянием.' })));
 }
@@ -371,13 +406,21 @@ async function createJob(ctx) {
   } catch (e) { toastError(e, 'Не удалось создать генерацию'); }
 }
 
+/* У импортированного файла модели нет ('import'). Подстановка 'mock-image'
+   ставила на новый job ложную метку происхождения и молча уводила владельца
+   на заглушку: берём модель, которую он видит в композере и может сменить. */
+function modelForAsset(asset) {
+  const alias = asset && asset.model_alias;
+  return alias && alias !== 'import' ? alias : composerState.model_alias;
+}
+
 async function variation(asset, ctx) {
   try {
     await api.raw('/api/images/jobs', {
       method: 'POST',
       body: {
         prompt: asset.prompt || asset.title || 'variation',
-        model_alias: asset.model_alias === 'import' ? 'mock-image' : asset.model_alias,
+        model_alias: modelForAsset(asset),
         aspect_ratio: asset.aspect_ratio || '1:1',
         width: asset.width || 1024,
         height: asset.height || 1024,
@@ -396,7 +439,7 @@ function reusePrompt(asset, ctx) {
   composerState = {
     ...composerState,
     prompt: asset.prompt || '',
-    model_alias: asset.model_alias === 'import' ? 'mock-image' : asset.model_alias,
+    model_alias: modelForAsset(asset),
     aspect_ratio: asset.aspect_ratio || '1:1',
     width: asset.width || 1024,
     height: asset.height || 1024,

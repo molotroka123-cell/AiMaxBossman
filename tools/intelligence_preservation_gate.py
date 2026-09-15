@@ -201,7 +201,55 @@ def _check_identity(payload: Mapping[str, Any], modes: Mapping[str, Any], cfg: G
         counts = {lane_name: _metric(modes[lane_name], metric_name)[1] for lane_name in MODES}
         if len(set(counts.values())) != 1:
             raise ValueError(f"unpaired items: {metric_name} samples differ across lanes {counts}")
+    _check_full_lane_is_the_real_harness(payload)
     return {"model": model, "dataset_id": dataset, "evaluated_sha": sha}
+
+
+def _check_full_lane_is_the_real_harness(payload: Mapping[str, Any]) -> None:
+    """The FULL lane must have EXECUTED the harness, not described it.
+
+    What this gate means by "the harness preserves the model's intelligence" is
+    that the real loop — production system prompt, real tool schemas, the real
+    context builder, and tools that actually run and return output to the model —
+    does not cost quality. A lane that appends a LIST OF TOOL NAMES to the prompt
+    and calls the model once measures none of that: there is no harness in it,
+    and it would answer the question with a number that cannot be wrong. That is
+    AF-04, and it is a way to close a fail-closed gate without measuring what the
+    gate is for.
+
+    The producing runner already declares this (`lanes.full.executes_tools`), so
+    the check is a cheap read — but it was never enforced, which meant a payload
+    from any weaker runner was accepted on equal terms. Missing declaration is a
+    refusal, not a pass: evidence that does not say how it was produced is not
+    evidence that the harness was exercised.
+    """
+    lanes = payload.get("lanes")
+    if not isinstance(lanes, Mapping):
+        raise ValueError(
+            "missing lanes block: the payload must declare how each lane was produced, "
+            "otherwise a prompt ablation and the real execution loop are indistinguishable")
+    full = lanes.get("full")
+    if not isinstance(full, Mapping):
+        raise ValueError("missing lanes.full: the FULL lane must declare how it was produced")
+    if full.get("executes_tools") is not True:
+        raise ValueError(
+            "lanes.full.executes_tools is not true: the FULL lane did not run the harness. "
+            "Appending tool names to a prompt does not measure whether Bossman's own loop "
+            "preserves the model's quality (AF-04)")
+    kind = str(full.get("kind") or "")
+    if kind != "production_execution_loop":
+        raise ValueError(
+            f"lanes.full.kind is {kind!r}, expected 'production_execution_loop': "
+            "the FULL lane must be the production loop, not an ablation of it")
+    observed = full.get("observed")
+    if not isinstance(observed, Mapping):
+        raise ValueError(
+            "missing lanes.full.observed: a lane that executed tools reports what it executed")
+    executed = observed.get("executed")
+    if not isinstance(executed, int) or isinstance(executed, bool) or executed < 1:
+        raise ValueError(
+            f"lanes.full.observed.executed is {executed!r}: the FULL lane declares it executes "
+            "tools but reports no tool actually executed")
 
 
 def evaluate(payload: Mapping[str, Any], cfg: GateConfig | None = None) -> dict[str, Any]:

@@ -1,0 +1,51 @@
+{
+  "case_id": "btc-2026-09-10-secondary-capitulation-flush",
+  "date": "2026-09-10",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "instrument_note": "Reference chart and execution tape remain separate; exact reference levels must not be used as execution prices without basis adjustment.",
+  "observed": {
+    "reference_chart_price_approx": 76800,
+    "reference_intrawindow_low_approx": 76700,
+    "execution_tape_approx": [76700, 76760],
+    "cvd_billion": 43.93,
+    "open_interest_billion": 18.28,
+    "long_liquidations_million": 32.96,
+    "short_liquidations_thousand": 252.75,
+    "buy_volume_million": 137.69
+  },
+  "chart_levels": {
+    "dVAL": 77805,
+    "dPOC": 78145,
+    "dOpen_approx": 78550,
+    "dVAH": 78615,
+    "ntPOC_upper": 79015,
+    "blue_liquidity_zone_approx": [76700, 77400]
+  },
+  "comparison_to_prior_capitulation_snapshot": {
+    "prior_reference_price_approx": 77215,
+    "prior_cvd_billion": 45.56,
+    "prior_oi_billion": 18.26,
+    "price_change_approx": -415,
+    "cvd_change_billion": -1.63,
+    "endpoint_oi_change_billion": 0.02,
+    "important_path_note": "Do not classify from distant endpoints alone. The current OI panel shows a sharp intrawindow drop from roughly the upper-18.5/18.6B area toward ~18.28B during the crash, so the event itself is still deleveraging despite the latest OI being only slightly above the earlier distant snapshot."
+  },
+  "state": "Secondary capitulation / long-liquidation cascade with Price DOWN + CVD DOWN and intrawindow OI collapse",
+  "regime": "CAPITULATION_DELEVERAGING_FLUSH_CONTINUATION",
+  "interpretation": "The selloff accelerated below the prior visible support/value structure. CVD made another sharp low and long liquidations expanded to roughly 32.96M while short liquidations remained tiny in comparison. The intrawindow OI collapse indicates forced position closure/deleveraging still dominates the immediate move; it is not yet clean evidence of fresh bearish leverage expansion. However, the scale of the flush is extreme and structural repair has not started.",
+  "long_scenario": {
+    "status": "NO_KNIFE_CATCH",
+    "reaction_zone": "Watch the current ~76.7-77.4k blue/liquidity zone for stabilization, not for blind entry.",
+    "first_trigger": "Price stops making new lows, CVD stops accelerating down, and the market reclaims roughly the 77.1-77.3k interior of the flush zone.",
+    "safer_trigger": "Reclaim the prior-day/value boundary around ~77.8k and hold/retest above it.",
+    "stronger_trigger": "Reclaim dPOC ~78.145k with improving price response; only then consider a structured staged long.",
+    "reason": "Large long liquidations can mark capitulation, but liquidation size alone does not prove the bottom. Require post-flush price acceptance."
+  },
+  "risk_scenario": {
+    "warning": "If price and CVD keep falling and OI, after this flush, begins to rise persistently, reclassify toward bearish leverage expansion because new leverage is entering after old longs were already cleaned out.",
+    "stronger_warning": "A failed reclaim of the current 76.7-77.4k zone followed by fresh OI expansion would imply the cascade is transitioning from forced liquidation into a new directional build."
+  },
+  "lesson": "Path-aware OI interpretation matters. A latest OI value can be slightly above an older snapshot while still having collapsed sharply during the current crash. During liquidation cascades, compare the immediate OI path around the price break, not only widely separated endpoint values. Extreme long-liquidation volume is a capitulation clue, not an automatic long signal; the reversal must be proven by stabilization and structural reclaim."
+}

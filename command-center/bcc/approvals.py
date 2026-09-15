@@ -74,6 +74,32 @@ class Approvals:
             await self.bus.emit("approval.decided", id=approval_id, status="revoked", by=by)
         return row
 
+    async def accept_for_execution(self, approval_id: int) -> bool:
+        """Граница «одобрение принято к исполнению»: approved → consumed, CAS по id.
+
+        Это единственная атомарная точка между решением человека и эффектом.
+        Отзыв, подтверждённый ДО неё, побеждает: строка уже не approved, CAS даёт
+        rowcount == 0, эффект не выполняется. Отзыв ПОСЛЕ неё проигрывает — и не
+        обещает отмены уже начатого действия: `revoke()` требует approved, а
+        строка уже consumed. Между «прочитали approved» и «исполнили» больше нет
+        окна, в котором и отзыв прошёл в базе, и эффект произошёл.
+        """
+        try:
+            aid = int(approval_id)
+        except (TypeError, ValueError):
+            return False
+        async with self.db.session() as s:
+            res = await s.execute(sa.update(approvals_t).where(
+                approvals_t.c.id == aid,
+                approvals_t.c.status == "approved").values(status="consumed"))
+            await s.commit()
+            ok = bool(res.rowcount)
+            row = await fetch_one(s, approvals_t, aid) if ok else None
+        if ok:
+            await self.bus.emit("approval.consumed", id=aid,
+                                approval_kind=(row or {}).get("kind"))
+        return ok
+
     async def consume(self, approval_id, *, kind: str, preview: str) -> bool:
         """F-015: подтверждение — это ЗАПИСЬ в таблице, а не флаг в теле запроса.
 

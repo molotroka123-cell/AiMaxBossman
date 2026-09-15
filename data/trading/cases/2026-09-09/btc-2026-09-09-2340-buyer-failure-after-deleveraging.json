@@ -1,0 +1,52 @@
+{
+  "case_id": "btc-2026-09-09-2340-buyer-failure-after-deleveraging",
+  "date": "2026-09-09",
+  "time_local": "23:40+02:00",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshot",
+  "instrument_note": "Reference chart and right-side execution tape remain separate. Exact chart levels are not execution-order prices unless basis is checked.",
+  "observed": {
+    "reference_chart_price_approx": 78230,
+    "execution_tape_approx": [78110, 78235],
+    "cvd_billion": 50.23,
+    "open_interest_billion": 18.21,
+    "long_liquidations_thousand": 7.32,
+    "short_liquidations_thousand": 16.73,
+    "funding_rate_histogram_pct": 0.0030
+  },
+  "chart_levels": {
+    "dPOC": 78767.75,
+    "dOpen_approx": 78550,
+    "dVAL": 78522,
+    "pDayLow_approx": 77600
+  },
+  "comparison_to_2240": {
+    "prior_reference_chart_price_approx": 78375,
+    "prior_cvd_billion": 49.53,
+    "prior_oi_billion": 18.22,
+    "price_change_approx": -145,
+    "cvd_change_billion": 0.70,
+    "oi_change_billion": -0.01,
+    "price_direction": "DOWN",
+    "cvd_direction": "UP",
+    "oi_direction": "FLAT_TO_SLIGHTLY_DOWN"
+  },
+  "state": "Price DOWN + CVD UP + OI FLAT/SLIGHTLY DOWN",
+  "regime": "BUYER_FAILURE_CANDIDATE_AFTER_DELEVERAGING",
+  "path_note": "After the multi-stage deleveraging cascade, CVD recovered from ~49.53B to ~50.23B while OI stopped collapsing near ~18.21B, but price still finished lower and remained well below dVAL/dOpen/dPOC. The intrawindow chart shows a rebound from a lower wick, but no structural reclaim of value.",
+  "interpretation": "This is an early improvement in aggressive buy flow, but the price response is still weak. Because CVD rises while price remains lower and OI is flat/slightly lower, buyers may be getting absorbed by passive sellers. This is less bearish than renewed Price DOWN + CVD DOWN + OI UP, but it is not yet a long signal. The key question is whether improved CVD can finally force price back through dVAL and dOpen.",
+  "long_scenario": {
+    "status": "WATCH_NO_ENTRY",
+    "first_trigger": "Reclaim dVAL ~78,522 and hold above it while CVD stays stable/up.",
+    "second_trigger": "Reclaim dOpen ~78,550 and maintain positive price response; OI can be flat or rise moderately if price also advances.",
+    "safer_trigger": "Reclaim dPOC ~78,768 with acceptance/retest from above.",
+    "reason": "CVD improvement without price reclaim is buyer effort, not proof of control."
+  },
+  "risk_scenario": {
+    "warning": "If CVD rolls back over and price loses the current rebound while OI turns UP, bearish leverage-expansion risk returns immediately.",
+    "lower_reference": 77600,
+    "stronger_warning": "Acceptance toward/through pDay Low ~77,600 with CVD down and OI up would invalidate the early buyer-improvement read."
+  },
+  "lesson": "After a prolonged Price DOWN + CVD DOWN + OI DOWN deleveraging cascade, the first transition to Price DOWN + CVD UP + OI FLAT/SLIGHTLY DOWN is only an early buyer-effort signal. Do not call a bottom from CVD alone. Require price to reclaim value in sequence: dVAL -> dOpen -> dPOC. If price cannot respond to improving CVD, treat it as buyer failure/passive-seller absorption rather than bullish confirmation."
+}

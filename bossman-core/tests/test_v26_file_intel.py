@@ -184,6 +184,50 @@ def test_pdf_honest_unavailable_or_parses(tmp_path):
         assert art.sections[0].ref == "page=1"
 
 
+# Минимальный PDF по СПЕЦИФИКАЦИИ, а не нашим кодом и не pypdf. Holdout того же
+# рода, что openpyxl для xlsx: фикстура, написанная автором парсера, проверяет
+# общее с парсером допущение, а не формат.
+def _spec_pdf(text: str) -> bytes:
+    objs = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] "
+        b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+        None,
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    stream = f"BT /F1 12 Tf 20 100 Td ({text}) Tj ET".encode("latin-1")
+    objs[3] = b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream"
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for i, body in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % i + body + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
+    for off in offsets:
+        out += b"%010d 00000 n \n" % off
+    out += (b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n"
+            % (len(objs) + 1, xref))
+    return bytes(out)
+
+
+def test_pdf_actually_returns_the_text_that_is_in_the_file(tmp_path):
+    """Прежний тест PDF проверял только `kind == "pdf"` и `ref == "page=1"` на
+    ПУСТОЙ странице — то есть остался бы зелёным, если бы извлечение текста
+    возвращало пустоту для любого документа. Возможность «читать PDF» — это
+    текст, а не заголовок раздела, поэтому проверяется текст.
+
+    Пропуск здесь ЧЕСТНЫЙ и виден в реестре: без extra `documents` возможности
+    в установке нет, и делать вид, что она есть, нельзя."""
+    pytest.importorskip("pypdf", reason="разбор PDF ставится extra `documents`")
+    p = tmp_path / "planted.pdf"
+    p.write_bytes(_spec_pdf("MARKERpdfBODY"))
+    art = parse_file(p)
+    assert art.kind == "pdf"
+    assert "MARKERpdfBODY" in art.sections[0].text, art.sections[0].text
+
+
 def test_second_parse_served_from_cache(tmp_path):
     p = tmp_path / "cached.csv"
     p.write_text("a,b\n1,2\n", encoding="utf-8")
@@ -202,3 +246,73 @@ def test_render_compact_keeps_provenance(tmp_path):
     assert "sheet=Отчёт" in out                   # provenance-ссылка в выхлопе
     assert art.content_hash[:12] in out
     assert "выручка" in out
+
+
+# --------------------------------------------------------------------------
+# BL-033: инлайновые строки в xlsx терялись МОЛЧА
+# --------------------------------------------------------------------------
+# OOXML хранит текст ячейки двумя равноправными способами: ссылкой в
+# sharedStrings (`t="s"` + `<v>индекс`) и ПРЯМО в ячейке
+# (`t="inlineStr"` + `<is><t>текст`). Парсер читал только `<v>`, поэтому второй
+# способ давал пустую строку — без ошибки, без предупреждения, без пропуска.
+# Таблица «разбиралась успешно» и приходила к модели пустой.
+#
+# Почему это дожило до сих пор: единственная фикстура xlsx в этом файле была
+# написана руками и использовала ТОЛЬКО shared strings. Тест повторял
+# допущение реализации, поэтому найти дефект не мог.
+
+def _make_xlsx_inline(path) -> None:
+    """Тот же лист, но текст лежит ПРЯМО в ячейках (t="inlineStr")."""
+    wb = f'<workbook xmlns="{S_NS}"><sheets><sheet name="Отчёт" sheetId="1"/></sheets></workbook>'
+    sheet = f"""<worksheet xmlns="{S_NS}"><sheetData>
+ <row r="1"><c r="A1" t="inlineStr"><is><t>месяц</t></is></c>
+            <c r="B1" t="inlineStr"><is><t>выручка</t></is></c></row>
+ <row r="2"><c r="A2" t="inlineStr"><is><t>январь</t></is></c>
+            <c r="B2"><v>1200</v></c></row>
+</sheetData></worksheet>"""
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("xl/workbook.xml", wb)
+        zf.writestr("xl/worksheets/sheet1.xml", sheet)
+
+
+def test_xlsx_inline_strings_are_extracted_not_silently_dropped(tmp_path):
+    """Текст, лежащий прямо в ячейке, обязан доехать.
+
+    Молчаливая потеря хуже отказа: отказ видно, а пустую таблицу владелец
+    примет за пустой файл.
+    """
+    p = tmp_path / "inline.xlsx"
+    _make_xlsx_inline(p)
+    sec = parse_file(p).sections[0]
+    assert sec.table[0] == ("месяц", "выручка"), sec.table
+    assert sec.table[1] == ("январь", "1200"), sec.table
+
+
+def test_xlsx_shared_strings_still_work_after_the_inline_fix(tmp_path):
+    """Обратный контроль: починка инлайновых строк не имеет права сломать
+    разделяемые. Оба способа законны и встречаются в одном и том же файле."""
+    p = tmp_path / "shared.xlsx"
+    _make_xlsx(p)
+    sec = parse_file(p).sections[0]
+    assert sec.table[0] == ("месяц", "выручка")
+    assert sec.table[1] == ("1", "1200")
+
+
+def test_a_real_writer_produces_the_shape_that_was_broken(tmp_path):
+    """Holdout: файл пишет НАСТОЯЩИЙ openpyxl, а не наша рукописная фикстура.
+
+    Рукописный xml кодирует допущения того, кто его писал. Дефект и дожил
+    потому, что фикстура и реализация сходились на одном способе. Настоящий
+    сторонний писатель — единственная проверка, что мы понимаем формат, а не
+    свой собственный диалект.
+    """
+    openpyxl = pytest.importorskip("openpyxl")
+    p = tmp_path / "real.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws["A1"] = "МАРКЕР-ИЗВЛЕЧЕНИЯ"
+    ws["B2"] = "вторая ячейка"
+    wb.save(p)
+    text = render_compact(parse_file(p))
+    assert "МАРКЕР-ИЗВЛЕЧЕНИЯ" in text, text[:300]
+    assert "вторая ячейка" in text, text[:300]

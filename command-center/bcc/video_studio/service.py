@@ -32,6 +32,21 @@ def identifier(value):
         raise ValueError("invalid identifier")
     return value
 
+# WebM принимает только VP8/VP9/AV1 и Vorbis/Opus. Пара «webm + libx264» из
+# диалога экспорта уходила в очередь и падала внутри ffmpeg: владелец получал
+# сломанную задачу вместо отказа с внятной причиной. Проверяем ДО постановки.
+_CONTAINER_VIDEO={"webm":{"libvpx-vp9","av1_nvenc"}}
+_CONTAINER_AUDIO={"webm":{"libopus"}}
+
+def _check_container_codecs(container,options):
+    video=options.get("video_codec","libx264");audio=options.get("audio_codec","aac")
+    allowed_v=_CONTAINER_VIDEO.get(container)
+    if allowed_v is not None and video not in allowed_v:
+        raise ValueError(f"{container} container does not accept video codec {video}")
+    allowed_a=_CONTAINER_AUDIO.get(container)
+    if allowed_a is not None and audio not in allowed_a:
+        raise ValueError(f"{container} container does not accept audio codec {audio}")
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
@@ -44,6 +59,11 @@ def editing_intent(text):
     action = r"(склей|смонтир|сделай|создай|добавь|убери|замени|открой|обрежь|merge|edit|make|create|add|remove|replace|open|trim)"
     topic = r"(видео|ролик|ролика|роликов|ролики|субтитр|музык|reels|video|clip|caption|subtitle|fresh vibes|проект)"
     return bool(re.search(action, text) and re.search(topic, text))
+
+
+class VideoEditNotReady(ValueError):
+    """Controlled owner guidance, with no workspace paths or model output."""
+
 
 class VideoService:
     def __init__(self, svc):
@@ -149,9 +169,45 @@ class VideoService:
         container=payload.get("container","mp4")
         if container not in ("mp4","mov","mkv","webm"):
             raise ValueError("unsupported export container")
-        options["_container"]="mp4" if payload.get("preview") else container
+        # Both lines fixed the same defect: a preview the shipped browser cannot
+        # decode. The control line's answer is kept because it needs nothing
+        # from the caller — the owner clicks Preview and it plays — and it
+        # carries the measured encode speed-up. What is kept from this line is
+        # the pre-queue codec/container check below: choosing the preview codec
+        # here and validating it are different jobs, and the export path (where
+        # the owner really can name "webm + libx264") still needs the check.
         if payload.get("preview"):
-            options.update(width=320,height=180)
+            # Превью смотрят во ВСТРОЕННОМ браузере Bossman, а это Chromium из
+            # Playwright — сборка без проприетарных кодеков: canPlayType для
+            # 'video/mp4; codecs="avc1.42E01E"' возвращает пустую строку, и
+            # элемент <video> кончает ошибкой MEDIA_ERR_SRC_NOT_SUPPORTED.
+            # Превью в mp4/H.264 у владельца просто не проигрывалось, хотя
+            # экспорт был корректным. Превью идёт в webm/VP9/Opus — то, что
+            # поставляемый браузер умеет. Экспорт не меняется: контейнер и
+            # кодек выбирает владелец.
+            options["_container"]="webm"
+            # Превью смотрят, а не хранят, поэтому кодировать его в режиме
+            # «максимальное качество любой ценой» незачем. Замер ВНУТРИ
+            # настоящего конвейера рендера (4 прогона, 6 секунд, 320x180),
+            # медиана времени кодирования:
+            #     по умолчанию      1.45 с
+            #     good/cpu-used 5   1.59 с  — не быстрее: узкое место не
+            #                                кодировщик, а граф фильтров
+            #     realtime/cpu-used 8  0.45 с — в 3.2 раза быстрее
+            # Из-за этой разницы приёмка редакторов и мигала: превью не
+            # успевало стать проигрываемым за отведённые 15 секунд под
+            # нагрузкой. Измерено на этой машине, по 5 прогонов:
+            # без настройки — 3 прошло / 2 упало, с realtime — 5 / 0.
+            # Поэтому чинится скорость превью, а не ожидание в тесте.
+            options.update(width=320,height=180,video_codec="libvpx-vp9",
+                           audio_codec="libopus",deadline="realtime",cpu_used=8)
+        else:
+            options["_container"]=container
+        # A container that cannot carry the requested codecs is refused HERE, not
+        # inside ffmpeg after the job is queued: "webm + libx264" from the export
+        # dialog used to reach the worker and leave the owner a broken task
+        # instead of a refusal with a reason.
+        _check_container_codecs(options["_container"],options)
         # The host issues paths, kind, retry policy and authority; requests cannot set them.
         async with self.svc.db.session() as s:
             res = await s.execute(sa.insert(tasks_t).values(title="Video preview" if payload.get("preview") else "Video export",
@@ -208,9 +264,15 @@ class VideoService:
 
     async def _render_job(self, task, run, engine):
         from .render import render_project
+        from .model import Conflict
         jid = task["meta"]["video_job_id"]
         async with self.svc.db.session() as s:
             row = dict((await s.execute(sa.select(jobs).where(jobs.c.id == jid))).mappings().one())
+        # Ревизия в export проверяется до INSERT и без _write_lock, так что правка
+        # успевает встать между ними. Без этой сверки готовый файл выдавался бы за
+        # текущий проект, а render_gate подтверждал бы его: гейт привязан к снапшоту.
+        if (await self.store.get(row["project_id"]))["revision"] != row["snapshot"]["revision"]:
+            raise Conflict("project changed after this export was queued")
         outdir = self.root / "exports" / jid / str(run["id"])
         outdir.mkdir(parents=True, exist_ok=True)
         async def progress(stage, details):
@@ -276,17 +338,33 @@ class VideoService:
         await self.svc.bus.emit("video.project.open",project_id=pid,task_id=tid)
         return {"handled":True,"project_id":pid,"task_id":tid,"text":text}
 
-    async def edit_executor(self, task, run, engine):
+    def _edit_plan(self, task, project):
+        """Build the existing native edit plan without changing project state.
+
+        The chat checks this before enqueueing, and the worker checks again:
+        importing/undoing media between admission and execution changes readiness.
+        """
         from .model import sequence, clip_duration
-        pid=task["meta"]["video_project_id"]
-        project=await self.store.get(pid)
         text=task["prompt"].lower()
+        unsupported = re.search(
+            r"субтитр|caption|subtitle|\b(?:замени|добавь|убери|обрежь|удали|переведи|"
+            r"replace|add|remove|trim|delete|translate)\b", text)
+        # Opening/stitching the timeline must not complete an additional effect
+        # that this deterministic executor never performs (music, subtitles...).
+        if unsupported:
+            raise VideoEditNotReady(
+                "VIDEO_COMMAND_REQUIRED: Эта правка требует явных команд таймлайна "
+                "или обученного видеоагента. Откройте проект в Video Studio; "
+                "автомонтаж не выполнил бы весь запрос, задача не запущена.")
         if re.search(r"^(открой|open)\b",text):
-            return json.dumps({"project_id":pid,"revision":project["revision"],"opened":True})
+            return None
         vertical=bool(re.search(r"reels|вертикаль",text))
         stitch=bool(re.search(r"склей|смонтир|merge|stitch|edit.*video",text))
         if not (vertical or stitch):
-            raise ValueError("this request requires an assigned video skill or supported explicit timeline commands")
+            raise VideoEditNotReady(
+                "VIDEO_COMMAND_REQUIRED: Автомонтаж выполняет склейку и подготовку Reels. "
+                "Для этой правки откройте проект в Video Studio и примените явные команды "
+                "таймлайна или назначьте обученного видеоагента; задача не запущена.")
         seq=sequence(project)
         operations=[]
         if vertical:
@@ -307,8 +385,32 @@ class VideoService:
                 "id":"chat-"+str(task["id"])+"-"+media["id"],"media_id":media["id"],
                 "start":cursor,"source_in":0,"source_out":duration}})
             cursor+=duration
-        if not operations:
-            raise ValueError("attach media before editing; existing montage was preserved")
+        if not operations or not any(t["clips"] for t in seq["tracks"]) and not any(
+                op["type"] == "clip.add" for op in operations):
+            raise VideoEditNotReady(
+                "VIDEO_MEDIA_REQUIRED: Прикрепите новое видео или аудио перед запуском "
+                "монтажа. Существующий проект сохранён, задача не запущена.")
+        return operations
+
+    async def check_edit_ready(self, task):
+        project=await self.store.get(task["meta"]["video_project_id"])
+        self._edit_plan(task,project)
+
+    async def edit_admission(self, task, run):
+        if task.get("kind") != "video_edit":
+            return None
+        try:
+            await self.check_edit_ready(task)
+        except VideoEditNotReady as exc:
+            return {"fail":str(exc)}
+        return None
+
+    async def edit_executor(self, task, run, engine):
+        pid=task["meta"]["video_project_id"]
+        project=await self.store.get(pid)
+        operations=self._edit_plan(task,project)
+        if operations is None:
+            return json.dumps({"project_id":pid,"revision":project["revision"],"opened":True})
         await engine.assert_fence(run["id"])
         result=await self.command({"project_id":pid,"expected_revision":project["revision"],
             "operation_id":"chat-edit-"+str(task["id"]),

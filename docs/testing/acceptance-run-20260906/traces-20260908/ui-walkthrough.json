@@ -1,0 +1,2909 @@
+{
+  "meta": {
+    "base_url": "http://127.0.0.1:8801",
+    "browser": "chromium headless 1440x900",
+    "login_ok": true,
+    "tabs_found": [
+      "Главная",
+      "Приложения",
+      "Миссии",
+      "Агенты",
+      "Ждут решения",
+      "История видео и чат",
+      "Операторский канал",
+      "Веб-дизайн",
+      "Модели",
+      "Задачи",
+      "Расписания",
+      "Система",
+      "Настройки",
+      "Video Studio",
+      "Выбор модели",
+      "Присмотр",
+      "Ресурсы",
+      "Навыки",
+      "Терминал",
+      "Замеры моделей",
+      "Браузер",
+      "Coding-сессии",
+      "Карта агентов",
+      "Команды агентов",
+      "Развилки",
+      "Восстановление",
+      "OpenRouter",
+      "Пульт",
+      "Конструктор миссий",
+      "Изображения",
+      "Обучение трейдингу",
+      "Поиск в интернете",
+      "Цели",
+      "Пульт"
+    ],
+    "requests_total_logged": 278,
+    "generated": "2026-09-07T23:33:20",
+    "pass2": "state reclassification + census + extended safe controls",
+    "pass3": "router numeric validation + pult 15s recheck + strict state re-eval",
+    "pass4": "router numeric probe + sticky toast repro + final state recheck",
+    "notes": "token прочитан скриптами из файла, в логи/отчёт не выводился; клики ограничены безопасным списком (без delete/approve/stop/send/save)"
+  },
+  "login": {
+    "ok": true
+  },
+  "tabs": [
+    {
+      "id": "главная",
+      "title": "Главная",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [
+        {
+          "name": "Открыть",
+          "id": null,
+          "selector": "button.bx-btn.bx-btn-primary text='Открыть'",
+          "result": "PASS",
+          "note": "url changed -> http://127.0.0.1:8801/#/tasks"
+        },
+        {
+          "name": "Открыть",
+          "selector": "Открыть",
+          "result": "PASS",
+          "note": "url -> http://127.0.0.1:8801/#/tasks",
+          "pass": 2
+        },
+        {
+          "name": "Открыть",
+          "result": "NO_OP",
+          "note": "locator vanished",
+          "pass": 2
+        },
+        {
+          "name": "Открыть",
+          "result": "NO_OP",
+          "note": "locator vanished",
+          "pass": 2
+        }
+      ],
+      "url": "http://127.0.0.1:8801/#/home-v3",
+      "hash": "#/home-v3",
+      "active_nav": "Главная",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": "Сейчас ничего не выполняется.",
+      "main_text_snippet": "BOSSMAN |  | Добрый вечер — система работает. |  | СИСТЕМА В СТРОЮ | ПРИЛОЖЕНИЙ ГОТОВО | 0/9 | АГЕНТОВ В РАБОТЕ | 0/2 | НАГРУЗКА | — | НУЖНО ВАШЕ ВНИМАНИЕ | 1 | Задача завершилась ошибкой | T1 SIMPLE write+readback t1-notes.txt | Открыть → | СЕЙЧАС В РАБОТЕ | Сейчас ничего не выполняется. | Убрать вложения | — выберите агента — | acceptance-cheap | acceptance-strong | Умно | Авто | С агентами | ЗАПУСТИТЬ | Ctrl↵ | МОИ ПРИЛОЖЕНИЯ | Все приложения | ОСТАНОВЛЕНО | AI WebCam Vision |  | Dental Operations Intelligence |  | Камера | нет данных | CRM | не подключён | Под наблю",
+      "screenshot": "03-главная.png",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Задача завершилась ошибкой\nT1 SIMPLE wri",
+            "aria": null,
+            "id": null,
+            "cls": "bx-attn-row",
+            "dis": false
+          },
+          {
+            "t": "Убрать вложения",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn",
+            "dis": false
+          },
+          {
+            "t": "Умно",
+            "aria": null,
+            "id": null,
+            "cls": "bx-mode",
+            "dis": false
+          },
+          {
+            "t": "Авто",
+            "aria": null,
+            "id": null,
+            "cls": "bx-mode",
+            "dis": false
+          },
+          {
+            "t": "С агентами",
+            "aria": null,
+            "id": null,
+            "cls": "bx-mode",
+            "dis": false
+          },
+          {
+            "t": "ЗАПУСТИТЬ\nCtrl↵",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-xl",
+            "dis": false
+          },
+          {
+            "t": "Все приложения",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Открыть",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Живой вид",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Открыть",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Новая модель",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Открыть",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open Command Center",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Миссии",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Все",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Ресурсы",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Подробно",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "textarea",
+            "type": "textarea",
+            "ph": "Что должен сделать BOSSMAN?",
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "file",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "приложения",
+      "title": "Приложения",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [
+        {
+          "name": "Открыть",
+          "id": null,
+          "selector": "button.bx-btn.bx-btn-primary text='Открыть'",
+          "result": "PASS",
+          "note": "url changed -> http://127.0.0.1:8801/#/apps?open=ai-webcam-vision"
+        },
+        {
+          "name": "Открыть",
+          "selector": "Открыть",
+          "result": "PASS",
+          "note": "url -> http://127.0.0.1:8801/#/apps?open=ai-webcam-vision",
+          "pass": 2
+        },
+        {
+          "name": "Открыть",
+          "selector": "Открыть",
+          "result": "PASS",
+          "note": "url -> http://127.0.0.1:8801/#/apps?open=ai-webcam-vision",
+          "pass": 2
+        },
+        {
+          "name": "Открыть",
+          "selector": "Открыть",
+          "result": "PASS",
+          "note": "url -> http://127.0.0.1:8801/#/apps?open=ai-webcam-vision",
+          "pass": 2
+        }
+      ],
+      "url": "http://127.0.0.1:8801/#/apps",
+      "hash": "#/apps",
+      "active_nav": "Приложения",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Приложения |  | 9 установлено, 0 в работе. Список читается из манифестов. |  | Проверить состояние | ОСТАНОВЛЕНО | AI WebCam Vision |  | Dental Operations Intelligence |  | Камера | нет данных | CRM | не подключён | Под наблюдением сегодня | — | Открыть | Живой вид | Запустить | ОСТАНОВЛЕНО | AI 3D Maker |  | Precision CAD & Generative 3D |  | Принтер | ELEGOO Neptune 3 Plus | Область печати | 320 × 320 × 400 мм | Очередь | пусто | Открыть | Новая модель | Запустить | 400 | 320 | ОСТАНОВЛЕНО | BOSSMAN Social Farm |  | Instagram-first account control |  | Площадка | Instagram | ",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Проверить состояние",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-subtle bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Открыть",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Живой вид",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Открыть",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Новая модель",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Открыть",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open Command Center",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Open",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-lg",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "миссии",
+      "title": "Миссии",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/missions",
+      "hash": "#/missions",
+      "active_nav": "Миссии",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Миссии |  | Большая цель, а не одна задача: опишите, чего хотите — BOSSMAN сам разложит её на шаги и доведёт до результата. |  | Новая миссия | Миссий пока нет | Миссия — это цель целиком. BOSSMAN сам построит план из шагов и будет вести их, распределяя работу между помощниками. | Создать первую миссию",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Новая миссия",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Создать первую миссию",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "агенты",
+      "title": "Агенты",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/agents",
+      "hash": "#/agents",
+      "active_nav": "Агенты",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Агенты |  | 2 агента · 2 готовы к работе |  | Новый агент | acceptance-cheap |  | acceptance worker cheap |  | ГОТОВ К РАБОТЕ | or-z-ai-glm-5.3-flash | запасная: or-anthropic-claude-sonnet-4.5 | ШАГОВ НА ЗАДАЧУ | 60 | Поручить задачу | Изменить | Удалить | acceptance-strong |  | acceptance worker strong |  | ГОТОВ К РАБОТЕ | or-anthropic-claude-sonnet-4.5 | запасная: or-z-ai-glm-5.3-flash | ШАГОВ НА ЗАДАЧУ | 80 | Поручить задачу | Изменить | Удалить",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Новый агент",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Поручить задачу",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Изменить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Удалить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-subtle bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Поручить задачу",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Изменить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Удалить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-subtle bx-btn-sm",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "ждут-решения",
+      "title": "Ждут решения",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/approvals",
+      "hash": "#/approvals",
+      "active_nav": "Ждут решения",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Ждут вашего решения |  | Здесь появляются шаги, которые агент не делает без вашего разрешения. |  | Пока ничего не ждёт решения | Сюда попадут действия агентов, на которые нужно ваше согласие: отправить письмо, опубликовать пост, сделать дорогой платный вызов.",
+      "screenshot": "04-ждут-решения.png",
+      "controls_note": "view-only policy: safe clicks not performed",
+      "census_pass2": {
+        "buttons": [],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "история-видео-и-чат",
+      "title": "История видео и чат",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/bossman-chat",
+      "hash": "#/bossman-chat",
+      "active_nav": "История видео и чат",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Bossman Chat | Убрать вложения | Выберите агента для обычных вопросов | acceptance-cheap | acceptance-strong | Отправить |  | Файлы остаются локально. Теоретические вопросы не создают проект.",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Убрать вложения",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn",
+            "dis": false
+          },
+          {
+            "t": "Отправить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "textarea",
+            "type": "textarea",
+            "ph": "Склей эти два видео",
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "file",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "операторский-канал",
+      "title": "Операторский канал",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/mission_console",
+      "hash": "#/mission_console",
+      "active_nav": "Операторский канал",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "ОПЕРАТОРСКИЙ КАНАЛ | Миссия не выбрана |  | Цель появится здесь, как только миссия будет поставлена. Пока канал слушает систему и ждёт работы. |  | ИДЕНТИФИКАТОР | нет данных | СОСТОЯНИЕ | нет данных | С СОЗДАНИЯ | нет данных | ЗАДАЧ В МИССИИ | нет данных | МАРШРУТ МОДЕЛЕЙ | or-z-ai-glm-5.3-flash | ОБЛАКО | → | or-anthropic-claude-sonnet-4.5 | ОБЛАКО | активная модель неизвестна: прогонов ещё не было | План миссии | ШАГ | 1 / 1 | 1 | T1 SIMPLE write+readback t1-notes.txt | ошибка | Ход проверки | остановлена | попытка 1/2 через 2 с | с оговоркой | выполн",
+      "controls_note": "view-only policy: safe clicks not performed",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Развернуть рассуждения и верификацию",
+            "aria": null,
+            "id": null,
+            "cls": "mc-disclose",
+            "dis": false
+          },
+          {
+            "t": "Отправить",
+            "aria": null,
+            "id": null,
+            "cls": "mc-btn is-primary",
+            "dis": false
+          },
+          {
+            "t": "Доложи состояние миссии",
+            "aria": null,
+            "id": null,
+            "cls": "mc-chip",
+            "dis": false
+          },
+          {
+            "t": "Продолжи план со следующего шага",
+            "aria": null,
+            "id": null,
+            "cls": "mc-chip",
+            "dis": false
+          },
+          {
+            "t": "Проверь источники последнего вывода",
+            "aria": null,
+            "id": null,
+            "cls": "mc-chip",
+            "dis": false
+          },
+          {
+            "t": "Собери короткий отчёт по сделанному",
+            "aria": null,
+            "id": null,
+            "cls": "mc-chip",
+            "dis": false
+          },
+          {
+            "t": "Останови текущую задачу",
+            "aria": null,
+            "id": null,
+            "cls": "mc-chip",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": "mc-command-agent"
+          },
+          {
+            "tag": "input",
+            "type": "text",
+            "ph": "Команда оператора: что сделать дальше",
+            "id": "mc-command-input"
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "веб-дизайн",
+      "title": "Веб-дизайн",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [
+        {
+          "name": "Открыть проект",
+          "id": null,
+          "selector": "button.bx-btn.bx-btn-primary text='Открыть проект'",
+          "result": "PASS",
+          "note": "toast ['Проект создан\\n×'] + effect(mut=33,post=1)"
+        },
+        {
+          "name": "Блог\nСписок статей, рубрики и подписка на рассылку",
+          "id": null,
+          "selector": "button.bd-tpl text='Блог\nСписок статей, рубрики и '",
+          "result": "NO_OP",
+          "note": "locator vanished"
+        },
+        {
+          "name": "Обновить",
+          "selector": "Обновить",
+          "result": "PASS",
+          "note": "fresh GET (1), no visible change",
+          "pass": 2
+        }
+      ],
+      "url": "http://127.0.0.1:8801/#/web_designer",
+      "hash": "#/web_designer",
+      "active_nav": "Веб-дизайн",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Веб-дизайн |  | Создайте проект — и панель откроется: код, живое превью и точечные правки в одном экране. |  | НОВЫЙ САЙТ | Палитра: авто (из описания) | Палитра: blue | Палитра: dark | Палитра: gold | Палитра: green | Палитра: indigo | Палитра: orange | Палитра: rose | Палитра: teal | Палитра: violet | Открыть проект | ИЛИ ВЫБЕРИТЕ ЗАГОТОВКУ | Лендинг | Герой-блок, преимущества, цифры и форма связи | Портфолио | Сетка работ, навыки, обо мне и контакты | Кафе / ресторан | Меню с ценами, галерея, отзывы и часы работы | Магазин | Витрина товаро",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "+ Проект",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Скачать HTML",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Задача «сделать сайт»",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Сгенерировать сайт",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Выделение: вкл",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Обновить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Применить размер",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Повернуть",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Вернуть",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-ghost bx-btn-sm",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "text",
+            "ph": "Опишите сайт: «портфолио фотографа в зелёных тонах»",
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "textarea",
+            "type": "textarea",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "модели",
+      "title": "Модели",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [
+        {
+          "name": "Найти локальные",
+          "selector": "Найти локальные",
+          "result": "PASS",
+          "note": "modal/drawer opened",
+          "pass": 2
+        }
+      ],
+      "url": "http://127.0.0.1:8801/#/models",
+      "hash": "#/models",
+      "active_nav": "Модели",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Модели |  | 2 модели · 1 поставщик |  | Проверить все | Найти локальные | Добавить модель | or-z-ai-glm-5.3-flash |  | z-ai/glm-5.3-flash · OpenRouter (manual) |  | НЕТ ДАННЫХ | облако | контекст 1280k | tools | vision | Проверить | Проба | Изменить | Удалить | or-anthropic-claude-sonnet-4.5 |  | anthropic/claude-sonnet-4.5 · OpenRouter (manual) |  | НЕТ ДАННЫХ | облако | контекст 1000k | tools | vision | Проверить | Проба | Изменить | Удалить",
+      "screenshot": "05-модели.png",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Проверить все",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Найти локальные",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Добавить модель",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Проверить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Проба",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Изменить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Удалить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-danger bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Проверить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Проба",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Изменить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Удалить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-danger bx-btn-sm",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "задачи",
+      "title": "Задачи",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/tasks",
+      "hash": "#/tasks",
+      "active_nav": "Задачи",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Task Composer | Ctrl/⌘ + Enter — запустить сейчас | Агент | — выберите агента — | acceptance-cheap | acceptance-strong | Приоритет | Высокий приоритет | Обычный приоритет | Низкий приоритет | По расписанию… | Запустить | Все | 1 | Выполняются | 0 | В очереди | 0 | Ждут подтверждения | 0 | На паузе | 0 | Заблокированы | 0 | Ошибки | 1 | Завершены | 0 | Остановлены | 0 | ОШИБКИ | 1 | T1 SIMPLE write+readback t1-notes.txt | ошибка | acceptance-cheap | 3м 31с назад",
+      "screenshot": "06-задачи.png",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "По расписанию…",
+            "aria": null,
+            "id": null,
+            "cls": "btn",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Все\n1",
+            "aria": null,
+            "id": null,
+            "cls": "filter-chip on",
+            "dis": false
+          },
+          {
+            "t": "Выполняются\n0",
+            "aria": null,
+            "id": null,
+            "cls": "filter-chip",
+            "dis": false
+          },
+          {
+            "t": "В очереди\n0",
+            "aria": null,
+            "id": null,
+            "cls": "filter-chip",
+            "dis": false
+          },
+          {
+            "t": "Ждут подтверждения\n0",
+            "aria": null,
+            "id": null,
+            "cls": "filter-chip",
+            "dis": false
+          },
+          {
+            "t": "На паузе\n0",
+            "aria": null,
+            "id": null,
+            "cls": "filter-chip",
+            "dis": false
+          },
+          {
+            "t": "Заблокированы\n0",
+            "aria": null,
+            "id": null,
+            "cls": "filter-chip",
+            "dis": false
+          },
+          {
+            "t": "Ошибки\n1",
+            "aria": null,
+            "id": null,
+            "cls": "filter-chip",
+            "dis": false
+          },
+          {
+            "t": "Завершены\n0",
+            "aria": null,
+            "id": null,
+            "cls": "filter-chip",
+            "dis": false
+          },
+          {
+            "t": "Остановлены\n0",
+            "aria": null,
+            "id": null,
+            "cls": "filter-chip",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "textarea",
+            "type": "textarea",
+            "ph": "Что должен сделать BOSSMAN?",
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "расписания",
+      "title": "Расписания",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/schedules",
+      "hash": "#/schedules",
+      "active_nav": "Расписания",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": "Расписаний пока нет\nРасписание запускает задачу само: разово в заданное время, каждый день или через интервал.\nНовое расписание",
+      "main_text_snippet": "РАСПИСАНИЯ | 0 правил · тик планировщика раз в 30 с | Новое расписание | Расписаний пока нет | Расписание запускает задачу само: разово в заданное время, каждый день или через интервал. | Новое расписание",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Новое расписание",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Новое расписание",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "система",
+      "title": "Система",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/system",
+      "hash": "#/system",
+      "active_nav": "Система",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Состояние системы |  | Что происходит с сервером прямо сейчас: нагрузка, память, диск и все части системы. |  | ЗАГРУЗКА ПРОЦЕССОРА | 3% | за последние 15 минут | ОПЕРАТИВНАЯ ПАМЯТЬ | 10.6 | из 15.6 ГБ занято | 68% | ДИСК | Занято | 580,0 / 926,2 ГБ | ВИДЕОКАРТА (GPU) | NVIDIA GeForce RTX 4060 Laptop GPU | 57 °C | Загрузка | 13% | Память видеокарты занята | 0.6 / 8.0 ГиБ | [Insufficient Permissions] · 3020 | — ГиБ | C:\\Windows\\SystemApps\\MicrosoftWindows.Client.CBS_cw5n1h2txyewy\\CrossDeviceResume.exe · 35636 | — ГиБ | C:\\Windows\\explorer.exe · ",
+      "controls_note": "view-only policy: safe clicks not performed",
+      "census_pass2": {
+        "buttons": [],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "настройки",
+      "title": "Настройки",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/settings",
+      "hash": "#/settings",
+      "active_nav": "Настройки",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Внешний вид | Тема интерфейса | Выбор сохраняется в этом браузере. | Тёмная | Светлая | Доступ | Сессия этого браузера | активна · ключ сессии хранится в HttpOnly-cookie и недоступен скриптам | Выйти | Выход завершает сессию на сервере, а не только в этом браузере. Сам сервер продолжит работать, задачи не прерываются. | Провайдеры и ключи | К моделям | OpenRouter (manual) · OpenAI-совместимый | https://openrouter.ai/api/v1 | …dcba | О системе | BOSSMAN AI Command Center — локальный control plane: модели, агенты, задачи, распис",
+      "controls_note": "view-only policy: safe clicks not performed",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Тёмная",
+            "aria": null,
+            "id": null,
+            "cls": "",
+            "dis": false
+          },
+          {
+            "t": "Светлая",
+            "aria": null,
+            "id": null,
+            "cls": "on",
+            "dis": false
+          },
+          {
+            "t": "Выйти",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-danger",
+            "dis": false
+          },
+          {
+            "t": "К моделям",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm",
+            "dis": false
+          },
+          {
+            "t": "",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-danger",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "video-studio",
+      "title": "Video Studio",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [
+        {
+          "name": "⋯",
+          "id": null,
+          "selector": "button.vs-button text='⋯'",
+          "result": "EXPECTED_DISABLED",
+          "note": "disabled"
+        },
+        {
+          "name": "↶",
+          "id": null,
+          "selector": "button.vs-button text='↶'",
+          "result": "EXPECTED_DISABLED",
+          "note": "disabled"
+        },
+        {
+          "name": "↷",
+          "id": null,
+          "selector": "button.vs-button text='↷'",
+          "result": "EXPECTED_DISABLED",
+          "note": "disabled"
+        },
+        {
+          "name": "⌘",
+          "id": null,
+          "selector": "button.vs-button text='⌘'",
+          "result": "EXPECTED_DISABLED",
+          "note": "disabled"
+        },
+        {
+          "name": "Экспорт",
+          "id": null,
+          "selector": "button.vs-button.vs-primary text='Экспорт'",
+          "result": "EXPECTED_DISABLED",
+          "note": "disabled"
+        }
+      ],
+      "url": "http://127.0.0.1:8801/#/video-studio",
+      "hash": "#/video-studio",
+      "active_nav": "Video Studio",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": "▤\nВаш следующий монтаж начинается здесь\n\nСоздайте проект и импортируйте исходники. Видео остаётся локально.\n\n＋ Новый проект",
+      "main_text_snippet": "BOSSMAN | Выберите проект | ＋ | ⋯ | Монтаж | Цвет | Звук | VFX | ИИ | ↶ | ↷ | ⌘ | ✦ | EN | Экспорт | ▤ | Ваш следующий монтаж начинается здесь |  | Создайте проект и импортируйте исходники. Видео остаётся локально. |  | ＋ Новый проект",
+      "screenshot": "07-video-studio.png",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "＋",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button",
+            "dis": false
+          },
+          {
+            "t": "⋯",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button",
+            "dis": true
+          },
+          {
+            "t": "Монтаж",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button active",
+            "dis": false
+          },
+          {
+            "t": "Цвет",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button",
+            "dis": false
+          },
+          {
+            "t": "Звук",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button",
+            "dis": false
+          },
+          {
+            "t": "VFX",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button",
+            "dis": false
+          },
+          {
+            "t": "ИИ",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button",
+            "dis": false
+          },
+          {
+            "t": "↶",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button",
+            "dis": true
+          },
+          {
+            "t": "↷",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button",
+            "dis": true
+          },
+          {
+            "t": "⌘",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button",
+            "dis": true
+          },
+          {
+            "t": "✦",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button",
+            "dis": false
+          },
+          {
+            "t": "EN",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button",
+            "dis": false
+          },
+          {
+            "t": "Экспорт",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button vs-primary",
+            "dis": true
+          },
+          {
+            "t": "＋ Новый проект",
+            "aria": null,
+            "id": null,
+            "cls": "vs-button vs-primary",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "выбор-модели",
+      "title": "Выбор модели",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [
+        {
+          "name": "Показать",
+          "id": null,
+          "selector": "button.btn.btn-sm text='Показать'",
+          "result": "PASS",
+          "note": "validation toast 'Укажите ID задачи' — корректная обратная связь при пустом ID"
+        },
+        {
+          "name": "Показать",
+          "selector": "Показать",
+          "result": "PASS",
+          "note": "validation toast 'Укажите ID задачи' — корректная обратная связь при пустом ID",
+          "pass": 2
+        },
+        {
+          "name": "Показать (bogus id)",
+          "result": "TEST_ARTIFACT",
+          "note": "probe error: input[type=number] rejected string fill; redone in pass3 -> null",
+          "pass": 2
+        },
+        {
+          "name": "Показать (validation)",
+          "selector": "#/router",
+          "result": "NOT_RUN",
+          "note": "toasts=None, net4xx=None, sticky10s=None",
+          "pass": 3
+        },
+        {
+          "name": "Показать (bogus numeric id, sticky check)",
+          "selector": "#/router input[type=number]",
+          "result": "NOT_RUN",
+          "note": "validation toast: None; sticky after 9s: None; survives tab nav: False",
+          "pass": 4
+        }
+      ],
+      "url": "http://127.0.0.1:8801/#/router",
+      "hash": "#/router",
+      "active_nav": "Выбор модели",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Выбор модели |  | Как BOSSMAN решает, какой модели отдать задачу: требования, предпросмотр выбора и объяснение. |  | ЧТО МОДЕЛЬ ДОЛЖНА УМЕТЬ ДЛЯ РАЗНЫХ ЗАДАЧ | coding | → | coding | vision | → | vision | review | → | coding | Менять — в блоке для продвинутых ниже. | ПРЕДПОЧТЕНИЯ | Предпочитать локальные модели при прочих равных | ПРОВЕРИТЬ, КОГО ВЫБЕРЕТ | Тип задачи | Минимальный размер контекста | Макс. цена ответа, $ за 1М | Свободно памяти, МБ | Можно использовать облако | Проверить | Заполните форму и нажмите «Проверить». | ПОЧЕМУ ВЫБРАЛИ Э",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Проверить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Показать",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Сохранить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary btn-sm",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "input",
+            "type": "checkbox",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "text",
+            "ph": "coding",
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": "без лимита",
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": "без лимита",
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "checkbox",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": "ID задачи",
+            "id": null
+          },
+          {
+            "tag": "textarea",
+            "type": "textarea",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "присмотр",
+      "title": "Присмотр",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/governor",
+      "hash": "#/governor",
+      "active_nav": "Присмотр",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": "Вмешиваться пока не приходилось — всё идёт как надо.",
+      "main_text_snippet": "Присмотр за агентами |  | BOSSMAN сам останавливает работу, которая зациклилась или зря тратит деньги, и зовёт вас, если что-то застряло. |  | КОГДА ВМЕШИВАТЬСЯ | Повторов одной ошибки | После скольких одинаковых ошибок остановить задачу. | Шагов на месте | Сколько одинаковых ответов подряд считать «застрял» и ставить на паузу. | Повторов у самой задачи | Не вмешиваться, пока задача сама пробует справиться. | Сохранить | КОГДА ПРИШЛОСЬ ВМЕШАТЬСЯ · 0 | Вмешиваться пока не приходилось — всё идёт как надо.",
+      "controls_note": "view-only policy: safe clicks not performed",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Сохранить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary btn-sm",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "ресурсы",
+      "title": "Ресурсы",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/resources",
+      "hash": "#/resources",
+      "active_nav": "Ресурсы",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Нагрузка на память |  | Сколько оперативной памяти занято и сколько её отдавать под задачи. BOSSMAN следит, чтобы серверу всегда хватало. |  | ПАМЯТЬ СЕРВЕРА | Занято прямо сейчас | 10.6 / 15.6 ГБ | Отдано под задачи | 0.0 ГБ | СВОБОДНО ДЛЯ НОВЫХ ЗАДАЧ | 0.0 ГБ | НЕПРИКОСНОВЕННЫЙ ЗАПАС | 15.6 ГБ | КАК ДЕЛИТЬ ПАМЯТЬ | Поровну | На скорость | Экономно | Не запускать задачи, если памяти не хватает | Если выключено — BOSSMAN только предупреждает, но всё равно запускает. | Всего памяти считать (МБ) | Оставьте пустым — BOSSMAN возьмёт реаль",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Поровну",
+            "aria": null,
+            "id": null,
+            "cls": "is-on",
+            "dis": false
+          },
+          {
+            "t": "На скорость",
+            "aria": null,
+            "id": null,
+            "cls": "",
+            "dis": false
+          },
+          {
+            "t": "Экономно",
+            "aria": null,
+            "id": null,
+            "cls": "",
+            "dis": false
+          },
+          {
+            "t": "Сохранить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "input",
+            "type": "checkbox",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": "считать автоматически",
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "навыки",
+      "title": "Навыки",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/skills",
+      "hash": "#/skills",
+      "active_nav": "Навыки",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": "Серверов инструментов нет\nПодключите сервер, чтобы его инструменты стали доступны агентам. Для каждого можно выбрать: разрешать, спрашивать или запрещ",
+      "main_text_snippet": "Навыки |  | 36 готовых наборов действий для агентов |  | Загрузить | Новый навык | browser-research |  | browser-research · v1.0 |  | 0 агентов | Navigate and inspect websites efficiently using DOM-first browser automation, screenshots only when visual understanding is needed, and strict approval gates for sensitive actions. | Запустить | Копия | Скачать | Назначить | context-builder |  | context-builder · v1.0 |  | 0 агентов | Assemble the smallest high-quality task context from memory, semantic code search, current files, tool results",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Загрузить",
+            "aria": null,
+            "id": null,
+            "cls": "btn",
+            "dis": false
+          },
+          {
+            "t": "Новый навык",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Копия",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Скачать",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Назначить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Копия",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Скачать",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Назначить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Копия",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Скачать",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Назначить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Копия",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Скачать",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Назначить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Копия",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Скачать",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Назначить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Копия",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Скачать",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-secondary bx-btn-sm",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "терминал",
+      "title": "Терминал",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/terminal",
+      "hash": "#/terminal",
+      "active_nav": "Терминал",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Терминал |  | Запуск команд на сервере. Опасные команды выполняются только с вашего подтверждения. |  | ЗАПУСК КОМАНДЫ | Режим | Песочница | В проекте | С правами системы | В какой папке выполнять | Команда | Разрешить доступ в интернет | Нажмите «Проверить», чтобы заранее узнать, что будет с командой. | Проверить | Запустить | РАЗРЕШЁННЫЕ ПАПКИ (ДЛЯ РЕЖИМА «В ПРОЕКТЕ») | Ещё папка | В «Песочнице» команда и так видит только свою папку — эти пути нужны только для режима «В проекте». | Сохранить | Пока ничего не запускалось | Запустите ",
+      "controls_note": "view-only policy: safe clicks not performed",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Песочница",
+            "aria": null,
+            "id": null,
+            "cls": "on",
+            "dis": false
+          },
+          {
+            "t": "В проекте",
+            "aria": null,
+            "id": null,
+            "cls": "",
+            "dis": false
+          },
+          {
+            "t": "С правами системы",
+            "aria": null,
+            "id": null,
+            "cls": "",
+            "dis": false
+          },
+          {
+            "t": "Проверить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "",
+            "aria": "Убрать папку",
+            "id": null,
+            "cls": "btn btn-sm btn-ghost",
+            "dis": false
+          },
+          {
+            "t": "Ещё папка",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Сохранить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary btn-sm",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "input",
+            "type": "text",
+            "ph": "C:\\bossman-acceptance\\20260906T1945-d1e851b\\runtime\\bcc-acc-data",
+            "id": null
+          },
+          {
+            "tag": "textarea",
+            "type": "textarea",
+            "ph": "git status",
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "checkbox",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "text",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "замеры-моделей",
+      "title": "Замеры моделей",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/benchmarks",
+      "hash": "#/benchmarks",
+      "active_nav": "Замеры моделей",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Замеры моделей |  | Проверяем модели в деле: насколько быстро отвечают и стабильно ли работают. Замер идёт в фоне и не мешает работать. |  | Запустить замер | САМАЯ БЫСТРАЯ МОДЕЛЬ | Пока мало завершённых замеров, чтобы сравнивать (учтено: 0). | Замеров ещё нет | Запустите замер модели — он пройдёт в фоне и не помешает остальной работе.",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Запустить замер",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "браузер",
+      "title": "Браузер",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/browser",
+      "hash": "#/browser",
+      "active_nav": "Браузер",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Браузер |  | Агент работает в настоящем браузере, а вы можете в любой момент взять управление на себя. |  | Новое окно | Окон браузера пока нет | Состояние: EMPTY — сессий нет, рантайм готов. Агент сам открывает страницы и нажимает кнопки. Вход, загрузку файлов и отправку форм он делает только с вашего разрешения, а оплату — никогда.",
+      "controls_note": "view-only policy: safe clicks not performed",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Новое окно",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "coding-сессии",
+      "title": "Coding-сессии",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/coding",
+      "hash": "#/coding",
+      "active_nav": "Coding-сессии",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Coding-сессии |  | Изоляция агента в отдельном git-worktree: диф, ревью и merge без риска для исходного дерева. |  | Новая сессия | Сессий пока нет | Создайте сессию для репозитория из разрешённых корней: агент получит отдельный worktree, а вы — честный diff и безопасный merge.",
+      "controls_note": "view-only policy: safe clicks not performed",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "",
+            "aria": "Обновить",
+            "id": null,
+            "cls": "btn",
+            "dis": false
+          },
+          {
+            "t": "Новая сессия",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "карта-агентов",
+      "title": "Карта агентов",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/agentmap",
+      "hash": "#/agentmap",
+      "active_nav": "Карта агентов",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Карта агентов |  | Кто кому передаёт работу — по реальным задачам и командам, в реальном времени. |  | Команда | Все агенты | СХЕМА СВЯЗЕЙ | acceptance-cheap | failed | acceptance-stro… | idle",
+      "census_pass2": {
+        "buttons": [],
+        "inputs": [
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "команды-агентов",
+      "title": "Команды агентов",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/orchestras",
+      "hash": "#/orchestras",
+      "active_nav": "Команды агентов",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Команды агентов |  | Опишите команду обычными словами — BOSSMAN соберёт её и покажет, что понял, до создания. |  | ОПИСАНИЕ КОМАНДЫ | Название (необязательно) | Опишите команду | Слова-подсказки: «главный» — старший в команде, «проверяет» — проверяющий, «помощник» — исполнитель. Числа — это лимиты и бюджет. | Разобрать | ЧТО ПОЛУЧИЛОСЬ | Опишите команду и нажмите «Разобрать». | Создать | ГОТОВЫЕ КОМАНДЫ | Команд пока нет | Создайте первую через форму выше.",
+      "controls_note": "view-only policy: safe clicks not performed",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Разобрать",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Создать",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary",
+            "dis": true
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "input",
+            "type": "text",
+            "ph": "Название команды",
+            "id": null
+          },
+          {
+            "tag": "textarea",
+            "type": "textarea",
+            "ph": "Пример: Исследователь — главный, qwen-coder — помощник, максимум 3 помощника, бюджет $5, всё важное — спрашивать у меня.",
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "развилки",
+      "title": "Развилки",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/forks",
+      "hash": "#/forks",
+      "active_nav": "Развилки",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Развилки |  | Продолжить любой запуск с любой сохранённой точки — с новой инструкцией, другим агентом или моделью. |  | ВЫБОР ЗАПУСКА | Задача | выберите задачу | #1 · T1 SIMPLE write+readback t1-notes.txt | Выберите задачу, чтобы увидеть её запуски. | СОХРАНЁННЫЕ ТОЧКИ | Выберите запуск, чтобы увидеть сохранённые точки. | ДЕРЕВО ОТВЕТВЛЕНИЙ | —",
+      "census_pass2": {
+        "buttons": [],
+        "inputs": [
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "восстановление",
+      "title": "Восстановление",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/healing",
+      "hash": "#/healing",
+      "active_nav": "Восстановление",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": "Пока всё работает стабильно — восстанавливать ничего не приходилось.",
+      "main_text_snippet": "Самовосстановление |  | Если модель перестала отвечать или другая часть системы дала сбой, BOSSMAN сам пытается её вернуть в строй. |  | КОГДА ВОССТАНАВЛИВАТЬ | За сколько секунд считать | В каком промежутке времени учитывать ошибки подряд. | Сколько ошибок — тревога | После скольких сбоев подряд считать, что модель «упала». | Сколько раз пробовать | Если не помогло — BOSSMAN позовёт вас. | Сохранить | ПОПЫТКИ ВЕРНУТЬ В СТРОЙ · 0 | Пока всё работает стабильно — восстанавливать ничего не приходилось.",
+      "controls_note": "view-only policy: safe clicks not performed",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Сохранить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary btn-sm",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "input",
+            "type": "number",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "openrouter",
+      "title": "OpenRouter",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [
+        {
+          "name": "Обновить список",
+          "id": null,
+          "selector": "button.btn.btn-primary text='Обновить список'",
+          "result": "PASS",
+          "note": "toast ['Список обновлён: 428 моделей\\n×'] + effect(mut=26,post=1)"
+        },
+        {
+          "name": "Показать ещё 100",
+          "id": null,
+          "selector": "button.btn.btn-sm text='Показать ещё 100'",
+          "result": "PASS",
+          "note": "dom changed (mut=11, new_req=1)"
+        },
+        {
+          "name": "Обновить список",
+          "selector": "Обновить список",
+          "result": "PASS",
+          "note": "POST fired (1)",
+          "pass": 2
+        }
+      ],
+      "url": "http://127.0.0.1:8801/#/openrouter",
+      "hash": "#/openrouter",
+      "active_nav": "OpenRouter",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "OpenRouter |  | Каталог облачных моделей OpenRouter: обновить список, закрепить нужные и проверить их возможности. |  | OpenRouter (manual) · поставщик OpenRouter этой установки | https://openrouter.ai/api/v1 | Обновить список | ПОДКЛЮЧЕНИЕ | ключ сохранён | моделей в каталоге: 430 | sync: 9/6/2026, 9:10:19 PM | КАТАЛОГ МОДЕЛЕЙ OPENROUTER | Поиск | ALL | FREE | CODING | VISION | TOOLS | показано 100 из 430 | aion-labs/aion-2.0 | AionLabs: Aion-2.0 | Закрепить | контекст 128k | вход $0.8000/1М | ответ $1.60/1М | text | 8 настроек | aion-labs/aion-3.",
+      "screenshot": "08-openrouter.png",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Обновить список",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary btn-sm",
+            "dis": false
+          },
+          {
+            "t": "ALL",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "FREE",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm",
+            "dis": false
+          },
+          {
+            "t": "CODING",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm",
+            "dis": false
+          },
+          {
+            "t": "VISION",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm",
+            "dis": false
+          },
+          {
+            "t": "TOOLS",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          },
+          {
+            "t": "Закрепить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm btn-primary",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "input",
+            "type": "text",
+            "ph": "поиск по всему каталогу (например, glm)…",
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "пульт",
+      "title": "Пульт",
+      "opened": true,
+      "state": "empty",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/command",
+      "hash": "#/command",
+      "active_nav": "Пульт",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": "Активных миссий нет",
+      "main_text_snippet": "Внимание | Свободно 0.0 ГБ при резерве 15.6 ГБ — новые модели не поднять | ACTIVE MISSIONS | Активных миссий нет | Открыть миссии | NEEDS YOU | Ничего не ждёт решения | AGENTS | acceptance-cheap | ошибка | acceptance-strong | idle | ЧТО СЕЙЧАС ЗАПУЩЕНО | Терминал | Активных терминалов нет | Браузер | Сессий браузера нет | OpenCode | Сессий OpenCode нет | ConnectError | HEALTH | CPU | 5% | RAM | 10.0 / 15.6 ГБ | Диск | 580 / 926 ГБ | Свободно под модели | 0.0 ГБ свободно | db | queue_worker | scheduler | metrics | browser | models | Очередь: ошибка 1 | QUICK TASK | — а",
+      "controls_note": "view-only policy: safe clicks not performed"
+    },
+    {
+      "id": "конструктор-миссий",
+      "title": "Конструктор миссий",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/builder",
+      "hash": "#/builder",
+      "active_nav": "Конструктор миссий",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": "Миссий пока нет\nСхема собирается из настоящей миссии — её плана, задач, запусков и подтверждений. Создайте миссию, и схема появится сама.\nК миссиям",
+      "main_text_snippet": "Миссий пока нет | Схема собирается из настоящей миссии — её плана, задач, запусков и подтверждений. Создайте миссию, и схема появится сама. | К миссиям",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "К миссиям",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "изображения",
+      "title": "Изображения",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/images",
+      "hash": "#/images",
+      "active_nav": "Изображения",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Изображения |  | Создание картинок, ваша библиотека и коллекции. |  | Загрузить файл | Библиотека | 0 | Избранное | 0 | В работе | 0 | Ошибки | 0 | Хранилище | 0 B | Библиотека | Генерации | Шаблоны | Очередь | Промпт | Модель | BOSSMAN Mock Image · заглушка | Соотношение | 1:1 | 16:9 | 9:16 | 4:3 | 3:2 | Количество | 1 шт. | 2 шт. | 4 шт. | Коллекция | Без папки | Запустить | 1280×720 · 30 шагов | Коллекции | Все изображения | 0 | Избранное | 0 | Хранилище | 0 B | 0 файлов | Библиотека пока пустая | Создайте первое изображение по описанию выше или загрузите свой файл. | Информация | Выб",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Библиотека",
+            "aria": null,
+            "id": null,
+            "cls": "images-tab active",
+            "dis": false
+          },
+          {
+            "t": "Генерации",
+            "aria": null,
+            "id": null,
+            "cls": "images-tab",
+            "dis": false
+          },
+          {
+            "t": "Шаблоны",
+            "aria": null,
+            "id": null,
+            "cls": "images-tab",
+            "dis": false
+          },
+          {
+            "t": "Очередь",
+            "aria": null,
+            "id": null,
+            "cls": "images-tab",
+            "dis": false
+          },
+          {
+            "t": "Запустить",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-primary",
+            "dis": false
+          },
+          {
+            "t": "",
+            "aria": "Новая коллекция",
+            "id": null,
+            "cls": "btn btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Все изображения\n0",
+            "aria": null,
+            "id": null,
+            "cls": "images-collection-row active",
+            "dis": false
+          },
+          {
+            "t": "Избранное\n0",
+            "aria": null,
+            "id": null,
+            "cls": "images-collection-row",
+            "dis": false
+          },
+          {
+            "t": "Все",
+            "aria": null,
+            "id": null,
+            "cls": "btn btn-sm",
+            "dis": false
+          }
+        ],
+        "inputs": [
+          {
+            "tag": "textarea",
+            "type": "textarea",
+            "ph": "Опишите изображение…",
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          },
+          {
+            "tag": "select",
+            "type": "select-one",
+            "ph": null,
+            "id": null
+          }
+        ],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "обучение-трейдингу",
+      "title": "Обучение трейдингу",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/trading_lab",
+      "hash": "#/trading_lab",
+      "active_nav": "Обучение трейдингу",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Обучение трейдингу |  | Разбор трейдера — это гипотеза, а не сигнал. Каждое утверждение проверяется данными, и без доказательств система говорит «не знаю», а не «покупай». |  | БУМАЖНЫЙ РЕЖИМ | BLOCKED | ТОРГОВЛЯ | OFF | ЧТО СИСТЕМЕ ЗАПРЕЩЕНО | нет | сделки | нет | переводы | нет | вывод средств | нет | ключи на запись | нужно | подтверждение | DENY | внешние действия | ПУТЬ ОТ ВИДЕО ДО ВЫВОДА | НЕДОСТУПНО | 3 | Приём материала |  | sha256 источника и манифест; URL регистрируется без скачивания |  | РЕАЛЬНО РАБОТАЕТ | Звуковая дорожка |  | ffmpeg binary fo",
+      "census_pass2": {
+        "buttons": [],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "поиск-в-интернете",
+      "title": "Поиск в интернете",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/web_research",
+      "hash": "#/web_research",
+      "active_nav": "Поиск в интернете",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Поиск в интернете |  | Что система умеет искать прямо сейчас, куда она за этим ходит и что уже прочитала. Страница только показывает: искать умеет модель инструментами web.* |  | ЧТО ДОСТУПНО СЕЙЧАС | ВЫКЛЮЧЕНО | открытый веб доступен |  | Веб-поиск выключен: переменная BOSSMAN_WEB_RESEARCH_ENABLED не установлена. Инструментов web.* не существует, файлов на диске нет, наружу ничего не уходит. |  | ИСТОЧНИКОВ БЕЗ КЛЮЧА | 7 | СТРАНИЦА, ЗНАКОВ | 3000 | ССЫЛОК СО СТРАНИЦЫ | 12 | СКОЛЬКО СОБРАНО | ЭПИЗОДОВ | нет данных | НАБЛЮДЕНИЙ | нет д",
+      "census_pass2": {
+        "buttons": [],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "цели",
+      "title": "Цели",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/objectives",
+      "hash": "#/objectives",
+      "active_nav": "Цели",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": null,
+      "main_text_snippet": "Цели |  | Условия, которые BOSSMAN держит сам: что именно должно оставаться верным, по каким проверенным данным это видно и что он вправе сделать при отклонении. |  | СЛЕДЯТ | 0 | Новая цель | Постоянная автономия выключена. Наблюдатели не запущены и миссии по целям не отправляются: это инспектор для чтения и ваших явных действий. Включение — отдельное принятое решение, а не переключатель здесь. | Стоячих целей пока нет | Цель — это условие, которое BOSSMAN держит до отзыва или истечения. Новая цель создаётся чер",
+      "census_pass2": {
+        "buttons": [
+          {
+            "t": "Новая цель",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary bx-btn-sm",
+            "dis": false
+          },
+          {
+            "t": "Новая цель",
+            "aria": null,
+            "id": null,
+            "cls": "bx-btn bx-btn-primary",
+            "dis": false
+          }
+        ],
+        "inputs": [],
+        "clickable_rows": []
+      }
+    },
+    {
+      "id": "пульт",
+      "title": "Пульт",
+      "opened": true,
+      "state": "loaded",
+      "console_errors": [],
+      "network_errors": [],
+      "controls": [],
+      "url": "http://127.0.0.1:8801/#/command",
+      "hash": "#/command",
+      "active_nav": "Пульт",
+      "spinner": [],
+      "error_banners": [],
+      "empty_state": "Активных миссий нет",
+      "main_text_snippet": "Внимание | Свободно 0.0 ГБ при резерве 15.6 ГБ — новые модели не поднять | ACTIVE MISSIONS | Активных миссий нет | Открыть миссии | NEEDS YOU | Ничего не ждёт решения | AGENTS | acceptance-cheap | ошибка | acceptance-strong | idle | ЧТО СЕЙЧАС ЗАПУЩЕНО | Терминал | Активных терминалов нет | Браузер | Сессий браузера нет | OpenCode | Сессий OpenCode нет | ConnectError | HEALTH | CPU | 3% | RAM | 10.0 / 15.6 ГБ | Диск | 580 / 926 ГБ | Свободно под модели | 0.0 ГБ свободно | db | queue_worker | scheduler | metrics | browser | models | Очередь: ошибка 1 | QUICK TASK | — а",
+      "controls_note": "view-only policy: safe clicks not performed",
+      "census_pass2": {
+        "buttons": [],
+        "inputs": [],
+        "clickable_rows": []
+      },
+      "note_pass3": {
+        "spinner_after_15s": [],
+        "main": "Внимание\nСвободно 0.0 ГБ при резерве 15.6 ГБ — новые модели не поднять\nACTIVE MISSIONS\nАктивных миссий нет\nОткрыть миссии\nNEEDS YOU\nНичего не ждёт решения\nAGENTS\nacceptance-cheap\nошибка\nacceptance-str"
+      }
+    }
+  ],
+  "navigation_tests": {
+    "back_forward": {
+      "start": "Задачи",
+      "history_length": 41,
+      "back1": {
+        "url": "http://127.0.0.1:8801/#/models",
+        "active": "Модели"
+      },
+      "back2": {
+        "url": "http://127.0.0.1:8801/#/home-v3",
+        "active": "Главная"
+      },
+      "forward1": {
+        "url": "http://127.0.0.1:8801/#/models",
+        "active": "Модели"
+      },
+      "result": "PASS"
+    },
+    "hash_urls": [
+      {
+        "tab": "Главная",
+        "hash": "#/home-v3",
+        "landed_active": "Главная",
+        "ok": true,
+        "console_errors": [],
+        "state": null
+      },
+      {
+        "tab": "Приложения",
+        "hash": "#/apps",
+        "landed_active": "Приложения",
+        "ok": true,
+        "console_errors": [],
+        "state": null
+      },
+      {
+        "tab": "Миссии",
+        "hash": "#/missions",
+        "landed_active": "Миссии",
+        "ok": true,
+        "console_errors": [],
+        "state": null
+      },
+      {
+        "tab": "Агенты",
+        "hash": "#/agents",
+        "landed_active": "Агенты",
+        "ok": true,
+        "console_errors": [],
+        "state": null
+      },
+      {
+        "tab": "Ждут решения",
+        "hash": "#/approvals",
+        "landed_active": "Ждут решения",
+        "ok": true,
+        "console_errors": [],
+        "state": null
+      },
+      {
+        "tab": "История видео и чат",
+        "hash": "#/bossman-chat",
+        "landed_active": "История видео и чат",
+        "ok": true,
+        "console_errors": [],
+        "state": null
+      },
+      {
+        "tab": "Операторский канал",
+        "hash": "#/mission_console",
+        "landed_active": "Операторский канал",
+        "ok": true,
+        "console_errors": [],
+        "state": null
+      },
+      {
+        "tab": "Веб-дизайн",
+        "hash": "#/web_designer",
+        "landed_active": "Веб-дизайн",
+        "ok": true,
+        "console_errors": [],
+        "state": null
+      }
+    ],
+    "ctrl_k": {
+      "opened_by_ctrl_k": true,
+      "result": "PASS",
+      "suggestions": [
+        "Открыть · Задачи"
+      ],
+      "closed_by_escape": true
+    }
+  },
+  "totals": {
+    "controls_tested": 24,
+    "tabs_found": 34,
+    "tabs_tested": 34,
+    "tabs_open_failed": 0,
+    "tabs_with_state": {
+      "loaded": 33,
+      "empty": 1
+    },
+    "pass": 14,
+    "broken": 0,
+    "no_op": 3,
+    "missing_feedback": 0,
+    "expected_disabled": 5,
+    "skipped_unsafe": 0,
+    "wrong_navigation": 0,
+    "wrong_state": 0,
+    "visual_bug": 0,
+    "console_error_tabs": 0,
+    "network_error_tabs": 0,
+    "test_artifacts": 0,
+    "tested": 24,
+    "not_run": 2,
+    "console_errors_total": 0,
+    "network_4xx_5xx_total": 0
+  },
+  "findings": [
+    {
+      "id": "router-validation",
+      "severity": "info",
+      "finding": "Показать с несуществующим числовым ID задачи",
+      "detail": {
+        "input_number_fields": 0,
+        "verdict": "PARTIAL: пустой ID -> корректный тост валидации (pass1/2); числовой несуществующий ID -> NOT_RUN (форма не найдена за 3.5с в pass3/4; присутствует при прямом заходе c выдержкой 6с)"
+      }
+    },
+    {
+      "id": "sticky-toast",
+      "severity": "minor",
+      "finding": "Тост 'Укажите ID задачи' не автозакрывается и переживает смену вкладки",
+      "detail": {
+        "visible_on_#/governor_after_nav": [],
+        "repro_pass4": {
+          "toast_survives_tab_switch": false,
+          "governor_toasts": null
+        },
+        "evidence": "pass2: тост виден на #/router после клика 'Показать' и всё ещё виден на #/governor после перехода; pass4 воспроизведение не завершено (форма не отрендерилась за 3.5с после клика по навигации)"
+      }
+    },
+    {
+      "id": "pult-loading",
+      "severity": "info",
+      "finding": "Пульт (#/command): спиннер/загрузка",
+      "detail": {
+        "spinner_after_15s_wait": [],
+        "main_text": "Внимание\nСвободно 0.0 ГБ при резерве 15.6 ГБ — новые модели не поднять\nACTIVE MISSIONS\nАктивных миссий нет\nОткрыть миссии\nNEEDS YOU\nНичего не ждёт решения\nAGENTS\nacceptance-cheap\nошибка\nacceptance-str"
+      }
+    },
+    {
+      "id": "state-recheck",
+      "severity": "info",
+      "finding": "Переоценка 'error' состояний со строгим фильтром (pill/badge/toast не считаются ошибкой)",
+      "detail": {
+        "Система": "loaded",
+        "Присмотр": "loaded",
+        "Модели": "loaded",
+        "Настройки": "loaded"
+      }
+    },
+    {
+      "id": "disk-full-warning",
+      "severity": "major-ops",
+      "finding": "Пульт: баннер 'Свободно 0.0 ГБ при резерве 15.6 ГБ — новые модели не поднять'",
+      "detail": "Реальное состояние диска; UI отображает предупреждение корректно. Влияет на поднятие новых моделей."
+    },
+    {
+      "id": "web-designer-open-creates",
+      "severity": "minor-ux",
+      "finding": "Веб-дизайн: кнопка 'Открыть проект' создала новый проект (toast 'Проект создан', POST)",
+      "detail": "Pass1 side-effect: в системе остался пустой созданный проект (удаление не выполнял — вне безопасной политики). Название кнопки не отражает действие."
+    },
+    {
+      "id": "router-form-slow",
+      "severity": "minor",
+      "finding": "Выбор модели: форма с 'ID задачи' не отрендерилась через 3.5с после клика по навигации (pass3/4), при прямом заходе #/router с выдержкой 6с — присутствует",
+      "detail": "Нестабильное время рендера формы; данные моделей при этом загружаются."
+    },
+    {
+      "id": "models-no-data",
+      "severity": "info",
+      "finding": "Модели: обе карточки в состоянии 'НЕТ ДАННЫХ' (or-z-ai-glm-5.3-flash, or-anthropic-claude-sonnet-4.5)",
+      "detail": "Карточки отображаются, health-данных нет. Кнопки 'Проверить'/'Проба' не нажимались (политика: не отправлять сообщения модели)."
+    },
+    {
+      "id": "duplicate-pult-nav",
+      "severity": "info",
+      "finding": "В сайдбаре две кнопки 'Пульт', обе ведут на #/command",
+      "detail": "Дубликат навигации; ожидаемая из чек-листа вкладка 'Router' соответствует 'Выбор модели' (#/router)."
+    },
+    {
+      "id": "home-skeleton-slow",
+      "severity": "info",
+      "finding": "Главная: скелетоны видны >2с после логина; контекст виджетов появляется позднее",
+      "detail": "Скриншот 02-home-after-login.png снят в фазе скелетонов; 09-home-settled.png — загруженная Главная."
+    },
+    {
+      "id": "visual-check",
+      "severity": "info",
+      "finding": "Визуальная проверка скриншотов (login, главная, модели, задачи, approvals, video studio, настройки, openrouter, палитра): дефектов вёрстки не выявлено",
+      "detail": "VISUAL_BUG = 0 по ручному осмотру 9+ скриншотов."
+    }
+  ]
+}

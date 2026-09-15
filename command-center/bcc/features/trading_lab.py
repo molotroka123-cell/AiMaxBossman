@@ -12,6 +12,7 @@ pyproject не зависит от bossman-core, поэтому в сборке 
 """
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 from fastapi import APIRouter
@@ -31,20 +32,31 @@ UNWIRED = {
 }
 
 
-def _core() -> Any | None:
-    """Ядро торгового модуля или None. Импорт внутри функции — намеренно."""
+def _load(dotted: str, symbol: str) -> Any | None:
+    """Один символ из ядра — или None, если ядра нет.
+
+    Guard стоит на КАЖДОМ импорте, а не только на верхнем. Владелец получил
+    `500 ModuleNotFoundError: No module named 'bossman_v3'` именно так: пакет
+    `bossman` импортировался прекрасно, верхний guard считал ядро на месте, а
+    следующий, более глубокий импорт падал на чужой зависимости — и улетал
+    наружу как ошибка сервера. Успех мелкого импорта ничего не говорит о
+    глубоком, поэтому проверяется ровно тот модуль, который будет вызван.
+
+    Ловится сбой ИМПОРТА, то есть факт конфигурации. Падение самого вызова —
+    это уже рантайм ядра, и прятать его под «модуль не подключён» значило бы
+    выдавать поломку за отсутствие.
+    """
     try:
-        from bossman import trading_learning        # noqa: WPS433
-        return trading_learning
+        module = importlib.import_module(dotted)
     except Exception:  # noqa: BLE001 — отсутствие ядра не должно ронять фичи
         return None
+    return getattr(module, symbol, None)
 
 
 def status_payload() -> dict:
-    core = _core()
-    if core is None:
+    pipeline_status = _load("bossman.trading_learning.routes", "pipeline_status")
+    if pipeline_status is None:
         return dict(UNWIRED)
-    from bossman.trading_learning.routes import pipeline_status   # noqa: WPS433
     payload = pipeline_status()
     payload["available"] = True
     payload["evidence_class"] = ("HISTORICAL_REPLAY" if payload["pipeline_complete"]
@@ -61,18 +73,18 @@ async def trading_lab_status() -> dict:
 @router.get("/trading-lab/seed")
 async def trading_lab_seed() -> dict:
     """Затравочный эпизод K1mba — строго SCREENSHOT_OBSERVED."""
-    if _core() is None:
+    seed_report = _load("bossman.trading_learning.seed", "seed_report")
+    if seed_report is None:
         return dict(UNWIRED)
-    from bossman.trading_learning.seed import seed_report        # noqa: WPS433
     return seed_report()
 
 
 @router.get("/trading-lab/benchmark")
 async def trading_lab_benchmark() -> dict:
     """Прогон бенчмарка. Вердикт READY выдаётся только без единого блокера."""
-    if _core() is None:
+    run_benchmark = _load("bossman.trading_learning.benchmark", "run_benchmark")
+    if run_benchmark is None:
         return dict(UNWIRED)
-    from bossman.trading_learning.benchmark import run_benchmark  # noqa: WPS433
     return run_benchmark().as_dict()
 
 
@@ -84,9 +96,9 @@ async def trading_lab_memory() -> dict:
     показывается как есть. Нарисовать сюда «12 выученных правил» означало бы
     выдать документацию за реализацию.
     """
-    if _core() is None:
+    TradingMemory = _load("bossman.trading_learning.memory", "TradingMemory")
+    if TradingMemory is None:
         return dict(UNWIRED)
-    from bossman.trading_learning.memory import TradingMemory     # noqa: WPS433
     snapshot = TradingMemory().snapshot()
     snapshot["note"] = ("память процесса пуста: обучение запускается из CLI ядра "
                         "(bossman.trading_learning.cli), а не из дашборда")

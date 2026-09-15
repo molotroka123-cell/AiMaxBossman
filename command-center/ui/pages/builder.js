@@ -80,6 +80,7 @@ const BuilderPage = {
   title: 'Конструктор миссий',
   icon: 'bolt',
   nav: 'primary',
+  section: 'work',
 
   async render(ctx, params) {
     ensureCss();

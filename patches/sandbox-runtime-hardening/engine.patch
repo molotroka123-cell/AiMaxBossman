@@ -1,0 +1,327 @@
+--- a/command-center/bcc/engine.py
++++ b/command-center/bcc/engine.py
+@@ -28,6 +28,7 @@
+                     args_hash, decide_effect, execute_tool)
+ 
+ ACTIVE_RUN_STATUSES = ("queued", "leased", "running")
++TERMINAL_TASK_STATUSES = ("completed", "failed", "stopped", "cancelled")
+ 
+ # Задача в этих статусах снята владельцем: решение по её подтверждению уже
+ # ничего не запускает, а вернуло бы её в очередь мёртвой (A7-02).
+@@ -74,6 +75,14 @@
+         self.prior = prior
+ 
+ 
++class TaskStateConflict(RuntimeError):
++    """Owner/API lifecycle request conflicts with the persisted task state."""
++
++    def __init__(self, task_id: int, action: str, status: str):
++        self.task_id, self.action, self.status = int(task_id), str(action), str(status)
++        super().__init__(f"task {task_id}: cannot {action} while status={status}")
++
++
+ class CriticalHookFailure(Exception):
+     """Критичный хук упал/завис/вернул мусор — run не может считаться выполненным."""
+ 
+@@ -299,24 +308,32 @@
+                 "reason": meta.get("blocked_reason", "Исполнитель недоступен")}
+ 
+     async def enqueue(self, task_id: int, *, attempt: int = 0,
+-                      checkpoint: dict | None = None, only_if_draft: bool = False) -> int | None:
+-        """Создать run в состоянии queued и перевести задачу в queued."""
++                      checkpoint: dict | None = None, only_if_draft: bool = False,
++                      only_if_idle: bool = False) -> int | None:
++        """Создать queued-run. `only_if_idle` is an atomic single-flight gate.
++
++        API-side `active_run() -> enqueue()` was a TOCTOU: two clicks/clients could
++        both observe no run and create two attempts.  The gate therefore lives
++        beside the INSERT under the same task-row/SQLite write lock.
++        """
+         if not await self._executor_admission(task_id):
+             return None
+         async with self.db.session() as s:
+-            if only_if_draft:
+-                # Repair a durable host job after a crash before its first enqueue.
+-                # Serialize the task row so concurrent idempotent retries create one run.
++            if only_if_draft or only_if_idle:
+                 if self.db.url.startswith("sqlite"):
+                     await s.execute(sa.text("BEGIN IMMEDIATE"))
+                 query=sa.select(tasks_t.c.status).where(tasks_t.c.id==task_id)
+                 if not self.db.url.startswith("sqlite"):
+                     query=query.with_for_update()
+                 status=(await s.execute(query)).scalar_one()
+-                existing=(await s.execute(sa.select(runs_t.c.id).where(runs_t.c.task_id==task_id)
++                existing=(await s.execute(sa.select(runs_t.c.id).where(
++                    runs_t.c.task_id==task_id,
++                    runs_t.c.status.in_(ACTIVE_RUN_STATUSES) if only_if_idle else sa.true())
+                     .order_by(runs_t.c.id.desc()).limit(1))).scalar_one_or_none()
+-                if status!="draft" or existing is not None:
++                if only_if_draft and (status!="draft" or existing is not None):
+                     return int(existing or 0)
++                if only_if_idle and existing is not None:
++                    raise TaskStateConflict(task_id, "start another run", status)
+             res = await s.execute(sa.insert(runs_t).values(
+                 task_id=task_id, attempt=attempt, status="queued", checkpoint=checkpoint))
+             run_id = int(res.inserted_primary_key[0])
+@@ -337,11 +354,29 @@
+     # ---------- управление задачей ----------
+ 
+     async def stop(self, task_id: int) -> dict:
+-        """Stop — жёсткий: флаг в БД + hard cancel активного run'а (обрывает
+-        и уже начатый HTTP-inference, не дожидаясь конца генерации)."""
+-        await self._set_task_status(task_id, "stopped")
++        """Hard Stop is sticky; historical terminal outcomes are immutable."""
+         async with self.db.session() as s:
+-            # ещё не начатые run'ы гасим сразу — ждать нечего
++            if self.db.url.startswith("sqlite"):
++                await s.execute(sa.text("BEGIN IMMEDIATE"))
++            query = sa.select(tasks_t.c.status).where(tasks_t.c.id == task_id)
++            if not self.db.url.startswith("sqlite"):
++                query = query.with_for_update()
++            current = (await s.execute(query)).scalar_one_or_none()
++            if current is None:
++                raise ValueError("task not found")
++            current = str(current)
++            if current in ("stopped", "cancelled"):
++                await s.commit()
++                return {"ok": True, "status": "stopped"}
++            if current in ("completed", "failed"):
++                await s.rollback()
++                raise TaskStateConflict(task_id, "stop", current)
++            changed = await s.execute(sa.update(tasks_t).where(
++                tasks_t.c.id == task_id, tasks_t.c.status == current).values(
++                status="stopped", updated_at=utcnow()))
++            if not changed.rowcount:
++                await s.rollback()
++                raise TaskStateConflict(task_id, "stop", await self._task_status(task_id))
+             await s.execute(sa.update(runs_t).where(
+                 runs_t.c.task_id == task_id, runs_t.c.status == "queued").values(
+                 status="stopped", finished_at=utcnow()))
+@@ -351,17 +386,6 @@
+             active_ids = [int(r[0]) for r in res.fetchall()]
+             await s.commit()
+         await self._reject_parked_approvals(task_id)
+-        # Событие — ДО отмены, и это не косметика. Stop зовут в том числе
+-        # изнутри самого прогона (инструмент, хук, тест через ASGI в одной
+-        # задаче с worker'ом). Тогда worker.cancel() отменяет ту же задачу,
+-        # которая сейчас исполняет stop(), и следующий же await обрывается —
+-        # вместе с записью события в БД, посреди работы драйвера. Соединение
+-        # после такого обрыва не возвращается в пул никаким close(): его
+-        # состояние уже неизвестно SQLAlchemy. Поэтому свою работу stop()
+-        # доводит до конца первым, а отмену выдаёт последней — после неё
+-        # здесь не остаётся ни одного await.
+-        # finally: упавшая запись события не имеет права отменить саму
+-        # остановку — иначе прогон продолжит работать из-за сбоя журнала.
+         try:
+             await self.bus.emit("task.stopped", task_id=task_id)
+         finally:
+@@ -373,34 +397,90 @@
+         return {"ok": True, "status": "stopped"}
+ 
+     async def pause(self, task_id: int) -> dict:
+-        await self._set_task_status(task_id, "paused")
++        async with self.db.session() as s:
++            if self.db.url.startswith("sqlite"):
++                await s.execute(sa.text("BEGIN IMMEDIATE"))
++            query = sa.select(tasks_t.c.status).where(tasks_t.c.id == task_id)
++            if not self.db.url.startswith("sqlite"):
++                query = query.with_for_update()
++            current = (await s.execute(query)).scalar_one_or_none()
++            if current is None:
++                raise ValueError("task not found")
++            current = str(current)
++            if current == "paused":
++                await s.commit()
++                return {"ok": True, "status": "paused"}
++            if current not in ("queued", "running", "waiting_approval"):
++                await s.rollback()
++                raise TaskStateConflict(task_id, "pause", current)
++            await s.execute(sa.update(tasks_t).where(
++                tasks_t.c.id == task_id, tasks_t.c.status == current).values(
++                status="paused", updated_at=utcnow()))
++            await s.commit()
+         await self.bus.emit("task.paused", task_id=task_id)
+         return {"ok": True, "status": "paused"}
+ 
+     async def resume(self, task_id: int) -> dict:
+-        """Снять паузу: run с checkpoint снова становится доступен worker'у."""
+-        run = await self.active_run(task_id)
+-        if not await self._executor_admission(task_id, run_id=run["id"] if run else None):
++        """Resume only an owner-paused task and never create parallel inference."""
++        candidate = await self.active_run(task_id)
++        if not await self._executor_admission(task_id, run_id=candidate["id"] if candidate else None):
+             return await self.admission_result(task_id, None)
+-        if run is None:
+-            last = await self.last_run(task_id)
+-            checkpoint = (last or {}).get("checkpoint")
+-            attempt = int((last or {}).get("attempt") or 0)
+-            run_id = await self.enqueue(task_id, attempt=attempt, checkpoint=checkpoint)
+-            if run_id is None:
+-                return await self.admission_result(task_id, None)
+-        else:
+-            async with self.db.session() as s:
+-                await s.execute(sa.update(runs_t).where(runs_t.c.id == run["id"]).values(
+-                    status="queued", worker_lease_until=None))
++        async with self.db.session() as s:
++            if self.db.url.startswith("sqlite"):
++                await s.execute(sa.text("BEGIN IMMEDIATE"))
++            query = sa.select(tasks_t.c.status).where(tasks_t.c.id == task_id)
++            if not self.db.url.startswith("sqlite"):
++                query = query.with_for_update()
++            current = (await s.execute(query)).scalar_one_or_none()
++            if current is None:
++                raise ValueError("task not found")
++            current = str(current)
++            if current != "paused":
++                await s.rollback()
++                raise TaskStateConflict(task_id, "resume", current)
++            row = (await s.execute(sa.select(runs_t).where(
++                runs_t.c.task_id == task_id,
++                runs_t.c.status.in_(ACTIVE_RUN_STATUSES)).order_by(
++                runs_t.c.id.desc()).limit(1))).first()
++            run = dict(row._mapping) if row else None
++            if run is not None and run["status"] in ("leased", "running"):
++                await s.execute(sa.update(tasks_t).where(
++                    tasks_t.c.id == task_id, tasks_t.c.status == "paused").values(
++                    status="running", updated_at=utcnow()))
+                 await s.commit()
+-            await self._set_task_status(task_id, "queued")
+-        await self.bus.emit("task.queued", task_id=task_id, resumed=True)
+-        return {"ok": True, "status": "queued"}
++                run_id, result_status = int(run["id"]), "running"
++            elif run is not None:
++                await s.execute(sa.update(runs_t).where(
++                    runs_t.c.id == run["id"], runs_t.c.status == "queued").values(
++                    worker_lease_until=None))
++                await s.execute(sa.update(tasks_t).where(
++                    tasks_t.c.id == task_id, tasks_t.c.status == "paused").values(
++                    status="queued", updated_at=utcnow()))
++                await s.commit()
++                run_id, result_status = int(run["id"]), "queued"
++            else:
++                last_row = (await s.execute(sa.select(runs_t).where(
++                    runs_t.c.task_id == task_id).order_by(runs_t.c.id.desc()).limit(1))).first()
++                last = dict(last_row._mapping) if last_row else {}
++                inserted = await s.execute(sa.insert(runs_t).values(
++                    task_id=task_id, attempt=int(last.get("attempt") or 0), status="queued",
++                    checkpoint=last.get("checkpoint")))
++                run_id = int(inserted.inserted_primary_key[0])
++                await s.execute(sa.update(tasks_t).where(
++                    tasks_t.c.id == task_id, tasks_t.c.status == "paused").values(
++                    status="queued", updated_at=utcnow()))
++                await s.commit()
++                result_status = "queued"
++        if result_status == "running":
++            await self.bus.emit("task.progress", task_id=task_id, run_id=run_id,
++                                resumed=True, status="running")
++        else:
++            await self.bus.emit("task.queued", task_id=task_id, run_id=run_id, resumed=True)
++        return {"ok": True, "status": result_status, "run_id": run_id}
+ 
+     async def retry(self, task_id: int) -> dict:
+-        """Ручной перезапуск: новая попытка с нуля (счётчик attempt сбрасывается)."""
+-        run_id = await self.enqueue(task_id, attempt=0)
++        """Explicit new attempt, but never alongside an existing active run."""
++        run_id = await self.enqueue(task_id, attempt=0, only_if_idle=True)
+         return await self.admission_result(task_id, run_id)
+ 
+     async def last_run(self, task_id: int) -> dict | None:
+@@ -608,7 +688,7 @@
+         now = utcnow()
+         async with self.db.session() as s:
+             res = await s.execute(
+-                sa.select(runs_t, tasks_t.c.max_retries)
++                sa.select(runs_t, tasks_t.c.max_retries, tasks_t.c.status.label("task_status"))
+                 .join(tasks_t, tasks_t.c.id == runs_t.c.task_id)
+                 .where(runs_t.c.status.in_(("leased", "running")),
+                        runs_t.c.worker_lease_until.isnot(None),
+@@ -616,6 +696,50 @@
+             stale = [dict(r._mapping) for r in res.fetchall()]
+         recovered=0
+         for run in stale:
++            parent_status = str(run.get("task_status") or "")
++            # Owner state outranks lease recovery. A crash in the short window
++            # after Stop/Pause was previously enough to resurrect the task.
++            if parent_status in STOPPED_TASK_STATUSES:
++                async with self.db.session() as s:
++                    changed = await s.execute(sa.update(runs_t).where(
++                        runs_t.c.id == run["id"],
++                        runs_t.c.status.in_(("leased", "running")),
++                        sa.func.coalesce(runs_t.c.fence, 0) == int(run.get("fence") or 0)).values(
++                        status="stopped", finished_at=now, worker_lease_until=None,
++                        fence=sa.func.coalesce(runs_t.c.fence, 0) + 1))
++                    await s.commit()
++                if changed.rowcount:
++                    await self._log(run["id"], "warn", "run.recovered_stopped",
++                                    "lease expired after owner Stop; task was not resurrected")
++                    recovered += 1
++                continue
++            if parent_status == "paused":
++                async with self.db.session() as s:
++                    changed = await s.execute(sa.update(runs_t).where(
++                        runs_t.c.id == run["id"],
++                        runs_t.c.status.in_(("leased", "running")),
++                        sa.func.coalesce(runs_t.c.fence, 0) == int(run.get("fence") or 0)).values(
++                        status="queued", worker_lease_until=None,
++                        fence=sa.func.coalesce(runs_t.c.fence, 0) + 1))
++                    await s.commit()
++                if changed.rowcount:
++                    await self._log(run["id"], "warn", "run.recovered_paused",
++                                    "lease expired while paused; checkpoint remains parked")
++                    recovered += 1
++                continue
++            if parent_status in ("completed", "failed"):
++                async with self.db.session() as s:
++                    changed = await s.execute(sa.update(runs_t).where(
++                        runs_t.c.id == run["id"],
++                        runs_t.c.status.in_(("leased", "running")),
++                        sa.func.coalesce(runs_t.c.fence, 0) == int(run.get("fence") or 0)).values(
++                        status="failed", finished_at=now, worker_lease_until=None,
++                        error=f"parent task already terminal: {parent_status}",
++                        fence=sa.func.coalesce(runs_t.c.fence, 0) + 1))
++                    await s.commit()
++                if changed.rowcount:
++                    recovered += 1
++                continue
+             attempt = int(run["attempt"] or 0) + 1
+             max_retries = int(run["max_retries"] or 0)
+             still_stale=sa.and_(runs_t.c.status.in_(("leased","running")),
+@@ -1025,19 +1149,25 @@
+                 await self.bus.emit("task.queued", task_id=task["id"], run_id=run_id,
+                                     review_retry=True)
+             else:
+-                # попытки ревью исчерпаны → человеку (waiting_approval), run ждёт с checkpoint
+-                async with self.db.session() as s:
+-                    changed=await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id,self._fence_clause(run_id)).values(
+-                        status="queued", worker_lease_until=None,
+-                        checkpoint={"messages": messages, "step": step,
+-                                    "note": "review_escalated"}))
+-                    if not changed.rowcount:return
+-                    await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
+-                        status=str(res.get("status") or "waiting_approval"),
+-                        updated_at=utcnow()))
+-                    await s.commit()
+-                await self.bus.emit("task.progress", task_id=task["id"], run_id=run_id,
+-                                    waiting_approval=True)
++                target_status = str(res.get("status") or "waiting_approval")
++                if target_status in ("failed", "stopped"):
++                    # Terminal gate veto must close BOTH projections. Previously
++                    # task=failed was paired with run=queued forever.
++                    await self._finish(run_id, task["id"], target_status, error=feedback,
++                                       result=answer, tokens_in=tokens_in, tokens_out=tokens_out,
++                                       cost_usd=round(cost, 6), model_alias=alias)
++                else:
++                    async with self.db.session() as s:
++                        changed=await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id,self._fence_clause(run_id)).values(
++                            status="queued", worker_lease_until=None,
++                            checkpoint={"messages": messages, "step": step,
++                                        "note": "review_escalated"}))
++                        if not changed.rowcount:return
++                        await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
++                            status=target_status, updated_at=utcnow()))
++                        await s.commit()
++                    await self.bus.emit("task.progress", task_id=task["id"], run_id=run_id,
++                                        waiting_approval=(target_status == "waiting_approval"))
+             return
+         # EH-04: единственная точка финализации — bcc.lifecycle.finalize_task. Она
+         # перепроверяет fence, объявленные эффекты свежим наблюдением и открытые

@@ -33,6 +33,7 @@ class MetricsSampler:
         self.retention_hours = retention_hours
         self.disk_path = disk_path
         self.last_tick: float = 0.0
+        self.last_error: str | None = None
         self.last_sample: dict | None = None
         # Ставится Services.stop(): петля выходит сама, не будучи
         # оборванной посреди запроса к базе (см. bcc/lifecycle.py).
@@ -82,9 +83,11 @@ class MetricsSampler:
         while not stopping(self.stop_event):
             try:
                 await self.sample()
+                self.last_error = None
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                self.last_error = f"{type(exc).__name__}: {exc}"[:200]
                 await self.bus.emit("metrics.error", message=f"{type(exc).__name__}: {exc}")
             if await sleep_or_stop(self.stop_event, self.interval):
                 return

@@ -251,10 +251,21 @@ def _one(rows: list[dict], tool: str) -> dict:
 
 
 def _pytest_run(where: Path) -> subprocess.CompletedProcess:
-    """Независимый прогон тестов проекта ОТДЕЛЬНЫМ процессом (не через агента)."""
-    return subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "."],
+    """Независимый прогон тестов проекта ОТДЕЛЬНЫМ процессом (не через агента).
+
+    Без байткода (`-B`, PYTHONDONTWRITEBYTECODE): предпроверка «тест падает до
+    миссии» иначе оставляла в проекте `__pycache__/calc.*.pyc`, а правка миссии
+    («return a - b» → «return a + b») не меняет размер файла и укладывается в ту
+    же секунду mtime — Python считал pyc актуальным, pytest агента падал уже
+    ПОСЛЕ правки, финализатор честно отказывал («effectful terminal outcome is
+    failed»), и миссия 12 «флапала» в waiting_approval (1 из ~6 локально,
+    красная дорожка py3.14 в CI). Воспроизведено детерминированно: 7/8 при
+    перезаписи в ту же секунду. Это дефект обвязки, не продукта: гейт отказал
+    правильно на действительно упавшем прогоне.
+    """
+    return subprocess.run([sys.executable, "-B", "-m", "pytest", "-q", "-p", "no:cacheprovider", "."],
                           cwd=str(where), capture_output=True, text=True, timeout=180,
-                          env={**os.environ, "PYTHONPATH": str(where)})
+                          env={**os.environ, "PYTHONPATH": str(where), "PYTHONDONTWRITEBYTECODE": "1"})
 
 
 def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess:

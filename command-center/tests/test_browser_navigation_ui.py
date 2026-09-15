@@ -1,4 +1,6 @@
 """Real UI/backend regressions for navigation approval and session handling."""
+import json
+
 import pytest
 
 from .browser_support import chromium_available, reason as browser_reason
@@ -6,6 +8,36 @@ from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
 
 pytestmark = [pytest.mark.timeout(180),
               pytest.mark.skipif(not chromium_available(), reason=browser_reason())]
+
+
+@pytest.mark.parametrize("condition,expected", [
+    ("missing", "Chromium отсутствует: установите браузер в окружении BCC"),
+    ("installed", "Запуск ещё не проверен"),
+    ("unreachable", "проверить установку браузера не удалось"),
+])
+def test_empty_browser_screen_does_not_invent_readiness(live, condition, expected):
+    """Real rendered UI, with explicit installation/health-response fault inputs."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page()
+            _login(page, live)
+            if condition == "unreachable":
+                page.route("**/api/browser/health", lambda route: route.fulfill(
+                    status=503, content_type="application/json",
+                    body='{"error":{"message":"health unavailable"}}'))
+            else:
+                payload = {"available": condition == "installed", "active_sessions": 0,
+                           "detail": "Chromium отсутствует: установите браузер в окружении BCC"}
+                page.route("**/api/browser/health", lambda route: route.fulfill(
+                    status=200, content_type="application/json", body=json.dumps(payload)))
+            page.goto(live.url + "/#/browser")
+            page.get_by_text(expected, exact=False).first.wait_for()
+            assert "рантайм готов" not in page.locator("#view").inner_text()
+        finally:
+            browser.close()
 
 
 def test_human_navigation_uses_policy_without_self_approval(live, monkeypatch):
@@ -70,7 +102,16 @@ def test_policy_403_keeps_session_but_401_requires_login(live):
               try { await api.system(); }
               catch (e) { return {status: e.status, isAuth: e.isAuth, events}; }
             }""")
-            assert result == {"status": 401, "isAuth": True, "events": 1}
+            assert result["status"] == 401 and result["isAuth"] is True
+            # `>= 1`, not `== 1`. The shell polls top stats every 30 seconds; on
+            # a slow runner that poll can land inside this window, get its own
+            # 401 from the session just invalidated, and dispatch its own event
+            # (observed in CI as events=2). The property under test is that a
+            # real session invalidation triggers authentication handling — how
+            # many other requests the page happened to have in flight is not
+            # part of it. The count that IS security-relevant is asserted
+            # exactly, above: a policy 403 must produce zero.
+            assert result["events"] >= 1
             page.locator("#login-submit").wait_for(state="visible")
         finally:
             browser.close()

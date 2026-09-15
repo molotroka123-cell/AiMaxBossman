@@ -40,10 +40,38 @@ def binary(name: str) -> str:
     return value
 
 
+# V6 §G: owner-interactive work outranks media work. Every FFmpeg child runs
+# below normal CPU priority so a long export competes with the control plane
+# for spare cycles, not for the owner's next click. Windows takes the class at
+# spawn; POSIX lowers the niceness right after spawn (setting it in a fork
+# hook is not thread-safe, and this process runs threads). Correctness is
+# untouched: the child does the same work, only later when the CPU is busy.
+CHILD_NICE = 10
+WINDOWS = os.name == "nt"
+
+
+def child_priority_kwargs() -> dict:
+    if WINDOWS:
+        import subprocess
+        return {"creationflags": getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0x4000)}
+    return {}
+
+
+def lower_child_priority(pid: int) -> bool:
+    if WINDOWS or not hasattr(os, "setpriority"):
+        return False
+    try:
+        os.setpriority(os.PRIO_PROCESS, pid, CHILD_NICE)
+        return True
+    except (OSError, ProcessLookupError):
+        return False    # the child already exited or the host forbids it; work proceeds unchanged
+
+
 async def process(argv, *, progress=None, diagnostic=None, stage="render", timeout=3600, max_output=8_388_608, binary_output=False):
     """Bound captures, propagate failure, and terminate AND reap on cancellation."""
     proc = await asyncio.create_subprocess_exec(*map(str, argv), stdin=asyncio.subprocess.DEVNULL,
-        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, **child_priority_kwargs())
+    lower_child_priority(proc.pid)
     tail = deque(maxlen=32)
     result = bytearray()
 
@@ -386,16 +414,58 @@ class MediaLibrary:
             return value
 
 
+#: Probed ffmpeg build, keyed by the binary's path and mtime, with the moment
+#: it was probed. Asking ffmpeg to list every filter and every encoder costs
+#: ~120 ms of subprocess and parsing, and the owner's screen asks on each open.
+#: The build does not change between two requests a second apart — and when it
+#: does, the key changes with it, so this is a cache with an invalidation
+#: rather than a memory of something that might no longer be true.
+_BUILD_PROBE: dict[str, object] = {}
+#: How long a probe stands. Short enough that installing ffmpeg shows up while
+#: the owner is still looking at the screen.
+BUILD_PROBE_TTL_SECONDS = 60.0
+
+
+def _probe_key(ffmpeg: str | None) -> tuple:
+    if not ffmpeg:
+        return ("absent",)
+    try:
+        stat = os.stat(ffmpeg)
+        return (ffmpeg, stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        return (ffmpeg, None, None)
+
+
+def _probe_build(ffmpeg: str | None) -> dict:
+    """Filters and encoders of THIS ffmpeg build. Cached against its own key."""
+    import subprocess
+    import time as _time
+    key = _probe_key(ffmpeg)
+    cached = _BUILD_PROBE.get("value")
+    if (cached is not None and _BUILD_PROBE.get("key") == key
+            and _time.monotonic() - float(_BUILD_PROBE.get("at", 0.0))
+            < BUILD_PROBE_TTL_SECONDS):
+        return dict(cached)
+    probed = {"filters": [], "encoders": []}
+    if ffmpeg:
+        for option, name in (("-filters", "filters"), ("-encoders", "encoders")):
+            try:
+                run = subprocess.run([ffmpeg, "-hide_banner", option],
+                                     capture_output=True, text=True, timeout=15)
+            except (OSError, subprocess.SubprocessError):
+                continue
+            probed[name] = [m.group(1) for line in run.stdout.splitlines()
+                            if (m := re.match(r"^\s*[A-Z.]{2,6}\s+(\w+)\s", line))]
+    _BUILD_PROBE.update({"key": key, "value": probed, "at": _time.monotonic()})
+    return dict(probed)
+
+
 def capabilities():
     """Build availability, not a claim that every encoder works on this host."""
-    import subprocess
     result = {"ffmpeg": shutil.which("ffmpeg"), "ffprobe": shutil.which("ffprobe"), "filters": [], "encoders": [],
         "hardware_status": "requires profile-specific actual encode probe", "cloud": False,
         "asr": "BLOCKED: configure and validate a local whisper.cpp model", "generation": "BLOCKED: no verified generation provider connected"}
-    if result["ffmpeg"]:
-        for option, key in [("-filters", "filters"), ("-encoders", "encoders")]:
-            run = subprocess.run([result["ffmpeg"], "-hide_banner", option], capture_output=True, text=True, timeout=15)
-            result[key] = [m.group(1) for line in run.stdout.splitlines() if (m := re.match(r"^\s*[A-Z.]{2,6}\s+(\w+)\s", line))]
+    result.update(_probe_build(result["ffmpeg"]))
     model=os.getenv("BOSSMAN_VIDEO_ASR_MODEL")
     if model and Path(model).is_file() and "whisper" in result["filters"]:
         result["asr"]="AVAILABLE: host-configured local whisper.cpp model; CPU execution"

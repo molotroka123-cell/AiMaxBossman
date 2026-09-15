@@ -180,3 +180,43 @@ async def test_idempotent_external_effect(env):
                     default_effect="auto", idempotent=True)
     await b._run_tool_now(run2, task, agent, messages3, _call("fs_read", "x5", to="c@d"), idem, 0)
     assert calls["n"] == 3
+
+
+# 2c. вторая отмена во время диагностики зомби не пробивает наружу
+#
+# Падение `windows paths` было именно этим: выход зомби пишет `run.fenced_out`,
+# и на Windows вторая доставка отмены успевала попасть ВНУТРЬ записи в aiosqlite.
+# `contextlib.suppress(Exception)` от неё не защищал вообще — `CancelledError`
+# наследуется от `BaseException`. На Linux это не воспроизводилось само: там
+# запись успевала пройти между доставками. Здесь вторая отмена подаётся явно,
+# поэтому дефект виден на любой ОС.
+async def test_a_second_cancellation_during_zombie_diagnostics_does_not_escape(env):
+    a = env.svc.engine
+    await make_stack(env.client)
+    run_id = await a.claim()
+    original = a._log
+    fired = {"n": 0}
+    exiting: dict[str, asyncio.Task] = {}
+
+    async def cancel_the_caller_again(*args, **kwargs):
+        # Момент выбран как в проде: отмена владельца прилетает ВТОРОЙ раз
+        # ровно тогда, когда идёт запись диагностики.
+        fired["n"] += 1
+        if fired["n"] == 1 and "task" in exiting:
+            exiting["task"].cancel()
+        return await original(*args, **kwargs)
+
+    a._log = cancel_the_caller_again
+    try:
+        exiting["task"] = asyncio.create_task(a._fenced_out_exit(run_id, "перехвачен"))
+        # Возврат обязан быть нормальным: CancelledError наружу — это и есть дефект.
+        await asyncio.wait_for(exiting["task"], timeout=10)
+    finally:
+        a._log = original
+
+    assert fired["n"] >= 1, "запись диагностики даже не была вызвана"
+    async with env.svc.db.session() as s:
+        from bcc.db import run_events as events_t
+        kinds = [r[0] for r in (await s.execute(sa.select(events_t.c.kind).where(
+            events_t.c.run_id == run_id))).fetchall()]
+    assert "run.fenced_out" in kinds, "отмена съела диагностику, а не только ожидание"

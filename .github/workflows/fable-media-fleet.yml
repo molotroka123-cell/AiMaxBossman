@@ -1,4 +1,6 @@
 name: Fable media and Fleet acceptance
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 on:
   push:
@@ -11,6 +13,8 @@ on:
       # stopped running the moment the work merged, so the integrated result
       # was never covered by the acceptance that approved it.
       - claude/bossman-control-v03-43igbk
+      - claude/bossman-final-audit-closure-aucx9x
+      - 'release/**'
   pull_request:
   workflow_dispatch:
 
@@ -33,9 +37,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - name: Record exact source
@@ -43,13 +47,19 @@ jobs:
         run: |
           mkdir -p acceptance-results
           git rev-parse HEAD | tee acceptance-results/sha.txt
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$BOSSMAN_ACCEPTANCE_SHA"
           git archive HEAD | gzip > acceptance-results/source.tar.gz
       - name: Install declared dependencies and real media binaries
         run: |
           python -m pip install -e . -e "./bossman-core[dev]" -e "./command-center[dev,browser]"
           sudo apt-get update -q
           sudo apt-get install -y -q ffmpeg
+          # `tests/test_video_studio_*.py` is a glob, and the playback-stall
+          # regressions it now matches drive a real browser. The `browser`
+          # extra installs the Playwright library, not the browser binary;
+          # without this the four of them fail on a missing executable and
+          # say nothing about the product.
+          python -m playwright install --with-deps chromium
       - name: Require actual FFmpeg encode, probe and decode
         id: media-ready
         shell: bash
@@ -84,9 +94,9 @@ jobs:
           git diff --check
       - name: Retain actual results including partial failures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: fable-media-fleet-${{ matrix.python }}-${{ github.sha }}
+          name: fable-media-fleet-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: acceptance-results/
           if-no-files-found: error
           retention-days: 3

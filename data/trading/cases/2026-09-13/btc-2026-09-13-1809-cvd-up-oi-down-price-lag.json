@@ -1,0 +1,33 @@
+{
+  "canonical_case_id": "CASE-002",
+  "timestamp_local": "2026-09-13T18:09:00-04:00",
+  "source": "user-supplied Coinwise/K1m6a screenshots",
+  "market": "BTC",
+  "observed": {
+    "reference_price_approx": 76995,
+    "cvd_billion": 58.88,
+    "open_interest_billion": 17.86,
+    "long_liquidations_million": 1.14,
+    "short_liquidations_thousand": 396.04,
+    "dpoc_approx": 76860,
+    "dval_approx": 76765,
+    "dopen_approx": 76685
+  },
+  "comparison_to_prior_1057": {
+    "prior_price": 77174.70,
+    "prior_cvd_billion": 56.15,
+    "prior_open_interest_billion": 18.10,
+    "price_direction": "DOWN",
+    "cvd_direction": "UP",
+    "oi_direction": "DOWN"
+  },
+  "state": "PRICE_DOWN_OR_FLAT + CVD_UP + OI_DOWN + ABOVE_DPOC",
+  "interpretation": "Aggressive buying/CVD has increased materially while open interest has declined, yet price has not advanced proportionally. This is buyer inefficiency / passive-seller absorption rather than a clean bullish continuation signal. OI down means the move is not being driven by fresh leveraged longs and may include short covering/deleveraging. Price remains above the current dPOC, so lower structure is not yet broken.",
+  "trade_logic": {
+    "long_bias": "WAIT_FOR_PRICE_CONFIRMATION",
+    "preferred_trigger": "Hold/retest dPOC near 76860, then reclaim and accept above roughly 77150-77200 with CVD staying firm; do not buy solely because CVD is high.",
+    "support_if_dropped": [76765, 76685],
+    "bearish_invalidation": "Loss of dPOC followed by acceptance below dVAL/dOpen, especially if price and CVD fall while OI turns up, restores bearish leverage-expansion risk.",
+    "lesson": "Flow effort without price result is information: rising CVD with falling OI but stagnant/lower price can reveal passive supply. Require price response before entry."
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "grapesjs",
+  "version": "0.23.6",
+  "license": "BSD-3-Clause",
+  "source": "https://github.com/GrapesJS/grapesjs",
+  "package_url": "https://registry.npmjs.org/grapesjs/-/grapesjs-0.23.6.tgz",
+  "package_integrity": "sha512-I8M/sPWjHm6MLIdUtRFNOKsQ3PtDgIDsc2S8ANkJsfHj3ZoH98oNMMWr64Kx22XgjHCQ4xpUx7nvXyQSKV1mrQ==",
+  "telemetry": false,
+  "files": {
+    "grapes.min.css": "fb55e939b3349c280d68c0617dc87e56baa3eab55ea56a1855db9f5efcc7268d",
+    "LICENSE.md": "1a7603ac82661e3ec4f0ad015e37f68ab62c85c725f07659b81760edb459ff8d",
+    "grapes.min.js": "5bd56443ecf56ee28a99f5bcdf161754867ef97638b7f3a549f55c62a82beb66",
+    "THIRD_PARTY_LICENSES.md": "180d938636a5d49de45bf09c1f8ab481a8a0005a0dd53a011b84006689d2c13c",
+    "ru.js": "85d0ecb10f2fd2c8d3a0f8fc1b3257a6cc353a34534c02a9fdcebcf82f69baa8"
+  },
+  "locale_source": "grapesjs@0.23.6/locale/ru.js"
+}

@@ -624,9 +624,57 @@ async function openModelWizard(ctx) {
       Array.from(kindSeg.children).forEach((b, i) => b.classList.toggle('on', (i === 0) === (draft.m_kind === 'local')));
     }
 
+    // ПОДСКАЗКИ ИЗ КАТАЛОГА ПОСТАВЩИКА.
+    //
+    // Имя обязано совпасть с тем, как модель зовётся в endpoint, — а владелец
+    // печатал его по памяти в пустое поле. Каталог OpenRouter (430+ моделей) уже
+    // лежит в базе и умеет искать, так что подсказывать есть чем.
+    // Подсказки — ПОМОЩЬ, а не условие: поставщик без каталога, offline и любой
+    // отказ ручки просто не показывают список и НЕ мешают ввести имя руками.
+    const hintsEl = h('div.stack.sm', { style: { display: 'none' } });
+    let hintSeq = 0;
+
+    function showHints(items) {
+      clear(hintsEl);
+      if (!items.length) { hintsEl.style.display = 'none'; return; }
+      for (const it of items) {
+        const rid = pick(it, ['remote_id', 'name'], '');
+        if (!rid) continue;
+        hintsEl.appendChild(h('button.btn.btn-quiet', {
+          type: 'button', style: { justifyContent: 'flex-start' },
+          onClick: () => {
+            nameEl.value = rid;
+            nameEl.dispatchEvent(new Event('input', { bubbles: true }));
+            hintsEl.style.display = 'none';
+          },
+        }, h('span.mono', rid)));
+      }
+      hintsEl.style.display = hintsEl.childElementCount ? '' : 'none';
+    }
+
+    async function loadHints(query) {
+      const pid = draft.provider_id;
+      if (draft.mode !== 'existing' || pid === null || pid === '' || query.trim().length < 2) {
+        showHints([]); return;
+      }
+      const seq = ++hintSeq;
+      try {
+        const r = await api.raw(`/api/openrouter/${pid}/catalog`
+                                + `?q=${encodeURIComponent(query.trim())}&limit=8`);
+        if (seq !== hintSeq) return;          // ответ на устаревший ввод — выбрасываем
+        showHints(listOf(r && r.items));
+      } catch {
+        if (seq === hintSeq) showHints([]);   // нет каталога — просто нет подсказок
+      }
+    }
+
+    let hintTimer = null;
     nameEl.addEventListener('input', () => {
       draft.m_name = nameEl.value;
       if (!aliasEl.dataset.touched) { aliasEl.value = draft.m_name.replace(/[:\/\s]+/g, '-').toLowerCase(); draft.m_alias = aliasEl.value; }
+      clearTimeout(hintTimer);
+      const q = nameEl.value;
+      hintTimer = setTimeout(() => loadHints(q), 200);   // не запрос на каждую букву
     });
     aliasEl.addEventListener('input', () => { aliasEl.dataset.touched = '1'; draft.m_alias = aliasEl.value; });
     ctxEl.addEventListener('input', () => { draft.m_context = Number(ctxEl.value) || 0; });
@@ -638,7 +686,9 @@ async function openModelWizard(ctx) {
     append(modal.body, h('div.stack',
       stepsBar(2),
       h('div.grid.cols-2',
-        field('Имя у провайдера', nameEl, 'Точно как модель называется в endpoint.'),
+        field('Имя у провайдера', h('div.stack.sm', nameEl, hintsEl),
+              'Точно как модель называется в endpoint. Начните печатать — если у '
+              + 'поставщика есть каталог, покажутся совпадения.'),
         field('Alias', aliasEl, 'Короткое уникальное имя в реестре.')),
       h('div.grid.cols-2',
         field('Тип', kindSeg),

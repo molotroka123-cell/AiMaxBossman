@@ -186,4 +186,141 @@ def test_the_launcher_refuses_to_start_when_the_doctor_blocks():
 
 
 def test_the_shell_launcher_is_syntactically_valid():
-    assert subprocess.run(["bash", "-n", str(REPO / "start-bossman.sh")]).returncode == 0
+    import shutil
+    from pathlib import Path as _P
+    candidates = [shutil.which("bash"), _P(r"C:\Program Files\Git\bin\bash.exe"),
+                  _P(r"C:\Program Files\Git\usr\bin\bash.exe")]
+    bash = next((str(b) for b in candidates if b and _P(b).exists()
+                 and "system32" not in str(b).lower()), None)  # system32\bash.exe — WSL-заглушка без дистрибутива
+    if bash is None:
+        pytest.skip("POSIX-оболочка недоступна — синтаксис start-bossman.sh проверяется на POSIX/CI")
+    assert subprocess.run([bash, "-n", str(REPO / "start-bossman.sh")]).returncode == 0
+
+
+# ------------------------------------------- вечерняя приёмка: точный SHA
+
+def test_both_launchers_run_the_exact_sha_owner_entrypoint():
+    """Вечерний тест владельца обязан идти через обёртку по точному SHA.
+
+    evening_acceptance.py собирает улики без привязки к коммиту: по ним нельзя
+    отличить прогон на этом дереве от прогона на другом. Обёртка проверяет
+    ветку, чистое дерево, совпадение с живым origin и раскладывает улики по
+    каталогу SHA.
+    """
+    for script in ("start-bossman.ps1", "start-bossman.sh"):
+        body = (REPO / script).read_text(encoding="utf-8")
+        evening = body[body.index("EveningTest" if script.endswith(".ps1") else 'EVENING" -eq 1'):]
+        assert "evening_owner_run.py" in evening, f"{script}: вечерний путь не вызывает обёртку"
+        assert "evening_acceptance.py run" not in evening, (
+            f"{script}: остался прямой запуск старого харнесса — это тихий откат"
+        )
+
+
+def test_the_evening_path_has_no_silent_fallback():
+    """Нет обёртки — честный отказ, а не тихий запуск старого харнесса."""
+    ps1 = (REPO / "start-bossman.ps1").read_text(encoding="utf-8")
+    sh = (REPO / "start-bossman.sh").read_text(encoding="utf-8")
+    assert "Test-Path $OwnerRun" in ps1 and "exit 1" in ps1
+    assert "! -f scripts/evening_owner_run.py" in sh
+
+
+def test_doctor_only_and_normal_start_are_unchanged():
+    """Правка вечернего пути не имеет права трогать обычный запуск."""
+    ps1 = (REPO / "start-bossman.ps1").read_text(encoding="utf-8")
+    assert "if ($DoctorOnly) { exit 0 }" in ps1
+    assert '$LaunchArgs = @("-m", "bcc.desktop")' in ps1
+    sh = (REPO / "start-bossman.sh").read_text(encoding="utf-8")
+    assert '[ "$DOCTOR_ONLY" -eq 0 ] || exit 0' in sh
+    assert "ARGS=(-m bcc.desktop)" in sh
+
+
+def test_the_powershell_launcher_is_syntactically_valid():
+    import shutil
+    pwsh = shutil.which("pwsh") or shutil.which("powershell")
+    if pwsh is None:
+        pytest.skip("PowerShell недоступен — синтаксис start-bossman.ps1 проверяется на Windows/CI")
+    script = (
+        "$e=$null;"
+        f"[void][System.Management.Automation.Language.Parser]::ParseFile('{REPO / 'start-bossman.ps1'}',"
+        "[ref]$null,[ref]$e);"
+        "if($e -and $e.Count){$e|%{Write-Error $_.Message};exit 1};exit 0"
+    )
+    assert subprocess.run([pwsh, "-NoProfile", "-Command", script]).returncode == 0
+
+
+@pytest.mark.parametrize("script", ["evening_acceptance.py", "owner_breaker.py",
+                                    "evening_owner_run.py"])
+def test_the_harness_prints_on_a_legacy_windows_console(script):
+    """Русский вывод не должен убивать проверку на консоли в cp1252.
+
+    На windows-latest первый же print падал с UnicodeEncodeError, и владелец
+    видел не вердикт, а трейсбек. Лаунчеры экспортировали PYTHONUTF8 и этим
+    маскировали дефект; прямой запуск и CI — нет.
+    """
+    argv = ["--ci", "preflight"] if script == "evening_owner_run.py" else ["verify"]
+    done = subprocess.run(
+        [sys.executable, str(REPO / "scripts" / script), *argv],
+        cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace",
+        env={**os.environ, "PYTHONIOENCODING": "cp1252"}, timeout=180,
+    )
+    assert "UnicodeEncodeError" not in (done.stdout + done.stderr), done.stderr[-400:]
+
+
+# --------------------------------------------------------------------------
+# Браузер: «файл на месте» и «браузер работает» — разные утверждения
+# --------------------------------------------------------------------------
+
+
+def _fake_browser(tmp_path, script: str):
+    import stat
+    exe = tmp_path / "chromium"
+    exe.write_text(script, encoding="utf-8")
+    exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
+    return exe
+
+
+def _browser_check_with(monkeypatch, path):
+    """Прогнать проверку доктора, подсунув ей найденный путь к браузеру.
+
+    Доктор импортирует `chromium_executable` ВНУТРИ функции, поэтому подменять
+    надо функцию в модуле-источнике: `preinstalled` у неё — значение по
+    умолчанию, вычисленное при импорте, и подмена константы после импорта ни на
+    что не влияет (проверено — первая редакция этого замера именно так и
+    соврала, вернув настоящий путь вместо подставного).
+    """
+    import bcc.browser_runtime as br
+    monkeypatch.setattr(br, "chromium_executable", lambda *a, **k: str(path))
+    return _load("bossman_doctor").check_browser_runtime()
+
+
+def test_a_file_that_is_not_a_browser_is_not_reported_as_a_working_one(tmp_path, monkeypatch):
+    """Регресс: доктор отвечал PASS «Chromium установлен» на ЛЮБОЙ файл по
+    найденному пути.
+
+    Его собственный докстринг требует «НАСТОЯЩИЙ браузер, фейковый адаптер не
+    считается», а `chromium_executable` — поиск ПУТИ, документированный как
+    работающий без подпроцессов. Между «файл существует» и «браузер работает»
+    он ставил знак равенства, и это видно было в его же фактах:
+    `live_launch_verified: False` рядом с вердиктом PASS.
+
+    Воспроизведено исполняемым файлом, который браузером не является.
+    """
+    exe = _fake_browser(tmp_path, "#!/bin/sh\nexit 127\n")
+    check = _browser_check_with(monkeypatch, exe)
+    assert check.status != "PASS", f"подставной файл засчитан рабочим браузером: {check}"
+    assert check.facts.get("live_launch_verified") is False
+    assert "install-deps" in check.remedy or "install chromium" in check.remedy, check.remedy
+
+
+def test_a_browser_that_answers_is_reported_with_its_real_version(tmp_path, monkeypatch):
+    """Обратный контроль: строгость не имеет права съесть исправный случай.
+
+    Без него «всегда WARN» прошло бы за починку и сделало бы проверку
+    бесполезной в другую сторону — владелец с рабочим браузером получал бы
+    предупреждение на ровном месте.
+    """
+    exe = _fake_browser(tmp_path, "#!/bin/sh\necho 'Chromium 141.0.0.0'\n")
+    check = _browser_check_with(monkeypatch, exe)
+    assert check.status == "PASS", check
+    assert check.facts.get("live_launch_verified") is True
+    assert "141.0.0.0" in check.detail, check.detail

@@ -1,0 +1,61 @@
+{
+  "case_id": "btc-2026-09-10-0846-leveraged-sell-absorption-below-value",
+  "date": "2026-09-10",
+  "time_local": "08:46+02:00",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "instrument_note": "Reference chart and right-side execution tape are visibly offset; reference levels are not exact execution-order prices unless basis is checked.",
+  "observed": {
+    "reference_chart_price_approx": 78345,
+    "execution_tape_approx": [78180, 78235],
+    "cvd_billion": 49.37,
+    "open_interest_billion": 18.33,
+    "long_liquidations_thousand": 107.47,
+    "short_liquidations_thousand": 70.1,
+    "liquidations_delta_moving_average_thousand": -466.83,
+    "buy_volume_million": 9.43,
+    "sell_volume_million": 17.91
+  },
+  "chart_levels": {
+    "dVAL": 78420,
+    "dPOC": 78565,
+    "dVAH": 78650,
+    "dOpen_approx": 78550,
+    "lower_visible_level_approx": 78205,
+    "ntPOC_upper": 79015,
+    "higher_ntPOC": 80185,
+    "pday_low_approx": 77800
+  },
+  "comparison_to_2026_09_09_2340": {
+    "prior_reference_chart_price_approx": 78230,
+    "prior_execution_tape_approx": [78110, 78235],
+    "prior_cvd_billion": 50.23,
+    "prior_oi_billion": 18.21,
+    "reference_price_change_approx": 115,
+    "cvd_change_billion": -0.86,
+    "oi_change_billion": 0.12,
+    "reference_price_direction": "UP",
+    "execution_tape_direction": "ROUGHLY_FLAT",
+    "cvd_direction": "DOWN",
+    "oi_direction": "UP"
+  },
+  "state": "Reference Price UP + CVD DOWN + OI UP; execution tape roughly flat",
+  "regime": "LEVERAGED_SELL_ABSORPTION_BELOW_VALUE",
+  "confidence": "MODERATE",
+  "path_note": "After the prior buyer-failure/deleveraging transition, CVD rolled lower again while OI rebuilt. The reference chart price improved modestly from ~78.23k to ~78.345k, but the execution tape remained roughly flat and price stayed below dVAL/dOpen/dPOC. This preserves the leveraged-sell-absorption signature on the reference series, but structural confirmation is still missing.",
+  "interpretation": "Aggressive selling increased while open leverage expanded, yet the reference price did not make a new low and instead improved slightly. That is constructive absorption behavior, not simple bearish leverage expansion. However, because the execution tape is nearly flat and reference price remains below value, the signal is not strong enough for an automatic long. OI rising does not prove new shorts; it only shows leverage returning.",
+  "long_scenario": {
+    "status": "WATCH_LONG_CANDIDATE_NOT_CONFIRMED",
+    "first_trigger": "Reclaim dVAL ~78,420 and hold above it while CVD stops accelerating lower or price continues to resist the selling.",
+    "second_trigger": "Reclaim dPOC/dOpen ~78,550-78,565 and hold/retest from above.",
+    "stronger_trigger": "Reclaim/accept dVAH ~78,650; then evaluate continuation toward ntPOC ~79,015.",
+    "execution_note": "Translate reference-chart levels to the execution venue using current basis before placing any order."
+  },
+  "risk_scenario": {
+    "warning": "Failure to reclaim dVAL while CVD keeps falling means absorption has not yet converted into structural control.",
+    "stronger_warning": "If reference price rolls over below the ~78.20k visible support while CVD remains down and OI continues rising, reclassify toward bearish leverage expansion.",
+    "lower_reference_area": 77800
+  },
+  "lesson": "After a prolonged deleveraging phase, Price UP + CVD DOWN + OI UP can reappear before value is reclaimed. Treat this as leveraged sell absorption below value, not a completed reversal. Structural confirmation still has priority: dVAL first, then dPOC/dOpen, then dVAH. Cross-instrument disagreement lowers confidence and must be preserved rather than averaged away."
+}

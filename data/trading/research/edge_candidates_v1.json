@@ -1,0 +1,121 @@
+{
+  "research_id": "btc-orderflow-edge-candidates-v1",
+  "date": "2026-09-10",
+  "purpose": "Convert the live Trader Apprentice lessons into falsifiable edge hypotheses. No candidate is considered proven until it survives out-of-sample testing with realistic execution costs and no lookahead.",
+  "core_rule": "An edge is not a pattern description. It is a repeatable conditional expectancy after fees, slippage and basis adjustment.",
+  "candidate_edges": [
+    {
+      "name": "POST_CAPITULATION_FAILED_RECLAIM_SHORT",
+      "priority": 1,
+      "hypothesis": "After a large long-liquidation flush, a rebound with strong CVD and OI recovery but weak price repair below broken value is vulnerable to continuation lower if the first dVAL/dPOC reclaim fails.",
+      "preconditions": [
+        "Large long-liquidation/deleveraging event in the preceding window.",
+        "Price remains below broken dVAL / prior-day-low / value boundary.",
+        "CVD rebounds materially from the flush low.",
+        "OI rebuilds materially from the flush low.",
+        "Price repair is small relative to CVD/OI repair."
+      ],
+      "trigger": "Failed reclaim/retest of dVAL or dPOC, preferably with a lower high and rollover.",
+      "confirmation": [
+        "CVD recovery stalls or turns down.",
+        "OI stays elevated/rises as price weakens, or flushes only after the rejection confirms trapped leverage.",
+        "No rapid acceptance back above the rejected value level."
+      ],
+      "invalidation": "Acceptance above dVAL and especially dPOC with improving price response.",
+      "why_it_may_work": "It exploits crowding and buyer inefficiency after a leverage flush rather than chasing the initial liquidation candle.",
+      "main_risk": "False rejection before a true squeeze/recovery."
+    },
+    {
+      "name": "POST_CAPITULATION_RECLAIM_LONG",
+      "priority": 2,
+      "hypothesis": "After a large long-liquidation flush, the first structural reclaim that is accompanied by stabilizing/rising CVD and non-pathological OI has positive short-horizon expectancy.",
+      "preconditions": [
+        "Large long-liquidation/deleveraging event.",
+        "Price stops making new lows.",
+        "CVD stops accelerating lower or turns up.",
+        "OI stabilizes or rises only with positive price response."
+      ],
+      "trigger": "Reclaim and acceptance above dVAL; stronger signal after dPOC reclaim/retest.",
+      "invalidation": "Loss of reclaimed value with CVD down and OI rising.",
+      "why_it_may_work": "It waits for proof that forced selling has exhausted and value is being rebuilt, avoiding blind knife-catching.",
+      "main_risk": "Late entry after a large reflex bounce."
+    },
+    {
+      "name": "LEVERAGED_SELL_ABSORPTION_LONG",
+      "priority": 3,
+      "hypothesis": "When CVD falls and OI rises but price holds or rises at support/value, aggressive sellers are being absorbed and may fuel a squeeze if structure is reclaimed.",
+      "preconditions": [
+        "CVD down materially.",
+        "OI up materially.",
+        "Price flat/up or repeatedly unable to make new lows.",
+        "Price located at or just below an important support/value boundary."
+      ],
+      "trigger": "Reclaim/hold of the nearby structural level followed by positive price response.",
+      "invalidation": "Price breaks support and continues lower while CVD remains down and OI stays/rises.",
+      "why_it_may_work": "It measures failure of aggressive selling rather than seller activity itself.",
+      "main_risk": "Absorption can persist for a long time before finally failing."
+    },
+    {
+      "name": "BEARISH_LEVERAGE_EXPANSION_CONTINUATION",
+      "priority": 4,
+      "hypothesis": "Price down + CVD down + OI up after old leverage has already been flushed has negative forward expectancy until the lost structure is reclaimed.",
+      "preconditions": [
+        "Price down.",
+        "CVD down.",
+        "OI up.",
+        "Not merely the first vertical liquidation candle.",
+        "A support/value level is already lost or a retest from below fails."
+      ],
+      "trigger": "Failed retest of the lost level or continuation lower with OI still expanding.",
+      "invalidation": "Rapid structural reclaim with CVD stabilization/improvement and OI no longer expanding bearishly.",
+      "why_it_may_work": "New leverage is entering a falling market after prior leverage cleanup, making the downside move more directional than pure deleveraging.",
+      "main_risk": "OI does not reveal side directly; squeeze risk remains if price response reverses."
+    }
+  ],
+  "features_to_measure": {
+    "price_repair_bps": "10000 * (post_flush_price - flush_low_price) / flush_low_price",
+    "cvd_repair_norm": "(post_flush_cvd - flush_low_cvd) / rolling_abs_cvd_change_scale",
+    "oi_rebuild_pct": "100 * (post_flush_oi - flush_low_oi) / flush_low_oi",
+    "buyer_efficiency": "price_repair_bps / max(abs(cvd_repair_norm), epsilon)",
+    "leverage_efficiency": "price_repair_bps / max(abs(oi_rebuild_pct), epsilon)",
+    "distance_to_dval_bps": "10000 * (price - dVAL) / price",
+    "failed_reclaim_count": "Number of dVAL/dPOC reclaim attempts that fail acceptance within the lookback window.",
+    "liquidation_imbalance": "long_liquidations / max(short_liquidations, epsilon)",
+    "time_since_flush_minutes": "Minutes since the largest recent liquidation impulse.",
+    "oi_path_drawdown_pct": "Peak-to-trough OI change around the event, not just distant endpoint delta."
+  },
+  "minimum_backtest_protocol": {
+    "dataset": "Build timestamped snapshots from raw exchange/API data plus labeled value levels; screenshots are supplemental evidence, not the only source.",
+    "event_detection": "Detect flushes and reclaim/failure events using only data available at that timestamp.",
+    "horizons_minutes": [5, 15, 30, 60, 240],
+    "labels": [
+      "forward_return_bps",
+      "MFE_bps",
+      "MAE_bps",
+      "time_to_invalidation",
+      "time_to_target"
+    ],
+    "execution_costs": [
+      "fees",
+      "slippage",
+      "funding when relevant",
+      "reference-to-execution basis"
+    ],
+    "splits": "Chronological train/validation/test; never random-shuffle across adjacent market regimes.",
+    "acceptance_gate": [
+      "Positive out-of-sample expectancy after costs.",
+      "Adequate sample size across multiple volatility regimes.",
+      "No single day/week contributes a dominant share of PnL.",
+      "Stable result under modest parameter perturbations.",
+      "Walk-forward result remains positive."
+    ]
+  },
+  "ranking_from_current_live_lessons": {
+    "most_promising": "POST_CAPITULATION_FAILED_RECLAIM_SHORT",
+    "reason": "The live sequence showed strong buyer/CVD/OI effort after the flush but weak structural repair. That inefficiency was visible before the continuation lower and is more specific than raw Price/CVD/OI direction alone.",
+    "second": "POST_CAPITULATION_RECLAIM_LONG",
+    "note": "Potentially robust but likely lower R multiple because it waits for confirmation.",
+    "not_yet_proven": true
+  },
+  "model_instruction": "Trader Apprentice must output EDGE_CANDIDATE, EDGE_EVIDENCE, EDGE_INVALIDATION and EDGE_STATUS. EDGE_STATUS must be HYPOTHESIS until the backtester marks it VERIFIED. Never report a historical anecdote as proven edge."
+}

@@ -116,10 +116,36 @@ def profile_path(agent: str) -> Path:
 
 
 def _pid_alive(pid: int) -> bool:
-    if pid <= 0:
+    if type(pid) is not int or pid <= 0:
         return False
+    if os.name == "nt":
+        # Signal zero is CTRL_C_EVENT on Windows, not a process query. Probe a
+        # SYNCHRONIZE handle without sending any event to the shared console.
+        # Unknown identity/access keeps the profile locked; only known exit
+        # allows stale-lock recovery. psutil is optional in Core.
+        try:
+            import ctypes
+            from ctypes import wintypes
+            kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+            kernel.OpenProcess.restype = wintypes.HANDLE
+            kernel.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+            kernel.WaitForSingleObject.restype = wintypes.DWORD
+            kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+            kernel.CloseHandle.restype = wintypes.BOOL
+            handle = kernel.OpenProcess(0x00100000, False, pid)
+            if not handle:
+                return ctypes.get_last_error() != 87  # ERROR_INVALID_PARAMETER: no such PID
+            try:
+                return kernel.WaitForSingleObject(handle, 0) != 0  # only WAIT_OBJECT_0 proves exit
+            finally:
+                kernel.CloseHandle(handle)
+        except (OSError, AttributeError, ValueError):
+            return True
     try:
         os.kill(pid, 0)
+        return True
+    except PermissionError:
         return True
     except OSError:
         return False
@@ -205,6 +231,10 @@ class BrowserManager:
         except Exception:
             lock.release()
             raise
+        # RT-05: политика назначения вешается на КОНТЕКСТ, а не на первый вызов.
+        # Проверка одного URL в `browser.open` не закрывает редирект, popup,
+        # iframe и переход по клику — они идут мимо неё. Здесь их видно всех.
+        await _guard_navigations(context)
         pages = context.pages
         page = pages[0] if pages else await context.new_page()
         sess = Session(context=context, page=page, profile_lock=lock)
@@ -393,6 +423,71 @@ def guarded(name: str, fn: Callable[[dict, ToolContext], Awaitable[ToolResult]])
     return wrapper
 
 
+
+# ------------------------------------------------------ приватная сеть
+
+# RT-05: `browser.open` проверял только схему и `domain_risk`, поэтому браузер
+# спокойно открывал синтетическую службу на 127.0.0.1 и её содержимое читалось.
+# У HTTP-инструмента политика назначения уже есть и она правильная — берём ЕЁ,
+# а не пишем вторую. Разница только в разрешении: браузеру нужен ТОЧНЫЙ
+# host+port, потому что «localhost вообще» — это весь локальный парк служб.
+_BROWSER_ALLOW_ENV = "BOSSMAN_BROWSER_ALLOW_ORIGINS"
+
+
+def _allowed_origins() -> set[str]:
+    """Явный список `host:port`, разрешённый владельцем. Пусто по умолчанию."""
+    raw = os.environ.get(_BROWSER_ALLOW_ENV, "")
+    return {p.strip().lower() for p in raw.split(",") if p.strip()}
+
+
+def destination_refusal(url: str) -> str:
+    """Причина отказа, либо '' если назначение разрешено.
+
+    Проверяется КАЖДАЯ навигация, а не только первая: редирект, popup, iframe и
+    переход по клику ведут туда же, куда и `goto`.
+    """
+    from .net import _is_metadata, _is_private, _resolve_host
+
+    parts = urlparse(url)
+    scheme = (parts.scheme or "").lower()
+    # Только `about:` (пустая вкладка). `chrome://` и `devtools://` — это
+    # НАСТРОЙКИ браузера, а не страница: агенту там делать нечего. `data:` и
+    # `file:` как цель навигации тоже закрыты — содержимое приходит из рабочей
+    # папки через инструменты, а не через адресную строку.
+    if scheme == "about":
+        return ""
+    if scheme not in ("http", "https"):
+        return f"схема '{scheme or '-'}' запрещена"
+    host = (parts.hostname or "").lower().rstrip(".")
+    if not host:
+        return "в URL нет хоста"
+    port = parts.port or (443 if scheme == "https" else 80)
+    if f"{host}:{port}" in _allowed_origins():
+        return ""                                  # ровно эта служба, а не «localhost»
+    ips = _resolve_host(host)
+    if not ips:
+        return f"хост '{host}' не резолвится"
+    for ip in ips:
+        if _is_metadata(ip):
+            return f"адрес метаданных облака запрещён ({ip})"
+        if _is_private(ip):
+            return (f"приватный/локальный адрес запрещён ({host} -> {ip}); "
+                    f"разрешить конкретную службу можно через {_BROWSER_ALLOW_ENV}=host:port")
+    return ""
+
+
+async def _guard_navigations(context) -> None:
+    """Отсекать приватные назначения на уровне СЕТИ, а не только первой ссылки."""
+    async def _route(route):
+        refusal = destination_refusal(route.request.url)
+        if refusal:
+            await route.abort()
+        else:
+            await route.continue_()
+
+    await context.route("**/*", _route)
+
+
 async def _open(args: dict, ctx: ToolContext) -> ToolResult:
     url = str(args.get("url", "")).strip()
     parsed = urlparse(url)
@@ -400,6 +495,10 @@ async def _open(args: dict, ctx: ToolContext) -> ToolResult:
         return ToolResult("refused: browser.open accepts only http/https URLs", error=True)
     if domain_risk(url) == "blocked":
         return ToolResult("refused: domain is blocked by BOSSMAN browser policy", error=True)
+    refusal = destination_refusal(url)
+    if refusal:
+        return ToolResult(f"refused: {refusal}", one_line="browser.open: отказ по назначению",
+                          error=True)
     sess = await MANAGER.session(ctx.agent)
     async with sess.lock:
         await sess.page.goto(url, wait_until="domcontentloaded", timeout=45_000)

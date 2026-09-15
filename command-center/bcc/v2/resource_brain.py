@@ -19,6 +19,9 @@ class ResourceSnapshot:
     used_system_mb: int
     reserve_floor_mb: int = 16_000
     reservations: list[Reservation] = field(default_factory=list)
+    # V6: False = ни одного замера памяти нет; числа выше тогда нули, а не
+    # выдуманный объём. Планирование по такому снимку обязано отказывать.
+    measured: bool = True
 
     @property
     def reserved_mb(self) -> int:
@@ -37,6 +40,21 @@ class ResourcePlan:
 
 def plan_memory(snapshot: ResourceSnapshot, request_mb: int, *,
                 policy: PolicyName = "balanced") -> ResourcePlan:
+    # BL-024. Флаг `measured` объявлен выше как «ни одного замера памяти нет»,
+    # но проверялся он только косвенно — через нули в числах. Нули приходят не
+    # всегда: `_snapshot` подставляет ручной `total_override_mb` (поле на
+    # странице «Ресурсы») ДО того, как узнаёт, был ли замер. Тогда снимок
+    # честно говорит «не измерено» и одновременно предъявляет 112 ГБ бюджета.
+    #
+    # Проверка стоит здесь, а не у вызывающего, намеренно: вызывающих больше
+    # одного, и инвариант раздела 20 («неизвестные данные о памяти — не
+    # безопасная ёмкость») должен держаться на КАЖДОМ пути в это решение,
+    # включая вторую ветку с выгрузкой простаивающих.
+    if not snapshot.measured:
+        return ResourcePlan("queue_or_ask", False, explanation=[
+            "замера памяти нет: допуск считать не от чего",
+            "ручной «всего памяти» замером не является",
+        ])
     if request_mb <= snapshot.available_for_new_mb:
         return ResourcePlan("start", True, explanation=[
             f"need {request_mb}MB; free budget {snapshot.available_for_new_mb}MB"

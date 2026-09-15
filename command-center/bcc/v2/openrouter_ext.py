@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -10,6 +11,28 @@ import httpx
 from ..providers import ProviderError, http_client
 
 DEFAULT_BASE = "https://openrouter.ai/api/v1"
+
+
+def normalize_base_url(url: str) -> str:
+    """Адрес OpenRouter в том виде, от которого строятся пути `/key`, `/models`.
+
+    Владелец вставляет адрес руками, и `https://openrouter.ai/api` (ровно так он
+    записан в config/gateway.example.yaml, где база бэкенда обязана быть без
+    версии) — самая частая форма. Клиент клеит `{base}/key`, поэтому проверка
+    ключа уходила на несуществующий путь, получала 404 и превращалась в «нет
+    связи с OpenRouter, повторите позже»: ключ рабочий, каталог пустой, причина
+    неверная. Та же болезнь, что GATEWAY-URL-V1 в живом прогоне 20260906.
+
+    Адрес без версии не является рабочей конфигурацией OpenRouter ни в одном
+    сценарии, поэтому это нормализация, а не догадка за владельца. Явно
+    указанная другая версия (`/v2`, `/openai/v1`) не трогается.
+    """
+    base = (url or "").strip().rstrip("/")
+    if not base:
+        return DEFAULT_BASE
+    if re.fullmatch(r"v\d+", base.rsplit("/", 1)[-1]):
+        return base
+    return base + "/v1"
 
 def _float(v: Any, default: float | None = None) -> float | None:
     try:
@@ -83,11 +106,35 @@ def catalog_price_values(row):
     return {"price_in": card.price_in, "price_out": card.price_out}
 
 
+_STATUS_TEXT = {
+    401: ("ключ отклонён OpenRouter (401)", "проверьте ключ на openrouter.ai/keys"),
+    402: ("на счету OpenRouter не хватает средств (402)", "пополните баланс на openrouter.ai/credits"),
+    403: ("ключ не допущен к этому запросу (403)", "проверьте ограничения ключа на openrouter.ai/keys"),
+    404: ("OpenRouter не знает такой адрес (404)", "проверьте base_url провайдера"),
+    429: ("OpenRouter ограничил частоту запросов (429)", "повторите через минуту"),
+}
+
+
+def explain_status(status: int) -> tuple[str, str]:
+    """(причина, что делать) по коду ответа OpenRouter. Ключ в текст не попадает.
+
+    Одно место на весь модуль: и проверка ключа, и синхронизация каталога
+    обязаны называть владельцу ОДНУ и ту же причину. До этого 401 по истёкшему
+    ключу (живой прогон 20260906) выходил наружу как «OpenRouter недоступен,
+    повторите позже» — владелец ждал сеть вместо того, чтобы обновить ключ.
+    """
+    if status in _STATUS_TEXT:
+        return _STATUS_TEXT[status]
+    if status >= 500:
+        return f"OpenRouter временно недоступен ({status})", "повторите позже"
+    return f"OpenRouter ответил {status}", "повторите позже"
+
+
 class OpenRouterClient:
     def __init__(self, api_key: str, base_url: str = DEFAULT_BASE,
                  transport: httpx.AsyncBaseTransport | None = None):
         self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
+        self.base_url = normalize_base_url(base_url)
         self.transport = transport
 
     def _headers(self) -> dict[str, str]:
@@ -103,13 +150,26 @@ class OpenRouterClient:
         # ImportError, которого здесь никто не ловил.
         return http_client(self.base_url, timeout=timeout, transport=self.transport)
 
+    def _assert_egress(self) -> None:
+        """Каталог — такой же выход наружу, как инференс.
+
+        Раньше границу приватности проверял только chat_raw, и в приватном
+        контексте запрос каталога всё равно уходил в openrouter.ai вместе с
+        ключом владельца. Отказ политики поднимается PermissionError и наружу
+        выходит как отказ политики, а не как пустой список.
+        """
+        from bossman_shared.privacy import assert_provider_egress
+        assert_provider_egress("openrouter", self.base_url)
+
     async def validate_key(self) -> tuple[str, str]:
         """Проверка ключа без инференса: GET /key.
 
-        Возвращает (state, detail): ok | invalid | network. Ошибки сети и
-        отказ ключа различаются: первый — «попробуйте позже», второй —
-        «ключ не принят». Сырой ключ ни в одном сообщении не появляется.
+        Возвращает (state, detail): ok | invalid | address | network. Три
+        разных действия владельца — три разных состояния: сменить ключ,
+        поправить адрес, подождать сеть. Сырой ключ ни в одном сообщении
+        не появляется.
         """
+        self._assert_egress()
         try:
             async with self._client(15) as client:
                 r = await client.get(f"{self.base_url}/key", headers=self._headers())
@@ -118,13 +178,17 @@ class OpenRouterClient:
             # настроен, но не поддержан сборкой. Для владельца это та же
             # «нет связи», только с причиной, которую можно устранить.
             return "network", f"нет связи с OpenRouter: {exc}"
-        if r.status_code == 401:
-            return "invalid", "ключ отклонён OpenRouter (401)"
         if r.status_code >= 400:
-            return "network", f"OpenRouter ответил {r.status_code}"
+            detail, hint = explain_status(r.status_code)
+            # 401/403 — про ключ, 404 — про адрес, остальное — про доступность.
+            # Владельцу нужно разное действие, поэтому и состояния разные.
+            state = "invalid" if r.status_code in (401, 403) else (
+                "address" if r.status_code == 404 else "network")
+            return state, detail if state != "network" else f"{detail}; {hint}"
         return "ok", ""
 
     async def list_models(self) -> list[OpenRouterModelCard]:
+        self._assert_egress()
         async with self._client(30) as client:
             r = await client.get(f"{self.base_url}/models", headers=self._headers())
         r.raise_for_status()
@@ -166,10 +230,20 @@ class OpenRouterClient:
         r.raise_for_status()
         return r.json()
 
-    async def stream_raw(self, model: str, messages: list[dict[str, Any]], *,
-                         max_tokens: int = 32, temperature: float | None = 0,
-                         max_chunks: int = 32) -> list[str]:
-        """SSE-стрим → список текстовых дельт. Пустой список = стрим не работает."""
+    async def stream_outcome(self, model: str, messages: list[dict[str, Any]], *,
+                             max_tokens: int = 32, temperature: float | None = 0,
+                             max_chunks: int = 32,
+                             first_byte_timeout: float | None = None,
+                             total_timeout: float | None = None):
+        """SSE-стрим → StreamOutcome (см. bcc/streaming).
+
+        Разбор кадров вынесен в один канонический модуль: прежний читатель
+        принимал ровно `choices[0].delta.content`, поэтому рассуждающая модель
+        (GLM 5.3 кладёт текст в `delta.reasoning`) давала «0 chunks» и
+        записывалась как «не умеет стримить». Здесь остаётся только транспорт:
+        таймауты, заголовки и один проход по строкам."""
+        from ..streaming import (DEFAULT_FIRST_BYTE_TIMEOUT, DEFAULT_TOTAL_TIMEOUT,
+                                 outcome_from_exception, read_stream)
         from bossman_shared.privacy import assert_provider_egress
         assert_provider_egress("openrouter", self.base_url)
         payload: dict[str, Any] = {
@@ -178,31 +252,40 @@ class OpenRouterClient:
         }
         if temperature is not None:
             payload["temperature"] = temperature
-        deltas: list[str] = []
-        async with self._client(120) as client:
-            async with client.stream("POST", f"{self.base_url}/chat/completions",
-                                     headers=self._headers(), json=payload) as r:
-                r.raise_for_status()
-                async for line in r.aiter_lines():
-                    line = line.strip()
-                    if not line.startswith("data:"):
-                        continue
-                    body = line[5:].strip()
-                    if body in ("", "[DONE]"):
-                        if body == "[DONE]":
-                            break
-                        continue
-                    try:
-                        chunk = json.loads(body)
-                    except json.JSONDecodeError:
-                        continue
-                    choice = (chunk.get("choices") or [{}])[0]
-                    piece = (choice.get("delta") or {}).get("content")
-                    if piece:
-                        deltas.append(str(piece))
-                    if len(deltas) >= max_chunks:
-                        break
-        return deltas
+        first = DEFAULT_FIRST_BYTE_TIMEOUT if first_byte_timeout is None else first_byte_timeout
+        total = DEFAULT_TOTAL_TIMEOUT if total_timeout is None else total_timeout
+        # `read` — это и есть бюджет «первого байта»: провайдер, который принял
+        # соединение и замолчал, обязан оборваться раньше общего таймаута.
+        timeout = httpx.Timeout(total, connect=min(30.0, total), read=first)
+        try:
+            # Тот же помощник, что и у остальных вызовов: он решает вопрос
+            # прокси и не теряет transport, подставленный тестом.
+            async with http_client(self.base_url, timeout=timeout,
+                                   transport=self.transport) as client:
+                async with client.stream("POST", f"{self.base_url}/chat/completions",
+                                         headers=self._headers(), json=payload) as r:
+                    if r.status_code >= 400:
+                        # Тело ошибки читаем целиком: 429/402/5xx — про
+                        # провайдера, а не про способность модели стримить.
+                        body = (await r.aread()).decode("utf-8", "replace")[:300]
+                        from ..streaming import PROVIDER_FAILED, StreamOutcome
+                        return StreamOutcome(status=PROVIDER_FAILED,
+                                             error=f"HTTP {r.status_code}: {body}",
+                                             detail="provider refused the stream")
+                    return await read_stream(r.aiter_lines(), max_chunks=max_chunks)
+        except Exception as exc:  # noqa: BLE001 — транспорт классифицируется, а не глотается
+            return outcome_from_exception(exc)
+
+    async def stream_raw(self, model: str, messages: list[dict[str, Any]], *,
+                         max_tokens: int = 32, temperature: float | None = 0,
+                         max_chunks: int = 32) -> list[str]:
+        """Обратно совместимая обёртка: список текстовых дельт.
+
+        Пустой список по-прежнему значит «полезного текста не пришло», но теперь
+        это решает канонический разбор, а не одна ветка `delta.content`."""
+        outcome = await self.stream_outcome(model, messages, max_tokens=max_tokens,
+                                            temperature=temperature, max_chunks=max_chunks)
+        return list(outcome.deltas)
 
     async def probe_chat(self, model: str) -> tuple[bool, str]:
         try:

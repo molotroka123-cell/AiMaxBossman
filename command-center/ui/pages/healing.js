@@ -12,6 +12,7 @@ const HealingPage = {
   title: 'Восстановление',
   icon: 'check',
   nav: 'more',
+  section: 'system',
 
   async render(ctx) {
     const [rulesR, attemptsR] = await Promise.allSettled([

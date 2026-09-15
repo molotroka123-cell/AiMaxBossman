@@ -17,7 +17,8 @@
 #   .\start-bossman.ps1              полный путь: установка → доктор → запуск
 #   .\start-bossman.ps1 -DoctorOnly  только диагностика
 #   .\start-bossman.ps1 -SkipInstall  пропустить установку (быстрый повторный старт)
-#   .\start-bossman.ps1 -EveningTest  запустить вечернюю приёмку вместо окна
+#   .\start-bossman.ps1 -EveningTest  вечерняя приёмка владельца по ТОЧНОМУ SHA
+#                                    (scripts/evening_owner_run.py run)
 #   .\start-bossman.ps1 -Port 8801    другой порт
 
 [CmdletBinding()]
@@ -73,11 +74,21 @@ if (-not (Test-Path $VenvPython)) {
 if (-not $SkipInstall) {
     Write-Step "Устанавливаю пакеты (первый запуск занимает несколько минут)"
     & $VenvPython -m pip install --upgrade pip --quiet
-    & $VenvPython -m pip install --quiet -e . -e (Join-Path $Repo "command-center") -e (Join-Path $Repo "bossman-core")
+    $InstallArgs = @("-e", $Repo, "-e", "$(Join-Path $Repo 'command-center')[runtime]", "-e", "$(Join-Path $Repo 'bossman-core')[runtime]")
+    Get-ChildItem (Join-Path $Repo "apps") -Directory | Sort-Object Name | ForEach-Object {
+        if (Test-Path (Join-Path $_.FullName "pyproject.toml")) { $InstallArgs += @("-e", $_.FullName) }
+    }
+    & $VenvPython -m pip install @InstallArgs
     if ($LASTEXITCODE -ne 0) {
-        Write-Bad "Установка пакетов не удалась. Полный вывод:"
-        & $VenvPython -m pip install -e . -e (Join-Path $Repo "command-center") -e (Join-Path $Repo "bossman-core")
+        Write-Bad "Установка пакетов не удалась; причина показана выше."
         exit 1
+    }
+    & $VenvPython -m pip check
+    if ($LASTEXITCODE -ne 0) { Write-Bad "Зависимости несовместимы"; exit 1 }
+    & $VenvPython -c "from bcc.browser_runtime import chromium_executable; import sys; sys.exit(0 if chromium_executable() else 1)"
+    if ($LASTEXITCODE -ne 0) {
+        & $VenvPython -m playwright install chromium
+        if ($LASTEXITCODE -ne 0) { Write-Bad "Не удалось установить Chromium"; exit 1 }
     }
 }
 
@@ -95,9 +106,31 @@ if ($DoctorOnly) { exit 0 }
 
 # ----------------------------------------------------------------- 5. запуск
 if ($EveningTest) {
-    Write-Step "Вечерняя приёмка владельца"
-    & $VenvPython (Join-Path $Repo "scripts\evening_acceptance.py") run
-    exit $LASTEXITCODE
+    # Единственная точка входа вечерней приёмки — обёртка по ТОЧНОМУ SHA. Она
+    # проверяет канонную ветку, чистое дерево, совпадение с живым origin,
+    # доктора и самопроверку обоих харнессов, и кладёт улики в каталог этого
+    # SHA. Прямой запуск evening_acceptance.py собирал улики, не привязанные к
+    # коммиту: их нельзя было отличить от улик другого дерева.
+    $OwnerRun = Join-Path $Repo "scripts\evening_owner_run.py"
+    if (-not (Test-Path $OwnerRun)) {
+        Write-Bad "Не найден scripts/evening_owner_run.py."
+        Write-Bad "Отката на старый харнесс НЕТ: улики без точного SHA недействительны."
+        exit 1
+    }
+    Write-Step "Вечерняя приёмка владельца (точный SHA)"
+    Write-Host "    ветка:    $(& git -C $Repo branch --show-current)"
+    Write-Host "    SHA:      $(& git -C $Repo rev-parse HEAD)"
+    Write-Host "    платформа: $([System.Environment]::OSVersion.VersionString)"
+    Write-Host "    runtime:  $(& $VenvPython -c 'import platform;print(platform.python_version())')"
+    & $VenvPython $OwnerRun run
+    $RunCode = $LASTEXITCODE
+    if ($RunCode -eq 0) {
+        Write-Host "`nOWNER_EVENING_RESULT=PASS" -ForegroundColor Green
+    } else {
+        Write-Bad "`nOWNER_EVENING_RESULT=INCOMPLETE_OR_FAIL (код $RunCode)"
+        Write-Bad "Улики этого SHA остались на месте — смотрите строку OWNER_ACCEPTANCE_EVIDENCE выше."
+    }
+    exit $RunCode
 }
 
 Write-Step "Открываю BOSSMAN Command Center"

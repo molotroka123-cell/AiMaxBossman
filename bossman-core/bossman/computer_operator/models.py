@@ -29,6 +29,18 @@ class Observation:
     id:str; created_at:float; foreground:dict[str,Any]; summary:str
     ui_tree:Any=None; screenshot_ref:str|None=None; sensitive:bool=False; generation:int=0
 
+# Минимальная сила постусловия. " ", "\n" или "a" — истинные строки, поэтому
+# раньше проходили is_empty() и совпадали с ЛЮБЫМ экраном: планировщик закрывал
+# задачу вырожденным постусловием, и COMPLETE снова становился словом, а не
+# результатом (AT-01). Порог намеренно низкий: осмысленные короткие постусловия
+# ("ok", "OK") — это утверждение о экране, а один пробел им не является.
+MIN_EXPECTED_CHARS=2
+
+def expected_value(v:str|None)->str|None:
+    """Постусловие, если оно вообще что-то утверждает об экране, иначе None."""
+    s=(v or "").strip()
+    return s if len(s)>=MIN_EXPECTED_CHARS else None
+
 @dataclass(slots=True)
 class ExpectedState:
     contains_text:str|None=None
@@ -37,8 +49,8 @@ class ExpectedState:
     url_contains:str|None=None
     absent_text:str|None=None
     def is_empty(self)->bool:
-        return not any((self.contains_text,self.window_title_contains,
-                        self.foreground_app_contains,self.url_contains,self.absent_text))
+        return not any(expected_value(v) for v in (self.contains_text,self.window_title_contains,
+                       self.foreground_app_contains,self.url_contains,self.absent_text))
 
 @dataclass(slots=True)
 class ComputerAction:

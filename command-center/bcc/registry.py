@@ -138,15 +138,69 @@ class Registry:
     # ---------- проверки ----------
 
     async def check_model(self, model_id: int) -> dict:
-        """Health endpoint'а провайдера → status/status_detail/last_check модели."""
+        """Health endpoint'а провайдера → status/status_detail/last_check модели.
+
+        B5: это проверка ДОСТУПНОСТИ ПРОВАЙДЕРА, а не способности модели
+        отвечать. Она больше не пишет измеренное здоровье: живой эндпоинт
+        ничего не говорит про то, вернёт ли эта модель хоть слово (ровно так
+        `cohere/north-mini-code:free` и считался пригодным). Умение отвечать
+        измеряет `test_model`, и только оно ставит health=healthy."""
         adapter, model = await self.adapter_for(model_id)
         health = await adapter.health()
         status = {"ok": "online"}.get(health.status, health.status)
         await self._set_status(model_id, status, health.detail)
+        if health.status != "ok":
+            # Недоступный провайдер — это факт и про модель тоже: она сейчас не
+            # ответит. Обратное неверно, поэтому «ok» здесь ничего не записывает.
+            from . import model_health as mh
+            kind = mh.UNAUTHORIZED if "401" in (health.detail or "") or "403" in (
+                health.detail or "") else mh.PROVIDER_DOWN
+            await self.record_model_health(model_id, kind, health.detail or status)
         await self.bus.emit("model.status", id=model_id, alias=model["alias"],
                             status=status, detail=health.detail)
         return {"id": model_id, "status": status, "detail": health.detail,
-                "latency_ms": health.latency_ms, "last_check": utcnow()}
+                "latency_ms": health.latency_ms, "last_check": utcnow(),
+                "health": (await self.model_health(model_id)).to_dict()}
+
+    # ---------- B5: измеренное здоровье модели ----------
+
+    async def model_health(self, model_id: int):
+        from . import model_health as mh
+        async with self.db.session() as s:
+            row = (await s.execute(sa.select(models_t.c.health).where(
+                models_t.c.id == model_id))).first()
+        return mh.HealthRecord.from_dict(row[0] if row is not None else None)
+
+    async def record_model_health(self, model_id: int, status: str, detail: str = "",
+                                  *, latency_ms: int | None = None):
+        """Сложить одно измерение в запись здоровья и сохранить её."""
+        from . import model_health as mh
+        prior = await self.model_health(model_id)
+        record = mh.record_observation(prior, status, detail, latency_ms=latency_ms)
+        async with self.db.session() as s:
+            await s.execute(sa.update(models_t).where(models_t.c.id == model_id).values(
+                health=record.to_dict()))
+            await s.commit()
+        await self.bus.emit("model.health", id=model_id, health_status=status,
+                            detail=detail[:300], confidence=record.confidence,
+                            usable=record.usable())
+        return record
+
+    async def usable_models(self, *, kind: str | None = None) -> list[dict]:
+        """Модели в порядке ИЗМЕРЕННОГО здоровья: доказанные, затем неизмеренные,
+        затем сломанные. Неизмеренная НЕ считается здоровой (иначе молчащая
+        модель обгоняет проверенную), но и не считается сломанной — иначе её
+        никогда не выберут и здоровье никогда не измерится."""
+        from . import model_health as mh
+        stmt = sa.select(models_t)
+        if kind:
+            stmt = stmt.where(models_t.c.kind == kind)
+        async with self.db.session() as s:
+            rows = [dict(r._mapping) for r in (await s.execute(stmt)).fetchall()]
+        pairs = [(row, mh.HealthRecord.from_dict(row.get("health"))) for row in rows]
+        ordered = mh.rank(pairs)
+        by_id = {row["id"]: rec for row, rec in pairs}
+        return [{**row, "health": by_id[row["id"]].to_dict()} for row in ordered]
 
     async def test_model(self, model_id: int) -> dict:
         """Мини-benchmark: короткий prompt, замер latency и tok/s; результат — в bench."""
@@ -158,10 +212,25 @@ class Registry:
         except ProviderError as exc:
             status = "offline" if exc.kind == "network" else "error"
             await self._set_status(model_id, status, str(exc))
+            from . import model_health as mh
+            kind, detail = mh.classify_exception(exc)
+            await self.record_model_health(model_id, kind, detail)
             await self.bus.emit("model.status", id=model_id, alias=model["alias"],
                                 status=status, detail=str(exc))
             raise
         elapsed = max(time.perf_counter() - t0, 1e-6)
+        # B5: вызов, который не бросил исключение, ещё не ответ. HTTP 200 с
+        # пустым телом не бросает ничего — так молчащая бесплатная модель и
+        # записывалась как online. Классифицируем сам ОТВЕТ.
+        from . import model_health as mh
+        kind, detail = mh.classify_answer(result.text, tokens_out=result.tokens_out)
+        record = await self.record_model_health(model_id, kind, detail,
+                                                latency_ms=int(elapsed * 1000))
+        if kind != mh.HEALTHY:
+            await self._set_status(model_id, "error", detail)
+            await self.bus.emit("model.status", id=model_id, alias=model["alias"],
+                                status="error", detail=detail)
+            raise ProviderError(f"модель {model['alias']}: {detail}", kind="empty_response")
         bench = {
             "prompt_tps": round(result.tokens_in / elapsed, 2) if result.tokens_in else None,
             "gen_tps": round(result.tokens_out / elapsed, 2) if result.tokens_out else None,
@@ -175,7 +244,7 @@ class Registry:
             await s.commit()
         await self.bus.emit("model.status", id=model_id, alias=model["alias"],
                             status="online", detail="", bench=bench)
-        return {"id": model_id, "bench": bench}
+        return {"id": model_id, "bench": bench, "health": record.to_dict()}
 
     async def _set_status(self, model_id: int, status: str, detail: str) -> None:
         async with self.db.session() as s:

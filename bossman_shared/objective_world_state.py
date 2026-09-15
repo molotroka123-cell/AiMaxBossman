@@ -10,13 +10,19 @@ verified observation may be turned into a `WorldFact` by the caller.
 
 Invariants carried by the projection rather than by caller discipline:
 
-* A read is three-valued. FRESH returns the fact; STALE and MISSING return an
-  explicit UNKNOWN and never the last known value. There is no None-as-healthy
-  and no silently stale answer, because "we do not know" must never read as
-  "everything is fine".
+* A read is four-valued. FRESH returns the fact; STALE, MISSING and CONTESTED
+  return an explicit UNKNOWN and never the last known value. There is no
+  None-as-healthy and no silently stale answer, because "we do not know" must
+  never read as "everything is fine".
+* Disagreement is a finding, not a race. Facts are kept per source, so two
+  observers that measured the same key differently both survive. While both
+  readings are fresh the read is CONTESTED and carries them, rather than
+  handing back whichever arrived last: the V7 audit corpus names "the world
+  state becomes a stale cache treated as truth" a top design failure, and
+  resolving a disagreement by recency is exactly how that happens.
 * Time only moves forward. A fact observed in the future is refused, and an
-  older observation never overwrites a newer one, so a reordered or replayed
-  event stream cannot regress the projection.
+  older observation never overwrites a newer one from the same source, so a
+  reordered or replayed event stream cannot regress the projection.
 * Scopes are hard partitions. A fact ingested into scope A is unreadable from
   scope B; there is no global namespace to leak across.
 * Storage is bounded per scope with deterministic oldest-first eviction, so an
@@ -32,8 +38,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-STATUSES = frozenset({"FRESH", "STALE", "MISSING"})
+STATUSES = frozenset({"FRESH", "STALE", "MISSING", "CONTESTED"})
 DEFAULT_MAX_FACTS_PER_SCOPE = 4096
+#: Distinct sources retained per key. Disagreement must be visible, but an
+#: unbounded source set would let a misbehaving observer grow memory without
+#: limit; past the cap the oldest source is dropped, oldest-first like keys.
+DEFAULT_MAX_SOURCES_PER_KEY = 8
 
 
 class WorldStateError(ValueError):
@@ -100,38 +110,73 @@ class WorldFact:
 
 @dataclass(frozen=True, slots=True)
 class FactRead:
-    """Three-valued read result. The value is reachable only when FRESH."""
+    """Four-valued read result. The value is reachable only when FRESH."""
 
     scope_id: str
     key: str
     status: str
     fact: WorldFact | None = None
+    #: Every fresh reading behind a CONTESTED result, newest first. Populated
+    #: only when sources disagree — the disagreement is the finding, so the
+    #: caller and the owner get to see who measured what, not a summary of it.
+    conflicting: tuple[WorldFact, ...] = ()
 
     @property
     def known(self) -> bool:
         return self.status == "FRESH"
 
     def value_or_unknown(self) -> Any:
-        """The measured value, or the UNKNOWN sentinel — never a stale value."""
+        """The measured value, or the UNKNOWN sentinel — never a stale or
+        contested value. Two observers disagreeing is not knowledge."""
         return self.fact.value if self.status == "FRESH" and self.fact is not None else UNKNOWN
+
+    def sources(self) -> tuple[str, ...]:
+        """Which sources produced the readings behind this result."""
+        if self.conflicting:
+            return tuple(f.source_ref for f in self.conflicting)
+        return (self.fact.source_ref,) if self.fact is not None else ()
+
+
+def _same_value(left: Any, right: Any) -> bool:
+    """Whether two readings agree. Types must match, so `True` and `1` disagree.
+
+    Python would call those equal, and a projection that treats a boolean and an
+    integer as the same measurement is inventing agreement between two observers
+    that reported different things.
+    """
+    if type(left) is not type(right):
+        return False
+    try:
+        return bool(left == right)
+    except Exception:                                        # noqa: BLE001
+        # An exotic value whose __eq__ raises cannot be shown to agree, and
+        # "we could not compare" is a disagreement, not a match.
+        return False
 
 
 class WorldStateProjection:
-    """Bounded, scope-partitioned store of verified facts."""
+    """Bounded, scope-partitioned store of verified facts, kept per source."""
 
-    def __init__(self, *, max_facts_per_scope: int = DEFAULT_MAX_FACTS_PER_SCOPE) -> None:
+    def __init__(self, *, max_facts_per_scope: int = DEFAULT_MAX_FACTS_PER_SCOPE,
+                 max_sources_per_key: int = DEFAULT_MAX_SOURCES_PER_KEY) -> None:
         if type(max_facts_per_scope) is not int or max_facts_per_scope <= 0:
             raise WorldStateError("max_facts_per_scope must be a positive integer")
+        if type(max_sources_per_key) is not int or max_sources_per_key <= 0:
+            raise WorldStateError("max_sources_per_key must be a positive integer")
         self.max_facts_per_scope = max_facts_per_scope
-        self._scopes: dict[str, dict[str, WorldFact]] = {}
+        self.max_sources_per_key = max_sources_per_key
+        self._scopes: dict[str, dict[str, dict[str, WorldFact]]] = {}
 
     def ingest(self, fact: WorldFact, *, now: float) -> bool:
-        """Record a fact if it is not from the future and not older than what we hold.
+        """Record a fact if it is not from the future and not older than what that
+        SOURCE already reported.
 
         Returns whether the projection changed. An out-of-order or replayed event
         is ignored rather than raising: reordering is normal, and the projection's
         job is to refuse the regression, not to refuse the stream. A same-instant
-        conflicting reading also loses, so ingest order can never decide a fact.
+        repeat from the same source also loses, so ingest order can never decide a
+        fact. A reading from a DIFFERENT source never overwrites another source's:
+        it is kept alongside, and `read` reports the disagreement.
         """
         if type(fact) is not WorldFact:
             raise WorldStateError("a validated WorldFact is required")
@@ -139,43 +184,99 @@ class WorldStateProjection:
         if fact.observed_at > moment:
             raise WorldStateError("fact observed in the future; the clock or the source is wrong")
         scope = self._scopes.setdefault(fact.scope_id, {})
-        held = scope.get(fact.key)
+        by_source = scope.setdefault(fact.key, {})
+        held = by_source.get(fact.source_ref)
         if held is not None and fact.observed_at <= held.observed_at:
             return False
-        scope[fact.key] = fact
+        by_source[fact.source_ref] = fact
+        self._evict_sources(by_source)
         self._evict(scope)
         return True
 
     def read(self, scope_id: str, key: str, *, now: float) -> FactRead:
-        """Read one fact in one scope. Absent or expired is UNKNOWN, never the old value."""
+        """Read one key in one scope.
+
+        Absent, expired or contested is UNKNOWN, never the old value and never an
+        arbitrary winner among disagreeing observers.
+        """
         _text(scope_id, "scope_id")
         _text(key, "key")
         moment = _number(now, "now")
-        fact = self._scopes.get(scope_id, {}).get(key)
-        if fact is None:
+        by_source = self._scopes.get(scope_id, {}).get(key)
+        if not by_source:
             return FactRead(scope_id, key, "MISSING")
-        if not fact.fresh(moment):
-            # The fact is deliberately not returned: a caller that could reach it
-            # would eventually read it, and stale evidence is how green lies.
+        fresh = sorted((f for f in by_source.values() if f.fresh(moment)),
+                       key=lambda f: (-f.observed_at, f.source_ref))
+        if not fresh:
+            # The facts are deliberately not returned: a caller that could reach
+            # them would eventually read them, and stale evidence is how green lies.
             return FactRead(scope_id, key, "STALE")
-        return FactRead(scope_id, key, "FRESH", fact)
+        newest = fresh[0]
+        if all(_same_value(f.value, newest.value) for f in fresh[1:]):
+            return FactRead(scope_id, key, "FRESH", newest)
+        return FactRead(scope_id, key, "CONTESTED", None, tuple(fresh))
 
     def keys(self, scope_id: str) -> tuple[str, ...]:
         _text(scope_id, "scope_id")
         return tuple(sorted(self._scopes.get(scope_id, {})))
 
     def fact_count(self, scope_id: str) -> int:
+        """How many keys this scope holds — a key is one fact about the world,
+        however many observers reported it."""
         _text(scope_id, "scope_id")
         return len(self._scopes.get(scope_id, {}))
+
+    def observation_count(self, scope_id: str) -> int:
+        """How many per-source readings this scope holds."""
+        _text(scope_id, "scope_id")
+        return sum(len(v) for v in self._scopes.get(scope_id, {}).values())
+
+    def sources(self, scope_id: str, key: str) -> tuple[str, ...]:
+        """Which sources have reported this key, whatever their freshness."""
+        _text(scope_id, "scope_id")
+        _text(key, "key")
+        return tuple(sorted(self._scopes.get(scope_id, {}).get(key, {})))
+
+    def contested(self, scope_id: str, *, now: float) -> tuple[str, ...]:
+        """Keys whose fresh observers currently disagree — the owner's short list."""
+        _text(scope_id, "scope_id")
+        return tuple(k for k in self.keys(scope_id)
+                     if self.read(scope_id, k, now=now).status == "CONTESTED")
 
     def scopes(self) -> tuple[str, ...]:
         return tuple(sorted(self._scopes))
 
-    def _evict(self, scope: dict[str, WorldFact]) -> None:
-        """Drop the oldest observations first, breaking ties by key for determinism."""
+    def _evict(self, scope: dict[str, dict[str, WorldFact]]) -> None:
+        """Drop the oldest keys first, breaking ties by key for determinism."""
         while len(scope) > self.max_facts_per_scope:
-            victim = min(scope, key=lambda k: (scope[k].observed_at, k))
+            victim = min(scope, key=lambda k: (max(f.observed_at for f in scope[k].values()), k))
             del scope[victim]
+
+    def _evict_sources(self, by_source: dict[str, WorldFact]) -> None:
+        """Drop the oldest source first; a flood of observers costs a fixed amount."""
+        while len(by_source) > self.max_sources_per_key:
+            victim = min(by_source, key=lambda s: (by_source[s].observed_at, s))
+            del by_source[victim]
+
+
+def require_fresh(projection: "WorldStateProjection", scope_id: str, key: str,
+                  *, now: float) -> Any:
+    """The effect-boundary rule, made callable instead of conventional.
+
+    The audit corpus states it as: a stale or low-confidence fact may support
+    planning, but may not satisfy a fresh effect-boundary obligation. A caller
+    about to cross that boundary asks here and gets either the measured value or
+    a refusal naming the reason — STALE, MISSING or CONTESTED. There is no
+    variant of this function that returns a value on anything but FRESH.
+    """
+    read = projection.read(scope_id, key, now=now)
+    if read.status != "FRESH" or read.fact is None:
+        detail = ""
+        if read.status == "CONTESTED":
+            detail = " (" + ", ".join(f"{f.source_ref}={f.value!r}" for f in read.conflicting) + ")"
+        raise WorldStateError(
+            f"{scope_id}/{key}: fresh observation required, got {read.status}{detail}")
+    return read.fact.value
 
 
 def fact_from_observation(record: Mapping[str, Any], key: str, *, scope_id: str,

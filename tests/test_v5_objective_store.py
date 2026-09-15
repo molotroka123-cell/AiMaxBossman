@@ -5,6 +5,7 @@ import threading
 
 import pytest
 
+from bossman_shared import evidence as _evidence
 from bossman_shared.objective_spec import (
     ObjectiveSpec,
     ObjectiveValidationError,
@@ -61,6 +62,22 @@ def build_only(previous):
                                 if s["source_ref"] == "local-build"],
                        predicates=[p for p in previous.to_dict()["predicates"]
                                    if p["source_ref"] == "local-build"])
+
+
+@pytest.fixture(autouse=True)
+def evidence_key(tmp_path, monkeypatch):
+    """Ключ подписи улик живёт и умирает вместе с tmp_path, не в домашнем каталоге."""
+    monkeypatch.setenv(_evidence.ENV_KEY_FILE, str(tmp_path / "evidence.key"))
+    monkeypatch.setenv(_evidence.ENV_DATA_DIR, str(tmp_path / "data"))
+    _evidence.reset_cache()
+    yield
+    _evidence.reset_cache()
+
+
+def mint(store, objective_id="build", *, condition="SATISFIED", run_id="run-1", **kw):
+    """Отчеканить НАСТОЯЩУЮ привязанную улику: SATISFIED строкой больше не купить."""
+    return store.record_condition_evidence(objective_id, condition=condition,
+                                           run_id=run_id, **kw)
 
 
 @pytest.fixture
@@ -120,13 +137,14 @@ def test_every_field_survives_a_restart(db, store, spec):
     state = activate(store)
     state = store.enroll_sources("build", ("local-build",), owner_id="owner",
                                  expected_version=state.version)
-    state = store.set_condition("build", "SATISFIED", evidence_ref="ev-1",
+    ref = mint(store)
+    state = store.set_condition("build", "SATISFIED", evidence_ref=ref,
                                 expected_version=state.version)
     state = store.record_observation("build", observed_at=91.5, count=3,
                                      expected_version=state.version)
     state = store.record_mission_usage("build", missions=1, wall_seconds=12.5, cost_usd=0.25,
                                        expected_version=state.version)
-    state = store.set_stopped("build", True, reason="budget", expected_version=state.version)
+    state = store.set_stopped("build", True, reason="budget", owner_id="owner", expected_version=state.version)
     store.insert_proposal_once(proposal_id="p-1", objective_id="build",
                                objective_digest=spec.digest, objective_revision=1,
                                created_at=95.0, valid_until=120.0, payload={"a": 1})
@@ -137,7 +155,7 @@ def test_every_field_survives_a_restart(db, store, spec):
     restored = reopened.get("build")
     assert restored == store.get("build")
     assert restored.lifecycle == "ACTIVE" and restored.condition == "SATISFIED"
-    assert restored.last_verified_evidence_ref == "ev-1"
+    assert restored.last_verified_evidence_ref == ref
     assert restored.enrolled_sources == ("local-build",)
     assert (restored.observations_used, restored.last_observation_at) == (3, 91.5)
     assert (restored.missions_used, restored.wall_seconds_used, restored.cost_usd_used) == \
@@ -184,7 +202,7 @@ MUTATORS = {
     "revise": lambda s, v: s.revise("build", revision_of(ObjectiveSpec.from_dict(raw_spec()),
                                                          priority=7),
                                     owner_id="owner", expected_version=v),
-    "set_stopped": lambda s, v: s.set_stopped("build", True, reason="x", expected_version=v),
+    "set_stopped": lambda s, v: s.set_stopped("build", True, reason="x", owner_id="owner", expected_version=v),
     "record_observation": lambda s, v: s.record_observation("build", observed_at=1.0, count=1,
                                                             expected_version=v),
     "set_condition": lambda s, v: s.set_condition("build", "DEVIATED", evidence_ref=None,
@@ -311,7 +329,7 @@ def test_lifecycle_transitions_require_the_owner_identity(store):
 
 def test_leaving_active_clears_the_condition_and_drops_the_evidence(db, store):
     state = activate(store)
-    state = store.set_condition("build", "SATISFIED", evidence_ref="ev-1",
+    state = store.set_condition("build", "SATISFIED", evidence_ref=mint(store),
                                 expected_version=state.version)
     state = store.transition("build", "PAUSED", now=100, owner_id="owner",
                              expected_version=state.version)
@@ -331,7 +349,7 @@ def test_unknown_objectives_are_refused_everywhere(store):
     with pytest.raises(ObjectiveStoreError):
         store.transition("ghost", "ACTIVE", now=100, owner_id="owner", expected_version=1)
     with pytest.raises(ObjectiveStoreError):
-        store.set_stopped("ghost", True, reason="x", expected_version=1)
+        store.set_stopped("ghost", True, reason="x", owner_id="owner", expected_version=1)
 
 
 # ------------------------------------------------------------------ revision
@@ -353,7 +371,7 @@ def test_revision_cannot_buy_a_fresh_budget(store, spec):
 
 def test_revision_drops_the_condition_and_the_stale_evidence(store, spec):
     state = activate(store)
-    state = store.set_condition("build", "SATISFIED", evidence_ref="ev-1",
+    state = store.set_condition("build", "SATISFIED", evidence_ref=mint(store),
                                 expected_version=state.version)
     state = store.revise("build", revision_of(spec, priority=9), owner_id="owner",
                          expected_version=state.version)
@@ -514,7 +532,7 @@ def test_stop_state_must_be_boolean(store):
     before = store.get("build")
     for stopped in (1, "yes", None):
         with pytest.raises(ObjectiveStoreError):
-            store.set_stopped("build", stopped, reason="x", expected_version=before.version)
+            store.set_stopped("build", stopped, reason="x", owner_id="owner", expected_version=before.version)
     assert store.get("build").stopped is False
 
 
@@ -606,7 +624,7 @@ def test_proposal_snapshot_matches_the_projection_contract(store, spec):
                                   snapshot=snapshot, trigger="source_change")
     assert isinstance(projection, ProposalProjection)
 
-    stopped = store.set_stopped("build", True, reason="budget", expected_version=state.version)
+    stopped = store.set_stopped("build", True, reason="budget", owner_id="owner", expected_version=state.version)
     assert project_proposal(store.get_spec("build"), observations, now=100,
                             snapshot=stopped.proposal_snapshot(),
                             trigger="source_change") is None
@@ -631,7 +649,7 @@ def test_the_journal_records_the_objective_history_and_survives_a_restart(db, st
                          expected_version=state.version)
     state = store.set_condition("build", "DEVIATED", evidence_ref=None,
                                 expected_version=state.version)
-    state = store.set_stopped("build", True, reason="budget", expected_version=state.version)
+    state = store.set_stopped("build", True, reason="budget", owner_id="owner", expected_version=state.version)
     store.insert_proposal_once(proposal_id="p-1", objective_id="build",
                                objective_digest=state.spec_digest, objective_revision=2,
                                created_at=10.0, valid_until=20.0, payload={})
@@ -702,3 +720,94 @@ def test_a_tampered_stored_spec_is_refused_rather_than_served(db, store):
     with pytest.raises(ObjectiveStoreError):
         reopened.transition("build", "ACTIVE", now=100, owner_id="owner",
                             expected_version=reopened.get("build").version)
+
+
+# ------------------------------------------------- A6-03: identity on owner stop
+#
+# Владелец жмёт Stop, чтобы машина перестала действовать от его имени. До этого
+# `set_stopped` не спрашивала, КТО пишет: любой держатель того же файла — воркер
+# чужой цели, процесс, перезапустившийся со своей копией версии, держатель
+# лизы, взятой ДО нажатия Stop — снимал стоп обычным CAS. Отказ обязан быть по
+# личности, а не по гонке версий, поэтому во всех случаях ниже версия свежая:
+# сам по себе CAS их не ловит.
+
+def stop_by(store, actor, stopped=True, version=None):
+    state = store.get("build")
+    return store.set_stopped("build", stopped, reason="owner pressed stop", owner_id=actor,
+                             expected_version=state.version if version is None else version)
+
+
+def test_the_owner_can_stop_and_only_the_owner_can_clear_it(store):
+    activate(store)
+    assert stop_by(store, "owner").stopped is True
+
+    for stranger in ("other-owner", "worker-7", "OWNER", "owner "):
+        with pytest.raises(ObjectiveStoreError, match="identity mismatch"):
+            stop_by(store, stranger, stopped=False)
+        assert store.get("build").stopped is True, f"{stranger} cleared the owner's stop"
+
+    assert stop_by(store, "owner", stopped=False).stopped is False
+
+
+def test_a_foreign_worker_cannot_park_someone_elses_objective(store):
+    """Симметрично: чужой не только не снимает стоп, но и не ставит его."""
+    activate(store)
+    with pytest.raises(ObjectiveStoreError, match="identity mismatch"):
+        stop_by(store, "worker-7")
+    assert store.get("build").stopped is False
+
+
+def test_the_stop_of_another_objective_does_not_authorise_this_one(db, spec):
+    """Личность проверяется против ЭТОЙ строки, а не против «какой-то цели»."""
+    store = ObjectiveStore(db)
+    store.create(spec)
+    other = ObjectiveSpec.from_dict(dict(raw_spec(), objective_id="lint", owner_id="other-owner"))
+    store.create(other)
+    activate(store)
+    assert stop_by(store, "owner").stopped is True
+
+    with pytest.raises(ObjectiveStoreError, match="identity mismatch"):
+        stop_by(store, "other-owner", stopped=False)
+    assert store.get("build").stopped is True
+    assert store.get("lint").stopped is False
+
+
+def test_a_holder_from_before_the_stop_cannot_clear_it_after_a_restart(db, spec):
+    """Лиза, взятая до Stop, и перезапуск процесса — не источник полномочий.
+
+    Держатель читает состояние ДО стопа, владелец жмёт Stop, держатель
+    перезапускается, перечитывает свежую версию и пишет. Версия у него теперь
+    правильная: удержать его может только личность.
+    """
+    store = ObjectiveStore(db)
+    store.create(spec)
+    activate(store)
+    stop_by(store, "owner")
+
+    restarted = ObjectiveStore(db)                    # другой процесс, тот же файл
+    fresh = restarted.get("build").version
+    with pytest.raises(ObjectiveStoreError, match="identity mismatch"):
+        restarted.set_stopped("build", False, reason="resuming my lease",
+                              owner_id="lease-holder", expected_version=fresh)
+    assert restarted.get("build").stopped is True
+
+
+def test_an_unauthenticated_caller_is_refused_before_the_row_is_touched(store):
+    """Пустая личность — не «системный вызов», а отсутствие проверки."""
+    activate(store)
+    stop_by(store, "owner")
+    for nobody in ("", "   ", None, 0):
+        with pytest.raises(ObjectiveStoreError):
+            store.set_stopped("build", False, reason="x", owner_id=nobody,
+                              expected_version=store.get("build").version)
+    assert store.get("build").stopped is True
+
+
+def test_the_journal_records_who_cleared_the_stop(store):
+    """Иначе «кто снял стоп» остаётся догадкой по времени."""
+    activate(store)
+    stop_by(store, "owner")
+    stop_by(store, "owner", stopped=False)
+    stops = [e for e in store.journal("build") if e["event"] == "stop"]
+    assert [e["detail"] for e in stops] == ["True:owner:owner pressed stop",
+                                            "False:owner:owner pressed stop"]

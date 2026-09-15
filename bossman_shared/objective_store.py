@@ -21,8 +21,12 @@ Invariants carried by the schema rather than by caller discipline:
   never reset by a revision: standing work would otherwise buy a fresh budget
   by editing the spec.
 * Condition (SATISFIED/DEVIATED/UNKNOWN) is separate from lifecycle, and
-  SATISFIED is only writable together with a fresh verified evidence reference.
-  Bookkeeping rows are not world-state proof.
+  SATISFIED is only writable together with an evidence reference that RESOLVES
+  to a durable signed record bound to this objective, this condition, this spec
+  digest and revision, a producing run, this applicability and an open freshness
+  window (`bossman_shared.objective_evidence`). A non-empty string is not a
+  reference: `"x"` is non-empty, and that is exactly how green used to be
+  settable by model prose. Bookkeeping rows are not world-state proof.
 * Proposal insertion and reservation are once-only at the database, not in
   Python: a crash between check and write cannot admit the same proposal twice.
 
@@ -37,9 +41,12 @@ import json
 import math
 from pathlib import Path
 import sqlite3
+import time
 
 from bossman_shared.sqlite_connection import OwnedConnection
 from typing import Any, Mapping
+
+from . import objective_evidence as _condition_evidence
 
 from .objective_spec import (
     LIFECYCLES,
@@ -50,6 +57,8 @@ from .objective_spec import (
 
 SCHEMA_VERSION = 1
 CONDITIONS = frozenset({"SATISFIED", "DEVIATED", "UNKNOWN"})
+# Состояния канареечного выпуска. OPEN покидается ровно один раз.
+CANARY_RUN_STATES = frozenset({"OPEN", "ACTIVATED", "ABANDONED"})
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS v5_schema (
@@ -90,6 +99,13 @@ CREATE TABLE IF NOT EXISTS v5_reservations (
   state TEXT NOT NULL,
   payload TEXT NOT NULL);
 CREATE UNIQUE INDEX IF NOT EXISTS v5_reservation_per_proposal ON v5_reservations(proposal_id);
+CREATE TABLE IF NOT EXISTS v5_spec_history (
+  objective_id TEXT NOT NULL,
+  revision INTEGER NOT NULL,
+  spec_digest TEXT NOT NULL,
+  spec_json TEXT NOT NULL,
+  superseded_at REAL,
+  PRIMARY KEY (objective_id, revision));
 CREATE TABLE IF NOT EXISTS v5_journal (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
   objective_id TEXT NOT NULL,
@@ -97,6 +113,52 @@ CREATE TABLE IF NOT EXISTS v5_journal (
   event TEXT NOT NULL,
   detail TEXT NOT NULL DEFAULT '');
 CREATE INDEX IF NOT EXISTS v5_journal_objective ON v5_journal(objective_id);
+CREATE TABLE IF NOT EXISTS v5_canary_runs (
+  run_id TEXT PRIMARY KEY,
+  revision_digest TEXT NOT NULL,
+  cohort_digest TEXT NOT NULL,
+  population TEXT NOT NULL,
+  cohort TEXT NOT NULL,
+  candidates TEXT NOT NULL,
+  started_at REAL NOT NULL,
+  process_identity TEXT NOT NULL,
+  owner_id TEXT NOT NULL,
+  state TEXT NOT NULL,
+  decided_at REAL,
+  detail TEXT NOT NULL DEFAULT '');
+CREATE TABLE IF NOT EXISTS v5_canary_reports (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id TEXT NOT NULL,
+  objective_id TEXT NOT NULL,
+  healthy INTEGER,
+  evidence_ref TEXT NOT NULL DEFAULT '',
+  detail TEXT NOT NULL DEFAULT '',
+  at REAL NOT NULL,
+  FOREIGN KEY(run_id) REFERENCES v5_canary_runs(run_id));
+CREATE INDEX IF NOT EXISTS v5_canary_reports_run ON v5_canary_reports(run_id);
+-- Долговременные улики условия (P0-2). Добавляется идемпотентным DDL, как и все
+-- остальные таблицы этого файла: существующая база доезжает до новой схемы при
+-- первом открытии, ничего не теряя. Подписанное тело лежит в `record`, а
+-- колонки — его зеркало: расхождение между ними считается порчей.
+CREATE TABLE IF NOT EXISTS v5_condition_evidence (
+  evidence_id TEXT PRIMARY KEY,
+  objective_id TEXT NOT NULL,
+  condition TEXT NOT NULL,
+  spec_digest TEXT NOT NULL,
+  revision INTEGER NOT NULL,
+  owner_id TEXT NOT NULL,
+  scope_id TEXT NOT NULL,
+  lifecycle TEXT NOT NULL,
+  run_id TEXT NOT NULL,
+  minted_at REAL NOT NULL,
+  fresh_until REAL NOT NULL,
+  single_use INTEGER NOT NULL DEFAULT 0,
+  uses INTEGER NOT NULL DEFAULT 0,
+  last_used_at REAL,
+  revoked_at REAL,
+  record TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS v5_condition_evidence_objective
+  ON v5_condition_evidence(objective_id);
 """
 
 
@@ -218,6 +280,34 @@ class ObjectiveStore:
                 raise ObjectiveStoreError(
                     f"objective store written by a newer schema ({row['value']}); "
                     "roll the runtime forward rather than downgrading the record")
+            self._retire_unresolvable_green(con)
+
+    @staticmethod
+    def _retire_unresolvable_green(con: sqlite3.Connection) -> None:
+        """Legacy SATISFIED rows written before the gate drop to UNKNOWN on open.
+
+        A database written by the old build could carry `condition='SATISFIED'`
+        with any string at all in `last_verified_evidence_ref` — that was the
+        defect. Leaving those rows green would mean the fix protects only new
+        writes while the record keeps asserting a green nobody can re-check.
+
+        The test is deliberately clock-free: only a reference that is not even
+        an evidence reference (`oev1:<32 hex>`) is retired. A row whose
+        reference parses was written through the resolver, so its condition
+        stands here and is re-resolved at the next write instead. Idempotent:
+        the second open finds nothing left to retire.
+        """
+        rows = con.execute(
+            "SELECT objective_id,last_verified_evidence_ref FROM v5_objectives "
+            "WHERE condition='SATISFIED'").fetchall()
+        stale = [r["objective_id"] for r in rows
+                 if _condition_evidence.parse_ref(r["last_verified_evidence_ref"]) is None]
+        for objective_id in stale:
+            con.execute(
+                "UPDATE v5_objectives SET condition='UNKNOWN',version=version+1 "
+                "WHERE objective_id=? AND condition='SATISFIED'", (objective_id,))
+            ObjectiveStore._log(con, objective_id, "condition",
+                                "UNKNOWN:legacy_evidence_is_not_resolvable")
 
     def _connect(self) -> sqlite3.Connection:
         con = sqlite3.connect(self.path, timeout=30, isolation_level="IMMEDIATE", factory=OwnedConnection)
@@ -359,8 +449,24 @@ class ObjectiveStore:
             self._log(con, objective_id, "enrollment", ",".join(ordered))
         return replace(state, enrolled_sources=ordered, version=expected_version + 1)
 
+    def spec_history(self, objective_id: str) -> list[dict[str, Any]]:
+        """Вытесненные редакции цели, от новой к старой.
+
+        Пусто не означает «ревизий не было»: цель, прожившая апгрейд до этой
+        таблицы, свои прежние тела не сохранила. Журнал (`journal`) в таком
+        случае всё равно помнит сам факт ревизии, и вкладка обязана показывать
+        именно это, а не выдавать отсутствие истории за отсутствие изменений.
+        """
+        with self._connect() as con:
+            rows = con.execute(
+                "SELECT revision,spec_digest,spec_json,superseded_at FROM v5_spec_history "
+                "WHERE objective_id=? ORDER BY revision DESC", (objective_id,)).fetchall()
+        return [{"revision": r["revision"], "spec_digest": r["spec_digest"],
+                 "superseded_at": r["superseded_at"], "spec": json.loads(r["spec_json"])}
+                for r in rows]
+
     def revise(self, objective_id: str, spec: ObjectiveSpec, *, owner_id: str,
-               expected_version: int) -> ObjectiveRuntimeState:
+               expected_version: int, now: float | None = None) -> ObjectiveRuntimeState:
         """Bind a new revision to the trusted stored predecessor.
 
         Cumulative usage is carried forward untouched, and the condition drops
@@ -398,26 +504,49 @@ class ObjectiveStore:
                 "WHERE objective_id=? AND version=?",
                 (bound.to_json(), bound.digest, data["revision"], _dumps(list(kept)),
                  objective_id, expected_version)))
+            # Вкладка «Ревизии» обязана показывать, ЧТО изменилось, а не только
+            # что что-то менялось. До этого `revise` затирал spec_json, и
+            # предыдущая редакция исчезала: журнал помнил «1->2», но не тело.
+            # Записывается ВЫТЕСНЯЕМАЯ редакция; текущая всегда в v5_objectives.
+            con.execute(
+                "INSERT OR IGNORE INTO v5_spec_history(objective_id,revision,spec_digest,"
+                "spec_json,superseded_at) VALUES(?,?,?,?,?)",
+                (objective_id, state.revision, state.spec_digest, row["spec_json"], now))
             self._log(con, objective_id, "revised", f"{state.revision}->{data['revision']}")
         return replace(state, spec_digest=bound.digest, revision=data["revision"],
                        condition="UNKNOWN", last_verified_evidence_ref=None,
                        enrolled_sources=kept, version=expected_version + 1)
 
     def set_stopped(self, objective_id: str, stopped: bool, *, reason: str,
-                    expected_version: int) -> ObjectiveRuntimeState:
+                    owner_id: str, expected_version: int) -> ObjectiveRuntimeState:
         """Resolve the owner's stop conditions in the canonical record.
 
         Stop state is a fact the service computes, not a model's reading of the
         objective text. Once set it blocks admission until explicitly cleared.
+
+        `owner_id` must be the *authenticated* caller resolved upstream; passing
+        an identifier here does not authenticate anyone. It is required and
+        checked because CLEARING a stop is the one write that hands the machine
+        back to the runtime (A6-03): this method took no identity at all, so any
+        holder of the store — another objective's worker, a lease holder from
+        before the owner pressed Stop, a process that restarted and re-read a
+        stale version — could clear the owner's stop with a plain CAS and no
+        trace of who did it. The check is symmetric on purpose: a foreign writer
+        must not be able to park someone else's objective either.
         """
         if type(stopped) is not bool:
             raise ObjectiveStoreError("stop state must be boolean")
+        if type(owner_id) is not str or not owner_id.strip():
+            raise ObjectiveStoreError("stop requires an authenticated owner identity")
         with self._connect() as con:
             state = self._cas_read(con, objective_id, expected_version)
+            if owner_id != state.owner_id:
+                raise ObjectiveStoreError("stop identity mismatch")
             self._swapped(con.execute("UPDATE v5_objectives SET stopped=?,version=version+1 "
                                       "WHERE objective_id=? AND version=?",
                                       (1 if stopped else 0, objective_id, expected_version)))
-            self._log(con, objective_id, "stop", f"{stopped}:{reason}")
+            # Кто именно снял стоп — часть записи, а не догадка по времени.
+            self._log(con, objective_id, "stop", f"{stopped}:{owner_id}:{reason}")
         return replace(state, stopped=stopped, version=expected_version + 1)
 
     # ------------------------------------------------------- condition/usage
@@ -439,26 +568,220 @@ class ObjectiveStore:
         return replace(state, observations_used=state.observations_used + count,
                        last_observation_at=observed_at, version=expected_version + 1)
 
-    def set_condition(self, objective_id: str, condition: str, *,
-                      evidence_ref: str | None, expected_version: int) -> ObjectiveRuntimeState:
-        """Write the objective's health, gated on evidence for SATISFIED.
+    # --------------------------------------------------- condition evidence
 
-        SATISFIED without a verified evidence reference is refused at the store,
-        not merely discouraged upstream: green must never be settable by model
-        prose, and a bookkeeping row is not proof about the world.
+    def record_condition_evidence(
+            self, objective_id: str, *, condition: str, run_id: str,
+            ttl_seconds: float = _condition_evidence.DEFAULT_TTL_SECONDS,
+            single_use: bool = False, observation_digests: tuple[str, ...] = (),
+            detail: str = "", now: float | None = None,
+            signer: str = _condition_evidence.DEFAULT_SIGNER,
+            evidence_key: bytes | None = None) -> str:
+        """Mint one durable, signed, bound evidence record and return its ref.
+
+        The bindings are taken from the objective's CURRENT durable row, never
+        from the minter's claims: a caller cannot mint evidence for a revision,
+        an owner or a lifecycle that is not the one actually recorded. The ref
+        this returns is the only thing `set_condition` will accept for
+        SATISFIED, and it stops being accepted the moment any of those bindings
+        moves underneath it.
+
+        `run_id` names the mission/reservation that produced the observation. If
+        it names a reservation this store knows, that reservation must belong to
+        this objective — a run from a different objective proves nothing here.
         """
         if condition not in CONDITIONS:
             raise ObjectiveStoreError("unsupported condition")
-        if condition == "SATISFIED" and not (type(evidence_ref) is str and evidence_ref.strip()):
-            raise ObjectiveStoreError("SATISFIED requires a verified evidence reference")
+        if (type(ttl_seconds) not in (int, float) or type(ttl_seconds) is bool
+                or not math.isfinite(ttl_seconds) or ttl_seconds <= 0):
+            raise ObjectiveStoreError("evidence freshness window must be a positive number")
+        minted_at = time.time() if now is None else now
+        if (type(minted_at) not in (int, float) or type(minted_at) is bool
+                or not math.isfinite(minted_at)):
+            raise ObjectiveStoreError("evidence mint time must be a finite number")
+        evidence_id = _condition_evidence.new_evidence_id()
+        with self._connect() as con:
+            row = con.execute("SELECT * FROM v5_objectives WHERE objective_id=?",
+                              (objective_id,)).fetchone()
+            if row is None:
+                raise ObjectiveStoreError(f"unknown objective {objective_id}")
+            state = _row_state(row)
+            reservation = con.execute(
+                "SELECT objective_id FROM v5_reservations WHERE reservation_id=?",
+                (run_id,)).fetchone()
+            if reservation is not None and reservation["objective_id"] != objective_id:
+                raise ObjectiveStoreError(
+                    "producing run belongs to a different objective")
+            try:
+                payload = _condition_evidence.binding_payload(
+                    evidence_id=evidence_id, objective_id=state.objective_id,
+                    condition=condition, spec_digest=state.spec_digest,
+                    revision=state.revision, owner_id=state.owner_id,
+                    scope_id=state.scope_id, lifecycle=state.lifecycle, run_id=run_id,
+                    minted_at=float(minted_at), fresh_until=float(minted_at) + float(ttl_seconds),
+                    single_use=single_use, observation_digests=tuple(observation_digests),
+                    detail=detail)
+                record = _condition_evidence.mint_record(payload, signer=signer,
+                                                         key=evidence_key)
+            except (_condition_evidence.ConditionEvidenceError, ValueError) as exc:
+                raise ObjectiveStoreError(f"evidence cannot be minted: {exc}") from exc
+            con.execute(
+                "INSERT INTO v5_condition_evidence(evidence_id,objective_id,condition,"
+                "spec_digest,revision,owner_id,scope_id,lifecycle,run_id,minted_at,fresh_until,"
+                "single_use,uses,last_used_at,revoked_at,record) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0,NULL,NULL,?)",
+                (evidence_id, record["objective_id"], record["condition"],
+                 record["spec_digest"], record["revision"], record["owner_id"],
+                 record["scope_id"], record["lifecycle"], record["run_id"],
+                 record["minted_at"], record["fresh_until"],
+                 1 if record["single_use"] else 0, _dumps(record)))
+            self._log(con, objective_id, "evidence_minted", f"{condition}:{evidence_id[:12]}")
+        return _condition_evidence.make_ref(evidence_id)
+
+    def revoke_condition_evidence(self, evidence_ref: str, *, reason: str = "",
+                                  now: float | None = None) -> None:
+        """Withdraw an evidence record. Revocation is sticky and immediate."""
+        evidence_id = _condition_evidence.parse_ref(evidence_ref)
+        if evidence_id is None:
+            raise ObjectiveStoreError("not an objective evidence reference")
+        at = time.time() if now is None else float(now)
+        with self._connect() as con:
+            row = con.execute("SELECT objective_id FROM v5_condition_evidence WHERE evidence_id=?",
+                              (evidence_id,)).fetchone()
+            if row is None:
+                raise ObjectiveStoreError("unknown evidence reference")
+            con.execute("UPDATE v5_condition_evidence SET revoked_at=COALESCE(revoked_at,?) "
+                        "WHERE evidence_id=?", (at, evidence_id))
+            self._log(con, row["objective_id"], "evidence_revoked",
+                      f"{evidence_id[:12]}:{str(reason)[:200]}")
+
+    def condition_evidence(self, evidence_ref: str) -> dict[str, Any] | None:
+        """The durable evidence row, for auditing. Reading never consumes it."""
+        evidence_id = _condition_evidence.parse_ref(evidence_ref)
+        if evidence_id is None:
+            return None
+        with self._connect() as con:
+            row = con.execute("SELECT * FROM v5_condition_evidence WHERE evidence_id=?",
+                              (evidence_id,)).fetchone()
+        if row is None:
+            return None
+        out = dict(row)
+        try:
+            out["record"] = json.loads(out["record"])
+        except (TypeError, ValueError):
+            out["record"] = None
+        out["single_use"] = bool(out["single_use"])
+        out["evidence_ref"] = _condition_evidence.make_ref(evidence_id)
+        return out
+
+    # Зеркало подписанного тела в колонках. Расходится — значит кто-то правил
+    # базу мимо чеканщика, и это порча, а не «почти та же улика».
+    _EVIDENCE_MIRROR = (("objective_id", str), ("condition", str), ("spec_digest", str),
+                        ("revision", int), ("owner_id", str), ("scope_id", str),
+                        ("lifecycle", str), ("run_id", str), ("minted_at", float),
+                        ("fresh_until", float))
+
+    def _resolve_condition_evidence(self, con: sqlite3.Connection, evidence_ref: Any, *,
+                                    condition: str, state: ObjectiveRuntimeState,
+                                    now: float, evidence_key: bytes | None) -> str:
+        """Resolve, verify, bind and consume one evidence record, or refuse.
+
+        Every exit that is not the last line is a refusal. Ambiguity of any kind
+        — an unparsable ref, an unknown id, a broken signature, a binding that
+        moved, an expired or revoked or spent record — refuses SATISFIED.
+        """
+        def refuse(reason: str) -> None:
+            raise ObjectiveStoreError(
+                f"SATISFIED requires resolvable bound evidence: {reason}")
+
+        evidence_id = _condition_evidence.parse_ref(evidence_ref)
+        if evidence_id is None:
+            refuse(_condition_evidence.MALFORMED_REF)
+        row = con.execute("SELECT * FROM v5_condition_evidence WHERE evidence_id=?",
+                          (evidence_id,)).fetchone()
+        if row is None:
+            refuse(_condition_evidence.UNRESOLVED)
+        if row["revoked_at"] is not None:
+            refuse(_condition_evidence.REVOKED)
+        try:
+            record = json.loads(row["record"])
+        except (TypeError, ValueError):
+            record = None
+        if not isinstance(record, dict):
+            refuse(_condition_evidence.TAMPERED)
+        if not _condition_evidence.verify_record(record, key=evidence_key):
+            refuse(_condition_evidence.TAMPERED)
+        if record.get("evidence_id") != evidence_id:
+            refuse(_condition_evidence.TAMPERED)
+        for column, caster in self._EVIDENCE_MIRROR:
+            try:
+                mirrored = caster(row[column])
+            except (TypeError, ValueError):
+                refuse(_condition_evidence.TAMPERED)
+            if record.get(column) != mirrored:
+                refuse(_condition_evidence.TAMPERED)
+        if bool(row["single_use"]) is not bool(record.get("single_use")):
+            refuse(_condition_evidence.TAMPERED)
+        reason = _condition_evidence.check_bindings(
+            record, objective_id=state.objective_id, condition=condition,
+            spec_digest=state.spec_digest, revision=state.revision,
+            owner_id=state.owner_id, scope_id=state.scope_id,
+            lifecycle=state.lifecycle, now=now)
+        if reason is not None:
+            refuse(reason)
+        reservation = con.execute(
+            "SELECT objective_id FROM v5_reservations WHERE reservation_id=?",
+            (record["run_id"],)).fetchone()
+        if reservation is not None and reservation["objective_id"] != state.objective_id:
+            refuse(_condition_evidence.WRONG_RUN)
+        if bool(row["single_use"]) and int(row["uses"]) >= 1:
+            refuse(_condition_evidence.CONSUMED)
+        con.execute("UPDATE v5_condition_evidence SET uses=uses+1,last_used_at=? "
+                    "WHERE evidence_id=?", (float(now), evidence_id))
+        return _condition_evidence.make_ref(evidence_id)
+
+    def set_condition(self, objective_id: str, condition: str, *,
+                      evidence_ref: str | None, expected_version: int,
+                      now: float | None = None,
+                      evidence_key: bytes | None = None) -> ObjectiveRuntimeState:
+        """Write the objective's health, gated on RESOLVED evidence for SATISFIED.
+
+        SATISFIED is not gated on a non-empty string. `"x"` is a non-empty
+        string, and that is exactly how green became settable by model prose.
+        The reference must RESOLVE to a durable, signed evidence record that is
+        bound to this objective, this condition, this spec digest and revision,
+        a producing run, this applicability (owner/scope/lifecycle) and a
+        freshness window that has not closed — and that has not been revoked or
+        spent. Anything else is refused here, at the record, not upstream.
+
+        Non-SATISFIED conditions are unchanged: they need no evidence, and the
+        reference they carry is bookkeeping the caller already holds.
+        """
+        if condition not in CONDITIONS:
+            raise ObjectiveStoreError("unsupported condition")
+        resolution_time = time.time() if now is None else now
+        if condition == "SATISFIED":
+            # Дешёвый отказ до всякого чтения: пустая строка/не строка — не ссылка.
+            if not (type(evidence_ref) is str and evidence_ref.strip()):
+                raise ObjectiveStoreError("SATISFIED requires a verified evidence reference")
+            if (type(resolution_time) not in (int, float) or type(resolution_time) is bool
+                    or not math.isfinite(resolution_time)):
+                raise ObjectiveStoreError(
+                    "SATISFIED requires resolvable bound evidence: "
+                    f"{_condition_evidence.NO_CLOCK}")
         with self._connect() as con:
             state = self._cas_read(con, objective_id, expected_version)
+            stored_ref = evidence_ref
+            if condition == "SATISFIED":
+                stored_ref = self._resolve_condition_evidence(
+                    con, evidence_ref, condition=condition, state=state,
+                    now=float(resolution_time), evidence_key=evidence_key)
             self._swapped(con.execute(
                 "UPDATE v5_objectives SET condition=?,last_verified_evidence_ref=?,"
                 "version=version+1 WHERE objective_id=? AND version=?",
-                (condition, evidence_ref, objective_id, expected_version)))
+                (condition, stored_ref, objective_id, expected_version)))
             self._log(con, objective_id, "condition", condition)
-        return replace(state, condition=condition, last_verified_evidence_ref=evidence_ref,
+        return replace(state, condition=condition, last_verified_evidence_ref=stored_ref,
                        version=expected_version + 1)
 
     def record_mission_usage(self, objective_id: str, *, missions: int, wall_seconds: float,
@@ -657,6 +980,67 @@ class ObjectiveStore:
             self._log(con, row["objective_id"], "settled", f"{reservation_id}:{state}")
         return self.get(row["objective_id"])
 
+    def note_release(self, reservation_id: str, status: str, detail: str = "") -> None:
+        """Записать в бронь, чем кончилась попытка отпустить ключи конфликта.
+
+        Между закрытием брони в БД и вызовом внешнего порта нет и не может быть
+        общей транзакции. Делать вид, что она есть, — значит терять ключ при
+        падении ровно в этом промежутке. Поэтому исход попытки хранится в самой
+        (уже закрытой) брони: незавершённый release ВИДЕН и повторяем.
+
+        Трогается только служебный ключ `release`; тело допуска не меняется.
+        """
+        with self._connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            row = con.execute("SELECT objective_id,payload FROM v5_reservations "
+                              "WHERE reservation_id=?", (reservation_id,)).fetchone()
+            if row is None:
+                raise ObjectiveStoreError(f"unknown reservation {reservation_id}")
+            try:
+                payload = json.loads(row["payload"])
+            except (TypeError, ValueError):
+                payload = {}
+            if not isinstance(payload, dict):
+                payload = {}
+            payload["release"] = {"status": status, "detail": str(detail)[:500]}
+            con.execute("UPDATE v5_reservations SET payload=? WHERE reservation_id=?",
+                        (_dumps(payload), reservation_id))
+            self._log(con, row["objective_id"], "conflict_release", f"{reservation_id}:{status}")
+
+    def pending_releases(self, objective_id: str | None = None) -> list[dict[str, Any]]:
+        """Закрытые брони, чьи ключи конфликта, возможно, всё ещё держатся.
+
+        Это рабочий список повторяемой уборки, а не отчёт: он должен пустеть.
+        Броня без записанных `conflict_keys` (её завёл старый билд) сюда не
+        попадает — отпускать по ней нечего, и это отдельно видно в `settle`.
+        """
+        sql = ("SELECT reservation_id,objective_id,state,payload FROM v5_reservations "
+               "WHERE state<>'RESERVED'")
+        args: tuple = ()
+        if objective_id is not None:
+            sql += " AND objective_id=?"
+            args = (objective_id,)
+        out = []
+        with self._connect() as con:
+            for row in con.execute(sql + " ORDER BY created_at", args).fetchall():
+                try:
+                    payload = json.loads(row["payload"])
+                except (TypeError, ValueError):
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                keys = payload.get("conflict_keys") or []
+                if not keys:
+                    continue
+                status = ((payload.get("release") or {}).get("status")
+                          if isinstance(payload.get("release"), dict) else None)
+                if status == "RELEASED":
+                    continue
+                out.append({"reservation_id": row["reservation_id"],
+                            "objective_id": row["objective_id"], "state": row["state"],
+                            "conflict_keys": list(keys), "release_status": status})
+        return out
+
     def open_reservations(self, objective_id: str) -> list[dict[str, Any]]:
         """Reservations still in flight; a restart must resolve each explicitly.
 
@@ -671,12 +1055,158 @@ class ObjectiveStore:
         return [{"reservation_id": r["reservation_id"], "proposal_id": r["proposal_id"],
                  "created_at": r["created_at"], "payload": json.loads(r["payload"])} for r in rows]
 
+    def reservation(self, reservation_id: str) -> dict[str, Any] | None:
+        """Одна бронь по идентификатору, в любом состоянии.
+
+        `open_reservations` фильтрует по RESERVED, поэтому закрыть бронь и
+        одновременно узнать, ЧТО она держала, через него нельзя. Закрытию
+        допуска нужны ключи конфликта из полезной нагрузки.
+        """
+        with self._connect() as con:
+            row = con.execute(
+                "SELECT reservation_id,objective_id,proposal_id,created_at,state,payload "
+                "FROM v5_reservations WHERE reservation_id=?", (reservation_id,)).fetchone()
+        if row is None:
+            return None
+        return {"reservation_id": row["reservation_id"], "objective_id": row["objective_id"],
+                "proposal_id": row["proposal_id"], "created_at": row["created_at"],
+                "state": row["state"], "payload": json.loads(row["payload"])}
+
+    # `v5_reservations` — НЕ журнал допусков: строка заводится до опроса портов,
+    # поэтому отказ тоже оставляет запись. Отличает их единственный факт —
+    # `payload.phase`, который в 'READY' переводит только `complete_admission`.
+    # Оба чтения ниже фильтруют по нему, иначе честность расписания держалась бы
+    # на отказах.
+    _ADMITTED = "json_extract(payload,'$.phase')='READY'"
+
+    def last_admission_at(self, objective_id: str) -> float | None:
+        """Когда цель В ПОСЛЕДНИЙ РАЗ была допущена (не предложена).
+
+        `last_proposal_at` — это последнее ПРЕДЛОЖЕНИЕ: оно пишется и тогда,
+        когда допуска не было, поэтому голодающая цель выглядит через него
+        свежеобслуженной. Справедливость обязана считать по обслуживанию.
+        """
+        with self._connect() as con:
+            row = con.execute(
+                f"SELECT MAX(created_at) AS at FROM v5_reservations "
+                f"WHERE objective_id=? AND {self._ADMITTED}", (objective_id,)).fetchone()
+        return None if row is None or row["at"] is None else float(row["at"])
+
+    def admissions_since(self, objective_id: str, since: float) -> int:
+        """Сколько раз цель была допущена начиная с `since` — окно квоты.
+
+        Лимит `max_missions` в спецификации — пожизненный итог; он не мешает
+        одной цели забрать все допуски одного часа. Окно — отдельный вопрос.
+        """
+        with self._connect() as con:
+            row = con.execute(
+                f"SELECT COUNT(*) AS n FROM v5_reservations "
+                f"WHERE objective_id=? AND created_at>=? AND {self._ADMITTED}",
+                (objective_id, float(since))).fetchone()
+        return int(row["n"]) if row is not None else 0
+
     def journal(self, objective_id: str) -> list[dict[str, Any]]:
         with self._connect() as con:
             rows = con.execute(
                 "SELECT at,event,detail FROM v5_journal WHERE objective_id=? ORDER BY seq",
                 (objective_id,)).fetchall()
         return [{"at": r["at"], "event": r["event"], "detail": r["detail"]} for r in rows]
+
+    # ---------------------------------------------------- canary rollout runs
+
+    def open_canary_run(self, *, run_id: str, revision_digest: str, cohort_digest: str,
+                        population: tuple[str, ...], cohort: tuple[str, ...],
+                        candidates: Mapping[str, str], started_at: float,
+                        process_identity: str, owner_id: str) -> dict[str, Any]:
+        """Record one revision rollout BEFORE its cohort is touched.
+
+        The run is durable for the same reason the objective is: a canary whose
+        cohort, run identity and reports live in a process are a canary that a
+        restart erases, and an erased failure is an activation. `candidates`
+        holds the validated spec JSON per objective, so the revision the rest of
+        the park receives is byte-for-byte the one the cohort ran.
+        """
+        if not isinstance(run_id, str) or not run_id:
+            raise ObjectiveStoreError("run_id is required")
+        if not set(cohort) <= set(population):
+            raise ObjectiveStoreError("cohort must be part of the population")
+        if set(candidates) != set(population):
+            raise ObjectiveStoreError("a candidate spec is required for every member")
+        try:
+            with self._connect() as con:
+                con.execute(
+                    "INSERT INTO v5_canary_runs(run_id,revision_digest,cohort_digest,population,"
+                    "cohort,candidates,started_at,process_identity,owner_id,state) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,'OPEN')",
+                    (run_id, revision_digest, cohort_digest, _dumps(list(population)),
+                     _dumps(list(cohort)), _dumps(dict(candidates)), float(started_at),
+                     process_identity, owner_id))
+        except sqlite3.IntegrityError as exc:
+            raise ObjectiveStoreError(f"canary run {run_id} already exists") from exc
+        return self.canary_run(run_id)
+
+    def canary_run(self, run_id: str) -> dict[str, Any]:
+        with self._connect() as con:
+            row = con.execute("SELECT * FROM v5_canary_runs WHERE run_id=?",
+                              (run_id,)).fetchone()
+        if row is None:
+            raise ObjectiveStoreError(f"unknown canary run {run_id}")
+        return {"run_id": row["run_id"], "revision_digest": row["revision_digest"],
+                "cohort_digest": row["cohort_digest"],
+                "population": tuple(json.loads(row["population"])),
+                "cohort": tuple(json.loads(row["cohort"])),
+                "candidates": json.loads(row["candidates"]),
+                "started_at": row["started_at"], "process_identity": row["process_identity"],
+                "owner_id": row["owner_id"], "state": row["state"],
+                "decided_at": row["decided_at"], "detail": row["detail"]}
+
+    def record_canary_report(self, run_id: str, objective_id: str, *, healthy: bool | None,
+                             evidence_ref: str = "", detail: str = "",
+                             at: float) -> None:
+        """Append one cohort report. Append-only: a failure can never be edited away.
+
+        Reports are never replaced, only added, and `canary_reports` returns them
+        in arrival order. That is what makes a failure sticky across requests and
+        across a restart: a later healthy claim lands after the failure instead
+        of overwriting it.
+        """
+        if healthy is not None and type(healthy) is not bool:
+            raise ObjectiveStoreError("healthy must be bool or None")
+        run = self.canary_run(run_id)
+        if run["state"] != "OPEN":
+            raise ObjectiveStoreError(f"canary run {run_id} is {run['state']}")
+        if objective_id not in run["cohort"]:
+            raise ObjectiveStoreError(f"{objective_id} is not in the cohort")
+        with self._connect() as con:
+            con.execute(
+                "INSERT INTO v5_canary_reports(run_id,objective_id,healthy,evidence_ref,detail,at) "
+                "VALUES(?,?,?,?,?,?)",
+                (run_id, objective_id, None if healthy is None else int(healthy),
+                 str(evidence_ref), str(detail), float(at)))
+            self._log(con, objective_id, "canary_report",
+                      f"{run_id[:12]}:{'silent' if healthy is None else str(healthy).lower()}")
+
+    def canary_reports(self, run_id: str) -> list[dict[str, Any]]:
+        with self._connect() as con:
+            rows = con.execute(
+                "SELECT objective_id,healthy,evidence_ref,detail,at FROM v5_canary_reports "
+                "WHERE run_id=? ORDER BY seq", (run_id,)).fetchall()
+        return [{"objective_id": r["objective_id"],
+                 "healthy": None if r["healthy"] is None else bool(r["healthy"]),
+                 "evidence_ref": r["evidence_ref"], "detail": r["detail"], "at": r["at"]}
+                for r in rows]
+
+    def close_canary_run(self, run_id: str, *, state: str, decided_at: float,
+                         detail: str = "") -> dict[str, Any]:
+        """Leave OPEN exactly once. The guarded UPDATE is what stops a double release."""
+        if state not in CANARY_RUN_STATES or state == "OPEN":
+            raise ObjectiveStoreError("unsupported canary run state")
+        with self._connect() as con:
+            self._swapped(con.execute(
+                "UPDATE v5_canary_runs SET state=?,decided_at=?,detail=? "
+                "WHERE run_id=? AND state='OPEN'",
+                (state, float(decided_at), str(detail), run_id)))
+        return self.canary_run(run_id)
 
     # ---------------------------------------------------------------- helpers
 

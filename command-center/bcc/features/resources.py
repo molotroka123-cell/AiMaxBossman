@@ -43,16 +43,30 @@ async def _snapshot(svc, policy: dict) -> ResourceSnapshot:
         metric = (await s.execute(sa.select(metrics_t).order_by(
             metrics_t.c.id.desc()).limit(1))).first()
         held = (await s.execute(sa.select(res_t).where(res_t.c.status == "held"))).fetchall()
-    total = policy.get("total_override_mb") or (
-        metric._mapping["ram_total_mb"] if metric else 128000)
-    used = metric._mapping["ram_used_mb"] if metric else 0
+    # Раньше при отсутствии сэмпла подставлялись 128 000 МБ «всего» и 0 «занято»:
+    # главная показывала «0.0 / 125.0 ГБ», а допуск считался от выдуманного
+    # запаса. Теперь: последний сэмпл → живое чтение psutil → честное «не измерено».
+    if metric:
+        total_measured = metric._mapping["ram_total_mb"]
+        used = metric._mapping["ram_used_mb"]
+    else:
+        try:
+            live = svc.metrics.read()
+        except Exception:
+            live = {}
+        total_measured = live.get("ram_total_mb")
+        used = live.get("ram_used_mb")
+    measured = total_measured is not None and used is not None
+    if not measured:
+        total_measured, used = 0, 0
+    total = policy.get("total_override_mb") or total_measured
     reservations = [Reservation(owner=f"{r._mapping['holder_kind']}:{r._mapping['holder_id']}",
                                 memory_mb=int(r._mapping["amount_mb"]),
                                 kind=r._mapping["holder_kind"])
                     for r in held]
     return ResourceSnapshot(total_memory_mb=int(total), used_system_mb=int(used),
                             reserve_floor_mb=int(policy.get("reserve_floor_mb", 16000)),
-                            reservations=reservations)
+                            reservations=reservations, measured=measured)
 
 
 async def _estimate_mb(svc, model_id: int | None) -> int:
@@ -171,6 +185,13 @@ async def _before_run(svc):
         if need <= 0:
             return None                       # облако/нет модели — ресурс не резервируем
         snap = await _snapshot(svc, policy)
+        if not snap.measured:
+            # Fail-closed: без замера памяти нет запаса, от которого можно
+            # обещать место модели. Раньше здесь был выдуманный запас в 128 ГБ.
+            reason = "память не измерена — резервировать не от чего"
+            await svc.bus.emit("resource.denied", holder=f"task:{task['id']}",
+                               amount_mb=need, reason=reason)
+            return {"defer": 30, "reason": reason}
         plan: ResourcePlan = plan_memory(snap, need, policy=policy["policy"])
         if plan.allowed:
             if plan.unload:                   # performance: выгрузить простаивающие
@@ -229,8 +250,11 @@ async def resources(request: Request):
     snap = await _snapshot(svc, policy)
     async with svc.db.session() as s:
         held = (await s.execute(sa.select(res_t).where(res_t.c.status == "held"))).fetchall()
-    return {"total_mb": snap.total_memory_mb, "used_mb": snap.used_system_mb,
-            "reserved_mb": snap.reserved_mb, "available_mb": snap.available_for_new_mb,
+    return {"measured": snap.measured,
+            "total_mb": snap.total_memory_mb if snap.measured else None,
+            "used_mb": snap.used_system_mb if snap.measured else None,
+            "reserved_mb": snap.reserved_mb,
+            "available_mb": snap.available_for_new_mb if snap.measured else None,
             "reserve_floor_mb": snap.reserve_floor_mb, "policy": policy["policy"],
             "reservations": [dict(r._mapping) for r in held]}
 

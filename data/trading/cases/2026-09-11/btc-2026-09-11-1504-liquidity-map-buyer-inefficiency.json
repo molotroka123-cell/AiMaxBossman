@@ -1,0 +1,33 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "15:04 ET",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise screenshots",
+  "observed": {
+    "liquidation_map_current_price_labels": {
+      "one_month_approx": 77100,
+      "one_week_approx": 77090,
+      "twelve_hour_approx": 77108
+    },
+    "cvd_billion": 59.52,
+    "open_interest_billion": 17.87,
+    "note": "Exact liquidation-cluster prices beyond the visible current labels are not stored because the screenshot resolution does not support reliable numeric extraction."
+  },
+  "diagnosis": "The previous long interpretation over-weighted elevated CVD and falling OI. Price failed to translate strong/aggressive-buy flow and leverage cleanup into durable upward structural repair. This is buyer inefficiency / passive-seller absorption, not a confirmed long edge.",
+  "liquidity_map_rule": "Liquidation heatmaps are target/context maps, not directional entry signals. A nearby liquidity pool does not mean support or reversal. Direction must come from price response plus structure plus CVD/OI path.",
+  "edge_correction": {
+    "old_bad_rule": "CVD high/up + OI down => long allowed",
+    "new_rule": "CVD high/up + OI down only arms a candidate. Long requires price to reclaim and accept value/structure after the flush. If price fails to respond proportionally, classify BUYER_INEFFICIENCY and do not add.",
+    "required_long_confirmation": [
+      "price reclaims broken value/POC/open",
+      "holds or successfully retests the reclaimed level",
+      "CVD remains stable/up without a fresh collapse",
+      "OI does not expand aggressively against price progress"
+    ],
+    "bearish_transition": "If price continues lower while CVD weakens and OI starts rising, reclassify as fresh bearish leverage expansion."
+  },
+  "risk_management_lesson": "Do not keep passive buy limits active merely because OI is lower or a heatmap shows liquidity below. Remaining limits should be conditioned on live confirmation when the prior structure/reclaim has failed.",
+  "model_training_lesson": "The edge is not predicting where liquidation heatmap bands sit; it is detecting whether real price response validates or falsifies order-flow effort. Price response must outrank indicator direction when they disagree."
+}

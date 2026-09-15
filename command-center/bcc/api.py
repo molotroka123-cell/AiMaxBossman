@@ -37,10 +37,11 @@ from .v2.verification import KINDS as VERIFICATION_KINDS
 from .sessions import COOKIE_NAME, CSRF_HEADER, SAFE_METHODS, SessionStore, cookie_kwargs
 from .login_guard import LoginRateLimiter
 from .config import Settings, settings as default_settings
+from . import run_provenance
 from .db import (Database, agents as agents_t, fetch_one, run_events as run_events_t,
                  rows_dicts, settings_kv, task_runs as runs_t, tasks as tasks_t, utcnow)
-from .lifecycle import sleep_or_stop
-from .engine import TaskEngine
+from .lifecycle import StartupTrace, sleep_or_stop
+from .engine import TaskEngine, TaskStateConflict
 from .events import EventBus
 from .metrics import MetricsSampler
 from .providers import ADAPTERS, ProviderError
@@ -63,12 +64,10 @@ class ApiError(Exception):
 
 async def _capability_probes(svc) -> dict[str, bool]:
     """Измеренные предпосылки рантайма. Неизвестное НЕ считается выполненным."""
-    from .features.browser import CHROMIUM
+    from .features.browser import _mgr
     chromium = False
     try:
-        import importlib.util
-        if importlib.util.find_spec("playwright") is not None:
-            chromium = os.path.exists(CHROMIUM) or bool(os.environ.get("PLAYWRIGHT_BROWSERS_PATH"))
+        chromium = bool(_mgr(svc).available)
     except Exception:                       # noqa: BLE001 — проба не должна ронять ответ
         chromium = False
     roots = False
@@ -113,16 +112,28 @@ class Services:
         self.login_guard = LoginRateLimiter()          # SEC-03: rate-limit/lockout на /api/login
         self._wire_v2_managers()             # skills / terminal / browser (пак)
         self.features = load_features()      # V2: модули bcc/features/* (контракты §8)
+        # Здоровье фоновых петель фич. INV-RD-1 держится свипом, который живёт
+        # в тике review_gate; пока этого словаря не было, умерший или каждый раз
+        # падающий тик не отличался снаружи от работающего, и «задача не может
+        # ждать вечно» становилось обещанием без наблюдателя. Ключи заводятся
+        # ЗАРАНЕЕ: фича, у которой тика ещё не было, обязана быть видна как
+        # «starting», а не отсутствовать.
+        self.feature_ticks: dict[str, dict[str, Any]] = {
+            f.name: {"at": 0.0, "error": None, "every": float(f.tick_seconds)}
+            for f in self.features if f.tick and f.tick_seconds > 0}
         self.start_workers = start_workers
         self._tasks: list[asyncio.Task] = []
         self.started_at = utcnow()
+        # V6 §A: фазы старта — измеренные, а не предполагаемые. Заполняется в
+        # start(); до него `ready` = False, чтобы «нет данных» не читалось как «0 мс».
+        self.startup = StartupTrace()
 
     def _wire_v2_managers(self) -> None:
         """Опциональные рантаймы пака. Отсутствие Playwright/MCP НЕ ломает старт
         (CLAUDE_START_HERE §browser optional): менеджеры создаются лениво, а импорт
         тяжёлых зависимостей происходит только при первом реальном использовании."""
         from pathlib import Path
-        repo_root = self.settings.ui_dir.parent.parent   # <repo>
+        repo_root = self.settings.skills_workspace
         self.skills = None
         self.terminal = None
         self.browser = None
@@ -149,11 +160,16 @@ class Services:
         # выходящие. Поэтому снимаем его здесь, а не полагаемся на то, что
         # так никто не делает.
         self._stopping.clear()
-        await self.db.create_all()
+        trace = self.startup = StartupTrace()   # повторный start() после stop() — новая трасса
+        trace.begin()
+        async with trace.phase("db.create_all"):
+            await self.db.create_all()
         for feature in self.features:        # хуки engine и подписки — до старта worker'а
             if feature.setup:
-                await feature.setup(self)
-        await self.engine.recover()          # crash recovery при старте процесса
+                async with trace.phase(f"feature.setup:{feature.name}"):
+                    await feature.setup(self)
+        async with trace.phase("engine.recover"):
+            await self.engine.recover()      # crash recovery при старте процесса
         if self.start_workers:
             # Именно += : фичи регистрируют свои подписки в _tasks во время
             # setup() выше (missions, benchlab, failure_to_case). Присваивание
@@ -178,16 +194,23 @@ class Services:
             # нельзя: подписки фич флага не смотрят, и остановка каждый раз
             # упиралась бы в полный предел ожидания вместо миллисекунд.
             self._graceful.update(graceful)
+        trace.finish()
 
     async def _feature_tick(self, feature: Any) -> None:
         """Фоновая петля фичи (Governor, Healing, истечение резервов…):
         ошибка одного тика логируется и не убивает петлю."""
+        state = self.feature_ticks.setdefault(
+            feature.name, {"at": 0.0, "error": None, "every": float(feature.tick_seconds)})
         while not self._stopping.is_set():
             try:
                 await feature.tick(self)
+                # Отметка ставится только за УСПЕШНЫЙ тик: петля, которая
+                # крутится и каждый раз падает, не тикала.
+                state["at"], state["error"] = time.monotonic(), None
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                state["error"] = f"{type(exc).__name__}: {exc}"
                 await self.bus.emit("worker.error",
                                     message=f"tick {feature.name}: {type(exc).__name__}: {exc}")
             if await sleep_or_stop(self._stopping, feature.tick_seconds):
@@ -382,9 +405,21 @@ class TaskIn(BaseModel):
     schedule: ScheduleIn | None = None
 
 
+class LeaseIn(BaseModel):
+    """Опциональная ОБЛАСТЬ, на которую распространяется это решение (§7).
+
+    Отсутствие поля = поведение ровно как раньше: одно нажатие — один вызов.
+    Аренда выдаётся только явным решением владельца и только для эффекта,
+    который он видел в предпросмотре; оба предела обязательны и ограничены
+    сверху в bcc.approval_scope."""
+    max_uses: int = 1
+    ttl_seconds: int = 900
+
+
 class ApprovalIn(BaseModel):
     approve: bool
     by: str = "owner"
+    lease: LeaseIn | None = None
 
 
 class ApprovalCreate(BaseModel):
@@ -409,8 +444,8 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        await svc.start()
         try:
+            await svc.start()
             yield
         finally:
             await svc.stop()
@@ -419,6 +454,7 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
     app.state.svc = svc
     _install_error_handlers(app)
     _install_testing_period_log(app)
+    app.include_router(_health_router())
     app.include_router(_public_router())
     app.include_router(_api_router())
     for feature in svc.features:             # V2-фичи: под /api и токен-auth
@@ -471,6 +507,14 @@ def _install_testing_period_log(app: FastAPI) -> None:
 def _install_error_handlers(app: FastAPI) -> None:
     """Единый формат ошибок для UI: {error: {message, hint?}}."""
 
+    @app.exception_handler(TaskStateConflict)
+    async def _task_state_conflict(_r: Request, exc: TaskStateConflict):
+        return JSONResponse({"error": {
+            "message": f"действие недоступно в состоянии {exc.status}",
+            "code": "TASK_STATE_CONFLICT",
+            "hint": f"task {exc.task_id}: {exc.action}",
+        }}, status_code=409)
+
     @app.exception_handler(ApiError)
     async def _api_error(_r: Request, exc: ApiError):
         body: dict[str, Any] = {"message": exc.message}
@@ -522,8 +566,14 @@ def _public_router() -> APIRouter:
         """Кто слушает этот порт. Нужен настольному лаунчеру: прежде чем
         переиспользовать «уже запущенный сервер», он обязан убедиться, что это
         именно Command Center, а не чужое приложение. Секретов здесь нет —
-        только имя приложения, версия и время старта."""
-        return {"app": APP_IDENTITY, "version": __version__, "started_at": svc.started_at}
+        только имя приложения, версия, время старта и SHA работающего исходника.
+
+        SHA здесь обязателен: владелец не должен гонять брейкер по одному
+        чекауту, думая, что запущен другой. Недоказанный источник называется
+        SOURCE_IDENTITY_UNKNOWN, а не подставляется догадкой."""
+        from .build_identity import source_identity
+        return {"app": APP_IDENTITY, "version": __version__,
+                "started_at": svc.started_at, **source_identity()}
 
     @router.post("/login")
     async def login(body: LoginIn, request: Request, response: Response,
@@ -582,10 +632,41 @@ def _public_router() -> APIRouter:
     return router
 
 
+def _health_router() -> APIRouter:
+    router = APIRouter()
+
+    @router.get("/health/live")
+    async def liveness():
+        from .build_identity import source_identity
+        return {"app": APP_IDENTITY, "alive": True, "status": "ALIVE",
+                **source_identity()}
+
+    @router.get("/health")
+    @router.get("/healthz")
+    async def readiness(svc: Services = Depends(services)):
+        from .build_identity import source_identity
+        from .health import snapshot
+        state = snapshot(svc, await _health(svc), public=True)
+        # Та же личность источника, что у /api/identity. Здоровье без имени
+        # кода — это «что-то живо», а не «живо ИМЕННО это».
+        return JSONResponse({"app": APP_IDENTITY, **source_identity(), **state},
+                            status_code=200 if state["ready"] else 503)
+
+    return router
+
+
 def _api_router() -> APIRouter:
     router = APIRouter(prefix="/api", dependencies=[Depends(require_token)])
 
     # ---------- система ----------
+
+    @router.get("/health")
+    async def health(svc: Services = Depends(services)):
+        from .build_identity import source_identity
+        from .health import snapshot
+        state = snapshot(svc, await _health(svc), public=False)
+        return JSONResponse({"app": APP_IDENTITY, **source_identity(), **state},
+                            status_code=200 if state["ready"] else 503)
 
     @router.get("/system")
     async def system(svc: Services = Depends(services)):
@@ -596,7 +677,8 @@ def _api_router() -> APIRouter:
                                   .group_by(runs_t.c.status))
             queue = {str(r[0]): int(r[1]) for r in res.fetchall()}
         return {"metrics": now, "history": history, "queue": queue,
-                "health": await _health(svc), "started_at": svc.started_at}
+                "health": await _health(svc), "started_at": svc.started_at,
+                "startup": svc.startup.to_dict()}
 
     @router.get("/activity")
     async def activity(limit: int = 50, svc: Services = Depends(services)):
@@ -758,23 +840,83 @@ def _api_router() -> APIRouter:
                 task["last_run"] = _run_public(dbm.row_dict(run.first()))
         return rows
 
+    @router.post("/tasks/preflight")
+    async def preflight_task(body: TaskIn, svc: Services = Depends(services)):
+        """MF-031 — кто выполнит задачу, ДО того как её создали. Ничего не пишет.
+
+        Приём и так закрыт наглухо: задача без исполнителя не создаётся, а
+        отказ назван. Но узнать об этом можно было только после отправки, и в
+        журнале владельца остались тринадцать заблокированных задач подряд —
+        каждая была новой попыткой угадать, чего не хватает.
+
+        Здесь тот же самый `select_executor`, тот же алгебраический DENY и тот
+        же ранжир по здоровью модели, что и в создании. Разные ответы у
+        предпросмотра и создания были бы хуже отсутствия предпросмотра, поэтому
+        путь ровно один.
+
+        Права не выдаются и не проверяются на будущее: `ok=true` означает «этот
+        исполнитель подходит СЕЙЧАС», а не разрешение. Перед самим запуском
+        движок перечитывает агента заново.
+        """
+        from .task_admission import ExecutorUnavailable, select_executor
+        prompt = body.prompt if isinstance(body.prompt, str) else ""
+        mode = "explicit" if body.agent_id is not None else "auto"
+        async with svc.db.session() as s:
+            try:
+                chosen = await select_executor(s, prompt=prompt, agent_id=body.agent_id)
+            except ExecutorUnavailable as exc:
+                return {"ok": False, "mode": mode, "agent": None, "model": None,
+                        "reason": str(exc), "hint": exc.hint,
+                        "code": "BLOCKED_CAPABILITY_UNAVAILABLE"}
+            model = None
+            model_id = chosen.get("model_id")
+            if model_id is not None:
+                row = await fetch_one(s, dbm.models, model_id)
+                if row:
+                    from .model_health import HealthRecord
+                    model = {"id": row["id"], "name": row.get("name"),
+                             "health": HealthRecord.from_dict(row.get("health")).status}
+        return {"ok": True, "mode": mode,
+                "agent": {"id": int(chosen["id"]), "name": chosen.get("name")},
+                "model": model, "reason": None, "hint": None, "code": None}
+
     @router.post("/tasks")
     async def create_task(body: TaskIn, svc: Services = Depends(services)):
+        from .task_admission import ExecutorUnavailable, select_executor
+        agent_id = body.agent_id
         template = {"title": body.title, "prompt": body.prompt, "agent_id": body.agent_id,
                     "priority": body.priority, "max_retries": body.max_retries}
+        if body.schedule is not None and body.schedule.task_template:
+            template = {**template, **body.schedule.task_template}
+            agent_id = template.get("agent_id")
+            if not isinstance(template.get("prompt"), str) or (
+                    agent_id is not None and type(agent_id) is not int):
+                raise ApiError("неверный шаблон расписания: нужны текст prompt и числовой agent_id", status=422)
         async with svc.db.session() as s:
+            if body.run_now or body.schedule is not None:
+                # Keep selection and task insertion in the same write snapshot.
+                # Runtime admission still re-reads the agent before dispatch.
+                if svc.db.url.startswith("sqlite"):
+                    await s.execute(sa.text("BEGIN IMMEDIATE"))
+                try:
+                    chosen = await select_executor(s, prompt=template["prompt"], agent_id=agent_id)
+                except ExecutorUnavailable as exc:
+                    raise ApiError(str(exc), status=409, code="BLOCKED_CAPABILITY_UNAVAILABLE",
+                                   hint=exc.hint) from None
+                agent_id = chosen["id"]
+                template["agent_id"] = agent_id
             res = await s.execute(sa.insert(tasks_t).values(
-                title=body.title or body.prompt[:80], prompt=body.prompt, agent_id=body.agent_id,
+                title=body.title or body.prompt[:80], prompt=body.prompt, agent_id=agent_id,
                 priority=body.priority, max_retries=body.max_retries, status="draft",
                 created_at=utcnow(), updated_at=utcnow()))
             task_id = int(res.inserted_primary_key[0])
             await s.commit()
-        await svc.bus.emit("task.created", task_id=task_id, title=body.title, agent_id=body.agent_id)
+        await svc.bus.emit("task.created", task_id=task_id, title=body.title, agent_id=agent_id)
 
         schedule = None
         if body.schedule is not None:
             values = body.schedule.model_dump()
-            values["task_template"] = values.get("task_template") or template
+            values["task_template"] = template
             schedule = await svc.scheduler.create(**values)
             async with svc.db.session() as s:
                 await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
@@ -796,7 +938,7 @@ def _api_router() -> APIRouter:
             res = await s.execute(sa.select(runs_t).where(runs_t.c.task_id == task_id)
                                   .order_by(runs_t.c.id))
             runs = [_run_public(r) for r in rows_dicts(res.fetchall())]
-        done = [r for r in runs if r["result"]]
+        done = [r for r in runs if r["status"] == "completed" and r["result"]]
         return {"task": task, "runs": runs, "result": done[-1]["result"] if done else None,
                 "error": ((task.get("meta") or {}).get("blocked_reason")
                           if task["status"] == "blocked" else runs[-1]["error"] if runs else None)}
@@ -808,10 +950,7 @@ def _api_router() -> APIRouter:
         if task is None:
             raise ApiError("задача не найдена", status=404)
         if action == "run":
-            if await svc.engine.active_run(task_id):
-                raise ApiError("задача уже в очереди или выполняется",
-                               hint="сначала остановите её")
-            run_id = await svc.engine.enqueue(task_id)
+            run_id = await svc.engine.enqueue(task_id, only_if_idle=True)
             return await svc.engine.admission_result(task_id, run_id)
         if action == "stop":
             return await svc.engine.stop(task_id)
@@ -887,7 +1026,44 @@ def _api_router() -> APIRouter:
         row = await svc.approvals.decide(approval_id, body.approve, body.by)
         if row is None:
             raise ApiError("подтверждение не найдено", status=404)
+        lease = None
+        if body.approve and body.lease is not None:
+            # Область берётся из ПАРКОВАННОГО вызова, а не из тела запроса:
+            # клиент не может расширить то, что владелец видел в предпросмотре.
+            lease = await _lease_from_parked_call(svc, row, body.lease, body.by)
+            if lease is None:
+                raise ApiError("аренду можно выдать только по ожидающему вызову "
+                               "инструмента этого подтверждения", status=409)
+        return {**row, "lease": lease}
+
+    @router.get("/approvals/leases")
+    async def list_leases(task_id: int | None = None, active_only: bool = True,
+                          svc: Services = Depends(services)):
+        from . import approval_scope as scope
+        return {"leases": await scope.listing(svc, task_id=task_id, active_only=active_only)}
+
+    @router.post("/approvals/leases/{lease_id}/revoke")
+    async def revoke_lease(lease_id: int, body: ApprovalRevoke | None = None,
+                           svc: Services = Depends(services)):
+        from . import approval_scope as scope
+        row = await scope.revoke(svc, lease_id, (body.by if body else None) or "owner")
+        if row is None:
+            raise ApiError("аренда не найдена", status=404)
         return row
+
+    @router.get("/tasks/{task_id}/efficiency")
+    async def task_efficiency(task_id: int, svc: Services = Depends(services)):
+        """§8-метрики прогона: tokens_per_verified_effect, approvals, review
+        cycles, replans, стоимость. Считаются из фактических записей, не из
+        отчёта модели."""
+        from . import mission_budget
+        return await mission_budget.run_metrics(svc, task_id)
+
+    @router.get("/approvals/metrics")
+    async def approval_metrics(task_id: int, svc: Services = Depends(services)):
+        """approvals_per_successful_mission и что именно сэкономила аренда."""
+        from . import approval_scope as scope
+        return await scope.metrics(svc, task_id)
 
     @router.post("/approvals/{approval_id}/revoke")
     async def revoke_approval(approval_id: int, body: ApprovalRevoke | None = None,
@@ -902,6 +1078,37 @@ def _api_router() -> APIRouter:
     return router
 
 
+async def _lease_from_parked_call(svc, approval: dict, want, by: str) -> dict | None:
+    """Derive the lease scope from the tool call this approval is parked on.
+
+    The scope is NEVER taken from the request body. The owner consented to what
+    the preview showed — that exact tool, that exact effect class, that agent,
+    that task — so the scope is recomputed from the parked call's own arguments
+    using the executor's classifier. A client that asked for a wider lease than
+    it was shown gets the narrow one, or none at all."""
+    import sqlalchemy as _sa
+    from . import approval_scope as scope
+    from .db import agents as _agents, tasks as _tasks, tool_calls as _calls
+    async with svc.db.session() as s:
+        row = (await s.execute(_sa.select(_calls).where(
+            _calls.c.approval_id == approval.get("id"),
+            _calls.c.status == "pending_approval").order_by(
+            _calls.c.id.desc()).limit(1))).first()
+        if row is None:
+            return None
+        parked = dict(row._mapping)
+        task = (await s.execute(_sa.select(_tasks.c.id).where(
+            _tasks.c.id == parked.get("task_id")))).first()
+        agent_id = (await s.execute(_sa.select(_tasks.c.agent_id).where(
+            _tasks.c.id == parked.get("task_id")))).scalar()
+    if task is None:
+        return None
+    sc = scope.scope_for(str(parked.get("tool") or ""), parked.get("args") or {},
+                         agent={"id": agent_id}, task={"id": int(task[0])})
+    return await scope.grant(svc, approval=approval, scope=sc,
+                             max_uses=want.max_uses, ttl_seconds=want.ttl_seconds, by=by)
+
+
 def _run_public(run: dict | None) -> dict | None:
     """Run наружу: без сырого checkpoint (в нём переписка) — только его мета."""
     if run is None:
@@ -910,6 +1117,10 @@ def _run_public(run: dict | None) -> dict | None:
     checkpoint = out.pop("checkpoint", None) or {}
     out["checkpoint"] = {"step": checkpoint.get("step", 0), "note": checkpoint.get("note", ""),
                          "messages": len(checkpoint.get("messages") or [])}
+    # §26: провенанс отдаётся через describe(), чтобы исторический прогон
+    # отвечал явным NOT_CAPTURED, а не пустотой, которую читатель примет за
+    # «прав не было».
+    out["provenance"] = run_provenance.describe(out.pop("provenance", None))
     return out
 
 
@@ -917,7 +1128,8 @@ async def _health(svc: Services) -> dict:
     """Здоровье компонентов для экрана System."""
     health: dict[str, dict] = {}
     try:
-        await svc.db.ping()
+        async with asyncio.timeout(2.0):
+            await svc.db.ping()
         health["db"] = {"status": "ok", "detail": svc.db.url.split("://")[0]}
     except Exception as exc:
         health["db"] = {"status": "error", "detail": f"{type(exc).__name__}: {exc}"}
@@ -927,6 +1139,28 @@ async def _health(svc: Services) -> dict:
                                        svc.start_workers)
     health["metrics"] = _loop_health(svc.metrics.last_tick, svc.metrics.interval * 3,
                                      svc.start_workers)
+    for name, loop in (("queue_worker", svc.engine), ("scheduler", svc.scheduler),
+                       ("metrics", svc.metrics)):
+        if svc.start_workers and loop.last_error:
+            health[name] = {"status": "error", "detail": loop.last_error}
+    # Петли фич — на том же экране и по тем же правилам. Свип INV-RD-1 живёт
+    # в тике review_gate: если он умер, задача снова может ждать вечно, и
+    # узнать об этом надо здесь, а не по жалобе владельца.
+    for name, state in sorted(getattr(svc, "feature_ticks", {}).items()):
+        entry = _loop_health(state["at"], max(state["every"] * 3, 10.0), svc.start_workers)
+        if state.get("error") and svc.start_workers:
+            entry = {"status": "error", "detail": state["error"][:200]}
+        health[f"tick:{name}"] = entry
+    if svc.start_workers:
+        names = {"bcc-worker": "queue_worker", "bcc-scheduler": "scheduler",
+                 "bcc-metrics": "metrics"}
+        names.update({f"bcc-{name}": f"tick:{name}" for name in svc.feature_ticks})
+        for task in svc._tasks:
+            component = names.get(task.get_name())
+            if component and task.done():
+                health[component] = {"status": "error", "detail": "фоновый цикл завершился"}
+        if svc.engine.workers < 1:
+            health["queue_worker"] = {"status": "error", "detail": "число исполнителей меньше 1"}
     # P1 no-fake-green: подсистемы с внешними зависимостями не должны выглядеть
     # зелёными, когда они недоступны. Пустой health или unknown не превращается в ok.
     try:
@@ -934,24 +1168,26 @@ async def _health(svc: Services) -> dict:
         if browser is None:
             from .v2.browser_control import BrowserManager
             browser = svc.browser = BrowserManager(svc.settings.data_dir / "browser")
-        health["browser"] = ({"status": "ok", "detail": "playwright доступен"}
-                             if browser.available else
-                             {"status": "offline", "detail": "playwright/chromium не установлен"})
+        if not browser.available:
+            from .browser_runtime import INSTALL_HINT
+            health["browser"] = {"status": "offline", "detail": INSTALL_HINT}
+        else:
+            # Importing the Python adapter does not prove Chromium is installed
+            # or running. An actual connected context is positive evidence.
+            sessions = list(getattr(browser, "_sessions", {}).values())
+            connected = any(not session.page.is_closed() and (
+                session.browser is None or session.browser.is_connected()) for session in sessions)
+            health["browser"] = ({"status": "ok", "detail": "есть живой контекст Chromium"}
+                                 if connected else {"status": "unknown",
+                                 "detail": "Chromium установлен; живой контекст ещё не проверен"})
     except Exception as exc:                                  # честное unknown, не ok
         health["browser"] = {"status": "unknown", "detail": f"{type(exc).__name__}"}
     try:
-        async with svc.db.session() as s:
-            rows = (await s.execute(sa.select(dbm.models.c.status))).fetchall()
-        statuses = [str(r.status or "unknown").lower() for r in rows]
-        if not statuses:
-            health["models"] = {"status": "empty", "detail": "ни одной модели не настроено"}
-        else:
-            bad = [x for x in statuses if x in ("offline", "error")]
-            health["models"] = (
-                {"status": "degraded", "detail": f"{len(bad)} из {len(statuses)} моделей недоступны"}
-                if bad else {"status": "ok", "detail": f"моделей: {len(statuses)}"})
+        from .health import model_components
+        health.update(await model_components(svc))
     except Exception as exc:
         health["models"] = {"status": "unknown", "detail": f"{type(exc).__name__}"}
+        health["providers"] = {"status": "unknown", "detail": f"{type(exc).__name__}"}
     return health
 
 

@@ -138,8 +138,15 @@ _CREATE_VERB = r"\b(create)\b|создай\w*"
 
 _TERMINAL_TOPIC = (r"\bterminal\b|\bshell\b|\bcommand\b|\bscript\b|"
                    r"терминал\w*|команд\w*|консол\w*|скрипт\w*")
-_FILE_TOPIC = (r"\bfile\b|\bfolder\b|\bdirectory\b|"
-              r"файл\w*|папк\w*|директор\w*")
+_FILE_TOPIC = (r"\bfile\b|\bfolder\b|\bdirectory\b|\bdocument\b|"
+              r"файл\w*|папк\w*|директор\w*|документ\w*")
+
+# "…in a new text document" / "…в новом текстовом документе": the deliverable
+# is a file even when the sentence's verb is "list"/"describe" rather than
+# "create". Owner audit 2026-09-08, task 44 — no contract, empty answer,
+# completed.
+_NEW_DOCUMENT_FUSED = (r"\bin\s+a\s+new\s+(text\s+)?(document|file)\b|"
+                       r"в\s+нов\w+\s+(текстов\w+\s+)?(документ|файл)\w*")
 _APP_TOPIC = (r"\bapplication\b|\bapp\b|\bcalculator\b|\bnotepad\b|"
              r"приложени\w*|калькулятор\w*|блокнот\w*")
 _OPENCLAW_TOPIC = (r"\bmessage\b|\bchannel\b|\bchat\b|"
@@ -156,10 +163,69 @@ _CODING_SESSION_TOPIC = (r"coding[\s_-]?session\w*|\bworktree\w*|воркtree\w*
 
 _TERMINAL_FILE_RE = re.compile(
     rf"({_DO_VERB}|{_USE_VERB}|{_FIX_VERB})[^.!?\n]{{0,80}}({_TERMINAL_TOPIC}|{_FILE_TOPIC})|"
-    rf"({_TERMINAL_TOPIC}|{_FILE_TOPIC})[^.!?\n]{{0,80}}({_DO_VERB}|{_USE_VERB}|{_FIX_VERB})",
+    rf"({_TERMINAL_TOPIC}|{_FILE_TOPIC})[^.!?\n]{{0,80}}({_DO_VERB}|{_USE_VERB}|{_FIX_VERB})|"
+    rf"{_NEW_DOCUMENT_FUSED}",
     re.I | re.U)
 
+# ------------------------------------------------------------------- negation
+#
+# Astra/Codex F7 (2026-09-08, 2/2 on 45027d3): "Calculate 17*23. Do not use
+# tools or write any file." classified as TERMINAL_FILE_ACTION, so an answer
+# that obeyed the owner's prohibition failed the gate. A prohibition is not a
+# request. The negated SPAN is dropped — from the negation marker to the end of
+# the clause or to a contrasting conjunction ("but"/"а"/"но") — not the whole
+# sentence, so "do not use the terminal, but create a file" keeps its request,
+# and "не забудь"/"don't forget" (a reminder, not a prohibition) is kept whole.
+_NEGATION_KEEP_RE = re.compile(
+    r"(?iu)\b(do\s*n['o]?t|never)\s+forget(\s+to)?\b|не\s+забудь\w*|не\s+забывай\w*")
+_NEGATION_MARK = (r"\b(do\s*n['o]?t|does\s*n['o]?t|did\s*n['o]?t|never|without|no\s+need\s+to|"
+                  r"must\s+not|mustn['o]?t|should\s*n['o]?t|can\s*not|can['o]?t|avoid)\b|"
+                  r"\bне\b|\bбез\b|\bнельзя\b|\bникак\w*\b|\bне\s+нужно\b|\bне\s+надо\b|"
+                  r"\bзапрещ\w*\b|\bизбега\w*\b")
+# The span ends at clause punctuation or at a contrast that starts a new
+# (possibly positive) request. "or"/"или" and "nor"/"ни" continue the list of
+# prohibitions; "and"/"и" ends it — "не используй терминал и создай файл" asks
+# for the file, and the second half is its own clause.
+_NEGATION_SPAN_RE = re.compile(
+    rf"({_NEGATION_MARK})"
+    r"(?:(?!\b(but|however|yet|а|но|однако|зато|and|и|затем|потом|then)\b)[^.!?;,:\n])*",
+    re.I | re.U)
+
+
+def positive_request_text(prompt: str) -> str:
+    """The task text with prohibited spans removed: what the owner ASKED FOR.
+
+    Used by the classifier only. It never adds a request, and it removes text
+    only from a negation marker to the end of its clause/contrast, so a request
+    that shares a sentence with a prohibition survives ("do not use the
+    terminal, but create result.txt" → "but create result.txt")."""
+    text = _NEGATION_KEEP_RE.sub(" ", prompt or "")
+    return _NEGATION_SPAN_RE.sub(" ", text)
+
 _FILENAME_RE = re.compile(r"\b[\w][\w./-]{0,80}\.[a-zA-Z0-9]{1,8}\b")
+
+# A hostname is not a path. `https://example.com` matched the filename regex as
+# `example.com`, so a task that merely *mentions* a URL was given a file
+# obligation for a file nobody ever promised. Review then failed forever
+# (`file:example.com: файл отсутствует при свежем чтении`), escalated, and the
+# task deadlocked in `waiting_approval` — two of the four deadlocks in the
+# 202-event acceptance corpus (T2 run4) came from exactly this.
+#
+# The fix is a span exclusion rather than an extension blacklist: a real file
+# may legitimately be called `notes.com`, but a filename occurring INSIDE a URL
+# or an email address is never a local post-state. Nothing is invented and
+# nothing legitimate is dropped.
+_URLISH_RE = re.compile(
+    r"""(?:
+          [a-zA-Z][a-zA-Z0-9+.-]*://[^\s<>"'«»]+      # scheme://host/path
+        | \bwww\.[^\s<>"'«»]+                          # bare www host
+        | \b[\w.+-]+@[\w-]+\.[A-Za-z]{2,24}\b          # email address
+    )""",
+    re.VERBOSE)
+
+
+def _urlish_spans(text: str) -> list[tuple[int, int]]:
+    return [m.span() for m in _URLISH_RE.finditer(text or "")]
 
 
 def _terminal_evidence(prompt: str) -> ExpectedState | None:
@@ -173,10 +239,15 @@ def _terminal_evidence(prompt: str) -> ExpectedState | None:
     tool_names = set(REGISTRY.names()) | {
         "terminal.run", "terminal.stdin", "terminal.kill",
     }
-    for match in _FILENAME_RE.finditer(prompt or ""):
+    text = prompt or ""
+    urlish = _urlish_spans(text)
+    for match in _FILENAME_RE.finditer(text):
         target = match.group(0)
         if target in tool_names:
             continue
+        start, end = match.span()
+        if any(s <= start and end <= e for s, e in urlish):
+            continue                      # part of a URL/email, not a filesystem outcome
         return ExpectedState(kind="file", target=target, expect={"exists": True})
     return None
 
@@ -311,7 +382,7 @@ def classify_all(prompt: str) -> list[Capability]:
     Живой пробой это найдено: `classify()` (только первое совпадение) молча
     завершал «Измени тестовый файл в репозитории, запусти тест и закоммить»,
     когда модель дёрнула ЛЮБОЙ terminal.run и заявила текстом, что запушила."""
-    text = prompt or ""
+    text = positive_request_text(prompt or "")
     return [cap for cap in CAPABILITIES if cap.pattern.search(text)]
 
 

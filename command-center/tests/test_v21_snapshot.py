@@ -14,6 +14,8 @@ import sqlalchemy as sa
 from bcc.db import approvals as approvals_t, providers as providers_t, settings_kv, tasks as tasks_t
 from bcc.features.snapshot import MAX_ARTIFACT_BYTES, RESTORE_KIND
 
+from .helpers import make_stack
+
 # Заведомо уникальное «секретное» значение: ищем его во всех байтах артефакта.
 # Хвост канарейки — НЕ hex: проверка `SECRET[-4:] not in manifest` иначе
 # ложно срабатывала на sha256-отпечатках в манифесте (4 hex-символа
@@ -205,15 +207,19 @@ async def test_foreign_approval_cannot_authorise_restore(env):
 
 async def test_approved_restore_rolls_state_back(env):
     """Одобренный откат действительно возвращает состояние БД."""
-    task = (await env.client.post("/api/tasks", json={
-        "title": "до снапшота", "prompt": "раз"})).json()
-    before_id = task.get("id") or task.get("task", {}).get("id")
+    stack = await make_stack(env.client)
+    agent_id = stack["agent"]["id"]
+    response = await env.client.post("/api/tasks", json={
+        "title": "до снапшота", "prompt": "раз", "agent_id": agent_id})
+    assert response.status_code == 200, response.text
+    before_id = response.json()["task"]["id"]
     made = await _create(env, name="точка отката")
     sid = made["snapshot"]["id"]
 
-    after = (await env.client.post("/api/tasks", json={
-        "title": "после снапшота", "prompt": "два"})).json()
-    after_id = after.get("id") or after.get("task", {}).get("id")
+    response = await env.client.post("/api/tasks", json={
+        "title": "после снапшота", "prompt": "два", "agent_id": agent_id})
+    assert response.status_code == 200, response.text
+    after_id = response.json()["task"]["id"]
     assert after_id and after_id != before_id
 
     approval_id = (await env.client.post(f"/api/snapshots/{sid}/restore",

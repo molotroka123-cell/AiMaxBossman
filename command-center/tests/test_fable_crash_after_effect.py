@@ -69,6 +69,13 @@ def _mail_spec(counter):
 async def _crash_after_effect(env, counter):
     """Attempt 1 dispatches the effect and dies before journaling its outcome."""
     stack = await make_stack(env.client, max_retries=3)
+    # Агенту ВЫДАН инструмент, которым его здесь водят напрямую через
+    # tool_specs=[spec]. В проде tool_specs и allowed_tools_for(task, agent)
+    # совпадают по построению; фикстура моделировала run без единого
+    # выданного инструмента, и проверка «инструмент всё ещё выдан» в момент
+    # эффекта честно отвергала вызов как снятый. Грант — не ослабление:
+    # утверждения об exactly-once и о reconciliation не изменились.
+    await env.client.patch(f"/api/agents/{stack['agent']['id']}", json={"tools": ["mail.send"]})
     task_id = stack["task"]["id"]
     spec = _mail_spec(counter)
     a = env.svc.engine

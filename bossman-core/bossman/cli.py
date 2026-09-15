@@ -1,88 +1,165 @@
-"""Bossman Gateway CLI with multi-provider model listing.
+"""CLI-обёртка: запуск из терминала и по расписанию (9.8).
 
-Usage:
-    bossman models list --provider openrouter
-    bossman models list --provider ollama
-    bossman models list --all
+  bossman serve                       — поднять Core
+  bossman task "текст" [--agent имя]  — поставить задачу
+  bossman project plan <slug> <brief.md>
+  bossman project run <slug>
+  bossman project state <slug>
+  bossman models list --provider <имя> | --all [--json]  — каталог провайдера
 """
+from __future__ import annotations
+
+import argparse
 import asyncio
-import click
 import json
-import os
-from typing import Optional
-
-from .gateway.config import load_provider_config, AVAILABLE_PROVIDERS
-from .gateway.backends import get_backend
+import sys
+from pathlib import Path
 
 
-@click.group()
-def models():
-    """Manage LLM models."""
-    pass
+def main() -> None:
+    p = argparse.ArgumentParser(prog="bossman")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("serve")
+
+    pt = sub.add_parser("task")
+    pt.add_argument("text")
+    pt.add_argument("--agent")
+    pt.add_argument("--source", default="cli")
+
+    pp = sub.add_parser("project")
+    pp.add_argument("action", choices=["plan", "run", "state"])
+    pp.add_argument("slug")
+    pp.add_argument("brief", nargs="?")
+
+    pm = sub.add_parser("models")
+    pm.add_argument("action", choices=["list"])
+    # Перечень провайдеров берётся из реестра шлюза, а не переписывается
+    # здесь второй раз: два списка расходятся, и расходятся молча.
+    from .gateway.config import AVAILABLE_PROVIDERS
+    pm.add_argument("--provider", choices=sorted(AVAILABLE_PROVIDERS))
+    pm.add_argument("--all", action="store_true", dest="list_all",
+                    help="опросить всех провайдеров, у которых есть ключ")
+    pm.add_argument("--json", action="store_true", dest="as_json")
+
+    args = p.parse_args()
+    if args.cmd == "serve":
+        from .api import main as serve
+        serve()
+    elif args.cmd == "task":
+        asyncio.run(_task(args))
+    elif args.cmd == "project":
+        asyncio.run(_project(args))
+    elif args.cmd == "models":
+        sys.exit(asyncio.run(_models(args)))
 
 
-@models.command("list")
-@click.option("--provider", "-p", type=click.Choice(AVAILABLE_PROVIDERS), help="Provider name")
-@click.option("--all", "-a", "list_all", is_flag=True, help="List models from all configured providers")
-@click.option("--json", "-j", "output_json", is_flag=True, help="Output as JSON")
-def list_models(provider: Optional[str], list_all: bool, output_json: bool):
-    """List available models from provider(s)."""
-    
-    async def fetch_models(prov: str):
-        config = load_provider_config(prov)
-        if not config.get("api_key"):
-            return {"provider": prov, "status": "error", "error": "No API key configured"}
-        
+async def _task(args) -> None:
+    from . import db, runner
+    row = await db.fetchrow(
+        "INSERT INTO tasks (agent, source, text) VALUES ($1,$2,$3) RETURNING id",
+        args.agent, args.source, args.text)
+    await runner.enqueue(row["id"])
+    print(f"задача #{row['id']} поставлена")
+    await db.close()
+
+
+async def _project(args) -> None:
+    from . import db
+    if args.action == "plan":
+        if not args.brief:
+            sys.exit("нужен путь к brief.md")
+        from .projects.planner import plan_project
+        # brief.md владельца — utf-8; без явной кодировки Windows читает его
+        # как cp1251 и в модель уезжает кракозябра вместо задания.
+        brief = Path(args.brief).read_text(encoding="utf-8")
+        await db.execute(
+            """INSERT INTO projects (slug, title, brief) VALUES ($1,$1,$2)
+               ON CONFLICT (slug) DO UPDATE SET brief=excluded.brief, updated_at=now()""",
+            args.slug, brief)
+        info = await plan_project(args.slug, brief)
+        print(f"план готов: {info} — утвердить: POST /projects/{args.slug}/approve")
+    elif args.action == "run":
+        from .projects.runner import run_project
+        await run_project(args.slug)
+    elif args.action == "state":
+        from .projects.plan import State
+        print(json.dumps(State(args.slug).data, ensure_ascii=False, indent=1))
+    await db.close()
+
+
+async def _models(args) -> int:
+    """Каталог провайдера в терминал. Нет ключа — не падение, а внятный отказ.
+
+    Провайдер импортируется здесь, а не в начале модуля: `bossman task` не
+    обязан тянуть за собой ни gateway, ни httpx-клиента облака.
+
+    `--all` опрашивает только тех, у кого ключ задан. Показывать «ошибку» у
+    каждого ненастроенного провайдера значило бы утопить настоящий отказ в
+    восьми ожидаемых.
+    """
+    import json as _json
+
+    from .gateway.backends import build_backend
+    from .gateway.config import (AVAILABLE_PROVIDERS, load_env_file,
+                                 load_provider_config)
+    load_env_file()                       # ключ владельца лежит в .env
+
+    # `getattr` со значением по умолчанию, а не `args.list_all`: эту функцию
+    # зовут не только из разбора аргументов, и вызывающий, знающий про один
+    # провайдер, не обязан знать про флаги, появившиеся позже.
+    list_all = bool(getattr(args, "list_all", False))
+    as_json = bool(getattr(args, "as_json", False))
+    provider = getattr(args, "provider", None)
+    if not provider and not list_all:
+        print("укажите --provider <имя> или --all", file=sys.stderr)
+        return 2
+    names = sorted(AVAILABLE_PROVIDERS) if list_all else [provider]
+
+    async def catalogue(name: str) -> dict:
+        config = load_provider_config(name)
+        backend = build_backend(config)
         try:
-            backend = get_backend(prov, config["api_key"], config.get("base_url"))
-            models_list = await backend.list_models()
-            return {
-                "provider": prov,
-                "status": "ok",
-                "models_count": len(models_list),
-                "models": models_list[:50]
-            }
-        except Exception as e:
-            return {"provider": prov, "status": "error", "error": str(e)}
-    
-    async def run():
-        if list_all:
-            tasks = []
-            for prov in AVAILABLE_PROVIDERS:
-                config = load_provider_config(prov)
-                if config.get("api_key"):
-                    tasks.append(fetch_models(prov))
-            
-            if not tasks:
-                click.echo("No providers configured with API keys.")
-                click.echo("\nSet API keys in bossman-core/.env:")
-                for prov in AVAILABLE_PROVIDERS:
-                    env_var = f"{prov.upper()}_API_KEY"
-                    click.echo(f"  {env_var}=...")
-                return
-            
-            results = await asyncio.gather(*tasks)
-        elif provider:
-            results = [await fetch_models(provider)]
-        else:
-            click.echo("Specify --provider or --all")
-            return
-        
-        if output_json:
-            click.echo(json.dumps(results, indent=2))
-        else:
-            for result in results:
-                if result["status"] == "ok":
-                    click.echo(f"\n{result['provider'].upper()}: {result['models_count']} models")
-                    for model in result["models"][:10]:
-                        click.echo(f"  - {model}")
-                    if result["models_count"] > 10:
-                        click.echo(f"  ... and {result['models_count'] - 10} more")
-                else:
-                    click.echo(f"\n{result['provider'].upper()}: ERROR - {result.get('error', 'Unknown')}")
-    
-    asyncio.run(run())
+            listing = await backend.list_models()
+        finally:
+            await backend.close()
+        return {"provider": name, "status": listing.status,
+                "reason": listing.reason, "models": listing.models,
+                "key_env": config.api_key_env}
+
+    if list_all:
+        # Ненастроенный провайдер отсеивается ДО сети: спрашивать облако,
+        # ключа к которому нет, — это ожидание таймаута ради заранее
+        # известного ответа.
+        names = [n for n in names
+                 if (cfg := load_provider_config(n)).api_key_env is None
+                 or cfg.resolved_api_key()]
+        if not names:
+            print("ни у одного провайдера нет ключа; задайте их в "
+                  "bossman-core/.env", file=sys.stderr)
+            return 1
+
+    results = await asyncio.gather(*(catalogue(name) for name in names))
+
+    if as_json:
+        print(_json.dumps(results, ensure_ascii=False, indent=2))
+        return 0 if all(r["status"] == "ok" for r in results) else 1
+
+    failed = False
+    for row in results:
+        if row["status"] != "ok":
+            failed = True
+            print(f"{row['provider']}: {row['reason']}", file=sys.stderr)
+            if row["status"] == "unavailable" and row["key_env"]:
+                print(f"задайте {row['key_env']} в bossman-core/.env",
+                      file=sys.stderr)
+            continue
+        if len(results) > 1:
+            print(f"# {row['provider']} ({len(row['models'])})")
+        for model_id in row["models"]:
+            print(model_id)
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    models()
+    main()

@@ -50,7 +50,12 @@ _RE_TOKENLIKE = re.compile(
     r"|xox[baprs]-[A-Za-z0-9-]{10,}"   # Slack
     r"|AKIA[0-9A-Z]{16}"               # AWS access key id
     r"|AIza[0-9A-Za-z_-]{30,}"         # Google API key
-    r"|hf_[A-Za-z0-9]{16,})")          # HuggingFace
+    r"|hf_[A-Za-z0-9]{16,}"            # HuggingFace
+    # Собственные форматы платформы: их редактор не знал, поэтому «голый» токен
+    # устройства/сессии (не в заголовке Authorization) и WS-субпротокол
+    # `bossman.bearer.<token>` уезжали в лог как есть.
+    r"|rcd_[A-Za-z0-9_-]{16,}|rcs_[A-Za-z0-9_-]{16,}"
+    r"|bossman\.bearer\.[A-Za-z0-9._-]{8,})")
 
 
 def redact(text: str) -> str:

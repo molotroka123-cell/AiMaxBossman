@@ -13,6 +13,7 @@ const AgentMapPage = {
   title: 'Карта агентов',
   icon: 'agents',
   nav: 'more',
+  section: 'brains',
 
   async render(ctx) {
     const [orchR] = await Promise.allSettled([api.raw('/api/orchestras')]);

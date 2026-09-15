@@ -72,6 +72,7 @@ const WebResearchPage = {
   title: 'Поиск в интернете',
   icon: 'browser',
   nav: 'more',
+  section: 'studio',
 
   async render(ctx) {
     let state = null; let sources = null; let episodes = null; let err = null;
