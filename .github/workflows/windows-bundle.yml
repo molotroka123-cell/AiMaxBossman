@@ -185,6 +185,25 @@ jobs:
             -q --junitxml="$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/require_acceptance_results.py "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml" --minimum-tests 14
+      # Запас времени владельческих ожиданий — в журнал, а не только в артефакт.
+      # Зелёный обязан говорить, НАСКОЛЬКО он зелёный: проход за 0,2 с и проход
+      # за 4,8 с при бюджете 5 с — разные утверждения о продукте, а в вердикте
+      # выглядят одинаково. Артефакт весит сотни мегабайт и его мало кто
+      # открывает; строка в журнале видна и человеку, и разбору красного.
+      # Шаг ничего не проверяет и уронить задание не может.
+      - name: Measured margins of the owner waits
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          $evidence = $env:BOSSMAN_EDITOR_EVIDENCE_DIR
+          if (-not $evidence) { Write-Host 'BOSSMAN_EDITOR_EVIDENCE_DIR не задан'; exit 0 }
+          $margins = Join-Path $evidence 'owner-history-margins.jsonl'
+          if (Test-Path $margins) {
+            Write-Host '--- owner-history-margins.jsonl ---'
+            Get-Content $margins
+          } else {
+            Write-Host 'owner-history-margins.jsonl отсутствует: замер не дошёл до записи'
+          }
       - name: Inventory visible buttons in the installed application
         if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
         run: |
