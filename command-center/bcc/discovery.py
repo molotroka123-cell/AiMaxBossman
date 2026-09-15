@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse, urlsplit
 
-from .providers import OpenAICompatAdapter, ProviderError
+from .providers import OpenAICompatAdapter, ProviderError, model_catalog_problem
 
 # Известные локальные раннеры и их порты по умолчанию.
 #
@@ -245,10 +245,13 @@ async def _probe(label: str, base_url: str, transport: Any = None) -> dict:
     adapter = OpenAICompatAdapter(base_url=base_url, transport=transport)
     t0 = time.perf_counter()
     try:
-        models = await asyncio.wait_for(adapter.list_models(), timeout=PROBE_TIMEOUT)
-        return {"label": label, "base_url": base_url, "ok": True,
+        model_info = await asyncio.wait_for(adapter.list_model_info(), timeout=PROBE_TIMEOUT)
+        detail = model_catalog_problem(model_info)
+        return {"label": label, "base_url": base_url, "ok": not bool(detail),
+                "detail": detail,
                 "latency_ms": int((time.perf_counter() - t0) * 1000),
-                "models": models[:50]}
+                "models": [m["id"] for m in model_info[:50]],
+                "model_details": model_info[:50]}
     except (ProviderError, asyncio.TimeoutError) as exc:
         timed_out = isinstance(exc, asyncio.TimeoutError)
         detail = f"не ответил за {PROBE_TIMEOUT} с" if timed_out else str(exc)

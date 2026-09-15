@@ -51,9 +51,16 @@
           // Original CSS is display-only. Bossman keeps its exact source; new
           // style rules override it without passing it through a CSS serializer.
           const doc = editor.Canvas.getDocument();
-          const style = doc.createElement('style');
-          style.textContent = site.base_css || '';
-          doc.head.prepend(style);
+          const originalStyles = doc.createDocumentFragment();
+          const sheets = Array.isArray(site.base_styles) ? site.base_styles : [{text: site.base_css || ''}];
+          for (const sheet of sheets) {
+            const style = doc.createElement('style');
+            style.textContent = sheet.text || '';
+            if (sheet.media) style.setAttribute('media', sheet.media);
+            if (sheet.type) style.setAttribute('type', sheet.type);
+            originalStyles.append(style);
+          }
+          doc.head.prepend(originalStyles);
           editor.getWrapper().addAttributes(site.body_attributes || {});
           editor.clearDirtyCount();
           editor.UndoManager.clear();

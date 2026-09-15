@@ -41,6 +41,23 @@ def test_body_event_and_css_escape_are_refused():
         merge(SOURCE, '<p>okay</p>', '</style><script>alert(1)</script>')
 
 
+def test_stylesheet_media_type_and_order_survive_preview_and_save():
+    styles = ('<style media="print">h1{display:none}</style>'
+              '<style media="(max-width: 480px)">h1{color:blue}</style>'
+              '<style type="text/less">h1{color:green}</style>')
+    source = SOURCE.replace('</head>', styles + '</head>')
+    split = parts(source)
+    assert split['base_styles'] == [
+        {'text': 'h1{color:red}', 'media': 'screen', 'type': ''},
+        {'text': 'h1{display:none}', 'media': 'print', 'type': ''},
+        {'text': 'h1{color:blue}', 'media': '(max-width: 480px)', 'type': ''},
+        {'text': 'h1{color:green}', 'media': '', 'type': 'text/less'},
+    ]
+    saved = merge(source, '<h1>Edited</h1>', 'h1{margin:1px}')
+    assert styles in saved
+    assert parts(saved)['base_styles'] == split['base_styles']
+
+
 async def test_visual_save_conflict_and_reopen(env):
     res = await env.client.post('/api/web-designer/projects', json={'name': 'Visual', 'template': 'blank'})
     pid = res.json()['meta']['id']

@@ -989,3 +989,41 @@ async def test_svoy_searxng_oprashivaetsya_privatnoy_dveryu(env, monkeypatch):
         "работающий общий веб-поиск")
     assert "источник недоступен" not in result.content, (
         "неподключённая ветка у нас выдана владельцу за неисправность его сервера")
+
+
+@pytest.mark.parametrize("status, body, code, hint", [
+    (403, "Forbidden", "source_unavailable", "search.formats"),
+    (429, "Too Many Requests", "rate_limited", "limiter"),
+    (200, "<html>sign in</html>", "bad_response", "search.formats"),
+])
+async def test_searxng_setup_failure_is_actionable_not_empty_results(
+        env, monkeypatch, status, body, code, hint):
+    monkeypatch.setattr(config, "SEARXNG_URL", "http://127.0.0.1:8888")
+    env.adapter.route("127.0.0.1:8888", body, status=status)
+    backend = next(b for b in sources.BACKENDS if b.id == "searxng-local")
+    result = await sources.run_search(env.svc, backend, "test query", force_refresh=True)
+    assert result["ok"] is False
+    assert result["code"] == code
+    assert hint in result["detail"]
+    assert not result["hits"]
+    assert len(env.adapter.calls) == 1
+
+
+async def test_searxng_success_keeps_query_encoding_and_evidence(env, monkeypatch):
+    from urllib.parse import parse_qs, urlsplit
+
+    monkeypatch.setattr(config, "SEARXNG_URL", "http://127.0.0.1:8888")
+    env.adapter.route("127.0.0.1:8888", json.dumps({"results": [
+        {"title": "Документация", "url": "https://docs.example.org/guide",
+         "content": "Руководство", "engine": "duckduckgo"}]}),
+        headers={"content-type": "application/json"})
+    backend = next(b for b in sources.BACKENDS if b.id == "searxng-local")
+    query = "Прага & Python + C++"
+    result = await sources.run_search(env.svc, backend, query)
+    assert result["ok"] is True
+    assert result["transport"] == "stub"
+    assert result["raw_ref"].startswith("raw:")
+    assert result["observations"]
+    params = parse_qs(urlsplit(env.adapter.calls[0]).query)
+    assert params == {"q": [query], "format": ["json"]}
+    assert len(result["hits"]) == 1

@@ -140,12 +140,12 @@ function composer(models, collections, ctx) {
   });
 
   const model = withValue(h('select.input', {
-    onChange: (e) => { composerState.model_alias = e.target.value; },
+    onChange: (e) => { composerState.model_alias = e.target.value; ctx.refresh(); },
   }, models.map((m) => h('option', { value: m.alias }, modelLabel(m)))),
   composerState.model_alias);
 
   const ratio = withValue(h('select.input', {
-    onChange: (e) => setRatio(e.target.value),
+    onChange: (e) => { setRatio(e.target.value); ctx.refresh(); },
   }, ['1:1', '16:9', '9:16', '4:3', '3:2'].map((r) => h('option', { value: r }, r))),
   composerState.aspect_ratio);
 
@@ -327,7 +327,13 @@ function inspector(asset, collections, ctx) {
       asset.collection_id ?? '')),
       h('div.stack.tight',
         h('button.btn.btn-sm', { type: 'button', onClick: () => reusePrompt(asset, ctx) }, 'Повторить описание'),
-        h('button.btn.btn-sm', { type: 'button', onClick: () => variation(asset, ctx) }, 'Вариация'),
+        h('button.btn.btn-sm', {
+          type: 'button', disabled: Boolean(variationUnavailableReason(asset)),
+          title: variationUnavailableReason(asset) || 'Создать вариацию',
+          onClick: () => variation(asset, ctx),
+        }, 'Вариация'),
+        variationUnavailableReason(asset)
+          ? h('div.xsmall.dim', variationUnavailableReason(asset)) : null,
         h('button.btn.btn-sm', { type: 'button', onClick: () => toggleFavorite(asset, ctx) },
           asset.favorite ? 'Убрать из избранного' : 'В избранное'),
       )));
@@ -434,7 +440,15 @@ function modelForAsset(asset) {
   return alias && alias !== 'import' ? alias : composerState.model_alias;
 }
 
+function variationUnavailableReason(asset) {
+  return modelForAsset(asset) === 'comfyui'
+    ? 'ComfyUI: вариации пока не поддерживаются. Используйте «Повторить описание» для новой генерации.'
+    : '';
+}
+
 async function variation(asset, ctx) {
+  const unavailable = variationUnavailableReason(asset);
+  if (unavailable) { toast(unavailable, { type: 'warn' }); return; }
   try {
     await api.raw('/api/images/jobs', {
       method: 'POST',
@@ -546,7 +560,7 @@ function setRatio(ratio) {
     '1:1': [1024, 1024],
     '16:9': [1280, 720],
     '9:16': [720, 1280],
-    '4:3': [1200, 900],
+    '4:3': [1152, 864],
     '3:2': [1200, 800],
   };
   const [w, h_] = sizes[ratio] || [1024, 1024];

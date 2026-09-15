@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from ..db import models as models_t, rows_dicts, utcnow
 from ..v2.images_runtime import ImageStorage, MockImageProvider, safe_filename
+from ..oss.comfyui import ComfyUIImageProvider, image_configuration, validate_image_spec
 from ..v2.images_tables import (
     image_assets as assets_t,
     image_collections as collections_t,
@@ -34,9 +35,7 @@ from . import Feature
 router = APIRouter()
 PROVIDER = MockImageProvider()
 
-# Единственный алиас, который здесь реально исполняется. Один список на два
-# места (каталог моделей и очередь) — иначе каталог обещает то, что очередь
-# сразу же роняет, а владелец жмёт «Повторить» на заведомо обречённый job.
+# Local mock is always available; ComfyUI requires explicit owner configuration.
 EXECUTABLE_ALIASES = frozenset({"mock-image"})
 
 
@@ -175,6 +174,14 @@ async def image_models(request: Request):
         "executable": True,
         "caps": {"image_generation": True, "mock": True},
     }]
+    try:
+        comfy_config = image_configuration()
+        comfy_status = "configured" if comfy_config else "not_configured"
+    except ValueError:
+        comfy_config, comfy_status = None, "invalid_configuration"
+    out.append({"alias": "comfyui", "name": "ComfyUI (local text-to-image)",
+                "provider": "local", "status": comfy_status, "executable": bool(comfy_config),
+                "caps": {"image_generation": True, "mock": False, "text_to_image": True}})
     async with svc.db.session() as s:
         rows = rows_dicts((await s.execute(sa.select(models_t))).fetchall())
     for m in rows:
@@ -340,6 +347,14 @@ async def get_job(job_id: int, request: Request):
 @router.post("/images/jobs")
 async def create_job(body: ImageJobIn, request: Request):
     svc = request.app.state.svc
+    if body.model_alias == "comfyui":
+        try:
+            validate_image_spec(body.model_dump())
+            config = image_configuration()
+        except ValueError as exc:
+            raise HTTPException(422, {"message": str(exc)}) from exc
+        if config is None:
+            raise HTTPException(503, {"message": "Configure BOSSMAN_COMFYUI_URL and BOSSMAN_COMFYUI_CHECKPOINT first"})
     if not await _collection_exists(svc, body.collection_id):
         raise HTTPException(404, {"message": "коллекция не найдена"})
     if not await _asset_exists(svc, body.source_asset_id):
@@ -524,10 +539,7 @@ async def process_one(svc) -> int | None:
     if job is None:
         return None
 
-    # First pass provider policy:
-    # only the deterministic mock provider is executable here.
-    # Real image providers are added later behind the same contract.
-    if job.get("model_alias") not in EXECUTABLE_ALIASES:
+    if job.get("model_alias") not in EXECUTABLE_ALIASES | {"comfyui"}:
         await _fail_job(svc, job_id,
                         f"реальный image provider для «{job.get('model_alias')}» ещё не подключён")
         return job_id
@@ -536,20 +548,35 @@ async def process_one(svc) -> int | None:
     created: list[int] = []
     count = max(1, min(int(job.get("count") or 1), 8))
     try:
+        provider = PROVIDER
+        if job.get("model_alias") == "comfyui":
+            config = image_configuration()
+            if config is None:
+                raise ValueError("Configure BOSSMAN_COMFYUI_URL and BOSSMAN_COMFYUI_CHECKPOINT first")
+            provider = ComfyUIImageProvider(*config)
         for index in range(count):
             # honour cancellation between produced assets
             latest = await _find_one(svc, jobs_t, job_id)
             if latest is None or latest.get("status") == "cancelled":
                 return job_id
 
-            data, mime, meta = await PROVIDER.render(job, index)
-            suffix = ".svg" if mime == "image/svg+xml" else ".bin"
+            data, mime, meta = await provider.render(job, index)
+            latest = await _find_one(svc, jobs_t, job_id)
+            if latest is None or latest.get("status") != "running":
+                return job_id
+            suffix = {"image/svg+xml": ".svg", "image/png": ".png"}.get(mime, ".bin")
             rel = f"generated/job-{job_id}/image-{index + 1}{suffix}"
             path = storage.save(rel, data)
             title = (str(job.get("prompt") or "Image").strip()[:120]
                      or f"Image {job_id}-{index + 1}")
 
             async with svc.db.session() as s:
+                claimed = await s.execute(sa.update(jobs_t).where(
+                    jobs_t.c.id == job_id, jobs_t.c.status == "running"
+                ).values(updated_at=utcnow()))
+                if not claimed.rowcount:
+                    path.unlink(missing_ok=True)
+                    return job_id
                 res = await s.execute(sa.insert(assets_t).values(
                     source_job_id=job_id,
                     title=title,
@@ -557,9 +584,10 @@ async def process_one(svc) -> int | None:
                     negative_prompt=job.get("negative_prompt") or "",
                     model_alias=job.get("model_alias") or "mock-image",
                     aspect_ratio=job.get("aspect_ratio") or "1:1",
-                    width=int(job.get("width") or 1024),
-                    height=int(job.get("height") or 1024),
-                    seed=int(meta.get("seed") or job.get("seed") or 1),
+                    width=int(meta.get("width") or job.get("width") or 1024),
+                    height=int(meta.get("height") or job.get("height") or 1024),
+                    seed=int(meta["seed"] if meta.get("seed") is not None else
+                             (job["seed"] if job.get("seed") is not None else 1)),
                     mime_type=mime,
                     file_path=str(path),
                     file_bytes=len(data),
@@ -579,12 +607,15 @@ async def process_one(svc) -> int | None:
             await svc.bus.emit("image.asset.created", asset_id=asset_id, job_id=job_id)
 
         async with svc.db.session() as s:
-            await s.execute(sa.update(jobs_t).where(jobs_t.c.id == job_id).values(
+            completed = await s.execute(sa.update(jobs_t).where(
+                jobs_t.c.id == job_id, jobs_t.c.status == "running"
+            ).values(
                 status="completed", progress=1.0, finished_at=utcnow(), updated_at=utcnow(),
                 options={**dict(job.get("options") or {}), "asset_ids": created},
             ))
             await s.commit()
-        await svc.bus.emit("image.job.completed", job_id=job_id, asset_ids=created)
+        if completed.rowcount:
+            await svc.bus.emit("image.job.completed", job_id=job_id, asset_ids=created)
     except Exception as exc:
         await _fail_job(svc, job_id, f"{type(exc).__name__}: {exc}")
     return job_id
@@ -592,10 +623,13 @@ async def process_one(svc) -> int | None:
 
 async def _fail_job(svc, job_id: int, message: str) -> None:
     async with svc.db.session() as s:
-        await s.execute(sa.update(jobs_t).where(jobs_t.c.id == job_id).values(
+        failed = await s.execute(sa.update(jobs_t).where(
+            jobs_t.c.id == job_id, jobs_t.c.status == "running"
+        ).values(
             status="failed", error=message[:2000], finished_at=utcnow(), updated_at=utcnow()))
         await s.commit()
-    await svc.bus.emit("image.job.failed", job_id=job_id, message=message[:500])
+    if failed.rowcount:
+        await svc.bus.emit("image.job.failed", job_id=job_id, message=message[:500])
 
 
 async def _tick(svc) -> None:

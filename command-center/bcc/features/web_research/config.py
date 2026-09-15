@@ -108,10 +108,17 @@ def _env_searxng(name: str) -> str:
     raw = _env_raw(name)
     if not raw:
         return ""
-    parts = urlsplit(raw)
+    # urlsplit raises on malformed IPv6; .port also validates numeric/range.
+    # A bad optional service address must produce bad_config, not kill boot.
+    try:
+        parts = urlsplit(raw)
+        port = parts.port
+    except ValueError:
+        _env_errors.append(f"{name}: некорректный хост или порт инстанса")
+        return ""
     if parts.scheme not in ("http", "https") or not parts.hostname:
         _env_errors.append(f"{name}: ожидался адрес вида http://127.0.0.1:8888, "
-                           f"получено {raw!r}")
+                           "с корректным хостом")
         return ""
     if parts.username or parts.password:
         _env_errors.append(f"{name}: логин и пароль в адресе не принимаются")
@@ -119,6 +126,13 @@ def _env_searxng(name: str) -> str:
     if parts.query or parts.fragment:
         _env_errors.append(f"{name}: адрес инстанса задаётся без ?query и без #фрагмента "
                            f"(путь и параметры запроса модуль подставляет сам)")
+        return ""
+    if parts.path not in ("", "/"):
+        _env_errors.append(f"{name}: укажите корень инстанса без пути /search; "
+                           "размещение в подпапке пока не поддерживается")
+        return ""
+    if port == 0 or any(c.isspace() for c in raw) or "\\" in raw:
+        _env_errors.append(f"{name}: некорректный хост или порт инстанса")
         return ""
     return f"{parts.scheme}://{parts.netloc}".rstrip("/")
 
@@ -670,7 +684,8 @@ def readiness(*, backends: Sequence[Mapping[str, Any]] = (), osiris_on: bool | N
     elif general_ready:
         names = ", ".join(r["id"] for r in general_ready)
         code, text = "ready_general", (
-            f"Общий веб-поиск доступен: {names}. Кроме него работают "
+            f"Общий веб-поиск настроен: {names}; доступность проверяется при запросе. "
+            f"Кроме него настроены "
             f"{len(keyless_ready)} {_plural_sources(len(keyless_ready))} без ключа — "
             f"справки, документация, пакеты, научные работы.")
     else:
@@ -702,6 +717,7 @@ def readiness(*, backends: Sequence[Mapping[str, Any]] = (), osiris_on: bool | N
         "page_chars": chars,
         "page_links": MAX_PAGE_LINKS,
         "searxng_configured": bool(SEARXNG_URL),
+        "searxng_setup": searxng_setup(),
         "env_errors": list(_env_errors),
         "recommendations": recommendations,
         "limits": {
@@ -715,6 +731,26 @@ def readiness(*, backends: Sequence[Mapping[str, Any]] = (), osiris_on: bool | N
             "host_rate_per_min": HOST_RATE_PER_MIN,
         },
         "forbidden_serp": [{"pattern": p.pattern, "why": w} for p, w in SERP_DENY],
+    }
+
+
+def searxng_setup() -> dict[str, Any]:
+    """Local setup instructions, never an assertion that the server is live."""
+    return {
+        "configured": bool(SEARXNG_URL),
+        "base_url": SEARXNG_URL,
+        "live_status": "not_verified_live",
+        "required_environment": {
+            FLAG: "1", OSIRIS_FLAG: "1",
+            "BOSSMAN_WEB_SEARXNG_URL": "http://127.0.0.1:8888",
+        },
+        "required_formats": ["html", "json"],
+        "restart_required_after_url_change": True,
+        "search_endpoint": "/api/web/search",
+        "settings_hint": "В settings.yml SearXNG включите search.formats: [html, json]",
+        "setup_file": "config/oss/searxng/README.md",
+        "upstream": "https://github.com/searxng/searxng",
+        "api_docs": "https://docs.searxng.org/dev/search_api.html",
     }
 
 
@@ -735,6 +771,7 @@ def as_dict() -> dict[str, Any]:
         "daily_fetches": DAILY_FETCHES, "raw_budget_mb": RAW_BUDGET_MB,
         "host_rate_per_min": HOST_RATE_PER_MIN,
         "searxng_configured": bool(SEARXNG_URL),
+        "searxng_setup": searxng_setup(),
         "content_types": sorted(CONTENT_TYPE_OK),
         "exfil_sinks": sorted(EXFIL_SINKS),
         "serp_deny": [{"pattern": p.pattern, "why": w} for p, w in SERP_DENY],

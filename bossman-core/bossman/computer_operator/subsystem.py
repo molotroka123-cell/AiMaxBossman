@@ -9,6 +9,7 @@ Gateway) -> Observer (реальный рабочий стол) -> policy -> Act
 через events.emit, подтверждения — через approvals.create/wait.
 """
 from pathlib import Path
+import os
 
 from .. import approvals, events
 from ..config import settings
@@ -195,13 +196,24 @@ def build_manager(*, store_path=None, launcher=None, browser_dispatch=None) -> C
         VisionInputAdapter(desktop),
         desktop,
     ]
+    screenshot = LocalScreenshotProvider()
+    observer = Observer(desktop, screenshot)
+    planner_options = dict(model_alias=PLANNER_ALIAS,
+                           supported=_supported_kinds_provider(CapabilityRegistry(backends)))
+    if os.environ.get("BOSSMAN_COMPUTER_PLANNER", "").strip().lower() == "uitars":
+        from .uitars import UiTarsObserver, UiTarsPlanner
+        observer = UiTarsObserver(desktop, screenshot)
+        planner = UiTarsPlanner(planner_chat,
+            visual_model=os.environ.get("BOSSMAN_UITARS_MODEL", "").strip(),
+            observer=observer, screenshot_root=screenshot.root, **planner_options)
+    else:
+        planner = Planner(planner_chat, **planner_options)
     return AuthorizedComputerOperatorManager(
         store=JsonTaskStore(store_path or default_store_path()),
         # V2.6, D4: планировщику предлагаются только виды с реальным backend'ом
         # на этом хосте (CapabilityRegistry опрашивает те же адаптеры роутера).
-        planner=Planner(planner_chat, model_alias=PLANNER_ALIAS,
-                        supported=_supported_kinds_provider(CapabilityRegistry(backends))),
-        observer=Observer(desktop, LocalScreenshotProvider()),
+        planner=planner,
+        observer=observer,
         action_router=ActionRouter(backends),
         approval_create=approvals.create, approval_wait=approvals.wait,
         event_emit=events.emit,

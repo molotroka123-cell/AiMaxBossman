@@ -404,8 +404,8 @@ BACKENDS: tuple[Backend, ...] = tuple(_backend(b) for b in (
     # функция, что и для остальных, без отдельной ветки правды.
     Backend(
         id="searxng-local",
-        honest_capability=("общий веб-поиск через ваш собственный SearXNG; это единственный "
-                           "путь к открытому вебу, который не нарушает ничьих условий"),
+        honest_capability=("общий веб-поиск через ваш собственный SearXNG; "
+                           "результат зависит от доступности настроенных поисковых движков"),
         shape="searxng",
         via="private_door",
         general_web=True,
@@ -859,7 +859,8 @@ def parse_serp(backend: Backend, payload: Any) -> dict[str, Any]:
 
 def serp_observations(source: osiris.Source, subject: str, payload: Any, *, url: str,
                       raw_ref: str, collected_at, fetched_at,
-                      shape: str = "") -> list[osiris.Observation]:
+                      shape: str = "", private_source_origin: str | None = None
+                      ) -> list[osiris.Observation]:
     """Выдача → наблюдения. Сигнатура осирисовская, ею же пользуется `collect`.
 
     Наблюдение `search.query` выдаётся ВСЕГДА и ПЕРВЫМ — до разбора результатов
@@ -878,6 +879,14 @@ def serp_observations(source: osiris.Source, subject: str, payload: Any, *, url:
     которой никто не проверял.
     """
     backend = BACKENDS_BY_ID.get(source.id)
+    if private_source_origin is not None:
+        # The exception belongs only to the configured private-door backend.
+        # Payload/observation JSON cannot grant it, nor can an OSIRIS parser.
+        if (source.id != "searxng-local" or backend is None
+                or backend.via != "private_door" or not config.SEARXNG_URL
+                or private_source_origin != config.SEARXNG_URL
+                or source.base_url != private_source_origin):
+            raise osiris.PassportError("private search source mismatch")
     if backend is None:
         # Источник объявлен владельцем, а не нами: карты выдачи нет, форму
         # берём из имени парсера, поля угадываем. Честнее угадать и сказать об
@@ -892,18 +901,20 @@ def serp_observations(source: osiris.Source, subject: str, payload: Any, *, url:
                           outcome="bad_response",
                           detail=f"источник объявлен как {backend.shape}, "
                                  f"а разбирается как {shape}",
-                          hits=[], dropped=0)
+                          hits=[], dropped=0, private_source_origin=private_source_origin)
 
     parsed = parse_serp(backend, payload)
     return _only_head(source, subject, backend, url=url, raw_ref=raw_ref,
                       collected_at=collected_at, fetched_at=fetched_at,
                       outcome=parsed["outcome"], detail=parsed["detail"],
-                      hits=parsed["hits"], dropped=parsed["dropped"])
+                      hits=parsed["hits"], dropped=parsed["dropped"],
+                      private_source_origin=private_source_origin)
 
 
 def _only_head(source: osiris.Source, subject: str, backend: Backend, *, url: str,
                raw_ref: str, collected_at, fetched_at, outcome: str, detail: str,
-               hits: Sequence[Mapping[str, Any]], dropped: int) -> list[osiris.Observation]:
+               hits: Sequence[Mapping[str, Any]], dropped: int,
+               private_source_origin: str | None = None) -> list[osiris.Observation]:
     """Собрать наблюдение запроса и наблюдения результатов.
 
     `source_url` у КАЖДОГО результата — адрес запроса к API, а не адрес самого
@@ -920,7 +931,8 @@ def _only_head(source: osiris.Source, subject: str, backend: Backend, *, url: st
                "trusted_hosts": list(backend.trusted_hosts)},
         subject=subject, source_id=source.id, source_url=url, method=source.method,
         license=source.license, observed_at=fetched_at, collected_at=collected_at,
-        confidence=source.default_confidence, raw_ref=raw_ref, attribute="search.query")
+        confidence=source.default_confidence, raw_ref=raw_ref, attribute="search.query",
+        private_source_origin=private_source_origin)
     out = [head]
     for hit in hits:
         out.append(osiris.Observation(
@@ -930,7 +942,7 @@ def _only_head(source: osiris.Source, subject: str, backend: Backend, *, url: st
             subject=subject, source_id=source.id, source_url=url, method=source.method,
             license=source.license, observed_at=fetched_at, collected_at=collected_at,
             confidence=source.default_confidence, raw_ref=raw_ref,
-            attribute="search.result"))
+            attribute="search.result", private_source_origin=private_source_origin))
     return out
 
 
@@ -1289,11 +1301,25 @@ async def _run_private_door(svc, backend: Backend, subject: str, *,
             return _fail(backend, subject, "egress_blocked", f"{exc.__class__.__name__}: {exc}")
         except Exception as exc:               # noqa: BLE001 — инстанс бывает мёртвым
             return _fail(backend, subject, "source_unavailable",
-                         f"свой SearXNG недоступен: {exc.__class__.__name__}")
+                         f"свой SearXNG недоступен: {exc.__class__.__name__}; "
+                         "проверьте, что контейнер запущен и BOSSMAN_WEB_SEARXNG_URL "
+                         "указывает на его порт. После изменения адреса перезапустите Bossman")
         status = int(getattr(raw, "status", 0) or 0)
         if status != 200:
+            if status == 403:
+                # Upstream returns 403 when format=json is not enabled. It may
+                # also be a proxy/ACL denial, so diagnose without claiming cause.
+                detail = ("свой SearXNG ответил HTTP 403: проверьте search.formats: "
+                          "[html, json] в settings.yml и правила доступа к инстансу; "
+                          "после изменения settings.yml перезапустите SearXNG")
+            elif status == 429:
+                return _fail(backend, subject, "rate_limited",
+                             "свой SearXNG ответил HTTP 429: ограничение частоты; "
+                             "повторите запрос позже и проверьте limiter своего инстанса")
+            else:
+                detail = f"свой SearXNG ответил HTTP {status}"
             return _fail(backend, subject, "source_unavailable",
-                         f"свой SearXNG ответил HTTP {status}")
+                         detail)
         body, _enc, _ratio = html_text.decode_body(
             getattr(raw, "content", b"") or b"",
             str((getattr(raw, "headers", {}) or {}).get("content-type", "")))
@@ -1307,11 +1333,13 @@ async def _run_private_door(svc, backend: Backend, subject: str, *,
         payload = json.loads(body)
     except ValueError as exc:
         return _fail(backend, subject, "bad_response",
-                     f"ответ своего SearXNG не разбирается как JSON: {exc}")
+                     f"ответ своего SearXNG не разбирается как JSON: {exc}; "
+                     "проверьте адрес инстанса и search.formats: [html, json] в settings.yml")
 
     observations = serp_observations(
         source, subject, payload, url=url, raw_ref=f"raw:{digest}",
-        collected_at=st.next_collected_at(), fetched_at=fetched_at, shape="searxng")
+        collected_at=st.next_collected_at(), fetched_at=fetched_at, shape="searxng",
+        private_source_origin=config.SEARXNG_URL)
     st.save_observations(subject, observations, [digest])
 
     rows = [o.as_dict() for o in observations]
