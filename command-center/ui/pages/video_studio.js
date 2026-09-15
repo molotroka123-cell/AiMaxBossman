@@ -187,7 +187,7 @@ class Editor {
         ...this.projects.map(p => h('option', { value: p.id, selected: p.id === this.project?.id }, p.name))),
       this.button('＋', () => this.create(), { title: this.t('create') }),
       this.button('⋯', () => this.projectMenu(), { title: this.t('project'), disabled: !this.project }),
-      h('nav.vs-workspaces', { 'aria-label': 'Workspace' }, ...['montage', 'color', 'audio', 'vfx', 'ai'].map(key => this.button(this.t(key), () => { this.workspace = key; preference('workspace', key); this.paint(); }, { class: this.workspace === key ? 'active' : '', 'aria-pressed': this.workspace === key }))),
+      h('nav.vs-workspaces', { 'aria-label': 'Workspace' }, ...['montage', 'color', 'audio', 'vfx', 'ai'].map(key => this.button(this.t(key), () => { this.workspace = key; preference('workspace', key); this.paint(); }, { class: this.workspace === key ? 'active' : '', 'aria-pressed': String(this.workspace === key) }))),
       this.button('↶', () => this.command({ type: 'history.undo' }), { title: `${this.t('undo')} · Ctrl+Z`, disabled: !this.project }),
       this.button('↷', () => this.command({ type: 'history.redo' }), { title: `${this.t('redo')} · Ctrl+Shift+Z`, disabled: !this.project }),
       this.button('⌘', () => this.palette(), { title: `${this.t('commands')} · Ctrl+K`, disabled: !this.project }),

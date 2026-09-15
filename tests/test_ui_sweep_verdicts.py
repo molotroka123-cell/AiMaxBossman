@@ -53,3 +53,15 @@ def test_refresh_and_explicit_initial_state_do_not_claim_changes():
     assert classify(unchanged_state={'empty_attachments': '0 files'}) == 'already_empty'
     assert classify(unchanged_state={}) == 'dead'
     assert classify(unchanged_state={'selected': 'aria-selected=true'}, console=['failure']) == 'error'
+
+
+@pytest.mark.parametrize('payload, expected', [
+    ({'ok': True, 'ready': True}, None),
+    ({'ok': False, 'ready': False, 'reason': 'exited'}, 'exited'),
+    ({'ok': False, 'ready': False, 'reason': 'not_ready'}, 'not_ready'),
+    ({'ok': True, 'ready': False}, 'readiness_not_confirmed'),
+    ({'ok': False, 'reason': 'private child log'}, 'readiness_not_confirmed'),
+    (None, 'readiness_not_confirmed'),
+])
+def test_app_start_2xx_requires_actual_readiness_without_leaking_logs(payload, expected):
+    assert sweep._app_start_problem(payload) == expected

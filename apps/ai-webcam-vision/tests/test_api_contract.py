@@ -144,6 +144,13 @@ def test_bearer_auth_is_enforced_when_configured(base_env):
     service = VisionService(settings, source=SyntheticFrameSource())
     with TestClient(build_app(settings, service=service)) as client:
         assert client.get("/healthz").status_code == 200
+        readiness = client.get("/readyz")
+        assert readiness.status_code == 200
+        assert readiness.json() == {
+            "status": "ready", "scope": "http-service", "workload_status": "degraded",
+            "app": service.health()["app"],
+        }
+        assert client.get("/healthz").json()["status"] == "degraded"
         assert client.get("/api/v1/health").status_code == 401
         assert client.post("/api/v1/jobs", json={"type": "probe"}).status_code == 401
         ok = client.get("/api/v1/health", headers={"Authorization": "Bearer contract-token-value"})

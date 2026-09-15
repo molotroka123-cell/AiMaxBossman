@@ -76,6 +76,15 @@ KILLS_HARNESS = re.compile(
 
 SETTLE_MS = 700          # сколько ждать последствий нажатия
 PAGE_SETTLE_MS = 900     # сколько ждать первой отрисовки страницы
+APP_START_ROUTE = re.compile(r'/api/apps/[^/?#]+/start(?:\?[^#]*)?$')
+
+
+def _app_start_problem(payload):
+    if isinstance(payload, dict) and payload.get('ok') is True and payload.get('ready') is True:
+        return None
+    reason = payload.get('reason') if isinstance(payload, dict) else None
+    # Never copy child logs, commands or arbitrary provider details into proof.
+    return reason if reason in ('exited', 'not_ready') else 'readiness_not_confirmed'
 
 
 @dataclass
@@ -284,7 +293,7 @@ def _classify(*, failures, console, page_errors, requests, responses,
     if failures or page_errors or console:
         return 'error', '; '.join(sorted(set(failures + page_errors + console))[:3])
     if incomplete_requests:
-        return 'error', 'За 10 секунд не получен ответ: ' + '; '.join(sorted(incomplete_requests))
+        return 'error', 'Не получен ответ в пределах тайм-аута действия: ' + '; '.join(sorted(incomplete_requests))
     if responses:
         return 'request_accepted', '; '.join(responses[:3]) + ' (ответ 2xx; результат отдельно не проверен)'
     if requests:
@@ -339,6 +348,15 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
         page.on('request', lambda r: pending.add(f'{r.method} {r.url}')
                 if r.method in ('POST', 'PUT', 'PATCH', 'DELETE') else None)
         page.on('response', lambda r: pending.discard(f'{r.request.method} {r.url}'))
+        def verify_app_start(response):
+            if response.request.method == 'POST' and APP_START_ROUTE.search(response.url) and response.ok:
+                try:
+                    problem = _app_start_problem(response.json())
+                except Exception:
+                    problem = 'invalid_readiness_response'
+                if problem:
+                    failures.append('App start: ' + problem)
+        page.on('response', verify_app_start)
         def request_failed(request):
             key = f'{request.method} {request.url}'
             if key in pending:
@@ -469,7 +487,14 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                                          + (f" | {seen}" if seen else "")))
                     continue
                 page.wait_for_timeout(SETTLE_MS)
-                deadline = time.monotonic() + 10
+                # App startup deliberately waits READY_TIMEOUT (25 seconds)
+                # for cold imports. Allow its declared deadline plus transport
+                # margin; other mutations retain the normal ten-second bound.
+                timeout = 10
+                if any(APP_START_ROUTE.search(request) for request in pending):
+                    from bcc.features.apps_control import READY_TIMEOUT
+                    timeout = READY_TIMEOUT + 5
+                deadline = time.monotonic() + timeout
                 while pending and time.monotonic() < deadline:
                     page.wait_for_timeout(100)
 
