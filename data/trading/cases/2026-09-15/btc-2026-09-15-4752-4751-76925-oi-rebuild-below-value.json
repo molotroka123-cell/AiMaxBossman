@@ -1,0 +1,110 @@
+{
+  "canonical_case_id": "CASE-002",
+  "event_type": "SCREENSHOT_OBSERVATION_AND_CONDITIONAL_ANALYSIS",
+  "recorded_date": "2026-09-15",
+  "capture_timestamp": null,
+  "source": "User-supplied Coinwise/K1m6a screenshots; visual interpretation, not a verified live market feed",
+  "source_images": [
+    {"name": "IMG_4752.jpeg", "role": "price_and_levels", "sha256": "e03cdbd029d8a47a29688e7174408596f5751f7bf50348429420b535f7501b2b"},
+    {"name": "IMG_4751.png", "role": "cvd_oi_liquidations", "sha256": "d247241bfdc4b9d76bbda31fdf39e62e02278e26a3a54b9bf3ebc57597e70aa9"}
+  ],
+  "observed": {
+    "market_context": "BTC",
+    "chart_price": 76925,
+    "chart_min_tick": 5,
+    "exact_contract_and_exchange": null,
+    "timeframe": null,
+    "latest_bar_closed": null,
+    "cvd_billion_displayed": 58.13,
+    "oi_billion_displayed": 18.22,
+    "long_liquidations_displayed": "4.57K",
+    "short_liquidations_displayed": "-24.51K",
+    "liquidations_delta_moving_average_displayed": "-595.92K",
+    "liquidations_interval": null,
+    "levels": {
+      "dpoc": 76935,
+      "dval": 76700,
+      "dvah": 77320,
+      "dopen": 77590,
+      "npoc": 77895,
+      "rzone": 76480
+    },
+    "weekly_low_approx": 76000,
+    "profile_price_marker": 77890,
+    "other_price_marker": 77000,
+    "recent_tape_prices_approx": [76890, 76940],
+    "price_path": "A substantial decline has crossed the previously watched 78000 and 77730-77815 areas. The right edge is now a small sideways consolidation around 76925 after a low near 76700; its upper wicks are roughly 77100-77150. No sustained escape above the consolidation is established.",
+    "cvd_path": "CVD fell during the larger decline and is now nearly flat or slightly recovering at the right edge. It does not show a strong new breakout in buying pressure.",
+    "oi_path": "OI fell into a trough below 18B and then visibly rebuilt toward 18.22B while price remained in the lower consolidation."
+  },
+  "previous_event": {
+    "file": "data/trading/cases/2026-09-14/btc-2026-09-14-4750-4749-78100-pullback-oi-down.json",
+    "prior_displayed_labels": {"price": 78100, "cvd_billion": 61.23, "oi_billion": 17.96},
+    "same_series_and_interval_verified": false,
+    "verified_cross_snapshot_price_delta": null,
+    "verified_cross_snapshot_cvd_delta": null,
+    "verified_cross_snapshot_oi_delta": null,
+    "comparison_limit": "Full instrument identity, timestamps, aggregation and CVD anchor are not visible. The strongest evidence is the within-frame OI trough and subsequent rebuild. Do not treat endpoint differences as synchronized flows.",
+    "prior_long_recovery_plan_status": "NOT_CONFIRMED; prior long recovery gates have not been recovered on this image",
+    "intervening_entries_or_stops": "UNKNOWN"
+  },
+  "assessment": {
+    "status": "UNTESTED_HYPOTHESIS",
+    "broader_structure": "BEARISH_PRICE_STRUCTURE_AFTER_FAILED_RALLY",
+    "latest_leg": "PRICE_SIDEWAYS_CVD_FLAT_TO_SLIGHT_UP_OI_REBUILDING",
+    "interpretation": "This is no longer only declining OI through a selloff: outstanding exposure is rebuilding near the lows without clear upward price progress. Direction remains unresolved. The image does not establish that the rebuilding positions are specifically shorts, crowded longs, or positions with a particular leverage multiple.",
+    "important_distinction": "Do not label the immediate right edge PRICE_DOWN_CVD_DOWN_OI_UP solely by comparing distant endpoints: the latest visible price action is sideways and CVD is stabilizing. A renewed downside break accompanied by falling CVD and rising OI would be a separate adverse transition.",
+    "new_long_trigger_confirmed": false,
+    "new_short_trigger_confirmed": false,
+    "statistical_edge_proven": false,
+    "win_probability": null,
+    "current_stance": "No new market long based on this screenshot. Do not chase a short into the consolidation low either."
+  },
+  "conditional_scenarios": {
+    "countertrend_rebound_candidate": {
+      "early_repair_observation": "Escape above the consolidation's visible wick-high area around 77100-77150 and a held retest would be initial repair, not proof of a larger trend reversal.",
+      "stronger_repair_reference": 77320,
+      "trigger": "Reclaim current dVAH 77320, hold a retest, form a higher local low and obtain improving CVD on the same interval. OI need not fall; any rebuild should be accompanied by actual price progress rather than stalled price.",
+      "upper_reference_areas": [[77550, 77600], [77800, 77895]],
+      "status": "NOT_TRIGGERED",
+      "invalidation": "A failed retest and loss of its newly confirmed local low cancels this specific candidate regardless of OI sign.",
+      "separate_from_prior_plan": "This would be a new local countertrend hypothesis, not a lowered stop or retroactive rescue of a long planned near 78400-78650."
+    },
+    "continued_decline_candidate": {
+      "key_lower_reference": 76700,
+      "trigger": "Break below 76700 followed by rejection on a reclaim attempt. Renewed CVD weakness and continuing OI rebuild would strengthen, not independently prove, a bearish interpretation.",
+      "lower_reference_areas": [[76480, 76500], [76000, 76050]],
+      "status": "NOT_TRIGGERED",
+      "risk_gate": "A short needs its own entry, rejection-high invalidation and sufficient reward relative to risk after costs. These are reference areas, not guaranteed destinations or executable orders."
+    }
+  },
+  "quality_risk_and_privacy": {
+    "cvd_settings_and_anchor": null,
+    "oi_measurement_unit_and_valuation_method": "B-scale displayed; dollar notional interpretation possible but exact aggregation not verified",
+    "oi_warning": "OI counts outstanding contracts with both a buyer and a seller. Changes in dollar-denominated OI can include valuation effects; OI does not disclose trader count, collateral inflow, initiating direction or leverage multiples.",
+    "liquidations_warning": "Displayed readings refer to an unknown interval, not day totals. The minus sign is plotting direction. The moving average must not be added to liquidation amounts, and low current liquidation readings do not prove the decline has ended.",
+    "mexc_execution_quote": null,
+    "synchronized_reference_execution_basis": null,
+    "position_state": "UNKNOWN_CURRENT",
+    "order_fills_inferred": false,
+    "orders_placed": false,
+    "case_registry_unchanged": true,
+    "case_number_changed": false,
+    "raw_images_published": false,
+    "personal_account_data_published": false,
+    "risk_principle": "Do not add exposure to recover prior losses or move an existing stop down to the new profile. A new local dPOC alone does not repair the prior failed long thesis."
+  },
+  "learning_summary": [
+    "Distinguish the entire selloff from the immediate sideways/OI-rebuild segment.",
+    "A newly formed lower dPOC is a location, not directional confirmation.",
+    "Rising OI at flat price is unresolved new outstanding exposure, not automatically bullish or bearish.",
+    "Retest confirmation and invalidation must use the execution instrument, not an assumed fixed offset from a stream.",
+    "Keep probabilities null without calibrated out-of-sample evidence.",
+    "Preserve prior plans and record new countertrend hypotheses separately; no moving-stop rescue."
+  ],
+  "methodology_sources_checked": [
+    {"url": "https://www.cmegroup.com/trading/about-volume.html", "scope": "General definition of OI; not the source of screenshot readings"},
+    {"url": "https://www.cmegroup.com/education/lessons/open-interest", "scope": "OI versus volume, not Coinwise aggregation verification"},
+    {"url": "https://www.tradingview.com/support/solutions/43000725058-cumulative-volume-delta/", "scope": "Example of CVD accumulation and anchor dependence; not Coinwise-specific methodology"}
+  ]
+}
