@@ -65,5 +65,5 @@ No paid API call in this session. Fable not re-invoked. Ledger unchanged at $0.0
 - `ObservationLog.record` has no idempotency key; harmless today (log is rebuilt per
   poll from a bounded window) but would double-count if observations become durable.
 
-READY_FOR_GLM_RED_TEAM = YES — see `RED_TEAM_HANDOFF.md`.
+READY_FOR_GLM_RED_TEAM = YES — see `docs/archive/root-history/RED_TEAM_HANDOFF.md`.
 READY_FOR_PRODUCTION = NO-GO (release tier still lacks LIVE evidence).

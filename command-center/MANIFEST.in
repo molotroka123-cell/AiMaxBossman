@@ -1,2 +1,3 @@
 recursive-include ui *.html *.js *.css *.svg *.png *.ico *.json
+recursive-include ui/vendor *.md
 prune ui/tests

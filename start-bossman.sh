@@ -43,7 +43,15 @@ fi
 if [ "$SKIP_INSTALL" -eq 0 ]; then
   step "Устанавливаю пакеты (первый запуск занимает несколько минут)"
   "$VENV_PY" -m pip install --upgrade pip --quiet
-  "$VENV_PY" -m pip install --quiet -e . -e command-center -e bossman-core
+  INSTALL_ARGS=(-e . -e 'command-center[runtime]' -e 'bossman-core[runtime]')
+  for project in apps/*/pyproject.toml; do
+    [ ! -f "$project" ] || INSTALL_ARGS+=(-e "${project%/pyproject.toml}")
+  done
+  "$VENV_PY" -m pip install "${INSTALL_ARGS[@]}"
+  "$VENV_PY" -m pip check
+  if ! "$VENV_PY" -c 'from bcc.browser_runtime import chromium_executable; import sys; sys.exit(0 if chromium_executable() else 1)'; then
+    "$VENV_PY" -m playwright install chromium
+  fi
 fi
 
 step "Предполётная проверка"

@@ -47,6 +47,12 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def pip_requirements(wheels: list[Path]) -> list[str]:
+    """Install the same owner capabilities as the source/Windows launchers."""
+    return [str(w) + ("[runtime]" if w.name.startswith(
+        ("bossman_core-", "bossman_command_center-")) else "") for w in wheels]
+
+
 def _source_sha() -> str:
     sha = _run(["git", "-C", str(ROOT), "rev-parse", "HEAD"]).stdout.strip()
     if len(sha) != 40 or any(c not in "0123456789abcdef" for c in sha):
@@ -112,7 +118,7 @@ def verify(wheels: Path, verifier: Path, source_sha: str) -> dict:
         env = dict(os.environ)
         for key in ("PYTHONPATH", "BCC_UI_DIR", "BCC_DATA_DIR", "DATABASE_URL"):
             env.pop(key, None)
-        _run([str(python), "-m", "pip", "install", *map(str, sorted(wheels.glob("*.whl")))],
+        _run([str(python), "-m", "pip", "install", *pip_requirements(sorted(wheels.glob("*.whl")))],
              cwd=work, env=env)
         _run([str(python), "-m", "pip", "check"], cwd=work, env=env)
         installed_script = work / "verify_installed_product.py"
@@ -151,13 +157,16 @@ if env_dir.is_symlink():
     raise SystemExit("Refusing to modify a symlinked .venv")
 venv.EnvBuilder(with_pip=True).create(env_dir)
 python = env_dir / ("Scripts" if os.name == "nt" else "bin") / "python"
-subprocess.run([str(python), "-m", "pip", "install", *map(str, sorted((root / "wheels").glob("*.whl")))], check=True)
+wheels = sorted((root / "wheels").glob("*.whl"))
+requirements = [str(w) + ("[runtime]" if w.name.startswith(("bossman_core-", "bossman_command_center-")) else "") for w in wheels]
+subprocess.run([str(python), "-m", "pip", "install", *requirements], check=True)
 # Project versions are intentionally unchanged between RCs: pip otherwise
 # silently keeps an older same-version install. Replace only our local wheels,
 # without needlessly reinstalling their already-resolved external dependencies.
 subprocess.run([str(python), "-m", "pip", "install", "--no-index", "--no-deps", "--force-reinstall",
                 *map(str, sorted((root / "wheels").glob("*.whl")))], check=True)
 subprocess.run([str(python), "-m", "pip", "check"], check=True)
+subprocess.run([str(python), "-m", "playwright", "install", "chromium"], check=True)
 verification_env = dict(os.environ)
 for key in ("PYTHONPATH", "BCC_UI_DIR", "BCC_DATA_DIR", "DATABASE_URL"):
     verification_env.pop(key, None)
@@ -205,10 +214,10 @@ DB/background loops, process restart and persistence, using only installed
 wheels. `MANIFEST.json` contains exact source identity, measured acceptance,
 dependency versions and file hashes. This is not evidence of a model-backed
 agent run. Configure a local/provider model in the UI for live execution.
-The bundle installs the Python Playwright package. Its Chromium binary is a
-separate download: on Ubuntu/Debian use
-`.venv/bin/python -m playwright install --with-deps chromium`; on Windows use
-`.venv\\Scripts\\python.exe -m playwright install chromium`.
+The installer installs the runtime extras (MCP, PDF, OpenTimelineIO, Windows
+automation where applicable) and downloads Chromium. On a minimal Ubuntu/Debian
+host, install system browser libraries with
+`.venv/bin/python -m playwright install-deps chromium`.
 Video import/export requires **both** `ffmpeg` and `ffprobe` on PATH; check
 `ffmpeg -version` and `ffprobe -version` in the same terminal used to start BCC.
 These OS prerequisites and optional apps' paid accounts/models are not included.

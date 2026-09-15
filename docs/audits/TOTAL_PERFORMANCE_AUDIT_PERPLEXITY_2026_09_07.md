@@ -327,19 +327,19 @@ async def observe():
 - `README.md` — общее описание проекта
 - `REAL_WORKLOAD_HARDWARE_AUDIT.md` — аппаратная аудит
 - `LOCAL_MODEL_ORCHESTRATION_TZ.md` — оркестрация моделей
-- `MASTER_PROMPT_BENCHMARK_ENGINE.md` — benchmark методика
+- `docs/archive/root-history/MASTER_PROMPT_BENCHMARK_ENGINE.md` — benchmark методика
 - `VIDEO_STUDIO_CAPABILITY_MATRIX.md` — видео возможности
-- `TELEGRAM_COMPAT_PROBE.md` — Telegram совместимость
-- `RED_TEAM_HANDOFF.md` — red team аудит
-- `AUDIT_STATE.md` — текущий статус аудита
+- `docs/archive/root-history/TELEGRAM_COMPAT_PROBE.md` — Telegram совместимость
+- `docs/archive/root-history/RED_TEAM_HANDOFF.md` — red team аудит
+- `docs/archive/root-history/AUDIT_STATE.md` — текущий статус аудита
 - `LOCAL_MODEL_STRIX_HALO_2026-09-07.md` — Strix Halo специфика
-- `AUTONOMY_TRAINER_FREEZE_REPORT.md` — freeze отчёт
+- `docs/archive/root-history/AUTONOMY_TRAINER_FREEZE_REPORT.md` — freeze отчёт
 - `BUG_MAP.md` — карта багов
 - `KEY_FUNCTION_TOUCH_MATRIX.md` — functional matrix
-- `FRESH_FREEZE_BASELINE.md` — freeze baseline
+- `docs/archive/root-history/FRESH_FREEZE_BASELINE.md` — freeze baseline
 - `RESTART_RESUME_PROOF.md` — restart proof
-- `HANDOFF_STATE.md` — handoff state
-- `ZIP3_INGEST_REPORT.md` — ZIP ingest
+- `docs/archive/root-history/HANDOFF_STATE.md` — handoff state
+- `docs/archive/root-history/ZIP3_INGEST_REPORT.md` — ZIP ingest
 - `CLAIMS_NOT_PROVEN.md` — недоказанные утверждения
 - `POST_FREEZE_BACKLOG.md` — post-freeze backlog
 - `INSTALL.md` — установка

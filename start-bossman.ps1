@@ -74,11 +74,21 @@ if (-not (Test-Path $VenvPython)) {
 if (-not $SkipInstall) {
     Write-Step "Устанавливаю пакеты (первый запуск занимает несколько минут)"
     & $VenvPython -m pip install --upgrade pip --quiet
-    & $VenvPython -m pip install --quiet -e . -e (Join-Path $Repo "command-center") -e (Join-Path $Repo "bossman-core")
+    $InstallArgs = @("-e", $Repo, "-e", "$(Join-Path $Repo 'command-center')[runtime]", "-e", "$(Join-Path $Repo 'bossman-core')[runtime]")
+    Get-ChildItem (Join-Path $Repo "apps") -Directory | Sort-Object Name | ForEach-Object {
+        if (Test-Path (Join-Path $_.FullName "pyproject.toml")) { $InstallArgs += @("-e", $_.FullName) }
+    }
+    & $VenvPython -m pip install @InstallArgs
     if ($LASTEXITCODE -ne 0) {
-        Write-Bad "Установка пакетов не удалась. Полный вывод:"
-        & $VenvPython -m pip install -e . -e (Join-Path $Repo "command-center") -e (Join-Path $Repo "bossman-core")
+        Write-Bad "Установка пакетов не удалась; причина показана выше."
         exit 1
+    }
+    & $VenvPython -m pip check
+    if ($LASTEXITCODE -ne 0) { Write-Bad "Зависимости несовместимы"; exit 1 }
+    & $VenvPython -c "from bcc.browser_runtime import chromium_executable; import sys; sys.exit(0 if chromium_executable() else 1)"
+    if ($LASTEXITCODE -ne 0) {
+        & $VenvPython -m playwright install chromium
+        if ($LASTEXITCODE -ne 0) { Write-Bad "Не удалось установить Chromium"; exit 1 }
     }
 }
 

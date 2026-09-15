@@ -592,6 +592,23 @@ function head(ctx) {
     { pills: [verPill = pill(`v${(state.meta && state.meta.version) || 0}`, { tone: 'info' })],
       actions: [
         sel,
+        btn('Конструктор блоков', async () => {
+          if (state.mutating || !await flushSave()) return;
+          const id = state.id;
+          state.mutating = true;
+          try {
+            const site = await api.raw(`/api/web-designer/projects/${id}/visual`);
+            const {openVisualEditor} = await import('./web_designer_visual.js');
+            const changed = await openVisualEditor({id, site, originalCode: state.code});
+            if (changed && state.id === id) {
+              state.selected = null;
+              await reloadState(); reloadFrame();
+              if (inspectorBox) renderInspector(inspectorBox);
+              toastOk('Сайт сохранён');
+            }
+          } catch (error) { toastError(error, 'Не удалось открыть конструктор'); }
+          finally { state.mutating = false; }
+        }, {variant: 'primary', size: 'sm', title: 'Блоки, слои и стили — GrapesJS'}),
         btn('+ Проект', async () => {
           if (state.mutating || !await flushSave()) return;
           clearRecovery(); state.saveConflict = false;

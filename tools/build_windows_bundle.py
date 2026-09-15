@@ -197,14 +197,14 @@ def pip_requirements(wheels: list[Path]) -> list[str]:
     """The wheels to install, with the extras the shipped product needs.
 
     The bundled doctor reported ``computer-operator`` BLOCKED on a complete
-    archive: the Windows automation packages live in the ``windows`` extra of
-    bossman-core, and installing the bare wheel leaves them out. The archive
+    archive: Windows automation, PDF, MCP and OTIO live in the ``runtime`` extras,
+    and installing the bare wheels leaves them out. The archive
     promises the owner has nothing left to install, so the extra is part of the
     build — not a line in a README telling them to run pip.
     """
     requirements = []
     for wheel in wheels:
-        extras = "[windows]" if wheel.name.startswith(("bossman_core-", "bossman-core-")) else ""
+        extras = "[runtime]" if wheel.name.startswith(("bossman_core-", "bossman-core-", "bossman_command_center-")) else ""
         requirements.append(f"{wheel}{extras}")
     return requirements
 

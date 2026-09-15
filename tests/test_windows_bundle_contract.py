@@ -141,7 +141,7 @@ def test_the_windows_automation_packages_are_part_of_the_build(tmp_path) -> None
     wheels = [tmp_path / "bossman_core-1.0-py3-none-any.whl",
               tmp_path / "bossman_shared-1.0-py3-none-any.whl"]
     requested = bundle.pip_requirements(wheels)
-    assert requested[0].endswith("bossman_core-1.0-py3-none-any.whl[windows]")
+    assert requested[0].endswith("bossman_core-1.0-py3-none-any.whl[runtime]")
     assert requested[1].endswith("bossman_shared-1.0-py3-none-any.whl"), (
         "only the distribution that declares the extra may carry it"
     )

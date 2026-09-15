@@ -34,7 +34,8 @@ import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-DISTRIBUTIONS = (".", "bossman-core", "command-center")
+DISTRIBUTIONS = (".", "bossman-core[runtime]", "command-center[runtime]",
+                 *(str(p.parent.relative_to(REPO)) for p in sorted((REPO / "apps").glob("*/pyproject.toml"))))
 
 
 def _console_utf8() -> None:

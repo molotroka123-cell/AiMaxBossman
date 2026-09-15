@@ -362,6 +362,13 @@ class GenerateIn(BaseModel):
     base_version: int | None = None
 
 
+class VisualIn(BaseModel):
+    body: str = Field(max_length=MAX_HTML_CHARS)
+    css: str = Field(default="", max_length=MAX_HTML_CHARS)
+    body_attributes: dict[str, str | None] | None = None
+    base_version: int = Field(ge=1)
+
+
 class EditIn(BaseModel):
     op: str = Field(min_length=1, max_length=16)
     bd_id: str | None = None
@@ -504,6 +511,52 @@ async def put_code(pid: int, body: CodeIn, request: Request):
         meta = _save_code(svc, pdir, body.html, body.note or "правка кода",
                           expect_version=body.base_version)
     return {"ok": True, "meta": meta}
+
+
+@router.get("/web-designer/visual-editor")
+async def visual_editor(request: Request):
+    # The vendor editor gets an opaque origin even when opened directly.
+    shell = Path(request.app.state.svc.settings.ui_dir) / "pages" / "web_designer_visual_frame.html"
+    try:
+        content = shell.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise HTTPException(503, detail="Файлы конструктора отсутствуют. Переустановите Command Center.") from exc
+    return HTMLResponse(content, headers={
+        **PREVIEW_HEADERS,
+        "Content-Security-Policy": "sandbox allow-scripts; form-action 'none'; frame-ancestors 'self'; "
+                                   "connect-src 'none'; object-src 'none'; base-uri 'none'",
+    })
+
+
+@router.get("/web-designer/projects/{pid}/visual")
+async def get_visual(pid: int, request: Request):
+    from ..web_designer_visual import parts
+    svc = request.app.state.svc
+    pdir, _ = _require_project(svc, pid)
+    async with _project_lock(pdir):
+        _, meta = _require_project(svc, pid)
+        try:
+            result = parts(_read_code(pdir, meta))
+        except ValueError as exc:
+            raise HTTPException(422, detail=str(exc)) from exc
+        return {**result, "meta": _public_meta(meta)}
+
+
+@router.put("/web-designer/projects/{pid}/visual")
+async def put_visual(pid: int, body: VisualIn, request: Request):
+    from ..web_designer_visual import merge
+    svc = request.app.state.svc
+    pdir, _ = _require_project(svc, pid)
+    async with _project_lock(pdir):
+        _, meta = _require_project(svc, pid)
+        if int(meta.get("version", 0)) != body.base_version:
+            raise HTTPException(409, detail="Сайт изменён в другой вкладке. Скачайте черновик перед закрытием конструктора.")
+        try:
+            html = merge(_read_code(pdir, meta), body.body, body.css, body.body_attributes)
+        except ValueError as exc:
+            raise HTTPException(422, detail=str(exc)) from exc
+        meta = _save_code(svc, pdir, html, "визуальная правка GrapesJS", expect_version=body.base_version)
+    return {"ok": True, "meta": _public_meta(meta)}
 
 
 @router.post("/web-designer/projects/{pid}/generate")

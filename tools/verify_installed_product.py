@@ -38,6 +38,14 @@ def verify(work: Path, expected_sha: str | None = None) -> dict:
     work.mkdir(parents=True, exist_ok=True)
     prefix = Path(sys.prefix).resolve()
     imports = {}
+    runtime_libraries = {}
+    for name in ("mcp", "pypdf", "opentimelineio", "playwright", "websockets"):
+        module = importlib.import_module(name)
+        path = Path(module.__file__).resolve()
+        assert path.is_relative_to(prefix), f"{name} did not come from the installed runtime"
+        runtime_libraries[name] = str(path)
+    from bcc.v2.mcp_runtime import load_sdk
+    assert len(load_sdk()) == 3
     for name in ("bossman_shared", "bossman", "bcc", "ai_3d_maker", "ai_webcam_vision",
                  "bossman_accountant", "exam_trainer_ai", "file_commander_mini",
                  "pc_autopilot_mini", "social_farm", "travel_architect"):
@@ -178,6 +186,14 @@ def verify(work: Path, expected_sha: str | None = None) -> dict:
                 assert served == expected_bytes, asset
             else:
                 assert served == json.loads(expected_bytes), asset
+        project = request('/api/web-designer/projects', method='POST',
+                          payload={'name': 'installed-visual-probe', 'template': 'blank'})
+        project_id = project['meta']['id']
+        visual = request(f'/api/web-designer/projects/{project_id}/visual')
+        request(f'/api/web-designer/projects/{project_id}/visual', method='PUT', payload={
+            'body': '<h1>Installed visual editor</h1>', 'css': 'h1{color:blue}',
+            'base_version': visual['meta']['version']})
+        assert b'grapes.min.js' in request('/api/web-designer/visual-editor')
         agent = request("/api/agents", method="POST", payload={
             "name": "installed-persistence-probe", "enabled": False})
         agent_id = agent["id"]
@@ -192,11 +208,13 @@ def verify(work: Path, expected_sha: str | None = None) -> dict:
         assert any(a["id"] == agent_id and a["name"] == "installed-persistence-probe"
                    and not a["enabled"] for a in agents), agents
         assert b"<html" in request("/").lower()
+        assert 'Installed visual editor' in request(f'/api/web-designer/projects/{project_id}')['code']
         request(f"/api/agents/{agent_id}", method="DELETE")
     finally:
         stop(process, log)
     return {"status": "PASS", "source_sha": source_sha, "python": sys.version.split()[0], "platform": sys.platform,
-        "imports": imports, "ui_dir": str(defaults.ui_dir), "assets_served": len(assets),
+        "imports": imports, "runtime_libraries": runtime_libraries,
+        "visual_editor_persistence": "PASS", "ui_dir": str(defaults.ui_dir), "assets_served": len(assets),
         "health": health, "restart_persistence": "PASS", "auth": "PASS",
         "app_package_resources": "PASS",
         "file_intelligence": {"enabled": file_intelligence["enabled"],

@@ -126,7 +126,7 @@ cd bossman-core && python -m bossman.benchmark run --tier nightly --output /tmp/
 ```
 
 ```bash
-cd bossman-core && python -c "from bossman.benchmark.sandbox_runtime import CASES; [print(c, CASES[c](20260902)['verified']) for c in sorted(CASES)]"
+cd bossman-core && python -c "from bossman.benchmark.sandbox_runtime import CASES; [print(c, CASES[c](../../../20260902)['verified']) for c in sorted(CASES)]"
 ```
 
 ## Rollback

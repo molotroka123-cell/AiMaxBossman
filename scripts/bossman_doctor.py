@@ -261,6 +261,16 @@ def check_journal_anchor() -> Check:
 
 def check_browser_runtime() -> Check:
     """TEST 2/3 вечерней приёмки требуют НАСТОЯЩИЙ браузер. Фейковый адаптер не считается."""
+    # The owner installer ships Playwright Chromium. Use the same discovery as
+    # the product instead of asking the owner to install it again.
+    try:
+        from bcc.browser_runtime import chromium_executable
+        runtime = chromium_executable()
+    except ImportError:
+        runtime = None
+    if runtime:
+        return Check("browser", PASS, f"Chromium установлен: {runtime}",
+                     facts={"browser": runtime, "playwright": True, "live_launch_verified": False})
     candidates = ["chrome", "chromium", "chromium-browser", "google-chrome", "msedge"]
     found = next((shutil.which(c) for c in candidates if shutil.which(c)), None)
     if not found and os.name == "nt":

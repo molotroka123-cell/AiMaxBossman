@@ -37,10 +37,15 @@
       "license": "BSD-3-Clause",
       "decision": "ADOPT_AS_OPTIONAL_BACKEND",
       "decided_on_branch": "claude/bossman-final-completion-kymr05",
-      "telemetry": "нет",
-      "reason": "зрелая механика визуального редактирования как необязательная канва Web Designer. Правки идут типизированными кадрами операций, а не innerHTML; схема проекта, сохранение и экспорт остаются за Bossman",
+      "telemetry": "telemetry:false; cssIcons disabled; browser test rejects any external request",
+      "reason": "Подключён к кнопке «Конструктор блоков» Веб-дизайнера. Блоки, слои, стили и undo/redo работают в готовом GrapesJS; сохранение через API Bossman, обязательную версию и существующую историю. Неподдерживаемая разметка отказывается от импорта, а не удаляется.",
       "reversible": "да — канва переключаемая, родной редактор остаётся",
-      "sha_source": "git ls-remote HEAD, 2026-09-11"
+      "sha_source": "npm view grapesjs@0.23.6 gitHead; совпадает с ранее закреплённым SHA",
+      "runtime_version": "0.23.6",
+      "runtime_status": "INTEGRATED_LOCAL_UI",
+      "runtime_manifest": "command-center/ui/vendor/grapesjs/manifest.json",
+      "network": "Локальные JS/CSS/переводы поставляются с приложением; исходящие запросы отсутствуют в проверенном статическом сценарии. Ресурсы самого сайта могут использовать сеть.",
+      "evidence": "command-center/tests/test_web_designer_grapesjs_ui.py; command-center/tests/test_web_designer_visual.py"
     },
     {
       "name": "Weave",

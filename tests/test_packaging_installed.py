@@ -69,6 +69,11 @@ def test_command_center_wheel_carries_the_file_intelligence_pin(tmp_path):
         assert packaged in names, sorted(n for n in names if "_integrations" in n)
         assert "bcc/_integrations/ai-file-sorter/NOTICE.md" in names, sorted(names)
         shipped = json.loads(wheel.read(packaged))
+        for name in ("grapes.min.js", "grapes.min.css", "LICENSE.md", "THIRD_PARTY_LICENSES.md", "manifest.json"):
+            asset = f"bcc/_ui/vendor/grapesjs/{name}"
+            assert asset in names, f"Installed visual editor is missing {name}"
+            assert wheel.read(asset) == (ROOT / 'command-center/ui/vendor/grapesjs' / name).read_bytes()
+        assert 'bcc/_ui/pages/web_designer_visual_frame.html' in names
     checkout = json.loads(
         (ROOT / "integrations" / "ai-file-sorter" / "integration.json").read_text(encoding="utf-8"))
     assert shipped == checkout, "the wheel ships a different manifest than the checkout"

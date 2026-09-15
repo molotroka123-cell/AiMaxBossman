@@ -1,14 +1,72 @@
-# Install Stage 12
+# Установка Bossman
 
-## Fastest path: iPhone PWA
+Рабочая ветка: `claude/bossman-final-convergence-hu2702`.
+Старые инструкции Stage 12 перенесены в [архив](docs/archive/root-history/INSTALL_STAGE12.md).
 
-1. Apply backend patch described in `backend_patch/INTEGRATE.md`.
-2. Run the Stage 12 + existing remote-client tests.
-3. Start Bossman Core on loopback/private interface only.
-4. Publish only Core through private HTTPS/Tailscale Serve.
-5. Locally bootstrap the owner device token with `bootstrap_remote_device.py` (or use an existing admin-enrolled device).
-6. On iPhone open `https://<private-host>/remote/app`, paste the device token, then Safari → Share → Add to Home Screen.
+## Windows
 
-## Native iOS path
+Установите Python 3.11+ и FFmpeg. Для Python рекомендуется 3.12.
+Скачайте указанную ветку или переключитесь на неё в своём клоне.
+В PowerShell из папки репозитория выполните:
 
-Use `ios/BossmanRemoteApp/`; generate the Xcode project with XcodeGen and sign with your Apple Development Team. It uses the same API and Keychain storage.
+```powershell
+.\start-bossman.ps1
+```
+
+Скрипт создаёт `.venv`, устанавливает три пакета Bossman, приложения из `apps/`,
+MCP, OpenTimelineIO, PDF-парсер, библиотеки управления Windows и Chromium.
+После проверки откроется Command Center.
+
+Повторный запуск без переустановки: `.\start-bossman.ps1 -SkipInstall`.
+Открыть в обычном браузере: добавьте `-Web`.
+Проверить установку: добавьте `-DoctorOnly`. Другой порт: `-Port 8810`.
+
+## Linux / macOS
+
+Установите Python 3.11+ и FFmpeg средствами своей системы, затем:
+
+```bash
+bash start-bossman.sh
+```
+
+Повторный запуск: `bash start-bossman.sh --skip-install`.
+Обычный браузер: `--web`; диагностика: `--doctor-only`; другой порт: `--port=8810`.
+На минимальной Linux-системе Chromium может потребовать системные библиотеки;
+их устанавливает команда `.venv/bin/python -m playwright install-deps chromium`.
+
+## Первый вход
+
+Панель доступна по <http://127.0.0.1:8800>. Используйте токен входа из файла,
+путь к которому показывает приложение. Подключите модель в настройках:
+локальный сервер или свой облачный провайдер. Без модели можно редактировать
+сайт вручную и работать с доступными локальными инструментами, но ИИ-задачи
+выполняться не будут.
+
+GrapesJS открывается кнопкой **«Конструктор блоков»** в Веб-дизайне.
+Он работает со статическим HTML/CSS. Если импорт может потерять программируемые
+или неподдерживаемые элементы, приложение предлагает редактировать исходный код.
+Сохранение использует те же проекты и историю версий. При конфликте с другой
+вкладкой черновик остаётся открыт и доступен для скачивания.
+
+MCP-серверы и OpenHands требуют настройки. Установка библиотек сама по себе
+не подключает внешние сервисы и не запускает модели.
+
+## Установка для разработки
+
+Для облегчённого сервера по-прежнему можно ставить пакеты без `[runtime]`.
+Для полного приложения в активированном окружении:
+
+```bash
+python -m pip install -e . -e "command-center[runtime,dev]" -e "bossman-core[runtime,dev]"
+```
+
+`start-bossman` дополнительно ставит все объявленные приложения из `apps/`.
+Профиль `[runtime]` также используется Windows-сборкой и установщиком локального
+архива. Для обновления состава зависимостей повторите запуск без `SkipInstall`.
+
+## Данные
+
+Запуск из исходников по умолчанию хранит данные в `command-center/data`;
+установленный пакет — в пользовательском каталоге данных платформы.
+`BCC_DATA_DIR` задаёт другой каталог. При обновлении не удаляйте каталог данных,
+файлы токенов, Vault или ключи подтверждения: это состояние владельца.
