@@ -97,17 +97,64 @@ def check_icons(home: Path) -> list[str]:
 
 
 def check_media(home: Path, env: dict) -> tuple[list[str], dict]:
-    """A real decode-side probe with the BUNDLED binaries, not a PATH lookup."""
+    """Encode, inspect and decode with the same binaries Video Studio uses.
+
+    An LGPL build can print its version successfully but lacks libx264, which
+    the product needs for its default MP4 exports and preview proxies.
+    """
     details, problems = {}, []
     for name in ("ffmpeg", "ffprobe"):
         binary = home / "media" / (f"{name}.exe" if os.name == "nt" else name)
         if not binary.exists():
             details[name] = "NOT_BUNDLED"
+            problems.append(f"required media binary is not bundled: {name}")
             continue
         done = _run([str(binary), "-version"], env=env, timeout=120)
-        details[name] = (done.stdout or "").splitlines()[0] if done.returncode == 0 else "FAILED"
+        lines = (done.stdout or "").splitlines()
+        details[name] = lines[0] if done.returncode == 0 and lines else "FAILED"
         if done.returncode:
             problems.append(f"bundled {name} did not run: {(done.stderr or '')[:200]}")
+    if problems:
+        return problems, details
+
+    ffmpeg = home / "media" / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+    ffprobe = home / "media" / ("ffprobe.exe" if os.name == "nt" else "ffprobe")
+    with tempfile.TemporaryDirectory(prefix="bossman media probe ") as scratch:
+        output = Path(scratch) / "default export.mp4"
+        encoded = _run([
+            str(ffmpeg), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+            "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=25",
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+            "-t", "0.4", "-c:v", "libx264", "-preset", "ultrafast",
+            "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", str(output),
+        ], env=env, timeout=120)
+        if encoded.returncode or not output.is_file() or output.stat().st_size == 0:
+            details["default_export"] = "FAILED"
+            problems.append("bundled FFmpeg cannot export the default libx264/AAC MP4: "
+                            + (encoded.stderr or "no output")[-400:])
+            return problems, details
+        probed = _run([str(ffprobe), "-v", "error", "-show_streams", "-of", "json",
+                       str(output)], env=env, timeout=120)
+        try:
+            streams = json.loads(probed.stdout)["streams"] if probed.returncode == 0 else []
+            codecs = {(stream.get("codec_type"), stream.get("codec_name")) for stream in streams}
+        except (ValueError, KeyError, TypeError, AttributeError):
+            codecs = set()
+        if not {("video", "h264"), ("audio", "aac")}.issubset(codecs):
+            details["default_export"] = "FAILED"
+            problems.append("bundled ffprobe did not confirm H264 video and AAC audio")
+            return problems, details
+        decoded = _run([str(ffmpeg), "-hide_banner", "-loglevel", "error", "-xerror",
+                        "-nostdin", "-i", str(output), "-map", "0:v", "-map", "0:a",
+                        "-f", "null", "-"], env=env, timeout=120)
+        if decoded.returncode:
+            details["default_export"] = "FAILED"
+            problems.append("bundled FFmpeg could not fully decode its export: "
+                            + (decoded.stderr or "")[-400:])
+        else:
+            details["default_export"] = {"status": "PASS", "video_codec": "h264",
+                                         "audio_codec": "aac", "fully_decoded": True,
+                                         "bytes": output.stat().st_size}
     return problems, details
 
 
@@ -201,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
                        env=env, cwd=home, timeout=1800)
         details["evening_stdout"] = (evening.stdout or "")[-8000:]
         details["evening_returncode"] = evening.returncode
-        if evening.returncode == 1:
+        if evening.returncode not in (0, 2):
             problems.append("bundled evening acceptance reported FAIL")
             details["evening_stderr"] = (evening.stderr or "")[-4000:]
         if evening.returncode:

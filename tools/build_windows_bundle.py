@@ -286,17 +286,32 @@ def install_media(media: Path, work: Path, ffmpeg_zip: str | None) -> tuple[dict
             "acquired_by": "first run of Start-Bossman.cmd",
         }])
     archive = fetch(ffmpeg_zip, work / "ffmpeg.zip")
+    notices = []
     with zipfile.ZipFile(archive) as zf:
         for member in zf.namelist():
             name = Path(member).name.lower()
             if name in {"ffmpeg.exe", "ffprobe.exe"}:
                 with zf.open(member) as src, (media / name).open("wb") as dst:
                     shutil.copyfileobj(src, dst)
+            # Preserve upstream licence texts, including dependency notices.
+            # Flattening them could replace distinct libraries' LICENSE files.
+            parts = Path(member).parts
+            is_notice = name.startswith(("license", "licence", "copying", "readme")) or any(
+                part.lower() in {"licenses", "licences"} for part in parts)
+            if is_notice and not member.endswith("/"):
+                if Path(member).is_absolute() or ".." in parts or any(":" in p for p in parts):
+                    raise RuntimeError(f"unsafe media notice path: {member}")
+                target = media.parent / "LICENSES" / "ffmpeg" / member
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with zf.open(member) as src, target.open("wb") as dst:
+                    shutil.copyfileobj(src, dst)
+                notices.append(target.relative_to(media.parent).as_posix())
     missing = [n for n in ("ffmpeg.exe", "ffprobe.exe") if not (media / n).exists()]
     if missing:
         raise RuntimeError(f"{ffmpeg_zip} contained no {', '.join(missing)}")
     return ({"ffmpeg": "media/ffmpeg.exe", "ffprobe": "media/ffprobe.exe",
-             "source": ffmpeg_zip, "sha256": sha256_file(archive)}, [])
+             "source": ffmpeg_zip, "sha256": sha256_file(archive),
+             "license_files": notices}, [])
 
 
 def install_icons(icons: Path) -> dict:

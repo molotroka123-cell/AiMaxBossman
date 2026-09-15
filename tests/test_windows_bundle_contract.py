@@ -149,3 +149,71 @@ def test_the_windows_automation_packages_are_part_of_the_build(tmp_path) -> None
     extras = (REPO / "bossman-core" / "pyproject.toml").read_text(encoding="utf-8")
     for package in ("pywinauto", "pywin32", "pyautogui", "pillow"):
         assert package in extras, f"{package} is no longer in the windows extra"
+
+
+def test_media_archive_retains_distinct_upstream_licenses(tmp_path, monkeypatch) -> None:
+    import zipfile
+    archive = tmp_path / "upstream.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        for name, content in {
+            "ffmpeg/bin/ffmpeg.exe": b"ffmpeg",
+            "ffmpeg/bin/ffprobe.exe": b"ffprobe",
+            "ffmpeg/LICENSE.txt": b"GPL",
+            "ffmpeg/licenses/x264/LICENSE": b"x264 notice",
+            "ffmpeg/licenses/other/LICENSE": b"other notice",
+        }.items():
+            zf.writestr(name, content)
+    monkeypatch.setattr(bundle, "fetch", lambda *_: archive)
+    contents, required = bundle.install_media(tmp_path / "product/media", tmp_path, "https://example.test/media.zip")
+    assert not required
+    assert len(contents["license_files"]) == 3
+    assert (tmp_path / "product/LICENSES/ffmpeg/ffmpeg/licenses/x264/LICENSE").read_bytes() == b"x264 notice"
+    assert (tmp_path / "product/LICENSES/ffmpeg/ffmpeg/licenses/other/LICENSE").read_bytes() == b"other notice"
+
+
+def test_bundle_media_rejects_missing_binaries(tmp_path) -> None:
+    import verify_windows_bundle as verify
+    problems, details = verify.check_media(tmp_path, {})
+    assert len(problems) == 2
+    assert details == {"ffmpeg": "NOT_BUNDLED", "ffprobe": "NOT_BUNDLED"}
+
+
+@pytest.mark.parametrize("failure", ["encoder", "probe", "decode", None])
+def test_bundle_media_requires_export_probe_and_full_decode(tmp_path, monkeypatch, failure) -> None:
+    """Printing a valid version is insufficient (the old LGPL false green)."""
+    import json
+    import os
+    import subprocess
+    import verify_windows_bundle as verify
+    (tmp_path / "media").mkdir()
+    for name in ("ffmpeg", "ffprobe"):
+        (tmp_path / "media" / (name + (".exe" if os.name == "nt" else ""))).touch()
+    calls = []
+
+    def run(argv, **kwargs):
+        calls.append(argv)
+        assert Path(argv[0]).parent == tmp_path / "media", "never borrow PATH binaries"
+        if "-version" in argv:
+            return subprocess.CompletedProcess(argv, 0, "ffmpeg version test\n", "")
+        if "-c:v" in argv:
+            assert argv[argv.index("-c:v") + 1] == "libx264"
+            if failure == "encoder":
+                return subprocess.CompletedProcess(argv, 1, "", "Unknown encoder libx264")
+            Path(argv[-1]).write_bytes(b"encoded media")
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        if "-show_streams" in argv:
+            streams = [{"codec_type": "video", "codec_name": "h264"}]
+            if failure != "probe":
+                streams.append({"codec_type": "audio", "codec_name": "aac"})
+            return subprocess.CompletedProcess(argv, 0, json.dumps({"streams": streams}), "")
+        assert "-xerror" in argv and "0:v" in argv and "0:a" in argv
+        return subprocess.CompletedProcess(argv, int(failure == "decode"), "", "decode error")
+
+    monkeypatch.setattr(verify, "_run", run)
+    problems, details = verify.check_media(tmp_path, {})
+    assert bool(problems) == bool(failure)
+    if failure:
+        assert details["default_export"] == "FAILED"
+    else:
+        assert details["default_export"]["fully_decoded"] is True
+        assert len(calls) == 5
