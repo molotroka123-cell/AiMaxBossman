@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 203. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 204. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -178,6 +178,7 @@
 | `tests/test_evidence_signing_shared.py:39` | skip | `—` | POSIX-семантика режима файла 0o600; на Windows права задаёт icacls (см. W8) | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evidence_signing_shared.py:128` | skip | `—` | на Windows сужение прав честно выполняется через icacls (см. W8) | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_fable_budget_pricing.py:97` | skip | `—` | canonical_budget not exposed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_installed_ui_sweep.py:30` | skip | `—` | Managed execution remaps Popen PIDs; native process-tree test required | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_intelligence_preservation_runner.py:106` | skip | `—` | f"bossman-core (production-петля) недоступен, необязательный "
                     f"пакет не установлен: {exc}" | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_learning_trace.py:304` | skipif | `sys.platform.startswith("win")` | POSIX flock/fcntl отсутствует на Windows | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -208,6 +209,6 @@
 | `apps/social-farm/tests/unit/test_policy_engine.py:228` | skipif | `not (SPEC / "examples" / "account_policy.yaml").exists()` | пакет спецификации не распакован рядом | Social Farm | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `apps/social-farm/tests/unit/test_provider_errors.py:68` | skipif | `not (SPEC / "schemas" / "provider_error.schema.json").exists()` | пакет спецификации не распакован рядом | Social Farm | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `apps/social-farm/tests/unit/test_provider_errors.py:76` | skipif | `not (SPEC / "examples" / "provider_error_unknown_state.json").exists()` | пакет спецификации не распакован рядом | Social Farm | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `apps/file-commander-mini/tests/test_owner_safety.py:245` | skipif | `os.name != "posix"` | POSIX advisory locks; Windows locks have a separate host gate | File Commander | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `apps/file-commander-mini/tests/test_owner_safety.py:298` | skipif | `os.name != "posix"` | POSIX no-follow directory handles; Windows junctions have a host gate | File Commander | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `apps/file-commander-mini/tests/test_owner_safety.py:78` | skip | `—` | host does not permit creating symlinks | File Commander | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `apps/file-commander-mini/tests/test_owner_safety.py:305` | skipif | `os.name != "posix"` | POSIX advisory locks; Windows locks have a separate host gate | File Commander | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `apps/file-commander-mini/tests/test_owner_safety.py:358` | skipif | `os.name != "posix"` | POSIX no-follow directory handles; Windows junctions have a host gate | File Commander | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `apps/file-commander-mini/tests/test_owner_safety.py:138` | skip | `—` | host does not permit creating symlinks | File Commander | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
