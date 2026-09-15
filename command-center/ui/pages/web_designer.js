@@ -949,7 +949,7 @@ let unloadHookInstalled = false;
 function installUnloadFlush() {
   if (unloadHookInstalled) return;
   unloadHookInstalled = true;
-  addEventListener('pagehide', () => {
+  window.addEventListener('pagehide', () => {
     if (!state.dirty || !editorNode || !state.id || state.saveConflict) return;
     clearTimeout(saveTimer);
     saveTimer = null;
