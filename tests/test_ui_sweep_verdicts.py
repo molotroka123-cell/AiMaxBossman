@@ -29,6 +29,7 @@ def test_request_needs_successful_response_and_does_not_claim_effect():
     assert classify(requests=['POST /api/tasks']) == 'error'
     assert classify(requests=['POST /api/tasks'], responses=['200 POST /api/tasks']) == 'request_accepted'
     assert classify(requests=['POST /api/tasks'], failures=['500 /api/tasks']) == 'error'
+    assert classify(responses=['200 POST /first'], incomplete_requests=['POST /second']) == 'error'
 
 
 @pytest.mark.parametrize('override', [dict(new_toasts=set()), dict(requests=['POST /api/tasks']),
@@ -39,3 +40,16 @@ def test_expected_refusal_requires_all_independent_observations(override):
     assert classify(**evidence) == 'input_refused'
     evidence.update(override)
     assert classify(**evidence) == 'error'
+
+
+def test_native_dialog_is_observed_cancellation_not_completed_mutation():
+    assert classify(native_dialogs=['prompt: Collection name']) == 'dialog_opened'
+    assert classify(native_dialogs=['prompt: Collection name'], page_errors=['TypeError']) == 'error'
+
+
+def test_refresh_and_explicit_initial_state_do_not_claim_changes():
+    assert classify(read_responses=['200 GET /api/status']) == 'refresh_observed'
+    assert classify(unchanged_state={'selected': 'aria-selected=true'}) == 'already_selected'
+    assert classify(unchanged_state={'empty_attachments': '0 files'}) == 'already_empty'
+    assert classify(unchanged_state={}) == 'dead'
+    assert classify(unchanged_state={'selected': 'aria-selected=true'}, console=['failure']) == 'error'

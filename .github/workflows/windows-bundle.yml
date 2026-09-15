@@ -181,9 +181,10 @@ jobs:
             command-center/tests/test_web_designer_recovery_ui.py `
             command-center/tests/test_apps_files_browser_owner.py `
             command-center/tests/test_apps_files_http_owner.py `
+            command-center/tests/test_images_library_ui.py `
             -q --junitxml="$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/require_acceptance_results.py "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml" --minimum-tests 13
+          python tools/require_acceptance_results.py "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml" --minimum-tests 14
       - name: Inventory visible buttons in the installed application
         if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
         run: |

@@ -20,6 +20,10 @@
   opens_feature      — открылся диалог, панель или другая страница
   request_accepted   — изменяющий запрос получил 2xx; результат требует проверки
   input_refused      — пустое поле отклонено с проверенной видимой подсказкой
+  refresh_observed   — после клика получен GET 2xx; изменение данных не заявлено
+  dialog_opened      — нативный диалог открыт и безопасно отменён обходом
+  already_selected   — измеренное выбранное состояние сохранилось
+  already_empty      — список вложений был и остался пустым
   error              — ошибка в консоли, исключение страницы или 5xx
   dead               — НИЧЕГО: ни разметки, ни адреса, ни запроса, ни консоли
 
@@ -84,6 +88,7 @@ class Click:
     requests: list[str] = field(default_factory=list)
     console: list[str] = field(default_factory=list)
     responses: list[str] = field(default_factory=list)
+    initial_state: dict = field(default_factory=dict)
 
 
 def _free_port() -> int:
@@ -249,8 +254,28 @@ def _validation_case(page, pid, label):
     return None
 
 
+def _known_state(target, pid):
+    return target.evaluate("""(el, pid) => {
+      const result = {};
+      for (const attr of ['aria-selected', 'aria-pressed'])
+        if (el.getAttribute(attr) === 'true') result.selected = attr + '=true';
+      if (pid === 'terminal' && el.matches('.seg > button.on')) result.selected = 'terminal mode: .seg > button.on';
+      if (pid === 'images' && el.matches('.images-tabs button.active, .images-collection-row.active'))
+        result.selected = 'image selection: ' + el.className;
+      if (el.innerText.trim() === 'Убрать вложения') {
+        const parent = el.parentElement;
+        const input = parent.querySelector('input[type=file][aria-label="Прикрепить медиа"]');
+        const names = parent.querySelector('small');
+        if (input && names && input.files.length === 0 && names.innerText.trim() === '')
+          result.empty_attachments = 'file input has 0 files; attachment names empty';
+      }
+      return result;
+    }""", pid)
+
+
 def _classify(*, failures, console, page_errors, requests, responses,
-              new_dialogs, new_toasts, validation, dom_changed, url_changed):
+              new_dialogs, new_toasts, validation, dom_changed, url_changed,
+              read_responses=(), native_dialogs=(), unchanged_state=None, incomplete_requests=()):
     refusal = (validation and validation[0] in new_toasts and not requests
                and not failures and not page_errors and console
                and all(line.splitlines()[0] == validation[1] for line in console))
@@ -258,14 +283,24 @@ def _classify(*, failures, console, page_errors, requests, responses,
         return 'input_refused', 'Пустое поле: показана проверенная подсказка «' + validation[0] + '», запрос не отправлен'
     if failures or page_errors or console:
         return 'error', '; '.join(sorted(set(failures + page_errors + console))[:3])
+    if incomplete_requests:
+        return 'error', 'За 10 секунд не получен ответ: ' + '; '.join(sorted(incomplete_requests))
     if responses:
         return 'request_accepted', '; '.join(responses[:3]) + ' (ответ 2xx; результат отдельно не проверен)'
     if requests:
         return 'error', 'Изменяющий запрос отправлен, но успешный ответ не наблюдался'
+    if native_dialogs:
+        return 'dialog_opened', '; '.join(native_dialogs) + ' (диалог отменён обходом)'
     if new_dialogs or url_changed:
         return 'opens_feature', 'новый видимый диалог' if new_dialogs else 'адрес изменился'
     if dom_changed or new_toasts:
         return 'works', 'видимое состояние изменилось'
+    if read_responses:
+        return 'refresh_observed', '; '.join(read_responses[:3]) + ' (GET после клика; изменение данных не заявлено)'
+    if unchanged_state and unchanged_state.get('selected'):
+        return 'already_selected', unchanged_state['selected'] + ' до и после клика'
+    if unchanged_state and unchanged_state.get('empty_attachments'):
+        return 'already_empty', unchanged_state['empty_attachments'] + ' до и после клика'
     return 'dead', 'ни разметки, ни адреса, ни запроса, ни консоли'
 
 
@@ -287,6 +322,9 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
         page_errors: list[str] = []
         requests: list[str] = []
         responses: list[str] = []
+        read_responses: list[str] = []
+        native_dialogs: list[str] = []
+        pending: set[str] = set()
         page.on("console", lambda m: console.append(m.text) if m.type == "error" else None)
         page.on("pageerror", lambda e: page_errors.append(str(e)))
         page.on("request", lambda r: requests.append(f"{r.method} {r.url}")
@@ -296,6 +334,21 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                 if r.status >= 500 or (r.status >= 400 and r.request.method in ("POST", "PUT", "PATCH", "DELETE")) else None)
         page.on("response", lambda r: responses.append(f"{r.status} {r.request.method} {r.url}")
                 if 200 <= r.status < 300 and r.request.method in ("POST", "PUT", "PATCH", "DELETE") else None)
+        page.on('response', lambda r: read_responses.append(f'{r.status} GET {r.url}')
+                if r.request.method == 'GET' and 200 <= r.status < 300 else None)
+        page.on('request', lambda r: pending.add(f'{r.method} {r.url}')
+                if r.method in ('POST', 'PUT', 'PATCH', 'DELETE') else None)
+        page.on('response', lambda r: pending.discard(f'{r.request.method} {r.url}'))
+        def request_failed(request):
+            key = f'{request.method} {request.url}'
+            if key in pending:
+                failures.append('network failure: ' + key)
+                pending.discard(key)
+        page.on('requestfailed', request_failed)
+        def native_dialog(dialog):
+            native_dialogs.append(dialog.type + ': ' + dialog.message)
+            dialog.dismiss()
+        page.on('dialog', native_dialog)
 
         page.goto(app.url + "/", wait_until="domcontentloaded")
         page.fill("#login-token", app.svc.auth.token)
@@ -373,11 +426,13 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                         continue
 
                 console.clear(); requests.clear(); failures.clear(); page_errors.clear(); responses.clear()
+                read_responses.clear(); native_dialogs.clear(); pending.clear()
                 before_dom = _dom_fingerprint(page)
                 before_url = page.url
                 before_dialogs = _visible_texts(page, 'dialog[open], .modal, [role=dialog]')
                 before_toasts = _visible_texts(page, '#toast-root .toast-msg')
                 validation = _validation_case(page, pid, label)
+                initial_state = _known_state(target, pid)
                 try:
                     target.click(timeout=5000)
                 except Exception as exc:                  # noqa: BLE001
@@ -414,19 +469,28 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                                          + (f" | {seen}" if seen else "")))
                     continue
                 page.wait_for_timeout(SETTLE_MS)
+                deadline = time.monotonic() + 10
+                while pending and time.monotonic() < deadline:
+                    page.wait_for_timeout(100)
 
                 after_dom = _dom_fingerprint(page)
                 after_url = page.url
+                try:
+                    after_state = _known_state(target, pid)
+                except Exception:
+                    after_state = {}
                 verdict, detail = _classify(failures=failures, console=console,
                     page_errors=page_errors, requests=requests, responses=responses,
                     new_dialogs=_visible_texts(page, 'dialog[open], .modal, [role=dialog]') - before_dialogs,
                     new_toasts=_visible_texts(page, '#toast-root .toast-msg') - before_toasts,
                     validation=validation, dom_changed=after_dom != before_dom,
-                    url_changed=after_url != before_url)
+                    url_changed=after_url != before_url, read_responses=read_responses,
+                    native_dialogs=native_dialogs, incomplete_requests=pending,
+                    unchanged_state=initial_state if initial_state == after_state else None)
 
                 results.append(Click(pid, label, ctl["cls"], verdict, detail,
                                      sorted(set(requests))[:5], sorted(set(console + page_errors))[:5],
-                                     sorted(set(responses))[:5]))
+                                     sorted(set(responses + read_responses))[:5], initial_state))
 
         browser.close()
     return results
