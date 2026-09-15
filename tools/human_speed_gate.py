@@ -69,6 +69,51 @@ class StorageFloor:
         return ordered[math.ceil(len(ordered) * percentile / 100) - 1]
 
 
+class FreshConnectionFloor:
+    """Minimum WAL/FULL write with the CAS store's required handle lifetime.
+
+    A retained connection omits open/schema/WAL-close costs and is not a valid
+    floor for operations required to close immediately. This fixture contains
+    one integer row, no objective schema, CAS, serialization or application
+    logic. Wall and current-thread CPU samples remain separate.
+    """
+
+    def __init__(self, directory: Any) -> None:
+        import sqlite3
+        from contextlib import closing
+        self._path = str(Path(directory) / "fresh-connection-floor.db")
+        self.samples: list[float] = []
+        self.cpu_samples: list[float] = []
+        self._closed = False
+        with closing(sqlite3.connect(self._path, isolation_level="IMMEDIATE")) as con:
+            con.execute("PRAGMA journal_mode=WAL")
+            with con:
+                con.execute("CREATE TABLE floor(k INTEGER PRIMARY KEY, v INTEGER NOT NULL)")
+                con.execute("INSERT INTO floor VALUES(1,0)")
+
+    def tick(self) -> float:
+        import sqlite3
+        import time
+        from contextlib import closing
+        if self._closed:
+            raise RuntimeError("storage floor is closed")
+        start = time.perf_counter_ns()
+        cpu_start = time.thread_time_ns()
+        with closing(sqlite3.connect(self._path, timeout=30, isolation_level="IMMEDIATE")) as con:
+            con.execute("PRAGMA synchronous=FULL")
+            with con:
+                con.execute("UPDATE floor SET v=v+1 WHERE k=1")
+        cpu_elapsed = (time.thread_time_ns() - cpu_start) / 1e6
+        elapsed = (time.perf_counter_ns() - start) / 1e6
+        self.samples.append(elapsed)
+        self.cpu_samples.append(cpu_elapsed)
+        return elapsed
+
+    def close(self) -> None:
+        # Every handle has already closed before tick returns.
+        self._closed = True
+
+
 def _nearest_rank(ordered: list[float], percentile: int) -> float:
     """Перцентиль по ближайшему рангу, без интерполяции.
 
@@ -240,6 +285,36 @@ def latency_contract(samples_ms: list[float], *, limit_ms: float,
     # разрешённого, то тело по построению внутри порога и путь выше уже отдал
     # PASS. Поэтому причина здесь ровно одна и она не про единичный замер.
     return {**body, "reason": "excess_spread_across_the_distribution"}
+
+
+def cas_latency_contract(samples_ms: list[float], *, cpu_samples_ms: list[float],
+                         floor_samples_ms: list[float],
+                         floor_cpu_samples_ms: list[float]) -> dict[str, Any]:
+    """CAS must pass both unchanged wall and thread-CPU latency contracts.
+
+    The CPU comparison prevents an expensive storage host from buying an
+    allowance for a real compute regression. No clock is substituted for wall
+    time: both full verdicts and their original samples are published.
+    """
+    wall = latency_contract(samples_ms, limit_ms=10.0, floor_samples_ms=floor_samples_ms)
+    cpu = latency_contract(cpu_samples_ms, limit_ms=10.0, floor_samples_ms=floor_cpu_samples_ms)
+    # All four measured populations must pair 1:1. Leave an unmeasured floor
+    # to the original insufficient-evidence verdict below.
+    if (len(samples_ms) != len(cpu_samples_ms)
+            or (type(floor_samples_ms) is list and len(floor_samples_ms) != len(samples_ms))
+            or (type(floor_cpu_samples_ms) is list
+                and len(floor_cpu_samples_ms) != len(samples_ms))):
+        return {"status": FAIL, "reason": "clock_sample_count_mismatch",
+                "wall": wall, "thread_cpu": cpu,
+                "floor_lifecycle": "open_wal_full_write_commit_close"}
+    if wall["status"] != PASS:
+        status, reason = wall["status"], "wall_contract_failed"
+    elif cpu["status"] != PASS:
+        status, reason = cpu["status"], "thread_cpu_contract_failed"
+    else:
+        status, reason = PASS, None
+    return {"status": status, "reason": reason, "wall": wall, "thread_cpu": cpu,
+            "floor_lifecycle": "open_wal_full_write_commit_close"}
 
 
 def validate_ui_trace(trace: Any, *, expected_sha: str) -> dict[str, Any]:

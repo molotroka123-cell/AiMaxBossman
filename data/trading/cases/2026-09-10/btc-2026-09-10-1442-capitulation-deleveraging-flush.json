@@ -1,0 +1,50 @@
+{
+  "case_id": "btc-2026-09-10-1442-capitulation-deleveraging-flush",
+  "date": "2026-09-10",
+  "time_local": "14:42+02:00",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style live screenshots",
+  "instrument_note": "Reference chart and right-side execution tape may differ materially; preserve them separately and do not use reference-chart levels as exact execution prices without basis validation.",
+  "observed": {
+    "reference_chart_low_approx": 77215,
+    "cvd_billion": 45.56,
+    "open_interest_billion": 18.26,
+    "long_liquidations_million": 14.96,
+    "short_liquidations_thousand": 110.16,
+    "liquidations_delta_moving_average_million": -11.06,
+    "buy_volume_million": 35.83,
+    "sell_volume_million": 584.61
+  },
+  "chart_levels": {
+    "dVAL_approx": 77830,
+    "dPOC_approx": 78115,
+    "dVAH_approx": 78510,
+    "dOpen_approx": 78550,
+    "pDayLow_visible_approx": 77600
+  },
+  "comparison_to_0846": {
+    "prior_reference_chart_price_approx": 78345,
+    "prior_cvd_billion": 49.37,
+    "prior_oi_billion": 18.33,
+    "price_direction": "DOWN_SHARPLY",
+    "cvd_direction": "DOWN_SHARPLY",
+    "oi_direction": "DOWN",
+    "cvd_change_billion": -3.81,
+    "oi_change_billion": -0.07
+  },
+  "state": "Price DOWN + CVD DOWN + OI DOWN with extreme long-liquidation dominance",
+  "regime": "CAPITULATION_DELEVERAGING_FLUSH",
+  "interpretation": "This is a severe forced-long deleveraging event rather than confirmed fresh bearish leverage expansion because OI contracts while price and CVD fall. The large long-liquidation imbalance means old leveraged longs are being forcibly removed. However, liquidation size alone is not a bottom signal: price remains below value and aggressive selling is still effective.",
+  "long_scenario": {
+    "status": "NO_CATCHING_THE_FIRST_KNIFE",
+    "first_reversal_candidate": "Stop making new lows, CVD stops deteriorating, OI stabilizes, then reclaim the ~77.8k reference area/dVAL.",
+    "stronger_trigger": "Reclaim dPOC ~78.1k and hold/retest above it after the flush.",
+    "higher_quality_trigger": "Reclaim upper value ~78.5-78.55k with positive price response and no renewed bearish leverage expansion."
+  },
+  "risk_scenario": {
+    "warning": "If price and CVD continue lower while OI starts rising, reclassify from deleveraging to bearish leverage expansion.",
+    "meaning": "After the old longs are flushed, fresh leverage entering a continuing decline is a materially worse continuation signal."
+  },
+  "lesson": "Extreme long liquidations are best treated as evidence of leverage cleanup, not as an automatic buy signal. The post-flush reaction is more informative than the liquidation candle itself. Watch for a transition from Price DOWN/CVD DOWN/OI DOWN to either absorption/reclaim or Price DOWN/CVD DOWN/OI UP bearish re-leveraging."
+}

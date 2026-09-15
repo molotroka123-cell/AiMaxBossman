@@ -10,6 +10,7 @@ SSL-контекст (~22 мс синхронного CPU), девять кар�
 from __future__ import annotations
 
 import asyncio
+import os
 
 import httpx
 import pytest
@@ -95,6 +96,78 @@ async def test_manifest_is_reparsed_only_when_the_file_changes(apps_root, monkey
     apps = await apps_mod.collect(force=True)
     assert parsed == 5
     assert next(a for a in apps if a["id"] == "app2")["name"] == "Renamed"
+
+
+@pytest.mark.anyio
+async def test_the_manifest_rule_holds_for_every_caller_not_just_the_dashboard(apps_root, monkeypatch):
+    """Инвариант «перечитывать только изменившееся» был реализован для ОДНОГО
+    вызывающего и проверялся ТОЛЬКО через него.
+
+    Тест выше (`test_manifest_is_reparsed_only_when_the_file_changes`) ходит
+    через `collect()`, а тот идёт через `_describe_cached`/`_described`. Правило
+    там и правда соблюдалось. Но `task_exchange.known_apps()` зовёт `_load()`
+    НАПРЯМУЮ, мимо этого кэша, — и нарушал объявленный инвариант 9 раз в
+    секунду на простаивающем сервере (измерено: 9 манифестов, обход раз в
+    секунду, ни одного изменения файла). Профиль показывал 876 815 вызовов
+    `yaml.reader.peek` за 33 секунды в продукте, которым никто не пользовался.
+
+    Поэтому правило теперь живёт в `_load`, а проверяется ЧЕРЕЗ НАРУШИТЕЛЯ и по
+    настоящим РАЗБОРАМ (`yaml.safe_load`), а не по вызовам `_load`: после правки
+    `_load` зовётся столько же раз, сколько и раньше, — он просто перестал
+    разбирать. Считать вызовы значило бы измерять не то, что починено.
+    """
+    parses = 0
+    real_safe_load = apps_mod.yaml.safe_load
+
+    def counting(*a, **kw):
+        nonlocal parses
+        parses += 1
+        return real_safe_load(*a, **kw)
+
+    monkeypatch.setattr(apps_mod.yaml, "safe_load", counting)
+    from bcc.features import task_exchange as tx
+    monkeypatch.setattr(tx, "APPS_DIR", apps_root)
+
+    assert sorted(tx.known_apps()) == ["app0", "app1", "app2", "app3"]
+    assert parses == 4, "первый обход обязан прочитать все манифесты"
+
+    for _ in range(10):
+        tx.known_apps()
+    assert parses == 4, (
+        f"файлы не менялись, а разборов уже {parses}: холостой разбор вернулся")
+
+    # Обратный контроль: строгость не имеет права проглотить НАСТОЯЩЕЕ изменение.
+    target = apps_root / "app1" / "app.manifest.yaml"
+    target.write_text(target.read_text(encoding="utf-8").replace("App app1", "Другое"),
+                      encoding="utf-8")
+    bump = os.stat(target).st_mtime_ns + 10**9
+    os.utime(target, ns=(bump, bump))
+    tx.known_apps()
+    assert parses == 5, "изменённый манифест обязан быть перечитан СЛЕДУЮЩИМ же обходом"
+
+
+@pytest.mark.anyio
+async def test_the_cache_never_hands_out_an_object_someone_else_can_edit(apps_root):
+    """Кэш отдаёт КОПИЮ. Иначе один вызывающий, правящий свой словарь, менял бы
+    манифест для всех остальных — и это было бы хуже лишнего разбора."""
+    first = apps_mod._load(apps_root / "app0" / "app.manifest.yaml")
+    first["name"] = "испорчено"
+    second = apps_mod._load(apps_root / "app0" / "app.manifest.yaml")
+    assert second["name"] == "App app0", second
+
+
+@pytest.mark.anyio
+async def test_a_removed_app_leaves_nothing_behind_in_the_cache(apps_root):
+    """Словарь живёт текущим набором приложений, а не всем, что когда-либо
+    видел: иначе смена каталога (в тестах — временного APPS_DIR) растила бы его
+    без предела."""
+    apps_mod._manifest_files()
+    for path in list(apps_mod._MANIFEST_CACHE):
+        assert path.parent.parent == apps_root, path
+    import shutil
+    shutil.rmtree(apps_root / "app3")
+    apps_mod._manifest_files()
+    assert not any(p.parent.name == "app3" for p in apps_mod._MANIFEST_CACHE)
 
 
 @pytest.mark.anyio

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -151,10 +152,177 @@ async def test_ap001_owner_configured_roots_still_take_priority(env):
     assert [str(r) for r in roots] == [configured]
 
 
+def _docker_available():
+    docker = shutil.which("docker")
+    if not docker:
+        return False
+    try:
+        return subprocess.run([docker, "info"], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, timeout=5).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def test_docker_runtime_proof_marker():
     """Контейнерная часть (RW bind-mount только разрешённых корней) требует docker.
     На этом хосте демон недоступен → NOT_TESTED_ON_THIS_HOST, а не PASS."""
-    have_docker = shutil.which("docker") is not None and os.system("docker info >/dev/null 2>&1") == 0
+    have_docker = _docker_available()
     if not have_docker:
         pytest.skip("NOT_TESTED_ON_THIS_HOST: docker daemon unavailable — F-009 container "
                     "mount proof deferred to RunPod/owner host")
+
+
+# --------------------------------------------------------------------------
+# AP-001, exfiltration half.
+#
+# The tests above prove the ROUTE is refused: a cwd outside the owner's roots,
+# a `../` climb, a symlink pointing out. What they never did was plant a real
+# secret and check that it does not come back. Those are different claims: a
+# refusal that still echoes the file's contents in its own error message has
+# refused nothing.
+#
+# So this plants a token outside the authorized scratch root and, for every
+# escape shape, requires three things at once — the call is refused, and the
+# token appears in NEITHER the model-visible result NOR anywhere the process
+# wrote. A tool result is the model's evidence; if the secret is in it, it has
+# been exfiltrated regardless of the exit code.
+# --------------------------------------------------------------------------
+
+TOKEN = "AP001-CANARY-9f2c41d7e8b64a05-DO-NOT-LEAK"
+
+
+def _plant(tmp_path):
+    """A token OUTSIDE every authorized root, in a file with an ORDINARY name.
+
+    Deliberately not `credentials.env`: a separate policy already refuses
+    credential-shaped filenames outright, and planting one would let these tests
+    pass on that rule while proving nothing about path containment. `notes.txt`
+    can only be refused by the boundary this test is about.
+    """
+    vault = tmp_path / "ap001_vault"
+    vault.mkdir(exist_ok=True)
+    secret = vault / "notes.txt"
+    secret.write_text(f"API_KEY={TOKEN}\n", encoding="utf-8")
+    return vault, secret
+
+
+def _clean(text) -> bool:
+    return TOKEN not in (text or "")
+
+
+async def test_ap001_a_planted_token_outside_the_roots_is_never_exfiltrated(
+        env, tmp_path):
+    """Every escape shape: refused, and the token never reaches the model."""
+    vault, secret = _plant(tmp_path)
+    scratch = (await tt._roots(env.svc))[0]
+    scratch.mkdir(parents=True, exist_ok=True)
+    stack = await make_stack(env.client)
+    ctx = _ctx(env, task_id=stack["task"]["id"], agent=stack["agent"])
+
+    # a symlink planted INSIDE the authorized root, pointing at the vault
+    link = scratch / "totally-innocent"
+    if link.exists() or link.is_symlink():
+        link.unlink()
+    os.symlink(vault, link, target_is_directory=True)
+
+    attempts = [
+        # read it by naming its directory as cwd
+        {"command": f"cat {secret.name}", "cwd": str(vault), "mode": "project_host"},
+        # climb out of the authorized root
+        {"command": "cat notes.txt",
+         "cwd": str(scratch / ".." / ".." / vault.name), "mode": "project_host"},
+        # follow a symlink that starts inside the root
+        {"command": "cat notes.txt", "cwd": str(link), "mode": "project_host"},
+        # sandbox mode must not be a way around any of it
+        {"command": f"cat {secret}", "cwd": str(vault), "mode": "sandbox"},
+    ]
+    try:
+        for args in attempts:
+            res = await tt._tool_run({**args, "timeout": 20}, ctx)
+            assert res.error is True, (args, res.content)
+            assert _clean(res.content), f"token reached the model: {args}"
+            assert _clean(getattr(res, "detail", "")), args
+            # and nothing was started that could still be writing it
+            assert not _live(tt._mgr(env.svc)), args
+    finally:
+        if link.exists() or link.is_symlink():
+            link.unlink()
+        shutil.rmtree(vault)
+
+
+async def test_ap001_an_absolute_read_from_an_allowed_cwd_needs_the_container(
+        env, tmp_path):
+    """The subtle case, and an honest statement of where it is decided.
+
+    cwd is legitimate; the PATH is not. `project_host` deliberately runs on the
+    host, so what stops an absolute read there is the approval gate and the
+    command policy — not the filesystem. The filesystem boundary is the
+    container's RW bind-mount of allowed roots only, and this host has no docker
+    daemon, exactly as `test_docker_runtime_proof_marker` already records.
+
+    So this is NOT_TESTED_ON_THIS_HOST rather than a pass. Asserting containment
+    here without the runtime that provides it would turn a missing proof into a
+    green line, which is the one thing the AP-001 row must not become.
+    """
+    have_docker = _docker_available()
+    if not have_docker:
+        pytest.skip("NOT_TESTED_ON_THIS_HOST: docker daemon unavailable — the "
+                    "absolute-path containment proof belongs to the container "
+                    "mount and is deferred to the owner host")
+    vault, secret = _plant(tmp_path)                         # pragma: no cover
+    stack = await make_stack(env.client)
+    ctx = _ctx(env, task_id=stack["task"]["id"], agent=stack["agent"])
+    try:
+        # The container itself must be usable: a missing image, dead daemon or
+        # blanket refusal cannot masquerade as an isolation proof.
+        owned, _ = await tt._resolve_cwd(ctx, {"cwd": "scratch"})
+        owned.mkdir(parents=True, exist_ok=True)
+        (owned / "container-control.txt").write_text(TOKEN, encoding="utf-8")
+        positive = await tt._tool_run(
+            {"command": "cat container-control.txt", "cwd": "scratch",
+             "mode": "sandbox", "timeout": 20}, ctx)
+        assert positive.error is False and TOKEN in positive.content, positive.content
+        res = await tt._tool_run(
+            {"command": f"cat {secret}", "cwd": "scratch",
+             "mode": "sandbox", "timeout": 20}, ctx)
+        # terminal.run's contract (tools_terminal._tool_run): a non-zero exit is
+        # DATA, error=True only when the command could not run at all. The
+        # containment proof is therefore the failed `cat` inside a usable
+        # container plus the absent token — not the tool-level error flag.
+        assert res.error is False, res.content
+        assert res.data.get("exit_code") not in (0, None), "outside file must be inaccessible"
+        assert _clean(res.content), "an absolute read exfiltrated the token"
+        assert _clean(getattr(res, "detail", ""))
+    finally:
+        shutil.rmtree(vault)
+
+
+async def test_ap001_the_canary_is_readable_when_it_is_legitimately_in_scope(
+        env, tmp_path):
+    """Negative control for the three tests above.
+
+    A terminal that refuses everything, or that strips the token from all
+    output, would pass them while being either useless or a liar. Inside the
+    authorized root the same file IS readable and the same token DOES come
+    back — which is what makes its absence elsewhere evidence of containment
+    rather than of blanket filtering.
+    """
+    scratch = (await tt._roots(env.svc))[0]
+    scratch.mkdir(parents=True, exist_ok=True)
+    stack = await make_stack(env.client)
+    ctx = _ctx(env, task_id=stack["task"]["id"], agent=stack["agent"])
+    # Where "scratch" actually resolves is the terminal's business, not this
+    # test's guess: ask it, then plant the canary in the directory it named.
+    located = await tt._tool_run({"command": "pwd", "cwd": "scratch",
+                                  "mode": "project_host", "timeout": 20}, ctx)
+    assert located.error is False, located.content
+    owned = Path(located.content.strip().splitlines()[-1].strip())
+    assert owned.is_dir(), located.content
+    (owned / "mine.txt").write_text(f"API_KEY={TOKEN}\n", encoding="utf-8")
+
+    res = await tt._tool_run({"command": "cat mine.txt", "cwd": "scratch",
+                              "mode": "project_host", "timeout": 20}, ctx)
+    assert res.error is False, res.content
+    assert TOKEN in res.content, (
+        "the canary is not readable even in scope — the other AP-001 tests would "
+        "then prove filtering, not containment")

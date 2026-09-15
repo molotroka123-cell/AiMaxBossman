@@ -183,10 +183,23 @@ def _parse_xlsx(data: bytes) -> list[ArtifactSection]:
             for row in root.iter(f"{_S}row"):
                 cells: dict[str, str] = {}
                 for c in row.iter(f"{_S}c"):
-                    v = c.find(f"{_S}v")
-                    raw = v.text if v is not None else ""
-                    if c.get("t") == "s" and raw and raw.isdigit() and int(raw) < len(shared):
-                        raw = shared[int(raw)]
+                    kind = c.get("t")
+                    # BL-033. OOXML хранит текст ячейки ДВУМЯ равноправными
+                    # способами: ссылкой в sharedStrings (`t="s"` + <v>индекс)
+                    # и прямо в ячейке (`t="inlineStr"` + <is><t>текст).
+                    # Читался только <v>, поэтому второй способ давал пустую
+                    # строку — МОЛЧА: ни ошибки, ни предупреждения. Таблица
+                    # «разбиралась успешно» и приходила к модели пустой.
+                    # openpyxl — распространённый писатель — пишет именно так.
+                    if kind == "inlineStr":
+                        is_el = c.find(f"{_S}is")
+                        raw = "".join(t.text or "" for t in is_el.iter(f"{_S}t")) \
+                            if is_el is not None else ""
+                    else:
+                        v = c.find(f"{_S}v")
+                        raw = v.text if v is not None else ""
+                        if kind == "s" and raw and raw.isdigit() and int(raw) < len(shared):
+                            raw = shared[int(raw)]
                     cells[_col_letters(c.get("r") or "")] = (raw or "")[:MAX_CELL_TEXT]
                 if cells:
                     cols = sorted(cells)  # стабильный порядок колонок

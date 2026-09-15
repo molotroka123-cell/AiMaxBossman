@@ -20,6 +20,8 @@
 from __future__ import annotations
 
 import asyncio
+import copy
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -28,10 +30,19 @@ import httpx
 import yaml
 from fastapi import APIRouter, HTTPException, Request
 
-from ..config import ROOT
+from ..config import PKG_DIR, ROOT
 from . import Feature
 
-APPS_DIR = ROOT.parent / "apps"
+def apps_directory() -> Path:
+    """An explicit deployment, source checkout, or the wheel's catalogue."""
+    override = os.environ.get("BCC_APPS_DIR", "").strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    source = ROOT.parent / "apps"
+    return source if source.is_dir() else PKG_DIR / "_apps"
+
+
+APPS_DIR = apps_directory()
 PROBE_TIMEOUT = 1.2          # приложение на этой же машине отвечает мгновенно
 CACHE_TTL = 10.0             # чтобы открытая главная не долбила соседей опросами
 
@@ -58,18 +69,57 @@ def _ssl() -> Any:
 
 # ------------------------------------------------------------------ манифесты
 
+# Разобранные манифесты: путь → ((mtime_ns, size), данные).
+#
+# Манифесты — СТАТИЧЕСКАЯ конфигурация, но `task_exchange.process()` зовёт
+# `known_apps()` на каждом тике (раз в 2 с), и каждый такой обход перечитывал и
+# заново РАЗБИРАЛ все манифесты с диска. Измерено на простаивающем сервере:
+# обходов 1.00/с, и ни один из них не был вызван изменением файла. Профиль
+# показывал массу времени в yaml.scanner (876 815 вызовов `peek` за 33 с) —
+# продукт, которым никто не пользуется, разбирал одну и ту же конфигурацию
+# бесконечно. Раздел 7 задания требует прямо обратного: «никакого опроса
+# вхолостую».
+#
+# Ключ — (mtime_ns, size), а не TTL: изменённый манифест подхватывается
+# СЛЕДУЮЩИМ же тиком, потому что у него меняется штамп. Задержки здесь не
+# появляется ни на шаг — в отличие от «сделать тик пореже», которое купило бы
+# покой за счёт отзывчивости.
+_MANIFEST_CACHE: dict[Path, tuple[tuple[int, int], dict[str, Any] | None]] = {}
+
+
 def _manifest_files() -> list[Path]:
     if not APPS_DIR.is_dir():
+        _MANIFEST_CACHE.clear()
         return []
-    return sorted(APPS_DIR.glob("*/app.manifest.yaml"))
+    found = sorted(APPS_DIR.glob("*/app.manifest.yaml"))
+    # Кэш живёт ровно текущим набором приложений: удалённое приложение уходит и
+    # отсюда, поэтому словарь не растёт от смены каталога (в тестах — от смены
+    # временного APPS_DIR).
+    for stale in set(_MANIFEST_CACHE) - set(found):
+        _MANIFEST_CACHE.pop(stale, None)
+    return found
 
 
 def _load(path: Path) -> dict[str, Any] | None:
+    """Разобранный манифест. Повторный разбор — только если файл изменился."""
+    try:
+        stat = path.stat()
+    except OSError:
+        _MANIFEST_CACHE.pop(path, None)
+        return None
+    stamp = (stat.st_mtime_ns, stat.st_size)
+    hit = _MANIFEST_CACHE.get(path)
+    if hit is not None and hit[0] == stamp:
+        # Копия, а не та же ссылка: вызывающий код читает манифест как обычный
+        # dict, и правка у одного не имеет права стать правкой для всех.
+        return copy.deepcopy(hit[1])
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError):
-        return None
-    return data if isinstance(data, dict) else None
+        data = None
+    value = data if isinstance(data, dict) else None
+    _MANIFEST_CACHE[path] = (stamp, value)
+    return copy.deepcopy(value)
 
 
 def _http_calls(raw: dict[str, Any]) -> dict[str, str]:
@@ -113,7 +163,7 @@ def _describe(path: Path) -> dict[str, Any] | None:
         "permissions": raw.get("permissions") if isinstance(raw.get("permissions"),
                                                             dict) else {},
         "providers": raw.get("providers") if isinstance(raw.get("providers"), dict) else {},
-        "manifest_path": str(path.relative_to(ROOT.parent)),
+        "manifest_path": str(Path("apps") / path.relative_to(APPS_DIR)),
         "route": f"app/{raw['id']}",
     }
 
@@ -139,12 +189,20 @@ async def _probe(app: dict[str, Any], client: httpx.AsyncClient | None = None) -
             async with _probe_client() as own:
                 return await _probe(app, own)
         health = await client.get(base + (app.get("health_path") or "/health"))
-        out["reachable"] = health.status_code < 500
-        out["status"] = "LIVE" if health.status_code < 400 else "DEGRADED"
+        out["reachable"] = True  # reachability is not readiness
+        out["status"] = "DEGRADED"
         try:
             out["health"] = health.json()
         except ValueError:
             out["health"] = {}
+        payload = out["health"] if isinstance(out["health"], dict) else {}
+        reported = str(payload.get("status") or "").upper()
+        if health.status_code == 200 and reported in {"OK", "HEALTHY", "LIVE", "READY"}:
+            out["status"] = "LIVE"
+        elif reported in {"NOT_CONFIGURED", "UNHEALTHY", "DEGRADED"}:
+            out["status"] = reported
+        else:
+            out["detail"] = f"health HTTP {health.status_code}: no healthy readiness response"
         if app.get("metrics_path"):
             try:
                 metrics = await client.get(base + app["metrics_path"])
@@ -242,6 +300,9 @@ async def _collect_fresh() -> list[dict[str, Any]]:
         card["detail"] = live.get("detail", "")
         card["facts"] = _resolve_facts(app, live)
         card["base_url"] = f"http://127.0.0.1:{app['port']}" if app.get("port") else ""
+        if app["id"] == "file-commander-mini":
+            # Same-origin session authentication. Never expose the child token.
+            card["view_url"] = "/api/apps/file-commander-mini/view/"
         result.append(card)
     result.sort(key=lambda a: (a["order"], a["name"]))
     _cache.update({"at": now, "apps": result})

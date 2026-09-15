@@ -34,7 +34,7 @@ const BrowserPage = {
     const offlineBanner = (!err && rt && rt.available === false)
       ? h('div.card', { style: { borderLeft: '4px solid var(--err)', padding: '10px 14px', marginBottom: '12px' } },
           statusBadge('offline'),
-          h('span.small', ' Рантайм браузера недоступен (нужен Playwright + Chromium). Создание сессий завершится ошибкой.'))
+          h('span.small', ` ${rt.detail || 'Рантайм браузера недоступен (нужен Playwright + Chromium).'}`))
       : null;
 
     const body = err
@@ -44,8 +44,10 @@ const BrowserPage = {
         : blank({
           iconName: 'search', title: rt && rt.available === false ? 'Браузер недоступен' : 'Окон браузера пока нет',
           hint: rt && rt.available === false
-            ? 'Состояние: OFFLINE. Установите Playwright и Chromium, чтобы агент мог работать в браузере.'
-            : 'Состояние: EMPTY — сессий нет, рантайм готов. Агент сам открывает страницы и нажимает кнопки. Вход, загрузку файлов и отправку форм он делает только с вашего разрешения, а оплату — никогда.',
+            ? (rt.detail || 'Состояние: OFFLINE. Установите Playwright и Chromium, чтобы агент мог работать в браузере.')
+            : rt && rt.available === true
+              ? 'Chromium найден. Запуск ещё не проверен: откройте новое окно. Вход, загрузка файлов и отправка форм требуют вашего разрешения, а оплата запрещена.'
+              : 'Состояние: UNKNOWN — проверить установку браузера не удалось. Обновите страницу и повторите проверку.',
         });
 
     return h('div.bx-page', head, offlineBanner, body);

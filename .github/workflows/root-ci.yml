@@ -1,4 +1,6 @@
 name: root-ci (shared contracts, learning layer, tools)
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 on:
   push:
@@ -20,6 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
@@ -57,6 +60,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Build image (repository root context)
         run: docker build -f bossman-core/Dockerfile -t bossman-core:ci .
       - name: Shared contracts resolve inside the container

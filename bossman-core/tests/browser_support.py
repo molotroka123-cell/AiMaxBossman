@@ -16,17 +16,35 @@ BOSSMAN_TEST_CHROMIUM приоритетнее всего, но только е�
 from __future__ import annotations
 
 import glob
+import json
 import os
 from functools import lru_cache
 from pathlib import Path
+
+
+def _playwright_registry() -> tuple[Path | None, str | None]:
+    """Read the installed driver's revision without starting an asyncio driver."""
+    try:
+        import playwright
+        package = Path(playwright.__file__).resolve().parent / "driver" / "package"
+        browsers = json.loads((package / "browsers.json").read_text(encoding="utf-8"))["browsers"]
+        revision = next(row["revision"] for row in browsers if row["name"] == "chromium")
+        if isinstance(revision, str) and revision.isascii() and revision.isdigit():
+            return package, revision
+    except (ImportError, OSError, ValueError, TypeError, KeyError, StopIteration):
+        pass
+    return None, None
 
 
 def _browser_roots() -> list[str]:
     """Каталоги, куда Playwright кладёт браузеры, по всем ОС."""
     roots: list[str] = []
     env_root = os.getenv("PLAYWRIGHT_BROWSERS_PATH")
+    if env_root == "0":
+        package, _ = _playwright_registry()
+        return [str(package / ".local-browsers")] if package else []
     if env_root and env_root != "0":
-        roots.append(env_root)
+        return [env_root]
     home = Path.home()
     roots += [
         "/opt/pw-browsers",                                  # контейнер разработки
@@ -39,6 +57,11 @@ def _browser_roots() -> list[str]:
 
 # Относительные пути к исполняемому файлу внутри каталога chromium-*.
 _EXE_RELATIVE = (
+    # Current Chrome for Testing layout, as declared by Playwright's registry.
+    "chrome-linux64/chrome",
+    "chrome-win64/chrome.exe",
+    "chrome-mac-x64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+    "chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
     "chrome-linux/chrome",
     "chrome-win/chrome.exe",
     "chrome-mac/Chromium.app/Contents/MacOS/Chromium",
@@ -50,11 +73,23 @@ _SYSTEM_PATHS = ("/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/goo
 
 @lru_cache(maxsize=1)
 def chromium_path() -> str | None:
-    """Путь к Chromium или None. Порядок: переменная → раскладки Playwright →
-    системные пути → (крайний случай) запрос у самого Playwright."""
+    """Explicit owner path, then the installed driver's exact Chromium revision.
+
+    Legacy/system discovery is retained only when driver metadata is absent.
+    A stale cache must not silently substitute another engine for the CI target.
+    """
     env = os.getenv("BOSSMAN_TEST_CHROMIUM")
-    if env and Path(env).exists():
+    if env and Path(env).is_file():
         return env
+
+    _, revision = _playwright_registry()
+    if revision:
+        for root in _browser_roots():
+            for rel in _EXE_RELATIVE:
+                path = Path(root) / f"chromium-{revision}" / rel
+                if path.is_file():
+                    return str(path)
+        return None
 
     for root in _browser_roots():
         for rel in _EXE_RELATIVE:

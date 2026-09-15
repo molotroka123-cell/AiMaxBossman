@@ -64,6 +64,31 @@ const startApp = (id) => api.raw(url(id, '/start'), { method: 'POST' });
 const stopApp = (id) => api.raw(url(id, '/stop'), { method: 'POST' });
 const processInfo = (id) => api.raw(url(id, '/process'));
 
+function policyControl(ctx, known) {
+  const node = h('div.bx-panel', { style: { padding: '14px', marginBottom: '16px' } });
+  const show = (policy) => {
+    const text = h('span', policy.enabled ? 'Запуск приложений разрешён. ' : 'Запуск приложений выключен. ');
+    const button = h('button.bx-btn.bx-btn-secondary.bx-btn-sm', {
+      type: 'button', disabled: !policy.can_change,
+      onClick: async () => {
+        if (button.disabled) return;
+        button.disabled = true;
+        try {
+          await api.raw('/api/apps/control/policy', { method: 'PUT', body: { enabled: !policy.enabled } });
+          toastOk(policy.enabled ? 'Запуск приложений выключен' : 'Запуск приложений разрешён');
+          ctx.refresh();
+        } catch (error) { button.disabled = false; toastError(error, 'Не удалось изменить политику приложений'); }
+      },
+    }, policy.enabled ? 'Запретить запуск приложений' : 'Разрешить запуск приложений');
+    node.replaceChildren(text, button, h('p', policy.hint || ''));
+  };
+  if (known) show(known);
+  else api.raw('/api/apps/control/policy').then(show).catch(error => {
+    node.textContent = error.message || 'Политика приложений не загрузилась. Обновите страницу.';
+  });
+  return node;
+}
+
 /* Список приложений кэшируется на сервере, поэтому после запуска его нужно
    перечитать принудительно: иначе карточка ещё десять секунд будет уверять,
    что приложение стоит, хотя оно уже отвечает. */
@@ -153,6 +178,7 @@ function grid(apps, ctx) {
           type: 'button',
           onClick: async () => { await refreshApps(); ctx.refresh(); },
         }, icon('retry', 14), h('span', 'Проверить состояние')))),
+    policyControl(ctx),
     h('div.bx-apps-grid', apps.map((app) => cardWithControl(app, ctx))));
 }
 
@@ -210,7 +236,7 @@ function appView(app, ctx) {
   const body = running
     ? h('div.bx-appview-frame',
       h('iframe', {
-        src: app.base_url, title: app.name,
+        src: app.view_url || app.base_url, title: app.name,
         // Приложение — отдельный сервис, а не часть BOSSMAN. Песочница
         // ограничивает его тем, что нужно интерфейсу, и ничем сверх того.
         sandbox: 'allow-scripts allow-forms allow-same-origin allow-popups',
@@ -218,7 +244,7 @@ function appView(app, ctx) {
       }))
     : notRunning(app, ctx);
 
-  return h('div.bx-appview', head, body);
+  return h('div.bx-appview', { dataset: { appId: app.id } }, head, body);
 }
 
 function codeBlock(text) {
@@ -292,9 +318,7 @@ function notRunning(app, ctx) {
       // Кнопка, которая гарантированно откажет, хуже честной надписи.
       startBtn.disabled = true;
       startBtn.title = 'Управление приложениями выключено';
-      details.appendChild(h('div', { style: { marginTop: '12px' } },
-        'Запуск из дашборда выключен. Чтобы разрешить его, поставьте '
-        + 'BOSSMAN_APPS_CONTROL_ENABLED=1 и перезапустите Command Center.'));
+      details.appendChild(policyControl(ctx, info.control_policy));
     } else if (info.log_tail && info.log_tail.length) {
       details.appendChild(logBlock('Последние строки прошлого запуска:', info.log_tail));
     }

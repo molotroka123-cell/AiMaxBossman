@@ -85,7 +85,11 @@ class JsonTaskStore:
             held=int(t.revision or 0)
             t.revision=held+1
             r[t.id]=self._enc(t)
-            try: self._write(json.dumps(r,ensure_ascii=False,indent=1))
+            # This restart journal is rewritten at every state transition. Pretty
+            # printing forces Python's recursive JSON encoder through the whole
+            # history; compact JSON keeps exactly the same persisted values and
+            # uses the C encoder without formatting the UI never reads.
+            try: self._write(json.dumps(r,ensure_ascii=False,separators=(",",":")))
             except OSError:
                 # Ревизия поднимается ТОЛЬКО вместе с успешной записью: иначе
                 # незаписанный снимок «обгонял» строку и следующей попыткой

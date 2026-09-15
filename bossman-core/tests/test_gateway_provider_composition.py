@@ -129,7 +129,7 @@ def test_an_anthropic_reply_comes_back_in_the_shape_the_gateway_speaks():
         "content": [{"type": "text", "text": "привет"}],
         "usage": {"input_tokens": 5, "output_tokens": 2}})
     assert body["choices"][0]["message"]["content"] == "привет"
-    assert body["choices"][0]["finish_reason"] == "end_turn"
+    assert body["choices"][0]["finish_reason"] == "stop"
     assert body["usage"]["total_tokens"] == 7
 
 

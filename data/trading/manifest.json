@@ -1,35 +1,87 @@
 {
   "corpus": "bossman-trader-apprentice-btc-orderflow",
-  "version": "1.0.0",
-  "updated_at": "2026-09-08",
+  "version": "1.4.0",
+  "updated_at": "2026-09-11",
   "load_order": [
     "docs/trading/LOCAL_MODEL_SYSTEM_PROMPT.md",
     "docs/trading/BTC_ORDERFLOW_PLAYBOOK.md",
+    "data/trading/case_registry.json",
+    "data/trading/canonical_cases/*.json",
     "data/trading/btc_orderflow_rules_v1.json",
-    "data/trading/btc_casebook_2026_09.jsonl"
+    "data/trading/short_setup_rules_v1.json",
+    "data/trading/audits/**/*.json",
+    "data/trading/research/*.json",
+    "data/trading/scenarios/*.json",
+    "data/trading/macro/*.json",
+    "data/trading/btc_casebook_2026_09.jsonl",
+    "data/trading/cases/**/*.json"
   ],
+  "case_store": {
+    "case_registry": "data/trading/case_registry.json",
+    "canonical_case_directory": "data/trading/canonical_cases/",
+    "legacy_casebook": "data/trading/btc_casebook_2026_09.jsonl",
+    "live_case_directory": "data/trading/cases/",
+    "audit_directory": "data/trading/audits/",
+    "research_directory": "data/trading/research/",
+    "scenario_directory": "data/trading/scenarios/",
+    "macro_directory": "data/trading/macro/",
+    "write_policy": "raw observations are immutable evidence; numbered actual trades are summarized in canonical_cases and indexed by case_registry",
+    "case_numbering_policy": "news events, screenshots, regime changes and audits do not increment CASE-N; only a distinct actual position after prior closure/reset does"
+  },
   "deterministic_engine": "learning/trader_apprentice.py",
-  "tests": "tests/test_trader_apprentice.py",
+  "short_side_policy": {
+    "rules": "data/trading/short_setup_rules_v1.json",
+    "symmetric_analysis": true,
+    "principle": "Short the failed repair or confirmed bearish leverage expansion, not the liquidation low.",
+    "required_checks": [
+      "failed dVAL/dPOC reclaim",
+      "price response efficiency versus CVD",
+      "price response efficiency versus OI rebuild",
+      "intrawindow OI path after capitulation",
+      "lower-high / rejection sequence",
+      "explicit invalidation"
+    ],
+    "never_infer_short_side_from_oi_alone": true
+  },
+  "edge_research_policy": {
+    "status_default": "HYPOTHESIS",
+    "promotion_requires_backtest": true,
+    "required_validation": [
+      "chronological out-of-sample test",
+      "fees and slippage",
+      "reference-to-execution basis",
+      "multiple volatility regimes",
+      "parameter perturbation stability",
+      "walk-forward positive expectancy"
+    ],
+    "primary_current_hypothesis": "POST_CAPITULATION_FAILED_RECLAIM_SHORT",
+    "primary_feature_family": "price recovery efficiency relative to CVD and OI repair"
+  },
+  "youtube_teacher": {
+    "tool": "tools/youtube_trader_ingest_auto.py",
+    "visual_core": "tools/youtube_trader_ingest.py",
+    "docs": "docs/trading/YOUTUBE_TEACHER_INGEST.md",
+    "input_contract": "one public youtube.com or youtu.be URL",
+    "output_root": "data/trading/youtube_inbox/<video_id>/",
+    "status": "UNVERIFIED_INGEST",
+    "requires": ["yt-dlp", "ffmpeg", "OpenAI-compatible local multimodal model"],
+    "optional_when_youtube_captions_missing": ["OpenAI-compatible local audio/transcriptions model"],
+    "auto_route_trading_youtube_urls": true,
+    "never_require_owner_transcript_or_screenshots": true,
+    "promotion_requires_independent_verification": true
+  },
+  "tests": [
+    "tests/test_trader_apprentice.py",
+    "tests/test_youtube_trader_ingest.py",
+    "tests/test_youtube_trader_ingest_auto.py"
+  ],
   "retrieval_hints": [
-    "btc",
-    "trading",
-    "trader apprentice",
-    "coinwise",
-    "k1m6a",
-    "cvd",
-    "open interest",
-    "oi",
-    "liquidations",
-    "dval",
-    "dpoc",
-    "dvah",
-    "dopen",
-    "deleveraging",
-    "absorption",
-    "reclaim",
-    "sweep",
-    "short covering",
-    "leverage expansion"
+    "btc", "trading", "trader apprentice", "case registry", "canonical case", "case 1", "case 2",
+    "youtube teacher", "video ingest", "youtube url", "local asr", "coinwise", "k1m6a", "cvd",
+    "open interest", "oi", "liquidations", "dval", "dpoc", "dvah", "dopen", "deleveraging",
+    "absorption", "reclaim", "failed reclaim", "buyer efficiency", "leverage efficiency",
+    "recovery efficiency", "edge candidate", "crowding", "short candidate", "sweep",
+    "short covering", "leverage expansion"
   ],
   "runtime_policy": {
     "analysis_only": true,
@@ -38,14 +90,25 @@
     "require_source_and_instrument_tags": true,
     "require_same_series_for_cvd_oi_delta": true,
     "separate_cme_and_execution_market_prices": true,
-    "never_invent_live_values": true
+    "never_invent_live_values": true,
+    "youtube_teacher_is_untrusted": true,
+    "raw_teacher_claims_are_not_training_truth": true,
+    "analyze_long_and_short_setups_symmetrically": true,
+    "edge_research_is_hypothesis_until_backtested": true,
+    "canonical_case_registry_overrides_screenshot_level_numbering": true
   },
   "recommended_runtime_sequence": [
-    "Extract current screenshot/live observation into a structured Snapshot.",
-    "Load the previous compatible Snapshot from the same series.",
+    "Load case_registry and canonical case summaries before raw event evidence.",
+    "Attach a new screenshot/event to the currently open canonical case unless a distinct new actual position starts after explicit closure/reset.",
+    "If the owner supplies a trading YouTube URL, invoke tools/youtube_trader_ingest_auto.py automatically.",
+    "Fetch YouTube captions automatically; if absent, attempt configured local ASR; if ASR is unavailable, continue with visual parsing and mark speech missing.",
+    "Use the local multimodal model to extract factual observations with unreadable values as UNKNOWN/null.",
+    "Load the previous compatible Snapshot from the same source/instrument series.",
     "Run learning.trader_apprentice.analyze(previous, current, levels).",
-    "Retrieve the playbook/rules for explanation and scenario construction.",
-    "Return market-state matrix, regime, evidence, levels, trigger/invalidation, missing data and confidence.",
+    "Evaluate BOTH long-reclaim and short-failed-reclaim paths; do not reduce bearish states to only no-long.",
+    "After capitulation, calculate whether CVD/OI recovery is producing proportional price repair.",
+    "Retrieve matching scenario trees, audit lessons and edge hypotheses.",
+    "Store each new raw observation as immutable evidence and update the open canonical case summary separately.",
     "Do not place an order without a separate explicit execution authorization layer."
   ]
 }

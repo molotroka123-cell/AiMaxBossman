@@ -1,0 +1,29 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local_approx": "14:38 ET",
+  "type": "postmortem_correction_snapshot",
+  "market": "BTC",
+  "source": "Coinwise/K1m6a screenshots supplied by owner",
+  "observed": {
+    "price_approx": 77100,
+    "cvd_billion": 59.52,
+    "open_interest_billion": 17.87,
+    "prior_context": "CVD had surged toward 59-60B while OI had been falling from the 18.5B area, but price failed to sustain the earlier breakout and retraced materially."
+  },
+  "reclassification": "BUYER_INEFFICIENCY_AFTER_SQUEEZE",
+  "why_previous_long_bias_was_too_early": [
+    "The model overweighted high/firm CVD plus falling OI as constructive without demanding sufficient price repair/acceptance.",
+    "CVD is effort, not result. Aggressive buying that cannot keep price above reclaimed value means passive sellers may be absorbing that effort.",
+    "Falling OI during the retrace means deleveraging rather than fresh bearish leverage expansion, but deleveraging alone is not a long trigger.",
+    "The proper edge must require price response efficiency and structural acceptance, not just favorable CVD/OI direction."
+  ],
+  "corrected_rule": {
+    "no_anticipatory_long": "Do not open or add a long solely because CVD is high/up and OI is down. Require price to reclaim and hold a structural level after the flow signal.",
+    "long_trigger": "Price reclaims and accepts above dPOC/dVAH or another predeclared structural level while CVD remains firm and OI is flat/down or only modestly rising.",
+    "short_warning": "If CVD remains elevated or rises while price fails to recover structure, classify buyer efficiency as weak and arm failed-reclaim/absorption short scenarios.",
+    "bearish_confirmation": "Price DOWN + CVD DOWN + OI UP is fresh bearish leverage expansion and a stronger continuation short state."
+  },
+  "liquidity_map_use": "Use liquidation heatmaps to locate where reactions/targets may occur, not as standalone entry signals or deterministic magnets. Liquidity level + price response + CVD/OI trigger are all required.",
+  "lesson": "The edge is not prediction accuracy on every bounce. The edge is waiting until order-flow effort produces structural price response. When effort is large and response is weak, that failure itself is information."
+}

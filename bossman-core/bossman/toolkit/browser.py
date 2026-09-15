@@ -116,10 +116,36 @@ def profile_path(agent: str) -> Path:
 
 
 def _pid_alive(pid: int) -> bool:
-    if pid <= 0:
+    if type(pid) is not int or pid <= 0:
         return False
+    if os.name == "nt":
+        # Signal zero is CTRL_C_EVENT on Windows, not a process query. Probe a
+        # SYNCHRONIZE handle without sending any event to the shared console.
+        # Unknown identity/access keeps the profile locked; only known exit
+        # allows stale-lock recovery. psutil is optional in Core.
+        try:
+            import ctypes
+            from ctypes import wintypes
+            kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+            kernel.OpenProcess.restype = wintypes.HANDLE
+            kernel.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+            kernel.WaitForSingleObject.restype = wintypes.DWORD
+            kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+            kernel.CloseHandle.restype = wintypes.BOOL
+            handle = kernel.OpenProcess(0x00100000, False, pid)
+            if not handle:
+                return ctypes.get_last_error() != 87  # ERROR_INVALID_PARAMETER: no such PID
+            try:
+                return kernel.WaitForSingleObject(handle, 0) != 0  # only WAIT_OBJECT_0 proves exit
+            finally:
+                kernel.CloseHandle(handle)
+        except (OSError, AttributeError, ValueError):
+            return True
     try:
         os.kill(pid, 0)
+        return True
+    except PermissionError:
         return True
     except OSError:
         return False

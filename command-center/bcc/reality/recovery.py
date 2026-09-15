@@ -119,12 +119,35 @@ def classify_failure(error: str, *, kind: str | None = None) -> str:
     return UNKNOWN
 
 
+#: Strategy changes a run may make in its whole life, across ALL failure
+#: classes: one model switch and one degraded path. Together with the owner's
+#: `max_retries` (same-route repeats) this is the global recovery budget:
+#:
+#:     transitions <= max_retries + MAX_STRATEGY_CHANGES, then human escalation
+#:
+#: Astra/Codex F6 (2026-09-08, 2/2, 24 persisted transitions): `from_dict`
+#: discarded the spent rungs whenever the failure CLASS changed, so a provider
+#: alternating "unsupported tool use" / "empty response" re-earned the degraded
+#: path on every transition and the run stayed `queued` indefinitely. A path
+#: that was tried is tried, whatever the label on the next error.
+MAX_STRATEGY_CHANGES = 2
+STRATEGY_RUNGS = (ALTERNATE_MODEL, DEGRADED_PATH)
+
+
+def recovery_budget(max_retries: int) -> int:
+    """Total failure transitions a run may take before it MUST go to the owner."""
+    return max(0, int(max_retries)) + MAX_STRATEGY_CHANGES
+
+
 @dataclass
 class Ladder:
     """Which rungs remain for this run. Spent rungs never come back (see
-    `spend` for the one deliberate exception)."""
+    `spend` for the one deliberate exception) — not even when the next failure
+    wears a different class: `spent` is the run's history, not the class's."""
     failure_class: str
     spent: tuple[str, ...] = ()
+    transitions: int = 0                    # failure handlings so far, all classes
+    classes: tuple[str, ...] = ()           # every failure class seen, in order
 
     @property
     def available(self) -> tuple[str, ...]:
@@ -141,23 +164,39 @@ class Ladder:
         regression wearing a state machine's clothes."""
         if rung == RETRY_SAME:
             return self
-        return Ladder(self.failure_class, tuple(self.spent) + (rung,))
+        return Ladder(self.failure_class, tuple(self.spent) + (rung,),
+                      self.transitions, self.classes)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"failure_class": self.failure_class, "spent": list(self.spent)}
+        return {"failure_class": self.failure_class, "spent": list(self.spent),
+                "transitions": int(self.transitions), "classes": list(self.classes)}
 
     @classmethod
     def from_dict(cls, data: Any, failure_class: str) -> "Ladder":
-        """A ladder is carried in the run checkpoint. If the stored class no
-        longer matches the current failure, the run has hit a DIFFERENT
-        problem: it gets a fresh ladder rather than inheriting rungs spent on
-        the old one, which would strand it with nothing left to try."""
-        if not isinstance(data, dict) or data.get("failure_class") != failure_class:
-            return cls(failure_class)
+        """A ladder is carried in the run checkpoint and survives a restart.
+
+        The current failure class selects which rungs are RELEVANT; it never
+        refreshes which rungs are SPENT. A different class is a different
+        symptom of the same run, and the model switch / degraded path already
+        tried on the previous symptom do not become untried. Every handling
+        counts one transition, whatever the class."""
+        if not isinstance(data, dict):
+            return cls(failure_class, (), 1, (failure_class,))
         spent = data.get("spent")
-        if not isinstance(spent, list):
-            return cls(failure_class)
-        return cls(failure_class, tuple(str(r) for r in spent if isinstance(r, str)))
+        spent_t = tuple(str(r) for r in spent if isinstance(r, str)) if isinstance(spent, list) else ()
+        try:
+            transitions = int(data.get("transitions") or 0)
+        except (TypeError, ValueError):
+            transitions = 0
+        classes = data.get("classes")
+        classes_t = tuple(str(c) for c in classes if isinstance(c, str)) if isinstance(classes, list) else ()
+        if not classes_t and isinstance(data.get("failure_class"), str):
+            classes_t = (str(data["failure_class"]),)
+        return cls(failure_class, spent_t, transitions + 1, classes_t + (failure_class,))
+
+    @property
+    def strategy_changes(self) -> int:
+        return sum(1 for r in self.spent if r in STRATEGY_RUNGS)
 
 
 @dataclass
@@ -181,11 +220,21 @@ class Rung:
 def next_rung(ladder: Ladder, *, current_model_id: int | None,
               fallback_model_id: int | None = None,
               healthy_models: Sequence[tuple[int, mh.HealthRecord]] = (),
-              retries_left: int = 0) -> Rung:
+              retries_left: int = 0, max_retries: int | None = None) -> Rung:
     """Pick the next rung, or escalate to the owner when nothing is left.
 
     Escalation is a real answer, not a failure of this function: handing a
-    problem to a human beats cycling through paths that cannot work."""
+    problem to a human beats cycling through paths that cannot work.
+
+    Two bounds hold regardless of how the failure classes alternate: the spent
+    rungs persist across classes (see `Ladder.from_dict`), and the total number
+    of transitions may not exceed `recovery_budget(max_retries)`. The second is
+    the belt to the first's braces — no sequence of labels can exceed it."""
+    budget = recovery_budget(max_retries if max_retries is not None else retries_left)
+    if ladder.transitions > budget or ladder.strategy_changes >= MAX_STRATEGY_CHANGES and retries_left <= 0:
+        return Rung(HUMAN, _escalation_reason(ladder, retries_left=retries_left,
+                                              budget_exhausted=True),
+                    ladder.spend(HUMAN))
     for candidate in ladder.available:
         if candidate == RETRY_SAME:
             if retries_left <= 0:
@@ -212,8 +261,9 @@ def next_rung(ladder: Ladder, *, current_model_id: int | None,
                 ladder.spend(HUMAN))
 
 
-def _escalation_reason(ladder: Ladder, *, retries_left: int = 0) -> str:
-    if ladder.failure_class == UNAUTHORIZED:
+def _escalation_reason(ladder: Ladder, *, retries_left: int = 0,
+                       budget_exhausted: bool = False) -> str:
+    if ladder.failure_class == UNAUTHORIZED and not budget_exhausted:
         return ("ключ или доступ провайдера отвергнут — это решает владелец; "
                 "повторные попытки только блокируют ключ")
     # `retry_same` не попадает в `spent` (это бюджет владельца, а не ступень),
@@ -222,7 +272,11 @@ def _escalation_reason(ladder: Ladder, *, retries_left: int = 0) -> str:
     tried = list(ladder.spent)
     if not retries_left and RETRY_SAME in LADDERS.get(ladder.failure_class, ()):
         tried.insert(0, "повторы того же маршрута (бюджет исчерпан)")
-    return (f"автоматические пути исчерпаны (класс сбоя: {ladder.failure_class}; "
+    seen = [c for i, c in enumerate(ladder.classes) if c not in ladder.classes[:i]]
+    classes = ", ".join(seen) if len(seen) > 1 else ladder.failure_class
+    head = ("бюджет восстановления исчерпан" if budget_exhausted
+            else "автоматические пути исчерпаны")
+    return (f"{head} (сбоев: {ladder.transitions}; класс сбоя: {classes}; "
             f"испробовано: {', '.join(tried) or 'нечего было пробовать'}) — "
             f"решение владельцу")
 

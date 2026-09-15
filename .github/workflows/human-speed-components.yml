@@ -1,9 +1,13 @@
 name: Human-speed components (not UI attestation)
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 on:
   push:
     branches:
       - test/astra-human-speed-gates-20260906
+      - claude/bossman-final-audit-closure-aucx9x
+      - 'release/**'
   workflow_dispatch:
 
 permissions:
@@ -27,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v7
         with:
@@ -37,7 +41,7 @@ jobs:
         run: |
           mkdir -p speed-results
           git rev-parse HEAD | tee speed-results/code-sha.txt
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$BOSSMAN_ACCEPTANCE_SHA"
           git rev-parse HEAD^{tree} > speed-results/tree-sha.txt
           python -c "import json,platform,sqlite3; print(json.dumps({'platform':platform.platform(),'python':platform.python_version(),'sqlite':sqlite3.sqlite_version}))" > speed-results/host.json
       - name: Install declared test dependencies
@@ -54,7 +58,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          python tools/human_speed_gate.py --expect-sha "$GITHUB_SHA" > speed-results/visible-input-status.json
+          python tools/human_speed_gate.py --expect-sha "$BOSSMAN_ACCEPTANCE_SHA" > speed-results/visible-input-status.json
           code=$?
           set -e
           cat speed-results/visible-input-status.json
@@ -64,7 +68,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: human-speed-${{ matrix.os }}-${{ github.sha }}
+          name: human-speed-${{ matrix.os }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: speed-results/
           if-no-files-found: error
           retention-days: 7

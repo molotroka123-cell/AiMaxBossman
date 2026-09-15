@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from .browser_support import click_in_preview, chromium_available, reason as browser_reason
+from .browser_support import chromium_available, click_in_preview, reason as browser_reason
 from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
 
 pytestmark = [pytest.mark.timeout(180),

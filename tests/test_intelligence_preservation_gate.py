@@ -41,11 +41,29 @@ def _mode(score: float = 0.80, hallucination: float = 0.05, samples: int = 1000,
     return payload
 
 
+def _lanes():
+    """How a real payload declares it was produced.
+
+    The fixture carries this block because real evidence carries it: the gate
+    now asks whether the FULL lane actually RAN the harness, and a fixture that
+    omitted the block would only be testing the refusal path by accident.
+    """
+    return {
+        "raw": {"lane": "raw", "kind": "prompt_ablation", "executes_tools": False},
+        "system": {"lane": "system", "kind": "prompt_ablation", "executes_tools": False},
+        "context": {"lane": "context", "kind": "prompt_ablation", "executes_tools": False},
+        "full": {"lane": "full", "kind": "production_execution_loop", "executes_tools": True,
+                 "observed": {"model_turns": 42, "executed": 17, "declined": 3,
+                              "items_with_executed_tool_call": 12}},
+    }
+
+
 def _payload(samples: int = 1000, *, paired: bool = True):
     return {
         "model": "fixture-model",
         "dataset_id": "anti-dumbness-fixture-v1",
         "evaluated_sha": SHA,
+        "lanes": _lanes(),
         "modes": {"raw": _mode(samples=samples, paired=False), "system": _mode(samples=samples, paired=paired),
                   "context": _mode(samples=samples, paired=paired), "full": _mode(samples=samples, paired=paired)},
     }
@@ -250,3 +268,60 @@ def test_cli_binds_the_file_to_the_commit_under_test(tmp_path):
     src.write_text(json.dumps(_payload(paired=False)), encoding="utf-8")
     weak = subprocess.run([sys.executable, str(tool), str(src)], capture_output=True, text=True)
     assert weak.returncode == 2 and "INSUFFICIENT_EVIDENCE" in weak.stdout
+
+
+# ------------------------------------------------------ the FULL lane must be real
+
+def test_a_prompt_ablation_cannot_stand_in_for_the_full_lane():
+    """AF-04, now enforced by the gate and not only by the runner.
+
+    A FULL lane that appends a list of tool names to the prompt and calls the
+    model once measures nothing about whether Bossman's own loop preserves
+    quality — and it would answer with a number that cannot be wrong. Two
+    runners in this repository can write this file; only one of them runs the
+    harness, and the gate must be able to tell them apart.
+    """
+    payload = _payload()
+    payload["lanes"]["full"] = {"lane": "full", "kind": "prompt_ablation",
+                                "executes_tools": False}
+    with pytest.raises(ValueError, match="did not run the harness"):
+        evaluate(payload)
+
+
+def test_evidence_that_does_not_say_how_it_was_produced_is_refused():
+    payload = _payload()
+    payload.pop("lanes")
+    with pytest.raises(ValueError, match="missing lanes block"):
+        evaluate(payload)
+
+    partial = _payload()
+    partial["lanes"].pop("full")
+    with pytest.raises(ValueError, match="missing lanes.full"):
+        evaluate(partial)
+
+
+def test_a_full_lane_that_executed_nothing_is_refused():
+    """Declaring `executes_tools` is a claim; `observed.executed` is the number."""
+    payload = _payload()
+    payload["lanes"]["full"]["observed"]["executed"] = 0
+    with pytest.raises(ValueError, match="no tool actually executed"):
+        evaluate(payload)
+
+    missing = _payload()
+    missing["lanes"]["full"].pop("observed")
+    with pytest.raises(ValueError, match="missing lanes.full.observed"):
+        evaluate(missing)
+
+    lying = _payload()
+    lying["lanes"]["full"]["observed"]["executed"] = True   # bool is not a count
+    with pytest.raises(ValueError, match="no tool actually executed"):
+        evaluate(lying)
+
+
+def test_the_real_full_lane_still_passes():
+    """Negative control for all three refusals above.
+
+    Without this, the checks could be tightened until nothing passes and the
+    suite would still look green.
+    """
+    assert evaluate(_payload())["status"] == "PASS"

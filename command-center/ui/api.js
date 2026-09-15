@@ -222,6 +222,9 @@ export const api = {
 
   // system
   system: (opts) => GET('/api/system', opts),
+  // Личность работающего кода. Отдельный вызов, а не поле /api/system: владелец
+  // должен видеть SHA сразу после входа, до того как поедут метрики.
+  identity: (opts) => GET('/api/identity', opts),
   cacheEconomics: (opts) => GET('/api/cache/economics', opts),
   cacheIntelligence: (opts) => GET('/api/cache/intelligence', opts),
 
@@ -249,6 +252,8 @@ export const api = {
   // tasks
   tasks: (status) => GET('/api/tasks' + qs({ status })),
   createTask: (data) => POST('/api/tasks', data),
+  // MF-031: кто выполнит задачу, до её создания. Ничего не пишет.
+  preflightTask: (data) => POST('/api/tasks/preflight', data),
   task: (id) => GET(`/api/tasks/${encodeURIComponent(id)}`),
   taskAction: (id, action) => POST(`/api/tasks/${encodeURIComponent(id)}/${action}`),
 

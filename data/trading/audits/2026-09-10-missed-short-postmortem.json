@@ -1,0 +1,80 @@
+{
+  "audit_id": "btc-2026-09-10-missed-short-postmortem",
+  "date": "2026-09-10",
+  "market": "BTC",
+  "purpose": "Teach Trader Apprentice to identify short candidates after capitulation instead of only waiting for long reclaims.",
+  "source": "K1m6a/Coinwise-style screenshots from the live case sequence",
+  "observed_sequence": [
+    {
+      "phase": "capitulation_flush",
+      "reference_price_approx": 76800,
+      "cvd_billion": 43.93,
+      "open_interest_billion": 18.28,
+      "long_liquidations_million": 32.96,
+      "interpretation": "Massive forced-long flush. Do not short the liquidation low blindly and do not call a bottom from liquidation size alone."
+    },
+    {
+      "phase": "post_flush_releveraging_bounce_below_value",
+      "reference_price_approx": 77085,
+      "cvd_billion": 46.68,
+      "open_interest_billion": 18.61,
+      "visible_levels": {
+        "dVAL_approx": 77685,
+        "dPOC_approx": 78145,
+        "dVAH_approx": 78660,
+        "dOpen_approx": 78550
+      },
+      "delta_from_flush": {
+        "price_change_approx": 285,
+        "cvd_change_billion": 2.75,
+        "oi_change_billion": 0.33
+      },
+      "interpretation": "Aggressive buying and OI both rebuilt strongly, but price response was weak and remained far below dVAL. This is buyer effort plus rapid re-leveraging below broken value: a fragile bounce, not confirmed recovery."
+    }
+  ],
+  "missed_short_thesis": {
+    "root_cause": [
+      "The existing Trader Apprentice logic was asymmetric: bearish observations mostly disabled longs or returned RISK_OFF, but did not promote a separate SHORT_CANDIDATE workflow.",
+      "The system over-focused on waiting for a long reclaim after the flush and underweighted failure-to-reclaim as an actionable directional signal.",
+      "The model needed an efficiency test: large CVD recovery + large OI rebuild that produces only a small price bounce below dVAL is evidence of buyer inefficiency / passive seller control.",
+      "The model needed path-aware crowding logic: rapid post-capitulation OI rebuild below broken value can create a fresh liquidation layer if price cannot reclaim structure."
+    ],
+    "ideal_short_setup": {
+      "setup_name": "POST_CAPITULATION_FAILED_RECLAIM_SHORT",
+      "preconditions": [
+        "A large long-liquidation flush has already occurred.",
+        "Price remains below broken value / dVAL.",
+        "OI rebuilds rapidly after the flush.",
+        "CVD improves or buyers become aggressive, but price response is weak relative to that effort."
+      ],
+      "trigger": "Bounce into the first broken structural level (preferably dVAL / prior-day-low cluster) then rejection or failure to accept above it.",
+      "confirmation": [
+        "Price rolls over from the failed reclaim.",
+        "CVD stops recovering or turns down.",
+        "OI remains elevated/rises as price weakens, OR OI begins flushing only after the rejection has already confirmed the trap.",
+        "A lower high or failed retest forms below dVAL/dPOC."
+      ],
+      "avoid": [
+        "Do not initiate the first short at the capitulation low after a vertical liquidation candle.",
+        "Do not short solely because OI rose; OI does not identify side by itself.",
+        "Do not short a successful dVAL/dPOC reclaim with Price UP + CVD UP + OI UP."
+      ],
+      "invalidation": "Acceptance back above dVAL and especially dPOC with positive price response to CVD and non-pathological OI growth.",
+      "continuation_trigger": "A fresh low after failed reclaim is higher quality if CVD is down and OI is flat/up; if OI is collapsing violently, treat it as continuation deleveraging and avoid chasing too late."
+    }
+  },
+  "efficiency_features_for_model": {
+    "buyer_efficiency": "price_change_bps / max(abs(cvd_change_normalized), epsilon)",
+    "leverage_efficiency": "price_change_bps / max(abs(oi_change_pct), epsilon)",
+    "failed_reclaim_score": "higher when price remains below dVAL/dPOC despite positive CVD and rising OI",
+    "crowding_warning": "OI rebuild after capitulation is dangerous when price cannot reclaim value",
+    "path_priority": "Use intrawindow high/low, reclaim attempts and OI path; endpoint-only matrices can miss traps."
+  },
+  "decision_rule": {
+    "if": "post-capitulation bounce + CVD UP + OI UP + price remains below dVAL and shows weak response",
+    "then": "classify as FRAGILE_RELEVERAGING_BELOW_VALUE and arm SHORT_CANDIDATE_ON_FAILED_RECLAIM",
+    "not": "automatic short at market",
+    "preferred_execution_logic": "wait for retest/rejection of broken value or a confirmed rollover; short the failed repair, not the liquidation low"
+  },
+  "lesson": "The missed short was not predictable from one bearish candle; it became predictable when the post-flush bounce showed strong buyer effort and strong OI rebuild without structural reclaim. The actionable information was failure of recovery efficiency. Trader Apprentice must be symmetric: long reclaims and short failed-reclaims are mirror-image opportunities."
+}

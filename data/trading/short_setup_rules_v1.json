@@ -1,0 +1,84 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-09-10",
+  "purpose": "Symmetric short-side decision rules for Trader Apprentice. These rules identify short candidates; they do not autonomously place orders.",
+  "core_principle": "Short the failed repair or confirmed bearish leverage expansion, not the liquidation low.",
+  "short_setups": [
+    {
+      "name": "POST_CAPITULATION_FAILED_RECLAIM_SHORT",
+      "preconditions": [
+        "Large long-liquidation/deleveraging event has already occurred.",
+        "Price remains below broken dVAL / prior-day-low / value boundary.",
+        "OI rebuilds after the flush.",
+        "CVD improves or buyers become aggressive but price response remains weak."
+      ],
+      "trigger": "Retest/reclaim attempt into broken value fails; price cannot accept above dVAL or dPOC.",
+      "confirmation": [
+        "Lower high or rejection candle/sequence below dVAL/dPOC.",
+        "CVD stops improving or turns down.",
+        "OI stays elevated/rises as price weakens, or collapses only after the trap is already confirmed.",
+        "Price loses the post-flush local support after failed reclaim."
+      ],
+      "invalidation": "Acceptance above dVAL and preferably dPOC with positive price response and improving flow.",
+      "confidence_boosters": [
+        "Large OI rebuild relative to small price bounce.",
+        "Large positive CVD change relative to small price bounce.",
+        "Repeated failed attempts to reclaim the same broken value level.",
+        "Funding remains positive while price cannot recover, suggesting long-side crowding risk."
+      ],
+      "avoid": [
+        "Do not enter first short directly into a vertical capitulation candle.",
+        "Do not use OI direction alone as proof of shorts.",
+        "Do not short if price reclaims/accepts value and Price UP + CVD UP + OI UP confirms recovery."
+      ]
+    },
+    {
+      "name": "BEARISH_LEVERAGE_EXPANSION_SHORT",
+      "preconditions": [
+        "Price DOWN",
+        "CVD DOWN",
+        "OI UP"
+      ],
+      "trigger": "Confirmed loss of structural support or failed retest from below while the matrix persists.",
+      "confirmation": [
+        "OI continues expanding while price makes lower lows/lower highs.",
+        "CVD continues lower or sell aggression remains effective.",
+        "No rapid reclaim of the lost level."
+      ],
+      "invalidation": "Price reclaims the lost structure and holds while CVD stabilizes/improves and OI no longer expands bearishly.",
+      "note": "This is the cleanest short-side matrix because new leverage is entering a falling market, but OI still does not identify side with certainty."
+    },
+    {
+      "name": "BUYER_FAILURE_SHORT",
+      "preconditions": [
+        "CVD UP or flat while price fails to rise or falls.",
+        "OI is flat/up or has rebuilt after a flush.",
+        "Price remains below important structure."
+      ],
+      "trigger": "Buyer effort fails at resistance/value boundary and price rolls over.",
+      "confirmation": [
+        "Price makes a lower high.",
+        "CVD improvement no longer produces positive price response.",
+        "OI stays elevated or rises as price weakens."
+      ],
+      "invalidation": "Price converts buyer effort into actual structural reclaim and acceptance."
+    }
+  ],
+  "efficiency_metrics": {
+    "price_response_to_cvd": "Compare price bps change with normalized CVD change over the same compatible window. Large CVD improvement with tiny price improvement = buyer inefficiency.",
+    "price_response_to_oi": "Compare price bps change with OI percentage change. Large OI rebuild with weak price response below value = fragile leverage/crowding.",
+    "failed_reclaim_count": "Count repeated attempts that trade into/through a broken level but fail to hold above it.",
+    "path_requirement": "Use local high, local low, rejection, and retest sequence; do not classify from distant endpoints only."
+  },
+  "output_contract": {
+    "must_include": [
+      "short_setup_name_or_NONE",
+      "preconditions_met",
+      "trigger_level_or_zone",
+      "confirmation_required",
+      "invalidation",
+      "why_not_chase",
+      "observed_vs_inferred_fields"
+    ]
+  }
+}

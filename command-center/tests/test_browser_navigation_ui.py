@@ -1,4 +1,6 @@
 """Real UI/backend regressions for navigation approval and session handling."""
+import json
+
 import pytest
 
 from .browser_support import chromium_available, reason as browser_reason
@@ -6,6 +8,36 @@ from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
 
 pytestmark = [pytest.mark.timeout(180),
               pytest.mark.skipif(not chromium_available(), reason=browser_reason())]
+
+
+@pytest.mark.parametrize("condition,expected", [
+    ("missing", "Chromium отсутствует: установите браузер в окружении BCC"),
+    ("installed", "Запуск ещё не проверен"),
+    ("unreachable", "проверить установку браузера не удалось"),
+])
+def test_empty_browser_screen_does_not_invent_readiness(live, condition, expected):
+    """Real rendered UI, with explicit installation/health-response fault inputs."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page()
+            _login(page, live)
+            if condition == "unreachable":
+                page.route("**/api/browser/health", lambda route: route.fulfill(
+                    status=503, content_type="application/json",
+                    body='{"error":{"message":"health unavailable"}}'))
+            else:
+                payload = {"available": condition == "installed", "active_sessions": 0,
+                           "detail": "Chromium отсутствует: установите браузер в окружении BCC"}
+                page.route("**/api/browser/health", lambda route: route.fulfill(
+                    status=200, content_type="application/json", body=json.dumps(payload)))
+            page.goto(live.url + "/#/browser")
+            page.get_by_text(expected, exact=False).first.wait_for()
+            assert "рантайм готов" not in page.locator("#view").inner_text()
+        finally:
+            browser.close()
 
 
 def test_human_navigation_uses_policy_without_self_approval(live, monkeypatch):

@@ -1,0 +1,41 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "10:09 ET",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "observed": {
+    "reference_price_area_approx": [78980, 79060],
+    "cvd_billion": 59.89,
+    "open_interest_billion": 18.42,
+    "long_liquidations_million_approx": 1.46,
+    "short_liquidations_million_approx": 14.14
+  },
+  "comparison_to_0954": {
+    "prior_execution_price": 78726.1,
+    "prior_cvd_billion": 57.98,
+    "prior_oi_billion": 18.56,
+    "price_direction": "UP",
+    "cvd_change_billion": 1.91,
+    "oi_change_billion": -0.14,
+    "state": "Price UP + CVD UP + OI DOWN"
+  },
+  "reference_levels_visible": {
+    "dVAL_approx": 76820,
+    "dOpen_approx": 77215,
+    "dPOC_approx": 77350,
+    "dVAH_approx": 78220,
+    "note": "Reference-chart levels only; execution venue basis must be recalculated before orders."
+  },
+  "regime": "SHORT_SQUEEZE_WITH_AGGRESSIVE_BUY_FLOW",
+  "interpretation": "BTC extended sharply higher while CVD rose and OI fell. Large short liquidations relative to long liquidations indicate that a meaningful part of the impulse is short covering/forced short closure rather than fresh leveraged long accumulation. This is bullish price action and validates CASE-002 continuation, but it is less useful as a chase/add signal because the move is already being paid by a squeeze.",
+  "management": {
+    "bias": "HOLD_BULLISH_BUT_DO_NOT_CHASE_SQUEEZE",
+    "bullish_followthrough": "Best continuation is price acceptance above the breakout/pDay-high area while OI stabilizes and CVD remains firm; falling OI while price holds high means leverage is being cleaned without losing price.",
+    "warning_1": "If price stalls/fades after the squeeze while CVD rolls over, a reflex retrace becomes more likely even if OI is already lower.",
+    "warning_2": "If OI starts rebuilding quickly after the squeeze but price no longer advances proportionally, crowding/buyer-efficiency risk returns.",
+    "not_a_new_case": true
+  },
+  "lesson": "Price UP + CVD UP + OI DOWN after a major reclaim often means squeeze/short deleveraging. It validates the direction but is a worse location to add than the earlier reclaim. Distinguish signal-generation from payoff: the edge was earlier; this is the payout phase."
+}

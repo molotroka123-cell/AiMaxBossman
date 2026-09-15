@@ -59,6 +59,31 @@ def _run(cmd: list[str], timeout: float = 6.0) -> tuple[int, str]:
 # --------------------------------------------------------------------- checks
 
 
+
+def check_build_identity() -> Check:
+    """Какой код сейчас запустится. Первая строка приёмки, а не косметика.
+
+    Владельческая сессия по неизвестному SHA даёт улики, которые не к чему
+    привязать: они выглядят доказательством и им нельзя пользоваться. Поэтому
+    недоказанный источник — WARN с названной причиной, а не тихий пропуск.
+    Стартовать при этом можно: доктор говорит правду, а не запрещает работать.
+    """
+    try:
+        from bcc.build_identity import UNKNOWN, source_identity
+    except Exception as exc:                        # pragma: no cover - защитный
+        return Check("build-identity", WARN, f"личность сборки не читается: {exc}",
+                     remedy="Проверьте установку command-center.")
+    found = source_identity(fresh=True)
+    if found["source_identity"] == UNKNOWN:
+        return Check("build-identity", WARN,
+                     f"SOURCE_IDENTITY_UNKNOWN — {found.get('detail') or 'источник не доказан'}",
+                     remedy="Запускайте из чистого git-чекаута или из установленной "
+                            "сборки: иначе улики приёмки не привязать к коммиту.",
+                     facts=found)
+    origin = "установленная сборка" if found["source"] == "installed_build" else "рабочий чекаут"
+    return Check("build-identity", PASS, f"{found['build_sha']} ({origin})", facts=found)
+
+
 def check_python() -> Check:
     v = sys.version_info
     if (v.major, v.minor) < MIN_PYTHON:
@@ -236,6 +261,39 @@ def check_journal_anchor() -> Check:
 
 def check_browser_runtime() -> Check:
     """TEST 2/3 вечерней приёмки требуют НАСТОЯЩИЙ браузер. Фейковый адаптер не считается."""
+    # The owner installer ships Playwright Chromium. Use the same discovery as
+    # the product instead of asking the owner to install it again.
+    try:
+        from bcc.browser_runtime import chromium_executable
+        runtime = chromium_executable()
+    except ImportError:
+        runtime = None
+    if runtime:
+        # `chromium_executable` — поиск ПУТИ: он читает метаданные и проверяет,
+        # что файл на месте, и сам документирован как «без подпроцессов». Этого
+        # мало для вердикта, который докстринг выше называет «НАСТОЯЩИЙ
+        # браузер»: воспроизведено подстановкой исполняемого файла, который
+        # браузером не является (`exit 127`) — доктор отвечал
+        # PASS «Chromium установлен», а в фактах у него же стояло
+        # live_launch_verified: False. Существование файла — не работоспособность.
+        #
+        # Поэтому браузер ЗАПУСКАЕТСЯ. `--version` стоит ~100 мс, не открывает
+        # окна и не оставляет процессов, а отличает настоящий Chromium от
+        # любого файла с подходящим именем.
+        code, out = _run([runtime, "--version"], timeout=20.0)
+        launched = code == 0 and ("chrom" in out.lower())
+        if launched:
+            return Check("browser", PASS, f"Chromium запускается: {out.strip()[:80]} ({runtime})",
+                         facts={"browser": runtime, "playwright": True,
+                                "live_launch_verified": True, "version": out.strip()[:120]})
+        return Check("browser", WARN,
+                     f"Chromium найден, но НЕ ЗАПУСКАЕТСЯ: {runtime} "
+                     f"(код {code}, вывод {out.strip()[:80]!r})",
+                     "На голом Ubuntu/Debian не хватает системных библиотек: "
+                     "`.venv/bin/python -m playwright install-deps chromium`; "
+                     "если файл повреждён — `.venv/bin/python -m playwright install chromium`",
+                     {"browser": runtime, "playwright": True, "live_launch_verified": False,
+                      "exit_code": code})
     candidates = ["chrome", "chromium", "chromium-browser", "google-chrome", "msedge"]
     found = next((shutil.which(c) for c in candidates if shutil.which(c)), None)
     if not found and os.name == "nt":
@@ -278,6 +336,25 @@ def check_model_endpoint() -> Check:
                      f"локальная модель на {url} недоступна ({type(exc).__name__})",
                      "Запустите Ollama, либо настройте облачного провайдера в Command Center",
                      {"endpoint": url})
+
+
+def check_openhands() -> Check:
+    """OpenHands (Coding → задача агенту) — WARN, не BLOCKED: приёмка без него
+    возможна, но страница Coding честно скажет, что агент недоступен.
+
+    Аудит владельца 2026-09-08 (F4): до OpenHands из интерфейса было не
+    дотянуться, и никто не говорил почему. Здесь называются обе предпосылки:
+    рантайм bossman-core импортируется и команда сайдкара настроена."""
+    facts: dict[str, Any] = {"runtime": _importable("bossman.apprentice.openhands_client"),
+                             "command_env": "BOSSMAN_OPENHANDS_COMMAND",
+                             "command_set": bool(os.environ.get("BOSSMAN_OPENHANDS_COMMAND", "").strip())}
+    if not facts["runtime"]:
+        return Check("openhands", WARN, "рантайм OpenHands (bossman.apprentice) не импортируется",
+                     "pip install -e ./bossman-core рядом с Command Center", facts)
+    if not facts["command_set"]:
+        return Check("openhands", WARN, "команда сайдкара OpenHands не настроена — Coding покажет «агент недоступен»",
+                     "задайте BOSSMAN_OPENHANDS_COMMAND (путь к сайдкару) и перезапустите Bossman", facts)
+    return Check("openhands", PASS, "рантайм OpenHands и команда сайдкара на месте", facts=facts)
 
 
 def check_hardware() -> Check:
@@ -487,9 +564,10 @@ def check_telemetry_corpus() -> Check:
 
 
 CHECKS: list[Callable[[], Check]] = [
+    check_build_identity,
     check_python, check_python_packages, check_bossman_packages, check_node, check_ffmpeg,
     check_state_dir, check_evidence_key, check_journal_anchor, check_browser_runtime,
-    check_model_endpoint, check_hardware, check_windows_specific, check_computer_operator_deps,
+    check_model_endpoint, check_openhands, check_hardware, check_windows_specific, check_computer_operator_deps,
     check_gateway_url, check_cloud_providers, check_telemetry_corpus,
 ]
 

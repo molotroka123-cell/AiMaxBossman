@@ -1,4 +1,6 @@
 name: Fable media and Fleet acceptance
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 on:
   push:
@@ -11,6 +13,8 @@ on:
       # stopped running the moment the work merged, so the integrated result
       # was never covered by the acceptance that approved it.
       - claude/bossman-control-v03-43igbk
+      - claude/bossman-final-audit-closure-aucx9x
+      - 'release/**'
   pull_request:
   workflow_dispatch:
 
@@ -33,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v7
         with:
@@ -43,7 +47,7 @@ jobs:
         run: |
           mkdir -p acceptance-results
           git rev-parse HEAD | tee acceptance-results/sha.txt
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$BOSSMAN_ACCEPTANCE_SHA"
           git archive HEAD | gzip > acceptance-results/source.tar.gz
       - name: Install declared dependencies and real media binaries
         run: |
@@ -92,7 +96,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: fable-media-fleet-${{ matrix.python }}-${{ github.sha }}
+          name: fable-media-fleet-${{ matrix.python }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: acceptance-results/
           if-no-files-found: error
           retention-days: 3

@@ -179,3 +179,28 @@ async def test_a_mission_with_work_left_is_not_stopped_by_the_blocked_rule(env):
         after = (await s.execute(sa.select(missions_t)
                                  .where(missions_t.c.id == m["id"]))).first()._mapping
     assert after["status"] == "running", "миссия остановлена, хотя работа ещё шла"
+
+
+async def test_malformed_kpi_event_does_not_kill_subscription(env):
+    mission = (await env.client.post("/api/missions", json={
+        "title": "KPI event isolation", "goal": "one task", "kpi_targets": {"done": 2}})).json()
+    task = (await env.client.get(f"/api/missions/{mission['id']}")).json()["tasks"][0]
+    watcher = next(task for task in env.svc._tasks if task.get_name() == "bcc-mission-kpi")
+    async with env.svc.db.session() as session:
+        await session.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
+            meta={"kpi_key": "done", "kpi_delta": "malformed"}))
+        await session.commit()
+    await env.svc.bus.emit("task.completed", task_id=task["id"])
+    async def rejected():
+        return watcher.done() or any(event["kind"] == "worker.error" for event in await env.svc.bus.recent())
+    await wait_for(rejected)
+    assert not watcher.done(), "one malformed delta terminated every later KPI update"
+    async with env.svc.db.session() as session:
+        await session.execute(sa.update(tasks_t).where(tasks_t.c.id == task["id"]).values(
+            meta={"kpi_key": "done", "kpi_delta": 1}))
+        await session.commit()
+    await env.svc.bus.emit("task.completed", task_id=task["id"])
+    async def advanced():
+        current = (await env.client.get(f"/api/missions/{mission['id']}/kpi")).json()["current"]
+        return current == {"done": 1}
+    await wait_for(advanced)

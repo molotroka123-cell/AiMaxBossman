@@ -177,10 +177,13 @@ async def test_schedule_delete_preview_covers_the_task_link(env, monkeypatch):
     """Тот же вывод из схемы для расписания: строка удаляется, tasks.schedule_id
     обнуляется — и после удаления так и происходит."""
     monkeypatch.setenv(action_preview.FLAG, "1")
-    task = (await env.client.post("/api/tasks", json={
-        "prompt": "по расписанию", "run_now": False,
+    stack = await make_stack(env.client)
+    response = await env.client.post("/api/tasks", json={
+        "prompt": "по расписанию", "run_now": False, "agent_id": stack["agent"]["id"],
         "schedule": {"name": "каждые 5 минут", "kind": "interval",
-                     "interval_minutes": 5}})).json()
+                     "interval_minutes": 5}})
+    assert response.status_code == 200, response.text
+    task = response.json()
     task_id, schedule_id = task["task"]["id"], task["schedule"]["id"]
 
     body = (await post_preview(env, "schedule.delete", schedule_id)).json()

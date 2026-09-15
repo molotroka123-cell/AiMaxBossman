@@ -1,0 +1,57 @@
+{
+  "case_id": "btc-2026-09-09-2240-deleveraging-continuation",
+  "date": "2026-09-09",
+  "time_local": "22:40+02:00",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "instrument_note": "Reference chart and right-side execution tape are stored separately; structural reference levels are not exact order prices on the execution venue.",
+  "observed": {
+    "reference_chart_price_approx": 78375,
+    "execution_tape_approx": [78250, 78275],
+    "cvd_billion": 49.53,
+    "open_interest_billion": 18.22,
+    "long_liquidations": 102,
+    "short_liquidations_thousand": 1.41,
+    "liquidations_delta_moving_average_million": -1.01,
+    "buy_volume_million": 41.73
+  },
+  "chart_levels": {
+    "dVAL": 78810,
+    "dPOC": 79015,
+    "dOpen": 79275,
+    "dVAH": 79740,
+    "settlement_reference": 78565,
+    "year_eq_approx": 78000,
+    "pday_low_approx": 77700,
+    "ntPOC_upper": 80185
+  },
+  "comparison_to_1808": {
+    "prior_reference_chart_price_approx": 78850,
+    "prior_cvd_billion": 53.98,
+    "prior_oi_billion": 18.43,
+    "price_change_approx": -475,
+    "cvd_change_billion": -4.45,
+    "oi_change_billion": -0.21,
+    "price_direction": "DOWN",
+    "cvd_direction": "DOWN",
+    "oi_direction": "DOWN"
+  },
+  "state": "Price DOWN + CVD DOWN + OI DOWN",
+  "regime": "DELEVERAGING_SELL_OFF_CONTINUATION",
+  "path_note": "The 18:08 deleveraging breakdown continued lower. Price remained below dVAL and then traded below the settlement reference. CVD fell sharply from ~53.98B to ~49.53B while OI contracted further from ~18.43B to ~18.22B. The market is still removing leverage rather than showing fresh OI expansion into the decline.",
+  "interpretation": "This remains bearish price action driven primarily by deleveraging/position closure. The fall in OI means the move is not yet the more dangerous Price DOWN + CVD DOWN + OI UP regime. However, lower OI is not a long trigger by itself: price is below value and below settlement, so structural repair has not begun.",
+  "long_scenario": {
+    "status": "WATCH_NO_ENTRY",
+    "aggressive_first_repair": "Reclaim settlement/reference ~78,565 with CVD no longer making lower lows and OI stabilizing rather than continuing to collapse.",
+    "safer_trigger": "Reclaim dVAL ~78,810 and hold/retest above it.",
+    "stronger_trigger": "Reclaim dPOC ~79,015, then dOpen ~79,275 with positive price response and non-deteriorating flow.",
+    "reason": "The first bounce during an active deleveraging cascade is not enough. Require price to recover structure, not merely OI to fall."
+  },
+  "risk_scenario": {
+    "warning": "Failure to reclaim ~78,565 keeps the lower-price auction active.",
+    "next_reference_areas": [78000, 77700],
+    "stronger_warning": "If price and CVD continue lower while OI turns back UP, reclassify immediately as bearish leverage expansion / fresh leverage entering the decline."
+  },
+  "lesson": "Repeated Price DOWN + CVD DOWN + OI DOWN observations can form a multi-stage deleveraging cascade. Falling OI may reduce leverage pressure but does not create a long signal while price keeps accepting below value and settlement. For reversal, require structural reclaim in sequence: settlement -> dVAL -> dPOC/dOpen. The key regime-change alert remains OI turning upward while price and CVD continue lower."
+}

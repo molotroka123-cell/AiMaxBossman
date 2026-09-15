@@ -63,7 +63,10 @@ const OverviewPage = {
 
     const activeMissions = missions.filter((m) => m.status === 'running');
     const onlineModels = models.filter((m) => String(m.status) === 'online').length;
-    const healthOk = systemR.status === 'fulfilled';
+    const health = Object.values(sys?.health || {});
+    const healthOk = health.length > 0 && health.every((entry) => entry?.status === 'ok');
+    const healthText = systemR.status === 'rejected' ? 'сервер не отвечает'
+      : healthOk ? 'система в норме' : 'есть сбой или ненастроенные компоненты';
 
     const statusline = h('div.statusline',
       h('div.sl-item', h('span.sl-num', String(activeMissions.length)), h('span.sl-label', 'миссий активно')),
@@ -72,7 +75,7 @@ const OverviewPage = {
       h('div.sep'),
       h('div.sl-item', h('span.sl-num', String(onlineModels)), h('span.sl-label', `моделей online из ${models.length}`)),
       h('div.spacer'),
-      h('div.sl-item', dot(healthOk ? 'online' : 'error'), h('span.sl-label', healthOk ? 'система в норме' : 'сервер не отвечает')));
+      h('div.sl-item', dot(healthOk ? 'online' : 'warning'), h('span.sl-label', healthText)));
 
     const quick = buildQuickCommand(ctx, agents);
 

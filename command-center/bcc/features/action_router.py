@@ -69,8 +69,8 @@ _ACTION_VERB_PAT = (
 # (см. окно проверки ниже: команда должна быть об одном и том же предмете).
 _BROWSER_TOPIC_PAT = (
     r"\bbrowser\b|\bchrome\b|\bfirefox\b|\byoutube\b|\bwebsite\b|\bwebsit\w*\b|\burl\b|"
-    r"[a-z0-9-]+\.(?:com|org|net|io|dev|co|ru)\b|"
-    r"браузер\w*|са[йи]т\w*|ютуб\w*|youtube")
+    r"[a-z0-9-]+\.(?:com|org|net|io|dev|co|ru|ai)\b|"
+    r"браузер\w*|са[йи]т\w*|ютуб\w*|youtube|higgsfield|хиггсфилд")
 
 _MY_COMPUTER_PAT = (
     r"\bmy (computer|pc|machine|browser)\b|"
@@ -97,7 +97,40 @@ BROWSER_TOOLS = ("browser.open", "browser.read_dom", "browser.screenshot",
 # список (без LLM и без угадывания произвольных сайтов: см. докстринг модуля).
 _KNOWN_DOMAINS = (
     (re.compile(r"(?iu)youtube|ютуб"), "youtube.com"),
+    # Owner audit 2026-09-08, task 22: "Открой higgsfield … видео" carried no
+    # browser contract at all, so an empty answer finalized as completed.
+    (re.compile(r"(?iu)higgsfield|хиггсфилд"), "higgsfield.ai"),
 )
+
+# Goals deeper than "the tab is open". `url_contains=<domain>` verifies that a
+# page of the site is showing — enough for "open youtube", not for "play a
+# melodrama": the front page (and a challenge page, see verification.BLOCKED)
+# also contains the domain. For known sites where the deeper goal has a
+# deterministic URL shape, the expectation is the deeper shape. Owner audit
+# 2026-09-08, task 45: "youtube.com" verified on a reCAPTCHA page.
+_CONTENT_GOAL_RE = re.compile(
+    r"(?iu)\b(play|watch|listen|movie|film|video|song|music|clip|melodrama|series|episode)\b|"
+    r"включи\w*|посмотр\w*|воспроизвед\w*|послуша\w*|поставь\w*|"
+    r"мелодрам\w*|фильм\w*|сериал\w*|видео|клип\w*|песн\w*|музык\w*|ролик\w*")
+_DEEP_GOALS = (
+    ("youtube.com", _CONTENT_GOAL_RE, "youtube.com/watch"),
+)
+
+
+def target_expectation(prompt: str) -> dict | None:
+    """Structured browser expectation for the task text, or None.
+
+    Domain-only when the goal is the site itself; the deeper URL shape when the
+    text asks for content on a known site. Deterministic, closed list, no
+    guessing: an expectation that cannot be derived is not invented."""
+    domain = target_domain(prompt)
+    if not domain:
+        return None
+    text = prompt or ""
+    for site, goal_re, deep in _DEEP_GOALS:
+        if domain == site and goal_re.search(text):
+            return {"url_contains": deep}
+    return {"url_contains": domain}
 _EXPLICIT_DOMAIN_RE = re.compile(r"(?iu)\b([a-z0-9][a-z0-9-]*\.(?:com|org|net|io|dev|co|ru))\b")
 
 
@@ -148,14 +181,15 @@ async def _before_run(svc):
             changed = True
 
         domain = target_domain(task.get("prompt") or "")
-        if "review" not in meta and domain:
+        expectation = target_expectation(task.get("prompt") or "")
+        if "review" not in meta and domain and expectation:
             # Готовый verified-evidence конвейер (F-012, bcc/v2/verification +
             # review_gate) вместо нового: kind="browser" уже реализован и
             # уже покрыт тестами review_gate — переиспользуем, не дублируем.
             new_meta["review"] = {
                 "reviewer_agent_id": None, "criteria": "",
                 "evidence": [{"kind": "browser", "target": "session",
-                             "expect": {"url_contains": domain}}],
+                             "expect": dict(expectation)}],
                 "max_review_retries": 2,
             }
             changed = True

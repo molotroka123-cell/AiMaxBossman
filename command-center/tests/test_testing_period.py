@@ -588,3 +588,43 @@ def test_browser_coverage_is_actually_executed_where_it_is_demanded():
     assert chromium_available(), (
         "BCC_REQUIRE_BROWSER задан, но Chromium недоступен: браузерные тесты "
         "были бы пропущены, а отчёт выглядел бы зелёным. " + browser_reason())
+
+
+# --------------------------------------------------------------------------
+# BL-025: обрыв соединения и мусор в теле — не 500
+# --------------------------------------------------------------------------
+# Найдено обходом интерфейса (`scripts/ui_acceptance_sweep.py`): каждая
+# перезагрузка страницы, случившаяся на лету отправки пачки событий, оставляла
+# в логе сервера полный traceback `starlette.requests.ClientDisconnect`.
+#
+# Это не косметика. Маячок телеметрии в интерфейсе отправляется в том числе на
+# уходе со страницы, то есть обрыв — это ШТАТНОЕ поведение браузера, а не сбой.
+# Необработанное исключение в обработчике означает 500 в ответе и мусор в
+# журнале ровно там, где владелец будет искать НАСТОЯЩИЕ ошибки.
+#
+# Тем же путём лечится вторая дыра: `request.json()` на некорректном теле
+# бросает JSONDecodeError, и клиент с испорченным телом получал 500 вместо 400.
+
+async def test_a_client_that_disconnects_mid_post_is_not_a_server_error(env):
+    from starlette.requests import ClientDisconnect
+
+    async def gone():
+        raise ClientDisconnect()
+
+    # Подменяется РОВНО чтение тела — тот единственный вызов, который в
+    # настоящей жизни и обрывается. Обработчик при этом настоящий.
+    import bcc.features.testing_period as mod
+    original = mod.Request.json
+    mod.Request.json = lambda self: gone()          # type: ignore[assignment]
+    try:
+        res = await env.client.post("/api/testing/log", json={"events": []})
+    finally:
+        mod.Request.json = original                 # type: ignore[assignment]
+    assert res.status_code < 500, res.text
+
+
+async def test_a_malformed_body_is_a_bad_request_not_a_server_error(env):
+    res = await env.client.post(
+        "/api/testing/log", content=b"{not json at all",
+        headers={"content-type": "application/json"})
+    assert res.status_code == 400, res.text

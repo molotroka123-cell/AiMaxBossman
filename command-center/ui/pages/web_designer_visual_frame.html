@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="connect-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Конструктор сайта</title>
+  <link rel="stylesheet" href="/vendor/grapesjs/grapes.min.css">
+  <link rel="stylesheet" href="/pages/web_designer_visual_frame.css">
+</head>
+<body>
+  <header>
+    <button type="button" data-command="undo">↶ Отменить</button>
+    <button type="button" data-command="redo">↷ Повторить</button>
+    <select aria-label="Размер экрана"><option>Компьютер</option><option>Планшет</option><option>Телефон</option></select>
+    <span>Двойной клик — изменить текст</span>
+  </header>
+  <main><aside id="blocks" aria-label="Блоки"></aside><div id="editor"></div>
+    <aside id="settings"><h2>Слои</h2><div id="layers"></div><h2>Стиль</h2><div id="styles"></div><h2>Свойства</h2><div id="traits"></div></aside>
+  </main>
+  <script src="/vendor/grapesjs/grapes.min.js"></script>
+  <script src="/vendor/grapesjs/ru.js"></script>
+  <script src="/pages/web_designer_visual_frame.js"></script>
+</body>
+</html>

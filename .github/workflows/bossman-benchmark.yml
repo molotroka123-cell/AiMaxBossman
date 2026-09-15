@@ -1,4 +1,6 @@
 name: Bossman internal benchmark
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 on:
   pull_request:
@@ -41,6 +43,7 @@ jobs:
         # benchmark commits in isolated worktrees (run_isolated refuses
         # unknown SHAs by design).
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - uses: actions/setup-python@v7
         with:

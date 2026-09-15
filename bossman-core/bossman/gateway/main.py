@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import sys
 
 import uvicorn
 
@@ -49,9 +50,9 @@ def _load_env(env_path: str) -> None:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         env_path = os.path.join(script_dir, "..", "..", env_path)
     if not os.path.exists(env_path):
-        print(f"[Gateway] .env не найден по пути {env_path}; беру переменные окружения")
+        print(f"[Gateway] .env not found at {env_path}; using environment variables")
         return
-    print(f"[Gateway] читаю .env: {env_path}")
+    print(f"[Gateway] reading .env: {env_path}")
     from .config import load_env_file
     load_env_file(env_path)
 
@@ -59,25 +60,32 @@ def _load_env(env_path: str) -> None:
 def _print_providers() -> None:
     """Показать, у кого есть ключ. Значение ключа не печатается никогда."""
     from .config import AVAILABLE_PROVIDERS, load_provider_config
-    print("\n[Gateway] провайдеры:")
+    print("\n[Gateway] providers:")
     for provider in AVAILABLE_PROVIDERS:
         config = load_provider_config(provider)
         # Локальный провайдер ключа не требует вовсе, и «✗» напротив него было
         # бы неправдой: он не «не настроен», ему нечего настраивать.
         if config.api_key_env is None:
-            mark = "•"
+            mark = "LOCAL"
         else:
-            mark = "✓" if config.resolved_api_key() else "✗"
+            mark = "CONFIGURED" if config.resolved_api_key() else "NOT_CONFIGURED"
         print(f"  {mark} {provider}")
     print()
 
 
 def main() -> None:
+    # Windows pipes may use cp1252 even when the interactive terminal supports
+    # Unicode. Keep the selected encoding; escape an unrepresentable path or
+    # error instead of crashing the installed CLI. Do this only at entrypoint,
+    # never while the package is imported by another application.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
     parser = argparse.ArgumentParser(description="Bossman Gateway")
-    parser.add_argument("--host", default=None, help="адрес привязки")
-    parser.add_argument("--port", type=int, default=None, help="порт привязки")
-    parser.add_argument("--reload", action="store_true", help="перезапуск по правке")
-    parser.add_argument("--env", default=".env", help="путь к .env")
+    parser.add_argument("--host", default=None, help="bind address")
+    parser.add_argument("--port", type=int, default=None, help="bind port")
+    parser.add_argument("--reload", action="store_true", help="reload when source files change")
+    parser.add_argument("--env", default=".env", help="path to .env")
     args = parser.parse_args()
 
     # Наблюдаемость (аудит) — ПЕРВОЙ строкой: bossman.gateway пишет строку лога
@@ -89,7 +97,7 @@ def main() -> None:
     cfg = load_gateway_config()
     host = args.host or cfg.bind_host
     port = args.port if args.port is not None else cfg.bind_port
-    print(f"[Gateway] http://{host}:{port} — маршруты объявляет само приложение (/docs)")
+    print(f"[Gateway] http://{host}:{port} - API routes: /docs")
 
     if args.reload:
         # Перезапуск по правке требует строку импорта, а не готовый объект.

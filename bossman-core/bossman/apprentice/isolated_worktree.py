@@ -14,11 +14,15 @@ Security properties:
 - Worktree is destroyed after task (unless retention policy requires otherwise)
 """
 
+import gc
 import logging
 import os
 import shutil
+import stat
 import subprocess
+import sys
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -50,6 +54,13 @@ class IsolatedWorktree:
         self.root: Optional[Path] = None
         self.pre_run_state: Dict[str, Any] = {}
         self.post_run_state: Dict[str, Any] = {}
+        # Cleanup is a claim about the disk, so it is recorded, not assumed:
+        # `cleanup_error` names the last failure, `cleanup_removed` says whether
+        # the sandbox is really gone. Astra F4 (2026-09-08): `rmtree(ignore_errors
+        # =True)` on Windows left the checkout in place and reported nothing.
+        self.cleanup_error: Optional[str] = None
+        self.cleanup_removed: Optional[bool] = None
+        self._tempdir: Optional[Path] = None
 
     def _get_default_branch(self) -> str:
         try:
@@ -114,6 +125,7 @@ class IsolatedWorktree:
         logger.info(f"Cloning isolated sandbox from {self.source_repo}@{self.base_branch}")
 
         temp_dir = tempfile.mkdtemp(prefix='openhands_worktree_')
+        self._tempdir = Path(temp_dir)
         worktree_path = Path(temp_dir) / 'worktree'
 
         try:
@@ -280,25 +292,115 @@ class IsolatedWorktree:
 
         return evidence
 
-    def _cleanup(self, path: Path):
-        try:
-            if path.exists():
-                shutil.rmtree(str(path), ignore_errors=True)
-                logger.info(f"Cleaned up worktree at {path}")
-        except Exception as e:
-            logger.warning(f"Failed to cleanup {path}: {e}")
+    #: Deletion attempts before the failure is reported. Windows releases file
+    #: locks (antivirus scanners, a git process winding down) with a delay, so
+    #: a bounded retry is legitimate; an unbounded one would hide a real leak.
+    CLEANUP_ATTEMPTS = 4
 
-    def cleanup(self):
+    @staticmethod
+    def _sandbox_parent() -> Path:
+        return Path(tempfile.gettempdir()).resolve()
+
+    def _cleanup(self, path: Path) -> bool:
+        """Remove the sandbox and REPORT whether it is gone.
+
+        Never `ignore_errors=True`: a deletion that fails must be known, not
+        swallowed. Read-only files (git objects on Windows are read-only) are
+        made writable and retried; a still-locked tree is retried a bounded
+        number of times; whatever remains is recorded in `cleanup_error`.
+        Nothing outside the sandbox parent is ever removed — the source
+        repository is not ours to delete."""
+        path = Path(path)
+        try:
+            resolved = path.resolve()
+        except OSError as exc:
+            self.cleanup_error = f"cannot resolve {path}: {exc}"
+            self.cleanup_removed = False
+            return False
+        parent = self._sandbox_parent()
+        inside = resolved != parent and parent in resolved.parents
+        if not inside or self.source_repo == resolved or self.source_repo in resolved.parents:
+            self.cleanup_error = f"refusing to delete outside the sandbox root: {resolved}"
+            self.cleanup_removed = False
+            logger.error(self.cleanup_error)
+            return False
+        if not path.exists() and not path.is_symlink():
+            self.cleanup_error = None
+            self.cleanup_removed = True
+            return True
+
+        def _make_writable(func, target, exc_info):
+            # Windows: the read-only attribute on the entry blocks unlink/rmdir.
+            # POSIX: a read-only PARENT directory blocks unlinking its entries
+            # (a non-root CI runner failed exactly here while root deleted
+            # regardless). Make both writable, then retry the one operation.
+            for candidate in (os.path.dirname(str(target)), str(target)):
+                try:
+                    os.chmod(candidate, stat.S_IRWXU)
+                except OSError:
+                    pass
+            func(target)
+
+        last_error = ""
+        for attempt in range(self.CLEANUP_ATTEMPTS):
+            try:
+                if sys.version_info >= (3, 12):
+                    shutil.rmtree(str(path), onexc=_make_writable)
+                else:  # pragma: no cover - 3.11 signature
+                    shutil.rmtree(str(path), onerror=_make_writable)
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                last_error = f"{type(exc).__name__}: {exc}"
+            if not path.exists():
+                break
+            gc.collect()                       # drop stray handles before the next try
+            time.sleep(0.15 * (attempt + 1))
+        removed = not path.exists()
+        self.cleanup_removed = removed
+        self.cleanup_error = None if removed else (last_error or f"sandbox still present: {path}")
+        if removed:
+            logger.info(f"Cleaned up worktree at {path}")
+        else:
+            logger.error(f"Failed to clean up {path}: {self.cleanup_error}")
+        return removed
+
+    def cleanup(self) -> bool:
         """Delete the sandbox. Nothing has to be unregistered in the source.
 
         The old implementation called `git worktree remove` in the SOURCE
         repository, which is both unnecessary for a clone and a reminder of why
         the clone is safer: a linked worktree left state in the source that the
         cleanup had to reach back and undo, and the branch it created was never
-        undone at all."""
-        if self.root and not self.keep_after:
-            self._cleanup(self.root)
+        undone at all.
+
+        Returns whether the sandbox is gone. On failure `root` is KEPT so the
+        caller can retry or report the path; `cleanup_state()` says what
+        happened either way."""
+        if not self.root:
+            return self.cleanup_removed is not False
+        if self.keep_after:
+            return True
+        removed = self._cleanup(self.root)
+        if removed and self._tempdir is not None and self._tempdir != self.root:
+            # The mkdtemp parent is ours too; an empty leftover directory per run
+            # is a slow leak with a friendly name.
+            try:
+                self._tempdir.rmdir()
+            except OSError:
+                pass
+        if removed:
             self.root = None
+        return removed
+
+    def cleanup_state(self) -> Dict[str, Any]:
+        """What a caller may truthfully report about the sandbox on disk."""
+        return {
+            'removed': self.cleanup_removed,
+            'path': str(self.root) if self.root else None,
+            'error': self.cleanup_error,
+            'kept_on_purpose': bool(self.keep_after),
+        }
 
     def __enter__(self) -> 'IsolatedWorktree':
         self.create()

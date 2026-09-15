@@ -10,7 +10,8 @@ import subprocess
 
 import pytest
 
-from .browser_support import click_in_preview, chromium_available, reason as browser_reason
+from .browser_support import (chromium_available, click_in_preview,
+                              reason as browser_reason, wait_for_preview_viewport)
 from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
 
 
@@ -70,16 +71,17 @@ def test_viewport_toolbar_changes_actual_iframe_geometry_without_editing_project
             frame = page.frame_locator("iframe.bd-frame")
             frame.locator("h1").wait_for()
             page.get_by_label("Размер экрана превью", exact=True).select_option("mobile")
-            page.wait_for_function("() => document.querySelector('iframe.bd-frame').style.width === '390px'")
-            # Setting the iframe's width and the document inside it re-evaluating
-            # its media queries are two different moments. Asserting the second
-            # one synchronously after the first raced the relayout: the width was
-            # already 390px while the body was still painted at the desktop rule.
-            # Waiting for the CONSEQUENCE is what the test actually means.
+            # Ждём НАСТОЯЩЕЕ окно кадра, а не инлайновый стиль хоста: кадр в
+            # отдельном процессе и пересчитывает раскладку позже.
+            wait_for_preview_viewport(page, 390, 844)
+            # Resizing the frame and the document inside it re-evaluating its
+            # media queries are still two different moments, so the consequence
+            # is WAITED FOR rather than asserted: an assert here raced the
+            # relayout and read the desktop rule at a phone width.
             _wait_inside(page, "getComputedStyle(document.body).backgroundColor === 'rgb(0, 0, 255)'")
             assert frame.locator("body").evaluate("() => window.innerWidth") == 390
             page.get_by_role("button", name="Повернуть", exact=True).click()
-            _wait_inside(page, "window.innerWidth === 844")
+            wait_for_preview_viewport(page, 844, 390)
             assert frame.locator("body").evaluate("() => window.innerWidth") == 844
             assert frame.locator("body").evaluate("() => window.innerHeight") == 390
             page.get_by_label("Масштаб превью", exact=True).select_option("0.5")
@@ -92,6 +94,7 @@ def test_viewport_toolbar_changes_actual_iframe_geometry_without_editing_project
             page.get_by_label("Высота превью", exact=True).fill("4096")
             page.get_by_role("button", name="Применить размер", exact=True).click()
             page.get_by_label("Масштаб превью", exact=True).select_option("width")
+            wait_for_preview_viewport(page, 844, 4096)
             geometry = page.locator("iframe.bd-frame").evaluate("""el => {
               const stage = document.querySelector('.bd-viewport-stage');
               const rect = el.getBoundingClientRect();
@@ -107,9 +110,8 @@ def test_viewport_toolbar_changes_actual_iframe_geometry_without_editing_project
             assert frame.locator("body").evaluate("() => window.innerWidth") == 844
             page.reload()
             page.wait_for_selector("iframe.bd-frame")
-            page.wait_for_function("() => document.querySelector('iframe.bd-frame').style.width === '844px'")
+            wait_for_preview_viewport(page, 844, 4096)
             assert page.get_by_label("Масштаб превью", exact=True).input_value() == "width"
-            assert frame.locator("body").evaluate("() => window.innerHeight") == 4096
             final = page.evaluate("async id => (await fetch(`/api/web-designer/projects/${id}`)).json()", pid)
             assert final == initial  # no code, metadata, or version-history mutation
             assert page.get_attribute("iframe.bd-frame", "sandbox") == "allow-scripts"

@@ -1,4 +1,6 @@
 name: Solana safety gates
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 on: [push, pull_request]
 permissions:
   contents: read
@@ -11,6 +13,8 @@ jobs:
         python: ['3.11', '3.12']
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}

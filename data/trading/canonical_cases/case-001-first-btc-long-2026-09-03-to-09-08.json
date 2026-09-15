@@ -1,0 +1,87 @@
+{
+  "canonical_case_id": "CASE-001",
+  "title": "First BTC long: staged entry, multi-day management, exit around breakeven",
+  "market": "BTC",
+  "case_type": "ACTUAL_POSITION",
+  "status": "CLOSED",
+  "setup_window_start": "2026-09-03",
+  "position_window_start": "2026-09-04",
+  "position_window_end": "2026-09-08",
+  "source_of_truth": "data/trading/btc_casebook_2026_09.jsonl",
+  "pre_trade_context": {
+    "case_id": "btc-2026-09-03-77k-absorption",
+    "price_approx": 77900,
+    "support_zone": [77550, 77800],
+    "thesis": "Price held despite weak/flat CVD, suggesting possible absorption; confirmation required above 78.15-78.20k."
+  },
+  "position": {
+    "direction": "LONG",
+    "entries": [
+      {"price": 79800, "portfolio_weight": 0.15},
+      {"price": 79350, "portfolio_weight": 0.15},
+      {"price": 78900, "portfolio_weight": 0.15}
+    ],
+    "total_weight": 0.45,
+    "weighted_average_entry": 79350,
+    "outcome": "CLOSED_AROUND_BREAKEVEN",
+    "close_date": "2026-09-08"
+  },
+  "timeline": [
+    {
+      "date": "2026-09-04",
+      "event": "INITIAL_FLUSH",
+      "state": "Price DOWN + CVD DOWN + OI DOWN",
+      "lesson": "Treat as deleveraging/position closure first; do not automatically short the liquidation low and do not blindly average a long."
+    },
+    {
+      "date": "2026-09-04",
+      "event": "RECOVERY_WITH_LOW_OI",
+      "state": "Price UP + CVD slowly UP + OI rapidly DOWN",
+      "lesson": "A rebound can be mostly deleveraging/covering rather than fresh trend demand."
+    },
+    {
+      "date": "2026-09-05",
+      "event": "REPEATED_80K_TESTS",
+      "zone": [79900, 80100],
+      "lesson": "A touch or temporary reclaim is not acceptance; prefer hold/retest."
+    },
+    {
+      "date": "2026-09-06",
+      "event": "PRICE_UP_WITH_WEAK_FLOW_CONFIRMATION",
+      "state": "Price UP + CVD FLAT/DOWN + OI DOWN",
+      "lesson": "Constructive for an existing long but weak evidence for chasing a new long into resistance."
+    },
+    {
+      "date": "2026-09-07",
+      "event": "FIRST_YELLOW_FLAG",
+      "previous": {"price_approx": 79450, "cvd_billion": 64.52, "oi_billion": 18.49},
+      "latest": {"price_approx": 79360, "cvd_billion": 64.41, "oi_billion": 18.51},
+      "state": "Price DOWN + CVD DOWN + OI UP",
+      "lesson": "Regime changed from deleveraging to bearish leverage expansion; stop treating lower price as an automatic add."
+    },
+    {
+      "date": "2026-09-08",
+      "event": "REGIME_BREAK",
+      "price_approx": 78420,
+      "cvd_billion": 61.10,
+      "oi_billion": 18.63,
+      "lost_level": 78800,
+      "state": "Price DOWN + CVD DOWN + OI UP",
+      "lesson": "Loss of support with expanding OI is a risk-off event, not a cheap-price signal."
+    },
+    {
+      "date": "2026-09-08",
+      "event": "POSITION_EXIT",
+      "outcome": "closed_around_breakeven",
+      "lesson": "Exit prevented a thesis-management problem from turning into a larger loss. Once flat, reset and analyze the next setup from zero."
+    }
+  ],
+  "canonical_lessons": [
+    "Use actual size-weighted average entry, not a simple visual average when tranche sizes differ.",
+    "Price/CVD/OI must be interpreted jointly; OI direction alone does not identify long or short side.",
+    "Falling OI during a selloff often means deleveraging; rising OI during a selloff is materially more dangerous for a long.",
+    "Structural acceptance requires hold/retest, not merely touching a level.",
+    "A profitable or breakeven exit is also information: after closure, the next thesis starts from zero rather than inheriting emotional bias."
+  ],
+  "case_boundary_rule": "CASE-001 ends with the 2026-09-08 breakeven exit. All subsequent observations belong to the lead-in and development of CASE-002, not to CASE-001."
+}

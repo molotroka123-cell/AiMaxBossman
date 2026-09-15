@@ -1,10 +1,14 @@
 name: Intelligence Preservation
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 on:
   push:
     branches:
       - claude/bossman-control-v03-43igbk
       - sol/intelligence-preservation-on-head
+      - claude/bossman-final-audit-closure-aucx9x
+      - 'release/**'
   pull_request:
   workflow_dispatch:
 
@@ -18,6 +22,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
@@ -32,6 +38,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'

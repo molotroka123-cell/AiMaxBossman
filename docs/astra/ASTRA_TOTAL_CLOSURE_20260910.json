@@ -1,0 +1,2824 @@
+{
+  "schema_version": 1,
+  "document_status": "FROZEN_ON_FINAL_SHA",
+  "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+  "final_tree": "0fb1b25615772c024268767dc63f44cfb7870f09",
+  "branch": "claude/bossman-final-completion-kymr05",
+  "pr": 62,
+  "draft_source_snapshot": "a037302c0f72ff9e64cb59ca7aa7cc094aa0ed34",
+  "later_parent_commit_receipts": [
+    "522e595d4bb75b8da7cf18c07a756f33c67faa97",
+    "ff28a677fc5770681e4f9eb254744df4987e558e"
+  ],
+  "last_published_checkpoint": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+  "release_verdict": "GO_FOR_OWNER_ACCEPTANCE",
+  "final_ci_status": "PASS_EXCEPT_INTELLIGENCE_PRESERVATION; COMMAND_CENTER_PYTEST_MATRIX_IN_PROGRESS_AT_HANDOFF",
+  "final_live_status": "OWNER_LIVE_REQUIRED",
+  "counts": {
+    "historical_mf_findings": 33,
+    "newly_registered_findings_this_run": 73,
+    "all_registered_findings": 109,
+    "canonical_commits_after_pr61_in_draft_snapshot": 14,
+    "unique_input_commits_classified": 90,
+    "open_final_severity_counts": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0
+    },
+    "pass_on_final_sha": 104,
+    "owner_live_required": 4,
+    "external_evidence_required": 1
+  },
+  "input_graph": [
+    {
+      "input": "default: `claude/bossman-control-v03-43igbk`",
+      "head_sha": "a6762965c5806d5c44462ee1a516dabf6307fe81",
+      "merge_base_with_floor": "1bb39bf8dc656cf21a9bd03f85f6751d87d725c7",
+      "unique_commits": 29,
+      "initial_disposition": "Do not merge wholesale; retain stronger existing ports; exclude new Trader work.",
+      "release_disposition": "NO_BLIND_MERGE: existing Trader port preserved; later trading expansion excluded"
+    },
+    {
+      "input": "main: `main`",
+      "head_sha": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+      "merge_base_with_floor": "799fc3dd8e4327811be9d8f3e33cc43ce8168977",
+      "unique_commits": 0,
+      "initial_disposition": "Already ancestor of recovery floor; provider/main gateway composition retained.",
+      "release_disposition": "ALREADY_INCLUDED: ancestry proved"
+    },
+    {
+      "input": "PR #58: `night/v7-convergence-20260908`",
+      "head_sha": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+      "merge_base_with_floor": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+      "unique_commits": 0,
+      "initial_disposition": "Recovery foundation already ancestor of PR61.",
+      "release_disposition": "INCLUDED: complete recovery-floor ancestry"
+    },
+    {
+      "input": "PR #61: `claude/bossman-final-audit-closure-aucx9x`",
+      "head_sha": "c7e75cc3c0a636d61f6fc8fb3e476a210d1320d3",
+      "merge_base_with_floor": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+      "unique_commits": 6,
+      "initial_disposition": "Canonical line; retain all completion/evidence fixes and build forward.",
+      "release_disposition": "INCLUDED: canonical base and safety fixes"
+    },
+    {
+      "input": "PR #60: `claude/bossman-final-integration-pass-04nffa`",
+      "head_sha": "e5ccd54c8fea94940f2ebced41bcb583076ac264",
+      "merge_base_with_floor": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+      "unique_commits": 12,
+      "initial_disposition": "Select provenance/identity/lifecycle corrections; optional File Intelligence admission deferred until core boot.",
+      "release_disposition": "SELECTIVE_REQUIRED_FIXES_INCLUDED: series identity/provenance/lifecycle; File Intelligence explicitly excluded"
+    },
+    {
+      "input": "PR #54: `build/local-bundle-20260907`",
+      "head_sha": "210cc525fd0d571facffaebf60a4456eb2cf267b",
+      "merge_base_with_floor": "7b67b95c6f154298063c63cfe611d8ff91e35a14",
+      "unique_commits": 1,
+      "initial_disposition": "Required packaging intent; strengthen builder and installed UI proof.",
+      "release_disposition": "SEMANTICALLY_INCLUDED: packaging strengthened beyond external BCC_UI_DIR override"
+    },
+    {
+      "input": "PR #59: `feature/ai-streamer-higgsfield-browser-20260908`",
+      "head_sha": "128324713c140c908a7ad502ed5621e5ea22a6a6",
+      "merge_base_with_floor": "45027d3e9aef554407a0a9ff07fb8678d1b849f3",
+      "unique_commits": 42,
+      "initial_disposition": "Optional subsystem deferred under emergency override; retain source ref as evidence.",
+      "release_disposition": "EXCLUDED_OPTIONAL: PR59 new Higgsfield/Social Farm layer is not part of this candidate"
+    }
+  ],
+  "commit_classification_ledger": "CONVERGENCE_LEDGER_20260910.json",
+  "findings": [
+    {
+      "id": "MF-001",
+      "severity": "P0",
+      "new_this_run": false,
+      "reproduction": "Completed with empty result (owner tasks 16/22/24/44)",
+      "root_cause": "Completion inferred from model stop/empty prose without independent declared-effect evidence.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "Empty, whitespace, optimistic prose, absent/stale/wrong-run effect refuse completion.",
+      "positive_control": "Conversational reply or independently verified current effect reaches the correct state.",
+      "tests": [
+        "`command-center/tests/test_p0_completion_truth.py` (empty/whitespace/prose-claims-document, conversational positive control)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-002",
+      "severity": "P0",
+      "new_this_run": false,
+      "reproduction": "CAPTCHA/excuse treated as completed; review verified `url_contains` on a challenge page (owner tasks 15/28/43/45)",
+      "root_cause": "Challenge/refusal text and a matching URL were accepted instead of an observable completed effect.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "CAPTCHA, challenge, takeover, stale or consumed Resume cannot complete/resurrect a run.",
+      "positive_control": "Valid post-challenge Resume continues the same run once, with fresh verification.",
+      "tests": [
+        "`test_p0_completion_truth.py` (challenge → paused, Resume continues once, stale Resume, consumed Resume, takeover→resume, no-domain challenge, deeper goal positive control)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-003",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Protected-file mutation admitted with empty evidence via `update-index --assume-unchanged`",
+      "root_cause": "Mutable Git index/ignore metadata hid real protected workspace mutations.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "assume-unchanged, skip-worktree, ignore/exclude edits and protected new/linked files are refused.",
+      "positive_control": "Ordinary allowed edits/new files produce host-derived evidence.",
+      "tests": [
+        "`bossman-core/tests/apprentice/test_openhands_evidence_independence.py` (assume-unchanged, skip-worktree, info/exclude, new/edited .gitignore, deletion, rename, symlink ×2, untracked protected/out-of-scope, traversal forms, positive controls, no push/merge/deploy fields)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-004",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "Async stream cap does not bound upstream consumption",
+      "root_cause": "Output truncation did not stop upstream iterator consumption.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "Infinite/over-cap upstream stops consumption at the bound.",
+      "positive_control": "Finite well-formed stream completes normally.",
+      "tests": [
+        "`command-center/tests/test_streaming_honesty.py::test_max_chunks_bounds_upstream_consumption_not_just_the_return_value` (+ sync parser, DONE stop, error-frame stop)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-005",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "Partial + malformed stream advertised `ok=True`",
+      "root_cause": "HTTP/parser partial success was confused with complete model output.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "Partial/malformed/timeout/silent/rate-limited/provider-error streams are not complete.",
+      "positive_control": "Valid terminal response is complete with measured usage.",
+      "tests": [
+        "`test_streaming_honesty.py` (completion classes COMPLETE/CAPPED/PARTIAL/MALFORMED/TIMEOUT/SILENT/RATE_LIMITED/PROVIDER_ERROR; GLM reasoning fixtures; OpenRouter comments; client end-to-end matrix)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-006",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "Windows sandbox cleanup `rmtree(ignore_errors=True)` reports nothing while the checkout stays",
+      "root_cause": "Recursive cleanup errors were suppressed without checking remaining files.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "Permanent lock/failure/out-of-root cleanup cannot report removal.",
+      "positive_control": "Allowed tree removal and bounded transient-lock recovery verify absence.",
+      "tests": [
+        "`bossman-core/tests/apprentice/test_worktree_cleanup_honesty.py` (reported removal, read-only tree, simulated PermissionError ×3 then truth, transient lock retry, never outside sandbox root, never the source repo, keep_after)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-007",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "HTTP route neutralises NaN/negative memory requirements",
+      "root_cause": "Numeric coercion neutralized invalid resource requirements before admission.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "NaN, infinity, negative, null, nonsense and huge nonfinite input are refused.",
+      "positive_control": "Fresh measured sufficient capacity admits; zero retains its defined meaning.",
+      "tests": [
+        "`command-center/tests/test_v7_reality_route_validation.py` (nan/inf/-inf/negative/null/abc/1e999 → 422; zero keeps meaning; oversized unmeasured refused; stale refused; fresh sufficient admits)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-008",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "Alternating failure classes replenish recovery rungs",
+      "root_cause": "Changing error classes replenished an already spent recovery ladder.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "Alternating/rotating errors, restart and late failure do not replenish budget or restart stopped work.",
+      "positive_control": "Allowed bounded recovery uses remaining budget once.",
+      "tests": [
+        "`command-center/tests/test_v7_recovery_bounded.py` (same error, alternating two, rotating 3/5/7, owner retry budget, fallback once, restart round-trip, legacy checkpoint, authority-free rungs, production handler ×3 corpora, stopped task not requeued, paused stays paused) + `test_v7_reality.py::test_a_different_failure_keeps_the_spent_rungs`"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-009",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "Negated tool request classified as required TERMINAL_FILE_ACTION",
+      "root_cause": "Negation handling removed or invented obligations beyond the negated sentence span.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "EN/RU prohibitions do not create a forbidden execution obligation.",
+      "positive_control": "Mixed sentences retain explicitly requested non-negated actions.",
+      "tests": [
+        "`command-center/tests/test_action_contract_negation.py` (14 prohibitions EN/RU, positive controls, 8 mixed sentences, other capabilities, span-local removal, new-document obligation)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-010",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "Web Designer: second Apply reverts the first edit (inspector desync)",
+      "root_cause": "Inspector state was not refreshed after mutation; second Apply used stale element state.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "Apply twice must not restore stale HTML or issue an extra effect.",
+      "positive_control": "Save/reselect/reload retain the first verified edit.",
+      "tests": [
+        "`command-center/tests/test_web_designer_apply_idempotent_ui.py` (select → edit → apply → apply, reload, reselect)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-011",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Web Designer has no model choice; backend uses `models[0]`",
+      "root_cause": "Default selection used registry order and the owner could not select a model.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "Unknown model, missing models and unhealthy order do not silently select a different model.",
+      "positive_control": "Owner choice reaches adapter and survives project state.",
+      "tests": [
+        "`command-center/tests/test_web_designer_model_choice.py` (registry+health listing with default, owner choice reaches adapter, unknown → 404, health-rank default not first row, no models → 409)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-012",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "Web Designer edits \"do nothing\" for the owner (502/409/413/404 look like dead buttons)",
+      "root_cause": "Transient toast and swallowed recovery errors left owners without durable, safe recovery.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "403/409/413/404, changed code or unknown model outcome cannot expose unsafe replay.",
+      "positive_control": "A valid transient save retry preserves exact code/version and refreshes visible state.",
+      "tests": [
+        "existing `test_web_designer_p1/p2_findings.py`"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-013",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Coding UI exposes worktrees but no way to delegate a task to OpenHands",
+      "root_cause": "Coding worktrees were exposed without a governed task-dispatch owner control.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "Protected/out-of-scope edits, failed sidecar, absent runtime refuse.",
+      "positive_control": "Governed coding task runs against real sandbox evidence; model-backed SDK still needs live proof.",
+      "tests": [
+        "`command-center/tests/test_coding_tasks.py` (readiness reasons, full owner path with real sandbox/evidence, protected edit → blocked, sidecar failure → failed, roots refusal, empty allowlist, API exposes no push/merge/deploy/apply)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-014",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "File Commander / Apps need env magic + restart; refusals are bare 409",
+      "root_cause": "Older owner UI required environment/restart despite a policy API; current packaged controls needed acceptance.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Disabled policy refuses Start with explanation.",
+      "positive_control": "Enable/start/repeat/stop/disable and persistence are exercised; final browser assertion still pending rerun.",
+      "tests": [
+        "`command-center/tests/test_apps_owner_path_regression.py` (two full enable/start/start/stop/stop/disable/disable cycles, refused start names the policy) + `test_apps_control.py`"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-015",
+      "severity": "EXTERNAL",
+      "new_this_run": false,
+      "reproduction": "Who restarted Ollama between 20:02 and the probe; doctor WARN silent about time",
+      "root_cause": "Historical external Ollama lifecycle/host observations were not bound to a current runtime.",
+      "fix_commit": null,
+      "component_fix_commit": null,
+      "negative_control": "No historical or inferred host restart is accepted as a current observation.",
+      "positive_control": "Owner host records actual process/model identity and lifecycle timestamps.",
+      "tests": [
+        "—"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "OWNER_LIVE_REQUIRED",
+      "final_evidence_sha": null
+    },
+    {
+      "id": "MF-016",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Computer Operator bare COMPLETE → COMPLETED (default branch)",
+      "root_cause": "A Computer Operator COMPLETE claim could historically stand in for actual post-state.",
+      "fix_commit": "d021b99c628d9329fa27c896da3fc6dbcbb1d133",
+      "component_fix_commit": null,
+      "negative_control": "Bare COMPLETE and claimed effect do not verify real target state.",
+      "positive_control": "A fresh re-observation proves the actual permitted effect.",
+      "tests": [
+        "`bossman-core/tests` AT-01/AT-03 in the Core suite"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-017",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Authorization not re-checked at effect time after approval (DENY added / grant removed / revoke)",
+      "root_cause": "Approval acceptance historically did not guarantee current authorization at effect time.",
+      "fix_commit": "718f0df3830e332350a9d9b0c544ec7dad489557",
+      "component_fix_commit": null,
+      "negative_control": "Revoked/deleted/expired approval, added DENY and removed grant refuse at the actual effect.",
+      "positive_control": "Current valid authority permits the same requested effect once.",
+      "tests": [
+        "`command-center/tests/test_authorization_at_effect_time.py`, `test_fable_approval_revocation.py` — green on FIX_SHA"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-018",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "DENY algebra not monotone (default DENY + permission; specific DENY then general AUTO)",
+      "root_cause": "Policy combination could weaken DENY using a later broader permission.",
+      "fix_commit": "e1b90295bed23b2abd71d9e53115b734c4bc32a2",
+      "component_fix_commit": null,
+      "negative_control": "Specific/general DENY cannot be weakened by allow/default rules.",
+      "positive_control": "An action permitted by every active constraint remains allowed.",
+      "tests": [
+        "`command-center/tests/test_policy_algebra.py` — green on FIX_SHA"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-019",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Synthetic benchmark savings presented as measured; `completed` counted with `status=failed`",
+      "root_cause": "Synthetic constants and failed executions could be presented as measured completed savings.",
+      "fix_commit": "22ae555bc317c45abc925f70566fea90cd495692",
+      "component_fix_commit": null,
+      "negative_control": "Synthetic counters are labelled synthetic and failed tasks are excluded from completion.",
+      "positive_control": "Observed successful receipts remain independently counted.",
+      "tests": [
+        "root suite green on FIX_SHA"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-020",
+      "severity": "CI",
+      "new_this_run": false,
+      "reproduction": "Root CI float equality in `test_trader_apprentice.py`; Core `test_the_sandbox_may_not_commit…` depends on git identity; stale skips registry",
+      "root_cause": "Historical CI fixtures used unsafe floating comparisons, missing Git identity, and stale generated inventory.",
+      "fix_commit": null,
+      "component_fix_commit": null,
+      "negative_control": "Historical failed jobs are not combined into a new-SHA green claim.",
+      "positive_control": "Correct fixtures/generated registry rerun on the final source SHA.",
+      "tests": [
+        "root suite: 1177 passed on FIX_SHA tree (registry regenerated for the new tests)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-021",
+      "severity": "GATE",
+      "new_this_run": false,
+      "reproduction": "Intelligence Preservation: `docs/benchmark/intelligence-preservation-current.json` missing → workflow FAIL",
+      "root_cause": "No genuine current same-model measurement; the bundled sample count cannot meet the unchanged confidence bound.",
+      "fix_commit": null,
+      "component_fix_commit": null,
+      "negative_control": "Missing file/model, wrong SHA/model, duplicated corpus and insufficient capacity refuse.",
+      "positive_control": "Only genuine same-model observations satisfying unchanged thresholds can pass; none exist here.",
+      "tests": [
+        "—"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "EXTERNAL_EVIDENCE_REQUIRED",
+      "final_evidence_sha": null
+    },
+    {
+      "id": "MF-022",
+      "severity": "P0",
+      "new_this_run": false,
+      "reproduction": "Review deadlock: `waiting_approval` with empty pending queue",
+      "root_cause": "Waiting tasks could outlive every actionable approval/escalation object.",
+      "fix_commit": null,
+      "component_fix_commit": null,
+      "negative_control": "Empty/deleted/rejected/renamed decision objects cannot leave indefinite orphan waiting.",
+      "positive_control": "A valid live decision or bounded reconcile reaches an honest next state.",
+      "tests": [
+        "`test_p0_review_deadlock.py` green on FIX_SHA"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-023",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Approval storm (~121 approvals) / token runaway",
+      "root_cause": "Identical approvals and ineffective retries consumed owner interaction and tokens without bounded progress.",
+      "fix_commit": null,
+      "component_fix_commit": null,
+      "negative_control": "Repeated identical requests, exhausted budget and revoked leases do not grant free retries.",
+      "positive_control": "Valid dedup/scoped lease reduces duplicate owner questions without auto-authorizing.",
+      "tests": [
+        "`test_approval_scope.py`, `test_mission_budget.py` green on FIX_SHA"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-024",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Trading Lab 500 `ModuleNotFoundError: bossman_v3`",
+      "root_cause": "Optional Trading Lab import path assumed a module absent from its runtime.",
+      "fix_commit": "ec04e922637dfe6e805a8afdf17a3a8b34c8b8aa",
+      "component_fix_commit": null,
+      "negative_control": "Missing optional runtime is reported instead of crashing an unrelated route.",
+      "positive_control": "Available configured analysis path retains its ordinary result.",
+      "tests": [
+        "`test_trading_lab_unwired.py` green on FIX_SHA"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-025",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Resource telemetry invents memory (128 GB with nothing measured) / stale reading admits",
+      "root_cause": "Absent/stale resource measurements could be treated as available capacity.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "Unknown/conflicting/stale/unmeasured capacity stays unknown/refused.",
+      "positive_control": "Fresh consistent admitted measurement can become usable.",
+      "tests": [
+        "`test_v6_resources_unmeasured.py`, `test_v7_resource_pressure_edges.py`, `test_v7_reality_route_validation.py`"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-026",
+      "severity": "ACCEPTANCE",
+      "new_this_run": false,
+      "reproduction": "Video Studio owner path (create → import → edit → preview → export → decode → reopen)",
+      "root_cause": "Owner media acceptance had not been demonstrated from the current installed product.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Forged import, media-less command and broken decode cannot produce successful export evidence.",
+      "positive_control": "Installed real media import/edit/trim/undo/redo/playback/export/restart passed at checkpoint only.",
+      "tests": [
+        "24 `test_video_*` files, 399 passed with real ffmpeg on this host (11 skips registered)"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-027",
+      "severity": "ACCEPTANCE",
+      "new_this_run": false,
+      "reproduction": "Browser challenge/reconnect/takeover/Resume",
+      "root_cause": "Visible human takeover/resume acceptance was not established on the current runtime.",
+      "fix_commit": "69df482c6ab94f04b17715d9e2ceb4a695d20590",
+      "component_fix_commit": null,
+      "negative_control": "Changed target, challenge, stale/duplicate Resume and takeover cannot imply completion.",
+      "positive_control": "Owner visible browser resumes exactly one same run and re-observes target; live proof pending.",
+      "tests": [
+        "`test_feat_browser.py`, `test_v22_browser_security.py`, `test_v21_tools_terminal_browser.py`, `test_p0_completion_truth.py`"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "OWNER_LIVE_REQUIRED",
+      "final_evidence_sha": null
+    },
+    {
+      "id": "MF-028",
+      "severity": "EXTERNAL",
+      "new_this_run": false,
+      "reproduction": "OpenRouter/GLM live catalog, health, streaming, structured output, token/cost accounting",
+      "root_cause": "Provider fixture contracts do not prove authenticated provider behavior or measured costs.",
+      "fix_commit": null,
+      "component_fix_commit": null,
+      "negative_control": "401/429/malformed/partial/timeout/empty response cannot be provider success.",
+      "positive_control": "Live configured provider must return actual answer/tool/usage; fixture results stay distinct.",
+      "tests": [
+        "`test_streaming_contract.py`, `test_streaming_honesty.py`, `test_v21_openrouter_router.py`, `test_model_health.py`"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "OWNER_LIVE_REQUIRED",
+      "final_evidence_sha": null
+    },
+    {
+      "id": "MF-029",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Trader Apprentice: Decimal math, missing CVD/OI = UNKNOWN, analysis-only",
+      "root_cause": "Preserve Decimal accounting, UNKNOWN for missing measurements, and analysis-only behavior.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Missing/incompatible series and stale timestamps return UNKNOWN/refusal.",
+      "positive_control": "Same identified forward series retains Decimal and analysis-only behavior.",
+      "tests": [
+        "root `tests/test_trader_apprentice.py` in the 1177-passed root run"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-030",
+      "severity": "EXTERNAL",
+      "new_this_run": false,
+      "reproduction": "AI Streamer / Higgsfield authenticated generation",
+      "root_cause": "Authenticated generation, identity and paid-submission recovery were not established.",
+      "fix_commit": null,
+      "component_fix_commit": null,
+      "negative_control": "Unknown paid submission must not be retried as a new charge; challenge is not completion.",
+      "positive_control": "Authenticated independent submission/result/media/restart chain remains unrun.",
+      "tests": [
+        "browser worker/queue contracts in the CC suite; higgsfield known-domain added to action_router"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "OWNER_LIVE_REQUIRED",
+      "final_evidence_sha": null
+    },
+    {
+      "id": "MF-031",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "Tasks created without an agent are blocked (13 in the owner journal)",
+      "root_cause": "Execution tasks could be inserted without a usable enabled authorized executor/model.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Absent/disabled/stale/no-capability/policy-denied executor creates zero unusable task/run rows.",
+      "positive_control": "Valid explicit/automatic executor queues; intentional non-execution drafts remain drafts.",
+      "tests": [
+        "`test_executor_admission.py`"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-032",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "No liveness URL (`/health` 404); feedback-less publish/close buttons",
+      "root_cause": "Process liveness, subsystem readiness and UI action feedback were absent or conflated.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "HTTP200, stale heartbeat, dead task, failed loop or unconfigured provider cannot imply readiness.",
+      "positive_control": "Fresh successful DB/worker/scheduler/feature passes and visible refusal feedback are reported.",
+      "tests": [
+        "—"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "MF-033",
+      "severity": "P2",
+      "new_this_run": false,
+      "reproduction": "Video Studio `POST /api/video-studio/commands` 404 and `executor failed: ValueError` (task 40)",
+      "root_cause": "Unsupported or media-less native requests entered execution; a literal URL search also missed the real command route.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Missing media/unsupported subactions refuse before enqueue; concurrent/stopped drafts are not overwritten.",
+      "positive_control": "Actual commands route, real worker edit, FFmpeg decode and restart pass at checkpoint only.",
+      "tests": [
+        "—"
+      ],
+      "source_document": "docs/final_closure/MASTER_FINDINGS.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-FLEET-01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Node heartbeat=100, timeout=10, place(now=111) returned PLACED because admission assumed a separate watchdog tick.",
+      "root_cause": "Node heartbeat=100, timeout=10, place(now=111) returned PLACED because admission assumed a separate watchdog tick.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Node heartbeat=100, timeout=10, place(now=111) returned PLACED because admission assumed a separate watchdog tick.",
+      "positive_control": "Evaluate health in placement before selecting/acquiring.",
+      "tests": [
+        "`test_stale_heartbeat_refuses_placement_without_separate_watchdog_call` rejects stale then accepts a new valid heartbeat."
+      ],
+      "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-FLEET-02",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Eight expired lease/reacquire cycles left one live lease and eight reservation rows; acquire deleted leases directly, bypassing reservation cleanup.",
+      "root_cause": "Eight expired lease/reacquire cycles left one live lease and eight reservation rows; acquire deleted leases directly, bypassing reservation cleanup.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Eight expired lease/reacquire cycles left one live lease and eight reservation rows; acquire deleted leases directly, bypassing reservation cleanup.",
+      "positive_control": "Delete matching expired reservations in the same admission transaction; purge historical orphans at store initialization.",
+      "tests": [
+        "`test_expired_reacquisition_does_not_accumulate_memory_reservations` requires one lease and one reservation."
+      ],
+      "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-FLEET-03",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "A copied lease with a forged work/node/fence/resource/mode could release the genuine lease because release deleted by lease_id alone.",
+      "root_cause": "A copied lease with a forged work/node/fence/resource/mode could release the genuine lease because release deleted by lease_id alone.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "A copied lease with a forged work/node/fence/resource/mode could release the genuine lease because release deleted by lease_id alone.",
+      "positive_control": "Require full persisted identity on capability release; retain privileged store deletion for controller reclaim.",
+      "tests": [
+        "Five `test_release_requires_complete_persisted_lease_identity` negative controls; original capability still works."
+      ],
+      "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-FLEET-04",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Negative usage, NaN load and negative active-work became zero usage and admitted a 12GB task on a 16GB node; malformed raw values could also crash the scheduler or be hidden by max(0, value).",
+      "root_cause": "Negative usage, NaN load and negative active-work became zero usage and admitted a 12GB task on a 16GB node; malformed raw values could also crash the scheduler or be hidden by max(0, value).",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Negative usage, NaN load and negative active-work became zero usage and admitted a 12GB task on a 16GB node; malformed raw values could also crash the scheduler or be hidden by max(0, value).",
+      "positive_control": "Reject invalid raw observations before arithmetic; invalid heartbeat marks node degraded and consumes headroom; valid later observation restores eligibility.",
+      "tests": [
+        "Parametrized invalid-heartbeat/raw-observation controls; positive valid recovery."
+      ],
+      "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-FLEET-05",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Dead-letter requeue reset claim_fence to 1. A stale same-node Claim(fence=1) completed newly assigned work; completed work_id reuse had the same ABA defect. Attempts also reset.",
+      "root_cause": "Dead-letter requeue reset claim_fence to 1. A stale same-node Claim(fence=1) completed newly assigned work; completed work_id reuse had the same ABA defect. Attempts also reset.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Dead-letter requeue reset claim_fence to 1. A stale same-node Claim(fence=1) completed newly assigned work; completed work_id reuse had the same ABA defect. Attempts also reset.",
+      "positive_control": "Constant-size durable monotonic fence counter survives deleted rows/restart; requeue preserves attempts.",
+      "tests": [
+        "Dead-letter/restart, completed-ID reuse and racing worker controls reject old claims and preserve exactly one owner."
+      ],
+      "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-FLEET-06",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Renewal started before expiry, blocked on SQLite's writer lock, then used its stale pre-wait timestamp to renew expired authority. A real thread/SQLite lock probe reproduced successful revival after expiry.",
+      "root_cause": "Renewal started before expiry, blocked on SQLite's writer lock, then used its stale pre-wait timestamp to renew expired authority. A real thread/SQLite lock probe reproduced successful revival after expiry.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Renewal started before expiry, blocked on SQLite's writer lock, then used its stale pre-wait timestamp to renew expired authority. A real thread/SQLite lock probe reproduced successful revival after expiry.",
+      "positive_control": "Acquire the writer transaction first and account for elapsed monotonic wait before the persisted expiry predicate.",
+      "tests": [
+        "`test_waiting_for_database_lock_cannot_revive_an_expired_lease` uses a real contending transaction and requires refusal."
+      ],
+      "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "AF-001",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Installed BCC searched `<source>/apps`, so the wheel had an empty catalogue. Launch depended on source metadata/code layout.",
+      "root_cause": "Installed BCC searched `<source>/apps`, so the wheel had an empty catalogue. Launch depended on source metadata/code layout.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Installed BCC searched `<source>/apps`, so the wheel had an empty catalogue. Launch depended on source metadata/code layout.",
+      "positive_control": "Source / explicit `BCC_APPS_DIR` / packaged `bcc/_apps` discovery; installed module command; writable child cwd and app data.",
+      "tests": [
+        "`test_wheel_catalogue_and_manual_command_do_not_need_checkout`; final packaged gate required."
+      ],
+      "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "AF-002",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Unset `FILE_COMMANDER_ROOTS` authorized the whole host. Launcher stripped an explicitly configured root.",
+      "root_cause": "Unset `FILE_COMMANDER_ROOTS` authorized the whole host. Launcher stripped an explicitly configured root.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Unset `FILE_COMMANDER_ROOTS` authorized the whole host. Launcher stripped an explicitly configured root.",
+      "positive_control": "No roots => NOT_CONFIGURED/refusal. Launcher grants only explicit roots or its own workspace. System roots, repositories, app state, secrets, traversal, symlink/junction/reparse paths and hardlinks refused.",
+      "tests": [
+        "`test_owner_safety.py`: real allowed/denied files, secret paths, repository, traversal and hardlink controls."
+      ],
+      "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "AF-003",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Standalone file APIs had no authentication. A localhost listener could supply arbitrary HTML and receive a bearer in the first convergence proxy.",
+      "root_cause": "Standalone file APIs had no authentication. A localhost listener could supply arbitrary HTML and receive a bearer in the first convergence proxy.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Standalone file APIs had no authentication. A localhost listener could supply arbitrary HTML and receive a bearer in the first convergence proxy.",
+      "positive_control": "Private standalone token; BCC sends only MAC-bound method/path/query/body/timestamp/nonce. Nonces are durable and TTL-bounded. Response status/body is MAC-bound to the nonce. No bearer or untrusted HTML is forwarded.",
+      "tests": [
+        "Real rogue localhost HTTP server: no bearer observed, no upstream HTML request, unsigned response => 502, exactly one request, no retry. Signed replay/changed-field negative controls."
+      ],
+      "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "AF-004",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Sequential moves wrote Undo only after the entire batch. A late failure left partial effects without recovery evidence.",
+      "root_cause": "Sequential moves wrote Undo only after the entire batch. A late failure left partial effects without recovery evidence.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Sequential moves wrote Undo only after the entire batch. A late failure left partial effects without recovery evidence.",
+      "positive_control": "Exact measured preview, whole-batch preflight, no-overwrite same-volume moves, write-ahead batch journal, independent post-state reads, rollback and explicit UNKNOWN on ambiguous evidence.",
+      "tests": [
+        "Actual first move followed by injected late error restores originals; actual child `os._exit(71)` after a file effect leaves a recoverable APPLYING journal; repeated Apply is idempotent."
+      ],
+      "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "AF-005",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Same-size/restored-mtime source replacement bypassed intent freshness.",
+      "root_cause": "Same-size/restored-mtime source replacement bypassed intent freshness.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Same-size/restored-mtime source replacement bypassed intent freshness.",
+      "positive_control": "SHA-256 plus size/device/inode bound to the persisted exact plan and checked again at effect time and after effect.",
+      "tests": [
+        "Same-size/restored-mtime replacement refused before mutation; replaced post-effect evidence cannot produce repeated success."
+      ],
+      "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "AF-006",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Owner app page still instructed an environment variable + restart while disabling Start. File Commander home was a static capability list.",
+      "root_cause": "Owner app page still instructed an environment variable + restart while disabling Start. File Commander home was a static capability list.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Owner app page still instructed an environment variable + restart while disabling Start. File Commander home was a static capability list.",
+      "positive_control": "Existing policy API exposed as explicit owner controls. Existing scan/organization/rename/Apply/Undo operations exposed in UI with busy states, errors, refresh and history.",
+      "tests": [
+        "Actual HTTP HTML/resource check PASS; real-browser gate exists but Chromium unavailable here. No browser PASS claimed."
+      ],
+      "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "AF-007",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "BCC restart lost the process handle; Apps could never Stop a recovered application. PID alone was insufficient authority.",
+      "root_cause": "BCC restart lost the process handle; Apps could never Stop a recovered application. PID alone was insufficient authority.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "BCC restart lost the process handle; Apps could never Stop a recovered application. PID alone was insufficient authority.",
+      "positive_control": "Persist process creation time/executable/full argv; guarded psutil recovery and signalling, rejecting PID reuse and mismatched process namespaces. Agent Stop passes the data directory.",
+      "tests": [
+        "Standard-host CI required. Current execution sandbox exposes virtual PIDs beside unrelated host `/proc`; recovery deliberately refuses."
+      ],
+      "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "AF-008",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Corrupt saved owner DENY fell back to environment `BOSSMAN_APPS_CONTROL_ENABLED=1`.",
+      "root_cause": "Corrupt saved owner DENY fell back to environment `BOSSMAN_APPS_CONTROL_ENABLED=1`.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Corrupt saved owner DENY fell back to environment `BOSSMAN_APPS_CONTROL_ENABLED=1`.",
+      "positive_control": "Unreadable/null/invalid owner setting fails closed; explicit owner policy replacement remains possible.",
+      "tests": [
+        "Before fix a real child started (HTTP 200); regression now 403 and no process."
+      ],
+      "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "AF-009",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Start accepted policy before waiting on a lock; a later DENY did not prevent the process effect.",
+      "root_cause": "Start accepted policy before waiting on a lock; a later DENY did not prevent the process effect.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Start accepted policy before waiting on a lock; a later DENY did not prevent the process effect.",
+      "positive_control": "HTTP and agent paths re-evaluate policy inside the process lock and immediately before spawn.",
+      "tests": [
+        "Before fix a real child started despite a newly saved DENY; regression now 403 and no process."
+      ],
+      "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "AF-010",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Directory creation could follow a replaced parent; crash after mkdir but before its receipt could be falsely described as full rollback.",
+      "root_cause": "Directory creation could follow a replaced parent; crash after mkdir but before its receipt could be falsely described as full rollback.",
+      "fix_commit": "0c2df0a095c6407b95acc8ce59211cb9ec0f2900",
+      "component_fix_commit": null,
+      "negative_control": "Directory creation could follow a replaced parent; crash after mkdir but before its receipt could be falsely described as full rollback.",
+      "positive_control": "POSIX no-follow parent handles; directory intent before effect and identity receipt afterward; verified empty-directory cleanup. Unreceipted existing directory remains UNKNOWN.",
+      "tests": [
+        "Real parent-directory/symlink swap creates nothing outside scope; lost directory receipt remains UNKNOWN and refuses further Apply."
+      ],
+      "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "AF-011",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Any reachable HTTP health response, including 404/empty/unhealthy payload, could be treated as ready.",
+      "root_cause": "Any reachable HTTP health response, including 404/empty/unhealthy payload, could be treated as ready.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Any reachable HTTP health response, including 404/empty/unhealthy payload, could be treated as ready.",
+      "positive_control": "Reachability and readiness separated; only a healthy successful response is LIVE.",
+      "tests": [
+        "404, empty JSON, unhealthy and NOT_CONFIGURED negative controls."
+      ],
+      "source_document": "docs/astra/APPS_FILES_ACCEPTANCE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "OH-NEW-01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Changing a protected file's executable bit returned completed with an empty changed-file list. Filesystem comparison checked only blob bytes; the documented Git-view union was not actually returned.",
+      "root_cause": "Changing a protected file's executable bit returned completed with an empty changed-file list. Filesystem comparison checked only blob bytes; the documented Git-view union was not actually returned.",
+      "fix_commit": "a037302c0f72ff9e64cb59ca7aa7cc094aa0ed34",
+      "component_fix_commit": null,
+      "negative_control": "Changing a protected file's executable bit returned completed with an empty changed-file list. Filesystem comparison checked only blob bytes; the documented Git-view union was not actually returned.",
+      "positive_control": "Compare type/mode independently and keep the union. Protected chmod is refused with core.filemode both true and false; allowed executable changes remain in the actual diff.",
+      "tests": [
+        "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
+      ],
+      "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "OH-NEW-02",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Replacing equal-size bytes and restoring mtime during diff generation admitted evidence for inconsistent contents.",
+      "root_cause": "Replacing equal-size bytes and restoring mtime during diff generation admitted evidence for inconsistent contents.",
+      "fix_commit": "a037302c0f72ff9e64cb59ca7aa7cc094aa0ed34",
+      "component_fix_commit": null,
+      "negative_control": "Replacing equal-size bytes and restoring mtime during diff generation admitted evidence for inconsistent contents.",
+      "positive_control": "Host captures bounded immutable bytes around observation and refuses a changed snapshot. The reviewed diff is rendered from those captured bytes in a separate directory, with external diff/text conversion disabled.",
+      "tests": [
+        "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
+      ],
+      "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "OH-NEW-03",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Teacher reopened a pathname after the client validated it; replacement VALUE=9 was proposed instead of the observed VALUE=2.",
+      "root_cause": "Teacher reopened a pathname after the client validated it; replacement VALUE=9 was proposed instead of the observed VALUE=2.",
+      "fix_commit": "a037302c0f72ff9e64cb59ca7aa7cc094aa0ed34",
+      "component_fix_commit": null,
+      "negative_control": "Teacher reopened a pathname after the client validated it; replacement VALUE=9 was proposed instead of the observed VALUE=2.",
+      "positive_control": "Teacher consumes host-captured immutable bytes. The regression replaces the path after validation and still receives VALUE=2.",
+      "tests": [
+        "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
+      ],
+      "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "OH-NEW-04",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Teacher followed an allowed symlink and read an external controlled file as patch source.",
+      "root_cause": "Teacher followed an allowed symlink and read an external controlled file as patch source.",
+      "fix_commit": "a037302c0f72ff9e64cb59ca7aa7cc094aa0ed34",
+      "component_fix_commit": null,
+      "negative_control": "Teacher followed an allowed symlink and read an external controlled file as patch source.",
+      "positive_control": "Preserve link evidence in the client; refuse non-regular or mode-changing text proposals in Teacher. No pathname is reopened by Teacher.",
+      "tests": [
+        "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
+      ],
+      "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "OH-NEW-05",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "A configured sidecar script could be replaced between client setup and dispatch, including same-size/restored-mtime replacement.",
+      "root_cause": "A configured sidecar script could be replaced between client setup and dispatch, including same-size/restored-mtime replacement.",
+      "fix_commit": "a037302c0f72ff9e64cb59ca7aa7cc094aa0ed34",
+      "component_fix_commit": null,
+      "negative_control": "A configured sidecar script could be replaced between client setup and dispatch, including same-size/restored-mtime replacement.",
+      "positive_control": "Hash the resolved executable and actual script arguments at setup and again before dispatch. Replaced script is refused; unchanged script executes.",
+      "tests": [
+        "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
+      ],
+      "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "OH-NEW-06",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Workspace evidence used unrestricted whole-file reads.",
+      "root_cause": "Workspace evidence used unrestricted whole-file reads.",
+      "fix_commit": "a037302c0f72ff9e64cb59ca7aa7cc094aa0ed34",
+      "component_fix_commit": null,
+      "negative_control": "Workspace evidence used unrestricted whole-file reads.",
+      "positive_control": "Bound each file to 8 MiB, snapshots to 32 MiB and 10,000 files. Descriptor reads check type/identity; POSIX parent handles do not follow links; Windows checks the actual opened handle. Oversized output is refused before admission.",
+      "tests": [
+        "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
+      ],
+      "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "OH-NEW-07",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Non-executable permission changes are not represented by Git's tree mode.",
+      "root_cause": "Non-executable permission changes are not represented by Git's tree mode.",
+      "fix_commit": "a037302c0f72ff9e64cb59ca7aa7cc094aa0ed34",
+      "component_fix_commit": null,
+      "negative_control": "Non-executable permission changes are not represented by Git's tree mode.",
+      "positive_control": "Compare observed permission bits against the pre-run snapshot; reject protected changes and unsupported permission-only patches.",
+      "tests": [
+        "bossman-core/tests/apprentice/test_openhands_release_evidence.py"
+      ],
+      "source_document": "docs/astra/OPENHANDS_POSTSTATE_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "PR60-IDENTITY",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Baseline `analyze(Snapshot(100,100,100,source=\"source-a\",instrument=\"ETH\"), Snapshot(110,110,110,source=\"source-b\",instrument=\"BTC\"))` returned LONG_CANDIDATE, confidence0.95. Provider/metric identity and timestamp were not checked.",
+      "root_cause": "Baseline `analyze(Snapshot(100,100,100,source=\"source-a\",instrument=\"ETH\"), Snapshot(110,110,110,source=\"source-b\",instrument=\"BTC\"))` returned LONG_CANDIDATE, confidence0.95. Provider/metric identity and timestamp were not checked.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": "`c63e380`",
+      "negative_control": "Baseline `analyze(Snapshot(100,100,100,source=\"source-a\",instrument=\"ETH\"), Snapshot(110,110,110,source=\"source-b\",instrument=\"BTC\"))` returned LONG_CANDIDATE, confidence0.95. Provider/metric identity and timestamp were not checked.",
+      "positive_control": "Cross-provider, cross-instrument, absent identity, changed normalization/aggregation and stale timestamps refuse. Same identified forward series preserves existing regimes/money results.",
+      "tests": [
+        "tests/test_trader_apprentice.py"
+      ],
+      "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-PR60-IDENTITY-BYPASS",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Upstream355a582 still advertised reclaimed levels on incompatible rows; `accepted_above`/`sweep_and_reclaim` combined different or stale observations; malformed typed fields raised AttributeError.",
+      "root_cause": "Upstream355a582 still advertised reclaimed levels on incompatible rows; `accepted_above`/`sweep_and_reclaim` combined different or stale observations; malformed typed fields raised AttributeError.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": "`f1d310b`",
+      "negative_control": "Upstream355a582 still advertised reclaimed levels on incompatible rows; `accepted_above`/`sweep_and_reclaim` combined different or stale observations; malformed typed fields raised AttributeError.",
+      "positive_control": "Eleven additional cases failed before repair. Same-source ordered history and valid level reclaim still succeed; incompatible/malformed history fails closed.",
+      "tests": [
+        "tests/test_trader_apprentice.py"
+      ],
+      "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "PR60-PROVENANCE",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Only mutable agent rows explained historical prompts, permissions and configured models; editing/deleting agent changed or erased the explanation.",
+      "root_cause": "Only mutable agent rows explained historical prompts, permissions and configured models; editing/deleting agent changed or erased the explanation.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": "`2f9e79c`",
+      "negative_control": "Only mutable agent rows explained historical prompts, permissions and configured models; editing/deleting agent changed or erased the explanation.",
+      "positive_control": "Run-start configuration survives real DB agent rename/prompt/permissions/budget edits and deletion; SQL rewriting or clearing captured JSON fails.",
+      "tests": [
+        "command-center/tests/test_run_provenance.py; command-center/tests/test_stop_grace_lifecycle.py"
+      ],
+      "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-PR60-PROVENANCE-FENCE",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Upstream9fcf9ab wrote provenance without a fence; stale worker wrote after takeover. Capture exceptions were logged with raw details, then provider dispatched and run completed.",
+      "root_cause": "Upstream9fcf9ab wrote provenance without a fence; stale worker wrote after takeover. Capture exceptions were logged with raw details, then provider dispatched and run completed.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": "`2f9e79c`",
+      "negative_control": "Upstream9fcf9ab wrote provenance without a fence; stale worker wrote after takeover. Capture exceptions were logged with raw details, then provider dispatched and run completed.",
+      "positive_control": "Real SQLite takeover rejects stale writer; injected capture failure produces failed run before any adapter call and does not leak exception canary. Valid current worker captures and proceeds.",
+      "tests": [
+        "command-center/tests/test_run_provenance.py; command-center/tests/test_stop_grace_lifecycle.py"
+      ],
+      "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-PR60-PROVENANCE-IDENTITY",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Upstream lookup ignored installed `_build.json`, accepted arbitrary BCC_BUILD_SHA, cached stale source revisions, and reader accepted bool/negative schema versions.",
+      "root_cause": "Upstream lookup ignored installed `_build.json`, accepted arbitrary BCC_BUILD_SHA, cached stale source revisions, and reader accepted bool/negative schema versions.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": "`2f9e79c`",
+      "negative_control": "Upstream lookup ignored installed `_build.json`, accepted arbitrary BCC_BUILD_SHA, cached stale source revisions, and reader accepted bool/negative schema versions.",
+      "positive_control": "Valid embedded40hex SHA wins over environment; malformed/missing manifest is NOT_CAPTURED. Dirty checkout not attributed to clean HEAD; new clean HEAD changes record. Invalid schema rejected.",
+      "tests": [
+        "tests/test_trader_apprentice.py"
+      ],
+      "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-PR60-PROVENANCE-BACKFILL",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "First NULL-to-value update could invent historical completed-run configuration. Original guard implemented only SQLite.",
+      "root_cause": "First NULL-to-value update could invent historical completed-run configuration. Original guard implemented only SQLite.",
+      "fix_commit": "7544ffe7c3fd96c3837bc6484257f911f0d439e5",
+      "component_fix_commit": "`2f9e79c`",
+      "negative_control": "First NULL-to-value update could invent historical completed-run configuration. Original guard implemented only SQLite.",
+      "positive_control": "SQLite terminal backfill refused; old row API stays NOT_CAPTURED. Already captured record is idempotent. Explicit RESUMED_RUN_CONFIGURATION avoids pretending resumed legacy config was original. PostgreSQL implementation has isolated live test; no server proof here.",
+      "tests": [
+        "command-center/tests/test_run_provenance.py; command-center/tests/test_stop_grace_lifecycle.py"
+      ],
+      "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-PR60-MISSION-LIFECYCLE",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Mission KPI consumer never unsubscribed on cancellation. One malformed KPI delta terminated all later updates silently. Stronger stop test found one retained queue.",
+      "root_cause": "Mission KPI consumer never unsubscribed on cancellation. One malformed KPI delta terminated all later updates silently. Stronger stop test found one retained queue.",
+      "fix_commit": "3d165596ada9da3ed742d5da1c4b374a336c1080",
+      "component_fix_commit": "`0e7193e`",
+      "negative_control": "Mission KPI consumer never unsubscribed on cancellation. One malformed KPI delta terminated all later updates silently. Stronger stop test found one retained queue.",
+      "positive_control": "Real service subscribers present before stop, zero after stop; repeated same-Service start/stop does not accumulate queues. Malformed event reports refusal; next valid event changes real KPI row.",
+      "tests": [
+        "command-center/tests/test_run_provenance.py; command-center/tests/test_stop_grace_lifecycle.py"
+      ],
+      "source_document": "docs/astra/PR60_REQUIRED_SEMANTIC_INTEGRATION_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "VIDEO-TRUTH-01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "`Открой этот проект и замени музыку` entered the open-only executor; stitching with a subtitle request did not request subtitle work.",
+      "root_cause": "`Открой этот проект и замени музыку` entered the open-only executor; stitching with a subtitle request did not request subtitle work.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "`Открой этот проект и замени музыку` entered the open-only executor; stitching with a subtitle request did not request subtitle work.",
+      "positive_control": "The native preflight refuses these unsupported effects with `VIDEO_COMMAND_REQUIRED`; no timeline mutation or successful task is created by the start request. Explicit editor commands and trained agents retain their existing paths.",
+      "tests": [
+        "command-center/tests/test_video_studio_owner_recovery.py; command-center/tests/test_editors_user_acceptance.py"
+      ],
+      "source_document": "docs/astra/VIDEO_OWNER_RECOVERY_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "VIDEO-RACE-01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Two requests both observed a draft. An instrumented barrier released both before the real DB enqueue: two task runs were created.",
+      "root_cause": "Two requests both observed a draft. An instrumented barrier released both before the real DB enqueue: two task runs were created.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Two requests both observed a draft. An instrumented barrier released both before the real DB enqueue: two task runs were created.",
+      "positive_control": "Use the existing atomic `enqueue(only_if_draft=True)`. The same concurrent negative control now observes exactly one run.",
+      "tests": [
+        "command-center/tests/test_video_studio_owner_recovery.py; command-center/tests/test_editors_user_acceptance.py"
+      ],
+      "source_document": "docs/astra/VIDEO_OWNER_RECOVERY_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "VIDEO-RACE-02",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Stop the draft after the route reads it but before enqueue: the old start overwrote `stopped` with `queued`.",
+      "root_cause": "Stop the draft after the route reads it but before enqueue: the old start overwrote `stopped` with `queued`.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Stop the draft after the route reads it but before enqueue: the old start overwrote `stopped` with `queued`.",
+      "positive_control": "The same DB gate preserves `stopped`, creates no run and returns an explicit 409.",
+      "tests": [
+        "command-center/tests/test_video_studio_owner_recovery.py; command-center/tests/test_editors_user_acceptance.py"
+      ],
+      "source_document": "docs/astra/VIDEO_OWNER_RECOVERY_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-HEALTH-01",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Unmeasured models looked healthy; stale success was not distinguished.",
+      "root_cause": "Unmeasured models looked healthy; stale success was not distinguished.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Unmeasured models looked healthy; stale success was not distinguished.",
+      "positive_control": "Only fresh measured model success reads HEALTHY. Unknown, stale, missing, broken and partially available provider registries are distinct. A working model plus degraded optional models can remain ready, with DEGRADED status.",
+      "tests": [
+        "command-center/tests/test_release_health.py; command-center/tests/test_release_owner_feedback_ui.py"
+      ],
+      "source_document": "docs/astra/OWNER_ADMISSION_HEALTH_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-HEALTH-02",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Worker/scheduler/metrics stamped heartbeats before work and swallowed loop exceptions, so repeated failures could read healthy. A completed loop also retained a recent heartbeat.",
+      "root_cause": "Worker/scheduler/metrics stamped heartbeats before work and swallowed loop exceptions, so repeated failures could read healthy. A completed loop also retained a recent heartbeat.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Worker/scheduler/metrics stamped heartbeats before work and swallowed loop exceptions, so repeated failures could read healthy. A completed loop also retained a recent heartbeat.",
+      "positive_control": "Last failure tracked until a successful iteration; terminated tasks override recent heartbeats. Failing loop negative controls and ordinary loop health retained.",
+      "tests": [
+        "command-center/tests/test_release_health.py; command-center/tests/test_release_owner_feedback_ui.py"
+      ],
+      "source_document": "docs/astra/OWNER_ADMISSION_HEALTH_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-HEALTH-03",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Importable Playwright was called healthy when Chromium was absent.",
+      "root_cause": "Importable Playwright was called healthy when Chromium was absent.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Importable Playwright was called healthy when Chromium was absent.",
+      "positive_control": "System health reports UNKNOWN until an actual connected context is observed. This does not make browser use a requirement for core task readiness.",
+      "tests": [
+        "command-center/tests/test_release_health.py; command-center/tests/test_release_owner_feedback_ui.py"
+      ],
+      "source_document": "docs/astra/OWNER_ADMISSION_HEALTH_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-UI-01",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Publish refusal/status message was hidden by CSS at mobile width.",
+      "root_cause": "Publish refusal/status message was hidden by CSS at mobile width.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Publish refusal/status message was hidden by CSS at mobile width.",
+      "positive_control": "Message remains visible on mobile. Busy-state/refusal/no-retry controls added for desktop and mobile; no live GitHub publish is performed by these tests.",
+      "tests": [
+        "command-center/tests/test_release_health.py; command-center/tests/test_release_owner_feedback_ui.py"
+      ],
+      "source_document": "docs/astra/OWNER_ADMISSION_HEALTH_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "WD-R01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "`flushSave` caught failure and returned no outcome. Apply, model edit, generation, restore and project navigation continued after that failure. They now abort unless the draft was fully saved.",
+      "root_cause": "`flushSave` caught failure and returned no outcome. Apply, model edit, generation, restore and project navigation continued after that failure. They now abort unless the draft was fully saved.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "`flushSave` caught failure and returned no outcome. Apply, model edit, generation, restore and project navigation continued after that failure. They now abort unless the draft was fully saved.",
+      "positive_control": "`flushSave` caught failure and returned no outcome. Apply, model edit, generation, restore and project navigation continued after that failure. They now abort unless the draft was fully saved.",
+      "tests": [
+        "Node `ошибка сохранения не разрешает зависимую правку элемента`; browser conflict/generation case"
+      ],
+      "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "WD-R02",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "After a 409, silently adopting the new server version meant the next keystroke overwrote another tab's work. The version is refreshed, both texts remain available, autosave pauses and replacement requires an explicit comparison/confirmation.",
+      "root_cause": "After a 409, silently adopting the new server version meant the next keystroke overwrote another tab's work. The version is refreshed, both texts remain available, autosave pauses and replacement requires an explicit comparison/confirmation.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "After a 409, silently adopting the new server version meant the next keystroke overwrote another tab's work. The version is refreshed, both texts remain available, autosave pauses and replacement requires an explicit comparison/confirmation.",
+      "positive_control": "After a 409, silently adopting the new server version meant the next keystroke overwrote another tab's work. The version is refreshed, both texts remain available, autosave pauses and replacement requires an explicit comparison/confirmation.",
+      "tests": [
+        "Node 409 case; browser conflict/comparison case"
+      ],
+      "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "WD-R03",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Two concurrent saves could send the same mutation twice; text typed while a slow save was in flight could miss the only remaining save timer. Saves now share an in-flight promise and schedule another save for newer text. A lost response followed by a read of the exact submitted HTML does not cause another write.",
+      "root_cause": "Two concurrent saves could send the same mutation twice; text typed while a slow save was in flight could miss the only remaining save timer. Saves now share an in-flight promise and schedule another save for newer text. A lost response followed by a read of the exact submitted HTML does not cause another write.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Two concurrent saves could send the same mutation twice; text typed while a slow save was in flight could miss the only remaining save timer. Saves now share an in-flight promise and schedule another save for newer text. A lost response followed by a read of the exact submitted HTML does not cause another write.",
+      "positive_control": "Two concurrent saves could send the same mutation twice; text typed while a slow save was in flight could miss the only remaining save timer. Saves now share an in-flight promise and schedule another save for newer text. A lost response followed by a read of the exact submitted HTML does not cause another write.",
+      "tests": [
+        "Node concurrent-save, in-flight typing and lost-response cases"
+      ],
+      "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "WD-R04",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Generation accepted an old `base_version` and overwrote a newer tab; repeating the request made another version. Generation now carries and checks its captured version under the project lock.",
+      "root_cause": "Generation accepted an old `base_version` and overwrote a newer tab; repeating the request made another version. Generation now carries and checks its captured version under the project lock.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Generation accepted an old `base_version` and overwrote a newer tab; repeating the request made another version. Generation now carries and checks its captured version under the project lock.",
+      "positive_control": "Generation accepted an old `base_version` and overwrote a newer tab; repeating the request made another version. Generation now carries and checks its captured version under the project lock.",
+      "tests": [
+        "`test_web_designer_release_regressions.py` generation cases"
+      ],
+      "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "WD-R05",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Project delete used `rmtree(ignore_errors=True)` and returned success even when the files remained. Removal failure is now HTTP 409; success requires the directory to be absent.",
+      "root_cause": "Project delete used `rmtree(ignore_errors=True)` and returned success even when the files remained. Removal failure is now HTTP 409; success requires the directory to be absent.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Project delete used `rmtree(ignore_errors=True)` and returned success even when the files remained. Removal failure is now HTTP 409; success requires the directory to be absent.",
+      "positive_control": "Project delete used `rmtree(ignore_errors=True)` and returned success even when the files remained. Removal failure is now HTTP 409; success requires the directory to be absent.",
+      "tests": [
+        "`test_a_locked_project_is_not_reported_as_deleted`"
+      ],
+      "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "WD-R06",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "A numeric project-directory symlink, linked `current.html`, linked metadata or linked history exposed external data or admitted external writes. All four real-filesystem controls failed on the baseline.",
+      "root_cause": "A numeric project-directory symlink, linked `current.html`, linked metadata or linked history exposed external data or admitted external writes. All four real-filesystem controls failed on the baseline.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "A numeric project-directory symlink, linked `current.html`, linked metadata or linked history exposed external data or admitted external writes. All four real-filesystem controls failed on the baseline.",
+      "positive_control": "Validate project/root/file components for symlink or Windows reparse/junction before I/O; refuse the operation and omit unsafe entries from project listings. Four controls prove external files remain byte-identical and their contents absent from responses.",
+      "tests": [
+        "command-center/tests/test_web_designer_storage_boundaries.py"
+      ],
+      "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "WD-R07",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Two actual Python processes read version 1 and both returned success for version 2. The old in-process lock did not protect filesystem compare-and-swap. Concurrent project creation also allocated the same ID twice.",
+      "root_cause": "Two actual Python processes read version 1 and both returned success for version 2. The old in-process lock did not protect filesystem compare-and-swap. Concurrent project creation also allocated the same ID twice.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Two actual Python processes read version 1 and both returned success for version 2. The old in-process lock did not protect filesystem compare-and-swap. Concurrent project creation also allocated the same ID twice.",
+      "positive_control": "Reuse `bossman_shared.fable_budget._CrossProcessFileLock` (POSIX `flock`, Windows `msvcrt`) for full project mutations and catalog allocation. Acquire off the event loop; a cancelled waiter cleans up a late-acquired lock. Two-process controls now require one commit/one 409 and two distinct allocated projects. A weak in-process lock registry does not retain every historical app root.",
+      "tests": [
+        "command-center/tests/test_web_designer_storage_boundaries.py"
+      ],
+      "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "WD-R08",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Injecting failure after `current.html` installation but before metadata commit exposed new HTML with the old version. The existing crash control only failed the first replace.",
+      "root_cause": "Injecting failure after `current.html` installation but before metadata commit exposed new HTML with the old version. The existing crash control only failed the first replace.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Injecting failure after `current.html` installation but before metadata commit exposed new HTML with the old version. The existing crash control only failed the first replace.",
+      "positive_control": "Metadata remains the commit pointer and readers use its already-written history snapshot. GET and model-edit input bind code and version to the same metadata read. The crash control now observes the previous committed code/version, then succeeds with a fresh guarded write. Existing save/history/model regressions are retained.",
+      "tests": [
+        "command-center/tests/test_web_designer_storage_boundaries.py"
+      ],
+      "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "WD-R09",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Save/restore validated project then waited; concurrent DELETE won the lock and the stale request recreated it.",
+      "root_cause": "Existence was checked before acquiring the mutation lock.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Two real HTTP stale save/restore requests after deletion return404 and cannot recreate the directory.",
+      "positive_control": "Ordinary current project writes remain accepted.",
+      "tests": [
+        "command-center/tests/test_web_designer_storage_boundaries.py"
+      ],
+      "source_document": "docs/astra/WEB_DESIGNER_MF012_CLOSURE_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-FLEET-07",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Persisted NaN/future heartbeat bypassed freshness arithmetic.",
+      "root_cause": "now - NaN > timeout is false; malformed persisted state was not validated.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Seven malformed/nonfinite/future heartbeat controls refuse placement.",
+      "positive_control": "Genuine later heartbeat restores admission.",
+      "tests": [
+        "bossman-core/tests/test_astra_fleet_closure.py"
+      ],
+      "source_document": "docs/astra/FLEET_INDEPENDENT_CLOSURE_20260908.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-PKG-01",
+      "severity": "P1",
+      "new_this_run": false,
+      "reproduction": "Installed wheel booted API without Command Center UI.",
+      "root_cause": "UI was resolved from source checkout and absent from wheel.",
+      "fix_commit": "4264fd6acdaecbde64d798a8eb1f0958dbdc9445",
+      "component_fix_commit": null,
+      "negative_control": "Install only built wheels in clean venv and external cwd; source paths unavailable.",
+      "positive_control": "Packaged index/JS/CSS/editor assets, auth, database, worker, scheduler and restart succeed.",
+      "tests": [
+        "tests/test_packaging_installed.py; command-center/tests/test_installed_layout.py; tools/verify_installed_product.py"
+      ],
+      "source_document": "git commit 4264fd6acdaecbde64d798a8eb1f0958dbdc9445",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-PKG-02",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Bundle --out could recursively remove an existing arbitrary directory.",
+      "root_cause": "Builder unconditionally removed the output path.",
+      "fix_commit": "4264fd6acdaecbde64d798a8eb1f0958dbdc9445",
+      "component_fix_commit": null,
+      "negative_control": "Nonempty directory, file or symlink output is refused without mutation.",
+      "positive_control": "A new output directory can be built.",
+      "tests": [
+        "tests/test_local_bundle_safety.py"
+      ],
+      "source_document": "git commit 4264fd6acdaecbde64d798a8eb1f0958dbdc9445",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-PKG-03",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Reinstalling same-version candidate left old wheel contents active.",
+      "root_cause": "pip considered unchanged version already installed.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Install an older same-version artifact then candidate; compare installed marker/source identity.",
+      "positive_control": "Force reinstall replaces release wheels while preserving data.",
+      "tests": [
+        "tools/build_local_bundle.py; generated install.py acceptance"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-PKG-04",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Installed app configuration/profile resources were not shipped or writable.",
+      "root_cause": "Source metadata/config directories were assumed at runtime.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Wheel imports/config loading from external cwd without repository fail on old layout.",
+      "positive_control": "Package data/runtime profiles and owned data paths resolve after clean install.",
+      "tests": [
+        "apps/ai-3d-maker/tests/test_installed_config.py; tools/verify_installed_product.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-WIN-CLI-01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "bossman-gateway --help and BCC output failed through cp1252 pipes.",
+      "root_cause": "Cyrillic/Unicode output was emitted into a restricted redirected console encoding.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Actual subprocess help/startup under cp1252/ascii from external cwd.",
+      "positive_control": "CLI help/startup stays usable without globally forcing UTF8.",
+      "tests": [
+        "bossman-core/tests/test_gateway_cli_portability.py; command-center/tests/test_bcc_cli_portability.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-TRUTH-01",
+      "severity": "P0",
+      "new_this_run": true,
+      "reproduction": "Attacker URL query/userinfo/path containing youtube.com/watch satisfied a content goal.",
+      "root_cause": "Post-state URL matching used a substring instead of host/path identity.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Lookalike host, query, userinfo and path substitutions refuse.",
+      "positive_control": "Actual expected host and path verify.",
+      "tests": [
+        "command-center/tests/test_astra_poststate_boundaries.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-TRUTH-02",
+      "severity": "P0",
+      "new_this_run": true,
+      "reproduction": "Failed browser snapshot could still finalize a task.",
+      "root_cause": "Observation failure was treated as an empty/favorable verification path.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Injected snapshot error cannot become completed; takeover is not effect evidence.",
+      "positive_control": "Current successful observation is verified normally.",
+      "tests": [
+        "command-center/tests/test_astra_poststate_boundaries.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-TRUTH-03",
+      "severity": "P0",
+      "new_this_run": true,
+      "reproduction": "Review override could waive current challenge or use authority changed during observation.",
+      "root_cause": "Approval/task/run authority was not re-read after potentially slow post-state observation.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Live challenge, revoke, pause, changed active run and takeover refuse finalization.",
+      "positive_control": "Fresh current approval and independently verified current effect remain usable.",
+      "tests": [
+        "command-center/tests/test_astra_poststate_boundaries.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-TRUTH-04",
+      "severity": "P0",
+      "new_this_run": true,
+      "reproduction": "Finalization could pair an observed effect with another task/run or stale active run.",
+      "root_cause": "Task/run binding and current authority were incomplete at terminal write.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Mismatched task/run, prior-run evidence and stale active run cannot complete.",
+      "positive_control": "A fresh observation for the correct current run completes once.",
+      "tests": [
+        "command-center/tests/test_finalize_poststate_races.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-TRUTH-05",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Unconfigured file observer could inspect arbitrary host files.",
+      "root_cause": "An empty authorized-root list was interpreted as unrestricted.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Empty roots never read a planted host file or return its bytes.",
+      "positive_control": "Explicit allowed root still verifies real bytes.",
+      "tests": [
+        "command-center/tests/test_astra_poststate_boundaries.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-GW-01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Anthropic tool calls/results/schema were dropped or sent in OpenAI-native shape.",
+      "root_cause": "Gateway provider composition did not translate the native tool protocol.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Native request/response tool and structured-output controls failed on old converter.",
+      "positive_control": "All9 presets preserve tools; native input_schema/tool_use/tool_result and explicit JSON schema convert.",
+      "tests": [
+        "bossman-core/tests/test_gateway_anthropic_contract.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-GW-02",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Raw native SSE/truncated/error streams could look like OpenAI completion.",
+      "root_cause": "Native event sequence and terminal semantics were not reconstructed.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Fragmented/malformed/empty/error/unknown-stop or incomplete tools never emit successful terminal output.",
+      "positive_control": "Valid text/tools/native stop/length/refusal classes and cumulative usage survive translation.",
+      "tests": [
+        "bossman-core/tests/test_gateway_anthropic_contract.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-GW-03",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Infinite ping/unterminated event/oversized upstream could continue accumulating.",
+      "root_cause": "Provider streams lacked combined byte/event/block/time bounds.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Infinite pings, byte flood, event count and oversized tool JSON stop and close upstream.",
+      "positive_control": "Finite fragments under bounds complete; breaker opens and recovers normally.",
+      "tests": [
+        "bossman-core/tests/test_gateway_anthropic_contract.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-GW-04",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Client disconnect could leave upstream socket, semaphore and budget reservation live.",
+      "root_cause": "ASGI cancellation while sending left the suspended body iterator unclosed.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Real ASGI cancellation under both supported response modes closes upstream/releases slot.",
+      "positive_control": "Complete streams settle measured usage; cancellation retains conservative spent cost.",
+      "tests": [
+        "bossman-core/tests/test_gateway_anthropic_contract.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-GW-05",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Corrupt HTTP200 native response was refunded before fallback as if no billable request occurred.",
+      "root_cause": "Normalization failed after dispatch without marking a started response.",
+      "fix_commit": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "component_fix_commit": null,
+      "negative_control": "Corrupt successful response and partial provisional usage cannot become zero cost.",
+      "positive_control": "Valid measured cache-inclusive usage settles once; malformed replies contribute to breaker history.",
+      "tests": [
+        "bossman-core/tests/test_gateway_anthropic_contract.py"
+      ],
+      "source_document": "git commit 83c1a02d6c8066ff267d3746b82bd31171d268b5",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-DB-01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "PostgreSQL terminal guard setup referenced undefined logger and had no equivalent guard.",
+      "root_cause": "Non-SQLite branch was warning-only and could expose full database URL.",
+      "fix_commit": "7544ffe7c3fd96c3837bc6484257f911f0d439e5",
+      "component_fix_commit": null,
+      "negative_control": "Unsupported backend refuses without URL; real PostgreSQL cases required rather than skipped.",
+      "positive_control": "PostgreSQL guard installs idempotently and accepts legitimate transitions; live CI pending.",
+      "tests": [
+        "command-center/tests/test_v5_terminal_run_immutability.py; command-center/tests/test_run_provenance_postgres.py"
+      ],
+      "source_document": "docs/astra/POSTGRES_RUN_CONTRACTS_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-DB-02",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Terminal completed/failed status could be changed to NULL.",
+      "root_cause": "SQL <> comparison with NULL evaluated unknown.",
+      "fix_commit": "7544ffe7c3fd96c3837bc6484257f911f0d439e5",
+      "component_fix_commit": null,
+      "negative_control": "NULL erasure and illegal terminal transitions roll back the entire transaction.",
+      "positive_control": "Same-status and unrelated result/receipt writes remain permitted.",
+      "tests": [
+        "command-center/tests/test_v5_terminal_run_immutability.py"
+      ],
+      "source_document": "docs/astra/POSTGRES_RUN_CONTRACTS_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-DB-03",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Failure between DROP and CREATE during SQLite trigger upgrade removed protection.",
+      "root_cause": "Logical transaction did not start an actual SQLite DDL transaction.",
+      "fix_commit": "7544ffe7c3fd96c3837bc6484257f911f0d439e5",
+      "component_fix_commit": null,
+      "negative_control": "Injected recreation failure must preserve the prior guard after rollback.",
+      "positive_control": "Successful BEGIN IMMEDIATE upgrade installs stronger guard.",
+      "tests": [
+        "command-center/tests/test_v5_terminal_run_immutability.py"
+      ],
+      "source_document": "docs/astra/POSTGRES_RUN_CONTRACTS_20260910.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-CI-01",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Windows bundle verifier completed checks then failed printing non-ASCII evidence.",
+      "root_cause": "Final JSON output did not respect redirected cp1252.",
+      "fix_commit": "c0324303100a9e27f851c605021ce87a423adc94",
+      "component_fix_commit": null,
+      "negative_control": "cp1252 verifier report reproduction fails on old serializer.",
+      "positive_control": "Evidence prints and remains parseable without forcing UTF8.",
+      "tests": [
+        "tests/test_installed_verifier_encoding.py"
+      ],
+      "source_document": "git commit c0324303100a9e27f851c605021ce87a423adc94",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-CI-02",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Core browser tests searched obsolete browser revision while Playwright had installed a new one.",
+      "root_cause": "Browser helper path discovery did not use current installed executable metadata.",
+      "fix_commit": "6944807b5ec23b795e4c944c813a1eb45d6c1a9c",
+      "component_fix_commit": null,
+      "negative_control": "Synthetic old/missing/revision layouts and actual failed CI path are retained.",
+      "positive_control": "Helper selects the current installed Chromium path; final CI rerun required.",
+      "tests": [
+        "bossman-core/tests/test_browser_support_helper.py"
+      ],
+      "source_document": "git commit 6944807b5ec23b795e4c944c813a1eb45d6c1a9c",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-WIN-PID-01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Windows process liveness probes could signal console processes instead of querying existence.",
+      "root_cause": "POSIX kill(pid,0) assumption was used on Windows.",
+      "fix_commit": "53ccbb2d914d5f279149c254641676c47d699ed9",
+      "component_fix_commit": null,
+      "negative_control": "Windows query-only regression asserts no console signal sent; missing/reused identity refuses.",
+      "positive_control": "Process identity/liveness query preserves ordinary app/browser lifecycle.",
+      "tests": [
+        "bossman-core/tests/test_browser_pid_portability.py; command-center/tests/test_apps_pid_portability.py"
+      ],
+      "source_document": "git commit 53ccbb2d914d5f279149c254641676c47d699ed9",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-PERF-01",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Skip registry repeatedly scanned whole source for every AST node.",
+      "root_cause": "ast.get_source_segment reconstructed/scanned source repeatedly.",
+      "fix_commit": "f3663cb661220d5eeb111916172b9987c2cb34fe",
+      "component_fix_commit": null,
+      "negative_control": "Output equivalence regression checks exact registry text and extraction contract.",
+      "positive_control": "Cached extraction keeps output identical with bounded repeated work.",
+      "tests": [
+        "tests/test_skips_registry.py"
+      ],
+      "source_document": "git commit f3663cb661220d5eeb111916172b9987c2cb34fe",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-PERF-02",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Frequent operator journal writes repeatedly pretty-printed the entire state.",
+      "root_cause": "Formatting added avoidable runtime serialization overhead.",
+      "fix_commit": "f3663cb661220d5eeb111916172b9987c2cb34fe",
+      "component_fix_commit": null,
+      "negative_control": "Existing journal/state round-trip and operator tests retain data semantics.",
+      "positive_control": "Compact valid JSON preserves read behavior with less formatting work.",
+      "tests": [
+        "bossman-core/bossman/computer_operator/store.py; existing computer_operator suite"
+      ],
+      "source_document": "git commit f3663cb661220d5eeb111916172b9987c2cb34fe",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-IP-01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Runner allowed arbitrary --sha and lacked exact corpus/provider/revision/timestamps/config evidence.",
+      "root_cause": "A model label and decoding prose were treated as sufficient reproducibility metadata.",
+      "fix_commit": "71699bae33786c01f2f7ad90963efdb664d704d2",
+      "component_fix_commit": null,
+      "negative_control": "Wrong SHA, hidden-index mutation, changed corpus/model, missing/wrong/empty response refuse publication.",
+      "positive_control": "Actual requests record identity, complete digests/config/timestamps and paired results; synthetic harness only here.",
+      "tests": [
+        "tests/test_intelligence_measurement_metadata.py; bossman-core/tests/test_intelligence_measurement_full_lane.py"
+      ],
+      "source_document": "docs/benchmark/INTELLIGENCE_MEASUREMENT.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-IP-02",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "longctx-04 and longctx-x03 had identical prompt/context/answer under different IDs.",
+      "root_cause": "Loader only checked task IDs; duplicate evidence inflated the apparent independent count.",
+      "fix_commit": "71699bae33786c01f2f7ad90963efdb664d704d2",
+      "component_fix_commit": null,
+      "negative_control": "Renaming or whitespace changes cannot admit duplicate normalized prompt/context.",
+      "positive_control": "One distinct60-record lookup replaces the duplicate, preserving220 IDs/count/difficulty; corpusv2.",
+      "tests": [
+        "tests/test_intelligence_measurement_metadata.py"
+      ],
+      "source_document": "docs/benchmark/INTELLIGENCE_MEASUREMENT.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-IP-03",
+      "severity": "P2",
+      "new_this_run": true,
+      "reproduction": "Owner could spend880+ calls on a corpus mathematically unable to clear the release bound.",
+      "root_cause": "Insufficiency was only warned rather than checked before model dispatch.",
+      "fix_commit": "71699bae33786c01f2f7ad90963efdb664d704d2",
+      "component_fix_commit": null,
+      "negative_control": "Default220-item corpus exits2 before any model call (best core bound0.838875).",
+      "positive_control": "Capacity preflight uses unchanged Wilson/core bound and secondary floor; explicit diagnostics remain non-release evidence.",
+      "tests": [
+        "tests/test_intelligence_measurement_metadata.py; docs/benchmark/INTELLIGENCE_MEASUREMENT.md"
+      ],
+      "source_document": "docs/benchmark/INTELLIGENCE_MEASUREMENT.md",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9"
+    },
+    {
+      "id": "ASTRA-OWNER-EVIDENCE-01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Owner acceptance could accept a dirty or unmeasured installed build identity.",
+      "root_cause": "Embedded source manifest validation did not require a measured clean build.",
+      "fix_commit": "522e595d4bb75b8da7cf18c07a756f33c67faa97",
+      "component_fix_commit": null,
+      "negative_control": "Six original negative controls reproduced acceptance of invalid identity.",
+      "positive_control": "Twenty parent component tests passed after fail-closed identity validation.",
+      "tests": [
+        "command-center/tests/test_owner_acceptance_harness.py"
+      ],
+      "source_document": "parent receipt 522e595; final installed build pending",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "integration_note": "Parent descendant commit received after the initial a037302 draft snapshot; final evidence still pending."
+    },
+    {
+      "id": "ASTRA-LIFECYCLE-01",
+      "severity": "P1",
+      "new_this_run": true,
+      "reproduction": "Initialization error/cancellation before lifespan yield leaked a real subscription worker and SQLite connection.",
+      "root_cause": "Cleanup surrounded the yielded lifespan but not failing service startup.",
+      "fix_commit": "ff28a677fc5770681e4f9eb254744df4987e558e",
+      "component_fix_commit": null,
+      "negative_control": "Two real startup-failure/cancellation negative controls failed before repair.",
+      "positive_control": "Eleven parent component tests, including STOP_GRACE, passed after owned-resource cleanup.",
+      "tests": [
+        "command-center/tests/test_startup_failure_cleanup.py"
+      ],
+      "source_document": "parent receipt ff28a67; final installed build pending",
+      "final_status": "PASS",
+      "final_evidence_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "integration_note": "Parent descendant commit received after the initial a037302 draft snapshot; final evidence still pending."
+    }
+  ],
+  "historical_checkpoint_ci": {
+    "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+    "observed_at": "2026-09-09T00:01:45.313Z",
+    "snapshot_sha256": "ae4d1be6ff2e5838ede318f847e6a848321b6e6757311544fe2810fc22702f88",
+    "jobs": [
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Solana safety gates",
+        "run_id": 34291958227,
+        "job_id": 102280221552,
+        "job": "safety (3.11)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958227/job/102280221552"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Solana safety gates",
+        "run_id": 34291958227,
+        "job_id": 102280221961,
+        "job": "safety (3.12)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958227/job/102280221961"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Bossman internal benchmark",
+        "run_id": 34291958124,
+        "job_id": 102280221174,
+        "job": "deterministic-benchmark",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958124/job/102280221174"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Intelligence Preservation",
+        "run_id": 34291958166,
+        "job_id": 102280221753,
+        "job": "anti-dumbness gate contract",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958166/job/102280221753"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Intelligence Preservation",
+        "run_id": 34291958166,
+        "job_id": 102280221981,
+        "job": "measured intelligence retention",
+        "status": "completed",
+        "conclusion": "failure",
+        "failed_steps": [
+          "Require current same-model evidence"
+        ],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958166/job/102280221981"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "root-ci (shared contracts, learning layer, tools)",
+        "run_id": 34291958260,
+        "job_id": 102280221804,
+        "job": "root pytest + hygiene (py3.12)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958260/job/102280221804"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "root-ci (shared contracts, learning layer, tools)",
+        "run_id": 34291958260,
+        "job_id": 102280222106,
+        "job": "bossman-core container ships bossman-shared",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958260/job/102280222106"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "root-ci (shared contracts, learning layer, tools)",
+        "run_id": 34291958260,
+        "job_id": 102280222121,
+        "job": "root pytest + hygiene (py3.11)",
+        "status": "completed",
+        "conclusion": "failure",
+        "failed_steps": [
+          "Root suite (learning layer, shared cache contracts, context slicer, tools)"
+        ],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958260/job/102280222121"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "ASTRA acceptance",
+        "run_id": 34291958180,
+        "job_id": 102280221621,
+        "job": "ASTRA runner recovery",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958180/job/102280221621"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "ASTRA acceptance",
+        "run_id": 34291958180,
+        "job_id": 102280221625,
+        "job": "ASTRA portable (ubuntu-latest)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958180/job/102280221625"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "ASTRA acceptance",
+        "run_id": 34291958180,
+        "job_id": 102280221697,
+        "job": "ASTRA portable (windows-latest)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958180/job/102280221697"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "ASTRA acceptance",
+        "run_id": 34291958180,
+        "job_id": 102280222656,
+        "job": "ASTRA real sandbox",
+        "status": "completed",
+        "conclusion": "skipped",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958180/job/102280222656"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Local bundle",
+        "run_id": 34291958175,
+        "job_id": 102280221497,
+        "job": "local bundle (ubuntu-latest)",
+        "status": "completed",
+        "conclusion": "failure",
+        "failed_steps": [
+          "Installed UI, real media, safe recovery and process restart"
+        ],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958175/job/102280221497"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Local bundle",
+        "run_id": 34291958175,
+        "job_id": 102280221795,
+        "job": "local bundle (windows-latest)",
+        "status": "completed",
+        "conclusion": "failure",
+        "failed_steps": [
+          "Build and verify the bundle"
+        ],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958175/job/102280221795"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Editors user safety",
+        "run_id": 34291958112,
+        "job_id": 102280221729,
+        "job": "browser-user-paths",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958112/job/102280221729"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Fable media and Fleet acceptance",
+        "run_id": 34291958108,
+        "job_id": 102280222032,
+        "job": "Real media, Web and Fleet (py3.12)",
+        "status": "completed",
+        "conclusion": "failure",
+        "failed_steps": [
+          "Fable execution-truth interaction regressions"
+        ],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958108/job/102280222032"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Fable media and Fleet acceptance",
+        "run_id": 34291958108,
+        "job_id": 102280222200,
+        "job": "Real media, Web and Fleet (py3.11)",
+        "status": "completed",
+        "conclusion": "failure",
+        "failed_steps": [
+          "Fable execution-truth interaction regressions"
+        ],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958108/job/102280222200"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Command Center CI",
+        "run_id": 34291958187,
+        "job_id": 102280222179,
+        "job": "секреты, JS, запрещённые файлы",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958187/job/102280222179"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Command Center CI",
+        "run_id": 34291958187,
+        "job_id": 102280222303,
+        "job": "pytest (py3.12)",
+        "status": "in_progress",
+        "conclusion": null,
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958187/job/102280222303"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Command Center CI",
+        "run_id": 34291958187,
+        "job_id": 102280222348,
+        "job": "windows paths (py3.12)",
+        "status": "completed",
+        "conclusion": "failure",
+        "failed_steps": [
+          "Windows-specific and path-sensitive tests"
+        ],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958187/job/102280222348"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Command Center CI",
+        "run_id": 34291958187,
+        "job_id": 102280222362,
+        "job": "pytest (py3.11)",
+        "status": "in_progress",
+        "conclusion": null,
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958187/job/102280222362"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Command Center CI",
+        "run_id": 34291958187,
+        "job_id": 102280222480,
+        "job": "pytest (py3.14)",
+        "status": "in_progress",
+        "conclusion": null,
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958187/job/102280222480"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Bossman Core CI",
+        "run_id": 34291958183,
+        "job_id": 102280222126,
+        "job": "покрытие (неснижаемый порог)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958183/job/102280222126"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Bossman Core CI",
+        "run_id": 34291958183,
+        "job_id": 102280222288,
+        "job": "pytest gateway-context (py3.11)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958183/job/102280222288"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Bossman Core CI",
+        "run_id": 34291958183,
+        "job_id": 102280222371,
+        "job": "compile + секреты",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958183/job/102280222371"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Bossman Core CI",
+        "run_id": 34291958183,
+        "job_id": 102280222403,
+        "job": "pytest rest (py3.11)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958183/job/102280222403"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Bossman Core CI",
+        "run_id": 34291958183,
+        "job_id": 102280222409,
+        "job": "pytest gateway-context (py3.12)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958183/job/102280222409"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Bossman Core CI",
+        "run_id": 34291958183,
+        "job_id": 102280222454,
+        "job": "pytest rest (py3.12)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958183/job/102280222454"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Bossman Core CI",
+        "run_id": 34291958183,
+        "job_id": 102280222523,
+        "job": "pytest security (py3.12)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958183/job/102280222523"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Bossman Core CI",
+        "run_id": 34291958183,
+        "job_id": 102280222566,
+        "job": "pytest stage8-14 (py3.12)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958183/job/102280222566"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Bossman Core CI",
+        "run_id": 34291958183,
+        "job_id": 102280222609,
+        "job": "pytest security (py3.11)",
+        "status": "completed",
+        "conclusion": "failure",
+        "failed_steps": [
+          "Pytest (security)"
+        ],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958183/job/102280222609"
+      },
+      {
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+        "observed_at": "2026-09-09T00:01:45.313Z",
+        "workflow": "Bossman Core CI",
+        "run_id": 34291958183,
+        "job_id": 102280222674,
+        "job": "pytest stage8-14 (py3.11)",
+        "status": "completed",
+        "conclusion": "success",
+        "failed_steps": [],
+        "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958183/job/102280222674"
+      }
+    ]
+  },
+  "required_final_ci": [
+    {
+      "workflow": "root-ci.yml",
+      "scope": "Python3.11/3.12; container; compile; secret/whitespace/inventory",
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668055"
+    },
+    {
+      "workflow": "bossman-core-ci.yml",
+      "scope": "Python3.11/3.12 × security/gateway-context/stage8-14/rest; coverage; compile; Windows workspace/PID",
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668068"
+    },
+    {
+      "workflow": "command-center-ci.yml",
+      "scope": "Python3.11/3.12/3.14; Windows paths; Chromium; JS/Node; SAST/dependency gate",
+      "final_sha": "93f120ee06477e58db1dc34e865e686eea5a67e8",
+      "status": "IN_PROGRESS_AT_HANDOFF",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34320723167",
+      "note": "On 93f120e the Windows-paths and secrets/JS/forbidden-files jobs are green; the three pytest matrix jobs (3.11/3.12/3.14) were still running at handoff. The run on e5ba10e was cancelled by the docs push under the workflow's per-ref concurrency group. e5ba10e..93f120e touches only docs/, so runtime code is identical between them. Local evidence on the same tree: full suite 3214 passed / 23 skipped / 2 sandbox-blocked, both blocked cases explained with passing controls in docs/final/FINAL_COMPLETION_20260909.md §5a. NOT counted as PASS."
+    },
+    {
+      "workflow": "editors-user-safety.yml",
+      "scope": "Real Chromium editor owner paths",
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318667936"
+    },
+    {
+      "workflow": "fable-media-fleet.yml",
+      "scope": "Python3.11/3.12; real media/Fleet/execution truth",
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668158"
+    },
+    {
+      "workflow": "astra-acceptance.yml",
+      "scope": "Portable Linux/Windows, recovery; real sandbox only when actually run",
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668044"
+    },
+    {
+      "workflow": "solana-safety-ci.yml",
+      "scope": "Python3.11/3.12 safety",
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34317397660"
+    },
+    {
+      "workflow": "bossman-benchmark.yml",
+      "scope": "Deterministic internal benchmark; not live intelligence",
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318667931"
+    },
+    {
+      "workflow": "local-bundle.yml",
+      "scope": "Linux and Windows build/install; Linux installed Web/Video/Apps/Files browser acceptance",
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668378",
+      "note": "Linux and Windows both green: build, install, startup, cleanup."
+    },
+    {
+      "workflow": "postgres-contracts.yml",
+      "scope": "PostgreSQL16, Python3.11/3.12/3.14; required non-skipped live guard cases",
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "PASS",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668048"
+    },
+    {
+      "workflow": "intelligence-preservation.yml",
+      "scope": "Contract plus genuine current same-model measurement",
+      "final_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+      "status": "FAIL",
+      "run_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34318668001",
+      "note": "INTELLIGENCE_PRESERVATION=INSUFFICIENT_EVIDENCE; docs/benchmark/intelligence-preservation-current.json absent. Red on the base line too (PR61 head 5c19eea). The file may only come from a genuine same-model comparison; no credentials exist here and it was NOT fabricated."
+    },
+    {
+      "workflow": "evening-residual-safety.yml",
+      "scope": "Configured process/evidence/recovery jobs",
+      "final_sha": null,
+      "status": "DID_NOT_RUN",
+      "run_url": null,
+      "note": "Push-triggered on other branches AND path-filtered to evidence_ledger.py / computer_operator/manager.py and their two tests. This diff touches none of them. Those tests run inside Bossman Core CI, which is PASS."
+    },
+    {
+      "workflow": "human-speed-components.yml",
+      "scope": "Configured component measurements; no visible-input attestation inferred",
+      "final_sha": null,
+      "status": "DID_NOT_RUN",
+      "run_url": null,
+      "note": "Branch-pinned plus workflow_dispatch; dispatch returned 403 for this integration. tools/human_speed_gate.py and tests/test_v5_human_speed.py are untouched by this diff and pass inside the root suite."
+    },
+    {
+      "workflow": "closure-checkpoint.yml",
+      "scope": "Python3.11/3.12 continuity and source contracts",
+      "final_sha": null,
+      "status": "DID_NOT_RUN",
+      "run_url": null,
+      "note": "Pinned to the retired branch integration/continuity-steward-closure-20260906."
+    },
+    {
+      "workflow": "release-certification.yml",
+      "scope": "Exact-SHA aggregation; no missing required job accepted",
+      "final_sha": null,
+      "status": "DID_NOT_RUN",
+      "run_url": null,
+      "note": "workflow_dispatch only; dispatch returned 403 for this integration. The owner can certify the frozen SHA by dispatching it with sha=e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9."
+    }
+  ],
+  "checkpoint_packaging": {
+    "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+    "status": "PASS",
+    "platform": "linux",
+    "python": "3.12.13",
+    "wheel_count": 11,
+    "assets_served": 57,
+    "auth": "PASS",
+    "restart_persistence": "PASS",
+    "provider_state": "NOT_CONFIGURED",
+    "live_model_execution": "OWNER_LIVE_REQUIRED",
+    "manifest_sha256": "95b1d1e851b632802f5d03141f9664a7751042e358500275e9ecebd95afa3407",
+    "files": [
+      {
+        "path": "README.md",
+        "bytes": 2028,
+        "sha256": "326528a5dc8dee3a2654d5f7f3a2adc6849083bfd3dd0c508b6fdd4261904f5e",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "install.py",
+        "bytes": 2165,
+        "sha256": "0e17c6264045b3717f694f80d35fa8fd50066f618861f88d3cbe501a84fa3a6c",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "verify_installed_product.py",
+        "bytes": 9054,
+        "sha256": "9868b1a0cdd39d469e8af3ef8164870803e3a709fd48b84b2dbe4888be629519",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "wheels/ai_3d_maker-0.2.0-py3-none-any.whl",
+        "bytes": 73130,
+        "sha256": "5831b9c98ca6713da0d24de29f87ac3ca7b4af1d9dad3cc014634a8cb00de91b",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "wheels/ai_webcam_vision-0.2.0-py3-none-any.whl",
+        "bytes": 64427,
+        "sha256": "21489d1fe83c81a01890d114e178016d9265d483e8d5c103414071f4ec731d8b",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "wheels/bossman_accountant-1.0.0-py3-none-any.whl",
+        "bytes": 11765,
+        "sha256": "cd5954bb6aa201ab6b48eb384bf5eb8e6ed39dccb9cee24f85279e39ca62c968",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "wheels/bossman_command_center-0.1.0-py3-none-any.whl",
+        "bytes": 1473987,
+        "sha256": "acac1635540a27b164c599e484d70bcc0bae157cf836b55008e2ce0f402ad2f4",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "wheels/bossman_core-0.3.0-py3-none-any.whl",
+        "bytes": 1056801,
+        "sha256": "5ce48ca3bb13d84ca92f1d99f628808b1a1171b08fd07c4c211533f5bdb1c4a5",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "wheels/bossman_shared-0.1.0-py3-none-any.whl",
+        "bytes": 155134,
+        "sha256": "0259bb061fc7f9eb5444745569d0e8be8e70fe7aa0550f3002220209da540313",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "wheels/exam_trainer_ai-1.0.0-py3-none-any.whl",
+        "bytes": 11533,
+        "sha256": "95566ba245a9f46bba5cc754095f75ec2a0626a4402d2fa7d3c168835a0e9323",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "wheels/file_commander_mini-1.0.0-py3-none-any.whl",
+        "bytes": 21089,
+        "sha256": "da8bc24976ca92f07247af9bb891792d46b31a362d594a527aafc5a2161a9f65",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "wheels/pc_autopilot_mini-1.0.0-py3-none-any.whl",
+        "bytes": 11414,
+        "sha256": "7271daeafe16fee34b216a114efbc66af27c0faa37e194b3929ec52864165468",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "wheels/social_farm-0.1.0-py3-none-any.whl",
+        "bytes": 221203,
+        "sha256": "7a2bc09d59def9d02b2c7efeb898aa1c7b525c6dc7601866d0b7d65352e09077",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      },
+      {
+        "path": "wheels/travel_architect-1.0.0-py3-none-any.whl",
+        "bytes": 11069,
+        "sha256": "c016b4d7ef7ef999e4bf67739651d7799bbd3f291ffe67358b7f75be8aefb7bd",
+        "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5"
+      }
+    ],
+    "installed_acceptance_sha256": "ec466401c847989e9bf3e8028bc157ddc569d5cca904ca4fa17136c09b2bc454",
+    "source_evidence": "CHECKPOINT_ACCEPTANCE.json, installed-acceptance.json and MANIFEST.json independently read; no final-SHA reuse"
+  },
+  "checkpoint_installed_ui": {
+    "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+    "platform": "Linux",
+    "runtime_mode": "installed",
+    "artifact_id": 10081764573,
+    "artifact_sha256": "1ac6d509c41c1d956cf07862b3526451db2a86ced79d61d51586798e61a530ee",
+    "junit_sha256": "c6fbb604d473d8f51b86751eb6b14929fc53db1e652eacf2a1ce8bfd69f4e515",
+    "cases": [
+      {
+        "test": "test_video_http_native_edit_preview_export_restart",
+        "status": "PASS"
+      },
+      {
+        "test": "test_video_chat_ui_refusal_preserves_draft_with_actionable_feedback",
+        "status": "PASS"
+      },
+      {
+        "test": "test_video_ui_import_trim_undo_preview_export_restart",
+        "status": "PASS"
+      },
+      {
+        "test": "test_web_ui_edit_download_restart_and_create_second_project",
+        "status": "PASS"
+      },
+      {
+        "test": "test_save_error_is_visible_and_only_safe_retry_is_offered[502]",
+        "status": "PASS"
+      },
+      {
+        "test": "test_save_error_is_visible_and_only_safe_retry_is_offered[403]",
+        "status": "PASS"
+      },
+      {
+        "test": "test_save_error_is_visible_and_only_safe_retry_is_offered[413]",
+        "status": "PASS"
+      },
+      {
+        "test": "test_save_error_is_visible_and_only_safe_retry_is_offered[404]",
+        "status": "PASS"
+      },
+      {
+        "test": "test_conflict_preserves_draft_blocks_generate_and_requires_review",
+        "status": "PASS"
+      },
+      {
+        "test": "test_unknown_model_outcome_never_exposes_retry",
+        "status": "PASS"
+      },
+      {
+        "test": "test_project_edit_apply_twice_model_selection_and_restart",
+        "status": "PASS"
+      },
+      {
+        "test": "test_apps_files_owner_browser_restart_and_persistence",
+        "status": "FAIL"
+      },
+      {
+        "test": "test_actual_apps_files_http_install_contract",
+        "status": "PASS"
+      }
+    ],
+    "pass_count": 12,
+    "fail_count": 1,
+    "failure": "Final Apps Start locator matched9buttons. c032430 scopes the assertion; no passing rerun receipt yet.",
+    "browser_playback": [
+      {
+        "current_time": 1,
+        "duration": 1,
+        "ended": true,
+        "ready_state": 4,
+        "width": 320,
+        "height": 180
+      },
+      {
+        "current_time": 1,
+        "duration": 1,
+        "ended": true,
+        "ready_state": 4,
+        "width": 320,
+        "height": 180
+      },
+      {
+        "current_time": 1,
+        "duration": 1,
+        "ended": true,
+        "ready_state": 4,
+        "width": 320,
+        "height": 180
+      }
+    ],
+    "page_errors": [],
+    "live_model": "NOT_RUN",
+    "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/34291958175/artifacts/10081764573"
+  },
+  "source_editor_artifact": {
+    "source_sha": "83c1a02d6c8066ff267d3746b82bd31171d268b5",
+    "runtime_mode": "source",
+    "artifact_id": 10081800465,
+    "not_installed_evidence": true
+  },
+  "route_diagnostic": {
+    "source_sha": "522e595d4bb75b8da7cf18c07a756f33c67faa97",
+    "scope": "read-only repeated app creation and literal UI route audit; no browser clicking",
+    "apps": [
+      {
+        "routes": 379,
+        "signatures": 380,
+        "duplicates": [],
+        "seconds": 0.5308987009993871
+      },
+      {
+        "routes": 379,
+        "signatures": 380,
+        "duplicates": [],
+        "seconds": 0.1993543869975838
+      },
+      {
+        "routes": 379,
+        "signatures": 380,
+        "duplicates": [],
+        "seconds": 0.27041422199908993
+      },
+      {
+        "routes": 379,
+        "signatures": 380,
+        "duplicates": [],
+        "seconds": 0.18015465199641767
+      },
+      {
+        "routes": 379,
+        "signatures": 380,
+        "duplicates": [],
+        "seconds": 0.1836599389971525
+      },
+      {
+        "routes": 379,
+        "signatures": 380,
+        "duplicates": [],
+        "seconds": 0.2806282179990376
+      },
+      {
+        "routes": 379,
+        "signatures": 380,
+        "duplicates": [],
+        "seconds": 0.18201788000078523
+      },
+      {
+        "routes": 379,
+        "signatures": 380,
+        "duplicates": [],
+        "seconds": 0.18715868800063618
+      }
+    ],
+    "literal_paths_checked": 142,
+    "unmatched": [
+      {
+        "file": "command-center/ui/testing.js",
+        "line": 268,
+        "path": "/api/testing/"
+      },
+      {
+        "file": "command-center/ui/testing.js",
+        "line": 274,
+        "path": "/api/testing/"
+      },
+      {
+        "file": "command-center/ui/testing.js",
+        "line": 294,
+        "path": "/api/testing/"
+      },
+      {
+        "file": "command-center/ui/pages/video_studio.js",
+        "line": 6,
+        "path": "/api/video-studio"
+      }
+    ],
+    "interpretation": "All eight app creations had379routes/380method signatures and no duplicates. Three unmatched literal prefixes are string filters; fourth is Video Studio base prefix. No browser controls were clicked by this diagnostic."
+  },
+  "intelligence_preservation": {
+    "status": "INSUFFICIENT_EVIDENCE",
+    "measured_final_sha": null,
+    "genuine_measurement": null,
+    "bundled_corpus_id": "bossman-retention-v2",
+    "items": 220,
+    "items_per_metric": 20,
+    "best_equal_count_core_bound": 0.8388748419471816,
+    "required_core_retention": 0.98,
+    "confidence": 0.95,
+    "equal_count_core_samples_needed_even_if_perfect": 189,
+    "other_metric_sample_floor": 20,
+    "larger_independent_corpus": "NOT_AVAILABLE_IN_REPOSITORY",
+    "model_access": "OWNER_LIVE_REQUIRED",
+    "gate_changed": false,
+    "corpus_changes": "One exact duplicate replaced at equivalent60-record lookup complexity; all220 IDs/counts retained.",
+    "limitation": "RAW omits Task.context; zero baseline may independently make retention undefined. No experiment or threshold changed to force PASS."
+  },
+  "remaining_blockers": [
+    {
+      "type": "OWNER_LIVE_REQUIRED",
+      "detail": "Genuine model-backed core owner execution, authenticated OpenRouter/GLM/OpenHands, browser human takeover, and physical owner hardware (Ryzen AI Max+ 395 / Radeon 8060S / 128 GB)."
+    },
+    {
+      "type": "OWNER_WINDOWS_REQUIRED",
+      "detail": "Hosted Windows proves build, install, Unicode/space paths, startup and cleanup. Browser and UI behaviour on real Windows is not proven by a hosted runner and is not claimed."
+    },
+    {
+      "type": "EXTERNAL_EVIDENCE_REQUIRED",
+      "detail": "Intelligence retention requires a genuine same-model baseline/current comparison and an independently reviewed corpus. No credentials exist in the build environment; intelligence-preservation-current.json was NOT fabricated and no threshold was lowered."
+    },
+    {
+      "type": "OWNER_CANARY_ROLLBACK_REQUIRED",
+      "detail": "Repository canary/rollback rehearsal passes (N8, 70 tests on the final SHA). Production deployment infrastructure is a separate requirement."
+    },
+    {
+      "type": "OPTIONAL_EXCLUDED",
+      "detail": "PR59 (AI Streamer / Higgsfield) is not in this candidate; no live or integration PASS is claimed for it. PR60's File Intelligence IS now integrated — see the file_intelligence block."
+    }
+  ],
+  "owner_commands": {
+    "install_and_start": "python install.py --start",
+    "start_linux": ".venv/bin/python -m bcc",
+    "start_windows": ".venv\\Scripts\\python.exe -m bcc",
+    "url": "http://127.0.0.1:8800",
+    "installed_boot": "python verify_installed_product.py",
+    "genuine_core": "python -m bcc.owner_acceptance --data-dir OWNER_CONFIGURED_BCC_DATA_DIR --output bossman-owner-task-acceptance.json",
+    "intelligence": "python tools/intelligence_preservation_run.py --model EXACT_SAME_LOCAL_MODEL_ID --endpoint http://127.0.0.1:11434 --tasks OWNER_REVIEWED_CORPUS.json --sha FINAL_SHA_40_HEX --out ../bossman-owner-evidence/intelligence-current.json --gate-report ../bossman-owner-evidence/intelligence-report.json",
+    "owner_hardware": "python tools/local_hardware_ab.py --help",
+    "postgres": "BCC_REQUIRE_POSTGRES=1 python -m pytest -c command-center/pyproject.toml command-center/tests/test_run_provenance_postgres.py command-center/tests/test_v5_terminal_run_immutability.py -q",
+    "installed_ui": "BCC_REQUIRE_BROWSER=1 BCC_ACCEPTANCE_PYTHON=ABSOLUTE_INSTALLED_VENV_PYTHON BCC_ACCEPTANCE_SOURCE_SHA=FINAL_SHA_40_HEX PYTHONPATH=.:bossman-core:command-center python -m pytest -c command-center/pyproject.toml command-center/tests/test_editors_user_acceptance.py command-center/tests/test_web_designer_recovery_ui.py command-center/tests/test_apps_files_browser_owner.py command-center/tests/test_apps_files_http_owner.py -q --timeout=120"
+  },
+  "release_tag": null,
+  "release_created": false,
+  "release_verdict_note": "No repository-fixable P0/P1 remains open on the final SHA. Every remaining item needs the owner's machine, the owner's credentials, real deployment infrastructure or a genuine same-model intelligence comparison. This is not a claim that live owner acceptance passed.",
+  "file_intelligence": {
+    "integrated": true,
+    "source": "semantic port of the PR60 File Intelligence line onto the PR61 closure base",
+    "merged_wholesale": false,
+    "upstream": "hyperfield/ai-file-sorter",
+    "pinned_sha": "4dc374df69b5e63d5354e121097d92e25bbd32da",
+    "license": "AGPL-3.0-or-later",
+    "vendored_source": false,
+    "enabled_by_default": false,
+    "hosted_tests": "130 passed, 1 skipped (NTFS junction/reparse, Windows owner-level)",
+    "installed_product_pin": "4dc374df69b5e63d5354e121097d92e25bbd32da",
+    "real_binary_status": "OWNER_LIVE_REQUIRED"
+  },
+  "final_evidence_basis": {
+    "code_sha": "e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9",
+    "docs_sha": "93f120ee06477e58db1dc34e865e686eea5a67e8",
+    "docs_only_delta": "e5ba10e..93f120e changes only docs/; runtime code is identical",
+    "what_PASS_means_here": "Each promoted finding is proven by suites executed on the frozen tree: ten hosted workflows green on e5ba10e, plus exact-tree local runs of the Command Center suites (File Intelligence 130/1, OpenHands hostile 103/10, gateway 169, provenance+terminal+completion-truth+negation 115/6, Apps+STOP_GRACE 103/1, Web Designer 117, Video 343/11, root py3.11 1257/2, root py3.12 1249/10, UI node 42). It does NOT mean the hosted command-center-ci.yml pytest matrix reported on the final SHA: that run was still in progress at handoff and is recorded as IN_PROGRESS_AT_HANDOFF, not PASS.",
+    "known_local_deviations": "Two Command Center tests fail in the build sandbox and nowhere else. Both reproduce on the untouched base 5c19eea, and PR61's CI on that same base is 3078 passed / 0 failed. Mechanisms and passing controls: docs/final/FINAL_COMPLETION_20260909.md section 5a.",
+    "owner_next_step": "Dispatch release-certification.yml with sha=e5ba10eb355b1dd9846e84d89e6f1e0cf55150d9 to certify the frozen SHA against live workflow runs; this integration lacks dispatch permission (403)."
+  }
+}

@@ -315,10 +315,57 @@ function buildCommandBar(ctx, agents) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); submit(); }
   });
 
+  /* MF-031: кто именно выполнит поручение — видно ДО отправки.
+     Приём и раньше отказывал честно, но узнать об этом можно было только после
+     нажатия: в журнале владельца тринадцать подряд заблокированных задач, и
+     каждая была попыткой угадать, чего не хватает. Строка ниже спрашивает тот
+     же самый select_executor, что и создание, и ничего не пишет.
+     Пока ответа нет — она молчит: «наверное, кто-нибудь выполнит» здесь хуже
+     пустоты. */
+  const executor = h('p.bx-exec', { role: 'status', hidden: true });
+  let execSeq = 0;
+  let execTimer = null;
+
+  async function refreshExecutor() {
+    const text = input.value.trim();
+    const seq = ++execSeq;
+    if (!text) { executor.hidden = true; return; }
+    try {
+      const agent = state.agentId ?? (agents.length === 1 ? pick(agents[0], ['id']) : null);
+      const body = await api.preflightTask({ prompt: text, agent_id: agent });
+      if (seq !== execSeq) return;                 // пришёл ответ на старый текст
+      executor.hidden = false;
+      executor.classList.toggle('is-blocked', !body.ok);
+      if (body.ok) {
+        const who = [body.agent && body.agent.name, body.model && body.model.name]
+          .filter(Boolean).join(' · ');
+        const how = body.mode === 'auto' ? ' (AUTO)' : '';
+        executor.textContent = `Выполнит: ${who || 'выбранный агент'}${how}`;
+        executor.title = body.model && body.model.health
+          ? `Здоровье модели: ${body.model.health}` : '';
+      } else {
+        executor.textContent = body.reason || 'Исполнитель недоступен';
+        executor.title = body.hint || '';
+      }
+    } catch {
+      if (seq !== execSeq) return;
+      // Не знаем — молчим. Ложное «всё готово» здесь дороже пустой строки.
+      executor.hidden = true;
+    }
+  }
+
+  const scheduleExecutor = () => {
+    clearTimeout(execTimer);
+    execTimer = setTimeout(refreshExecutor, 500);
+  };
+  input.addEventListener('input', scheduleExecutor);
+  if (agentPicker) agentPicker.addEventListener('change', refreshExecutor);
+  if (input.value.trim()) scheduleExecutor();
+
   return h('section.bx-command',
     h('div.bx-command-mark', icon('bolt', 22)),
     h('div.bx-command-mid', input, attachmentInput(),
-      h('div.bx-modes', agentPicker, modeButtons)),
+      h('div.bx-modes', agentPicker, modeButtons), executor),
     start);
 }
 

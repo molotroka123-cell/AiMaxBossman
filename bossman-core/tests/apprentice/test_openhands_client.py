@@ -72,7 +72,8 @@ def test_teacher_adapter_uses_sanitized_repo_and_returns_untrusted_patch(tmp_pat
     fake = tmp_path / "teacher.py"
     fake.write_text("import json,sys,pathlib,subprocess\nr=json.load(sys.stdin);w=pathlib.Path(r['workspace'])\n"
                     "assert subprocess.check_output(['git','-C',str(w),'remote'],text=True).strip()==''\nassert not (w/'.env').exists()\n"
-                    "(w/'src/a.py').write_text('VALUE = 7\\n',encoding='utf-8')\n"
+                    "(w/'src/a.py').write_bytes(b'VALUE = 7\\n')\n"  # exact bytes: Windows text mode would write CRLF
+
                     "print(json.dumps({'schema':'bossman.openhands.v1','status':'completed','model':'openrouter/anthropic/test'}))\n", encoding="utf-8")
     out = OpenHandsTeacherClient(OpenHandsClient([sys.executable, str(fake)]), model="openrouter/anthropic/test").run({
         "bundle_id":"b1","bug_description":"make seven","files":{"src/a.py":"VALUE = 1\n"},"failing_test":"VALUE == 7",

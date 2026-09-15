@@ -1,0 +1,59 @@
+{
+  "case_id": "btc-2026-09-10-1259-capitulation-releveraging-long-flush",
+  "date": "2026-09-10",
+  "observed_at_utc_approx": "12:59Z",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "instrument_note": "Reference chart and right-side execution tape are stored separately. Structural reference levels are not exact order prices on the execution venue unless basis is checked.",
+  "observed": {
+    "reference_chart_price_approx": 76800,
+    "reference_intrawindow_low_approx": 76750,
+    "execution_tape_approx": [76710, 76760],
+    "cvd_billion": 43.93,
+    "open_interest_billion": 18.28,
+    "long_liquidations_million": 32.96,
+    "short_liquidations_thousand": 252.75,
+    "buy_volume_million": 137.69
+  },
+  "chart_levels": {
+    "dVAL": 77805,
+    "dPOC": 78145,
+    "dOpen_approx": 78550,
+    "dVAH": 78615,
+    "ntPOC_upper": 79015,
+    "settlement_reference": 78540,
+    "year_eq_approx": 78000,
+    "blue_liquidity_zone_approx": [76750, 77300]
+  },
+  "comparison_to_previous_capitulation_frame": {
+    "prior_reference_price_approx": 77215,
+    "prior_cvd_billion": 45.56,
+    "prior_oi_billion": 18.26,
+    "price_change_approx": -415,
+    "cvd_change_billion": -1.63,
+    "oi_endpoint_change_billion": 0.02,
+    "price_direction": "DOWN",
+    "cvd_direction": "DOWN",
+    "oi_endpoint_direction": "FLAT_TO_SLIGHTLY_UP",
+    "important_path_note": "The OI chart shows leverage had rebuilt toward roughly the mid-18.5B area before the latest vertical drop to ~18.28B. Endpoint comparison alone therefore understates the path: leverage re-entered and was then flushed while long liquidations surged."
+  },
+  "state": "CAPITULATION_LONG_FLUSH_WITH_INTRAWINDOW_RELEVERAGING",
+  "regime": "PATH_AWARE_DELEVERAGING_WITH_RELEVERAGING_TRAP",
+  "interpretation": "Price and CVD made fresh lows and long liquidations expanded to ~32.96M. OI at the endpoint is near ~18.28B, only slightly above the prior endpoint, but the intrawindow OI path visibly rebuilt and then collapsed. This is best read as a renewed leverage build that was immediately flushed, not as a clean stable-bottom signal. The very large long-liquidation print increases the chance of a reflex bounce, but a liquidation spike alone is not an entry trigger.",
+  "bounce_scenario": {
+    "status": "WATCH_FOR_SWEEP_RECLAIM_NOT_BLIND_BUY",
+    "immediate_reaction_zone": "~76.75-77.00k reference area around the current sweep low/blue liquidity zone",
+    "first_proof": "Price stops making lower lows and reclaims ~77.10-77.20k while CVD stops accelerating lower and OI does not expand aggressively on renewed downside.",
+    "structural_reclaim_1": "Reclaim ~77.80k dVAL/pDay-low area.",
+    "structural_reclaim_2": "Reclaim ~78.145k dPOC and hold/retest from above.",
+    "stronger_repair": "Reclaim ~78.55-78.62k dOpen/dVAH region.",
+    "note": "Reference levels must be translated to the execution venue using current basis."
+  },
+  "risk_scenario": {
+    "warning": "A fresh low below the current sweep while CVD continues lower means the liquidation cascade is still active.",
+    "stronger_warning": "If price and CVD continue lower while OI starts rising persistently after the flush, reclassify as bearish leverage expansion: new leverage is entering the decline after old longs were already cleaned.",
+    "avoid": "Do not interpret the ~32.96M long-liquidation print as automatic proof of a bottom."
+  },
+  "lesson": "A massive liquidation candle can contain two different processes: leverage may rebuild before the flush and then collapse during forced long liquidations. Endpoint OI can therefore look flat even though the path is highly unstable. Preserve intrawindow OI trajectory, liquidation dominance and price excursion. For bounce entries, prefer sweep -> stabilization -> reclaim rather than buying the liquidation print itself."
+}

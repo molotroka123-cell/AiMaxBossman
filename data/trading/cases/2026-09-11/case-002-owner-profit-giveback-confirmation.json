@@ -1,0 +1,22 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "type": "owner_outcome_confirmation",
+  "market": "BTC",
+  "statement": "Owner reports that the unrealized profit from the prior bullish move was fully given back.",
+  "amount": "UNKNOWN",
+  "interpretation": "The main failure in this phase was not initial direction selection but profit protection and re-entry/add discipline after the edge had already paid. The system continued to search for additional long entries during/after squeeze payout instead of switching into protection mode.",
+  "canonical_lessons": [
+    "Separate signal-generation, payout, and protection phases.",
+    "After a large favorable move, the objective changes from maximizing entry exposure to protecting realized/unrealized gains.",
+    "Do not permit new adds solely from constructive CVD/OI while price repair is deteriorating or while the move is already squeeze-extended.",
+    "CVD/OI are context filters, not execution permission. Price must confirm the retest/reclaim.",
+    "A profitable thesis can still become a losing management process if full profit giveback is allowed.",
+    "Future playbook should define a maximum allowed giveback from peak unrealized PnL before mandatory de-risking. Exact threshold must be validated and should not be hard-coded from one case."
+  ],
+  "model_change_request": {
+    "phase_state_machine": ["SETUP", "CONFIRMED_ENTRY", "PAYOUT", "PROTECT", "RESET"],
+    "required_transition": "Once payout evidence appears (e.g. strong favorable displacement with short-liquidation dominance / squeeze characteristics), default mode becomes PROTECT rather than ADD.",
+    "anti_revenge_rule": "After large profit giveback, do not immediately increase risk to recover the lost profit. Require a fresh setup and fresh invalidation."
+  }
+}

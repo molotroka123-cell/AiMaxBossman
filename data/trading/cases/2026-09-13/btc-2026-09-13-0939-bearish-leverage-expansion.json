@@ -1,0 +1,35 @@
+{
+  "canonical_case_id": "CASE-002",
+  "timestamp_local": "2026-09-13 09:39 ET",
+  "market": "BTC",
+  "source": "Coinwise/K1m6a screenshot",
+  "observed": {
+    "reference_price_approx": 76665.54,
+    "cvd_billion": 55.12,
+    "open_interest_billion": 18.0,
+    "long_liquidations_thousand": 254.65,
+    "short_liquidations_thousand": 68.16,
+    "dval": 76745.75
+  },
+  "comparison_to_prior": {
+    "prior_price_approx": 77389,
+    "prior_cvd_billion": 56.39,
+    "prior_open_interest_billion": 17.84,
+    "price_change_direction": "DOWN",
+    "cvd_change_direction": "DOWN",
+    "oi_change_direction": "UP"
+  },
+  "state": "PRICE_DOWN_CVD_DOWN_OI_UP",
+  "interpretation": "This is the specific adverse regime previously defined as long invalidation: price and CVD are falling while open interest rises. OI alone does not identify short direction, but in combination with falling price and CVD it is consistent with fresh bearish leverage/participation entering the decline rather than pure deleveraging.",
+  "structure": {
+    "dval_status": "LOST_BELOW",
+    "note": "Price is trading below dVAL ~76,745.75, so value has not been reclaimed."
+  },
+  "management": {
+    "long_bias": "SUSPEND",
+    "do_not": "Do not blind-average into the decline solely because prior OI had been low.",
+    "next_long_trigger": "Wait for a reclaim and hold back above dVAL, then reassess CVD/OI and higher value levels.",
+    "short_note": "Do not chase an extended low. A cleaner bearish setup would be a failed reclaim of dVAL/value with continued CVD weakness and OI staying firm or rising."
+  },
+  "lesson": "The model must distinguish deleveraging (Price down + CVD down + OI down) from bearish leverage expansion (Price down + CVD down + OI up). The latter invalidates the prior post-flush long thesis until structure is reclaimed."
+}

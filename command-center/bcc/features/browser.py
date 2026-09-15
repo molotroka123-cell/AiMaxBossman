@@ -10,22 +10,21 @@ Chromium предустановлен: launch с executable_path из PLAYWRIGHT
 """
 from __future__ import annotations
 
-import os
 import uuid
-from pathlib import Path
 
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
-from ..db import utcnow
+from ..browser_runtime import INSTALL_HINT, PREINSTALLED_CHROMIUM
+from ..db import fetch_one, tasks as tasks_t, utcnow
 from ..v2.browser_control import (BrowserApprovalRequired, BrowserManager, BrowserPolicy,
                                   BrowserPolicyDenied, BrowserTakeoverActive, BrowserUnavailable)
 from ..v2.tables import browser_sessions as bs_t
 from . import Feature
 
 router = APIRouter()
-CHROMIUM = "/opt/pw-browsers/chromium"      # предустановлен в этом окружении
+CHROMIUM = PREINSTALLED_CHROMIUM
 
 
 def _mgr(svc) -> BrowserManager:
@@ -37,29 +36,8 @@ def _mgr(svc) -> BrowserManager:
 
 
 def _patch_executable(mgr: BrowserManager) -> None:
-    """launch без загрузки браузера: используем предустановленный Chromium."""
-    if getattr(mgr, "_exec_patched", False):
-        return
-    if not Path(CHROMIUM).exists():
-        mgr._exec_patched = True
-        return
-    orig_start = mgr.start
-
-    async def start(session_id, policy, *, profile_name="default", headless=True):
-        # monkeypatch chromium.launch чтобы подставить executable_path
-        pw = await mgr._playwright()
-        real_launch = pw.chromium.launch
-
-        async def launch(**kw):
-            kw.setdefault("executable_path", CHROMIUM)
-            return await real_launch(**kw)
-        pw.chromium.launch = launch
-        try:
-            return await orig_start(session_id, policy, profile_name=profile_name, headless=headless)
-        finally:
-            pw.chromium.launch = real_launch
-    mgr.start = start
-    mgr._exec_patched = True
+    """Compatibility hook; path selection now belongs to the manager itself."""
+    mgr.preinstalled_executable = CHROMIUM
 
 
 async def _record(svc, session_id: int, **values) -> None:
@@ -72,7 +50,10 @@ async def _record(svc, session_id: int, **values) -> None:
 async def browser_health(request: Request):
     """Честное состояние рантайма браузера: available/false, а не «пусто = зелёный»."""
     mgr = _mgr(request.app.state.svc)
-    return {"available": bool(mgr.available),
+    available = bool(mgr.available)
+    return {"available": available,
+            "detail": "Chromium установлен; доступность запуска проверяется при создании сессии"
+                      if available else INSTALL_HINT,
             "active_sessions": len(getattr(mgr, "_sessions", {}) or {})}
 
 
@@ -209,9 +190,43 @@ async def takeover(session_id: int, request: Request):
 
 @router.post("/browser/sessions/{session_id}/resume")
 async def resume(session_id: int, request: Request):
+    """Resume the session — and the task parked behind it, once.
+
+    Owner audit 2026-09-08, task 45: the owner pressed Resume "into the void" —
+    the browser session resumed, the task stayed where it was. A task parked
+    under WAITING_FOR_OWNER_CHALLENGE for this session's task_id is re-queued
+    here so the run continues from its checkpoint and is judged again. One
+    shot: a second Resume finds no paused task and reports `task_resumed=False`;
+    a task the owner stopped meanwhile is not resurrected (engine.resume
+    refuses anything but `paused`)."""
     svc = request.app.state.svc
     res = await _mgr(svc).resume(session_id)
     await _record(svc, session_id, takeover=False, paused=False)
+    res = dict(res) if isinstance(res, dict) else {"id": session_id}
+    res["task_resumed"] = False
+    res["task_id"] = None
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(bs_t.c.task_id).where(bs_t.c.id == session_id))).first()
+        task_id = int(row._mapping["task_id"]) if row and row._mapping["task_id"] is not None else None
+        task = await fetch_one(s, tasks_t, task_id) if task_id is not None else None
+    if task is not None:
+        res["task_id"] = task_id
+        meta = task.get("meta") or {}
+        if task.get("status") == "paused" and meta.get("reason_code") == "WAITING_FOR_OWNER_CHALLENGE":
+            try:
+                out = await svc.engine.resume(task_id)
+            except Exception:  # noqa: BLE001 — a stale/consumed Resume is reported, not raised
+                out = {"ok": False}
+            res["task_resumed"] = bool(out.get("ok")) and out.get("status") in ("queued", "running")
+            if res["task_resumed"]:
+                meta = dict(meta)
+                meta.pop("reason_code", None)
+                meta.pop("blocked_reason", None)
+                async with svc.db.session() as s:
+                    await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(
+                        meta=meta, updated_at=utcnow()))
+                    await s.commit()
+                await svc.bus.emit("task.owner_resumed", task_id=task_id, session_id=session_id)
     return res
 
 

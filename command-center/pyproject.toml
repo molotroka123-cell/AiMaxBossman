@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "BOSSMAN AI Command Center — управление моделями, агентами, задачами и расписаниями"
 requires-python = ">=3.11"
 dependencies = [
+    "bossman-shared==0.1.0",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
     # [socks]: рантайм читает ALL_PROXY/HTTPS_PROXY из окружения для удалённых
@@ -20,6 +21,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The owner installation ships the existing integrations. Individual extras
+# remain available for small server-only/development installations.
+runtime = ["bossman-command-center[browser,mcp,openclaw,video-interchange]==0.1.0"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "greenlet>=3.0", "pytest-timeout>=2.2", "pytest-cov>=5.0"]
 # Браузерные тесты. Отдельной группой, а не в dev: Playwright тянет за собой
 # браузер, и требовать его от всех, кто просто хочет прогнать юнит-тесты,
@@ -28,6 +32,13 @@ browser = ["playwright>=1.47"]
 # MCP-рантайм (bcc/v2/mcp_runtime.py). Импорт ленивый: без пакета сервер
 # стартует, а MCP-эндпоинты честно отвечают «недоступно».
 mcp = ["mcp>=2.1,<3"]
+# Мост OpenClaw (bcc/v2/openclaw_bridge.py). Пакет приходил ТРАНЗИТИВНО,
+# из `uvicorn[standard]`, и поэтому мост работал — но по случайности чужого
+# extra, а не по нашему объявлению. uvicorn умеет и wsproto; в день, когда
+# его `standard` сменит реализацию, мост станет недоступен на установке,
+# которая ничем не менялась. Объявляем прямо: возможность наша — и
+# зависимость наша.
+openclaw = ["websockets>=13"]
 # Optional local interchange; no model runtime is installed into the server.
 video-interchange = ["opentimelineio>=0.18,<0.19"]
 

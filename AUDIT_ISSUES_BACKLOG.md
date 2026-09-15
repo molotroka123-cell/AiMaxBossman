@@ -155,12 +155,12 @@ PR'ы зависают без action:
 
 **Проблема**  
 Корень репо захламлён постмортемами и debug-файлами:
-- `AUTONOMY_TRAINER_FREEZE_REPORT.md`
-- `FRESH_FREEZE_BASELINE.md`
+- `docs/archive/root-history/AUTONOMY_TRAINER_FREEZE_REPORT.md`
+- `docs/archive/root-history/FRESH_FREEZE_BASELINE.md`
 - `RESTART_RESUME_PROOF.md`
 - `CLAIMS_NOT_PROVEN.md`
-- `ZIP3_INGEST_REPORT.md`
-- `HANDOFF_STATE.md`
+- `docs/archive/root-history/ZIP3_INGEST_REPORT.md`
+- `docs/archive/root-history/HANDOFF_STATE.md`
 
 **Решение**
 - [ ] Переместить в `docs/postmortems/`
@@ -193,7 +193,7 @@ PR'ы зависают без action:
 
 **Проблема**  
 Оба существуют:
-- `HANDOFF_STATE.md` (файл в корне)
+- `docs/archive/root-history/HANDOFF_STATE.md` (файл в корне)
 - `handoffs/` (директория)
 
 Неясно, что canonical.

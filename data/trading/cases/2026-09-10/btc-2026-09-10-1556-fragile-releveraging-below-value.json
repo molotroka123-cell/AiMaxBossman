@@ -1,0 +1,51 @@
+{
+  "case_id": "btc-2026-09-10-1556-fragile-releveraging-below-value",
+  "date": "2026-09-10",
+  "time_local": "15:56+02:00",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "instrument_note": "Reference chart and execution tape remain separate; exact chart levels are not direct execution prices without basis validation.",
+  "observed": {
+    "reference_chart_price_approx": 77085,
+    "execution_tape_approx": [77110, 77145],
+    "cvd_billion": 46.68,
+    "open_interest_billion": 18.61,
+    "long_liquidations_thousand": 41.9
+  },
+  "chart_levels": {
+    "dVAL_approx": 77685,
+    "dPOC_approx": 78145,
+    "dOpen_approx": 78550,
+    "dVAH_approx": 78660,
+    "year_eq_approx": 78000
+  },
+  "comparison_to_capitulation": {
+    "prior_reference_price_approx": 76800,
+    "prior_cvd_billion": 43.93,
+    "prior_oi_billion": 18.28,
+    "price_change_approx": 285,
+    "cvd_change_billion": 2.75,
+    "oi_change_billion": 0.33,
+    "price_direction": "UP",
+    "cvd_direction": "UP",
+    "oi_direction": "UP"
+  },
+  "state": "Price UP + CVD UP + OI UP, but still below broken dVAL with weak price repair relative to flow/leverage rebuild",
+  "regime": "FRAGILE_RELEVERAGING_BELOW_VALUE",
+  "interpretation": "The post-capitulation bounce attracted aggressive buying and a fast OI rebuild, but price repaired only a small fraction of the structural damage and remained roughly 600 points below dVAL. This is not a clean bullish continuation despite the raw UP/UP/UP matrix: location and efficiency matter. Strong buyer effort plus rapid leverage rebuild without value reclaim creates a crowded/fragile bounce that can become a short candidate if the first structural repair fails.",
+  "short_scenario": {
+    "status": "ARMED_ON_FAILED_RECLAIM_NOT_MARKET_SHORT",
+    "preferred_zone": "Bounce/retest into ~77.4-77.7k reference area, especially dVAL ~77.685k, followed by rejection/failure to accept above.",
+    "confirmation": "CVD stops recovering or turns down; price forms a lower high/rollover; OI remains elevated or continues rising while price weakens.",
+    "secondary_zone": "If price reaches dPOC ~78.145k and rejects, that is a higher structural failed-repair signal.",
+    "breakdown_entry_note": "Do not chase a fresh low after another vertical liquidation flush unless OI is flat/up and the move is no longer just forced deleveraging."
+  },
+  "long_scenario": {
+    "status": "EARLY_CANDIDATE_ONLY",
+    "first_trigger": "Reclaim and accept above dVAL ~77.685k with positive price response to CVD/OI.",
+    "stronger_trigger": "Reclaim dPOC ~78.145k and hold/retest from above.",
+    "invalidation": "Failure to reclaim dVAL followed by rollover with OI elevated/rising."
+  },
+  "lesson": "Raw Price UP + CVD UP + OI UP is not always enough for a long. After capitulation, compare the magnitude of price repair with the magnitude of CVD and OI rebuild and ask whether broken value was reclaimed. If buyer effort and new leverage are large but price remains below dVAL, arm a short-on-failed-reclaim setup. This is the mirror image of waiting for a long reclaim and fixes the prior long-side asymmetry."
+}

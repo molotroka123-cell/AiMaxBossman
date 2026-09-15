@@ -5,7 +5,7 @@ import json
 import logging
 import time
 import uuid
-from contextlib import asynccontextmanager
+from contextlib import aclosing, asynccontextmanager
 from decimal import Decimal
 from typing import Any
 
@@ -37,6 +37,20 @@ logger = logging.getLogger("bossman.gateway")
 class BudgetPricingUnknown(RuntimeError):
     """Нельзя безопасно оценить верхнюю границу расхода — cloud-попытка отклонена
     (fail closed), а не «наверное дёшево»."""
+
+
+class _GatewayStreamingResponse(StreamingResponse):
+    async def __call__(self, scope, receive, send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            # ASGI cancellation can happen while sending a yielded chunk.
+            # Async-for does not close a suspended generator automatically;
+            # waiting for GC leaves a provider socket, semaphore and budget
+            # reservation alive after the client has already disconnected.
+            close = getattr(self.body_iterator, "aclose", None)
+            if close is not None:
+                await close()
 
 
 def _prompt_tokens_upper(payload: dict[str, Any]) -> int:
@@ -587,6 +601,14 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                 errors.append(f"{route.backend_name}/{route.model}: {type(exc).__name__}: {exc}")
                 continue
             except BackendError as exc:
+                if exc.response_started and reservation is not None:
+                    # HTTP success followed by malformed/empty native content
+                    # can still be billable. No verified usage means commit
+                    # the reservation, never refund it before provider fallback.
+                    enforcer, p_in, p_out, p_cache_read, p_cache_write, fixed = cost_state
+                    await _cost_settle(enforcer, reservation, None, p_in, p_out,
+                                       p_cache_read, p_cache_write, fixed)
+                    settled = True
                 if not exc.failover:
                                         # Ошибка самого запроса/политики (4xx): не переключаемся на
                                         # следующий таргет (в т.ч. облачный) и НЕ гасим здоровье
@@ -671,18 +693,20 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                     finally:
                         metrics.queued = max(0, metrics.queued - 1)
                     try:
-                        async for chunk in route.backend.stream_request(path, prepared):
-                            emitted = True
-                            collector.feed(chunk)
-                            yield chunk
+                        async with aclosing(route.backend.stream_request(path, prepared)) as upstream:
+                            async for chunk in upstream:
+                                emitted = True
+                                collector.feed(chunk)
+                                yield chunk
                     except BackendError as exc:
                         if not emitted and prepared != forward and \
                                 cache_metadata_rejected(str(exc), exc.status_code):
                             cache_degraded = "invalid metadata"
-                            async for chunk in route.backend.stream_request(path, forward):
-                                emitted = True
-                                collector.feed(chunk)
-                                yield chunk
+                            async with aclosing(route.backend.stream_request(path, forward)) as upstream:
+                                async for chunk in upstream:
+                                    emitted = True
+                                    collector.feed(chunk)
+                                    yield chunk
                         else:
                             raise
                     collector.finish()
@@ -718,6 +742,11 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
                                  route.model, "error", started, len(errors))
                     continue
                 except BackendError as exc:
+                    if exc.response_started and not emitted and reservation is not None:
+                        enforcer, p_in, p_out, p_cache_read, p_cache_write, fixed = cost_state
+                        await _cost_settle(enforcer, reservation, None, p_in, p_out,
+                                           p_cache_read, p_cache_write, fixed)
+                        settled = True
                     if not exc.failover:
                                                 # 4xx запроса/политики: не переключаемся на следующий
                                                 # (в т.ч. облачный) таргет и не гасим здоровье бэкенда.
@@ -777,7 +806,7 @@ def create_gateway_app(config: GatewayConfig | None = None, router: ModelRouter 
         # если хоть одна кандидатная цель облачная. Аудит никогда не занижает
         # облачность; при cloud_allowed=False кандидатов-облаков нет → всегда "0".
         any_cloud = any(r.is_cloud for r in routes)
-        return StreamingResponse(generator(), media_type="text/event-stream",
+        return _GatewayStreamingResponse(generator(), media_type="text/event-stream",
                                  headers={"x-accel-buffering": "no",
                                           "x-bossman-cloud": "1" if any_cloud else "0"})
 
