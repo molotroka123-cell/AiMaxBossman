@@ -43,6 +43,30 @@ async def _allowed_roots(svc) -> list[Path]:
     return [svc.settings.data_dir]
 
 
+async def _retire_finished(svc, mgr: TerminalManager) -> None:
+    """Освободить память от давно завершённых сессий, НЕ потеряв историю.
+
+    Долговечная история команд владельца живёт в БД и отдаётся
+    `/api/terminal/sessions`; в памяти у сессии остаётся только живой процесс,
+    его транспорт и хвост вывода. Этот словарь не чистился никогда — длинный
+    владельческий прогон намерил ~5.5 КБ на команду, которые не возвращаются.
+
+    Статус выселенной сессии дописывается в базу здесь же. Иначе строка
+    осталась бы «running» навсегда: раньше её закрывал ТОЛЬКО GET статуса,
+    которого могло и не случиться. Запрос по забытому id отвечает честным 404
+    «сессия не найдена (возможно, после рестарта)» — тем же, что и после
+    перезапуска продукта.
+    """
+    retired = mgr.retire_finished()
+    if not retired:
+        return
+    async with svc.db.session() as s:
+        for st in retired:
+            await s.execute(sa.update(term_t).where(term_t.c.id == st["id"]).values(
+                status="finished", exit_code=st["exit_code"], finished_at=utcnow()))
+        await s.commit()
+
+
 @router.get("/terminal/roots")
 async def get_roots(request: Request):
     svc = request.app.state.svc
@@ -102,9 +126,11 @@ async def run(request: Request):
             appr = await svc.approvals.create(kind="terminal", preview=preview)
             raise HTTPException(202, {"message": "нужно подтверждение",
                                       "approval_id": appr.get("id"), "decision": "ask"})
+    mgr = _mgr(svc)
+    await _retire_finished(svc, mgr)
     try:
-        session = await _mgr(svc).start(cmd, cwd, policy, approved=True,
-                                        network=bool(body.get("network")))
+        session = await mgr.start(cmd, cwd, policy, approved=True,
+                                  network=bool(body.get("network")))
     except PermissionError as exc:
         raise HTTPException(403, {"message": str(exc)})
     except (FileNotFoundError, OSError) as exc:

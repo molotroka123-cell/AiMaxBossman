@@ -1,0 +1,76 @@
+name: Windows owner run — light, medium and super-long task
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+on:
+  pull_request:
+    branches: [night/v7-convergence-20260908]
+    paths:
+      - 'scripts/windows_owner_tasks.py'
+      - 'scripts/verify_clean_install.py'
+      - '.github/workflows/windows-owner-tasks.yml'
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: 'Длительность СЛОЖНОЙ задачи в минутах'
+        required: false
+        default: '18'
+permissions:
+  contents: read
+concurrency:
+  group: windows-owner-tasks-${{ github.ref }}
+  # Долгий прогон доводится до конца, пока другие модели продолжают коммитить:
+  # оборванный прогон не даёт ни зелёного, ни красного — он не даёт ничего.
+  cancel-in-progress: false
+jobs:
+  owner-run:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      # Прогон начинается с `git archive HEAD`: продукт ставится из чистого
+      # экспорта коммита, а не из рабочего дерева. Windows-раннер по умолчанию
+      # разворачивает текст в CRLF — тогда экспорт отличался бы от того, что
+      # лежит в коммите, и «установленный продукт» был бы не тем, что мы
+      # проверяем. Чекаут идёт байт-в-байт.
+      - name: Check out the source byte-for-byte, without line-ending rewriting
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      # Сам прогон ставит продукт в собственный пустой venv. Здесь ничего
+      # предустанавливать не нужно: репозитория на пути импорта быть не должно,
+      # иначе проверялся бы чекаут, а не то, что получает владелец.
+      - name: Say out loud what this run can and cannot prove
+        run: |
+          Write-Host "Локальной модели на раннере нет. Всё, что требует LLM, помечается NOT_RUN и НЕ красится в зелёный."
+          Write-Host "Проверяется то, что продукт делает сам: команды с подтверждением владельца, правки сайта, переживание жёсткого убийства под нагрузкой."
+      - name: Run the owner tasks against the installed product
+        env:
+          PYTHONUTF8: '1'
+        run: >-
+          python scripts/windows_owner_tasks.py
+          --minutes ${{ github.event.inputs.minutes || '18' }}
+          --json-out windows-owner-tasks.json
+          --log windows-owner-tasks.log
+      - name: Show the verdict lines even when the run failed
+        if: always()
+        run: |
+          if (Test-Path windows-owner-tasks.log) {
+            Get-Content windows-owner-tasks.log | Select-String -Pattern 'WINDOWS_OWNER_TASKS|\[FAIL|\[NOT_RUN'
+          } else {
+            Write-Host "::warning::журнала нет — прогон не дошёл даже до установки"
+          }
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-owner-tasks-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            windows-owner-tasks.json
+            windows-owner-tasks.log
+          if-no-files-found: warn
+          retention-days: 14
