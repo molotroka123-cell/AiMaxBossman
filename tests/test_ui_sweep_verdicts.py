@@ -1,0 +1,41 @@
+"""Prevent successful-looking UI sweep evidence without an observed outcome."""
+import importlib.util
+from pathlib import Path
+import sys
+
+import pytest
+
+spec = importlib.util.spec_from_file_location('ui_sweep_verdicts',
+    Path(__file__).resolve().parents[1] / 'scripts' / 'ui_acceptance_sweep.py')
+sweep = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = sweep
+spec.loader.exec_module(sweep)
+
+
+def classify(**overrides):
+    state = dict(failures=[], console=[], page_errors=[], requests=[], responses=[],
+                 new_dialogs=set(), new_toasts=set(), validation=None,
+                 dom_changed=False, url_changed=False)
+    state.update(overrides)
+    return sweep._classify(**state)[0]
+
+
+def test_no_new_visible_dialog_or_dom_change_is_not_feature_opening():
+    assert classify() == 'dead'
+    assert classify(new_dialogs={'Create project'}) == 'opens_feature'
+
+
+def test_request_needs_successful_response_and_does_not_claim_effect():
+    assert classify(requests=['POST /api/tasks']) == 'error'
+    assert classify(requests=['POST /api/tasks'], responses=['200 POST /api/tasks']) == 'request_accepted'
+    assert classify(requests=['POST /api/tasks'], failures=['500 /api/tasks']) == 'error'
+
+
+@pytest.mark.parametrize('override', [dict(new_toasts=set()), dict(requests=['POST /api/tasks']),
+    dict(page_errors=['TypeError']), dict(console=['Error: unrelated']), dict(validation=None)])
+def test_expected_refusal_requires_all_independent_observations(override):
+    evidence = dict(validation=('Команда пустая', 'Error: Команда пустая'),
+        console=['Error: Команда пустая\n at onSubmit'], new_toasts={'Команда пустая'})
+    assert classify(**evidence) == 'input_refused'
+    evidence.update(override)
+    assert classify(**evidence) == 'error'

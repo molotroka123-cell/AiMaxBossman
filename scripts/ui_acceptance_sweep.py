@@ -18,7 +18,8 @@
   works              — интерфейс ответил: изменилась разметка или адрес
   disabled_reason    — выключен И объясняет, почему (title/aria/подпись)
   opens_feature      — открылся диалог, панель или другая страница
-  real_effect        — ушёл запрос, меняющий состояние (POST/PUT/PATCH/DELETE)
+  request_accepted   — изменяющий запрос получил 2xx; результат требует проверки
+  input_refused      — пустое поле отклонено с проверенной видимой подсказкой
   error              — ошибка в консоли, исключение страницы или 5xx
   dead               — НИЧЕГО: ни разметки, ни адреса, ни запроса, ни консоли
 
@@ -82,6 +83,7 @@ class Click:
     detail: str = ""
     requests: list[str] = field(default_factory=list)
     console: list[str] = field(default_factory=list)
+    responses: list[str] = field(default_factory=list)
 
 
 def _free_port() -> int:
@@ -216,8 +218,55 @@ def _fresh_page(page, app: "LiveApp", pid: str) -> None:
 
 
 def _dom_fingerprint(page) -> str:
-    html = page.evaluate("() => (document.querySelector('#view')||document.body).innerHTML")
+    # Input value/checked properties are not reflected into innerHTML when
+    # a shortcut fills a command or a checkbox changes through JavaScript.
+    html = page.evaluate("""() => {
+        const root = document.querySelector('#view') || document.body;
+        return JSON.stringify({html: root.innerHTML,
+          fields: [...root.querySelectorAll('input, textarea, select')].map(el =>
+            ({value: el.value, checked: el.checked, selected: el.selectedIndex}))});
+    }""")
     return hashlib.sha256(html.encode("utf-8", "replace")).hexdigest()
+
+
+def _visible_texts(page, selector: str) -> set[str]:
+    return set(page.locator(selector).evaluate_all("""elements => elements.filter(el => {
+        const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';
+    }).map(el => el.innerText.trim())"""))
+
+
+def _validation_case(page, pid, label):
+    cases = {
+        ('openrouter', 'Connect'): ('#view input[type=password]', 'Вставьте ключ',
+            '{message: Вставьте ключ, hint: без ключа подключаться нечем}'),
+        ('mission_console', 'Отправить'): ('#mc-command-input', 'Команда пустая',
+            'Error: Команда пустая'),
+    }
+    case = cases.get((pid, label))
+    if case and page.locator(case[0]).count() == 1 and not page.locator(case[0]).input_value().strip():
+        return case[1:]
+    return None
+
+
+def _classify(*, failures, console, page_errors, requests, responses,
+              new_dialogs, new_toasts, validation, dom_changed, url_changed):
+    refusal = (validation and validation[0] in new_toasts and not requests
+               and not failures and not page_errors and console
+               and all(line.splitlines()[0] == validation[1] for line in console))
+    if refusal:
+        return 'input_refused', 'Пустое поле: показана проверенная подсказка «' + validation[0] + '», запрос не отправлен'
+    if failures or page_errors or console:
+        return 'error', '; '.join(sorted(set(failures + page_errors + console))[:3])
+    if responses:
+        return 'request_accepted', '; '.join(responses[:3]) + ' (ответ 2xx; результат отдельно не проверен)'
+    if requests:
+        return 'error', 'Изменяющий запрос отправлен, но успешный ответ не наблюдался'
+    if new_dialogs or url_changed:
+        return 'opens_feature', 'новый видимый диалог' if new_dialogs else 'адрес изменился'
+    if dom_changed or new_toasts:
+        return 'works', 'видимое состояние изменилось'
+    return 'dead', 'ни разметки, ни адреса, ни запроса, ни консоли'
 
 
 def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
@@ -235,14 +284,18 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
         page = browser.new_page(viewport={"width": 1440, "height": 900})
 
         console: list[str] = []
+        page_errors: list[str] = []
         requests: list[str] = []
+        responses: list[str] = []
         page.on("console", lambda m: console.append(m.text) if m.type == "error" else None)
-        page.on("pageerror", lambda e: console.append(str(e)))
+        page.on("pageerror", lambda e: page_errors.append(str(e)))
         page.on("request", lambda r: requests.append(f"{r.method} {r.url}")
                 if r.method in ("POST", "PUT", "PATCH", "DELETE") else None)
         failures: list[str] = []
         page.on("response", lambda r: failures.append(f"{r.status} {r.url}")
-                if r.status >= 500 else None)
+                if r.status >= 500 or (r.status >= 400 and r.request.method in ("POST", "PUT", "PATCH", "DELETE")) else None)
+        page.on("response", lambda r: responses.append(f"{r.status} {r.request.method} {r.url}")
+                if 200 <= r.status < 300 and r.request.method in ("POST", "PUT", "PATCH", "DELETE") else None)
 
         page.goto(app.url + "/", wait_until="domcontentloaded")
         page.fill("#login-token", app.svc.auth.token)
@@ -253,6 +306,11 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
             try:
                 _fresh_page(page, app, pid)
                 controls = _visible_controls(page)
+                # Template selection is local UI state; creating a project
+                # changes the database and removes this empty-state chooser.
+                # Exercise the chooser before its create action, not after it.
+                if pid == 'web_designer':
+                    controls.sort(key=lambda control: 'bd-tpl' not in control['cls'].split())
             except Exception as exc:                      # noqa: BLE001
                 results.append(Click(pid, "(страница)", "", "error", f"не открылась: {exc}"))
                 continue
@@ -290,6 +348,13 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                                          "после повторной отрисовки элемент не найден"))
                     continue
 
+                if pid == 'web_designer' and 'bd-tpl' in ctl['cls'].split():
+                    # Clicking the default selection is legitimately a no-op.
+                    # Select a different card first, then verify this card.
+                    alternatives = page.locator('#view button.bd-tpl').filter(has_not_text=label.split('\n')[0])
+                    if alternatives.count():
+                        alternatives.first.click()
+
                 # Кнопка может быть ВЫКЛЮЧЕНА, пока страница дочитывает данные,
                 # и включиться через долю секунды. Нажатие в это окно даёт
                 # «TimeoutError — element is not enabled», и в отчёте это
@@ -307,9 +372,12 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                                              ctl["reason"] or "выключена и после ожидания"))
                         continue
 
-                console.clear(); requests.clear(); failures.clear()
+                console.clear(); requests.clear(); failures.clear(); page_errors.clear(); responses.clear()
                 before_dom = _dom_fingerprint(page)
                 before_url = page.url
+                before_dialogs = _visible_texts(page, 'dialog[open], .modal, [role=dialog]')
+                before_toasts = _visible_texts(page, '#toast-root .toast-msg')
+                validation = _validation_case(page, pid, label)
                 try:
                     target.click(timeout=5000)
                 except Exception as exc:                  # noqa: BLE001
@@ -349,26 +417,16 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
 
                 after_dom = _dom_fingerprint(page)
                 after_url = page.url
-                dialog = page.evaluate(
-                    "() => !!document.querySelector('dialog[open], .modal:not([hidden]), "
-                    "[role=dialog]:not([hidden])')")
-
-                if failures:
-                    verdict, detail = "error", "; ".join(sorted(set(failures))[:3])
-                elif console:
-                    verdict, detail = "error", "; ".join(sorted(set(console))[:3])
-                elif requests:
-                    verdict, detail = "real_effect", "; ".join(sorted(set(requests))[:3])
-                elif dialog or after_url != before_url:
-                    verdict, detail = "opens_feature", (
-                        "диалог" if dialog else f"переход {after_url.split('#')[-1]}")
-                elif after_dom != before_dom:
-                    verdict, detail = "works", "разметка изменилась"
-                else:
-                    verdict, detail = "dead", "ни разметки, ни адреса, ни запроса, ни консоли"
+                verdict, detail = _classify(failures=failures, console=console,
+                    page_errors=page_errors, requests=requests, responses=responses,
+                    new_dialogs=_visible_texts(page, 'dialog[open], .modal, [role=dialog]') - before_dialogs,
+                    new_toasts=_visible_texts(page, '#toast-root .toast-msg') - before_toasts,
+                    validation=validation, dom_changed=after_dom != before_dom,
+                    url_changed=after_url != before_url)
 
                 results.append(Click(pid, label, ctl["cls"], verdict, detail,
-                                     sorted(set(requests))[:5], sorted(set(console))[:5]))
+                                     sorted(set(requests))[:5], sorted(set(console + page_errors))[:5],
+                                     sorted(set(responses))[:5]))
 
         browser.close()
     return results
