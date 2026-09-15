@@ -21,9 +21,11 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import platform
+import re
 import statistics
 import subprocess
 import sys
@@ -199,18 +201,45 @@ def audit_markers(done: Path, issued: list[str], confirmed: list[str]) -> dict:
     }
 
 
+#: Что именно прочитал замер памяти в первый раз — сырая строка, как её отдала
+#: система. Без неё число в отчёте нечем перепроверить, а перепроверять пришлось:
+#: прогон на Windows отдал 3 936 КБ там, где на Linux тот же продукт показывает
+#: около 116 МБ. Такое значение неправдоподобно, и плоская линия, снятая неверным
+#: прибором, — это не доказательство отсутствия роста, а отсутствие доказательства.
+_RSS_RAW: dict[str, str] = {}
+
+
 def _rss_kb(pid: int) -> int | None:
-    """Резидентная память процесса продукта. Наблюдение, не приговор."""
+    """Резидентная память процесса продукта. НАБЛЮДЕНИЕ, не приговор.
+
+    Возвращает None, когда прочитать не удалось, и НИКОГДА не возвращает
+    правдоподобное число вместо признания неудачи: число без происхождения
+    успокаивает ровно так же, как верное, и в этом вся опасность.
+    """
     try:
         if os.name == "nt":
             out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
                                  capture_output=True, timeout=20).stdout.decode("utf-8", "replace")
-            cell = out.strip().split('","')[-1].strip('"\r\n ')
-            return int(cell.replace(" ", "").replace(" ", "").replace(",", "").replace("K", ""))
+            row = out.strip().splitlines()[-1] if out.strip() else ""
+            _RSS_RAW.setdefault("сырая_строка", row[:200])
+            # `tasklist` при отсутствии процесса печатает не строку CSV, а фразу
+            # INFO:. Разбираем настоящим CSV, а не split по кавычкам, и требуем,
+            # чтобы последняя колонка выглядела как «123 456 K».
+            fields = next(csv.reader([row]), [])
+            if len(fields) < 5:
+                return None
+            cell = fields[-1].strip()
+            _RSS_RAW.setdefault("колонка_памяти", cell[:60])
+            if not cell.upper().endswith("K"):
+                return None
+            digits = re.sub(r"[^0-9]", "", cell)
+            return int(digits) if digits else None
         out = subprocess.run(["ps", "-o", "rss=", "-p", str(pid)],
                              capture_output=True, timeout=20).stdout.decode()
+        _RSS_RAW.setdefault("сырая_строка", out.strip()[:200])
         return int(out.strip())
-    except Exception:
+    except Exception as exc:
+        _RSS_RAW.setdefault("ошибка", f"{type(exc).__name__}: {exc}"[:200])
         return None
 
 
@@ -524,6 +553,7 @@ def _run_everything(args) -> int:
         "в_полёте_при_убийстве": state.get("в_полёте_при_убийстве"),
         "задержка": state.get("задержка"),
         "память": state.get("память"),
+        "чем_измерена_память": dict(_RSS_RAW),
         "замеры": state.get("замеры", []),
         "итог": PASS if not run.failed else FAIL,
     }
