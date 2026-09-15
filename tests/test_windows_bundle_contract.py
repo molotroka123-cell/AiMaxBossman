@@ -11,6 +11,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import re
+
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
@@ -59,7 +61,34 @@ def test_the_bundle_ships_the_canonical_icon_set() -> None:
         assert f"icon-{size}.png" in bundle.ICON_FILES, size
 
 
-@pytest.mark.parametrize("name", ["Start-Bossman.cmd", "Evening-Test.cmd"])
+# Список выводится из самой сборки, а не переписывается руками: launcher,
+# добавленный завтра, попадает под тот же контракт без чьей-либо памяти.
+ROOT_LAUNCHERS = sorted(n for n in bundle.launcher_files()
+                        if n.endswith(".cmd") and "/" not in n)
+
+
+def test_every_root_launcher_is_covered_by_the_contract() -> None:
+    """Иначе новый .cmd тихо остаётся непроверенным."""
+    assert len(ROOT_LAUNCHERS) >= 3, ROOT_LAUNCHERS
+    assert "Machine-Report.cmd" in ROOT_LAUNCHERS
+
+
+@pytest.mark.parametrize("name", ROOT_LAUNCHERS)
+def test_a_launcher_only_starts_a_script_the_archive_actually_ships(name: str) -> None:
+    """BL-036 в другом обличье: кнопка, ведущая в файл, которого в поставке нет.
+
+    Проверяется не текст, а поставка: каждое имя `app-support\\<файл>.py` из
+    launcher обязано присутствовать в SUPPORT_SCRIPTS.
+    """
+    body = bundle.launcher_files()[name]
+    shipped = {shipped_name for _, shipped_name in bundle.SUPPORT_SCRIPTS}
+    referenced = set(re.findall(r"app-support\\([A-Za-z0-9_.-]+\.py)", body))
+    assert referenced or name == "Start-Bossman.cmd", (
+        f"{name}: разбор не нашёл ни одного .py — проверка стала пустой")
+    assert referenced <= shipped, f"{name} запускает то, чего нет в архиве: {referenced - shipped}"
+
+
+@pytest.mark.parametrize("name", ROOT_LAUNCHERS)
 def test_the_launchers_use_only_what_is_beside_them(name: str) -> None:
     body = bundle.launcher_files()[name]
     assert '%BOSSMAN_HOME%' in body
