@@ -264,3 +264,63 @@ def test_the_harness_prints_on_a_legacy_windows_console(script):
         env={**os.environ, "PYTHONIOENCODING": "cp1252"}, timeout=180,
     )
     assert "UnicodeEncodeError" not in (done.stdout + done.stderr), done.stderr[-400:]
+
+
+# --------------------------------------------------------------------------
+# Браузер: «файл на месте» и «браузер работает» — разные утверждения
+# --------------------------------------------------------------------------
+
+
+def _fake_browser(tmp_path, script: str):
+    import stat
+    exe = tmp_path / "chromium"
+    exe.write_text(script, encoding="utf-8")
+    exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
+    return exe
+
+
+def _browser_check_with(monkeypatch, path):
+    """Прогнать проверку доктора, подсунув ей найденный путь к браузеру.
+
+    Доктор импортирует `chromium_executable` ВНУТРИ функции, поэтому подменять
+    надо функцию в модуле-источнике: `preinstalled` у неё — значение по
+    умолчанию, вычисленное при импорте, и подмена константы после импорта ни на
+    что не влияет (проверено — первая редакция этого замера именно так и
+    соврала, вернув настоящий путь вместо подставного).
+    """
+    import bcc.browser_runtime as br
+    monkeypatch.setattr(br, "chromium_executable", lambda *a, **k: str(path))
+    return _load("bossman_doctor").check_browser_runtime()
+
+
+def test_a_file_that_is_not_a_browser_is_not_reported_as_a_working_one(tmp_path, monkeypatch):
+    """Регресс: доктор отвечал PASS «Chromium установлен» на ЛЮБОЙ файл по
+    найденному пути.
+
+    Его собственный докстринг требует «НАСТОЯЩИЙ браузер, фейковый адаптер не
+    считается», а `chromium_executable` — поиск ПУТИ, документированный как
+    работающий без подпроцессов. Между «файл существует» и «браузер работает»
+    он ставил знак равенства, и это видно было в его же фактах:
+    `live_launch_verified: False` рядом с вердиктом PASS.
+
+    Воспроизведено исполняемым файлом, который браузером не является.
+    """
+    exe = _fake_browser(tmp_path, "#!/bin/sh\nexit 127\n")
+    check = _browser_check_with(monkeypatch, exe)
+    assert check.status != "PASS", f"подставной файл засчитан рабочим браузером: {check}"
+    assert check.facts.get("live_launch_verified") is False
+    assert "install-deps" in check.remedy or "install chromium" in check.remedy, check.remedy
+
+
+def test_a_browser_that_answers_is_reported_with_its_real_version(tmp_path, monkeypatch):
+    """Обратный контроль: строгость не имеет права съесть исправный случай.
+
+    Без него «всегда WARN» прошло бы за починку и сделало бы проверку
+    бесполезной в другую сторону — владелец с рабочим браузером получал бы
+    предупреждение на ровном месте.
+    """
+    exe = _fake_browser(tmp_path, "#!/bin/sh\necho 'Chromium 141.0.0.0'\n")
+    check = _browser_check_with(monkeypatch, exe)
+    assert check.status == "PASS", check
+    assert check.facts.get("live_launch_verified") is True
+    assert "141.0.0.0" in check.detail, check.detail

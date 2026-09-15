@@ -269,8 +269,31 @@ def check_browser_runtime() -> Check:
     except ImportError:
         runtime = None
     if runtime:
-        return Check("browser", PASS, f"Chromium установлен: {runtime}",
-                     facts={"browser": runtime, "playwright": True, "live_launch_verified": False})
+        # `chromium_executable` — поиск ПУТИ: он читает метаданные и проверяет,
+        # что файл на месте, и сам документирован как «без подпроцессов». Этого
+        # мало для вердикта, который докстринг выше называет «НАСТОЯЩИЙ
+        # браузер»: воспроизведено подстановкой исполняемого файла, который
+        # браузером не является (`exit 127`) — доктор отвечал
+        # PASS «Chromium установлен», а в фактах у него же стояло
+        # live_launch_verified: False. Существование файла — не работоспособность.
+        #
+        # Поэтому браузер ЗАПУСКАЕТСЯ. `--version` стоит ~100 мс, не открывает
+        # окна и не оставляет процессов, а отличает настоящий Chromium от
+        # любого файла с подходящим именем.
+        code, out = _run([runtime, "--version"], timeout=20.0)
+        launched = code == 0 and ("chrom" in out.lower())
+        if launched:
+            return Check("browser", PASS, f"Chromium запускается: {out.strip()[:80]} ({runtime})",
+                         facts={"browser": runtime, "playwright": True,
+                                "live_launch_verified": True, "version": out.strip()[:120]})
+        return Check("browser", WARN,
+                     f"Chromium найден, но НЕ ЗАПУСКАЕТСЯ: {runtime} "
+                     f"(код {code}, вывод {out.strip()[:80]!r})",
+                     "На голом Ubuntu/Debian не хватает системных библиотек: "
+                     "`.venv/bin/python -m playwright install-deps chromium`; "
+                     "если файл повреждён — `.venv/bin/python -m playwright install chromium`",
+                     {"browser": runtime, "playwright": True, "live_launch_verified": False,
+                      "exit_code": code})
     candidates = ["chrome", "chromium", "chromium-browser", "google-chrome", "msedge"]
     found = next((shutil.which(c) for c in candidates if shutil.which(c)), None)
     if not found and os.name == "nt":
