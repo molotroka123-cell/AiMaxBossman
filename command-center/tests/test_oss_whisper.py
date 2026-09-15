@@ -65,7 +65,8 @@ def test_lazy_generator_is_consumed_offline_cpu_and_text_is_returned(monkeypatch
 
 
 @pytest.mark.parametrize("audio", [b"", b"https://private.internal/audio", b"M3U\nfile:///etc/passwd",
-                                       recording(width=1), recording(rate=96000), recording(seconds=601, rate=8000)])
+                                       recording(width=1), recording(rate=96000), recording(seconds=601, rate=8000)],
+                         ids=["empty", "url", "playlist", "pcm8", "rate96k", "over10min"])
 def test_invalid_or_unbounded_audio_never_loads_model(audio, monkeypatch, model_dir):
     observed = engine(monkeypatch)
     with pytest.raises(whisper.WhisperError):

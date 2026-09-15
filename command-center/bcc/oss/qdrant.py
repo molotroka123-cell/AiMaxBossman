@@ -86,7 +86,9 @@ class QdrantMemoryBackend(SQLiteMemoryBackend):
         self.embeddings = embeddings
         self.max_chunks = max_chunks
         self._operation_lock = asyncio.Lock()
-        self._collection = "bossman_memory"
+        # A dimension change needs a different Qdrant vector schema. Keep a
+        # bounded set rather than deleting live SQLite-backed collections.
+        self._collection = f"bossman_memory_{embeddings.dimensions}"
 
     def _rows(self) -> list[dict]:
         with self._connect() as conn:
@@ -109,14 +111,42 @@ class QdrantMemoryBackend(SQLiteMemoryBackend):
         from qdrant_client import models
         with closing(self._client()) as client:
             if client.collection_exists(self._collection):
-                client.delete_collection(self._collection)
-            client.create_collection(self._collection, vectors_config=models.VectorParams(
-                size=self.embeddings.dimensions, distance=models.Distance.COSINE))
+                # qdrant-client 1.15.1 delete_collection() removes the directory
+                # without explicitly closing its SQLite storage and ignores
+                # rmtree errors. Windows can therefore reopen OLD points on a
+                # recreation. Delete points transactionally via the public API;
+                # never remove/recreate an open collection directory.
+                client.delete(self._collection,
+                              points_selector=models.FilterSelector(filter=models.Filter()), wait=True)
+            else:
+                if len(client.get_collections().collections) >= 4:
+                    raise QdrantUnavailable(
+                        "local semantic index contains four vector schemas; choose SQLite or reset the derived vector index before changing dimensions")
+                client.create_collection(self._collection, vectors_config=models.VectorParams(
+                    size=self.embeddings.dimensions, distance=models.Distance.COSINE))
             for start in range(0, len(rows), 64):
                 client.upsert(self._collection, points=[models.PointStruct(
                     id=int(row["chunk_hash"], 16), vector=vector,
                     payload={"chunk_hash": row["chunk_hash"], "generation": generation},
                 ) for row, vector in zip(rows[start:start+64], vectors[start:start+64])], wait=True)
+        # Verify persisted points AFTER handles close and the store reopens.
+        # An acknowledged upsert alone does not prove a durable complete index.
+        expected = {row["chunk_hash"] for row in rows}
+        observed = set()
+        with closing(self._client()) as client:
+            offset = None
+            while True:
+                points, offset = client.scroll(self._collection, limit=64, offset=offset,
+                                               with_payload=True, with_vectors=False)
+                for point in points:
+                    payload = point.payload or {}
+                    if payload.get("generation") != generation:
+                        raise QdrantUnavailable("semantic index persistence verification failed")
+                    observed.add(payload.get("chunk_hash"))
+                if offset is None:
+                    break
+            if observed != expected:
+                raise QdrantUnavailable("semantic index persisted an incomplete chunk set")
         with self._connect() as conn:
             conn.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('qdrant_generation',?)", (generation,))
             conn.commit()
@@ -137,6 +167,8 @@ class QdrantMemoryBackend(SQLiteMemoryBackend):
                 row["heading"] + "\n" + row["content"] for row in rows[start:start+32]]))
         try:
             await asyncio.to_thread(self._replace, rows, vectors, generation)
+        except QdrantUnavailable:
+            raise
         except (OSError, RuntimeError, ValueError) as exc:
             raise QdrantUnavailable("local Qdrant rebuild failed; retry memory.index after closing other users of this index") from exc
         return {"dense": True, "vector_chunks": len(rows), "backend": "qdrant"}

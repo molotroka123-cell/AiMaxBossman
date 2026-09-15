@@ -50,3 +50,14 @@ boundary are tested separately. No live embedding model quality, Windows hardwar
 performance, or model training result is claimed by these tests.
 
 Upstream reference: https://github.com/qdrant/qdrant-client
+
+## Windows persistence repair
+
+The pinned client's collection deletion does not explicitly close its SQLite
+storage before `rmtree(ignore_errors=True)`. On Windows, failed directory removal
+can leave old points behind when a collection is recreated. Rebuilds now use the
+public point-deletion API instead, then close and reopen the store and verify the
+complete persisted chunk set and generation before recording readiness. Separate
+collection schemas support dimension changes, capped at four schemas to bound
+retained local state. The original undimensioned collection, if present from an
+earlier installation, is not queried and counts toward that cap.

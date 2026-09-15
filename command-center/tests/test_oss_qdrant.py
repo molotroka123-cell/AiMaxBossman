@@ -157,3 +157,41 @@ async def test_config_rejects_bad_qdrant_values(env, tmp_path, field, value):
     cfg[field] = value
     response = await env.client.post("/api/memory/config", json={"root": str(tmp_path), "backend": "qdrant", "qdrant": cfg})
     assert response.status_code == 400
+
+
+async def test_rebuild_survives_windows_style_directory_deletion_refusal(tmp_path, monkeypatch):
+    """Reproduce retained collection files from pinned upstream rmtree(ignore_errors=True)."""
+    pytest.importorskip("qdrant_client")
+    import qdrant_client.local.qdrant_local as local
+    # Windows cannot unlink an open SQLite file. Simulate the upstream silent
+    # refusal on Linux too; point replacement must not depend on directory removal.
+    monkeypatch.setattr(local.shutil, "rmtree", lambda *args, **kwargs: None)
+    b = backend(tmp_path)
+    note = b.vault_root / "a.md"
+    note.write_text("alpha first")
+    old = b.vault_root / "old.md"
+    old.write_text("beta removed")
+    await b.index([b.vault_root])
+    for text in ("alpha second", "alpha third"):
+        note.write_text(text)
+        old.unlink(missing_ok=True)
+        await b.index([b.vault_root])
+        reopened = backend(tmp_path)
+        hits = await reopened.search("alpha")
+        assert len(hits) == 1 and text in hits[0].content
+        assert (await reopened.stats())["dense"]
+
+
+async def test_embedding_dimension_switch_uses_fresh_schema(tmp_path):
+    b = backend(tmp_path)
+    (b.vault_root / "a.md").write_text("alpha")
+    await b.index([b.vault_root])
+    class ThreeDimensionalFixture(FixtureEmbeddings):
+        dimensions = 3
+        identity = "three-dimensional-test-fixture"
+        async def encode(self, texts):
+            return [[1., 0., 0.] for text in texts]
+    changed = backend(tmp_path, ThreeDimensionalFixture())
+    await changed.index([changed.vault_root])
+    assert (await changed.search("alpha"))[0].source == "a.md"
+    assert (await changed.stats())["dense"]
