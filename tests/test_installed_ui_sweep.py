@@ -1,5 +1,6 @@
 """The disposable UI sweep must not leak managed application processes."""
 import importlib.util
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -51,3 +52,79 @@ def test_stop_owned_tree_releases_child_working_directory(tmp_path):
             pass
         unrelated.kill()
         unrelated.wait(timeout=5)
+
+
+def _click(page, label, verdict, detail=''):
+    """Настоящий Click драйвера, а не его имитация.
+
+    Имитация здесь была бы худшим видом зелёного: write_report зовёт
+    `asdict`, то есть требует именно dataclass, и подделка с теми же полями
+    прошла бы ровно до того дня, когда у Click появится новое поле. Тогда CI
+    остался бы зелёным, а установленный продукт упал бы на выгрузке отчёта.
+    """
+    drv = _driver()
+    return drv.Click(page=page, label=label, selector='button', verdict=verdict, detail=detail)
+
+
+def _driver():
+    import sys
+    name = '_sweep_driver_under_test'
+    if name in sys.modules:
+        return sys.modules[name]
+    path = Path(__file__).resolve().parents[1] / 'scripts' / 'ui_acceptance_sweep.py'
+    driver_spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(driver_spec)
+    sys.modules[name] = module
+    driver_spec.loader.exec_module(module)
+    return module
+
+
+def _report(tmp_path, capsys, clicks):
+    out = tmp_path / 'ui-sweep.json'
+    sweep.write_report(out, 'a' * 40, {'source_sha': 'a' * 40}, ['images'], clicks)
+    return json.loads(out.read_text(encoding='utf-8')), capsys.readouterr().out
+
+
+def test_a_control_needing_review_is_named_in_the_log_not_only_in_the_artifact(tmp_path, capsys):
+    """`"error": 4` без имён нечем починить.
+
+    Подробности лежат в ui-sweep.json, а он выгружается артефактом. Из
+    окружения агента хост артефактов запрещён политикой исходящего трафика
+    (CONNECT ... 403), то есть единственный носитель имён недостижим ровно
+    тогда, когда он нужен. Журнал задания доступен всегда — значит, имена
+    обязаны быть и в нём.
+    """
+    report, printed = _report(tmp_path, capsys, [
+        _click('images', 'Создать', 'error', 'TypeError: cannot read length of null'),
+        _click('video', 'Экспорт', 'dead'),
+        _click('images', 'Готово', 'works'),
+    ])
+    assert report['status'] == 'REVIEW_REQUIRED'
+    assert 'Создать' in printed and 'TypeError' in printed
+    assert 'Экспорт' in printed
+    # Исправная кнопка в список разбора не попадает: иначе тридцать страниц
+    # рабочих кнопок утопят четыре настоящие находки.
+    assert 'Готово' not in printed
+
+
+def test_a_clean_sweep_prints_no_review_block(tmp_path, capsys):
+    """Негативный контроль. Без него проверка выше зеленела бы и от кода,
+    который печатает КАЖДОЕ нажатие: «Создать» нашлось бы в любом случае."""
+    report, printed = _report(tmp_path, capsys, [
+        _click('images', 'Создать', 'works'),
+        _click('video', 'Экспорт', 'opens_feature'),
+    ])
+    assert report['status'] == 'PASS'
+    assert 'REVIEW' not in printed
+    assert 'Создать' not in printed
+
+
+def test_the_verdict_itself_is_untouched_by_the_new_output(tmp_path, capsys):
+    """Печать — не гейт. Статус обязан по-прежнему считаться по четырём
+    категориям разбора, а не по тому, что удалось напечатать."""
+    for verdict in ('dead', 'error', 'disabled_silent', 'vanished'):
+        report, _ = _report(tmp_path, capsys, [_click('images', 'Кнопка', verdict)])
+        assert report['status'] == 'REVIEW_REQUIRED', verdict
+    for verdict in ('works', 'opens_feature', 'disabled_reason', 'request_accepted'):
+        report, _ = _report(tmp_path, capsys, [_click('images', 'Кнопка', verdict)])
+        assert report['status'] == 'PASS', verdict

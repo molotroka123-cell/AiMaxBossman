@@ -55,11 +55,14 @@ def stop_owned_process_tree(process, stop_parent) -> None:
         raise RuntimeError('Sweep child processes did not stop; private data retained')
 
 
+REVIEW_VERDICTS = ('dead', 'error', 'disabled_silent', 'vanished')
+
+
 def write_report(output, sha, identity, pages, clicks):
     counts = {}
     for click in clicks:
         counts[click.verdict] = counts.get(click.verdict, 0) + 1
-    review = any(counts.get(name, 0) for name in ('dead', 'error', 'disabled_silent', 'vanished'))
+    review = any(counts.get(name, 0) for name in REVIEW_VERDICTS)
     report = {'status': 'REVIEW_REQUIRED' if review else 'PASS', 'source_sha': sha,
               'identity': identity, 'pages': pages, 'counts': counts,
               'scope': 'Visible button classes in fresh empty app; nested dialogs, owner accounts and model work need separate scenarios.',
@@ -67,6 +70,19 @@ def write_report(output, sha, identity, pages, clicks):
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=True, indent=2), encoding='utf-8')
     print(json.dumps({'status': report['status'], 'pages': len(pages), 'counts': counts}))
+    # The counts say HOW MANY controls need review; without the names, the only
+    # place that says WHICH is the uploaded artifact. That is not always
+    # reachable: from the agent environment the artifact host is refused by
+    # egress policy, so `"error": 4` arrives with no way to act on it. The
+    # standalone driver has always printed this block; the installed wrapper
+    # did not, and the installed wrapper is the one that runs in CI.
+    # Printed, not raised: the verdict above is unchanged, and naming a control
+    # is not the same as calling it a defect.
+    flagged = [click for click in clicks if click.verdict in REVIEW_VERDICTS]
+    for click in flagged:
+        detail = (click.detail or '').replace('\n', ' ')[:160]
+        print(f'REVIEW {click.verdict:16s} {click.page:20s} {click.label}'
+              + (f' :: {detail}' if detail else ''))
 
 
 def main() -> int:
