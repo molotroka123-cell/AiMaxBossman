@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 222. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 223. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -48,9 +48,10 @@
 | `command-center/tests/test_oss_docling.py:186` | importorskip | `—` | нет пакета pptx | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_oss_qdrant.py:41` | importorskip | `—` | нет пакета qdrant_client | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_oss_qdrant.py:111` | importorskip | `—` | нет пакета qdrant_client | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_qdrant.py:164` | importorskip | `—` | нет пакета qdrant_client | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_oss_ui.py:7` | skipif | `not chromium_available()` | reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_oss_ui.py:11` | importorskip | `—` | нет пакета docling | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `command-center/tests/test_oss_whisper.py:146` | importorskip | `—` | нет пакета faster_whisper | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_oss_whisper.py:147` | importorskip | `—` | нет пакета faster_whisper | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_control_ui.py:15` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_path_latency.py:80` | skip | `—` | first.reason | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_owner_path_latency.py:97` | skip | `—` | first.reason | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
