@@ -22,7 +22,9 @@ permissions:
   contents: read
 concurrency:
   group: windows-bundle-${{ github.ref }}
-  cancel-in-progress: true
+  # Finish the active exact-SHA candidate while other models keep committing.
+  # GitHub retains the latest pending run in this branch's concurrency group.
+  cancel-in-progress: false
 jobs:
   bundle:
     runs-on: windows-latest
@@ -81,6 +83,27 @@ jobs:
             exit 0
           }
           exit $code
+      - name: Report exactly what Windows verified
+        if: always()
+        shell: python
+        run: |
+          import json, os, pathlib
+          result = pathlib.Path(os.environ['RUNNER_TEMP']) / 'bossman-dist' / 'bundle-acceptance.json'
+          if result.exists():
+              report = json.loads(result.read_text(encoding='utf-8'))
+              details = report.get('details', {})
+              print(json.dumps({
+                  'status': report.get('status'),
+                  'source_sha': report.get('expected_sha'),
+                  'archive': details.get('archive'),
+                  'archive_sha256': details.get('archive_sha256'),
+                  'browser': details.get('browser'),
+                  'media': details.get('media'),
+                  'problems': report.get('problems'),
+              }, indent=2, ensure_ascii=True))
+              print(details.get('evening_stdout', ''))
+          else:
+              print('Archive acceptance did not produce a report; inspect preceding steps.')
       - name: The build left the worktree exactly as committed
         run: python scripts/evening_owner_run.py --ci preflight
       - uses: actions/upload-artifact@v7
@@ -91,4 +114,4 @@ jobs:
             ${{ runner.temp }}/bossman-dist/BOSSMAN-Windows-x64-*.zip
             ${{ runner.temp }}/bossman-dist/bundle-acceptance.json
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 30
