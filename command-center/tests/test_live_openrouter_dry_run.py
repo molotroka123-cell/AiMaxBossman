@@ -136,6 +136,8 @@ def test_the_installed_free_model_path_passes_end_to_end_against_a_stub(stub):
     assert len(trajectories) == 6
     assert all(t['status'] == 'PASS' and t['restart_persistence'] == 'PASS' for t in trajectories), trajectories
     assert all(t['reason'] == 'ok' and t['errors'] == [] for t in trajectories)
+    # Число попыток постановки записано и ограничено; обычно 1.
+    assert all(1 <= t['submission_attempts'] <= live.SUBMISSION_ATTEMPTS for t in trajectories), trajectories
     assert _freeze_accepts(trajectories, sha), 'запись не прошла бы предикат astra6_freeze'
     # Ключ обязан доходить до провайдера как Bearer — иначе «PASS» был бы получен без модели.
     assert stub.auth == {'Bearer '}

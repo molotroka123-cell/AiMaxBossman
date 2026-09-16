@@ -106,6 +106,46 @@ def redact(value, secret: str):
     return value
 
 
+SUBMISSION_ATTEMPTS = 3
+
+
+def submit_through_composer(page, port: int, prompt: str):
+    """Поставить задачу через настоящий composer и вернуть ответ POST /api/tasks.
+
+    Измеренная гонка (BL-065): после завершения предыдущей задачи страница
+    home перерисовывается по WS-событию, и textarea создаётся со снимком
+    `state.draft`, снятым до нашего fill(); если подмена узла ложится после
+    fill(), поле к моменту клика пусто, composer честно отвечает «Опишите
+    задачу» и POST не уходит. 2 промаха из 30 без ожидания, 0 из 30 с ним.
+
+    Поэтому: дождаться, пока страница дорисуется (networkidle — окончание
+    четырёх API-вызовов рендера; таймаут короткий и не фатальный), затем
+    проверить, что набранное действительно в поле, и только потом нажать.
+    Промах означает, что запроса на сервер НЕ БЫЛО, поэтому повтор не может
+    создать задачу дважды; число попыток возвращается и попадает в запись.
+    """
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+
+    field = page.get_by_placeholder('Что должен сделать BOSSMAN?')
+    for attempt in range(1, SUBMISSION_ATTEMPTS + 1):
+        page.goto(f'http://127.0.0.1:{port}/#/tasks')
+        try:
+            page.wait_for_load_state('networkidle', timeout=5000)
+        except PlaywrightTimeout:
+            pass                                    # страница живая, просто шумная
+        field.fill(prompt)
+        if field.input_value() != prompt:
+            continue                                # поле стёрто до клика — заново
+        try:
+            with page.expect_response(lambda r: r.url.endswith('/api/tasks') and r.request.method == 'POST',
+                                      timeout=15000) as creation:
+                page.locator('.composer').get_by_role('button', name='Запустить', exact=True).click()
+            return creation.value, attempt
+        except PlaywrightTimeout:
+            continue                                # клик не породил POST — заново
+    raise RuntimeError(f'composer did not submit the task in {SUBMISSION_ATTEMPTS} attempts')
+
+
 def exercise(model, secret, args, report, trajectories):
     from bcc import owner_acceptance as owner
     from bcc.browser_runtime import chromium_executable
@@ -158,13 +198,10 @@ def exercise(model, secret, args, report, trajectories):
                                 if not free_models([item for item in catalog.json()['data'] if item.get('id') == model['id']]):
                                     raise RuntimeError('Selected free tariff is no longer available')
                             report['stage'] = 'ui_task_submission:' + case
-                            page.goto(f'http://127.0.0.1:{port}/#/tasks')
-                            page.get_by_placeholder('Что должен сделать BOSSMAN?').fill(prompt)
-                            with page.expect_response(lambda r: r.url.endswith('/api/tasks') and r.request.method == 'POST') as creation:
-                                page.locator('.composer').get_by_role('button', name='Запустить', exact=True).click()
-                            if not creation.value.ok:
+                            creation, attempts = submit_through_composer(page, port, prompt)
+                            if not creation.ok:
                                 raise RuntimeError('UI task creation failed')
-                            task_id = creation.value.json()['task']['id']
+                            task_id = creation.json()['task']['id']
                             report['stage'] = 'real_model_result:' + case
                             deadline = time.monotonic() + args.timeout
                             result = {}
@@ -187,6 +224,7 @@ def exercise(model, secret, args, report, trajectories):
                                       'case': case, 'prompt': prompt, 'answer': answer[:8192],
                                       'task_id': task_id, 'task_status': result.get('task', {}).get('status'),
                                       'status': 'PASS' if passed else 'FAIL', 'restart_persistence': 'NOT_RUN',
+                                      'submission_attempts': attempts,
                                       'reason': failure_reason(passed=passed, task_status=result.get('task', {}).get('status'),
                                                                runs=runs, answer=answer, case=case),
                                       # Текст ошибок прогона — единственное, что отличает 429 от
