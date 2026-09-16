@@ -50,6 +50,31 @@
       "ma100": 75816.8,
       "ma200": 76708.8,
       "interpretation": "Event candle swept both sides: downside liquidity near 75k, then upside liquidity above 76.5k, followed by return toward the middle. This is a classic two-sided event whipsaw; the first impulse was not reliable directional confirmation."
+    },
+    {
+      "phase": "post_fomc_bullish_flow_confirmation",
+      "time_local_approx": "16:59-17:00 -04:00",
+      "reference_price_approx": 76166,
+      "cvd_billion": 58.11,
+      "open_interest_billion": 18.26,
+      "funding_histogram_approx_percent": 0.0082,
+      "reference_levels": {
+        "dVAH": 76048.5,
+        "dPOC": 75584.75,
+        "dVAL": 75548.5,
+        "pDay_low": 75000
+      },
+      "comparison_to_initial_reclaim": {
+        "cvd_change_billion": 6.89,
+        "oi_change_billion": 0.12,
+        "price_direction": "UP",
+        "cvd_direction": "STRONGLY_UP",
+        "oi_direction": "MODERATELY_UP"
+      },
+      "state": "Price UP + CVD STRONGLY UP + OI UP",
+      "interpretation": "This is materially stronger confirmation than the initial post-flush bounce. Aggressive net buying expanded sharply while price reclaimed and traded above the visible dVAH area, and OI rebuilt only moderately. That combination is more consistent with fresh demand/leverage participation than a bounce driven only by short covering. Positive funding means long crowding risk is rising, so continued acceptance matters.",
+      "position_context": "User long from 75,400 is above entry at this snapshot; unrealized PnL is intentionally not calculated because position size and execution details were not provided.",
+      "lesson": "The higher-quality confirmation arrived after the event noise: price acceptance above value + sharp CVD expansion + controlled OI rebuild. This is the pattern to compare against entering on the first FOMC impulse."
     }
   ],
   "trade_thesis": {
@@ -58,46 +83,51 @@
       "Large prior long-liquidation flush removed leverage.",
       "OI contracted during the flush instead of expanding aggressively downward.",
       "Price showed ability to rebound from the ~75k sweep area.",
-      "CVD stopped collapsing and showed an initial stabilization/recovery attempt before the event whipsaw."
+      "CVD stopped collapsing and showed an initial stabilization/recovery attempt before the event whipsaw.",
+      "Later snapshot showed price around 76.17k above visible dVAH ~76.05k while CVD expanded to 58.11B and OI recovered to 18.26B."
     ],
     "risks": [
       "FOMC event flow can dominate microstructure and invalidate otherwise good order-flow setups.",
-      "The 15m event candle rejected the 76,521 high and returned below the 75.8-76.0k reclaim area.",
-      "Price remained below MA50, MA100 and materially below MA200 on the captured 15m snapshot.",
+      "The 15m event candle rejected the 76,521 high and initially returned below the 75.8-76.0k reclaim area.",
+      "Positive funding around 0.0082% in the later snapshot indicates increasing long-side crowding risk.",
       "A sweep/reclaim is not acceptance; follow-through must be observed."
     ]
   },
   "decision_framework": {
-    "bull_confirmation": "Reclaim and acceptance above roughly 75.8-76.0k, ideally with CVD stable/up and OI not expanding vertically against price. A later reclaim of the 76,521 event high would be stronger confirmation.",
-    "warning": "Repeated failure below 75.8-76.0k keeps the trade vulnerable to another test of the lows.",
+    "bull_confirmation": "Initial confirmation was reclaim/acceptance above roughly 75.8-76.0k. The later snapshot materially strengthened this with price ~76.17k above visible dVAH ~76.05k, CVD 58.11B and OI 18.26B. Reclaim of the 76,521 event high remains a stronger structural confirmation.",
+    "warning": "Loss of the reclaimed 75.8-76.0k/value area with CVD rolling over would weaken the new confirmation; a rapid OI expansion without price progress would raise trapped-long risk.",
     "invalidation_observation": "Acceptance below the ~75.0-75.2k sweep area would materially damage the current long thesis. Exact stop was not provided and is intentionally not invented.",
     "do_not_do": "Do not chase the first FOMC impulse, do not infer direction from OI alone, and do not treat a large liquidation wick as a guaranteed bottom."
   },
   "model_training_labels": {
-    "primary_regime": "EVENT_DRIVEN_DELEVERAGING_AND_TWO_SIDED_LIQUIDITY_SWEEP",
+    "primary_regime": "EVENT_DRIVEN_DELEVERAGING_TO_POST_EVENT_DEMAND_CONFIRMATION",
     "secondary_patterns": [
       "LONG_LIQUIDATION_FLUSH",
       "OI_CONTRACTION",
       "POTENTIAL_SELLER_EXHAUSTION",
       "RECLAIM_ATTEMPT",
-      "FOMC_TWO_SIDED_WHIPSAW"
+      "FOMC_TWO_SIDED_WHIPSAW",
+      "POST_EVENT_CVD_EXPANSION",
+      "CONTROLLED_OI_REBUILD",
+      "VALUE_RECLAIM"
     ],
-    "core_rule": "During FOMC/CPI/NFP-style event windows, downgrade ordinary technical/order-flow confidence. Preserve the sequence: pre-event state -> first impulse -> opposite sweep -> post-event acceptance. The first move is not the answer.",
-    "edge_to_test": "After a large long-liquidation flush with OI contraction, test whether a downside sweep followed by CVD stabilization and price reclaim produces positive expectancy. Separately test whether waiting for post-event acceptance improves results versus entering on the first event impulse."
+    "core_rule": "During FOMC/CPI/NFP-style event windows, downgrade ordinary technical/order-flow confidence. Preserve the sequence: pre-event state -> first impulse -> opposite sweep -> post-event acceptance. The first move is not the answer. Upgrade confidence only when post-event price acceptance aligns with flow.",
+    "edge_to_test": "Compare three entries after a large long-liquidation flush: lower-zone anticipatory entry, first event impulse entry, and post-event value-reclaim entry with CVD expansion plus controlled OI rebuild. Measure expectancy, MAE, MFE and stop-out rate separately."
   },
   "case_lessons_so_far": [
     "Price response to CVD matters more than the absolute CVD number.",
     "Price DOWN + CVD DOWN + OI DOWN is primarily deleveraging until evidence shows fresh bearish leverage expansion.",
     "A good lower-zone long can still experience extreme event volatility; event risk must be a separate feature in the model.",
     "FOMC should be stored as a path-dependent episode, not one endpoint snapshot.",
-    "Record user entry separately from model-recommended triggers so future evaluation can compare actual decision vs model decision without hindsight contamination."
+    "Record user entry separately from model-recommended triggers so future evaluation can compare actual decision vs model decision without hindsight contamination.",
+    "Post-event Price UP + CVD sharply UP + OI moderately UP after value reclaim is much stronger evidence than the first volatile impulse."
   ],
   "next_data_required": [
-    "Post-press-conference CVD snapshots",
-    "Post-press-conference OI snapshots",
-    "Liquidation spikes after the 75,025/76,521 sweep",
-    "Whether 75.8-76.0k gains acceptance",
-    "Whether 75.0-75.2k is retested or lost",
+    "Whether price holds above the 75.8-76.05k reclaimed value area",
+    "Whether the 76,521 event high is reclaimed",
+    "CVD behavior on the next pullback",
+    "OI behavior if price stalls or retests",
+    "Whether positive funding continues rising without price progress",
     "Final exit price and realized PnL when the user closes the trade"
   ],
   "data_quality": {
