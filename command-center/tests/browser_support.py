@@ -13,6 +13,7 @@ sync_playwright: импорт pytest-модуля может происходи�
 from __future__ import annotations
 
 import os
+import re
 import time
 from pathlib import Path
 
@@ -107,9 +108,23 @@ def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15
     def _selected() -> bool:
         return bool(page.evaluate(
             "() => document.querySelectorAll('div.bd-row').length > 0"))
+
+    def _selected_info() -> str:
+        """Что именно выделено — по строке инспектора, а не по факту клика."""
+        return str(page.evaluate(
+            "() => { const n = document.querySelector('div.bd-elinfo'); return n ? n.textContent : ''; }") or '')
+
+    # Клик, который выделил НЕ ТОТ элемент, — тоже промах, и хуже молчаливого:
+    # строка инспектора есть, тест идёт дальше, а «Применить» уходит другому
+    # тегу. Для body/html с потомками правка упирается в диалог подтверждения,
+    # запроса нет, и падение выглядит как «code did not settle» с нетронутым
+    # кодом (BL-063, третья точка). Для голого имени тега выделение сверяется
+    # с ним; несовпадение — повторный клик, а в отказе называется, что попало.
+    expected_tag = selector.strip().lower() if re.fullmatch(r"[a-z][a-z0-9]*", selector.strip().lower()) else None
     guest = preview_frame(page)
     guest.wait_for_selector(selector, timeout=timeout)
     missed = 0
+    wrong: list[str] = []
     for _ in range(4):
         box = guest.evaluate(
             """([selector, index]) => {
@@ -147,11 +162,20 @@ def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15
             deadline = time.monotonic() + settle_ms / 1000.0
             while time.monotonic() < deadline:
                 if _selected():
-                    return spot
+                    info = _selected_info()
+                    if expected_tag is None or re.match(rf"{expected_tag}(?![a-z0-9])", info.strip().lower()):
+                        return spot
+                    wrong.append(info)
+                    break
                 page.wait_for_timeout(100)
             missed += 1
             continue
         page.evaluate("spot => window.scrollBy(0, spot.y - spot.vh / 2)", spot)
+    if wrong:
+        raise AssertionError(
+            f"клик по {selector}[{index}] отправлен {missed} раз(а) и выделял НЕ ТОТ элемент: "
+            f"инспектор показал {wrong!r}, ожидался тег {expected_tag!r}. Последняя точка: {spot}. "
+            f"Это не «выбор не состоялся» — это «выбрано другое», и «Применить» ушло бы не туда")
     if missed:
         raise AssertionError(
             f"клик по {selector}[{index}] отправлен {missed} раз(а) и ни разу не выбрал "

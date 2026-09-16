@@ -39,7 +39,23 @@ def _wait_code(page, pid, predicate, timeout=15.0):
         if predicate(code):
             return code
         time.sleep(0.25)
-    raise AssertionError(f"code did not settle: {_code(page, pid)[:300]!r}")
+    # Трасса для BL-063: «код не изменился» само по себе ничего не говорит.
+    # Что выделено, открыт ли диалог подтверждения (правка body/html с
+    # потомками упирается в него без единого запроса), какие тосты видны и
+    # какая версия у сервера — всё это отличает «правка не дошла» от «правка
+    # ушла не туда» и от «правка отвергнута».
+    trace = page.evaluate("""() => ({
+      elinfo: [...document.querySelectorAll('div.bd-elinfo')].map(n => n.textContent),
+      dialog: [...document.querySelectorAll('.modal[role=dialog] h2')].map(n => n.textContent),
+      toasts: [...document.querySelectorAll('.toast .toast-msg')].map(n => n.textContent),
+      textInput: (() => { const row = [...document.querySelectorAll('div.bd-row')].find(r => r.textContent.includes('Текст'));
+                          const i = row && row.querySelector('input[type=text]'); return i ? i.value : null; })(),
+    })""")
+    meta = page.evaluate("""async (pid) => {
+      const r = await fetch('/api/web-designer/projects/' + pid, {credentials: 'include'});
+      const j = await r.json(); return {version: j.meta && j.meta.version, status: r.status};
+    }""", pid)
+    raise AssertionError(f"code did not settle: {_code(page, pid)[:300]!r}; trace={trace}; server={meta}")
 
 
 def _apply_text(page, value: str):
