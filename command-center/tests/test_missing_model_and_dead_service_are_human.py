@@ -86,7 +86,15 @@ def test_the_job_ends_failed_with_a_human_sentence(live, alias, label):
             job = _finished(page, reply['data']['id'])
             assert job['status'] == 'failed', f'{label}: задача не кончилась отказом: {job}'
             _human(str(job.get('error') or ''))
-            print(f'\n  {label}: «{job.get("error")}»')
+            # Человеческий — значит начинается со слов человеку, а не с имени
+            # класса исключения: «ConnectError: All connection attempts failed»
+            # проходит проверку утечек, но владельцу не говорит ничего.
+            import re
+            error = str(job.get('error') or '')
+            assert not re.match(r'^[A-Za-z_]\w*(Error|Exception)\b', error), error
+            assert re.search(r'[а-яА-Я]{4,}', error), f'{label}: без единого русского слова: {error}'
+            assert 'Повторить' in error or 'не подключён' in error, error
+            print(f'\n  {label}: «{error}»')
         finally:
             browser.close()
 

@@ -642,8 +642,29 @@ async def process_one(svc) -> int | None:
         if completed.rowcount:
             await svc.bus.emit("image.job.completed", job_id=job_id, asset_ids=created)
     except Exception as exc:
-        await _fail_job(svc, job_id, f"{type(exc).__name__}: {exc}")
+        await _fail_job(svc, job_id, _human_failure(job, exc))
     return job_id
+
+
+def _human_failure(job: dict[str, Any], exc: BaseException) -> str:
+    """Текст отказа для владельца: сначала что случилось и что делать, потом
+    техническая деталь. «ConnectError: All connection attempts failed» в карточке
+    задачи — это не ответ человеку (BL-ledger, проверка §3)."""
+    import httpx
+    alias = job.get("model_alias") or "mock-image"
+    detail = f"{type(exc).__name__}: {exc}".strip()
+    if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
+        return (f"Сервис генерации для «{alias}» не отвечает: соединение не установлено. "
+                f"Запустите его (для comfyui — ComfyUI по адресу из BOSSMAN_COMFYUI_URL) "
+                f"и нажмите «Повторить». Техническая деталь: {detail}")
+    if isinstance(exc, httpx.TimeoutException):
+        return (f"Сервис генерации для «{alias}» не ответил вовремя. Проверьте, что он "
+                f"работает и не перегружен, затем нажмите «Повторить». Техническая деталь: {detail}")
+    if isinstance(exc, httpx.HTTPStatusError):
+        return (f"Сервис генерации для «{alias}» ответил ошибкой "
+                f"{exc.response.status_code}. Задача не выполнена; проверьте журнал сервиса "
+                f"и нажмите «Повторить». Техническая деталь: {detail}")
+    return detail
 
 
 async def _fail_job(svc, job_id: int, message: str) -> None:
