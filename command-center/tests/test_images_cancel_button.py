@@ -238,6 +238,14 @@ def test_stop_cancels_the_running_job_only_and_a_late_result_is_not_adopted(live
             comfy.release('job-2')
             assert _wait(lambda: _job(page, b)['status'] == 'completed', timeout=60), _job(page, b)
             assert len(_assets_titled(page, 'NEIGHBOUR B')) == 1, 'соседняя задача не дала результата'
+            # Результат ОТКРЫВАЕТСЯ, а не только числится: файл ассета отдаётся и это PNG.
+            asset = _assets_titled(page, 'NEIGHBOUR B')[0]
+            head = page.evaluate("""async id => {
+              const r = await fetch('/api/images/assets/' + id + '/file', {credentials: 'include'});
+              const buf = new Uint8Array(await r.arrayBuffer());
+              return {status: r.status, type: r.headers.get('content-type'), magic: Array.from(buf.slice(0, 4))};
+            }""", asset['id'])
+            assert head['status'] == 200 and head['magic'] == [0x89, 0x50, 0x4E, 0x47], head
 
             # Повторный запуск работает — с кнопки «Повторить» у отменённой задачи.
             page.get_by_role('button', name='Все', exact=True).click()

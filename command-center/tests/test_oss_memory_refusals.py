@@ -34,7 +34,8 @@ from __future__ import annotations
 import pytest
 
 from .browser_support import chromium_available, reason
-from .test_ux2_thinking_pane import LiveServer, _launch, _login
+from .test_ux2_thinking_pane import _launch
+from .test_editors_user_acceptance import editor_server, login  # noqa: F401
 
 pytestmark = [pytest.mark.timeout(240),
               pytest.mark.skipif(not chromium_available(), reason=reason())]
@@ -69,25 +70,23 @@ class _Watch:
 
 
 @pytest.fixture
-def oss_page(tmp_path):
+def oss_page(editor_server):
+    """Через процесс сервера (на приёмке — установленный архив), не в процессе теста."""
     from playwright.sync_api import sync_playwright
 
-    server = LiveServer(tmp_path / 'server').start()
-    try:
-        with sync_playwright() as pw:
-            browser = _launch(pw)
-            try:
-                page = browser.new_page(viewport={'width': 1366, 'height': 900})
-                watch = _Watch(page)
-                _login(page, server)
-                page.goto(server.url + '/#/oss')
-                page.get_by_role('heading', name='Локальные инструменты', exact=True).wait_for(timeout=30000)
-                watch.clear()          # загрузка страницы — не результат клика
-                yield page, watch, server
-            finally:
-                browser.close()
-    finally:
-        server.stop()
+    server = editor_server
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page(viewport={'width': 1366, 'height': 900})
+            watch = _Watch(page)
+            login(page, server)
+            page.goto(server.url + '/#/oss')
+            page.get_by_role('heading', name='Локальные инструменты', exact=True).wait_for(timeout=30000)
+            watch.clear()          # загрузка страницы — не результат клика
+            yield page, watch, server
+        finally:
+            browser.close()
 
 
 @pytest.mark.parametrize('label,message', EMPTY_FIELD, ids=[c[0] for c in EMPTY_FIELD])

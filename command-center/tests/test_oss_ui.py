@@ -1,33 +1,63 @@
 """Real browser and server: new owner controls produce actual local effects."""
 import pytest
 
-from .browser_support import chromium_available, reason
-from .test_ux2_thinking_pane import LiveServer, _launch, _login
+from .browser_support import chromium_available, reason, required
+from .test_ux2_thinking_pane import _launch
+from .test_editors_user_acceptance import editor_server, login  # noqa: F401
 
-pytestmark = [pytest.mark.timeout(180), pytest.mark.skipif(not chromium_available(), reason=reason())]
+pytestmark = [pytest.mark.timeout(180),
+              pytest.mark.skipif(not chromium_available() and not required(), reason=reason())]
 
 
-def test_owner_reads_document_and_searches_notes_in_browser(tmp_path, monkeypatch):
-    pytest.importorskip("docling")
-    from playwright.sync_api import sync_playwright, expect
+@pytest.fixture
+def oss_env(tmp_path, monkeypatch):
+    """Папки и флаги — ДО старта сервера: EditorServer копирует окружение в
+    процесс сервера, и на приёмке это процесс установленного архива, а не клон."""
     docs = tmp_path / "documents"
     docs.mkdir()
-    document = docs / "invoice.csv"
-    document.write_text("item,amount\nPrague,42\n", encoding="utf-8")
     notes = tmp_path / "notes"
     notes.mkdir()
-    (notes / "Prague.md").write_text("# Prague\nBossman opens the Prague office on Monday.", encoding="utf-8")
     monkeypatch.setenv("BCC_FILE_INTELLIGENCE", "1")
     monkeypatch.setenv("AIFS_ROOTS", str(docs))
-    server = LiveServer(tmp_path / "server").start()
-    try:
+    return docs, notes
+
+
+@pytest.fixture
+def live(oss_env, editor_server):
+    return editor_server
+
+
+def _server_has(server, engine: str) -> bool:
+    """Способность проверяется у процесса сервера, а не у процесса теста:
+    docling лежит в runtime архива, а не обязательно в окружении pytest."""
+    import httpx
+    with httpx.Client(base_url=server.url, trust_env=False, timeout=10) as client:
+        login = client.post("/api/login", json={"token": (server.data / "token").read_text().strip(),
+                                                "label": "capability-probe"})
+        if login.status_code != 200:
+            return False
+        client.headers["X-BCC-CSRF"] = login.json()["csrf"]
+        items = client.get("/api/oss/status").json()["items"]
+    return any(item["id"] == engine and item["state"] in ("installed", "configured", "integrated") for item in items)
+
+
+def test_owner_reads_document_and_searches_notes_in_browser(live, oss_env, tmp_path):
+    from playwright.sync_api import sync_playwright, expect
+    docs, notes = oss_env
+    server = live
+    if not _server_has(server, "docling"):
+        pytest.skip("сервер сообщает docling=needs_setup: чтение документов на этом хосте недоступно")
+    document = docs / "invoice.csv"
+    document.write_text("item,amount\nPrague,42\n", encoding="utf-8")
+    (notes / "Prague.md").write_text("# Prague\nBossman opens the Prague office on Monday.", encoding="utf-8")
+    if True:
         with sync_playwright() as pw:
             browser = _launch(pw)
             try:
                 page = browser.new_page(viewport={"width": 1366, "height": 900})
                 errors = []
                 page.on("pageerror", lambda error: errors.append(str(error)))
-                _login(page, server)
+                login(page, server)
                 page.goto(server.url + "/#/oss")
                 expect(page.get_by_role("heading", name="Локальные инструменты", exact=True)).to_be_visible()
                 page.get_by_role("button", name="Прочитать документ", exact=True).click()
@@ -48,5 +78,3 @@ def test_owner_reads_document_and_searches_notes_in_browser(tmp_path, monkeypatc
                 assert not errors, errors
             finally:
                 browser.close()
-    finally:
-        server.stop()

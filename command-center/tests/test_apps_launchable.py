@@ -91,3 +91,39 @@ def test_the_probe_runs_out_of_process():
     source = inspect.getsource(ac._module_importable)
     assert "subprocess.run" in source
     assert "importlib.import_module" not in source
+
+
+def test_a_missing_declared_dependency_is_named_before_the_button(tmp_path):
+    """ai-webcam-vision: модуль на месте, find_spec доволен, а процесс умирал
+    через доли секунды с ModuleNotFoundError: numpy — «App start: exited».
+    Зависимости из pyproject проверяются по дистрибутивам, без выполнения кода."""
+    app_dir = tmp_path / "needy-app"
+    (app_dir / "src" / "needy_app").mkdir(parents=True)
+    (app_dir / "src" / "needy_app" / "__init__.py").write_text("", encoding="utf-8")
+    (app_dir / "pyproject.toml").write_text(
+        '[project]\nname = "needy-app"\nversion = "0"\n'
+        'dependencies = ["httpx>=0.27", "no-such-distribution-bossman>=1", '
+        '"another_ghost[extra]==2; python_version >= \'3.11\'"]\n',
+        encoding="utf-8")
+    problem = ac._missing_dependencies(app_dir)
+    assert "no-such-distribution-bossman" in problem
+    assert "another_ghost" in problem
+    assert "httpx" not in problem
+    assert "умрёт сразу после старта" in problem
+
+
+def test_present_dependencies_report_no_problem(tmp_path):
+    app_dir = tmp_path / "fine-app"
+    app_dir.mkdir()
+    (app_dir / "pyproject.toml").write_text(
+        '[project]\nname = "fine-app"\nversion = "0"\ndependencies = ["httpx", "pytest"]\n',
+        encoding="utf-8")
+    assert ac._missing_dependencies(app_dir) == ""
+    assert ac._missing_dependencies(tmp_path / "no-pyproject") == ""
+
+
+def test_the_dependency_probe_executes_nothing_from_the_app():
+    import inspect
+    source = inspect.getsource(ac._missing_dependencies)
+    assert "importlib.metadata" in source
+    assert "importlib.import_module" not in source
