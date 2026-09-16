@@ -8,6 +8,9 @@ This is a native V2 feature:
 """
 from __future__ import annotations
 
+import asyncio
+import contextlib
+
 import base64
 import binascii
 import hashlib
@@ -560,7 +563,29 @@ async def process_one(svc) -> int | None:
             if latest is None or latest.get("status") == "cancelled":
                 return job_id
 
-            data, mime, meta = await provider.render(job, index)
+            # Отмена обязана ОСВОБОЖДАТЬ воркер, а не только менять статус. Измерено
+            # (BL-066): пока провайдер ComfyUI опрашивал /history отменённой задачи,
+            # единственный воркер был занят ею, и соседняя задача не стартовала
+            # 9,9 с — до конца чужого расчёта; предел этого ожидания — 600 с.
+            # Здесь рендер идёт отдельной задачей, а статус перечитывается раз в
+            # полсекунды: отмена снимает ожидание. Удалённый расчёт при этом не
+            # прерывается — Bossman не зовёт /interrupt и чужую работу не трогает.
+            render = asyncio.ensure_future(provider.render(job, index))
+            try:
+                while True:
+                    done, _ = await asyncio.wait({render}, timeout=0.5)
+                    if done:
+                        break
+                    latest = await _find_one(svc, jobs_t, job_id)
+                    if latest is None or latest.get("status") != "running":
+                        render.cancel()
+                        with contextlib.suppress(BaseException):
+                            await render
+                        return job_id
+                data, mime, meta = render.result()
+            finally:
+                if not render.done():
+                    render.cancel()
             latest = await _find_one(svc, jobs_t, job_id)
             if latest is None or latest.get("status") != "running":
                 return job_id
