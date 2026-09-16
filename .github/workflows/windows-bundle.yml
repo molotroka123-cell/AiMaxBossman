@@ -58,6 +58,27 @@ on:
       # проверка доступна руками через workflow_dispatch, и полный набор тестов
       # на каждом прогоне идёт без изъятий.
       - '!command-center/tests/**'
+      # Исключение из исключения: файлы, которые выполняются ТОЛЬКО в шаге
+      # «Installed browser…» на Windows. Правка такого файла — правка самого
+      # гейта, и проверить её можно лишь этим прогоном. Прогон 105 показал
+      # цену иного порядка: test_video_cancel_button упал на Windows по
+      # причине, которой нет на Linux (BL-068), а починка теста без
+      # продуктового коммита не попадала в очередь — workflow_dispatch и
+      # отмена из среды агента отвечают 403. Позднее правило в списке
+      # побеждает более раннее, поэтому эти пути идут ПОСЛЕ отрицательного.
+      - 'command-center/tests/test_editors_user_acceptance.py'
+      - 'command-center/tests/test_web_designer_recovery_ui.py'
+      - 'command-center/tests/test_apps_files_browser_owner.py'
+      - 'command-center/tests/test_apps_files_http_owner.py'
+      - 'command-center/tests/test_images_library_ui.py'
+      - 'command-center/tests/test_images_cancel_button.py'
+      - 'command-center/tests/test_video_cancel_button.py'
+      - 'command-center/tests/test_two_tabs_conflict.py'
+      - 'command-center/tests/test_invalid_input_is_human.py'
+      - 'command-center/tests/test_unload_flush.py'
+      - 'command-center/tests/test_unsaved_draft_navigation.py'
+      - 'command-center/tests/test_missing_model_and_dead_service_are_human.py'
+      - 'command-center/tests/test_oss_memory_refusals.py'
       - '!bossman-core/tests/**'
   workflow_dispatch:
 permissions:
