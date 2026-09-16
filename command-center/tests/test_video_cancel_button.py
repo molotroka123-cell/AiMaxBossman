@@ -113,6 +113,14 @@ def test_cancel_stops_the_rendering_export_only_and_partial_output_is_not_ready(
             page.locator('.vs-media-card').first.wait_for(timeout=30000)
             page.locator('.vs-media-card').first.dblclick()
             page.locator('.vs-clip').first.wait_for()
+            # Импорт ставит в очередь задачу «Подготовка медиа» (thumbnail →
+            # proxy → waveform, два вызова с -frames:v), а видеозадачи движок
+            # допускает по одной. На Windows-раннере (прогон 105) затвор был
+            # взведён, пока она ещё шла: удержал ЕЁ thumbnail, и экспорт A так и
+            # не был допущен — «running» не наступил за 60 с, в хвосте задания
+            # остались два cmd + два PING. На Linux она успевала раньше. Барьер
+            # взводится только после того, как подготовка завершилась.
+            expect(page.locator('.vs-job', has_text='Подготовка медиа')).to_contain_text('completed', timeout=90000)
 
             hold.write_text('hold')                     # с этого момента рендер удерживается
             a = _export(page)['job_id']
