@@ -1,0 +1,108 @@
+{
+  "case_id": "CASE-003",
+  "slug": "btc-2026-09-16-fomc-whipsaw-long-75400",
+  "date": "2026-09-16",
+  "market": "BTCUSDT perpetual / Coinwise reference feeds",
+  "event": "FOMC press-conference event window",
+  "status": "OPEN_OBSERVATION",
+  "owner_position": {
+    "direction": "LONG",
+    "entry": 75400,
+    "size": "not provided",
+    "leverage": "not provided",
+    "note": "User explicitly confirmed long entry from 75,400. Do not infer size, leverage, stop, liquidation price, or realized PnL."
+  },
+  "pre_event_context": {
+    "structure": "BTC had already sold off materially from the upper 78k/79k area into the mid-75k area before/around the event window.",
+    "working_hypothesis": "Potential seller exhaustion/absorption after long deleveraging, but long required reclaim/acceptance rather than blind bottom picking.",
+    "important_reference_zones": {
+      "lower_sweep_area": [75000, 75200],
+      "reclaim_watch": [75700, 76000],
+      "upper_event_extreme": 76521.2
+    }
+  },
+  "orderflow_snapshots": [
+    {
+      "phase": "flush_before_reclaim",
+      "price_approx": 75700,
+      "cvd_billion": 51.06,
+      "open_interest_billion": 18.11,
+      "long_liquidations_million": 1.13,
+      "short_liquidations_thousand": 137.38,
+      "interpretation": "Large long-liquidation flush with depressed CVD and lower OI. Candidate deleveraging/exhaustion state, not automatic long confirmation."
+    },
+    {
+      "phase": "initial_reclaim_attempt",
+      "price_approx": 75835,
+      "cvd_billion": 51.22,
+      "open_interest_billion": 18.14,
+      "long_liquidations_thousand": 9.74,
+      "short_liquidations_thousand": 130.88,
+      "interpretation": "CVD and OI stabilized slightly while price reclaimed the lower value area. This improved the long candidate but still required acceptance."
+    },
+    {
+      "phase": "fomc_whipsaw_15m",
+      "last_price": 75757.6,
+      "event_candle_low": 75025,
+      "event_candle_high": 76521.2,
+      "event_candle_range_usd": 1496.2,
+      "ma50": 75790.8,
+      "ma100": 75816.8,
+      "ma200": 76708.8,
+      "interpretation": "Event candle swept both sides: downside liquidity near 75k, then upside liquidity above 76.5k, followed by return toward the middle. This is a classic two-sided event whipsaw; the first impulse was not reliable directional confirmation."
+    }
+  ],
+  "trade_thesis": {
+    "entry_logic": "Long from 75,400 was taken inside/near the post-flush lower zone after a major deleveraging sequence and downside sweep. The thesis is not 'price is cheap'; it is that forced long selling may exhaust and price may reclaim value after the sweep.",
+    "bullish_evidence": [
+      "Large prior long-liquidation flush removed leverage.",
+      "OI contracted during the flush instead of expanding aggressively downward.",
+      "Price showed ability to rebound from the ~75k sweep area.",
+      "CVD stopped collapsing and showed an initial stabilization/recovery attempt before the event whipsaw."
+    ],
+    "risks": [
+      "FOMC event flow can dominate microstructure and invalidate otherwise good order-flow setups.",
+      "The 15m event candle rejected the 76,521 high and returned below the 75.8-76.0k reclaim area.",
+      "Price remained below MA50, MA100 and materially below MA200 on the captured 15m snapshot.",
+      "A sweep/reclaim is not acceptance; follow-through must be observed."
+    ]
+  },
+  "decision_framework": {
+    "bull_confirmation": "Reclaim and acceptance above roughly 75.8-76.0k, ideally with CVD stable/up and OI not expanding vertically against price. A later reclaim of the 76,521 event high would be stronger confirmation.",
+    "warning": "Repeated failure below 75.8-76.0k keeps the trade vulnerable to another test of the lows.",
+    "invalidation_observation": "Acceptance below the ~75.0-75.2k sweep area would materially damage the current long thesis. Exact stop was not provided and is intentionally not invented.",
+    "do_not_do": "Do not chase the first FOMC impulse, do not infer direction from OI alone, and do not treat a large liquidation wick as a guaranteed bottom."
+  },
+  "model_training_labels": {
+    "primary_regime": "EVENT_DRIVEN_DELEVERAGING_AND_TWO_SIDED_LIQUIDITY_SWEEP",
+    "secondary_patterns": [
+      "LONG_LIQUIDATION_FLUSH",
+      "OI_CONTRACTION",
+      "POTENTIAL_SELLER_EXHAUSTION",
+      "RECLAIM_ATTEMPT",
+      "FOMC_TWO_SIDED_WHIPSAW"
+    ],
+    "core_rule": "During FOMC/CPI/NFP-style event windows, downgrade ordinary technical/order-flow confidence. Preserve the sequence: pre-event state -> first impulse -> opposite sweep -> post-event acceptance. The first move is not the answer.",
+    "edge_to_test": "After a large long-liquidation flush with OI contraction, test whether a downside sweep followed by CVD stabilization and price reclaim produces positive expectancy. Separately test whether waiting for post-event acceptance improves results versus entering on the first event impulse."
+  },
+  "case_lessons_so_far": [
+    "Price response to CVD matters more than the absolute CVD number.",
+    "Price DOWN + CVD DOWN + OI DOWN is primarily deleveraging until evidence shows fresh bearish leverage expansion.",
+    "A good lower-zone long can still experience extreme event volatility; event risk must be a separate feature in the model.",
+    "FOMC should be stored as a path-dependent episode, not one endpoint snapshot.",
+    "Record user entry separately from model-recommended triggers so future evaluation can compare actual decision vs model decision without hindsight contamination."
+  ],
+  "next_data_required": [
+    "Post-press-conference CVD snapshots",
+    "Post-press-conference OI snapshots",
+    "Liquidation spikes after the 75,025/76,521 sweep",
+    "Whether 75.8-76.0k gains acceptance",
+    "Whether 75.0-75.2k is retested or lost",
+    "Final exit price and realized PnL when the user closes the trade"
+  ],
+  "data_quality": {
+    "source": "User-provided MEXC and Coinwise/K1m6a screenshots in chat",
+    "warning": "Reference chart and execution venue can differ. Keep reference levels and actual user execution separate.",
+    "hindsight_policy": "Only facts visible/explicitly stated at each snapshot are stored as observations. Later outcomes must be appended as outcomes, not rewritten into earlier reasoning."
+  }
+}
