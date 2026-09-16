@@ -19,6 +19,8 @@ const emptyPanel = (opts) => ui.blank(opts);
 const PREVIEW_CACHE = new Map();
 let selectedAssetId = null;
 let activeTab = 'library';
+let libraryFilter = 'all';
+let librarySearch = '';
 let composerState = {
   prompt: 'Футуристический городской пейзаж на закате, неоновые огни, дождь, отражения на мокром асфальте, кинематографичный свет',
   model_alias: 'mock-image',
@@ -39,10 +41,14 @@ const ImagesPage = {
   async render(ctx) {
     ensureStyles();
     let assets = []; let jobs = []; let collections = []; let models = [];
-    let storage = null; let overview = null; let err = null;
+    let storage = null; let overview = null; let err = null; let assetTotal = 0;
     try {
+      const assetQuery = new URLSearchParams({ limit: '120' });
+      if (libraryFilter === 'favorites') assetQuery.set('favorite', 'true');
+      if (libraryFilter.startsWith('collection:')) assetQuery.set('collection_id', libraryFilter.slice(11));
+      if (librarySearch) assetQuery.set('search', librarySearch);
       const [a, j, c, m, s, o] = await Promise.all([
-        api.raw('/api/images/assets?limit=120'),
+        api.raw(`/api/images/assets?${assetQuery}`),
         api.raw('/api/images/jobs?limit=40'),
         api.raw('/api/images/collections'),
         api.raw('/api/images/models'),
@@ -50,6 +56,7 @@ const ImagesPage = {
         api.raw('/api/images/overview'),
       ]);
       assets = listOf(a);
+      assetTotal = a.total ?? assets.length;
       jobs = listOf(j);
       collections = listOf(c);
       models = listOf(m);
@@ -72,7 +79,7 @@ const ImagesPage = {
 
     if (err) return h('div.stack.lg', head, errorBanner(err, ctx));
 
-    if (selectedAssetId == null && assets.length) selectedAssetId = assets[0].id;
+    if (!assets.some((asset) => asset.id === selectedAssetId)) selectedAssetId = assets[0]?.id ?? null;
     const selected = assets.find((a) => a.id === selectedAssetId) || null;
 
     return h('div.stack.lg',
@@ -81,8 +88,8 @@ const ImagesPage = {
       tabs(ctx),
       composer(models, collections, ctx),
       h('div.images-workspace',
-        librarySidebar(collections, assets, storage, ctx),
-        mainContent(assets, jobs, models, ctx),
+        librarySidebar(collections, overview, storage, ctx),
+        mainContent(assets, jobs, models, ctx, assetTotal),
         inspector(selected, collections, ctx),
         recentJobs(jobs, models, ctx),
       ),
@@ -133,12 +140,12 @@ function composer(models, collections, ctx) {
   });
 
   const model = withValue(h('select.input', {
-    onChange: (e) => { composerState.model_alias = e.target.value; },
+    onChange: (e) => { composerState.model_alias = e.target.value; ctx.refresh(); },
   }, models.map((m) => h('option', { value: m.alias }, modelLabel(m)))),
   composerState.model_alias);
 
   const ratio = withValue(h('select.input', {
-    onChange: (e) => setRatio(e.target.value),
+    onChange: (e) => { setRatio(e.target.value); ctx.refresh(); },
   }, ['1:1', '16:9', '9:16', '4:3', '3:2'].map((r) => h('option', { value: r }, r))),
   composerState.aspect_ratio);
 
@@ -201,16 +208,17 @@ function withValue(node, value) {
   return node;
 }
 
-function librarySidebar(collections, assets, storage, ctx) {
-  const favoriteCount = assets.filter((x) => x.favorite).length;
+function librarySidebar(collections, overview, storage, ctx) {
+  const choose = (filter) => { libraryFilter = filter; activeTab = 'library'; ctx.refresh(); };
   return h('aside.images-side',
     h('section.panel',
       h('div.panel-head', h('h2', 'Коллекции'), h('div.spacer'),
         h('button.btn.btn-sm', { type: 'button', title: 'Новая коллекция', 'aria-label': 'Новая коллекция', onClick: () => createCollection(ctx) }, icon('plus', 12))),
       h('div.panel-body.tight.images-collections',
-        collectionRow('Все изображения', assets.length, true, () => { activeTab = 'library'; ctx.refresh(); }),
-        collectionRow('Избранное', favoriteCount, false, () => { activeTab = 'library'; ctx.refresh(); }),
-        ...collections.map((c) => collectionRow(c.name, c.count || 0, false, () => {}))),
+        collectionRow('Все изображения', overview?.assets ?? 0, libraryFilter === 'all', () => choose('all')),
+        collectionRow('Избранное', overview?.favorites ?? 0, libraryFilter === 'favorites', () => choose('favorites')),
+        ...collections.map((c) => collectionRow(c.name, c.count || 0,
+          libraryFilter === `collection:${c.id}`, () => choose(`collection:${c.id}`)))),
     ),
     h('section.panel',
       h('div.panel-head', h('h2', 'Хранилище')),
@@ -224,28 +232,40 @@ function librarySidebar(collections, assets, storage, ctx) {
 
 function collectionRow(name, count, active, onClick) {
   return h('button.images-collection-row', {
-    type: 'button', class: active ? 'active' : '', onClick,
+    type: 'button', class: active ? 'active' : '', 'aria-pressed': String(active), onClick,
   }, h('span', name), h('span.xsmall.dim', String(count)));
 }
 
-function mainContent(assets, jobs, models, ctx) {
+function mainContent(assets, jobs, models, ctx, total) {
   if (activeTab === 'generations') return generationsTable(jobs, models, ctx);
   if (activeTab === 'queue') return generationsTable(jobs.filter((j) => ['queued', 'running'].includes(j.status)), models, ctx);
   if (activeTab === 'templates') return templatesPanel();
-  if (!assets.length) {
-    return emptyPanel({
+  const search = h('input.input.images-search', {
+    type: 'search', value: librarySearch, placeholder: 'Поиск изображений…',
+    'aria-label': 'Поиск изображений',
+  });
+  const searchForm = h('form.row.tight', {
+    role: 'search', 'aria-label': 'Поиск в библиотеке изображений',
+    onSubmit: (event) => { event.preventDefault(); librarySearch = search.value.trim(); ctx.refresh(); },
+  }, search, h('button.btn.btn-sm', { type: 'submit' }, 'Найти'),
+  librarySearch ? h('button.btn.btn-sm', {
+    type: 'button', onClick: () => { librarySearch = ''; ctx.refresh(); },
+  }, 'Сбросить поиск') : null);
+  const content = assets.length ? h('div.images-grid', assets.map((asset) => assetCard(asset, ctx)))
+    : emptyPanel({
       iconName: 'empty',
-      title: 'Библиотека пока пустая',
-      hint: 'Создайте первое изображение по описанию выше или загрузите свой файл.',
+      title: librarySearch ? 'Изображения не найдены' : libraryFilter === 'all' ? 'Библиотека пока пустая'
+        : libraryFilter === 'favorites' ? 'В избранном пока нет изображений' : 'В этой коллекции пока нет изображений',
+      hint: librarySearch ? 'Измените запрос или сбросьте поиск.'
+        : libraryFilter === 'all' ? 'Создайте первое изображение по описанию выше или загрузите свой файл.'
+        : 'Выберите «Все изображения», чтобы добавить изображение в этот раздел.',
     });
-  }
   return h('section.panel.images-library',
     h('div.panel-head',
-      h('h2', `Библиотека · ${assets.length}`),
+      h('h2', `${libraryFilter === 'favorites' ? 'Избранное' : libraryFilter === 'all' ? 'Библиотека' : 'Коллекция'} · ${total}`),
       h('div.spacer'),
-      h('input.input.images-search', { placeholder: 'Поиск изображений…' })),
-    h('div.panel-body', h('div.images-grid',
-      assets.map((asset) => assetCard(asset, ctx)))));
+      searchForm),
+    h('div.panel-body', content));
 }
 
 function assetCard(asset, ctx) {
@@ -307,7 +327,13 @@ function inspector(asset, collections, ctx) {
       asset.collection_id ?? '')),
       h('div.stack.tight',
         h('button.btn.btn-sm', { type: 'button', onClick: () => reusePrompt(asset, ctx) }, 'Повторить описание'),
-        h('button.btn.btn-sm', { type: 'button', onClick: () => variation(asset, ctx) }, 'Вариация'),
+        h('button.btn.btn-sm', {
+          type: 'button', disabled: Boolean(variationUnavailableReason(asset)),
+          title: variationUnavailableReason(asset) || 'Создать вариацию',
+          onClick: () => variation(asset, ctx),
+        }, 'Вариация'),
+        variationUnavailableReason(asset)
+          ? h('div.xsmall.dim', variationUnavailableReason(asset)) : null,
         h('button.btn.btn-sm', { type: 'button', onClick: () => toggleFavorite(asset, ctx) },
           asset.favorite ? 'Убрать из избранного' : 'В избранное'),
       )));
@@ -414,7 +440,15 @@ function modelForAsset(asset) {
   return alias && alias !== 'import' ? alias : composerState.model_alias;
 }
 
+function variationUnavailableReason(asset) {
+  return modelForAsset(asset) === 'comfyui'
+    ? 'ComfyUI: вариации пока не поддерживаются. Используйте «Повторить описание» для новой генерации.'
+    : '';
+}
+
 async function variation(asset, ctx) {
+  const unavailable = variationUnavailableReason(asset);
+  if (unavailable) { toast(unavailable, { type: 'warn' }); return; }
   try {
     await api.raw('/api/images/jobs', {
       method: 'POST',
@@ -526,7 +560,7 @@ function setRatio(ratio) {
     '1:1': [1024, 1024],
     '16:9': [1280, 720],
     '9:16': [720, 1280],
-    '4:3': [1200, 900],
+    '4:3': [1152, 864],
     '3:2': [1200, 800],
   };
   const [w, h_] = sizes[ratio] || [1024, 1024];

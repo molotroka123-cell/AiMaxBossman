@@ -60,6 +60,14 @@ SUPPORT_SCRIPTS = (
     (ROOT / "tools" / "verify_installed_product.py", "verify_installed_product.py"),
     (ROOT / "scripts" / "bossman_doctor.py", "bossman_doctor.py"),
     (ROOT / "tools" / "bundle_evening_test.py", "bundle_evening_test.py"),
+    # Отчёт о машине владельца и определитель железа, на который он опирается.
+    # Доктор в архиве есть, но про железо, ускорение и камеру не говорит ничего,
+    # а target_hardware_acceptance.py написан ровно для машины владельца и до
+    # сих пор существовал только в клоне репозитория. Здесь он едет как
+    # БИБЛИОТЕКА определения CPU/GPU/памяти; собственный его прогон по-прежнему
+    # требует клона, потому что три его проверки указывают на scripts/.
+    (ROOT / "tools" / "owner_machine_report.py", "owner_machine_report.py"),
+    (ROOT / "scripts" / "target_hardware_acceptance.py", "target_hardware_acceptance.py"),
 )
 
 START_CMD = r"""@echo off
@@ -79,6 +87,16 @@ set "BOSSMAN_HOME=%~dp0"
 call "%BOSSMAN_HOME%app-support\_env.cmd"
 if errorlevel 1 exit /b 1
 "%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\bundle_evening_test.py" %*
+exit /b %ERRORLEVEL%
+"""
+
+MACHINE_CMD = r"""@echo off
+setlocal
+rem Seven separated stages about THIS machine. No repository required.
+set "BOSSMAN_HOME=%~dp0"
+call "%BOSSMAN_HOME%app-support\_env.cmd"
+if errorlevel 1 exit /b 1
+"%BOSSMAN_HOME%runtime\python.exe" "%BOSSMAN_HOME%app-support\owner_machine_report.py" %*
 exit /b %ERRORLEVEL%
 """
 
@@ -129,6 +147,7 @@ def launcher_files() -> dict[str, str]:
     return {
         "Start-Bossman.cmd": START_CMD,
         "Evening-Test.cmd": EVENING_CMD,
+        "Machine-Report.cmd": MACHINE_CMD,
         "app-support/_env.cmd": ENV_CMD,
     }
 
@@ -286,17 +305,32 @@ def install_media(media: Path, work: Path, ffmpeg_zip: str | None) -> tuple[dict
             "acquired_by": "first run of Start-Bossman.cmd",
         }])
     archive = fetch(ffmpeg_zip, work / "ffmpeg.zip")
+    notices = []
     with zipfile.ZipFile(archive) as zf:
         for member in zf.namelist():
             name = Path(member).name.lower()
             if name in {"ffmpeg.exe", "ffprobe.exe"}:
                 with zf.open(member) as src, (media / name).open("wb") as dst:
                     shutil.copyfileobj(src, dst)
+            # Preserve upstream licence texts, including dependency notices.
+            # Flattening them could replace distinct libraries' LICENSE files.
+            parts = Path(member).parts
+            is_notice = name.startswith(("license", "licence", "copying", "readme")) or any(
+                part.lower() in {"licenses", "licences"} for part in parts)
+            if is_notice and not member.endswith("/"):
+                if Path(member).is_absolute() or ".." in parts or any(":" in p for p in parts):
+                    raise RuntimeError(f"unsafe media notice path: {member}")
+                target = media.parent / "LICENSES" / "ffmpeg" / member
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with zf.open(member) as src, target.open("wb") as dst:
+                    shutil.copyfileobj(src, dst)
+                notices.append(target.relative_to(media.parent).as_posix())
     missing = [n for n in ("ffmpeg.exe", "ffprobe.exe") if not (media / n).exists()]
     if missing:
         raise RuntimeError(f"{ffmpeg_zip} contained no {', '.join(missing)}")
     return ({"ffmpeg": "media/ffmpeg.exe", "ffprobe": "media/ffprobe.exe",
-             "source": ffmpeg_zip, "sha256": sha256_file(archive)}, [])
+             "source": ffmpeg_zip, "sha256": sha256_file(archive),
+             "license_files": notices}, [])
 
 
 def install_icons(icons: Path) -> dict:

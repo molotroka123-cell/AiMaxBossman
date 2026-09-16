@@ -43,6 +43,8 @@ function lazyPage(meta, load, pick) {
 }
 
 export const FEATURE_PAGES = [
+  lazyPage({ id: 'oss', title: 'Локальные инструменты', icon: 'system', nav: 'more', section: 'system' },
+    () => import('./oss.js'), (m) => m.default),
   lazyPage({ id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary', section: 'studio' },
     () => import('./video_studio.js'), (m) => m.default),
   lazyPage({ id: 'bossman-chat', title: 'История видео и чат', icon: 'terminal', section: 'studio', nav: 'more' },

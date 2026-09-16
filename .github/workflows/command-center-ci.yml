@@ -22,7 +22,10 @@ permissions:
 
 concurrency:
   group: command-center-ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Parallel work on the shared branch must not repeatedly discard the
+  # 21–30 minute browser/coverage suite. Finish the running SHA; GitHub keeps
+  # only the newest pending run in this concurrency group.
+  cancel-in-progress: false
 
 jobs:
   test:

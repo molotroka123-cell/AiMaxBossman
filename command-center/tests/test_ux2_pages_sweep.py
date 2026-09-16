@@ -131,3 +131,52 @@ def test_every_page_fits_mobile_viewport(live):  # noqa: F811
 
     assert overflow == [], "\n".join(overflow)
     assert errors == [], "\n".join(errors)
+
+
+@pytest.mark.skipif(not chromium_available(), reason=browser_reason())
+def test_mobile_drawer_items_are_actually_clickable(live):  # noqa: F811
+    """На телефоне выдвинутое меню должно НАЖИМАТЬСЯ, а не просто выезжать.
+
+    Найдено обходом интерфейса, и обычная проверка «меню открылось» этого не
+    видела: ящик выезжал, пункты были видимы, обработчик исправен — и ни один
+    пункт не нажимался. `.scrim` растянут на весь экран через `inset: 0` с
+    `z-index: 60`, а `.sidebar` в мобильной раскладке z-index не получал и
+    оставался на базовых 40. Подложка лежала ПОВЕРХ ящика, и владелец на
+    телефоне терял всю навигацию, кроме пяти страниц нижней панели.
+
+    Проверяется владельческим путём: настоящий клик по кнопке меню, потом
+    настоящий клик по пункту, и переход подтверждается сменой адреса. Плюс
+    прямая улика причины — `elementFromPoint` в центре пункта обязан вернуть сам
+    пункт, а не подложку; именно это различает «сломан обработчик» и «перекрыто
+    сверху», и именно оно делает отказ самообъясняющим, а не «клик не прошёл».
+    """
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        page = browser.new_page(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
+        try:
+            _login(page, live)
+            page.wait_for_selector("#mobile-menu", state="visible", timeout=20000)
+            page.wait_for_function("document.querySelectorAll('#nav .nav-item').length > 0", timeout=20000)
+            page.click("#mobile-menu")
+            page.wait_for_function("document.querySelector('.shell').classList.contains('menu-open')",
+                                   timeout=5000)
+
+            item = page.locator("#nav .nav-item").nth(1)
+            item.wait_for(state="visible", timeout=5000)
+            on_top = item.evaluate("""el => {
+                const r = el.getBoundingClientRect();
+                const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+                return {top: hit ? (hit.id || hit.className || hit.tagName) : null,
+                        covered: !!(hit && el !== hit && !el.contains(hit) && !hit.contains(el))};
+            }""")
+            assert not on_top["covered"], (
+                f"пункт меню перекрыт сверху элементом {on_top['top']!r}: ящик выехал, "
+                "но нажать его нельзя — это НЕ «обработчик сломан»")
+
+            before = page.evaluate("location.hash")
+            item.click(timeout=5000)
+            page.wait_for_function("h => location.hash !== h", arg=before, timeout=5000)
+        finally:
+            browser.close()

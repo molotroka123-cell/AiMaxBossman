@@ -114,3 +114,82 @@ def test_isolation_undo_conflict_and_cancel_keep_owner_data(live):
             assert 'OTHER TAB' in stored(page, pid)
         finally:
             browser.close()
+
+
+def test_responsive_and_print_styles_keep_their_media_after_edit_and_reload(live):
+    """Preview must match authored media conditions, not flatten print/mobile CSS."""
+    from playwright.sync_api import sync_playwright, expect
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page(viewport={'width': 1440, 'height': 1000})
+            _login(page, live)
+            pid = seed(page)
+            page.evaluate('''async id => {
+              const html = '<html><head><title>Responsive</title>'
+                + '<style>h1{color:rgb(180,20,30)}</style>'
+                + '<style media="(max-width: 480px)">h1{color:rgb(20,40,180)}</style>'
+                + '<style media="print">h1{display:none}</style>'
+                + '</head><body><h1>RESPONSIVE BEFORE</h1><p>Paragraph</p></body></html>';
+              const r = await fetch('/api/web-designer/projects/'+id+'/code', {method:'PUT',
+                headers:{'Content-Type':'application/json','X-BCC-CSRF':localStorage.getItem('bcc.csrf')},
+                body:JSON.stringify({html})});
+              if(!r.ok) throw new Error('fixture save failed');
+            }''', pid)
+            page.goto(live.url + f'/#/web_designer?project={pid}')
+            dialog, canvas = open_editor(page)
+            heading = canvas.locator('h1')
+            expect(heading).to_be_visible()
+            expect(heading).to_have_css('color', 'rgb(180, 20, 30)')
+            controls = page.frame_locator('iframe[title="Конструктор блоков"]')
+            controls.get_by_label('Размер экрана').select_option(label='Телефон')
+            expect(heading).to_have_css('color', 'rgb(20, 40, 180)')
+            heading.dblclick()
+            page.keyboard.press('ControlOrMeta+a')
+            page.keyboard.type('RESPONSIVE AFTER')
+            canvas.locator('p').click()
+            controls.get_by_role('button', name='↶ Отменить').click()
+            expect(heading).to_have_text('RESPONSIVE BEFORE')
+            controls.get_by_role('button', name='↷ Повторить').click()
+            expect(heading).to_have_text('RESPONSIVE AFTER')
+            controls.get_by_label('Размер экрана').select_option(label='Компьютер')
+            expect(heading).to_have_css('color', 'rgb(180, 20, 30)')
+            dialog.get_by_role('button', name='Сохранить сайт', exact=True).click()
+            dialog.wait_for(state='detached')
+            after = stored(page, pid)
+            assert '<style media="print">h1{display:none}</style>' in after
+            assert '<style media="(max-width: 480px)">h1{color:rgb(20,40,180)}</style>' in after
+            page.reload()
+            _, canvas = open_editor(page)
+            expect(canvas.locator('h1')).to_be_visible()
+            expect(canvas.locator('h1')).to_have_text('RESPONSIVE AFTER')
+            expect(canvas.locator('h1')).to_have_css('color', 'rgb(180, 20, 30)')
+        finally:
+            browser.close()
+
+
+def test_download_matches_saved_removal_of_body_attributes(live):
+    """Exercise upstream wrapper state, then actual download and save buttons."""
+    from pathlib import Path
+    from bcc.web_designer_visual import parts
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page(viewport={'width': 1440, 'height': 1000})
+            _login(page, live)
+            pid = seed(page)
+            page.goto(live.url + f'/#/web_designer?project={pid}')
+            dialog, _ = open_editor(page)
+            shell = next(f for f in page.frames if f.url.startswith('data:text/html'))
+            shell.evaluate("grapesjs.editors[0].getWrapper().setClass([])")
+            dialog.get_by_role('status').filter(has_text='несохранённые').wait_for()
+            with page.expect_download() as downloaded:
+                dialog.get_by_role('button', name='Скачать черновик', exact=True).click()
+            draft = Path(downloaded.value.path()).read_text(encoding='utf-8')
+            assert 'class' not in parts(draft)['body_attributes']
+            dialog.get_by_role('button', name='Сохранить сайт', exact=True).click()
+            dialog.wait_for(state='detached')
+            assert parts(draft)['body_attributes'] == parts(stored(page, pid))['body_attributes']
+        finally:
+            browser.close()

@@ -99,11 +99,18 @@ def identity(path: Path) -> dict:
                     after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns):
                 raise ValueError("file changed while it was measured; refresh the preview")
             return {"sha256": digest.hexdigest(), "size": after.st_size,
-                    "device": after.st_dev, "inode": after.st_ino}
+                    # Windows file IDs exceed JavaScript's exact integer range.
+                    # The browser must return the exact identity it approved.
+                    "device": str(after.st_dev), "inode": str(after.st_ino)}
 
 
 def require_identity(path: Path, expected: dict) -> None:
-    if not isinstance(expected, dict) or identity(path) != expected:
+    # Existing durable batch journals contain integers; retain their recovery
+    # path without rounding or weakening the file/content identity comparison.
+    measured = identity(path)
+    canonical = ({**expected, "device": str(expected.get("device")),
+                  "inode": str(expected.get("inode"))} if isinstance(expected, dict) else None)
+    if measured != canonical:
         raise ValueError("source changed since preview; refresh the plan")
 
 
@@ -148,8 +155,9 @@ def move_no_replace(src: Path, dst: Path, expected: dict, policy: FilePolicy) ->
         try:
             source_stat = os.stat(source, dir_fd=source_fd, follow_symlinks=False)
             target_stat = os.stat(target, dir_fd=target_fd, follow_symlinks=False)
-            if (source_stat.st_dev, source_stat.st_ino) != (expected["device"], expected["inode"]) or (
-                    target_stat.st_dev, target_stat.st_ino) != (expected["device"], expected["inode"]):
+            expected_id = (str(expected["device"]), str(expected["inode"]))
+            if (str(source_stat.st_dev), str(source_stat.st_ino)) != expected_id or (
+                    str(target_stat.st_dev), str(target_stat.st_ino)) != expected_id:
                 raise ValueError("file identity changed at effect time")
             policy.allowed(src)
             policy.allowed(dst)
@@ -157,6 +165,6 @@ def move_no_replace(src: Path, dst: Path, expected: dict, policy: FilePolicy) ->
         except (OSError, ValueError):
             # Remove only the link created by this operation. The original
             # remains; a replaced target is never removed during cleanup.
-            if os.stat(target, dir_fd=target_fd, follow_symlinks=False).st_ino == expected["inode"]:
+            if str(os.stat(target, dir_fd=target_fd, follow_symlinks=False).st_ino) == str(expected["inode"]):
                 os.unlink(target, dir_fd=target_fd)
             raise

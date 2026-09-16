@@ -43,6 +43,11 @@ def parts(html):
         "body_attributes": dict(body.attrs),
         "css": css([n for n in styles if STYLE_ATTR in n.attrs]),
         "base_css": css([n for n in styles if STYLE_ATTR not in n.attrs]),
+        # Keep stylesheet boundaries: flattening discards media/type conditions,
+        # so print-only or mobile styles would incorrectly affect every canvas.
+        "base_styles": [{"text": css([n]), "media": n.attrs.get("media") or "",
+                         "type": n.attrs.get("type") or ""}
+                        for n in styles if STYLE_ATTR not in n.attrs],
     }
 
 

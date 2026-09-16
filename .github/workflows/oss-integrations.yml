@@ -1,0 +1,104 @@
+name: OSS integrations — Windows and Linux
+
+on:
+  push:
+    branches: [claude/bossman-final-convergence-hu2702]
+    paths:
+      - 'command-center/bcc/**'
+      - 'command-center/ui/**'
+      - 'command-center/pyproject.toml'
+      - 'command-center/tests/test_oss_*.py'
+      - 'command-center/tests/test_llamacpp_catalog.py'
+      - 'command-center/tests/test_searxng_setup.py'
+      - 'command-center/tests/test_web_research_net.py'
+      - 'command-center/tests/test_feat_images.py'
+      - 'command-center/tests/test_v6_lazy_pages.py'
+      - 'command-center/tests/test_web_designer_grapesjs_ui.py'
+      - 'command-center/tests/test_ux2_thinking_pane.py'
+      - 'command-center/tests/conftest.py'
+      - 'command-center/tests/browser_support.py'
+      - 'bossman-core/bossman/computer_operator/**'
+      - 'bossman-core/tests/**uitars**'
+      - 'config/oss/**'
+      - '.github/workflows/oss-integrations.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oss-integrations-${{ github.ref }}
+  # This repair gate follows changed runtime code; unrelated owner-test commits
+  # must not replace its pending run. Full product/freeze workflows stay separate.
+  cancel-in-progress: true
+
+jobs:
+  upstream-contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    env:
+      PYTHONUTF8: '1'
+      BCC_REQUIRE_BROWSER: '1'
+    steps:
+      - name: Preserve source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: command-center/pyproject.toml
+      - name: Install real optional upstream packages
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . -e "./command-center[dev,browser,documents,speech,semantic-memory]" -e ./bossman-core
+          python -m pip check
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Optional engines and existing application contracts
+        shell: python
+        run: |
+          import pathlib, subprocess, sys
+          tests = sorted(str(p) for p in pathlib.Path('command-center/tests').glob('test_oss_*.py'))
+          tests += ['command-center/tests/test_llamacpp_catalog.py',
+                    'command-center/tests/test_searxng_setup.py',
+                    'command-center/tests/test_web_research_net.py',
+                    'command-center/tests/test_feat_images.py',
+                    'command-center/tests/test_v6_lazy_pages.py',
+                    'command-center/tests/test_web_designer_grapesjs_ui.py']
+          result = subprocess.run([sys.executable, '-m', 'pytest', *tests, '-q',
+                                   '--junitxml=oss-contracts.xml', '--timeout=180'])
+          raise SystemExit(result.returncode)
+      - name: UI-TARS through existing operator safeguards
+        shell: python
+        run: |
+          import pathlib, subprocess, sys
+          tests = sorted(str(p) for p in pathlib.Path('bossman-core/tests').rglob('*uitars*.py'))
+          if not tests:
+              raise SystemExit('UI-TARS tests missing')
+          raise SystemExit(subprocess.call([sys.executable, '-m', 'pytest', *tests, '-q', '--junitxml=uitars.xml']))
+      - name: Reject skipped OSS contract tests
+        shell: python
+        run: |
+          import xml.etree.ElementTree as ET
+          for name in ('oss-contracts.xml', 'uitars.xml'):
+              root = ET.parse(name).getroot()
+              skipped = root.findall('.//testcase/skipped')
+              if skipped:
+                  raise SystemExit(f'{name}: {len(skipped)} skipped tests; upstream validation incomplete')
+      - name: Preserve exact-commit test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oss-tests-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            oss-contracts.xml
+            uitars.xml
+          if-no-files-found: warn

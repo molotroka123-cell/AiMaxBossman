@@ -114,6 +114,15 @@ def build_app(settings: Settings | None = None, service: VisionService | None = 
         health = svc.health()
         return {"status": health["status"], "app": health["app"]}
 
+    @app.get("/readyz")
+    async def readyz(svc: VisionService = Depends(get_service)) -> dict:
+        # The lifespan has initialized and started the service before requests
+        # reach this endpoint. Configuration/calibration belongs to workload
+        # health, not whether the owner's configuration UI can be opened.
+        health = svc.health()
+        return {"status": "ready", "scope": "http-service",
+                "workload_status": health["status"], "app": health["app"]}
+
     @app.get("/api/v1/health", dependencies=[Depends(authorise)])
     async def health(svc: VisionService = Depends(get_service)) -> dict:
         return svc.health()
