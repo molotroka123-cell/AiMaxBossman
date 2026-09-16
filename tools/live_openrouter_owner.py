@@ -70,6 +70,31 @@ def answer_ok(case: str, answer: str) -> bool:
     return case == 'instruction_following' and answer.strip().splitlines() == ['Прага', 'Брно', 'Острава']
 
 
+def failure_reason(*, passed: bool, task_status, runs: list, answer: str, case: str) -> str:
+    """Разные исходы — разные слова.
+
+    Отсутствующий ключ, 429, недоступная модель, таймаут и неверный ответ
+    обязаны читаться из live-model.json по-разному. До этой функции все они
+    сливались в один FAIL с пустым answer, и отличить лимит бесплатной модели
+    от её глупости по улике было нельзя. Вердикт здесь не считается — только
+    называется причина уже принятого решения.
+    """
+    if passed:
+        return 'ok'
+    if task_status not in TERMINAL:
+        return 'timeout'
+    if task_status == 'completed':
+        return 'contract_violation' if answer_ok(case, answer) else 'wrong_answer'
+    text = ' | '.join(str(run.get('error') or '') for run in runs).lower()
+    if '429' in text or 'rate limit' in text or 'rate_limit' in text or 'too many requests' in text:
+        return 'rate_limited'
+    if '404' in text or 'not found' in text or 'no endpoints' in text or 'unavailable' in text:
+        return 'model_unavailable'
+    if '401' in text or '403' in text or 'unauthorized' in text or 'invalid api key' in text:
+        return 'key_rejected'
+    return 'provider_error' if text.strip() else 'failed_without_error_text'
+
+
 def redact(value, secret: str):
     if isinstance(value, str):
         value = value.replace(secret, '[REDACTED]') if secret else value
@@ -162,6 +187,11 @@ def exercise(model, secret, args, report, trajectories):
                                       'case': case, 'prompt': prompt, 'answer': answer[:8192],
                                       'task_id': task_id, 'task_status': result.get('task', {}).get('status'),
                                       'status': 'PASS' if passed else 'FAIL', 'restart_persistence': 'NOT_RUN',
+                                      'reason': failure_reason(passed=passed, task_status=result.get('task', {}).get('status'),
+                                                               runs=runs, answer=answer, case=case),
+                                      # Текст ошибок прогона — единственное, что отличает 429 от
+                                      # недоступной модели. redact() при записи вычищает ключ.
+                                      'errors': [str(run.get('error'))[:300] for run in runs if run.get('error')],
                                       'usage': [{key: run.get(key) for key in ('tokens_in', 'tokens_out', 'cost_usd', 'model_alias')} for run in runs],
                                       'training_weights_updated': False}
                             trajectories.append(record)

@@ -68,3 +68,30 @@ def test_missing_secret_never_imports_app_or_claims_pass(tmp_path, monkeypatch):
 def test_timeout_cannot_remove_attempt_bound(tmp_path, timeout):
     with pytest.raises(SystemExit):
         live.main(['--output', str(tmp_path / 'out.json'), '--expected-sha', 'a' * 40, '--timeout', timeout])
+
+
+@pytest.mark.parametrize('task_status,error,answer,expected', [
+    ('failed', 'ProviderError: HTTP 429 Rate limit exceeded: free-models-per-day', '', 'rate_limited'),
+    ('failed', 'ProviderError: HTTP 404 No endpoints found for stub/alpha:free', '', 'model_unavailable'),
+    ('failed', 'ProviderError: HTTP 401 Unauthorized: invalid API key', '', 'key_rejected'),
+    ('failed', 'ProviderError: chat/completions: сервер вернул невалидный JSON', '', 'provider_error'),
+    ('failed', None, '', 'failed_without_error_text'),
+    ('running', None, '', 'timeout'),
+    ('completed', None, '392', 'wrong_answer'),
+])
+def test_failure_reason_keeps_distinct_failures_distinct(task_status, error, answer, expected):
+    """§3: отсутствующий ключ, 429, недоступная модель и неверный ответ — разные результаты."""
+    runs = [{'error': error, 'status': task_status}]
+    assert live.failure_reason(passed=False, task_status=task_status, runs=runs,
+                               answer=answer, case='arithmetic') == expected
+
+
+def test_failure_reason_never_says_ok_for_a_failed_task():
+    """Негативный контроль: «ok» только когда прогон действительно принят."""
+    assert live.failure_reason(passed=True, task_status='completed', runs=[], answer='391', case='arithmetic') == 'ok'
+    # Верный ответ, но контракт нарушен (например, ненулевая цена): не ok и не wrong_answer.
+    assert live.failure_reason(passed=False, task_status='completed', runs=[{'cost_usd': 0.01}],
+                               answer='391', case='arithmetic') == 'contract_violation'
+    # Никакой текст ошибки не должен превращать провал в успех.
+    assert live.failure_reason(passed=False, task_status='failed', runs=[{'error': 'ok'}],
+                               answer='391', case='arithmetic') != 'ok'
