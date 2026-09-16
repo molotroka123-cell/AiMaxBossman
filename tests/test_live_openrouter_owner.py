@@ -95,3 +95,17 @@ def test_failure_reason_never_says_ok_for_a_failed_task():
     # Никакой текст ошибки не должен превращать провал в успех.
     assert live.failure_reason(passed=False, task_status='failed', runs=[{'error': 'ok'}],
                                answer='391', case='arithmetic') != 'ok'
+
+
+def test_task_lines_name_the_reason_and_never_the_secret():
+    """Причина каждой задачи обязана попасть в журнал шага, а ключ — нет."""
+    secret = 'sk-or-v1-' + 'a' * 40
+    rows = [{'model': 'stub/alpha:free', 'case': 'structured_data', 'status': 'FAIL',
+             'restart_persistence': 'PASS', 'reason': 'rate_limited',
+             'errors': [f'429 for key {secret}: попробуйте позже']}]
+    lines = live.task_lines(rows, secret)
+    assert len(lines) == 1 and lines[0].startswith('LIVE_TASK ')
+    assert 'reason=rate_limited' in lines[0] and 'case=structured_data' in lines[0]
+    assert secret not in lines[0] and '[REDACTED]' in lines[0]
+    # Негативный контроль: без задач — без строк; печать не выдумывает записи.
+    assert live.task_lines([], secret) == []

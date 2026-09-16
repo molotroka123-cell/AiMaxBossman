@@ -223,6 +223,24 @@ def exercise(model, secret, args, report, trajectories):
                 owner.stop(process)
 
 
+def task_lines(trajectories: list, secret: str) -> list[str]:
+    """Строка на задачу для журнала задания.
+
+    live-model.json уходит артефактом, а артефакт не всегда достижим (BL-061:
+    хост артефактов может быть закрыт политикой сети). Журнал шага доступен
+    всегда, поэтому причина каждой задачи обязана быть и в нём. Строки
+    проходят redact(): ключ в журнал не попадает.
+    """
+    lines = []
+    for row in trajectories:
+        safe = redact(row, secret)
+        errors = ' | '.join(safe.get('errors') or [])[:160]
+        lines.append(f"LIVE_TASK model={safe.get('model')} case={safe.get('case')} status={safe.get('status')} "
+                     f"restart={safe.get('restart_persistence')} reason={safe.get('reason')}"
+                     + (f" errors={errors}" if errors else ''))
+    return lines
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
@@ -278,6 +296,8 @@ def main(argv=None):
         if args.trajectories:
             args.trajectories.parent.mkdir(parents=True, exist_ok=True)
             args.trajectories.write_text(''.join(json.dumps(redact(row, secret), ensure_ascii=False) + '\n' for row in trajectories), encoding='utf-8')
+    for line in task_lines(trajectories, secret):
+        print(line)
     print('BOSSMAN_FREE_LIVE=' + report['status'])
     return {'PASS': 0, 'FAIL': 1, 'OWNER_REQUIRED': 2}[report['status']]
 
