@@ -65,6 +65,26 @@ def test_the_lock_is_read_with_its_pins(lock):
     assert lock["python"]["version"] == "3.12.11"
 
 
+def test_build_tools_must_match_their_digest_and_pins(tmp_path, lock):
+    json_path, txt_path = tmp_path / "windows_bundle_lock.json", tmp_path / "windows_bundle_lock.txt"
+    tools_txt = "setuptools==80.0.0 \\\n    --hash=sha256:" + "4" * 64 + "\n"
+    (tmp_path / "windows_bundle_build_tools.txt").write_text(tools_txt, encoding="utf-8")
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    data["build_tools"] = {"file": "windows_bundle_build_tools.txt", "sha256": sha256(tools_txt.encode("utf-8")),
+                           "pins": {"setuptools": "80.0.0"}}
+    json_path.write_text(json.dumps(data), encoding="utf-8")
+    assert lockmod.load(json_path, txt_path)["_build_tools_txt"] == tmp_path / "windows_bundle_build_tools.txt"
+    data["build_tools"]["pins"] = {"setuptools": "80.0.1"}
+    json_path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="build tool pins"):
+        lockmod.load(json_path, txt_path)
+    data["build_tools"]["pins"] = {"setuptools": "80.0.0"}
+    data["build_tools"]["sha256"] = "5" * 64
+    json_path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="build tools file"):
+        lockmod.load(json_path, txt_path)
+
+
 @pytest.mark.parametrize("damage", ["txt_edited", "count", "digest", "schema", "unpinned_line", "twice"])
 def test_a_lock_that_does_not_match_itself_is_refused(tmp_path, lock, damage):
     json_path, txt_path = tmp_path / "windows_bundle_lock.json", tmp_path / "windows_bundle_lock.txt"
@@ -101,6 +121,17 @@ def test_the_committed_lock_if_present_is_consistent():
     assert lock["platform"] == {"os": "windows", "arch": "amd64", "python_tag": "cp312"}
     assert lockmod.FFMPEG_ASSET.match(lock["ffmpeg"]["asset"]), "only an immutable release-branch asset"
     assert "latest" not in lock["ffmpeg"]["url"]
+    assert lock["ffmpeg"]["api_digest_matched"] is True
+    assert lock["ffmpeg"]["probe"]["default_export"]["fully_decoded"] is True
+    assert lock["python"]["version"].startswith("3.12.")
+    # The build tools that build the sdists are pinned beside the lock.
+    assert lock["_build_tools_txt"].is_file()
+    assert set(lock["build_tools"]["pins"]) == {"pip", "setuptools", "wheel"}
+    assert lock["build_tools"]["source_distributions_in_lock"], "the record names what needs building"
+    for name in lock["build_tools"]["source_distributions_in_lock"]:
+        assert lockmod.normalize(name) in lock["_pins"], name
+    workflow = (REPO / ".github" / "workflows" / "windows-bundle.yml").read_text(encoding="utf-8")
+    assert "--require-hashes --requirement tools/windows_bundle_build_tools.txt" in workflow
 
 
 # ---------------------------------------------------------------- recording
@@ -226,6 +257,7 @@ def test_locked_packages_are_installed_in_hash_checking_mode_without_an_index(tm
     assert download[:3] == ["download", "--no-deps", "--require-hashes"]
     assert "--requirement" in download and str(lock["_txt"]) in download
     assert install[:2] == ["install", "--no-index"] and "--require-hashes" in install and "--no-deps" in install
+    assert "--no-build-isolation" in install, "the lock's source distributions are built by the pinned tools"
     assert "--find-links" in install and str(tmp_path / "work" / "wheelhouse") in install
     assert ours[:4] == ["install", "--no-index", "--no-deps", "--target"]
     assert all(arg.endswith(".whl") for arg in ours[5:]) and len(ours[5:]) == 3

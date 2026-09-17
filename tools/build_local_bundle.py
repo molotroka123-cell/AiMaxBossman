@@ -93,13 +93,15 @@ def prepare_output(path: Path) -> Path:
     return out
 
 
-def build_wheels(wheels: Path, source_root: Path | None = None) -> list[Path]:
+def build_wheels(wheels: Path, source_root: Path | None = None, *, build_isolation: bool = True) -> list[Path]:
+    """``build_isolation=False`` builds with the interpreter's own (pinned) setuptools."""
     source_root = source_root or ROOT
     wheels.mkdir(parents=True, exist_ok=True)
     for name, project in PROJECTS:
         print(f"  building {name}", flush=True)
         project = source_root / project.relative_to(ROOT)
         _run([sys.executable, "-m", "pip", "wheel", "--no-deps",
+              *([] if build_isolation else ["--no-build-isolation"]),
               "--wheel-dir", str(wheels), str(project)], cwd=source_root)
     built = sorted(wheels.glob("*.whl"))
     if len(built) != len(PROJECTS):

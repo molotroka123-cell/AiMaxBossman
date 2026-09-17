@@ -54,6 +54,7 @@ on:
       - 'tools/windows_bundle_lock.py'
       - 'tools/windows_bundle_lock.json'
       - 'tools/windows_bundle_lock.txt'
+      - 'tools/windows_bundle_build_tools.txt'
       # Коммит, меняющий ТОЛЬКО тесты, архив не меняет и очередь занимать не
       # должен. Под push эти исключения наконец работают: фильтр смотрит на
       # файлы самого пуша.
@@ -125,8 +126,11 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - name: Build tooling only (the bundle brings its own runtime)
-        run: python -m pip install --upgrade pip wheel
+      # OA-03: pip, setuptools and wheel by version and digest. They build the
+      # Bossman wheels and the lock's six source distributions; nothing here
+      # ships in the archive.
+      - name: Build tooling only, pinned (the bundle brings its own runtime)
+        run: python -m pip install --require-hashes --requirement tools/windows_bundle_build_tools.txt
       - name: The canonical icon is current before it is packaged
         run: python tools/app_icons.py --check
       - name: Build the single downloadable application

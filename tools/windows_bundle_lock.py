@@ -50,6 +50,7 @@ from urllib.request import Request, urlopen
 TOOLS = Path(__file__).resolve().parent
 LOCK_JSON = TOOLS / "windows_bundle_lock.json"
 LOCK_TXT = TOOLS / "windows_bundle_lock.txt"
+BUILD_TOOLS_TXT = TOOLS / "windows_bundle_build_tools.txt"
 EMBED_URL = "https://www.python.org/ftp/python/{v}/python-{v}-embed-amd64.zip"
 FFMPEG_RELEASES = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases?per_page=20"
 # A release-branch build of one exact upstream commit, e.g.
@@ -97,6 +98,19 @@ def load(json_path: Path = LOCK_JSON, txt_path: Path = LOCK_TXT) -> dict | None:
         raise ValueError("windows bundle lock: requirement count does not match")
     lock["_pins"] = pins
     lock["_txt"] = txt_path
+    # The build tools that build the Bossman wheels and the lock's source
+    # distributions on the runner: pinned and hashed like everything else.
+    tools = lock.get("build_tools")
+    if tools is not None:
+        tools_path = txt_path.with_name(str(tools.get("file") or BUILD_TOOLS_TXT.name))
+        if not isinstance(tools, dict) or not tools_path.is_file():
+            raise ValueError("windows bundle lock: build_tools file is missing")
+        if sha256_file(tools_path) != tools.get("sha256"):
+            raise ValueError("windows bundle lock: build tools file does not match its digest")
+        tool_pins = requirement_pins(tools_path.read_text(encoding="utf-8"))
+        if tool_pins != {normalize(k): v for k, v in (tools.get("pins") or {}).items()} or not tool_pins:
+            raise ValueError("windows bundle lock: build tool pins do not match the JSON")
+        lock["_build_tools_txt"] = tools_path
     return lock
 
 
@@ -292,7 +306,8 @@ def main(argv: list[str] | None = None) -> int:
         print("BOSSMAN_BUILD_INPUTS=UNLOCKED (tools/windows_bundle_lock.json is absent)")
         return 1
     pins = lock.pop("_pins")
-    lock.pop("_txt")
+    for key in [key for key in lock if key.startswith("_")]:
+        lock.pop(key)
     print(json.dumps({**lock, "requirements": {**lock["requirements"], "pins": pins}}, indent=2, ensure_ascii=False))
     return 0
 

@@ -363,8 +363,13 @@ def install_packages(runtime: Path, wheels: Path, lock: dict | None = None,
         requirements = str(lock["_txt"])
         run([*pip, "download", "--no-deps", "--require-hashes", "--dest", str(wheelhouse),
              "--requirement", requirements])
+        # --no-build-isolation: the lock's few source distributions (the
+        # PyAutoGUI family ships no wheels) are built by the build runner's
+        # PINNED setuptools/wheel (windows_bundle_build_tools.txt), never by a
+        # backend pip would fetch from an index behind the lock's back.
         run([*pip, "install", "--no-index", "--find-links", str(wheelhouse), "--require-hashes",
-             "--no-deps", "--target", str(site_packages), "--requirement", requirements])
+             "--no-deps", "--no-build-isolation", "--target", str(site_packages),
+             "--requirement", requirements])
         run([*pip, "install", "--no-index", "--no-deps", "--target", str(site_packages),
              *[str(wheel) for wheel in built]])
     else:
@@ -651,7 +656,9 @@ def main(argv: list[str] | None = None) -> int:
           f"({'inputs locked: ' + lock['recorded_at'] if lock else 'BOSSMAN_BUILD_INPUTS=UNLOCKED'})", flush=True)
     wheels = work / "wheels"
     with local.clean_source_snapshot(sha) as snapshot:
-        local.build_wheels(wheels, snapshot)
+        # Locked: the Bossman wheels too are built by the pinned build tools,
+        # not by a setuptools pip would resolve at build time.
+        local.build_wheels(wheels, snapshot, build_isolation=not lock)
 
     contents, required = assemble(out, sha, wheels=wheels, work=work, ffmpeg_zip=args.ffmpeg_zip, lock=lock)
     if args.profile == "release" and required:
