@@ -1,0 +1,9 @@
+{
+  "AUDIT_RU.md": "62aec246b389bf6ddd973662fd0c38c0b72e74807e5f2b236e44745fdead24b3",
+  "MASTER_PROMPT_RU.md": "d4fffdc48cdbf61bc3591258f214054b380c44c205a5befeeff893e8f7534c5f",
+  "README_RU.md": "9552a2dc689954a51a4467492ec0b663ef963c13daaf8bacf63016f07381499a",
+  "reproduction_results.json": "0ab2ccfada873e9319d457f6bf789167cef5bd825647a3a180ef9aad27521fdc",
+  "reproduce_findings.py": "a3c8f5654a8300029a020e36b985a37b524e16c1e96df2f216fb49ecc17259df",
+  "source/astra6_freeze.py": "63d2ce5adc5a901171be26f600a3e62905d45317ca842dc0eb4ba8d7a18c989a",
+  "source/bundle_evening_test.py": "bd3344ce0a43ecbe40286a841cfc7c4211d0c42eb9a86f181b616088f0ddb2ad"
+}
