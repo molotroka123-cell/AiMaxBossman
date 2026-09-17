@@ -45,6 +45,7 @@ import acceptance_registry  # noqa: E402
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 RUN_ID = re.compile(r"[A-Za-z0-9_.:-]{1,64}\Z")
+ARCHIVE_NAME = re.compile(r"BOSSMAN-Windows-x64-[0-9a-f]{12}\.zip\Z")
 REPORTS = ("bundle-acceptance.json", "ui-sweep.json", "live-model.json", "results.xml")
 STATUSES = ("PASS", "FAIL", "OWNER_REQUIRED", "REVIEW_REQUIRED", "NOT_RUN", "SKIPPED", "PARTIAL")
 CONTRACT_VERSION = 2
@@ -151,6 +152,8 @@ def build_manifest(evidence_dir: Path, source_sha: str, job_statuses: list[str],
     evidence: dict = {}
     bindings: dict = {}
     archive_sha256 = None
+    archive_name = None
+    archive_bytes = None
     if not SHA.fullmatch(source_sha):
         blocked.append("source_sha_invalid")
     if len(job_statuses) < 2 or any(status != "success" for status in job_statuses):
@@ -209,6 +212,20 @@ def build_manifest(evidence_dir: Path, source_sha: str, job_statuses: list[str],
                     blocked.append(f"{name}:archive_sha256_invalid")
                 else:
                     archive_sha256 = digest
+                # The archive's own name and size, as the bundle job measured them.
+                # Validated shapes only: a name of the shipped pattern and an
+                # integer byte count — never an arbitrary string from the report.
+                candidate = details.get("archive")
+                if isinstance(candidate, str) and ARCHIVE_NAME.fullmatch(candidate) \
+                        and candidate[len("BOSSMAN-Windows-x64-"):-4] == source_sha[:12]:
+                    archive_name = candidate
+                else:
+                    blocked.append(f"{name}:archive_name_invalid")
+                size = details.get("archive_bytes")
+                if isinstance(size, int) and not isinstance(size, bool) and size > 0:
+                    archive_bytes = size
+                else:
+                    blocked.append(f"{name}:archive_bytes_invalid")
                 if report.get("problems"):
                     blocked.append(f"{name}:reported_problems")
                 verdict = details.get("evening_verdict")
@@ -224,6 +241,8 @@ def build_manifest(evidence_dir: Path, source_sha: str, job_statuses: list[str],
             blocked.append(f"{name}:malformed")
     payload_binding = _bind(bindings, source_sha, archive_sha256, blocked)
     status = "BLOCKED" if blocked else "OWNER_REQUIRED" if owner_required else "FROZEN"
+    release_state = {"FROZEN": "FROZEN", "OWNER_REQUIRED": "WINDOWS_RC_READY_OWNER_REQUIRED",
+                     "BLOCKED": "BLOCKED"}[status]
     return {
         "schema_version": 1,
         "contract_version": CONTRACT_VERSION,
@@ -239,6 +258,9 @@ def build_manifest(evidence_dir: Path, source_sha: str, job_statuses: list[str],
         "intelligence_preservation": "NOT_VERIFIED_BY_THIS_MANIFEST",
         "target_hardware_acceptance": "OWNER_REQUIRED",
         "model_weights_trained": False,
+        "release_state": release_state,
+        "archive": archive_name,
+        "archive_bytes": archive_bytes,
         "archive_sha256": archive_sha256,
         "archive_digest_origin": "bundle-acceptance.json; archive bytes are not rehashed by this aggregator",
         "payload_binding": payload_binding,
@@ -294,6 +316,9 @@ def main(argv=None) -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"BOSSMAN_ASTRA6_FREEZE={report['status']}")
+    print(f"BOSSMAN_ASTRA6_RELEASE_STATE={report['release_state']}")
+    if report["archive"]:
+        print(f"BOSSMAN_ASTRA6_ARCHIVE={report['archive']} bytes={report['archive_bytes']} sha256={report['archive_sha256']}")
     ready = report["publish_gate"]["release_ready"]
     print(f"BOSSMAN_ASTRA6_RELEASE_READY={'YES' if ready else 'NO'}")
     if args.require_frozen and not ready:

@@ -68,7 +68,8 @@ def evidence(tmp_path):
     reports = {
         "bundle-acceptance.json": {
             "status": "PASS", "expected_sha": SHA, "problems": [], "binding": binding(),
-            "details": {"archive_sha256": ARCHIVE, "evening_verdict": "PASS",
+            "details": {"archive_sha256": ARCHIVE, "archive": f"BOSSMAN-Windows-x64-{SHA[:12]}.zip",
+                        "archive_bytes": 759148513, "evening_verdict": "PASS",
                         "evening_returncode": 0, "evening_negative_control": "PASS",
                         "build_inputs_locked": True}},
         "ui-sweep.json": {"status": "PASS", "source_sha": SHA, "binding": binding(),
@@ -100,6 +101,8 @@ def test_the_real_complete_set_freezes_and_binds_without_copying_secrets(evidenc
     rewrite(path, lambda obj: obj.update(payload="private-provider-secret"))
     report = manifest(evidence)
     assert report["status"] == "FROZEN", report["blockers"]
+    assert report["release_state"] == "FROZEN"
+    assert report["archive"] == f"BOSSMAN-Windows-x64-{SHA[:12]}.zip" and report["archive_bytes"] == 759148513
     assert report["publish_gate"]["release_ready"] is True
     assert report["contract_version"] == 2
     assert report["archive_sha256"] == ARCHIVE
@@ -293,6 +296,29 @@ def test_the_archive_digest_the_reports_name_must_be_the_measured_one(evidence):
     assert report["status"] == "BLOCKED"
     assert report["archive_sha256"] == "c" * 64
     assert all(f"{name}:not_bound_to_payload" in report["blockers"] for name in freeze.REPORTS)
+
+
+@pytest.mark.parametrize("field,value,blocker", [
+    ("archive", "BOSSMAN-Windows-x64-cccccccccccc.zip", "archive_name_invalid"),   # another commit's name
+    ("archive", "Source code.zip", "archive_name_invalid"),
+    ("archive", None, "archive_name_invalid"),
+    ("archive_bytes", 0, "archive_bytes_invalid"),
+    ("archive_bytes", "759148513", "archive_bytes_invalid"),
+    ("archive_bytes", None, "archive_bytes_invalid"),
+])
+def test_the_manifest_binds_the_archive_name_and_size_it_was_measured_on(evidence, field, value, blocker):
+    rewrite(evidence / "bundle-acceptance.json", lambda obj: obj["details"].update({field: value}))
+    report = manifest(evidence)
+    assert report["status"] == "BLOCKED"
+    assert f"bundle-acceptance.json:{blocker}" in report["blockers"]
+
+
+def test_release_state_names_the_truthful_narrower_status(evidence):
+    assert manifest(evidence)["release_state"] == "FROZEN"
+    (evidence / "live-model.json").unlink()
+    assert manifest(evidence)["release_state"] == "WINDOWS_RC_READY_OWNER_REQUIRED"
+    rewrite(evidence / "ui-sweep.json", lambda obj: obj.update(status="FAIL"))
+    assert manifest(evidence)["release_state"] == "BLOCKED"
 
 
 def test_archive_digest_required(evidence):

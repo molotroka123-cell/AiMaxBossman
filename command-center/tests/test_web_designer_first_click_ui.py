@@ -12,7 +12,10 @@ click by three independent witnesses:
   ``id`` is the target's, and on no other element;
 * the host inspector prints ``h1#first-click-target`` as the element and as
   its path (the path is unique because the id is);
-* a decoy paragraph directly below the target stays unselected.
+* a decoy paragraph directly below the target stays unselected;
+* «Применить» on that selection changes exactly that node in the saved code
+  (the decoy's text is untouched), and the change is still there after a real
+  process restart and a fresh preview.
 
 Readiness is documented, not guessed: the picker script has installed itself
 (``window.__bdPicker``), the target is laid out with a non-empty box, the
@@ -35,15 +38,19 @@ from .browser_support import (chromium_available, hover_until_acknowledged, prev
                               reason as browser_reason, required)
 from .test_ux2_thinking_pane import _launch
 from .test_editors_user_acceptance import editor_server, login as _login  # noqa: F401
+from .test_web_designer_apply_idempotent_ui import _code, _wait_code
 
 pytestmark = [pytest.mark.timeout(180),
               pytest.mark.skipif(not chromium_available() and not required(), reason=browser_reason())]
 
 TARGET_ID = "first-click-target"
 DECOY_ID = "first-click-decoy"
+SAVED = "FIRST CLICK 20260917"
+EDITED = "FIRST CLICK EDITED 20260917"
+DECOY_TEXT = "decoy directly below the heading"
 HTML = ("<!doctype html><html><body>"
-        f"<h1 id=\"{TARGET_ID}\">FIRST CLICK 20260917</h1>"
-        f"<p id=\"{DECOY_ID}\">decoy directly below the heading</p>"
+        f"<h1 id=\"{TARGET_ID}\">{SAVED}</h1>"
+        f"<p id=\"{DECOY_ID}\">{DECOY_TEXT}</p>"
         "</body></html>")
 
 
@@ -144,7 +151,7 @@ def _assert_exact_node(page, spot: dict, console: list[str], name: str) -> None:
 
 @pytest.mark.parametrize("zoom", [None, "0.5"])
 def test_one_click_selects_the_exact_node_not_its_neighbour(live, zoom):
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import expect, sync_playwright
 
     with sync_playwright() as pw:
         browser = _launch(pw)
@@ -153,7 +160,7 @@ def test_one_click_selects_the_exact_node_not_its_neighbour(live, zoom):
             console: list[str] = []
             page.on("console", lambda m: console.append(f"{m.type}: {m.text}"))
             page.on("pageerror", lambda e: console.append(f"pageerror: {e}"))
-            _seed_project(page, live)
+            pid = _seed_project(page, live)
             page.goto(live.url + "/#/web_designer")
             page.wait_for_selector("iframe.bd-frame", timeout=15000)
             spot = _one_click(page, zoom, console)
@@ -163,5 +170,27 @@ def test_one_click_selects_the_exact_node_not_its_neighbour(live, zoom):
             guest = preview_frame(page)
             assert guest.evaluate(
                 "id => document.getElementById(id).hasAttribute('data-bd-selected')", DECOY_ID) is False
+
+            # Apply on that one selection changes exactly that node in the saved code.
+            row = page.locator("div.bd-row", has_text="Текст").first
+            row.wait_for(timeout=10000)
+            field = row.locator("input[type=text]").first
+            page.wait_for_function("([el, want]) => el.value === want", arg=[field.element_handle(), SAVED],
+                                   timeout=10000)
+            field.fill(EDITED)
+            row.get_by_role("button", name="Применить").click()
+            code = _wait_code(page, pid, lambda c: EDITED in c, console=console)
+            assert f'id="{TARGET_ID}">{EDITED}</h1>' in code, code[:300]
+            assert SAVED not in code and DECOY_TEXT in code, code[:300]
+
+            # A real process restart keeps the change; the fresh preview shows it.
+            live.restart()
+            page.reload()
+            page.locator("iframe.bd-frame").wait_for(timeout=15000)
+            expect(page.frame_locator("iframe.bd-frame").locator(f"#{TARGET_ID}")).to_have_text(EDITED)
+            expect(page.frame_locator("iframe.bd-frame").locator(f"#{DECOY_ID}")).to_have_text(DECOY_TEXT)
+            persisted = _code(page, pid)
+            assert f'id="{TARGET_ID}">{EDITED}</h1>' in persisted and DECOY_TEXT in persisted
+            assert not [line for line in console if line.startswith("pageerror")], console
         finally:
             browser.close()
