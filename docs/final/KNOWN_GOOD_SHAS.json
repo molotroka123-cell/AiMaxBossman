@@ -1,6 +1,6 @@
 {
  "schema_version": 1,
- "recorded_at": "2026-09-11",
+ "recorded_at": "2026-09-17",
  "note": "Точки, о которых известно ЧТО ИМЕННО на них проверено. Не список зелёных галочек. `proven` — то, что кто-то измерил; `not_proven` — то, что на этом SHA НЕ показывали, и это часть записи, а не оговорка.",
  "entries": [
   {
@@ -120,6 +120,39 @@
     "поток D (файлы) целиком: без локальной модели предлагать имена нечему",
     "замер удержания интеллекта: модели по-прежнему нет; гейт остаётся INSUFFICIENT_EVIDENCE намеренно",
     "целевое железо Ryzen AI Max+ 395: ни одного числа"
+   ]
+  },
+  {
+   "sha": "e39610de2c997aa98e22a74ce932daf7d8189b5b",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "ПЕРВЫЙ КАНДИДАТ ПО ЗАМКУ ВХОДОВ (BL-071) И КОНТРАКТУ ПРИЁМКИ v2 (BL-069/070): один Windows-архив, release_state WINDOWS_RC_READY_OWNER_REQUIRED",
+   "archive": {
+    "name": "BOSSMAN-Windows-x64-e39610de2c99.zip",
+    "bytes": 782842928,
+    "sha256": "a09067173b360a2c106748d6e1349a376c84e5740a469d55bab39da86ea7c0e6",
+    "actions_run": 35242661545,
+    "actions_artifact": 10506711233,
+    "artifact_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35242661545/artifacts/10506711233",
+    "artifact_expires": "2026-10-17"
+   },
+   "proven": [
+    "сборка по замку: BOSSMAN_BUILD_INPUTS=LOCKED profile=release, required_downloads=0; замок прогона совпал с закоммиченным (116 пинов, CPython 3.12.10, FFmpeg n8.1-11-g75d37c499d)",
+    "BOSSMAN_BUNDLE_ACCEPTANCE=PASS на Windows-раннере; вечерняя приёмка запущена ИЗ скачанного архива без репозитория: доктор OK, OWNER_EVENING_RESULT=PASS",
+    "приёмка установленного архива: 42 из 42 по профилю windows-installed (14 модулей ровно по реестру), JUnit привязан к source_sha/archive_sha256/run_id/harness_sha",
+    "BL-063: один клик выбирает ровно нужный узел на установленном архиве, 2 из 2 (масштаб по ширине и 0.5), «Применить» меняет этот узел, правка переживает перезапуск",
+    "развёртка установленного приложения: PASS, 30 страниц, 118 нажатий, мёртвых/ошибочных/молча выключенных/исчезнувших 0",
+    "история после перезапуска: 1422 мс при бюджете 5000",
+    "заморозка: OWNER_REQUIRED, release_state WINDOWS_RC_READY_OWNER_REQUIRED, блокеров нет; единственная причина — live-model.json:not_passed",
+    "Command Center CI (pytest 3.11/3.12/3.14, windows paths, секреты/JS), root-ci, editors-user-safety, shipped-apps, local bundle, ASTRA, Solana, PostgreSQL — зелёные на этом SHA"
+   ],
+   "not_proven": [
+    "живая модель: BOSSMAN_FREE_LIVE=OWNER_REQUIRED — секрет пуст, 2 модели × 3 задачи не выполнялись",
+    "агентная задача с настоящей моделью: харнесс доказан только заглушкой (BL-073)",
+    "железо владельца: ни одного числа; раннер запускается из архива (app-support/target_hardware_acceptance.py)",
+    "сохранность интеллекта: INSUFFICIENT_EVIDENCE намеренно (measured intelligence retention красный)",
+    "Authenticode: архив не подписан",
+    "обновление/откат между двумя архивами с сохранением данных владельца: не проверялось",
+    "публикация Release на GitHub: из среды агента недоступна — операция владельца по INSTALL.md"
    ]
   }
  ]
