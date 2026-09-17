@@ -69,7 +69,8 @@ def evidence(tmp_path):
         "bundle-acceptance.json": {
             "status": "PASS", "expected_sha": SHA, "problems": [], "binding": binding(),
             "details": {"archive_sha256": ARCHIVE, "evening_verdict": "PASS",
-                        "evening_returncode": 0, "evening_negative_control": "PASS"}},
+                        "evening_returncode": 0, "evening_negative_control": "PASS",
+                        "build_inputs_locked": True}},
         "ui-sweep.json": {"status": "PASS", "source_sha": SHA, "binding": binding(),
                           "counts": {"works": 46, "opens_feature": 32}},
         "live-model.json": {"status": "PASS", "source_sha": SHA, "binding": binding(),
@@ -310,6 +311,15 @@ def test_a_bundle_pass_must_carry_a_passing_evening_verdict(evidence, verdict, c
     report = manifest(evidence)
     assert report["status"] == "BLOCKED"
     assert "bundle-acceptance.json:status_inconsistent" in report["blockers"]
+
+
+@pytest.mark.parametrize("value", [False, None, "yes"])
+def test_an_archive_built_from_unlocked_inputs_is_not_a_release_candidate(evidence, value):
+    """OA-03: build_inputs.locked comes from the archive's MANIFEST via the verifier."""
+    rewrite(evidence / "bundle-acceptance.json", lambda obj: obj["details"].update(build_inputs_locked=value))
+    report = manifest(evidence)
+    assert report["status"] == "BLOCKED"
+    assert "bundle-acceptance.json:build_inputs_not_locked" in report["blockers"]
 
 
 def test_a_bundle_pass_requires_the_on_archive_negative_control(evidence):

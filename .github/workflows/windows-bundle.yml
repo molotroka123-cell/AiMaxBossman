@@ -47,6 +47,10 @@ on:
       - 'tools/require_acceptance_results.py'
       - 'tools/acceptance_registry.py'
       - 'tools/acceptance_registry.json'
+      # Замок входов сборки (OA-03): новая запись — новая сборка.
+      - 'tools/windows_bundle_lock.py'
+      - 'tools/windows_bundle_lock.json'
+      - 'tools/windows_bundle_lock.txt'
       # Коммит, меняющий ТОЛЬКО тесты, архив не меняет и очередь занимать не
       # должен. Под push эти исключения наконец работают: фильтр смотрит на
       # файлы самого пуша.
@@ -124,7 +128,24 @@ jobs:
       - name: Build the single downloadable application
         run: >-
           python tools/build_windows_bundle.py
-          --out "${{ runner.temp }}/bossman-dist" --zip
+          --out "${{ runner.temp }}/bossman-dist" --zip --profile release
+      # OA-03. The only place the real win_amd64/cp312 resolution exists is this
+      # runner: the step resolves it without installing (pip --dry-run --report),
+      # pins the embeddable CPython and the newest IMMUTABLE FFmpeg release asset
+      # by digest, and prints the two lock files between BOSSMAN_LOCK_*_BEGIN/END
+      # markers. They are copied into tools/ from this log; from then on the
+      # build downloads nothing it was not told the digest of. The step never
+      # decides the acceptance of this archive.
+      - name: Record the build-input lock this resolution produced (OA-03)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          python tools/windows_bundle_lock.py record
+          --wheels "${{ runner.temp }}/bossman-dist/_work/wheels"
+          --dist "${{ runner.temp }}/bossman-dist"
+          --out "${{ runner.temp }}/bossman-lock"
       - name: Locate the archive
         shell: python
         run: |

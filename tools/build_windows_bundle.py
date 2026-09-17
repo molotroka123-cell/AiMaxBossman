@@ -25,7 +25,19 @@ Honesty rules this file obeys:
 * nothing is stamped with a commit unless the tree is clean and still that
   commit when the build finishes;
 * build-time acquisition failures fail the build. A bundle missing Chromium is
-  not quietly relabelled as a bundle that never wanted Chromium.
+  not quietly relabelled as a bundle that never wanted Chromium;
+* with ``tools/windows_bundle_lock.json`` present (OA-03) every input is
+  pinned before it is read: the embeddable CPython zip and the FFmpeg release
+  asset are hashed against the lock before extraction, third-party packages
+  come from a wheelhouse pip downloaded in hash-checking mode and are
+  installed with ``--no-index --require-hashes``, the Bossman wheels are
+  installed ``--no-deps`` on top, and the EMBEDDED interpreter is asked which
+  distributions it actually sees. Without the lock the build still runs, says
+  ``BOSSMAN_BUILD_INPUTS=UNLOCKED`` and writes ``build_inputs.locked=false``;
+  the freeze aggregator refuses to release such an archive;
+* the ``release`` profile (the default) fails on a missing FFmpeg instead of
+  writing it into ``required_downloads``: a standalone product does not ask
+  the owner's first run to fetch its media tools.
 """
 from __future__ import annotations
 
@@ -43,6 +55,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
+import windows_bundle_lock as lockmod  # noqa: E402
 
 # python.org publishes an immutable embeddable build per patch release. The
 # version is taken from the interpreter doing the build, so the wheels that pip
@@ -188,10 +201,40 @@ def fetch(url: str, target: Path) -> Path:
     return target
 
 
-def install_runtime(runtime: Path, work: Path) -> dict:
-    """Embeddable CPython, with site-packages switched on."""
-    version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-    archive = fetch(EMBED_URL.format(v=version), work / f"python-{version}-embed.zip")
+def fetch_pinned(url: str, target: Path, expected_sha256: str | None) -> Path:
+    """Download, then refuse to hand back a file whose digest is not the locked one.
+
+    The check happens here, before any caller extracts or runs the download:
+    a wrong FFmpeg or a wrong CPython never reaches the archive.
+    """
+    archive = fetch(url, target)
+    if expected_sha256:
+        found = sha256_file(archive)
+        if found != expected_sha256:
+            archive.unlink(missing_ok=True)
+            raise RuntimeError(f"digest mismatch for {url}: lock says {expected_sha256}, "
+                               f"downloaded {found}; the build stops before extraction")
+        print(f"  digest verified {found[:16]}…", flush=True)
+    return archive
+
+
+def install_runtime(runtime: Path, work: Path, lock: dict | None = None) -> dict:
+    """Embeddable CPython, with site-packages switched on.
+
+    Locked: the exact patch and zip digest from the lock (the build interpreter
+    only has to share the minor version, wheels are tagged cp3XY). Unlocked:
+    the version of the interpreter doing the build, as before.
+    """
+    if lock:
+        version = lock["python"]["version"]
+        if tuple(int(part) for part in version.split(".")[:2]) != sys.version_info[:2]:
+            raise RuntimeError(f"the lock pins CPython {version}; the build interpreter is "
+                               f"{sys.version_info.major}.{sys.version_info.minor}")
+        archive = fetch_pinned(lock["python"]["embeddable_url"], work / f"python-{version}-embed.zip",
+                               lock["python"]["embeddable_sha256"])
+    else:
+        version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        archive = fetch(EMBED_URL.format(v=version), work / f"python-{version}-embed.zip")
     runtime.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(archive) as zf:
         zf.extractall(runtime)
@@ -209,7 +252,8 @@ def install_runtime(runtime: Path, work: Path) -> dict:
         text = text.replace("\nimport site", "\nLib\\site-packages\nimport site")
     pth.write_text(text, encoding="utf-8")
     (runtime / "Lib" / "site-packages").mkdir(parents=True, exist_ok=True)
-    return {"python_version": version, "embeddable_sha256": sha256_file(archive)}
+    return {"python_version": version, "embeddable_sha256": sha256_file(archive),
+            "pinned": bool(lock)}
 
 
 def pip_requirements(wheels: list[Path]) -> list[str]:
@@ -259,16 +303,34 @@ def console_scripts(site_packages: Path) -> dict[str, str]:
     return found
 
 
-def install_packages(runtime: Path, wheels: Path) -> dict:
-    """Bossman wheels and every third-party dependency, into the runtime."""
+def install_packages(runtime: Path, wheels: Path, lock: dict | None = None,
+                     work: Path | None = None) -> dict:
+    """Bossman wheels and every third-party dependency, into the runtime.
+
+    Locked: pip downloads exactly the files the lock hashes (``--require-hashes``
+    refuses anything else), installs them from that wheelhouse with
+    ``--no-index`` (no resolver, no index), then the Bossman wheels go on top
+    with ``--no-deps`` — their dependencies are the locked set by construction.
+    Unlocked: the old ``pip install --upgrade --target`` resolution.
+    """
     site_packages = runtime / "Lib" / "site-packages"
     built = sorted(wheels.glob("*.whl"))
     if not built:
         raise RuntimeError("no Bossman wheels to install")
-    run([sys.executable, "-m", "pip", "install", "--upgrade",
-         "--target", str(site_packages), *pip_requirements(built)])
-    listing = run([sys.executable, "-m", "pip", "list", "--path", str(site_packages),
-                   "--format=json"]).stdout
+    pip = [sys.executable, "-m", "pip"]
+    if lock:
+        wheelhouse = (work or wheels.parent) / "wheelhouse"
+        wheelhouse.mkdir(parents=True, exist_ok=True)
+        requirements = str(lock["_txt"])
+        run([*pip, "download", "--no-deps", "--require-hashes", "--dest", str(wheelhouse),
+             "--requirement", requirements])
+        run([*pip, "install", "--no-index", "--find-links", str(wheelhouse), "--require-hashes",
+             "--no-deps", "--target", str(site_packages), "--requirement", requirements])
+        run([*pip, "install", "--no-index", "--no-deps", "--target", str(site_packages),
+             *[str(wheel) for wheel in built]])
+    else:
+        run([*pip, "install", "--upgrade", "--target", str(site_packages), *pip_requirements(built)])
+    listing = run([*pip, "list", "--path", str(site_packages), "--format=json"]).stdout
 
     entry_points = console_scripts(site_packages)
     # The wrappers pip left behind belong to the build machine's interpreter.
@@ -280,31 +342,122 @@ def install_packages(runtime: Path, wheels: Path) -> dict:
     for name, spec in sorted(entry_points.items()):
         (scripts / f"{name}.cmd").write_text(console_shim(spec), encoding="utf-8")
     return {"packages": json.loads(listing), "bossman_wheels": [w.name for w in built],
-            "console_scripts": sorted(entry_points)}
+            "console_scripts": sorted(entry_points), "pinned": bool(lock),
+            "resolver": "none: wheelhouse in pip hash-checking mode" if lock else "pip at build time"}
 
 
-def install_browser(browser: Path, runtime: Path) -> dict:
-    """Chromium, resolved by the Playwright that is actually shipped."""
+def normalize_bytecode(runtime: Path) -> dict:
+    """Hash-based .pyc for the shipped packages: same sources, same bytes.
+
+    pip compiles timestamp-based bytecode, and the timestamp is the moment the
+    file was extracted on the build runner — two builds of one lock differed
+    in every .pyc. ``unchecked-hash`` bytecode (PEP 552) depends only on the
+    source, and a shipped runtime whose sources never change loses nothing.
+    """
+    python = runtime / "python.exe"
+    site_packages = runtime / "Lib" / "site-packages"
+    done = subprocess.run([str(python), "-I", "-m", "compileall", "-q", "-f",
+                           "--invalidation-mode", "unchecked-hash", str(site_packages)],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace",
+                          timeout=1800)
+    if done.returncode:
+        # Some vendored files never compiled anywhere; say so, ship as is.
+        print("  bytecode normalisation incomplete: " + (done.stderr or done.stdout or "")[-800:], flush=True)
+    return {"normalized": done.returncode == 0, "mode": "unchecked-hash"}
+
+
+def verify_runtime(runtime: Path, wheels: Path, lock: dict | None = None) -> dict:
+    """Ask the EMBEDDED interpreter, in isolated mode, what it can import and sees.
+
+    The build machine's Python is not the one the owner runs. The product
+    modules must import from the runtime, and — when locked — the set of
+    installed distributions must be exactly the lock plus the Bossman wheels:
+    nothing missing, nothing extra, no other version.
+    """
+    python = runtime / "python.exe"
+    probe = (
+        "import importlib.metadata as m, json, re, sys\n"
+        "import bcc, bossman, bossman_shared, playwright\n"
+        "norm = lambda n: re.sub(r'[-_.]+', '-', n).lower()\n"
+        "seen = {}\n"
+        "for d in m.distributions():\n"
+        "    name = norm(d.metadata['Name'])\n"
+        "    seen.setdefault(name, set()).add(d.version)\n"
+        "print(json.dumps({'distributions': {k: sorted(v) for k, v in seen.items()},"
+        " 'bcc': bcc.__file__, 'executable': sys.executable, 'isolated': bool(sys.flags.isolated)}))\n"
+    )
+    done = subprocess.run([str(python), "-I", "-c", probe], cwd=str(runtime.parent),
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+    if done.returncode:
+        raise RuntimeError("the embedded interpreter cannot import the product: " + (done.stderr or "")[-1500:])
+    payload = json.loads(done.stdout.strip().splitlines()[-1])
+    if not Path(payload["bcc"]).resolve().is_relative_to(runtime.resolve()):
+        raise RuntimeError(f"the embedded interpreter imported bcc from outside the runtime: {payload['bcc']}")
+    seen = {name: versions for name, versions in payload["distributions"].items()}
+    duplicated = sorted(name for name, versions in seen.items() if len(versions) > 1)
+    if duplicated:
+        raise RuntimeError(f"two versions of one distribution in the runtime: {duplicated}")
+    result = {"verified_by_embedded_python": True, "distribution_count": len(seen),
+              "isolated": payload["isolated"]}
+    if lock:
+        expected = dict(lock["_pins"])
+        for wheel in sorted(wheels.glob("*.whl")):
+            name, version = wheel.name.split("-")[:2]
+            expected[lockmod.normalize(name)] = version
+        actual = {name: versions[0] for name, versions in seen.items()}
+        missing = sorted(set(expected) - set(actual))
+        extra = sorted(set(actual) - set(expected))
+        wrong = sorted(name for name in set(expected) & set(actual) if expected[name] != actual[name])
+        if missing or extra or wrong:
+            raise RuntimeError("the embedded runtime is not the locked set: "
+                               f"missing={missing} extra={extra} other_version={wrong}")
+        result["matches_lock"] = True
+    return result
+
+
+def install_browser(browser: Path, runtime: Path, lock: dict | None = None) -> dict:
+    """Chromium, resolved by the Playwright that is actually shipped.
+
+    The locked Playwright version fixes the Chromium revision it installs;
+    the lock names the directory that revision produced, and a different one
+    means a different browser than the one accepted.
+    """
     browser.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, PLAYWRIGHT_BROWSERS_PATH=str(browser))
     python = runtime / "python.exe"
     run([str(python), "-m", "playwright", "install", "chromium"], env=env)
-    found = sorted(browser.glob("chromium-*"))
+    found = sorted(p.name for p in browser.glob("chromium-*"))
     if not found:
         raise RuntimeError("Playwright reported success but installed no Chromium")
-    return {"chromium_dirs": [p.name for p in found]}
+    expected = (lock or {}).get("chromium") or {}
+    pinned = bool(expected.get("directories"))
+    if pinned and found != sorted(expected["directories"]):
+        raise RuntimeError(f"the locked Playwright installed {found}, the lock names {expected['directories']}")
+    return {"chromium_dirs": found, "pinned": pinned}
 
 
-def install_media(media: Path, work: Path, ffmpeg_zip: str | None) -> tuple[dict, list[dict]]:
-    """ffmpeg + ffprobe. Missing is reported, never silently dropped."""
+def install_media(media: Path, work: Path, ffmpeg_zip: str | None,
+                  lock: dict | None = None) -> tuple[dict, list[dict]]:
+    """ffmpeg + ffprobe. Missing is reported, never silently dropped.
+
+    Locked: the immutable release asset from the lock, digest-checked before
+    a single member is extracted; the URL given on the command line is ignored
+    and said so. Unlocked: the URL as supplied.
+    """
     media.mkdir(parents=True, exist_ok=True)
+    expected_sha256 = None
+    if lock:
+        if ffmpeg_zip and ffmpeg_zip != lock["ffmpeg"]["url"]:
+            print(f"  ignoring --ffmpeg-zip {ffmpeg_zip}: the lock pins {lock['ffmpeg']['asset']}", flush=True)
+        ffmpeg_zip = lock["ffmpeg"]["url"]
+        expected_sha256 = lock["ffmpeg"]["sha256"]
     if not ffmpeg_zip:
         return ({"ffmpeg": None, "ffprobe": None}, [{
             "component": "ffmpeg",
             "reason": "no --ffmpeg-zip supplied to the build",
             "acquired_by": "first run of Start-Bossman.cmd",
         }])
-    archive = fetch(ffmpeg_zip, work / "ffmpeg.zip")
+    archive = fetch_pinned(ffmpeg_zip, work / "ffmpeg.zip", expected_sha256)
     notices = []
     with zipfile.ZipFile(archive) as zf:
         for member in zf.namelist():
@@ -330,6 +483,7 @@ def install_media(media: Path, work: Path, ffmpeg_zip: str | None) -> tuple[dict
         raise RuntimeError(f"{ffmpeg_zip} contained no {', '.join(missing)}")
     return ({"ffmpeg": "media/ffmpeg.exe", "ffprobe": "media/ffprobe.exe",
              "source": ffmpeg_zip, "sha256": sha256_file(archive),
+             "pinned": expected_sha256 is not None,
              "license_files": notices}, [])
 
 
@@ -374,14 +528,16 @@ def write_licenses(licenses: Path, contents: dict) -> None:
 # ------------------------------------------------------------------ assemble
 
 def assemble(out: Path, sha: str, *, wheels: Path, work: Path,
-             ffmpeg_zip: str | None) -> tuple[dict, list[dict]]:
+             ffmpeg_zip: str | None, lock: dict | None = None) -> tuple[dict, list[dict]]:
     for name in BUNDLE_DIRS:
         (out / name).mkdir(parents=True, exist_ok=True)
     contents: dict = {}
-    contents["runtime"] = install_runtime(out / "runtime", work)
-    contents["runtime"].update(install_packages(out / "runtime", wheels))
-    contents["browser"] = install_browser(out / "browser", out / "runtime")
-    media, required = install_media(out / "media", work, ffmpeg_zip)
+    contents["runtime"] = install_runtime(out / "runtime", work, lock)
+    contents["runtime"].update(install_packages(out / "runtime", wheels, lock, work))
+    contents["runtime"]["bytecode"] = normalize_bytecode(out / "runtime")
+    contents["runtime"]["embedded_check"] = verify_runtime(out / "runtime", wheels, lock)
+    contents["browser"] = install_browser(out / "browser", out / "runtime", lock)
+    media, required = install_media(out / "media", work, ffmpeg_zip, lock)
     contents["media"] = media
     contents["icons"] = install_icons(out / "icons")
     install_support(out / "app-support")
@@ -400,6 +556,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ffmpeg-zip", default=os.environ.get("BOSSMAN_FFMPEG_ZIP") or None,
                         help="URL of a Windows ffmpeg zip containing ffmpeg.exe and ffprobe.exe")
     parser.add_argument("--zip", action="store_true", help="also write the .zip archive")
+    parser.add_argument("--profile", choices=("release", "diagnostic"), default="release",
+                        help="release (default) fails on anything the first run would have to fetch")
     args = parser.parse_args(argv)
 
     if os.name != "nt":
@@ -422,23 +580,31 @@ def main(argv: list[str] | None = None) -> int:
     work = out_root / "_work"
     work.mkdir(parents=True, exist_ok=True)
 
-    print(f"building {out.name} from {sha}", flush=True)
+    lock = lockmod.load()
+    print(f"building {out.name} from {sha} "
+          f"({'inputs locked: ' + lock['recorded_at'] if lock else 'BOSSMAN_BUILD_INPUTS=UNLOCKED'})", flush=True)
     wheels = work / "wheels"
     with local.clean_source_snapshot(sha) as snapshot:
         local.build_wheels(wheels, snapshot)
 
-    contents, required = assemble(out, sha, wheels=wheels, work=work, ffmpeg_zip=args.ffmpeg_zip)
+    contents, required = assemble(out, sha, wheels=wheels, work=work, ffmpeg_zip=args.ffmpeg_zip, lock=lock)
+    if args.profile == "release" and required:
+        raise SystemExit("BOSSMAN_WINDOWS_BUNDLE=FAIL release profile: the archive would still have to fetch "
+                         + ", ".join(str(item.get("component")) for item in required)
+                         + " on first run; supply --ffmpeg-zip or record the lock")
 
     if local._source_sha() != sha or local._source_dirty():
         raise SystemExit("source changed during the build; artifact is not exact-SHA evidence")
 
     when = datetime.now(timezone.utc).isoformat()
+    build_inputs = build_inputs_for(lock, args.profile, contents)
     files = [{"path": p.relative_to(out).as_posix(), "bytes": p.stat().st_size,
               "sha256": sha256_file(p)}
              for p in sorted(out.rglob("*")) if p.is_file()]
     manifest = manifest_for(sha=sha, when=when, files=files, contents=contents,
                             checks={"installed_acceptance": "NOT_RUN"},
                             required_downloads=required)
+    manifest["build_inputs"] = build_inputs
     (out / "MANIFEST.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (out / "SHA256SUMS").write_text(
@@ -457,15 +623,63 @@ def main(argv: list[str] | None = None) -> int:
     total = sum(f["bytes"] for f in files)
     print(f"BOSSMAN_WINDOWS_BUNDLE=BUILT files={len(files)} bytes={total} "
           f"required_downloads={len(required)}", flush=True)
+    print(f"BOSSMAN_BUILD_INPUTS={'LOCKED' if build_inputs['locked'] else 'UNLOCKED'} "
+          f"profile={args.profile}", flush=True)
 
     if args.zip:
         archive = out_root / f"{out.name}.zip"
-        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-            for path in sorted(out.rglob("*")):
-                if path.is_file():
-                    zf.write(path, Path(out.name) / path.relative_to(out))
+        write_archive(out, archive, commit_time(sha))
         print(f"BOSSMAN_WINDOWS_ARCHIVE={archive} bytes={archive.stat().st_size}", flush=True)
     return 0
+
+
+def build_inputs_for(lock: dict | None, profile: str, contents: dict) -> dict:
+    """What the manifest says about how its inputs were chosen."""
+    if not lock:
+        return {"locked": False, "profile": profile, "lock": None,
+                "note": "inputs resolved at build time; not a release candidate until recorded in "
+                        "tools/windows_bundle_lock.json"}
+    return {
+        "locked": True, "profile": profile,
+        "lock": {"recorded_at": lock["recorded_at"], "requirements_sha256": lock["requirements"]["sha256"],
+                 "requirements": lock["requirements"]["count"],
+                 "python": lock["python"]["version"], "ffmpeg": lock["ffmpeg"]["asset"],
+                 "chromium": (lock.get("chromium") or {}).get("directories")},
+        "known_differences_between_builds": [
+            "*.dist-info/direct_url.json of the three Bossman wheels carries the build-time wheel path",
+            "bytecode is unchecked-hash and identical for identical sources; files compileall could not "
+            "compile keep pip's timestamp-based .pyc",
+            "MANIFEST.json built_at and the zip entry order are the only build-time values in the archive",
+        ],
+    }
+
+
+def commit_time(sha: str) -> int:
+    """The commit's own timestamp: the one build-time-free clock the archive has."""
+    try:
+        return int(run(["git", "-C", str(ROOT), "show", "-s", "--format=%ct", sha]).stdout.strip())
+    except (RuntimeError, ValueError):
+        return 315532800  # 1980-01-01, the zip epoch
+
+
+def write_archive(out: Path, archive: Path, timestamp: int) -> None:
+    """One zip, entries sorted, every entry stamped with the commit time.
+
+    ``zipfile.write`` copies the file's mtime — the extraction moment on the
+    build runner — into each entry; two builds of one commit then differ in
+    every header. Stamping the commit time keeps the zip a function of its
+    contents.
+    """
+    stamp = datetime.fromtimestamp(max(timestamp, 315532800), timezone.utc).timetuple()[:6]
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        for path in sorted(out.rglob("*")):
+            if not path.is_file():
+                continue
+            info = zipfile.ZipInfo(str(Path(out.name) / path.relative_to(out)).replace(os.sep, "/"), date_time=stamp)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = (0o644 & 0xFFFF) << 16
+            with path.open("rb") as stream:
+                zf.writestr(info, stream.read())
 
 
 if __name__ == "__main__":

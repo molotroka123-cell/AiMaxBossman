@@ -290,6 +290,12 @@ def main(argv: list[str] | None = None) -> int:
         env = _clean_env(home)
 
         problems += check_manifest(home, args.expected_sha)
+        manifest = json.loads((home / "MANIFEST.json").read_text(encoding="utf-8"))
+        inputs = manifest.get("build_inputs") if isinstance(manifest.get("build_inputs"), dict) else {}
+        # OA-03: a release candidate names every input it was built from.
+        details["build_inputs_locked"] = inputs.get("locked") is True
+        details["build_profile"] = inputs.get("profile")
+        details["required_downloads"] = len(manifest.get("required_downloads") or [])
         problems += check_icons(home)
         problems += check_no_repo_dependency(home, env)
         media_problems, details["media"] = check_media(home, env)

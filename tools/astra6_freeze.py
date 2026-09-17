@@ -24,7 +24,10 @@ The contract it enforces is the one the installed acceptance really runs
   An expected SHA typed into any old file is not a binding;
 * a report's ``status`` must agree with its content: PASS beside a failed
   row, a review-class click count, or an evening verdict that is not PASS
-  is a contradiction, not evidence.
+  is a contradiction, not evidence;
+* the archive was built from locked inputs (OA-03): ``bundle-acceptance.json``
+  carries ``details.build_inputs_locked`` read from the archive's own
+  MANIFEST, and an unlocked build is blocked from FROZEN.
 """
 from __future__ import annotations
 
@@ -215,6 +218,8 @@ def build_manifest(evidence_dir: Path, source_sha: str, job_statuses: list[str],
                     blocked.append(f"{name}:status_inconsistent")
                 if status == "PASS" and details.get("evening_negative_control") != "PASS":
                     blocked.append(f"{name}:negative_control_not_passed")
+                if status in ("PASS", "OWNER_REQUIRED") and details.get("build_inputs_locked") is not True:
+                    blocked.append(f"{name}:build_inputs_not_locked")
         except (OSError, ValueError, TypeError, ET.ParseError):
             blocked.append(f"{name}:malformed")
     payload_binding = _bind(bindings, source_sha, archive_sha256, blocked)
