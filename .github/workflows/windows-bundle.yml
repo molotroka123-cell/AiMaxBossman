@@ -292,7 +292,7 @@ jobs:
           python -m pytest -c command-center/pyproject.toml $profile `
             -q --junitxml="$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/require_acceptance_results.py "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml" --source-sha "$env:BOSSMAN_ACCEPTANCE_SHA"
+          python tools/require_acceptance_results.py "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml" --profile windows-installed --source-sha "$env:BOSSMAN_ACCEPTANCE_SHA"
       # Запас времени владельческих ожиданий — в журнал, а не только в артефакт.
       # Зелёный обязан говорить, НАСКОЛЬКО он зелёный: проход за 0,2 с и проход
       # за 4,8 с при бюджете 5 с — разные утверждения о продукте, а в вердикте

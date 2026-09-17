@@ -102,7 +102,8 @@ def test_the_cli_prints_the_paths_the_workflow_consumes(capsys):
 
 def test_the_windows_gate_runs_the_registry_not_a_typed_list():
     assert "python tools/acceptance_registry.py --paths" in WORKFLOW
-    assert re.search(r"require_acceptance_results\.py .*--source-sha", WORKFLOW), "results must be bound to the SHA"
+    assert re.search(r"require_acceptance_results\.py .*--profile windows-installed .*--source-sha", WORKFLOW), \
+        "the Windows gate judges by the profile and binds the results to the SHA"
     assert "--minimum-tests 40" not in WORKFLOW, "the floor lives in the registry"
 
 
@@ -134,8 +135,8 @@ def test_the_owner_job_binds_evidence_to_the_measured_archive():
 # ----------------------------------------------------- require_acceptance
 
 def test_the_real_profile_passes_the_junit_check(tmp_path):
-    counts = require.verify(write(tmp_path, results(sha=SHA)), source_sha=SHA)
-    assert counts["tests"] == 42 and counts["per_module"] == MODULES
+    counts = require.verify(write(tmp_path, results(sha=SHA)), source_sha=SHA, registry=REGISTRY)
+    assert counts["tests"] == 42 and counts["per_module"] == MODULES and counts["profile"] == "windows-installed"
 
 
 @pytest.mark.parametrize("case", ["thirteen", "repeat", "one_module", "module_short", "failure", "error",
@@ -162,15 +163,38 @@ def test_everything_that_is_not_the_profile_is_refused(tmp_path, case):
     else:
         xml = results({m: 1 for m in MODULES}, sha=sha, extra_module=("test_other", 40))
     with pytest.raises(SystemExit) as failed:
-        require.verify(write(tmp_path, xml), source_sha=sha)
+        require.verify(write(tmp_path, xml), source_sha=sha, registry=REGISTRY)
     assert "Required acceptance did not pass" in str(failed.value)
 
 
 def test_a_command_line_floor_can_only_raise_the_registry_floor(tmp_path):
     path = write(tmp_path, results(sha=SHA))
-    assert require.verify(path, minimum_tests=1, source_sha=SHA)["tests"] == 42
+    assert require.verify(path, minimum_tests=1, source_sha=SHA, registry=REGISTRY)["tests"] == 42
     with pytest.raises(SystemExit):
-        require.verify(path, minimum_tests=43, source_sha=SHA)
+        require.verify(path, minimum_tests=43, source_sha=SHA, registry=REGISTRY)
+
+
+# ------------------------------------------- the plain floor for other suites
+
+def test_other_suites_keep_the_plain_floor_contract(tmp_path):
+    """local-bundle and shipped-apps judge their own suites by --minimum-tests, never by the profile."""
+    four = {m: MODULES[m] for m in ("test_editors_user_acceptance", "test_web_designer_recovery_ui",
+                                    "test_apps_files_browser_owner", "test_apps_files_http_owner")}
+    path = write(tmp_path, results(four))
+    assert require.verify(path, minimum_tests=13)["tests"] == 13
+    with pytest.raises(SystemExit, match="13 clean cases < 14"):
+        require.verify(path, minimum_tests=14)
+    with pytest.raises(SystemExit, match="13 failure"):
+        require.verify(write(tmp_path, results(four, body="<failure/>")), minimum_tests=13)
+    with pytest.raises(SystemExit, match="repeated"):
+        require.verify(write(tmp_path, results(four, repeat=True)), minimum_tests=1)
+    with pytest.raises(ValueError):
+        require.verify(path)
+    for name in ("local-bundle.yml", "shipped-apps.yml"):
+        text = (REPO / ".github" / "workflows" / name).read_text(encoding="utf-8")
+        for line in text.splitlines():
+            if "require_acceptance_results.py" in line:
+                assert "--minimum-tests" in line and "--profile" not in line, (name, line)
 
 
 def test_review_verdicts_are_the_sweep_s_own():
