@@ -42,6 +42,9 @@ Higgsfield, но с байтами, уликами и деньгами под к
 5. [ACCEPTANCE_AND_FREEZE_GATES.md](ACCEPTANCE_AND_FREEZE_GATES.md) — Definition of Done, строки вердиктов, условия жёсткого отказа, как студия входит в контракт приёмки v2 и заморозку.
 6. [ROLLBACK_RISK_AND_SAFETY.md](ROLLBACK_RISK_AND_SAFETY.md) — риски (деньги, ключи, эгресс медиа, дрейф провайдеров, «15 демонов»), откат, kill-критерии.
 7. [MASTER_PROMPT_V8_RU.md](MASTER_PROMPT_V8_RU.md) — готовый мастер-промт для исполняющего агента.
+8. [OWNER_IDEA_OPEN_HIGGSFIELD.md](OWNER_IDEA_OPEN_HIGGSFIELD.md) — идея владельца
+   «вписать open-higgsfield вместо видеоредактора»: что измерено на его клоне,
+   почему это разные инструменты, вердикт `REFERENCE_ONLY` и открытый вопрос.
 
 ## Только официальный Higgsfield
 
