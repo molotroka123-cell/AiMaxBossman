@@ -51,8 +51,8 @@ def write(tmp_path, xml: bytes) -> Path:
 
 def test_the_registry_is_one_consistent_profile():
     assert REGISTRY["profile"] == "windows-installed"
-    assert sum(MODULES.values()) == REGISTRY["junit"]["minimum_tests"] == 40
-    assert len(MODULES) == 13
+    assert sum(MODULES.values()) == REGISTRY["junit"]["minimum_tests"] == 42
+    assert len(MODULES) == 14
     assert REGISTRY["live_model"] == {"models": 2, "cases": ["arithmetic", "structured_data", "instruction_following"]}
 
 
@@ -95,7 +95,7 @@ def test_the_cli_prints_the_paths_the_workflow_consumes(capsys):
     lines = capsys.readouterr().out.splitlines()
     assert lines == acceptance_registry.pytest_paths(REGISTRY)
     assert acceptance_registry.main(["--minimum-tests"]) == 0
-    assert capsys.readouterr().out.strip() == "40"
+    assert capsys.readouterr().out.strip() == "42"
 
 
 # ------------------------------------------------------------- the workflow
@@ -135,7 +135,7 @@ def test_the_owner_job_binds_evidence_to_the_measured_archive():
 
 def test_the_real_profile_passes_the_junit_check(tmp_path):
     counts = require.verify(write(tmp_path, results(sha=SHA)), source_sha=SHA)
-    assert counts["tests"] == 40 and counts["per_module"] == MODULES
+    assert counts["tests"] == 42 and counts["per_module"] == MODULES
 
 
 @pytest.mark.parametrize("case", ["thirteen", "repeat", "one_module", "module_short", "failure", "error",
@@ -168,9 +168,9 @@ def test_everything_that_is_not_the_profile_is_refused(tmp_path, case):
 
 def test_a_command_line_floor_can_only_raise_the_registry_floor(tmp_path):
     path = write(tmp_path, results(sha=SHA))
-    assert require.verify(path, minimum_tests=1, source_sha=SHA)["tests"] == 40
+    assert require.verify(path, minimum_tests=1, source_sha=SHA)["tests"] == 42
     with pytest.raises(SystemExit):
-        require.verify(path, minimum_tests=41, source_sha=SHA)
+        require.verify(path, minimum_tests=43, source_sha=SHA)
 
 
 def test_review_verdicts_are_the_sweep_s_own():

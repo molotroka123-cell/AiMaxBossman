@@ -109,3 +109,25 @@ def test_task_lines_name_the_reason_and_never_the_secret():
     assert secret not in lines[0] and '[REDACTED]' in lines[0]
     # Негативный контроль: без задач — без строк; печать не выдумывает записи.
     assert live.task_lines([], secret) == []
+
+
+# ---------------------------------------------- §7: a timeout is not "no POST"
+
+def test_a_task_that_appeared_during_the_timeout_is_ours_and_not_resubmitted():
+    assert live.reconcile_submission([1, 2], [1, 2, 3]) == 3
+    assert live.reconcile_submission([1, 2], [1, 2]) is None
+    assert live.reconcile_submission([], [7]) == 7
+
+
+def test_two_tasks_appearing_for_one_prompt_stop_the_run_instead_of_guessing():
+    with pytest.raises(RuntimeError, match='ambiguous'):
+        live.reconcile_submission([1], [1, 2, 3])
+
+
+def test_the_helper_reconciles_before_any_retry():
+    """The retry path reads the server list; the response path never does twice."""
+    import inspect
+    source = inspect.getsource(live.submit_through_composer)
+    assert 'before = _tasks_with_prompt(page, prompt)' in source
+    assert 'reconcile_submission(before, _tasks_with_prompt(page, prompt))' in source
+    assert source.index('reconcile_submission') < source.index('continue                                # запроса действительно не было')

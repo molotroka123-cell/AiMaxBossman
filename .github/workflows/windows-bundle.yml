@@ -91,6 +91,7 @@ on:
       - 'command-center/tests/test_unsaved_draft_navigation.py'
       - 'command-center/tests/test_missing_model_and_dead_service_are_human.py'
       - 'command-center/tests/test_oss_memory_refusals.py'
+      - 'command-center/tests/test_web_designer_first_click_ui.py'
       # conftest записывает привязку results.xml к архиву (OA-02).
       - 'command-center/tests/conftest.py'
       - '!bossman-core/tests/**'

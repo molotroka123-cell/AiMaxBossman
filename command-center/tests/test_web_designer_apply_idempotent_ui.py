@@ -32,7 +32,7 @@ def _code(page, pid: int) -> str:
     }""", pid)
 
 
-def _wait_code(page, pid, predicate, timeout=15.0):
+def _wait_code(page, pid, predicate, timeout=15.0, console=None):
     deadline = time.time() + timeout
     while time.time() < deadline:
         code = _code(page, pid)
@@ -55,7 +55,19 @@ def _wait_code(page, pid, predicate, timeout=15.0):
       const r = await fetch('/api/web-designer/projects/' + pid, {credentials: 'include'});
       const j = await r.json(); return {version: j.meta && j.meta.version, status: r.status};
     }""", pid)
-    raise AssertionError(f"code did not settle: {_code(page, pid)[:300]!r}; trace={trace}; server={meta}")
+    # §6 (17.09): console and a screenshot travel with the refusal too.
+    import os
+    from pathlib import Path
+    root = Path(os.environ.get("BOSSMAN_EDITOR_EVIDENCE_DIR") or Path.cwd() / ".bossman-state" / "web-designer")
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        shot = root / f"code-did-not-settle-{pid}-{int(time.time())}.png"
+        page.screenshot(path=str(shot), full_page=True)
+        shot = str(shot)
+    except Exception as exc:  # noqa: BLE001 — evidence, not verdict
+        shot = f"screenshot failed: {type(exc).__name__}"
+    raise AssertionError(f"code did not settle: {_code(page, pid)[:300]!r}; trace={trace}; server={meta}; "
+                         f"console={(console or [])[-10:]!r}; screenshot={shot}")
 
 
 def _apply_text(page, value: str):
@@ -75,7 +87,9 @@ def test_apply_twice_keeps_the_edit(live):
         try:
             page = browser.new_page(viewport={"width": 1440, "height": 900})
             errors: list[str] = []
+            console: list[str] = []
             page.on("pageerror", lambda e: errors.append(str(e)))
+            page.on("console", lambda m: console.append(f"{m.type}: {m.text}"))
             _login(page, live)
             pid = page.evaluate("""async (saved) => {
               const csrf = localStorage.getItem('bcc.csrf') || '';
@@ -102,7 +116,7 @@ def test_apply_twice_keeps_the_edit(live):
             # edit → Apply
             inp.fill(EDITED)
             row.get_by_role("button", name="Применить").click()
-            _wait_code(page, pid, lambda c: EDITED in c and SAVED not in c)
+            _wait_code(page, pid, lambda c: EDITED in c and SAVED not in c, console=console)
 
             # the inspector must now describe the APPLIED element, not the saved one
             row = page.locator("div.bd-row", has_text="Текст").first

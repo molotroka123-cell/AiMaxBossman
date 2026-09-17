@@ -154,8 +154,14 @@ def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15
             # правильно. Владелец подводит указатель к элементу заранее и этого
             # не замечает; тест, который бьёт мышью без наведения, ловит ровно
             # тот единственный потерянный клик.
-            page.mouse.move(spot["x"], spot["y"])
-            page.wait_for_timeout(150)
+            # Готовность — слово самого кадра, а не пауза: пикер помечает
+            # наведённый элемент data-bd-hover, как только события указателя
+            # до него доходят. Замер 17.09 (BL-063, §6): при одном mouse.move +
+            # 150 мс после смены масштаба 1 первый клик из 9 терялся при
+            # ИДЕАЛЬНОЙ геометрии; с ожиданием подтверждённого наведения —
+            # 20 из 20 точных первых кликов (test_web_designer_first_click_ui).
+            # Владелец двигает мышь, пока не появится рамка; стенд — тоже.
+            spot["hover_ms"] = hover_until_acknowledged(page, guest, spot, selector, index)
             page.mouse.click(spot["x"], spot["y"])
             if not expect_selection:
                 return spot
@@ -182,6 +188,27 @@ def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15
             f"элемент: инспектор пуст. Последняя точка: {spot}. Это НЕ «строки нет» — "
             f"это «выбор не состоялся»")
     raise AssertionError(f"точку элемента {selector}[{index}] не удалось вывести в окно: {spot}")
+
+
+def hover_until_acknowledged(page, guest, spot: dict, selector: str, index: int = 0,
+                             budget_ms: int = 2000):
+    """Двигать указатель по цели, пока кадр не подсветит её; None — так и не подсветил.
+
+    Нажатие здесь НЕ выполняется: это подготовка к одному клику, а не его
+    повтор. Возвращает время до подтверждения в миллисекундах.
+    """
+    started = time.monotonic()
+    nudge = 0
+    while (time.monotonic() - started) * 1000 < budget_ms:
+        page.mouse.move(spot["x"] + (nudge % 3) - 1, spot["y"] + ((nudge // 3) % 3) - 1)
+        nudge += 1
+        page.wait_for_timeout(50)
+        if guest.evaluate(
+                "([selector, index]) => { const el = document.querySelectorAll(selector)[index];"
+                " return !!el && el.hasAttribute('data-bd-hover'); }", [selector, index]):
+            page.mouse.move(spot["x"], spot["y"])
+            return int((time.monotonic() - started) * 1000)
+    return None
 
 
 def wait_for_preview_viewport(page, width: int, height: int | None = None, *, timeout: float = 10000):

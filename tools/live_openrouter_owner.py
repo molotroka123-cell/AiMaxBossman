@@ -109,8 +109,41 @@ def redact(value, secret: str):
 SUBMISSION_ATTEMPTS = 3
 
 
+def _tasks_with_prompt(page, prompt: str) -> list[int]:
+    """Идентификаторы задач с ЭТИМ текстом — по списку сервера, не по ответу.
+
+    Запрос идёт через APIRequestContext страницы (те же cookies), а НЕ через
+    `window.fetch` страницы: вызов из page.evaluate проходит через обёртку
+    fetch самого приложения и перерисовывает страницу задач, после чего
+    composer терял набранный текст и «Запустить» не порождал POST (замерено
+    3 из 3 при первой редакции этой сверки).
+    """
+    response = page.request.get(f'{page.url.split("/#", 1)[0]}/api/tasks?limit=100')
+    rows = response.json() if response.ok else []
+    return sorted(int(row['id']) for row in rows if isinstance(row, dict) and row.get('prompt') == prompt)
+
+
+def reconcile_submission(before: list[int], after: list[int]) -> int | None:
+    """Задача, появившаяся между двумя чтениями списка: одна — её id, ни одной —
+    None, больше одной — отказ: постановка неоднозначна, повторять нельзя.
+
+    §7 (17.09): таймаут ожидания ответа на POST не доказывает, что POST не
+    ушёл. Прежний helper по таймауту молча ставил задачу заново и мог создать
+    незаметный дубликат — модель отвечала бы дважды, а улика считала бы одну
+    попытку. Теперь перед повтором список сервера сверяется с тем, что был
+    до попытки: новая задача с тем же текстом — это НАША постановка.
+    """
+    new = sorted(set(after) - set(before))
+    if len(new) > 1:
+        raise RuntimeError(f'ambiguous submission: {len(new)} tasks appeared for one prompt; not resubmitting')
+    return new[0] if new else None
+
+
 def submit_through_composer(page, port: int, prompt: str):
-    """Поставить задачу через настоящий composer и вернуть ответ POST /api/tasks.
+    """Поставить задачу через настоящий composer; вернуть (task_id, attempts, how).
+
+    ``how`` — ``'response'`` (ответ POST /api/tasks получен) или
+    ``'reconciled'`` (ответ не дождались, но сервер уже показывает задачу).
 
     Измеренная гонка (BL-065): после завершения предыдущей задачи страница
     home перерисовывается по WS-событию, и textarea создаётся со снимком
@@ -133,6 +166,7 @@ def submit_through_composer(page, port: int, prompt: str):
             page.wait_for_load_state('networkidle', timeout=5000)
         except PlaywrightTimeout:
             pass                                    # страница живая, просто шумная
+        before = _tasks_with_prompt(page, prompt)
         field.fill(prompt)
         if field.input_value() != prompt:
             continue                                # поле стёрто до клика — заново
@@ -140,9 +174,16 @@ def submit_through_composer(page, port: int, prompt: str):
             with page.expect_response(lambda r: r.url.endswith('/api/tasks') and r.request.method == 'POST',
                                       timeout=15000) as creation:
                 page.locator('.composer').get_by_role('button', name='Запустить', exact=True).click()
-            return creation.value, attempt
         except PlaywrightTimeout:
-            continue                                # клик не породил POST — заново
+            # Ответа нет — но был ли запрос? Спросить сервер, прежде чем повторять.
+            found = reconcile_submission(before, _tasks_with_prompt(page, prompt))
+            if found is not None:
+                return found, attempt, 'reconciled'
+            continue                                # запроса действительно не было — заново
+        response = creation.value
+        if not response.ok:
+            raise RuntimeError(f'UI task creation failed: HTTP {response.status}')
+        return int(response.json()['task']['id']), attempt, 'response'
     raise RuntimeError(f'composer did not submit the task in {SUBMISSION_ATTEMPTS} attempts')
 
 
@@ -198,10 +239,7 @@ def exercise(model, secret, args, report, trajectories):
                                 if not free_models([item for item in catalog.json()['data'] if item.get('id') == model['id']]):
                                     raise RuntimeError('Selected free tariff is no longer available')
                             report['stage'] = 'ui_task_submission:' + case
-                            creation, attempts = submit_through_composer(page, port, prompt)
-                            if not creation.ok:
-                                raise RuntimeError('UI task creation failed')
-                            task_id = creation.json()['task']['id']
+                            task_id, attempts, submitted_via = submit_through_composer(page, port, prompt)
                             report['stage'] = 'real_model_result:' + case
                             deadline = time.monotonic() + args.timeout
                             result = {}
@@ -224,7 +262,7 @@ def exercise(model, secret, args, report, trajectories):
                                       'case': case, 'prompt': prompt, 'answer': answer[:8192],
                                       'task_id': task_id, 'task_status': result.get('task', {}).get('status'),
                                       'status': 'PASS' if passed else 'FAIL', 'restart_persistence': 'NOT_RUN',
-                                      'submission_attempts': attempts,
+                                      'submission_attempts': attempts, 'submission': submitted_via,
                                       'reason': failure_reason(passed=passed, task_status=result.get('task', {}).get('status'),
                                                                runs=runs, answer=answer, case=case),
                                       # Текст ошибок прогона — единственное, что отличает 429 от
