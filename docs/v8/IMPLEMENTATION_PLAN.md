@@ -29,8 +29,8 @@
    `model_health`; `bcc/studio/providers/comfyui.py` как обёртка.
 4. Тесты первыми: `tests/test_studio_catalog.py` (валидность, уникальность,
    отвергнутые чужие значения), `command-center/tests/test_studio_provider_states.py`
-   — **пары**: законный ответ проходит / 401, 429, 404, nsfw, битый JSON дают
-   пять разных состояний и ни одно не проходит как `completed`.
+   — **пары**: законный ответ проходит / 401, 429, 402, 404, nsfw, битый JSON дают
+   шесть разных причин и ни одно не проходит как `completed`.
 5. Строки: `BOSSMAN_STUDIO_CATALOG=<n> verified=<k> unverified=<m>`.
 
 Выход: продукт не изменился; каталог и протокол есть; baseline записан.

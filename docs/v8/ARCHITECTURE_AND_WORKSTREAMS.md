@@ -85,12 +85,13 @@ class GenerationProvider(Protocol):
 `ProviderStatus.state ∈ {queued, running, completed, failed, refused, canceled,
 timeout}`; `reason` — из словаря `model_health` (`unauthorized`, `throttled`,
 `provider_down`, `malformed`, `silent`) или `content_policy` для nsfw/refusal.
-Пять результатов, которые никогда не сливаются:
+Шесть причин отказа, которые никогда не сливаются:
 
 | Ситуация | state / reason | Действие лестницы (`recovery.py`) |
 |---|---|---|
 | ключа нет или отвергнут (401/403) | `failed / unauthorized` | остановка, `OWNER_REQUIRED`; ожидание не помогает |
-| 429, квота, нет кредита (402) | `failed / throttled` | пауза с backoff в пределах бюджета времени; смена модели не помогает |
+| 429, квота | `failed / throttled` | ограниченная пауза; без скрытого повторного submit |
+| нет кредита (402) | `failed / insufficient_credit` | `OWNER_REQUIRED`, без повтора; health-проекция `throttled` не стирает причину |
 | модель/маршрут недоступны (404, 5xx) | `failed / provider_down` | другая модель того же класса, если владелец разрешил |
 | отказ по контенту | `refused / content_policy` | без повтора; показать причину |
 | ответ битый или пустой | `failed / malformed | silent` | одна повторная проба, затем отказ |

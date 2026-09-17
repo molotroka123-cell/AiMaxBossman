@@ -1,0 +1,16 @@
+
+==================================== ERRORS ====================================
+________________ ERROR collecting tests/test_studio_catalog.py _________________
+tests/test_studio_catalog.py:11: in <module>
+    spec.loader.exec_module(catalog)
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1132: in get_code
+    ???
+<frozen importlib._bootstrap_external>:1190: in get_data
+    ???
+E   FileNotFoundError: [Errno 2] No such file or directory: '/workspace/scratch/ca937728a752/AiMaxBossman/command-center/bcc/studio/catalog.py'
+=========================== short test summary info ============================
+ERROR tests/test_studio_catalog.py - FileNotFoundError: [Errno 2] No such fil...
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.08s

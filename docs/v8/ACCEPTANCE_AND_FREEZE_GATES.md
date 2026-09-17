@@ -25,7 +25,8 @@
 Классы результатов живой проверки (никогда не сливаются):
 `PASS` (байты получены, проверены, provenance полный), `FAIL:malformed`,
 `FAIL:content_policy`, `OWNER_REQUIRED:unauthorized` (ключа нет/отвергнут),
-`OWNER_REQUIRED:throttled` (429/квота/кредит), `FAIL:provider_down`,
+`OWNER_REQUIRED:throttled` (429/квота),
+`OWNER_REQUIRED:insufficient_credit` (402/нет кредитов), `FAIL:provider_down`,
 `FAIL:timeout`.
 
 ## Definition of Done — `STUDIO_VERIFIED`
@@ -40,7 +41,7 @@
    категориях `dead / error / disabled_silent / vanished`;
 3. каждая модель, показанная как доступная, имеет `verified_capabilities` из
    пробы на этой машине; непроверенные показаны как «не проверено»;
-4. пять состояний отказа доказаны парами тестов против стаба и, при наличии
+4. шесть причин отказа доказаны парами тестов против стаба и, при наличии
    ключа, хотя бы одно (`throttled` или `unauthorized`) — против настоящего
    провайдера;
 5. provenance каждого результата полон или содержит `NOT_CAPTURED` с

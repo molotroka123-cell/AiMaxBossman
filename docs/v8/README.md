@@ -1,6 +1,8 @@
 # Epoch 8 — Bossman Studio: свой Higgsfield, лучше и честнее
 
-**Статус:** PLANNED / NOT IMPLEMENTED (реализация 0 %).
+**Статус:** PHASE_0_IMPLEMENTED / NOT_PRODUCT_INTEGRATED.
+Каталог, протокол и локальная обёртка проверены; фазы 1–5 не реализованы.
+См. [PHASE_0_REPORT.md](PHASE_0_REPORT.md).
 **Записано:** 2026-09-17, после приёмки кандидата `e39610de` (первая сборка по
 замку входов, `WINDOWS_RC_READY_OWNER_REQUIRED`, см. `docs/final/CURRENT_STATE.md`).
 **Повод:** Higgsfield открыл свои инструменты сторонним разработчикам (API и MCP:
@@ -87,7 +89,8 @@ MCP-сервер): каталог 98 моделей со схемами пара
 
 ## Текущий статус
 
-- Реализация: **0 %**. Ни одной строки кода студии не написано; этот пакет — контракт, а не отчёт.
+- Реализация: **фаза 0** — каталог, протокол, ComfyUI wrapper, тесты и baseline.
+  Продуктовая интеграция фаз 1–5 остаётся впереди; см. PHASE_0_REPORT.md.
 - Провайдер генерации в продукте: **нет** (`bcc/video_studio/analysis.py::generation_status()` →
   `BLOCKED: No verified image/video generation provider is connected to Video Studio`;
   Images исполняет только `mock-image` и `comfyui`).

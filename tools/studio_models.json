@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "models": [
+    {
+      "id": "comfyui:*",
+      "provider": "comfyui",
+      "surface": "image",
+      "label": "Configured local ComfyUI checkpoint",
+      "settings": {
+        "width": {
+          "type": "range",
+          "min": 256,
+          "max": 4096,
+          "default": 1024,
+          "integer": true,
+          "multiple_of": 8
+        },
+        "height": {
+          "type": "range",
+          "min": 256,
+          "max": 4096,
+          "default": 1024,
+          "integer": true,
+          "multiple_of": 8
+        },
+        "steps": {
+          "type": "range",
+          "min": 1,
+          "max": 200,
+          "default": 30,
+          "integer": true
+        },
+        "seed": {
+          "type": "range",
+          "min": 0,
+          "max": 9223372036854775807,
+          "default": null,
+          "nullable": true,
+          "integer": true
+        }
+      },
+      "roles": {},
+      "source": "command-center/bcc/oss/comfyui.py: image_configuration/workflow",
+      "price": {
+        "kind": "unknown",
+        "usd": null,
+        "source": "unmeasured"
+      },
+      "free": true,
+      "enabled": false,
+      "deadline_seconds": 600,
+      "license": "owner-checkpoint-terms",
+      "answers": {
+        "BUNDLED": true,
+        "CONFIGURED": "BOSSMAN_COMFYUI_URL + BOSSMAN_COMFYUI_CHECKPOINT",
+        "MODEL_REQUIRED": true,
+        "EXTERNAL_SERVICE_REQUIRED": "comfyui",
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
+    },
+    {
+      "id": "openrouter:google/gemini-2.5-flash-image",
+      "provider": "openrouter",
+      "surface": "image",
+      "label": "Gemini 2.5 Flash Image",
+      "settings": {},
+      "roles": {
+        "reference": 1
+      },
+      "source": "tools/hailuo_rescue.py: IMAGE_MODEL; settings not captured",
+      "price": {
+        "kind": "unknown",
+        "usd": null,
+        "source": "unmeasured"
+      },
+      "free": false,
+      "enabled": false,
+      "deadline_seconds": 600,
+      "license": "provider-terms",
+      "answers": {
+        "BUNDLED": false,
+        "CONFIGURED": "OPENROUTER_API_KEY",
+        "MODEL_REQUIRED": false,
+        "EXTERNAL_SERVICE_REQUIRED": "openrouter",
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
+    },
+    {
+      "id": "openrouter:google/gemini-3.1-flash-image",
+      "provider": "openrouter",
+      "surface": "image",
+      "label": "Gemini 3.1 Flash Image",
+      "settings": {
+        "aspect_ratio": {
+          "type": "enum",
+          "values": [
+            "16:9"
+          ],
+          "default": "16:9"
+        }
+      },
+      "roles": {
+        "reference": 4
+      },
+      "source": "tools/hailuo_rescue.py: compose; observed values only",
+      "price": {
+        "kind": "unknown",
+        "usd": null,
+        "source": "unmeasured"
+      },
+      "free": false,
+      "enabled": false,
+      "deadline_seconds": 600,
+      "license": "provider-terms",
+      "answers": {
+        "BUNDLED": false,
+        "CONFIGURED": "OPENROUTER_API_KEY",
+        "MODEL_REQUIRED": false,
+        "EXTERNAL_SERVICE_REQUIRED": "openrouter",
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
+    },
+    {
+      "id": "openrouter:minimax/hailuo-3-max",
+      "provider": "openrouter",
+      "surface": "video",
+      "label": "Hailuo 3 Max",
+      "settings": {
+        "duration": {
+          "type": "enum",
+          "values": [
+            10
+          ],
+          "default": 10
+        },
+        "resolution": {
+          "type": "enum",
+          "values": [
+            "768p"
+          ],
+          "default": "768p"
+        },
+        "aspect_ratio": {
+          "type": "enum",
+          "values": [
+            "16:9"
+          ],
+          "default": "16:9"
+        }
+      },
+      "roles": {
+        "start": 1
+      },
+      "source": "tools/hailuo_rescue.py: submit; observed values only",
+      "price": {
+        "kind": "unknown",
+        "usd": null,
+        "source": "unmeasured"
+      },
+      "free": false,
+      "enabled": false,
+      "deadline_seconds": 600,
+      "license": "provider-terms",
+      "answers": {
+        "BUNDLED": false,
+        "CONFIGURED": "OPENROUTER_API_KEY",
+        "MODEL_REQUIRED": false,
+        "EXTERNAL_SERVICE_REQUIRED": "openrouter",
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
+    },
+    {
+      "id": "openrouter:bytedance/seedance-2.0-mini",
+      "provider": "openrouter",
+      "surface": "video",
+      "label": "Seedance 2.0 Mini",
+      "settings": {
+        "duration": {
+          "type": "enum",
+          "values": [
+            10
+          ],
+          "default": 10
+        },
+        "resolution": {
+          "type": "enum",
+          "values": [
+            "720p"
+          ],
+          "default": "720p"
+        },
+        "aspect_ratio": {
+          "type": "enum",
+          "values": [
+            "9:16"
+          ],
+          "default": "9:16"
+        },
+        "generate_audio": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "roles": {
+        "reference": 1
+      },
+      "source": "tools/seedance_shorts.py: submit; observed values only",
+      "price": {
+        "kind": "unknown",
+        "usd": null,
+        "source": "unmeasured"
+      },
+      "free": false,
+      "enabled": false,
+      "deadline_seconds": 600,
+      "license": "provider-terms",
+      "answers": {
+        "BUNDLED": false,
+        "CONFIGURED": "OPENROUTER_API_KEY",
+        "MODEL_REQUIRED": false,
+        "EXTERNAL_SERVICE_REQUIRED": "openrouter",
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "UNVERIFIED"
+    },
+    {
+      "id": "higgsfield:owner-required",
+      "provider": "higgsfield",
+      "surface": "image",
+      "label": "Official Higgsfield (contract pending)",
+      "settings": {},
+      "roles": {},
+      "source": "docs/v8/ASTER_START_HERE_RU.md section 3; placeholder, not a model claim",
+      "price": {
+        "kind": "unknown",
+        "usd": null,
+        "source": "unmeasured"
+      },
+      "free": false,
+      "enabled": false,
+      "deadline_seconds": 600,
+      "license": "provider-terms",
+      "answers": {
+        "BUNDLED": false,
+        "CONFIGURED": false,
+        "MODEL_REQUIRED": false,
+        "EXTERNAL_SERVICE_REQUIRED": "higgsfield",
+        "VERIFIED": false
+      },
+      "verified_capabilities": {},
+      "status": "OWNER_REQUIRED: official REST contract not supplied"
+    }
+  ]
+}
