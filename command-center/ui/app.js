@@ -294,11 +294,26 @@ function isTypingInView() {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 }
 
-const scheduleRefreshInner = debounce(() => {
-  if (isTypingInView()) { pendingRefresh = true; return; }
+/* Перерисовка, которая не имеет права стереть набранное.
+
+   Обновление по событию шины уже ждало, пока владелец отпустит поле, а
+   обновление по подключению — нет, и это оказалось дефектом (BL-074): на
+   свободной машине 'ws.open' приходит в первые миллисекунды после загрузки и
+   незаметно, на загруженной — посреди работы. Собранная заново страница
+   подставляет в поля значения, снятые ДО набора, и следующее действие
+   владельца уходит со старым текстом: сервер принимает правку, версия растёт,
+   видимого изменения нет и ошибки тоже нет.
+
+   Возвращает, состоялась ли перерисовка: отложенную подхватит интервал ниже,
+   как только ввод закончится, а вызывающий обязан сказать владельцу правду. */
+function renderPageWhenNotTyping() {
+  if (isTypingInView()) { pendingRefresh = true; return false; }
   pendingRefresh = false;
   renderPage();
-}, 350);
+  return true;
+}
+
+const scheduleRefreshInner = debounce(() => { renderPageWhenNotTyping(); }, 350);
 
 function scheduleRefresh() { scheduleRefreshInner(); }
 
@@ -483,10 +498,11 @@ function syncStaleBanner() {
 
 function onConnRestored(ev) {
   /* при переподключении перечитываем данные активной страницы и говорим об этом владельцу */
-  renderPage();
+  const rendered = renderPageWhenNotTyping();
   refreshApprovals();
   const down = ev && ev.downtime_ms ? ` после ${fmtDuration(ev.downtime_ms)} без связи` : '';
-  toastOk('Соединение восстановлено', `Данные обновлены${down}.`);
+  toastOk(`Соединение восстановлено${down}`,
+    rendered ? 'Данные обновлены.' : 'Данные обновятся, когда вы закончите ввод.');
 }
 
 /* ---------------- Шина событий ---------------- */
@@ -505,7 +521,7 @@ bus.subscribe((ev) => {
     syncConn(name);
     if (name === 'open' && state.ready) {
       if (ev.reconnected) onConnRestored(ev);
-      else { renderPage(); refreshApprovals(); }
+      else { renderPageWhenNotTyping(); refreshApprovals(); }
     }
     return;
   }
