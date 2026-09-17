@@ -131,11 +131,20 @@ def _one_click(page, zoom: str | None, console: list[str]) -> dict:
 
 
 def _assert_exact_node(page, spot: dict, console: list[str], name: str) -> None:
+    """Both witnesses within one budget; the click is never repeated.
+
+    The frame marks the node synchronously in its click handler and only then
+    posts 'select' to the host, whose inspector renders on the next task. Run
+    112 on windows-latest: the frame mark was there in 94–171 ms, the host's
+    two lines landed a few ticks later than the first poll — reading the
+    inspector at the instant the mark appeared reported an empty host and
+    called a correct first click a failure. Wait for both, then judge.
+    """
     deadline = time.monotonic() + 2.0
     seen = _witnesses(page)
     while time.monotonic() < deadline:
         seen = _witnesses(page)
-        if seen["frame_selected"]:
+        if seen["frame_selected"] and len(seen["elinfo"]) >= 2:
             break
         page.wait_for_timeout(50)
     expected = f"h1#{TARGET_ID}"
