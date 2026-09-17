@@ -246,3 +246,108 @@ def test_bundle_media_requires_export_probe_and_full_decode(tmp_path, monkeypatc
     else:
         assert details["default_export"]["fully_decoded"] is True
         assert len(calls) == 5
+
+
+# ------------------------------------------------ OA-01 on the extracted archive
+
+def _evening_stdout(evidence: Path, result: dict | None) -> str:
+    if result is not None:
+        (evidence / "OWNER_EVENING_RESULT.json").write_text(json.dumps(result), encoding="utf-8")
+    return f"header\nOWNER_EVENING_EVIDENCE={evidence}\nOWNER_EVENING_RESULT={(result or {}).get('verdict')}\n"
+
+
+import json  # noqa: E402
+
+
+def test_the_verifier_reads_the_structured_evening_result_not_only_the_exit_code(tmp_path) -> None:
+    import verify_windows_bundle as verify
+    evidence = tmp_path / "run"
+    evidence.mkdir()
+    stdout = _evening_stdout(evidence, {"verdict": "PASS", "run_id": "r1", "reasons": []})
+    assert verify._evening_result(stdout) == {"verdict": "PASS", "run_id": "r1", "reasons": []}
+    assert verify._evening_result("no pointer at all") is None
+    (evidence / "OWNER_EVENING_RESULT.json").write_text("{broken", encoding="utf-8")
+    assert verify._evening_result(stdout) is None
+
+
+@pytest.mark.parametrize("rc,verdict,control,expected_status", [
+    (0, "PASS", "PASS", "PASS"),
+    (2, "OWNER_REQUIRED", "PASS", "OWNER_REQUIRED"),
+    (1, "FAIL", "PASS", "FAIL"),
+    (3, "PARTIAL", "PASS", "FAIL"),
+    (0, "FAIL", "PASS", "FAIL"),       # exit code and verdict disagree
+    (2, "PASS", "PASS", "FAIL"),
+    (0, None, "PASS", "FAIL"),         # no readable result at all
+    (0, "PASS", "FAILED: exit 0, verdict 'PASS', reasons []", "FAIL"),  # the negative control passed
+])
+def test_the_archive_verdict_needs_a_consistent_evening_result_and_its_negative_control(
+        tmp_path, monkeypatch, rc, verdict, control, expected_status) -> None:
+    import subprocess
+    import zipfile
+    import verify_windows_bundle as verify
+
+    home_name = "BOSSMAN-Windows-x64-synthetic"
+    archive = tmp_path / f"{home_name}.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr(f"{home_name}/MANIFEST.json", json.dumps({"source_sha": "a" * 40, "files": []}))
+        zf.writestr(f"{home_name}/app-support/bossman_doctor.py", "# doctor\n")
+        zf.writestr(f"{home_name}/app-support/bundle_evening_test.py", "# evening\n")
+    evidence = tmp_path / "evidence"
+    evidence.mkdir()
+
+    def fake_evening(home, env):
+        result = None if verdict is None else {"verdict": verdict, "run_id": "r1",
+                                               "reasons": [] if verdict == "PASS" else [{"code": "x"}]}
+        stdout = _evening_stdout(evidence, result)
+        return subprocess.CompletedProcess(["evening"], rc, stdout, ""), verify._evening_result(stdout)
+
+    monkeypatch.setattr(verify, "run_evening", fake_evening)
+    monkeypatch.setattr(verify, "evening_negative_control", lambda home, env: control)
+    monkeypatch.setattr(verify, "check_icons", lambda home: [])
+    monkeypatch.setattr(verify, "check_no_repo_dependency", lambda home, env: [])
+    monkeypatch.setattr(verify, "check_media", lambda home, env: ([], {"ffmpeg": "synthetic"}))
+    monkeypatch.setattr(verify, "check_browser", lambda home, env: ([], {"chromium": "synthetic"}))
+    monkeypatch.setattr(verify, "_harness_sha", lambda: "a" * 40)
+    out = tmp_path / "bundle-acceptance.json"
+    code = verify.main(["--archive", str(archive), "--expected-sha", "a" * 40, "--out", str(out)])
+    report = json.loads(out.read_text(encoding="utf-8"))
+    assert report["status"] == expected_status, report["problems"]
+    assert code == {"PASS": 0, "OWNER_REQUIRED": 2}.get(expected_status, 1)
+    assert report["details"]["evening_verdict"] == (verdict or "NO_RESULT")
+    assert report["details"]["evening_negative_control"] == control
+    binding = report["binding"]
+    assert binding["source_sha"] == "a" * 40 and binding["harness_sha"] == "a" * 40
+    assert binding["archive_sha256"] == report["details"]["archive_sha256"]
+    assert isinstance(binding["run_id"], str) and binding["run_id"]  # GITHUB_RUN_ID in CI, "local" elsewhere
+
+
+def test_the_negative_control_hides_the_doctor_and_restores_it(tmp_path, monkeypatch) -> None:
+    import subprocess
+    import verify_windows_bundle as verify
+    home = tmp_path / "home"
+    (home / "app-support").mkdir(parents=True)
+    doctor = home / "app-support" / "bossman_doctor.py"
+    doctor.write_text("# doctor\n", encoding="utf-8")
+    seen = {}
+
+    def fake_evening(home_, env):
+        seen["doctor_present_during_control"] = doctor.exists()
+        evidence = tmp_path / "control"
+        evidence.mkdir(exist_ok=True)
+        stdout = _evening_stdout(evidence, {"verdict": "FAIL", "run_id": "c", "reasons": [{"code": "doctor_not_shipped"}]})
+        return subprocess.CompletedProcess(["evening"], 1, stdout, ""), verify._evening_result(stdout)
+
+    monkeypatch.setattr(verify, "run_evening", fake_evening)
+    assert verify.evening_negative_control(home, {}) == "PASS"
+    assert seen["doctor_present_during_control"] is False
+    assert doctor.exists() and doctor.read_text(encoding="utf-8") == "# doctor\n"
+
+    def accepting(home_, env):
+        evidence = tmp_path / "control2"
+        evidence.mkdir(exist_ok=True)
+        stdout = _evening_stdout(evidence, {"verdict": "PASS", "run_id": "c", "reasons": []})
+        return subprocess.CompletedProcess(["evening"], 0, stdout, ""), verify._evening_result(stdout)
+
+    monkeypatch.setattr(verify, "run_evening", accepting)
+    assert verify.evening_negative_control(home, {}).startswith("FAILED: exit 0")
+    assert doctor.exists()

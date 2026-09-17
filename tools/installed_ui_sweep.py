@@ -58,12 +58,27 @@ def stop_owned_process_tree(process, stop_parent) -> None:
 REVIEW_VERDICTS = ('dead', 'error', 'disabled_silent', 'vanished')
 
 
+def evidence_binding(sha: str) -> dict:
+    """Which payload, run and harness this report belongs to (OA-02).
+
+    The freeze aggregator refuses a report that does not name the SHA-256 of
+    the application ZIP it ran on, the workflow run and the checkout that drove
+    it. The values come from the environment the gate sets; a local run records
+    None and is not freeze evidence.
+    """
+    return {'source_sha': sha,
+            'archive_sha256': os.environ.get('BOSSMAN_ARCHIVE_SHA256') or None,
+            'run_id': os.environ.get('GITHUB_RUN_ID') or None,
+            'harness_sha': os.environ.get('BOSSMAN_HARNESS_SHA') or None}
+
+
 def write_report(output, sha, identity, pages, clicks):
     counts = {}
     for click in clicks:
         counts[click.verdict] = counts.get(click.verdict, 0) + 1
     review = any(counts.get(name, 0) for name in REVIEW_VERDICTS)
     report = {'status': 'REVIEW_REQUIRED' if review else 'PASS', 'source_sha': sha,
+              'binding': evidence_binding(sha),
               'identity': identity, 'pages': pages, 'counts': counts,
               'scope': 'Visible button classes in fresh empty app; nested dialogs, owner accounts and model work need separate scenarios.',
               'clicks': [asdict(click) for click in clicks]}

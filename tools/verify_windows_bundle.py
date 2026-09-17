@@ -204,6 +204,62 @@ def check_no_repo_dependency(home: Path, env: dict) -> list[str]:
     return [f"repository on the bundle's sys.path: {leaked}"] if leaked else []
 
 
+def _bundle_python(home: Path) -> Path:
+    return home / "runtime" / ("python.exe" if os.name == "nt" else "bin/python")
+
+
+def _evening_result(stdout: str) -> dict | None:
+    """The structured result the evening test wrote for THIS run, by its own pointer."""
+    for line in (stdout or "").splitlines():
+        if line.startswith("OWNER_EVENING_EVIDENCE="):
+            path = Path(line.partition("=")[2].strip()) / "OWNER_EVENING_RESULT.json"
+            try:
+                loaded = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return None
+            return loaded if isinstance(loaded, dict) else None
+    return None
+
+
+def run_evening(home: Path, env: dict) -> tuple[subprocess.CompletedProcess, dict | None]:
+    done = _run([str(_bundle_python(home)), str(home / "app-support" / "bundle_evening_test.py")],
+                env=env, cwd=home, timeout=1800)
+    return done, _evening_result(done.stdout)
+
+
+def evening_negative_control(home: Path, env: dict) -> str:
+    """OA-01 on the extracted archive itself, not only in the source tree.
+
+    The doctor is hidden for one run; the SHIPPED evening test must then say
+    FAIL with ``doctor_not_shipped`` and exit 1 (it refuses before starting
+    the product, so this costs seconds). A control that passes anyway means
+    the archive carries an evening test whose verdict cannot be trusted.
+    """
+    doctor = home / "app-support" / "bossman_doctor.py"
+    hidden = doctor.with_name("bossman_doctor.py.negative-control")
+    doctor.rename(hidden)
+    try:
+        done, result = run_evening(home, env)
+    finally:
+        hidden.rename(doctor)
+    codes = [reason.get("code") for reason in (result or {}).get("reasons", []) if isinstance(reason, dict)]
+    if done.returncode == 1 and result and result.get("verdict") == "FAIL" and "doctor_not_shipped" in codes:
+        return "PASS"
+    return f"FAILED: exit {done.returncode}, verdict {(result or {}).get('verdict')!r}, reasons {codes}"
+
+
+def _harness_sha() -> str | None:
+    """The checkout that drove this verification (OA-02 binding)."""
+    try:
+        found = subprocess.run(["git", "-C", str(REPO), "rev-parse", "HEAD"], capture_output=True,
+                               text=True, timeout=30).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        found = ""
+    if not found:
+        found = os.environ.get("GITHUB_SHA", "")
+    return found if len(found) == 40 else None
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -243,13 +299,24 @@ def main(argv: list[str] | None = None) -> int:
 
         # The product itself: boot, HTTP identity for this SHA, assets, restart
         # and persistence — run through the archive's own evening entry point.
-        evening = _run([str(home / "runtime" / ("python.exe" if os.name == "nt" else "bin/python")),
-                        str(home / "app-support" / "bundle_evening_test.py")],
-                       env=env, cwd=home, timeout=1800)
+        # The verdict is read from the structured result the run wrote, and
+        # the exit code must agree with it; a run that left no result is a
+        # failure, not a pass by silence (OA-01).
+        evening, result = run_evening(home, env)
         details["evening_stdout"] = (evening.stdout or "")[-8000:]
         details["evening_returncode"] = evening.returncode
-        if evening.returncode not in (0, 2):
-            problems.append("bundled evening acceptance reported FAIL")
+        verdict = result.get("verdict") if result else "NO_RESULT"
+        details["evening_verdict"] = verdict
+        details["evening_run_id"] = result.get("run_id") if result else None
+        details["evening_reasons"] = [reason.get("code") for reason in (result or {}).get("reasons", [])
+                                      if isinstance(reason, dict)]
+        expected_code = {"PASS": 0, "OWNER_REQUIRED": 2}.get(verdict)
+        if result is None:
+            problems.append("bundled evening acceptance left no readable OWNER_EVENING_RESULT.json")
+        elif evening.returncode != expected_code:
+            problems.append(f"bundled evening acceptance verdict {verdict} (exit {evening.returncode}) "
+                            "is not a full PASS or OWNER_REQUIRED: " + ", ".join(details["evening_reasons"]))
+        if problems and evening.returncode not in (0, 2):
             details["evening_stderr"] = (evening.stderr or "")[-4000:]
         if evening.returncode:
             # Print it: the JSON report travels in the artifact, but whoever is
@@ -259,14 +326,22 @@ def main(argv: list[str] | None = None) -> int:
             print((evening.stdout or "")[-6000:])
             print("--- stderr ---")
             print((evening.stderr or "")[-3000:])
+        details["evening_negative_control"] = evening_negative_control(home, env)
+        if details["evening_negative_control"] != "PASS":
+            problems.append("the shipped evening test accepted an archive without its doctor: "
+                            + details["evening_negative_control"])
     finally:
         shutil.rmtree(parent, ignore_errors=True)
 
-    owner_required = details.get("evening_returncode") == 2
+    owner_required = details.get("evening_verdict") == "OWNER_REQUIRED"
     status = "FAIL" if problems else ("OWNER_REQUIRED" if owner_required else "PASS")
     report = {"status": status, "expected_sha": args.expected_sha,
               "checked_at": datetime.now(timezone.utc).isoformat(),
-              "problems": problems, "details": details}
+              "problems": problems, "details": details,
+              # OA-02: which bytes, which run and which checkout this report is about.
+              "binding": {"source_sha": args.expected_sha, "archive_sha256": details["archive_sha256"],
+                          "run_id": os.environ.get("GITHUB_RUN_ID") or "local",
+                          "harness_sha": _harness_sha()}}
     args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n",
                         encoding="utf-8")
     print(f"BOSSMAN_BUNDLE_ACCEPTANCE={status}")

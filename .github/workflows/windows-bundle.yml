@@ -42,6 +42,11 @@ on:
       - 'tools/app_icons.py'
       - 'command-center/ui/icons/**'
       - '.github/workflows/windows-bundle.yml'
+      # Валидаторы и реестр приёмки (OA-01/OA-02): их правка меняет сам гейт.
+      - 'tools/astra6_freeze.py'
+      - 'tools/require_acceptance_results.py'
+      - 'tools/acceptance_registry.py'
+      - 'tools/acceptance_registry.json'
       # Коммит, меняющий ТОЛЬКО тесты, архив не меняет и очередь занимать не
       # должен. Под push эти исключения наконец работают: фильтр смотрит на
       # файлы самого пуша.
@@ -79,6 +84,8 @@ on:
       - 'command-center/tests/test_unsaved_draft_navigation.py'
       - 'command-center/tests/test_missing_model_and_dead_service_are_human.py'
       - 'command-center/tests/test_oss_memory_refusals.py'
+      # conftest записывает привязку results.xml к архиву (OA-02).
+      - 'command-center/tests/conftest.py'
       - '!bossman-core/tests/**'
   workflow_dispatch:
 permissions:
@@ -198,10 +205,23 @@ jobs:
       - name: Extract the exact archive into an owner path with spaces
         shell: python
         run: |
-          import json, os, pathlib, zipfile
+          import hashlib, json, os, pathlib, subprocess, zipfile
           root = pathlib.Path(os.environ['RUNNER_TEMP'])
           archives = list((root / 'download').glob('BOSSMAN-Windows-x64-*.zip'))
           assert len(archives) == 1, archives
+          # OA-02: everything this job records is evidence for THESE bytes.
+          # The bundle job measured the same file; the two digests must agree
+          # before a single test runs, and every report names this digest.
+          digest = hashlib.sha256()
+          with archives[0].open('rb') as stream:
+              for chunk in iter(lambda: stream.read(1 << 20), b''):
+                  digest.update(chunk)
+          archive_sha256 = digest.hexdigest()
+          accepted = json.loads((root / 'download' / 'bundle-acceptance.json').read_text(encoding='utf-8'))
+          assert accepted['details']['archive_sha256'] == archive_sha256, (accepted['details'].get('archive_sha256'), archive_sha256)
+          harness_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          assert harness_sha == os.environ['BOSSMAN_ACCEPTANCE_SHA'], (harness_sha, os.environ['BOSSMAN_ACCEPTANCE_SHA'])
+          print('archive_sha256=' + archive_sha256 + ' harness_sha=' + harness_sha)
           target = root / 'Owner acceptance with spaces'
           with zipfile.ZipFile(archives[0]) as archive:
               archive.extractall(target)
@@ -218,6 +238,8 @@ jobs:
               'PLAYWRIGHT_BROWSERS_PATH': str(home / 'browser'),
               'BOSSMAN_EDITOR_EVIDENCE_DIR': str(proof),
               'BCC_REQUIRE_BROWSER': '1',
+              'BOSSMAN_ARCHIVE_SHA256': archive_sha256,
+              'BOSSMAN_HARNESS_SHA': harness_sha,
           }
           with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as stream:
               for name, value in variables.items():
@@ -231,23 +253,14 @@ jobs:
         run: |
           python -m pytest tests/test_installed_ui_sweep.py -q
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pytest -c command-center/pyproject.toml `
-            command-center/tests/test_editors_user_acceptance.py `
-            command-center/tests/test_web_designer_recovery_ui.py `
-            command-center/tests/test_apps_files_browser_owner.py `
-            command-center/tests/test_apps_files_http_owner.py `
-            command-center/tests/test_images_library_ui.py `
-            command-center/tests/test_images_cancel_button.py `
-            command-center/tests/test_video_cancel_button.py `
-            command-center/tests/test_two_tabs_conflict.py `
-            command-center/tests/test_invalid_input_is_human.py `
-            command-center/tests/test_unload_flush.py `
-            command-center/tests/test_unsaved_draft_navigation.py `
-            command-center/tests/test_missing_model_and_dead_service_are_human.py `
-            command-center/tests/test_oss_memory_refusals.py `
+          # Профиль приёмки — tools/acceptance_registry.json, один на workflow,
+          # проверку JUnit и заморозку (OA-02). Список здесь не набирается руками.
+          $profile = python tools/acceptance_registry.py --paths
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pytest -c command-center/pyproject.toml $profile `
             -q --junitxml="$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/require_acceptance_results.py "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml" --minimum-tests 40
+          python tools/require_acceptance_results.py "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml" --source-sha "$env:BOSSMAN_ACCEPTANCE_SHA"
       # Запас времени владельческих ожиданий — в журнал, а не только в артефакт.
       # Зелёный обязан говорить, НАСКОЛЬКО он зелёный: проход за 0,2 с и проход
       # за 4,8 с при бюджете 5 с — разные утверждения о продукте, а в вердикте
@@ -321,6 +334,21 @@ jobs:
           --out '${{ runner.temp }}/freeze/ASTRA6-FREEZE.json'
           --job-status '${{ needs.bundle.result }}'
           --job-status '${{ needs.owner-experience.result }}'
+      # Записанный манифест — отчёт. Разрешение на выпуск — только этот шаг:
+      # он красный на всём, кроме FROZEN, а continue-on-error оставляет
+      # загрузку отчёта живой. Зелёный значок задания сам по себе выпуском
+      # не является — читать BOSSMAN_ASTRA6_RELEASE_READY=.
+      - name: Publish gate — FROZEN only (a written report is not a release permission)
+        if: always()
+        continue-on-error: true
+        run: >-
+          python tools/astra6_freeze.py
+          --evidence-dir '${{ runner.temp }}/freeze-evidence'
+          --source-sha '${{ env.BOSSMAN_ACCEPTANCE_SHA }}'
+          --out '${{ runner.temp }}/freeze/ASTRA6-FREEZE.json'
+          --job-status '${{ needs.bundle.result }}'
+          --job-status '${{ needs.owner-experience.result }}'
+          --require-frozen
       - uses: actions/upload-artifact@v7
         if: always()
         with:

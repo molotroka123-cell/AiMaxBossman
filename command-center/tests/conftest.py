@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +63,28 @@ async def start_app(settings: Settings, **kw) -> tuple[Any, Services]:
 def client_for(app, svc: Services) -> httpx.AsyncClient:
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
                              base_url="http://test", headers={HEADER: svc.auth.token})
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _bind_acceptance_evidence(record_testsuite_property):
+    """OA-02: results.xml names the payload it was measured on.
+
+    The installed Windows gate sets BCC_ACCEPTANCE_SOURCE_SHA, and the freeze
+    aggregator refuses a JUnit file whose <properties> do not name that SHA,
+    the SHA-256 of the application ZIP, the workflow run and the checkout that
+    drove the tests. Without the variable (a developer's local run) nothing is
+    recorded and nothing is claimed.
+    """
+    sha = os.environ.get("BCC_ACCEPTANCE_SOURCE_SHA")
+    if not sha:
+        return
+    record_testsuite_property("source_sha", sha)
+    for name, variable in (("archive_sha256", "BOSSMAN_ARCHIVE_SHA256"),
+                           ("run_id", "GITHUB_RUN_ID"),
+                           ("harness_sha", "BOSSMAN_HARNESS_SHA")):
+        value = os.environ.get(variable)
+        if value:
+            record_testsuite_property(name, value)
 
 
 @pytest.fixture(autouse=True)

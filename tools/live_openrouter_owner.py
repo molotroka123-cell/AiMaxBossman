@@ -279,6 +279,19 @@ def task_lines(trajectories: list, secret: str) -> list[str]:
     return lines
 
 
+def evidence_binding(sha: str) -> dict:
+    """Which payload, run and harness this report belongs to (OA-02).
+
+    The freeze aggregator refuses a report that does not name the SHA-256 of
+    the application ZIP it ran on, the workflow run and the checkout that drove
+    it. Read from the environment the gate sets; never from the secret.
+    """
+    return {'source_sha': sha,
+            'archive_sha256': os.environ.get('BOSSMAN_ARCHIVE_SHA256') or None,
+            'run_id': os.environ.get('GITHUB_RUN_ID') or None,
+            'harness_sha': os.environ.get('BOSSMAN_HARNESS_SHA') or None}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
@@ -294,7 +307,8 @@ def main(argv=None):
               'scope': 'installed UI to real free-model task and restart smoke',
               'max_tasks': 6, 'max_model_attempts': 18, 'max_output_tokens_per_attempt': 512,
               'paid_fallback': False, 'training_weights_updated': False,
-              'target_hardware_verified': False, 'tasks': []}
+              'target_hardware_verified': False, 'tasks': [],
+              'binding': evidence_binding(args.expected_sha)}
     secret = os.environ.pop('BOSSMAN_OPENROUTER_API_KEY', '').strip()
     # Prevent automatic provider bootstrap and child-process key inheritance.
     os.environ.pop('OPENROUTER_API_KEY', None)

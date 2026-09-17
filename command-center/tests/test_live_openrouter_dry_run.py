@@ -121,10 +121,18 @@ def _sha() -> str:
 
 
 def _freeze_accepts(trajectories, sha) -> bool:
-    """Тот же предикат, что в tools/astra6_freeze.py для live-model.json."""
-    return (len(trajectories) == 6 and all(
-        t.get('status') == 'PASS' and t.get('restart_persistence') == 'PASS'
-        and t.get('source_sha') == sha and t.get('model') in MODELS for t in trajectories))
+    """Тот же предикат, что в tools/astra6_freeze.py для live-model.json (OA-02):
+
+    ровно две различные модели × три различных случая реестра, каждая пара
+    один раз, каждая строка PASS с сохранением после рестарта. Шесть копий
+    одной строки этому предикату не удовлетворяют.
+    """
+    cases = ('arithmetic', 'structured_data', 'instruction_following')
+    pairs = [(t.get('model'), t.get('case')) for t in trajectories]
+    return (len(trajectories) == 6 and len(set(pairs)) == 6
+            and set(pairs) == {(model, case) for model in MODELS for case in cases}
+            and all(t.get('status') == 'PASS' and t.get('restart_persistence') == 'PASS'
+                    and t.get('source_sha') == sha for t in trajectories))
 
 
 def test_the_installed_free_model_path_passes_end_to_end_against_a_stub(stub):
