@@ -102,19 +102,28 @@ timeout}`; `reason` — из словаря `model_health` (`unauthorized`, `thr
   каждый вызов через `GovernedAdapter` (локальность, цена, бюджет). Логика
   страховки бюджета переносится из `tools/seedance_shorts.py` (потолок,
   «остаток < порога → не отправлять дальше»).
-- `higgsfield_http.py` — платформенный API (`POST /{model-path}` →
-  `request_id/status_url/cancel_url`; `GET /requests/{id}/status`; терминальные
-  `completed | failed | nsfw | canceled`); заголовок `Authorization: Key
-  <id:secret>`; base URL — настройка владельца (в open-higgsfield это
-  `HF_API_BASE_URL`, публично не задокументирован); ключ в Vault. Статус
-  `ADOPT_AS_OPTIONAL_BACKEND`, выключен по умолчанию; включается только после
-  живой приёмки с ключом владельца.
-- `higgsfield_mcp.py` — через `mcp_runtime.call_tool` (`generate_image /
-  generate_video / jobs_wait`). Появляется только если полоса
-  `tools/mcp_acceptance.py` даст ≥ 15 PASS из 16 и замер покажет выигрыш
-  над HTTP-путём (воркфлоу, персонажи, пресеты), иначе `REFERENCE_ONLY`.
-  Учитывать стоимость покоя: MCP-сервер — отдельный процесс Node; правило
-  «ленивый старт, остановка по бездействию» обязательно.
+- `higgsfield_mcp.py` — **официальный путь номер один**. Через
+  `mcp_runtime.call_tool` к официальному MCP-серверу Higgsfield
+  (`generate_image / generate_video / generate_audio`, `jobs_wait`,
+  `show_generation_by_ids`, `models_explore` для сверки каталога, `balance`
+  для остатка кредитов). Допускается только после полосы
+  `tools/mcp_acceptance.py` (16 проб) со строкой вердикта в
+  `docs/final/CONNECTOR_INTEGRATION_REPORT.md`; при < 15 PASS — `REFERENCE_ONLY`.
+  MCP-сервер — отдельный процесс: ленивый старт, остановка по бездействию,
+  числа покоя до/после обязательны. Отказ по кредитам (`credits = 0`,
+  бесплатный план) отображается в причину `insufficient_credit` →
+  `OWNER_REQUIRED`, никогда в `provider_down` и никогда в FAIL.
+- `higgsfield_http.py` — **пишется только по официальной документации**.
+  На 17.09.2026 официальный REST-контракт не подтверждён: `docs.higgsfield.ai`
+  закрыт egress-прокси среды, а форма `POST /{model-path}` →
+  `request_id/status_url/cancel_url`, `GET /requests/{id}/status`, заголовок
+  `Authorization: Key <id:secret>` известна только из чужого клиента
+  `wide-trace/open-higgsfield` (без LICENSE и без тестов) — это гипотеза о
+  чужом API. До официального контракта запись в каталоге несёт
+  `OWNER_REQUIRED: official REST contract not supplied`, и ни один эндпоинт не
+  вызывается. Подбирать пути экспериментом запрещено. Когда контракт получен:
+  base URL и ключ — настройки владельца в Vault, статус
+  `ADOPT_AS_OPTIONAL_BACKEND`, выключен по умолчанию.
 
 Эгресс: адаптер получает медиа-входы только как локальные ассеты; перед
 первой отправкой байтов владельца провайдеру интерфейс показывает, что и куда

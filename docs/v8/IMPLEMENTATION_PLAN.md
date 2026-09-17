@@ -86,19 +86,27 @@
 
 ## Фаза 3 — Higgsfield как провайдер (P1 → P2)
 
-1. `bcc/studio/providers/higgsfield_http.py` по контракту платформы
-   (см. ARCHITECTURE W2); base URL и ключ `id:secret` — настройки владельца
-   в Vault; статус `ADOPT_AS_OPTIONAL_BACKEND`, выключен.
+1. **Сначала MCP — это официальный путь.** Полоса
+   `tools/mcp_acceptance.py` для официального MCP-сервера Higgsfield: 16 проб,
+   стоимость покоя, сеть, секреты, откат → строка вердикта в
+   `docs/final/CONNECTOR_INTEGRATION_REPORT.md`. При `ADOPT_AS_OPTIONAL_BACKEND`
+   пишется `bcc/studio/providers/higgsfield_mcp.py`; при меньшем вердикте —
+   `REFERENCE_ONLY`, и фаза 3 на этом честно заканчивается.
+   `bcc/studio/providers/higgsfield_http.py` НЕ пишется, пока владелец не даст
+   официальную документацию REST: на 17.09 контракт не подтверждён
+   (`docs.higgsfield.ai` закрыт egress-прокси), а форма из чужого клиента —
+   гипотеза. До документации запись каталога несёт
+   `OWNER_REQUIRED: official REST contract not supplied`.
 2. Записи каталога для моделей Higgsfield — только те, что владелец включил,
    с параметрами из `models_explore get` (схема совпадает с W1: options /
    min / max / default); `supports_unlim` отражается меткой «безлимит пробного
    периода», а не «бесплатно».
 3. Матрица отказов §22 (`docs/final/FAILURE_MATRIX.md`): для провайдера
    Higgsfield названы тесты по строкам 1, 3, 5, 6, 7, 8, 14, 15, 16, 18, 19.
-4. Полоса `tools/mcp_acceptance.py` для MCP-сервера Higgsfield: 16 проб,
-   стоимость покоя, сеть, секреты, откат — строка в
-   `docs/final/CONNECTOR_INTEGRATION_REPORT.md` с вердиктом. Адаптер
-   `higgsfield_mcp.py` пишется только при `ADOPT_AS_OPTIONAL_BACKEND`.
+4. Кредиты владельца — часть приёмки, а не сюрприз: `balance` официального
+   сервера на 17.09 даёт `credits = 0`, план `free`. Отказ по кредитам
+   обязан приходить как `insufficient_credit` → `OWNER_REQUIRED`, отдельно от
+   429 и от отсутствующего ключа; тест на это — пара к остальным пяти.
 5. Живая проверка 2 модели × 3 задачи (изображение, image-to-video,
    отмена) — `BOSSMAN_STUDIO_LIVE=higgsfield:PASS|OWNER_REQUIRED|FAIL`.
 

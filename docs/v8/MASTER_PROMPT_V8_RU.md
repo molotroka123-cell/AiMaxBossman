@@ -68,11 +68,14 @@
 
 Порядок внедрения: ComfyUI (обёртка существующего) → OpenRouter
 (`/api/v1/images`, `/api/v1/videos`, остаток `/api/v1/auth/key`; логика из
-`tools/seedance_shorts.py`) → Higgsfield HTTP (`POST /{model-path}`,
-`GET /requests/{id}/status`, `Authorization: Key id:secret`, терминальные
-`completed|failed|nsfw|canceled`; base URL — настройка владельца) → Higgsfield
-MCP только по вердикту полосы `tools/mcp_acceptance.py` и замеру выигрыша над
-HTTP. Каждый облачный адаптер — `ADOPT_AS_OPTIONAL_BACKEND`, выключен по
+`tools/seedance_shorts.py`) → **официальный Higgsfield через его MCP-сервер**
+(`generate_image / generate_video / generate_audio`, `jobs_wait`, `balance`),
+допущенный полосой `tools/mcp_acceptance.py`. REST-адаптер Higgsfield пишется
+ТОЛЬКО по официальной документации от владельца: на 17.09 контракт не
+подтверждён (`docs.higgsfield.ai` закрыт egress-прокси), форма из чужого
+клиента `open-higgsfield` — гипотеза, эндпоинты подбирать запрещено. Аккаунт
+владельца: `credits = 0`, план `free` → живая генерация Higgsfield сейчас
+`OWNER_REQUIRED` с причиной `insufficient_credit`. Каждый облачный адаптер — `ADOPT_AS_OPTIONAL_BACKEND`, выключен по
 умолчанию, ленивый старт, остановка по бездействию, числа покоя приложены.
 Каталог `tools/studio_models.json` — источник истины для интерфейса; проба
 (`capability_probe`) — судья; `VERIFIED` в файле всегда `false`.

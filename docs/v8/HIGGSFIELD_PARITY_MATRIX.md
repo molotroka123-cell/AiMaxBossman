@@ -49,6 +49,14 @@ Higgsfield — вызовом `models_explore list` подключённого M
   (ad-multiplier, brand-asset-creation, character-sheet, faceless-video,
   narrator, product-photoshoot, subtitles, thumbnail-generation, шесть
   UGC-сценариев, video-editing, website-builder-flow).
+- **Аккаунт владельца, измерено `balance`**: `{"credits": 0,
+  "subscription_plan_type": "free"}`. Любая живая генерация через официальный
+  Higgsfield сейчас упирается в это: причина `insufficient_credit` →
+  `OWNER_REQUIRED` (оплата/план), не FAIL и не «провайдер лежит».
+- **Официальная документация REST в этой среде недоступна**:
+  `docs.higgsfield.ai` закрыт egress-прокси (`EGRESS_BLOCKED`). Поэтому base
+  URL, заголовок и пути submit/status остаются **непроверенными**, а
+  официальным считается MCP-путь.
 - **Бесплатное**: 20 моделей помечены `supports_unlim` (безлимит пробного
   периода); для аккаунта, подключённого к этой сессии, `unlim.available =
   false`. Цены в каталоге не отдаются — стоимость узнаётся по факту
