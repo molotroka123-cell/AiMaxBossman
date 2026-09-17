@@ -128,3 +128,20 @@ def test_the_verdict_itself_is_untouched_by_the_new_output(tmp_path, capsys):
     for verdict in ('works', 'opens_feature', 'disabled_reason', 'request_accepted'):
         report, _ = _report(tmp_path, capsys, [_click('images', 'Кнопка', verdict)])
         assert report['status'] == 'PASS', verdict
+
+
+def test_the_sweep_driver_is_found_beside_the_shipped_copy_first(tmp_path):
+    """OA-04: in the archive the driver ships next to installed_ui_sweep.py."""
+    import importlib.util
+    import shutil
+    repo = Path(__file__).resolve().parents[1]
+    assert sweep.sweep_driver() == repo / 'scripts' / 'ui_acceptance_sweep.py'
+    support = tmp_path / 'app-support'
+    support.mkdir()
+    shutil.copyfile(repo / 'tools' / 'installed_ui_sweep.py', support / 'installed_ui_sweep.py')
+    spec = importlib.util.spec_from_file_location('shipped_sweep', support / 'installed_ui_sweep.py')
+    shipped = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(shipped)
+    assert shipped.sweep_driver() == tmp_path / 'scripts' / 'ui_acceptance_sweep.py', 'no driver beside: falls back'
+    (support / 'ui_acceptance_sweep.py').write_text('# shipped driver\n', encoding='utf-8')
+    assert shipped.sweep_driver() == support / 'ui_acceptance_sweep.py'

@@ -18,6 +18,26 @@
 | [UI-TARS](https://github.com/bytedance/UI-TARS) | Существующий Computer Operator | Визуальная модель уточняет координаты одиночного/двойного клика. Это не установка отдельного UI-TARS Desktop и не замена контроля разрешений. |
 | [GrapesJS](https://github.com/GrapesJS/grapesjs) | «Веб-дизайн» → «Конструктор блоков» | Уже существующий редактор статического HTML/CSS с сохранением проектов и историей. |
 
+### Пять ответов на направление, а не один
+
+Для Windows-архива те же восемь направлений записаны в `MANIFEST.json`
+(`oss_directions`) по пяти отдельным полям. `BUNDLED` считается по факту
+установки пакета в runtime архива; `CONFIGURED` — всегда действие владельца
+после распаковки (карточка «Настроено» — это конфигурация, не выполненная
+задача); `VERIFIED` в манифесте всегда `false` — проверка выполняется на
+вашей машине способом из колонки «как проверить».
+
+| направление | BUNDLED | CONFIGURED | MODEL_REQUIRED | EXTERNAL_SERVICE_REQUIRED | как проверить (VERIFIED — только вами) |
+|---|---|---|---|---|---|
+| llama.cpp | нет: сервер не в архиве | провайдер `openai_compat` | да (GGUF) | да (`llama-server`) | русский ответ, JSON по схеме, задача с инструментом |
+| Docling | да (`docling-slim`) | нет | нет (без OCR) | нет | известная фраза из PDF с текстовым слоем; скан → `NO_TEXT` |
+| Qdrant | да (`qdrant-client`, локальный режим) | папка заметок, модель и адрес эмбеддингов | да (модель эмбеддингов) | да (сервер эмбеддингов) | заранее записанный факт найден |
+| faster-whisper | да (`faster-whisper`) | `BOSSMAN_WHISPER_MODEL_PATH` | да (CTranslate2) | нет | короткий WAV расшифрован |
+| SearXNG | нет | `BOSSMAN_WEB_SEARXNG_URL` и флаги | нет | да (контейнер) | реальный запрос с ссылками |
+| ComfyUI | нет | `BOSSMAN_COMFYUI_URL`, checkpoint | да (SD/SDXL) | да (ComfyUI) | открывающийся PNG; «Стоп» → «Повторить» |
+| UI-TARS | нет | `BOSSMAN_COMPUTER_PLANNER=uitars`, маршрут | да (визуальная модель) | да (локальный маршрут) | безобидный клик по координатам модели |
+| GrapesJS | да (`ui/vendor/grapesjs` в колесе) | нет | нет | нет | правка заголовка, сохранение, переоткрытие |
+
 Профиль установки `command-center[runtime]` теперь включает пакеты
 `documents`, `speech`, `semantic-memory`: Docling Slim 2.127.0,
 faster-whisper 1.2.1 и qdrant-client 1.15.1. Он используется и Windows-сборкой.

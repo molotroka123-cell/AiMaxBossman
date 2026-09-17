@@ -28,6 +28,13 @@ Verdicts and exit codes (``EXIT_CODES``):
   out, that printed something other than its own report, a verifier that left
   no result, a result written for another SHA.
 
+``--full`` (or ``--ui-sweep`` / ``--live`` separately) adds the two owner
+runners CI drives from its checkout, now shipped in ``app-support`` (OA-04):
+the visible-button sweep of the installed application and the free-model
+smoke through the installed UI. The live smoke needs
+``BOSSMAN_OPENROUTER_API_KEY`` in the environment; without it the stage is
+OWNER_REQUIRED, never PASS. Stage results land in the same run folder.
+
 The last clause is the point of the 17 September audit (OA-01): before it, a
 missing or unreadable doctor left ``blocking`` empty and the verdict said PASS.
 A verdict is only ever computed from the structured ``reasons`` list, every
@@ -312,6 +319,52 @@ def _verifier(python: Path, evidence: Path, sha: str) -> dict:
     return result
 
 
+# ------------------------------------------------------------ owner stages
+
+def _stage(python: Path, evidence: Path, sha: str, name: str) -> dict:
+    """One shipped owner runner, judged by the report it wrote for THIS run."""
+    script = SUPPORT / f"{name}.py"
+    labels = {"installed_ui_sweep": "ui-sweep", "live_openrouter_owner": "live-model"}
+    label = labels[name]
+    result = {"status": "NOT_RUN", "returncode": None, "reasons": []}
+    if not script.is_file():
+        result["reasons"].append(_reason(f"{label}_not_shipped", f"app-support/{name}.py is missing"))
+        return result
+    output = evidence / f"{label}.json"
+    args = [str(python), "-I", str(script), "--expected-sha", sha, "--output", str(output)]
+    if name == "live_openrouter_owner":
+        args += ["--trajectories", str(evidence / "live-trajectories.jsonl")]
+    try:
+        done = _run(args, timeout=VERIFIER_TIMEOUT, cwd=str(HOME))
+    except subprocess.TimeoutExpired:
+        result["status"] = "TIMEOUT"
+        result["reasons"].append(_reason(f"{label}_timeout", f"{name}.py did not finish within {VERIFIER_TIMEOUT} s"))
+        return result
+    result["returncode"] = done.returncode
+    (evidence / f"{label}.log").write_text((done.stdout or "") + (done.stderr or ""), encoding="utf-8")
+    try:
+        report = json.loads(output.read_text(encoding="utf-8")) if output.is_file() else None
+    except (OSError, ValueError):
+        report = None
+    if not isinstance(report, dict):
+        result["status"] = "NO_RESULT"
+        result["reasons"].append(_reason(f"{label}_no_result",
+                                         f"{name}.py exited {done.returncode} and wrote no {label}.json"))
+        return result
+    status = report.get("status")
+    result["status"] = status if isinstance(status, str) and status else "INVALID"
+    if report.get("source_sha") != sha:
+        result["reasons"].append(_reason(f"{label}_sha_mismatch",
+                                         f"{label}.json was written for {report.get('source_sha')!r}, not {sha}"))
+    if status == "OWNER_REQUIRED" and done.returncode == 2:
+        result["reasons"].append(_reason(f"{label}_owner_required", str(report.get("reason") or
+                                         "something only the owner's account can supply is missing"), cls="owner"))
+    elif status != "PASS" or done.returncode != 0:
+        result["reasons"].append(_reason(f"{label}_not_passed",
+                                         f"status {status!r}, exit code {done.returncode}"))
+    return result
+
+
 # -------------------------------------------------------------------- main
 
 def _accept(args, manifest: dict, sha: str, python: Path, evidence: Path, result: dict) -> str:
@@ -371,6 +424,17 @@ def _accept(args, manifest: dict, sha: str, python: Path, evidence: Path, result
         result["reasons"].append(_reason(
             "required_download", f"{component}: acquired by the first run, not verified here",
             cls="owner"))
+
+    stages = []
+    if args.full or args.ui_sweep:
+        stages.append("installed_ui_sweep")
+    if args.full or args.live:
+        stages.append("live_openrouter_owner")
+    for name in stages:
+        stage = _stage(python, evidence, sha, name)
+        result["stages"][name] = {"status": stage["status"], "returncode": stage["returncode"]}
+        result["reasons"].extend(stage["reasons"])
+        print(f"  {name}: {stage['status']}")
     return verdict_for(result["reasons"])
 
 
@@ -380,6 +444,11 @@ def main(argv: list[str] | None = None) -> int:
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--skip-doctor", action="store_true",
                         help="diagnostic only: the verdict becomes PARTIAL, never PASS")
+    parser.add_argument("--full", action="store_true",
+                        help="also the visible-button sweep and the free-model smoke (shipped runners)")
+    parser.add_argument("--ui-sweep", action="store_true", help="also the visible-button sweep")
+    parser.add_argument("--live", action="store_true",
+                        help="also the free-model smoke; needs BOSSMAN_OPENROUTER_API_KEY, else OWNER_REQUIRED")
     args = parser.parse_args(argv)
 
     manifest_path = HOME / "MANIFEST.json"
@@ -409,6 +478,7 @@ def main(argv: list[str] | None = None) -> int:
         "doctor": "NOT_RUN", "doctor_returncode": None, "doctor_blocked": [],
         "installed_acceptance": "NOT_RUN", "installed_acceptance_returncode": None,
         "required_downloads": manifest.get("required_downloads") or [],
+        "stages": {},
         "reasons": [], "verdict": "FAIL", "exit_code": EXIT_CODES["FAIL"],
     }
     try:

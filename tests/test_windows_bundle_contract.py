@@ -351,3 +351,30 @@ def test_the_negative_control_hides_the_doctor_and_restores_it(tmp_path, monkeyp
     monkeypatch.setattr(verify, "run_evening", accepting)
     assert verify.evening_negative_control(home, {}).startswith("FAILED: exit 0")
     assert doctor.exists()
+
+
+# ------------------------------------------------ OA-04: owner runners ship
+
+def test_the_owner_runners_ci_drives_are_shipped_in_the_archive() -> None:
+    shipped = {name for _, name in bundle.SUPPORT_SCRIPTS}
+    for name in ("installed_ui_sweep.py", "ui_acceptance_sweep.py", "live_openrouter_owner.py",
+                 "target_hardware_acceptance.py", "bundle_evening_test.py", "bossman_doctor.py",
+                 "verify_installed_product.py", "owner_machine_report.py"):
+        assert name in shipped, name
+
+
+def test_the_eight_oss_directions_are_stated_per_archive_and_never_verified_by_the_build() -> None:
+    packages = [{"name": "docling-slim", "version": "2.127.0"}, {"name": "qdrant_client", "version": "1.15.1"},
+                {"name": "bossman-command-center", "version": "0.1.0"}]
+    rows = bundle.oss_directions_for(packages)
+    assert [row["direction"] for row in rows] == ["llama.cpp", "Docling", "Qdrant", "faster-whisper",
+                                                  "SearXNG", "ComfyUI", "UI-TARS", "GrapesJS"]
+    by_name = {row["direction"]: row for row in rows}
+    assert by_name["Docling"]["BUNDLED"] is True and by_name["Docling"]["bundled_distribution"] == "docling-slim==2.127.0"
+    assert by_name["faster-whisper"]["BUNDLED"] is False, "not installed in this synthetic runtime"
+    assert by_name["faster-whisper"]["MODEL_REQUIRED"] is True
+    assert by_name["Qdrant"]["EXTERNAL_SERVICE_REQUIRED"] is True and by_name["Qdrant"]["BUNDLED"] is True
+    assert by_name["llama.cpp"]["BUNDLED"] is False and by_name["llama.cpp"]["EXTERNAL_SERVICE_REQUIRED"] is True
+    assert by_name["GrapesJS"]["BUNDLED"] is True
+    assert all(row["VERIFIED"] is False and row["verify_by"] for row in rows)
+    assert (REPO / "command-center" / "ui" / "vendor" / "grapesjs" / "grapes.min.js").is_file()

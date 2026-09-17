@@ -3136,3 +3136,44 @@ HTTP-запрос не доказывает полезного эффекта»:
   Порядок: прогон A печатает замок → файлы коммитятся в `tools/` →
   прогон B собирает по замку, и только его архив может стать FROZEN.
   Бит-в-бит воспроизводимость не заявляется: перечислены различия.
+
+## BL-072 — «один архив» требовал клона для развёртки, живой модели и приёмки на железе. ИСПРАВЛЕНО (OA-04 аудита 17.09)
+
+* **Класс:** обещание поставки. CI запускал `installed_ui_sweep.py` и
+  `live_openrouter_owner.py` из чекаута встроенным python — продукт
+  проверялся установленный, но сами сценарии владельцу не поставлялись;
+  `target_hardware_acceptance.py` ехал в архиве как библиотека, а три его
+  проверки указывали на `scripts/` клона; INSTALL прямо требовал клон.
+* **Починка.**
+  * В `app-support` теперь едут `installed_ui_sweep.py`,
+    `ui_acceptance_sweep.py` (драйвер; ищется рядом с собой, потом в
+    `scripts/`), `live_openrouter_owner.py`. Windows-гейт запускает их
+    ИЗ РАСПАКОВАННОГО АРХИВА (`BOSSMAN_INSTALLED_HOME/app-support/...`), а
+    не из `tools/` чекаута — прогон доказывает, что поставленные копии
+    работают без клона.
+  * `Evening-Test.cmd --full` (`--ui-sweep`, `--live`): стадии поставленных
+    раннеров в той же папке запуска; live без ключа в окружении —
+    `OWNER_REQUIRED`, `REVIEW_REQUIRED` развёртки — FAIL, отсутствующий
+    раннер или отчёт — FAIL.
+  * `target_hardware_acceptance.py` в архиве (рядом с `MANIFEST.json`)
+    подменяет три проверки на архивные: `verify_installed_product.py
+    --expected-sha <SHA манифеста>`, `bossman_doctor.py`,
+    `bundle_evening_test.py`; cwd — папка архива; `source` в отчёте —
+    манифест, не выдуманный Git HEAD. В чекауте поведение прежнее.
+  * `MANIFEST.json` → `oss_directions`: восемь направлений по пяти полям
+    (BUNDLED по факту установки, CONFIGURED — владелец, MODEL_REQUIRED,
+    EXTERNAL_SERVICE_REQUIRED, VERIFIED всегда false + `verify_by`).
+    Таблица — `docs/oss/README.md`.
+  * INSTALL.md: приёмка архива без клона; строки `BOSSMAN_ASTRA6_FREEZE=` /
+    `RELEASE_READY=`; прямой Release-ссылки пока нет и это сказано.
+* **Что осталось на клоне и почему.** `intelligence_preservation_run.py`:
+  привязывает результат к дереву Git (`git ls-tree`), а по OA-05 нужен
+  больший отрецензированный корпус — до него `INSUFFICIENT_EVIDENCE` при
+  любом способе запуска; переносить его в архив ради заведомо
+  недостаточного измерения — лишний код. Экран доктора в UI не добавлен
+  (запрет на новые экраны до заморозки): действие владельца называют
+  `Evening-Test` и доктор в консоли.
+* **Регрессия.** `tests/test_target_hardware_acceptance.py` (+3: чекаут,
+  архив, копия без манифеста), `tests/test_installed_ui_sweep.py` (+1),
+  `tests/test_windows_bundle_contract.py` (+2: состав поставки, матрица
+  OSS), `tests/test_bundle_evening_test.py` (+6: стадии).

@@ -41,6 +41,31 @@ from typing import Any
 
 REPO = Path(__file__).resolve().parent.parent
 
+
+def archive_home() -> Path | None:
+    """The downloaded archive this file ships in, or None in a checkout.
+
+    Shipped as ``app-support/target_hardware_acceptance.py`` beside the
+    archive's MANIFEST.json (OA-04). There the three on-target checks are the
+    archive's own: the installed-product verifier bound to the manifest SHA,
+    the shipped doctor and the shipped evening acceptance. No ``scripts/`` of
+    a foreign clone, no cwd assumption, no invented git HEAD.
+    """
+    home = Path(__file__).resolve().parent.parent
+    if Path(__file__).resolve().parent.name == "app-support" and (home / "MANIFEST.json").is_file():
+        return home
+    return None
+
+
+def source_identity() -> dict[str, Any]:
+    """What this run is about: the manifest's SHA in an archive, the checkout otherwise."""
+    home = archive_home()
+    if home is not None:
+        manifest = json.loads((home / "MANIFEST.json").read_text(encoding="utf-8"))
+        return {"origin": "downloaded_archive", "source_sha": manifest.get("source_sha"),
+                "artifact": manifest.get("artifact"), "home": str(home)}
+    return {"origin": "checkout", "repo": str(REPO)}
+
 # Опознаётся КЛАСС машины, а не одна строка модели: у Strix Halo несколько
 # торговых имён, и требовать точного совпадения значит проваливать приёмку на
 # той самой машине, ради которой она написана.
@@ -152,15 +177,34 @@ def probe() -> dict[str, Any]:
             "mismatch": mismatch}
 
 
+def on_target_checks() -> tuple[Path, list[tuple[str, list[str], str]]]:
+    """Where the checks live and what they are, for a checkout or an archive."""
+    home = archive_home()
+    if home is None:
+        return REPO, list(ON_TARGET_CHECKS)
+    manifest = json.loads((home / "MANIFEST.json").read_text(encoding="utf-8"))
+    support = "app-support"
+    return home, [
+        ("clean-install", [sys.executable, f"{support}/verify_installed_product.py",
+                           "--expected-sha", str(manifest.get("source_sha"))],
+         "установленный продукт этого архива и владельческие сценарии по HTTP"),
+        ("doctor", [sys.executable, f"{support}/bossman_doctor.py"],
+         "готовность подсистем на реальном железе"),
+        ("evening-acceptance", [sys.executable, f"{support}/bundle_evening_test.py"],
+         "вечерняя приёмка владельца для этого архива"),
+    ]
+
+
 def run_on_target() -> list[dict[str, Any]]:
     results = []
-    for name, argv, what in ON_TARGET_CHECKS:
-        script = REPO / argv[1]
+    root, checks = on_target_checks()
+    for name, argv, what in checks:
+        script = root / argv[1]
         if not script.is_file():
             results.append({"check": name, "status": "MISSING", "what": what,
                             "detail": f"нет файла {argv[1]}"})
             continue
-        proc = subprocess.run([argv[0], str(script), *argv[2:]], cwd=REPO,
+        proc = subprocess.run([argv[0], str(script), *argv[2:]], cwd=root,
                               capture_output=True, text=True, check=False)
         results.append({"check": name, "what": what,
                         "status": "PASS" if proc.returncode == 0 else "FAIL",
@@ -177,7 +221,7 @@ def main(argv: list[str] | None = None) -> int:
 
     host = probe()
     report: dict[str, Any] = {"type": "bossman.target_hardware_acceptance",
-                              "schema": 1, "host": host,
+                              "schema": 1, "host": host, "source": source_identity(),
                               "target": {"cpu": "AMD Ryzen AI Max+ 395",
                                          "gpu": "Radeon 8060S",
                                          "ram_gib": 128,
@@ -185,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
     if not host["on_target"]:
         report["verdict"] = "SOFTWARE_READY_FOR_TARGET_HARDWARE_RUN"
         report["pending_on_target"] = [{"check": n, "command": " ".join(c), "what": w}
-                                       for n, c, w in ON_TARGET_CHECKS]
+                                       for n, c, w in on_target_checks()[1]]
         report["why"] = ("прогон выполнен НЕ на целевой машине; объявлять готовность "
                          "целевого железа по такому прогону запрещено")
         exit_code = 0

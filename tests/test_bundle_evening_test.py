@@ -67,6 +67,9 @@ class Bundle:
         self.verifier_raises: BaseException | None = None
         self.verifier_writes = True
         self.required_downloads: list[dict] = []
+        # OA-04 stages: (status, returncode, write?) per shipped runner
+        self.stage_results = {"installed_ui_sweep.py": ("PASS", 0, True),
+                              "live_openrouter_owner.py": ("OWNER_REQUIRED", 2, True)}
         monkeypatch.setattr(self.evening, "HOME", self.home)
         monkeypatch.setattr(self.evening, "SUPPORT", self.support)
         monkeypatch.setattr(self.evening, "_evidence_root", lambda _sha: self.evidence_root)
@@ -87,11 +90,18 @@ class Bundle:
 
     def _fake_run(self, args, **kwargs):
         self.calls.append(list(args))
-        script = Path(args[1]).name
+        script = Path(args[2] if args[1] == "-I" else args[1]).name
         if script == "bossman_doctor.py":
             if self.doctor_raises:
                 raise self.doctor_raises
             return subprocess.CompletedProcess(args, self.doctor_rc, self.doctor_stdout, "")
+        if script in self.stage_results and args[1] == "-I":
+            status, rc, writes = self.stage_results[script]
+            if writes:
+                out = Path(args[args.index("--output") + 1])
+                out.write_text(json.dumps({"status": status, "source_sha": SHA,
+                                           "reason": "Set BOSSMAN_OPENROUTER_API_KEY"}), encoding="utf-8")
+            return subprocess.CompletedProcess(args, rc, "stage", "")
         assert script == "verify_installed_product.py", args
         if self.verifier_raises:
             raise self.verifier_raises
@@ -111,7 +121,11 @@ class Bundle:
         return rc, result
 
     def scripts_called(self) -> list[str]:
-        return [Path(call[1]).name for call in self.calls]
+        return [Path(call[2] if call[1] == "-I" else call[1]).name for call in self.calls]
+
+    def ship_stage_runners(self) -> None:
+        for name in ("installed_ui_sweep.py", "live_openrouter_owner.py"):
+            (self.support / name).write_text(f"# synthetic {name}\n", encoding="utf-8")
 
 
 @pytest.fixture
@@ -357,3 +371,55 @@ def test_the_doctor_names_the_tool_requires_are_the_doctor_s_own():
     for name in sorted(_load().REQUIRED_DOCTOR_CHECKS | _load().OWNER_MACHINE_CHECKS):
         assert f'Check("{name}"' in source, name
     assert _load().OWNER_MACHINE_CHECKS <= _load().REQUIRED_DOCTOR_CHECKS
+
+
+# ------------------------------------------------------- OA-04: shipped stages
+
+def test_full_runs_the_shipped_sweep_and_live_smoke_from_the_archive(bundle):
+    bundle.ship_stage_runners()
+    rc, result = bundle.run(["--full"])
+    assert bundle.scripts_called() == ["bossman_doctor.py", "verify_installed_product.py",
+                                       "installed_ui_sweep.py", "live_openrouter_owner.py"]
+    # No key on this machine: the live stage is OWNER_REQUIRED, never a PASS.
+    assert (rc, result["verdict"]) == (2, "OWNER_REQUIRED")
+    assert result["stages"] == {"installed_ui_sweep": {"status": "PASS", "returncode": 0},
+                                "live_openrouter_owner": {"status": "OWNER_REQUIRED", "returncode": 2}}
+    reason = next(r for r in result["reasons"] if r["code"] == "live-model_owner_required")
+    assert reason["class"] == "owner" and "BOSSMAN_OPENROUTER_API_KEY" in reason["detail"]
+    live_call = next(call for call in bundle.calls if call[2].endswith("live_openrouter_owner.py"))
+    assert live_call[1] == "-I" and "--expected-sha" in live_call and SHA in live_call
+
+
+def test_a_live_smoke_that_passed_with_a_key_makes_full_pass(bundle):
+    bundle.ship_stage_runners()
+    bundle.stage_results["live_openrouter_owner.py"] = ("PASS", 0, True)
+    rc, result = bundle.run(["--full"])
+    assert (rc, result["verdict"]) == (0, "PASS")
+
+
+def test_a_sweep_that_needs_review_fails_the_full_run(bundle):
+    bundle.ship_stage_runners()
+    bundle.stage_results["installed_ui_sweep.py"] = ("REVIEW_REQUIRED", 0, True)
+    rc, result = bundle.run(["--ui-sweep"])
+    assert (rc, result["verdict"]) == (1, "FAIL")
+    assert "ui-sweep_not_passed" in codes(result)
+
+
+def test_a_stage_runner_that_is_not_shipped_fails(bundle):
+    rc, result = bundle.run(["--live"])
+    assert (rc, result["verdict"]) == (1, "FAIL")
+    assert "live-model_not_shipped" in codes(result)
+
+
+def test_a_stage_that_leaves_no_report_fails(bundle):
+    bundle.ship_stage_runners()
+    bundle.stage_results["installed_ui_sweep.py"] = ("PASS", 0, False)
+    rc, result = bundle.run(["--ui-sweep"])
+    assert (rc, result["verdict"]) == (1, "FAIL")
+    assert "ui-sweep_no_result" in codes(result)
+
+
+def test_the_default_run_starts_no_stage(bundle):
+    bundle.ship_stage_runners()
+    rc, result = bundle.run()
+    assert (rc, result["stages"]) == (0, {})

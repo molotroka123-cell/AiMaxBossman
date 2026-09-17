@@ -100,6 +100,21 @@ def write_report(output, sha, identity, pages, clicks):
               + (f' :: {detail}' if detail else ''))
 
 
+def sweep_driver() -> Path:
+    """The reviewed sweep driver: beside this file in the archive, scripts/ in a checkout.
+
+    Shipped as ``app-support/installed_ui_sweep.py`` next to
+    ``app-support/ui_acceptance_sweep.py`` (OA-04), so the owner's archive runs
+    the sweep without a clone; in the repository the driver still lives in
+    ``scripts/``.
+    """
+    here = Path(__file__).resolve()
+    beside = here.with_name('ui_acceptance_sweep.py')
+    if beside.is_file():
+        return beside
+    return here.parents[1] / 'scripts' / 'ui_acceptance_sweep.py'
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path, required=True)
@@ -115,7 +130,7 @@ def main() -> int:
     for name in list(os.environ):
         if name.endswith('_API_KEY') or name in ('BCC_DATA_DIR', 'DATABASE_URL', 'BCC_UI_DIR'):
             os.environ.pop(name, None)
-    driver = Path(__file__).resolve().parents[1] / 'scripts' / 'ui_acceptance_sweep.py'
+    driver = sweep_driver()
     spec = importlib.util.spec_from_file_location('_bossman_sweep_driver', driver)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module

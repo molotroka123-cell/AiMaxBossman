@@ -35,6 +35,9 @@ on:
       - 'tools/verify_installed_product.py'
       - 'tools/installed_ui_sweep.py'
       - 'tools/live_openrouter_owner.py'
+      - 'scripts/target_hardware_acceptance.py'
+      - 'tools/owner_machine_report.py'
+      - 'scripts/bossman_doctor.py'
       - 'command-center/**'
       - 'bossman-core/**'
       - 'bossman_shared/**'
@@ -261,6 +264,9 @@ jobs:
               'BCC_REQUIRE_BROWSER': '1',
               'BOSSMAN_ARCHIVE_SHA256': archive_sha256,
               'BOSSMAN_HARNESS_SHA': harness_sha,
+              # OA-04: the sweep and the live smoke run from the SHIPPED
+              # copies in app-support, not from this checkout's tools/.
+              'BOSSMAN_INSTALLED_HOME': str(home),
           }
           with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as stream:
               for name, value in variables.items():
@@ -301,10 +307,13 @@ jobs:
           } else {
             Write-Host 'owner-history-margins.jsonl отсутствует: замер не дошёл до записи'
           }
+      # Оба владельческих раннера ниже — КОПИИ ИЗ АРХИВА (app-support), а не
+      # tools/ этого чекаута: владелец получает ровно их, и этот прогон
+      # доказывает, что они работают без клона (OA-04).
       - name: Inventory visible buttons in the installed application
         if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
         run: |
-          & "$env:BCC_ACCEPTANCE_PYTHON" -I tools/installed_ui_sweep.py `
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/installed_ui_sweep.py" `
             --expected-sha "$env:BOSSMAN_ACCEPTANCE_SHA" `
             --output "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/ui-sweep.json"
       - name: Genuine free-model human task smoke
@@ -312,7 +321,7 @@ jobs:
         env:
           BOSSMAN_OPENROUTER_API_KEY: ${{ secrets.BOSSMAN_OPENROUTER_API_KEY }}
         run: |
-          & "$env:BCC_ACCEPTANCE_PYTHON" -I tools/live_openrouter_owner.py `
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/live_openrouter_owner.py" `
             --expected-sha "$env:BOSSMAN_ACCEPTANCE_SHA" `
             --output "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/live-model.json" `
             --trajectories "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/live-trajectories.jsonl"

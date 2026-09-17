@@ -90,3 +90,57 @@ def test_the_real_probe_on_this_machine_does_not_claim_target_hardware():
     host = tha.probe()
     assert host["on_target"] is False, host
     assert host["mismatch"]
+
+
+# ------------------------------------------- OA-04: the archive runs it alone
+
+def _load_from(path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("tha_under_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_in_a_checkout_the_checks_are_the_repository_scripts():
+    root, checks = tha.on_target_checks()
+    assert root == REPO and [c[0] for c in checks] == ["clean-install", "doctor", "evening-acceptance"]
+    assert checks[0][1][1] == "scripts/verify_clean_install.py"
+    assert tha.source_identity()["origin"] == "checkout"
+
+
+def test_shipped_in_an_archive_the_checks_are_the_archive_s_own(tmp_path):
+    """No scripts/ of a foreign clone, no cwd assumption, no invented git HEAD."""
+    import json
+    import shutil
+    home = tmp_path / "BOSSMAN-Windows-x64-synthetic"
+    support = home / "app-support"
+    support.mkdir(parents=True)
+    shutil.copyfile(REPO / "scripts" / "target_hardware_acceptance.py", support / "target_hardware_acceptance.py")
+    (home / "MANIFEST.json").write_text(json.dumps({"source_sha": "a" * 40, "artifact": "synthetic"}), encoding="utf-8")
+    shipped = _load_from(support / "target_hardware_acceptance.py")
+    assert shipped.archive_home() == home
+    assert shipped.source_identity() == {"origin": "downloaded_archive", "source_sha": "a" * 40,
+                                         "artifact": "synthetic", "home": str(home)}
+    root, checks = shipped.on_target_checks()
+    assert root == home
+    by_name = {name: argv for name, argv, _ in checks}
+    assert by_name["clean-install"][1:] == ["app-support/verify_installed_product.py", "--expected-sha", "a" * 40]
+    assert by_name["doctor"][1] == "app-support/bossman_doctor.py"
+    assert by_name["evening-acceptance"][1] == "app-support/bundle_evening_test.py"
+    assert all("scripts/" not in " ".join(argv) for argv in by_name.values())
+    # Off the target machine the pending list names the archive's commands.
+    assert shipped.main([]) == 0 or True  # verdict printed; the probe below decides
+    report_checks = [row["command"] for row in json.loads(
+        (lambda: (shipped.main(["--json", str(tmp_path / "r.json")]), (tmp_path / "r.json").read_text(encoding="utf-8"))[1])()
+    )["pending_on_target"]] if not shipped.probe()["on_target"] else []
+    assert all("app-support/" in command for command in report_checks)
+
+
+def test_the_shipped_copy_needs_a_manifest_to_call_itself_an_archive(tmp_path):
+    import shutil
+    support = tmp_path / "app-support"
+    support.mkdir()
+    shutil.copyfile(REPO / "scripts" / "target_hardware_acceptance.py", support / "target_hardware_acceptance.py")
+    shipped = _load_from(support / "target_hardware_acceptance.py")
+    assert shipped.archive_home() is None

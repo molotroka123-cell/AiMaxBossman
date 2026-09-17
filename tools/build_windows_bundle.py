@@ -81,6 +81,45 @@ SUPPORT_SCRIPTS = (
     # требует клона, потому что три его проверки указывают на scripts/.
     (ROOT / "tools" / "owner_machine_report.py", "owner_machine_report.py"),
     (ROOT / "scripts" / "target_hardware_acceptance.py", "target_hardware_acceptance.py"),
+    # OA-04: the owner runners CI drives from the checkout ship in the archive
+    # too, so «Evening-Test.cmd --full» and the target-hardware acceptance run
+    # from the ZIP alone. installed_ui_sweep.py finds its driver beside itself;
+    # target_hardware_acceptance.py resolves its three checks beside itself.
+    (ROOT / "tools" / "installed_ui_sweep.py", "installed_ui_sweep.py"),
+    (ROOT / "scripts" / "ui_acceptance_sweep.py", "ui_acceptance_sweep.py"),
+    (ROOT / "tools" / "live_openrouter_owner.py", "live_openrouter_owner.py"),
+)
+
+# The eight accepted OSS directions (docs/oss/README.md), stated per archive:
+# what is inside the ZIP, what the owner configures, what needs weights, what
+# needs a separate service. VERIFIED is never claimed by the build: it is a
+# separate acceptance on the owner's machine, named per direction.
+OSS_DIRECTIONS = (
+    {"direction": "llama.cpp", "surface": "Модели → провайдер openai_compat", "distribution": None,
+     "model_required": True, "external_service_required": True,
+     "verify_by": "русский ответ, JSON по схеме, задача с инструментом через настроенный сервер"},
+    {"direction": "Docling", "surface": "Локальные инструменты → Документ → текст", "distribution": "docling-slim",
+     "model_required": False, "external_service_required": False,
+     "verify_by": "известная фраза из PDF с текстовым слоем; сканы без OCR — NO_TEXT"},
+    {"direction": "Qdrant", "surface": "Локальные инструменты → Поиск по заметкам", "distribution": "qdrant-client",
+     "model_required": True, "external_service_required": True,
+     "verify_by": "заранее записанный факт найден через локальный сервер эмбеддингов"},
+    {"direction": "faster-whisper", "surface": "Локальные инструменты → Запись → текст", "distribution": "faster-whisper",
+     "model_required": True, "external_service_required": False,
+     "verify_by": "короткий WAV расшифрован с локальными весами CTranslate2"},
+    {"direction": "SearXNG", "surface": "Веб-поиск", "distribution": None,
+     "model_required": False, "external_service_required": True,
+     "verify_by": "реальный запрос с ссылками через BOSSMAN_WEB_SEARXNG_URL"},
+    {"direction": "ComfyUI", "surface": "Изображения → ComfyUI (local text-to-image)", "distribution": None,
+     "model_required": True, "external_service_required": True,
+     "verify_by": "открывающийся PNG 512×512; «Стоп» и «Повторить»"},
+    {"direction": "UI-TARS", "surface": "Computer Operator → планировщик uitars", "distribution": None,
+     "model_required": True, "external_service_required": True,
+     "verify_by": "безобидный клик по координатам визуальной модели через локальный маршрут"},
+    {"direction": "GrapesJS", "surface": "Веб-дизайн → Конструктор блоков", "distribution": "bossman-command-center",
+     "asset": "ui/vendor/grapesjs/grapes.min.js",
+     "model_required": False, "external_service_required": False,
+     "verify_by": "правка заголовка, сохранение, переоткрытие после перезапуска"},
 )
 
 START_CMD = r"""@echo off
@@ -500,6 +539,33 @@ def install_icons(icons: Path) -> dict:
     return shipped
 
 
+def oss_directions_for(packages: list[dict]) -> list[dict]:
+    """BUNDLED / CONFIGURED / MODEL_REQUIRED / EXTERNAL_SERVICE_REQUIRED / VERIFIED per direction.
+
+    ``bundled`` is read from what was actually installed into the runtime, not
+    from the extras the build asked for. ``configured`` is always the owner's
+    act after unzipping; ``verified`` is never true in a manifest.
+    """
+    installed = {lockmod.normalize(item.get("name", "")): item.get("version") for item in packages}
+    rows = []
+    for spec in OSS_DIRECTIONS:
+        distribution = spec["distribution"]
+        bundled = distribution is None and not spec["external_service_required"] or (
+            distribution is not None and lockmod.normalize(distribution) in installed)
+        rows.append({
+            "direction": spec["direction"], "surface": spec["surface"],
+            "BUNDLED": bundled,
+            "bundled_distribution": (f"{distribution}=={installed[lockmod.normalize(distribution)]}"
+                                     if distribution and lockmod.normalize(distribution) in installed else None),
+            "CONFIGURED": "by the owner after unzipping; a card that says «Настроено» is configuration, not a done task",
+            "MODEL_REQUIRED": spec["model_required"],
+            "EXTERNAL_SERVICE_REQUIRED": spec["external_service_required"],
+            "VERIFIED": False,
+            "verify_by": spec["verify_by"],
+        })
+    return rows
+
+
 def install_support(support: Path) -> None:
     support.mkdir(parents=True, exist_ok=True)
     for origin, name in SUPPORT_SCRIPTS:
@@ -605,6 +671,7 @@ def main(argv: list[str] | None = None) -> int:
                             checks={"installed_acceptance": "NOT_RUN"},
                             required_downloads=required)
     manifest["build_inputs"] = build_inputs
+    manifest["oss_directions"] = oss_directions_for(contents["runtime"].get("packages", []))
     (out / "MANIFEST.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (out / "SHA256SUMS").write_text(
