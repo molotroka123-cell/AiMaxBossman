@@ -211,3 +211,68 @@ async def test_video_completion_downloads_decodes_and_keeps_key_off_cdn(env,monk
     assert run['provenance']['provider_request_id']=='video-proof'
     assert len(seen)==4
     assert (await env.client.get(run['file_url'])).content==path.read_bytes()
+
+async def test_cap_refuses_the_next_reservation_and_cancellation_returns_nothing(env,monkeypatch):
+    """Потолок режет следующую заявку, а отмена не возвращает зарезервированное.
+
+    Невозврат — не забытая доработка, а решение: заявка уже ушла провайдеру, и
+    он вправе списать деньги независимо от того, дождались мы ответа или нет.
+    Вернуть резерв на отмене значило бы разрешить обойти дневной предел
+    циклом «поставил — отменил». Проверяется именно та отмена, что рвёт
+    отправку посреди запроса, а не отмена задачи в очереди.
+    """
+    from bcc.studio.providers import openrouter
+    from bcc.studio.governance import save_policy,reserve,budget_status
+    from bcc.studio.runtime import StudioError
+    model='openrouter:minimax/hailuo-3-max'
+    await save_policy(env.svc,{'enabled':True,'free_only':False,'cloud_budget_usd':0.10,'per_job_usd':0.10,'prices':{model:0.06}})
+    cls=openrouter.OpenRouterProvider;entered=asyncio.Event()
+    async def serve(r):
+        if r.url.path.endswith('/auth/key'):return httpx.Response(200,json={'data':{'limit_remaining':100}})
+        entered.set()
+        await asyncio.Event().wait()
+    monkeypatch.setattr(openrouter,'OpenRouterProvider',lambda key,**kw:cls(key,transport=httpx.MockTransport(serve),**kw))
+    monkeypatch.setenv('OPENROUTER_API_KEY','test-only-key')
+    job=await create(env,model=model,settings={})
+    worker=asyncio.create_task(process_one(env.svc))
+    await asyncio.wait_for(entered.wait(),5)
+    assert (await budget_status(env.svc))['committed_upper_bound_usd']==0.06
+    await env.client.post('/api/studio/jobs/'+str(job['id'])+'/cancel')
+    await asyncio.wait_for(worker,5)
+    assert (await budget_status(env.svc))['committed_upper_bound_usd']==0.06,'отмена вернула деньги'
+    with pytest.raises(StudioError,match='budget') as refused:await reserve(env.svc,model,job['id']+1,1,[])
+    assert refused.value.verdict=='OWNER_REQUIRED'
+    assert (await budget_status(env.svc))['committed_upper_bound_usd']==0.06
+
+
+async def test_provider_charge_above_the_declared_bound_keeps_bytes_and_stops_the_cloud(env,monkeypatch):
+    """Провайдер списал больше объявленного потолка — облако выключается.
+
+    Байты уже получены и проверены, поэтому они остаются у владельца: удалять
+    оплаченный результат было бы вторым ущербом. Но следующий вызов не
+    делается — политика переводится в enabled=false, и очередная задача
+    получает unauthorized. Тихо принять перерасход значило бы позволить
+    провайдеру назначать цену задним числом.
+    """
+    from bcc.studio.providers import openrouter
+    from bcc.studio.governance import save_policy,policy
+    cls=openrouter.OpenRouterProvider
+    def serve(r):
+        if r.url.path.endswith('/auth/key'):return httpx.Response(200,json={'data':{'limit_remaining':100}})
+        return httpx.Response(200,json={'data':[{'b64_json':base64.b64encode(_png(256,256)).decode()}],'usage':{'cost':5.0}})
+    monkeypatch.setattr(openrouter,'OpenRouterProvider',lambda key,**kw:cls(key,transport=httpx.MockTransport(serve),**kw))
+    monkeypatch.setenv('OPENROUTER_API_KEY','test-only-key')
+    model='openrouter:google/gemini-3.1-flash-image'
+    await save_policy(env.svc,{'enabled':True,'free_only':False,'cloud_budget_usd':1,'per_job_usd':1,'prices':{model:0.01}})
+    job=await create(env,model=model,settings={'aspect_ratio':'16:9'})
+    await process_one(env.svc)
+    row=(await env.client.get('/api/studio/jobs/'+str(job['id']))).json()
+    assert row['status']=='failed' and row['studio']['reason']=='budget'
+    assert row['studio']['verdict']=='OWNER_REQUIRED'
+    runs=(await env.client.get('/api/studio/runs')).json()['items']
+    assert len(runs)==1 and runs[0]['provenance']['cost_usd']==5.0,'оплаченные байты не выбрасываются'
+    assert (await policy(env.svc))['enabled'] is False
+    again=await create(env,model=model,settings={'aspect_ratio':'16:9'})
+    await process_one(env.svc)
+    after=(await env.client.get('/api/studio/jobs/'+str(again['id']))).json()
+    assert after['status']=='failed' and after['studio']['reason']=='unauthorized'
