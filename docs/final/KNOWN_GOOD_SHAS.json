@@ -1,8 +1,30 @@
 {
  "schema_version": 1,
- "recorded_at": "2026-09-18",
+ "recorded_at": "2026-09-19",
  "note": "Точки, о которых известно ЧТО ИМЕННО на них проверено. Не список зелёных галочек. `proven` — то, что кто-то измерил; `not_proven` — то, что на этом SHA НЕ показывали, и это часть записи, а не оговорка.",
  "entries": [
+  {
+   "sha": "235a07164f8ddb60f3567fde14c1ee260aa2f30e",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "проверенный Windows-кандидат 18.09, прогон 128 — третий зелёный подряд; первый с определением железа без WMIC",
+   "proven": [
+    "три задания цепочки Windows зелёные: bundle, owner-experience, freeze (прогон 35402665896)",
+    "BOSSMAN_ASTRA6_FREEZE=OWNER_REQUIRED, блокеров нет; owner_required только по ключу: live-model.json:not_passed, studio.json:not_passed",
+    "BOSSMAN_ASTRA6_RELEASE_STATE=WINDOWS_RC_READY_OWNER_REQUIRED, RELEASE_READY=NO",
+    "архив BOSSMAN-Windows-x64-235a07164f8d.zip, 782984179 байт, SHA-256 c2a53386903dcac6dbbc1f6091bc95e08ed14178576970fb7f32a468d03b8113",
+    "определение железа на Windows без WMIC: CIM → устаревший wmic → psutil, три состояния target/different/undetermined, таймауты 20 с и 1800 с",
+    "корневой набор 1813 passed, 11 skipped на этой вершине"
+   ],
+   "not_proven": [
+    "живая модель: BOSSMAN_FREE_LIVE=OWNER_REQUIRED — секрет пуст",
+    "живая генерация Studio: studio.json:not_passed по той же причине",
+    "железо владельца: ни одного числа с целевой машины; на runner'е Windows определение отработало, но машина там не целевая",
+    "сохранность интеллекта: INSUFFICIENT_EVIDENCE намеренно",
+    "Authenticode: архив не подписан",
+    "обновление и откат между двумя архивами: сторона ДАННЫХ доказана позже, на 82961501 (поколение схемы и репетиция); на ЭТОЙ вершине её ещё нет",
+    "публикация Release: операция владельца"
+   ]
+  },
   {
    "sha": "48f8da94e28bf9b4a611a5f193879e7a73fc8415",
    "branch": "claude/bossman-final-convergence-hu2702",
