@@ -213,6 +213,7 @@ jobs:
           tests/test_bcc_cli_portability.py
           tests/test_apps_pid_portability.py
           tests/test_browser_installed_readiness.py
+          tests/test_desktop_startup_refusal.py
       - name: Windows Video Studio descriptor boundary
         working-directory: command-center
         env:
