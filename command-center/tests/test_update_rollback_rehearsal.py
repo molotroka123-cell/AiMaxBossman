@@ -7,6 +7,12 @@
 Здесь он прогоняется как тест — чтобы правка, снявшая защиту, краснела в CI,
 а не обнаруживалась на машине владельца. Мутационный контроль ниже проверяет
 ровно это: без отказа шаг 4 обязан стать FAIL.
+
+Почему набор Command Center, а не корневой. Корневое задание CI ставит ровно
+`pytest pytest-timeout psutil httpx pyyaml` и намеренно остаётся без сервисов:
+ни SQLAlchemy, ни pytest-asyncio там нет. Сценарий поднимает настоящую базу
+через `bcc.db`, то есть его место здесь. Я положил его сначала в корень —
+локально зелено, в CI три отказа; записано, чтобы ошибка не повторилась.
 """
 import asyncio
 import importlib.util
@@ -16,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 
 
 def _rehearsal():
@@ -32,7 +38,6 @@ def _rehearsal():
     return module
 
 
-@pytest.mark.asyncio
 async def test_the_owner_data_survives_an_update_and_a_rollback(tmp_path):
     result = await _rehearsal().rehearse(tmp_path / "run")
     failed = [s for s in result["steps"] if s["verdict"] != "PASS"]
@@ -40,7 +45,6 @@ async def test_the_owner_data_survives_an_update_and_a_rollback(tmp_path):
     assert result["verdict"] == "PASS"
 
 
-@pytest.mark.asyncio
 async def test_the_rehearsal_turns_red_when_the_refusal_is_removed(tmp_path, monkeypatch):
     """Негативный контроль: сценарий, который нельзя провалить, ничего не меряет."""
     module = _rehearsal()

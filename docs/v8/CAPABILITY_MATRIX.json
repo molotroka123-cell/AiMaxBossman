@@ -182,7 +182,7 @@
       "state": "IMPLEMENTED_AND_TESTED",
       "evidence": [
         "scripts/update_rollback_rehearsal.py",
-        "tests/test_update_rollback_rehearsal.py",
+        "command-center/tests/test_update_rollback_rehearsal.py",
         "command-center/tests/test_db_schema_generation.py"
       ],
       "note": "Шесть шагов на настоящем runtime с парным контролем. UPDATE_ROLLBACK_DATA=PASS."

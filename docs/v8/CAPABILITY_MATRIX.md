@@ -83,7 +83,7 @@
 
 ### Данные владельца переживают обновление и откат
 
-* **Улики:** `scripts/update_rollback_rehearsal.py`, `tests/test_update_rollback_rehearsal.py`, `command-center/tests/test_db_schema_generation.py`
+* **Улики:** `scripts/update_rollback_rehearsal.py`, `command-center/tests/test_update_rollback_rehearsal.py`, `command-center/tests/test_db_schema_generation.py`
 * Шесть шагов на настоящем runtime с парным контролем. UPDATE_ROLLBACK_DATA=PASS.
 
 ### Бюджет отзывчивости зафиксирован до замера и не двигается после
