@@ -200,6 +200,29 @@
     "New Windows archive acceptance and full UI sweep pending",
     "Real cloud generation, official Higgsfield MCP, TTS and target hardware OWNER_REQUIRED"
    ]
+  },
+  {
+   "sha": "f195083e1588e74601d33a6d76fcd3d171e5bbd3",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "Проверенный Windows-кандидат со Studio V8 — прогон 126 (35304127364)",
+   "proven": [
+    "приёмка установленного архива 46 из 46: tests 46, failure 0, error 0, skipped 0; 16 модулей ровно по реестру",
+    "обход интерфейса на установленном архиве PASS: 31 страница, 139 нажатий; мёртвых, ошибочных, молча выключенных и исчезнувших — ноль",
+    "архив BOSSMAN-Windows-x64-f195083e1588.zip, 782983533 байта, SHA-256 fd2332723efd2f9e383b80dba57e953e4cba83ce603adc25a65a31ed7148840d",
+    "BOSSMAN_ASTRA6_FREEZE=OWNER_REQUIRED без блокеров; RELEASE_STATE=WINDOWS_RC_READY_OWNER_REQUIRED",
+    "история после перезапуска 1422 мс при бюджете 5000",
+    "каталог Studio: 6 записей, verified=0, unverified=6",
+    "BL-081 закрыт на настоящем Windows: рефрейм проходит; единственный error обхода прошлого прогона исчез, счётчик перешёл в request_accepted"
+   ],
+   "not_proven": [
+    "живая модель: BOSSMAN_FREE_LIVE=OWNER_REQUIRED, секрет пуст",
+    "живой Studio: BOSSMAN_STUDIO_LIVE=openrouter:OWNER_REQUIRED, STUDIO_LIVE_PATH=owner_required",
+    "сохранность интеллекта: INSUFFICIENT_EVIDENCE намеренно (BL-003)",
+    "железо владельца Ryzen AI Max+ 395 / Radeon 8060S: ни одного числа",
+    "Authenticode: архив не подписан",
+    "обновление и откат между двумя архивами с сохранением данных владельца",
+    "в этот архив НЕ входит 63c71b41 — правка кодировки отчёта обхода"
+   ]
   }
  ],
  "studio_v8_candidate_note": "V8 worktree has source tests; no new known-good Windows SHA is asserted before archive/live acceptance. See docs/v8/PHASES_1_5_DELIVERY_RU.md."
