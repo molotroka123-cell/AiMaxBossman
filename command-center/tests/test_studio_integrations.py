@@ -171,3 +171,37 @@ async def test_agent_generation_goes_through_the_real_permission_decision(env):
     assert granted=='auto'
     read,_=decide_effect(status,{'job_id':1},{'permissions':[]})
     assert read=='auto'
+
+
+async def test_reframe_survives_the_windows_positional_read_fallback(env,monkeypatch):
+    """Рефрейм на Windows падал: копия делалась через дублированный дескриптор.
+
+    `digest_descriptor` читает через `pread`. На POSIX это `os.pread`, и
+    смещение дескриптора остаётся нулевым. На Windows позиционного чтения нет,
+    и запасной путь двигает общий указатель — после проверки он стоит в конце
+    файла. `copy_verified` дублировал этот дескриптор (`os.dup` делит смещение
+    с оригиналом), поэтому копировалось ноль байт, и проверка копии честно
+    говорила «Copied bytes changed» → RuntimeError. Отсюда `failed` вместо
+    `completed` на установленном архиве и зелено на Linux.
+
+    Ветка Windows помечена `pragma: no cover` и живым прогоном не
+    проверялась. Здесь она подставляется байт-в-байт, чтобы поведение Windows
+    проверялось на Linux-раннере.
+    """
+    import os,threading
+    from bcc.video_studio import media
+    seek=threading.Lock()
+    def windows_pread(fd,length,offset):
+        with seek:
+            os.lseek(fd,offset,os.SEEK_SET)
+            return os.read(fd,length)
+    monkeypatch.setattr(media,'pread',windows_pread)
+    row=await imported(env)
+    r=await env.client.post(f"/api/studio/runs/{row['id']}/reframe",json={'width':512,'height':256,'mode':'pad'})
+    assert r.status_code==200,r.text
+    await process_one(env.svc)
+    job=(await env.client.get('/api/studio/jobs/'+str(r.json()['id']))).json()
+    assert job['status']=='completed',(job['status'],job.get('error'))
+    output=(await env.client.get('/api/studio/runs')).json()['items'][0]
+    assert output['provenance']['output']['width']==512
+    assert output['provenance']['inputs'][0]['sha256']==row['sha256']

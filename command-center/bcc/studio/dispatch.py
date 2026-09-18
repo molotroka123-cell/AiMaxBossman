@@ -18,7 +18,19 @@ async def inputs_for(svc,inputs):
         if row['surface']!='image' or row['mime']=='image/svg+xml':raise StudioError('egress','Only raster image references are supported','OWNER_REQUIRED')
         if row['file_bytes']>15*1024*1024:raise ValueError('reference exceeds 15 MiB')
         handle=await verified_handle(svc,row)
-        try:data=await asyncio.to_thread(os.read,handle.descriptor,row['file_bytes']+1)
+        # Позиционное чтение, а не последовательное: проверка digest_descriptor
+        # на Windows оставляет общий указатель дескриптора в конце файла, и
+        # os.read вернул бы ноль байт — референс объявлялся бы изменившимся,
+        # хотя не менялся. Тот же корень, что у рефрейма (BL-081).
+        def read_all():
+            from bcc.video_studio.media import pread
+            parts=[];offset=0;limit=row['file_bytes']+1
+            while offset<limit:
+                block=pread(handle.descriptor,min(256*1024,limit-offset),offset)
+                if not block:break
+                parts.append(block);offset+=len(block)
+            return b''.join(parts)
+        try:data=await asyncio.to_thread(read_all)
         finally:handle.close()
         import hashlib
         if hashlib.sha256(data).hexdigest()!=item['sha256']:raise StudioError('egress','Reference changed during read','OWNER_REQUIRED')

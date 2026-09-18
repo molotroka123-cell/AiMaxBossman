@@ -14,13 +14,30 @@ from bcc.studio.tables import runs,jobs,config
 from bcc.v2.images_tables import image_jobs,image_collections
 
 async def copy_verified(svc,row,target):
+    """Скопировать проверенные байты ИЗ ТОГО ЖЕ дескриптора, что их доказал.
+
+    Читается позиционно и только позиционно. Прежняя версия дублировала
+    дескриптор (`os.dup`) и читала последовательно, а дубль делит смещение с
+    оригиналом. На POSIX это сходило с рук: `digest_descriptor` читает через
+    `os.pread`, и смещение остаётся нулевым. На Windows позиционного чтения
+    нет, запасной путь двигает общий указатель, и после проверки он стоит в
+    конце файла — копировалось ноль байт, проверка копии честно говорила
+    «Copied bytes changed», рефрейм падал RuntimeError. Запасной путь прямо
+    оговаривает условие, которое дубль и нарушал: «descriptors here are owned
+    by one reader and never dup-ed».
+    """
+    from bcc.video_studio.media import digest_file,pread
     handle=await rt.verified_handle(svc,row)
     try:
         target.parent.mkdir(parents=True,exist_ok=True)
         def copy():
-            with os.fdopen(os.dup(handle.descriptor),'rb') as source,target.open('xb') as out:shutil.copyfileobj(source,out,256*1024)
+            with target.open('xb') as out:
+                offset=0
+                while True:
+                    block=pread(handle.descriptor,256*1024,offset)
+                    if not block:return
+                    out.write(block);offset+=len(block)
         await asyncio.to_thread(copy)
-        from bcc.video_studio.media import digest_file
         if await asyncio.to_thread(digest_file,target)!=row['sha256']:raise RuntimeError('Copied bytes changed')
     finally:handle.close()
     return target

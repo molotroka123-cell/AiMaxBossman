@@ -276,3 +276,32 @@ async def test_provider_charge_above_the_declared_bound_keeps_bytes_and_stops_th
     await process_one(env.svc)
     after=(await env.client.get('/api/studio/jobs/'+str(again['id']))).json()
     assert after['status']=='failed' and after['studio']['reason']=='unauthorized'
+
+
+async def test_reference_egress_survives_the_windows_positional_read_fallback(env,monkeypatch):
+    """Референс уходит провайдеру целиком и на Windows — второй участок BL-081.
+
+    `inputs_for` читал проверенный дескриптор последовательно. На Windows
+    проверка оставляет общий указатель в конце файла, поэтому прочиталось бы
+    ноль байт, и владелец получил бы «Reference changed during read» на
+    референс, который не менялся. Путь облачный и в CI закрыт OWNER_REQUIRED,
+    то есть на Windows он не исполнялся ни разу и ни один тест этого не ловил.
+    Ветка Windows подставляется байт-в-байт.
+    """
+    import os,threading
+    from bcc.video_studio import media
+    from bcc.studio.dispatch import inputs_for
+    from bcc.studio.integrations import import_reference
+    seek=threading.Lock()
+    def windows_pread(fd,length,offset):
+        with seek:
+            os.lseek(fd,offset,os.SEEK_SET)
+            return os.read(fd,length)
+    monkeypatch.setattr(media,'pread',windows_pread)
+    png=_png(256,256)
+    row=await import_reference(env.svc,'ref.png',base64.b64encode(png).decode())
+    prepared=await inputs_for(env.svc,[{'run_id':row['id'],'role':'reference','sha256':row['sha256']}])
+    assert len(prepared)==1
+    head,_,payload=prepared[0]['data_uri'].partition(',')
+    assert head=='data:image/png;base64'
+    assert base64.b64decode(payload)==png,'референс передан не целиком'
