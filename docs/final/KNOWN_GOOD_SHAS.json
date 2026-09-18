@@ -223,6 +223,26 @@
     "обновление и откат между двумя архивами с сохранением данных владельца",
     "в этот архив НЕ входит 63c71b41 — правка кодировки отчёта обхода"
    ]
+  },
+  {
+   "sha": "63c71b4158ae506828c1ee43d4c205d3f1884542",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "Проверенный Windows-кандидат, второй зелёный подряд — прогон 127 (35305553254)",
+   "proven": [
+    "вся цепочка Windows зелёная: сборка, приёмка установленного архива, агрегатор",
+    "BOSSMAN_ASTRA6_FREEZE=OWNER_REQUIRED без блокеров; RELEASE_STATE=WINDOWS_RC_READY_OWNER_REQUIRED",
+    "архив BOSSMAN-Windows-x64-63c71b4158ae.zip, 782979778 байт, SHA-256 805917dc5829cb43fa716a00eb26b19bc8433be4e611faad83932c6081f2d1a9",
+    "содержит правку кодировки отчёта обхода, которой нет в f195083e",
+    "профиль приёмки удовлетворён и обход PASS выведены из контракта агрегатора: OWNER_REQUIRED достижим только с пустым списком блокеров, а REVIEW_REQUIRED обхода стал бы блокером",
+    "улики: windows-owner-proof-63c71b41… (10531828982), astra6-freeze-63c71b41… (10532351992)"
+   ],
+   "not_proven": [
+    "точные счётчики приёмки и обхода этого прогона я не читал построчно — читал их на 126 (46/46, 31 страница, 139 нажатий)",
+    "живая модель: BOSSMAN_FREE_LIVE=OWNER_REQUIRED",
+    "живой Studio: STUDIO_LIVE_PATH=owner_required",
+    "сохранность интеллекта: INSUFFICIENT_EVIDENCE намеренно (BL-003)",
+    "железо владельца, Authenticode, обновление и откат между архивами"
+   ]
   }
  ],
  "studio_v8_candidate_note": "V8 worktree has source tests; no new known-good Windows SHA is asserted before archive/live acceptance. See docs/v8/PHASES_1_5_DELIVERY_RU.md."
