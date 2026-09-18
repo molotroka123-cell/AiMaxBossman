@@ -114,6 +114,7 @@ async def test_real_queue_path_with_stub_http_and_verified_bytes(env,monkeypatch
     assert row['status']=='completed',row
     runs=(await env.client.get('/api/studio/runs')).json()['items']
     assert len(runs)==1 and runs[0]['provenance']['cost_usd']==0
+    assert runs[0]['provenance']['provider_request_id']=='NOT_CAPTURED:provider_did_not_return_id'
     assert requests==['/api/v1/auth/key','/api/v1/images']
     assert not any(m['verified'] for m in (await env.client.get('/api/studio/models')).json()['items'])
 
@@ -181,3 +182,32 @@ async def test_verification_is_bound_to_current_provider_configuration(env,monke
     assert next(m for m in (await env.client.get('/api/studio/models')).json()['items'] if m['id']==model)['verified']
     monkeypatch.setenv('OPENROUTER_API_KEY','changed-test-only-key')
     assert not next(m for m in (await env.client.get('/api/studio/models')).json()['items'] if m['id']==model)['verified']
+
+async def test_video_completion_downloads_decodes_and_keeps_key_off_cdn(env,monkeypatch,tmp_path):
+    from bcc.studio.providers import openrouter
+    from bcc.studio.governance import save_policy
+    from bcc.video_studio.media import binary,process
+    path=tmp_path/'video.mp4'
+    await process([binary('ffmpeg'),'-v','error','-f','lavfi','-i','color=c=blue:s=256x256:r=10:d=0.2','-c:v','libx264','-pix_fmt','yuv420p',str(path)])
+    cls=openrouter.OpenRouterProvider;seen=[]
+    def serve(r):
+        seen.append((r.method,r.url.host,r.url.path))
+        if r.url.host=='cdn.example.test':
+            assert 'authorization' not in r.headers
+            return httpx.Response(200,content=path.read_bytes())
+        if r.url.path.endswith('/auth/key'):return httpx.Response(200,json={'data':{'limit_remaining':1}})
+        if r.method=='POST':return httpx.Response(202,json={'id':'video-proof'})
+        return httpx.Response(200,json={'status':'completed','unsigned_urls':['https://cdn.example.test/proof.mp4'],'usage':{'cost':0}})
+    monkeypatch.setattr(openrouter,'OpenRouterProvider',lambda key,**kw:cls(key,transport=httpx.MockTransport(serve),**kw))
+    monkeypatch.setenv('OPENROUTER_API_KEY','test-only-key')
+    model='openrouter:minimax/hailuo-3-max'
+    await save_policy(env.svc,{'enabled':True,'prices':{model:0},'download_hosts':['cdn.example.test']})
+    job=await create(env,model=model,settings={})
+    await process_one(env.svc)
+    row=(await env.client.get('/api/studio/jobs/'+str(job['id']))).json()
+    assert row['status']=='completed',row
+    run=(await env.client.get('/api/studio/runs')).json()['items'][0]
+    assert run['surface']=='video' and run['provenance']['output']['duration_ms']>0
+    assert run['provenance']['provider_request_id']=='video-proof'
+    assert len(seen)==4
+    assert (await env.client.get(run['file_url'])).content==path.read_bytes()

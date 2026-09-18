@@ -132,3 +132,18 @@ async def test_generated_bytes_to_timeline_export_and_reopen(env,monkeypatch):
     finally:await reopened.close()
     Path(row['file_path']).write_bytes(b'tampered')
     assert (await env.client.get(row['file_url'])).status_code==409
+
+async def test_declared_media_surface_matches_container_and_audio_mime(env,tmp_path):
+    from bcc.video_studio.media import binary,process
+    video=tmp_path/'sample.mp4'
+    await process([binary('ffmpeg'),'-v','error','-f','lavfi','-i','color=c=blue:s=256x256:r=10:d=0.2','-c:v','libx264','-pix_fmt','yuv420p',str(video)])
+    encoded=base64.b64encode(video.read_bytes()).decode()
+    valid=await env.client.post('/api/studio/references',json={'filename':'sample.mp4','data_base64':encoded})
+    assert valid.status_code==200,valid.text
+    disguised=await env.client.post('/api/studio/references',json={'filename':'pretend.jpg','data_base64':encoded})
+    assert disguised.status_code==422
+    audio=tmp_path/'sample.mp3'
+    await process([binary('ffmpeg'),'-v','error','-f','lavfi','-i','sine=duration=0.2','-c:a','libmp3lame',str(audio)])
+    imported=await env.client.post('/api/studio/references',json={'filename':'sample.mp3','data_base64':base64.b64encode(audio.read_bytes()).decode()})
+    assert imported.status_code==200,imported.text
+    assert imported.json()['mime']=='audio/mpeg'

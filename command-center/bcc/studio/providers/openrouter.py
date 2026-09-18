@@ -20,7 +20,7 @@ LIMIT=256*1024*1024
 class OpenRouterProvider:
     name='openrouter'
     def __init__(self,key,*,transport=None,allowed_download_hosts=(),gate=None):
-        self._key=key;self._transport=transport;self._hosts=set(allowed_download_hosts);self._gate=gate
+        self.external_ids={};self._key=key;self._transport=transport;self._hosts=set(allowed_download_hosts);self._gate=gate
         self._jobs={};self._outputs={};self.costs={}
 
     async def _request(self,method,path,payload=None):
@@ -84,6 +84,8 @@ class OpenRouterProvider:
         body=await self._request('POST','/videos' if video else '/images',payload)
         rid=body.get('id') if video else uuid4().hex
         if not isinstance(rid,str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,200}',rid):raise ProviderFailure(ProviderStatus('failed','malformed'))
+        external_id=body.get('id')
+        self.external_ids[rid]=external_id if isinstance(external_id,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,200}',external_id) else 'NOT_CAPTURED:provider_did_not_return_id'
         self._jobs[rid]={'video':video,'body':body,'canceled':False}
         self._cost(rid,body)
         return Submitted(rid)

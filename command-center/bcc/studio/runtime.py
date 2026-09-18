@@ -153,7 +153,7 @@ def _magic(path):
     with path.open('rb') as stream:return stream.read(8)
 
 async def verify_file(path,surface,*,mock=False):
-    from bcc.video_studio.media import probe, digest_file, process, binary, input_args
+    from bcc.video_studio.media import probe, digest_file, process, binary, input_args, file_kind
     if not path.is_file() or not 0<path.stat().st_size<=256*1024*1024: raise ValueError('output: missing/empty/too large')
     if mock:
         import xml.etree.ElementTree as ET
@@ -169,13 +169,16 @@ async def verify_file(path,surface,*,mock=False):
         w,h=verify_png(path.read_bytes());meta={'width':w,'height':h,'duration_ms':None,'mime':'image/png'}
         if surface!='image': raise ValueError('surface mismatch')
     else:
+        kind,extension=file_kind(path)
+        if surface=='image' and kind!='jpeg_pipe':raise ValueError('image container mismatch')
+        if surface=='video' and kind not in ('mov','matroska','avi'):raise ValueError('video container mismatch')
         info=await probe(path)
         if surface=='image' and not info['has_video']: raise ValueError('image stream missing')
         if surface=='video' and (not info['has_video'] or info['duration_ticks']<=0): raise ValueError('video duration/stream missing')
         if surface=='audio' and (not info['has_audio'] or info['has_video'] or info['duration_ticks']<=0): raise ValueError('audio duration/stream missing')
         # Decoding, not just ffprobe metadata, is the completion boundary.
         await process([binary('ffmpeg'),'-v','error',*input_args(path),'-f','null','-'],timeout=90)
-        meta={'width':info['width'],'height':info['height'],'duration_ms':info['duration_ticks']/1000,'mime':{'image':'image/jpeg','video':'video/mp4','audio':'audio/wav'}[surface]}
+        meta={'width':info['width'],'height':info['height'],'duration_ms':info['duration_ticks']/1000,'mime':{'.jpg':'image/jpeg','.mp4':'video/mp4','.mkv':'video/x-matroska','.avi':'video/x-msvideo','.mp3':'audio/mpeg','.wav':'audio/wav','.flac':'audio/flac','.ogg':'audio/ogg'}[extension]}
     return {**meta,'path':str(path),'sha256':await asyncio.to_thread(digest_file,path),'bytes':path.stat().st_size}
 
 async def persist(svc,jid,plane,model,path,*,mock=False,request_id=None,cost='NOT_CAPTURED:provider_did_not_report',legacy=None,effective_settings=None):

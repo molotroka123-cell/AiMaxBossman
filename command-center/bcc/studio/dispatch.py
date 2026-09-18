@@ -73,7 +73,8 @@ async def generate(svc,job,ext,model):
                 path=storage(svc).root/f"generated-{job['id']}-{index}-{n}{suffix}"
                 result=await provider.fetch(output,path)
                 cost=0 if model['provider']=='comfyui' else provider.costs.get(receipt.request_id,'NOT_CAPTURED:provider_did_not_report')
-                try:rid=await persist(svc,job['id'],plane,model,result.path,request_id=receipt.request_id,cost=cost,effective_settings=settings)
+                external_id=provider.external_ids[receipt.request_id] if model['provider']=='openrouter' else receipt.request_id
+                try:rid=await persist(svc,job['id'],plane,model,result.path,request_id=external_id,cost=cost,effective_settings=settings)
                 except BaseException:result.path.unlink(missing_ok=True);raise
                 if rid is None:result.path.unlink(missing_ok=True);return
                 if type(cost) in (int,float) and reservation and cost>reservation['policy']['prices'][model['id']]:

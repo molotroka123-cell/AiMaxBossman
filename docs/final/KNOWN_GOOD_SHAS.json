@@ -185,6 +185,21 @@
     "Authenticode: архив не подписан",
     "обновление и откат между двумя архивами с сохранением данных владельца"
    ]
+  },
+  {
+   "sha": "045d90c8d18cc22df467cfd7f03c365648666a8b",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "Studio V8 — репозиторная и Linux-wheel проверка, НЕ проверенный Windows кандидат",
+   "proven": [
+    "80 source/real-browser Studio + Images tests passed",
+    "2/2 Studio browser tests against separate installed Linux wheel; packaged catalog 6 records, 0 verified",
+    "root suite 1797 passed, 11 skipped; idle within phase-0 tolerance"
+   ],
+   "not_proven": [
+    "One existing operator overhead root test fails on this host; not green root suite",
+    "New Windows archive acceptance and full UI sweep pending",
+    "Real cloud generation, official Higgsfield MCP, TTS and target hardware OWNER_REQUIRED"
+   ]
   }
  ],
  "studio_v8_candidate_note": "V8 worktree has source tests; no new known-good Windows SHA is asserted before archive/live acceptance. See docs/v8/PHASES_1_5_DELIVERY_RU.md."
