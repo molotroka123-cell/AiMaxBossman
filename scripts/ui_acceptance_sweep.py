@@ -161,14 +161,34 @@ class LiveApp:
         return f"http://127.0.0.1:{self.port}"
 
 
+def page_routes(src: str) -> list[str]:
+    """Маршруты обхода берутся из САМОГО реестра, включая режимы страницы.
+
+    Страница может иметь не один экран: `images` показывает старую библиотеку
+    по `#/images` и Studio по `#/images?studio=1`. Обход по одним только
+    идентификаторам видел первый экран и не видел второй — измерено 18.09:
+    11 нажатий против 22 на тех же страницах, то есть одиннадцать органов
+    управления Studio не проверялись вовсе. Поэтому страница объявляет свои
+    маршруты полем `sweep`, а обход идёт по ним; страница без этого поля
+    по-прежнему обходится по своему идентификатору.
+    """
+    routes: list[str] = []
+    for body in re.findall(r"lazyPage\(\{(.*?)\}\s*,", src, re.S):
+        found = re.search(r"id:\s*'([^']+)'", body)
+        if not found:
+            continue
+        declared = re.search(r"sweep:\s*\[([^\]]*)\]", body)
+        routes.extend(re.findall(r"'([^']+)'", declared.group(1)) if declared else [found.group(1)])
+    return routes
+
+
 def page_ids() -> list[str]:
-    """Идентификаторы страниц берутся из САМОГО реестра, а не из копии списка.
+    """Маршруты обхода из реестра исходников.
 
     Список, записанный здесь руками, разошёлся бы с `pages/index.js` при первой
     же новой странице, и обход тихо перестал бы её проверять.
     """
-    src = (CC / "ui" / "pages" / "index.js").read_text(encoding="utf-8")
-    return re.findall(r"lazyPage\(\{\s*id:\s*'([^']+)'", src)
+    return page_routes((CC / "ui" / "pages" / "index.js").read_text(encoding="utf-8"))
 
 
 def _visible_controls(page) -> list[dict]:

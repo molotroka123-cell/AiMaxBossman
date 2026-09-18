@@ -145,7 +145,10 @@ def main() -> int:
             sock.bind(('127.0.0.1', 0))
             port = sock.getsockname()[1]
         registry = Settings(data_dir=data).ui_dir / 'pages' / 'index.js'
-        pages = re.findall(r"lazyPage\(\{\s*id:\s*'([^']+)'", registry.read_text(encoding='utf-8'))
+        # Разбор — из того же драйвера, что и на исходниках: два списка
+        # маршрутов разошлись бы, и установленный продукт проверялся бы не тем,
+        # чем проверяется исходник.
+        pages = module.page_routes(registry.read_text(encoding='utf-8'))
         if not pages:
             raise RuntimeError('Packaged UI page registry is empty')
         with (data / 'private-server.log').open('w', encoding='utf-8') as log:

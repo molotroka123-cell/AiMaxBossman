@@ -38,6 +38,11 @@ const ImagesPage = {
   icon: 'models',
   nav: 'primary',
   section: 'studio',
+  /* Два экрана одной страницы: библиотека Images по '#/images' и Studio по
+     '#/images?studio=1'. Обход интерфейса ходит по идентификаторам страниц и
+     второй экран не видел вовсе — замер 18.09: 11 нажатий против 22. Страница
+     объявляет свои маршруты сама, поэтому гейт проверяет оба. */
+  sweep: ['images', 'images?studio=1'],
 
   async render(ctx) {
     ensureStyles();

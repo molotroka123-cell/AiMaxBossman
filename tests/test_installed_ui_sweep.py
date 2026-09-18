@@ -15,6 +15,52 @@ sweep = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sweep)
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+_driver_spec = importlib.util.spec_from_file_location('ui_acceptance_sweep',
+    ROOT / 'scripts' / 'ui_acceptance_sweep.py')
+driver = importlib.util.module_from_spec(_driver_spec)
+sys.modules['ui_acceptance_sweep'] = driver
+_driver_spec.loader.exec_module(driver)
+
+
+def test_a_page_with_several_screens_is_swept_on_every_declared_route():
+    """Экран, который страница не объявила, обход не увидит — и это измерено.
+
+    18.09: `#/images` давал 11 нажатий, `#/images` вместе с `#/images?studio=1`
+    — 22 на тех же страницах. Одиннадцать органов управления Studio не
+    проверялись гейтом вовсе, потому что обход ходил только по идентификаторам.
+    """
+    registry = """
+      lazyPage({ id: 'images', title: 'Студия', icon: 'models', nav: 'primary', section: 'studio',
+                 sweep: ['images', 'images?studio=1'] },
+        () => import('./images.js'), (m) => m.default),
+    """
+    assert driver.page_routes(registry) == ['images', 'images?studio=1']
+
+
+def test_a_page_without_declared_routes_is_still_swept_by_its_id():
+    """Отрицательный контроль: разбор не имеет права потерять обычную страницу.
+
+    Без этой пары «улучшение» обхода могло бы тихо выкинуть из гейта каждую
+    страницу, которая ничего про себя не объявила, — то есть почти все.
+    """
+    registry = """
+      lazyPage({ id: 'oss', title: 'Локальные инструменты', icon: 'tools', nav: 'more', section: 'system' },
+        () => import('./oss.js'), (m) => m.default),
+      lazyPage({ id: 'video-studio', title: 'Video Studio', icon: 'video', nav: 'primary', section: 'studio' },
+        () => import('./video_studio.js'), (m) => m.default),
+    """
+    assert driver.page_routes(registry) == ['oss', 'video-studio']
+
+
+def test_the_real_registry_still_sweeps_both_studio_screens():
+    """Сторож против тихой потери режима Studio в самом реестре."""
+    routes = driver.page_routes((ROOT / 'command-center' / 'ui' / 'pages' / 'index.js').read_text(encoding='utf-8'))
+    assert 'images' in routes and 'images?studio=1' in routes
+    assert len(routes) == len(set(routes)), 'повторяющийся маршрут обхода'
+
+
 def test_stop_owned_tree_releases_child_working_directory(tmp_path):
     working = tmp_path / 'managed app with spaces'
     working.mkdir()
