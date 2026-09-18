@@ -144,3 +144,8 @@ def test_the_shipped_copy_needs_a_manifest_to_call_itself_an_archive(tmp_path):
     shutil.copyfile(REPO / "scripts" / "target_hardware_acceptance.py", support / "target_hardware_acceptance.py")
     shipped = _load_from(support / "target_hardware_acceptance.py")
     assert shipped.archive_home() is None
+
+
+def test_studio_owner_only_is_not_hardware_pass(capsys,monkeypatch):
+    verdict,code=_verdict(capsys,monkeypatch,ON_TARGET,[{'check':'studio','status':'OWNER_REQUIRED','returncode':2}])
+    assert verdict=='TARGET_HARDWARE_OWNER_REQUIRED' and code==2

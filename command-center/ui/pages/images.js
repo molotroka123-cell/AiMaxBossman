@@ -9,6 +9,7 @@ import {
 } from '../components.js';
 import { errorBanner } from './_shared.js';
 import * as ui from './_ui.js';
+import {studioPanel} from './_studio.js';
 
 /* Общий язык интерфейса: шапка и пустые состояния — из bx-слоя.
    Совместимость: старые вызовы передают массив кнопок третьим аргументом. */
@@ -33,13 +34,18 @@ let composerState = {
 
 const ImagesPage = {
   id: 'images',
-  title: 'Изображения',
+  title: 'Студия',
   icon: 'models',
   nav: 'primary',
   section: 'studio',
 
   async render(ctx) {
     ensureStyles();
+    if (location.hash.includes("studio=1")) {activeTab="studio";history.replaceState(null,"",location.pathname+location.search+"#/images");}
+    if (activeTab === 'studio') {
+      try { return h('div.stack.lg', pageHead('Bossman Studio', 'Создание изображений и видео', [h('button.btn.btn-sm', {onClick:()=>{activeTab='library';ctx.refresh();}}, 'Библиотека Images')]), await studioPanel(ctx)); }
+      catch(e) { return errorBanner(e,ctx); }
+    }
     let assets = []; let jobs = []; let collections = []; let models = [];
     let storage = null; let overview = null; let err = null; let assetTotal = 0;
     try {
@@ -65,9 +71,10 @@ const ImagesPage = {
     } catch (e) { err = e; }
 
     const head = pageHead(
-      'Изображения',
+      'Bossman Studio',
       'Создание картинок, ваша библиотека и коллекции.',
       [
+        h('button.btn.btn-primary', {type:'button',onClick:()=>{activeTab='studio';ctx.refresh();}}, 'Создать в Studio'),
         h('label.btn.btn-sm', { title: 'Загрузить файл с компьютера' },
           icon('plus', 13), h('span', 'Загрузить файл'),
           h('input', {
@@ -97,7 +104,7 @@ const ImagesPage = {
   },
 
   onEvent(ev) {
-    return String(ev.kind || '').startsWith('image.');
+    return String(ev.kind || '').startsWith('image.') || String(ev.kind || '').startsWith('studio.');
   },
 };
 

@@ -125,7 +125,8 @@ async def capabilities(request: Request):
     model=os.environ.get("BOSSMAN_VIDEO_ASR_MODEL","")
     data["transcription"]={"status":"AVAILABLE" if model and Path(model).is_file() else "BLOCKED",
                            "reason":"Host local model configured" if model and Path(model).is_file() else "No host-approved local ASR model configured"}
-    data["generation"]=generation_status()
+    from ..studio.runtime import generation_status as studio_generation_status
+    data["generation"]=await studio_generation_status(request.app.state.svc)
     translation=os.environ.get("BOSSMAN_VIDEO_TRANSLATION_MODEL","")
     runtime=os.environ.get("BOSSMAN_VIDEO_TRANSLATION_PYTHON","")
     configured=bool(translation and (Path(translation)/"config.json").is_file() and runtime and Path(runtime).is_file())

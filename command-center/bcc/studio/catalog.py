@@ -6,6 +6,8 @@ import math
 from pathlib import Path
 
 REGISTRY = Path(__file__).resolve().parents[3] / 'tools' / 'studio_models.json'
+if not REGISTRY.is_file():
+    REGISTRY = Path(__file__).with_name('_studio_models.json')
 
 
 def _number(value):

@@ -186,5 +186,6 @@
     "обновление и откат между двумя архивами с сохранением данных владельца"
    ]
   }
- ]
+ ],
+ "studio_v8_candidate_note": "V8 worktree has source tests; no new known-good Windows SHA is asserted before archive/live acceptance. See docs/v8/PHASES_1_5_DELIVERY_RU.md."
 }

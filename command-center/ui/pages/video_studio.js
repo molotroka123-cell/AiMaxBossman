@@ -410,7 +410,7 @@ class Editor {
         this.button(this.lang === 'ru' ? 'Распознать речь' : 'Transcribe speech', () => this.analyse(mediaId, 'transcribe'), { disabled: !mediaId || this.capabilities?.transcription?.status !== 'AVAILABLE',
           reason: !mediaId ? this.t('whyNoSource')
             : (this.capabilities?.transcription?.reason || this.t('unavailable')) }),
-        h('p.vs-muted', this.capabilities?.transcription?.reason || ''), h('div.vs-effect', h('strong', this.lang === 'ru' ? 'Генерация изображений / видео' : 'Image / video generation'), h('p', this.capabilities?.generation?.reason || this.t('unavailable'))));
+        h('p.vs-muted', this.capabilities?.transcription?.reason || ''), h('div.vs-effect', h('strong', this.lang === 'ru' ? 'Генерация изображений / видео' : 'Image / video generation'), h('p', this.capabilities?.generation?.reason || this.t('unavailable')), h('a.btn.btn-sm', {href:'#/images?studio=1'}, this.lang === 'ru' ? 'Сгенерировать в Studio' : 'Generate in Studio')));
       controls.append(this.aiSearchControls());
     } else {
       controls.append(number('Speed ×', (clip.speed?.num || 1) / (clip.speed?.den || 1), value => this.command({ type: 'clip.speed', clip_id: clip.id, speed: { num: Math.round(value * 1000), den: 1000 } }), { min: .01, max: 100 }),

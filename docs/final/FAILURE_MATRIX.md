@@ -75,3 +75,13 @@
 проверить до того, как владелец включит бэкенд, и он написан так, чтобы первое
 включение не потребовало доверия к чужому коду. Настоящий прогон против живого
 Windows-MCP остаётся владельческим и назван в `TARGET_HARDWARE_REPORT.md`.
+
+
+## V8 Studio — покрытие и граница Higgsfield
+
+401/402/429/404/content_policy/malformed: test_studio_provider_states.py и
+test_studio_cloud.py; отмена видео во время submit, CDN redirect/ключ, бюджет
+и отзыв egress — test_studio_cloud.py. Completed без байтов, рестарт без
+повторной отправки, неизменяемость, изменённые файлы — test_studio_runtime.py.
+Для строк Higgsfield 1,3,5,6,7,8,14,15,16,18,19: LIVE NOT_RUN / OWNER_REQUIRED,
+протокольные тесты не выданы за MCP acceptance.

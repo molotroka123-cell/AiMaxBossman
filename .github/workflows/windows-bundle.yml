@@ -37,6 +37,8 @@ on:
       - 'tools/live_openrouter_owner.py'
       - 'scripts/target_hardware_acceptance.py'
       - 'tools/owner_machine_report.py'
+      - 'tools/studio_models.json'
+      - 'tools/studio_live_owner.py'
       - 'scripts/bossman_doctor.py'
       - 'command-center/**'
       - 'bossman-core/**'
@@ -94,6 +96,7 @@ on:
       - 'command-center/tests/test_oss_memory_refusals.py'
       - 'command-center/tests/test_web_designer_first_click_ui.py'
       - 'command-center/tests/test_refresh_during_typing_ui.py'
+      - 'command-center/tests/test_studio_gallery_ui.py'
       # conftest записывает привязку results.xml к архиву (OA-02).
       - 'command-center/tests/conftest.py'
       - '!bossman-core/tests/**'
@@ -322,6 +325,22 @@ jobs:
           & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/installed_ui_sweep.py" `
             --expected-sha "$env:BOSSMAN_ACCEPTANCE_SHA" `
             --output "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/ui-sweep.json"
+      - name: Studio installed catalog and owner live evidence
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        env:
+          BOSSMAN_OPENROUTER_API_KEY: ${{ secrets.BOSSMAN_OPENROUTER_API_KEY }}
+        run: |
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I -m bcc.studio.catalog --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/studio_live_owner.py" `
+            --expected-sha "$env:BOSSMAN_ACCEPTANCE_SHA" `
+            --output "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/studio.json"
+          $code = $LASTEXITCODE
+          if ($code -eq 2) {
+            Write-Host '::warning::STUDIO=OWNER_REQUIRED; configure confirmed free image/video routes and run shipped studio_live_owner.py --execute. No paid fallback.'
+            exit 0
+          }
+          exit $code
       - name: Genuine free-model human task smoke
         if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
         env:

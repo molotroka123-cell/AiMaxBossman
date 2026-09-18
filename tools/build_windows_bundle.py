@@ -70,6 +70,7 @@ ICON_FILES = ("bossman.ico", "icon-1024.png", "icon-512.png", "icon-256.png",
 
 # Shipped next to the runtime so the owner's evening test needs no checkout.
 SUPPORT_SCRIPTS = (
+    (ROOT / "tools" / "studio_live_owner.py", "studio_live_owner.py"),
     (ROOT / "tools" / "verify_installed_product.py", "verify_installed_product.py"),
     (ROOT / "scripts" / "bossman_doctor.py", "bossman_doctor.py"),
     (ROOT / "tools" / "bundle_evening_test.py", "bundle_evening_test.py"),

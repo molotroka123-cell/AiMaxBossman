@@ -66,6 +66,7 @@ def live_rows(models=MODELS, cases=CASES, sha=SHA):
 @pytest.fixture
 def evidence(tmp_path):
     reports = {
+        "studio.json": {"status":"PASS","acceptance":"PASS","source_sha":SHA,"binding":binding(),"identity":{"source_sha":SHA},"installed":True,"live":[{"provider":"comfyui","status":"PASS","outputs":[{"surface":"image","sha256":"a"*64,"bytes":100,"decoded":True,"mock":False,"provenance":True}]}]},
         "bundle-acceptance.json": {
             "status": "PASS", "expected_sha": SHA, "problems": [], "binding": binding(),
             "details": {"archive_sha256": ARCHIVE, "archive": f"BOSSMAN-Windows-x64-{SHA[:12]}.zip",
@@ -110,7 +111,7 @@ def test_the_real_complete_set_freezes_and_binds_without_copying_secrets(evidenc
                                          "reports_bound": sorted(freeze.REPORTS)}
     assert report["acceptance_registry"]["minimum_tests"] == REGISTRY["junit"]["minimum_tests"]
     assert report["acceptance_registry"]["live_rows"] == 6
-    assert len(report["evidence"]) == 4
+    assert len(report["evidence"]) == 5
     assert report["evidence"]["results.xml"]["profile_cases"] == REGISTRY["junit"]["minimum_tests"]
     assert all(len(item["sha256"]) == 64 for item in report["evidence"].values())
     assert "private-provider-secret" not in json.dumps(report)
@@ -407,3 +408,21 @@ def test_the_publish_gate_is_red_on_anything_but_frozen(evidence, capsys):
     assert "BOSSMAN_ASTRA6_RELEASE_READY=NO" in printed
     assert "owner_required: live-model.json:missing" in printed
     assert json.loads(out.read_text())["publish_gate"]["release_ready"] is False
+
+
+def test_studio_live_proof_required_even_if_other_reports_pass(evidence):
+    (evidence/'studio.json').unlink(missing_ok=True)
+    report=manifest(evidence)
+    assert report['status']=='OWNER_REQUIRED'
+    assert 'studio.json:missing' in report['owner_required']
+
+@pytest.mark.parametrize('mutation',[
+    lambda p:p.update(status='FAIL'),
+    lambda p:p.update(binding=None),
+    lambda p:p.update(live=[]),
+    lambda p:p['live'][0]['outputs'][0].update(sha256=''),
+    lambda p:p['live'][0]['outputs'][0].update(mock=True),
+])
+def test_studio_cannot_freeze_on_claim_without_evidence(evidence,mutation):
+    rewrite(evidence/'studio.json',mutation)
+    assert manifest(evidence)['status']=='BLOCKED'

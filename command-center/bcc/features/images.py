@@ -542,6 +542,11 @@ async def process_one(svc) -> int | None:
     if job is None:
         return None
 
+    if (job.get("options") or {}).get("studio") is True:
+        from ..studio.runtime import process_claimed
+        await process_claimed(svc, job)
+        return job_id
+
     if job.get("model_alias") not in EXECUTABLE_ALIASES | {"comfyui"}:
         await _fail_job(svc, job_id,
                         f"реальный image provider для «{job.get('model_alias')}» ещё не подключён")

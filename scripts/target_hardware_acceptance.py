@@ -185,6 +185,8 @@ def on_target_checks() -> tuple[Path, list[tuple[str, list[str], str]]]:
     manifest = json.loads((home / "MANIFEST.json").read_text(encoding="utf-8"))
     support = "app-support"
     return home, [
+        ("studio", [sys.executable, f"{support}/studio_live_owner.py", "--expected-sha", str(manifest.get("source_sha")), "--provider", "comfyui", "--execute", "--output", str(home / "studio-hardware.json")],
+         "локальная Studio на ComfyUI; без настроенного checkpoint OWNER_REQUIRED"),
         ("clean-install", [sys.executable, f"{support}/verify_installed_product.py",
                            "--expected-sha", str(manifest.get("source_sha"))],
          "установленный продукт этого архива и владельческие сценарии по HTTP"),
@@ -207,7 +209,7 @@ def run_on_target() -> list[dict[str, Any]]:
         proc = subprocess.run([argv[0], str(script), *argv[2:]], cwd=root,
                               capture_output=True, text=True, check=False)
         results.append({"check": name, "what": what,
-                        "status": "PASS" if proc.returncode == 0 else "FAIL",
+                        "status": "PASS" if proc.returncode == 0 else "OWNER_REQUIRED" if name == "studio" and proc.returncode == 2 else "FAIL",
                         "returncode": proc.returncode,
                         "tail": (proc.stdout or proc.stderr or "")[-2000:]})
     return results
@@ -235,9 +237,10 @@ def main(argv: list[str] | None = None) -> int:
         exit_code = 0
     else:
         report["checks"] = run_on_target()
-        failed = [c for c in report["checks"] if c["status"] != "PASS"]
-        report["verdict"] = "TARGET_HARDWARE_FAILED" if failed else "TARGET_HARDWARE_READY"
-        exit_code = 1 if failed else 0
+        failed = [c for c in report["checks"] if c["status"] not in ("PASS", "OWNER_REQUIRED")]
+        pending = any(c["status"] == "OWNER_REQUIRED" for c in report["checks"])
+        report["verdict"] = "TARGET_HARDWARE_FAILED" if failed else "TARGET_HARDWARE_OWNER_REQUIRED" if pending else "TARGET_HARDWARE_READY"
+        exit_code = 1 if failed else 2 if pending else 0
 
     text = json.dumps(report, ensure_ascii=False, indent=2)
     if args.json:

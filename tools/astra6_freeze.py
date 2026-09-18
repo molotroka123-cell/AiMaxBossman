@@ -46,7 +46,7 @@ SHA = re.compile(r"[0-9a-f]{40}\Z")
 DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 RUN_ID = re.compile(r"[A-Za-z0-9_.:-]{1,64}\Z")
 ARCHIVE_NAME = re.compile(r"BOSSMAN-Windows-x64-[0-9a-f]{12}\.zip\Z")
-REPORTS = ("bundle-acceptance.json", "ui-sweep.json", "live-model.json", "results.xml")
+REPORTS = ("bundle-acceptance.json", "ui-sweep.json", "live-model.json", "results.xml", "studio.json")
 STATUSES = ("PASS", "FAIL", "OWNER_REQUIRED", "REVIEW_REQUIRED", "NOT_RUN", "SKIPPED", "PARTIAL")
 CONTRACT_VERSION = 2
 
@@ -162,7 +162,7 @@ def build_manifest(evidence_dir: Path, source_sha: str, job_statuses: list[str],
         matches = list(evidence_dir.rglob(name)) if evidence_dir.is_dir() else []
         if len(matches) != 1:
             reason = "missing" if not matches else "duplicate"
-            (owner_required if name == "live-model.json" and not matches else blocked).append(f"{name}:{reason}")
+            (owner_required if name in ("live-model.json", "studio.json") and not matches else blocked).append(f"{name}:{reason}")
             continue
         path = matches[0]
         try:
@@ -193,6 +193,42 @@ def build_manifest(evidence_dir: Path, source_sha: str, job_statuses: list[str],
             record["status"] = status if status in STATUSES else "INVALID"
             if status != "PASS":
                 (owner_required if status == "OWNER_REQUIRED" else blocked).append(f"{name}:not_passed")
+            if name == "studio.json":
+                if report.get("acceptance") == "FAIL":
+                    blocked.append("studio_not_passed")
+                if status == "PASS":
+                    live = report.get("live")
+                    valid = isinstance(live, list) and bool(live)
+                    passed = []
+                    for provider in live if isinstance(live, list) else []:
+                        if not isinstance(provider, dict):
+                            valid = False
+                            continue
+                        if provider.get("status") != "PASS":
+                            if provider.get("status") != "OWNER_REQUIRED": valid = False
+                            continue
+                        outputs = provider.get("outputs")
+                        surfaces = set()
+                        if not isinstance(outputs, list) or not outputs: valid = False
+                        for output in outputs if isinstance(outputs, list) else []:
+                            if not isinstance(output, dict):
+                                valid = False
+                                continue
+                            surfaces.add(output.get("surface"))
+                            if (not DIGEST.fullmatch(str(output.get("sha256", "")))
+                                    or type(output.get("bytes")) is not int or output["bytes"] <= 0
+                                    or output.get("mock") is not False
+                                    or output.get("decoded") is not True
+                                    or output.get("provenance") is not True): valid = False
+                        if provider.get("provider") == "comfyui" and "image" in surfaces:
+                            passed.append(provider)
+                        elif provider.get("provider") in ("openrouter", "higgsfield") and {"image", "video"} <= surfaces:
+                            passed.append(provider)
+                        else: valid = False
+                    if (not valid or not passed or report.get("installed") is not True
+                            or report.get("identity", {}).get("source_sha") != source_sha
+                            or report.get("acceptance") != "PASS"):
+                        blocked.append("studio.json:verified_bytes_proof_incomplete")
             if name == "live-model.json" and status == "PASS":
                 identity = report.get("identity")
                 if not isinstance(identity, dict) or identity.get("source_sha") != source_sha:
