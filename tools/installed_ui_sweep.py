@@ -115,7 +115,28 @@ def sweep_driver() -> Path:
     return here.parents[1] / 'scripts' / 'ui_acceptance_sweep.py'
 
 
+def utf8_console() -> None:
+    """Вывод не должен падать на русских подписях органов управления.
+
+    Раннер запускается с `-I`, а `-I` подразумевает `-E`: PYTHONUTF8 и
+    PYTHONIOENCODING игнорируются. На Windows стандартный поток получает
+    кодировку локали (cp1252), и первая же строка REVIEW с кириллицей роняет
+    отчёт UnicodeEncodeError — ровно там, где он должен назвать сбойный
+    орган. Прогон 35303040987 так и закончился: вердикт REVIEW_REQUIRED
+    посчитан, а какой именно контроль сбоит, не сказано ни одной строкой.
+    Имена — единственное, что доступно без артефакта, поэтому поток
+    переводится в UTF-8, а errors='replace' гарантирует, что печать не
+    упадёт даже там, где UTF-8 недоступен.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, OSError, ValueError):  # поток без reconfigure
+            pass
+
+
 def main() -> int:
+    utf8_console()
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--expected-sha', required=True)

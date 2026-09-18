@@ -215,3 +215,44 @@ def test_loading_the_driver_does_not_repoint_the_top_level_tests_package():
     assert _driver().page_routes('') == []
     assert sys.path == before, 'загрузка драйвера изменила sys.path'
     assert importlib.util.find_spec('tests.test_learning_trace') is not None
+
+
+def test_review_names_survive_a_windows_locale_console(tmp_path):
+    """Отчёт с русской подписью не должен падать на cp1252-потоке.
+
+    Раннер запускается с `-I`, то есть PYTHONUTF8 игнорируется, и на Windows
+    поток получает кодировку локали. Прогон 35303040987 на этом и закончился:
+    вердикт REVIEW_REQUIRED посчитан, ui-sweep.json записан, а строка с именем
+    сбойного органа управления уронила процесс UnicodeEncodeError. Имена —
+    единственная улика, доступная без артефакта, ради них строка и печатается.
+
+    Пара: сначала отрицательный контроль (без помощника печать действительно
+    падает — иначе тест ничего не проверяет), затем сам помощник.
+    """
+    import io
+    clicks = [_click('images', 'Создать результат', 'error', 'TypeError: ошибка')]
+
+    def report_into(stream):
+        saved = sys.stdout
+        sys.stdout = stream
+        try:
+            sweep.write_report(tmp_path / f'{id(stream)}.json', 'a' * 40, {'source_sha': 'a' * 40}, ['images'], clicks)
+        finally:
+            sys.stdout = saved
+
+    raw = io.TextIOWrapper(io.BytesIO(), encoding='cp1252', newline='')
+    with pytest.raises(UnicodeEncodeError):
+        report_into(raw)
+
+    fixed = io.TextIOWrapper(io.BytesIO(), encoding='cp1252', newline='')
+    saved = sys.stdout
+    sys.stdout = fixed
+    try:
+        sweep.utf8_console()
+    finally:
+        sys.stdout = saved
+    report_into(fixed)
+    fixed.flush()
+    printed = fixed.buffer.getvalue().decode('utf-8')
+    assert 'Создать результат' in printed, printed
+    assert 'REVIEW' in printed
