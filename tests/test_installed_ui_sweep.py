@@ -17,11 +17,6 @@ spec.loader.exec_module(sweep)
 
 ROOT = Path(__file__).resolve().parents[1]
 
-_driver_spec = importlib.util.spec_from_file_location('ui_acceptance_sweep',
-    ROOT / 'scripts' / 'ui_acceptance_sweep.py')
-driver = importlib.util.module_from_spec(_driver_spec)
-sys.modules['ui_acceptance_sweep'] = driver
-_driver_spec.loader.exec_module(driver)
 
 
 def test_a_page_with_several_screens_is_swept_on_every_declared_route():
@@ -36,7 +31,7 @@ def test_a_page_with_several_screens_is_swept_on_every_declared_route():
                  sweep: ['images', 'images?studio=1'] },
         () => import('./images.js'), (m) => m.default),
     """
-    assert driver.page_routes(registry) == ['images', 'images?studio=1']
+    assert _driver().page_routes(registry) == ['images', 'images?studio=1']
 
 
 def test_a_page_without_declared_routes_is_still_swept_by_its_id():
@@ -51,12 +46,12 @@ def test_a_page_without_declared_routes_is_still_swept_by_its_id():
       lazyPage({ id: 'video-studio', title: 'Video Studio', icon: 'video', nav: 'primary', section: 'studio' },
         () => import('./video_studio.js'), (m) => m.default),
     """
-    assert driver.page_routes(registry) == ['oss', 'video-studio']
+    assert _driver().page_routes(registry) == ['oss', 'video-studio']
 
 
 def test_the_real_registry_still_sweeps_both_studio_screens():
     """Сторож против тихой потери режима Studio в самом реестре."""
-    routes = driver.page_routes((ROOT / 'command-center' / 'ui' / 'pages' / 'index.js').read_text(encoding='utf-8'))
+    routes = _driver().page_routes((ROOT / 'command-center' / 'ui' / 'pages' / 'index.js').read_text(encoding='utf-8'))
     assert 'images' in routes and 'images?studio=1' in routes
     assert len(routes) == len(set(routes)), 'повторяющийся маршрут обхода'
 
@@ -121,7 +116,18 @@ def _driver():
     driver_spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(driver_spec)
     sys.modules[name] = module
-    driver_spec.loader.exec_module(module)
+    # Драйвер — самостоятельный скрипт: при импорте он кладёт command-center в
+    # sys.path ради своих отложенных импортов bcc. Здесь это чужой побочный
+    # эффект, и он не безобиден: в command-center/tests есть __init__.py,
+    # поэтому обычный пакет перекрывает корневой `tests` (пространство имён), а
+    # соседнее `from tests.test_learning_trace import _case` перестаёт
+    # разрешаться. Путь возвращается как был; запущенный как скрипт драйвер
+    # ставит его себе сам.
+    before = list(sys.path)
+    try:
+        driver_spec.loader.exec_module(module)
+    finally:
+        sys.path[:] = before
     return module
 
 
@@ -191,3 +197,21 @@ def test_the_sweep_driver_is_found_beside_the_shipped_copy_first(tmp_path):
     assert shipped.sweep_driver() == tmp_path / 'scripts' / 'ui_acceptance_sweep.py', 'no driver beside: falls back'
     (support / 'ui_acceptance_sweep.py').write_text('# shipped driver\n', encoding='utf-8')
     assert shipped.sweep_driver() == support / 'ui_acceptance_sweep.py'
+
+
+def test_loading_the_driver_does_not_repoint_the_top_level_tests_package():
+    """Отрицательный контроль к загрузке драйвера.
+
+    Загрузка скрипта обхода — не «просто импорт»: он кладёт command-center в
+    sys.path, а там лежит command-center/tests с __init__.py. Обычный пакет
+    перекрывает корневой `tests` (пространство имён), и соседнее
+    `from tests.test_learning_trace import _case` перестаёт разрешаться. Когда
+    это случалось на СБОРЕ, прерывался весь корневой набор — не один тест.
+    Проверяется ровно тот импорт, который ломался, и ровно тот путь, который
+    добавляет драйвер: состояние sys.path до и после его загрузки.
+    """
+    sys.modules.pop('_sweep_driver_under_test', None)
+    before = list(sys.path)
+    assert _driver().page_routes('') == []
+    assert sys.path == before, 'загрузка драйвера изменила sys.path'
+    assert importlib.util.find_spec('tests.test_learning_trace') is not None
