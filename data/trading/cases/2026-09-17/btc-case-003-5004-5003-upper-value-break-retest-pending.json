@@ -1,0 +1,117 @@
+{
+  "schema_version": "1.0",
+  "canonical_case_id": "CASE-003",
+  "parent_case_path": "data/trading/cases/case_003_fomc_2026-09-16.json",
+  "event_type": "SCREENSHOT_OBSERVATION_AND_CONDITIONAL_RISK_REVIEW",
+  "recorded_date": "2026-09-17",
+  "capture_timestamp": null,
+  "source": "User-supplied Coinwise/K1m6a screenshots, visually inspected; not independently verified live quotes",
+  "source_images": [
+    {"name": "IMG_5004.jpeg", "role": "reference_price_and_levels", "sha256": "1851ae0625c2aa9364e5885351d4b621bc5e8a6483277967161ad85bfdd341b4"},
+    {"name": "IMG_5003.jpeg", "role": "cvd_oi_liquidations", "sha256": "d9e2c69bc3797f4cd69f780e121290d39a021550cf78e09a8ba9b9627e73a28c"}
+  ],
+  "observations": {
+    "market_context": "BTC",
+    "reference_price_displayed": 76995,
+    "min_tick_displayed": 5,
+    "exact_exchange_and_contract": null,
+    "timeframe": null,
+    "last_bar_closed": null,
+    "reference_levels": {
+      "dvah": 76780,
+      "dpoc_approx": 76585,
+      "dopen": 76525,
+      "dval": 76350,
+      "higher_ntpoc": 77895,
+      "lower_ntpoc": 75820
+    },
+    "reference_price_minus_dvah": 215,
+    "visible_prior_local_high_area_approx": [77000, 77200],
+    "upper_settlement_and_week_open_area_approx": [77300, 77450],
+    "recent_tape_prices_approx": [76930, 76995],
+    "tape_is_mexc_quote": "NOT_VERIFIED",
+    "cvd_billion_displayed": 58.10,
+    "oi_billion_displayed": 18.54,
+    "long_liquidations_displayed": "3.07K",
+    "short_liquidations_displayed": "-520.65K",
+    "liquidation_delta_moving_average_displayed": "56K",
+    "liquidation_interval": null,
+    "buy_volume_displayed": "50.01M",
+    "sell_volume_displayed": "-69.77M",
+    "price_path": "Price bounced from the lower part of the current range and moved above the current dVAH 76780 toward 76995. It approaches a previous local-high area. A successful retest after this latest upward move is not yet visible.",
+    "cvd_path": "On the right edge of this chart, CVD recovers gradually from a local dip. The last small red bar does not erase that local recovery.",
+    "oi_path": "On the right edge OI recovers from a local trough and rises toward 18.54B. Earlier in the window it also rose and then declined; the path is not monotonic.",
+    "liquidations_path": "Short-liquidation activity accompanies part of the rise. The right-edge reading does not establish the share of the rally caused by forced covering or a session total."
+  },
+  "data_quality": {
+    "cross_snapshot_cvd_delta": null,
+    "cross_snapshot_oi_delta": null,
+    "same_series_and_anchor_verified": false,
+    "cvd_comparison_warning": "The preceding submitted screenshot displayed 60.79B, whereas this one displays 58.10B. Do not label the numerical difference a confirmed net-selling flow or bullish absorption divergence without matching the exchange set, instrument, timeframe, anchor and timestamps. Only the within-image local CVD direction is used in this assessment.",
+    "oi_comparison_warning": "Prior 18.42B and current 18.54B are displayed readings, not a verified 120M capital inflow. OI does not identify initiating side or leverage multiple. Dollar valuation can affect dollar-denominated OI.",
+    "execution_quote": null,
+    "reference_execution_basis": null,
+    "stop_on_execution_venue_verified": false,
+    "liquidation_sign_note": "A negative short-liquidation number is plotting direction. The moving average is not extra liquidation volume.",
+    "raw_images_uploaded": false,
+    "unrelated_overlay_content_stored": false,
+    "statistical_edge_proven": false,
+    "win_probability": null
+  },
+  "position_context": {
+    "last_owner_report": "LONG from 75400, explicitly assigned to CASE-003",
+    "entry_user_reported": 75400,
+    "remaining_size": null,
+    "leverage": null,
+    "actual_stop": null,
+    "partial_exits": null,
+    "current_open_status_independently_verified": false,
+    "realized_pnl": null,
+    "unrealized_pnl": null,
+    "orders_placed": false,
+    "fills_inferred": false,
+    "case_number_changed": false
+  },
+  "assessment": {
+    "status": "UPPER_VALUE_BREAK_OBSERVED_ACCEPTANCE_PENDING",
+    "interpretation": "The visible local price advance, CVD recovery and rising OI support an improving short-term long hypothesis. Short covering may contribute, but its magnitude relative to other flow is not known. This is not proof of spot-led accumulation, dominant new longs, or a statistically demonstrated edge. The next test is whether the break can hold, not simply whether OI exceeds an arbitrary threshold.",
+    "existing_long_management": "For an unchanged owner-reported long, continued holding of a protected remainder is a conditional option; do not add solely because the latest bar is rising near prior highs. Consider realizing part of the gain if none has been taken. No actual exit is inferred.",
+    "new_entry_confirmed": false
+  },
+  "conditional_plan": {
+    "breakout_hold": {
+      "watch_area_reference_only": [76770, 76810],
+      "requirement": "Price holds above the current 76780 dVAH on a retest and starts making a higher local low while same-window CVD remains stable or improves.",
+      "next_reference_areas": [[77000, 77200], [77300, 77450]],
+      "sizing": "No automatic increase; evaluate stop distance and remaining position risk first."
+    },
+    "failed_break": {
+      "requirement": "Return below 76780 followed by an unsuccessful reclaim, not a single tick or wick.",
+      "first_lower_reference_area": [76525, 76590],
+      "further_reference": 76350,
+      "management": "Reduce exposure or follow the predefined stop when the entry/continuation setup fails. Do not require an OI rise before honoring price-based risk limits."
+    },
+    "profit_protection": {
+      "previous_discussed_stop_zone": [76280, 76320],
+      "previous_zone_status": "ASSISTANT_PROPOSAL_ONLY; placement and venue translation not confirmed",
+      "do_not_widen_existing_stop": true,
+      "tightening_condition": "After a held retest near the reference breakout area, a protective stop may be trailed below the actual new higher low on the MEXC contract. Exact trigger, buffer and quantity require the execution chart and current position details.",
+      "execution_warning": "Reference levels are not executable MEXC orders. A triggered market stop may slip and a stop-limit may not fill; no guaranteed dollar profit is asserted."
+    }
+  },
+  "learning_notes": [
+    "Separate a visible breakout from confirmed acceptance or a successful retest.",
+    "Do not train cross-feed CVD arithmetic as observed order flow.",
+    "A small red last CVD/OI bar does not determine the direction of the preceding local segment.",
+    "Rising OI and a short-liquidation reading can coexist; neither identifies all other participants.",
+    "Manage an existing profitable position separately from authorizing a new entry.",
+    "Keep proposed stops, actual placed orders and executed fills in separate fields.",
+    "Do not infer the intrabar high/low order from a screenshot; earlier CASE-003 whipsaw narration is not verified tick chronology.",
+    "These are hypotheses to evaluate out of sample, not labels guaranteeing a profitable outcome."
+  ],
+  "methodology_sources_checked": [
+    "https://www.cmegroup.com/education/lessons/open-interest",
+    "https://www.tradingview.com/support/solutions/43000725058-cumulative-volume-delta/",
+    "https://www.mexc.com/support/article/mexc-futures-take-profit-and-stop-loss-faq-350096811661177856"
+  ]
+}
