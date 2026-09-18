@@ -1,10 +1,15 @@
 /* One Studio surface inside the existing Images page. No provider polling loop. */
 import {api} from '../api.js';
-import {h,toastError,toastOk} from '../components.js';
+import {h,toast,toastError,toastOk} from '../components.js';
 let draft={model:'mock:image',prompt:'',settings:{},media:[],count:1,collection_id:null};
 let scope='all',query='',offset=0,selected=new Set(),proof=null;
 const labels={width:'Ширина',height:'Высота',steps:'Шаги',seed:'Seed',aspect_ratio:'Формат',duration:'Длительность, с',resolution:'Разрешение',generate_audio:'Создать звук'};
 const call=(path,body,method='POST')=>api.raw('/api/studio'+path,{method,...(body===undefined?{}:{body})});
+/* Проверка того, что владелец ввёл сам, — предупреждение и возврат, как во
+   всём остальном продукте (см. createJob в images.js). Исключение здесь
+   означало бы console.error на пустую форму: обход интерфейса считает это
+   вердиктом error, а гейт — REVIEW_REQUIRED. toastError остаётся для
+   настоящих отказов. */
 const action=(ctx,fn)=>async()=>{try{await fn();ctx.refresh();}catch(e){toastError(e);}};
 const choose=(node,value)=>{node.value=String(value??'');return node;};
 function button(label,fn,cls='btn btn-sm'){return h('button',{type:'button',class:cls,onClick:fn},label);}
@@ -20,7 +25,7 @@ export async function studioPanel(ctx){
     api.raw('/api/studio/models'),api.raw('/api/studio/runs?'+params),api.raw('/api/studio/jobs'),api.raw('/api/studio/budget'),api.raw('/api/studio/policy'),api.raw('/api/images/collections')]);
   const model=catalog.items.find(m=>m.id===draft.model)||catalog.items[0];
   const submit=action(ctx,async()=>{
-    if(!draft.prompt.trim())throw new Error('Опишите желаемый результат.');
+    if(!draft.prompt.trim()){toast('Опишите желаемый результат.',{type:'warn'});return;}
     if(model.provider==='openrouter' && draft.media.length){
       if(!window.confirm('Отправить выбранные референсы в OpenRouter? Это передача ваших файлов внешнему провайдеру.'))return;
       await call('/egress/confirm',{provider:'openrouter',media:draft.media});
@@ -67,13 +72,13 @@ export async function studioPanel(ctx){
       choose(h('select.input',{'aria-label':'Модель Studio',onChange:e=>{draft.model=e.target.value;draft.settings={};draft.media=[];ctx.refresh();}},catalog.items.map(m=>h('option',{value:m.id},`${m.label} · ${m.verified?'проверено':'не проверено'}`))),draft.model),
       h('label.studio-field',h('span.xsmall.dim','Количество'),h('input.input',{type:'number',min:1,max:8,value:draft.count,onInput:e=>{draft.count=Number(e.target.value);}})),
       choose(h('select.input',{'aria-label':'Коллекция Studio',onChange:e=>{draft.collection_id=e.target.value?Number(e.target.value):null;}},h('option',{value:''},'Без коллекции'),collections.map(c=>h('option',{value:c.id},c.name))),draft.collection_id),
-      button('Создать результат',submit,'btn btn-primary'),button('Раскадровка: 5 кадров',action(ctx,async()=>{if(!draft.prompt.trim())throw new Error('Опишите идею');const result=await call('/storyboard',{prompt:draft.prompt,model:draft.model,settings:draft.settings});toastOk('Создана коллекция #'+result.collection_id); }))),
+      button('Создать результат',submit,'btn btn-primary'),button('Раскадровка: 5 кадров',action(ctx,async()=>{if(!draft.prompt.trim()){toast('Опишите идею для раскадровки.',{type:'warn'});return;}const result=await call('/storyboard',{prompt:draft.prompt,model:draft.model,settings:draft.settings});toastOk('Создана коллекция #'+result.collection_id); }))),
       h('div.studio-settings',settings),h('div.xsmall.dim',model.demo?'Демо создаёт тестовый рисунок локально. Это не AI-модель.':`${model.surface} · цена ${model.price.usd===null?'неизвестна':'$'+model.price.usd} · ${model.status}`),
       draft.media.length?h('div.studio-actions',`${draft.media.length} референсов`,button('Очистить референсы',()=>{draft.media=[];ctx.refresh();})):null),
     h('div.studio-actions',...['all','image','video','audio','favorite','trash'].map((s,i)=>button(['Все результаты','Изображения Studio','Видео Studio','Звук Studio','Избранное Studio','Корзина Studio'][i],()=>{scope=s;offset=0;selected.clear();ctx.refresh();},'btn btn-sm'+(scope===s?' btn-primary':''))),
       h('input.input',{type:'search','aria-label':'Поиск Studio',placeholder:'Поиск по промпту…',value:query,onInput:e=>{query=e.target.value;},onKeydown:e=>{if(e.key==='Enter'){offset=0;ctx.refresh();}}}),button('Найти в Studio',()=>{offset=0;ctx.refresh();})),
     h('label.studio-field','Добавить свои референсы (до 15 МиБ)',h('input',{type:'file',accept:'.png,.jpg,.jpeg,.mp4,.wav,.mp3','aria-label':'Импортировать референс',onChange:action(ctx,async()=>{const input=document.querySelector('[aria-label="Импортировать референс"]');const file=input.files[0];if(!file)return;if(file.size>15*1024*1024)throw new Error('Максимальный размер — 15 МиБ');const encoded=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result.split(',')[1]);r.onerror=reject;r.readAsDataURL(file);});await call('/references',{filename:file.name,data_base64:encoded});toastOk('Референс сохранён локально');})})),
-    h('div.studio-actions',button('Выбранные в корзину',action(ctx,async()=>{for(const id of selected)await call('/runs/'+id,undefined,'DELETE');selected.clear();})),button('Скачать выбранные ZIP',action(ctx,async()=>{if(!selected.size)throw new Error('Сначала выберите результаты');const res=await call('/runs/package',{ids:[...selected]});window.location.href=res.download_url;}))),
+    h('div.studio-actions',button('Выбранные в корзину',action(ctx,async()=>{for(const id of selected)await call('/runs/'+id,undefined,'DELETE');selected.clear();})),button('Скачать выбранные ZIP',action(ctx,async()=>{if(!selected.size){toast('Сначала выберите результаты.',{type:'warn'});return;}const res=await call('/runs/package',{ids:[...selected]});window.location.href=res.download_url;}))),
     active.length?h('div.studio-queue',h('h3','В работе'),active.map(j=>h('div.studio-actions',h('span',j.prompt+' · '+j.status),button('Остановить #'+j.id,action(ctx,()=>call('/jobs/'+j.id+'/cancel')))))):null,
     queue.items.filter(j=>j.status==='failed').slice(0,5).map(j=>h('div.studio-error',`${j.prompt}: ${j.studio.reason} — ${j.error}`,button('Повторить #'+j.id,action(ctx,()=>call('/jobs/'+j.id+'/retry'))))),
     cards.length?h('div.studio-grid',cards):h('div.studio-empty','Здесь появятся ваши результаты. Начните с промпта выше.'),

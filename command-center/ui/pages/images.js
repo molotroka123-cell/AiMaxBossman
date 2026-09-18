@@ -44,11 +44,16 @@ const ImagesPage = {
      объявляет свои маршруты сама, поэтому гейт проверяет оба. */
   sweep: ['images', 'images?studio=1'],
 
-  async render(ctx) {
+  /* Studio — маршрут, а не скрытое состояние вкладки. Раньше кнопка
+     переключала переменную в модуле: URL не менялся, поэтому перезагрузка и
+     «назад» возвращали владельца в библиотеку, а ссылку на экран нельзя было
+     ни сохранить, ни передать. Сторож обхода поймал ровно это: кнопка не
+     открыла модалку и не сменила раздел. Внутренние вкладки библиотеки
+     (генерации, очередь, шаблоны) остаются локальными — они не адресуются. */
+  async render(ctx, params) {
     ensureStyles();
-    if (location.hash.includes("studio=1")) {activeTab="studio";history.replaceState(null,"",location.pathname+location.search+"#/images");}
-    if (activeTab === 'studio') {
-      try { return h('div.stack.lg', pageHead('Bossman Studio', 'Создание изображений и видео', [h('button.btn.btn-sm', {onClick:()=>{activeTab='library';ctx.refresh();}}, 'Библиотека Images')]), await studioPanel(ctx)); }
+    if (String(params?.studio ?? '') === '1') {
+      try { return h('div.stack.lg', pageHead('Bossman Studio', 'Создание изображений и видео', [h('button.btn.btn-sm', {onClick:()=>ctx.navigate('images')}, 'Библиотека Images')]), await studioPanel(ctx)); }
       catch(e) { return errorBanner(e,ctx); }
     }
     let assets = []; let jobs = []; let collections = []; let models = [];
@@ -79,7 +84,7 @@ const ImagesPage = {
       'Bossman Studio',
       'Создание картинок, ваша библиотека и коллекции.',
       [
-        h('button.btn.btn-primary', {type:'button',onClick:()=>{activeTab='studio';ctx.refresh();}}, 'Создать в Studio'),
+        h('button.btn.btn-primary', {type:'button',onClick:()=>ctx.navigate('images',{studio:'1'})}, 'Создать в Studio'),
         h('label.btn.btn-sm', { title: 'Загрузить файл с компьютера' },
           icon('plus', 13), h('span', 'Загрузить файл'),
           h('input', {
