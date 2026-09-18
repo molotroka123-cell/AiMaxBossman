@@ -149,3 +149,143 @@ def test_the_shipped_copy_needs_a_manifest_to_call_itself_an_archive(tmp_path):
 def test_studio_owner_only_is_not_hardware_pass(capsys,monkeypatch):
     verdict,code=_verdict(capsys,monkeypatch,ON_TARGET,[{'check':'studio','status':'OWNER_REQUIRED','returncode':2}])
     assert verdict=='TARGET_HARDWARE_OWNER_REQUIRED' and code==2
+
+
+# --- Windows без WMIC: неопознанная машина не равна «программа готова» ---------
+#
+# Microsoft удалила WMIC из Windows 11 24H2/25H2 (август 2026). На машине
+# владельца — новая Windows 11, то есть ровно тот случай. До правки все три
+# определения шли только через wmic: пустой вывод превращал CPU в
+# platform.processor(), GPU в ['unknown'], RAM в None, probe() решал «не
+# целевая машина», а main() печатал SOFTWARE_READY_FOR_TARGET_HARDWARE_RUN с
+# кодом 0. То есть настоящая целевая машина молча объявлялась нецелевой, все
+# четыре проверки пропускались, и это выглядело успехом.
+
+def _windows(monkeypatch, *, powershell=None, wmic=None, cim=None, psutil_ram=None):
+    """Windows без wmic и с управляемым PowerShell/CIM."""
+    monkeypatch.setattr(tha.sys, "platform", "win32", raising=False)
+    monkeypatch.setattr(tha.shutil, "which",
+                        lambda name: {"pwsh": powershell, "powershell": powershell,
+                                      "wmic": wmic}.get(name))
+    monkeypatch.setattr(tha, "_run", lambda argv, timeout=30.0: (
+        "" if argv[0] == "wmic" and not wmic else
+        (cim(argv) if callable(cim) else (cim or "")) if argv[0] == powershell else ""))
+    if psutil_ram is not None:
+        monkeypatch.setattr(tha, "_psutil_ram_gib", lambda: psutil_ram, raising=False)
+    else:
+        monkeypatch.setattr(tha, "_psutil_ram_gib", lambda: None, raising=False)
+
+
+def test_windows_without_wmic_and_without_powershell_is_undetermined_not_ready(capsys, monkeypatch):
+    """Нечем определить железо — так и сказать, а не выдать за пройденную приёмку."""
+    _windows(monkeypatch, powershell=None, wmic=None)
+    host = tha.probe()
+    assert host["hardware_state"] == "undetermined", host
+    assert host["on_target"] is False
+    verdict, code = _verdict(capsys, monkeypatch, host)
+    assert verdict == "TARGET_HARDWARE_UNDETERMINED", verdict
+    assert code != 0, "неопознанная машина не имеет права выходить с успехом"
+
+
+def test_windows_without_wmic_but_with_cim_recognises_the_target(capsys, monkeypatch):
+    """WMIC нет, CIM есть — целевая машина обязана быть опознана."""
+    def cim(argv):
+        query = argv[-1]
+        if "Win32_Processor" in query:
+            return '"AMD Ryzen AI Max+ 395 w/ Radeon 8060S Graphics"'
+        if "Win32_VideoController" in query:
+            return '["AMD Radeon(TM) 8060S Graphics","Microsoft Basic Display Adapter"]'
+        if "TotalPhysicalMemory" in query:
+            return "137438953472"
+        return ""
+    _windows(monkeypatch, powershell="pwsh", wmic=None, cim=cim)
+    host = tha.probe()
+    assert host["hardware_state"] == "target", host
+    assert host["on_target"] is True
+    assert host["ram_gib"] == 128.0, host["ram_gib"]
+    assert len(host["gpu"]) == 2, host["gpu"]
+
+
+def test_cyrillic_and_garbage_from_powershell_do_not_crash_the_probe(monkeypatch):
+    """Кириллица в названии и мусор вместо JSON — не исключение, а «не определено»."""
+    def cim(argv):
+        if "Win32_Processor" in argv[-1]:
+            return '"Процессор AMD Ryzen AI Max+ 395"'
+        return "не-JSON мусор {{{"
+    _windows(monkeypatch, powershell="powershell", wmic=None, cim=cim)
+    host = tha.probe()
+    assert "Ryzen AI Max+ 395" in host["cpu"]
+    assert host["determined"]["cpu"] is True
+    assert host["determined"]["gpu"] is False and host["determined"]["ram"] is False
+    assert host["hardware_state"] == "undetermined", host
+
+
+def test_a_genuinely_different_machine_is_different_not_undetermined(monkeypatch):
+    """Определили железо и оно другое — это «другое», а не «не смогли определить»."""
+    def cim(argv):
+        query = argv[-1]
+        if "Win32_Processor" in query:
+            return '"Intel(R) Core(TM) i7-9750H"'
+        if "Win32_VideoController" in query:
+            return '"NVIDIA GeForce GTX 1650"'
+        if "TotalPhysicalMemory" in query:
+            return "17179869184"
+        return ""
+    _windows(monkeypatch, powershell="pwsh", wmic=None, cim=cim)
+    host = tha.probe()
+    assert host["hardware_state"] == "different", host
+    assert host["on_target"] is False
+
+
+def test_psutil_closes_the_memory_gap_when_cim_stays_silent(monkeypatch):
+    """Память можно сверить независимо: psutil уже есть и про неё не врёт."""
+    def cim(argv):
+        query = argv[-1]
+        if "Win32_Processor" in query:
+            return '"AMD Ryzen AI Max+ 395"'
+        if "Win32_VideoController" in query:
+            return '"AMD Radeon 8060S Graphics"'
+        return ""          # память CIM не отдал
+    _windows(monkeypatch, powershell="pwsh", wmic=None, cim=cim, psutil_ram=124.0)
+    host = tha.probe()
+    assert host["determined"]["ram"] is True
+    assert host["hardware_state"] == "target", host
+
+
+def test_hardware_detection_cannot_hang_the_acceptance(monkeypatch):
+    """Зависший PowerShell обязан упереться в тайм-аут, а не в терпение владельца."""
+    import subprocess as sp
+    calls = []
+
+    def hang(argv, **kwargs):
+        calls.append(kwargs.get("timeout"))
+        raise sp.TimeoutExpired(argv, kwargs.get("timeout") or 0)
+
+    monkeypatch.setattr(tha.sys, "platform", "win32", raising=False)
+    monkeypatch.setattr(tha.shutil, "which", lambda name: "pwsh" if name == "pwsh" else None)
+    monkeypatch.setattr(tha.subprocess, "run", hang)
+    monkeypatch.setattr(tha, "_psutil_ram_gib", lambda: None, raising=False)
+    host = tha.probe()
+    assert host["hardware_state"] == "undetermined"
+    assert calls and all(t is not None and t > 0 for t in calls), calls
+
+
+def test_on_target_children_run_under_a_timeout(monkeypatch, tmp_path):
+    """Дочерняя проверка не имеет права висеть вечно."""
+    seen = {}
+
+    def fake_run(argv, **kwargs):
+        seen["timeout"] = kwargs.get("timeout")
+        class Done:
+            returncode = 0
+            stdout = "ok"
+            stderr = ""
+        return Done()
+
+    script = tmp_path / "x.py"
+    script.write_text("", encoding="utf-8")
+    monkeypatch.setattr(tha, "on_target_checks",
+                        lambda: (tmp_path, [("doctor", [sys.executable, "x.py"], "что")]))
+    monkeypatch.setattr(tha.subprocess, "run", fake_run)
+    tha.run_on_target()
+    assert seen["timeout"] is not None and seen["timeout"] > 0, seen
