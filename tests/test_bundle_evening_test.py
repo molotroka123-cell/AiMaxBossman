@@ -44,6 +44,16 @@ def _doctor_report(blocked: tuple[str, ...] = (), *, drop: tuple[str, ...] = (),
             "warn": 0, "pass": len(checks) - count}
 
 
+def _write_owner_run(support: Path, bodies: dict[str, str]) -> dict[str, str]:
+    target = support / "owner-final-run"
+    target.mkdir(parents=True, exist_ok=True)
+    digests = {}
+    for name, body in bodies.items():
+        (target / name).write_text(body, encoding="utf-8")
+        digests[name] = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    return digests
+
+
 class Bundle:
     """A temporary archive layout driven by fake subprocess results."""
 
@@ -55,6 +65,12 @@ class Bundle:
         shutil.copyfile(TOOL, self.support / "bundle_evening_test.py")
         (self.support / "bossman_doctor.py").write_text("# synthetic doctor\n", encoding="utf-8")
         (self.support / "verify_installed_product.py").write_text("# synthetic verifier\n", encoding="utf-8")
+        # Настоящий архив везёт комплект владельческого прогона; синтетический
+        # обязан быть таким же, иначе проверка комплекта краснела бы на всём
+        # подряд и перестала бы что-либо значить.
+        self.owner_run = _write_owner_run(
+            self.support, {"README_RU.md": "# памятка комплекта\n",
+                           "START_PROMPT_RU.md": "# короткое поручение\n"})
         self.evidence_root = tmp_path / "evidence"
         self.evidence_root.mkdir()
         self.calls: list[list[str]] = []
@@ -81,9 +97,13 @@ class Bundle:
                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
                   for name in ("bundle_evening_test.py", "bossman_doctor.py", "verify_installed_product.py")
                   for path in [self.support / name] if path.exists()]
+        listed += [{"path": f"app-support/owner-final-run/{name}", "sha256": digest}
+                   for name, digest in self.owner_run.items()]
         manifest = {"schema_version": 1, "artifact": "SYNTHETIC-NOT-A-PRODUCT", "source_sha": sha,
                     "required_downloads": self.required_downloads,
-                    "contents": {"runtime": {"python_version": "3.12.0"}}}
+                    "contents": {"runtime": {"python_version": "3.12.0"},
+                                 "owner_run": {"path": "app-support/owner-final-run",
+                                               "files": dict(self.owner_run)}}}
         if files:
             manifest["files"] = listed
         (self.home / "MANIFEST.json").write_text(json.dumps(manifest), encoding="utf-8")
@@ -423,3 +443,82 @@ def test_the_default_run_starts_no_stage(bundle):
     bundle.ship_stage_runners()
     rc, result = bundle.run()
     assert (rc, result["stages"]) == (0, {})
+
+
+# ------------------- комплект владельческого прогона внутри самого архива
+
+def _owner_run_manifest(files: dict[str, str]) -> dict:
+    """MANIFEST, каким его пишет сборка: комплект и в списке, и в contents."""
+    return {
+        "files": [{"path": f"app-support/owner-final-run/{name}", "sha256": digest}
+                  for name, digest in files.items()],
+        "contents": {"owner_run": {"path": "app-support/owner-final-run",
+                                   "files": dict(files)}},
+    }
+
+
+def test_a_complete_owner_run_package_raises_nothing(tmp_path, monkeypatch) -> None:
+    bundle = Bundle(tmp_path, monkeypatch)
+    digests = _write_owner_run(bundle.support,
+                               {"README_RU.md": "# памятка\n",
+                                "START_PROMPT_RU.md": "# поручение\n"})
+    monkeypatch.setattr(bundle.evening, "SUPPORT", bundle.support)
+    assert bundle.evening.owner_run_problems(_owner_run_manifest(digests)) == []
+
+
+def test_a_missing_owner_run_file_is_a_failure_reason(tmp_path, monkeypatch) -> None:
+    """Владелец, распаковавший архив без инструкции, узнаёт об этом от нас."""
+    bundle = Bundle(tmp_path, monkeypatch)
+    digests = _write_owner_run(bundle.support,
+                               {"README_RU.md": "# памятка\n",
+                                "START_PROMPT_RU.md": "# поручение\n"})
+    (bundle.support / "owner-final-run" / "START_PROMPT_RU.md").unlink()
+    monkeypatch.setattr(bundle.evening, "SUPPORT", bundle.support)
+    reasons = bundle.evening.owner_run_problems(_owner_run_manifest(digests))
+    assert [r["code"] for r in reasons] == ["owner_run_package_incomplete"]
+    assert "START_PROMPT_RU.md" in reasons[0]["detail"]
+    assert reasons[0]["class"] == "fail"
+
+
+def test_an_owner_run_file_that_is_not_the_shipped_one_is_a_failure(tmp_path, monkeypatch) -> None:
+    """Подменённый файл — не комплект, даже если имя на месте."""
+    bundle = Bundle(tmp_path, monkeypatch)
+    digests = _write_owner_run(bundle.support, {"README_RU.md": "# памятка\n"})
+    (bundle.support / "owner-final-run" / "README_RU.md").write_text(
+        "# другое содержимое\n", encoding="utf-8")
+    monkeypatch.setattr(bundle.evening, "SUPPORT", bundle.support)
+    reasons = bundle.evening.owner_run_problems(_owner_run_manifest(digests))
+    assert [r["code"] for r in reasons] == ["owner_run_package_not_the_shipped_one"]
+    assert "README_RU.md" in reasons[0]["detail"]
+
+
+def test_an_archive_without_the_package_record_fails_instead_of_passing_quietly(
+        tmp_path, monkeypatch) -> None:
+    """Манифест без записи о комплекте — архив собран мимо контракта."""
+    bundle = Bundle(tmp_path, monkeypatch)
+    monkeypatch.setattr(bundle.evening, "SUPPORT", bundle.support)
+    reasons = bundle.evening.owner_run_problems({"files": [], "contents": {}})
+    assert [r["code"] for r in reasons] == ["owner_run_package_not_declared"]
+    assert reasons[0]["class"] == "fail"
+
+
+def test_a_whole_run_fails_when_the_owner_package_is_missing(bundle) -> None:
+    """Сквозная проверка: причина обязана доехать до вердикта прогона.
+
+    Без неё owner_run_problems мог бы быть вызван и тихо выброшен — проверка,
+    не влияющая на вердикт, это украшение.
+    """
+    bundle.write_manifest()
+    (bundle.support / "owner-final-run" / "START_PROMPT_RU.md").unlink()
+    rc, result = bundle.run()
+    assert (rc, result["verdict"]) == (1, "FAIL")
+    assert "owner_run_package_incomplete" in codes(result)
+    assert result["owner_run_package"] == "FAIL"
+
+
+def test_a_whole_run_records_the_package_as_passing_when_it_is_whole(bundle) -> None:
+    """Пара к предыдущему: без неё «FAIL» не отличить от постоянного красного."""
+    bundle.write_manifest()
+    rc, result = bundle.run()
+    assert result["owner_run_package"] == "PASS"
+    assert not [c for c in codes(result) if c.startswith("owner_run_package")]

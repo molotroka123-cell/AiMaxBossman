@@ -91,6 +91,30 @@ SUPPORT_SCRIPTS = (
     (ROOT / "tools" / "live_openrouter_owner.py", "live_openrouter_owner.py"),
 )
 
+# Комплект владельческого GUI-прогона. В README комплекта владельцу обещан
+# путь `app-support/owner-final-run/`; пока этого контракта не было, наличие
+# документов в GitHub НЕ означало их наличия в скачанном архиве.
+#
+# Список явный, а не глоб, и проверяется в обе стороны: пропавший файл роняет
+# сборку, и добавленный мимо списка — тоже. Глоб молча увёз бы случайный файл
+# и так же молча не заметил бы пропажу нужного, а обнаружил бы это владелец,
+# распаковав архив без инструкции.
+OWNER_RUN_SOURCE = ROOT / "docs" / "v8" / "owner-final-run"
+OWNER_RUN_FILES = (
+    "README_RU.md",
+    "START_PROMPT_RU.md",
+    "OPENCODE_OWNER_RUN_RU.md",
+    "OPENCODE_LOCAL_SETUP_RU.md",
+    "PREPARATION_MEMORY_RU.md",
+    "PREPARATION_FILE_CHECKS.json",
+    "BUG_REPORT_TEMPLATE_RU.md",
+    "CONVERGENCE_NOTE_RU.md",
+    "FABLE_ASTER_HANDOFF_RU.md",
+    "RUN_CHECKPOINT.template.json",
+    "check_package.py",
+)
+
+
 # The eight accepted OSS directions (docs/oss/README.md), stated per archive:
 # what is inside the ZIP, what the owner configures, what needs weights, what
 # needs a separate service. VERIFIED is never claimed by the build: it is a
@@ -572,12 +596,45 @@ def oss_directions_for(packages: list[dict]) -> list[dict]:
     return rows
 
 
-def install_support(support: Path) -> None:
+def install_owner_run(target: Path) -> dict:
+    """Кладёт комплект владельческого прогона и сверяет его в обе стороны.
+
+    Возвращает имена и хэши — они попадут в MANIFEST.json вместе с остальным
+    содержимым, и в SHA256SUMS как обычные файлы поставки. То есть комплект
+    зафиксирован ДО сборки, а не описан после неё.
+    """
+    declared = set(OWNER_RUN_FILES)
+    missing = sorted(n for n in declared if not (OWNER_RUN_SOURCE / n).is_file())
+    if missing:
+        raise RuntimeError(
+            "комплект владельческого прогона неполон, архив собирать нельзя: "
+            + ", ".join(missing)
+            + f" (ожидались в {OWNER_RUN_SOURCE})")
+    present = {p.name for p in OWNER_RUN_SOURCE.iterdir() if p.is_file()}
+    extra = sorted(present - declared)
+    if extra:
+        raise RuntimeError(
+            "в комплекте владельческого прогона есть файлы мимо контракта: "
+            + ", ".join(extra)
+            + " — объявите их в OWNER_RUN_FILES или уберите из "
+            + str(OWNER_RUN_SOURCE))
+
+    target.mkdir(parents=True, exist_ok=True)
+    shipped: dict[str, str] = {}
+    for name in OWNER_RUN_FILES:
+        origin = OWNER_RUN_SOURCE / name
+        shutil.copyfile(origin, target / name)
+        shipped[name] = sha256_file(origin)
+    return {"path": "app-support/owner-final-run", "files": shipped}
+
+
+def install_support(support: Path) -> dict:
     support.mkdir(parents=True, exist_ok=True)
     for origin, name in SUPPORT_SCRIPTS:
         if not origin.exists():
             raise RuntimeError(f"support script missing: {origin}")
         shutil.copyfile(origin, support / name)
+    return install_owner_run(support / "owner-final-run")
 
 
 def write_licenses(licenses: Path, contents: dict) -> None:
@@ -612,7 +669,7 @@ def assemble(out: Path, sha: str, *, wheels: Path, work: Path,
     media, required = install_media(out / "media", work, ffmpeg_zip, lock)
     contents["media"] = media
     contents["icons"] = install_icons(out / "icons")
-    install_support(out / "app-support")
+    contents["owner_run"] = install_support(out / "app-support")
     for name, body in launcher_files().items():
         target = out / name
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -691,6 +748,9 @@ def main(argv: list[str] | None = None) -> int:
         "the browser and the media tools are inside this folder.\n\n"
         "**Evening-Test.cmd** runs the owner acceptance for exactly this build and "
         "prints the build SHA, platform, doctor state and the final verdict.\n\n"
+        "`app-support/owner-final-run/` holds the owner's own run: start with "
+        "`README_RU.md` there. Those files are listed in MANIFEST.json, and "
+        "Evening-Test.cmd fails if any of them is missing or altered.\n\n"
         "Your data lives in `%LOCALAPPDATA%\\Bossman\\CommandCenter` and survives "
         "replacing this folder with a newer build.\n",
         encoding="utf-8")

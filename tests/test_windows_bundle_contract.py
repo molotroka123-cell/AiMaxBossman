@@ -378,3 +378,82 @@ def test_the_eight_oss_directions_are_stated_per_archive_and_never_verified_by_t
     assert by_name["GrapesJS"]["BUNDLED"] is True
     assert all(row["VERIFIED"] is False and row["verify_by"] for row in rows)
     assert (REPO / "command-center" / "ui" / "vendor" / "grapesjs" / "grapes.min.js").is_file()
+
+
+# ------------------------------- комплект владельческого GUI-прогона в архиве
+
+def test_the_owner_run_package_is_declared_file_by_file_not_by_a_glob() -> None:
+    """Комплект зафиксирован списком, а не «всё, что лежит в папке».
+
+    Разница не косметическая. Глоб молча увёз бы в поставку случайный файл и
+    так же молча не заметил бы пропажу нужного — а владелец обнаружил бы это
+    уже на своей машине, распаковав архив без инструкции.
+    """
+    assert bundle.OWNER_RUN_FILES, "комплект владельческого прогона не объявлен"
+    for name in ("README_RU.md", "OPENCODE_OWNER_RUN_RU.md", "START_PROMPT_RU.md",
+                 "PREPARATION_MEMORY_RU.md", "OPENCODE_LOCAL_SETUP_RU.md",
+                 "BUG_REPORT_TEMPLATE_RU.md", "RUN_CHECKPOINT.template.json"):
+        assert name in bundle.OWNER_RUN_FILES, name
+
+
+def test_every_declared_owner_run_file_exists_in_the_checkout() -> None:
+    for name in bundle.OWNER_RUN_FILES:
+        assert (bundle.OWNER_RUN_SOURCE / name).is_file(), \
+            f"{name} объявлен в поставке, но его нет в репозитории"
+
+
+def test_a_missing_owner_run_file_fails_the_build(tmp_path, monkeypatch) -> None:
+    """Контракт: отсутствует файл — сборка падает, а не едет без него."""
+    source = tmp_path / "source"
+    source.mkdir()
+    for name in bundle.OWNER_RUN_FILES:
+        (source / name).write_text(f"# {name}\n", encoding="utf-8")
+    monkeypatch.setattr(bundle, "OWNER_RUN_SOURCE", source)
+
+    good = bundle.install_owner_run(tmp_path / "ok")
+    assert set(good["files"]) == set(bundle.OWNER_RUN_FILES)
+    assert all(len(digest) == 64 for digest in good["files"].values())
+
+    (source / bundle.OWNER_RUN_FILES[0]).unlink()
+    with pytest.raises(RuntimeError) as refused:
+        bundle.install_owner_run(tmp_path / "broken")
+    assert bundle.OWNER_RUN_FILES[0] in str(refused.value)
+
+
+def test_an_undeclared_file_in_the_package_also_fails_the_build(tmp_path, monkeypatch) -> None:
+    """Обратная сторона того же контракта: тихий довесок тоже не проедет.
+
+    Без этой половины документ, появившийся в репозитории, уезжал бы к
+    владельцу, не будучи назван ни в манифесте, ни здесь.
+    """
+    source = tmp_path / "source"
+    source.mkdir()
+    for name in bundle.OWNER_RUN_FILES:
+        (source / name).write_text(f"# {name}\n", encoding="utf-8")
+    (source / "NEW_UNDECLARED_RU.md").write_text("# добавлено мимо контракта\n",
+                                                 encoding="utf-8")
+    monkeypatch.setattr(bundle, "OWNER_RUN_SOURCE", source)
+    with pytest.raises(RuntimeError) as refused:
+        bundle.install_owner_run(tmp_path / "drifted")
+    assert "NEW_UNDECLARED_RU.md" in str(refused.value)
+
+
+def test_the_package_lands_under_app_support_where_the_documents_promise_it(
+        tmp_path, monkeypatch) -> None:
+    """README комплекта обещает владельцу путь `app-support/owner-final-run/`."""
+    source = tmp_path / "source"
+    source.mkdir()
+    for name in bundle.OWNER_RUN_FILES:
+        (source / name).write_text(f"# {name}\n", encoding="utf-8")
+    monkeypatch.setattr(bundle, "OWNER_RUN_SOURCE", source)
+
+    support = tmp_path / "app-support"
+    bundle.install_support(support)
+    landed = support / "owner-final-run"
+    assert landed.is_dir()
+    for name in bundle.OWNER_RUN_FILES:
+        assert (landed / name).is_file(), name
+
+    promise = (REPO / "docs" / "v8" / "owner-final-run" / "README_RU.md").read_text(
+        encoding="utf-8")
+    assert "app-support/owner-final-run/" in promise

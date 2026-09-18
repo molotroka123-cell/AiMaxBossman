@@ -168,6 +168,49 @@ def _harness_identity(manifest: dict) -> tuple[dict, list[dict]]:
     return identity, reasons
 
 
+def owner_run_problems(manifest: dict) -> list[dict]:
+    """Комплект владельческого GUI-прогона внутри САМОГО архива.
+
+    README комплекта обещает владельцу путь `app-support/owner-final-run/`.
+    Пока этой проверки не было, обещание держалось на том, что файлы лежат в
+    GitHub, — а владелец распаковывает ZIP, а не репозиторий.
+
+    Список берётся из MANIFEST.json (`contents.owner_run.files`): он записан
+    сборкой ДО упаковки, и сверить архив с ним — значит сверить его с тем, что
+    было объявлено, а не с тем, что оказалось внутри. Отсутствие записи —
+    тоже отказ: такой архив собран мимо контракта.
+    """
+    declared = (((manifest.get("contents") or {}).get("owner_run") or {}).get("files"))
+    if not isinstance(declared, dict) or not declared:
+        return [_reason(
+            "owner_run_package_not_declared",
+            "MANIFEST.json не объявляет app-support/owner-final-run: архив собран "
+            "до контракта комплекта, и что в нём лежит — неизвестно")]
+
+    root = SUPPORT / "owner-final-run"
+    missing: list[str] = []
+    changed: list[str] = []
+    for name, expected in sorted(declared.items()):
+        path = root / name
+        if not path.is_file():
+            missing.append(name)
+        elif _sha256(path) != expected:
+            changed.append(name)
+
+    problems: list[dict] = []
+    if missing:
+        problems.append(_reason(
+            "owner_run_package_incomplete",
+            "в архиве нет файлов комплекта владельческого прогона: "
+            + ", ".join(missing)))
+    if changed:
+        problems.append(_reason(
+            "owner_run_package_not_the_shipped_one",
+            "файлы комплекта не те, что перечислены в MANIFEST.json: "
+            + ", ".join(changed)))
+    return problems
+
+
 # ------------------------------------------------------------------ doctor
 
 def doctor_schema_problems(report: dict) -> list[str]:
@@ -388,6 +431,12 @@ def _accept(args, manifest: dict, sha: str, python: Path, evidence: Path, result
     identity, reasons = _harness_identity(manifest)
     result["harness"] = identity
     result["reasons"].extend(reasons)
+
+    package = owner_run_problems(manifest)
+    result["owner_run_package"] = "PASS" if not package else "FAIL"
+    result["reasons"].extend(package)
+    for problem in package:
+        print("  комплект владельца: " + problem["detail"])
 
     if args.skip_doctor:
         result["doctor"] = "SKIPPED"
