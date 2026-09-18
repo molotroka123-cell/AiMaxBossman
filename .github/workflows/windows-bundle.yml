@@ -329,13 +329,33 @@ jobs:
         if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
         env:
           BOSSMAN_OPENROUTER_API_KEY: ${{ secrets.BOSSMAN_OPENROUTER_API_KEY }}
+          # Живая приёмка Studio включается ТОЛЬКО когда владелец сам положил в
+          # секреты политику и два маршрута. Раннер отвергает любую ненулевую
+          # цену и любой режим, кроме free_only, поэтому автоматической траты
+          # денег здесь нет по построению, а не по обещанию.
+          BOSSMAN_STUDIO_POLICY: ${{ secrets.BOSSMAN_STUDIO_POLICY }}
+          BOSSMAN_STUDIO_MODELS: ${{ secrets.BOSSMAN_STUDIO_MODELS }}
         run: |
           & "$env:BCC_ACCEPTANCE_PYTHON" -I -m bcc.studio.catalog --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/studio_live_owner.py" `
-            --expected-sha "$env:BOSSMAN_ACCEPTANCE_SHA" `
-            --output "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/studio.json"
+          $live = @('--expected-sha', $env:BOSSMAN_ACCEPTANCE_SHA,
+                    '--output', "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/studio.json")
+          $policy = $null
+          if ($env:BOSSMAN_STUDIO_POLICY -and $env:BOSSMAN_STUDIO_MODELS) {
+            $policy = Join-Path $env:RUNNER_TEMP 'studio-policy.json'
+            [IO.File]::WriteAllText($policy, $env:BOSSMAN_STUDIO_POLICY)
+            $live += @('--execute', '--policy', $policy)
+            foreach ($model in ($env:BOSSMAN_STUDIO_MODELS -split ',')) {
+              $name = $model.Trim()
+              if ($name) { $live += @('--model', $name) }
+            }
+            Write-Host 'STUDIO_LIVE_PATH=execute (маршруты и политика взяты из секретов владельца)'
+          } else {
+            Write-Host 'STUDIO_LIVE_PATH=owner_required (политика или маршруты не заданы)'
+          }
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/studio_live_owner.py" @live
           $code = $LASTEXITCODE
+          if ($policy -and (Test-Path $policy)) { Remove-Item $policy -Force }
           if ($code -eq 2) {
             Write-Host '::warning::STUDIO=OWNER_REQUIRED; configure confirmed free image/video routes and run shipped studio_live_owner.py --execute. No paid fallback.'
             exit 0
