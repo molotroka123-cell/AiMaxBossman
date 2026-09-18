@@ -147,3 +147,27 @@ async def test_declared_media_surface_matches_container_and_audio_mime(env,tmp_p
     imported=await env.client.post('/api/studio/references',json={'filename':'sample.mp3','data_base64':base64.b64encode(audio.read_bytes()).decode()})
     assert imported.status_code==200,imported.text
     assert imported.json()['mime']=='audio/mpeg'
+
+
+async def test_agent_generation_goes_through_the_real_permission_decision(env):
+    """Агентная генерация не самообслуживается: решает существующий decide_effect.
+
+    Проверяется не поле спецификации, а настоящее решение для настоящего
+    зарегистрированного инструмента. Агент без права получает ask — то есть
+    у владельца спрашивают, прежде чем задача потратит деньги и запишет файлы.
+    Право, выданное владельцем, снимает вопрос: это и есть смысл права.
+    Чтение состояния (studio.status) остаётся auto — оно ничего не тратит и
+    ничего не пишет, а без него агент не сможет узнать исход.
+    """
+    from bcc.tools import REGISTRY,decide_effect
+    generate=REGISTRY.get('studio.generate')
+    status=REGISTRY.get('studio.status')
+    assert generate is not None and status is not None,'инструменты Studio не зарегистрированы'
+    assert generate.category=='write' and generate.external_output and not generate.idempotent
+    args={'model':'mock:image','prompt':'x'}
+    effect,reason=decide_effect(generate,args,{'permissions':[]})
+    assert effect=='ask',(effect,reason)
+    granted,_=decide_effect(generate,args,{'permissions':['filesystem.write']})
+    assert granted=='auto'
+    read,_=decide_effect(status,{'job_id':1},{'permissions':[]})
+    assert read=='auto'
