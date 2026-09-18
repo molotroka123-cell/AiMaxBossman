@@ -89,7 +89,7 @@ export const FEATURE_PAGES = [
     () => import('./mobile.js'), (m) => m.default),
   lazyPage({ id: 'builder', title: 'Конструктор миссий', icon: 'bolt', nav: 'primary', section: 'work' },
     () => import('./builder.js'), (m) => m.default),
-  lazyPage({ id: 'images', title: 'Изображения', icon: 'models', nav: 'primary', section: 'studio' },
+  lazyPage({ id: 'images', title: 'Студия', icon: 'models', nav: 'primary', section: 'studio' },
     () => import('./images.js'), (m) => m.default),
   lazyPage({ id: 'trading_lab', title: 'Обучение трейдингу', icon: 'activity', nav: 'more', section: 'studio' },
     () => import('./trading_lab.js'), (m) => m.default),
