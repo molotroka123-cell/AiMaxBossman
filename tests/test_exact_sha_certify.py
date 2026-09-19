@@ -136,3 +136,37 @@ def test_cli_exit_codes_and_report(tmp_path):
     card.write_text(json.dumps({"exact_sha_ci": "PASS", "last_evidence_sha": SHA}), encoding="utf-8")
     res = subprocess.run(base + ["--scorecard", str(card)], capture_output=True, text=True)
     assert res.returncode == 1 and "SCORECARD_CONTRADICTION" in res.stdout
+
+
+# --- BL-089: целевая платформа владельца обязана быть в требованиях ----------
+
+def test_both_windows_workflows_are_required_for_certification():
+    """Сертификат не выдаётся SHA, на котором продукт владельца не собирался.
+
+    До BL-089 ни одно задание Windows не было обязательным, и сертификат мог
+    быть выдан коммиту, который на целевой платформе владельца не собирался
+    вовсе. Отсутствующий прогон не окрашен никак.
+    """
+    required = set(esc.DEFAULT_REQUIRED)
+    assert "One-download Windows application" in required
+    assert "Windows owner run — light, medium and super-long task" in required
+
+
+# Сторожа «каждое требуемое имя существует как задание» здесь НЕТ намеренно:
+# он уже есть выше — test_default_required_names_match_workflow_files. Второй
+# экземпляр того же правила — это ровно та дублирующая архитектура, которую
+# запрещает директива, и я чуть не завёл её сам.
+def test_a_missing_windows_run_blocks_certification():
+    """Поведенческая пара к объявлению выше."""
+    sha = "c" * 40
+    runs = [{"name": name, "head_sha": sha, "status": "completed", "conclusion": "success"}
+            for name in esc.DEFAULT_REQUIRED
+            if name != "One-download Windows application"]
+    report = esc.certify(sha, runs)
+    assert report["workflows"]["One-download Windows application"]["result"] == "MISSING"
+    assert report["verdict"] != esc.CERTIFIED
+
+    # Положительная половина: добавь недостающий прогон — и SHA сертифицируется.
+    runs.append({"name": "One-download Windows application", "head_sha": sha,
+                 "status": "completed", "conclusion": "success"})
+    assert esc.certify(sha, runs)["verdict"] == esc.CERTIFIED
