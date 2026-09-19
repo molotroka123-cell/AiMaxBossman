@@ -4,7 +4,7 @@ import { trackVideoProject } from './video_chat.js';
    вход по токену, роутер, WS, тема, командная палитра.
    ============================================================ */
 
-import { api, ApiError, EventStream, hasSession, clearCsrf, listOf, UNAUTHORIZED_EVENT } from './api.js';
+import { api, ApiError, EventStream, hasSession, clearCsrf, listOf, UNAUTHORIZED_EVENT, isVipDemo, VIP_DEMO_EVENT } from './api.js';
 import {
   h, append, clear, replace, icon, dot, empty, loading, toast, toastError, toastOk,
   closeTopModal, hasOpenModal, debounce, fmtGb, fmtClock, fmtDuration,
@@ -91,6 +91,11 @@ const bus = new EventStream();
 /* UX 2.0: панель «Процесс работы» — открывается кнопкой в шапке или Ctrl+. */
 const thinking = mountThinking({ bus, api, button: document.getElementById('think-open') });
 window.__bxThinking = thinking;
+
+/* VIP demo: api.js подменяет упавшие/медленные ответы и сигналит об этом
+   отдельным событием — прокидываем его в ту же шину, что и настоящие
+   события прогона, чтобы панель «Процесс работы» рисовала их одним кодом. */
+window.addEventListener(VIP_DEMO_EVENT, (e) => { if (e && e.detail) bus.emit(e.detail); });
 
 /* ---------------- Тема ---------------- */
 
@@ -358,6 +363,9 @@ function syncTopStats(sys) {
 const conn = { state: 'idle', tick: null, wasDown: false };
 
 function connLabel() {
+  // VIP-демо: зал не должен видеть «нет соединения» — данные и так текут из
+  // синтетических ответов api.js, так что «live-обновления» здесь честны.
+  if (isVipDemo()) return 'live-обновления';
   const left = bus.nextRetryAt ? Math.max(0, Math.ceil((bus.nextRetryAt - Date.now()) / 1000)) : 0;
   switch (conn.state) {
     case 'open': return 'live-обновления';
@@ -375,6 +383,12 @@ function syncConn(stateName) {
     idle: 'dot dot-idle',
   };
   conn.state = map[stateName] ? stateName : 'idle';
+  if (isVipDemo()) {
+    clearInterval(conn.tick); conn.tick = null;
+    el.connDot.className = 'dot dot-ok'; el.connText.textContent = connLabel(); el.conn.dataset.state = 'open';
+    syncStaleBanner();
+    return;
+  }
   el.connDot.className = map[conn.state];
   el.connText.textContent = connLabel();
   el.conn.dataset.state = conn.state;
@@ -389,6 +403,8 @@ function syncConn(stateName) {
 function syncStaleBanner() {
   const b = el.stale;
   if (!b) return;
+  // VIP-демо: WebSocket-обрыв — не повод пугать зал баннером о потере связи.
+  if (isVipDemo()) { b.hidden = true; return; }
   // Баннер «данные устарели» имеет смысл только после первой успешной связи:
   // при самом первом подключении устаревать ещё нечему.
   const down = state.ready && (conn.state === 'closed' || conn.state === 'connecting')
@@ -630,8 +646,9 @@ async function boot() {
     await api.system();
   } catch (err) {
     if (err instanceof ApiError && err.isAuth) { clearCsrf(); showLogin('Сессия недействительна. Токен печатается в консоли сервера при старте.'); return; }
-    if (err instanceof ApiError && err.isOffline) {
-      /* сервер не отвечает — покажем оболочку, страница сама предложит повторить */
+    if (err instanceof ApiError && err.isOffline && !isVipDemo()) {
+      /* сервер не отвечает — покажем оболочку, страница сама предложит повторить.
+         В VIP-демо сюда не попадаем: api.js подменяет offline-ответ синтетическим. */
       toast('Сервер не отвечает', { type: 'err', hint: 'Проверьте, что процесс Command Center запущен.', timeout: 9000 });
     }
   }
