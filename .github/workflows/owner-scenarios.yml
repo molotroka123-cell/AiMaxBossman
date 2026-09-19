@@ -23,6 +23,10 @@ on:
       - 'bossman-core/bossman/**'
       - 'command-center/bcc/**'
       - '.github/workflows/owner-scenarios.yml'
+      # Объявление кандидата выпуска поднимает это задание ЯВНО: без него
+      # кандидат, не задевший путей выше, прогона не получил бы вовсе, а
+      # отсутствующий прогон читается как «замечаний нет» (BL-107).
+      - tools/release_candidate.json
   workflow_dispatch:
 
 permissions:

@@ -15,6 +15,14 @@ on:
       - claude/bossman-control-v03-43igbk
       - claude/bossman-final-audit-closure-aucx9x
       - 'release/**'
+      # BL-106: поимённый список молча терял владельческие ветки. Две из трёх
+      # объявленных в tools/owner_facing_branches.json сюда не попадали —
+      # задание обязательно для сертификата, а по пушу в них не поднималось
+      # вовсе. Шаблоны не устаревают при заведении новой ветки; группа
+      # concurrency ниже привязана к github.ref, поэтому соседние прогоны
+      # друг друга не отменяют.
+      - 'claude/**'
+      - 'night/**'
   pull_request:
   workflow_dispatch:
 

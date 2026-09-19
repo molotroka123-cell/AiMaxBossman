@@ -31,6 +31,10 @@ on:
       - 'scripts/windows_owner_tasks.py'
       - 'scripts/verify_clean_install.py'
       - '.github/workflows/windows-owner-tasks.yml'
+      # Объявление кандидата выпуска поднимает это задание ЯВНО: без него
+      # кандидат, не задевший путей выше, прогона не получил бы вовсе, а
+      # отсутствующий прогон читается как «замечаний нет» (BL-107).
+      - tools/release_candidate.json
   workflow_dispatch:
     inputs:
       minutes:

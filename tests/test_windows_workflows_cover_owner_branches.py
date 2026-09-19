@@ -13,37 +13,24 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+
+# Сопоставитель шаблонов веток ОДИН на все проверки: второй экземпляр той же
+# семантики разъехался бы с первым молча, и одна проверка говорила бы
+# «покрыто» там, где другая молчит (BL-106). Его собственный контроль —
+# test_the_matcher_implements_github_semantics ниже — остался здесь и теперь
+# проверяет ту самую реализацию, которой пользуется и сторож достижимости.
+from workflow_filters import (branch_pattern_matches, path_filter_matches,  # noqa: E402
+                              path_is_in_filter)
+
 CONTRACT = json.loads((ROOT / "tools" / "owner_facing_branches.json").read_text(encoding="utf-8"))
-
-
-def branch_pattern_matches(pattern: str, branch: str) -> bool:
-    """Семантика шаблонов веток GitHub Actions.
-
-    Документация GitHub: `*` совпадает с любыми символами, КРОМЕ `/`;
-    `**` совпадает с любыми символами, включая `/`.
-    """
-    out: list[str] = []
-    i = 0
-    while i < len(pattern):
-        if pattern.startswith("**", i):
-            out.append(".*")
-            i += 2
-        elif pattern[i] == "*":
-            out.append("[^/]*")
-            i += 1
-        elif pattern[i] == "?":
-            out.append("[^/]")
-            i += 1
-        else:
-            out.append(re.escape(pattern[i]))
-            i += 1
-    return re.fullmatch("".join(out), branch) is not None
 
 
 def push_branches(workflow: str) -> list[str]:
@@ -134,38 +121,6 @@ def test_the_windows_pair_is_a_subset_of_the_declared_workflows():
 # --- его же фильтре путей ----------------------------------------------------
 
 SCRIPT_CALL = re.compile(r"(?:python3?|py)\s+((?:tools|scripts)/[\w./-]+\.py)")
-
-
-def path_filter_matches(pattern: str, path: str) -> tuple[bool, bool]:
-    """Шаблон путей GitHub. Возвращает (совпало, это_отрицание).
-
-    В фильтрах путей `*` тоже не переходит через `/`, а ведущий `!` задаёт
-    исключение; выигрывает ПОСЛЕДНИЙ совпавший шаблон.
-    """
-    negated = pattern.startswith("!")
-    body = pattern[1:] if negated else pattern
-    out: list[str] = []
-    i = 0
-    while i < len(body):
-        if body.startswith("**", i):
-            out.append(".*")
-            i += 2
-        elif body[i] == "*":
-            out.append("[^/]*")
-            i += 1
-        else:
-            out.append(re.escape(body[i]))
-            i += 1
-    return re.fullmatch("".join(out), path) is not None, negated
-
-
-def path_is_in_filter(patterns: list[str], path: str) -> bool:
-    verdict = False
-    for pattern in patterns:
-        matched, negated = path_filter_matches(pattern, path)
-        if matched:
-            verdict = not negated
-    return verdict
 
 
 def push_paths(workflow: str) -> list[str]:
