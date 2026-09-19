@@ -38,6 +38,7 @@ import sys
 import threading
 
 from . import media as media_module
+from ..single_flight import await_shared
 
 # Windows stat ctime is CREATION time, not a content-change clock: a same-size
 # in-place rewrite with restored mtime leaves the identity tuple untouched, so
@@ -287,7 +288,7 @@ class ReadVerifier:
             # Observe failures even if every HTTP caller disconnects. Shield ensures
             # one cancelled caller never cancels shared or queued verification.
             wrapped.add_done_callback(lambda done: None if done.cancelled() else done.exception())
-            result = await asyncio.shield(wrapped)
+            result = await await_shared(wrapped)
             if identity(path) != before or descriptor_identity(fd) != before:
                 raise ValueError("media changed after read verification")
             if REQUIRES_CONTENT_RECHECK:  # pragma: no cover - Windows only

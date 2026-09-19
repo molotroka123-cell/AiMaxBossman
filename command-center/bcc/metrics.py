@@ -9,6 +9,7 @@ import asyncio
 from copy import deepcopy
 
 from .lifecycle import sleep_or_stop, stopping
+from .single_flight import await_shared
 import shutil
 import subprocess
 import time
@@ -78,7 +79,10 @@ class MetricsSampler:
             pending.add_done_callback(self._read_finished)
         # Cancelling one requester must not cancel the shared read and launch a
         # duplicate subprocess for another. Cancellation still reaches the caller.
-        data = await asyncio.shield(pending)
+        # Not asyncio.shield(): on Python 3.14 a cancelled shield reports the
+        # shared read's failure through the loop exception handler even after
+        # _read_finished has consumed it (см. bcc/single_flight.py).
+        data = await await_shared(pending)
         return deepcopy(data)
 
     async def _read_off_loop(self) -> dict:

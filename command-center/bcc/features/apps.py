@@ -32,6 +32,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from ..config import PKG_DIR, ROOT
 from . import Feature
+from ..single_flight import await_shared
 
 def apps_directory() -> Path:
     """An explicit deployment, source checkout, or the wheel's catalogue."""
@@ -281,7 +282,7 @@ async def collect(force: bool = False) -> list[dict[str, Any]]:
     loop = asyncio.get_running_loop()
     if _inflight is None or _inflight.done() or _inflight.get_loop() is not loop:
         _inflight = loop.create_task(_collect_fresh())
-    return await asyncio.shield(_inflight)
+    return await await_shared(_inflight)
 
 
 async def _collect_fresh() -> list[dict[str, Any]]:

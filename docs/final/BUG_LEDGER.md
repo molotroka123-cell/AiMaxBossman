@@ -4580,3 +4580,97 @@ admission + recovery + rollback; корневой набор 2015 passed / 11 sk
 отпускается (`effect_absent_and_retryable`) вместо парковки, но сценарий
 по-прежнему сообщает, что задача не возобновилась сама. Следующее звено —
 возобновление после отпускания, и это отдельная работа.
+
+## BL-098 — `asyncio.shield` на Python 3.14 сам сообщает о «проглоченном» отказе: восемь мест продукта шумели бы в журнал владельца. ИСПРАВЛЕНО
+
+**Как нашлось.** CI `command-center pytest (py3.14)`, job 105833218232:
+
+```
+FAILED tests/test_metrics_async_read.py::test_cancelled_all_waiters_do_not_leave_unhandled_exceptions
+AssertionError: assert not [{'message': 'OSError exception in shielded future',
+  'exception': OSError('fixture error after cancellation'), ...}]
+1 failed, 3770 passed, 40 skipped in 1926.32s
+```
+
+На 3.11 и 3.12 тот же тест зелёный. Первым делом это было проверено, а не
+списано на «флаки»: локально на 3.11.15 файл даёт 16 passed.
+
+**Почему версия решает.** В CPython 3.14 у `asyncio.shield` появился
+`_log_on_exception`. Когда внешний future отменён, `_outer_done_callback`
+снимает `_inner_done_callback` и вешает вместо него логгер, который
+БЕЗУСЛОВНО зовёт `loop.call_exception_handler`:
+
+```python
+def _log_on_exception(fut):
+    if fut.cancelled():
+        return
+    exc = fut.exception()
+    if exc is None:
+        return
+    context = {'message': f'{exc.__class__.__name__} exception in shielded future', ...}
+    fut._loop.call_exception_handler(context)
+```
+
+Ключевое: логгер не смотрит, забрал ли владелец задачи исключение сам.
+`MetricsSampler._read_finished` забирал его и до 3.14 этого хватало — с 3.14
+не хватает ничем.
+
+Подтверждено прямым прогоном ОДНОГО И ТОГО ЖЕ кода на трёх интерпретаторах:
+
+```
+3.11.15  errors: []
+3.13.12  errors: []
+3.14.0rc2 errors: ['OSError exception in shielded future']
+```
+
+и локальным воспроизведением самого теста CI на 3.14.0rc2 — тем же
+сообщением, до единого символа.
+
+**Масштаб оказался шире одного теста.** `asyncio.shield` стоял в ВОСЬМИ местах
+продукта, и все восемь — один и тот же приём «работа делается один раз, ждут
+её несколько»: `metrics.read_async`, `features/apps.collect`,
+`reality/world`, `features/web_designer`, `video_studio/media.blocking`,
+`video_studio/read_verification` и три вызова в `v2/mcp_runtime`. Красным
+был только метрический тест — потому что только он это утверждение и
+проверял. У владельца на 3.14 каждое из восьми давало бы ERROR с трассой в
+журнале на любой отменённый запрос, за которым общая работа потом упала.
+
+**Починка — общий примитив, а не заплатка в метриках.** Заведён
+`bcc/single_flight.py::await_shared(task)`: то же свойство «отмена
+ожидающего не отменяет общую работу», но исход доставляется через
+собственный future ожидающего. `shield` не участвует — значит, и его
+3.14-колбэка нет. Исход общей задачи забирается ВСЕГДА, в том числе когда
+последний ожидающий уже отменён: тогда он по построению никому не адресован.
+Все восемь мест переведены на него.
+
+**Попутно закрыта дыра, которая была и до 3.14.** До 3.14 `shield` при отмене
+внешнего future снимал свой колбэк и не забирал исключение вовсе — в
+`apps.collect` и `reality/world`, где своего колбэка нет, осиротевший отказ
+становился «Task exception was never retrieved» у сборщика мусора. Это и
+записано в контрольном тесте как ожидаемое поведение `shield` на < 3.14.
+
+**Проверки — и доказательство, что они не слепые.**
+
+* `tests/test_single_flight.py`, 10 тестов, зелёные на 3.11.15, 3.12.3 и
+  3.14.0rc2 (вся матрица CI).
+* Канарейка `test_the_harness_sees_an_unretrieved_failure`: стенд обязан
+  увидеть незабранную ошибку, иначе «пусто» в остальных тестах ничего не
+  значит.
+* Контроль `test_asyncio_shield_is_the_thing_that_was_wrong`: тот же сценарий
+  через `shield` не молчит ни на одной версии — на 3.14 это
+  `OSError exception in shielded future`, до 3.14 —
+  `Task exception was never retrieved`.
+* Охрана `test_no_module_went_back_to_asyncio_shield`: разбор AST, а не
+  строки (комментарий «не asyncio.shield()» в `metrics.py` строковый поиск
+  поймал бы), со своей канарейкой на различение вызова и упоминания.
+* Мутации, обе пойманы: перенос забора исключения за проверку ожидающего —
+  красный `test_an_orphaned_failure_is_reported_nowhere` на 3.11 И на 3.14;
+  возврат `asyncio.shield` в `metrics.py` — красная охрана на 3.11 и красные
+  охрана плюс метрический тест на 3.14.
+* Затронутые модули на 3.14: 164 passed / 15 skipped.
+
+**Чем проверено на 3.14 локально.** Интерпретатор 3.14.0rc2 поставлен через
+`uv`; `pydantic` в этом окружении пришлось закрепить на 2.12.3 — 2.13.5
+зовёт `typing._eval_type(..., prefer_fwd_module=True)`, которого в rc2 ещё
+нет. Это ограничение локального стенда, а не продукта: в CI стоит 3.14.3,
+где это окружение собирается само.
