@@ -37,11 +37,17 @@ class PluginSecurityError(ValueError):
 
 # ----------------------------------------------------------------- redaction
 
-def redact(value, *, secret_values: set[str] | None = None):
+def redact(value, *, secret_values: set[str] | None = None, scrub_text: bool = False):
     """Рекурсивная чистка: по именам ключей И по известным значениям секретов.
 
     `secret_values` — конкретные строки (расшифрованные токены), которые НЕЛЬЗЯ
     печатать, даже если они попали в текст ошибки/URL/тела.
+
+    `scrub_text` дополнительно прогоняет КАЖДУЮ строку через `redact_text` —
+    тот же распознаватель по виду токена, что чистит диагностический архив.
+    Чистка по именам ключей его не заменяет: секрет приезжает внутри ЗНАЧЕНИЯ
+    (предпросмотр команды владельца, текст ошибки, URL), а имя поля при этом
+    безобидное (`preview`, `message`). См. BL-099.
     """
     secrets = {s for s in (secret_values or set()) if s and len(s) >= 4}
 
@@ -50,7 +56,7 @@ def redact(value, *, secret_values: set[str] | None = None):
         for sv in secrets:
             if sv in out:
                 out = out.replace(sv, "***REDACTED***")
-        return out
+        return redact_text(out) if scrub_text else out
 
     def _walk(v):
         if isinstance(v, dict):
