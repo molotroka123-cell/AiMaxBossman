@@ -48,13 +48,94 @@ def os15_telegram_carries_the_whole_approval_loop(ctx) -> None:
                  approvals_transport.enabled() is False,
                  "enabled() == False при отсутствии настройки владельца")
 
-    # Звено 3. Дальше круг не замкнуть: очередь одобрений ядра живёт в PostgreSQL.
-    ctx.owner_required(
-        "круг одобрения через Telegram на этой ветке НЕ замкнут сценарием: "
-        "bcc.telegram_companion по своему же контракту не имеет API одобрений "
-        "(«No shell, desktop, arbitrary file-read, or approval API»), а круг, "
-        "который умеет одобрения (bossman.telegram → bossman.approvals → "
-        "notifications.telegram_transport), требует живого PostgreSQL и "
-        "настроенного бота владельца: BOSSMAN_DATABASE_URL и токен не заданы. "
-        "Нужны секреты владельца либо отдельное звено в "
-        "tools/installed_product_chain.py, проносящее одобрение через Telegram.")
+    # Звено 3. Круг одобрения живёт в ядре и требует PostgreSQL. НАСТОЯЩИЙ бот
+    # при этом не нужен: владелец просил детерминированный транспорт, а живые
+    # учётные данные Telegram остаются за его машиной.
+    # PostgreSQL объявлен в реестре требованием сценария: без него раннер сам
+    # отдаёт OWNER_REQUIRED и сюда не доходит. Настоящий бот при этом НЕ нужен —
+    # транспорт детерминированный, нужна только база.
+    _run_real_approval_round_trip(ctx)
+
+
+def _run_real_approval_round_trip(ctx) -> None:
+    """Задача → нужно одобрение → Telegram → ответ владельца → потреблено → эффект ОДИН раз."""
+    import asyncio  # noqa: PLC0415
+    import json as _json  # noqa: PLC0415
+    import os  # noqa: PLC0415
+
+    import httpx  # noqa: PLC0415
+
+    from bossman import approvals  # noqa: PLC0415
+    from bossman.notifications import telegram_transport as tt  # noqa: PLC0415
+    from bossman.notifications.models import (  # noqa: PLC0415
+        ActionKind, Notification, NotificationAction, Severity)
+    from bossman.notifications.store import SQLiteNotificationStore  # noqa: PLC0415
+
+    os.environ["TELEGRAM_ALLOWED_USER_IDS"] = "777"
+    sent: list[str] = []
+    real_client = httpx.AsyncClient
+
+    def deterministic(*_a, **_kw):
+        def serve(request):
+            sent.append(request.read().decode("utf-8"))
+            return httpx.Response(200, json={"ok": True, "result": {}})
+        return real_client(transport=httpx.MockTransport(serve), timeout=5)
+
+    tt.httpx.AsyncClient = deterministic
+    try:
+        store = SQLiteNotificationStore(str(ctx.path("tg", "notifications.db")))
+        transport = tt.TelegramTransport(
+            store, bot_token_provider=lambda: "DETERMINISTIC",
+            chat_id_provider=lambda: "42", webhook_secret_provider=lambda: "SECRET")
+
+        approval_id = asyncio.run(approvals.create("shell", "удалить каталог владельца"))
+        ctx.positive("задача потребовала одобрения и оно заведено в очереди ядра",
+                     isinstance(approval_id, int) and approval_id > 0,
+                     f"approval_id={approval_id}")
+
+        action = NotificationAction(kind=ActionKind.APPROVE, target_type="approval",
+                                    target_id=str(approval_id), label="Одобрить",
+                                    fingerprint=f"fp-{approval_id}")
+        asyncio.run(transport.send(Notification(
+            id=f"n-{approval_id}", event_type="approval.requested",
+            severity=Severity.WARNING, title="Нужно одобрение",
+            body="удалить каталог владельца", dedupe_key=f"d-{approval_id}",
+            actions=[action])))
+        ctx.positive("сообщение с кнопкой ушло в транспорт Telegram",
+                     len(sent) == 1, f"отправлено={len(sent)}")
+
+        token = _json.loads(sent[0])["reply_markup"]["inline_keyboard"][0][0]["callback_data"]
+        update = {"callback_query": {"id": "cb", "data": token, "from": {"id": 777},
+                                     "message": {"chat": {"id": 42, "type": "private"}}}}
+
+        # Отрицательный контроль ДО положительного: чужая подпись не проходит.
+        denied = False
+        try:
+            asyncio.run(transport.handle_webhook(update, "НЕ-ТОТ-СЕКРЕТ"))
+        except tt.CallbackRejected:
+            denied = True
+        ctx.negative("ответ с чужой подписью отвергнут штатным отказом", denied,
+                     "CallbackRejected, а не необработанное исключение")
+
+        asyncio.run(transport.handle_webhook(update, "SECRET"))
+        row = asyncio.run(approvals.db.fetchrow(
+            "select status, decided_by from approvals where id=$1", approval_id))
+        ctx.positive("одобрение владельца потреблено, личность записана до ПОЛЬЗОВАТЕЛЯ",
+                     row["status"] == "approved" and "user:777" in (row["decided_by"] or ""),
+                     f"status={row['status']} decided_by={row['decided_by']}")
+
+        # Переигрывание той же кнопки не даёт второго эффекта.
+        replayed = False
+        try:
+            asyncio.run(transport.handle_webhook(update, "SECRET"))
+        except tt.CallbackRejected:
+            replayed = True
+        ctx.negative("переигрывание той же кнопки НЕ даёт второго эффекта", replayed,
+                     "одноразовость: consume_callback + status='pending' в SQL")
+
+        after = asyncio.run(approvals.db.fetchrow(
+            "select status, decided_by from approvals where id=$1", approval_id))
+        ctx.positive("после переигрывания состояние одобрения не изменилось",
+                     dict(after) == dict(row), f"было={dict(row)} стало={dict(after)}")
+    finally:
+        tt.httpx.AsyncClient = real_client
