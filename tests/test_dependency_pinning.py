@@ -36,7 +36,12 @@ UNPINNED = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\s*(\[[^\]]*\])?\s*([<>~!]=?|
 def _requirement_files() -> list[Path]:
     out = []
     for path in ROOT.rglob("requirements*.txt"):
-        if SKIP_PARTS & set(path.parts):
+        # Части считаются ОТНОСИТЕЛЬНО корня репозитория, а не по всему пути.
+        # Иначе запрет на `.claude` срабатывал бы и тогда, когда сам корень
+        # лежит внутри `.claude` — так бывает в рабочих деревьях агентов, и
+        # тогда сканер отбрасывал ВСЁ, а канарейка «есть что проверять»
+        # краснела. Поймал это агент, а не я.
+        if SKIP_PARTS & set(path.relative_to(ROOT).parts):
             continue
         out.append(path)
     return sorted(out)

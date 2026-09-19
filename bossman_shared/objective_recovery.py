@@ -171,8 +171,42 @@ def bounded_retry(attempts_made: int, *, budget: int = DEFAULT_ATTEMPT_BUDGET) -
 
 
 def _effect_class(payload: Mapping[str, Any]) -> str:
-    value = payload.get("effect_class") if isinstance(payload, Mapping) else None
-    return value if value in EFFECT_CLASSES else IRREVERSIBLE
+    """Класс эффекта всей брони. Необъявленное — всегда IRREVERSIBLE.
+
+    Сценарий владельца №18 нашёл прогоном, что объявить идемпотентность было
+    НЕЧЕМ: `AdmissionProposal.to_payload()` кладёт объявленные эффекты в
+    `expected_effects`, а здесь искался только ключ `effect_class` верхнего
+    уровня, которого нет вовсе. Поэтому любая бронь считалась необратимой,
+    после срыва парковалась и требовала владельца — даже идемпотентная запись
+    файла.
+
+    Парковка при НЕИЗВЕСТНОМ классе остаётся безопасной стороной и здесь не
+    ослаблена: незавершённый необратимый эффект молча повторять нельзя. Ниже
+    добавлен только способ объявить класс, и объявление читается строго:
+
+    * `expected_effects` пуст или не список — IRREVERSIBLE;
+    * хотя бы один эффект без внятного класса — IRREVERSIBLE (весь набор);
+    * хотя бы один IRREVERSIBLE — IRREVERSIBLE, самый строгий решает за бронь.
+      Иначе идемпотентную запись можно было бы приложить к необратимой отправке
+      денег и получить разрешение повторить обе.
+    """
+    if not isinstance(payload, Mapping):
+        return IRREVERSIBLE
+    value = payload.get("effect_class")
+    if value in EFFECT_CLASSES:
+        return value
+    effects = payload.get("expected_effects")
+    if not isinstance(effects, (list, tuple)) or not effects:
+        return IRREVERSIBLE
+    declared: list[str] = []
+    for effect in effects:
+        one = effect.get("effect_class") if isinstance(effect, Mapping) else None
+        if one not in EFFECT_CLASSES:
+            return IRREVERSIBLE
+        declared.append(one)
+    if IRREVERSIBLE in declared:
+        return IRREVERSIBLE
+    return IDEMPOTENT if all(one == IDEMPOTENT for one in declared) else REVERSIBLE
 
 
 def _decide(effect_class: str, answer: str) -> tuple[str, str, bool]:
