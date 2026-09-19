@@ -27,11 +27,13 @@ from bossman_shared.objective_canary import (FAILED, MIN_COHORT, PASSED, PENDING
                                              CanaryPolicy, authorize_broad_activation,
                                              evaluate_canary, may_activate_broadly, plan_canary)
 from bossman_shared.objective_recovery import (IRREVERSIBLE, NOT_APPLIED, PARKED,
+                                                RELEASED,
                                                REASON_AMBIGUOUS, REASON_IRREVERSIBLE, UNKNOWN,
                                                prepare_rollback, recover, resume_point)
 from bossman_shared.objective_spec import ObjectiveSpec
 from bossman_shared.objective_store import ObjectiveStore
-from test_v5_admission import (CAPABILITY, EFFECT, NOW, OBJECTIVE, OWNER, AdmissionKernel,
+from test_v5_admission import (CAPABILITY, EFFECT, IRREVERSIBLE_EFFECT, NOW, OBJECTIVE,
+                               OWNER, AdmissionKernel,
                                CostEstimate, FakeConflicts, FakePolicy, FakeTreasury,
                                build_proposal, observation, spec_dict)
 
@@ -184,12 +186,15 @@ def test_no_verdict_at_all_blocks_activation():
 
 # ------------------------------------------------- репетиция отката
 
-def _live_objective(tmp_path):
+def _live_objective(tmp_path, effect=EFFECT):
     """Живая цель с НАСТОЯЩИМ допуском в полёте — не подделанная строка брони.
 
-    Класс эффекта в полезной нагрузке допуска не записан, и восстановление
-    считает такой эффект НЕОБРАТИМЫМ: безопасное значение по умолчанию для
-    отсутствующего факта — то, которое нельзя отменить.
+    Класс эффекта ОБЪЯВЛЯЕТСЯ явно. Прежняя версия этого пояснения опиралась на
+    то, что класс «в полезной нагрузке допуска не записан», и потому любой
+    эффект считался необратимым. Это было следствием пробела, а не замыслом:
+    объявленные эффекты не доходили до восстановления вовсе. Пробел закрыт, и
+    тесты про необратимое обязаны объявлять необратимое, а не полагаться на
+    умолчание.
     """
     store = ObjectiveStore(tmp_path / "objectives.db")
     spec = ObjectiveSpec.from_dict(spec_dict())
@@ -200,7 +205,7 @@ def _live_objective(tmp_path):
                      expected_version=state.version)
     proposal = build_proposal(
         store, OBJECTIVE, [observation(spec.digest, observed_at=NOW - 10.0)], now=NOW,
-        trigger="scheduled", requested_capabilities=(CAPABILITY,), expected_effects=(EFFECT,),
+        trigger="scheduled", requested_capabilities=(CAPABILITY,), expected_effects=(effect,),
         cost_estimate=CostEstimate(0.5, 1000, 30.0))
     kernel = AdmissionKernel(FakePolicy({"perm:repo.write"}, {CAPABILITY}),
                              FakeTreasury(), FakeConflicts())
@@ -221,7 +226,7 @@ def test_a_rollback_rehearsal_with_an_objective_in_flight(tmp_path):
     """Полная репетиция: необратимый эффект в полёте, ревизия сменилась под
     целью, канарейка упала, откат отрепетирован — и все четыре обещания
     проверены на настоящем хранилище."""
-    store, spec, decision = _live_objective(tmp_path)
+    store, spec, decision = _live_objective(tmp_path, effect=IRREVERSIBLE_EFFECT)
 
     # Улика последнего подтверждённого состояния — то, из чего резюмируется работа.
     verified_ref = store.record_condition_evidence(OBJECTIVE, condition="SATISFIED",
@@ -311,7 +316,7 @@ def test_even_a_confident_not_applied_parks_an_irreversible_effect(tmp_path):
     приземлился. Для необратимого эффекта это всё равно парковка, а не
     автоматический повтор — уверенность наблюдателя не является правом
     отправить необратимое действие второй раз."""
-    store, spec, decision = _live_objective(tmp_path)
+    store, spec, decision = _live_objective(tmp_path, effect=IRREVERSIBLE_EFFECT)
     report = recover(store, OBJECTIVE, now=NOW + 1.0, is_effect_applied=lambda r: NOT_APPLIED,
                      expected_version=store.get(OBJECTIVE).version)
     assert [o.disposition for o in report.outcomes] == [PARKED]
@@ -319,3 +324,22 @@ def test_even_a_confident_not_applied_parks_an_irreversible_effect(tmp_path):
     assert report.blocked
     assert [r["reservation_id"] for r in store.open_reservations(OBJECTIVE)] == [
         decision.reservation_id]
+
+
+def test_a_declared_idempotent_effect_is_released_not_parked(tmp_path):
+    """Пара к проверке выше, и она стала возможной только теперь.
+
+    Пока объявленные эффекты не доходили до восстановления, ВСЁ считалось
+    необратимым, и различить два случая было нечем: проверка «необратимое
+    паркуется» проходила на идемпотентной фикстуре, то есть впустую.
+
+    Здесь закреплена вторая половина: объявленный идемпотентный эффект, о
+    котором наблюдатель УВЕРЕН, что он не приземлился, отпускается на новый
+    допуск, а не паркуется и не требует владельца.
+    """
+    store, spec, decision = _live_objective(tmp_path, effect=EFFECT)
+    report = recover(store, OBJECTIVE, now=NOW + 1.0, is_effect_applied=lambda r: NOT_APPLIED,
+                     expected_version=store.get(OBJECTIVE).version)
+    assert [o.disposition for o in report.outcomes] == [RELEASED]
+    assert not report.blocked
+    assert store.open_reservations(OBJECTIVE) == []

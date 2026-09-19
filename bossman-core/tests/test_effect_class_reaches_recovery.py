@@ -111,3 +111,58 @@ def test_the_mapping_covers_every_effect_kind_the_product_declares():
 def test_read_only_is_treated_as_repeatable():
     """READ_ONLY повторить безопасно — для решения о возобновлении это IDEMPOTENT."""
     assert rec._effect_class(payload_with([{"kind": "READ_ONLY"}])) == rec.IDEMPOTENT
+
+
+# --- последнее звено: эффекты ДОХОДЯТ от предложения до решения -------------
+# Бронь их не несёт вовсе: v5_reservations хранит шесть колонок, и объявленных
+# эффектов среди них нет. Но строка брони несёт proposal_id, а само предложение
+# сохранено долговечно — там эффекты и лежат.
+
+class _Store:
+    """Крошечная замена хранилищу: отдаёт предложение по его идентификатору."""
+
+    def __init__(self, proposals):
+        self._proposals = proposals
+        self.asked = []
+
+    def get_proposal(self, proposal_id):
+        self.asked.append(proposal_id)
+        if proposal_id not in self._proposals:
+            from bossman_shared.objective_store import ObjectiveStoreError
+            raise ObjectiveStoreError("unknown proposal")
+        return {"proposal_id": proposal_id, "payload": self._proposals[proposal_id]}
+
+
+def test_effects_declared_on_the_proposal_reach_the_decision():
+    """Главное: бронь пуста, а класс всё равно выводится из предложения."""
+    store = _Store({"p1": {"expected_effects": [{"kind": "IDEMPOTENT_WRITE"}]}})
+    got = rec._effect_class({"phase": "PENDING"}, store=store, proposal_id="p1")
+    assert got == rec.IDEMPOTENT
+    assert store.asked == ["p1"], "предложение не было прочитано"
+
+
+def test_an_irreversible_effect_on_the_proposal_still_parks():
+    """Отрицательная половина: необратимое остаётся необратимым."""
+    store = _Store({"p1": {"expected_effects": [{"kind": "IRREVERSIBLE"}]}})
+    assert rec._effect_class({}, store=store, proposal_id="p1") == rec.IRREVERSIBLE
+
+
+def test_an_unreadable_proposal_fails_closed():
+    """Предложение не прочиталось — это НЕИЗВЕСТНО, то есть необратимо."""
+    store = _Store({})
+    assert rec._effect_class({}, store=store, proposal_id="нет-такого") == rec.IRREVERSIBLE
+
+
+def test_without_a_store_the_old_behaviour_is_unchanged():
+    """Пара: вызов без хранилища ведёт себя ровно как раньше."""
+    assert rec._effect_class({}) == rec.IRREVERSIBLE
+    assert rec._effect_class(
+        {"expected_effects": [{"kind": "IDEMPOTENT_WRITE"}]}) == rec.IDEMPOTENT
+
+
+def test_the_reservation_payload_wins_over_the_proposal():
+    """Явное на броне сильнее выведенного: бронь ближе к решению."""
+    store = _Store({"p1": {"expected_effects": [{"kind": "IDEMPOTENT_WRITE"}]}})
+    got = rec._effect_class({"effect_class": rec.IRREVERSIBLE}, store=store, proposal_id="p1")
+    assert got == rec.IRREVERSIBLE
+    assert store.asked == [], "предложение читать не требовалось — ответ был на броне"

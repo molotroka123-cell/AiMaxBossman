@@ -94,6 +94,13 @@ EFFECT = {
                    "expect": {"exists": True, "min_bytes": 2}, "max_age_seconds": 300}],
 }
 
+#: Настоящий НЕОБРАТИМЫЙ эффект. Нужен с тех пор, как объявленный класс стал
+#: доходить до восстановления: до этого всё считалось необратимым по умолчанию,
+#: и тесты про «необратимое паркуется» проходили ВПУСТУЮ — на идемпотентной
+#: фикстуре.
+IRREVERSIBLE_EFFECT = {**EFFECT, "effect_id": "e-irreversible", "kind": "IRREVERSIBLE",
+                       "description": "отправить средства получателю"}
+
 
 class FakePolicy:
     """Dict-backed current grants; a capability outside them is not authority."""

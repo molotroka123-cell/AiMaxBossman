@@ -170,7 +170,8 @@ def bounded_retry(attempts_made: int, *, budget: int = DEFAULT_ATTEMPT_BUDGET) -
     return RetryDecision(True, attempts_made + 1, budget, REASON_WITHIN_BUDGET, False)
 
 
-def _effect_class(payload: Mapping[str, Any]) -> str:
+def _effect_class(payload: Mapping[str, Any], *, store: Any = None,
+                  proposal_id: str | None = None) -> str:
     """Класс эффекта всей брони. Необъявленное — всегда IRREVERSIBLE.
 
     Сценарий владельца №18 нашёл прогоном, что объявить идемпотентность было
@@ -196,6 +197,12 @@ def _effect_class(payload: Mapping[str, Any]) -> str:
     if value in EFFECT_CLASSES:
         return value
     effects = payload.get("expected_effects")
+    if not isinstance(effects, (list, tuple)) or not effects:
+        # Бронь объявленных эффектов НЕ НЕСЁТ: `v5_reservations` хранит шесть
+        # колонок, и эффектов среди них нет. Но она несёт `proposal_id`, а само
+        # предложение сохранено долговечно и сверено при выдаче брони — именно
+        # оно и есть запись о том, ЧТО было допущено.
+        effects = _effects_of_proposal(store, proposal_id)
     if not isinstance(effects, (list, tuple)) or not effects:
         return IRREVERSIBLE
     declared: list[str] = []
@@ -225,6 +232,25 @@ _KIND_TO_CLASS = {
     "REVERSIBLE_WRITE": REVERSIBLE,
     "IRREVERSIBLE": IRREVERSIBLE,
 }
+
+
+def _effects_of_proposal(store: Any, proposal_id: str | None) -> Any:
+    """Объявленные эффекты долговечного предложения. Не прочиталось — ничего.
+
+    Отказ здесь НЕ исключение, а отсутствие объявления: выше оно превращается в
+    IRREVERSIBLE. Восстановление не имеет права падать из-за пропавшей строки,
+    но и не имеет права счесть её разрешением.
+    """
+    if store is None or not proposal_id:
+        return None
+    try:
+        record = store.get_proposal(proposal_id)
+    except Exception:  # noqa: BLE001 — неизвестное предложение это неизвестность
+        return None
+    payload = record.get("payload") if isinstance(record, Mapping) else None
+    if not isinstance(payload, Mapping):
+        return None
+    return payload.get("expected_effects")
 
 
 def _from_effect_kind(effect: Any) -> str | None:
@@ -268,7 +294,8 @@ def recover(store: ObjectiveStore, objective_id: str, *, now: float,
     outcomes: list[ReservationOutcome] = []
     for reservation in store.open_reservations(objective_id):
         payload = reservation.get("payload") or {}
-        effect_class = _effect_class(payload)
+        effect_class = _effect_class(payload, store=store,
+                                     proposal_id=reservation.get("proposal_id"))
         try:
             answer = is_effect_applied(reservation)
         except Exception:  # a probe that fails answers UNKNOWN, never APPLIED
