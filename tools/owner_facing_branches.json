@@ -16,7 +16,12 @@
     "",
     "Этот файл — единственное объявление. tests/test_windows_workflows_cover_",
     "owner_branches.py сверяет с ним задания настоящей семантикой шаблонов",
-    "GitHub, а не поиском подстроки."
+    "GitHub, а не поиском подстроки.",
+    "",
+    "installed-product.yml добавлен сюда при заведении, а не после того, как",
+    "выяснится, что он молчал: цепочка установленного продукта смотрит на тот",
+    "же список веток, что и пара Windows, и своя группа concurrency не",
+    "позволяет ей выбивать сборку архива из очереди."
   ],
   "canonical": "release/bossman-owner",
   "must_be_covered": [
@@ -33,7 +38,8 @@
   "workflows": [
     ".github/workflows/windows-bundle.yml",
     ".github/workflows/windows-owner-tasks.yml",
-    ".github/workflows/oss-integrations.yml"
+    ".github/workflows/oss-integrations.yml",
+    ".github/workflows/installed-product.yml"
   ],
   "windows_pair": [
     ".github/workflows/windows-bundle.yml",
