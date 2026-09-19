@@ -252,3 +252,24 @@ def test_a_finished_soak_is_marked_complete(tmp_path):
               "lines": [line.as_dict()]}
     assert report["completed"] is True
     assert line.verdict == "REFERENCE_ONLY"
+
+
+def test_checkpoints_never_land_in_the_file_that_holds_the_final_report(tmp_path):
+    """Снимок и отчёт — разные файлы, иначе дерево грязнится раз в минуту.
+
+    Раздел 30 директивы: порождаемое рантаймом состояние не держат под учётом
+    Git. За час прогона снимок переписывается шестьдесят раз; под учёт должен
+    попадать только завершённый отчёт.
+    """
+    probe = _probe()
+    final = tmp_path / "soak.json"
+    partial = probe.checkpoint_path(final)
+    assert partial != final, "снимок затирал бы итоговый отчёт"
+    assert partial.name.endswith(".partial.json"), partial
+    assert probe.checkpoint_path(None) is None, "без --json писать снимки некуда"
+
+
+def test_the_partial_suffix_is_actually_ignored_by_git():
+    """Правило без записи в .gitignore — намерение, а не правило."""
+    body = (REPO / ".gitignore").read_text(encoding="utf-8")
+    assert "*.partial.json" in body, ".gitignore не игнорирует промежуточные снимки"

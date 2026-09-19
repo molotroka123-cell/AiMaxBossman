@@ -97,3 +97,6 @@ astra-security-results/
 # Рабочий каталог Playwright MCP (снимки страниц и логи консоли приёмочного
 # прогона). Улики живут в docs/final/mcp_acceptance.json, а не здесь.
 /.playwright-mcp/
+
+# Промежуточные снимки долгих замеров: под учёт идёт только завершённый отчёт
+*.partial.json
