@@ -62,6 +62,12 @@ const LANDING = ['home-v3', 'overview', 'home'];
 const DEFAULT_PAGE = LANDING.find((id) => PAGE_BY_ID.has(id)) || 'home';
 const SUPERSEDED = new Set(LANDING.slice(LANDING.indexOf(DEFAULT_PAGE) + 1));
 
+// Инженерные/служебные страницы: присмотр за системой, сырой терминал,
+// внутренняя маршрутизация моделей и т.п. Для демо-аудитории это шум — из
+// меню убираем, но прямая ссылка (#/governor и т.д.) продолжает работать,
+// тем же способом, что и вытесненные посадочные страницы выше.
+const TECHNICAL = new Set(['governor', 'terminal', 'router', 'openrouter', 'resources', 'healing', 'forks', 'benchmarks']);
+
 // Сайдбар устроен от человека, а не от устройства системы: сверху то, чем
 // пользуются, ниже — техническая часть. Страница объявляет свой раздел полем
 // `section`; всё, что его не объявило, считается системным.
@@ -284,7 +290,9 @@ function buildNav() {
 
   // Вытесненные посадочные страницы остаются доступны по прямой ссылке, но в
   // меню их нет: две «главных» рядом — это вопрос «а какая настоящая».
-  const visible = PAGES.filter((p) => !SUPERSEDED.has(p.id));
+  // Технические страницы (TECHNICAL) — по той же логике: прямая ссылка жива,
+  // в меню их просто не показываем.
+  const visible = PAGES.filter((p) => !SUPERSEDED.has(p.id) && !TECHNICAL.has(p.id));
 
   const buckets = new Map(SECTIONS.map((s) => [s.id, []]));
   for (const page of visible) {
