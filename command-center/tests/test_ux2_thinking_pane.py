@@ -152,11 +152,13 @@ def test_thinking_pane_shows_live_execution_facts(live):
         card = page.locator('.bx-think-card[data-run="7"][data-state="waiting_approval"]')
         card.wait_for(timeout=10000)
         text = card.inner_text()
-        for fragment in ("qwen-14b", "fs.read", "2 из 5", "решение владельца (terminal.run)"):
+        # Модель и шаг теперь вынесены из сетки в собственные блоки (строка модели
+        # с бейджем локально/облако, полоска прогресса шага) — см. thinking.js.
+        for fragment in ("qwen-14b", "ОБЛАКО", "fs.read", "2 / 5", "решение владельца (terminal.run)"):
             assert fragment in text, text
         assert card.get_attribute("data-state") == "waiting_approval"
         grid = card.locator(".bx-think-grid b").all_inner_texts()
-        assert grid[5] == "1" and grid[6] == "0", grid                                   # retries / errors
+        assert grid[3] == "1" and grid[4] == "0", grid                                    # retries / errors
         # Таймер обязан идти. Фиксированная пауза здесь была ненадёжна: тик раз в
         # секунду, и под нагрузкой полного набора он не всегда успевал за 1300 мс.
         # Ждём сам факт изменения, а не угаданный интервал.
