@@ -112,11 +112,19 @@ class Scenario:
     model_step: str
     depth: str
     func: Callable[["RunContext"], None]
+    #: Объявленный пробел, который ЖДЁТ РЕШЕНИЯ ВЛАДЕЛЬЦА, — фрагмент причины,
+    #: который обязан прозвучать в отказе дословно. Пусто — строка обязана
+    #: доказываться. Объявление живёт ЗДЕСЬ, в реестре, и читается обоими:
+    #: раннером (какой незелёный ожидаем) и замороженной таблицей
+    #: `tests/owner_scenarios/test_owner_scenarios.py`. Два списка ожидаемых
+    #: пробелов разъехались бы, и владелец узнал бы об этом один раз.
+    owner_gap: str = ""
 
     def to_report(self) -> dict[str, Any]:
         return {"id": self.id, "number": self.number, "title": self.title,
                 "chain": self.chain, "requires": list(self.requires),
-                "model_step": self.model_step, "declared_depth": self.depth}
+                "model_step": self.model_step, "declared_depth": self.depth,
+                "owner_gap": self.owner_gap}
 
 
 @dataclass
@@ -270,7 +278,8 @@ def discover(directory: Path = SCENARIO_DIR,
             raise ValueError(f"{row['id']}: неизвестный model_step {row['model_step']!r}")
         out.append(Scenario(id=row["id"], number=int(row["number"]), title=row["title"],
                             chain=row["chain"], requires=tuple(row.get("requires") or ()),
-                            model_step=row["model_step"], depth=depth, func=func))
+                            model_step=row["model_step"], depth=depth, func=func,
+                            owner_gap=str(row.get("owner_gap") or "")))
     return out
 
 
@@ -371,6 +380,7 @@ def run_all(scenarios: Iterable[Scenario] | None = None, *,
     depths = {d: sum(1 for r in results if r.level == AI_BACKED_CI and r.depth == d)
               for d in DEPTHS}
     return {
+        **gap_reconciliation(results),
         "board": "OWNER_SCENARIOS",
         "board_note": ("НЕ складывать с табло REGRESSION: инженерные наборы не являются "
                        "определением готовности"),
@@ -386,6 +396,35 @@ def run_all(scenarios: Iterable[Scenario] | None = None, *,
         "verdict": verdict_line(totals, len(results)),
         "scenarios": [r.to_report() for r in results],
     }
+
+
+def gap_reconciliation(results: Sequence[ScenarioResult]) -> dict[str, Any]:
+    """Сверить ОБЪЯВЛЕННЫЕ в реестре пробелы с тем, что вышло на самом деле.
+
+    Три исхода, и все три обязаны быть видны:
+
+    * `undeclared` — строка не доказана, а пробела в реестре нет. Это и есть
+      неожиданность: либо продукт сломался, либо сценарий недописан.
+    * `closed` — пробел объявлен, а строка позеленела. Пробел закрылся, и
+      реестр отстал от действительности; молчать об этом нельзя, иначе
+      объявление превращается в вечную индульгенцию.
+    * `mislabelled` — пробел объявлен, строка не доказана, но в отказе НЕТ
+      объявленного фрагмента. Значит причина теперь другая, а объявление
+      прикрывает не тот пробел.
+    """
+    undeclared, closed, mislabelled = [], [], []
+    for r in results:
+        gap = r.scenario.owner_gap
+        # Отсутствующая способность — не пробел продукта: она уже названа
+        # блокером и меряется полом зелёных, а не этой сверкой.
+        if not gap and r.level in NOT_PROVEN_LEVELS and not r.blockers:
+            undeclared.append(r.scenario.id)
+        elif gap and r.level == AI_BACKED_CI:
+            closed.append(r.scenario.id)
+        elif gap and r.level in NOT_PROVEN_LEVELS and gap not in r.reason:
+            mislabelled.append(r.scenario.id)
+    return {"gaps_undeclared": undeclared, "gaps_closed": closed,
+            "gaps_mislabelled": mislabelled}
 
 
 def verdict_line(totals: dict[str, int], total: int) -> str:
@@ -407,6 +446,14 @@ def print_report(report: dict[str, Any]) -> None:
           f" ({ai['key_source'] or 'нет переменной'}), вызовов {ai['calls_made']}/"
           f"{ai['max_calls_per_run']}, успешных {ai['ok_calls']}")
     print(f"Зелёные по глубине улики: {report['green_by_depth']}")
+    declared = [row["id"] for row in report["scenarios"] if row.get("owner_gap")]
+    if declared:
+        print(f"Объявленные пробелы (ждут решения владельца): {', '.join(declared)}")
+    for key, text in (("gaps_undeclared", "НЕ ОБЪЯВЛЕННЫЕ незелёные"),
+                      ("gaps_closed", "пробел ЗАКРЫЛСЯ — обнови реестр"),
+                      ("gaps_mislabelled", "причина не совпала с объявленным пробелом")):
+        if report.get(key):
+            print(f"{text}: {', '.join(report[key])}", file=sys.stderr)
     print(report["verdict"])
 
 
@@ -450,7 +497,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     if args.strict and report["green"] != report["total"]:
         return 1
-    if totals[INSUFFICIENT_EVIDENCE] or totals[NOT_RUN]:
+    # Незелёная строка — не всегда неожиданность. Пробел, ЗАЯВЛЕННЫЙ в реестре
+    # полем `owner_gap`, ждёт решения владельца и остаётся видимым в отчёте, но
+    # не красит прогон: иначе гейт краснел бы вечно и перестал бы что-либо
+    # значить — ровно та беда, от которой этот проект и лечится. А вот
+    # НЕОБЪЯВЛЕННАЯ недоказанная строка, закрывшийся пробел и подменившаяся
+    # причина — красят, потому что означают расхождение табло с
+    # действительностью. Отсутствующая способность сюда не входит: её ловит
+    # объявленный пол зелёных выше.
+    if report["gaps_undeclared"] or report["gaps_closed"] or report["gaps_mislabelled"]:
+        return 2
+    if totals[NOT_RUN]:
         return 2
     return 0
 

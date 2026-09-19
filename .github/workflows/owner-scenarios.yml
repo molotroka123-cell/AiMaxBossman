@@ -84,11 +84,20 @@ jobs:
         # тихой деградации: пропавшая способность превращает зелёный в
         # OWNER_REQUIRED, а не в FAIL. Пол поднимается ТОЛЬКО намеренно и
         # отдельным коммитом.
+        #
+        # 15 → 43 по ИЗМЕРЕННОМУ прогону, а не по локальному числу и не «на
+        # вырост»: задание 105862050782 на a7021d8b (эта же база pgvector, тот
+        # же образ, ключа ИИ нет) дало
+        #   OWNER SCENARIOS: 43 / 50 — 43 AI_BACKED_CI, 5 OWNER_REQUIRED,
+        #                              2 INSUFFICIENT_EVIDENCE
+        # Пять OWNER_REQUIRED — это четыре сценария без ключа владельца и один
+        # без настоящего провайдера картинок; появится ключ — станет 47, и пол
+        # будет подниматься снова, тем же порядком.
         run: |
           mkdir -p scenario-results
           python tools/scenario_runner.py \
             --json scenario-results/owner-scenarios.json \
-            --min-green 15
+            --min-green 43
       - name: Табло в сводку прогона
         if: always()
         run: |

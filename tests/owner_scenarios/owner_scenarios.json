@@ -170,7 +170,8 @@
         "command_center",
         "ffprobe"
       ],
-      "model_step": "none"
+      "model_step": "none",
+      "owner_gap": "генерация не настоящая"
     },
     {
       "id": "OS-17",
@@ -223,7 +224,8 @@
       "title": "Цель выбирается ПО СМЫСЛУ, а не по координатам",
       "chain": "смысловая цель → разрешение в свежем дереве UI → действие; координаты отвергаются",
       "requires": [],
-      "model_step": "none"
+      "model_step": "none",
+      "owner_gap": "координатный клик НЕ недопустим"
     },
     {
       "id": "OS-23",
@@ -281,7 +283,8 @@
       "requires": [
         "command_center"
       ],
-      "model_step": "none"
+      "model_step": "none",
+      "owner_gap": "скачанное из сети и отданное прямо оболочке"
     },
     {
       "id": "OS-30",
