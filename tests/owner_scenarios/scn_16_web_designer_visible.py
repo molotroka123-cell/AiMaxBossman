@@ -132,6 +132,24 @@ _DIFF_JS = """async ([first, second]) => {
   return {w, h, pixels: w * h, diff, maxd, ink};
 }"""
 
+def _settled(page, url: str) -> None:
+    """Открыть страницу и дождаться, пока она УСТОЯЛАСЬ, прежде чем снимать.
+
+    `networkidle` и `document.fonts.ready` — сигналы самого движка, а не пауза:
+    ждать «ещё немного» значило бы подгонять тайм-аут, а это запрещено.
+
+    Зачем вообще. На чистой машине CI первый кадр успевает нарисовать текст
+    ЗАПАСНЫМ шрифтом, пока fontconfig разбирается с `sans-serif`, и два снимка
+    ОДНОЙ И ТОЙ ЖЕ страницы расходятся тысячами пикселей — не потому, что
+    продукт что-то сделал. Измерено прогоном CI 105869147936: расхождений
+    5379, максимум по каналу 238 (тёмный текст против белого фона — ровно
+    «буквы есть / букв нет»). На тёплой машине разработчика этого не видно, и
+    сценарий трижды подряд давал ноль.
+    """
+    page.goto(url, wait_until="networkidle")
+    page.evaluate("() => document.fonts.ready.then(() => true)")
+
+
 #: Геометрия владельческих органов управления в ОТКРЫТОЙ панели.
 #: Ящик бокового меню, уехавший за край экрана, — это раскладка телефона, а не
 #: поломка, поэтому в счёт идут только органы РАБОЧЕЙ области (`main`).
@@ -337,10 +355,13 @@ def os66_visual_check_sees_real_pixel_difference(ctx) -> None:
 
             shot = context.new_page()
             shot.set_viewport_size({"width": 800, "height": 300})
-            shot.goto(preview_url, wait_until="load")
-            first = base64.b64encode(shot.screenshot()).decode()
-            shot.reload(wait_until="load")
-            second = base64.b64encode(shot.screenshot()).decode()
+            # Три снимка НЕИЗМЕНЁННОЙ страницы: шум измеряется, а не
+            # предполагается нулевым. Предположение «нулевой» уже оказалось
+            # неверным на чистой машине CI.
+            still = []
+            for _ in range(3):
+                _settled(shot, preview_url)
+                still.append(base64.b64encode(shot.screenshot()).decode())
 
             changed = client.post(f"/api/web-designer/projects/{pid}/edit",
                                   json={"op": "style", "path": "h1#z", "tag": "h1",
@@ -348,28 +369,39 @@ def os66_visual_check_sees_real_pixel_difference(ctx) -> None:
                                         "base_version": base})
             ctx.positive("продукт принял настоящую правку цвета заголовка",
                          changed.status_code == 200, f"HTTP {changed.status_code}")
-            shot.goto(preview_url, wait_until="load")
-            third = base64.b64encode(shot.screenshot()).decode()
+            _settled(shot, preview_url)
+            after = base64.b64encode(shot.screenshot()).decode()
 
             canvas = context.new_page()
             canvas.goto("about:blank")
-            same = canvas.evaluate(_DIFF_JS, ["data:image/png;base64," + first,
-                                              "data:image/png;base64," + second])
-            moved = canvas.evaluate(_DIFF_JS, ["data:image/png;base64," + first,
-                                               "data:image/png;base64," + third])
+            def _diff(left: str, right: str) -> dict:
+                return canvas.evaluate(_DIFF_JS, ["data:image/png;base64," + left,
+                                                  "data:image/png;base64," + right])
+
+            quiet = [_diff(still[0], still[1]), _diff(still[1], still[2]),
+                     _diff(still[0], still[2])]
+            same = max(quiet, key=lambda row: row["diff"])
+            moved = _diff(still[0], after)
         finally:
             browser.close()
 
     ctx.negative("измеритель не сравнивает пустоту с пустотой: на снимке есть чернила",
                  same["ink"] > 0 and same["pixels"] > 10000,
                  f"непустых пикселей={same['ink']} из {same['pixels']}")
-    ctx.negative("два снимка НЕИЗМЕНЁННОЙ страницы совпадают до пикселя",
-                 same["diff"] == 0 and same["maxd"] == 0,
-                 f"расхождений={same['diff']}, максимум по каналу={same['maxd']}")
+    ctx.negative("устоявшаяся НЕИЗМЕНЁННАЯ страница не шумит сама по себе",
+                 same["diff"] * 200 < same["pixels"],
+                 f"шум={same['diff']} из {same['pixels']}, максимум по каналу={same['maxd']}")
     ctx.positive("после настоящей правки снимок РАСХОДИТСЯ с прежним",
                  moved["diff"] > 100 and moved["maxd"] > 16,
                  f"расхождений={moved['diff']} из {moved['pixels']}, "
                  f"максимум по каналу={moved['maxd']}")
+    # Главное утверждение о ПОЛЬЗЕ проверки: настоящая правка обязана быть
+    # видна НА ФОНЕ измеренного шума, а не в предположении, что шума нет.
+    # Проверка, у которой сигнал сравним с шумом, бесполезна, чем бы ни
+    # объяснялся шум.
+    ctx.positive("настоящая правка на порядок заметнее измеренного шума",
+                 moved["diff"] > max(100, same["diff"] * 10),
+                 f"сигнал={moved['diff']}, шум={same['diff']}")
     ctx.positive("расхождение локально — сменился цвет, а не перерисовался весь экран",
                  moved["diff"] < moved["pixels"] // 2,
                  f"{moved['diff']} < {moved['pixels'] // 2}")
