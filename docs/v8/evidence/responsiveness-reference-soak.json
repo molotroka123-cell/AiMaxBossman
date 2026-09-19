@@ -4,8 +4,8 @@
   "completed": false,
   "verdict": "INSUFFICIENT_EVIDENCE",
   "mode": "reference",
-  "elapsed_load_seconds": 122.39033626399987,
-  "turns": 58,
+  "elapsed_load_seconds": 428.44635876300003,
+  "turns": 203,
   "lines": [
     {
       "metric": "cold_start_to_interactive_s",
@@ -68,7 +68,7 @@
       "limit": 15.0,
       "measured": null,
       "verdict": "INSUFFICIENT_EVIDENCE",
-      "detail": "прогон прерван на 2-й минуте нагрузки (58 переходов); выдержка не завершена",
+      "detail": "прогон прерван на 7-й минуте нагрузки (203 переходов); выдержка не завершена",
       "where": "дерево процессов"
     },
     {
@@ -76,7 +76,7 @@
       "limit": 2.0,
       "measured": null,
       "verdict": "INSUFFICIENT_EVIDENCE",
-      "detail": "прогон прерван на 2-й минуте нагрузки (58 переходов); выдержка не завершена",
+      "detail": "прогон прерван на 7-й минуте нагрузки (203 переходов); выдержка не завершена",
       "where": "дерево процессов"
     }
   ],
