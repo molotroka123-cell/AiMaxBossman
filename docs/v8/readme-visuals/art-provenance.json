@@ -1,0 +1,50 @@
+{
+  "workspace-concept.webp": {
+    "source": "user-supplied AI-generated infographic",
+    "source_sha256": "503236b699eeb68eca138eaf775bf9ea87ea61673088a0565bb26ebe54b8271f",
+    "crop_box": [
+      434,
+      148,
+      1024,
+      366
+    ],
+    "width": 340,
+    "height": 149,
+    "bytes": 4206,
+    "git_blob_sha": "2d0f80cbf34fd2e49c8224ec053e130aad63cb21",
+    "sha256": "1a442dc516bd91276c85746ac3dc6fa034eab22efac95d8c5e7a391c746f1cae",
+    "classification": "AI_CONCEPT_NOT_SCREENSHOT"
+  },
+  "interface-concept.webp": {
+    "source": "user-supplied AI-generated infographic",
+    "source_sha256": "503236b699eeb68eca138eaf775bf9ea87ea61673088a0565bb26ebe54b8271f",
+    "crop_box": [
+      24,
+      553,
+      540,
+      837
+    ],
+    "width": 340,
+    "height": 210,
+    "bytes": 5014,
+    "git_blob_sha": "1e2602c9f372a377187f6ff8a57e5c9f6f4f4d12",
+    "sha256": "d80f97b1d9a3a0d99547ca9195d3d8764e9d2adb86e7949f5a2f98602c13ba34",
+    "classification": "AI_CONCEPT_NOT_SCREENSHOT"
+  },
+  "usecases-concept.webp": {
+    "source": "user-supplied AI-generated infographic",
+    "source_sha256": "503236b699eeb68eca138eaf775bf9ea87ea61673088a0565bb26ebe54b8271f",
+    "crop_box": [
+      26,
+      1293,
+      497,
+      1454
+    ],
+    "width": 340,
+    "height": 139,
+    "bytes": 4586,
+    "git_blob_sha": "072459f5d761e62d03bedc66c0aeb48d5ba0b0f7",
+    "sha256": "1de8d1c0573b06b5fac00bf5e202eadad5182b00a3e7532aaf2acc63ccf47945",
+    "classification": "AI_CONCEPT_NOT_SCREENSHOT"
+  }
+}
