@@ -45,6 +45,15 @@ BUDGET_FILE = REPO / "tools" / "responsiveness_budget.json"
 
 INSUFFICIENT = "INSUFFICIENT_EVIDENCE"
 OWNER_REQUIRED = "OWNER_REQUIRED"
+REFERENCE = "REFERENCE_ONLY"
+REFERENCE_OVER = "REFERENCE_ONLY_OVER_BUDGET"
+
+# Покой — это покой. Первый часовой прогон считал CPU за весь прогон, в котором
+# проба делала переход каждые две секунды (1734 перехода за час): получилась
+# стоимость РАБОТЫ, а не покоя, 22.4 % при пределе 2. Ошибка была в
+# измерителе, поэтому бюджет остался прежним, а мерить стали правильно: после
+# нагрузки проба замолкает и наблюдает дерево в тишине.
+IDLE_WINDOW_SECONDS = 180.0
 
 # Разделы, по которым ходит замер навигации. Берутся не из фантазии, а из
 # реестра страниц UI — тем же способом, что и обход §23.
@@ -78,7 +87,10 @@ class Line:
         self.measured = value
         within = value <= self.limit
         if reference:
-            self.verdict = "REFERENCE_ONLY"
+            # Справочность означает «не доказывает установленный архив
+            # Windows», а не «не считается». Превышение обязано быть видно в
+            # строке вердикта, а не только в пояснении.
+            self.verdict = REFERENCE if within else REFERENCE_OVER
         else:
             self.verdict = "PASS" if within else "FAIL"
         self.detail = (f"{value:.1f} против предела {self.limit:.1f}"
@@ -88,6 +100,21 @@ class Line:
     def as_dict(self) -> dict:
         return {"metric": self.key, "limit": self.limit, "measured": self.measured,
                 "verdict": self.verdict, "detail": self.detail, "where": self.where}
+
+
+def idle_window_for(soak_seconds: float) -> float:
+    """Сколько наблюдать дерево в тишине после нагрузки."""
+    if soak_seconds <= 0:
+        return 0.0
+    return max(IDLE_WINDOW_SECONDS, soak_seconds * 0.05)
+
+
+def overall_verdict(verdicts: list[str]) -> str:
+    """Один итог по строкам. Порядок строгости, а не порядок перечисления."""
+    for state in ("FAIL", INSUFFICIENT, REFERENCE_OVER, REFERENCE, OWNER_REQUIRED):
+        if state in verdicts:
+            return state
+    return "PASS"
 
 
 def _tree_rss_mib(root_pid: int | None = None) -> float:
@@ -340,16 +367,33 @@ def measure(mode: str, soak_seconds: float, budget: dict) -> dict:
                         walker.step()
                         turns += 1
                         page.wait_for_timeout(2000)
-                    elapsed = time.monotonic() - t0
+                    loaded = time.monotonic() - t0
+                    cpu_loaded = _tree_cpu_seconds()
+
+                    # Тишина: ни одного перехода, страница просто открыта.
+                    # Именно это и называется «в покое» — фоновые тики
+                    # очереди, опрос состояния и сам браузер.
+                    quiet = idle_window_for(soak_seconds)
+                    idle_started = time.monotonic()
+                    page.wait_for_timeout(int(quiet * 1000))
+                    idle_elapsed = time.monotonic() - idle_started
                     rss1, cpu1 = _tree_rss_mib(), _tree_cpu_seconds()
+
                     lines["soak_rss_growth_pct"].observe(
                         max(((rss1 - rss0) / max(rss0, 1e-9)) * 100, 0.0),
                         reference=reference,
-                        detail=(f"{elapsed / 60:.0f} мин, {turns} переходов, "
+                        detail=(f"{loaded / 60:.0f} мин нагрузки ({turns} переходов) "
+                                f"плюс {idle_elapsed / 60:.0f} мин покоя, "
                                 f"дерево {rss0:.1f} → {rss1:.1f} MiB"))
                     lines["soak_idle_cpu_pct_of_one_core"].observe(
-                        ((cpu1 - cpu0) / elapsed) * 100, reference=reference,
-                        detail=f"{elapsed / 60:.0f} мин наблюдения дерева процессов")
+                        ((cpu1 - cpu_loaded) / max(idle_elapsed, 1e-9)) * 100,
+                        reference=reference,
+                        detail=f"{idle_elapsed / 60:.1f} мин тишины после нагрузки")
+                    under_load = ((cpu_loaded - cpu0) / max(loaded, 1e-9)) * 100
+                    notes.append(
+                        f"CPU дерева ПОД НАГРУЗКОЙ {under_load:.1f} % одного ядра "
+                        f"при переходе раз в 2 с — величина без бюджета, "
+                        f"приводится рядом, чтобы её не путали с покоем")
                 else:
                     notes.append("прогон на выдержку не запускался (--soak-seconds 0): "
                                  "обе строки выдержки остаются без улик")
@@ -358,12 +402,7 @@ def measure(mode: str, soak_seconds: float, budget: dict) -> dict:
         finally:
             app.stop()
 
-    verdicts = [line.verdict for line in lines.values()]
-    overall = ("FAIL" if "FAIL" in verdicts
-               else INSUFFICIENT if INSUFFICIENT in verdicts
-               else "REFERENCE_ONLY" if "REFERENCE_ONLY" in verdicts
-               else OWNER_REQUIRED if OWNER_REQUIRED in verdicts
-               else "PASS")
+    overall = overall_verdict([line.verdict for line in lines.values()])
     return {
         "verdict": overall,
         "mode": mode,
