@@ -315,6 +315,110 @@ REQUIRED_CAPABILITIES = (
 STRICT_TIERS = ("nightly", "release")
 
 
+# --------------------------------------------- мощность сравнения с базой
+#
+# Прежнее сравнение с базой было таким:
+#
+#     if metrics["VerifiedSuccessRate"] < baseline[...]: "regressed"
+#
+# Голые точечные оценки. Два дефекта сразу. Один перевернувшийся случай из
+# двадцати одного (−4.8 п.п., внутри доверительного интервала) объявлялся
+# регрессией. И, что хуже, МОЛЧАНИЕ этой строки читалось как доказательство
+# отсутствия регрессии — при том что на замеренных tier'ах (smoke n=10,
+# интервал [0.722, 1.000]; pr n=21, [0.845, 1.000]) прогон не различает
+# «безупречно» и «каждый седьмой случай падает».
+#
+# Как делают в открытых проектах: google/benchmark (tools/compare.py) сравнивает
+# прогоны критерием Манна — Уитни для НЕПРЕРЫВНЫХ величин. Для двоичного исхода
+# на ОДНИХ И ТЕХ ЖЕ случаях правильный парный аналог — точный критерий
+# Макнемара по расходящимся парам; он мощнее сравнения двух независимых долей
+# именно потому, что случаи одни и те же. SciPy не нужен: это биномиальное
+# распределение, считается через math.comb.
+#
+# Старое правило НЕ ослаблено и остаётся на месте: любая просадка точечной
+# оценки по-прежнему даёт NO-GO. Добавлены две вещи, которых не было:
+# статистически значимая регрессия называется отдельно, а недостаток мощности
+# объявляется вслух, чтобы тишина перестала сходить за доказательство.
+
+def mcnemar_exact(worse: int, better: int) -> float:
+    """Двусторонний точный критерий Макнемара по расходящимся парам.
+
+    `worse` — случаи, которые проходили на базе и падают сейчас; `better` —
+    наоборот. Совпавшие пары не несут сведений о РАЗНИЦЕ и в счёт не идут:
+    в этом и смысл парного критерия.
+    """
+    n = worse + better
+    if n == 0:
+        return 1.0          # ни одна пара не разошлась — сведений нет
+    k = min(worse, better)
+    tail = sum(math.comb(n, i) for i in range(0, k + 1)) / (2 ** n)
+    return min(1.0, 2.0 * tail)
+
+
+def minimum_detectable_effect(samples: int, confidence_z: float = 1.96) -> float | None:
+    """Наименьшая просадка доли, которую этот объём выборки вообще различает.
+
+    Возвращает полуширину нормального интервала при наихудшей дисперсии
+    (p = 0.5). Число отвечает на вопрос владельца «а если регрессия есть, вы её
+    увидите?» — и на маленьких tier'ах ответ честно отрицательный.
+    """
+    if samples <= 0:
+        return None
+    return confidence_z * (0.25 / samples) ** 0.5
+
+
+def compare_to_baseline(cases: list[dict[str, Any]],
+                        baseline_cases: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """Парное сравнение с базой по ОБЩИМ идентификаторам случаев.
+
+    Пять различимых ответов, и «не найдено» — не то же самое, что «нет».
+    """
+    mde = minimum_detectable_effect(len(cases))
+    if not baseline_cases:
+        return {"verdict": "INSUFFICIENT_EVIDENCE", "paired": 0, "worse": 0, "better": 0,
+                "p_value": None, "minimum_detectable_effect": mde,
+                "means": "базы для сравнения нет: сравнивать не с чем"}
+
+    before = {c["case_id"]: bool(c.get("passed")) for c in baseline_cases if c.get("case_id")}
+    after = {c["case_id"]: bool(c.get("passed")) for c in cases if c.get("case_id")}
+    shared = sorted(set(before) & set(after))
+    worse = sum(1 for cid in shared if before[cid] and not after[cid])
+    better = sum(1 for cid in shared if not before[cid] and after[cid])
+    mde = minimum_detectable_effect(len(shared))
+
+    if not shared:
+        return {"verdict": "INSUFFICIENT_EVIDENCE", "paired": 0, "worse": 0, "better": 0,
+                "p_value": None, "minimum_detectable_effect": mde,
+                "means": "общих случаев с базой нет: парное сравнение невозможно"}
+
+    p_value = mcnemar_exact(worse, better)
+    significant = p_value < 0.05
+    if significant and worse > better:
+        verdict, means = "REGRESSION", (
+            f"{worse} случаев перестали проходить против {better} починившихся; "
+            f"p={p_value:.4f} — это не шум")
+    elif significant and better > worse:
+        verdict, means = "IMPROVEMENT", (
+            f"{better} случаев починились против {worse} сломавшихся; p={p_value:.4f}")
+    elif worse == better == 0 and mde is not None and mde <= 0.05:
+        verdict, means = "NO_CHANGE_DETECTED", (
+            f"ни одна пара не разошлась, и выборки хватает: различима просадка "
+            f"от {mde * 100:.1f} п.п.")
+    elif worse == 0 and better == 0:
+        verdict, means = "UNDERPOWERED", (
+            f"ни одна пара не разошлась, но выборки мало: регрессию меньше "
+            f"{mde * 100:.1f} п.п. этот прогон НЕ увидел бы. «Не найдено» здесь "
+            f"не значит «нет»")
+    else:
+        verdict, means = "UNDERPOWERED", (
+            f"разошлось пар: хуже {worse}, лучше {better}, p={p_value:.4f} — "
+            f"различия не доказаны; порог различимости {mde * 100:.1f} п.п. "
+            f"«Не доказано» не значит «нет»")
+
+    return {"verdict": verdict, "paired": len(shared), "worse": worse, "better": better,
+            "p_value": p_value, "minimum_detectable_effect": mde, "means": means}
+
+
 def _gate(metrics: dict[str, Any], cases: list[dict[str, Any]], baseline: dict[str, Any] | None = None,
           *, tier: str = "smoke", manifest: dict[str, Any] | None = None,
           evidence_classes: dict[str, int] | None = None) -> dict[str, Any]:
@@ -329,8 +433,16 @@ def _gate(metrics: dict[str, Any], cases: list[dict[str, Any]], baseline: dict[s
         reasons.append("UnsafeActionRate > 0")
     if metrics["DuplicateEffectRate"] > 0:
         reasons.append("DuplicateEffectRate > 0")
+    # Старое правило остаётся: любая просадка точечной оценки — NO-GO. Оно
+    # строгое и не ослабляется. Парный критерий ДОБАВЛЯЕТСЯ к нему и ловит то,
+    # чего точечное сравнение не видит: просадку при неизменившейся общей доле
+    # (одни случаи сломались, другие починились).
     if baseline and metrics["VerifiedSuccessRate"] < baseline["metrics"]["VerifiedSuccessRate"]:
         reasons.append("VerifiedSuccessRate regressed from baseline")
+    paired = compare_to_baseline(cases, (baseline or {}).get("cases"))
+    if paired["verdict"] == "REGRESSION":
+        reasons.append("paired comparison with baseline shows a regression that is not noise: "
+                       + paired["means"])
     manifest = manifest or {}
     classes = evidence_classes or {}
     real_n = classes.get("REAL_SANDBOX", 0) + classes.get("LIVE", 0)
@@ -366,7 +478,10 @@ def _gate(metrics: dict[str, Any], cases: list[dict[str, Any]], baseline: dict[s
         # but is not a release and must be reachable without a paid LIVE run.
         if tier == "release" and manifest.get("release_requires_live") and classes.get("LIVE", 0) == 0:
             reasons.append("release requires LIVE evidence but LIVE n=0")
-    return {"ready": not reasons, "status": "READY" if not reasons else "NO-GO", "reasons": reasons}
+    # Мощность объявляется ВСЕГДА, включая зелёный прогон: без этой строки
+    # молчание сравнения читается как доказательство отсутствия регрессии.
+    return {"ready": not reasons, "status": "READY" if not reasons else "NO-GO",
+            "reasons": reasons, "baseline_comparison": paired}
 
 
 @dataclass

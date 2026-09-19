@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-17T15:06:11.733000+00:00",
+  "recorded_from": {
+    "run_id": "35236635779",
+    "source_sha": "11feb592c5462354bce0c60d854db58ecbc14954"
+  },
+  "platform": {
+    "os": "windows",
+    "arch": "amd64",
+    "python_tag": "cp312"
+  },
+  "python": {
+    "version": "3.12.10",
+    "embeddable_url": "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip",
+    "embeddable_sha256": "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
+  },
+  "ffmpeg": {
+    "release": "autobuild-2026-04-30-13-44",
+    "asset": "ffmpeg-n8.1-11-g75d37c499d-win64-gpl-8.1.zip",
+    "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-04-30-13-44/ffmpeg-n8.1-11-g75d37c499d-win64-gpl-8.1.zip",
+    "size": 218531411,
+    "api_digest": "9f7f43db2e205f94c941d8343ea266ec0f3a3f3ab04921ecb32b2fdc5f956441",
+    "sha256": "9f7f43db2e205f94c941d8343ea266ec0f3a3f3ab04921ecb32b2fdc5f956441",
+    "api_digest_matched": true,
+    "probe": {
+      "ffmpeg": "ffmpeg version n8.1-11-g75d37c499d-20260430 Copyright (c) 2000-2026 the FFmpeg developers",
+      "ffprobe": "ffprobe version n8.1-11-g75d37c499d-20260430 Copyright (c) 2007-2026 the FFmpeg developers",
+      "default_export": {
+        "status": "PASS",
+        "video_codec": "h264",
+        "audio_codec": "aac",
+        "fully_decoded": true,
+        "bytes": 38358
+      }
+    }
+  },
+  "chromium": {
+    "directories": [
+      "chromium-1243"
+    ],
+    "playwright": "1.63.0"
+  },
+  "requirements": {
+    "file": "windows_bundle_lock.txt",
+    "sha256": "a5fbfb8e339f1d8420ca1b3789bca7306074855aed69fefd00f9fe9624120df4",
+    "count": 116
+  },
+  "build_tools": {
+    "file": "windows_bundle_build_tools.txt",
+    "sha256": "f88dfc92067569a8994fac24745752046a129956fd8cfcf35d2e0c3e690d3bb7",
+    "pins": {
+      "pip": "26.2.1",
+      "setuptools": "84.0.0",
+      "wheel": "0.48.0"
+    },
+    "source_distributions_in_lock": [
+      "mouseinfo",
+      "pyautogui",
+      "pygetwindow",
+      "pyrect",
+      "pyscreeze",
+      "pytweening"
+    ]
+  }
+}

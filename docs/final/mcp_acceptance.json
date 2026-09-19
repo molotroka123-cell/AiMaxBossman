@@ -1,0 +1,253 @@
+{
+  "markitdown-mcp": {
+    "command": "/tmp/venv311/bin/markitdown-mcp",
+    "seconds": 8.1,
+    "counts": {
+      "PASS": 15,
+      "NOT_RUN": 1
+    },
+    "probes": [
+      {
+        "mode": "startup",
+        "verdict": "PASS",
+        "detail": "поднялся за 0.20 с",
+        "evidence": {}
+      },
+      {
+        "mode": "handshake",
+        "verdict": "PASS",
+        "detail": "markitdown ",
+        "evidence": {
+          "protocol": "2024-11-05",
+          "capabilities": [
+            "experimental",
+            "prompts",
+            "resources",
+            "tools"
+          ]
+        }
+      },
+      {
+        "mode": "tools/list",
+        "verdict": "PASS",
+        "detail": "convert_to_markdown",
+        "evidence": {
+          "count": 1
+        }
+      },
+      {
+        "mode": "schema validity",
+        "verdict": "PASS",
+        "detail": "все 1 схемы пригодны для вызова",
+        "evidence": {}
+      },
+      {
+        "mode": "valid request",
+        "verdict": "PASS",
+        "detail": "# Заголовок\n\nАбзац текста для проверки извлечения.\n",
+        "evidence": {}
+      },
+      {
+        "mode": "unknown tool",
+        "verdict": "PASS",
+        "detail": "отказ пришёл как isError",
+        "evidence": {}
+      },
+      {
+        "mode": "invalid request",
+        "verdict": "PASS",
+        "detail": "аргументы отвергнуты",
+        "evidence": {}
+      },
+      {
+        "mode": "wrong version",
+        "verdict": "PASS",
+        "detail": "сервер назвал СВОЮ версию 2025-11-25, а не повторил чужую",
+        "evidence": {}
+      },
+      {
+        "mode": "malformed JSON",
+        "verdict": "PASS",
+        "detail": "сервер пережил мусор и продолжил отвечать",
+        "evidence": {}
+      },
+      {
+        "mode": "crash",
+        "verdict": "PASS",
+        "detail": "убит SIGKILL, состояние процесса читается",
+        "evidence": {}
+      },
+      {
+        "mode": "restart",
+        "verdict": "PASS",
+        "detail": "после падения поднимается заново",
+        "evidence": {}
+      },
+      {
+        "mode": "timeout",
+        "verdict": "PASS",
+        "detail": "крайний срок клиента срабатывает",
+        "evidence": {}
+      },
+      {
+        "mode": "cancel",
+        "verdict": "PASS",
+        "detail": "уведомление об отмене принято без падения",
+        "evidence": {}
+      },
+      {
+        "mode": "duplicate response",
+        "verdict": "PASS",
+        "detail": "клиент сопоставляет ответ по своему id; чужие и повторные сообщения пропускаются, а не принимаются за ответ",
+        "evidence": {}
+      },
+      {
+        "mode": "oversized response",
+        "verdict": "PASS",
+        "detail": "жёсткий предел строки 8388608 байт; больше — McpError",
+        "evidence": {}
+      },
+      {
+        "mode": "permission denial",
+        "verdict": "NOT_RUN",
+        "detail": "проверяется политикой Bossman на границе эффекта, а не сервером; здесь у стенда нет мандата, который можно было бы отозвать",
+        "evidence": {}
+      }
+    ]
+  },
+  "playwright-mcp": {
+    "command": "npx -y @playwright/mcp@latest --headless --no-sandbox --executable-path /opt/pw-browsers/chromium --allowed-hosts 127.0.0.1:8731",
+    "seconds": 17.6,
+    "counts": {
+      "PASS": 15,
+      "NOT_RUN": 1
+    },
+    "probes": [
+      {
+        "mode": "startup",
+        "verdict": "PASS",
+        "detail": "поднялся за 0.20 с",
+        "evidence": {}
+      },
+      {
+        "mode": "handshake",
+        "verdict": "PASS",
+        "detail": "Playwright 1.64.0-alpha-2026-09-14",
+        "evidence": {
+          "protocol": "2024-11-05",
+          "capabilities": [
+            "tools"
+          ]
+        }
+      },
+      {
+        "mode": "tools/list",
+        "verdict": "PASS",
+        "detail": "browser_close, browser_resize, browser_console_messages, browser_handle_dialog, browser_evaluate, browser_file_upload, browser_drop, browser_find",
+        "evidence": {
+          "count": 26
+        }
+      },
+      {
+        "mode": "schema validity",
+        "verdict": "PASS",
+        "detail": "все 26 схемы пригодны для вызова",
+        "evidence": {}
+      },
+      {
+        "mode": "valid request",
+        "verdict": "PASS",
+        "detail": "### Ran Playwright code\n```js\nawait page.goto('http://127.0.0.1:8731/page.html');\n```\n### Page\n- Page URL: http://127.0.0.1:8731/page.html\n- Page Title: Проба\n- Console: 1 errors, ",
+        "evidence": {}
+      },
+      {
+        "mode": "unknown tool",
+        "verdict": "PASS",
+        "detail": "отказ пришёл как isError",
+        "evidence": {}
+      },
+      {
+        "mode": "invalid request",
+        "verdict": "PASS",
+        "detail": "browser_resize.width ждёт number — подсунутое отвергнуто",
+        "evidence": {}
+      },
+      {
+        "mode": "wrong version",
+        "verdict": "PASS",
+        "detail": "сервер назвал СВОЮ версию 2025-11-25, а не повторил чужую",
+        "evidence": {}
+      },
+      {
+        "mode": "malformed JSON",
+        "verdict": "PASS",
+        "detail": "сервер пережил мусор и продолжил отвечать",
+        "evidence": {}
+      },
+      {
+        "mode": "crash",
+        "verdict": "PASS",
+        "detail": "убит SIGKILL, состояние процесса читается",
+        "evidence": {}
+      },
+      {
+        "mode": "restart",
+        "verdict": "PASS",
+        "detail": "после падения поднимается заново",
+        "evidence": {}
+      },
+      {
+        "mode": "timeout",
+        "verdict": "PASS",
+        "detail": "крайний срок клиента срабатывает",
+        "evidence": {}
+      },
+      {
+        "mode": "cancel",
+        "verdict": "PASS",
+        "detail": "уведомление об отмене принято без падения",
+        "evidence": {}
+      },
+      {
+        "mode": "duplicate response",
+        "verdict": "PASS",
+        "detail": "клиент сопоставляет ответ по своему id; чужие и повторные сообщения пропускаются, а не принимаются за ответ",
+        "evidence": {}
+      },
+      {
+        "mode": "oversized response",
+        "verdict": "PASS",
+        "detail": "жёсткий предел строки 8388608 байт; больше — McpError",
+        "evidence": {}
+      },
+      {
+        "mode": "permission denial",
+        "verdict": "NOT_RUN",
+        "detail": "проверяется политикой Bossman на границе эффекта, а не сервером; здесь у стенда нет мандата, который можно было бы отозвать",
+        "evidence": {}
+      }
+    ]
+  },
+  "github-mcp": {
+    "command": "/tmp/claude-0/scratch/gobin/github-mcp-server stdio --read-only --toolsets repos,pull_requests",
+    "seconds": 0.2,
+    "counts": {
+      "NOT_RUN": 1
+    },
+    "probes": [
+      {
+        "mode": "startup",
+        "verdict": "NOT_RUN",
+        "detail": "отказ fail-closed: сервер не запускается без учётных данных",
+        "evidence": {
+          "stderr": [
+            "                                           - Default + additional: --toolsets=default,actions,gists",
+            "                                           - All tools: --toolsets=all",
+            "",
+            "authentication required: set GITHUB_PERSONAL_ACCESS_TOKEN, configure GitHub App auth, or pass --oauth-client-id to log in via OAuth"
+          ]
+        }
+      }
+    ]
+  }
+}

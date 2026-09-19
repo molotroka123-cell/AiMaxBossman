@@ -62,6 +62,7 @@ const MobilePage = {
   title: 'Пульт',
   icon: 'bolt',
   nav: 'primary',
+  section: 'system',
 
   async render(ctx) {
     ensureMobileCss();
@@ -89,9 +90,13 @@ const MobilePage = {
     const sys = ok(sysR, null);
     const resources = ok(resR, null);
 
+    const approvalsError = why(approvalsR);
+
     ctx.state.agents = agents;
     ctx.state.models = models;
-    ctx.setBadge('approvals', approvals.length);
+    // Ноль по оборванной ручке гасит признак ожидающих решений так же, как
+    // настоящая пустая очередь: считаем только по факту ответа.
+    if (!approvalsError) ctx.setBadge('approvals', approvals.length);
 
     const nodeByAgent = new Map((graph.nodes || [])
       .filter((n) => n.id && n.id.startsWith('agent:'))
@@ -111,7 +116,7 @@ const MobilePage = {
     return h('div.cmd-wrap',
       resourceWarning(resources, sys),
       missionsCard(missions, ctx),
-      approvalsCard(approvals, ctx),
+      approvalsCard(approvals, ctx, approvalsError),
       agentsCard(agents, nodeByAgent, models, ctx),
       runtimeCard(runtime, ctx),
       healthCard(sys, resources, resR),
@@ -196,12 +201,20 @@ function missionRow(m, ctx) {
 
 /* ---------------- Approvals (в т.ч. kind=tool из tool-loop) ---------------- */
 
-function approvalsCard(approvals, ctx) {
-  return h('div.cmd-card',
-    h('div.cmd-title', `Needs You${approvals.length ? ` · ${approvals.length}` : ''}`),
-    approvals.length
+function approvalsCard(approvals, ctx, error) {
+  /* Отказ ручки нельзя показывать спокойным «ничего не ждёт решения»: пустая
+     очередь и недоехавшая очередь выглядели бы одинаково, и владелец
+     перестаёт искать решения, которые его ждут. */
+  const body = error
+    ? h('div.stack',
+      emptyNote('не загрузилось', error),
+      h('button.cmd-btn', { type: 'button', onClick: () => ctx.refresh() }, 'Повторить'))
+    : approvals.length
       ? h('div.stack', approvals.map((a) => approvalRow(a, ctx)))
-      : h('div.cmd-empty', 'Ничего не ждёт решения'));
+      : h('div.cmd-empty', 'Ничего не ждёт решения');
+  return h('div.cmd-card',
+    h('div.cmd-title', `Needs You${!error && approvals.length ? ` · ${approvals.length}` : ''}`),
+    body);
 }
 
 /** Из preview tool-approval вытаскиваем имя инструмента: «…выполнить terminal.run». */
@@ -217,13 +230,34 @@ function approvalRow(a, ctx) {
   const tool = kind === 'tool' ? toolName(preview) : '';
   const taskId = pick(a, ['task_id']);
 
+  const buttons = [];
   const decide = async (approve) => {
+    /* Двойной клик по неотключённой кнопке давал два одинаковых «успеха». */
+    if (buttons.some((b) => b.disabled)) return;
+    buttons.forEach((b) => { b.disabled = true; });
+    const want = approve ? 'approved' : 'rejected';
     try {
-      await api.decideApproval(id, approve, 'mobile');
-      toastOk(approve ? 'Подтверждено' : 'Отклонено');
+      const row = await api.decideApproval(id, approve, 'mobile');
+      /* approvals.decide() идемпотентен: уже решённую запись он возвращает как
+         есть, с HTTP 200. Без сверки статуса чужое (или прежнее) решение
+         выглядело бы как только что принятое владельцем. */
+      const got = row && row.status ? String(row.status) : '';
+      if (got && got !== want) {
+        toast(`Решение уже принято: ${statusLabel(got)}`, { type: 'warn',
+          hint: row.decided_by ? `решил: ${row.decided_by}` : '' });
+      } else {
+        toastOk(approve ? 'Подтверждено' : 'Отклонено');
+      }
       ctx.refresh();
-    } catch (e) { toastError(e, 'Не удалось отправить решение'); }
+    } catch (e) {
+      buttons.forEach((b) => { b.disabled = false; });
+      toastError(e, 'Не удалось отправить решение');
+    }
   };
+
+  buttons.push(
+    h('button.cmd-btn.cmd-btn-ok', { type: 'button', onClick: () => decide(true) }, 'Разрешить'),
+    h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: () => decide(false) }, 'Отклонить'));
 
   const full = h('pre.cmd-pre', preview);
   full.hidden = true;
@@ -243,9 +277,7 @@ function approvalRow(a, ctx) {
     taskId ? h('div.xsmall.dim', `задача #${taskId}`) : null,
     preview ? h('div.xsmall.dim.wrap-any', preview.slice(0, 160)) : null,
     more, full,
-    h('div.cmd-approval-actions',
-      h('button.cmd-btn.cmd-btn-ok', { type: 'button', onClick: () => decide(true) }, 'Разрешить'),
-      h('button.cmd-btn.cmd-btn-danger', { type: 'button', onClick: () => decide(false) }, 'Отклонить')));
+    h('div.cmd-approval-actions', ...buttons));
 }
 
 /* ---------------- Agents ---------------- */

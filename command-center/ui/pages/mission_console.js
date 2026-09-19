@@ -27,7 +27,7 @@
 
 import { api, listOf, pick } from '../api.js';
 import {
-  h, icon, toastOk, toastError,
+  h, icon, toast, toastOk, toastError,
   fmtDuration, fmtClock, fmtTokens, fmtContext, fmtNum, fmtGb, parseTs,
 } from '../components.js';
 import { statusText } from './_ui.js';
@@ -275,7 +275,7 @@ const MissionConsolePage = {
   nav: 'primary',
   // Это рабочий экран владельца, а не системная утилита: место ему в
   // «Основном», рядом с миссиями (см. sectionOf в ui/app.js).
-  section: 'main',
+  section: 'work',
 
   async render(ctx) {
     await ensureCss();
@@ -335,7 +335,8 @@ const MissionConsolePage = {
     }
 
     const data = { mission, missions, tasks, allTasks, current, run, runEvents,
-                   models, agents, approvals, system, spend };
+                   models, agents, approvals, approvalsFailed: apprR.status === 'rejected',
+                   system, spend };
 
     return h('div.mc2030', { 'data-page': 'mission_console' },
       headerBlock(data),
@@ -425,8 +426,22 @@ function routeLine({ run, models }) {
 /* ---------------------------------------------------------------- лента канала */
 
 function feedBlock(data, ctx) {
-  const { mission, tasks, approvals } = data;
+  const { mission, tasks, approvals, approvalsFailed } = data;
   const feed = h('section.mc-feed', { 'aria-label': 'Лента операторского канала' });
+
+  /* «Это не сбой» — утверждение о системе, а не о выдаче. Пока ручка решений
+     молчит, оператор не знает, ждут его решения или нет, и такое обещание
+     покоя становится ложью. */
+  if (!mission && !tasks.length && !approvals.length && approvalsFailed) {
+    feed.appendChild(h('div.mc-blank',
+      h('div.mc-blank-title', 'Список решений не ответил'),
+      h('p.mc-blank-text',
+        'Миссий и задач в работе нет, но ' + SRC.approvals + ' не отдал список решений. '
+        + 'Пока ручка молчит, утверждать, что решать нечего, нельзя.'),
+      h('p.mc-blank-hint',
+        'Обновите страницу. Если не помогает — проверьте, что Command Center запущен.')));
+    return feed;
+  }
 
   if (!mission && !tasks.length && !approvals.length) {
     feed.appendChild(h('div.mc-blank',
@@ -614,17 +629,42 @@ function approvalCard(a, ctx) {
   const createdMs = parseTs(a.created_at);
   const kind = String(a.kind || '');
 
+  const buttons = [];
   const decide = async (approve) => {
+    /* Двойной клик по неотключённой кнопке давал два одинаковых «успеха». */
+    if (buttons.some((b) => b.disabled)) return;
+    buttons.forEach((b) => { b.disabled = true; });
+    const want = approve ? 'approved' : 'rejected';
     try {
-      await api.raw(`/api/approvals/${encodeURIComponent(a.id)}`, {
+      const row = await api.raw(`/api/approvals/${encodeURIComponent(a.id)}`, {
         method: 'POST', body: { approve, by: 'ui' },
       });
-      toastOk(approve ? 'Разрешено' : 'Отклонено', 'Решение записано, работа продолжится.');
+      /* approvals.decide() идемпотентен: уже решённую запись он возвращает как
+         есть, с HTTP 200. Без сверки статуса чужое (или прежнее) решение
+         выглядело бы как только что принятое оператором. */
+      const got = row && row.status ? String(row.status) : '';
+      if (got && got !== want) {
+        toast(`Решение уже принято: ${statusText(got).word}`, { type: 'warn',
+          hint: row.decided_by ? `решил: ${row.decided_by}` : '' });
+      } else {
+        toastOk(approve ? 'Разрешено' : 'Отклонено', 'Решение записано, работа продолжится.');
+      }
       ctx.refresh();
     } catch (e) {
+      buttons.forEach((b) => { b.disabled = false; });
       toastError(e, 'Не удалось записать решение');
     }
   };
+
+  buttons.push(
+    h('button.mc-btn.is-primary', {
+      type: 'button', title: 'Разрешить действие и продолжить работу',
+      onClick: () => decide(true),
+    }, 'Подтвердить'),
+    h('button.mc-btn.is-quiet', {
+      type: 'button', title: 'Запретить действие; задача останется остановленной',
+      onClick: () => decide(false),
+    }, 'Отклонить'));
 
   return h('article.mc-card.is-decision', { 'data-card': 'approval', 'data-approval': String(a.id) },
     h('div.mc-card-head',
@@ -644,14 +684,7 @@ function approvalCard(a, ctx) {
           { since: createdMs ? createdMs.getTime() : null,
             title: 'столько задача стоит и не двигается' }))),
       h('div.mc-actions',
-        h('button.mc-btn.is-primary', {
-          type: 'button', title: 'Разрешить действие и продолжить работу',
-          onClick: () => decide(true),
-        }, 'Подтвердить'),
-        h('button.mc-btn.is-quiet', {
-          type: 'button', title: 'Запретить действие; задача останется остановленной',
-          onClick: () => decide(false),
-        }, 'Отклонить'))));
+        ...buttons)));
 }
 
 /* --- карточка маршрута --- */

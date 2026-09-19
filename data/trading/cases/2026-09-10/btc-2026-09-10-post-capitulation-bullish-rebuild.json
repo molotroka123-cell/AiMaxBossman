@@ -1,0 +1,46 @@
+{
+  "case_id": "btc-2026-09-10-post-capitulation-bullish-rebuild",
+  "date": "2026-09-10",
+  "time_local": "UNKNOWN_FROM_FRAME",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshot",
+  "instrument_note": "Reference chart and execution tape remain separate; reference levels are not exact execution-order prices without basis validation.",
+  "observed": {
+    "reference_chart_price_approx": 77085,
+    "execution_tape_approx": [76960, 77005],
+    "cvd_billion": 45.09,
+    "open_interest_billion": 18.43,
+    "long_liquidations_million": 33.04,
+    "short_liquidations_thousand": 21.34,
+    "buy_volume_million": 94.41
+  },
+  "comparison_to_1259_capitulation": {
+    "prior_reference_chart_price_approx": 76800,
+    "prior_cvd_billion": 43.93,
+    "prior_oi_billion": 18.28,
+    "reference_price_change_approx": 285,
+    "cvd_change_billion": 1.16,
+    "oi_change_billion": 0.15,
+    "price_direction": "UP",
+    "cvd_direction": "UP",
+    "oi_direction": "UP"
+  },
+  "state": "Price UP + CVD UP + OI UP after capitulation",
+  "regime": "POST_CAPITULATION_BULLISH_LEVERAGE_REBUILD",
+  "interpretation": "This is the first clean post-flush improvement in the sequence: price recovered from the capitulation low, aggressive flow (CVD) recovered, and OI rebuilt at the same time. Unlike the prior deleveraging frames, new participation is now entering while price is rising. That is constructive and matches the deterministic BULLISH_LEVERAGE_EXPANSION matrix. However, the market is still below the prior structural value levels, and OI rebuilding quickly after a massive long-liquidation event can create another fragile layer of leverage if price fails to reclaim structure.",
+  "long_scenario": {
+    "status": "LONG_CANDIDATE_EARLY_NOT_CONFIRMED",
+    "first_proof": "Hold roughly 77.0-77.2k on the reference series without CVD rolling over; OI may rise only if price continues to respond positively.",
+    "structural_trigger_1": "Reclaim the prior dVAL/pDay-low area around ~77.8k and hold/retest above it.",
+    "structural_trigger_2": "Reclaim dPOC ~78.145k with CVD stable/up; this is the first higher-quality staged-long confirmation.",
+    "stronger_repair": "Reclaim ~78.55-78.62k dOpen/dVAH region.",
+    "execution_note": "Translate reference levels to the execution venue using current basis before placing orders."
+  },
+  "risk_scenario": {
+    "warning": "If OI continues rising but price stalls below ~77.1-77.2k or gives back the rebound, the new leverage is becoming fragile rather than constructive.",
+    "stronger_warning": "If price and CVD turn down while OI stays/rises above the post-flush rebuild, reclassify immediately toward bearish leverage expansion / newly trapped longs.",
+    "avoid": "Do not treat Price UP + CVD UP + OI UP below value as a guaranteed bottom; require structural reclaim."
+  },
+  "lesson": "After a capitulation flush, Price UP + CVD UP + OI UP is materially stronger than a simple short-covering bounce because price, aggressive demand and open participation recover together. But location still matters: below value, this is an early long candidate, not confirmation. The key failure test is whether rising OI can keep producing higher price; if OI rises while price stalls/falls, the fresh leverage can become the next liquidation layer."
+}

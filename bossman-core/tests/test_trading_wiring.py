@@ -59,10 +59,15 @@ def test_command_center_feature_is_registered():
 
 
 def test_command_center_page_is_registered_in_the_index():
+    """Trading Lab остаётся достижимым через V6 lazy registry, без eager import."""
     ui = REPO / "command-center" / "ui" / "pages"
     index = (ui / "index.js").read_text(encoding="utf-8")
-    assert "import TradingLabPage from './trading_lab.js';" in index
-    assert "  TradingLabPage," in index
+    # V6 намеренно убрал статические импорты страниц из critical path. Проверяем
+    # новый контракт: метаданные страницы есть в реестре, а реальный модуль
+    # загружается при первом render()/idle-preload.
+    assert "lazyPage({ id: 'trading_lab'" in index
+    assert "() => import('./trading_lab.js')" in index
+    assert "(m) => m.default" in index
     page = (ui / "trading_lab.js").read_text(encoding="utf-8")
     for endpoint in ("/api/trading-lab/status", "/api/trading-lab/seed",
                      "/api/trading-lab/benchmark", "/api/trading-lab/memory"):

@@ -15,10 +15,15 @@ from bossman.remote_client.service import DeviceService
 from bossman.remote_client.store import DDL, PostgresDeviceStore
 
 
+# Least-privilege для первого телефона: провижининг устройств и глобальная
+# блокировка (admin) телефону по умолчанию не нужны — их выдают явным --scopes.
+DEFAULT_SCOPES = "chat,events,approve"
+
+
 async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--name", default="owner-iphone")
-    ap.add_argument("--scopes", default="chat,events,approve,admin")
+    ap.add_argument("--scopes", default=DEFAULT_SCOPES)
     args = ap.parse_args()
     scopes = {x.strip() for x in args.scopes.split(",") if x.strip()}
     allowed = {"chat", "events", "approve", "admin"}
@@ -31,6 +36,7 @@ async def main() -> None:
     print(f"device_id={device_id}")
     print(f"device_token={raw}")
     print("STORE THIS TOKEN NOW. It cannot be retrieved again.")
+    print("The raw token is now in this terminal's scrollback: clear it after copying.")
     await db.close()
 
 

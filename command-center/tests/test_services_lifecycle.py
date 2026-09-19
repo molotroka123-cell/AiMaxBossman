@@ -10,10 +10,38 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import time
 
 import pytest
 
 from .conftest import make_settings, start_app
+
+
+async def settled_pool_balance(balance: list[int], *, deadline_s: float = 5.0) -> int:
+    """Сколько соединений НЕ ВЕРНУЛОСЬ в пул, когда всё улеглось.
+
+    Разница между «занято прямо сейчас» и «потеряно» — это вся суть проверки.
+    Утечка, ради которой тест написан, ПОСТОЯННА: соединение, оборванное
+    отменой посреди запроса, не вернётся никогда, сколько его ни жди. А вот
+    возврат соединения петлёй, вышедшей самостоятельно, происходит в
+    `__aexit__` сессии и может завершиться на СЛЕДУЮЩЕМ обороте цикла событий.
+    Мгновенный замер сразу после `stop()` не различает эти два случая.
+
+    На спокойной машине разницы не видно, и тест был зелёным 25 раз подряд
+    локально. На загруженном раннере видно: один и тот же коммит `0c59982d`
+    дал два прогона Command Center CI — один красный ровно здесь, второй
+    зелёный целиком, причём петли в красном НЕ были оборваны (`severed` пуст),
+    то есть терялось не соединение, а оборот цикла.
+
+    Поэтому ждём, пока баланс УЛЯЖЕТСЯ, и возвращаем то, на чём он замер.
+    Настоящую утечку это не прощает: она не уляжется ни за пять секунд, ни за
+    пять минут — что и проверяет
+    `test_a_connection_that_never_returns_is_still_reported` ниже.
+    """
+    deadline = time.monotonic() + deadline_s
+    while balance[0] != 0 and time.monotonic() < deadline:
+        await asyncio.sleep(0.02)
+    return balance[0]
 
 
 @pytest.mark.anyio
@@ -161,5 +189,38 @@ async def test_stop_lets_background_loops_finish_instead_of_severing_them(tmp_pa
     assert not severed, (
         f"петли оборваны отменой, а не вышли сами: {severed}. "
         f"Соединение, отменённое посреди запроса, в пул уже не вернётся")
-    assert balance[0] == 0, (
-        f"после остановки {balance[0]} соединение(й) не вернулось в пул")
+    lost = await settled_pool_balance(balance)
+    assert lost == 0, (
+        f"после остановки {lost} соединение(й) не вернулось в пул")
+
+
+@pytest.mark.anyio
+async def test_a_connection_that_never_returns_is_still_reported(tmp_path):
+    """Обратный контроль к ожиданию в `settled_pool_balance`.
+
+    Без этого теста ожидание было бы неотличимо от «подождать, пока станет
+    зелено»: проверка, которая терпит, обязана доказать, что она НЕ терпит
+    настоящую потерю. Соединение удерживается намеренно и не возвращается —
+    баланс обязан остаться ненулевым и после того, как всё улеглось.
+    """
+    import sqlalchemy as sa
+
+    settings = make_settings(tmp_path)
+    app, svc = await start_app(settings, start_workers=False)
+    balance = [0]
+    sa.event.listen(svc.db.engine.sync_engine, "checkout",
+                    lambda con, rec, proxy: balance.__setitem__(0, balance[0] + 1))
+    sa.event.listen(svc.db.engine.sync_engine, "checkin",
+                    lambda con, rec: balance.__setitem__(0, balance[0] - 1))
+
+    held = await svc.db.engine.connect()          # взято и НЕ возвращено
+    try:
+        assert balance[0] == 1, balance
+        # Короткий срок: тест про то, что ожидание не прощает потерю, а не про
+        # то, сколько мы готовы ждать.
+        assert await settled_pool_balance(balance, deadline_s=0.5) == 1
+    finally:
+        await held.close()
+    # И ровно то же измерение видит возврат, когда соединение действительно
+    # вернули: иначе проверка выше означала бы «всегда ненулевой».
+    assert await settled_pool_balance(balance, deadline_s=0.5) == 0

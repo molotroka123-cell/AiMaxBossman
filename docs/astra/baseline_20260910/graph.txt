@@ -1,0 +1,207 @@
+* a676296 (origin/claude/bossman-control-v03-43igbk, origin/HEAD) data(trading): learn buyer-failure deleveraging regime
+* 7885ad7 test(trading): cover buyer failure with deleveraging
+* b9e0029 feat(trading): classify buyer failure during deleveraging
+* 0b98cf9 data(trading): log Sep 9 buyer-failure deleveraging state
+* 392421c data(trading): log 18:48 sweep and CVD recovery
+* 2a7d3a2 chore(repo): restore Social Farm specification fixture
+* be7242a temp3
+* 4fb5015 temp2
+* 94717d5 temp
+* 6e5d8b5 chore(repo): remove tracked local runtime cache
+* c592df9 chore(repo): remove legacy root ZIP drops and stray image
+* da67a63 docs(local-model): wire Trader Apprentice corpus into orchestration
+* 2e69e02 feat(trading): expose Trader Apprentice analysis API
+* 079ca94 data(trading): add Trader Apprentice ingest manifest
+* 8767801 data(trading): add September BTC learned casebook
+* 55ad9c7 docs(trading): add local Trader Apprentice system prompt
+* 72da311 data(trading): add machine-readable BTC orderflow rule corpus
+* 10469c5 docs(trading): add BTC orderflow playbook from learned cases
+* 48816bc test(trading): cover orderflow matrix and position math
+* 8abb7a6 feat(trading): add deterministic BTC orderflow analysis engine
+* ddea211 docs(audit): Perplexity total performance audit and local model intelligence analysis
+* d5187cd docs(audit): Perplexity AI Max Pro 128GB hardware audit and Llama 3.1 70B analysis
+* b57b4ce docs(models): add local model orchestration training spec
+* 7638558 docs(models): add Strix Halo local model candidate matrix
+* 8567ffa chore(audit): full repo audit issues backlog
+* 29b2656 docs(audit): record safe PR maintenance, merge #5 and preserve unresolved work
+* fca0eaf chore(deps): bump actions/upload-artifact from 4 to 7
+* ac245c7 chore(deps): bump peter-evans/create-pull-request from 5 to 8
+* d05318b chore(deps): bump actions/setup-python from 5 to 7
+| * c7e75cc (pr/61, origin/freeze/final-audit-closure-20260908, origin/claude/bossman-final-audit-closure-aucx9x, claude/bossman-final-audit-closure-aucx9x) test(closure): новые тесты не пиннят tempfile.tempdir; контейнмент cleanup проверяется явно; числа CC/root в отчёте
+| * 8c794da docs(final_closure): FINAL_CODE_SHA=cbb2991 и два CI-фикса названы в отчёте
+| * cbb2991 fix(worktree): cleanup снимает read-only и с родительского каталога — POSIX без root
+| * 4001b7a fix(openhands): sha1 блоба помечен usedforsecurity=False; docs(final_closure): итоговый отчёт с точными SHA
+| * 413d160 docs(final_closure): реестр находок, кластеризация сессии владельца, вечерняя настройка брейкера
+| * 69df482 fix(closure): сводное закрытие аудитов 2026-09-08 — истина завершения, улики OpenHands, бюджет восстановления
+| | * e5ccd54 (pr/60, origin/claude/bossman-final-integration-pass-04nffa) docs(release): freeze the owner-test candidate at a1e633c with CI-proven numbers
+| | * a1e633c fix(files): declare File Intelligence routes once, not on every setup()
+| | * 76b9585 docs(release): full sequential suite results on the frozen candidate
+| | * 0ba775f docs(release): re-point the owner-test candidate at the new frozen SHA
+| | * 9bea81a fix(files): verify the sidecar binary at effect time; cover timeout and swap
+| | * 1a4fe11 docs(final): measured suite results and the real cost of the disabled feature
+| | * 99803d3 docs(final): owner-test candidate and AI File Sorter integration guide
+| | * cf020da test(security,lifecycle): AP-001 exfiltration proof; STOP_GRACE reproduction
+| | * 0b5aab2 test(file-intelligence): hostile, restart and verification suite
+| | * 7aec22b feat(file-intelligence): governed AI File Sorter sidecar, off by default
+| | * 9fcf9ab fix(audit): persist immutable executor provenance on every run
+| | * 355a582 fix(trader): enforce metric-series identity before comparing CVD/OI
+| |/  
+| | *   1283247 (pr/59, origin/feature/ai-streamer-higgsfield-browser-20260908) Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908
+| | |\  
+| | |/  
+| |/|   
+| * | 45027d3 (pr/58, origin/night/v7-convergence-20260908) docs(final): числа трёх наборов на финальном коде
+| | *   0b5c674 Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908
+| | |\  
+| | |/  
+| |/|   
+| * | 29e9645 docs(final): закрытие по независимому аудиту — каждая строка с вердиктом на кандидате
+| | *   9e22269 Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908
+| | |\  
+| | |/  
+| |/|   
+| * | 22ae555 fix(benchmark): успех = completed + проверенный результат; синтетика названа синтетикой
+| * | 718f0df fix(engine): авторизация проверяется в момент эффекта, и у неё есть атомарная граница
+| * | e1b9029 fix(policy): DENY монотонен на всех слоях — два разрыва воспроизведены и закрыты
+| | *   406d71b Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908
+| | |\  
+| | |/  
+| |/|   
+| * | 29a4c5e chore: закрытие кандидата — уборка, защита входа тестов, реальные числа
+| | *   2139776 Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908
+| | |\  
+| | |/  
+| |/|   
+| * | d415db4 feat(trading): порт Trader Apprentice — анализ, корпус, числовой контракт цены
+| * | ce8e179 docs(final): кандидат на владельческую приёмку — один SHA, честные поля
+| | *   4cd1d16 Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908
+| | |\  
+| | |/  
+| |/|   
+| * | 6eddb63 fix(browser-help): контроль доступа, названный человеческими словами, проходил
+| | *   8db8e08 Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908
+| | |\  
+| | |/  
+| |/|   
+| * | 7d7b8e7 style(v7): один пробел в конце строки держал hygiene красным
+| | * 9e18426 chore(tests): двадцать пропусков Social Farm были вне реестра
+| | *   df09cce Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908
+| | |\  
+| | |/  
+| |/|   
+| * | e12ea8d chore(tests): реестр пропусков после сдвига строки в предыдущем коммите
+| | *   ab273e8 Merge remote-tracking branch 'origin/night/v7-convergence-20260908' into feature/ai-streamer-higgsfield-browser-20260908
+| | |\  
+| | |/  
+| |/|   
+| * | ef04ced test(openhands): негативный контроль HEAD больше не зависит от машины
+| * | 4613ed9 chore(tests): реестр пропусков снова описывает то, что есть
+| * | d021b99 feat(browser): look up what broke — never how to get around a control
+| * | 09419b8 perf: two owner-visible screens were waiting on nothing
+| * | 46827a4 fix(apps): the app that would not open, and the reason nobody could see
+| * | da4f3ce fix(v7): a memory requirement that is not a number was opening the path, not closing it
+| * |   895ef5b merge: compose main's provider set with the branch's circuit breaker
+| |\ \  
+| | * | 799fc3d (pr/41, origin/main) [FREEZE] Update HANDOFF_STATE + FRESH_FREEZE_BASELINE — security freeze 2026-09-07
+| | * | 9703bd6 [SECURITY] Add CODEOWNERS — only molotroka123-cell can approve PRs
+| | * | 57dd8cc feat(dashboard): интеграция Gateway /v1/models endpoint + provider stats + model selector (Python files)
+| | * | b22e541 feat(gateway): авто-загрузка списка моделей при вставке API ключа через /v1/models endpoint + bossman models list CLI
+| | * | 8c8a6f0 feat(gateway): добавить поддержку 8 LLM провайдеров (OpenAI, Anthropic, Z.ai, OpenRouter, Google, Groq, Mistral, Together) + Hermes Agent integration без изменения ядра
+| | * | 277632a audit: PERPLEXITY_V1-V5_BRUTAL_VERDICT — независимый жёсткий аудит всех версий
+| |/ /  
+|/| |   
+| | * d884a7f ci(social-farm): задание падало раньше, чем доходило до тестов
+| | * d13e905 style(v7): strip the trailing space that turned root CI red
+| | * 4f4fd1c fix(ai-streamer): a CAPTCHA during submit or download was becoming an ordinary failure
+| | * a3f5a8a fix(ai-streamer): land on the generator page before reading whose account this is
+| | * fbb2da7 ci(social-farm): name the jobs so they are not read as Command Center's
+| | * 2fe7c6c fix(ai-streamer): four things an adversarial read of this branch found
+| | * f546855 ci(social-farm): the service this PR is built on had no CI at all
+| | * ad1e0aa test(ai-streamer): pin the timeout fixtures, and map the pack onto what exists
+| | * 8a07616 feat(ai-streamer): six unattended hours, on a clock the test suite can actually run
+| | * 24f0426 feat(ai-streamer): the repair worker can fix selectors and cannot disable them
+| | * 8073875 feat(ai-streamer): the host stays the same host, and the prompt carries only the canon
+| | * 142b815 feat(ai-streamer): the router stops believing numbers nobody measured
+| | * ed420c1 feat(ai-streamer): a restart must not generate the same clip a second time
+| | * e0463b6 feat(ai-streamer): a downloaded file becomes a result only after it is measured
+| | * 3582d99 feat(ai-streamer): the Higgsfield adapter goes through the session, not past it
+| | *   43aaf91 Merge commit '3d88149' into feature/ai-streamer-higgsfield-browser-20260908
+| | |\  
+| | |/  
+| |/|   
+| * | 3d88149 test(openhands): pin the path boundary, and say what it does not contain
+| * | a00fdfd feat(v7): resource pressure stops being a decorative zero
+| * | ec04e92 fix(trading-lab): the 500 the owner saw was still reachable
+| * | 5ffd9f7 fix(openhands): the sandbox builder produced a checkout its own client refuses
+| | * d3d157a feat(ai-streamer): wire configurable Higgsfield browser adapter
+| | * 4a9c58b test(ai-streamer): cover rolling content buffer health
+| | * 8d9a456 feat(ai-streamer): add rolling 24/7 content buffer planner
+| | * 8937b93 test(ai-streamer): cover browser worker success and challenge paths
+| | * 2d104e7 test(ai-streamer): cover resource-aware media routing
+| | * 01f079b test(ai-streamer): cover durable generation job store
+| | * 85cad48 feat(ai-streamer): add resource-aware media generation router
+| | * 134f2f6 feat(ai-streamer): add browser generation worker orchestration
+| | * 6eaeb62 feat(ai-streamer): add durable browser generation job store
+| | * 63bd277 docs(ai-streamer): add Bossman mission and acceptance pack
+| | * 5d7f77a test(social-farm): cover browser generation fail-closed contracts
+| | * ce849f4 feat(social-farm): add browser generation job contracts
+| | * 5499908 docs(ai-streamer): add OpenHands media engineer skill
+| | * dc46413 docs(ai-streamer): define Higgsfield browser worker contract
+| | * aea7a2a docs(ai-streamer): add skills and workflow catalog
+| | * 5e8a39d docs(ai-streamer): add autonomous media studio architecture
+| |/  
+| * bdab684 docs(acceptance): owner acceptance plan and the findings map, no code touched
+| * 3561f3b docs(night): final report, every number measured on 72bae3e
+| * 72bae3e chore(evidence): re-measure the convergence gates after the audit synthesis
+| * e8aab50 fix(test): stop asserting that nothing else was talking to the server
+| * 9507632 test(v7): exercise /reality/world over the real route
+| * d03c9dd docs(v7): the audit-corpus matrix, and where each still-valid item landed
+| * 59f462e perf(v7): one observation pass for concurrent callers, not one each
+| * ca0fbe3 feat(v7): the World State Graph runs, and disagreement stops being a race
+| * ba68f93 docs(night): final report for the V7 convergence run
+| * f893844 fix(ui): a background loop on the owner's health panel needs a name
+| * 4f188f0 fix(health): the sweep that keeps INV-RD-1 has to be watchable
+| * 2634611 chore(evidence): re-measure every convergence gate on the final head
+| * e117376 test(gates): record how often the host's own floor stalled, decide nothing with it
+| * 6d813bf feat(v7): a nightly run anyone can repeat, and the approval target as written
+| * 2e3503b fix(approvals): an unanswered request must not wait out the day in silence
+| * f006881 fix(hygiene): strip the trailing whitespace root-ci actually gates on
+| * cb46b77 fix(ux): keep the page manifest and the page modules in agreement
+| * 3a7024e chore(testing): refresh the skips registry after this run's new suites
+| * dbe326e feat(ux): six named spaces instead of one flat list, and the 3-system QA
+| * 8ed2679 test(ui): make the browser suites real, and fix what they then caught
+| * e5d6268 feat(v7): reality core — compiler, observers, strategy, recovery, telemetry
+| * 435e237 feat(golden): turn the 202-event trace into a regression, not a souvenir
+| * ca1178a feat(openhands): install the real SDK, run it end to end, fix what that exposed
+| * ea29543 feat(b2): signed local bridge so cloud QA can exercise the real system
+| * 403f989 fix(b5): a model that answers nothing is not healthy
+| * 846c6e3 fix(b4): one canonical SSE parser; GLM 5.3 streams again
+| * 29de9f3 fix(b3): Apps control is an owner setting, not a startup ritual
+| * b755724 feat(budget): stop the million-token loop before a human has to
+| * 8b331a8 feat(approvals): scope one owner decision to an authority, not a keystroke
+| * caa727a fix(p0): terminate the review-escalation deadlock (INV-RD-1)
+| * 2c77d98 docs(night): point convergence run at all V7 multi-model audits
+| * d570171 docs(night): add V6-to-V7 convergence master run
+| * 28c0aa1 docs(v6): honest status report
+| * 253a2b8 docs(v6): audit OpenHands integration and correct completion claims
+| * 6513e28 feat(v6): Phase 2 - Isolated worktree infrastructure
+| * b3924b6 fix(v6): replace OpenHands stubs with guarded real SDK path
+| * 0c2f389 feat(v6): Phase 1 - Real sidecar protocol and OpenHandsClient
+| * 634fc65 docs(v6): completion report
+| * d164fe0 run 2/4: enhanced integration tests
+| * 66936e3 run 1/4: enhanced hermetic tests and documentation
+| * 519a66c feat(v6): final integration tests and examples
+| * e5183e5 docs(v6): total audit report and improvements summary
+| * b5252cc docs(v6): update audit report with final status
+| * d0c0c78 docs(v6): add OpenHands integration README
+| * 126f81f feat(v6): complete TeacherFallback → OpenHandsClient wiring
+| * 1bc198b feat(v6): add guarded OpenHands coding sidecar scaffold
+| * 709bb51 fix(repo): restore the social-farm specification archive the tests read
+| * 4d1cf9d docs(testing): regenerate the skips registry after landing the V4/V5 live line into V6
+| *   c1198a5 Merge branch 'v6/velocity-phase0-baseline-20260907' of https://github.com/molotroka123-cell/AiMaxBossman into v6/velocity-phase0-baseline-20260907
+| |\  
+| | * 3597fae fix(merge): properly land bossman-v4v5-freeze-v6-perf-t25pvx content into v6 baseline
+| | * cc46bd4 chore(ci): regenerate skip registry after merging bossman-v4v5-freeze-v6-perf-t25pvx
+| | *   e49987a Merge remote-tracking branch 'origin/v6/velocity-phase0-baseline-20260907' into v6/velocity-phase0-baseline-20260907
+| | |\  
+| | * | d5c9ce0 Merge claude/bossman-v4v5-freeze-v6-perf-t25pvx into v6/velocity-phase0-baseline-20260907

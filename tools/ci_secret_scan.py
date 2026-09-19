@@ -37,7 +37,15 @@ PATTERNS = [
     ("aws secret", re.compile(r"(?i)aws_secret_access_key\s*[:=]\s*[\"']?[A-Za-z0-9/+=]{40}\b")),
     ("private key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY(?: BLOCK)?-----")),
     ("wallet seed label", re.compile(r"(?i)\b(?:seed phrase|mnemonic)\b\s*[:=]\s*\S+")),
-    ("obvious password", re.compile(r"(?i)\b(?:password|passwd)\b\s*[:=]\s*[\"'][^\"']{8,}[\"']")),
+    # SEC-004: also match typed/annotated assignments (`master_password: str = "..."`),
+    # not just bare `password = "quoted"` — the leaked vault password evaded the
+    # original pattern precisely because of the `: str` annotation in between.
+    ("obvious password", re.compile(
+        r"(?i)(?:password|passwd)\b\s*(?::\s*[A-Za-z_][A-Za-z0-9_.\[\]]*\s*)?=(?!=)\s*"
+        r"[\"'][^\"']{8,}[\"']")),
+    # SEC-004: unquoted `PASSWORD=value` at the start of a line — the shape used by
+    # .env files, where there are no quotes at all.
+    ("unquoted env password", re.compile(r"(?im)^[A-Z][A-Z0-9_]*(?:PASSWORD|PASSWD)\s*=\s*[^\s\"']{8,}$")),
 ]
 # Энтропия — только для кода и конфигурации; документация/UI-ассеты дают ложные
 # срабатывания на base64-картинках и хешах.
@@ -56,7 +64,10 @@ ENTROPY_CONTEXT_SKIP = re.compile(r"(?i)(sha256|sha1|sha512|blake2|md5|commit|di
                                   r"base64,|data:|nonce|uuid|import |lockfile|integrity|checksum|etag|signature|sig=|"
                                   r"\.gguf|/models/|\.safetensors|\.bin\b)")
 # Слова из естественного языка/кода внутри токена — не случайный секрет.
-DICT_HINT = re.compile(r"(?i)(test|fake|example|sample|placeholder|canary|dummy|token|secret|password|key|value|"
+# SEC-004: "secret"/"password"/"key" были удалены отсюда — реальный утёкший пароль
+# "<REDACTED_LEAKED_VAULT_PASSWORD_SEE_SEC-001>" содержит "Secret", и это давало self-skip для
+# энтропийного детектора на самом классе значений, которые как раз нужно ловить.
+DICT_HINT = re.compile(r"(?i)(test|fake|example|sample|placeholder|canary|dummy|value|"
                        r"config|default|bossman|claude|openai|anthropic|redacted|xxxx|0000|aaaa)")
 ALLOW_MARK = "ci-secret-scan: allow"
 MAX_BYTES = 2_000_000
@@ -210,8 +221,71 @@ def tracked_files() -> list[Path]:
         return [p for p in ROOT.rglob("*") if p.is_file()]
 
 
+def untracked_files() -> list[Path]:
+    """Непрослеженные файлы на диске — тоже часть дерева, и ключ в них настоящий.
+
+    SEC-004 закрыл случай `.env`, который лежит рядом и ещё не добавлен в git:
+    до этого он не сканировался вовсе, потому что обход шёл только по
+    `git ls-files`. Но ограничение осталось на ИМЕНИ файла, и этого мало.
+
+    Найдено обратным контролем: настоящий ключ провайдера, положенный во
+    временный `tools/*.py`, сканер не увидел и ответил PASS. В CI такой файл до
+    коммита не доживёт, зато локальный прогон — ровно тот момент, когда PASS
+    читают как «в дереве чисто», а потом делают `git add -A`. Ложное «чисто»
+    выдаётся именно тогда, когда оно дороже всего.
+
+    Поэтому берутся ВСЕ непрослеженные файлы, а не только `.env`.
+    `--exclude-standard` отсекает игнорируемое (venv, кэши, сборки), так что шум
+    ограничен тем, что человек и правда собирается добавить.
+    """
+    try:
+        raw = subprocess.check_output(
+            ["git", "-C", str(ROOT), "ls-files", "-z", "--others", "--exclude-standard"],
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        return []
+    return [ROOT / x for x in raw.decode("utf-8", "replace").split("\0") if x]
+
+
+def _entropy_applies(path: Path) -> bool:
+    """Считать ли энтропию для НЕпрослеженного файла.
+
+    Прослеженные файлы давно проходят энтропию только по расширению
+    (`scan_paths`), а непрослеженные шли с `entropy=True` принудительно. Это
+    было верно, пока сюда попадали ТОЛЬКО `.env`: у файла с именем `.env`
+    расширения нет, и по суффиксу он бы не прошёл.
+
+    Когда обход расширили на все непрослеженные файлы, принуждение поехало и на
+    двоичные. Найдено настоящим отказом CI: сборка кладёт в рабочий каталог
+    `acceptance-results/source.tar.gz`, и сканер сообщил
+    `high-entropy token (H=4.11, len=27)`. Сжатый поток высокоэнтропиен ПО
+    ОПРЕДЕЛЕНИЮ — ложные срабатывания на нём гарантированы, а гарантированно
+    шумящий сканер перестают читать, и тогда он не ловит уже ничего.
+
+    Поэтому правило одно на оба обхода: энтропия — для кода и конфигурации,
+    плюс отдельно `.env`-подобные имена, ради которых принуждение и вводилось.
+    Шаблоны провайдеров при этом работают по-прежнему на ЛЮБОМ файле: настоящий
+    ключ ловится и там, где энтропию считать бессмысленно.
+    """
+    name = path.name.lower()
+    if name == ".env" or name.startswith(".env."):
+        return True
+    return path.suffix.lower() in ENTROPY_SUFFIX
+
+
 def main() -> int:
     findings = scan_paths([p for p in tracked_files() if p.is_file()], ROOT)
+    for p in untracked_files():
+        if not p.is_file():
+            continue
+        rel = p.relative_to(ROOT).as_posix()
+        try:
+            text = p.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        for item in scan_text(text, rel, entropy=_entropy_applies(p)):
+            findings.append(f"{item} (непрослеженный файл на диске)")
     if findings:
         print("Potential secrets detected:", file=sys.stderr)
         for item in findings:

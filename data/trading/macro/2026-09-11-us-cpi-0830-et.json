@@ -1,0 +1,43 @@
+{
+  "event_id": "us-cpi-2026-09-11-0830-et",
+  "date": "2026-09-11",
+  "time": "08:30 ET",
+  "market": "BTC",
+  "type": "macro_event",
+  "source": "user-supplied real-time macro screenshot; official BLS release not yet indexed at analysis time",
+  "observed": {
+    "headline_cpi_mom_actual_pct": 0.4,
+    "headline_cpi_mom_expected_pct": 0.4,
+    "headline_cpi_mom_previous_pct": 0.1,
+    "headline_cpi_yoy_actual_pct": 3.4,
+    "headline_cpi_yoy_expected_pct": 3.4,
+    "headline_cpi_yoy_previous_pct": 3.4,
+    "core_cpi_mom_actual_pct": 0.3,
+    "core_cpi_mom_expected_pct": 0.2,
+    "core_cpi_mom_previous_pct": 0.2,
+    "core_cpi_yoy_actual_pct": 2.4,
+    "core_cpi_yoy_expected_pct": 2.4,
+    "core_cpi_yoy_previous_pct": 2.5
+  },
+  "interpretation": {
+    "headline": "In line with consensus; not an upside surprise despite a sharp acceleration versus the prior month.",
+    "core": "Monthly core CPI is hotter than expected by 0.1 percentage point, while annual core is in line and eased from 2.5% to 2.4%.",
+    "net_macro_bias": "SLIGHTLY_HAWKISH / MODESTLY_BEARISH_FOR_BTC_NEAR_TERM",
+    "reason": "The upside surprise is concentrated in the policy-sensitive core monthly reading, which can raise the probability of a Fed hike / keep yields and the dollar firm. The in-line headline and cooling core year-over-year prevent this from being a full inflation shock."
+  },
+  "btc_scenarios": {
+    "bearish_confirmation": [
+      "US 2Y/10Y yields rise after the release.",
+      "DXY strengthens.",
+      "BTC loses local support with CVD down and OI flat/up, indicating fresh bearish leverage rather than only deleveraging."
+    ],
+    "bullish_absorption": [
+      "BTC holds/reclaims structure despite the hotter core monthly print.",
+      "CVD stabilizes or turns up while OI does not expand bearishly on downside.",
+      "Yields/DXY fail to extend higher, suggesting the market had already priced much of the hawkish outcome."
+    ],
+    "whipsaw_risk": "High in the first minutes because headline is exactly in line while core month-over-month is hotter, creating a mixed release. Do not classify direction from the first candle alone."
+  },
+  "trader_apprentice_rule": "For CPI, separate surprise from prior-month acceleration. Market direction should be conditioned on the surprise versus consensus, then confirmed by yields, DXY and BTC Price/CVD/OI. In-line headline plus hotter core MoM is mildly hawkish, not a catastrophic inflation shock.",
+  "status": "UNVERIFIED_OFFICIAL_BLS_AT_ANALYSIS_TIME"
+}

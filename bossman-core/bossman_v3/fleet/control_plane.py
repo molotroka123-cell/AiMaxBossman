@@ -91,6 +91,8 @@ class FleetControlPlane:
 
     def place(self, contract: DelegationContract, *, now: float | None = None) -> Placement:
         now = time.time() if now is None else now
+        # Placement cannot rely on the watchdog having run recently.
+        self.health(now)
         req = PlacementRequirement.from_contract(contract)
         if req.artifacts:
             # локальность артефактов: объём переноса считается для КАЖДОГО кандидата

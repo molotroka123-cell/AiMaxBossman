@@ -63,7 +63,7 @@ class NodeRegistry:
         is clamped into the host-provisioned envelope [0, ceiling] and a
         non-finite claim is treated as "fully used" (fail-closed), never as free.
         """
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
             return max(0.0, float(ceiling))
         return max(0.0, min(float(value), max(0.0, float(ceiling))))
 
@@ -72,8 +72,13 @@ class NodeRegistry:
         if n is None:
             raise KeyError(f"unknown node {hb.node_id!r}: register before heartbeat")
         now = time.time() if now is None else now
-        n.load = 0.0 if (isinstance(hb.load, bool) or not isinstance(hb.load, (int, float))
-                         or not math.isfinite(hb.load)) else max(0.0, min(1.0, hb.load))
+        measurements = (hb.load, hb.ram_used_gb, hb.gpu_memory_used_gb)
+        invalid = any(isinstance(value, bool) or not isinstance(value, (int, float))
+                      or not math.isfinite(value) or value < 0 for value in measurements)
+        if hb.active_work is not None:
+            invalid = invalid or isinstance(hb.active_work, bool) or not isinstance(hb.active_work, int) or hb.active_work < 0
+        n.load = 1.0 if (isinstance(hb.load, bool) or not isinstance(hb.load, (int, float))
+                         or not math.isfinite(hb.load) or hb.load < 0) else max(0.0, min(1.0, hb.load))
         n.ram_used_gb = self._reported(hb.ram_used_gb, ceiling=n.ram_gb)
         n.gpu_memory_used_gb = self._reported(hb.gpu_memory_used_gb, ceiling=n.gpu_memory_gb)
         if hb.warm_models is not None:
@@ -81,7 +86,7 @@ class NodeRegistry:
         if hb.active_work is not None:
             # A negative concurrency claim would defeat max_concurrency admission.
             claimed = hb.active_work
-            n.active_work = 0 if (isinstance(claimed, bool) or not isinstance(claimed, int)
+            n.active_work = max(n.active_work, n.max_concurrency or 1) if (isinstance(claimed, bool) or not isinstance(claimed, int)
                                   or claimed < 0) else claimed
         # A heartbeat dated in the future would keep a dead node alive forever;
         # freshness is measured on the HOST clock, not on the node's claim.
@@ -95,6 +100,8 @@ class NodeRegistry:
             n.status = hb.status if hb.status in (NodeStatus.ONLINE, NodeStatus.DEGRADED) else n.status
             if n.status == NodeStatus.OFFLINE:
                 n.status = NodeStatus.ONLINE           # узел вернулся
+            if invalid:
+                n.status = NodeStatus.DEGRADED         # отсутствие измерения не даёт власть
         self.store.save_node(n)
         return n
 
@@ -125,9 +132,16 @@ class NodeRegistry:
         for n in self.store.nodes():
             if n.status == NodeStatus.OFFLINE:
                 continue
-            if now - n.last_heartbeat_ts > self.heartbeat_timeout_s:
+            stamp = n.last_heartbeat_ts
+            # A concurrent fresh heartbeat may postdate the caller's clock
+            # sample; a timestamp beyond the freshness window is implausible.
+            invalid_stamp = (isinstance(stamp, bool) or not isinstance(stamp, (int, float))
+                             or not math.isfinite(stamp) or stamp < 0
+                             or stamp > now + self.heartbeat_timeout_s)
+            if invalid_stamp or now - stamp > self.heartbeat_timeout_s:
                 reclaimed += len(self.leases.store.leases(node_id=n.node_id))
-                self.set_status(n.node_id, NodeStatus.OFFLINE, reason="heartbeat_timeout")
+                self.set_status(n.node_id, NodeStatus.OFFLINE,
+                                reason="invalid_heartbeat" if invalid_stamp else "heartbeat_timeout")
                 offline.append(n.node_id)
             elif n.status == NodeStatus.ONLINE and n.load >= 0.98:
                 self.set_status(n.node_id, NodeStatus.DEGRADED, reason="overloaded")

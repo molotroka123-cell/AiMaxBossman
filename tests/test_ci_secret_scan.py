@@ -89,6 +89,58 @@ def test_repository_itself_is_clean():
     assert scan.main() == 0
 
 
+def test_sec004_typed_annotated_password_default_is_caught(tmp_path):
+    # SEC-004 regression: the leaked vault password evaded the original
+    # "obvious password" pattern because of the `: str` type annotation between
+    # the identifier and `=`. This must now be caught (bad case rejected)...
+    found = _scan(
+        tmp_path, "svc/orchestrator.py",
+        'def __init__(self, master_password: str = "Sup3rLeakedValue!"):\n',  # ci-secret-scan: allow
+    )
+    assert any("obvious password" in f for f in found), found
+    # ...and the allow-marker still silences a deliberately fake canary on that
+    # same shape (legitimate case still passes).
+    assert _scan(
+        tmp_path, "svc/orchestrator.py",
+        f'def __init__(self, master_password: str = "Sup3rLeakedValue!"):  # {scan.ALLOW_MARK}\n',  # ci-secret-scan: allow
+    ) == []
+    # A non-secret assignment through a variable/function call (no literal
+    # string value) must not be flagged — the pattern requires a quoted literal.
+    assert _scan(
+        tmp_path, "svc/orchestrator.py",
+        "password = os.environ.get('OPENCODE_PASSWORD')\n",
+    ) == []
+    assert _scan(
+        tmp_path, "svc/orchestrator.py",
+        "password = body.get('password')\n",
+    ) == []
+
+
+def test_sec004_unquoted_env_password_is_caught(tmp_path):
+    # Bad case: a real-shaped unquoted .env-style password line is rejected.
+    found = _scan(tmp_path, "deploy/.env.sample", "VAULT_MASTER_PASSWORD=Sup3rLeakedValueNoQuotes\n")
+    assert any("unquoted env password" in f for f in found), found
+    # Legitimate case: an unrelated all-caps env var with a short/non-secret
+    # value, or one explicitly marked, still passes.
+    assert _scan(tmp_path, "deploy/.env.sample", "AI3D_OPENSCAD_BIN=openscad\n") == []
+    assert _scan(
+        tmp_path, "deploy/.env.sample",
+        "VAULT_MASTER_PASSWORD=CHANGE_ME  # " + scan.ALLOW_MARK + "\n",
+    ) == []
+
+
+def test_sec004_dict_hint_no_longer_shields_secret_password_key_words(tmp_path):
+    # SEC-004: DICT_HINT previously included "secret"/"password"/"key", which let
+    # an entropy-detected token evade flagging merely by containing one of those
+    # English words — exactly the shape of "<REDACTED_LEAKED_VAULT_PASSWORD_SEE_SEC-001>". Confirm
+    # a high-entropy token containing "Secret" is now still caught...
+    found = _scan(tmp_path, "svc/config.py", 'X = "zQ9SecretMk3Rp7Wm2Nb8Tf5Cx"\n')  # ci-secret-scan: allow
+    assert any("high-entropy" in f for f in found), found
+    # ...while genuinely fake/test/placeholder-tagged tokens are still exempt
+    # (legitimate case unaffected by the narrower DICT_HINT).
+    assert _scan(tmp_path, "svc/config.py", 'X = "this_is_a_test_placeholder_value"\n') == []
+
+
 def test_astra_sec103_nested_pem_corrupt_and_oversize_zip_are_not_clean(tmp_path):
     import io
     inner=io.BytesIO()
@@ -104,3 +156,131 @@ def test_astra_sec103_nested_pem_corrupt_and_oversize_zip_are_not_clean(tmp_path
     with zipfile.ZipFile(big, "w", compression=zipfile.ZIP_DEFLATED) as z:
         z.writestr("large.txt", b"x" * 2_000_001)
     assert scan.scan_paths([big], tmp_path)
+
+
+def test_an_untracked_file_that_is_not_env_is_scanned_too(tmp_path, monkeypatch):
+    """Ложное «в дереве чисто» опаснее всего ровно перед `git add -A`.
+
+    Прежде непрослеженные файлы сканировались только если назывались `.env*`.
+    Найдено обратным контролем: настоящий ключ провайдера, положенный во
+    временный `tools/*.py`, сканер не увидел и ответил PASS — а следующим шагом
+    такой файл добавляют в индекс. В CI до коммита он бы не дожил, но именно
+    локальный прогон читают как «проверено, можно коммитить».
+
+    Здесь проверяется обе стороны: непрослеженный `.py` с канарейкой ловится,
+    а `.env` не перестал ловиться от расширения охвата.
+    """
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    monkeypatch.setattr(scan, "ROOT", tmp_path)
+
+    fake_or = "sk-or-v1-" + "0f1e2d3c4b5a69788796a5b4c3d2e1f0" * 2   # ci-secret-scan: allow
+    fake_oa = "sk-" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4"                  # ci-secret-scan: allow
+    (tmp_path / "notes.py").write_text(f'KEY = "{fake_or}"\n', encoding="utf-8")
+    (tmp_path / ".env").write_text(f"OPENAI_API_KEY={fake_oa}\n", encoding="utf-8")
+
+    found = {p.name for p in scan.untracked_files()}
+    assert "notes.py" in found, "непрослеженный .py не попал в охват сканера"
+    assert ".env" in found, "расширение охвата потеряло прежнее покрытие .env"
+
+
+def test_ignored_paths_stay_out_of_the_untracked_sweep(tmp_path, monkeypatch):
+    """Обратный контроль: расширение охвата не должно тащить venv и кэши.
+
+    Без него тест выше был бы зелёным и у сборщика, который просто вернул ВСЁ
+    подряд, — а такой сканер тонет в шуме и его перестают читать.
+    """
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    monkeypatch.setattr(scan, "ROOT", tmp_path)
+    (tmp_path / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    (tmp_path / ".venv").mkdir()
+    (tmp_path / ".venv" / "leftover.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "real.py").write_text("y = 2\n", encoding="utf-8")
+
+    found = {p.name for p in scan.untracked_files()}
+    assert "real.py" in found
+    assert "leftover.py" not in found, "игнорируемое дерево попало в охват — это шум"
+
+
+def test_a_build_artifact_is_not_entropy_scanned(tmp_path):
+    """Сжатый поток высокоэнтропиен ПО ОПРЕДЕЛЕНИЮ.
+
+    Найдено настоящим отказом CI, а не рассуждением: расширение обхода на все
+    непрослеженные файлы потащило в энтропийную проверку
+    `acceptance-results/source.tar.gz`, который сборка кладёт в рабочий каталог,
+    и сканер сообщил `high-entropy token (H=4.11, len=27)`.
+
+    Срабатывание при этом ВЕРОЯТНОСТНОЕ: попадётся ли в сжатом потоке подряд
+    24+ символа из алфавита токена, зависит от содержимого. Архив этого же
+    дерева шума не даёт. Сканер, который краснеет по жребию, хуже краснеющего
+    всегда: его перестают читать, и тогда он не ловит уже ничего. Поэтому тест
+    не полагается на удачу сжатия, а кладёт высокоэнтропийную строку в файл
+    двоичного вида явно.
+    """
+    blob = tmp_path / "acceptance-results-source.tar.gz"
+    noise = "Q7xK2mPz9Lw4Rt6Yv1Nb8Hs3Jd5Fg0Ac"   # ci-secret-scan: allow — канарейка
+    blob.write_text(f"binary junk {noise} more junk\n", encoding="utf-8")
+    text = blob.read_text(encoding="utf-8")
+
+    assert scan._entropy_applies(blob) is False, "архив не должен идти в энтропийную проверку"
+    assert scan.scan_text(text, "acceptance-results/source.tar.gz",
+                          entropy=scan._entropy_applies(blob)) == []
+    # Обратный контроль: при принудительной энтропии — ровно тот шум, что уронил
+    # CI. Без него тест был бы зелёным и на сломанном правиле.
+    forced = scan.scan_text(text, "acceptance-results/source.tar.gz", entropy=True)
+    assert any("high-entropy" in item for item in forced), forced
+
+
+def test_entropy_still_applies_to_env_files_and_to_code(tmp_path):
+    """Расширение охвата не должно было отнять то, ради чего его вводили."""
+    assert scan._entropy_applies(tmp_path / ".env") is True
+    assert scan._entropy_applies(tmp_path / ".env.local") is True
+    assert scan._entropy_applies(tmp_path / "settings.py") is True
+    assert scan._entropy_applies(tmp_path / "compose.yaml") is True
+    assert scan._entropy_applies(tmp_path / "evidence.mp4") is False
+    assert scan._entropy_applies(tmp_path / "bundle.zip") is False
+    assert scan._entropy_applies(tmp_path / "report.json") is False
+
+
+def test_provider_patterns_still_run_on_files_entropy_skips(tmp_path):
+    """Отказ от энтропии на двоичных НЕ отключает поиск настоящих ключей.
+
+    Иначе починка шума превратилась бы в дыру: ключ, попавший в архив или в
+    медиафайл, перестал бы находиться вовсе."""
+    fake = "sk-or-v1-" + "0f1e2d3c4b5a69788796a5b4c3d2e1f0" * 2   # ci-secret-scan: allow
+    found = scan.scan_text(f"junk\x00{fake}\x00junk", "acceptance-results/blob.bin",
+                           entropy=False)
+    assert any("openrouter key" in item for item in found), found
+
+
+def test_main_itself_does_not_choke_on_an_untracked_build_artifact(tmp_path, monkeypatch, capsys):
+    """Сквозь `main()`, а не мимо него.
+
+    Первая редакция этих тестов звала `scan_text`/`_entropy_applies` напрямую и
+    мутацию «вернуть entropy=True в main()» пережила зелёной: правило
+    проверялось, а его ПОДКЛЮЧЕНИЕ — нет. Тест, который не может провалиться на
+    самом дефекте, ничего не защищает.
+
+    Здесь собирается ровно та ситуация из CI: git-дерево, в рабочем каталоге
+    непрослеженный артефакт сборки, и `main()` обязан ответить 0. Рядом —
+    обратный контроль: настоящий ключ в таком же непрослеженном файле обязан
+    дать 2, иначе «тихо» означало бы «слепо».
+    """
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    monkeypatch.setattr(scan, "ROOT", tmp_path)
+    art = tmp_path / "acceptance-results"
+    art.mkdir()
+    noise = "Q7xK2mPz9Lw4Rt6Yv1Nb8Hs3Jd5Fg0Ac"   # ci-secret-scan: allow — канарейка
+    (art / "source.tar.gz").write_text(f"junk {noise} junk\n", encoding="utf-8")
+
+    assert scan.main() == 0, capsys.readouterr().err
+
+    fake = "sk-or-v1-" + "0f1e2d3c4b5a69788796a5b4c3d2e1f0" * 2   # ci-secret-scan: allow
+    (art / "leaked.py").write_text(f'K = "{fake}"\n', encoding="utf-8")
+    assert scan.main() == 2, "непрослеженный файл с настоящим ключом обязан ронять сканер"
+    assert "openrouter key" in capsys.readouterr().err

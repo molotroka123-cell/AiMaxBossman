@@ -1,4 +1,6 @@
 name: Command Center CI
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 # V2.2 §13/§14. Раньше было два workflow (`tests.yml` и этот), и оба гоняли
 # один и тот же pytest: двойной расход минут и два независимых зелёных/красных
@@ -20,23 +22,42 @@ permissions:
 
 concurrency:
   group: command-center-ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Parallel work on the shared branch must not repeatedly discard the
+  # 21–30 minute browser/coverage suite. Finish the running SHA; GitHub keeps
+  # only the newest pending run in this concurrency group.
+  cancel-in-progress: false
 
 jobs:
   test:
     name: pytest (py${{ matrix.python }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Full Command Center runs on the closure tree now take ~21-30 minutes.
+    # 30m repeatedly killed otherwise-green py3.12/3.14 jobs at the runner cap;
+    # 60m keeps the test/coverage contracts intact while allowing runner jitter.
+    timeout-minutes: 60
+    # Python 3.14 прочитан: run 34137665700 (ca9a4a7a) — Pytest на 3.14 зелёный
+    # на полном наборе. С этого момента 3.14 — такой же гейт, как 3.11 и 3.12;
+    # continue-on-error снят, чтобы он не превратился в способ не смотреть.
     strategy:
       fail-fast: false          # красная 3.11 не должна скрывать результат 3.12
       matrix:
-        python: ["3.11", "3.12"]
+        # 3.14 добавлена по journal-улике, а не «на всякий случай»: в сессии
+        # владельца 6cbb17ce84db ВСЕ восемь отказов OpenRouter (502/503/400)
+        # случились на python 3.14.3 и НИ ОДНОГО на 3.12.14, при том что
+        # requires-python объявлен как ">=3.11" без верхней границы. Продукт
+        # обещает интерпретатор, на котором его никогда не проверяли; это и
+        # проверяется здесь. Первый прочитанный результат (run 34137665700):
+        # 3.14 зелёный — значит, восемь отказов OpenRouter у владельца объясняются
+        # не интерпретатором.
+        python: ["3.11", "3.12", "3.14"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
           cache: pip
@@ -108,9 +129,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -127,9 +150,9 @@ jobs:
 
       - name: Security reports (including failed scans)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: command-center-security-${{ github.sha }}
+          name: command-center-security-${{ github.event.pull_request.head.sha || github.sha }}
           path: astra-security-results/
           if-no-files-found: error
           retention-days: 30
@@ -149,6 +172,12 @@ jobs:
             node --check "$file"
           done < <(find command-center/ui -name '*.js' -print0)
 
+      - name: Web Designer save and recovery contracts
+        run: node --test command-center/ui/tests/web_designer_autosave.test.mjs
+
+      - name: Running app frame retention contracts
+        run: node --test command-center/ui/tests/app_view.test.mjs
+
   windows-paths:
     # TRUTH-003 §16 / TL-01: только пути, где платформа реально ветвится (discovery, terminal
     # control, desktop, права ФС) и новые execution-truth контракты, зависящие от путей
@@ -158,7 +187,9 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install Command Center (no browser/mcp extras)
@@ -173,6 +204,22 @@ jobs:
           python -m pytest -q --timeout=180 --timeout-method=thread
           tests/test_discovery.py tests/test_feat_terminal_map.py tests/test_diag_bundle.py
           tests/test_plugin_security.py tests/test_secrem_browser_policy.py
-          tests/test_policy_algebra.py tests/test_fence_fl01.py tests/test_finalize_gate.py
-          tests/test_no_direct_completed_writes.py tests/test_v2_poststate_verifiers.py
-          tests/test_login_rate_limit.py tests/test_observability_trace.py
+          tests/test_policy_algebra.py tests/test_fence_fl01.py tests/test_fence_event_cancellation.py
+          tests/test_finalize_gate.py tests/test_no_direct_completed_writes.py
+          tests/test_v2_poststate_verifiers.py tests/test_login_rate_limit.py tests/test_observability_trace.py
+          tests/test_web_designer_storage_boundaries.py
+          tests/test_apps_control.py tests/test_apps_release_runtime.py
+          tests/test_astra_poststate_boundaries.py
+          tests/test_bcc_cli_portability.py
+          tests/test_apps_pid_portability.py
+          tests/test_browser_installed_readiness.py
+          tests/test_desktop_startup_refusal.py
+      - name: Windows Video Studio descriptor boundary
+        working-directory: command-center
+        env:
+          BCC_DATA_DIR: ${{ runner.temp }}\bcc-video-data
+        run: >-
+          python -m pytest -q --timeout=180 --timeout-method=thread
+          tests/test_video_descriptor_boundary.py::test_verified_media_body_survives_pathname_replacement
+          tests/test_video_descriptor_boundary.py::test_export_download_survives_pathname_replacement_mid_stream
+          tests/test_video_descriptor_boundary.py::test_export_download_serves_verified_bytes_after_pathname_replacement

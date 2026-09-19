@@ -11,11 +11,19 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from typing import AsyncIterator
 
 from .. import events as core_events
 from .auth import SCOPE_ADMIN, SCOPE_APPROVE, SCOPE_CHAT, Principal
+from .service import get_service
+
+# Как часто уже открытый поток перепроверяет принципала. Аутентификация была
+# однократной, на handshake: отзыв устройства, emergency-lock и отзыв сессии
+# не действовали на подписку, пока клиент сам не отвалится.
+REAUTH_INTERVAL_S = 15.0
 
 
 def event_required_scope(kind: str) -> str:
@@ -34,6 +42,27 @@ def event_allowed(kind: str, scopes) -> bool:
     return event_required_scope(kind) in scopes
 
 
+async def principal_still_valid(principal: Principal) -> bool:
+    """Жив ли ещё принципал открытого потока: устройство не отозвано и не
+    заблокировано, сессия (если поток открыт по сессии) не отозвана.
+
+    Любая ошибка проверки — fail-closed: поток с непроверяемым принципалом
+    закрывается, а не продолжает слать события.
+    """
+    try:
+        store = get_service().store
+        device = await store.get_device(principal.device_id)
+        if device is None or device.revoked or device.locked:
+            return False
+        if principal.session_id is not None:
+            session = await store.get_session(principal.session_id)
+            if session is None or session.revoked:
+                return False
+        return True
+    except Exception:  # noqa: BLE001 — недоступное хранилище != разрешение
+        return False
+
+
 async def iter_device_events(principal: Principal, queue=None) -> AsyncIterator[str]:
     """Асинхронный поток JSON-строк событий, разрешённых скоупами устройства.
 
@@ -44,9 +73,20 @@ async def iter_device_events(principal: Principal, queue=None) -> AsyncIterator[
     own = queue is None
     if queue is None:
         queue = core_events.subscribe()
+    checked = time.monotonic()
     try:
         while True:
-            msg = await queue.get()
+            try:
+                msg = await asyncio.wait_for(queue.get(), REAUTH_INTERVAL_S)
+            except asyncio.TimeoutError:
+                msg = None
+            now = time.monotonic()
+            if msg is None or now - checked >= REAUTH_INTERVAL_S:
+                if not await principal_still_valid(principal):
+                    return          # отозвано/заблокировано — поток закрывается
+                checked = now
+            if msg is None:
+                continue
             try:
                 kind = json.loads(msg).get("kind", "")
             except (ValueError, TypeError):

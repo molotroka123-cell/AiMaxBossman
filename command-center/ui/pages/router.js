@@ -17,6 +17,7 @@ const RouterPage = {
   title: 'Выбор модели',
   icon: 'retry',
   nav: 'more',
+  section: 'brains',
 
   async render(ctx) {
     let rules = null; let err = null;

@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -437,6 +439,60 @@ def launch_window(browser: str, url: str, profile_dir: Path, *, extra: Sequence[
     return proc.wait()                        # старт состоялся: дальше решает владелец
 
 
+class _StartupCause(logging.Handler):
+    """Причина, которую uvicorn знает, а владелец не видел.
+
+    Когда приложение не поднимается (испорченная база, отказ совместимости
+    схемы, сбой setup фичи), uvicorn пишет исключение в свой журнал и выходит
+    `SystemExit(3)`. Наш поток ловил именно `SystemExit`, и владелец читал
+    «сервер не поднялся: SystemExit: 3» — одно и то же число для любой
+    причины. По такому сообщению нечего делать и не о чем писать.
+
+    Здесь причина берётся оттуда, где uvicorn её ещё знает, и подставляется
+    вместо голого кода выхода. Форм записи две, и нужны обе:
+
+    * `exc_info` — когда исключение вылетело мимо протокола lifespan;
+    * ГОТОВЫЙ ТЕКСТ трейсбека в самом сообщении — когда приложение вернуло
+      `lifespan.startup.failed`. Именно так ведёт себя FastAPI, и это наш
+      случай: `startup_failed` уже взведён, ветка с `exc_info` не достигается
+      (uvicorn/lifespan/on.py), и причина существует только строкой.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.ERROR)
+        self.cause: str | None = None
+
+    # Строка исключения в трейсбеке: без отступа, `путь.Тип: сообщение`.
+    # Отступ отсекает кадры стека, а требование имени в начале — приписки,
+    # которые библиотеки добавляют ПОСЛЕ исключения. SQLAlchemy добавляет
+    # «(Background on this error at: https://…)», и «последняя непустая
+    # строка» выдавала владельцу эту ссылку вместо причины. Найдено своим же
+    # тестом на постороннем отказе, а не на моём.
+    _EXCEPTION_LINE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*(?::\s.+)?$")
+
+    @classmethod
+    def _exception_line(cls, text: str) -> str | None:
+        """Строка `Тип: сообщение` из трейсбека, последняя по порядку."""
+        if "Traceback (most recent call last)" not in text:
+            return None
+        named = [line.rstrip() for line in text.splitlines()
+                 if line[:1] not in ("", " ", "\t") and cls._EXCEPTION_LINE.match(line.rstrip())]
+        return named[-1] if named else None
+
+    def emit(self, record: logging.LogRecord) -> None:
+        info = record.exc_info
+        exc = info[1] if info else None
+        if exc is not None and not isinstance(exc, SystemExit):
+            self.cause = f"{type(exc).__name__}: {exc}"
+            return
+        try:
+            named = self._exception_line(record.getMessage())
+        except Exception:  # noqa: BLE001 — наблюдатель не имеет права мешать запуску
+            return
+        if named:
+            self.cause = named
+
+
 class _BackgroundServer:
     """uvicorn в потоке — ровно тот же app, что у ``bcc``; останавливается вместе с окном."""
 
@@ -449,7 +505,16 @@ class _BackgroundServer:
         settings.ensure_dirs()
         self.server = uvicorn.Server(uvicorn.Config(create(), host=host, port=port, log_level="warning"))
         self.error: str | None = None
+        self._cause = _StartupCause()
+        self._log = logging.getLogger("uvicorn.error")
+        self._log.addHandler(self._cause)
         self.thread = threading.Thread(target=self._serve, name="bcc-desktop-server", daemon=True)
+
+    def _explain(self, exc: BaseException) -> str:
+        """Голый `SystemExit` заменяется настоящей причиной, если она известна."""
+        if isinstance(exc, SystemExit) and self._cause.cause:
+            return self._cause.cause
+        return f"{type(exc).__name__}: {exc}"
 
     def _serve(self) -> None:
         """Ошибка потока (обычно занятый порт) должна дойти до владельца.
@@ -460,7 +525,7 @@ class _BackgroundServer:
         try:
             self.server.run()
         except BaseException as exc:  # noqa: BLE001 — SystemExit из uvicorn тоже сюда
-            self.error = f"{type(exc).__name__}: {exc}"
+            self.error = self._explain(exc)
 
     def start(self, url: str, timeout: float = 30.0) -> bool:
         self.thread.start()
@@ -471,12 +536,14 @@ class _BackgroundServer:
             if not self.thread.is_alive():
                 return False
             time.sleep(0.2)
-        self.error = self.error or "сервер не ответил за %.0f с" % timeout
+        self.error = (self.error or self._cause.cause
+                      or "сервер не ответил за %.0f с" % timeout)
         return False
 
     def stop(self) -> None:
         self.server.should_exit = True
         self.thread.join(timeout=10)
+        self._log.removeHandler(self._cause)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -777,6 +844,9 @@ def run(argv: Sequence[str] | None = None, *, launcher: Callable[..., int] = lau
 def main() -> None:
     from .config import settings
 
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
     argv = list(sys.argv[1:])
     # `bcc-open` — тот же лаунчер, но веб-версия в системном браузере
     # (без --app-окна Chromium).

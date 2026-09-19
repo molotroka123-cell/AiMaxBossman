@@ -39,6 +39,7 @@ from ..v2.memory import (
     ObsidianVault,
 )
 from ..v2.memory.sqlite_index import SQLiteMemoryBackend
+from ..oss.qdrant import LoopbackEmbeddings, QdrantMemoryBackend, QdrantUnavailable
 from . import Feature
 
 CONFIG_KEY = "memory.vault"
@@ -116,7 +117,21 @@ def build_service(svc, cfg: dict) -> ObsidianMemoryService:
     if backend is None:
         index_dir = Path(svc.settings.data_dir) / "memory"
         fp = _fingerprint({"root": str(vault.root)})
-        if want == "local-json":
+        if want == "qdrant":
+            options = cfg.get("qdrant") or {}
+            try:
+                embeddings = LoopbackEmbeddings(
+                    endpoint=str(options.get("endpoint") or ""),
+                    model=str(options.get("model") or ""),
+                    dimensions=int(options.get("dimensions", 0)))
+                backend = QdrantMemoryBackend(
+                    index_path=index_dir / f"index-{fp}.sqlite3",
+                    vector_path=index_dir / f"qdrant-{fp}",
+                    vault_root=vault.root, excluded_dirs=set(vault.excluded_dirs),
+                    embeddings=embeddings, max_chunks=int(options.get("max_chunks", 2000)))
+            except (ValueError, TypeError, QdrantUnavailable) as exc:
+                raise MemoryNotConfigured(str(exc)) from exc
+        elif want == "local-json":
             # Legacy-путь оставлен как откат, пока не подтверждён паритет.
             backend = LocalMemoryBackend(
                 index_path=index_dir / f"index-{fp}.json",
@@ -133,7 +148,7 @@ def build_service(svc, cfg: dict) -> ObsidianMemoryService:
                 excluded_dirs=set(vault.excluded_dirs),
             )
     return ObsidianMemoryService(vault=vault, backend=backend,
-                                 reranker=LexicalReranker())
+                                 reranker=None if want == "qdrant" else LexicalReranker())
 
 
 async def get_service(svc) -> ObsidianMemoryService:
@@ -165,40 +180,64 @@ async def get_config(request: Request):
             "index_folders": cfg.get("index_folders") or ["."],
             "write_folder": cfg.get("write_folder") or DEFAULT_WRITE_FOLDER,
             "backend": cfg.get("backend") or "auto",
-            "backend_class": backend}
+            "backend_class": backend,
+            "excludes": cfg.get("excludes") or [],
+            "qdrant": cfg.get("qdrant") or {}}
 
 
 @router.post("/memory/config")
 async def set_config(request: Request):
     """Явная настройка человеком. Автопоиска vault'ов НЕТ намеренно."""
     svc = request.app.state.svc
-    body = await request.json()
+    try:
+        body = await request.json()
+    except (ValueError, TypeError) as exc:
+        raise HTTPException(400, {"message": "нужен JSON объект настроек"}) from exc
+    if not isinstance(body, dict):
+        raise HTTPException(400, {"message": "нужен JSON объект настроек"})
     root = str(body.get("root") or "").strip()
     if not root:
         raise HTTPException(400, {"message": "нужен путь к vault (root)"})
     p = Path(root).expanduser()
     if not p.is_dir():
         raise HTTPException(400, {"message": f"каталог не найден: {p}"})
-    cfg = {
-        "root": str(p),
-        "index_folders": [str(x) for x in (body.get("index_folders") or ["."])],
-        "write_folder": str(body.get("write_folder") or DEFAULT_WRITE_FOLDER),
-        "backend": str(body.get("backend") or "auto"),
-        "excludes": [str(x) for x in (body.get("excludes") or [])],
-    }
-    if body.get("memsearch"):
+    # Omitted fields retain their stored values. In particular, changing the
+    # backend in the OSS UI must never erase exclusions or private bridge config.
+    cfg = dict(await load_config(svc))
+    cfg["root"] = str(p)
+    for key, default in (("index_folders", ["."]), ("excludes", [])):
+        value = body.get(key, cfg.get(key, default))
+        if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+            raise HTTPException(400, {"message": f"{key} должен быть списком строк"})
+        cfg[key] = value
+    cfg["write_folder"] = str(body.get("write_folder", cfg.get("write_folder")) or DEFAULT_WRITE_FOLDER)
+    cfg["backend"] = str(body.get("backend", cfg.get("backend")) or "auto")
+    if cfg["backend"] not in {"auto", "sqlite", "local", "local-json", "memsearch", "qdrant"}:
+        raise HTTPException(400, {"message": "неизвестный backend памяти"})
+    if "qdrant" in body:
+        if not isinstance(body["qdrant"], dict):
+            raise HTTPException(400, {"message": "qdrant должен быть объектом настроек"})
+        cfg["qdrant"] = {key: body["qdrant"][key] for key in
+                          ("endpoint", "model", "dimensions", "max_chunks") if key in body["qdrant"]}
+    if "memsearch" in body:
+        if not isinstance(body["memsearch"], dict):
+            raise HTTPException(400, {"message": "memsearch должен быть объектом настроек"})
         cfg["memsearch"] = dict(body["memsearch"])
     try:                              # проверяем ДО сохранения — не оставляем битый конфиг
         build_service(svc, cfg)
     except (MemoryNotConfigured, FileNotFoundError, PermissionError) as exc:
-        raise HTTPException(400, {"message": str(exc)})
+        raise HTTPException(400, {"message": str(exc)}) from exc
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise HTTPException(400, {"message": "неверные параметры backend памяти"}) from exc
     await save_config(svc, cfg)
     return await get_config(request)
 
 
 def _unavailable(exc: Exception) -> HTTPException:
-    return HTTPException(503, {"message": str(exc),
-                               "hint": "настройте vault: POST /api/memory/config"})
+    hint = ("проверьте локальную модель embeddings и выполните POST /api/memory/index; "
+            "для лексического поиска выберите backend=sqlite") if isinstance(exc, QdrantUnavailable) else (
+                "настройте vault: POST /api/memory/config")
+    return HTTPException(503, {"message": str(exc), "hint": hint})
 
 
 @router.post("/memory/index")
@@ -208,7 +247,7 @@ async def http_index(request: Request):
     try:
         service = await get_service(svc)
         return {"result": await service.index(force=bool(body.get("force")))}
-    except (MemoryNotConfigured, FileNotFoundError) as exc:
+    except (MemoryNotConfigured, FileNotFoundError, QdrantUnavailable) as exc:
         raise _unavailable(exc)
 
 
@@ -221,14 +260,17 @@ async def http_search(request: Request):
         raise HTTPException(400, {"message": "пустой запрос"})
     try:
         service = await get_service(svc)
-    except (MemoryNotConfigured, FileNotFoundError) as exc:
+    except (MemoryNotConfigured, FileNotFoundError, QdrantUnavailable) as exc:
         raise _unavailable(exc)
-    pack = await service.search(
-        query,
-        candidate_k=int(body.get("candidate_k") or 16),
-        rerank_k=int(body.get("rerank_k") or 8),
-        context_tokens=min(int(body.get("max_context_tokens")
-                               or DEFAULT_CONTEXT_TOKENS), MAX_CONTEXT_TOKENS))
+    try:
+        pack = await service.search(
+            query,
+            candidate_k=int(body.get("candidate_k") or 16),
+            rerank_k=int(body.get("rerank_k") or 8),
+            context_tokens=min(int(body.get("max_context_tokens")
+                                   or DEFAULT_CONTEXT_TOKENS), MAX_CONTEXT_TOKENS))
+    except QdrantUnavailable as exc:
+        raise _unavailable(exc)
     return {"query": pack.query, "estimated_tokens": pack.estimated_tokens,
             "items": [{"source": i.source, "heading": i.heading, "score": i.score,
                        "chunk_hash": i.chunk_hash, "content": i.content}
@@ -242,7 +284,7 @@ async def http_expand(request: Request):
     try:
         service = await get_service(svc)
         return await service.expand(str(body.get("chunk_hash") or ""))
-    except (MemoryNotConfigured, FileNotFoundError) as exc:
+    except (MemoryNotConfigured, FileNotFoundError, QdrantUnavailable) as exc:
         raise _unavailable(exc)
     except KeyError as exc:
         raise HTTPException(404, {"message": str(exc)})
@@ -254,7 +296,7 @@ async def http_write(request: Request):
     body = await request.json()
     try:
         service = await get_service(svc)
-    except (MemoryNotConfigured, FileNotFoundError) as exc:
+    except (MemoryNotConfigured, FileNotFoundError, QdrantUnavailable) as exc:
         raise _unavailable(exc)
     try:
         path = await service.remember(
@@ -263,6 +305,9 @@ async def http_write(request: Request):
             kind=str(body.get("kind") or "note"),
             project=str(body.get("project") or ""),
             tags=[str(t) for t in (body.get("tags") or [])])
+    except QdrantUnavailable as exc:
+        raise HTTPException(503, {"message": "заметка сохранена, но семантический индекс не обновлён",
+                                  "saved": True, "hint": "восстановите embeddings и выполните memory.index"}) from exc
     except PermissionError as exc:
         raise HTTPException(403, {"message": str(exc)})
     except FileExistsError as exc:
@@ -276,7 +321,7 @@ async def http_stats(request: Request):
     try:
         service = await get_service(svc)
         return {"stats": await service.stats()}
-    except (MemoryNotConfigured, FileNotFoundError) as exc:
+    except (MemoryNotConfigured, FileNotFoundError, QdrantUnavailable) as exc:
         raise _unavailable(exc)
 
 
@@ -296,13 +341,16 @@ async def tool_search(args: dict, ctx: ToolContext) -> ToolResult:
         return _err("memory.search: нужен непустой query")
     try:
         service = await _svc_service(ctx)
-    except (MemoryNotConfigured, FileNotFoundError) as exc:
+    except (MemoryNotConfigured, FileNotFoundError, QdrantUnavailable) as exc:
         return _err(f"память недоступна: {exc}")
     budget = min(int(args.get("max_context_tokens") or DEFAULT_CONTEXT_TOKENS),
                  MAX_CONTEXT_TOKENS)
     top_k = max(4, min(int(args.get("top_k") or 16), 40))
-    pack = await service.search(query, candidate_k=top_k, rerank_k=8,
-                                context_tokens=budget)
+    try:
+        pack = await service.search(query, candidate_k=top_k, rerank_k=8,
+                                    context_tokens=budget)
+    except QdrantUnavailable as exc:
+        return _err(f"семантическая память недоступна: {exc}")
     if not pack.items:
         return ToolResult(content="в памяти ничего не найдено по этому запросу",
                           one_line="memory.search: 0 результатов",
@@ -328,7 +376,7 @@ async def tool_expand(args: dict, ctx: ToolContext) -> ToolResult:
         return _err("memory.expand: нужен chunk_hash из memory.search")
     try:
         service = await _svc_service(ctx)
-    except (MemoryNotConfigured, FileNotFoundError) as exc:
+    except (MemoryNotConfigured, FileNotFoundError, QdrantUnavailable) as exc:
         return _err(f"память недоступна: {exc}")
     try:
         detail = await service.expand(chunk_hash)
@@ -350,7 +398,7 @@ async def tool_write(args: dict, ctx: ToolContext) -> ToolResult:
         return _err("memory.write: нужны title и content")
     try:
         service = await _svc_service(ctx)
-    except (MemoryNotConfigured, FileNotFoundError) as exc:
+    except (MemoryNotConfigured, FileNotFoundError, QdrantUnavailable) as exc:
         return _err(f"память недоступна: {exc}")
     tags = args.get("tags") or []
     if isinstance(tags, str):
@@ -368,6 +416,8 @@ async def tool_write(args: dict, ctx: ToolContext) -> ToolResult:
                     f"{service.vault.write_folder}/ ({exc})")
     except FileExistsError as exc:
         return _err(f"memory.write: заметка уже существует ({exc})")
+    except QdrantUnavailable:
+        return _err("заметка сохранена, но семантический индекс не обновлён; восстановите embeddings и запустите memory.index")
     try:
         rel = path.relative_to(service.vault.root).as_posix()
     except ValueError:                # недостижимо: vault уже проверил границы
@@ -382,9 +432,12 @@ async def tool_write(args: dict, ctx: ToolContext) -> ToolResult:
 async def tool_index(args: dict, ctx: ToolContext) -> ToolResult:
     try:
         service = await _svc_service(ctx)
-    except (MemoryNotConfigured, FileNotFoundError) as exc:
+    except (MemoryNotConfigured, FileNotFoundError, QdrantUnavailable) as exc:
         return _err(f"память недоступна: {exc}")
-    result = await service.index(force=bool(args.get("force")))
+    try:
+        result = await service.index(force=bool(args.get("force")))
+    except QdrantUnavailable as exc:
+        return _err(f"семантический индекс не обновлён: {exc}")
     return ToolResult(content=f"индекс обновлён: {result}",
                       one_line="memory.index: ок",
                       data=result if isinstance(result, dict) else {"raw": str(result)})
@@ -393,9 +446,12 @@ async def tool_index(args: dict, ctx: ToolContext) -> ToolResult:
 async def tool_stats(args: dict, ctx: ToolContext) -> ToolResult:
     try:
         service = await _svc_service(ctx)
-    except (MemoryNotConfigured, FileNotFoundError) as exc:
+    except (MemoryNotConfigured, FileNotFoundError, QdrantUnavailable) as exc:
         return _err(f"память недоступна: {exc}")
-    stats = await service.stats()
+    try:
+        stats = await service.stats()
+    except QdrantUnavailable as exc:
+        return _err(f"семантическая память недоступна: {exc}")
     return ToolResult(content=f"память: {stats}", one_line="memory.stats: ок",
                       data=stats if isinstance(stats, dict) else {"raw": str(stats)})
 

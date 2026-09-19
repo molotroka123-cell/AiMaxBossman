@@ -30,6 +30,12 @@ TOGGLES: dict[str, bool] = {
 
 # --- Capability (что просит исполнитель) → какой тумблер её разрешает ---
 # Неизвестная capability отсутствует в карте → gate вернёт DENY (deny-by-default).
+# ЧЕСТНО о покрытии (аудит A2-02): реальная enforcement-точка сегодня одна —
+# `computer.control` (computer_operator: создание задачи, resume, take-control).
+# Остальные capability описаны, но никто их у gate не спрашивает: тумблеры
+# internet/messaging/filesystem_write/personal_data/cloud_llm/code_execution
+# ДЕКЛАРАТИВНЫ, пока соответствующие инструменты не начнут звать gate.enforce.
+# Не считать выключенный тумблер защитой до появления такой точки.
 CAPABILITY_TOGGLE: dict[str, str] = {
     "computer.control": "computer_control",
     "computer.observe": "computer_control",

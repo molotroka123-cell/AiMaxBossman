@@ -1,0 +1,271 @@
+{
+ "schema_version": 1,
+ "recorded_at": "2026-09-19",
+ "note": "Точки, о которых известно ЧТО ИМЕННО на них проверено. Не список зелёных галочек. `proven` — то, что кто-то измерил; `not_proven` — то, что на этом SHA НЕ показывали, и это часть записи, а не оговорка.",
+ "entries": [
+  {
+   "sha": "235a07164f8ddb60f3567fde14c1ee260aa2f30e",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "проверенный Windows-кандидат 18.09, прогон 128 — третий зелёный подряд; первый с определением железа без WMIC",
+   "proven": [
+    "три задания цепочки Windows зелёные: bundle, owner-experience, freeze (прогон 35402665896)",
+    "BOSSMAN_ASTRA6_FREEZE=OWNER_REQUIRED, блокеров нет; owner_required только по ключу: live-model.json:not_passed, studio.json:not_passed",
+    "BOSSMAN_ASTRA6_RELEASE_STATE=WINDOWS_RC_READY_OWNER_REQUIRED, RELEASE_READY=NO",
+    "архив BOSSMAN-Windows-x64-235a07164f8d.zip, 782984179 байт, SHA-256 c2a53386903dcac6dbbc1f6091bc95e08ed14178576970fb7f32a468d03b8113",
+    "определение железа на Windows без WMIC: CIM → устаревший wmic → psutil, три состояния target/different/undetermined, таймауты 20 с и 1800 с",
+    "корневой набор 1813 passed, 11 skipped на этой вершине"
+   ],
+   "not_proven": [
+    "живая модель: BOSSMAN_FREE_LIVE=OWNER_REQUIRED — секрет пуст",
+    "живая генерация Studio: studio.json:not_passed по той же причине",
+    "железо владельца: ни одного числа с целевой машины; на runner'е Windows определение отработало, но машина там не целевая",
+    "сохранность интеллекта: INSUFFICIENT_EVIDENCE намеренно",
+    "Authenticode: архив не подписан",
+    "обновление и откат между двумя архивами: сторона ДАННЫХ доказана позже, на 82961501 (поколение схемы и репетиция); на ЭТОЙ вершине её ещё нет",
+    "публикация Release: операция владельца"
+   ]
+  },
+  {
+   "sha": "48f8da94e28bf9b4a611a5f193879e7a73fc8415",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "СВЕДЕНИЕ двух линий: линия сборки + линия управления на одной ветке",
+   "proven": [
+    "22 конфликта решены по смыслу; ни одна сторона не откачена",
+    "корневой набор py3.11: 1348 passed, 11 skipped",
+    "корневой набор py3.12: 1348 passed, 11 skipped",
+    "колесо Command Center собирается из чистого контекста: 305 записей, среди них bcc/_ui/index.html, 64 файла интерфейса, bcc/_build.json, закреплённая личность сайдкара File Intelligence",
+    "красный флаг A воспроизведён и закрыт на обоих путях: на py3.12 без setuptools `--no-build-isolation` даёт BackendUnavailable, а объявленный build-system собирает колесо"
+   ],
+   "not_proven": [
+    "Video Studio: в окружении нет ffmpeg/ffprobe (9 падений — окружение, не код)",
+    "замер удержания интеллекта: ни модели, ни эндпоинта",
+    "живой запуск на Windows",
+    "целевое железо"
+   ]
+  },
+  {
+   "sha": "380e58119d0935ab4adb569424fb720e52e2c2d3",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "вершина прогона сведения: гейт интеллекта отличает обвязку от её описания",
+   "proven": [
+    "корневой набор py3.11: 1353 passed, 11 skipped",
+    "Command Center, полный набор с настоящим Chromium: 3132 passed, 154 skipped",
+    "гейт интеллекта отвергает нагрузку слабого раннера и принимает те же числа от настоящей полосы (сквозной тест)",
+    "негативный контроль гейта латентности проверен мутацией: выключенный детектор отношения и кратность 100 обе краснеют",
+    "контекст-стор: сценарий §7 целиком на настоящей SQLite — перезапуск, изоляция проектов, победа новой версии, проигрыш устаревшей",
+    "девять кандидатов OSS закреплены точным SHA, лицензия каждого проверена по файлу в репозитории"
+   ],
+   "not_proven": [
+    "Video Studio на этом хосте (нет ffmpeg)",
+    "замер удержания интеллекта — INSUFFICIENT_EVIDENCE намеренно",
+    "живой Windows",
+    "целевое железо"
+   ]
+  },
+  {
+   "sha": "76d1fd2a4c9e12737dcfebafaeffc7a2d590077e",
+   "branch": "claude/bossman-control-v03-43igbk",
+   "role": "вершина линии управления на момент сведения; сведена целиком, не откачена",
+   "proven": [
+    "контракт сборки колеса и починка build-isolation (28c2aaae, 43d0c08d)",
+    "раннер гейта удержания интеллекта (9a387477)",
+    "восстановленная память проекта docs/final/ (2f40d0cc)",
+    "приёмка целевого железа и отчёты раздела 30 (99f03a86)",
+    "превью Video Studio в кодеке поставляемого браузера (4dea03ab, 679d2291, 04f5938f)"
+   ],
+   "not_proven": [
+    "всё, что живёт на линии сборки: гибридные порты, File Intelligence, OpenHands, Windows-архив"
+   ]
+  },
+  {
+   "sha": "04f5938f69a3918a95c3172836bdfcf3c370358a",
+   "branch": "claude/bossman-control-v03-43igbk",
+   "role": "ЗАМОРОЗКА РАНТАЙМА линии управления: последний SHA, где менялся её код",
+   "proven": [
+    "Command Center CI — зелено целиком: pytest py3.11, pytest py3.12, windows paths (py3.12) на windows-latest, секреты/SAST/JS",
+    "Editors user safety — зелено: настоящий браузер, шаг «No silently skipped baseline» пройден",
+    "root-ci, Bossman Core CI, ASTRA acceptance, Solana safety gates, Fable media и Fleet, Bossman V2 Auto-Repair — зелено",
+    "локально: полный набор Command Center 2002 passed / 16 skipped, корневой 898 passed / 2 skipped",
+    "CLEAN_INSTALL=PASS, 13 владельческих проверок на установленном продукте",
+    "Video Studio ЗЕЛЕНО там, где FFmpeg установлен — точка отсчёта для BL-015"
+   ],
+   "not_proven": [
+    "Intelligence Preservation — красный НАМЕРЕННО: нет доступа к модели",
+    "живой запуск на Windows (проверены пути и обёртки, не сам запуск)",
+    "локальная модель",
+    "целевое железо"
+   ]
+  },
+  {
+   "sha": "5b673262dbee69c1f460253ba874111fad95cbfb",
+   "branch": "claude/bossman-final-completion-kymr05",
+   "role": "вершина линии сборки до сведения: File Intelligence, гибридные порты, один скачиваемый архив",
+   "proven": [
+    "приёмка одного скачиваемого Windows-архива BOSSMAN_BUNDLE_ACCEPTANCE=PASS",
+    "Command Center 3.11/3.12/3.14",
+    "вечерняя безопасность на обеих ОС"
+   ],
+   "not_proven": [
+    "гейт интеллекта (намеренно fail-closed)",
+    "всё, что живёт на линии управления"
+   ]
+  },
+  {
+   "sha": "910ca901ddcd84c13d65f9246dfec394088c29bf",
+   "branch": "freeze/final-audit-closure-20260908",
+   "role": "исторический рантайм-фриз, дальняя точка отката",
+   "proven": [
+    "закрытие аудита на момент 2026-09-08"
+   ],
+   "not_proven": [
+    "всё, что сделано после"
+   ]
+  },
+  {
+   "sha": "4fff1bd5c2838037605129927e429a824c54a27e",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "ПРОХОД ДОВЕДЕНИЯ: разделы 10, 20, 21, 22, 23 закрыты; шесть дефектов найдены и починены",
+   "proven": [
+    "корневой набор py3.11: 1381 passed, 3 skipped, 0 failed",
+    "Command Center полный, настоящий Chromium и настоящий FFmpeg: 3349 passed, 23 skipped, 0 failed",
+    "раздел 23: 29 страниц, 115 нажатий настоящим Chromium, мёртвых нажатий 0 (docs/final/ui_acceptance.json)",
+    "раздел 21: потоки B (сайт), E (видео), F (память), G (составной) — PASS против живого приложения (docs/final/owner_flows.json)",
+    "раздел 10: слой раскадровки собирает таймлайн настоящими командами, рендер проходит полное декодирование, отрицательный контроль краснеет",
+    "раздел 22: 19 режимов отказа, у каждого назван существующий тест; проверка версии бэкенда добавлена и проверена мутацией",
+    "раздел 20: 12 инвариантов, у каждого назван тест-сторож",
+    "BL-024, BL-025, BL-026, BL-027, BL-028, BL-029 — найдены и починены с регрессиями"
+   ],
+   "not_proven": [
+    "корневой набор py3.12 в этом окружении даёт 11 пропусков против 3 на 3.11: нет зависимостей bossman-core. Восемь лишних пропусков — не благополучие",
+    "поток A (программирование): нет ни кодового сайдкара, ни отвечающей локальной модели",
+    "поток C (компьютер): платформа Linux, Windows-MCP нечем выполнить",
+    "поток D (файлы) целиком: без локальной модели предлагать имена нечему",
+    "замер удержания интеллекта: модели по-прежнему нет; гейт остаётся INSUFFICIENT_EVIDENCE намеренно",
+    "целевое железо Ryzen AI Max+ 395: ни одного числа"
+   ]
+  },
+  {
+   "sha": "e39610de2c997aa98e22a74ce932daf7d8189b5b",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "ПЕРВЫЙ КАНДИДАТ ПО ЗАМКУ ВХОДОВ (BL-071) И КОНТРАКТУ ПРИЁМКИ v2 (BL-069/070): один Windows-архив, release_state WINDOWS_RC_READY_OWNER_REQUIRED",
+   "archive": {
+    "name": "BOSSMAN-Windows-x64-e39610de2c99.zip",
+    "bytes": 782842928,
+    "sha256": "a09067173b360a2c106748d6e1349a376c84e5740a469d55bab39da86ea7c0e6",
+    "actions_run": 35242661545,
+    "actions_artifact": 10506711233,
+    "artifact_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35242661545/artifacts/10506711233",
+    "artifact_expires": "2026-10-17"
+   },
+   "proven": [
+    "сборка по замку: BOSSMAN_BUILD_INPUTS=LOCKED profile=release, required_downloads=0; замок прогона совпал с закоммиченным (116 пинов, CPython 3.12.10, FFmpeg n8.1-11-g75d37c499d)",
+    "BOSSMAN_BUNDLE_ACCEPTANCE=PASS на Windows-раннере; вечерняя приёмка запущена ИЗ скачанного архива без репозитория: доктор OK, OWNER_EVENING_RESULT=PASS",
+    "приёмка установленного архива: 42 из 42 по профилю windows-installed (14 модулей ровно по реестру), JUnit привязан к source_sha/archive_sha256/run_id/harness_sha",
+    "BL-063: один клик выбирает ровно нужный узел на установленном архиве, 2 из 2 (масштаб по ширине и 0.5), «Применить» меняет этот узел, правка переживает перезапуск",
+    "развёртка установленного приложения: PASS, 30 страниц, 118 нажатий, мёртвых/ошибочных/молча выключенных/исчезнувших 0",
+    "история после перезапуска: 1422 мс при бюджете 5000",
+    "заморозка: OWNER_REQUIRED, release_state WINDOWS_RC_READY_OWNER_REQUIRED, блокеров нет; единственная причина — live-model.json:not_passed",
+    "Command Center CI (pytest 3.11/3.12/3.14, windows paths, секреты/JS), root-ci, editors-user-safety, shipped-apps, local bundle, ASTRA, Solana, PostgreSQL — зелёные на этом SHA"
+   ],
+   "not_proven": [
+    "живая модель: BOSSMAN_FREE_LIVE=OWNER_REQUIRED — секрет пуст, 2 модели × 3 задачи не выполнялись",
+    "агентная задача с настоящей моделью: харнесс доказан только заглушкой (BL-073)",
+    "железо владельца: ни одного числа; раннер запускается из архива (app-support/target_hardware_acceptance.py)",
+    "сохранность интеллекта: INSUFFICIENT_EVIDENCE намеренно (measured intelligence retention красный)",
+    "Authenticode: архив не подписан",
+    "обновление/откат между двумя архивами с сохранением данных владельца: не проверялось",
+    "публикация Release на GitHub: из среды агента недоступна — операция владельца по INSTALL.md"
+   ]
+  },
+  {
+   "sha": "d05354112b314582fdeda1c4fff7621463b0946e",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "ТЕКУЩИЙ проверенный кандидат: правка потери ввода (BL-074) плюс фаза 0 студии V8; профиль приёмки вырос до 44 сценариев",
+   "archive": {
+    "name": "BOSSMAN-Windows-x64-d05354112b31.zip",
+    "bytes": 782871863,
+    "sha256": "c8b188f7a7d9947588112f47473479f756784414123fccfd4750ae078b47e4f5",
+    "actions_run": 35289246123,
+    "actions_artifact": 10525549045,
+    "artifact_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/35289246123/artifacts/10525549045",
+    "artifact_expires": "2026-10-18"
+   },
+   "proven": [
+    "все три задания прогона 118 зелёные: bundle, owner-experience, freeze",
+    "приёмка установленного архива 44 из 44 по профилю windows-installed (15 модулей)",
+    "перерисовка по открытию WebSocket больше не стирает набранное владельцем — пара тестов проверена и на архиве (BL-074)",
+    "развёртка установленного приложения PASS: 30 страниц, 118 нажатий, мёртвых и молча выключенных 0",
+    "история после перезапуска 1907 мс при бюджете 5000",
+    "заморозка OWNER_REQUIRED, release_state WINDOWS_RC_READY_OWNER_REQUIRED, блокеров нет; единственная причина — пустой секрет живой модели",
+    "фаза 0 студии V8 лежит в архиве, но продуктом не импортируется: поведение приложения не изменилось"
+   ],
+   "not_proven": [
+    "живая модель: BOSSMAN_FREE_LIVE=OWNER_REQUIRED, секрет пуст",
+    "официальный REST-контракт Higgsfield: запись каталога студии несёт OWNER_REQUIRED",
+    "железо владельца: ни одного числа",
+    "сохранность интеллекта: INSUFFICIENT_EVIDENCE намеренно",
+    "Authenticode: архив не подписан",
+    "обновление и откат между двумя архивами с сохранением данных владельца"
+   ]
+  },
+  {
+   "sha": "045d90c8d18cc22df467cfd7f03c365648666a8b",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "Studio V8 — репозиторная и Linux-wheel проверка, НЕ проверенный Windows кандидат",
+   "proven": [
+    "80 source/real-browser Studio + Images tests passed",
+    "2/2 Studio browser tests against separate installed Linux wheel; packaged catalog 6 records, 0 verified",
+    "root suite 1797 passed, 11 skipped; idle within phase-0 tolerance"
+   ],
+   "not_proven": [
+    "One existing operator overhead root test fails on this host; not green root suite",
+    "New Windows archive acceptance and full UI sweep pending",
+    "Real cloud generation, official Higgsfield MCP, TTS and target hardware OWNER_REQUIRED"
+   ]
+  },
+  {
+   "sha": "f195083e1588e74601d33a6d76fcd3d171e5bbd3",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "Проверенный Windows-кандидат со Studio V8 — прогон 126 (35304127364)",
+   "proven": [
+    "приёмка установленного архива 46 из 46: tests 46, failure 0, error 0, skipped 0; 16 модулей ровно по реестру",
+    "обход интерфейса на установленном архиве PASS: 31 страница, 139 нажатий; мёртвых, ошибочных, молча выключенных и исчезнувших — ноль",
+    "архив BOSSMAN-Windows-x64-f195083e1588.zip, 782983533 байта, SHA-256 fd2332723efd2f9e383b80dba57e953e4cba83ce603adc25a65a31ed7148840d",
+    "BOSSMAN_ASTRA6_FREEZE=OWNER_REQUIRED без блокеров; RELEASE_STATE=WINDOWS_RC_READY_OWNER_REQUIRED",
+    "история после перезапуска 1422 мс при бюджете 5000",
+    "каталог Studio: 6 записей, verified=0, unverified=6",
+    "BL-081 закрыт на настоящем Windows: рефрейм проходит; единственный error обхода прошлого прогона исчез, счётчик перешёл в request_accepted"
+   ],
+   "not_proven": [
+    "живая модель: BOSSMAN_FREE_LIVE=OWNER_REQUIRED, секрет пуст",
+    "живой Studio: BOSSMAN_STUDIO_LIVE=openrouter:OWNER_REQUIRED, STUDIO_LIVE_PATH=owner_required",
+    "сохранность интеллекта: INSUFFICIENT_EVIDENCE намеренно (BL-003)",
+    "железо владельца Ryzen AI Max+ 395 / Radeon 8060S: ни одного числа",
+    "Authenticode: архив не подписан",
+    "обновление и откат между двумя архивами с сохранением данных владельца",
+    "в этот архив НЕ входит 63c71b41 — правка кодировки отчёта обхода"
+   ]
+  },
+  {
+   "sha": "63c71b4158ae506828c1ee43d4c205d3f1884542",
+   "branch": "claude/bossman-final-convergence-hu2702",
+   "role": "Проверенный Windows-кандидат, второй зелёный подряд — прогон 127 (35305553254)",
+   "proven": [
+    "вся цепочка Windows зелёная: сборка, приёмка установленного архива, агрегатор",
+    "BOSSMAN_ASTRA6_FREEZE=OWNER_REQUIRED без блокеров; RELEASE_STATE=WINDOWS_RC_READY_OWNER_REQUIRED",
+    "архив BOSSMAN-Windows-x64-63c71b4158ae.zip, 782979778 байт, SHA-256 805917dc5829cb43fa716a00eb26b19bc8433be4e611faad83932c6081f2d1a9",
+    "содержит правку кодировки отчёта обхода, которой нет в f195083e",
+    "профиль приёмки удовлетворён и обход PASS выведены из контракта агрегатора: OWNER_REQUIRED достижим только с пустым списком блокеров, а REVIEW_REQUIRED обхода стал бы блокером",
+    "улики: windows-owner-proof-63c71b41… (10531828982), astra6-freeze-63c71b41… (10532351992)"
+   ],
+   "not_proven": [
+    "точные счётчики приёмки и обхода этого прогона я не читал построчно — читал их на 126 (46/46, 31 страница, 139 нажатий)",
+    "живая модель: BOSSMAN_FREE_LIVE=OWNER_REQUIRED",
+    "живой Studio: STUDIO_LIVE_PATH=owner_required",
+    "сохранность интеллекта: INSUFFICIENT_EVIDENCE намеренно (BL-003)",
+    "железо владельца, Authenticode, обновление и откат между архивами"
+   ]
+  }
+ ],
+ "studio_v8_candidate_note": "V8 worktree has source tests; no new known-good Windows SHA is asserted before archive/live acceptance. See docs/v8/PHASES_1_5_DELIVERY_RU.md."
+}

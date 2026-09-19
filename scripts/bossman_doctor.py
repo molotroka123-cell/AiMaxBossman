@@ -59,6 +59,31 @@ def _run(cmd: list[str], timeout: float = 6.0) -> tuple[int, str]:
 # --------------------------------------------------------------------- checks
 
 
+
+def check_build_identity() -> Check:
+    """Какой код сейчас запустится. Первая строка приёмки, а не косметика.
+
+    Владельческая сессия по неизвестному SHA даёт улики, которые не к чему
+    привязать: они выглядят доказательством и им нельзя пользоваться. Поэтому
+    недоказанный источник — WARN с названной причиной, а не тихий пропуск.
+    Стартовать при этом можно: доктор говорит правду, а не запрещает работать.
+    """
+    try:
+        from bcc.build_identity import UNKNOWN, source_identity
+    except Exception as exc:                        # pragma: no cover - защитный
+        return Check("build-identity", WARN, f"личность сборки не читается: {exc}",
+                     remedy="Проверьте установку command-center.")
+    found = source_identity(fresh=True)
+    if found["source_identity"] == UNKNOWN:
+        return Check("build-identity", WARN,
+                     f"SOURCE_IDENTITY_UNKNOWN — {found.get('detail') or 'источник не доказан'}",
+                     remedy="Запускайте из чистого git-чекаута или из установленной "
+                            "сборки: иначе улики приёмки не привязать к коммиту.",
+                     facts=found)
+    origin = "установленная сборка" if found["source"] == "installed_build" else "рабочий чекаут"
+    return Check("build-identity", PASS, f"{found['build_sha']} ({origin})", facts=found)
+
+
 def check_python() -> Check:
     v = sys.version_info
     if (v.major, v.minor) < MIN_PYTHON:
@@ -236,6 +261,39 @@ def check_journal_anchor() -> Check:
 
 def check_browser_runtime() -> Check:
     """TEST 2/3 вечерней приёмки требуют НАСТОЯЩИЙ браузер. Фейковый адаптер не считается."""
+    # The owner installer ships Playwright Chromium. Use the same discovery as
+    # the product instead of asking the owner to install it again.
+    try:
+        from bcc.browser_runtime import chromium_executable
+        runtime = chromium_executable()
+    except ImportError:
+        runtime = None
+    if runtime:
+        # `chromium_executable` — поиск ПУТИ: он читает метаданные и проверяет,
+        # что файл на месте, и сам документирован как «без подпроцессов». Этого
+        # мало для вердикта, который докстринг выше называет «НАСТОЯЩИЙ
+        # браузер»: воспроизведено подстановкой исполняемого файла, который
+        # браузером не является (`exit 127`) — доктор отвечал
+        # PASS «Chromium установлен», а в фактах у него же стояло
+        # live_launch_verified: False. Существование файла — не работоспособность.
+        #
+        # Поэтому браузер ЗАПУСКАЕТСЯ. `--version` стоит ~100 мс, не открывает
+        # окна и не оставляет процессов, а отличает настоящий Chromium от
+        # любого файла с подходящим именем.
+        code, out = _run([runtime, "--version"], timeout=20.0)
+        launched = code == 0 and ("chrom" in out.lower())
+        if launched:
+            return Check("browser", PASS, f"Chromium запускается: {out.strip()[:80]} ({runtime})",
+                         facts={"browser": runtime, "playwright": True,
+                                "live_launch_verified": True, "version": out.strip()[:120]})
+        return Check("browser", WARN,
+                     f"Chromium найден, но НЕ ЗАПУСКАЕТСЯ: {runtime} "
+                     f"(код {code}, вывод {out.strip()[:80]!r})",
+                     "На голом Ubuntu/Debian не хватает системных библиотек: "
+                     "`.venv/bin/python -m playwright install-deps chromium`; "
+                     "если файл повреждён — `.venv/bin/python -m playwright install chromium`",
+                     {"browser": runtime, "playwright": True, "live_launch_verified": False,
+                      "exit_code": code})
     candidates = ["chrome", "chromium", "chromium-browser", "google-chrome", "msedge"]
     found = next((shutil.which(c) for c in candidates if shutil.which(c)), None)
     if not found and os.name == "nt":
@@ -278,6 +336,25 @@ def check_model_endpoint() -> Check:
                      f"локальная модель на {url} недоступна ({type(exc).__name__})",
                      "Запустите Ollama, либо настройте облачного провайдера в Command Center",
                      {"endpoint": url})
+
+
+def check_openhands() -> Check:
+    """OpenHands (Coding → задача агенту) — WARN, не BLOCKED: приёмка без него
+    возможна, но страница Coding честно скажет, что агент недоступен.
+
+    Аудит владельца 2026-09-08 (F4): до OpenHands из интерфейса было не
+    дотянуться, и никто не говорил почему. Здесь называются обе предпосылки:
+    рантайм bossman-core импортируется и команда сайдкара настроена."""
+    facts: dict[str, Any] = {"runtime": _importable("bossman.apprentice.openhands_client"),
+                             "command_env": "BOSSMAN_OPENHANDS_COMMAND",
+                             "command_set": bool(os.environ.get("BOSSMAN_OPENHANDS_COMMAND", "").strip())}
+    if not facts["runtime"]:
+        return Check("openhands", WARN, "рантайм OpenHands (bossman.apprentice) не импортируется",
+                     "pip install -e ./bossman-core рядом с Command Center", facts)
+    if not facts["command_set"]:
+        return Check("openhands", WARN, "команда сайдкара OpenHands не настроена — Coding покажет «агент недоступен»",
+                     "задайте BOSSMAN_OPENHANDS_COMMAND (путь к сайдкару) и перезапустите Bossman", facts)
+    return Check("openhands", PASS, "рантайм OpenHands и команда сайдкара на месте", facts=facts)
 
 
 def check_hardware() -> Check:
@@ -328,6 +405,141 @@ def check_windows_specific() -> Check:
     return Check("windows", PASS, f"Windows {platform.release()}: базовые предпосылки на месте")
 
 
+# Наблюдение и действия оператора на Windows: pywinauto/pywin32 дают UIA-обход и
+# окно переднего плана, pyautogui+Pillow — ввод и скриншот. Без них оператор
+# запускается и «работает», но не видит ничего.
+_WINDOWS_OPERATOR_DEPS = {"pywinauto": "обход UIA и окно переднего плана",
+                          "win32api": "pywin32: разрешение окна и ввод",
+                          "pyautogui": "клик, ввод, прокрутка, скриншот",
+                          "PIL": "Pillow: сохранение скриншота"}
+
+
+def check_computer_operator_deps() -> Check:
+    """Оператор компьютера на Windows: слепой оператор хуже отсутствующего.
+
+    Живой прогон владельца (20260906): наблюдение возвращало ModuleNotFoundError,
+    планировщик выжигал бюджет и задача падала. Диагноз стоил часа; здесь он
+    стоит секунды. На не-Windows проверка неприменима — адаптер туда не идёт.
+    """
+    if os.name != "nt":
+        return Check("computer-operator", PASS,
+                     f"не Windows ({platform.system()}); Windows-адаптер оператора неприменим")
+    missing = {m: why for m, why in _WINDOWS_OPERATOR_DEPS.items() if not _importable(m)}
+    if missing:
+        return Check("computer-operator", BLOCKED,
+                     "управление компьютером не заработает: нет " + ", ".join(
+                         f"{m} ({why})" for m, why in missing.items()),
+                     "python -m pip install -e bossman-core[windows]",
+                     {"missing": sorted(missing)})
+    return Check("computer-operator", PASS,
+                 "наблюдение и ввод на месте: pywinauto, pywin32, pyautogui, Pillow",
+                 facts={"missing": []})
+
+
+def check_gateway_url() -> Check:
+    """Адрес Gateway без версии превращает каждый ход планировщика в 404.
+
+    Живой прогон владельца (20260906, GATEWAY-URL-V1): BOSSMAN_GATEWAY_URL был
+    задан без `/v1`, и 21 перепланирование подряд заканчивалось «planner replan
+    budget» без единого намёка на причину. Клиент теперь нормализует адрес, но
+    владельцу всё равно полезно видеть, ЧТО именно будет использовано.
+    """
+    raw = os.environ.get("BOSSMAN_GATEWAY_URL", "").strip()
+    sys.path[:0] = [str(REPO / "bossman-core")]
+    try:
+        from bossman.gateway.client import DEFAULT_BASE_URL, normalize_base_url
+    except Exception as exc:  # noqa: BLE001
+        return Check("gateway-url", WARN, f"клиент Gateway недоступен: {type(exc).__name__}: {exc}",
+                     "python -m pip install -e bossman-core")
+    if not raw:
+        return Check("gateway-url", PASS,
+                     f"BOSSMAN_GATEWAY_URL не задан; будет использован {DEFAULT_BASE_URL}",
+                     facts={"effective": DEFAULT_BASE_URL, "configured": ""})
+    effective = normalize_base_url(raw)
+    if effective != raw.rstrip("/"):
+        return Check("gateway-url", WARN,
+                     f"BOSSMAN_GATEWAY_URL={raw} без версии; запросы пойдут на {effective}",
+                     f"Задайте BOSSMAN_GATEWAY_URL={effective}, чтобы адрес совпадал с фактическим",
+                     {"configured": raw, "effective": effective})
+    return Check("gateway-url", PASS, f"Gateway: {effective}",
+                 facts={"configured": raw, "effective": effective})
+
+
+def _openrouter_env_conflict() -> str:
+    """Один ключ под разными именами с РАЗНЫМИ значениями — гарантированный сюрприз."""
+    sys.path[:0] = [str(REPO / "command-center")]
+    try:
+        from bcc.v2.openrouter_identity import env_credential
+    except Exception:  # noqa: BLE001 — Command Center может быть не установлен
+        return ""
+    return env_credential().conflict_message or ""
+
+
+def _disabled_cloud_backends() -> list[str]:
+    """Облачные бэкенды, выключенные в yaml. Нет конфигурации — нечего и выключать."""
+    try:
+        from bossman.gateway.config import load_gateway_config
+        path = os.environ.get("BOSSMAN_GATEWAY_CONFIG") or (REPO / "bossman-core" / "config" / "gateway.yaml")
+        cfg = load_gateway_config(path)
+    except Exception:  # noqa: BLE001 — доктор не падает из-за чужого конфига
+        return []
+    return sorted(name for name, b in cfg.backends.items()
+                  if b.cloud and not b.enabled)
+
+
+def check_cloud_providers() -> Check:
+    """Облачные ключи: есть — облако подключится, нет — останутся локальные модели.
+
+    Ключ проверяется по факту наличия, без похода в сеть и без вывода значения:
+    доктор не имеет права ни расходовать чужую квоту, ни печатать секрет. Живой
+    прогон 20260906 (KEY-EXPIRY) показал и обратное: отсутствие ключа обязано
+    быть ВИДНО заранее, а не выясняться посреди задачи.
+    """
+    sys.path[:0] = [str(REPO / "bossman-core")]
+    try:
+        from bossman.gateway.config import (GLM_MODEL_ENV, OPENROUTER_BASE_URL_ENV,
+                                            OPENROUTER_KEY_ENV, ZAI_KEY_ENV,
+                                            glm_model_id, load_env_file)
+    except Exception as exc:  # noqa: BLE001
+        return Check("cloud-providers", WARN,
+                     f"конфигурация Gateway недоступна: {type(exc).__name__}: {exc}",
+                     "python -m pip install -e bossman-core")
+    load_env_file()                       # .env владельца — такой же источник, как окружение
+    present = [env for env in (OPENROUTER_KEY_ENV, ZAI_KEY_ENV) if os.environ.get(env, "").strip()]
+    facts = {"configured": present, "glm_model": glm_model_id(),
+             "openrouter_base_url": os.environ.get(OPENROUTER_BASE_URL_ENV, "") or "(по умолчанию)"}
+    disabled = _disabled_cloud_backends()
+    facts["disabled_in_config"] = disabled
+    conflict = _openrouter_env_conflict()
+    facts["credential_conflict"] = conflict or ""
+    if conflict:
+        # Расхождение имён одной переменной — исходная причина «дал ключ, ничего
+        # не появилось» (audit-11, OR-003). Молчать о нём нельзя, а угадывать,
+        # какое значение владелец имел в виду, — тем более.
+        return Check("cloud-providers", WARN, conflict,
+                     f"Оставьте одно значение; каноническое имя — {OPENROUTER_KEY_ENV}", facts)
+    if present and disabled:
+        # Ключ есть, а бэкенд в yaml выключен: Gateway подчиняется оператору и
+        # молча остаётся без облака. Единственное место, где это видно заранее.
+        return Check("cloud-providers", WARN,
+                     f"ключ задан ({', '.join(present)}), но в конфигурации Gateway "
+                     f"выключены бэкенды: {', '.join(disabled)}",
+                     "Уберите enabled: false у этого бэкенда в config/gateway.yaml "
+                     "(или удалите блок целиком — он поднимется по ключу)",
+                     facts)
+    if not present:
+        return Check("cloud-providers", WARN,
+                     f"облачных ключей нет ({OPENROUTER_KEY_ENV}, {ZAI_KEY_ENV} пусты); "
+                     f"работать можно только на локальных моделях",
+                     f"Задайте {OPENROUTER_KEY_ENV} в bossman-core/.env "
+                     f"и проверьте: bossman models list --provider openrouter",
+                     facts)
+    return Check("cloud-providers", PASS,
+                 f"ключи заданы: {', '.join(present)}; модель GLM у Z.ai: "
+                 f"{glm_model_id()} ({GLM_MODEL_ENV})",
+                 facts=facts)
+
+
 def check_telemetry_corpus() -> Check:
     """Куда попадут выборки реальных нагрузок сегодня вечером."""
     sys.path[:0] = [str(REPO / "bossman-core"), str(REPO)]
@@ -352,9 +564,11 @@ def check_telemetry_corpus() -> Check:
 
 
 CHECKS: list[Callable[[], Check]] = [
+    check_build_identity,
     check_python, check_python_packages, check_bossman_packages, check_node, check_ffmpeg,
     check_state_dir, check_evidence_key, check_journal_anchor, check_browser_runtime,
-    check_model_endpoint, check_hardware, check_windows_specific, check_telemetry_corpus,
+    check_model_endpoint, check_openhands, check_hardware, check_windows_specific, check_computer_operator_deps,
+    check_gateway_url, check_cloud_providers, check_telemetry_corpus,
 ]
 
 
@@ -395,7 +609,26 @@ def render(results: list[Check]) -> str:
     return "\n".join(lines)
 
 
+def utf8_console() -> None:
+    """Печать не имеет права падать на кириллице.
+
+    Раннеры приёмки запускаются с `-I`, а `-I` подразумевает `-E`: PYTHONUTF8
+    и PYTHONIOENCODING игнорируются. На Windows поток получает кодировку
+    локали, и первая же русская строка роняет процесс UnicodeEncodeError —
+    так и закончился прогон 132 на настоящей Windows. Требование касается и
+    вывода без русских строк: печатаемый путь проходит через имя пользователя
+    Windows, а оно вполне может быть кириллическим. `errors='replace'`
+    оставляет печать живой и там, где UTF-8 недоступен.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    utf8_console()
     parser = argparse.ArgumentParser(prog="bossman doctor", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--json", action="store_true", help="машиночитаемый отчёт вместо таблицы")

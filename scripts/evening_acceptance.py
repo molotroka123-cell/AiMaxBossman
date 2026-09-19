@@ -459,7 +459,23 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 1 if problems else 0
 
 
+def _console_utf8() -> None:
+    """Windows consoles default to a legacy code page (cp1252 on the runners).
+
+    Every line these harnesses print is Russian, so the first print crashed the
+    owner-facing verify with UnicodeEncodeError before it could report anything.
+    The launchers happened to export PYTHONUTF8, which hid it; a direct run and
+    CI did not. Output encoding is not a verdict — make it robust here.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):  # already replaced or not a text stream
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _console_utf8()
     parser = argparse.ArgumentParser(prog="evening_acceptance", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command")

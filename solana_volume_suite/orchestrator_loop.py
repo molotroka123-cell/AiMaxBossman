@@ -31,7 +31,7 @@ class VolumeOrchestratorLoop:
     def __init__(
         self,
         vault_path: Optional[str] = None,
-        master_password: str = "SuperSecretMasterPass123!",
+        master_password: Optional[str] = None,
         target_token_mint: str = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",  # ci-secret-scan: allow -- public SPL token mint address (identifier, not a key)
         max_allowed_loss_usd: float = 40.0,
         test_mode: bool = False
@@ -40,6 +40,16 @@ class VolumeOrchestratorLoop:
             self.vault_path = os.path.join(SUITE_ROOT, "wallets_encrypted.json")
         else:
             self.vault_path = vault_path
+        # SEC-002: never fall back to a hardcoded default vault password.
+        # Resolve from explicit arg, then env var; fail closed outside test_mode.
+        if master_password is None:
+            master_password = os.environ.get("VAULT_MASTER_PASSWORD")
+        if master_password is None and not test_mode:
+            raise ValueError(
+                "VAULT_MASTER_PASSWORD not provided (pass master_password= or set "
+                "the VAULT_MASTER_PASSWORD env var). Refusing to start with no vault "
+                "password rather than falling back to a hardcoded default."
+            )
         self.master_password = master_password
         self.target_token_mint = target_token_mint
         self.max_allowed_loss_usd = max_allowed_loss_usd

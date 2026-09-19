@@ -28,6 +28,16 @@ class Observer:
         fg=await self.structured.foreground()
         tree=await self.structured.ui_tree()
         return fg,tree
+    async def probe(self,*,generation:int):
+        """Дешёвая перепроверка применимости экрана (AT-03).
+
+        Полное наблюдение дополнительно платит за PNG и за вызов summarizer, а
+        подпись применимости считается только по foreground и ui_tree — на границе
+        эффекта это чистая переплата. Здесь берём ровно структуру.
+        """
+        fg,tree=await self._structured()
+        return Observation(new_id("obs"),time.time(),fg or {},"",tree,None,False,generation)
+
     async def observe(self,*,generation:int):
         (fg,tree),(ref,sensitive)=await asyncio.gather(self._structured(),self.screenshot.capture())
         if self.summarizer:

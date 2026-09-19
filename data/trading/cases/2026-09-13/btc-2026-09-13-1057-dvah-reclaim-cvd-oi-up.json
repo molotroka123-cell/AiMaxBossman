@@ -1,0 +1,30 @@
+{
+  "canonical_case_id": "CASE-002",
+  "timestamp_local": "2026-09-13T10:57:00-04:00",
+  "source": "user-supplied Coinwise/K1m6a screenshots",
+  "market": "BTC",
+  "observed": {
+    "reference_price": 77174.70,
+    "cvd_billion": 56.15,
+    "open_interest_billion": 18.10,
+    "long_liquidations_displayed": 769,
+    "short_liquidations_thousand": 279.15,
+    "dval": 76554.50,
+    "dpoc": 76771.75,
+    "dvah": 77115.50
+  },
+  "delta_from_prior_observation": {
+    "prior_cvd_billion": 55.12,
+    "prior_open_interest_billion": 18.00,
+    "cvd_change_billion": 1.03,
+    "oi_change_billion": 0.10
+  },
+  "state": "PRICE_UP + CVD_UP + OI_UP + DVAH_RECLAIM",
+  "interpretation": "The prior bearish-leverage-expansion warning has reversed into a bullish structural reclaim. Price is above dVAH while CVD and OI both rise, indicating directional participation rather than pure deleveraging. Some short liquidation is visible, but the OI increase means the move is not only short covering.",
+  "trade_logic": {
+    "long_edge": "Best edge is dVAH acceptance, not chasing the impulse. Prefer a retest/hold of 77115-77130 with CVD remaining firm and price not immediately falling back into value.",
+    "first_targets": [77350, 77450, 77600],
+    "invalidation": "A fast loss of dVAH followed by acceptance back below it weakens the setup. If price then falls while CVD falls and OI continues to rise, bearish leverage expansion returns.",
+    "crowding_warning": "If OI keeps rising but price stalls near the next resistance while CVD stops advancing, leverage efficiency deteriorates and a crowded-long/failed-continuation setup can form."
+  }
+}

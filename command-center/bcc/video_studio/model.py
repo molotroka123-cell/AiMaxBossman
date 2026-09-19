@@ -82,6 +82,28 @@ def clip_duration(clip):
     return (total.numerator + total.denominator // 2) // total.denominator
 
 
+def container_slop_ticks(media):
+    """Допуск на квантование длительности контейнера — ровно один кадр.
+
+    ffprobe отдаёт длительность КОНТЕЙНЕРА, а не сумму реально закодированных
+    кадров: MP4 хранит её в собственном timescale, а edit list, поставленный
+    ради B-кадров, укорачивает её ещё на кадр. Поэтому последний законно
+    выбранный кадр регулярно оказывается «за» этой цифрой, хотя он в файле
+    есть: для 30000/1001 и четырёх кадров source_out=133467 при длительности
+    133467 — впритык, и другая сборка FFmpeg, округлившая вниз, отклоняет
+    корректный проект.
+
+    Один кадр исходника — верхняя граница этой ошибки. Всё, что дальше, —
+    настоящий выход за пределы, и он по-прежнему отклоняется. Допуск не
+    расширяет монтаж: рендер всё равно читает столько, сколько есть в файле.
+    """
+    rate = media.get("fps") or {}
+    num, den = rate.get("num"), rate.get("den")
+    if type(num) is not int or type(den) is not int or num <= 0 or den <= 0:
+        return 0
+    return -(-TICKS * den // num)      # ceil: один кадр в тиках
+
+
 def sequence(project, sequence_id=None):
     sid = sequence_id or project["active_sequence_id"]
     return next((s for s in project["sequences"] if s["id"] == sid), None) or _missing("sequence", sid)
@@ -232,7 +254,8 @@ def validate_project(project):
                     media = project["media"].get(c.get("media_id"))
                     if media is None:
                         raise MissingObject("Clip references missing media")
-                    if c["source_out"] > media["duration_ticks"] and media["duration_ticks"] > 0:
+                    if (media["duration_ticks"] > 0
+                            and c["source_out"] > media["duration_ticks"] + container_slop_ticks(media)):
                         raise StudioError("Clip extends beyond source duration")
                     if tr["kind"] == "audio" and not media.get("has_audio"):
                         raise StudioError("Audio track requires an audio stream")

@@ -6,7 +6,9 @@ come from bounded numeric data; user text lives in generated subtitle files.
 from __future__ import annotations
 
 import asyncio
+import errno
 from fractions import Fraction
+from functools import lru_cache
 import hashlib
 import json
 import math
@@ -16,6 +18,24 @@ import re
 import tempfile
 
 from .media import MediaLibrary, TICKS, binary, blocking, digest_file, input_args, probe, process
+
+
+@lru_cache(maxsize=8)
+def filter_graph_option(ffmpeg: str, mtime_ns: int, size: int) -> str:
+    """Keep large graphs in files on both legacy and current FFmpeg builds.
+
+    Current FFmpeg removed -filter_complex_script; FFmpeg 6 does not accept
+    its replacement -/filter_complex. Probe the installed binary once, and
+    invalidate the choice when it is replaced. Inline graphs would exceed the
+    Windows command-line limit for ordinary multi-clip projects.
+    """
+    import subprocess
+    result = subprocess.run([ffmpeg, "-hide_banner", "-h", "full"],
+                            capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=30, check=True)
+    return ("-filter_complex_script" if re.search(r"(?m)^-filter_complex_script\s", result.stdout)
+            else "-/filter_complex")
+
 
 EFFECT_PARAMETERS = {
     "eq":{"brightness","contrast","saturation","gamma"}, "color":{"brightness","contrast","saturation","gamma"},
@@ -531,10 +551,26 @@ async def verify_output(path, expected=None):
         "passed":not failures,"failures":failures}
 
 
+# ReFS (Windows Dev Drive), FAT/exFAT и сетевые шары не умеют жёстких ссылок и
+# сообщают об этом кто во что горазд. EEXIST сюда намеренно не входит: занятое имя
+# означает конкурирующий экспорт и обязано остаться отказом, а не уйти в подмену.
+NO_HARD_LINKS = frozenset({errno.EPERM, errno.EACCES, errno.EINVAL, errno.ENOSYS,
+                           errno.EXDEV, errno.EMLINK, errno.EOPNOTSUPP, errno.ENOTSUP})
+
+
 def publish(partial, output_path):
     with partial.open("rb+") as source:
         os.fsync(source.fileno())
-    os.link(partial,output_path)
+    try:
+        os.link(partial,output_path)
+    except OSError as error:
+        # Иначе экспорт гибнет на самом последнем шаге, уже пройдя полное
+        # независимое декодирование, пробу и хеширование готового файла.
+        if error.errno not in NO_HARD_LINKS:raise
+        # O_EXCL сохраняет ту же исключительность публикации, что и os.link:
+        # os.replace сам по себе молча затирает уже опубликованный артефакт.
+        os.close(os.open(output_path,os.O_CREAT|os.O_EXCL|os.O_WRONLY))
+        os.replace(partial,output_path)
 
 
 async def stream_copy(project, root, output_path, options, progress):
@@ -589,7 +625,7 @@ async def stream_copy(project, root, output_path, options, progress):
 
 async def render_project(project, root, output_path, options=None, progress=None):
     options=dict(options or {})
-    allowed={"width","height","fps","video_codec","audio_codec","crf","bitrate","audio_bitrate","range","sequence_id","preset","profile","mode"}
+    allowed={"width","height","fps","video_codec","audio_codec","crf","bitrate","audio_bitrate","range","sequence_id","preset","profile","mode","deadline","cpu_used"}
     if set(options)-allowed:raise ValueError("unsupported export option: "+",".join(sorted(set(options)-allowed)))
     seq=next(s for s in project["sequences"] if s["id"]==options.get("sequence_id",project["active_sequence_id"]))
     profiles={"source":(seq["width"],seq["height"]),"youtube":(1920,1080),"reels":(1080,1920),"square":(1080,1080)}
@@ -702,13 +738,34 @@ async def render_project(project, root, output_path, options=None, progress=None
         # Output -t quantizes some non-aligned durations down (e.g. 0.69s
         # at 25fps). Enforce the declared integer count instead; audio remains
         # independently bounded by atrim, and both streams are verified below.
-        argv=[binary("ffmpeg"),"-hide_banner","-loglevel","warning","-nostdin","-y",*compiler.inputs,
-            "-filter_complex_script",str(graph),"-filter_complex_threads","2","-map",f"[{v}]","-map",f"[{a}]",
+        ffmpeg = binary("ffmpeg")
+        stat = Path(ffmpeg).stat()
+        graph_option = await blocking(filter_graph_option, ffmpeg, stat.st_mtime_ns, stat.st_size)
+        argv=[ffmpeg,"-hide_banner","-loglevel","warning","-nostdin","-y",*compiler.inputs,
+            graph_option,str(graph),"-filter_complex_threads","2","-map",f"[{v}]","-map",f"[{a}]",
             "-frames:v",str(expected_frames),"-c:v",codec,"-c:a",audio_codec,"-ar","48000","-ac","2","-color_primaries","bt709","-color_trc","bt709","-colorspace","bt709","-color_range","tv"]
         if codec in {"libx264","libx265"}:
             preset=options.get("preset","veryfast")
             if preset not in {"ultrafast","superfast","veryfast","faster","fast","medium","slow"}:raise ValueError("invalid encoder preset")
             argv += ["-preset",preset,"-crf",fmt(number(options.get("crf",20),minimum=0,maximum=51))]
+        elif codec=="libvpx-vp9":
+            # libvpx-vp9 по умолчанию кодирует в ОДИН поток и с deadline=good,
+            # cpu-used=0 — это режим «максимальное качество любой ценой».
+            # Замерено на 320x180, 150 кадров: по умолчанию 2.53 с, с
+            # -row-mt 1 -threads 4 -deadline realtime -cpu-used 8 — 0.46 с,
+            # в 5.5 раза быстрее. Для превью, которое владелец ждёт на экране,
+            # разница между этими режимами и есть разница между «показалось» и
+            # «не дождался». Управление рулём качества остаётся у вызывающего:
+            # экспорт по умолчанию кодирует как раньше по качеству (good) и
+            # выигрывает только на распараллеливании.
+            deadline=options.get("deadline","good")
+            if deadline not in {"good","realtime","best"}:raise ValueError("invalid vp9 deadline")
+            # У libvpx-vp9 допустимый потолок cpu-used зависит от режима:
+            # в realtime это 8, в good/best — 5. Больший потолок молча
+            # обрезается кодировщиком, поэтому проверяем сами.
+            cpu_used=number(options.get("cpu_used",0 if deadline=="best" else 2),
+                            minimum=0,maximum=8 if deadline=="realtime" else 5)
+            argv += ["-row-mt","1","-deadline",deadline,"-cpu-used",fmt(cpu_used)]
         elif codec.endswith("nvenc"):
             argv += ["-preset","p4","-cq",fmt(number(options.get("crf",20),minimum=0,maximum=51))]
         for key,flag in [("bitrate","-b:v"),("audio_bitrate","-b:a")]:

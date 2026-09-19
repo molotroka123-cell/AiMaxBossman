@@ -99,7 +99,27 @@ async def probe_vision(client: RawChatClient, model: str) -> ProbeResult:
         return ProbeResult("vision", False, f"{type(exc).__name__}: {exc}")
 
 async def probe_streaming(client: Any, model: str) -> ProbeResult:
-    """SSE-стрим: важен не текст, а то, что чанки реально приходят по частям."""
+    """SSE-стрим: важен не текст, а то, что кадры реально приходят по частям.
+
+    B4: результат больше не сводится к «есть чанки / нет чанков». Разбор идёт
+    через канонический bcc.streaming, и отказ ПРОВАЙДЕРА (HTTP-ошибка, обрыв,
+    error-кадр внутри тела) не записывается как свойство модели: это разные
+    решения для роутера. Модель, которая ответила одним куском, честно
+    помечается degraded — контент есть, инкрементальной доставки нет."""
+    from ..streaming import DEGRADED, PROVIDER_FAILED, SUPPORTED
+    outcome_fn = getattr(client, "stream_outcome", None)
+    if outcome_fn is not None:
+        outcome = await outcome_fn(model, [{"role": "user", "content": "Count: 1 2 3"}],
+                                   max_tokens=16)
+        detail = (f"{outcome.status}: {len(outcome.deltas)} delta(s), "
+                  f"{outcome.frames} frame(s)"
+                  + (f"; {outcome.error}" if outcome.error else "")
+                  + (f"; {outcome.text[:80]}" if outcome.text else ""))
+        if outcome.status == PROVIDER_FAILED:
+            # Не «модель не умеет»: провайдеру сейчас плохо. verified=None,
+            # чтобы роутер не занёс здоровую модель в чёрный список навсегда.
+            return ProbeResult("streaming", False, detail, skipped=True)
+        return ProbeResult("streaming", outcome.status in (SUPPORTED, DEGRADED), detail)
     stream = getattr(client, "stream_raw", None)
     if stream is None:
         return skipped("streaming", "client has no stream_raw()")

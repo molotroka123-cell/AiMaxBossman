@@ -15,19 +15,27 @@ Breaking changes bump it; additive fields do not.
 
 ## Authentication
 
-If `AWV_API_TOKEN` is set, every endpoint except `GET /healthz` requires
+If `AWV_API_TOKEN` is set, workload API endpoints require
 `Authorization: Bearer <token>` and is compared in constant time. If it is not
 set, the service is unauthenticated and must stay bound to `127.0.0.1` or a
 private VPN interface.
+`GET /healthz` and `GET /readyz` remain public and expose only minimal status.
 
 ## Calls
 
 ### health
 
 ```
-GET /healthz          -> {"status": "...", "app": {...}}          (liveness)
+GET /readyz           -> {"status": "ready", "scope": "http-service", "workload_status": "...", "app": {...}}
+GET /healthz          -> {"status": "...", "app": {...}}          (workload health summary)
 GET /api/v1/health    -> full readiness report
 ```
+
+`/readyz` confirms that the service lifespan initialized successfully and the
+HTTP API can answer. BOSSMAN uses it to acknowledge application startup even
+before the owner configures a camera or captures a baseline. Its separate
+`workload_status` preserves the health verdict; `ready` does not prove working
+camera input, calibration, detection, or CRM connectivity.
 
 `status` is one of `ok`, `degraded`, `unavailable`. `blockers` lists the exact
 reasons (missing ffmpeg, missing baseline, source unavailable, CRM

@@ -50,6 +50,8 @@ CREATE TABLE IF NOT EXISTS fleet_work_queue (
   work_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, priority INTEGER NOT NULL, requirement TEXT NOT NULL,
   payload TEXT NOT NULL, claimed_by TEXT, claimed_ts REAL, claim_fence INTEGER NOT NULL DEFAULT 0,
   attempts INTEGER NOT NULL DEFAULT 0, enqueued_ts REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS fleet_queue_fence_counter (
+  id INTEGER PRIMARY KEY CHECK(id=1), value INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS fleet_dead_letter (
   work_id TEXT PRIMARY KEY, mission_id TEXT NOT NULL, reason TEXT NOT NULL, failure_class TEXT NOT NULL,
   attempts INTEGER NOT NULL, payload TEXT NOT NULL, created_ts REAL NOT NULL, requeued INTEGER NOT NULL DEFAULT 0);
@@ -78,6 +80,11 @@ class FleetStore:
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as con:
             con.executescript(SCHEMA)
+            # A durable counter survives completed rows and dead-letter requeue.
+            # A migration epoch exceeds the old small per-row fencing counters.
+            con.execute("INSERT OR IGNORE INTO fleet_queue_fence_counter VALUES(1,?)", (time.time_ns() // 1_000_000,))
+            con.execute("DELETE FROM fleet_memory_reservations WHERE lease_id NOT IN "
+                        "(SELECT lease_id FROM fleet_leases)")
             cols = {r["name"] for r in con.execute("PRAGMA table_info(fleet_work_queue)")}
             if "queue_state" not in cols:
                 con.execute("ALTER TABLE fleet_work_queue ADD COLUMN queue_state TEXT NOT NULL DEFAULT 'ready'")
@@ -132,7 +139,7 @@ class FleetStore:
             cur = con.execute("UPDATE fleet_leases SET expires_ts=? WHERE lease_id=?", (expires_ts, lease_id))
             return cur.rowcount == 1
 
-    def delete_lease(self, lease_id: str) -> bool:
+    def delete_lease(self, lease_id: str, *, expected: Lease | None = None) -> bool:
         """Аренда и её бронь памяти уходят вместе, в одной транзакции.
 
         Внешние ключи на этом соединении не включены, поэтому удаление только из
@@ -142,8 +149,16 @@ class FleetStore:
         начинает читаться как настоящая бронь."""
         with self.connect() as con:
             con.execute("BEGIN IMMEDIATE")
-            con.execute("DELETE FROM fleet_memory_reservations WHERE lease_id=?", (lease_id,))
-            return con.execute("DELETE FROM fleet_leases WHERE lease_id=?", (lease_id,)).rowcount == 1
+            if expected is not None:
+                changed = con.execute("DELETE FROM fleet_leases WHERE lease_id=? AND node_id=? AND work_id=? "
+                                      "AND resource_class=? AND exclusive=? AND fence=?",
+                                      (lease_id, expected.node_id, expected.work_id, expected.resource_class,
+                                       int(expected.exclusive), expected.fence)).rowcount
+            else:
+                changed = con.execute("DELETE FROM fleet_leases WHERE lease_id=?", (lease_id,)).rowcount
+            if changed:
+                con.execute("DELETE FROM fleet_memory_reservations WHERE lease_id=?", (lease_id,))
+            return changed == 1
 
     def leases(self, *, node_id: str | None = None, work_id: str | None = None) -> list[Lease]:
         sql, args, cond = "SELECT * FROM fleet_leases", [], []
@@ -232,13 +247,16 @@ class FleetStore:
         with self.connect() as con:
             con.execute("BEGIN IMMEDIATE")
             try:
-                cur = con.execute("UPDATE fleet_work_queue SET claimed_by=?, claimed_ts=?, claim_fence=claim_fence+1, "
+                counter = int(con.execute("SELECT value FROM fleet_queue_fence_counter WHERE id=1").fetchone()[0])
+                previous = con.execute("SELECT claim_fence FROM fleet_work_queue WHERE work_id=?", (work_id,)).fetchone()
+                fence = max(counter, int(previous[0]) if previous else 0) + 1
+                cur = con.execute("UPDATE fleet_work_queue SET claimed_by=?, claimed_ts=?, claim_fence=?, "
                                   "attempts=attempts+1 WHERE work_id=? AND claimed_by IS NULL "
-                                  "AND queue_state='ready' AND not_before<=?", (node_id, now, work_id, now))
+                                  "AND queue_state='ready' AND not_before<=?", (node_id, now, fence, work_id, now))
                 if cur.rowcount != 1:
                     con.execute("ROLLBACK")
                     return None
-                fence = int(con.execute("SELECT claim_fence FROM fleet_work_queue WHERE work_id=?", (work_id,)).fetchone()[0])
+                con.execute("UPDATE fleet_queue_fence_counter SET value=? WHERE id=1", (fence,))
                 con.execute("COMMIT")
                 return fence
             except Exception:

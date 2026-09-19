@@ -1,0 +1,48 @@
+{
+  "case_id": "btc-2026-09-10-decision-point-dval-test",
+  "date": "2026-09-10",
+  "time_local": "14:00-02:30",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "instrument_note": "Reference chart and execution tape are visibly offset; preserve them separately and translate reference levels to execution venue before orders.",
+  "observed": {
+    "reference_chart_price_approx": 77375,
+    "execution_tape_approx": [77200, 77245],
+    "cvd_billion": 47.40,
+    "open_interest_billion": 18.67,
+    "dVAL_approx": 77430,
+    "dPOC_approx": 78145,
+    "dOpen_approx": 78550,
+    "dVAH_approx": 78720
+  },
+  "comparison_to_prior_post_capitulation_rebuild": {
+    "prior_reference_price_approx": 77225,
+    "prior_cvd_billion": 46.94,
+    "prior_oi_billion": 18.66,
+    "price_change_approx": 150,
+    "cvd_change_billion": 0.46,
+    "oi_change_billion": 0.01,
+    "price_direction": "UP",
+    "cvd_direction": "UP",
+    "oi_direction": "FLAT_TO_SLIGHTLY_UP"
+  },
+  "state": "Price UP + CVD UP + OI FLAT/SLIGHTLY UP immediately below dVAL",
+  "regime": "POST_CAPITULATION_DVAL_DECISION_POINT",
+  "interpretation": "The rebound is now testing the exact structural boundary that separates an early long recovery from the failed-reclaim short edge. Price, CVD and OI are constructive versus the previous snapshot, but price is still just below dVAL ~77.43k. This is not yet acceptance. The next few observations are more informative than the raw UP/UP/UP matrix because location dominates at the boundary.",
+  "long_scenario": {
+    "trigger": "Reclaim dVAL ~77.43k and hold/retest above it.",
+    "confirmation": "CVD stays stable/up and OI does not rise while price stalls; ideally price progresses toward the next structural area rather than immediately falling back below dVAL.",
+    "stronger_confirmation": "Subsequent progress toward dPOC ~78.145k with acceptance above reclaimed value.",
+    "invalidation": "Reclaim attempt fails and price closes/accepts back below dVAL with weakening price response."
+  },
+  "short_scenario": {
+    "setup": "POST_CAPITULATION_FAILED_RECLAIM_SHORT",
+    "trigger": "Price probes/reclaims ~77.43k dVAL but cannot accept above and rolls back below.",
+    "confirmation": "Lower high/rejection below or around dVAL; CVD stalls/turns down; OI stays elevated or rises while price weakens.",
+    "avoid": "Do not short merely because price is below dVAL before a rejection sequence; current flow still shows active recovery.",
+    "invalidation": "Clean acceptance above dVAL with positive price response and continuation toward higher structure."
+  },
+  "edge_note": "This frame is a live out-of-sample test of the recovery-efficiency/failed-reclaim hypothesis. Do not label the edge VERIFIED from this episode; record the subsequent outcome without lookahead.",
+  "lesson": "At a structural boundary after capitulation, the decision is not made by Price/CVD/OI direction alone. Reclaim-and-accept favors the long path; probe-and-reject with weak price efficiency favors the short path. Wait for acceptance/rejection evidence instead of trading the midpoint of the decision zone."
+}

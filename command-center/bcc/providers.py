@@ -83,6 +83,24 @@ def _parse_tool_arguments(raw: Any) -> tuple[dict[str, Any], str]:
     return parsed, text
 
 
+def _response_object(resp: httpx.Response, *, what: str) -> dict[str, Any]:
+    """Decode a provider response into an object or fail as a provider error.
+
+    A HTTP 200 body that is HTML/truncated JSON is a protocol failure, not an
+    unhandled Python exception. Letting JSONDecodeError escape left the run
+    `running` until lease recovery and hid the actual provider cause.
+    """
+    try:
+        data = resp.json()
+    except (ValueError, json.JSONDecodeError):
+        raise ProviderError(f"{what}: сервер вернул невалидный JSON", kind="protocol",
+                            hint="проверьте совместимость endpoint и формат ответа") from None
+    if not isinstance(data, dict):
+        raise ProviderError(f"{what}: ожидался JSON-объект, получен {type(data).__name__}",
+                            kind="protocol")
+    return data
+
+
 @dataclass
 class Health:
     status: str = "unknown"          # ok | offline | error
@@ -228,7 +246,7 @@ class OpenAICompatAdapter(_BaseAdapter):
         resp = await self._request("POST", f"{self.base_url}/chat/completions",
                                    timeout=kw.get("timeout", CHAT_TIMEOUT),
                                    headers=self._headers(), json=payload)
-        data = resp.json()
+        data = _response_object(resp, what="chat/completions")
         choices = data.get("choices") or []
         if not choices:
             raise ProviderError("модель вернула пустой ответ (нет choices)")
@@ -253,13 +271,67 @@ class OpenAICompatAdapter(_BaseAdapter):
         )
 
     async def health(self) -> Health:
-        return await self._health_via(f"{self.base_url}/models", self._headers())
+        t0 = time.perf_counter()
+        try:
+            models = await self.list_model_info()
+        except ProviderError as exc:
+            return Health(status="offline" if exc.kind == "network" else "error", detail=str(exc))
+        detail = model_catalog_problem(models)
+        return Health(status="error" if detail else "ok", detail=detail,
+                      latency_ms=int((time.perf_counter() - t0) * 1000))
 
     async def list_models(self) -> list[str]:
+        return [m["id"] for m in await self.list_model_info()]
+
+    async def list_model_info(self) -> list[dict[str, Any]]:
+        """Read the existing catalog without loading a model or issuing inference.
+
+        llama.cpp reports a null meta while loading and per-model state in
+        router mode. Retain that evidence; a successful catalog HTTP request
+        alone does not prove model readiness. Only public, selected fields are
+        returned (router launch arguments can contain credentials).
+        """
         resp = await self._request("GET", f"{self.base_url}/models", timeout=HEALTH_TIMEOUT,
                                    headers=self._headers())
-        data = resp.json().get("data") or []
-        return [str(m.get("id")) for m in data if m.get("id")]
+        data = _response_object(resp, what="models").get("data")
+        if not isinstance(data, list):
+            raise ProviderError("models: поле data должно быть списком", kind="protocol")
+        models: list[dict[str, Any]] = []
+        for item in data:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str) or not item["id"]:
+                raise ProviderError("models: у модели отсутствует строковый id", kind="protocol")
+            model: dict[str, Any] = {"id": item["id"]}
+            owner = item.get("owned_by")
+            if isinstance(owner, str):
+                model["owned_by"] = owner
+            # These are training/model facts, not measured inference capacity.
+            meta = item.get("meta")
+            if isinstance(meta, dict):
+                model["meta"] = {key: value for key in ("n_ctx_train", "n_params", "size")
+                                 if isinstance((value := meta.get(key)), int)
+                                 and not isinstance(value, bool) and value >= 0}
+            status = item.get("status")
+            if isinstance(status, dict):
+                value = status.get("value")
+                if value in ("loaded", "loading", "unloaded", "sleeping", "downloading"):
+                    model["state"] = value
+                if status.get("failed") is True:
+                    model["state"] = "failed"
+            elif owner == "llamacpp" and "meta" in item and meta is None:
+                model["state"] = "loading"
+            models.append(model)
+        return models
+
+
+def model_catalog_problem(models: list[dict[str, Any]]) -> str:
+    """Catalog availability, not a claim that a real inference has passed."""
+    if not models:
+        return "сервер доступен, но список моделей пуст: загрузите или настройте модель"
+    if all(m.get("state") in ("loading", "downloading", "failed") for m in models):
+        if any(m.get("state") in ("loading", "downloading") for m in models):
+            return "llama.cpp загружает модель; дождитесь окончания загрузки"
+        return "llama.cpp не смог загрузить модель: проверьте журнал сервера и путь к GGUF"
+    return ""
 
 
 class AnthropicAdapter(_BaseAdapter):
@@ -323,7 +395,7 @@ class AnthropicAdapter(_BaseAdapter):
         resp = await self._request("POST", f"{self.base_url}/v1/messages",
                                    timeout=kw.get("timeout", CHAT_TIMEOUT),
                                    headers=self._headers(), json=payload)
-        data = resp.json()
+        data = _response_object(resp, what="Anthropic messages")
         blocks = data.get("content") or []
         text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
         calls = [ToolCall(id=str(b.get("id") or f"call_{i}"),
@@ -359,8 +431,10 @@ class AnthropicAdapter(_BaseAdapter):
     async def list_models(self) -> list[str]:
         resp = await self._request("GET", f"{self.base_url}/v1/models", timeout=HEALTH_TIMEOUT,
                                    headers=self._headers())
-        data = resp.json().get("data") or []
-        return [str(m.get("id")) for m in data if m.get("id")]
+        data = _response_object(resp, what="Anthropic models").get("data") or []
+        if not isinstance(data, list):
+            raise ProviderError("Anthropic models: поле data должно быть списком", kind="protocol")
+        return [str(m.get("id")) for m in data if isinstance(m, dict) and m.get("id")]
 
 
 def _to_anthropic_messages(messages: list[dict]) -> list[dict]:

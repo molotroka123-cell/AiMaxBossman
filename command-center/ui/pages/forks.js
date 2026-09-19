@@ -20,6 +20,7 @@ const ForksPage = {
   title: 'Развилки',
   icon: 'retry',
   nav: 'more',
+  section: 'system',
 
   async render(ctx) {
     let tasks = []; let err = null;

@@ -66,3 +66,56 @@ def test_constant_gate_hook_opts_out_of_floor_but_deny_stays():
     deny_spec = ToolSpec(name="opencode.session.start", description="", handler=None,  # type: ignore[arg-type]
                          permission="terminal.run", effect_hook=lambda a: ("deny", "нет"), hook_is_floor=False)
     assert decide_effect(deny_spec, {"title": "x"}, GRANTED, rules)[0] == "deny"
+
+
+# ------------------------------------------------- аудит: два разрыва монотонности
+
+def test_a_granted_permission_lifts_ask_but_never_a_default_deny():
+    """Право отвечает «можно ли без подтверждения», а не «можно ли вообще».
+
+    До правки инструмент с default_effect="deny" становился AUTO у любого
+    агента с выданным правом — DENY автора спецификации исчезал молча.
+    """
+    assert decide_effect(_spec(default="deny"), {"command": "ls"}, GRANTED, None)[0] == "deny"
+    # Контроль: то же право по-прежнему снимает ASK у default="ask".
+    assert decide_effect(_spec(default="ask"), {"command": "ls"}, GRANTED, None)[0] == "auto"
+    # И правило владельца default-DENY тоже не открывает.
+    rules = [{"tool": "*", "resource": "*", "effect": "auto"}]
+    assert decide_effect(_spec(default="deny"), {"command": "ls"}, GRANTED, rules)[0] == "deny"
+
+
+def test_a_matched_deny_rule_is_not_undone_by_a_later_broad_auto_rule():
+    """Порядок правил решает между AUTO и ASK, но отказ он не отменяет.
+
+    До правки `rm *` → deny, а следом `*`/`*` → auto давало AUTO: общее правило
+    в конце списка тихо снимало конкретный запрет владельца.
+    """
+    rules = [{"tool": "terminal.run", "resource": "rm *", "effect": "deny", "reason": "не удалять"},
+             {"tool": "*", "resource": "*", "effect": "auto"}]
+    effect, reason = decide_effect(_spec(), {"command": "rm -rf /tmp/x"}, GRANTED, rules)
+    assert effect == "deny" and "пол политики — deny" in reason
+    # То же с ASK после DENY.
+    rules[1]["effect"] = "ask"
+    assert decide_effect(_spec(), {"command": "rm -rf /tmp/x"}, GRANTED, rules)[0] == "deny"
+    # Контроль: команда, НЕ попавшая под запрет, по-прежнему получает общее правило.
+    assert decide_effect(_spec(), {"command": "ls"}, GRANTED, rules)[0] == "ask"
+    # Контроль: DENY ПОСЛЕ auto тоже побеждает — ужесточение всегда проходит.
+    rules = [{"tool": "*", "resource": "*", "effect": "auto"},
+             {"tool": "terminal.run", "resource": "rm *", "effect": "deny"}]
+    assert decide_effect(_spec(), {"command": "rm -rf /tmp/x"}, GRANTED, rules)[0] == "deny"
+
+
+def test_rule_order_still_decides_between_auto_and_ask():
+    """Что правка НЕ меняет: между не-DENY эффектами последнее правило — последнее слово."""
+    rules = [{"tool": "terminal.run", "resource": "*", "effect": "ask"},
+             {"tool": "terminal.run", "resource": "pytest*", "effect": "auto"}]
+    assert decide_effect(_spec(), {"command": "pytest -q"}, GRANTED, rules)[0] == "auto"
+    assert decide_effect(_spec(), {"command": "ls"}, GRANTED, rules)[0] == "ask"
+
+
+def test_wildcard_and_resource_matching_apply_to_the_deny_floor():
+    """Пол по DENY поднимается только для СОВПАВШЕГО ресурса."""
+    rules = [{"tool": "terminal.*", "resource": "git push*", "effect": "deny"},
+             {"tool": "*", "resource": "*", "effect": "auto"}]
+    assert decide_effect(_spec(), {"command": "git push origin main"}, GRANTED, rules)[0] == "deny"
+    assert decide_effect(_spec(), {"command": "git status"}, GRANTED, rules)[0] == "auto"

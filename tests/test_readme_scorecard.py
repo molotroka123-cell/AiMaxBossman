@@ -145,9 +145,15 @@ def test_not_run_cannot_become_pass():
     d = _data(); d["categories"][0]["live_attestation"] = "NOT_RUN"
     with pytest.raises(sc.ScorecardError):
         sc.validate(d)
-    # UNPROVEN-улика рендерится словом UNPROVEN, а не пустой ячейкой «как будто ок»
-    d = _data(); d["categories"][7].update(status="UNPROVEN", evidence=[])
+    # UNPROVEN-улика рендерится словом UNPROVEN, а не пустой ячейкой «как будто ок».
+    # Уверенность задаётся явно: тест не должен зависеть от того, какую
+    # уверенность несёт эта ось в каноническом файле сегодня.
+    d = _data(); d["categories"][7].update(status="UNPROVEN", evidence=[], confidence="LOW")
     assert "| UNPROVEN | LOW | UNPROVEN |" in sc.render(sc.validate(d), "abc")
+    # Негативный контроль: UNPROVEN с уверенностью выше LOW — противоречие, не данные.
+    d = _data(); d["categories"][7].update(status="UNPROVEN", evidence=[], confidence="MEDIUM")
+    with pytest.raises(sc.ScorecardError, match="UNPROVEN requires confidence LOW"):
+        sc.validate(d)
 
 
 # 13. exact_sha_ci=PASS is a claim about one commit and needs its certification report

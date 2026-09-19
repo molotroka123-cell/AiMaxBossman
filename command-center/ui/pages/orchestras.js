@@ -16,6 +16,7 @@ const OrchestrasPage = {
   title: 'Команды агентов',
   icon: 'plus',
   nav: 'more',
+  section: 'brains',
 
   async render(ctx) {
     let orchestras = []; let err = null;

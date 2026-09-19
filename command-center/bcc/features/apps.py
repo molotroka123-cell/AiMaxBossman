@@ -20,6 +20,8 @@
 from __future__ import annotations
 
 import asyncio
+import copy
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -28,30 +30,96 @@ import httpx
 import yaml
 from fastapi import APIRouter, HTTPException, Request
 
-from ..config import ROOT
+from ..config import PKG_DIR, ROOT
 from . import Feature
 
-APPS_DIR = ROOT.parent / "apps"
+def apps_directory() -> Path:
+    """An explicit deployment, source checkout, or the wheel's catalogue."""
+    override = os.environ.get("BCC_APPS_DIR", "").strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    source = ROOT.parent / "apps"
+    return source if source.is_dir() else PKG_DIR / "_apps"
+
+
+APPS_DIR = apps_directory()
 PROBE_TIMEOUT = 1.2          # приложение на этой же машине отвечает мгновенно
 CACHE_TTL = 10.0             # чтобы открытая главная не долбила соседей опросами
 
 _cache: dict[str, Any] = {"at": 0.0, "apps": []}
 
+# V6 §C (измерено): httpx.AsyncClient строит SSL-контекст при КАЖДОМ создании —
+# ~22 мс синхронного CPU в цикле событий. Девять карточек × клиент на каждую =
+# ~200 мс, на которые замирали ВСЕ запросы дашборда (первая отрисовка ждала
+# именно этого). Контекст строится один раз на процесс, клиент — один на опрос.
+_ssl_context: Any = None
+
+# Разобранные манифесты по (путь, mtime, размер): yaml-разбор девяти файлов —
+# ещё ~30–40 мс синхронно в цикле каждые CACHE_TTL секунд. Файл изменился —
+# ключ изменился — разбираем заново; ничего не устаревает молча.
+_described: dict[tuple[str, int, int], dict[str, Any] | None] = {}
+
+
+def _ssl() -> Any:
+    global _ssl_context
+    if _ssl_context is None:
+        _ssl_context = httpx.create_ssl_context()
+    return _ssl_context
+
 
 # ------------------------------------------------------------------ манифесты
 
+# Разобранные манифесты: путь → ((mtime_ns, size), данные).
+#
+# Манифесты — СТАТИЧЕСКАЯ конфигурация, но `task_exchange.process()` зовёт
+# `known_apps()` на каждом тике (раз в 2 с), и каждый такой обход перечитывал и
+# заново РАЗБИРАЛ все манифесты с диска. Измерено на простаивающем сервере:
+# обходов 1.00/с, и ни один из них не был вызван изменением файла. Профиль
+# показывал массу времени в yaml.scanner (876 815 вызовов `peek` за 33 с) —
+# продукт, которым никто не пользуется, разбирал одну и ту же конфигурацию
+# бесконечно. Раздел 7 задания требует прямо обратного: «никакого опроса
+# вхолостую».
+#
+# Ключ — (mtime_ns, size), а не TTL: изменённый манифест подхватывается
+# СЛЕДУЮЩИМ же тиком, потому что у него меняется штамп. Задержки здесь не
+# появляется ни на шаг — в отличие от «сделать тик пореже», которое купило бы
+# покой за счёт отзывчивости.
+_MANIFEST_CACHE: dict[Path, tuple[tuple[int, int], dict[str, Any] | None]] = {}
+
+
 def _manifest_files() -> list[Path]:
     if not APPS_DIR.is_dir():
+        _MANIFEST_CACHE.clear()
         return []
-    return sorted(APPS_DIR.glob("*/app.manifest.yaml"))
+    found = sorted(APPS_DIR.glob("*/app.manifest.yaml"))
+    # Кэш живёт ровно текущим набором приложений: удалённое приложение уходит и
+    # отсюда, поэтому словарь не растёт от смены каталога (в тестах — от смены
+    # временного APPS_DIR).
+    for stale in set(_MANIFEST_CACHE) - set(found):
+        _MANIFEST_CACHE.pop(stale, None)
+    return found
 
 
 def _load(path: Path) -> dict[str, Any] | None:
+    """Разобранный манифест. Повторный разбор — только если файл изменился."""
+    try:
+        stat = path.stat()
+    except OSError:
+        _MANIFEST_CACHE.pop(path, None)
+        return None
+    stamp = (stat.st_mtime_ns, stat.st_size)
+    hit = _MANIFEST_CACHE.get(path)
+    if hit is not None and hit[0] == stamp:
+        # Копия, а не та же ссылка: вызывающий код читает манифест как обычный
+        # dict, и правка у одного не имеет права стать правкой для всех.
+        return copy.deepcopy(hit[1])
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError):
-        return None
-    return data if isinstance(data, dict) else None
+        data = None
+    value = data if isinstance(data, dict) else None
+    _MANIFEST_CACHE[path] = (stamp, value)
+    return copy.deepcopy(value)
 
 
 def _http_calls(raw: dict[str, Any]) -> dict[str, str]:
@@ -95,14 +163,14 @@ def _describe(path: Path) -> dict[str, Any] | None:
         "permissions": raw.get("permissions") if isinstance(raw.get("permissions"),
                                                             dict) else {},
         "providers": raw.get("providers") if isinstance(raw.get("providers"), dict) else {},
-        "manifest_path": str(path.relative_to(ROOT.parent)),
+        "manifest_path": str(Path("apps") / path.relative_to(APPS_DIR)),
         "route": f"app/{raw['id']}",
     }
 
 
 # ------------------------------------------------------------------ живое состояние
 
-async def _probe(app: dict[str, Any]) -> dict[str, Any]:
+async def _probe(app: dict[str, Any], client: httpx.AsyncClient | None = None) -> dict[str, Any]:
     """Спросить приложение, как оно себя чувствует. Молчание — это ответ.
 
     Локальный адрес никогда не идёт через прокси: переменные окружения с
@@ -117,24 +185,38 @@ async def _probe(app: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {"reachable": False, "status": "STOPPED", "detail": "",
                            "health": {}, "metrics": {}}
     try:
-        async with httpx.AsyncClient(timeout=PROBE_TIMEOUT, trust_env=False) as client:
-            health = await client.get(base + (app.get("health_path") or "/health"))
-            out["reachable"] = health.status_code < 500
-            out["status"] = "LIVE" if health.status_code < 400 else "DEGRADED"
+        if client is None:
+            async with _probe_client() as own:
+                return await _probe(app, own)
+        health = await client.get(base + (app.get("health_path") or "/health"))
+        out["reachable"] = True  # reachability is not readiness
+        out["status"] = "DEGRADED"
+        try:
+            out["health"] = health.json()
+        except ValueError:
+            out["health"] = {}
+        payload = out["health"] if isinstance(out["health"], dict) else {}
+        reported = str(payload.get("status") or "").upper()
+        if health.status_code == 200 and reported in {"OK", "HEALTHY", "LIVE", "READY"}:
+            out["status"] = "LIVE"
+        elif reported in {"NOT_CONFIGURED", "UNHEALTHY", "DEGRADED"}:
+            out["status"] = reported
+        else:
+            out["detail"] = f"health HTTP {health.status_code}: no healthy readiness response"
+        if app.get("metrics_path"):
             try:
-                out["health"] = health.json()
-            except ValueError:
-                out["health"] = {}
-            if app.get("metrics_path"):
-                try:
-                    metrics = await client.get(base + app["metrics_path"])
-                    if metrics.status_code < 400:
-                        out["metrics"] = metrics.json()
-                except (httpx.HTTPError, ValueError):
-                    pass          # метрики необязательны, здоровье важнее
+                metrics = await client.get(base + app["metrics_path"])
+                if metrics.status_code < 400:
+                    out["metrics"] = metrics.json()
+            except (httpx.HTTPError, ValueError):
+                pass          # метрики необязательны, здоровье важнее
     except httpx.HTTPError as exc:
         out["detail"] = f"{type(exc).__name__}: приложение не отвечает на {base}"
     return out
+
+
+def _probe_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(timeout=PROBE_TIMEOUT, trust_env=False, verify=_ssl())
 
 
 def _dig(payload: Any, path: str) -> Any:
@@ -172,14 +254,42 @@ def _resolve_facts(app: dict[str, Any], live: dict[str, Any]) -> list[dict[str, 
     return facts
 
 
+def _describe_cached(path: Path) -> dict[str, Any] | None:
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    key = (str(path), st.st_mtime_ns, st.st_size)
+    if key not in _described:
+        _described[key] = _describe(path)
+    return _described[key]
+
+
+# V6 §5 single-flight: главная и «Приложения» открываются одновременно и обе
+# зовут /api/apps при пустом или истёкшем кэше — раньше это были два полных
+# опроса. Второй вызывающий ждёт результат первого: он свежее того, что он
+# получил бы сам, и ничего не пересекает (опрос без побочных эффектов).
+# Ошибка опроса доходит до всех ожидающих, и следующий вызов идёт заново.
+_inflight: asyncio.Task | None = None
+
+
 async def collect(force: bool = False) -> list[dict[str, Any]]:
+    global _inflight
     now = time.monotonic()
     if not force and _cache["apps"] and now - float(_cache["at"]) < CACHE_TTL:
         return _cache["apps"]
+    loop = asyncio.get_running_loop()
+    if _inflight is None or _inflight.done() or _inflight.get_loop() is not loop:
+        _inflight = loop.create_task(_collect_fresh())
+    return await asyncio.shield(_inflight)
 
-    described = [d for d in (_describe(p) for p in _manifest_files()) if d]
+
+async def _collect_fresh() -> list[dict[str, Any]]:
+    now = time.monotonic()
+    described = [d for d in (_describe_cached(p) for p in _manifest_files()) if d]
     if described:
-        probes = await asyncio.gather(*(_probe(a) for a in described))
+        async with _probe_client() as client:
+            probes = await asyncio.gather(*(_probe(a, client) for a in described))
     else:
         probes = []
     result = []
@@ -190,6 +300,9 @@ async def collect(force: bool = False) -> list[dict[str, Any]]:
         card["detail"] = live.get("detail", "")
         card["facts"] = _resolve_facts(app, live)
         card["base_url"] = f"http://127.0.0.1:{app['port']}" if app.get("port") else ""
+        if app["id"] == "file-commander-mini":
+            # Same-origin session authentication. Never expose the child token.
+            card["view_url"] = "/api/apps/file-commander-mini/view/"
         result.append(card)
     result.sort(key=lambda a: (a["order"], a["name"]))
     _cache.update({"at": now, "apps": result})

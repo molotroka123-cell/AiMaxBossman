@@ -1,0 +1,50 @@
+{
+  "case_id": "btc-2026-09-10-failed-dval-reclaim-short-confirmation",
+  "date": "2026-09-10",
+  "time_from_frame": "19:07",
+  "type": "live_out_of_sample_edge_observation",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "instrument_note": "Reference chart and execution tape are separate series; reference levels are not direct execution-order prices without basis adjustment.",
+  "observed": {
+    "reference_chart_price_approx": 77135,
+    "execution_tape_approx": [76950, 77010],
+    "cvd_billion": 47.2,
+    "open_interest_billion": 18.61,
+    "long_liquidations_million": 1.38,
+    "short_liquidations_thousand": 3.01,
+    "buy_volume_million": 38.6
+  },
+  "reference_levels": {
+    "dVAL_current_approx": 77310,
+    "dPOC_approx": 78145,
+    "dVAH_approx": 78705,
+    "dOpen_approx": 78550
+  },
+  "comparison_to_prior_edge_test": {
+    "prior_reference_price_approx": 77375,
+    "prior_cvd_billion": 47.4,
+    "prior_oi_billion": 18.67,
+    "price_change_approx": -240,
+    "cvd_change_billion": -0.2,
+    "oi_change_billion": -0.06,
+    "price_direction": "DOWN",
+    "cvd_direction": "DOWN_SLIGHTLY",
+    "oi_direction": "DOWN"
+  },
+  "edge_context": {
+    "armed_setup": "POST_CAPITULATION_FAILED_RECLAIM_SHORT",
+    "prior_state": "Price approached dVAL from below with CVD/OI recovery after a major long-liquidation flush.",
+    "trigger_observed": "Price failed to accept above dVAL and rolled back below the value boundary.",
+    "confirmation_observed": "CVD stopped improving and rolled slightly lower as price fell; OI also began to contract, indicating the bounce leverage was being unwound after rejection.",
+    "status": "LIVE_CONFIRMATION_OF_EDGE_HYPOTHESIS_NOT_YET_STATISTICALLY_VERIFIED"
+  },
+  "interpretation": "This frame validates the path logic of the candidate short setup in real time: the actionable information was the failed repair at dVAL, not the later low. By the time price was near ~77.1k reference / ~77.0k execution, OI was already falling and long liquidations had increased, so the continuation was becoming deleveraging and the risk/reward of chasing a fresh short deteriorated.",
+  "ideal_execution_lesson": {
+    "preferred_entry_zone": "At or just after the failed dVAL reclaim/rejection around the then-active ~77.31-77.43k reference value boundary, after confirmation that price could not hold above.",
+    "confirmation": "CVD stalls/turns down and price forms rejection/lower high; OI remains elevated initially or starts unwinding only after the rejection has trapped the rebound.",
+    "do_not_chase": "Do not initiate a late short after the move extends lower while OI is already collapsing and long liquidations are expanding.",
+    "next_chance": "Wait for another bounce into broken dVAL / local resistance and reject again, or for a clean continuation break where price/CVD fall while OI is flat/up rather than collapsing."
+  },
+  "lesson": "A failed structural reclaim can be the edge trigger even if the subsequent drop is dominated by deleveraging. Entry quality is highest at the failed repair; once OI starts collapsing and long liquidations expand, the market has already moved from directional edge into forced unwind and late shorts become lower quality."
+}

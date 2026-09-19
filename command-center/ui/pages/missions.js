@@ -35,6 +35,7 @@ const MissionsPage = {
   title: 'Миссии',
   icon: 'bolt',
   nav: 'primary',
+  section: 'work',
 
   async render(ctx) {
     let missions = []; let err = null;

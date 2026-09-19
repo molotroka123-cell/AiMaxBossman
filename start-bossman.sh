@@ -43,7 +43,15 @@ fi
 if [ "$SKIP_INSTALL" -eq 0 ]; then
   step "Устанавливаю пакеты (первый запуск занимает несколько минут)"
   "$VENV_PY" -m pip install --upgrade pip --quiet
-  "$VENV_PY" -m pip install --quiet -e . -e command-center -e bossman-core
+  INSTALL_ARGS=(-e . -e 'command-center[runtime]' -e 'bossman-core[runtime]')
+  for project in apps/*/pyproject.toml; do
+    [ ! -f "$project" ] || INSTALL_ARGS+=(-e "${project%/pyproject.toml}")
+  done
+  "$VENV_PY" -m pip install "${INSTALL_ARGS[@]}"
+  "$VENV_PY" -m pip check
+  if ! "$VENV_PY" -c 'from bcc.browser_runtime import chromium_executable; import sys; sys.exit(0 if chromium_executable() else 1)'; then
+    "$VENV_PY" -m playwright install chromium
+  fi
 fi
 
 step "Предполётная проверка"
@@ -55,8 +63,21 @@ fi
 [ "$DOCTOR_ONLY" -eq 0 ] || exit 0
 
 if [ "$EVENING" -eq 1 ]; then
-  step "Вечерняя приёмка владельца"
-  exec "$VENV_PY" scripts/evening_acceptance.py run
+  # Точка входа одна — обёртка по ТОЧНОМУ SHA: канонная ветка, чистое дерево,
+  # совпадение с живым origin, доктор, самопроверка обоих харнессов и каталог
+  # улик этого SHA. Отката на evening_acceptance.py нет: улики, не привязанные
+  # к коммиту, неотличимы от улик другого дерева.
+  if [ ! -f scripts/evening_owner_run.py ]; then
+    echo "    Не найден scripts/evening_owner_run.py." >&2
+    echo "    Отката на старый харнесс НЕТ: улики без точного SHA недействительны." >&2
+    exit 1
+  fi
+  step "Вечерняя приёмка владельца (точный SHA)"
+  echo "    ветка:     $(git branch --show-current)"
+  echo "    SHA:       $(git rev-parse HEAD)"
+  echo "    платформа: $(uname -srm)"
+  echo "    runtime:   $("$VENV_PY" -c 'import platform;print(platform.python_version())')"
+  exec "$VENV_PY" scripts/evening_owner_run.py run
 fi
 
 step "Открываю BOSSMAN Command Center"

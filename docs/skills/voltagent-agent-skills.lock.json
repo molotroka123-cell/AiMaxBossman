@@ -1,0 +1,217 @@
+{
+  "schema_version": 1,
+  "pack_id": "voltagent-agent-skills-20260907",
+  "target_base_sha": "b57b4ce981458581600adc2ee6836abca58be6fb",
+  "discovery": {
+    "repository": "VoltAgent/awesome-agent-skills",
+    "commit": "e4f7a502a78253550890e8b356d43f50192415ae",
+    "url": "https://github.com/VoltAgent/awesome-agent-skills/blob/e4f7a502a78253550890e8b356d43f50192415ae/README.md"
+  },
+  "activation": {
+    "mode": "instructions_only",
+    "auto_execute": false,
+    "grants": [],
+    "max_selected_skills": 2,
+    "inject_all_into_system_prompt": false,
+    "standing_autonomy": false
+  },
+  "review_scope": "Read referenced upstream instruction files; ship self-contained modifications, no upstream scripts/hooks/binaries. Integrity checks are not a security certification or live model evaluation.",
+  "duplicates_not_added": {
+    "verification-before-completion": "proof-before-done",
+    "skill-creator": "skill-forge + skill-evaluator",
+    "generic-model-evaluation": "model-eval",
+    "generic-video-editing": "video-editing",
+    "generic-browser-research": "browser-research"
+  },
+  "skills": [
+    {
+      "id": "systematic-debugging",
+      "path": ".agents/skills/systematic-debugging/SKILL.md",
+      "sha256": "ee8415fa7ae005385999d7442fdafa03d5d612c99f4fd3fd5c5adb52e71fd511",
+      "bytes": 3676,
+      "stage": "freeze",
+      "existing_companions": [
+        "safe-code-change",
+        "proof-before-done",
+        "failure-retrospective"
+      ],
+      "source": {
+        "repository": "obra/superpowers",
+        "commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+        "path": "skills/systematic-debugging/SKILL.md",
+        "blob_sha": "095d194ac041502905f15b01d22d294fb94db8b2",
+        "url": "https://github.com/obra/superpowers/blob/b36e0829c6d0140e93cfef2ca599b1b07d4a7797/skills/systematic-debugging/SKILL.md",
+        "license": "MIT",
+        "license_url": "https://github.com/obra/superpowers/blob/b36e0829c6d0140e93cfef2ca599b1b07d4a7797/LICENSE"
+      },
+      "license_file": "docs/skills/licenses/SUPERPOWERS-MIT.txt",
+      "adaptation_notes": "Condensed for Bossman; removed environment/keychain dump examples, external helper dependencies and instructions to delete work. Added exact-checkout, media and ambiguous-effect probes.",
+      "behavioral_validation": "NOT_RUN"
+    },
+    {
+      "id": "test-driven-development",
+      "path": ".agents/skills/test-driven-development/SKILL.md",
+      "sha256": "d6fb8a39337abffbfe3ac5b349e0a335c65c3a4ca0c139efb6713a68db75c470",
+      "bytes": 3585,
+      "stage": "freeze",
+      "existing_companions": [
+        "safe-code-change",
+        "proof-before-done"
+      ],
+      "source": {
+        "repository": "obra/superpowers",
+        "commit": "b36e0829c6d0140e93cfef2ca599b1b07d4a7797",
+        "path": "skills/test-driven-development/SKILL.md",
+        "blob_sha": "4320d8879a639d0536c2239bb80c9d7257ad8947",
+        "url": "https://github.com/obra/superpowers/blob/b36e0829c6d0140e93cfef2ca599b1b07d4a7797/skills/test-driven-development/SKILL.md",
+        "license": "MIT",
+        "license_url": "https://github.com/obra/superpowers/blob/b36e0829c6d0140e93cfef2ca599b1b07d4a7797/LICENSE"
+      },
+      "license_file": "docs/skills/licenses/SUPERPOWERS-MIT.txt",
+      "adaptation_notes": "Condensed; preserve existing work instead of upstream delete-and-restart instruction. Reuse existing pytest/node/browser infrastructure rather than install new tooling.",
+      "behavioral_validation": "NOT_RUN"
+    },
+    {
+      "id": "webapp-testing",
+      "path": ".agents/skills/webapp-testing/SKILL.md",
+      "sha256": "e86f9dc9ca3e301c64a544617e0b260f6d27a09c12c8334b29201ccc511a3b93",
+      "bytes": 3907,
+      "stage": "freeze",
+      "existing_companions": [
+        "safe-code-change",
+        "proof-before-done",
+        "video-editing"
+      ],
+      "source": {
+        "repository": "anthropics/skills",
+        "commit": "41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f",
+        "path": "skills/webapp-testing/SKILL.md",
+        "blob_sha": "4726215301db64a0cc4d41fc3219c61f37a30f4a",
+        "url": "https://github.com/anthropics/skills/blob/41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f/skills/webapp-testing/SKILL.md",
+        "license": "Apache-2.0",
+        "license_url": "https://github.com/anthropics/skills/blob/41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f/skills/webapp-testing/LICENSE.txt"
+      },
+      "license_file": "docs/skills/licenses/Apache-2.0.txt",
+      "adaptation_notes": "Adapted to existing Playwright fixtures; removed black-box execute-before-inspection guidance and absent helper scripts. Replaced unconditional networkidle; added UI-only media fallback and provider isolation cases.",
+      "behavioral_validation": "NOT_RUN"
+    },
+    {
+      "id": "frontend-design",
+      "path": ".agents/skills/frontend-design/SKILL.md",
+      "sha256": "538a7f92817abae71eda8e57e76134f502396187649683653e71b3792bfb1e0c",
+      "bytes": 3720,
+      "stage": "postfreeze",
+      "existing_companions": [
+        "safe-code-change",
+        "proof-before-done"
+      ],
+      "source": {
+        "repository": "anthropics/skills",
+        "commit": "41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f",
+        "path": "skills/frontend-design/SKILL.md",
+        "blob_sha": "a5333457c414d20d625f307df945842c0952ecc3",
+        "url": "https://github.com/anthropics/skills/blob/41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f/skills/frontend-design/SKILL.md",
+        "license": "Apache-2.0",
+        "license_url": "https://github.com/anthropics/skills/blob/41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f/skills/frontend-design/LICENSE.txt"
+      },
+      "license_file": "docs/skills/licenses/Apache-2.0.txt",
+      "adaptation_notes": "Self-contained adaptation of visual/design principles; existing user style and framework win. Freeze default is repair-only, with expanded design work deferred.",
+      "behavioral_validation": "NOT_RUN"
+    },
+    {
+      "id": "mcp-builder",
+      "path": ".agents/skills/mcp-builder/SKILL.md",
+      "sha256": "a3c091c2828c984c0a11078abed6012b53963885358c5e287a360540d42b24dc",
+      "bytes": 3889,
+      "stage": "postfreeze",
+      "existing_companions": [
+        "permission-auditor",
+        "safe-code-change",
+        "proof-before-done"
+      ],
+      "source": {
+        "repository": "anthropics/skills",
+        "commit": "41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f",
+        "path": "skills/mcp-builder/SKILL.md",
+        "blob_sha": "8a1a77a47d141967b246adb4da4f91037578ff7d",
+        "url": "https://github.com/anthropics/skills/blob/41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f/skills/mcp-builder/SKILL.md",
+        "license": "Apache-2.0",
+        "license_url": "https://github.com/anthropics/skills/blob/41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f/skills/mcp-builder/LICENSE.txt"
+      },
+      "license_file": "docs/skills/licenses/Apache-2.0.txt",
+      "adaptation_notes": "Condensed to Bossman-compatible connector workflow; no new SDK, inspector command, transport or server is installed. Removed missing reference dependencies and default framework migration.",
+      "behavioral_validation": "NOT_RUN"
+    },
+    {
+      "id": "differential-review",
+      "path": ".agents/skills/differential-review/SKILL.md",
+      "sha256": "58583c57e73c92dfefb012d78d8d313c0f22a95f54d4e3814c457f1e646cb0f6",
+      "bytes": 3693,
+      "stage": "freeze",
+      "existing_companions": [
+        "repo-audit",
+        "permission-auditor",
+        "proof-before-done"
+      ],
+      "source": {
+        "repository": "trailofbits/skills",
+        "commit": "d3323cefbcf645678b8dc481de204b02ad3d02dc",
+        "path": "plugins/differential-review/skills/differential-review/SKILL.md",
+        "blob_sha": "536e9258092876017b098f1712a92e7d06bb1480",
+        "url": "https://github.com/trailofbits/skills/blob/d3323cefbcf645678b8dc481de204b02ad3d02dc/plugins/differential-review/skills/differential-review/SKILL.md",
+        "license": "CC-BY-SA-4.0",
+        "license_url": "https://github.com/trailofbits/skills/blob/d3323cefbcf645678b8dc481de204b02ad3d02dc/LICENSE"
+      },
+      "license_file": "docs/skills/licenses/TRAILOFBITS-CC-BY-SA-4.0.md",
+      "adaptation_notes": "Adaptation licensed CC-BY-SA-4.0; removed broad allowed-tools grant and uninstalled subagent dependencies. Added actual checkout identity, evidence tiers and single-integrator rules.",
+      "behavioral_validation": "NOT_RUN"
+    },
+    {
+      "id": "property-based-testing",
+      "path": ".agents/skills/property-based-testing/SKILL.md",
+      "sha256": "b1033a3871acb93563996687275088a13dda7395b061401b5f783817a0486925",
+      "bytes": 3820,
+      "stage": "freeze",
+      "existing_companions": [
+        "safe-code-change",
+        "proof-before-done"
+      ],
+      "source": {
+        "repository": "trailofbits/skills",
+        "commit": "d3323cefbcf645678b8dc481de204b02ad3d02dc",
+        "path": "plugins/property-based-testing/skills/property-based-testing/SKILL.md",
+        "blob_sha": "1cc39d8d8cba5955bf9c8d7c9a2aef348722a55e",
+        "url": "https://github.com/trailofbits/skills/blob/d3323cefbcf645678b8dc481de204b02ad3d02dc/plugins/property-based-testing/skills/property-based-testing/SKILL.md",
+        "license": "CC-BY-SA-4.0",
+        "license_url": "https://github.com/trailofbits/skills/blob/d3323cefbcf645678b8dc481de204b02ad3d02dc/LICENSE"
+      },
+      "license_file": "docs/skills/licenses/TRAILOFBITS-CC-BY-SA-4.0.md",
+      "adaptation_notes": "Adaptation licensed CC-BY-SA-4.0; self-contained workflow without missing reference files or automatic library installation. Added Bossman-specific invariant targets.",
+      "behavioral_validation": "NOT_RUN"
+    },
+    {
+      "id": "variant-analysis",
+      "path": ".agents/skills/variant-analysis/SKILL.md",
+      "sha256": "640e15e30ed734b02807726681f26fd4b3498c6e6ff2b45f37c4f408aeddade2",
+      "bytes": 3732,
+      "stage": "freeze",
+      "existing_companions": [
+        "repo-audit",
+        "permission-auditor",
+        "proof-before-done"
+      ],
+      "source": {
+        "repository": "trailofbits/skills",
+        "commit": "d3323cefbcf645678b8dc481de204b02ad3d02dc",
+        "path": "plugins/variant-analysis/skills/variant-analysis/SKILL.md",
+        "blob_sha": "8f58f54b1883110f1a38a51c9360d4b9d1b195a8",
+        "url": "https://github.com/trailofbits/skills/blob/d3323cefbcf645678b8dc481de204b02ad3d02dc/plugins/variant-analysis/skills/variant-analysis/SKILL.md",
+        "license": "CC-BY-SA-4.0",
+        "license_url": "https://github.com/trailofbits/skills/blob/d3323cefbcf645678b8dc481de204b02ad3d02dc/LICENSE"
+      },
+      "license_file": "docs/skills/licenses/TRAILOFBITS-CC-BY-SA-4.0.md",
+      "adaptation_notes": "Adaptation licensed CC-BY-SA-4.0; removed external plugin/subagent dependency and automatic parallel sweep. Added bounded searches for observed Bossman bug families.",
+      "behavioral_validation": "NOT_RUN"
+    }
+  ]
+}

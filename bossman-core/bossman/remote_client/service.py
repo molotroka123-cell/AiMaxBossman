@@ -14,6 +14,8 @@
 """
 from __future__ import annotations
 
+import time
+
 from .. import correlation, obs
 from ..errors import AuthDenied, DeviceRevoked
 from .auth import (
@@ -31,6 +33,10 @@ from .auth import (
     normalize_scopes,
 )
 from .store import DeviceStore, InMemoryDeviceStore
+
+# Предельный возраст сессии: дальше устройство обязано переоткрыть её по
+# device-токену (Stage 6 /remote/auth).
+SESSION_MAX_AGE_S = 30 * 24 * 3600.0
 
 log = obs.get_logger("bossman.remote_client")
 
@@ -130,6 +136,11 @@ class DeviceService:
         session = await self.store.get_session(match.session_id) if match.session_id else None
         if session is None or session.revoked:
             raise DeviceRevoked("session revoked")
+        # Абсолютный срок сессии: украденный rcs_-токен был валиден бессрочно,
+        # пока владелец явно не сделает logout. created_at==0 (строка без даты)
+        # проверку не проходит — иначе живые сессии умирали бы мгновенно.
+        if session.created_at and time.time() - session.created_at > SESSION_MAX_AGE_S:
+            raise DeviceRevoked("session expired")
         device = await self.store.get_device(session.device_id)
         if device is None or device.revoked or device.locked:
             raise DeviceRevoked("device revoked or locked")

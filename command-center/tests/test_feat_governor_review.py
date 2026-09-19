@@ -74,7 +74,8 @@ async def test_reviewer_gate_fail_then_pass(env):
     создаёт файл, который ожидает review.evidence → VERIFIED → completed.
     Раньше тест проверял подстроку «тест» в ответе — тот самый spoofing-канал."""
     calls = {"n": 0}
-    target = env.settings.data_dir / "review_out.txt"
+    target = (env.settings.data_dir / 'scratch') / "review_out.txt"
+    target.parent.mkdir(parents=True, exist_ok=True)
 
     class Coder(FakeAdapter):
         def __init__(self):
@@ -113,7 +114,7 @@ async def test_reviewer_gate_escalates_after_limit(env):
     """Ожидаемый файл так и не появился → FAILED×3 → waiting_approval + review_escalation."""
     env.svc.registry.adapter_factory = lambda m, p: FakeAdapter("плохой код навсегда")
     stack = await make_stack(env.client, max_steps=6)
-    missing = env.settings.data_dir / "never_created.txt"
+    missing = (env.settings.data_dir / 'scratch') / "never_created.txt"
     await env.client.post("/api/review/enable",
                           json={"task_id": stack["task"]["id"], "criteria": "НЕТ_ТАКОГО",
                                 "max_review_retries": 2,

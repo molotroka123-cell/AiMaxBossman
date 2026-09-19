@@ -1,4 +1,6 @@
 name: Bossman internal benchmark
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 on:
   pull_request:
@@ -41,8 +43,9 @@ jobs:
         # benchmark commits in isolated worktrees (run_isolated refuses
         # unknown SHAs by design).
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install core
@@ -63,7 +66,7 @@ jobs:
         run: >-
           python -m bossman.benchmark run --tier ${{ inputs.tier }} --output ../benchmark-ci-results
           ${{ inputs.owner_approved && inputs.budget_reserved && '--allow-live' || '' }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: bossman-benchmark-results

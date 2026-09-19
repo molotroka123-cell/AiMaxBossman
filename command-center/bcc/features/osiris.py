@@ -47,7 +47,7 @@ import os
 import re
 import shutil
 import time
-from dataclasses import dataclass, field as dc_field
+from dataclasses import InitVar, dataclass, field as dc_field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
@@ -165,8 +165,11 @@ class Observation:
     raw_ref: str | None = None
     attribute: str = ""
     id: str = ""
+    # Internal constructor-only capability after a transport has validated its
+    # configured local origin. Never serialized into an observation/passport.
+    private_source_origin: InitVar[str | None] = None
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, private_source_origin: str | None) -> None:
         if not isinstance(self.subject, str) or not self.subject.strip():
             raise PassportError("subject обязателен: наблюдение без сущности не адресуемо")
         if not isinstance(self.source_id, str) or not self.source_id.strip():
@@ -196,7 +199,15 @@ class Observation:
         if self.source_url.lower().startswith(("http://", "https://")):
             # Адрес в паспорте — тот же самый, по которому ходили: проверяем той
             # же функцией egress, а не «похожей» (fail-closed).
-            psec.validate_url(self.source_url)
+            if private_source_origin is not None:
+                parts = urlparse(self.source_url)
+                actual_origin = parts._replace(path="", params="", query="", fragment="").geturl()
+                if actual_origin != private_source_origin.rstrip("/"):
+                    raise PassportError("private source origin mismatch")
+                psec.validate_url(self.source_url, allow_private=True,
+                                  allowed_hosts={parts.hostname or ""})
+            else:
+                psec.validate_url(self.source_url)
         try:
             json.dumps(self.value, ensure_ascii=False)
         except (TypeError, ValueError) as exc:

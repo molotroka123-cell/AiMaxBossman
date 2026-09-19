@@ -52,6 +52,7 @@ const TradingLabPage = {
   title: 'Обучение трейдингу',
   icon: 'activity',
   nav: 'more',
+  section: 'studio',
 
   async render(ctx) {
     const [statusR, seedR, benchR, memR] = await Promise.allSettled([

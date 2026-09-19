@@ -1,0 +1,24 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "17:18 ET",
+  "type": "correction_event",
+  "source": "user screenshots / visual labels",
+  "correction_of": "prior interpretation that price had reclaimed dPOC",
+  "observed": {
+    "reference_price_approx": 77013.44,
+    "cvd_billion": 56.47,
+    "open_interest_billion": 17.77,
+    "dPOC_approx": 77337.25,
+    "dVAL_approx": 76725.00,
+    "dOpen_approx": 76641.80
+  },
+  "correct_state": "PRICE_BELOW_DPOC_INSIDE_VALUE_REPAIR_ATTEMPT",
+  "interpretation": "The price had NOT reclaimed dPOC. CVD was depressed and OI was low/flat, which can describe deleveraging and seller exhaustion, but without price reclaim of dPOC there was no valid long trigger. Flow divergence alone remained only a candidate signal.",
+  "trading_rule_update": [
+    "Never promote absorption/divergence into a long trigger until the exact structural level is visibly reclaimed and held.",
+    "When a screenshot is rotated or labels are ambiguous, prefer explicitly readable price/level labels over visual proximity.",
+    "At ~77.01k with dPOC ~77.337k, wait for reclaim/acceptance rather than market long."
+  ],
+  "lesson": "This correction is important training data: the model must separate flow quality from structural confirmation and must correct prior reads when exact chart labels contradict the initial visual impression."
+}

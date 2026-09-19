@@ -1,0 +1,37 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local": "17:18 ET",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise screenshot",
+  "observed": {
+    "price_approx": 77300,
+    "cvd_billion": 56.47,
+    "open_interest_billion": 17.77,
+    "long_liquidations_k_approx": 21.55,
+    "short_liquidations_approx": 186
+  },
+  "visible_levels": {
+    "dVAL_approx": 76725,
+    "dOpen_approx": 76641.8,
+    "dPOC_approx": 77343.75,
+    "dVAH_approx": 77929
+  },
+  "comparison_to_prior": {
+    "prior_cvd_billion": 58.93,
+    "prior_oi_billion": 17.79,
+    "cvd_change_billion": -2.46,
+    "oi_change_billion": -0.02,
+    "price_response": "roughly flat to slightly higher despite major CVD deterioration"
+  },
+  "regime": "SELLER_AGGRESSION_ABSORBED_NEAR_DPOC",
+  "interpretation": "Aggressive selling increased materially (CVD fell ~2.46B) while OI stayed nearly flat/down and price did not make a proportional decline. This is strong seller inefficiency / passive bid absorption. The edge is not confirmed until price accepts above dPOC; flow creates the candidate, price acceptance confirms it.",
+  "trade_logic": {
+    "long_trigger": "Reclaim and hold/retest above dPOC ~77.34k; stronger continuation above dVAH ~77.93k.",
+    "aggressive_entry": "Only a small starter if price is already holding near dPOC and risk is tightly defined; do not size full before acceptance.",
+    "invalidation": "Acceptance back below ~77.2k with CVD continuing down, especially if OI turns higher, invalidates the absorption-long thesis and suggests fresh bearish leverage.",
+    "heuristic_probability_note": "Any probability attached to this setup is subjective until backtested; do not treat as calibrated odds."
+  },
+  "lesson": "Large CVD deterioration without corresponding price deterioration is more informative than the absolute CVD level. Seller effort with weak downside price response can be a long-edge candidate, but dPOC acceptance is still required."
+}

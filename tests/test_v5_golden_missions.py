@@ -256,10 +256,15 @@ def test_h01_keeps_a_fixture_repository_buildable_after_an_approved_change(tmp_p
         return deviating_batch(store, state, observer, now=effect_at + 1.0)
 
     fresh = reobserve()
+    # Ссылка на улику чеканится в хранилище и привязана к цели/условию/редакции:
+    # произвольная строка «evidence:h01» больше не является доказательством.
+    evidence_ref = store.record_condition_evidence(
+        state.objective_id, condition="SATISFIED", run_id=decision.reservation_id,
+        observation_digests=observation_digests(fresh))
     payload = bind_evidence(objective_id=state.objective_id, objective_digest=state.spec_digest,
                             objective_revision=state.revision, mission_id=mission.mission_id,
                             reservation_id=decision.reservation_id,
-                            evidence_ref="evidence:h01", effect_at=effect_at,
+                            evidence_ref=evidence_ref, effect_at=effect_at,
                             digests=observation_digests(fresh))
     signed = {**payload, **evidence.sign_fields(payload, signer=SIGNER)}
 
@@ -270,7 +275,8 @@ def test_h01_keeps_a_fixture_repository_buildable_after_an_approved_change(tmp_p
                                      reservation_id=decision.reservation_id)
     assert result.condition == "SATISFIED", result.reason
     final = store.get(state.objective_id)
-    assert final.condition == "SATISFIED" and final.last_verified_evidence_ref
+    assert final.condition == "SATISFIED"
+    assert final.last_verified_evidence_ref == evidence_ref
 
 
 def test_h02_refreshes_a_scoped_local_report_only_when_the_input_changes(tmp_path):

@@ -1,0 +1,243 @@
+{
+  "type": "bossman.connector_benchmarks",
+  "schema": 1,
+  "measured": "2026-09-14",
+  "host": "контейнер сессии; не целевое железо владельца (Ryzen AI Max+ 395 / 128 GB)",
+  "note": "Улики к docs/final/CONNECTOR_INTEGRATION_REPORT.md. Все числа сняты прогоном, ни одно не перенесено из README и не оценено на глаз.",
+  "извлечение_текста": {
+    "вопрос": "даёт ли MarkItDown то, чего родной parse_file не даёт (раздел 24: без показанного выигрыша — REFERENCE_ONLY или REJECT)",
+    "мерка": "доля заранее ПОСАЖЕННЫХ строк, найденных в выходе; одна и та же для обеих сторон",
+    "оговорка": "первая редакция стенда насчитала MarkItDown 8 из 14 и едва не записала ему дефект «теряет текст». На деле MarkItDown экранирует подчёркивания (`МАРКЕР\\_X`) — правильный Markdown, сломан был поиск подстроки. Обе стороны нормализуются одинаково; маркеры больше не содержат символов, которые Markdown обязан экранировать.",
+    "строки": [
+      {
+        "file": "book.xlsx",
+        "note": "openpyxl, inlineStr",
+        "markers": 3,
+        "native_ms": 11.7,
+        "native_found": 3,
+        "native_kind": "xlsx",
+        "mid_ms": 15.8,
+        "mid_found": 3
+      },
+      {
+        "file": "deck.pptx",
+        "note": "python-pptx",
+        "markers": 2,
+        "native_ms": 0.7,
+        "native_found": 2,
+        "native_kind": "pptx",
+        "mid_ms": 14.4,
+        "mid_found": 2
+      },
+      {
+        "file": "doc.docx",
+        "note": "OOXML вручную",
+        "markers": 2,
+        "native_ms": 0.4,
+        "native_found": 2,
+        "native_kind": "docx",
+        "mid_ms": 9.3,
+        "mid_found": 2
+      },
+      {
+        "file": "paper.pdf",
+        "note": "PDF по спецификации",
+        "markers": 1,
+        "native_ms": 56.8,
+        "native_found": 1,
+        "native_kind": "pdf",
+        "mid_ms": 12.0,
+        "mid_found": 1
+      },
+      {
+        "file": "table.csv",
+        "note": "csv",
+        "markers": 2,
+        "native_ms": 1.4,
+        "native_found": 2,
+        "native_kind": "csv",
+        "mid_ms": 6.5,
+        "mid_found": 2
+      },
+      {
+        "file": "notes.txt",
+        "note": "txt",
+        "markers": 1,
+        "native_ms": 0.2,
+        "native_found": 1,
+        "native_kind": "txt",
+        "mid_ms": 32.1,
+        "mid_found": 1
+      },
+      {
+        "file": "page.html",
+        "note": "html",
+        "markers": 2,
+        "native_ms": 0.2,
+        "native_found": 2,
+        "native_kind": "txt",
+        "mid_ms": 8.8,
+        "mid_found": 2
+      },
+      {
+        "file": "cfg.json",
+        "note": "json",
+        "markers": 1,
+        "native_ms": 0.3,
+        "native_found": 1,
+        "native_kind": "json",
+        "mid_ms": 6.4,
+        "mid_found": 1
+      },
+      {
+        "file": "bundle.zip",
+        "note": "zip",
+        "markers": 1,
+        "native_ms": 0.3,
+        "native_found": 1,
+        "native_kind": "zip",
+        "mid_ms": 12.5,
+        "mid_found": 1
+      },
+      {
+        "file": "pic.png",
+        "note": "png без текста",
+        "markers": 0,
+        "native_ms": 0.3,
+        "native_found": 0,
+        "native_kind": "image",
+        "mid_ms": 5.7,
+        "mid_found": 0
+      },
+      {
+        "file": "nb.ipynb",
+        "note": "ipynb — родного парсера нет",
+        "markers": 2,
+        "native_ms": 0.3,
+        "native_found": 2,
+        "native_kind": "txt",
+        "mid_ms": 6.3,
+        "mid_found": 2
+      },
+      {
+        "file": "book.epub",
+        "note": "epub — родного парсера нет",
+        "markers": 2,
+        "native_ms": 0.4,
+        "native_found": 0,
+        "native_kind": "zip",
+        "mid_ms": 7.7,
+        "mid_found": 2
+      }
+    ],
+    "итого": {
+      "markers": 19,
+      "native_found": 17,
+      "mid_found": 19,
+      "native_ms": 73.0,
+      "mid_ms": 137.5,
+      "native_errors": 0,
+      "mid_errors": 0
+    },
+    "холодный_импорт_pypdf_мс": 110.5,
+    "родной_pdf_с_прогретым_импортом_мс": [
+      10.7,
+      1.15,
+      1.01,
+      1.14,
+      1.17
+    ]
+  },
+  "стоимость_покоя": {
+    "способ": "два последовательных окна по 30 с. Первое может содержать хвост запуска; настоящий холостой ход виден только во втором.",
+    "окна": [
+      {
+        "connector": "markitdown-mcp",
+        "окно1_cpu_ms": 10.0,
+        "окно1_rss_mib": 170.9,
+        "окно1_процессов": 1,
+        "окно2_cpu_ms": 10.0,
+        "окно2_rss_mib": 170.9,
+        "окно2_процессов": 1,
+        "окно_сек": 30
+      },
+      {
+        "connector": "playwright-mcp (браузер не открыт)",
+        "окно1_cpu_ms": 320.0,
+        "окно1_rss_mib": 203.4,
+        "окно1_процессов": 3,
+        "окно2_cpu_ms": 0.0,
+        "окно2_rss_mib": 203.4,
+        "окно2_процессов": 3,
+        "окно_сек": 30
+      },
+      {
+        "connector": "playwright-mcp (браузер открыт)",
+        "окно1_cpu_ms": 600.0,
+        "окно1_rss_mib": 913.5,
+        "окно1_процессов": 11,
+        "окно2_cpu_ms": 60.0,
+        "окно2_rss_mib": 913.1,
+        "окно2_процессов": 11,
+        "окно_сек": 30
+      }
+    ],
+    "вывод": "CPU в покое у обоих около нуля во ВТОРОМ окне — одиночный замер показал бы у playwright-mcp 320 мс и это было бы ложным обвинением. Стоимость покоя здесь — память, а не процессор."
+  },
+  "раздел_6_успех_транспорта_против_успеха_операции": {
+    "вопрос": "отличит ли потребитель, читающий ТОЛЬКО конверт результата, 200 от 404",
+    "замеры": {
+      "страница есть (200)": {
+        "вердикт_стенда": "PASS",
+        "isError": "отсутствует",
+        "есть_ошибка_jsonrpc": false,
+        "текст": "### Ran Playwright code\n```js\nawait page.goto('http://127.0.0.1:8741/ok.html');\n```\n### Page\n- Page URL: http://127.0.0.1:8741/ok.html\n- Page Title: Есть\n- Console: 1 errors, 0 warnings\n### Snapshot\n- [Snapshot](.playwright-mcp/page-2026-09-14T22-09-12-285Z.yml)\n### Events\n- New console entries: .playwright-mcp/console-2026-09-14T22-09-12-209Z.log#L1"
+      },
+      "страницы нет (404)": {
+        "вердикт_стенда": "PASS",
+        "isError": "отсутствует",
+        "есть_ошибка_jsonrpc": false,
+        "текст": "### Ran Playwright code\n```js\nawait page.goto('http://127.0.0.1:8741/нет-такой.html');\n```\n### Page\n- Page URL: http://127.0.0.1:8741/%D0%BD%D0%B5%D1%82-%D1%82%D0%B0%D0%BA%D0%BE%D0%B9.html\n- Page Title: 404\n- HTTP status: 404 Not Found\n- Console: 1 errors, 0 warnings\n### Snapshot\n- [Snapshot](.playwright-mcp/page-2026-09-14T22-09-12-355Z.yml)\n### Events\n- New console entries: .playwright-mcp/conso"
+      }
+    },
+    "вывод": "нет. Обе навигации приходят без `isError` и без ошибки JSON-RPC, поэтому по конверту они неразличимы. Playwright MCP не врёт: строка `- HTTP status: 404 Not Found` в теле есть — но существует она только как ПРОЗА, и на успешном ответе такой строки просто нет. Машина, доверяющая `isError`, заключит, что переход удался. Это и есть измеренное основание правила раздела 6 перечитывать состояние самому."
+  },
+  "раздел_6_кандидаты_малой_стоимости": {
+    "вопрос": "что каждый из пяти УЛУЧШАЕТ и по сравнению с чем (раздел 24)",
+    "uv_против_pip": {
+      "набор": "девять рантайм-зависимостей Command Center, чистое окружение, по очереди",
+      "холодный_кэш": {
+        "pip_сек": 12.5,
+        "uv_сек": 1.1,
+        "ускорение": 11.4
+      },
+      "прогретый_кэш": {
+        "pip_сек": 11.5,
+        "uv_сек": 0.1,
+        "ускорение": 115.0
+      },
+      "пакетов_установлено": {
+        "pip": 32,
+        "uv": 32
+      },
+      "оговорка": "печатаются ОБЕ фазы: первый прогон каждого инструмента греет его собственный кэш, и цитировать только прогретую цифру значило бы приукрасить uv",
+      "решение": "ADOPT_AS_BUILD_TOOL — в рантайме отсутствует, стоимость простоя ноль"
+    },
+    "watchfiles": {
+      "посылка": "«3.0 % одного ядра на опросе очереди раз в секунду»",
+      "что_измерено": "расход был ~4.5 % и приходился не на опрос очереди, а на разбор девяти app.manifest.yaml девять раз в секунду; закрыт кэшем без новых зависимостей до ~1.2 % (BL-037)",
+      "решение": "REFERENCE_ONLY — посылка отпала до замера самого кандидата"
+    },
+    "fastembed": {
+      "что_измерено": "ранее, в docs/research/qdrant.md и lancedb.md: скрытая загрузка ONNX-моделей из сети",
+      "решение": "REJECT — вердикт прежних измерений не переигрывается без новых оснований"
+    },
+    "sqlite_vec": {
+      "решение": "DEFERRED — векторного поиска нет, базы для «до/после» не существует"
+    },
+    "faster_whisper": {
+      "решение": "DEFERRED — тянет локальную модель, то есть память, бюджет которой принадлежит владельцу"
+    },
+    "рантайм_зависимостей_добавлено": 0
+  }
+}

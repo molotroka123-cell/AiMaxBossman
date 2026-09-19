@@ -124,7 +124,7 @@ def run_setup_wizard(
 SOLANA_NETWORK=mainnet-beta
 SOLANA_RPC_URL={selected_rpc}
 TARGET_TOKEN_MINT={target_mint}
-VAULT_MASTER_PASSWORD={master_pass}
+VAULT_MASTER_PASSWORD={master_pass}  # ci-secret-scan: allow -- runtime-generated value, not a literal secret
 JITO_BLOCK_ENGINE_URL={DEFAULT_JITO_ENGINE}
 JITO_MIN_TIP_LAMPORTS=100000
 EXECUTION_MODE=MAINNET_READY

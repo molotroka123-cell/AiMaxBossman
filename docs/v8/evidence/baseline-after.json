@@ -1,0 +1,20 @@
+{
+  "source_sha": "d1b96687f02b6c17f829c671cfe4a4987d00c489",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "python": "3.12.14",
+  "import_ms": 392.23355900048773,
+  "first_answer_ms": 143.38735599994834,
+  "start_to_answer_ms": 208.0180979992292,
+  "http_status": 200,
+  "measurement_transport": "in-process ASGI (not TCP)",
+  "idle_seconds": 60.000186416999895,
+  "rss_before_mib": 98.09765625,
+  "rss_after_mib": 100.13671875,
+  "cpu_one_core_percent": 0.7333310549104131,
+  "images_tick": {
+    "at": 4879.017667172,
+    "error": null,
+    "every": 0.7
+  },
+  "process_count": 1
+}

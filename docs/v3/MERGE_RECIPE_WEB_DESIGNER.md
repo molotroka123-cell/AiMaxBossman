@@ -9,7 +9,7 @@
 | `command-center/ui/pages/index.js` | **обе стороны** | Каждая ветка добавляет свою страницу. Нужны и импорт, и строка в `FEATURE_PAGES`: `ControlPage` (пульт владельца) и `WebDesignerPage`. Взять одну — молча потерять страницу. |
 | `.github/workflows/bossman-core-ci.yml` | любую | Одна и та же строка `python -m pip install -e .`, разница только в поясняющем комментарии. |
 | `.github/workflows/command-center-ci.yml` | любую | То же. |
-| `solana_volume_suite/setup_mainnet.py` | **сторону дизайнера** | Её версия убирает пароль хранилища по умолчанию (`SuperSecretMasterPass123!`), который раньше подставлялся при нажатии Enter. Это исправление слабого места, а не косметика. |
+| `solana_volume_suite/setup_mainnet.py` | **сторону дизайнера** | Её версия убирает пароль хранилища по умолчанию (`<REDACTED_LEAKED_VAULT_PASSWORD_SEE_SEC-001>`), который раньше подставлялся при нажатии Enter. Это исправление слабого места, а не косметика. |
 
 После разрешения проверить, что не потеряно:
 

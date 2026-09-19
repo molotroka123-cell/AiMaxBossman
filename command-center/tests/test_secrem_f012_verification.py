@@ -72,7 +72,8 @@ async def test_variant_text_claims_with_absent_effect_fail(env, answer):
 
 async def test_real_effect_is_verified_by_fresh_read(env):
     """Положительный контроль: реальный файл с ожидаемым содержимым → VERIFIED → completed."""
-    target = env.settings.data_dir / "made.txt"
+    target = (env.settings.data_dir / 'scratch') / "made.txt"
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("hello world", encoding="utf-8")
     status, _ = await _run_review(
         env, "готово", {"criteria": "x",
@@ -84,7 +85,8 @@ async def test_real_effect_is_verified_by_fresh_read(env):
 async def test_llm_reviewer_pass_is_not_sufficient_but_fail_vetoes(env, tmp_path):
     """LLM-ревьюер: «PASS» не подтверждает (нужны доказательства), «FAIL» — ветирует
     даже при наличии доказательств."""
-    target = env.settings.data_dir / "ok.txt"
+    target = (env.settings.data_dir / 'scratch') / "ok.txt"
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("done", encoding="utf-8")
     task = {"id": 1}
     evidence = [{"kind": "file", "target": str(target), "expect": {"contains": "done"}}]

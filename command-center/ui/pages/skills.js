@@ -44,6 +44,7 @@ const SkillsPage = {
   title: 'Навыки',
   icon: 'edit',
   nav: 'primary',
+  section: 'brains',
 
   async render(ctx) {
     const [skillsR, serversR, toolsR] = await Promise.allSettled([

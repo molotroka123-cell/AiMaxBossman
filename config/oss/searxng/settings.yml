@@ -1,0 +1,11 @@
+# Bossman calls /search?format=json; upstream defaults may allow only HTML.
+use_default_settings: true
+search:
+  formats:
+    - html
+    - json
+server:
+  # This sample is for a loopback-only personal instance, not a public server.
+  limiter: false
+  public_instance: false
+  image_proxy: false

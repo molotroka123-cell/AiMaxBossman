@@ -13,9 +13,79 @@ const RU_LABELS = { 'Timeline, s': 'Позиция, с', 'Source in, s': 'Нач
 Object.assign(RU_LABELS, { 'FPS numerator': 'FPS: числитель', 'FPS denominator': 'FPS: знаменатель', 'Video codec': 'Видеокодек', 'Audio codec': 'Аудиокодек', Container: 'Контейнер', 'Video bitrate (optional, 4M)': 'Видеобитрейт (необязательно, 4M)', 'Audio bitrate': 'Аудиобитрейт', 'Export area': 'Область экспорта', 'Encoding mode': 'Режим кодирования', Font: 'Шрифт', Transform: 'Преобразование', 'Crop left': 'Обрезка слева', 'Crop top': 'Обрезка сверху', 'Crop right': 'Обрезка справа', 'Crop bottom': 'Обрезка снизу', Scope: 'Вид измерения', prepare: 'Подготовка медиа', scope: 'Scopes: снимок', hardware_probe: 'Проверка кодека', translate: 'Перевод EN → RU', search: 'Поиск по тексту', broll: 'Подбор B-roll', duplicates: 'Поиск дублей', portable_import: 'Восстановление ZIP', frequency: 'Частота', width: 'Ширина полосы', gain: 'Усиление', threshold: 'Порог', ratio: 'Степень сжатия', attack: 'Атака, мс', release: 'Восстановление, мс', integrated: 'Целевая громкость LUFS', true_peak: 'Истинный пик dBTP', range: 'Диапазон LRA', reduction: 'Подавление, дБ', limit: 'Предел', duration: 'Длительность, с', Similarity: 'Сходство', Blend: 'Смешивание', Shape: 'Форма', Radius: 'Радиус', 'Points 0..1': 'Точки 0..1', Seconds: 'Секунды' });
 
 const TEXT = {
-  ru: { media: 'Медиа', properties: 'Свойства', montage: 'Монтаж', color: 'Цвет', audio: 'Звук', vfx: 'VFX', ai: 'ИИ', import: 'Импорт', export: 'Экспорт', preview: 'Создать preview', project: 'Проект', create: 'Новый проект', open: 'Открыть', rename: 'Переименовать', duplicate: 'Дублировать', archive: 'Архивировать', search: 'Поиск файлов и тегов', all: 'Все папки', name: 'Название', duration: 'Длительность', size: 'Размер', empty: 'Ваш следующий монтаж начинается здесь', emptyHelp: 'Создайте проект и импортируйте исходники. Видео остаётся локально.', drop: 'Перетащите видео, аудио или изображения', noMedia: 'Исходники ещё не импортированы', addTrack: 'Дорожка', split: 'Разрезать', remove: 'Удалить', undo: 'Отменить', redo: 'Повторить', marker: 'Маркер', snap: 'Привязка', range: 'Диапазон', refresh: 'Обновить', saved: 'Сохранено', select: 'Выберите клип на таймлайне', apply: 'Применить', dry: 'Проверить изменения', history: 'История', commands: 'Команды', assistant: 'Bossman AI', proposal: 'Предлагаемые изменения', explain: 'Агент использует те же команды. Сначала проверьте план, затем примените его к текущей revision.', local: 'Локально · без передачи исходников', missing: 'Исходник недоступен', busy: 'Выполняется', cancel: 'Отмена', reset: 'Сбросить раскладку', noPreview: 'Предпросмотр проекта ещё не создан', previewHint: 'Выберите исходник или создайте preview текущей версии.', revisions: 'Версии', title: 'Титр', advanced: 'Расширенная команда', close: 'Закрыть', fullscreen: 'Полный экран', source: 'Исходник', output: 'Результат', conflict: 'Конфликт версии. Изменения не применены; обновите проект и проверьте план снова.', load: 'Загрузка…', folder: 'Папка', tags: 'Теги', add: 'На таймлайн', effect: 'Эффект', keyframe: 'Ключевой кадр', download: 'Скачать файл', verified: 'Проверено', unknown: 'Исход неизвестен', bounds: 'Начало / конец, секунды', inspect: 'Свойства источника', portable: 'Переносимый проект', timeline: 'Таймлайн', fit: 'По размеру', start: 'Начать', selectProject: 'Выберите проект', failure: 'Ошибка', lock: 'Заблокировать', agentUndo: 'Отменить последнюю операцию', changes: 'Изменённые объекты', warning: 'Предупреждения', current: 'Текущая версия', compare: 'Сравнить', unavailable: 'Недоступно', captions: 'Субтитры' },
-  en: { media: 'Media', properties: 'Properties', montage: 'Edit', color: 'Color', audio: 'Audio', vfx: 'VFX', ai: 'AI', import: 'Import', export: 'Export', preview: 'Render preview', project: 'Project', create: 'New project', open: 'Open', rename: 'Rename', duplicate: 'Duplicate', archive: 'Archive', search: 'Search files and tags', all: 'All folders', name: 'Name', duration: 'Duration', size: 'Size', empty: 'Your next edit starts here', emptyHelp: 'Create a project and import sources. Your media stays local.', drop: 'Drop video, audio or images here', noMedia: 'No sources imported yet', addTrack: 'Track', split: 'Split', remove: 'Delete', undo: 'Undo', redo: 'Redo', marker: 'Marker', snap: 'Snap', range: 'Range', refresh: 'Refresh', saved: 'Saved', select: 'Select a timeline clip', apply: 'Apply', dry: 'Review changes', history: 'History', commands: 'Commands', assistant: 'Bossman AI', proposal: 'Proposed changes', explain: 'The agent uses the same commands. Review the plan, then apply it against the current revision.', local: 'Local · source files stay on this device', missing: 'Source unavailable', busy: 'Working', cancel: 'Cancel', reset: 'Reset layout', noPreview: 'No project preview yet', previewHint: 'Select a source or render a preview of this revision.', revisions: 'Versions', title: 'Title', advanced: 'Advanced command', close: 'Close', fullscreen: 'Fullscreen', source: 'Source', output: 'Output', conflict: 'Revision conflict. Nothing was applied; refresh the project and review again.', load: 'Loading…', folder: 'Folder', tags: 'Tags', add: 'Add to timeline', effect: 'Effect', keyframe: 'Keyframe', download: 'Download file', verified: 'Verified', unknown: 'Unknown outcome', bounds: 'Start / end, seconds', inspect: 'Source properties', portable: 'Portable project', timeline: 'Timeline', fit: 'Fit', start: 'Start', selectProject: 'Choose a project', failure: 'Error', lock: 'Lock', agentUndo: 'Undo last operation', changes: 'Changed objects', warning: 'Warnings', current: 'Current revision', compare: 'Compare', unavailable: 'Unavailable', captions: 'Captions' },
+  ru: { media: 'Медиа', properties: 'Свойства', montage: 'Монтаж', color: 'Цвет', audio: 'Звук', vfx: 'VFX', ai: 'ИИ', import: 'Импорт', export: 'Экспорт', preview: 'Создать preview', project: 'Проект', create: 'Новый проект', open: 'Открыть', rename: 'Переименовать', duplicate: 'Дублировать', archive: 'Архивировать', search: 'Поиск файлов и тегов', all: 'Все папки', name: 'Название', duration: 'Длительность', size: 'Размер', empty: 'Ваш следующий монтаж начинается здесь', emptyHelp: 'Создайте проект и импортируйте исходники. Видео остаётся локально.', drop: 'Перетащите видео, аудио или изображения', noMedia: 'Исходники ещё не импортированы', addTrack: 'Дорожка', split: 'Разрезать', remove: 'Удалить', undo: 'Отменить', redo: 'Повторить', marker: 'Маркер', snap: 'Привязка', range: 'Диапазон', refresh: 'Обновить', saved: 'Сохранено', select: 'Выберите клип на таймлайне', apply: 'Применить', dry: 'Проверить изменения', history: 'История', commands: 'Команды', assistant: 'Bossman AI', proposal: 'Предлагаемые изменения', explain: 'Агент использует те же команды. Сначала проверьте план, затем примените его к текущей revision.', local: 'Локально · без передачи исходников', missing: 'Исходник недоступен', busy: 'Выполняется', cancel: 'Отмена', reset: 'Сбросить раскладку', noPreview: 'Предпросмотр проекта ещё не создан', previewHint: 'Выберите исходник или создайте preview текущей версии.', revisions: 'Версии', title: 'Титр', advanced: 'Расширенная команда', close: 'Закрыть', fullscreen: 'Полный экран', source: 'Исходник', output: 'Результат', conflict: 'Конфликт версии. Изменения не применены; обновите проект и проверьте план снова.', load: 'Загрузка…', folder: 'Папка', tags: 'Теги', add: 'На таймлайн', effect: 'Эффект', keyframe: 'Ключевой кадр', download: 'Скачать файл', verified: 'Проверено', unknown: 'Исход неизвестен', bounds: 'Начало / конец, секунды', inspect: 'Свойства источника', portable: 'Переносимый проект', timeline: 'Таймлайн', fit: 'По размеру', start: 'Начать', selectProject: 'Выберите проект', failure: 'Ошибка', lock: 'Заблокировать', agentUndo: 'Отменить последнюю операцию', changes: 'Изменённые объекты', warning: 'Предупреждения', current: 'Текущая версия', compare: 'Сравнить', unavailable: 'Недоступно', captions: 'Субтитры', whyNoProject: 'сначала откройте или создайте проект', whyNoTimeline: 'на таймлайне ещё нет материала', whyTrackLocked: 'дорожка заблокирована', whyNoMedia: 'у клипа нет исходника', whyNoSource: 'исходник не выбран', whyNoClip: 'клип не выбран', whyNeedTwo: 'выберите хотя бы два клипа', whyNoCaptions: 'субтитров ещё нет' },
+  en: { media: 'Media', properties: 'Properties', montage: 'Edit', color: 'Color', audio: 'Audio', vfx: 'VFX', ai: 'AI', import: 'Import', export: 'Export', preview: 'Render preview', project: 'Project', create: 'New project', open: 'Open', rename: 'Rename', duplicate: 'Duplicate', archive: 'Archive', search: 'Search files and tags', all: 'All folders', name: 'Name', duration: 'Duration', size: 'Size', empty: 'Your next edit starts here', emptyHelp: 'Create a project and import sources. Your media stays local.', drop: 'Drop video, audio or images here', noMedia: 'No sources imported yet', addTrack: 'Track', split: 'Split', remove: 'Delete', undo: 'Undo', redo: 'Redo', marker: 'Marker', snap: 'Snap', range: 'Range', refresh: 'Refresh', saved: 'Saved', select: 'Select a timeline clip', apply: 'Apply', dry: 'Review changes', history: 'History', commands: 'Commands', assistant: 'Bossman AI', proposal: 'Proposed changes', explain: 'The agent uses the same commands. Review the plan, then apply it against the current revision.', local: 'Local · source files stay on this device', missing: 'Source unavailable', busy: 'Working', cancel: 'Cancel', reset: 'Reset layout', noPreview: 'No project preview yet', previewHint: 'Select a source or render a preview of this revision.', revisions: 'Versions', title: 'Title', advanced: 'Advanced command', close: 'Close', fullscreen: 'Fullscreen', source: 'Source', output: 'Output', conflict: 'Revision conflict. Nothing was applied; refresh the project and review again.', load: 'Loading…', folder: 'Folder', tags: 'Tags', add: 'Add to timeline', effect: 'Effect', keyframe: 'Keyframe', download: 'Download file', verified: 'Verified', unknown: 'Unknown outcome', bounds: 'Start / end, seconds', inspect: 'Source properties', portable: 'Portable project', timeline: 'Timeline', fit: 'Fit', start: 'Start', selectProject: 'Choose a project', failure: 'Error', lock: 'Lock', agentUndo: 'Undo last operation', changes: 'Changed objects', warning: 'Warnings', current: 'Current revision', compare: 'Compare', unavailable: 'Unavailable', captions: 'Captions', whyNoProject: 'open or create a project first', whyNoTimeline: 'the timeline has no material yet', whyTrackLocked: 'the track is locked', whyNoMedia: 'the clip has no source', whyNoSource: 'no source selected', whyNoClip: 'no clip selected', whyNeedTwo: 'select at least two clips', whyNoCaptions: 'there are no captions yet' },
 };
+
+/* Почему предпросмотр не играет — словами, а не «исходник недоступен».
+
+   Файл отдавался с 200 и честно раскодировался ffmpeg'ом, а браузер без
+   проприетарных декодеров (сборки Chromium на Linux) отвечал
+   DEMUXER_ERROR_NO_SUPPORTED_STREAMS. Владелец при этом читал «Исходник
+   недоступен» — прямую неправду про присутствующий файл, и починить по такому
+   сообщению было нечего. MediaError.code различает эти случаи; показываем их. */
+export function mediaFailure(el, lang) {
+  const ru = lang === 'ru';
+  const code = el && el.error ? el.error.code : 0;
+  const detail = el && el.error && el.error.message ? ` (${el.error.message})` : '';
+  if (code === 4) {
+    return (ru ? 'Файл получен, но этот браузер не умеет его декодировать. '
+               + 'Откройте в Chrome/Edge или соберите preview в WebM (VP9/Opus).'
+               : 'The file arrived, but this browser cannot decode it. '
+               + 'Open it in Chrome/Edge, or render the preview as WebM (VP9/Opus).') + detail;
+  }
+  if (code === 2) return (ru ? 'Сеть оборвала загрузку файла.' : 'The network interrupted the download.') + detail;
+  if (code === 3) return (ru ? 'Файл повреждён: декодирование прервалось.' : 'The file is corrupt: decoding failed.') + detail;
+  if (code === 1) return ru ? 'Воспроизведение прервано.' : 'Playback was aborted.';
+  return (ru ? 'Исходник недоступен.' : 'Source unavailable.') + detail;
+}
+
+/* Формат preview выбирает ПРОДУКТ, по ответу самого браузера — не тест.
+
+   Измерено на этом хосте, а не предположено. Кнопка «Создать preview» всегда
+   просила контейнер по умолчанию (mp4 + libx264/aac). Chromium без
+   проприетарных декодеров отвечает:
+     canPlayType('video/mp4; codecs="avc1.64001E, mp4a.40.2"') -> ''
+     canPlayType('video/mp4; codecs="avc1.42E01E"')            -> ''
+     canPlayType('video/webm; codecs="vp9, opus"')             -> 'probably'
+   При этом 'video/mp4; codecs="av01.0.05M.08"' даёт 'probably' — значит дело
+   НЕ в контейнере mp4, а именно в отсутствии H.264/AAC. Владелец получал файл
+   с HTTP 200, валидный по ffprobe и целиком декодируемый ffmpeg'ом, и
+   MediaError code 4 DEMUXER_ERROR_NO_SUPPORTED_STREAMS в <video>. Починить
+   это в тесте нельзя: ломается путь владельца, а не путь теста.
+
+   Порядок кандидатов сохраняет прежнее поведение: mp4/H.264/AAC остаётся
+   первым, поэтому браузер с проприетарными декодерами (Chrome/Edge у
+   владельца) получает ровно то же, что и раньше. На WebM уходим только там,
+   где браузер сам сказал, что H.264 не умеет. Вывод не обобщается на «все
+   Linux-сборки»: спрашивается именно тот браузер, который сейчас открыт. */
+export const PREVIEW_FORMATS = [
+  { container: 'mp4', video_codec: 'libx264', audio_codec: 'aac', mime: 'video/mp4; codecs="avc1.64001E, mp4a.40.2"' },
+  { container: 'webm', video_codec: 'libvpx-vp9', audio_codec: 'libopus', mime: 'video/webm; codecs="vp9, opus"' },
+];
+
+/* Список кодировщиков хоста приходит из `ffmpeg -encoders` и разбирается по
+   `\w+`, что ОБРЕЗАЕТ дефисные имена: на этом хосте libvpx-vp9 приезжает как
+   'libvpx' (проверено, не додумано). Поэтому принимаем и точное имя, и его
+   первый сегмент. Отсутствующий или пустой список — это «неизвестно», а не
+   «кодировщика нет»: молча запрещать по незнанию мы не будем, непригодная
+   пара всё равно отвергается сервером до постановки в очередь. */
+export function hasEncoder(encoders, name) {
+  if (!Array.isArray(encoders) || !encoders.length) return true;
+  return encoders.includes(name) || encoders.includes(name.split('-')[0]);
+}
+
+export function previewFormat(canPlayType, encoders) {
+  const buildable = PREVIEW_FORMATS.filter(f => hasEncoder(encoders, f.video_codec) && hasEncoder(encoders, f.audio_codec));
+  // canPlayType отвечает '' | 'maybe' | 'probably'. 'maybe' значит «контейнер
+  // знаком, про кодеки ничего не обещаю» — именно на нём и получался таймаут.
+  // Сначала берём то, что браузер обещает, и только потом 'maybe'.
+  for (const wanted of ['probably', 'maybe']) {
+    const found = buildable.find(f => canPlayType(f.mime) === wanted);
+    if (found) return found;
+  }
+  return null;
+}
 
 class Editor {
   constructor(ctx, params) {
@@ -23,15 +93,31 @@ class Editor {
     this.workspace = readPreference('workspace', 'montage'); this.layout = readPreference('layout', { library: 238, inspector: 266, timeline: 284 });
     this.project = null; this.projects = []; this.selected = null; this.selectedIds = new Set(); this.mediaSelection = null;
     this.playhead = 0; this.zoom = 68; this.snap = true; this.query = ''; this.folder = ''; this.sort = 'name';
-    this.agentOpen = readPreference('assistant', true) !== false; this.busy = false; this.error = ''; this.previewUrl = ''; this.previewRevision = null;
+    this.agentOpen = readPreference('assistant', true) !== false; this.busy = false; this.error = ''; this.previewUrl = ''; this.previewRevision = null; this.playerNode = null; this.playerFailure = '';
     this.jobs = new Map(); this.root = h('section.vs-studio', { tabindex: '0', 'aria-label': 'Bossman Video Studio', onKeydown: e => this.keyboard(e) });
     this.proposalText = '{\n  "type": "clip.split",\n  "clip_id": "",\n  "at": 1000000\n}';
     this.review = null; this.lastChange = []; this.disposed = false;
   }
   t(key) { return (TEXT[this.lang] || TEXT.ru)[key] || key; }
   label(text) { return this.lang === 'ru' ? RU_LABELS[text] || text : text; }
+  /* Отключённая кнопка обязана сказать, ПОЧЕМУ она отключена. Раньше подсказка
+     сводилась к имени самой кнопки: владелец наводил курсор на серую «Отменить ·
+     Ctrl+Z» и читал «Отменить · Ctrl+Z». Настоящая причина — «проект не открыт»,
+     «дорожка заблокирована», «на таймлайне нет материала» — не была написана
+     нигде, и отказ выглядел поломкой.
+     Причина берётся из ТОГО ЖЕ условия, что отключает кнопку, и задаётся на
+     каждом месте вызова: одна общая формулировка была бы неправдой, потому что
+     условий здесь четыре разных. Если причина не передана, подсказка честно
+     говорит «Недоступно» — это хуже конкретной причины, но лучше, чем выдать
+     имя кнопки за объяснение.
+     `title` стоит ПОСЛЕ `...rest` намеренно: в прежнем порядке `...opts`
+     перекрывал вычисленный заголовок, из-за чего перевод заголовка молча
+     терялся. */
   button(label, fn, opts = {}) {
-    return h('button.vs-button', { type: 'button', title: this.label(opts.title || label), onClick: () => this.guard(fn), ...opts }, this.label(label));
+    const { reason, ...rest } = opts;
+    const name = this.label(rest.title || label);
+    const title = rest.disabled ? `${name} · ${this.label(reason || this.t('unavailable'))}` : name;
+    return h('button.vs-button', { type: 'button', onClick: () => this.guard(fn), ...rest, title }, this.label(label));
   }
   async guard(fn) { try { return await fn(); } catch (error) { this.error = error.status === 409 ? this.t('conflict') : error.message; this.paint(); toastError(this.error); } }
   async load() {
@@ -116,14 +202,14 @@ class Editor {
         h('option', { value: '', selected: !this.project, disabled: true }, this.t('selectProject')),
         ...this.projects.map(p => h('option', { value: p.id, selected: p.id === this.project?.id }, p.name))),
       this.button('＋', () => this.create(), { title: this.t('create') }),
-      this.button('⋯', () => this.projectMenu(), { title: this.t('project'), disabled: !this.project }),
-      h('nav.vs-workspaces', { 'aria-label': 'Workspace' }, ...['montage', 'color', 'audio', 'vfx', 'ai'].map(key => this.button(this.t(key), () => { this.workspace = key; preference('workspace', key); this.paint(); }, { class: this.workspace === key ? 'active' : '', 'aria-pressed': this.workspace === key }))),
-      this.button('↶', () => this.command({ type: 'history.undo' }), { title: `${this.t('undo')} · Ctrl+Z`, disabled: !this.project }),
-      this.button('↷', () => this.command({ type: 'history.redo' }), { title: `${this.t('redo')} · Ctrl+Shift+Z`, disabled: !this.project }),
-      this.button('⌘', () => this.palette(), { title: `${this.t('commands')} · Ctrl+K`, disabled: !this.project }),
+      this.button('⋯', () => this.projectMenu(), { title: this.t('project'), disabled: !this.project, reason: this.t('whyNoProject') }),
+      h('nav.vs-workspaces', { 'aria-label': 'Workspace' }, ...['montage', 'color', 'audio', 'vfx', 'ai'].map(key => this.button(this.t(key), () => { this.workspace = key; preference('workspace', key); this.paint(); }, { class: this.workspace === key ? 'active' : '', 'aria-pressed': String(this.workspace === key) }))),
+      this.button('↶', () => this.command({ type: 'history.undo' }), { title: `${this.t('undo')} · Ctrl+Z`, disabled: !this.project, reason: this.t('whyNoProject') }),
+      this.button('↷', () => this.command({ type: 'history.redo' }), { title: `${this.t('redo')} · Ctrl+Shift+Z`, disabled: !this.project, reason: this.t('whyNoProject') }),
+      this.button('⌘', () => this.palette(), { title: `${this.t('commands')} · Ctrl+K`, disabled: !this.project, reason: this.t('whyNoProject') }),
       this.button('✦', () => { this.agentOpen = !this.agentOpen; preference('assistant', this.agentOpen); this.paint(); }, { title: this.t('assistant'), 'aria-pressed': this.agentOpen }),
       this.button(this.lang === 'ru' ? 'EN' : 'RU', () => { this.lang = this.lang === 'ru' ? 'en' : 'ru'; preference('language', this.lang); this.paint(); }),
-      this.button(this.t('export'), () => this.exportDialog(false), { class: 'vs-primary', disabled: !this.project }));
+      this.button(this.t('export'), () => this.exportDialog(false), { class: 'vs-primary', disabled: !this.project, reason: this.t('whyNoProject') }));
   }
   resizer(kind) {
     return h('div.vs-resizer', { class: kind === 'timeline' ? 'horizontal' : '', role: 'separator', tabindex: '0', 'aria-label': `Resize ${kind}`,
@@ -181,22 +267,63 @@ class Editor {
     const url = media ? `${BASE}/media/${encodeURIComponent(media.id)}/${this.sourceProxy && media.has_video ? 'proxy' : 'file'}?project_id=${encodeURIComponent(this.project.id)}&source=${encodeURIComponent(media.sha256)}` : this.previewUrl;
     const stage = h('div.vs-preview-stage');
     if (url) {
-      const player = h(media && !media.has_video && media.width ? 'img' : 'video', { src: url, controls: true, preload: 'metadata', playsinline: true, 'aria-label': this.t('preview'),
-        onLoadedmetadata: e => { if (!media) e.target.currentTime = seconds(this.playhead); },
-        onTimeupdate: e => { if (!media) { this.playhead = Math.round(e.target.currentTime * TIMEBASE); this.updatePlayhead(); } },
-        onError: () => { stage.append(h('div.vs-preview-error', this.t('missing'))); } }); stage.append(player);
-    } else stage.append(h('div.vs-preview-empty', h('div', '▷'), h('strong', this.t('noPreview')), h('p', this.t('previewHint')), this.button(this.t('preview'), () => this.startExport(true), { disabled: !endTime(this.project) })));
+      stage.append(this.player(url, media && !media.has_video && media.width ? 'img' : 'video', !media));
+      if (this.playerFailure) stage.append(h('div.vs-preview-error', this.playerFailure));
+    } else { this.playerNode = null; this.playerFailure = ''; stage.append(h('div.vs-preview-empty', h('div', '▷'), h('strong', this.t('noPreview')), h('p', this.t('previewHint')), this.button(this.t('preview'), () => this.startExport(true), { disabled: !endTime(this.project), reason: this.t('whyNoTimeline') }))); }
     return h('section.vs-preview.vs-panel', h('div.vs-panel-head', h('span', `${media ? this.t('source') : this.t('project')}: ${media?.name || this.project.name}`),
       h('small', media ? '' : this.previewRevision === null ? '' : `r${this.previewRevision}${this.previewRevision !== this.project.revision ? ' · outdated' : ''}`)), stage,
       h('div.vs-transport', h('span.vs-timecode', timecode(this.playhead, activeSequence(this.project).fps)),
         this.button('│◀', () => this.seek(0)), this.button('◀', () => this.seek(Math.max(0, this.playhead - TIMEBASE * activeSequence(this.project).fps.den / activeSequence(this.project).fps.num))),
         this.button('▶', () => this.togglePlay()), this.button('▶│', () => this.seek(endTime(this.project))), h('span', timecode(endTime(this.project), activeSequence(this.project).fps)),
         this.button('⛶', () => stage.requestFullscreen(), { title: this.t('fullscreen') })),
-      h('div.vs-preview-actions', this.button(this.t('preview'), () => { this.mediaSelection = null; return this.startExport(true); }, { disabled: this.busy || !endTime(this.project) }), h('small', `${activeSequence(this.project).width}×${activeSequence(this.project).height} · ${activeSequence(this.project).fps.num}/${activeSequence(this.project).fps.den} fps`)),
+      h('div.vs-preview-actions', this.button(this.t('preview'), () => { this.mediaSelection = null; return this.startExport(true); }, { disabled: this.busy || !endTime(this.project), reason: this.busy ? this.t('busy') : this.t('whyNoTimeline') }), h('small', `${activeSequence(this.project).width}×${activeSequence(this.project).height} · ${activeSequence(this.project).fps.num}/${activeSequence(this.project).fps.den} fps`)),
       media ? h('div.vs-preview-actions', this.button(this.lang === 'ru' ? 'Подготовить прокси / волну' : 'Prepare proxy / waveform', () => this.analyse(media.id, 'prepare')),
         media.has_video ? this.button(this.sourceProxy ? 'Proxy ✓' : 'Proxy', () => { this.sourceProxy = !this.sourceProxy; this.paint(); }, { 'aria-pressed': !!this.sourceProxy }) : null) : null,
       media?.has_audio ? h('div.vs-source-waveform', h('small', this.lang === 'ru' ? 'Аудиоволна исходника · весь файл' : 'Source waveform · whole file'), h('img', { src: `${BASE}/media/${encodeURIComponent(media.id)}/waveform?project_id=${encodeURIComponent(this.project.id)}&source=${encodeURIComponent(media.sha256)}`, alt: this.lang === 'ru' ? 'Аудиоволна исходника' : 'Source waveform', onError: e => e.target.replaceWith(h('small', this.lang === 'ru' ? 'Сначала подготовьте аудиоволну.' : 'Prepare the waveform first.')) })) : null,
       this.jobList());
+  }
+  /* Проигрыватель ПЕРЕЖИВАЕТ перерисовку страницы: он не строится заново.
+
+     `h()` создаёт новый узел на каждый вызов, а `preview()` вызывается из
+     каждого `paint()` — и `paint()` зовёт не только владелец: его зовут
+     завершение задачи рендера (`pollJob`), событие сервера через `refresh()`,
+     любой перехваченный сбой в `guard()`, переключение рабочего пространства,
+     языка и раскладки. Пока <video> пересоздавался, ЛЮБАЯ такая перерисовка
+     посреди воспроизведения молча его обрывала.
+
+     Измерено трассировкой на живой странице, а не предположено: play() был
+     вызван один раз и его промис РАЗРЕШИЛСЯ, pause() не вызывался ни разу,
+     currentTime посреди игры никто не двигал, а src нового узла совпадал со
+     старым. В журнале ровно одно событие: на 0.5 c появился новый <video>,
+     построенный `Editor.preview`, старый выброшен. Дальше новый узел грузится
+     с нуля и стоит на паузе, а `onLoadedmetadata` возвращает его на playhead —
+     снаружи это «встало на 0.08 c: paused, ended:false, seeking:false,
+     error:null, readyState:4», то самое состояние из отчёта приёмки. Ни к
+     кодекам, ни к транспорту, ни к байтам это отношения не имеет.
+
+     Узел с тем же источником переиспользуется. Изъятие и вставка внутри
+     одного `paint()` синхронны, а internal pause steps спецификация выполняет
+     только после stable state — к этому моменту элемент снова в документе,
+     и воспроизведение не прерывается. Смена источника (другой previewUrl,
+     выбранный исходник, прокси) по-прежнему даёт новый элемент. */
+  player(url, tag, isProject) {
+    const kept = this.playerNode;
+    if (kept && kept.localName === tag && kept.getAttribute('src') === url) {
+      kept.setAttribute('aria-label', this.t('preview'));
+      return kept;
+    }
+    this.playerFailure = '';
+    this.playerNode = h(tag, { src: url, controls: true, preload: 'metadata', playsinline: true, 'aria-label': this.t('preview'),
+      onLoadedmetadata: e => { if (isProject) e.target.currentTime = seconds(this.playhead); },
+      onTimeupdate: e => { if (isProject) { this.playhead = Math.round(e.target.currentTime * TIMEBASE); this.updatePlayhead(); } },
+      onError: e => {
+        // Сбой источника переживает перерисовку так же, как сам элемент:
+        // раньше сообщение держал только тот stage, который его получил.
+        this.playerFailure = mediaFailure(e.target, this.lang);
+        const stage = e.target.parentElement;
+        if (stage && !stage.querySelector('.vs-preview-error')) stage.append(h('div.vs-preview-error', this.playerFailure));
+      } });
+    return this.playerNode;
   }
   togglePlay() { const player = this.root.querySelector('.vs-preview video'); if (player) { if (player.paused) return player.play(); player.pause(); } }
   seek(time) { this.playhead = Math.round(Math.max(0, time)); const player = this.root.querySelector('.vs-preview video'); if (player && !this.mediaSelection) player.currentTime = seconds(this.playhead); this.updatePlayhead(); }
@@ -238,8 +365,8 @@ class Editor {
       ...Object.entries(clip.keyframes || {}).flatMap(([param, frames]) => frames.map(frame => h('div.vs-effect',
         h('span', `${param} · ${seconds(frame.t)} s · ${frame.value} · ${frame.easing}`),
         this.button('×', () => this.command({ type: 'keyframe.remove', clip_id: clip.id, param, t: frame.t }), { title: this.t('remove') }))))));
-    body.append(h('div.vs-inspector-tools', this.button(this.t('split'), () => this.command(splitFrameCommand(this.project, clip.id, this.playhead)), { disabled: track.locked }),
-      this.button(this.t('remove'), () => this.command({ type: 'clip.remove', clip_id: clip.id }), { disabled: track.locked }),
+    body.append(h('div.vs-inspector-tools', this.button(this.t('split'), () => this.command(splitFrameCommand(this.project, clip.id, this.playhead)), { disabled: track.locked, reason: this.t('whyTrackLocked') }),
+      this.button(this.t('remove'), () => this.command({ type: 'clip.remove', clip_id: clip.id }), { disabled: track.locked, reason: this.t('whyTrackLocked') }),
       this.button(this.t('advanced'), () => this.palette({ type: 'clip.transform', clip_id: clip.id, patch: {} }))));
     panel.append(body); return panel;
   }
@@ -258,7 +385,7 @@ class Editor {
       controls.append(this.button('RGB curves', () => this.form('RGB curves', [{ key: 'params', label: 'Points 0..1', value: '{"master":[[0,0],[0.5,0.5],[1,1]]}', multiline: true }], f => effect('curves', JSON.parse(f.params)))),
         this.button('LUT .cube', () => this.form('LUT .cube', [{ key: 'cube_text', label: 'LUT_3D_SIZE + RGB samples', multiline: true }], f => effect('lut3d', f))),
         this.button('Color balance', () => this.form('Color balance', ['rs', 'gs', 'bs', 'rm', 'gm', 'bm', 'rh', 'gh', 'bh'].map(key => ({ key, label: key, type: 'number', min: -1, max: 1, value: 0 })), f => effect('colorbalance', Object.fromEntries(Object.entries(f).map(([k, v]) => [k, Number(v)]))))));
-      controls.append(this.button(this.lang === 'ru' ? 'Scopes · снимок исходника' : 'Scopes · source snapshot', () => this.form('Scopes', [{ key: 'scope_kind', label: 'Scope', options: ['waveform', 'histogram', 'vectorscope'] }, { key: 'source_in', label: 'Source second', type: 'number', min: 0, value: seconds(clip.source_in) }], f => this.analyse(clip.media_id, 'scope', { scope_kind: f.scope_kind, source_in: ticks(f.source_in) })), { disabled: !clip.media_id }));
+      controls.append(this.button(this.lang === 'ru' ? 'Scopes · снимок исходника' : 'Scopes · source snapshot', () => this.form('Scopes', [{ key: 'scope_kind', label: 'Scope', options: ['waveform', 'histogram', 'vectorscope'] }, { key: 'source_in', label: 'Source second', type: 'number', min: 0, value: seconds(clip.source_in) }], f => this.analyse(clip.media_id, 'scope', { scope_kind: f.scope_kind, source_in: ticks(f.source_in) })), { disabled: !clip.media_id, reason: this.t('whyNoMedia') }));
       const scope = [...this.jobs.values()].reverse().find(job => job.action === 'scope' && job.status === 'completed' && job.output_url && job.analysis?.source_sha256 === this.project.media[clip.media_id]?.sha256);
       if (scope) controls.append(h('figure.vs-scope', h('img', { src: scope.output_url, alt: 'Source scope snapshot' }), h('figcaption', this.lang === 'ru' ? 'Измеренный снимок исходника, не live preview' : 'Measured source snapshot, not live preview'), h('details', h('summary', 'Source / time / SHA256'), h('pre', JSON.stringify(scope.analysis, null, 2)))));
     } else if (this.workspace === 'audio') {
@@ -279,9 +406,11 @@ class Editor {
     } else if (this.workspace === 'ai') {
       const mediaId = clip.media_id;
       controls.append(h('h3', this.t('ai')), h('p.vs-muted', this.t('local')),
-        this.button(this.lang === 'ru' ? 'Найти сцены и паузы' : 'Find scenes and pauses', () => this.analyse(mediaId, 'analyse'), { disabled: !mediaId }),
-        this.button(this.lang === 'ru' ? 'Распознать речь' : 'Transcribe speech', () => this.analyse(mediaId, 'transcribe'), { disabled: !mediaId || this.capabilities?.transcription?.status !== 'AVAILABLE', title: this.capabilities?.transcription?.reason }),
-        h('p.vs-muted', this.capabilities?.transcription?.reason || ''), h('div.vs-effect', h('strong', this.lang === 'ru' ? 'Генерация изображений / видео' : 'Image / video generation'), h('p', this.capabilities?.generation?.reason || this.t('unavailable'))));
+        this.button(this.lang === 'ru' ? 'Найти сцены и паузы' : 'Find scenes and pauses', () => this.analyse(mediaId, 'analyse'), { disabled: !mediaId, reason: this.t('whyNoSource') }),
+        this.button(this.lang === 'ru' ? 'Распознать речь' : 'Transcribe speech', () => this.analyse(mediaId, 'transcribe'), { disabled: !mediaId || this.capabilities?.transcription?.status !== 'AVAILABLE',
+          reason: !mediaId ? this.t('whyNoSource')
+            : (this.capabilities?.transcription?.reason || this.t('unavailable')) }),
+        h('p.vs-muted', this.capabilities?.transcription?.reason || ''), h('div.vs-effect', h('strong', this.lang === 'ru' ? 'Генерация изображений / видео' : 'Image / video generation'), h('p', this.capabilities?.generation?.reason || this.t('unavailable')), h('a.btn.btn-sm', {href:'#/images?studio=1'}, this.lang === 'ru' ? 'Сгенерировать в Studio' : 'Generate in Studio')));
       controls.append(this.aiSearchControls());
     } else {
       controls.append(number('Speed ×', (clip.speed?.num || 1) / (clip.speed?.den || 1), value => this.command({ type: 'clip.speed', clip_id: clip.id, speed: { num: Math.round(value * 1000), den: 1000 } }), { min: .01, max: 100 }),
@@ -303,7 +432,7 @@ class Editor {
     for (const [action, ru, en] of [['search', 'Найти момент', 'Find moment'], ['broll', 'Предложить B-roll', 'Suggest B-roll'], ['duplicates', 'Найти дубли', 'Find duplicates']]) panel.append(this.button(this.lang === 'ru' ? ru : en, () => {
       if (action !== 'duplicates' && !String(this.materialQuery || '').trim()) throw new Error(this.lang === 'ru' ? 'Введите запрос.' : 'Enter a query.');
       return this.analyse(mediaId, action, { query: this.materialQuery || '', limit: 10 });
-    }, { disabled: !mediaId }));
+    }, { disabled: !mediaId, reason: this.t('whyNoSource') }));
     const job = [...this.jobs.values()].reverse().find(item => ['search', 'broll', 'duplicates'].includes(item.action) && item.status === 'completed');
     if (job?.analysis) {
       for (const warning of job.analysis.warnings || []) panel.append(h('p.vs-muted', warning));
@@ -337,14 +466,14 @@ class Editor {
       h('div.vs-playhead', { style: { left: `${seconds(this.playhead) * this.zoom}px` } }));
     return h('section.vs-timeline.vs-panel', h('div.vs-timeline-tools',
       this.button('＋', () => this.trackDialog(), { title: this.t('addTrack') }),
-      this.button('✂', () => this.selected && this.command(splitFrameCommand(this.project, this.selected, this.playhead)), { title: this.lang === 'ru' ? 'Разрезать по кадру · связанные клипы вместе · S' : 'Split at frame · linked clips together · S', disabled: !this.selected }),
-      this.button('⌫', () => this.selected && this.command({ type: 'clip.remove', clip_id: this.selected, ripple: false }), { title: this.t('remove'), disabled: !this.selected }),
+      this.button('✂', () => this.selected && this.command(splitFrameCommand(this.project, this.selected, this.playhead)), { title: this.lang === 'ru' ? 'Разрезать по кадру · связанные клипы вместе · S' : 'Split at frame · linked clips together · S', disabled: !this.selected, reason: this.t('whyNoClip') }),
+      this.button('⌫', () => this.selected && this.command({ type: 'clip.remove', clip_id: this.selected, ripple: false }), { title: this.t('remove'), disabled: !this.selected, reason: this.t('whyNoClip') }),
       this.button(this.t('snap'), () => { this.snap = !this.snap; this.paint(); }, { class: this.snap ? 'active' : '', 'aria-pressed': this.snap }),
       this.button(`◆ ${this.t('marker')}`, () => this.form(this.t('marker'), [{ key: 'label', label: this.t('name'), value: '' }], f => this.command({ type: 'marker.add', marker: { t: this.playhead, label: f.label } }))),
       this.button(this.t('range'), () => this.form(this.t('range'), [{ key: 'start', label: 'Start, s', value: seconds(sequence.range?.start || 0), type: 'number', min: 0 }, { key: 'end', label: 'End, s', value: seconds(sequence.range?.end || endTime(this.project)), type: 'number', min: 0 }], f => this.command({ type: 'range.set', start: ticks(f.start), end: ticks(f.end) }))),
       this.button(`T ${this.t('title')}`, () => this.titleDialog()), this.button(this.t('captions'), () => this.captionsDialog()),
-      this.button(this.lang === 'ru' ? 'Группа' : 'Group', () => this.command({ type: 'clip.group', clip_ids: [...this.selectedIds] }), { disabled: this.selectedIds.size < 2 }),
-      this.button(this.lang === 'ru' ? 'Связать' : 'Link', () => this.command({ type: 'clip.link', clip_ids: [...this.selectedIds] }), { disabled: this.selectedIds.size < 2 }),
+      this.button(this.lang === 'ru' ? 'Группа' : 'Group', () => this.command({ type: 'clip.group', clip_ids: [...this.selectedIds] }), { disabled: this.selectedIds.size < 2, reason: this.t('whyNeedTwo') }),
+      this.button(this.lang === 'ru' ? 'Связать' : 'Link', () => this.command({ type: 'clip.link', clip_ids: [...this.selectedIds] }), { disabled: this.selectedIds.size < 2, reason: this.t('whyNeedTwo') }),
       h('span.vs-spacer'), h('span', '−'), h('input', { type: 'range', min: 8, max: 220, value: this.zoom, 'aria-label': 'Timeline zoom', onInput: e => { this.zoom = Number(e.target.value); this.paint(); } }), h('span', '+')),
       h('div.vs-timeline-body', labels, h('div.vs-timeline-scroll', { onScroll: e => {
         labels.scrollTop = e.target.scrollTop; this.timelineOffset = { left: e.target.scrollLeft, top: e.target.scrollTop }; clearTimeout(this.timelineTimer);
@@ -459,7 +588,9 @@ class Editor {
         const mediaId = selectedClip(this.project, this.selected)?.clip.media_id || Object.keys(this.project.media)[0];
         if (!mediaId) throw new Error(this.t('noMedia'));
         dialog.close(); dialog.remove(); return this.analyse(mediaId, 'translate', { source: 'en', target: 'ru' });
-      }, { disabled: !this.project.captions?.length || this.capabilities?.translation?.status !== 'CONFIGURED', title: this.capabilities?.translation?.reason }),
+      }, { disabled: !this.project.captions?.length || this.capabilities?.translation?.status !== 'CONFIGURED',
+        reason: !this.project.captions?.length ? this.t('whyNoCaptions')
+          : (this.capabilities?.translation?.reason || this.t('unavailable')) }),
       this.button(this.t('apply'), async () => { if (this.project.revision !== expectedRevision) throw new Error(this.t('conflict')); await this.command({ type: 'captions.replace', captions: cues }); dialog.close(); dialog.remove(); }, { class: 'vs-primary' }));
     draw(); document.body.append(dialog); dialog.addEventListener('cancel', () => dialog.remove()); dialog.showModal();
   }
@@ -470,7 +601,7 @@ class Editor {
       h('a.vs-chat-link', { href: this.project.links?.task_id ? `#/tasks?id=${encodeURIComponent(this.project.links.task_id)}` : '#/home' }, this.project.links?.task_id ? `↗ Task ${this.project.links.task_id}` : '↗ Bossman Chat'),
       h('label.vs-field', h('span', this.lang === 'ru' ? 'Что изменить в монтаже?' : 'What should change in this edit?'), h('textarea.vs-objective', { rows: 3, maxlength: 2000, value: this.objective || '', placeholder: this.lang === 'ru' ? 'Например: сделай выбранный клип вдвое медленнее' : 'For example: slow the selected clip to half speed', onInput: e => this.objective = e.target.value })),
       h('small.vs-local', `${this.lang === 'ru' ? 'Выбранный клип' : 'Selected clip'}: ${this.selected || '—'}`),
-      this.button(this.lang === 'ru' ? 'Предложить монтаж · локальная модель' : 'Draft edit · local model', () => this.requestProposal(), { disabled: this.proposing || !this.selected }),
+      this.button(this.lang === 'ru' ? 'Предложить монтаж · локальная модель' : 'Draft edit · local model', () => this.requestProposal(), { disabled: this.proposing || !this.selected, reason: this.proposing ? this.t('busy') : this.t('whyNoClip') }),
       this.proposalStatus ? h('p.vs-muted', this.proposalStatus) : null,
       this.draftRaw ? h('details.vs-raw-draft', h('summary', this.lang === 'ru' ? 'Исходный ответ модели' : 'Raw model response'), h('pre', this.draftRaw)) : null,
       h('label.vs-field', h('span', this.t('proposal')), h('textarea.vs-proposal', { rows: 10, spellcheck: false, value: this.proposalText, onInput: e => { this.proposalText = e.target.value; this.review = null; } })),
@@ -559,8 +690,22 @@ class Editor {
     ], f => this.startExport(preview, exportOptions(f)));
     document.querySelector('dialog.vs-dialog form')?.append(h('p.vs-muted', this.lang === 'ru' ? 'Пустые размеры используют профиль. Аудио: 48 кГц, стерео. Аппаратные кодеки появятся после проверки кодирования на этом устройстве.' : 'Blank dimensions use the profile. Audio: 48 kHz stereo. Hardware codecs require an actual encode probe on this device.'));
   }
+  chooseFormat() {
+    const probe = document.createElement('video');
+    return previewFormat(mime => probe.canPlayType(mime), this.capabilities?.encoders);
+  }
   async startExport(preview, options = {}) {
-    const { container = 'mp4', ...renderOptions } = options;
+    // Кнопка «Создать preview» контейнер не называет — значит его выбирает
+    // продукт, спросив ЭТОТ браузер, что он действительно раскодирует. Явный
+    // выбор из диалога экспорта не трогаем: там контейнер назвал владелец.
+    // Умолчание не изменилось: если браузер не обещает ни одного кандидата,
+    // уходит прежний mp4, а панель называет настоящий MediaError.
+    const chosen = preview && options.container === undefined ? this.chooseFormat() : null;
+    const { container = chosen?.container || 'mp4', ...renderOptions } = options;
+    if (chosen) {
+      if (renderOptions.video_codec === undefined) renderOptions.video_codec = chosen.video_codec;
+      if (renderOptions.audio_codec === undefined) renderOptions.audio_codec = chosen.audio_codec;
+    }
     if (renderOptions.video_codec?.endsWith('_nvenc')) {
       const seq = activeSequence(this.project), defaults = { source: [seq.width, seq.height], youtube: [1920, 1080], reels: [1080, 1920], square: [1080, 1080] }[renderOptions.profile || 'source'];
       const width = renderOptions.width || defaults[0], height = renderOptions.height || defaults[1];
@@ -653,8 +798,31 @@ class Editor {
 }
 
 export const VideoStudioPage = {
-  id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary',
-  async render(ctx, params = {}) { if (editor) { editor.disposed = true; clearTimeout(editor.leaseTimer); clearTimeout(editor.timelineTimer); } editor = new Editor(ctx, params); return editor.load(); },
+  id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary', section: 'studio',
+  /* Повторный render() приходит не только от навигации.
+
+     Оболочка зовёт `renderPage()` при открытии вебсокета и при восстановлении
+     связи (`app.js`, `ws.open` / `onConnRestored`) — то есть по событию сети,
+     в произвольный момент. Приёмка перезапускает сервер посреди сценария,
+     значит связь рвётся и восстанавливается ровно там, где владелец смотрит
+     превью. Пока каждый такой вызов строил НОВЫЙ Editor, студия собиралась с
+     нуля: новый <video> вместо игравшего (воспроизведение обрывалось молча,
+     ровно тем же «paused: true, ended: false, error: null»), а заодно
+     терялись выделение, прокрутка и раскладка.
+
+     Измерено кнопкой «Обновить» самой оболочки: она идёт тем же путём, и
+     превью на ней умирало. Поэтому живой редактор того же проекта
+     переиспользуется — `load()` всё равно перечитывает проекты, возможности
+     и сам проект, так что «данные обновлены» остаётся правдой. Уход на другую
+     страницу (узел отсоединён) и смена проекта по-прежнему строят студию
+     заново. */
+  async render(ctx, params = {}) {
+    const live = editor && !editor.disposed && editor.root.isConnected
+      && (params.project_id || null) === (editor.params?.project_id || null);
+    if (live) { editor.ctx = ctx; editor.params = params; return editor.load(); }
+    if (editor) { editor.disposed = true; clearTimeout(editor.leaseTimer); clearTimeout(editor.timelineTimer); }
+    editor = new Editor(ctx, params); return editor.load();
+  },
   onEvent(event) { if (String(event.kind || '').startsWith('video.') && editor?.root.isConnected) editor.guard(() => editor.refresh()); return false; },
 };
 export default VideoStudioPage;

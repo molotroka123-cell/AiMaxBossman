@@ -1,0 +1,459 @@
+{
+  "source_sha": "702c71851256a431f8ddd200b96ce44c5640d58e",
+  "source_dirty": false,
+  "built_at": "2026-09-15T02:03:11.333577+00:00",
+  "checks": {
+    "status": "PASS",
+    "source_sha": "702c71851256a431f8ddd200b96ce44c5640d58e",
+    "python": "3.12.14",
+    "platform": "linux",
+    "imports": {
+      "bossman_shared": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/bossman_shared/__init__.py",
+      "bossman": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/bossman/__init__.py",
+      "bcc": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/bcc/__init__.py",
+      "ai_3d_maker": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/ai_3d_maker/__init__.py",
+      "ai_webcam_vision": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/ai_webcam_vision/__init__.py",
+      "bossman_accountant": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/bossman_accountant/__init__.py",
+      "exam_trainer_ai": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/exam_trainer_ai/__init__.py",
+      "file_commander_mini": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/file_commander_mini/__init__.py",
+      "pc_autopilot_mini": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/pc_autopilot_mini/__init__.py",
+      "social_farm": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/social_farm/__init__.py",
+      "travel_architect": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/travel_architect/__init__.py"
+    },
+    "runtime_libraries": {
+      "mcp": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/mcp/__init__.py",
+      "pypdf": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/pypdf/__init__.py",
+      "opentimelineio": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/opentimelineio/__init__.py",
+      "playwright": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/playwright/__init__.py",
+      "websockets": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/websockets/__init__.py"
+    },
+    "visual_editor_persistence": "PASS",
+    "ui_dir": "/tmp/bossman-clean-install-1p9o5czb/venv/lib/python3.12/site-packages/bcc/_ui",
+    "assets_served": 74,
+    "health": {
+      "db": {
+        "status": "ok",
+        "detail": "sqlite+aiosqlite"
+      },
+      "queue_worker": {
+        "status": "ok",
+        "detail": "тик 0 с назад",
+        "current_run_id": null
+      },
+      "scheduler": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "metrics": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:apps_control": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:control_plane": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:governor": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:healing": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:images": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:missions": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:organization": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:reality": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:resources": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:review_gate": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:task_exchange": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:tools_mcp": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:watchdog": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "tick:web_research": {
+        "status": "ok",
+        "detail": "тик 0 с назад"
+      },
+      "browser": {
+        "status": "unknown",
+        "detail": "Chromium установлен; живой контекст ещё не проверен"
+      },
+      "models": {
+        "status": "empty",
+        "detail": "моделей: 0",
+        "available": 0
+      },
+      "providers": {
+        "status": "empty",
+        "detail": "провайдеров: 0",
+        "available": 0
+      }
+    },
+    "restart_persistence": "PASS",
+    "auth": "PASS",
+    "app_package_resources": "PASS",
+    "file_intelligence": {
+      "enabled": false,
+      "pinned_upstream_sha": "4dc374df69b5e63d5354e121097d92e25bbd32da",
+      "binary": "NOT_INSTALLED",
+      "real_binary": "OWNER_LIVE_REQUIRED"
+    },
+    "live_model_execution": "OWNER_LIVE_REQUIRED",
+    "dependency_versions": [
+      {
+        "name": "ai-3d-maker",
+        "version": "0.2.0"
+      },
+      {
+        "name": "ai-webcam-vision",
+        "version": "0.2.0"
+      },
+      {
+        "name": "aiosqlite",
+        "version": "0.22.1"
+      },
+      {
+        "name": "annotated-doc",
+        "version": "0.0.5"
+      },
+      {
+        "name": "annotated-types",
+        "version": "0.8.0"
+      },
+      {
+        "name": "anyio",
+        "version": "4.15.1"
+      },
+      {
+        "name": "asyncpg",
+        "version": "0.31.0"
+      },
+      {
+        "name": "attrs",
+        "version": "26.1.0"
+      },
+      {
+        "name": "bossman-accountant",
+        "version": "1.0.0"
+      },
+      {
+        "name": "bossman-command-center",
+        "version": "0.1.0"
+      },
+      {
+        "name": "bossman-core",
+        "version": "0.3.0"
+      },
+      {
+        "name": "bossman-shared",
+        "version": "0.1.0"
+      },
+      {
+        "name": "certifi",
+        "version": "2026.7.22"
+      },
+      {
+        "name": "cffi",
+        "version": "2.1.1"
+      },
+      {
+        "name": "click",
+        "version": "8.5.0"
+      },
+      {
+        "name": "cryptography",
+        "version": "50.0.1"
+      },
+      {
+        "name": "exam-trainer-ai",
+        "version": "1.0.0"
+      },
+      {
+        "name": "fastapi",
+        "version": "0.141.1"
+      },
+      {
+        "name": "file-commander-mini",
+        "version": "1.0.0"
+      },
+      {
+        "name": "greenlet",
+        "version": "3.5.6"
+      },
+      {
+        "name": "h11",
+        "version": "0.16.0"
+      },
+      {
+        "name": "httpcore",
+        "version": "1.0.9"
+      },
+      {
+        "name": "httpcore2",
+        "version": "2.13.0"
+      },
+      {
+        "name": "httptools",
+        "version": "0.8.0"
+      },
+      {
+        "name": "httpx",
+        "version": "0.28.1"
+      },
+      {
+        "name": "httpx2",
+        "version": "2.13.0"
+      },
+      {
+        "name": "idna",
+        "version": "3.19"
+      },
+      {
+        "name": "jsonschema",
+        "version": "4.26.0"
+      },
+      {
+        "name": "jsonschema-specifications",
+        "version": "2025.9.1"
+      },
+      {
+        "name": "mcp",
+        "version": "2.2.0"
+      },
+      {
+        "name": "mcp-types",
+        "version": "2.2.0"
+      },
+      {
+        "name": "numpy",
+        "version": "2.5.3"
+      },
+      {
+        "name": "opentelemetry-api",
+        "version": "1.44.0"
+      },
+      {
+        "name": "OpenTimelineIO",
+        "version": "0.18.1"
+      },
+      {
+        "name": "pc-autopilot-mini",
+        "version": "1.0.0"
+      },
+      {
+        "name": "pip",
+        "version": "25.0.1"
+      },
+      {
+        "name": "playwright",
+        "version": "1.62.0"
+      },
+      {
+        "name": "psutil",
+        "version": "7.2.2"
+      },
+      {
+        "name": "pycparser",
+        "version": "3.0"
+      },
+      {
+        "name": "pydantic",
+        "version": "2.13.5"
+      },
+      {
+        "name": "pydantic_core",
+        "version": "2.46.5"
+      },
+      {
+        "name": "pyee",
+        "version": "13.0.1"
+      },
+      {
+        "name": "PyJWT",
+        "version": "2.14.0"
+      },
+      {
+        "name": "pypdf",
+        "version": "6.18.1"
+      },
+      {
+        "name": "python-dotenv",
+        "version": "1.2.3"
+      },
+      {
+        "name": "python-multipart",
+        "version": "0.0.32"
+      },
+      {
+        "name": "PyYAML",
+        "version": "6.0.3"
+      },
+      {
+        "name": "redis",
+        "version": "8.1.0"
+      },
+      {
+        "name": "referencing",
+        "version": "0.37.0"
+      },
+      {
+        "name": "rpds-py",
+        "version": "2026.6.3"
+      },
+      {
+        "name": "social-farm",
+        "version": "0.1.0"
+      },
+      {
+        "name": "socksio",
+        "version": "1.0.0"
+      },
+      {
+        "name": "SQLAlchemy",
+        "version": "2.0.53"
+      },
+      {
+        "name": "sse-starlette",
+        "version": "3.4.11"
+      },
+      {
+        "name": "starlette",
+        "version": "1.6.0"
+      },
+      {
+        "name": "travel-architect",
+        "version": "1.0.0"
+      },
+      {
+        "name": "truststore",
+        "version": "0.10.4"
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.16.0"
+      },
+      {
+        "name": "typing-inspection",
+        "version": "0.4.4"
+      },
+      {
+        "name": "uvicorn",
+        "version": "0.53.0"
+      },
+      {
+        "name": "uvloop",
+        "version": "0.22.1"
+      },
+      {
+        "name": "watchfiles",
+        "version": "1.2.0"
+      },
+      {
+        "name": "websockets",
+        "version": "17.1"
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 3143,
+      "sha256": "5622ea5ca1f70b76f7bc9603ce8b2c1411b14d8892b5e0dc68ba19b210a1d21f"
+    },
+    {
+      "path": "install.py",
+      "bytes": 2393,
+      "sha256": "ae6a6b94a09988b2fdf887ace8e4369618ed8c36cbf39658ece35577e4dbce21"
+    },
+    {
+      "path": "verify_installed_product.py",
+      "bytes": 12384,
+      "sha256": "9ea4af8e4a24a32b0657ab39bbe8001ad51b31efb6d06c8cedce83b4027e6c19"
+    },
+    {
+      "path": "wheels/ai_3d_maker-0.2.0-py3-none-any.whl",
+      "bytes": 73130,
+      "sha256": "2e65856815f988dacb6c6d1c5e9c5c29b6e15512dfbab96f7dfc97a3e2e42aa4"
+    },
+    {
+      "path": "wheels/ai_webcam_vision-0.2.0-py3-none-any.whl",
+      "bytes": 64427,
+      "sha256": "374d167648f1893d6c82c6490d3c6febacc1805e9e28d7ad70f2fa32d74a9453"
+    },
+    {
+      "path": "wheels/bossman_accountant-1.0.0-py3-none-any.whl",
+      "bytes": 11765,
+      "sha256": "e61f18dcdcbf655b686fa0aff719bb506f4bcf2ba41c39d4380727641e1aadf8"
+    },
+    {
+      "path": "wheels/bossman_command_center-0.1.0-py3-none-any.whl",
+      "bytes": 3307588,
+      "sha256": "2c9da653ac678ea604d13e6f1124f119a6cdac13d8939181f04afa0ac1fee21c"
+    },
+    {
+      "path": "wheels/bossman_core-0.3.0-py3-none-any.whl",
+      "bytes": 1061168,
+      "sha256": "293fa05f3ea3aced3a48d59ee9d2eade2df0ee5fbf64a60a3b6dc707dac8e799"
+    },
+    {
+      "path": "wheels/bossman_shared-0.1.0-py3-none-any.whl",
+      "bytes": 155801,
+      "sha256": "261f73b968055859d95622dae7a5dcd5077ee91da5a14eb393958c2ed702833d"
+    },
+    {
+      "path": "wheels/exam_trainer_ai-1.0.0-py3-none-any.whl",
+      "bytes": 11533,
+      "sha256": "c715ae8f0afb495412fabeb131b6ea57dbe63907972aa1e9b6c83fbe625cce23"
+    },
+    {
+      "path": "wheels/file_commander_mini-1.0.0-py3-none-any.whl",
+      "bytes": 21321,
+      "sha256": "4d0ec7b9df11c2995a21a41d5d4c73b937dc267713edd116b4893cd4466eeb7d"
+    },
+    {
+      "path": "wheels/pc_autopilot_mini-1.0.0-py3-none-any.whl",
+      "bytes": 11414,
+      "sha256": "eedb3c7850e9bf3c6e81a993dd86bde980ef749e74be32cb5f65473135d0bb96"
+    },
+    {
+      "path": "wheels/social_farm-0.1.0-py3-none-any.whl",
+      "bytes": 221242,
+      "sha256": "06d2faee15e6cc73f9083dd31189b75ce11e0c342e88b3eea256dd4e94c306bb"
+    },
+    {
+      "path": "wheels/travel_architect-1.0.0-py3-none-any.whl",
+      "bytes": 11069,
+      "sha256": "bae6c903e586f05ecbb1b8d8ec0f4c8e13e0411a8d9ea7ec4ce7501b2d1eaf1b"
+    }
+  ]
+}

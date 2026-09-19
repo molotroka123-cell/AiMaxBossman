@@ -1,0 +1,81 @@
+name: Apply sandbox runtime hardening once
+
+on:
+  push:
+    branches: ["claude/v5-closure-at-reconcile-xdh12f"]
+    paths: [".github/workflows/apply-sandbox-runtime-hardening.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-sandbox-runtime-hardening-once
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact integration branch
+        uses: actions/checkout@v4
+        with:
+          ref: claude/v5-closure-at-reconcile-xdh12f
+          fetch-depth: 2
+
+      - name: Refuse unexpected trigger lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "eb6a3ffb3a9debfec274b6e6c62c856ba4e66b73"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/apply-sandbox-runtime-hardening.yml"
+
+      - name: Verify and apply reviewed patch pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          patches=(
+            patches/sandbox-runtime-hardening/engine.patch
+            patches/sandbox-runtime-hardening/api.patch
+            patches/sandbox-runtime-hardening/providers.patch
+            patches/sandbox-runtime-hardening/tests.patch
+          )
+          for patch in "${patches[@]}"; do git apply --check "$patch"; done
+          for patch in "${patches[@]}"; do git apply "$patch"; done
+          python -m py_compile \
+            command-center/bcc/engine.py \
+            command-center/bcc/api.py \
+            command-center/bcc/providers.py \
+            command-center/tests/test_sandbox_user_run_regressions.py
+          printf '%s  %s\n' \
+            b5f15ebf2ff531daae2f800cc925ce674663d34826d991ec1e7c7296fc57874c command-center/bcc/engine.py \
+            461fd4551f41cfdaaa327e8f7cac56ca0b0f4443ad2b0ff3ea82fac4ef015150 command-center/bcc/api.py \
+            48f64a86e57a1e36c98eca9f359897d261a6c9937f6cfd28271a70fa3b3b4d77 command-center/bcc/providers.py \
+            5e78914b11d760a849b0edb7ad551cc3cd2b3d3e437eaf79883e2de7e7af1d9b command-center/tests/test_sandbox_user_run_regressions.py \
+            | sha256sum -c -
+
+      - name: Commit only the reviewed source changes and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Astra Sandbox Audit"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/apply-sandbox-runtime-hardening.yml
+          git add \
+            command-center/bcc/engine.py \
+            command-center/bcc/api.py \
+            command-center/bcc/providers.py \
+            command-center/tests/test_sandbox_user_run_regressions.py
+          mapfile -t changed < <(git diff --cached --name-only | sort)
+          expected=(
+            .github/workflows/apply-sandbox-runtime-hardening.yml
+            command-center/bcc/api.py
+            command-center/bcc/engine.py
+            command-center/bcc/providers.py
+            command-center/tests/test_sandbox_user_run_regressions.py
+          )
+          printf '%s\n' "${expected[@]}" | sort > /tmp/expected
+          printf '%s\n' "${changed[@]}" > /tmp/actual
+          diff -u /tmp/expected /tmp/actual
+          git commit -m "fix(runtime): close sandbox lifecycle and provider truth gaps"
+          git push origin HEAD:claude/v5-closure-at-reconcile-xdh12f

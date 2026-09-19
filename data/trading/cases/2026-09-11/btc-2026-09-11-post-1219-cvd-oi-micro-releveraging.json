@@ -1,0 +1,41 @@
+{
+  "case_parent": "CASE-002",
+  "date": "2026-09-11",
+  "time_local_approx": "after 12:19 ET screenshot",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshot",
+  "observed": {
+    "reference_execution_tape_approx": [77655, 77665],
+    "cvd_billion": 59.13,
+    "open_interest_billion": 17.94,
+    "long_liquidations_thousand": 982.21,
+    "short_liquidations_thousand": 484.46,
+    "reference_levels": {
+      "dOpen": 77215,
+      "dPOC": 77440,
+      "dVAH": 78500
+    }
+  },
+  "comparison_to_prior_snapshot": {
+    "prior_cvd_billion": 59.35,
+    "prior_oi_billion": 17.92,
+    "cvd_change_billion": -0.22,
+    "oi_change_billion": 0.02,
+    "price_direction": "SLIGHTLY_UP_OR_HOLDING",
+    "state": "Price holding/up + CVD slightly down + OI slightly up"
+  },
+  "regime": "MILD_LEVERAGED_SELL_ABSORPTION_OR_MICRO_RELEVERAGING",
+  "interpretation": "The changes are small, so this is not a strong regime flip. Price is holding above dPOC/dOpen while CVD slips modestly and OI rebuilds only slightly. That is consistent with sellers/possibly fresh shorts entering without obtaining much downside progress, which is constructive for the long thesis. The key risk is buyer/seller efficiency: if CVD continues falling and OI rises while price finally loses dPOC/dOpen, the same pattern would convert into bearish leverage expansion rather than absorption.",
+  "limit_ladder_context": {
+    "owner_reported": "limit orders already placed",
+    "prior_execution_ladder": [77240, 77000, 76600],
+    "note": "Do not infer fills from this screenshot; execution venue basis can differ from the reference chart."
+  },
+  "management": {
+    "bias": "CONSTRUCTIVE_WHILE_ABOVE_DPOC_DOPEN",
+    "positive_trigger": "Price holds/reclaims above dPOC 77,440 reference with CVD stabilizing and OI not accelerating vertically.",
+    "warning": "Price down + CVD down + OI up, especially with acceptance below dPOC/dOpen, invalidates the absorption read and argues against leaving deeper buy limits unchanged without reassessment."
+  },
+  "lesson": "Small CVD/OI changes should be treated as microstructure evidence, not a new regime by themselves. Price response to the flow remains the deciding variable."
+}

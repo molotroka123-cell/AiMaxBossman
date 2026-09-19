@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import time
 from pathlib import Path
 
 import httpx
@@ -16,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import approvals as approvals_mod
+from .remote_client import events as rc_events
 from . import db, errors, events, obs, runner, telegram
 from .agents import load_all, set_cloud_policy
 from .notifications.store import CallbackRejected
@@ -213,7 +215,7 @@ async def ws_events(ws: WebSocket):
     того, как открыта подписка: анонимный клиент не видит ни одного события.
     """
     try:
-        _, chosen = await authenticate_websocket(ws, SCOPE_EVENTS)
+        principal, chosen = await authenticate_websocket(ws, SCOPE_EVENTS)
     except errors.BossmanError:
         # 1008 = policy violation; причину не детализируем (не оракул для подбора)
         await ws.close(code=1008)
@@ -221,9 +223,23 @@ async def ws_events(ws: WebSocket):
     await ws.accept(subprotocol=chosen)
     q = events.subscribe()
     try:
+        # Аутентификация была только на handshake: отзыв устройства и
+        # emergency-lock не рвали уже открытую подписку. Периодическая
+        # перепроверка принципала закрывает поток вслед за отзывом.
+        checked = time.monotonic()
         while True:
-            msg = await q.get()
-            await ws.send_text(msg)
+            try:
+                msg = await asyncio.wait_for(q.get(), rc_events.REAUTH_INTERVAL_S)
+            except asyncio.TimeoutError:
+                msg = None
+            now = time.monotonic()
+            if msg is None or now - checked >= rc_events.REAUTH_INTERVAL_S:
+                if not await rc_events.principal_still_valid(principal):
+                    await ws.close(code=1008)
+                    return
+                checked = now
+            if msg is not None:
+                await ws.send_text(msg)
     except WebSocketDisconnect:
         pass
     finally:
@@ -234,23 +250,32 @@ async def ws_events(ws: WebSocket):
 
 class Decision(BaseModel):
     approve: bool
+    # Поле осталось ради совместимости старых клиентов, но НЕ участвует в аудите:
+    # решившего определяет аутентификация, а не тело запроса (см. decide_approval).
     by: str = "ui"
 
 
 @app.get("/approvals", dependencies=[Depends(require_scope(SCOPE_APPROVE))])
 async def list_approvals(status: str = "pending"):
-    return await db.fetch("SELECT * FROM approvals WHERE status=$1 ORDER BY id", status)
+    # SELECT * отдаёт payload/preview как есть; исторические строки (и любой
+    # инструмент, положивший секрет в аргумент) не должны утекать в ответ —
+    # чистим на границе тем же каноническим редактором, что и аудит-таблицы.
+    rows = await db.fetch("SELECT * FROM approvals WHERE status=$1 ORDER BY id", status)
+    return [obs.redact_obj(dict(row)) for row in rows]
 
 
 @app.post("/approvals/{approval_id}", dependencies=[Depends(require_scope(SCOPE_APPROVE))])
-async def decide_approval(approval_id: int, body: Decision):
+async def decide_approval(approval_id: int, body: Decision,
+                          principal=Depends(require_scope(SCOPE_APPROVE))):
     """Решение по подтверждению — только устройство Stage 6 со скоупом approve.
 
     Telegram-вебхук ниже — отдельный вход с собственной проверкой секрета;
     /remote/... — тот же Stage 6 с тем же скоупом. Общее у всех входов: ни один
     не пускает решать анонимно, и localhost НЕ считается аутентификацией.
     """
-    row = await approvals_mod.decide(approval_id, body.approve, body.by)
+    # Личность решившего — серверная: `body.by` пришёл от клиента, и устройство
+    # со скоупом approve не должно уметь приписать своё решение другому.
+    row = await approvals_mod.decide(approval_id, body.approve, f"device:{principal.device_id}")
     if not row:
         raise HTTPException(409, "уже решено или не существует")
     return row

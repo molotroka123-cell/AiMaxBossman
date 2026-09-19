@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "profile": "windows-installed",
+  "purpose": "The one list of what the installed Windows archive must pass. The workflow runs exactly these modules, tools/require_acceptance_results.py refuses a results.xml that lacks any of them, and tools/astra6_freeze.py refuses to freeze on anything less. Counting is per module: repetitions of one test never add up to a profile.",
+  "junit": {
+    "root": "command-center/tests",
+    "config": "command-center/pyproject.toml",
+    "minimum_tests": 46,
+    "modules": {
+      "test_editors_user_acceptance": 4,
+      "test_web_designer_recovery_ui": 7,
+      "test_apps_files_browser_owner": 1,
+      "test_apps_files_http_owner": 1,
+      "test_images_library_ui": 1,
+      "test_images_cancel_button": 2,
+      "test_video_cancel_button": 1,
+      "test_two_tabs_conflict": 2,
+      "test_invalid_input_is_human": 8,
+      "test_unload_flush": 3,
+      "test_unsaved_draft_navigation": 2,
+      "test_missing_model_and_dead_service_are_human": 3,
+      "test_oss_memory_refusals": 5,
+      "test_web_designer_first_click_ui": 2,
+      "test_refresh_during_typing_ui": 2,
+      "test_studio_gallery_ui": 2
+    }
+  },
+  "live_model": {
+    "models": 2,
+    "cases": [
+      "arithmetic",
+      "structured_data",
+      "instruction_following"
+    ]
+  },
+  "ui_sweep": {
+    "review_verdicts": [
+      "dead",
+      "error",
+      "disabled_silent",
+      "vanished"
+    ]
+  },
+  "binding": {
+    "fields": [
+      "source_sha",
+      "archive_sha256",
+      "run_id",
+      "harness_sha"
+    ],
+    "rule": "Every report names the source SHA it tested, the SHA-256 of the application ZIP it ran, the workflow run that produced it and the SHA of the checkout that drove it. A report without all four, or with a different value in any, is not evidence for this candidate."
+  }
+}

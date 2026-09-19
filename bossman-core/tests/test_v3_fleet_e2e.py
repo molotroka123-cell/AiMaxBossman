@@ -17,6 +17,7 @@ DUPLICATE_SIDE_EFFECT_COUNT.
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -128,7 +129,7 @@ def _contract(w: World, work_id: str, names: list[str], *, privacy="private", pl
 
 def _node(nid, **kw):
     base = dict(hostname=nid, os_name="Linux", ram_gb=128, gpu_memory_gb=96, capabilities={"fs.write"},
-                privacy_level="private", trust_class="trusted_local", last_heartbeat_ts=1000.0)
+                privacy_level="private", trust_class="trusted_local", last_heartbeat_ts=time.time())
     base.update(kw)
     return NodeState(nid, **base)
 
@@ -146,7 +147,7 @@ class Stack:
     def boot(self, *, register=()):
         self.plane = FleetControlPlane(self.tmp / "fleet.sqlite", transport=self.transport, heartbeat_timeout_s=60)
         for nid in register:
-            self.plane.registry.register(_node(nid), now=1000.0)
+            self.plane.registry.register(_node(nid), now=time.time())
             self.transport.attach(nid, _node_bridge(self.world, nid, self.tmp / "journals"))
         bridge = FleetExecutionBridge(self.plane, journal_root=self.tmp / "journals")
         self.org = OrganizationRuntime(store=OrganizationStore(self.tmp / "org.sqlite"), execution=bridge,
@@ -277,7 +278,7 @@ def test_e2e_private_work_never_reaches_cloud(stack):
     # локальные узлы без нужной способности; облако — с ней
     for nid in ("node-1", "node-2"):
         n = s.plane.registry.node(nid); n.capabilities = {"other"}; s.plane.store.save_node(n)
-    s.plane.registry.register(_node("cloud-01", trust_class="cloud", privacy_level="public", capabilities={"fs.write"}), now=1000.0)
+    s.plane.registry.register(_node("cloud-01", trust_class="cloud", privacy_level="public", capabilities={"fs.write"}), now=time.time())
     s.transport.attach("cloud-01", CloudRuntime())
     s.org.receive_mission("m1", title="private", department_id="engineering", contracts=[_contract(w, "w1", ["secret.txt"])])
     status = s.org.run_mission("m1")

@@ -51,16 +51,24 @@ async def _skill_with_versions(env, *, candidate_tools=None, candidate_perms=Non
 async def _runs(env, version_id: int, *, completed: int, failed: int) -> None:
     """Готовая история запусков версии: одна задача — один run."""
     started = utcnow()
+    made: list[tuple[int, str]] = []
     async with env.svc.db.session() as s:
         for i, status in enumerate(["completed"] * completed + ["failed"] * failed):
             tid = int((await s.execute(sa.insert(tasks_t).values(
                 title=f"прогон {version_id}-{i}", prompt="x", status=status,
                 skill_version_id=version_id, meta={"skill": "website-audit"},
                 created_at=started, updated_at=started))).inserted_primary_key[0])
-            await s.execute(sa.insert(runs_t).values(
+            rid = int((await s.execute(sa.insert(runs_t).values(
                 task_id=tid, attempt=1, status=status, started_at=started,
-                finished_at=started + timedelta(seconds=2)))
+                finished_at=started + timedelta(seconds=2)))).inserted_primary_key[0])
+            made.append((rid, status))
         await s.commit()
+    # В бою КАЖДЫЙ прогон, дойдя до терминального исхода, пишет канареечную улику
+    # через хук `after_run`. Помощник вставляет прогоны прямо в базу, минуя
+    # движок, поэтому тот же переход воспроизводится здесь явно — иначе стенд
+    # проверял бы историю задач, а не ту улику, которой открывается дверь.
+    for rid, status in made:
+        await ev.record_canary_outcome(env.svc, version_id, rid, status)
 
 
 async def _current_version(env, skill_id: int) -> int:
@@ -105,14 +113,19 @@ async def test_not_enough_data_is_collecting_not_a_verdict(env):
 async def test_clear_improvement_promotes_and_switches_current_version(env):
     sid, base, cand = await _skill_with_versions(env)
     await _runs(env, base, completed=5, failed=5)               # 0.50
-    await _runs(env, cand, completed=9, failed=1)               # 0.90
 
+    # Сравнение заводится ДО прогонов кандидата: тут замораживается отсечка
+    # когорты. И кандидат ЧИСТЫЙ — по действующей политике известное падение
+    # кандидата до широкой активации накладывает вето, поэтому «явное улучшение»
+    # с падением внутри больше не продвигается вообще. Смысл теста прежний:
+    # явное улучшение продвигается само.
     row = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
                                    candidate_version_id=cand)
+    await _runs(env, cand, completed=10, failed=0)              # 1.00
     result = await ev.refresh(env.svc, int(row["id"]))
     assert result["verdict"] == ev.PROMOTE and result["applied"] is True
     assert result["decided_by"] == "runtime"
-    assert result["metrics"]["delta_success_rate"] == 0.4
+    assert result["metrics"]["delta_success_rate"] == 0.5
     assert await _current_version(env, sid) == cand
 
     # PROMOTE не трогает ничего, кроме текущей версии: сами версии на месте
@@ -137,10 +150,10 @@ async def test_regression_is_rejected_and_current_version_stays(env):
 async def test_noise_goes_to_human_with_an_approval(env):
     sid, base, cand = await _skill_with_versions(env)
     await _runs(env, base, completed=12, failed=8)              # 0.60
-    await _runs(env, cand, completed=13, failed=7)              # 0.65 — в пределах шума
 
     row = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
                                    candidate_version_id=cand)
+    await _runs(env, cand, completed=13, failed=7)              # 0.65 — в пределах шума
     result = await ev.refresh(env.svc, int(row["id"]))
     assert result["verdict"] == ev.HUMAN_REVIEW and result["applied"] is False
     assert result["approval_id"]
@@ -152,11 +165,19 @@ async def test_noise_goes_to_human_with_an_approval(env):
     assert appr._mapping["kind"] == "skill_promotion"
     assert appr._mapping["status"] == "pending"
 
-    # применить спорного кандидата может только человек
+    # Спорного кандидата применяет только человек — и только если канареечная
+    # дверь открыта. Здесь она закрыта: в измеренном наборе кандидата семь
+    # упавших прогонов, а политика заморозки — полный измеренный набор с нулевым
+    # допуском. Одобрение владельца полномочно в спорном ИЗМЕРЕНИИ («цифры в
+    # пределах шума, брать ли»), но не объявляет упавший прогон здоровым: это
+    # вопрос факта, а не воли.
     decided = await ev.apply_human_decision(env.svc, int(row["id"]), approve=True, by="владелец")
-    assert decided["verdict"] == ev.PROMOTE and decided["applied"] is True
     assert decided["decided_by"] == "владелец"
-    assert await _current_version(env, sid) == cand
+    assert decided["applied"] is False
+    assert decided["verdict"] == ev.HUMAN_REVIEW
+    assert "канареечной дверью" in decided["reason"]
+    # Ключевое: версия НЕ переключилась, несмотря на одобрение человека.
+    assert await _current_version(env, sid) == base
 
 
 async def test_widened_permissions_never_auto_promote(env):
@@ -183,9 +204,9 @@ async def test_widened_permissions_never_auto_promote(env):
 async def test_decided_evaluation_is_not_replayed(env):
     sid, base, cand = await _skill_with_versions(env)
     await _runs(env, base, completed=5, failed=5)
-    await _runs(env, cand, completed=9, failed=1)
     row = await ev.open_evaluation(env.svc, skill_id=sid, baseline_version_id=base,
                                    candidate_version_id=cand)
+    await _runs(env, cand, completed=10, failed=0)
     first = await ev.refresh(env.svc, int(row["id"]))
     assert first["verdict"] == ev.PROMOTE
 

@@ -6,6 +6,7 @@ GPU определяется best effort (nvidia-smi / sysfs); нет GPU — п
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 
 from .lifecycle import sleep_or_stop, stopping
 import shutil
@@ -33,13 +34,18 @@ class MetricsSampler:
         self.retention_hours = retention_hours
         self.disk_path = disk_path
         self.last_tick: float = 0.0
+        self.last_error: str | None = None
         self.last_sample: dict | None = None
         # Ставится Services.stop(): петля выходит сама, не будучи
         # оборванной посреди запроса к базе (см. bcc/lifecycle.py).
         self.stop_event: asyncio.Event | None = None
+        # Only in-flight reads are shared; completed results are not cached here.
+        # Kept alive independently of a cancelled HTTP waiter, until the bounded
+        # system read finishes. No DB/session object enters the worker thread.
+        self._pending_read: asyncio.Task[dict] | None = None
 
     def read(self) -> dict:
-        """Мгновенный снимок (без обращения к БД)."""
+        """Синхронный снимок без БД; async-клиенты используют read_async()."""
         vm = psutil.virtual_memory()
         try:
             du = psutil.disk_usage(self.disk_path)
@@ -57,10 +63,45 @@ class MetricsSampler:
             "gpu": gpu_info(),
         }
 
+    async def read_async(self) -> dict:
+        """Read system I/O off-loop, sharing concurrent reads but not stale results.
+
+        cpu_percent(interval=None) has a per-thread baseline. Keep the reported
+        CPU reading on the service loop, rather than publishing first-call zeros
+        from whichever executor thread happened to run the blocking read().
+        read() remains the synchronous compatibility/diagnostic hook.
+        """
+        pending = self._pending_read
+        if pending is None or pending.done():
+            pending = asyncio.create_task(self._read_off_loop())
+            self._pending_read = pending
+            pending.add_done_callback(self._read_finished)
+        # Cancelling one requester must not cancel the shared read and launch a
+        # duplicate subprocess for another. Cancellation still reaches the caller.
+        data = await asyncio.shield(pending)
+        return deepcopy(data)
+
+    async def _read_off_loop(self) -> dict:
+        cpu_pct = psutil.cpu_percent(interval=None)
+        data = await asyncio.to_thread(self.read)
+        # Preserve the missing-data contract of read() and overrides used by
+        # diagnostics. Never turn an empty reading into a measured snapshot.
+        if "cpu_pct" in data:
+            data = {**data, "cpu_pct": cpu_pct}
+        return data
+
+    def _read_finished(self, pending: asyncio.Task[dict]) -> None:
+        if self._pending_read is pending:
+            self._pending_read = None
+        # All waiters may have been cancelled. Retrieve a later error to avoid an
+        # unhandled-task warning; active waiters still receive the same exception.
+        if not pending.cancelled():
+            pending.exception()
+
     async def sample(self) -> dict:
         """Снять метрики, записать в БД, отдать в шину."""
         self.last_tick = time.monotonic()
-        data = self.read()
+        data = await self.read_async()
         self.last_sample = data
         async with self.db.session() as s:
             await s.execute(sa.insert(metrics_t).values(**data))
@@ -82,9 +123,11 @@ class MetricsSampler:
         while not stopping(self.stop_event):
             try:
                 await self.sample()
+                self.last_error = None
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
+                self.last_error = f"{type(exc).__name__}: {exc}"[:200]
                 await self.bus.emit("metrics.error", message=f"{type(exc).__name__}: {exc}")
             if await sleep_or_stop(self.stop_event, self.interval):
                 return

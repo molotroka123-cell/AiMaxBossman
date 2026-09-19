@@ -1,0 +1,55 @@
+{
+  "case_id": "btc-2026-09-11-0746-post-failed-reclaim-deleveraging",
+  "date": "2026-09-11",
+  "time_local": "07:46-04:00",
+  "type": "observed_chat_case",
+  "market": "BTC",
+  "source": "K1m6a/Coinwise-style screenshots",
+  "instrument_note": "Reference chart and execution tape are stored separately; reference levels are not exact execution-order prices without basis validation.",
+  "observed": {
+    "reference_chart_price_approx": 76965,
+    "execution_tape_approx": [76860, 76910],
+    "cvd_billion": 47.28,
+    "open_interest_billion": 18.32,
+    "long_liquidations_million": 1.21,
+    "short_liquidations_thousand": 0.618,
+    "buy_volume_million": 28.43
+  },
+  "chart_levels": {
+    "dBL_approx": 76825,
+    "dVAL_approx": 77140,
+    "dOpen_approx": 77215,
+    "dPOC_approx": 77355,
+    "dVAH_approx": 77560,
+    "pDay_pWeek_low_cluster_approx": 76600,
+    "settlement_reference": 78540
+  },
+  "comparison_to_prior_failed_reclaim_frame": {
+    "prior_reference_price_approx": 77135,
+    "prior_cvd_billion": 47.20,
+    "prior_oi_billion": 18.61,
+    "price_change_approx": -170,
+    "cvd_change_billion": 0.08,
+    "oi_change_billion": -0.29,
+    "price_direction": "DOWN",
+    "cvd_direction": "FLAT_TO_SLIGHTLY_UP",
+    "oi_direction": "DOWN"
+  },
+  "state": "Price DOWN + CVD FLAT/SLIGHTLY UP + OI DOWN after failed value reclaim",
+  "regime": "POST_FAILED_RECLAIM_DELEVERAGING_CONTINUATION",
+  "interpretation": "The failed-reclaim short edge has already expressed itself: price moved lower after failing value, while OI contracted sharply from ~18.61B to ~18.32B and long liquidations increased. CVD did not deteriorate much and is slightly higher, which means the current downswing is now dominated more by position closure/deleveraging than by a clean fresh bearish leverage expansion. This makes a new market short materially less attractive than the earlier failed-reclaim entry.",
+  "short_scenario": {
+    "status": "DO_NOT_CHASE_CURRENT_LOW",
+    "preferred_reentry": "Bounce into ~77.14k dVAL or ~77.215k dOpen followed by rejection/lower high while CVD stalls/rolls and OI remains elevated or rebuilds.",
+    "continuation_trigger": "Break below ~76.825k dBL / ~76.6k low cluster is higher-quality only if Price DOWN + CVD DOWN + OI FLAT/UP appears, showing fresh directional leverage rather than another forced deleveraging leg.",
+    "avoid": "If price breaks lower while OI is collapsing again, avoid chasing the short into another liquidation low."
+  },
+  "long_scenario": {
+    "status": "WATCH_FOR_POST_DELEVERAGING_STABILIZATION",
+    "first_condition": "Hold the ~76.825k dBL / ~76.6k low cluster without fresh price/CVD lows and with OI stabilizing.",
+    "first_trigger": "Reclaim ~77.14k dVAL and hold/retest above it.",
+    "stronger_trigger": "Reclaim ~77.215k dOpen and then ~77.355k dPOC with positive price response to CVD/OI.",
+    "invalidation": "Fresh loss of the lower balance while CVD turns down and OI starts rebuilding upward during the decline."
+  },
+  "edge_lesson": "The best short was the failed structural repair, not the later downside extension. Once rejection has already produced lower price and OI starts collapsing, the expected quality of a new short deteriorates. Edge timing must distinguish SIGNAL GENERATION (failed reclaim with crowded leverage) from PAYOFF/DELEVERAGING (OI collapse after the move is already underway)."
+}

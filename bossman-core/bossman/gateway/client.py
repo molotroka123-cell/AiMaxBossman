@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import random
+import re
 import time
 from email.utils import parsedate_to_datetime
 from typing import Any, AsyncIterator, Callable
@@ -46,13 +47,38 @@ def _retry_after_seconds(value: str | None) -> float | None:
     return max(0.0, when.timestamp() - time.time())
 
 
+DEFAULT_BASE_URL = "http://127.0.0.1:8765/v1"
+
+
+def normalize_base_url(url: str) -> str:
+    """Привести базовый адрес Gateway к тому, от которого строятся пути.
+
+    Живой прогон владельца (20260906, GATEWAY-URL-V1): BOSSMAN_GATEWAY_URL был
+    задан без `/v1`. Клиент клеит `{base}/chat/completions`, поэтому КАЖДЫЙ ход
+    планировщика получал 404, выжигал бюджет перепланирований за 21 итерацию и
+    заканчивался «planner replan budget» — без единого намёка на настоящую
+    причину. Адрес без версии не является рабочей конфигурацией ни в одном
+    сценарии, так что это не догадка за пользователя, а нормализация.
+
+    Явно указанная другая версия (`/v2`, `/openai/v1`) не трогается.
+    """
+    base = (url or "").strip().rstrip("/")
+    if not base:
+        return DEFAULT_BASE_URL
+    tail = base.rsplit("/", 1)[-1]
+    if re.fullmatch(r"v\d+", tail):
+        return base
+    return base + "/v1"
+
+
 class GatewayClient:
     """Thin reusable client for Bossman Core and future local applications."""
 
     def __init__(self, base_url: str | None = None, api_key: str | None = None, timeout: float = 600.0,
                  *, retry_max: int = RETRY_MAX, retry_deadline_s: float = RETRY_DEADLINE_S,
                  retry_base_s: float = RETRY_BASE_S):
-        self.base_url = (base_url or os.getenv("BOSSMAN_GATEWAY_URL", "http://127.0.0.1:8765/v1")).rstrip("/")
+        self.base_url = normalize_base_url(base_url or os.getenv("BOSSMAN_GATEWAY_URL", "")
+                                           or DEFAULT_BASE_URL)
         self.api_key = api_key if api_key is not None else os.getenv("BOSSMAN_GATEWAY_CORE_KEY", "")
         self._client = httpx.AsyncClient(timeout=httpx.Timeout(timeout))
         self.retry_max = max(0, int(retry_max))

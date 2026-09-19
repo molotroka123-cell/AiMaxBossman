@@ -9,6 +9,7 @@ import {
 } from '../components.js';
 import { errorBanner } from './_shared.js';
 import * as ui from './_ui.js';
+import {studioPanel} from './_studio.js';
 
 /* Общий язык интерфейса: шапка и пустые состояния — из bx-слоя.
    Совместимость: старые вызовы передают массив кнопок третьим аргументом. */
@@ -19,6 +20,8 @@ const emptyPanel = (opts) => ui.blank(opts);
 const PREVIEW_CACHE = new Map();
 let selectedAssetId = null;
 let activeTab = 'library';
+let libraryFilter = 'all';
+let librarySearch = '';
 let composerState = {
   prompt: 'Футуристический городской пейзаж на закате, неоновые огни, дождь, отражения на мокром асфальте, кинематографичный свет',
   model_alias: 'mock-image',
@@ -31,17 +34,37 @@ let composerState = {
 
 const ImagesPage = {
   id: 'images',
-  title: 'Изображения',
+  title: 'Студия',
   icon: 'models',
   nav: 'primary',
+  section: 'studio',
+  /* Два экрана одной страницы: библиотека Images по '#/images' и Studio по
+     '#/images?studio=1'. Обход интерфейса ходит по идентификаторам страниц и
+     второй экран не видел вовсе — замер 18.09: 11 нажатий против 22. Страница
+     объявляет свои маршруты сама, поэтому гейт проверяет оба. */
+  sweep: ['images', 'images?studio=1'],
 
-  async render(ctx) {
+  /* Studio — маршрут, а не скрытое состояние вкладки. Раньше кнопка
+     переключала переменную в модуле: URL не менялся, поэтому перезагрузка и
+     «назад» возвращали владельца в библиотеку, а ссылку на экран нельзя было
+     ни сохранить, ни передать. Сторож обхода поймал ровно это: кнопка не
+     открыла модалку и не сменила раздел. Внутренние вкладки библиотеки
+     (генерации, очередь, шаблоны) остаются локальными — они не адресуются. */
+  async render(ctx, params) {
     ensureStyles();
+    if (String(params?.studio ?? '') === '1') {
+      try { return h('div.stack.lg', pageHead('Bossman Studio', 'Создание изображений и видео', [h('button.btn.btn-sm', {onClick:()=>ctx.navigate('images')}, 'Библиотека Images')]), await studioPanel(ctx)); }
+      catch(e) { return errorBanner(e,ctx); }
+    }
     let assets = []; let jobs = []; let collections = []; let models = [];
-    let storage = null; let overview = null; let err = null;
+    let storage = null; let overview = null; let err = null; let assetTotal = 0;
     try {
+      const assetQuery = new URLSearchParams({ limit: '120' });
+      if (libraryFilter === 'favorites') assetQuery.set('favorite', 'true');
+      if (libraryFilter.startsWith('collection:')) assetQuery.set('collection_id', libraryFilter.slice(11));
+      if (librarySearch) assetQuery.set('search', librarySearch);
       const [a, j, c, m, s, o] = await Promise.all([
-        api.raw('/api/images/assets?limit=120'),
+        api.raw(`/api/images/assets?${assetQuery}`),
         api.raw('/api/images/jobs?limit=40'),
         api.raw('/api/images/collections'),
         api.raw('/api/images/models'),
@@ -49,6 +72,7 @@ const ImagesPage = {
         api.raw('/api/images/overview'),
       ]);
       assets = listOf(a);
+      assetTotal = a.total ?? assets.length;
       jobs = listOf(j);
       collections = listOf(c);
       models = listOf(m);
@@ -57,9 +81,10 @@ const ImagesPage = {
     } catch (e) { err = e; }
 
     const head = pageHead(
-      'Изображения',
+      'Bossman Studio',
       'Создание картинок, ваша библиотека и коллекции.',
       [
+        h('button.btn.btn-primary', {type:'button',onClick:()=>ctx.navigate('images',{studio:'1'})}, 'Создать в Studio'),
         h('label.btn.btn-sm', { title: 'Загрузить файл с компьютера' },
           icon('plus', 13), h('span', 'Загрузить файл'),
           h('input', {
@@ -71,7 +96,7 @@ const ImagesPage = {
 
     if (err) return h('div.stack.lg', head, errorBanner(err, ctx));
 
-    if (selectedAssetId == null && assets.length) selectedAssetId = assets[0].id;
+    if (!assets.some((asset) => asset.id === selectedAssetId)) selectedAssetId = assets[0]?.id ?? null;
     const selected = assets.find((a) => a.id === selectedAssetId) || null;
 
     return h('div.stack.lg',
@@ -80,16 +105,16 @@ const ImagesPage = {
       tabs(ctx),
       composer(models, collections, ctx),
       h('div.images-workspace',
-        librarySidebar(collections, assets, storage, ctx),
-        mainContent(assets, jobs, ctx),
+        librarySidebar(collections, overview, storage, ctx),
+        mainContent(assets, jobs, models, ctx, assetTotal),
         inspector(selected, collections, ctx),
-        recentJobs(jobs, ctx),
+        recentJobs(jobs, models, ctx),
       ),
     );
   },
 
   onEvent(ev) {
-    return String(ev.kind || '').startsWith('image.');
+    return String(ev.kind || '').startsWith('image.') || String(ev.kind || '').startsWith('studio.');
   },
 };
 
@@ -132,12 +157,12 @@ function composer(models, collections, ctx) {
   });
 
   const model = withValue(h('select.input', {
-    onChange: (e) => { composerState.model_alias = e.target.value; },
-  }, models.map((m) => h('option', { value: m.alias }, m.name || m.alias))),
+    onChange: (e) => { composerState.model_alias = e.target.value; ctx.refresh(); },
+  }, models.map((m) => h('option', { value: m.alias }, modelLabel(m)))),
   composerState.model_alias);
 
   const ratio = withValue(h('select.input', {
-    onChange: (e) => setRatio(e.target.value),
+    onChange: (e) => { setRatio(e.target.value); ctx.refresh(); },
   }, ['1:1', '16:9', '9:16', '4:3', '3:2'].map((r) => h('option', { value: r }, r))),
   composerState.aspect_ratio);
 
@@ -171,6 +196,24 @@ function composer(models, collections, ctx) {
       )));
 }
 
+/* Заглушка обязана называться заглушкой: mock-провайдер отдаёт синтетический
+   SVG, и без пометки владелец принимает его за работу настоящей модели.
+   executable=false — вторая половина честности: такой job упадёт в очереди. */
+function modelLabel(m) {
+  const caps = m && typeof m.caps === 'object' ? m.caps : {};
+  const name = m.name || m.alias;
+  if (caps.mock) return `${name} · заглушка`;
+  return m.executable === false ? `${name} · провайдер не подключён` : name;
+}
+
+/* Исполним ли алиас, знает только сервер (/api/images/models). Незнакомый
+   алиас считаем исполнимым: прятать «Повторить» из-за неполного каталога
+   хуже, чем показать кнопку. */
+function executableAlias(models, alias) {
+  const m = (models || []).find((x) => x.alias === alias);
+  return !m || m.executable !== false;
+}
+
 function field(label, node) {
   return h('label.images-field', h('div.xsmall.dim', label), node);
 }
@@ -182,16 +225,17 @@ function withValue(node, value) {
   return node;
 }
 
-function librarySidebar(collections, assets, storage, ctx) {
-  const favoriteCount = assets.filter((x) => x.favorite).length;
+function librarySidebar(collections, overview, storage, ctx) {
+  const choose = (filter) => { libraryFilter = filter; activeTab = 'library'; ctx.refresh(); };
   return h('aside.images-side',
     h('section.panel',
       h('div.panel-head', h('h2', 'Коллекции'), h('div.spacer'),
         h('button.btn.btn-sm', { type: 'button', title: 'Новая коллекция', 'aria-label': 'Новая коллекция', onClick: () => createCollection(ctx) }, icon('plus', 12))),
       h('div.panel-body.tight.images-collections',
-        collectionRow('Все изображения', assets.length, true, () => { activeTab = 'library'; ctx.refresh(); }),
-        collectionRow('Избранное', favoriteCount, false, () => { activeTab = 'library'; ctx.refresh(); }),
-        ...collections.map((c) => collectionRow(c.name, c.count || 0, false, () => {}))),
+        collectionRow('Все изображения', overview?.assets ?? 0, libraryFilter === 'all', () => choose('all')),
+        collectionRow('Избранное', overview?.favorites ?? 0, libraryFilter === 'favorites', () => choose('favorites')),
+        ...collections.map((c) => collectionRow(c.name, c.count || 0,
+          libraryFilter === `collection:${c.id}`, () => choose(`collection:${c.id}`)))),
     ),
     h('section.panel',
       h('div.panel-head', h('h2', 'Хранилище')),
@@ -205,28 +249,40 @@ function librarySidebar(collections, assets, storage, ctx) {
 
 function collectionRow(name, count, active, onClick) {
   return h('button.images-collection-row', {
-    type: 'button', class: active ? 'active' : '', onClick,
+    type: 'button', class: active ? 'active' : '', 'aria-pressed': String(active), onClick,
   }, h('span', name), h('span.xsmall.dim', String(count)));
 }
 
-function mainContent(assets, jobs, ctx) {
-  if (activeTab === 'generations') return generationsTable(jobs, ctx);
-  if (activeTab === 'queue') return generationsTable(jobs.filter((j) => ['queued', 'running'].includes(j.status)), ctx);
+function mainContent(assets, jobs, models, ctx, total) {
+  if (activeTab === 'generations') return generationsTable(jobs, models, ctx);
+  if (activeTab === 'queue') return generationsTable(jobs.filter((j) => ['queued', 'running'].includes(j.status)), models, ctx);
   if (activeTab === 'templates') return templatesPanel();
-  if (!assets.length) {
-    return emptyPanel({
+  const search = h('input.input.images-search', {
+    type: 'search', value: librarySearch, placeholder: 'Поиск изображений…',
+    'aria-label': 'Поиск изображений',
+  });
+  const searchForm = h('form.row.tight', {
+    role: 'search', 'aria-label': 'Поиск в библиотеке изображений',
+    onSubmit: (event) => { event.preventDefault(); librarySearch = search.value.trim(); ctx.refresh(); },
+  }, search, h('button.btn.btn-sm', { type: 'submit' }, 'Найти'),
+  librarySearch ? h('button.btn.btn-sm', {
+    type: 'button', onClick: () => { librarySearch = ''; ctx.refresh(); },
+  }, 'Сбросить поиск') : null);
+  const content = assets.length ? h('div.images-grid', assets.map((asset) => assetCard(asset, ctx)))
+    : emptyPanel({
       iconName: 'empty',
-      title: 'Библиотека пока пустая',
-      hint: 'Создайте первое изображение по описанию выше или загрузите свой файл.',
+      title: librarySearch ? 'Изображения не найдены' : libraryFilter === 'all' ? 'Библиотека пока пустая'
+        : libraryFilter === 'favorites' ? 'В избранном пока нет изображений' : 'В этой коллекции пока нет изображений',
+      hint: librarySearch ? 'Измените запрос или сбросьте поиск.'
+        : libraryFilter === 'all' ? 'Создайте первое изображение по описанию выше или загрузите свой файл.'
+        : 'Выберите «Все изображения», чтобы добавить изображение в этот раздел.',
     });
-  }
   return h('section.panel.images-library',
     h('div.panel-head',
-      h('h2', `Библиотека · ${assets.length}`),
+      h('h2', `${libraryFilter === 'favorites' ? 'Избранное' : libraryFilter === 'all' ? 'Библиотека' : 'Коллекция'} · ${total}`),
       h('div.spacer'),
-      h('input.input.images-search', { placeholder: 'Поиск изображений…' })),
-    h('div.panel-body', h('div.images-grid',
-      assets.map((asset) => assetCard(asset, ctx)))));
+      searchForm),
+    h('div.panel-body', content));
 }
 
 function assetCard(asset, ctx) {
@@ -288,7 +344,13 @@ function inspector(asset, collections, ctx) {
       asset.collection_id ?? '')),
       h('div.stack.tight',
         h('button.btn.btn-sm', { type: 'button', onClick: () => reusePrompt(asset, ctx) }, 'Повторить описание'),
-        h('button.btn.btn-sm', { type: 'button', onClick: () => variation(asset, ctx) }, 'Вариация'),
+        h('button.btn.btn-sm', {
+          type: 'button', disabled: Boolean(variationUnavailableReason(asset)),
+          title: variationUnavailableReason(asset) || 'Создать вариацию',
+          onClick: () => variation(asset, ctx),
+        }, 'Вариация'),
+        variationUnavailableReason(asset)
+          ? h('div.xsmall.dim', variationUnavailableReason(asset)) : null,
         h('button.btn.btn-sm', { type: 'button', onClick: () => toggleFavorite(asset, ctx) },
           asset.favorite ? 'Убрать из избранного' : 'В избранное'),
       )));
@@ -298,16 +360,32 @@ function detail(label, value) {
   return h('div.images-detail', h('div.xsmall.dim', label), h('div.xsmall', String(value ?? '—')));
 }
 
-function recentJobs(jobs, ctx) {
+function recentJobs(jobs, models, ctx) {
   return h('section.panel.images-recent',
     h('div.panel-head', h('h2', 'Последние генерации'), h('div.spacer'),
       h('button.btn.btn-sm', { type: 'button', onClick: () => { activeTab = 'generations'; ctx.refresh(); } }, 'Все')),
     h('div.panel-body.tight',
-      jobs.length ? h('div.stack.tight', jobs.slice(0, 8).map((j) => jobMini(j, ctx)))
+      jobs.length ? h('div.stack.tight', jobs.slice(0, 8).map((j) => jobMini(j, models, ctx)))
         : h('div.small.dim', 'Запусков пока нет')));
 }
 
-function jobMini(job, ctx) {
+/* Причина падения приходит в job.error и раньше нигде не показывалась: владелец
+   видел «ошибка» и жал «Повторить», пока не надоест. Повтор алиаса, который
+   сервер не умеет исполнять (executable=false), обречён — вместо кнопки
+   показываем, чего не хватает. */
+function jobError(job) {
+  const text = String(job.error || '').trim();
+  return text ? h('div.xsmall', { style: { color: 'var(--err)' } }, text) : null;
+}
+
+function retryControl(job, models, ctx) {
+  if (!executableAlias(models, job.model_alias)) {
+    return h('div.xsmall.dim', 'повтор не поможет: провайдер не подключён');
+  }
+  return h('button.btn.btn-sm', { type: 'button', onClick: () => retryJob(job.id, ctx) }, 'Повторить');
+}
+
+function jobMini(job, models, ctx) {
   return h('div.images-job-mini',
     h('div.row.tight',
       statusBadge(job.status || 'queued', { live: job.status === 'running' }),
@@ -320,25 +398,25 @@ function jobMini(job, ctx) {
       h('span', job.aspect_ratio),
       h('span', '·'),
       h('span', `${Math.round((job.progress || 0) * 100)}%`)),
-    ['failed', 'cancelled'].includes(job.status)
-      ? h('button.btn.btn-sm', { type: 'button', onClick: () => retryJob(job.id, ctx) }, 'Повторить')
-      : null);
+    jobError(job),
+    ['failed', 'cancelled'].includes(job.status) ? retryControl(job, models, ctx) : null);
 }
 
-function generationsTable(jobs, ctx) {
+function generationsTable(jobs, models, ctx) {
   return h('section.panel.images-library',
     h('div.panel-head', h('h2', activeTab === 'queue' ? 'Очередь' : 'Генерации')),
     h('div.panel-body',
       jobs.length ? h('div.stack.tight', jobs.map((j) => h('div.images-job-row',
         h('div', { style: { minWidth: 0 } },
           h('div.small.truncate', { style: { fontWeight: '700' } }, j.prompt),
-          h('div.xsmall.dim', `${j.model_alias} · ${j.aspect_ratio} · #${j.id}`)),
+          h('div.xsmall.dim', `${j.model_alias} · ${j.aspect_ratio} · #${j.id}`),
+          jobError(j)),
         h('div.spacer'),
         statusBadge(j.status, { live: j.status === 'running' }),
         h('div.xsmall.dim', `${Math.round((j.progress || 0) * 100)}%`),
         j.status === 'queued' || j.status === 'running'
           ? h('button.btn.btn-sm.btn-danger', { type: 'button', onClick: () => cancelJob(j.id, ctx) }, 'Стоп')
-          : h('button.btn.btn-sm', { type: 'button', onClick: () => retryJob(j.id, ctx) }, 'Повторить'),
+          : retryControl(j, models, ctx),
       ))) : ui.blank({ iconName: 'empty', title: 'Задач нет',
         hint: 'Запустите генерацию — она появится здесь со своим состоянием.' })));
 }
@@ -371,13 +449,29 @@ async function createJob(ctx) {
   } catch (e) { toastError(e, 'Не удалось создать генерацию'); }
 }
 
+/* У импортированного файла модели нет ('import'). Подстановка 'mock-image'
+   ставила на новый job ложную метку происхождения и молча уводила владельца
+   на заглушку: берём модель, которую он видит в композере и может сменить. */
+function modelForAsset(asset) {
+  const alias = asset && asset.model_alias;
+  return alias && alias !== 'import' ? alias : composerState.model_alias;
+}
+
+function variationUnavailableReason(asset) {
+  return modelForAsset(asset) === 'comfyui'
+    ? 'ComfyUI: вариации пока не поддерживаются. Используйте «Повторить описание» для новой генерации.'
+    : '';
+}
+
 async function variation(asset, ctx) {
+  const unavailable = variationUnavailableReason(asset);
+  if (unavailable) { toast(unavailable, { type: 'warn' }); return; }
   try {
     await api.raw('/api/images/jobs', {
       method: 'POST',
       body: {
         prompt: asset.prompt || asset.title || 'variation',
-        model_alias: asset.model_alias === 'import' ? 'mock-image' : asset.model_alias,
+        model_alias: modelForAsset(asset),
         aspect_ratio: asset.aspect_ratio || '1:1',
         width: asset.width || 1024,
         height: asset.height || 1024,
@@ -396,7 +490,7 @@ function reusePrompt(asset, ctx) {
   composerState = {
     ...composerState,
     prompt: asset.prompt || '',
-    model_alias: asset.model_alias === 'import' ? 'mock-image' : asset.model_alias,
+    model_alias: modelForAsset(asset),
     aspect_ratio: asset.aspect_ratio || '1:1',
     width: asset.width || 1024,
     height: asset.height || 1024,
@@ -483,7 +577,7 @@ function setRatio(ratio) {
     '1:1': [1024, 1024],
     '16:9': [1280, 720],
     '9:16': [720, 1280],
-    '4:3': [1200, 900],
+    '4:3': [1152, 864],
     '3:2': [1200, 800],
   };
   const [w, h_] = sizes[ratio] || [1024, 1024];
