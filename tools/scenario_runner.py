@@ -414,10 +414,17 @@ def gap_reconciliation(results: Sequence[ScenarioResult]) -> dict[str, Any]:
     """
     undeclared, closed, mislabelled = [], [], []
     for r in results:
+        # Сценарий с блокером НЕ ИСПОЛНЯЛСЯ: отсутствующая способность — не
+        # пробел продукта, и судить по такому прогону нельзя НИ ОДНИМ из трёх
+        # способов. Исключение только из `undeclared` уже стоило красного
+        # корневого CI: там нет `command_center`, OS-29 уходил в
+        # INSUFFICIENT_EVIDENCE с причиной-блокером, и сверка объявляла
+        # подменившуюся причину там, где причины не было вовсе. Деградацию
+        # способностей меряет объявленный пол зелёных, а не эта сверка.
+        if r.blockers:
+            continue
         gap = r.scenario.owner_gap
-        # Отсутствующая способность — не пробел продукта: она уже названа
-        # блокером и меряется полом зелёных, а не этой сверкой.
-        if not gap and r.level in NOT_PROVEN_LEVELS and not r.blockers:
+        if not gap and r.level in NOT_PROVEN_LEVELS:
             undeclared.append(r.scenario.id)
         elif gap and r.level == AI_BACKED_CI:
             closed.append(r.scenario.id)
