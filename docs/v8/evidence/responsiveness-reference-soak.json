@@ -1,0 +1,84 @@
+{
+  "type": "bossman.responsiveness",
+  "schema": 1,
+  "completed": false,
+  "verdict": "INSUFFICIENT_EVIDENCE",
+  "mode": "reference",
+  "elapsed_load_seconds": 122.39033626399987,
+  "turns": 58,
+  "lines": [
+    {
+      "metric": "cold_start_to_interactive_s",
+      "limit": 8.0,
+      "measured": null,
+      "verdict": "OWNER_REQUIRED",
+      "detail": "старт меряется только на установленном архиве Windows на машине владельца: из исходников стартует интерпретатор, а не продукт",
+      "where": "только установленный архив Windows на машине владельца"
+    },
+    {
+      "metric": "warm_start_to_interactive_s",
+      "limit": 4.0,
+      "measured": null,
+      "verdict": "OWNER_REQUIRED",
+      "detail": "старт меряется только на установленном архиве Windows на машине владельца: из исходников стартует интерпретатор, а не продукт",
+      "where": "только установленный архив Windows на машине владельца"
+    },
+    {
+      "metric": "navigation_p50_ms",
+      "limit": 150.0,
+      "measured": 124.76601649996155,
+      "verdict": "REFERENCE_ONLY",
+      "detail": "124.8 против предела 150.0 — В БЮДЖЕТЕ; 20 переходов по 31 разделам",
+      "where": "настоящий браузер, любой из двух: источник (справочно) или установленный архив (по делу)"
+    },
+    {
+      "metric": "navigation_p95_ms",
+      "limit": 400.0,
+      "measured": 277.7418299999681,
+      "verdict": "REFERENCE_ONLY",
+      "detail": "277.7 против предела 400.0 — В БЮДЖЕТЕ; худший 676 мс, лучший 9 мс",
+      "where": "настоящий браузер"
+    },
+    {
+      "metric": "gallery_100_first_paint_ms",
+      "limit": 1000.0,
+      "measured": 249.284704000047,
+      "verdict": "REFERENCE_ONLY",
+      "detail": "249.3 против предела 1000.0 — В БЮДЖЕТЕ; 100 записей в базе, страница показывает 60",
+      "where": "настоящий браузер"
+    },
+    {
+      "metric": "gallery_1000_first_paint_ms",
+      "limit": 3000.0,
+      "measured": 219.6442429999479,
+      "verdict": "REFERENCE_ONLY",
+      "detail": "219.6 против предела 3000.0 — В БЮДЖЕТЕ; 1000 записей в базе, страница показывает 60",
+      "where": "настоящий браузер"
+    },
+    {
+      "metric": "open_close_cycles_rss_growth_pct",
+      "limit": 10.0,
+      "measured": 5.255247506869815,
+      "verdict": "REFERENCE_ONLY",
+      "detail": "5.3 против предела 10.0 — В БЮДЖЕТЕ; 50 циклов, дерево 1211.1 → 1274.8 MiB",
+      "where": "дерево процессов, не главный процесс"
+    },
+    {
+      "metric": "soak_rss_growth_pct",
+      "limit": 15.0,
+      "measured": null,
+      "verdict": "INSUFFICIENT_EVIDENCE",
+      "detail": "прогон прерван на 2-й минуте нагрузки (58 переходов); выдержка не завершена",
+      "where": "дерево процессов"
+    },
+    {
+      "metric": "soak_idle_cpu_pct_of_one_core",
+      "limit": 2.0,
+      "measured": null,
+      "verdict": "INSUFFICIENT_EVIDENCE",
+      "detail": "прогон прерван на 2-й минуте нагрузки (58 переходов); выдержка не завершена",
+      "where": "дерево процессов"
+    }
+  ],
+  "means": "снимок незаконченного прогона: доказательством не является"
+}
