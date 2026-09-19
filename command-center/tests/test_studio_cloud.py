@@ -86,12 +86,13 @@ async def test_egress_requires_digest_bound_confirmation(env):
     from bcc.studio.governance import save_policy,reserve,confirm
     from bcc.studio.runtime import StudioError
     model='openrouter:google/gemini-3.1-flash-image'
-    policy={'enabled':True,'free_only':True,'cloud_budget_usd':1,'per_job_usd':1,'prices':{model:0}}
+    # BL-084: платная модель проходит не по нулю при free_only, а по названной цене.
+    policy={'enabled':True,'free_only':False,'cloud_budget_usd':1,'per_job_usd':1,'prices':{model:0.01}}
     await save_policy(env.svc,policy)
     inputs=[{'run_id':'one','role':'reference','sha256':'a'*64}]
     with pytest.raises(StudioError,match='egress'):await reserve(env.svc,model,1,1,inputs)
     await confirm(env.svc,'openrouter',inputs)
-    assert (await reserve(env.svc,model,1,1,inputs))['upper_bound_usd']==0
+    assert (await reserve(env.svc,model,1,1,inputs))['upper_bound_usd']==0.01
     changed=[{**inputs[0],'sha256':'b'*64}]
     with pytest.raises(StudioError,match='egress'):await reserve(env.svc,model,2,1,changed)
 
@@ -107,7 +108,8 @@ async def test_real_queue_path_with_stub_http_and_verified_bytes(env,monkeypatch
     monkeypatch.setattr(openrouter,'OpenRouterProvider',lambda key,**kw:cls(key,transport=httpx.MockTransport(serve),**kw))
     monkeypatch.setenv('OPENROUTER_API_KEY','test-only-key')
     model='openrouter:google/gemini-3.1-flash-image'
-    await save_policy(env.svc,{'enabled':True,'free_only':True,'prices':{model:0}})
+    # BL-084: то же — честная цена вместо нуля, который каталог не подтверждает.
+    await save_policy(env.svc,{'enabled':True,'free_only':False,'cloud_budget_usd':1,'per_job_usd':1,'prices':{model:0.01}})
     job=await create(env,model=model,settings={'aspect_ratio':'16:9'})
     await process_one(env.svc)
     row=(await env.client.get('/api/studio/jobs/'+str(job['id']))).json()
@@ -130,7 +132,8 @@ async def test_cancellation_during_video_submit_releases_worker(env,monkeypatch)
     monkeypatch.setattr(openrouter,'OpenRouterProvider',lambda key,**kw:cls(key,transport=httpx.MockTransport(serve),**kw))
     monkeypatch.setenv('OPENROUTER_API_KEY','test-only-key')
     model='openrouter:minimax/hailuo-3-max'
-    await save_policy(env.svc,{'enabled':True,'prices':{model:0}})
+    # BL-084: free_only по умолчанию True, а модель в каталоге платная — цену называем честно.
+    await save_policy(env.svc,{'enabled':True,'free_only':False,'cloud_budget_usd':1,'per_job_usd':1,'prices':{model:0.01}})
     job=await create(env,model=model,settings={})
     worker=asyncio.create_task(process_one(env.svc))
     await asyncio.wait_for(entered.wait(),2)
@@ -155,7 +158,8 @@ async def test_policy_and_consent_revocation_stop_admitted_requests(env):
     from bcc.studio.governance import save_policy,reserve,confirm,check_current
     from bcc.studio.runtime import StudioError
     model='openrouter:google/gemini-3.1-flash-image'
-    p={'enabled':True,'prices':{model:0}}
+    # BL-084: free_only по умолчанию True, а модель в каталоге платная — цену называем честно.
+    p={'enabled':True,'free_only':False,'cloud_budget_usd':1,'per_job_usd':1,'prices':{model:0.01}}
     await save_policy(env.svc,p)
     media=[{'run_id':'r','role':'reference','sha256':'a'*64}]
     await confirm(env.svc,'openrouter',media)
@@ -201,7 +205,8 @@ async def test_video_completion_downloads_decodes_and_keeps_key_off_cdn(env,monk
     monkeypatch.setattr(openrouter,'OpenRouterProvider',lambda key,**kw:cls(key,transport=httpx.MockTransport(serve),**kw))
     monkeypatch.setenv('OPENROUTER_API_KEY','test-only-key')
     model='openrouter:minimax/hailuo-3-max'
-    await save_policy(env.svc,{'enabled':True,'prices':{model:0},'download_hosts':['cdn.example.test']})
+    # BL-084: free_only по умолчанию True, а модель в каталоге платная — цену называем честно.
+    await save_policy(env.svc,{'enabled':True,'free_only':False,'cloud_budget_usd':1,'per_job_usd':1,'prices':{model:0.01},'download_hosts':['cdn.example.test']})
     job=await create(env,model=model,settings={})
     await process_one(env.svc)
     row=(await env.client.get('/api/studio/jobs/'+str(job['id']))).json()
