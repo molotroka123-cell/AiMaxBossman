@@ -51,7 +51,7 @@ async def _snapshot(svc, policy: dict) -> ResourceSnapshot:
         used = metric._mapping["ram_used_mb"]
     else:
         try:
-            live = svc.metrics.read()
+            live = await svc.metrics.read_async()
         except Exception:
             live = {}
         total_measured = live.get("ram_total_mb")

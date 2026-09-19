@@ -1,0 +1,43 @@
+{
+  "scope": "CONTROLLED_IO_EVENT_LOOP_BENCHMARK_NOT_OWNER_WINDOWS_OR_LIVE_MODEL",
+  "reviewed_parent_sha": "d5622af2717351f478f6fada4203e07efcaaaa0e",
+  "baseline_metrics_blob": "156870b94fb69fccf80fc4a6c56a62747bdd0f6a",
+  "candidate_metrics_blob": "d622ded88de0de510e7c28e845ccf3ae18274790",
+  "python": "3.13.5",
+  "environment": "Linux container, not installed Windows or physical Ryzen",
+  "controlled_io_delay_ms": 250,
+  "paired_slow_trials": 20,
+  "paired_fast_trials": 40,
+  "slow_loop_callback_lateness_ms": {
+    "before_median": 240.74447400005283,
+    "after_median": 0.3521735000049375,
+    "before_p95": 240.926902999945,
+    "after_p95": 0.4603809999252917
+  },
+  "slow_sample_completion_ms": {
+    "before_median": 250.70632150004712,
+    "after_median": 251.21906449999187
+  },
+  "fast_sample_completion_ms": {
+    "before_median": 0.24676249995536637,
+    "after_median": 0.3966489999811529
+  },
+  "tests": {
+    "new": 16,
+    "existing_gpu": 5,
+    "baseline_failed": 11,
+    "baseline_passed": 10,
+    "candidate_failed": 0,
+    "candidate_passed": 21
+  },
+  "raw_local_file": "metrics-benchmark.json",
+  "raw_sha256": "cd6e16a360c90061e379c7a7f602b9360ef9ea443f0f6c078cb079332b045575",
+  "not_proven": [
+    "installed Windows acceptance",
+    "physical Ryzen speedup",
+    "model inference speedup",
+    "full repository regression",
+    "live GUI responsiveness"
+  ],
+  "new_runtime_dependencies": 0
+}

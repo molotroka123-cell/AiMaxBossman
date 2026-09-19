@@ -113,11 +113,8 @@ class Services:
         self._wire_v2_managers()             # skills / terminal / browser (пак)
         self.features = load_features()      # V2: модули bcc/features/* (контракты §8)
         # Здоровье фоновых петель фич. INV-RD-1 держится свипом, который живёт
-        # в тике review_gate; пока этого словаря не было, умерший или каждый раз
-        # падающий тик не отличался снаружи от работающего, и «задача не может
-        # ждать вечно» становилось обещанием без наблюдателя. Ключи заводятся
-        # ЗАРАНЕЕ: фича, у которой тика ещё не было, обязана быть видна как
-        # «starting», а не отсутствовать.
+        # в тике review_gate: если он умер, задача снова может ждать вечно, и
+        # узнать об этом надо здесь, а не по жалобе владельца.
         self.feature_ticks: dict[str, dict[str, Any]] = {
             f.name: {"at": 0.0, "error": None, "every": float(f.tick_seconds)}
             for f in self.features if f.tick and f.tick_seconds > 0}
@@ -435,6 +432,7 @@ class ApprovalRevoke(BaseModel):
 
 # ---------- приложение ----------
 
+
 def create_app(settings: Settings | None = None, *, start_workers: bool = True,
                adapter_factory: Any = None, engine_options: dict | None = None,
                announce_token: bool = True) -> FastAPI:
@@ -670,7 +668,7 @@ def _api_router() -> APIRouter:
 
     @router.get("/system")
     async def system(svc: Services = Depends(services)):
-        now = svc.metrics.read()
+        now = await svc.metrics.read_async()
         history = await svc.metrics.history(15)
         async with svc.db.session() as s:
             res = await s.execute(sa.select(runs_t.c.status, sa.func.count())
