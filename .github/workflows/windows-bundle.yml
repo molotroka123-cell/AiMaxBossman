@@ -347,6 +347,23 @@ jobs:
             exit $code
           }
           exit 0
+      - name: Every metric runs AND reads correctly on real Windows
+        # Метрики проверялись по отдельности и в основном на Linux. Прогон 132
+        # показал цену: определитель железа считал всё верно, а вывести не смог
+        # — упал на кириллице (BL-087). Дефект жил в ОТОБРАЖЕНИИ. Здесь каждая
+        # метрика запускается из распакованного архива с `-I`, как её зовёт
+        # приёмка, и проверяется на код выхода, строку вердикта, разбираемый
+        # JSON с годными числами и отсутствие следов испорченной кодировки.
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        run: |
+          python tools/metrics_smoke.py `
+            --home "$env:BOSSMAN_INSTALLED_HOME" `
+            --python "$env:BCC_ACCEPTANCE_PYTHON" `
+            --json "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/metrics-smoke.json"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host '::error::BOSSMAN_METRICS_SMOKE=FAIL — метрика не отображается корректно на Windows. Смотрите строки выше.'
+            exit 1
+          }
       - name: Studio installed catalog and owner live evidence
         if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
         env:
