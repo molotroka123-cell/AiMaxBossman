@@ -23,8 +23,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 # Каталоги сборки и чужие деревья: там лежат копии, а не источник правды.
+# `.claude` держит рабочие деревья агентов — это ОТДЕЛЬНЫЕ копии репозитория,
+# у каждой свой CI. Считать их требования нашими значит проверять чужое дерево
+# и краснеть от чужой незавершённой правки.
 SKIP_PARTS = {"build", "dist", "node_modules", ".git", "__pycache__",
-              ".venv", "venv", "site-packages", "handoffs"}
+              ".venv", "venv", "site-packages", "handoffs", ".claude"}
 
 # Строка требования без версии вида `pkg`, `pkg>=1.0`, `pkg~=1.0`, `pkg>1`.
 UNPINNED = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\s*(\[[^\]]*\])?\s*([<>~!]=?|$)")
