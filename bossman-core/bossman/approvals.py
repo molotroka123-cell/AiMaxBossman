@@ -40,7 +40,11 @@ async def create(kind: str, preview: str, *, task_id: int | None = None,
            VALUES ($1,$2,$3,$4,$5,$6) RETURNING id""",
         task_id, run_id, kind, tool, payload, preview)
     approval_id = row["id"]
-    events.emit("approval.created", id=approval_id, kind=kind, tool=tool, preview=preview[:500])
+    # `emit` объявлена как `emit(kind, **data)` и сама кладёт в нагрузку
+    # `kind` = имя события. Передавать род одобрения под тем же именем нельзя
+    # ни технически (TypeError на КАЖДОМ вызове), ни по смыслу.
+    events.emit("approval.created", id=approval_id, approval_kind=kind,
+                tool=tool, preview=preview[:500])
     await telegram.ask_approval(approval_id, preview)
     return approval_id
 

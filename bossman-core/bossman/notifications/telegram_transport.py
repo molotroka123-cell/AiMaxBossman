@@ -79,7 +79,13 @@ class TelegramTransport:
 
     async def handle_webhook(self,update:dict,secret_header:str)->dict:
         expected=self._secret() or ""
-        if not expected or not hmac.compare_digest(expected,secret_header or ""):
+        # Сравниваются БАЙТЫ, а не строки. `hmac.compare_digest` на строках с
+        # не-ASCII символами поднимает TypeError, и тогда отказ уходит МИМО кода
+        # отказа: вместо честного «webhook denied» вызывающий получает
+        # необработанное исключение. Заголовок приходит из сети, и его
+        # содержимое нам не подконтрольно.
+        if not expected or not hmac.compare_digest(
+                expected.encode("utf-8"), (secret_header or "").encode("utf-8")):
             raise CallbackRejected("telegram webhook denied")
         cb=update.get("callback_query") or {}
         data=str(cb.get("data") or "")
