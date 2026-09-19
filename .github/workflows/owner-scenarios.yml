@@ -76,6 +76,17 @@ jobs:
           python-version: "3.12"
       - name: Установка продукта и настоящих инструментов
         run: |
+          # setuptools ставится ЯВНО, и это не костыль: он объявлен самим
+          # продуктом как требование сборки (`[build-system] requires =
+          # ["setuptools>=68"]` во всех трёх pyproject). `pip install -e .`
+          # ставит его в ОДНОРАЗОВОЕ изолированное окружение сборки, после
+          # которого он неимпортируем, а в Python 3.12 `ensurepip` его больше
+          # не кладёт. Владельческие строки OS-81/83/84/85 собирают пакет тем
+          # же кодом упаковки, что идёт в колесо (`command-center/setup.py`),
+          # и на прогоне e9eb2ba3 все четыре честно отдали
+          # INSUFFICIENT_EVIDENCE с причиной
+          # `ModuleNotFoundError: No module named 'setuptools'`.
+          python -m pip install --quiet 'setuptools>=68'
           python -m pip install --quiet -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
           python -m playwright install --with-deps chromium
           sudo apt-get update -q
