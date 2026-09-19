@@ -609,7 +609,26 @@ def render(results: list[Check]) -> str:
     return "\n".join(lines)
 
 
+def utf8_console() -> None:
+    """Печать не имеет права падать на кириллице.
+
+    Раннеры приёмки запускаются с `-I`, а `-I` подразумевает `-E`: PYTHONUTF8
+    и PYTHONIOENCODING игнорируются. На Windows поток получает кодировку
+    локали, и первая же русская строка роняет процесс UnicodeEncodeError —
+    так и закончился прогон 132 на настоящей Windows. Требование касается и
+    вывода без русских строк: печатаемый путь проходит через имя пользователя
+    Windows, а оно вполне может быть кириллическим. `errors='replace'`
+    оставляет печать живой и там, где UTF-8 недоступен.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    utf8_console()
     parser = argparse.ArgumentParser(prog="bossman doctor", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--json", action="store_true", help="машиночитаемый отчёт вместо таблицы")

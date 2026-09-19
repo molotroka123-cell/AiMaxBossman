@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 import tempfile
 import time
 
@@ -330,7 +331,26 @@ def evidence_binding(sha: str) -> dict:
             'harness_sha': os.environ.get('BOSSMAN_HARNESS_SHA') or None}
 
 
+def utf8_console() -> None:
+    """Печать не имеет права падать на кириллице.
+
+    Раннеры приёмки запускаются с `-I`, а `-I` подразумевает `-E`: PYTHONUTF8
+    и PYTHONIOENCODING игнорируются. На Windows поток получает кодировку
+    локали, и первая же русская строка роняет процесс UnicodeEncodeError —
+    так и закончился прогон 132 на настоящей Windows. Требование касается и
+    вывода без русских строк: печатаемый путь проходит через имя пользователя
+    Windows, а оно вполне может быть кириллическим. `errors='replace'`
+    оставляет печать живой и там, где UTF-8 недоступен.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main(argv=None):
+    utf8_console()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--trajectories', type=Path)
