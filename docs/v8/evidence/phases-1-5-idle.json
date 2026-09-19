@@ -1,0 +1,22 @@
+{
+  "source_sha": "d05354112b314582fdeda1c4fff7621463b0946e",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "python": "3.12.14",
+  "import_ms": 392.57353599896305,
+  "first_answer_ms": 145.98891799869307,
+  "start_to_answer_ms": 227.2166210004798,
+  "http_status": 200,
+  "measurement_transport": "in-process ASGI (not TCP)",
+  "idle_seconds": 60.00014219200057,
+  "rss_before_mib": 99.234375,
+  "rss_after_mib": 101.24609375,
+  "cpu_one_core_percent": 0.7499982226042047,
+  "images_tick": {
+    "at": 12111.566778662,
+    "error": null,
+    "every": 0.7
+  },
+  "process_count": 1,
+  "source_dirty": true,
+  "scope": "development worktree based on source_sha; not Windows archive"
+}

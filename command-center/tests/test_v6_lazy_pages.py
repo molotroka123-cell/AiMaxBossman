@@ -20,7 +20,10 @@ from .test_ux2_thinking_pane import _launch, _login, live  # noqa: F401
 pytestmark = [pytest.mark.timeout(180),
               pytest.mark.skipif(not chromium_available(), reason=browser_reason())]
 
-STATIC_KEYS = {"id", "title", "icon", "nav", "section"}
+# "sweep" — маршруты обхода интерфейса. Страница с несколькими экранами
+# объявляет их сама: без этого гейт видит только первый экран (замер 18.09 —
+# 11 нажатий против 22 на той же странице).
+STATIC_KEYS = {"id", "title", "icon", "nav", "section", "sweep"}
 FUNCTION_KEYS = {"render", "onEvent"}
 
 FIRST_RENDER_SNAPSHOT = """() => {

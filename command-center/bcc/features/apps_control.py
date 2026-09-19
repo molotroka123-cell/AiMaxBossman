@@ -542,6 +542,61 @@ def _module_importable(app_dir: Path, module: str) -> str:
             f"{detail[-1] if detail else f'код {probe.returncode}'}")
 
 
+def _pyproject_dependencies(app_dir: Path) -> list[str]:
+    """[project.dependencies] приложения — как объявлены, без разбора версий."""
+    try:
+        data = tomllib.loads((app_dir / "pyproject.toml").read_text(encoding="utf-8"))
+    except (OSError, ValueError, tomllib.TOMLDecodeError):
+        return []
+    deps = (data.get("project") or {}).get("dependencies")
+    return [str(d) for d in deps] if isinstance(deps, list) else []
+
+
+def _missing_dependencies(app_dir: Path) -> str:
+    """Назвать зависимости приложения, которых нет у интерпретатора запуска.
+
+    `ai-webcam-vision`: модуль запуска существует, `find_spec` доволен, а
+    процесс умирает через доли секунды с `ModuleNotFoundError: numpy` —
+    «App start: exited» без причины. Запись BL-ledger объясняла это
+    отсутствием камеры; на самом деле приложение без numpy не доходит до
+    камеры вообще, а с numpy отвечает 200 на /readyz и без неё.
+
+    Проверяются ДИСТРИБУТИВЫ (importlib.metadata), а не импорты: ничего из
+    приложения не выполняется. Проверка идёт тем же интерпретатором, что и
+    запуск, — на владельческой машине это встроенный runtime архива, а не
+    python из PATH.
+    """
+    names = []
+    for spec in _pyproject_dependencies(app_dir):
+        name = spec.split(";")[0].split("[")[0]
+        for stop in ("<", ">", "=", "!", "~", " "):
+            name = name.split(stop)[0]
+        if name.strip():
+            names.append(name.strip())
+    if not names:
+        return ""
+    env = {k: v for k, v in os.environ.items() if k in ENV_KEEP}
+    try:
+        probe = subprocess.run(
+            [sys.executable, "-c",
+             "import importlib.metadata as m,sys\n"
+             "def ok(n):\n"
+             "    try: m.distribution(n); return True\n"
+             "    except m.PackageNotFoundError: return False\n"
+             "print(' '.join(n for n in sys.argv[1:] if not ok(n)))",
+             *names],
+            cwd=str(app_dir), env=env, capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"не удалось проверить зависимости приложения: {type(exc).__name__}"
+    if probe.returncode != 0:
+        return ""
+    missing = probe.stdout.split()
+    if not missing:
+        return ""
+    return ("у интерпретатора запуска нет зависимостей приложения: "
+            + ", ".join(missing) + " — процесс умрёт сразу после старта")
+
+
 def command_for(app_id: str) -> dict[str, Any]:
     """Как именно мы запустим приложение. Отдаётся и в UI — как запасной путь,
     если владелец хочет сделать это руками."""
@@ -571,7 +626,7 @@ def command_for(app_id: str) -> dict[str, Any]:
               if (app_dir / "src").is_dir() else f"python -m {module} serve")
     # Несуществующий модуль называется ЗДЕСЬ, до нажатия кнопки. Иначе
     # владелец получает «приложение не открывается» без единой причины.
-    problem = _module_importable(app_dir, module)
+    problem = _module_importable(app_dir, module) or _missing_dependencies(app_dir)
     return {"module": module, "argv": argv, "cwd": str(app_dir), "manual": manual,
             "problem": problem}
 

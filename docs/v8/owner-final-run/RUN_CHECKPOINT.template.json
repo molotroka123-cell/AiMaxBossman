@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "document_kind": "owner_run_template_not_acceptance_evidence",
+  "run_id": null,
+  "created_at": null,
+  "updated_at": null,
+  "repo": "molotroka123-cell/AiMaxBossman",
+  "branch": "claude/bossman-final-convergence-hu2702",
+  "stage": "NOT_STARTED",
+  "current_scenario": null,
+  "candidate": {
+    "source_sha": null,
+    "harness_sha": null,
+    "archive_name": null,
+    "archive_sha256": null,
+    "archive_bytes": null
+  },
+  "driver": {
+    "opencode_version": null,
+    "model_id": null,
+    "model_backend": null,
+    "quantization": null,
+    "context_tokens": null,
+    "endpoint": null,
+    "gui_tool_version": null,
+    "gui_capabilities": [],
+    "vision_verified": false,
+    "calibration": "NOT_RUN"
+  },
+  "machine": {
+    "os": null,
+    "cpu": null,
+    "gpu": [],
+    "ram_gib": null,
+    "display_scale": null,
+    "target_hardware": "NOT_RUN"
+  },
+  "scope": {
+    "confirmed_by_owner": false,
+    "accepted_daily_work_flows": [],
+    "total_missing_features": [],
+    "explicit_deferrals": []
+  },
+  "boundaries": {
+    "test_data_root": null,
+    "evidence_root": null,
+    "paid_calls_allowed": false,
+    "cloud_media_egress_allowed": false,
+    "real_financial_actions_allowed": false,
+    "system_security_changes_allowed": false
+  },
+  "scenarios": [
+    {
+      "id": "G00",
+      "title": "Я вижу, чем и какую сборку проверяю",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G01",
+      "title": "Я скачал, распаковал и запустил программу",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G02",
+      "title": "Я разбираюсь в настройках без разработчика",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G03",
+      "title": "Я общаюсь и не теряю набранный текст",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G04",
+      "title": "Я прошу агенту сделать настоящий результат",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G05",
+      "title": "Я даю работу программисту внутри Bossman",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G06",
+      "title": "Я поручаю управление компьютером самому Bossman",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G07",
+      "title": "Я навожу порядок в файлах и могу всё отменить",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G08",
+      "title": "Я делаю тестовый сайт Fresh Vibes",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G09",
+      "title": "Я работаю в двух вкладках и не теряю правки",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G10",
+      "title": "Я монтирую видео и открываю готовый файл",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G11",
+      "title": "Я создаю изображение в Studio и использую его",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G12",
+      "title": "Я делаю AI-видеоклип и передаю в монтаж",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G13",
+      "title": "Я читаю документы, слушаю голос и возвращаюсь к памяти",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G14",
+      "title": "Я открываю Apps, интернет-поиск и Trading Lab без неожиданных действий",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G15",
+      "title": "Я ошибаюсь, а программа объясняет и восстанавливается",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G16",
+      "title": "Я работаю долго и интерфейс не тормозит",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G17",
+      "title": "Я переключаю локальные модели без потери управления",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G18",
+      "title": "Я обновляюсь и могу вернуться назад",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    },
+    {
+      "id": "G19",
+      "title": "Я закрываю, возвращаюсь и сразу работаю",
+      "status": "NOT_RUN",
+      "candidate_sha": null,
+      "archive_sha256": null,
+      "attempts": [],
+      "evidence": [],
+      "findings": []
+    }
+  ],
+  "findings": [],
+  "performance": {
+    "status": "NOT_MEASURED",
+    "predeclared_budgets": {},
+    "samples": [],
+    "driver_overhead_measured": false,
+    "soak_minutes": null
+  },
+  "repair": {
+    "stage": "NOT_STARTED",
+    "current_finding": null,
+    "attempts": []
+  },
+  "release": {
+    "owner_work": "NOT_READY",
+    "freeze_requested": false,
+    "actual_freeze_verdict": null,
+    "live_llm": "NOT_RUN",
+    "live_agent_tool": "NOT_RUN",
+    "live_studio_image": "NOT_RUN",
+    "live_studio_video": "NOT_RUN",
+    "intelligence_preservation": "NOT_RUN",
+    "update_rollback": "NOT_RUN"
+  },
+  "next_action": "Calibrate the GUI driver, verify candidate identity and record the test data boundary.",
+  "history": []
+}

@@ -1,0 +1,42 @@
+{
+  "scope": "PREPARATION_DOCUMENTS_ONLY_NOT_WINDOWS_OR_MODEL_ACCEPTANCE",
+  "checks": [
+    {
+      "check": "20_unique_GUI_scenarios",
+      "passed": true
+    },
+    {
+      "check": "template_all_NOT_RUN",
+      "passed": true
+    },
+    {
+      "check": "no_fake_candidate_or_freeze",
+      "passed": true
+    },
+    {
+      "check": "unsafe_permissions_default_false",
+      "passed": true
+    },
+    {
+      "check": "utf8_and_no_secret_markers",
+      "passed": true
+    },
+    {
+      "check": "local_document_references_exist",
+      "passed": true,
+      "missing": []
+    }
+  ],
+  "file_sha256": {
+    "BUG_REPORT_TEMPLATE_RU.md": "bc598f96a5825d1b4a3da37268d1c87d94b7ab7fa3fa43d58cc7de57c7204480",
+    "CONVERGENCE_NOTE_RU.md": "cfb8be9a4e9b9d0a53f469c0a3c5c2cafcc47979260c25f31e81a3ba6dae1af4",
+    "FABLE_ASTER_HANDOFF_RU.md": "05606a5b453cb25124b5fbf9fbe607d93c37d4d78f930c0850b27670bd77e083",
+    "OPENCODE_LOCAL_SETUP_RU.md": "51f5e55b65695812e8df741d6d17b5ce03e7d0c775ccd3e74cc39328d50e1d7c",
+    "OPENCODE_OWNER_RUN_RU.md": "4003d7b03eb971c16b31decf56f38e5f6a9be6721006415cf02c1dc3a5225452",
+    "PREPARATION_MEMORY_RU.md": "81e7f639f376d8cf558889caee7508ba15ab4153a262be4c2798cf573cb9f79c",
+    "README_RU.md": "3a9d903cf26c0b55e5c420ce3cf6d7ba3ad0c0df31c2a30154e4527c20f2d55a",
+    "RUN_CHECKPOINT.template.json": "9a075dd3d120b59a89e765c70034ed7b3fa9d1fbc2a613dd8325e96e11780d14",
+    "START_PROMPT_RU.md": "29bab0584bb8aa5e07ba7142f7a73152344bc0d35a9d0806b2a33f0a1a7c4f63",
+    "check_package.py": "8f7565d66b0fd788e55b226d5e5d33b8d92c348d8c47d5a74a9db3cf6b2625ed"
+  }
+}

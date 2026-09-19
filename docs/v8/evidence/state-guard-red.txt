@@ -1,0 +1,16 @@
+.............................F                                           [100%]
+=================================== FAILURES ===================================
+_________ test_status_constructor_cannot_combine_success_with_refusal __________
+
+    def test_status_constructor_cannot_combine_success_with_refusal():
+        from bcc.studio.provider import ProviderStatus, ProviderOutput
+        with pytest.raises(ValueError):
+            ProviderStatus('completed','unauthorized',(ProviderOutput('x'),))
+>       with pytest.raises(ValueError): ProviderStatus('failed')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+command-center/tests/test_studio_provider_states.py:102: Failed
+=========================== short test summary info ============================
+FAILED command-center/tests/test_studio_provider_states.py::test_status_constructor_cannot_combine_success_with_refusal
+1 failed, 29 passed in 0.10s

@@ -24,6 +24,7 @@ ScopePolicy, argv собирается списком. «Дать инструм
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from pathlib import Path
@@ -100,6 +101,12 @@ class ApplyRequest(BaseModel):
     remote_approved: bool = False
 
 
+class ExtractRequest(BaseModel):
+    path: str = Field(min_length=1, max_length=4096)
+    max_pages: int = Field(default=100, ge=1, le=100)
+    max_chars: int = Field(default=200_000, ge=1, le=200_000)
+
+
 # ------------------------------------------------------------------ маршруты
 # Все объявлены здесь, один раз, при импорте модуля. `include_router` копирует
 # ровно этот набор — и копирует его один раз на приложение.
@@ -133,6 +140,23 @@ async def analyze(body: AnalyzeRequest, request: Request) -> dict[str, Any]:
     except Denied as denied:
         return _fail(denied)
     return {"ok": job.state != JobState.DENIED.value, "job": job.as_dict()}
+
+
+@router.post("/extract")
+async def extract(body: ExtractRequest, request: Request) -> dict[str, Any]:
+    """Read a scoped document with optional Docling; never moves or indexes it."""
+    from ..oss.docling import DoclingError, extract_document
+
+    try:
+        _require_enabled()
+        return await asyncio.to_thread(
+            extract_document, body.path, policy=_service(request.app.state.svc).policy,
+            max_pages=body.max_pages, max_chars=body.max_chars,
+        )
+    except Denied as denied:
+        return _fail(denied)
+    except DoclingError as exc:
+        return {"ok": False, "refused": exc.code, "message": str(exc), "provider": "docling"}
 
 
 @router.get("/jobs/{job_id}")

@@ -928,7 +928,40 @@ export default WebDesignerPage;
    и проверять его надо без браузера; на поведение панели экспорт не влияет. */
 export { state as autosaveState, flushSave, scheduleSave, sendEdit, SAVE_DELAY_MS };
 
+/* Выгрузка документа — последний момент, когда отложенная правка ещё может
+   дойти до сервера. Окно автосохранения 900 мс, и попасть в него владельцу
+   достаточно нажать F5 или закрыть вкладку сразу после набора: переход по меню
+   таймер переживает (он живёт в модуле), а выгрузка документа — нет. До этого
+   хука и перезагрузка, и закрытие внутри окна съедали набранное молча —
+   измерено, а не предположено.
+
+   Почему обычный запрос, а не `keepalive`. Сначала здесь стоял `keepalive` —
+   документированная гарантия доставки при выгрузке. Мутация показала, что он
+   не несущий: без него те же проверки остаются зелёными, то есть запрос из
+   `pagehide` доходит и так. Зато `keepalive` вводит платформенный потолок в
+   64 КБ на тело, которого у обычного запроса нет, а предел документа здесь —
+   2 000 000 символов. Ставить ограничение ради механизма, чья необходимость не
+   подтвердилась, значит ухудшать ровно большие проекты.
+
+   Честная граница: доставка при выгрузке зависит от браузера и не обещана
+   спецификацией. Это сужение окна потери, а не обещание неуязвимости. */
+let unloadHookInstalled = false;
+function installUnloadFlush() {
+  if (unloadHookInstalled) return;
+  unloadHookInstalled = true;
+  window.addEventListener('pagehide', () => {
+    if (!state.dirty || !editorNode || !state.id || state.saveConflict) return;
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    api.raw(`/api/web-designer/projects/${state.id}/code`, {
+      method: 'PUT',
+      body: { html: editorNode.value, note: 'правка кода', base_version: baseVersion() },
+    }).catch(() => { /* страница уже уходит: показывать отказ некому и негде */ });
+  });
+}
+
 export function attachEditor(node) {
   editorNode = node;
+  installUnloadFlush();
   return node;
 }

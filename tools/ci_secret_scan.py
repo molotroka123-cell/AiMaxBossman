@@ -221,30 +221,62 @@ def tracked_files() -> list[Path]:
         return [p for p in ROOT.rglob("*") if p.is_file()]
 
 
-def untracked_env_files() -> list[Path]:
-    """SEC-004: an untracked .env sitting on disk (not yet `git add`ed) previously
-    escaped the scan entirely because it only walked `git ls-files`. Surface real
-    secrets in it before someone force-adds it or ships the working tree as-is."""
+def untracked_files() -> list[Path]:
+    """Непрослеженные файлы на диске — тоже часть дерева, и ключ в них настоящий.
+
+    SEC-004 закрыл случай `.env`, который лежит рядом и ещё не добавлен в git:
+    до этого он не сканировался вовсе, потому что обход шёл только по
+    `git ls-files`. Но ограничение осталось на ИМЕНИ файла, и этого мало.
+
+    Найдено обратным контролем: настоящий ключ провайдера, положенный во
+    временный `tools/*.py`, сканер не увидел и ответил PASS. В CI такой файл до
+    коммита не доживёт, зато локальный прогон — ровно тот момент, когда PASS
+    читают как «в дереве чисто», а потом делают `git add -A`. Ложное «чисто»
+    выдаётся именно тогда, когда оно дороже всего.
+
+    Поэтому берутся ВСЕ непрослеженные файлы, а не только `.env`.
+    `--exclude-standard` отсекает игнорируемое (venv, кэши, сборки), так что шум
+    ограничен тем, что человек и правда собирается добавить.
+    """
     try:
         raw = subprocess.check_output(
             ["git", "-C", str(ROOT), "ls-files", "-z", "--others", "--exclude-standard"],
             stderr=subprocess.DEVNULL,
         )
-        candidates = [ROOT / x for x in raw.decode("utf-8", "replace").split("\0") if x]
     except Exception:
         return []
-    out = []
-    for p in candidates:
-        rel = p.as_posix()
-        name = p.name.lower()
-        if name == ".env" or (name.startswith(".env.") and not name.endswith((".example", ".sample", ".template"))):
-            out.append(p)
-    return out
+    return [ROOT / x for x in raw.decode("utf-8", "replace").split("\0") if x]
+
+
+def _entropy_applies(path: Path) -> bool:
+    """Считать ли энтропию для НЕпрослеженного файла.
+
+    Прослеженные файлы давно проходят энтропию только по расширению
+    (`scan_paths`), а непрослеженные шли с `entropy=True` принудительно. Это
+    было верно, пока сюда попадали ТОЛЬКО `.env`: у файла с именем `.env`
+    расширения нет, и по суффиксу он бы не прошёл.
+
+    Когда обход расширили на все непрослеженные файлы, принуждение поехало и на
+    двоичные. Найдено настоящим отказом CI: сборка кладёт в рабочий каталог
+    `acceptance-results/source.tar.gz`, и сканер сообщил
+    `high-entropy token (H=4.11, len=27)`. Сжатый поток высокоэнтропиен ПО
+    ОПРЕДЕЛЕНИЮ — ложные срабатывания на нём гарантированы, а гарантированно
+    шумящий сканер перестают читать, и тогда он не ловит уже ничего.
+
+    Поэтому правило одно на оба обхода: энтропия — для кода и конфигурации,
+    плюс отдельно `.env`-подобные имена, ради которых принуждение и вводилось.
+    Шаблоны провайдеров при этом работают по-прежнему на ЛЮБОМ файле: настоящий
+    ключ ловится и там, где энтропию считать бессмысленно.
+    """
+    name = path.name.lower()
+    if name == ".env" or name.startswith(".env."):
+        return True
+    return path.suffix.lower() in ENTROPY_SUFFIX
 
 
 def main() -> int:
     findings = scan_paths([p for p in tracked_files() if p.is_file()], ROOT)
-    for p in untracked_env_files():
+    for p in untracked_files():
         if not p.is_file():
             continue
         rel = p.relative_to(ROOT).as_posix()
@@ -252,8 +284,8 @@ def main() -> int:
             text = p.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
-        for item in scan_text(text, rel, entropy=True):
-            findings.append(f"{item} (untracked .env on disk)")
+        for item in scan_text(text, rel, entropy=_entropy_applies(p)):
+            findings.append(f"{item} (непрослеженный файл на диске)")
     if findings:
         print("Potential secrets detected:", file=sys.stderr)
         for item in findings:

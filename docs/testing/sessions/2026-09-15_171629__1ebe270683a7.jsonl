@@ -1,0 +1,726 @@
+{"ts": "2026-09-15T17:10:56.383Z", "session": "1ebe270683a7", "source": "server", "kind": "session.start", "data": {"host": "127.0.0.1", "port": 8800}}
+{"ts": "2026-09-15T17:10:56.384Z", "session": "1ebe270683a7", "source": "server", "kind": "session.env", "data": {"version": "0.1.0", "python": "3.12.3", "platform": "Linux", "release": "6.18.44-fc-v33", "testing_period": true, "flags_on": [], "flags_off_count": 0, "features": ["action_contract", "action_gate", "action_preview", "action_router", "agentmap", "apps", "apps_control", "benchlab", "browser", "browser_help", "cache_intel", "code_intel", "coding_sessions", "coding_tasks", "command_bar", "control_plane", "deep_fix", "diag_bundle", "failure_to_case", "file_intelligence", "forks", "governor", "healing", "images", "local_first", "missions", "nl_orchestra", "nl_permissions", "objectives", "offline_mode", "opencode", "openrouter", "organization", "osiris", "plugins", "provenance", "qa_relay", "reality", "resources", "review_gate", "router", "second_opinion", "skills", "snapshot", "spend_meter", "task_exchange", "terminal", "testing_period", "tools_apps", "tools_browser"], "host": "127.0.0.1", "port": 8800}}
+{"ts": "2026-09-15T17:10:56.763Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/", "status": 200, "ms": 279.1}}
+{"ts": "2026-09-15T17:10:57.524Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/", "status": 200, "ms": 3.0}}
+{"ts": "2026-09-15T17:10:57.546Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/style.css", "status": 200, "ms": 9.6}}
+{"ts": "2026-09-15T17:10:57.547Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/desktop.css", "status": 200, "ms": 7.0}}
+{"ts": "2026-09-15T17:10:57.547Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/theme.css", "status": 200, "ms": 8.4}}
+{"ts": "2026-09-15T17:10:57.547Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/video_studio.css", "status": 200, "ms": 7.2}}
+{"ts": "2026-09-15T17:10:57.548Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/app.js", "status": 200, "ms": 7.9}}
+{"ts": "2026-09-15T17:10:57.570Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/video_chat.js", "status": 200, "ms": 1.8}}
+{"ts": "2026-09-15T17:10:57.581Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api.js", "status": 200, "ms": 9.1}}
+{"ts": "2026-09-15T17:10:57.584Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/index.js", "status": 200, "ms": 8.4}}
+{"ts": "2026-09-15T17:10:57.584Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/testing.js", "status": 200, "ms": 6.4}}
+{"ts": "2026-09-15T17:10:57.587Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages.js", "status": 200, "ms": 12.8}}
+{"ts": "2026-09-15T17:10:57.587Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/thinking.js", "status": 200, "ms": 9.3}}
+{"ts": "2026-09-15T17:10:57.588Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/components.js", "status": 200, "ms": 13.8}}
+{"ts": "2026-09-15T17:10:57.598Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/commandbar.js", "status": 200, "ms": 6.2}}
+{"ts": "2026-09-15T17:10:57.607Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/desktop.js", "status": 200, "ms": 2.8}}
+{"ts": "2026-09-15T17:10:57.608Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/app_view.js", "status": 200, "ms": 2.4}}
+{"ts": "2026-09-15T17:10:57.614Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/_ui.js", "status": 200, "ms": 2.2}}
+{"ts": "2026-09-15T17:10:57.668Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/icon.svg", "status": 200, "ms": 3.0}}
+{"ts": "2026-09-15T17:10:57.769Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "POST", "path": "/api/login", "status": 200, "ms": 11.2}}
+{"ts": "2026-09-15T17:10:57.790Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 15.3}}
+{"ts": "2026-09-15T17:10:57.811Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/home.js", "status": 200, "ms": 12.2}}
+{"ts": "2026-09-15T17:10:57.826Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/identity", "status": 200, "ms": 23.3}}
+{"ts": "2026-09-15T17:10:57.830Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 27.4}}
+{"ts": "2026-09-15T17:10:57.835Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/command-bar", "status": 200, "ms": 32.5}}
+{"ts": "2026-09-15T17:10:57.839Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 36.1}}
+{"ts": "2026-09-15T17:10:57.841Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 38.1}}
+{"ts": "2026-09-15T17:10:57.846Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 6.6}}
+{"ts": "2026-09-15T17:10:57.874Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/_shared.js", "status": 200, "ms": 3.2}}
+{"ts": "2026-09-15T17:10:57.880Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/appcards.js", "status": 200, "ms": 9.7}}
+{"ts": "2026-09-15T17:10:57.934Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 20.2}}
+{"ts": "2026-09-15T17:10:58.049Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 112.9}}
+{"ts": "2026-09-15T17:10:58.049Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 103.8}}
+{"ts": "2026-09-15T17:10:58.050Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 115.3}}
+{"ts": "2026-09-15T17:10:58.052Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 105.7}}
+{"ts": "2026-09-15T17:10:58.058Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 111.3}}
+{"ts": "2026-09-15T17:10:58.068Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 111.6}}
+{"ts": "2026-09-15T17:10:58.096Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 18.7}}
+{"ts": "2026-09-15T17:10:58.098Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 20.5}}
+{"ts": "2026-09-15T17:10:58.101Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 23.7}}
+{"ts": "2026-09-15T17:10:58.102Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 23.9}}
+{"ts": "2026-09-15T17:10:58.108Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 32.8}}
+{"ts": "2026-09-15T17:10:58.196Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/video_studio.js", "status": 200, "ms": 4.6}}
+{"ts": "2026-09-15T17:10:58.209Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/video_studio_state.js", "status": 200, "ms": 2.4}}
+{"ts": "2026-09-15T17:10:58.216Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/apps.js", "status": 200, "ms": 1.7}}
+{"ts": "2026-09-15T17:10:58.227Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/overview.js", "status": 200, "ms": 2.1}}
+{"ts": "2026-09-15T17:10:58.230Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 7.3}}
+{"ts": "2026-09-15T17:10:58.244Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/missions.js", "status": 200, "ms": 1.9}}
+{"ts": "2026-09-15T17:10:58.257Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/router.js", "status": 200, "ms": 1.9}}
+{"ts": "2026-09-15T17:10:58.268Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/governor.js", "status": 200, "ms": 6.1}}
+{"ts": "2026-09-15T17:10:58.279Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/file_intelligence.js", "status": 200, "ms": 3.5}}
+{"ts": "2026-09-15T17:10:58.288Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/resources.js", "status": 200, "ms": 3.0}}
+{"ts": "2026-09-15T17:10:58.304Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/skills.js", "status": 200, "ms": 2.1}}
+{"ts": "2026-09-15T17:10:58.321Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/terminal.js", "status": 200, "ms": 5.7}}
+{"ts": "2026-09-15T17:10:58.331Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/benchmarks.js", "status": 200, "ms": 1.9}}
+{"ts": "2026-09-15T17:10:58.339Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/browser.js", "status": 200, "ms": 2.3}}
+{"ts": "2026-09-15T17:10:58.346Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/coding.js", "status": 200, "ms": 1.9}}
+{"ts": "2026-09-15T17:10:58.355Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/agentmap.js", "status": 200, "ms": 2.1}}
+{"ts": "2026-09-15T17:10:58.363Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/orchestras.js", "status": 200, "ms": 1.8}}
+{"ts": "2026-09-15T17:10:58.370Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/forks.js", "status": 200, "ms": 2.5}}
+{"ts": "2026-09-15T17:10:58.382Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/healing.js", "status": 200, "ms": 2.0}}
+{"ts": "2026-09-15T17:10:58.389Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/openrouter.js", "status": 200, "ms": 2.3}}
+{"ts": "2026-09-15T17:10:58.396Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/mobile.js", "status": 200, "ms": 2.0}}
+{"ts": "2026-09-15T17:10:58.403Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/builder.js", "status": 200, "ms": 2.2}}
+{"ts": "2026-09-15T17:10:58.411Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/images.js", "status": 200, "ms": 2.1}}
+{"ts": "2026-09-15T17:10:58.421Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/trading_lab.js", "status": 200, "ms": 4.5}}
+{"ts": "2026-09-15T17:10:58.428Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/mission_console.js", "status": 200, "ms": 1.8}}
+{"ts": "2026-09-15T17:10:58.436Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/web_research.js", "status": 200, "ms": 2.0}}
+{"ts": "2026-09-15T17:10:58.443Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/control.js", "status": 200, "ms": 1.4}}
+{"ts": "2026-09-15T17:10:58.449Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/web_designer.js", "status": 200, "ms": 1.9}}
+{"ts": "2026-09-15T17:10:58.457Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/web_designer_viewport.js", "status": 200, "ms": 1.8}}
+{"ts": "2026-09-15T17:10:58.463Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/objectives.js", "status": 200, "ms": 2.2}}
+{"ts": "2026-09-15T17:10:59.938Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 13.3}}
+{"ts": "2026-09-15T17:10:59.949Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 24.2}}
+{"ts": "2026-09-15T17:10:59.950Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 20.3}}
+{"ts": "2026-09-15T17:10:59.950Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 25.0}}
+{"ts": "2026-09-15T17:10:59.954Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 22.0}}
+{"ts": "2026-09-15T17:10:59.963Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 16.1}}
+{"ts": "2026-09-15T17:10:59.971Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 10.4}}
+{"ts": "2026-09-15T17:10:59.973Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 11.0}}
+{"ts": "2026-09-15T17:10:59.974Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 9.6}}
+{"ts": "2026-09-15T17:10:59.974Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 8.9}}
+{"ts": "2026-09-15T17:10:59.976Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 44.5}}
+{"ts": "2026-09-15T17:11:01.770Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 4.4}}
+{"ts": "2026-09-15T17:11:01.774Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 2.4}}
+{"ts": "2026-09-15T17:11:01.880Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.session_open", "data": {"page": "#/home-v3", "screen": "1440x900", "dpr": 1, "lang": "en-US", "theme": "light", "online": true, "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.0.0 Safari/537.36"}}
+{"ts": "2026-09-15T17:11:01.880Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «home-v3»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:01.881Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «agents»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:01.881Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/agents"}}
+{"ts": "2026-09-15T17:11:02.458Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 22.5}}
+{"ts": "2026-09-15T17:11:02.463Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 27.3}}
+{"ts": "2026-09-15T17:11:02.464Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 28.8}}
+{"ts": "2026-09-15T17:11:02.467Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 31.2}}
+{"ts": "2026-09-15T17:11:02.467Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 31.0}}
+{"ts": "2026-09-15T17:11:02.510Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 73.8}}
+{"ts": "2026-09-15T17:11:02.514Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 29.9}}
+{"ts": "2026-09-15T17:11:02.522Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 37.4}}
+{"ts": "2026-09-15T17:11:02.522Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 34.0}}
+{"ts": "2026-09-15T17:11:02.531Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 42.8}}
+{"ts": "2026-09-15T17:11:02.532Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 48.3}}
+{"ts": "2026-09-15T17:11:03.459Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 6.0}}
+{"ts": "2026-09-15T17:11:04.129Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 11.1}}
+{"ts": "2026-09-15T17:11:04.143Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 21.5}}
+{"ts": "2026-09-15T17:11:04.144Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 19.2}}
+{"ts": "2026-09-15T17:11:04.153Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 28.8}}
+{"ts": "2026-09-15T17:11:04.158Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 36.2}}
+{"ts": "2026-09-15T17:11:04.170Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 20.4}}
+{"ts": "2026-09-15T17:11:04.175Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 20.2}}
+{"ts": "2026-09-15T17:11:04.177Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 19.7}}
+{"ts": "2026-09-15T17:11:04.184Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 20.6}}
+{"ts": "2026-09-15T17:11:04.187Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 43.4}}
+{"ts": "2026-09-15T17:11:04.190Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 65.8}}
+{"ts": "2026-09-15T17:11:05.195Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/console2030.css", "status": 200, "ms": 2.0}}
+{"ts": "2026-09-15T17:11:05.221Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 21.3}}
+{"ts": "2026-09-15T17:11:05.228Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 24.4}}
+{"ts": "2026-09-15T17:11:05.233Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 28.6}}
+{"ts": "2026-09-15T17:11:05.235Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 29.9}}
+{"ts": "2026-09-15T17:11:05.235Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 30.7}}
+{"ts": "2026-09-15T17:11:05.239Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/spend", "status": 200, "ms": 10.3}}
+{"ts": "2026-09-15T17:11:05.259Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 54.3}}
+{"ts": "2026-09-15T17:11:05.868Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 15.5}}
+{"ts": "2026-09-15T17:11:05.878Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 21.3}}
+{"ts": "2026-09-15T17:11:05.878Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 19.8}}
+{"ts": "2026-09-15T17:11:05.879Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 20.9}}
+{"ts": "2026-09-15T17:11:05.879Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 21.3}}
+{"ts": "2026-09-15T17:11:05.903Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 19.8}}
+{"ts": "2026-09-15T17:11:05.918Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 30.9}}
+{"ts": "2026-09-15T17:11:05.922Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 29.0}}
+{"ts": "2026-09-15T17:11:05.923Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 23.4}}
+{"ts": "2026-09-15T17:11:05.925Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 50.8}}
+{"ts": "2026-09-15T17:11:05.933Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 75.1}}
+{"ts": "2026-09-15T17:11:06.435Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:06.436Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «approvals»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:06.436Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/approvals"}}
+{"ts": "2026-09-15T17:11:06.437Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:06.437Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «mission_console»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:06.437Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/mission_console"}}
+{"ts": "2026-09-15T17:11:06.438Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:06.922Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 3.9}}
+{"ts": "2026-09-15T17:11:07.598Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 19.8}}
+{"ts": "2026-09-15T17:11:07.609Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 23.7}}
+{"ts": "2026-09-15T17:11:07.612Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 29.7}}
+{"ts": "2026-09-15T17:11:07.612Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 26.8}}
+{"ts": "2026-09-15T17:11:07.612Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 27.0}}
+{"ts": "2026-09-15T17:11:07.634Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 18.7}}
+{"ts": "2026-09-15T17:11:07.638Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 17.6}}
+{"ts": "2026-09-15T17:11:07.644Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 38.6}}
+{"ts": "2026-09-15T17:11:07.646Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 20.1}}
+{"ts": "2026-09-15T17:11:07.649Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 21.2}}
+{"ts": "2026-09-15T17:11:07.652Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 66.5}}
+{"ts": "2026-09-15T17:11:08.640Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/builder.css", "status": 200, "ms": 6.4}}
+{"ts": "2026-09-15T17:11:08.646Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/workflow/missions", "status": 200, "ms": 11.0}}
+{"ts": "2026-09-15T17:11:09.324Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 23.7}}
+{"ts": "2026-09-15T17:11:09.326Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 24.1}}
+{"ts": "2026-09-15T17:11:09.327Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 25.5}}
+{"ts": "2026-09-15T17:11:09.327Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 25.5}}
+{"ts": "2026-09-15T17:11:09.328Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 25.8}}
+{"ts": "2026-09-15T17:11:09.355Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 18.3}}
+{"ts": "2026-09-15T17:11:09.358Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 21.6}}
+{"ts": "2026-09-15T17:11:09.358Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 21.6}}
+{"ts": "2026-09-15T17:11:09.371Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 69.5}}
+{"ts": "2026-09-15T17:11:09.374Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 37.7}}
+{"ts": "2026-09-15T17:11:09.377Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 40.7}}
+{"ts": "2026-09-15T17:11:10.447Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/objectives/status", "status": 200, "ms": 65.6}}
+{"ts": "2026-09-15T17:11:10.447Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/objectives", "status": 200, "ms": 60.7}}
+{"ts": "2026-09-15T17:11:10.868Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «missions»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:10.868Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/missions"}}
+{"ts": "2026-09-15T17:11:10.869Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:10.869Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «builder»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:10.869Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/builder"}}
+{"ts": "2026-09-15T17:11:10.870Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:10.870Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «objectives»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:10.870Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/objectives"}}
+{"ts": "2026-09-15T17:11:11.068Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 23.7}}
+{"ts": "2026-09-15T17:11:11.077Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 30.7}}
+{"ts": "2026-09-15T17:11:11.077Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 24.3}}
+{"ts": "2026-09-15T17:11:11.078Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 29.3}}
+{"ts": "2026-09-15T17:11:11.078Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 26.5}}
+{"ts": "2026-09-15T17:11:11.099Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 17.2}}
+{"ts": "2026-09-15T17:11:11.106Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 19.8}}
+{"ts": "2026-09-15T17:11:11.107Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 20.0}}
+{"ts": "2026-09-15T17:11:11.108Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 34.8}}
+{"ts": "2026-09-15T17:11:11.112Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 18.0}}
+{"ts": "2026-09-15T17:11:11.120Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 66.4}}
+{"ts": "2026-09-15T17:11:12.155Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/control-plane", "status": 200, "ms": 17.4}}
+{"ts": "2026-09-15T17:11:12.838Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 18.7}}
+{"ts": "2026-09-15T17:11:12.843Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 21.4}}
+{"ts": "2026-09-15T17:11:12.843Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 21.5}}
+{"ts": "2026-09-15T17:11:12.846Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 24.3}}
+{"ts": "2026-09-15T17:11:12.846Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 24.8}}
+{"ts": "2026-09-15T17:11:12.874Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 25.3}}
+{"ts": "2026-09-15T17:11:12.875Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 23.7}}
+{"ts": "2026-09-15T17:11:12.878Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 21.2}}
+{"ts": "2026-09-15T17:11:12.881Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 16.8}}
+{"ts": "2026-09-15T17:11:12.899Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 8.9}}
+{"ts": "2026-09-15T17:11:12.900Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 54.1}}
+{"ts": "2026-09-15T17:11:12.906Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 80.5}}
+{"ts": "2026-09-15T17:11:13.932Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/file-intelligence/status", "status": 200, "ms": 4.8}}
+{"ts": "2026-09-15T17:11:14.605Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 17.5}}
+{"ts": "2026-09-15T17:11:14.614Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 22.7}}
+{"ts": "2026-09-15T17:11:14.614Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 22.7}}
+{"ts": "2026-09-15T17:11:14.616Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 25.0}}
+{"ts": "2026-09-15T17:11:14.619Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 27.5}}
+{"ts": "2026-09-15T17:11:14.644Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 23.9}}
+{"ts": "2026-09-15T17:11:14.648Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 21.0}}
+{"ts": "2026-09-15T17:11:14.652Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 21.8}}
+{"ts": "2026-09-15T17:11:14.660Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 21.6}}
+{"ts": "2026-09-15T17:11:14.664Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 51.1}}
+{"ts": "2026-09-15T17:11:14.668Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 77.0}}
+{"ts": "2026-09-15T17:11:15.051Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:15.051Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «control»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:15.052Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/control"}}
+{"ts": "2026-09-15T17:11:15.052Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:15.053Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «file-intelligence»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:15.053Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/file-intelligence"}}
+{"ts": "2026-09-15T17:11:15.054Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:15.706Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/video-studio/projects", "status": 200, "ms": 8.2}}
+{"ts": "2026-09-15T17:11:15.819Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/video-studio/capabilities", "status": 200, "ms": 108.0}}
+{"ts": "2026-09-15T17:11:16.382Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 22.3}}
+{"ts": "2026-09-15T17:11:16.393Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 33.1}}
+{"ts": "2026-09-15T17:11:16.394Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 26.2}}
+{"ts": "2026-09-15T17:11:16.394Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 34.2}}
+{"ts": "2026-09-15T17:11:16.397Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 29.1}}
+{"ts": "2026-09-15T17:11:16.414Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 16.2}}
+{"ts": "2026-09-15T17:11:16.420Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 20.6}}
+{"ts": "2026-09-15T17:11:16.424Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 36.5}}
+{"ts": "2026-09-15T17:11:16.426Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 20.5}}
+{"ts": "2026-09-15T17:11:16.428Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 24.0}}
+{"ts": "2026-09-15T17:11:16.439Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 71.5}}
+{"ts": "2026-09-15T17:11:17.459Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/web-designer/projects", "status": 200, "ms": 10.0}}
+{"ts": "2026-09-15T17:11:17.459Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/web-designer/templates", "status": 200, "ms": 6.0}}
+{"ts": "2026-09-15T17:11:18.124Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 12.1}}
+{"ts": "2026-09-15T17:11:18.141Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 25.3}}
+{"ts": "2026-09-15T17:11:18.143Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 27.1}}
+{"ts": "2026-09-15T17:11:18.143Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 23.8}}
+{"ts": "2026-09-15T17:11:18.150Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 30.7}}
+{"ts": "2026-09-15T17:11:18.166Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 19.2}}
+{"ts": "2026-09-15T17:11:18.177Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 19.8}}
+{"ts": "2026-09-15T17:11:18.178Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 42.9}}
+{"ts": "2026-09-15T17:11:18.178Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 22.8}}
+{"ts": "2026-09-15T17:11:18.182Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 19.2}}
+{"ts": "2026-09-15T17:11:18.185Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 66.0}}
+{"ts": "2026-09-15T17:11:19.204Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/browser/sessions", "status": 200, "ms": 7.9}}
+{"ts": "2026-09-15T17:11:19.210Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/browser/health", "status": 200, "ms": 2.9}}
+{"ts": "2026-09-15T17:11:19.647Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «video-studio»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:19.647Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/video-studio"}}
+{"ts": "2026-09-15T17:11:19.648Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:19.648Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «web_designer»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:19.648Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/web_designer"}}
+{"ts": "2026-09-15T17:11:19.649Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:19.649Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «browser»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:19.649Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/browser"}}
+{"ts": "2026-09-15T17:11:19.891Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 31.7}}
+{"ts": "2026-09-15T17:11:19.895Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 28.1}}
+{"ts": "2026-09-15T17:11:19.896Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 32.2}}
+{"ts": "2026-09-15T17:11:19.897Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 31.1}}
+{"ts": "2026-09-15T17:11:19.899Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 35.7}}
+{"ts": "2026-09-15T17:11:19.923Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 20.6}}
+{"ts": "2026-09-15T17:11:19.933Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 23.4}}
+{"ts": "2026-09-15T17:11:19.935Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 19.7}}
+{"ts": "2026-09-15T17:11:19.939Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 27.8}}
+{"ts": "2026-09-15T17:11:19.944Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 43.0}}
+{"ts": "2026-09-15T17:11:19.949Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 82.0}}
+{"ts": "2026-09-15T17:11:20.930Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/coding-sessions", "status": 200, "ms": 4.6}}
+{"ts": "2026-09-15T17:11:20.940Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/coding-tasks/readiness", "status": 200, "ms": 5.1}}
+{"ts": "2026-09-15T17:11:20.957Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/coding-tasks", "status": 200, "ms": 3.1}}
+{"ts": "2026-09-15T17:11:21.608Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 18.5}}
+{"ts": "2026-09-15T17:11:21.614Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 24.7}}
+{"ts": "2026-09-15T17:11:21.616Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 26.4}}
+{"ts": "2026-09-15T17:11:21.616Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 26.4}}
+{"ts": "2026-09-15T17:11:21.617Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 27.7}}
+{"ts": "2026-09-15T17:11:21.632Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 42.1}}
+{"ts": "2026-09-15T17:11:21.660Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 13.2}}
+{"ts": "2026-09-15T17:11:21.661Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 14.8}}
+{"ts": "2026-09-15T17:11:21.663Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 16.1}}
+{"ts": "2026-09-15T17:11:21.665Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 22.0}}
+{"ts": "2026-09-15T17:11:21.665Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 18.5}}
+{"ts": "2026-09-15T17:11:22.708Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/terminal/roots", "status": 200, "ms": 11.2}}
+{"ts": "2026-09-15T17:11:22.711Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/terminal/sessions", "status": 200, "ms": 7.8}}
+{"ts": "2026-09-15T17:11:23.384Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 24.1}}
+{"ts": "2026-09-15T17:11:23.396Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 26.6}}
+{"ts": "2026-09-15T17:11:23.398Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 28.5}}
+{"ts": "2026-09-15T17:11:23.399Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 37.8}}
+{"ts": "2026-09-15T17:11:23.405Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 37.8}}
+{"ts": "2026-09-15T17:11:23.426Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 24.5}}
+{"ts": "2026-09-15T17:11:23.426Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 18.1}}
+{"ts": "2026-09-15T17:11:23.432Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 37.2}}
+{"ts": "2026-09-15T17:11:23.434Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 16.9}}
+{"ts": "2026-09-15T17:11:23.434Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 21.5}}
+{"ts": "2026-09-15T17:11:23.437Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 67.2}}
+{"ts": "2026-09-15T17:11:23.865Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:23.866Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «coding»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:23.866Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/coding"}}
+{"ts": "2026-09-15T17:11:23.866Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:23.867Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «terminal»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:23.867Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/terminal"}}
+{"ts": "2026-09-15T17:11:23.867Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:24.485Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/images/storage", "status": 200, "ms": 18.5}}
+{"ts": "2026-09-15T17:11:24.490Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/images/collections", "status": 200, "ms": 39.2}}
+{"ts": "2026-09-15T17:11:24.490Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/images/models", "status": 200, "ms": 24.1}}
+{"ts": "2026-09-15T17:11:24.491Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/images/jobs", "status": 200, "ms": 40.1}}
+{"ts": "2026-09-15T17:11:24.495Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/images/assets", "status": 200, "ms": 46.5}}
+{"ts": "2026-09-15T17:11:24.501Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/images/overview", "status": 200, "ms": 34.4}}
+{"ts": "2026-09-15T17:11:25.129Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 16.8}}
+{"ts": "2026-09-15T17:11:25.140Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 22.5}}
+{"ts": "2026-09-15T17:11:25.143Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 23.8}}
+{"ts": "2026-09-15T17:11:25.143Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 23.9}}
+{"ts": "2026-09-15T17:11:25.144Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 24.8}}
+{"ts": "2026-09-15T17:11:25.163Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 18.6}}
+{"ts": "2026-09-15T17:11:25.163Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 12.6}}
+{"ts": "2026-09-15T17:11:25.165Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 29.9}}
+{"ts": "2026-09-15T17:11:25.170Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 12.2}}
+{"ts": "2026-09-15T17:11:25.173Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 16.9}}
+{"ts": "2026-09-15T17:11:25.178Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 59.4}}
+{"ts": "2026-09-15T17:11:26.190Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/web/sources", "status": 200, "ms": 9.3}}
+{"ts": "2026-09-15T17:11:26.190Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/web/episodes", "status": 200, "ms": 8.9}}
+{"ts": "2026-09-15T17:11:26.192Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/web", "status": 200, "ms": 16.9}}
+{"ts": "2026-09-15T17:11:26.858Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 21.1}}
+{"ts": "2026-09-15T17:11:26.869Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 20.0}}
+{"ts": "2026-09-15T17:11:26.871Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 22.1}}
+{"ts": "2026-09-15T17:11:26.871Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 22.1}}
+{"ts": "2026-09-15T17:11:26.871Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 22.3}}
+{"ts": "2026-09-15T17:11:26.904Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 16.2}}
+{"ts": "2026-09-15T17:11:26.908Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 19.8}}
+{"ts": "2026-09-15T17:11:26.910Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 60.7}}
+{"ts": "2026-09-15T17:11:26.910Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 21.6}}
+{"ts": "2026-09-15T17:11:26.916Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 29.9}}
+{"ts": "2026-09-15T17:11:26.917Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 27.1}}
+{"ts": "2026-09-15T17:11:27.812Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 12.0}}
+{"ts": "2026-09-15T17:11:27.940Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/trading-lab/seed", "status": 200, "ms": 13.0}}
+{"ts": "2026-09-15T17:11:27.941Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/trading-lab/status", "status": 200, "ms": 14.2}}
+{"ts": "2026-09-15T17:11:27.942Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 13.3}}
+{"ts": "2026-09-15T17:11:27.944Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/trading-lab/benchmark", "status": 200, "ms": 14.9}}
+{"ts": "2026-09-15T17:11:27.944Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/trading-lab/memory", "status": 200, "ms": 14.9}}
+{"ts": "2026-09-15T17:11:28.392Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «images»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:28.393Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/images"}}
+{"ts": "2026-09-15T17:11:28.393Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:28.394Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «web_research»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:28.394Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/web_research"}}
+{"ts": "2026-09-15T17:11:28.394Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:28.395Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «trading_lab»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:28.395Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/trading_lab"}}
+{"ts": "2026-09-15T17:11:28.600Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 14.9}}
+{"ts": "2026-09-15T17:11:28.609Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 23.5}}
+{"ts": "2026-09-15T17:11:28.612Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 26.3}}
+{"ts": "2026-09-15T17:11:28.612Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 26.5}}
+{"ts": "2026-09-15T17:11:28.612Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 21.2}}
+{"ts": "2026-09-15T17:11:28.635Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 12.8}}
+{"ts": "2026-09-15T17:11:28.641Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 19.6}}
+{"ts": "2026-09-15T17:11:28.642Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 19.5}}
+{"ts": "2026-09-15T17:11:28.642Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 38.0}}
+{"ts": "2026-09-15T17:11:28.654Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 62.7}}
+{"ts": "2026-09-15T17:11:28.659Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 36.4}}
+{"ts": "2026-09-15T17:11:29.690Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/video-studio/chat", "status": 200, "ms": 10.5}}
+{"ts": "2026-09-15T17:11:29.699Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 3.7}}
+{"ts": "2026-09-15T17:11:30.409Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 70.1}}
+{"ts": "2026-09-15T17:11:30.411Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 21.7}}
+{"ts": "2026-09-15T17:11:30.412Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 68.8}}
+{"ts": "2026-09-15T17:11:30.413Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 23.9}}
+{"ts": "2026-09-15T17:11:30.413Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 69.0}}
+{"ts": "2026-09-15T17:11:30.421Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 31.5}}
+{"ts": "2026-09-15T17:11:30.434Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 5.0}}
+{"ts": "2026-09-15T17:11:30.454Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 2.5}}
+{"ts": "2026-09-15T17:11:30.460Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 2.3}}
+{"ts": "2026-09-15T17:11:30.466Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 2.6}}
+{"ts": "2026-09-15T17:11:30.472Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 2.4}}
+{"ts": "2026-09-15T17:11:31.485Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 2.8}}
+{"ts": "2026-09-15T17:11:31.504Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps/control/policy", "status": 200, "ms": 6.0}}
+{"ts": "2026-09-15T17:11:32.197Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 47.4}}
+{"ts": "2026-09-15T17:11:32.208Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 56.0}}
+{"ts": "2026-09-15T17:11:32.213Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 63.6}}
+{"ts": "2026-09-15T17:11:32.222Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 69.2}}
+{"ts": "2026-09-15T17:11:32.223Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 71.3}}
+{"ts": "2026-09-15T17:11:32.230Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 16.6}}
+{"ts": "2026-09-15T17:11:32.235Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 30.6}}
+{"ts": "2026-09-15T17:11:32.236Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 6.2}}
+{"ts": "2026-09-15T17:11:32.239Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 86.4}}
+{"ts": "2026-09-15T17:11:32.249Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 2.9}}
+{"ts": "2026-09-15T17:11:32.253Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 2.3}}
+{"ts": "2026-09-15T17:11:32.590Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:32.590Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «bossman-chat»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:32.590Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/bossman-chat"}}
+{"ts": "2026-09-15T17:11:32.591Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:32.591Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «apps»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:32.591Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/apps"}}
+{"ts": "2026-09-15T17:11:32.591Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:33.269Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/orchestras", "status": 200, "ms": 4.5}}
+{"ts": "2026-09-15T17:11:33.278Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 3.3}}
+{"ts": "2026-09-15T17:11:33.960Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 41.2}}
+{"ts": "2026-09-15T17:11:33.966Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 17.0}}
+{"ts": "2026-09-15T17:11:33.967Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 48.1}}
+{"ts": "2026-09-15T17:11:33.967Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 48.2}}
+{"ts": "2026-09-15T17:11:33.967Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 17.4}}
+{"ts": "2026-09-15T17:11:33.989Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 16.5}}
+{"ts": "2026-09-15T17:11:34.008Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 29.8}}
+{"ts": "2026-09-15T17:11:34.008Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 25.8}}
+{"ts": "2026-09-15T17:11:34.014Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 42.0}}
+{"ts": "2026-09-15T17:11:34.015Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 9.6}}
+{"ts": "2026-09-15T17:11:34.016Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 66.5}}
+{"ts": "2026-09-15T17:11:35.047Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/orchestras", "status": 200, "ms": 6.5}}
+{"ts": "2026-09-15T17:11:35.710Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 9.0}}
+{"ts": "2026-09-15T17:11:35.713Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 6.7}}
+{"ts": "2026-09-15T17:11:35.719Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 2.6}}
+{"ts": "2026-09-15T17:11:35.725Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 2.1}}
+{"ts": "2026-09-15T17:11:35.730Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 2.4}}
+{"ts": "2026-09-15T17:11:35.743Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 6.1}}
+{"ts": "2026-09-15T17:11:35.762Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 10.2}}
+{"ts": "2026-09-15T17:11:35.767Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 2.4}}
+{"ts": "2026-09-15T17:11:35.776Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 3.7}}
+{"ts": "2026-09-15T17:11:35.776Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 4.6}}
+{"ts": "2026-09-15T17:11:35.785Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 3.0}}
+{"ts": "2026-09-15T17:11:36.762Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/mcp/servers", "status": 200, "ms": 12.6}}
+{"ts": "2026-09-15T17:11:36.798Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/skills", "status": 200, "ms": 54.1}}
+{"ts": "2026-09-15T17:11:36.806Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/mcp/tools", "status": 200, "ms": 56.8}}
+{"ts": "2026-09-15T17:11:37.203Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «agentmap»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:37.203Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/agentmap"}}
+{"ts": "2026-09-15T17:11:37.203Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:37.204Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «orchestras»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:37.204Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/orchestras"}}
+{"ts": "2026-09-15T17:11:37.204Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:37.205Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «skills»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:37.205Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/skills"}}
+{"ts": "2026-09-15T17:11:37.424Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 19.9}}
+{"ts": "2026-09-15T17:11:37.429Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 19.0}}
+{"ts": "2026-09-15T17:11:37.429Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 20.4}}
+{"ts": "2026-09-15T17:11:37.430Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 20.8}}
+{"ts": "2026-09-15T17:11:37.430Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 20.6}}
+{"ts": "2026-09-15T17:11:37.439Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 29.1}}
+{"ts": "2026-09-15T17:11:37.476Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 12.3}}
+{"ts": "2026-09-15T17:11:37.477Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 10.8}}
+{"ts": "2026-09-15T17:11:37.477Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 11.0}}
+{"ts": "2026-09-15T17:11:37.478Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 12.5}}
+{"ts": "2026-09-15T17:11:37.481Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 19.6}}
+{"ts": "2026-09-15T17:11:38.519Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/router/rules", "status": 200, "ms": 4.9}}
+{"ts": "2026-09-15T17:11:39.201Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 24.7}}
+{"ts": "2026-09-15T17:11:39.210Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 34.0}}
+{"ts": "2026-09-15T17:11:39.212Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 35.9}}
+{"ts": "2026-09-15T17:11:39.212Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 35.5}}
+{"ts": "2026-09-15T17:11:39.215Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 38.1}}
+{"ts": "2026-09-15T17:11:39.229Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 13.1}}
+{"ts": "2026-09-15T17:11:39.230Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 7.8}}
+{"ts": "2026-09-15T17:11:39.233Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 25.1}}
+{"ts": "2026-09-15T17:11:39.235Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 58.2}}
+{"ts": "2026-09-15T17:11:39.251Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 3.0}}
+{"ts": "2026-09-15T17:11:39.259Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 7.6}}
+{"ts": "2026-09-15T17:11:40.298Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/openrouter/provider", "status": 200, "ms": 6.2}}
+{"ts": "2026-09-15T17:11:40.976Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 27.4}}
+{"ts": "2026-09-15T17:11:40.977Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 24.2}}
+{"ts": "2026-09-15T17:11:40.979Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 25.4}}
+{"ts": "2026-09-15T17:11:40.980Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 27.0}}
+{"ts": "2026-09-15T17:11:40.981Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 27.5}}
+{"ts": "2026-09-15T17:11:40.987Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 33.5}}
+{"ts": "2026-09-15T17:11:41.007Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 9.8}}
+{"ts": "2026-09-15T17:11:41.007Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 9.9}}
+{"ts": "2026-09-15T17:11:41.007Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 10.4}}
+{"ts": "2026-09-15T17:11:41.007Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 10.5}}
+{"ts": "2026-09-15T17:11:41.011Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 17.3}}
+{"ts": "2026-09-15T17:11:41.410Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:41.410Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «router»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:41.411Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/router"}}
+{"ts": "2026-09-15T17:11:41.411Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:41.411Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «openrouter»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:41.411Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/openrouter"}}
+{"ts": "2026-09-15T17:11:41.412Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:42.044Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/benchmarks", "status": 200, "ms": 8.8}}
+{"ts": "2026-09-15T17:11:42.052Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 14.4}}
+{"ts": "2026-09-15T17:11:42.057Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/benchmarks/recommendations", "status": 200, "ms": 18.4}}
+{"ts": "2026-09-15T17:11:42.711Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 12.0}}
+{"ts": "2026-09-15T17:11:42.717Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 15.5}}
+{"ts": "2026-09-15T17:11:42.719Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 17.9}}
+{"ts": "2026-09-15T17:11:42.719Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 17.6}}
+{"ts": "2026-09-15T17:11:42.720Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 18.5}}
+{"ts": "2026-09-15T17:11:42.742Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 22.2}}
+{"ts": "2026-09-15T17:11:42.747Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 12.3}}
+{"ts": "2026-09-15T17:11:42.748Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 28.3}}
+{"ts": "2026-09-15T17:11:42.757Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 55.4}}
+{"ts": "2026-09-15T17:11:42.758Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 14.3}}
+{"ts": "2026-09-15T17:11:42.762Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 18.5}}
+{"ts": "2026-09-15T17:11:42.893Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 3.5}}
+{"ts": "2026-09-15T17:11:43.779Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 9.8}}
+{"ts": "2026-09-15T17:11:44.445Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 15.5}}
+{"ts": "2026-09-15T17:11:44.460Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 24.4}}
+{"ts": "2026-09-15T17:11:44.460Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 24.5}}
+{"ts": "2026-09-15T17:11:44.462Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 30.4}}
+{"ts": "2026-09-15T17:11:44.463Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 26.8}}
+{"ts": "2026-09-15T17:11:44.486Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 15.7}}
+{"ts": "2026-09-15T17:11:44.488Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 18.4}}
+{"ts": "2026-09-15T17:11:44.489Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 18.7}}
+{"ts": "2026-09-15T17:11:44.490Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 19.1}}
+{"ts": "2026-09-15T17:11:44.490Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 36.6}}
+{"ts": "2026-09-15T17:11:44.506Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 69.7}}
+{"ts": "2026-09-15T17:11:45.513Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/governor/interventions", "status": 200, "ms": 12.6}}
+{"ts": "2026-09-15T17:11:45.514Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/governor/rules", "status": 200, "ms": 14.4}}
+{"ts": "2026-09-15T17:11:45.985Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «benchmarks»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:45.986Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/benchmarks"}}
+{"ts": "2026-09-15T17:11:45.986Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:45.987Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «resources»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:45.987Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/resources"}}
+{"ts": "2026-09-15T17:11:45.987Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:45.988Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «governor»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:45.988Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/governor"}}
+{"ts": "2026-09-15T17:11:46.184Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 25.7}}
+{"ts": "2026-09-15T17:11:46.192Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 27.4}}
+{"ts": "2026-09-15T17:11:46.195Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 33.5}}
+{"ts": "2026-09-15T17:11:46.198Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 30.1}}
+{"ts": "2026-09-15T17:11:46.200Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 37.7}}
+{"ts": "2026-09-15T17:11:46.330Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 123.7}}
+{"ts": "2026-09-15T17:11:46.331Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 123.4}}
+{"ts": "2026-09-15T17:11:46.331Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 123.4}}
+{"ts": "2026-09-15T17:11:46.336Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 168.0}}
+{"ts": "2026-09-15T17:11:46.337Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 143.3}}
+{"ts": "2026-09-15T17:11:46.338Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 130.6}}
+{"ts": "2026-09-15T17:11:47.349Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/healing/attempts", "status": 200, "ms": 16.6}}
+{"ts": "2026-09-15T17:11:47.350Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/healing/rules", "status": 200, "ms": 18.3}}
+{"ts": "2026-09-15T17:11:48.010Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 17.3}}
+{"ts": "2026-09-15T17:11:48.016Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 22.3}}
+{"ts": "2026-09-15T17:11:48.017Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 23.8}}
+{"ts": "2026-09-15T17:11:48.018Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 24.3}}
+{"ts": "2026-09-15T17:11:48.018Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 24.4}}
+{"ts": "2026-09-15T17:11:48.042Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 13.7}}
+{"ts": "2026-09-15T17:11:48.042Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 15.0}}
+{"ts": "2026-09-15T17:11:48.043Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 16.5}}
+{"ts": "2026-09-15T17:11:48.043Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 15.4}}
+{"ts": "2026-09-15T17:11:48.060Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 37.1}}
+{"ts": "2026-09-15T17:11:48.070Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 76.4}}
+{"ts": "2026-09-15T17:11:49.093Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 10.7}}
+{"ts": "2026-09-15T17:11:49.774Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 34.9}}
+{"ts": "2026-09-15T17:11:49.787Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 26.8}}
+{"ts": "2026-09-15T17:11:49.788Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 27.6}}
+{"ts": "2026-09-15T17:11:49.788Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 48.8}}
+{"ts": "2026-09-15T17:11:49.791Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 30.6}}
+{"ts": "2026-09-15T17:11:49.818Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 27.0}}
+{"ts": "2026-09-15T17:11:49.820Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 36.2}}
+{"ts": "2026-09-15T17:11:49.825Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 19.4}}
+{"ts": "2026-09-15T17:11:49.825Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 22.6}}
+{"ts": "2026-09-15T17:11:49.828Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 24.5}}
+{"ts": "2026-09-15T17:11:49.836Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 75.4}}
+{"ts": "2026-09-15T17:11:50.164Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:50.164Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «healing»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:50.164Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/healing"}}
+{"ts": "2026-09-15T17:11:50.165Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:50.165Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «forks»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:50.165Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/forks"}}
+{"ts": "2026-09-15T17:11:50.166Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:50.774Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 18.4}}
+{"ts": "2026-09-15T17:11:50.775Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/providers", "status": 200, "ms": 18.7}}
+{"ts": "2026-09-15T17:11:51.460Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 43.0}}
+{"ts": "2026-09-15T17:11:51.465Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 40.2}}
+{"ts": "2026-09-15T17:11:51.469Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 39.1}}
+{"ts": "2026-09-15T17:11:51.469Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 43.9}}
+{"ts": "2026-09-15T17:11:51.471Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 41.0}}
+{"ts": "2026-09-15T17:11:51.480Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 49.8}}
+{"ts": "2026-09-15T17:11:51.503Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 13.2}}
+{"ts": "2026-09-15T17:11:51.506Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 15.8}}
+{"ts": "2026-09-15T17:11:51.506Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 15.8}}
+{"ts": "2026-09-15T17:11:51.511Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 20.7}}
+{"ts": "2026-09-15T17:11:51.513Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 25.6}}
+{"ts": "2026-09-15T17:11:52.510Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 13.5}}
+{"ts": "2026-09-15T17:11:52.511Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 8.8}}
+{"ts": "2026-09-15T17:11:53.178Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 15.9}}
+{"ts": "2026-09-15T17:11:53.185Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 22.6}}
+{"ts": "2026-09-15T17:11:53.185Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 13.7}}
+{"ts": "2026-09-15T17:11:53.186Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 14.9}}
+{"ts": "2026-09-15T17:11:53.187Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 15.1}}
+{"ts": "2026-09-15T17:11:53.211Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 17.9}}
+{"ts": "2026-09-15T17:11:53.220Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 20.9}}
+{"ts": "2026-09-15T17:11:53.222Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 22.5}}
+{"ts": "2026-09-15T17:11:53.225Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 21.4}}
+{"ts": "2026-09-15T17:11:53.227Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 39.8}}
+{"ts": "2026-09-15T17:11:53.235Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 63.7}}
+{"ts": "2026-09-15T17:11:54.266Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/schedules", "status": 200, "ms": 8.9}}
+{"ts": "2026-09-15T17:11:54.267Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 10.3}}
+{"ts": "2026-09-15T17:11:54.705Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «models»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:54.706Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/models"}}
+{"ts": "2026-09-15T17:11:54.706Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:54.706Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «tasks»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:54.707Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/tasks"}}
+{"ts": "2026-09-15T17:11:54.707Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:54.707Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «schedules»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:54.708Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/schedules"}}
+{"ts": "2026-09-15T17:11:54.927Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 15.8}}
+{"ts": "2026-09-15T17:11:54.950Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 35.9}}
+{"ts": "2026-09-15T17:11:54.951Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 34.3}}
+{"ts": "2026-09-15T17:11:54.952Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 33.8}}
+{"ts": "2026-09-15T17:11:54.955Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 37.2}}
+{"ts": "2026-09-15T17:11:54.970Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 28.2}}
+{"ts": "2026-09-15T17:11:54.981Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 16.0}}
+{"ts": "2026-09-15T17:11:54.984Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 18.7}}
+{"ts": "2026-09-15T17:11:54.984Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 19.9}}
+{"ts": "2026-09-15T17:11:54.986Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 20.8}}
+{"ts": "2026-09-15T17:11:54.990Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 71.2}}
+{"ts": "2026-09-15T17:11:56.023Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 9.2}}
+{"ts": "2026-09-15T17:11:56.048Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/cache/economics", "status": 200, "ms": 13.9}}
+{"ts": "2026-09-15T17:11:56.051Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/cache/intelligence", "status": 200, "ms": 14.9}}
+{"ts": "2026-09-15T17:11:56.703Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 25.2}}
+{"ts": "2026-09-15T17:11:56.708Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 29.1}}
+{"ts": "2026-09-15T17:11:56.709Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 25.9}}
+{"ts": "2026-09-15T17:11:56.709Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 28.5}}
+{"ts": "2026-09-15T17:11:56.709Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 26.1}}
+{"ts": "2026-09-15T17:11:56.739Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 14.8}}
+{"ts": "2026-09-15T17:11:56.740Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 16.7}}
+{"ts": "2026-09-15T17:11:56.741Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 17.1}}
+{"ts": "2026-09-15T17:11:56.745Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 25.3}}
+{"ts": "2026-09-15T17:11:56.745Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 61.7}}
+{"ts": "2026-09-15T17:11:56.752Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 17.9}}
+{"ts": "2026-09-15T17:11:57.788Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/providers", "status": 200, "ms": 10.5}}
+{"ts": "2026-09-15T17:11:57.807Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 7.5}}
+{"ts": "2026-09-15T17:11:57.887Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 3.7}}
+{"ts": "2026-09-15T17:11:58.464Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 23.6}}
+{"ts": "2026-09-15T17:11:58.470Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 24.8}}
+{"ts": "2026-09-15T17:11:58.471Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 25.8}}
+{"ts": "2026-09-15T17:11:58.472Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 26.7}}
+{"ts": "2026-09-15T17:11:58.474Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 28.6}}
+{"ts": "2026-09-15T17:11:58.506Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 24.5}}
+{"ts": "2026-09-15T17:11:58.508Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 26.0}}
+{"ts": "2026-09-15T17:11:58.511Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 31.2}}
+{"ts": "2026-09-15T17:11:58.523Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 45.2}}
+{"ts": "2026-09-15T17:11:58.525Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 39.6}}
+{"ts": "2026-09-15T17:11:58.528Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 82.8}}
+{"ts": "2026-09-15T17:11:58.918Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:58.918Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «system»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:58.919Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/system"}}
+{"ts": "2026-09-15T17:11:58.919Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:58.920Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button «settings»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:11:58.920Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/settings"}}
+{"ts": "2026-09-15T17:11:58.920Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.navigate", "data": {"to": "#/home-v3"}}
+{"ts": "2026-09-15T17:12:03.492Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button#palette-open «КомандыCtrl K»", "page": "#/home-v3"}}
+{"ts": "2026-09-15T17:12:12.887Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 3.8}}
+{"ts": "2026-09-15T17:12:27.810Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 9.7}}
+{"ts": "2026-09-15T17:12:27.888Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 4.4}}
+{"ts": "2026-09-15T17:12:42.890Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 6.1}}
+{"ts": "2026-09-15T17:12:57.830Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 29.1}}
+{"ts": "2026-09-15T17:12:57.887Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 4.0}}
+{"ts": "2026-09-15T17:13:00.066Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/", "status": 200, "ms": 2.2}}
+{"ts": "2026-09-15T17:13:00.083Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/style.css", "status": 200, "ms": 8.1}}
+{"ts": "2026-09-15T17:13:00.084Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/theme.css", "status": 200, "ms": 7.8}}
+{"ts": "2026-09-15T17:13:00.085Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/video_studio.css", "status": 200, "ms": 8.0}}
+{"ts": "2026-09-15T17:13:00.085Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/desktop.css", "status": 200, "ms": 8.2}}
+{"ts": "2026-09-15T17:13:00.086Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/app.js", "status": 200, "ms": 6.4}}
+{"ts": "2026-09-15T17:13:00.103Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/video_chat.js", "status": 200, "ms": 1.5}}
+{"ts": "2026-09-15T17:13:00.109Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api.js", "status": 200, "ms": 5.8}}
+{"ts": "2026-09-15T17:13:00.111Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/index.js", "status": 200, "ms": 5.2}}
+{"ts": "2026-09-15T17:13:00.113Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/thinking.js", "status": 200, "ms": 7.4}}
+{"ts": "2026-09-15T17:13:00.113Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages.js", "status": 200, "ms": 7.7}}
+{"ts": "2026-09-15T17:13:00.113Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/components.js", "status": 200, "ms": 9.8}}
+{"ts": "2026-09-15T17:13:00.124Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/commandbar.js", "status": 200, "ms": 3.4}}
+{"ts": "2026-09-15T17:13:00.124Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/testing.js", "status": 200, "ms": 8.1}}
+{"ts": "2026-09-15T17:13:00.136Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/desktop.js", "status": 200, "ms": 2.8}}
+{"ts": "2026-09-15T17:13:00.138Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/app_view.js", "status": 200, "ms": 2.2}}
+{"ts": "2026-09-15T17:13:00.145Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/_ui.js", "status": 200, "ms": 2.1}}
+{"ts": "2026-09-15T17:13:00.216Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/icon.svg", "status": 200, "ms": 3.7}}
+{"ts": "2026-09-15T17:13:00.290Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "POST", "path": "/api/login", "status": 200, "ms": 5.2}}
+{"ts": "2026-09-15T17:13:00.304Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 9.2}}
+{"ts": "2026-09-15T17:13:00.319Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/home.js", "status": 200, "ms": 9.6}}
+{"ts": "2026-09-15T17:13:00.331Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/identity", "status": 200, "ms": 13.6}}
+{"ts": "2026-09-15T17:13:00.335Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 23.3}}
+{"ts": "2026-09-15T17:13:00.335Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/command-bar", "status": 200, "ms": 18.5}}
+{"ts": "2026-09-15T17:13:00.343Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 25.7}}
+{"ts": "2026-09-15T17:13:00.359Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 39.9}}
+{"ts": "2026-09-15T17:13:00.365Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/appcards.js", "status": 200, "ms": 14.7}}
+{"ts": "2026-09-15T17:13:00.365Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/_shared.js", "status": 200, "ms": 17.4}}
+{"ts": "2026-09-15T17:13:00.369Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 18.3}}
+{"ts": "2026-09-15T17:13:00.418Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 82.7}}
+{"ts": "2026-09-15T17:13:00.433Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/apps", "status": 200, "ms": 37.3}}
+{"ts": "2026-09-15T17:13:00.434Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/missions", "status": 200, "ms": 35.6}}
+{"ts": "2026-09-15T17:13:00.434Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agents", "status": 200, "ms": 34.3}}
+{"ts": "2026-09-15T17:13:00.435Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/models", "status": 200, "ms": 35.2}}
+{"ts": "2026-09-15T17:13:00.471Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/activity", "status": 200, "ms": 29.3}}
+{"ts": "2026-09-15T17:13:00.472Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 71.4}}
+{"ts": "2026-09-15T17:13:00.473Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 22.0}}
+{"ts": "2026-09-15T17:13:00.473Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/agentmap", "status": 200, "ms": 31.1}}
+{"ts": "2026-09-15T17:13:00.473Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/tasks", "status": 200, "ms": 21.0}}
+{"ts": "2026-09-15T17:13:00.483Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/resources", "status": 200, "ms": 55.9}}
+{"ts": "2026-09-15T17:13:00.563Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/video_studio.js", "status": 200, "ms": 2.3}}
+{"ts": "2026-09-15T17:13:00.573Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/video_studio_state.js", "status": 200, "ms": 2.3}}
+{"ts": "2026-09-15T17:13:00.581Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/apps.js", "status": 200, "ms": 2.5}}
+{"ts": "2026-09-15T17:13:00.588Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/overview.js", "status": 200, "ms": 2.0}}
+{"ts": "2026-09-15T17:13:00.595Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/missions.js", "status": 200, "ms": 2.2}}
+{"ts": "2026-09-15T17:13:00.603Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/router.js", "status": 200, "ms": 1.8}}
+{"ts": "2026-09-15T17:13:00.610Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/governor.js", "status": 200, "ms": 2.3}}
+{"ts": "2026-09-15T17:13:00.616Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/file_intelligence.js", "status": 200, "ms": 2.2}}
+{"ts": "2026-09-15T17:13:00.622Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/resources.js", "status": 200, "ms": 2.1}}
+{"ts": "2026-09-15T17:13:00.628Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/skills.js", "status": 200, "ms": 2.2}}
+{"ts": "2026-09-15T17:13:00.635Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/terminal.js", "status": 200, "ms": 1.6}}
+{"ts": "2026-09-15T17:13:00.641Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/benchmarks.js", "status": 200, "ms": 1.5}}
+{"ts": "2026-09-15T17:13:00.647Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/browser.js", "status": 200, "ms": 1.9}}
+{"ts": "2026-09-15T17:13:00.654Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/coding.js", "status": 200, "ms": 2.0}}
+{"ts": "2026-09-15T17:13:00.660Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/agentmap.js", "status": 200, "ms": 2.1}}
+{"ts": "2026-09-15T17:13:00.666Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/orchestras.js", "status": 200, "ms": 1.6}}
+{"ts": "2026-09-15T17:13:00.672Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/forks.js", "status": 200, "ms": 2.0}}
+{"ts": "2026-09-15T17:13:00.681Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/healing.js", "status": 200, "ms": 2.2}}
+{"ts": "2026-09-15T17:13:00.687Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/openrouter.js", "status": 200, "ms": 1.7}}
+{"ts": "2026-09-15T17:13:00.695Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/mobile.js", "status": 200, "ms": 1.5}}
+{"ts": "2026-09-15T17:13:00.702Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/builder.js", "status": 200, "ms": 2.2}}
+{"ts": "2026-09-15T17:13:00.709Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/images.js", "status": 200, "ms": 1.6}}
+{"ts": "2026-09-15T17:13:00.716Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/trading_lab.js", "status": 200, "ms": 2.2}}
+{"ts": "2026-09-15T17:13:00.722Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/mission_console.js", "status": 200, "ms": 1.5}}
+{"ts": "2026-09-15T17:13:00.728Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/web_research.js", "status": 200, "ms": 2.3}}
+{"ts": "2026-09-15T17:13:00.734Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/control.js", "status": 200, "ms": 1.6}}
+{"ts": "2026-09-15T17:13:00.741Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/web_designer.js", "status": 200, "ms": 1.4}}
+{"ts": "2026-09-15T17:13:00.750Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/web_designer_viewport.js", "status": 200, "ms": 3.2}}
+{"ts": "2026-09-15T17:13:00.754Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/approvals", "status": 200, "ms": 9.2}}
+{"ts": "2026-09-15T17:13:00.757Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/pages/objectives.js", "status": 200, "ms": 2.3}}
+{"ts": "2026-09-15T17:13:04.354Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.session_open", "data": {"page": "#/home-v3", "screen": "390x844", "dpr": 1, "lang": "en-US", "theme": "light", "online": true, "ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.0.0 Safari/537.36"}}
+{"ts": "2026-09-15T17:13:15.354Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 3.9}}
+{"ts": "2026-09-15T17:13:30.323Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 10.2}}
+{"ts": "2026-09-15T17:13:30.354Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 3.9}}
+{"ts": "2026-09-15T17:13:45.355Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 3.8}}
+{"ts": "2026-09-15T17:14:00.325Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 11.4}}
+{"ts": "2026-09-15T17:14:00.354Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 4.0}}
+{"ts": "2026-09-15T17:14:15.354Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 3.1}}
+{"ts": "2026-09-15T17:14:30.321Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 8.0}}
+{"ts": "2026-09-15T17:14:30.353Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 3.6}}
+{"ts": "2026-09-15T17:14:45.355Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 4.4}}
+{"ts": "2026-09-15T17:15:00.322Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 9.0}}
+{"ts": "2026-09-15T17:15:00.355Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 5.5}}
+{"ts": "2026-09-15T17:15:15.355Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 3.7}}
+{"ts": "2026-09-15T17:15:30.322Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 8.4}}
+{"ts": "2026-09-15T17:15:30.354Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 3.2}}
+{"ts": "2026-09-15T17:15:45.354Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 3.5}}
+{"ts": "2026-09-15T17:16:00.322Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/system", "status": 200, "ms": 9.2}}
+{"ts": "2026-09-15T17:16:00.356Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 5.5}}
+{"ts": "2026-09-15T17:16:15.362Z", "session": "1ebe270683a7", "source": "server", "kind": "http.request", "data": {"method": "GET", "path": "/api/testing/status", "status": 200, "ms": 9.9}}
+{"ts": "2026-09-15T17:16:29.515Z", "session": "1ebe270683a7", "source": "ui", "kind": "ui.click", "data": {"element": "button#bcc-testing-publish «Отправить в GitHub»", "page": "#/home-v3"}}

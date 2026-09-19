@@ -1,0 +1,64 @@
+..............................FFFF                                       [100%]
+=================================== FAILURES ===================================
+_______ test_comfy_submit_error_has_safe_named_reason[401-unauthorized] ________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-8/test_comfy_submit_error_has_sa0')
+code = 401, reason = 'unauthorized'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('code,reason',[(401,'unauthorized'),(402,'insufficient_credit'),(429,'throttled'),(404,'provider_down')])
+    async def test_comfy_submit_error_has_safe_named_reason(tmp_path,code,reason):
+        import httpx
+        from bcc.oss.comfyui import ComfyUIImageProvider
+>       from bcc.studio.provider import GenerationPlane, ProviderFailure
+E       ImportError: cannot import name 'ProviderFailure' from 'bcc.studio.provider' (/workspace/scratch/ca937728a752/AiMaxBossman/command-center/bcc/studio/provider.py)
+
+command-center/tests/test_studio_provider_states.py:109: ImportError
+____ test_comfy_submit_error_has_safe_named_reason[402-insufficient_credit] ____
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-8/test_comfy_submit_error_has_sa1')
+code = 402, reason = 'insufficient_credit'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('code,reason',[(401,'unauthorized'),(402,'insufficient_credit'),(429,'throttled'),(404,'provider_down')])
+    async def test_comfy_submit_error_has_safe_named_reason(tmp_path,code,reason):
+        import httpx
+        from bcc.oss.comfyui import ComfyUIImageProvider
+>       from bcc.studio.provider import GenerationPlane, ProviderFailure
+E       ImportError: cannot import name 'ProviderFailure' from 'bcc.studio.provider' (/workspace/scratch/ca937728a752/AiMaxBossman/command-center/bcc/studio/provider.py)
+
+command-center/tests/test_studio_provider_states.py:109: ImportError
+_________ test_comfy_submit_error_has_safe_named_reason[429-throttled] _________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-8/test_comfy_submit_error_has_sa2')
+code = 429, reason = 'throttled'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('code,reason',[(401,'unauthorized'),(402,'insufficient_credit'),(429,'throttled'),(404,'provider_down')])
+    async def test_comfy_submit_error_has_safe_named_reason(tmp_path,code,reason):
+        import httpx
+        from bcc.oss.comfyui import ComfyUIImageProvider
+>       from bcc.studio.provider import GenerationPlane, ProviderFailure
+E       ImportError: cannot import name 'ProviderFailure' from 'bcc.studio.provider' (/workspace/scratch/ca937728a752/AiMaxBossman/command-center/bcc/studio/provider.py)
+
+command-center/tests/test_studio_provider_states.py:109: ImportError
+_______ test_comfy_submit_error_has_safe_named_reason[404-provider_down] _______
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-8/test_comfy_submit_error_has_sa3')
+code = 404, reason = 'provider_down'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize('code,reason',[(401,'unauthorized'),(402,'insufficient_credit'),(429,'throttled'),(404,'provider_down')])
+    async def test_comfy_submit_error_has_safe_named_reason(tmp_path,code,reason):
+        import httpx
+        from bcc.oss.comfyui import ComfyUIImageProvider
+>       from bcc.studio.provider import GenerationPlane, ProviderFailure
+E       ImportError: cannot import name 'ProviderFailure' from 'bcc.studio.provider' (/workspace/scratch/ca937728a752/AiMaxBossman/command-center/bcc/studio/provider.py)
+
+command-center/tests/test_studio_provider_states.py:109: ImportError
+=========================== short test summary info ============================
+FAILED command-center/tests/test_studio_provider_states.py::test_comfy_submit_error_has_safe_named_reason[401-unauthorized]
+FAILED command-center/tests/test_studio_provider_states.py::test_comfy_submit_error_has_safe_named_reason[402-insufficient_credit]
+FAILED command-center/tests/test_studio_provider_states.py::test_comfy_submit_error_has_safe_named_reason[429-throttled]
+FAILED command-center/tests/test_studio_provider_states.py::test_comfy_submit_error_has_safe_named_reason[404-provider_down]
+4 failed, 30 passed in 0.12s

@@ -13,6 +13,7 @@ import asyncio
 import hashlib
 import importlib.metadata
 import json
+import secrets
 import os
 from pathlib import Path
 import re
@@ -104,8 +105,13 @@ def private_file(path: Path, content: bytes) -> None:
     _restrict_to_owner(path)
 
 
-async def seed_private_registry(data_dir: Path, selected: dict) -> None:
-    """New vault identity; no owner rows other than the chosen provider/model."""
+async def seed_private_registry(data_dir: Path, selected: dict, *, tool_agent: bool = False) -> None:
+    """New vault identity; no owner rows other than the chosen provider/model.
+
+    ``tool_agent`` adds the second agent the acceptance's agentic stage uses.
+    The live-model UI smoke keeps a single agent: with two, the composer asks
+    the owner to choose one and «Запустить» sends nothing (measured 3 of 3).
+    """
     key = Fernet.generate_key()
     private_file(data_dir / KEY_FILE, key)
     encrypted = Fernet(key).encrypt(selected['secret'].encode()).decode() if selected['secret'] else None
@@ -128,10 +134,65 @@ async def seed_private_registry(data_dir: Path, selected: dict) -> None:
                 id=1, name='Owner acceptance', model_id=1, enabled=True, tools=[], permissions={},
                 max_steps=1, max_tokens=256, fallback_model_id=None,
                 system_prompt='Answer the arithmetic question exactly. Do not use tools.'))
+            if tool_agent:
+                # §7 (17.09): one real agentic task — model → permitted tool →
+                # observable effect. memory.write is the tool: it writes ONLY
+                # inside the private vault this harness creates, never in the
+                # owner's documents, and the note on disk is checked
+                # independently of what the model says.
+                await session.execute(sa.insert(dbm.agents).values(
+                    id=TOOL_AGENT_ID, name='Owner acceptance tool', model_id=1, enabled=True,
+                    tools=[TOOL_NAME], permissions={'filesystem.write': True},
+                    max_steps=3, max_tokens=512, fallback_model_id=None,
+                    system_prompt=('You have one tool, memory_write. Call it exactly once with the title, '
+                                   'kind and content the user gives, then answer with the single word DONE.')))
             await session.commit()
     finally:
         await database.close()
     _restrict_to_owner(data_dir / 'bcc.db')
+
+
+TOOL_AGENT_ID = 2
+TOOL_NAME = 'memory.write'
+TOOL_NOTE_TITLE = 'OWNER_ACCEPTANCE_NOTE'
+TERMINAL = {'completed', 'failed', 'stopped', 'blocked', 'paused', 'waiting_approval'}
+
+
+def tool_task_prompt(nonce: str) -> str:
+    return (f'Вызови инструмент memory.write ровно один раз: title «{TOOL_NOTE_TITLE}», kind «note», '
+            f'content «{tool_proof(nonce)}». После сохранения ответь одним словом: DONE.')
+
+
+def tool_proof(nonce: str) -> str:
+    return f'BOSSMAN_TOOL_PROOF_{nonce}'
+
+
+def tool_note_on_disk(vault: Path, nonce: str) -> Path | None:
+    """The note the tool wrote, found by reading the vault — not by trusting the model."""
+    proof = tool_proof(nonce)
+    for path in sorted(vault.rglob('*.md')):
+        try:
+            if proof in path.read_text(encoding='utf-8', errors='replace'):
+                return path
+        except OSError:
+            continue
+    return None
+
+
+def successful_tool_result(data: dict, note: Path | None) -> tuple[bool, str]:
+    """PASS only for a completed task whose tool call left the note on disk."""
+    runs = data.get('runs') or []
+    status = data.get('task', {}).get('status')
+    if status != 'completed':
+        return False, f'task_{status or "unknown"}'
+    if not runs or runs[-1].get('status') != 'completed':
+        return False, 'run_not_completed'
+    if note is None:
+        return False, 'tool_not_called'
+    steps = int((runs[-1].get('checkpoint') or {}).get('step') or 0)
+    if steps < 2:
+        return False, 'no_second_model_turn_after_tool'
+    return True, 'ok'
 
 
 def free_port() -> int:
@@ -201,7 +262,7 @@ def verify(selected: dict, report: dict, timeout: float) -> None:
         data_dir = Path(temporary)
         os.chmod(data_dir, 0o700)
         _restrict_to_owner(data_dir)
-        asyncio.run(seed_private_registry(data_dir, selected))
+        asyncio.run(seed_private_registry(data_dir, selected, tool_agent=True))
         selected['secret'] = None
         port = free_port()
         with (data_dir / 'server.log').open('wb') as log:
@@ -237,6 +298,38 @@ def verify(selected: dict, report: dict, timeout: float) -> None:
                 report['run_id'] = result['runs'][0]['id']
                 report['usage'] = {name: result['runs'][0].get(name)
                                    for name in ('tokens_in', 'tokens_out', 'cost_usd', 'model_alias')}
+
+                # §7: the same model, with one permitted tool, in a sandbox vault.
+                vault = data_dir / 'vault'
+                vault.mkdir(mode=0o700)
+                client.post('/api/memory/config', json={'root': str(vault)}).raise_for_status()
+                nonce = secrets.token_hex(4)
+                response = client.post('/api/tasks', json={
+                    'title': 'Owner live acceptance tool', 'agent_id': TOOL_AGENT_ID, 'run_now': True,
+                    'max_retries': 0, 'prompt': tool_task_prompt(nonce)})
+                response.raise_for_status()
+                tool_task_id = response.json()['task']['id']
+                deadline = time.monotonic() + timeout
+                tool_result = {}
+                while time.monotonic() < deadline:
+                    response = client.get(f'/api/tasks/{tool_task_id}')
+                    response.raise_for_status()
+                    tool_result = response.json()
+                    if tool_result['task']['status'] in TERMINAL:
+                        break
+                    time.sleep(0.5)
+                note = tool_note_on_disk(vault, nonce)
+                ok, reason = successful_tool_result(tool_result, note)
+                report['REAL_AGENT_TASK'] = 'PASS' if ok else 'FAIL'
+                report['tool_task'] = {
+                    'task_id': tool_task_id, 'tool': TOOL_NAME,
+                    'terminal_status': tool_result.get('task', {}).get('status'),
+                    'note_written': note is not None,
+                    'note_path': str(note.relative_to(vault)) if note else None,
+                    'steps': int(((tool_result.get('runs') or [{}])[-1].get('checkpoint') or {}).get('step') or 0),
+                    'reason': reason}
+                if not ok:
+                    raise RuntimeError('Real agent task did not leave the tool note on disk: ' + reason)
                 client.close()
                 client = None
                 stop(process)
@@ -248,6 +341,11 @@ def verify(selected: dict, report: dict, timeout: float) -> None:
                 if (not successful_result(after_data) or after_data['runs'][0]['id'] != report['run_id']
                         or restarted_identity.get('started_at') == initial_identity.get('started_at')):
                     raise RuntimeError('Restart did not preserve the completed task and original run.')
+                tool_after = client.get(f'/api/tasks/{tool_task_id}')
+                tool_after.raise_for_status()
+                still_ok, _ = successful_tool_result(tool_after.json(), tool_note_on_disk(vault, nonce))
+                if not still_ok:
+                    raise RuntimeError('Restart did not preserve the tool task or its note.')
                 report['RESTART_PERSISTENCE'] = 'PASS'
             finally:
                 if client is not None:
@@ -262,9 +360,9 @@ def main(argv=None) -> int:
     parser.add_argument('--output', type=Path, default=Path('bossman-owner-task-acceptance.json'))
     parser.add_argument('--timeout', type=float, default=180, help='Maximum model task seconds (1..600)')
     args = parser.parse_args(argv)
-    report = {'status': 'FAIL', 'BOOT': 'NOT_RUN', 'CORE_LIVE_API': 'NOT_RUN',
+    report = {'status': 'FAIL', 'BOOT': 'NOT_RUN', 'CORE_LIVE_API': 'NOT_RUN', 'REAL_AGENT_TASK': 'NOT_RUN',
               'RESTART_PERSISTENCE': 'NOT_RUN', 'CORE_UI': 'OWNER_REQUIRED',
-              'scope': 'installed_core_model_and_restart',
+              'scope': 'installed_core_model_tool_and_restart',
               'timestamp': dbm.utcnow().isoformat() + 'Z', 'fixture_adapter': False}
     exit_code = 1
     try:

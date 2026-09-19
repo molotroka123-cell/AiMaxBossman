@@ -35,6 +35,66 @@ def client():
     return TestClient(build_app(), headers={"X-Bossman-App-Token": os.environ["BOSSMAN_APP_TOKEN"]})
 
 
+def _browser_json_roundtrip(value):
+    """JSON.parse uses IEEE-754 Numbers, unlike Python's arbitrary-size ints."""
+    return json.loads(json.dumps(value), parse_int=lambda value: int(float(value)))
+
+
+def test_large_windows_file_ids_survive_browser_preview_roundtrip(files, monkeypatch):
+    from types import SimpleNamespace
+    from file_commander_mini import safety
+
+    root, eng = files
+    source = root / "report.pdf"
+    source.write_bytes(b"owner bytes")
+    real_fstat = os.fstat
+    large_inode = 2**60 + 123
+
+    def ntfs_fstat(fd):
+        info = real_fstat(fd)
+        fields = {name: getattr(info, name) for name in (
+            'st_mode', 'st_size', 'st_mtime_ns', 'st_ctime_ns', 'st_dev')}
+        return SimpleNamespace(**fields, st_ino=large_inode)
+
+    monkeypatch.setattr(safety.os, 'fstat', ntfs_fstat)
+    preview = eng.organize_plan(str(root))
+    approved = _browser_json_roundtrip(preview)['operations']
+    assert approved[0]['source_identity']['inode'] == str(large_inode)
+    assert approved == preview['operations']
+    digest = hashlib.sha256(json.dumps(approved, sort_keys=True).encode()).hexdigest()
+    assert digest == preview['plan_id']
+    assert eng.s.kv_get('plans', digest) == approved
+
+
+def test_browser_approval_applies_and_undoes_exact_preview(files):
+    root, eng = files
+    source = root / "report.pdf"
+    source.write_bytes(b"owner bytes")
+    preview = _browser_json_roundtrip(eng.organize_plan(str(root)))
+    result = eng.apply(preview['operations'], approve=True)
+    assert result['status'] == 'APPLIED'
+    assert not source.exists()
+    assert (root / 'Documents/PDF/report.pdf').read_bytes() == b'owner bytes'
+    assert eng.undo(result['batch_id'], approve=True)['status'] == 'ROLLED_BACK'
+    assert source.read_bytes() == b'owner bytes'
+
+
+def test_legacy_integer_plan_still_applies_and_recovers(files):
+    root, eng = files
+    source = root / "report.pdf"
+    source.write_bytes(b"owner bytes")
+    operations = eng.organize_plan(str(root))['operations']
+    for op in operations:
+        for key in ('device', 'inode'):
+            op['source_identity'][key] = int(op['source_identity'][key])
+    digest = hashlib.sha256(json.dumps(operations, sort_keys=True).encode()).hexdigest()
+    eng.s.kv_put('plans', digest, operations)
+    result = eng.apply(operations, approve=True)
+    assert result['status'] == 'APPLIED'
+    assert eng.undo(result['batch_id'], approve=True)['status'] == 'ROLLED_BACK'
+    assert source.read_bytes() == b'owner bytes'
+
+
 def test_no_roots_fails_closed_and_api_requires_auth(files, monkeypatch):
     root, eng = files
     (root / "report.pdf").write_text("owner file")

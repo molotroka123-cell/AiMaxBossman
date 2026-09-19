@@ -503,6 +503,46 @@ class LearningStore:
         self._rewrite(self.failed_path, [c for c in cases if c.get("learning_status") != "VERIFIED"])
         self._rewrite(self.history_path, superseded)
 
+    def _adopt_orphan_cases(self) -> bool:
+        """Внести в журнал записи, которые есть только в корпусном снимке.
+
+        Журнал авторитетен, снимки производны, и до сих пор из этого следовало
+        буквальное: запись, дописанная в ``fix_cases.jsonl`` напрямую, в обход
+        ``add``, исчезала при первом же ``_materialize``. Не уходила в history,
+        не попадала в ``failed_experiments`` — пропадала целиком, молча, от
+        чужого добавления совершенно несвязанного случая. Так была потеряна
+        чужая VERIFIED-запись, и так же терялась бы любая другая.
+
+        Расхождение журнала со снимком проверка замечала и раньше, но
+        разрешала его в пользу журнала. Для history тот же случай уже лечится
+        усыновлением; здесь то же лекарство для самих корпусов.
+
+        Усыновляется только то, что не может перехватить авторитет: case_id,
+        которого в журнале НЕТ НИ В ОДНОЙ версии, и только если запись сходится
+        со своим отпечатком и проходит текущую схему. Подменённая, битая или
+        переименованная запись авторитетной не становится и в журнал не идёт.
+        """
+        entries = self._journal()
+        if not entries:
+            return False
+        known = {str(t["case"].get("case_id") or "") for t in entries}
+        adopted: list[dict] = []
+        for c in self._read(self.verified_path) + self._read(self.failed_path):
+            cid = str(c.get("case_id") or "")
+            if not cid or cid in known or c.get("tombstone"):
+                continue
+            if case_id(c) != cid or validate(c, schema=self.schema):
+                continue
+            known.add(cid)
+            adopted.append(dict(c))
+        if not adopted:
+            return False
+        merged = [t["case"] for t in entries] + adopted
+        self._rewrite(self.journal_path, "".join(
+            json.dumps({"txn": i + 1, "case": c}, ensure_ascii=False, sort_keys=True) + "\n"
+            for i, c in enumerate(merged)))
+        return True
+
     def _adopt_orphan_history(self) -> bool:
         """Внести в журнал старые версии, которые есть только в history-снимке.
 
@@ -572,7 +612,9 @@ class LearningStore:
                 self._adopt_orphan_history()
                 self._materialize()
             return
-        if self._adopt_orphan_history():
+        healed = self._adopt_orphan_cases()
+        healed = self._adopt_orphan_history() or healed
+        if healed:
             self._materialize()
             return
         latest, superseded = self._journal_state()

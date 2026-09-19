@@ -1,0 +1,114 @@
+{
+  "source_sha": "c3f41cc687734f75c2a479c232fba4edf61b6b4d",
+  "verified_git_blobs": {
+    "astra6_freeze": "44b8d2affe740d8e8341268c554a689be27896a9",
+    "bundle_evening_test": "d8aeb6d3c136c182431b1ee7a01b5b784844fb5e"
+  },
+  "scope": "LOCAL SYNTHETIC VALIDATOR/DIAGNOSTIC REPRODUCTIONS ONLY",
+  "not_performed": [
+    "Windows execution",
+    "archive byte download/hash",
+    "live model calls",
+    "full test suites"
+  ],
+  "probe_count": 13,
+  "results": [
+    {
+      "probe": "control: 40 cases + 2 models x 3 tasks accepted",
+      "scope": "synthetic_validator_probe",
+      "observed": "FROZEN",
+      "tests": 40,
+      "blockers": []
+    },
+    {
+      "probe": "OA-02: only 13 tests still accepted by final aggregator",
+      "scope": "synthetic_validator_probe",
+      "observed": "FROZEN",
+      "tests": 13,
+      "blockers": []
+    },
+    {
+      "probe": "OA-02: 12 tests correctly rejected (negative control)",
+      "scope": "synthetic_validator_probe",
+      "observed": "BLOCKED",
+      "tests": 12,
+      "blockers": [
+        "results.xml:tests_not_all_passed"
+      ]
+    },
+    {
+      "probe": "OA-02: 6 identical rows of one model/one task accepted",
+      "scope": "synthetic_validator_probe",
+      "observed": "FROZEN",
+      "tests": 40,
+      "blockers": []
+    },
+    {
+      "probe": "OA-02: XML explicitly names different SHA but is accepted",
+      "scope": "synthetic_validator_probe",
+      "observed": "FROZEN",
+      "tests": 40,
+      "blockers": []
+    },
+    {
+      "probe": "control: live model FAIL blocks freeze",
+      "scope": "synthetic_validator_probe",
+      "observed": "BLOCKED",
+      "tests": 40,
+      "blockers": [
+        "live-model.json:not_passed"
+      ]
+    },
+    {
+      "probe": "control: JSON wrong source SHA blocks freeze",
+      "scope": "synthetic_validator_probe",
+      "observed": "BLOCKED",
+      "tests": 40,
+      "blockers": [
+        "ui-sweep.json:source_sha_mismatch"
+      ]
+    },
+    {
+      "probe": "control: readable successful doctor + verifier accepted",
+      "scope": "synthetic_owner_diagnostic_probe",
+      "observed": "PASS",
+      "doctor": "OK",
+      "exit_code": 0
+    },
+    {
+      "probe": "OA-01: doctor missing still yields overall PASS",
+      "scope": "synthetic_owner_diagnostic_probe",
+      "observed": "PASS",
+      "doctor": "NOT_SHIPPED",
+      "exit_code": 0
+    },
+    {
+      "probe": "OA-01: doctor invalid JSON still yields overall PASS",
+      "scope": "synthetic_owner_diagnostic_probe",
+      "observed": "PASS",
+      "doctor": "UNREADABLE",
+      "exit_code": 0
+    },
+    {
+      "probe": "OA-01: doctor exit 9 with empty object still yields overall PASS",
+      "scope": "synthetic_owner_diagnostic_probe",
+      "observed": "PASS",
+      "doctor": "OK",
+      "exit_code": 0
+    },
+    {
+      "probe": "OA-01: explicitly skipped doctor still yields overall PASS",
+      "scope": "synthetic_owner_diagnostic_probe",
+      "observed": "PASS",
+      "doctor": "SKIPPED",
+      "exit_code": 0
+    },
+    {
+      "probe": "control: doctor BLOCKED does not yield overall PASS",
+      "scope": "synthetic_owner_diagnostic_probe",
+      "observed": "OWNER_REQUIRED",
+      "doctor": "BLOCKED",
+      "exit_code": 2
+    }
+  ]
+}

@@ -22,7 +22,10 @@ permissions:
 
 concurrency:
   group: command-center-ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Parallel work on the shared branch must not repeatedly discard the
+  # 21–30 minute browser/coverage suite. Finish the running SHA; GitHub keeps
+  # only the newest pending run in this concurrency group.
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -210,6 +213,7 @@ jobs:
           tests/test_bcc_cli_portability.py
           tests/test_apps_pid_portability.py
           tests/test_browser_installed_readiness.py
+          tests/test_desktop_startup_refusal.py
       - name: Windows Video Studio descriptor boundary
         working-directory: command-center
         env:

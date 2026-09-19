@@ -19,6 +19,12 @@ class BuildWithUI(build_py):
             spec.loader.exec_module(module)
             identity = module.source_identity(repository)
         super().run()
+        # The canonical source remains tools/studio_models.json; wheel receives
+        # a build-time copy so installed Studio never reaches back into a clone.
+        studio_catalog = repository / "tools" / "studio_models.json"
+        if not studio_catalog.is_file():
+            raise RuntimeError("Studio catalog missing from build inputs")
+        shutil.copyfile(studio_catalog, Path(self.build_lib) / "bcc" / "studio" / "_studio_models.json")
         (Path(self.build_lib) / "bcc" / "_build.json").write_text(
             json.dumps(identity) + "\n", encoding="utf-8")
         source = Path(__file__).parent / "ui"

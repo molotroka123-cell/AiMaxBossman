@@ -60,7 +60,8 @@ ui:
   accent: "#3d8bff"
   theme: azure
   order: 1
-  health_path: /api/v1/health
+  # Public HTTP-service readiness; camera/calibration health stays separate.
+  health_path: /readyz
   metrics_path: /api/v1/metrics
   facts:
     - { label: Камера, from: "health.components.camera.state", fallback: "нет данных" }

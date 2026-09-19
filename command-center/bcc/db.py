@@ -579,6 +579,24 @@ for _table, _col, _sqltype in V2_NEW_COLUMNS:
         _t.append_column(sa.Column(_col, _coltype, default=_default))
 
 
+# --- Поколение схемы: защита отката -------------------------------------------
+#
+# База не несла никакой отметки версии: ни PRAGMA user_version, ни строки
+# схемы. Миграции только вперёд и идемпотентны, поэтому откат на прежнюю
+# сборку выглядел безопасным — ровно до первой неаддитивной миграции, о
+# которой владелец узнал бы по своим данным, а не по сообщению.
+#
+# Отметка не лечит прошлое: сборки, выпущенные ДО неё, проверять нечем, их
+# защищает только резервная копия. Она лечит будущее: начиная с этой сборки
+# откат на неё упирается в названный отказ, а не в догадку. Число растёт
+# ТОЛЬКО когда миграция перестаёт быть безопасной для прежней сборки.
+SCHEMA_GENERATION = 1
+
+
+class DatabaseFromNewerBuild(RuntimeError):
+    """База новее запущенной сборки: открывать её — значит гадать."""
+
+
 class Database:
     """Тонкая обёртка над async-движком: сессии, create_all, аккуратное закрытие."""
 
@@ -619,11 +637,42 @@ class Database:
     async def create_all(self) -> None:
         from . import v2  # регистрирует пак-таблицы на core-metadata до create_all
         from .v2 import tables as _v2_tables  # noqa: F401
+        await self._refuse_a_newer_database()   # ДО любых записей в эту базу
         async with self.engine.begin() as conn:
             await conn.run_sync(metadata.create_all)
         await self._migrate()
+        await self._stamp_schema_generation()   # только после успешной миграции
         await self._install_terminal_run_guard()
         await self._install_provenance_guard()
+
+    async def _schema_generation(self) -> int | None:
+        """Отметка поколения или None там, где её негде хранить."""
+        if not self.url.startswith("sqlite"):
+            return None          # не SQLite: отметки нет, и врать об этом не надо
+        async with self.engine.begin() as conn:
+            found = (await conn.execute(sa.text("PRAGMA user_version"))).scalar()
+        return int(found or 0)
+
+    async def _refuse_a_newer_database(self) -> None:
+        found = await self._schema_generation()
+        if found is None or found <= SCHEMA_GENERATION:
+            return               # своя, прежняя или неотмеченная — идём вперёд
+        raise DatabaseFromNewerBuild(
+            f"база записана более новой сборкой (поколение схемы {found}), "
+            f"эта сборка знает {SCHEMA_GENERATION}. Открыть её значит работать "
+            "с таблицами, которых эта сборка не понимает. Что делать: вернуться "
+            "на ту сборку, которая эту базу писала, либо откатиться вместе с "
+            "совместимой резервной копией данных — порядок в docs/final/ROLLBACK.md. "
+            "Файлы владельца не удаляются и не переписываются.")
+
+    async def _stamp_schema_generation(self) -> None:
+        if not self.url.startswith("sqlite"):
+            return
+        found = await self._schema_generation()
+        if found is not None and found >= SCHEMA_GENERATION:
+            return               # чужую, более новую отметку не перетирать
+        async with self.engine.begin() as conn:
+            await conn.execute(sa.text(f"PRAGMA user_version = {int(SCHEMA_GENERATION)}"))
 
     async def _install_terminal_run_guard(self) -> None:
         """ТЕРМИНАЛЬНЫЙ ПРОГОН НЕИЗМЕНЯЕМ. Запрет живёт в БАЗЕ, а не в вызовах.

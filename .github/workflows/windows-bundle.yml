@@ -1,22 +1,105 @@
 name: One-download Windows application
 env:
+  PYTHONUTF8: '1'
   BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  # LGPL build: redistributable with the notices shipped in LICENSES/. The exact
+  # GPL build includes libx264 used by Video Studio export. License notices and
+  # source information ship in LICENSES/. The exact
   # bytes bundled are hashed into MANIFEST.json, so the archive always says what
   # it actually contains rather than what a URL promised.
-  BOSSMAN_FFMPEG_ZIP: https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip
+  BOSSMAN_FFMPEG_ZIP: https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
 on:
-  pull_request:
-    branches: [night/v7-convergence-20260908]
+  # Событие push, а не pull_request, и разница здесь решает всё.
+  #
+  # На pull_request фильтр путей считается по СОВОКУПНОМУ диффу ветки против
+  # базы. В этом диффе давно лежит весь `command-center/**`, поэтому совпадение
+  # есть ВСЕГДА, чем бы ни был отдельный коммит, а отрицательные пути против
+  # такого диффа не значат ровно ничего.
+  #
+  # Доказано измерением, а не рассуждением: коммит 467e639f тронул ровно один
+  # файл `docs/oss/VALIDATION-2026-09-15.md`, которого в списке путей нет вовсе,
+  # и всё равно поставил в очередь сборку архива (прогон 96).
+  #
+  # На push тот же фильтр считается по файлам ИМЕННО ЭТОГО пуша: коммит с
+  # документацией или только с тестами задание не поднимает, а продуктовый —
+  # поднимает. Тот же приём уже стоит в windows-owner-tasks.yml по той же
+  # причине и по тому же замеру.
+  push:
+    branches:
+      - 'claude/**'
+      - 'night/**'
     paths:
       - 'tools/build_windows_bundle.py'
       - 'tools/verify_windows_bundle.py'
       - 'tools/bundle_evening_test.py'
       - 'tools/build_local_bundle.py'
       - 'tools/verify_installed_product.py'
+      - 'tools/installed_ui_sweep.py'
+      - 'tools/live_openrouter_owner.py'
+      - 'scripts/target_hardware_acceptance.py'
+      - 'tools/owner_machine_report.py'
+      - 'tools/studio_models.json'
+      - 'tools/studio_live_owner.py'
+      - 'scripts/bossman_doctor.py'
+      - 'command-center/**'
+      - 'bossman-core/**'
+      - 'bossman_shared/**'
+      - 'scripts/ui_acceptance_sweep.py'
       - 'tools/app_icons.py'
       - 'command-center/ui/icons/**'
       - '.github/workflows/windows-bundle.yml'
+      # Валидаторы и реестр приёмки (OA-01/OA-02): их правка меняет сам гейт.
+      - 'tools/astra6_freeze.py'
+      - 'tools/require_acceptance_results.py'
+      - 'tools/acceptance_registry.py'
+      - 'tools/acceptance_registry.json'
+      # Замок входов сборки (OA-03): новая запись — новая сборка.
+      - 'tools/windows_bundle_lock.py'
+      - 'tools/windows_bundle_lock.json'
+      - 'tools/windows_bundle_lock.txt'
+      - 'tools/windows_bundle_build_tools.txt'
+      # Коммит, меняющий ТОЛЬКО тесты, архив не меняет и очередь занимать не
+      # должен. Под push эти исключения наконец работают: фильтр смотрит на
+      # файлы самого пуша.
+      #
+      # Зачем это вообще: прогоны 88, 89, 90, 91, 92 и 94 отменены подряд, НИ
+      # ОДИН не дошёл до старта, и архив с 20:09 не проверялся вовсе.
+      # `cancel-in-progress: false` бережёт начавшийся прогон, а ожидающий
+      # GitHub держит ровно один на группу. Гейт, который не запускается,
+      # строже не становится — он молчит, и молчание читается как «проверок
+      # нет», хотя выглядит как «проверки идут».
+      #
+      # Цена названа прямо: новый владельческий тест попадёт на установленный
+      # продукт не сразу, а со следующим продуктовым коммитом. Немедленная
+      # проверка доступна руками через workflow_dispatch, и полный набор тестов
+      # на каждом прогоне идёт без изъятий.
+      - '!command-center/tests/**'
+      # Исключение из исключения: файлы, которые выполняются ТОЛЬКО в шаге
+      # «Installed browser…» на Windows. Правка такого файла — правка самого
+      # гейта, и проверить её можно лишь этим прогоном. Прогон 105 показал
+      # цену иного порядка: test_video_cancel_button упал на Windows по
+      # причине, которой нет на Linux (BL-068), а починка теста без
+      # продуктового коммита не попадала в очередь — workflow_dispatch и
+      # отмена из среды агента отвечают 403. Позднее правило в списке
+      # побеждает более раннее, поэтому эти пути идут ПОСЛЕ отрицательного.
+      - 'command-center/tests/test_editors_user_acceptance.py'
+      - 'command-center/tests/test_web_designer_recovery_ui.py'
+      - 'command-center/tests/test_apps_files_browser_owner.py'
+      - 'command-center/tests/test_apps_files_http_owner.py'
+      - 'command-center/tests/test_images_library_ui.py'
+      - 'command-center/tests/test_images_cancel_button.py'
+      - 'command-center/tests/test_video_cancel_button.py'
+      - 'command-center/tests/test_two_tabs_conflict.py'
+      - 'command-center/tests/test_invalid_input_is_human.py'
+      - 'command-center/tests/test_unload_flush.py'
+      - 'command-center/tests/test_unsaved_draft_navigation.py'
+      - 'command-center/tests/test_missing_model_and_dead_service_are_human.py'
+      - 'command-center/tests/test_oss_memory_refusals.py'
+      - 'command-center/tests/test_web_designer_first_click_ui.py'
+      - 'command-center/tests/test_refresh_during_typing_ui.py'
+      - 'command-center/tests/test_studio_gallery_ui.py'
+      # conftest записывает привязку results.xml к архиву (OA-02).
+      - 'command-center/tests/conftest.py'
+      - '!bossman-core/tests/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -47,14 +130,34 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - name: Build tooling only (the bundle brings its own runtime)
-        run: python -m pip install --upgrade pip wheel
+      # OA-03: pip, setuptools and wheel by version and digest. They build the
+      # Bossman wheels and the lock's six source distributions; nothing here
+      # ships in the archive.
+      - name: Build tooling only, pinned (the bundle brings its own runtime)
+        run: python -m pip install --require-hashes --requirement tools/windows_bundle_build_tools.txt
       - name: The canonical icon is current before it is packaged
         run: python tools/app_icons.py --check
       - name: Build the single downloadable application
         run: >-
           python tools/build_windows_bundle.py
-          --out "${{ runner.temp }}/bossman-dist" --zip
+          --out "${{ runner.temp }}/bossman-dist" --zip --profile release
+      # OA-03. The only place the real win_amd64/cp312 resolution exists is this
+      # runner: the step resolves it without installing (pip --dry-run --report),
+      # pins the embeddable CPython and the newest IMMUTABLE FFmpeg release asset
+      # by digest, and prints the two lock files between BOSSMAN_LOCK_*_BEGIN/END
+      # markers. They are copied into tools/ from this log; from then on the
+      # build downloads nothing it was not told the digest of. The step never
+      # decides the acceptance of this archive.
+      - name: Record the build-input lock this resolution produced (OA-03)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          python tools/windows_bundle_lock.py record
+          --wheels "${{ runner.temp }}/bossman-dist/_work/wheels"
+          --dist "${{ runner.temp }}/bossman-dist"
+          --out "${{ runner.temp }}/bossman-lock"
       - name: Locate the archive
         shell: python
         run: |
@@ -115,3 +218,255 @@ jobs:
             ${{ runner.temp }}/bossman-dist/bundle-acceptance.json
           if-no-files-found: warn
           retention-days: 30
+
+  owner-experience:
+    needs: bundle
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v7
+        with:
+          name: bossman-windows-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
+          path: ${{ runner.temp }}/download
+      - name: Extract the exact archive into an owner path with spaces
+        shell: python
+        run: |
+          import hashlib, json, os, pathlib, subprocess, zipfile
+          root = pathlib.Path(os.environ['RUNNER_TEMP'])
+          archives = list((root / 'download').glob('BOSSMAN-Windows-x64-*.zip'))
+          assert len(archives) == 1, archives
+          # OA-02: everything this job records is evidence for THESE bytes.
+          # The bundle job measured the same file; the two digests must agree
+          # before a single test runs, and every report names this digest.
+          digest = hashlib.sha256()
+          with archives[0].open('rb') as stream:
+              for chunk in iter(lambda: stream.read(1 << 20), b''):
+                  digest.update(chunk)
+          archive_sha256 = digest.hexdigest()
+          accepted = json.loads((root / 'download' / 'bundle-acceptance.json').read_text(encoding='utf-8'))
+          assert accepted['details']['archive_sha256'] == archive_sha256, (accepted['details'].get('archive_sha256'), archive_sha256)
+          harness_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          assert harness_sha == os.environ['BOSSMAN_ACCEPTANCE_SHA'], (harness_sha, os.environ['BOSSMAN_ACCEPTANCE_SHA'])
+          print('archive_sha256=' + archive_sha256 + ' harness_sha=' + harness_sha)
+          target = root / 'Owner acceptance with spaces'
+          with zipfile.ZipFile(archives[0]) as archive:
+              archive.extractall(target)
+          manifests = list(target.glob('*/MANIFEST.json'))
+          assert len(manifests) == 1, manifests
+          home = manifests[0].parent
+          manifest = json.loads(manifests[0].read_text(encoding='utf-8'))
+          assert manifest['source_sha'] == os.environ['BOSSMAN_ACCEPTANCE_SHA']
+          proof = root / 'owner-proof'
+          proof.mkdir()
+          variables = {
+              'BCC_ACCEPTANCE_PYTHON': str(home / 'runtime' / 'python.exe'),
+              'BCC_ACCEPTANCE_SOURCE_SHA': os.environ['BOSSMAN_ACCEPTANCE_SHA'],
+              'PLAYWRIGHT_BROWSERS_PATH': str(home / 'browser'),
+              'BOSSMAN_EDITOR_EVIDENCE_DIR': str(proof),
+              'BCC_REQUIRE_BROWSER': '1',
+              'BOSSMAN_ARCHIVE_SHA256': archive_sha256,
+              'BOSSMAN_HARNESS_SHA': harness_sha,
+              # OA-04: the sweep and the live smoke run from the SHIPPED
+              # copies in app-support, not from this checkout's tools/.
+              'BOSSMAN_INSTALLED_HOME': str(home),
+          }
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as stream:
+              for name, value in variables.items():
+                  stream.write(name + '=' + value + '\n')
+          with open(os.environ['GITHUB_PATH'], 'a', encoding='utf-8') as stream:
+              stream.write(str(home / 'media') + '\n')
+      # Test controller dependencies never modify the shipped Python runtime.
+      - name: Install browser test controller
+        run: python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
+      - name: Installed browser, real media, files and process restart
+        run: |
+          python -m pytest tests/test_installed_ui_sweep.py -q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Профиль приёмки — tools/acceptance_registry.json, один на workflow,
+          # проверку JUnit и заморозку (OA-02). Список здесь не набирается руками.
+          $profile = python tools/acceptance_registry.py --paths
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pytest -c command-center/pyproject.toml $profile `
+            -q --junitxml="$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/require_acceptance_results.py "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/results.xml" --profile windows-installed --source-sha "$env:BOSSMAN_ACCEPTANCE_SHA"
+      # Запас времени владельческих ожиданий — в журнал, а не только в артефакт.
+      # Зелёный обязан говорить, НАСКОЛЬКО он зелёный: проход за 0,2 с и проход
+      # за 4,8 с при бюджете 5 с — разные утверждения о продукте, а в вердикте
+      # выглядят одинаково. Артефакт весит сотни мегабайт и его мало кто
+      # открывает; строка в журнале видна и человеку, и разбору красного.
+      # Шаг ничего не проверяет и уронить задание не может.
+      - name: Measured margins of the owner waits
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          $evidence = $env:BOSSMAN_EDITOR_EVIDENCE_DIR
+          if (-not $evidence) { Write-Host 'BOSSMAN_EDITOR_EVIDENCE_DIR не задан'; exit 0 }
+          $margins = Join-Path $evidence 'owner-history-margins.jsonl'
+          if (Test-Path $margins) {
+            Write-Host '--- owner-history-margins.jsonl ---'
+            Get-Content $margins
+          } else {
+            Write-Host 'owner-history-margins.jsonl отсутствует: замер не дошёл до записи'
+          }
+      # Оба владельческих раннера ниже — КОПИИ ИЗ АРХИВА (app-support), а не
+      # tools/ этого чекаута: владелец получает ровно их, и этот прогон
+      # доказывает, что они работают без клона (OA-04).
+      - name: Inventory visible buttons in the installed application
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        run: |
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/installed_ui_sweep.py" `
+            --expected-sha "$env:BOSSMAN_ACCEPTANCE_SHA" `
+            --output "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/ui-sweep.json"
+      - name: Hardware detection really runs from the archive (WMIC is gone in Win11 24H2)
+        # Правка определения железа до сих пор проверялась только подстановкой
+        # ветки Windows на Linux. Здесь раннер ИСПОЛНЯЕТ тот самый файл из
+        # распакованного архива. Раннер — не машина владельца, поэтому
+        # законный ответ здесь `SOFTWARE_READY_FOR_TARGET_HARDWARE_RUN`.
+        # Недопустимый — `TARGET_HARDWARE_UNDETERMINED` (код 3): он означал бы,
+        # что замена WMIC на настоящей Windows не работает, а это ровно то,
+        # ради чего шаг и добавлен.
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        run: |
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/target_hardware_acceptance.py" `
+            --json "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/machine.json"
+          $code = $LASTEXITCODE
+          if ($code -eq 3) {
+            Write-Host '::error::TARGET_HARDWARE_UNDETERMINED на раннере Windows — определение железа не работает без WMIC. Смотрите TARGET_HARDWARE_SOURCES в журнале выше.'
+            exit 1
+          }
+          if ($code -ne 0) {
+            Write-Host "::error::определение железа завершилось кодом $code"
+            exit $code
+          }
+          exit 0
+      - name: Every metric runs AND reads correctly on real Windows
+        # Метрики проверялись по отдельности и в основном на Linux. Прогон 132
+        # показал цену: определитель железа считал всё верно, а вывести не смог
+        # — упал на кириллице (BL-087). Дефект жил в ОТОБРАЖЕНИИ. Здесь каждая
+        # метрика запускается из распакованного архива с `-I`, как её зовёт
+        # приёмка, и проверяется на код выхода, строку вердикта, разбираемый
+        # JSON с годными числами и отсутствие следов испорченной кодировки.
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        run: |
+          python tools/metrics_smoke.py `
+            --home "$env:BOSSMAN_INSTALLED_HOME" `
+            --python "$env:BCC_ACCEPTANCE_PYTHON" `
+            --json "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/metrics-smoke.json"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host '::error::BOSSMAN_METRICS_SMOKE=FAIL — метрика не отображается корректно на Windows. Смотрите строки выше.'
+            exit 1
+          }
+      - name: Studio installed catalog and owner live evidence
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        env:
+          BOSSMAN_OPENROUTER_API_KEY: ${{ secrets.BOSSMAN_OPENROUTER_API_KEY }}
+          # Живая приёмка Studio включается ТОЛЬКО когда владелец сам положил в
+          # секреты политику и два маршрута. Раннер отвергает любую ненулевую
+          # цену и любой режим, кроме free_only, поэтому автоматической траты
+          # денег здесь нет по построению, а не по обещанию.
+          BOSSMAN_STUDIO_POLICY: ${{ secrets.BOSSMAN_STUDIO_POLICY }}
+          BOSSMAN_STUDIO_MODELS: ${{ secrets.BOSSMAN_STUDIO_MODELS }}
+        run: |
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I -m bcc.studio.catalog --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $live = @('--expected-sha', $env:BOSSMAN_ACCEPTANCE_SHA,
+                    '--output', "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/studio.json")
+          $policy = $null
+          if ($env:BOSSMAN_STUDIO_POLICY -and $env:BOSSMAN_STUDIO_MODELS) {
+            $policy = Join-Path $env:RUNNER_TEMP 'studio-policy.json'
+            [IO.File]::WriteAllText($policy, $env:BOSSMAN_STUDIO_POLICY)
+            $live += @('--execute', '--policy', $policy)
+            foreach ($model in ($env:BOSSMAN_STUDIO_MODELS -split ',')) {
+              $name = $model.Trim()
+              if ($name) { $live += @('--model', $name) }
+            }
+            Write-Host 'STUDIO_LIVE_PATH=execute (маршруты и политика взяты из секретов владельца)'
+          } else {
+            Write-Host 'STUDIO_LIVE_PATH=owner_required (политика или маршруты не заданы)'
+          }
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/studio_live_owner.py" @live
+          $code = $LASTEXITCODE
+          if ($policy -and (Test-Path $policy)) { Remove-Item $policy -Force }
+          if ($code -eq 2) {
+            Write-Host '::warning::STUDIO=OWNER_REQUIRED; configure confirmed free image/video routes and run shipped studio_live_owner.py --execute. No paid fallback.'
+            exit 0
+          }
+          exit $code
+      - name: Genuine free-model human task smoke
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        env:
+          BOSSMAN_OPENROUTER_API_KEY: ${{ secrets.BOSSMAN_OPENROUTER_API_KEY }}
+        run: |
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/live_openrouter_owner.py" `
+            --expected-sha "$env:BOSSMAN_ACCEPTANCE_SHA" `
+            --output "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/live-model.json" `
+            --trajectories "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/live-trajectories.jsonl"
+          $code = $LASTEXITCODE
+          if ($code -eq 2) {
+            Write-Host '::warning::LIVE_MODEL=OWNER_REQUIRED; see live-model.json. No model PASS is claimed.'
+            exit 0
+          }
+          exit $code
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows-owner-proof-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
+          path: ${{ runner.temp }}/owner-proof
+          retention-days: 30
+          if-no-files-found: warn
+
+  freeze:
+    needs: [bundle, owner-experience]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: '*-${{ env.BOSSMAN_ACCEPTANCE_SHA }}'
+          path: ${{ runner.temp }}/freeze-evidence
+      - name: Record the Astra 6 verdict against exact evidence
+        if: always()
+        run: >-
+          python tools/astra6_freeze.py
+          --evidence-dir '${{ runner.temp }}/freeze-evidence'
+          --source-sha '${{ env.BOSSMAN_ACCEPTANCE_SHA }}'
+          --out '${{ runner.temp }}/freeze/ASTRA6-FREEZE.json'
+          --job-status '${{ needs.bundle.result }}'
+          --job-status '${{ needs.owner-experience.result }}'
+      # Записанный манифест — отчёт. Разрешение на выпуск — только этот шаг:
+      # он красный на всём, кроме FROZEN, а continue-on-error оставляет
+      # загрузку отчёта живой. Зелёный значок задания сам по себе выпуском
+      # не является — читать BOSSMAN_ASTRA6_RELEASE_READY=.
+      - name: Publish gate — FROZEN only (a written report is not a release permission)
+        if: always()
+        continue-on-error: true
+        run: >-
+          python tools/astra6_freeze.py
+          --evidence-dir '${{ runner.temp }}/freeze-evidence'
+          --source-sha '${{ env.BOSSMAN_ACCEPTANCE_SHA }}'
+          --out '${{ runner.temp }}/freeze/ASTRA6-FREEZE.json'
+          --job-status '${{ needs.bundle.result }}'
+          --job-status '${{ needs.owner-experience.result }}'
+          --require-frozen
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: astra6-freeze-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
+          path: ${{ runner.temp }}/freeze/ASTRA6-FREEZE.json
+          retention-days: 30
+          if-no-files-found: error

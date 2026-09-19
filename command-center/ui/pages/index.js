@@ -43,6 +43,8 @@ function lazyPage(meta, load, pick) {
 }
 
 export const FEATURE_PAGES = [
+  lazyPage({ id: 'oss', title: 'Локальные инструменты', icon: 'system', nav: 'more', section: 'system' },
+    () => import('./oss.js'), (m) => m.default),
   lazyPage({ id: 'video-studio', title: 'Video Studio', icon: 'film', nav: 'primary', section: 'studio' },
     () => import('./video_studio.js'), (m) => m.default),
   lazyPage({ id: 'bossman-chat', title: 'История видео и чат', icon: 'terminal', section: 'studio', nav: 'more' },
@@ -87,7 +89,8 @@ export const FEATURE_PAGES = [
     () => import('./mobile.js'), (m) => m.default),
   lazyPage({ id: 'builder', title: 'Конструктор миссий', icon: 'bolt', nav: 'primary', section: 'work' },
     () => import('./builder.js'), (m) => m.default),
-  lazyPage({ id: 'images', title: 'Изображения', icon: 'models', nav: 'primary', section: 'studio' },
+  lazyPage({ id: 'images', title: 'Студия', icon: 'models', nav: 'primary', section: 'studio',
+             sweep: ['images', 'images?studio=1'] },
     () => import('./images.js'), (m) => m.default),
   lazyPage({ id: 'trading_lab', title: 'Обучение трейдингу', icon: 'activity', nav: 'more', section: 'studio' },
     () => import('./trading_lab.js'), (m) => m.default),

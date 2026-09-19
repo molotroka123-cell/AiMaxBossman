@@ -13,6 +13,7 @@ sync_playwright: импорт pytest-модуля может происходи�
 from __future__ import annotations
 
 import os
+import re
 import time
 from pathlib import Path
 
@@ -107,9 +108,23 @@ def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15
     def _selected() -> bool:
         return bool(page.evaluate(
             "() => document.querySelectorAll('div.bd-row').length > 0"))
+
+    def _selected_info() -> str:
+        """Что именно выделено — по строке инспектора, а не по факту клика."""
+        return str(page.evaluate(
+            "() => { const n = document.querySelector('div.bd-elinfo'); return n ? n.textContent : ''; }") or '')
+
+    # Клик, который выделил НЕ ТОТ элемент, — тоже промах, и хуже молчаливого:
+    # строка инспектора есть, тест идёт дальше, а «Применить» уходит другому
+    # тегу. Для body/html с потомками правка упирается в диалог подтверждения,
+    # запроса нет, и падение выглядит как «code did not settle» с нетронутым
+    # кодом (BL-063, третья точка). Для голого имени тега выделение сверяется
+    # с ним; несовпадение — повторный клик, а в отказе называется, что попало.
+    expected_tag = selector.strip().lower() if re.fullmatch(r"[a-z][a-z0-9]*", selector.strip().lower()) else None
     guest = preview_frame(page)
     guest.wait_for_selector(selector, timeout=timeout)
     missed = 0
+    wrong: list[str] = []
     for _ in range(4):
         box = guest.evaluate(
             """([selector, index]) => {
@@ -139,25 +154,61 @@ def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15
             # правильно. Владелец подводит указатель к элементу заранее и этого
             # не замечает; тест, который бьёт мышью без наведения, ловит ровно
             # тот единственный потерянный клик.
-            page.mouse.move(spot["x"], spot["y"])
-            page.wait_for_timeout(150)
+            # Готовность — слово самого кадра, а не пауза: пикер помечает
+            # наведённый элемент data-bd-hover, как только события указателя
+            # до него доходят. Замер 17.09 (BL-063, §6): при одном mouse.move +
+            # 150 мс после смены масштаба 1 первый клик из 9 терялся при
+            # ИДЕАЛЬНОЙ геометрии; с ожиданием подтверждённого наведения —
+            # 20 из 20 точных первых кликов (test_web_designer_first_click_ui).
+            # Владелец двигает мышь, пока не появится рамка; стенд — тоже.
+            spot["hover_ms"] = hover_until_acknowledged(page, guest, spot, selector, index)
             page.mouse.click(spot["x"], spot["y"])
             if not expect_selection:
                 return spot
             deadline = time.monotonic() + settle_ms / 1000.0
             while time.monotonic() < deadline:
                 if _selected():
-                    return spot
+                    info = _selected_info()
+                    if expected_tag is None or re.match(rf"{expected_tag}(?![a-z0-9])", info.strip().lower()):
+                        return spot
+                    wrong.append(info)
+                    break
                 page.wait_for_timeout(100)
             missed += 1
             continue
         page.evaluate("spot => window.scrollBy(0, spot.y - spot.vh / 2)", spot)
+    if wrong:
+        raise AssertionError(
+            f"клик по {selector}[{index}] отправлен {missed} раз(а) и выделял НЕ ТОТ элемент: "
+            f"инспектор показал {wrong!r}, ожидался тег {expected_tag!r}. Последняя точка: {spot}. "
+            f"Это не «выбор не состоялся» — это «выбрано другое», и «Применить» ушло бы не туда")
     if missed:
         raise AssertionError(
             f"клик по {selector}[{index}] отправлен {missed} раз(а) и ни разу не выбрал "
             f"элемент: инспектор пуст. Последняя точка: {spot}. Это НЕ «строки нет» — "
             f"это «выбор не состоялся»")
     raise AssertionError(f"точку элемента {selector}[{index}] не удалось вывести в окно: {spot}")
+
+
+def hover_until_acknowledged(page, guest, spot: dict, selector: str, index: int = 0,
+                             budget_ms: int = 2000):
+    """Двигать указатель по цели, пока кадр не подсветит её; None — так и не подсветил.
+
+    Нажатие здесь НЕ выполняется: это подготовка к одному клику, а не его
+    повтор. Возвращает время до подтверждения в миллисекундах.
+    """
+    started = time.monotonic()
+    nudge = 0
+    while (time.monotonic() - started) * 1000 < budget_ms:
+        page.mouse.move(spot["x"] + (nudge % 3) - 1, spot["y"] + ((nudge // 3) % 3) - 1)
+        nudge += 1
+        page.wait_for_timeout(50)
+        if guest.evaluate(
+                "([selector, index]) => { const el = document.querySelectorAll(selector)[index];"
+                " return !!el && el.hasAttribute('data-bd-hover'); }", [selector, index]):
+            page.mouse.move(spot["x"], spot["y"])
+            return int((time.monotonic() - started) * 1000)
+    return None
 
 
 def wait_for_preview_viewport(page, width: int, height: int | None = None, *, timeout: float = 10000):

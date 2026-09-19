@@ -145,5 +145,12 @@
       },
       "reason": ""
     }
-  ]
+  ],
+  "studio_v8_extension": {
+    "scope": "Linux source tests, HTTP provider stub; not owner live generation",
+    "B": "PASS: existing Web Designer edit, version-conflict refusal",
+    "E": "PASS: provider stub -> verified PNG -> Video Studio clip -> real FFmpeg export -> independent DB reopen; changed source refused",
+    "live_generation": "OWNER_REQUIRED",
+    "windows_archive": "NOT_RUN"
+  }
 }

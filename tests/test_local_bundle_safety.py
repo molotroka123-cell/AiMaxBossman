@@ -43,3 +43,22 @@ def test_output_accepts_new_directory(tmp_path):
     dest = tmp_path / "new" / "bundle"
     assert bundle.prepare_output(dest) == dest
     assert dest.is_dir()
+
+
+def test_wheels_can_be_built_without_build_isolation_for_the_locked_windows_build(tmp_path, monkeypatch):
+    """OA-03: with the lock, the Bossman wheels are built by the pinned setuptools, not a fetched one."""
+    import subprocess
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        for name, _ in bundle.PROJECTS:
+            (tmp_path / "wheels" / f"{name.replace('-', '_')}-0.0-py3-none-any.whl").write_bytes(b"")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(bundle, "_run", fake_run)
+    bundle.build_wheels(tmp_path / "wheels")
+    assert all("--no-build-isolation" not in cmd for cmd in calls)
+    calls.clear()
+    bundle.build_wheels(tmp_path / "wheels", build_isolation=False)
+    assert all("--no-build-isolation" in cmd and "--no-deps" in cmd for cmd in calls)

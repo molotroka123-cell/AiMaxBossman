@@ -18,7 +18,12 @@
   works              — интерфейс ответил: изменилась разметка или адрес
   disabled_reason    — выключен И объясняет, почему (title/aria/подпись)
   opens_feature      — открылся диалог, панель или другая страница
-  real_effect        — ушёл запрос, меняющий состояние (POST/PUT/PATCH/DELETE)
+  request_accepted   — изменяющий запрос получил 2xx; результат требует проверки
+  input_refused      — пустое поле отклонено с проверенной видимой подсказкой
+  refresh_observed   — после клика получен GET 2xx; изменение данных не заявлено
+  dialog_opened      — нативный диалог открыт и безопасно отменён обходом
+  already_selected   — измеренное выбранное состояние сохранилось
+  already_empty      — список вложений был и остался пустым
   error              — ошибка в консоли, исключение страницы или 5xx
   dead               — НИЧЕГО: ни разметки, ни адреса, ни запроса, ни консоли
 
@@ -71,6 +76,21 @@ KILLS_HARNESS = re.compile(
 
 SETTLE_MS = 700          # сколько ждать последствий нажатия
 PAGE_SETTLE_MS = 900     # сколько ждать первой отрисовки страницы
+APP_START_ROUTE = re.compile(r'/api/apps/[^/?#]+/start(?:\?[^#]*)?$')
+APP_REFRESH_ROUTE = re.compile(r'/api/apps\?refresh=true(?:&[^#]*)?$')
+
+
+def _tracked_request(method, url):
+    return method in ('POST', 'PUT', 'PATCH', 'DELETE') or (
+        method == 'GET' and bool(APP_REFRESH_ROUTE.search(url)))
+
+
+def _app_start_problem(payload):
+    if isinstance(payload, dict) and payload.get('ok') is True and payload.get('ready') is True:
+        return None
+    reason = payload.get('reason') if isinstance(payload, dict) else None
+    # Never copy child logs, commands or arbitrary provider details into proof.
+    return reason if reason in ('exited', 'not_ready') else 'readiness_not_confirmed'
 
 
 @dataclass
@@ -82,6 +102,8 @@ class Click:
     detail: str = ""
     requests: list[str] = field(default_factory=list)
     console: list[str] = field(default_factory=list)
+    responses: list[str] = field(default_factory=list)
+    initial_state: dict = field(default_factory=dict)
 
 
 def _free_port() -> int:
@@ -139,14 +161,34 @@ class LiveApp:
         return f"http://127.0.0.1:{self.port}"
 
 
+def page_routes(src: str) -> list[str]:
+    """Маршруты обхода берутся из САМОГО реестра, включая режимы страницы.
+
+    Страница может иметь не один экран: `images` показывает старую библиотеку
+    по `#/images` и Studio по `#/images?studio=1`. Обход по одним только
+    идентификаторам видел первый экран и не видел второй — измерено 18.09:
+    11 нажатий против 22 на тех же страницах, то есть одиннадцать органов
+    управления Studio не проверялись вовсе. Поэтому страница объявляет свои
+    маршруты полем `sweep`, а обход идёт по ним; страница без этого поля
+    по-прежнему обходится по своему идентификатору.
+    """
+    routes: list[str] = []
+    for body in re.findall(r"lazyPage\(\{(.*?)\}\s*,", src, re.S):
+        found = re.search(r"id:\s*'([^']+)'", body)
+        if not found:
+            continue
+        declared = re.search(r"sweep:\s*\[([^\]]*)\]", body)
+        routes.extend(re.findall(r"'([^']+)'", declared.group(1)) if declared else [found.group(1)])
+    return routes
+
+
 def page_ids() -> list[str]:
-    """Идентификаторы страниц берутся из САМОГО реестра, а не из копии списка.
+    """Маршруты обхода из реестра исходников.
 
     Список, записанный здесь руками, разошёлся бы с `pages/index.js` при первой
     же новой странице, и обход тихо перестал бы её проверять.
     """
-    src = (CC / "ui" / "pages" / "index.js").read_text(encoding="utf-8")
-    return re.findall(r"lazyPage\(\{\s*id:\s*'([^']+)'", src)
+    return page_routes((CC / "ui" / "pages" / "index.js").read_text(encoding="utf-8"))
 
 
 def _visible_controls(page) -> list[dict]:
@@ -212,12 +254,107 @@ def _fresh_page(page, app: "LiveApp", pid: str) -> None:
         page.click("#login-submit")
         page.wait_for_selector("#shell:not([hidden])", timeout=20000)
         page.goto(f"{app.url}/#/{pid}", wait_until="domcontentloaded")
+    _wait_rendered(page, pid)
     page.wait_for_timeout(PAGE_SETTLE_MS)
 
 
+def _wait_rendered(page, pid):
+    # renderPage replaces its skeleton only after awaited page.render().
+    # DOMContentLoaded alone happens before lazy imports and API responses.
+    page.wait_for_function("""pid => {
+      const view = document.querySelector('#view');
+      if (!view || !view.childElementCount || view.querySelector('.skeleton')) return false;
+      if (pid !== 'apps') return true;
+      return !!view.querySelector('.bx-apps-grid') ||
+        view.innerText.includes('Приложений пока нет') ||
+        view.innerText.includes('Список приложений не загрузился');
+    }""", arg=pid, timeout=20000)
+    if pid == 'apps':
+        error = page.locator('#view').get_by_text('Список приложений не загрузился', exact=True)
+        if error.count() and error.first.is_visible():
+            raise RuntimeError('Application registry failed to load')
+
+
 def _dom_fingerprint(page) -> str:
-    html = page.evaluate("() => (document.querySelector('#view')||document.body).innerHTML")
+    # Input value/checked properties are not reflected into innerHTML when
+    # a shortcut fills a command or a checkbox changes through JavaScript.
+    html = page.evaluate("""() => {
+        const root = document.querySelector('#view') || document.body;
+        return JSON.stringify({html: root.innerHTML,
+          fields: [...root.querySelectorAll('input, textarea, select')].map(el =>
+            ({value: el.value, checked: el.checked, selected: el.selectedIndex}))});
+    }""")
     return hashlib.sha256(html.encode("utf-8", "replace")).hexdigest()
+
+
+def _visible_texts(page, selector: str) -> set[str]:
+    return set(page.locator(selector).evaluate_all("""elements => elements.filter(el => {
+        const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+        return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none';
+    }).map(el => el.innerText.trim())"""))
+
+
+def _validation_case(page, pid, label):
+    cases = {
+        ('openrouter', 'Connect'): ('#view input[type=password]', 'Вставьте ключ',
+            '{message: Вставьте ключ, hint: без ключа подключаться нечем}'),
+        ('mission_console', 'Отправить'): ('#mc-command-input', 'Команда пустая',
+            'Error: Команда пустая'),
+    }
+    case = cases.get((pid, label))
+    if case and page.locator(case[0]).count() == 1 and not page.locator(case[0]).input_value().strip():
+        return case[1:]
+    return None
+
+
+def _known_state(target, pid):
+    return target.evaluate("""(el, pid) => {
+      const result = {};
+      for (const attr of ['aria-selected', 'aria-pressed'])
+        if (el.getAttribute(attr) === 'true') result.selected = attr + '=true';
+      if (pid === 'terminal' && el.matches('.seg > button.on')) result.selected = 'terminal mode: .seg > button.on';
+      if (pid === 'images' && el.matches('.images-tabs button.active, .images-collection-row.active'))
+        result.selected = 'image selection: ' + el.className;
+      if (el.innerText.trim() === 'Убрать вложения') {
+        const parent = el.parentElement;
+        const input = parent.querySelector('input[type=file][aria-label="Прикрепить медиа"]');
+        const names = parent.querySelector('small');
+        if (input && names && input.files.length === 0 && names.innerText.trim() === '')
+          result.empty_attachments = 'file input has 0 files; attachment names empty';
+      }
+      return result;
+    }""", pid, timeout=1000)
+
+
+def _classify(*, failures, console, page_errors, requests, responses,
+              new_dialogs, new_toasts, validation, dom_changed, url_changed,
+              read_responses=(), native_dialogs=(), unchanged_state=None, incomplete_requests=()):
+    refusal = (validation and validation[0] in new_toasts and not requests
+               and not failures and not page_errors and console
+               and all(line.splitlines()[0] == validation[1] for line in console))
+    if refusal:
+        return 'input_refused', 'Пустое поле: показана проверенная подсказка «' + validation[0] + '», запрос не отправлен'
+    if failures or page_errors or console:
+        return 'error', '; '.join(sorted(set(failures + page_errors + console))[:3])
+    if incomplete_requests:
+        return 'error', 'Не получен ответ в пределах тайм-аута действия: ' + '; '.join(sorted(incomplete_requests))
+    if responses:
+        return 'request_accepted', '; '.join(responses[:3]) + ' (ответ 2xx; результат отдельно не проверен)'
+    if requests:
+        return 'error', 'Изменяющий запрос отправлен, но успешный ответ не наблюдался'
+    if native_dialogs:
+        return 'dialog_opened', '; '.join(native_dialogs) + ' (диалог отменён обходом)'
+    if new_dialogs or url_changed:
+        return 'opens_feature', 'новый видимый диалог' if new_dialogs else 'адрес изменился'
+    if dom_changed or new_toasts:
+        return 'works', 'видимое состояние изменилось'
+    if read_responses:
+        return 'refresh_observed', '; '.join(read_responses[:3]) + ' (GET после клика; изменение данных не заявлено)'
+    if unchanged_state and unchanged_state.get('selected'):
+        return 'already_selected', unchanged_state['selected'] + ' до и после клика'
+    if unchanged_state and unchanged_state.get('empty_attachments'):
+        return 'already_empty', unchanged_state['empty_attachments'] + ' до и после клика'
+    return 'dead', 'ни разметки, ни адреса, ни запроса, ни консоли'
 
 
 def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
@@ -235,14 +372,45 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
         page = browser.new_page(viewport={"width": 1440, "height": 900})
 
         console: list[str] = []
+        page_errors: list[str] = []
         requests: list[str] = []
+        responses: list[str] = []
+        read_responses: list[str] = []
+        native_dialogs: list[str] = []
+        pending: set[str] = set()
         page.on("console", lambda m: console.append(m.text) if m.type == "error" else None)
-        page.on("pageerror", lambda e: console.append(str(e)))
+        page.on("pageerror", lambda e: page_errors.append(str(e)))
         page.on("request", lambda r: requests.append(f"{r.method} {r.url}")
                 if r.method in ("POST", "PUT", "PATCH", "DELETE") else None)
         failures: list[str] = []
         page.on("response", lambda r: failures.append(f"{r.status} {r.url}")
-                if r.status >= 500 else None)
+                if r.status >= 500 or (r.status >= 400 and _tracked_request(r.request.method, r.url)) else None)
+        page.on("response", lambda r: responses.append(f"{r.status} {r.request.method} {r.url}")
+                if 200 <= r.status < 300 and r.request.method in ("POST", "PUT", "PATCH", "DELETE") else None)
+        page.on('response', lambda r: read_responses.append(f'{r.status} GET {r.url}')
+                if r.request.method == 'GET' and 200 <= r.status < 300 else None)
+        page.on('request', lambda r: pending.add(f'{r.method} {r.url}')
+                if _tracked_request(r.method, r.url) else None)
+        page.on('response', lambda r: pending.discard(f'{r.request.method} {r.url}'))
+        def verify_app_start(response):
+            if response.request.method == 'POST' and APP_START_ROUTE.search(response.url) and response.ok:
+                try:
+                    problem = _app_start_problem(response.json())
+                except Exception:
+                    problem = 'invalid_readiness_response'
+                if problem:
+                    failures.append('App start: ' + problem)
+        page.on('response', verify_app_start)
+        def request_failed(request):
+            key = f'{request.method} {request.url}'
+            if key in pending:
+                failures.append('network failure: ' + key)
+                pending.discard(key)
+        page.on('requestfailed', request_failed)
+        def native_dialog(dialog):
+            native_dialogs.append(dialog.type + ': ' + dialog.message)
+            dialog.dismiss()
+        page.on('dialog', native_dialog)
 
         page.goto(app.url + "/", wait_until="domcontentloaded")
         page.fill("#login-token", app.svc.auth.token)
@@ -253,6 +421,11 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
             try:
                 _fresh_page(page, app, pid)
                 controls = _visible_controls(page)
+                # Template selection is local UI state; creating a project
+                # changes the database and removes this empty-state chooser.
+                # Exercise the chooser before its create action, not after it.
+                if pid == 'web_designer':
+                    controls.sort(key=lambda control: 'bd-tpl' not in control['cls'].split())
             except Exception as exc:                      # noqa: BLE001
                 results.append(Click(pid, "(страница)", "", "error", f"не открылась: {exc}"))
                 continue
@@ -290,6 +463,13 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                                          "после повторной отрисовки элемент не найден"))
                     continue
 
+                if pid == 'web_designer' and 'bd-tpl' in ctl['cls'].split():
+                    # Clicking the default selection is legitimately a no-op.
+                    # Select a different card first, then verify this card.
+                    alternatives = page.locator('#view button.bd-tpl').filter(has_not_text=label.split('\n')[0])
+                    if alternatives.count():
+                        alternatives.first.click()
+
                 # Кнопка может быть ВЫКЛЮЧЕНА, пока страница дочитывает данные,
                 # и включиться через долю секунды. Нажатие в это окно даёт
                 # «TimeoutError — element is not enabled», и в отчёте это
@@ -307,9 +487,14 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                                              ctl["reason"] or "выключена и после ожидания"))
                         continue
 
-                console.clear(); requests.clear(); failures.clear()
+                console.clear(); requests.clear(); failures.clear(); page_errors.clear(); responses.clear()
+                read_responses.clear(); native_dialogs.clear(); pending.clear()
                 before_dom = _dom_fingerprint(page)
                 before_url = page.url
+                before_dialogs = _visible_texts(page, 'dialog[open], .modal, [role=dialog]')
+                before_toasts = _visible_texts(page, '#toast-root .toast-msg')
+                validation = _validation_case(page, pid, label)
+                initial_state = _known_state(target, pid)
                 try:
                     target.click(timeout=5000)
                 except Exception as exc:                  # noqa: BLE001
@@ -346,35 +531,65 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                                          + (f" | {seen}" if seen else "")))
                     continue
                 page.wait_for_timeout(SETTLE_MS)
+                # App startup deliberately waits READY_TIMEOUT (25 seconds)
+                # for cold imports. Allow its declared deadline plus transport
+                # margin; other mutations retain the normal ten-second bound.
+                timeout = 10
+                if any(APP_START_ROUTE.search(request) for request in pending):
+                    from bcc.features.apps_control import READY_TIMEOUT
+                    timeout = READY_TIMEOUT + 5
+                elif any(APP_REFRESH_ROUTE.search(request) for request in pending):
+                    # Registry probes run concurrently; each can perform
+                    # health and optional metrics sequentially.
+                    from bcc.features.apps import PROBE_TIMEOUT
+                    timeout = 2 * PROBE_TIMEOUT + 5
+                deadline = time.monotonic() + timeout
+                while pending and time.monotonic() < deadline:
+                    page.wait_for_timeout(100)
 
                 after_dom = _dom_fingerprint(page)
                 after_url = page.url
-                dialog = page.evaluate(
-                    "() => !!document.querySelector('dialog[open], .modal:not([hidden]), "
-                    "[role=dialog]:not([hidden])')")
-
-                if failures:
-                    verdict, detail = "error", "; ".join(sorted(set(failures))[:3])
-                elif console:
-                    verdict, detail = "error", "; ".join(sorted(set(console))[:3])
-                elif requests:
-                    verdict, detail = "real_effect", "; ".join(sorted(set(requests))[:3])
-                elif dialog or after_url != before_url:
-                    verdict, detail = "opens_feature", (
-                        "диалог" if dialog else f"переход {after_url.split('#')[-1]}")
-                elif after_dom != before_dom:
-                    verdict, detail = "works", "разметка изменилась"
-                else:
-                    verdict, detail = "dead", "ни разметки, ни адреса, ни запроса, ни консоли"
+                try:
+                    after_state = _known_state(target, pid) if initial_state else {}
+                except Exception:
+                    after_state = {}
+                verdict, detail = _classify(failures=failures, console=console,
+                    page_errors=page_errors, requests=requests, responses=responses,
+                    new_dialogs=_visible_texts(page, 'dialog[open], .modal, [role=dialog]') - before_dialogs,
+                    new_toasts=_visible_texts(page, '#toast-root .toast-msg') - before_toasts,
+                    validation=validation, dom_changed=after_dom != before_dom,
+                    url_changed=after_url != before_url, read_responses=read_responses,
+                    native_dialogs=native_dialogs, incomplete_requests=pending,
+                    unchanged_state=initial_state if initial_state == after_state else None)
 
                 results.append(Click(pid, label, ctl["cls"], verdict, detail,
-                                     sorted(set(requests))[:5], sorted(set(console))[:5]))
+                                     sorted(set(requests))[:5], sorted(set(console + page_errors))[:5],
+                                     sorted(set(responses + read_responses))[:5], initial_state))
 
         browser.close()
     return results
 
 
+def utf8_console() -> None:
+    """Печать не имеет права падать на кириллице.
+
+    Раннеры приёмки запускаются с `-I`, а `-I` подразумевает `-E`: PYTHONUTF8
+    и PYTHONIOENCODING игнорируются. На Windows поток получает кодировку
+    локали, и первая же русская строка роняет процесс UnicodeEncodeError —
+    так и закончился прогон 132 на настоящей Windows. Требование касается и
+    вывода без русских строк: печатаемый путь проходит через имя пользователя
+    Windows, а оно вполне может быть кириллическим. `errors='replace'`
+    оставляет печать живой и там, где UTF-8 недоступен.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main() -> int:
+    utf8_console()
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", type=Path, default=None)
     ap.add_argument("--pages", default="")

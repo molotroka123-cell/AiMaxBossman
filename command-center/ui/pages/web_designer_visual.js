@@ -94,6 +94,9 @@ export async function openVisualEditor({id, site, originalCode}) {
         const draft = await snapshot();
         const doc = new DOMParser().parseFromString(originalCode, 'text/html');
         doc.body.innerHTML = draft.body;
+        // Match the server merge: an attribute removed in GrapesJS must also
+        // disappear from the downloaded draft, rather than survive from source.
+        for (const name of doc.body.getAttributeNames()) doc.body.removeAttribute(name);
         for (const [name, value] of Object.entries(draft.body_attributes)) doc.body.setAttribute(name, value ?? '');
         doc.head.querySelectorAll('style[data-bossman-visual]').forEach(n => n.remove());
         const style = doc.createElement('style'); style.textContent = draft.css;
