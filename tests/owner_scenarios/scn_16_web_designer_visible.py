@@ -355,13 +355,24 @@ def os66_visual_check_sees_real_pixel_difference(ctx) -> None:
 
             shot = context.new_page()
             shot.set_viewport_size({"width": 800, "height": 300})
-            # Три снимка НЕИЗМЕНЁННОЙ страницы: шум измеряется, а не
-            # предполагается нулевым. Предположение «нулевой» уже оказалось
-            # неверным на чистой машине CI.
-            still = []
-            for _ in range(3):
+            # ПЕРВЫЙ кадр выбрасывается, и это не поблажка, а исправление
+            # измерения. Прогон CI 105875345717 дал шум РОВНО ТОТ ЖЕ, что и до
+            # ожидания шрифтов: 5379 из 240000, максимум по каналу 238 — до
+            # пикселя столько же. Случайный шум так не повторяется; значит,
+            # разница детерминированная, и это разогрев: самый первый рендер на
+            # чистой машине рисует текст, пока система ещё разбирается со
+            # шрифтом `sans-serif`, а `document.fonts.ready` о системном
+            # подборе ничего не знает — он про `@font-face`, которого здесь нет.
+            #
+            # Продукт сравнивает ДВА состояния уже открытой страницы, а не
+            # «самую первую отрисовку в жизни машины» с прогретой. Сравнивать
+            # холодный кадр с тёплым — значит мерить разогрев браузера, а не
+            # проверку продукта.
+            frames = []
+            for _ in range(4):
                 _settled(shot, preview_url)
-                still.append(base64.b64encode(shot.screenshot()).decode())
+                frames.append(base64.b64encode(shot.screenshot()).decode())
+            cold, still = frames[0], frames[1:]
 
             changed = client.post(f"/api/web-designer/projects/{pid}/edit",
                                   json={"op": "style", "path": "h1#z", "tag": "h1",
@@ -382,6 +393,10 @@ def os66_visual_check_sees_real_pixel_difference(ctx) -> None:
                      _diff(still[0], still[2])]
             same = max(quiet, key=lambda row: row["diff"])
             moved = _diff(still[0], after)
+            # Разогрев меряется и ДОКЛАДЫВАЕТСЯ, а не просто выбрасывается:
+            # так отчёт сам скажет, верна ли догадка про холодный первый кадр,
+            # каким бы ни вышел итог.
+            warmup = _diff(cold, still[0])
         finally:
             browser.close()
 
@@ -390,7 +405,8 @@ def os66_visual_check_sees_real_pixel_difference(ctx) -> None:
                  f"непустых пикселей={same['ink']} из {same['pixels']}")
     ctx.negative("устоявшаяся НЕИЗМЕНЁННАЯ страница не шумит сама по себе",
                  same["diff"] * 200 < same["pixels"],
-                 f"шум={same['diff']} из {same['pixels']}, максимум по каналу={same['maxd']}")
+                 f"шум={same['diff']} из {same['pixels']}, максимум по каналу={same['maxd']}; "
+                 f"разогрев первого кадра={warmup['diff']} (выброшен из счёта)")
     ctx.positive("после настоящей правки снимок РАСХОДИТСЯ с прежним",
                  moved["diff"] > 100 and moved["maxd"] > 16,
                  f"расхождений={moved['diff']} из {moved['pixels']}, "
