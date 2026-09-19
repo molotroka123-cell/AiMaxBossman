@@ -45,7 +45,11 @@ EXPECTED_WHEN_CAPABLE = {
     "OS-07": sr.AI_BACKED_CI, "OS-08": sr.AI_BACKED_CI, "OS-09": sr.AI_BACKED_CI,
     "OS-10": sr.AI_BACKED_CI, "OS-11": sr.AI_BACKED_CI, "OS-12": sr.AI_BACKED_CI,
     "OS-13": sr.AI_BACKED_CI, "OS-14": sr.AI_BACKED_CI, "OS-15": sr.OWNER_REQUIRED,
-    "OS-16": sr.OWNER_REQUIRED, "OS-17": sr.AI_BACKED_CI, "OS-18": sr.OWNER_REQUIRED,
+    "OS-16": sr.OWNER_REQUIRED, "OS-17": sr.AI_BACKED_CI,
+    # OS-18 закрыт BL-097: объявленные эффекты дошли до восстановления, бронь
+    # отпускается, и следующий допуск ПРОХОДИТ. Сценарий проверяет возобновление,
+    # а не описывает дефект.
+    "OS-18": sr.AI_BACKED_CI,
     "OS-19": sr.AI_BACKED_CI, "OS-20": sr.AI_BACKED_CI,
 }
 
@@ -53,7 +57,6 @@ EXPECTED_WHEN_CAPABLE = {
 OWNER_GAPS = {
     "OS-15": "не имеет API одобрений",
     "OS-16": "генерация не настоящая",
-    "OS-18": "AdmissionKernel.admit не пишет effect_class в бронь",
 }
 
 

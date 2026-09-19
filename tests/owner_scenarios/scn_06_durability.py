@@ -115,9 +115,18 @@ def os18_killed_mid_task_and_resumes(ctx) -> None:
     ctx.negative("план, принятый до смерти, не даёт права действовать после неё",
                  reauthorize_at_effect_boundary(restarted, stale_decision, stale_proposal,
                                                 now=later, policy=fx.FakePolicy()) is False)
-    ctx.negative("двусмысленность после краха НЕ даёт права переиграть эффект",
-                 report.outcomes[0].disposition == PARKED and report.blocked
-                 and report.outcomes[0].requires_owner,
+    # Раньше здесь утверждалась ПАРКОВКА, и утверждение было верным только
+    # потому, что объявленные эффекты не доходили до восстановления и всё
+    # считалось необратимым (BL-097). Проба отвечает NOT_APPLIED — это не
+    # двусмысленность, а уверенное «не приземлилось», и для ОБЪЯВЛЕННО
+    # идемпотентной записи отпускание правильно. Настоящий инвариант другой и
+    # проверяется ниже: крах не изготавливает завершённый эффект.
+    # Первая версия этого контроля требовала ещё и отсутствия файла результата —
+    # и была неверна: файл законно создан ПОЛНЫМ проверенным циклом ДО убийства,
+    # а в полёте была вторая бронь. Свой же прогон это и показал. Проверяется
+    # то, что относится к краху: незавершённая бронь не стала завершённой.
+    ctx.negative("крах НЕ превращает незавершённую бронь в завершённую",
+                 report.outcomes[0].disposition != COMMITTED,
                  f"исход={report.outcomes[0].disposition}/{report.outcomes[0].reason}")
     ctx.refused("чистое хранилище не выдумывает продолжение задачи",
                 lambda: ObjectiveStore(ctx.path("другое", "objectives.sqlite3")).get(fx.OBJECTIVE_A),
@@ -132,12 +141,16 @@ def os18_killed_mid_task_and_resumes(ctx) -> None:
     followup = fx.propose(restarted, spec, target=target, now=later + 5.0,
                           observation_id="obs-after-trigger", observed_at=later - 5.0)
     blocked = fx.kernel().admit(restarted, followup, now=later + 5.0)
-    ctx.owner_required(
-        "после убийства с работой в полёте задача НЕ возобновляется сама: бронь "
-        f"припаркована ({report.outcomes[0].reason}), следующий допуск отбит "
-        f"({blocked.reason}). Причина в продукте: AdmissionKernel.admit не пишет "
-        "effect_class в бронь, а recovery считает неизвестный класс необратимым. "
-        "Возобновление требует решения владельца.")
+    # САМО ВОЗОБНОВЛЕНИЕ. Прежде здесь стоял owner_required с диагнозом: любая
+    # бронь парковалась, и следующий допуск отбивался admission_state_changed.
+    # Пробел закрыт (BL-097), и теперь это проверяется, а не описывается.
+    ctx.positive("после явного разрешения броней задача ПРОДОЛЖАЕТСЯ сама",
+                 blocked.admitted,
+                 f"допуск после перезапуска: admitted={blocked.admitted} "
+                 f"причина={blocked.reason}")
+    ctx.negative("возобновление НЕ обходит проверку: устаревший план всё равно отбит",
+                 reauthorize_at_effect_boundary(restarted, stale_decision, stale_proposal,
+                                                now=later + 5.0, policy=fx.FakePolicy()) is False)
 
 
 @scenario(id="OS-19", depth=PRODUCT_CONTRACTS)
