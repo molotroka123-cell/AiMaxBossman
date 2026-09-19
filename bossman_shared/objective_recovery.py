@@ -200,13 +200,41 @@ def _effect_class(payload: Mapping[str, Any]) -> str:
         return IRREVERSIBLE
     declared: list[str] = []
     for effect in effects:
-        one = effect.get("effect_class") if isinstance(effect, Mapping) else None
-        if one not in EFFECT_CLASSES:
+        one = _from_effect_kind(effect)
+        if one is None:
             return IRREVERSIBLE
         declared.append(one)
     if IRREVERSIBLE in declared:
         return IRREVERSIBLE
     return IDEMPOTENT if all(one == IDEMPOTENT for one in declared) else REVERSIBLE
+
+
+#: Словарь видов эффектов продукта -> классы восстановления.
+#:
+#: Виды объявлены в `bossman_shared/mission_ir.py::EFFECT_KINDS` и ИМЕННО их
+#: пишут предложения. Первая версия этой правки читала поле `effect_class`,
+#: которого продукт не пишет НИКОГДА, то есть была мёртвым кодом: механизм
+#: выглядел рабочим и не срабатывал ни разу. Поймано сценарием владельца №18,
+#: а не чтением.
+#:
+#: READ_ONLY попадает в IDEMPOTENT, а не в отдельный класс: повторить чтение
+#: безопасно, и для решения о возобновлении это то же самое.
+_KIND_TO_CLASS = {
+    "READ_ONLY": IDEMPOTENT,
+    "IDEMPOTENT_WRITE": IDEMPOTENT,
+    "REVERSIBLE_WRITE": REVERSIBLE,
+    "IRREVERSIBLE": IRREVERSIBLE,
+}
+
+
+def _from_effect_kind(effect: Any) -> str | None:
+    """Класс одного объявленного эффекта. `None` — объявления нет или оно чужое."""
+    if not isinstance(effect, Mapping):
+        return None
+    explicit = effect.get("effect_class")
+    if explicit in EFFECT_CLASSES:
+        return explicit
+    return _KIND_TO_CLASS.get(effect.get("kind"))
 
 
 def _decide(effect_class: str, answer: str) -> tuple[str, str, bool]:
