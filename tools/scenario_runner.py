@@ -417,6 +417,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--json", type=Path, default=None, help="куда записать JSON-отчёт")
     parser.add_argument("--strict", action="store_true",
                         help="ненулевой код возврата на всём, что не AI_BACKED_CI")
+    parser.add_argument("--min-green", type=int, default=None,
+                        help="объявленный ПОЛ зелёных: меньше — отказ. Без него "
+                             "тихая деградация зелёного в OWNER_REQUIRED осталась бы "
+                             "незамеченной, а прогон — зелёным")
     args = parser.parse_args(argv)
 
     found = discover(args.dir)
@@ -435,6 +439,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                              encoding="utf-8")
     totals = report["totals"]
     if totals[FAIL]:
+        return 1
+    if args.min_green is not None and report["green"] < args.min_green:
+        # Способность может пропасть из среды молча (не поставился ffmpeg, не
+        # поднялась база), и тогда зелёные превращаются в OWNER_REQUIRED, а не в
+        # FAIL. Без объявленного пола прогон остался бы зелёным при любой
+        # деградации — ровно тот класс, что BL-089.
+        print(f"OWNER_SCENARIOS_FLOOR=FAIL зелёных {report['green']} < объявленного "
+              f"пола {args.min_green}", file=sys.stderr)
         return 1
     if args.strict and report["green"] != report["total"]:
         return 1

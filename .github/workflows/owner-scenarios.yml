@@ -1,0 +1,114 @@
+name: Owner scenarios (integrated, not unit tests)
+
+# Табло владельческих сценариев. Держится ОТДЕЛЬНО от регрессионных наборов и
+# никогда с ними не складывается: регрессия — вспомогательная улика, готовность
+# продукта определяют эти цепочки.
+#
+# Зачем задание вообще: до него 15/20 были воспроизводимы только на машине
+# разработчика. Число, которое никто не может повторить, уликой не является.
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+      - 'night/**'
+      - 'release/**'
+    paths:
+      - 'tests/owner_scenarios/**'
+      - 'tools/scenario_runner.py'
+      - 'tools/ci_ai_provider.py'
+      - 'tools/media_roundtrip.py'
+      - 'tools/installed_product_chain.py'
+      - 'bossman_shared/**'
+      - 'bossman-core/bossman/**'
+      - 'command-center/bcc/**'
+      - '.github/workflows/owner-scenarios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: owner-scenarios-${{ github.ref }}
+  # Долгий прогон доводится до конца: оборванный не даёт ни зелёного, ни
+  # красного — он не даёт ничего.
+  cancel-in-progress: false
+
+jobs:
+  scenarios:
+    name: owner scenarios (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        # ИМЕННО pgvector, а не postgres:16. Схема продукта несёт
+        # `embedding vector(1024)` и сама делает `CREATE EXTENSION IF NOT EXISTS
+        # vector`; на стоковом образе файлов расширения нет, и продукт НЕ
+        # СТАРТУЕТ вовсе — `DependencyUnavailable`. Проверено запуском.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bossman_scenarios
+        options: >-
+          --health-cmd "pg_isready -U postgres -d bossman_scenarios"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    env:
+      BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      BOSSMAN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/bossman_scenarios
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Прогон идёт по ТОМУ САМОМУ коммиту
+        run: test "$(git rev-parse HEAD)" = "$BOSSMAN_ACCEPTANCE_SHA"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Установка продукта и настоящих инструментов
+        run: |
+          python -m pip install --quiet -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
+          python -m playwright install --with-deps chromium
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg
+      - name: Владельческие сценарии
+        # Ключа ИИ здесь нет намеренно: сценарии, которым нужна живая модель,
+        # обязаны честно отдавать OWNER_REQUIRED, а не выдуманный ответ.
+        #
+        # --min-green — объявленный ПОЛ. Без него прогон остался бы зелёным при
+        # тихой деградации: пропавшая способность превращает зелёный в
+        # OWNER_REQUIRED, а не в FAIL. Пол поднимается ТОЛЬКО намеренно и
+        # отдельным коммитом.
+        run: |
+          mkdir -p scenario-results
+          python tools/scenario_runner.py \
+            --json scenario-results/owner-scenarios.json \
+            --min-green 15
+      - name: Табло в сводку прогона
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          p = pathlib.Path("scenario-results/owner-scenarios.json")
+          if not p.is_file():
+              print("## OWNER SCENARIOS: отчёт не записан"); raise SystemExit(0)
+          d = json.loads(p.read_text(encoding="utf-8"))
+          print(f"## OWNER SCENARIOS: {d['green']} / {d['total']}\n")
+          print("| уровень | сколько |\n|---|---:|")
+          for level, count in d["totals"].items():
+              print(f"| {level} | {count} |")
+          print("\n| глубина улики | зелёных |\n|---|---:|")
+          for depth, count in (d.get("green_by_depth") or {}).items():
+              print(f"| {depth} | {count} |")
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: owner-scenarios-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
+          path: scenario-results/
+          if-no-files-found: error

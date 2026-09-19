@@ -39,7 +39,8 @@
     ".github/workflows/windows-bundle.yml",
     ".github/workflows/windows-owner-tasks.yml",
     ".github/workflows/oss-integrations.yml",
-    ".github/workflows/installed-product.yml"
+    ".github/workflows/installed-product.yml",
+    ".github/workflows/owner-scenarios.yml"
   ],
   "windows_pair": [
     ".github/workflows/windows-bundle.yml",
