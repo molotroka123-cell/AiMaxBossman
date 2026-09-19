@@ -926,17 +926,50 @@
 .bx-think-card{border:1px solid var(--bx-hairline);border-radius:12px;padding:10px 12px;background:var(--bx-surface-2)}
 .bx-think-card[data-state="waiting_approval"]{border-color:var(--bx-amber)}
 .bx-think-card[data-state="stopped"],.bx-think-card[data-state="completed"]{opacity:.75}
+.bx-think-card[data-has-err="1"]{border-color:color-mix(in srgb, var(--bx-rose) 55%, var(--bx-hairline))}
 .bx-think-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
-.bx-think-grid{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:var(--bx-caption)}
+.bx-think-card-head b{font-size:14px}
+
+/* Строка модели — самое важное, что владелец хочет видеть с первого взгляда:
+   какая модель ведёт шаг и работает ли она локально (приватно, без сети) или
+   в облаке. Не втискиваем это в общую сетку строк — там имя обрезалось. */
+.bx-think-model{display:flex;align-items:center;gap:7px;margin-bottom:8px;padding:6px 9px;border-radius:9px;
+  background:var(--bx-surface);border:1px solid var(--bx-hairline)}
+.bx-think-model .i{flex:none;color:var(--bx-ink-3)}
+.bx-think-model-name{flex:1 1 auto;min-width:0;font-size:13px;font-weight:600;font-family:var(--bx-mono);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bx-think-model-badge{flex:none;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  padding:2px 7px;border-radius:999px;color:var(--bx-ink-3);border:1px solid var(--bx-hairline-2)}
+.bx-think-model[data-local="1"] .i{color:var(--bx-mint)}
+.bx-think-model[data-local="1"] .bx-think-model-badge{color:var(--bx-mint);border-color:color-mix(in srgb, var(--bx-mint) 40%, transparent);
+  background:color-mix(in srgb, var(--bx-mint) 12%, transparent)}
+.bx-think-model:not([data-local="1"]) .i{color:var(--bx-azure)}
+.bx-think-model:not([data-local="1"]) .bx-think-model-badge{color:var(--bx-azure);border-color:color-mix(in srgb, var(--bx-azure) 40%, transparent);
+  background:color-mix(in srgb, var(--bx-azure) 10%, transparent)}
+
+/* Прогресс шага — полоска читается быстрее, чем «6 из 12» в столбик. Подпись
+   рядом, а не поверх заливки: поверх — контраст ломается на границе заливки. */
+.bx-think-progress-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bx-think-progress{position:relative;flex:1 1 auto;height:8px;border-radius:999px;background:var(--bx-surface);
+  border:1px solid var(--bx-hairline);overflow:hidden}
+.bx-think-progress-fill{position:absolute;inset:0 auto 0 0;height:100%;border-radius:999px;
+  background:linear-gradient(90deg, color-mix(in srgb, var(--bx-accent) 70%, transparent), var(--bx-accent));
+  transition:width .3s ease}
+.bx-think-progress-label{flex:none;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--bx-ink-2)}
+
+.bx-think-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:13px}
 .bx-think-grid span{color:var(--bx-ink-3)}
 .bx-think-grid b{font-weight:600;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bx-think-err-count[data-has-err="1"]{color:var(--bx-rose)}
 .bx-think-note{margin-top:6px;font-size:var(--bx-caption);color:var(--bx-ink-2)}
-.bx-think-log{flex:1;overflow:auto;padding:0 10px 14px;display:flex;flex-direction:column;gap:4px}
-.bx-think-row{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:8px;font-size:var(--bx-caption);
-  padding:5px 6px;border-radius:8px}
+.bx-think-log{flex:1;overflow:auto;padding:0 10px 14px;display:flex;flex-direction:column;gap:5px}
+.bx-think-row{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:8px;font-size:12.5px;
+  padding:6px 6px;border-radius:8px}
 .bx-think-row:hover{background:var(--bx-surface-2)}
+.bx-think-row[data-kind^="hook."],.bx-think-row[data-kind="worker.error"],.bx-think-row[data-kind="tool.denied"]{
+  background:color-mix(in srgb, var(--bx-rose) 8%, transparent)}
 .bx-think-time{color:var(--bx-ink-3);font-family:var(--bx-mono);font-variant-numeric:tabular-nums}
-.bx-think-text{color:var(--bx-ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bx-think-text{color:var(--bx-ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}
 .bx-think-empty{padding:10px 6px;color:var(--bx-ink-3);font-size:var(--bx-caption)}
 body.bx-think-open .main{padding-right:min(400px,100vw)}
 @media (max-width:760px){body.bx-think-open .main{padding-right:0}.bx-think{width:100vw}}

@@ -279,8 +279,8 @@ function inspector(asset, collections, ctx) {
         detail('Размер', `${asset.width || '—'}×${asset.height || '—'}`),
         detail('Соотношение', asset.aspect_ratio || '—'),
         detail('Seed', asset.seed ?? '—'),
-        detail('Создано', fmtDateShort(asset.created_at)),
-        detail('ID', `#${asset.id}`)),
+        detail('Создано', fmtDateShort(asset.created_at))),
+      h('div.xsmall.dim.raw-id', `#${asset.id}`),
       field('Коллекция', withValue(h('select.input', {
         onChange: (e) => assignCollection(asset, e.target.value, ctx),
       }, h('option', { value: '' }, 'Без коллекции'),
