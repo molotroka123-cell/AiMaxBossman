@@ -109,16 +109,25 @@ def test_the_canonical_branch_is_itself_declared_owner_facing():
     )
 
 
-@pytest.mark.parametrize("workflow", CONTRACT["workflows"])
+@pytest.mark.parametrize("workflow", CONTRACT["windows_pair"])
 def test_both_windows_workflows_cover_the_same_branches(workflow):
     """Сборка архива и владельческий прогон обязаны смотреть на один набор.
 
     Расхождение означало бы архив, который собран, но на котором владельческие
     задачи не прогонялись, — ровно тот разрыв, ради которого оба задания и
     существуют парой.
+
+    Требование только к этой паре. oss-integrations живёт своим списком: он
+    обязан покрывать владельческие ветки, но не обязан совпадать с Windows.
     """
-    reference = sorted(push_branches(CONTRACT["workflows"][0]))
+    reference = sorted(push_branches(CONTRACT["windows_pair"][0]))
     assert sorted(push_branches(workflow)) == reference
+
+
+def test_the_windows_pair_is_a_subset_of_the_declared_workflows():
+    """Иначе пару можно было бы вывести из-под проверки покрытия, оставив
+    совпадение списков между собой."""
+    assert set(CONTRACT["windows_pair"]) <= set(CONTRACT["workflows"])
 
 
 # --- BL-088 и его класс: скрипт, который задание исполняет, обязан быть в
@@ -180,7 +189,9 @@ def executed_scripts(workflow: str) -> list[str]:
 def test_every_script_the_job_runs_is_in_its_own_path_filter(workflow):
     patterns = push_paths(workflow)
     scripts = executed_scripts(workflow)
-    assert scripts, f"{workflow}: не найдено ни одного прямого вызова скрипта"
+    # Пустой список законен: задание, которое зовёт только pytest, скриптов не
+    # исполняет, и покрывать нечего. Что сам разбор не онемел, стережёт
+    # отдельная проверка ниже — на задании, где вызовы заведомо есть.
     # Отсутствующий `paths:` означает «поднимать на ЛЮБОЙ файл», то есть
     # покрыто всё. Это законный проход, а не повод пропустить проверку:
     # пропуск здесь отключал бы сторожа тем самым изменением, которое он и
@@ -214,3 +225,15 @@ def test_a_negation_wins_over_an_earlier_match():
     assert path_is_in_filter(
         ["command-center/**", "!command-center/tests/**", "command-center/tests/keep.py"],
         "command-center/tests/keep.py")
+
+
+def test_the_script_scanner_has_not_gone_blind():
+    """Канарейка на сам разбор.
+
+    Общая проверка выше проходит и при пустом списке — это правильно для
+    задания без вызовов, но означает, что сломавшийся разбор был бы зелёным.
+    windows-bundle вызывает скрипты заведомо, и здесь это закреплено числом.
+    """
+    found = executed_scripts(".github/workflows/windows-bundle.yml")
+    assert len(found) >= 8, f"разбор нашёл только {found} — похоже, он перестал видеть вызовы"
+    assert "tools/build_windows_bundle.py" in found

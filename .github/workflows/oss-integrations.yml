@@ -2,7 +2,11 @@ name: OSS integrations — Windows and Linux
 
 on:
   push:
-    branches: [claude/bossman-final-convergence-hu2702]
+    # release/** — каноническая ветка сведе́ния воедино. До BL-089 у этого
+    # задания было НОЛЬ прогонов на ней, и запасного пути не существовало:
+    # триггера pull_request здесь нет вовсе, только push и ручной запуск.
+    # Группа concurrency привязана к github.ref, своя на ветку.
+    branches: [claude/bossman-final-convergence-hu2702, 'release/**', 'night/**']
     paths:
       - 'command-center/bcc/**'
       - 'command-center/ui/**'
