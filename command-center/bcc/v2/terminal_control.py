@@ -19,6 +19,44 @@ DANGEROUS = [
     re.compile(r"(?i)\bgit\s+push\b.*--force"),
     re.compile(r"(?i)\bgit\s+reset\s+--hard\b"),
 ]
+#: Цели, рекурсивное удаление которых необратимо и агенту не нужно НИКОГДА:
+#: домашний каталог владельца и корни операционной системы. `rm -rf /` в
+#: DANGEROUS был с самого начала, а `rm -rf ~/` и `rm -rf /etc/passwd` — нет,
+#: хотя владельцу они стоят ровно столько же (BL-100). Совпадение ТОЧНОЕ:
+#: `rm -rf ~/проект/build` — обычная работа и остаётся разрешённой.
+#: Записаны В НИЖНЕМ РЕГИСТРЕ: сравнение идёт с приведённой целью, иначе
+#: `$HOME` не совпал бы сам с собой.
+UNRECOVERABLE_TARGETS = frozenset({
+    "/", "~", "$home", "${home}", "%userprofile%", "$userprofile",
+    "/home", "/root", "/users", "/etc", "/usr", "/var", "/bin", "/sbin",
+    "/lib", "/lib64", "/boot", "/opt", "/srv", "/system", "/library",
+    "c:", "c:\\windows", "c:\\users",
+})
+#: Деревья, внутри которых рекурсивное удаление так же необратимо, как и сам
+#: корень: там лежат учётные записи, загрузчик и устройства, и НИ ОДНА
+#: владельческая задача туда не пишет.
+UNRECOVERABLE_TREES = ("/etc", "/boot", "/sys", "/proc", "/dev")
+_RM_WITH_FLAGS = re.compile(r"(?i)\brm\b((?:\s+-{1,2}[a-z][a-z-]*)+)\s+(\S+)")
+_RECURSIVE_FLAG = re.compile(r"(?i)(?:\s-[a-z]*r)|--recursive")
+
+
+def unrecoverable_delete_target(cmd: str) -> str:
+    """Цель рекурсивного `rm`, которую стирать нельзя. Пусто — такой цели нет.
+
+    Флаги читаются в любом написании (`-rf`, `-fr`, `-r -f`, `--recursive`):
+    порядок букв никогда не был защитой, а выглядел ею.
+    """
+    for flags, target in _RM_WITH_FLAGS.findall(cmd or ""):
+        if not _RECURSIVE_FLAG.search(flags):
+            continue
+        head = target.strip("'\"").rstrip("/\\").lower() or "/"
+        if head in UNRECOVERABLE_TARGETS:
+            return target
+        if any(head == tree or head.startswith(tree + "/") for tree in UNRECOVERABLE_TREES):
+            return target
+    return ""
+
+
 ASK_PATTERNS = [
     re.compile(r"(?i)\bgit\s+push\b"),
     re.compile(r"(?i)\b(?:npm|pnpm|yarn|pip)\s+install\b"),
@@ -106,7 +144,7 @@ class TerminalPolicy:
     def decision(self, cmd: str, cwd: Path) -> Decision:
         if not within(cwd, self.allowed_roots):
             return "deny"
-        if any(p.search(cmd) for p in DANGEROUS):
+        if any(p.search(cmd) for p in DANGEROUS) or unrecoverable_delete_target(cmd):
             return "deny"
         if self.mode == "system_admin":
             # Admin mode is still approval-gated; never silently auto-elevate.

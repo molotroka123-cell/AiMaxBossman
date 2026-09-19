@@ -29,7 +29,7 @@ from ..v2 import scratch
 from ..v2.scratch import base_dir as _scratch_base_dir
 from ..v2.tables import terminal_sessions as term_t
 from ..v2.terminal_control import (TerminalManager, TerminalPolicy, _is_single_command,
-                                   auto_patterns, within)
+                                   auto_patterns, unrecoverable_delete_target, within)
 from . import Feature
 
 ROOTS_KEY = "terminal.roots"
@@ -129,6 +129,12 @@ async def _mode(svc) -> str:
 
 
 def hard_deny_reason(command: str) -> str:
+    # Один и тот же распознаватель, что у нижнего рубежа (bcc/v2/terminal_control):
+    # два списка «что нельзя никогда» неизбежно разъехались бы, и владелец узнал
+    # бы об этом ровно один раз. BL-100.
+    target = unrecoverable_delete_target(command or "")
+    if target:
+        return f"необратимое удаление: {target}"
     for pattern, reason in HARD_DENY:
         if pattern.search(command or ""):
             return reason
