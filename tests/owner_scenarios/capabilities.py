@@ -103,9 +103,55 @@ def _browser() -> Capability:
     except BaseException as exc:  # noqa: BLE001
         return Capability("browser", False, f"браузер недоступен: {type(exc).__name__}: {exc}"[:180])
     if not path or not Path(path).exists():
-        return Capability("browser", False,
-                          "движок playwright установлен, но бинарь браузера не скачан")
+        # Версия playwright и предустановленный браузер могут расходиться: движок
+        # просит chromium-1243, а в образе лежит chromium-1194. Скачать нечем —
+        # прокси среды отвечает 403 на cdn.playwright.dev, — но РАБОЧИЙ браузер
+        # при этом есть, и среда прямо предписывает указывать его путь явно.
+        path = _preinstalled_chromium()
+        if path is None:
+            return Capability("browser", False,
+                              "движок playwright установлен, но бинарь браузера не скачан")
+    # Существование файла — НЕ способность. Единственное доказательство того,
+    # что браузером можно пользоваться, — что он запускается.
+    launched = _chromium_launches(path)
+    if launched is not None:
+        return Capability("browser", False, f"браузер найден, но не запускается: {launched}"[:180])
     return Capability("browser", True, path)
+
+
+def _preinstalled_chromium() -> str | None:
+    """Готовый Chromium в образе, если он там есть. Новейшая сборка первой."""
+    root = Path(os.environ.get("PLAYWRIGHT_BROWSERS_PATH") or "/opt/pw-browsers")
+    if not root.is_dir():
+        return None
+    found: list[Path] = []
+    for folder in root.glob("chromium*"):
+        for name in ("chrome-linux/chrome", "chrome-linux64/chrome",
+                     "chrome-win/chrome.exe", "Chromium.app/Contents/MacOS/Chromium"):
+            candidate = folder / name
+            if candidate.is_file() and os.access(candidate, os.X_OK):
+                found.append(candidate)
+    if not found:
+        return None
+    return str(sorted(found, key=lambda c: c.parent.parent.name, reverse=True)[0])
+
+
+def _chromium_launches(path: str) -> str | None:
+    """`None` — запустился. Иначе строка с причиной отказа."""
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as runtime:
+            browser = runtime.chromium.launch(executable_path=path)
+            try:
+                page = browser.new_page()
+                page.set_content("<p id=probe>ok</p>")
+                if page.inner_text("#probe") != "ok":
+                    return "страница не отрисовала пробный узел"
+            finally:
+                browser.close()
+    except BaseException as exc:  # noqa: BLE001
+        return f"{type(exc).__name__}: {exc}"
+    return None
 
 
 def _desktop() -> Capability:
@@ -171,3 +217,25 @@ def inventory() -> dict[str, dict]:
     """Полная опись среды для отчёта: что есть, чего нет и почему."""
     return {name: {"present": probe(name).present, "detail": probe(name).detail}
             for name in sorted(_PROBES)}
+
+
+def browser_executable() -> str | None:
+    """Путь к браузеру для `launch(executable_path=...)`.
+
+    `None` означает «штатный путь playwright годен» — тогда `launch()` находит
+    браузер сам. Строка возвращается только когда штатного пути нет, а в образе
+    лежит рабочая сборка другой версии.
+
+    Запуском здесь НЕ проверяется намеренно: способность уже доказана пробой
+    `_browser()`, и второй запуск браузера в каждом сценарии стоил бы секунд
+    без единой новой улики.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as runtime:
+            path = runtime.chromium.executable_path
+    except BaseException:  # noqa: BLE001
+        path = ""
+    if path and Path(path).exists():
+        return None
+    return _preinstalled_chromium()

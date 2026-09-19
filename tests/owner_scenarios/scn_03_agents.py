@@ -44,7 +44,11 @@ def os09_browser_chain_completes_and_verifies(ctx) -> None:
     page_path.write_text(PAGE, encoding="utf-8")
     ctx.reached_installed_product("движок браузера playwright установленного продукта")
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        # Путь берётся у пробы среды: в образе может лежать рабочая сборка
+        # другой версии, чем просит движок, и тогда launch() без пути падает.
+        # None здесь — «штатный путь годен», launch() находит браузер сам.
+        from capabilities import browser_executable  # noqa: PLC0415
+        browser = p.chromium.launch(executable_path=browser_executable())
         try:
             page = browser.new_page()
             page.goto(page_path.as_uri())
