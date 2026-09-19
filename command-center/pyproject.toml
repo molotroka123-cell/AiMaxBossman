@@ -55,6 +55,7 @@ video-interchange = ["opentimelineio>=0.18,<0.19"]
 bcc = "bcc.app:main"
 bcc-desktop = "bcc.desktop:main"
 bcc-open = "bcc.desktop:main"
+bossman-telegram = "bcc.telegram_companion.__main__:main"
 
 [build-system]
 requires = ["setuptools>=68"]

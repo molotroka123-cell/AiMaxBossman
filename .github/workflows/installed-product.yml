@@ -1,0 +1,151 @@
+# Bossman как УСТАНОВЛЕННЫЙ продукт на настоящей Windows.
+#
+# Вся цепочка одним заданием, и каждое звено — настоящее:
+#
+#   чистая установка → доктор → запуск → HTTP готов → UI готов
+#                    → сценарий → перезапуск → возобновление
+#
+# Чего здесь нет намеренно. Архив (`windows-bundle.yml`) собирается 75 минут и
+# проверяется своим заданием; повторять его сборку ради той же улики значит
+# занять дорогой раннер дважды. Здесь ставится то же самое ПО тем способом,
+# которым владелец ставит его из исходников: колёса из одноразового worktree на
+# HEAD и `pip install <wheel>` в пустой venv. Ни одного `pip install -e`.
+#
+# Что этот прогон добавляет к тому, что уже есть:
+#
+# * граница «поставили editable-копию» / «поставили настоящий пакет» впервые
+#   ИЗМЕРЯЕТСЯ, а не предполагается: звено «чистая установка» смотрит на
+#   `direct_url.json`, хвосты `__editable__*` в site-packages, префикс каждого
+#   импортированного пакета и рабочие копии на пути импорта;
+# * «UI готов» — настоящая страница в настоящем Chromium, который запускает
+#   САМА УСТАНОВКА своим playwright. Единственная браузерная улика, которая
+#   была до этого, добывается вторым интерпретатором с `pip install -e .` всего
+#   репозитория (`windows-bundle.yml`, шаг «Install browser test controller»);
+# * «возобновление» — документ владельца продолжается с той же версии после
+#   ЖЁСТКОГО убийства, а не начинается сначала.
+name: Installed product chain
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.sha }}
+  BOSSMAN_HARNESS_SHA: ${{ github.sha }}
+  PYTHONUTF8: '1'
+on:
+  # push, а не pull_request, по той же измеренной причине, что и у обоих
+  # заданий Windows: на pull_request фильтр путей считается по СОВОКУПНОМУ
+  # диффу ветки, в котором `command-center/**` есть всегда, и тогда задание
+  # поднимал бы любой коммит, включая чужой.
+  push:
+    branches:
+      # Тот же список, что у пары Windows-заданий. Объявлен в
+      # tools/owner_facing_branches.json и сверяется
+      # tests/test_windows_workflows_cover_owner_branches.py: ветка, выпавшая
+      # из фильтра, не даёт красного — она не даёт ничего (BL-089).
+      - 'claude/**'
+      - 'night/**'
+      - 'release/**'
+    paths:
+      # Скрипты, которые задание ИСПОЛНЯЕТ. Их правка меняет сам гейт, и без
+      # записи здесь уехала бы в архив непроверенной (BL-088).
+      - 'scripts/installed_product_install.py'
+      - 'tools/installed_product_chain.py'
+      - 'tools/build_local_bundle.py'
+      - 'tools/bundle_evening_test.py'
+      - 'scripts/bossman_doctor.py'
+      - '.github/workflows/installed-product.yml'
+      # Сам продукт: то, что ставится и проверяется.
+      - 'command-center/**'
+      - 'bossman-core/**'
+      - 'bossman_shared/**'
+      - 'apps/**'
+      - 'pyproject.toml'
+      # Коммит, меняющий только тесты продукта, установку не меняет.
+      - '!command-center/tests/**'
+      - '!bossman-core/tests/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  # СВОЯ группа. У сборки архива группа windows-bundle-<ref>, у владельческого
+  # прогона windows-owner-tasks-<ref>. GitHub держит ровно один ОЖИДАЮЩИЙ
+  # прогон на группу, поэтому общая группа означала бы, что новое задание
+  # выбивает из очереди сборку продукта, который скачивает владелец.
+  group: installed-product-${{ github.ref }}
+  # Начавшийся прогон доводится до конца, пока другие модели продолжают
+  # коммитить: оборванный прогон не даёт ни зелёного, ни красного.
+  cancel-in-progress: false
+jobs:
+  chain:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      # Колёса собираются из git-worktree на HEAD, а `command-center/setup.py`
+      # во время сборки хэширует РЕАЛЬНЫЕ байты файлов и сравнивает с блобами
+      # HEAD. Windows-раннер по умолчанию разворачивает текст в CRLF — тогда
+      # каждый текстовый файл выглядит изменённым, `source_dirty` становится
+      # true, и установка перестаёт быть уликой для коммита.
+      - name: Check out the source byte-for-byte, without line-ending rewriting
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+      - uses: actions/checkout@v4
+        with:
+          # Полная история: сборка колёс заводит одноразовый worktree на этот
+          # же SHA, а для этого коммит должен быть в репозитории целиком.
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Say out loud what this run can and cannot prove
+        run: |
+          Write-Host "Ставится НАСТОЯЩИЙ пакет в пустой venv, ни одной установки в режиме правки на месте."
+          Write-Host "Chromium ставится В УСТАНОВКУ: страницу открывает сам установленный продукт."
+          Write-Host "Модели на раннере нет, и ничего, что требует LLM, здесь не заявляется."
+          Write-Host "Окна рабочего стола GitHub не даёт: это звено помечено OWNER_HARDWARE_REQUIRED и уронить прогон не может."
+      - name: Install Bossman the way the owner installs it (never editable)
+        run: >-
+          python scripts/installed_product_install.py
+          --out "${{ runner.temp }}/installed"
+          --json "${{ runner.temp }}/proof/install.json"
+      # Цепочку исполняет ИНТЕРПРЕТАТОР УСТАНОВКИ с `-I`. Рабочая копия на путь
+      # импорта не попадает, и звено «чистая установка» это доказывает, а не
+      # предполагает. `--require-browser`: Chromium на раннере есть, поэтому
+      # его отсутствие — отказ, а не «оборудование владельца».
+      # Код 2 (OWNER_HARDWARE_REQUIRED) не красится в зелёный молча: он
+      # объявляется предупреждением, а настоящий отказ по-прежнему валит гейт.
+      - name: Run the whole installed-product chain
+        shell: pwsh
+        run: |
+          & "$env:INSTALLED_PRODUCT_PYTHON" -I tools/installed_product_chain.py `
+            --workdir "${{ runner.temp }}/chain" `
+            --evidence "${{ runner.temp }}/proof" `
+            --json "${{ runner.temp }}/proof/installed-product-chain.json" `
+            --expected-sha "$env:BOSSMAN_ACCEPTANCE_SHA" `
+            --doctor scripts/bossman_doctor.py `
+            --require-browser
+          $code = $LASTEXITCODE
+          if ($code -eq 2) {
+            Write-Host "::warning::INSTALLED_PRODUCT_CHAIN=OWNER_HARDWARE_REQUIRED — всё, что раннер может проверить, проверено; остальное ждёт машины владельца. Смотрите installed-product-chain.json."
+            exit 0
+          }
+          exit $code
+      - name: Show every link and its measured evidence
+        if: always()
+        shell: python
+        run: |
+          import json, os, pathlib
+          report = pathlib.Path(os.environ['RUNNER_TEMP']) / 'proof' / 'installed-product-chain.json'
+          if not report.exists():
+              print('Отчёта нет: прогон не дошёл до записи. Смотрите шаги выше.')
+              raise SystemExit(0)
+          data = json.loads(report.read_text(encoding='utf-8'))
+          print('INSTALLED_PRODUCT_CHAIN=' + data['status'])
+          for link in data['звенья']:
+              print(f"  [{link['status']:24}] {link['звено']}: {link['улика']}")
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: installed-product-${{ github.sha }}
+          path: ${{ runner.temp }}/proof
+          if-no-files-found: warn
+          retention-days: 30

@@ -423,7 +423,10 @@ class AccountBrowserSession:
                       ) -> tuple[Strategy, list[dict[str, Any]]]:
         """Пройти стратегии по порядку. Первая, давшая однозначный ответ, — наша."""
         attempts = self.config.refresh_attempts + 1
-        last_error: BrokenUi | None = None
+        # Причина копится парой (текст, вид), а не готовым исключением: поднять
+        # её обязан `_broken`, потому что ОН и только он учитывает отказ в
+        # реестре возможностей и пишет запись аудита уже вычищенной. См. ниже.
+        last_error: tuple[str, FailureKind] | None = None
         for attempt in range(attempts):
             for strategy in action.strategies:
                 found = await self.dom.find(strategy.kind, strategy.value)
@@ -432,15 +435,13 @@ class AccountBrowserSession:
                 if len(found) > 1 and ordinal is None:
                     # «Do not click "nearest" alternative silently»: несколько
                     # совпадений без явного номера — отказ, а не первое попавшееся.
-                    last_error = BrokenUi(
-                        action.action,
+                    last_error = (
                         f"стратегия {strategy.kind} нашла {len(found)} целей; "
                         f"какая из них нужна — неизвестно, и выбирать наугад нельзя",
                         FailureKind.TARGET_AMBIGUOUS)
                     continue
                 if ordinal is not None and ordinal >= len(found):
-                    last_error = BrokenUi(
-                        action.action,
+                    last_error = (
                         f"нужна цель #{ordinal}, а стратегия {strategy.kind} нашла "
                         f"{len(found)}",
                         FailureKind.TARGET_MISSING)
@@ -449,11 +450,19 @@ class AccountBrowserSession:
             if attempt + 1 < attempts:
                 # «refresh once» из спецификации. Одно обновление, не цикл.
                 await self.dom.reload()
-        raise last_error or BrokenUi(
-            action.action,
+        # BL-105. Раньше здесь поднимался `BrokenUi`, собранный РУКАМИ, мимо
+        # `_broken`. А `TARGET_MISSING` и `TARGET_AMBIGUOUS` объявлены в
+        # `DETERMINISTIC_FAILURES` именно как признаки дрейфа интерфейса — и
+        # поднимались единственным путём, который реестра не касался. Понижение
+        # в `BROKEN_UI_VERSION` по пропавшей цели не срабатывало ВООБЩЕ:
+        # счётчик двигали только те пути, где до нажатия уже дошло, хотя
+        # пропавшая цель — самый частый способ, которым интерфейс уезжает.
+        # Заодно текст отказа теперь проходит через редактор, как и все прочие.
+        detail, kind = last_error or (
             f"ни одна из {len(action.strategies)} стратегий не нашла цель "
             f"{action.target!r}",
             FailureKind.TARGET_MISSING)
+        raise self._broken(action, detail, kind)
 
     async def plan(self, action_name: str, *, ordinal: int | None = None
                    ) -> ResolvedTarget:

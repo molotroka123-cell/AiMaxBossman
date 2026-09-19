@@ -30,6 +30,7 @@ from bossman_shared.objective_world_state import (WorldFact, WorldStateProjectio
                                                   require_fresh as _require_fresh)
 
 from . import observers
+from ..single_flight import await_shared
 
 #: One scope per process for the ambient system view. Mission-scoped projections
 #: are a separate concern; the point of a scope is that facts cannot leak across
@@ -83,7 +84,7 @@ async def refresh(svc, *, repo: str | None = None, scope_id: str = AMBIENT_SCOPE
     try:
         # Shielded so one caller going away — a cancelled request, a stopped
         # tick — does not cancel the pass the other callers are waiting on.
-        result = await asyncio.shield(task)
+        result = await await_shared(task)
     finally:
         if inflight.get(key) is task and task.done():
             del inflight[key]

@@ -32,6 +32,21 @@ def _value(field, schema, value):
         raise ValueError(f'studio setting {field}: unsupported value')
 
 
+def declared_free(model_id):
+    """Объявлен ли тариф модели бесплатным — ПО КАТАЛОГУ ПОСТАВКИ.
+
+    Поле цены в интерфейсе — это ОЦЕНКА владельцем допустимого верхнего предела,
+    а не источник фактического тарифа провайдера. Ноль, введённый по незнанию
+    или оставшийся от прежней записи, бесплатной модель не делает.
+
+    `None` — модели в каталоге нет вовсе; тогда «бесплатна» не утверждается.
+    """
+    for model in load()['models']:
+        if model['id'] == model_id:
+            return bool(model['free'])
+    return None
+
+
 def validate_settings(model, values):
     if not isinstance(values, dict):
         raise ValueError('settings must be an object')

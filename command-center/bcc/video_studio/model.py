@@ -30,6 +30,19 @@ class EditLocked(Conflict):
     code = "object_locked"
 
 
+class DerivativeNotPrepared(RuntimeError):
+    """Производной ещё нет — владельцу надо запустить prepare.
+
+    Отдельный тип, а не голый `RuntimeError`, потому что HTTP-обёртка выдавала
+    код `derivative_not_prepared` ЛЮБОМУ `RuntimeError` этой подсистемы, а их
+    там десяток: конфликт ревизии, нехватка места, подмена артефакта после
+    независимой проверки. Машиночитаемый код советовал «запусти prepare» в
+    ответ на обнаруженную подмену файла — совет починить не то (BL-104).
+    """
+
+    code = "derivative_not_prepared"
+
+
 def uid():
     return uuid.uuid4().hex
 

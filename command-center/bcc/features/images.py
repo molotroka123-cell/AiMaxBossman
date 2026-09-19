@@ -287,6 +287,72 @@ async def patch_asset(asset_id: int, body: AssetPatch, request: Request):
     return _asset_public((await _find_one(svc, assets_t, asset_id)) or {})
 
 
+#: Тип импортируемой картинки МЕРЯЕТСЯ по байтам, а не читается из имени.
+#:
+#: До этой правки `mime_type` брался из расширения (`allowed[suffix]`), и
+#: страница ошибки 502, сохранённая браузером как `screenshot.png`,
+#: принималась библиотекой и отдавалась с `Content-Type: image/png`.
+#: Воспроизведено настоящим HTTP-запросом: 200 на импорт, `image/png` в базе,
+#: а в теле `<!doctype html><html><head><title>502 Ba`.
+#:
+#: Владельцу это стоит не безопасности, а правды: испорченная загрузка молча
+#: становится «картинкой», и ломается всё дальнейшее — предпросмотр, монтаж,
+#: экспорт, — но уже далеко от места, где ошиблись.
+_MAGIC: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+
+
+def _looks_like_svg(raw: bytes) -> bool:
+    """SVG — текст, поэтому подпись ищется структурно, а не сигнатурой.
+
+    Разбор XML здесь НЕ используется намеренно: он открывает «миллиард смешков»
+    и разбор внешних сущностей на данных, которые нам только что прислали.
+    Вместо этого снимаются пролог, комментарии и DOCTYPE, после чего ПЕРВЫЙ же
+    тег обязан быть `<svg`. HTML-страница, внутри которой где-то встречается
+    `<svg`, так не проходит — а именно она и была дефектом.
+    """
+    head = raw[:4096].lstrip(b"\xef\xbb\xbf").lstrip()
+    while True:
+        if head[:5] == b"<?xml":
+            cut = head.find(b"?>")
+            if cut < 0:
+                return False
+            head = head[cut + 2:].lstrip()
+        elif head[:4] == b"<!--":
+            cut = head.find(b"-->")
+            if cut < 0:
+                return False
+            head = head[cut + 3:].lstrip()
+        elif head[:9].lower() == b"<!doctype":
+            cut = head.find(b">")
+            if cut < 0:
+                return False
+            # DOCTYPE html — это страница, а не картинка, и подменять одно
+            # другим нельзя даже если внутри потом встретится <svg>.
+            if b"html" in head[:cut].lower():
+                return False
+            head = head[cut + 1:].lstrip()
+        else:
+            break
+    return head[:4].lower() == b"<svg"
+
+
+def measured_image_type(raw: bytes) -> str | None:
+    """Что это НА САМОМ ДЕЛЕ. `None` — опознать не удалось."""
+    for signature, mime in _MAGIC:
+        if raw.startswith(signature):
+            return mime
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "image/webp"
+    if _looks_like_svg(raw):
+        return "image/svg+xml"
+    return None
+
+
 @router.post("/images/assets/import")
 async def import_asset(body: ImportAssetIn, request: Request):
     svc = request.app.state.svc
@@ -305,6 +371,14 @@ async def import_asset(body: ImportAssetIn, request: Request):
                ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml"}
     if suffix not in allowed:
         raise HTTPException(422, {"message": "поддерживаются PNG/JPG/WEBP/GIF/SVG"})
+    measured = measured_image_type(raw)
+    if measured is None:
+        raise HTTPException(422, {"message": (
+            f"содержимое не опознано как картинка, хотя имя обещает {suffix}. "
+            f"Так выглядит сохранённая страница ошибки")})
+    if measured != allowed[suffix]:
+        raise HTTPException(422, {"message": (
+            f"содержимое — {measured}, а имя обещает {allowed[suffix]} ({suffix})")})
     name = f"import-{secrets.token_hex(6)}-{safe_filename(Path(body.filename).stem)}{suffix}"
     path = _storage(svc).save(f"imports/{name}", raw)
     async with svc.db.session() as s:
@@ -313,7 +387,7 @@ async def import_asset(body: ImportAssetIn, request: Request):
             model_alias="import",
             file_path=str(path),
             file_bytes=len(raw),
-            mime_type=allowed[suffix],
+            mime_type=measured,
             tags=_clean_tags(body.tags),
             collection_id=body.collection_id,
             meta={"imported": True, "original_filename": body.filename},

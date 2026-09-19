@@ -35,10 +35,12 @@ class EventBus:
     async def emit(self, kind: str, /, **data: Any) -> dict:
         # kind — только позиционный: в data встречаются свои поля с именем kind
         """Разослать событие подписчикам и (если оно содержательное) записать в историю."""
-        # Секреты не попадают ни в таблицу events, ни в WS-ленту: чистка по
-        # именам ключей (api_key/token/password/…) на любой глубине payload —
-        # ДО персиста и ДО broadcast, чтобы оба пути видели одно и то же.
-        data = redact(data)
+        # Секреты не попадают ни в таблицу events, ни в WS-ленту — ДО персиста и
+        # ДО broadcast, чтобы оба пути видели одно и то же. Чистки по ИМЕНАМ
+        # ключей для этого мало: ключ владельца приезжает внутри ЗНАЧЕНИЯ
+        # (`preview` команды на подтверждение, `message` строки лога), где имя
+        # поля безобидно. BL-099: он доходил и до WS-ленты, и до таблицы events.
+        data = redact(data, scrub_text=True)
         # Время события считается ОДИН раз. Раньше utcnow() вызывался дважды —
         # отдельно для рассылки и отдельно для записи в историю, — и одно и то
         # же событие приходило с разным временем в живой ленте и в /activity.
@@ -80,13 +82,31 @@ class EventBus:
                 self._subscribers.discard(q)
 
     async def by_trace(self, trace_id: str, limit: int = 500) -> list[dict]:
-        """Цепочка событий одного действия (по trace_id в payload)."""
+        """Цепочка событий одного действия (по trace_id в payload).
+
+        BL-108. Отбор делает БАЗА, и идёт он от СВЕЖИХ записей к старым. Раньше
+        выбирались 5000 самых СТАРЫХ строк журнала и фильтровались в памяти: на
+        установке, где журнал перевалил за 5000 записей (ретеншн разрешает
+        200 000, `control_plane.RETENTION_MAX_ROWS`), цепочка действия, которое
+        владелец ТОЛЬКО ЧТО видел на экране, в окно не попадала. Ручка
+        `/api/observability/trace/{trace_id}` отвечала пустым списком, который
+        не отличить от «такого действия не было», — то есть совет «посмотри в
+        журнал» переставал работать ровно на той установке, где журнал и нужен.
+        Измерено: 5204 строки, свежая цепочка из двух событий — найдено 0,
+        старая цепочка из первых строк — найдена.
+
+        Окно не «расширено», а убрано: единственный предел теперь `limit` — это
+        размер страницы ответа, а не глубина поиска.
+        """
         if self.db is None:
             return []
+        limit = max(1, int(limit))
         async with self.db.session() as s:
-            res = await s.execute(sa.select(events_t).order_by(events_t.c.id.asc()).limit(5000))
+            res = await s.execute(sa.select(events_t)
+                                  .where(events_t.c.data["trace_id"].as_string() == trace_id)
+                                  .order_by(events_t.c.id.desc()).limit(limit))
             rows = rows_dicts(res.fetchall())
-        return [r for r in rows if isinstance(r.get("data"), dict) and r["data"].get("trace_id") == trace_id][-limit:]
+        return list(reversed(rows))
 
     async def prune(self, *, max_age_days: int = 14, max_rows: int = 200_000) -> dict[str, int]:
         """TRUTH-003 §14: ограниченное хранение — по возрасту и по числу строк (events и run_events).

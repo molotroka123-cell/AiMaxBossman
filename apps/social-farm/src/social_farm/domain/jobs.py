@@ -102,13 +102,24 @@ def check_transition(source: JobState, target: JobState) -> None:
 
 
 def on_restart(state: JobState) -> JobState:
-    """Что делать с работой, застрявшей в `RUNNING` после перезапуска.
+    """Что делать с работой, застрявшей после перезапуска.
 
     `restart_rule: stale_RUNNING: RECONCILING`. Не `READY` и не `FAILED`:
     процесс мог умереть сразу после того, как провайдер принял запрос, и
     единственный честный ответ — пойти и выяснить.
+
+    `WAITING_PROVIDER` добавлено нами (BL-117), и это третье намеренное
+    добавление к спеке — по той же причине, что и два в начале файла. Спека
+    называет только `RUNNING`, но `WAITING_PROVIDER` стоит в
+    `EXTERNAL_EFFECT_POSSIBLE` рядом с ним: это и есть состояние «запрос ушёл,
+    ответа нет», самое вероятное место смерти процесса — он там ЖДЁТ сети.
+    Раньше такая работа не разбиралась перезапуском вовсе и оставалась с
+    арендой мертвеца навсегда: `acquire` её не берёт (не `QUEUED`), сверщик не
+    берёт (не `RECONCILING`), а двигать её мог только тот работник, которого
+    уже нет. Правило строго осторожнее прежнего: в сверку уходит БОЛЬШЕ
+    состояний, а не меньше, и ни одно не уходит в повтор.
     """
-    if state is JobState.RUNNING:
+    if state is JobState.RUNNING or state is JobState.WAITING_PROVIDER:
         return JobState.RECONCILING
     return state
 

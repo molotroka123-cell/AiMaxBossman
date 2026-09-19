@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field
 from .. import web_designer_dom as dom
 from .. import web_designer_gen as gen
 from . import Feature
+from ..single_flight import await_shared
 
 router = APIRouter()
 
@@ -176,7 +177,7 @@ class _ProjectLock:
         await self.local.acquire()
         pending = asyncio.create_task(asyncio.to_thread(self._acquire))
         try:
-            await asyncio.shield(pending)
+            await await_shared(pending)
         except asyncio.CancelledError:
             try:
                 await pending

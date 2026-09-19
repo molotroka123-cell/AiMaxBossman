@@ -18,10 +18,23 @@ on:
     branches:
       - 'claude/**'
       - 'night/**'
+      # Ветка сведе́ния воедино. Заведена ПОСЛЕ того, как этот фильтр был
+      # написан, и потому выпала из него молча: сорок четыре прогона на
+      # release/bossman-owner не содержат ни одного Windows-задания, то есть
+      # продукт, который скачивает владелец, из канонической ветки не
+      # собирался ни разу (BL-089). Группа concurrency привязана к
+      # github.ref, поэтому добавление ветки не отменяет прогоны соседних.
+      # Список объявлен в tools/owner_facing_branches.json и сверяется
+      # tests/test_windows_workflows_cover_owner_branches.py.
+      - 'release/**'
     paths:
       - 'scripts/windows_owner_tasks.py'
       - 'scripts/verify_clean_install.py'
       - '.github/workflows/windows-owner-tasks.yml'
+      # Объявление кандидата выпуска поднимает это задание ЯВНО: без него
+      # кандидат, не задевший путей выше, прогона не получил бы вовсе, а
+      # отсутствующий прогон читается как «замечаний нет» (BL-107).
+      - tools/release_candidate.json
   workflow_dispatch:
     inputs:
       minutes:

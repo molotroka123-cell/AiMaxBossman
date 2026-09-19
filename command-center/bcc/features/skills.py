@@ -780,11 +780,68 @@ async def add_mcp(request: Request):
 
 @router.delete("/mcp/servers/{server_id}")
 async def del_mcp(server_id: int, request: Request):
+    """Удалённый владельцем коннектор перестаёт существовать ВЕЗДЕ, а не в витрине.
+
+    BL-110. Раньше удалялась одна строка `mcp_servers`. Строки `mcp_tools`
+    уходили каскадом (FK `ON DELETE CASCADE` + `PRAGMA foreign_keys=ON`), и
+    список в интерфейсе становился пустым — но в ЖИВОМ процессе оставалось
+    всё остальное:
+
+      * инструменты сервера оставались в `bcc.tools.REGISTRY`, то есть модель
+        продолжала видеть `mcp:<сервер>:<инструмент>` в своих схемах и могла
+        его вызвать, а хендлер по сохранённому в замыкании `spec` поднял бы
+        удалённый сервер заново;
+      * решение владельца из `mcp.policy` оставалось в настройках — в том
+        числе AUTO, и одноимённый новый коннектор молча наследовал бы его;
+      * запущенный процесс сервера никто не останавливал.
+
+    Владелец узнал бы об этом только после перезапуска приложения, потому что
+    `restore_registry` читает БД заново. До перезапуска «удалённый» коннектор
+    оставался исполняемым. Поэтому удаление теперь: остановить процесс → снять
+    инструменты из каталога модели → забыть политику по ним → и только тогда
+    считать коннектор удалённым.
+    """
     svc = request.app.state.svc
+    # Ленивый импорт: `tools_mcp` тянет рантайм MCP, а порядок загрузки фич от
+    # него зависеть не должен; цикла импорта здесь тоже не возникает.
+    from .tools_mcp import runtime_of, unregister_server_tools
+
     async with svc.db.session() as s:
+        row = (await s.execute(sa.select(mcp_servers_t)
+                               .where(mcp_servers_t.c.id == server_id))).first()
+        if row is None:
+            return {"ok": True, "removed_tools": 0, "removed_policy": 0}
+        name = str(row._mapping["name"])
+        # Имена инструментов читаются ДО удаления: каскад унесёт строки вместе
+        # с сервером, а политику надо чистить именно по НИМ, а не по префиксу —
+        # у другого сервера нормализованный префикс может совпасть.
+        tool_names = [str(r[0]) for r in (await s.execute(
+            sa.select(mcp_tools_t.c.name)
+            .where(mcp_tools_t.c.server_id == server_id))).fetchall()]
         await s.execute(sa.delete(mcp_servers_t).where(mcp_servers_t.c.id == server_id))
         await s.commit()
-    return {"ok": True}
+
+    try:
+        await runtime_of(svc).disconnect(name)
+    except Exception:            # noqa: BLE001 — мёртвое соединение не мешает удалению
+        pass
+    removed_tools = unregister_server_tools(name)
+
+    policy = await _mcp_policy(svc)
+    dropped = [c for c in (namespaced_tool(name, t) for t in tool_names) if c in policy]
+    if dropped:
+        for canonical in dropped:
+            policy.pop(canonical, None)
+        enc = svc.vault.encrypt(json.dumps(policy))
+        async with svc.db.session() as s:
+            await s.execute(sa.delete(settings_kv).where(settings_kv.c.key == MCP_POLICY_KEY))
+            await s.execute(sa.insert(settings_kv).values(key=MCP_POLICY_KEY, value_enc=enc))
+            await s.commit()
+
+    await svc.bus.emit("mcp.server_removed", server=name,
+                       tools=removed_tools, policy=len(dropped))
+    return {"ok": True, "server": name, "removed_tools": removed_tools,
+            "removed_policy": len(dropped)}
 
 
 @router.get("/mcp/tools")
