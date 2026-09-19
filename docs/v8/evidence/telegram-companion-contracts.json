@@ -1,0 +1,44 @@
+{
+  "scope": "OFFLINE_CONTRACTS_NOT_LIVE_TELEGRAM_MODEL_WINDOWS_ACCEPTANCE",
+  "python": "3.13.5",
+  "platform": "linux",
+  "runtime_dependency_artifact_sha": "cc794b0662ec2e83eea10434942c058e2d2d0ab3",
+  "results": {
+    "telegram-tests.xml": {
+      "tests": 79,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "source-ci-scope.xml": {
+      "tests": 74,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    }
+  },
+  "setup_localhost_http": "PASS_real_loopback_http",
+  "setup_inline_javascript_parse": "PASS_node_check",
+  "python_ast": "PASS",
+  "live_telegram": "NOT_RUN_NO_SECRET",
+  "local_model": "NOT_RUN",
+  "claude_fallback": "MOCK_HTTP_ONLY_NOT_BILLED",
+  "windows_gui": "NOT_RUN",
+  "application_zip": "NOT_BUILT_HERE",
+  "new_third_party_dependencies": 0,
+  "candidate_file_sha256": {
+    "bossman-core/bossman/notifications/telegram_transport.py": "41a5f0799a3b97781d09822071ae0226eff5bac2d7779a91e07293309acdca1f",
+    "bossman-core/tests/test_telegram_transport_response_truth.py": "25d72fa74a0b62883916f4c3206929e1ba395082f90534ef5b5d076a0b3d4c11",
+    "command-center/bcc/telegram_companion/__init__.py": "068d99e68a1aa2d5e3db44f3244b844f27c31780eefbf91e0fbc60b5f893f7c5",
+    "command-center/bcc/telegram_companion/__main__.py": "04f6db8512ea2e1b0fb358939e836b3b87bd898ea79567eb17841b432e1ea218",
+    "command-center/bcc/telegram_companion/adapters.py": "7da7c3efc97b9c0d09cdb8fb01b6d1d265729f425f3ea5899c595e31fbafbd96",
+    "command-center/bcc/telegram_companion/config.py": "57d0796c390c38ad4f11173ae5cb3f07e39e11852fbf480f7999e742e85202b7",
+    "command-center/bcc/telegram_companion/service.py": "6d57fc14adefff2ad9886c769fe0a89876072b5dad61f987d03236f2bf90ada9",
+    "command-center/bcc/telegram_companion/setup_ui.py": "8d0d11ffd5dcfd090b17931c741659ef9719850341540841eca65c61419ba63f",
+    "command-center/bcc/telegram_companion/store.py": "17bc1d26204c054a8bca5d258dbcec59317fbf642ac4656d9ece9d2a60c156f2",
+    "command-center/pyproject.toml": "cd459e36e929d9ad70fd11e96fb3bf74c78c6fe23eb4ed8d2eaba3e719f0d58a",
+    "command-center/tests/telegram_contracts/conftest.py": "8d9a0a664ac0ca85e0ec5df2fb132859a6b38e3f5b91eadf4ec76c857df66038",
+    "command-center/tests/telegram_contracts/test_companion.py": "21b407d84cd40dc1022cffb07f95aeed5b96e942d9246dffd4cd9cf8329e3c6a",
+    "docs/v8/TELEGRAM_COMPANION_RU.md": "004b5569f39a299749833960355892aa60aa55513c165fe698d02ca304d08543"
+  }
+}

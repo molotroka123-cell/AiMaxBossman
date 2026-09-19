@@ -51,11 +51,16 @@ class TelegramTransport:
                 r=await client.post(f"{API}/bot{token}/{method}",json=payload)
         except Exception as exc:
             # Never persist exception text containing the bot-token URL.
-            raise TelegramTransportError(type(exc).__name__) from exc
+            raise TelegramTransportError(type(exc).__name__) from None
         if r.status_code<200 or r.status_code>=300:
             raise TelegramTransportError(f"telegram HTTP {r.status_code}")
-        try:return r.json()
-        except Exception:return {"ok":True}
+        try:
+            body = r.json()
+        except (ValueError, UnicodeError):
+            raise TelegramTransportError("telegram invalid JSON") from None
+        if not isinstance(body, dict) or body.get("ok") is not True or "result" not in body:
+            raise TelegramTransportError("telegram API did not confirm success")
+        return body
 
     async def send(self,n:Notification)->None:
         if not self.enabled():raise TelegramTransportError("telegram disabled")
