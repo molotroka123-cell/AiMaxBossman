@@ -103,14 +103,24 @@ async def guarded(call):
             raise HTTPException(404,{"message":str(exc)[:300],"code":exc.code}) from None
         raise HTTPException(422,{"message":str(exc)[:300]}) from None
     except RuntimeError as exc:
-        # RuntimeError здесь — НАШ собственный текст, а не системный сбой:
-        # `prepared_file` этим сообщает «производная ещё не подготовлена, запусти
-        # prepare». Прежде он схлопывался в «operation conflict or local resource
+        # RuntimeError здесь — НАШ собственный текст, а не системный сбой.
+        # Прежде он схлопывался в «operation conflict or local resource
         # unavailable» вместе с OSError и IntegrityError, и владелец видел на
-        # превью 409 без единого намёка, что делать. Система знала причину и
-        # выбрасывала её. Текст наш, путей в нём нет — отдаём как есть.
-        raise HTTPException(409,{"message":str(exc)[:300],
-                                 "code":"derivative_not_prepared"}) from None
+        # превью 409 без единого намёка, что делать. Текст наш, путей в нём
+        # нет — отдаём как есть.
+        #
+        # BL-104: а вот машиночитаемый КОД раньше был один на всех —
+        # `derivative_not_prepared`. Допущение «RuntimeError здесь бросает
+        # только `prepared_file`» неверно: подсистема бросает его ещё
+        # десятком мест, среди них «revision conflict» и «output changed after
+        # independent verification». Подмена артефакта сообщалась автоматике
+        # как «производная не подготовлена, запусти prepare» — совет починить
+        # не то. Этот код теперь принадлежит ОДНОМУ типу, а остальным идёт
+        # честно общий: причину несёт текст, а не выдуманная метка.
+        from ..video_studio.model import DerivativeNotPrepared
+        code = (DerivativeNotPrepared.code if isinstance(exc, DerivativeNotPrepared)
+                else "media_operation_failed")
+        raise HTTPException(409,{"message":str(exc)[:300],"code":code}) from None
     except (OSError, sa.exc.IntegrityError):
         # А эти сообщения несут пути и детали хранилища, поэтому наружу идёт
         # общая формулировка: причина остаётся в логах сервера, не в ответе.
