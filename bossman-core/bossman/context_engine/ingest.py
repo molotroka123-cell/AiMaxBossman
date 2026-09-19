@@ -6,7 +6,7 @@ from .chunking import chunk_document
 from .embeddings import Embedder
 from .models import Document
 from .store import ContextStore
-from .utils import sha256_text, stable_id, utcnow
+from .utils import json_dumps, sha256_text, stable_id, utcnow
 
 _TEXT_EXTS = {".md",".txt",".py",".js",".ts",".tsx",".jsx",".json",".yaml",".yml",".toml",".html",".css",".sql",".sh",".rs",".go",".java",".kt",".swift",".c",".h",".cpp",".hpp"}
 
@@ -19,16 +19,20 @@ class Ingestor:
     def ingest_text(self, text: str, *, source_uri: str, source_type: str = "text", project: str = "",
                     metadata: dict | None = None, sensitivity: str = "normal") -> Document:
         now = utcnow(); h = sha256_text(text)
-        document_id = stable_id("doc", source_uri, h)
+        # A cache hit belongs to one exact project, including the default scope.
+        # Reuse persisted legacy IDs only inside that scope so existing chunk
+        # references survive upgrades without duplicating already indexed data.
+        cached_id = self.store.indexed_document_id(source_uri, h, project=project)
+        document_id = cached_id or stable_id(
+            "doc", "scope-v1", json_dumps([project, source_uri, h]))
         doc = Document(
             document_id=document_id,source_type=source_type,source_uri=source_uri,text=text,project=project,
             created_at=now,updated_at=now,metadata=metadata or {},content_hash=h,sensitivity=sensitivity,
         )
-        # Fast path: тот же source_uri + тот же контент → тот же document_id.
-        # Если он уже проиндексирован, повторный chunk+embed не нужен (это ровно
-        # те же данные). Убирает переэмбеддинг неизменного memory.md на каждой
-        # задаче — см. docs/context/FABLE5_GENERAL_OPTIMIZATION_AUDIT.md.
-        if self.store.document_indexed(document_id):
+        # A's identical file must never make B appear successfully indexed.
+        # JSON encodes the identity tuple unambiguously even when a project or
+        # URI contains the delimiter used internally by stable_id.
+        if cached_id is not None:
             return doc
         chunks = chunk_document(doc)
         vectors = self.embedder.embed([c.text for c in chunks]) if chunks else []

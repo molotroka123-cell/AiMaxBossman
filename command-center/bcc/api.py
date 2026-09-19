@@ -1021,17 +1021,26 @@ def _api_router() -> APIRouter:
     @router.post("/approvals/{approval_id}")
     async def decide_approval(approval_id: int, body: ApprovalIn,
                               svc: Services = Depends(services)):
-        row = await svc.approvals.decide(approval_id, body.approve, body.by)
+        prepare = None
+        if body.approve and body.lease is not None:
+            async def prepare(session, approval):
+                lease = await _lease_from_parked_call(
+                    svc, approval, body.lease, body.by, session=session)
+                if lease is None:
+                    raise ApiError("аренду можно выдать только по ожидающему вызову "
+                                   "этого подтверждения в активной задаче", status=409)
+                return lease
+        if prepare is None:
+            row = await svc.approvals.decide(approval_id, body.approve, body.by)
+        else:
+            row = await svc.approvals.decide(approval_id, body.approve, body.by,
+                                              prepare_approve=prepare)
         if row is None:
             raise ApiError("подтверждение не найдено", status=404)
-        lease = None
-        if body.approve and body.lease is not None:
-            # Область берётся из ПАРКОВАННОГО вызова, а не из тела запроса:
-            # клиент не может расширить то, что владелец видел в предпросмотре.
-            lease = await _lease_from_parked_call(svc, row, body.lease, body.by)
-            if lease is None:
-                raise ApiError("аренду можно выдать только по ожидающему вызову "
-                               "инструмента этого подтверждения", status=409)
+        lease = row.get("lease")
+        if prepare is not None and lease is None:
+            # decide() lost its pending CAS: a retry is not a new owner grant.
+            raise ApiError("подтверждение уже обработано; новая аренда не выдана", status=409)
         return {**row, "lease": lease}
 
     @router.get("/approvals/leases")
@@ -1076,35 +1085,43 @@ def _api_router() -> APIRouter:
     return router
 
 
-async def _lease_from_parked_call(svc, approval: dict, want, by: str) -> dict | None:
-    """Derive the lease scope from the tool call this approval is parked on.
+async def _lease_from_parked_call(svc, approval: dict, want, by: str, *, session) -> dict | None:
+    """Resolve scope under the transaction which won the approval decision.
 
-    The scope is NEVER taken from the request body. The owner consented to what
-    the preview showed — that exact tool, that exact effect class, that agent,
-    that task — so the scope is recomputed from the parked call's own arguments
-    using the executor's classifier. A client that asked for a wider lease than
-    it was shown gets the narrow one, or none at all."""
+    A different task/run, a terminal task, a denied call, or an ambiguous
+    parked operation cannot borrow this decision. Locks live until the lease
+    and decision commit together. No network work or notifications occur here.
+    """
     import sqlalchemy as _sa
     from . import approval_scope as scope
-    from .db import agents as _agents, tasks as _tasks, tool_calls as _calls
-    async with svc.db.session() as s:
-        row = (await s.execute(_sa.select(_calls).where(
-            _calls.c.approval_id == approval.get("id"),
-            _calls.c.status == "pending_approval").order_by(
-            _calls.c.id.desc()).limit(1))).first()
-        if row is None:
-            return None
-        parked = dict(row._mapping)
-        task = (await s.execute(_sa.select(_tasks.c.id).where(
-            _tasks.c.id == parked.get("task_id")))).first()
-        agent_id = (await s.execute(_sa.select(_tasks.c.agent_id).where(
-            _tasks.c.id == parked.get("task_id")))).scalar()
-    if task is None:
+    from .db import tasks as _tasks, task_runs as _runs, tool_calls as _calls
+    if (approval.get("kind") != "tool" or approval.get("task_id") is None
+            or approval.get("run_id") is None):
         return None
+    rows = (await session.execute(_sa.select(_calls).where(
+        _calls.c.approval_id == approval["id"],
+        _calls.c.task_id == approval["task_id"],
+        _calls.c.run_id == approval["run_id"],
+        _calls.c.effect == "ask",
+        _calls.c.status == "pending_approval").with_for_update())).all()
+    if len(rows) != 1:
+        return None
+    parked = dict(rows[0]._mapping)
+    task_row = (await session.execute(_sa.select(_tasks).where(
+        _tasks.c.id == approval["task_id"]).with_for_update())).first()
+    run_row = (await session.execute(_sa.select(_runs).where(
+        _runs.c.id == approval["run_id"],
+        _runs.c.task_id == approval["task_id"]).with_for_update())).first()
+    terminal = {"stopped", "cancelled", "canceled", "completed", "failed"}
+    if (task_row is None or run_row is None or task_row._mapping["status"] in terminal
+            or run_row._mapping["status"] in terminal):
+        return None
+    task = dict(task_row._mapping)
     sc = scope.scope_for(str(parked.get("tool") or ""), parked.get("args") or {},
-                         agent={"id": agent_id}, task={"id": int(task[0])})
+                         agent={"id": task.get("agent_id")}, task={"id": task["id"]})
     return await scope.grant(svc, approval=approval, scope=sc,
-                             max_uses=want.max_uses, ttl_seconds=want.ttl_seconds, by=by)
+                             max_uses=want.max_uses, ttl_seconds=want.ttl_seconds,
+                             by=by, session=session)
 
 
 def _run_public(run: dict | None) -> dict | None:

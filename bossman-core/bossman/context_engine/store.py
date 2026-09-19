@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS documents (
   sensitivity TEXT NOT NULL DEFAULT 'normal',
   content_hash TEXT NOT NULL DEFAULT ''
 );
+CREATE INDEX IF NOT EXISTS idx_documents_source_scope ON documents(project, source_uri, content_hash);
 CREATE TABLE IF NOT EXISTS chunks (
   chunk_id TEXT PRIMARY KEY,
   document_id TEXT NOT NULL,
@@ -90,13 +91,30 @@ class ContextStore:
     def document_indexed(self, document_id: str) -> bool:
         """Документ уже проиндексирован (есть хотя бы один чанк)?
 
-        document_id = stable_id(source_uri, content_hash), поэтому равенство id
-        означает «тот же источник с тем же содержимым». Позволяет пропустить
-        повторный chunk+embed идентичного текста (FABLE5 perf: memory.md
-        переэмбеддился на каждой задаче)."""
+        This low-level check accepts an already resolved ID. Ingestion must
+        use indexed_document_id to validate the project of legacy IDs whose
+        original identity did not include a project."""
         row = self.db.execute(
             "SELECT 1 FROM chunks WHERE document_id=? LIMIT 1", (document_id,)).fetchone()
         return row is not None
+
+    def indexed_document_id(self, source_uri: str, content_hash: str, *, project: str) -> str | None:
+        """Return an existing index only for this exact source and project.
+
+        Scope equality is unconditional: project='' is a scope here, not an
+        instruction to search every project. Joining chunks back to their
+        document also prevents an orphan or mismatched chunk from producing a
+        false cache hit. Legacy IDs remain valid in their original project.
+        """
+        row = self.db.execute(
+            """SELECT d.document_id FROM documents d
+               WHERE d.project=? AND d.source_uri=? AND d.content_hash=?
+                 AND EXISTS (SELECT 1 FROM chunks c
+                             WHERE c.document_id=d.document_id AND c.project=d.project)
+               ORDER BY d.document_id LIMIT 1""",
+            (project, source_uri, content_hash),
+        ).fetchone()
+        return row[0] if row is not None else None
 
     def upsert_document(self, doc: Document) -> None:
         self.db.execute(

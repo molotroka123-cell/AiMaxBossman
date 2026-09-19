@@ -6,7 +6,10 @@
 """
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 import sqlalchemy as sa
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import Database, approvals as approvals_t, fetch_one, rows_dicts, utcnow
 from .events import EventBus
@@ -38,20 +41,46 @@ class Approvals:
             res = await s.execute(stmt)
             return rows_dicts(res.fetchall())
 
-    async def decide(self, approval_id: int, approve: bool, by: str = "owner") -> dict | None:
-        """Решение принимается один раз: повторный вызов ничего не меняет."""
+    async def decide(self, approval_id: int, approve: bool, by: str = "owner", *,
+                     prepare_approve: Callable[[AsyncSession, dict], Awaitable[dict]] | None = None
+                     ) -> dict | None:
+        """Apply one decision, optionally preparing its lease in the SAME transaction.
+
+        Only the winner of pending -> approved may prepare authority. A replay
+        returns the existing decision without invoking prepare_approve. Failure
+        while preparing rolls back the decision too: no approved row can wake
+        a worker after an invalid lease request. The callback must perform only
+        transactional database work; notifications happen after commit.
+        """
         status = "approved" if approve else "rejected"
+        lease = None
         async with self.db.session() as s:
             res = await s.execute(sa.update(approvals_t).where(
                 approvals_t.c.id == approval_id,
                 approvals_t.c.status == "pending").values(
                 status=status, decided_by=by, decided_at=utcnow()))
-            await s.commit()
             if not res.rowcount:
+                await s.rollback()
                 return await fetch_one(s, approvals_t, approval_id)
             row = await fetch_one(s, approvals_t, approval_id)
+            if approve and prepare_approve is not None:
+                try:
+                    lease = await prepare_approve(s, row)
+                except BaseException:
+                    await s.rollback()
+                    raise
+            await s.commit()
+        # Persist the lease BEFORE publishing approval.decided: the worker may
+        # resume immediately on that notification.
+        if lease is not None:
+            await self.bus.emit("approval.lease_granted", lease_id=lease["id"],
+                                tool=lease["tool"], effect_class=lease["effect_class"],
+                                scope_key=lease["scope_key"], task_id=lease["task_id"],
+                                agent_id=lease["agent_id"], max_uses=lease["max_uses"],
+                                ttl_seconds=int((lease["expires_at"] - lease["created_at"]).total_seconds()),
+                                by=by)
         await self.bus.emit("approval.decided", id=approval_id, status=status, by=by)
-        return row
+        return {**row, "lease": lease} if lease is not None else row
 
     async def revoke(self, approval_id: int, by: str = "owner") -> dict | None:
         """Withdraw an approval BEFORE its effect: approved -> revoked (CAS).

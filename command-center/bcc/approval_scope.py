@@ -1,7 +1,7 @@
 """§7 — one owner decision per authority scope, not one per keystroke.
 
 The 2026-09-07 acceptance session recorded 161 owner confirmations, ~121 of
-them while correcting a documentation file. The cause is structural, not a
+ them while correcting a documentation file. The cause is structural, not a
 tuning problem: `approval_digest` binds an approval to the exact normalized
 arguments, which is precisely right for anti-replay, but it means every new
 `ls`, `pwd`, `dir` or `cat` in the same authorized activity is a brand-new
@@ -156,24 +156,49 @@ async def previously_rejected(svc, *, args_hash: str, run_id: int) -> bool:
 # ------------------------------------------------------------------ leases
 
 async def grant(svc, *, approval: dict, scope: Scope, max_uses: int, ttl_seconds: int,
-                by: str = "owner") -> dict:
-    """Create a lease from an approval the owner has just granted.
+                by: str = "owner", session=None) -> dict:
+    """Insert a bounded lease; the HTTP path supplies its decision transaction.
 
-    Both bounds are clamped rather than trusted: a caller (including a
-    compromised UI) cannot mint an eternal or unlimited authority."""
+    A supplied session is never committed and never emits an event here. Its
+    caller owns pending -> approved and publishes only after committing both
+    records. Standalone trusted callers retain the previous fixture/internal
+    API; when an approval id is provided it must be live, approved, scoped to
+    the task, and not already associated with any lease (including spent ones).
+    """
     uses = max(1, min(int(max_uses), MAX_LEASE_USES))
     ttl = max(1, min(int(ttl_seconds), MAX_LEASE_TTL_SECONDS))
-    async with svc.db.session() as s:
+
+    async def insert(s):
+        if approval.get("id") is not None:
+            # A real UPDATE serializes grants against this approval on SQLite
+            # and PostgreSQL. The subsequent SELECT observes a committed earlier
+            # grant; a process-local mutex or a read-before-write cannot do so.
+            locked = await s.execute(sa.update(approvals_t).where(
+                approvals_t.c.id == approval["id"],
+                approvals_t.c.status == "approved",
+                approvals_t.c.task_id == scope.task_id).values(status="approved"))
+            if not locked.rowcount:
+                raise PermissionError("approval is not approved for this task")
+            existing = (await s.execute(sa.select(leases_t.c.id).where(
+                leases_t.c.approval_id == approval["id"]).limit(1))).first()
+            if existing is not None:
+                raise PermissionError("approval already granted a lease")
+        now = utcnow()
         res = await s.execute(sa.insert(leases_t).values(
             approval_id=approval.get("id"), task_id=scope.task_id, agent_id=scope.agent_id,
             tool=scope.tool, effect_class=scope.effect_class, scope_key=scope.scope_key,
-            max_uses=uses, used=0, expires_at=utcnow() + timedelta(seconds=ttl),
-            status="active", granted_by=by, created_at=utcnow()))
+            max_uses=uses, used=0, expires_at=now + timedelta(seconds=ttl),
+            status="active", granted_by=by, created_at=now))
         lease_id = int(res.inserted_primary_key[0])
-        await s.commit()
         row = (await s.execute(sa.select(leases_t).where(leases_t.c.id == lease_id))).first()
-    lease = dict(row._mapping)
-    await svc.bus.emit("approval.lease_granted", lease_id=lease_id, tool=scope.tool,
+        return dict(row._mapping)
+
+    if session is not None:
+        return await insert(session)
+    async with svc.db.session() as s:
+        lease = await insert(s)
+        await s.commit()
+    await svc.bus.emit("approval.lease_granted", lease_id=lease["id"], tool=scope.tool,
                        effect_class=scope.effect_class, scope_key=scope.scope_key,
                        task_id=scope.task_id, agent_id=scope.agent_id,
                        max_uses=uses, ttl_seconds=ttl, by=by)
