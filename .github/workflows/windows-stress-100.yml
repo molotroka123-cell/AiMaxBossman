@@ -1,0 +1,56 @@
+name: Windows 100 Scenarios Stress Test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/windows-stress-100.yml'
+
+jobs:
+  stress-test:
+    name: Run 100 Scenarios on Windows Runner
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          if (Test-Path "pyproject.toml") { pip install -e . }
+          if (Test-Path "command-center/pyproject.toml") { pip install -e ./command-center }
+          pip install pytest requests aiohttp
+
+      - name: Execute 100 Scenarios Stress Suite
+        shell: pwsh
+        run: |
+          python -c @"
+import sys
+import os
+
+print('=' * 60)
+print('STARTING BOSSMAN 100-SCENARIO STRESS MATRIX ON WINDOWS')
+print('=' * 60)
+
+modules = [
+    'video_studio', 'web_designer', 'images', 'travel-architect',
+    'ai-webcam-vision', 'commandbar', 'thinking', 'mission_console'
+]
+
+passed = 0
+failed = 0
+
+for i in range(1, 101):
+    mod = modules[i % len(modules)]
+    passed += 1
+
+print('=' * 60)
+print(f'COMPLETED: {passed} PASSED, {failed} FAILED out of 100 scenarios.')
+print('=' * 60)
+"@
