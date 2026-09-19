@@ -325,6 +325,28 @@ jobs:
           & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/installed_ui_sweep.py" `
             --expected-sha "$env:BOSSMAN_ACCEPTANCE_SHA" `
             --output "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/ui-sweep.json"
+      - name: Hardware detection really runs from the archive (WMIC is gone in Win11 24H2)
+        # Правка определения железа до сих пор проверялась только подстановкой
+        # ветки Windows на Linux. Здесь раннер ИСПОЛНЯЕТ тот самый файл из
+        # распакованного архива. Раннер — не машина владельца, поэтому
+        # законный ответ здесь `SOFTWARE_READY_FOR_TARGET_HARDWARE_RUN`.
+        # Недопустимый — `TARGET_HARDWARE_UNDETERMINED` (код 3): он означал бы,
+        # что замена WMIC на настоящей Windows не работает, а это ровно то,
+        # ради чего шаг и добавлен.
+        if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
+        run: |
+          & "$env:BCC_ACCEPTANCE_PYTHON" -I "$env:BOSSMAN_INSTALLED_HOME/app-support/target_hardware_acceptance.py" `
+            --json "$env:BOSSMAN_EDITOR_EVIDENCE_DIR/machine.json"
+          $code = $LASTEXITCODE
+          if ($code -eq 3) {
+            Write-Host '::error::TARGET_HARDWARE_UNDETERMINED на раннере Windows — определение железа не работает без WMIC. Смотрите TARGET_HARDWARE_SOURCES в журнале выше.'
+            exit 1
+          }
+          if ($code -ne 0) {
+            Write-Host "::error::определение железа завершилось кодом $code"
+            exit $code
+          }
+          exit 0
       - name: Studio installed catalog and owner live evidence
         if: ${{ !cancelled() && env.BCC_ACCEPTANCE_PYTHON != '' }}
         env:

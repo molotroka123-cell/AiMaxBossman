@@ -162,11 +162,23 @@ def _as_list(value: Any) -> list[str]:
     return []
 
 
+# Чем именно определено каждое поле. Раннер Windows Server ещё несёт wmic, а
+# машина владельца — уже нет: без этой записи зелёный прогон на раннере не
+# отличить от прогона, где новый путь CIM молча не сработал и всё вытянул
+# устаревший wmic. Ради этого различия правка и делалась.
+_SOURCES: dict[str, str] = {"cpu": "", "gpu": "", "ram": ""}
+
+
+def _from(field: str, source: str) -> None:
+    _SOURCES[field] = source
+
+
 def cpu_model() -> str:
     if sys.platform.startswith("linux"):
         try:
             for line in Path("/proc/cpuinfo").read_text(encoding="utf-8", errors="replace").splitlines():
                 if line.lower().startswith("model name"):
+                    _from("cpu", "proc")
                     return line.split(":", 1)[1].strip()
         except OSError:
             pass
@@ -174,16 +186,19 @@ def cpu_model() -> str:
         named = _as_list(_cim("Get-CimInstance Win32_Processor | "
                               "Select-Object -First 1 -ExpandProperty Name | ConvertTo-Json -Compress"))
         if named:
+            _from("cpu", "cim")
             return named[0]
         if shutil.which("wmic"):
             text = _run(["wmic", "cpu", "get", "name"])
             lines = [x.strip() for x in text.splitlines() if x.strip() and "Name" not in x]
             if lines:
+                _from("cpu", "wmic")
                 return lines[0]
         return ""            # не определили — и не притворяемся, что определили
     if sys.platform == "darwin":
         text = _run(["sysctl", "-n", "machdep.cpu.brand_string"]).strip()
         if text:
+            _from("cpu", "sysctl")
             return text
     return platform.processor() or platform.machine() or "unknown"
 
@@ -194,19 +209,25 @@ def gpu_models() -> list[str]:
         for line in _run(["rocminfo"]).splitlines():
             m = re.search(r"(gfx\d+)", line)
             if m and m.group(1) not in found:
+                _from("gpu", "rocminfo")
                 found.append(m.group(1))
     if sys.platform.startswith("linux") and shutil.which("lspci"):
         for line in _run(["lspci"]).splitlines():
             if re.search(r"\bvga\b|\b3d controller\b|\bdisplay controller\b", line, re.I):
+                _from("gpu", _SOURCES["gpu"] or "lspci")
                 found.append(line.split(":", 2)[-1].strip())
     if sys.platform == "win32":
         named = _as_list(_cim("Get-CimInstance Win32_VideoController | "
                               "Select-Object -ExpandProperty Name | ConvertTo-Json -Compress"))
         if named:
+            _from("gpu", "cim")
             found += named
         elif shutil.which("wmic"):
             text = _run(["wmic", "path", "win32_VideoController", "get", "name"])
-            found += [x.strip() for x in text.splitlines() if x.strip() and "Name" not in x]
+            named = [x.strip() for x in text.splitlines() if x.strip() and "Name" not in x]
+            if named:
+                _from("gpu", "wmic")
+            found += named
     return found
 
 
@@ -215,24 +236,32 @@ def total_ram_gib() -> float | None:
         try:
             for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
                 if line.startswith("MemTotal:"):
+                    _from("ram", "proc")
                     return round(int(line.split()[1]) / (1024 ** 2), 1)
         except (OSError, ValueError, IndexError):
             return None
     if sys.platform == "win32":
         total = _cim("(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory | ConvertTo-Json -Compress")
         if isinstance(total, (int, float)) and total > 0:
+            _from("ram", "cim")
             return round(float(total) / (1024 ** 3), 1)
         if isinstance(total, str) and total.strip().isdigit():
+            _from("ram", "cim")
             return round(int(total.strip()) / (1024 ** 3), 1)
         if shutil.which("wmic"):
             text = _run(["wmic", "computersystem", "get", "TotalPhysicalMemory"])
             digits = [x.strip() for x in text.splitlines() if x.strip().isdigit()]
             if digits:
+                _from("ram", "wmic")
                 return round(int(digits[0]) / (1024 ** 3), 1)
-        return _psutil_ram_gib()   # независимая сверка, а не догадка
+        measured = _psutil_ram_gib()   # независимая сверка, а не догадка
+        if measured is not None:
+            _from("ram", "psutil")
+        return measured
     if sys.platform == "darwin":
         text = _run(["sysctl", "-n", "hw.memsize"]).strip()
         if text.isdigit():
+            _from("ram", "sysctl")
             return round(int(text) / (1024 ** 3), 1)
     return None
 
@@ -245,6 +274,7 @@ def probe() -> dict[str, Any]:
     молча объявлялась нецелевой, все проверки пропускались, а код выхода был
     нулевым. Неопознанная машина больше не выглядит успехом.
     """
+    _SOURCES.update(cpu="", gpu="", ram="")   # вторая проба не наследует первую
     cpu, gpus, ram = cpu_model(), gpu_models(), total_ram_gib()
     determined = {"cpu": bool(cpu.strip()), "gpu": bool(gpus), "ram": ram is not None}
     cpu_ok = determined["cpu"] and any(p.search(cpu) for p in TARGET_CPU_PATTERNS)
@@ -269,6 +299,7 @@ def probe() -> dict[str, Any]:
             "ram_gib": ram, "cpu_match": cpu_ok, "gpu_match": gpu_ok,
             "ram_match": ram_ok, "on_target": on_target,
             "determined": determined, "undetermined": unknown,
+            "sources": dict(_SOURCES),
             "hardware_state": state, "mismatch": mismatch}
 
 
@@ -363,6 +394,12 @@ def main(argv: list[str] | None = None) -> int:
         args.json.write_text(text + "\n", encoding="utf-8")
     print(text)
     print(f"\nTARGET_HARDWARE_VERDICT={report['verdict']}")
+    # Источники — в строке, а не только в JSON: журнал задания читается всегда,
+    # а артефакт из среды агента бывает недостижим (это уже стоило одного
+    # прогона вслепую).
+    sources = host.get("sources") or {}
+    print("TARGET_HARDWARE_SOURCES=" + " ".join(
+        f"{field}={sources.get(field) or 'none'}" for field in ("cpu", "gpu", "ram")))
     for line in host["mismatch"]:
         print(f"  не совпало: {line}")
     return exit_code

@@ -289,3 +289,69 @@ def test_on_target_children_run_under_a_timeout(monkeypatch, tmp_path):
     monkeypatch.setattr(tha.subprocess, "run", fake_run)
     tha.run_on_target()
     assert seen["timeout"] is not None and seen["timeout"] > 0, seen
+
+
+# --- откуда пришёл ответ: без этого прогон на Windows ничему не учит --------
+
+def test_the_report_names_which_source_answered_for_each_field(monkeypatch):
+    """«Определили» недостаточно: надо знать, ЧЕМ определили.
+
+    Раннер Windows Server ещё несёт wmic, а машина владельца — уже нет. Если
+    отчёт не называет источник, зелёный прогон на раннере не отличить от
+    прогона, где новый путь CIM молча не сработал и всё вытянул устаревший
+    wmic. Именно ради этого различия правка и делалась.
+    """
+    def cim(argv):
+        query = argv[-1]
+        if "Win32_Processor" in query:
+            return '"AMD Ryzen AI Max+ 395 w/ Radeon 8060S Graphics"'
+        if "Win32_VideoController" in query:
+            return '["AMD Radeon(TM) 8060S Graphics"]'
+        if "TotalPhysicalMemory" in query:
+            return "137438953472"
+        return ""
+    _windows(monkeypatch, powershell="pwsh", wmic=None, cim=cim)
+    host = tha.probe()
+    assert host["sources"] == {"cpu": "cim", "gpu": "cim", "ram": "cim"}, host["sources"]
+
+
+def test_the_source_says_wmic_when_cim_stays_silent(monkeypatch):
+    """Пара: тот же зелёный ответ, но полученный устаревшим путём."""
+    def wmic_run(argv, timeout=30.0):
+        if argv[0] == "wmic" and "cpu" in argv:
+            return "Name\nAMD Ryzen AI Max+ 395 w/ Radeon 8060S Graphics\n"
+        if argv[0] == "wmic" and "win32_VideoController" in argv:
+            return "Name\nAMD Radeon(TM) 8060S Graphics\n"
+        return ""
+    monkeypatch.setattr(tha.sys, "platform", "win32", raising=False)
+    monkeypatch.setattr(tha.shutil, "which",
+                        lambda name: {"wmic": "wmic"}.get(name))
+    monkeypatch.setattr(tha, "_run", wmic_run)
+    monkeypatch.setattr(tha, "_psutil_ram_gib", lambda: 128.0, raising=False)
+    host = tha.probe()
+    assert host["sources"]["cpu"] == "wmic", host["sources"]
+    assert host["sources"]["gpu"] == "wmic", host["sources"]
+    assert host["sources"]["ram"] == "psutil", host["sources"]
+
+
+def test_an_undetermined_field_names_no_source_at_all(monkeypatch):
+    """Не определили — источника нет, и выдумывать его нельзя."""
+    _windows(monkeypatch, powershell=None, wmic=None)
+    host = tha.probe()
+    assert host["hardware_state"] == "undetermined"
+    assert host["sources"] == {"cpu": "", "gpu": "", "ram": ""}, host["sources"]
+
+
+def test_the_sources_are_reset_between_probes(monkeypatch):
+    """Вторая проба не имеет права унаследовать источник первой."""
+    def cim(argv):
+        if "Win32_Processor" in argv[-1]:
+            return '"AMD Ryzen AI Max+ 395"'
+        return ""
+    _windows(monkeypatch, powershell="pwsh", wmic=None, cim=cim)
+    first = tha.probe()
+    assert first["sources"]["cpu"] == "cim"
+
+    _windows(monkeypatch, powershell=None, wmic=None)
+    second = tha.probe()
+    assert second["sources"]["cpu"] == "", second["sources"]
