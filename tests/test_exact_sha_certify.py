@@ -152,6 +152,18 @@ def test_both_windows_workflows_are_required_for_certification():
     assert "Windows owner run — light, medium and super-long task" in required
 
 
+def test_the_owner_scoreboard_is_required_too():
+    """Готовность определяют владельческие сценарии, а не регрессия.
+
+    Без этой строки сертификат выдавался бы SHA, на котором табло не
+    считалось вовсе, — а отсутствующий прогон не окрашен никак и читается как
+    «замечаний нет». Поведенческая половина уже есть выше
+    (`test_a_missing_windows_run_blocks_certification` снимает ЛЮБОЕ требуемое
+    имя), второй её экземпляр здесь заводить незачем.
+    """
+    assert "Owner scenarios (integrated, not unit tests)" in set(esc.DEFAULT_REQUIRED)
+
+
 # Сторожа «каждое требуемое имя существует как задание» здесь НЕТ намеренно:
 # он уже есть выше — test_default_required_names_match_workflow_files. Второй
 # экземпляр того же правила — это ровно та дублирующая архитектура, которую
