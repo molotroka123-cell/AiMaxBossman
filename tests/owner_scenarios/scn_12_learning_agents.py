@@ -47,27 +47,6 @@ from scenario_runner import PRODUCT_CONTRACTS, scenario  # noqa: E402
 HERE = Path(__file__).resolve().parent
 
 
-# ------------------------------------------------------------------ привязка
-def _declared_ids() -> frozenset[str]:
-    try:
-        data = json.loads((HERE / "owner_scenarios.json").read_text(encoding="utf-8"))
-        return frozenset(row["id"] for row in data["scenarios"])
-    except BaseException:  # noqa: BLE001 — нечитаемый реестр это «ничего не объявлено»
-        return frozenset()
-
-
-DECLARED = _declared_ids()
-
-
-def bind(scenario_id: str, *, depth: str = PRODUCT_CONTRACTS):
-    """Привязать реализацию, ЕСЛИ строка уже сведена в канонический реестр."""
-    def wrap(func):
-        if scenario_id in DECLARED:
-            scenario(id=scenario_id, depth=depth)(func)
-        return func
-    return wrap
-
-
 # ---------------------------------------------------- песочница организации
 DEPARTMENT = "engineering"
 CAPABILITY = "terminal.run"
@@ -220,7 +199,7 @@ def events(runtime, mission: str) -> list[str]:
 
 
 # ------------------------- OS-46: планировщик → исполнитель → проверяющий
-@bind("OS-46")
+@scenario(id="OS-46", depth=PRODUCT_CONTRACTS)
 def os46_planner_executor_reviewer(ctx) -> None:
     """Цепочка доходит до конца, и проверяющий может её остановить."""
     from bossman_v3.organization import (ContractReviewer, MissionState,  # noqa: PLC0415
@@ -319,7 +298,7 @@ class _LyingReviewer:
 
 
 # ------------------------------- OS-47: родитель ждёт подтверждённого ребёнка
-@bind("OS-47")
+@scenario(id="OS-47", depth=PRODUCT_CONTRACTS)
 def os47_parent_waits_for_a_confirmed_child(ctx) -> None:
     """Родитель не завершается, пока ребёнок не подтверждён уликой."""
     from bossman_v3.organization import MissionState, TaskState  # noqa: PLC0415
@@ -422,7 +401,7 @@ def _overfitted(measured_ids: frozenset[str]):
     return impl
 
 
-@bind("OS-48")
+@scenario(id="OS-48", depth=PRODUCT_CONTRACTS)
 def os48_promotion_needs_evidence(ctx) -> None:
     """Доверенное ядро — никогда; продвигаемое — только с подтверждением."""
     from bossman.learning_guard.ab import evaluate_ab  # noqa: PLC0415
@@ -613,7 +592,7 @@ def os48_promotion_needs_evidence(ctx) -> None:
 
 
 # ------------------------------- OS-49: неудача одного агента НАЗЫВАЕТСЯ
-@bind("OS-49")
+@scenario(id="OS-49", depth=PRODUCT_CONTRACTS)
 def os49_one_agent_failure_is_named(ctx) -> None:
     """Падение одного исполнителя не уносит цепочку и не остаётся молчаливым."""
     from bossman_v3.organization import MissionState, TaskState  # noqa: PLC0415
@@ -687,7 +666,7 @@ def os49_one_agent_failure_is_named(ctx) -> None:
 
 
 # ----------------------- OS-50: одна задача дважды — одно исполнение
-@bind("OS-50")
+@scenario(id="OS-50", depth=PRODUCT_CONTRACTS)
 def os50_same_task_twice_runs_once(ctx) -> None:
     """Повторная подача той же задачи не порождает второго исполнения."""
     from bossman_v3.organization import MissionState  # noqa: PLC0415

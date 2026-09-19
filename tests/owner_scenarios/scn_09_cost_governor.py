@@ -40,37 +40,8 @@ from bossman_shared.objective_admission import (ADMISSION_STATE_CHANGED,  # noqa
 from bossman_shared.objective_store import ObjectiveStoreError  # noqa: E402
 from scenario_runner import PRODUCT_CONTRACTS, scenario  # noqa: E402
 
-#: Реализации этого файла: id → (глубина улики, функция).
-#:
-#: Строки 31–40 живут в `registry_31_40.json` и ещё НЕ сведены в канонический
-#: `owner_scenarios.json`. Привязка к раннеру делается только для тех id, что
-#: уже объявлены в каноническом реестре: реализация без строки — ошибка загрузки
-#: (`discover`), и она унесла бы вместе с собой все двадцать существующих
-#: сценариев. Этот словарь позволяет проверять новые сценарии прямым прогоном до
-#: сведения реестра и исчезает из употребления сразу после него.
-LOCAL: dict[str, tuple] = {}
-
-_CANONICAL = Path(__file__).resolve().parent / "owner_scenarios.json"
-
-
-def _declared() -> set[str]:
-    try:
-        data = json.loads(_CANONICAL.read_text(encoding="utf-8"))
-        return {row["id"] for row in data["scenarios"]}
-    except (OSError, ValueError, KeyError):  # pragma: no cover — битый реестр ловит сам раннер
-        return set()
-
-
-def _bind(*, id: str, depth: str = PRODUCT_CONTRACTS):
-    def wrap(func):
-        LOCAL[id] = (depth, func)
-        return scenario(id=id, depth=depth)(func) if id in _declared() else func
-
-    return wrap
-
-
 # ------------------------------------------------------------------ 31
-@_bind(id="OS-31")
+@scenario(id="OS-31", depth=PRODUCT_CONTRACTS)
 def os31_unknown_cost_forbids_the_work(ctx) -> None:
     """Нет оценки — нет работы. Ноль — это оценка, отсутствие оценки — не ноль."""
     store, spec, _ = fx.ready_store(ctx.path("state", "objectives.sqlite3"))
@@ -132,7 +103,7 @@ def os31_unknown_cost_forbids_the_work(ctx) -> None:
 
 
 # ------------------------------------------------------------------ 32
-@_bind(id="OS-32")
+@scenario(id="OS-32", depth=PRODUCT_CONTRACTS)
 def os32_owner_zero_is_not_a_free_tariff(ctx) -> None:
     """BL-084: бесплатность подтверждает каталог поставки, а не поле в форме."""
     import asyncio  # noqa: PLC0415
@@ -195,7 +166,7 @@ def os32_owner_zero_is_not_a_free_tariff(ctx) -> None:
 
 
 # ------------------------------------------------------------------ 33
-@_bind(id="OS-33")
+@scenario(id="OS-33", depth=PRODUCT_CONTRACTS)
 def os33_budget_stops_before_the_external_call(ctx) -> None:
     """Превышение бюджета останавливает ДО сети. Считаются запросы к транспорту."""
     import asyncio  # noqa: PLC0415
@@ -325,7 +296,7 @@ def _objective_budget_stops_before_ports(ctx) -> None:
 
 
 # ------------------------------------------------------------------ 34
-@_bind(id="OS-34")
+@scenario(id="OS-34", depth=PRODUCT_CONTRACTS)
 def os34_reserve_and_settle_are_atomic(ctx) -> None:
     """Срыв между резервом и публикацией допуска не оставляет двойного расхода."""
     from bossman_v3.organization.models import Resources  # noqa: PLC0415
@@ -390,7 +361,7 @@ def os34_reserve_and_settle_are_atomic(ctx) -> None:
 
 
 # ------------------------------------------------------------------ 35
-@_bind(id="OS-35")
+@scenario(id="OS-35", depth=PRODUCT_CONTRACTS)
 def os35_spend_survives_restart(ctx) -> None:
     """Расход пережил смерть процесса — и после перезапуска он всё ещё ограничивает."""
     import subprocess  # noqa: PLC0415
@@ -538,45 +509,3 @@ def _raises(call, expected):
     except BaseException as exc:  # noqa: BLE001
         return exc
     return None
-
-
-def selfcheck() -> int:
-    """Прямой прогон строк ЭТОГО файла из `registry_31_40.json`.
-
-    Нужен ровно до сведения реестра: пока строк 31–40 нет в
-    `owner_scenarios.json`, раннер этих сценариев не видит, а проверять их
-    надо настоящим прогоном, а не чтением. Уровень считает тот же
-    `run_scenario`, недостающие способности — те же пробы среды, поэтому
-    поблажек здесь нет.
-    """
-    import capabilities as caps  # noqa: PLC0415
-    import scenario_runner as sr  # noqa: PLC0415
-    from ci_ai_provider import CIAIProvider  # noqa: PLC0415
-
-    rows = json.loads((Path(__file__).resolve().parent / "registry_31_40.json")
-                      .read_text(encoding="utf-8"))["scenarios"]
-    provider = CIAIProvider()
-    failed = 0
-    for row in rows:
-        if row["id"] not in LOCAL:
-            continue
-        depth, func = LOCAL[row["id"]]
-        item = sr.Scenario(id=row["id"], number=int(row["number"]), title=row["title"],
-                           chain=row["chain"], requires=tuple(row.get("requires") or ()),
-                           model_step=row["model_step"], depth=depth, func=func)
-        result = sr.run_scenario(item, provider, caps.missing(item.requires))
-        positives = sum(1 for c in result.checks if c.kind == "positive")
-        negatives = sum(1 for c in result.checks if c.kind == "negative")
-        print(f"{'OK ' if result.level == sr.AI_BACKED_CI else '!! '}{item.id} "
-              f"{result.level:<23} +{positives}/-{negatives} {item.title}")
-        if result.reason:
-            print(f"        причина: {result.reason[:400]}")
-        for check in result.checks:
-            if not check.ok:
-                print(f"        ПРОВАЛ: {check.name} — {check.detail[:300]}")
-        failed += result.level in sr.NOT_PROVEN_LEVELS
-    return 1 if failed else 0
-
-
-if __name__ == "__main__":  # pragma: no cover — ручной прогон до сведения реестра
-    raise SystemExit(selfcheck())

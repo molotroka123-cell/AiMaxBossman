@@ -39,14 +39,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from scenario_runner import PRODUCT_CONTRACTS, scenario  # noqa: E402
 
-#: Реализации этого файла: id → (глубина улики, функция). См. тот же словарь в
-#: `scn_09_cost_governor.py`: пока строки 31–40 не сведены в канонический
-#: `owner_scenarios.json`, привязка к раннеру делается только для объявленных
-#: там id, иначе `discover()` уронил бы все двадцать существующих сценариев.
-LOCAL: dict[str, tuple] = {}
-
-_CANONICAL = Path(__file__).resolve().parent / "owner_scenarios.json"
-
 #: Фиктивные значения владельца. Собираются из кусков, чтобы ни один «ключ» не
 #: лежал в исходнике целиком и не отдавался за настоящий ни человеком, ни
 #: сканером секретов.
@@ -54,24 +46,8 @@ FAKE_KEY = "sk-" + "or-v1-" + "fake0000deadbeef0000fake0000deadbeef00"
 FAKE_OWNER_TOKEN = "bcc-owner-token-" + "0123456789abcdef"
 
 
-def _declared() -> set[str]:
-    try:
-        data = json.loads(_CANONICAL.read_text(encoding="utf-8"))
-        return {row["id"] for row in data["scenarios"]}
-    except (OSError, ValueError, KeyError):  # pragma: no cover — битый реестр ловит сам раннер
-        return set()
-
-
-def _bind(*, id: str, depth: str = PRODUCT_CONTRACTS):
-    def wrap(func):
-        LOCAL[id] = (depth, func)
-        return scenario(id=id, depth=depth)(func) if id in _declared() else func
-
-    return wrap
-
-
 # ------------------------------------------------------------------ 36
-@_bind(id="OS-36")
+@scenario(id="OS-36", depth=PRODUCT_CONTRACTS)
 def os36_secret_never_reaches_journal_event_or_artifact(ctx) -> None:
     """Ключ владельца в команде на подтверждение — и поиск по ТРЁМ выводам продукта.
 
@@ -180,7 +156,7 @@ def os36_secret_never_reaches_journal_event_or_artifact(ctx) -> None:
 
 
 # ------------------------------------------------------------------ 37
-@_bind(id="OS-37")
+@scenario(id="OS-37", depth=PRODUCT_CONTRACTS)
 def os37_protected_paths_are_immutable(ctx) -> None:
     """Чужой код не переписывает приёмку: и рабочая область, и проверка области.
 
@@ -249,7 +225,7 @@ def os37_protected_paths_are_immutable(ctx) -> None:
 
 
 # ------------------------------------------------------------------ 38
-@_bind(id="OS-38")
+@scenario(id="OS-38", depth=PRODUCT_CONTRACTS)
 def os38_private_mode_never_leaks(ctx) -> None:
     """Приватный режим закрывает облако на КАЖДОМ выводе, включая запасные пути.
 
@@ -337,7 +313,7 @@ def os38_private_mode_never_leaks(ctx) -> None:
 
 
 # ------------------------------------------------------------------ 39
-@_bind(id="OS-39")
+@scenario(id="OS-39", depth=PRODUCT_CONTRACTS)
 def os39_telegram_webhook_signature_is_checked(ctx) -> None:
     """BL-095: чужая подпись даёт CallbackRejected, а не необработанное исключение.
 
@@ -434,7 +410,7 @@ def os39_telegram_webhook_signature_is_checked(ctx) -> None:
 
 
 # ------------------------------------------------------------------ 40
-@_bind(id="OS-40")
+@scenario(id="OS-40", depth=PRODUCT_CONTRACTS)
 def os40_approval_is_consumed_exactly_once(ctx) -> None:
     """BL-090/BL-094 на ЖИВОЙ базе: одобрение решается один раз и один раз будит задачу.
 
@@ -548,38 +524,3 @@ def _raises(call, expected):
 def _in_private(assert_egress, privacy, kind: str, url: str) -> None:
     with privacy("private"):
         assert_egress(kind, url)
-
-
-def selfcheck() -> int:
-    """Прямой прогон строк ЭТОГО файла из `registry_31_40.json` до сведения реестра."""
-    import capabilities as caps  # noqa: PLC0415
-    import scenario_runner as sr  # noqa: PLC0415
-    from ci_ai_provider import CIAIProvider  # noqa: PLC0415
-
-    rows = json.loads((Path(__file__).resolve().parent / "registry_31_40.json")
-                      .read_text(encoding="utf-8"))["scenarios"]
-    provider = CIAIProvider()
-    failed = 0
-    for row in rows:
-        if row["id"] not in LOCAL:
-            continue
-        depth, func = LOCAL[row["id"]]
-        item = sr.Scenario(id=row["id"], number=int(row["number"]), title=row["title"],
-                           chain=row["chain"], requires=tuple(row.get("requires") or ()),
-                           model_step=row["model_step"], depth=depth, func=func)
-        result = sr.run_scenario(item, provider, caps.missing(item.requires))
-        positives = sum(1 for c in result.checks if c.kind == "positive")
-        negatives = sum(1 for c in result.checks if c.kind == "negative")
-        print(f"{'OK ' if result.level == sr.AI_BACKED_CI else '!! '}{item.id} "
-              f"{result.level:<23} +{positives}/-{negatives} {item.title}")
-        if result.reason:
-            print(f"        причина: {result.reason[:400]}")
-        for check in result.checks:
-            if not check.ok:
-                print(f"        ПРОВАЛ: {check.name} — {check.detail[:300]}")
-        failed += result.level in sr.NOT_PROVEN_LEVELS
-    return 1 if failed else 0
-
-
-if __name__ == "__main__":  # pragma: no cover — ручной прогон до сведения реестра
-    raise SystemExit(selfcheck())

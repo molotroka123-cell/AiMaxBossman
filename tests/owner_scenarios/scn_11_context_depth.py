@@ -60,28 +60,6 @@ POLICY = {"cloud": "never", "privacy": "local_only"}
 REGISTRY = [ToolEntry(tool_id="fs.write", capability=fx.CAPABILITY, required_grant=fx.PERMISSION)]
 
 
-# ------------------------------------------------------------------ привязка
-def _declared_ids() -> frozenset[str]:
-    """Идентификаторы, которые КАНОНИЧЕСКИЙ реестр действительно объявляет."""
-    try:
-        data = json.loads((HERE / "owner_scenarios.json").read_text(encoding="utf-8"))
-        return frozenset(row["id"] for row in data["scenarios"])
-    except BaseException:  # noqa: BLE001 — нечитаемый реестр это «ничего не объявлено»
-        return frozenset()
-
-
-DECLARED = _declared_ids()
-
-
-def bind(scenario_id: str, *, depth: str = PRODUCT_CONTRACTS):
-    """Привязать реализацию, ЕСЛИ строка уже сведена в канонический реестр."""
-    def wrap(func):
-        if scenario_id in DECLARED:
-            scenario(id=scenario_id, depth=depth)(func)
-        return func
-    return wrap
-
-
 # ----------------------------------------------------------- общие строители
 def assemble(spec, mission, *, now, memory=(), observations=(), world_facts=(),
              enrolled=(fx.SOURCE,), byte_budget=32_768, lifecycle="ACTIVE", extra=None):
@@ -195,7 +173,7 @@ def run_child(script: Path, store_path: Path, mission_path: Path, *, now: float,
     return json.loads(done.stdout.strip().splitlines()[-1])
 
 
-@bind("OS-41")
+@scenario(id="OS-41", depth=PRODUCT_CONTRACTS)
 def os41_context_survives_a_process_restart(ctx) -> None:
     """Память проекта → смерть процесса → НОВЫЙ процесс → тот же контекст."""
     from bossman_shared import evidence as _evidence  # noqa: PLC0415
@@ -290,7 +268,7 @@ def os41_context_survives_a_process_restart(ctx) -> None:
 
 
 # ------------------------------------------------------ OS-42: устаревший факт
-@bind("OS-42")
+@scenario(id="OS-42", depth=PRODUCT_CONTRACTS)
 def os42_stale_is_never_served_as_fresh(ctx) -> None:
     """Просроченное ЗАКРЫВАЕТ путь: ни зелёного, ни последнего известного значения."""
     now = fx.NOW
@@ -385,7 +363,7 @@ PRIVATE_FIELD = "пароль-владельца-9f3c"
 USEFUL = "падение чинится правкой lock-файла"
 
 
-@bind("OS-43")
+@scenario(id="OS-43", depth=PRODUCT_CONTRACTS)
 def os43_redaction_keeps_secrets_out_of_context(ctx) -> None:
     """Секрет и приватное поле не доходят до собранного контекста — доказано поиском."""
     from bossman.obs import REDACTED, redact, redact_obj  # noqa: PLC0415
@@ -465,7 +443,7 @@ LATEST_TEXT = "ПОСЛЕДНЯЯ-ПРОВЕРЕННАЯ-УЛИКА: сборк�
 OLDEST_TEXT = "САМАЯ-СТАРАЯ-ЗАПИСЬ: когда-то падал линтер"
 
 
-@bind("OS-44")
+@scenario(id="OS-44", depth=PRODUCT_CONTRACTS)
 def os44_eviction_keeps_the_last_verified_evidence(ctx) -> None:
     """Вытеснение по размеру: последняя проверенная улика остаётся, потеря НАЗВАНА."""
     now = fx.NOW
@@ -559,7 +537,7 @@ def os44_eviction_keeps_the_last_verified_evidence(ctx) -> None:
 SOURCE_B = "src:проект-b"
 
 
-@bind("OS-45")
+@scenario(id="OS-45", depth=PRODUCT_CONTRACTS)
 def os45_no_single_record_of_b_in_a(ctx) -> None:
     """Поиск по собранному тексту: ни одной метки проекта B в контексте проекта A."""
     now = fx.NOW
