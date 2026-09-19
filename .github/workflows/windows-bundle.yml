@@ -27,6 +27,15 @@ on:
     branches:
       - 'claude/**'
       - 'night/**'
+      # Ветка сведе́ния воедино. Заведена ПОСЛЕ того, как этот фильтр был
+      # написан, и потому выпала из него молча: сорок четыре прогона на
+      # release/bossman-owner не содержат ни одного Windows-задания, то есть
+      # продукт, который скачивает владелец, из канонической ветки не
+      # собирался ни разу (BL-089). Группа concurrency привязана к
+      # github.ref, поэтому добавление ветки не отменяет прогоны соседних.
+      # Список объявлен в tools/owner_facing_branches.json и сверяется
+      # tests/test_windows_workflows_cover_owner_branches.py.
+      - 'release/**'
     paths:
       - 'tools/build_windows_bundle.py'
       - 'tools/verify_windows_bundle.py'
@@ -40,6 +49,12 @@ on:
       - 'tools/studio_models.json'
       - 'tools/studio_live_owner.py'
       - 'scripts/bossman_doctor.py'
+      # Скрипты, которые задание ИСПОЛНЯЕТ. Их правка меняет сам гейт, а без
+      # записи здесь правка проверки прогон не поднимает — проверка молча
+      # уезжает в архив непроверенной (BL-088 для metrics_smoke; обход всех
+      # исполняемых скриптов нашёл вторым evening_owner_run).
+      - 'tools/metrics_smoke.py'
+      - 'scripts/evening_owner_run.py'
       - 'command-center/**'
       - 'bossman-core/**'
       - 'bossman_shared/**'

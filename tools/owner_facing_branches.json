@@ -1,0 +1,34 @@
+{
+  "_": "Ветки, из которых МОЖЕТ собираться продукт, который скачивает владелец.",
+  "__why": [
+    "Оба задания Windows — сборка архива (windows-bundle.yml) и владельческий",
+    "прогон (windows-owner-tasks.yml) — ограничены списком веток. Ветка, не",
+    "попавшая в этот список, не собирает архив ВООБЩЕ: не красный прогон, а",
+    "отсутствие прогона. Молчание при этом читается как «проверок нет», а",
+    "выглядит как «проверок не требовалось».",
+    "",
+    "Так и вышло: ветка release/bossman-owner заведена под сведение воедино",
+    "уже ПОСЛЕ того, как фильтры были написаны, и сорок четыре прогона на ней",
+    "не содержат ни одного Windows-задания (BL-089).",
+    "",
+    "Этот файл — единственное объявление. tests/test_windows_workflows_cover_",
+    "owner_branches.py сверяет с ним оба задания настоящей семантикой шаблонов",
+    "GitHub, а не поиском подстроки."
+  ],
+  "canonical": "release/bossman-owner",
+  "must_be_covered": [
+    "release/bossman-owner",
+    "claude/bossman-final-convergence-hu2702",
+    "night/v7-convergence-20260908"
+  ],
+  "must_not_be_covered": [
+    "main",
+    "scratch/experiment",
+    "releases/not-our-prefix",
+    "wip/whatever"
+  ],
+  "workflows": [
+    ".github/workflows/windows-bundle.yml",
+    ".github/workflows/windows-owner-tasks.yml"
+  ]
+}
