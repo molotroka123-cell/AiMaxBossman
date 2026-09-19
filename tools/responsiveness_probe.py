@@ -102,6 +102,39 @@ class Line:
                 "verdict": self.verdict, "detail": self.detail, "where": self.where}
 
 
+CHECKPOINT_SECONDS = 60.0
+
+
+def write_checkpoint(target: Path, lines: dict, *, mode: str,
+                     elapsed_load_seconds: float, turns: int) -> None:
+    """Записать, ДОКУДА дошёл прогон, не выдавая это за результат.
+
+    Контейнер этой среды дважды убил часовой прогон — на 9-й и на 38-й
+    минуте. Без промежуточной записи каждый срыв стирал всё: ни числа, ни
+    знания, где оно оборвалось. Но промежуточный снимок опасен ровно тем,
+    чем полезен: его легко принять за замер. Поэтому `completed: false`, а
+    строки выдержки несут `INSUFFICIENT_EVIDENCE` — прогон на выдержку не
+    закончен, и сравнивать его с бюджетом часа нечем.
+    """
+    rows = []
+    for line in lines.values():
+        row = line.as_dict()
+        if line.key.startswith("soak_"):
+            row["verdict"] = INSUFFICIENT
+            row["measured"] = None
+            row["detail"] = (f"прогон прерван на {elapsed_load_seconds / 60:.0f}-й минуте "
+                             f"нагрузки ({turns} переходов); выдержка не завершена")
+        rows.append(row)
+    body = {"type": "bossman.responsiveness", "schema": 1, "completed": False,
+            "verdict": INSUFFICIENT, "mode": mode,
+            "elapsed_load_seconds": elapsed_load_seconds, "turns": turns,
+            "lines": rows,
+            "means": "снимок незаконченного прогона: доказательством не является"}
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n",
+                      encoding="utf-8")
+
+
 def idle_window_for(soak_seconds: float) -> float:
     """Сколько наблюдать дерево в тишине после нагрузки."""
     if soak_seconds <= 0:
@@ -278,7 +311,8 @@ class Walker:
                 return
 
 
-def measure(mode: str, soak_seconds: float, budget: dict) -> dict:
+def measure(mode: str, soak_seconds: float, budget: dict,
+            checkpoint: Path | None = None) -> dict:
     reference = mode == "reference"
     lines = {k: Line(k, v) for k, v in budget["budgets"].items()}
 
@@ -363,10 +397,18 @@ def measure(mode: str, soak_seconds: float, budget: dict) -> dict:
                     cpu0 = _tree_cpu_seconds()
                     t0 = time.monotonic()
                     turns = 0
+                    last_checkpoint = time.monotonic()
                     while time.monotonic() - t0 < soak_seconds:
                         walker.step()
                         turns += 1
                         page.wait_for_timeout(2000)
+                        # Срыв контейнера не должен стирать всё: снимок
+                        # пишется по ходу и честно помечен незавершённым.
+                        if checkpoint and time.monotonic() - last_checkpoint >= CHECKPOINT_SECONDS:
+                            write_checkpoint(checkpoint, lines, mode=mode,
+                                             elapsed_load_seconds=time.monotonic() - t0,
+                                             turns=turns)
+                            last_checkpoint = time.monotonic()
                     loaded = time.monotonic() - t0
                     cpu_loaded = _tree_cpu_seconds()
 
@@ -408,6 +450,7 @@ def measure(mode: str, soak_seconds: float, budget: dict) -> dict:
         "mode": mode,
         "budget_fixed_at": budget["fixed_at"],
         "reference_only": reference,
+        "completed": True,
         "lines": [line.as_dict() for line in lines.values()],
         "notes": notes,
         "refusal_rules": budget["refusal_rules"],
@@ -421,7 +464,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", type=Path)
     args = parser.parse_args(argv)
 
-    report = measure(args.mode, args.soak_seconds, load_budget())
+    report = measure(args.mode, args.soak_seconds, load_budget(), args.json)
 
     for line in report["lines"]:
         print(f"{line['verdict']:<21} {line['metric']}\n     {line['detail']}")

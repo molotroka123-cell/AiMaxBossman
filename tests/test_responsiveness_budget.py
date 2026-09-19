@@ -209,3 +209,46 @@ def test_idle_cpu_is_measured_in_a_quiet_window_not_under_load():
         "окно покоя короче двух минут не переживёт один тик очереди"
     assert probe.idle_window_for(3600) >= probe.IDLE_WINDOW_SECONDS
     assert probe.idle_window_for(0) == 0, "без прогона на выдержку нет и окна покоя"
+
+
+def test_an_interrupted_soak_leaves_evidence_and_never_claims_a_verdict(tmp_path):
+    """Прерванный прогон обязан оставить, докуда дошёл, и не выдать это за замер.
+
+    Контейнер этой среды дважды убил часовой прогон — на 9-й и на 38-й минуте.
+    Без промежуточной записи каждый срыв стирал всё: ни числа, ни знания, где
+    оно оборвалось. Но промежуточный снимок ОПАСЕН ровно тем, чем полезен:
+    его легко принять за результат. Поэтому он помечен незавершённым, а строки
+    выдержки в нём — `INSUFFICIENT_EVIDENCE`, а не «в бюджете».
+    """
+    probe = _probe()
+    lines = {
+        "soak_rss_growth_pct": probe.Line(
+            "soak_rss_growth_pct", {"limit": 15.0, "means": "…", "where": "…"}),
+        "soak_idle_cpu_pct_of_one_core": probe.Line(
+            "soak_idle_cpu_pct_of_one_core", {"limit": 2.0, "means": "…", "where": "…"}),
+    }
+    target = tmp_path / "partial.json"
+    probe.write_checkpoint(target, lines, mode="reference",
+                           elapsed_load_seconds=1380.0, turns=690)
+
+    import json
+    saved = json.loads(target.read_text(encoding="utf-8"))
+    assert saved["completed"] is False
+    assert saved["verdict"] == "INSUFFICIENT_EVIDENCE"
+    assert saved["elapsed_load_seconds"] == 1380.0
+    for row in saved["lines"]:
+        if row["metric"].startswith("soak_"):
+            assert row["verdict"] == "INSUFFICIENT_EVIDENCE", row
+            assert "прерван" in row["detail"] or "не завершён" in row["detail"], row
+
+
+def test_a_finished_soak_is_marked_complete(tmp_path):
+    """Пара: без неё «незавершён» не отличить от постоянной метки."""
+    probe = _probe()
+    line = probe.Line("soak_rss_growth_pct",
+                      {"limit": 15.0, "means": "…", "where": "…"})
+    line.observe(9.0, reference=True)
+    report = {"verdict": "REFERENCE_ONLY", "completed": True,
+              "lines": [line.as_dict()]}
+    assert report["completed"] is True
+    assert line.verdict == "REFERENCE_ONLY"
