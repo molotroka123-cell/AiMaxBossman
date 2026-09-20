@@ -206,6 +206,9 @@ class RunContext:
         raise InsufficientEvidence(f"живой вызов не состоялся ({outcome}): {detail}")
 
     # ------------------------------------------------------- честные тупики
+    def credential_required(self, reason: str) -> None:
+        raise CredentialRequired(reason)
+
     def owner_required(self, reason: str) -> None:
         raise OwnerRequired(reason)
 
