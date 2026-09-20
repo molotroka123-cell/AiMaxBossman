@@ -145,6 +145,40 @@ class ContextStore:
                                 (c.chunk_id,c.text,c.heading,c.project,c.source_uri))
         self.db.commit()
 
+    def delete_document(self, document_id: str, *, project: str) -> bool:
+        """Delete one document and every retrieval artifact in the same scope.
+
+        Project is mandatory even though document_id is globally unique in new
+        data: legacy IDs predate scoped identity. This makes owner-data deletion
+        fail closed instead of letting a stale/cross-project caller erase data.
+        FTS is cleared in the same SQLite transaction as chunks/documents so a
+        successful return means search cannot still surface deleted text.
+        """
+        row = self.db.execute(
+            "SELECT document_id FROM documents WHERE document_id=? AND project=?",
+            (document_id, project),
+        ).fetchone()
+        if row is None:
+            return False
+        try:
+            self.db.execute("BEGIN IMMEDIATE")
+            chunk_ids = [r[0] for r in self.db.execute(
+                "SELECT chunk_id FROM chunks WHERE document_id=? AND project=?",
+                (document_id, project),
+            ).fetchall()]
+            if self._fts:
+                for chunk_id in chunk_ids:
+                    self.db.execute("DELETE FROM chunks_fts WHERE chunk_id=?", (chunk_id,))
+            self.db.execute("DELETE FROM chunks WHERE document_id=? AND project=?",
+                            (document_id, project))
+            self.db.execute("DELETE FROM documents WHERE document_id=? AND project=?",
+                            (document_id, project))
+            self.db.commit()
+            return True
+        except BaseException:
+            self.db.rollback()
+            raise
+
     def lexical_search(self, query: str, limit: int = 50, project: str = "") -> list[tuple[Chunk, float]]:
         if self._fts:
             # OR + prefix вместо implicit-AND: лишнее слово в запросе не обнуляет
