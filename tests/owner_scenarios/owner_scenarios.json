@@ -171,7 +171,7 @@
         "ffprobe"
       ],
       "model_step": "none",
-      "owner_gap": "генерация не настоящая"
+      "owner_gap": "реальная генерация изображения требует credential/provider; native editing CI_PROVEN"
     },
     {
       "id": "OS-17",
