@@ -1,0 +1,83 @@
+{
+  "recorded_at": "2026-09-20T17:11:13.322681+00:00",
+  "scope": "Bounded offline PREP-08 guard regression and review of historical CI artifacts; not an application release",
+  "base_sha": "a503aef7a4e3c5206693e43ab7752bef1c41ca9e",
+  "environment": {
+    "os": "Linux",
+    "python": "3.13.5",
+    "full_checkout": false,
+    "retrieved_source_git_blob_verified": true
+  },
+  "regression": {
+    "before": {
+      "failed": 6,
+      "passed": 1,
+      "seconds": 0.19
+    },
+    "after_new_tests": {
+      "passed": 7,
+      "failed": 0,
+      "seconds": 0.06
+    },
+    "after_with_existing_budget_tests": {
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 0.09
+    },
+    "installed_cli_exit": 2,
+    "installed_measurement_executed": false,
+    "windows_run_performed_this_session": false
+  },
+  "files": {
+    "tools/responsiveness_probe.py": {
+      "git_blob": "b83b6baa3d5e644617209ab06fdaa6a26123560c",
+      "sha256": "fe8ffd185ab2b75e1881a4dd6325cdef8e51544024351cf01dd24dbc5e4fde27"
+    },
+    "tests/test_responsiveness_installed_guard.py": {
+      "git_blob": "07ffa0470cbe7a6e4eafff4a3f89e7f93f585451",
+      "sha256": "1136cb0e2f10ce62bd26249ad18e02fd289ab488d7e927b0b85c81d4e58befa1"
+    }
+  },
+  "historical_rc": {
+    "source_sha": "c22201ef085ac4fab920ff64ed26f56f47bb16d3",
+    "harness_sha": "c22201ef085ac4fab920ff64ed26f56f47bb16d3",
+    "run_id": "35474402200",
+    "application_name": "BOSSMAN-Windows-x64-c22201ef085a.zip",
+    "application_bytes": 783131185,
+    "application_sha256": "9bbd11b31c22024c4a9d2c5e87db144a153764ec231cd2f1e95b4bf39ab298aa",
+    "application_digest_origin": "Historical CI record; application bytes NOT downloaded or rehashed in this session",
+    "application_artifact_id": 10593858695,
+    "application_wrapper_bytes": 775249178,
+    "connector_download": "REJECTED: max 536870912 bytes",
+    "proof_artifact_id": 10594305145,
+    "proof_artifact_sha256": "a5a634e69eb1989adae8cc01d95aa84b44fcab23cb5a7310e49a37c68e8b59ab",
+    "freeze_artifact_id": 10594179034,
+    "evidence_file_digests_match_freeze": true,
+    "installed_tests": {
+      "tests": 46,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "ui_sweep_status": "PASS",
+    "ui_pages": 31,
+    "live_model_status": "OWNER_REQUIRED",
+    "live_model_tasks": 0,
+    "studio_status": "OWNER_REQUIRED",
+    "studio_egress_attempted": 0,
+    "hardware_state": "different",
+    "hardware_sources": {
+      "cpu": "cim",
+      "gpu": "cim",
+      "ram": "cim"
+    },
+    "release_ready": false
+  },
+  "ci_observed": {
+    "35524046007": "queued: all 5 jobs",
+    "35524176551": "queued: all 3 jobs"
+  },
+  "prep08": "false installed certification blocked; actual installed launcher/cold/warm/full-process soak still OPEN_REPO + OWNER_HARDWARE",
+  "release": "NOT_CLOSED; no newer accepted ZIP produced; no live models, cloud POSTs, paid calls, owner files, secrets, or Windows security changes"
+}

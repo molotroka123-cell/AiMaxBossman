@@ -23,6 +23,10 @@
   процессе) даёт `REFERENCE_ONLY`: это НЕ доказательство об установленном
   архиве Windows, и дерево процессов там другое.
 
+Режим `--mode installed` пока не имеет отдельного установленного launcher:
+он возвращает `INSUFFICIENT_EVIDENCE` и код 2 ДО импорта/старта исходников.
+Это не замер установленного Windows-продукта и не выполненная PREP-08.
+
 Строка без замера получает `INSUFFICIENT_EVIDENCE`, а не `PASS`.
 
 Коды выхода: 0 — ни одного FAIL; 1 — есть FAIL; 2 — FAIL нет, но есть
@@ -313,8 +317,33 @@ class Walker:
 
 def measure(mode: str, soak_seconds: float, budget: dict,
             checkpoint: Path | None = None) -> dict:
+    if mode not in ("reference", "installed"):
+        raise ValueError(f"unsupported measurement mode: {mode!r}")
     reference = mode == "reference"
     lines = {k: Line(k, v) for k, v in budget["budgets"].items()}
+
+    # PREP-08: LiveApp below is source-only. Refuse BEFORE changing sys.path,
+    # loading runtime/browser modules, seeding data, or starting any process.
+    # A future installed launcher must bind exact archive bytes and measure
+    # the shipped process tree; changing a verdict label cannot replace it.
+    if not reference:
+        reason = ("installed launcher не реализован: исходники не запускаются; "
+                  "нужны точный application ZIP, поставленный runtime и замер "
+                  "полного дерева процессов на Windows")
+        for line in lines.values():
+            line.detail = reason
+        return {
+            "verdict": INSUFFICIENT,
+            "mode": mode,
+            "budget_fixed_at": budget["fixed_at"],
+            "reference_only": False,
+            "completed": False,
+            "measurement_executed": False,
+            "blocker": "installed_launcher_not_implemented",
+            "lines": [line.as_dict() for line in lines.values()],
+            "notes": [reason, "PREP-08 остаётся OPEN_REPO + OWNER_HARDWARE"],
+            "refusal_rules": budget["refusal_rules"],
+        }
 
     for key in ("cold_start_to_interactive_s", "warm_start_to_interactive_s"):
         lines[key].owner_required(
