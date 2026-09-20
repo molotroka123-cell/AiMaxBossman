@@ -15,7 +15,7 @@ The release is owner-ready only when one exact SHA has:
 1. Install the exact Windows artifact.
 2. Complete first boot until the UI says READY or lists concrete items requiring attention.
 3. Run the installed `bcc.owner_acceptance` harness.
-4. Execute HW-01…HW-12 from `tests/owner_hardware/manifest.json`.
+4. Execute HW-01…HW-13 from `tests/owner_hardware/manifest.json`.
 5. Use `tests/owner_hardware/MODEL_STACK_2026-09-20.md` as the current local model-fleet acceptance target.
 6. Use `tests/owner_hardware/CLOUD_STACK_2026-09-20.md` for cloud free/budget/premium/media routing, privacy and budget acceptance.
 7. Keep real Telegram, local-model, real desktop-control and MVČR submission checks as OWNER_ACTION_REQUIRED until performed on the owner's machine/account.
