@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-20-final-closure-3",
+  "candidate_label": "rc-2026-09-20-final-closure-4",
   "declared_for": "release/bossman-owner",
-  "note": "Closure rerun from 7a22bb2d0845133c24ad637d6e288004514262ec: fixes OS-29 remote-script matcher escaping, OS-64 non-delete regression, and operator profiling fixtures under CONTROL-001; adds OWNER_MODEL_BEHAVIOR.md for tomorrow's local-model personalization without enabling self-modification. Intelligence Preservation remains an intentional fail-closed evidence gate until real same-model evidence is available. Trigger exact-SHA workflows; no old-SHA result transfers."
+  "note": "Closure candidate from 45574edd632aa3cc7ffed845912244efc88d9819. Incorporates patterns cross-checked against OpenHands/Agent Zero/browser-use: project-scoped durable memory deletion, explicit post-action verification/fallback discipline, native Image Studio API evidence, and previously fixed SECURITY/CONTROL/OS-64 gates. New context delete is atomic across documents/chunks/FTS and project-scoped. Trigger exact-SHA workflows; old/queued/skipped evidence does not transfer. Intelligence Preservation remains fail-closed without real same-model measurement."
 }
