@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-20-final-closure-2",
+  "candidate_label": "rc-2026-09-20-final-closure-3",
   "declared_for": "release/bossman-owner",
-  "note": "Final closure rerun declared from f99f17dc2790ed777f3be2dbcdd7ba2988a69d2c. Fixes current audit regressions without weakening gates: root scenario label migration, honest operator profile empty-sample failure, explicit CONTROL-001 coordinate fallback fixtures. Intelligence Preservation remains fail-closed until real same-model evidence exists and must not be reported PASS. This declaration triggers a new exact-SHA matrix; queued/skipped/missing runs are not certification."
+  "note": "Closure rerun from 7a22bb2d0845133c24ad637d6e288004514262ec: fixes OS-29 remote-script matcher escaping, OS-64 non-delete regression, and operator profiling fixtures under CONTROL-001; adds OWNER_MODEL_BEHAVIOR.md for tomorrow's local-model personalization without enabling self-modification. Intelligence Preservation remains an intentional fail-closed evidence gate until real same-model evidence is available. Trigger exact-SHA workflows; no old-SHA result transfers."
 }
