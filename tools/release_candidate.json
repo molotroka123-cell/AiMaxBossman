@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-20-final-closure-4",
+  "candidate_label": "rc-2026-09-20-final-closure-5",
   "declared_for": "release/bossman-owner",
-  "note": "Closure candidate from 45574edd632aa3cc7ffed845912244efc88d9819. Incorporates patterns cross-checked against OpenHands/Agent Zero/browser-use: project-scoped durable memory deletion, explicit post-action verification/fallback discipline, native Image Studio API evidence, and previously fixed SECURITY/CONTROL/OS-64 gates. New context delete is atomic across documents/chunks/FTS and project-scoped. Trigger exact-SHA workflows; old/queued/skipped evidence does not transfer. Intelligence Preservation remains fail-closed without real same-model measurement."
+  "note": "Exact-SHA closure rerun from dedae81af880fc1639dbb99df07ed849f25878a2. Preserves concurrent UX torture gate and adds atomic project-scoped context deletion. Cross-stack review used OpenHands boundaries/quality gates, Agent Zero project isolation, and browser-use-style verified browser effects as design checks; no wholesale foreign architecture merged. Trigger mandatory Windows/owner workflows for this exact SHA. Intelligence Preservation remains fail-closed without real same-model evidence."
 }
