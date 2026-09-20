@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "generated_for": "BOSSMAN PRE-EVO 1.0 owner hardware acceptance",
+  "statuses": [
+    "PASS",
+    "FAIL",
+    "OWNER_ACTION_REQUIRED",
+    "NOT_TESTED"
+  ],
+  "cases": [
+    {
+      "id": "HW-01",
+      "title": "Local AI",
+      "checks": [
+        "conversation",
+        "structured_output",
+        "tool_call",
+        "context",
+        "fallback"
+      ]
+    },
+    {
+      "id": "HW-02",
+      "title": "Computer Control",
+      "checks": [
+        "real_windows_apps",
+        "mouse",
+        "keyboard",
+        "semantic_target",
+        "visual_target",
+        "coordinate_fallback",
+        "post_action_verification"
+      ]
+    },
+    {
+      "id": "HW-03",
+      "title": "Browser",
+      "checks": [
+        "chromium_or_edge",
+        "download",
+        "upload",
+        "multi_tab",
+        "login_handoff"
+      ]
+    },
+    {
+      "id": "HW-04",
+      "title": "Files",
+      "checks": [
+        "find",
+        "edit",
+        "create",
+        "organize",
+        "verify_bytes"
+      ]
+    },
+    {
+      "id": "HW-05",
+      "title": "Restart",
+      "checks": [
+        "long_task",
+        "kill_process",
+        "restart",
+        "resume",
+        "no_duplicate_effect"
+      ]
+    },
+    {
+      "id": "HW-06",
+      "title": "Telegram",
+      "checks": [
+        "real_owner_account",
+        "approval",
+        "resume",
+        "completion",
+        "duplicate_callback"
+      ]
+    },
+    {
+      "id": "HW-07",
+      "title": "Image Studio",
+      "checks": [
+        "import",
+        "native_edit",
+        "persist",
+        "reopen",
+        "export"
+      ]
+    },
+    {
+      "id": "HW-08",
+      "title": "Video Studio",
+      "checks": [
+        "import",
+        "edit",
+        "persist",
+        "restart",
+        "render",
+        "ffprobe",
+        "full_decode"
+      ]
+    },
+    {
+      "id": "HW-09",
+      "title": "Multi-agent",
+      "checks": [
+        "planner",
+        "worker",
+        "verifier",
+        "evidence"
+      ]
+    },
+    {
+      "id": "HW-10",
+      "title": "MVCR",
+      "checks": [
+        "official_source",
+        "download_forms",
+        "verified_owner_facts",
+        "package_review",
+        "wait_approval"
+      ]
+    },
+    {
+      "id": "HW-11",
+      "title": "Unknown task",
+      "checks": [
+        "unseen_natural_language_task",
+        "tool_selection",
+        "verification"
+      ]
+    },
+    {
+      "id": "HW-12",
+      "title": "Long autonomy",
+      "checks": [
+        "multi_hour_safe_task",
+        "checkpoints",
+        "budget_bound",
+        "recovery"
+      ]
+    }
+  ]
+}
