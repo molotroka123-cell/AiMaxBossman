@@ -58,7 +58,12 @@ async def generate(svc,job,ext,model):
             current=await one(svc,image_jobs,image_jobs.c.id,job['id'])
             if current['status']!='running':raise StudioError('canceled','Job is no longer admitted')
             cost=reservation['policy']['prices'][model['id']]
-            return {'kind':'cloud','pricing_known':True,'price_in':cost,'price_out':cost}
+            # Local prices are an owner budget estimate only. The live
+            # OpenRouter adapter independently checks the exact provider model
+            # tariff before its first generation POST; free_only is passed
+            # through so a locally-entered zero cannot authorize a paid model.
+            return {'kind':'cloud','pricing_known':True,'price_in':cost,'price_out':cost,
+                    'free_only':bool(reservation['policy'].get('free_only'))}
         provider=OpenRouterProvider(credential.key,allowed_download_hosts=reservation['policy']['download_hosts'],gate=gate)
         remaining=await provider.balance()
         if remaining is not None and remaining<reservation['upper_bound_usd']:raise StudioError('insufficient_credit','OWNER_REQUIRED: balance below reserved upper bound','OWNER_REQUIRED')
