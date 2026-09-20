@@ -100,3 +100,41 @@ Remote во время подготовки обновился до `9f10340e0ae
 **Проверка правки на момент этой append-only записи:** Windows-path job и secret/SAST/JS на `c22201ef` уже зелёные; py3.11/3.12/3.14 full pytest ещё выполняются. Run на `d872f000` стоит pending за предыдущим SHA, потому что `command-center-ci` использует `cancel-in-progress:false` и сохраняет длинный выполняющийся прогон. Поэтому правка НЕ помечается VERIFIED заранее. Полный CI должен дать финальный вердикт; при красном результате следующий агент исправляет или отдельным fast-forward revert отменяет только эту правку.
 
 **Следующий один repo step после CI:** PREP-03. Добавить authoritative tariff preflight до первого generation POST и различающий отрицательный тест: провайдер сообщает платный/неизвестный тариф, локальная цена ошибочно `0`, `free_only=True` → generation POST count строго 0. Не подменять это живым платным вызовом. После этого — отдельно закрывать ложный `--mode installed` PREP-08.
+
+### 20.09.2026 — финальная ограниченная сессия перед GUI-тестом владельца
+
+**HEAD до работы:** `8c91f2ec150b0df507ac597a34d67e4f336f181d`. Fresh HEAD и журнал перечитаны до первой записи; force/reset не применялись. Два изменения опубликованы только fast-forward: PREP-03 runtime+negative controls — `e30f8896b8d294d01963e630f2bbbebcbca6bff5`, затем восстановление README scorecard-контракта — `a4c796decef2a2a6ae696cec8564f08bbefadb31`. Последний принятый application ZIP не изменялся и не перемаркировывался.
+
+**Последний точный Windows RC этой ветки, который реально прошёл installed acceptance:** run `35474402200`, source SHA = harness SHA = `c22201ef085ac4fab920ff64ed26f56f47bb16d3`. Внутренний application ZIP — `BOSSMAN-Windows-x64-c22201ef085a.zip`, **783131185 байт**, SHA-256 **`9bbd11b31c22024c4a9d2c5e87db144a153764ec231cd2f1e95b4bf39ab298aa`**. Именно его owner-experience сначала перехешировал, сверил source/harness binding, затем прогнал профиль: **46 passed / 0 failed / 0 errors / 0 skipped**, 16 модулей; UI sweep **31 страница, PASS**; история после рестарта 1438 мс. `machine.json` честно определил hosted Windows как AMD EPYC / Hyper-V / 16 GiB, источники CPU/GPU/RAM = CIM и `hardware_state=different`, поэтому этот прогон НЕ доказывает Ryzen.
+
+Actions artifact `10593858695` — контейнер/обёртка размером 775249178 байт, содержащая application ZIP и сопутствующие файлы. **Он не является application ZIP.** GitHub Releases на момент этой сессии пуст: прямой опубликованной Release-ссылки на внутренний application ZIP нет. Значит PREP-10 остаётся `OPEN_DELIVERY`, даже несмотря на точные имя/размер/hash принятого RC.
+
+**PREP-01:** `PREPARED/PACKAGED`. Owner protocol, setup, fixtures contract, checkpoint, шаблон бага и handoff существуют; c222-архив доказал поставляемый owner-run package. Финальная новая сборка обязана снова пройти тот же manifest-контракт.
+
+**PREP-02:** программная часть `PASS` на c222. CIM-first реально сработал на hosted Windows и correctly returned `different`; WMIC не был обязательным. Физический Ryzen относится к PREP-11 и остаётся pending.
+
+**PREP-03:** исправление реализовано в `e30f8896`. Реальный OpenRouter generation path перед первым `/images` или `/videos` POST теперь делает публичный exact-model `/models` preflight без owner Authorization header; отсутствующий/невалидный тариф fail-closed, а `free_only + локальная цена 0 + provider-paid tariff` даёт `OWNER_REQUIRED` до generation POST. Добавлены positive/negative MockTransport controls, включая строго один GET catalog и ноль generation POST на paid/absent exact model. Платный или живой provider вызов не выполнялся. На момент записи Command Center CI run `35524046007` ещё `queued`, поэтому статус **IMPLEMENTED_PENDING_CI**, не VERIFIED.
+
+**PREP-04:** `OWNER_SETUP_PENDING`. Документация есть, но установленная версия OpenCode, фактический local model id и независимый GUI-driver на машине владельца не доказаны. Перед Bossman нужен видимый Notepad calibration: открыть, type, save через диалог, close/reopen/read, screenshot/accessibility, безопасный drag/scroll; текстовая LLM без реально вызванного GUI tool не проходит.
+
+**PREP-05:** `PASS` для c222 package: owner files/fixtures/diagnostics входят в `app-support/owner-final-run/` по закрытому списку, отсутствие или лишний файл роняет контракт. Для нового source после PREP-03 это надо перепроверить новым exact ZIP; старый PASS не переносится.
+
+**PREP-06:** `LIVE_PENDING`. В c222 `live-model.json` = `OWNER_REQUIRED`, tasks = `[]`, `target_hardware_verified=false`; G04–G06 с настоящей локальной моделью и инструментом через GUI не выполнялись.
+
+**PREP-07:** `LIVE_PENDING`. В c222 `studio.json` = `OWNER_REQUIRED`, outputs = `[]`, egress attempted = 0, live provider не вызывался. Реальная image/video generation → проверенные байты → editors → restart не выполнена; mock/import этим не заменяются.
+
+**PREP-08:** `OPEN_REPO + OWNER_HARDWARE`. Текущий `tools/responsiveness_probe.py --mode installed` всё ещё запускает `sweep.LiveApp(data_dir)` из исходников/current Python и только меняет семантику вердикта; настоящий installed-root/application launcher не используется. Cold/warm строки специально OWNER_REQUIRED. Незавершённый reference soak не становится installed evidence. Следующий repository-fix должен сделать installed mode fail-closed без installed root либо действительно запускать shipped runtime и считать полное дерево процессов; затем уже нужен 1–2h прогон на Windows владельца.
+
+**PREP-09:** `DATA_PASS_ARCHIVE_OWNER_REQUIRED`. Шестишаговая data rehearsal остаётся PASS, но реальная замена двух распакованных application ZIP с копией данных владельца не выполнялась. Сборки до schema-generation stamp защищаются только backup; новая отметка не чинит их задним числом.
+
+**PREP-10:** `OPEN_DELIVERY`. Есть точные байты последнего принятого c222 RC, но current source уже `a4c796...` и c222 не содержит PREP-03. Нового принятого ZIP для текущего source нет, а GitHub Release с теми же внутренними application bytes не опубликован.
+
+**PREP-11:** `OWNER_HARDWARE_PENDING`. Ни latency, ни shared-memory pressure/reclaim, ни реальный Radeon/128 GiB, ни безопасное сосуществование OpenCode+Bossman на Ryzen здесь не измерялись.
+
+**PREP-12:** `INSUFFICIENT_EVIDENCE`. Достаточного same-model paired corpus direct-vs-Bossman на настоящей локальной модели нет; гейт нельзя ослаблять и нельзя заменять настройкой harness.
+
+**PREP-13:** `OPEN_SCOPE`. Capability matrix честно различает implemented/live-pending/owner-required/not-implemented, но V8 Total не закрыт. В частности, live LLM/Studio, installed performance/soak, archive swap rollback, физическое железо, intelligence и final published exact bytes отсутствуют как выполненная приёмка.
+
+**Дополнительный repo/CI truth fix:** root-ci на последнем Windows-кандидате воспроизводил ровно два README-only отказа: отсутствовали `BOSSMAN_LIVE_SCORECARD` markers, хотя README предлагал `python scripts/update_readme_scorecard.py --check`. В `a4c796de` восстановлен уже проверенный на converged line scorecard-блок без runtime/package изменений. root-ci run `35524176551` на момент этой записи также queued; не выдавать его за PASS заранее.
+
+**Самый короткий безопасный путь от этой точки:** 1) дождаться CI для `e30f8896/a4c796de` и чинить только воспроизводимые красные проверки; 2) закрыть ложный installed perf mode PREP-08; 3) собрать НОВЫЙ exact application ZIP из после-CI source и прогнать bundle → installed profile → UI sweep на этих байтах; 4) на машине владельца настроить/калибровать OpenCode+GUI-driver, затем G04–G06 local model/tool, G11–G12 live Studio, cold/warm/full-tree soak, two-archive rollback, Ryzen pressure/reclaim и intelligence pair; 5) если всё зелено, опубликовать **те же** проверенные application bytes с прямой ссылкой и rollback record. До этого статус остаётся RC/owner-required, не V8 Total/FROZEN.
