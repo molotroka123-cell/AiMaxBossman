@@ -42,10 +42,16 @@ def os16_image_studio_saves_a_real_artifact(ctx) -> None:
     ctx.positive("медиа-оборот студии изображений прошёл целиком",
                  result.get("status") == "PASS", f"status={result.get('status')}")
     image = _section(result, "image_studio")
-    ctx.positive("в обороте участвовала именно студия изображений продукта",
+    ctx.positive("в обороте участвовал именно HTTP API Image Studio продукта",
                  image.get("status") == "PASS"
-                 and "ImageStorage" in str(image.get("stored_through", "")),
+                 and "bcc.features.images HTTP API" in str(image.get("stored_through", "")),
                  f"сохранено через={image.get('stored_through')}")
+    transform = image.get("transform") or {}
+    ctx.positive("Image Studio сам выполнил реальный edit, сохранил и переоткрыл производный asset",
+                 transform.get("engine") == "bcc.features.images.transform_asset"
+                 and transform.get("persisted_reopen") is True
+                 and transform.get("bytes_changed") is True,
+                 f"transform={transform}")
     ctx.positive("измеренный по байтам тип совпал с обещанием имени файла",
                  image.get("export", {}).get("measured_format") == "png_pipe"
                  and image.get("export", {}).get("passed") is True,
@@ -70,8 +76,8 @@ def os16_image_studio_saves_a_real_artifact(ctx) -> None:
     # СОХРАНЯЕТ настоящий артефакт» закрыта наполовину, и выдавать её за зелёную
     # нельзя.
     gap = image.get("provider_gap") or {}
-    ctx.owner_required(
-        "сохранение и измерение артефакта доказаны, но генерация не настоящая: "
+    ctx.credential_required(
+        "native editing/save/reopen/export доказаны, но генерация не настоящая: "
         f"провайдер={gap.get('provider')}, generation_is_real={gap.get('generation_is_real')}. "
         f"{gap.get('note', '')} Нужен ключ живого провайдера изображений владельца.")
 
