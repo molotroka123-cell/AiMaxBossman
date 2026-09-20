@@ -25,8 +25,8 @@ ROOT = Path(__file__).resolve().parents[2]
 #: Куда сваливается каждая недостающая способность. Пустая строка запрещена:
 #: каждый блокер обязан иметь адресата — владелец, железо или сама среда.
 MISSING_LEVEL = {
-    "ai_key": "OWNER_REQUIRED",
-    "postgres": "OWNER_REQUIRED",
+    "ai_key": "CREDENTIAL_REQUIRED",
+    "postgres": "INSUFFICIENT_EVIDENCE",
     "browser": "OWNER_HARDWARE_REQUIRED",
     "desktop": "OWNER_HARDWARE_REQUIRED",
     "ffprobe": "OWNER_HARDWARE_REQUIRED",
