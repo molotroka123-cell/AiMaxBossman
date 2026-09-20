@@ -88,10 +88,14 @@ def test_render_does_not_mutate_its_own_source_fixture(tmp_path):
 
 
 def test_image_storage_roundtrip_produces_a_measured_real_file(tmp_path):
-    """Оборот Image Studio через продуктовое хранилище ImageStorage."""
+    """Оборот Image Studio через настоящий HTTP-контур продукта."""
     result = roundtrip.image_roundtrip(tmp_path)
     assert result["status"] == "PASS"
-    assert result["stored_through"] == "bcc.v2.images_runtime.ImageStorage"
+    assert result["stored_through"] == "bcc.features.images HTTP API"
+    transform = result["transform"]
+    assert transform["engine"] == "bcc.features.images.transform_asset"
+    assert transform["persisted_reopen"] is True
+    assert transform["bytes_changed"] is True
     assert result["import"]["measured_format"] == "png_pipe"
     assert result["import"]["sha256"] == result["fixture"]["sha256"]
     export = result["export"]
