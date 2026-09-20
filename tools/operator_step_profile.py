@@ -123,8 +123,10 @@ class CostedPlanner:
                                        expected=ExpectedState(contains_text="ok"))
         self.remaining -= 1
         return ComputerAction.make(ActionKind.CLICK, expected=ExpectedState(contains_text="ok"),
+                                   target=f"button:row-{self.calls}",
                                    args={"x": 10, "y": 10 + self.calls,
-                                         "semantic": f"button:row-{self.calls}"})
+                                         "semantic": f"button:row-{self.calls}",
+                                         "coordinate_fallback": True})
 
 
 class CostedAdapter:
