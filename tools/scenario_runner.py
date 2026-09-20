@@ -59,12 +59,13 @@ REGISTRY_FILE = SCENARIO_DIR / "owner_scenarios.json"
 # --------------------------------------------------------------- уровни улик
 CI_PROVEN = "CI_PROVEN"
 OWNER_HARDWARE_REQUIRED = "OWNER_HARDWARE_REQUIRED"
+CREDENTIAL_REQUIRED = "CREDENTIAL_REQUIRED"
 OWNER_REQUIRED = "OWNER_REQUIRED"
 FAIL = "FAIL"
 INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
 NOT_RUN = "NOT_RUN"
 
-LEVELS = (CI_PROVEN, OWNER_HARDWARE_REQUIRED, OWNER_REQUIRED, FAIL,
+LEVELS = (CI_PROVEN, OWNER_HARDWARE_REQUIRED, CREDENTIAL_REQUIRED, OWNER_REQUIRED, FAIL,
           INSUFFICIENT_EVIDENCE, NOT_RUN)
 #: Единственный зелёный уровень. Всё остальное — не доказано.
 GREEN_LEVELS = (CI_PROVEN,)
@@ -79,8 +80,12 @@ DEPTHS = (INSTALLED_PRODUCT, PRODUCT_CONTRACTS, ADAPTER_CONTRACT)
 MODEL_STEPS = ("live", "contract", "none")
 
 
+class CredentialRequired(Exception):
+    """Нужен реальный credential/provider access. Не hardware и не PASS."""
+
+
 class OwnerRequired(Exception):
-    """Нужен секрет владельца (ключ, доступ). Не FAIL и не PASS."""
+    """Нужно действие владельца, не сводящееся к credential/hardware."""
 
 
 class OwnerHardwareRequired(Exception):
@@ -195,7 +200,7 @@ class RunContext:
         outcome = getattr(result, "outcome", "UNKNOWN")
         detail = redact(getattr(result, "detail", ""))
         if outcome == NO_KEY:
-            raise OwnerRequired(f"нет ключа ИИ в окружении: {detail}")
+            raise CredentialRequired(f"нет ключа ИИ в окружении: {detail}")
         if outcome == INVALID_RESPONSE:
             raise AssertionError(f"модель ответила не по контракту: {detail}")
         raise InsufficientEvidence(f"живой вызов не состоялся ({outcome}): {detail}")
@@ -336,7 +341,7 @@ def _level_from_model_step(slice_: Sequence[Any]) -> tuple[str, str, str]:
     if INVALID_RESPONSE in outcomes:
         return FAIL, "модель ответила не по контракту chat/completions", "live_call_invalid"
     if NO_KEY in outcomes:
-        return OWNER_REQUIRED, "нужен ключ ИИ владельца в окружении", "no_key"
+        return CREDENTIAL_REQUIRED, "нужен реальный CI AI credential в окружении", "no_key"
     if BUDGET_EXCEEDED in outcomes:
         return INSUFFICIENT_EVIDENCE, "исчерпан объявленный потолок расходов прогона", "budget"
     if outcomes:
@@ -350,7 +355,7 @@ def _blocked(scenario_: Scenario, blockers: Sequence[Any]) -> ScenarioResult:
     """Недостающая способность: честный вердикт вместо исполнения и заглушки."""
     # Самый суровый из блокеров решает уровень: FAIL (сломанный продукт) важнее,
     # чем «нужен владелец», а тот важнее, чем «среда не несёт продукт».
-    order = {FAIL: 0, OWNER_HARDWARE_REQUIRED: 1, OWNER_REQUIRED: 2, INSUFFICIENT_EVIDENCE: 3}
+    order = {FAIL: 0, OWNER_HARDWARE_REQUIRED: 1, CREDENTIAL_REQUIRED: 2, OWNER_REQUIRED: 3, INSUFFICIENT_EVIDENCE: 4}
     level = sorted((b.missing_level for b in blockers), key=lambda lv: order[lv])[0]
     reason = "; ".join(f"{b.name}: {b.detail}" for b in blockers)
     return ScenarioResult(scenario=scenario_, level=level, reason=redact(reason),
@@ -369,8 +374,10 @@ def run_scenario(scenario_: Scenario, ai: CIAIProvider,
         ctx = RunContext(scenario_, Path(tmp), ai)
         try:
             scenario_.func(ctx)
+        except CredentialRequired as exc:
+            level, reason, evidence = CREDENTIAL_REQUIRED, redact(str(exc)), "credential"
         except OwnerRequired as exc:
-            level, reason, evidence = OWNER_REQUIRED, redact(str(exc)), "owner_secret"
+            level, reason, evidence = OWNER_REQUIRED, redact(str(exc)), "owner_action"
         except OwnerHardwareRequired as exc:
             level, reason, evidence = OWNER_HARDWARE_REQUIRED, redact(str(exc)), "owner_hardware"
         except InsufficientEvidence as exc:
