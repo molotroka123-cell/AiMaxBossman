@@ -227,7 +227,7 @@ def test_отчёт_сериализуем_и_без_запрещённых_ме
 
 
 def test_словарь_уровней_закрыт():
-    assert sr.LEVELS == ("CI_PROVEN", "OWNER_HARDWARE_REQUIRED", "OWNER_REQUIRED",
+    assert sr.LEVELS == ("CI_PROVEN", "OWNER_HARDWARE_REQUIRED", "CREDENTIAL_REQUIRED", "OWNER_REQUIRED",
                          "FAIL", "INSUFFICIENT_EVIDENCE", "NOT_RUN")
     assert "OWNER_LOCAL_MODEL" not in sr.LEVELS
     assert "LOCAL_MODEL_CERTIFIED" not in sr.LEVELS
@@ -297,7 +297,7 @@ def test_недостающая_способность_не_исполняет_�
 
     blocker = caps.Capability("ai_key", False, "ключа нет")
     result = sr.run_scenario(_scenario(body), cap.CIAIProvider(env={}), [blocker])
-    assert result.level == sr.OWNER_REQUIRED and not calls
+    assert result.level == sr.CREDENTIAL_REQUIRED and not calls
     assert result.blockers[0]["capability"] == "ai_key"
 
 
@@ -320,14 +320,14 @@ def test_живой_шаг_без_настоящего_вызова_не_пол�
     assert result.ai_evidence == "not_called"
 
 
-def test_живой_шаг_без_ключа_даёт_OWNER_REQUIRED_а_не_PASS():
+def test_живой_шаг_без_ключа_даёт_CREDENTIAL_REQUIRED_а_не_PASS():
     def body(ctx):
         answer = ctx.require_model(ctx.ai.chat(MESSAGES))
         ctx.positive("модель ответила", bool(answer.text))
         ctx.negative("отрицательный контроль", True)
 
     result = sr.run_scenario(_scenario(body, model_step="live"), cap.CIAIProvider(env={}))
-    assert result.level == sr.OWNER_REQUIRED
+    assert result.level == sr.CREDENTIAL_REQUIRED
     assert result.ai_calls and result.ai_calls[0]["outcome"] == cap.NO_KEY
 
 
