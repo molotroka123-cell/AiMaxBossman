@@ -47,7 +47,7 @@ def test_a_blocked_scenario_is_judged_by_nothing():
                                reason="command_center: нет в среде", blocked=True)
     blocked_plain = _result("OS-32", sr.INSUFFICIENT_EVIDENCE,
                             reason="command_center: нет в среде", blocked=True)
-    blocked_green = _result("OS-40", sr.AI_BACKED_CI, gap="провайдер", blocked=True)
+    blocked_green = _result("OS-40", sr.CI_PROVEN, gap="провайдер", blocked=True)
     out = _reconcile(blocked_declared, blocked_plain, blocked_green)
     assert out == {"gaps_undeclared": [], "gaps_closed": [], "gaps_mislabelled": []}, out
 
@@ -60,7 +60,7 @@ def test_an_undeclared_not_proven_row_is_reported():
 
 def test_a_gap_that_closed_is_reported():
     """Объявление, которое перестало быть правдой, — вечная индульгенция."""
-    out = _reconcile(_result("OS-22", sr.AI_BACKED_CI, gap="координатный клик"))
+    out = _reconcile(_result("OS-22", sr.CI_PROVEN, gap="координатный клик"))
     assert out["gaps_closed"] == ["OS-22"]
     assert out["gaps_undeclared"] == [] and out["gaps_mislabelled"] == []
 
@@ -79,7 +79,7 @@ def test_a_declared_gap_with_a_matching_reason_is_silent():
 
 
 def test_a_proven_row_without_a_gap_is_silent():
-    out = _reconcile(_result("OS-01", sr.AI_BACKED_CI))
+    out = _reconcile(_result("OS-01", sr.CI_PROVEN))
     assert out == {"gaps_undeclared": [], "gaps_closed": [], "gaps_mislabelled": []}
 
 
