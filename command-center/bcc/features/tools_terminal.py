@@ -181,7 +181,7 @@ async def _resolve_cwd(ctx, args: dict, *, create_scratch: bool = True) -> tuple
 
 
 _PIPE_TO_SHELL_URL = re.compile(
-    r"(?is)\\b(?:curl|wget)\\b[^|]*?(https?://[^\\s|;]+)[^|]*\\|\\s*(?:/bin/)?(?:ba)?sh\\b")
+    r"(?is)\b(?:curl|wget)\b[^|]*?(https?://[^\s|;]+)[^|]*\|\s*(?:/bin/)?(?:ba)?sh\b")
 REMOTE_SCRIPT_MAX_BYTES = 2 * 1024 * 1024
 
 
