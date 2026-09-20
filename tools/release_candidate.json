@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-19-astra-context-approval",
+  "candidate_label": "rc-2026-09-20-owner-ready-closure",
   "declared_for": "release/bossman-owner",
-  "note": "Инженерный кандидат с исправлениями контекста и approval lease replay из 9ee2205. Локально 25 целевых регрессий PASS; это не 25 owner-сценариев и не вызовы модели. Объявление запускает обязательные проверки текущего кандидата, но не выдаёт сертификат. На предшествующем 9ee2205 job 105943882585 отказал из-за отсутствия docs/benchmark/intelligence-preservation-current.json; результат не подменён. Три решения владельца приняты и записаны в CONVERGENCE_DECISIONS.md, однако полная реализация и проверка политик, исправление категорий табло, редактор изображений, живой AI/Telegram и чистая Windows-приёмка остаются открытыми. Исторический сертификат b2b9b2e8 к этому кандидату не относится."
+  "note": "FINAL OWNER-READY closure candidate declared from 1f41509169e05855e9dc8770911e2d190ca1aa0a. Includes OS-64 recovery-bound destructive-root approval, native Image Studio editing + UI + pixel tests, owner-hardware acceptance pack, salvage ledger, pre-EVO documentation and one-command owner acceptance wrapper. This declaration triggers exact-SHA evidence collection; it is NOT itself a certificate. Real local model, real Telegram account and real owner desktop remain owner-hardware evidence. Missing code may not be reclassified as hardware-required."
 }
