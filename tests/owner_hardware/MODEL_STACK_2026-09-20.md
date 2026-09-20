@@ -329,3 +329,165 @@ stable
 → owner approval
 → promotion
 → rollback if regression.
+
+
+## Search refresh — additional top candidates to benchmark
+
+The following models are added by the 2026-09-20 search refresh. They are **candidate lanes**, not automatic defaults. Bossman must benchmark them against the existing targets on the owner's exact hardware before promotion.
+
+### Interactive coding / repo work — Qwen AgentWorld 35B-A3B
+
+Add as a direct challenger to Qwen3.8-27B for interactive coding and repo-agent work.
+
+Why it is in the test pool:
+- a published 128 GB Strix Halo coding matrix reported 8/10 executable coding tasks at about 7.2 s/task;
+- in that same matrix Qwen3.8-27B Q6_K also scored 8/10 but took about 12.5 s/task;
+- therefore AgentWorld is a strong candidate for the **interactive coding** route even if Qwen3.8-27B remains the more general main brain.
+
+Required comparison:
+- same repo-edit tasks;
+- same tool contracts;
+- same context;
+- first useful patch latency;
+- final tests passed;
+- owner interventions;
+- hallucinated edits / protocol failures.
+
+### Accuracy / difficult-code verifier — gpt-oss-120B
+
+Keep as a first-class accuracy/verifier candidate, not merely a text verifier.
+
+A published Strix Halo coding matrix reported 9/10 executable coding tasks, the best result in that particular 23-deployment comparison. Another reproducible Strix Halo performance repository reports roughly 53 tok/s generation for a Q4_K_M-class deployment.
+
+Required comparison:
+- hard bug fix;
+- independent review;
+- contradiction detection;
+- final diff verification;
+- latency versus Qwen3.8-Flash-Next;
+- whether its quality gain justifies loading cost.
+
+### Heavy long-context candidate — DeepSeek V4 Flash
+
+Add to the experimental heavy lane.
+
+Why:
+- current Strix Halo deployments show the 284B-class model can fit on 128 GB with aggressive quantization;
+- reproducible Vulkan measurements report roughly mid-30 tok/s generation at a 122k-token test point and successful long-context retrieval;
+- it is therefore interesting for large-context reasoning/retrieval even though it is too memory-heavy to assume as a resident default.
+
+Required:
+- long-document retrieval;
+- coding;
+- tool/schema compliance;
+- 128K+ context stability;
+- total resident memory;
+- system responsiveness;
+- compare against Flash-Next on the same task.
+
+Do not make DeepSeek V4 Flash resident by default unless it beats the smaller fleet strongly enough to justify consuming most of the machine.
+
+### Heavy frontier candidate — GLM-5.3-Flash
+
+Add to discovery inventory, not default routing.
+
+The current open-weight ecosystem describes it as a very large MoE with a small active fraction and very long context, but its smallest practical quant is around the limit of a 128 GB unified-memory workstation.
+
+Acceptance:
+- first prove it loads without destructive memory pressure;
+- then compare coding, agent behavior and long-context retrieval;
+- reject it from the production local route if system responsiveness or headroom is unacceptable.
+
+### Fast worker — Nemotron 3.5 Lightning
+
+Retain as a speed/specialist candidate rather than a main intelligence model.
+
+The important question for Bossman is not whether it wins a general intelligence leaderboard. Test whether it is useful as a cheap resident worker for:
+- extraction;
+- classification;
+- schema-bound transformation;
+- short tool decisions;
+- parallel worker jobs;
+- long-context specialist tasks.
+
+Promote only if it materially reduces latency/memory cost without increasing downstream verifier corrections.
+
+### GUI / desktop — Nex-N2.5-mini remains the primary measured candidate
+
+Current Strix Halo benchmark data directly supports keeping Nex-N2.5-mini at the front of the GUI-worker test pool:
+- ROCmFP4 Strix quant around 17.32 GiB;
+- measured decode around 76.9 tok/s Vulkan / 68.6 tok/s ROCm;
+- vision projector available;
+- very high prefill in the published ROCm measurement.
+
+But it must still beat alternatives on **completed GUI tasks**, not tokens/sec.
+
+### Autonomous tool agent — Occamy-1.0 remains a primary candidate
+
+Its released benchmark table supports keeping it in the tool/autonomy pool: strong Claw-Eval, AutomationBench and BFCL v4 relative to its Qwen3.6 starting checkpoint.
+
+Bossman acceptance must reproduce a smaller owner-specific suite:
+- browser + files + terminal;
+- 10–20 step tool chain;
+- recovery after one failed tool;
+- no duplicate consequential effect;
+- exact schema arguments;
+- final evidence verification.
+
+### Image quality — HunyuanImage 3.0 promoted to serious challenger
+
+Current open-source-filtered image arena data places HunyuanImage 3.0 above FLUX.2-dev and Qwen-Image-2512 in overall preference.
+
+Therefore HW-07 must compare:
+- HunyuanImage 3.0;
+- Qwen-Image-2512;
+- FLUX.2 Klein 4B;
+- Z-Image Turbo.
+
+Do not replace Qwen-Image-2512 automatically: licensing, local runtime maturity, edit workflow, text rendering, memory and speed matter in addition to arena preference.
+
+### Video — add MiniMax H3 local as an experimental quality/audio challenger
+
+MiniMax has released H3 weights and describes native audio+video generation. Add the **local H3 base path** to HW-08 candidate testing.
+
+Important boundary:
+- local/open-weight capability and the full hosted high-resolution pipeline must be recorded separately;
+- do not claim hosted 2K functionality as local Bossman capability.
+
+HW-08 candidate pool becomes:
+- LTX-2.5 — default/audio+video workflow candidate;
+- Wan 2.2 A14B — mature quality candidate;
+- HunyuanVideo 1.5 — strong/light fallback candidate;
+- MiniMax H3 local — experimental native-audio quality challenger.
+
+Also record current open-source video arena results as discovery evidence only; they do not replace the owner-hardware comparison.
+
+## Revised practical shortlist for the first owner run
+
+To avoid spending the first day downloading every interesting model, test in waves.
+
+### Wave 1 — must test
+- Qwen3.8-27B
+- Qwen3.8-Flash-Next
+- Nex-N2.5-mini
+- Occamy-1.0
+- gpt-oss-120B
+- Qwen-Image-2512
+- FLUX.2 Klein 4B
+- LTX-2.5
+- Wan 2.2 A14B
+
+### Wave 2 — challengers
+- Qwen AgentWorld 35B-A3B
+- DeepSeek V4 Flash
+- Nemotron 3.5 Lightning
+- Z-Image Turbo
+- HunyuanImage 3.0
+- HunyuanVideo 1.5
+- MiniMax H3 local
+
+### Wave 3 — only if practical
+- GLM-5.3-Flash
+- alternative large/heavy models discovered after the freeze
+
+The purpose is not to collect models. The purpose is to end with the **smallest fleet that wins the owner's real tasks**.
