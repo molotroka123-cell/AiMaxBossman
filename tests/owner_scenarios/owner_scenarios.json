@@ -628,8 +628,7 @@
       "requires": [
         "command_center"
       ],
-      "model_step": "none",
-      "owner_gap": "нажатие «Удалить элемент» на корне документа"
+      "model_step": "none"
     },
     {
       "id": "OS-65",
