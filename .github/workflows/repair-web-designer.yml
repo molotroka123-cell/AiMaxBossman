@@ -1,0 +1,51 @@
+name: One-shot web designer repair
+
+on:
+  push:
+    branches:
+      - release/bossman-owner
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: release/bossman-owner
+      - name: Repair malformed OS-64 source text
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('command-center/bcc/features/web_designer.py')
+          text = path.read_text(encoding='utf-8')
+          bad = '        is_root_delete = (body.op == "delete" and target is not None\\n                          and target.tag in {"html", "body"})\\n        if is_root_delete:'
+          good = '''        is_root_delete = (body.op == "delete" and target is not None
+                            and target.tag in {"html", "body"})
+        if is_root_delete:'''
+          count = text.count(bad)
+          if count == 0:
+              print('Malformed sequence is already absent; nothing to repair.')
+              raise SystemExit(0)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one malformed sequence, found {count}')
+          path.write_text(text.replace(bad, good), encoding='utf-8')
+          PY
+          python -m py_compile command-center/bcc/features/web_designer.py
+      - name: Commit verified repair
+        shell: bash
+        run: |
+          if git diff --quiet -- command-center/bcc/features/web_designer.py; then
+            echo 'No repair commit required.'
+            exit 0
+          fi
+          git config user.name 'bossman-closure-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add command-center/bcc/features/web_designer.py
+          git commit -m 'fix(web-designer): repair OS-64 root-delete syntax'
+          git push origin HEAD:release/bossman-owner
