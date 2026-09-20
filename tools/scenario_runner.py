@@ -407,8 +407,11 @@ def run_all(scenarios: Iterable[Scenario] | None = None, *,
     items = list(scenarios) if scenarios is not None else discover()
     results = [run_scenario(s, provider, capabilities.missing(s.requires)) for s in items]
     totals = {level: sum(1 for r in results if r.level == level) for level in LEVELS}
-    depths = {d: sum(1 for r in results if r.level == AI_BACKED_CI and r.depth == d)
+    depths = {d: sum(1 for r in results if r.level == CI_PROVEN and r.depth == d)
               for d in DEPTHS}
+    model_classes = {name: sum(1 for r in results if r.model_evidence_class == name)
+                     for name in ("NO_MODEL_REQUIRED", "MOCK_MODEL",
+                                  "REAL_CLOUD_MODEL", "REAL_LOCAL_MODEL")}
     return {
         **gap_reconciliation(results),
         "board": "OWNER_SCENARIOS",
@@ -419,8 +422,9 @@ def run_all(scenarios: Iterable[Scenario] | None = None, *,
         "levels": list(LEVELS),
         "totals": totals,
         "green_by_depth": depths,
+        "model_evidence_totals": model_classes,
         "total": len(results),
-        "green": totals[AI_BACKED_CI],
+        "green": totals[CI_PROVEN],
         "environment": capabilities.inventory(),
         "ai": provider.budget_report(),
         "verdict": verdict_line(totals, len(results)),
@@ -456,7 +460,7 @@ def gap_reconciliation(results: Sequence[ScenarioResult]) -> dict[str, Any]:
         gap = r.scenario.owner_gap
         if not gap and r.level in NOT_PROVEN_LEVELS:
             undeclared.append(r.scenario.id)
-        elif gap and r.level == AI_BACKED_CI:
+        elif gap and r.level == CI_PROVEN:
             closed.append(r.scenario.id)
         elif gap and r.level in NOT_PROVEN_LEVELS and gap not in r.reason:
             mislabelled.append(r.scenario.id)
@@ -466,12 +470,12 @@ def gap_reconciliation(results: Sequence[ScenarioResult]) -> dict[str, Any]:
 
 def verdict_line(totals: dict[str, int], total: int) -> str:
     parts = [f"{totals[level]} {level}" for level in LEVELS if totals.get(level)]
-    return f"OWNER SCENARIOS: {totals[AI_BACKED_CI]} / {total} — " + ", ".join(parts)
+    return f"OWNER SCENARIOS: {totals[CI_PROVEN]} / {total} — " + ", ".join(parts)
 
 
 def print_report(report: dict[str, Any]) -> None:
     for row in report["scenarios"]:
-        mark = "OK " if row["level"] == AI_BACKED_CI else "!! "
+        mark = "OK " if row["level"] == CI_PROVEN else "!! "
         print(f"{mark}{row['id']:<6} {row['level']:<23} {row['evidence_depth']:<18} "
               f"+{row['positive']}/-{row['negative']} {row['title']}")
         if row["reason"]:
@@ -483,6 +487,7 @@ def print_report(report: dict[str, Any]) -> None:
           f" ({ai['key_source'] or 'нет переменной'}), вызовов {ai['calls_made']}/"
           f"{ai['max_calls_per_run']}, успешных {ai['ok_calls']}")
     print(f"Зелёные по глубине улики: {report['green_by_depth']}")
+    print(f"Модельные доказательства: {report['model_evidence_totals']}")
     declared = [row["id"] for row in report["scenarios"] if row.get("owner_gap")]
     if declared:
         print(f"Объявленные пробелы (ждут решения владельца): {', '.join(declared)}")
@@ -500,7 +505,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--only", nargs="*", default=None, help="прогнать только эти id")
     parser.add_argument("--json", type=Path, default=None, help="куда записать JSON-отчёт")
     parser.add_argument("--strict", action="store_true",
-                        help="ненулевой код возврата на всём, что не AI_BACKED_CI")
+                        help="ненулевой код возврата на всём, что не CI_PROVEN")
     parser.add_argument("--min-green", type=int, default=None,
                         help="объявленный ПОЛ зелёных: меньше — отказ. Без него "
                              "тихая деградация зелёного в OWNER_REQUIRED осталась бы "
