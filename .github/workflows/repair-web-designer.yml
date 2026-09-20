@@ -21,13 +21,10 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-
           path = Path('command-center/bcc/features/web_designer.py')
           text = path.read_text(encoding='utf-8')
-          bad = '        is_root_delete = (body.op == "delete" and target is not None\\n                          and target.tag in {"html", "body"})\\n        if is_root_delete:'
-          good = '''        is_root_delete = (body.op == "delete" and target is not None
-                            and target.tag in {"html", "body"})
-        if is_root_delete:'''
+          bad = 'is_root_delete = (body.op == "delete" and target is not None\\n                          and target.tag in {"html", "body"})\\n        if is_root_delete:'
+          good = 'is_root_delete = (body.op == "delete" and target is not None' + chr(10) + '                          and target.tag in {"html", "body"})' + chr(10) + '        if is_root_delete:'
           count = text.count(bad)
           if count == 0:
               print('Malformed sequence is already absent; nothing to repair.')
