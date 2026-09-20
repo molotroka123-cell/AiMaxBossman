@@ -14,6 +14,7 @@ import contextlib
 import base64
 import binascii
 import hashlib
+import io
 import json
 import secrets
 from pathlib import Path
@@ -23,6 +24,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
+from PIL import Image, ImageOps
 
 from ..db import models as models_t, rows_dicts, utcnow
 from ..v2.images_runtime import ImageStorage, MockImageProvider, safe_filename
@@ -93,6 +95,12 @@ class ImportAssetIn(BaseModel):
     title: str = ""
     collection_id: int | None = None
     tags: list[str] = Field(default_factory=list)
+
+
+class ImageTransformIn(BaseModel):
+    operation: str = Field(pattern="^(grayscale|rotate90|rotate180|flip_horizontal|resize)$")
+    width: int | None = Field(default=None, ge=16, le=8192)
+    height: int | None = Field(default=None, ge=16, le=8192)
 
 
 # ---------- helpers ----------
@@ -397,6 +405,66 @@ async def import_asset(body: ImportAssetIn, request: Request):
         await s.commit()
     await svc.bus.emit("image.asset.created", asset_id=asset_id, imported=True)
     return _asset_public((await _find_one(svc, assets_t, asset_id)) or {})
+
+
+@router.post("/images/assets/{asset_id}/transform")
+async def transform_asset(asset_id: int, body: ImageTransformIn, request: Request):
+    """Native Image Studio edit path: source asset -> transform -> persisted derived asset.
+
+    This is intentionally separate from image generation providers. The source file
+    is never mutated; every transform produces a new reopenable asset with provenance.
+    """
+    svc = request.app.state.svc
+    source = await _find_one(svc, assets_t, asset_id)
+    if source is None or source.get("status") == "deleted":
+        raise HTTPException(404, {"message": "исходное изображение не найдено"})
+    try:
+        path = _storage(svc).resolve_existing(source["file_path"])
+        raw = path.read_bytes()
+        image = Image.open(io.BytesIO(raw))
+        image.load()
+    except (OSError, ValueError) as exc:
+        raise HTTPException(422, {"message": "изображение не декодируется редактором"}) from exc
+
+    op = body.operation
+    if op == "grayscale":
+        edited = ImageOps.grayscale(image).convert("RGB")
+    elif op == "rotate90":
+        edited = image.transpose(Image.Transpose.ROTATE_90)
+    elif op == "rotate180":
+        edited = image.transpose(Image.Transpose.ROTATE_180)
+    elif op == "flip_horizontal":
+        edited = ImageOps.mirror(image)
+    else:
+        if body.width is None or body.height is None:
+            raise HTTPException(422, {"message": "resize требует width и height"})
+        edited = image.resize((body.width, body.height), Image.Resampling.LANCZOS)
+
+    out = io.BytesIO()
+    edited.save(out, format="PNG")
+    payload = out.getvalue()
+    digest = hashlib.sha256(payload).hexdigest()[:16]
+    name = f"edits/{asset_id}-{op}-{secrets.token_hex(5)}.png"
+    saved = _storage(svc).save(name, payload)
+    meta = dict(source.get("meta") or {})
+    meta.update({"edited": True, "source_asset_id": asset_id, "operation": op,
+                 "sha256_16": digest})
+    width, height = edited.size
+    async with svc.db.session() as s:
+        res = await s.execute(sa.insert(assets_t).values(
+            title=(str(source.get("title") or f"image-{asset_id}") + f" · {op}")[:240],
+            prompt=source.get("prompt") or "", negative_prompt=source.get("negative_prompt") or "",
+            model_alias="image-editor", aspect_ratio=f"{width}:{height}", width=width, height=height,
+            mime_type="image/png", file_path=str(saved), file_bytes=len(payload),
+            collection_id=source.get("collection_id"), tags=list(source.get("tags") or []),
+            meta=meta, created_at=utcnow(),
+        ))
+        new_id = int(res.inserted_primary_key[0])
+        await s.commit()
+    await svc.bus.emit("image.asset.transformed", asset_id=new_id, source_asset_id=asset_id,
+                       operation=op)
+    row = await _find_one(svc, assets_t, new_id)
+    return _asset_public(row or {})
 
 
 # ---------- jobs ----------
