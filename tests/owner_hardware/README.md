@@ -12,7 +12,7 @@ From the installed package environment:
 python -m bcc.owner_acceptance --data-dir "$env:BCC_DATA_DIR" --output OWNER_HARDWARE_CERTIFICATION.json
 ```
 
-Then follow the interactive HW-01…HW-12 checklist. Every case is one of PASS, FAIL, OWNER_ACTION_REQUIRED or NOT_TESTED. Missing credentials or a human-only login checkpoint is OWNER_ACTION_REQUIRED; missing product code is FAIL.
+Then follow the interactive HW-01…HW-13 checklist. Every case is one of PASS, FAIL, OWNER_ACTION_REQUIRED or NOT_TESTED. Missing credentials or a human-only login checkpoint is OWNER_ACTION_REQUIRED; missing product code is FAIL.
 
 ## Local + cloud acceptance lanes
 
