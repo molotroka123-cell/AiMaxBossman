@@ -609,7 +609,9 @@ async def edit_project(pid: int, body: EditIn, request: Request):
             target = dom.resolve_element(current_root, body.bd_id, body.path)
         except LookupError as exc:
             raise HTTPException(status_code=404, detail=str(exc))
-        is_root_delete = (body.op == "delete" and target is not None\n                          and target.tag in {"html", "body"})\n        if is_root_delete:
+        is_root_delete = (body.op == "delete" and target is not None
+                          and target.tag in {"html", "body"})
+        if is_root_delete:
             if not body.destructive_root_ack:
                 raise HTTPException(
                     status_code=409,
