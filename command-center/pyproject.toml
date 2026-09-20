@@ -18,6 +18,8 @@ dependencies = [
     "psutil>=5.9",
     "cryptography>=50.0.1",
     "pyyaml>=6.0",
+    # Native Image Studio editing is a product capability, not a provider extra.
+    "Pillow>=10.0",
 ]
 
 [project.optional-dependencies]
