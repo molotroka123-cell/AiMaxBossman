@@ -282,8 +282,7 @@
       "requires": [
         "command_center"
       ],
-      "model_step": "none",
-      "owner_gap": "скачанное из сети и отданное прямо оболочке"
+      "model_step": "none"
     },
     {
       "id": "OS-30",
