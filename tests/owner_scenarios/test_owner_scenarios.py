@@ -52,7 +52,7 @@ EXPECTED_WHEN_CAPABLE = {
     "OS-18": sr.CI_PROVEN,
     "OS-19": sr.CI_PROVEN, "OS-20": sr.CI_PROVEN,
     # 21–30: плоскость управления компьютером и терминалом.
-    "OS-21": sr.CI_PROVEN, "OS-22": sr.INSUFFICIENT_EVIDENCE, "OS-23": sr.CI_PROVEN,
+    "OS-21": sr.CI_PROVEN, "OS-22": sr.CI_PROVEN, "OS-23": sr.CI_PROVEN,
     "OS-24": sr.CI_PROVEN, "OS-25": sr.CI_PROVEN, "OS-26": sr.CI_PROVEN,
     "OS-27": sr.CI_PROVEN, "OS-28": sr.CI_PROVEN, "OS-29": sr.INSUFFICIENT_EVIDENCE,
     "OS-30": sr.CI_PROVEN,
