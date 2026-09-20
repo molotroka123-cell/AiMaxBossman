@@ -136,8 +136,21 @@ class ComputerPolicy:
             ActionKind.NOOP,ActionKind.WAIT,ActionKind.TAKE_SCREENSHOT,ActionKind.COMPLETE,ActionKind.FAIL
         }:
             return PolicyDecision(False,reason="observe-only mode")
-        if self._coordinate_guess(a) and a.confidence<MIN_VISION_CONFIDENCE:
-            return PolicyDecision(False,reason="low vision confidence")
+        if self._coordinate_guess(a):
+            # CONTROL-001: raw x/y must never become the planner's lazy default.
+            # A coordinate is accepted only as the final resolution of a named
+            # target: either the visual grounding adapter marked source=vision,
+            # or an explicit bounded coordinate fallback. The semantic name is
+            # retained for audit/verification and the manager re-observes both
+            # before and after the effect.
+            args=a.args or {}
+            if not (a.target or "").strip():
+                return PolicyDecision(False,reason="coordinate fallback requires a named target")
+            explicit_fallback=bool(args.get("coordinate_fallback"))
+            if a.source!="vision" and not explicit_fallback:
+                return PolicyDecision(False,reason="raw coordinates are not a primary target; use semantic/accessibility/visual resolution first")
+            if a.confidence<MIN_VISION_CONFIDENCE:
+                return PolicyDecision(False,reason="low vision confidence")
         if a.kind is ActionKind.TYPE and len(a.text or "")>MAX_TYPE_CHARS:
             return PolicyDecision(False,reason="typed text too long")
         if a.kind is ActionKind.TYPE and self.refs_secret_args(a.args):
