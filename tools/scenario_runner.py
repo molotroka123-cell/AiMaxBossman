@@ -57,17 +57,17 @@ SCENARIO_DIR = ROOT / "tests" / "owner_scenarios"
 REGISTRY_FILE = SCENARIO_DIR / "owner_scenarios.json"
 
 # --------------------------------------------------------------- уровни улик
-AI_BACKED_CI = "AI_BACKED_CI"
+CI_PROVEN = "CI_PROVEN"
 OWNER_HARDWARE_REQUIRED = "OWNER_HARDWARE_REQUIRED"
 OWNER_REQUIRED = "OWNER_REQUIRED"
 FAIL = "FAIL"
 INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
 NOT_RUN = "NOT_RUN"
 
-LEVELS = (AI_BACKED_CI, OWNER_HARDWARE_REQUIRED, OWNER_REQUIRED, FAIL,
+LEVELS = (CI_PROVEN, OWNER_HARDWARE_REQUIRED, OWNER_REQUIRED, FAIL,
           INSUFFICIENT_EVIDENCE, NOT_RUN)
 #: Единственный зелёный уровень. Всё остальное — не доказано.
-GREEN_LEVELS = (AI_BACKED_CI,)
+GREEN_LEVELS = (CI_PROVEN,)
 NOT_PROVEN_LEVELS = (FAIL, INSUFFICIENT_EVIDENCE, NOT_RUN)
 
 # ------------------------------------------------------------ глубина улики
@@ -137,6 +137,7 @@ class ScenarioResult:
     checks: list[Check] = field(default_factory=list)
     depth: str = PRODUCT_CONTRACTS
     ai_evidence: str = "no_model_step"
+    model_evidence_class: str = "NO_MODEL_REQUIRED"
     ai_calls: list[dict[str, Any]] = field(default_factory=list)
     blockers: list[dict[str, str]] = field(default_factory=list)
     seconds: float = 0.0
@@ -144,7 +145,8 @@ class ScenarioResult:
     def to_report(self) -> dict[str, Any]:
         base = self.scenario.to_report()
         base.update({"level": self.level, "reason": self.reason, "evidence_depth": self.depth,
-                     "ai_evidence": self.ai_evidence, "ai_calls": self.ai_calls,
+                     "ai_evidence": self.ai_evidence, "model_evidence_class": self.model_evidence_class,
+                     "ai_calls": self.ai_calls,
                      "blockers": self.blockers, "seconds": round(self.seconds, 4),
                      "positive": sum(1 for c in self.checks if c.kind == "positive"),
                      "negative": sum(1 for c in self.checks if c.kind == "negative"),
@@ -298,14 +300,39 @@ def _level_from_checks(ctx: RunContext) -> tuple[str, str]:
     if not negatives:
         return INSUFFICIENT_EVIDENCE, ("нет отрицательного контроля: проверка без него "
                                        "ничего не доказывает")
-    return AI_BACKED_CI, ""
+    return CI_PROVEN, ""
+
+
+def _model_evidence_class(scenario_: Scenario, ai: CIAIProvider, before: int) -> str:
+    """Truthful model provenance, independent from scenario PASS/FAIL.
+
+    Deterministic product checks are NO_MODEL_REQUIRED, not AI-backed. Injected
+    transports are MOCK_MODEL even when they return a contract-valid envelope.
+    A successful real network call is LOCAL only for loopback endpoints; every
+    other successful network provider is CLOUD. Missing credentials never
+    become model evidence.
+    """
+    if scenario_.model_step == "none":
+        return "NO_MODEL_REQUIRED"
+    if scenario_.model_step == "contract":
+        return "MOCK_MODEL"
+    calls = ai.calls[before:]
+    if not any(getattr(call, "ok", False) for call in calls):
+        return "NO_MODEL_REQUIRED"
+    if getattr(ai, "_transport", None) is not None:
+        return "MOCK_MODEL"
+    from urllib.parse import urlsplit
+    host = (urlsplit(ai.base_url).hostname or "").lower()
+    if host in {"127.0.0.1", "localhost", "::1"}:
+        return "REAL_LOCAL_MODEL"
+    return "REAL_CLOUD_MODEL"
 
 
 def _level_from_model_step(slice_: Sequence[Any]) -> tuple[str, str, str]:
     """Для ``model_step="live"`` уровень определяет ЖУРНАЛ вызовов, а не сценарий."""
     outcomes = [c.outcome for c in slice_]
     if any(c.ok for c in slice_):
-        return AI_BACKED_CI, "", "live_call_ok"
+        return CI_PROVEN, "", "live_call_ok"
     if INVALID_RESPONSE in outcomes:
         return FAIL, "модель ответила не по контракту chat/completions", "live_call_invalid"
     if NO_KEY in outcomes:
@@ -358,10 +385,11 @@ def run_scenario(scenario_: Scenario, ai: CIAIProvider,
                         "none": "no_model_step"}[scenario_.model_step]
             if scenario_.model_step == "live":
                 gate, gate_reason, evidence = _level_from_model_step(ai.calls[before:])
-                if gate != AI_BACKED_CI:
+                if gate != CI_PROVEN:
                     level, reason = gate, gate_reason
     result = ScenarioResult(scenario=scenario_, level=level, reason=reason, checks=list(ctx.checks),
                             depth=ctx.depth, ai_evidence=evidence,
+                            model_evidence_class=_model_evidence_class(scenario_, ai, before),
                             ai_calls=[c.to_report() for c in ai.calls[before:]],
                             seconds=time.monotonic() - started)
     if result.level not in LEVELS:  # pragma: no cover — защита контракта уровней
