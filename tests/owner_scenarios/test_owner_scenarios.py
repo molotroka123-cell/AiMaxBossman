@@ -12,7 +12,7 @@
    обязана заметить, что пробел закрылся.
 3. КОНТРОЛЬ КАРКАСА. Сценарий без отрицательного контроля не бывает зелёным,
    упавший сценарий — FAIL, а живой шаг модели без НАСТОЯЩЕГО успешного вызова
-   адаптера не получает AI_BACKED_CI ни при каких зелёных проверках внутри.
+   адаптера не получает CI_PROVEN ни при каких зелёных проверках внутри.
 
 Зависимости: pytest + httpx + bossman_shared. Ни sqlalchemy, ни pydantic, ни
 asyncio-плагина: корневой CI ставит только pytest/pytest-timeout/psutil/httpx/pyyaml,
@@ -40,72 +40,72 @@ FAKE_KEY = "fake-adapter-placeholder-value"  # ci-secret-scan: allow (подст
 
 #: Уровень, который сценарий обязан выдать, КОГДА все его способности есть.
 EXPECTED_WHEN_CAPABLE = {
-    "OS-01": sr.AI_BACKED_CI, "OS-02": sr.AI_BACKED_CI, "OS-03": sr.AI_BACKED_CI,
-    "OS-04": sr.AI_BACKED_CI, "OS-05": sr.AI_BACKED_CI, "OS-06": sr.AI_BACKED_CI,
-    "OS-07": sr.AI_BACKED_CI, "OS-08": sr.AI_BACKED_CI, "OS-09": sr.AI_BACKED_CI,
-    "OS-10": sr.AI_BACKED_CI, "OS-11": sr.AI_BACKED_CI, "OS-12": sr.AI_BACKED_CI,
-    "OS-13": sr.AI_BACKED_CI, "OS-14": sr.AI_BACKED_CI, "OS-15": sr.OWNER_REQUIRED,
-    "OS-16": sr.OWNER_REQUIRED, "OS-17": sr.AI_BACKED_CI,
+    "OS-01": sr.CI_PROVEN, "OS-02": sr.CI_PROVEN, "OS-03": sr.CI_PROVEN,
+    "OS-04": sr.CI_PROVEN, "OS-05": sr.CI_PROVEN, "OS-06": sr.CI_PROVEN,
+    "OS-07": sr.CI_PROVEN, "OS-08": sr.CI_PROVEN, "OS-09": sr.CI_PROVEN,
+    "OS-10": sr.CI_PROVEN, "OS-11": sr.CI_PROVEN, "OS-12": sr.CI_PROVEN,
+    "OS-13": sr.CI_PROVEN, "OS-14": sr.CI_PROVEN, "OS-15": sr.OWNER_REQUIRED,
+    "OS-16": sr.OWNER_REQUIRED, "OS-17": sr.CI_PROVEN,
     # OS-18 закрыт BL-097: объявленные эффекты дошли до восстановления, бронь
     # отпускается, и следующий допуск ПРОХОДИТ. Сценарий проверяет возобновление,
     # а не описывает дефект.
-    "OS-18": sr.AI_BACKED_CI,
-    "OS-19": sr.AI_BACKED_CI, "OS-20": sr.AI_BACKED_CI,
+    "OS-18": sr.CI_PROVEN,
+    "OS-19": sr.CI_PROVEN, "OS-20": sr.CI_PROVEN,
     # 21–30: плоскость управления компьютером и терминалом.
-    "OS-21": sr.AI_BACKED_CI, "OS-22": sr.INSUFFICIENT_EVIDENCE, "OS-23": sr.AI_BACKED_CI,
-    "OS-24": sr.AI_BACKED_CI, "OS-25": sr.AI_BACKED_CI, "OS-26": sr.AI_BACKED_CI,
-    "OS-27": sr.AI_BACKED_CI, "OS-28": sr.AI_BACKED_CI, "OS-29": sr.INSUFFICIENT_EVIDENCE,
-    "OS-30": sr.AI_BACKED_CI,
+    "OS-21": sr.CI_PROVEN, "OS-22": sr.INSUFFICIENT_EVIDENCE, "OS-23": sr.CI_PROVEN,
+    "OS-24": sr.CI_PROVEN, "OS-25": sr.CI_PROVEN, "OS-26": sr.CI_PROVEN,
+    "OS-27": sr.CI_PROVEN, "OS-28": sr.CI_PROVEN, "OS-29": sr.INSUFFICIENT_EVIDENCE,
+    "OS-30": sr.CI_PROVEN,
     # 31–40: губернатор расходов и границы безопасности. OS-36 закрыт BL-099:
     # секрет внутри значения больше не доходит ни до ленты, ни до истории.
-    "OS-31": sr.AI_BACKED_CI, "OS-32": sr.AI_BACKED_CI, "OS-33": sr.AI_BACKED_CI,
-    "OS-34": sr.AI_BACKED_CI, "OS-35": sr.AI_BACKED_CI, "OS-36": sr.AI_BACKED_CI,
-    "OS-37": sr.AI_BACKED_CI, "OS-38": sr.AI_BACKED_CI, "OS-39": sr.AI_BACKED_CI,
-    "OS-40": sr.AI_BACKED_CI,
+    "OS-31": sr.CI_PROVEN, "OS-32": sr.CI_PROVEN, "OS-33": sr.CI_PROVEN,
+    "OS-34": sr.CI_PROVEN, "OS-35": sr.CI_PROVEN, "OS-36": sr.CI_PROVEN,
+    "OS-37": sr.CI_PROVEN, "OS-38": sr.CI_PROVEN, "OS-39": sr.CI_PROVEN,
+    "OS-40": sr.CI_PROVEN,
     # 41–50: контекст вглубь и много агентов.
-    "OS-41": sr.AI_BACKED_CI, "OS-42": sr.AI_BACKED_CI, "OS-43": sr.AI_BACKED_CI,
-    "OS-44": sr.AI_BACKED_CI, "OS-45": sr.AI_BACKED_CI, "OS-46": sr.AI_BACKED_CI,
-    "OS-47": sr.AI_BACKED_CI, "OS-48": sr.AI_BACKED_CI, "OS-49": sr.AI_BACKED_CI,
-    "OS-50": sr.AI_BACKED_CI,
+    "OS-41": sr.CI_PROVEN, "OS-42": sr.CI_PROVEN, "OS-43": sr.CI_PROVEN,
+    "OS-44": sr.CI_PROVEN, "OS-45": sr.CI_PROVEN, "OS-46": sr.CI_PROVEN,
+    "OS-47": sr.CI_PROVEN, "OS-48": sr.CI_PROVEN, "OS-49": sr.CI_PROVEN,
+    "OS-50": sr.CI_PROVEN,
     # 71–80: маршрутизация моделей, отказоустойчивость, восстановление, обновление.
-    "OS-71": sr.AI_BACKED_CI, "OS-72": sr.AI_BACKED_CI, "OS-73": sr.AI_BACKED_CI,
-    "OS-74": sr.AI_BACKED_CI, "OS-75": sr.AI_BACKED_CI, "OS-76": sr.AI_BACKED_CI,
-    "OS-77": sr.AI_BACKED_CI, "OS-78": sr.AI_BACKED_CI, "OS-79": sr.AI_BACKED_CI,
-    "OS-80": sr.AI_BACKED_CI,
+    "OS-71": sr.CI_PROVEN, "OS-72": sr.CI_PROVEN, "OS-73": sr.CI_PROVEN,
+    "OS-74": sr.CI_PROVEN, "OS-75": sr.CI_PROVEN, "OS-76": sr.CI_PROVEN,
+    "OS-77": sr.CI_PROVEN, "OS-78": sr.CI_PROVEN, "OS-79": sr.CI_PROVEN,
+    "OS-80": sr.CI_PROVEN,
     # 81–90: установка и первый запуск у владельца, обновление и
     # наблюдаемость. Девять из десяти идут через СОБРАННЫЙ пакет, поднятый
     # отдельным процессом `python -m bcc` без `command-center` в PYTHONPATH.
-    "OS-81": sr.AI_BACKED_CI, "OS-82": sr.AI_BACKED_CI, "OS-83": sr.AI_BACKED_CI,
-    "OS-84": sr.AI_BACKED_CI, "OS-85": sr.AI_BACKED_CI, "OS-86": sr.AI_BACKED_CI,
-    "OS-87": sr.AI_BACKED_CI, "OS-88": sr.AI_BACKED_CI, "OS-89": sr.AI_BACKED_CI,
-    "OS-90": sr.AI_BACKED_CI,
+    "OS-81": sr.CI_PROVEN, "OS-82": sr.CI_PROVEN, "OS-83": sr.CI_PROVEN,
+    "OS-84": sr.CI_PROVEN, "OS-85": sr.CI_PROVEN, "OS-86": sr.CI_PROVEN,
+    "OS-87": sr.CI_PROVEN, "OS-88": sr.CI_PROVEN, "OS-89": sr.CI_PROVEN,
+    "OS-90": sr.CI_PROVEN,
     # 91–100: расширения (плагины и MCP-коннекторы) и данные владельца —
     # выгрузка, удаление по требованию, резервная копия.
-    "OS-91": sr.AI_BACKED_CI, "OS-92": sr.AI_BACKED_CI, "OS-93": sr.AI_BACKED_CI,
-    "OS-94": sr.AI_BACKED_CI, "OS-95": sr.AI_BACKED_CI, "OS-96": sr.AI_BACKED_CI,
-    "OS-97": sr.AI_BACKED_CI, "OS-98": sr.AI_BACKED_CI, "OS-99": sr.AI_BACKED_CI,
-    "OS-100": sr.AI_BACKED_CI,
+    "OS-91": sr.CI_PROVEN, "OS-92": sr.CI_PROVEN, "OS-93": sr.CI_PROVEN,
+    "OS-94": sr.CI_PROVEN, "OS-95": sr.CI_PROVEN, "OS-96": sr.CI_PROVEN,
+    "OS-97": sr.CI_PROVEN, "OS-98": sr.CI_PROVEN, "OS-99": sr.CI_PROVEN,
+    "OS-100": sr.CI_PROVEN,
     # 101–110: долгая автономная работа от имени владельца — Social Farm
     # (работа переживает смерть процесса, не удваивается, работа мертвеца ждёт
     # сверки, дрейф интерфейса понижает возможность, учётные записи разделены,
     # «ты человек» называется) и Telegram Companion вглубь (ни ключа, ни чужого
     # поля в сообщении; потерянная связь не исполняет одобрение сама; два
     # устройства — одно исполнение; сменившийся исполнитель — штатный отказ).
-    "OS-101": sr.AI_BACKED_CI, "OS-102": sr.AI_BACKED_CI, "OS-103": sr.AI_BACKED_CI,
-    "OS-104": sr.AI_BACKED_CI, "OS-105": sr.AI_BACKED_CI, "OS-106": sr.AI_BACKED_CI,
-    "OS-107": sr.AI_BACKED_CI, "OS-108": sr.AI_BACKED_CI, "OS-109": sr.AI_BACKED_CI,
-    "OS-110": sr.AI_BACKED_CI,
+    "OS-101": sr.CI_PROVEN, "OS-102": sr.CI_PROVEN, "OS-103": sr.CI_PROVEN,
+    "OS-104": sr.CI_PROVEN, "OS-105": sr.CI_PROVEN, "OS-106": sr.CI_PROVEN,
+    "OS-107": sr.CI_PROVEN, "OS-108": sr.CI_PROVEN, "OS-109": sr.CI_PROVEN,
+    "OS-110": sr.CI_PROVEN,
     # 51–60: медиа из конца в конец, все десять через установленный продукт.
-    "OS-51": sr.AI_BACKED_CI, "OS-52": sr.AI_BACKED_CI, "OS-53": sr.AI_BACKED_CI,
-    "OS-54": sr.AI_BACKED_CI, "OS-55": sr.AI_BACKED_CI, "OS-56": sr.AI_BACKED_CI,
-    "OS-57": sr.AI_BACKED_CI, "OS-58": sr.AI_BACKED_CI, "OS-59": sr.AI_BACKED_CI,
-    "OS-60": sr.AI_BACKED_CI,
+    "OS-51": sr.CI_PROVEN, "OS-52": sr.CI_PROVEN, "OS-53": sr.CI_PROVEN,
+    "OS-54": sr.CI_PROVEN, "OS-55": sr.CI_PROVEN, "OS-56": sr.CI_PROVEN,
+    "OS-57": sr.CI_PROVEN, "OS-58": sr.CI_PROVEN, "OS-59": sr.CI_PROVEN,
+    "OS-60": sr.CI_PROVEN,
     # 61–70: браузер и Веб-дизайнер. OS-64 — объявленный пробел: одно
     # подтверждённое нажатие «Удалить элемент» на корне документа стирает сайт.
-    "OS-61": sr.AI_BACKED_CI, "OS-62": sr.AI_BACKED_CI, "OS-63": sr.AI_BACKED_CI,
-    "OS-64": sr.INSUFFICIENT_EVIDENCE, "OS-65": sr.AI_BACKED_CI,
-    "OS-66": sr.AI_BACKED_CI, "OS-67": sr.AI_BACKED_CI, "OS-68": sr.AI_BACKED_CI,
-    "OS-69": sr.AI_BACKED_CI, "OS-70": sr.AI_BACKED_CI,
+    "OS-61": sr.CI_PROVEN, "OS-62": sr.CI_PROVEN, "OS-63": sr.CI_PROVEN,
+    "OS-64": sr.INSUFFICIENT_EVIDENCE, "OS-65": sr.CI_PROVEN,
+    "OS-66": sr.CI_PROVEN, "OS-67": sr.CI_PROVEN, "OS-68": sr.CI_PROVEN,
+    "OS-69": sr.CI_PROVEN, "OS-70": sr.CI_PROVEN,
 }
 
 #: Пробелы ПРОДУКТА, а не прогона. Каждый обязан быть виден владельцу дословно.
@@ -197,7 +197,7 @@ def test_честные_пробелы_продукта_названы_досл�
         row = _row(report, scenario_id)
         if row["blockers"]:
             continue  # способности нет в среде — пробел продукта не измерялся
-        assert row["level"] != sr.AI_BACKED_CI, (
+        assert row["level"] != sr.CI_PROVEN, (
             f"{scenario_id}: пробел закрылся — обнови OWNER_GAPS и таблицу ожиданий")
         assert fragment in row["reason"], (scenario_id, row["reason"][:200])
 
@@ -227,16 +227,16 @@ def test_отчёт_сериализуем_и_без_запрещённых_ме
 
 
 def test_словарь_уровней_закрыт():
-    assert sr.LEVELS == ("AI_BACKED_CI", "OWNER_HARDWARE_REQUIRED", "OWNER_REQUIRED",
+    assert sr.LEVELS == ("CI_PROVEN", "OWNER_HARDWARE_REQUIRED", "OWNER_REQUIRED",
                          "FAIL", "INSUFFICIENT_EVIDENCE", "NOT_RUN")
     assert "OWNER_LOCAL_MODEL" not in sr.LEVELS
     assert "LOCAL_MODEL_CERTIFIED" not in sr.LEVELS
-    assert sr.GREEN_LEVELS == (sr.AI_BACKED_CI,)
+    assert sr.GREEN_LEVELS == (sr.CI_PROVEN,)
 
 
 def test_табло_владельца_не_складывается_с_регрессией(report):
     assert "REGRESSION" in report["board_note"]
-    assert report["green"] == report["totals"][sr.AI_BACKED_CI]
+    assert report["green"] == report["totals"][sr.CI_PROVEN]
     assert sum(report["totals"].values()) == report["total"]
 
 
@@ -257,7 +257,7 @@ def test_положительный_случай_каркаса_зеленеет
         ctx.positive("законное поведение работает", True)
         ctx.negative("плохой случай отвергнут", True)
 
-    assert sr.run_scenario(_scenario(body), cap.CIAIProvider(env={})).level == sr.AI_BACKED_CI
+    assert sr.run_scenario(_scenario(body), cap.CIAIProvider(env={})).level == sr.CI_PROVEN
 
 
 def test_сценарий_без_отрицательного_контроля_не_зеленеет():
@@ -309,7 +309,7 @@ def test_самый_суровый_блокер_решает_уровень():
     assert result.level == sr.FAIL, "сломанный продукт важнее отсутствующего секрета"
 
 
-def test_живой_шаг_без_настоящего_вызова_не_получает_AI_BACKED_CI():
+def test_живой_шаг_без_настоящего_вызова_не_получает_CI_PROVEN():
     """Анти-чит: зелёные проверки внутри не заменяют успешный вызов модели."""
     def body(ctx):
         ctx.positive("сценарий объявил себя успешным", True)
@@ -341,7 +341,7 @@ def test_живой_шаг_с_рабочим_адаптером_зеленеет
     provider = cap.CIAIProvider(env={"BOSSMAN_CI_AI_API_KEY": FAKE_KEY},
                                 transport=httpx.MockTransport(_ok_transport))
     result = sr.run_scenario(_scenario(body, model_step="live"), provider)
-    assert result.level == sr.AI_BACKED_CI and result.ai_evidence == "live_call_ok"
+    assert result.level == sr.CI_PROVEN and result.ai_evidence == "live_call_ok"
 
 
 def test_живой_шаг_с_неверным_ответом_модели_это_FAIL():
