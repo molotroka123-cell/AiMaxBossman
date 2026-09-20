@@ -351,6 +351,8 @@ function inspector(asset, collections, ctx) {
         }, 'Вариация'),
         variationUnavailableReason(asset)
           ? h('div.xsmall.dim', variationUnavailableReason(asset)) : null,
+        h('button.btn.btn-sm', { type: 'button', onClick: () => transformAsset(asset, 'grayscale', ctx) }, 'Ч/б копия'),
+        h('button.btn.btn-sm', { type: 'button', onClick: () => transformAsset(asset, 'rotate90', ctx) }, 'Повернуть 90°'),
         h('button.btn.btn-sm', { type: 'button', onClick: () => toggleFavorite(asset, ctx) },
           asset.favorite ? 'Убрать из избранного' : 'В избранное'),
       )));
@@ -510,6 +512,17 @@ async function assignCollection(asset, rawValue, ctx) {
     toastOk(collection_id ? 'Изображение перенесено в коллекцию' : 'Изображение убрано из коллекции');
     ctx.refresh();
   } catch (e) { toastError(e, 'Не удалось изменить коллекцию'); }
+}
+
+async function transformAsset(asset, operation, ctx) {
+  try {
+    const edited = await api.raw(`/api/images/assets/${encodeURIComponent(asset.id)}/transform`, {
+      method: 'POST', body: { operation },
+    });
+    selectedAssetId = edited.id;
+    toastOk(operation === 'grayscale' ? 'Создана ч/б копия' : 'Создана повёрнутая копия');
+    ctx.refresh();
+  } catch (e) { toastError(e, 'Редактирование изображения не удалось'); }
 }
 
 async function toggleFavorite(asset, ctx) {
