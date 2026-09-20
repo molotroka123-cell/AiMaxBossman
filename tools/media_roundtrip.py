@@ -416,70 +416,104 @@ def video_roundtrip(workdir, *, seconds=2, fps=25, width=160, height=90, brightn
 # --------------------------------------------------------------------------
 
 def image_roundtrip(workdir) -> dict:
-    """Заготовка -> хранилище Image Studio -> преобразование -> экспорт -> ffprobe.
+    """Real Bossman Image Studio API: import -> native edit -> reopen -> export.
 
-    Улика честная и неполная в одном месте: генерация картинок в продукте
-    держится на MockImageProvider (детерминированный SVG), реальный провайдер
-    не подключён и ffprobe SVG не измеряет. Поэтому здесь доказывается
-    НАСТОЯЩИЙ растровый оборот через продуктовое хранилище, а мок-провайдер
-    помечен как адаптер CI, а не выдан за генерацию.
+    Generation-provider evidence remains separate. This path proves editing
+    without using ffmpeg as the editor.
     """
+    import asyncio
+    import base64
+
     if str(STUDIO) not in sys.path:
         sys.path.insert(0, str(STUDIO))
-    from bcc.v2.images_runtime import ImageStorage, MockImageProvider, safe_filename
+    import httpx
+    from bcc.api import create_app
+    from bcc.config import Settings
+    from bcc.v2.images_runtime import MockImageProvider
 
-    tools = binaries()
     workdir = Path(workdir)
     workdir.mkdir(parents=True, exist_ok=True)
     determinism = fixture_is_deterministic(image_fixture, workdir / "determinism", ".png",
                                            width=320, height=240)
     source = image_fixture(workdir / "fixture.png", width=320, height=240)
+    original = Path(source["path"]).read_bytes()
 
-    storage = ImageStorage(workdir / "images")
-    imported = storage.save(f"imports/{safe_filename('media-roundtrip.png')}",
-                            Path(source["path"]).read_bytes())
-    import_evidence = verify_artifact(imported, {"tracks": {"video": 1}, "video_codec": "png",
-                                                 "width": 320, "height": 240,
-                                                 "sha256": source["sha256"]},
-                                      label="image studio import")
+    async def execute():
+        settings = Settings(data_dir=workdir / "product-data")
+        app = create_app(settings, start_workers=False, announce_token=False)
+        async with app.router.lifespan_context(app):
+            svc = app.state.svc
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app),
+                base_url="http://bossman-installed",
+                headers={"X-BCC-Token": svc.auth.token},
+            ) as client:
+                imported = await client.post("/api/images/assets/import", json={
+                    "filename": "media-roundtrip.png",
+                    "data_base64": base64.b64encode(original).decode("ascii"),
+                    "title": "media roundtrip fixture",
+                })
+                if imported.status_code != 200:
+                    raise MediaEvidenceError(f"Image Studio import failed: {imported.status_code} {imported.text}")
+                source_asset = imported.json()
 
-    # Преобразование тем же ffmpeg: собственного image-transform у студии нет.
-    transformed = workdir / "transformed.png"
-    run([tools["ffmpeg"], "-hide_banner", "-v", "error", "-nostdin", "-y", "-threads", "1",
-         "-i", str(storage.resolve_existing(str(imported))),
-         "-vf", "crop=160:120:0:0,scale=160:120", "-frames:v", "1", *BITEXACT, str(transformed)])
-    saved = storage.save("derived/media-roundtrip-160x120.png", transformed.read_bytes())
+                edited = await client.post(
+                    f"/api/images/assets/{source_asset['id']}/transform",
+                    json={"operation": "resize", "width": 160, "height": 120},
+                )
+                if edited.status_code != 200:
+                    raise MediaEvidenceError(f"Image Studio transform failed: {edited.status_code} {edited.text}")
+                edited_asset = edited.json()
 
+                reopened = await client.get(f"/api/images/assets/{edited_asset['id']}")
+                if reopened.status_code != 200:
+                    raise MediaEvidenceError("Image Studio could not reopen derived asset")
+                reopened_asset = reopened.json()
+
+                exported = await client.get(f"/api/images/assets/{edited_asset['id']}/file")
+                if exported.status_code != 200:
+                    raise MediaEvidenceError("Image Studio could not export derived asset")
+                return source_asset, edited_asset, reopened_asset, exported.content
+
+    source_asset, edited_asset, reopened_asset, payload = asyncio.run(execute())
     exported = workdir / "export.png"
-    exported.write_bytes(storage.resolve_existing(str(saved)).read_bytes())
-    export_evidence = verify_artifact(exported, {"tracks": {"video": 1}, "video_codec": "png",
-                                                 "width": 160, "height": 120,
-                                                 "sha256": digest(saved), "min_bytes": 64},
-                                      label="image studio export")
+    exported.write_bytes(payload)
+    export_evidence = verify_artifact(
+        exported,
+        {"tracks": {"video": 1}, "video_codec": "png",
+         "width": 160, "height": 120, "min_bytes": 64},
+        label="image studio native API export",
+    )
+    if payload == original:
+        raise MediaEvidenceError("native Image Studio transform did not change bytes",
+                                 ["derived bytes equal source bytes"])
+    if reopened_asset.get("id") != edited_asset.get("id"):
+        raise MediaEvidenceError("reopened asset identity changed unexpectedly")
+    meta = reopened_asset.get("meta") or {}
+    if meta.get("source_asset_id") != source_asset.get("id") or meta.get("operation") != "resize":
+        raise MediaEvidenceError("derived asset provenance missing or wrong",
+                                 [f"meta={meta}"])
 
-    outside = workdir / "outside-root.png"
-    outside.write_bytes(b"x")
-    escaped = None
-    try:
-        storage.resolve_existing(str(outside))
-    except PermissionError as exc:
-        escaped = str(exc)
-    if escaped is None:
-        raise MediaEvidenceError("image storage accepted a path outside its media root",
-                                 ["media root boundary not enforced"])
-
-    return {"status": "PASS", "fixture": source, "fixture_determinism": determinism,
-            "stored_through": "bcc.v2.images_runtime.ImageStorage",
-            "import": import_evidence, "export": export_evidence,
-            "transform": {"engine": "ffmpeg crop+scale",
-                          "note": "у Image Studio нет собственного image-transform; "
-                                  "преобразование сделано тем же ffmpeg"},
-            "media_root_boundary": escaped,
-            "provider_gap": {"provider": MockImageProvider.name,
-                             "generation_is_real": False,
-                             "note": "генерация картинок в продукте — детерминированный SVG-мок "
-                                     "(адаптер CI); реальный провайдер не подключён, ffprobe SVG "
-                                     "не измеряет, поэтому оборот доказан на настоящем PNG"}}
+    return {
+        "status": "PASS",
+        "fixture": source,
+        "fixture_determinism": determinism,
+        "stored_through": "bcc.features.images HTTP API",
+        "transform": {
+            "engine": "bcc.features.images.transform_asset",
+            "operation": "resize",
+            "source_asset_id": source_asset.get("id"),
+            "derived_asset_id": edited_asset.get("id"),
+            "persisted_reopen": reopened_asset.get("id") == edited_asset.get("id"),
+            "bytes_changed": payload != original,
+        },
+        "export": export_evidence,
+        "provider_gap": {
+            "provider": MockImageProvider.name,
+            "generation_is_real": False,
+            "note": "native editing is CI-proven separately; real image generation still needs a configured provider credential",
+        },
+    }
 
 
 # --------------------------------------------------------------------------
