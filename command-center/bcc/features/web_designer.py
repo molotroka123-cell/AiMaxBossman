@@ -381,6 +381,7 @@ class EditIn(BaseModel):
     html: str | None = Field(default=None, max_length=MAX_HTML_CHARS)
     base_version: int | None = None            # версия, которую видел выбиравший
     replace_children: bool = False             # согласие снести вложенные теги
+    destructive_root_ack: bool = False         # отдельное явное согласие на удаление <html>/<body>
 
 
 class AiEditIn(BaseModel):
@@ -598,6 +599,36 @@ async def edit_project(pid: int, body: EditIn, request: Request):
                     status_code=409,
                     detail=(f"код изменился (версия {current}, выделение сделано на "
                             f"{int(body.base_version)}) — обновите превью и выберите заново"))
+        # OS-64: корневой тег — не обычный элемент. Одного generic confirm
+        # недостаточно: удаление <html>/<body> уничтожает весь документ. Сервер
+        # сам определяет фактическую цель, не доверяя tag из UI, требует
+        # отдельный ACK и до мутации проверяет, что текущая версия реально
+        # сохранена в истории и byte-for-byte восстановима.
+        try:
+            current_root = dom.parse_document(html)
+            target = dom.resolve_element(current_root, body.bd_id, body.path)
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+        is_root_delete = body.op == "delete" and target.tag in {"html", "body"}
+        if is_root_delete:
+            if not body.destructive_root_ack:
+                raise HTTPException(
+                    status_code=409,
+                    detail=("THIS WILL DELETE THE ENTIRE SITE/DOCUMENT CONTENT. "
+                            "Explicit high-severity approval is required."))
+            current = int((_load_meta(pdir) or {}).get("version", 0))
+            if body.base_version is None or int(body.base_version) != current:
+                raise HTTPException(status_code=409,
+                                    detail="stale revision: reload before deleting the document root")
+            recovery = _version_path(pdir, current)
+            try:
+                recovery_html = recovery.read_text(encoding="utf-8")
+            except OSError as exc:
+                raise HTTPException(status_code=409,
+                                    detail="verified recovery version is missing; root deletion refused") from exc
+            if recovery_html != html:
+                raise HTTPException(status_code=409,
+                                    detail="recovery version does not match current document; root deletion refused")
         try:
             new_html, described = dom.apply_edit(html, body.model_dump())
         except LookupError as exc:
