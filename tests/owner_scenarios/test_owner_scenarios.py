@@ -54,7 +54,7 @@ EXPECTED_WHEN_CAPABLE = {
     # 21–30: плоскость управления компьютером и терминалом.
     "OS-21": sr.CI_PROVEN, "OS-22": sr.CI_PROVEN, "OS-23": sr.CI_PROVEN,
     "OS-24": sr.CI_PROVEN, "OS-25": sr.CI_PROVEN, "OS-26": sr.CI_PROVEN,
-    "OS-27": sr.CI_PROVEN, "OS-28": sr.CI_PROVEN, "OS-29": sr.INSUFFICIENT_EVIDENCE,
+    "OS-27": sr.CI_PROVEN, "OS-28": sr.CI_PROVEN, "OS-29": sr.CI_PROVEN,
     "OS-30": sr.CI_PROVEN,
     # 31–40: губернатор расходов и границы безопасности. OS-36 закрыт BL-099:
     # секрет внутри значения больше не доходит ни до ленты, ни до истории.
