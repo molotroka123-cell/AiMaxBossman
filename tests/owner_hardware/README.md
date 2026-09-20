@@ -2,7 +2,7 @@
 
 Run only against the exact installed release candidate. Do not run from an editable checkout.
 
-The machine-readable checklist is `manifest.json`. The model-fleet acceptance target is `MODEL_STACK_2026-09-20.md`. The existing MVČR scenario remains authoritative at `tests/owner_scenarios/OWNER_HARDWARE_FIRST_RUN.md`.
+The machine-readable checklist is `manifest.json`. The local model-fleet acceptance target is `MODEL_STACK_2026-09-20.md`. The cloud augmentation and routing acceptance target is `CLOUD_STACK_2026-09-20.md`. The existing MVČR scenario remains authoritative at `tests/owner_scenarios/OWNER_HARDWARE_FIRST_RUN.md`.
 
 ## One owner command
 
@@ -14,7 +14,7 @@ python -m bcc.owner_acceptance --data-dir "$env:BCC_DATA_DIR" --output OWNER_HAR
 
 Then follow the interactive HW-01…HW-12 checklist. Every case is one of PASS, FAIL, OWNER_ACTION_REQUIRED or NOT_TESTED. Missing credentials or a human-only login checkpoint is OWNER_ACTION_REQUIRED; missing product code is FAIL.
 
-## Five AI acceptance lanes
+## Local + cloud acceptance lanes
 
 The owner-hardware run must explicitly cover:
 
@@ -23,10 +23,11 @@ The owner-hardware run must explicitly cover:
 3. tool-calling + structured output
 4. image generation/editing
 5. video generation/editing
+6. cloud routing / privacy / budget / fallback
 
 Do not merge these into one generic “local model works” check.
 
-The current target fleet and routing expectations are documented in `MODEL_STACK_2026-09-20.md`.
+The local target fleet is documented in `MODEL_STACK_2026-09-20.md`. Cloud free/budget/premium/media routing and privacy/cost rules are documented in `CLOUD_STACK_2026-09-20.md`.
 
 Internet or vendor benchmarks are discovery evidence only. A model becomes a Bossman default only after the same-task owner-hardware comparison on the exact Ryzen AI Max+ 395 / Radeon 8060S / 128 GB machine.
 
