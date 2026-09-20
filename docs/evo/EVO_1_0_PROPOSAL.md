@@ -39,3 +39,7 @@ Stable production is never silently rewritten.
 ## First EVO milestone
 
 Recommendation-only mode: Bossman may produce a ranked engineering proposal and isolated patch candidate, but promotion remains manual and owner-approved. Autonomous promotion is out of scope until the owner separately authorizes it.
+
+## Cloud/model routing recommendations
+
+EVO 1.0 may recommend changing local/cloud model routing based on measured completion, latency, cost, privacy class and verifier corrections. It may not silently enable providers, transmit LOCAL_ONLY data, enable paid fallback, increase budgets, or turn on provider auto-recharge. Any provider/model promotion follows the same isolated benchmark → evidence → owner approval → rollout → rollback chain.
