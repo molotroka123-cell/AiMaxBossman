@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-20-owner-ready-closure",
+  "candidate_label": "rc-2026-09-20-final-closure-2",
   "declared_for": "release/bossman-owner",
-  "note": "FINAL OWNER-READY closure candidate declared from 1f41509169e05855e9dc8770911e2d190ca1aa0a. Includes OS-64 recovery-bound destructive-root approval, native Image Studio editing + UI + pixel tests, owner-hardware acceptance pack, salvage ledger, pre-EVO documentation and one-command owner acceptance wrapper. This declaration triggers exact-SHA evidence collection; it is NOT itself a certificate. Real local model, real Telegram account and real owner desktop remain owner-hardware evidence. Missing code may not be reclassified as hardware-required."
+  "note": "Final closure rerun declared from f99f17dc2790ed777f3be2dbcdd7ba2988a69d2c. Fixes current audit regressions without weakening gates: root scenario label migration, honest operator profile empty-sample failure, explicit CONTROL-001 coordinate fallback fixtures. Intelligence Preservation remains fail-closed until real same-model evidence exists and must not be reported PASS. This declaration triggers a new exact-SHA matrix; queued/skipped/missing runs are not certification."
 }
