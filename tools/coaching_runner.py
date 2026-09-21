@@ -52,7 +52,11 @@ if str(REPO) not in sys.path:
 from learning.lessons import (CoachingEpisode, LessonBook, LessonPoisoned, Provenance,  # noqa: E402
                               format_for_prompt)
 
-DEFAULT_PACK = REPO / "tests" / "coaching_pack"
+# В архиве Windows раннер лежит в app-support/ рядом с coaching-pack/; в
+# checkout — в tools/ с паком в tests/coaching_pack. Первый существующий побеждает.
+_HERE = Path(__file__).resolve().parent
+DEFAULT_PACK = next((p for p in (_HERE / "coaching-pack", REPO / "tests" / "coaching_pack") if p.is_dir()),
+                    REPO / "tests" / "coaching_pack")
 DEFAULT_ENDPOINT = "http://127.0.0.1:8081"
 ENDPOINT_ENV = "BOSSMAN_COACH_ENDPOINT"
 MODEL_ENV = "BOSSMAN_COACH_MODEL"
@@ -536,7 +540,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
+def utf8_console() -> None:
+    """Печать не имеет права падать на кириллице: раннер идёт под `-I` в архиве."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    utf8_console()
     return run(parse_args(argv))
 
 
