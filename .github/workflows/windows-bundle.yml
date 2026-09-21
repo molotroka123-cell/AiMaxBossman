@@ -113,6 +113,7 @@ on:
       - 'command-center/tests/test_refresh_during_typing_ui.py'
       - 'command-center/tests/test_studio_gallery_ui.py'
       - 'command-center/tests/test_web_designer_ai_create_ui.py'
+      - 'command-center/tests/test_music_presets_ui.py'
       # conftest записывает привязку results.xml к архиву (OA-02).
       - 'command-center/tests/conftest.py'
       - '!bossman-core/tests/**'

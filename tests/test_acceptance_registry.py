@@ -51,8 +51,9 @@ def write(tmp_path, xml: bytes) -> Path:
 
 def test_the_registry_is_one_consistent_profile():
     assert REGISTRY["profile"] == "windows-installed"
-    assert sum(MODULES.values()) == REGISTRY["junit"]["minimum_tests"] == 47
-    assert len(MODULES) == 17
+    assert sum(MODULES.values()) == REGISTRY["junit"]["minimum_tests"] == 49
+    assert len(MODULES) == 18
+    assert MODULES["test_music_presets_ui"] == 2
     assert REGISTRY["live_model"] == {"models": 2, "cases": ["arithmetic", "structured_data", "instruction_following"]}
 
 
@@ -95,7 +96,7 @@ def test_the_cli_prints_the_paths_the_workflow_consumes(capsys):
     lines = capsys.readouterr().out.splitlines()
     assert lines == acceptance_registry.pytest_paths(REGISTRY)
     assert acceptance_registry.main(["--minimum-tests"]) == 0
-    assert capsys.readouterr().out.strip() == "47"
+    assert capsys.readouterr().out.strip() == "49"
 
 
 # ------------------------------------------------------------- the workflow
@@ -136,7 +137,7 @@ def test_the_owner_job_binds_evidence_to_the_measured_archive():
 
 def test_the_real_profile_passes_the_junit_check(tmp_path):
     counts = require.verify(write(tmp_path, results(sha=SHA)), source_sha=SHA, registry=REGISTRY)
-    assert counts["tests"] == 47 and counts["per_module"] == MODULES and counts["profile"] == "windows-installed"
+    assert counts["tests"] == 49 and counts["per_module"] == MODULES and counts["profile"] == "windows-installed"
 
 
 @pytest.mark.parametrize("case", ["thirteen", "repeat", "one_module", "module_short", "failure", "error",
@@ -169,9 +170,9 @@ def test_everything_that_is_not_the_profile_is_refused(tmp_path, case):
 
 def test_a_command_line_floor_can_only_raise_the_registry_floor(tmp_path):
     path = write(tmp_path, results(sha=SHA))
-    assert require.verify(path, minimum_tests=1, source_sha=SHA, registry=REGISTRY)["tests"] == 47
+    assert require.verify(path, minimum_tests=1, source_sha=SHA, registry=REGISTRY)["tests"] == 49
     with pytest.raises(SystemExit):
-        require.verify(path, minimum_tests=48, source_sha=SHA, registry=REGISTRY)
+        require.verify(path, minimum_tests=50, source_sha=SHA, registry=REGISTRY)
 
 
 # ------------------------------------------- the plain floor for other suites
