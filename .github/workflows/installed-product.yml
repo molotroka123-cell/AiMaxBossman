@@ -51,6 +51,11 @@ on:
       - 'tools/bundle_evening_test.py'
       - 'scripts/bossman_doctor.py'
       - '.github/workflows/installed-product.yml'
+      # Объявление кандидата обязано проверять установленный продукт на том же
+      # exact SHA, а не наследовать доказательство от предыдущего продуктового
+      # коммита. Иначе Windows bundle/owner run запускаются, а эта цепочка может
+      # молча отсутствовать у финального кандидата.
+      - 'tools/release_candidate.json'
       # Сам продукт: то, что ставится и проверяется.
       - 'command-center/**'
       - 'bossman-core/**'
