@@ -606,6 +606,8 @@ async def edit_project(pid: int, body: EditIn, request: Request):
         # сохранена в истории и byte-for-byte восстановима.
         try:
             current_root = dom.parse_document(html)
+            # Match apply_edit/preview resolution: stored HTML has no bd-id fields.
+            dom.assign_bd_ids(current_root)
             target = dom.resolve_element(current_root, body.bd_id, body.path)
         except LookupError as exc:
             raise HTTPException(status_code=404, detail=str(exc))
