@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-21-pre-evo-owner-hardware-final-matrix",
+  "candidate_label": "rc-2026-09-21-pre-evo-owner-hardware-windows-restart-fix",
   "declared_for": "release/bossman-owner",
-  "note": "Final pre-EVO owner-hardware candidate declaration after restoring and proving the dedicated root release gate on the canonical branch. This path intentionally schedules the complete mandatory exact-SHA owner/Windows matrix and a fresh Windows artifact. No result transfers from an older SHA. Intelligence Preservation remains fail-closed when real same-model evidence is unavailable; it is not converted into a release green. No new product scope is introduced by this declaration."
+  "note": "Exact-SHA pre-EVO owner-hardware candidate redeclared after the Windows installed-product acceptance exposed Chromium ERR_CONNECTION_RESET during the deliberate server restart window. The acceptance helper now treats only REFUSED/RESET transport noise captured inside that deliberate restart interval as expected; arbitrary console failures remain release-blocking, and edit/reload/restart/rollback recovery is still proved through real UI and API. This declaration schedules the complete mandatory matrix and a fresh Windows artifact. Intelligence Preservation stays fail-closed when same-model evidence is absent; no benchmark evidence is fabricated."
 }
