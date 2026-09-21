@@ -1,44 +1,53 @@
-# BOSSMAN OWNER ACCEPTANCE
+# Первый прогон Bossman на компьютере владельца
 
-Canonical line: `release/bossman-owner`.
+**Каноническая ветка: `release/bossman-owner`. Программа теста: HW-01…HW-13.**
 
-The release is owner-ready only when one exact SHA has:
-- clean Windows install outside the repository checkout;
-- mandatory exact-SHA CI complete;
-- installed-product owner scenarios complete;
-- zero software-fixable P0/P1;
-- no unexplained dead UI control or UI→API mismatch;
-- an owner-hardware pack for the remaining physical/account-bound checks.
+## Перед началом
 
-## Owner flow
+Интегратор передаёт FINAL_BRANCH, TESTED_SHA, Windows-архив, SHA-256 этого ZIP, выполненные обязательные проверки и ограничения. Проверить [условия установки](INSTALL.md). Отсутствующий программный P0/P1 fix — блокер, а не «ожидание владельца».
 
-1. Install the exact Windows artifact.
-2. Complete first boot until the UI says READY or lists concrete items requiring attention.
-3. Run the installed `bcc.owner_acceptance` harness.
-4. Execute HW-01…HW-13 from `tests/owner_hardware/manifest.json`.
-5. Use `tests/owner_hardware/MODEL_STACK_2026-09-20.md` as the current local model-fleet acceptance target.
-6. Use `tests/owner_hardware/CLOUD_STACK_2026-09-20.md` for cloud free/budget/premium/media routing, privacy and budget acceptance.
-7. Keep real Telegram, local-model, real desktop-control and MVČR submission checks as OWNER_ACTION_REQUIRED until performed on the owner's machine/account.
-8. Do not treat mocks, source imports, old-SHA runs, skipped jobs or clicks without verified effects as PASS.
+Первый запуск — отдельная тестовая папка и данные, одна проверенная локальная модель, закрытые внешние платные/опасные действия. Не переносить рабочие базы и токены в тесты. Успешный doctor или bcc.owner_acceptance не означает, что все сценарии ниже уже выполнены.
 
-## Model-stack acceptance
+## Порядок первого дня
 
-The local-AI acceptance is split into five operational lanes:
+| Кейс | Задача | Проверяемый результат |
+|---|---|---|
+| HW-01 | Локальная модель и маршрутизация | Настоящий ответ, корректные tools/JSON, понятный fallback; измерение модели на этом ПК |
+| HW-02 | Управление Windows | Правильное окно и цель, безопасное действие, повторное наблюдение; остановка владельцем |
+| HW-03 | Браузер | Вкладки, проверенный download/upload, передача login человеку |
+| HW-04 | Файлы | Создать/изменить/найти/открыть тестовый файл; проверить содержимое |
+| HW-05 | Restart/resume | Прервать безопасную задачу и продолжить без потери состояния и двойного эффекта |
+| HW-06 | Telegram | Разрешённый тестовый чат: поручение/подтверждение/однократное продолжение/результат |
+| HW-07 | Image Studio | Импорт, реальная правка, сохранение, повторное открытие, экспорт; AI-генерация отдельно |
+| HW-08 | Video Studio | Правка и рестарт проекта, реальный экспорт, ffprobe/полное декодирование |
+| HW-09 | Агенты и инструменты | Планировщик → исполнитель → проверка результата; валидные аргументы и recovery |
+| HW-10 | MVČR | Официальные источники, подтверждённые факты, проверенные документы, пакет до WAIT_APPROVAL |
+| HW-11 | Незнакомая задача | Новый запрос, не заученный из fixture; правильный итог и число вмешательств владельца |
+| HW-12 | Долгая автономность | Безопасная миссия с лимитом времени/бюджета, checkpoints, восстановлением и контролем памяти |
+| HW-13 | Облачный маршрут | Local-first, защита приватности, отсутствие тихого free→paid, premium approval, учёт затрат |
 
-- LLM / coding / reasoning;
-- agents / computer-use / vision;
-- tool-calling + structured output;
-- image;
-- video.
+Полный машиночитаемый список: [manifest.json](tests/owner_hardware/manifest.json). Удалять модель-кандидат из default допустимо по измерению; наличие в списке не требует скачать всё в первый день. Неизвестные задания HW-11 не использовать как обучающие примеры до независимой оценки.
 
-A model is not promoted to the default route because it is newer, larger or stronger on an external leaderboard. It must win the relevant same-task comparison on the owner's exact hardware with evidence for stability, memory use, latency and completion quality.
+## Как фиксируем результат
 
-Strict structured output must be backed by runtime schema enforcement where supported. Model-produced malformed JSON must not silently become a tool invocation.
+Для каждого кейса: PASS / FAIL / OWNER_ACTION_REQUIRED / NOT_TESTED. PASS требует фактического результата и его проверки, не только клика или сообщения модели. Нет ключа или нужен человеческий login — OWNER_ACTION_REQUIRED; сломанный код — FAIL.
 
-The owner-hardware certificate should record the selected model per task, fallback behavior, owner interventions, memory/latency where relevant, and whether evidence came from a real local model, a real cloud model, a mock, or no model at all.
+Записать TESTED_SHA, хэш установленного ZIP, case ID, задачу, среду/модель, ожидаемое и фактическое поведение, обезличенные логи и артефакт результата. Если результат внешнего действия неизвестен, сначала сверка, потом решение о повторе. После исправления — новый архив и повтор затронутого кейса с соседней регрессией.
 
-The final certificate must name TESTED_SHA and the Windows artifact SHA-256.
+При утечке секретов/приватных данных, обходе approval, непредусмотренной оплате/отправке или разрушительном действии тест остановить. Остальные поломки вести по [hotfix playbook](tests/owner_hardware/HOTSPOTS_AND_HOTFIX_PLAYBOOK.md).
 
-## Cloud acceptance
+## Модели, облако и границы
 
-Cloud is auxiliary, not primary. Private/LOCAL_ONLY data must not leave the machine. Free→paid escalation must not happen silently. Premium routes require explicit approval, and provider auto-recharge remains disabled unless the owner explicitly enables it. Cloud acceptance is tracked separately from local-model quality.
+Пять направлений модели оцениваются отдельно: LLM/coding, agents/computer-use, tools/structured output, image и video. Облачные privacy/budget/fallback проверки — дополнительное направление, а не замена качества локальной модели.
+
+[Локальный](tests/owner_hardware/MODEL_STACK_2026-09-20.md) и [облачный](tests/owner_hardware/CLOUD_STACK_2026-09-20.md) списки — кандидаты; официальный ID, лицензия, доступность, runtime и тариф проверяются перед подключением. Преимущество над текущей моделью доказывается одинаковыми задачами на целевом железе, с учётом памяти, задержки и ошибок. Строгие JSON/tool-аргументы проверяются runtime до эффекта.
+
+PRIVATE/LOCAL_ONLY не отправляется наружу. Бесплатный endpoint не даёт разрешения передавать закрытый репозиторий. Нет тихого платного fallback; premium и auto-recharge требуют отдельной явной политики владельца. Трейдинг остаётся READ-ONLY/PAPER.
+
+[MVČR-сценарий](tests/owner_scenarios/OWNER_HARDWARE_FIRST_RUN.md) на первом прогоне заканчивается проверяемым пакетом и ожиданием разрешения: реальную подачу и оплату не выполняем. Настоящие личные документы используются только после разрешения на конкретный локальный этап.
+
+## Что означает итог
+
+READY FOR OWNER TEST — передан программный кандидат с обязательными доказательствами для начала этого протокола. OWNER HARDWARE CERTIFIED — отдельный итог реально выполненных обязательных проверок на нужной машине; незавершённые обязательные кейсы не позволяют его объявить. Области, модели и возможности вне выполненного покрытия перечисляются явно.
+
+Старые сертификаты, mock-ответы, исходниковый TestClient и документация не заменяют installed-product или hardware evidence.

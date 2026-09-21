@@ -1,40 +1,38 @@
 # Owner Hardware Acceptance Pack
 
-Run only against the exact installed release candidate. Do not run from an editable checkout.
+Canonical candidate: `release/bossman-owner`. Run the exact selected installed Windows artifact, not an editable checkout.
 
-The machine-readable checklist is `manifest.json`. The local model-fleet acceptance target is `MODEL_STACK_2026-09-20.md`. The cloud augmentation and routing acceptance target is `CLOUD_STACK_2026-09-20.md`. Predicted real-machine failure points and the immediate engineering response are in `HOTSPOTS_AND_HOTFIX_PLAYBOOK.md`. The existing MVČR scenario remains authoritative at `tests/owner_scenarios/OWNER_HARDWARE_FIRST_RUN.md`.
+Start with the [owner guide](../../OWNER_ACCEPTANCE.md) and [installation instructions](../../INSTALL.md). The authoritative checklist is [manifest.json](manifest.json): **HW-01…HW-13**.
 
-## One owner command
+## First command
 
-From the installed package environment:
+From PowerShell in the extracted full Windows application folder:
 
 ```powershell
-python -m bcc.owner_acceptance --data-dir "$env:BCC_DATA_DIR" --output OWNER_HARDWARE_CERTIFICATION.json
+.\Evening-Test.cmd
 ```
 
-Then follow the interactive HW-01…HW-13 checklist. Every case is one of PASS, FAIL, OWNER_ACTION_REQUIRED or NOT_TESTED. Missing credentials or a human-only login checkpoint is OWNER_ACTION_REQUIRED; missing product code is FAIL.
+This is the basic installed-product check, **not automatic execution or certification of all 13 hardware cases**. Follow the owner guide afterward. For the narrower configured-model harness, use the archive's Python, not an unrelated global interpreter:
 
-## Exact-SHA evidence rule
+```powershell
+.\runtime\python.exe -I -m bcc.owner_acceptance --data-dir "<configured-test-data-dir>" --output "owner-acceptance.json"
+```
 
-A GitHub workflow record is evidence only when jobs actually executed against the candidate SHA. `action_required`, skipped, cancelled, queued-only, or completed runs with zero jobs are not PASS and must never be inherited from another SHA. The Windows artifact and final owner certificate must name the same TESTED_SHA that produced the executed mandatory release jobs.
+Supply the actual isolated configured data directory. Only fresh output from the current invocation and the correct artifact can be accepted; a leftover JSON file after process failure is not new evidence. The repository-root PowerShell wrapper is not a substitute for verifying the shipped command path.
 
-## Local + cloud acceptance lanes
+## Evidence and safety
 
-The owner-hardware run must explicitly cover:
+Record PASS / FAIL / OWNER_ACTION_REQUIRED / NOT_TESTED per case. A missing credential/human-only checkpoint is OWNER_ACTION_REQUIRED; missing code is FAIL. The certificate must identify TESTED_SHA and the SHA-256 of the exact Windows ZIP.
 
-1. LLM / coding / reasoning
-2. agents / computer-use / vision
-3. tool-calling + structured output
-4. image generation/editing
-5. video generation/editing
-6. cloud routing / privacy / budget / fallback
+Queued, skipped, cancelled, action_required, zero-job and wrong-SHA runs are not PASS. Verify actual checkout/build/test identity and executed jobs across relevant push, PR and dispatch events. A new documentation commit cannot inherit an older certificate.
 
-Do not merge these into one generic “local model works” check.
+Cover LLM/coding, agents/computer-use, tool/schema reliability, image and video separately, plus cloud privacy/budget/fallback. Test postconditions, persistence, cancellation and recovery through product paths. Runtime validation must reject malformed tool arguments before any effect.
 
-The local target fleet is documented in `MODEL_STACK_2026-09-20.md`. Cloud free/budget/premium/media routing and privacy/cost rules are documented in `CLOUD_STACK_2026-09-20.md`.
+## Supporting specifications
 
-Internet or vendor benchmarks are discovery evidence only. A model becomes a Bossman default only after the same-task owner-hardware comparison on the exact Ryzen AI Max+ 395 / Radeon 8060S / 128 GB machine.
+- [Local candidate fleet](MODEL_STACK_2026-09-20.md) — verify official IDs, license, runtime and same-task results on Ryzen AI Max+ 395 / Radeon 8060S / 128 GB before promotion.
+- [Cloud candidates and policy](CLOUD_STACK_2026-09-20.md) — revalidate provider terms/prices; no silent paid escalation or private-data dispatch.
+- [Predicted failures and hotfix process](HOTSPOTS_AND_HOTFIX_PLAYBOOK.md).
+- [MVČR first-run scenario](../owner_scenarios/OWNER_HARDWARE_FIRST_RUN.md) — prepare the reviewable package, stop at WAIT_APPROVAL.
 
-Strict JSON / JSON Schema acceptance must verify both model behavior and runtime schema enforcement. Malformed structured output must fail closed rather than silently entering a tool call.
-
-No real payment, government submission, destructive external action or account mutation is permitted by this pack without the product's normal explicit approval gate.
+No real payment, government submission, live trading or destructive external action is part of the safe first run. No candidate model becomes default merely because it appears in these documents. EVO remains recommendation-only.
