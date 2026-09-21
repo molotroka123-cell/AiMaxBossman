@@ -82,3 +82,13 @@ def test_the_live_scorecard_block_is_present_and_singular():
     text = README.read_text(encoding="utf-8")
     assert text.count("<!-- BOSSMAN_LIVE_SCORECARD_START -->") == 1
     assert text.count("<!-- BOSSMAN_LIVE_SCORECARD_END -->") == 1
+
+
+def test_owner_launch_and_release_checks_survive_readme_cleanup():
+    """Owner-first prose must not erase the existing release revalidation path."""
+    text = README.read_text(encoding="utf-8")
+    assert {"scripts/update_readme_scorecard.py", "tools/exact_sha_certify.py",
+            "tests/test_readme_commands_are_real.py", "tests/test_readme_scorecard.py",
+            "tests/test_owner_acceptance_ps1_contract.py"}.issubset(referenced_paths())
+    for entrypoint in ("Start-Bossman.cmd", "Evening-Test.cmd", "OWNER_ACCEPTANCE.md"):
+        assert entrypoint in text
