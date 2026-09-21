@@ -29,6 +29,10 @@ from PIL import Image, ImageOps
 from ..db import models as models_t, rows_dicts, utcnow
 from ..v2.images_runtime import ImageStorage, MockImageProvider, safe_filename
 from ..oss.comfyui import ComfyUIImageProvider, image_configuration, validate_image_spec
+from ..oss.openai_images import (
+    OpenAIImageProvider, configured as openai_images_configured,
+    model_for_alias as openai_image_model, validate_spec as validate_openai_image_spec,
+)
 from ..v2.images_tables import (
     image_assets as assets_t,
     image_collections as collections_t,
@@ -41,7 +45,9 @@ router = APIRouter()
 PROVIDER = MockImageProvider()
 
 # Local mock is always available; ComfyUI requires explicit owner configuration.
-EXECUTABLE_ALIASES = frozenset({"mock-image"})
+EXECUTABLE_ALIASES = frozenset({
+    "mock-image", "openai-image-fast", "openai-image-precise",
+})
 
 
 # ---------- request models ----------
@@ -193,6 +199,29 @@ async def image_models(request: Request):
     out.append({"alias": "comfyui", "name": "ComfyUI (local text-to-image)",
                 "provider": "local", "status": comfy_status, "executable": bool(comfy_config),
                 "caps": {"image_generation": True, "mock": False, "text_to_image": True}})
+    openai_ready = openai_images_configured()
+    for alias, label in (
+        ("openai-image-fast", "OpenAI GPT Image · fast"),
+        ("openai-image-precise", "OpenAI GPT Image · precise"),
+    ):
+        try:
+            model_name = openai_image_model(alias)
+        except ValueError:
+            model_name = alias
+        out.append({
+            "alias": alias,
+            "name": f"{label} · {model_name}",
+            "provider": "openai",
+            "status": "configured" if openai_ready else "not_configured",
+            "executable": openai_ready,
+            "caps": {
+                "image_generation": True,
+                "mock": False,
+                "text_to_image": True,
+                "high_fidelity": True,
+                "quality_controls": True,
+            },
+        })
     async with svc.db.session() as s:
         rows = rows_dicts((await s.execute(sa.select(models_t))).fetchall())
     for m in rows:
@@ -500,6 +529,16 @@ async def create_job(body: ImageJobIn, request: Request):
             raise HTTPException(422, {"message": str(exc)}) from exc
         if config is None:
             raise HTTPException(503, {"message": "Configure BOSSMAN_COMFYUI_URL and BOSSMAN_COMFYUI_CHECKPOINT first"})
+    if body.model_alias in {"openai-image-fast", "openai-image-precise"}:
+        try:
+            validate_openai_image_spec(body.model_dump())
+        except ValueError as exc:
+            raise HTTPException(422, {"message": str(exc)}) from exc
+        if not openai_images_configured():
+            raise HTTPException(503, {"message": (
+                "Set OPENAI_API_KEY or BOSSMAN_OPENAI_IMAGE_API_KEY first. "
+                "Bossman will not queue a cloud image job without a configured key."
+            )})
     if not await _collection_exists(svc, body.collection_id):
         raise HTTPException(404, {"message": "коллекция не найдена"})
     if not await _asset_exists(svc, body.source_asset_id):
@@ -704,6 +743,8 @@ async def process_one(svc) -> int | None:
             if config is None:
                 raise ValueError("Configure BOSSMAN_COMFYUI_URL and BOSSMAN_COMFYUI_CHECKPOINT first")
             provider = ComfyUIImageProvider(*config)
+        elif job.get("model_alias") in {"openai-image-fast", "openai-image-precise"}:
+            provider = OpenAIImageProvider(str(job.get("model_alias")))
         for index in range(count):
             # honour cancellation between produced assets
             latest = await _find_one(svc, jobs_t, job_id)
@@ -736,7 +777,12 @@ async def process_one(svc) -> int | None:
             latest = await _find_one(svc, jobs_t, job_id)
             if latest is None or latest.get("status") != "running":
                 return job_id
-            suffix = {"image/svg+xml": ".svg", "image/png": ".png"}.get(mime, ".bin")
+            suffix = {
+                "image/svg+xml": ".svg",
+                "image/png": ".png",
+                "image/jpeg": ".jpg",
+                "image/webp": ".webp",
+            }.get(mime, ".bin")
             rel = f"generated/job-{job_id}/image-{index + 1}{suffix}"
             path = storage.save(rel, data)
             title = (str(job.get("prompt") or "Image").strip()[:120]
@@ -807,6 +853,9 @@ def _human_failure(job: dict[str, Any], exc: BaseException) -> str:
     if isinstance(exc, httpx.TimeoutException):
         return (f"Сервис генерации для «{alias}» не ответил вовремя. Проверьте, что он "
                 f"работает и не перегружен, затем нажмите «Повторить». Техническая деталь: {detail}")
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (401, 403):
+        return (f"Провайдер «{alias}» отклонил авторизацию. Проверьте ключ OpenAI "
+                f"и права проекта, затем нажмите «Повторить». Техническая деталь: {detail}")
     if isinstance(exc, httpx.HTTPStatusError):
         return (f"Сервис генерации для «{alias}» ответил ошибкой "
                 f"{exc.response.status_code}. Задача не выполнена; проверьте журнал сервиса "
