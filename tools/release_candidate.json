@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-21-pre-evo-owner-hardware-windows-restart-fix",
+  "candidate_label": "rc-2026-09-21-pre-evo-owner-hardware-ux-settle-fix",
   "declared_for": "release/bossman-owner",
-  "note": "Exact-SHA pre-EVO owner-hardware candidate redeclared after the Windows installed-product acceptance exposed Chromium ERR_CONNECTION_RESET during the deliberate server restart window. The acceptance helper now treats only REFUSED/RESET transport noise captured inside that deliberate restart interval as expected; arbitrary console failures remain release-blocking, and edit/reload/restart/rollback recovery is still proved through real UI and API. This declaration schedules the complete mandatory matrix and a fresh Windows artifact. Intelligence Preservation stays fail-closed when same-model evidence is absent; no benchmark evidence is fabricated."
+  "note": "Exact-SHA pre-EVO owner-hardware candidate redeclared after the release UX torture gate exposed an async route/render settling race: hash navigation could be correct while #view was briefly empty before render. The gate now waits, within the same bounded timeout, for the requested hash, no skeleton, and real non-empty rendered text; a genuinely blank or stuck route still fails closed. This declaration schedules the full mandatory matrix including Windows bundle, Windows owner tasks, and owner scenarios. Intelligence Preservation and human-speed evidence remain fail-closed where real evidence is unavailable; no benchmark evidence is fabricated."
 }
