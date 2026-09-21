@@ -1,4 +1,6 @@
 name: root-ci (shared contracts, learning layer, tools)
+# Registered on the repository default branch so the canonical release branch
+# can obtain fresh exact-SHA root evidence; the executable gate stays identical.
 env:
   BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
