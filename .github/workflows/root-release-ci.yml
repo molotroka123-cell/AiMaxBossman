@@ -1,0 +1,74 @@
+name: root-ci (shared contracts, learning layer, tools)
+env:
+  BOSSMAN_ACCEPTANCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  # Exact-SHA certification treats a missing run as NOT_CERTIFIED. Keep a
+  # manual recovery path so an external scheduler miss can be retried without
+  # weakening, skipping, or editing any release gate.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  root-tests:
+    name: root pytest + hygiene (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install test deps (no secrets, no network services)
+        run: |
+          python -m pip install --quiet -e .
+          # pyyaml: корневой набор проверяет разбор OLLAMA_HOST в bossman.gateway.config,
+          # а тот читает YAML-настройку. Ставится ровно этот пакет, а не весь
+          # bossman-core: задание намеренно остаётся без сервисов и секретов.
+          python -m pip install --quiet pytest pytest-timeout psutil httpx pyyaml
+      - name: Root suite (learning layer, shared cache contracts, context slicer, tools)
+        run: python -m pytest tests -q --durations=10 --timeout=120 --timeout-method=signal
+      - name: README Live Scorecard is current (README_SCORECARD_CURRENT)
+        run: python scripts/update_readme_scorecard.py --check
+      - name: Skips registry is current (SKIPS_REGISTRY_CURRENT)
+        run: python tools/skips_registry.py --check
+      - name: compileall
+        run: python -m compileall -q bossman-core/bossman command-center/bcc learning bossman_shared tools
+      - name: Secret scan
+        run: python tools/ci_secret_scan.py
+      - name: git diff --check (whitespace hygiene)
+        # Scope: code, contracts, UI, CI, and the security/intelligence docs. Historical
+        # reports, acceptance logs and venture CSVs (CRLF data) are intentionally excluded.
+        run: >-
+          git diff --check $(git hash-object -t tree /dev/null) HEAD --
+          bossman-core/bossman bossman-core/tests command-center/bcc command-center/tests
+          command-center/ui learning bossman_shared tools tests schemas scripts docs/benchmark
+          .github/workflows/root-release-ci.yml .github/workflows/bossman-core-ci.yml
+          .github/workflows/command-center-ci.yml docs/security docs/intelligence
+
+  docker-smoke:
+    name: bossman-core container ships bossman-shared
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Build image (repository root context)
+        run: docker build -f bossman-core/Dockerfile -t bossman-core:ci .
+      - name: Shared contracts resolve inside the container
+        run: >-
+          docker run --rm -w / bossman-core:ci python -c
+          "import bossman_shared.cache_observation, learning.trace as lt, bossman_schemas; import bossman._shared as s; assert s.AVAILABLE; assert lt.SCHEMA_PATH.exists(); print('container OK', lt.SCHEMA_PATH)"
