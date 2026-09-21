@@ -49,10 +49,10 @@ jobs:
 
           testing = Path('command-center/bcc/features/testing_period.py')
           text = testing.read_text(encoding='utf-8')
-          old = '        "features": sorted(f.name for f in getattr(svc, "features", []) or []),\n'
-          new = '''        "features": sorted({f.name for f in getattr(svc, "features", []) or []}\n                           | {"testing_period"}),\n'''
+          old = '''            if name.lower() in FORBIDDEN_KEYS:\n                out[name] = "[не записывается]"\n            else:\n                out[name] = _safe_payload(value, depth + 1)\n'''
+          new = '''            if name.lower() in FORBIDDEN_KEYS:\n                out[name] = "[не записывается]"\n            elif (name == "features" and isinstance(value, list)\n                  and all(isinstance(v, str) for v in value)):\n                # Environment snapshots are only useful when their live feature\n                # inventory is complete. The generic 50-item log cap started\n                # silently dropping later feature names (including\n                # testing_period) once the product grew beyond 50 modules. Keep\n                # this bounded but high enough for the explicit inventory.\n                out[name] = [_safe_payload(v, depth + 1) for v in value[:200]]\n            else:\n                out[name] = _safe_payload(value, depth + 1)\n'''
           if text.count(old) != 1:
-              raise SystemExit(f'expected exactly one env feature line, found {text.count(old)}')
+              raise SystemExit(f'expected exactly one safe-payload dict block, found {text.count(old)}')
           testing.write_text(text.replace(old, new), encoding='utf-8')
 
           Path('.github/workflows/zz-temp-command-center-closure.yml').unlink()
@@ -63,17 +63,6 @@ jobs:
           python -m pip install -e .
           python -m pip install -e "./command-center[dev,mcp,browser]"
           python -m pip install asyncpg redis
-
-      - name: Diagnose imported snapshot implementation
-        run: |
-          python - <<'PY'
-          import inspect
-          import bcc.features.testing_period as tp
-          from bcc.features import load_features
-          print('MODULE', tp.__file__)
-          print('FEATURES', [f.name for f in load_features()])
-          print(inspect.getsource(tp._env_snapshot))
-          PY
 
       - name: Verify the two exact regressions
         run: |
