@@ -135,6 +135,31 @@ def utf8_console() -> None:
             pass
 
 
+def _exclude_observer_requests(module) -> None:
+    """Do not let the testing-period observer become evidence about a click.
+
+    The UI intentionally POSTs ``/api/testing/log`` in the background.  A
+    keepalive request can outlive a render/navigation and therefore has no
+    guaranteed browser ``response`` event.  Counting it as the action under
+    test caused a real app-start button to be labelled timed out even though
+    the app-start request itself completed.  The product's own dead-click
+    watcher already excludes ``/api/testing/`` for exactly this reason.
+
+    Keep every product mutation and app readiness request tracked; exclude only
+    the observer endpoint from the pending-set used by this installed sweep.
+    """
+    original = getattr(module, '_tracked_request', None)
+    if not callable(original):
+        raise RuntimeError('UI sweep driver has no _tracked_request contract')
+
+    def tracked(method, url):
+        if '/api/testing/log' in str(url):
+            return False
+        return original(method, url)
+
+    module._tracked_request = tracked
+
+
 def main() -> int:
     utf8_console()
     parser = argparse.ArgumentParser()
@@ -160,6 +185,7 @@ def main() -> int:
         spec.loader.exec_module(module)
     finally:
         sys.path[:] = before
+    _exclude_observer_requests(module)
     with tempfile.TemporaryDirectory(prefix='bossman-installed-ux-') as folder:
         data = Path(folder)
         with socket.socket() as sock:
