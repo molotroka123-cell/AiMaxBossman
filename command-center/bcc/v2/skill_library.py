@@ -210,6 +210,9 @@ def default_skill_roots(repo_root: Path, home: Path | None = None) -> list[Path]
         home / ".agents" / "skills",
         home / ".config" / "opencode" / "skills",
         home / ".claude" / "skills",
+        # Built-in skills shipped with the wheel: no repository required.
+        # Keep explicit owner/workspace roots ahead of this read-only fallback.
+        Path(__file__).resolve().parents[1] / "_skills",
     ]
 
 
