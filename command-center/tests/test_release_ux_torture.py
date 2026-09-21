@@ -94,7 +94,11 @@ def test_global_controls_are_live_not_decorative(live):
             page.locator("#palette:not([hidden])").wait_for()
             assert page.locator("#palette-input").is_visible()
             page.keyboard.press("Escape")
-            page.locator("#palette[hidden]").wait_for()
+            # Waiting on '#palette[hidden]' with Playwright's default state='visible'
+            # can never succeed: the selector matches precisely when the element is
+            # hidden.  Verify the product effect directly instead of timing out on
+            # an impossible visibility condition.
+            page.locator("#palette").wait_for(state="hidden")
 
             page.locator("#refresh-btn").click()
             page.wait_for_function("!document.querySelector('#refresh-btn').classList.contains('spin')",
