@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-20-audit-closure",
+  "candidate_label": "rc-2026-09-20-pre-evo-owner-hardware-closure-b",
   "declared_for": "release/bossman-owner",
-  "note": "Audit closure candidate from 6ae8e70f9f3ff468f7ea891d61745dcb8f562f3b. Fixes verified red checks: native Image Studio roundtrip retains measured import evidence; PRE-EVO Chromium torture skip is registered; self-modifying CI was already replaced by read-only diagnostics. Intelligence Preservation remains intentionally fail-closed without real same-model measurement and is not represented as PASS. Human-speed Windows degenerate thread_cpu measurement remains evidence-quality/non-release component measurement, not fabricated latency. Trigger exact-SHA workflows; old/cancelled/queued evidence does not transfer."
+  "note": "Final closure candidate after exact-SHA CI diagnosis. Fixes the PRE-EVO Chromium palette-close assertion by verifying the real hidden state instead of waiting for a hidden element to become visible, and restores deterministic skip-registry agreement while keeping the release-critical UX environment gate prominently visible. No product safety gate was weakened. Intelligence Preservation remains intentionally fail-closed without real same-model measurement. Trigger every path-filtered mandatory workflow on this new exact SHA; no prior-SHA success transfers."
 }
