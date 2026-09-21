@@ -5,6 +5,11 @@ on:
     branches: [release/bossman-owner]
     paths:
       - .github/workflows/zz-temp-command-center-closure.yml
+  pull_request:
+    types: [synchronize]
+    branches: [night/v7-convergence-20260908]
+    paths:
+      - .github/workflows/zz-temp-command-center-closure.yml
 
 permissions:
   contents: write
@@ -18,10 +23,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
-      - name: Checkout exact trigger SHA
+      - name: Checkout exact canonical head
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Python 3.12
@@ -50,9 +55,6 @@ jobs:
               raise SystemExit(f'expected exactly one env feature line, found {text.count(old)}')
           testing.write_text(text.replace(old, new), encoding='utf-8')
 
-          # This workflow is a one-shot transport for the patch. Remove it in the
-          # same production-fix commit so the canonical tree does not keep a
-          # privileged self-modifying workflow around.
           Path('.github/workflows/zz-temp-command-center-closure.yml').unlink()
 
       - name: Install targeted test environment
