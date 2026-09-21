@@ -1,0 +1,57 @@
+{
+ "MAIN": {
+  "native_predicted_per_second": [
+   10.28,
+   10.31
+  ],
+  "native_prompt_per_second": [
+   29.76,
+   4.04
+  ],
+  "bossman": {
+   "method": "server_timings",
+   "ttft_ms": 934.9,
+   "prompt_tps": 4.28,
+   "gen_tps": 10.22,
+   "latency_ms": 14411.7,
+   "tokens_out": 128
+  },
+  "bossman_differential": {
+   "method": "differential",
+   "ttft_ms": 1095.95,
+   "gen_tps": 10.25,
+   "latency_ms": 13485.15
+  },
+  "old_formula_tokens_over_latency": 8.88,
+  "gen_rel_err": 0.007,
+  "diff_rel_err": 0.004
+ },
+ "FAST": {
+  "native_predicted_per_second": [
+   48.89,
+   50.23
+  ],
+  "native_prompt_per_second": [
+   70.24,
+   10.48
+  ],
+  "bossman": {
+   "method": "server_timings",
+   "ttft_ms": 394.0,
+   "prompt_tps": 10.15,
+   "gen_tps": 50.11,
+   "latency_ms": 3140.1,
+   "tokens_out": 128
+  },
+  "bossman_differential": {
+   "method": "differential",
+   "ttft_ms": 538.9,
+   "gen_tps": 48.91,
+   "latency_ms": 3135.9
+  },
+  "old_formula_tokens_over_latency": 40.76,
+  "gen_rel_err": 0.011,
+  "diff_rel_err": 0.013
+ },
+ "measured_at": "2026-09-21T13:25:09-0700"
+}

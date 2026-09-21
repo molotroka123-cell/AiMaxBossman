@@ -1,0 +1,350 @@
+{
+ "steps": [
+  {
+   "step": "launch+focus notepad",
+   "ok": true,
+   "note": "Без имени — Блокнот"
+  },
+  {
+   "step": "observe finds document",
+   "ok": true,
+   "note": "Редактор текста"
+  },
+  {
+   "step": "type cyrillic into document + verify",
+   "ok": true,
+   "note": "на экране есть «строка 1»"
+  },
+  {
+   "step": "STOP interrupts typing",
+   "ok": true,
+   "note": "owner interrupted typing after 448 of 6000 characters"
+  },
+  {
+   "step": "STOP blocks new actions",
+   "ok": true,
+   "note": "владелец нажал «Стоп»: действия на рабочем столе остановлены до «Продолжить»"
+  },
+  {
+   "step": "resume: re-observe shows partial typing only",
+   "ok": true,
+   "note": "44/600 repeats typed before STOP"
+  },
+  {
+   "step": "mid-flight instruction change applied",
+   "ok": true,
+   "note": "на экране есть «указание изменено»; «stop-test» отсутствует"
+  },
+  {
+   "step": "save-as dialog observed",
+   "ok": true,
+   "note": "Сохранить как"
+  },
+  {
+   "step": "file saved and content verified on disk",
+   "ok": true,
+   "note": "C:\\Users\\asd\\cu-work\\cu-test.txt exists=True bytes=83"
+  },
+  {
+   "step": "rename prepared then cancelled (no effect)",
+   "ok": true,
+   "note": "renamed file absent"
+  },
+  {
+   "step": "coordinate fallback refuses point outside element",
+   "ok": true,
+   "note": "координаты (10252,253) не попадают в элемент «Система» на свежем экране (generation 16) — клик не выполнен"
+  },
+  {
+   "step": "coordinate fallback click after fresh observe",
+   "ok": true,
+   "note": "menu=Система gens 17->19"
+  }
+ ],
+ "events": [
+  {
+   "t": 1790023272.8,
+   "kind": "computer.observe",
+   "generation": 1,
+   "window": "Без имени — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023272.8,
+   "kind": "computer.act",
+   "action": "launch",
+   "target": "notepad",
+   "verified": true,
+   "before": null,
+   "after": 1,
+   "window": "Без имени — Блокнот"
+  },
+  {
+   "t": 1790023273.68,
+   "kind": "computer.observe",
+   "generation": 2,
+   "window": "*Тест Боссмен-CU строка 1 — проверка — Блокнот",
+   "elements": 44
+  },
+  {
+   "t": 1790023273.68,
+   "kind": "computer.act",
+   "action": "type",
+   "target": "Редактор текста",
+   "verified": true,
+   "before": 1,
+   "after": 2,
+   "window": "*Тест Боссмен-CU строка 1 — проверка — Блокнот"
+  },
+  {
+   "t": 1790023274.42,
+   "kind": "computer.observe",
+   "generation": 3,
+   "window": "*Тест Боссмен-CU строка 1 — проверка — Блокнот",
+   "elements": 44
+  },
+  {
+   "t": 1790023275.3,
+   "kind": "computer.observe",
+   "generation": 4,
+   "window": "*Тест Боссмен-CU строка 1 — проверка — Блокнот",
+   "elements": 44
+  },
+  {
+   "t": 1790023275.3,
+   "kind": "computer.act",
+   "action": "hotkey",
+   "target": "",
+   "verified": null,
+   "before": 3,
+   "after": 4,
+   "window": "*Тест Боссмен-CU строка 1 — проверка — Блокнот"
+  },
+  {
+   "t": 1790023276.2,
+   "kind": "computer.observe",
+   "generation": 5,
+   "window": "*ИТОГ указание изменено владельцем, — Блокнот",
+   "elements": 44
+  },
+  {
+   "t": 1790023276.2,
+   "kind": "computer.act",
+   "action": "type",
+   "target": "",
+   "verified": true,
+   "before": 4,
+   "after": 5,
+   "window": "*ИТОГ указание изменено владельцем, — Блокнот"
+  },
+  {
+   "t": 1790023277.21,
+   "kind": "computer.observe",
+   "generation": 6,
+   "window": "Сохранить как",
+   "elements": 90
+  },
+  {
+   "t": 1790023277.21,
+   "kind": "computer.act",
+   "action": "hotkey",
+   "target": "",
+   "verified": null,
+   "before": 5,
+   "after": 6,
+   "window": "Сохранить как"
+  },
+  {
+   "t": 1790023278.53,
+   "kind": "computer.observe",
+   "generation": 7,
+   "window": "Сохранить как",
+   "elements": 90
+  },
+  {
+   "t": 1790023279.69,
+   "kind": "computer.observe",
+   "generation": 8,
+   "window": "Сохранить как",
+   "elements": 90
+  },
+  {
+   "t": 1790023279.69,
+   "kind": "computer.act",
+   "action": "type",
+   "target": "Имя файла:",
+   "verified": null,
+   "before": 7,
+   "after": 8,
+   "window": "Сохранить как"
+  },
+  {
+   "t": 1790023280.5,
+   "kind": "computer.observe",
+   "generation": 9,
+   "window": "cu-test.txt — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023280.5,
+   "kind": "computer.act",
+   "action": "hotkey",
+   "target": "",
+   "verified": true,
+   "before": 8,
+   "after": 9,
+   "window": "cu-test.txt — Блокнот"
+  },
+  {
+   "t": 1790023281.45,
+   "kind": "computer.observe",
+   "generation": 10,
+   "window": "cu-test.txt — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023282.5,
+   "kind": "computer.observe",
+   "generation": 11,
+   "window": "Сохранить как",
+   "elements": 96
+  },
+  {
+   "t": 1790023282.5,
+   "kind": "computer.act",
+   "action": "hotkey",
+   "target": "",
+   "verified": null,
+   "before": 10,
+   "after": 11,
+   "window": "Сохранить как"
+  },
+  {
+   "t": 1790023283.79,
+   "kind": "computer.observe",
+   "generation": 12,
+   "window": "Сохранить как",
+   "elements": 96
+  },
+  {
+   "t": 1790023284.92,
+   "kind": "computer.observe",
+   "generation": 13,
+   "window": "Сохранить как",
+   "elements": 96
+  },
+  {
+   "t": 1790023284.92,
+   "kind": "computer.act",
+   "action": "type",
+   "target": "Имя файла:",
+   "verified": null,
+   "before": 12,
+   "after": 13,
+   "window": "Сохранить как"
+  },
+  {
+   "t": 1790023285.72,
+   "kind": "computer.observe",
+   "generation": 14,
+   "window": "cu-test.txt — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023285.72,
+   "kind": "computer.act",
+   "action": "hotkey",
+   "target": "",
+   "verified": null,
+   "before": 13,
+   "after": 14,
+   "window": "cu-test.txt — Блокнот"
+  },
+  {
+   "t": 1790023285.87,
+   "kind": "computer.observe",
+   "generation": 15,
+   "window": "cu-test.txt — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023285.92,
+   "kind": "computer.observe",
+   "generation": 16,
+   "window": "cu-test.txt — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023286.06,
+   "kind": "computer.observe",
+   "generation": 17,
+   "window": "cu-test.txt — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023286.11,
+   "kind": "computer.observe",
+   "generation": 18,
+   "window": "cu-test.txt — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023286.98,
+   "kind": "computer.observe",
+   "generation": 19,
+   "window": "cu-test.txt — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023286.98,
+   "kind": "computer.act",
+   "action": "click",
+   "target": "Система",
+   "verified": null,
+   "before": 17,
+   "after": 19,
+   "window": "cu-test.txt — Блокнот"
+  },
+  {
+   "t": 1790023287.82,
+   "kind": "computer.observe",
+   "generation": 20,
+   "window": "cu-test.txt — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023287.82,
+   "kind": "computer.act",
+   "action": "hotkey",
+   "target": "",
+   "verified": null,
+   "before": 19,
+   "after": 20,
+   "window": "cu-test.txt — Блокнот"
+  },
+  {
+   "t": 1790023287.99,
+   "kind": "computer.observe",
+   "generation": 21,
+   "window": "cu-test.txt — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023288.86,
+   "kind": "computer.observe",
+   "generation": 22,
+   "window": "Без имени — Блокнот",
+   "elements": 45
+  },
+  {
+   "t": 1790023288.86,
+   "kind": "computer.act",
+   "action": "hotkey",
+   "target": "",
+   "verified": null,
+   "before": 21,
+   "after": 22,
+   "window": "Без имени — Блокнот"
+  }
+ ]
+}
