@@ -246,12 +246,33 @@ def _record_path(app_id: str, data_dir: Path) -> Path:
     return Path(data_dir) / _RECORDS_DIRNAME / f"{app_id}.json"
 
 
+def _own_interpreter_paths() -> set[Path]:
+    """Every path the running interpreter may legitimately report as its exe.
+
+    In a Windows venv (Python 3.11+) ``Scripts\\python.exe`` is a copy of
+    ``venvlauncher.exe``: it starts the base ``python.exe`` as a child and
+    ``sys.executable`` is the venv path taken from ``__PYVENV_LAUNCHER__``,
+    while the process itself is the base interpreter. ``sys._base_executable``
+    names that base interpreter, so both are our own identity; anything else
+    still means a foreign namespace.
+    """
+    candidates = {sys.executable, getattr(sys, "_base_executable", None)}
+    paths: set[Path] = set()
+    for candidate in candidates:
+        if candidate:
+            try:
+                paths.add(Path(candidate).resolve())
+            except OSError:
+                continue
+    return paths
+
+
 def _process_namespace_verified() -> bool:
     """Some sandboxes expose host /proc beside virtual PIDs. Never signal on
     metadata from that different namespace, even if a numeric PID exists."""
     try:
         own = psutil.Process(os.getpid())
-        return Path(own.exe()).resolve() == Path(sys.executable).resolve()
+        return Path(own.exe()).resolve() in _own_interpreter_paths()
     except (OSError, psutil.Error):
         return False
 

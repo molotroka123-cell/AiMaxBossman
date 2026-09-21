@@ -324,3 +324,19 @@ async def test_reconciliation_reports_a_partial_apply_honestly(ws):
     assert settled.state == JobState.VERIFICATION_FAILED.value
     assert settled.receipt["effect_count"] == 1
     assert settled.refusal == Refusal.POST_STATE_MISMATCH.value
+
+
+def test_liveness_probe_on_windows_never_signals_and_sees_a_dead_pid_as_dead(monkeypatch):
+    """На Windows ``os.kill(pid, 0)`` — это TerminateProcess, а не проба: проверка
+    живости убивала бы держателя замка, а несуществующий pid давал OSError и
+    читался как «жив». Замок мёртвого процесса обязан сниматься, живого — нет,
+    и ни один сигнал при этом не уходит."""
+    from bcc.file_intelligence import runtime_lock as rl
+
+    killed: list[tuple[int, int]] = []
+    monkeypatch.setattr(rl.os, "name", "nt")
+    monkeypatch.setattr(rl.os, "kill", lambda pid, sig: killed.append((pid, sig)))
+    monkeypatch.setattr(rl.psutil, "pid_exists", lambda pid: pid == 4242)
+    assert rl._process_is_running(4242) is True      # живой — замок не крадём
+    assert rl._process_is_running(4243) is False     # мёртвый — замок снимается
+    assert killed == []

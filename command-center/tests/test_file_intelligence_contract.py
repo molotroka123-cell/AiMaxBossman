@@ -154,12 +154,16 @@ def test_argv_is_a_list_so_a_filename_is_never_a_command(workspace):
     Имя `; rm -rf ~` остаётся именем: интерпретатора, который мог бы его
     разобрать, в этом пути не существует.
     """
+    hostile = Path("/tmp/; rm -rf ~/$(whoami)`id`")
     argv = protocol.analyze_argv(
         "/bin/aifilesorter", operation=Operation.CATEGORIZE,
-        path=Path("/tmp/; rm -rf ~/$(whoami)`id`"), review_file=Path("/tmp/r.json"),
+        path=hostile, review_file=Path("/tmp/r.json"),
         status_file=Path("/tmp/s.json"), job_id="abc")
     assert isinstance(argv, list) and all(isinstance(t, str) for t in argv)
-    assert "/tmp/; rm -rf ~/$(whoami)`id`" in argv          # одно целое значение
+    # Одно целое значение. Сравнение через str(Path): на Windows тот же путь
+    # пишется с обратными косыми, а предмет проверки — что имя не разрезано.
+    assert str(hostile) in argv
+    assert "; rm -rf ~/$(whoami)`id`" in str(hostile)
 
 
 def test_job_id_cannot_smuggle_a_flag():
@@ -338,14 +342,16 @@ async def test_same_size_different_contents_with_restored_mtime_is_still_stale(
     import os
     ws = workspace
     victim = ws.files[0]
-    original = victim.read_text()
+    # Байты, а не текст: на Windows write_text переводит \n в \r\n, и «тот же
+    # размер» в символах перестаёт быть тем же размером на диске.
+    original = victim.read_bytes()
     stat = victim.stat()
 
     job = await ws.service.analyze([str(ws.root)])
 
-    replacement = "X" * len(original)
+    replacement = b"X" * len(original)
     assert len(replacement) == len(original)
-    victim.write_text(replacement, encoding="utf-8")
+    victim.write_bytes(replacement)
     os.utime(victim, ns=(stat.st_atime_ns, stat.st_mtime_ns))
     assert victim.stat().st_size == stat.st_size
     assert victim.stat().st_mtime_ns == stat.st_mtime_ns

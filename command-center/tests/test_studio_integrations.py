@@ -205,3 +205,35 @@ async def test_reframe_survives_the_windows_positional_read_fallback(env,monkeyp
     output=(await env.client.get('/api/studio/runs')).json()['items'][0]
     assert output['provenance']['output']['width']==512
     assert output['provenance']['inputs'][0]['sha256']==row['sha256']
+
+async def test_web_transfer_survives_the_windows_positional_read_fallback(env,monkeypatch):
+    """Тот же дефект, что и у рефрейма, на переносе в Web Designer.
+
+    `/runs/{rid}/web` читал проверенный дескриптор через `os.read` после
+    `digest_descriptor`. На POSIX указатель после `os.pread` стоит на нуле; на
+    Windows запасной `pread` двигает общий указатель в конец файла, `os.read`
+    отдаёт ноль байт, и маршрут честно отвечал 409 «Output changed during
+    read» на неизменённый файл — падение владельческого прогона на Windows
+    при зелёном Linux. Windows-путь подставляется байт-в-байт.
+    """
+    import os,threading
+    from bcc.video_studio import media
+    seek=threading.Lock()
+    def windows_pread(fd,length,offset):
+        with seek:
+            os.lseek(fd,offset,os.SEEK_SET)
+            return os.read(fd,length)
+    monkeypatch.setattr(media,'pread',windows_pread)
+    row=await imported(env)
+    p=(await env.client.post('/api/web-designer/projects',json={'name':'Studio website','template':'blank'})).json()
+    pid=p['meta']['id']
+    edited=await env.client.put(f'/api/web-designer/projects/{pid}/code',json={'html':'<!doctype html><html><body><img src="old.png" alt="hero"></body></html>'})
+    version=edited.json()['meta']['version']
+    r=await env.client.post(f"/api/studio/runs/{row['id']}/web",json={'project_id':pid,'base_version':version,'path':'html > body > img'})
+    assert r.status_code==200,r.text
+    code=(await env.client.get(f'/api/web-designer/projects/{pid}')).json()['code']
+    assert 'data:image/png;base64,' in code and row['id'] in code
+    # negative control: changed bytes are still refused, the fix did not blind the check
+    Path(row['file_path']).write_bytes(b'changed')
+    stale=await env.client.post(f"/api/studio/runs/{row['id']}/web",json={'project_id':pid,'base_version':version+1,'path':'html > body > img'})
+    assert stale.status_code==409,stale.text
