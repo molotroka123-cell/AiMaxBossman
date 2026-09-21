@@ -917,8 +917,11 @@ class SdCppProvider:
         self._kill_job(job)
         task = job.get("task")
         if task is not None and not task.done():
+            # Без asyncio.shield (BL-098, Python 3.14): ожидание через
+            # await_shared не отменяет саму задачу, если отменят ожидающего.
+            from bcc.single_flight import await_shared
             try:
-                await asyncio.wait_for(asyncio.shield(task), CANCEL_WAIT_S)
+                await asyncio.wait_for(await_shared(task), CANCEL_WAIT_S)
             except (asyncio.TimeoutError, TimeoutError):
                 task.cancel()
             except BaseException:
