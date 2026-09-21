@@ -81,7 +81,7 @@ PASS for safe vision input. Wrong-extension/malformed media API payload returned
 - `180aa36f` — CP-01 model handoff and benchmark record
 - `29bccc67` — immediate P1 blocker for approval loss across restart
 - `fec5075d` — CP-02 independent adversarial scenarios
-- final commit — this file and final evidence index update
+- `c274640e` — final audit and evidence index
 
 Handoff: `C:\Users\asd\Bossman\handoff\models-ready.json`  
 Endpoints left running: `http://127.0.0.1:8081/v1` and `http://127.0.0.1:8082/v1`.
