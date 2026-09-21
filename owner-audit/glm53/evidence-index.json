@@ -12,37 +12,37 @@
     {
       "id": "EV-001",
       "path": "C:\\Users\\asd\\Bossman\\evidence\\baseline-startup-3.png",
-      "note": "desktop screenshot: Bossman login page (contains owner desktop — NOT committed)",
-      "sha256": "LOCAL_ONLY_SEE_NOTE",
-      "bytes": 264552
+      "note": "desktop screenshot: Bossman Command Center login page (owner desktop visible - NOT committed)",
+      "sha256": "0bce776843716eb923b2d485cc91c63c2b09bb75fa3a184c711b62a61a0b1522",
+      "bytes": 934223
     },
     {
       "id": "EV-002",
       "path": "C:\\Users\\asd\\Bossman\\evidence\\after-login.png",
-      "note": "desktop screenshot: home page after token login, build 0c3e22ffd44c, СИСТЕМА В СТРОЮ (owner desktop visible — NOT committed)",
-      "sha256": "LOCAL_ONLY_SEE_NOTE",
-      "bytes": 392006
+      "note": "desktop screenshot: home page after token login, build 0c3e22ffd44c, SYSTEM UP (owner desktop visible - NOT committed)",
+      "sha256": "14ba1d0dd3b060270c1c1bc8390c84e25272cecd11a2ac4c2c1346e29d452fc2",
+      "bytes": 1070601
     },
     {
       "id": "EV-003",
       "path": "C:\\Users\\asd\\Bossman\\evidence\\apps-page.png",
-      "note": "desktop screenshot: Apps page, 9 installed / 0 running (owner desktop visible — NOT committed)",
-      "sha256": "LOCAL_ONLY_SEE_NOTE",
-      "bytes": 397296
+      "note": "desktop screenshot: Apps page, 9 installed / 0 running (owner desktop visible - NOT committed)",
+      "sha256": "6770c80d221120a7bd32ad182a0d940a2eb7d2e4610f8bbea55c1cf921fe3759",
+      "bytes": 1168472
     },
     {
       "id": "EV-004",
       "path": "C:\\Users\\asd\\Bossman\\evidence\\ui-00-debug-afterlogin.png",
       "note": "headless real-UI screenshot: logged-in home page (clean, commit-safe if needed)",
-      "sha256": "LOCAL_ONLY_SEE_NOTE",
-      "bytes": 0
+      "sha256": "01476548ac10501580355b5e6a44dee22668856e9da99b1ff9d05f3bb7b063c2",
+      "bytes": 227338
     },
     {
       "id": "EV-005",
       "path": "C:\\Users\\asd\\Bossman\\verify-installed.json",
       "note": "verify_installed_product.py output, EXIT=0, restart_persistence/auth/resources PASS",
-      "sha256": "LOCAL_ONLY_SEE_NOTE",
-      "bytes": 0
+      "sha256": "23208c20fd57675fafc35fb2b50c17c2a03105036fb85fb6ed0ebbc611f52e09",
+      "bytes": 5348
     },
     {
       "id": "EV-006",
@@ -55,16 +55,16 @@
       "id": "EV-007",
       "path": "C:\\Users\\asd\\Bossman\\downloads\\freeze-verdict\\ASTRA6-FREEZE.json",
       "note": "CI freeze verdict for TESTED_SHA: WINDOWS_RC_READY_OWNER_REQUIRED, blockers=[]",
-      "sha256": "LOCAL_ONLY_SEE_NOTE",
+      "sha256": "c6829104e6f9fcd5d18cbaa4294968ef7d2e770bd39f11aaa7ebbe74f8543bc7",
       "bytes": 2677
     },
     {
       "id": "EV-008",
       "path": "C:\\Users\\asd\\Bossman\\startup.log",
-      "note": "first launch console log",
-      "sha256": "LOCAL_ONLY_SEE_NOTE",
-      "bytes": 0
+      "note": "first launch console log (file locked by running backend at hash time; size recorded)",
+      "sha256": "LOCKED_BY_RUNNING_BACKEND",
+      "bytes": 71280
     }
   ],
-  "note": "Byte sizes/hashes for LOCAL_ONLY files are recorded locally; large/private evidence intentionally not committed. Screenshots containing the owner desktop are never committed."
+  "note": "Large/private evidence intentionally not committed. Screenshots containing the owner desktop are never committed; hashes recorded here prove their local integrity."
 }
