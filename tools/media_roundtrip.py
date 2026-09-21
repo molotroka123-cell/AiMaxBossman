@@ -499,6 +499,12 @@ def image_roundtrip(workdir) -> dict:
         "fixture": source,
         "fixture_determinism": determinism,
         "stored_through": "bcc.features.images HTTP API",
+        "import": verify_artifact(
+            Path(source["path"]),
+            {"tracks": {"video": 1}, "video_codec": "png",
+             "width": 320, "height": 240, "sha256": source["sha256"], "min_bytes": 64},
+            label="image studio imported fixture",
+        ),
         "transform": {
             "engine": "bcc.features.images.transform_asset",
             "operation": "resize",
