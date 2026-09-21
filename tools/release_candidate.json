@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-21-owner-test-readme-contracts",
+  "candidate_label": "rc-2026-09-21-music-studio",
   "declared_for": "release/bossman-owner",
-  "note": "Owner-test candidate after reproducing and repairing four root-CI README failures. Restore the generated historical scorecard and real engineering commands without changing the source measurements, required workflows or assertions; add a cleanup regression. Preserve concurrent Music Studio commit 086f784f and wrapper fix 448db2ee. Local exact-file regression: 28 passed, no skips, Linux Python 3.13; not Windows or full-product certification. All mandatory workflows and the exact Windows archive must run on this new SHA. Real model, Telegram, hardware and intelligence evidence remain unproven until measured."
+  "note": "Adds local Music Studio using official ACE-Step 1.5 async REST contract, loopback-only provider boundary, Bossman UI page, generic phonk/drift-phonk/ultrafunk/nightcore/electro presets, contract tests and owner hardware acceptance documentation. No CI mock is counted as real music generation; REAL_LOCAL_MODEL remains owner-hardware-required until ACE-Step runs on the Ryzen AI Max+ 395 / Radeon 8060S machine. Existing release gates remain unchanged."
 }
