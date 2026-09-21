@@ -22,7 +22,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из пуша;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-09-20-final-closure-6",
+  "candidate_label": "rc-2026-09-20-audit-closure",
   "declared_for": "release/bossman-owner",
-  "note": "Exact-SHA pre-EVO owner-hardware candidate after restoring real user-authored Actions execution and making Installed product chain reachable from every release declaration. This declaration triggers Windows bundle, Windows owner tasks, owner scenarios, and installed-product evidence for the same resulting SHA. Do not inherit old certificates or action_required zero-job runs. Intelligence Preservation remains intentionally fail-closed without real same-model evidence."
+  "note": "Audit closure candidate from 6ae8e70f9f3ff468f7ea891d61745dcb8f562f3b. Fixes verified red checks: native Image Studio roundtrip retains measured import evidence; PRE-EVO Chromium torture skip is registered; self-modifying CI was already replaced by read-only diagnostics. Intelligence Preservation remains intentionally fail-closed without real same-model measurement and is not represented as PASS. Human-speed Windows degenerate thread_cpu measurement remains evidence-quality/non-release component measurement, not fabricated latency. Trigger exact-SHA workflows; old/cancelled/queued evidence does not transfer."
 }
