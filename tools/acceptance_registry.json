@@ -5,7 +5,7 @@
   "junit": {
     "root": "command-center/tests",
     "config": "command-center/pyproject.toml",
-    "minimum_tests": 46,
+    "minimum_tests": 47,
     "modules": {
       "test_editors_user_acceptance": 4,
       "test_web_designer_recovery_ui": 7,
@@ -22,7 +22,8 @@
       "test_oss_memory_refusals": 5,
       "test_web_designer_first_click_ui": 2,
       "test_refresh_during_typing_ui": 2,
-      "test_studio_gallery_ui": 2
+      "test_studio_gallery_ui": 2,
+      "test_web_designer_ai_create_ui": 1
     }
   },
   "live_model": {

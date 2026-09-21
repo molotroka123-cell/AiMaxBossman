@@ -848,7 +848,11 @@ function emptyState(ctx, catalog) {
       h('div', { style: { display: 'grid', gap: '12px', maxWidth: '720px' } },
         name, prompt,
         h('div.bd-row', pal,
-          btn('Открыть проект', async () => {
+          btn('Открыть проект', async (event) => {
+            if (state.mutating) return;
+            state.mutating = true;
+            const button = event?.currentTarget;
+            if (button) button.disabled = true;
             try {
               const res = await api.raw('/api/web-designer/projects', { method: 'POST',
                 body: { name: name.value.trim() || 'Мой сайт', prompt: prompt.value.trim(),
@@ -859,6 +863,7 @@ function emptyState(ctx, catalog) {
               toastOk('Проект создан');
               ctx.refresh();
             } catch (e) { await operationError(e, 'Не удалось создать проект'); }
+            finally { state.mutating = false; if (button) button.disabled = false; }
           }, { variant: 'primary' }))),
       { icon: 'builder' }),
     panel('Или выберите заготовку',

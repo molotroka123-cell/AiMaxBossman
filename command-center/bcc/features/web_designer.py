@@ -35,6 +35,7 @@ from pydantic import BaseModel, Field
 
 from .. import web_designer_dom as dom
 from .. import web_designer_gen as gen
+from .. import web_designer_ai_build as creative
 from . import Feature
 from ..single_flight import await_shared
 
@@ -260,6 +261,7 @@ def _public_meta(meta: dict) -> dict:
         "template": meta.get("template", ""), "palette": meta.get("palette", ""),
         "version": int(meta.get("version", 0)),
         "created_at": meta.get("created_at"), "updated_at": meta.get("updated_at"),
+        "creative_build": meta.get("creative_build"),
     }
 
 
@@ -347,6 +349,7 @@ class ProjectIn(BaseModel):
     prompt: str = Field(default="", max_length=4000)
     template: str = "auto"                     # auto | blank | ид шаблона
     palette: str = "auto"
+    model_id: int | None = Field(default=None, ge=1)
 
 
 class CodeIn(BaseModel):
@@ -360,6 +363,7 @@ class GenerateIn(BaseModel):
     name: str = Field(default="", max_length=120)
     template: str = "auto"
     palette: str = "auto"
+    model_id: int | None = Field(default=None, ge=1)
     base_version: int | None = None
 
 
@@ -446,6 +450,11 @@ async def list_projects(request: Request):
 @router.post("/web-designer/projects")
 async def create_project(body: ProjectIn, request: Request):
     svc = request.app.state.svc
+    # Generate before creating any project: a missing/failed model must not
+    # leave a template or empty project pretending to be an AI result.
+    ai_result = (await creative.generate_local_site(svc, prompt=body.prompt,
+                 name=body.name, palette=body.palette, model_id=body.model_id)
+                 if body.template == creative.AI_TEMPLATE else None)
     await _ensure_dir_layout(svc)
     async with _project_lock(_root(svc) / "_catalog"):
         existing = sum(1 for d in _root(svc).iterdir() if d.is_dir() and d.name.isdigit())
@@ -476,10 +485,12 @@ async def create_project(body: ProjectIn, request: Request):
                 _save_code(svc, pdir, blank, "пустой проект")
                 meta = _load_meta(pdir)
             else:
-                result = gen.generate(body.prompt or body.name, name=body.name,
+                result = ai_result or gen.generate(body.prompt or body.name, name=body.name,
                                       template=body.template, palette=body.palette)
                 meta["template"] = result["template"]
                 meta["palette"] = result["palette"]
+                if ai_result:
+                    meta["creative_build"] = ai_result["creative_build"]
                 meta["name"] = result["name"] if body.prompt else meta["name"]
                 _save_meta(pdir, meta)
                 final = result["steps"][-1]
@@ -490,7 +501,7 @@ async def create_project(body: ProjectIn, request: Request):
 
 @router.get("/web-designer/templates")
 async def templates():
-    return {"items": gen.templates_catalog(),
+    return {"items": [*gen.templates_catalog(), creative.template_entry()],
             "palettes": sorted(gen.PALETTES.keys())}
 
 
@@ -567,14 +578,22 @@ async def generate_site(pid: int, body: GenerateIn, request: Request):
     svc = request.app.state.svc
     pdir, meta = _require_project(svc, pid)
     base_version = body.base_version if body.base_version is not None else int(meta.get("version", 0))
-    result = gen.generate(body.prompt or meta.get("prompt", ""), name=body.name or meta.get("name", ""),
-                          template=body.template, palette=body.palette)
+    if int(meta.get("version", 0)) != base_version:
+        raise HTTPException(409, detail="Сайт изменён: обновите его перед генерацией")
+    if body.template == creative.AI_TEMPLATE:
+        result = await creative.generate_local_site(svc,
+            prompt=body.prompt or meta.get("prompt", ""), name=body.name or meta.get("name", ""),
+            palette=body.palette, model_id=body.model_id)
+    else:
+        result = gen.generate(body.prompt or meta.get("prompt", ""), name=body.name or meta.get("name", ""),
+                              template=body.template, palette=body.palette)
     async with _project_lock(pdir):
         _require_project(svc, pid)
         meta = _save_code(svc, pdir, result["steps"][-1],
                           f"генерация: {result['template']}/{result['palette']}",
                           expect_version=base_version,
-                          fields={"template": result["template"], "palette": result["palette"]})
+                          fields={"template": result["template"], "palette": result["palette"],
+                                  "creative_build": result.get("creative_build")})
     return {"ok": True, "meta": meta, "template": result["template"],
             "palette": result["palette"], "steps": result["steps"]}
 
